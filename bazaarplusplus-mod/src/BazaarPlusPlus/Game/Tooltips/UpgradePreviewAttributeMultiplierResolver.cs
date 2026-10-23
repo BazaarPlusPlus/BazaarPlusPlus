@@ -14,15 +14,13 @@ namespace BazaarPlusPlus.Game.Tooltips;
 
 internal static class UpgradePreviewAttributeMultiplierResolver
 {
-    internal readonly record struct Multipliers(float Current, float Projected);
-
-    internal static IReadOnlyDictionary<ECardAttributeType, Multipliers> Resolve(
+    internal static IReadOnlyDictionary<ECardAttributeType, UpgradePreviewMultipliers> Resolve(
         ItemCard source,
         ItemCard projected,
         ValueContext sourceValueContext
     )
     {
-        var multipliers = new Dictionary<ECardAttributeType, Multipliers>();
+        var multipliers = new Dictionary<ECardAttributeType, UpgradePreviewMultipliers>();
         foreach (var auraSource in EnumerateAuraSources(source, sourceValueContext))
         {
             Accumulate(source, auraSource, sourceValueContext, projectedValue: false, multipliers);
@@ -45,7 +43,7 @@ internal static class UpgradePreviewAttributeMultiplierResolver
         Card auraSource,
         ValueContext sourceValueContext,
         bool projectedValue,
-        Dictionary<ECardAttributeType, Multipliers> multipliers
+        Dictionary<ECardAttributeType, UpgradePreviewMultipliers> multipliers
     )
     {
         foreach (var aura in EnumerateActiveAuras(auraSource))
@@ -63,16 +61,13 @@ internal static class UpgradePreviewAttributeMultiplierResolver
                 continue;
 
             var value = ResolveValue(action, auraSource, sourceValueContext);
-            var current = multipliers.GetValueOrDefault(auraAttribute, new Multipliers(1f, 1f));
+            var current = multipliers.GetValueOrDefault(
+                auraAttribute,
+                UpgradePreviewMultipliers.Identity
+            );
             multipliers[auraAttribute] = projectedValue
-                ? current with
-                {
-                    Projected = current.Projected * value,
-                }
-                : current with
-                {
-                    Current = current.Current * value,
-                };
+                ? current.TimesProjected(value)
+                : current.TimesCurrent(value);
         }
     }
 
