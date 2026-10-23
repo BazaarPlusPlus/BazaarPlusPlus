@@ -30,11 +30,19 @@ internal sealed class AndroidSettings
             true,
             "Whether the touch menu offers the Collection panel, which shows the game's own cards."
         );
+        LiveBuildPanel = store.Bind(
+            "Android",
+            "LiveBuildPanel",
+            true,
+            "Whether the touch menu offers the Live Build panel, which recommends ten-win builds for the run."
+        );
     }
 
     public ISetting<bool> TouchMenu { get; }
 
     public ISetting<bool> CollectionPanel { get; }
+
+    public ISetting<bool> LiveBuildPanel { get; }
 
     public ISetting<bool> UpgradePreview { get; }
 }

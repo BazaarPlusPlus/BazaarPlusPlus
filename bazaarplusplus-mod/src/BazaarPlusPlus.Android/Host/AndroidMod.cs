@@ -113,6 +113,7 @@ public sealed class AndroidMod : MelonMod
             ("main_thread_pending", AndroidMainThread.Host.PendingCallbacks),
             ("main_thread_waits", AndroidMainThread.Host.PendingWaits),
             ("main_thread_failures", AndroidMainThread.Host.CallbackFailures),
+            .. _touchUi?.Summary() ?? [],
         ];
 
     // OnInitializeMelon bound the pump; the first frame confirms Unity's main thread is that one.
@@ -176,7 +177,8 @@ public sealed class AndroidMod : MelonMod
                 android,
                 _versionCheck,
                 _historyPanel == null ? null : () => _historyPanel?.Open("launcher"),
-                () => _historyPanel?.IsVisible == true
+                () => _historyPanel?.IsVisible == true,
+                _composition?.BuildRecommendations
             );
         }
         catch (Exception exception)

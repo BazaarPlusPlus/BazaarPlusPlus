@@ -83,6 +83,16 @@
     />
   </ItemGroup>
 
+  <!-- The ten-win build catalog's embedded seed is the desktop's own file, linked, under the
+       desktop's logical name so both composition roots read the same resource. -->
+  <ItemGroup>
+    <EmbeddedResource
+      Include="../BazaarPlusPlus/Data/BuildRecommendations/builds.json"
+      Link="Data/BuildRecommendations/builds.json"
+      LogicalName="BazaarPlusPlus.Data.BuildRecommendations.builds.json"
+    />
+  </ItemGroup>
+
   <!-- The Updater ships in the Payload (MelonLoader/Plugins/) and is built for it, never
        referenced: it runs before the Mods load and may not depend on them (ADR-0014). -->
   <ItemGroup>

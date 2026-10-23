@@ -55,25 +55,8 @@ internal static class AndroidCollectionLabels
     public static string Enchantment(CardEnchantment enchantment) =>
         StringTable(enchantment.ToString());
 
-    public static string Hero(CardHero hero) => CollectionPanelText.Hero(hero, TheDragonsName);
-
-    private static string TheDragonsName()
-    {
-        try
-        {
-            if (AndroidCardFacets.Hero.TryToSource(CardHero.TheDragons, out var native))
-            {
-                var name = LocalizableShared.GetLocalizedHero(native);
-                if (!string.IsNullOrWhiteSpace(name))
-                    return name;
-            }
-        }
-        catch (Exception)
-        {
-            // The localization service is not up yet: the English name stands in.
-        }
-        return "The Dragons";
-    }
+    public static string Hero(CardHero hero) =>
+        CollectionPanelText.Hero(hero, AndroidHeroNames.TheDragons);
 
     // The game string table keyed by the English source text; a miss returns the key itself.
     private static string StringTable(string key)
