@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test } from 'vitest';
 import {
+  GAME_LIBS_BUCKET,
   GAME_LIBS_LOCK_PATH,
   captureSnapshot,
   checkGameLibsLock,
@@ -28,6 +29,7 @@ import {
   synchronizePayloadProjection
 } from './payload-inventory.mjs';
 import { WORKSPACE_ROOT } from './product.mjs';
+import { createR2Store } from './r2-store.mjs';
 
 const roots = [];
 afterEach(() => {
@@ -481,6 +483,43 @@ test('fetch prefers a verified snapshot, then a matching Steam install, then the
   ).rejects.toThrow();
   expect(fs.existsSync(directory)).toBe(false);
   expect(fs.readdirSync(path.join(modRoot, 'game-libs'))).toEqual([]);
+});
+
+test('a store fetch that fails in transport reports the cause chain, not the signature', async () => {
+  const { workspaceRoot } = await capturedWorkspace();
+  fs.rmSync(path.join(workspaceRoot, 'bazaarplusplus-mod', 'game-libs'), {
+    recursive: true
+  });
+  const accountId = 'c'.repeat(32);
+  const hostname = `${accountId}.r2.cloudflarestorage.com`;
+  const fetchImpl = async () => {
+    throw new TypeError('fetch failed', {
+      cause: Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), {
+        code: 'ENOTFOUND',
+        errno: -3008,
+        syscall: 'getaddrinfo',
+        hostname
+      })
+    });
+  };
+  const failure = fetchSnapshot({
+    workspaceRoot,
+    platform: 'macos',
+    channel: 'staging',
+    storeFactory: () =>
+      createR2Store({
+        accountId,
+        accessKeyId: 'test-access',
+        secretAccessKey: 'test-secret',
+        bucket: GAME_LIBS_BUCKET,
+        fetchImpl
+      })
+  });
+  await expect(failure).rejects.toThrow(
+    /R2 GET game-libs\/[0-9a-f]{64}\.tar\.gz failed: TypeError: fetch failed <- Error: getaddrinfo ENOTFOUND <account>\.r2\.cloudflarestorage\.com \(code=ENOTFOUND errno=-3008 syscall=getaddrinfo hostname=<account>\.r2\.cloudflarestorage\.com\)/
+  );
+  const message = await failure.catch((error) => error.message);
+  expect(message).not.toMatch(/Signature=|test-secret|test-access|c{32}/);
 });
 
 test('fetch refuses an empty entry unless decompiling the mounted channel', async () => {

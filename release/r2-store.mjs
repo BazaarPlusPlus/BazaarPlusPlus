@@ -23,6 +23,36 @@ const REQUEST_TIMEOUT_MS = 120000;
 const FILE_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 const TOKEN_ID = /^[a-f0-9]{32}$/;
 
+// Node's fetch rejects with a bare "fetch failed" and keeps the reason (DNS,
+// reset, TLS, timeout) on err.cause, often nested and sometimes an
+// AggregateError. Flattens that chain into one line of messages and the
+// system-error fields; it never reads request options, so no header,
+// signature or token reaches the text.
+const TRANSPORT_FIELDS = [
+  'code',
+  'errno',
+  'syscall',
+  'hostname',
+  'address',
+  'port'
+];
+
+export function describeTransportError(error, depth = 0) {
+  if (depth > 5) return '...';
+  if (!(error instanceof Error)) return String(error);
+  const fields = TRANSPORT_FIELDS.filter((field) => error[field] !== undefined)
+    .map((field) => `${field}=${error[field]}`)
+    .join(' ');
+  let text = `${error.name}: ${error.message}${fields ? ` (${fields})` : ''}`;
+  if (Array.isArray(error.errors) && error.errors.length)
+    text += ` [${error.errors
+      .map((inner) => describeTransportError(inner, depth + 1))
+      .join('; ')}]`;
+  if (error.cause !== undefined)
+    text += ` <- ${describeTransportError(error.cause, depth + 1)}`;
+  return text;
+}
+
 // R2's S3 credentials are a view of a Cloudflare API token: the Access Key ID
 // is the token's id, which GET /user/tokens/verify reveals, and the Secret
 // Access Key is the SHA-256 of the token value. Every store derives the pair
@@ -45,11 +75,19 @@ function assertToken(token) {
 }
 
 async function verifyToken(token, fetchImpl) {
-  const response = await fetchImpl(`${CLOUDFLARE_API}/user/tokens/verify`, {
-    headers: { authorization: `Bearer ${token}` },
-    redirect: 'error',
-    signal: AbortSignal.timeout(30000)
-  });
+  let response;
+  try {
+    response = await fetchImpl(`${CLOUDFLARE_API}/user/tokens/verify`, {
+      headers: { authorization: `Bearer ${token}` },
+      redirect: 'error',
+      signal: AbortSignal.timeout(30000)
+    });
+  } catch (error) {
+    throw new Error(
+      `Cloudflare token verification failed: ${describeTransportError(error)}`,
+      { cause: error }
+    );
+  }
   const body = await response.json().catch(() => null);
   const codes = (body?.errors ?? [])
     .map((error) => error.code)
@@ -170,16 +208,28 @@ export function createR2Store({
       `AWS4-HMAC-SHA256\n${date}\n${scope}\n${digest(canonical)}`
     ).toString('hex');
     headers.authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-    const response = await fetchImpl(`https://${host}${uri}`, {
-      method,
-      // Compression can weaken ETags and change HEAD's content length.
-      // Keep transport negotiation outside the signed object headers.
-      headers: { ...headers, 'accept-encoding': 'identity' },
-      body,
-      ...(body instanceof ReadableStream ? { duplex: 'half' } : {}),
-      redirect: 'error',
-      signal: AbortSignal.timeout(timeoutMs ?? REQUEST_TIMEOUT_MS)
-    });
+    let response;
+    try {
+      response = await fetchImpl(`https://${host}${uri}`, {
+        method,
+        // Compression can weaken ETags and change HEAD's content length.
+        // Keep transport negotiation outside the signed object headers.
+        headers: { ...headers, 'accept-encoding': 'identity' },
+        body,
+        ...(body instanceof ReadableStream ? { duplex: 'half' } : {}),
+        redirect: 'error',
+        signal: AbortSignal.timeout(timeoutMs ?? REQUEST_TIMEOUT_MS)
+      });
+    } catch (error) {
+      // The host embeds the account id; keep it out of CI logs.
+      const reason = describeTransportError(error).replaceAll(
+        account,
+        '<account>'
+      );
+      throw new Error(`R2 ${method} ${key} failed: ${reason}`, {
+        cause: error
+      });
+    }
     if (![200, 201, 204, 404, 412].includes(response.status)) {
       await response.body?.cancel();
       throw new Error(
