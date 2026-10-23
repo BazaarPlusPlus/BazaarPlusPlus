@@ -16,7 +16,7 @@ internal sealed class AndroidSettings
             "Android",
             "TouchMenu",
             true,
-            "Whether the BPP touch button is shown. It opens the settings, History, and the update prompts."
+            "Whether the BPP touch button is shown. It opens the panels the desktop opens by hotkey: History, Collection, and Ten-Win Builds."
         );
         UpgradePreview = store.Bind(
             "Android",

@@ -1,11 +1,8 @@
 using BazaarPlusPlus.Android.Collection;
-using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.LiveBuild;
-using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
-using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
@@ -18,66 +15,67 @@ using UnityEngine;
 namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
-/// The touch entry that replaces the desktop's hotkeys and settings dock: a small BPP button at
-/// the left edge of the screen opens one panel. Settings holds the switches of the features the
-/// Android host has (upgrade preview, enchant preview, Collection) and, when the game is behind
-/// the published APK, the link to it. History closes this panel and opens
-/// <see cref="AndroidHistoryPanel"/>, the desktop's History panel ported; the launcher hides while
-/// History is open. Collection opens the full-screen <see cref="AndroidCollectionPanel"/> in place
-/// of the menu, and Ten-Win Builds the full-screen <see cref="AndroidLiveBuildPanel"/>, when the
-/// record chain composed its build catalog. All of them close on every scene change, and the back
-/// key closes the top-most of them first (<see cref="AndroidBackKey"/>).
+/// The touch entry for the panels the desktop opens by hotkey: a BPP button at the left edge of
+/// the safe area opens a small menu of History, Collection, and Ten-Win Builds, each offered while
+/// its switch is on. The switches and every other BPP setting live in the game's own settings
+/// dialog (<see cref="Settings.AndroidNativeSettingsSection"/>), as on the desktop. History closes
+/// this menu and opens <see cref="AndroidHistoryPanel"/>, and the button hides while History or
+/// the settings dialog's BazaarPlusPlus section is open. Collection opens the full-screen
+/// <see cref="AndroidCollectionPanel"/>, and Ten-Win Builds the full-screen
+/// <see cref="AndroidLiveBuildPanel"/> when the record chain composed its build catalog. All of them close on every scene change, and the back key closes the top-most of
+/// them first (<see cref="AndroidBackKey"/>). The geometry is Core's
+/// <see cref="TouchLauncherLayout"/>, laid out again whenever the screen changes.
 /// </summary>
 internal sealed class AndroidTouchUi
 {
     private const int SortingOrder = 30000;
 
-    private readonly BppSettings _settings;
+    private static readonly LocalizedTextSet MenuTitle = new("BazaarPlusPlus", "BazaarPlusPlus");
+    private static readonly LocalizedTextSet NoPanels = new(
+        "Every panel is off: turn one on in Settings, BazaarPlusPlus",
+        "所有面板均已关闭：可在游戏设置的 BazaarPlusPlus 中开启",
+        "所有面板均已關閉：可在遊戲設定的 BazaarPlusPlus 中開啟"
+    );
+
     private readonly AndroidSettings _android;
-    private readonly AndroidVersionCheck? _versionCheck;
     private readonly Action? _openHistory;
-    private readonly Action<string>? _closeHistory;
     private readonly Func<bool> _historyVisible;
     private readonly BuildRecommendationRepository? _recommendations;
-    private readonly List<(TextMeshProUGUI Label, Func<string> Text)> _settingRows = new();
+    private readonly List<GameObject> _entries = new();
 
     private GameObject? _root;
-    private GameObject? _launcher;
+    private RectTransform? _launcher;
+    private TextMeshProUGUI? _launcherLabel;
     private GameObject? _dim;
-    private GameObject? _panel;
-    private GameObject? _gameUpdateRow;
-    private GameObject? _collectionTab;
-    private GameObject? _liveBuildTab;
-    private GameObject? _historyTab;
+    private RectTransform? _menu;
     private TMP_FontAsset? _font;
     private AndroidCollectionPanel? _collection;
     private AndroidLiveBuildPanel? _liveBuild;
-    private TextMeshProUGUI? _launcherLabel;
-    private TextMeshProUGUI? _titleText;
+    private string _screenKey = string.Empty;
     private bool _mountFailed;
+    private long _menuOpened;
+    private long _menuClosed;
+    private long _relayouts;
 
     public AndroidTouchUi(
-        BppSettings settings,
         AndroidSettings android,
-        AndroidVersionCheck? versionCheck,
         Action? openHistory,
-        Action<string>? closeHistory,
         Func<bool> historyVisible,
         BuildRecommendationRepository? recommendations
     )
     {
-        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _android = android ?? throw new ArgumentNullException(nameof(android));
-        _versionCheck = versionCheck;
         _openHistory = openHistory;
-        _closeHistory = closeHistory;
         _historyVisible = historyVisible ?? throw new ArgumentNullException(nameof(historyVisible));
         _recommendations = recommendations;
     }
 
-    /// <summary>The Live Build panel's counters, which a device run checks return to balance.</summary>
+    /// <summary>The menu's and the Live Build panel's counters, which a device run checks return to balance.</summary>
     public BppLogField[] Summary() =>
         [
+            ("touch_menu_opened", _menuOpened),
+            ("touch_menu_closed", _menuClosed),
+            ("touch_menu_relayouts", _relayouts),
             ("live_build_opened", _liveBuild?.Opened ?? 0),
             ("live_build_closed", _liveBuild?.Closed ?? 0),
             ("live_build_leases", _liveBuild?.Leases ?? 0),
@@ -115,13 +113,19 @@ internal sealed class AndroidTouchUi
         }
     }
 
-    /// <summary>A scene loaded: the panel never outlives the scene it was opened in.</summary>
+    /// <summary>A scene loaded: the menu and the panels never outlive the scene they opened in.</summary>
     public void OnSceneLoaded()
     {
         Close("scene_changed");
         _collection?.Close("scene_changed");
         _liveBuild?.Close("scene_changed");
     }
+
+    /// <summary>The Collection switch went off, or another surface needs the panel closed.</summary>
+    public void CloseCollection(string reason) => _collection?.Close(reason);
+
+    /// <summary>The Ten-Win Builds switch went off, or another surface needs the panel closed.</summary>
+    public void CloseLiveBuild(string reason) => _liveBuild?.Close(reason);
 
     private void Mount(TMP_FontAsset font)
     {
@@ -131,15 +135,8 @@ internal sealed class AndroidTouchUi
         _font = font;
         var root = _root.transform;
 
-        var launcher = AndroidUiKit.Fixed(
-            "Launcher",
-            root,
-            new(0f, 0.5f),
-            new(8f, 0f),
-            new(120f, 60f)
-        );
-        var (_, _, launcherLabel) = AndroidUiKit.Button(launcher, font, "BPP", 30f, () => Toggle());
-        _launcher = launcher.gameObject;
+        _launcher = AndroidTouchScreen.Child("Launcher", root, default);
+        var (_, _, launcherLabel) = AndroidUiKit.Button(_launcher, font, "BPP", 30f, Toggle);
         _launcherLabel = launcherLabel;
 
         var dim = AndroidUiKit.Rect(
@@ -154,100 +151,7 @@ internal sealed class AndroidTouchUi
         var dimButton = dim.gameObject.AddComponent<UnityEngine.UI.Button>();
         dimButton.onClick.AddListener((UnityEngine.Events.UnityAction)(() => Close("outside_tap")));
         _dim = dim.gameObject;
-
-        var panel = AndroidUiKit.Fixed(
-            "Panel",
-            root,
-            new(0.5f, 0.5f),
-            Vector2.zero,
-            new(1560f, 900f)
-        );
-        AndroidUiKit.Fill(panel, AndroidUiKit.PanelColor);
-        _panel = panel.gameObject;
-
-        var title = AndroidUiKit.Rect(
-            "Title",
-            panel,
-            new(0f, 1f),
-            new(1f, 1f),
-            new(32f, -84f),
-            new(-140f, -16f)
-        );
-        _titleText = AndroidUiKit.Text(
-            title,
-            font,
-            "",
-            34f,
-            TextAlignmentOptions.MidlineLeft,
-            AndroidUiKit.TextColor
-        );
-        var close = AndroidUiKit.Fixed(
-            "Close",
-            panel,
-            new(1f, 1f),
-            new(-16f, -16f),
-            new(100f, 68f)
-        );
-        AndroidUiKit.Button(close, font, "X", 34f, () => Close("close_button"));
-
-        var settingsTab = AndroidUiKit.Fixed(
-            "SettingsTab",
-            panel,
-            new(0f, 1f),
-            new(24f, -110f),
-            new(280f, 88f)
-        );
-        AndroidUiKit.Button(
-            settingsTab,
-            font,
-            L.Resolve(AndroidTouchText.Settings),
-            30f,
-            ShowSettings
-        );
-        var historyTab = AndroidUiKit.Fixed(
-            "HistoryTab",
-            panel,
-            new(0f, 1f),
-            new(24f, -214f),
-            new(280f, 88f)
-        );
-        var (historyButton, _, _) = AndroidUiKit.Button(
-            historyTab,
-            font,
-            L.Resolve(AndroidTouchText.History),
-            30f,
-            OpenHistory
-        );
-        historyButton.interactable = _openHistory != null;
-        _historyTab = historyTab.gameObject;
-        var collectionTab = AndroidUiKit.Fixed(
-            "CollectionTab",
-            panel,
-            new(0f, 1f),
-            new(24f, -318f),
-            new(280f, 88f)
-        );
-        AndroidUiKit.Button(collectionTab, font, CollectionPanelText.Title(), 30f, OpenCollection);
-        _collectionTab = collectionTab.gameObject;
-        var liveBuildTab = AndroidUiKit.Fixed(
-            "LiveBuildTab",
-            panel,
-            new(0f, 1f),
-            new(24f, -422f),
-            new(280f, 88f)
-        );
-        AndroidUiKit.Button(liveBuildTab, font, LiveBuildPanelText.Title(), 30f, OpenLiveBuild);
-        _liveBuildTab = liveBuildTab.gameObject;
-
-        var content = AndroidUiKit.Rect(
-            "Content",
-            panel,
-            Vector2.zero,
-            Vector2.one,
-            new(336f, 24f),
-            new(-24f, -110f)
-        );
-        MountSettings(content, font);
+        _dim.SetActive(false);
 
         // Top-most first: an open full-screen panel, then this menu.
         AndroidBackKey.Register("live_build", () => _liveBuild?.HandleBack() == true);
@@ -256,119 +160,29 @@ internal sealed class AndroidTouchUi
             "touch_menu",
             () =>
             {
-                if (_panel == null || !_panel.activeSelf)
+                if (_menu == null)
                     return false;
                 Close("back_key");
                 return true;
             }
         );
-
-        Close("mounted");
-    }
-
-    private void MountSettings(RectTransform content, TMP_FontAsset font)
-    {
-        var page = AndroidUiKit.Rect(
-            "SettingsPage",
-            content,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
-        AddSettingRow(
-            page,
-            font,
-            0,
-            () => SwitchText(AndroidTouchText.UpgradePreview, _android.UpgradePreview.Value),
-            ToggleUpgradePreview
-        );
-        AddSettingRow(
-            page,
-            font,
-            1,
-            () => SwitchText(AndroidTouchText.EnchantPreview, EnchantPreviewOn()),
-            ToggleEnchantPreview
-        );
-        AddSettingRow(
-            page,
-            font,
-            2,
-            () => SwitchText(AndroidTouchText.CollectionPanel, _android.CollectionPanel.Value),
-            ToggleCollectionPanel
-        );
-        AddSettingRow(
-            page,
-            font,
-            3,
-            () => SwitchText(AndroidTouchText.LiveBuildPanel, _android.LiveBuildPanel.Value),
-            ToggleLiveBuildPanel
-        );
-        AddSettingRow(
-            page,
-            font,
-            4,
-            () => SwitchText(AndroidTouchText.HistoryPanel, _android.HistoryPanel.Value),
-            ToggleHistoryPanel
-        );
-
-        var update = AndroidUiKit.Fixed(
-            "GameUpdate",
-            page,
-            new(0f, 1f),
-            new(0f, -5f * 104f - 24f),
-            new(1100f, 96f)
-        );
-        var (_, background, _) = AndroidUiKit.Button(
-            update,
-            font,
-            L.Resolve(AndroidTouchText.GameUpdated),
-            28f,
-            OpenGameUpdate
-        );
-        background.color = AndroidUiKit.ActiveColor;
-        _gameUpdateRow = update.gameObject;
-    }
-
-    private void AddSettingRow(
-        RectTransform page,
-        TMP_FontAsset font,
-        int index,
-        Func<string> text,
-        Action onTap
-    )
-    {
-        var rect = AndroidUiKit.Fixed(
-            $"Row{index}",
-            page,
-            new(0f, 1f),
-            new(0f, -index * 104f),
-            new(760f, 88f)
-        );
-        var (_, _, label) = AndroidUiKit.Button(
-            rect,
-            font,
-            text(),
-            30f,
-            () =>
-            {
-                onTap();
-                RefreshSettings();
-            }
-        );
-        _settingRows.Add((label, text));
+        LayoutLauncher(force: true);
     }
 
     private void Frame()
     {
         try
         {
-            var visible = _android.TouchMenu.Value;
-            SetActive(_launcher, visible && !_historyVisible());
-            if (!visible && _panel != null && _panel.activeSelf)
+            // The button stays out of History and of the game's settings dialog, which it would cover.
+            SetActive(
+                _launcher?.gameObject,
+                _android.TouchMenu.Value
+                    && !_historyVisible()
+                    && !Settings.AndroidNativeSettingsSection.AnyVisible
+            );
+            if (!_android.TouchMenu.Value && _menu != null)
                 Close("touch_menu_off");
-            if (_launcherLabel != null)
-                _launcherLabel.text = _versionCheck?.GameUpdate != null ? "BPP !" : "BPP";
+            LayoutLauncher(force: false);
             _collection?.Tick();
             _liveBuild?.Tick();
             // The back key also reaches the game's escape hook (BackKeyPatches); a press both
@@ -383,9 +197,34 @@ internal sealed class AndroidTouchUi
         }
     }
 
+    // The button follows the safe area and the density; an open menu is rebuilt for the screen.
+    private void LayoutLauncher(bool force)
+    {
+        var key = AndroidTouchScreen.Key();
+        if (!force && key == _screenKey)
+            return;
+        _screenKey = key;
+        _relayouts++;
+        var layout = TouchLauncherLayout.Compute(AndroidTouchScreen.Read(), 0);
+        if (_launcher != null)
+            AndroidTouchScreen.Place(_launcher, layout.Launcher);
+        if (_launcherLabel != null)
+            _launcherLabel.fontSize = layout.LauncherFont;
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.ui.touch_layout"),
+            ("screen", key),
+            ("launcher", Describe(layout.Launcher))
+        );
+        if (_menu != null)
+        {
+            DestroyMenu();
+            BuildMenu("relayout");
+        }
+    }
+
     private void Toggle()
     {
-        if (_panel != null && _panel.activeSelf)
+        if (_menu != null)
             Close("launcher");
         else
             Open();
@@ -393,38 +232,91 @@ internal sealed class AndroidTouchUi
 
     private void Open()
     {
-        if (_panel == null)
+        if (_root == null || _font == null || _menu != null)
             return;
+        BuildMenu("launcher");
+        _menuOpened++;
+    }
+
+    private void BuildMenu(string reason)
+    {
+        var font = _font!;
+        var entries = new List<(string Name, string Text, Action Open)>();
+        if (_openHistory != null && _android.HistoryPanel.Value)
+            entries.Add(("History", L.Resolve(AndroidTouchText.History), OpenHistory));
+        if (_android.CollectionPanel.Value)
+            entries.Add(("Collection", CollectionPanelText.Title(), OpenCollection));
+        if (LiveBuildOffered())
+            entries.Add(("LiveBuild", LiveBuildPanelText.Title(), OpenLiveBuild));
+
+        var layout = TouchLauncherLayout.Compute(AndroidTouchScreen.Read(), entries.Count);
+        var menu = AndroidTouchScreen.Child("Menu", _root!.transform, layout.Menu);
+        AndroidUiKit.Fill(menu, AndroidUiKit.PanelColor);
+        var origin = layout.Menu;
+        var title = AndroidTouchScreen.Child("Title", menu, Relative(layout.Title, origin));
+        AndroidUiKit.Text(
+            title,
+            font,
+            L.Resolve(MenuTitle),
+            layout.TitleFont,
+            TextAlignmentOptions.MidlineLeft,
+            AndroidUiKit.TextColor
+        );
+        var close = AndroidTouchScreen.Child("Close", menu, Relative(layout.Close, origin));
+        AndroidUiKit.Button(close, font, "X", layout.TitleFont, () => Close("close_button"));
+
+        _entries.Clear();
+        if (entries.Count == 0)
+        {
+            var hint = AndroidTouchScreen.Child("Hint", menu, Relative(layout.Entries[0], origin));
+            AndroidUiKit.Text(
+                hint,
+                font,
+                L.Resolve(NoPanels),
+                layout.EntryFont,
+                TextAlignmentOptions.MidlineLeft,
+                AndroidUiKit.MutedTextColor
+            );
+        }
+        for (var index = 0; index < entries.Count; index++)
+        {
+            var (name, text, open) = entries[index];
+            var row = AndroidTouchScreen.Child(name, menu, Relative(layout.Entries[index], origin));
+            AndroidUiKit.Button(row, font, text, layout.EntryFont, open);
+            _entries.Add(row.gameObject);
+        }
+        _menu = menu;
         SetActive(_dim, true);
-        SetActive(_panel, true);
-        SetActive(_collectionTab, _android.CollectionPanel.Value);
-        SetActive(_liveBuildTab, LiveBuildOffered());
-        SetActive(_historyTab, _android.HistoryPanel.Value);
-        ShowSettings();
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.ui.panel_opened"),
+            ("page", "menu"),
+            ("reason", reason),
+            ("entries", string.Join(",", entries.Select(entry => entry.Name))),
+            ("menu", Describe(layout.Menu)),
+            ("row_height", Math.Round(layout.Entries[0].Height)),
+            ("min_target", Math.Round(AndroidTouchScreen.Read().MinTarget))
+        );
     }
 
     private void Close(string reason)
     {
-        if (_panel == null || !_panel.activeSelf)
+        if (_menu == null)
             return;
-        SetActive(_panel, false);
-        SetActive(_dim, false);
-        if (reason != "mounted")
-            BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.ui.panel_closed"),
-                ("reason", reason)
-            );
+        DestroyMenu();
+        _menuClosed++;
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.ui.panel_closed"),
+            ("reason", reason)
+        );
     }
 
-    private void ShowSettings()
+    private void DestroyMenu()
     {
-        if (_titleText != null)
-            _titleText.text = $"BazaarPlusPlus {BppPluginVersion.Current}";
-        RefreshSettings();
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.ui.panel_opened"),
-            ("page", "settings")
-        );
+        if (_menu != null)
+            UnityEngine.Object.Destroy(_menu.gameObject);
+        _menu = null;
+        _entries.Clear();
+        SetActive(_dim, false);
     }
 
     private void OpenHistory()
@@ -433,16 +325,6 @@ internal sealed class AndroidTouchUi
             return;
         Close("history");
         _openHistory();
-    }
-
-    private void RefreshSettings()
-    {
-        foreach (var (label, text) in _settingRows)
-            label.text = text();
-        SetActive(_gameUpdateRow, _versionCheck?.GameUpdate != null);
-        SetActive(_collectionTab, _android.CollectionPanel.Value);
-        SetActive(_liveBuildTab, LiveBuildOffered());
-        SetActive(_historyTab, _android.HistoryPanel.Value);
     }
 
     private void OpenCollection()
@@ -487,28 +369,6 @@ internal sealed class AndroidTouchUi
         }
     }
 
-    private void ToggleLiveBuildPanel()
-    {
-        _android.LiveBuildPanel.Value = !_android.LiveBuildPanel.Value;
-        if (!_android.LiveBuildPanel.Value)
-        {
-            _liveBuild?.Close("switched_off");
-            AndroidCardRental.ReleaseAll("switched_off");
-        }
-        LogSettingChanged("Android", "LiveBuildPanel", _android.LiveBuildPanel.Value);
-    }
-
-    private void ToggleHistoryPanel()
-    {
-        _android.HistoryPanel.Value = !_android.HistoryPanel.Value;
-        if (!_android.HistoryPanel.Value)
-        {
-            _closeHistory?.Invoke("switched_off");
-            AndroidCardRental.ReleaseAll("switched_off");
-        }
-        LogSettingChanged("Android", "HistoryPanel", _android.HistoryPanel.Value);
-    }
-
     private bool CloseCollectionForBack()
     {
         if (_collection?.IsOpen != true)
@@ -517,60 +377,15 @@ internal sealed class AndroidTouchUi
         return true;
     }
 
-    private void ToggleCollectionPanel()
-    {
-        _android.CollectionPanel.Value = !_android.CollectionPanel.Value;
-        if (!_android.CollectionPanel.Value)
+    private static TouchRect Relative(TouchRect area, TouchRect origin) =>
+        area with
         {
-            _collection?.Close("switched_off");
-            AndroidCardRental.ReleaseAll("switched_off");
-        }
-        LogSettingChanged("Android", "CollectionPanel", _android.CollectionPanel.Value);
-    }
+            Left = area.Left - origin.Left,
+            Top = area.Top - origin.Top,
+        };
 
-    private void ToggleUpgradePreview()
-    {
-        _android.UpgradePreview.Value = !_android.UpgradePreview.Value;
-        if (!_android.UpgradePreview.Value)
-            AndroidUpgradePreview.Release("switched_off");
-        LogSettingChanged("Android", "UpgradePreview", _android.UpgradePreview.Value);
-    }
-
-    // Android has no pedestal probe, so it offers Off and Always and treats
-    // AutoOnPedestalChoice, which only a desktop file can hold, as Off.
-    private bool EnchantPreviewOn() =>
-        _settings.EnchantPreviewModeConfig.Value == PreviewVisibilityMode.Always;
-
-    private void ToggleEnchantPreview()
-    {
-        _settings.EnchantPreviewModeConfig.Value = EnchantPreviewOn()
-            ? PreviewVisibilityMode.Off
-            : PreviewVisibilityMode.Always;
-        LogSettingChanged("EnchantPreview", "Mode", _settings.EnchantPreviewModeConfig.Value);
-    }
-
-    private void OpenGameUpdate()
-    {
-        var apk = _versionCheck?.GameUpdate;
-        if (apk == null)
-            return;
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.ui.game_update_opened"),
-            ("game_version", apk.GameVersion)
-        );
-        Application.OpenURL(apk.Url.ToString());
-    }
-
-    private static string SwitchText(LocalizedTextSet name, bool on) =>
-        $"{L.Resolve(name)}: {L.Resolve(on ? AndroidTouchText.On : AndroidTouchText.Off)}";
-
-    private static void LogSettingChanged(string section, string key, object value) =>
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.settings.changed"),
-            ("section", section),
-            ("key", key),
-            ("value", value)
-        );
+    private static string Describe(TouchRect area) =>
+        $"{area.Left:0},{area.Top:0},{area.Width:0}x{area.Height:0}";
 
     private static void SetActive(GameObject? target, bool active)
     {

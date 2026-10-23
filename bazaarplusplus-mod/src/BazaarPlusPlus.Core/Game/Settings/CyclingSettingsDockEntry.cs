@@ -13,7 +13,7 @@ namespace BazaarPlusPlus.Game.Settings;
 /// write completes (for example, publishing an event, refreshing UI, or arming a pump) and
 /// is invoked unconditionally with the new value after every write.
 /// </remarks>
-internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
+public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
 {
     private readonly string _key;
     private readonly Func<string, string> _resolveLabel;
@@ -25,7 +25,7 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
     private readonly Action<T>? _onChanged;
     private readonly bool _renderAsToggle;
 
-    internal CyclingSettingsDockEntry(
+    public CyclingSettingsDockEntry(
         int order,
         string key,
         Func<string, string> resolveLabel,
@@ -81,7 +81,7 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
         );
     }
 
-    internal static CyclingSettingsDockEntry<bool> Toggle(
+    public static CyclingSettingsDockEntry<bool> Toggle(
         int order,
         string key,
         Func<string, string> resolveLabel,

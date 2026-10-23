@@ -3,7 +3,7 @@ using BazaarPlusPlus.Core.Config;
 
 namespace BazaarPlusPlus.Game.Settings;
 
-internal sealed class SettingsDockEntryRegistry
+public sealed class SettingsDockEntryRegistry
 {
     private readonly List<ISettingsDockEntry> _entries = new();
 

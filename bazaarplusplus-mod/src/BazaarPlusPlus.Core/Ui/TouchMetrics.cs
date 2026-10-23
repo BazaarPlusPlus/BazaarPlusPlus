@@ -73,7 +73,7 @@ public readonly struct TouchMetrics
             throw new ArgumentOutOfRangeException(nameof(screenHeight), "The screen has no size.");
         if (referenceHeight <= 0f)
             throw new ArgumentOutOfRangeException(nameof(referenceHeight));
-        var density = dpi > 0f && !float.IsNaN(dpi) && !float.IsInfinity(dpi) ? dpi : FallbackDpi;
+        var density = EffectiveDpi(dpi);
         var unitsPerPixel = referenceHeight / screenHeight;
         var canvasWidth = screenWidth * unitsPerPixel;
         var safe = new TouchRect(0f, 0f, canvasWidth, referenceHeight);
@@ -97,6 +97,18 @@ public readonly struct TouchMetrics
             safe
         );
     }
+
+    /// <summary>The density a screen is laid out for: the reported one, or <see cref="FallbackDpi"/>.</summary>
+    public static float EffectiveDpi(float dpi) =>
+        dpi > 0f && !float.IsNaN(dpi) && !float.IsInfinity(dpi) ? dpi : FallbackDpi;
+
+    /// <summary>
+    /// How many screen pixels a control <paramref name="heightPixels"/> tall lacks to be a
+    /// <see cref="MinTargetDp"/> target at <paramref name="dpi"/>; zero when it is one already. For a
+    /// control on a canvas other than the touch canvas, such as the game's own dialogs.
+    /// </summary>
+    public static float MissingTargetPixels(float heightPixels, float dpi) =>
+        Math.Max(0f, MinTargetDp * EffectiveDpi(dpi) / BaselineDpi - Math.Max(0f, heightPixels));
 
     /// <summary><paramref name="dp"/> density-independent pixels in canvas units.</summary>
     public float Dp(float dp) => dp * UnitsPerDp;

@@ -4,7 +4,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.Settings;
 
-internal static class BppSettingsDockCatalog
+public static class BppSettingsDockCatalog
 {
     private static readonly List<BppSettingsDockDefinition> _definitions = new();
 
@@ -27,13 +27,13 @@ internal static class BppSettingsDockCatalog
 
     public static void Reset() => _definitions.Clear();
 
-    internal static IReadOnlyList<BppSettingsDockDefinition> Definitions => _definitions;
+    public static IReadOnlyList<BppSettingsDockDefinition> Definitions => _definitions;
 
     private static readonly LocalizedTextSet PreviewOffStatus = new("OFF", "按键显示");
     private static readonly LocalizedTextSet PreviewAutoStatus = new("AUTO", "智能切换");
     private static readonly LocalizedTextSet PreviewAlwaysStatus = new("ON", "常驻显示");
 
-    internal static string ResolvePreviewVisibilityModeStatus(
+    public static string ResolvePreviewVisibilityModeStatus(
         PreviewVisibilityMode mode,
         string languageCode
     )
