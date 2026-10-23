@@ -497,6 +497,46 @@ boundsCache.Store(storedBounds, aspectRatio: null);
 AssertTrue(boundsCache.TryGet(out _, out var nullAspect), "Null aspect Store must hit.");
 AssertEqual(null, nullAspect, "Stored null aspect must round-trip.");
 
+// The touch host packs into fewer columns (CollectionTouchLayout.GridColumns); the desktop
+// overload keeps the desktop's count.
+var mixed = new[] { Item(CardSize.Large), Item(CardSize.Small), Item(CardSize.Medium) };
+AssertEqual(
+    CollectionGridConstants.ItemColumns,
+    CollectionGridLayout.Build(mixed, CollectionTabKind.Items).Columns,
+    "The desktop overload keeps the desktop's item columns."
+);
+AssertEqual(
+    CollectionGridConstants.SkillColumns,
+    CollectionGridLayout
+        .Build(Make(CardType.Skill, 3, _ => CardSize.Small), CollectionTabKind.Skills)
+        .Columns,
+    "The desktop overload keeps the desktop's skill columns."
+);
+var fourColumns = CollectionGridLayout.Build(mixed, CollectionTabKind.Items, 4);
+AssertEqual(4, fourColumns.Columns, "A touch column count packs items into that many columns.");
+AssertCell(fourColumns, 0, 0, 0, 3, "A large item starts the first four-column shelf.");
+AssertCell(fourColumns, 1, 3, 0, 1, "A small item fills the large item's shelf.");
+AssertCell(fourColumns, 2, 0, 1, 2, "A medium item wraps to the next shelf.");
+AssertEqual(
+    CollectionGridConstants.ItemLargeSpan,
+    CollectionGridLayout.Build(mixed, CollectionTabKind.Items, 1).Columns,
+    "Items never pack into fewer columns than a large item spans."
+);
+var skillTwo = CollectionGridLayout.Build(
+    Make(CardType.Skill, 3, _ => CardSize.Small),
+    CollectionTabKind.Skills,
+    2
+);
+AssertEqual(2, skillTwo.Columns, "Skills pack into the touch column count.");
+AssertCell(skillTwo, 2, 0, 1, 1, "The third skill wraps under two columns.");
+AssertEqual(
+    1,
+    CollectionGridLayout
+        .Build(Make(CardType.Skill, 1, _ => CardSize.Small), CollectionTabKind.Skills, 0)
+        .Columns,
+    "Skills keep at least one column."
+);
+
 System.Console.WriteLine("CollectionGridLayout checks passed.");
 
 static CollectionCardVm Item(CardSize size) => new() { Type = CardType.Item, Size = size };

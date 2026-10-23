@@ -36,7 +36,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     private readonly HistoryTouchLayout _l;
     private readonly GameObject _root;
     private readonly AndroidHistoryBadges? _badges;
-    private readonly List<ScrollTracker> _trackers = new();
+    private readonly List<AndroidScrollTracker> _trackers = new();
     private HistoryPanelViewModel? _model;
     private bool _visible;
     private bool _disposed;
@@ -143,10 +143,23 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     /// <summary>The board messages, each under the board it describes.</summary>
     public void SetBoardStatus(string upperMessage, string lowerMessage)
     {
-        _upperStatus.text = upperMessage;
-        AndroidHistoryUi.SetActive(_upperStatusBand, upperMessage.Length > 0);
-        _lowerStatus.text = lowerMessage;
-        AndroidHistoryUi.SetActive(_lowerStatusBand, lowerMessage.Length > 0);
+        ShowStatus(_upperStatusBand, _upperStatus, _l.UpperBoard, upperMessage);
+        ShowStatus(_lowerStatusBand, _lowerStatus, _l.LowerBoard, lowerMessage);
+    }
+
+    // A board message's band grows to the wrapped text, so a long message is never cut.
+    private void ShowStatus(GameObject band, TextMeshProUGUI label, TouchRect board, string text)
+    {
+        label.text = text;
+        AndroidHistoryUi.SetActive(band, text.Length > 0);
+        if (text.Length == 0)
+            return;
+        var lines = label.GetPreferredValues(text, board.Width * StatusTextShare, 0f).y;
+        var height = Math.Min(board.Height, Math.Max(_l.Metrics.Dp(StatusMinDp), lines + _l.Gap));
+        AndroidTouchScreen.Place(
+            band.GetComponent<RectTransform>(),
+            new TouchRect(board.Left, board.Bottom - height, board.Width, height)
+        );
     }
 
     /// <summary>The skills action, available while the selected battle's boards are loaded.</summary>
@@ -158,7 +171,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     {
         if (!_visible || _disposed)
             return;
-        var pressed = PointerPressed();
+        var pressed = AndroidScrollTracker.PointerPressed();
         foreach (var tracker in _trackers)
             tracker.Tick(pressed, _l.Metrics.UnitsPerDp);
     }
@@ -217,7 +230,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _more.Set(AndroidHistoryUi.T("More", "更多"));
         AndroidHistoryUi
             .Button(Surface, _font, "close", _l.Close, _l.TitleFont, () => _actions.Close())
-            .Set("X");
+            .Set(AndroidUiKit.CloseGlyph);
 
         _archive = BuildArchive();
         _archiveEmpty = AndroidHistoryUi.Label(
@@ -368,7 +381,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             horizontal: true
         );
         _filters = scroll;
-        _trackers.Add(new ScrollTracker("filters", scroll));
+        _trackers.Add(new AndroidScrollTracker(Scrolled(), "filters", scroll));
         _heroGroup = AndroidUiKit
             .Rect("Heroes", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero)
             .gameObject;
@@ -449,7 +462,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _l.ArchiveList,
             horizontal: false
         );
-        _trackers.Add(new ScrollTracker("archive", scroll));
+        _trackers.Add(new AndroidScrollTracker(Scrolled(), "archive", scroll));
         var list = new PageList { Scroll = scroll, Height = _l.RunRowHeight };
         for (var i = 0; i < Rows; i++)
         {
@@ -550,7 +563,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _l.RailList,
             horizontal: false
         );
-        _trackers.Add(new ScrollTracker("rail", scroll));
+        _trackers.Add(new AndroidScrollTracker(Scrolled(), "rail", scroll));
         var rail = new Rail { Scroll = scroll };
         for (var i = 0; i < Rows; i++)
         {
@@ -612,9 +625,12 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     }
 
     // A shaded band along the board's bottom edge: a later sibling, so it draws over the cards.
+    private const float StatusMinDp = 44f;
+    private const float StatusTextShare = .96f;
+
     private (GameObject Band, TextMeshProUGUI Label) StatusBand(string name, TouchRect board)
     {
-        var height = Math.Min(board.Height, _l.Metrics.Dp(44f));
+        var height = Math.Min(board.Height, _l.Metrics.Dp(StatusMinDp));
         var band = AndroidTouchScreen.Child(
             name,
             Surface,
@@ -624,9 +640,9 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         var label = AndroidHistoryUi.Fraction(
             band,
             _font,
-            .02f,
+            (1f - StatusTextShare) / 2f,
             0f,
-            .96f,
+            StatusTextShare,
             1f,
             _l.BodyFont,
             TextAlignmentOptions.Center,
@@ -951,22 +967,13 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         rect.offsetMax = Vector2.zero;
     }
 
+    private static BppLogEvent Scrolled() =>
+        new(BppLogFeatureScope.Android, "android.history.scrolled");
+
     private void SyncTrackers()
     {
         foreach (var tracker in _trackers)
             tracker.Sync();
-    }
-
-    private static bool PointerPressed()
-    {
-        try
-        {
-            return UnityEngine.InputSystem.Pointer.current?.press.isPressed == true;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
     }
 
     private sealed class Row
@@ -1006,58 +1013,6 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         internal ScrollRect Scroll = null!;
         internal readonly Chip[] Chips = new Chip[Rows];
         internal readonly HistoryTimelineScroll Position = new();
-    }
-
-    // One drag gesture on a list, from its first moving frame to the frame it settles: the log
-    // says how far it went and how many frames it coasted after the finger lifted (inertia).
-    private sealed class ScrollTracker(string name, ScrollRect scroll)
-    {
-        private Vector2 _last = scroll.content.anchoredPosition;
-        private Vector2 _start;
-        private bool _moving;
-        private int _still;
-        private int _coast;
-        private float _peak;
-
-        public void Sync()
-        {
-            _last = scroll.content.anchoredPosition;
-            _moving = false;
-        }
-
-        public void Tick(bool pressed, float unitsPerDp)
-        {
-            if (!scroll.gameObject.activeInHierarchy)
-                return;
-            var position = scroll.content.anchoredPosition;
-            if (position != _last)
-            {
-                if (!_moving)
-                {
-                    _moving = true;
-                    _start = _last;
-                    _coast = 0;
-                    _peak = 0f;
-                }
-                _peak = Math.Max(_peak, scroll.velocity.magnitude);
-                if (!pressed)
-                    _coast++;
-                _last = position;
-                _still = 0;
-                return;
-            }
-            if (!_moving || pressed || ++_still < 3)
-                return;
-            _moving = false;
-            BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.history.scrolled"),
-                ("list", name),
-                ("distance_dp", Math.Round((position - _start).magnitude / unitsPerDp, 1)),
-                ("peak_velocity_dp", Math.Round(_peak / unitsPerDp)),
-                ("coast_frames", _coast),
-                ("inertia", scroll.inertia)
-            );
-        }
     }
 
     /// <summary>What the view's controls call; each runs inside the main-thread scope.</summary>

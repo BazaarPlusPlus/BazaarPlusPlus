@@ -1,43 +1,59 @@
+using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
+using BazaarPlusPlus.Game.CollectionPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Il2CppTheBazaar.UI;
 using Il2CppTMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.Collection;
 
 /// <summary>
-/// The tapped card, enlarged over the grid, with the tiers it can reach and the enchantments it
-/// takes. A chip sets the same rented card up again at that tier or enchantment. The desktop's
+/// The tapped card, enlarged over the grid in the shared tap-to-inspect sheet
+/// (<see cref="TouchInspectLayout"/>), with the tiers it can reach and the enchantments it takes.
+/// A chip sets the same rented card up again at that tier or enchantment. The desktop's
 /// inspection locks the game's own tooltip beside the card; Android has no hover tooltip to lock,
-/// so the card's name and authored text stand beside it instead.
+/// so the card's name stands beside it, over one drag-scrolled column of the chips and the card's
+/// authored text (<see cref="AndroidCardTemplateText.Description"/>, as History and Ten-Win
+/// Builds show it). A tap outside the info column, the close button, or the back key dismisses it.
 /// </summary>
 internal sealed class AndroidCollectionInspection
 {
     public const string RentalOwner = "collection.inspection";
 
-    private const float CardHeight = 640f;
-
     private readonly GameObject _root;
     private readonly RectTransform _slot;
-    private readonly RectTransform _chips;
+    private readonly ScrollRect _detailScroll;
+    private readonly RectTransform _detail;
     private readonly TextMeshProUGUI _name;
-    private readonly TextMeshProUGUI _description;
+    private readonly TextMeshProUGUI _probe;
     private readonly TMP_FontAsset _font;
+    private readonly CollectionTouchLayout _layout;
     private CollectionCardVm? _card;
     private CardRentalLease<CardPreviewBase>? _lease;
     private CardTier _tier;
     private CardEnchantment? _enchantment;
+    private int _columns;
+    private string _text = string.Empty;
 
-    public AndroidCollectionInspection(RectTransform parent, TMP_FontAsset font)
+    public AndroidCollectionInspection(
+        RectTransform parent,
+        TMP_FontAsset font,
+        CollectionTouchLayout layout
+    )
     {
         _font = font;
+        _layout = layout;
+        var inspect = layout.Inspect;
+        var chrome = layout.Chrome;
         var root = AndroidUiKit.Rect(
             "Inspection",
             parent,
@@ -46,72 +62,65 @@ internal sealed class AndroidCollectionInspection
             Vector2.zero,
             Vector2.zero
         );
-        AndroidUiKit.Fill(root, new Color(0f, 0f, 0f, 0.82f));
-        var dismiss = root.gameObject.AddComponent<UnityEngine.UI.Button>();
-        dismiss.transition = UnityEngine.UI.Selectable.Transition.None;
+        AndroidUiKit.Fill(root, new Color(0f, 0f, 0f, 0.85f));
+        var dismiss = root.gameObject.AddComponent<Button>();
+        dismiss.transition = Selectable.Transition.None;
         dismiss.onClick.AddListener((UnityEngine.Events.UnityAction)(() => Close("outside_tap")));
         _root = root.gameObject;
 
-        _slot = AndroidUiKit.Fixed("CardSlot", root, new(0.3f, 0.5f), Vector2.zero, Vector2.zero);
+        var area = AndroidTouchScreen.Child("CardArea", root, inspect.CardArea);
+        _slot = AndroidUiKit.Rect(
+            "CardSlot",
+            area,
+            new(0.5f, 0.5f),
+            new(0.5f, 0.5f),
+            Vector2.zero,
+            Vector2.zero
+        );
 
-        var info = AndroidUiKit.Rect(
-            "Info",
-            root,
-            new(0.55f, 0f),
-            new(1f, 1f),
-            new(0f, 48f),
-            new(-48f, -48f)
-        );
-        AndroidUiKit.Fill(info, AndroidUiKit.PanelColor);
-        // Swallows taps on the text, which would otherwise reach the dismiss button behind it.
-        var swallow = info.gameObject.AddComponent<UnityEngine.UI.Button>();
-        swallow.transition = UnityEngine.UI.Selectable.Transition.None;
-        var name = AndroidUiKit.Rect(
-            "Name",
-            info,
-            new(0f, 1f),
-            new(1f, 1f),
-            new(24f, -92f),
-            new(-132f, -16f)
-        );
+        var info = AndroidTouchScreen.Child("Info", root, inspect.Info);
+        // Opaque, so the grid under it does not show through.
+        var panel = AndroidUiKit.PanelColor;
+        panel.a = 1f;
+        AndroidUiKit.Fill(info, panel);
+        // Swallows taps on the column, which would otherwise reach the dismiss button behind it.
+        var swallow = info.gameObject.AddComponent<Button>();
+        swallow.transition = Selectable.Transition.None;
+        var origin = inspect.Info;
         _name = AndroidUiKit.Text(
-            name,
+            AndroidTouchScreen.Child("Name", info, Local(inspect.Name, origin, chrome.Gap)),
             font,
             "",
-            38f,
+            chrome.NameFont,
             TextAlignmentOptions.MidlineLeft,
             AndroidUiKit.TextColor
         );
-        var close = AndroidUiKit.Fixed("Close", info, new(1f, 1f), new(-16f, -16f), new(100f, 68f));
-        AndroidUiKit.Button(close, font, "X", 34f, () => Close("close_button"));
-        _chips = AndroidUiKit.Rect(
-            "Chips",
+        _name.overflowMode = TextOverflowModes.Ellipsis;
+        var close = AndroidTouchScreen.Child("Close", info, Local(inspect.Close, origin, 0f));
+        AndroidUiKit.CloseButton(close, font, chrome.TitleFont, () => Close("close_button"));
+        var detail = AndroidTouchScreen.Child(
+            "Detail",
             info,
-            new(0f, 1f),
-            new(1f, 1f),
-            new(24f, -312f),
-            new(-24f, -108f)
+            Local(inspect.Detail, origin, chrome.Gap)
         );
-        var description = AndroidUiKit.Rect(
-            "Description",
-            info,
-            Vector2.zero,
-            Vector2.one,
-            new(24f, 24f),
-            new(-24f, -328f)
-        );
-        _description = AndroidUiKit.Text(
-            description,
+        (_detailScroll, _detail) = AndroidUiKit.VerticalScroll(detail);
+        // Measures chip labels at body size, so a row holds only as many chips as show whole.
+        _probe = AndroidUiKit.Text(
+            AndroidUiKit.Fixed("ChipProbe", info, Vector2.zero, Vector2.zero, Vector2.zero),
             font,
             "",
-            26f,
-            TextAlignmentOptions.TopLeft,
-            AndroidUiKit.MutedTextColor
+            chrome.BodyFont,
+            TextAlignmentOptions.Left,
+            Color.clear
         );
+        _probe.enableWordWrapping = false;
         _root.SetActive(false);
     }
 
     public bool IsOpen => _root.activeSelf;
+
+    /// <summary>The detail column's scroll view, for the panel's drag-scroll log.</summary>
+    public ScrollRect DetailScroll => _detailScroll;
 
     public void Open(CollectionCardVm card)
     {
@@ -119,38 +128,43 @@ internal sealed class AndroidCollectionInspection
         _card = card;
         _tier = card.StartingTier;
         _enchantment = null;
+        _text = AndroidCardTemplateText.Description(card.Id) ?? card.Description;
         _name.text = card.DisplayName;
-        _description.text = card.Description;
         var bounds = AndroidCollectionGrid.NaturalBounds(card);
-        var scale = CardHeight / bounds.Height;
-        _slot.localScale = new Vector3(
-            card.Type == CardType.Item ? scale * CollectionGridConstants.ItemCardWidthScale : scale,
-            scale,
-            1f
-        );
+        var widthScale =
+            card.Type == CardType.Item ? CollectionGridConstants.ItemCardWidthScale : 1f;
+        var scale = _layout.InspectScale(bounds.Width * widthScale, bounds.Height);
+        _slot.localScale = new Vector3(scale * widthScale, scale, 1f);
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
         _lease = AndroidCardRental.Rent(Subject(), _slot, RentalOwner);
-        RenderChips();
+        RenderDetail();
+        _detailScroll.StopMovement();
+        _detail.anchoredPosition = Vector2.zero;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.inspected"),
             ("type", card.Type),
             ("size", card.Size),
             ("tier", _tier),
-            ("enchantable", card.IsEnchantable)
+            ("enchantable", card.IsEnchantable),
+            ("scale", Math.Round(scale, 3)),
+            ("chip_columns", _columns)
         );
     }
 
-    public void Close(string reason)
+    /// <summary>False when it was not open.</summary>
+    public bool Close(string reason)
     {
         if (!IsOpen)
-            return;
+            return false;
         Return();
         _root.SetActive(false);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.inspection_closed"),
-            ("reason", reason)
+            ("reason", reason),
+            ("rental_leases", AndroidCardRental.ActiveLeases)
         );
+        return true;
     }
 
     private void Return()
@@ -169,7 +183,7 @@ internal sealed class AndroidCollectionInspection
         _tier = tier;
         _enchantment = enchantment;
         AndroidCardRental.Retarget(_lease, Subject());
-        RenderChips();
+        RenderDetail();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.inspection_retargeted"),
             ("tier", tier),
@@ -177,37 +191,51 @@ internal sealed class AndroidCollectionInspection
         );
     }
 
-    private void RenderChips()
+    // The tier chips, the enchantment chips, then the card's text, as one scrolled column.
+    private void RenderDetail()
     {
-        for (var index = _chips.childCount - 1; index >= 0; index--)
-            UnityEngine.Object.Destroy(_chips.GetChild(index).gameObject);
+        for (var index = _detail.childCount - 1; index >= 0; index--)
+            UnityEngine.Object.Destroy(_detail.GetChild(index).gameObject);
         var card = _card;
         if (card == null)
             return;
-        var flow = new AndroidChipFlow(_chips, _font, columns: 5, chipHeight: 60f, fontSize: 24f);
-        foreach (var tier in ReachableTiers(card.StartingTier))
+        var chrome = _layout.Chrome;
+        var tiers = ReachableTiers(card.StartingTier)
+            .Select(tier => (Label: CollectionPanelText.Tier(tier), Tier: tier))
+            .ToList();
+        var enchantments =
+            card.IsEnchantable && card.Enchantments.Count > 0
+                ? card
+                    .Enchantments.Keys.OrderBy(value => value)
+                    .Select(value =>
+                        (Label: AndroidCollectionLabels.Enchantment(value), Value: value)
+                    )
+                    .ToList()
+                : new List<(string Label, CardEnchantment Value)>();
+        var widest = tiers
+            .Select(tier => tier.Label)
+            .Concat(enchantments.Select(enchantment => enchantment.Label))
+            .Select(LabelWidth)
+            .DefaultIfEmpty(0f)
+            .Max();
+        _columns = _layout.InspectChipColumnsFor(widest + 2f * AndroidUiKit.ButtonLabelInset);
+        var flow = new AndroidChipFlow(_detail, _font, chrome, _columns, _layout.RailHeaderHeight);
+        foreach (var (label, tier) in tiers)
+            flow.Chip(label, tier == _tier, () => Select(tier, _enchantment));
+        if (enchantments.Count > 0)
         {
-            var chosen = tier;
-            flow.Chip(
-                CollectionPanelText.Tier(tier),
-                tier == _tier,
-                () => Select(chosen, _enchantment)
-            );
+            flow.Break();
+            flow.Chip("-", _enchantment == null, () => Select(_tier, null));
+            foreach (var (label, enchantment) in enchantments)
+                flow.Chip(label, enchantment == _enchantment, () => Select(_tier, enchantment));
         }
-        if (!card.IsEnchantable || card.Enchantments.Count == 0)
-            return;
-        flow.Break();
-        flow.Chip("-", _enchantment == null, () => Select(_tier, null));
-        foreach (var enchantment in card.Enchantments.Keys.OrderBy(value => value))
-        {
-            var chosen = enchantment;
-            flow.Chip(
-                AndroidCollectionLabels.Enchantment(enchantment),
-                enchantment == _enchantment,
-                () => Select(_tier, chosen)
-            );
-        }
+        if (!string.IsNullOrWhiteSpace(_text))
+            flow.Note(_text, AndroidUiKit.MutedTextColor);
+        _detail.sizeDelta = new Vector2(0f, flow.Height + chrome.Gap);
     }
+
+    // A label's width at body size, the smallest a chip's autosize goes.
+    private float LabelWidth(string label) => _probe.GetPreferredValues(label).x;
 
     // A card upgrades from its starting tier to Diamond; a Legendary card stays Legendary.
     private static IEnumerable<CardTier> ReachableTiers(CardTier starting)
@@ -220,4 +248,13 @@ internal sealed class AndroidCollectionInspection
         for (var tier = starting; tier <= CardTier.Diamond; tier++)
             yield return tier;
     }
+
+    // A sheet rect as its parent's local rect, inset horizontally for text.
+    private static TouchRect Local(TouchRect rect, TouchRect origin, float inset) =>
+        new(
+            rect.Left - origin.Left + inset,
+            rect.Top - origin.Top,
+            Math.Max(0f, rect.Width - inset * 2f),
+            rect.Height
+        );
 }

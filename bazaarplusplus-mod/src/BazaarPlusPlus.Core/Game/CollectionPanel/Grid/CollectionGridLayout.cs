@@ -49,26 +49,44 @@ public sealed class CollectionGridLayout
 
     public CollectionGridShelf ShelfAt(int shelf) => _shelves[shelf];
 
+    // The desktop's fixed display case: the tab's column count from CollectionGridConstants.
     public static CollectionGridLayout Build(
         IReadOnlyList<CollectionCardVm> visible,
         CollectionTabKind activeTab
+    ) => Build(visible, activeTab, CollectionGridConstants.ColumnsFor(activeTab.CardType()));
+
+    // A host that chooses the column count from its width (the Android host, through
+    // CollectionTouchLayout.GridColumns). Items keep at least ItemLargeSpan columns, so a large
+    // item always fits a shelf.
+    public static CollectionGridLayout Build(
+        IReadOnlyList<CollectionCardVm> visible,
+        CollectionTabKind activeTab,
+        int columns
     )
     {
         var activeType = activeTab.CardType();
+        columns = Math.Max(
+            activeType == CardType.Skill ? 1 : CollectionGridConstants.ItemLargeSpan,
+            columns
+        );
         if (visible == null || visible.Count == 0)
             return new CollectionGridLayout(
                 EmptyCells,
                 EmptyShelves,
                 CollectionGridConstants.RowSpanFor(activeType),
-                CollectionGridConstants.ColumnsFor(activeType)
+                columns
             );
 
-        return activeType == CardType.Skill ? BuildSkill(visible) : BuildItem(visible);
+        return activeType == CardType.Skill
+            ? BuildSkill(visible, columns)
+            : BuildItem(visible, columns);
     }
 
-    private static CollectionGridLayout BuildSkill(IReadOnlyList<CollectionCardVm> visible)
+    private static CollectionGridLayout BuildSkill(
+        IReadOnlyList<CollectionCardVm> visible,
+        int columns
+    )
     {
-        var columns = CollectionGridConstants.SkillColumns;
         var count = visible.Count;
         var cells = new CollectionGridCell[count];
         for (var i = 0; i < count; i++)
@@ -91,9 +109,11 @@ public sealed class CollectionGridLayout
         );
     }
 
-    private static CollectionGridLayout BuildItem(IReadOnlyList<CollectionCardVm> visible)
+    private static CollectionGridLayout BuildItem(
+        IReadOnlyList<CollectionCardVm> visible,
+        int columns
+    )
     {
-        var columns = CollectionGridConstants.ItemColumns;
         var count = visible.Count;
         var cells = new CollectionGridCell[count];
         var shelves = new List<CollectionGridShelf>();

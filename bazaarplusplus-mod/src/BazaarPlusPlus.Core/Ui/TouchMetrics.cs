@@ -110,6 +110,24 @@ public readonly struct TouchMetrics
     public static float MissingTargetPixels(float heightPixels, float dpi) =>
         Math.Max(0f, MinTargetDp * EffectiveDpi(dpi) / BaselineDpi - Math.Max(0f, heightPixels));
 
+    /// <summary>
+    /// The relative size, in percent, at which text inside a label whose font renders
+    /// <paramref name="fontPixels"/> screen pixels high stays at least <see cref="MinBodySp"/>:
+    /// <paramref name="percent"/> when that is already readable, else the smallest percent that
+    /// is, never above 100. For text BPP appends at a reduced size inside the game's own labels,
+    /// such as the enchant preview's lines in a card tooltip. An unknown font size keeps
+    /// <paramref name="percent"/>.
+    /// </summary>
+    public static int ReadablePercent(int percent, float fontPixels, float dpi)
+    {
+        var clamped = Math.Clamp(percent, 1, 100);
+        if (fontPixels <= 0f || float.IsNaN(fontPixels) || float.IsInfinity(fontPixels))
+            return clamped;
+        var minimumPixels = MinBodySp * EffectiveDpi(dpi) / BaselineDpi;
+        var needed = (int)Math.Ceiling(minimumPixels / fontPixels * 100f - 0.001f);
+        return Math.Clamp(Math.Max(clamped, needed), 1, 100);
+    }
+
     /// <summary><paramref name="dp"/> density-independent pixels in canvas units.</summary>
     public float Dp(float dp) => dp * UnitsPerDp;
 

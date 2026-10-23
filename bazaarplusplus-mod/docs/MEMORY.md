@@ -37,6 +37,7 @@ One line each, full record in [adr/](adr/). A line here exists to stop a settled
 - ADR-0015: Core speaks BPP card facets, never game card enums; each host maps by member name in one adapter, a facet's integer is never persisted, and pin tests name new game members.
 - ADR-0016: `AndroidHost.Tests` loads the compiled host and runs only code that never calls into IL2CPP; both hosts' card enum values are one shared table.
 - ADR-0017: Item boards and live cards live in Core on facets, with sockets as indexes 0..9 and attributes keyed by game member name; an unmapped tier or size renders as Bronze or Small.
+- ADR-0018: Android touch surfaces lay out in Core's one `TouchChrome` frame (safe area, 48 dp/12 sp floors, one close button, shared inspect sheet); a touch grid picks its columns from its width.
 
 
 ## Gotchas

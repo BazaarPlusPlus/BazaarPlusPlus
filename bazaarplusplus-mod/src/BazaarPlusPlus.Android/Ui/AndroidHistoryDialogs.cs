@@ -71,7 +71,7 @@ internal sealed class AndroidHistoryMoreDialog
             Local(layout.DialogClose, origin),
             layout.TitleFont,
             () => Close("close_button"),
-            "X"
+            AndroidUiKit.CloseGlyph
         );
         var (scroll, content) = AndroidHistoryUi.Scroll(
             dialog,
@@ -333,7 +333,7 @@ internal sealed class AndroidHistoryNoteDialog
             Local(layout.DialogClose, origin),
             layout.TitleFont,
             () => Close("close_button"),
-            "X"
+            AndroidUiKit.CloseGlyph
         );
         _input = AndroidHistoryUi.Input(
             dialog,

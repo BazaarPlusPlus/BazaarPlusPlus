@@ -145,11 +145,13 @@ internal static class EnchantPreviewPassivePatch
     [HarmonyPostfix]
     private static void Postfix(EffectBlockRenderer __instance, string text)
     {
-        var section = AndroidEnchantPreview.TakePending();
-        if (section == null)
-            return;
         try
         {
+            var section = AndroidEnchantPreview.TakePending(
+                RenderedFontPixels(__instance._passiveText.textObject)
+            );
+            if (section == null)
+                return;
             __instance._passiveParentVisibility.SetVisible(true);
             __instance._dividerParent?.SetActive(true);
             __instance._passiveText.SetText(
@@ -160,5 +162,19 @@ internal static class EnchantPreviewPassivePatch
         {
             AndroidPatchHost.ReportProbeError("enchant_preview", exception);
         }
+    }
+
+    // The label's font size in screen pixels: its canvas units, scaled by its transform within
+    // the canvas and by the canvas's own scale factor. Zero when it cannot be read.
+    private static float RenderedFontPixels(Il2CppTMPro.TMP_Text? label)
+    {
+        if (label == null)
+            return 0f;
+        var canvas = label.canvas?.rootCanvas;
+        if (canvas == null)
+            return 0f;
+        var canvasScale = canvas.transform.lossyScale.y;
+        var relative = canvasScale > 0f ? label.transform.lossyScale.y / canvasScale : 1f;
+        return label.fontSize * relative * canvas.scaleFactor;
     }
 }
