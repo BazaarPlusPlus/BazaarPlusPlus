@@ -42,7 +42,19 @@ internal sealed class AndroidSettings
             true,
             "Whether the touch menu offers the Live Build panel, which recommends ten-win builds for the run."
         );
+        DevReleaseManifestPort = store.Bind(
+            "Dev",
+            "ReleaseManifestPort",
+            0,
+            "Developer device tests only; leave 0. A port above 0 reads the release manifest from http://127.0.0.1:<port>/latest/android-aarch64.json (a local server reached through adb reverse) instead of the published one."
+        );
     }
+
+    /// <summary>
+    /// The developer seam for the game-update row: 0, the default, reads the published manifest
+    /// (<see cref="Lobby.AndroidVersionCheck.DevManifest"/>).
+    /// </summary>
+    public ISetting<int> DevReleaseManifestPort { get; }
 
     public ISetting<bool> TouchMenu { get; }
 

@@ -8,6 +8,22 @@ using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Android.Lobby;
 
+/// <summary>What the game-update row says: the last check's answer about the game itself.</summary>
+internal enum AndroidGameUpdateStatus
+{
+    /// <summary>No check has answered yet this session.</summary>
+    Checking,
+
+    /// <summary>The last check failed, so whether the game is current is unknown.</summary>
+    CheckFailed,
+
+    /// <summary>The published APK is for this game or an older one.</summary>
+    Current,
+
+    /// <summary>The published APK is for a newer game (<see cref="AndroidVersionCheck.GameUpdate"/>).</summary>
+    Available,
+}
+
 /// <summary>
 /// The main menu's release check on Android, the counterpart of the desktop's
 /// <c>MainMenuVersionCheckController</c>: each main-menu visit reads
@@ -24,13 +40,29 @@ internal sealed class AndroidVersionCheck : IDisposable
     private readonly ReleaseManifestCheckLifecycle _lifecycle = new();
     private readonly MainMenuSelfUpdate _selfUpdate;
     private readonly string _gameVersion;
+    private readonly Uri _manifest;
     private readonly object _gate = new();
     private AndroidApkRelease? _gameUpdate;
+    private AndroidGameUpdateStatus _status = AndroidGameUpdateStatus.Checking;
     private Task? _check;
 
-    public AndroidVersionCheck(string installRoot, string dataRoot, string gameVersion)
+    /// <param name="installRoot">The MelonLoader install root.</param>
+    /// <param name="dataRoot">The Data Root.</param>
+    /// <param name="gameVersion">The running game's <c>Application.version</c>.</param>
+    /// <param name="manifestOverride">
+    /// A loopback manifest for device tests (<see cref="DevManifest"/>); null reads the published one.
+    /// </param>
+    public AndroidVersionCheck(
+        string installRoot,
+        string dataRoot,
+        string gameVersion,
+        Uri? manifestOverride = null
+    )
     {
         _gameVersion = gameVersion ?? string.Empty;
+        _manifest =
+            manifestOverride
+            ?? ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.AndroidPlatformKey);
         _selfUpdate = new MainMenuSelfUpdate(
             installRoot,
             dataRoot,
@@ -40,6 +72,22 @@ internal sealed class AndroidVersionCheck : IDisposable
             () => CreateClient("SelfUpdate", DownloadTimeout)
         );
     }
+
+    /// <summary>
+    /// The developer seam <c>[Dev] ReleaseManifestPort</c>: a port above zero reads the Platform
+    /// Release Manifest from <c>http://127.0.0.1:&lt;port&gt;/latest/android-aarch64.json</c>, a
+    /// server on the developer's machine reached through <c>adb reverse</c>. Zero, the default,
+    /// and anything outside the port range read the published manifest.
+    /// </summary>
+    public static Uri? DevManifest(int port) =>
+        port is > 0 and <= 65535
+            ? new Uri(
+                $"http://127.0.0.1:{port}/latest/{ReleaseManifestEndpoints.AndroidPlatformKey}.json"
+            )
+            : null;
+
+    /// <summary>The manifest this check reads.</summary>
+    public Uri Manifest => _manifest;
 
     /// <summary>The APK to offer when the published one is for a newer game; null otherwise.</summary>
     public AndroidApkRelease? GameUpdate
@@ -51,6 +99,19 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
     }
 
+    /// <summary>
+    /// What the last check said about the game. A failed check reads as
+    /// <see cref="AndroidGameUpdateStatus.CheckFailed"/>, never as current.
+    /// </summary>
+    public AndroidGameUpdateStatus GameUpdateStatus
+    {
+        get
+        {
+            lock (_gate)
+                return _status;
+        }
+    }
+
     /// <summary>Starts this main-menu visit's check, replacing one still in flight.</summary>
     public void Begin()
     {
@@ -58,7 +119,7 @@ internal sealed class AndroidVersionCheck : IDisposable
         var lease = _lifecycle.Begin(httpClient);
         var client = new ReleaseManifestClient(
             httpClient,
-            ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.AndroidPlatformKey),
+            _manifest,
             ReleaseManifestEndpoints.AndroidPlatformKey
         );
         var selfUpdate = _selfUpdate;
@@ -85,16 +146,18 @@ internal sealed class AndroidVersionCheck : IDisposable
         if (check is not { IsCompleted: true })
             return;
         _check = null;
-        if (check.Exception is { } exception)
-            BppLog.WarnEvent(
-                new BppLogEvent(
-                    BppLogFeatureScope.Lobby,
-                    "lobby.version_check.degraded",
-                    storm: ["reason_code"]
-                ),
-                exception,
-                ("reason_code", LobbyLogReasonCode.RequestException)
-            );
+        if (check.Exception is not { } exception)
+            return;
+        MarkFailed();
+        BppLog.WarnEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.Lobby,
+                "lobby.version_check.degraded",
+                storm: ["reason_code"]
+            ),
+            exception,
+            ("reason_code", LobbyLogReasonCode.RequestException)
+        );
     }
 
     public void Dispose() => _lifecycle.Dispose();
@@ -106,20 +169,39 @@ internal sealed class AndroidVersionCheck : IDisposable
         if (check.Evaluation == null)
         {
             if (check.Result.FailureKind != ReleaseManifestFailureKind.Cancelled)
+            {
+                MarkFailed();
                 ReportDegraded(check.Result);
+            }
             return;
         }
 
         var gameUpdate = AndroidGameUpdate.Newer(_gameVersion, check.Result.AndroidApk);
         lock (_gate)
+        {
             _gameUpdate = gameUpdate;
+            _status =
+                gameUpdate == null
+                    ? AndroidGameUpdateStatus.Current
+                    : AndroidGameUpdateStatus.Available;
+        }
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Lobby, "lobby.game_update.checked"),
             ("game_version", _gameVersion),
             ("published_game_version", check.Result.AndroidApk?.GameVersion),
-            ("decision", gameUpdate == null ? "current" : "download_apk")
+            ("decision", gameUpdate == null ? "current" : "download_apk"),
+            ("manifest", _manifest.IsLoopback ? "dev_loopback" : "published")
         );
         _selfUpdate.Apply(check.Evaluation);
+    }
+
+    private void MarkFailed()
+    {
+        lock (_gate)
+        {
+            _gameUpdate = null;
+            _status = AndroidGameUpdateStatus.CheckFailed;
+        }
     }
 
     private static HttpClient CreateClient(string userAgentSuffix, TimeSpan timeout) =>

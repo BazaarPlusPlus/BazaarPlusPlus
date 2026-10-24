@@ -59,7 +59,10 @@ internal static class AndroidEnchantPreview
     /// <summary>Tooltips under <c>AutoOnPedestalChoice</c> with no enchant pedestal offered.</summary>
     public static long PedestalHidden => Interlocked.Read(ref _pedestalHidden);
 
-    /// <summary>Tooltips under <c>AutoOnPedestalChoice</c> while an enchant pedestal is offered.</summary>
+    /// <summary>
+    /// Tooltips under <c>AutoOnPedestalChoice</c> that showed the preview for an offered enchant
+    /// pedestal; one the held upgrade preview kept it off is not counted.
+    /// </summary>
     public static long PedestalShown => Interlocked.Read(ref _pedestalShown);
 
     /// <summary>The contents of a card tooltip start to render.</summary>
@@ -85,9 +88,11 @@ internal static class AndroidEnchantPreview
                     Interlocked.Increment(ref _pedestalHidden);
                 return;
             }
-            if (readsPedestal)
-                Interlocked.Increment(ref _pedestalShown);
             _pending = Build(tooltipData, EnchantPreviewVisibility.Restriction(mode, pedestal));
+            // Counted only when the preview has lines: a held upgrade preview, an ineligible
+            // item, or one with nothing to show leaves the tooltip without it.
+            if (readsPedestal && _pending != null)
+                Interlocked.Increment(ref _pedestalShown);
         }
         catch (Exception exception)
         {
