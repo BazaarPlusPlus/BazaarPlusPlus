@@ -5,6 +5,8 @@ using BazaarPlusPlus.Game.PostCombatImpact;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using BazaarPlusPlus.Game.PostCombatImpact.Ui;
 using BazaarPlusPlus.GameInterop.CardPreview;
+using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.TagTypography;
@@ -1149,7 +1151,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, previewWidth);
         rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size);
 
-        if (entity.Hero.HasValue)
+        if (entity.Hero is { } hero && DesktopCardFacets.Hero.TryToSource(hero, out var gameHero))
         {
             var artObject = new GameObject(
                 "ImpactHeroPortrait",
@@ -1167,7 +1169,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             image.raycastTarget = false;
             image.enabled = false;
             _pendingPreviewCount++;
-            _ = LoadHero(image, rect, entity.Hero.Value, generation);
+            _ = LoadHero(image, rect, gameHero, generation);
             return;
         }
 
@@ -1185,10 +1187,10 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         var subject = new NativeCardPreviewSubject
         {
             TemplateId = entity.TemplateId,
-            Tier = entity.Tier,
+            Tier = DesktopCardFacets.GameTier(entity.Tier),
             DisplaySpan = Mathf.Clamp(entity.DisplaySpan, 1, 3),
-            EnchantmentType = entity.EnchantmentType,
-            Attributes = entity.Attributes,
+            EnchantmentType = DesktopCardFacets.GameEnchantment(entity.EnchantmentType),
+            Attributes = DesktopCombatFacets.GameCardAttributes(entity.Attributes),
             InstanceIdPrefix = $"bpp-combat-impact-{generation}",
         };
         _previewOwner.Register(subject, rect);

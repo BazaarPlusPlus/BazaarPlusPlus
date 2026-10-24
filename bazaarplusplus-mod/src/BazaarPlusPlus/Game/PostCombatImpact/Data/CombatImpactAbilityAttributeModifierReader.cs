@@ -2,12 +2,16 @@
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
 using BazaarGameShared.Domain.Effect.AuraActions;
+using BazaarPlusPlus.Core.Combat;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
+// An effect id whose direct modifiers differ is ambiguous and left out. The comparison runs on the
+// game's records, before the modifiers cross into Core's vocabulary.
 internal static class CombatImpactAbilityAttributeModifierReader
 {
-    internal static IReadOnlyDictionary<string, TActionCardModifyAttribute>? Read(
+    internal static IReadOnlyDictionary<string, CombatAttributeModifier>? Read(
         IEnumerable<TCardAbility>? abilities
     )
     {
@@ -37,10 +41,10 @@ internal static class CombatImpactAbilityAttributeModifierReader
             ambiguousEffectIds.Add(ability.Id);
         }
 
-        return modifiers.Count == 0 ? null : modifiers;
+        return ToCore(modifiers, DesktopCombatTimeline.ToModifier);
     }
 
-    internal static IReadOnlyDictionary<string, TAuraActionCardModifyAttribute>? ReadAuras(
+    internal static IReadOnlyDictionary<string, CombatAttributeModifier>? ReadAuras(
         IEnumerable<TCardAura>? auras
     )
     {
@@ -66,6 +70,20 @@ internal static class CombatImpactAbilityAttributeModifierReader
                 ambiguous.Add(aura.Id);
             }
         }
-        return modifiers.Count == 0 ? null : modifiers;
+        return ToCore(modifiers, DesktopCombatTimeline.ToModifier);
+    }
+
+    private static IReadOnlyDictionary<string, CombatAttributeModifier>? ToCore<TModifier>(
+        Dictionary<string, TModifier> modifiers,
+        Func<TModifier, CombatAttributeModifier?> convert
+    )
+    {
+        var result = new Dictionary<string, CombatAttributeModifier>(StringComparer.Ordinal);
+        foreach (var (effectId, modifier) in modifiers)
+        {
+            if (convert(modifier) is { } converted)
+                result[effectId] = converted;
+        }
+        return result.Count == 0 ? null : result;
     }
 }

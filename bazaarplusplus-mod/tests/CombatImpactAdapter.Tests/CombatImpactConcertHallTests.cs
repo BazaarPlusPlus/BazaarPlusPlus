@@ -7,18 +7,22 @@ using BazaarGameShared.Domain.Prerequisites.Conditionals;
 using BazaarGameShared.Domain.Targeting;
 using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
+using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 using Xunit;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactAdapter.Tests;
 
-public sealed partial class CombatImpactProjectorTests
+public sealed partial class CombatImpactAdapterTests
 {
     [Fact]
     public void Ghost_concert_hall_notes_do_not_create_a_second_guzheng_tempo_row()
     {
-        using var resource = typeof(CombatImpactProjectorTests).Assembly.GetManifestResourceStream(
-            "PostCombatImpact.Tests.Fixtures.ghost-concert-hall-tempo-20260907.combat.mpack.gz"
+        using var resource = typeof(CombatImpactAdapterTests).Assembly.GetManifestResourceStream(
+            "CombatImpactAdapter.Tests.Fixtures.ghost-concert-hall-tempo-20260907.combat.mpack.gz"
         )!;
         using var gzip = new System.IO.Compression.GZipStream(
             resource,
@@ -30,8 +34,8 @@ public sealed partial class CombatImpactProjectorTests
         var hallTemplate = Guid.Parse("8bf6a0b7-52f0-498c-bc45-21e47c8ea76f");
         var entities = Entities().ToDictionary(entry => entry.Key, entry => entry.Value);
         using var spawnResource =
-            typeof(CombatImpactProjectorTests).Assembly.GetManifestResourceStream(
-                "PostCombatImpact.Tests.Fixtures.ghost-concert-hall-tempo-20260907.spawn.mpack.gz"
+            typeof(CombatImpactAdapterTests).Assembly.GetManifestResourceStream(
+                "CombatImpactAdapter.Tests.Fixtures.ghost-concert-hall-tempo-20260907.spawn.mpack.gz"
             )!;
         using var spawnGzip = new System.IO.Compression.GZipStream(
             spawnResource,
@@ -53,9 +57,9 @@ public sealed partial class CombatImpactProjectorTests
                 null,
                 10,
                 Guid.Parse(card.TemplateId),
-                CombatantId: card.CombatantId,
-                Section: card.Section,
-                SocketId: card.Socket
+                CombatantId: DesktopCombatFacets.ToCombatant(card.CombatantId),
+                Section: DesktopCardFacets.CapturedSection(card.Section),
+                SocketId: DesktopCardFacets.CapturedSocket(card.Socket)
             );
 
         entities["Ar6igzD"] = new CombatImpactEntity(
@@ -65,8 +69,8 @@ public sealed partial class CombatImpactProjectorTests
             null,
             0,
             hallTemplate,
-            CombatantId: ECombatantId.Opponent,
-            Section: EInventorySection.Hand
+            CombatantId: Combatant.Opponent,
+            Section: CardSection.Hand
         );
         entities["diJBoIu"] = new CombatImpactEntity(
             "diJBoIu",
@@ -75,11 +79,11 @@ public sealed partial class CombatImpactProjectorTests
             null,
             1,
             DisplaySpan: 3,
-            CombatantId: ECombatantId.Opponent,
-            Section: EInventorySection.Hand,
-            SocketId: EContainerSocketId.Socket_5,
-            Tags: [ECardTag.Instrument, ECardTag.Weapon],
-            HiddenTags: [EHiddenTag.Tempo, EHiddenTag.Burn]
+            CombatantId: Combatant.Opponent,
+            Section: CardSection.Hand,
+            SocketId: CardSocket.Socket_5,
+            Tags: [CardTag.Instrument, CardTag.Weapon],
+            HiddenTags: [CardHiddenTag.Tempo, CardHiddenTag.Burn]
         );
         entities["VU5NPyp"] = new CombatImpactEntity(
             "VU5NPyp",
@@ -87,14 +91,14 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             2,
-            CombatantId: ECombatantId.Opponent
+            CombatantId: Combatant.Opponent
         );
         foreach (
-            var (id, socket, condition) in new (string, EContainerSocketId, ITCardConditional)[]
+            var (id, socket, condition) in new (string, CardSocket, ITCardConditional)[]
             {
                 (
                     "3GGfGZ_",
-                    EContainerSocketId.Socket_5,
+                    CardSocket.Socket_5,
                     new TCardConditionalHiddenTag
                     {
                         Tags = [EHiddenTag.Tempo],
@@ -103,7 +107,7 @@ public sealed partial class CombatImpactProjectorTests
                 ),
                 (
                     "o1TDZin",
-                    EContainerSocketId.Socket_6,
+                    CardSocket.Socket_6,
                     new TCardConditionalTag
                     {
                         Tags = [ECardTag.Weapon],
@@ -112,7 +116,7 @@ public sealed partial class CombatImpactProjectorTests
                 ),
                 (
                     "5bJAEC-",
-                    EContainerSocketId.Socket_7,
+                    CardSocket.Socket_7,
                     new TCardConditionalHiddenTag
                     {
                         Tags = [EHiddenTag.Burn],
@@ -130,8 +134,8 @@ public sealed partial class CombatImpactProjectorTests
                 "SocketEffect",
                 null,
                 3,
-                CombatantId: ECombatantId.Opponent,
-                Section: EInventorySection.Hand,
+                CombatantId: Combatant.Opponent,
+                Section: CardSection.Hand,
                 SocketId: socket,
                 PrerequisiteSkillSourceRulesByEffectId: CombatImpactAttributionRuleReader.ReadSourceRules(
                     [ability],
@@ -140,7 +144,10 @@ public sealed partial class CombatImpactProjectorTests
                 UseAttributionRules: [rule]
             );
         }
-        var report = CombatImpactProjector.Project(simulation, entities);
+        var report = CombatImpactProjector.Project(
+            DesktopCombatTimeline.From(simulation),
+            entities
+        );
         var guz = report.Sources.Single(source => source.Entity.Id == "diJBoIu");
         var tempo = Assert.Single(
             guz.Groups,
@@ -179,12 +186,12 @@ public sealed partial class CombatImpactProjectorTests
             null,
             0,
             id,
-            Section: EInventorySection.Hand
+            Section: CardSection.Hand
         );
         Assert.True(rule.SourceRule.Matches(owner));
-        Assert.False(rule.SourceRule.Matches(owner with { Section = EInventorySection.Stash }));
+        Assert.False(rule.SourceRule.Matches(owner with { Section = CardSection.Stash }));
         Assert.False(rule.SourceRule.Matches(owner with { TypeLabel = "Skill" }));
-        var item = owner with { Tags = [ECardTag.Instrument], HiddenTags = [EHiddenTag.Burn] };
+        var item = owner with { Tags = [CardTag.Instrument], HiddenTags = [CardHiddenTag.Burn] };
         Assert.True(rule.ItemCondition.Matches(item));
         Assert.False(rule.ItemCondition.Matches(item with { Tags = [] }));
         Assert.False(rule.ItemCondition.Matches(item with { HiddenTags = [] }));

@@ -1,0 +1,67 @@
+#nullable enable
+namespace BazaarPlusPlus.Core.Combat;
+
+/// <summary>
+/// What an executed effect did: its action command.
+/// A combat facet (ADR-0019): members mirror the game's enum names so host adapters map by
+/// name. The values copy the game's only so set and sort order match the game's; nothing casts
+/// between the two, and no value is persisted or sent.
+/// </summary>
+public enum CombatActionType
+{
+    None = 0,
+    CardAddTags = 1,
+    CardRemoveTags = 2,
+    CardBeginSandstorm = 3,
+    CardCharge = 4,
+    CardDestroy = 5,
+    CardDisable = 6,
+    CardForceUse = 7,
+    CardFreeze = 8,
+    CardHaste = 9,
+    CardModifyAttribute = 10,
+    CardReload = 11,
+    CardSlow = 12,
+    CardEnchant = 13,
+    CardTransform = 14,
+    CardUpgrade = 15,
+    GameDealCards = 16,
+    GameModifyTime = 17,
+    GameScheduleEncounter = 18,
+    GameSpawnCards = 19,
+    GameStartCombat = 20,
+    GameUnscheduleEncounter = 21,
+    PlayerBurnApply = 22,
+    PlayerBurnRemove = 23,
+    PlayerDamage = 24,
+    PlayerGoldSteal = 25,
+    PlayerHeal = 26,
+    PlayerJoyApply = 27,
+    PlayerJoyRemove = 28,
+    PlayerMaxHealthDecrease = 29,
+    PlayerMaxHealthIncrease = 30,
+    PlayerModifyAttribute = 31,
+    PlayerPoisonApply = 32,
+    PlayerPoisonRemove = 33,
+    PlayerRegenApply = 34,
+    PlayerRegenRemove = 35,
+    PlayerShieldApply = 36,
+    PlayerShieldRemove = 37,
+    ExitReplacementSet = 38,
+    CardEnchantRemove = 39,
+    FlyingStart = 40,
+    FlyingStop = 41,
+    CardRepair = 42,
+    CardTransformDestroyed = 43,
+    CardAddTagsRandom = 44,
+    PlayerPortraitNext = 45,
+    PlayerPortraitReset = 46,
+    PlayerRageApply = 47,
+    PlayerRageRemove = 48,
+    GameReroll = 49,
+    PlayerTempoApply = 50,
+    PlayerTempoRemove = 51,
+    GameAddToExclusionSet = 52,
+    GameRemoveFromExclusionSet = 53,
+    GameSetNextHourSpawnContext = 54,
+}

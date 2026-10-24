@@ -1,8 +1,5 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Combat;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
@@ -30,7 +27,7 @@ internal static class PeriodicEffectAttribution
     //   and prevented Burn damage are not assumed numerically equal.
     // - Only movement that changed live combat state is realized impact. Overheal, overkill, and
     //   prevented damage are counterfactual and stay unbooked.
-    // - EPlayerHealthChangeType.Joy survives in the shared enum for schema compatibility. Enum
+    // - CombatHealthChange.Joy survives in the shared enum for schema compatibility. Enum
     //   presence is not evidence that Joy is a current gameplay pool, so the model does not book it.
     // - CombatImpactPeriodicProof is two-valued on purpose. A tick exposes only aggregate status
     //   and pool movement, so once two resolved owners coexist, moving one unit between them
@@ -43,15 +40,15 @@ internal static class PeriodicEffectAttribution
     // retrospective fallback and every mixed stack retain Proportional proof internally.
 
     internal static PeriodicAttributionReport Project(
-        CombatSim simulation,
+        CombatTimeline simulation,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
         var diagnostics = new PeriodicEffectAttributionDiagnostics();
-        var ledgers = new Dictionary<ECombatantId, CombatantLedger>
+        var ledgers = new Dictionary<Combatant, CombatantLedger>
         {
-            [ECombatantId.Player] = BuildLedger(simulation, ECombatantId.Player),
-            [ECombatantId.Opponent] = BuildLedger(simulation, ECombatantId.Opponent),
+            [Combatant.Player] = BuildLedger(simulation, Combatant.Player),
+            [Combatant.Opponent] = BuildLedger(simulation, Combatant.Opponent),
         };
         var measuredTotals = new Dictionary<PeriodicMeasurementKey, PeriodicMeasuredAmounts>();
         var regenFallbackSources = BuildRegenFallbackSources(simulation, entities);
@@ -59,16 +56,16 @@ internal static class PeriodicEffectAttribution
         for (var frameIndex = 0; frameIndex < simulation.Frames.Count; frameIndex++)
         {
             var frame = simulation.Frames[frameIndex];
-            foreach (var combatant in new[] { ECombatantId.Player, ECombatantId.Opponent })
+            foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
             {
                 var update =
-                    combatant == ECombatantId.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
+                    combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
                 var ledger = ledgers[combatant];
                 var pools = ReconstructPools(
                     update,
                     ledger.Attributes,
                     frame
-                        .Events.OfType<CombatSimEventCombatantDied>()
+                        .Events.OfType<CombatantDied>()
                         .Any(death => death.CombatantId == combatant)
                 );
                 ObserveMeasuredTotals(measuredTotals, combatant, pools);
@@ -151,7 +148,7 @@ internal static class PeriodicEffectAttribution
 
     private static void ObserveMeasuredTotals(
         IDictionary<PeriodicMeasurementKey, PeriodicMeasuredAmounts> totals,
-        ECombatantId combatant,
+        Combatant combatant,
         PoolResult pools
     )
     {
@@ -192,29 +189,29 @@ internal static class PeriodicEffectAttribution
         );
     }
 
-    private static CombatantLedger BuildLedger(CombatSim simulation, ECombatantId combatant)
+    private static CombatantLedger BuildLedger(CombatTimeline simulation, Combatant combatant)
     {
-        var attributes = new Dictionary<EPlayerAttributeType, int>();
+        var attributes = new Dictionary<CombatPlayerAttribute, int>();
         foreach (var frame in simulation.Frames)
         {
             var update =
-                combatant == ECombatantId.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
+                combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
             if (update == null)
                 continue;
             foreach (var (attribute, transition) in update.Attributes)
                 attributes.TryAdd(attribute, transition.PreviousValue);
         }
 
-        attributes.TryAdd(EPlayerAttributeType.Burn, 0);
-        attributes.TryAdd(EPlayerAttributeType.Poison, 0);
-        attributes.TryAdd(EPlayerAttributeType.HealthRegen, 0);
-        attributes.TryAdd(EPlayerAttributeType.Shield, 0);
+        attributes.TryAdd(CombatPlayerAttribute.Burn, 0);
+        attributes.TryAdd(CombatPlayerAttribute.Poison, 0);
+        attributes.TryAdd(CombatPlayerAttribute.HealthRegen, 0);
+        attributes.TryAdd(CombatPlayerAttribute.Shield, 0);
         if (
-            !attributes.ContainsKey(EPlayerAttributeType.HealthMax)
-            && attributes.TryGetValue(EPlayerAttributeType.Health, out var health)
+            !attributes.ContainsKey(CombatPlayerAttribute.HealthMax)
+            && attributes.TryGetValue(CombatPlayerAttribute.Health, out var health)
         )
         {
-            attributes[EPlayerAttributeType.HealthMax] = health;
+            attributes[CombatPlayerAttribute.HealthMax] = health;
         }
 
         var ledger = new CombatantLedger(attributes);
@@ -232,34 +229,34 @@ internal static class PeriodicEffectAttribution
     }
 
     private static PoolResult ReconstructPools(
-        CombatSimPlayerUpdate? update,
-        IDictionary<EPlayerAttributeType, int> attributes,
+        CombatPlayerUpdate? update,
+        IDictionary<CombatPlayerAttribute, int> attributes,
         bool combatantDied
     )
     {
         if (update == null)
             return PoolResult.Empty;
 
-        var burnHealth = Loss(update, EDamageType.Burn, EPlayerHealthChangeType.Health);
-        var burnShield = Loss(update, EDamageType.Burn, EPlayerHealthChangeType.Shield);
-        var poisonHealth = Loss(update, EDamageType.Poison, EPlayerHealthChangeType.Health);
-        var regenAttempted = Gain(update, EDamageType.Regen, EPlayerHealthChangeType.Health);
+        var burnHealth = Loss(update, CombatDamageType.Burn, CombatHealthChange.Health);
+        var burnShield = Loss(update, CombatDamageType.Burn, CombatHealthChange.Shield);
+        var poisonHealth = Loss(update, CombatDamageType.Poison, CombatHealthChange.Health);
+        var regenAttempted = Gain(update, CombatDamageType.Regen, CombatHealthChange.Health);
         var regenRealized = 0L;
 
         var hasHealthTransition = update.Attributes.TryGetValue(
-            EPlayerAttributeType.Health,
+            CombatPlayerAttribute.Health,
             out var healthTransition
         );
         var hasHealthMaxTransition = update.Attributes.TryGetValue(
-            EPlayerAttributeType.HealthMax,
+            CombatPlayerAttribute.HealthMax,
             out var healthMaxTransition
         );
         var hasHealthInLedger = attributes.TryGetValue(
-            EPlayerAttributeType.Health,
+            CombatPlayerAttribute.Health,
             out var healthFromLedger
         );
         var hasHealthMaxInLedger = attributes.TryGetValue(
-            EPlayerAttributeType.HealthMax,
+            CombatPlayerAttribute.HealthMax,
             out var healthMaxFromLedger
         );
         var hasHealth = hasHealthTransition || hasHealthInLedger;
@@ -281,25 +278,25 @@ internal static class PeriodicEffectAttribution
             {
                 var adjustment = update.HealthAdjustments[index];
                 if (
-                    adjustment.DamageType == EDamageType.Burn
+                    adjustment.DamageType == CombatDamageType.Burn
                     && adjustment.Amount < 0
                     && adjustment.AttributeChanged
-                        is EPlayerHealthChangeType.Health
-                            or EPlayerHealthChangeType.Shield
+                        is CombatHealthChange.Health
+                            or CombatHealthChange.Shield
                 )
                 {
                     var groupWasAlive = !combatantDied || !terminalReached;
                     while (
                         index < update.HealthAdjustments.Count
-                        && update.HealthAdjustments[index].DamageType == EDamageType.Burn
+                        && update.HealthAdjustments[index].DamageType == CombatDamageType.Burn
                         && update.HealthAdjustments[index].Amount < 0
                         && update.HealthAdjustments[index].AttributeChanged
-                            is EPlayerHealthChangeType.Health
-                                or EPlayerHealthChangeType.Shield
+                            is CombatHealthChange.Health
+                                or CombatHealthChange.Shield
                     )
                     {
                         var burnAdjustment = update.HealthAdjustments[index];
-                        if (burnAdjustment.AttributeChanged == EPlayerHealthChangeType.Health)
+                        if (burnAdjustment.AttributeChanged == CombatHealthChange.Health)
                         {
                             var loss = -(long)burnAdjustment.Amount;
                             if (groupWasAlive)
@@ -321,7 +318,7 @@ internal static class PeriodicEffectAttribution
                     index--;
                     continue;
                 }
-                if (adjustment.AttributeChanged != EPlayerHealthChangeType.Health)
+                if (adjustment.AttributeChanged != CombatHealthChange.Health)
                     continue;
                 if (adjustment.Amount <= 0)
                 {
@@ -330,7 +327,7 @@ internal static class PeriodicEffectAttribution
                         combatantDied && !terminalReached ? Math.Min(loss, Math.Max(0L, cursor))
                         : combatantDied ? 0L
                         : loss;
-                    if (adjustment.DamageType == EDamageType.Poison)
+                    if (adjustment.DamageType == CombatDamageType.Poison)
                         effectivePoisonHealth += effectiveLoss;
                     cursor += adjustment.Amount;
                     if (combatantDied && cursor <= 0)
@@ -341,7 +338,7 @@ internal static class PeriodicEffectAttribution
                 var accepted = Math.Min(adjustment.Amount, Math.Max(0L, closingMax - cursor));
                 cursor += accepted;
                 if (
-                    adjustment.DamageType == EDamageType.Regen
+                    adjustment.DamageType == CombatDamageType.Regen
                     && (!combatantDied || !terminalReached)
                 )
                 {
@@ -355,16 +352,16 @@ internal static class PeriodicEffectAttribution
 
             var closingHealth = hasHealthTransition ? healthTransition!.CurrentValue : cursor;
             healthReconciled = cursor == closingHealth;
-            attributes[EPlayerAttributeType.Health] = SaturatingInt(closingHealth);
-            attributes[EPlayerAttributeType.HealthMax] = closingMax;
+            attributes[CombatPlayerAttribute.Health] = SaturatingInt(closingHealth);
+            attributes[CombatPlayerAttribute.HealthMax] = closingMax;
         }
 
         var hasShieldTransition = update.Attributes.TryGetValue(
-            EPlayerAttributeType.Shield,
+            CombatPlayerAttribute.Shield,
             out var shieldTransition
         );
         var hasShieldInLedger = attributes.TryGetValue(
-            EPlayerAttributeType.Shield,
+            CombatPlayerAttribute.Shield,
             out var shieldFromLedger
         );
         var shieldReconciled = hasShieldTransition || hasShieldInLedger;
@@ -374,12 +371,12 @@ internal static class PeriodicEffectAttribution
             long cursor = shield;
             cursor += update
                 .HealthAdjustments.Where(adjustment =>
-                    adjustment.AttributeChanged == EPlayerHealthChangeType.Shield
+                    adjustment.AttributeChanged == CombatHealthChange.Shield
                 )
                 .Sum(adjustment => (long)adjustment.Amount);
             var closingShield = hasShieldTransition ? shieldTransition!.CurrentValue : cursor;
             shieldReconciled = cursor == closingShield;
-            attributes[EPlayerAttributeType.Shield] = SaturatingInt(closingShield);
+            attributes[CombatPlayerAttribute.Shield] = SaturatingInt(closingShield);
         }
 
         return new PoolResult(
@@ -397,8 +394,8 @@ internal static class PeriodicEffectAttribution
         CombatantLedger ledger,
         PeriodicEffectAttributionDiagnostics diagnostics,
         int frameIndex,
-        ECombatantId combatant,
-        CombatSim simulation,
+        Combatant combatant,
+        CombatTimeline simulation,
         IReadOnlyList<string> regenFallbackSources
     )
     {
@@ -432,7 +429,7 @@ internal static class PeriodicEffectAttribution
             );
         }
 
-        var openingRegen = ledger.Read(EPlayerAttributeType.HealthRegen);
+        var openingRegen = ledger.Read(CombatPlayerAttribute.HealthRegen);
         if (pools.RegenAttempted <= 0)
             return;
         if (!pools.HealthReconciled)
@@ -479,7 +476,7 @@ internal static class PeriodicEffectAttribution
         PeriodicStatus status,
         PoolResult pools,
         CombatantLedger ledger,
-        CombatSimPlayerUpdate? update
+        CombatPlayerUpdate? update
     )
     {
         if (update == null)
@@ -515,8 +512,8 @@ internal static class PeriodicEffectAttribution
         long shield,
         PeriodicEffectAttributionDiagnostics diagnostics,
         int frameIndex,
-        ECombatantId combatant,
-        CombatSim simulation,
+        Combatant combatant,
+        CombatTimeline simulation,
         IReadOnlyList<string> regenFallbackSources
     )
     {
@@ -594,12 +591,12 @@ internal static class PeriodicEffectAttribution
     }
 
     private static void ReconcileStatus(
-        CombatSimFrame frame,
-        CombatSimPlayerUpdate? update,
-        ECombatantId combatant,
+        CombatFrame frame,
+        CombatPlayerUpdate? update,
+        Combatant combatant,
         PeriodicStatus status,
         CombatantLedger ledger,
-        CombatSim simulation,
+        CombatTimeline simulation,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
@@ -608,9 +605,9 @@ internal static class PeriodicEffectAttribution
         var ownership = ledger.Ownership[status];
         var ticked = status switch
         {
-            PeriodicStatus.Burn => HasAdjustment(frame, combatant, EDamageType.Burn),
-            PeriodicStatus.Poison => HasAdjustment(frame, combatant, EDamageType.Poison),
-            PeriodicStatus.Regen => HasAdjustment(frame, combatant, EDamageType.Regen),
+            PeriodicStatus.Burn => HasAdjustment(frame, combatant, CombatDamageType.Burn),
+            PeriodicStatus.Poison => HasAdjustment(frame, combatant, CombatDamageType.Poison),
+            PeriodicStatus.Regen => HasAdjustment(frame, combatant, CombatDamageType.Regen),
             _ => false,
         };
         var nativeDecay =
@@ -651,26 +648,26 @@ internal static class PeriodicEffectAttribution
     }
 
     private static IReadOnlyList<string> ResolveApplySources(
-        CombatSimFrame frame,
-        ECombatantId combatant,
+        CombatFrame frame,
+        Combatant combatant,
         PeriodicStatus status,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
         var expectedAction = status switch
         {
-            PeriodicStatus.Burn => EActionCommandType.PlayerBurnApply,
-            PeriodicStatus.Poison => EActionCommandType.PlayerPoisonApply,
-            PeriodicStatus.Regen => EActionCommandType.PlayerRegenApply,
-            _ => EActionCommandType.None,
+            PeriodicStatus.Burn => CombatActionType.PlayerBurnApply,
+            PeriodicStatus.Poison => CombatActionType.PlayerPoisonApply,
+            PeriodicStatus.Regen => CombatActionType.PlayerRegenApply,
+            _ => CombatActionType.None,
         };
         var sources = new List<string>();
         var hasUnresolved = false;
-        foreach (var effect in frame.Events.OfType<CombatSimEventEffectExecuted>())
+        foreach (var effect in frame.Events.OfType<CombatEffectExecuted>())
         {
             if (
                 effect.ActionType != expectedAction
-                || effect.Target is not EffectTargetPlayer player
+                || effect.Target is not CombatPlayerTarget player
                 || player.Target != combatant
             )
             {
@@ -694,11 +691,11 @@ internal static class PeriodicEffectAttribution
     }
 
     private static string? ResolveActivitySource(
-        CombatSimEventEffectExecuted effect,
+        CombatEffectExecuted effect,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
-        foreach (var candidate in new[] { effect.Source?.Value, effect.TriggerSource?.Value })
+        foreach (var candidate in new[] { effect.Source, effect.TriggerSource })
         {
             if (
                 candidate != null
@@ -712,7 +709,7 @@ internal static class PeriodicEffectAttribution
         return null;
     }
 
-    private static int StatWeight(CombatSim simulation, string sourceId, PeriodicStatus status)
+    private static int StatWeight(CombatTimeline simulation, string sourceId, PeriodicStatus status)
     {
         if (sourceId == OwnershipLedger.UnknownSource)
             return 1;
@@ -720,31 +717,28 @@ internal static class PeriodicEffectAttribution
             return 1;
         var stat = status switch
         {
-            PeriodicStatus.Burn => ECardStats.BurnAdded,
-            PeriodicStatus.Poison => ECardStats.PoisonAdded,
-            PeriodicStatus.Regen => ECardStats.RegenAdded,
-            _ => ECardStats.UseCount,
+            PeriodicStatus.Burn => CombatCardStat.BurnAdded,
+            PeriodicStatus.Poison => CombatCardStat.PoisonAdded,
+            PeriodicStatus.Regen => CombatCardStat.RegenAdded,
+            _ => CombatCardStat.UseCount,
         };
         return Math.Max(1, stats.GetValueOrDefault(stat));
     }
 
-    private static IReadOnlyDictionary<
-        ECombatantId,
-        IReadOnlyList<string>
-    > BuildRegenFallbackSources(
-        CombatSim simulation,
+    private static IReadOnlyDictionary<Combatant, IReadOnlyList<string>> BuildRegenFallbackSources(
+        CombatTimeline simulation,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
-        var candidates = new Dictionary<ECombatantId, HashSet<string>>
+        var candidates = new Dictionary<Combatant, HashSet<string>>
         {
-            [ECombatantId.Player] = new(StringComparer.Ordinal),
-            [ECombatantId.Opponent] = new(StringComparer.Ordinal),
+            [Combatant.Player] = new(StringComparer.Ordinal),
+            [Combatant.Opponent] = new(StringComparer.Ordinal),
         };
 
         foreach (var frame in simulation.Frames)
         {
-            foreach (var combatant in new[] { ECombatantId.Player, ECombatantId.Opponent })
+            foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
             {
                 foreach (
                     var sourceId in ResolveApplySources(
@@ -764,7 +758,7 @@ internal static class PeriodicEffectAttribution
         foreach (var (sourceId, stats) in simulation.CardStats)
         {
             if (
-                stats.GetValueOrDefault(ECardStats.RegenAdded) <= 0
+                stats.GetValueOrDefault(CombatCardStat.RegenAdded) <= 0
                 || !entities.TryGetValue(sourceId, out var entity)
                 || entity.CombatantId is not { } combatant
                 || entity.TypeLabel is not ("Item" or "Skill")
@@ -783,19 +777,15 @@ internal static class PeriodicEffectAttribution
         );
     }
 
-    private static bool HasAdjustment(
-        CombatSimFrame frame,
-        ECombatantId combatant,
-        EDamageType type
-    )
+    private static bool HasAdjustment(CombatFrame frame, Combatant combatant, CombatDamageType type)
     {
-        var update = combatant == ECombatantId.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
+        var update = combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
         return update?.HealthAdjustments.Any(adjustment => adjustment.DamageType == type) == true;
     }
 
     private static void ApplyAttributeUpdates(
-        CombatSimPlayerUpdate? update,
-        IDictionary<EPlayerAttributeType, int> attributes
+        CombatPlayerUpdate? update,
+        IDictionary<CombatPlayerAttribute, int> attributes
     )
     {
         if (update == null)
@@ -805,9 +795,9 @@ internal static class PeriodicEffectAttribution
     }
 
     private static long Loss(
-        CombatSimPlayerUpdate update,
-        EDamageType type,
-        EPlayerHealthChangeType pool
+        CombatPlayerUpdate update,
+        CombatDamageType type,
+        CombatHealthChange pool
     ) =>
         -update
             .HealthAdjustments.Where(adjustment =>
@@ -818,9 +808,9 @@ internal static class PeriodicEffectAttribution
             .Sum(adjustment => (long)adjustment.Amount);
 
     private static long Gain(
-        CombatSimPlayerUpdate update,
-        EDamageType type,
-        EPlayerHealthChangeType pool
+        CombatPlayerUpdate update,
+        CombatDamageType type,
+        CombatHealthChange pool
     ) =>
         update
             .HealthAdjustments.Where(adjustment =>
@@ -830,12 +820,12 @@ internal static class PeriodicEffectAttribution
             )
             .Sum(adjustment => (long)adjustment.Amount);
 
-    private static EPlayerAttributeType Attribute(PeriodicStatus status) =>
+    private static CombatPlayerAttribute Attribute(PeriodicStatus status) =>
         status switch
         {
-            PeriodicStatus.Burn => EPlayerAttributeType.Burn,
-            PeriodicStatus.Poison => EPlayerAttributeType.Poison,
-            PeriodicStatus.Regen => EPlayerAttributeType.HealthRegen,
+            PeriodicStatus.Burn => CombatPlayerAttribute.Burn,
+            PeriodicStatus.Poison => CombatPlayerAttribute.Poison,
+            PeriodicStatus.Regen => CombatPlayerAttribute.HealthRegen,
             _ => throw new ArgumentOutOfRangeException(nameof(status)),
         };
 
@@ -862,7 +852,7 @@ internal static class PeriodicEffectAttribution
 
     private sealed class CombatantLedger
     {
-        internal CombatantLedger(Dictionary<EPlayerAttributeType, int> attributes)
+        internal CombatantLedger(Dictionary<CombatPlayerAttribute, int> attributes)
         {
             Attributes = attributes;
             Ownership = new Dictionary<PeriodicStatus, OwnershipLedger>
@@ -873,11 +863,11 @@ internal static class PeriodicEffectAttribution
             };
         }
 
-        internal Dictionary<EPlayerAttributeType, int> Attributes { get; }
+        internal Dictionary<CombatPlayerAttribute, int> Attributes { get; }
 
         internal Dictionary<PeriodicStatus, OwnershipLedger> Ownership { get; }
 
-        internal int Read(EPlayerAttributeType attribute) =>
+        internal int Read(CombatPlayerAttribute attribute) =>
             Attributes.GetValueOrDefault(attribute);
     }
 
@@ -1114,7 +1104,7 @@ internal enum PeriodicUnknownOrigin
 
 internal readonly record struct PeriodicAttributionGap(
     int FrameIndex,
-    ECombatantId Combatant,
+    Combatant Combatant,
     CombatImpactPeriodicKind Kind,
     long HealthAmount,
     long ShieldAmount,
@@ -1123,7 +1113,7 @@ internal readonly record struct PeriodicAttributionGap(
 
 internal readonly record struct PeriodicAttributionAllocation(
     int FrameIndex,
-    ECombatantId Combatant,
+    Combatant Combatant,
     CombatImpactPeriodicKind Kind,
     string SourceId,
     long HealthAmount,
@@ -1141,7 +1131,7 @@ internal sealed class PeriodicEffectAttributionDiagnostics
 
     internal void ObserveGap(
         int frameIndex,
-        ECombatantId combatant,
+        Combatant combatant,
         CombatImpactPeriodicKind kind,
         long healthAmount,
         long shieldAmount,
@@ -1150,7 +1140,7 @@ internal sealed class PeriodicEffectAttributionDiagnostics
 
     internal void ObserveAllocation(
         int frameIndex,
-        ECombatantId combatant,
+        Combatant combatant,
         CombatImpactPeriodicKind kind,
         string sourceId,
         long healthAmount,
@@ -1163,7 +1153,7 @@ internal sealed class PeriodicEffectAttributionDiagnostics
 }
 
 internal readonly record struct PeriodicMeasurementKey(
-    ECombatantId Combatant,
+    Combatant Combatant,
     CombatImpactPeriodicKind Kind
 );
 

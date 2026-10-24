@@ -6,14 +6,16 @@ using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
 using BazaarGameShared.Domain.Effect.AuraActions;
 using BazaarGameShared.Domain.Values.ReferenceValues;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
+using BazaarPlusPlus.Core.Combat;
+using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
 internal static class CombatImpactImplicitPlayerEffectReader
 {
     internal static int AddMissing(
-        CombatSim simulation,
+        CombatTimeline simulation,
         IDictionary<string, CombatImpactEntity> entities,
         IEnumerable<TCardBase> templates
     )
@@ -72,7 +74,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
     }
 
     private static Dictionary<string, ImplicitPlayerEffectObservation> ReadObservations(
-        CombatSim simulation,
+        CombatTimeline simulation,
         IDictionary<string, CombatImpactEntity> entities
     )
     {
@@ -81,16 +83,16 @@ internal static class CombatImpactImplicitPlayerEffectReader
         );
         foreach (var frame in simulation.Frames)
         {
-            foreach (var effect in frame.Events.OfType<CombatSimEventEffectExecuted>())
+            foreach (var effect in frame.Events.OfType<CombatEffectExecuted>())
             {
-                var sourceId = effect.Source?.Value;
+                var sourceId = effect.Source;
                 if (string.IsNullOrWhiteSpace(sourceId) || entities.ContainsKey(sourceId!))
                     continue;
 
                 var observation = GetOrAdd(observations, sourceId!);
-                AddTriggerSource(observation, effect.TriggerSource?.Value);
+                AddTriggerSource(observation, effect.TriggerSource);
                 if (
-                    effect.ActionType != EActionCommandType.CardModifyAttribute
+                    effect.ActionType != CombatActionType.CardModifyAttribute
                     || string.IsNullOrWhiteSpace(effect.EffectId)
                 )
                 {
@@ -100,9 +102,9 @@ internal static class CombatImpactImplicitPlayerEffectReader
                 observation.ModifierEffectIds.Add(effect.EffectId);
             }
 
-            foreach (var aura in frame.Events.OfType<CombatSimEventEffectAuraExecuted>())
+            foreach (var aura in frame.Events.OfType<CombatAuraExecuted>())
             {
-                var sourceId = aura.Source?.Value;
+                var sourceId = aura.Source;
                 if (
                     string.IsNullOrWhiteSpace(sourceId)
                     || entities.ContainsKey(sourceId!)
@@ -112,7 +114,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
 
                 var observation = GetOrAdd(observations, sourceId!);
                 observation.AuraEffectIds.Add(aura.EffectId);
-                AddTriggerSource(observation, aura.TriggerSource?.Value);
+                AddTriggerSource(observation, aura.TriggerSource);
             }
         }
         return observations;
@@ -200,7 +202,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
     private static CombatImpactEntity CreateEntity(
         string instanceId,
         ImplicitPlayerEffectCandidate candidate,
-        ECombatantId combatant,
+        Combatant combatant,
         int order
     )
     {
@@ -219,7 +221,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
             null,
             order,
             template.Id,
-            candidate.Tier,
+            DesktopCardFacets.CapturedTier(candidate.Tier),
             Attributes: ReadAttributes(template, candidate.Tier),
             CombatantId: combatant,
             AbilityAttributeTypesByEffectId: abilityAttributeTypes,
@@ -236,7 +238,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
         );
     }
 
-    private static IReadOnlyDictionary<ECardAttributeType, int>? ReadAttributes(
+    private static IReadOnlyDictionary<CombatCardAttribute, int>? ReadAttributes(
         TCardBase template,
         ETier tier
     )
@@ -250,8 +252,12 @@ internal static class CombatImpactImplicitPlayerEffectReader
                 (Attribute: attribute, Value: tiered.GetAttributeBaseValueAtTier(attribute, tier))
             )
             .Where(item => item.Value.HasValue)
-            .ToDictionary(item => item.Attribute, item => item.Value!.Value);
-        return attributes.Count == 0 ? null : attributes;
+            .Select(item => new KeyValuePair<ECardAttributeType, int>(
+                item.Attribute,
+                item.Value!.Value
+            ));
+        var facets = DesktopCombatFacets.CardAttributes(attributes);
+        return facets.Count == 0 ? null : facets;
     }
 
     private static AuraAttributes ReadAuraAttributes(IReadOnlyList<TCardAura> auras)
@@ -281,7 +287,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
         }
 
         return new AuraAttributes(
-            types.Count == 0 ? null : types,
+            DesktopCombatFacets.AttributesByEffectId(types),
             referenceValued.Count == 0 ? null : referenceValued
         );
     }
@@ -310,7 +316,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
     }
 
     private readonly record struct AuraAttributes(
-        IReadOnlyDictionary<string, ECardAttributeType>? Types,
+        IReadOnlyDictionary<string, CombatCardAttribute>? Types,
         IReadOnlyCollection<string>? ReferenceValuedEffectIds
     );
 }

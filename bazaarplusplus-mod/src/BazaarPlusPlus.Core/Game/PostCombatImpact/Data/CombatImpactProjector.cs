@@ -1,22 +1,13 @@
 #nullable enable
-using BazaarGameShared.Domain.Core;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect;
-using BazaarGameShared.Domain.Effect.Actions;
-using BazaarGameShared.Domain.Effect.AuraActions;
-using BazaarGameShared.Domain.Targeting;
-using BazaarGameShared.Domain.Values;
-using BazaarGameShared.Domain.Values.ReferenceValues;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarGameShared.Infra.Messages.Shared;
-using BazaarPlusPlus.GameInterop.CombatSimulation;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Combat;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
-internal static class CombatImpactProjector
+public static class CombatImpactProjector
 {
-    internal static CombatImpactReport Project(
-        CombatSim simulation,
+    public static CombatImpactReport Project(
+        CombatTimeline simulation,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
@@ -155,87 +146,87 @@ internal static class CombatImpactProjector
         );
         foreach (var (sourceId, stats) in simulation.CardStats)
         {
-            if (stats.TryGetValue(ECardStats.UseCount, out var uses))
+            if (stats.TryGetValue(CombatCardStat.UseCount, out var uses))
                 useCounts[sourceId] = uses;
 
             var metrics = new List<CombatImpactAuthoritativeMetric>();
             AddAmountMetric(
                 stats,
-                ECardStats.DamageDone,
+                CombatCardStat.DamageDone,
                 CombatImpactKind.DirectDamage,
                 CombatImpactAggregator.NativeKey(CombatImpactKind.DirectDamage),
                 metrics
             );
             AddAmountMetric(
                 stats,
-                ECardStats.BurnAdded,
+                CombatCardStat.BurnAdded,
                 CombatImpactKind.Burn,
                 CombatImpactAggregator.NativeKey(CombatImpactKind.Burn),
                 metrics
             );
             AddAmountMetric(
                 stats,
-                ECardStats.PoisonAdded,
+                CombatCardStat.PoisonAdded,
                 CombatImpactKind.Poison,
                 CombatImpactAggregator.NativeKey(CombatImpactKind.Poison),
                 metrics
             );
             AddAmountMetric(
                 stats,
-                ECardStats.HealAdded,
+                CombatCardStat.HealAdded,
                 CombatImpactKind.Healing,
                 CombatImpactAggregator.NativeKey(CombatImpactKind.Healing),
                 metrics
             );
             AddAmountMetric(
                 stats,
-                ECardStats.ShieldAdded,
+                CombatCardStat.ShieldAdded,
                 CombatImpactKind.Shield,
                 CombatImpactAggregator.NativeKey(CombatImpactKind.Shield),
                 metrics
             );
             AddApplicationMetric(
                 stats,
-                ECardStats.HastedCardsCount,
+                CombatCardStat.HastedCardsCount,
                 CombatImpactKind.Haste,
                 metrics
             );
             AddApplicationMetric(
                 stats,
-                ECardStats.SlowedCardsCount,
+                CombatCardStat.SlowedCardsCount,
                 CombatImpactKind.Slow,
                 metrics
             );
             AddApplicationMetric(
                 stats,
-                ECardStats.FrozenCardsCount,
+                CombatCardStat.FrozenCardsCount,
                 CombatImpactKind.Freeze,
                 metrics
             );
             AddAmountMetric(
                 stats,
-                ECardStats.RegenAdded,
+                CombatCardStat.RegenAdded,
                 CombatImpactKind.AttributeChange,
                 "RegenApplyAmount",
                 metrics
             );
             AddAmountMetric(
                 stats,
-                ECardStats.RageAdded,
+                CombatCardStat.RageAdded,
                 CombatImpactKind.AttributeChange,
                 "RageApplyAmount",
                 metrics
             );
             AddAmountMetric(
                 stats,
-                ECardStats.TempoAdded,
+                CombatCardStat.TempoAdded,
                 CombatImpactKind.AttributeChange,
                 "TempoApplyAmount",
                 metrics
             );
             AddAmountMetric(
                 stats,
-                ECardStats.TempoSpent,
+                CombatCardStat.TempoSpent,
                 CombatImpactKind.AttributeChange,
                 "TempoRemoveAmount",
                 metrics
@@ -412,7 +403,7 @@ internal static class CombatImpactProjector
                 implementation.TypeLabel != "SocketEffect"
                 || implementation.UseAttributionRules is not { Count: > 0 }
                 || implementation.CombatantId is not { } combatantId
-                || implementation.Section != EInventorySection.Hand
+                || implementation.Section != CardSection.Hand
                 || !implementation.SocketId.HasValue
             )
                 continue;
@@ -454,7 +445,7 @@ internal static class CombatImpactProjector
                     var item in entities.Values.Where(entity =>
                         entity.TypeLabel == "Item"
                         && entity.CombatantId == combatantId
-                        && entity.Section == EInventorySection.Hand
+                        && entity.Section == CardSection.Hand
                         && entity.SocketId.HasValue
                         && rule.ItemCondition.Matches(entity)
                         && SpansOverlap(entity, implementation)
@@ -516,9 +507,9 @@ internal static class CombatImpactProjector
 
     private static bool SpansOverlap(CombatImpactEntity left, CombatImpactEntity right)
     {
-        var leftStart = (int)left.SocketId!.Value;
+        var leftStart = CardFacetOrder.SocketRank(left.SocketId!.Value);
         var leftEnd = leftStart + Math.Max(1, left.DisplaySpan);
-        var rightStart = (int)right.SocketId!.Value;
+        var rightStart = CardFacetOrder.SocketRank(right.SocketId!.Value);
         var rightEnd = rightStart + Math.Max(1, right.DisplaySpan);
         return leftStart < rightEnd && rightStart < leftEnd;
     }
@@ -549,7 +540,7 @@ internal static class CombatImpactProjector
                                             .Targets.Select(target =>
                                                 ((CombatImpactEntity)target.Entity).CombatantId
                                             )
-                                            .OfType<ECombatantId>()
+                                            .OfType<Combatant>()
                                             .ToHashSet(),
                                         lineage,
                                         entities
@@ -573,7 +564,7 @@ internal static class CombatImpactProjector
         IReadOnlyDictionary<PeriodicImpactKey, CombatImpactPeriodicImpact> sourceImpacts,
         string sourceId,
         CombatImpactPeriodicKind kind,
-        IReadOnlyCollection<ECombatantId> targetCombatants,
+        IReadOnlyCollection<Combatant> targetCombatants,
         CombatImpactTransformLineage lineage,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
@@ -623,7 +614,7 @@ internal static class CombatImpactProjector
             };
 
     private static IReadOnlyList<ProjectedExecution> ProjectExecutions(
-        CombatSim simulation,
+        CombatTimeline simulation,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
@@ -633,16 +624,16 @@ internal static class CombatImpactProjector
         {
             var frame = simulation.Frames[frameIndex];
             ReconcileCardAttributeTimeline(frame, cardAttributes, usePreviousValue: true);
-            var executed = frame.Events.OfType<CombatSimEventEffectExecuted>().ToArray();
+            var executed = frame.Events.OfType<CombatEffectExecuted>().ToArray();
             foreach (var item in executed)
             {
                 var attributedSourceId = ResolveActivitySource(
-                    item.Source?.Value,
-                    item.TriggerSource?.Value,
+                    item.Source,
+                    item.TriggerSource,
                     entities
                 );
                 var isCritCapable = IsCritCapable(
-                    item.Source?.Value,
+                    item.Source,
                     attributedSourceId,
                     item.EffectId,
                     entities
@@ -718,8 +709,8 @@ internal static class CombatImpactProjector
                         targetId,
                         hasKind ? kind : null,
                         resolved,
-                        item.Source?.Value,
-                        item.TriggerSource?.Value,
+                        item.Source,
+                        item.TriggerSource,
                         frameIndex,
                         item.EffectId,
                         item.ActionType,
@@ -878,7 +869,7 @@ internal static class CombatImpactProjector
             .ToArray();
 
     private static void AddLifestealEvents(
-        CombatSim simulation,
+        CombatTimeline simulation,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
         IReadOnlyList<ProjectedExecution> executions,
         ICollection<CombatImpactEvent> events
@@ -897,7 +888,7 @@ internal static class CombatImpactProjector
             var frameExecutions = executionsByFrame.GetValueOrDefault(frameIndex) ?? [];
             ReconcileCardAttributeTimeline(frame, cardAttributes, usePreviousValue: true);
             AddLifestealEvents(
-                ECombatantId.Player,
+                Combatant.Player,
                 frame.PlayerUpdates,
                 frameIndex,
                 entities,
@@ -906,7 +897,7 @@ internal static class CombatImpactProjector
                 events
             );
             AddLifestealEvents(
-                ECombatantId.Opponent,
+                Combatant.Opponent,
                 frame.OpponentUpdates,
                 frameIndex,
                 entities,
@@ -919,11 +910,11 @@ internal static class CombatImpactProjector
     }
 
     private static void AddLifestealEvents(
-        ECombatantId combatant,
-        CombatSimPlayerUpdate? update,
+        Combatant combatant,
+        CombatPlayerUpdate? update,
         int frameIndex,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
         IReadOnlyList<ProjectedExecution> frameExecutions,
         ICollection<CombatImpactEvent> events
     )
@@ -933,10 +924,10 @@ internal static class CombatImpactProjector
             return;
 
         var opposingCombatant =
-            combatant == ECombatantId.Player ? ECombatantId.Opponent : ECombatantId.Player;
+            combatant == Combatant.Player ? Combatant.Opponent : Combatant.Player;
         var candidates = frameExecutions
             .Where(execution =>
-                execution.ActionType == EActionCommandType.PlayerDamage
+                execution.ActionType == CombatActionType.PlayerDamage
                 && execution.SourceId != null
                 && execution.TargetId == PlayerId(opposingCombatant)
                 && execution.Resolved.Value is > 0
@@ -944,7 +935,7 @@ internal static class CombatImpactProjector
                 && source.TypeLabel == "Item"
                 && source.CombatantId == combatant
                 && cardAttributes.TryGetValue(execution.SourceId, out var attributes)
-                && attributes.GetValueOrDefault(ECardAttributeType.Lifesteal) > 0
+                && attributes.GetValueOrDefault(CombatCardAttribute.Lifesteal) > 0
             )
             .GroupBy(execution => execution.SourceId!, StringComparer.Ordinal)
             .Select(group => new LifestealCandidate(
@@ -994,17 +985,17 @@ internal static class CombatImpactProjector
         }
     }
 
-    private static int ResolveUnrecordedHealthGain(CombatSimPlayerUpdate? update)
+    private static int ResolveUnrecordedHealthGain(CombatPlayerUpdate? update)
     {
         if (
             update == null
-            || !update.Attributes.TryGetValue(EPlayerAttributeType.Health, out var health)
+            || !update.Attributes.TryGetValue(CombatPlayerAttribute.Health, out var health)
         )
             return 0;
 
         var recordedHealthMovement = update
             .HealthAdjustments.Where(adjustment =>
-                adjustment.AttributeChanged == EPlayerHealthChangeType.Health
+                adjustment.AttributeChanged == CombatHealthChange.Health
             )
             .Sum(adjustment => (long)adjustment.Amount);
         var residual = (long)health.Delta - recordedHealthMovement;
@@ -1012,7 +1003,7 @@ internal static class CombatImpactProjector
     }
 
     private static void AddCardActionCostEvents(
-        CombatSim simulation,
+        CombatTimeline simulation,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
         ICollection<CombatImpactEvent> events
     )
@@ -1022,12 +1013,12 @@ internal static class CombatImpactProjector
             foreach (var candidate in frame.Events)
             {
                 if (
-                    !CardActionCostSpentEventReader.TryRead(candidate, out var costSpent)
-                    || costSpent.PlayerAttributeSpent != EPlayerAttributeType.Tempo
+                    candidate is not CombatCardActionCostSpent costSpent
+                    || costSpent.PlayerAttributeSpent != CombatPlayerAttribute.Tempo
                 )
                     continue;
 
-                var sourceId = costSpent.ExecutingCard.Value;
+                var sourceId = costSpent.ExecutingCard;
                 var targetId = ResolveCardActionCostTargetId(costSpent, entities);
                 if (
                     !entities.TryGetValue(sourceId, out var source)
@@ -1056,34 +1047,34 @@ internal static class CombatImpactProjector
 
     private static Dictionary<
         string,
-        Dictionary<ECardAttributeType, int>
+        Dictionary<CombatCardAttribute, int>
     > CreateCardAttributeTimeline(IReadOnlyDictionary<string, CombatImpactEntity> entities)
     {
-        var timeline = new Dictionary<string, Dictionary<ECardAttributeType, int>>(
+        var timeline = new Dictionary<string, Dictionary<CombatCardAttribute, int>>(
             StringComparer.Ordinal
         );
         foreach (var entity in entities.Values)
         {
             if (entity.Attributes == null)
                 continue;
-            timeline[entity.Id] = new Dictionary<ECardAttributeType, int>(entity.Attributes);
+            timeline[entity.Id] = new Dictionary<CombatCardAttribute, int>(entity.Attributes);
         }
 
         return timeline;
     }
 
     private static void ReconcileCardAttributeTimeline(
-        CombatSimFrame frame,
-        IDictionary<string, Dictionary<ECardAttributeType, int>> timeline,
+        CombatFrame frame,
+        IDictionary<string, Dictionary<CombatCardAttribute, int>> timeline,
         bool usePreviousValue
     )
     {
         foreach (var (instanceId, cardUpdate) in frame.CardUpdates)
         {
-            var cardId = instanceId.Value;
+            var cardId = instanceId;
             if (!timeline.TryGetValue(cardId, out var attributes))
             {
-                attributes = new Dictionary<ECardAttributeType, int>();
+                attributes = new Dictionary<CombatCardAttribute, int>();
                 timeline[cardId] = attributes;
             }
 
@@ -1097,25 +1088,22 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveConfiguredDurationAction(
-        EActionCommandType action,
+        CombatActionType action,
         string sourceId,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
         out ResolvedImpactValue resolved
     )
     {
-        (ECardAttributeType Attribute, CombatImpactKind Kind)? configuration = action switch
+        (CombatCardAttribute Attribute, CombatImpactKind Kind)? configuration = action switch
         {
-            EActionCommandType.CardCharge => (
-                ECardAttributeType.ChargeAmount,
+            CombatActionType.CardCharge => (
+                CombatCardAttribute.ChargeAmount,
                 CombatImpactKind.Charge
             ),
-            EActionCommandType.CardHaste => (
-                ECardAttributeType.HasteAmount,
-                CombatImpactKind.Haste
-            ),
-            EActionCommandType.CardSlow => (ECardAttributeType.SlowAmount, CombatImpactKind.Slow),
-            EActionCommandType.CardFreeze => (
-                ECardAttributeType.FreezeAmount,
+            CombatActionType.CardHaste => (CombatCardAttribute.HasteAmount, CombatImpactKind.Haste),
+            CombatActionType.CardSlow => (CombatCardAttribute.SlowAmount, CombatImpactKind.Slow),
+            CombatActionType.CardFreeze => (
+                CombatCardAttribute.FreezeAmount,
                 CombatImpactKind.Freeze
             ),
             _ => null,
@@ -1151,23 +1139,23 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveNonCriticalValue(
-        EActionCommandType action,
+        CombatActionType action,
         string sourceId,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
-        CombatSimFrame frame,
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
+        CombatFrame frame,
         out int value,
         out int? alternateValue
     )
     {
         var attribute = action switch
         {
-            EActionCommandType.PlayerDamage => ECardAttributeType.DamageAmount,
-            EActionCommandType.PlayerBurnApply => ECardAttributeType.BurnApplyAmount,
-            EActionCommandType.PlayerPoisonApply => ECardAttributeType.PoisonApplyAmount,
-            EActionCommandType.PlayerRegenApply => ECardAttributeType.RegenApplyAmount,
-            EActionCommandType.PlayerTempoApply => ECardAttributeType.TempoApplyAmount,
-            EActionCommandType.PlayerTempoRemove => ECardAttributeType.TempoRemoveAmount,
-            _ => (ECardAttributeType?)null,
+            CombatActionType.PlayerDamage => CombatCardAttribute.DamageAmount,
+            CombatActionType.PlayerBurnApply => CombatCardAttribute.BurnApplyAmount,
+            CombatActionType.PlayerPoisonApply => CombatCardAttribute.PoisonApplyAmount,
+            CombatActionType.PlayerRegenApply => CombatCardAttribute.RegenApplyAmount,
+            CombatActionType.PlayerTempoApply => CombatCardAttribute.TempoApplyAmount,
+            CombatActionType.PlayerTempoRemove => CombatCardAttribute.TempoRemoveAmount,
+            _ => (CombatCardAttribute?)null,
         };
         if (
             attribute.HasValue
@@ -1177,7 +1165,7 @@ internal static class CombatImpactProjector
         )
         {
             alternateValue = null;
-            var sourceInstance = InstanceId.TryParse(sourceId);
+            var sourceInstance = (sourceId);
             if (
                 HasCriticalConfiguredAmount(action)
                 && frame.CardUpdates.TryGetValue(sourceInstance, out var update)
@@ -1194,15 +1182,15 @@ internal static class CombatImpactProjector
         return false;
     }
 
-    private static bool HasCriticalConfiguredAmount(EActionCommandType action) =>
+    private static bool HasCriticalConfiguredAmount(CombatActionType action) =>
         action
-            is EActionCommandType.PlayerDamage
-                or EActionCommandType.PlayerBurnApply
-                or EActionCommandType.PlayerPoisonApply
-                or EActionCommandType.PlayerRegenApply;
+            is CombatActionType.PlayerDamage
+                or CombatActionType.PlayerBurnApply
+                or CombatActionType.PlayerPoisonApply
+                or CombatActionType.PlayerRegenApply;
 
     private static ResolvedImpactValue ResolveConfiguredStatusCriticalOutcome(
-        EActionCommandType action,
+        CombatActionType action,
         ResolvedImpactValue resolved,
         bool isCritCapable
     )
@@ -1211,9 +1199,9 @@ internal static class CombatImpactProjector
             !isCritCapable
             || action
                 is not (
-                    EActionCommandType.PlayerBurnApply
-                    or EActionCommandType.PlayerPoisonApply
-                    or EActionCommandType.PlayerRegenApply
+                    CombatActionType.PlayerBurnApply
+                    or CombatActionType.PlayerPoisonApply
+                    or CombatActionType.PlayerRegenApply
                 )
             || resolved.Basis != CombatImpactValueBasis.NetFrameDelta
             || resolved.Value is not > 0
@@ -1679,18 +1667,16 @@ internal static class CombatImpactProjector
     }
 
     private static bool HasCriticalHealthAdjustment(
-        CombatSimFrame frame,
-        CombatSimEventEffectExecuted item,
+        CombatFrame frame,
+        CombatEffectExecuted item,
         CombatImpactKind kind
     )
     {
-        if (item.Target is not EffectTargetPlayer playerTarget)
+        if (item.Target is not CombatPlayerTarget playerTarget)
             return false;
 
         var update =
-            playerTarget.Target == ECombatantId.Player
-                ? frame.PlayerUpdates
-                : frame.OpponentUpdates;
+            playerTarget.Target == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
         return update?.HealthAdjustments.Any(adjustment =>
                 adjustment.IsCrit && Matches(kind, adjustment)
             ) == true;
@@ -1897,21 +1883,21 @@ internal static class CombatImpactProjector
         mappedEvent = null!;
         if (
             implementation.CombatantId is not { } combatantId
-            || implementation.Section != EInventorySection.Hand
+            || implementation.Section != CardSection.Hand
             || !implementation.SocketId.HasValue
             || string.IsNullOrWhiteSpace(execution.TriggerSourceId)
             || !entities.TryGetValue(execution.TriggerSourceId!, out var triggerItem)
             || triggerItem.TypeLabel != "Item"
             || triggerItem.CombatantId != combatantId
-            || triggerItem.Section != EInventorySection.Hand
+            || triggerItem.Section != CardSection.Hand
             || !triggerItem.SocketId.HasValue
             || !rule.ItemCondition.Matches(triggerItem)
             || !SpansOverlap(triggerItem, implementation)
             || execution.TargetId != PlayerId(combatantId)
             || execution.Kind != CombatImpactKind.AttributeChange
             || (
-                execution.ActionType != EActionCommandType.PlayerModifyAttribute
-                && execution.ActionType != EActionCommandType.PlayerTempoApply
+                execution.ActionType != CombatActionType.PlayerModifyAttribute
+                && execution.ActionType != CombatActionType.PlayerTempoApply
             )
         )
             return false;
@@ -2030,15 +2016,15 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveAbilityAttributeType(
-        CombatSimEventEffectExecuted effect,
+        CombatEffectExecuted effect,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        out ECardAttributeType attributeType
+        out CombatCardAttribute attributeType
     )
     {
         if (
             TryResolveEffectAttributeType(
-                effect.Source?.Value,
-                effect.TriggerSource?.Value,
+                effect.Source,
+                effect.TriggerSource,
                 effect.EffectId,
                 entities,
                 static entity => entity.AbilityAttributeTypesByEffectId,
@@ -2057,15 +2043,15 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveAbilityAttributeModifier(
-        CombatSimEventEffectExecuted effect,
+        CombatEffectExecuted effect,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
         out string sourceId,
-        out TActionCardModifyAttribute modifier
+        out CombatAttributeModifier modifier
     )
     {
         if (
             TryResolveAbilityAttributeModifier(
-                effect.Source?.Value,
+                effect.Source,
                 effect.EffectId,
                 entities,
                 out sourceId,
@@ -2074,13 +2060,9 @@ internal static class CombatImpactProjector
         )
             return true;
         if (
-            !string.Equals(
-                effect.Source?.Value,
-                effect.TriggerSource?.Value,
-                StringComparison.Ordinal
-            )
+            !string.Equals(effect.Source, effect.TriggerSource, StringComparison.Ordinal)
             && TryResolveAbilityAttributeModifier(
-                effect.TriggerSource?.Value,
+                effect.TriggerSource,
                 effect.EffectId,
                 entities,
                 out sourceId,
@@ -2099,7 +2081,7 @@ internal static class CombatImpactProjector
         string? effectId,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
         out string sourceId,
-        out TActionCardModifyAttribute modifier
+        out CombatAttributeModifier modifier
     )
     {
         if (
@@ -2121,9 +2103,9 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveAuraAttributeType(
-        CombatSimEventEffectAuraExecuted effect,
+        CombatAuraExecuted effect,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        out ECardAttributeType attributeType
+        out CombatCardAttribute attributeType
     )
     {
         if (TryResolveAuraModifier(effect, entities, out var modifier))
@@ -2132,8 +2114,8 @@ internal static class CombatImpactProjector
             return true;
         }
         return TryResolveEffectAttributeType(
-            effect.Source?.Value,
-            effect.TriggerSource?.Value,
+            effect.Source,
+            effect.TriggerSource,
             effect.EffectId,
             entities,
             static entity => entity.AuraAttributeTypesByEffectId,
@@ -2142,12 +2124,12 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveAuraModifier(
-        CombatSimEventEffectAuraExecuted aura,
+        CombatAuraExecuted aura,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        out TAuraActionCardModifyAttribute modifier
+        out CombatAttributeModifier modifier
     )
     {
-        foreach (var id in new[] { aura.Source?.Value, aura.TriggerSource?.Value })
+        foreach (var id in new[] { aura.Source, aura.TriggerSource })
             if (
                 id != null
                 && entities.TryGetValue(id, out var entity)
@@ -2161,7 +2143,7 @@ internal static class CombatImpactProjector
         return false;
     }
 
-    private static bool AuraTouches(CombatSimEventEffectAuraExecuted aura, string? targetId) =>
+    private static bool AuraTouches(CombatAuraExecuted aura, string? targetId) =>
         aura
             .AppliedTo.Concat(aura.RemovedFrom)
             .Any(target =>
@@ -2169,13 +2151,13 @@ internal static class CombatImpactProjector
             );
 
     private static bool HasAuraClaim(
-        CombatSimFrame frame,
+        CombatFrame frame,
         string? targetId,
-        ECardAttributeType attribute,
+        CombatCardAttribute attribute,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     ) =>
         frame
-            .Events.OfType<CombatSimEventEffectAuraExecuted>()
+            .Events.OfType<CombatAuraExecuted>()
             .Any(aura =>
                 AuraTouches(aura, targetId)
                 && (
@@ -2189,8 +2171,8 @@ internal static class CombatImpactProjector
         string? triggerSourceId,
         string? effectId,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        Func<CombatImpactEntity, IReadOnlyDictionary<string, ECardAttributeType>?> selectMappings,
-        out ECardAttributeType attributeType
+        Func<CombatImpactEntity, IReadOnlyDictionary<string, CombatCardAttribute>?> selectMappings,
+        out CombatCardAttribute attributeType
     )
     {
         if (
@@ -2223,8 +2205,8 @@ internal static class CombatImpactProjector
         string? sourceId,
         string? effectId,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        Func<CombatImpactEntity, IReadOnlyDictionary<string, ECardAttributeType>?> selectMappings,
-        out ECardAttributeType attributeType
+        Func<CombatImpactEntity, IReadOnlyDictionary<string, CombatCardAttribute>?> selectMappings,
+        out CombatCardAttribute attributeType
     )
     {
         if (
@@ -2252,7 +2234,7 @@ internal static class CombatImpactProjector
         && !resolved.NativeAttributeKey.StartsWith("Custom_", StringComparison.Ordinal);
 
     private static void AddAuraAttributeEvents(
-        CombatSim simulation,
+        CombatTimeline simulation,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
         ICollection<CombatImpactEvent> events,
         ICollection<CombatImpactProjectionDiagnostic> diagnostics
@@ -2262,10 +2244,10 @@ internal static class CombatImpactProjector
         {
             var candidates = new List<AuraAttributeCandidate>();
             var playerCandidates = new List<AuraPlayerAttributeCandidate>();
-            foreach (var aura in frame.Events.OfType<CombatSimEventEffectAuraExecuted>())
+            foreach (var aura in frame.Events.OfType<CombatAuraExecuted>())
             {
-                var directSourceId = aura.Source?.Value;
-                var triggerSourceId = aura.TriggerSource?.Value;
+                var directSourceId = aura.Source;
+                var triggerSourceId = aura.TriggerSource;
                 var sourceId = ResolveActivitySource(directSourceId, triggerSourceId, entities);
                 var prerequisite = TryResolvePrerequisiteSkillSource(
                     directSourceId,
@@ -2317,11 +2299,11 @@ internal static class CombatImpactProjector
                 // positive or negative, and ignore RemovedFrom entirely.
                 foreach (var target in aura.AppliedTo)
                 {
-                    if (target is EffectTargetPlayer playerTarget)
+                    if (target is CombatPlayerTarget playerTarget)
                     {
                         var playerId = PlayerId(playerTarget.Target);
                         var playerUpdate =
-                            playerTarget.Target == ECombatantId.Player
+                            playerTarget.Target == Combatant.Player
                                 ? frame.PlayerUpdates
                                 : frame.OpponentUpdates;
                         var playerChanges = playerUpdate
@@ -2334,7 +2316,7 @@ internal static class CombatImpactProjector
                             playerChanges?.Length == 1
                             && entities.ContainsKey(playerId)
                             && !frame
-                                .Events.OfType<CombatSimEventEffectExecuted>()
+                                .Events.OfType<CombatEffectExecuted>()
                                 .Any(item =>
                                     string.Equals(
                                         ResolveTargetId(item.Target),
@@ -2359,22 +2341,18 @@ internal static class CombatImpactProjector
                     }
 
                     if (
-                        target is not EffectTargetCard cardTarget
-                        || !entities.ContainsKey(cardTarget.Target.Value)
+                        target is not CombatCardTarget cardTarget
+                        || !entities.ContainsKey(cardTarget.Target)
                         || !frame.CardUpdates.TryGetValue(cardTarget.Target, out var cardUpdate)
                     )
                         continue;
                     if (
                         isReferenceValuedAura
-                        && string.Equals(
-                            sourceId,
-                            cardTarget.Target.Value,
-                            StringComparison.Ordinal
-                        )
+                        && string.Equals(sourceId, cardTarget.Target, StringComparison.Ordinal)
                     )
                         continue;
 
-                    CombatSimCardAttributeUpdate cardChange;
+                    CombatCardAttributeUpdate cardChange;
                     if (hasExpectedCardAttribute)
                     {
                         if (
@@ -2413,7 +2391,7 @@ internal static class CombatImpactProjector
                     candidates.Add(
                         new AuraAttributeCandidate(
                             sourceId,
-                            cardTarget.Target.Value,
+                            cardTarget.Target,
                             cardChange,
                             directSourceId,
                             triggerSourceId,
@@ -2429,7 +2407,7 @@ internal static class CombatImpactProjector
                     .Where(group =>
                         group.Count() == 1
                         && frame
-                            .Events.OfType<CombatSimEventEffectAuraExecuted>()
+                            .Events.OfType<CombatAuraExecuted>()
                             .Count(aura =>
                                 AuraTouches(aura, group.Key.TargetId)
                                 && (
@@ -2493,11 +2471,11 @@ internal static class CombatImpactProjector
     }
 
     private static bool IsReferenceValuedAuraEffect(
-        CombatSimEventEffectAuraExecuted effect,
+        CombatAuraExecuted effect,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     ) =>
-        HasReferenceValuedAuraEffect(effect.Source?.Value, effect.EffectId, entities)
-        || HasReferenceValuedAuraEffect(effect.TriggerSource?.Value, effect.EffectId, entities);
+        HasReferenceValuedAuraEffect(effect.Source, effect.EffectId, entities)
+        || HasReferenceValuedAuraEffect(effect.TriggerSource, effect.EffectId, entities);
 
     private static bool HasReferenceValuedAuraEffect(
         string? sourceId,
@@ -2509,26 +2487,26 @@ internal static class CombatImpactProjector
         && entities.TryGetValue(sourceId!, out var source)
         && source.ReferenceValuedAuraEffectIds?.Contains(effectId!) == true;
 
-    private static bool HasExplicitModifierClaim(CombatSimFrame frame, InstanceId target) =>
+    private static bool HasExplicitModifierClaim(CombatFrame frame, string target) =>
         frame
-            .Events.OfType<CombatSimEventEffectExecuted>()
+            .Events.OfType<CombatEffectExecuted>()
             .Any(item =>
-                item.ActionType == EActionCommandType.CardModifyAttribute
-                && item.Target is EffectTargetCard cardTarget
+                item.ActionType == CombatActionType.CardModifyAttribute
+                && item.Target is CombatCardTarget cardTarget
                 && cardTarget.Target == target
             );
 
     private static bool HasExplicitModifierClaim(
-        CombatSimFrame frame,
-        InstanceId target,
-        ECardAttributeType attributeType,
+        CombatFrame frame,
+        string target,
+        CombatCardAttribute attributeType,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     ) =>
         frame
-            .Events.OfType<CombatSimEventEffectExecuted>()
+            .Events.OfType<CombatEffectExecuted>()
             .Any(item =>
-                item.ActionType == EActionCommandType.CardModifyAttribute
-                && item.Target is EffectTargetCard cardTarget
+                item.ActionType == CombatActionType.CardModifyAttribute
+                && item.Target is CombatCardTarget cardTarget
                 && cardTarget.Target == target
                 && (
                     !TryResolveAbilityAttributeType(item, entities, out var claimedAttribute)
@@ -2536,112 +2514,112 @@ internal static class CombatImpactProjector
                 )
             );
 
-    private static bool IsAttributableCardAttribute(ECardAttributeType attribute) =>
+    private static bool IsAttributableCardAttribute(CombatCardAttribute attribute) =>
         IsDisplayableAuraAttribute(attribute)
         || attribute.ToString().StartsWith("Custom_", StringComparison.Ordinal);
 
-    private static bool IsDisplayableAuraAttribute(ECardAttributeType attribute) =>
+    private static bool IsDisplayableAuraAttribute(CombatCardAttribute attribute) =>
         attribute
-            is ECardAttributeType.TempoApplyAmount
-                or ECardAttributeType.TempoRemoveAmount
-                or ECardAttributeType.AmmoMax
-                or ECardAttributeType.ReloadAmount
-                or ECardAttributeType.ReloadTargets
-                or ECardAttributeType.CooldownMax
-                or ECardAttributeType.ChargeAmount
-                or ECardAttributeType.ChargeTargets
-                or ECardAttributeType.HasteAmount
-                or ECardAttributeType.HasteTargets
-                or ECardAttributeType.SlowAmount
-                or ECardAttributeType.SlowTargets
-                or ECardAttributeType.FreezeAmount
-                or ECardAttributeType.FreezeTargets
-                or ECardAttributeType.BurnApplyAmount
-                or ECardAttributeType.BurnRemoveAmount
-                or ECardAttributeType.PoisonApplyAmount
-                or ECardAttributeType.PoisonRemoveAmount
-                or ECardAttributeType.Multicast
-                or ECardAttributeType.Lifesteal
-                or ECardAttributeType.CritChance
-                or ECardAttributeType.DamageAmount
-                or ECardAttributeType.DamageCrit
-                or ECardAttributeType.HealAmount
-                or ECardAttributeType.HealCrit
-                or ECardAttributeType.JoyApplyAmount
-                or ECardAttributeType.JoyRemoveAmount
-                or ECardAttributeType.JoyCrit
-                or ECardAttributeType.ShieldApplyAmount
-                or ECardAttributeType.ShieldRemoveAmount
-                or ECardAttributeType.ShieldCrit
-                or ECardAttributeType.ForceUseTargets
-                or ECardAttributeType.EnchantTargets
-                or ECardAttributeType.UpgradeTargets
-                or ECardAttributeType.DisableTargets
-                or ECardAttributeType.RepairTargets
-                or ECardAttributeType.BurnCrit
-                or ECardAttributeType.PoisonCrit
-                or ECardAttributeType.DestroyTargets
-                or ECardAttributeType.RegenApplyAmount
-                or ECardAttributeType.RegenRemoveAmount
-                or ECardAttributeType.RegenCrit
-                or ECardAttributeType.TransformTargets
-                or ECardAttributeType.FlatCooldownReduction
-                or ECardAttributeType.PercentCooldownReduction
-                or ECardAttributeType.EnchantRemoveTargets
-                or ECardAttributeType.FlyingTargets
-                or ECardAttributeType.PercentChargeReduction
-                or ECardAttributeType.PercentHasteReduction
-                or ECardAttributeType.PercentSlowReduction
-                or ECardAttributeType.PercentFreezeReduction
-                or ECardAttributeType.DestroyImmunity
-                or ECardAttributeType.RageApplyAmount
-                or ECardAttributeType.RageRemoveAmount
-                or ECardAttributeType.TempoCost
-                or ECardAttributeType.FlatTempoCostReduction
-                or ECardAttributeType.PercentTempoCostReduction
-                or ECardAttributeType.BuyPrice
-                or ECardAttributeType.SellPrice;
+            is CombatCardAttribute.TempoApplyAmount
+                or CombatCardAttribute.TempoRemoveAmount
+                or CombatCardAttribute.AmmoMax
+                or CombatCardAttribute.ReloadAmount
+                or CombatCardAttribute.ReloadTargets
+                or CombatCardAttribute.CooldownMax
+                or CombatCardAttribute.ChargeAmount
+                or CombatCardAttribute.ChargeTargets
+                or CombatCardAttribute.HasteAmount
+                or CombatCardAttribute.HasteTargets
+                or CombatCardAttribute.SlowAmount
+                or CombatCardAttribute.SlowTargets
+                or CombatCardAttribute.FreezeAmount
+                or CombatCardAttribute.FreezeTargets
+                or CombatCardAttribute.BurnApplyAmount
+                or CombatCardAttribute.BurnRemoveAmount
+                or CombatCardAttribute.PoisonApplyAmount
+                or CombatCardAttribute.PoisonRemoveAmount
+                or CombatCardAttribute.Multicast
+                or CombatCardAttribute.Lifesteal
+                or CombatCardAttribute.CritChance
+                or CombatCardAttribute.DamageAmount
+                or CombatCardAttribute.DamageCrit
+                or CombatCardAttribute.HealAmount
+                or CombatCardAttribute.HealCrit
+                or CombatCardAttribute.JoyApplyAmount
+                or CombatCardAttribute.JoyRemoveAmount
+                or CombatCardAttribute.JoyCrit
+                or CombatCardAttribute.ShieldApplyAmount
+                or CombatCardAttribute.ShieldRemoveAmount
+                or CombatCardAttribute.ShieldCrit
+                or CombatCardAttribute.ForceUseTargets
+                or CombatCardAttribute.EnchantTargets
+                or CombatCardAttribute.UpgradeTargets
+                or CombatCardAttribute.DisableTargets
+                or CombatCardAttribute.RepairTargets
+                or CombatCardAttribute.BurnCrit
+                or CombatCardAttribute.PoisonCrit
+                or CombatCardAttribute.DestroyTargets
+                or CombatCardAttribute.RegenApplyAmount
+                or CombatCardAttribute.RegenRemoveAmount
+                or CombatCardAttribute.RegenCrit
+                or CombatCardAttribute.TransformTargets
+                or CombatCardAttribute.FlatCooldownReduction
+                or CombatCardAttribute.PercentCooldownReduction
+                or CombatCardAttribute.EnchantRemoveTargets
+                or CombatCardAttribute.FlyingTargets
+                or CombatCardAttribute.PercentChargeReduction
+                or CombatCardAttribute.PercentHasteReduction
+                or CombatCardAttribute.PercentSlowReduction
+                or CombatCardAttribute.PercentFreezeReduction
+                or CombatCardAttribute.DestroyImmunity
+                or CombatCardAttribute.RageApplyAmount
+                or CombatCardAttribute.RageRemoveAmount
+                or CombatCardAttribute.TempoCost
+                or CombatCardAttribute.FlatTempoCostReduction
+                or CombatCardAttribute.PercentTempoCostReduction
+                or CombatCardAttribute.BuyPrice
+                or CombatCardAttribute.SellPrice;
 
-    private static bool IsDisplayableAuraPlayerAttribute(EPlayerAttributeType attribute) =>
+    private static bool IsDisplayableAuraPlayerAttribute(CombatPlayerAttribute attribute) =>
         attribute
-            is EPlayerAttributeType.CritChance
-                or EPlayerAttributeType.DamageCrit
-                or EPlayerAttributeType.JoyCrit
-                or EPlayerAttributeType.HealthMax
-                or EPlayerAttributeType.HealthRegen
-                or EPlayerAttributeType.HealAmount
-                or EPlayerAttributeType.HealCrit
-                or EPlayerAttributeType.ShieldCrit
-                or EPlayerAttributeType.FlatDamageReduction
-                or EPlayerAttributeType.PercentDamageReduction
-                or EPlayerAttributeType.Rage
-                or EPlayerAttributeType.RageMax
-                or EPlayerAttributeType.EnragedDurationMax
-                or EPlayerAttributeType.Tempo
-                or EPlayerAttributeType.TempoGainCooldownMax
-                or EPlayerAttributeType.FlatTempoGainCooldownReduction
-                or EPlayerAttributeType.PercentTempoGainCooldownReduction
-                or EPlayerAttributeType.Experience
-                or EPlayerAttributeType.Gold
-                or EPlayerAttributeType.Income
-                or EPlayerAttributeType.Prestige
-                or EPlayerAttributeType.Level
-                or EPlayerAttributeType.RerollCostModifier;
+            is CombatPlayerAttribute.CritChance
+                or CombatPlayerAttribute.DamageCrit
+                or CombatPlayerAttribute.JoyCrit
+                or CombatPlayerAttribute.HealthMax
+                or CombatPlayerAttribute.HealthRegen
+                or CombatPlayerAttribute.HealAmount
+                or CombatPlayerAttribute.HealCrit
+                or CombatPlayerAttribute.ShieldCrit
+                or CombatPlayerAttribute.FlatDamageReduction
+                or CombatPlayerAttribute.PercentDamageReduction
+                or CombatPlayerAttribute.Rage
+                or CombatPlayerAttribute.RageMax
+                or CombatPlayerAttribute.EnragedDurationMax
+                or CombatPlayerAttribute.Tempo
+                or CombatPlayerAttribute.TempoGainCooldownMax
+                or CombatPlayerAttribute.FlatTempoGainCooldownReduction
+                or CombatPlayerAttribute.PercentTempoGainCooldownReduction
+                or CombatPlayerAttribute.Experience
+                or CombatPlayerAttribute.Gold
+                or CombatPlayerAttribute.Income
+                or CombatPlayerAttribute.Prestige
+                or CombatPlayerAttribute.Level
+                or CombatPlayerAttribute.RerollCostModifier;
 
-    internal static string PlayerId(ECombatantId combatant) => $"player:{combatant}";
+    public static string PlayerId(Combatant combatant) => $"player:{combatant}";
 
-    private static string? ResolveTargetId(IEffectTarget? target) =>
+    private static string? ResolveTargetId(CombatTarget? target) =>
         target switch
         {
-            EffectTargetCard card => card.Target.Value,
-            EffectTargetPlayer player => PlayerId(player.Target),
+            CombatCardTarget card => card.Target,
+            CombatPlayerTarget player => PlayerId(player.Target),
             _ => null,
         };
 
     private static bool IsTransitionUnique(
-        CombatSimFrame frame,
-        IReadOnlyList<CombatSimEventEffectExecuted> executed,
-        CombatSimEventEffectExecuted candidate,
+        CombatFrame frame,
+        IReadOnlyList<CombatEffectExecuted> executed,
+        CombatEffectExecuted candidate,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
@@ -2654,12 +2632,12 @@ internal static class CombatImpactProjector
         );
         if (
             transition.Domain == ImpactTransitionDomain.PlayerAttribute
-            && transition.Attribute == (int)EPlayerAttributeType.Tempo
+            && transition.Attribute == (int)CombatPlayerAttribute.Tempo
         )
         {
             claimCount += frame.Events.Count(candidate =>
-                CardActionCostSpentEventReader.TryRead(candidate, out var costSpent)
-                && costSpent.PlayerAttributeSpent == EPlayerAttributeType.Tempo
+                candidate is CombatCardActionCostSpent costSpent
+                && costSpent.PlayerAttributeSpent == CombatPlayerAttribute.Tempo
                 && string.Equals(
                     ResolveCardActionCostTargetId(costSpent, entities),
                     targetId,
@@ -2672,18 +2650,18 @@ internal static class CombatImpactProjector
             && !(
                 transition.Domain == ImpactTransitionDomain.PlayerAttribute
                 && frame
-                    .Events.OfType<CombatSimEventEffectAuraExecuted>()
+                    .Events.OfType<CombatAuraExecuted>()
                     .Any(aura => AuraTouches(aura, targetId))
             );
     }
 
     private static string? ResolveCardActionCostTargetId(
-        CardActionCostSpentEvent costSpent,
+        CombatCardActionCostSpent costSpent,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
         if (
-            !entities.TryGetValue(costSpent.ExecutingCard.Value, out var source)
+            !entities.TryGetValue(costSpent.ExecutingCard, out var source)
             || !source.CombatantId.HasValue
         )
             return null;
@@ -2693,69 +2671,66 @@ internal static class CombatImpactProjector
     }
 
     private static bool ClaimsTransition(
-        EActionCommandType action,
+        CombatActionType action,
         ImpactTransitionClaim transition
     ) => TryResolveTransitionClaim(action, out var candidate) && candidate == transition;
 
     private static bool TryResolveTransitionClaim(
-        EActionCommandType action,
+        CombatActionType action,
         out ImpactTransitionClaim transition
     )
     {
         ImpactTransitionClaim? resolved = action switch
         {
-            EActionCommandType.PlayerTempoApply or EActionCommandType.PlayerTempoRemove => new(
+            CombatActionType.PlayerTempoApply or CombatActionType.PlayerTempoRemove => new(
                 ImpactTransitionDomain.PlayerAttribute,
-                (int)EPlayerAttributeType.Tempo
+                (int)CombatPlayerAttribute.Tempo
             ),
-            EActionCommandType.PlayerDamage => new(
+            CombatActionType.PlayerDamage => new(
                 ImpactTransitionDomain.HealthAdjustment,
                 (int)CombatImpactKind.DirectDamage
             ),
-            EActionCommandType.PlayerHeal => new(
+            CombatActionType.PlayerHeal => new(
                 ImpactTransitionDomain.HealthAdjustment,
                 (int)CombatImpactKind.Healing
             ),
-            EActionCommandType.PlayerShieldApply or EActionCommandType.PlayerShieldRemove => new(
+            CombatActionType.PlayerShieldApply or CombatActionType.PlayerShieldRemove => new(
                 ImpactTransitionDomain.HealthAdjustment,
                 (int)CombatImpactKind.Shield
             ),
-            EActionCommandType.PlayerBurnApply or EActionCommandType.PlayerBurnRemove => new(
+            CombatActionType.PlayerBurnApply or CombatActionType.PlayerBurnRemove => new(
                 ImpactTransitionDomain.PlayerAttribute,
-                (int)EPlayerAttributeType.Burn
+                (int)CombatPlayerAttribute.Burn
             ),
-            EActionCommandType.PlayerPoisonApply or EActionCommandType.PlayerPoisonRemove => new(
+            CombatActionType.PlayerPoisonApply or CombatActionType.PlayerPoisonRemove => new(
                 ImpactTransitionDomain.PlayerAttribute,
-                (int)EPlayerAttributeType.Poison
+                (int)CombatPlayerAttribute.Poison
             ),
-            EActionCommandType.PlayerRegenApply or EActionCommandType.PlayerRegenRemove => new(
+            CombatActionType.PlayerRegenApply or CombatActionType.PlayerRegenRemove => new(
                 ImpactTransitionDomain.PlayerAttribute,
-                (int)EPlayerAttributeType.HealthRegen
+                (int)CombatPlayerAttribute.HealthRegen
             ),
-            EActionCommandType.PlayerRageApply or EActionCommandType.PlayerRageRemove => new(
+            CombatActionType.PlayerRageApply or CombatActionType.PlayerRageRemove => new(
                 ImpactTransitionDomain.PlayerAttribute,
-                (int)EPlayerAttributeType.Rage
+                (int)CombatPlayerAttribute.Rage
             ),
-            EActionCommandType.PlayerMaxHealthIncrease
-            or EActionCommandType.PlayerMaxHealthDecrease => new(
-                ImpactTransitionDomain.PlayerAttribute,
-                (int)EPlayerAttributeType.HealthMax
-            ),
-            EActionCommandType.CardHaste => new(
+            CombatActionType.PlayerMaxHealthIncrease or CombatActionType.PlayerMaxHealthDecrease =>
+                new(ImpactTransitionDomain.PlayerAttribute, (int)CombatPlayerAttribute.HealthMax),
+            CombatActionType.CardHaste => new(
                 ImpactTransitionDomain.CardAttribute,
-                (int)ECardAttributeType.Haste
+                (int)CombatCardAttribute.Haste
             ),
-            EActionCommandType.CardSlow => new(
+            CombatActionType.CardSlow => new(
                 ImpactTransitionDomain.CardAttribute,
-                (int)ECardAttributeType.Slow
+                (int)CombatCardAttribute.Slow
             ),
-            EActionCommandType.CardFreeze => new(
+            CombatActionType.CardFreeze => new(
                 ImpactTransitionDomain.CardAttribute,
-                (int)ECardAttributeType.Freeze
+                (int)CombatCardAttribute.Freeze
             ),
-            EActionCommandType.CardReload => new(
+            CombatActionType.CardReload => new(
                 ImpactTransitionDomain.CardAttribute,
-                (int)ECardAttributeType.Ammo
+                (int)CombatCardAttribute.Ammo
             ),
             _ => null,
         };
@@ -2763,46 +2738,45 @@ internal static class CombatImpactProjector
         return resolved.HasValue;
     }
 
-    internal static bool HasExplicitDisplayClassification(EActionCommandType action) =>
+    internal static bool HasExplicitDisplayClassification(CombatActionType action) =>
         TryResolveKind(action, out _) || IsExplicitlyIgnoredAction(action);
 
-    internal static bool TryResolveKind(EActionCommandType action, out CombatImpactKind kind)
+    internal static bool TryResolveKind(CombatActionType action, out CombatImpactKind kind)
     {
         CombatImpactKind? resolved = action switch
         {
-            EActionCommandType.PlayerTempoApply or EActionCommandType.PlayerTempoRemove =>
+            CombatActionType.PlayerTempoApply or CombatActionType.PlayerTempoRemove =>
                 CombatImpactKind.AttributeChange,
-            EActionCommandType.PlayerDamage => CombatImpactKind.DirectDamage,
-            EActionCommandType.PlayerBurnApply => CombatImpactKind.Burn,
-            EActionCommandType.PlayerPoisonApply => CombatImpactKind.Poison,
-            EActionCommandType.PlayerHeal => CombatImpactKind.Healing,
-            EActionCommandType.PlayerShieldApply => CombatImpactKind.Shield,
-            EActionCommandType.CardCharge => CombatImpactKind.Charge,
-            EActionCommandType.CardHaste => CombatImpactKind.Haste,
-            EActionCommandType.CardSlow => CombatImpactKind.Slow,
-            EActionCommandType.CardFreeze => CombatImpactKind.Freeze,
-            EActionCommandType.FlyingStart or EActionCommandType.FlyingStop =>
-                CombatImpactKind.Flying,
-            EActionCommandType.CardReload => CombatImpactKind.AttributeChange,
-            EActionCommandType.CardForceUse
-            or EActionCommandType.CardEnchant
-            or EActionCommandType.CardEnchantRemove
-            or EActionCommandType.CardTransform
-            or EActionCommandType.CardTransformDestroyed
-            or EActionCommandType.CardUpgrade
-            or EActionCommandType.CardRepair => CombatImpactKind.AttributeChange,
-            EActionCommandType.CardModifyAttribute => CombatImpactKind.AttributeChange,
-            EActionCommandType.PlayerModifyAttribute => CombatImpactKind.AttributeChange,
-            EActionCommandType.PlayerMaxHealthIncrease => CombatImpactKind.AttributeChange,
-            EActionCommandType.PlayerMaxHealthDecrease => CombatImpactKind.AttributeChange,
-            EActionCommandType.PlayerRegenApply => CombatImpactKind.AttributeChange,
-            EActionCommandType.PlayerRageApply => CombatImpactKind.AttributeChange,
-            EActionCommandType.PlayerBurnRemove
-            or EActionCommandType.PlayerPoisonRemove
-            or EActionCommandType.PlayerRegenRemove
-            or EActionCommandType.PlayerShieldRemove
-            or EActionCommandType.PlayerRageRemove => CombatImpactKind.AttributeChange,
-            EActionCommandType.CardDisable or EActionCommandType.CardDestroy =>
+            CombatActionType.PlayerDamage => CombatImpactKind.DirectDamage,
+            CombatActionType.PlayerBurnApply => CombatImpactKind.Burn,
+            CombatActionType.PlayerPoisonApply => CombatImpactKind.Poison,
+            CombatActionType.PlayerHeal => CombatImpactKind.Healing,
+            CombatActionType.PlayerShieldApply => CombatImpactKind.Shield,
+            CombatActionType.CardCharge => CombatImpactKind.Charge,
+            CombatActionType.CardHaste => CombatImpactKind.Haste,
+            CombatActionType.CardSlow => CombatImpactKind.Slow,
+            CombatActionType.CardFreeze => CombatImpactKind.Freeze,
+            CombatActionType.FlyingStart or CombatActionType.FlyingStop => CombatImpactKind.Flying,
+            CombatActionType.CardReload => CombatImpactKind.AttributeChange,
+            CombatActionType.CardForceUse
+            or CombatActionType.CardEnchant
+            or CombatActionType.CardEnchantRemove
+            or CombatActionType.CardTransform
+            or CombatActionType.CardTransformDestroyed
+            or CombatActionType.CardUpgrade
+            or CombatActionType.CardRepair => CombatImpactKind.AttributeChange,
+            CombatActionType.CardModifyAttribute => CombatImpactKind.AttributeChange,
+            CombatActionType.PlayerModifyAttribute => CombatImpactKind.AttributeChange,
+            CombatActionType.PlayerMaxHealthIncrease => CombatImpactKind.AttributeChange,
+            CombatActionType.PlayerMaxHealthDecrease => CombatImpactKind.AttributeChange,
+            CombatActionType.PlayerRegenApply => CombatImpactKind.AttributeChange,
+            CombatActionType.PlayerRageApply => CombatImpactKind.AttributeChange,
+            CombatActionType.PlayerBurnRemove
+            or CombatActionType.PlayerPoisonRemove
+            or CombatActionType.PlayerRegenRemove
+            or CombatActionType.PlayerShieldRemove
+            or CombatActionType.PlayerRageRemove => CombatImpactKind.AttributeChange,
+            CombatActionType.CardDisable or CombatActionType.CardDestroy =>
                 CombatImpactKind.Destroy,
             _ => null,
         };
@@ -2810,49 +2784,49 @@ internal static class CombatImpactProjector
         return resolved.HasValue;
     }
 
-    private static bool IsExplicitlyIgnoredAction(EActionCommandType action) =>
+    private static bool IsExplicitlyIgnoredAction(CombatActionType action) =>
         IsOptionalGameStateAction(action)
         || action
-            is EActionCommandType.None
-                or EActionCommandType.CardAddTags
-                or EActionCommandType.CardRemoveTags
-                or EActionCommandType.CardBeginSandstorm
-                or EActionCommandType.GameDealCards
-                or EActionCommandType.GameModifyTime
-                or EActionCommandType.GameScheduleEncounter
-                or EActionCommandType.GameSpawnCards
-                or EActionCommandType.GameStartCombat
-                or EActionCommandType.GameUnscheduleEncounter
-                or EActionCommandType.PlayerGoldSteal
-                or EActionCommandType.PlayerJoyApply
-                or EActionCommandType.PlayerJoyRemove
-                or EActionCommandType.ExitReplacementSet
-                or EActionCommandType.CardAddTagsRandom
-                or EActionCommandType.PlayerPortraitNext
-                or EActionCommandType.PlayerPortraitReset
-                or EActionCommandType.GameReroll;
+            is CombatActionType.None
+                or CombatActionType.CardAddTags
+                or CombatActionType.CardRemoveTags
+                or CombatActionType.CardBeginSandstorm
+                or CombatActionType.GameDealCards
+                or CombatActionType.GameModifyTime
+                or CombatActionType.GameScheduleEncounter
+                or CombatActionType.GameSpawnCards
+                or CombatActionType.GameStartCombat
+                or CombatActionType.GameUnscheduleEncounter
+                or CombatActionType.PlayerGoldSteal
+                or CombatActionType.PlayerJoyApply
+                or CombatActionType.PlayerJoyRemove
+                or CombatActionType.ExitReplacementSet
+                or CombatActionType.CardAddTagsRandom
+                or CombatActionType.PlayerPortraitNext
+                or CombatActionType.PlayerPortraitReset
+                or CombatActionType.GameReroll;
 
-    private static bool IsOptionalGameStateAction(EActionCommandType action) =>
+    private static bool IsOptionalGameStateAction(CombatActionType action) =>
         action.ToString()
             is "GameAddToExclusionSet"
                 or "GameRemoveFromExclusionSet"
                 or "GameSetNextHourSpawnContext";
 
     private static ResolvedImpactValue ResolveValue(
-        CombatSimFrame frame,
-        CombatSimEventEffectExecuted item,
+        CombatFrame frame,
+        CombatEffectExecuted item,
         CombatImpactKind kind,
         bool transitionIsUnique,
-        IReadOnlyList<CombatSimEventEffectExecuted> executed,
+        IReadOnlyList<CombatEffectExecuted> executed,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes
     )
     {
         if (
             kind == CombatImpactKind.AttributeChange
             && item.ActionType
-                is EActionCommandType.CardModifyAttribute
-                    or EActionCommandType.PlayerModifyAttribute
+                is CombatActionType.CardModifyAttribute
+                    or CombatActionType.PlayerModifyAttribute
         )
             return ResolveConcreteAttributeTransition(
                 frame,
@@ -2869,16 +2843,16 @@ internal static class CombatImpactProjector
         if (!transitionIsUnique)
             return ResolvedImpactValue.Empty(kind, item.ActionType);
 
-        if (item.Target is EffectTargetPlayer playerTarget)
+        if (item.Target is CombatPlayerTarget playerTarget)
         {
             var update =
-                playerTarget.Target == ECombatantId.Player
+                playerTarget.Target == Combatant.Player
                     ? frame.PlayerUpdates
                     : frame.OpponentUpdates;
             if (update == null)
                 return ResolvedImpactValue.Empty(kind, item.ActionType);
 
-            if (item.ActionType == EActionCommandType.PlayerShieldRemove)
+            if (item.ActionType == CombatActionType.PlayerShieldRemove)
             {
                 return ResolveShieldRemoval(update)
                     ?? ResolvedImpactValue.Empty(kind, item.ActionType);
@@ -2895,21 +2869,21 @@ internal static class CombatImpactProjector
                     ?? ResolvedImpactValue.Empty(kind, item.ActionType);
             }
 
-            EPlayerAttributeType? expectedAttribute = item.ActionType switch
+            CombatPlayerAttribute? expectedAttribute = item.ActionType switch
             {
-                EActionCommandType.PlayerTempoApply or EActionCommandType.PlayerTempoRemove =>
-                    EPlayerAttributeType.Tempo,
-                EActionCommandType.PlayerBurnApply or EActionCommandType.PlayerBurnRemove =>
-                    EPlayerAttributeType.Burn,
-                EActionCommandType.PlayerPoisonApply or EActionCommandType.PlayerPoisonRemove =>
-                    EPlayerAttributeType.Poison,
-                EActionCommandType.PlayerRegenApply or EActionCommandType.PlayerRegenRemove =>
-                    EPlayerAttributeType.HealthRegen,
-                EActionCommandType.PlayerRageApply or EActionCommandType.PlayerRageRemove =>
-                    EPlayerAttributeType.Rage,
-                EActionCommandType.PlayerMaxHealthIncrease => EPlayerAttributeType.HealthMax,
-                EActionCommandType.PlayerMaxHealthDecrease => EPlayerAttributeType.HealthMax,
-                _ => (EPlayerAttributeType?)null,
+                CombatActionType.PlayerTempoApply or CombatActionType.PlayerTempoRemove =>
+                    CombatPlayerAttribute.Tempo,
+                CombatActionType.PlayerBurnApply or CombatActionType.PlayerBurnRemove =>
+                    CombatPlayerAttribute.Burn,
+                CombatActionType.PlayerPoisonApply or CombatActionType.PlayerPoisonRemove =>
+                    CombatPlayerAttribute.Poison,
+                CombatActionType.PlayerRegenApply or CombatActionType.PlayerRegenRemove =>
+                    CombatPlayerAttribute.HealthRegen,
+                CombatActionType.PlayerRageApply or CombatActionType.PlayerRageRemove =>
+                    CombatPlayerAttribute.Rage,
+                CombatActionType.PlayerMaxHealthIncrease => CombatPlayerAttribute.HealthMax,
+                CombatActionType.PlayerMaxHealthDecrease => CombatPlayerAttribute.HealthMax,
+                _ => (CombatPlayerAttribute?)null,
             };
             if (
                 expectedAttribute.HasValue
@@ -2932,7 +2906,7 @@ internal static class CombatImpactProjector
         }
 
         if (
-            item.Target is not EffectTargetCard cardTarget
+            item.Target is not CombatCardTarget cardTarget
             || !frame.CardUpdates.TryGetValue(cardTarget.Target, out var cardUpdate)
         )
             return ResolvedImpactValue.Empty(kind, item.ActionType);
@@ -2940,10 +2914,10 @@ internal static class CombatImpactProjector
         if (kind == CombatImpactKind.Destroy)
             return ResolvedImpactValue.Empty(kind, item.ActionType);
 
-        if (item.ActionType == EActionCommandType.CardReload)
+        if (item.ActionType == CombatActionType.CardReload)
         {
             if (
-                cardUpdate.Attributes.TryGetValue(ECardAttributeType.Ammo, out var ammo)
+                cardUpdate.Attributes.TryGetValue(CombatCardAttribute.Ammo, out var ammo)
                 && ammo.Delta > 0
             )
             {
@@ -2963,21 +2937,21 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveCategoricalCardAction(
-        CombatSimFrame frame,
-        CombatSimEventEffectExecuted item,
+        CombatFrame frame,
+        CombatEffectExecuted item,
         CombatImpactKind kind,
         out ResolvedImpactValue resolved
     )
     {
         var nativeKey = item.ActionType switch
         {
-            EActionCommandType.CardForceUse => "ForceUseTargets",
-            EActionCommandType.CardEnchant => ResolveEnchantActionKey(frame, item),
-            EActionCommandType.CardEnchantRemove => "EnchantRemoveTargets",
-            EActionCommandType.CardTransform or EActionCommandType.CardTransformDestroyed =>
+            CombatActionType.CardForceUse => "ForceUseTargets",
+            CombatActionType.CardEnchant => ResolveEnchantActionKey(frame, item),
+            CombatActionType.CardEnchantRemove => "EnchantRemoveTargets",
+            CombatActionType.CardTransform or CombatActionType.CardTransformDestroyed =>
                 "TransformTargets",
-            EActionCommandType.CardUpgrade => "UpgradeTargets",
-            EActionCommandType.CardRepair => "RepairTargets",
+            CombatActionType.CardUpgrade => "UpgradeTargets",
+            CombatActionType.CardRepair => "RepairTargets",
             _ => null,
         };
         if (nativeKey == null)
@@ -2993,19 +2967,16 @@ internal static class CombatImpactProjector
         return true;
     }
 
-    private static string ResolveEnchantActionKey(
-        CombatSimFrame frame,
-        CombatSimEventEffectExecuted item
-    )
+    private static string ResolveEnchantActionKey(CombatFrame frame, CombatEffectExecuted item)
     {
-        if (item.Target is not EffectTargetCard cardTarget)
+        if (item.Target is not CombatCardTarget cardTarget)
             return "EnchantTargets";
 
-        var targetId = cardTarget.Target.Value;
+        var targetId = cardTarget.Target;
         var matchingExecutions = frame
-            .Events.OfType<CombatSimEventEffectExecuted>()
+            .Events.OfType<CombatEffectExecuted>()
             .Where(candidate =>
-                candidate.ActionType == EActionCommandType.CardEnchant
+                candidate.ActionType == CombatActionType.CardEnchant
                 && string.Equals(
                     ResolveTargetId(candidate.Target),
                     targetId,
@@ -3015,7 +2986,7 @@ internal static class CombatImpactProjector
             .Take(2)
             .Count();
         var enchantments = frame
-            .Events.OfType<CombatSimEventCardEnchanted>()
+            .Events.OfType<CombatCardEnchanted>()
             .Where(candidate =>
                 string.Equals(candidate.InstanceId, targetId, StringComparison.Ordinal)
                 && !candidate.IsReverted
@@ -3031,20 +3002,20 @@ internal static class CombatImpactProjector
     }
 
     private static ResolvedImpactValue ResolveConcreteAttributeTransition(
-        CombatSimFrame frame,
-        CombatSimEventEffectExecuted item,
+        CombatFrame frame,
+        CombatEffectExecuted item,
         CombatImpactKind kind,
-        IReadOnlyList<CombatSimEventEffectExecuted> executed,
+        IReadOnlyList<CombatEffectExecuted> executed,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes
     )
     {
-        if (item.ActionType == EActionCommandType.PlayerModifyAttribute)
+        if (item.ActionType == CombatActionType.PlayerModifyAttribute)
         {
-            if (item.Target is not EffectTargetPlayer playerTarget)
+            if (item.Target is not CombatPlayerTarget playerTarget)
                 return ResolvedImpactValue.Empty(kind, item.ActionType);
             var playerUpdate =
-                playerTarget.Target == ECombatantId.Player
+                playerTarget.Target == Combatant.Player
                     ? frame.PlayerUpdates
                     : frame.OpponentUpdates;
             var changes = playerUpdate
@@ -3067,7 +3038,7 @@ internal static class CombatImpactProjector
             var change = changes[0];
             if (
                 frame
-                    .Events.OfType<CombatSimEventEffectAuraExecuted>()
+                    .Events.OfType<CombatAuraExecuted>()
                     .Any(aura => AuraTouches(aura, ResolveTargetId(item.Target)))
             )
                 return new ResolvedImpactValue(
@@ -3103,12 +3074,12 @@ internal static class CombatImpactProjector
         }
 
         if (
-            item.Target is not EffectTargetCard cardTarget
+            item.Target is not CombatCardTarget cardTarget
             || !frame.CardUpdates.TryGetValue(cardTarget.Target, out var cardUpdate)
         )
             return ResolvedImpactValue.Empty(kind, item.ActionType);
 
-        CombatSimCardAttributeUpdate cardChange;
+        CombatCardAttributeUpdate cardChange;
         if (TryResolveAbilityAttributeType(item, entities, out var expectedAttribute))
         {
             if (
@@ -3116,7 +3087,7 @@ internal static class CombatImpactProjector
                 || !cardUpdate.Attributes.TryGetValue(expectedAttribute, out var expectedChange)
                 || (
                     expectedChange.Delta == 0
-                    && !HasAuraClaim(frame, cardTarget.Target.Value, expectedAttribute, entities)
+                    && !HasAuraClaim(frame, cardTarget.Target, expectedAttribute, entities)
                 )
             )
                 return ResolvedImpactValue.Empty(kind, item.ActionType);
@@ -3133,7 +3104,7 @@ internal static class CombatImpactProjector
                 return ResolvedImpactValue.Empty(kind, item.ActionType);
             cardChange = cardChanges[0];
         }
-        if (HasAuraClaim(frame, cardTarget.Target.Value, cardChange.AttributeType, entities))
+        if (HasAuraClaim(frame, cardTarget.Target, cardChange.AttributeType, entities))
             return ResolveAuraOverlappingCardTransition(
                 frame,
                 item,
@@ -3221,12 +3192,12 @@ internal static class CombatImpactProjector
     }
 
     private static ResolvedImpactValue ResolveAuraOverlappingCardTransition(
-        CombatSimFrame frame,
-        CombatSimEventEffectExecuted item,
-        IReadOnlyList<CombatSimEventEffectExecuted> executed,
+        CombatFrame frame,
+        CombatEffectExecuted item,
+        IReadOnlyList<CombatEffectExecuted> executed,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
-        CombatSimCardAttributeUpdate change
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
+        CombatCardAttributeUpdate change
     )
     {
         var targetId = ResolveTargetId(item.Target);
@@ -3243,7 +3214,7 @@ internal static class CombatImpactProjector
         // A frame update is a net result, not an execution's operand. Only independent
         // additive actions can be separated from an additive aura without event-local state.
         var additiveAuras = frame
-            .Events.OfType<CombatSimEventEffectAuraExecuted>()
+            .Events.OfType<CombatAuraExecuted>()
             .Where(aura =>
                 AuraTouches(aura, targetId)
                 && (
@@ -3254,8 +3225,8 @@ internal static class CombatImpactProjector
             .All(aura =>
                 TryResolveAuraModifier(aura, entities, out var modifier)
                 && modifier.Operation
-                    is EAttributeModifierOperation.Add
-                        or EAttributeModifierOperation.Subtract
+                    is CombatAttributeOperation.Add
+                        or CombatAttributeOperation.Subtract
             );
         if (
             targetId != null
@@ -3263,7 +3234,7 @@ internal static class CombatImpactProjector
             && targetEntity.AuraAttributeModifiersByEffectId?.Values.Any(modifier =>
                 modifier.AttributeType == change.AttributeType
                 && modifier.Operation
-                    is not (EAttributeModifierOperation.Add or EAttributeModifierOperation.Subtract)
+                    is not (CombatAttributeOperation.Add or CombatAttributeOperation.Subtract)
             ) == true
         )
             additiveAuras = false;
@@ -3273,8 +3244,8 @@ internal static class CombatImpactProjector
             && claimants.All(candidate =>
                 TryResolveAbilityAttributeModifier(candidate, entities, out _, out var modifier)
                 && modifier.Operation
-                    is EAttributeModifierOperation.Add
-                        or EAttributeModifierOperation.Subtract
+                    is CombatAttributeOperation.Add
+                        or CombatAttributeOperation.Subtract
             )
         )
         {
@@ -3286,11 +3257,8 @@ internal static class CombatImpactProjector
                     out var modifier
                 )
                 && !(
-                    modifier.Value is TReferenceValueCardAttribute reference
-                    && frame.CardUpdates.TryGetValue(
-                        InstanceId.TryParse(sourceId),
-                        out var sourceUpdate
-                    )
+                    modifier.Value is CombatCardAttributeReference reference
+                    && frame.CardUpdates.TryGetValue((sourceId), out var sourceUpdate)
                     && sourceUpdate.Attributes.TryGetValue(
                         reference.AttributeType,
                         out var sourceChange
@@ -3334,11 +3302,11 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveConcurrentConfiguredCardAttributeTransition(
-        CombatSimEventEffectExecuted item,
-        IReadOnlyList<CombatSimEventEffectExecuted> executed,
+        CombatEffectExecuted item,
+        IReadOnlyList<CombatEffectExecuted> executed,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
-        CombatSimCardAttributeUpdate cardChange,
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
+        CombatCardAttributeUpdate cardChange,
         CombatImpactKind kind,
         out ResolvedImpactValue resolved,
         out IReadOnlyList<CombatImpactAttributeTransitionFailureReason> failureReasons,
@@ -3368,7 +3336,7 @@ internal static class CombatImpactProjector
 
         long configuredTotal = 0;
         int? itemDelta = null;
-        CombatSimEventEffectExecuted? unknownClaimant = null;
+        CombatEffectExecuted? unknownClaimant = null;
         var unknownFailureReason = default(CombatImpactAttributeTransitionFailureReason);
         var failures = new HashSet<CombatImpactAttributeTransitionFailureReason>();
         foreach (var claimant in claimants)
@@ -3498,11 +3466,11 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryReplayConfiguredCardAttributeTransitionInEventOrder(
-        IReadOnlyList<CombatSimEventEffectExecuted> claimants,
+        IReadOnlyList<CombatEffectExecuted> claimants,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
         string? targetId,
-        CombatSimCardAttributeUpdate cardChange,
+        CombatCardAttributeUpdate cardChange,
         out bool includesMultiply
     )
     {
@@ -3535,12 +3503,12 @@ internal static class CombatImpactProjector
 
             runningValue = modifier.Operation switch
             {
-                EAttributeModifierOperation.Add => runningValue + operand,
-                EAttributeModifierOperation.Subtract => runningValue - operand,
-                EAttributeModifierOperation.Multiply => runningValue * operand,
+                CombatAttributeOperation.Add => runningValue + operand,
+                CombatAttributeOperation.Subtract => runningValue - operand,
+                CombatAttributeOperation.Multiply => runningValue * operand,
                 _ => long.MinValue,
             };
-            if (modifier.Operation == EAttributeModifierOperation.Multiply)
+            if (modifier.Operation == CombatAttributeOperation.Multiply)
                 includesMultiply = true;
             if (runningValue is < int.MinValue or > int.MaxValue)
                 return false;
@@ -3550,23 +3518,23 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveEventOrderReplayValue(
-        ITValue value,
+        CombatValue value,
         string sourceId,
         string targetId,
-        ECardAttributeType targetAttribute,
+        CombatCardAttribute targetAttribute,
         long runningTargetValue,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
         out int configuredValue
     )
     {
-        if (value is TFixedValue fixedValue)
+        if (value is CombatFixedValue fixedValue)
             return TryConvertExactInt(fixedValue.Value, out configuredValue);
-        if (value is not TReferenceValueCardAttribute reference)
+        if (value is not CombatCardAttributeReference reference)
         {
             configuredValue = 0;
             return false;
         }
-        if (reference.Target is not TTargetCardSelf)
+        if (!reference.TargetsSelf)
         {
             configuredValue = 0;
             return false;
@@ -3606,9 +3574,9 @@ internal static class CombatImpactProjector
     }
 
     private static bool IsPlausibleSingleUnknownDelta(
-        CombatSimEventEffectExecuted claimant,
+        CombatEffectExecuted claimant,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        ECardAttributeType expectedAttribute,
+        CombatCardAttribute expectedAttribute,
         int solvedDelta
     )
     {
@@ -3618,9 +3586,9 @@ internal static class CombatImpactProjector
         )
             return false;
         if (
-            modifier.Value is not TRangeValue range
+            modifier.Value is not CombatRangeValue range
             || modifier.Operation
-                is not (EAttributeModifierOperation.Add or EAttributeModifierOperation.Subtract)
+                is not (CombatAttributeOperation.Add or CombatAttributeOperation.Subtract)
         )
             return true;
         if (
@@ -3631,14 +3599,14 @@ internal static class CombatImpactProjector
 
         var minimum = Math.Min(firstBound, secondBound);
         var maximum = Math.Max(firstBound, secondBound);
-        if (modifier.Operation == EAttributeModifierOperation.Subtract)
+        if (modifier.Operation == CombatAttributeOperation.Subtract)
             (minimum, maximum) = (-maximum, -minimum);
         return solvedDelta >= minimum - 0.0001f && solvedDelta <= maximum + 0.0001f;
     }
 
     private static bool CanPreserveConcurrentCardAttributeResidual(
-        IReadOnlyList<CombatSimEventEffectExecuted> executed,
-        CombatSimEventEffectExecuted item,
+        IReadOnlyList<CombatEffectExecuted> executed,
+        CombatEffectExecuted item,
         ImpactTransitionClaim transition,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
@@ -3652,22 +3620,22 @@ internal static class CombatImpactProjector
             .ToArray();
         return claimants.Length > 1
             && claimants.All(candidate =>
-                candidate.ActionType == EActionCommandType.CardModifyAttribute
+                candidate.ActionType == CombatActionType.CardModifyAttribute
             );
     }
 
     private static bool TryResolveConfiguredCardAttributeDelta(
-        CombatSimEventEffectExecuted effect,
+        CombatEffectExecuted effect,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
-        ECardAttributeType expectedAttribute,
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
+        CombatCardAttribute expectedAttribute,
         out int delta,
         out CombatImpactAttributeTransitionFailureReason failureReason
     )
     {
         delta = 0;
         failureReason = default;
-        if (effect.ActionType != EActionCommandType.CardModifyAttribute)
+        if (effect.ActionType != CombatActionType.CardModifyAttribute)
         {
             failureReason = CombatImpactAttributeTransitionFailureReason.UnsupportedOperation;
             return false;
@@ -3691,14 +3659,14 @@ internal static class CombatImpactProjector
         }
         if (
             modifier.Operation
-            is not (EAttributeModifierOperation.Add or EAttributeModifierOperation.Subtract)
+            is not (CombatAttributeOperation.Add or CombatAttributeOperation.Subtract)
         )
         {
             failureReason = modifier.Operation switch
             {
-                EAttributeModifierOperation.Multiply =>
+                CombatAttributeOperation.Multiply =>
                     CombatImpactAttributeTransitionFailureReason.MultiplyOperation,
-                EAttributeModifierOperation.AdditiveMultiply =>
+                CombatAttributeOperation.AdditiveMultiply =>
                     CombatImpactAttributeTransitionFailureReason.AdditiveMultiplyOperation,
                 _ => CombatImpactAttributeTransitionFailureReason.UnsupportedOperation,
             };
@@ -3716,16 +3684,16 @@ internal static class CombatImpactProjector
             return false;
 
         delta =
-            modifier.Operation == EAttributeModifierOperation.Subtract
+            modifier.Operation == CombatAttributeOperation.Subtract
                 ? -configuredValue
                 : configuredValue;
         return true;
     }
 
     private static bool TryResolveConfiguredValue(
-        ITValue value,
+        CombatValue value,
         string sourceId,
-        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
+        IReadOnlyDictionary<string, Dictionary<CombatCardAttribute, int>> cardAttributes,
         out int configuredValue,
         out CombatImpactAttributeTransitionFailureReason failureReason
     )
@@ -3733,14 +3701,14 @@ internal static class CombatImpactProjector
         failureReason = default;
         switch (value)
         {
-            case TFixedValue fixedValue:
+            case CombatFixedValue fixedValue:
                 if (TryConvertExactInt(fixedValue.Value, out configuredValue))
                     return true;
                 failureReason =
                     CombatImpactAttributeTransitionFailureReason.NonIntegralConfiguredValue;
                 return false;
-            case TReferenceValueCardAttribute reference:
-                if (reference.Target is not TTargetCardSelf)
+            case CombatCardAttributeReference reference:
+                if (!reference.TargetsSelf)
                 {
                     configuredValue = 0;
                     failureReason =
@@ -3775,25 +3743,25 @@ internal static class CombatImpactProjector
                 failureReason =
                     CombatImpactAttributeTransitionFailureReason.NonIntegralConfiguredValue;
                 return false;
-            case TRangeValue:
+            case CombatRangeValue:
                 configuredValue = 0;
                 failureReason = CombatImpactAttributeTransitionFailureReason.RangeValue;
                 return false;
-            case TReferenceValueCardAttributeUnscaled:
+            case CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.CardAttributeUnscaled }:
                 configuredValue = 0;
                 failureReason = CombatImpactAttributeTransitionFailureReason.CardAttributeUnscaled;
                 return false;
-            case TReferenceValueAttributeChange:
+            case CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.AttributeChange }:
                 configuredValue = 0;
                 failureReason =
                     CombatImpactAttributeTransitionFailureReason.AttributeChangeReference;
                 return false;
-            case TReferenceValuePlayerAttribute:
+            case CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.PlayerAttribute }:
                 configuredValue = 0;
                 failureReason =
                     CombatImpactAttributeTransitionFailureReason.PlayerAttributeReference;
                 return false;
-            case TReferenceValueCardCount:
+            case CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.CardCount }:
                 configuredValue = 0;
                 failureReason = CombatImpactAttributeTransitionFailureReason.CardCountReference;
                 return false;
@@ -3806,7 +3774,7 @@ internal static class CombatImpactProjector
 
     private static bool TryApplyStaticModifier(
         float originalValue,
-        TValueModifier? modifier,
+        CombatValueModifier? modifier,
         out float modifiedValue
     )
     {
@@ -3815,15 +3783,15 @@ internal static class CombatImpactProjector
             modifiedValue = originalValue;
             return true;
         }
-        if (modifier.Value is not TFixedValue)
+        if (modifier.Value is not CombatFixedValue operand)
         {
             modifiedValue = 0;
             return false;
         }
 
         // The fixed operand is the only reference modifier we can evaluate without live game
-        // context. Delegate its rounding and divide-by-zero semantics to the native value type.
-        modifiedValue = modifier.GetModifiedValue(originalValue, default);
+        // context. Its rounding and divide-by-zero semantics are the game's own.
+        modifiedValue = modifier.GetModifiedValue(originalValue, operand.Value);
         return !float.IsNaN(modifiedValue) && !float.IsInfinity(modifiedValue);
     }
 
@@ -3847,8 +3815,8 @@ internal static class CombatImpactProjector
     }
 
     private static bool IsClaimedByAnotherExecution(
-        IReadOnlyList<CombatSimEventEffectExecuted> executed,
-        CombatSimEventEffectExecuted item,
+        IReadOnlyList<CombatEffectExecuted> executed,
+        CombatEffectExecuted item,
         ImpactTransitionClaim transition,
         IReadOnlyDictionary<string, CombatImpactEntity>? entities = null
     )
@@ -3862,14 +3830,14 @@ internal static class CombatImpactProjector
     }
 
     private static bool ClaimsTransition(
-        CombatSimEventEffectExecuted effect,
+        CombatEffectExecuted effect,
         ImpactTransitionClaim transition,
         IReadOnlyDictionary<string, CombatImpactEntity>? entities
     )
     {
         if (
             entities != null
-            && effect.ActionType == EActionCommandType.CardModifyAttribute
+            && effect.ActionType == CombatActionType.CardModifyAttribute
             && transition.Domain == ImpactTransitionDomain.CardAttribute
         )
         {
@@ -3880,7 +3848,7 @@ internal static class CombatImpactProjector
         // Generic player modifiers are competing writers too. Without an effect-local
         // attribute mapping, none may consume the same net player delta independently.
         if (
-            effect.ActionType == EActionCommandType.PlayerModifyAttribute
+            effect.ActionType == CombatActionType.PlayerModifyAttribute
             && transition.Domain == ImpactTransitionDomain.PlayerAttribute
         )
             return true;
@@ -3888,7 +3856,7 @@ internal static class CombatImpactProjector
     }
 
     private static ResolvedImpactValue? ResolveHealthAdjustment(
-        CombatSimPlayerUpdate update,
+        CombatPlayerUpdate update,
         CombatImpactKind kind
     )
     {
@@ -3899,10 +3867,10 @@ internal static class CombatImpactProjector
     }
 
     private static bool TryResolveConcurrentHealthAdjustment(
-        CombatSimFrame frame,
-        CombatSimEventEffectExecuted item,
+        CombatFrame frame,
+        CombatEffectExecuted item,
         CombatImpactKind kind,
-        IReadOnlyList<CombatSimEventEffectExecuted> executed,
+        IReadOnlyList<CombatEffectExecuted> executed,
         out ResolvedImpactValue resolved
     )
     {
@@ -3914,7 +3882,7 @@ internal static class CombatImpactProjector
                     or CombatImpactKind.Healing
                     or CombatImpactKind.Shield
                 )
-            || item.Target is not EffectTargetPlayer playerTarget
+            || item.Target is not CombatPlayerTarget playerTarget
         )
             return false;
 
@@ -3937,9 +3905,7 @@ internal static class CombatImpactProjector
             return false;
 
         var update =
-            playerTarget.Target == ECombatantId.Player
-                ? frame.PlayerUpdates
-                : frame.OpponentUpdates;
+            playerTarget.Target == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
         var adjustments = update
             ?.HealthAdjustments.Where(adjustment => Matches(kind, adjustment))
             .ToArray();
@@ -3988,14 +3954,14 @@ internal static class CombatImpactProjector
     }
 
     private static IReadOnlyList<ResolvedImpactValue> ResolveConcurrentDamageCandidates(
-        IReadOnlyList<CombatSimPlayerHealthAdjustment> adjustments,
+        IReadOnlyList<CombatHealthAdjustment> adjustments,
         int effectCount,
         int requestedEffectIndex
     )
     {
         const int maximumCandidates = 1_024;
         var candidates = new List<ResolvedImpactValue>();
-        var partition = new List<IReadOnlyList<CombatSimPlayerHealthAdjustment>>(effectCount);
+        var partition = new List<IReadOnlyList<CombatHealthAdjustment>>(effectCount);
         var wasTruncated = false;
 
         void Visit(int adjustmentIndex)
@@ -4050,15 +4016,15 @@ internal static class CombatImpactProjector
     }
 
     private static bool CanBelongToSameDamageEffect(
-        CombatSimPlayerHealthAdjustment first,
-        CombatSimPlayerHealthAdjustment second
+        CombatHealthAdjustment first,
+        CombatHealthAdjustment second
     ) =>
-        first.AttributeChanged == EPlayerHealthChangeType.Health
-        && second.AttributeChanged == EPlayerHealthChangeType.Shield
+        first.AttributeChanged == CombatHealthChange.Health
+        && second.AttributeChanged == CombatHealthChange.Shield
         && first.IsCrit == second.IsCrit;
 
     private static ResolvedImpactValue? ResolveHealthAdjustments(
-        IReadOnlyList<CombatSimPlayerHealthAdjustment> matches,
+        IReadOnlyList<CombatHealthAdjustment> matches,
         CombatImpactKind kind
     )
     {
@@ -4099,12 +4065,12 @@ internal static class CombatImpactProjector
         };
     }
 
-    private static ResolvedImpactValue? ResolveShieldRemoval(CombatSimPlayerUpdate update)
+    private static ResolvedImpactValue? ResolveShieldRemoval(CombatPlayerUpdate update)
     {
         var matches = update
             .HealthAdjustments.Where(adjustment =>
-                adjustment.DamageType == EDamageType.Shield
-                && adjustment.AttributeChanged == EPlayerHealthChangeType.Shield
+                adjustment.DamageType == CombatDamageType.Shield
+                && adjustment.AttributeChanged == CombatHealthChange.Shield
                 && adjustment.Amount < 0
             )
             .ToArray();
@@ -4123,75 +4089,72 @@ internal static class CombatImpactProjector
             : null;
     }
 
-    private static bool MatchesExpectedPlayerDelta(EActionCommandType action, int delta)
+    private static bool MatchesExpectedPlayerDelta(CombatActionType action, int delta)
     {
         var isDecrease =
-            action == EActionCommandType.PlayerMaxHealthDecrease || IsPlayerRemovalAction(action);
+            action == CombatActionType.PlayerMaxHealthDecrease || IsPlayerRemovalAction(action);
         return isDecrease ? delta < 0 : delta > 0;
     }
 
-    private static bool IsPlayerRemovalAction(EActionCommandType action) =>
+    private static bool IsPlayerRemovalAction(CombatActionType action) =>
         action
-            is EActionCommandType.PlayerTempoRemove
-                or EActionCommandType.PlayerBurnRemove
-                or EActionCommandType.PlayerPoisonRemove
-                or EActionCommandType.PlayerRegenRemove
-                or EActionCommandType.PlayerShieldRemove
-                or EActionCommandType.PlayerRageRemove;
+            is CombatActionType.PlayerTempoRemove
+                or CombatActionType.PlayerBurnRemove
+                or CombatActionType.PlayerPoisonRemove
+                or CombatActionType.PlayerRegenRemove
+                or CombatActionType.PlayerShieldRemove
+                or CombatActionType.PlayerRageRemove;
 
     private static int SaturatingInt(long value) =>
         value > int.MaxValue ? int.MaxValue
         : value < int.MinValue ? int.MinValue
         : (int)value;
 
-    private static bool Matches(
-        CombatImpactKind kind,
-        CombatSimPlayerHealthAdjustment adjustment
-    ) =>
+    private static bool Matches(CombatImpactKind kind, CombatHealthAdjustment adjustment) =>
         kind switch
         {
-            CombatImpactKind.DirectDamage => adjustment.DamageType == EDamageType.Damage
+            CombatImpactKind.DirectDamage => adjustment.DamageType == CombatDamageType.Damage
                 && adjustment.Amount < 0,
-            CombatImpactKind.Healing => adjustment.DamageType == EDamageType.Heal
-                && adjustment.AttributeChanged == EPlayerHealthChangeType.Health
+            CombatImpactKind.Healing => adjustment.DamageType == CombatDamageType.Heal
+                && adjustment.AttributeChanged == CombatHealthChange.Health
                 && adjustment.Amount > 0,
-            CombatImpactKind.Shield => adjustment.DamageType == EDamageType.Shield
-                && adjustment.AttributeChanged == EPlayerHealthChangeType.Shield
+            CombatImpactKind.Shield => adjustment.DamageType == CombatDamageType.Shield
+                && adjustment.AttributeChanged == CombatHealthChange.Shield
                 && adjustment.Amount > 0,
             _ => false,
         };
 
-    private static string NativeKeyForAction(EActionCommandType action, string fallback)
+    private static string NativeKeyForAction(CombatActionType action, string fallback)
     {
         return action switch
         {
-            EActionCommandType.PlayerTempoApply => "TempoApplyAmount",
-            EActionCommandType.PlayerTempoRemove => "TempoRemoveAmount",
-            EActionCommandType.CardReload => "ReloadAmount",
-            EActionCommandType.CardForceUse => "ForceUseTargets",
-            EActionCommandType.CardEnchant => "EnchantTargets",
-            EActionCommandType.CardEnchantRemove => "EnchantRemoveTargets",
-            EActionCommandType.CardTransform or EActionCommandType.CardTransformDestroyed =>
+            CombatActionType.PlayerTempoApply => "TempoApplyAmount",
+            CombatActionType.PlayerTempoRemove => "TempoRemoveAmount",
+            CombatActionType.CardReload => "ReloadAmount",
+            CombatActionType.CardForceUse => "ForceUseTargets",
+            CombatActionType.CardEnchant => "EnchantTargets",
+            CombatActionType.CardEnchantRemove => "EnchantRemoveTargets",
+            CombatActionType.CardTransform or CombatActionType.CardTransformDestroyed =>
                 "TransformTargets",
-            EActionCommandType.CardUpgrade => "UpgradeTargets",
-            EActionCommandType.CardRepair => "RepairTargets",
-            EActionCommandType.CardModifyAttribute => "CardModifyAttribute",
-            EActionCommandType.PlayerModifyAttribute => "PlayerModifyAttribute",
-            EActionCommandType.PlayerBurnApply => CombatImpactAggregator.NativeKey(
+            CombatActionType.CardUpgrade => "UpgradeTargets",
+            CombatActionType.CardRepair => "RepairTargets",
+            CombatActionType.CardModifyAttribute => "CardModifyAttribute",
+            CombatActionType.PlayerModifyAttribute => "PlayerModifyAttribute",
+            CombatActionType.PlayerBurnApply => CombatImpactAggregator.NativeKey(
                 CombatImpactKind.Burn
             ),
-            EActionCommandType.PlayerPoisonApply => CombatImpactAggregator.NativeKey(
+            CombatActionType.PlayerPoisonApply => CombatImpactAggregator.NativeKey(
                 CombatImpactKind.Poison
             ),
-            EActionCommandType.PlayerBurnRemove => "BurnRemoveAmount",
-            EActionCommandType.PlayerPoisonRemove => "PoisonRemoveAmount",
-            EActionCommandType.PlayerRegenApply => "RegenApplyAmount",
-            EActionCommandType.PlayerRegenRemove => "RegenRemoveAmount",
-            EActionCommandType.PlayerRageApply => "RageApplyAmount",
-            EActionCommandType.PlayerRageRemove => "RageRemoveAmount",
-            EActionCommandType.PlayerShieldRemove => "ShieldRemoveAmount",
-            EActionCommandType.PlayerMaxHealthIncrease => "HealthMaxIncrease",
-            EActionCommandType.PlayerMaxHealthDecrease => "HealthMaxDecrease",
+            CombatActionType.PlayerBurnRemove => "BurnRemoveAmount",
+            CombatActionType.PlayerPoisonRemove => "PoisonRemoveAmount",
+            CombatActionType.PlayerRegenApply => "RegenApplyAmount",
+            CombatActionType.PlayerRegenRemove => "RegenRemoveAmount",
+            CombatActionType.PlayerRageApply => "RageApplyAmount",
+            CombatActionType.PlayerRageRemove => "RageRemoveAmount",
+            CombatActionType.PlayerShieldRemove => "ShieldRemoveAmount",
+            CombatActionType.PlayerMaxHealthIncrease => "HealthMaxIncrease",
+            CombatActionType.PlayerMaxHealthDecrease => "HealthMaxDecrease",
             _ => fallback,
         };
     }
@@ -4218,8 +4181,8 @@ internal static class CombatImpactProjector
         : CombatImpactValueUnit.Amount;
 
     private static void AddAmountMetric(
-        IReadOnlyDictionary<ECardStats, int> stats,
-        ECardStats stat,
+        IReadOnlyDictionary<CombatCardStat, int> stats,
+        CombatCardStat stat,
         CombatImpactKind kind,
         string nativeAttributeKey,
         ICollection<CombatImpactAuthoritativeMetric> metrics
@@ -4239,8 +4202,8 @@ internal static class CombatImpactProjector
     }
 
     private static void AddApplicationMetric(
-        IReadOnlyDictionary<ECardStats, int> stats,
-        ECardStats stat,
+        IReadOnlyDictionary<CombatCardStat, int> stats,
+        CombatCardStat stat,
         CombatImpactKind kind,
         ICollection<CombatImpactAuthoritativeMetric> metrics
     )
@@ -4299,10 +4262,7 @@ internal static class CombatImpactProjector
 
         internal bool AttributeTransitionEventOrderReplayIncludesMultiply { get; init; }
 
-        internal static ResolvedImpactValue Empty(
-            CombatImpactKind kind,
-            EActionCommandType action
-        ) =>
+        internal static ResolvedImpactValue Empty(CombatImpactKind kind, CombatActionType action) =>
             new(
                 null,
                 kind
@@ -4321,7 +4281,7 @@ internal static class CombatImpactProjector
     private readonly record struct AuraAttributeCandidate(
         string SourceId,
         string TargetId,
-        CombatSimCardAttributeUpdate Change,
+        CombatCardAttributeUpdate Change,
         string? DirectSourceId,
         string? TriggerSourceId,
         TriggerProvenance Provenance
@@ -4330,7 +4290,7 @@ internal static class CombatImpactProjector
     private readonly record struct AuraPlayerAttributeCandidate(
         string SourceId,
         string TargetId,
-        CombatSimPlayerAttributeUpdate Change,
+        CombatPlayerAttributeUpdate Change,
         string? DirectSourceId,
         string? TriggerSourceId,
         TriggerProvenance Provenance
@@ -4345,7 +4305,7 @@ internal static class CombatImpactProjector
         string? TriggerSourceId,
         int FrameIndex,
         string? EffectId,
-        EActionCommandType ActionType,
+        CombatActionType ActionType,
         string? ExecutionContextId
     )
     {
@@ -4418,7 +4378,7 @@ internal static class CombatImpactProjector
     private readonly record struct CriticalTriggerExecutionEvidence(
         string TriggerSourceId,
         int FrameIndex,
-        EEffectPriority Priority,
+        CombatEffectPriority Priority,
         string ListenerSourceId,
         string EffectId,
         string? ExecutionContextId
@@ -4515,7 +4475,7 @@ internal static class CombatImpactProjector
             var executionKey = ExecutionKey(evidence);
             var sameFrame = HasCandidate(sameFrameOrigin, executionKey);
             var previousFrame = HasCandidate(previousFrameOrigin, executionKey);
-            if (evidence.Priority == EEffectPriority.Immediate)
+            if (evidence.Priority == CombatEffectPriority.Immediate)
             {
                 if (sameFrame)
                     return sameFrameOrigin;

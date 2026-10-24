@@ -4,6 +4,7 @@ using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -184,6 +185,10 @@ internal sealed class PostCombatImpactModule : IBppFeature
     {
         try
         {
+            // The producer reads Core's combat timeline (ADR-0019); the copy runs off the game
+            // thread, as the projection does.
+            var timeline = await Task.Run(() => DesktopCombatTimeline.From(simulation))
+                .ConfigureAwait(false);
             var detachedEntities = new Dictionary<string, CombatImpactEntity>(
                 entities,
                 StringComparer.Ordinal
@@ -204,7 +209,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
                 if (cardMap != null)
                 {
                     CombatImpactImplicitPlayerEffectReader.AddMissing(
-                        simulation,
+                        timeline,
                         detachedEntities,
                         cardMap.Values.OfType<TCardBase>()
                     );
@@ -212,7 +217,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
             }
 
             var report = await Task.Run(() =>
-                    CombatImpactProjector.Project(simulation, detachedEntities)
+                    CombatImpactProjector.Project(timeline, detachedEntities)
                 )
                 .ConfigureAwait(false);
             if (!_reports.TryPublish(generation, report))

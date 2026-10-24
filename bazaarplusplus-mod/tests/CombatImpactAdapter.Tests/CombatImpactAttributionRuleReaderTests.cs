@@ -6,10 +6,12 @@ using BazaarGameShared.Domain.Prerequisites;
 using BazaarGameShared.Domain.Prerequisites.Conditionals;
 using BazaarGameShared.Domain.Targeting;
 using BazaarGameShared.Domain.Values;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using Xunit;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactAdapter.Tests;
 
 public sealed class CombatImpactAttributionRuleReaderTests
 {
@@ -40,8 +42,8 @@ public sealed class CombatImpactAttributionRuleReaderTests
         var triggers = CombatImpactCriticalTriggerReader.Read(abilities);
 
         Assert.Equal(2, triggers?.Count);
-        Assert.Equal(EEffectPriority.Low, triggers?["crit-low"]);
-        Assert.Equal(EEffectPriority.Immediate, triggers?["crit-immediate"]);
+        Assert.Equal(CombatEffectPriority.Low, triggers?["crit-low"]);
+        Assert.Equal(CombatEffectPriority.Immediate, triggers?["crit-immediate"]);
         Assert.False(triggers?.ContainsKey("fired"));
     }
 
@@ -63,9 +65,9 @@ public sealed class CombatImpactAttributionRuleReaderTests
 
         Assert.Equal("minor-tempo", rule.SourceRule.EffectId);
         Assert.Equal(skillId, rule.SourceRule.SkillTemplateId);
-        Assert.Equal([ETier.Gold], rule.SourceRule.SkillTiers);
+        Assert.Equal([CardTier.Gold], rule.SourceRule.SkillTiers);
         Assert.Equal(2, rule.FixedTempoAmount);
-        Assert.Equal([ECardTag.Weapon], rule.ItemCondition.PublicTags);
+        Assert.Equal([CardTag.Weapon], rule.ItemCondition.PublicTags);
     }
 
     [Fact]
@@ -83,7 +85,7 @@ public sealed class CombatImpactAttributionRuleReaderTests
 
         Assert.True(CombatImpactAttributionRuleReader.TryReadUseRule(ability, out var rule));
 
-        Assert.Equal([EHiddenTag.Haste], rule.ItemCondition.HiddenTags);
+        Assert.Equal([CardHiddenTag.Haste], rule.ItemCondition.HiddenTags);
         Assert.Equal(3, rule.FixedTempoAmount);
     }
 

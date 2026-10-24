@@ -6,7 +6,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarPlusPlus.GameInterop.CombatSimulation;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactAdapter.Tests;
 
 internal static class OptionalCombatSimEventFactory
 {

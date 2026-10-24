@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
+using BazaarPlusPlus.Core.Combat;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
@@ -12,29 +12,28 @@ internal sealed class CombatImpactTransformLineage
         _parents = parents;
     }
 
-    internal static CombatImpactTransformLineage Build(CombatSim simulation)
+    internal static CombatImpactTransformLineage Build(CombatTimeline simulation)
     {
         var parents = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var frame in simulation.Frames)
         {
-            foreach (var transformed in frame.Events.OfType<CombatSimEventCardTransformed>())
+            foreach (var transformed in frame.Events.OfType<CombatCardTransformed>())
             {
-                if (transformed.TransformedCards == null)
+                if (transformed.TransformedCardInstanceIds == null)
                     continue;
-                foreach (var card in transformed.TransformedCards)
-                {
-                    if (card == null)
-                        continue;
-                    AddParent(parents, card.InstanceId, transformed.OriginalInstanceId);
-                }
+                foreach (var transformedId in transformed.TransformedCardInstanceIds)
+                    AddParent(parents, transformedId, transformed.OriginalInstanceId);
             }
 
-            foreach (var reverted in frame.Events.OfType<CombatSimEventCardTransformReverted>())
+            foreach (var reverted in frame.Events.OfType<CombatCardTransformReverted>())
             {
-                if (reverted.OriginalCard == null || reverted.TransformedCardInstanceIds == null)
+                if (
+                    reverted.OriginalInstanceId == null
+                    || reverted.TransformedCardInstanceIds == null
+                )
                     continue;
                 foreach (var transformedId in reverted.TransformedCardInstanceIds)
-                    AddParent(parents, transformedId, reverted.OriginalCard.InstanceId);
+                    AddParent(parents, transformedId, reverted.OriginalInstanceId);
             }
         }
 

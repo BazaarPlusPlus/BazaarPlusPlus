@@ -12,10 +12,13 @@ using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Domain.Values.ReferenceValues;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 using Xunit;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactAdapter.Tests;
 
 public sealed class CombatImpactEntitySnapshotReaderTests
 {
@@ -24,7 +27,7 @@ public sealed class CombatImpactEntitySnapshotReaderTests
     {
         var card = RehydratedItem(templateTags: [], templateHiddenTags: [EHiddenTag.Haste]);
 
-        Assert.Contains(EHiddenTag.Haste, CombatImpactEntityTags.ResolveHiddenTags(card)!);
+        Assert.Contains(CardHiddenTag.Haste, CombatImpactEntityTags.ResolveHiddenTags(card)!);
     }
 
     [Fact]
@@ -32,7 +35,7 @@ public sealed class CombatImpactEntitySnapshotReaderTests
     {
         var card = RehydratedItem(templateTags: [ECardTag.Weapon], templateHiddenTags: []);
 
-        Assert.Contains(ECardTag.Weapon, CombatImpactEntityTags.ResolveTags(card)!);
+        Assert.Contains(CardTag.Weapon, CombatImpactEntityTags.ResolveTags(card)!);
     }
 
     [Fact]
@@ -49,7 +52,15 @@ public sealed class CombatImpactEntitySnapshotReaderTests
             new TCardAbility { Id = "damage-gain", Action = action },
         ]);
 
-        Assert.Same(action, Assert.Single(modifiers!).Value);
+        Assert.Equal(
+            new CombatAttributeModifier
+            {
+                AttributeType = CombatCardAttribute.DamageAmount,
+                Operation = CombatAttributeOperation.Add,
+                Value = new CombatFixedValue { Value = 100 },
+            },
+            Assert.Single(modifiers!).Value
+        );
     }
 
     [Fact]
@@ -113,7 +124,7 @@ public sealed class CombatImpactEntitySnapshotReaderTests
         var critTriggers = CombatImpactCriticalTriggerReader.Read(abilities);
 
         Assert.Equal(["base", "e1"], abilities.Select(ability => ability.Id));
-        Assert.Equal(EEffectPriority.Medium, critTriggers?["e1"]);
+        Assert.Equal(CombatEffectPriority.Medium, critTriggers?["e1"]);
     }
 
     [Fact]
@@ -142,13 +153,13 @@ public sealed class CombatImpactEntitySnapshotReaderTests
             );
         var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
         {
-            ["trigger"] = Entity("trigger", ECombatantId.Player, 0),
-            ["target"] = Entity("target", ECombatantId.Player, 1),
+            ["trigger"] = Entity("trigger", Combatant.Player, 0),
+            ["target"] = Entity("target", Combatant.Player, 1),
         };
         var template = PlayerEffectTemplate(Guid.NewGuid());
 
         var added = CombatImpactImplicitPlayerEffectReader.AddMissing(
-            simulation,
+            DesktopCombatTimeline.From(simulation),
             entities,
             [template]
         );
@@ -156,13 +167,13 @@ public sealed class CombatImpactEntitySnapshotReaderTests
         Assert.Equal(1, added);
         var implicitEntity = entities["implicit"];
         Assert.Equal(template.Id, implicitEntity.TemplateId);
-        Assert.Equal(10, implicitEntity.Attributes?[ECardAttributeType.Custom_0]);
+        Assert.Equal(10, implicitEntity.Attributes?[CombatCardAttribute.Custom_0]);
         Assert.Equal(
-            ECardAttributeType.Slow,
+            CombatCardAttribute.Slow,
             implicitEntity.AbilityAttributeModifiersByEffectId?["0"].AttributeType
         );
         Assert.Equal(
-            ECardAttributeType.PercentCooldownReduction,
+            CombatCardAttribute.PercentCooldownReduction,
             implicitEntity.AuraAttributeTypesByEffectId?["2"]
         );
     }
@@ -193,12 +204,12 @@ public sealed class CombatImpactEntitySnapshotReaderTests
             );
         var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
         {
-            ["trigger"] = Entity("trigger", ECombatantId.Player, 0),
-            ["target"] = Entity("target", ECombatantId.Player, 1),
+            ["trigger"] = Entity("trigger", Combatant.Player, 0),
+            ["target"] = Entity("target", Combatant.Player, 1),
         };
 
         var added = CombatImpactImplicitPlayerEffectReader.AddMissing(
-            simulation,
+            DesktopCombatTimeline.From(simulation),
             entities,
             [PlayerEffectTemplate(Guid.NewGuid()), PlayerEffectTemplate(Guid.NewGuid())]
         );
@@ -363,7 +374,7 @@ public sealed class CombatImpactEntitySnapshotReaderTests
         };
     }
 
-    private static CombatImpactEntity Entity(string id, ECombatantId combatant, int order) =>
+    private static CombatImpactEntity Entity(string id, Combatant combatant, int order) =>
         new(id, id, "Skill", null, order, CombatantId: combatant);
 
     private static CombatSimEventEffectExecuted Executed(

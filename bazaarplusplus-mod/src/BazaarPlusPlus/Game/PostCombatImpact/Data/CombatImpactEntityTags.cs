@@ -2,12 +2,14 @@
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
 internal static class CombatImpactEntityTags
 {
-    internal static IReadOnlyCollection<EHiddenTag>? ResolveHiddenTags(Card card)
+    internal static IReadOnlyCollection<CardHiddenTag>? ResolveHiddenTags(Card card)
     {
         IReadOnlyCollection<EHiddenTag>? enchantmentHiddenTags = null;
         if (
@@ -18,13 +20,13 @@ internal static class CombatImpactEntityTags
             enchantmentHiddenTags = enchantmentTemplate?.HiddenTags;
 
         return CombatImpactHiddenTags.Merge(
-            card.HiddenTags,
-            card.Template?.HiddenTags,
-            enchantmentHiddenTags
+            HiddenTags(card.HiddenTags),
+            HiddenTags(card.Template?.HiddenTags),
+            HiddenTags(enchantmentHiddenTags)
         );
     }
 
-    internal static IReadOnlyCollection<ECardTag>? ResolveTags(Card card)
+    internal static IReadOnlyCollection<CardTag>? ResolveTags(Card card)
     {
         IReadOnlyCollection<ECardTag>? enchantmentTags = null;
         if (
@@ -34,6 +36,18 @@ internal static class CombatImpactEntityTags
         )
             enchantmentTags = enchantmentTemplate?.Tags;
 
-        return CombatImpactTags.Merge(card.Tags, card.Template?.Tags, enchantmentTags);
+        return CombatImpactTags.Merge(
+            Tags(card.Tags),
+            Tags(card.Template?.Tags),
+            Tags(enchantmentTags)
+        );
     }
+
+    /// <summary>The card facets of the game's tags, in the game's order.</summary>
+    internal static IReadOnlyCollection<CardTag>? Tags(IEnumerable<ECardTag>? tags) =>
+        tags == null ? null : DesktopCardFacets.Tag.ToFacetSet(tags);
+
+    internal static IReadOnlyCollection<CardHiddenTag>? HiddenTags(
+        IEnumerable<EHiddenTag>? hiddenTags
+    ) => hiddenTags == null ? null : DesktopCardFacets.HiddenTag.ToFacetSet(hiddenTags);
 }

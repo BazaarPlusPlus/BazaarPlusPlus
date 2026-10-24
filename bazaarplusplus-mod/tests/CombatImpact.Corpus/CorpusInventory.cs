@@ -4,12 +4,29 @@ using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 
-internal sealed record ReplayObservationInput(string BattleId, GameSim Spawn, CombatSim Combat);
+internal sealed record ReplayObservationInput(string BattleId, GameSim Spawn, CombatSim Combat)
+{
+    private CombatTimeline? _timeline;
+
+    // The producer reads Core's combat timeline (ADR-0019), copied once per replay so the
+    // projection benchmark times the projection alone. Copied on first use: loading the host
+    // assembly before the catalog's BazaarJsonSerializerSettings scans every loaded assembly
+    // fails on the host's UnityEngine references.
+    internal CombatTimeline Timeline => _timeline ??= DesktopCombatTimeline.From(Combat);
+}
 
 internal static class CorpusInventory
 {
+    // The periodic report names combatants in Core's vocabulary; the inventory reads the game's.
+    internal static ECombatantId GameCombatant(Combatant combatant) =>
+        DesktopCombatFacets.CombatantId.TryToSource(combatant, out var source)
+            ? source
+            : throw new InvalidDataException($"Combatant '{combatant}' has no game member.");
+
     private static readonly EPlayerAttributeType[] TrackedAttributes =
     [
         EPlayerAttributeType.Burn,
@@ -57,7 +74,7 @@ internal static class CorpusInventory
             var identities = BuildIdentityMap(replay);
             ReadOpeningActions(replay, identities, openingActions, openingActionSources);
             var attributionReport = PeriodicEffectAttribution.Project(
-                replay.Combat,
+                replay.Timeline,
                 BuildAttributionEntities(replay, identities)
             );
             attribution.Observe(attributionReport, replay.Combat, identities, replay.Spawn);
@@ -225,12 +242,13 @@ internal static class CorpusInventory
                     null,
                     0,
                     Attributes: replay.Spawn.Cards.TryGetValue(pair.Key, out var card)
-                        ? card.Attributes.ToDictionary(
-                            attribute => attribute.Key,
-                            attribute => attribute.Value.Value
+                        ? DesktopCombatFacets.CardAttributes(
+                            card.Attributes.Select(attribute =>
+                                KeyValuePair.Create(attribute.Key, attribute.Value.Value)
+                            )
                         )
                         : null,
-                    CombatantId: pair.Value.Combatant
+                    CombatantId: DesktopCombatFacets.ToCombatant(pair.Value.Combatant)
                 ),
                 StringComparer.Ordinal
             );
@@ -1673,13 +1691,13 @@ internal sealed class AttributionCoverage
             if (
                 allocation.Kind == CombatImpactPeriodicKind.Regen
                 && regenMeasurements.TryGetValue(
-                    (allocation.FrameIndex, allocation.Combatant),
+                    (allocation.FrameIndex, CorpusInventory.GameCombatant(allocation.Combatant)),
                     out var allocationMeasurement
                 )
             )
             {
                 var baselineKey = DescribeRegenSpawnBaseline(
-                    allocation.Combatant,
+                    CorpusInventory.GameCombatant(allocation.Combatant),
                     allocationMeasurement
                 );
                 RegenAttributedBySpawnBaseline[baselineKey] =
@@ -1713,7 +1731,7 @@ internal sealed class AttributionCoverage
             if (
                 allocation.Kind == CombatImpactPeriodicKind.Regen
                 && regenMeasurements.TryGetValue(
-                    (allocation.FrameIndex, allocation.Combatant),
+                    (allocation.FrameIndex, CorpusInventory.GameCombatant(allocation.Combatant)),
                     out var deathEventAllocationMeasurement
                 )
                 && deathEventAllocationMeasurement.HasDeathEvent
@@ -1747,7 +1765,7 @@ internal sealed class AttributionCoverage
             if (
                 gap.Kind == CombatImpactPeriodicKind.Regen
                 && regenMeasurements.TryGetValue(
-                    (gap.FrameIndex, gap.Combatant),
+                    (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
                     out var measuredGap
                 )
                 && gap.HealthAmount != measuredGap.Realized
@@ -1761,7 +1779,7 @@ internal sealed class AttributionCoverage
             if (
                 gap.Kind == CombatImpactPeriodicKind.Regen
                 && regenMeasurements.TryGetValue(
-                    (gap.FrameIndex, gap.Combatant),
+                    (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
                     out var regenMeasurement
                 )
                 && regenMeasurement.HasSourceStatus
@@ -1782,7 +1800,7 @@ internal sealed class AttributionCoverage
                 if (
                     gap.Kind == CombatImpactPeriodicKind.Regen
                     && regenMeasurements.TryGetValue(
-                        (gap.FrameIndex, gap.Combatant),
+                        (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
                         out var gapMeasurement
                     )
                     && gapMeasurement.IsPlayerDead
@@ -1793,7 +1811,7 @@ internal sealed class AttributionCoverage
                 if (
                     gap.Kind == CombatImpactPeriodicKind.Regen
                     && regenMeasurements.TryGetValue(
-                        (gap.FrameIndex, gap.Combatant),
+                        (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
                         out var deathEventGapMeasurement
                     )
                     && deathEventGapMeasurement.HasDeathEvent
@@ -1813,14 +1831,17 @@ internal sealed class AttributionCoverage
                 if (
                     gap.Kind == CombatImpactPeriodicKind.Regen
                     && regenMeasurements.TryGetValue(
-                        (gap.FrameIndex, gap.Combatant),
+                        (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
                         out var unknownMeasurement
                     )
                 )
                 {
                     var baselineKey =
                         $"{origin}/"
-                        + DescribeRegenSpawnBaseline(gap.Combatant, unknownMeasurement);
+                        + DescribeRegenSpawnBaseline(
+                            CorpusInventory.GameCombatant(gap.Combatant),
+                            unknownMeasurement
+                        );
                     RegenUnknownBySpawnBaseline[baselineKey] =
                         RegenUnknownBySpawnBaseline.GetValueOrDefault(baselineKey)
                         + bookedGapHealth;
@@ -1842,7 +1863,7 @@ internal sealed class AttributionCoverage
                 .Any(effect =>
                     effect.ActionType == EActionCommandType.PlayerRegenApply
                     && effect.Target is EffectTargetPlayer player
-                    && player.Target == gap.Combatant
+                    && player.Target == CorpusInventory.GameCombatant(gap.Combatant)
                 );
             var context =
                 $"{origin}/{(isMeasuredSourceImpact ? "MeasuredSource" : "Excluded")}/"
@@ -1855,7 +1876,7 @@ internal sealed class AttributionCoverage
                 var candidateCount = combat.CardStats.Count(pair =>
                     pair.Value.GetValueOrDefault(ECardStats.RegenAdded) > 0
                     && identities.TryGetValue(pair.Key, out var identity)
-                    && identity.Combatant == gap.Combatant
+                    && identity.Combatant == CorpusInventory.GameCombatant(gap.Combatant)
                     && identity.Type is ECardType.Item or ECardType.Skill
                 );
                 var candidateKey =
@@ -1871,7 +1892,7 @@ internal sealed class AttributionCoverage
                     )
                     && attribute.Value > 0
                     && identities.TryGetValue(pair.Key, out var identity)
-                    && identity.Combatant == gap.Combatant
+                    && identity.Combatant == CorpusInventory.GameCombatant(gap.Combatant)
                     && identity.Type is ECardType.Item or ECardType.Skill
                 );
                 var eventCandidateIds = combat
@@ -1879,7 +1900,7 @@ internal sealed class AttributionCoverage
                     .Where(effect =>
                         effect.ActionType == EActionCommandType.PlayerRegenApply
                         && effect.Target is EffectTargetPlayer player
-                        && player.Target == gap.Combatant
+                        && player.Target == CorpusInventory.GameCombatant(gap.Combatant)
                     )
                     .Select(effect => CorpusInventory.ResolveSource(effect, identities))
                     .Where(sourceId => sourceId != null)
@@ -1893,7 +1914,7 @@ internal sealed class AttributionCoverage
                     .Where(effect =>
                         effect.ActionType == EActionCommandType.PlayerRegenApply
                         && effect.Target is EffectTargetPlayer player
-                        && player.Target == gap.Combatant
+                        && player.Target == CorpusInventory.GameCombatant(gap.Combatant)
                     )
                     .Select(effect => CorpusInventory.ResolveSource(effect, identities))
                     .Where(sourceId => sourceId != null)
@@ -1903,7 +1924,7 @@ internal sealed class AttributionCoverage
                     .CardStats.Where(pair =>
                         pair.Value.GetValueOrDefault(ECardStats.RegenAdded) > 0
                         && identities.TryGetValue(pair.Key, out var identity)
-                        && identity.Combatant == gap.Combatant
+                        && identity.Combatant == CorpusInventory.GameCombatant(gap.Combatant)
                         && identity.Type is ECardType.Item or ECardType.Skill
                     )
                     .Select(pair => pair.Key)
@@ -2180,7 +2201,7 @@ internal sealed class AttributionCoverage
             .Where(effect =>
                 effect.ActionType == EActionCommandType.PlayerRegenApply
                 && effect.Target is EffectTargetPlayer player
-                && player.Target == allocation.Combatant
+                && player.Target == CorpusInventory.GameCombatant(allocation.Combatant)
                 && CorpusInventory.ResolveSource(effect, identities) == allocation.SourceId
             )
             .Count();
