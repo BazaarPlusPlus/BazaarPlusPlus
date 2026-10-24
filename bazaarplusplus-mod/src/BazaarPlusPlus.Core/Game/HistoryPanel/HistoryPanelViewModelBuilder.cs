@@ -237,6 +237,7 @@ public static class HistoryPanelViewModelBuilder
             ReplayButtonEnabled = buttons.ReplayButtonEnabled,
             RecordAndReplayButtonText = buttons.RecordAndReplayButtonText,
             RecordAndReplayButtonEnabled = buttons.RecordAndReplayButtonEnabled,
+            RecordAndReplayButtonVisible = coordinator?.RecordingSupported == true,
             DeleteButtonVisible = section != HistorySectionMode.Ghost,
             DeleteButtonText = deleteButtonText,
             DeleteButtonEnabled = deleteButtonEnabled,

@@ -20,6 +20,7 @@ internal static class ViewModelBuilderTests
 
         Require(!model.ReplayButtonEnabled, "No coordinator must leave replay disabled.");
         Require(!model.RecordAndReplayButtonEnabled, "No coordinator must leave record disabled.");
+        Require(!model.RecordAndReplayButtonVisible, "No coordinator offers no record action.");
         Require(!model.DeleteButtonEnabled, "No coordinator must leave delete disabled.");
         Require(!model.FavoritesTabVisible, "No coordinator means no Favorites tab.");
         Require(model.Runs.Count == 0 && model.VisibleBattles.Count == 0, "No rows without one.");

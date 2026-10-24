@@ -19,6 +19,8 @@ public sealed class AndroidSceneChangeTeardownTests
     private const string View = "BazaarPlusPlus.Android.LiveBuild.AndroidLiveBuildView";
     private const string Inspection = "BazaarPlusPlus.Android.LiveBuild.AndroidLiveBuildInspection";
     private const string Collection = "BazaarPlusPlus.Android.Collection.AndroidCollectionPanel";
+    private const string History = "BazaarPlusPlus.Android.Ui.AndroidHistoryPanel";
+    private const string CombatProbe = "BazaarPlusPlus.Android.GameInterop.AndroidCombatProbe";
 
     private static readonly Lazy<CompiledAssembly> Host = new(() =>
         CompiledAssembly.Load(
@@ -54,6 +56,25 @@ public sealed class AndroidSceneChangeTeardownTests
             IndexOf(Method(View, "ReturnAll").Instructions, Inspection, "Close") >= 0,
             "AndroidLiveBuildView.ReturnAll must close the inspected card"
         );
+    }
+
+    // History stays open across a scene change, as the desktop's OnlyWhenInCombat policy keeps
+    // it, and closes only into a combat. The emulator never loads a scene into a combat (combat
+    // loads none), so the compiled branch is held here: the cards go back first with the
+    // scene_changed reason, then the combat probe decides the scene_combat close.
+    [Fact]
+    public void A_scene_change_returns_historys_cards_and_closes_it_only_into_a_combat()
+    {
+        var instructions = Method(History, "OnSceneLoaded").Instructions;
+        var returned = IndexOf(instructions, History, "ReturnCards");
+        var probe = IndexOf(instructions, CombatProbe, "IsInCombat");
+        var close = IndexOf(instructions, History, "Close");
+
+        Assert.True(returned >= 0, "OnSceneLoaded must return History's cards");
+        Assert.True(probe > returned, "the combat probe runs after the cards go back");
+        Assert.True(close > probe, "the close follows the combat probe");
+        Assert.Contains("scene_changed", Method(History, "OnSceneLoaded").Literals);
+        Assert.Contains("scene_combat:", Method(History, "OnSceneLoaded").Literals);
     }
 
     private static CompiledType Type(string fullName) =>

@@ -3,6 +3,7 @@ using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
+using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -31,8 +32,10 @@ internal sealed record AndroidSettingsDockHooks(
 /// The Android host's rows of the BazaarPlusPlus settings section, registered the desktop's way
 /// (Core's <see cref="SettingsDockEntryRegistry"/> and <see cref="BppSettingsDockCatalog"/>) and
 /// drawn by <see cref="AndroidNativeSettingsSection"/> in the game's own settings dialog. The
-/// shared rows are Core's: Enchant preview, with every mode the desktop offers, and Game History,
-/// which here has no hotkey. The rest are the host's switches that stand in for the desktop's
+/// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
+/// gates only the account link, since the host takes no end-of-run screenshot), Enchant preview,
+/// with every mode the desktop offers, and Game History, which here has no hotkey. The rest are
+/// the host's switches that stand in for the desktop's
 /// hotkeys (Upgrade preview, the Collection, Ten-Win Builds and History panels, the touch button)
 /// and, when the game is behind the published APK, the link to it.
 /// </summary>
@@ -86,6 +89,16 @@ internal static class AndroidSettingsDock
         ArgumentNullException.ThrowIfNull(android);
         ArgumentNullException.ThrowIfNull(hooks);
 
+        registry.Register(
+            CyclingSettingsDockEntry<bool>.Toggle(
+                BppSettingsDockOrder.BazaarDbUpload,
+                "BazaarDbUpload",
+                BazaarDbBundleSettingsMenuLabel.Resolve,
+                config => config.BazaarDbUploadEnabled.Value,
+                (config, enabled) => config.BazaarDbUploadEnabled.Value = enabled,
+                enabled => LogChanged("BazaarDB", "UploadScreenshots", enabled)
+            )
+        );
         registry.Register(
             ItemEnchantPreviewSettingsDockEntry.Create(mode =>
                 LogChanged("EnchantPreview", "Mode", mode)
@@ -188,13 +201,25 @@ internal static class AndroidSettingsDock
             }
         );
 
-    private static void LogChanged(string section, string key, object value) =>
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.settings.changed"),
-            ("section", section),
-            ("key", key),
-            ("value", value)
-        );
+    /// <summary>A setting changed; <paramref name="source"/> names a control outside this dialog.</summary>
+    public static void LogChanged(string section, string key, object value, string? source = null)
+    {
+        if (source == null)
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.settings.changed"),
+                ("section", section),
+                ("key", key),
+                ("value", value)
+            );
+        else
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.settings.changed"),
+                ("section", section),
+                ("key", key),
+                ("value", value),
+                ("source", source)
+            );
+    }
 
     // Offered only while the published APK is for a newer game; otherwise it says why not, dimmed:
     // the game is current, the check has not answered yet, or it failed. A failed check never

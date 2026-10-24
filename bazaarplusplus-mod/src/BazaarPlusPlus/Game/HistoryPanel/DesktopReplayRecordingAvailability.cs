@@ -15,6 +15,8 @@ internal sealed class DesktopReplayRecordingAvailability : IReplayRecordingAvail
         _videoDirectoryPath = videoDirectoryPath ?? string.Empty;
     }
 
+    public bool Supported => true;
+
     // Capture Unity-owned dimensions/FPS and load the desktop native plugin on the UI thread.
     public void Prewarm()
     {

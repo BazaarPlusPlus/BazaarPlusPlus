@@ -18,8 +18,8 @@ namespace BazaarPlusPlus.Android.Ui;
 /// Core's <see cref="HistoryTouchLayout"/> for the screen it was built on
 /// (<see cref="ScreenKey"/>) and bound from Core's <see cref="HistoryPanelViewModel"/>. The header
 /// holds the section tabs, the drag-scrolled filter chips (heroes in Runs; outcome and day in
-/// Ghost), More, and Close; the archive list, the run's battle rail, and the detail column with
-/// the two board regions and the action row (delete, favorite, skills, replay) stand under it.
+/// Ghost), More, and Close; the archive list, the run's battle rail (in Ghost, the cloud note in
+/// its place), and the detail column with the two board regions and the action row (delete, favorite, skills, replay) stand under it.
 /// Lists drag-scroll with inertia; each finished gesture logs <c>android.history.scrolled</c>.
 /// What the desktop draws from native art (hero portraits, rank badges, trophies) renders as text;
 /// the two BPP badge atlases ship in the assembly. The panel rents the native boards into
@@ -56,7 +56,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _replay = null!;
     private ScrollRect _filters = null!;
     private GameObject _heroGroup = null!,
-        _ghostGroup = null!;
+        _ghostGroup = null!,
+        _cloudNote = null!;
     private readonly Dictionary<string, HistoryButton> _heroChips = new(StringComparer.Ordinal);
     private readonly Dictionary<GhostBattleFilter, HistoryButton> _outcomeChips = new();
     private HistoryButton _dayChip = null!;
@@ -414,7 +415,6 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _l.OutcomeChipWidth,
             _l.OutcomeChipWidth,
             _l.DayChipWidth,
-            _l.CloudNoteWidth,
         ]);
         for (var i = 0; i < outcomes.Length; i++)
         {
@@ -436,22 +436,22 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _l.BodyFont,
             () => _actions.GhostDay()
         );
-        AndroidHistoryUi
-            .Label(
-                _ghostGroup.transform,
-                _font,
-                "CloudNote",
-                ghostRects[4],
-                _l.BodyFont,
-                TextAlignmentOptions.MidlineLeft,
-                AndroidHistoryUi.Muted,
-                wrap: true
-            )
-            .text = AndroidHistoryUi.T(
+        _ghostStripWidth = ghostRects[3].Right;
+        var cloudNote = AndroidHistoryUi.Label(
+            Surface,
+            _font,
+            "CloudNote",
+            _l.CloudNote,
+            _l.BodyFont,
+            TextAlignmentOptions.TopLeft,
+            AndroidHistoryUi.Muted,
+            wrap: true
+        );
+        cloudNote.text = AndroidHistoryUi.T(
             "Cloud: latest 5 days, up to 200",
             "云端：最近5天，最多200条"
         );
-        _ghostStripWidth = ghostRects[4].Right;
+        _cloudNote = cloudNote.gameObject;
     }
 
     private PageList BuildArchive()
@@ -708,6 +708,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _favoritesTab.Set(HistoryPanelText.FavoritesTab(), favorites);
         AndroidHistoryUi.SetActive(_heroGroup, runs);
         AndroidHistoryUi.SetActive(_ghostGroup, ghost);
+        AndroidHistoryUi.SetActive(_cloudNote, ghost);
         foreach (var (hero, chip) in _heroChips)
             chip.Set(
                 HeroLabel(hero),

@@ -11,8 +11,10 @@ namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
 /// History's More dialog on Android, the desktop's <c>HistoryPanelView</c> More dialog on the
-/// touch layout: the database status with the server health probe, the status line, and the
-/// BazaarDB account row with its link form, drag-scrolled when the form outgrows a short screen.
+/// touch layout: the database status with the server health probe, the status line, the History
+/// panel's own off switch (the touch launcher, where the switch otherwise lives, hides while
+/// History is open), and the BazaarDB account row with its link form, drag-scrolled when the form
+/// outgrows a short screen.
 /// The desktop's supporter list stays off: the host has no supporter feed. The code is read from
 /// the input when the user submits it, so the input needs no change listener.
 /// </summary>
@@ -105,6 +107,19 @@ internal sealed class AndroidHistoryMoreDialog
             TextAlignmentOptions.TopLeft,
             wrap: true
         );
+        AndroidHistoryUi
+            .Label(content, font, "PanelTitle", layout.MorePanelTitle, layout.RowTitleFont)
+            .text = AndroidHistoryUi.T("History panel", "历史记录面板");
+        AndroidHistoryUi
+            .Button(
+                content,
+                font,
+                "panel_switch_off",
+                layout.MorePanelSwitch,
+                layout.ButtonFont,
+                () => _actions.TurnOffPanel()
+            )
+            .Set(AndroidHistoryUi.T("Turn off", "关闭面板"));
         _accountTitle = AndroidHistoryUi.Label(
             content,
             font,
@@ -279,7 +294,8 @@ internal sealed class AndroidHistoryMoreDialog
         Action CheckHealth,
         Action ToggleAccountForm,
         Action<string> Redeem,
-        Action MarkLinked
+        Action MarkLinked,
+        Action TurnOffPanel
     );
 }
 
@@ -377,15 +393,19 @@ internal sealed class AndroidHistoryNoteDialog
 
     public bool IsOpen => _root.activeSelf;
 
+    /// <summary>The favorite and the unsaved text of an open dialog, which a relayout carries over.</summary>
+    public (string BattleId, string Text)? Draft =>
+        IsOpen && _battleId is { } battleId ? (battleId, _input.text ?? string.Empty) : null;
+
     public void Open(string battleId, string note)
     {
         _battleId = battleId;
         _saving = false;
         _input.SetTextWithoutNotify(note);
         _shownLength = -1;
-        Tick();
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
+        Tick();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.note_opened"),
             ("note_length", note.Length)
@@ -424,9 +444,11 @@ internal sealed class AndroidHistoryNoteDialog
             Close("favorite_gone");
     }
 
-    /// <summary>Main thread, every frame while open: the count follows the draft.</summary>
+    /// <summary>Main thread, every frame: while open, the count follows the draft.</summary>
     public void Tick()
     {
+        if (_disposed || !IsOpen)
+            return;
         var length = (_input.text ?? string.Empty).Length;
         if (length == _shownLength)
             return;
