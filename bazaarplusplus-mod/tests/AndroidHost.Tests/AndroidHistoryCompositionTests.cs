@@ -107,6 +107,56 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         Assert.False(dependencies.ReplayService.CanRecordLoadedReplay(out _));
     }
 
+    // Core's view model hides Record on a host whose recording port records no video at all, and
+    // shows it on one that does (the desktop's).
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_record_action_shows_only_where_the_host_records_video(bool supported)
+    {
+        var composed = Compose(session: null, new StandInRuntime());
+        var dependencies = supported
+            ? new HistoryPanelDependencies(
+                composed.RunContext,
+                composed.DataService,
+                new HistoryPanelReplayService(
+                    () => new StandInRuntime(),
+                    new RecordingPort(),
+                    ReplayDirectory,
+                    static () => LocalAccount
+                ),
+                composed.ModApiSession,
+                composed.AccountLinkClient,
+                composed.AccountLinkGate,
+                composed.AccountLinkStore,
+                composed.UnscaledTime,
+                composed.ProfileAccountId
+            )
+            : composed;
+        var state = new HistoryPanelState();
+        using var coordinator = new HistoryPanelCoordinator(
+            state,
+            dependencies,
+            static () => { },
+            static () => { },
+            static _ => { }
+        );
+
+        var model = HistoryPanelViewModelBuilder.Build(
+            state,
+            coordinator,
+            dependencies.RunContext,
+            dependencies.AccountLinkGate,
+            0f,
+            [],
+            default,
+            default
+        );
+
+        Assert.Equal(supported, dependencies.ReplayService.RecordingSupported);
+        Assert.Equal(supported, model.RecordAndReplayButtonVisible);
+    }
+
     [Fact]
     public void A_remote_ghost_offers_its_download_and_needs_the_sync_service()
     {
@@ -260,6 +310,16 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
             HttpRequestMessage request,
             CancellationToken cancellationToken
         ) => Task.FromResult(respond(request));
+    }
+
+    // A host that records video, as the desktop's port does.
+    private sealed class RecordingPort : IReplayRecordingAvailability
+    {
+        public bool Supported => true;
+
+        public void Prewarm() { }
+
+        public bool CanRecord() => true;
     }
 
     // The replay runtime History drives, without the game.

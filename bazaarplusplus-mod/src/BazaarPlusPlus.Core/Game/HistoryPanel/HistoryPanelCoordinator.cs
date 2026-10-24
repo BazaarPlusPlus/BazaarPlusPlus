@@ -239,6 +239,8 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         return _replayService.CanRecordReplay(activeSelectedBattle, out reason);
     }
 
+    public bool RecordingSupported => _replayService.RecordingSupported;
+
     public void PrewarmRecordingAvailability()
     {
         _replayService.PrewarmRecordingAvailability();

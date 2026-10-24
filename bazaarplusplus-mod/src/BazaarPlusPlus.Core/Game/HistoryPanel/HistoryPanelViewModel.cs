@@ -93,6 +93,9 @@ public sealed class HistoryPanelViewModel
 
     public bool RecordAndReplayButtonEnabled { get; set; }
 
+    // False on a host that records no video: the record action is not shown.
+    public bool RecordAndReplayButtonVisible { get; set; }
+
     public bool DeleteButtonVisible { get; set; }
 
     public string DeleteButtonText { get; set; } = string.Empty;

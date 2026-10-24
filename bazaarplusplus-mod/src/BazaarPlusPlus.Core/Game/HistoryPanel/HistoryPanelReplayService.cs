@@ -38,6 +38,8 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
         _ghostSyncService = ghostSyncService;
     }
 
+    public bool RecordingSupported => _recording.Supported;
+
     public void PrewarmRecordingAvailability() => _recording.Prewarm();
 
     // Recording is feasible only when the replay itself can run AND the host can record.

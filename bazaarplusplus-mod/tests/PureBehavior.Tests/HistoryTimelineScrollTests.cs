@@ -95,4 +95,27 @@ public sealed class HistoryTimelineScrollTests
 
         Assert.Equal(504, scroll.Bind("selected", 13, Count, 0, Viewport));
     }
+
+    // The Android rail passes its own chip pitch: reveal and clamp follow that pitch, not the
+    // desktop's chip height.
+    [Theory]
+    [InlineData(10, 0, 311)]
+    [InlineData(2, 300, 112)]
+    [InlineData(13, 0, 479)]
+    [InlineData(5, 120, 120)]
+    public void A_given_step_sets_the_reveal_pitch(int slot, float offset, float expected)
+    {
+        var scroll = new HistoryTimelineScroll();
+
+        Assert.Equal(expected, scroll.Bind("selected", slot, Count, offset, 300, step: 56));
+    }
+
+    [Fact]
+    public void A_given_step_sets_the_scroll_range()
+    {
+        var scroll = new HistoryTimelineScroll();
+        scroll.Bind("selected", 0, Count, 0, 300, step: 56);
+
+        Assert.Equal(484, scroll.Bind("selected", 0, Count, 900, 300, step: 56));
+    }
 }

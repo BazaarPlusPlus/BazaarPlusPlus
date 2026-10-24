@@ -115,6 +115,7 @@ internal static class HistoryTouchLayoutTests
                 layout.SkillCell(0, 0),
                 layout.DialogClose,
                 layout.MoreHealth,
+                layout.MorePanelSwitch,
                 layout.AccountToggle,
                 layout.AccountInput,
                 layout.AccountSubmit,
@@ -138,6 +139,25 @@ internal static class HistoryTouchLayoutTests
         )
             Require(width >= metrics.MinTarget - 0.01f, $"{name}: a filter chip is a target wide.");
         Require(layout.RailList.Height >= layout.ChipHeight, $"{name}: the rail shows a battle.");
+        // Ghost's cloud note wraps in the column the rail leaves empty: inside the sheet, clear of
+        // the header, the archive and the boards, with room for six lines of body text.
+        RequireLaidOut(
+            name + " ghost",
+            layout.Sheet,
+            [
+                ("filters", layout.FilterStrip),
+                ("more", layout.More),
+                ("archive list", layout.ArchiveList),
+                ("cloud note", layout.CloudNote),
+                ("upper board", layout.UpperBoard),
+                ("replay", layout.Replay),
+            ]
+        );
+        Require(
+            layout.CloudNote.Width >= metrics.Dp(64f)
+                && layout.CloudNote.Height >= 6f * 1.3f * layout.BodyFont,
+            $"{name}: the cloud note has room to wrap ({layout.CloudNote})."
+        );
         Require(
             layout.ArchiveList.Height >= 2f * layout.RunRowHeight,
             $"{name}: the archive shows at least two runs."
@@ -242,6 +262,8 @@ internal static class HistoryTouchLayoutTests
                 ("database", layout.MoreDatabase),
                 ("health", layout.MoreHealth),
                 ("status", layout.MoreStatus),
+                ("panel title", layout.MorePanelTitle),
+                ("panel switch", layout.MorePanelSwitch),
                 ("account title", layout.AccountTitle),
                 ("account toggle", layout.AccountToggle),
                 ("account status", layout.AccountStatus),

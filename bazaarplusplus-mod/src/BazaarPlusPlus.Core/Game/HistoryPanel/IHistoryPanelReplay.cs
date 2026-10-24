@@ -26,6 +26,9 @@ public interface IHistoryPanelReplay
 
     bool CanRecordLoadedReplay(out string reason, out HistoryPanelReplayReasonCode reasonCode);
 
+    // Whether the host records replay video at all; false hides the record action.
+    bool RecordingSupported { get; }
+
     // Runs on the UI thread, where the host can read its video settings.
     void PrewarmRecordingAvailability();
 
