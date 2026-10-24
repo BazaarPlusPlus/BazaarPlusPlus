@@ -15,7 +15,7 @@ Two screens: the native 2400x1080 (safe area x 136..2264, a cutout on each side)
 
 Screenshots are halved. The main menu shows the account name top left, so every main-menu and end-of-run shot is cropped below it (`*-cropped.png`, and `01-main-menu-touch-menu.png`). History's battle rail names the real opponents of the account's own runs: `2560x1600/27-` and `28-` have those names boxed out (`*-names-redacted.png`); the other History shots show the seeded run, whose opponents are seeded `Seed Riv…` placeholders. Supporter names on the Ten-Win Builds shots are the public credits already committed in `397-livebuild/`.
 
-Logs hold only `[BPP]` lines, and any line matching an account, user or player id, a token, or a player name is removed. S1 lost no line to that filter. S2 lost three warnings whose exception text matched it: one `live_build_panel.corpus.degraded reason_code=remote_refresh_failed` and two `lobby.version_check.degraded reason_code=request_exception`, both from the deliberate network cut below. No database is committed: this change touches no stored data.
+Logs hold only `[BPP]` lines, and any line matching an account, user or player id, a token, or a player name is removed. S1 lost no line to that filter. S2 lost three warnings whose exception text matched it: one `live_build_panel.corpus.degraded reason_code=remote_refresh_failed` at startup (06:16:56, the unpublished CDN corpus, as in `397-livebuild/`), and two `lobby.version_check.degraded reason_code=request_exception` at 06:24:20 and 06:25:37, during the deliberate network cut below. No database is committed: this change touches no stored data.
 
 ## Test doubles (S1 only)
 
