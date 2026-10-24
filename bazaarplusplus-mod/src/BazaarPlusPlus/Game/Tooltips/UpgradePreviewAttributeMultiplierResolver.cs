@@ -12,6 +12,16 @@ using BazaarGameShared.Domain.Values;
 
 namespace BazaarPlusPlus.Game.Tooltips;
 
+/// <summary>
+/// The out-of-combat <c>Multiply</c> attribute auras that reach an item, from itself and from
+/// every card its player and opponent hold, once as it is and once with its own auras at the
+/// next tier: the multipliers <see cref="UpgradePreviewValueProjection"/> undoes and reapplies.
+/// </summary>
+/// <remarks>
+/// Counterpart of the Android host's <c>AndroidUpgradePreviewValueProjection.AuraMultipliers</c>,
+/// which names this class back: the two walk the same game rules over different bindings, so a
+/// fix to which auras count, or when, lands in both in one change.
+/// </remarks>
 internal static class UpgradePreviewAttributeMultiplierResolver
 {
     internal static IReadOnlyDictionary<ECardAttributeType, UpgradePreviewMultipliers> Resolve(

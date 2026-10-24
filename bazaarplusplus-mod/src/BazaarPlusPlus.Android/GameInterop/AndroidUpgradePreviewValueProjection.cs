@@ -96,8 +96,9 @@ internal sealed class AndroidUpgradePreviewValueProjection
         if (card == null)
             return false;
         card.Tier = nextTier;
-        card.Heroes = source.Heroes;
-        card.HiddenTags = source.HiddenTags;
+        // Copies, as the desktop's projection makes: the source's own sets stay the source's.
+        card.Heroes = CopyOf(source.Heroes);
+        card.HiddenTags = CopyOf(source.HiddenTags);
         card.State = source.State;
         var leftSocket = AndroidGameIds.Unboxed(() => source.LeftSocketId);
         card.LeftSocketId = leftSocket.HasValue
@@ -264,15 +265,32 @@ internal sealed class AndroidUpgradePreviewValueProjection
         return native;
     }
 
+    private static Il2CppSystem.Collections.Generic.HashSet<T> CopyOf<T>(
+        Il2CppSystem.Collections.Generic.HashSet<T>? source
+    )
+        where T : unmanaged
+    {
+        var copy = new Il2CppSystem.Collections.Generic.HashSet<T>();
+        if (source != null)
+            foreach (var value in source)
+                copy.Add(value);
+        return copy;
+    }
+
     private static Il2CppSystem.Nullable<T> NullableOf<T>(T? value)
         where T : unmanaged =>
         value.HasValue ? new Il2CppSystem.Nullable<T>(value.Value) : new Il2CppSystem.Nullable<T>();
 
     /// <summary>
-    /// The desktop's <c>UpgradePreviewAttributeMultiplierResolver</c>: the out-of-combat
-    /// <c>Multiply</c> attribute auras that reach the item, from itself and from every card its
-    /// player and opponent hold, once as it is and once with its own auras at the next tier.
+    /// The out-of-combat <c>Multiply</c> attribute auras that reach the item, from itself and from
+    /// every card its player and opponent hold, once as it is and once with its own auras at the
+    /// next tier.
     /// </summary>
+    /// <remarks>
+    /// Counterpart of the desktop's <c>UpgradePreviewAttributeMultiplierResolver</c>, which
+    /// names this class back: the two walk the same game rules over different bindings, so a
+    /// fix to which auras count, or when, lands in both in one change.
+    /// </remarks>
     private static class AuraMultipliers
     {
         public static Dictionary<ECardAttributeType, UpgradePreviewMultipliers> Resolve(

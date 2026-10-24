@@ -8,6 +8,7 @@
         <Project Path="SelfUpdate.Tests/SelfUpdate.Tests.csproj" />
         <Project Path="SettingsDockCore.Tests/SettingsDockCore.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
+        <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />
         <Project Path="VoiceSubtitles.Tests/VoiceSubtitles.Tests.csproj" />
     </Folder>
 </Solution>
