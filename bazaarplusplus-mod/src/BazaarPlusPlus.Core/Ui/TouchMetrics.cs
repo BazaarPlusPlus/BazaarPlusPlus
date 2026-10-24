@@ -114,9 +114,10 @@ public readonly struct TouchMetrics
     /// The relative size, in percent, at which text inside a label whose font renders
     /// <paramref name="fontPixels"/> screen pixels high stays at least <see cref="MinBodySp"/>:
     /// <paramref name="percent"/> when that is already readable, else the smallest percent that
-    /// is, never above 100. For text BPP appends at a reduced size inside the game's own labels,
-    /// such as the enchant preview's lines in a card tooltip. An unknown font size keeps
-    /// <paramref name="percent"/>.
+    /// is, never above 100: text BPP appends at a reduced size inside the game's own labels, such
+    /// as the enchant preview's lines in a card tooltip, takes the label's own size as its floor,
+    /// because text larger than the native text around it breaks the native look. An unknown font
+    /// size keeps <paramref name="percent"/>.
     /// </summary>
     public static int ReadablePercent(int percent, float fontPixels, float dpi)
     {

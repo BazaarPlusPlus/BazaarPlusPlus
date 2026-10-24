@@ -43,6 +43,7 @@ public sealed class TouchLauncherLayout
         LauncherFont = chrome.ButtonFont;
         TitleFont = chrome.TitleFont;
         EntryFont = metrics.Sp(16f);
+        LabelInset = chrome.LabelInset;
 
         var launcherHeight = metrics.MinTarget;
         var launcherTop = Math.Clamp(
@@ -105,4 +106,7 @@ public sealed class TouchLauncherLayout
     public float TitleFont { get; }
 
     public float EntryFont { get; }
+
+    /// <summary>The launcher's and the entries' label padding (<see cref="TouchChrome.LabelInset"/>).</summary>
+    public float LabelInset { get; }
 }

@@ -42,35 +42,8 @@ internal sealed class AndroidCollectionGrid
     {
         _port = port;
         _onTap = onTap;
-        _viewport = AndroidUiKit.Rect(
-            "GridViewport",
-            area,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
-        // Transparent but raycast: a drag anywhere in the grid scrolls it.
-        AndroidUiKit.Fill(_viewport, new Color(0f, 0f, 0f, 0.001f));
-        _viewport.gameObject.AddComponent<RectMask2D>();
-        _content = AndroidUiKit.Rect(
-            "GridContent",
-            _viewport,
-            new(0f, 1f),
-            new(1f, 1f),
-            Vector2.zero,
-            Vector2.zero
-        );
-        _content.pivot = new Vector2(0f, 1f);
-        _scroll = area.gameObject.AddComponent<ScrollRect>();
-        _scroll.viewport = _viewport;
-        _scroll.content = _content;
-        _scroll.horizontal = false;
-        _scroll.vertical = true;
-        _scroll.movementType = ScrollRect.MovementType.Clamped;
-        _scroll.inertia = true;
-        _scroll.decelerationRate = 0.12f;
-        _scroll.scrollSensitivity = 40f;
+        (_scroll, _content) = AndroidUiKit.VerticalScroll(area);
+        _viewport = _scroll.viewport;
     }
 
     /// <summary>The grid's scroll view, for the panel's drag-scroll log.</summary>

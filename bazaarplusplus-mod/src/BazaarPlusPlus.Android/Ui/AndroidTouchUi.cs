@@ -161,7 +161,7 @@ internal sealed class AndroidTouchUi
         var root = _root.transform;
 
         _launcher = AndroidTouchScreen.Child("Launcher", root, default);
-        var (_, _, launcherLabel) = AndroidUiKit.Button(_launcher, font, "BPP", 30f, Toggle);
+        var (_, _, launcherLabel) = AndroidUiKit.Button(_launcher, font, "BPP", 30f, 0f, Toggle);
         _launcherLabel = launcherLabel;
 
         var dim = AndroidUiKit.Rect(
@@ -236,7 +236,10 @@ internal sealed class AndroidTouchUi
         if (_launcher != null)
             AndroidTouchScreen.Place(_launcher, layout.Launcher);
         if (_launcherLabel != null)
+        {
             _launcherLabel.fontSize = layout.LauncherFont;
+            AndroidUiKit.InsetLabel(_launcherLabel.rectTransform, layout.LabelInset);
+        }
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.ui.touch_layout"),
             ("screen", key),
@@ -290,7 +293,13 @@ internal sealed class AndroidTouchUi
             AndroidUiKit.TextColor
         );
         var close = AndroidTouchScreen.Child("Close", menu, Relative(layout.Close, origin));
-        AndroidUiKit.CloseButton(close, font, layout.TitleFont, () => Close("close_button"));
+        AndroidUiKit.CloseButton(
+            close,
+            font,
+            layout.TitleFont,
+            layout.LabelInset,
+            () => Close("close_button")
+        );
 
         _entries.Clear();
         if (entries.Count == 0)
@@ -309,7 +318,7 @@ internal sealed class AndroidTouchUi
         {
             var (name, text, open) = entries[index];
             var row = AndroidTouchScreen.Child(name, menu, Relative(layout.Entries[index], origin));
-            AndroidUiKit.Button(row, font, text, layout.EntryFont, open);
+            AndroidUiKit.Button(row, font, text, layout.EntryFont, layout.LabelInset, open);
             _entries.Add(row.gameObject);
         }
         _menu = menu;

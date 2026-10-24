@@ -19,6 +19,9 @@ public sealed class TouchChrome
     public const float GapDp = 8f;
     public const float CloseWidthDp = 64f;
 
+    /// <summary>The padding between a button's edge and its label, on either side.</summary>
+    public const float LabelInsetDp = 6f;
+
     /// <summary>A panel or dialog title.</summary>
     public const float TitleSp = 18f;
 
@@ -39,6 +42,7 @@ public sealed class TouchChrome
         Gap = metrics.Dp(GapDp);
         Target = metrics.MinTarget;
         CloseWidth = metrics.Target(CloseWidthDp);
+        LabelInset = metrics.Dp(LabelInsetDp);
         TitleFont = metrics.Sp(TitleSp);
         NameFont = metrics.Sp(NameSp);
         ButtonFont = metrics.Sp(ButtonSp);
@@ -63,6 +67,9 @@ public sealed class TouchChrome
     public float Target { get; }
 
     public float CloseWidth { get; }
+
+    /// <summary><see cref="LabelInsetDp"/> in canvas units: a label's room is its button less twice this.</summary>
+    public float LabelInset { get; }
 
     public float TitleFont { get; }
 

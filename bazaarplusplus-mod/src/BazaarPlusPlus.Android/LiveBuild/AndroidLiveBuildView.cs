@@ -120,8 +120,16 @@ internal sealed class AndroidLiveBuildView
             layout.PinnedBoard,
             commands
         );
-        _previous = PagerButton(root, font, layout.Previous, "<", "previous", commands.Previous);
-        _next = PagerButton(root, font, layout.Next, ">", "next", commands.Next);
+        _previous = PagerButton(
+            root,
+            font,
+            layout.Previous,
+            layout.LabelInset,
+            "<",
+            "previous",
+            commands.Previous
+        );
+        _next = PagerButton(root, font, layout.Next, layout.LabelInset, ">", "next", commands.Next);
         _pager = Label(
             root,
             font,
@@ -144,6 +152,7 @@ internal sealed class AndroidLiveBuildView
             close,
             font,
             layout.TitleFont,
+            layout.LabelInset,
             () => AndroidUiActions.Run("live_build.close", () => commands.Close("close_button"))
         );
 
@@ -153,6 +162,7 @@ internal sealed class AndroidLiveBuildView
             font,
             "",
             layout.ButtonFont,
+            layout.LabelInset,
             () => AndroidUiActions.Run("live_build.refresh", commands.Refresh)
         );
 
@@ -162,6 +172,7 @@ internal sealed class AndroidLiveBuildView
             font,
             "",
             layout.BodyFont,
+            layout.LabelInset,
             () => AndroidUiActions.Run("live_build.corpus", ToggleCorpusDetail)
         );
         _corpus = corpusLabel;
@@ -289,6 +300,7 @@ internal sealed class AndroidLiveBuildView
             font,
             "",
             layout.ButtonFont,
+            layout.LabelInset,
             () =>
                 AndroidUiActions.Run(
                     "live_build.sponsor",
@@ -524,6 +536,7 @@ internal sealed class AndroidLiveBuildView
         RectTransform root,
         TMP_FontAsset font,
         TouchRect area,
+        float labelInset,
         string text,
         string control,
         Action onTap
@@ -535,6 +548,7 @@ internal sealed class AndroidLiveBuildView
             font,
             text,
             area.Height * 0.5f,
+            labelInset,
             () => AndroidUiActions.Run($"live_build.{control}", onTap)
         );
         return button;

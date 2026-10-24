@@ -159,6 +159,21 @@ public sealed class TouchChromeTests
 
     [Theory]
     [MemberData(nameof(Screens))]
+    public void Every_button_pads_its_label_by_the_same_dp(string name)
+    {
+        var metrics = Metrics(name);
+        var chrome = TouchChrome.For(metrics);
+
+        Assert.Equal(metrics.Dp(TouchChrome.LabelInsetDp), chrome.LabelInset, 3);
+        Assert.Equal(chrome.LabelInset, TouchLauncherLayout.Compute(metrics, 3).LabelInset);
+        Assert.Equal(chrome.LabelInset, LiveBuildTouchLayout.For(metrics).LabelInset);
+        Assert.Equal(chrome.LabelInset, CollectionTouchLayout.For(metrics).Chrome.LabelInset);
+        // The padding leaves the narrowest button, a close button, most of its width for a label.
+        Assert.True(2f * chrome.LabelInset <= chrome.CloseWidth / 4f, $"{name}: padding");
+    }
+
+    [Theory]
+    [MemberData(nameof(Screens))]
     public void Every_surface_reads_at_12sp_or_more(string name)
     {
         var metrics = Metrics(name);
@@ -378,8 +393,8 @@ public sealed class TouchChromeTests
     }
 
     [Theory]
-    // The desktop's 46% of a 30px label is 13.8px; 12sp at 420dpi is 31.5px, so the label must
-    // render at 105%, capped at 100%.
+    // The desktop's 46% of a 30px label is 13.8px; 12sp at 420dpi is 31.5px, so the label would
+    // need 105%: text inside the game's tooltip never outgrows the tooltip's own, so 100%.
     [InlineData(46, 30f, 420f, 100)]
     // A 63px label at 420dpi: 12sp is 50% of it.
     [InlineData(46, 63f, 420f, 50)]
@@ -393,7 +408,7 @@ public sealed class TouchChromeTests
     // Out-of-range percents clamp.
     [InlineData(0, 0f, 420f, 1)]
     [InlineData(150, 0f, 420f, 100)]
-    public void Preview_text_is_raised_to_12sp(
+    public void Preview_text_is_raised_to_12sp_up_to_the_tooltip_text(
         int percent,
         float fontPixels,
         float dpi,

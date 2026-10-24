@@ -60,6 +60,7 @@ public sealed class LiveBuildTouchLayout
         ValueFont = metrics.Sp(16f);
         TagFont = chrome.BodyFont;
         NameFont = chrome.NameFont;
+        LabelInset = chrome.LabelInset;
 
         Sheet = chrome.Sheet;
         var body = chrome.Body;
@@ -308,6 +309,9 @@ public sealed class LiveBuildTouchLayout
     public float Gap { get; }
 
     public float TitleFont { get; }
+
+    /// <summary>A button's label padding (<see cref="TouchChrome.LabelInset"/>).</summary>
+    public float LabelInset { get; }
 
     public float RowTitleFont { get; }
 
