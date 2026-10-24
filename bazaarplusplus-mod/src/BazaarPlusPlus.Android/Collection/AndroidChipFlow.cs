@@ -64,6 +64,7 @@ internal sealed class AndroidChipFlow
             _font,
             label,
             _chrome.ButtonFont,
+            _chrome.LabelInset,
             onTap
         );
         background.color = selected ? AndroidUiKit.ActiveColor : AndroidUiKit.ButtonColor;
@@ -90,7 +91,7 @@ internal sealed class AndroidChipFlow
             );
             _probe.enableWordWrapping = false;
         }
-        return _probe.GetPreferredValues(label).x + 2f * AndroidUiKit.ButtonLabelInset;
+        return _probe.GetPreferredValues(label).x + 2f * _chrome.LabelInset;
     }
 
     public void Header(string text) =>

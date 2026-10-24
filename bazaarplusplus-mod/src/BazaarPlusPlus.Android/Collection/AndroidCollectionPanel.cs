@@ -40,7 +40,9 @@ internal sealed class AndroidCollectionPanel
     private readonly TMP_FontAsset _font;
     private readonly List<AndroidScrollTracker> _trackers = new();
     private CollectionTouchLayout _layout = null!;
-    private GameObject _root = null!;
+
+    // Null only after a relayout failed to build its tree; Open builds again.
+    private GameObject? _root;
     private AndroidCollectionGrid _grid = null!;
     private AndroidCollectionInspection _inspection = null!;
     private RectTransform _railContent = null!;
@@ -67,7 +69,7 @@ internal sealed class AndroidCollectionPanel
         Build();
     }
 
-    public bool IsOpen => _root.activeSelf;
+    public bool IsOpen => _root != null && _root.activeSelf;
 
     /// <summary>Times the open panel was laid out again for a new screen.</summary>
     public long Relayouts { get; private set; }
@@ -76,8 +78,14 @@ internal sealed class AndroidCollectionPanel
     {
         if (IsOpen)
             return;
-        if (!string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal))
-            Relayout();
+        if (
+            (
+                _root == null
+                || !string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal)
+            ) && !Relayout()
+        )
+            return;
+        var root = _root!;
         _catalog.RetryIfUnavailable();
         _state.ResetSearchForLifecycle();
         _query = string.Empty;
@@ -96,8 +104,8 @@ internal sealed class AndroidCollectionPanel
             _sources.Entries,
             remembered
         );
-        _root.SetActive(true);
-        _root.transform.SetAsLastSibling();
+        root.SetActive(true);
+        root.transform.SetAsLastSibling();
         Render(
             _state.ApplyOpenSelection(
                 selection,
@@ -135,7 +143,7 @@ internal sealed class AndroidCollectionPanel
         _state.ResetSearchForLifecycle();
         var returned = _grid.Leases;
         _grid.ReturnAll();
-        _root.SetActive(false);
+        _root!.SetActive(false);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.closed"),
             ("reason", reason),
@@ -161,8 +169,11 @@ internal sealed class AndroidCollectionPanel
     {
         if (!IsOpen)
             return;
-        if (!string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal))
-            Relayout();
+        if (
+            !string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal)
+            && !Relayout()
+        )
+            return;
         if (_loading)
             AdvanceCatalog();
         var search = _state.TickSearch(Time.unscaledDeltaTime, false);
@@ -237,6 +248,7 @@ internal sealed class AndroidCollectionPanel
             AndroidTouchScreen.Child("Close", root, layout.Close),
             _font,
             chrome.TitleFont,
+            chrome.LabelInset,
             () => Close("close_button")
         );
         _itemsTab = Tab(root, layout.ItemsTab, CollectionTabKind.Items);
@@ -251,7 +263,7 @@ internal sealed class AndroidCollectionPanel
         _trackers.Add(new AndroidScrollTracker(Scrolled(), "grid", _grid.Scroll));
         _trackers.Add(new AndroidScrollTracker(Scrolled(), "rail", _railScroll));
         _trackers.Add(new AndroidScrollTracker(Scrolled(), "inspect", _inspection.DetailScroll));
-        _root.SetActive(false);
+        root.gameObject.SetActive(false);
         var dp = metrics.UnitsPerDp;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.laid_out"),
@@ -271,20 +283,52 @@ internal sealed class AndroidCollectionPanel
         new(BppLogFeatureScope.Android, "android.collection.scrolled");
 
     // The screen changed under the panel: the old tree returns its cards, and a tree laid out for
-    // the new screen renders the same view state.
-    private void Relayout()
+    // the new screen renders the same view state. A build that throws leaves no tree, never the
+    // destroyed one: the panel reads closed, its cards returned, and the next Open builds again.
+    private bool Relayout()
     {
         var before = _screenKey;
         var open = IsOpen;
         _inspection.Close("relayout");
         _grid.ReturnAll();
-        UnityEngine.Object.Destroy(_root);
-        Build();
+        if (_root != null)
+            UnityEngine.Object.Destroy(_root);
+        _root = null;
+        try
+        {
+            Build();
+        }
+        catch (Exception exception)
+        {
+            if (_root != null)
+                UnityEngine.Object.Destroy(_root);
+            _root = null;
+            _grid.ReturnAll();
+            _screenKey = string.Empty;
+            if (open)
+            {
+                if (_loading)
+                {
+                    _loading = false;
+                    _state.NoteCatalogLoadCancelled();
+                }
+                _state.ResetSearchForLifecycle();
+            }
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.collection.relayout_failed"),
+                exception,
+                ("from", before),
+                ("open", open),
+                ("rental_leases", AndroidCardRental.ActiveLeases)
+            );
+            return false;
+        }
         Relayouts++;
+        var root = _root!;
         if (open)
         {
-            _root.SetActive(true);
-            _root.transform.SetAsLastSibling();
+            root.SetActive(true);
+            root.transform.SetAsLastSibling();
             _search.SetTextWithoutNotify(_query);
             Render(_state.Rebuild());
         }
@@ -295,6 +339,7 @@ internal sealed class AndroidCollectionPanel
             ("open", open),
             ("rental_leases", AndroidCardRental.ActiveLeases)
         );
+        return true;
     }
 
     private void AdvanceCatalog()
@@ -550,6 +595,7 @@ internal sealed class AndroidCollectionPanel
             _font,
             "",
             _layout.Chrome.ButtonFont,
+            _layout.Chrome.LabelInset,
             () => Command(_state.SetActiveTab(kind), "tab")
         );
         label.enableWordWrapping = false;
