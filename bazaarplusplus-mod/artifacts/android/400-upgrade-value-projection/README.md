@@ -1,56 +1,85 @@
 # #400 evidence: BPP next-tier values in the Android upgrade preview
 
-Device: AVD `bpp_api35` (emulator-5556), game `1.0.12825-production-android-d9601ded`, BPP `6.0.0.prod`.
-Run: Vanessa, day 5, at the Mittel shop (Level Up taken). Screenshots are cropped to the tooltip column or the BPP panel; logs hold only `[BPP]` lines.
+Device: AVD `bpp_api35` (emulator-5556), game `1.0.12825-production-android-d9601ded`, BPP `6.0.0`.
+Run: Vanessa, day 7, at a merchant after Kev's Armory. Screenshots are cropped to the tooltip column, the settings section, or the game's connection UI; logs hold only `[BPP]` lines.
 
-Builds:
+## Sessions
 
-- **final**: branch `android/400-upgrade-value-projection` at `638d7c5` (rebased on `origin/master` `186d6b4`, gate set green). Everything under `a-*`, `c-*`, and `logs/session-final-build*.log` comes from one launch of this build (18:46–18:53).
-- **game-only**: `origin/master`, whose touch upgrade preview only enters the game's own `CardController.EnterUpgradePreview` and projects nothing itself. Used as the control for (b).
-- **pre-fix**: the branch before the fix below (`746ba4d` on the first rebase, the same code as `20a8802`). Used only for the `fix-before-*` frames.
-- **probe**: temporary, uncommitted diagnostic builds on top of pre-fix (extra log events `android.upgrade_values.probe_*`). Used only for the `logs/probe-*.log` files; no probe is in the branch.
+Each session is one launch of one build; its first log line is `android.plugin.loaded ... sha256=...`.
 
-## (a) The same held item, `[Android] UpgradePreview` off vs on
+| Session | Plugin `BazaarPlusPlus.Android.dll` sha256 | Code | Files |
+|---|---|---|---|
+| final (20:01–20:33) | `4907f84037815228a54326712911606c3d0f327739bfcb599d7f8ccc83d8f5eb` | commit `16afc3c`, unchanged | `screens/final-*.png`, `logs/session-final.log`, `logs/session-final.upgrade.log` |
+| probe (19:56–20:01) | `126e35549b87089af365e10f227c22cb98c1f83c644306e3cf0d1ecac01f693c` | commit `16afc3c` plus `probe/probe-sea-shell.patch`, uncommitted | `screens/item1-*.png`, `logs/session-probe.log`, `logs/session-probe.upgrade.log` |
 
-The run launched with the setting off; the BPP panel then switched it on (`a-panel-upgrade-preview-on.png`, `android.settings.changed ... value=true` at 18:48:18), and the same three items were opened again.
+The commits after `16afc3c` on this branch change docs and this directory only, so the code under test is still `16afc3c`. The `*.upgrade.log` files are the full session logs filtered to the plugin, scene, settings, back-key, net-message and upgrade lines, plus the last summary.
 
-| Item | Off | On |
+Test doubles: the probe session is the only one. Nothing in either session wrote to a production server, R2, or the analyzer beyond what the game and BPP do in normal play; no override is committed.
+
+## 1. A value the game leaves unprojected and BPP projects (probe session)
+
+The game fuses a value only when `CardTooltipData.RenderStylizedAttributeValue` passes `_canFuse && NextTierHasAttribute(attribute)`, and a tier's template entry lists only what that tier changes. Sea Shell's `Shield {aura.1.mod} for each Aquatic item` scales by `Custom_0` (10, 15, 20, 25), but the gate reads `ShieldApplyAmount`, which no tier entry carries. So the game prints `10` and BPP prints `10»15`.
+
+No Sea Shell came up in the run, so this uses the fallback the task allows: a temporary probe (`probe/probe-sea-shell.patch`, never committed) that, when the board's Chum tooltip opens, renders the game's own tooltip for a copy of the card re-templated to Sea Shell at Bronze (`CardExtensions.CreateCopy`, `BuildAttributeDictionaryForTier`, a fresh `CardTooltipData` with `CanFuse = true`). The copy keeps Chum's Deadly enchantment and its tags, which is why the title reads "DEADLY Sea Shell"; that is the probe's copy, not a BPP bug.
+
+| BPP `UpgradePreview` on | off |
+|---|---|
+| `screens/item1-on-sea-shell.png`: `Shield 10»15` | `screens/item1-off-sea-shell.png`: `Shield 10` |
+
+- On (19:58:51): `android.upgrade_values.projected attribute=shield_apply_amount current=10 next=15`, the `native=` segment printing `10` and the `bpp=` segment `10<sprite name=Fusion>15`. Then `render_compared same=true first_difference=-1 bpp_differs=true projected_values=1 length=336`: the managed loop with the game's values renders exactly what the game's own `RenderTooltip` does, and BPP's text differs from it by that one value.
+- Off (20:00:07 `settings.changed key=UpgradePreview value=false`, frames at 20:00:34): the probe still hands the game a fusing tooltip (`CanFuse = true`), and the game itself still prints `10`.
+
+## The once-only render comparison on the final build
+
+`render_compared` logs on the first leased render of a launch and on the first render in which BPP's text differs from the game's. The final session logged it once, for Handaxe at 20:03:12: `same=true first_difference=-1 bpp_differs=false projected_values=0 length=254`. The seven later holds logged none, since no tooltip in the run differs from the game's.
+
+## Enabled and disabled on the final build
+
+| Item | On | Off |
 |---|---|---|
-| Pufferfish (Silver): cooldown 8.0 → 8.0»7.0, Poison 18 → 18»28 | `screens/a-off-pufferfish.png` | `screens/a-on-pufferfish.png` |
-| Deadly Handaxe (Bronze): Damage 25 → 25»45, aura +5 → +5»10 | `screens/a-off-handaxe.png` | `screens/a-on-handaxe.png` |
-| Chum (Bronze): aura 3% → 3»6% Crit Chance | `screens/a-off-chum.png` | `screens/a-on-chum.png` |
+| Deadly Handaxe (Silver): Damage 50 → 50»90, aura +10 → +10»15 | `screens/final-on-handaxe.png` (20:03:12, `upgrade_preview.entered count=1`, `leased tier=silver next_tier=gold`) | `screens/final-off-handaxe.png` (20:04:39, `tooltip.hit` with no `entered` or `leased`) |
 
-Off: no `upgrade_preview.entered` or `upgrade_values.leased` (summaries 18:46:23–18:48:23 all 0). On: each open logs `android.upgrade_preview.entered` and `android.upgrade_values.leased tier=... next_tier=...` (18:48:24, 18:48:30, 18:48:37).
+The switch went off through the game's settings dialog: `screens/final-settings-before-off.png`, then `screens/final-settings-off.png` (`settings.row_tapped key=UpgradePreview value=false`, 20:04:15). It went back on at 20:05:53.
 
-## (b) A value the game does not project and BPP does: **not met on this game build**
+## 2. Releasing during a hold
 
-No such value was found. The game build on the device fuses every value token in every tooltip opened:
+**(b) Switching the feature off during a hold is not reachable on the device; a test covers it.** The setting lives in the game's settings dialog, and opening that dialog hides the tooltip first. With Handaxe held, the back key opened the pause menu and kept the hold (`back_key.passed source=handle_escape`, 20:03:26, no `exited`); tapping SETTINGS then released it as `upgrade_preview.exited reason=tooltip_hidden` (20:03:42), before any row could be reached. `AndroidSettingsDock` calls `ReleaseUpgradePreview("switched_off")` when the row turns off; `tests/AndroidHost.Tests/AndroidSettingsDockTests.cs` `Switching_upgrade_preview_off_releases_its_tooltip` pins that call.
 
-- `upgrade_values_projected` is 0 in every `android.hooks.summary` of every branch session. `android.upgrade_values.projected` is logged only when BPP's segment differs from the game's own, so not one value differed.
-- About 13 different items across board and shop, Bronze and Silver: Deadly Handaxe, Piranha, Grappling Hook, Chum, Pearl, Chocolate Bar, Sharkclaws, Pufferfish (bought, with Toxic Weapons' +8 Poison runtime delta: 18»28), Sextant, Cauterizing Blade, Scimitar of the Deep, Shovel, Katana.
-- The game-only build renders the same next-tier values: `screens/b-game-handaxe.png`, `b-game-chum.png`, and `b-game-pufferfish.png` match `a-on-handaxe.png`, `a-on-chum.png`, and `a-on-pufferfish.png`, including the cooldown clock (8.0»7.0) and the runtime-delta Poison.
-- `logs/probe-0-plain-tokens.log` (probe): every value token resolved through the projection (`probe_value ... resolved=true`, 24 values). All but one came with the game's own component (`native_component=true`), which the game fuses itself. The one that did not, Deadly's `This has +50% Crit Chance`, does not change between tiers.
-- `logs/probe-1-text-vs-native.log` (probe): BPP's whole rendered tooltip text against the game's own `RenderTooltip` for the same builder. The only differences were the keyword icons fixed below (`same=false`); the values were identical.
+**(a) A network cut does not change scene; the game reconnects in place and the hold ends as `tooltip_hidden`.** Four cuts with airplane mode on the final build, each restored as soon as the wait ended; the session's scene count stayed at 6 (`Gameplay` at 20:02:21 is its last `scene.loaded`), and no LOG IN screen appeared.
 
-So on `1.0.12825` the classes the projection exists for (literal ability or aura values the next tier's template does not carry, multiplicative auras) did not occur in this run's items. The projection runs on every value and agrees with the game everywhere it was observed.
+| Cut | Offline | What happened |
+|---|---|---|
+| 1 | ~20:07–20:10:53, idle | Pufferfish held (entered 20:06:34). The game did not notice the cut; the hold stayed until the next card replaced it (20:11:22). |
+| 2 | ~20:11:3x–20:15:02 | An encounter tap while offline brought up the game's "Connection Issues" OK modal and "RECONNECTING..."; on restore the resync (`net_message.hit NetMessageGameSim`, 20:15:06) arrived. |
+| 3 | ~20:15:5x–20:18:42 | Pufferfish held while offline (entered 20:15:58). On restore the resync (20:18:46) hid the tooltip: `exited reason=tooltip_hidden count=4` the same second, and the game re-showed it (`entered count=5`, 20:18:50). |
+| 4 | 20:19:28–20:28:51 (9 min) | Same as 3 with a longer wait: `screens/final-held-pufferfish-before-cut.png`, the modal `screens/final-cut-connection-dialog.png`, the tooltip still held offline `screens/final-cut-held-offline.png` with `screens/final-cut-reconnecting-badge.png`. Restore: `exited reason=tooltip_hidden count=7` (20:28:56), re-shown `entered count=8` (20:28:58), `screens/final-cut-after-restore.png`. Closed by a tap outside: `exited count=8` (20:30:36). |
 
-## Fix found by this evidence (`638d7c5`)
+So in this session every held preview ended through `tooltip_hidden`. None of the cuts is a scene switch; section 3 covers scene switches.
 
-With the feature on, the pre-fix build drew a second keyword icon after a value BPP had rendered: `Deal 25»45 ✸Damage` and `gain 3»6% ⊕Crit Chance`, where the game draws `Damage` and `Crit Chance` without an icon.
+**Leased equals returned.** Every summary in `logs/session-final.log` has `upgrade_values_leased == upgrade_values_returned`, and `upgrade_preview_entered == upgrade_preview_exited` whenever no tooltip is held. The last one (20:33:04): `upgrade_preview_entered=8 upgrade_preview_exited=8 upgrade_values_leased=8 upgrade_values_returned=8 card_balanced=true`.
 
-- Before: `screens/fix-before-handaxe.png`, `screens/fix-before-chum.png`. After: `screens/a-on-handaxe.png`, `screens/a-on-chum.png`. Game-only: `screens/b-game-handaxe.png`, `screens/b-game-chum.png`.
-- `logs/probe-1-text-vs-native.log`: `probe_text same=false` lines. The only difference is the `<sprite name=Damage>` / `<sprite name=CritChance>` that BPP's `ColorKeywords` call added.
-- `logs/probe-2-bool-variants.log`: `probe_variants v1=false v2=true v3=true v4=true`. The same `ColorKeywords` call drew no icon when `hasIconAlready` was a literal `true` (v1), but drew one when it was the `renderedWithIcon` value read through the IL2CPP `ValueTuple` proxy (v2–v4), although C# read that value as true (`probe_twice has=true`).
-- Fix: `AndroidGameIds.Canonical` stores that bool as 0 or 1 before it goes back to the game. Test: `tests/AndroidHost.Tests/AndroidGameIdsTests.cs`. Gotcha: `docs/architecture/android-host.md`.
+## 3. Scene switch (from #402, same release code)
 
-## (c) Different items in a row, closing, a scene switch, toggling off: no cross-use, no leftovers
+The final session switched no scene after its first hold: its last `scene.loaded` is `Gameplay` at 20:02:21, before the first `entered` at 20:03:12. The scene-switch evidence is the #402 runs on build `9ad3a86` (plugin sha256 `4eba6433794d…`). The release those runs exercise is unchanged in `16afc3c`.
 
-All lines are in `logs/session-final-build.upgrade.log`.
+- `artifacts/android/402-scene-changed/logs/5-probe-race-scene-changed-9ad3a86.log`: the #402 probe calls the game's own `SceneLoader.LoadScene` during the card-to-card transition, so the hold reaches the new scene. Lines: `upgrade_preview.entered controller=-63108 count=1` (19:32:22), then `scene.loaded name=MainMenuScene` and `upgrade_preview.exited reason=scene_changed alive=true count=1` (19:32:25). The summaries go from `upgrade_preview_entered=0 upgrade_preview_exited=0` to `1/1`. `upgrade_values_leased`/`returned` also go from `0/0` to `1/1`. That lease covers a single render and is returned when the render ends, so it does not prove this release.
+- `artifacts/android/402-scene-changed/logs/6-probe-held-9ad3a86.log`: the probe loads a scene outside the transition while a card is held. The game hides the tooltip inside the load, so `exited reason=tooltip_hidden alive=true count=1` (19:36:11) comes before `scene.loaded name=MainMenuScene` (19:36:14). The counts are again `1/1`, with no `scene_changed`.
 
-- **Items in a row**: ten opens 18:48:24–18:49:33 across board and shop items (Silver→Gold and Bronze→Silver alternate in `upgrade_values.leased`). Each new item released the previous one: `upgrade_preview.exited reason=replaced` ×6, `reason=tooltip_hidden` ×4. The last frame is `screens/c-row-last-shop-item.png`.
-- **Leases balanced**: in every summary `upgrade_values_leased` equals `upgrade_values_returned` (3/3, 7/7, 10/10, 11/11, 12/12). A lease lives only for one tooltip render. `upgrade_preview_entered` equals `upgrade_preview_exited` whenever no tooltip is open (10/10 at 18:49:53, 11/11 at 18:50:23, 12/12 at 18:52:24).
-- **Scene switch**: Pufferfish held (`screens/c-held-before-scene-switch.png`, entered 18:50:09). The in-game menu opened through the gear and closed the tooltip (`exited reason=tooltip_hidden`, 18:50:19). Exit to main menu (`MainMenuScene` 18:50:56), Resume (`Gameplay` 18:51:31): counters 11/11/11/11 before and after. Opening Pufferfish again (`screens/c-after-scene-switch.png`) leased a fresh projection (`leased=12 returned=11`, then 12/12). The tooltip was already closed when the scene loaded, so this run did not exercise the `scene_changed` release.
-- **Toggle off**: opening the BPP panel hides the open tooltip (`ui.panel_opened` and `exited reason=tooltip_hidden` at 18:52:13), so the switch lands between uses, not during a hold. The setting turned off at 18:52:16 (`screens/c-panel-upgrade-preview-off.png`). Opening Pufferfish again shows the plain tooltip (`screens/c-after-toggle-off-pufferfish.png`): no `entered`, no `leased`. Afterwards `tooltip_hits` rises (30→32) while `upgrade_preview_entered` and `upgrade_values_leased` stay at 12.
+Why the `9ad3a86` runs still cover `16afc3c`:
+
+- `git diff 9ad3a86 16afc3c -- bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/AndroidUpgradePreview.cs` is empty.
+- In `AndroidMod.OnSceneWasLoaded`, `AndroidUpgradePreview.Release("scene_changed")` is still the first call after the `android.scene.loaded` log line. The later commits only added the History panel's `OnSceneLoaded` and `AndroidCardRental.ReleaseAll("scene_changed")` after it.
+- In `Patches/CardTooltipPatch.cs`, `CardTooltipRenderPatch` is unchanged: its prefix calls `AndroidUpgradePreviewValues.Prepare` and its finalizer calls `AndroidUpgradePreviewValues.Return`. The only change to that file in the range is in `EnchantPreviewPassivePatch`.
+
+No in-run exit-to-menu round trip was recorded on `16afc3c`.
+
+## Shared acceptance (#361)
+
+- Enabled and disabled on the AVD: the Handaxe pair above.
+- Objects opened in a row: Pufferfish to another board card (`exited reason=replaced` 20:11:22, new controller `-47480`) and again at 20:19:22 (controller `-94174`). Each new card released the previous controller before entering its own; no controller appears in two open holds.
+- Close with no cross-use (final session): every hold ended `replaced` or `tooltip_hidden`, the last one by a tap outside (`exited count=8`, 20:30:36), and each next `entered` names its own controller.
+- Scene switch with no cross-use: section 3. `artifacts/android/402-scene-changed/logs/5-probe-race-scene-changed-9ad3a86.log` shows `scene_changed alive=true` with entered/exited going from `0/0` to `1/1`, and `artifacts/android/402-scene-changed/logs/6-probe-held-9ad3a86.log` shows `tooltip_hidden` before the scene load. The release code those runs exercise is unchanged in `16afc3c`. The network cuts are not counted as scene switches.
+- Rental and lease counts: `upgrade_values_leased` 8 = `returned` 8; the upgrade preview rents no cards (`card_rented=0`, `card_balanced=true`).
 
 ## Not committed
 

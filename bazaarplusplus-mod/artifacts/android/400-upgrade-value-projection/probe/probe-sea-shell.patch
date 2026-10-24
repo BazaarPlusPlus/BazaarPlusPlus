@@ -1,0 +1,99 @@
+diff --git a/bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/AndroidUpgradePreview.cs b/bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/AndroidUpgradePreview.cs
+index 32daa63..cbafed1 100644
+--- a/bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/AndroidUpgradePreview.cs
++++ b/bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/AndroidUpgradePreview.cs
+@@ -32,7 +32,7 @@ internal static class AndroidUpgradePreview
+         card != null
+         && _held != null
+         && _held.CardData != null
+-        && _held.CardData.Pointer == card.Pointer;
++        && (_held.CardData.Pointer == card.Pointer || Probe400SeaShell.Holds(card, _held.CardData));
+ 
+     /// <summary>Before the game shows a card's tooltip: hold that card in preview, or none.</summary>
+     public static void OnShowTooltips(Il2Cpp.CardController controller)
+diff --git a/bazaarplusplus-mod/src/BazaarPlusPlus.Android/Patches/CardTooltipPatch.cs b/bazaarplusplus-mod/src/BazaarPlusPlus.Android/Patches/CardTooltipPatch.cs
+index 815671b..2b5928c 100644
+--- a/bazaarplusplus-mod/src/BazaarPlusPlus.Android/Patches/CardTooltipPatch.cs
++++ b/bazaarplusplus-mod/src/BazaarPlusPlus.Android/Patches/CardTooltipPatch.cs
+@@ -32,6 +32,7 @@ internal static class CardTooltipPatch
+             return;
+         try
+         {
++            Probe400SeaShell.Apply(__instance);
+             AndroidUpgradePreview.OnShowTooltips(__instance);
+         }
+         catch (Exception exception)
+diff --git a/bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/Probe400SeaShell.cs b/bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/Probe400SeaShell.cs
+new file mode 100644
+index 0000000..126acfa
+--- /dev/null
++++ b/bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/Probe400SeaShell.cs
+@@ -0,0 +1,68 @@
++using BazaarPlusPlus.Infrastructure;
++using BazaarPlusPlus.Infrastructure.Logging;
++using Il2CppBazaarGameClient.Domain.Models.Cards;
++using Il2CppBazaarGameShared.Domain.Cards;
++using Il2CppBazaarGameShared.Domain.Cards.Item;
++using Il2CppBazaarGameShared.Domain.Core.Types;
++using Il2CppTheBazaar.Tooltips;
++
++namespace BazaarPlusPlus.Android.GameInterop;
++
++// TEMPORARY #400 PROBE, never committed: the board's Chum shows the game's own tooltip for a
++// Bronze Sea Shell copy of it, so the upgrade preview renders a template no shop offered.
++internal static class Probe400SeaShell
++{
++    private const string SeaShellId = "eda51b14-8420-4da4-ba82-89513e5deaa2";
++    private static Card? _probe;
++    private static Card? _source;
++
++    public static bool Holds(Card? card, Card? held) =>
++        card != null
++        && held != null
++        && _probe != null
++        && _source != null
++        && card.Pointer == _probe.Pointer
++        && held.Pointer == _source.Pointer;
++
++    public static void Apply(Il2Cpp.CardController controller)
++    {
++        var card = controller?.CardData;
++        if (card == null || card.Template?.InternalName != "Chum")
++            return;
++        if (_probe == null || _source == null || _source.Pointer != card.Pointer)
++        {
++            var template = Il2CppTheBazaar
++                .Data.GetStatic()
++                ?.GetCardById(Il2CppSystem.Guid.Parse(SeaShellId))
++                ?.TryCast<TCardItem>();
++            if (template == null)
++            {
++                BppLog.InfoEvent(
++                    new BppLogEvent(BppLogFeatureScope.Android, "android.probe400.no_template")
++                );
++                return;
++            }
++            var copy = Il2CppTheBazaar.CardExtensions.CreateCopy(card);
++            copy.TemplateId = Il2CppSystem.Guid.Parse(SeaShellId);
++            copy.Template = template.TryCast<ITCard>();
++            copy.Tier = ETier.Bronze;
++            copy.Attributes =
++                new Il2CppSystem.Collections.Generic.Dictionary<ECardAttributeType, int>();
++            copy.Attributes = Il2CppTheBazaar.CardExtensions.BuildAttributeDictionaryForTier(
++                copy,
++                template.TryCast<ITCard>(),
++                ETier.Bronze
++            );
++            _probe = copy;
++            _source = card;
++        }
++        var data = new CardTooltipData(_probe, _probe.Template, null);
++        data.CanFuse = true;
++        controller!._cardTooltipData = data;
++        BppLog.InfoEvent(
++            new BppLogEvent(BppLogFeatureScope.Android, "android.probe400.applied"),
++            ("template", _probe.Template?.InternalName ?? "?"),
++            ("tier", _probe.Tier.ToString())
++        );
++    }
++}
