@@ -5,6 +5,7 @@ using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
+using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Localization;
 using Il2CppTMPro;
 using UnityEngine;
@@ -19,13 +20,16 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 /// <c>LiveBuildPanelView</c> maps one, and hands taps to the panel. A rented card carries its own
 /// canvas, which the list's <c>RectMask2D</c> does not clip, so the list draws first and opaque
 /// bands above and below it hide the cards scrolled past its edges, as the Collection grid does.
+/// Stacked (<see cref="LiveBuildTouchLayout.Stacked"/>), the final build's cards and the overview
+/// are children of the list's content, so they scroll with the rows; the final build's title band,
+/// the pager, and the close button stay over the list.
 /// </summary>
 internal sealed class AndroidLiveBuildView
 {
     private static readonly LocalizedTextSet TapHint = new(
-        "Tap shop, stash, or board items to pick candidates. Tap a build card to inspect it.",
-        "点按商店、仓库或场上的物品选为候选；点按构筑中的卡牌查看大图。",
-        "點按商店、倉庫或場上的物品選為候選；點按構築中的卡牌查看大圖。"
+        "Tap items to pick, cards to inspect.",
+        "点物品选候选，点卡牌看大图",
+        "點物品選候選，點卡牌看大圖"
     );
 
     private readonly GameObject _root;
@@ -41,6 +45,8 @@ internal sealed class AndroidLiveBuildView
     private readonly TextMeshProUGUI _corpus;
     private readonly TextMeshProUGUI _hero;
     private readonly TextMeshProUGUI _guidance;
+    private readonly TextMeshProUGUI _supporters;
+    private readonly TextMeshProUGUI _sponsorLabel;
     private readonly GameObject _metrics;
     private readonly (TextMeshProUGUI Label, TextMeshProUGUI Value)[] _metricCells;
     private readonly GameObject _corpusDetailRoot;
@@ -84,6 +90,7 @@ internal sealed class AndroidLiveBuildView
         foreach (var (id, index) in listRows)
             _rows[id] = CreateRow(
                 _content,
+                _content,
                 font,
                 id,
                 layout.ScrollRowTitle(index),
@@ -102,8 +109,11 @@ internal sealed class AndroidLiveBuildView
             )
         );
 
+        // Side by side the overview and the final build's cards are fixed; stacked, they scroll.
+        var scrolled = layout.Stacked ? _content : root;
         _rows[BppItemBoardId.FinalBuild] = CreateRow(
             root,
+            scrolled,
             font,
             BppItemBoardId.FinalBuild,
             layout.PinnedTitleText,
@@ -122,7 +132,7 @@ internal sealed class AndroidLiveBuildView
         );
 
         Label(
-            root,
+            scrolled,
             font,
             "Title",
             layout.Title,
@@ -137,7 +147,7 @@ internal sealed class AndroidLiveBuildView
             () => AndroidUiActions.Run("live_build.close", () => commands.Close("close_button"))
         );
 
-        var refresh = AndroidTouchScreen.Child("Refresh", root, layout.Refresh);
+        var refresh = AndroidTouchScreen.Child("Refresh", scrolled, layout.Refresh);
         (_refresh, _, _refreshLabel) = AndroidUiKit.Button(
             refresh,
             font,
@@ -146,7 +156,7 @@ internal sealed class AndroidLiveBuildView
             () => AndroidUiActions.Run("live_build.refresh", commands.Refresh)
         );
 
-        var corpus = AndroidTouchScreen.Child("Corpus", root, layout.Corpus);
+        var corpus = AndroidTouchScreen.Child("Corpus", scrolled, layout.Corpus);
         var (_, _, corpusLabel) = AndroidUiKit.Button(
             corpus,
             font,
@@ -158,7 +168,7 @@ internal sealed class AndroidLiveBuildView
         _corpus.overflowMode = TextOverflowModes.Ellipsis;
 
         _hero = Label(
-            root,
+            scrolled,
             font,
             "Hero",
             layout.Hero,
@@ -168,7 +178,7 @@ internal sealed class AndroidLiveBuildView
         _hero.overflowMode = TextOverflowModes.Ellipsis;
 
         _guidance = Label(
-            root,
+            scrolled,
             font,
             "Guidance",
             layout.Info,
@@ -176,7 +186,7 @@ internal sealed class AndroidLiveBuildView
             TextAlignmentOptions.TopLeft
         );
         _guidance.color = AndroidUiKit.MutedTextColor;
-        var metricsRoot = AndroidTouchScreen.Child("Metrics", root, layout.Info);
+        var metricsRoot = AndroidTouchScreen.Child("Metrics", scrolled, layout.Info);
         _metrics = metricsRoot.gameObject;
         _metricCells = new (TextMeshProUGUI, TextMeshProUGUI)[LiveBuildTouchLayout.MetricCount];
         for (var index = 0; index < _metricCells.Length; index++)
@@ -230,7 +240,7 @@ internal sealed class AndroidLiveBuildView
             value.overflowMode = TextOverflowModes.Ellipsis;
             _metricCells[index] = (label, value);
         }
-        var detail = AndroidTouchScreen.Child("CorpusDetail", root, layout.Info);
+        var detail = AndroidTouchScreen.Child("CorpusDetail", scrolled, layout.Info);
         AndroidUiKit.Fill(detail, AndroidUiKit.ButtonColor, blocksTouches: false);
         _corpusDetail = AndroidUiKit.Text(
             AndroidUiKit.Rect(
@@ -251,15 +261,43 @@ internal sealed class AndroidLiveBuildView
         _corpusDetailRoot = detail.gameObject;
 
         var hint = Label(
-            root,
+            scrolled,
             font,
             "Hint",
             layout.Hint,
             layout.BodyFont,
-            TextAlignmentOptions.BottomLeft
+            TextAlignmentOptions.MidlineLeft
         );
         hint.color = AndroidUiKit.MutedTextColor;
+        hint.overflowMode = TextOverflowModes.Ellipsis;
         hint.text = L.Resolve(TapHint);
+
+        _supporters = Label(
+            scrolled,
+            font,
+            "Supporters",
+            layout.Supporters,
+            layout.BodyFont,
+            TextAlignmentOptions.MidlineLeft
+        );
+        _supporters.richText = true;
+        _supporters.enableWordWrapping = false;
+        _supporters.overflowMode = TextOverflowModes.Ellipsis;
+        var sponsor = AndroidTouchScreen.Child("Sponsor", scrolled, layout.Sponsor);
+        (_, _, _sponsorLabel) = AndroidUiKit.Button(
+            sponsor,
+            font,
+            "",
+            layout.ButtonFont,
+            () =>
+                AndroidUiActions.Run(
+                    "live_build.sponsor",
+                    () =>
+                        Application.OpenURL(
+                            BPPSupporterLinks.ResolveSponsorUrl(L.CurrentLanguageCode)
+                        )
+                )
+        );
 
         Inspection = new AndroidLiveBuildInspection(root, font, layout);
         _root.SetActive(false);
@@ -271,8 +309,12 @@ internal sealed class AndroidLiveBuildView
 
     public bool IsVisible => _root.activeSelf;
 
-    /// <summary>Cards the four boards hold, Pending or Ready.</summary>
-    public int Leases => _rows.Values.Sum(row => row.Board.Leases);
+    /// <summary>Cards the four boards and the inspection hold, Pending or Ready.</summary>
+    public int Leases => _rows.Values.Sum(row => row.Board.Leases) + Inspection.Leases;
+
+    /// <summary>A board card or the inspected one is still being instantiated or set up.</summary>
+    public bool SettingUp =>
+        _rows.Values.Any(row => row.Board.Status().Pending > 0) || Inspection.SettingUp;
 
     public void SetVisible(bool visible)
     {
@@ -323,6 +365,14 @@ internal sealed class AndroidLiveBuildView
         _hero.text = snapshot.Hero is { } hero ? AndroidHeroNames.Display(hero) : string.Empty;
         _hasRecommendation = snapshot.MatchesState == LiveBuildMatchesState.HasRecommendation;
         _guidance.text = _hasRecommendation ? string.Empty : snapshot.MatchesGuidance;
+        var language = L.CurrentLanguageCode;
+        // No supporters loaded yet: the panel's subtitle stands in, as on the desktop's row.
+        var supporters = BPPSupporterAttribution.FormatRichLine(snapshot.Supporters, language);
+        _supporters.text = string.IsNullOrEmpty(supporters)
+            ? $"<color=#{BPPSupporterAttribution.MutedHex}>{LiveBuildPanelText.Subtitle()}</color>"
+            : supporters;
+        AndroidGameFont.Cover(_supporters);
+        _sponsorLabel.text = BPPSupporterAttributionText.FormatSponsorAction(language);
         SetMetric(
             0,
             LiveBuildPanelText.MatchRateLabel(),
@@ -419,7 +469,8 @@ internal sealed class AndroidLiveBuildView
     }
 
     private Row CreateRow(
-        RectTransform parent,
+        RectTransform titleParent,
+        RectTransform boardParent,
         TMP_FontAsset font,
         BppItemBoardId id,
         TouchRect titleArea,
@@ -428,7 +479,7 @@ internal sealed class AndroidLiveBuildView
     )
     {
         var title = Label(
-            parent,
+            titleParent,
             font,
             $"{id}Title",
             titleArea,
@@ -436,7 +487,7 @@ internal sealed class AndroidLiveBuildView
             TextAlignmentOptions.MidlineLeft
         );
         title.overflowMode = TextOverflowModes.Ellipsis;
-        var region = AndroidTouchScreen.Child($"{id}Board", parent, boardArea);
+        var region = AndroidTouchScreen.Child($"{id}Board", boardParent, boardArea);
         // Transparent but raycast: a drag on a board's empty sockets scrolls the list too.
         AndroidUiKit.Fill(region, new Color(0f, 0f, 0f, 0.001f));
         var status = AndroidUiKit.Text(

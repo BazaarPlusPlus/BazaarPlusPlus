@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Core.Cards;
 using Il2Cpp;
 using Il2CppBazaarGameShared.Domain.Cards;
 using Il2CppBazaarGameShared.Domain.Cards.Item;
@@ -25,8 +26,6 @@ namespace BazaarPlusPlus.Android.GameInterop.CardRental;
 /// </summary>
 internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewBase, RectTransform>
 {
-    public const float PrefabHeight = 484f;
-
     private readonly Dictionary<Guid, TCardBase> _templates = new();
     private Transform? _poolRoot;
     private long _instanceSerial;
@@ -173,6 +172,12 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         card.transform.SetParent(PoolRoot(), false);
     }
 
+    public void Detach(CardPreviewBase card)
+    {
+        Group(card).alpha = 0f;
+        card.transform.SetParent(PoolRoot(), false);
+    }
+
     public void Destroy(CardPreviewBase card) => UnityEngine.Object.Destroy(card.gameObject);
 
     public bool IsAlive(CardPreviewBase card) => card != null && card.gameObject != null;
@@ -239,9 +244,9 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         {
             rect.SetSizeWithCurrentAnchors(
                 RectTransform.Axis.Horizontal,
-                PrefabHeight * fitter.aspectRatio
+                NativeCardPrefab.Height * fitter.aspectRatio
             );
-            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PrefabHeight);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, NativeCardPrefab.Height);
             // Read for its ratio only: left on, it would fit the card to its parent, and a
             // renting panel's parent is a zero-size slot.
             fitter.enabled = false;

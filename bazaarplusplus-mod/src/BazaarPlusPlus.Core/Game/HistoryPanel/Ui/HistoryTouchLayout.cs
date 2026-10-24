@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
@@ -25,15 +26,6 @@ public sealed class HistoryTouchLayout
 
     /// <summary>The most skills a skills sheet row shows.</summary>
     public const int SkillsPerRow = 10;
-
-    /// <summary>A rented card prefab's height, as the Android card rental sets it up; a skill is square.</summary>
-    public const float PrefabHeight = 484f;
-
-    /// <summary>One socket of the prefab: a small item's width at <see cref="PrefabHeight"/>.</summary>
-    public const float PrefabSocketWidth = 252f;
-
-    /// <summary>The card frame stands this much taller than its socket.</summary>
-    public const float FrameHeightOverSocket = 1.037f;
 
     /// <summary>The socket width the detail column is sized for before the archive takes the rest.</summary>
     public const float DetailSocketDp = 52f;
@@ -147,11 +139,11 @@ public sealed class HistoryTouchLayout
         var heightScale =
             (boardsHeight - 2f * BoardTitleHeight - boardGap)
             / 2f
-            / (PrefabHeight * FrameHeightOverSocket);
-        var widthScale = Detail.Width / (PrefabSocketWidth * SocketCount);
+            / (NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket);
+        var widthScale = Detail.Width / (NativeCardPrefab.SocketWidth * SocketCount);
         CardScale = Math.Max(0.01f, Math.Min(widthScale, heightScale));
-        SocketWidth = PrefabSocketWidth * CardScale;
-        CardHeight = PrefabHeight * FrameHeightOverSocket * CardScale;
+        SocketWidth = NativeCardPrefab.SocketWidth * CardScale;
+        CardHeight = NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket * CardScale;
         CarpetWidth = SocketWidth * SocketCount;
         UpperBoardTitle = new TouchRect(Detail.Left, Detail.Top, Detail.Width, BoardTitleHeight);
         UpperBoard = new TouchRect(Detail.Left, UpperBoardTitle.Bottom, CarpetWidth, CardHeight);
@@ -525,13 +517,17 @@ public sealed class HistoryTouchLayout
         );
 
     /// <summary>The prefab scale that fills a skill square.</summary>
-    public float SkillScale => SkillSide / PrefabHeight;
+    public float SkillScale => SkillSide / NativeCardPrefab.Height;
 
     /// <summary>The enlarged card's scale on the inspection for a card <paramref name="span"/> sockets wide.</summary>
     public float InspectScale(int span, bool skill)
     {
-        var width = skill ? PrefabHeight : PrefabSocketWidth * Math.Clamp(span, 1, 3);
-        var height = skill ? PrefabHeight : PrefabHeight * FrameHeightOverSocket;
+        var width = skill
+            ? NativeCardPrefab.Height
+            : NativeCardPrefab.SocketWidth * Math.Clamp(span, 1, 3);
+        var height = skill
+            ? NativeCardPrefab.Height
+            : NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket;
         return _inspect.Scale(width, height);
     }
 

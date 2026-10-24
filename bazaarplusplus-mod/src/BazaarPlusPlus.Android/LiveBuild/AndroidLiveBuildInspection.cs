@@ -14,7 +14,8 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Android.LiveBuild;
 
 /// <summary>
-/// A recommended build's card, tapped, enlarged over the panel with its name and authored text:
+/// A recommended build's card, tapped, enlarged over the panel with its name and its text as the
+/// game's tooltip renders it (<see cref="AndroidCardTemplateText.Description(CardRentalSubject)"/>):
 /// the touch counterpart of hovering a card on the desktop, where the game's own tooltip shows.
 /// Android has no hover tooltip, so the text stands beside the card as in the Collection
 /// inspection. The card is the game's own prefab, rented at the build's tier and enchantment. A
@@ -101,20 +102,24 @@ internal sealed class AndroidLiveBuildInspection
 
     public bool IsOpen => _root.activeSelf;
 
+    /// <summary>The inspected card's lease, Pending or Ready: one while open.</summary>
+    public int Leases => _lease != null ? 1 : 0;
+
+    /// <summary>The inspected card is still being instantiated or set up.</summary>
+    public bool SettingUp => _lease is { State: CardRentalLeaseState.Pending };
+
     public void Open(BppItemBoardCard card, string source)
     {
         Return();
+        var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
         _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
-        _description.text = AndroidCardTemplateText.Description(card.TemplateId) ?? string.Empty;
+        _description.text = AndroidCardTemplateText.Description(subject) ?? string.Empty;
+        AndroidKeywordSprites.Apply(_description);
         var scale = _layout.InspectScale(card.DisplaySpan);
         _slot.localScale = new Vector3(scale, scale, 1f);
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
-        _lease = AndroidCardRental.Rent(
-            new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType),
-            _slot,
-            RentalOwner
-        );
+        _lease = AndroidCardRental.Rent(subject, _slot, RentalOwner);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.inspected"),
             ("source", source),

@@ -2,10 +2,10 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
-using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Il2CppTMPro;
@@ -22,7 +22,10 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 /// A refresh's fetch finishes on a pool thread, so its result is posted to
 /// <see cref="AndroidMainThread"/> before <see cref="LiveBuildPanelState.CompleteRefresh"/> runs,
 /// as the state requires. The view is laid out for the screen it opened on and laid out again
-/// when the resolution, density, or safe area changes.
+/// when the resolution, density, or safe area changes, once the new screen has held still
+/// (<see cref="TouchRelayoutDebounce"/>) and no card is still setting up. A card returned while
+/// it sets up leaves the old view at once (<see cref="CardRentalCore{TCard, TParent}"/>), so
+/// destroying the view never takes one.
 /// </summary>
 internal sealed class AndroidLiveBuildPanel
 {
@@ -31,21 +34,21 @@ internal sealed class AndroidLiveBuildPanel
     private readonly Transform _parent;
     private readonly TMP_FontAsset _font;
     private readonly LiveBuildPanelState _state;
+    private readonly AndroidLiveBuildData _data;
     private readonly Commands _commands;
     private AndroidLiveBuildView? _view;
     private string _screenKey = string.Empty;
+    private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private float _loggedScroll;
 
-    public AndroidLiveBuildPanel(
-        Transform parent,
-        TMP_FontAsset font,
-        BuildRecommendationRepository recommendations
-    )
+    public AndroidLiveBuildPanel(Transform parent, TMP_FontAsset font, AndroidLiveBuildData data)
     {
         _parent = parent;
         _font = font;
+        _data = data;
+        data.Warm("panel_created");
         _state = new LiveBuildPanelState(
-            recommendations,
+            data.Recommendations,
             () => DateTimeOffset.UtcNow,
             AndroidHeroNames.TheDragons
         );
@@ -90,7 +93,10 @@ internal sealed class AndroidLiveBuildPanel
         var view = EnsureView();
         var outcome = AndroidLiveCardSnapshotReader.Read();
         ReportLiveSnapshotIssues(outcome.Issues);
-        _state.Open(outcome.Snapshot, Array.Empty<BPPSupporterSample>());
+        _state.Open(
+            outcome.Snapshot,
+            _data.NextSupporters(LiveBuildPanelState.SupporterAttributionCount)
+        );
         view.SetVisible(true);
         _loggedScroll = 0f;
         var snapshot = _state.BuildSnapshot();
@@ -106,6 +112,7 @@ internal sealed class AndroidLiveBuildPanel
             ("board", snapshot.Board.Cards.Count),
             ("matches_state", snapshot.MatchesState),
             ("corpus_state", snapshot.CorpusState),
+            ("supporters", snapshot.Supporters.Count),
             ("screen", _screenKey),
             ("units_per_dp", Math.Round(layout.Metrics.UnitsPerDp, 3)),
             ("card_scale", Math.Round(layout.CardScale, 3)),
@@ -149,7 +156,7 @@ internal sealed class AndroidLiveBuildPanel
         var view = _view;
         if (view == null || !view.IsVisible)
             return;
-        if (!string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal))
+        if (_relayout.Observe(AndroidTouchScreen.Key(), view.SettingUp))
         {
             Relayout();
             return;
@@ -184,6 +191,7 @@ internal sealed class AndroidLiveBuildPanel
             return _view;
         _view?.Destroy();
         _screenKey = key;
+        _relayout.LaidOutAt(key);
         var layout = LiveBuildTouchLayout.For(AndroidTouchScreen.Read());
         _view = new AndroidLiveBuildView(_parent, _font, layout, _commands);
         return _view;
@@ -204,7 +212,8 @@ internal sealed class AndroidLiveBuildPanel
             ("to", _screenKey),
             ("units_per_dp", Math.Round(view.Layout.Metrics.UnitsPerDp, 3)),
             ("card_scale", Math.Round(view.Layout.CardScale, 3)),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", AndroidCardRental.ActiveLeases),
+            ("held_frames", _relayout.HeldFrames)
         );
     }
 

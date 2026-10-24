@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 
@@ -20,6 +21,7 @@ internal static class LiveBuildTouchLayoutTests
         TextNeverFallsUnderTheBodyMinimum();
         foreach (var (name, metrics) in Screens())
             LayoutFits(name, metrics);
+        TheArrangementFollowsTheDensity();
         CardsFollowTheirSocketsAndSpans();
         InspectScaleKeepsTheCardInsideItsArea();
     }
@@ -31,6 +33,11 @@ internal static class LiveBuildTouchLayoutTests
         yield return ("1920x1080@420", Screen(1920f, 1080f, 420f));
         yield return ("2400x1080@420 cutout", Screen(2400f, 1080f, 420f, cutoutLeft: 110f));
         yield return ("2340x1080@440", Screen(2340f, 1080f, 440f));
+        // Dense phones: the same pixels at fewer dp, where side by side would leave a socket
+        // under 48dp or the sidebar too short for the metric cells, and the panel stacks.
+        yield return ("2400x1080@480", Screen(2400f, 1080f, 480f));
+        yield return ("2400x1080@560", Screen(2400f, 1080f, 560f));
+        yield return ("2400x1080@640", Screen(2400f, 1080f, 640f));
     }
 
     private static TouchMetrics Screen(
@@ -132,61 +139,105 @@ internal static class LiveBuildTouchLayoutTests
         var layout = LiveBuildTouchLayout.For(metrics);
         var sheet = layout.Sheet;
         Check.That(metrics.SafeArea.Contains(sheet), $"{name}: the sheet leaves the safe area.");
+        Check.That(
+            layout.SocketWidth >= metrics.MinTarget - 0.01f,
+            $"{name}: a socket is {layout.SocketWidth / metrics.UnitsPerDp}dp wide, under 48dp."
+        );
+        Check.That(
+            layout.CarpetWidth <= layout.BoardColumn.Width + 0.01f,
+            $"{name}: ten sockets overflow the board column."
+        );
 
-        var targets = new (string Name, TouchRect Rect)[]
+        // Stacked, only the header stays in sheet coordinates; the boards and the overview are
+        // list content.
+        var content = new TouchRect(0f, 0f, layout.Scroll.Width, layout.ScrollContentHeight);
+        var overview = new (string Name, TouchRect Rect)[]
         {
-            ("close", layout.Close),
+            ("title", layout.Title),
             ("refresh", layout.Refresh),
             ("corpus", layout.Corpus),
-            ("previous", layout.Previous),
-            ("next", layout.Next),
-            ("inspect close", layout.InspectClose),
+            ("hero", layout.Hero),
+            ("info", layout.Info),
+            ("supporters", layout.Supporters),
+            ("sponsor", layout.Sponsor),
+            ("hint", layout.Hint),
         };
-        foreach (var (target, rect) in targets)
-        {
-            Check.That(
-                rect.Width >= metrics.MinTarget - 0.01f && rect.Height >= metrics.MinTarget - 0.01f,
-                $"{name}: {target} {rect} is under 48dp."
-            );
-            Check.That(sheet.Contains(rect), $"{name}: {target} leaves the sheet.");
-        }
-
-        var regions = new (string Name, TouchRect Rect)[]
+        var header = new (string Name, TouchRect Rect)[]
         {
             ("pinned title", layout.PinnedTitleText),
             ("previous", layout.Previous),
             ("pager", layout.Pager),
             ("next", layout.Next),
-            ("pinned board", layout.PinnedBoard),
-            ("scroll", layout.Scroll),
-            ("title", layout.Title),
             ("close", layout.Close),
-            ("refresh", layout.Refresh),
-            ("corpus", layout.Corpus),
-            ("hero", layout.Hero),
-            ("info", layout.Info),
-            ("hint", layout.Hint),
+            ("scroll", layout.Scroll),
         };
-        foreach (var (region, rect) in regions)
+        var rows = Enumerable
+            .Range(0, LiveBuildTouchLayout.ScrollRowCount)
+            .SelectMany(row =>
+                new (string Name, TouchRect Rect)[]
+                {
+                    ($"row {row} title", layout.ScrollRowTitle(row)),
+                    ($"row {row} board", layout.ScrollRowBoard(row)),
+                }
+            )
+            .ToArray();
+        if (layout.Stacked)
         {
-            Check.That(sheet.Contains(rect), $"{name}: {region} {rect} leaves the sheet.");
-            Check.That(rect.Width > 0f && rect.Height > 0f, $"{name}: {region} has no room.");
-        }
-        for (var left = 0; left < regions.Length; left++)
-        for (var right = left + 1; right < regions.Length; right++)
-            Check.That(
-                !regions[left].Rect.Overlaps(regions[right].Rect),
-                $"{name}: {regions[left].Name} overlaps {regions[right].Name}."
+            Fits(name, "sheet", sheet, header);
+            Fits(
+                name,
+                "list content",
+                content,
+                [("pinned board", layout.PinnedBoard), .. rows, .. overview]
             );
+            Check.That(
+                layout.Sidebar.Width >= layout.Scroll.Width - 0.01f,
+                $"{name}: the stacked overview should take the full width."
+            );
+        }
+        else
+        {
+            Fits(
+                name,
+                "sheet",
+                sheet,
+                [.. header, ("pinned board", layout.PinnedBoard), .. overview]
+            );
+            Fits(name, "list content", content, rows);
+            Check.That(
+                layout.Sidebar.Width >= metrics.Dp(240f) - 0.01f,
+                $"{name}: the sidebar is narrower than 240dp."
+            );
+        }
 
+        var targets = new (string Name, TouchRect Rect, TouchRect Space)[]
+        {
+            ("close", layout.Close, sheet),
+            ("previous", layout.Previous, sheet),
+            ("next", layout.Next, sheet),
+            ("inspect close", layout.InspectClose, sheet),
+            ("refresh", layout.Refresh, layout.Stacked ? content : sheet),
+            ("corpus", layout.Corpus, layout.Stacked ? content : sheet),
+            ("sponsor", layout.Sponsor, layout.Stacked ? content : sheet),
+        };
+        foreach (var (target, rect, space) in targets)
+        {
+            Check.That(
+                rect.Width >= metrics.MinTarget - 0.01f && rect.Height >= metrics.MinTarget - 0.01f,
+                $"{name}: {target} {rect} is under 48dp."
+            );
+            Check.That(space.Contains(rect), $"{name}: {target} leaves its space.");
+        }
         Check.That(
-            layout.CarpetWidth <= layout.BoardColumn.Width + 0.01f,
-            $"{name}: ten sockets overflow the board column."
+            layout.Supporters.Height >= layout.SupportersHeight - 0.01f
+                && layout.SupportersHeight >= layout.BodyFont * 1.5f - 0.01f,
+            $"{name}: the supporter row is shorter than one line of body text."
         );
         Check.That(
-            layout.Sidebar.Width >= metrics.Dp(240f) - 0.01f,
-            $"{name}: the sidebar is narrower than 240dp."
+            Math.Abs(layout.Hint.Top - layout.Sponsor.Top) < 0.01f,
+            $"{name}: the sponsor button should share the hint's row."
         );
+
         Check.That(
             layout.Scroll.Height >= layout.ScrollRowHeight - 0.01f,
             $"{name}: one list row does not fit the viewport."
@@ -196,26 +247,13 @@ internal static class LiveBuildTouchLayoutTests
             $"{name}: the list should scroll, so the drag has something to move."
         );
         for (var row = 0; row < LiveBuildTouchLayout.ScrollRowCount; row++)
-        {
-            var title = layout.ScrollRowTitle(row);
-            var board = layout.ScrollRowBoard(row);
             Check.That(
-                title.Bottom <= board.Top + 0.01f,
+                layout.ScrollRowTitle(row).Bottom <= layout.ScrollRowBoard(row).Top + 0.01f,
                 $"{name}: row {row} title overlaps its board."
             );
-            Check.That(
-                board.Bottom <= layout.ScrollContentHeight + 0.01f,
-                $"{name}: row {row} leaves the list content."
-            );
-            if (row > 0)
-                Check.That(
-                    layout.ScrollRowBoard(row - 1).Bottom <= title.Top + 0.01f,
-                    $"{name}: row {row} overlaps the row above."
-                );
-        }
 
         Check.That(
-            layout.MetricCellHeight >= metrics.Dp(40f) - 0.01f,
+            layout.MetricCellHeight >= metrics.Dp(LiveBuildTouchLayout.MinMetricCellDp) - 0.01f,
             $"{name}: a metric cell is {layout.MetricCellHeight / metrics.UnitsPerDp}dp high."
         );
         for (var index = 0; index < LiveBuildTouchLayout.MetricCount; index++)
@@ -237,6 +275,39 @@ internal static class LiveBuildTouchLayoutTests
             !layout.InspectCardArea.Overlaps(layout.InspectInfo)
                 && !layout.InspectName.Overlaps(layout.InspectClose),
             $"{name}: the inspect sheet overlaps itself."
+        );
+    }
+
+    // Every region inside `space`, with room, and no two overlapping.
+    private static void Fits(
+        string name,
+        string spaceName,
+        TouchRect space,
+        (string Name, TouchRect Rect)[] regions
+    )
+    {
+        foreach (var (region, rect) in regions)
+        {
+            Check.That(space.Contains(rect), $"{name}: {region} {rect} leaves the {spaceName}.");
+            Check.That(rect.Width > 0f && rect.Height > 0f, $"{name}: {region} has no room.");
+        }
+        for (var left = 0; left < regions.Length; left++)
+        for (var right = left + 1; right < regions.Length; right++)
+            Check.That(
+                !regions[left].Rect.Overlaps(regions[right].Rect),
+                $"{name}: {regions[left].Name} overlaps {regions[right].Name}."
+            );
+    }
+
+    private static void TheArrangementFollowsTheDensity()
+    {
+        Check.That(
+            !LiveBuildTouchLayout.For(Screen(2400f, 1080f, 420f)).Stacked,
+            "The 2400x1080@420 phone keeps the boards beside the overview."
+        );
+        Check.That(
+            LiveBuildTouchLayout.For(Screen(2400f, 1080f, 640f)).Stacked,
+            "At 640 dpi side by side would leave sockets under 48dp, so the panel stacks."
         );
     }
 
@@ -278,14 +349,12 @@ internal static class LiveBuildTouchLayoutTests
             {
                 var scale = layout.InspectScale(span);
                 Check.That(
-                    LiveBuildTouchLayout.PrefabSocketWidth * span * scale
+                    NativeCardPrefab.SocketWidth * span * scale
                         <= layout.InspectCardArea.Width + 0.01f,
                     $"{name}: a {span}-socket card is wider than the inspect area."
                 );
                 Check.That(
-                    LiveBuildTouchLayout.PrefabHeight
-                        * LiveBuildTouchLayout.FrameHeightOverSocket
-                        * scale
+                    NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket * scale
                         <= layout.InspectCardArea.Height + 0.01f,
                     $"{name}: a {span}-socket card is taller than the inspect area."
                 );

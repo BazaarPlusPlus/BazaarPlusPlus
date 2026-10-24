@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Core.Cards;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,7 +17,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // change behavior without a recorded decision.
 internal static class NativeCardCellFitter
 {
-    public const float FallbackNativeCardHeight = 484f;
+    public const float FallbackNativeCardHeight = NativeCardPrefab.Height;
 
     public static void ApplyScale(
         RectTransform rect,
@@ -37,7 +38,7 @@ internal static class NativeCardCellFitter
             cellRect,
             gap,
             CollectionGridConstants.CellContentInset,
-            CollectionGridConstants.FrameHeightOverSocket
+            NativeCardPrefab.FrameHeightOverSocket
         );
         rect.localScale = new Vector3(scale * Mathf.Max(0.01f, horizontalScale), scale, 1f);
     }

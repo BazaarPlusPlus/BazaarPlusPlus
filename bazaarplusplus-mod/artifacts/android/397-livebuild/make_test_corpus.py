@@ -1,8 +1,20 @@
-"""Builds a schema-2 ten-win test corpus for Vanessa from real template ids in the current run."""
+"""Builds a schema-2 ten-win test corpus for Vanessa from real template ids.
+
+The first eight cards are the board of the evidence run (a7ef4347, day 6, read from the local
+history database's latest battle snapshot); the rest are Vanessa cards of an earlier run.
+"""
 import json
 import sys
 
 C = {
+    "Shuriken": ("3af3c836-7224-47bc-bc27-dade6f9d210c", 1),
+    "Double Barrel": ("3c9fb662-4088-47f6-a927-0b064154bbbb", 2),
+    "Burnacuda": ("8f18974c-eef9-4e82-a2d2-7f4e7c67daf8", 1),
+    "Figurehead": ("953402e4-1430-48ab-8156-6193c9d8a7d4", 2),
+    "Revolver": ("92e7ab18-a035-43c7-a53c-965aeecbe357", 1),
+    "Cinders": ("d45bb1dd-5342-4c69-b7fe-f56d3fac7d1f", 1),
+    "Darts": ("29f00f8e-e98b-4b7b-a233-4520e7680b84", 1),
+    "Spare Change": ("f212afe2-08d1-40e3-978b-762d345bc7e5", 1),
     "Pufferfish": ("91766035-9d5c-49df-b6b1-25ff7328af5b", 2),
     "Sharkclaws": ("edd857da-ac11-4640-bc1a-217ef8385f72", 2),
     "Chocolate Bar": ("1a3d4cde-333c-4936-b147-263d73f6d200", 1),
@@ -23,15 +35,16 @@ cards = [C[n][0] for n in names]
 enchantments = [None, "Golden", "Shiny"]
 
 BUILDS = [
-    # (items in slot order with tier and enchant ref, stats)
-    ([("Pufferfish", 4, 0), ("Sharkclaws", 4, 1), ("Chocolate Bar", 3, 0), ("Pearl", 3, 0),
-      ("Chum", 3, 0), ("Grappling Hook", 4, 2), ("Piranha", 3, 0), ("Handaxe", 4, 0)],
+    # (items in slot order with tier and enchant ref, stats). Revolver alone matches two builds,
+    # Revolver with Burnacuda one.
+    ([("Shuriken", 4, 0), ("Double Barrel", 4, 1), ("Burnacuda", 3, 0), ("Figurehead", 3, 0),
+      ("Revolver", 4, 2), ("Cinders", 3, 0), ("Darts", 4, 0), ("Spare Change", 3, 0)],
      [412, 61, 1480, 12, 812345]),
-    ([("Tortuga", 4, 0), ("Sharkclaws", 4, 0), ("Piranha", 4, 0), ("Narwhal", 3, 0),
-      ("Catfish", 3, 0), ("Zoarcid", 3, 0), ("Handaxe", 3, 1)],
+    ([("Double Barrel", 4, 0), ("Revolver", 4, 0), ("Darts", 3, 0), ("Pufferfish", 3, 0),
+      ("Sharkclaws", 4, 0), ("Chocolate Bar", 3, 0), ("Pearl", 3, 1)],
      [288, 37, 1285, 13, 640120]),
-    ([("Tropical", 3, 0), ("Sharkra", 4, 0), ("Pufferfish", 4, 2), ("Grappling Hook", 3, 0),
-      ("Pearl", 4, 0), ("Chocolate Bar", 3, 0)],
+    ([("Burnacuda", 3, 0), ("Shuriken", 4, 0), ("Tortuga", 4, 2), ("Sharkra", 3, 0),
+      ("Grappling Hook", 4, 0), ("Piranha", 3, 0), ("Handaxe", 3, 0)],
      [197, 22, 1117, 14, 503377]),
 ]
 
@@ -54,8 +67,8 @@ for build_id, (items, stats) in enumerate(BUILDS):
 corpus = {
     "schema_version": 2,
     "kind": "ten_win_builds",
-    "generated_at": "2026-10-23T02:00:00Z",
-    "window": {"start": "2026-10-19", "end": "2026-10-23", "days": 5},
+    "generated_at": "2026-10-24T12:00:00Z",
+    "window": {"start": "2026-10-20", "end": "2026-10-24", "days": 5},
     "cards": cards,
     "enchantments": enchantments,
     "schemas": {
@@ -64,7 +77,12 @@ corpus = {
         "stats": ["completed_run_count", "ten_win_run_count", "ten_win_rate_bps",
                   "p75_ten_win_final_day", "score"],
     },
+    # The analyzer's builds.schema.json requires every hero; only Vanessa has builds here.
     "heroes": {
+        hero: {"builds": [], "card_index": []}
+        for hero in ("Dooley", "Jules", "Karnok", "Mak", "Pygmalien", "Stelle", "TheDragons")
+    }
+    | {
         "Vanessa": {
             "builds": builds,
             "card_index": [[ref, sorted(set(ids))] for ref, ids in sorted(index.items())],

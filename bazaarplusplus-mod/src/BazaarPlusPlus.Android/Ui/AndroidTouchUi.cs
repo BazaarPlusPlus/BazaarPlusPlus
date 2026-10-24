@@ -1,11 +1,11 @@
 using BazaarPlusPlus.Android.Collection;
+using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.LiveBuild;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel;
-using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
@@ -22,8 +22,9 @@ namespace BazaarPlusPlus.Android.Ui;
 /// this menu and opens <see cref="AndroidHistoryPanel"/>, and the button hides while History or
 /// the settings dialog's BazaarPlusPlus section is open. Collection opens the full-screen
 /// <see cref="AndroidCollectionPanel"/>, and Ten-Win Builds the full-screen
-/// <see cref="AndroidLiveBuildPanel"/> when the record chain composed its build catalog. All of them close on every scene change, and the back key closes the top-most of
-/// them first (<see cref="AndroidBackKey"/>). The geometry is Core's
+/// <see cref="AndroidLiveBuildPanel"/> when the record chain composed its data
+/// (<see cref="AndroidLiveBuildData"/>), which warms only while that panel's switch is on. All of
+/// them close on every scene change, and the back key closes the top-most of them first (<see cref="AndroidBackKey"/>). The geometry is Core's
 /// <see cref="TouchLauncherLayout"/>, laid out again whenever the screen changes.
 /// </summary>
 internal sealed class AndroidTouchUi
@@ -40,7 +41,7 @@ internal sealed class AndroidTouchUi
     private readonly AndroidSettings _android;
     private readonly Action? _openHistory;
     private readonly Func<bool> _historyVisible;
-    private readonly BuildRecommendationRepository? _recommendations;
+    private readonly AndroidLiveBuildData? _liveBuildData;
     private readonly List<GameObject> _entries = new();
 
     private GameObject? _root;
@@ -61,13 +62,13 @@ internal sealed class AndroidTouchUi
         AndroidSettings android,
         Action? openHistory,
         Func<bool> historyVisible,
-        BuildRecommendationRepository? recommendations
+        AndroidLiveBuildData? liveBuildData
     )
     {
         _android = android ?? throw new ArgumentNullException(nameof(android));
         _openHistory = openHistory;
         _historyVisible = historyVisible ?? throw new ArgumentNullException(nameof(historyVisible));
-        _recommendations = recommendations;
+        _liveBuildData = liveBuildData;
     }
 
     /// <summary>The menu's and the Live Build panel's counters, which a device run checks return to balance.</summary>
@@ -91,7 +92,7 @@ internal sealed class AndroidTouchUi
     {
         if (_root != null || _mountFailed)
             return;
-        var font = VersionLabelPatch.Font;
+        var font = AndroidGameFont.Font;
         if (font == null)
             return;
         try
@@ -117,9 +118,32 @@ internal sealed class AndroidTouchUi
     /// <summary>A scene loaded: the menu and the panels never outlive the scene they opened in.</summary>
     public void OnSceneLoaded()
     {
-        Close("scene_changed");
-        _collection?.Close("scene_changed");
-        _liveBuild?.Close("scene_changed");
+        // One guard each: a panel whose close throws never keeps the next one open.
+        Guarded("touch_ui:scene_menu", () => Close("scene_changed"));
+        Guarded("touch_ui:scene_collection", () => _collection?.Close("scene_changed"));
+        Guarded("touch_ui:scene_live_build", () => _liveBuild?.Close("scene_changed"));
+    }
+
+    /// <summary>The host stops: the panels give their leases back and their views go.</summary>
+    public void Dispose()
+    {
+        Guarded("touch_ui:dispose_menu", () => Close("stopped"));
+        Guarded("touch_ui:dispose_collection", () => _collection?.Close("stopped"));
+        Guarded("touch_ui:dispose_live_build", () => _liveBuild?.Dispose());
+        _liveBuild = null;
+        AndroidTouchRoot.Frame = null;
+    }
+
+    private static void Guarded(string probe, Action step)
+    {
+        try
+        {
+            step();
+        }
+        catch (Exception exception)
+        {
+            AndroidPatchHost.ReportProbeError(probe, exception);
+        }
     }
 
     /// <summary>The Collection switch went off, or another surface needs the panel closed.</summary>
@@ -184,6 +208,8 @@ internal sealed class AndroidTouchUi
             if (!_android.TouchMenu.Value && _menu != null)
                 Close("touch_menu_off");
             LayoutLauncher(force: false);
+            if (LiveBuildOffered() && !_liveBuildData!.Warmed)
+                _liveBuildData.Warm("setting_on");
             _collection?.Tick();
             _liveBuild?.Tick();
             // The back key also reaches the game's escape hook (BackKeyPatches); a press both
@@ -348,7 +374,7 @@ internal sealed class AndroidTouchUi
         }
     }
 
-    private bool LiveBuildOffered() => _android.LiveBuildPanel.Value && _recommendations != null;
+    private bool LiveBuildOffered() => _android.LiveBuildPanel.Value && _liveBuildData != null;
 
     private void OpenLiveBuild()
     {
@@ -357,7 +383,7 @@ internal sealed class AndroidTouchUi
         Close("live_build");
         try
         {
-            _liveBuild ??= new AndroidLiveBuildPanel(_root.transform, _font, _recommendations!);
+            _liveBuild ??= new AndroidLiveBuildPanel(_root.transform, _font, _liveBuildData!);
             _liveBuild.Open("touch_menu");
         }
         catch (Exception exception)

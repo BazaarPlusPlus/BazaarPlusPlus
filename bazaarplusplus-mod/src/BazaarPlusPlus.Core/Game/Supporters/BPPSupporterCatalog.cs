@@ -56,6 +56,19 @@ public static class BPPSupporterCatalog
         }
     }
 
+    /// <summary>
+    /// The entries are real: the fixed list is on, or a catalog snapshot was published. False
+    /// while only the placeholder fallback would be returned.
+    /// </summary>
+    public static bool HasEntries
+    {
+        get
+        {
+            lock (SyncRoot)
+                return IsFixedListEnabledUnderLock() || _currentEntries is { Count: > 0 };
+        }
+    }
+
     public static void Attach(Action ensureWarm)
     {
         lock (SyncRoot)
