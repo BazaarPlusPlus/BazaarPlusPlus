@@ -27,9 +27,9 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 internal sealed class AndroidLiveBuildView
 {
     private static readonly LocalizedTextSet TapHint = new(
-        "Tap shop, stash, or board items to pick candidates. Tap a build card to inspect it.",
-        "点按商店、仓库或场上的物品选为候选；点按构筑中的卡牌查看大图。",
-        "點按商店、倉庫或場上的物品選為候選；點按構築中的卡牌查看大圖。"
+        "Tap items to pick, cards to inspect.",
+        "点物品选候选，点卡牌看大图",
+        "點物品選候選，點卡牌看大圖"
     );
 
     private readonly GameObject _root;
@@ -269,6 +269,7 @@ internal sealed class AndroidLiveBuildView
             TextAlignmentOptions.MidlineLeft
         );
         hint.color = AndroidUiKit.MutedTextColor;
+        hint.overflowMode = TextOverflowModes.Ellipsis;
         hint.text = L.Resolve(TapHint);
 
         _supporters = Label(
@@ -370,6 +371,7 @@ internal sealed class AndroidLiveBuildView
         _supporters.text = string.IsNullOrEmpty(supporters)
             ? $"<color=#{BPPSupporterAttribution.MutedHex}>{LiveBuildPanelText.Subtitle()}</color>"
             : supporters;
+        AndroidGameFont.Cover(_supporters);
         _sponsorLabel.text = BPPSupporterAttributionText.FormatSponsorAction(language);
         SetMetric(
             0,

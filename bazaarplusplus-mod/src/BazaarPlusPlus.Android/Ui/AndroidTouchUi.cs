@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Android.Collection;
+using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.LiveBuild;
 using BazaarPlusPlus.Android.Patches;
@@ -91,7 +92,7 @@ internal sealed class AndroidTouchUi
     {
         if (_root != null || _mountFailed)
             return;
-        var font = VersionLabelPatch.Font;
+        var font = AndroidGameFont.Font;
         if (font == null)
             return;
         try

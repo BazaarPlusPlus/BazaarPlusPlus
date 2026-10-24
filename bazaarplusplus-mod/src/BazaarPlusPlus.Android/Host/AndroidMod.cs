@@ -82,6 +82,7 @@ public sealed class AndroidMod : MelonMod
         _replayRuntime?.Tick();
         _historyPanel?.Tick();
         _touchUi?.EnsureMounted();
+        AndroidGameFont.Tick();
         AndroidNativeSettingsSection.Tick(Time.unscaledTime);
         AndroidCardRental.Tick();
         _versionCheck?.Tick();
@@ -149,6 +150,7 @@ public sealed class AndroidMod : MelonMod
         _historyPanel = null;
         _replayRuntime?.Dispose();
         _replayRuntime = null;
+        AndroidGameFont.Dispose();
         AndroidMainThread.Host.Stop();
         StopRecordChain();
     }
@@ -241,7 +243,7 @@ public sealed class AndroidMod : MelonMod
                 composition.CreateHistoryDependencies(() => _replayRuntime, _templates.Contains),
                 () => _replayRuntime,
                 _templates,
-                () => VersionLabelPatch.Font
+                () => AndroidGameFont.Font
             );
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.history.composed"),
