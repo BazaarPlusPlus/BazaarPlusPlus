@@ -25,7 +25,7 @@ internal static class SeedGateTests
     {
         var source = new AssemblyResourceCatalogSource(
             typeof(TenWinBuildCatalogFactory).Assembly,
-            TenWinBuildCatalogFactory.EmbeddedResourceName
+            TenWinBuildCatalogSettings.EmbeddedResourceName
         );
         var json = source.ReadAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
         Assert(

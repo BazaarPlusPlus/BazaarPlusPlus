@@ -43,9 +43,10 @@ namespace BazaarPlusPlus.Android;
 /// the replay runtime share with the record chain: the battle store and catalog, the payload
 /// store and its operation gate, History's BazaarDB link client, and History's own Mod API
 /// session (ADR-0006), which outlives the upload pump's per-activation sessions and is disposed
-/// last. It owns the ten-win build catalog, a Remote Embedded Catalog, and the Live Build panel's
-/// recommendation repository over it, as the desktop composition does: the corpus warms at start
-/// and the catalog is disposed on stop.
+/// last. It owns the ten-win build catalog, a Remote Embedded Catalog, and the Ten-Win Builds
+/// panel's data over it (<see cref="AndroidLiveBuildData"/>: the recommendation repository and the
+/// supporter list), as the desktop composition does; the touch UI warms that data only while the
+/// panel's setting is on, and the composition stops it and disposes the catalog on stop.
 /// </summary>
 internal sealed class AndroidComposition
 {
@@ -59,6 +60,7 @@ internal sealed class AndroidComposition
     private readonly ReplayPayloadMaintenanceService _replayMaintenance;
     private readonly ModApiSession _historySession;
     private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _buildCatalog;
+    private readonly AndroidLiveBuildData _liveBuild;
     private readonly BazaarDbLinkClient _accountLink;
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
@@ -147,11 +149,6 @@ internal sealed class AndroidComposition
                 DatabaseOptions
             )
         );
-        _buildCatalog = AndroidTenWinBuildCatalog.Create(dataRoot);
-        BuildRecommendations = new BuildRecommendationRepository(
-            _buildCatalog,
-            AndroidCardTemplateSize.Resolve
-        );
         // BazaarDB account linking posts to bazaardb.gg, not the Mod API, over its own bare
         // client with the desktop's 30 s timeout.
         _accountLink = new BazaarDbLinkClient(
@@ -163,9 +160,8 @@ internal sealed class AndroidComposition
             ),
             new Uri(BazaarDbLinkClient.DefaultRedeemEndpoint)
         );
-        // Last, so nothing after it can throw and leak it. The base URL is a constant, so a null
-        // session is a build defect: the composition fails to start
-        // (android.record_chain.start_failed), as the desktop plugin does (ADR-0006).
+        // The base URL is a constant, so a null session is a build defect: the composition fails
+        // to start (android.record_chain.start_failed), as the desktop plugin does (ADR-0006).
         var historySession = ModApiSession.TryCreate(
             ModApiUploadDefaults.ApiBaseUrl,
             BppPluginVersion.Current,
@@ -181,6 +177,29 @@ internal sealed class AndroidComposition
             );
         }
         _historySession = historySession;
+        // Last, and a failure here disposes the disposables made above: the catalog starts no
+        // load until the touch UI warms it, so nothing is in flight to leak.
+        IRemoteEmbeddedCatalog<TenWinBuildCorpus>? buildCatalog = null;
+        try
+        {
+            buildCatalog = AndroidTenWinBuildCatalog.Create(
+                dataRoot,
+                new AndroidDevSettings(settings).BuildCorpusPort.Value
+            );
+            _liveBuild = new AndroidLiveBuildData(
+                new BuildRecommendationRepository(buildCatalog, AndroidCardTemplateSize.Resolve),
+                _core.Services.Config,
+                dataRoot
+            );
+            _buildCatalog = buildCatalog;
+        }
+        catch
+        {
+            buildCatalog?.Dispose();
+            _accountLink.Dispose();
+            _historySession.Dispose();
+            throw;
+        }
     }
 
     public string DatabasePath { get; }
@@ -206,8 +225,8 @@ internal sealed class AndroidComposition
 
     public ModApiSession HistorySession => _historySession;
 
-    /// <summary>The Live Build panel's corpus over the composition-owned build catalog.</summary>
-    public BuildRecommendationRepository BuildRecommendations { get; }
+    /// <summary>The Ten-Win Builds panel's data over the composition-owned build catalog.</summary>
+    public AndroidLiveBuildData LiveBuild => _liveBuild;
 
     public IBppEventBus EventBus => _core.Services.EventBus;
 
@@ -230,10 +249,6 @@ internal sealed class AndroidComposition
             nowSeconds,
             DatabaseOptions
         );
-        // Warm the corpus at start, as the desktop's panel does at mount: the first open of the
-        // Live Build panel then has recommendations to query, and a missing or stale cache
-        // queues the remote fetch in the background.
-        BuildRecommendations.BeginCorpusLoad();
     }
 
     /// <summary>Main thread, every frame.</summary>
@@ -246,6 +261,7 @@ internal sealed class AndroidComposition
         _replayMaintenanceFlight?.Dispose();
         _replayMaintenanceFlight = null;
         _core.Stop();
+        _liveBuild.Stop();
         _buildCatalog.Dispose();
         _accountLink.Dispose();
         _historySession.Dispose();

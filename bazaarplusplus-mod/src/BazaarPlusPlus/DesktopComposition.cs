@@ -138,7 +138,7 @@ internal sealed class DesktopComposition : IDisposable
             () => _services.Config.UseFixedSupporterListConfig.Value,
             observer => SupporterCatalogFactory.Create(dataRoot, observer),
             () => DateTime.UtcNow,
-            SupporterCatalogFactory.BuildCacheFilePath(dataRoot)
+            SupporterCatalogSettings.BuildCacheFilePath(dataRoot)
         );
         _nativeCardPreviewHost = new NativeCardPreviewHost(new NativeTooltipDataFactoryAdapter());
         _buildRecommendationCatalog = TenWinBuildCatalogFactory.Create(

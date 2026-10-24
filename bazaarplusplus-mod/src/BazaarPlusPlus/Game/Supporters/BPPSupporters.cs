@@ -3,24 +3,10 @@ namespace BazaarPlusPlus.Game.Supporters;
 
 internal static class BPPSupporters
 {
-    private static readonly object SyncRoot = new();
-    private static readonly int AttributionShuffleSeed = Environment.TickCount;
-    private static int _attributionCursor;
+    private static readonly BPPSupporterAttribution Attribution = new(Environment.TickCount);
 
-    public static IReadOnlyList<BPPSupporterSample> SampleMany(int count)
-    {
-        lock (SyncRoot)
-        {
-            var samples = BPPSupporterSampler.SampleMany(
-                BPPSupporterCatalog.GetCurrentEntries(),
-                count,
-                _attributionCursor,
-                AttributionShuffleSeed
-            );
-            _attributionCursor += count;
-            return samples;
-        }
-    }
+    public static IReadOnlyList<BPPSupporterSample> SampleMany(int count) =>
+        Attribution.Next(BPPSupporterCatalog.GetCurrentEntries(), count);
 
     public static BPPSupporterSample Sample()
     {

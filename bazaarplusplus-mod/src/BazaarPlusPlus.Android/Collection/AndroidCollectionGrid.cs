@@ -212,11 +212,11 @@ internal sealed class AndroidCollectionGrid
         var local = new CollectionGridRect(0f, 0f, rect.Width, rect.Height);
         var scale = CollectionCardFitMath.ComputeScale(
             bounds,
-            bounds.Width / AndroidCardRentalBackend.PrefabHeight,
+            bounds.Width / NativeCardPrefab.Height,
             local,
             CollectionGridConstants.GridGap,
             CollectionGridConstants.CellContentInset,
-            CollectionGridConstants.FrameHeightOverSocket
+            NativeCardPrefab.FrameHeightOverSocket
         );
         var scaleX =
             card.Type == CardType.Item ? scale * CollectionGridConstants.ItemCardWidthScale : scale;
@@ -240,16 +240,11 @@ internal sealed class AndroidCollectionGrid
     {
         var width =
             card.Type == CardType.Skill
-                ? AndroidCardRentalBackend.PrefabHeight
-                : card.Size switch
-                {
-                    CardSize.Small => 252f,
-                    CardSize.Large => 755f,
-                    _ => 503f,
-                };
+                ? NativeCardPrefab.Height
+                : NativeCardPrefab.ItemWidth(card.Size);
         return new CardVisualBounds(
             width,
-            AndroidCardRentalBackend.PrefabHeight * CollectionGridConstants.FrameHeightOverSocket,
+            NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket,
             0f,
             0f
         );

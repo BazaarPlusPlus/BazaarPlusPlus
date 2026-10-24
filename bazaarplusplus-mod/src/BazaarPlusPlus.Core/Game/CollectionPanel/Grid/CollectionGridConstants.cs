@@ -55,10 +55,6 @@ public static class CollectionGridConstants
     public const float PanelFadeInSeconds = 0.12f;
     public const float PanelFadeOutSeconds = 0.04f;
 
-    // Native frame height over its socket height, as the board carpets measure it: a card's
-    // frame overhangs its body, so fit math divides it out to size the body to the cell.
-    public const float FrameHeightOverSocket = 1.03704f;
-
     // Unit width an item card occupies on the item grid. Skills never call this (always 1).
     public const float ItemCardWidthScale = 0.96f;
 

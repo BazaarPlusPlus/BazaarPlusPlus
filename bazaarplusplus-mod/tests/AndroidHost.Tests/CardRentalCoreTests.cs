@@ -110,6 +110,48 @@ public sealed class CardRentalCoreTests
     }
 
     [Fact]
+    public void A_card_returned_during_its_setup_leaves_the_view_so_a_view_destroyed_meanwhile_cannot_take_it()
+    {
+        var backend = new FakeBackend();
+        var rental = new CardRentalCore<FakeCard, string>(backend);
+        var lease = rental.Rent(new(Small, CardTier.Bronze), "old_view", "test");
+        backend.CompleteAll();
+        rental.Tick(); // instantiated, now setting up under the old view
+        Assert.NotNull(backend.CardUnder("old_view"));
+
+        rental.Return(lease); // a relayout returns the view's cards ...
+        backend.DestroyParent("old_view"); // ... and destroys the view before the setup ends
+        backend.CompleteAll();
+        rental.Tick();
+
+        Assert.Equal(CardRentalLeaseState.Released, lease.State);
+        Assert.Equal(0, rental.Lost);
+        Assert.Equal(1, rental.Pooled);
+        Assert.Equal(0, rental.ActiveLeases);
+        Assert.True(rental.IsBalanced);
+    }
+
+    [Fact]
+    public void A_release_all_during_a_setup_detaches_the_card_and_destroys_it_on_arrival()
+    {
+        var backend = new FakeBackend();
+        var rental = new CardRentalCore<FakeCard, string>(backend);
+        rental.Rent(new(Small, CardTier.Bronze), "old_view", "test");
+        backend.CompleteAll();
+        rental.Tick();
+
+        rental.ReleaseAll();
+        backend.DestroyParent("old_view");
+        backend.CompleteAll();
+        rental.Tick();
+
+        Assert.Equal(0, rental.Lost);
+        Assert.Equal(1, rental.Destroyed);
+        Assert.Equal(0, backend.Alive);
+        Assert.True(rental.IsBalanced);
+    }
+
+    [Fact]
     public void Pooling_resumes_after_a_release_all_while_its_in_flight_card_is_still_destroyed()
     {
         var backend = new FakeBackend();
@@ -384,6 +426,19 @@ public sealed class CardRentalCoreTests
         }
 
         public void Park(FakeCard card) => card.Parent = "pool";
+
+        public void Detach(FakeCard card) => card.Parent = "pool";
+
+        /// <summary>The game destroys every card still under <paramref name="parent"/>, as a destroyed view does.</summary>
+        public void DestroyParent(string parent)
+        {
+            foreach (var card in _cards)
+                if (card.Parent == parent)
+                    card.Alive = false;
+        }
+
+        public FakeCard? CardUnder(string parent) =>
+            _cards.FirstOrDefault(card => card.Parent == parent);
 
         public void Destroy(FakeCard card) => card.Alive = false;
 

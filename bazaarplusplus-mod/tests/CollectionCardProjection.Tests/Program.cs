@@ -1141,6 +1141,24 @@ AssertSequence(
     new[] { localizationHashSearchVm.Id },
     "Removing localization hashes should preserve authored fallback text search."
 );
+AssertEqual(
+    "Your Burn items have +5 Burn.",
+    CollectionAbilityPlaceholders.DropAuraPlaceholders("Your Burn items have +5 Burn. [{aura.0}]"),
+    "An aura placeholder should drop with the brackets it leaves."
+);
+AssertEqual(
+    "Shield equal to 10% of your Max Health",
+    CollectionAbilityPlaceholders.DropAuraPlaceholders(
+        "Shield equal to 10% of your Max Health ({aura.e1})"
+    ),
+    "A parenthesized aura placeholder should drop with its parentheses."
+);
+AssertEqual(
+    "Gain {ability.0} Gold",
+    CollectionAbilityPlaceholders.DropAuraPlaceholders("Gain {ability.0} Gold"),
+    "Text without an aura placeholder should be left alone, ability tokens included."
+);
+
 Console.WriteLine("CollectionCardProjection checks passed.");
 
 static CollectionCardVm Project(

@@ -20,8 +20,85 @@ TestEmbeddedCatalogSeedHasAtLeastFiveEntries();
 TestSupportedByPrefixAndSuffix();
 TestSponsorActionText();
 TestSponsorLinks();
+TestAttributionWalksOneRotationAcrossCalls();
+TestRichLineColorsEachTierAndEscapesTags();
 
 Console.WriteLine("Supporters checks passed.");
+
+static void TestAttributionWalksOneRotationAcrossCalls()
+{
+    var entries = new[]
+    {
+        Entry("Alice", 4),
+        Entry("Bob", 3),
+        Entry("Cara", 2),
+        Entry("Dora", 1),
+        Entry("Eve", 4),
+        Entry("Finn", 3),
+    };
+    var attribution = new BPPSupporterAttribution(shuffleSeed: 23);
+
+    var first = attribution.Next(entries, 3);
+    var second = attribution.Next(entries, 3);
+
+    AssertEqual(
+        BPPSupporterSampler
+            .SampleMany(entries, 3, startIndex: 0, shuffleSeed: 23)
+            .Select(sample => sample.Name)
+            .ToArray()
+            .Aggregate((left, right) => left + "," + right),
+        first.Select(sample => sample.Name).Aggregate((left, right) => left + "," + right),
+        "The first call should read the rotation from its start."
+    );
+    AssertEqual(
+        6,
+        first
+            .Concat(second)
+            .Select(sample => sample.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count(),
+        "Two calls should name every supporter once before anyone repeats."
+    );
+}
+
+static void TestRichLineColorsEachTierAndEscapesTags()
+{
+    var samples = new[]
+    {
+        new BPPSupporterSample { Name = "Alice", Tier = 4 },
+        new BPPSupporterSample { Name = "", Tier = 3 },
+        new BPPSupporterSample { Name = "<b>Bob</b>", Tier = 2 },
+    };
+
+    AssertEqual(
+        "<color=#B0A187>Supported by</color> <color=#FFC733>Alice</color>"
+            + " <color=#B0A187>·</color> <color=#FFA857>‹b›Bob‹/b›</color>",
+        BPPSupporterAttribution.FormatRichLine(samples, "en"),
+        "The line should color each name by tier, skip empty samples, and neutralize tags."
+    );
+    AssertEqual(
+        "<color=#B0A187>由</color> <color=#C7D4E6>Dora</color> <color=#B0A187>支持</color>",
+        BPPSupporterAttribution.FormatRichLine(
+            new[]
+            {
+                new BPPSupporterSample { Name = " Dora ", Tier = 1 },
+            },
+            "zh-CN"
+        ),
+        "The Chinese line should carry the localized suffix and trim names."
+    );
+    AssertEqual(
+        string.Empty,
+        BPPSupporterAttribution.FormatRichLine(
+            new[]
+            {
+                new BPPSupporterSample { Name = "Nobody", Tier = 0 },
+            },
+            "en"
+        ),
+        "No named supporter should leave the line empty, so the host shows its fallback."
+    );
+}
 
 static void TestCatalogDocumentFiltersInvalidEntries()
 {

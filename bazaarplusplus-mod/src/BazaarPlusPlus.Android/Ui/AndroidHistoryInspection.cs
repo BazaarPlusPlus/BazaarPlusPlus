@@ -91,17 +91,15 @@ internal sealed class AndroidHistoryInspection
     public void Open(BppItemBoardCard card, bool skill, string source)
     {
         Return();
+        var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
         _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
-        _description.text = AndroidCardTemplateText.Description(card.TemplateId) ?? string.Empty;
+        _description.text = AndroidCardTemplateText.Description(subject) ?? string.Empty;
+        AndroidKeywordSprites.Apply(_description);
         var scale = _layout.InspectScale(card.DisplaySpan, skill);
         _slot.localScale = new Vector3(scale, scale, 1f);
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
-        _lease = AndroidCardRental.Rent(
-            new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType),
-            _slot,
-            RentalOwner
-        );
+        _lease = AndroidCardRental.Rent(subject, _slot, RentalOwner);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.card_inspected"),
             ("source", source),

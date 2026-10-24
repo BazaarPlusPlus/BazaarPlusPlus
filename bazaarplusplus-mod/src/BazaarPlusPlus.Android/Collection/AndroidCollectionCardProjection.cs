@@ -324,6 +324,8 @@ internal static class AndroidCollectionCardProjection
         if (string.IsNullOrWhiteSpace(text))
             return;
         var value = CollectionAbilityPlaceholders.Format(text, NoAbilityValue);
+        if (value != null)
+            value = CollectionAbilityPlaceholders.DropAuraPlaceholders(value);
         if (string.IsNullOrWhiteSpace(value) || values.Contains(value!, StringComparer.Ordinal))
             return;
         values.Add(value!);
