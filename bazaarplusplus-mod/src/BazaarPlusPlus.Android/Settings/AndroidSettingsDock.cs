@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
@@ -22,7 +23,7 @@ internal sealed record AndroidSettingsDockHooks(
     Action<string> ReleaseRentedCards,
     Func<bool> HistoryAvailable,
     Action OpenHistory,
-    Func<bool> GameUpdateAvailable,
+    Func<AndroidGameUpdateStatus> GameUpdateStatus,
     Action OpenGameUpdate
 );
 
@@ -46,6 +47,16 @@ internal static class AndroidSettingsDock
         "The game is up to date",
         "游戏已是最新版本",
         "遊戲已是最新版本"
+    );
+    public static readonly LocalizedTextSet GameUpdateChecking = new(
+        "Checking for a game update",
+        "正在检查游戏更新",
+        "正在檢查遊戲更新"
+    );
+    public static readonly LocalizedTextSet GameUpdateCheckFailed = new(
+        "Could not check for a game update",
+        "无法检查游戏更新",
+        "無法檢查遊戲更新"
     );
 
     /// <summary>Registers every row and installs them as the catalog's definitions.</summary>
@@ -185,7 +196,9 @@ internal static class AndroidSettingsDock
             ("value", value)
         );
 
-    // Offered only while the published APK is for a newer game; otherwise it says so, dimmed.
+    // Offered only while the published APK is for a newer game; otherwise it says why not, dimmed:
+    // the game is current, the check has not answered yet, or it failed. A failed check never
+    // reads as current.
     private sealed class GameUpdateEntry(AndroidSettingsDockHooks hooks) : ISettingsDockEntry
     {
         public int Order => BppSettingsDockOrder.GameUpdate;
@@ -194,12 +207,19 @@ internal static class AndroidSettingsDock
             new(
                 "GameUpdate",
                 languageCode =>
-                    (
-                        hooks.GameUpdateAvailable() ? Ui.AndroidTouchText.GameUpdated : GameUpToDate
-                    ).Resolve(languageCode, L.CurrentMode),
-                hooks.GameUpdateAvailable,
+                    Label(hooks.GameUpdateStatus()).Resolve(languageCode, L.CurrentMode),
+                () => hooks.GameUpdateStatus() == AndroidGameUpdateStatus.Available,
                 hooks.OpenGameUpdate,
                 collapseAfterActivate: false
             );
+
+        private static LocalizedTextSet Label(AndroidGameUpdateStatus status) =>
+            status switch
+            {
+                AndroidGameUpdateStatus.Available => Ui.AndroidTouchText.GameUpdated,
+                AndroidGameUpdateStatus.Current => GameUpToDate,
+                AndroidGameUpdateStatus.CheckFailed => GameUpdateCheckFailed,
+                _ => GameUpdateChecking,
+            };
     }
 }

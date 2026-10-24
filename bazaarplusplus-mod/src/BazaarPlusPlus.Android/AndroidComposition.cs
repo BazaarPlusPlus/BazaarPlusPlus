@@ -343,8 +343,10 @@ internal sealed class AndroidComposition
         };
     }
 
-    // Encounter Preview is not composed on Android; nothing here reads encounter ids. The offered
-    // pedestal is the enchant preview's read (main thread).
+    // Encounter Preview is not composed on Android; nothing here reads encounter ids or the
+    // offered pedestal. The enchant preview reads the pedestal itself, on the main thread
+    // (GameInterop/AndroidChoicePedestals); this probe makes no Unity call, so it is safe from
+    // any thread a Core service might ask it on.
     private sealed class NoEncounterState : IEncounterStateProbe
     {
         public static NoEncounterState Instance { get; } = new();
@@ -355,7 +357,12 @@ internal sealed class AndroidComposition
             );
 
         public ChoicePedestalProbeOutcome GetChoicePedestalOutcome() =>
-            AndroidChoicePedestals.Read();
+            ChoicePedestalProbeOutcome.Failure(
+                EncounterProbeFailureReason.ChoiceResolutionException,
+                new NotSupportedException(
+                    "The Android host reads the offered pedestal only for the enchant preview."
+                )
+            );
     }
 
     private sealed class NoScreenshots : IBundleScreenshotEncoder

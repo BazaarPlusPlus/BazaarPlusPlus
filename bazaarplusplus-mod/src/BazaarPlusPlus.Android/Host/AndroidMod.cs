@@ -166,11 +166,21 @@ public sealed class AndroidMod : MelonMod
             AndroidUpgradePreview.IsEnabled = () => android.UpgradePreview.Value;
             AndroidEnchantPreview.Mode = () => shared.EnchantPreviewModeConfig.Value;
             var melonBase = MelonEnvironment.MelonBaseDirectory;
+            var devManifest = AndroidVersionCheck.DevManifest(android.DevReleaseManifestPort.Value);
             _versionCheck = new AndroidVersionCheck(
                 AndroidPaths.InstallRoot(melonBase),
                 AndroidPaths.DataRoot(melonBase),
-                Application.version ?? ""
+                Application.version ?? "",
+                devManifest
             );
+            if (devManifest != null)
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.Android,
+                        "android.version_check.dev_manifest"
+                    ),
+                    ("manifest", devManifest)
+                );
             StartHistory();
             var touchUi = new AndroidTouchUi(
                 android,
@@ -191,7 +201,7 @@ public sealed class AndroidMod : MelonMod
                     ReleaseRentedCards: AndroidCardRental.ReleaseAll,
                     HistoryAvailable: () => _historyPanel != null,
                     OpenHistory: () => _historyPanel?.Open("settings"),
-                    GameUpdateAvailable: () => versionCheck.GameUpdate != null,
+                    GameUpdateStatus: () => versionCheck.GameUpdateStatus,
                     OpenGameUpdate: () => OpenGameUpdate(versionCheck)
                 )
             );
