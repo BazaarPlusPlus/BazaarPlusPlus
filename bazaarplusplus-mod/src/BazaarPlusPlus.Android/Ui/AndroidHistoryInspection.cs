@@ -94,6 +94,7 @@ internal sealed class AndroidHistoryInspection
         var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
         _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
         _description.text = AndroidCardTemplateText.Description(subject) ?? string.Empty;
+        AndroidKeywordSprites.Apply(_description);
         var scale = _layout.InspectScale(card.DisplaySpan, skill);
         _slot.localScale = new Vector3(scale, scale, 1f);
         _root.SetActive(true);

@@ -233,7 +233,7 @@ internal sealed class AndroidCollectionInspection
                 flow.Chip(label, enchantment == _enchantment, () => Select(_tier, enchantment));
         }
         if (!string.IsNullOrWhiteSpace(_text))
-            flow.Note(_text, AndroidUiKit.MutedTextColor);
+            AndroidKeywordSprites.Apply(flow.Note(_text, AndroidUiKit.MutedTextColor));
         _detail.sizeDelta = new Vector2(0f, flow.Height + chrome.Gap);
     }
 
