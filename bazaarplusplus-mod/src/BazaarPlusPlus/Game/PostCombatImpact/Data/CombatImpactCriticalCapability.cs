@@ -3,6 +3,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
 using BazaarGameShared.Domain.Effect.Trigger;
+using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
@@ -11,13 +12,13 @@ internal static class CombatImpactCriticalCapability
     internal static IReadOnlyCollection<string>? ReadCritCapableEffectIds(
         ECardType cardType,
         IEnumerable<TCardAbility>? abilities,
-        IReadOnlyCollection<EHiddenTag>? hiddenTags
+        IReadOnlyCollection<CardHiddenTag>? hiddenTags
     )
     {
         if (abilities == null)
             return null;
 
-        var cardHasCritOverride = hiddenTags?.Contains(EHiddenTag.CanCrit) == true;
+        var cardHasCritOverride = hiddenTags?.Contains(CardHiddenTag.CanCrit) == true;
         if (!cardHasCritOverride && cardType != ECardType.Item)
             return null;
 

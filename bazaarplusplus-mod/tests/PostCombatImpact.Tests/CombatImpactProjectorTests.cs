@@ -1,12 +1,5 @@
-using BazaarGameShared.Domain.Core;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect;
-using BazaarGameShared.Domain.Effect.Actions;
-using BazaarGameShared.Domain.Targeting;
-using BazaarGameShared.Domain.Values;
-using BazaarGameShared.Domain.Values.ReferenceValues;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using Xunit;
 
@@ -21,24 +14,24 @@ public sealed partial class CombatImpactProjectorTests
         var sourceRule = new CombatImpactPrerequisiteSkillSourceRule(
             "minor-tempo",
             skillTemplateId,
-            [ETier.Gold]
+            [CardTier.Gold]
         );
-        var simulation = new CombatSim();
-        simulation.CardStats["turner"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["turner"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 7,
+            [CombatCardStat.UseCount] = 7,
         };
-        simulation.CardStats["non-haste-on-note"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["non-haste-on-note"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 20,
+            [CombatCardStat.UseCount] = 20,
         };
-        simulation.CardStats["haste-off-note"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["haste-off-note"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 30,
+            [CombatCardStat.UseCount] = 30,
         };
-        simulation.CardStats["f-minor"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["f-minor"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.TempoAdded] = 14,
+            [CombatCardStat.TempoAdded] = 14,
         };
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["f-minor"] = new CombatImpactEntity(
@@ -48,12 +41,12 @@ public sealed partial class CombatImpactProjectorTests
             null,
             5,
             skillTemplateId,
-            ETier.Gold,
-            Attributes: new Dictionary<ECardAttributeType, int>
+            CardTier.Gold,
+            Attributes: new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.Custom_0] = 2,
+                [CombatCardAttribute.Custom_0] = 2,
             },
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
         entities["f-note"] = new CombatImpactEntity(
             "f-note",
@@ -62,9 +55,9 @@ public sealed partial class CombatImpactProjectorTests
             null,
             6,
             Guid.Parse("04eca54a-69bf-4874-8b6d-56d284bb58be"),
-            CombatantId: ECombatantId.Player,
-            SocketId: EContainerSocketId.Socket_6,
-            Section: EInventorySection.Hand,
+            CombatantId: Combatant.Player,
+            SocketId: CardSocket.Socket_6,
+            Section: CardSection.Hand,
             PrerequisiteSkillSourceRulesByEffectId: new Dictionary<
                 string,
                 CombatImpactPrerequisiteSkillSourceRule
@@ -77,8 +70,8 @@ public sealed partial class CombatImpactProjectorTests
                 new CombatImpactUseAttributionRule(
                     sourceRule,
                     new CombatImpactItemTagCondition(
-                        EListComparisonOperator.Any,
-                        HiddenTags: [EHiddenTag.Haste]
+                        CombatListComparison.Any,
+                        HiddenTags: [CardHiddenTag.Haste]
                     ),
                     2
                 ),
@@ -91,10 +84,10 @@ public sealed partial class CombatImpactProjectorTests
             null,
             7,
             DisplaySpan: 2,
-            CombatantId: ECombatantId.Player,
-            SocketId: EContainerSocketId.Socket_5,
-            HiddenTags: new[] { EHiddenTag.Haste },
-            Section: EInventorySection.Hand
+            CombatantId: Combatant.Player,
+            SocketId: CardSocket.Socket_5,
+            HiddenTags: new[] { CardHiddenTag.Haste },
+            Section: CardSection.Hand
         );
         entities["non-haste-on-note"] = new CombatImpactEntity(
             "non-haste-on-note",
@@ -102,9 +95,9 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             8,
-            CombatantId: ECombatantId.Player,
-            SocketId: EContainerSocketId.Socket_6,
-            Section: EInventorySection.Hand
+            CombatantId: Combatant.Player,
+            SocketId: CardSocket.Socket_6,
+            Section: CardSection.Hand
         );
         entities["haste-off-note"] = new CombatImpactEntity(
             "haste-off-note",
@@ -112,10 +105,10 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             9,
-            CombatantId: ECombatantId.Player,
-            SocketId: EContainerSocketId.Socket_7,
-            HiddenTags: new[] { EHiddenTag.Haste },
-            Section: EInventorySection.Hand
+            CombatantId: Combatant.Player,
+            SocketId: CardSocket.Socket_7,
+            HiddenTags: new[] { CardHiddenTag.Haste },
+            Section: CardSection.Hand
         );
 
         var source = Assert.Single(
@@ -136,16 +129,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void A_minor_reconstructs_tempo_from_public_weapon_tags_without_card_specific_logic()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 4,
+            [CombatCardStat.UseCount] = 4,
         };
         var entities = TempoAttributionEntities(
-            new CombatImpactItemTagCondition(
-                EListComparisonOperator.Any,
-                PublicTags: [ECardTag.Weapon]
-            )
+            new CombatImpactItemTagCondition(CombatListComparison.Any, PublicTags: [CardTag.Weapon])
         );
 
         var source = Assert.Single(
@@ -163,16 +153,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void A_minor_without_an_a_note_does_not_reconstruct_weapon_uses()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 4,
+            [CombatCardStat.UseCount] = 4,
         };
         var entities = TempoAttributionEntities(
-            new CombatImpactItemTagCondition(
-                EListComparisonOperator.Any,
-                PublicTags: [ECardTag.Weapon]
-            )
+            new CombatImpactItemTagCondition(CombatListComparison.Any, PublicTags: [CardTag.Weapon])
         );
         entities.Remove("note-effect");
 
@@ -185,18 +172,18 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Trigger_item_tempo_metric_stays_with_the_item_instead_of_moving_to_the_skill()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 2,
-            [ECardStats.TempoAdded] = 9,
+            [CombatCardStat.UseCount] = 2,
+            [CombatCardStat.TempoAdded] = 9,
         };
         var report = CombatImpactProjector.Project(
             simulation,
             TempoAttributionEntities(
                 new CombatImpactItemTagCondition(
-                    EListComparisonOperator.Any,
-                    PublicTags: [ECardTag.Weapon]
+                    CombatListComparison.Any,
+                    PublicTags: [CardTag.Weapon]
                 )
             )
         );
@@ -217,21 +204,21 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Socket_effect_authoritative_metric_is_diagnosed_without_moving_it_to_the_skill()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 1,
+            [CombatCardStat.UseCount] = 1,
         };
-        simulation.CardStats["note-effect"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["note-effect"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.TempoAdded] = 2,
+            [CombatCardStat.TempoAdded] = 2,
         };
         var report = CombatImpactProjector.Project(
             simulation,
             TempoAttributionEntities(
                 new CombatImpactItemTagCondition(
-                    EListComparisonOperator.Any,
-                    PublicTags: [ECardTag.Weapon]
+                    CombatListComparison.Any,
+                    PublicTags: [CardTag.Weapon]
                 )
             )
         );
@@ -256,15 +243,15 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Explicit_minor_tempo_execution_is_subtracted_before_use_count_reconstruction()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 3,
+            [CombatCardStat.UseCount] = 3,
         };
         var explicitTempo = Executed(
             "note-effect",
-            EActionCommandType.PlayerModifyAttribute,
-            Player(ECombatantId.Player),
+            CombatActionType.PlayerModifyAttribute,
+            Player(Combatant.Player),
             triggerSource: "qualifying-item"
         );
         explicitTempo.EffectId = "minor-tempo";
@@ -274,8 +261,8 @@ public sealed partial class CombatImpactProjectorTests
             simulation,
             TempoAttributionEntities(
                 new CombatImpactItemTagCondition(
-                    EListComparisonOperator.Any,
-                    PublicTags: [ECardTag.Weapon]
+                    CombatListComparison.Any,
+                    PublicTags: [CardTag.Weapon]
                 )
             )
         );
@@ -293,15 +280,15 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Explicit_tempo_action_uses_the_same_reconciliation()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 2,
+            [CombatCardStat.UseCount] = 2,
         };
         var explicitTempo = Executed(
             "note-effect",
-            EActionCommandType.PlayerTempoApply,
-            Player(ECombatantId.Player),
+            CombatActionType.PlayerTempoApply,
+            Player(Combatant.Player),
             triggerSource: "qualifying-item"
         );
         explicitTempo.EffectId = "minor-tempo";
@@ -311,8 +298,8 @@ public sealed partial class CombatImpactProjectorTests
             simulation,
             TempoAttributionEntities(
                 new CombatImpactItemTagCondition(
-                    EListComparisonOperator.Any,
-                    PublicTags: [ECardTag.Weapon]
+                    CombatListComparison.Any,
+                    PublicTags: [CardTag.Weapon]
                 )
             )
         );
@@ -328,36 +315,33 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Duplicate_use_rules_keep_observed_source_mapping_without_reconstruction()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 2,
+            [CombatCardStat.UseCount] = 2,
         };
         var explicitTempo = Executed(
             "note-effect",
-            EActionCommandType.PlayerModifyAttribute,
-            Player(ECombatantId.Player),
+            CombatActionType.PlayerModifyAttribute,
+            Player(Combatant.Player),
             triggerSource: "qualifying-item"
         );
         explicitTempo.EffectId = "minor-tempo";
         simulation.Frames[0].Events.Add(explicitTempo);
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Tempo] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Tempo] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Tempo,
+                    AttributeType = CombatPlayerAttribute.Tempo,
                     PreviousValue = 0,
                     CurrentValue = 2,
                 },
             },
         };
         var entities = TempoAttributionEntities(
-            new CombatImpactItemTagCondition(
-                EListComparisonOperator.Any,
-                PublicTags: [ECardTag.Weapon]
-            )
+            new CombatImpactItemTagCondition(CombatListComparison.Any, PublicTags: [CardTag.Weapon])
         );
         var rule = Assert.Single(entities["note-effect"].UseAttributionRules!);
         entities["note-effect"] = entities["note-effect"] with
@@ -378,14 +362,14 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Rule_execution_mismatch_blocks_reconstruction_instead_of_double_counting()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 3,
+            [CombatCardStat.UseCount] = 3,
         };
         var mismatched = Executed(
             "note-effect",
-            EActionCommandType.CardHaste,
+            CombatActionType.CardHaste,
             CardTarget("qualifying-item"),
             triggerSource: "qualifying-item"
         );
@@ -396,8 +380,8 @@ public sealed partial class CombatImpactProjectorTests
             simulation,
             TempoAttributionEntities(
                 new CombatImpactItemTagCondition(
-                    EListComparisonOperator.Any,
-                    PublicTags: [ECardTag.Weapon]
+                    CombatListComparison.Any,
+                    PublicTags: [CardTag.Weapon]
                 )
             )
         );
@@ -413,21 +397,18 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Prerequisite_source_resolution_is_scoped_to_the_implementation_owner()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 2,
+            [CombatCardStat.UseCount] = 2,
         };
         var entities = TempoAttributionEntities(
-            new CombatImpactItemTagCondition(
-                EListComparisonOperator.Any,
-                PublicTags: [ECardTag.Weapon]
-            )
+            new CombatImpactItemTagCondition(CombatListComparison.Any, PublicTags: [CardTag.Weapon])
         );
         entities["opponent-minor"] = entities["minor-skill"] with
         {
             Id = "opponent-minor",
-            CombatantId = ECombatantId.Opponent,
+            CombatantId = Combatant.Opponent,
         };
 
         var report = CombatImpactProjector.Project(simulation, entities);
@@ -439,16 +420,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Duplicate_same_owner_prerequisite_skills_block_attribution()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 2,
+            [CombatCardStat.UseCount] = 2,
         };
         var entities = TempoAttributionEntities(
-            new CombatImpactItemTagCondition(
-                EListComparisonOperator.Any,
-                PublicTags: [ECardTag.Weapon]
-            )
+            new CombatImpactItemTagCondition(CombatListComparison.Any, PublicTags: [CardTag.Weapon])
         );
         entities["duplicate-minor"] = entities["minor-skill"] with
         {
@@ -469,16 +447,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Stash_item_with_the_same_socket_number_is_not_reconstructed()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["stash-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["stash-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 9,
+            [CombatCardStat.UseCount] = 9,
         };
         var entities = TempoAttributionEntities(
-            new CombatImpactItemTagCondition(
-                EListComparisonOperator.Any,
-                PublicTags: [ECardTag.Weapon]
-            )
+            new CombatImpactItemTagCondition(CombatListComparison.Any, PublicTags: [CardTag.Weapon])
         );
         entities.Remove("qualifying-item");
         entities["stash-item"] = new CombatImpactEntity(
@@ -487,10 +462,10 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             9,
-            CombatantId: ECombatantId.Player,
-            SocketId: EContainerSocketId.Socket_6,
-            Section: EInventorySection.Stash,
-            Tags: [ECardTag.Weapon]
+            CombatantId: Combatant.Player,
+            SocketId: CardSocket.Socket_6,
+            Section: CardSection.Stash,
+            Tags: [CardTag.Weapon]
         );
 
         var report = CombatImpactProjector.Project(simulation, entities);
@@ -502,17 +477,17 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Explicit_applications_over_use_count_are_reported_without_balancing_entries()
     {
-        var simulation = new CombatSim();
-        simulation.CardStats["qualifying-item"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["qualifying-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 1,
+            [CombatCardStat.UseCount] = 1,
         };
         for (var index = 0; index < 2; index++)
         {
             var explicitTempo = Executed(
                 "note-effect",
-                EActionCommandType.PlayerModifyAttribute,
-                Player(ECombatantId.Player),
+                CombatActionType.PlayerModifyAttribute,
+                Player(Combatant.Player),
                 triggerSource: "qualifying-item"
             );
             explicitTempo.EffectId = "minor-tempo";
@@ -523,8 +498,8 @@ public sealed partial class CombatImpactProjectorTests
             simulation,
             TempoAttributionEntities(
                 new CombatImpactItemTagCondition(
-                    EListComparisonOperator.Any,
-                    PublicTags: [ECardTag.Weapon]
+                    CombatListComparison.Any,
+                    PublicTags: [CardTag.Weapon]
                 )
             )
         );
@@ -556,7 +531,7 @@ public sealed partial class CombatImpactProjectorTests
             null,
             5,
             skillTemplateId,
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
         entities["note-effect"] = new CombatImpactEntity(
             "note-effect",
@@ -564,10 +539,10 @@ public sealed partial class CombatImpactProjectorTests
             "SocketEffect",
             null,
             6,
-            CombatantId: ECombatantId.Player,
-            AuraAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            CombatantId: Combatant.Player,
+            AuraAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
-                [sourceRule.EffectId] = ECardAttributeType.Multicast,
+                [sourceRule.EffectId] = CombatCardAttribute.Multicast,
             },
             PrerequisiteSkillSourceRulesByEffectId: new Dictionary<
                 string,
@@ -577,27 +552,27 @@ public sealed partial class CombatImpactProjectorTests
                 [sourceRule.EffectId] = sourceRule,
             }
         );
-        entities["target"] = entities["target"] with { CombatantId = ECombatantId.Player };
-        var target = InstanceId.TryParse("target");
-        var simulation = new CombatSim();
+        entities["target"] = entities["target"] with { CombatantId = Combatant.Player };
+        var target = ("target");
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
+                new CombatAuraExecuted
                 {
                     EffectId = sourceRule.EffectId,
-                    Source = InstanceId.TryParse("note-effect"),
+                    Source = ("note-effect"),
                     AppliedTo = { CardTarget("target") },
                 }
             );
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.Multicast] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.Multicast] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.Multicast,
+                    AttributeType = CombatCardAttribute.Multicast,
                     PreviousValue = 1,
                     CurrentValue = 2,
                 },
@@ -629,7 +604,7 @@ public sealed partial class CombatImpactProjectorTests
             null,
             5,
             skillTemplateId,
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
         entities["visible-item"] = new CombatImpactEntity(
             "visible-item",
@@ -637,10 +612,10 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             6,
-            CombatantId: ECombatantId.Player,
-            AuraAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            CombatantId: Combatant.Player,
+            AuraAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
-                [sourceRule.EffectId] = ECardAttributeType.DamageAmount,
+                [sourceRule.EffectId] = CombatCardAttribute.DamageAmount,
             },
             PrerequisiteSkillSourceRulesByEffectId: new Dictionary<
                 string,
@@ -650,26 +625,26 @@ public sealed partial class CombatImpactProjectorTests
                 [sourceRule.EffectId] = sourceRule,
             }
         );
-        var target = InstanceId.TryParse("target");
-        var simulation = new CombatSim();
+        var target = ("target");
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
+                new CombatAuraExecuted
                 {
                     EffectId = sourceRule.EffectId,
-                    Source = InstanceId.TryParse("visible-item"),
+                    Source = ("visible-item"),
                     AppliedTo = { CardTarget("target") },
                 }
             );
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = 10,
                     CurrentValue = 20,
                 },
@@ -686,15 +661,15 @@ public sealed partial class CombatImpactProjectorTests
     public void Direct_damage_is_a_successful_mapping_despite_its_zero_kind_value()
     {
         Assert.True(
-            CombatImpactProjector.TryResolveKind(EActionCommandType.PlayerDamage, out var kind)
+            CombatImpactProjector.TryResolveKind(CombatActionType.PlayerDamage, out var kind)
         );
         Assert.Equal(CombatImpactKind.DirectDamage, kind);
     }
 
     [Theory]
-    [InlineData(EActionCommandType.None)]
-    [InlineData((EActionCommandType)int.MaxValue)]
-    public void Unmapped_actions_return_false_and_the_default_kind(EActionCommandType action)
+    [InlineData(CombatActionType.None)]
+    [InlineData((CombatActionType)int.MaxValue)]
+    public void Unmapped_actions_return_false_and_the_default_kind(CombatActionType action)
     {
         Assert.False(CombatImpactProjector.TryResolveKind(action, out var kind));
         Assert.Equal(default, kind);
@@ -704,7 +679,7 @@ public sealed partial class CombatImpactProjectorTests
     public void Every_native_action_has_an_explicit_display_or_ignore_classification()
     {
         Assert.All(
-            Enum.GetValues<EActionCommandType>(),
+            Enum.GetValues<CombatActionType>(),
             action =>
                 Assert.True(
                     CombatImpactProjector.HasExplicitDisplayClassification(action),
@@ -714,19 +689,19 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Theory]
-    [InlineData(EActionCommandType.CardForceUse, "ForceUseTargets")]
-    [InlineData(EActionCommandType.CardEnchant, "EnchantTargets")]
-    [InlineData(EActionCommandType.CardEnchantRemove, "EnchantRemoveTargets")]
-    [InlineData(EActionCommandType.CardTransform, "TransformTargets")]
-    [InlineData(EActionCommandType.CardTransformDestroyed, "TransformTargets")]
-    [InlineData(EActionCommandType.CardUpgrade, "UpgradeTargets")]
-    [InlineData(EActionCommandType.CardRepair, "RepairTargets")]
+    [InlineData(CombatActionType.CardForceUse, "ForceUseTargets")]
+    [InlineData(CombatActionType.CardEnchant, "EnchantTargets")]
+    [InlineData(CombatActionType.CardEnchantRemove, "EnchantRemoveTargets")]
+    [InlineData(CombatActionType.CardTransform, "TransformTargets")]
+    [InlineData(CombatActionType.CardTransformDestroyed, "TransformTargets")]
+    [InlineData(CombatActionType.CardUpgrade, "UpgradeTargets")]
+    [InlineData(CombatActionType.CardRepair, "RepairTargets")]
     public void Projects_player_visible_categorical_card_actions_as_counted_impacts(
-        EActionCommandType action,
+        CombatActionType action,
         string expectedKey
     )
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames[0].Events.Add(Executed("source", action, CardTarget("target")));
 
         var report = CombatImpactProjector.Project(simulation, Entities());
@@ -752,57 +727,42 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Transformed_source_impacts_and_stats_roll_up_to_the_visible_original_item()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventCardTransformed(
-                    "transform-context",
-                    "original-item",
-                    [
-                        new SimEventCardTransformation(
-                            "transformed-item",
-                            Guid.NewGuid().ToString(),
-                            ECardType.Item,
-                            ECombatantId.Player,
-                            EInventorySection.Hand,
-                            EContainerSocketId.Socket_1
-                        ),
-                    ]
-                )
+                new CombatCardTransformed
+                {
+                    OriginalInstanceId = "original-item",
+                    TransformedCardInstanceIds = ["transformed-item"],
+                }
             );
-        simulation.Frames.Add(new CombatSimFrame());
+        simulation.Frames.Add(new CombatFrame());
         simulation
             .Frames[1]
             .Events.Add(
-                Executed("transformed-item", EActionCommandType.CardFreeze, CardTarget("target"))
+                Executed("transformed-item", CombatActionType.CardFreeze, CardTarget("target"))
             );
-        simulation.Frames.Add(new CombatSimFrame());
+        simulation.Frames.Add(new CombatFrame());
         simulation
             .Frames[2]
             .Events.Add(
-                new CombatSimEventCardTransformReverted(
-                    new SimEventCardTransformation(
-                        "original-item",
-                        Guid.NewGuid().ToString(),
-                        ECardType.Item,
-                        ECombatantId.Player,
-                        EInventorySection.Hand,
-                        EContainerSocketId.Socket_1
-                    ),
-                    ["transformed-item"]
-                )
+                new CombatCardTransformReverted
+                {
+                    OriginalInstanceId = "original-item",
+                    TransformedCardInstanceIds = ["transformed-item"],
+                }
             );
         // Real replay payloads keep these as disjoint per-incarnation accounting windows.
-        simulation.CardStats["original-item"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["original-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 1,
-            [ECardStats.FrozenCardsCount] = 1,
+            [CombatCardStat.UseCount] = 1,
+            [CombatCardStat.FrozenCardsCount] = 1,
         };
-        simulation.CardStats["transformed-item"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["transformed-item"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 2,
-            [ECardStats.FrozenCardsCount] = 2,
+            [CombatCardStat.UseCount] = 2,
+            [CombatCardStat.FrozenCardsCount] = 2,
         };
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["original-item"] = new CombatImpactEntity(
@@ -811,7 +771,7 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
         entities["transformed-item"] = new CombatImpactEntity(
             "transformed-item",
@@ -819,7 +779,7 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             6,
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
 
         var report = CombatImpactProjector.Project(simulation, entities);
@@ -841,20 +801,18 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Nested_transforms_and_transformed_targets_resolve_to_the_highest_visible_ancestor()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
-            .Events.Add(Transformed("original-target", "middle-target", ECombatantId.Opponent));
-        simulation.Frames.Add(new CombatSimFrame());
+            .Events.Add(Transformed("original-target", "middle-target", Combatant.Opponent));
+        simulation.Frames.Add(new CombatFrame());
         simulation
             .Frames[1]
-            .Events.Add(Transformed("middle-target", "final-target", ECombatantId.Opponent));
-        simulation.Frames.Add(new CombatSimFrame());
+            .Events.Add(Transformed("middle-target", "final-target", Combatant.Opponent));
+        simulation.Frames.Add(new CombatFrame());
         simulation
             .Frames[2]
-            .Events.Add(
-                Executed("source", EActionCommandType.CardSlow, CardTarget("final-target"))
-            );
+            .Events.Add(Executed("source", CombatActionType.CardSlow, CardTarget("final-target")));
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["original-target"] = new CombatImpactEntity(
             "original-target",
@@ -862,7 +820,7 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            CombatantId: ECombatantId.Opponent
+            CombatantId: Combatant.Opponent
         );
         entities["middle-target"] = new CombatImpactEntity(
             "middle-target",
@@ -870,7 +828,7 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             6,
-            CombatantId: ECombatantId.Opponent
+            CombatantId: Combatant.Opponent
         );
         entities["final-target"] = new CombatImpactEntity(
             "final-target",
@@ -878,7 +836,7 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             7,
-            CombatantId: ECombatantId.Opponent
+            CombatantId: Combatant.Opponent
         );
 
         var report = CombatImpactProjector.Project(simulation, entities);
@@ -892,22 +850,22 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Malformed_transform_cycles_still_fold_to_one_deterministic_entity()
     {
-        var simulation = new CombatSim();
-        simulation.Frames[0].Events.Add(Transformed("b-item", "a-item", ECombatantId.Player));
-        simulation.Frames.Add(new CombatSimFrame());
-        simulation.Frames[1].Events.Add(Transformed("a-item", "b-item", ECombatantId.Player));
-        simulation.Frames.Add(new CombatSimFrame());
-        simulation.Frames[2].Events.Add(Transformed("a-item", "c-item", ECombatantId.Player));
-        simulation.Frames.Add(new CombatSimFrame());
+        var simulation = new CombatTimeline();
+        simulation.Frames[0].Events.Add(Transformed("b-item", "a-item", Combatant.Player));
+        simulation.Frames.Add(new CombatFrame());
+        simulation.Frames[1].Events.Add(Transformed("a-item", "b-item", Combatant.Player));
+        simulation.Frames.Add(new CombatFrame());
+        simulation.Frames[2].Events.Add(Transformed("a-item", "c-item", Combatant.Player));
+        simulation.Frames.Add(new CombatFrame());
         simulation
             .Frames[3]
-            .Events.Add(Executed("a-item", EActionCommandType.CardFreeze, CardTarget("target")));
+            .Events.Add(Executed("a-item", CombatActionType.CardFreeze, CardTarget("target")));
         simulation
             .Frames[3]
-            .Events.Add(Executed("b-item", EActionCommandType.CardFreeze, CardTarget("target")));
+            .Events.Add(Executed("b-item", CombatActionType.CardFreeze, CardTarget("target")));
         simulation
             .Frames[3]
-            .Events.Add(Executed("c-item", EActionCommandType.CardFreeze, CardTarget("target")));
+            .Events.Add(Executed("c-item", CombatActionType.CardFreeze, CardTarget("target")));
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["a-item"] = new CombatImpactEntity(
             "a-item",
@@ -915,7 +873,7 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
         entities["b-item"] = new CombatImpactEntity(
             "b-item",
@@ -923,7 +881,7 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             6,
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
         entities["c-item"] = new CombatImpactEntity(
             "c-item",
@@ -931,7 +889,7 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             7,
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
 
         var source = Assert.Single(CombatImpactProjector.Project(simulation, entities).Sources);
@@ -943,17 +901,17 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Enchant_actions_preserve_the_unique_applied_enchantment_type()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
-            .Events.Add(Executed("source", EActionCommandType.CardEnchant, CardTarget("target")));
+            .Events.Add(Executed("source", CombatActionType.CardEnchant, CardTarget("target")));
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventCardEnchanted
+                new CombatCardEnchanted
                 {
                     InstanceId = "target",
-                    EnchantmentType = EEnchantmentType.Fiery,
+                    EnchantmentType = CardEnchantment.Fiery,
                 }
             );
 
@@ -971,29 +929,29 @@ public sealed partial class CombatImpactProjectorTests
         const string chef = "skl_RIsKVL3";
         const string caviar = "itm_UCdcbhQ";
         const string pizzaCutter = "itm_68Nys1j";
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
-            .Events.Add(Executed(chef, EActionCommandType.CardEnchant, CardTarget(caviar)));
+            .Events.Add(Executed(chef, CombatActionType.CardEnchant, CardTarget(caviar)));
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventCardEnchanted
+                new CombatCardEnchanted
                 {
                     InstanceId = caviar,
-                    EnchantmentType = EEnchantmentType.Fiery,
+                    EnchantmentType = CardEnchantment.Fiery,
                 }
             );
         simulation
             .Frames[0]
-            .Events.Add(Executed(chef, EActionCommandType.CardEnchant, CardTarget(pizzaCutter)));
+            .Events.Add(Executed(chef, CombatActionType.CardEnchant, CardTarget(pizzaCutter)));
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventCardEnchanted
+                new CombatCardEnchanted
                 {
                     InstanceId = pizzaCutter,
-                    EnchantmentType = EEnchantmentType.Shiny,
+                    EnchantmentType = CardEnchantment.Shiny,
                 }
             );
         var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
@@ -1030,31 +988,31 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Theory]
-    [InlineData(EActionCommandType.PlayerBurnRemove, EPlayerAttributeType.Burn, "BurnRemoveAmount")]
+    [InlineData(CombatActionType.PlayerBurnRemove, CombatPlayerAttribute.Burn, "BurnRemoveAmount")]
     [InlineData(
-        EActionCommandType.PlayerPoisonRemove,
-        EPlayerAttributeType.Poison,
+        CombatActionType.PlayerPoisonRemove,
+        CombatPlayerAttribute.Poison,
         "PoisonRemoveAmount"
     )]
     [InlineData(
-        EActionCommandType.PlayerRegenRemove,
-        EPlayerAttributeType.HealthRegen,
+        CombatActionType.PlayerRegenRemove,
+        CombatPlayerAttribute.HealthRegen,
         "RegenRemoveAmount"
     )]
-    [InlineData(EActionCommandType.PlayerRageRemove, EPlayerAttributeType.Rage, "RageRemoveAmount")]
+    [InlineData(CombatActionType.PlayerRageRemove, CombatPlayerAttribute.Rage, "RageRemoveAmount")]
     public void Player_status_removals_use_positive_removed_amounts_when_uniquely_attributed(
-        EActionCommandType action,
-        EPlayerAttributeType attribute,
+        CombatActionType action,
+        CombatPlayerAttribute attribute,
         string expectedKey
     )
     {
-        var simulation = new CombatSim();
-        simulation.Frames[0].Events.Add(Executed("source", action, Player(ECombatantId.Player)));
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        var simulation = new CombatTimeline();
+        simulation.Frames[0].Events.Add(Executed("source", action, Player(Combatant.Player)));
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [attribute] = new CombatSimPlayerAttributeUpdate
+                [attribute] = new CombatPlayerAttributeUpdate
                 {
                     AttributeType = attribute,
                     PreviousValue = 10,
@@ -1078,24 +1036,20 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Shield_removal_uses_the_exact_negative_shield_adjustment_as_a_positive_amount()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed(
-                    "source",
-                    EActionCommandType.PlayerShieldRemove,
-                    Player(ECombatantId.Opponent)
-                )
+                Executed("source", CombatActionType.PlayerShieldRemove, Player(Combatant.Opponent))
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Shield,
-                    AttributeChanged = EPlayerHealthChangeType.Shield,
+                    DamageType = CombatDamageType.Shield,
+                    AttributeChanged = CombatHealthChange.Shield,
                     Amount = -9,
                 },
             },
@@ -1114,28 +1068,24 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Ambiguous_same_frame_status_removals_keep_counts_and_omit_the_amount()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerBurnRemove, Player(ECombatantId.Player))
+                Executed("source", CombatActionType.PlayerBurnRemove, Player(Combatant.Player))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed(
-                    "trigger",
-                    EActionCommandType.PlayerBurnRemove,
-                    Player(ECombatantId.Player)
-                )
+                Executed("trigger", CombatActionType.PlayerBurnRemove, Player(Combatant.Player))
             );
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Burn] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Burn] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Burn,
+                    AttributeType = CombatPlayerAttribute.Burn,
                     PreviousValue = 10,
                     CurrentValue = 4,
                 },
@@ -1156,36 +1106,36 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Projects_uniquely_attributed_damage_and_derived_critical_presentation()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Shield,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Shield,
                     Amount = -60,
                     IsCrit = true,
                 },
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = -100,
                     IsCrit = false,
                 },
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 160,
-            [ECardStats.UseCount] = 1,
+            [CombatCardStat.DamageDone] = 160,
+            [CombatCardStat.UseCount] = 1,
         };
 
         var report = CombatImpactProjector.Project(simulation, Entities());
@@ -1208,15 +1158,15 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Split_health_and_shield_adjustments_count_as_one_critical_damage_effect()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         simulation.Frames.Add(DamageFrame(-885, -639, isCritical: false));
         simulation.Frames.Add(DamageFrame(-2_192, -856, isCritical: true));
         simulation.Frames.Add(DamageFrame(-2_120, -928, isCritical: true));
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 7_620,
-            [ECardStats.UseCount] = 3,
+            [CombatCardStat.DamageDone] = 7_620,
+            [CombatCardStat.UseCount] = 3,
         };
 
         var source = Assert.Single(CombatImpactProjector.Project(simulation, Entities()).Sources);
@@ -1238,17 +1188,17 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Recovers_non_damage_crit_from_a_native_on_card_critted_trigger()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var origin = new CombatSimFrame
+        var origin = new CombatFrame
         {
-            OpponentUpdates = new CombatSimPlayerUpdate
+            OpponentUpdates = new CombatPlayerUpdate
             {
                 Attributes =
                 {
-                    [EPlayerAttributeType.Burn] = new CombatSimPlayerAttributeUpdate
+                    [CombatPlayerAttribute.Burn] = new CombatPlayerAttributeUpdate
                     {
-                        AttributeType = EPlayerAttributeType.Burn,
+                        AttributeType = CombatPlayerAttribute.Burn,
                         PreviousValue = 0,
                         CurrentValue = 3,
                     },
@@ -1258,8 +1208,8 @@ public sealed partial class CombatImpactProjectorTests
         origin.Events.Add(
             Executed(
                 "source",
-                EActionCommandType.PlayerBurnApply,
-                Player(ECombatantId.Opponent),
+                CombatActionType.PlayerBurnApply,
+                Player(Combatant.Opponent),
                 triggerSource: "source",
                 effectId: "critical-effect"
             )
@@ -1267,19 +1217,19 @@ public sealed partial class CombatImpactProjectorTests
         origin.Events.Add(
             Executed(
                 "source",
-                EActionCommandType.PlayerShieldApply,
-                Player(ECombatantId.Player),
+                CombatActionType.PlayerShieldApply,
+                Player(Combatant.Player),
                 triggerSource: "source"
             )
         );
-        origin.PlayerUpdates = new CombatSimPlayerUpdate
+        origin.PlayerUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Shield,
-                    AttributeChanged = EPlayerHealthChangeType.Shield,
+                    DamageType = CombatDamageType.Shield,
+                    AttributeChanged = CombatHealthChange.Shield,
                     Amount = 15,
                     IsCrit = false,
                 },
@@ -1287,43 +1237,43 @@ public sealed partial class CombatImpactProjectorTests
         };
         simulation.Frames.Add(origin);
 
-        var evidence = new CombatSimFrame();
+        var evidence = new CombatFrame();
         var gain = Executed(
             "crit-listener",
-            EActionCommandType.CardModifyAttribute,
+            CombatActionType.CardModifyAttribute,
             CardTarget("target"),
             triggerSource: "source"
         );
         gain.EffectId = "crit-gain";
         evidence.Events.Add(gain);
-        evidence.CardUpdates[InstanceId.TryParse("target")] = new CombatSimCardUpdate
+        evidence.CardUpdates[("target")] = new CombatCardUpdate
         {
-            CardInstanceId = InstanceId.TryParse("target"),
+            CardInstanceId = ("target"),
             Attributes =
             {
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = 10,
                     CurrentValue = 20,
                 },
             },
         };
         simulation.Frames.Add(evidence);
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.BurnAdded] = 3,
-            [ECardStats.ShieldAdded] = 15,
-            [ECardStats.UseCount] = 1,
+            [CombatCardStat.BurnAdded] = 3,
+            [CombatCardStat.ShieldAdded] = 15,
+            [CombatCardStat.UseCount] = 1,
         };
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.BurnApplyAmount] = 3,
-                [ECardAttributeType.ShieldApplyAmount] = 15,
+                [CombatCardAttribute.BurnApplyAmount] = 3,
+                [CombatCardAttribute.ShieldApplyAmount] = 15,
             },
             CritCapableEffectIds = ["critical-effect"],
         };
@@ -1333,13 +1283,13 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            AbilityAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            AbilityAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
-                ["crit-gain"] = ECardAttributeType.DamageAmount,
+                ["crit-gain"] = CombatCardAttribute.DamageAmount,
             },
-            CriticalTriggerAbilitiesByEffectId: new Dictionary<string, EEffectPriority>
+            CriticalTriggerAbilitiesByEffectId: new Dictionary<string, CombatEffectPriority>
             {
-                ["crit-gain"] = EEffectPriority.Low,
+                ["crit-gain"] = CombatEffectPriority.Low,
             }
         );
 
@@ -1363,19 +1313,19 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_label_on_card_critted_derived_damage_as_critical()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
 
-        var fired = new CombatSimFrame
+        var fired = new CombatFrame
         {
-            PlayerUpdates = new CombatSimPlayerUpdate
+            PlayerUpdates = new CombatPlayerUpdate
             {
                 HealthAdjustments =
                 {
-                    new CombatSimPlayerHealthAdjustment
+                    new CombatHealthAdjustment
                     {
-                        DamageType = EDamageType.Shield,
-                        AttributeChanged = EPlayerHealthChangeType.Shield,
+                        DamageType = CombatDamageType.Shield,
+                        AttributeChanged = CombatHealthChange.Shield,
                         Amount = 210,
                         IsCrit = true,
                     },
@@ -1384,8 +1334,8 @@ public sealed partial class CombatImpactProjectorTests
         };
         var shield = Executed(
             "hairpins",
-            EActionCommandType.PlayerShieldApply,
-            Player(ECombatantId.Player),
+            CombatActionType.PlayerShieldApply,
+            Player(Combatant.Player),
             triggerSource: "hairpins",
             executionContextId: "hairpins-fired"
         );
@@ -1393,33 +1343,33 @@ public sealed partial class CombatImpactProjectorTests
         fired.Events.Add(shield);
         simulation.Frames.Add(fired);
 
-        var critTriggered = new CombatSimFrame
+        var critTriggered = new CombatFrame
         {
-            OpponentUpdates = new CombatSimPlayerUpdate
+            OpponentUpdates = new CombatPlayerUpdate
             {
                 HealthAdjustments =
                 {
                     // Runtime adjustment matching can inherit the originating activation's crit
                     // flag. The on-card-critted action itself must still remain non-critical.
-                    DamageAdjustment(EPlayerHealthChangeType.Health, -315, isCritical: true),
+                    DamageAdjustment(CombatHealthChange.Health, -315, isCritical: true),
                 },
             },
         };
         var damage = Executed(
             "hairpins",
-            EActionCommandType.PlayerDamage,
-            Player(ECombatantId.Opponent),
+            CombatActionType.PlayerDamage,
+            Player(Combatant.Opponent),
             triggerSource: "hairpins",
             executionContextId: "hairpins-on-crit"
         );
         damage.EffectId = "0";
         critTriggered.Events.Add(damage);
         simulation.Frames.Add(critTriggered);
-        simulation.CardStats["hairpins"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["hairpins"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 315,
-            [ECardStats.ShieldAdded] = 210,
-            [ECardStats.UseCount] = 1,
+            [CombatCardStat.DamageDone] = 315,
+            [CombatCardStat.ShieldAdded] = 210,
+            [CombatCardStat.UseCount] = 1,
         };
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
@@ -1429,14 +1379,14 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            Attributes: new Dictionary<ECardAttributeType, int>
+            Attributes: new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.DamageAmount] = 315,
-                [ECardAttributeType.ShieldApplyAmount] = 105,
+                [CombatCardAttribute.DamageAmount] = 315,
+                [CombatCardAttribute.ShieldApplyAmount] = 105,
             },
-            CriticalTriggerAbilitiesByEffectId: new Dictionary<string, EEffectPriority>
+            CriticalTriggerAbilitiesByEffectId: new Dictionary<string, CombatEffectPriority>
             {
-                ["0"] = EEffectPriority.Medium,
+                ["0"] = CombatEffectPriority.Medium,
             },
             CritCapableEffectIds: ["1"]
         );
@@ -1461,18 +1411,18 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_apply_on_card_critted_evidence_to_an_unrelated_source()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var origin = new CombatSimFrame
+        var origin = new CombatFrame
         {
-            OpponentUpdates = new CombatSimPlayerUpdate
+            OpponentUpdates = new CombatPlayerUpdate
             {
                 HealthAdjustments =
                 {
-                    new CombatSimPlayerHealthAdjustment
+                    new CombatHealthAdjustment
                     {
-                        DamageType = EDamageType.Damage,
-                        AttributeChanged = EPlayerHealthChangeType.Health,
+                        DamageType = CombatDamageType.Damage,
+                        AttributeChanged = CombatHealthChange.Health,
                         Amount = -10,
                     },
                 },
@@ -1481,31 +1431,27 @@ public sealed partial class CombatImpactProjectorTests
         origin.Events.Add(
             Executed(
                 "source",
-                EActionCommandType.PlayerDamage,
-                Player(ECombatantId.Opponent),
+                CombatActionType.PlayerDamage,
+                Player(Combatant.Opponent),
                 triggerSource: "source"
             )
         );
         simulation.Frames.Add(origin);
 
-        var evidence = new CombatSimFrame();
+        var evidence = new CombatFrame();
         var gain = Executed(
             "crit-listener",
-            EActionCommandType.CardModifyAttribute,
+            CombatActionType.CardModifyAttribute,
             CardTarget("target"),
             triggerSource: "trigger"
         );
         gain.EffectId = "crit-gain";
         evidence.Events.Add(gain);
-        evidence.CardUpdates[InstanceId.TryParse("target")] = DamageUpdate(
-            InstanceId.TryParse("target"),
-            10,
-            20
-        );
+        evidence.CardUpdates[("target")] = DamageUpdate(("target"), 10, 20);
         simulation.Frames.Add(evidence);
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 10,
+            [CombatCardStat.DamageDone] = 10,
         };
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
@@ -1515,13 +1461,13 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            AbilityAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            AbilityAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
-                ["crit-gain"] = ECardAttributeType.DamageAmount,
+                ["crit-gain"] = CombatCardAttribute.DamageAmount,
             },
-            CriticalTriggerAbilitiesByEffectId: new Dictionary<string, EEffectPriority>
+            CriticalTriggerAbilitiesByEffectId: new Dictionary<string, CombatEffectPriority>
             {
-                ["crit-gain"] = EEffectPriority.Low,
+                ["crit-gain"] = CombatEffectPriority.Low,
             }
         );
 
@@ -1540,50 +1486,46 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Deduplicates_native_and_on_card_critted_evidence_for_one_activation()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var origin = new CombatSimFrame
+        var origin = new CombatFrame
         {
-            OpponentUpdates = new CombatSimPlayerUpdate
+            OpponentUpdates = new CombatPlayerUpdate
             {
                 HealthAdjustments =
                 {
-                    DamageAdjustment(EPlayerHealthChangeType.Health, -20, isCritical: true),
+                    DamageAdjustment(CombatHealthChange.Health, -20, isCritical: true),
                 },
             },
         };
         origin.Events.Add(
             Executed(
                 "source",
-                EActionCommandType.PlayerDamage,
-                Player(ECombatantId.Opponent),
+                CombatActionType.PlayerDamage,
+                Player(Combatant.Opponent),
                 triggerSource: "source"
             )
         );
         simulation.Frames.Add(origin);
 
-        var listener = new CombatSimFrame();
+        var listener = new CombatFrame();
         var gain = Executed(
             "crit-listener",
-            EActionCommandType.CardModifyAttribute,
+            CombatActionType.CardModifyAttribute,
             CardTarget("target"),
             triggerSource: "source"
         );
         gain.EffectId = "crit-gain";
         listener.Events.Add(gain);
-        listener.CardUpdates[InstanceId.TryParse("target")] = DamageUpdate(
-            InstanceId.TryParse("target"),
-            10,
-            20
-        );
+        listener.CardUpdates[("target")] = DamageUpdate(("target"), 10, 20);
         simulation.Frames.Add(listener);
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 20,
+            [CombatCardStat.DamageDone] = 20,
         };
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
-        entities["crit-listener"] = CriticalTriggerEntity(EEffectPriority.Low);
+        entities["crit-listener"] = CriticalTriggerEntity(CombatEffectPriority.Low);
 
         var damage = Assert.Single(
             Assert
@@ -1601,43 +1543,39 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Associates_low_priority_crit_evidence_with_a_same_frame_origin()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         var frame = PlayerEffectFrame(
-            EActionCommandType.PlayerBurnApply,
-            EPlayerAttributeType.Burn,
+            CombatActionType.PlayerBurnApply,
+            CombatPlayerAttribute.Burn,
             0,
             6
         );
         var gain = Executed(
             "crit-listener",
-            EActionCommandType.CardModifyAttribute,
+            CombatActionType.CardModifyAttribute,
             CardTarget("target"),
             triggerSource: "source"
         );
         gain.EffectId = "crit-gain";
         frame.Events.Add(gain);
-        frame.CardUpdates[InstanceId.TryParse("target")] = DamageUpdate(
-            InstanceId.TryParse("target"),
-            10,
-            20
-        );
+        frame.CardUpdates[("target")] = DamageUpdate(("target"), 10, 20);
         simulation.Frames.Add(frame);
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.BurnAdded] = 6,
+            [CombatCardStat.BurnAdded] = 6,
         };
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.BurnApplyAmount] = 3,
+                [CombatCardAttribute.BurnApplyAmount] = 3,
             },
             CritCapableEffectIds = ["critical-effect"],
         };
-        entities["crit-listener"] = CriticalTriggerEntity(EEffectPriority.Low);
+        entities["crit-listener"] = CriticalTriggerEntity(CombatEffectPriority.Low);
 
         var burn = Assert.Single(
             Assert
@@ -1673,46 +1611,42 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_associate_delayed_crit_evidence_with_an_unrelated_same_frame_activation()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         simulation.Frames.Add(
-            PlayerEffectFrame(EActionCommandType.PlayerBurnApply, EPlayerAttributeType.Burn, 0, 6)
+            PlayerEffectFrame(CombatActionType.PlayerBurnApply, CombatPlayerAttribute.Burn, 0, 6)
         );
         var evidence = PlayerEffectFrame(
-            EActionCommandType.PlayerBurnApply,
-            EPlayerAttributeType.Burn,
+            CombatActionType.PlayerBurnApply,
+            CombatPlayerAttribute.Burn,
             6,
             9
         );
         var gain = Executed(
             "crit-listener",
-            EActionCommandType.CardModifyAttribute,
+            CombatActionType.CardModifyAttribute,
             CardTarget("target"),
             triggerSource: "source"
         );
         gain.EffectId = "crit-gain";
         evidence.Events.Add(gain);
-        evidence.CardUpdates[InstanceId.TryParse("target")] = DamageUpdate(
-            InstanceId.TryParse("target"),
-            10,
-            20
-        );
+        evidence.CardUpdates[("target")] = DamageUpdate(("target"), 10, 20);
         simulation.Frames.Add(evidence);
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.BurnAdded] = 9,
+            [CombatCardStat.BurnAdded] = 9,
         };
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.BurnApplyAmount] = 3,
+                [CombatCardAttribute.BurnApplyAmount] = 3,
             },
             CritCapableEffectIds = ["critical-effect"],
         };
-        entities["crit-listener"] = CriticalTriggerEntity(EEffectPriority.Low);
+        entities["crit-listener"] = CriticalTriggerEntity(CombatEffectPriority.Low);
 
         var burn = Assert.Single(
             Assert
@@ -1730,72 +1664,72 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Recovers_damage_crits_when_multiple_same_frame_attacks_hide_native_adjustments()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("trigger", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("trigger", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = -37_454,
                     IsCrit = true,
                 },
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = -86,
                     IsCrit = true,
                 },
             },
         };
-        var sourceInstance = InstanceId.TryParse("source");
-        simulation.Frames[0].CardUpdates[sourceInstance] = new CombatSimCardUpdate
+        var sourceInstance = ("source");
+        simulation.Frames[0].CardUpdates[sourceInstance] = new CombatCardUpdate
         {
             CardInstanceId = sourceInstance,
             Attributes =
             {
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = 359,
                     CurrentValue = 18_727,
                 },
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 37_454,
+            [CombatCardStat.DamageDone] = 37_454,
         };
-        simulation.CardStats["trigger"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["trigger"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 86,
+            [CombatCardStat.DamageDone] = 86,
         };
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.DamageAmount] = 359,
+                [CombatCardAttribute.DamageAmount] = 359,
             },
         };
         entities["trigger"] = entities["trigger"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.DamageAmount] = 43,
+                [CombatCardAttribute.DamageAmount] = 43,
             },
         };
 
@@ -1821,23 +1755,23 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Maps_mixed_concurrent_damage_crits_from_native_adjustment_order_without_stats()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("trigger", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("trigger", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                DamageAdjustment(EPlayerHealthChangeType.Health, -32, isCritical: false),
-                DamageAdjustment(EPlayerHealthChangeType.Health, -62, isCritical: true),
+                DamageAdjustment(CombatHealthChange.Health, -32, isCritical: false),
+                DamageAdjustment(CombatHealthChange.Health, -62, isCritical: true),
             },
         };
 
@@ -1859,24 +1793,24 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Maps_split_shield_and_health_damage_before_the_next_concurrent_effect()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("trigger", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("trigger", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                DamageAdjustment(EPlayerHealthChangeType.Health, -109, isCritical: true),
-                DamageAdjustment(EPlayerHealthChangeType.Shield, -11, isCritical: true),
-                DamageAdjustment(EPlayerHealthChangeType.Health, -60, isCritical: false),
+                DamageAdjustment(CombatHealthChange.Health, -109, isCritical: true),
+                DamageAdjustment(CombatHealthChange.Shield, -11, isCritical: true),
+                DamageAdjustment(CombatHealthChange.Health, -60, isCritical: false),
             },
         };
 
@@ -1901,40 +1835,36 @@ public sealed partial class CombatImpactProjectorTests
         var cases = new[]
         {
             (
-                EActionCommandType.PlayerHeal,
-                EDamageType.Heal,
-                EPlayerHealthChangeType.Health,
+                CombatActionType.PlayerHeal,
+                CombatDamageType.Heal,
+                CombatHealthChange.Health,
                 CombatImpactKind.Healing
             ),
             (
-                EActionCommandType.PlayerShieldApply,
-                EDamageType.Shield,
-                EPlayerHealthChangeType.Shield,
+                CombatActionType.PlayerShieldApply,
+                CombatDamageType.Shield,
+                CombatHealthChange.Shield,
                 CombatImpactKind.Shield
             ),
         };
 
         foreach (var (action, damageType, attribute, expectedKind) in cases)
         {
-            var simulation = new CombatSim();
-            simulation
-                .Frames[0]
-                .Events.Add(Executed("source", action, Player(ECombatantId.Player)));
-            simulation
-                .Frames[0]
-                .Events.Add(Executed("trigger", action, Player(ECombatantId.Player)));
-            simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+            var simulation = new CombatTimeline();
+            simulation.Frames[0].Events.Add(Executed("source", action, Player(Combatant.Player)));
+            simulation.Frames[0].Events.Add(Executed("trigger", action, Player(Combatant.Player)));
+            simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
             {
                 HealthAdjustments =
                 {
-                    new CombatSimPlayerHealthAdjustment
+                    new CombatHealthAdjustment
                     {
                         DamageType = damageType,
                         AttributeChanged = attribute,
                         Amount = 200,
                         IsCrit = true,
                     },
-                    new CombatSimPlayerHealthAdjustment
+                    new CombatHealthAdjustment
                     {
                         DamageType = damageType,
                         AttributeChanged = attribute,
@@ -1965,58 +1895,58 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_infer_damage_crits_without_a_native_critical_adjustment()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("trigger", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("trigger", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = -20,
                     IsCrit = false,
                 },
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = -10,
                     IsCrit = false,
                 },
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 20,
+            [CombatCardStat.DamageDone] = 20,
         };
-        simulation.CardStats["trigger"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["trigger"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 10,
+            [CombatCardStat.DamageDone] = 10,
         };
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.DamageAmount] = 10,
+                [CombatCardAttribute.DamageAmount] = 10,
             },
         };
         entities["trigger"] = entities["trigger"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.DamageAmount] = 5,
+                [CombatCardAttribute.DamageAmount] = 5,
             },
         };
 
@@ -2031,25 +1961,25 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Uniform_native_crits_mark_each_concurrent_damage_effect_without_stat_inference()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         for (var use = 0; use < 4; use++)
             simulation.Frames.Add(ConcurrentDamageFrame(isCritical: false));
         simulation.Frames.Add(ConcurrentDamageFrame(isCritical: true, splitFirstHit: true));
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
             // Deliberately inconsistent with the configured 30-damage baseline. The native
             // per-adjustment crit flags, not an inferred total, are authoritative for this case.
-            [ECardStats.DamageDone] = 420,
-            [ECardStats.UseCount] = 5,
+            [CombatCardStat.DamageDone] = 420,
+            [CombatCardStat.UseCount] = 5,
         };
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.DamageAmount] = 30,
+                [CombatCardAttribute.DamageAmount] = 30,
             },
         };
 
@@ -2070,31 +2000,29 @@ public sealed partial class CombatImpactProjectorTests
         var cases = new[]
         {
             (
-                EActionCommandType.PlayerBurnApply,
-                EPlayerAttributeType.Burn,
-                ECardStats.BurnAdded,
+                CombatActionType.PlayerBurnApply,
+                CombatPlayerAttribute.Burn,
+                CombatCardStat.BurnAdded,
                 CombatImpactKind.Burn,
                 "BurnApplyAmount"
             ),
             (
-                EActionCommandType.PlayerPoisonApply,
-                EPlayerAttributeType.Poison,
-                ECardStats.PoisonAdded,
+                CombatActionType.PlayerPoisonApply,
+                CombatPlayerAttribute.Poison,
+                CombatCardStat.PoisonAdded,
                 CombatImpactKind.Poison,
                 "PoisonApplyAmount"
             ),
         };
         foreach (var (action, attribute, statistic, expectedKind, canonicalKey) in cases)
         {
-            var simulation = new CombatSim();
-            simulation
-                .Frames[0]
-                .Events.Add(Executed("source", action, Player(ECombatantId.Opponent)));
-            simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+            var simulation = new CombatTimeline();
+            simulation.Frames[0].Events.Add(Executed("source", action, Player(Combatant.Opponent)));
+            simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
             {
                 Attributes =
                 {
-                    [attribute] = new CombatSimPlayerAttributeUpdate
+                    [attribute] = new CombatPlayerAttributeUpdate
                     {
                         AttributeType = attribute,
                         PreviousValue = 0,
@@ -2102,7 +2030,10 @@ public sealed partial class CombatImpactProjectorTests
                     },
                 },
             };
-            simulation.CardStats["source"] = new Dictionary<ECardStats, int> { [statistic] = 76 };
+            simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
+            {
+                [statistic] = 76,
+            };
 
             var source = Assert.Single(
                 CombatImpactProjector.Project(simulation, Entities()).Sources
@@ -2123,43 +2054,43 @@ public sealed partial class CombatImpactProjectorTests
         var cases = new[]
         {
             (
-                EActionCommandType.PlayerBurnApply,
-                EPlayerAttributeType.Burn,
-                ECardAttributeType.BurnApplyAmount,
-                ECardStats.BurnAdded,
+                CombatActionType.PlayerBurnApply,
+                CombatPlayerAttribute.Burn,
+                CombatCardAttribute.BurnApplyAmount,
+                CombatCardStat.BurnAdded,
                 CombatImpactKind.Burn
             ),
             (
-                EActionCommandType.PlayerPoisonApply,
-                EPlayerAttributeType.Poison,
-                ECardAttributeType.PoisonApplyAmount,
-                ECardStats.PoisonAdded,
+                CombatActionType.PlayerPoisonApply,
+                CombatPlayerAttribute.Poison,
+                CombatCardAttribute.PoisonApplyAmount,
+                CombatCardStat.PoisonAdded,
                 CombatImpactKind.Poison
             ),
             (
-                EActionCommandType.PlayerRegenApply,
-                EPlayerAttributeType.HealthRegen,
-                ECardAttributeType.RegenApplyAmount,
-                ECardStats.RegenAdded,
+                CombatActionType.PlayerRegenApply,
+                CombatPlayerAttribute.HealthRegen,
+                CombatCardAttribute.RegenApplyAmount,
+                CombatCardStat.RegenAdded,
                 CombatImpactKind.AttributeChange
             ),
         };
         foreach (var (action, playerAttribute, sourceAttribute, statistic, expectedKind) in cases)
         {
-            var simulation = new CombatSim();
+            var simulation = new CombatTimeline();
             simulation.Frames.Clear();
             var previous = 0;
             foreach (var appliedValue in new[] { 4, 8 })
             {
-                var frame = new CombatSimFrame();
-                var executed = Executed("source", action, Player(ECombatantId.Player));
+                var frame = new CombatFrame();
+                var executed = Executed("source", action, Player(Combatant.Player));
                 executed.EffectId = "critical-effect";
                 frame.Events.Add(executed);
-                frame.PlayerUpdates = new CombatSimPlayerUpdate
+                frame.PlayerUpdates = new CombatPlayerUpdate
                 {
                     Attributes =
                     {
-                        [playerAttribute] = new CombatSimPlayerAttributeUpdate
+                        [playerAttribute] = new CombatPlayerAttributeUpdate
                         {
                             AttributeType = playerAttribute,
                             PreviousValue = previous,
@@ -2170,7 +2101,10 @@ public sealed partial class CombatImpactProjectorTests
                 simulation.Frames.Add(frame);
                 previous += appliedValue;
             }
-            simulation.CardStats["source"] = new Dictionary<ECardStats, int> { [statistic] = 12 };
+            simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
+            {
+                [statistic] = 12,
+            };
 
             var group = Assert.Single(
                 Assert
@@ -2193,12 +2127,12 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_infer_a_crit_for_burn_triggered_by_another_item()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         simulation.Frames.Add(
             PlayerEffectFrame(
-                EActionCommandType.PlayerBurnApply,
-                EPlayerAttributeType.Burn,
+                CombatActionType.PlayerBurnApply,
+                CombatPlayerAttribute.Burn,
                 0,
                 4,
                 effectId: "passive-burn",
@@ -2207,26 +2141,26 @@ public sealed partial class CombatImpactProjectorTests
         );
         simulation.Frames.Add(
             PlayerEffectFrame(
-                EActionCommandType.PlayerBurnApply,
-                EPlayerAttributeType.Burn,
+                CombatActionType.PlayerBurnApply,
+                CombatPlayerAttribute.Burn,
                 4,
                 12,
                 effectId: "passive-burn",
                 triggerSource: "trigger"
             )
         );
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.BurnAdded] = 12,
+            [CombatCardStat.BurnAdded] = 12,
         };
-        var entities = EntitiesWithSourceAttribute(ECardAttributeType.BurnApplyAmount, 4)
+        var entities = EntitiesWithSourceAttribute(CombatCardAttribute.BurnApplyAmount, 4)
             .ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.BurnApplyAmount] = 4,
-                [ECardAttributeType.CritChance] = 12,
+                [CombatCardAttribute.BurnApplyAmount] = 4,
+                [CombatCardAttribute.CritChance] = 12,
             },
             CritCapableEffectIds = null,
         };
@@ -2245,30 +2179,30 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Resolves_only_dynamic_burn_crits_supported_by_each_application()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        simulation.Frames.Add(SourceAttributeFrame(ECardAttributeType.BurnApplyAmount, 4, 5));
-        AddPlayerEffectFrames(simulation, EPlayerAttributeType.Burn, 0, 10, 14);
-        simulation.Frames.Add(SourceAttributeFrame(ECardAttributeType.BurnApplyAmount, 5, 6));
-        AddPlayerEffectFrames(simulation, EPlayerAttributeType.Burn, 14, 25);
-        simulation.Frames.Add(SourceAttributeFrame(ECardAttributeType.BurnApplyAmount, 6, 7));
-        AddPlayerEffectFrames(simulation, EPlayerAttributeType.Burn, 25, 39, 53);
-        simulation.Frames.Add(SourceAttributeFrame(ECardAttributeType.BurnApplyAmount, 7, 8));
-        AddPlayerEffectFrames(simulation, EPlayerAttributeType.Burn, 53, 69);
-        simulation.Frames.Add(SourceAttributeFrame(ECardAttributeType.BurnApplyAmount, 8, 9));
-        AddPlayerEffectFrames(simulation, EPlayerAttributeType.Burn, 69, 87);
+        simulation.Frames.Add(SourceAttributeFrame(CombatCardAttribute.BurnApplyAmount, 4, 5));
+        AddPlayerEffectFrames(simulation, CombatPlayerAttribute.Burn, 0, 10, 14);
+        simulation.Frames.Add(SourceAttributeFrame(CombatCardAttribute.BurnApplyAmount, 5, 6));
+        AddPlayerEffectFrames(simulation, CombatPlayerAttribute.Burn, 14, 25);
+        simulation.Frames.Add(SourceAttributeFrame(CombatCardAttribute.BurnApplyAmount, 6, 7));
+        AddPlayerEffectFrames(simulation, CombatPlayerAttribute.Burn, 25, 39, 53);
+        simulation.Frames.Add(SourceAttributeFrame(CombatCardAttribute.BurnApplyAmount, 7, 8));
+        AddPlayerEffectFrames(simulation, CombatPlayerAttribute.Burn, 53, 69);
+        simulation.Frames.Add(SourceAttributeFrame(CombatCardAttribute.BurnApplyAmount, 8, 9));
+        AddPlayerEffectFrames(simulation, CombatPlayerAttribute.Burn, 69, 87);
         var sameFrameGain = PlayerEffectFrame(
-            EActionCommandType.PlayerBurnApply,
-            EPlayerAttributeType.Burn,
+            CombatActionType.PlayerBurnApply,
+            CombatPlayerAttribute.Burn,
             87,
             105
         );
-        SetSourceAttributeUpdate(sameFrameGain, ECardAttributeType.BurnApplyAmount, 9, 10);
+        SetSourceAttributeUpdate(sameFrameGain, CombatCardAttribute.BurnApplyAmount, 9, 10);
         simulation.Frames.Add(sameFrameGain);
-        AddPlayerEffectFrames(simulation, EPlayerAttributeType.Burn, 105, 125, 145);
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        AddPlayerEffectFrames(simulation, CombatPlayerAttribute.Burn, 105, 125, 145);
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.BurnAdded] = 147,
+            [CombatCardStat.BurnAdded] = 147,
         };
 
         var burn = Assert.Single(
@@ -2277,7 +2211,7 @@ public sealed partial class CombatImpactProjectorTests
                     CombatImpactProjector
                         .Project(
                             simulation,
-                            EntitiesWithSourceAttribute(ECardAttributeType.BurnApplyAmount, 4)
+                            EntitiesWithSourceAttribute(CombatCardAttribute.BurnApplyAmount, 4)
                         )
                         .Sources
                 )
@@ -2295,19 +2229,19 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Keeps_same_frame_status_amount_change_ambiguous()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         var frame = PlayerEffectFrame(
-            EActionCommandType.PlayerBurnApply,
-            EPlayerAttributeType.Burn,
+            CombatActionType.PlayerBurnApply,
+            CombatPlayerAttribute.Burn,
             0,
             8
         );
-        SetSourceAttributeUpdate(frame, ECardAttributeType.BurnApplyAmount, 4, 8);
+        SetSourceAttributeUpdate(frame, CombatCardAttribute.BurnApplyAmount, 4, 8);
         simulation.Frames.Add(frame);
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.BurnAdded] = 8,
+            [CombatCardStat.BurnAdded] = 8,
         };
 
         var burn = Assert.Single(
@@ -2316,7 +2250,7 @@ public sealed partial class CombatImpactProjectorTests
                     CombatImpactProjector
                         .Project(
                             simulation,
-                            EntitiesWithSourceAttribute(ECardAttributeType.BurnApplyAmount, 4)
+                            EntitiesWithSourceAttribute(CombatCardAttribute.BurnApplyAmount, 4)
                         )
                         .Sources
                 )
@@ -2333,7 +2267,7 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Carries_native_activation_crits_from_damage_to_burn_without_inferring_magnitude()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         var previousBurn = 0;
         var damageValues = new[] { 1_016, 528, 2_152 };
@@ -2341,15 +2275,15 @@ public sealed partial class CombatImpactProjectorTests
         var critical = new[] { true, false, true };
         for (var index = 0; index < damageValues.Length; index++)
         {
-            var frame = new CombatSimFrame
+            var frame = new CombatFrame
             {
-                OpponentUpdates = new CombatSimPlayerUpdate
+                OpponentUpdates = new CombatPlayerUpdate
                 {
                     Attributes =
                     {
-                        [EPlayerAttributeType.Burn] = new CombatSimPlayerAttributeUpdate
+                        [CombatPlayerAttribute.Burn] = new CombatPlayerAttributeUpdate
                         {
-                            AttributeType = EPlayerAttributeType.Burn,
+                            AttributeType = CombatPlayerAttribute.Burn,
                             PreviousValue = previousBurn,
                             CurrentValue = previousBurn + burnValues[index],
                         },
@@ -2357,7 +2291,7 @@ public sealed partial class CombatImpactProjectorTests
                     HealthAdjustments =
                     {
                         DamageAdjustment(
-                            EPlayerHealthChangeType.Health,
+                            CombatHealthChange.Health,
                             -damageValues[index],
                             critical[index]
                         ),
@@ -2367,8 +2301,8 @@ public sealed partial class CombatImpactProjectorTests
             frame.Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.PlayerDamage,
-                    Player(ECombatantId.Opponent),
+                    CombatActionType.PlayerDamage,
+                    Player(Combatant.Opponent),
                     triggerSource: "source",
                     effectId: "critical-effect"
                 )
@@ -2376,8 +2310,8 @@ public sealed partial class CombatImpactProjectorTests
             frame.Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.PlayerBurnApply,
-                    Player(ECombatantId.Opponent),
+                    CombatActionType.PlayerBurnApply,
+                    Player(Combatant.Opponent),
                     triggerSource: "source",
                     effectId: "critical-effect"
                 )
@@ -2385,11 +2319,11 @@ public sealed partial class CombatImpactProjectorTests
             simulation.Frames.Add(frame);
             previousBurn += burnValues[index];
         }
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = damageValues.Sum(),
-            [ECardStats.BurnAdded] = burnValues.Sum(),
-            [ECardStats.UseCount] = 3,
+            [CombatCardStat.DamageDone] = damageValues.Sum(),
+            [CombatCardStat.BurnAdded] = burnValues.Sum(),
+            [CombatCardStat.UseCount] = 3,
         };
 
         var source = Assert.Single(
@@ -2397,8 +2331,8 @@ public sealed partial class CombatImpactProjectorTests
                 .Project(
                     simulation,
                     EntitiesWithSourceAttributes(
-                        (ECardAttributeType.DamageAmount, 254),
-                        (ECardAttributeType.BurnApplyAmount, 51)
+                        (CombatCardAttribute.DamageAmount, 254),
+                        (CombatCardAttribute.BurnApplyAmount, 51)
                     )
                 )
                 .Sources
@@ -2421,35 +2355,35 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_treat_same_frame_noncritical_damage_as_burn_critical_evidence()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         var previousBurn = 0;
         foreach (var burnValue in new[] { 4, 8 })
         {
-            var frame = new CombatSimFrame
+            var frame = new CombatFrame
             {
-                OpponentUpdates = new CombatSimPlayerUpdate
+                OpponentUpdates = new CombatPlayerUpdate
                 {
                     Attributes =
                     {
-                        [EPlayerAttributeType.Burn] = new CombatSimPlayerAttributeUpdate
+                        [CombatPlayerAttribute.Burn] = new CombatPlayerAttributeUpdate
                         {
-                            AttributeType = EPlayerAttributeType.Burn,
+                            AttributeType = CombatPlayerAttribute.Burn,
                             PreviousValue = previousBurn,
                             CurrentValue = previousBurn + burnValue,
                         },
                     },
                     HealthAdjustments =
                     {
-                        DamageAdjustment(EPlayerHealthChangeType.Health, -20, isCritical: false),
+                        DamageAdjustment(CombatHealthChange.Health, -20, isCritical: false),
                     },
                 },
             };
             frame.Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.PlayerDamage,
-                    Player(ECombatantId.Opponent),
+                    CombatActionType.PlayerDamage,
+                    Player(Combatant.Opponent),
                     triggerSource: "source",
                     effectId: "critical-effect"
                 )
@@ -2457,8 +2391,8 @@ public sealed partial class CombatImpactProjectorTests
             frame.Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.PlayerBurnApply,
-                    Player(ECombatantId.Opponent),
+                    CombatActionType.PlayerBurnApply,
+                    Player(Combatant.Opponent),
                     triggerSource: "source",
                     effectId: "critical-effect"
                 )
@@ -2466,11 +2400,11 @@ public sealed partial class CombatImpactProjectorTests
             simulation.Frames.Add(frame);
             previousBurn += burnValue;
         }
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 40,
-            [ECardStats.BurnAdded] = 12,
-            [ECardStats.UseCount] = 2,
+            [CombatCardStat.DamageDone] = 40,
+            [CombatCardStat.BurnAdded] = 12,
+            [CombatCardStat.UseCount] = 2,
         };
 
         var burn = Assert.Single(
@@ -2480,8 +2414,8 @@ public sealed partial class CombatImpactProjectorTests
                         .Project(
                             simulation,
                             EntitiesWithSourceAttributes(
-                                (ECardAttributeType.DamageAmount, 10),
-                                (ECardAttributeType.BurnApplyAmount, 4)
+                                (CombatCardAttribute.DamageAmount, 10),
+                                (CombatCardAttribute.BurnApplyAmount, 4)
                             )
                         )
                         .Sources
@@ -2499,14 +2433,14 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_carry_criticality_between_different_same_frame_activations()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.PlayerDamage,
-                    Player(ECombatantId.Opponent),
+                    CombatActionType.PlayerDamage,
+                    Player(Combatant.Opponent),
                     triggerSource: "damage-trigger",
                     effectId: "critical-effect"
                 )
@@ -2516,32 +2450,32 @@ public sealed partial class CombatImpactProjectorTests
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.PlayerBurnApply,
-                    Player(ECombatantId.Opponent),
+                    CombatActionType.PlayerBurnApply,
+                    Player(Combatant.Opponent),
                     triggerSource: "burn-trigger",
                     effectId: "critical-effect"
                 )
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Burn] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Burn] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Burn,
+                    AttributeType = CombatPlayerAttribute.Burn,
                     PreviousValue = 0,
                     CurrentValue = 8,
                 },
             },
             HealthAdjustments =
             {
-                DamageAdjustment(EPlayerHealthChangeType.Health, -20, isCritical: true),
+                DamageAdjustment(CombatHealthChange.Health, -20, isCritical: true),
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 20,
-            [ECardStats.BurnAdded] = 8,
+            [CombatCardStat.DamageDone] = 20,
+            [CombatCardStat.BurnAdded] = 8,
         };
 
         var burn = Assert.Single(
@@ -2550,7 +2484,7 @@ public sealed partial class CombatImpactProjectorTests
                     CombatImpactProjector
                         .Project(
                             simulation,
-                            EntitiesWithSourceAttribute(ECardAttributeType.DamageAmount, 10)
+                            EntitiesWithSourceAttribute(CombatCardAttribute.DamageAmount, 10)
                         )
                         .Sources
                 )
@@ -2566,22 +2500,22 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_guess_crit_count_when_dynamic_apply_values_have_ambiguous_subsets()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         simulation.Frames.Add(
-            PlayerEffectFrame(EActionCommandType.PlayerBurnApply, EPlayerAttributeType.Burn, 0, 1)
+            PlayerEffectFrame(CombatActionType.PlayerBurnApply, CombatPlayerAttribute.Burn, 0, 1)
         );
-        simulation.Frames.Add(SourceAttributeFrame(ECardAttributeType.BurnApplyAmount, 1, 2));
+        simulation.Frames.Add(SourceAttributeFrame(CombatCardAttribute.BurnApplyAmount, 1, 2));
         simulation.Frames.Add(
-            PlayerEffectFrame(EActionCommandType.PlayerBurnApply, EPlayerAttributeType.Burn, 1, 3)
+            PlayerEffectFrame(CombatActionType.PlayerBurnApply, CombatPlayerAttribute.Burn, 1, 3)
         );
-        simulation.Frames.Add(SourceAttributeFrame(ECardAttributeType.BurnApplyAmount, 2, 3));
+        simulation.Frames.Add(SourceAttributeFrame(CombatCardAttribute.BurnApplyAmount, 2, 3));
         simulation.Frames.Add(
-            PlayerEffectFrame(EActionCommandType.PlayerBurnApply, EPlayerAttributeType.Burn, 3, 6)
+            PlayerEffectFrame(CombatActionType.PlayerBurnApply, CombatPlayerAttribute.Burn, 3, 6)
         );
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.BurnAdded] = 9,
+            [CombatCardStat.BurnAdded] = 9,
         };
 
         var burn = Assert.Single(
@@ -2590,7 +2524,7 @@ public sealed partial class CombatImpactProjectorTests
                     CombatImpactProjector
                         .Project(
                             simulation,
-                            EntitiesWithSourceAttribute(ECardAttributeType.BurnApplyAmount, 1)
+                            EntitiesWithSourceAttribute(CombatCardAttribute.BurnApplyAmount, 1)
                         )
                         .Sources
                 )
@@ -2606,32 +2540,32 @@ public sealed partial class CombatImpactProjectorTests
     public void Generic_player_attribute_changes_use_the_unique_same_frame_transition()
     {
         var cases = new List<(
-            EPlayerAttributeType Attribute,
-            ECardStats Statistic,
+            CombatPlayerAttribute Attribute,
+            CombatCardStat Statistic,
             string CanonicalKey
         )>
         {
-            (EPlayerAttributeType.HealthRegen, ECardStats.RegenAdded, "RegenApplyAmount"),
-            (EPlayerAttributeType.Rage, ECardStats.RageAdded, "RageApplyAmount"),
-            (EPlayerAttributeType.Tempo, ECardStats.TempoAdded, "TempoApplyAmount"),
+            (CombatPlayerAttribute.HealthRegen, CombatCardStat.RegenAdded, "RegenApplyAmount"),
+            (CombatPlayerAttribute.Rage, CombatCardStat.RageAdded, "RageApplyAmount"),
+            (CombatPlayerAttribute.Tempo, CombatCardStat.TempoAdded, "TempoApplyAmount"),
         };
         foreach (var (attribute, statistic, canonicalKey) in cases)
         {
-            var simulation = new CombatSim();
+            var simulation = new CombatTimeline();
             simulation
                 .Frames[0]
                 .Events.Add(
                     Executed(
                         "source",
-                        EActionCommandType.PlayerModifyAttribute,
-                        Player(ECombatantId.Player)
+                        CombatActionType.PlayerModifyAttribute,
+                        Player(Combatant.Player)
                     )
                 );
-            simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+            simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
             {
                 Attributes =
                 {
-                    [attribute] = new CombatSimPlayerAttributeUpdate
+                    [attribute] = new CombatPlayerAttributeUpdate
                     {
                         AttributeType = attribute,
                         PreviousValue = 0,
@@ -2639,7 +2573,10 @@ public sealed partial class CombatImpactProjectorTests
                     },
                 },
             };
-            simulation.CardStats["source"] = new Dictionary<ECardStats, int> { [statistic] = 20 };
+            simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
+            {
+                [statistic] = 20,
+            };
 
             var source = Assert.Single(
                 CombatImpactProjector.Project(simulation, Entities()).Sources
@@ -2664,22 +2601,22 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Card_stats_map_to_explicit_authoritative_metric_domains()
     {
-        var simulation = new CombatSim();
-        var statistics = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        var statistics = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 1,
-            [ECardStats.ShieldAdded] = 2,
-            [ECardStats.HealAdded] = 3,
-            [ECardStats.PoisonAdded] = 4,
-            [ECardStats.BurnAdded] = 5,
-            [ECardStats.HastedCardsCount] = 6,
-            [ECardStats.SlowedCardsCount] = 7,
-            [ECardStats.FrozenCardsCount] = 8,
-            [ECardStats.RegenAdded] = 9,
-            [ECardStats.RageAdded] = 10,
-            [ECardStats.UseCount] = 13,
-            [ECardStats.TempoAdded] = 11,
-            [ECardStats.TempoSpent] = 12,
+            [CombatCardStat.DamageDone] = 1,
+            [CombatCardStat.ShieldAdded] = 2,
+            [CombatCardStat.HealAdded] = 3,
+            [CombatCardStat.PoisonAdded] = 4,
+            [CombatCardStat.BurnAdded] = 5,
+            [CombatCardStat.HastedCardsCount] = 6,
+            [CombatCardStat.SlowedCardsCount] = 7,
+            [CombatCardStat.FrozenCardsCount] = 8,
+            [CombatCardStat.RegenAdded] = 9,
+            [CombatCardStat.RageAdded] = 10,
+            [CombatCardStat.UseCount] = 13,
+            [CombatCardStat.TempoAdded] = 11,
+            [CombatCardStat.TempoSpent] = 12,
         };
         simulation.CardStats["source"] = statistics;
 
@@ -2723,18 +2660,10 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Fact]
-    public void Card_action_cost_event_is_projected_without_a_compile_time_runtime_type_dependency()
+    public void Card_action_cost_event_is_projected_as_a_tempo_spend()
     {
-        var simulation = new CombatSim();
-        simulation
-            .Frames[0]
-            .Events.Add(
-                OptionalCombatSimEventFactory.CardActionCostSpent(
-                    "source",
-                    EPlayerAttributeType.Tempo,
-                    ECardAttributeType.TempoCost
-                )
-            );
+        var simulation = new CombatTimeline();
+        simulation.Frames[0].Events.Add(TempoCostSpent("source"));
 
         var group = Assert.Single(
             Assert.Single(CombatImpactProjector.Project(simulation, Entities()).Sources).Groups
@@ -2746,7 +2675,7 @@ public sealed partial class CombatImpactProjectorTests
         Assert.Null(group.ObservedValue);
         Assert.Null(group.AuthoritativeMetric);
         Assert.Equal(
-            CombatImpactProjector.PlayerId(ECombatantId.Player),
+            CombatImpactProjector.PlayerId(Combatant.Player),
             Assert.Single(group.Targets).Entity.Id
         );
     }
@@ -2754,38 +2683,32 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Projects_tempo_gain_and_card_action_cost_spend_with_authoritative_totals()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var gainFrame = new CombatSimFrame();
+        var gainFrame = new CombatFrame();
         gainFrame.Events.Add(
-            Executed("source", EActionCommandType.PlayerTempoApply, Player(ECombatantId.Player))
+            Executed("source", CombatActionType.PlayerTempoApply, Player(Combatant.Player))
         );
-        gainFrame.PlayerUpdates = new CombatSimPlayerUpdate
+        gainFrame.PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Tempo] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Tempo] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Tempo,
+                    AttributeType = CombatPlayerAttribute.Tempo,
                     PreviousValue = 0,
                     CurrentValue = 6,
                 },
             },
         };
         simulation.Frames.Add(gainFrame);
-        var spendFrame = new CombatSimFrame();
-        spendFrame.Events.Add(
-            OptionalCombatSimEventFactory.CardActionCostSpent(
-                "source",
-                EPlayerAttributeType.Tempo,
-                ECardAttributeType.TempoCost
-            )
-        );
+        var spendFrame = new CombatFrame();
+        spendFrame.Events.Add(TempoCostSpent("source"));
         simulation.Frames.Add(spendFrame);
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.TempoAdded] = 6,
-            [ECardStats.TempoSpent] = 4,
+            [CombatCardStat.TempoAdded] = 6,
+            [CombatCardStat.TempoSpent] = 4,
         };
 
         var source = Assert.Single(CombatImpactProjector.Project(simulation, Entities()).Sources);
@@ -2799,7 +2722,7 @@ public sealed partial class CombatImpactProjectorTests
         Assert.Equal(6, gained.ObservedValue);
         Assert.Equal(6, gained.AuthoritativeMetric?.Value);
         Assert.Equal(
-            CombatImpactProjector.PlayerId(ECombatantId.Player),
+            CombatImpactProjector.PlayerId(Combatant.Player),
             Assert.Single(gained.Targets).Entity.Id
         );
 
@@ -2811,7 +2734,7 @@ public sealed partial class CombatImpactProjectorTests
         Assert.Null(spent.ObservedValue);
         Assert.Equal(4, spent.AuthoritativeMetric?.Value);
         Assert.Equal(
-            CombatImpactProjector.PlayerId(ECombatantId.Player),
+            CombatImpactProjector.PlayerId(Combatant.Player),
             Assert.Single(spent.Targets).Entity.Id
         );
     }
@@ -2819,37 +2742,29 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Tempo_gain_does_not_claim_a_same_frame_delta_that_also_includes_cost_spend()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerTempoApply, Player(ECombatantId.Player))
+                Executed("source", CombatActionType.PlayerTempoApply, Player(Combatant.Player))
             );
-        simulation
-            .Frames[0]
-            .Events.Add(
-                OptionalCombatSimEventFactory.CardActionCostSpent(
-                    "source",
-                    EPlayerAttributeType.Tempo,
-                    ECardAttributeType.TempoCost
-                )
-            );
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].Events.Add(TempoCostSpent("source"));
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Tempo] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Tempo] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Tempo,
+                    AttributeType = CombatPlayerAttribute.Tempo,
                     PreviousValue = 5,
                     CurrentValue = 7,
                 },
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.TempoAdded] = 6,
-            [ECardStats.TempoSpent] = 4,
+            [CombatCardStat.TempoAdded] = 6,
+            [CombatCardStat.TempoSpent] = 4,
         };
 
         var groups = Assert
@@ -2867,31 +2782,27 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Explicit_tempo_remove_reports_the_positive_amount_spent()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed(
-                    "source",
-                    EActionCommandType.PlayerTempoRemove,
-                    Player(ECombatantId.Player)
-                )
+                Executed("source", CombatActionType.PlayerTempoRemove, Player(Combatant.Player))
             );
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Tempo] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Tempo] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Tempo,
+                    AttributeType = CombatPlayerAttribute.Tempo,
                     PreviousValue = 7,
                     CurrentValue = 3,
                 },
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.TempoSpent] = 4,
+            [CombatCardStat.TempoSpent] = 4,
         };
 
         var group = Assert.Single(
@@ -2908,32 +2819,32 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Ambiguous_same_frame_values_are_not_assigned_to_targets()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = -200,
                 },
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.DamageDone] = 200,
+            [CombatCardStat.DamageDone] = 200,
         };
 
         var group = Assert.Single(
@@ -2952,27 +2863,27 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Generic_card_modifier_ignores_live_cooldown_when_resolving_damage_amount()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.CardModifyAttribute, CardTarget("target"))
+                Executed("source", CombatActionType.CardModifyAttribute, CardTarget("target"))
             );
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.Cooldown] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.Cooldown] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.Cooldown,
+                    AttributeType = CombatCardAttribute.Cooldown,
                     PreviousValue = 5000,
                     CurrentValue = 4950,
                 },
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = 0,
                     CurrentValue = 187,
                 },
@@ -2991,14 +2902,14 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Bass_same_frame_damage_gains_are_split_when_configured_values_match_the_native_delta()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var bassId = InstanceId.TryParse("bass");
+        var bassId = ("bass");
         var damage = 1000;
 
         for (var index = 0; index < 12; index++)
         {
-            var frame = new CombatSimFrame();
+            var frame = new CombatFrame();
             frame.Events.Add(AttributeExecution("bass", "bass-gain", "bass"));
             frame.Events.Add(AttributeExecution("slow-and-steady", "steady-gain", "bass"));
             var delta = 104;
@@ -3014,7 +2925,7 @@ public sealed partial class CombatImpactProjectorTests
 
         for (var index = 0; index < 2; index++)
         {
-            var frame = new CombatSimFrame();
+            var frame = new CombatFrame();
             frame.Events.Add(AttributeExecution("snowstorm", "snowstorm-gain", "bass"));
             frame.CardUpdates[bassId] = DamageUpdate(bassId, damage, damage + 10);
             damage += 10;
@@ -3055,8 +2966,8 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Concurrent_configured_attribute_mismatch_preserves_counts_and_one_received_residual()
     {
-        var simulation = new CombatSim();
-        var bassId = InstanceId.TryParse("bass");
+        var simulation = new CombatTimeline();
+        var bassId = ("bass");
         simulation.Frames[0].Events.Add(AttributeExecution("bass", "bass-gain", "bass"));
         simulation
             .Frames[0]
@@ -3127,23 +3038,26 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Solves_one_statically_unknown_concurrent_attribute_claimant_from_the_net_delta()
     {
-        var simulation = new CombatSim();
-        var targetId = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var targetId = ("target");
         simulation.Frames[0].Events.Add(AttributeExecution("known", "known-gain", "target"));
         simulation.Frames[0].Events.Add(AttributeExecution("unknown", "unknown-gain", "target"));
         simulation.Frames[0].CardUpdates[targetId] = DamageUpdate(targetId, 100, 117);
 
-        var knownModifier = new TActionCardModifyAttribute
+        var knownModifier = new CombatAttributeModifier
         {
-            AttributeType = ECardAttributeType.DamageAmount,
-            Operation = EAttributeModifierOperation.Add,
-            Value = new TFixedValue { Value = 5 },
+            AttributeType = CombatCardAttribute.DamageAmount,
+            Operation = CombatAttributeOperation.Add,
+            Value = new CombatFixedValue { Value = 5 },
         };
-        var unknownModifier = new TActionCardModifyAttribute
+        var unknownModifier = new CombatAttributeModifier
         {
-            AttributeType = ECardAttributeType.DamageAmount,
-            Operation = EAttributeModifierOperation.Add,
-            Value = new TReferenceValueCardAttributeUnscaled(),
+            AttributeType = CombatCardAttribute.DamageAmount,
+            Operation = CombatAttributeOperation.Add,
+            Value = new CombatOpaqueReference
+            {
+                Kind = CombatOpaqueReferenceKind.CardAttributeUnscaled,
+            },
         };
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["known"] = AttributeModifierEntity(
@@ -3185,8 +3099,8 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Rejects_a_solved_range_delta_outside_the_configured_bounds()
     {
-        var simulation = new CombatSim();
-        var targetId = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var targetId = ("target");
         simulation.Frames[0].Events.Add(AttributeExecution("known", "known-gain", "target"));
         simulation.Frames[0].Events.Add(AttributeExecution("unknown", "unknown-gain", "target"));
         simulation.Frames[0].CardUpdates[targetId] = DamageUpdate(targetId, 100, 117);
@@ -3196,11 +3110,11 @@ public sealed partial class CombatImpactProjectorTests
             "known",
             "Known Gain",
             "known-gain",
-            new TActionCardModifyAttribute
+            new CombatAttributeModifier
             {
-                AttributeType = ECardAttributeType.DamageAmount,
-                Operation = EAttributeModifierOperation.Add,
-                Value = new TFixedValue { Value = 5 },
+                AttributeType = CombatCardAttribute.DamageAmount,
+                Operation = CombatAttributeOperation.Add,
+                Value = new CombatFixedValue { Value = 5 },
             },
             5
         );
@@ -3208,11 +3122,11 @@ public sealed partial class CombatImpactProjectorTests
             "unknown",
             "Range Gain",
             "unknown-gain",
-            new TActionCardModifyAttribute
+            new CombatAttributeModifier
             {
-                AttributeType = ECardAttributeType.DamageAmount,
-                Operation = EAttributeModifierOperation.Add,
-                Value = new TRangeValue { MinValue = 1, MaxValue = 3 },
+                AttributeType = CombatCardAttribute.DamageAmount,
+                Operation = CombatAttributeOperation.Add,
+                Value = new CombatRangeValue { MinValue = 1, MaxValue = 3 },
             },
             6
         );
@@ -3240,17 +3154,17 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Mixed_exact_and_residual_attribute_frames_hide_partial_source_amounts()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var bassId = InstanceId.TryParse("bass");
+        var bassId = ("bass");
 
-        var exact = new CombatSimFrame();
+        var exact = new CombatFrame();
         exact.Events.Add(AttributeExecution("bass", "bass-gain", "bass"));
         exact.Events.Add(AttributeExecution("slow-and-steady", "steady-gain", "bass"));
         exact.CardUpdates[bassId] = DamageUpdate(bassId, 1000, 1104);
         simulation.Frames.Add(exact);
 
-        var residual = new CombatSimFrame();
+        var residual = new CombatFrame();
         residual.Events.Add(AttributeExecution("bass", "bass-gain", "bass"));
         residual.Events.Add(AttributeExecution("slow-and-steady", "steady-gain", "bass"));
         residual.CardUpdates[bassId] = DamageUpdate(bassId, 1104, 1209);
@@ -3318,13 +3232,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Opposing_residual_attribute_frames_conserve_a_zero_net_transition()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var bassId = InstanceId.TryParse("bass");
+        var bassId = ("bass");
         var values = new[] { (Previous: 1000, Current: 1105), (Previous: 1105, Current: 1000) };
         foreach (var (previous, current) in values)
         {
-            var frame = new CombatSimFrame();
+            var frame = new CombatFrame();
             frame.Events.Add(AttributeExecution("bass", "bass-gain", "bass"));
             frame.Events.Add(AttributeExecution("slow-and-steady", "steady-gain", "bass"));
             frame.CardUpdates[bassId] = DamageUpdate(bassId, previous, current);
@@ -3362,23 +3276,23 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Known_effect_attribute_does_not_fall_back_to_an_unrelated_transition()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         var executed = Executed(
             "source",
-            EActionCommandType.CardModifyAttribute,
+            CombatActionType.CardModifyAttribute,
             CardTarget("target")
         );
         executed.EffectId = "0";
         simulation.Frames[0].Events.Add(executed);
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = 40,
                     CurrentValue = 50,
                 },
@@ -3387,9 +3301,9 @@ public sealed partial class CombatImpactProjectorTests
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            AbilityAttributeTypesByEffectId = new Dictionary<string, ECardAttributeType>
+            AbilityAttributeTypesByEffectId = new Dictionary<string, CombatCardAttribute>
             {
-                ["0"] = ECardAttributeType.SellPrice,
+                ["0"] = CombatCardAttribute.SellPrice,
             },
         };
 
@@ -3401,7 +3315,7 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Effect_ids_preserve_concurrent_value_and_crit_gains_from_the_same_replay_frames()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         for (var frameIndex = 0; frameIndex < 3; frameIndex++)
             simulation.Frames.Add(ValueAndCritGainFrame(frameIndex));
@@ -3413,9 +3327,9 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            AbilityAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            AbilityAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
-                ["0"] = ECardAttributeType.SellPrice,
+                ["0"] = CombatCardAttribute.SellPrice,
             }
         );
         entities["caviar"] = new CombatImpactEntity(
@@ -3424,9 +3338,9 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             6,
-            AuraAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            AuraAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
-                ["1"] = ECardAttributeType.CritChance,
+                ["1"] = CombatCardAttribute.CritChance,
             }
         );
         entities["soul"] = new CombatImpactEntity("soul", "Soul of the District", "Item", null, 7);
@@ -3477,11 +3391,11 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Theory]
-    [InlineData(EActionCommandType.FlyingStart)]
-    [InlineData(EActionCommandType.FlyingStop)]
-    public void Flying_actions_are_presented_with_exact_source_and_target(EActionCommandType action)
+    [InlineData(CombatActionType.FlyingStart)]
+    [InlineData(CombatActionType.FlyingStop)]
+    public void Flying_actions_are_presented_with_exact_source_and_target(CombatActionType action)
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames[0].Events.Add(Executed("source", action, CardTarget("target")));
 
         var report = CombatImpactProjector.Project(simulation, Entities());
@@ -3496,33 +3410,33 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Keeps_configured_control_duration_separate_from_native_target_count()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardSlow,
-                    new EffectTargetCard { Target = target }
+                    CombatActionType.CardSlow,
+                    new CombatCardTarget { Target = target }
                 )
             );
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.Slow] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.Slow] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.Slow,
+                    AttributeType = CombatCardAttribute.Slow,
                     PreviousValue = 0,
                     CurrentValue = 1950,
                 },
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.SlowedCardsCount] = 1,
+            [CombatCardStat.SlowedCardsCount] = 1,
         };
 
         var group = Assert.Single(
@@ -3531,7 +3445,7 @@ public sealed partial class CombatImpactProjectorTests
                     CombatImpactProjector
                         .Project(
                             simulation,
-                            EntitiesWithSourceAttribute(ECardAttributeType.SlowAmount, 2_000)
+                            EntitiesWithSourceAttribute(CombatCardAttribute.SlowAmount, 2_000)
                         )
                         .Sources
                 )
@@ -3548,14 +3462,14 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Merges_disable_and_destroy_occurrences_in_both_perspectives()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardDisable,
-                    new EffectTargetCard { Target = InstanceId.TryParse("target") }
+                    CombatActionType.CardDisable,
+                    new CombatCardTarget { Target = ("target") }
                 )
             );
         simulation
@@ -3563,8 +3477,8 @@ public sealed partial class CombatImpactProjectorTests
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardDestroy,
-                    new EffectTargetCard { Target = InstanceId.TryParse("target") }
+                    CombatActionType.CardDestroy,
+                    new CombatCardTarget { Target = ("target") }
                 )
             );
 
@@ -3615,14 +3529,14 @@ public sealed partial class CombatImpactProjectorTests
         string? expectedSource
     )
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     directSource,
-                    EActionCommandType.PlayerDamage,
-                    Player(ECombatantId.Opponent),
+                    CombatActionType.PlayerDamage,
+                    Player(Combatant.Opponent),
                     triggerSource
                 )
             );
@@ -3641,41 +3555,25 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Fact]
-    public void Trigger_sources_ignore_condition_observations_without_executed_effects()
+    public void Trigger_sources_count_only_executed_effects()
     {
-        var simulation = new CombatSim();
-        var observedTriggers = new[] { "trigger", "target", "target-2" };
-        for (var index = 0; index < 17; index++)
-        {
-            simulation
-                .Frames[0]
-                .Events.Add(
-                    new CombatSimEventEffectTriggered
-                    {
-                        ExecutionContextId = $"observed-context-{index}",
-                        EffectId = "freeze-effect",
-                        Source = InstanceId.TryParse("source"),
-                        TriggerSource = InstanceId.TryParse(
-                            observedTriggers[index % observedTriggers.Length]
-                        ),
-                        Targets = { CardTarget("target") },
-                    }
-                );
-        }
+        // The timeline carries no condition observations: the host adapters drop the game's
+        // triggered-without-executed events (CombatImpactAdapter.Tests pins that).
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardFreeze,
+                    CombatActionType.CardFreeze,
                     CardTarget("target"),
                     triggerSource: "trigger",
                     executionContextId: "executed-context"
                 )
             );
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = 17,
+            [CombatCardStat.UseCount] = 17,
         };
 
         var source = Assert.Single(CombatImpactProjector.Project(simulation, Entities()).Sources);
@@ -3692,13 +3590,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Executed_context_collapses_target_fan_out_to_one_trigger()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardSlow,
+                    CombatActionType.CardSlow,
                     CardTarget("target"),
                     triggerSource: "trigger",
                     executionContextId: "trigger-context"
@@ -3709,7 +3607,7 @@ public sealed partial class CombatImpactProjectorTests
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardSlow,
+                    CombatActionType.CardSlow,
                     CardTarget("target-2"),
                     triggerSource: "trigger",
                     executionContextId: "trigger-context"
@@ -3727,7 +3625,7 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Same_frame_effect_partitions_collapse_to_one_trigger_without_losing_targets()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         for (var index = 0; index < 10; index++)
         {
@@ -3741,7 +3639,7 @@ public sealed partial class CombatImpactProjectorTests
             );
             var executed = Executed(
                 "source",
-                EActionCommandType.CardSlow,
+                CombatActionType.CardSlow,
                 CardTarget(targetId),
                 triggerSource: "trigger",
                 executionContextId: index < 5 ? "opponent-partition" : "player-partition"
@@ -3766,12 +3664,12 @@ public sealed partial class CombatImpactProjectorTests
     public void Repair_destroy_transform_battles_can_create_wide_unique_target_groups()
     {
         const int useCount = 45;
-        var simulation = new CombatSim();
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        var simulation = new CombatTimeline();
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.UseCount] = useCount,
+            [CombatCardStat.UseCount] = useCount,
         };
-        var entities = EntitiesWithSourceAttribute(ECardAttributeType.HasteAmount, 1_000)
+        var entities = EntitiesWithSourceAttribute(CombatCardAttribute.HasteAmount, 1_000)
             .ToDictionary(item => item.Key, item => item.Value);
 
         for (var index = 0; index < useCount; index++)
@@ -3786,26 +3684,22 @@ public sealed partial class CombatImpactProjectorTests
             );
             simulation
                 .Frames[0]
-                .Events.Add(
-                    Executed("source", EActionCommandType.CardDestroy, CardTarget(targetId))
-                );
+                .Events.Add(Executed("source", CombatActionType.CardDestroy, CardTarget(targetId)));
             simulation
                 .Frames[0]
                 .Events.Add(
                     Executed(
                         "source",
-                        EActionCommandType.CardTransformDestroyed,
+                        CombatActionType.CardTransformDestroyed,
                         CardTarget(targetId)
                     )
                 );
             simulation
                 .Frames[0]
-                .Events.Add(
-                    Executed("source", EActionCommandType.CardRepair, CardTarget(targetId))
-                );
+                .Events.Add(Executed("source", CombatActionType.CardRepair, CardTarget(targetId)));
             simulation
                 .Frames[0]
-                .Events.Add(Executed("source", EActionCommandType.CardHaste, CardTarget(targetId)));
+                .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget(targetId)));
         }
 
         var source = Assert.Single(CombatImpactProjector.Project(simulation, entities).Sources);
@@ -3827,13 +3721,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Trigger_sources_are_attached_to_the_group_they_caused()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardSlow,
+                    CombatActionType.CardSlow,
                     CardTarget("target"),
                     triggerSource: "trigger"
                 )
@@ -3843,7 +3737,7 @@ public sealed partial class CombatImpactProjectorTests
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardHaste,
+                    CombatActionType.CardHaste,
                     CardTarget("target"),
                     triggerSource: "target-2"
                 )
@@ -3860,35 +3754,35 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Mixed_self_and_external_trigger_sources_keep_self_to_reconcile_charge_counts()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardCharge,
+                    CombatActionType.CardCharge,
                     CardTarget("source"),
                     triggerSource: "trigger"
                 )
             );
-        simulation.Frames.Add(new CombatSimFrame());
+        simulation.Frames.Add(new CombatFrame());
         simulation
             .Frames[1]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardCharge,
+                    CombatActionType.CardCharge,
                     CardTarget("source"),
                     triggerSource: "source"
                 )
             );
-        simulation.Frames.Add(new CombatSimFrame());
+        simulation.Frames.Add(new CombatFrame());
         simulation
             .Frames[2]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardCharge,
+                    CombatActionType.CardCharge,
                     CardTarget("source"),
                     triggerSource: "trigger"
                 )
@@ -3898,7 +3792,7 @@ public sealed partial class CombatImpactProjectorTests
             CombatImpactProjector
                 .Project(
                     simulation,
-                    EntitiesWithSourceAttribute(ECardAttributeType.ChargeAmount, 1_000)
+                    EntitiesWithSourceAttribute(CombatCardAttribute.ChargeAmount, 1_000)
                 )
                 .Sources
         );
@@ -3927,24 +3821,24 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Same_trigger_source_in_separate_frames_counts_as_separate_activations()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardSlow,
+                    CombatActionType.CardSlow,
                     CardTarget("target"),
                     triggerSource: "trigger"
                 )
             );
-        simulation.Frames.Add(new CombatSimFrame());
+        simulation.Frames.Add(new CombatFrame());
         simulation
             .Frames[1]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardSlow,
+                    CombatActionType.CardSlow,
                     CardTarget("target-2"),
                     triggerSource: "trigger"
                 )
@@ -3961,17 +3855,17 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Unclassified_executions_do_not_create_trigger_provenance()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectExecuted
+                new CombatEffectExecuted
                 {
                     ExecutionContextId = "ignored-context",
-                    Source = InstanceId.TryParse("source"),
-                    TriggerSource = InstanceId.TryParse("target-2"),
-                    ActionType = EActionCommandType.GameModifyTime,
-                    Target = Player(ECombatantId.Opponent),
+                    Source = ("source"),
+                    TriggerSource = ("target-2"),
+                    ActionType = CombatActionType.GameModifyTime,
+                    Target = Player(Combatant.Opponent),
                 }
             );
         simulation
@@ -3979,7 +3873,7 @@ public sealed partial class CombatImpactProjectorTests
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardFreeze,
+                    CombatActionType.CardFreeze,
                     CardTarget("target"),
                     triggerSource: "trigger",
                     executionContextId: "executed-context"
@@ -3998,13 +3892,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Trigger_source_fallback_is_not_mislabeled_as_self_trigger()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "effect",
-                    EActionCommandType.CardSlow,
+                    CombatActionType.CardSlow,
                     CardTarget("target"),
                     triggerSource: "source"
                 )
@@ -4026,13 +3920,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Unsupported_trigger_reference_is_an_explicit_unattributed_application()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardSlow,
+                    CombatActionType.CardSlow,
                     CardTarget("target"),
                     triggerSource: "effect"
                 )
@@ -4053,15 +3947,15 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Filters_unclassified_actions_and_discloses_unresolved_targets()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectExecuted
+                new CombatEffectExecuted
                 {
-                    Source = InstanceId.TryParse("effect"),
-                    TriggerSource = InstanceId.TryParse("source"),
-                    ActionType = EActionCommandType.GameModifyTime,
+                    Source = ("effect"),
+                    TriggerSource = ("source"),
+                    ActionType = CombatActionType.GameModifyTime,
                     Target = null!,
                 }
             );
@@ -4070,7 +3964,7 @@ public sealed partial class CombatImpactProjectorTests
             .Events.Add(
                 Executed(
                     "source",
-                    EActionCommandType.CardDestroy,
+                    CombatActionType.CardDestroy,
                     CardTarget("missing-target"),
                     triggerSource: "trigger"
                 )
@@ -4084,27 +3978,25 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Theory]
-    [InlineData(EDamageType.Regen, null)]
-    [InlineData(EDamageType.Heal, 50)]
+    [InlineData(CombatDamageType.Regen, null)]
+    [InlineData(CombatDamageType.Heal, 50)]
     public void Player_heal_matches_only_heal_adjustments(
-        EDamageType damageType,
+        CombatDamageType damageType,
         int? expectedValue
     )
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
-            .Events.Add(
-                Executed("source", EActionCommandType.PlayerHeal, Player(ECombatantId.Player))
-            );
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+            .Events.Add(Executed("source", CombatActionType.PlayerHeal, Player(Combatant.Player)));
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
                     DamageType = damageType,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = 50,
                 },
             },
@@ -4125,61 +4017,61 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Reconstructs_lifesteal_from_unrecorded_health_gain_on_the_damage_frame()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("stinger", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("stinger", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         simulation.Frames[0].OpponentUpdates = Damage(-46);
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Health] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Health] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Health,
+                    AttributeType = CombatPlayerAttribute.Health,
                     PreviousValue = 665,
                     CurrentValue = 706,
                 },
             },
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Burn,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Burn,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = -5,
                 },
             },
         };
-        var secondFrame = new CombatSimFrame
+        var secondFrame = new CombatFrame
         {
             OpponentUpdates = Damage(-78),
-            PlayerUpdates = new CombatSimPlayerUpdate
+            PlayerUpdates = new CombatPlayerUpdate
             {
                 Attributes =
                 {
-                    [EPlayerAttributeType.Health] = new CombatSimPlayerAttributeUpdate
+                    [CombatPlayerAttribute.Health] = new CombatPlayerAttributeUpdate
                     {
-                        AttributeType = EPlayerAttributeType.Health,
+                        AttributeType = CombatPlayerAttribute.Health,
                         PreviousValue = 239,
                         CurrentValue = 303,
                     },
                 },
                 HealthAdjustments =
                 {
-                    new CombatSimPlayerHealthAdjustment
+                    new CombatHealthAdjustment
                     {
-                        DamageType = EDamageType.Burn,
-                        AttributeChanged = EPlayerHealthChangeType.Health,
+                        DamageType = CombatDamageType.Burn,
+                        AttributeChanged = CombatHealthChange.Health,
                         Amount = -14,
                     },
                 },
             },
         };
         secondFrame.Events.Add(
-            Executed("stinger", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+            Executed("stinger", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
         );
         simulation.Frames.Add(secondFrame);
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
@@ -4189,11 +4081,11 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            Attributes: new Dictionary<ECardAttributeType, int>
+            Attributes: new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.Lifesteal] = 1,
+                [CombatCardAttribute.Lifesteal] = 1,
             },
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
 
         var source = Assert.Single(
@@ -4206,7 +4098,7 @@ public sealed partial class CombatImpactProjectorTests
         Assert.Equal(124, healing.ObservedValue);
         Assert.Equal(CombatImpactOccurrenceBasis.ReconstructedTransition, healing.OccurrenceBasis);
         Assert.Equal(
-            CombatImpactProjector.PlayerId(ECombatantId.Player),
+            CombatImpactProjector.PlayerId(Combatant.Player),
             Assert.Single(healing.Targets).Entity.Id
         );
     }
@@ -4214,20 +4106,20 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Lifesteal_counts_only_realized_healing_when_the_damage_overheals()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("stinger", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("stinger", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         simulation.Frames[0].OpponentUpdates = Damage(-78);
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Health] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Health] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Health,
+                    AttributeType = CombatPlayerAttribute.Health,
                     PreviousValue = 730,
                     CurrentValue = 750,
                 },
@@ -4240,11 +4132,11 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             5,
-            Attributes: new Dictionary<ECardAttributeType, int>
+            Attributes: new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.Lifesteal] = 1,
+                [CombatCardAttribute.Lifesteal] = 1,
             },
-            CombatantId: ECombatantId.Player
+            CombatantId: Combatant.Player
         );
 
         var source = Assert.Single(
@@ -4259,32 +4151,32 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Does_not_guess_lifesteal_ownership_when_multiple_sources_are_overheal_ambiguous()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("first", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("first", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("second", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("second", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
-        simulation.Frames[0].OpponentUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                DamageAdjustment(EPlayerHealthChangeType.Health, -30, isCritical: false),
-                DamageAdjustment(EPlayerHealthChangeType.Health, -20, isCritical: false),
+                DamageAdjustment(CombatHealthChange.Health, -30, isCritical: false),
+                DamageAdjustment(CombatHealthChange.Health, -20, isCritical: false),
             },
         };
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Health] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Health] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Health,
+                    AttributeType = CombatPlayerAttribute.Health,
                     PreviousValue = 710,
                     CurrentValue = 750,
                 },
@@ -4299,11 +4191,11 @@ public sealed partial class CombatImpactProjectorTests
                 "Item",
                 null,
                 order,
-                Attributes: new Dictionary<ECardAttributeType, int>
+                Attributes: new Dictionary<CombatCardAttribute, int>
                 {
-                    [ECardAttributeType.Lifesteal] = 1,
+                    [CombatCardAttribute.Lifesteal] = 1,
                 },
-                CombatantId: ECombatantId.Player
+                CombatantId: Combatant.Player
             );
         }
 
@@ -4320,42 +4212,42 @@ public sealed partial class CombatImpactProjectorTests
     {
         const string zarlic = "zarlic";
         const string decoy = "decoy";
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
         for (var index = 0; index < 10; index++)
         {
-            var frame = new CombatSimFrame();
+            var frame = new CombatFrame();
             frame.Events.Add(
                 Executed(
                     zarlic,
-                    EActionCommandType.CardHaste,
+                    CombatActionType.CardHaste,
                     CardTarget(zarlic),
                     triggerSource: zarlic
                 )
             );
-            var target = InstanceId.TryParse(zarlic);
-            frame.CardUpdates[target] = new CombatSimCardUpdate
+            var target = (zarlic);
+            frame.CardUpdates[target] = new CombatCardUpdate
             {
                 CardInstanceId = target,
                 Attributes =
                 {
-                    [ECardAttributeType.Haste] = new CombatSimCardAttributeUpdate
+                    [CombatCardAttribute.Haste] = new CombatCardAttributeUpdate
                     {
-                        AttributeType = ECardAttributeType.Haste,
+                        AttributeType = CombatCardAttribute.Haste,
                         PreviousValue = 0,
                         CurrentValue = 950,
                     },
                 },
             };
-            var decoyTarget = InstanceId.TryParse(decoy);
-            frame.CardUpdates[decoyTarget] = new CombatSimCardUpdate
+            var decoyTarget = (decoy);
+            frame.CardUpdates[decoyTarget] = new CombatCardUpdate
             {
                 CardInstanceId = decoyTarget,
                 Attributes =
                 {
-                    [ECardAttributeType.Haste] = new CombatSimCardAttributeUpdate
+                    [CombatCardAttribute.Haste] = new CombatCardAttributeUpdate
                     {
-                        AttributeType = ECardAttributeType.Haste,
+                        AttributeType = CombatCardAttribute.Haste,
                         PreviousValue = 1000,
                         CurrentValue = 950,
                     },
@@ -4363,10 +4255,10 @@ public sealed partial class CombatImpactProjectorTests
             };
             simulation.Frames.Add(frame);
         }
-        simulation.CardStats[zarlic] = new Dictionary<ECardStats, int>
+        simulation.CardStats[zarlic] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.HastedCardsCount] = 10,
-            [ECardStats.UseCount] = 10,
+            [CombatCardStat.HastedCardsCount] = 10,
+            [CombatCardStat.UseCount] = 10,
         };
         var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
         {
@@ -4376,9 +4268,9 @@ public sealed partial class CombatImpactProjectorTests
                 "Item",
                 null,
                 0,
-                Attributes: new Dictionary<ECardAttributeType, int>
+                Attributes: new Dictionary<CombatCardAttribute, int>
                 {
-                    [ECardAttributeType.HasteAmount] = 1_000,
+                    [CombatCardAttribute.HasteAmount] = 1_000,
                 }
             ),
             [decoy] = new(decoy, "Other Food", "Item", null, 1),
@@ -4428,31 +4320,31 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Positive_same_frame_haste_from_another_source_does_not_fan_out_targets()
     {
-        var simulation = new CombatSim();
-        var first = InstanceId.TryParse("target");
-        var second = InstanceId.TryParse("target-2");
+        var simulation = new CombatTimeline();
+        var first = ("target");
+        var second = ("target-2");
         simulation
             .Frames[0]
-            .Events.Add(Executed("source", EActionCommandType.CardHaste, CardTarget("target")));
+            .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target")));
         simulation
             .Frames[0]
-            .Events.Add(Executed("trigger", EActionCommandType.CardHaste, CardTarget("target-2")));
+            .Events.Add(Executed("trigger", CombatActionType.CardHaste, CardTarget("target-2")));
         simulation.Frames[0].CardUpdates[first] = HasteUpdate(first, 950);
         simulation.Frames[0].CardUpdates[second] = HasteUpdate(second, 1950);
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.HasteAmount] = 1_000,
+                [CombatCardAttribute.HasteAmount] = 1_000,
             },
         };
         entities["trigger"] = entities["trigger"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.HasteAmount] = 2_000,
+                [CombatCardAttribute.HasteAmount] = 2_000,
             },
         };
 
@@ -4475,34 +4367,34 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Configured_duration_is_not_lost_when_actions_share_a_frame_and_target()
     {
-        var simulation = new CombatSim();
-        var first = InstanceId.TryParse("target");
-        var second = InstanceId.TryParse("target-2");
+        var simulation = new CombatTimeline();
+        var first = ("target");
+        var second = ("target-2");
         simulation
             .Frames[0]
-            .Events.Add(Executed("source", EActionCommandType.CardHaste, CardTarget("target")));
+            .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target")));
         simulation
             .Frames[0]
-            .Events.Add(Executed("trigger", EActionCommandType.CardHaste, CardTarget("target")));
+            .Events.Add(Executed("trigger", CombatActionType.CardHaste, CardTarget("target")));
         simulation
             .Frames[0]
-            .Events.Add(Executed("source", EActionCommandType.CardHaste, CardTarget("target-2")));
+            .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target-2")));
         simulation.Frames[0].CardUpdates[first] = HasteUpdate(first, 950);
         simulation.Frames[0].CardUpdates[second] = HasteUpdate(second, 1950);
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.HasteAmount] = 1_000,
+                [CombatCardAttribute.HasteAmount] = 1_000,
             },
         };
         entities["trigger"] = entities["trigger"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.HasteAmount] = 2_000,
+                [CombatCardAttribute.HasteAmount] = 2_000,
             },
         };
 
@@ -4523,19 +4415,19 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Configured_duration_ignores_status_net_delta_when_decay_shares_the_frame()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
-            .Events.Add(Executed("source", EActionCommandType.CardHaste, CardTarget("target")));
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+            .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target")));
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.Haste] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.Haste] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.Haste,
+                    AttributeType = CombatCardAttribute.Haste,
                     PreviousValue = 1000,
                     CurrentValue = 1950,
                 },
@@ -4544,7 +4436,7 @@ public sealed partial class CombatImpactProjectorTests
 
         var report = CombatImpactProjector.Project(
             simulation,
-            EntitiesWithSourceAttribute(ECardAttributeType.HasteAmount, 1_000)
+            EntitiesWithSourceAttribute(CombatCardAttribute.HasteAmount, 1_000)
         );
         var group = Assert.Single(Assert.Single(report.Sources).Groups);
         Assert.Equal(1_000, group.ObservedValue);
@@ -4556,26 +4448,26 @@ public sealed partial class CombatImpactProjectorTests
     {
         var cases = new[]
         {
-            (EActionCommandType.CardCharge, ECardAttributeType.Cooldown, CombatImpactKind.Charge),
-            (EActionCommandType.CardHaste, ECardAttributeType.Haste, CombatImpactKind.Haste),
-            (EActionCommandType.CardSlow, ECardAttributeType.Slow, CombatImpactKind.Slow),
-            (EActionCommandType.CardFreeze, ECardAttributeType.Freeze, CombatImpactKind.Freeze),
+            (CombatActionType.CardCharge, CombatCardAttribute.Cooldown, CombatImpactKind.Charge),
+            (CombatActionType.CardHaste, CombatCardAttribute.Haste, CombatImpactKind.Haste),
+            (CombatActionType.CardSlow, CombatCardAttribute.Slow, CombatImpactKind.Slow),
+            (CombatActionType.CardFreeze, CombatCardAttribute.Freeze, CombatImpactKind.Freeze),
         };
         foreach (var (action, targetAttribute, expectedKind) in cases)
         {
-            var simulation = new CombatSim();
-            var target = InstanceId.TryParse("target");
+            var simulation = new CombatTimeline();
+            var target = ("target");
             simulation.Frames[0].Events.Add(Executed("source", action, CardTarget("target")));
-            simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+            simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
             {
                 CardInstanceId = target,
                 Attributes =
                 {
-                    [targetAttribute] = new CombatSimCardAttributeUpdate
+                    [targetAttribute] = new CombatCardAttributeUpdate
                     {
                         AttributeType = targetAttribute,
-                        PreviousValue = action == EActionCommandType.CardCharge ? 5_000 : 1_000,
-                        CurrentValue = action == EActionCommandType.CardCharge ? 4_000 : 1_950,
+                        PreviousValue = action == CombatActionType.CardCharge ? 5_000 : 1_000,
+                        CurrentValue = action == CombatActionType.CardCharge ? 4_000 : 1_950,
                     },
                 },
             };
@@ -4602,45 +4494,45 @@ public sealed partial class CombatImpactProjectorTests
         var cases = new[]
         {
             (
-                EActionCommandType.CardCharge,
-                ECardAttributeType.ChargeAmount,
-                ECardAttributeType.Cooldown,
+                CombatActionType.CardCharge,
+                CombatCardAttribute.ChargeAmount,
+                CombatCardAttribute.Cooldown,
                 CombatImpactKind.Charge
             ),
             (
-                EActionCommandType.CardHaste,
-                ECardAttributeType.HasteAmount,
-                ECardAttributeType.Haste,
+                CombatActionType.CardHaste,
+                CombatCardAttribute.HasteAmount,
+                CombatCardAttribute.Haste,
                 CombatImpactKind.Haste
             ),
             (
-                EActionCommandType.CardSlow,
-                ECardAttributeType.SlowAmount,
-                ECardAttributeType.Slow,
+                CombatActionType.CardSlow,
+                CombatCardAttribute.SlowAmount,
+                CombatCardAttribute.Slow,
                 CombatImpactKind.Slow
             ),
             (
-                EActionCommandType.CardFreeze,
-                ECardAttributeType.FreezeAmount,
-                ECardAttributeType.Freeze,
+                CombatActionType.CardFreeze,
+                CombatCardAttribute.FreezeAmount,
+                CombatCardAttribute.Freeze,
                 CombatImpactKind.Freeze
             ),
         };
         foreach (var (action, sourceAttribute, targetAttribute, expectedKind) in cases)
         {
-            var simulation = new CombatSim();
-            var target = InstanceId.TryParse("target");
+            var simulation = new CombatTimeline();
+            var target = ("target");
             simulation.Frames[0].Events.Add(Executed("source", action, CardTarget("target")));
-            simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+            simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
             {
                 CardInstanceId = target,
                 Attributes =
                 {
-                    [targetAttribute] = new CombatSimCardAttributeUpdate
+                    [targetAttribute] = new CombatCardAttributeUpdate
                     {
                         AttributeType = targetAttribute,
-                        PreviousValue = action == EActionCommandType.CardCharge ? 5_000 : 1_000,
-                        CurrentValue = action == EActionCommandType.CardCharge ? 4_000 : 1_950,
+                        PreviousValue = action == CombatActionType.CardCharge ? 5_000 : 1_000,
+                        CurrentValue = action == CombatActionType.CardCharge ? 4_000 : 1_950,
                     },
                 },
             };
@@ -4670,20 +4562,18 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Configured_duration_uses_the_source_value_at_each_event_frame()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
-            .Events.Add(Executed("source", EActionCommandType.CardHaste, CardTarget("target")));
-        simulation.Frames.Add(SourceAttributeFrame(ECardAttributeType.HasteAmount, 1_000, 2_000));
-        var laterFrame = new CombatSimFrame();
-        laterFrame.Events.Add(
-            Executed("source", EActionCommandType.CardHaste, CardTarget("target"))
-        );
+            .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target")));
+        simulation.Frames.Add(SourceAttributeFrame(CombatCardAttribute.HasteAmount, 1_000, 2_000));
+        var laterFrame = new CombatFrame();
+        laterFrame.Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target")));
         simulation.Frames.Add(laterFrame);
 
         var report = CombatImpactProjector.Project(
             simulation,
-            EntitiesWithSourceAttribute(ECardAttributeType.HasteAmount, 1_000)
+            EntitiesWithSourceAttribute(CombatCardAttribute.HasteAmount, 1_000)
         );
         var caused = Assert.Single(Assert.Single(report.Sources).Groups);
         var received = Assert.Single(Assert.Single(report.Received).Groups);
@@ -4698,17 +4588,15 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Charge_uses_each_source_cards_configured_amount()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         for (var index = 0; index < 4; index++)
             simulation
                 .Frames[0]
-                .Events.Add(
-                    Executed("finesse", EActionCommandType.CardCharge, CardTarget("target"))
-                );
+                .Events.Add(Executed("finesse", CombatActionType.CardCharge, CardTarget("target")));
         for (var index = 0; index < 3; index++)
             simulation
                 .Frames[0]
-                .Events.Add(Executed("wok", EActionCommandType.CardCharge, CardTarget("target")));
+                .Events.Add(Executed("wok", CombatActionType.CardCharge, CardTarget("target")));
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["finesse"] = new CombatImpactEntity(
@@ -4717,9 +4605,9 @@ public sealed partial class CombatImpactProjectorTests
             "Skill",
             null,
             5,
-            Attributes: new Dictionary<ECardAttributeType, int>
+            Attributes: new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.ChargeAmount] = 1_000,
+                [CombatCardAttribute.ChargeAmount] = 1_000,
             }
         );
         entities["wok"] = new CombatImpactEntity(
@@ -4728,9 +4616,9 @@ public sealed partial class CombatImpactProjectorTests
             "Item",
             null,
             6,
-            Attributes: new Dictionary<ECardAttributeType, int>
+            Attributes: new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.ChargeAmount] = 2_000,
+                [CombatCardAttribute.ChargeAmount] = 2_000,
             }
         );
 
@@ -4771,18 +4659,18 @@ public sealed partial class CombatImpactProjectorTests
     {
         var cases = new[]
         {
-            (EActionCommandType.PlayerRegenApply, EPlayerAttributeType.HealthRegen, 0, 12, 12),
-            (EActionCommandType.PlayerRageApply, EPlayerAttributeType.Rage, 0, 9, 9),
+            (CombatActionType.PlayerRegenApply, CombatPlayerAttribute.HealthRegen, 0, 12, 12),
+            (CombatActionType.PlayerRageApply, CombatPlayerAttribute.Rage, 0, 9, 9),
             (
-                EActionCommandType.PlayerMaxHealthIncrease,
-                EPlayerAttributeType.HealthMax,
+                CombatActionType.PlayerMaxHealthIncrease,
+                CombatPlayerAttribute.HealthMax,
                 100,
                 120,
                 20
             ),
             (
-                EActionCommandType.PlayerMaxHealthDecrease,
-                EPlayerAttributeType.HealthMax,
+                CombatActionType.PlayerMaxHealthDecrease,
+                CombatPlayerAttribute.HealthMax,
                 120,
                 100,
                 -20
@@ -4790,15 +4678,13 @@ public sealed partial class CombatImpactProjectorTests
         };
         foreach (var (action, attribute, previous, current, expected) in cases)
         {
-            var simulation = new CombatSim();
-            simulation
-                .Frames[0]
-                .Events.Add(Executed("source", action, Player(ECombatantId.Player)));
-            simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+            var simulation = new CombatTimeline();
+            simulation.Frames[0].Events.Add(Executed("source", action, Player(Combatant.Player)));
+            simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
             {
                 Attributes =
                 {
-                    [attribute] = new CombatSimPlayerAttributeUpdate
+                    [attribute] = new CombatPlayerAttributeUpdate
                     {
                         AttributeType = attribute,
                         PreviousValue = previous,
@@ -4820,46 +4706,46 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Applied_regen_and_card_regen_gain_from_one_source_remain_distinct()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerRegenApply, Player(ECombatantId.Player))
+                Executed("source", CombatActionType.PlayerRegenApply, Player(Combatant.Player))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.CardModifyAttribute, CardTarget("target"))
+                Executed("source", CombatActionType.CardModifyAttribute, CardTarget("target"))
             );
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.HealthRegen] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.HealthRegen] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.HealthRegen,
+                    AttributeType = CombatPlayerAttribute.HealthRegen,
                     PreviousValue = 0,
                     CurrentValue = 338,
                 },
             },
         };
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.RegenApplyAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.RegenApplyAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.RegenApplyAmount,
+                    AttributeType = CombatCardAttribute.RegenApplyAmount,
                     PreviousValue = 0,
                     CurrentValue = 16,
                 },
             },
         };
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.RegenAdded] = 338,
+            [CombatCardStat.RegenAdded] = 338,
         };
 
         var groups = Assert
@@ -4867,7 +4753,7 @@ public sealed partial class CombatImpactProjectorTests
                 CombatImpactProjector
                     .Project(
                         simulation,
-                        EntitiesWithSourceAttribute(ECardAttributeType.RegenApplyAmount, 4)
+                        EntitiesWithSourceAttribute(CombatCardAttribute.RegenApplyAmount, 4)
                     )
                     .Sources
             )
@@ -4895,38 +4781,38 @@ public sealed partial class CombatImpactProjectorTests
 
     [Theory]
     [InlineData(
-        EActionCommandType.PlayerMaxHealthIncrease,
-        EActionCommandType.PlayerMaxHealthDecrease,
-        ECombatantId.Player,
-        EPlayerAttributeType.HealthMax,
+        CombatActionType.PlayerMaxHealthIncrease,
+        CombatActionType.PlayerMaxHealthDecrease,
+        Combatant.Player,
+        CombatPlayerAttribute.HealthMax,
         100,
         110
     )]
     [InlineData(
-        EActionCommandType.PlayerBurnApply,
-        EActionCommandType.PlayerBurnRemove,
-        ECombatantId.Opponent,
-        EPlayerAttributeType.Burn,
+        CombatActionType.PlayerBurnApply,
+        CombatActionType.PlayerBurnRemove,
+        Combatant.Opponent,
+        CombatPlayerAttribute.Burn,
         10,
         16
     )]
     public void Competing_player_actions_do_not_split_one_transition(
-        EActionCommandType firstAction,
-        EActionCommandType secondAction,
-        ECombatantId target,
-        EPlayerAttributeType attribute,
+        CombatActionType firstAction,
+        CombatActionType secondAction,
+        Combatant target,
+        CombatPlayerAttribute attribute,
         int previous,
         int current
     )
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames[0].Events.Add(Executed("source", firstAction, Player(target)));
         simulation.Frames[0].Events.Add(Executed("trigger", secondAction, Player(target)));
-        var update = new CombatSimPlayerUpdate
+        var update = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [attribute] = new CombatSimPlayerAttributeUpdate
+                [attribute] = new CombatPlayerAttributeUpdate
                 {
                     AttributeType = attribute,
                     PreviousValue = previous,
@@ -4934,7 +4820,7 @@ public sealed partial class CombatImpactProjectorTests
                 },
             },
         };
-        if (target == ECombatantId.Player)
+        if (target == Combatant.Player)
             simulation.Frames[0].PlayerUpdates = update;
         else
             simulation.Frames[0].OpponentUpdates = update;
@@ -4951,21 +4837,21 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Generic_card_modifier_does_not_block_a_specific_attribute_transition()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
-            .Events.Add(Executed("source", EActionCommandType.CardHaste, CardTarget("target")));
+            .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target")));
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("trigger", EActionCommandType.CardModifyAttribute, CardTarget("target"))
+                Executed("trigger", CombatActionType.CardModifyAttribute, CardTarget("target"))
             );
         simulation.Frames[0].CardUpdates[target] = HasteUpdate(target, 950);
 
         var report = CombatImpactProjector.Project(
             simulation,
-            EntitiesWithSourceAttribute(ECardAttributeType.HasteAmount, 1_000)
+            EntitiesWithSourceAttribute(CombatCardAttribute.HasteAmount, 1_000)
         );
 
         Assert.Equal(
@@ -4982,29 +4868,29 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Residual_does_not_duplicate_a_transition_claimed_by_another_action_kind()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
-            .Events.Add(Executed("source", EActionCommandType.CardHaste, CardTarget("target")));
+            .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target")));
         simulation.Frames[0].Events.Add(AttributeExecution("trigger", "haste-gain", "target"));
         simulation.Frames[0].CardUpdates[target] = HasteUpdate(target, 950);
 
-        var entities = EntitiesWithSourceAttribute(ECardAttributeType.HasteAmount, 1_000)
+        var entities = EntitiesWithSourceAttribute(CombatCardAttribute.HasteAmount, 1_000)
             .ToDictionary(item => item.Key, item => item.Value);
         entities["trigger"] = entities["trigger"] with
         {
-            AbilityAttributeTypesByEffectId = new Dictionary<string, ECardAttributeType>
+            AbilityAttributeTypesByEffectId = new Dictionary<string, CombatCardAttribute>
             {
-                ["haste-gain"] = ECardAttributeType.Haste,
+                ["haste-gain"] = CombatCardAttribute.Haste,
             },
-            AbilityAttributeModifiersByEffectId = new Dictionary<string, TActionCardModifyAttribute>
+            AbilityAttributeModifiersByEffectId = new Dictionary<string, CombatAttributeModifier>
             {
-                ["haste-gain"] = new TActionCardModifyAttribute
+                ["haste-gain"] = new CombatAttributeModifier
                 {
-                    AttributeType = ECardAttributeType.Haste,
-                    Operation = EAttributeModifierOperation.Add,
-                    Value = new TFixedValue { Value = 50 },
+                    AttributeType = CombatCardAttribute.Haste,
+                    Operation = CombatAttributeOperation.Add,
+                    Value = new CombatFixedValue { Value = 50 },
                 },
             },
         };
@@ -5024,28 +4910,28 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Unknown_player_modifier_prevents_assigning_the_whole_delta_to_a_specific_action()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerRageApply, Player(ECombatantId.Player))
+                Executed("source", CombatActionType.PlayerRageApply, Player(Combatant.Player))
             );
         simulation
             .Frames[0]
             .Events.Add(
                 Executed(
                     "trigger",
-                    EActionCommandType.PlayerModifyAttribute,
-                    Player(ECombatantId.Player)
+                    CombatActionType.PlayerModifyAttribute,
+                    Player(Combatant.Player)
                 )
             );
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.Rage] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.Rage] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.Rage,
+                    AttributeType = CombatPlayerAttribute.Rage,
                     PreviousValue = 0,
                     CurrentValue = 9,
                 },
@@ -5067,34 +4953,30 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Generic_player_modifier_uses_the_only_transition_not_claimed_by_specific_actions()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.PlayerRegenApply, Player(ECombatantId.Player))
+                Executed("source", CombatActionType.PlayerRegenApply, Player(Combatant.Player))
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed(
-                    "source",
-                    EActionCommandType.PlayerModifyAttribute,
-                    Player(ECombatantId.Player)
-                )
+                Executed("source", CombatActionType.PlayerModifyAttribute, Player(Combatant.Player))
             );
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.HealthRegen] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.HealthRegen] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.HealthRegen,
+                    AttributeType = CombatPlayerAttribute.HealthRegen,
                     PreviousValue = 2,
                     CurrentValue = 4,
                 },
-                [EPlayerAttributeType.HealthMax] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.HealthMax] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.HealthMax,
+                    AttributeType = CombatPlayerAttribute.HealthMax,
                     PreviousValue = 780,
                     CurrentValue = 790,
                 },
@@ -5114,7 +4996,7 @@ public sealed partial class CombatImpactProjectorTests
         );
         var maxHealth = Assert.Single(
             groups,
-            group => group.NativeAttributeKey == EPlayerAttributeType.HealthMax.ToString()
+            group => group.NativeAttributeKey == CombatPlayerAttribute.HealthMax.ToString()
         );
         Assert.Equal(10, maxHealth.ObservedValue);
         Assert.Equal(CombatImpactEventSurface.PlayerAttribute, maxHealth.Surface);
@@ -5123,44 +5005,36 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Max_health_increase_and_decrease_use_distinct_directional_group_keys()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var increaseFrame = new CombatSimFrame();
+        var increaseFrame = new CombatFrame();
         increaseFrame.Events.Add(
-            Executed(
-                "source",
-                EActionCommandType.PlayerMaxHealthIncrease,
-                Player(ECombatantId.Player)
-            )
+            Executed("source", CombatActionType.PlayerMaxHealthIncrease, Player(Combatant.Player))
         );
-        increaseFrame.PlayerUpdates = new CombatSimPlayerUpdate
+        increaseFrame.PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.HealthMax] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.HealthMax] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.HealthMax,
+                    AttributeType = CombatPlayerAttribute.HealthMax,
                     PreviousValue = 100,
                     CurrentValue = 130,
                 },
             },
         };
         simulation.Frames.Add(increaseFrame);
-        var decreaseFrame = new CombatSimFrame();
+        var decreaseFrame = new CombatFrame();
         decreaseFrame.Events.Add(
-            Executed(
-                "source",
-                EActionCommandType.PlayerMaxHealthDecrease,
-                Player(ECombatantId.Player)
-            )
+            Executed("source", CombatActionType.PlayerMaxHealthDecrease, Player(Combatant.Player))
         );
-        decreaseFrame.PlayerUpdates = new CombatSimPlayerUpdate
+        decreaseFrame.PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.HealthMax] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.HealthMax] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.HealthMax,
+                    AttributeType = CombatPlayerAttribute.HealthMax,
                     PreviousValue = 130,
                     CurrentValue = 120,
                 },
@@ -5190,30 +5064,30 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Quantified_and_unquantified_reload_occurrences_share_one_group_key()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var quantified = new CombatSimFrame();
+        var quantified = new CombatFrame();
         quantified.Events.Add(
-            Executed("source", EActionCommandType.CardReload, CardTarget("target"))
+            Executed("source", CombatActionType.CardReload, CardTarget("target"))
         );
-        var target = InstanceId.TryParse("target");
-        quantified.CardUpdates[target] = new CombatSimCardUpdate
+        var target = ("target");
+        quantified.CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.Ammo] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.Ammo] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.Ammo,
+                    AttributeType = CombatCardAttribute.Ammo,
                     PreviousValue = 2,
                     CurrentValue = 5,
                 },
             },
         };
         simulation.Frames.Add(quantified);
-        var unquantified = new CombatSimFrame();
+        var unquantified = new CombatFrame();
         unquantified.Events.Add(
-            Executed("source", EActionCommandType.CardReload, CardTarget("target"))
+            Executed("source", CombatActionType.CardReload, CardTarget("target"))
         );
         simulation.Frames.Add(unquantified);
 
@@ -5230,27 +5104,27 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Theory]
-    [InlineData(ECardAttributeType.DamageAmount, 187, "Amount")]
-    [InlineData(ECardAttributeType.FlyingTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.DestroyTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.ForceUseTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.EnchantTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.UpgradeTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.DisableTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.RepairTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.TransformTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.EnchantRemoveTargets, 2, "Amount")]
-    [InlineData(ECardAttributeType.ChargeAmount, 1500, "Milliseconds")]
-    [InlineData(ECardAttributeType.HasteAmount, 1500, "Milliseconds")]
-    [InlineData(ECardAttributeType.SlowAmount, 1500, "Milliseconds")]
-    [InlineData(ECardAttributeType.FreezeAmount, 1500, "Milliseconds")]
-    [InlineData(ECardAttributeType.FlatCooldownReduction, 1500, "Milliseconds")]
-    [InlineData(ECardAttributeType.Lifesteal, 12, "PercentagePoints")]
-    [InlineData(ECardAttributeType.TempoCost, 2, "Amount")]
-    [InlineData(ECardAttributeType.FlatTempoCostReduction, 1, "Amount")]
-    [InlineData(ECardAttributeType.PercentTempoCostReduction, 20, "PercentagePoints")]
+    [InlineData(CombatCardAttribute.DamageAmount, 187, "Amount")]
+    [InlineData(CombatCardAttribute.FlyingTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.DestroyTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.ForceUseTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.EnchantTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.UpgradeTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.DisableTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.RepairTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.TransformTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.EnchantRemoveTargets, 2, "Amount")]
+    [InlineData(CombatCardAttribute.ChargeAmount, 1500, "Milliseconds")]
+    [InlineData(CombatCardAttribute.HasteAmount, 1500, "Milliseconds")]
+    [InlineData(CombatCardAttribute.SlowAmount, 1500, "Milliseconds")]
+    [InlineData(CombatCardAttribute.FreezeAmount, 1500, "Milliseconds")]
+    [InlineData(CombatCardAttribute.FlatCooldownReduction, 1500, "Milliseconds")]
+    [InlineData(CombatCardAttribute.Lifesteal, 12, "PercentagePoints")]
+    [InlineData(CombatCardAttribute.TempoCost, 2, "Amount")]
+    [InlineData(CombatCardAttribute.FlatTempoCostReduction, 1, "Amount")]
+    [InlineData(CombatCardAttribute.PercentTempoCostReduction, 20, "PercentagePoints")]
     public void Pr132_card_modifier_attributes_and_units_are_preserved(
-        ECardAttributeType attributeType,
+        CombatCardAttribute attributeType,
         int value,
         string expectedUnit
     )
@@ -5271,8 +5145,8 @@ public sealed partial class CombatImpactProjectorTests
     {
         var cases = new[]
         {
-            (Attribute: ECardAttributeType.TempoApplyAmount, Value: 3),
-            (Attribute: ECardAttributeType.TempoRemoveAmount, Value: 2),
+            (Attribute: CombatCardAttribute.TempoApplyAmount, Value: 3),
+            (Attribute: CombatCardAttribute.TempoRemoveAmount, Value: 2),
         };
         foreach (var (attribute, value) in cases)
         {
@@ -5290,34 +5164,30 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Aura_attribute_change_is_omitted_when_multiple_sources_claim_one_transition()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
-                {
-                    Source = InstanceId.TryParse("source"),
-                    AppliedTo = { CardTarget("target") },
-                }
+                new CombatAuraExecuted { Source = ("source"), AppliedTo = { CardTarget("target") } }
             );
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
+                new CombatAuraExecuted
                 {
-                    Source = InstanceId.TryParse("trigger"),
+                    Source = ("trigger"),
                     AppliedTo = { CardTarget("target") },
                 }
             );
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = 0,
                     CurrentValue = 187,
                 },
@@ -5330,13 +5200,13 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Self_reference_aura_recalculations_are_not_counted_as_combat_impact()
     {
-        var simulation = new CombatSim();
-        var self = InstanceId.TryParse("source");
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var self = ("source");
+        var target = ("target");
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
+                new CombatAuraExecuted
                 {
                     EffectId = "health-formula",
                     Source = self,
@@ -5346,34 +5216,34 @@ public sealed partial class CombatImpactProjectorTests
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
+                new CombatAuraExecuted
                 {
                     EffectId = "value-formula",
-                    Source = InstanceId.TryParse("trigger"),
+                    Source = ("trigger"),
                     AppliedTo = { CardTarget("target") },
                 }
             );
-        simulation.Frames[0].CardUpdates[self] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[self] = new CombatCardUpdate
         {
             CardInstanceId = self,
             Attributes =
             {
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = 6,
                     CurrentValue = 7_018,
                 },
             },
         };
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.CritChance] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.CritChance] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.CritChance,
+                    AttributeType = CombatCardAttribute.CritChance,
                     PreviousValue = 64,
                     CurrentValue = 82,
                 },
@@ -5386,9 +5256,9 @@ public sealed partial class CombatImpactProjectorTests
         };
         entities["trigger"] = entities["trigger"] with
         {
-            AuraAttributeTypesByEffectId = new Dictionary<string, ECardAttributeType>
+            AuraAttributeTypesByEffectId = new Dictionary<string, CombatCardAttribute>
             {
-                ["value-formula"] = ECardAttributeType.CritChance,
+                ["value-formula"] = CombatCardAttribute.CritChance,
             },
             ReferenceValuedAuraEffectIds = ["value-formula"],
         };
@@ -5406,39 +5276,39 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Theory]
-    [InlineData(EPlayerAttributeType.HealthMax, "Amount")]
-    [InlineData(EPlayerAttributeType.CritChance, "PercentagePoints")]
-    [InlineData(EPlayerAttributeType.DamageCrit, "Amount")]
-    [InlineData(EPlayerAttributeType.HealAmount, "Amount")]
-    [InlineData(EPlayerAttributeType.ShieldCrit, "Amount")]
-    [InlineData(EPlayerAttributeType.FlatDamageReduction, "Amount")]
-    [InlineData(EPlayerAttributeType.RageMax, "Amount")]
-    [InlineData(EPlayerAttributeType.Tempo, "Amount")]
-    [InlineData(EPlayerAttributeType.TempoGainCooldownMax, "Milliseconds")]
-    [InlineData(EPlayerAttributeType.FlatTempoGainCooldownReduction, "Milliseconds")]
-    [InlineData(EPlayerAttributeType.PercentTempoGainCooldownReduction, "PercentagePoints")]
-    [InlineData(EPlayerAttributeType.Gold, "Amount")]
-    [InlineData(EPlayerAttributeType.RerollCostModifier, "Amount")]
+    [InlineData(CombatPlayerAttribute.HealthMax, "Amount")]
+    [InlineData(CombatPlayerAttribute.CritChance, "PercentagePoints")]
+    [InlineData(CombatPlayerAttribute.DamageCrit, "Amount")]
+    [InlineData(CombatPlayerAttribute.HealAmount, "Amount")]
+    [InlineData(CombatPlayerAttribute.ShieldCrit, "Amount")]
+    [InlineData(CombatPlayerAttribute.FlatDamageReduction, "Amount")]
+    [InlineData(CombatPlayerAttribute.RageMax, "Amount")]
+    [InlineData(CombatPlayerAttribute.Tempo, "Amount")]
+    [InlineData(CombatPlayerAttribute.TempoGainCooldownMax, "Milliseconds")]
+    [InlineData(CombatPlayerAttribute.FlatTempoGainCooldownReduction, "Milliseconds")]
+    [InlineData(CombatPlayerAttribute.PercentTempoGainCooldownReduction, "PercentagePoints")]
+    [InlineData(CombatPlayerAttribute.Gold, "Amount")]
+    [InlineData(CombatPlayerAttribute.RerollCostModifier, "Amount")]
     public void Pr132_player_modifier_and_economy_aura_attributes_are_preserved(
-        EPlayerAttributeType attributeType,
+        CombatPlayerAttribute attributeType,
         string expectedUnit
     )
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
+                new CombatAuraExecuted
                 {
-                    Source = InstanceId.TryParse("source"),
-                    AppliedTo = { Player(ECombatantId.Player) },
+                    Source = ("source"),
+                    AppliedTo = { Player(Combatant.Player) },
                 }
             );
-        simulation.Frames[0].PlayerUpdates = new CombatSimPlayerUpdate
+        simulation.Frames[0].PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [attributeType] = new CombatSimPlayerAttributeUpdate
+                [attributeType] = new CombatPlayerAttributeUpdate
                 {
                     AttributeType = attributeType,
                     PreviousValue = 0,
@@ -5456,7 +5326,7 @@ public sealed partial class CombatImpactProjectorTests
         Assert.Equal(3, group.ObservedValue);
         Assert.Equal(expectedUnit, group.Unit.ToString());
         Assert.Equal(
-            CombatImpactProjector.PlayerId(ECombatantId.Player),
+            CombatImpactProjector.PlayerId(Combatant.Player),
             Assert.Single(group.Targets).Entity.Id
         );
     }
@@ -5464,30 +5334,26 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Unresolved_aura_overlap_preserves_the_transition_without_assigning_it_to_the_execution()
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
-                {
-                    Source = InstanceId.TryParse("source"),
-                    AppliedTo = { CardTarget("target") },
-                }
+                new CombatAuraExecuted { Source = ("source"), AppliedTo = { CardTarget("target") } }
             );
         simulation
             .Frames[0]
             .Events.Add(
-                Executed("source", EActionCommandType.CardModifyAttribute, CardTarget("target"))
+                Executed("source", CombatActionType.CardModifyAttribute, CardTarget("target"))
             );
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = 0,
                     CurrentValue = 187,
                 },
@@ -5509,28 +5375,28 @@ public sealed partial class CombatImpactProjectorTests
     [InlineData(-20)]
     public void Aura_teardown_does_not_offset_the_applied_contribution(int grantedValue)
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var source = InstanceId.TryParse("source");
-        var target = InstanceId.TryParse("target");
+        var source = ("source");
+        var target = ("target");
 
-        var applied = new CombatSimFrame();
+        var applied = new CombatFrame();
         applied.Events.Add(
-            new CombatSimEventEffectAuraExecuted
+            new CombatAuraExecuted
             {
                 EffectId = "persistent-aura",
                 Source = source,
                 AppliedTo = { CardTarget("target") },
             }
         );
-        applied.CardUpdates[target] = new CombatSimCardUpdate
+        applied.CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.CritChance] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.CritChance] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.CritChance,
+                    AttributeType = CombatCardAttribute.CritChance,
                     PreviousValue = 0,
                     CurrentValue = grantedValue,
                 },
@@ -5538,26 +5404,24 @@ public sealed partial class CombatImpactProjectorTests
         };
         simulation.Frames.Add(applied);
 
-        var teardown = new CombatSimFrame();
+        var teardown = new CombatFrame();
         teardown.Events.Add(
-            new CombatSimEventEffectAuraExecuted
+            new CombatAuraExecuted
             {
                 EffectId = "persistent-aura",
                 Source = source,
                 RemovedFrom = { CardTarget("target") },
             }
         );
-        teardown.Events.Add(
-            new CombatSimEventCombatantDied { CombatantId = ECombatantId.Opponent }
-        );
-        teardown.CardUpdates[target] = new CombatSimCardUpdate
+        teardown.Events.Add(new CombatantDied { CombatantId = Combatant.Opponent });
+        teardown.CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.CritChance] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.CritChance] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.CritChance,
+                    AttributeType = CombatCardAttribute.CritChance,
                     PreviousValue = grantedValue,
                     CurrentValue = 0,
                 },
@@ -5576,27 +5440,23 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     private static CombatImpactGroup ProjectSingleAuraAttribute(
-        ECardAttributeType attributeType,
+        CombatCardAttribute attributeType,
         int currentValue
     )
     {
-        var simulation = new CombatSim();
-        var target = InstanceId.TryParse("target");
+        var simulation = new CombatTimeline();
+        var target = ("target");
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
-                {
-                    Source = InstanceId.TryParse("source"),
-                    AppliedTo = { CardTarget("target") },
-                }
+                new CombatAuraExecuted { Source = ("source"), AppliedTo = { CardTarget("target") } }
             );
-        simulation.Frames[0].CardUpdates[target] = new CombatSimCardUpdate
+        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
         {
             CardInstanceId = target,
             Attributes =
             {
-                [attributeType] = new CombatSimCardAttributeUpdate
+                [attributeType] = new CombatCardAttributeUpdate
                 {
                     AttributeType = attributeType,
                     PreviousValue = 0,
@@ -5610,10 +5470,10 @@ public sealed partial class CombatImpactProjectorTests
         );
     }
 
-    private static CombatSimEventEffectExecuted Executed(
+    private static CombatEffectExecuted Executed(
         string source,
-        EActionCommandType action,
-        IEffectTarget target,
+        CombatActionType action,
+        CombatTarget target,
         string? triggerSource = null,
         string executionContextId = "",
         string? effectId = null
@@ -5621,26 +5481,26 @@ public sealed partial class CombatImpactProjectorTests
         new()
         {
             ExecutionContextId = executionContextId,
-            Source = InstanceId.TryParse(source),
-            TriggerSource = triggerSource == null ? null : InstanceId.TryParse(triggerSource),
+            Source = (source),
+            TriggerSource = triggerSource == null ? null : (triggerSource),
             EffectId = effectId ?? string.Empty,
             ActionType = action,
             Target = target,
         };
 
-    private static CombatSimEventEffectExecuted AttributeExecution(
+    private static CombatEffectExecuted AttributeExecution(
         string source,
         string effectId,
         string target
     )
     {
-        var executed = Executed(source, EActionCommandType.CardModifyAttribute, CardTarget(target));
+        var executed = Executed(source, CombatActionType.CardModifyAttribute, CardTarget(target));
         executed.EffectId = effectId;
         return executed;
     }
 
-    private static CombatSimCardUpdate DamageUpdate(
-        InstanceId target,
+    private static CombatCardUpdate DamageUpdate(
+        string target,
         int previousValue,
         int currentValue
     ) =>
@@ -5649,9 +5509,9 @@ public sealed partial class CombatImpactProjectorTests
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.DamageAmount] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.DamageAmount] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
+                    AttributeType = CombatCardAttribute.DamageAmount,
                     PreviousValue = previousValue,
                     CurrentValue = currentValue,
                 },
@@ -5666,14 +5526,14 @@ public sealed partial class CombatImpactProjectorTests
         int order
     )
     {
-        var modifier = new TActionCardModifyAttribute
+        var modifier = new CombatAttributeModifier
         {
-            AttributeType = ECardAttributeType.DamageAmount,
-            Operation = EAttributeModifierOperation.Add,
-            Value = new TReferenceValueCardAttribute
+            AttributeType = CombatCardAttribute.DamageAmount,
+            Operation = CombatAttributeOperation.Add,
+            Value = new CombatCardAttributeReference
             {
-                AttributeType = ECardAttributeType.Custom_0,
-                Target = new TTargetCardSelf(),
+                AttributeType = CombatCardAttribute.Custom_0,
+                TargetsSelf = true,
             },
         };
         return new CombatImpactEntity(
@@ -5682,15 +5542,15 @@ public sealed partial class CombatImpactProjectorTests
             id == "bass" ? "Item" : "Skill",
             null,
             order,
-            Attributes: new Dictionary<ECardAttributeType, int>
+            Attributes: new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.Custom_0] = configuredValue,
+                [CombatCardAttribute.Custom_0] = configuredValue,
             },
-            AbilityAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            AbilityAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
-                [effectId] = ECardAttributeType.DamageAmount,
+                [effectId] = CombatCardAttribute.DamageAmount,
             },
-            AbilityAttributeModifiersByEffectId: new Dictionary<string, TActionCardModifyAttribute>
+            AbilityAttributeModifiersByEffectId: new Dictionary<string, CombatAttributeModifier>
             {
                 [effectId] = modifier,
             }
@@ -5701,7 +5561,7 @@ public sealed partial class CombatImpactProjectorTests
         string id,
         string name,
         string effectId,
-        TActionCardModifyAttribute modifier,
+        CombatAttributeModifier modifier,
         int order
     ) =>
         new(
@@ -5710,11 +5570,11 @@ public sealed partial class CombatImpactProjectorTests
             "Skill",
             null,
             order,
-            AbilityAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            AbilityAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
                 [effectId] = modifier.AttributeType,
             },
-            AbilityAttributeModifiersByEffectId: new Dictionary<string, TActionCardModifyAttribute>
+            AbilityAttributeModifiersByEffectId: new Dictionary<string, CombatAttributeModifier>
             {
                 [effectId] = modifier,
             }
@@ -5747,43 +5607,31 @@ public sealed partial class CombatImpactProjectorTests
         Assert.Equal(expectedValue, target.ObservedValue);
     }
 
-    private static CombatSimEventCardTransformed Transformed(
+    private static CombatCardTransformed Transformed(
         string originalId,
         string transformedId,
-        ECombatantId combatantId
-    ) =>
-        new(
-            "transform-context",
-            originalId,
-            [
-                new SimEventCardTransformation(
-                    transformedId,
-                    "16b0d645-3a47-45a1-be2a-1e3ee311f33e",
-                    ECardType.Item,
-                    combatantId,
-                    EInventorySection.Hand,
-                    EContainerSocketId.Socket_1
-                ),
-            ]
-        );
+        Combatant combatantId
+    ) => new() { OriginalInstanceId = originalId, TransformedCardInstanceIds = [transformedId] };
 
-    private static EffectTargetPlayer Player(ECombatantId target) => new() { Target = target };
+    private static CombatCardActionCostSpent TempoCostSpent(string sourceId) =>
+        new() { ExecutingCard = sourceId, PlayerAttributeSpent = CombatPlayerAttribute.Tempo };
 
-    private static EffectTargetCard CardTarget(string target) =>
-        new() { Target = InstanceId.TryParse(target) };
+    private static CombatPlayerTarget Player(Combatant target) => new() { Target = target };
 
-    private static CombatImpactEntity CriticalTriggerEntity(EEffectPriority priority) =>
+    private static CombatCardTarget CardTarget(string target) => new() { Target = (target) };
+
+    private static CombatImpactEntity CriticalTriggerEntity(CombatEffectPriority priority) =>
         new(
             "crit-listener",
             "Boombox",
             "Item",
             null,
             5,
-            AbilityAttributeTypesByEffectId: new Dictionary<string, ECardAttributeType>
+            AbilityAttributeTypesByEffectId: new Dictionary<string, CombatCardAttribute>
             {
-                ["crit-gain"] = ECardAttributeType.DamageAmount,
+                ["crit-gain"] = CombatCardAttribute.DamageAmount,
             },
-            CriticalTriggerAbilitiesByEffectId: new Dictionary<string, EEffectPriority>
+            CriticalTriggerAbilitiesByEffectId: new Dictionary<string, CombatEffectPriority>
             {
                 ["crit-gain"] = priority,
             }
@@ -5791,21 +5639,21 @@ public sealed partial class CombatImpactProjectorTests
 
     private static CombatImpactReport ProjectCriticalTriggerScalingCase(int evidenceCount)
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         simulation.Frames.Clear();
-        var target = InstanceId.TryParse("target");
+        var target = ("target");
         for (var index = 0; index < evidenceCount; index++)
         {
             var frame = PlayerEffectFrame(
-                EActionCommandType.PlayerBurnApply,
-                EPlayerAttributeType.Burn,
+                CombatActionType.PlayerBurnApply,
+                CombatPlayerAttribute.Burn,
                 (index + 1) * 3,
                 (index + 2) * 3
             );
             frame.Events.Add(
                 Executed(
                     "crit-listener",
-                    EActionCommandType.CardModifyAttribute,
+                    CombatActionType.CardModifyAttribute,
                     CardTarget("target"),
                     triggerSource: "source",
                     executionContextId: $"critical-listener-{index}",
@@ -5815,59 +5663,59 @@ public sealed partial class CombatImpactProjectorTests
             frame.CardUpdates[target] = DamageUpdate(target, index, index + 1);
             simulation.Frames.Add(frame);
         }
-        simulation.CardStats["source"] = new Dictionary<ECardStats, int>
+        simulation.CardStats["source"] = new Dictionary<CombatCardStat, int>
         {
-            [ECardStats.BurnAdded] = evidenceCount * 3,
+            [CombatCardStat.BurnAdded] = evidenceCount * 3,
         };
 
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = entities["source"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.BurnApplyAmount] = 3,
+                [CombatCardAttribute.BurnApplyAmount] = 3,
             },
             CritCapableEffectIds = ["critical-effect"],
         };
-        entities["crit-listener"] = CriticalTriggerEntity(EEffectPriority.Low);
+        entities["crit-listener"] = CriticalTriggerEntity(CombatEffectPriority.Low);
         return CombatImpactProjector.Project(simulation, entities);
     }
 
-    private static CombatSimPlayerUpdate Damage(int amount) =>
+    private static CombatPlayerUpdate Damage(int amount) =>
         new()
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = amount,
                 },
             },
         };
 
-    private static CombatSimFrame DamageFrame(int healthAmount, int shieldAmount, bool isCritical)
+    private static CombatFrame DamageFrame(int healthAmount, int shieldAmount, bool isCritical)
     {
-        var frame = new CombatSimFrame();
+        var frame = new CombatFrame();
         frame.Events.Add(
-            Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+            Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
         );
-        frame.OpponentUpdates = new CombatSimPlayerUpdate
+        frame.OpponentUpdates = new CombatPlayerUpdate
         {
             HealthAdjustments =
             {
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Health,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Health,
                     Amount = healthAmount,
                     IsCrit = isCritical,
                 },
-                new CombatSimPlayerHealthAdjustment
+                new CombatHealthAdjustment
                 {
-                    DamageType = EDamageType.Damage,
-                    AttributeChanged = EPlayerHealthChangeType.Shield,
+                    DamageType = CombatDamageType.Damage,
+                    AttributeChanged = CombatHealthChange.Shield,
                     Amount = shieldAmount,
                     IsCrit = isCritical,
                 },
@@ -5876,92 +5724,86 @@ public sealed partial class CombatImpactProjectorTests
         return frame;
     }
 
-    private static CombatSimFrame ConcurrentDamageFrame(bool isCritical, bool splitFirstHit = false)
+    private static CombatFrame ConcurrentDamageFrame(bool isCritical, bool splitFirstHit = false)
     {
-        var frame = new CombatSimFrame { OpponentUpdates = new CombatSimPlayerUpdate() };
+        var frame = new CombatFrame { OpponentUpdates = new CombatPlayerUpdate() };
         for (var effect = 0; effect < 3; effect++)
         {
             frame.Events.Add(
-                Executed("source", EActionCommandType.PlayerDamage, Player(ECombatantId.Opponent))
+                Executed("source", CombatActionType.PlayerDamage, Player(Combatant.Opponent))
             );
         }
 
         if (splitFirstHit)
         {
             frame.OpponentUpdates.HealthAdjustments.Add(
-                DamageAdjustment(EPlayerHealthChangeType.Health, -10, isCritical)
+                DamageAdjustment(CombatHealthChange.Health, -10, isCritical)
             );
             frame.OpponentUpdates.HealthAdjustments.Add(
-                DamageAdjustment(EPlayerHealthChangeType.Shield, -30, isCritical)
+                DamageAdjustment(CombatHealthChange.Shield, -30, isCritical)
             );
         }
         else
         {
             frame.OpponentUpdates.HealthAdjustments.Add(
-                DamageAdjustment(EPlayerHealthChangeType.Health, -30, isCritical)
+                DamageAdjustment(CombatHealthChange.Health, -30, isCritical)
             );
         }
         frame.OpponentUpdates.HealthAdjustments.Add(
-            DamageAdjustment(EPlayerHealthChangeType.Health, isCritical ? -80 : -30, isCritical)
+            DamageAdjustment(CombatHealthChange.Health, isCritical ? -80 : -30, isCritical)
         );
         frame.OpponentUpdates.HealthAdjustments.Add(
-            DamageAdjustment(EPlayerHealthChangeType.Health, isCritical ? -80 : -30, isCritical)
+            DamageAdjustment(CombatHealthChange.Health, isCritical ? -80 : -30, isCritical)
         );
         return frame;
     }
 
-    private static CombatSimPlayerHealthAdjustment DamageAdjustment(
-        EPlayerHealthChangeType attribute,
+    private static CombatHealthAdjustment DamageAdjustment(
+        CombatHealthChange attribute,
         int amount,
         bool isCritical
     ) =>
         new()
         {
-            DamageType = EDamageType.Damage,
+            DamageType = CombatDamageType.Damage,
             AttributeChanged = attribute,
             Amount = amount,
             IsCrit = isCritical,
         };
 
-    private static CombatSimCardUpdate HasteUpdate(InstanceId target, int amount) =>
+    private static CombatCardUpdate HasteUpdate(string target, int amount) =>
         new()
         {
             CardInstanceId = target,
             Attributes =
             {
-                [ECardAttributeType.Haste] = new CombatSimCardAttributeUpdate
+                [CombatCardAttribute.Haste] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.Haste,
+                    AttributeType = CombatCardAttribute.Haste,
                     PreviousValue = 0,
                     CurrentValue = amount,
                 },
             },
         };
 
-    private static CombatSimFrame PlayerEffectFrame(
-        EActionCommandType action,
-        EPlayerAttributeType attribute,
+    private static CombatFrame PlayerEffectFrame(
+        CombatActionType action,
+        CombatPlayerAttribute attribute,
         int previous,
         int current,
         string effectId = "critical-effect",
         string? triggerSource = null
     )
     {
-        var frame = new CombatSimFrame();
+        var frame = new CombatFrame();
         frame.Events.Add(
-            Executed(
-                "source",
-                action,
-                Player(ECombatantId.Player),
-                triggerSource,
-                effectId: effectId
-            )
+            Executed("source", action, Player(Combatant.Player), triggerSource, effectId: effectId)
         );
-        frame.PlayerUpdates = new CombatSimPlayerUpdate
+        frame.PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [attribute] = new CombatSimPlayerAttributeUpdate
+                [attribute] = new CombatPlayerAttributeUpdate
                 {
                     AttributeType = attribute,
                     PreviousValue = previous,
@@ -5972,25 +5814,25 @@ public sealed partial class CombatImpactProjectorTests
         return frame;
     }
 
-    private static CombatSimFrame SourceAttributeFrame(
-        ECardAttributeType attribute,
+    private static CombatFrame SourceAttributeFrame(
+        CombatCardAttribute attribute,
         int previous,
         int current
     )
     {
-        var frame = new CombatSimFrame();
+        var frame = new CombatFrame();
         SetSourceAttributeUpdate(frame, attribute, previous, current);
         return frame;
     }
 
-    private static CombatSimFrame ValueAndCritGainFrame(int frameIndex)
+    private static CombatFrame ValueAndCritGainFrame(int frameIndex)
     {
-        var frame = new CombatSimFrame();
+        var frame = new CombatFrame();
         foreach (var targetId in new[] { "soul", "crit-target", "value-target" })
         {
             var executed = Executed(
                 "pen",
-                EActionCommandType.CardModifyAttribute,
+                CombatActionType.CardModifyAttribute,
                 CardTarget(targetId)
             );
             executed.ExecutionContextId = $"pen-context-{frameIndex}";
@@ -5999,26 +5841,26 @@ public sealed partial class CombatImpactProjectorTests
         }
 
         frame.Events.Add(
-            new CombatSimEventEffectAuraExecuted
+            new CombatAuraExecuted
             {
                 ExecutionContextId = $"caviar-context-{frameIndex}",
                 EffectId = "1",
-                Source = InstanceId.TryParse("caviar"),
+                Source = ("caviar"),
                 AppliedTo = { CardTarget("soul"), CardTarget("crit-target") },
             }
         );
 
         foreach (var targetId in new[] { "soul", "crit-target", "value-target" })
         {
-            var target = InstanceId.TryParse(targetId);
-            var update = new CombatSimCardUpdate
+            var target = (targetId);
+            var update = new CombatCardUpdate
             {
                 CardInstanceId = target,
                 Attributes =
                 {
-                    [ECardAttributeType.SellPrice] = new CombatSimCardAttributeUpdate
+                    [CombatCardAttribute.SellPrice] = new CombatCardAttributeUpdate
                     {
-                        AttributeType = ECardAttributeType.SellPrice,
+                        AttributeType = CombatCardAttribute.SellPrice,
                         PreviousValue = frameIndex * 3,
                         CurrentValue = (frameIndex + 1) * 3,
                     },
@@ -6026,9 +5868,9 @@ public sealed partial class CombatImpactProjectorTests
             };
             if (targetId != "value-target")
             {
-                update.Attributes[ECardAttributeType.CritChance] = new CombatSimCardAttributeUpdate
+                update.Attributes[CombatCardAttribute.CritChance] = new CombatCardAttributeUpdate
                 {
-                    AttributeType = ECardAttributeType.CritChance,
+                    AttributeType = CombatCardAttribute.CritChance,
                     PreviousValue = frameIndex * 6,
                     CurrentValue = (frameIndex + 1) * 6,
                 };
@@ -6040,19 +5882,19 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     private static void SetSourceAttributeUpdate(
-        CombatSimFrame frame,
-        ECardAttributeType attribute,
+        CombatFrame frame,
+        CombatCardAttribute attribute,
         int previous,
         int current
     )
     {
-        var source = InstanceId.TryParse("source");
-        frame.CardUpdates[source] = new CombatSimCardUpdate
+        var source = ("source");
+        frame.CardUpdates[source] = new CombatCardUpdate
         {
             CardInstanceId = source,
             Attributes =
             {
-                [attribute] = new CombatSimCardAttributeUpdate
+                [attribute] = new CombatCardAttributeUpdate
                 {
                     AttributeType = attribute,
                     PreviousValue = previous,
@@ -6063,8 +5905,8 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     private static void AddPlayerEffectFrames(
-        CombatSim simulation,
-        EPlayerAttributeType attribute,
+        CombatTimeline simulation,
+        CombatPlayerAttribute attribute,
         params int[] values
     )
     {
@@ -6072,7 +5914,7 @@ public sealed partial class CombatImpactProjectorTests
         {
             simulation.Frames.Add(
                 PlayerEffectFrame(
-                    EActionCommandType.PlayerBurnApply,
+                    CombatActionType.PlayerBurnApply,
                     attribute,
                     values[index - 1],
                     values[index]
@@ -6082,12 +5924,12 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     private static IReadOnlyDictionary<string, CombatImpactEntity> EntitiesWithSourceAttribute(
-        ECardAttributeType attribute,
+        CombatCardAttribute attribute,
         int value
     ) => EntitiesWithSourceAttributes((attribute, value));
 
     private static IReadOnlyDictionary<string, CombatImpactEntity> EntitiesWithSourceAttributes(
-        params (ECardAttributeType Attribute, int Value)[] attributes
+        params (CombatCardAttribute Attribute, int Value)[] attributes
     )
     {
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
@@ -6107,7 +5949,7 @@ public sealed partial class CombatImpactProjectorTests
         var sourceRule = new CombatImpactPrerequisiteSkillSourceRule(
             "minor-tempo",
             skillTemplateId,
-            [ETier.Gold]
+            [CardTier.Gold]
         );
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["minor-skill"] = new CombatImpactEntity(
@@ -6117,8 +5959,8 @@ public sealed partial class CombatImpactProjectorTests
             null,
             5,
             skillTemplateId,
-            ETier.Gold,
-            CombatantId: ECombatantId.Player
+            CardTier.Gold,
+            CombatantId: Combatant.Player
         );
         entities["note-effect"] = new CombatImpactEntity(
             "note-effect",
@@ -6127,9 +5969,9 @@ public sealed partial class CombatImpactProjectorTests
             null,
             6,
             DisplaySpan: 1,
-            CombatantId: ECombatantId.Player,
-            SocketId: EContainerSocketId.Socket_6,
-            Section: EInventorySection.Hand,
+            CombatantId: Combatant.Player,
+            SocketId: CardSocket.Socket_6,
+            Section: CardSection.Hand,
             PrerequisiteSkillSourceRulesByEffectId: new Dictionary<
                 string,
                 CombatImpactPrerequisiteSkillSourceRule
@@ -6146,10 +5988,10 @@ public sealed partial class CombatImpactProjectorTests
             null,
             7,
             DisplaySpan: 2,
-            CombatantId: ECombatantId.Player,
-            SocketId: EContainerSocketId.Socket_5,
-            Section: EInventorySection.Hand,
-            Tags: [ECardTag.Weapon]
+            CombatantId: Combatant.Player,
+            SocketId: CardSocket.Socket_5,
+            Section: CardSection.Hand,
+            Tags: [CardTag.Weapon]
         );
         return entities;
     }
@@ -6157,27 +5999,20 @@ public sealed partial class CombatImpactProjectorTests
     private static IReadOnlyDictionary<string, CombatImpactEntity> Entities() =>
         new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
         {
-            ["source"] = new(
-                "source",
-                "Fairies",
-                "Skill",
-                null,
-                0,
-                CombatantId: ECombatantId.Player
-            ),
+            ["source"] = new("source", "Fairies", "Skill", null, 0, CombatantId: Combatant.Player),
             ["trigger"] = new("trigger", "Trigger Item", "Item", null, 1),
             ["effect"] = new("effect", "Effect", "Effect", null, 2),
             ["target"] = new("target", "Bread Knife", "Item", null, 1),
             ["target-2"] = new("target-2", "The Eclipse", "Item", null, 2),
-            [CombatImpactProjector.PlayerId(ECombatantId.Player)] = new(
-                CombatImpactProjector.PlayerId(ECombatantId.Player),
+            [CombatImpactProjector.PlayerId(Combatant.Player)] = new(
+                CombatImpactProjector.PlayerId(Combatant.Player),
                 "You",
                 "Hero",
                 null,
                 3
             ),
-            [CombatImpactProjector.PlayerId(ECombatantId.Opponent)] = new(
-                CombatImpactProjector.PlayerId(ECombatantId.Opponent),
+            [CombatImpactProjector.PlayerId(Combatant.Opponent)] = new(
+                CombatImpactProjector.PlayerId(Combatant.Opponent),
                 "Opponent",
                 "Hero",
                 null,

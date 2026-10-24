@@ -54,6 +54,16 @@ internal static class DesktopCardFacets
     public static CardSocket? CapturedSocket(EContainerSocketId? socket) =>
         socket is { } value && Socket.TryToFacet(value, out var facet) ? facet : null;
 
+    public static CardHero? CapturedHero(EHero? hero) =>
+        hero is { } value && Hero.TryToFacet(value, out var facet) ? facet : null;
+
+    public static CardEnchantment? CapturedEnchantment(EEnchantmentType? enchantment) =>
+        enchantment is { } value && Enchantment.TryToFacet(value, out var facet) ? facet : null;
+
+    // Bronze, the game's own default tier, for a tier the facets lack.
+    public static CardTier CapturedTier(ETier tier) =>
+        Tier.TryToFacet(tier, out var facet) ? facet : CardTier.Bronze;
+
     // The game values a captured card's facets name. A card without a size gets the game's 0,
     // which is what the game itself reported for it.
     public static ECardType GameType(CardType type) =>
@@ -64,6 +74,12 @@ internal static class DesktopCardFacets
 
     public static EInventorySection? GameSection(CardSection? section) =>
         section is { } value && Section.TryToSource(value, out var source) ? source : null;
+
+    public static ETier GameTier(CardTier tier) =>
+        Tier.TryToSource(tier, out var source) ? source : ETier.Bronze;
+
+    public static EEnchantmentType? GameEnchantment(CardEnchantment? enchantment) =>
+        enchantment is { } value && Enchantment.TryToSource(value, out var source) ? source : null;
 
     public static EContainerSocketId? GameSocket(CardSocket? socket) =>
         socket is { } value && Socket.TryToSource(value, out var source) ? source : null;

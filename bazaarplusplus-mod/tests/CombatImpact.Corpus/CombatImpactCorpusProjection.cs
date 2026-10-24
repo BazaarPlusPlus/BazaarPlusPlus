@@ -11,7 +11,10 @@ using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarGameShared.Infra.Messages.Shared;
 using BazaarGameShared.Infra.Serialization;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
+using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 using Microsoft.Data.Sqlite;
 using Newtonsoft.Json;
 
@@ -129,11 +132,15 @@ internal sealed class CombatImpactCorpusCatalog
                 null,
                 order++,
                 seed.TemplateId,
-                tier,
-                EnchantmentType: seed.Enchantment,
-                Attributes: seed.Attributes,
-                CombatantId: seed.Combatant,
-                AbilityAttributeTypesByEffectId: attributeTypes,
+                DesktopCardFacets.CapturedTier(tier),
+                EnchantmentType: DesktopCardFacets.CapturedEnchantment(seed.Enchantment),
+                Attributes: seed.Attributes == null
+                    ? null
+                    : DesktopCombatFacets.CardAttributes(seed.Attributes),
+                CombatantId: DesktopCombatFacets.ToCombatant(seed.Combatant),
+                AbilityAttributeTypesByEffectId: DesktopCombatFacets.AttributesByEffectId(
+                    attributeTypes
+                ),
                 PrerequisiteSkillSourceRulesByEffectId: CombatImpactAttributionRuleReader.ReadSourceRules(
                     activeAbilities,
                     []
@@ -162,7 +169,7 @@ internal sealed class CombatImpactCorpusCatalog
             );
         }
 
-        foreach (var combatant in new[] { ECombatantId.Player, ECombatantId.Opponent })
+        foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
         {
             var id = CombatImpactProjector.PlayerId(combatant);
             entities[id] = new CombatImpactEntity(
@@ -175,7 +182,7 @@ internal sealed class CombatImpactCorpusCatalog
             );
         }
         var implicitPlayerEffects = CombatImpactImplicitPlayerEffectReader.AddMissing(
-            replay.Combat,
+            replay.Timeline,
             entities,
             _cards.Values
         );
@@ -301,7 +308,7 @@ internal static class CombatImpactCorpusProjection
             if (benchmarkInputs.Length > 0)
             {
                 CombatImpactProjector.Project(
-                    benchmarkInputs[0].Replay.Combat,
+                    benchmarkInputs[0].Replay.Timeline,
                     benchmarkInputs[0].EntityBuild.Entities
                 );
             }
@@ -337,7 +344,7 @@ internal static class CombatImpactCorpusProjection
             implicitPlayerEffects += entityBuild.ImplicitPlayerEffects;
             var allocatedBefore = benchmarkEnabled ? GC.GetAllocatedBytesForCurrentThread() : 0;
             var startedAt = benchmarkEnabled ? Stopwatch.GetTimestamp() : 0;
-            var report = CombatImpactProjector.Project(replay.Combat, entities);
+            var report = CombatImpactProjector.Project(replay.Timeline, entities);
             if (benchmarkObservations != null)
             {
                 var elapsed = Stopwatch.GetElapsedTime(startedAt);
@@ -544,16 +551,47 @@ internal static class CombatImpactCorpusProjection
             modifierSourceId,
             modifier?.AttributeType.ToString(),
             modifier?.Operation.ToString(),
-            modifier?.Value.GetType().Name
+            GameValueTypeName(modifier?.Value)
         );
     }
+
+    // The evidence names a modifier's value by the game's value type, as it did before the
+    // producer moved to Core's combat vocabulary (ADR-0019).
+    private static string? GameValueTypeName(CombatValue? value) =>
+        value switch
+        {
+            null => null,
+            CombatFixedValue => nameof(BazaarGameShared.Domain.Values.TFixedValue),
+            CombatRangeValue => nameof(BazaarGameShared.Domain.Values.TRangeValue),
+            CombatCardAttributeReference => nameof(
+                BazaarGameShared.Domain.Values.ReferenceValues.TReferenceValueCardAttribute
+            ),
+            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.CardAttributeUnscaled } =>
+                nameof(
+                    BazaarGameShared
+                        .Domain
+                        .Values
+                        .ReferenceValues
+                        .TReferenceValueCardAttributeUnscaled
+                ),
+            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.AttributeChange } => nameof(
+                BazaarGameShared.Domain.Values.ReferenceValues.TReferenceValueAttributeChange
+            ),
+            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.PlayerAttribute } => nameof(
+                BazaarGameShared.Domain.Values.ReferenceValues.TReferenceValuePlayerAttribute
+            ),
+            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.CardCount } => nameof(
+                BazaarGameShared.Domain.Values.ReferenceValues.TReferenceValueCardCount
+            ),
+            _ => value.GetType().Name,
+        };
 
     private static string? ResolveModifierSource(
         string? directSourceId,
         string? triggerSourceId,
         string? effectId,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
-        out TActionCardModifyAttribute? modifier
+        out CombatAttributeModifier? modifier
     )
     {
         foreach (var candidate in new[] { directSourceId, triggerSourceId })

@@ -1,14 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The Combat Impact producer (attribution, projection, periodic allocation) reads
-       BazaarGameShared types, so it stays in the desktop host (ADR-0012) and this project tests the
-       compiled host assembly through InternalsVisibleTo, linking no host source. The ledger it
-       projects into is Core's, tested by CombatImpactLedger.Tests. -->
+  <!-- The Combat Impact producer (attribution, projection, periodic allocation) on Core's combat
+       timeline (ADR-0019), run against Core alone. Needs no game snapshot, so `mod::test` and
+       `mod::test-core` both run it. The host adapters are tested by CombatImpactAdapter.Tests. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,19 +19,24 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Named explicitly so the test tree's netstandard2.1 pin leaves Core and its references on
+       net10.0; the Mono targets need the Managed snapshot `mod::test-core` does not fetch. -->
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
-    <Reference Include="BazaarGameClient">
-      <HintPath>$(ManagedPath)/BazaarGameClient.dll</HintPath>
-    </Reference>
-    <Reference Include="BazaarGameShared">
-      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
-    </Reference>
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Fixtures/*.mpack.gz" />
     <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
-    <Compile Remove="FixtureGenerator/**/*.cs" />
   </ItemGroup>
 </Project>

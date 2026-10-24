@@ -4,6 +4,7 @@
         <Project Path="CombatImpactLedger.Tests/CombatImpactLedger.Tests.csproj" />
         <Project Path="CombatStatusBarState.Tests/CombatStatusBarState.Tests.csproj" />
         <Project Path="EventPreview.Tests/EventPreview.Tests.csproj" />
+        <Project Path="PostCombatImpact.Tests/PostCombatImpact.Tests.csproj" />
         <Project Path="SelfUpdate.Tests/SelfUpdate.Tests.csproj" />
         <Project Path="SettingsDockCore.Tests/SettingsDockCore.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />

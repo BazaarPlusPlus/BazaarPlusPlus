@@ -20,14 +20,14 @@ using Newtonsoft.Json;
 /// <c>prepare &lt;corpus-dir&gt; &lt;replay-store&gt; [battle-id ...]</c>: builds the committed
 /// pinned corpus. Run it from the mod root; <c>tests/CombatImpact.Corpus/evidence/README.md</c>
 /// owns the procedure. It writes the Ghost concert-hall fixtures of
-/// <c>tests/PostCombatImpact.Tests/Fixtures/</c> as a replay payload, copies each named battle
+/// <c>tests/CombatImpactAdapter.Tests/Fixtures/</c> as a replay payload, copies each named battle
 /// out of a local <c>CombatReplays</c> store with the opponent's identity scrubbed, and trims
 /// <c>GameData.db</c> to the <c>cards</c> rows the corpus can read.
 /// </summary>
 internal static class CorpusPreparation
 {
     private const string ConcertHallBattleId = "ghost-concert-hall-tempo-20260907";
-    private const string FixtureDirectory = "tests/PostCombatImpact.Tests/Fixtures";
+    private const string FixtureDirectory = "tests/CombatImpactAdapter.Tests/Fixtures";
     private const string TrimmedGameDataFileName = "GameData.cards.db";
 
     internal static void Run(IReadOnlyList<string> arguments, string gameDataPath)

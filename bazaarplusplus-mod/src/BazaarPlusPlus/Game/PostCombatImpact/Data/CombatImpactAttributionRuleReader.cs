@@ -7,6 +7,10 @@ using BazaarGameShared.Domain.Prerequisites;
 using BazaarGameShared.Domain.Prerequisites.Conditionals;
 using BazaarGameShared.Domain.Targeting;
 using BazaarGameShared.Domain.Values;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Combat;
+using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
@@ -156,7 +160,7 @@ internal static class CombatImpactAttributionRuleReader
     private static bool TryReadSkillIdentity(
         ITCardConditional condition,
         out Guid templateId,
-        out IReadOnlyCollection<ETier> tiers
+        out IReadOnlyCollection<CardTier> tiers
     )
     {
         templateId = Guid.Empty;
@@ -190,8 +194,25 @@ internal static class CombatImpactAttributionRuleReader
             return false;
 
         templateId = id.Id;
-        tiers = tier?.Tiers.ToArray() ?? [];
+        tiers = tier == null ? [] : Facets(tier.Tiers, DesktopCardFacets.Tier);
         return true;
+    }
+
+    // The game's members in the game's order, duplicates kept, without the ones Core lacks.
+    private static TFacet[] Facets<TGame, TFacet>(
+        IEnumerable<TGame> values,
+        CardFacetNameMap<TGame, TFacet> map
+    )
+        where TGame : struct, Enum
+        where TFacet : struct, Enum
+    {
+        var facets = new List<TFacet>();
+        foreach (var value in values)
+        {
+            if (map.TryToFacet(value, out var facet))
+                facets.Add(facet);
+        }
+        return facets.ToArray();
     }
 
     private static bool TryReadItemCondition(
@@ -213,20 +234,28 @@ internal static class CombatImpactAttributionRuleReader
                     children.Add(parsed);
                 }
                 itemCondition = new CombatImpactItemTagCondition(
-                    EListComparisonOperator.All,
+                    CombatListComparison.All,
                     AllOf: children
                 );
                 return true;
-            case TCardConditionalTag { Tags.Count: > 0 } tags:
-                itemCondition = new CombatImpactItemTagCondition(
+            case TCardConditionalTag { Tags.Count: > 0 } tags
+                when DesktopCombatFacets.ListComparison.TryToFacet(
                     tags.Operator,
-                    PublicTags: tags.Tags.ToArray()
+                    out var tagComparison
+                ):
+                itemCondition = new CombatImpactItemTagCondition(
+                    tagComparison,
+                    PublicTags: Facets(tags.Tags, DesktopCardFacets.Tag)
                 );
                 return true;
-            case TCardConditionalHiddenTag { Tags.Count: > 0 } hiddenTags:
-                itemCondition = new CombatImpactItemTagCondition(
+            case TCardConditionalHiddenTag { Tags.Count: > 0 } hiddenTags
+                when DesktopCombatFacets.ListComparison.TryToFacet(
                     hiddenTags.Operator,
-                    HiddenTags: hiddenTags.Tags.ToArray()
+                    out var hiddenTagComparison
+                ):
+                itemCondition = new CombatImpactItemTagCondition(
+                    hiddenTagComparison,
+                    HiddenTags: Facets(hiddenTags.Tags, DesktopCardFacets.HiddenTag)
                 );
                 return true;
             default:

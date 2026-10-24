@@ -9,7 +9,9 @@ using BazaarGameShared.Domain.Effect.AuraActions;
 using BazaarGameShared.Domain.Values.ReferenceValues;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.GameInterop.CombatSimulation;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Localization;
 using TheBazaar;
@@ -53,18 +55,12 @@ internal static class CombatImpactEntitySnapshotReader
         order = AddTransformedEntities(simulation, entities, order, CreateTransformedCard);
 
         var playerHero = NormalizeHero(TheBazaar.Data.Run?.Player?.Hero);
-        AddPlayer(
-            entities,
-            ECombatantId.Player,
-            playerHero,
-            CombatImpactEntityName.Player,
-            order++
-        );
+        AddPlayer(entities, Combatant.Player, playerHero, CombatImpactEntityName.Player, order++);
         var opponentHero = NormalizeHero(TheBazaar.Data.Run?.Opponent?.Hero);
         var opponentName = TheBazaar.Data.SimPvpOpponent?.Name;
         if (string.IsNullOrWhiteSpace(opponentName))
             opponentName = ResolveOpponentName(opponentHero);
-        AddPlayer(entities, ECombatantId.Opponent, opponentHero, opponentName, order);
+        AddPlayer(entities, Combatant.Opponent, opponentHero, opponentName, order);
         return entities;
     }
 
@@ -168,21 +164,19 @@ internal static class CombatImpactEntitySnapshotReader
             null,
             order,
             card.TemplateId,
-            card.Tier,
+            DesktopCardFacets.CapturedTier(card.Tier),
             card.Type is ECardType.Item or ECardType.SocketEffect
                 ? CardSizeSpan.Resolve(card.Size)
                 : 1,
-            item?.Enchantment,
-            card.Attributes == null
-                ? null
-                : new Dictionary<ECardAttributeType, int>(card.Attributes),
-            combatantOverride ?? card.Owner?.CombatantId,
+            DesktopCardFacets.CapturedEnchantment(item?.Enchantment),
+            card.Attributes == null ? null : DesktopCombatFacets.CardAttributes(card.Attributes),
+            DesktopCombatFacets.ToCombatant(combatantOverride ?? card.Owner?.CombatantId),
             effectAttributes.Abilities,
             effectAttributes.Auras,
             effectAttributes.ReferenceValuedAuraEffectIds,
-            card.LeftSocketId,
+            DesktopCardFacets.CapturedSocket(card.LeftSocketId),
             hiddenTags,
-            card.Section,
+            DesktopCardFacets.CapturedSection(card.Section),
             CombatImpactEntityTags.ResolveTags(card),
             CombatImpactAttributionRuleReader.ReadSourceRules(activeAbilities, activeEffects.Auras),
             card.Type == ECardType.SocketEffect
@@ -199,10 +193,10 @@ internal static class CombatImpactEntitySnapshotReader
         );
     }
 
-    private static IReadOnlyDictionary<
-        string,
-        TAuraActionCardModifyAttribute
-    >? ReadAuraAttributeModifiers(IEnumerable<TCardAura>? auras, ItemCard? item)
+    private static IReadOnlyDictionary<string, CombatAttributeModifier>? ReadAuraAttributeModifiers(
+        IEnumerable<TCardAura>? auras,
+        ItemCard? item
+    )
     {
         try
         {
@@ -294,8 +288,8 @@ internal static class CombatImpactEntitySnapshotReader
                 .ToArray();
 
             return new EffectAttributeTypes(
-                abilities.Count == 0 ? null : abilities,
-                auras.Count == 0 ? null : auras,
+                DesktopCombatFacets.AttributesByEffectId(abilities),
+                DesktopCombatFacets.AttributesByEffectId(auras),
                 referenceValuedAuraEffectIds.Length == 0 ? null : referenceValuedAuraEffectIds
             );
         }
@@ -404,7 +398,7 @@ internal static class CombatImpactEntitySnapshotReader
 
     private static void AddPlayer(
         Dictionary<string, CombatImpactEntity> entities,
-        ECombatantId combatant,
+        Combatant combatant,
         EHero? hero,
         string name,
         int order
@@ -415,7 +409,7 @@ internal static class CombatImpactEntitySnapshotReader
             id,
             name,
             "Hero",
-            hero,
+            DesktopCardFacets.CapturedHero(hero),
             order,
             CombatantId: combatant
         );
@@ -456,8 +450,8 @@ internal static class CombatImpactEntitySnapshotReader
     }
 
     private readonly record struct EffectAttributeTypes(
-        IReadOnlyDictionary<string, ECardAttributeType>? Abilities,
-        IReadOnlyDictionary<string, ECardAttributeType>? Auras,
+        IReadOnlyDictionary<string, CombatCardAttribute>? Abilities,
+        IReadOnlyDictionary<string, CombatCardAttribute>? Auras,
         IReadOnlyCollection<string>? ReferenceValuedAuraEffectIds
     );
 
