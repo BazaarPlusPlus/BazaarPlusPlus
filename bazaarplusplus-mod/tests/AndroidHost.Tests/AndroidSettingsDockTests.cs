@@ -24,6 +24,7 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(
             new[]
             {
+                "BazaarDbUpload",
                 "EnchantPreview",
                 "GameHistory",
                 "UpgradePreview",
@@ -38,6 +39,7 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(
             new[]
             {
+                BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Choice,
                 BppSettingsControlKind.Action,
                 BppSettingsControlKind.Toggle,
@@ -88,6 +90,25 @@ public sealed class AndroidSettingsDockTests
         dock.Calls.Clear();
         row.WriteToggle(true);
         Assert.True(row.ReadToggle());
+        Assert.Empty(dock.Calls);
+    }
+
+    // The account link waits on [BazaarDB] UploadScreenshots; the row is its touch switch, off by
+    // default, labelled as the desktop's row.
+    [Fact]
+    public void Bazaardb_upload_writes_the_shared_setting_and_starts_off()
+    {
+        var dock = new Dock();
+        var row = dock.Row("BazaarDbUpload");
+
+        Assert.Equal("BazaarDB upload", row.ResolveLabel("en"));
+        Assert.False(row.ReadToggle!());
+
+        row.WriteToggle!(true);
+        Assert.True(dock.Shared.BazaarDbUploadEnabled.Value);
+        Assert.True(row.ReadToggle());
+        row.WriteToggle(false);
+        Assert.False(dock.Shared.BazaarDbUploadEnabled.Value);
         Assert.Empty(dock.Calls);
     }
 

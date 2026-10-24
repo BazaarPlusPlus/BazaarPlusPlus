@@ -2,7 +2,9 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Patches;
+using BazaarPlusPlus.Android.Settings;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
+using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel;
@@ -25,14 +27,20 @@ namespace BazaarPlusPlus.Android.Ui;
 /// protects), the filters, the More dialog with the account link, and the note editor act through
 /// the coordinator as the desktop's do. The touch launcher opens it; the close button, the back
 /// key, a scene change into combat (the desktop's <c>SceneChangeClosePolicy.OnlyWhenInCombat</c>),
-/// and a replay start close it. Every other scene change returns its cards, since the rental
-/// destroys them, and renders them again on the next frame. A new screen size lays the view out
-/// again. A replay started from it reopens it with the selection kept once the replay session is
-/// over and the lobby is the active scene. Every entry point runs inside the main-thread pump's
-/// scope, so the coordinator's continuations resume on the main thread.
+/// a replay start, and <c>[Android] HistoryPanel</c> switching off (from the settings row or the
+/// More dialog's own switch) close it. Every other scene change returns its cards, since the
+/// rental destroys them, and renders them again on the next frame. A new screen size lays the view
+/// out again and keeps an open note's draft. A replay started from it reopens it with the
+/// selection kept once the replay session is over and the lobby is the active scene, unless the
+/// panel was closed or switched off meanwhile. The Record action is not offered: the host records
+/// no video. Every entry point runs inside the main-thread pump's scope, so the coordinator's
+/// continuations resume on the main thread.
 /// </summary>
 internal sealed class AndroidHistoryPanel : IDisposable
 {
+    private const string ReplayStarted = "replay_started";
+    private const string SwitchedOff = "switched_off";
+
     private readonly HistoryPanelState _state = new();
     private readonly HistoryPanelCoordinator _coordinator;
     private readonly HistoryPanelDependencies _dependencies;
@@ -40,6 +48,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private readonly Func<ISavedReplayRuntime?> _runtime;
     private readonly AndroidCardTemplateIndex _templates;
     private readonly Func<TMP_FontAsset?> _font;
+    private readonly ISetting<bool> _enabled;
     private readonly AndroidHistoryBoard _upper;
     private readonly AndroidHistoryBoard _lower;
     private AndroidHistoryPanelView? _view;
@@ -63,13 +72,15 @@ internal sealed class AndroidHistoryPanel : IDisposable
         HistoryPanelDependencies dependencies,
         Func<ISavedReplayRuntime?> runtime,
         AndroidCardTemplateIndex templates,
-        Func<TMP_FontAsset?> font
+        Func<TMP_FontAsset?> font,
+        ISetting<bool> enabled
     )
     {
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         _templates = templates ?? throw new ArgumentNullException(nameof(templates));
         _font = font ?? throw new ArgumentNullException(nameof(font));
+        _enabled = enabled ?? throw new ArgumentNullException(nameof(enabled));
         _runContext = dependencies.RunContext;
         _upper = new AndroidHistoryBoard("history.upper", card => Inspect(card, false, "upper"));
         _lower = new AndroidHistoryBoard("history.lower", card => Inspect(card, false, "lower"));
@@ -147,6 +158,13 @@ internal sealed class AndroidHistoryPanel : IDisposable
         using var scope = AndroidMainThread.Host.Enter();
         try
         {
+            // [Android] HistoryPanel switched off by any path: the panel closes and a pending
+            // return from a replay is dropped.
+            if (!_enabled.Value)
+            {
+                Hide(SwitchedOff);
+                return;
+            }
             if (
                 _returnAfterReplay
                 && !IsVisible
@@ -218,6 +236,15 @@ internal sealed class AndroidHistoryPanel : IDisposable
     {
         if (_disposed || IsVisible)
             return;
+        if (!_enabled.Value)
+        {
+            CancelReturn(SwitchedOff);
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.history.open_skipped"),
+                ("reason_code", SwitchedOff)
+            );
+            return;
+        }
         if (AndroidCombatProbe.IsInCombat())
         {
             BppLog.InfoEvent(
@@ -245,12 +272,17 @@ internal sealed class AndroidHistoryPanel : IDisposable
             ("resume_selection", resumeSelection),
             ("section", _state.SectionMode),
             ("template_index", _templates.Count),
+            ("record_visible", _model?.RecordAndReplayButtonVisible ?? false),
             ("screen", _view.ScreenKey)
         );
     }
 
+    // Every close but a replay start drops a pending return from a replay, the panel already
+    // hidden by the replay included.
     private void Hide(string reason)
     {
+        if (reason != ReplayStarted)
+            CancelReturn(reason);
         if (!IsVisible)
             return;
         IsVisible = false;
@@ -264,6 +296,27 @@ internal sealed class AndroidHistoryPanel : IDisposable
             ("returned", returned),
             ("rental_leases", AndroidCardRental.ActiveLeases)
         );
+    }
+
+    private void CancelReturn(string reason)
+    {
+        if (!_returnAfterReplay)
+            return;
+        _returnAfterReplay = false;
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.history.return_cancelled"),
+            ("reason", reason)
+        );
+    }
+
+    // The More dialog's switch writes [Android] HistoryPanel as the settings row does, then closes
+    // the panel and returns every rented card, as the row's switch-off does.
+    private void TurnOff()
+    {
+        _enabled.Value = false;
+        AndroidSettingsDock.LogChanged("Android", "HistoryPanel", false, source: "history_more");
+        Hide(SwitchedOff);
+        AndroidCardRental.ReleaseAll(SwitchedOff);
     }
 
     // Every overlay closes and every card goes back to the rental.
@@ -347,7 +400,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 () => _ = _coordinator.TryCheckServerHealthAsync(),
                 _coordinator.ToggleAccountLinkForm,
                 code => _ = _coordinator.TryRedeemBazaarDbAccountAsync(code),
-                _coordinator.MarkAccountLinkedManually
+                _coordinator.MarkAccountLinkedManually,
+                TurnOff
             )
         );
         _note = new AndroidHistoryNoteDialog(
@@ -373,9 +427,11 @@ internal sealed class AndroidHistoryPanel : IDisposable
         _note = null;
     }
 
+    // The new view reopens an open note on its draft; the other overlays close.
     private void Relayout()
     {
         var from = _view?.ScreenKey;
+        var draft = _note?.Draft;
         DropView();
         if (!EnsureView())
         {
@@ -386,10 +442,14 @@ internal sealed class AndroidHistoryPanel : IDisposable
         _view!.SetVisible(true);
         RefreshUi();
         RefreshBoards();
+        if (draft is { } kept)
+            _note?.Open(kept.BattleId, kept.Text);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.relayout"),
             ("from", from),
             ("to", _view.ScreenKey),
+            ("note_draft_kept", draft != null && _note?.IsOpen == true),
+            ("note_length", draft?.Text.Length ?? 0),
             ("rental_leases", AndroidCardRental.ActiveLeases)
         );
     }
@@ -404,7 +464,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         if (visible)
             OpenInternal("replay_visibility", resumeSelection: false);
         else
-            Hide("replay_started");
+            Hide(ReplayStarted);
     }
 
     private void RefreshUi()

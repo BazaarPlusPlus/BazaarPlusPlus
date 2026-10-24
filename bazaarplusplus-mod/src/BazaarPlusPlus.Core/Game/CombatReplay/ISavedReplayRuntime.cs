@@ -37,11 +37,15 @@ public interface ISavedReplayRuntime
 }
 
 /// <summary>
-/// Whether the host can record a replay's video. <see cref="Prewarm"/> runs on the UI thread,
-/// where a host can read its video settings and load its encoder.
+/// Whether the host can record a replay's video. <see cref="Supported"/> says whether the host
+/// records video at all (a host that ships no encoder hides the record action);
+/// <see cref="CanRecord"/> says whether it can record now. <see cref="Prewarm"/> runs on the UI
+/// thread, where a host can read its video settings and load its encoder.
 /// </summary>
 public interface IReplayRecordingAvailability
 {
+    bool Supported { get; }
+
     void Prewarm();
 
     bool CanRecord();

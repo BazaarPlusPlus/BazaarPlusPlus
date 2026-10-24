@@ -184,6 +184,7 @@ internal sealed partial class HistoryPanelView
             m.DeleteButtonText,
             enabled: m.DeleteButtonEnabled && !m.PageLoading
         );
+        _recordButton.gameObject.SetActive(m.RecordAndReplayButtonVisible);
         SetButton(
             _recordButton,
             m.RecordAndReplayButtonText,

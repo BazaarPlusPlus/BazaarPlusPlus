@@ -67,7 +67,6 @@ public sealed class HistoryTouchLayout
         HeroChipWidth = metrics.Target(96f);
         OutcomeChipWidth = metrics.Target(80f);
         DayChipWidth = metrics.Target(72f);
-        CloudNoteWidth = metrics.Dp(220f);
 
         StatusHeight = metrics.Dp(18f);
         Status = new TouchRect(body.Left, body.Bottom - StatusHeight, body.Width, StatusHeight);
@@ -120,6 +119,9 @@ public sealed class HistoryTouchLayout
             Math.Max(0f, RailOlder.Top - small - (RailNewer.Bottom + small))
         );
         ChipHeight = metrics.Dp(56f);
+        // Ghost has no rail: its cloud note wraps in the rail's column instead of the filter strip,
+        // where it ran past the screen's edge.
+        CloudNote = new TouchRect(Rail.Left, Rail.Top, railWidth, columnHeight);
 
         // Detail: the action row at the bottom, the boards above it.
         Footer = new TouchRect(Detail.Left, Detail.Bottom - target, Detail.Width, target);
@@ -210,9 +212,22 @@ public sealed class HistoryTouchLayout
         MoreDatabase = new TouchRect(0f, 0f, Math.Max(0f, MoreHealth.Left - Gap), target);
         MoreStatus = new TouchRect(0f, MoreHealth.Bottom + small, w, line2);
         var toggleWidth = Math.Min(metrics.Target(128f), w * 0.4f);
-        AccountToggle = new TouchRect(
+        // The History panel's own off switch: the launcher hides while History is open.
+        MorePanelSwitch = new TouchRect(
             w - toggleWidth,
             MoreStatus.Bottom + Gap,
+            toggleWidth,
+            target
+        );
+        MorePanelTitle = new TouchRect(
+            0f,
+            MorePanelSwitch.Top,
+            Math.Max(0f, MorePanelSwitch.Left - Gap),
+            target
+        );
+        AccountToggle = new TouchRect(
+            w - toggleWidth,
+            MorePanelSwitch.Bottom + Gap,
             toggleWidth,
             target
         );
@@ -315,7 +330,8 @@ public sealed class HistoryTouchLayout
 
     public float DayChipWidth { get; }
 
-    public float CloudNoteWidth { get; }
+    /// <summary>Ghost's cloud note, wrapped in the rail's column, which Ghost leaves empty.</summary>
+    public TouchRect CloudNote { get; }
 
     public TouchRect More { get; }
 
@@ -418,6 +434,10 @@ public sealed class HistoryTouchLayout
     public TouchRect MoreHealth { get; }
 
     public TouchRect MoreStatus { get; }
+
+    public TouchRect MorePanelTitle { get; }
+
+    public TouchRect MorePanelSwitch { get; }
 
     public TouchRect AccountTitle { get; }
 
