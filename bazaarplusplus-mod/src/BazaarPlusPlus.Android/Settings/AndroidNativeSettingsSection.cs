@@ -40,6 +40,10 @@ internal sealed class AndroidNativeSettingsSection
     private const float SplitContainerExtraHeight = 24f;
     private const float RefreshInterval = 0.5f;
 
+    // The dialog lays itself out over a few frames after it opens or the screen changes, so the
+    // visibility measure waits this long after the last change.
+    private const float VisibilitySettleSeconds = 1f;
+
     private static readonly List<AndroidNativeSettingsSection> Sections = new();
     private static long _installs;
     private static long _installFailures;
@@ -59,11 +63,18 @@ internal sealed class AndroidNativeSettingsSection
     private float _scrollMovedAt;
     private float _loggedScrollPosition = float.NaN;
     private float? _nativeSpacing;
+    private readonly RectTransform _navigationRoot;
+    private float _lastMinHitPx;
+    private float _lastMinOptionPx;
+    private int _lastHitOverlaps;
+    private string? _pendingVisibility;
+    private float _visibilityDueAt;
 
     private AndroidNativeSettingsSection(
         OptionsDialogController dialog,
         Button? closeButton,
         RectTransform sectionRoot,
+        RectTransform navigationRoot,
         ScrollRect? scrollRect
     )
     {
@@ -71,6 +82,7 @@ internal sealed class AndroidNativeSettingsSection
         _dialog = dialog;
         _closeButton = closeButton;
         _sectionRoot = sectionRoot;
+        _navigationRoot = navigationRoot;
     }
 
     /// <summary>Whether a BazaarPlusPlus section is on screen, which the touch button stays out of.</summary>
@@ -112,7 +124,7 @@ internal sealed class AndroidNativeSettingsSection
         RectTransform? stagedSection = null;
         RectTransform? stagedNavigation = null;
         Il2CppReferenceArray<ScrollSpyEntry>? originalEntries = null;
-        var hidden = new List<(GameObject Target, bool WasActive)>();
+        var footer = new FooterRollback();
         var stage = "read_dialog";
         try
         {
@@ -174,12 +186,13 @@ internal sealed class AndroidNativeSettingsSection
                 dialog,
                 dialog.CloseButton,
                 stagedSection,
+                stagedNavigation,
                 scrollSpy._scrollRect
             );
             section.BuildSection(content, contactButton, toggleDonor, choiceDonor, definitions);
 
             stage = "footer";
-            HideNativeFooter(dialog, supportSection, hidden);
+            HideNativeFooter(dialog, supportSection, footer);
 
             stage = "entries";
             var expanded = new Il2CppReferenceArray<ScrollSpyEntry>((long)entries.Length + 1L);
@@ -212,7 +225,7 @@ internal sealed class AndroidNativeSettingsSection
                 ("entries", expanded.Length),
                 ("toggle_donor", toggleDonor.name),
                 ("choice_donor", choiceDonor.name),
-                ("footer_hidden", hidden.Count)
+                ("footer_hidden", footer.Hidden.Count)
             );
             stagedSection = null;
             stagedNavigation = null;
@@ -221,8 +234,14 @@ internal sealed class AndroidNativeSettingsSection
         {
             if (originalEntries != null && scrollSpy._entries?.Length != originalEntries.Length)
                 scrollSpy._entries = originalEntries;
-            foreach (var (hiddenTarget, wasActive) in hidden)
-                hiddenTarget.SetActive(wasActive);
+            // The footer comes back and the split container returns to its own frame.
+            var footerRestored = footer.Undo();
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.settings.install_rolled_back"),
+                ("stage", stage),
+                ("footer_restored", footerRestored),
+                ("split_container_restored", footer.SplitContainerRestored)
+            );
             if (stagedSection != null)
                 UnityEngine.Object.DestroyImmediate(stagedSection.gameObject);
             if (stagedNavigation != null)
@@ -234,13 +253,40 @@ internal sealed class AndroidNativeSettingsSection
     /// <summary>A settings dialog was enabled or changed language: redraw every section.</summary>
     public static void RefreshAll()
     {
-        foreach (var section in Sections)
+        for (var index = Sections.Count - 1; index >= 0; index--)
         {
-            section.RebuildLayout();
-            section.Refresh(force: true);
-            if (section._sectionRoot.gameObject.activeInHierarchy)
-                section.ApplyTouchTargets("refreshed");
+            var section = Sections[index];
+            try
+            {
+                // A dialog destroyed since the last tick (a scene change) is dropped, as in Tick.
+                if (DropIfDestroyed(index, "refresh"))
+                    continue;
+                section.RebuildLayout();
+                section.Refresh(force: true);
+                if (section._sectionRoot.gameObject.activeInHierarchy)
+                    section.ApplyTouchTargets("refreshed");
+            }
+            catch (Exception exception)
+            {
+                Sections.RemoveAt(index);
+                AndroidPatchHost.ReportProbeError("settings_section", exception);
+            }
         }
+    }
+
+    // Unity's null: the dialog or the section was destroyed with its scene.
+    private static bool DropIfDestroyed(int index, string during)
+    {
+        var section = Sections[index];
+        if (section._dialog != null && section._sectionRoot != null)
+            return false;
+        Sections.RemoveAt(index);
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.settings.section_dropped"),
+            ("during", during),
+            ("sections", Sections.Count)
+        );
+        return true;
     }
 
     /// <summary>Main thread, every frame: drops dead dialogs and keeps a visible section current.</summary>
@@ -251,17 +297,8 @@ internal sealed class AndroidNativeSettingsSection
             var section = Sections[index];
             try
             {
-                if (section._dialog == null || section._sectionRoot == null)
-                {
-                    Sections.RemoveAt(index);
-                    BppLog.InfoEvent(
-                        new BppLogEvent(
-                            BppLogFeatureScope.Android,
-                            "android.settings.section_dropped"
-                        )
-                    );
+                if (DropIfDestroyed(index, "tick"))
                     continue;
-                }
                 var visible = section._sectionRoot.gameObject.activeInHierarchy;
                 var screenKey = visible ? AndroidScreenKey() : section._screenKey;
                 if (visible && (!section._wasVisible || screenKey != section._screenKey))
@@ -271,11 +308,24 @@ internal sealed class AndroidNativeSettingsSection
                     section.RebuildLayout();
                     section.Refresh(force: true);
                     section.ApplyTouchTargets(reason);
-                    LogVisibility(section, reason);
+                    section._pendingVisibility = reason;
+                    section._visibilityDueAt = now + VisibilitySettleSeconds;
                 }
                 else if (!visible && section._wasVisible)
+                {
+                    section._pendingVisibility = null;
                     LogVisibility(section, "closed");
+                }
                 section._wasVisible = visible;
+                if (
+                    visible
+                    && section._pendingVisibility != null
+                    && now >= section._visibilityDueAt
+                )
+                {
+                    LogVisibility(section, section._pendingVisibility);
+                    section._pendingVisibility = null;
+                }
                 if (visible)
                     section.ObserveScroll(now);
                 if (!visible || now < section._nextRefreshAt)
@@ -551,7 +601,7 @@ internal sealed class AndroidNativeSettingsSection
         foreach (var row in _rows)
         {
             if (row.Choice != null)
-                minOptionPx = Math.Min(minOptionPx, GrowOptions(row.Choice, scale));
+                minOptionPx = Math.Min(minOptionPx, FitOptions(row, scale));
             var control = (row.Toggle as Selectable) ?? (row.Choice as Selectable) ?? row.Action;
             var hit = control == null ? null : EnsureHitArea(control, row.Root, gap);
             if (hit != null)
@@ -562,6 +612,9 @@ internal sealed class AndroidNativeSettingsSection
                 previous = hit;
             }
         }
+        _lastMinHitPx = minHitPx == float.MaxValue ? 0f : minHitPx;
+        _lastMinOptionPx = minOptionPx == float.MaxValue ? 0f : minOptionPx;
+        _lastHitOverlaps = overlaps;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.settings.touch_targets"),
             ("reason", reason),
@@ -579,19 +632,34 @@ internal sealed class AndroidNativeSettingsSection
     }
 
     // The dropdown's open list draws one copy of its template item per option, at the item's
-    // height, keeping the item's top and bottom padding in the list's content; the clone's own
-    // template grows to a 48dp item, its content by as much, and the list to hold every option,
-    // so each option is a full target. The game's own dropdowns keep their template.
-    private static float GrowOptions(TMP_Dropdown choice, float scale)
+    // height, keeping the item's top and bottom padding in the list's content. Every fit starts
+    // again from the clone's native template: the item grows to a 48dp target by what it lacks on
+    // this screen, the content by as much, and the list to hold every option but never below its
+    // native height. So a screen where the native item is already a full target, or fewer options,
+    // shrink it back. The game's own dropdowns keep their template.
+    private static float FitOptions(RowView row, float scale)
     {
-        var template = choice.template;
+        var choice = row.Choice;
+        var template = choice?.template;
         var item = template
             ?.GetComponentInChildren<Toggle>(true)
             ?.transform.TryCast<RectTransform>();
         var content = item?.parent?.TryCast<RectTransform>();
         var viewport = template?.GetComponent<ScrollRect>()?.viewport;
-        if (template == null || item == null || content == null)
+        if (choice == null || template == null || item == null || content == null)
             return 0f;
+        var native = row.NativeOptions ??= new OptionsGeometry(
+            template.sizeDelta,
+            content.sizeDelta,
+            content.anchoredPosition,
+            item.sizeDelta,
+            item.anchoredPosition
+        );
+        template.sizeDelta = native.TemplateSize;
+        content.sizeDelta = native.ContentSize;
+        content.anchoredPosition = native.ContentPosition;
+        item.sizeDelta = native.ItemSize;
+        item.anchoredPosition = native.ItemPosition;
         var height = item.rect.height;
         var missing = TouchMetrics.MissingTargetPixels(height * scale, Screen.dpi) / scale;
         if (missing > 0.5f)
@@ -708,26 +776,25 @@ internal sealed class AndroidNativeSettingsSection
     private static void HideNativeFooter(
         OptionsDialogController dialog,
         RectTransform supportSection,
-        List<(GameObject Target, bool WasActive)> hidden
+        FooterRollback rollback
     )
     {
-        var splitContainer = dialog
-            .transform.Find("ScalerOffset/SplitContainer")
-            ?.TryCast<RectTransform>();
+        var splitContainer = SplitContainer(dialog);
         var scalerOffset = splitContainer?.parent;
         var footerLabel = scalerOffset?.Find("Notice_ChangeAuto")?.gameObject;
         var divider = scalerOffset?.Find("Divider_1")?.gameObject;
-        Hide(footerLabel, hidden);
-        Hide(divider, hidden);
-        Hide(supportSection.Find("Buffer")?.gameObject, hidden);
+        Hide(footerLabel, rollback.Hidden);
+        Hide(divider, rollback.Hidden);
+        Hide(supportSection.Find("Buffer")?.gameObject, rollback.Hidden);
         var grown =
-            splitContainer != null && ExpandSplitContainer(splitContainer, footerLabel, divider);
+            splitContainer != null
+            && ExpandSplitContainer(splitContainer, footerLabel, divider, rollback);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.settings.footer_layout"),
             ("split_container", splitContainer != null),
             ("footer_label", footerLabel != null),
             ("divider", divider != null),
-            ("hidden", hidden.Count),
+            ("hidden", rollback.Hidden.Count),
             ("grown", grown)
         );
         var dialogRect = dialog.transform.TryCast<RectTransform>();
@@ -735,10 +802,14 @@ internal sealed class AndroidNativeSettingsSection
             LayoutRebuilder.ForceRebuildLayoutImmediate(dialogRect);
     }
 
+    private static RectTransform? SplitContainer(OptionsDialogController dialog) =>
+        dialog.transform.Find("ScalerOffset/SplitContainer")?.TryCast<RectTransform>();
+
     private static bool ExpandSplitContainer(
         RectTransform splitContainer,
         GameObject? footerLabel,
-        GameObject? divider
+        GameObject? divider,
+        FooterRollback rollback
     )
     {
         var parent = splitContainer.parent?.TryCast<RectTransform>();
@@ -761,6 +832,7 @@ internal sealed class AndroidNativeSettingsSection
         if (released <= 0f)
             return false;
         var half = (released + SplitContainerExtraHeight) * 0.5f;
+        rollback.RecordSplitContainer(splitContainer);
         splitContainer.offsetMin = new Vector2(
             splitContainer.offsetMin.x,
             splitContainer.offsetMin.y - half
@@ -1010,17 +1082,71 @@ internal sealed class AndroidNativeSettingsSection
         );
     }
 
+    // The section's size, the touch geometry last applied to it, and whether the navigation
+    // column still holds every entry inside the split container now that BazaarPlusPlus is added.
     private static void LogVisibility(AndroidNativeSettingsSection section, string state)
     {
         var rect = section._sectionRoot.rect;
+        var (entries, listHeight, inside) = section.MeasureNavigation();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.settings.section_visibility"),
             ("state", state),
             ("screen", $"{Screen.width}x{Screen.height}"),
             ("section_width", Math.Round(rect.width)),
             ("section_height", Math.Round(rect.height)),
-            ("rows", section._rows.Count)
+            ("rows", section._rows.Count),
+            ("min_hit_px", Math.Round(section._lastMinHitPx)),
+            ("min_option_px", Math.Round(section._lastMinOptionPx)),
+            ("hit_overlaps", section._lastHitOverlaps),
+            ("nav_entries", entries),
+            ("nav_list_height", Math.Round(listHeight)),
+            ("nav_inside", inside)
         );
+    }
+
+    // The navigation column: its active entries, the pixels they span, and whether the lowest
+    // entry's bottom edge lies inside the split container (grown into the hidden footer's space).
+    private (int Entries, float ListHeight, bool Inside) MeasureNavigation()
+    {
+        var list =
+            _navigationRoot == null ? null : _navigationRoot.parent?.TryCast<RectTransform>();
+        if (list == null)
+            return (0, 0f, false);
+        var entries = 0;
+        var lowest = float.PositiveInfinity;
+        var highest = float.NegativeInfinity;
+        for (var index = 0; index < list.childCount; index++)
+        {
+            var child = list.GetChild(index)?.TryCast<RectTransform>();
+            if (child == null || !child.gameObject.activeSelf)
+                continue;
+            entries++;
+            var span = ScreenVerticalSpan(child);
+            lowest = Math.Min(lowest, span.Min);
+            highest = Math.Max(highest, span.Max);
+        }
+        if (entries == 0)
+            return (0, 0f, false);
+        var split = _dialog == null ? null : SplitContainer(_dialog);
+        var inside = split != null && lowest >= ScreenVerticalSpan(split).Min - 0.5f;
+        // From the top entry's top edge to the lowest entry's bottom edge, in screen pixels.
+        return (entries, highest - lowest, inside);
+    }
+
+    // A rect's vertical extent in screen pixels, through its canvas's camera (none on an
+    // overlay canvas).
+    private static (float Min, float Max) ScreenVerticalSpan(RectTransform rect)
+    {
+        var canvas = rect.GetComponentInParent<Canvas>(true)?.rootCanvas;
+        var camera =
+            canvas == null || canvas.renderMode == RenderMode.ScreenSpaceOverlay
+                ? null
+                : canvas.worldCamera;
+        var corners = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector3>(4L);
+        rect.GetWorldCorners(corners);
+        var bottom = RectTransformUtility.WorldToScreenPoint(camera, corners[0]).y;
+        var top = RectTransformUtility.WorldToScreenPoint(camera, corners[1]).y;
+        return (Math.Min(bottom, top), Math.Max(bottom, top));
     }
 
     private static string CurrentLanguageCode
@@ -1051,5 +1177,60 @@ internal sealed class AndroidNativeSettingsSection
         public Toggle? Toggle { get; } = toggle;
         public TMP_Dropdown? Choice { get; } = choice;
         public Button? Action { get; } = action;
+
+        /// <summary>The dropdown template's geometry as cloned, before any fit.</summary>
+        public OptionsGeometry? NativeOptions { get; set; }
+    }
+
+    private sealed record OptionsGeometry(
+        Vector2 TemplateSize,
+        Vector2 ContentSize,
+        Vector2 ContentPosition,
+        Vector2 ItemSize,
+        Vector2 ItemPosition
+    );
+
+    // What the install changed outside the section, undone if a later stage fails.
+    private sealed class FooterRollback
+    {
+        private RectTransform? _splitContainer;
+        private Vector2 _offsetMin;
+        private Vector2 _offsetMax;
+        private Vector2 _anchoredPosition;
+
+        public List<(GameObject Target, bool WasActive)> Hidden { get; } = new();
+
+        public bool SplitContainerRestored { get; private set; }
+
+        public void RecordSplitContainer(RectTransform splitContainer)
+        {
+            if (_splitContainer != null)
+                return;
+            _splitContainer = splitContainer;
+            _offsetMin = splitContainer.offsetMin;
+            _offsetMax = splitContainer.offsetMax;
+            _anchoredPosition = splitContainer.anchoredPosition;
+        }
+
+        /// <summary>Shows the hidden footer again and returns the container to its frame.</summary>
+        public int Undo()
+        {
+            var restored = 0;
+            foreach (var (target, wasActive) in Hidden)
+            {
+                if (target == null)
+                    continue;
+                target.SetActive(wasActive);
+                restored++;
+            }
+            if (_splitContainer != null)
+            {
+                _splitContainer.offsetMin = _offsetMin;
+                _splitContainer.offsetMax = _offsetMax;
+                _splitContainer.anchoredPosition = _anchoredPosition;
+                SplitContainerRestored = true;
+            }
+            return restored;
+        }
     }
 }
