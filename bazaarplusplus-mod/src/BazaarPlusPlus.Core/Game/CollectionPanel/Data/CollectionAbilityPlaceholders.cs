@@ -78,6 +78,20 @@ public static class CollectionAbilityPlaceholders
         return CleanDroppedPlaceholders(formatted);
     }
 
+    /// <summary>
+    /// Drops every <c>{aura.&lt;id&gt;}</c> placeholder, with the empty brackets it leaves, for a
+    /// host that has no aura values to put there: text shown without the game's tooltip renderer
+    /// then never shows a raw token.
+    /// </summary>
+    public static string DropAuraPlaceholders(string text)
+    {
+        if (string.IsNullOrEmpty(text) || !text.Contains("{aura.", StringComparison.Ordinal))
+            return text;
+        return CleanDroppedPlaceholders(
+            Regex.Replace(text, @"\{aura\.[^}]+\}", string.Empty, RegexOptions.CultureInvariant)
+        );
+    }
+
     // After dropping unresolvable placeholders, remove the empty bracket pairs and
     // doubled spaces they leave behind ("... you have [{ability.0}]" -> "... you have").
     private static string CleanDroppedPlaceholders(string text)

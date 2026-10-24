@@ -89,6 +89,12 @@ internal interface ICardRentalBackend<TCard, TParent>
     /// <summary>Deactivates the card and moves it under the pool root.</summary>
     void Park(TCard card);
 
+    /// <summary>
+    /// Moves a card whose setup is still in flight under the pool root, where its setup ends
+    /// unseen: the panel that returned it may destroy its own hierarchy before then.
+    /// </summary>
+    void Detach(TCard card);
+
     void Destroy(TCard card);
 
     /// <summary>False once the native object is gone (destroyed by the game or a scene unload).</summary>
@@ -212,7 +218,13 @@ internal sealed class CardRentalCore<TCard, TParent>
             Returned++;
         lease.State = CardRentalLeaseState.Released;
         if (lease.InstantiateOperation != null || lease.SetUpOperation != null)
-            return; // Tick settles it when the native operation completes
+        {
+            // Tick settles it when the native operation completes; a card already set up in
+            // flight leaves the returning panel now, so a view rebuilt meanwhile cannot take it.
+            if (lease.Card != null)
+                SafeDetach(lease.Card);
+            return;
+        }
         _active.Remove(lease);
         if (lease.Card != null)
         {
@@ -241,6 +253,8 @@ internal sealed class CardRentalCore<TCard, TParent>
             if (lease.InstantiateOperation != null || lease.SetUpOperation != null)
             {
                 lease.DestroyOnArrival = true;
+                if (lease.Card != null)
+                    SafeDetach(lease.Card);
                 continue;
             }
             _active.Remove(lease);
@@ -412,6 +426,20 @@ internal sealed class CardRentalCore<TCard, TParent>
         }
         lease.State = CardRentalLeaseState.Ready;
         lease.Revision++;
+    }
+
+    private void SafeDetach(TCard card)
+    {
+        try
+        {
+            if (_backend.IsAlive(card))
+                _backend.Detach(card);
+        }
+        catch (Exception)
+        {
+            // The setup still settles it; at worst the game destroys it with its parent, and
+            // the arrival counts it lost.
+        }
     }
 
     private void Fail(CardRentalLease<TCard> lease, string reason)

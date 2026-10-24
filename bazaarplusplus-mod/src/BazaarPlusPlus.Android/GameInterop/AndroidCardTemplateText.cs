@@ -1,14 +1,25 @@
+using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
+using Il2CppBazaarGameClient.Domain.Models.Cards;
 using Il2CppBazaarGameShared.Domain.Cards;
+using Il2CppBazaarGameShared.Domain.Cards.Interfaces;
+using Il2CppBazaarGameShared.Domain.Cards.Item;
 using Il2CppBazaarGameShared.Domain.Core;
+using Il2CppBazaarGameShared.Domain.Core.Types;
+using Il2CppTheBazaar.Tooltips;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
 /// <summary>
-/// A static card template's authored text in the current language, falling back to the authored
-/// English: its title (or internal name) and its description, with <c>{ability.*}</c> placeholders
-/// dropped as the Collection catalog drops them. Null when static data is not ready, the template
-/// is unknown, or the lookup fails. Main thread only.
+/// A static card template's text in the current language, the one card-text resolver every
+/// Android inspection (Collection, Ten-Win Builds, History) reads: its title (or internal name),
+/// and its description as the game's own tooltip renders it for the card's tier and enchantment
+/// (<see cref="Description(CardRentalSubject)"/>), its <c>{ability.*}</c> and <c>{aura.*}</c>
+/// values resolved to numbers. When the game cannot render it, as before static data is ready,
+/// the authored text stands in with its placeholders dropped. Null when the template is unknown
+/// or the lookup fails. Main thread only.
 /// </summary>
 internal static class AndroidCardTemplateText
 {
@@ -21,10 +32,111 @@ internal static class AndroidCardTemplateText
             ?? (string.IsNullOrWhiteSpace(template.InternalName) ? null : template.InternalName);
     }
 
-    /// <summary>The description, or else the tooltips one per line, as most items author their text there.</summary>
-    public static string? Description(Guid templateId)
+    /// <summary>
+    /// The card's description and its ability and aura lines as the game's tooltip shows them for
+    /// <paramref name="subject"/>'s tier and enchantment: the card the game's preview prefab builds
+    /// in its own set-up (<c>CardPreviewBase.SetUp</c>), rendered through its
+    /// <see cref="CardTooltipData"/>. Falls back to <see cref="Authored"/> when that throws or
+    /// renders nothing. Rich text: the game's colors and keyword sprites.
+    /// </summary>
+    public static string? Description(CardRentalSubject subject)
     {
-        var localization = Template(templateId)?.Localization;
+        var template = Template(subject.TemplateId);
+        if (template == null)
+            return null;
+        var tooltip = Guarded("tooltip_data", () => TooltipData(template, subject));
+        if (tooltip == null)
+            return Authored(template);
+        // Each block on its own: an effect token that needs the run, absent at the main menu,
+        // costs only its block.
+        var lines = new List<string>();
+        Add(lines, Guarded("description", () => tooltip.GetCardDescription().Item1));
+        Add(lines, Guarded("effects", () => tooltip.BuildCombinedEffectDescription()));
+        return lines.Count == 0 ? Authored(template) : string.Join("\n", lines);
+    }
+
+    private static T? Guarded<T>(string step, Func<T?> render)
+        where T : class
+    {
+        try
+        {
+            return render();
+        }
+        catch (Exception exception)
+        {
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Android,
+                    "android.card_text.render_failed",
+                    storm: ["step"]
+                ),
+                exception,
+                ("step", step)
+            );
+            return null;
+        }
+    }
+
+    private static CardTooltipData? TooltipData(TCardBase template, CardRentalSubject subject)
+    {
+        var cardTemplate = template.TryCast<ITCard>();
+        if (cardTemplate == null)
+            return null;
+        var tier = AndroidCardFacets.Tier.TryToSource(subject.Tier, out var nativeTier)
+            ? nativeTier
+            : template.StartingTier;
+        var card = Il2CppTheBazaar.DTOUtils.CreateCard(template.Id.ToString(), template.Type);
+        card.Attributes = new Il2CppSystem.Collections.Generic.Dictionary<
+            ECardAttributeType,
+            int
+        >();
+        // The template's tiers up to its starting tier, as the prefab's UpdateInstanceFromTierData.
+        var tierData = template.TryCast<IHasTierData>();
+        if (tierData?.Tiers != null)
+            foreach (var entry in tierData.Tiers)
+            {
+                if (entry.Key > template.StartingTier)
+                    continue;
+                if (entry.Value?.Attributes == null)
+                    continue;
+                foreach (var attribute in entry.Value.Attributes)
+                    card.Attributes[attribute.Key] = attribute.Value;
+            }
+        card.Tier = tier;
+        var attributes = Il2CppTheBazaar.CardExtensions.BuildAttributeDictionaryForTier(
+            card,
+            cardTemplate,
+            tier
+        );
+        var item = card.TryCast<ItemCard>();
+        var itemTemplate = template.TryCast<TCardItem>();
+        if (item != null && itemTemplate != null)
+            Il2CppTheBazaar.CardExtensions.ApplyPreviewEnchantment(
+                itemTemplate,
+                item,
+                attributes,
+                subject.Enchantment is { } enchantment
+                && AndroidCardFacets.Enchantment.TryToSource(enchantment, out var native)
+                    ? new Il2CppSystem.Nullable<EEnchantmentType>(native)
+                    : new Il2CppSystem.Nullable<EEnchantmentType>()
+            );
+        card.Attributes = attributes;
+        card.Size = template.Size;
+        card.Tags = template.Tags;
+        return new CardTooltipData(card, cardTemplate, null);
+    }
+
+    private static void Add(List<string> lines, string? text)
+    {
+        var trimmed = text?.Trim();
+        if (!string.IsNullOrWhiteSpace(trimmed) && !lines.Contains(trimmed))
+            lines.Add(trimmed);
+    }
+
+    // The description, or else the tooltips one per line, as most items author their text there.
+    private static string? Authored(TCardBase template)
+    {
+        var localization = template.Localization;
         if (localization == null)
             return null;
         var description = Formatted(Text(localization.Description));
@@ -49,6 +161,8 @@ internal static class AndroidCardTemplateText
     private static string? Formatted(string? text)
     {
         var formatted = CollectionAbilityPlaceholders.Format(text, NoAbilityValue)?.Trim();
+        if (formatted != null)
+            formatted = CollectionAbilityPlaceholders.DropAuraPlaceholders(formatted).Trim();
         return string.IsNullOrWhiteSpace(formatted) ? null : formatted;
     }
 

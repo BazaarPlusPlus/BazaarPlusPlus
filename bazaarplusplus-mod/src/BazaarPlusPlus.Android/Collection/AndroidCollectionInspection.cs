@@ -22,7 +22,8 @@ namespace BazaarPlusPlus.Android.Collection;
 /// A chip sets the same rented card up again at that tier or enchantment. The desktop's
 /// inspection locks the game's own tooltip beside the card; Android has no hover tooltip to lock,
 /// so the card's name stands beside it, over one drag-scrolled column of the chips and the card's
-/// authored text (<see cref="AndroidCardTemplateText.Description"/>, as History and Ten-Win
+/// text as the game renders it for the chosen tier and enchantment
+/// (<see cref="AndroidCardTemplateText.Description(CardRentalSubject)"/>, as History and Ten-Win
 /// Builds show it). A tap outside the info column, the close button, or the back key dismisses it.
 /// </summary>
 internal sealed class AndroidCollectionInspection
@@ -128,7 +129,7 @@ internal sealed class AndroidCollectionInspection
         _card = card;
         _tier = card.StartingTier;
         _enchantment = null;
-        _text = AndroidCardTemplateText.Description(card.Id) ?? card.Description;
+        _text = AndroidCardTemplateText.Description(Subject()) ?? card.Description;
         _name.text = card.DisplayName;
         var bounds = AndroidCollectionGrid.NaturalBounds(card);
         var widthScale =
@@ -183,6 +184,8 @@ internal sealed class AndroidCollectionInspection
         _tier = tier;
         _enchantment = enchantment;
         AndroidCardRental.Retarget(_lease, Subject());
+        // The values follow the chosen tier and enchantment, as the retargeted card's do.
+        _text = AndroidCardTemplateText.Description(Subject()) ?? _card.Description;
         RenderDetail();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.inspection_retargeted"),

@@ -9,8 +9,6 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
 internal static class TenWinBuildCatalogFactory
 {
-    internal const string EmbeddedResourceName =
-        "BazaarPlusPlus.Data.BuildRecommendations.builds.json";
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(
         productVersion: BppPluginVersion.Current,
         platformKey: DesktopPlatformKey.Current,
@@ -27,7 +25,7 @@ internal static class TenWinBuildCatalogFactory
             new TenWinBuildCatalogParser(),
             new AssemblyResourceCatalogSource(
                 Assembly.GetExecutingAssembly(),
-                EmbeddedResourceName
+                TenWinBuildCatalogSettings.EmbeddedResourceName
             ),
             cache,
             new HttpRemoteCatalogSource(HttpClient, TenWinBuildCatalogSettings.RemoteUrl),

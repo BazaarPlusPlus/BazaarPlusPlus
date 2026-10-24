@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 
@@ -199,11 +200,8 @@ internal static class HistoryTouchLayoutTests
         {
             var scale = layout.InspectScale(span, skill: false);
             Require(
-                HistoryTouchLayout.PrefabSocketWidth * span * scale
-                    <= layout.InspectCardArea.Width + 0.01f
-                    && HistoryTouchLayout.PrefabHeight
-                        * HistoryTouchLayout.FrameHeightOverSocket
-                        * scale
+                NativeCardPrefab.SocketWidth * span * scale <= layout.InspectCardArea.Width + 0.01f
+                    && NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket * scale
                         <= layout.InspectCardArea.Height + 0.01f,
                 $"{name}: the enlarged card fits its area."
             );
@@ -222,7 +220,7 @@ internal static class HistoryTouchLayoutTests
         }
         RequireLaidOut(name + " skills", layout.Sheet, skillsSheet.ToArray());
         Require(
-            Near(layout.SkillScale * HistoryTouchLayout.PrefabHeight, layout.SkillSide),
+            Near(layout.SkillScale * NativeCardPrefab.Height, layout.SkillSide),
             $"{name}: a skill fills its square."
         );
 

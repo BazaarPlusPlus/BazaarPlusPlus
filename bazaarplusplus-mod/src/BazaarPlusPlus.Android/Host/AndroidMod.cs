@@ -139,6 +139,10 @@ public sealed class AndroidMod : MelonMod
     {
         _versionCheck?.Dispose();
         _versionCheck = null;
+        // The touch panels give their rented cards back and drop their views before the rental
+        // and the composition's catalogs go.
+        _touchUi?.Dispose();
+        _touchUi = null;
         // History's coordinator cancels its session before the replay and the composition, and
         // the composition disposes History's Mod API session last.
         _historyPanel?.Dispose();
@@ -186,7 +190,7 @@ public sealed class AndroidMod : MelonMod
                 android,
                 _historyPanel == null ? null : () => _historyPanel?.Open("launcher"),
                 () => _historyPanel?.IsVisible == true,
-                _composition?.BuildRecommendations
+                _composition?.LiveBuild
             );
             _touchUi = touchUi;
             var versionCheck = _versionCheck;
@@ -340,20 +344,29 @@ public sealed class AndroidMod : MelonMod
             ("index", buildIndex),
             ("name", sceneName)
         );
+        // Each step runs in its own guard, so one that throws never skips the release after it.
+        // The panels let go of their leases first, then whatever is left is destroyed: no rented
+        // card outlives the scene it was rented in.
+        Guarded(
+            "scene_loaded:upgrade_preview",
+            () => AndroidUpgradePreview.Release("scene_changed")
+        );
+        Guarded("scene_loaded:touch_ui", () => _touchUi?.OnSceneLoaded());
+        Guarded("scene_loaded:history", () => _historyPanel?.OnSceneLoaded(sceneName));
+        Guarded("scene_loaded:card_rental", () => AndroidCardRental.ReleaseAll("scene_changed"));
+        if (sceneName == MainMenuSceneName)
+            Guarded("scene_loaded:version_check", () => _versionCheck?.Begin());
+    }
+
+    private static void Guarded(string probe, Action step)
+    {
         try
         {
-            AndroidUpgradePreview.Release("scene_changed");
-            // The panels let go of their leases first, then whatever is left is destroyed:
-            // no rented card outlives the scene it was rented in.
-            _touchUi?.OnSceneLoaded();
-            _historyPanel?.OnSceneLoaded(sceneName);
-            AndroidCardRental.ReleaseAll("scene_changed");
-            if (sceneName == MainMenuSceneName)
-                _versionCheck?.Begin();
+            step();
         }
         catch (Exception exception)
         {
-            AndroidPatchHost.ReportProbeError("scene_loaded", exception);
+            AndroidPatchHost.ReportProbeError(probe, exception);
         }
     }
 

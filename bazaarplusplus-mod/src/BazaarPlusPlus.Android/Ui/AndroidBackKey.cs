@@ -25,12 +25,26 @@ internal static class AndroidBackKey
     private static long _consumed;
     private static long _passed;
 
-    /// <summary>Adds a handler below every handler registered before it.</summary>
+    /// <summary>
+    /// Adds a handler below every handler registered before it. A name registered again, as when
+    /// the touch UI mounts again over a rebuilt canvas, replaces its handler in place, so one
+    /// press never asks the same panel twice.
+    /// </summary>
     public static void Register(string name, Func<bool> tryClose)
     {
         ArgumentNullException.ThrowIfNull(tryClose);
-        Handlers.Add((name, tryClose));
+        var index = Handlers.FindIndex(handler =>
+            string.Equals(handler.Name, name, StringComparison.Ordinal)
+        );
+        if (index >= 0)
+            Handlers[index] = (name, tryClose);
+        else
+            Handlers.Add((name, tryClose));
     }
+
+    /// <summary>The registered handler names, top-most first.</summary>
+    public static IReadOnlyList<string> Registered =>
+        Handlers.Select(handler => handler.Name).ToList();
 
     /// <summary>
     /// A back press reached BPP through <paramref name="source"/>; true when BPP closed something
@@ -81,5 +95,6 @@ internal static class AndroidBackKey
             ("back_key_presses", _presses),
             ("back_key_consumed", _consumed),
             ("back_key_passed", _passed),
+            ("back_key_handlers", Handlers.Count),
         ];
 }
