@@ -208,6 +208,8 @@ internal sealed class PostCombatImpactModule : IBppFeature
                 }
                 if (cardMap != null)
                 {
+                    // Runs on the thread pool after the first await, so AddMissing must read only
+                    // static template data and never touch Unity objects.
                     CombatImpactImplicitPlayerEffectReader.AddMissing(
                         timeline,
                         detachedEntities,

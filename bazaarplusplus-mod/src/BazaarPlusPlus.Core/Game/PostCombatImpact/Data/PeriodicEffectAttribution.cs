@@ -27,8 +27,9 @@ internal static class PeriodicEffectAttribution
     //   and prevented Burn damage are not assumed numerically equal.
     // - Only movement that changed live combat state is realized impact. Overheal, overkill, and
     //   prevented damage are counterfactual and stay unbooked.
-    // - CombatHealthChange.Joy survives in the shared enum for schema compatibility. Enum
-    //   presence is not evidence that Joy is a current gameplay pool, so the model does not book it.
+    // - CombatHealthChange.Joy mirrors the game's EPlayerHealthChangeType.Joy, which survives there
+    //   for schema compatibility. Enum presence is not evidence that Joy is a current gameplay pool,
+    //   so the model does not book it.
     // - CombatImpactPeriodicProof is two-valued on purpose. A tick exposes only aggregate status
     //   and pool movement, so once two resolved owners coexist, moving one unit between them
     //   yields a second feasible allocation — no third "narrowed but not unique" class is

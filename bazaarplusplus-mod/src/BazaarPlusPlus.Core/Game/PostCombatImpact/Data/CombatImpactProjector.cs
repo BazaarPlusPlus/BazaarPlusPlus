@@ -1165,10 +1165,9 @@ public static class CombatImpactProjector
         )
         {
             alternateValue = null;
-            var sourceInstance = (sourceId);
             if (
                 HasCriticalConfiguredAmount(action)
-                && frame.CardUpdates.TryGetValue(sourceInstance, out var update)
+                && frame.CardUpdates.TryGetValue(sourceId, out var update)
                 && update.Attributes.TryGetValue(attribute.Value, out var attributeUpdate)
                 && attributeUpdate.CurrentValue > 0
                 && attributeUpdate.CurrentValue != value

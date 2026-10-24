@@ -16,7 +16,8 @@ namespace BazaarPlusPlus.GameInterop.CombatSimulation;
 /// The desktop host's Combat Impact adapter (ADR-0019): copies a finished game simulation and
 /// the card templates' attribute modifiers into Core's combat model, in the game's iteration
 /// order. Every enum crosses through <see cref="DesktopCombatFacets"/>; a value Core has no member
-/// for is left out, which the facet pin test keeps from happening on any captured build.
+/// for is left out. The facet pin test (DesktopCombatFacetVocabularyTests) rules that out for the
+/// configured Managed snapshot only; a newer game build can still add a member Core lacks.
 /// </summary>
 internal static class DesktopCombatTimeline
 {
