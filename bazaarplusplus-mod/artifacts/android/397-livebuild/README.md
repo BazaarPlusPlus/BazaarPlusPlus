@@ -12,6 +12,7 @@ Every session below ran that one build. Commits after `6ca9695` add only this ev
 | 1 | `logs/session1.log` | `15a0f1a9e84ff57abf8f067712980421c3fddb780a224657a753e7e5b9d8baec` | `6ca9695` | the shipped corpus path (CDN, embedded seed), the setting on/off contrast, the failed refresh's main-thread handoff, CJK supporter names |
 | 2 | `logs/session2.log` | `15a0f1a9e84ff57abf8f067712980421c3fddb780a224657a753e7e5b9d8baec` | `6ca9695` | the remote corpus through a local test double, Collection then Ten-Win Builds on the shared rental pool, match/browse/inspect, a successful refresh, the `switched_off` release, a scene change the game starts with the panel open, reopening after it |
 | 3 | `logs/session3.log` | `15a0f1a9e84ff57abf8f067712980421c3fddb780a224657a753e7e5b9d8baec` | `6ca9695` | the back key on the panel and past it to the game, in a run, without the test double |
+| 4 | `logs/session4.log` | `15a0f1a9e84ff57abf8f067712980421c3fddb780a224657a753e7e5b9d8baec` | `6ca9695` | the open panel re-laying itself out for 2560×1600 and back, and for 640 dpi (the stacked arrangement) and back, in a run, without the test double |
 
 Screenshots are halved. The full-screen panel and in-run screens show no account name; the
 main-menu shots are cropped to the touch menu or the settings rows. Each log is the `[BPP]` lines
@@ -60,6 +61,11 @@ line and on the seed again.
 | Reopen in the resumed run | online Resume, `live_build.opened hero=vanessa stash=7 board=8 matches_state=no_candidates leases=15`, `15-reopen-in-resumed-run.png`, `live_build.closed returned=15 rental_leases=0 rental_balanced=true` | the run's hero and boards again, candidates cleared |
 | Back key | session 3 `live_build.closed reason=back_key returned=15 rental_leases=0 rental_balanced=true`, `back_key.consumed source=handle_escape target=live_build`, then `back_key.passed`, `16-back-key-passes-to-game.png` | the first press closes the panel, the next reaches the game's escape menu |
 | Counters | session 2 last summary `live_build_opened=4 live_build_closed=4 live_build_leases=0 live_build_refreshes_completed=1 card_balanced=true`; session 3 `back_key_consumed=3 back_key_passed=3` | |
+| Another ratio, panel open | session 4, in the run: `live_build.opened ... stash=7 board=8 screen=2400x1080@420\|136,0,2264,1080 card_scale=0.603 leases=15`, then `adb shell wm size 1600x2560`: `live_build.relayout from=2400x1080@420\|136,0,2264,1080 to=2560x1600@420\|145,0,2415,1600 units_per_dp=1.772 card_scale=0.435 rental_leases=15 held_frames=9`, `17-relayout-2560x1600.png`, drag-scrolled `scrolled from=0 to=248 max=248`, `18-2560x1600-scrolled.png` | the open panel re-lays itself out for the new screen side by side, every card re-rented, nothing overflowing |
+| Back to 2400×1080 | `wm size reset`: `relayout from=2560x1600@420\|145,0,2415,1600 to=2400x1080@420\|136,0,2264,1080 card_scale=0.603 rental_leases=15 held_frames=18`, `19-back-to-2400x1080.png`; `live_build.closed reason=back_key returned=15 rental_leases=0 rental_balanced=true` | |
+| A ratio change right after opening | the panel reopened and `wm size 1600x2560` sent in the same device shell script as the tap that opened it: `opened` and `relayout ... to=2560x1600@420 ... held_frames=27` in the same second, then `wm size reset`, `held_frames=36` | `held_frames` counts over the panel's life, and each relayout added 9: the stable-frames wait of `TouchRelayoutDebounce` (the new key must read the same for 10 frames; the 10th acts). The cards' setups had ended by then, so the wait for a card in setup did not engage (below) |
+| A dense screen: the stacked arrangement | `wm density 640` with the panel open: `relayout from=2400x1080@420\|136,0,2264,1080 to=2400x1080@640\|136,0,2264,1080 units_per_dp=4 card_scale=0.86 rental_leases=15 held_frames=45`; `20-stacked-640dpi-header.png`, then drag-scrolled `scrolled from=0 to=1237`, `to=2442`, `to=3351 max=3351`: `21-stacked-640dpi-boards-scrolled.png`, `22-stacked-640dpi-overview.png`, `23-stacked-640dpi-end.png` | the title band with the pager and the close button stays fixed as a header over the full width, and the boards, then the overview (refresh, corpus, hero, guidance, supporters, Sponsor) scroll under it. A socket is 252 × 0.86 = 217 canvas units at 4 units per dp, 54 dp, over the 48 dp floor; side by side at 640 dpi would leave it under 48 dp (`LiveBuildTouchLayoutTests`) |
+| Back to 420 dpi | `wm density reset` logged no relayout: the game's `Screen.dpi` still read 640, so the screen key had not changed. `wm density 421` then relayouted `to=2400x1080@420` and the next `wm density reset` `to=2400x1080@421` (`held_frames=54`, `63`): on this emulator `Screen.dpi` trailed the density by one change from the reset on. `24-side-by-side-after-density-reset.png` is side by side again; `live_build.closed reason=close_button returned=15 rental_leases=0 rental_balanced=true`; last summary `live_build_opened=2 live_build_closed=2 live_build_relayouts=7 card_rented=168 card_returned=168 card_lost=0 card_balanced=true` | the panel stayed open through all seven relayouts with every lease back at the close. The game was relaunched afterwards, at the AVD's own size and density |
 
 ## Covered by tests instead of the device
 
@@ -69,14 +75,19 @@ line and on the seed again.
   from a game menu the full-screen panel covers. `AndroidSceneChangeTeardownTests`
   (`tests/AndroidHost.Tests/`) holds the compiled chain instead: `AndroidTouchUi.OnSceneLoaded` closes
   the panel with `scene_changed`, `AndroidLiveBuildPanel.Close` calls `AndroidLiveBuildView.ReturnAll`,
-  and that closes `AndroidLiveBuildInspection`. The rental's release of a lease still in setup is
-  covered by `CardRentalCoreTests`, and the device shows the same close returning the inspected
-  card's lease on a normal close (`inspection_closed ... rental_leases=22`, then `returned=22`).
-- **Other screen ratios and dense screens.** `LiveBuildTouchLayoutTests`
-  (`tests/LiveBuildPanel.Tests/`) lays the sheet out at 2560×1600@420 and at 2400×1080@480, @560 and
-  @640, and holds every socket at 48dp; the fallback density for a device that reports no
-  `Screen.dpi` is covered there and in `TouchMetricsTargetTests`. This AVD reports its dpi, so the
-  fallback cannot be reached on it. `TouchRelayoutDebounceTests` covers the
-  relayout debounce while cards set up.
+  and that closes `AndroidLiveBuildInspection`. The rental's release of a lease still in setup on a
+  scene load is covered only by `CardRentalCoreTests`; the device shows the same close returning the
+  inspected card's lease on a normal close (`inspection_closed ... rental_leases=22`, then
+  `returned=22`), and a lease returned during its setup settling into the pool in the #396 folder
+  (`../396-collection/`, session 4).
+- **The densities the device did not run, and no reported dpi.** Session 4 ran 2560×1600@420 and
+  2400×1080@640 (stacked) on the device. `LiveBuildTouchLayoutTests` (`tests/LiveBuildPanel.Tests/`)
+  also lays the sheet out at 2400×1080@480 and @560 and holds every socket at 48dp; the fallback
+  density for a device that reports no `Screen.dpi` is covered there and in
+  `TouchMetricsTargetTests`. This AVD reports its dpi, so the fallback cannot be reached on it.
+- **A relayout held while a card is still setting up.** Every device relayout found the cards set
+  up after the stable-frames wait, so `TouchRelayoutDebounce`'s hold for a setup in flight (and its
+  cap) did not engage on the device; `TouchRelayoutDebounceTests` covers it.
 
-Game state left: in Vanessa's run a7ef4347, day 6, at the choice screen.
+Game state left: in Vanessa's run a7ef4347, day 6, at the choice screen, the screen at its own
+2400×1080 and 420 dpi.
