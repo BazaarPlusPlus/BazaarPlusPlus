@@ -63,7 +63,7 @@ A follow-up issue tracks the device capture.
 | Screen | Logged sizes | Drag | Back key |
 |---|---|---|---|
 | 2400x1080 | `section_visibility state=opened ... min_hit_px=126 ... nav_list_height=1000 nav_inside=true` (21:12:20) | `settings.scrolled ... dragging=true` (21:12:26) | `back_key.passed source=handle_escape` (21:12:52) |
-| 2560x1600 | `min_hit_px=127 ... nav_list_height=1481 nav_inside=true` (21:24:31). The dropdown spacing shrinks to fit: `touch_targets reason=refreshed ... canvas_scale=0.741 spacing_before=127.5 spacing=47` (21:24:30). | `dragging=true` (21:25:20, 21:25:32) | `back_key.passed` (21:25:34) |
+| 2560x1600 | `min_hit_px=127 ... nav_list_height=1481 nav_inside=true` (21:24:31). The section's layout spacing re-fits from the native sizes and shrinks on the larger screen: `touch_targets reason=refreshed ... canvas_scale=0.741 spacing_before=127.5 spacing=47` (21:24:30). This is the section group's gap, not the dropdown; `min_option_px` stays 126 on both screens, so the dropdown template's shrink-back in `FitOptions` is covered by code review only. | `dragging=true` (21:25:20, 21:25:32) | `back_key.passed` (21:25:34) |
 
 Screenshots: `s1-section-2560x1600.png` and `s1-collection-2560x1600.png`. Collection was closed by the back key at 2560x1600: `collection.closed reason=back_key returned=40 rental_leases=0 rental_balanced=true` (21:26:23).
 
@@ -95,7 +95,7 @@ S2 used a local test double for the ACTIVE state:
   - `lobby.game_update.checked ... published_game_version=1.0.12900-production-android-testdbl decision=download_apk manifest=dev_loopback` (21:58:20)
   - `ui.game_update_opened` (22:00:12), followed by the browser opening the APK URL (`s2-game-update-link.png`)
 
-Why this still proves the BPP code path: the dev port changes only the manifest's base URL. The parsing, the game-version compare, the row's state and label, and `Application.OpenURL` all ran the same production code that the real manifest drives. The port defaults to 0 (off).
+Why this still proves the BPP code path: the dev port changes only the manifest's base URL. The same loopback manifest also fed the BPP self-update evaluation in that session (`self_update.release.checked ... latest_version=6.0.0 decision=up_to_date`, 21:58:20), because the double's mod version was 6.0.0; a staged payload would still have to pass `Minisign.Verify` against the embedded release signing key. The parsing, the game-version compare, the row's state and label, and `Application.OpenURL` all ran the same production code that the real manifest drives. The port defaults to 0 (off).
 
 After S2:
 
