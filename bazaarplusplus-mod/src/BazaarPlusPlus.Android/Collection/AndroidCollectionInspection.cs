@@ -98,7 +98,13 @@ internal sealed class AndroidCollectionInspection
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
         var close = AndroidTouchScreen.Child("Close", info, Local(inspect.Close, origin, 0f));
-        AndroidUiKit.CloseButton(close, font, chrome.TitleFont, () => Close("close_button"));
+        AndroidUiKit.CloseButton(
+            close,
+            font,
+            chrome.TitleFont,
+            chrome.LabelInset,
+            () => Close("close_button")
+        );
         var detail = AndroidTouchScreen.Child(
             "Detail",
             info,
@@ -221,7 +227,7 @@ internal sealed class AndroidCollectionInspection
             .Select(LabelWidth)
             .DefaultIfEmpty(0f)
             .Max();
-        _columns = _layout.InspectChipColumnsFor(widest + 2f * AndroidUiKit.ButtonLabelInset);
+        _columns = _layout.InspectChipColumnsFor(widest + 2f * _layout.Chrome.LabelInset);
         var flow = new AndroidChipFlow(_detail, _font, chrome, _columns, _layout.RailHeaderHeight);
         foreach (var (label, tier) in tiers)
             flow.Chip(label, tier == _tier, () => Select(tier, _enchantment));

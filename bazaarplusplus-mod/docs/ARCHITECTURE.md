@@ -1,6 +1,6 @@
 # BazaarPlusPlus Architecture
 
-How the plugin is assembled: startup and teardown order, the layer and assembly boundaries, the seams that more than one feature consumes, and where runtime data lives. Per-feature detail is disclosed under [architecture/](architecture/); this file covers only what holds across features.
+How the plugin is assembled: startup and teardown order, the layer and assembly boundaries, the seams features share, and where runtime data lives. Per-feature detail is under [architecture/](architecture/); this file holds only what spans features.
 
 Terms used here are defined in [../CONTEXT.md](../CONTEXT.md). Why a boundary is where it is lives in [adr/](adr/), indexed one line each in [MEMORY.md](MEMORY.md).
 
@@ -101,7 +101,7 @@ PvP battle evidence is a shared `Game/PvpBattles` module rather than a `GameInte
 
 ## Per-feature detail
 
-Each feature doc ends with the Gotchas that bite only that feature.
+Each feature doc ends with its own Gotchas.
 
 | To work on | Read |
 |---|---|
@@ -112,5 +112,5 @@ Each feature doc ends with the Gotchas that bite only that feature.
 | Desktop native build freshness, local promotion, and signing | [architecture/native-artifacts.md](architecture/native-artifacts.md) |
 | Hotkey bindings and settings dock rows | [architecture/input-and-settings.md](architecture/input-and-settings.md) |
 | Fonts, localization, voice subtitles, supporter attribution | [architecture/text.md](architecture/text.md) |
-| Android Host | [architecture/android-host.md](architecture/android-host.md) |
+| Android Host; its touch fit | [architecture/android-host.md](architecture/android-host.md); [touch fit](architecture/android-mobile-ui.md) |
 | The V6 bundle wire format | [contracts/run-payload-v6.md](contracts/run-payload-v6.md) |

@@ -101,15 +101,17 @@ internal static class AndroidUiKit
         return label;
     }
 
-    /// <summary>The horizontal padding between a button's edge and its label.</summary>
-    public const float ButtonLabelInset = 16f;
-
-    /// <summary>A filled button with a centered label; <paramref name="onTap"/> runs on release.</summary>
+    /// <summary>
+    /// A filled button with a centered label <paramref name="labelInset"/> in from either side
+    /// (<c>TouchChrome.LabelInset</c>, so the padding is the same dp on every screen);
+    /// <paramref name="onTap"/> runs on release.
+    /// </summary>
     public static (Button Button, Image Background, TextMeshProUGUI Label) Button(
         RectTransform rect,
         TMP_FontAsset font,
         string text,
         float size,
+        float labelInset,
         Action onTap
     )
     {
@@ -117,16 +119,17 @@ internal static class AndroidUiKit
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = background;
         button.onClick.AddListener((UnityAction)onTap);
-        var labelRect = Rect(
-            "Label",
-            rect,
-            Vector2.zero,
-            Vector2.one,
-            new(ButtonLabelInset, 4f),
-            new(-ButtonLabelInset, -4f)
-        );
+        var labelRect = Rect("Label", rect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        InsetLabel(labelRect, labelInset);
         var label = Text(labelRect, font, text, size, TextAlignmentOptions.Center, TextColor);
         return (button, background, label);
+    }
+
+    /// <summary>Pads a button's label rect <paramref name="inset"/> in from either side.</summary>
+    public static void InsetLabel(RectTransform label, float inset)
+    {
+        label.offsetMin = new Vector2(inset, 0f);
+        label.offsetMax = new Vector2(-inset, 0f);
     }
 
     /// <summary>The close glyph every BPP sheet, dialog, and menu shows, History's included.</summary>
@@ -140,8 +143,9 @@ internal static class AndroidUiKit
         RectTransform rect,
         TMP_FontAsset font,
         float titleFont,
+        float labelInset,
         Action onTap
-    ) => Button(rect, font, CloseGlyph, titleFont, onTap);
+    ) => Button(rect, font, CloseGlyph, titleFont, labelInset, onTap);
 
     /// <summary>
     /// A vertical drag-scrolled list filling <paramref name="area"/>, with inertia; its content
