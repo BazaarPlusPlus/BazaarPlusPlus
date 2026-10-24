@@ -5,7 +5,7 @@ LemonLoader `v0.7.4-android.4`, BPP 6.0.0 Release build of commit `6ca9695` on b
 `android/396-397-rental-finish`. The rental adapter is `AndroidCardRental` over Core's
 `CardRentalCore`; the panel is `src/BazaarPlusPlus.Android/Collection/`.
 
-Every session ran that one build. Commits after `6ca9695` add only this evidence. Session numbers
+Every session ran that one build. Commits after `6ca9695` change only this evidence and documentation. Session numbers
 match the #397 folder (`../397-livebuild/`), where session 1 holds no Collection step.
 
 | Session | Log | `android.plugin.loaded sha256` | Commit | What it covers |
@@ -17,7 +17,7 @@ match the #397 folder (`../397-livebuild/`), where session 1 holds no Collection
 Screenshots are halved. The full-screen panel and in-run screens show no account name; the
 settings and touch-menu shots are crops, and the Connection Issues alert is cropped to the alert.
 Each log is the `[BPP]` lines of one game session, filtered to the Collection, rental, card-text,
-settings, scene, back-key and touch-menu events, and closed by the session's last
+settings, scene, back-key and touch-menu events (session 4 also keeps the Ten-Win Builds and touch-layout ones; its log is the same file as the #397 folder's), and closed by the session's last
 `android.hooks.summary`. No test double is involved: Collection reads only the game's own card
 templates.
 
