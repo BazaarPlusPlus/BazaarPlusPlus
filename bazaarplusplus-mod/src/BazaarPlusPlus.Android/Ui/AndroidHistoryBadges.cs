@@ -9,7 +9,10 @@ namespace BazaarPlusPlus.Android.Ui;
 /// History's two BPP badge atlases, the desktop's own PNGs linked into this assembly: the
 /// battle win and loss badges, and the run state badges (completed, abandoned, active). They
 /// decode through <c>ImageConversion.LoadImage</c> on the main thread; a failure is logged and
-/// the rows show their text fallback instead.
+/// the rows show their text fallback instead. A non-additive scene load unloads every asset no
+/// live object references, which would destroy whichever atlas no row showed at that moment
+/// (the run states while Ghost rows were bound, so runs fell back to "?" after a replay), so each
+/// texture and sprite is marked <c>DontUnloadUnusedAsset</c> and <see cref="Dispose"/> destroys it.
 /// </summary>
 internal sealed class AndroidHistoryBadges : IDisposable
 {
@@ -77,6 +80,7 @@ internal sealed class AndroidHistoryBadges : IDisposable
             name = name,
             filterMode = FilterMode.Bilinear,
             wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.DontUnloadUnusedAsset,
         };
         _owned.Add(texture);
         if (!ImageConversion.LoadImage(texture, new Il2CppStructArray<byte>(bytes.ToArray())))
@@ -90,6 +94,7 @@ internal sealed class AndroidHistoryBadges : IDisposable
                 new Rect(index * width, 0, width, texture.height),
                 new Vector2(.5f, .5f)
             );
+            sprites[index].hideFlags = HideFlags.DontUnloadUnusedAsset;
             _owned.Add(sprites[index]);
         }
         return sprites;

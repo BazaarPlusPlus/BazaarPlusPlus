@@ -21,6 +21,7 @@ public sealed class AndroidSceneChangeTeardownTests
     private const string Collection = "BazaarPlusPlus.Android.Collection.AndroidCollectionPanel";
     private const string History = "BazaarPlusPlus.Android.Ui.AndroidHistoryPanel";
     private const string CombatProbe = "BazaarPlusPlus.Android.GameInterop.AndroidCombatProbe";
+    private const string Badges = "BazaarPlusPlus.Android.Ui.AndroidHistoryBadges";
 
     private static readonly Lazy<CompiledAssembly> Host = new(() =>
         CompiledAssembly.Load(
@@ -75,6 +76,18 @@ public sealed class AndroidSceneChangeTeardownTests
         Assert.True(close > probe, "the close follows the combat probe");
         Assert.Contains("scene_changed", Method(History, "OnSceneLoaded").Literals);
         Assert.Contains("scene_combat:", Method(History, "OnSceneLoaded").Literals);
+    }
+
+    // A non-additive scene load unloads assets no live object references; History's badge
+    // atlases are runtime textures, so both the texture and each sprite opt out of that unload
+    // (a replay's round trip otherwise left the run rows on their "?" fallback).
+    [Fact]
+    public void Historys_badge_artwork_survives_a_scene_loads_asset_unload()
+    {
+        var hideFlags = Method(Badges, "LoadAtlas")
+            .Instructions.Count(op => op.Targets("UnityEngine.Object", "set_hideFlags"));
+
+        Assert.Equal(2, hideFlags);
     }
 
     private static CompiledType Type(string fullName) =>
