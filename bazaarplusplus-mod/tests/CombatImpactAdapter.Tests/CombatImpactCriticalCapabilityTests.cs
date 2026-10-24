@@ -2,10 +2,11 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
 using BazaarGameShared.Domain.Effect.Trigger;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using Xunit;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactAdapter.Tests;
 
 public sealed class CombatImpactCriticalCapabilityTests
 {
@@ -39,7 +40,7 @@ public sealed class CombatImpactCriticalCapabilityTests
         var effectIds = CombatImpactCriticalCapability.ReadCritCapableEffectIds(
             ECardType.Item,
             [Ability("passive-burn", new TTriggerOnItemUsed())],
-            [EHiddenTag.CanCrit]
+            [CardHiddenTag.CanCrit]
         );
 
         Assert.Equal(["passive-burn"], effectIds);

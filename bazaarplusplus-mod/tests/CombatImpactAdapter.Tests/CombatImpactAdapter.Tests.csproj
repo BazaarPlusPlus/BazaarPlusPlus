@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The desktop host's Combat Impact adapters (ADR-0019): the combat timeline copied from the
+       game's CombatSim, the entity readers over game templates, the combat facet vocabulary pin,
+       and the producer on native replay fixtures through them. Reads BazaarGameShared, so it
+       tests the compiled host assembly through InternalsVisibleTo, linking no host source. The
+       producer itself is Core's, tested by PostCombatImpact.Tests. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
+    <Reference Include="BazaarGameClient">
+      <HintPath>$(ManagedPath)/BazaarGameClient.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarGameShared">
+      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures/*.mpack.gz" />
+    <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
+  </ItemGroup>
+</Project>

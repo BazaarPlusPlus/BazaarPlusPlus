@@ -1,12 +1,4 @@
-using BazaarGameShared.Domain.Core;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect;
-using BazaarGameShared.Domain.Effect.Actions;
-using BazaarGameShared.Domain.Effect.AuraActions;
-using BazaarGameShared.Domain.Targeting;
-using BazaarGameShared.Domain.Values;
-using BazaarGameShared.Domain.Values.ReferenceValues;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using Xunit;
 
@@ -34,19 +26,23 @@ public sealed partial class CombatImpactProjectorTests
             (1782, 1882),
             (1882, 1982),
         };
-        var (simulation, entities) = AuraOverlap(ECardAttributeType.ShieldApplyAmount, 10, 100);
+        var (simulation, entities) = AuraOverlap(CombatCardAttribute.ShieldApplyAmount, 10, 100);
         simulation.Frames.Clear();
         foreach (var (before, after) in transitions)
         {
-            var (single, _) = AuraOverlap(ECardAttributeType.ShieldApplyAmount, 10, after - before);
+            var (single, _) = AuraOverlap(
+                CombatCardAttribute.ShieldApplyAmount,
+                10,
+                after - before
+            );
             var frame = single.Frames[0];
             frame
-                .CardUpdates[InstanceId.TryParse("target")]
-                .Attributes[ECardAttributeType.ShieldApplyAmount]
+                .CardUpdates[("target")]
+                .Attributes[CombatCardAttribute.ShieldApplyAmount]
                 .PreviousValue = before;
             frame
-                .CardUpdates[InstanceId.TryParse("target")]
-                .Attributes[ECardAttributeType.ShieldApplyAmount]
+                .CardUpdates[("target")]
+                .Attributes[CombatCardAttribute.ShieldApplyAmount]
                 .CurrentValue = after;
             simulation.Frames.Add(frame);
         }
@@ -63,103 +59,19 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Fact]
-    public void Native_latest_replay_frames_produce_twelve_ten_point_shield_gains()
-    {
-        // Complete native frames from the latest replay, preserving all concurrent events
-        // and card/player updates. No account identifiers or snapshot names are included.
-        using var resource = typeof(CombatImpactProjectorTests).Assembly.GetManifestResourceStream(
-            "PostCombatImpact.Tests.Fixtures.crit-shield-tempo-20260907.frames.mpack.gz"
-        )!;
-        using var gzip = new System.IO.Compression.GZipStream(
-            resource,
-            System.IO.Compression.CompressionMode.Decompress
-        );
-        using var bytes = new MemoryStream();
-        gzip.CopyTo(bytes);
-        var simulation = new CombatSim();
-        simulation.Frames = MessagePack.MessagePackSerializer.Deserialize<List<CombatSimFrame>>(
-            bytes.ToArray()
-        );
-        var (_, seed) = AuraOverlap(ECardAttributeType.ShieldApplyAmount, 10, 100);
-        var entities = new Dictionary<string, CombatImpactEntity>
-        {
-            ["skl_wCm9sCM"] = seed["source"] with
-            {
-                Id = "skl_wCm9sCM",
-                Attributes = new Dictionary<ECardAttributeType, int>
-                {
-                    [ECardAttributeType.Custom_0] = 10,
-                },
-                AbilityAttributeTypesByEffectId = new Dictionary<string, ECardAttributeType>
-                {
-                    ["0"] = ECardAttributeType.ShieldApplyAmount,
-                },
-                AbilityAttributeModifiersByEffectId = new Dictionary<
-                    string,
-                    TActionCardModifyAttribute
-                >
-                {
-                    ["0"] = new()
-                    {
-                        AttributeType = ECardAttributeType.ShieldApplyAmount,
-                        Operation = EAttributeModifierOperation.Add,
-                        Value = new TReferenceValueCardAttribute
-                        {
-                            AttributeType = ECardAttributeType.Custom_0,
-                            Target = new TTargetCardSelf(),
-                        },
-                    },
-                },
-            },
-            ["itm_PO0GfJi"] = seed["target"] with
-            {
-                Id = "itm_PO0GfJi",
-                ReferenceValuedAuraEffectIds = ["2", "4"],
-                AuraAttributeModifiersByEffectId = new Dictionary<
-                    string,
-                    TAuraActionCardModifyAttribute
-                >
-                {
-                    ["2"] = seed["target"].AuraAttributeModifiersByEffectId!["formula"],
-                    ["4"] = seed["target"].AuraAttributeModifiersByEffectId!["formula"] with
-                    {
-                        AttributeType = ECardAttributeType.DamageAmount,
-                    },
-                },
-            },
-        };
-        foreach (var id in new[] { "itm_SVfJncX", "itm_gCVtn1s" })
-            entities[id] = new CombatImpactEntity(id, id, "Item", null, 2);
-        var report = CombatImpactProjector.Project(simulation, entities);
-        var skill = report.Sources.Single(source => source.Entity.Id == "skl_wCm9sCM");
-        var shield = Assert.Single(skill.Groups);
-        Assert.Equal(12, shield.Count);
-        Assert.Equal(120, shield.ObservedValue);
-        Assert.Equal(120, Assert.Single(shield.Targets).ObservedValue);
-        var transitions = report
-            .AttributeTransitionDiagnostics.Where(item =>
-                item.NativeAttributeKey == "ShieldApplyAmount"
-            )
-            .ToArray();
-        Assert.Equal(12, transitions.Length);
-        Assert.Equal(1350, transitions.Sum(item => item.NetValue));
-        Assert.Equal(1230, transitions.Sum(item => item.ResidualValue));
-    }
-
-    [Fact]
     public void All_card_attribute_gains_exclude_overlapping_aura_recalculations()
     {
         foreach (
             var attribute in new[]
             {
-                ECardAttributeType.ShieldApplyAmount,
-                ECardAttributeType.DamageAmount,
-                ECardAttributeType.HealAmount,
-                ECardAttributeType.BurnApplyAmount,
-                ECardAttributeType.PoisonApplyAmount,
-                ECardAttributeType.CritChance,
-                ECardAttributeType.CooldownMax,
-                ECardAttributeType.SellPrice,
+                CombatCardAttribute.ShieldApplyAmount,
+                CombatCardAttribute.DamageAmount,
+                CombatCardAttribute.HealAmount,
+                CombatCardAttribute.BurnApplyAmount,
+                CombatCardAttribute.PoisonApplyAmount,
+                CombatCardAttribute.CritChance,
+                CombatCardAttribute.CooldownMax,
+                CombatCardAttribute.SellPrice,
             }
         )
         {
@@ -177,7 +89,7 @@ public sealed partial class CombatImpactProjectorTests
     {
         foreach (var (amount, net) in new[] { (10, 0), (10, -20), (-10, 20) })
         {
-            var (simulation, entities) = AuraOverlap(ECardAttributeType.DamageAmount, amount, net);
+            var (simulation, entities) = AuraOverlap(CombatCardAttribute.DamageAmount, amount, net);
             var report = CombatImpactProjector.Project(simulation, entities);
             Assert.Equal(amount, Assert.Single(Assert.Single(report.Sources).Groups).ObservedValue);
             var diagnostic = Assert.Single(report.AttributeTransitionDiagnostics);
@@ -188,16 +100,16 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Unknown_action_is_not_solved_from_a_net_delta_containing_aura_changes()
     {
-        var (simulation, entities) = AuraOverlap(ECardAttributeType.DamageAmount, 10, 130);
+        var (simulation, entities) = AuraOverlap(CombatCardAttribute.DamageAmount, 10, 130);
         entities["source"] = entities["source"] with
         {
-            AbilityAttributeModifiersByEffectId = new Dictionary<string, TActionCardModifyAttribute>
+            AbilityAttributeModifiersByEffectId = new Dictionary<string, CombatAttributeModifier>
             {
                 ["gain"] = new()
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
-                    Operation = EAttributeModifierOperation.Add,
-                    Value = new TRangeValue { MinValue = 1, MaxValue = 200 },
+                    AttributeType = CombatCardAttribute.DamageAmount,
+                    Operation = CombatAttributeOperation.Add,
+                    Value = new CombatRangeValue { MinValue = 1, MaxValue = 200 },
                 },
             },
         };
@@ -205,13 +117,13 @@ public sealed partial class CombatImpactProjectorTests
         entities["trigger"] = entities["source"] with
         {
             Id = "trigger",
-            AbilityAttributeModifiersByEffectId = new Dictionary<string, TActionCardModifyAttribute>
+            AbilityAttributeModifiersByEffectId = new Dictionary<string, CombatAttributeModifier>
             {
                 ["gain"] = new()
                 {
-                    AttributeType = ECardAttributeType.DamageAmount,
-                    Operation = EAttributeModifierOperation.Add,
-                    Value = new TFixedValue { Value = 10 },
+                    AttributeType = CombatCardAttribute.DamageAmount,
+                    Operation = CombatAttributeOperation.Add,
+                    Value = new CombatFixedValue { Value = 10 },
                 },
             },
         };
@@ -236,18 +148,18 @@ public sealed partial class CombatImpactProjectorTests
     {
         foreach (var unknown in new[] { false, true })
         {
-            var (simulation, entities) = AuraOverlap(ECardAttributeType.DamageAmount, 10, 130);
+            var (simulation, entities) = AuraOverlap(CombatCardAttribute.DamageAmount, 10, 130);
             entities["target"] = entities["target"] with
             {
                 AuraAttributeModifiersByEffectId = unknown
                     ? null
-                    : new Dictionary<string, TAuraActionCardModifyAttribute>
+                    : new Dictionary<string, CombatAttributeModifier>
                     {
                         ["formula"] = new()
                         {
-                            AttributeType = ECardAttributeType.DamageAmount,
-                            Operation = EAttributeModifierOperation.Multiply,
-                            Value = new TFixedValue { Value = 2 },
+                            AttributeType = CombatCardAttribute.DamageAmount,
+                            Operation = CombatAttributeOperation.Multiply,
+                            Value = new CombatFixedValue { Value = 2 },
                         },
                     },
             };
@@ -260,23 +172,23 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Same_frame_source_reference_changes_are_not_read_as_execution_local_values()
     {
-        var (simulation, entities) = AuraOverlap(ECardAttributeType.DamageAmount, 10, 130);
+        var (simulation, entities) = AuraOverlap(CombatCardAttribute.DamageAmount, 10, 130);
         var modifier = entities["source"].AbilityAttributeModifiersByEffectId!["gain"] with
         {
-            Value = new TReferenceValueCardAttribute
+            Value = new CombatCardAttributeReference
             {
-                AttributeType = ECardAttributeType.Custom_0,
-                Target = new TTargetCardSelf(),
+                AttributeType = CombatCardAttribute.Custom_0,
+                TargetsSelf = true,
             },
         };
         entities["source"] = entities["source"] with
         {
-            AbilityAttributeModifiersByEffectId = new Dictionary<string, TActionCardModifyAttribute>
+            AbilityAttributeModifiersByEffectId = new Dictionary<string, CombatAttributeModifier>
             {
                 ["gain"] = modifier,
             },
         };
-        SetSourceAttributeUpdate(simulation.Frames[0], ECardAttributeType.Custom_0, 10, 20);
+        SetSourceAttributeUpdate(simulation.Frames[0], CombatCardAttribute.Custom_0, 10, 20);
         var report = CombatImpactProjector.Project(simulation, entities);
         Assert.Null(Assert.Single(Assert.Single(report.Sources).Groups).ObservedValue);
     }
@@ -284,14 +196,14 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Hidden_self_formula_still_blocks_another_aura_from_claiming_its_delta()
     {
-        var (simulation, entities) = AuraOverlap(ECardAttributeType.DamageAmount, 10, 130);
+        var (simulation, entities) = AuraOverlap(CombatCardAttribute.DamageAmount, 10, 130);
         simulation.Frames[0].Events.RemoveAt(0);
         simulation
             .Frames[0]
             .Events.Add(
-                new CombatSimEventEffectAuraExecuted
+                new CombatAuraExecuted
                 {
-                    Source = InstanceId.TryParse("source"),
+                    Source = ("source"),
                     EffectId = "other",
                     AppliedTo = { CardTarget("target") },
                 }
@@ -303,10 +215,8 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Aura_removal_is_also_a_competing_transition()
     {
-        var (simulation, entities) = AuraOverlap(ECardAttributeType.DamageAmount, 10, -20);
-        var aura = Assert.Single(
-            simulation.Frames[0].Events.OfType<CombatSimEventEffectAuraExecuted>()
-        );
+        var (simulation, entities) = AuraOverlap(CombatCardAttribute.DamageAmount, 10, -20);
+        var aura = Assert.Single(simulation.Frames[0].Events.OfType<CombatAuraExecuted>());
         aura.AppliedTo.Clear();
         aura.RemovedFrom.Add(CardTarget("target"));
         var report = CombatImpactProjector.Project(simulation, entities);
@@ -317,29 +227,25 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Player_modifier_and_aura_cannot_both_claim_the_same_net_gain()
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         var frame = simulation.Frames[0];
         frame.Events.Add(
-            Executed(
-                "source",
-                EActionCommandType.PlayerModifyAttribute,
-                Player(ECombatantId.Player)
-            )
+            Executed("source", CombatActionType.PlayerModifyAttribute, Player(Combatant.Player))
         );
         frame.Events.Add(
-            new CombatSimEventEffectAuraExecuted
+            new CombatAuraExecuted
             {
-                Source = InstanceId.TryParse("trigger"),
-                AppliedTo = { Player(ECombatantId.Player) },
+                Source = ("trigger"),
+                AppliedTo = { Player(Combatant.Player) },
             }
         );
-        frame.PlayerUpdates = new CombatSimPlayerUpdate
+        frame.PlayerUpdates = new CombatPlayerUpdate
         {
             Attributes =
             {
-                [EPlayerAttributeType.HealthMax] = new CombatSimPlayerAttributeUpdate
+                [CombatPlayerAttribute.HealthMax] = new CombatPlayerAttributeUpdate
                 {
-                    AttributeType = EPlayerAttributeType.HealthMax,
+                    AttributeType = CombatPlayerAttribute.HealthMax,
                     PreviousValue = 100,
                     CurrentValue = 130,
                 },
@@ -355,49 +261,18 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Fact]
-    public void Aura_metadata_reader_rejects_conflicting_effect_ids()
-    {
-        var additive = new TCardAura
-        {
-            Id = "formula",
-            Action = new TAuraActionCardModifyAttribute
-            {
-                AttributeType = ECardAttributeType.ShieldApplyAmount,
-                Operation = EAttributeModifierOperation.Add,
-                Value = new TFixedValue { Value = 10 },
-            },
-        };
-        Assert.Single(CombatImpactAbilityAttributeModifierReader.ReadAuras([additive, additive])!);
-        var conflicting = additive with
-        {
-            Action = new TAuraActionCardModifyAttribute
-            {
-                AttributeType = ECardAttributeType.ShieldApplyAmount,
-                Operation = EAttributeModifierOperation.Multiply,
-                Value = new TFixedValue { Value = 2 },
-            },
-        };
-        Assert.Null(
-            CombatImpactAbilityAttributeModifierReader.ReadAuras([additive, conflicting, additive])
-        );
-    }
-
-    [Fact]
     public void Aura_on_an_unrelated_attribute_does_not_hide_the_explicit_gain()
     {
-        var (simulation, entities) = AuraOverlap(ECardAttributeType.DamageAmount, 10, 10);
+        var (simulation, entities) = AuraOverlap(CombatCardAttribute.DamageAmount, 10, 10);
         entities["target"] = entities["target"] with
         {
-            AuraAttributeModifiersByEffectId = new Dictionary<
-                string,
-                TAuraActionCardModifyAttribute
-            >
+            AuraAttributeModifiersByEffectId = new Dictionary<string, CombatAttributeModifier>
             {
                 ["formula"] = new()
                 {
-                    AttributeType = ECardAttributeType.ShieldApplyAmount,
-                    Operation = EAttributeModifierOperation.Add,
-                    Value = new TFixedValue { Value = 100 },
+                    AttributeType = CombatCardAttribute.ShieldApplyAmount,
+                    Operation = CombatAttributeOperation.Add,
+                    Value = new CombatFixedValue { Value = 100 },
                 },
             },
         };
@@ -405,45 +280,42 @@ public sealed partial class CombatImpactProjectorTests
         Assert.Equal(10, Assert.Single(Assert.Single(report.Sources).Groups).ObservedValue);
     }
 
-    private static (CombatSim, Dictionary<string, CombatImpactEntity>) AuraOverlap(
-        ECardAttributeType attribute,
+    private static (CombatTimeline, Dictionary<string, CombatImpactEntity>) AuraOverlap(
+        CombatCardAttribute attribute,
         int amount,
         int net
     )
     {
-        var simulation = new CombatSim();
+        var simulation = new CombatTimeline();
         var entities = Entities().ToDictionary(item => item.Key, item => item.Value);
         entities["source"] = AttributeModifierEntity(
             "source",
             "Skill",
             "gain",
-            new TActionCardModifyAttribute
+            new CombatAttributeModifier
             {
                 AttributeType = attribute,
-                Operation = EAttributeModifierOperation.Add,
-                Value = new TFixedValue { Value = amount },
+                Operation = CombatAttributeOperation.Add,
+                Value = new CombatFixedValue { Value = amount },
             },
             0
         );
         entities["target"] = entities["target"] with
         {
             ReferenceValuedAuraEffectIds = ["formula"],
-            AuraAttributeTypesByEffectId = new Dictionary<string, ECardAttributeType>
+            AuraAttributeTypesByEffectId = new Dictionary<string, CombatCardAttribute>
             {
                 ["formula"] = attribute,
             },
-            AuraAttributeModifiersByEffectId = new Dictionary<
-                string,
-                TAuraActionCardModifyAttribute
-            >
+            AuraAttributeModifiersByEffectId = new Dictionary<string, CombatAttributeModifier>
             {
                 ["formula"] = new()
                 {
                     AttributeType = attribute,
-                    Operation = EAttributeModifierOperation.Add,
-                    Value = new TReferenceValuePlayerAttribute
+                    Operation = CombatAttributeOperation.Add,
+                    Value = new CombatOpaqueReference
                     {
-                        AttributeType = EPlayerAttributeType.Tempo,
+                        Kind = CombatOpaqueReferenceKind.PlayerAttribute,
                     },
                 },
             },
@@ -451,19 +323,19 @@ public sealed partial class CombatImpactProjectorTests
         var frame = simulation.Frames[0];
         frame.Events.Add(AttributeExecution("source", "gain", "target"));
         frame.Events.Add(
-            new CombatSimEventEffectAuraExecuted
+            new CombatAuraExecuted
             {
-                Source = InstanceId.TryParse("target"),
+                Source = ("target"),
                 EffectId = "formula",
                 AppliedTo = { CardTarget("target") },
             }
         );
-        frame.CardUpdates[InstanceId.TryParse("target")] = new CombatSimCardUpdate
+        frame.CardUpdates[("target")] = new CombatCardUpdate
         {
-            CardInstanceId = InstanceId.TryParse("target"),
+            CardInstanceId = ("target"),
             Attributes =
             {
-                [attribute] = new CombatSimCardAttributeUpdate
+                [attribute] = new CombatCardAttributeUpdate
                 {
                     AttributeType = attribute,
                     PreviousValue = 100,

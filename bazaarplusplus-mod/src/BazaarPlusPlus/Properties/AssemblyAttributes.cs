@@ -10,7 +10,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("HistoryPanelFactory.Tests")]
 [assembly: InternalsVisibleTo("BundlePipeline.Tests")]
 [assembly: InternalsVisibleTo("CombatReplayRecording.Tests")]
-[assembly: InternalsVisibleTo("PostCombatImpact.Tests")]
+[assembly: InternalsVisibleTo("CombatImpactAdapter.Tests")]
 [assembly: InternalsVisibleTo("ReplayPayloadMaintenance.Tests")]
 [assembly: InternalsVisibleTo("SupporterCatalogModule.Tests")]
 [assembly: InternalsVisibleTo("RuntimeIntegration.Tests")]

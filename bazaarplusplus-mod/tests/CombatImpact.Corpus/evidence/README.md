@@ -30,7 +30,7 @@ BPP_UPDATE_GOLDENS=1 dotnet test tests/ScenarioRunner.Tests/ScenarioRunner.Tests
 git diff tests/CombatImpact.Corpus/evidence/
 ```
 
-The corpus holds the Ghost concert-hall battle from `tests/PostCombatImpact.Tests/Fixtures/` and
+The corpus holds the Ghost concert-hall battle from `tests/CombatImpactAdapter.Tests/Fixtures/` and
 eleven local PvP replay payloads, chosen so the set covers every non-zero rule, terminal, and
 attribution diagnostic of the 41 replays they were drawn from. `GameData.cards.db` is the `cards`
 table of `GameData.db` cut down to the templates the corpus spawns or transforms into, plus every

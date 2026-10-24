@@ -1,8 +1,4 @@
-using BazaarGameShared.Domain.Core;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using Xunit;
 
@@ -21,39 +17,39 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "burner",
-                    EActionCommandType.PlayerBurnApply,
+                    CombatActionType.PlayerBurnApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 100, 100),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.Shield, 3, 3),
-                        (EPlayerAttributeType.Burn, 0, 10)
+                        (CombatPlayerAttribute.Health, 100, 100),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.Shield, 3, 3),
+                        (CombatPlayerAttribute.Burn, 0, 10)
                     )
                 ),
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 100, 96),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.Shield, 3, 0),
-                        (EPlayerAttributeType.Burn, 10, 9)
+                        (CombatPlayerAttribute.Health, 100, 96),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.Shield, 3, 0),
+                        (CombatPlayerAttribute.Burn, 10, 9)
                     ),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Shield, -3),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Health, -4)
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Shield, -3),
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Health, -4)
                 ),
             },
-            ("burner", ECardStats.BurnAdded, 10)
+            ("burner", CombatCardStat.BurnAdded, 10)
         );
 
         var impacts = PeriodicEffectAttribution.Project(simulation, Entities("burner"));
         var impact = impacts.SourceImpacts[
-            new PeriodicImpactKey("burner", ECombatantId.Opponent, CombatImpactPeriodicKind.Burn)
+            new PeriodicImpactKey("burner", Combatant.Opponent, CombatImpactPeriodicKind.Burn)
         ];
 
         Assert.Equal(4, impact.HealthAmount);
         Assert.Equal(3, impact.ShieldAmount);
         Assert.Equal(CombatImpactPeriodicProof.Exact, impact.Proof);
-        Assert.Equal(ECombatantId.Opponent, Assert.Single(impacts.Allocations).Combatant);
+        Assert.Equal(Combatant.Opponent, Assert.Single(impacts.Allocations).Combatant);
         AssertLedgerReconciles(impacts);
 
         var report = CombatImpactProjector.Project(simulation, Entities("burner"));
@@ -64,60 +60,56 @@ public sealed class PeriodicEffectAttributionTests
     [Fact]
     public void Source_impacts_preserve_combatant_before_group_rollup()
     {
-        var apply = new CombatSimFrame
+        var apply = new CombatFrame
         {
-            PlayerUpdates = new CombatSimPlayerUpdate
+            PlayerUpdates = new CombatPlayerUpdate
             {
                 Attributes = Attributes(
-                    (EPlayerAttributeType.Health, 100, 100),
-                    (EPlayerAttributeType.HealthMax, 100, 100),
-                    (EPlayerAttributeType.Burn, 0, 4)
+                    (CombatPlayerAttribute.Health, 100, 100),
+                    (CombatPlayerAttribute.HealthMax, 100, 100),
+                    (CombatPlayerAttribute.Burn, 0, 4)
                 ),
             },
-            OpponentUpdates = new CombatSimPlayerUpdate
+            OpponentUpdates = new CombatPlayerUpdate
             {
                 Attributes = Attributes(
-                    (EPlayerAttributeType.Health, 100, 100),
-                    (EPlayerAttributeType.HealthMax, 100, 100),
-                    (EPlayerAttributeType.Burn, 0, 6)
+                    (CombatPlayerAttribute.Health, 100, 100),
+                    (CombatPlayerAttribute.HealthMax, 100, 100),
+                    (CombatPlayerAttribute.Burn, 0, 6)
                 ),
             },
         };
-        apply.Events.Add(
-            Execution("burner", EActionCommandType.PlayerBurnApply, ECombatantId.Player)
-        );
-        apply.Events.Add(
-            Execution("burner", EActionCommandType.PlayerBurnApply, ECombatantId.Opponent)
-        );
-        var tick = new CombatSimFrame
+        apply.Events.Add(Execution("burner", CombatActionType.PlayerBurnApply, Combatant.Player));
+        apply.Events.Add(Execution("burner", CombatActionType.PlayerBurnApply, Combatant.Opponent));
+        var tick = new CombatFrame
         {
-            PlayerUpdates = new CombatSimPlayerUpdate
+            PlayerUpdates = new CombatPlayerUpdate
             {
                 Attributes = Attributes(
-                    (EPlayerAttributeType.Health, 100, 96),
-                    (EPlayerAttributeType.HealthMax, 100, 100),
-                    (EPlayerAttributeType.Burn, 4, 3)
+                    (CombatPlayerAttribute.Health, 100, 96),
+                    (CombatPlayerAttribute.HealthMax, 100, 100),
+                    (CombatPlayerAttribute.Burn, 4, 3)
                 ),
                 HealthAdjustments =
                 {
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Health, -4),
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Health, -4),
                 },
             },
-            OpponentUpdates = new CombatSimPlayerUpdate
+            OpponentUpdates = new CombatPlayerUpdate
             {
                 Attributes = Attributes(
-                    (EPlayerAttributeType.Health, 100, 94),
-                    (EPlayerAttributeType.HealthMax, 100, 100),
-                    (EPlayerAttributeType.Burn, 6, 5)
+                    (CombatPlayerAttribute.Health, 100, 94),
+                    (CombatPlayerAttribute.HealthMax, 100, 100),
+                    (CombatPlayerAttribute.Burn, 6, 5)
                 ),
                 HealthAdjustments =
                 {
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Health, -6),
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Health, -6),
                 },
             },
         };
         var report = PeriodicEffectAttribution.Project(
-            Simulation([apply, tick], ("burner", ECardStats.BurnAdded, 10)),
+            Simulation([apply, tick], ("burner", CombatCardStat.BurnAdded, 10)),
             Entities("burner")
         );
 
@@ -125,11 +117,7 @@ public sealed class PeriodicEffectAttributionTests
             4,
             report
                 .SourceImpacts[
-                    new PeriodicImpactKey(
-                        "burner",
-                        ECombatantId.Player,
-                        CombatImpactPeriodicKind.Burn
-                    )
+                    new PeriodicImpactKey("burner", Combatant.Player, CombatImpactPeriodicKind.Burn)
                 ]
                 .HealthAmount
         );
@@ -139,7 +127,7 @@ public sealed class PeriodicEffectAttributionTests
                 .SourceImpacts[
                     new PeriodicImpactKey(
                         "burner",
-                        ECombatantId.Opponent,
+                        Combatant.Opponent,
                         CombatImpactPeriodicKind.Burn
                     )
                 ]
@@ -156,34 +144,34 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "burner",
-                    EActionCommandType.PlayerBurnApply,
+                    CombatActionType.PlayerBurnApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 100, 100),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.Shield, 0, 0),
-                        (EPlayerAttributeType.Burn, 0, 10)
+                        (CombatPlayerAttribute.Health, 100, 100),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.Shield, 0, 0),
+                        (CombatPlayerAttribute.Burn, 0, 10)
                     )
                 ),
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 100, 92),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.Shield, 0, 0),
-                        (EPlayerAttributeType.Burn, 10, 9),
-                        (EPlayerAttributeType.PercentDamageReduction, 20, 20)
+                        (CombatPlayerAttribute.Health, 100, 92),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.Shield, 0, 0),
+                        (CombatPlayerAttribute.Burn, 10, 9),
+                        (CombatPlayerAttribute.PercentDamageReduction, 20, 20)
                     ),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Health, -8)
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Health, -8)
                 ),
             },
-            ("burner", ECardStats.BurnAdded, 10)
+            ("burner", CombatCardStat.BurnAdded, 10)
         );
 
         var impact = PeriodicEffectAttribution
             .Project(simulation, Entities("burner"))
             .SourceImpacts[
-            new PeriodicImpactKey("burner", ECombatantId.Opponent, CombatImpactPeriodicKind.Burn)
+            new PeriodicImpactKey("burner", Combatant.Opponent, CombatImpactPeriodicKind.Burn)
         ];
 
         Assert.Equal(8, impact.HealthAmount);
@@ -198,45 +186,45 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "first",
-                    EActionCommandType.PlayerPoisonApply,
+                    CombatActionType.PlayerPoisonApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 1000, 997),
-                        (EPlayerAttributeType.HealthMax, 1000, 1000),
-                        (EPlayerAttributeType.Poison, 0, 3)
+                        (CombatPlayerAttribute.Health, 1000, 997),
+                        (CombatPlayerAttribute.HealthMax, 1000, 1000),
+                        (CombatPlayerAttribute.Poison, 0, 3)
                     ),
-                    Adjustment(EDamageType.Poison, EPlayerHealthChangeType.Health, -3)
+                    Adjustment(CombatDamageType.Poison, CombatHealthChange.Health, -3)
                 ),
                 Frame(
                     "second",
-                    EActionCommandType.PlayerPoisonApply,
+                    CombatActionType.PlayerPoisonApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 997, 994),
-                        (EPlayerAttributeType.HealthMax, 1000, 1000),
-                        (EPlayerAttributeType.Poison, 3, 6)
+                        (CombatPlayerAttribute.Health, 997, 994),
+                        (CombatPlayerAttribute.HealthMax, 1000, 1000),
+                        (CombatPlayerAttribute.Poison, 3, 6)
                     ),
-                    Adjustment(EDamageType.Poison, EPlayerHealthChangeType.Health, -3)
+                    Adjustment(CombatDamageType.Poison, CombatHealthChange.Health, -3)
                 ),
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 994, 988),
-                        (EPlayerAttributeType.HealthMax, 1000, 1000),
-                        (EPlayerAttributeType.Poison, 6, 6)
+                        (CombatPlayerAttribute.Health, 994, 988),
+                        (CombatPlayerAttribute.HealthMax, 1000, 1000),
+                        (CombatPlayerAttribute.Poison, 6, 6)
                     ),
-                    Adjustment(EDamageType.Poison, EPlayerHealthChangeType.Health, -6)
+                    Adjustment(CombatDamageType.Poison, CombatHealthChange.Health, -6)
                 ),
             },
-            ("first", ECardStats.PoisonAdded, 3),
-            ("second", ECardStats.PoisonAdded, 3)
+            ("first", CombatCardStat.PoisonAdded, 3),
+            ("second", CombatCardStat.PoisonAdded, 3)
         );
 
         var impacts = PeriodicEffectAttribution.Project(simulation, Entities("first", "second"));
         var first = impacts.SourceImpacts[
-            new PeriodicImpactKey("first", ECombatantId.Opponent, CombatImpactPeriodicKind.Poison)
+            new PeriodicImpactKey("first", Combatant.Opponent, CombatImpactPeriodicKind.Poison)
         ];
         var second = impacts.SourceImpacts[
-            new PeriodicImpactKey("second", ECombatantId.Opponent, CombatImpactPeriodicKind.Poison)
+            new PeriodicImpactKey("second", Combatant.Opponent, CombatImpactPeriodicKind.Poison)
         ];
 
         Assert.Equal(9, first.HealthAmount);
@@ -253,36 +241,32 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "poisoner",
-                    EActionCommandType.PlayerPoisonApply,
+                    CombatActionType.PlayerPoisonApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 100, 100),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.Poison, 0, 10)
+                        (CombatPlayerAttribute.Health, 100, 100),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.Poison, 0, 10)
                     )
                 ),
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 100, 92),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.Poison, 10, 10),
-                        (EPlayerAttributeType.PercentDamageReduction, 20, 20)
+                        (CombatPlayerAttribute.Health, 100, 92),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.Poison, 10, 10),
+                        (CombatPlayerAttribute.PercentDamageReduction, 20, 20)
                     ),
-                    Adjustment(EDamageType.Poison, EPlayerHealthChangeType.Health, -8)
+                    Adjustment(CombatDamageType.Poison, CombatHealthChange.Health, -8)
                 ),
             },
-            ("poisoner", ECardStats.PoisonAdded, 10)
+            ("poisoner", CombatCardStat.PoisonAdded, 10)
         );
 
         var impact = PeriodicEffectAttribution
             .Project(simulation, Entities("poisoner"))
             .SourceImpacts[
-            new PeriodicImpactKey(
-                "poisoner",
-                ECombatantId.Opponent,
-                CombatImpactPeriodicKind.Poison
-            )
+            new PeriodicImpactKey("poisoner", Combatant.Opponent, CombatImpactPeriodicKind.Poison)
         ];
 
         Assert.Equal(8, impact.HealthAmount);
@@ -297,34 +281,30 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "regenerator",
-                    EActionCommandType.PlayerRegenApply,
+                    CombatActionType.PlayerRegenApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 95, 95),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 0, 10)
+                        (CombatPlayerAttribute.Health, 95, 95),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 0, 10)
                     )
                 ),
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 95, 100),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 10, 10)
+                        (CombatPlayerAttribute.Health, 95, 100),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 10, 10)
                     ),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 10)
+                    Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 10)
                 ),
             },
-            ("regenerator", ECardStats.RegenAdded, 10)
+            ("regenerator", CombatCardStat.RegenAdded, 10)
         );
 
         var impacts = PeriodicEffectAttribution.Project(simulation, Entities("regenerator"));
         var impact = impacts.SourceImpacts[
-            new PeriodicImpactKey(
-                "regenerator",
-                ECombatantId.Opponent,
-                CombatImpactPeriodicKind.Regen
-            )
+            new PeriodicImpactKey("regenerator", Combatant.Opponent, CombatImpactPeriodicKind.Regen)
         ];
 
         Assert.Equal(5, impact.HealthAmount);
@@ -340,35 +320,31 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "regenerator",
-                    EActionCommandType.PlayerRegenApply,
+                    CombatActionType.PlayerRegenApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 50, 50),
-                        (EPlayerAttributeType.HealthMax, 200, 200),
-                        (EPlayerAttributeType.HealthRegen, 0, 100)
+                        (CombatPlayerAttribute.Health, 50, 50),
+                        (CombatPlayerAttribute.HealthMax, 200, 200),
+                        (CombatPlayerAttribute.HealthRegen, 0, 100)
                     )
                 ),
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 50, 147),
-                        (EPlayerAttributeType.HealthMax, 200, 200),
-                        (EPlayerAttributeType.HealthRegen, 100, 97)
+                        (CombatPlayerAttribute.Health, 50, 147),
+                        (CombatPlayerAttribute.HealthMax, 200, 200),
+                        (CombatPlayerAttribute.HealthRegen, 100, 97)
                     ),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 97)
+                    Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 97)
                 ),
             },
-            ("regenerator", ECardStats.RegenAdded, 100)
+            ("regenerator", CombatCardStat.RegenAdded, 100)
         );
 
         var impact = PeriodicEffectAttribution
             .Project(simulation, Entities("regenerator"))
             .SourceImpacts[
-            new PeriodicImpactKey(
-                "regenerator",
-                ECombatantId.Opponent,
-                CombatImpactPeriodicKind.Regen
-            )
+            new PeriodicImpactKey("regenerator", Combatant.Opponent, CombatImpactPeriodicKind.Regen)
         ];
 
         Assert.Equal(97, impact.HealthAmount);
@@ -380,31 +356,31 @@ public sealed class PeriodicEffectAttributionTests
     {
         var setup = Frame(
             "poisoner",
-            EActionCommandType.PlayerPoisonApply,
+            CombatActionType.PlayerPoisonApply,
             Attributes(
-                (EPlayerAttributeType.Health, 100, 100),
-                (EPlayerAttributeType.HealthMax, 100, 100),
-                (EPlayerAttributeType.Poison, 0, 30),
-                (EPlayerAttributeType.HealthRegen, 0, 50)
+                (CombatPlayerAttribute.Health, 100, 100),
+                (CombatPlayerAttribute.HealthMax, 100, 100),
+                (CombatPlayerAttribute.Poison, 0, 30),
+                (CombatPlayerAttribute.HealthRegen, 0, 50)
             )
         );
-        setup.Events.Add(Execution("regenerator", EActionCommandType.PlayerRegenApply));
+        setup.Events.Add(Execution("regenerator", CombatActionType.PlayerRegenApply));
         var tick = Frame(
             null,
-            EActionCommandType.None,
+            CombatActionType.None,
             Attributes(
-                (EPlayerAttributeType.Health, 100, 100),
-                (EPlayerAttributeType.HealthMax, 100, 100),
-                (EPlayerAttributeType.Poison, 30, 30),
-                (EPlayerAttributeType.HealthRegen, 50, 50)
+                (CombatPlayerAttribute.Health, 100, 100),
+                (CombatPlayerAttribute.HealthMax, 100, 100),
+                (CombatPlayerAttribute.Poison, 30, 30),
+                (CombatPlayerAttribute.HealthRegen, 50, 50)
             ),
-            Adjustment(EDamageType.Poison, EPlayerHealthChangeType.Health, -30),
-            Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 50)
+            Adjustment(CombatDamageType.Poison, CombatHealthChange.Health, -30),
+            Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 50)
         );
         var simulation = Simulation(
             new[] { setup, tick },
-            ("poisoner", ECardStats.PoisonAdded, 30),
-            ("regenerator", ECardStats.RegenAdded, 50)
+            ("poisoner", CombatCardStat.PoisonAdded, 30),
+            ("regenerator", CombatCardStat.RegenAdded, 50)
         );
 
         var impacts = PeriodicEffectAttribution.Project(
@@ -418,7 +394,7 @@ public sealed class PeriodicEffectAttributionTests
                 .SourceImpacts[
                     new PeriodicImpactKey(
                         "poisoner",
-                        ECombatantId.Opponent,
+                        Combatant.Opponent,
                         CombatImpactPeriodicKind.Poison
                     )
                 ]
@@ -430,7 +406,7 @@ public sealed class PeriodicEffectAttributionTests
                 .SourceImpacts[
                     new PeriodicImpactKey(
                         "regenerator",
-                        ECombatantId.Opponent,
+                        Combatant.Opponent,
                         CombatImpactPeriodicKind.Regen
                     )
                 ]
@@ -446,23 +422,23 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "poisoner",
-                    EActionCommandType.PlayerPoisonApply,
+                    CombatActionType.PlayerPoisonApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 10),
-                        (EPlayerAttributeType.HealthMax, 10, 10),
-                        (EPlayerAttributeType.Poison, 0, 7)
+                        (CombatPlayerAttribute.Health, 10, 10),
+                        (CombatPlayerAttribute.HealthMax, 10, 10),
+                        (CombatPlayerAttribute.Poison, 0, 7)
                     )
                 ),
                 DeathFrame(
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, -7),
-                        (EPlayerAttributeType.HealthMax, 10, 10)
+                        (CombatPlayerAttribute.Health, 10, -7),
+                        (CombatPlayerAttribute.HealthMax, 10, 10)
                     ),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -10),
-                    Adjustment(EDamageType.Poison, EPlayerHealthChangeType.Health, -7)
+                    Adjustment(CombatDamageType.Damage, CombatHealthChange.Health, -10),
+                    Adjustment(CombatDamageType.Poison, CombatHealthChange.Health, -7)
                 ),
             },
-            ("poisoner", ECardStats.PoisonAdded, 7)
+            ("poisoner", CombatCardStat.PoisonAdded, 7)
         );
 
         var impacts = PeriodicEffectAttribution.Project(simulation, Entities("poisoner"));
@@ -478,24 +454,24 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "poisoner",
-                    EActionCommandType.PlayerPoisonApply,
+                    CombatActionType.PlayerPoisonApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 10),
-                        (EPlayerAttributeType.HealthMax, 10, 10),
-                        (EPlayerAttributeType.Poison, 0, 5)
+                        (CombatPlayerAttribute.Health, 10, 10),
+                        (CombatPlayerAttribute.HealthMax, 10, 10),
+                        (CombatPlayerAttribute.Poison, 0, 5)
                     )
                 ),
                 DeathFrame(
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 5),
-                        (EPlayerAttributeType.HealthMax, 10, 10)
+                        (CombatPlayerAttribute.Health, 10, 5),
+                        (CombatPlayerAttribute.HealthMax, 10, 10)
                     ),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -20),
-                    Adjustment(EDamageType.Heal, EPlayerHealthChangeType.Health, 20),
-                    Adjustment(EDamageType.Poison, EPlayerHealthChangeType.Health, -5)
+                    Adjustment(CombatDamageType.Damage, CombatHealthChange.Health, -20),
+                    Adjustment(CombatDamageType.Heal, CombatHealthChange.Health, 20),
+                    Adjustment(CombatDamageType.Poison, CombatHealthChange.Health, -5)
                 ),
             },
-            ("poisoner", ECardStats.PoisonAdded, 5)
+            ("poisoner", CombatCardStat.PoisonAdded, 5)
         );
 
         var impacts = PeriodicEffectAttribution.Project(simulation, Entities("poisoner"));
@@ -511,29 +487,29 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "burner",
-                    EActionCommandType.PlayerBurnApply,
+                    CombatActionType.PlayerBurnApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 15, 15),
-                        (EPlayerAttributeType.HealthMax, 15, 15),
-                        (EPlayerAttributeType.Burn, 0, 5)
+                        (CombatPlayerAttribute.Health, 15, 15),
+                        (CombatPlayerAttribute.HealthMax, 15, 15),
+                        (CombatPlayerAttribute.Burn, 0, 5)
                     )
                 ),
                 DeathFrame(
                     Attributes(
-                        (EPlayerAttributeType.Health, 15, -10),
-                        (EPlayerAttributeType.HealthMax, 15, 15)
+                        (CombatPlayerAttribute.Health, 15, -10),
+                        (CombatPlayerAttribute.HealthMax, 15, 15)
                     ),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Health, -5),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -20)
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Health, -5),
+                    Adjustment(CombatDamageType.Damage, CombatHealthChange.Health, -20)
                 ),
             },
-            ("burner", ECardStats.BurnAdded, 5)
+            ("burner", CombatCardStat.BurnAdded, 5)
         );
 
         var impact = PeriodicEffectAttribution
             .Project(simulation, Entities("burner"))
             .SourceImpacts[
-            new PeriodicImpactKey("burner", ECombatantId.Opponent, CombatImpactPeriodicKind.Burn)
+            new PeriodicImpactKey("burner", Combatant.Opponent, CombatImpactPeriodicKind.Burn)
         ];
 
         Assert.Equal(5, impact.HealthAmount);
@@ -547,25 +523,25 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "burner",
-                    EActionCommandType.PlayerBurnApply,
+                    CombatActionType.PlayerBurnApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 10),
-                        (EPlayerAttributeType.HealthMax, 10, 10),
-                        (EPlayerAttributeType.Shield, 5, 5),
-                        (EPlayerAttributeType.Burn, 0, 20)
+                        (CombatPlayerAttribute.Health, 10, 10),
+                        (CombatPlayerAttribute.HealthMax, 10, 10),
+                        (CombatPlayerAttribute.Shield, 5, 5),
+                        (CombatPlayerAttribute.Burn, 0, 20)
                     )
                 ),
                 DeathFrame(
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 0),
-                        (EPlayerAttributeType.HealthMax, 10, 10),
-                        (EPlayerAttributeType.Shield, 5, 0)
+                        (CombatPlayerAttribute.Health, 10, 0),
+                        (CombatPlayerAttribute.HealthMax, 10, 10),
+                        (CombatPlayerAttribute.Shield, 5, 0)
                     ),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -10),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Shield, -5)
+                    Adjustment(CombatDamageType.Damage, CombatHealthChange.Health, -10),
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Shield, -5)
                 ),
             },
-            ("burner", ECardStats.BurnAdded, 20)
+            ("burner", CombatCardStat.BurnAdded, 20)
         );
 
         var impacts = PeriodicEffectAttribution.Project(simulation, Entities("burner"));
@@ -581,31 +557,31 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "burner",
-                    EActionCommandType.PlayerBurnApply,
+                    CombatActionType.PlayerBurnApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 10),
-                        (EPlayerAttributeType.HealthMax, 10, 10),
-                        (EPlayerAttributeType.Shield, 5, 5),
-                        (EPlayerAttributeType.Burn, 0, 20)
+                        (CombatPlayerAttribute.Health, 10, 10),
+                        (CombatPlayerAttribute.HealthMax, 10, 10),
+                        (CombatPlayerAttribute.Shield, 5, 5),
+                        (CombatPlayerAttribute.Burn, 0, 20)
                     )
                 ),
                 DeathFrame(
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 0),
-                        (EPlayerAttributeType.HealthMax, 10, 10),
-                        (EPlayerAttributeType.Shield, 5, 0)
+                        (CombatPlayerAttribute.Health, 10, 0),
+                        (CombatPlayerAttribute.HealthMax, 10, 10),
+                        (CombatPlayerAttribute.Shield, 5, 0)
                     ),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Shield, -5),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -10)
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Shield, -5),
+                    Adjustment(CombatDamageType.Damage, CombatHealthChange.Health, -10)
                 ),
             },
-            ("burner", ECardStats.BurnAdded, 20)
+            ("burner", CombatCardStat.BurnAdded, 20)
         );
 
         var impact = PeriodicEffectAttribution
             .Project(simulation, Entities("burner"))
             .SourceImpacts[
-            new PeriodicImpactKey("burner", ECombatantId.Opponent, CombatImpactPeriodicKind.Burn)
+            new PeriodicImpactKey("burner", Combatant.Opponent, CombatImpactPeriodicKind.Burn)
         ];
 
         Assert.Equal(5, impact.ShieldAmount);
@@ -619,31 +595,31 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "burner",
-                    EActionCommandType.PlayerBurnApply,
+                    CombatActionType.PlayerBurnApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 5, 5),
-                        (EPlayerAttributeType.HealthMax, 5, 5),
-                        (EPlayerAttributeType.Shield, 5, 5),
-                        (EPlayerAttributeType.Burn, 0, 20)
+                        (CombatPlayerAttribute.Health, 5, 5),
+                        (CombatPlayerAttribute.HealthMax, 5, 5),
+                        (CombatPlayerAttribute.Shield, 5, 5),
+                        (CombatPlayerAttribute.Burn, 0, 20)
                     )
                 ),
                 DeathFrame(
                     Attributes(
-                        (EPlayerAttributeType.Health, 5, -15),
-                        (EPlayerAttributeType.HealthMax, 5, 5),
-                        (EPlayerAttributeType.Shield, 5, 0)
+                        (CombatPlayerAttribute.Health, 5, -15),
+                        (CombatPlayerAttribute.HealthMax, 5, 5),
+                        (CombatPlayerAttribute.Shield, 5, 0)
                     ),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Health, -20),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Shield, -5)
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Health, -20),
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Shield, -5)
                 ),
             },
-            ("burner", ECardStats.BurnAdded, 20)
+            ("burner", CombatCardStat.BurnAdded, 20)
         );
 
         var impact = PeriodicEffectAttribution
             .Project(simulation, Entities("burner"))
             .SourceImpacts[
-            new PeriodicImpactKey("burner", ECombatantId.Opponent, CombatImpactPeriodicKind.Burn)
+            new PeriodicImpactKey("burner", Combatant.Opponent, CombatImpactPeriodicKind.Burn)
         ];
 
         Assert.Equal(5, impact.HealthAmount);
@@ -658,34 +634,30 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "regenerator",
-                    EActionCommandType.PlayerRegenApply,
+                    CombatActionType.PlayerRegenApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 90, 90),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 0, 10)
+                        (CombatPlayerAttribute.Health, 90, 90),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 0, 10)
                     )
                 ),
                 DeathFrame(
                     Attributes(
-                        (EPlayerAttributeType.Health, 90, -50),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 10, 10)
+                        (CombatPlayerAttribute.Health, 90, -50),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 10, 10)
                     ),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 10),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -150)
+                    Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 10),
+                    Adjustment(CombatDamageType.Damage, CombatHealthChange.Health, -150)
                 ),
             },
-            ("regenerator", ECardStats.RegenAdded, 10)
+            ("regenerator", CombatCardStat.RegenAdded, 10)
         );
 
         var impact = PeriodicEffectAttribution
             .Project(simulation, Entities("regenerator"))
             .SourceImpacts[
-            new PeriodicImpactKey(
-                "regenerator",
-                ECombatantId.Opponent,
-                CombatImpactPeriodicKind.Regen
-            )
+            new PeriodicImpactKey("regenerator", Combatant.Opponent, CombatImpactPeriodicKind.Regen)
         ];
 
         Assert.Equal(10, impact.HealthAmount);
@@ -700,36 +672,32 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "regenerator",
-                    EActionCommandType.PlayerRegenApply,
+                    CombatActionType.PlayerRegenApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 10),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 0, 20)
+                        (CombatPlayerAttribute.Health, 10, 10),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 0, 20)
                     )
                 ),
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 10, 10),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 20, 20)
+                        (CombatPlayerAttribute.Health, 10, 10),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 20, 20)
                     ),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -20),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 20)
+                    Adjustment(CombatDamageType.Damage, CombatHealthChange.Health, -20),
+                    Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 20)
                 ),
             },
-            ("regenerator", ECardStats.RegenAdded, 20)
+            ("regenerator", CombatCardStat.RegenAdded, 20)
         );
 
         var impact = PeriodicEffectAttribution
             .Project(simulation, Entities("regenerator"))
             .SourceImpacts[
-            new PeriodicImpactKey(
-                "regenerator",
-                ECombatantId.Opponent,
-                CombatImpactPeriodicKind.Regen
-            )
+            new PeriodicImpactKey("regenerator", Combatant.Opponent, CombatImpactPeriodicKind.Regen)
         ];
 
         Assert.Equal(20, impact.HealthAmount);
@@ -744,22 +712,22 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 90, 100),
-                        (EPlayerAttributeType.HealthMax, 100, 100)
+                        (CombatPlayerAttribute.Health, 90, 100),
+                        (CombatPlayerAttribute.HealthMax, 100, 100)
                     ),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 10)
+                    Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 10)
                 ),
             }
         );
-        var entities = EntitiesOwnedBy(ECombatantId.Opponent, "regenerator")
+        var entities = EntitiesOwnedBy(Combatant.Opponent, "regenerator")
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         entities["regenerator"] = entities["regenerator"] with
         {
-            Attributes = new Dictionary<ECardAttributeType, int>
+            Attributes = new Dictionary<CombatCardAttribute, int>
             {
-                [ECardAttributeType.RegenApplyAmount] = 10,
+                [CombatCardAttribute.RegenApplyAmount] = 10,
             },
         };
 
@@ -779,26 +747,26 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 90, 100),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 10, 10)
+                        (CombatPlayerAttribute.Health, 90, 100),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 10, 10)
                     ),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 10)
+                    Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 10)
                 ),
             },
-            ("possible-source", ECardStats.RegenAdded, 10)
+            ("possible-source", CombatCardStat.RegenAdded, 10)
         );
 
         var impacts = PeriodicEffectAttribution.Project(
             simulation,
-            EntitiesOwnedBy(ECombatantId.Opponent, "possible-source")
+            EntitiesOwnedBy(Combatant.Opponent, "possible-source")
         );
         var impact = impacts.SourceImpacts[
             new PeriodicImpactKey(
                 "possible-source",
-                ECombatantId.Opponent,
+                Combatant.Opponent,
                 CombatImpactPeriodicKind.Regen
             )
         ];
@@ -815,45 +783,41 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 50, 60),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 10, 10)
+                        (CombatPlayerAttribute.Health, 50, 60),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 10, 10)
                     ),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 10)
+                    Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 10)
                 ),
                 Frame(
                     "regenerator",
-                    EActionCommandType.PlayerRegenApply,
+                    CombatActionType.PlayerRegenApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 60, 40),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 10, 20)
+                        (CombatPlayerAttribute.Health, 60, 40),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 10, 20)
                     ),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -20)
+                    Adjustment(CombatDamageType.Damage, CombatHealthChange.Health, -20)
                 ),
                 Frame(
                     null,
-                    EActionCommandType.None,
+                    CombatActionType.None,
                     Attributes(
-                        (EPlayerAttributeType.Health, 40, 60),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 20, 20)
+                        (CombatPlayerAttribute.Health, 40, 60),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.HealthRegen, 20, 20)
                     ),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 20)
+                    Adjustment(CombatDamageType.Regen, CombatHealthChange.Health, 20)
                 ),
             },
-            ("regenerator", ECardStats.RegenAdded, 10)
+            ("regenerator", CombatCardStat.RegenAdded, 10)
         );
 
         var impacts = PeriodicEffectAttribution.Project(simulation, Entities("regenerator"));
         var impact = impacts.SourceImpacts[
-            new PeriodicImpactKey(
-                "regenerator",
-                ECombatantId.Opponent,
-                CombatImpactPeriodicKind.Regen
-            )
+            new PeriodicImpactKey("regenerator", Combatant.Opponent, CombatImpactPeriodicKind.Regen)
         ];
 
         Assert.Equal(30, impact.HealthAmount);
@@ -868,28 +832,24 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "old-source",
-                    EActionCommandType.PlayerBurnApply,
-                    Attributes((EPlayerAttributeType.Burn, 0, 10))
+                    CombatActionType.PlayerBurnApply,
+                    Attributes((CombatPlayerAttribute.Burn, 0, 10))
                 ),
-                Frame(
-                    null,
-                    EActionCommandType.None,
-                    Attributes((EPlayerAttributeType.Burn, 10, 0))
-                ),
+                Frame(null, CombatActionType.None, Attributes((CombatPlayerAttribute.Burn, 10, 0))),
                 Frame(
                     "new-source",
-                    EActionCommandType.PlayerBurnApply,
+                    CombatActionType.PlayerBurnApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 100, 94),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.Shield, 0, 0),
-                        (EPlayerAttributeType.Burn, 0, 6)
+                        (CombatPlayerAttribute.Health, 100, 94),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.Shield, 0, 0),
+                        (CombatPlayerAttribute.Burn, 0, 6)
                     ),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Health, -6)
+                    Adjustment(CombatDamageType.Burn, CombatHealthChange.Health, -6)
                 ),
             },
-            ("old-source", ECardStats.BurnAdded, 10),
-            ("new-source", ECardStats.BurnAdded, 6)
+            ("old-source", CombatCardStat.BurnAdded, 10),
+            ("new-source", CombatCardStat.BurnAdded, 6)
         );
 
         var impacts = PeriodicEffectAttribution.Project(
@@ -898,19 +858,11 @@ public sealed class PeriodicEffectAttributionTests
         );
 
         Assert.DoesNotContain(
-            new PeriodicImpactKey(
-                "old-source",
-                ECombatantId.Opponent,
-                CombatImpactPeriodicKind.Burn
-            ),
+            new PeriodicImpactKey("old-source", Combatant.Opponent, CombatImpactPeriodicKind.Burn),
             impacts.SourceImpacts
         );
         var impact = impacts.SourceImpacts[
-            new PeriodicImpactKey(
-                "new-source",
-                ECombatantId.Opponent,
-                CombatImpactPeriodicKind.Burn
-            )
+            new PeriodicImpactKey("new-source", Combatant.Opponent, CombatImpactPeriodicKind.Burn)
         ];
         Assert.Equal(6, impact.HealthAmount);
         Assert.Equal(CombatImpactPeriodicProof.Exact, impact.Proof);
@@ -924,13 +876,13 @@ public sealed class PeriodicEffectAttributionTests
             {
                 Frame(
                     "missing-source",
-                    EActionCommandType.PlayerPoisonApply,
+                    CombatActionType.PlayerPoisonApply,
                     Attributes(
-                        (EPlayerAttributeType.Health, 100, 90),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.Poison, 0, 10)
+                        (CombatPlayerAttribute.Health, 100, 90),
+                        (CombatPlayerAttribute.HealthMax, 100, 100),
+                        (CombatPlayerAttribute.Poison, 0, 10)
                     ),
-                    Adjustment(EDamageType.Poison, EPlayerHealthChangeType.Health, -10)
+                    Adjustment(CombatDamageType.Poison, CombatHealthChange.Health, -10)
                 ),
             }
         );
@@ -994,17 +946,17 @@ public sealed class PeriodicEffectAttributionTests
         );
     }
 
-    private static CombatSim Simulation(
-        IReadOnlyList<CombatSimFrame> frames,
-        params (string SourceId, ECardStats Stat, int Value)[] stats
+    private static CombatTimeline Simulation(
+        IReadOnlyList<CombatFrame> frames,
+        params (string SourceId, CombatCardStat Stat, int Value)[] stats
     )
     {
-        var simulation = new CombatSim { Frames = frames.ToList() };
+        var simulation = new CombatTimeline { Frames = frames.ToList() };
         foreach (var (sourceId, stat, value) in stats)
         {
             if (!simulation.CardStats.TryGetValue(sourceId, out var sourceStats))
             {
-                sourceStats = new Dictionary<ECardStats, int>();
+                sourceStats = new Dictionary<CombatCardStat, int>();
                 simulation.CardStats[sourceId] = sourceStats;
             }
             sourceStats[stat] = value;
@@ -1012,18 +964,18 @@ public sealed class PeriodicEffectAttributionTests
         return simulation;
     }
 
-    private static CombatSimFrame Frame(
+    private static CombatFrame Frame(
         string? sourceId,
-        EActionCommandType action,
-        IReadOnlyDictionary<EPlayerAttributeType, CombatSimPlayerAttributeUpdate> attributes,
-        params CombatSimPlayerHealthAdjustment[] adjustments
+        CombatActionType action,
+        IReadOnlyDictionary<CombatPlayerAttribute, CombatPlayerAttributeUpdate> attributes,
+        params CombatHealthAdjustment[] adjustments
     )
     {
-        var frame = new CombatSimFrame
+        var frame = new CombatFrame
         {
-            OpponentUpdates = new CombatSimPlayerUpdate
+            OpponentUpdates = new CombatPlayerUpdate
             {
-                Attributes = new Dictionary<EPlayerAttributeType, CombatSimPlayerAttributeUpdate>(
+                Attributes = new Dictionary<CombatPlayerAttribute, CombatPlayerAttributeUpdate>(
                     attributes
                 ),
                 HealthAdjustments = adjustments.ToList(),
@@ -1034,34 +986,34 @@ public sealed class PeriodicEffectAttributionTests
         return frame;
     }
 
-    private static CombatSimFrame DeathFrame(
-        IReadOnlyDictionary<EPlayerAttributeType, CombatSimPlayerAttributeUpdate> attributes,
-        params CombatSimPlayerHealthAdjustment[] adjustments
+    private static CombatFrame DeathFrame(
+        IReadOnlyDictionary<CombatPlayerAttribute, CombatPlayerAttributeUpdate> attributes,
+        params CombatHealthAdjustment[] adjustments
     )
     {
-        var frame = Frame(null, EActionCommandType.None, attributes, adjustments);
-        frame.Events.Add(new CombatSimEventCombatantDied { CombatantId = ECombatantId.Opponent });
+        var frame = Frame(null, CombatActionType.None, attributes, adjustments);
+        frame.Events.Add(new CombatantDied { CombatantId = Combatant.Opponent });
         return frame;
     }
 
-    private static CombatSimEventEffectExecuted Execution(
+    private static CombatEffectExecuted Execution(
         string sourceId,
-        EActionCommandType action,
-        ECombatantId target = ECombatantId.Opponent
+        CombatActionType action,
+        Combatant target = Combatant.Opponent
     ) =>
         new()
         {
             ActionType = action,
-            Source = InstanceId.TryParse(sourceId),
-            Target = new EffectTargetPlayer { Target = target },
+            Source = (sourceId),
+            Target = new CombatPlayerTarget { Target = target },
         };
 
-    private static Dictionary<EPlayerAttributeType, CombatSimPlayerAttributeUpdate> Attributes(
-        params (EPlayerAttributeType Type, int Previous, int Current)[] values
+    private static Dictionary<CombatPlayerAttribute, CombatPlayerAttributeUpdate> Attributes(
+        params (CombatPlayerAttribute Type, int Previous, int Current)[] values
     ) =>
         values.ToDictionary(
             value => value.Type,
-            value => new CombatSimPlayerAttributeUpdate
+            value => new CombatPlayerAttributeUpdate
             {
                 AttributeType = value.Type,
                 PreviousValue = value.Previous,
@@ -1069,9 +1021,9 @@ public sealed class PeriodicEffectAttributionTests
             }
         );
 
-    private static CombatSimPlayerHealthAdjustment Adjustment(
-        EDamageType damageType,
-        EPlayerHealthChangeType pool,
+    private static CombatHealthAdjustment Adjustment(
+        CombatDamageType damageType,
+        CombatHealthChange pool,
         int amount
     ) =>
         new()
@@ -1083,10 +1035,10 @@ public sealed class PeriodicEffectAttributionTests
 
     private static IReadOnlyDictionary<string, CombatImpactEntity> Entities(
         params string[] sourceIds
-    ) => EntitiesOwnedBy(ECombatantId.Player, sourceIds);
+    ) => EntitiesOwnedBy(Combatant.Player, sourceIds);
 
     private static IReadOnlyDictionary<string, CombatImpactEntity> EntitiesOwnedBy(
-        ECombatantId sourceCombatant,
+        Combatant sourceCombatant,
         params string[] sourceIds
     )
     {
@@ -1102,14 +1054,14 @@ public sealed class PeriodicEffectAttributionTests
             ),
             StringComparer.Ordinal
         );
-        var opponentId = CombatImpactProjector.PlayerId(ECombatantId.Opponent);
+        var opponentId = CombatImpactProjector.PlayerId(Combatant.Opponent);
         entities[opponentId] = new CombatImpactEntity(
             opponentId,
             "Opponent",
             "Hero",
             null,
             entities.Count,
-            CombatantId: ECombatantId.Opponent
+            CombatantId: Combatant.Opponent
         );
         return entities;
     }

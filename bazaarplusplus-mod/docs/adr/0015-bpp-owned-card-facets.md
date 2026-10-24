@@ -17,7 +17,7 @@ ADR-0012 moves into Core only what compiles without game types. Collection and m
 
 ## Guardrails
 
-- Do not add `Unknown = 0` or mirror the game's integers in a facet: a zero member leaks into facet availability and the filter rows.
+- Do not add `Unknown = 0` or mirror the game's integers in a facet: a zero member leaks into facet availability and the filter rows. Amended 2026-10-24: the combat facets copy the game's values, for the reason ADR-0019 gives in item 3.
 - A host adds no switch from game enum to facet. Extend the alias table when the game renames a member, and add the facet member when the pin test names a new game member.
 - Core code that needs a game-build answer takes a port; it never reflects on the game's enums.
 
