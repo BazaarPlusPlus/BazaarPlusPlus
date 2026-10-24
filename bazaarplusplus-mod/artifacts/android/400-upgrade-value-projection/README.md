@@ -54,15 +54,31 @@ The switch went off through the game's settings dialog: `screens/final-settings-
 | 3 | ~20:15:5x–20:18:42 | Pufferfish held while offline (entered 20:15:58). On restore the resync (20:18:46) hid the tooltip: `exited reason=tooltip_hidden count=4` the same second, and the game re-showed it (`entered count=5`, 20:18:50). |
 | 4 | 20:19:28–20:28:51 (9 min) | Same as 3 with a longer wait: `screens/final-held-pufferfish-before-cut.png`, the modal `screens/final-cut-connection-dialog.png`, the tooltip still held offline `screens/final-cut-held-offline.png` with `screens/final-cut-reconnecting-badge.png`. Restore: `exited reason=tooltip_hidden count=7` (20:28:56), re-shown `entered count=8` (20:28:58), `screens/final-cut-after-restore.png`. Closed by a tap outside: `exited count=8` (20:30:36). |
 
-A held preview therefore ends through `tooltip_hidden` on every path observed here. The `scene_changed` release in `AndroidMod.OnSceneWasLoaded` stays as the defensive path for a load that starts during the card-to-card transition; it has run only under the #402 probe that calls the game's `SceneLoader.LoadScene` in that window (see `docs/architecture/android-host.md`).
+So in this session every held preview ended through `tooltip_hidden`. None of the cuts is a scene switch; section 3 covers scene switches.
 
 **Leased equals returned.** Every summary in `logs/session-final.log` has `upgrade_values_leased == upgrade_values_returned`, and `upgrade_preview_entered == upgrade_preview_exited` whenever no tooltip is held. The last one (20:33:04): `upgrade_preview_entered=8 upgrade_preview_exited=8 upgrade_values_leased=8 upgrade_values_returned=8 card_balanced=true`.
+
+## 3. Scene switch (from #402, same release code)
+
+The final session switched no scene after its first hold: its last `scene.loaded` is `Gameplay` at 20:02:21, before the first `entered` at 20:03:12. The scene-switch evidence is the #402 runs on build `9ad3a86` (plugin sha256 `4eba6433794d…`). The release those runs exercise is unchanged in `16afc3c`.
+
+- `artifacts/android/402-scene-changed/logs/5-probe-race-scene-changed-9ad3a86.log`: the #402 probe calls the game's own `SceneLoader.LoadScene` during the card-to-card transition, so the hold reaches the new scene. Lines: `upgrade_preview.entered controller=-63108 count=1` (19:32:22), then `scene.loaded name=MainMenuScene` and `upgrade_preview.exited reason=scene_changed alive=true count=1` (19:32:25). The summaries go from `upgrade_preview_entered=0 upgrade_preview_exited=0` to `1/1`. `upgrade_values_leased`/`returned` also go from `0/0` to `1/1`. That lease covers a single render and is returned when the render ends, so it does not prove this release.
+- `artifacts/android/402-scene-changed/logs/6-probe-held-9ad3a86.log`: the probe loads a scene outside the transition while a card is held. The game hides the tooltip inside the load, so `exited reason=tooltip_hidden alive=true count=1` (19:36:11) comes before `scene.loaded name=MainMenuScene` (19:36:14). The counts are again `1/1`, with no `scene_changed`.
+
+Why the `9ad3a86` runs still cover `16afc3c`:
+
+- `git diff 9ad3a86 16afc3c -- bazaarplusplus-mod/src/BazaarPlusPlus.Android/GameInterop/AndroidUpgradePreview.cs` is empty.
+- In `AndroidMod.OnSceneWasLoaded`, `AndroidUpgradePreview.Release("scene_changed")` is still the first call after the `android.scene.loaded` log line. The later commits only added the History panel's `OnSceneLoaded` and `AndroidCardRental.ReleaseAll("scene_changed")` after it.
+- In `Patches/CardTooltipPatch.cs`, `CardTooltipRenderPatch` is unchanged: its prefix calls `AndroidUpgradePreviewValues.Prepare` and its finalizer calls `AndroidUpgradePreviewValues.Return`. The only change to that file in the range is in `EnchantPreviewPassivePatch`.
+
+No in-run exit-to-menu round trip was recorded on `16afc3c`.
 
 ## Shared acceptance (#361)
 
 - Enabled and disabled on the AVD: the Handaxe pair above.
 - Objects opened in a row: Pufferfish to another board card (`exited reason=replaced` 20:11:22, new controller `-47480`) and again at 20:19:22 (controller `-94174`). Each new card released the previous controller before entering its own; no controller appears in two open holds.
-- Close and scene switch with no cross-use: every hold ended `replaced` or `tooltip_hidden`, each next `entered` names its own controller, and the network cuts did not switch scene (above).
+- Close with no cross-use (final session): every hold ended `replaced` or `tooltip_hidden`, the last one by a tap outside (`exited count=8`, 20:30:36), and each next `entered` names its own controller.
+- Scene switch with no cross-use: section 3. `artifacts/android/402-scene-changed/logs/5-probe-race-scene-changed-9ad3a86.log` shows `scene_changed alive=true` with entered/exited going from `0/0` to `1/1`, and `artifacts/android/402-scene-changed/logs/6-probe-held-9ad3a86.log` shows `tooltip_hidden` before the scene load. The release code those runs exercise is unchanged in `16afc3c`. The network cuts are not counted as scene switches.
 - Rental and lease counts: `upgrade_values_leased` 8 = `returned` 8; the upgrade preview rents no cards (`card_rented=0`, `card_balanced=true`).
 
 ## Not committed
