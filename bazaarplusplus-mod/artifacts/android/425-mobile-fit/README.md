@@ -1,6 +1,6 @@
 # #425 Android panels fit the phone: device evidence
 
-Emulator `bpp_api35` (API 35, 420 dpi), game `1.0.12825-production-android-d9601ded`, BPP 6.0.0 deployed as a `build_only` MelonLoader Payload. Every screenshot and log here comes from one build: plugin sha256 `c11683afa1b30048385bfb7061ee2e881e7aa0309f88f07c30212df189787549` (each log's `android.plugin.loaded` line), built from commit `9ea6074` on branch `android/425-mobile-fit-finish`. Later commits on the branch change only this folder.
+Emulator `bpp_api35` (API 35, 420 dpi), game `1.0.12825-production-android-d9601ded`, BPP 6.0.0 deployed as a `build_only` MelonLoader Payload. Every screenshot and log here comes from one build: plugin sha256 `c11683afa1b30048385bfb7061ee2e881e7aa0309f88f07c30212df189787549` (each log's `android.plugin.loaded` line), built from commit `9ea6074` on branch `android/425-mobile-fit-finish`. Later commits on the branch change this folder and one failure path no capture here exercises: `AndroidCollectionPanel.Relayout`, retrying after a build that threw, no longer closes the inspection or returns the grid of the destroyed tree, so the next open builds again instead of failing.
 
 Two screens: the native 2400x1080 (safe area x 136..2264, a cutout on each side) and `adb shell wm size 2560x1600` (safe area 0,0,2560,1509, the top 91 px unsafe), reset afterwards with `wm size reset`. Each `wm size` change passes through a transient portrait key (`1600x2560` or `1080x2400`) that the panels lay out for and then leave. The conventions are in `docs/architecture/android-mobile-ui.md`, the decision in ADR-0018.
 
@@ -53,6 +53,6 @@ Logs hold only `[BPP]` lines, and any line matching an account, user or player i
 
 ## Caveats
 
-- The relayout failure path (`android.collection.relayout_failed`, the partial root destroyed and the grid returned) was not forced on the device: nothing in a live relayout fails on demand. It is covered by the guard in `AndroidCollectionPanel.Relayout` and by review; every device relayout above succeeded with `rental_leases=0`.
+- The relayout failure path (`android.collection.relayout_failed`, the partial root destroyed and the grid returned) was not forced on the device: nothing in a live relayout fails on demand. It is covered by the guards in `AndroidCollectionPanel.Relayout` (the later retry fix above included) and by review; every device relayout above succeeded with `rental_leases=0`.
 - At 2400x1080 the enchant preview is 10.3 sp, under the 12 sp floor, because the game's tooltip text it sits in is that size. That is the documented in-tooltip rule, not a gap: raising it past the native text would break the tooltip.
 - The 2560x1600 combat shot is a monster fight; PvP combat was captured at 2400x1080 only. Both use the same `TouchLauncherLayout` band, logged identically in both fights.

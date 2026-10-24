@@ -285,14 +285,18 @@ internal sealed class AndroidCollectionPanel
     // The screen changed under the panel: the old tree returns its cards, and a tree laid out for
     // the new screen renders the same view state. A build that throws leaves no tree, never the
     // destroyed one: the panel reads closed, its cards returned, and the next Open builds again.
+    // That retry finds no tree, and its inspection and grid may belong to the destroyed partial
+    // one, whose cards the failed attempt already returned, so it touches neither.
     private bool Relayout()
     {
         var before = _screenKey;
         var open = IsOpen;
-        _inspection.Close("relayout");
-        _grid.ReturnAll();
         if (_root != null)
+        {
+            _inspection.Close("relayout");
+            _grid.ReturnAll();
             UnityEngine.Object.Destroy(_root);
+        }
         _root = null;
         try
         {
