@@ -33,8 +33,8 @@ internal static class LiveBuildTouchLayoutTests
         yield return ("1920x1080@420", Screen(1920f, 1080f, 420f));
         yield return ("2400x1080@420 cutout", Screen(2400f, 1080f, 420f, cutoutLeft: 110f));
         yield return ("2340x1080@440", Screen(2340f, 1080f, 440f));
-        // Dense phones: the same pixels at more dp, where side by side would leave a socket
-        // under 48dp and the panel stacks instead.
+        // Dense phones: the same pixels at fewer dp, where side by side would leave a socket
+        // under 48dp or the sidebar too short for the metric cells, and the panel stacks.
         yield return ("2400x1080@480", Screen(2400f, 1080f, 480f));
         yield return ("2400x1080@560", Screen(2400f, 1080f, 560f));
         yield return ("2400x1080@640", Screen(2400f, 1080f, 640f));
