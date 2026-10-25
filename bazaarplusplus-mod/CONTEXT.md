@@ -152,16 +152,16 @@ _Avoid_: game enums in Core
 ## Collection panel
 
 **Collection View State**:
-The single owner of the Collection Panel's presentable state (`CollectionViewState`, Core): filter selections, search, catalog acceptance, and the derived render model. Commands go in, a complete render outcome comes out; nothing else reads or writes the filter.
-_Avoid_: ApplyFilters/RefreshView pairing
+The single owner of the Collection Panel's presentable state (`CollectionViewState`, Core): filters, search, catalog acceptance, open and close, and the render model. Commands go in, a complete render outcome comes out; nothing else touches the filter. Open takes **Collection Open Facts** (`CollectionOpenFacts`), what the host read: run or not; in a run the hero, day and encounter ids (empty if unprobed); cached catalog; supporters.
+_Avoid_: ApplyFilters/RefreshView pairing; open selection inputs
 
 ## Collection sources
 
 **Collection Source Catalog**:
-The versioned in-mod catalog that defines merchant and trainer source filters for the Collection Panel. Built from `collection-sources.json` and keyed by stable source keys plus source template ids.
+The Collection Panel's versioned merchant and trainer source catalog (`collection-sources.json`), keyed by stable source keys and source template ids.
 
 **Offer Pool**:
-The set of card templates a source can offer, expressed through structured rules (`CollectionSourceEntry.OfferSegments`) rather than runtime encounter fallback heuristics.
+The card templates a source can offer, as structured rules (`CollectionSourceEntry.OfferSegments`), not runtime encounter heuristics.
 
 **Collection Source Kind**:
 The source chip category: `Merchant` sources offer Items, `Trainer` sources offer Skills.
@@ -169,7 +169,7 @@ The source chip category: `Merchant` sources offer Items, `Trainer` sources offe
 ## Day tiers
 
 **Day Tier Resolver**:
-The shared GameInterop adapter (`GameInterop/DayTiers/GameDataDayTierResolver`) that resolves the current run day's item/skill tier distribution from live GameData into a normalized weight table plus `MaximumTier` — the highest usable Bronze-to-Diamond tier, not the largest probability. Consumers (Collection's Day gate, Event Preview) fail open when the table is unavailable.
+The shared GameInterop adapter `DayTiers/GameDataDayTierResolver` that turns live GameData into the run day's normalized item/skill tier weights plus `MaximumTier`, the highest usable Bronze-to-Diamond tier (not the most likely). Its consumers (Collection's Day gate, Event Preview) fail open without it.
 _Avoid_: DayTierSchedule, hardcoded tier table
 
 ## Remote embedded data
