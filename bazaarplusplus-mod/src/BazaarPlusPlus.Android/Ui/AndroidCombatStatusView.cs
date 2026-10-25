@@ -25,6 +25,13 @@ internal sealed class AndroidCombatStatusView(
     private Button? _speed;
     private string? _screen;
 
+    // What the view last wrote, so a frame that changes nothing makes no Unity call.
+    private bool _shown;
+    private string? _shownTime;
+    private bool? _shownPaused;
+    private float _shownSpeed = float.NaN;
+    private (bool Active, bool CanToggle)? _shownControls;
+
     public void Tick()
     {
         var state = playback.State;
@@ -38,7 +45,9 @@ internal sealed class AndroidCombatStatusView(
             && !AndroidNativeHud.IsInspectingCard;
         if (!visible)
         {
-            _root?.SetActive(false);
+            if (_shown)
+                _root?.SetActive(false);
+            _shown = false;
             return;
         }
         var font = AndroidGameFont.Font;
@@ -135,21 +144,41 @@ internal sealed class AndroidCombatStatusView(
                 ("speed", layout.Speed)
             );
         }
-        _root.SetActive(true);
-        _time!.text = TabularDigits.Replace(
-            state.GetDisplayedTimeText(),
-            "<mspace=0.55em>$0</mspace>"
+        if (!_shown)
+            _root.SetActive(true);
+        _shown = true;
+        // The state hands back the same string until the displayed time changes.
+        var time = state.GetDisplayedTimeText();
+        if (!string.Equals(time, _shownTime, StringComparison.Ordinal))
+        {
+            _shownTime = time;
+            _time!.text = TabularDigits.Replace(time, "<mspace=0.55em>$0</mspace>");
+        }
+        var paused = state.IsCombatPaused;
+        if (paused != _shownPaused)
+        {
+            _shownPaused = paused;
+            _pauseIcon!.sprite = paused ? _icons!.Play : _icons!.Pause;
+        }
+        var speed = state.CombatSpeedMultiplier;
+        if (speed != _shownSpeed)
+        {
+            _shownSpeed = speed;
+            _speedText!.text =
+                speed.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "×";
+        }
+        var controls = (
+            Active: state.IsCombatPlaybackActive,
+            CanToggle: state.CanToggleCombatPause()
         );
-        _pauseIcon!.sprite = state.IsCombatPaused ? _icons!.Play : _icons!.Pause;
-        _speedText!.text =
-            state.CombatSpeedMultiplier.ToString(
-                "0.##",
-                System.Globalization.CultureInfo.InvariantCulture
-            ) + "×";
-        _pause!.gameObject.SetActive(state.IsCombatPlaybackActive);
-        _speed!.gameObject.SetActive(state.IsCombatPlaybackActive);
-        _pause.interactable = state.CanToggleCombatPause();
-        _speed!.interactable = state.IsCombatPlaybackActive;
+        if (controls != _shownControls)
+        {
+            _shownControls = controls;
+            _pause!.gameObject.SetActive(controls.Active);
+            _speed!.gameObject.SetActive(controls.Active);
+            _pause.interactable = controls.CanToggle;
+            _speed.interactable = controls.Active;
+        }
     }
 
     // Digits share one advance so the time never shifts; the separators keep their natural width.
@@ -186,5 +215,10 @@ internal sealed class AndroidCombatStatusView(
         _root = null;
         _icons?.Dispose();
         _icons = null;
+        _shown = false;
+        _shownTime = null;
+        _shownPaused = null;
+        _shownSpeed = float.NaN;
+        _shownControls = null;
     }
 }

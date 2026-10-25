@@ -10,6 +10,9 @@ internal static class AndroidNativeHud
 {
     private static Il2CppTheBazaar.PopupManager? _popup;
 
+    // One buffer for every read: main thread only, and GetWorldCorners overwrites all four.
+    private static Il2CppStructArray<Vector3>? _corners;
+
     /// <summary>The game's popup manager, once its scene has made one.</summary>
     public static Il2CppTheBazaar.PopupManager? Popups
     {
@@ -51,11 +54,22 @@ internal static class AndroidNativeHud
         return null;
     }
 
-    public static TouchRect ScreenBounds(RectTransform rect, float referenceHeight)
+    public static TouchRect ScreenBounds(RectTransform rect, float referenceHeight) =>
+        ScreenBounds(rect, rect.GetComponentInParent<Canvas>().rootCanvas, referenceHeight);
+
+    /// <summary>
+    /// <paramref name="rect"/>'s screen rect, for a caller that reads it every frame and keeps
+    /// the rect's <paramref name="rootCanvas"/> from the first read.
+    /// </summary>
+    public static TouchRect ScreenBounds(
+        RectTransform rect,
+        Canvas rootCanvas,
+        float referenceHeight
+    )
     {
-        var canvas = rect.GetComponentInParent<Canvas>().rootCanvas;
-        var camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
-        var corners = new Il2CppStructArray<Vector3>(4L);
+        var camera =
+            rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : rootCanvas.worldCamera;
+        var corners = _corners ??= new Il2CppStructArray<Vector3>(4L);
         rect.GetWorldCorners(corners);
         var bottom = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
         var top = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
