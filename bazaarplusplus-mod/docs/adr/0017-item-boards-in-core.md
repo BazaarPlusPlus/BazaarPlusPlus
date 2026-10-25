@@ -18,6 +18,7 @@ History and LiveBuild render the same item board: a row of up to ten sockets hol
 - The desktop mappers (`BppItemBoardPreviewMapper` and `NativeMonsterBoardItemMapper`) and the readers (`HistoryBattlePreviewProjection` and `LiveCardSnapshotReader`) stay in the host. They convert through `DesktopCardFacets`.
 - The LiveBuild and History preview tests reference Core instead of compiling host board sources.
 - The Android host builds its own reader and native mapper over the same Core types.
+- Amended 2026-10-25: each host's reader keeps only its game walk, a `LiveCardWalk` in facet terms. Core's `LiveCardSnapshotRead` places the cards (the slot planner's fit rule), applies item 4's fallbacks, numbers them, and reports the cards it leaves out on the host's own event, so the fit rule, the fallbacks, and the degraded report are written once.
 
 ## Relationship to ADR-0015
 
@@ -26,5 +27,6 @@ This decision narrows ADR-0015 for boards. It adds no facet. It makes positional
 ## Evidence
 
 - Core types: `src/BazaarPlusPlus.Core/Cards/ItemBoards/`, `src/BazaarPlusPlus.Core/Cards/LiveCards/`, `src/BazaarPlusPlus.Core/Game/LiveBuildPanel/`
+- Live read outcome: `src/BazaarPlusPlus.Core/Cards/LiveCards/LiveCardSnapshotRead.cs`
 - Desktop boundary: `src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardPreviewMapper.cs`, `src/BazaarPlusPlus/GameInterop/LiveCards/LiveCardSnapshotReader.cs`, `src/BazaarPlusPlus/Game/HistoryPanel/Data/HistoryBattlePreviewProjection.cs`
 - Tests: `tests/LiveBuildPanel.Tests/`, `tests/LiveBuildRecommendationCore.Tests/` (Core only), `tests/HistoryPanelPreview.Tests/` (planner plus the desktop mappers)

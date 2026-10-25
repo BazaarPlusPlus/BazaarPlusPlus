@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.GameInterop.CardPreview;
@@ -547,11 +548,7 @@ internal sealed class CollectionGridVirtualizer
             Tier = DesktopCardFacets.Tier.TryToSource(vm.StartingTier, out var tier)
                 ? tier
                 : ETier.Bronze,
-            DisplaySpan =
-                vm.Type != CardType.Skill
-                && DesktopCardFacets.Size.TryToSource(vm.Size, out var size)
-                    ? CardSizeSpan.Resolve(size)
-                    : 1,
+            DisplaySpan = vm.Type != CardType.Skill ? BppItemBoardSpan.Resolve(vm.Size) : 1,
             InstanceIdPrefix = "bpp-collection",
         };
 
