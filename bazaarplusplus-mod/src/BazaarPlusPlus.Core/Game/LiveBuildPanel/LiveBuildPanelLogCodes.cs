@@ -51,9 +51,3 @@ public enum LiveBuildCacheWriteReasonCode
 {
     WriteFailed,
 }
-
-public enum LiveBuildSnapshotReasonCode
-{
-    ReadException,
-    InvalidPlacement,
-}

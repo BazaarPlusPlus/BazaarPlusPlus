@@ -1,6 +1,7 @@
 #nullable enable
 
 using BazaarPlusPlus.Core.Cards.ItemBoards;
+using BazaarPlusPlus.Core.Cards.LiveCards;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.LiveBuildPanel.Preview;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
@@ -9,7 +10,6 @@ using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.LiveCards;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -25,7 +25,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     private const string OverlayPanelId = "LiveBuildPanel";
 
     private static LiveBuildPanel? _instance;
-    private readonly LiveCardSnapshotReader _reader = new();
     private LiveBuildPanelState? _state;
     private LiveBuildPreviewRenderer? _previewRenderer;
     private LiveBuildPanelView? _view;
@@ -105,53 +104,21 @@ internal sealed class LiveBuildPanel : MonoBehaviour
             return;
 
         EnsureView();
-        var snapshotOutcome = _reader.Read();
-        ReportLiveSnapshotIssues(snapshotOutcome.Issues);
+        var outcome = LiveCardSnapshotRead.Read(
+            LiveCardSnapshotReader.Walk,
+            new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.live_snapshot.degraded",
+                storm: ["section", "reason_code"]
+            ),
+            LiveCardSnapshotLogValues.SnakeCase
+        );
         _state.Open(
-            snapshotOutcome.Snapshot,
+            outcome.Snapshot,
             BPPSupporters.SampleMany(LiveBuildPanelState.SupporterAttributionCount)
         );
         RefreshViewAndPreview();
         _view?.SetVisible(true);
-    }
-
-    private static void ReportLiveSnapshotIssues(IReadOnlyList<LiveCardSnapshotIssue> issues)
-    {
-        foreach (var issue in issues)
-        {
-            var fields = new BppLogField[]
-            {
-                ("section", issue.Section),
-                (
-                    "reason_code",
-                    issue.Reason == LiveCardSnapshotFailureReason.InvalidPlacement
-                        ? LiveBuildSnapshotReasonCode.InvalidPlacement
-                        : LiveBuildSnapshotReasonCode.ReadException
-                ),
-                ("template_id", issue.TemplateId),
-                ("socket_id", issue.SocketId),
-                ("item_size", issue.ItemSize),
-            };
-            if (issue.Exception == null)
-                BppLog.WarnEvent(
-                    new BppLogEvent(
-                        BppLogFeatureScope.LiveBuildPanel,
-                        "live_build_panel.live_snapshot.degraded",
-                        storm: ["section", "reason_code"]
-                    ),
-                    fields
-                );
-            else
-                BppLog.WarnEvent(
-                    new BppLogEvent(
-                        BppLogFeatureScope.LiveBuildPanel,
-                        "live_build_panel.live_snapshot.degraded",
-                        storm: ["section", "reason_code"]
-                    ),
-                    issue.Exception,
-                    fields
-                );
-        }
     }
 
     private void Close()

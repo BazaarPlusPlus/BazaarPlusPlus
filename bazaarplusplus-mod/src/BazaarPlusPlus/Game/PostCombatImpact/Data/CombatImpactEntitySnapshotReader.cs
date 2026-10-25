@@ -9,6 +9,8 @@ using BazaarGameShared.Domain.Effect.AuraActions;
 using BazaarGameShared.Domain.Values.ReferenceValues;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.CombatSimulation;
@@ -166,7 +168,9 @@ internal static class CombatImpactEntitySnapshotReader
             card.TemplateId,
             DesktopCardFacets.CapturedTier(card.Tier),
             card.Type is ECardType.Item or ECardType.SocketEffect
-                ? CardSizeSpan.Resolve(card.Size)
+                ? BppItemBoardSpan.Resolve(
+                    DesktopCardFacets.CapturedSize(card.Size) ?? CardSize.Small
+                )
                 : 1,
             DesktopCardFacets.CapturedEnchantment(item?.Enchantment),
             card.Attributes == null ? null : DesktopCombatFacets.CardAttributes(card.Attributes),

@@ -72,4 +72,21 @@ public static class CardFacetOrder
             CardSocket.Socket_9 => 9,
             _ => 99,
         };
+
+    // The inverse of SocketRank: the socket at a board index 0..9, otherwise none.
+    public static CardSocket? SocketAt(int index) =>
+        index switch
+        {
+            0 => CardSocket.Socket_0,
+            1 => CardSocket.Socket_1,
+            2 => CardSocket.Socket_2,
+            3 => CardSocket.Socket_3,
+            4 => CardSocket.Socket_4,
+            5 => CardSocket.Socket_5,
+            6 => CardSocket.Socket_6,
+            7 => CardSocket.Socket_7,
+            8 => CardSocket.Socket_8,
+            9 => CardSocket.Socket_9,
+            _ => null,
+        };
 }

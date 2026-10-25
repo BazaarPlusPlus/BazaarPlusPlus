@@ -2,6 +2,7 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Core.Cards.LiveCards;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
@@ -94,8 +95,15 @@ internal sealed class AndroidLiveBuildPanel
         var view = EnsureView();
         if (view == null)
             return;
-        var outcome = AndroidLiveCardSnapshotReader.Read();
-        ReportLiveSnapshotIssues(outcome.Issues);
+        var outcome = LiveCardSnapshotRead.Read(
+            AndroidLiveCardSnapshotReader.Walk,
+            new BppLogEvent(
+                BppLogFeatureScope.Android,
+                "android.live_build.live_snapshot.degraded",
+                storm: ["section", "reason_code"]
+            ),
+            LiveCardSnapshotLogValues.MemberName
+        );
         _state.Open(
             outcome.Snapshot,
             _data.NextSupporters(LiveBuildPanelState.SupporterAttributionCount)
@@ -330,30 +338,6 @@ internal sealed class AndroidLiveBuildPanel
             case LiveBuildRefreshEffect.Status:
                 _view!.Refresh(_state.BuildSnapshot(), boards: false);
                 break;
-        }
-    }
-
-    private static void ReportLiveSnapshotIssues(IReadOnlyList<AndroidLiveCardSnapshotIssue> issues)
-    {
-        foreach (var issue in issues)
-        {
-            var fields = new BppLogField[]
-            {
-                ("section", issue.Section),
-                ("reason_code", issue.ReasonCode),
-                ("template_id", issue.TemplateId),
-                ("socket_id", issue.SocketId),
-                ("item_size", issue.ItemSize),
-            };
-            var degraded = new BppLogEvent(
-                BppLogFeatureScope.Android,
-                "android.live_build.live_snapshot.degraded",
-                storm: ["section", "reason_code"]
-            );
-            if (issue.Exception == null)
-                BppLog.WarnEvent(degraded, fields);
-            else
-                BppLog.WarnEvent(degraded, issue.Exception, fields);
         }
     }
 }
