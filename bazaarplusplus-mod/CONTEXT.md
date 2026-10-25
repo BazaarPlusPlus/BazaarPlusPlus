@@ -52,7 +52,7 @@ A user-requested MP4 plus its metadata. Attachment to a battle and file health a
 _Avoid_: replay cache, orphan video
 
 **Saved Replay Playback**:
-The Core module (`SavedReplayPlayback`) that owns one saved replay's admission, payload lease, start, exit and menu return for both hosts through `ISavedReplayHost` (ADR-0020). Its pure `SavedReplayLifecycle` holds the state algebra. Neither exits `ReplayState` itself (ADR-0002).
+The Core module (`SavedReplayPlayback`) owning one saved replay's admission, payload lease, start, exit and menu return for both hosts via `ISavedReplayHost` (ADR-0020). Pure `SavedReplayLifecycle` holds its states. Neither exits `ReplayState` (ADR-0002).
 
 ## Overlay panels
 
