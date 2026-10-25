@@ -25,7 +25,7 @@ internal sealed class AndroidHistoryInspection
     private readonly GameObject _root;
     private readonly RectTransform _slot;
     private readonly TextMeshProUGUI _name;
-    private readonly TextMeshProUGUI _description;
+    private readonly AndroidInspectionText _description;
     private readonly HistoryTouchLayout _layout;
     private CardRentalLease<CardPreviewBase>? _lease;
 
@@ -62,15 +62,15 @@ internal sealed class AndroidHistoryInspection
             layout.NameFont,
             wrap: true
         );
-        _description = AndroidHistoryUi.Label(
-            info,
+        _description = new AndroidInspectionText(
+            AndroidTouchScreen.Child(
+                "Description",
+                info,
+                Local(layout.InspectDetail, origin, layout.Gap)
+            ),
             font,
-            "Description",
-            Local(layout.InspectDetail, origin, layout.Gap),
             layout.BodyFont,
-            TextAlignmentOptions.TopLeft,
-            AndroidHistoryUi.Muted,
-            wrap: true
+            AndroidHistoryUi.Ink
         );
         AndroidHistoryUi.Button(
             info,
@@ -93,8 +93,7 @@ internal sealed class AndroidHistoryInspection
         Return();
         var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
         _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
-        _description.text = AndroidCardTemplateText.Description(subject) ?? string.Empty;
-        AndroidKeywordSprites.Apply(_description);
+        _description.Set(AndroidCardTemplateText.Description(subject) ?? string.Empty);
         var scale = _layout.InspectScale(card.DisplaySpan, skill);
         _slot.localScale = new Vector3(scale, scale, 1f);
         _root.SetActive(true);

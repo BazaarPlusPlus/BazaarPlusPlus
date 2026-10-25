@@ -15,7 +15,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// panel's own off switch (the touch launcher, where the switch otherwise lives, hides while
 /// History is open), and the BazaarDB account row with its link form, drag-scrolled when the form
 /// outgrows a short screen.
-/// The desktop's supporter list stays off: the host has no supporter feed. The code is read from
+/// Supporter attribution lives in the main header. The code is read from
 /// the input when the user submits it, so the input needs no change listener.
 /// </summary>
 internal sealed class AndroidHistoryMoreDialog

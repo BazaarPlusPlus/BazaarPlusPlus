@@ -68,7 +68,7 @@ internal static class HistoryTouchLayoutTests
             ("runs tab", layout.RunsTab),
             ("ghost tab", layout.GhostTab),
             ("favorites tab", layout.FavoritesTab),
-            ("filters", layout.FilterStrip),
+            ("sponsor", layout.Sponsor),
             ("more", layout.More),
             ("close", layout.Close),
             ("archive list", layout.ArchiveList),
@@ -125,19 +125,7 @@ internal static class HistoryTouchLayoutTests
             }
         )
             RequireTarget(name, metrics, target);
-        Require(
-            layout.FilterStrip.Height >= metrics.MinTarget - 0.01f,
-            $"{name}: filter chips are targets."
-        );
-        foreach (
-            var width in new[]
-            {
-                layout.HeroChipWidth,
-                layout.OutcomeChipWidth,
-                layout.DayChipWidth,
-            }
-        )
-            Require(width >= metrics.MinTarget - 0.01f, $"{name}: a filter chip is a target wide.");
+        RequireTarget(name, metrics, layout.Sponsor);
         Require(layout.RailList.Height >= layout.ChipHeight, $"{name}: the rail shows a battle.");
         // Ghost's cloud note wraps in the column the rail leaves empty: inside the sheet, clear of
         // the header, the archive and the boards, with room for six lines of body text.
@@ -145,7 +133,7 @@ internal static class HistoryTouchLayoutTests
             name + " ghost",
             layout.Sheet,
             [
-                ("filters", layout.FilterStrip),
+                ("sponsor", layout.Sponsor),
                 ("more", layout.More),
                 ("archive list", layout.ArchiveList),
                 ("cloud note", layout.CloudNote),
@@ -159,8 +147,10 @@ internal static class HistoryTouchLayoutTests
             $"{name}: the cloud note has room to wrap ({layout.CloudNote})."
         );
         Require(
-            layout.ArchiveList.Height >= 2f * layout.RunRowHeight,
-            $"{name}: the archive shows at least two runs."
+            Near(layout.ArchiveList.Height, 3f * layout.RunRowHeight)
+                && layout.ArchiveRow(2, runs: true).Bottom <= layout.ArchiveList.Height
+                && layout.ArchiveRow(3, runs: true).Top >= layout.ArchiveList.Height - 0.01f,
+            $"{name}: the archive shows three whole runs without a partial fourth row."
         );
 
         Require(
@@ -187,18 +177,6 @@ internal static class HistoryTouchLayoutTests
             Require(
                 layout.SocketWidth >= metrics.Dp(40f),
                 $"{name}: a small card stays near a touch target."
-            );
-
-        var chips = layout.FilterChips([
-            layout.HeroChipWidth,
-            layout.OutcomeChipWidth,
-            layout.DayChipWidth,
-        ]);
-        for (var index = 1; index < chips.Count; index++)
-            Require(
-                !chips[index].Overlaps(chips[index - 1])
-                    && chips[index].Left > chips[index - 1].Left,
-                $"{name}: filter chips stand side by side."
             );
 
         // Overlays: each fits the sheet and its controls do not overlap.

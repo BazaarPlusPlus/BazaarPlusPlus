@@ -144,24 +144,30 @@ internal static class LiveBuildTouchLayoutTests
             $"{name}: a socket is {layout.SocketWidth / metrics.UnitsPerDp}dp wide, under 48dp."
         );
         Check.That(
-            layout.CarpetWidth <= layout.BoardColumn.Width + 0.01f,
+            layout.CarpetWidth <= layout.BoardColumn.Width - layout.Gap * 2f + 0.01f,
             $"{name}: ten sockets overflow the board column."
         );
 
         // Stacked, only the header stays in sheet coordinates; the boards and the overview are
         // list content.
         var content = new TouchRect(0f, 0f, layout.Scroll.Width, layout.ScrollContentHeight);
-        var overview = new (string Name, TouchRect Rect)[]
-        {
-            ("title", layout.Title),
+        (string Name, TouchRect Rect)[] overview =
+        [
             ("refresh", layout.Refresh),
             ("corpus", layout.Corpus),
-            ("hero", layout.Hero),
+            .. (
+                layout.Stacked
+                    ? new[] { ("hero", layout.Hero) }
+                    : Array.Empty<(string, TouchRect)>()
+            ),
             ("info", layout.Info),
-            ("supporters", layout.Supporters),
             ("sponsor", layout.Sponsor),
-            ("hint", layout.Hint),
-        };
+            .. (
+                layout.Stacked
+                    ? Array.Empty<(string, TouchRect)>()
+                    : new[] { ("board selector", layout.BoardSelector) }
+            ),
+        ];
         var header = new (string Name, TouchRect Rect)[]
         {
             ("pinned title", layout.PinnedTitleText),
@@ -180,6 +186,7 @@ internal static class LiveBuildTouchLayoutTests
                     ($"row {row} board", layout.ScrollRowBoard(row)),
                 }
             )
+            .Where(region => region.Rect.Height > 0f)
             .ToArray();
         if (layout.Stacked)
         {
@@ -213,6 +220,7 @@ internal static class LiveBuildTouchLayoutTests
         var targets = new (string Name, TouchRect Rect, TouchRect Space)[]
         {
             ("close", layout.Close, sheet),
+            ("board selector", layout.BoardSelector, layout.Stacked ? content : sheet),
             ("previous", layout.Previous, sheet),
             ("next", layout.Next, sheet),
             ("inspect close", layout.InspectClose, sheet),
@@ -229,22 +237,63 @@ internal static class LiveBuildTouchLayoutTests
             Check.That(space.Contains(rect), $"{name}: {target} leaves its space.");
         }
         Check.That(
-            layout.Supporters.Height >= layout.SupportersHeight - 0.01f
-                && layout.SupportersHeight >= layout.BodyFont * 1.5f - 0.01f,
-            $"{name}: the supporter row is shorter than one line of body text."
+            Math.Abs(layout.Refresh.Top - layout.Corpus.Top) < 0.01f
+                && !layout.Refresh.Overlaps(layout.Corpus)
+                && Math.Abs(layout.Refresh.Height - metrics.MinTarget) < 0.01f,
+            $"{name}: library status and update share one compact touch row."
         );
         Check.That(
-            Math.Abs(layout.Hint.Top - layout.Sponsor.Top) < 0.01f,
-            $"{name}: the sponsor button should share the hint's row."
+            layout.Sponsor.Bottom <= layout.Refresh.Top,
+            $"{name}: supporter action belongs above refresh."
         );
-
+        Check.That(
+            layout.BoardSelector.Height >= metrics.MinTarget,
+            $"{name}: board selector is below the touch target floor."
+        );
+        if (!layout.Stacked)
+        {
+            Near(
+                layout.Scroll.Top + layout.ScrollRowBoard(0).Bottom,
+                layout.BoardSelector.Bottom,
+                $"{name}: the final switch aligns with the lower board frame, not the viewport."
+            );
+            Near(
+                layout.Refresh.Bottom + layout.Gap,
+                layout.Previous.Top,
+                $"{name}: library maintenance sits above the frequent actions with one gap."
+            );
+            Near(
+                layout.Sidebar.Left,
+                layout.Previous.Left,
+                $"{name}: paging uses the full operation column width."
+            );
+            Check.That(
+                layout.Sidebar.Contains(layout.Previous) && layout.Sidebar.Contains(layout.Next),
+                $"{name}: recommendation paging belongs in the right operation column."
+            );
+            Check.That(
+                layout.Next.Bottom + layout.Gap <= layout.BoardSelector.Top + 0.01f,
+                $"{name}: recommendation paging precedes the board switch."
+            );
+            Near(
+                0f,
+                layout.ScrollRowBoard(0).Top,
+                $"{name}: lower board has no unused header band."
+            );
+            Check.That(
+                layout.Info.Bottom <= layout.BoardSelector.Top - layout.Gap + 0.01f,
+                $"{name}: recommendation data must not overlap the lower-board switch."
+            );
+        }
         Check.That(
             layout.Scroll.Height >= layout.ScrollRowHeight - 0.01f,
             $"{name}: one list row does not fit the viewport."
         );
         Check.That(
-            layout.ScrollContentHeight > layout.Scroll.Height,
-            $"{name}: the list should scroll, so the drag has something to move."
+            layout.Stacked
+                ? layout.ScrollContentHeight > layout.Scroll.Height
+                : Math.Abs(layout.ScrollContentHeight - layout.Scroll.Height) < 0.01f,
+            $"{name}: only the dense fallback scrolls; the ordinary lower board stays fixed."
         );
         for (var row = 0; row < LiveBuildTouchLayout.ScrollRowCount; row++)
             Check.That(

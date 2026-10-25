@@ -15,23 +15,18 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 
 /// <summary>
 /// The Live Build panel's touch view for one <see cref="LiveBuildTouchLayout"/>: the full sheet,
-/// the pinned recommended build, the drag-scrolled shop, stash, and board, and the overview
+/// the pinned recommended build, one fixed board switched among current, stash and shop, and the overview
 /// sidebar. It renders a <see cref="LiveBuildPanelSnapshot"/> as the desktop's
 /// <c>LiveBuildPanelView</c> maps one, and hands taps to the panel. A rented card carries its own
 /// canvas, which the list's <c>RectMask2D</c> does not clip, so the list draws first and opaque
 /// bands above and below it hide the cards scrolled past its edges, as the Collection grid does.
 /// Stacked (<see cref="LiveBuildTouchLayout.Stacked"/>), the final build's cards and the overview
-/// are children of the list's content, so they scroll with the rows; the final build's title band,
+/// are children of the list's content, so they scroll with the selected board; the final build's title band,
 /// the pager, and the close button stay over the list.
 /// </summary>
 internal sealed class AndroidLiveBuildView
 {
-    private static readonly LocalizedTextSet TapHint = new(
-        "Tap items to pick, cards to inspect.",
-        "点物品选候选，点卡牌看大图",
-        "點物品選候選，點卡牌看大圖"
-    );
-
+    private readonly AndroidNativeSkin _skin = new();
     private readonly GameObject _root;
     private readonly LiveBuildTouchLayout _layout;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
@@ -43,14 +38,13 @@ internal sealed class AndroidLiveBuildView
     private readonly TextMeshProUGUI _refreshLabel;
     private readonly Button _refresh;
     private readonly TextMeshProUGUI _corpus;
-    private readonly TextMeshProUGUI _hero;
-    private readonly TextMeshProUGUI _guidance;
-    private readonly TextMeshProUGUI _supporters;
+    private readonly TextMeshProUGUI? _hero;
+    private readonly TextMeshProUGUI _boardSelector;
     private readonly TextMeshProUGUI _sponsorLabel;
     private readonly GameObject _metrics;
     private readonly (TextMeshProUGUI Label, TextMeshProUGUI Value)[] _metricCells;
     private readonly GameObject _corpusDetailRoot;
-    private readonly TextMeshProUGUI _corpusDetail;
+    private readonly AndroidInspectionText _corpusDetail;
     private bool _showCorpusDetail;
     private bool _hasRecommendation;
 
@@ -85,22 +79,37 @@ internal sealed class AndroidLiveBuildView
             var scrollArea = AndroidTouchScreen.Child("List", root, layout.Scroll);
             (_scroll, _content) = AndroidUiKit.VerticalScroll(scrollArea);
             _content.sizeDelta = new Vector2(0f, layout.ScrollContentHeight);
-            var listRows = new[]
+            _scroll.enabled = layout.Stacked;
+            foreach (
+                var id in new[]
+                {
+                    BppItemBoardId.LiveBoard,
+                    BppItemBoardId.LiveStash,
+                    BppItemBoardId.LiveShop,
+                }
+            )
             {
-                (BppItemBoardId.LiveShop, 0),
-                (BppItemBoardId.LiveStash, 1),
-                (BppItemBoardId.LiveBoard, 2),
-            };
-            foreach (var (id, index) in listRows)
-                _rows[id] = CreateRow(
+                var group = AndroidUiKit.Rect(
+                    id.ToString(),
                     _content,
-                    _content,
+                    Vector2.zero,
+                    Vector2.one,
+                    Vector2.zero,
+                    Vector2.zero
+                );
+                var row = CreateRow(
+                    group,
+                    group,
                     font,
                     id,
-                    layout.ScrollRowTitle(index),
-                    layout.ScrollRowBoard(index),
+                    layout.ScrollRowTitle(0),
+                    layout.ScrollRowBoard(0),
                     commands
                 );
+                row.Title.gameObject.SetActive(false);
+                row.Group = group.gameObject;
+                _rows[id] = row;
+            }
             Band(root, background, new TouchRect(0f, 0f, metrics.CanvasWidth, layout.Scroll.Top));
             Band(
                 root,
@@ -115,6 +124,14 @@ internal sealed class AndroidLiveBuildView
 
             // Side by side the overview and the final build's cards are fixed; stacked, they scroll.
             var scrolled = layout.Stacked ? _content : root;
+            (_, _, _boardSelector) = _skin.Button(
+                AndroidTouchScreen.Child("BoardSelector", scrolled, layout.BoardSelector),
+                font,
+                "",
+                layout.TitleFont,
+                layout.LabelInset,
+                () => AndroidUiActions.Run("live_build.switch_board", commands.CycleBoard)
+            );
             _rows[BppItemBoardId.FinalBuild] = CreateRow(
                 root,
                 scrolled,
@@ -147,29 +164,22 @@ internal sealed class AndroidLiveBuildView
                 font,
                 "Pager",
                 layout.Pager,
-                layout.ButtonFont,
+                layout.TitleFont,
                 TextAlignmentOptions.Center
             );
 
-            Label(
-                scrolled,
-                font,
-                "Title",
-                layout.Title,
-                layout.TitleFont,
-                TextAlignmentOptions.MidlineLeft
-            ).text = LiveBuildPanelText.Title();
             var close = AndroidTouchScreen.Child("Close", root, layout.Close);
-            AndroidUiKit.CloseButton(
+            _skin.Button(
                 close,
                 font,
+                AndroidUiKit.CloseGlyph,
                 layout.TitleFont,
                 layout.LabelInset,
                 () => AndroidUiActions.Run("live_build.close", () => commands.Close("close_button"))
             );
 
             var refresh = AndroidTouchScreen.Child("Refresh", scrolled, layout.Refresh);
-            (_refresh, _, _refreshLabel) = AndroidUiKit.Button(
+            (_refresh, _, _refreshLabel) = _skin.Button(
                 refresh,
                 font,
                 "",
@@ -178,37 +188,42 @@ internal sealed class AndroidLiveBuildView
                 () => AndroidUiActions.Run("live_build.refresh", commands.Refresh)
             );
 
-            var corpus = AndroidTouchScreen.Child("Corpus", scrolled, layout.Corpus);
-            var (_, _, corpusLabel) = AndroidUiKit.Button(
-                corpus,
+            var corpus = AndroidTouchScreen.Child("CorpusStatus", scrolled, layout.Corpus);
+            var statusHit = AndroidUiKit.Fill(corpus, new Color(0f, 0f, 0f, 0.001f));
+            var statusButton = corpus.gameObject.AddComponent<Button>();
+            statusButton.targetGraphic = statusHit;
+            statusButton.transition = Selectable.Transition.None;
+            AndroidUiActions.OnTap(statusButton, "live_build.corpus", ToggleCorpusDetail);
+            _corpus = AndroidUiKit.Text(
+                AndroidUiKit.Rect(
+                    "Status",
+                    corpus,
+                    Vector2.zero,
+                    Vector2.one,
+                    new(layout.LabelInset, 0f),
+                    new(-layout.LabelInset, 0f)
+                ),
                 font,
                 "",
                 layout.BodyFont,
-                layout.LabelInset,
-                () => AndroidUiActions.Run("live_build.corpus", ToggleCorpusDetail)
+                TextAlignmentOptions.Center,
+                AndroidUiKit.MutedTextColor
             );
-            _corpus = corpusLabel;
+            _corpus.enableWordWrapping = false;
             _corpus.overflowMode = TextOverflowModes.Ellipsis;
+            if (layout.Stacked)
+            {
+                _hero = Label(
+                    scrolled,
+                    font,
+                    "Hero",
+                    layout.Hero,
+                    layout.RowTitleFont,
+                    TextAlignmentOptions.MidlineLeft
+                );
+                _hero.overflowMode = TextOverflowModes.Ellipsis;
+            }
 
-            _hero = Label(
-                scrolled,
-                font,
-                "Hero",
-                layout.Hero,
-                layout.RowTitleFont,
-                TextAlignmentOptions.MidlineLeft
-            );
-            _hero.overflowMode = TextOverflowModes.Ellipsis;
-
-            _guidance = Label(
-                scrolled,
-                font,
-                "Guidance",
-                layout.Info,
-                layout.BodyFont,
-                TextAlignmentOptions.TopLeft
-            );
-            _guidance.color = AndroidUiKit.MutedTextColor;
             var metricsRoot = AndroidTouchScreen.Child("Metrics", scrolled, layout.Info);
             _metrics = metricsRoot.gameObject;
             _metricCells = new (TextMeshProUGUI, TextMeshProUGUI)[LiveBuildTouchLayout.MetricCount];
@@ -225,7 +240,7 @@ internal sealed class AndroidLiveBuildView
                         cellArea.Height
                     )
                 );
-                AndroidUiKit.Fill(cell, AndroidUiKit.ButtonColor, blocksTouches: false);
+                // The metric reads as typography, without a competing solid tile.
                 var inset = layout.Gap;
                 var label = AndroidUiKit.Text(
                     AndroidUiKit.Rect(
@@ -234,7 +249,7 @@ internal sealed class AndroidLiveBuildView
                         new(0f, 0.5f),
                         new(1f, 1f),
                         new(inset, 0f),
-                        new(-inset, -inset / 2f)
+                        new(-inset, 0f)
                     ),
                     font,
                     "",
@@ -250,7 +265,7 @@ internal sealed class AndroidLiveBuildView
                         cell,
                         new(0f, 0f),
                         new(1f, 0.5f),
-                        new(inset, inset / 2f),
+                        new(inset, 0f),
                         new(-inset, 0f)
                     ),
                     font,
@@ -260,12 +275,15 @@ internal sealed class AndroidLiveBuildView
                     AndroidUiKit.TextColor
                 );
                 value.enableWordWrapping = false;
+                value.enableAutoSizing = true;
+                value.fontSizeMin = layout.BodyFont;
+                value.fontSizeMax = layout.ValueFont;
                 value.overflowMode = TextOverflowModes.Ellipsis;
                 _metricCells[index] = (label, value);
             }
             var detail = AndroidTouchScreen.Child("CorpusDetail", scrolled, layout.Info);
-            AndroidUiKit.Fill(detail, AndroidUiKit.ButtonColor, blocksTouches: false);
-            _corpusDetail = AndroidUiKit.Text(
+            _skin.Frame(detail);
+            _corpusDetail = new AndroidInspectionText(
                 AndroidUiKit.Rect(
                     "Text",
                     detail,
@@ -275,39 +293,13 @@ internal sealed class AndroidLiveBuildView
                     new(-layout.Gap, -layout.Gap)
                 ),
                 font,
-                "",
                 layout.BodyFont,
-                TextAlignmentOptions.TopLeft,
                 AndroidUiKit.TextColor
             );
-            _corpusDetail.overflowMode = TextOverflowModes.Ellipsis;
             _corpusDetailRoot = detail.gameObject;
 
-            var hint = Label(
-                scrolled,
-                font,
-                "Hint",
-                layout.Hint,
-                layout.BodyFont,
-                TextAlignmentOptions.MidlineLeft
-            );
-            hint.color = AndroidUiKit.MutedTextColor;
-            hint.overflowMode = TextOverflowModes.Ellipsis;
-            hint.text = L.Resolve(TapHint);
-
-            _supporters = Label(
-                scrolled,
-                font,
-                "Supporters",
-                layout.Supporters,
-                layout.BodyFont,
-                TextAlignmentOptions.MidlineLeft
-            );
-            _supporters.richText = true;
-            _supporters.enableWordWrapping = false;
-            _supporters.overflowMode = TextOverflowModes.Ellipsis;
             var sponsor = AndroidTouchScreen.Child("Sponsor", scrolled, layout.Sponsor);
-            (_, _, _sponsorLabel) = AndroidUiKit.Button(
+            (_, _, _sponsorLabel) = _skin.Button(
                 sponsor,
                 font,
                 "",
@@ -323,7 +315,13 @@ internal sealed class AndroidLiveBuildView
                     )
             );
 
-            Inspection = new AndroidLiveBuildInspection(root, font, layout);
+            _sponsorLabel.enableWordWrapping = false;
+            _sponsorLabel.enableAutoSizing = true;
+            _sponsorLabel.fontSizeMin = layout.BodyFont;
+            _sponsorLabel.fontSizeMax = layout.ButtonFont;
+            _sponsorLabel.overflowMode = TextOverflowModes.Ellipsis;
+
+            Inspection = new AndroidLiveBuildInspection(root, font, layout, _skin);
             _root.SetActive(false);
         }
         catch
@@ -332,6 +330,8 @@ internal sealed class AndroidLiveBuildView
             throw;
         }
     }
+
+    public bool NeedsSkinRefresh => _skin.NeedsRefresh;
 
     public LiveBuildTouchLayout Layout => _layout;
 
@@ -368,41 +368,53 @@ internal sealed class AndroidLiveBuildView
     public bool ScrollSettled => _scroll.velocity.sqrMagnitude < 1f;
 
     /// <summary>Main thread: maps the snapshot onto the view, as the desktop's view does.</summary>
-    public void Refresh(LiveBuildPanelSnapshot snapshot, bool boards)
+    public void Refresh(LiveBuildPanelSnapshot snapshot, bool boards, BppItemBoardId selectedBoard)
     {
-        _refreshLabel.text = snapshot.FinalBuildRefreshButtonText;
+        _refreshLabel.text = snapshot.FinalBuildRefreshButtonEnabled
+            ? AndroidHistoryUi.T("Update", "更新")
+            : AndroidHistoryUi.T("Updating…", "更新中…");
         _refresh.interactable = snapshot.FinalBuildRefreshButtonEnabled;
         var summary = snapshot.CorpusState == LiveBuildCorpusState.Summary;
-        _corpus.text = summary ? snapshot.CorpusFreshnessText : snapshot.CorpusStatusText;
-        _corpus.color = StatusColor(
-            summary ? snapshot.CorpusFreshnessSeverity : snapshot.CorpusStatusSeverity
-        );
-        _corpusDetail.text = string.Join(
-            "\n",
-            new[]
-            {
-                LiveBuildPanelText.CorpusLibrary(),
-                snapshot.CorpusStatusText,
-                snapshot.CorpusFreshnessText,
-                snapshot.CorpusStatusTooltip,
-            }.Where(value => !string.IsNullOrWhiteSpace(value))
+        _corpus.text =
+            summary ? AndroidHistoryUi.T("Library ready", "阵容库已就绪")
+            : snapshot.CorpusStatusSeverity == LiveBuildRefreshSeverity.Failure
+                ? AndroidHistoryUi.T("Update failed", "更新失败")
+            : snapshot.CorpusStatusSeverity == LiveBuildRefreshSeverity.Pending
+                ? AndroidHistoryUi.T("Loading…", "加载中…")
+            : snapshot.CorpusStatusText;
+        _corpus.color = summary
+            ? AndroidUiKit.MutedTextColor
+            : StatusColor(snapshot.CorpusStatusSeverity);
+        _corpusDetail.Set(
+            string.Join(
+                "\n",
+                new[]
+                {
+                    LiveBuildPanelText.CorpusLibrary(),
+                    snapshot.CorpusStatusText,
+                    snapshot.CorpusFreshnessText,
+                    snapshot.CorpusStatusTooltip,
+                }.Where(value => !string.IsNullOrWhiteSpace(value))
+            )
         );
         _pager.text =
             snapshot.RecommendationCount > 0
                 ? $"{snapshot.RecommendationIndex + 1} / {snapshot.RecommendationCount}"
                 : "0 / 0";
         _previous.interactable = _next.interactable = snapshot.RecommendationCount > 1;
-        _hero.text = snapshot.Hero is { } hero ? AndroidHeroNames.Display(hero) : string.Empty;
+        var heroName = snapshot.Hero is { } hero ? AndroidHeroNames.Display(hero) : string.Empty;
+        if (_hero != null)
+            _hero.text = heroName;
         _hasRecommendation = snapshot.MatchesState == LiveBuildMatchesState.HasRecommendation;
-        _guidance.text = _hasRecommendation ? string.Empty : snapshot.MatchesGuidance;
         var language = L.CurrentLanguageCode;
-        // No supporters loaded yet: the panel's subtitle stands in, as on the desktop's row.
-        var supporters = BPPSupporterAttribution.FormatRichLine(snapshot.Supporters, language);
-        _supporters.text = string.IsNullOrEmpty(supporters)
-            ? $"<color=#{BPPSupporterAttribution.MutedHex}>{LiveBuildPanelText.Subtitle()}</color>"
-            : supporters;
-        AndroidGameFont.Cover(_supporters);
-        _sponsorLabel.text = BPPSupporterAttributionText.FormatSponsorAction(language);
+        var credit = BPPSupporterAttribution.FormatRichLine(
+            snapshot.Supporters.Take(1).ToArray(),
+            language
+        );
+        _sponsorLabel.text = string.IsNullOrEmpty(credit)
+            ? BPPSupporterAttributionText.FormatSponsorAction(language)
+            : credit;
+        AndroidGameFont.Cover(_sponsorLabel);
         SetMetric(
             0,
             LiveBuildPanelText.MatchRateLabel(),
@@ -431,8 +443,26 @@ internal sealed class AndroidLiveBuildView
         {
             if (!_rows.TryGetValue(model.Board.Id, out var row))
                 continue;
-            row.Title.text = model.Title;
-            row.EmptyText = model.EmptyText;
+            var visible =
+                model.Board.Id == BppItemBoardId.FinalBuild || model.Board.Id == selectedBoard;
+            row.Group?.SetActive(visible);
+            if (!visible)
+            {
+                row.Board.ReturnAll();
+                continue;
+            }
+            if (model.Board.Id == selectedBoard)
+                _boardSelector.text = $"{BoardLabel(selectedBoard)} ({model.Board.Cards.Count})  >";
+            row.Title.text =
+                model.Board.Id == BppItemBoardId.FinalBuild
+                && !_layout.Stacked
+                && heroName.Length > 0
+                    ? $"{heroName} · {model.Title}"
+                    : model.Title;
+            row.EmptyText =
+                model.Board.Id == BppItemBoardId.FinalBuild
+                    ? snapshot.MatchesGuidance
+                    : model.EmptyText;
             row.CardCount = model.Board.Cards.Count;
             if (boards)
                 row.Board.Render(
@@ -464,6 +494,14 @@ internal sealed class AndroidLiveBuildView
         UnityEngine.Object.Destroy(_root);
     }
 
+    private static string BoardLabel(BppItemBoardId id) =>
+        id switch
+        {
+            BppItemBoardId.LiveStash => AndroidHistoryUi.T("Stash", "箱子"),
+            BppItemBoardId.LiveShop => AndroidHistoryUi.T("Shop", "商店"),
+            _ => AndroidHistoryUi.T("Board", "场上"),
+        };
+
     private void ToggleCorpusDetail()
     {
         _showCorpusDetail = !_showCorpusDetail;
@@ -474,7 +512,6 @@ internal sealed class AndroidLiveBuildView
     {
         _corpusDetailRoot.SetActive(_showCorpusDetail);
         _metrics.SetActive(!_showCorpusDetail && _hasRecommendation);
-        _guidance.gameObject.SetActive(!_showCorpusDetail && !_hasRecommendation);
     }
 
     private void SetMetric(int index, string label, string value)
@@ -517,9 +554,18 @@ internal sealed class AndroidLiveBuildView
             TextAlignmentOptions.MidlineLeft
         );
         title.overflowMode = TextOverflowModes.Ellipsis;
-        var region = AndroidTouchScreen.Child($"{id}Board", boardParent, boardArea);
-        // Transparent but raycast: a drag on a board's empty sockets scrolls the list too.
-        AndroidUiKit.Fill(region, new Color(0f, 0f, 0f, 0.001f));
+        var frame = AndroidTouchScreen.Child($"{id}BoardFrame", boardParent, boardArea);
+        _skin.Frame(frame);
+        var region = AndroidUiKit.Rect(
+            $"{id}Board",
+            frame,
+            Vector2.zero,
+            Vector2.one,
+            Vector2.one * _layout.Gap,
+            Vector2.one * -_layout.Gap
+        );
+        // The frame takes empty-space drags; cards and tags stay inside its inset.
+
         var status = AndroidUiKit.Text(
             AndroidUiKit.Rect(
                 "Status",
@@ -539,6 +585,7 @@ internal sealed class AndroidLiveBuildView
             region,
             font,
             id,
+            _skin,
             (card, selectable) =>
             {
                 if (selectable)
@@ -550,7 +597,7 @@ internal sealed class AndroidLiveBuildView
         return new Row(title, status, board);
     }
 
-    private static Button PagerButton(
+    private Button PagerButton(
         RectTransform root,
         TMP_FontAsset font,
         TouchRect area,
@@ -561,11 +608,11 @@ internal sealed class AndroidLiveBuildView
     )
     {
         var rect = AndroidTouchScreen.Child(control, root, area);
-        var (button, _, _) = AndroidUiKit.Button(
+        var (button, _, _) = _skin.Button(
             rect,
             font,
             text,
-            area.Height * 0.5f,
+            Math.Min(area.Height * 0.5f, _layout.Metrics.Sp(32f)),
             labelInset,
             () => AndroidUiActions.Run($"live_build.{control}", onTap)
         );
@@ -611,6 +658,8 @@ internal sealed class AndroidLiveBuildView
         AndroidLiveBuildBoard board
     )
     {
+        public GameObject? Group { get; set; }
+
         public TextMeshProUGUI Title { get; } = title;
 
         public TextMeshProUGUI Status { get; } = status;

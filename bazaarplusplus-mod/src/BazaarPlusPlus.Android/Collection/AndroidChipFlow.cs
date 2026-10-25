@@ -1,11 +1,9 @@
 using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
 using Il2CppTMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.Collection;
 
@@ -20,7 +18,7 @@ namespace BazaarPlusPlus.Android.Collection;
 internal sealed class AndroidChipFlow
 {
     private readonly RectTransform _parent;
-    private readonly AndroidCollectionSkin _skin;
+    private readonly AndroidNativeSkin _skin;
     private readonly TMP_FontAsset _font;
     private readonly TouchChrome _chrome;
     private readonly int _columns;
@@ -36,7 +34,7 @@ internal sealed class AndroidChipFlow
         TouchChrome chrome,
         int columns,
         float headerHeight,
-        AndroidCollectionSkin skin
+        AndroidNativeSkin skin
     )
     {
         _parent = parent;
@@ -152,62 +150,7 @@ internal sealed class AndroidChipFlow
             new(compact ? 0f : _chrome.Metrics.Dp(8f), portraitY),
             Vector2.one * _chrome.Metrics.Dp(40f)
         );
-        var frame = AndroidUiKit.Rect(
-            "PortraitFrame",
-            icon,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
-        _skin.Tag(frame);
-        var viewport = AndroidUiKit.Rect(
-            "PortraitViewport",
-            icon,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.one * _chrome.Metrics.Dp(2f),
-            Vector2.one * -_chrome.Metrics.Dp(2f)
-        );
-        AndroidUiKit.Fill(viewport, new Color(0.09f, 0.075f, 0.055f), false);
-        viewport.gameObject.AddComponent<RectMask2D>();
-        var fallback = AndroidUiKit.Rect(
-            "Group",
-            icon,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
-        for (var index = 0; index < 4; index++)
-        {
-            var dot = AndroidUiKit.Fixed(
-                "Member",
-                fallback,
-                new(0.5f, 0.5f),
-                new(
-                    (index % 2 == 0 ? -1f : 1f) * _chrome.Metrics.Dp(5f),
-                    (index < 2 ? -1f : 1f) * _chrome.Metrics.Dp(5f)
-                ),
-                Vector2.one * _chrome.Metrics.Dp(6f)
-            );
-            AndroidUiKit.Fill(dot, AndroidUiKit.MutedTextColor, false);
-        }
-        var art = AndroidUiKit.Fixed(
-            "PortraitArt",
-            viewport,
-            new(0.5f, 0.5f),
-            Vector2.zero,
-            viewport.rect.size
-        );
-        var image = AndroidUiKit.Fill(art, Color.white, false);
-        image.preserveAspect = false;
-        image.enabled = false;
-        if (portrait != null)
-        {
-            using var scope = AndroidMainThread.Host.Enter();
-            _ = BindPortrait(image, fallback.gameObject, portrait, hero);
-        }
+        new AndroidPortraitView(icon, _skin, _chrome.Metrics).Bind(portrait, hero);
         if (expanded is { } open)
         {
             var arrow = AndroidUiKit.Fixed(
@@ -232,61 +175,6 @@ internal sealed class AndroidChipFlow
         }
         _column += span;
         _rowHeight = Math.Max(_rowHeight, height);
-    }
-
-    private static async Task BindPortrait(
-        Image image,
-        GameObject fallback,
-        Func<Task<Sprite?>> load,
-        CardHero? hero
-    )
-    {
-        var sprite = await load();
-        // Each render creates a new target, so an old request can never paint a newer choice.
-        if (image == null || !image.gameObject.activeInHierarchy || sprite == null)
-            return;
-        image.sprite = sprite;
-        FramePortrait(image, sprite, hero);
-        image.enabled = true;
-        fallback.SetActive(false);
-    }
-
-    // Sprite vertices describe the visible mesh in local units; the pivot converts them back
-    // into sprite-rect pixels. The Image keeps responsibility for packed/rotated atlas UVs.
-    private static void FramePortrait(Image image, Sprite sprite, CardHero? hero)
-    {
-        var source = sprite.rect.size;
-        var min = source;
-        var max = Vector2.zero;
-        foreach (var vertex in sprite.vertices)
-        {
-            var pixel = vertex * sprite.pixelsPerUnit + sprite.pivot;
-            min = Vector2.Min(min, pixel);
-            max = Vector2.Max(max, pixel);
-        }
-        var visible = max - min;
-        if (visible.x <= 0f || visible.y <= 0f)
-        {
-            min = Vector2.zero;
-            max = source;
-            visible = source;
-        }
-        var frame = image.rectTransform.parent.Cast<RectTransform>().rect.size;
-        var scale = Math.Min(frame.x / visible.x, frame.y / visible.y);
-        // These default hero portraits support an upper-body crop. Dooley's antennae,
-        // multi-character heroes and encounter compositions keep their complete silhouette.
-        var zoom = hero switch
-        {
-            CardHero.Vanessa or CardHero.Pygmalien => 1.4f,
-            _ => 0.94f,
-        };
-        scale *= zoom;
-        var center = (min + max) * 0.5f;
-        var position = (source * 0.5f - center) * scale;
-        if (zoom > 1f)
-            position.y = frame.y * 0.46f - (max.y - source.y * 0.5f) * scale;
-        image.rectTransform.sizeDelta = source * scale;
-        image.rectTransform.anchoredPosition = position;
     }
 
     public void Toggle(string label, bool value, Action<bool> onChanged)

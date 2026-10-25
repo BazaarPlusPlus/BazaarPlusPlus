@@ -253,7 +253,8 @@ public sealed class AndroidMod : MelonMod
                 _templates,
                 () => AndroidGameFont.Font,
                 android.HistoryPanel,
-                panels
+                panels,
+                composition.Supporters
             );
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.history.composed"),

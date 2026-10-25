@@ -6,7 +6,7 @@ public static partial class HistoryPanelText
 {
     public static string FavoritesTab() => FormatSimple("Favorites", "收藏", "收藏");
 
-    public static string FavoriteBattle() => FormatSimple("Favorite", "收藏此战", "收藏此戰");
+    public static string FavoriteBattle() => FormatSimple("Favorite", "收藏", "收藏");
 
     public static string FavoritedBattle() => FormatSimple("Favorited", "已收藏", "已收藏");
 
@@ -82,8 +82,8 @@ public static partial class HistoryPanelText
     public static string NoFavorites() =>
         FormatSimple(
             "No favorites yet. Select a battle under Runs or Ghost and press Favorite.",
-            "还没有收藏。在“对局”或“幽灵”里选中一场战斗，点“收藏此战”。",
-            "還沒有收藏。在「對局」或「幽靈」裡選中一場戰鬥，點「收藏此戰」。"
+            "还没有收藏。在“对局”或“幽灵”里选中一场战斗，点“收藏”。",
+            "還沒有收藏。在「對局」或「幽靈」裡選中一場戰鬥，點「收藏」。"
         );
 
     public static string FavoritesReadFailed() =>
