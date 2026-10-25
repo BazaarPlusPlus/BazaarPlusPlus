@@ -36,6 +36,22 @@ internal static class AndroidCardFacets
 
     public static bool IsHeroAvailable(CardHero hero) => Hero.TryToSource(hero, out _);
 
+    // A captured PvP card's facets, as the desktop's DesktopCardFacets maps them: a type the
+    // facets lack fails the board's read, and an unnamed size, section or socket is null.
+    public static CardType CapturedType(ECardType type) =>
+        Type.TryToFacet(type, out var facet)
+            ? facet
+            : throw new InvalidDataException($"ECardType '{type}' has no card facet.");
+
+    public static CardSize? CapturedSize(ECardSize? size) =>
+        size is { } value && Size.TryToFacet(value, out var facet) ? facet : null;
+
+    public static CardSection? CapturedSection(EInventorySection? section) =>
+        section is { } value && Section.TryToFacet(value, out var facet) ? facet : null;
+
+    public static CardSocket? CapturedSocket(EContainerSocketId? socket) =>
+        socket is { } value && Socket.TryToFacet(value, out var facet) ? facet : null;
+
     // The game values a replay restores a captured card with, as the desktop's DesktopCardFacets.
     public static ECardType GameType(CardType type) =>
         Type.TryToSource(type, out var source) ? source : default;

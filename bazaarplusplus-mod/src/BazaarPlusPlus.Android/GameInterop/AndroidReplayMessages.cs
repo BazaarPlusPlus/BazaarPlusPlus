@@ -9,7 +9,8 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// The Replay Payload's message bytes on the IL2CPP game. A message here is a proxy, which no
 /// managed serializer can read, so the bytes come from the game's own IL2CPP
 /// <c>MessagePackSerializer</c> with <c>MessagePackConfig.Options</c>: the call the desktop's
-/// <c>PvpReplayPayloadFactory</c> makes, with the concrete message type as the generic argument.
+/// <c>DesktopPvpBattleReads.KeepReplayPart</c> makes, with the concrete message type as the
+/// generic argument.
 /// </summary>
 internal static class AndroidReplayMessages
 {

@@ -13,8 +13,8 @@ namespace BazaarPlusPlus.Game.PvpBattles;
 /// reads. A facet is stored by its member name, which equals the game's (ADR-0015 §4).
 /// </summary>
 /// <remarks>
-/// A card the game gave no size is stored with <see cref="PvpBattleCardDocument.NoSize"/>, as the
-/// Android host writes it, and reads back with a null <see cref="PvpBattleCardSnapshot.Size"/>.
+/// A card the game gave no size is stored with <see cref="PvpBattleCardDocument.NoSize"/>, the
+/// game's unnamed size 0, and reads back with a null <see cref="PvpBattleCardSnapshot.Size"/>.
 /// A stored type or size that names no facet drops that card from the facet view (a warning names
 /// the kind); a section or socket that names no facet reads as null.
 /// </remarks>
