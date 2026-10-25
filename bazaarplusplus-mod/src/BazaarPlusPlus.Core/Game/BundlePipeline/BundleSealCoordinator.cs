@@ -5,6 +5,7 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.Upload;
+using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.BundleQueue;
@@ -43,6 +44,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private int _wakePending;
     private bool _started;
     private bool _filesRecovered;
+    private volatile bool _paused;
 
     // Tests inject failures at named seal stages; production passes null. The database options
     // are the host's, required so no store here can open the file in another journal mode.
@@ -116,6 +118,26 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         _wake.Dispose();
     }
 
+    /// <summary>
+    /// Parks the worker while the host is in the background: a pass already running finishes,
+    /// then no scan runs until <see cref="Resume"/>. Jobs stay durable, so nothing is lost.
+    /// </summary>
+    public void Pause()
+    {
+        if (!_started || _paused)
+            return;
+        _paused = true;
+        Signal();
+    }
+
+    public void Resume()
+    {
+        if (!_started || !_paused)
+            return;
+        _paused = false;
+        Signal();
+    }
+
     public void Signal()
     {
         if (Interlocked.Exchange(ref _wakePending, 1) == 0)
@@ -159,14 +181,35 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
     private async Task WorkerAsync(CancellationToken cancellationToken)
     {
+        var parked = false;
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
                 await _wake
-                    .WaitAsync(FallbackScanInterval, cancellationToken)
+                    .WaitAsync(
+                        parked ? Timeout.InfiniteTimeSpan : FallbackScanInterval,
+                        cancellationToken
+                    )
                     .ConfigureAwait(false);
                 Interlocked.Exchange(ref _wakePending, 0);
+                if (_paused != parked)
+                {
+                    parked = _paused;
+                    BppLog.InfoEvent(
+                        parked
+                            ? new BppLogEvent(
+                                BppLogFeatureScope.BundlePipeline,
+                                "bundle_pipeline.worker.paused"
+                            )
+                            : new BppLogEvent(
+                                BppLogFeatureScope.BundlePipeline,
+                                "bundle_pipeline.worker.resumed"
+                            )
+                    );
+                }
+                if (parked)
+                    continue;
                 await ReconcileAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

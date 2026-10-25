@@ -66,6 +66,7 @@ internal sealed class AndroidComposition
     private readonly AndroidLiveBuildData _liveBuild;
     private readonly AndroidSupporterData _supporters;
     private readonly BazaarDbLinkClient _accountLink;
+    private readonly BundleSealCoordinator _sealCoordinator;
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
 
@@ -145,20 +146,19 @@ internal sealed class AndroidComposition
                 modVersionResolver: static () => BppPluginVersion.Current
             )
         );
-        _core.Register(
-            new BundleSealCoordinator(
-                services,
-                new RunPayloadComposer(
-                    DatabasePath,
-                    CombatReplayDirectory,
-                    AndroidPvpBattleEvidence.Instance,
-                    DatabaseOptions
-                ),
-                NoScreenshots.Instance,
-                faultProbe: null,
+        _sealCoordinator = new BundleSealCoordinator(
+            services,
+            new RunPayloadComposer(
+                DatabasePath,
+                CombatReplayDirectory,
+                AndroidPvpBattleEvidence.Instance,
                 DatabaseOptions
-            )
+            ),
+            NoScreenshots.Instance,
+            faultProbe: null,
+            DatabaseOptions
         );
+        _core.Register(_sealCoordinator);
         // BazaarDB account linking posts to bazaardb.gg, not the Mod API, over its own bare
         // client with the desktop's 30 s timeout.
         _accountLink = new BazaarDbLinkClient(
@@ -262,6 +262,16 @@ internal sealed class AndroidComposition
             DatabaseOptions
         );
     }
+
+    /// <summary>
+    /// The app left the foreground: the seal worker parks after its current pass. The upload
+    /// pump needs no call: Unity stops the frames that tick it, and an attempt already in flight
+    /// is left to finish.
+    /// </summary>
+    public void Pause() => _sealCoordinator.Pause();
+
+    /// <summary>The app is back in front: the seal worker scans at once.</summary>
+    public void Resume() => _sealCoordinator.Resume();
 
     /// <summary>Main thread, every frame.</summary>
     public void Tick(float nowSeconds) => _uploads?.Tick(nowSeconds);

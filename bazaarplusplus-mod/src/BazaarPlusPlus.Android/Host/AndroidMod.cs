@@ -132,6 +132,8 @@ public sealed class AndroidMod : MelonMod
         if (_mainThreadBound)
             return;
         _mainThreadBound = true;
+        AndroidAppLifecycle.PauseChanged = OnPauseChanged;
+        AndroidAppLifecycle.Mount();
         var initializedOn = AndroidMainThread.Host.Capture();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.main_thread.bound"),
@@ -140,12 +142,25 @@ public sealed class AndroidMod : MelonMod
         );
     }
 
+    private void OnPauseChanged(bool paused) =>
+        Guarded(
+            paused ? "app_lifecycle:pause" : "app_lifecycle:resume",
+            () =>
+            {
+                if (paused)
+                    _composition?.Pause();
+                else
+                    _composition?.Resume();
+            }
+        );
+
     public override void OnApplicationQuit() => Stop();
 
     public override void OnDeinitializeMelon() => Stop();
 
     private void Stop()
     {
+        AndroidAppLifecycle.PauseChanged = null;
         _versionCheck?.Dispose();
         _versionCheck = null;
         // The touch panels give their rented cards back and drop their views before the rental
