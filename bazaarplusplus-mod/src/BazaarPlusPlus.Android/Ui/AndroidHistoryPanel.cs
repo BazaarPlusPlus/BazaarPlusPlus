@@ -3,6 +3,7 @@ using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Settings;
+using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.RunContext;
@@ -25,7 +26,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// cards, rented into the view's two board regions (<see cref="AndroidHistoryBoard"/>, the
 /// counterpart of the desktop's <c>HistoryPanel.NativeBoards</c>); a tap inspects a card, and the
 /// skills sheet shows both players' skills. Favorites, delete (refused for a run Seal eligibility
-/// protects), the filters, the More dialog with the account link, and the note editor act through
+/// protects), the More dialog with the account link, and the note editor act through
 /// the coordinator as the desktop's do. It is a Main Overlay Panel: its lifecycle is the Overlay
 /// Panel Host's (<see cref="AndroidOverlayPanels"/>), which opens it from the touch menu and the
 /// settings row, and closes it for the back key (an open dialog first), combat, a scene change
@@ -53,6 +54,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private readonly AndroidCardTemplateIndex _templates;
     private readonly Func<TMP_FontAsset?> _font;
     private readonly ISetting<bool> _enabled;
+    private readonly AndroidSupporterData? _supporters;
     private readonly AndroidHistoryBoard _upper;
     private readonly AndroidHistoryBoard _lower;
     private readonly AndroidPanelHandle _handle;
@@ -78,7 +80,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
         AndroidCardTemplateIndex templates,
         Func<TMP_FontAsset?> font,
         ISetting<bool> enabled,
-        AndroidOverlayPanels panels
+        AndroidOverlayPanels panels,
+        AndroidSupporterData? supporters
     )
     {
         ArgumentNullException.ThrowIfNull(panels);
@@ -87,6 +90,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         _templates = templates ?? throw new ArgumentNullException(nameof(templates));
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _enabled = enabled ?? throw new ArgumentNullException(nameof(enabled));
+        _supporters = supporters;
         _runContext = dependencies.RunContext;
         _upper = new AndroidHistoryBoard("history.upper", card => Inspect(card, false, "upper"));
         _lower = new AndroidHistoryBoard("history.lower", card => Inspect(card, false, "lower"));
@@ -347,7 +351,11 @@ internal sealed class AndroidHistoryPanel : IDisposable
 
     private bool EnsureView()
     {
-        if (_view != null && _view.ScreenKey == AndroidTouchScreen.Key())
+        if (
+            _view != null
+            && !AndroidHistoryUi.Skin.NeedsRefresh
+            && _view.ScreenKey == AndroidTouchScreen.Key()
+        )
             return true;
         if (_view != null)
             DropView();
@@ -370,26 +378,12 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 _coordinator.SetSectionMode,
                 _coordinator.PageArchive,
                 _coordinator.PageBattles,
-                hero =>
-                {
-                    LogFilter("hero", hero);
-                    _coordinator.SetRunHeroFilter(hero);
-                },
-                filter =>
-                {
-                    LogFilter("ghost_outcome", filter.ToString());
-                    _coordinator.SetGhostBattleFilter(filter);
-                },
-                () =>
-                {
-                    LogFilter("ghost_day_min_10", "toggle");
-                    _coordinator.ToggleGhostDayMin10();
-                },
                 OpenMore,
                 Delete,
                 Favorite,
                 OpenSkills
-            )
+            ),
+            _supporters
         );
         _view = view;
         var layout = view.Layout;
@@ -593,13 +587,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
         );
         _coordinator.DeleteSelected();
     }
-
-    private static void LogFilter(string filter, string value) =>
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.filter_tapped"),
-            ("filter", filter),
-            ("value", value)
-        );
 
     // Favorites edits the note; the other sections favorite the selected battle.
     private void Favorite()

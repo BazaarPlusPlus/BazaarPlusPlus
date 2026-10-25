@@ -52,7 +52,7 @@ internal sealed class AndroidCollectionPanel
 
     // Null only after a relayout failed to build its tree; Open builds again.
     private GameObject? _root;
-    private AndroidCollectionSkin _skin = null!;
+    private AndroidNativeSkin _skin = null!;
     private AndroidCollectionGrid _grid = null!;
     private AndroidCollectionInspection _inspection = null!;
     private RectTransform _railContent = null!;
@@ -247,7 +247,7 @@ internal sealed class AndroidCollectionPanel
         _screenKey = AndroidTouchScreen.Key();
         var layout = _layout = CollectionTouchLayout.For(AndroidTouchScreen.Read());
         _port.Touch = layout;
-        _skin = new AndroidCollectionSkin();
+        _skin = new AndroidNativeSkin();
         var chrome = layout.Chrome;
         var metrics = layout.Metrics;
         var root = AndroidUiKit.Rect(

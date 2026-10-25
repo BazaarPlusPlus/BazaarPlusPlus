@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 /// <summary>
 /// The History panel's geometry on a landscape touch screen, in canvas units, top-down from the
 /// canvas's top-left corner: a full sheet inside the safe area. The header carries the section
-/// tabs, the drag-scrolled filter chips, More, and Close. Under it stand three columns: the
+/// tabs, the supporter action, More, and Close. Under it stand three columns: the
 /// archive (its list, page label, and pager), the run's battle rail with its two pagers, and the
 /// detail column with the native boards over the action row (delete, favorite, skills, replay).
 /// The status line runs along the bottom of the sheet. Every target is at least
@@ -16,7 +16,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 /// sockets span the detail column, which takes <see cref="DetailSocketDp"/> per socket before the
 /// archive takes the rest, so a card's footprint stays a full touch target on a 20:9 phone. The
 /// skills sheet, the card inspection, the More dialog, and the favorite note dialog sit over the
-/// sheet. List rows, rail chips, filter chips, and dialog rows are given from their content's
+/// sheet. List rows, rail chips and dialog rows are given from their content's
 /// top-left corner. The desktop's <c>HistoryPanelLayout</c> is a separate layout and is not
 /// derived from this one.
 /// </summary>
@@ -50,23 +50,20 @@ public sealed class HistoryTouchLayout
         Sheet = chrome.Sheet;
         var body = chrome.Body;
 
-        // Header: tabs from the left, Close and More from the right, the filters between them.
+        // Header: tabs from the left, Close and More from the right, the supporter action between them.
         Close = chrome.Close;
         var moreWidth = metrics.Target(80f);
         More = new TouchRect(Close.Left - Gap - moreWidth, body.Top, moreWidth, target);
-        var tabWidth = metrics.Target(104f);
+        var tabWidth = metrics.Target(80f);
         RunsTab = new TouchRect(body.Left, body.Top, tabWidth, target);
         GhostTab = new TouchRect(RunsTab.Right + Gap, body.Top, tabWidth, target);
         FavoritesTab = new TouchRect(GhostTab.Right + Gap, body.Top, tabWidth, target);
-        FilterStrip = new TouchRect(
+        Sponsor = new TouchRect(
             FavoritesTab.Right + Gap,
             body.Top,
             Math.Max(0f, More.Left - Gap - FavoritesTab.Right - Gap),
             target
         );
-        HeroChipWidth = metrics.Target(96f);
-        OutcomeChipWidth = metrics.Target(80f);
-        DayChipWidth = metrics.Target(72f);
 
         StatusHeight = metrics.Dp(18f);
         Status = new TouchRect(body.Left, body.Bottom - StatusHeight, body.Width, StatusHeight);
@@ -89,11 +86,11 @@ public sealed class HistoryTouchLayout
             columnHeight
         );
 
-        // Archive: the list over the page label (two lines) over the pager.
+        // Archive: the list over one compact page label and the pager.
         ArchivePager = new TouchRect(Archive.Left, Archive.Bottom - target, archiveWidth, target);
         PagerButtonWidth = (archiveWidth - Gap * (PagerButtonCount - 1)) / PagerButtonCount;
-        // Two lines of body text with TMP's line spacing; 32dp clipped the second into an ellipsis.
-        var pageLabelHeight = metrics.Dp(40f);
+        // The touch view shows the page range without the secondary counts line.
+        var pageLabelHeight = metrics.Dp(22f);
         PageLabel = new TouchRect(
             Archive.Left,
             ArchivePager.Top - small - pageLabelHeight,
@@ -106,7 +103,8 @@ public sealed class HistoryTouchLayout
             archiveWidth,
             Math.Max(0f, PageLabel.Top - small - top)
         );
-        RunRowHeight = metrics.Dp(72f);
+        // Three whole runs fill the viewport; each row includes its trailing half-gap.
+        RunRowHeight = Math.Max(target + Gap / 2f, ArchiveList.Height / 3f);
         BattleRowHeight = metrics.Dp(64f);
 
         // Rail: newer on top, older at the bottom, the battles between.
@@ -321,14 +319,8 @@ public sealed class HistoryTouchLayout
 
     public TouchRect FavoritesTab { get; }
 
-    /// <summary>The filter chips' viewport; the chips scroll sideways inside it.</summary>
-    public TouchRect FilterStrip { get; }
-
-    public float HeroChipWidth { get; }
-
-    public float OutcomeChipWidth { get; }
-
-    public float DayChipWidth { get; }
+    /// <summary>The supporter credit and sponsor link between the tabs and More.</summary>
+    public TouchRect Sponsor { get; }
 
     /// <summary>Ghost's cloud note, wrapped in the rail's column, which Ghost leaves empty.</summary>
     public TouchRect CloudNote { get; }
@@ -491,21 +483,6 @@ public sealed class HistoryTouchLayout
     /// <summary>A battle chip on the rail, from the rail content's top-left corner.</summary>
     public TouchRect RailChip(int index) =>
         new(0f, Math.Max(0, index) * ChipHeight, RailList.Width, ChipHeight - Gap / 2f);
-
-    /// <summary>
-    /// Filter chips of the given widths laid side by side, from the strip content's left edge.
-    /// </summary>
-    public IReadOnlyList<TouchRect> FilterChips(IReadOnlyList<float> widths)
-    {
-        var chips = new TouchRect[widths.Count];
-        var left = 0f;
-        for (var index = 0; index < widths.Count; index++)
-        {
-            chips[index] = new TouchRect(left, 0f, widths[index], FilterStrip.Height);
-            left += widths[index] + Gap;
-        }
-        return chips;
-    }
 
     /// <summary>
     /// A card's footprint on a board, from the board's top-left corner: <paramref name="span"/>

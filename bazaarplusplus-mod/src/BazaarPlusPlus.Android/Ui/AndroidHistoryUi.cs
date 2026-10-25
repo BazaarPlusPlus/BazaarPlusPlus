@@ -16,10 +16,13 @@ namespace BazaarPlusPlus.Android.Ui;
 /// </summary>
 internal static class AndroidHistoryUi
 {
+    public static AndroidNativeSkin Skin { get; private set; } = null!;
+
+    public static void RefreshSkin() => Skin = new AndroidNativeSkin();
+
     public static readonly Color Ink = new(0.96f, 0.89f, 0.73f, 1f);
     public static readonly Color Muted = new(0.69f, 0.63f, 0.53f, 1f);
     public static readonly Color ButtonFill = new(0.13f, 0.09f, 0.055f, 1f);
-    public static readonly Color ButtonSelected = new(0.25f, 0.20f, 0.10f, 1f);
     public static readonly Color ButtonDimmed = new(0.09f, 0.065f, 0.045f, 1f);
     public static readonly Color Backdrop = new(0.055f, 0.038f, 0.026f, 1f);
     public static readonly Color PanelFill = new(0.09f, 0.07f, 0.05f, 1f);
@@ -103,6 +106,7 @@ internal static class AndroidHistoryUi
     )
     {
         var fill = AndroidUiKit.Fill(rect, ButtonFill);
+        Skin.Select(fill, false);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = fill;
         AndroidUiActions.OnTap(button, "history." + control, onTap);
@@ -123,7 +127,7 @@ internal static class AndroidHistoryUi
             Ink
         );
         Shape(label, wrap: true);
-        return new HistoryButton(button, fill, label);
+        return new HistoryButton(button, fill, label, Skin);
     }
 
     /// <summary>
@@ -174,7 +178,7 @@ internal static class AndroidHistoryUi
     public static RectTransform Panel(Transform parent, string name, TouchRect area)
     {
         var rect = AndroidTouchScreen.Child(name, parent, area);
-        AndroidUiKit.Fill(rect, PanelFill);
+        Skin.Frame(rect, PanelFill);
         var swallow = rect.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
         return rect;
@@ -241,7 +245,8 @@ internal static class AndroidHistoryUi
     )
     {
         var rect = AndroidTouchScreen.Child(name, parent, area);
-        var background = AndroidUiKit.Fill(rect, InputFill);
+        Skin.Frame(rect, InputFill);
+        var background = rect.GetComponent<Image>();
         var viewport = AndroidUiKit.Rect(
             "TextViewport",
             rect,
@@ -328,9 +333,15 @@ internal static class AndroidHistoryUi
 /// act, and the tap puts that reason on the status line (tap-to-explain), as hover does on the
 /// desktop.
 /// </summary>
-internal sealed class HistoryButton(Button button, Image fill, TextMeshProUGUI label)
+internal sealed class HistoryButton(
+    Button button,
+    Image fill,
+    TextMeshProUGUI label,
+    AndroidNativeSkin skin
+)
 {
     private (string Text, bool Selected, bool Enabled, bool Dimmed)? _shown;
+    private Image[]? _chevronStrokes;
 
     public Button Button { get; } = button;
 
@@ -339,6 +350,34 @@ internal sealed class HistoryButton(Button button, Image fill, TextMeshProUGUI l
     public TextMeshProUGUI Label { get; } = label;
 
     public GameObject GameObject => Button.gameObject;
+
+    /// <summary>A centred navigation chevron; the button keeps its descriptive label and action.</summary>
+    public void UseChevron(float angle, float size)
+    {
+        Label.gameObject.SetActive(false);
+        var icon = AndroidUiKit.Fixed(
+            "Chevron",
+            Button.transform,
+            new(0.5f, 0.5f),
+            Vector2.zero,
+            Vector2.one * size
+        );
+        icon.localRotation = Quaternion.Euler(0f, 0f, angle);
+        _chevronStrokes = new Image[2];
+        for (var index = 0; index < _chevronStrokes.Length; index++)
+        {
+            var side = index == 0 ? -1f : 1f;
+            var stroke = AndroidUiKit.Fixed(
+                "Stroke",
+                icon,
+                new(0.5f, 0.5f),
+                new(0f, side * size * 0.2f),
+                new(size * 0.68f, size * 0.15f)
+            );
+            stroke.localRotation = Quaternion.Euler(0f, 0f, -side * 45f);
+            _chevronStrokes[index] = AndroidUiKit.Fill(stroke, Label.color, false);
+        }
+    }
 
     /// <param name="text">The label.</param>
     /// <param name="selected">True: it reads as the current choice.</param>
@@ -352,10 +391,10 @@ internal sealed class HistoryButton(Button button, Image fill, TextMeshProUGUI l
         Label.text = text;
         Button.interactable = enabled;
         var muted = dimmed || !enabled;
-        Fill.color =
-            selected ? AndroidHistoryUi.ButtonSelected
-            : muted ? AndroidHistoryUi.ButtonDimmed
-            : AndroidHistoryUi.ButtonFill;
+        skin.Select(Fill, selected, muted);
         Label.color = muted ? AndroidHistoryUi.Muted : AndroidHistoryUi.Ink;
+        if (_chevronStrokes != null)
+            foreach (var stroke in _chevronStrokes)
+                stroke.color = Label.color;
     }
 }

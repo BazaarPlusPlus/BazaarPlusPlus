@@ -1,12 +1,16 @@
+using System.Globalization;
 using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
+using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Localization;
 using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,11 +21,10 @@ namespace BazaarPlusPlus.Android.Ui;
 /// The Android twin of the desktop's <c>HistoryPanelView</c>, a full-screen sheet laid out from
 /// Core's <see cref="HistoryTouchLayout"/> for the screen it was built on
 /// (<see cref="ScreenKey"/>) and bound from Core's <see cref="HistoryPanelViewModel"/>. The header
-/// holds the section tabs, the drag-scrolled filter chips (heroes in Runs; outcome and day in
-/// Ghost), More, and Close; the archive list, the run's battle rail (in Ghost, the cloud note in
-/// its place), and the detail column with the two board regions and the action row (delete, favorite, skills, replay) stand under it.
+/// holds the section tabs, the supporter action, More, and Close; the archive list, the run's
+/// battle rail (in Ghost, the cloud note in its place), and the detail column with the two board regions and the action row (delete, favorite, skills, replay) stand under it.
 /// Lists drag-scroll with inertia; each finished gesture logs <c>android.history.scrolled</c>.
-/// What the desktop draws from native art (hero portraits, rank badges, trophies) renders as text;
+/// Hero portraits share the Collection framing; rank and trophy details render as text;
 /// the two BPP badge atlases ship in the assembly. The panel rents the native boards into
 /// <see cref="UpperBoard"/> and <see cref="LowerBoard"/> and lays its overlays over
 /// <see cref="Surface"/>; a new screen size builds a new view.
@@ -54,15 +57,10 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _favorite = null!,
         _skills = null!,
         _replay = null!;
-    private ScrollRect _filters = null!;
-    private GameObject _heroGroup = null!,
-        _ghostGroup = null!,
-        _cloudNote = null!;
-    private readonly Dictionary<string, HistoryButton> _heroChips = new(StringComparer.Ordinal);
-    private readonly Dictionary<GhostBattleFilter, HistoryButton> _outcomeChips = new();
-    private HistoryButton _dayChip = null!;
-    private float _heroStripWidth;
-    private float _ghostStripWidth;
+    private readonly AndroidSupporterData? _supporters;
+    private IReadOnlyList<BPPSupporterSample> _headerSupporters = Array.Empty<BPPSupporterSample>();
+    private TextMeshProUGUI _supporterLabel = null!;
+    private GameObject _cloudNote = null!;
     private PageList _archive = null!;
     private TextMeshProUGUI _archiveEmpty = null!;
     private Rail _rail = null!;
@@ -78,8 +76,13 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _lowerStatusBand = null!;
     private HistorySectionMode? _boundSection;
 
-    public AndroidHistoryPanelView(TMP_FontAsset font, ViewActions actions)
+    public AndroidHistoryPanelView(
+        TMP_FontAsset font,
+        ViewActions actions,
+        AndroidSupporterData? supporters
+    )
     {
+        _supporters = supporters;
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
         ScreenKey = AndroidTouchScreen.Key();
@@ -94,6 +97,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             Vector2.zero,
             Vector2.zero
         );
+        AndroidHistoryUi.RefreshSkin();
         Build();
         _root.SetActive(false);
         var dp = _l.Metrics.UnitsPerDp;
@@ -131,7 +135,12 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _visible = visible;
         AndroidHistoryUi.SetActive(_root, visible);
         if (visible)
+        {
+            _supporters?.Warm();
+            _headerSupporters = _supporters?.Next(1) ?? Array.Empty<BPPSupporterSample>();
+            RefreshSupporter();
             UpdateContent();
+        }
     }
 
     public void Refresh(HistoryPanelViewModel model)
@@ -172,6 +181,12 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     {
         if (!_visible || _disposed)
             return;
+        if (_headerSupporters.Count == 0)
+        {
+            _headerSupporters = _supporters?.Next(1) ?? Array.Empty<BPPSupporterSample>();
+            if (_headerSupporters.Count > 0)
+                RefreshSupporter();
+        }
         var pressed = AndroidScrollTracker.PointerPressed();
         foreach (var tracker in _trackers)
             tracker.Tick(pressed, _l.Metrics.UnitsPerDp);
@@ -189,10 +204,9 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     private void Build()
     {
         AndroidUiKit.Fill(Surface, AndroidHistoryUi.Backdrop);
-        AndroidUiKit.Fill(
+        AndroidHistoryUi.Skin.Frame(
             AndroidTouchScreen.Child("Sheet", Surface, _l.Sheet),
-            AndroidHistoryUi.PanelFill,
-            blocksTouches: false
+            AndroidHistoryUi.PanelFill
         );
         var tab = _l.ButtonFont;
         _runsTab = AndroidHistoryUi.Button(
@@ -219,7 +233,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             tab,
             () => _actions.Section(HistorySectionMode.Favorites)
         );
-        BuildFilters();
+        BuildSupporter();
+        BuildCloudNote();
         _more = AndroidHistoryUi.Button(
             Surface,
             _font,
@@ -269,20 +284,22 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             () => NavigateArchive(-1)
         );
         _newer.Set(AndroidHistoryUi.T("Newer", "较新"));
+        _newer.UseChevron(180f, _l.Metrics.Dp(18f));
         _older = AndroidHistoryUi.Button(
             Surface,
             _font,
             "archive_older",
-            _l.PagerButton(1),
+            _l.PagerButton(2),
             _l.ButtonFont,
             () => NavigateArchive(1)
         );
         _older.Set(AndroidHistoryUi.T("Older", "较早"));
+        _older.UseChevron(0f, _l.Metrics.Dp(18f));
         _latest = AndroidHistoryUi.Button(
             Surface,
             _font,
             "archive_latest",
-            _l.PagerButton(2),
+            _l.PagerButton(1),
             _l.ButtonFont,
             () => NavigateArchive(0)
         );
@@ -296,6 +313,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => _actions.PageBattles(-1)
         );
+        _railNewer.UseChevron(90f, _l.Metrics.Dp(18f));
         _railOlder = AndroidHistoryUi.Button(
             Surface,
             _font,
@@ -304,6 +322,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => _actions.PageBattles(1)
         );
+        _railOlder.UseChevron(-90f, _l.Metrics.Dp(18f));
         _rail = BuildRail();
 
         _upperTitle = AndroidHistoryUi.Label(
@@ -373,70 +392,44 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         SetBoardStatus(string.Empty, string.Empty);
     }
 
-    private void BuildFilters()
+    private void BuildSupporter()
     {
-        var (scroll, content) = AndroidHistoryUi.Scroll(
-            Surface,
-            "Filters",
-            _l.FilterStrip,
-            horizontal: true
-        );
-        _filters = scroll;
-        _trackers.Add(new AndroidScrollTracker(Scrolled(), "filters", scroll));
-        _heroGroup = AndroidUiKit
-            .Rect("Heroes", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero)
-            .gameObject;
-        var heroes = HistoryPanelHeroPresentation.RunFilterHeroIds;
-        var heroRects = _l.FilterChips(heroes.Select(_ => _l.HeroChipWidth).ToArray());
-        for (var i = 0; i < heroes.Count; i++)
-        {
-            var hero = heroes[i];
-            _heroChips[hero] = AndroidHistoryUi.Button(
-                _heroGroup.transform,
-                _font,
-                "hero_filter",
-                heroRects[i],
-                _l.BodyFont,
-                () => _actions.HeroFilter(hero)
-            );
-        }
-        _heroStripWidth = heroRects.Count == 0 ? 0f : heroRects[^1].Right;
-        _ghostGroup = AndroidUiKit
-            .Rect("Ghost", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero)
-            .gameObject;
-        var outcomes = new[]
-        {
-            GhostBattleFilter.All,
-            GhostBattleFilter.IWon,
-            GhostBattleFilter.ILost,
-        };
-        var ghostRects = _l.FilterChips([
-            _l.OutcomeChipWidth,
-            _l.OutcomeChipWidth,
-            _l.OutcomeChipWidth,
-            _l.DayChipWidth,
-        ]);
-        for (var i = 0; i < outcomes.Length; i++)
-        {
-            var filter = outcomes[i];
-            _outcomeChips[filter] = AndroidHistoryUi.Button(
-                _ghostGroup.transform,
-                _font,
-                "ghost_filter",
-                ghostRects[i],
-                _l.BodyFont,
-                () => _actions.GhostFilter(filter)
-            );
-        }
-        _dayChip = AndroidHistoryUi.Button(
-            _ghostGroup.transform,
+        (_, _, _supporterLabel) = AndroidHistoryUi.Skin.Button(
+            AndroidTouchScreen.Child("Supporter", Surface, _l.Sponsor),
             _font,
-            "ghost_day",
-            ghostRects[3],
-            _l.BodyFont,
-            () => _actions.GhostDay()
+            BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode),
+            _l.ButtonFont,
+            _l.Metrics.Dp(TouchChrome.LabelInsetDp),
+            () =>
+                AndroidUiActions.Run(
+                    "history.sponsor",
+                    () =>
+                        Application.OpenURL(
+                            BPPSupporterLinks.ResolveSponsorUrl(L.CurrentLanguageCode)
+                        )
+                )
         );
-        _ghostStripWidth = ghostRects[3].Right;
+        _supporterLabel.enableWordWrapping = false;
+        _supporterLabel.enableAutoSizing = true;
+        _supporterLabel.fontSizeMin = _l.BodyFont;
+        _supporterLabel.fontSizeMax = _l.ButtonFont;
+        _supporterLabel.overflowMode = TextOverflowModes.Ellipsis;
+    }
+
+    private void RefreshSupporter()
+    {
+        var credit = BPPSupporterAttribution.FormatRichLine(
+            _headerSupporters,
+            L.CurrentLanguageCode
+        );
+        _supporterLabel.text = string.IsNullOrEmpty(credit)
+            ? BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode)
+            : credit;
+        AndroidGameFont.Cover(_supporterLabel);
+    }
+
+    private void BuildCloudNote()
+    {
         var cloudNote = AndroidHistoryUi.Label(
             Surface,
             _font,
@@ -490,18 +483,18 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 Name = AndroidHistoryUi.Fraction(
                     rect,
                     _font,
-                    .04f,
+                    .26f,
                     .03f,
-                    .68f,
+                    .46f,
                     .36f,
                     _l.RowTitleFont
                 ),
                 Meta = AndroidHistoryUi.Fraction(
                     rect,
                     _font,
-                    .04f,
+                    .26f,
                     .38f,
-                    .68f,
+                    .46f,
                     .3f,
                     _l.BodyFont,
                     color: AndroidHistoryUi.Muted
@@ -538,6 +531,14 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                     TextAlignmentOptions.Center
                 ),
             };
+            var portrait = AndroidUiKit.Fixed(
+                "HeroPortrait",
+                rect,
+                new(0f, 1f),
+                new(_l.Metrics.Dp(8f), -_l.Metrics.Dp(6f)),
+                Vector2.one * _l.Metrics.Dp(36f)
+            );
+            row.Portrait = new AndroidPortraitView(portrait, AndroidHistoryUi.Skin, _l.Metrics);
             row.Unknown = AndroidHistoryUi.Fraction(
                 row.Badge.transform,
                 _font,
@@ -689,41 +690,13 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _boundSection = m.SectionMode;
             _archive.ResetScroll = true;
             ApplyRowMode(runs);
-            _filters.StopMovement();
-            _filters.content.anchoredPosition = Vector2.zero;
-            _filters.content.sizeDelta = new Vector2(
-                Math.Max(
-                    _l.FilterStrip.Width,
-                    runs ? _heroStripWidth
-                        : ghost ? _ghostStripWidth
-                        : 0f
-                ),
-                _l.FilterStrip.Height
-            );
             SyncTrackers();
         }
         _runsTab.Set(HistoryPanelText.RunsTab(), runs);
         _ghostTab.Set(HistoryPanelText.GhostTab(), ghost);
         AndroidHistoryUi.SetActive(_favoritesTab.GameObject, m.FavoritesTabVisible);
         _favoritesTab.Set(HistoryPanelText.FavoritesTab(), favorites);
-        AndroidHistoryUi.SetActive(_heroGroup, runs);
-        AndroidHistoryUi.SetActive(_ghostGroup, ghost);
         AndroidHistoryUi.SetActive(_cloudNote, ghost);
-        foreach (var (hero, chip) in _heroChips)
-            chip.Set(
-                HeroLabel(hero),
-                HistoryPanelHeroPresentation.IsSelected(m.SelectedRunHero, hero),
-                !m.PageLoading
-            );
-        foreach (var (filter, chip) in _outcomeChips)
-            chip.Set(
-                filter == GhostBattleFilter.All ? AndroidHistoryUi.T("All", "全部")
-                    : filter == GhostBattleFilter.IWon ? AndroidHistoryUi.T("Won", "我赢了")
-                    : AndroidHistoryUi.T("Lost", "我输了"),
-                filter == m.GhostBattleFilter,
-                !m.PageLoading
-            );
-        _dayChip.Set(HistoryPanelText.FilterDayMin10(), m.GhostDayMin10, !m.PageLoading);
 
         AndroidHistoryUi.SetActive(_rail.Scroll.gameObject, runs);
         AndroidHistoryUi.SetActive(_railNewer.GameObject, runs);
@@ -733,7 +706,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _newer.Set(AndroidHistoryUi.T("Newer", "较新"), enabled: m.HasNewer && !m.PageLoading);
         _older.Set(AndroidHistoryUi.T("Older", "较早"), enabled: m.HasOlder && !m.PageLoading);
         _latest.Set(AndroidHistoryUi.T("Latest", "最新"), enabled: !m.PageLoading);
-        _pageLabel.text = m.PageLabel;
+        _pageLabel.text = m.PageLabel.Split('\n')[0];
         _archiveEmpty.text = m.ArchiveEmptyMessage;
         AndroidHistoryUi.SetActive(_archiveEmpty.gameObject, m.ArchiveEmptyMessage.Length > 0);
 
@@ -747,7 +720,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 i => m.Runs[i].PlayerRating,
                 i => m.Runs[i].PlayerRatingDelta,
                 m.SelectedRunIndex,
-                i => HistoryPanelFormatter.RunRowFields(m.Runs[i], HeroLabel(m.Runs[i].Hero))
+                i => CompactRunFields(m.Runs[i])
             );
         else
             BindRows(
@@ -831,6 +804,15 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             // A battle row's three label lines become name, hero with day, and stamp: a separate
             // hero column left the name too narrow on a phone.
             var fields = runFields?.Invoke(i) ?? BattleRowFields(label(i), HeroLabel(hero(i)));
+            var portraitHero = ParseHero(hero(i));
+            if (row.Hero != portraitHero)
+            {
+                row.Hero = portraitHero;
+                row.Portrait.Bind(
+                    portraitHero is { } value ? () => AndroidPortraits.Hero(value) : null,
+                    portraitHero
+                );
+            }
             row.Name.text = fields.Name;
             row.Meta.text = fields.Meta;
             row.Stamp.text = fields.Stamp;
@@ -951,6 +933,33 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             : string.Empty;
 
     /// <summary>A stored hero id under the game's own hero name.</summary>
+    private static CardHero? ParseHero(string? hero) =>
+        TheDragonsHeroId.IsAlias(hero) ? CardHero.TheDragons
+        : Enum.TryParse<CardHero>(hero, true, out var parsed) ? parsed
+        : null;
+
+    private static HistoryRunRowFields CompactRunFields(HistoryRunRecord run)
+    {
+        var mode = run.GameMode.Trim().ToLowerInvariant() switch
+        {
+            "ranked" => AndroidHistoryUi.T("Ranked", "排位"),
+            "unranked" => AndroidHistoryUi.T("Normal", "普通"),
+            _ => HistoryPanelText.Unknown(),
+        };
+        var title = $"{HistoryPanelText.DayBadge(run.FinalDay)} · {mode}";
+        var duration = run.EndedAtUtc is { } ended
+            ? HistoryPanelText.DurationMinutes(
+                Math.Max(0, (int)(ended - run.StartedAtUtc).TotalMinutes)
+            )
+            : string.Empty;
+        var date = (run.EndedAtUtc ?? run.LastSeenAtUtc).ToLocalTime();
+        var stamp = date.ToString(
+            date.Year == DateTimeOffset.Now.Year ? "MM/dd HH:mm" : "yyyy/MM/dd HH:mm",
+            CultureInfo.CurrentCulture
+        );
+        return new(title, duration, stamp);
+    }
+
     public static string HeroLabel(string? hero)
     {
         if (TheDragonsHeroId.IsAlias(hero))
@@ -982,6 +991,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         internal RectTransform Rect = null!;
         internal HistoryButton Control = null!;
         internal Image Badge = null!;
+        internal AndroidPortraitView Portrait = null!;
+        internal CardHero? Hero;
         internal TextMeshProUGUI Unknown = null!;
         internal TextMeshProUGUI Rank = null!;
         internal TextMeshProUGUI Rating = null!;
@@ -1025,9 +1036,6 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         Action<HistorySectionMode> Section,
         Action<int> PageArchive,
         Action<int> PageBattles,
-        Action<string> HeroFilter,
-        Action<GhostBattleFilter> GhostFilter,
-        Action GhostDay,
         Action More,
         Action Delete,
         Action Favorite,

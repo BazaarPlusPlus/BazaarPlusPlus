@@ -1,0 +1,58 @@
+using System.Reflection;
+using Architecture.Tests;
+using Xunit;
+
+namespace AndroidHost.Tests;
+
+public sealed class AndroidNativeArtBoundaryTests
+{
+    [Fact]
+    public void Native_skin_art_has_one_runtime_owner_and_shared_ui_never_imports_collection()
+    {
+        var path = typeof(AndroidNativeArtBoundaryTests)
+            .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(attribute => attribute.Key == "BppAndroidHostAssembly")
+            .Value!;
+        var host = CompiledAssembly.Load(path);
+        var accesses = host
+            .Types.SelectMany(type =>
+                type.Methods.SelectMany(method =>
+                    method
+                        .Instructions.Where(op => op.IsMemberAccess)
+                        .Select(op => (type, method, op))
+                )
+            )
+            .ToArray();
+        var art = accesses
+            .Where(access =>
+                access.op.TargetType?.FullName
+                    is "Il2CppTheBazaar.GenericPopup"
+                        or "Il2CppTheBazaar.UI.Tooltips.BaseTooltipController"
+            )
+            .ToArray();
+        Assert.NotEmpty(art);
+        Assert.All(
+            art,
+            access =>
+                Assert.Equal(
+                    "BazaarPlusPlus.Android.GameInterop.AndroidNativeArt",
+                    access.type.FullName
+                )
+        );
+        Assert.DoesNotContain(
+            accesses,
+            access =>
+                access.type.FullName
+                    is "BazaarPlusPlus.Android.Ui.AndroidNativeSkin"
+                        or "BazaarPlusPlus.Android.Ui.AndroidPortraitView"
+                        or "BazaarPlusPlus.Android.GameInterop.AndroidNativeArt"
+                && access.op.TargetType?.Namespace == "BazaarPlusPlus.Android.Collection"
+        );
+        Assert.DoesNotContain(
+            accesses,
+            access =>
+                access.type.FullName == "BazaarPlusPlus.Android.GameInterop.AndroidNativeArt"
+                && access.op.TargetType?.Namespace == "BazaarPlusPlus.Android.Ui"
+        );
+    }
+}
