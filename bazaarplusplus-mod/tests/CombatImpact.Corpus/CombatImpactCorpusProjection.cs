@@ -1,323 +1,21 @@
 #nullable enable
 using System.Diagnostics;
-using System.Text;
-using BazaarGameShared.Domain.Cards;
-using BazaarGameShared.Domain.Cards.Interfaces;
-using BazaarGameShared.Domain.Cards.Item;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect;
-using BazaarGameShared.Domain.Effect.Actions;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarGameShared.Infra.Messages.GameSimEvents;
-using BazaarGameShared.Infra.Messages.Shared;
-using BazaarGameShared.Infra.Serialization;
 using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
-using BazaarPlusPlus.GameInterop.Cards;
-using BazaarPlusPlus.GameInterop.CombatSimulation;
-using Microsoft.Data.Sqlite;
-using Newtonsoft.Json;
-
-internal sealed class CombatImpactCorpusCatalog
-{
-    private readonly IReadOnlyDictionary<Guid, TCardBase> _cards;
-
-    private CombatImpactCorpusCatalog(IReadOnlyDictionary<Guid, TCardBase> cards)
-    {
-        _cards = cards;
-    }
-
-    internal static CombatImpactCorpusCatalog Load(string databasePath)
-    {
-        if (!File.Exists(databasePath))
-            throw new FileNotFoundException("GameData.db was not found.", databasePath);
-
-        var cards = new Dictionary<Guid, TCardBase>();
-        var settings = new BazaarJsonSerializerSettings(validate: false);
-        var connectionString = new SqliteConnectionStringBuilder
-        {
-            DataSource = databasePath,
-            Mode = SqliteOpenMode.ReadOnly,
-        }.ToString();
-        using var connection = new SqliteConnection(connectionString);
-        connection.Open();
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Data FROM cards ORDER BY Id";
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            if (!Guid.TryParse(reader.GetString(0), out var id))
-                continue;
-            var payload = reader.GetValue(1) switch
-            {
-                string text => text,
-                byte[] bytes => Encoding.UTF8.GetString(bytes),
-                var value => Convert.ToString(
-                    value,
-                    System.Globalization.CultureInfo.InvariantCulture
-                ),
-            };
-            if (string.IsNullOrWhiteSpace(payload))
-                continue;
-            var card = JsonConvert.DeserializeObject<TCardBase>(payload!, settings);
-            if (card != null)
-                cards[id] = card;
-        }
-
-        if (cards.Count == 0)
-            throw new InvalidOperationException("GameData.db yielded no card templates.");
-        return new CombatImpactCorpusCatalog(cards);
-    }
-
-    internal CombatImpactCorpusEntityBuild BuildEntities(ReplayObservationInput replay)
-    {
-        var seeds = new Dictionary<string, CorpusCardSeed>(StringComparer.Ordinal);
-        foreach (var spawned in replay.Spawn.Events.OfType<GameSimEventCardSpawned>())
-        {
-            if (!Guid.TryParse(spawned.TemplateId, out var templateId))
-                continue;
-            replay.Spawn.Cards.TryGetValue(spawned.InstanceId, out var update);
-            seeds[spawned.InstanceId] = new CorpusCardSeed(
-                spawned.InstanceId,
-                templateId,
-                spawned.Type,
-                spawned.CombatantId,
-                update?.Tier,
-                update?.Enchantment,
-                ReadAttributes(update)
-            );
-        }
-
-        foreach (var snapshot in CombatImpactTransformedCardSnapshotReader.Read(replay.Combat))
-        {
-            if (!Guid.TryParse(snapshot.Card.TemplateId, out var templateId))
-                continue;
-            seeds.TryAdd(
-                snapshot.Card.InstanceId,
-                new CorpusCardSeed(
-                    snapshot.Card.InstanceId,
-                    templateId,
-                    snapshot.Card.Type,
-                    snapshot.Card.CombatantId,
-                    snapshot.Update?.Tier,
-                    snapshot.Update?.Enchantment,
-                    ReadAttributes(snapshot.Update)
-                )
-            );
-        }
-
-        var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal);
-        var order = 0;
-        foreach (var seed in seeds.Values.OrderBy(seed => seed.InstanceId, StringComparer.Ordinal))
-        {
-            if (!_cards.TryGetValue(seed.TemplateId, out var template))
-                continue;
-            var tier = seed.Tier ?? template.StartingTier;
-            var activeAbilities = ActiveAbilities(template, tier, seed.Enchantment);
-            var activeAuras = template is IHasTierData auraTiered
-                ? auraTiered.GetAuraTemplatesByTier(tier).ToList()
-                : template.Auras.Values.ToList();
-            if (
-                seed.Enchantment is { } enchantment
-                && template is TCardItem auraItem
-                && auraItem.Enchantments?.TryGetValue(enchantment, out var enchantmentTemplate)
-                    == true
-            )
-                activeAuras.AddRange(enchantmentTemplate.Auras.Values);
-            var attributeTypes = ReadAbilityAttributeTypes(template, seed.Enchantment);
-            entities[seed.InstanceId] = new CombatImpactEntity(
-                seed.InstanceId,
-                template.InternalName,
-                seed.Type.ToString(),
-                null,
-                order++,
-                seed.TemplateId,
-                DesktopCardFacets.CapturedTier(tier),
-                EnchantmentType: DesktopCardFacets.CapturedEnchantment(seed.Enchantment),
-                Attributes: seed.Attributes == null
-                    ? null
-                    : DesktopCombatFacets.CardAttributes(seed.Attributes),
-                CombatantId: DesktopCombatFacets.ToCombatant(seed.Combatant),
-                AbilityAttributeTypesByEffectId: DesktopCombatFacets.AttributesByEffectId(
-                    attributeTypes
-                ),
-                PrerequisiteSkillSourceRulesByEffectId: CombatImpactAttributionRuleReader.ReadSourceRules(
-                    activeAbilities,
-                    []
-                ),
-                UseAttributionRules: seed.Type == ECardType.SocketEffect
-                    ? CombatImpactAttributionRuleReader.ReadUseRules(activeAbilities)
-                    : null,
-                AbilityAttributeModifiersByEffectId: CombatImpactAbilityAttributeModifierReader.Read(
-                    activeAbilities
-                ),
-                CriticalTriggerAbilitiesByEffectId: CombatImpactCriticalTriggerReader.Read(
-                    activeAbilities
-                ),
-                AuraAttributeModifiersByEffectId: CombatImpactAbilityAttributeModifierReader.ReadAuras(
-                    activeAuras
-                ),
-                ReferenceValuedAuraEffectIds: activeAuras
-                    .Where(aura =>
-                        aura.Action
-                            is BazaarGameShared.Domain.Effect.AuraActions.TAuraActionCardModifyAttribute modifier
-                        && modifier.Value
-                            is BazaarGameShared.Domain.Values.ReferenceValues.ITReferenceValue
-                    )
-                    .Select(aura => aura.Id)
-                    .ToArray()
-            );
-        }
-
-        foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
-        {
-            var id = CombatImpactProjector.PlayerId(combatant);
-            entities[id] = new CombatImpactEntity(
-                id,
-                combatant.ToString(),
-                "Player",
-                null,
-                order++,
-                CombatantId: combatant
-            );
-        }
-        var implicitPlayerEffects = CombatImpactImplicitPlayerEffectReader.AddMissing(
-            replay.Timeline,
-            entities,
-            _cards.Values
-        );
-        return new CombatImpactCorpusEntityBuild(entities, implicitPlayerEffects);
-    }
-
-    private static IReadOnlyDictionary<ECardAttributeType, int>? ReadAttributes(
-        SimUpdateCard? update
-    ) =>
-        update == null
-            ? null
-            : update.Attributes.ToDictionary(item => item.Key, item => item.Value.Value);
-
-    private static IReadOnlyDictionary<ECardAttributeType, int>? ReadAttributes(
-        CombatSimCardUpdate? update
-    ) =>
-        update == null
-            ? null
-            : update.Attributes.ToDictionary(item => item.Key, item => item.Value.CurrentValue);
-
-    private static IReadOnlyList<TCardAbility> ActiveAbilities(
-        TCardBase template,
-        ETier tier,
-        EEnchantmentType? enchantment
-    )
-    {
-        var abilities = template is IHasTierData tiered
-            ? tiered.GetAbilityTemplatesByTier(tier).ToList()
-            : template.Abilities.Values.ToList();
-        if (
-            enchantment.HasValue
-            && template is TCardItem item
-            && item.Enchantments?.TryGetValue(enchantment.Value, out var enchantmentTemplate)
-                == true
-        )
-        {
-            abilities.AddRange(enchantmentTemplate.Abilities.Values);
-        }
-        return abilities;
-    }
-
-    private static IReadOnlyDictionary<string, ECardAttributeType>? ReadAbilityAttributeTypes(
-        TCardBase template,
-        EEnchantmentType? enchantment
-    )
-    {
-        var mappings = new Dictionary<string, ECardAttributeType>(StringComparer.Ordinal);
-        var ambiguous = new HashSet<string>(StringComparer.Ordinal);
-        AddAbilityAttributeTypes(template.Abilities.Values, mappings, ambiguous);
-        if (
-            enchantment.HasValue
-            && template is TCardItem item
-            && item.Enchantments?.TryGetValue(enchantment.Value, out var enchantmentTemplate)
-                == true
-        )
-        {
-            AddAbilityAttributeTypes(enchantmentTemplate.Abilities.Values, mappings, ambiguous);
-        }
-        return mappings.Count == 0 ? null : mappings;
-    }
-
-    private static void AddAbilityAttributeTypes(
-        IEnumerable<TCardAbility> abilities,
-        IDictionary<string, ECardAttributeType> mappings,
-        ISet<string> ambiguous
-    )
-    {
-        foreach (var ability in abilities)
-        {
-            if (
-                ability.Action is not TActionCardModifyAttribute modifier
-                || string.IsNullOrWhiteSpace(ability.Id)
-                || ambiguous.Contains(ability.Id)
-            )
-                continue;
-            if (!mappings.TryGetValue(ability.Id, out var existing))
-            {
-                mappings[ability.Id] = modifier.AttributeType;
-                continue;
-            }
-            if (existing == modifier.AttributeType)
-                continue;
-            mappings.Remove(ability.Id);
-            ambiguous.Add(ability.Id);
-        }
-    }
-
-    private sealed record CorpusCardSeed(
-        string InstanceId,
-        Guid TemplateId,
-        ECardType Type,
-        ECombatantId Combatant,
-        ETier? Tier,
-        EEnchantmentType? Enchantment,
-        IReadOnlyDictionary<ECardAttributeType, int>? Attributes
-    );
-}
-
-internal sealed record CombatImpactCorpusEntityBuild(
-    IReadOnlyDictionary<string, CombatImpactEntity> Entities,
-    int ImplicitPlayerEffects
-);
 
 internal static class CombatImpactCorpusProjection
 {
     internal static CombatImpactCorpusProjectionResult Analyze(
-        IReadOnlyList<ReplayObservationInput> replays,
-        CombatImpactCorpusCatalog catalog,
+        IReadOnlyList<CombatImpactCorpusBattle> replays,
         bool benchmarkEnabled
     )
     {
-        var orderedReplays = replays.OrderBy(replay => replay.BattleId, StringComparer.Ordinal);
-        IEnumerable<CombatImpactCorpusProjectionInput> orderedInputs;
-        if (benchmarkEnabled)
-        {
-            var benchmarkInputs = orderedReplays
-                .Select(replay => new CombatImpactCorpusProjectionInput(
-                    replay,
-                    catalog.BuildEntities(replay)
-                ))
-                .ToArray();
-            orderedInputs = benchmarkInputs;
-            if (benchmarkInputs.Length > 0)
-            {
-                CombatImpactProjector.Project(
-                    benchmarkInputs[0].Replay.Timeline,
-                    benchmarkInputs[0].EntityBuild.Entities
-                );
-            }
-        }
-        else
-            orderedInputs = orderedReplays.Select(replay => new CombatImpactCorpusProjectionInput(
-                replay,
-                catalog.BuildEntities(replay)
-            ));
+        var orderedInputs = replays
+            .OrderBy(replay => replay.BattleId, StringComparer.Ordinal)
+            .ToArray();
+        // The first projection warms the JIT so the benchmark times the projection alone.
+        if (benchmarkEnabled && orderedInputs.Length > 0)
+            CombatImpactProjector.Project(orderedInputs[0].Timeline, orderedInputs[0].Entities);
 
         var benchmarkObservations = benchmarkEnabled
             ? new List<CombatImpactProjectionBenchmarkObservation>(replays.Count)
@@ -328,20 +26,18 @@ internal static class CombatImpactCorpusProjection
         var criticalTriggerResolvedOrigins = 0;
         var criticalTriggerAttributedOrigins = 0;
         var criticalTriggerEvidenceFailures = new List<string>();
-        foreach (var input in orderedInputs)
+        foreach (var replay in orderedInputs)
         {
-            var replay = input.Replay;
-            rawExecutions += replay.Combat.Frames.Sum(frame =>
+            rawExecutions += replay.Timeline.Frames.Sum(frame =>
                 frame
-                    .Events.OfType<CombatSimEventEffectExecuted>()
+                    .Events.OfType<CombatEffectExecuted>()
                     .Count(effect =>
-                        effect.ActionType == EActionCommandType.CardModifyAttribute
-                        && effect.Target is EffectTargetCard
+                        effect.ActionType == CombatActionType.CardModifyAttribute
+                        && effect.Target is CombatCardTarget
                     )
             );
-            var entityBuild = input.EntityBuild;
-            var entities = entityBuild.Entities;
-            implicitPlayerEffects += entityBuild.ImplicitPlayerEffects;
+            var entities = replay.Entities;
+            implicitPlayerEffects += replay.ImplicitPlayerEffects;
             var allocatedBefore = benchmarkEnabled ? GC.GetAllocatedBytesForCurrentThread() : 0;
             var startedAt = benchmarkEnabled ? Stopwatch.GetTimestamp() : 0;
             var report = CombatImpactProjector.Project(replay.Timeline, entities);
@@ -480,7 +176,7 @@ internal static class CombatImpactCorpusProjection
     }
 
     private static CardAttributeAttributionCorpusObservation Observe(
-        ReplayObservationInput replay,
+        CombatImpactCorpusBattle replay,
         CombatImpactAttributeTransitionDiagnostic item,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     ) =>
@@ -504,33 +200,33 @@ internal static class CombatImpactCorpusProjection
         );
 
     private static IReadOnlyList<CardAttributeClaimantCorpusObservation> ReadClaimants(
-        ReplayObservationInput replay,
+        CombatImpactCorpusBattle replay,
         CombatImpactAttributeTransitionDiagnostic diagnostic,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
-        if (diagnostic.FrameIndex < 0 || diagnostic.FrameIndex >= replay.Combat.Frames.Count)
+        if (diagnostic.FrameIndex < 0 || diagnostic.FrameIndex >= replay.Timeline.Frames.Count)
             return [];
 
         return replay
-            .Combat.Frames[diagnostic.FrameIndex]
-            .Events.OfType<CombatSimEventEffectExecuted>()
+            .Timeline.Frames[diagnostic.FrameIndex]
+            .Events.OfType<CombatEffectExecuted>()
             .Where(effect =>
-                effect.ActionType == EActionCommandType.CardModifyAttribute
-                && effect.Target is EffectTargetCard target
-                && string.Equals(target.Target.Value, diagnostic.TargetId, StringComparison.Ordinal)
+                effect.ActionType == CombatActionType.CardModifyAttribute
+                && effect.Target is CombatCardTarget target
+                && string.Equals(target.Target, diagnostic.TargetId, StringComparison.Ordinal)
             )
             .Select(effect => ReadClaimant(effect, entities))
             .ToArray();
     }
 
     private static CardAttributeClaimantCorpusObservation ReadClaimant(
-        CombatSimEventEffectExecuted effect,
+        CombatEffectExecuted effect,
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
-        var directSourceId = effect.Source?.Value;
-        var triggerSourceId = effect.TriggerSource?.Value;
+        var directSourceId = effect.Source;
+        var triggerSourceId = effect.TriggerSource;
         var modifierSourceId = ResolveModifierSource(
             directSourceId,
             triggerSourceId,
@@ -556,33 +252,24 @@ internal static class CombatImpactCorpusProjection
     }
 
     // The evidence names a modifier's value by the game's value type, as it did before the
-    // producer moved to Core's combat vocabulary (ADR-0019).
+    // producer moved to Core's combat vocabulary (ADR-0019). The names are fixed here because the
+    // Core lane has no game types to read them from; the host adapter's DesktopCombatTimeline.ToValue
+    // owns which game type becomes which Core value.
     private static string? GameValueTypeName(CombatValue? value) =>
         value switch
         {
             null => null,
-            CombatFixedValue => nameof(BazaarGameShared.Domain.Values.TFixedValue),
-            CombatRangeValue => nameof(BazaarGameShared.Domain.Values.TRangeValue),
-            CombatCardAttributeReference => nameof(
-                BazaarGameShared.Domain.Values.ReferenceValues.TReferenceValueCardAttribute
-            ),
+            CombatFixedValue => "TFixedValue",
+            CombatRangeValue => "TRangeValue",
+            CombatCardAttributeReference => "TReferenceValueCardAttribute",
             CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.CardAttributeUnscaled } =>
-                nameof(
-                    BazaarGameShared
-                        .Domain
-                        .Values
-                        .ReferenceValues
-                        .TReferenceValueCardAttributeUnscaled
-                ),
-            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.AttributeChange } => nameof(
-                BazaarGameShared.Domain.Values.ReferenceValues.TReferenceValueAttributeChange
-            ),
-            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.PlayerAttribute } => nameof(
-                BazaarGameShared.Domain.Values.ReferenceValues.TReferenceValuePlayerAttribute
-            ),
-            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.CardCount } => nameof(
-                BazaarGameShared.Domain.Values.ReferenceValues.TReferenceValueCardCount
-            ),
+                "TReferenceValueCardAttributeUnscaled",
+            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.AttributeChange } =>
+                "TReferenceValueAttributeChange",
+            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.PlayerAttribute } =>
+                "TReferenceValuePlayerAttribute",
+            CombatOpaqueReference { Kind: CombatOpaqueReferenceKind.CardCount } =>
+                "TReferenceValueCardCount",
             _ => value.GetType().Name,
         };
 
@@ -612,11 +299,6 @@ internal static class CombatImpactCorpusProjection
         return null;
     }
 }
-
-internal sealed record CombatImpactCorpusProjectionInput(
-    ReplayObservationInput Replay,
-    CombatImpactCorpusEntityBuild EntityBuild
-);
 
 internal sealed record CombatImpactCorpusProjectionResult(
     CardAttributeAttributionCorpusReport Attribution,

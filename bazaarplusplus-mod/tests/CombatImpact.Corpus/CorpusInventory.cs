@@ -1,46 +1,24 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarGameShared.Infra.Messages.GameSimEvents;
-using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
-using BazaarPlusPlus.GameInterop.CombatSimulation;
-
-internal sealed record ReplayObservationInput(string BattleId, GameSim Spawn, CombatSim Combat)
-{
-    private CombatTimeline? _timeline;
-
-    // The producer reads Core's combat timeline (ADR-0019), copied once per replay so the
-    // projection benchmark times the projection alone. Copied on first use: loading the host
-    // assembly before the catalog's BazaarJsonSerializerSettings scans every loaded assembly
-    // fails on the host's UnityEngine references.
-    internal CombatTimeline Timeline => _timeline ??= DesktopCombatTimeline.From(Combat);
-}
 
 internal static class CorpusInventory
 {
-    // The periodic report names combatants in Core's vocabulary; the inventory reads the game's.
-    internal static ECombatantId GameCombatant(Combatant combatant) =>
-        DesktopCombatFacets.CombatantId.TryToSource(combatant, out var source)
-            ? source
-            : throw new InvalidDataException($"Combatant '{combatant}' has no game member.");
-
-    private static readonly EPlayerAttributeType[] TrackedAttributes =
+    private static readonly CombatPlayerAttribute[] TrackedAttributes =
     [
-        EPlayerAttributeType.Burn,
-        EPlayerAttributeType.Poison,
-        EPlayerAttributeType.HealthRegen,
-        EPlayerAttributeType.Health,
-        EPlayerAttributeType.HealthMax,
-        EPlayerAttributeType.Shield,
-        EPlayerAttributeType.FlatDamageReduction,
-        EPlayerAttributeType.PercentDamageReduction,
+        CombatPlayerAttribute.Burn,
+        CombatPlayerAttribute.Poison,
+        CombatPlayerAttribute.HealthRegen,
+        CombatPlayerAttribute.Health,
+        CombatPlayerAttribute.HealthMax,
+        CombatPlayerAttribute.Shield,
+        CombatPlayerAttribute.FlatDamageReduction,
+        CombatPlayerAttribute.PercentDamageReduction,
     ];
 
     internal static CorpusInventoryReport Build(
-        IReadOnlyList<ReplayObservationInput> replays,
+        IReadOnlyList<CombatImpactCorpusBattle> replays,
         IReadOnlyList<string> invalidPayloads,
         CardAttributeAttributionCorpusReport cardAttributeAttribution
     )
@@ -70,17 +48,17 @@ internal static class CorpusInventory
 
         foreach (var replay in replays.OrderBy(replay => replay.BattleId, StringComparer.Ordinal))
         {
-            totalFrames += replay.Combat.Frames.Count;
+            totalFrames += replay.Timeline.Frames.Count;
             var identities = BuildIdentityMap(replay);
             ReadOpeningActions(replay, identities, openingActions, openingActionSources);
             var attributionReport = PeriodicEffectAttribution.Project(
                 replay.Timeline,
                 BuildAttributionEntities(replay, identities)
             );
-            attribution.Observe(attributionReport, replay.Combat, identities, replay.Spawn);
-            terminalImpact.Observe(replay.Combat, replay.Spawn);
-            var statSources = CountStatSources(replay.Combat);
-            var statAmounts = SumStatAmounts(replay.Combat);
+            attribution.Observe(attributionReport, replay, identities);
+            terminalImpact.Observe(replay.Timeline, replay.Spawn);
+            var statSources = CountStatSources(replay.Timeline);
+            var statAmounts = SumStatAmounts(replay.Timeline);
             foreach (var (status, count) in statSources)
             {
                 if (count > 1)
@@ -90,18 +68,20 @@ internal static class CorpusInventory
             var battleMissingIdentities = FindMissingStatSourceIdentities(replay, identities);
             missingStatSourceIdentities.AddRange(battleMissingIdentities);
             var states = CreateStateMaps(replay);
+            var transformsByFrame = replay.TransformIdentities.ToDictionary(transforms =>
+                transforms.FrameIndex
+            );
             var battlePeriodicFrames = 0;
 
-            for (var frameIndex = 0; frameIndex < replay.Combat.Frames.Count; frameIndex++)
+            for (var frameIndex = 0; frameIndex < replay.Timeline.Frames.Count; frameIndex++)
             {
-                var frame = replay.Combat.Frames[frameIndex];
-                AddTransformIdentities(frame, identities);
-                foreach (var combatant in new[] { ECombatantId.Player, ECombatantId.Opponent })
+                var frame = replay.Timeline.Frames[frameIndex];
+                if (transformsByFrame.TryGetValue(frameIndex, out var transforms))
+                    AddTransformIdentities(transforms, identities);
+                foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
                 {
                     var update =
-                        combatant == ECombatantId.Player
-                            ? frame.PlayerUpdates
-                            : frame.OpponentUpdates;
+                        combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
                     var before = Snapshot(states[combatant]);
                     AddTransitions(update, transitions);
                     ApplyUpdates(states[combatant], update);
@@ -143,7 +123,7 @@ internal static class CorpusInventory
                         frameActions,
                         ReadContextActions(frame, combatant, identities),
                         frame
-                            .Events.OfType<CombatSimEventCombatantDied>()
+                            .Events.OfType<CombatantDied>()
                             .Any(death => death.CombatantId == combatant)
                     );
                     periodicFrames.Add(observation);
@@ -155,7 +135,7 @@ internal static class CorpusInventory
             battleSummaries.Add(
                 new BattleInventorySummary(
                     replay.BattleId,
-                    replay.Combat.Frames.Count,
+                    replay.Timeline.Frames.Count,
                     battlePeriodicFrames,
                     statSources,
                     statAmounts,
@@ -196,7 +176,9 @@ internal static class CorpusInventory
         );
     }
 
-    private static Dictionary<string, CardIdentity> BuildIdentityMap(ReplayObservationInput replay)
+    private static Dictionary<string, CardIdentity> BuildIdentityMap(
+        CombatImpactCorpusBattle replay
+    )
     {
         var identities = new Dictionary<string, CardIdentity>(StringComparer.Ordinal);
         foreach (var (instanceId, card) in replay.Spawn.Cards)
@@ -204,35 +186,35 @@ internal static class CorpusInventory
             identities[instanceId] = new CardIdentity(
                 TemplateId: null,
                 InferCardType(instanceId),
-                card.Placement?.Owner
+                card.Owner
             );
         }
-        foreach (var instanceId in replay.Combat.CardStats.Keys)
+        foreach (var instanceId in replay.Timeline.CardStats.Keys)
         {
             var inferredType = InferCardType(instanceId);
             if (inferredType.HasValue && !identities.ContainsKey(instanceId))
                 identities[instanceId] = new CardIdentity(null, inferredType, null);
         }
-        foreach (var spawned in replay.Spawn.Events.OfType<GameSimEventCardSpawned>())
+        foreach (var spawned in replay.Spawn.SpawnedCards)
         {
             identities[spawned.InstanceId] = new CardIdentity(
                 spawned.TemplateId,
                 spawned.Type,
-                spawned.CombatantId
+                spawned.Combatant
             );
         }
 
-        foreach (var frame in replay.Combat.Frames)
-            AddTransformIdentities(frame, identities);
+        foreach (var transforms in replay.TransformIdentities)
+            AddTransformIdentities(transforms, identities);
         return identities;
     }
 
     private static IReadOnlyDictionary<string, CombatImpactEntity> BuildAttributionEntities(
-        ReplayObservationInput replay,
+        CombatImpactCorpusBattle replay,
         IReadOnlyDictionary<string, CardIdentity> identities
     ) =>
         identities
-            .Where(pair => pair.Value.Type is ECardType.Item or ECardType.Skill)
+            .Where(pair => pair.Value.Type is CardType.Item or CardType.Skill)
             .ToDictionary(
                 pair => pair.Key,
                 pair => new CombatImpactEntity(
@@ -242,32 +224,28 @@ internal static class CorpusInventory
                     null,
                     0,
                     Attributes: replay.Spawn.Cards.TryGetValue(pair.Key, out var card)
-                        ? DesktopCombatFacets.CardAttributes(
-                            card.Attributes.Select(attribute =>
-                                KeyValuePair.Create(attribute.Key, attribute.Value.Value)
-                            )
-                        )
+                        ? card.Attributes
                         : null,
-                    CombatantId: DesktopCombatFacets.ToCombatant(pair.Value.Combatant)
+                    CombatantId: pair.Value.Combatant
                 ),
                 StringComparer.Ordinal
             );
 
     private static void ReadOpeningActions(
-        ReplayObservationInput replay,
+        CombatImpactCorpusBattle replay,
         IReadOnlyDictionary<string, CardIdentity> identities,
         IDictionary<string, int> counts,
         ICollection<OpeningActionObservation> observations
     )
     {
-        foreach (var effect in replay.Spawn.Events.OfType<GameSimEventEffectExecuted>())
+        foreach (var effect in replay.Spawn.Effects)
         {
             if (
                 effect.ActionType
                 is not (
-                    EActionCommandType.PlayerBurnApply
-                    or EActionCommandType.PlayerPoisonApply
-                    or EActionCommandType.PlayerRegenApply
+                    CombatActionType.PlayerBurnApply
+                    or CombatActionType.PlayerPoisonApply
+                    or CombatActionType.PlayerRegenApply
                 )
             )
             {
@@ -282,25 +260,25 @@ internal static class CorpusInventory
                     replay.BattleId,
                     action,
                     ResolveOpeningSource(effect, identities),
-                    effect.Source?.Value,
-                    effect.TriggerSource?.Value,
-                    effect.Target is EffectTargetPlayer player ? player.Target.ToString() : null
+                    effect.Source,
+                    effect.TriggerSource,
+                    effect.Target is CombatPlayerTarget player ? player.Target.ToString() : null
                 )
             );
         }
     }
 
     private static string? ResolveOpeningSource(
-        GameSimEventEffectExecuted effect,
+        CombatEffectExecuted effect,
         IReadOnlyDictionary<string, CardIdentity> identities
     )
     {
-        foreach (var candidate in new[] { effect.Source?.Value, effect.TriggerSource?.Value })
+        foreach (var candidate in new[] { effect.Source, effect.TriggerSource })
         {
             if (
                 candidate != null
                 && identities.TryGetValue(candidate, out var identity)
-                && identity.Type is ECardType.Item or ECardType.Skill
+                && identity.Type is CardType.Item or CardType.Skill
             )
             {
                 return candidate;
@@ -309,40 +287,25 @@ internal static class CorpusInventory
         return null;
     }
 
-    private static ECardType? InferCardType(string instanceId) =>
-        instanceId.StartsWith("itm_", StringComparison.Ordinal) ? ECardType.Item
-        : instanceId.StartsWith("skl_", StringComparison.Ordinal) ? ECardType.Skill
+    private static CardType? InferCardType(string instanceId) =>
+        instanceId.StartsWith("itm_", StringComparison.Ordinal) ? CardType.Item
+        : instanceId.StartsWith("skl_", StringComparison.Ordinal) ? CardType.Skill
         : null;
 
     private static void AddTransformIdentities(
-        CombatSimFrame frame,
+        CombatImpactCorpusTransformFrame transforms,
         IDictionary<string, CardIdentity> identities
     )
     {
-        foreach (var transformed in frame.Events.OfType<CombatSimEventCardTransformed>())
-        {
-            foreach (var card in transformed.TransformedCards)
-            {
-                identities[card.InstanceId] = new CardIdentity(
-                    card.TemplateId,
-                    card.Type,
-                    card.CombatantId
-                );
-            }
-        }
-
-        foreach (var reverted in frame.Events.OfType<CombatSimEventCardTransformReverted>())
-        {
-            var card = reverted.OriginalCard;
+        foreach (var card in transforms.Transformed.Concat(transforms.Reverted))
             identities[card.InstanceId] = new CardIdentity(
                 card.TemplateId,
                 card.Type,
-                card.CombatantId
+                card.Combatant
             );
-        }
     }
 
-    private static SortedDictionary<string, int> CountStatSources(CombatSim combat)
+    private static SortedDictionary<string, int> CountStatSources(CombatTimeline combat)
     {
         var result = new SortedDictionary<string, int>(StringComparer.Ordinal)
         {
@@ -352,17 +315,17 @@ internal static class CorpusInventory
         };
         foreach (var stats in combat.CardStats.Values)
         {
-            if (stats.GetValueOrDefault(ECardStats.BurnAdded) != 0)
+            if (stats.GetValueOrDefault(CombatCardStat.BurnAdded) != 0)
                 result["Burn"]++;
-            if (stats.GetValueOrDefault(ECardStats.PoisonAdded) != 0)
+            if (stats.GetValueOrDefault(CombatCardStat.PoisonAdded) != 0)
                 result["Poison"]++;
-            if (stats.GetValueOrDefault(ECardStats.RegenAdded) != 0)
+            if (stats.GetValueOrDefault(CombatCardStat.RegenAdded) != 0)
                 result["Regen"]++;
         }
         return result;
     }
 
-    private static SortedDictionary<string, long> SumStatAmounts(CombatSim combat)
+    private static SortedDictionary<string, long> SumStatAmounts(CombatTimeline combat)
     {
         var result = new SortedDictionary<string, long>(StringComparer.Ordinal)
         {
@@ -372,21 +335,21 @@ internal static class CorpusInventory
         };
         foreach (var stats in combat.CardStats.Values)
         {
-            result["Burn"] += stats.GetValueOrDefault(ECardStats.BurnAdded);
-            result["Poison"] += stats.GetValueOrDefault(ECardStats.PoisonAdded);
-            result["Regen"] += stats.GetValueOrDefault(ECardStats.RegenAdded);
+            result["Burn"] += stats.GetValueOrDefault(CombatCardStat.BurnAdded);
+            result["Poison"] += stats.GetValueOrDefault(CombatCardStat.PoisonAdded);
+            result["Regen"] += stats.GetValueOrDefault(CombatCardStat.RegenAdded);
         }
         return result;
     }
 
     private static List<string> FindMissingStatSourceIdentities(
-        ReplayObservationInput replay,
+        CombatImpactCorpusBattle replay,
         IReadOnlyDictionary<string, CardIdentity> identities
     )
     {
         var missing = new List<string>();
         foreach (
-            var (sourceId, stats) in replay.Combat.CardStats.OrderBy(
+            var (sourceId, stats) in replay.Timeline.CardStats.OrderBy(
                 pair => pair.Key,
                 StringComparer.Ordinal
             )
@@ -395,9 +358,9 @@ internal static class CorpusInventory
             foreach (
                 var (stat, label) in new[]
                 {
-                    (ECardStats.BurnAdded, "Burn"),
-                    (ECardStats.PoisonAdded, "Poison"),
-                    (ECardStats.RegenAdded, "Regen"),
+                    (CombatCardStat.BurnAdded, "Burn"),
+                    (CombatCardStat.PoisonAdded, "Poison"),
+                    (CombatCardStat.RegenAdded, "Regen"),
                 }
             )
             {
@@ -408,43 +371,43 @@ internal static class CorpusInventory
         return missing;
     }
 
-    private static Dictionary<ECombatantId, Dictionary<EPlayerAttributeType, int>> CreateStateMaps(
-        ReplayObservationInput replay
+    private static Dictionary<Combatant, Dictionary<CombatPlayerAttribute, int>> CreateStateMaps(
+        CombatImpactCorpusBattle replay
     )
     {
-        var states = new Dictionary<ECombatantId, Dictionary<EPlayerAttributeType, int>>
+        var states = new Dictionary<Combatant, Dictionary<CombatPlayerAttribute, int>>
         {
-            [ECombatantId.Player] = new Dictionary<EPlayerAttributeType, int>(
-                replay.Spawn.Player.Attributes
+            [Combatant.Player] = new Dictionary<CombatPlayerAttribute, int>(
+                replay.Spawn.PlayerAttributes
             ),
-            [ECombatantId.Opponent] = new Dictionary<EPlayerAttributeType, int>(
-                replay.Spawn.Opponent.Attributes
+            [Combatant.Opponent] = new Dictionary<CombatPlayerAttribute, int>(
+                replay.Spawn.OpponentAttributes
             ),
         };
 
-        foreach (var combatant in new[] { ECombatantId.Player, ECombatantId.Opponent })
+        foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
         {
             var state = states[combatant];
-            foreach (var frame in replay.Combat.Frames)
+            foreach (var frame in replay.Timeline.Frames)
             {
                 var update =
-                    combatant == ECombatantId.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
+                    combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
                 if (update == null)
                     continue;
                 foreach (var (attribute, transition) in update.Attributes)
                     state.TryAdd(attribute, transition.PreviousValue);
             }
 
-            state.TryAdd(EPlayerAttributeType.Burn, 0);
-            state.TryAdd(EPlayerAttributeType.Poison, 0);
-            state.TryAdd(EPlayerAttributeType.HealthRegen, 0);
-            state.TryAdd(EPlayerAttributeType.Shield, 0);
+            state.TryAdd(CombatPlayerAttribute.Burn, 0);
+            state.TryAdd(CombatPlayerAttribute.Poison, 0);
+            state.TryAdd(CombatPlayerAttribute.HealthRegen, 0);
+            state.TryAdd(CombatPlayerAttribute.Shield, 0);
             if (
-                !state.ContainsKey(EPlayerAttributeType.HealthMax)
-                && state.TryGetValue(EPlayerAttributeType.Health, out var health)
+                !state.ContainsKey(CombatPlayerAttribute.HealthMax)
+                && state.TryGetValue(CombatPlayerAttribute.Health, out var health)
             )
             {
-                state[EPlayerAttributeType.HealthMax] = health;
+                state[CombatPlayerAttribute.HealthMax] = health;
             }
         }
 
@@ -452,27 +415,27 @@ internal static class CorpusInventory
     }
 
     private static AttributeSnapshot Snapshot(
-        IReadOnlyDictionary<EPlayerAttributeType, int> state
+        IReadOnlyDictionary<CombatPlayerAttribute, int> state
     ) =>
         new(
-            Read(state, EPlayerAttributeType.Burn),
-            Read(state, EPlayerAttributeType.Poison),
-            Read(state, EPlayerAttributeType.HealthRegen),
-            Read(state, EPlayerAttributeType.Health),
-            Read(state, EPlayerAttributeType.HealthMax),
-            Read(state, EPlayerAttributeType.Shield),
-            Read(state, EPlayerAttributeType.FlatDamageReduction),
-            Read(state, EPlayerAttributeType.PercentDamageReduction)
+            Read(state, CombatPlayerAttribute.Burn),
+            Read(state, CombatPlayerAttribute.Poison),
+            Read(state, CombatPlayerAttribute.HealthRegen),
+            Read(state, CombatPlayerAttribute.Health),
+            Read(state, CombatPlayerAttribute.HealthMax),
+            Read(state, CombatPlayerAttribute.Shield),
+            Read(state, CombatPlayerAttribute.FlatDamageReduction),
+            Read(state, CombatPlayerAttribute.PercentDamageReduction)
         );
 
     private static int? Read(
-        IReadOnlyDictionary<EPlayerAttributeType, int> state,
-        EPlayerAttributeType attribute
+        IReadOnlyDictionary<CombatPlayerAttribute, int> state,
+        CombatPlayerAttribute attribute
     ) => state.TryGetValue(attribute, out var value) ? value : null;
 
     private static void ApplyUpdates(
-        IDictionary<EPlayerAttributeType, int> state,
-        CombatSimPlayerUpdate? update
+        IDictionary<CombatPlayerAttribute, int> state,
+        CombatPlayerUpdate? update
     )
     {
         if (update == null)
@@ -482,7 +445,7 @@ internal static class CorpusInventory
     }
 
     private static void AddTransitions(
-        CombatSimPlayerUpdate? update,
+        CombatPlayerUpdate? update,
         IDictionary<string, TransitionAggregate> transitions
     )
     {
@@ -509,7 +472,7 @@ internal static class CorpusInventory
     }
 
     private static List<AdjustmentObservation> ReadAdjustments(
-        CombatSimPlayerUpdate? update,
+        CombatPlayerUpdate? update,
         IDictionary<string, AdjustmentAggregate> aggregates
     )
     {
@@ -551,9 +514,9 @@ internal static class CorpusInventory
     private static List<ActionObservation> ReadActions(
         string battleId,
         int frameIndex,
-        ECombatantId combatant,
-        CombatSimFrame frame,
-        CombatSimPlayerUpdate? update,
+        Combatant combatant,
+        CombatFrame frame,
+        CombatPlayerUpdate? update,
         IReadOnlyDictionary<string, CardIdentity> identities,
         IDictionary<string, int> actionCounts,
         ICollection<string> unresolvedActionSources,
@@ -562,7 +525,7 @@ internal static class CorpusInventory
     )
     {
         var result = new List<ActionObservation>();
-        foreach (var effect in frame.Events.OfType<CombatSimEventEffectExecuted>())
+        foreach (var effect in frame.Events.OfType<CombatEffectExecuted>())
         {
             if (!Targets(effect, combatant) || !IsPeriodicAction(effect.ActionType, update))
                 continue;
@@ -580,28 +543,23 @@ internal static class CorpusInventory
                 resolvedActions++;
             }
             result.Add(
-                new ActionObservation(
-                    action,
-                    sourceId,
-                    effect.Source?.Value,
-                    effect.TriggerSource?.Value
-                )
+                new ActionObservation(action, sourceId, effect.Source, effect.TriggerSource)
             );
         }
         return result;
     }
 
     internal static string? ResolveSource(
-        CombatSimEventEffectExecuted effect,
+        CombatEffectExecuted effect,
         IReadOnlyDictionary<string, CardIdentity> identities
     )
     {
-        foreach (var candidate in new[] { effect.Source?.Value, effect.TriggerSource?.Value })
+        foreach (var candidate in new[] { effect.Source, effect.TriggerSource })
         {
             if (
                 candidate != null
                 && identities.TryGetValue(candidate, out var identity)
-                && identity.Type is ECardType.Item or ECardType.Skill
+                && identity.Type is CardType.Item or CardType.Skill
             )
             {
                 return candidate;
@@ -610,39 +568,36 @@ internal static class CorpusInventory
         return null;
     }
 
-    private static bool Targets(CombatSimEventEffectExecuted effect, ECombatantId combatant) =>
-        effect.Target is EffectTargetPlayer player && player.Target == combatant;
+    private static bool Targets(CombatEffectExecuted effect, Combatant combatant) =>
+        effect.Target is CombatPlayerTarget player && player.Target == combatant;
 
     private static IReadOnlyList<ActionObservation> ReadContextActions(
-        CombatSimFrame frame,
-        ECombatantId combatant,
+        CombatFrame frame,
+        Combatant combatant,
         IReadOnlyDictionary<string, CardIdentity> identities
     ) =>
         frame
-            .Events.OfType<CombatSimEventEffectExecuted>()
+            .Events.OfType<CombatEffectExecuted>()
             .Where(effect => Targets(effect, combatant))
             .Select(effect => new ActionObservation(
                 effect.ActionType.ToString(),
                 ResolveSource(effect, identities),
-                effect.Source?.Value,
-                effect.TriggerSource?.Value
+                effect.Source,
+                effect.TriggerSource
             ))
             .ToArray();
 
-    private static bool IsPeriodicAction(
-        EActionCommandType action,
-        CombatSimPlayerUpdate? update
-    ) =>
+    private static bool IsPeriodicAction(CombatActionType action, CombatPlayerUpdate? update) =>
         action
-            is EActionCommandType.PlayerBurnApply
-                or EActionCommandType.PlayerBurnRemove
-                or EActionCommandType.PlayerPoisonApply
-                or EActionCommandType.PlayerPoisonRemove
-                or EActionCommandType.PlayerRegenApply
-                or EActionCommandType.PlayerRegenRemove
-        || action == EActionCommandType.PlayerModifyAttribute && HasPeriodicTransition(update);
+            is CombatActionType.PlayerBurnApply
+                or CombatActionType.PlayerBurnRemove
+                or CombatActionType.PlayerPoisonApply
+                or CombatActionType.PlayerPoisonRemove
+                or CombatActionType.PlayerRegenApply
+                or CombatActionType.PlayerRegenRemove
+        || action == CombatActionType.PlayerModifyAttribute && HasPeriodicTransition(update);
 
-    private static bool HasPeriodicTransition(CombatSimPlayerUpdate? update) =>
+    private static bool HasPeriodicTransition(CombatPlayerUpdate? update) =>
         update != null
         && TrackedAttributes
             .Take(3)
@@ -651,13 +606,13 @@ internal static class CorpusInventory
                 && transition.Delta != 0
             );
 
-    private static bool IsPeriodic(EDamageType type) =>
-        type is EDamageType.Burn or EDamageType.Poison or EDamageType.Regen;
+    private static bool IsPeriodic(CombatDamageType type) =>
+        type is CombatDamageType.Burn or CombatDamageType.Poison or CombatDamageType.Regen;
 
     private static bool IsPeriodic(string type) => type is "Burn" or "Poison" or "Regen";
 }
 
-internal sealed record CardIdentity(string? TemplateId, ECardType? Type, ECombatantId? Combatant);
+internal sealed record CardIdentity(string? TemplateId, CardType? Type, Combatant? Combatant);
 
 internal sealed record CorpusInventoryReport(
     int SchemaVersion,
@@ -713,30 +668,28 @@ internal sealed class TerminalImpactCoverage
     public long AtomicBurnGroupCombatEffectiveHealthLossOnDeathEventFrames { get; private set; }
     public long AtomicBurnGroupCombatEffectiveShieldConsumedOnDeathEventFrames { get; private set; }
 
-    internal void Observe(CombatSim combat, GameSim spawn)
+    internal void Observe(CombatTimeline combat, CombatImpactCorpusSpawn spawn)
     {
-        foreach (var combatant in new[] { ECombatantId.Player, ECombatantId.Opponent })
+        foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
         {
-            var state = new Dictionary<EPlayerAttributeType, int>(
-                combatant == ECombatantId.Player
-                    ? spawn.Player.Attributes
-                    : spawn.Opponent.Attributes
+            var state = new Dictionary<CombatPlayerAttribute, int>(
+                combatant == Combatant.Player ? spawn.PlayerAttributes : spawn.OpponentAttributes
             );
             foreach (var frame in combat.Frames)
             {
                 var update =
-                    combatant == ECombatantId.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
+                    combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
                 if (update == null)
                     continue;
                 foreach (var (attribute, transition) in update.Attributes)
                     state.TryAdd(attribute, transition.PreviousValue);
             }
             if (
-                !state.ContainsKey(EPlayerAttributeType.HealthMax)
-                && state.TryGetValue(EPlayerAttributeType.Health, out var initialHealth)
+                !state.ContainsKey(CombatPlayerAttribute.HealthMax)
+                && state.TryGetValue(CombatPlayerAttribute.Health, out var initialHealth)
             )
             {
-                state[EPlayerAttributeType.HealthMax] = initialHealth;
+                state[CombatPlayerAttribute.HealthMax] = initialHealth;
             }
 
             var deathEvents = 0;
@@ -744,19 +697,19 @@ internal sealed class TerminalImpactCoverage
             {
                 var frame = combat.Frames[frameIndex];
                 var update =
-                    combatant == ECombatantId.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
+                    combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
                 var hasDeathEvent = frame
-                    .Events.OfType<CombatSimEventCombatantDied>()
+                    .Events.OfType<CombatantDied>()
                     .Any(death => death.CombatantId == combatant);
 
                 if (deathEvents > 0)
                 {
                     FramesAfterFirstDeathEvent++;
                     if (
-                        state.GetValueOrDefault(EPlayerAttributeType.Health) > 0
+                        state.GetValueOrDefault(CombatPlayerAttribute.Health) > 0
                         || (
                             update?.Attributes.TryGetValue(
-                                EPlayerAttributeType.Health,
+                                CombatPlayerAttribute.Health,
                                 out var postDeathHealth
                             ) == true
                             && postDeathHealth.CurrentValue > 0
@@ -770,9 +723,9 @@ internal sealed class TerminalImpactCoverage
                         update
                             ?.HealthAdjustments.Where(adjustment =>
                                 adjustment.DamageType
-                                    is EDamageType.Burn
-                                        or EDamageType.Poison
-                                        or EDamageType.Regen
+                                    is CombatDamageType.Burn
+                                        or CombatDamageType.Poison
+                                        or CombatDamageType.Regen
                             )
                             .ToArray()
                         ?? [];
@@ -791,12 +744,12 @@ internal sealed class TerminalImpactCoverage
 
                 if (
                     update != null
-                    && state.TryGetValue(EPlayerAttributeType.Health, out var openingHealth)
-                    && state.TryGetValue(EPlayerAttributeType.HealthMax, out var openingMax)
+                    && state.TryGetValue(CombatPlayerAttribute.Health, out var openingHealth)
+                    && state.TryGetValue(CombatPlayerAttribute.HealthMax, out var openingMax)
                 )
                 {
                     var closingMax = update.Attributes.TryGetValue(
-                        EPlayerAttributeType.HealthMax,
+                        CombatPlayerAttribute.HealthMax,
                         out var maxTransition
                     )
                         ? maxTransition.CurrentValue
@@ -805,12 +758,12 @@ internal sealed class TerminalImpactCoverage
                     var terminalReached = hasDeathEvent && health <= 0;
                     foreach (var adjustment in update.HealthAdjustments)
                     {
-                        if (adjustment.AttributeChanged != EPlayerHealthChangeType.Health)
+                        if (adjustment.AttributeChanged != CombatHealthChange.Health)
                         {
                             if (
                                 hasDeathEvent
-                                && adjustment.DamageType == EDamageType.Burn
-                                && adjustment.AttributeChanged == EPlayerHealthChangeType.Shield
+                                && adjustment.DamageType == CombatDamageType.Burn
+                                && adjustment.AttributeChanged == CombatHealthChange.Shield
                                 && adjustment.Amount < 0
                             )
                             {
@@ -828,7 +781,9 @@ internal sealed class TerminalImpactCoverage
                         {
                             if (
                                 hasDeathEvent
-                                && adjustment.DamageType is EDamageType.Burn or EDamageType.Poison
+                                && adjustment.DamageType
+                                    is CombatDamageType.Burn
+                                        or CombatDamageType.Poison
                             )
                             {
                                 var key = adjustment.DamageType.ToString();
@@ -868,11 +823,11 @@ internal sealed class TerminalImpactCoverage
                             var adjustment in update.HealthAdjustments.AsEnumerable().Reverse()
                         )
                         {
-                            if (adjustment.AttributeChanged != EPlayerHealthChangeType.Health)
+                            if (adjustment.AttributeChanged != CombatHealthChange.Health)
                             {
                                 if (
-                                    adjustment.DamageType == EDamageType.Burn
-                                    && adjustment.AttributeChanged == EPlayerHealthChangeType.Shield
+                                    adjustment.DamageType == CombatDamageType.Burn
+                                    && adjustment.AttributeChanged == CombatHealthChange.Shield
                                     && adjustment.Amount < 0
                                     && !reversedTerminalReached
                                 )
@@ -884,7 +839,11 @@ internal sealed class TerminalImpactCoverage
                             }
                             if (adjustment.Amount <= 0)
                             {
-                                if (adjustment.DamageType is EDamageType.Burn or EDamageType.Poison)
+                                if (
+                                    adjustment.DamageType
+                                    is CombatDamageType.Burn
+                                        or CombatDamageType.Poison
+                                )
                                 {
                                     var key = adjustment.DamageType.ToString();
                                     var loss = -(long)adjustment.Amount;
@@ -917,28 +876,27 @@ internal sealed class TerminalImpactCoverage
                         {
                             var adjustment = update.HealthAdjustments[index];
                             if (
-                                adjustment.DamageType == EDamageType.Burn
+                                adjustment.DamageType == CombatDamageType.Burn
                                 && adjustment.Amount < 0
                                 && adjustment.AttributeChanged
-                                    is EPlayerHealthChangeType.Health
-                                        or EPlayerHealthChangeType.Shield
+                                    is CombatHealthChange.Health
+                                        or CombatHealthChange.Shield
                             )
                             {
                                 var groupWasAlive = !groupedTerminalReached;
                                 while (
                                     index < update.HealthAdjustments.Count
                                     && update.HealthAdjustments[index].DamageType
-                                        == EDamageType.Burn
+                                        == CombatDamageType.Burn
                                     && update.HealthAdjustments[index].Amount < 0
                                     && update.HealthAdjustments[index].AttributeChanged
-                                        is EPlayerHealthChangeType.Health
-                                            or EPlayerHealthChangeType.Shield
+                                        is CombatHealthChange.Health
+                                            or CombatHealthChange.Shield
                                 )
                                 {
                                     var burnAdjustment = update.HealthAdjustments[index];
                                     if (
-                                        burnAdjustment.AttributeChanged
-                                        == EPlayerHealthChangeType.Health
+                                        burnAdjustment.AttributeChanged == CombatHealthChange.Health
                                     )
                                     {
                                         var loss = -(long)burnAdjustment.Amount;
@@ -962,7 +920,7 @@ internal sealed class TerminalImpactCoverage
                                 continue;
                             }
 
-                            if (adjustment.AttributeChanged != EPlayerHealthChangeType.Health)
+                            if (adjustment.AttributeChanged != CombatHealthChange.Health)
                                 continue;
                             if (adjustment.Amount <= 0)
                             {
@@ -1592,11 +1550,12 @@ internal sealed class AttributionCoverage
 
     internal void Observe(
         PeriodicAttributionReport report,
-        CombatSim combat,
-        IReadOnlyDictionary<string, CardIdentity> identities,
-        GameSim spawn
+        CombatImpactCorpusBattle battle,
+        IReadOnlyDictionary<string, CardIdentity> identities
     )
     {
+        var combat = battle.Timeline;
+        var spawn = battle.Spawn;
         var impacts = report.SourceImpacts;
         ValidateLedger(report);
         foreach (var (key, measured) in report.MeasuredTotals)
@@ -1609,7 +1568,7 @@ internal sealed class AttributionCoverage
                 MeasuredShieldByCombatantAndKind.GetValueOrDefault(ledgerKey)
                 + measured.ShieldAmount;
         }
-        var regenMeasurements = BuildRegenMeasurements(combat, spawn);
+        var regenMeasurements = BuildRegenMeasurements(battle);
         foreach (var pair in regenMeasurements)
         {
             var measurement = pair.Value;
@@ -1691,13 +1650,13 @@ internal sealed class AttributionCoverage
             if (
                 allocation.Kind == CombatImpactPeriodicKind.Regen
                 && regenMeasurements.TryGetValue(
-                    (allocation.FrameIndex, CorpusInventory.GameCombatant(allocation.Combatant)),
+                    (allocation.FrameIndex, allocation.Combatant),
                     out var allocationMeasurement
                 )
             )
             {
                 var baselineKey = DescribeRegenSpawnBaseline(
-                    CorpusInventory.GameCombatant(allocation.Combatant),
+                    allocation.Combatant,
                     allocationMeasurement
                 );
                 RegenAttributedBySpawnBaseline[baselineKey] =
@@ -1731,7 +1690,7 @@ internal sealed class AttributionCoverage
             if (
                 allocation.Kind == CombatImpactPeriodicKind.Regen
                 && regenMeasurements.TryGetValue(
-                    (allocation.FrameIndex, CorpusInventory.GameCombatant(allocation.Combatant)),
+                    (allocation.FrameIndex, allocation.Combatant),
                     out var deathEventAllocationMeasurement
                 )
                 && deathEventAllocationMeasurement.HasDeathEvent
@@ -1765,7 +1724,7 @@ internal sealed class AttributionCoverage
             if (
                 gap.Kind == CombatImpactPeriodicKind.Regen
                 && regenMeasurements.TryGetValue(
-                    (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
+                    (gap.FrameIndex, gap.Combatant),
                     out var measuredGap
                 )
                 && gap.HealthAmount != measuredGap.Realized
@@ -1779,7 +1738,7 @@ internal sealed class AttributionCoverage
             if (
                 gap.Kind == CombatImpactPeriodicKind.Regen
                 && regenMeasurements.TryGetValue(
-                    (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
+                    (gap.FrameIndex, gap.Combatant),
                     out var regenMeasurement
                 )
                 && regenMeasurement.HasSourceStatus
@@ -1800,7 +1759,7 @@ internal sealed class AttributionCoverage
                 if (
                     gap.Kind == CombatImpactPeriodicKind.Regen
                     && regenMeasurements.TryGetValue(
-                        (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
+                        (gap.FrameIndex, gap.Combatant),
                         out var gapMeasurement
                     )
                     && gapMeasurement.IsPlayerDead
@@ -1811,7 +1770,7 @@ internal sealed class AttributionCoverage
                 if (
                     gap.Kind == CombatImpactPeriodicKind.Regen
                     && regenMeasurements.TryGetValue(
-                        (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
+                        (gap.FrameIndex, gap.Combatant),
                         out var deathEventGapMeasurement
                     )
                     && deathEventGapMeasurement.HasDeathEvent
@@ -1831,17 +1790,14 @@ internal sealed class AttributionCoverage
                 if (
                     gap.Kind == CombatImpactPeriodicKind.Regen
                     && regenMeasurements.TryGetValue(
-                        (gap.FrameIndex, CorpusInventory.GameCombatant(gap.Combatant)),
+                        (gap.FrameIndex, gap.Combatant),
                         out var unknownMeasurement
                     )
                 )
                 {
                     var baselineKey =
                         $"{origin}/"
-                        + DescribeRegenSpawnBaseline(
-                            CorpusInventory.GameCombatant(gap.Combatant),
-                            unknownMeasurement
-                        );
+                        + DescribeRegenSpawnBaseline(gap.Combatant, unknownMeasurement);
                     RegenUnknownBySpawnBaseline[baselineKey] =
                         RegenUnknownBySpawnBaseline.GetValueOrDefault(baselineKey)
                         + bookedGapHealth;
@@ -1859,11 +1815,11 @@ internal sealed class AttributionCoverage
                 UnattributedShieldByOrigin.GetValueOrDefault(origin) + gap.ShieldAmount;
             var frame = combat.Frames[gap.FrameIndex];
             var hasSameFrameApply = frame
-                .Events.OfType<CombatSimEventEffectExecuted>()
+                .Events.OfType<CombatEffectExecuted>()
                 .Any(effect =>
-                    effect.ActionType == EActionCommandType.PlayerRegenApply
-                    && effect.Target is EffectTargetPlayer player
-                    && player.Target == CorpusInventory.GameCombatant(gap.Combatant)
+                    effect.ActionType == CombatActionType.PlayerRegenApply
+                    && effect.Target is CombatPlayerTarget player
+                    && player.Target == gap.Combatant
                 );
             var context =
                 $"{origin}/{(isMeasuredSourceImpact ? "MeasuredSource" : "Excluded")}/"
@@ -1874,10 +1830,10 @@ internal sealed class AttributionCoverage
             if (gap.Kind == CombatImpactPeriodicKind.Regen && gap.HealthAmount > 0)
             {
                 var candidateCount = combat.CardStats.Count(pair =>
-                    pair.Value.GetValueOrDefault(ECardStats.RegenAdded) > 0
+                    pair.Value.GetValueOrDefault(CombatCardStat.RegenAdded) > 0
                     && identities.TryGetValue(pair.Key, out var identity)
-                    && identity.Combatant == CorpusInventory.GameCombatant(gap.Combatant)
-                    && identity.Type is ECardType.Item or ECardType.Skill
+                    && identity.Combatant == gap.Combatant
+                    && identity.Type is CardType.Item or CardType.Skill
                 );
                 var candidateKey =
                     $"{origin}/{(isMeasuredSourceImpact ? "MeasuredSource" : "Excluded")}/"
@@ -1887,20 +1843,20 @@ internal sealed class AttributionCoverage
                     + gap.HealthAmount;
                 var attributeCandidateCount = spawn.Cards.Count(pair =>
                     pair.Value.Attributes.TryGetValue(
-                        ECardAttributeType.RegenApplyAmount,
+                        CombatCardAttribute.RegenApplyAmount,
                         out var attribute
                     )
-                    && attribute.Value > 0
+                    && attribute > 0
                     && identities.TryGetValue(pair.Key, out var identity)
-                    && identity.Combatant == CorpusInventory.GameCombatant(gap.Combatant)
-                    && identity.Type is ECardType.Item or ECardType.Skill
+                    && identity.Combatant == gap.Combatant
+                    && identity.Type is CardType.Item or CardType.Skill
                 );
                 var eventCandidateIds = combat
-                    .Frames.SelectMany(frame => frame.Events.OfType<CombatSimEventEffectExecuted>())
+                    .Frames.SelectMany(frame => frame.Events.OfType<CombatEffectExecuted>())
                     .Where(effect =>
-                        effect.ActionType == EActionCommandType.PlayerRegenApply
-                        && effect.Target is EffectTargetPlayer player
-                        && player.Target == CorpusInventory.GameCombatant(gap.Combatant)
+                        effect.ActionType == CombatActionType.PlayerRegenApply
+                        && effect.Target is CombatPlayerTarget player
+                        && player.Target == gap.Combatant
                     )
                     .Select(effect => CorpusInventory.ResolveSource(effect, identities))
                     .Where(sourceId => sourceId != null)
@@ -1910,11 +1866,11 @@ internal sealed class AttributionCoverage
                 var eventCandidateCount = eventCandidateIds.Length;
                 var priorEventCandidateCount = combat
                     .Frames.Take(gap.FrameIndex + 1)
-                    .SelectMany(frame => frame.Events.OfType<CombatSimEventEffectExecuted>())
+                    .SelectMany(frame => frame.Events.OfType<CombatEffectExecuted>())
                     .Where(effect =>
-                        effect.ActionType == EActionCommandType.PlayerRegenApply
-                        && effect.Target is EffectTargetPlayer player
-                        && player.Target == CorpusInventory.GameCombatant(gap.Combatant)
+                        effect.ActionType == CombatActionType.PlayerRegenApply
+                        && effect.Target is CombatPlayerTarget player
+                        && player.Target == gap.Combatant
                     )
                     .Select(effect => CorpusInventory.ResolveSource(effect, identities))
                     .Where(sourceId => sourceId != null)
@@ -1922,10 +1878,10 @@ internal sealed class AttributionCoverage
                     .Count();
                 var displayCandidateCount = combat
                     .CardStats.Where(pair =>
-                        pair.Value.GetValueOrDefault(ECardStats.RegenAdded) > 0
+                        pair.Value.GetValueOrDefault(CombatCardStat.RegenAdded) > 0
                         && identities.TryGetValue(pair.Key, out var identity)
-                        && identity.Combatant == CorpusInventory.GameCombatant(gap.Combatant)
-                        && identity.Type is ECardType.Item or ECardType.Skill
+                        && identity.Combatant == gap.Combatant
+                        && identity.Type is CardType.Item or CardType.Skill
                     )
                     .Select(pair => pair.Key)
                     .Concat(eventCandidateIds)
@@ -2029,85 +1985,85 @@ internal sealed class AttributionCoverage
     }
 
     private static Dictionary<
-        (int FrameIndex, ECombatantId Combatant),
+        (int FrameIndex, Combatant Combatant),
         RegenFrameMeasurement
-    > BuildRegenMeasurements(CombatSim combat, GameSim spawn)
+    > BuildRegenMeasurements(CombatImpactCorpusBattle battle)
     {
-        var result = new Dictionary<(int, ECombatantId), RegenFrameMeasurement>();
-        var states = new Dictionary<ECombatantId, Dictionary<EPlayerAttributeType, int>>
+        var combat = battle.Timeline;
+        var spawn = battle.Spawn;
+        var result = new Dictionary<(int, Combatant), RegenFrameMeasurement>();
+        var states = new Dictionary<Combatant, Dictionary<CombatPlayerAttribute, int>>
         {
-            [ECombatantId.Player] = new Dictionary<EPlayerAttributeType, int>(
-                spawn.Player.Attributes
-            ),
-            [ECombatantId.Opponent] = new Dictionary<EPlayerAttributeType, int>(
-                spawn.Opponent.Attributes
+            [Combatant.Player] = new Dictionary<CombatPlayerAttribute, int>(spawn.PlayerAttributes),
+            [Combatant.Opponent] = new Dictionary<CombatPlayerAttribute, int>(
+                spawn.OpponentAttributes
             ),
         };
-        var spawnRegen = new Dictionary<ECombatantId, int>
+        var spawnRegen = new Dictionary<Combatant, int>
         {
-            [ECombatantId.Player] = spawn.Player.Attributes.GetValueOrDefault(
-                EPlayerAttributeType.HealthRegen
+            [Combatant.Player] = spawn.PlayerAttributes.GetValueOrDefault(
+                CombatPlayerAttribute.HealthRegen
             ),
-            [ECombatantId.Opponent] = spawn.Opponent.Attributes.GetValueOrDefault(
-                EPlayerAttributeType.HealthRegen
+            [Combatant.Opponent] = spawn.OpponentAttributes.GetValueOrDefault(
+                CombatPlayerAttribute.HealthRegen
             ),
         };
-        var hasAnyRegenTransition = new Dictionary<ECombatantId, bool>
+        var hasAnyRegenTransition = new Dictionary<Combatant, bool>
         {
-            [ECombatantId.Player] = false,
-            [ECombatantId.Opponent] = false,
+            [Combatant.Player] = false,
+            [Combatant.Opponent] = false,
         };
-        foreach (var combatant in new[] { ECombatantId.Player, ECombatantId.Opponent })
+        foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
         {
             var state = states[combatant];
             foreach (var frame in combat.Frames)
             {
                 var update =
-                    combatant == ECombatantId.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
+                    combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
                 if (update == null)
                     continue;
-                if (update.Attributes.ContainsKey(EPlayerAttributeType.HealthRegen))
+                if (update.Attributes.ContainsKey(CombatPlayerAttribute.HealthRegen))
                     hasAnyRegenTransition[combatant] = true;
                 foreach (var (attribute, transition) in update.Attributes)
                     state.TryAdd(attribute, transition.PreviousValue);
             }
             if (
-                !state.ContainsKey(EPlayerAttributeType.HealthMax)
-                && state.TryGetValue(EPlayerAttributeType.Health, out var health)
+                !state.ContainsKey(CombatPlayerAttribute.HealthMax)
+                && state.TryGetValue(CombatPlayerAttribute.Health, out var health)
             )
             {
-                state[EPlayerAttributeType.HealthMax] = health;
+                state[CombatPlayerAttribute.HealthMax] = health;
             }
         }
         for (var frameIndex = 0; frameIndex < combat.Frames.Count; frameIndex++)
         {
             var frame = combat.Frames[frameIndex];
-            foreach (var combatant in new[] { ECombatantId.Player, ECombatantId.Opponent })
+            foreach (var combatant in new[] { Combatant.Player, Combatant.Opponent })
             {
                 var state = states[combatant];
                 var update =
-                    combatant == ECombatantId.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
+                    combatant == Combatant.Player ? frame.PlayerUpdates : frame.OpponentUpdates;
                 if (update == null)
                     continue;
 
-                var openingRegen = state.GetValueOrDefault(EPlayerAttributeType.HealthRegen);
+                var openingRegen = state.GetValueOrDefault(CombatPlayerAttribute.HealthRegen);
                 update.Attributes.TryGetValue(
-                    EPlayerAttributeType.HealthRegen,
+                    CombatPlayerAttribute.HealthRegen,
                     out var regenTransition
                 );
                 var hasFrameRegenTransition = regenTransition != null;
                 var closingRegen = regenTransition?.CurrentValue ?? openingRegen;
                 var attempted = update
                     .HealthAdjustments.Where(adjustment =>
-                        adjustment.DamageType == EDamageType.Regen
-                        && adjustment.AttributeChanged == EPlayerHealthChangeType.Health
+                        adjustment.DamageType == CombatDamageType.Regen
+                        && adjustment.AttributeChanged == CombatHealthChange.Health
                         && adjustment.Amount > 0
                     )
                     .Sum(adjustment => (long)adjustment.Amount);
                 if (attempted > 0)
                 {
                     var hasDeathEvent = frame
-                        .Events.OfType<CombatSimEventCombatantDied>()
+                        .Events.OfType<CombatantDied>()
                         .Any(death => death.CombatantId == combatant);
                     var reconciled = TryMeasureAcceptedRegen(
                         state,
@@ -2124,7 +2080,7 @@ internal sealed class AttributionCoverage
                         poolAcceptedAfterNonPositiveHealth,
                         reconciled,
                         openingRegen > 0 || closingRegen > 0,
-                        update.IsPlayerDead,
+                        battle.IsPlayerDead(frameIndex, combatant),
                         hasDeathEvent,
                         spawnRegen[combatant],
                         openingRegen,
@@ -2142,7 +2098,7 @@ internal sealed class AttributionCoverage
     }
 
     private static string DescribeRegenSpawnBaseline(
-        ECombatantId combatant,
+        Combatant combatant,
         RegenFrameMeasurement measurement
     )
     {
@@ -2167,9 +2123,9 @@ internal sealed class AttributionCoverage
 
     private static string DescribeRegenAllocationSource(
         PeriodicAttributionAllocation allocation,
-        CombatSim combat,
+        CombatTimeline combat,
         IReadOnlyDictionary<string, CardIdentity> identities,
-        GameSim spawn
+        CombatImpactCorpusSpawn spawn
     )
     {
         identities.TryGetValue(allocation.SourceId, out var identity);
@@ -2179,29 +2135,29 @@ internal sealed class AttributionCoverage
 
     private static string DescribeRegenAllocationSurface(
         PeriodicAttributionAllocation allocation,
-        CombatSim combat,
+        CombatTimeline combat,
         IReadOnlyDictionary<string, CardIdentity> identities,
-        GameSim spawn
+        CombatImpactCorpusSpawn spawn
     )
     {
         var hasStats =
             combat.CardStats.TryGetValue(allocation.SourceId, out var stats)
-            && stats.GetValueOrDefault(ECardStats.RegenAdded) > 0;
+            && stats.GetValueOrDefault(CombatCardStat.RegenAdded) > 0;
         var hasAttribute =
             spawn.Cards.TryGetValue(allocation.SourceId, out var card)
             && card.Attributes.TryGetValue(
-                ECardAttributeType.RegenApplyAmount,
+                CombatCardAttribute.RegenApplyAmount,
                 out var regenApplyAmount
             )
-            && regenApplyAmount.Value > 0;
+            && regenApplyAmount > 0;
         var eventFrames = combat
             .Frames.Select((frame, index) => (frame, index))
             .Where(pair => pair.index <= allocation.FrameIndex)
-            .SelectMany(pair => pair.frame.Events.OfType<CombatSimEventEffectExecuted>())
+            .SelectMany(pair => pair.frame.Events.OfType<CombatEffectExecuted>())
             .Where(effect =>
-                effect.ActionType == EActionCommandType.PlayerRegenApply
-                && effect.Target is EffectTargetPlayer player
-                && player.Target == CorpusInventory.GameCombatant(allocation.Combatant)
+                effect.ActionType == CombatActionType.PlayerRegenApply
+                && effect.Target is CombatPlayerTarget player
+                && player.Target == allocation.Combatant
                 && CorpusInventory.ResolveSource(effect, identities) == allocation.SourceId
             )
             .Count();
@@ -2211,8 +2167,8 @@ internal sealed class AttributionCoverage
     }
 
     private static bool TryMeasureAcceptedRegen(
-        IReadOnlyDictionary<EPlayerAttributeType, int> state,
-        CombatSimPlayerUpdate update,
+        IReadOnlyDictionary<CombatPlayerAttribute, int> state,
+        CombatPlayerUpdate update,
         bool combatantDied,
         out long poolAccepted,
         out long realized,
@@ -2223,15 +2179,15 @@ internal sealed class AttributionCoverage
         realized = 0;
         poolAcceptedAfterNonPositiveHealth = 0;
         if (
-            !state.TryGetValue(EPlayerAttributeType.Health, out var openingHealth)
-            || !state.TryGetValue(EPlayerAttributeType.HealthMax, out var openingMax)
+            !state.TryGetValue(CombatPlayerAttribute.Health, out var openingHealth)
+            || !state.TryGetValue(CombatPlayerAttribute.HealthMax, out var openingMax)
         )
         {
             return false;
         }
 
         var closingMax = update.Attributes.TryGetValue(
-            EPlayerAttributeType.HealthMax,
+            CombatPlayerAttribute.HealthMax,
             out var maxTransition
         )
             ? maxTransition.CurrentValue
@@ -2240,7 +2196,7 @@ internal sealed class AttributionCoverage
         var terminalReached = combatantDied && health <= 0;
         foreach (
             var adjustment in update.HealthAdjustments.Where(adjustment =>
-                adjustment.AttributeChanged == EPlayerHealthChangeType.Health
+                adjustment.AttributeChanged == CombatHealthChange.Health
             )
         )
         {
@@ -2253,7 +2209,7 @@ internal sealed class AttributionCoverage
             }
             var accepted = Math.Min(adjustment.Amount, Math.Max(0L, closingMax - health));
             health += accepted;
-            if (adjustment.DamageType == EDamageType.Regen)
+            if (adjustment.DamageType == CombatDamageType.Regen)
             {
                 poolAccepted += accepted;
                 if (terminalReached)
@@ -2264,7 +2220,7 @@ internal sealed class AttributionCoverage
         }
 
         var closingHealth = update.Attributes.TryGetValue(
-            EPlayerAttributeType.Health,
+            CombatPlayerAttribute.Health,
             out var healthTransition
         )
             ? healthTransition.CurrentValue

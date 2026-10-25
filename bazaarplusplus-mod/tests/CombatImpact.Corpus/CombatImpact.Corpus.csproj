@@ -1,22 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The Combat Impact producer lives in Core on BPP combat facets (ADR-0019). This lane decodes
-       game replay payloads and reads the game catalog, so it replays them offline through the
-       compiled desktop host's DesktopCombatTimeline adapter via InternalsVisibleTo, linking no
-       host source. -->
+  <!-- The Combat Impact acceptance runner (ADR-0019): projects the BPP-owned Combat Impact Corpus
+       through Core alone, so `mod::test-core` runs it without a Managed snapshot. The corpus
+       format in Format/ is compiled here and by CombatImpact.CorpusExport, the host lane that
+       writes it from game payloads. Storage and ModApi are Core's own references, named
+       explicitly so the test tree's netstandard2.1 pin leaves them on net10.0 with Core. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
-    <PackageReference Include="Microsoft.Data.Sqlite" />
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
-    <Reference Include="BazaarGameShared">
-      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
-    </Reference>
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
   </ItemGroup>
 </Project>

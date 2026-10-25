@@ -60,7 +60,7 @@ android-smoke mode:
 android-verify dir:
     bash scripts/android.sh verify "$@"
 
-# Run the opt-in Combat Impact acceptance: <absolute-corpus-path> [report-path] [--benchmark].
+# Export a game replay corpus to a Combat Impact Corpus and project it: <absolute-corpus-path> [report-path] [--benchmark].
 test-corpus +args:
     bash scripts/test.sh test-corpus "$@"
 

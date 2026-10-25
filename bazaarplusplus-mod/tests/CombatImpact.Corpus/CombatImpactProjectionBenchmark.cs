@@ -6,7 +6,7 @@ using BazaarPlusPlus.Game.PostCombatImpact.Data;
 internal static class CombatImpactProjectionBenchmark
 {
     internal static CombatImpactProjectionBenchmarkObservation Observe(
-        ReplayObservationInput replay,
+        CombatImpactCorpusBattle replay,
         CombatImpactReport report,
         TimeSpan elapsed,
         long allocatedBytes
@@ -15,7 +15,7 @@ internal static class CombatImpactProjectionBenchmark
         var audit = report.CriticalTriggerEvidenceAudit;
         return new CombatImpactProjectionBenchmarkObservation(
             replay.BattleId,
-            replay.Combat.Frames.Count,
+            replay.Timeline.Frames.Count,
             audit.InputEventCount,
             audit.InputExecutionCount,
             audit.ObservedEvidenceCount,

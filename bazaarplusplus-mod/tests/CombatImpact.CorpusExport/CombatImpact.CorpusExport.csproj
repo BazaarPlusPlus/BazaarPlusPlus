@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The host lane of the Combat Impact Corpus (ADR-0019): decodes game replay payloads, reads
+       the game catalog, and writes the BPP-owned corpus the Core-lane runner CombatImpact.Corpus
+       projects. It copies each combat through the compiled desktop host's DesktopCombatTimeline
+       and builds entities with the host's template readers via InternalsVisibleTo, linking no
+       host source. The corpus format is the runner's Format/ source, compiled here as well:
+       one process cannot load Core's netstandard2.1 build (through the host) and its net10.0
+       build (through the runner). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <Reference Include="BazaarGameShared">
+      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
+    </Reference>
+    <Compile
+      Include="../CombatImpact.Corpus/Format/**/*.cs"
+      Link="Format/%(RecursiveDir)%(Filename)%(Extension)"
+    />
+  </ItemGroup>
+</Project>

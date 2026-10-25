@@ -35,7 +35,7 @@ internal static class CorpusPreparation
         if (arguments.Count < 2)
         {
             throw new ArgumentException(
-                "Usage: CombatImpact.Corpus prepare <corpus-dir> <replay-store> [battle-id ...]"
+                "Usage: CombatImpact.CorpusExport prepare <corpus-dir> <replay-store> [battle-id ...]"
             );
         }
 

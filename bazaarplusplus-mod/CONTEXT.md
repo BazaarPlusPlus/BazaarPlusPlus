@@ -1,6 +1,6 @@
 # BazaarPlusPlus Mod
 
-In-game mod for *The Bazaar*. This glossary captures the project-specific vocabulary that recurs across features. Definitions pin down what a term means and where its boundary sits; responsibilities and mechanics live in code and `docs/ARCHITECTURE.md`.
+In-game mod for *The Bazaar*. This glossary captures the project-specific vocabulary. Definitions pin down what a term means and where its boundary sits; responsibilities and mechanics live in code and `docs/ARCHITECTURE.md`.
 
 ## Run / encounters
 
@@ -24,7 +24,7 @@ The client's `Online`, `Ptr`, or `Unknown` classification, resolved at startup b
 _Avoid_: environment, server flag
 
 **Run Logging Intake**:
-The pure `IBppFeature` that owns run-log subscriptions, session transitions, and persistence/checkpoint ordering. It consumes event-bus inputs; it is not a mounted Unity controller and does not own a run timeline.
+The pure `IBppFeature` that owns run-log subscriptions, session transitions, and persistence/checkpoint ordering. It consumes event-bus inputs and owns no run timeline.
 _Avoid_: RunLoggingController, run logger MonoBehaviour
 
 **Encounter Preview Module**:
@@ -53,6 +53,9 @@ _Avoid_: replay cache, orphan video
 
 **Saved Replay Playback**:
 The Core module (`SavedReplayPlayback`) owning one saved replay's admission, payload lease, start, exit and menu return for both hosts via `ISavedReplayHost` (ADR-0020). Pure `SavedReplayLifecycle` holds its states. Neither exits `ReplayState` (ADR-0002).
+
+**Combat Impact Corpus**:
+Combat Impact's acceptance input in BPP types, exported host-side from game payloads (ADR-0019).
 
 **PvP Battle Capture Window**:
 Core's `PvpBattleCaptureWindow`: frames one PvP battle from a host's opening, combat and closing sims, owning which states open it, when each field is read and replay part order. Hosts read (`IPvpBattleReads`) and persist (ADR-0021).
@@ -131,8 +134,8 @@ _Avoid_: JSON failure
 
 **Seal-Eligible Run**:
 A completed, non-PTR Ranked Run, not History-Only, with neither a seal job nor any outbox row;
-the next seal pass gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule, and installer
-History cleanup is pinned to it through a shared fixture.
+the next seal pass gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule
+(root `AGENTS.md` Contracts).
 _Avoid_: sealable run
 
 **Bundle Queue Store**:
