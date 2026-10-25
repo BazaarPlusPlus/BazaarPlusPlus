@@ -28,6 +28,8 @@ Runtime console output goes to `<GameDir>/BepInEx/LogOutput.log`, the sibling of
 
 Runtime validation that needs the game running launches The Bazaar through Steam (App ID 1617400) so Steam runtime state is present: `open "steam://run/1617400"` on macOS, `start steam://run/1617400` on Windows. Launching `TheBazaar.app` directly, or via `run_bepinex.sh` on macOS, bypasses that state and fails in subtle ways. A long-running automation task relaunches the game through the same Steam URL after a crash or exit and continues until the goal is met.
 
+Device and game-run evidence (`artifacts/android/<run>/` screenshots, logcat, databases) stays local: `artifacts/` is gitignored, so never `git add -f` it. Screenshots show the signed-in account. Summarize the evidence in the PR body; attach files to the PR or issue only when a reviewer needs them.
+
 ## Where new code goes
 
 The layering traps, not a map of what exists:

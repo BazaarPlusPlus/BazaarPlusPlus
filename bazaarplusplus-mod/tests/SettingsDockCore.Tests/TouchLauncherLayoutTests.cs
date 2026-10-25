@@ -92,7 +92,7 @@ public sealed class TouchLauncherLayoutTests
     /// <summary>
     /// The game's own controls near the left edge, as shares of the screen height (the game
     /// scales its HUD by height, so the shares hold at every ratio), measured on the emulator at
-    /// 2400x1080 and 2560x1600 (artifacts/android/425-mobile-fit, the in-run launcher shots and
+    /// 2400x1080 and 2560x1600 (PR #454's device evidence, the in-run launcher shots and
     /// the main menu): the main menu's account crest, the in-run day and hour dial, and the main
     /// menu's MENU button, each across the left edge up to the board. The in-run board itself
     /// (cards, hero portrait) starts 0.587 screen heights left of the screen's center and runs
