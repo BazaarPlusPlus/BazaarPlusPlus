@@ -74,8 +74,21 @@ public sealed partial class HistoryPanelCoordinator
         }
     }
 
+    /// <summary>
+    /// The favorite button. In Favorites it returns the selected favorite, whose note the host's
+    /// dialog edits, and does nothing else (null when none is selected). In Runs and Ghost it
+    /// favorites the active battle and returns null.
+    /// </summary>
+    public HistoryFavoriteRecord? FavoriteSelected()
+    {
+        if (_state.SectionMode == HistorySectionMode.Favorites)
+            return _state.GetSelectedFavorite();
+        _ = TryFavoriteSelectedBattleAsync(ActiveBattle());
+        return null;
+    }
+
     // Runs and Ghost: favorite the selected battle, or open it in Favorites when it already is.
-    public async Task TryFavoriteSelectedBattleAsync(HistoryBattleRecord? battle)
+    private async Task TryFavoriteSelectedBattleAsync(HistoryBattleRecord? battle)
     {
         if (battle == null || _favorites == null || _state.FavoriteActionInProgress)
             return;
@@ -142,7 +155,7 @@ public sealed partial class HistoryPanelCoordinator
 
     // The delete button in Favorites: a first press arms a confirmation, a second removes the
     // favorite, its note and its replay copy.
-    public async Task TryRemoveSelectedFavoriteAsync()
+    private async Task TryRemoveSelectedFavoriteAsync()
     {
         var favorite = _state.GetSelectedFavorite();
         if (favorite == null || _favorites == null || _state.FavoriteActionInProgress)

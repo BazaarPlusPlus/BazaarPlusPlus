@@ -139,7 +139,7 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
             dependencies,
             static () => { },
             static () => { },
-            static _ => { }
+            new(static () => { }, static () => { }, static () => null, static () => false)
         );
 
         var model = HistoryPanelViewModelBuilder.Build(

@@ -27,7 +27,7 @@ public static class HistoryPanelViewModelBuilder
             _ => state.GetSelectedBattle(),
         };
 
-    public static HistoryRunRecord? SelectedRun(
+    private static HistoryRunRecord? SelectedRun(
         HistoryPanelState state,
         HistoryPanelCoordinator? coordinator
     ) => state.GetSelectedRun(coordinator?.GetFilteredRuns() ?? Array.Empty<HistoryRunRecord>());
@@ -231,8 +231,6 @@ public static class HistoryPanelViewModelBuilder
             FavoriteButtonVisible = favoriteButton.Visible,
             FavoriteButtonText = favoriteButton.Text,
             FavoriteButtonEnabled = favoriteButton.Enabled,
-            SelectedFavoriteBattleId = selectedFavorite?.BattleId,
-            SelectedFavoriteNote = selectedFavorite?.Note ?? string.Empty,
             ReplayButtonText = buttons.ReplayButtonText,
             ReplayButtonEnabled = buttons.ReplayButtonEnabled,
             RecordAndReplayButtonText = buttons.RecordAndReplayButtonText,
