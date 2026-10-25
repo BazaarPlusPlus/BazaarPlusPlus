@@ -26,7 +26,9 @@ How every BPP surface on the Android host fits a phone: the touch menu and its B
 
 ## Screens
 
-The tests cover a 20:9 phone (2400x1080 at 420 dpi, with and without a cutout; Ten-Win Builds also at 480, 560 and 640 dpi, where it stacks), a 16:10 tablet (2560x1600, with and without the emulator's 91 px top inset), a 16:9 phone (1920x1080), and a device that reports no density. The device evidence covers the first two. On the emulator `adb shell wm size 2560x1600` switches the screen without a reboot, and the surfaces re-lay out live; always `adb shell wm size reset` afterwards.
+The tests cover a 20:9 phone (2400x1080 at 420 dpi, with and without a cutout; Ten-Win Builds also at 480, 560 and 640 dpi, where it stacks), a 16:10 tablet (2560x1600, with and without the emulator's 91 px top inset), a 16:9 phone (1920x1080), and a device that reports no density. The device evidence covers the first two. Keep a separate landscape AVD for each ratio and select it with `BPP_ANDROID_SERIAL`; changing one emulator's `wm size` mixes device configuration with layout evidence. Before judging a panel, run `just mod::android-screen-check <run>` on that panel. It saves the screenshot and display metadata and rejects portrait screenshots, size/density overrides, or a mismatch with the last logged Unity screen. It never changes the device. `environment.json` records the last logged Unity density and safe area when available; `display.txt` keeps Android's display state. A passing check establishes the display baseline, not visual correctness: inspect the screenshot for sideways content, clipped rows and alignment.
+
+Use `just mod::android-check` for the serial build/test gate. The build and test script entry points share a checkout-local lock because they write the same `bin/obj` outputs; run another checkout to work independently. Each gate saves full logs and a `result.json` with the revision, dirty-worktree flag and exit codes under `artifacts/validation/`. A failed step stops the sequence. After an interrupted process, inspect `artifacts/build.lock/owner.json` and confirm its processes have stopped before removing the lock.
 
 ## Gotchas
 

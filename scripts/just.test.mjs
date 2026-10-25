@@ -435,11 +435,13 @@ test('mod Android device recipes route to android.sh with a validated mode', (t)
   succeeded(f.run(['mod::android-mode', 'observe']));
   succeeded(f.run(['mod::android-launch']));
   succeeded(f.run(['mod::android-capture', 'enabled-1']));
+  succeeded(f.run(['mod::android-screen-check', 'baseline']));
   assert.deepEqual(f.calls(), [
     call(f.dir, 'mod', 'mod-android', 'deploy'),
     call(f.dir, 'mod', 'mod-android', 'mode', 'observe'),
     call(f.dir, 'mod', 'mod-android', 'launch'),
-    call(f.dir, 'mod', 'mod-android', 'capture', 'enabled-1')
+    call(f.dir, 'mod', 'mod-android', 'capture', 'enabled-1'),
+    call(f.dir, 'mod', 'mod-android', 'screen-check', 'baseline')
   ]);
 });
 
@@ -963,4 +965,12 @@ test('hooks-install from a linked worktree uses the shared git hooks directory',
     ),
     false
   );
+});
+
+test('Android validation routes through the serial coordinator', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['mod::android-check']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, 'mod', 'node', '../scripts/mod-validation.mjs', 'check')
+  ]);
 });

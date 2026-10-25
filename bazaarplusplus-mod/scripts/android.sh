@@ -154,7 +154,7 @@ cmd_launch() {
     device shell am start -n "$GAME_ACTIVITY"
 }
 
-# capture <run>: save logcat, a screenshot, and MelonLoader's Latest.log under artifacts/android/<run>/.
+# capture <run>: save logs, a screenshot and display metadata under artifacts/android/<run>/.
 cmd_capture() {
     local run="${1:-}"
     [[ "$run" =~ ^[A-Za-z0-9_-]+$ ]] || die "Usage: just mod::android-capture <run> (letters, digits, - and _)"
@@ -165,7 +165,19 @@ cmd_capture() {
     device exec-out screencap -p >"$out/screen.png"
     # Without a Latest.log, MelonLoader never loaded; the capture still holds logcat and the screen.
     device pull "$DEVICE_LOG" "$out/Latest.log" >/dev/null || err "No $DEVICE_LOG on $DEVICE_SERIAL."
+    device shell wm size >"$out/wm-size.txt"
+    device shell wm density >"$out/wm-density.txt"
+    device shell settings get system user_rotation >"$out/user-rotation.txt"
+    device shell settings get system accelerometer_rotation >"$out/accelerometer-rotation.txt"
+    device shell dumpsys display >"$out/display.txt"
+    node "$MOD_ROOT/../scripts/android-screen.mjs" "$out" "$DEVICE_SERIAL"
     ok "Captured $run into $out"
+}
+
+# screen-check <run>: capture evidence, then reject a portrait or overridden display.
+cmd_screen_check() {
+    cmd_capture "$@"
+    node "$MOD_ROOT/../scripts/android-screen.mjs" "$MOD_ROOT/artifacts/android/$1" "$DEVICE_SERIAL" --check
 }
 
 # smoke <enabled|observe|disabled>: the device smoke. It builds, deploys, sets the mode, relaunches,
