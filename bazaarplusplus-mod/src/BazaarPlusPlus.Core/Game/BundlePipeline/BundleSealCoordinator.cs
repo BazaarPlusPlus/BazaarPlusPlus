@@ -42,6 +42,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private Task? _worker;
     private int _wakePending;
     private bool _started;
+    private bool _filesRecovered;
 
     // Tests inject failures at named seal stages; production passes null. The database options
     // are the host's, required so no store here can open the file in another journal mode.
@@ -126,7 +127,10 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         // Maintenance failures are logged per step; they never keep waiting jobs from sealing.
         Maintain(BundleSealStage.ScreenshotTerminal, ApplyScreenshotTerminals);
-        Maintain(BundleSealStage.FileRecovery, RecoverFiles);
+        // File recovery repairs what an earlier launch left behind, once per launch; a pending
+        // file that goes bad later fails the upload's own length and digest check instead.
+        if (!_filesRecovered)
+            Maintain(BundleSealStage.FileRecovery, RecoverFiles);
         Maintain(BundleSealStage.JobDiscovery, EnsureSealJobs);
         var published = false;
         try
@@ -466,6 +470,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
         foreach (var row in _queueStore.ListPendingForValidation())
             ValidatePending(row);
+        _filesRecovered = true;
     }
 
     private void RecoverOrphan(string file)

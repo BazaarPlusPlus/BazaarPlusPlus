@@ -24,6 +24,7 @@ internal static class BundleSealFailureTests
         await EnvironmentFailureParksUntilNextLaunchAsync(Path.Combine(root, "environment"));
         await PoisonRunCannotStarveLaterRunsAsync(Path.Combine(root, "poison"));
         await PendingValidationKeepsOutboxOnEnvironmentFailureAsync(Path.Combine(root, "pending"));
+        await PendingValidationRunsOncePerLaunchAsync(Path.Combine(root, "pending-once"));
         await InvalidReplayDegradesWithLogAsync(Path.Combine(root, "replay"));
         await MaintenanceFailureDoesNotBlockSealingAsync(Path.Combine(root, "maintenance"));
         await EnvironmentFailureKeepsOrphanBundleAsync(Path.Combine(root, "orphan"));
@@ -179,6 +180,34 @@ internal static class BundleSealFailureTests
                 .Contains("category=pending_file_invalid", StringComparison.Ordinal),
             "The invalidation is logged."
         );
+    }
+
+    private static async Task PendingValidationRunsOncePerLaunchAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        fixture.AddCompletedRun("pending-once-run", endedMinutesAgo: 10);
+        using (var sealer = DesktopBundleSealCoordinator.Create(fixture.Services))
+            await sealer.ReconcileAsync(CancellationToken.None);
+        Require(fixture.OutboxCount("pending-once-run") == 1, "Fixture Run seals.");
+
+        var validations = 0;
+        void Count(BundleSealStage stage, string _)
+        {
+            if (stage == BundleSealStage.PendingValidation)
+                validations++;
+        }
+
+        using (var launch = DesktopBundleSealCoordinator.Create(fixture.Services, Count))
+        {
+            await launch.ReconcileAsync(CancellationToken.None);
+            Require(validations == 1, "The first pass of a launch validates the pending file.");
+            await launch.ReconcileAsync(CancellationToken.None);
+            Require(validations == 1, "Later passes in the same launch do not re-read it.");
+        }
+
+        using (var next = DesktopBundleSealCoordinator.Create(fixture.Services, Count))
+            await next.ReconcileAsync(CancellationToken.None);
+        Require(validations == 2, "The next launch validates it again.");
     }
 
     private static async Task InvalidReplayDegradesWithLogAsync(string root)
