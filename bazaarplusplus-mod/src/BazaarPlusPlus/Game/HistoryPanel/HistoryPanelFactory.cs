@@ -44,6 +44,7 @@ internal static class HistoryPanelFactory
         if (!string.IsNullOrWhiteSpace(databasePath))
             repository = new HistoryPanelRepository(databasePath);
 
+        Func<ISavedReplayRuntime?> savedReplays = () => combatReplayRuntimeAccessor()?.SavedReplays;
         var ghostSyncService = CreateGhostSyncService(repository, modApiSession);
         var dataService = new HistoryPanelDataService(
             repository,
@@ -51,7 +52,7 @@ internal static class HistoryPanelFactory
             () => replayDirectoryPath
         );
         var replayService = new HistoryPanelReplayService(
-            combatReplayRuntimeAccessor,
+            savedReplays,
             new DesktopReplayRecordingAvailability(videoDirectoryPath),
             replayDirectoryPath,
             BppClientCacheBridge.TryGetProfileAccountId,
@@ -84,7 +85,7 @@ internal static class HistoryPanelFactory
                     : HistoryFavoriteService.OverRuntime(
                         repository,
                         replayDirectoryPath,
-                        combatReplayRuntimeAccessor,
+                        savedReplays,
                         replayService
                     ),
         };

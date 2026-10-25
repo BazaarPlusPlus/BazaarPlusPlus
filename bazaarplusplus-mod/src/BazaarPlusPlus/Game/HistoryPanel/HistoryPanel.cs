@@ -88,7 +88,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         if (
             _returnAfterReplay
             && !isVisible
-            && CombatReplayRuntime.Instance is { HasSavedReplaySession: false }
+            && CombatReplayRuntime.Instance?.SavedReplays is { HasSavedReplaySession: false }
             && SceneLoader.IsSceneLoaded(SceneID.HeroSelectScene)
             && SceneLoader.ActiveScene == SceneID.HeroSelectScene
         )

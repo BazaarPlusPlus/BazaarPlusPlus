@@ -2,8 +2,10 @@
 using BazaarPlusPlus.Game.CombatReplay;
 using Xunit;
 
-namespace PureBehavior.Tests;
+namespace BazaarPlusPlus.Tests.SavedReplays;
 
+// The lifecycle's own arithmetic, reached through InternalsVisibleTo; the protocol around it is
+// pinned through SavedReplayPlayback in SavedReplayPlaybackTests.
 public sealed class SavedReplayLifecycleTests
 {
     [Fact]

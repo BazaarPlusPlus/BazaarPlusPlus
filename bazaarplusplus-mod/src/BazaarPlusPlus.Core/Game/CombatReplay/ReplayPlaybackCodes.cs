@@ -56,5 +56,4 @@ public enum ReplayRequestRejectionReasonCode
     PayloadUnavailable,
     PayloadOperationBusy,
     ManifestUnavailable,
-    LoaderUnavailable,
 }
