@@ -18,6 +18,9 @@ public interface ICollectionSourceCatalog
     bool TryGetBySourceKey(string sourceKey, out CollectionSourceEntry? entry);
 
     IEnumerable<CollectionSourceEntry> For(CollectionSourceKind kind, CardHero effectiveHero);
+
+    // Every entry in catalog order; the open selection takes the first match.
+    IReadOnlyList<CollectionSourceEntry> Entries { get; }
 }
 
 public sealed class CollectionFilterNormalization

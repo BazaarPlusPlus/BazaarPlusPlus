@@ -2543,11 +2543,19 @@ internal sealed class DictionarySourceCatalog : ICollectionSourceCatalog
         StringComparer.Ordinal
     );
 
+    // Insertion order, as the port promises.
+    private readonly List<CollectionSourceEntry> _ordered = new();
+
     public DictionarySourceCatalog(params CollectionSourceEntry[] entries)
     {
         foreach (var entry in entries)
+        {
             _entries[entry.SourceKey] = entry;
+            _ordered.Add(entry);
+        }
     }
+
+    public IReadOnlyList<CollectionSourceEntry> Entries => _ordered;
 
     public bool TryGetBySourceKey(string sourceKey, out CollectionSourceEntry? entry) =>
         _entries.TryGetValue(sourceKey, out entry);

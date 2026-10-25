@@ -10,6 +10,8 @@ namespace BazaarPlusPlus.Game.CollectionPanel;
 // Single owner of Collection Panel presentable state: filter selections, search mode/debounce,
 // catalog acceptance, and the derived render model. Commands and lifecycle events go in; a
 // complete render outcome (view model plus scroll intents) comes out. Pure — no Unity types.
+// Open and Close are the panel's lifecycle; catalog arrival is AcceptCatalog / CatalogUnavailable /
+// BeginCatalogLoad.
 public sealed class CollectionViewState
 {
     private const float SearchRefreshDebounceSeconds = 0.16f;
@@ -76,20 +78,91 @@ public sealed class CollectionViewState
             heroPreferenceStore ?? throw new ArgumentNullException(nameof(heroPreferenceStore));
     }
 
-    // Open-path probe surface only — not the filter. Preference load needs readiness + heroes
-    // before ApplyOpenSelection runs.
     public CollectionCatalogReadiness CatalogReadiness => _catalogReadiness;
-
-    public IReadOnlyList<CardHero> AvailableHeroes => _availableHeroes;
 
     public int CatalogCardCount => _catalogCards.Count;
 
-    public void PrepareCatalogForOpen(IReadOnlyList<CollectionCardVm>? cachedCards)
+    // The whole open order: search reset, catalog readiness from the host's cached catalog, the
+    // remembered-hero load (out of a run only), the open selection, and its apply. Never
+    // publishes, never saves the hero preference, and never accepts the catalog: the host
+    // delivers it afterwards with AcceptCatalog, CatalogUnavailable or BeginCatalogLoad.
+    public CollectionOpenOutcome Open(CollectionOpenFacts facts)
     {
-        if (cachedCards != null)
-            SetCatalogState(CollectionCatalogReadiness.Accepted, cachedCards);
+        if (facts == null)
+            throw new ArgumentNullException(nameof(facts));
+
+        ResetSearchForLifecycle();
+        if (facts.CachedCatalog != null)
+            SetCatalogState(CollectionCatalogReadiness.Accepted, facts.CachedCatalog);
         else
             SetCatalogState(CollectionCatalogReadiness.Loading, Array.Empty<CollectionCardVm>());
+
+        // Readiness is set before the load: the store resolves a stored hero against it.
+        CollectionPanelHeroPreferenceLoadResult? remembered = null;
+        Exception? heroPreferenceFailure = null;
+        if (!facts.IsInGameRun)
+        {
+            try
+            {
+                remembered = _heroPreferenceStore.Load(_catalogReadiness, _availableHeroes);
+            }
+            catch (Exception ex)
+            {
+                heroPreferenceFailure = ex;
+            }
+        }
+
+        var encounter = facts.Encounter;
+        var entries = _sourceCatalog.Entries;
+        var selection = CollectionPanelOpenSelectionResolver.Resolve(
+            facts.IsInGameRun,
+            facts.Hero,
+            encounter.CurrentEncounterTemplateId,
+            encounter.ChoiceSelectionTemplateIds,
+            entries,
+            remembered
+        );
+        var encounteredMerchantSourceKeys = facts.IsInGameRun
+            ? CollectionPanelOpenSelectionResolver.ResolveEncounteredMerchantSourceKeys(
+                facts.Hero,
+                encounter.ChoiceSelectionTemplateIds,
+                entries
+            )
+            : Array.Empty<string>();
+
+        _filter.ApplySelection(selection);
+        if (_catalogReadiness == CollectionCatalogReadiness.Accepted)
+            PruneInvisibleSourceSelections();
+
+        _supporters = facts.Supporters;
+        _encounteredMerchantSourceKeys.Clear();
+        foreach (var sourceKey in encounteredMerchantSourceKeys)
+            if (!string.IsNullOrWhiteSpace(sourceKey))
+                _encounteredMerchantSourceKeys.Add(sourceKey.Trim());
+        // Holds until the first catalog query re-reads the day from the day-tier port.
+        _currentRunDay = facts.RunDay;
+        var render = new CollectionRenderOutcome(
+            BuildModel(_grid.Current),
+            resetScroll: true,
+            resetControlsScroll: true
+        );
+        return new CollectionOpenOutcome(render, selection, heroPreferenceFailure);
+    }
+
+    // Resets the search (default expanded mode, empty query, no pending debounce) and clears the
+    // loading flag. The render is built before the flag is cleared, so it shows the loading state
+    // the panel closes with. Never publishes and leaves readiness, the filter, the cards and the
+    // preference alone; harmless while closed.
+    public CollectionRenderOutcome Close()
+    {
+        ResetSearchForLifecycle();
+        var outcome = new CollectionRenderOutcome(
+            BuildModel(_grid.Current),
+            resetScroll: false,
+            resetControlsScroll: false
+        );
+        _isLoadingCatalog = false;
+        return outcome;
     }
 
     public CollectionRenderOutcome? SetActiveTab(CollectionTabKind tab)
@@ -247,12 +320,6 @@ public sealed class CollectionViewState
         return QueryAndRender(resetControlsScroll: false);
     }
 
-    public void ResetSearchForLifecycle()
-    {
-        _searchMode.Reset(_filter);
-        _searchRefreshGate.Cancel();
-    }
-
     public CollectionRenderOutcome BeginCatalogLoad()
     {
         _isLoadingCatalog = true;
@@ -290,44 +357,14 @@ public sealed class CollectionViewState
         _availableSourcesCache = null;
     }
 
-    // Panel load coroutine was cancelled mid-flight; clear the loading chrome flag without
-    // mutating catalog readiness (caller owns whether to ResetCatalog / reload).
-    public void NoteCatalogLoadCancelled() => _isLoadingCatalog = false;
-
-    public CollectionRenderOutcome ApplyOpenSelection(
-        CollectionPanelSelectionState selection,
-        IReadOnlyList<BPPSupporterSample> supporters,
-        int? currentRunDay,
-        IReadOnlyCollection<string>? encounteredMerchantSourceKeys = null
-    )
-    {
-        if (selection == null)
-            throw new ArgumentNullException(nameof(selection));
-        if (supporters == null)
-            throw new ArgumentNullException(nameof(supporters));
-
-        _filter.ApplySelection(selection);
-        if (_catalogReadiness == CollectionCatalogReadiness.Accepted)
-            PruneInvisibleSourceSelections();
-
-        _supporters = supporters;
-        _encounteredMerchantSourceKeys.Clear();
-        if (encounteredMerchantSourceKeys != null)
-        {
-            foreach (var sourceKey in encounteredMerchantSourceKeys)
-                if (!string.IsNullOrWhiteSpace(sourceKey))
-                    _encounteredMerchantSourceKeys.Add(sourceKey.Trim());
-        }
-        _currentRunDay = currentRunDay;
-        return new CollectionRenderOutcome(
-            BuildModel(_grid.Current),
-            resetScroll: true,
-            resetControlsScroll: true
-        );
-    }
-
     public CollectionRenderOutcome Rebuild() =>
         new(BuildModel(_grid.Current), resetScroll: false, resetControlsScroll: false);
+
+    private void ResetSearchForLifecycle()
+    {
+        _searchMode.Reset(_filter);
+        _searchRefreshGate.Cancel();
+    }
 
     private CollectionRenderOutcome FinishCatalogLoad()
     {

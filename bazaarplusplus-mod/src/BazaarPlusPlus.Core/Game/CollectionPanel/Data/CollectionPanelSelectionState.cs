@@ -26,6 +26,9 @@ public sealed class CollectionPanelSelectionState
         SelectedSourceKind = selectedSourceKind;
     }
 
+    public static bool IsConcreteHero(CardHero? hero) =>
+        hero.HasValue && hero.Value != CardHero.Common;
+
     public CardHero? SelectedHero { get; }
 
     public string? SelectedSourceKey { get; }

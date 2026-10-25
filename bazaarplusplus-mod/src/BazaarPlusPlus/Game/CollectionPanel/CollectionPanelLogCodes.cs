@@ -67,6 +67,7 @@ internal enum CollectionPanelSelectionProbe
     Hero,
     Day,
     Encounter,
+    HeroPreference,
 }
 
 internal enum CollectionPanelLoadPhase

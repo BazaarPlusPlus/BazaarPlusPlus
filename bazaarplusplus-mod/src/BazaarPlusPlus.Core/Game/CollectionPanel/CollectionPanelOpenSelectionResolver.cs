@@ -5,7 +5,8 @@ using BazaarPlusPlus.Game.CollectionPanel.Sources;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-public static class CollectionPanelOpenSelectionResolver
+// Reached only through CollectionViewState.Open; no host rebuilds the open order around it.
+internal static class CollectionPanelOpenSelectionResolver
 {
     public static CollectionPanelSelectionState Resolve(
         bool isInGameRun,
@@ -19,7 +20,7 @@ public static class CollectionPanelOpenSelectionResolver
         if (!isInGameRun)
             return ResolveOutOfRunSelection(rememberedPreference);
 
-        if (!IsConcreteHero(currentHero))
+        if (!CollectionPanelSelectionState.IsConcreteHero(currentHero))
             return CollectionPanelSelectionState.Default;
 
         var hero = currentHero!.Value;
@@ -39,9 +40,6 @@ public static class CollectionPanelOpenSelectionResolver
             : new CollectionPanelSelectionState(hero, source.SourceKey, source.Kind);
     }
 
-    public static bool IsConcreteHero(CardHero? hero) =>
-        hero.HasValue && hero.Value != CardHero.Common;
-
     public static IReadOnlyList<string> ResolveEncounteredMerchantSourceKeys(
         CardHero? currentHero,
         IReadOnlyCollection<Guid>? choiceSelectionTemplateIds,
@@ -49,7 +47,7 @@ public static class CollectionPanelOpenSelectionResolver
     )
     {
         if (
-            !IsConcreteHero(currentHero)
+            !CollectionPanelSelectionState.IsConcreteHero(currentHero)
             || choiceSelectionTemplateIds == null
             || choiceSelectionTemplateIds.Count == 0
         )

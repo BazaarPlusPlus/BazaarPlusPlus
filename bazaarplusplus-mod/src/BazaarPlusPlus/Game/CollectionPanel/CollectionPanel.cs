@@ -198,41 +198,24 @@ internal sealed class CollectionPanel : MonoBehaviour
 
     private void Open()
     {
-        var resolved = ResolveOpenSelection();
-        Open(resolved.Selection, resolved.CurrentRunDay, resolved.EncounteredMerchantSourceKeys);
-    }
-
-    private (
-        CollectionPanelSelectionState Selection,
-        int? CurrentRunDay,
-        IReadOnlyList<string> EncounteredMerchantSourceKeys
-    ) ResolveOpenSelection()
-    {
-        PrepareCatalogReadinessForOpen();
-        var failures = new List<CollectionPanelSelectionProbeFailure>(4);
-        var isInGameRun = TryReadIsInGameRunForOpen(failures);
-        var rememberedPreference = isInGameRun
-            ? null
-            : _heroPreferenceStore.Load(_viewState.CatalogReadiness, _viewState.AvailableHeroes);
-        var hero = isInGameRun ? TryReadCurrentHero(failures) : null;
-        var encounterIds = isInGameRun ? TryReadEncounterIds(failures) : EncounterIdsSnapshot.Empty;
-        var currentRunDay = isInGameRun ? TryReadCurrentDay(failures) : null;
-        var sourceEntries = StaticCollectionSourceCatalog.Entries;
-        var selection = CollectionPanelOpenSelectionResolver.Resolve(
-            isInGameRun,
-            hero,
-            encounterIds.CurrentEncounterTemplateId,
-            encounterIds.ChoiceSelectionTemplateIds,
-            sourceEntries,
-            rememberedPreference
-        );
-        var encounteredMerchantSourceKeys = isInGameRun
-            ? CollectionPanelOpenSelectionResolver.ResolveEncounteredMerchantSourceKeys(
-                hero,
-                encounterIds.ChoiceSelectionTemplateIds,
-                sourceEntries
-            )
-            : Array.Empty<string>();
+        var failures = new List<CollectionPanelSelectionProbeFailure>(5);
+        var cachedCatalog = _catalog.TryGetCached(out var cached) ? cached.Cards : null;
+        var supporters = BPPSupporters.SampleMany(4);
+        CollectionOpenFacts facts;
+        if (TryReadIsInGameRunForOpen(failures))
+        {
+            var hero = TryReadCurrentHero(failures);
+            var encounter = TryReadEncounterIds(failures);
+            var day = TryReadCurrentDay(failures);
+            facts = CollectionOpenFacts.InRun(hero, day, encounter, cachedCatalog, supporters);
+        }
+        else
+            facts = CollectionOpenFacts.OutOfRun(cachedCatalog, supporters);
+        var opened = _viewState.Open(facts);
+        if (opened.HeroPreferenceFailure is { } heroPreferenceFailure)
+            failures.Add(
+                Failure(CollectionPanelSelectionProbe.HeroPreference, heroPreferenceFailure)
+            );
 
         _selectionLogState.ObserveOpen(
             failures.Count == 0
@@ -246,13 +229,37 @@ internal sealed class CollectionPanel : MonoBehaviour
             ),
             () =>
                 [
-                    ("source", selection.SelectedSourceKey),
-                    ("hero", selection.SelectedHero),
-                    ("day", currentRunDay),
-                    ("encounter_id", encounterIds.CurrentEncounterTemplateId),
+                    ("source", opened.Selection.SelectedSourceKey),
+                    ("hero", opened.Selection.SelectedHero),
+                    ("day", facts.RunDay),
+                    ("encounter_id", facts.Encounter.CurrentEncounterTemplateId),
                 ]
         );
-        return (selection, currentRunDay, encounteredMerchantSourceKeys);
+
+        // Temporary main-path probe: EnsureView() is heavy one-time UITK construction (visual
+        // tree + CJK glyph raster + cold OTF extract) that runs on the click frame BEFORE the
+        // panel is shown and is invisible to CollectionPanelLoadDiagnostics (created later in the
+        // coroutine). Time the first construction so its click-frame cost is attributable.
+        var firstViewConstruction = _view == null;
+        var openPrologueDiagnostics = firstViewConstruction
+            ? new CollectionPanelLoadDiagnostics()
+            : null;
+        EnsureView();
+        if (firstViewConstruction)
+            openPrologueDiagnostics!.Complete(
+                CollectionPanelLoadPhase.OpenPrologue,
+                CollectionPanelLoadOutcome.Completed,
+                null
+            );
+        // After EnsureView: ApplyOutcome drops the render while the view does not exist.
+        ApplyOutcome(opened.Render);
+        _isVisible = true;
+        // SetVisible starts the fade-in ramp; overlay activates so its CanvasGroup starts
+        // mirroring the view's opacity (Update pushes the live value each frame).
+        _view!.SetVisible(true);
+        _overlay?.SetVisible(true);
+        _overlay?.SetAlpha(_view!.CurrentOpacity);
+        StartPanelLoad();
     }
 
     private bool TryReadIsInGameRunForOpen(List<CollectionPanelSelectionProbeFailure> failures)
@@ -279,13 +286,11 @@ internal sealed class CollectionPanel : MonoBehaviour
         try
         {
             var runHero = ToFacet(TheBazaar.Data.Run?.Player?.Hero);
-            if (CollectionPanelOpenSelectionResolver.IsConcreteHero(runHero))
+            if (CollectionPanelSelectionState.IsConcreteHero(runHero))
                 return runHero;
 
             var selectedHero = ToFacet(TheBazaar.Data.SelectedHero);
-            return CollectionPanelOpenSelectionResolver.IsConcreteHero(selectedHero)
-                ? selectedHero
-                : null;
+            return CollectionPanelSelectionState.IsConcreteHero(selectedHero) ? selectedHero : null;
         }
         catch (Exception ex)
         {
@@ -337,65 +342,14 @@ internal sealed class CollectionPanel : MonoBehaviour
         Exception exception
     ) => new(probe, CollectionPanelLogReasonCode.ProbeReadFailed, exception);
 
-    private void Open(
-        CollectionPanelSelectionState selection,
-        int? currentRunDay,
-        IReadOnlyCollection<string> encounteredMerchantSourceKeys
-    )
-    {
-        _viewState.ResetSearchForLifecycle();
-        // Temporary main-path probe: EnsureView() is heavy one-time UITK construction (visual
-        // tree + CJK glyph raster + cold OTF extract) that runs on the click frame BEFORE the
-        // panel is shown and is invisible to CollectionPanelLoadDiagnostics (created later in the
-        // coroutine). Time the first construction so its click-frame cost is attributable.
-        var firstViewConstruction = _view == null;
-        var openPrologueDiagnostics = firstViewConstruction
-            ? new CollectionPanelLoadDiagnostics()
-            : null;
-        EnsureView();
-        if (firstViewConstruction)
-            openPrologueDiagnostics!.Complete(
-                CollectionPanelLoadPhase.OpenPrologue,
-                CollectionPanelLoadOutcome.Completed,
-                null
-            );
-        ApplyOutcome(
-            _viewState.ApplyOpenSelection(
-                selection,
-                BPPSupporters.SampleMany(4),
-                currentRunDay,
-                encounteredMerchantSourceKeys
-            )
-        );
-        _isVisible = true;
-        // SetVisible starts the fade-in ramp; overlay activates so its CanvasGroup starts
-        // mirroring the view's opacity (Update pushes the live value each frame).
-        _view!.SetVisible(true);
-        _overlay?.SetVisible(true);
-        _overlay?.SetAlpha(_view!.CurrentOpacity);
-        StartPanelLoad();
-    }
-
-    private void PrepareCatalogReadinessForOpen()
-    {
-        if (_catalog.TryGetCached(out var cached))
-        {
-            _viewState.PrepareCatalogForOpen(cached.Cards);
-            return;
-        }
-
-        _viewState.PrepareCatalogForOpen(cachedCards: null);
-    }
-
     private void Close()
     {
         if (!_isVisible)
             return;
         _inspection.Close();
-        _viewState.ResetSearchForLifecycle();
         // Cancel a deferred focus requested by the expanded presentation before the fading view
         // remains alive for another frame.
-        ApplyOutcome(_viewState.Rebuild());
+        ApplyOutcome(_viewState.Close());
         // Drop composition state with the panel: a composition whose terminating Count==0
         // event never arrives would otherwise keep Advance() blocked after the next Open().
         DetachImeKeyboard();
@@ -612,7 +566,7 @@ internal sealed class CollectionPanel : MonoBehaviour
     private void DisposeUnityRuntime()
     {
         _inspection?.Close();
-        _viewState.ResetSearchForLifecycle();
+        _viewState.Close();
         CancelPanelLoad();
         var virtualizer = _virtualizer;
         var overlay = _overlay;
@@ -817,7 +771,6 @@ internal sealed class CollectionPanel : MonoBehaviour
             StopCoroutine(_loadCoroutine);
             _loadCoroutine = null;
         }
-        _viewState?.NoteCatalogLoadCancelled();
     }
 
     private IEnumerator LoadPanelAsync(int generation)
