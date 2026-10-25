@@ -29,4 +29,4 @@ ADR-0003 rejects a unification that only looks tidier. This one is not about app
 - Core: `src/BazaarPlusPlus.Core/Ui/TouchChrome.cs`, `src/BazaarPlusPlus.Core/Game/CollectionPanel/Ui/CollectionTouchLayout.cs`, `CollectionGridLayout.Build` in `src/BazaarPlusPlus.Core/Game/CollectionPanel/Grid/CollectionGridLayout.cs`
 - Host: `src/BazaarPlusPlus.Android/Ui/AndroidUiKit.cs`, `src/BazaarPlusPlus.Android/Ui/AndroidScrollTracker.cs`, `src/BazaarPlusPlus.Android/Collection/`
 - Tests: `tests/SettingsDockCore.Tests/TouchChromeTests.cs`, `tests/SettingsDockCore.Tests/TouchViewSlotTests.cs`, `tests/AndroidHost.Tests/AndroidTouchViewBuildGuardTests.cs`, `tests/CollectionGridLayout.Tests/`, `tests/HistoryPanelDecisions.Tests/HistoryTouchLayoutTests.cs`, `tests/LiveBuildPanel.Tests/`
-- Device evidence: `artifacts/android/425-mobile-fit/`
+- Device evidence: PR #454 (captured under `artifacts/android/425-mobile-fit/`, local only)
