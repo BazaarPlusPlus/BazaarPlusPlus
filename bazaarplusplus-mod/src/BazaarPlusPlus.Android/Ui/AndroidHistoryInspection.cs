@@ -18,7 +18,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// enchantment. A tap outside, the close button, or the back key dismisses it, and the lease goes
 /// back to the rental.
 /// </summary>
-internal sealed class AndroidHistoryInspection
+internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
 {
     public const string RentalOwner = "history.inspection";
 
@@ -90,7 +90,7 @@ internal sealed class AndroidHistoryInspection
 
     public void Open(BppItemBoardCard card, bool skill, string source)
     {
-        Return();
+        ReturnCards();
         var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
         _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
         _description.Set(AndroidCardTemplateText.Description(subject) ?? string.Empty);
@@ -114,7 +114,7 @@ internal sealed class AndroidHistoryInspection
     {
         if (!IsOpen)
             return false;
-        Return();
+        ReturnCards();
         _root.SetActive(false);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.inspection_closed"),
@@ -125,7 +125,7 @@ internal sealed class AndroidHistoryInspection
     }
 
     /// <summary>The lease goes back without a log line: the panel is closing or laid out again.</summary>
-    public void Return()
+    public void ReturnCards()
     {
         AndroidCardRental.Return(_lease);
         _lease = null;

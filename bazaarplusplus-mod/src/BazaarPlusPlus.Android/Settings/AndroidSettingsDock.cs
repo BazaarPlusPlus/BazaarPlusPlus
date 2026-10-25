@@ -39,6 +39,9 @@ internal sealed record AndroidSettingsDockHooks(
 /// </summary>
 internal static class AndroidSettingsDock
 {
+    /// <summary>The History panel's switch, <c>[Android] HistoryPanel</c>.</summary>
+    public const string HistoryPanelKey = "HistoryPanel";
+
     public static readonly LocalizedTextSet TouchMenuLabel = new(
         "BPP touch button",
         "BPP 触控按钮",
@@ -136,7 +139,7 @@ internal static class AndroidSettingsDock
         registry.Register(
             Switch(
                 BppSettingsDockOrder.HistoryPanelSwitch,
-                "HistoryPanel",
+                HistoryPanelKey,
                 Ui.AndroidTouchText.HistoryPanel,
                 android.HistoryPanel,
                 _ => { }
@@ -173,16 +176,28 @@ internal static class AndroidSettingsDock
             key,
             languageCode => label.Resolve(languageCode, L.CurrentMode),
             _ => setting.Value,
-            (_, enabled) => setting.Value = enabled,
-            enabled =>
-            {
-                LogChanged("Android", key, enabled);
-                onChanged(enabled);
-            }
+            (_, enabled) => WriteSwitch(key, setting, enabled),
+            onChanged
         );
 
+    /// <summary>
+    /// What a host switch's row writes, and every other control that sets the same switch, such
+    /// as History's More dialog, whose <paramref name="source"/> names it in the log line.
+    /// </summary>
+    public static void WriteSwitch(
+        string key,
+        ISetting<bool> setting,
+        bool enabled,
+        string? source = null
+    )
+    {
+        ArgumentNullException.ThrowIfNull(setting);
+        setting.Value = enabled;
+        LogChanged("Android", key, enabled, source);
+    }
+
     /// <summary>A setting changed; <paramref name="source"/> names a control outside this dialog.</summary>
-    public static void LogChanged(string section, string key, object value, string? source = null)
+    private static void LogChanged(string section, string key, object value, string? source = null)
     {
         if (source == null)
             BppLog.InfoEvent(

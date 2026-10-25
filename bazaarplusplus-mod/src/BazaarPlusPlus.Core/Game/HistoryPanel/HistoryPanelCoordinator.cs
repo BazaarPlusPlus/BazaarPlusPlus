@@ -517,7 +517,10 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         {
             _state.DeleteRunConfirmation = new DeleteConfirmation(run.RunId, now + 5f);
             SetStatusMessage(
-                HistoryPanelText.DeleteRunConfirm(HistoryPanelFormatter.ShortenRunId(run.RunId)),
+                HistoryPanelText.DeleteRunConfirm(
+                    HistoryPanelFormatter.ShortenRunId(run.RunId),
+                    RecordingSupported
+                ),
                 isDeleteConfirmation: true
             );
             _requestUiRefresh();
@@ -570,7 +573,8 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         );
         var deletedMessage = HistoryPanelText.DeletedRun(
             HistoryPanelFormatter.ShortenRunId(run.RunId),
-            battleIds.Count
+            battleIds.Count,
+            RecordingSupported
         );
         LoadArchive(new(_state.RunPage.First, Inclusive: true), preserveSelection: true);
         SetStatusMessage(deletedMessage, StatusSeverity.Success);

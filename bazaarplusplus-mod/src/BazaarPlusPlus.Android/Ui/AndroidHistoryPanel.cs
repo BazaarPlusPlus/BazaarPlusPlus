@@ -33,9 +33,11 @@ namespace BazaarPlusPlus.Android.Ui;
 /// settings row, and closes it for the back key (an open dialog first), combat, a scene change
 /// into combat (<see cref="SceneChangeClosePolicy.OnlyWhenInCombat"/>), another panel opening, and
 /// <c>[Android] HistoryPanel</c> switching off (from the settings row or the More dialog's own
-/// switch); the close button and a replay start request a close. Every other scene change returns
-/// its cards, since the rental destroys them, and renders them again on the next frame. A new
-/// screen size lays the view out again and keeps an open note's draft; the view's lifetime is
+/// switch); the close button and a replay start request a close. On Android a combat loads no
+/// scene, so the host's per-frame combat rule is what closes it for one. Every other scene change
+/// returns its cards, since the rental destroys them, and renders them again on the next frame;
+/// the note and More dialogs hold no card and stay open (<see cref="AndroidHistoryOverlays"/>). A
+/// new screen size lays the view out again and keeps an open note's draft; the view's lifetime is
 /// Core's <see cref="TouchViewSlot{TView}"/>, so a view that fails to build leaves the panel
 /// closed, and the next open builds again. A replay started from it
 /// reopens it with the selection kept once the replay session is over and the lobby is the active
@@ -66,6 +68,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private AndroidHistorySkillsSheet? _skills;
     private AndroidHistoryMoreDialog? _more;
     private AndroidHistoryNoteDialog? _note;
+    private AndroidHistoryOverlays? _overlays;
     private HistoryPanelViewModel? _model;
     private PvpBattleSnapshots? _shownSnapshots;
     private string? _shownBattleId;
@@ -120,12 +123,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
             // The panel stays open across scenes, except into a combat, as on the desktop.
             SceneChangeClose = SceneChangeClosePolicy.OnlyWhenInCombat,
             Enabled = () => _enabled.Value,
-            IsModalInputActive = () =>
-                _note?.IsOpen == true
-                || _more?.IsOpen == true
-                || _inspection?.IsOpen == true
-                || _skills?.IsOpen == true,
-            DismissModal = DismissTopDialog,
+            IsModalInputActive = () => _overlays?.AnyOpen == true,
+            DismissModal = () => _overlays?.DismissTop("back_key"),
             OnSceneChanged = OnSceneChanged,
             // A pending return from a replay is dropped, the panel open or not.
             OnSwitchedOff = () => CancelReturn(SwitchedOff),
@@ -225,21 +224,22 @@ internal sealed class AndroidHistoryPanel : IDisposable
     }
 
     // A scene loaded and the panel is still open, or was closed: the rental destroys every card
-    // right after this, so the cards go back first and come again next frame.
+    // right after this, so the cards go back first and come again next frame. The dialogs hold no
+    // card and stay open, a note on its unsaved draft.
     private void OnSceneChanged()
     {
-        ReturnCards("scene_changed");
+        var dialogsKept = _overlays?.SceneChanged("scene_changed") ?? 0;
+        var returned = ReturnBoards();
         _boardsDirty = IsVisible;
-    }
-
-    // The back key while a dialog is up: the note, then More, then the inspection, then skills.
-    private void DismissTopDialog()
-    {
-        _ =
-            _note?.Close("back_key") == true
-            || _more?.Close("back_key") == true
-            || _inspection?.Close("back_key") == true
-            || _skills?.Close("back_key") == true;
+        if (!IsVisible)
+            return;
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.history.scene_changed"),
+            ("returned", returned),
+            ("dialogs_kept", dialogsKept),
+            ("note_draft_kept", _note?.IsOpen == true),
+            ("note_length", _note?.Draft?.Text.Length ?? 0)
+        );
     }
 
     private static void LogOpenSkipped(string reasonCode) =>
@@ -331,23 +331,25 @@ internal sealed class AndroidHistoryPanel : IDisposable
         );
     }
 
-    // The More dialog's switch writes [Android] HistoryPanel as the settings row does; the host
-    // sees the switch-off on its next frame, closes the panel and releases the rented cards.
-    private void TurnOff()
-    {
-        _enabled.Value = false;
-        AndroidSettingsDock.LogChanged("Android", "HistoryPanel", false, source: "history_more");
-    }
+    // The More dialog's switch is the settings row's own write; the host sees the switch-off on
+    // its next frame, closes the panel and releases the rented cards (Panel Switch-Off).
+    private void TurnOff() =>
+        AndroidSettingsDock.WriteSwitch(
+            AndroidSettingsDock.HistoryPanelKey,
+            _enabled,
+            false,
+            source: "history_more"
+        );
 
     // Every overlay closes and every card goes back to the rental.
     private int ReturnCards(string reason)
     {
-        _note?.Close(reason);
-        _more?.Close(reason);
-        _inspection?.Close(reason);
-        _skills?.Close(reason);
-        _inspection?.Return();
-        _skills?.ReturnAll();
+        _overlays?.CloseAll(reason);
+        return ReturnBoards();
+    }
+
+    private int ReturnBoards()
+    {
         var returned = _upper.ReturnAll() + _lower.ReturnAll();
         _shownSnapshots = null;
         _shownBattleId = null;
@@ -440,6 +442,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
             _inspection = inspection;
             _more = more;
             _note = note;
+            _overlays = new AndroidHistoryOverlays([note, more], [inspection, skills]);
         }
         catch
         {
@@ -460,6 +463,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         _inspection = null;
         _more = null;
         _note = null;
+        _overlays = null;
     }
 
     // The build threw: the slot holds no view, the old view's cards already returned. An open
@@ -499,8 +503,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
             ("from", from),
             ("to", _slot.ScreenKey),
             ("note_draft_kept", draft != null && _note?.IsOpen == true),
-            ("note_length", draft?.Text.Length ?? 0),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("note_length", draft?.Text.Length ?? 0)
         );
         return true;
     }
