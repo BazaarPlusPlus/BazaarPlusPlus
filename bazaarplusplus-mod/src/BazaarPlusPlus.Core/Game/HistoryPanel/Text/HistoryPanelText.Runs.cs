@@ -55,12 +55,19 @@ public static partial class HistoryPanelText
         return FormatSimple("Run log repository is unavailable.", "Run log 仓库不可用。");
     }
 
-    public static string DeleteRunConfirm(string shortRunId)
+    // A host that records no video (IReplayRecordingAvailability.Supported false, Android) has no
+    // MP4 to keep, so its delete lines do not mention one.
+    public static string DeleteRunConfirm(string shortRunId, bool recordingSupported)
     {
-        return FormatSimple(
-            $"Press Delete again within 5s to remove {shortRunId}. Completed MP4 recordings will be kept.",
-            $"请在 5 秒内再次点击删除，以移除 {shortRunId}。已完成的 MP4 录像会保留。"
-        );
+        return recordingSupported
+            ? FormatSimple(
+                $"Press Delete again within 5s to remove {shortRunId}. Completed MP4 recordings will be kept.",
+                $"请在 5 秒内再次点击删除，以移除 {shortRunId}。已完成的 MP4 录像会保留。"
+            )
+            : FormatSimple(
+                $"Press Delete again within 5s to remove {shortRunId}.",
+                $"请在 5 秒内再次点击删除，以移除 {shortRunId}。"
+            );
     }
 
     // A Seal-Eligible Run, or one whose seal job is still waiting (BundleQueueStore.ProtectedRunCondition).
@@ -77,19 +84,26 @@ public static partial class HistoryPanelText
         return FormatSimple($"Couldn't delete run: {details}", $"删除对局失败：{details}");
     }
 
-    public static string DeletedRun(string shortRunId, int battleCount)
+    public static string DeletedRun(string shortRunId, int battleCount, bool recordingSupported)
     {
         if (battleCount > 0)
         {
-            return FormatSimple(
-                $"Removed run {shortRunId} and cleaned {battleCount} battle records. Completed MP4 recordings were kept.",
-                $"已删除对局 {shortRunId}，并清理 {battleCount} 条战斗记录。已完成的 MP4 录像已保留。"
-            );
+            return recordingSupported
+                ? FormatSimple(
+                    $"Removed run {shortRunId} and cleaned {battleCount} battle records. Completed MP4 recordings were kept.",
+                    $"已删除对局 {shortRunId}，并清理 {battleCount} 条战斗记录。已完成的 MP4 录像已保留。"
+                )
+                : FormatSimple(
+                    $"Removed run {shortRunId} and cleaned {battleCount} battle records.",
+                    $"已删除对局 {shortRunId}，并清理 {battleCount} 条战斗记录。"
+                );
         }
 
-        return FormatSimple(
-            $"Removed run {shortRunId}. Completed MP4 recordings were kept.",
-            $"已删除对局 {shortRunId}。已完成的 MP4 录像已保留。"
-        );
+        return recordingSupported
+            ? FormatSimple(
+                $"Removed run {shortRunId}. Completed MP4 recordings were kept.",
+                $"已删除对局 {shortRunId}。已完成的 MP4 录像已保留。"
+            )
+            : FormatSimple($"Removed run {shortRunId}.", $"已删除对局 {shortRunId}。");
     }
 }

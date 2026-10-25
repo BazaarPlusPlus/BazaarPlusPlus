@@ -15,7 +15,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// the game's own skill prefab while the sheet is open; a tap inspects it. The close button, a
 /// tap outside, or the back key dismisses the sheet, and its leases go back to the rental.
 /// </summary>
-internal sealed class AndroidHistorySkillsSheet
+internal sealed class AndroidHistorySkillsSheet : IHistoryCardOverlay
 {
     public const string RentalOwner = "history.skills";
 
@@ -194,6 +194,8 @@ internal sealed class AndroidHistorySkillsSheet
         );
         return true;
     }
+
+    void IHistoryCardOverlay.ReturnCards() => ReturnAll();
 
     /// <summary>Every skill goes back to the rental; the sheet stays as it is.</summary>
     public int ReturnAll()

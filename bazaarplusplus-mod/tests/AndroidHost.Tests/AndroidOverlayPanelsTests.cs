@@ -80,18 +80,26 @@ public sealed class AndroidOverlayPanelsTests
         );
     }
 
-    [Fact]
-    public void Combat_closes_the_open_panel_and_suppresses_an_open()
+    // A combat on Android loads no scene, so the frame's combat rule closes the open panel,
+    // History (which survives a plain scene load) as well as Collection, with no release: the
+    // panel returns its own cards on the close.
+    [Theory]
+    [InlineData("collection", SceneChangeClosePolicy.Always)]
+    [InlineData("history", SceneChangeClosePolicy.OnlyWhenInCombat)]
+    public void Combat_closes_the_open_panel_without_a_scene_load_and_suppresses_an_open(
+        string id,
+        SceneChangeClosePolicy policy
+    )
     {
         var rig = new Rig();
-        var panel = rig.Add("collection");
+        var panel = rig.Add(id, policy);
         panel.Handle.RequestOpen("touch_menu");
         rig.InCombat = true;
         rig.Events.Clear();
 
         rig.Panels.Frame(0.016f);
 
-        Assert.Equal(new[] { "close:collection:combat" }, rig.Events);
+        Assert.Equal(new[] { $"close:{id}:combat" }, rig.Events);
         Assert.Equal(
             OverlayRequestOutcome.SuppressedByCombat,
             panel.Handle.RequestOpen("touch_menu")
