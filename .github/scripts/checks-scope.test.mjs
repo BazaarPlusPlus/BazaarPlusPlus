@@ -235,6 +235,15 @@ test('real Git merge-base ignores base-only changes; push uses the whole interva
   git('checkout', 'main');
   put('VERSION', 'base only');
   const base = commit('base advanced');
+  // Git hooks export the caller's repository; the explicit fixture cwd must win.
+  const previousGitDir = process.env.GIT_DIR;
+  t.after(() => {
+    if (previousGitDir === undefined) delete process.env.GIT_DIR;
+    else process.env.GIT_DIR = previousGitDir;
+  });
+  process.env.GIT_DIR = runFixtureGit(['rev-parse', '--absolute-git-dir'], {
+    cwd: process.cwd()
+  }).trim();
   const actual = readChanges(
     'pull_request',
     { pull_request: { base: { sha: base }, head: { sha: head } } },

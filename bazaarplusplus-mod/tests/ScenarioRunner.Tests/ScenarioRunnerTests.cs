@@ -22,6 +22,15 @@ public sealed partial class ScenarioRunnerTests
     public Task Scenario_runner_passes(string projectName) => RunAsync(projectName);
 
     [Fact]
+    [Trait("TestKind", "Performance")]
+    public Task Replay_payload_maintenance_meets_the_time_budget() =>
+        RunAsync(
+            "ReplayPayloadMaintenance.Tests",
+            ["--benchmark"],
+            new Dictionary<string, string>()
+        );
+
+    [Fact]
     [Trait("TestKind", "ScenarioRunner")]
     [Trait("TestKind", "EmbeddedSeed")]
     public Task Live_build_embedded_seed_passes() => RunAsync(SeedRunner);

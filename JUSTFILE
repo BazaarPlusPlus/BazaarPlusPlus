@@ -51,6 +51,11 @@ setup *args:
 doctor:
     node scripts/workspace.mjs doctor
 
+# Run explicit verification recipes serially and retain their final exit status, SHA and logs.
+[group('workspace')]
+verify +recipes:
+    node scripts/verify.mjs "$@"
+
 # Run an explicit command with one configuration profile, from the repo root.
 [group('workspace')]
 with-config profile +args:
@@ -71,5 +76,5 @@ secrets-sync *args:
 commands-check:
     for file in {{ just_files }}; do {{ quote(just_executable()) }} --justfile "$file" --fmt --check; done
     npm exec -- prettier --config .prettierrc.json --check {{ root_js }}
-    node --test scripts/just.test.mjs scripts/workspace.test.mjs
+    node --test scripts/just.test.mjs scripts/workspace.test.mjs scripts/verify.test.mjs
     node --test .github/scripts/*.test.mjs

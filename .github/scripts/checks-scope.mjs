@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { runGit } from '../../scripts/git-command.mjs';
 
 export const PROJECTS = ['site', 'server', 'analyzer', 'installer', 'mod'];
 const PROJECT_SCOPES = {
@@ -212,7 +212,7 @@ export function unregisteredReferences(file, source) {
 }
 
 const git = (args, cwd) =>
-  execFileSync('git', args, {
+  runGit(args, {
     cwd,
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024
