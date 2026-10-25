@@ -2,6 +2,7 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
@@ -87,33 +88,27 @@ internal sealed class AndroidCollectionPanel
             return;
         var root = _root!;
         _catalog.RetryIfUnavailable();
-        _state.ResetSearchForLifecycle();
         _query = string.Empty;
         _search.SetTextWithoutNotify(string.Empty);
         var cached = _catalog.Cached;
-        _state.PrepareCatalogForOpen(cached);
         var inRun = IsInRun();
-        var remembered = inRun ? null : LoadHero();
-        var hero = inRun ? CurrentHero() : null;
         var day = inRun ? AndroidCollectionDayTierSource.CurrentDay() : null;
-        var selection = CollectionPanelOpenSelectionResolver.Resolve(
-            inRun,
-            hero,
-            null,
-            null,
-            _sources.Entries,
-            remembered
+        // A failed hero-preference load opens on the default hero; this host does not report it.
+        var opened = _state.Open(
+            inRun
+                ? CollectionOpenFacts.InRun(
+                    CurrentHero(),
+                    day,
+                    // This host composes NoEncounterState (AndroidComposition).
+                    EncounterIdsSnapshot.Empty,
+                    cached,
+                    Array.Empty<BPPSupporterSample>()
+                )
+                : CollectionOpenFacts.OutOfRun(cached, Array.Empty<BPPSupporterSample>())
         );
         root.SetActive(true);
         root.transform.SetAsLastSibling();
-        Render(
-            _state.ApplyOpenSelection(
-                selection,
-                Array.Empty<BPPSupporterSample>(),
-                day,
-                Array.Empty<string>()
-            )
-        );
+        Render(opened.Render);
         if (cached != null)
             Render(_state.AcceptCatalog(cached));
         else
@@ -125,7 +120,7 @@ internal sealed class AndroidCollectionPanel
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.opened"),
             ("cached", cached != null),
             ("in_run", inRun),
-            ("hero", selection.SelectedHero),
+            ("hero", opened.Selection.SelectedHero),
             ("day", day)
         );
     }
@@ -135,12 +130,9 @@ internal sealed class AndroidCollectionPanel
         if (!IsOpen)
             return;
         _inspection.Close(reason);
-        if (_loading)
-        {
-            _loading = false;
-            _state.NoteCatalogLoadCancelled();
-        }
-        _state.ResetSearchForLifecycle();
+        _loading = false;
+        // The render is discarded: the root deactivates below.
+        _state.Close();
         var returned = _grid.Leases;
         _grid.ReturnAll();
         _root!.SetActive(false);
@@ -311,12 +303,8 @@ internal sealed class AndroidCollectionPanel
             _screenKey = string.Empty;
             if (open)
             {
-                if (_loading)
-                {
-                    _loading = false;
-                    _state.NoteCatalogLoadCancelled();
-                }
-                _state.ResetSearchForLifecycle();
+                _loading = false;
+                _state.Close();
             }
             BppLog.ErrorEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.collection.relayout_failed"),
@@ -702,18 +690,6 @@ internal sealed class AndroidCollectionPanel
         }
     }
 
-    private CollectionPanelHeroPreferenceLoadResult? LoadHero()
-    {
-        try
-        {
-            return _heroStore.Load(_state.CatalogReadiness, _state.AvailableHeroes);
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
     private static CardHero? CurrentHero()
     {
         try
@@ -722,14 +698,14 @@ internal sealed class AndroidCollectionPanel
             if (
                 player != null
                 && AndroidCardFacets.Hero.TryToFacet(player.Hero, out var runHero)
-                && CollectionPanelOpenSelectionResolver.IsConcreteHero(runHero)
+                && CollectionPanelSelectionState.IsConcreteHero(runHero)
             )
                 return runHero;
             return
                 AndroidCardFacets.Hero.TryToFacet(
                     Il2CppTheBazaar.Data.SelectedHero,
                     out var selected
-                ) && CollectionPanelOpenSelectionResolver.IsConcreteHero(selected)
+                ) && CollectionPanelSelectionState.IsConcreteHero(selected)
                 ? selected
                 : null;
         }

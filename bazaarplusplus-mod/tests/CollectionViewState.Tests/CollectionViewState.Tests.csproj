@@ -8,7 +8,8 @@
   </PropertyGroup>
 
   <!-- Named explicitly so the test tree's netstandard2.1 pin leaves Core and its references on
-       net10.0, which `mod::test-core` runs without a Managed snapshot. -->
+       net10.0, which `mod::test-core` runs without a Managed snapshot. Core keeps its
+       Newtonsoft.Json private, so the source catalog parser's copy comes from here. -->
   <ItemGroup>
     <ProjectReference
       Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
@@ -22,6 +23,7 @@
       Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
       SetTargetFramework="TargetFramework=net10.0"
     />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>
