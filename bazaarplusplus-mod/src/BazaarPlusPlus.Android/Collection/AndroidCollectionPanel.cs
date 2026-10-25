@@ -50,8 +50,8 @@ internal sealed class AndroidCollectionPanel
     private readonly List<AndroidScrollTracker> _trackers = new();
     private CollectionTouchLayout _layout = null!;
 
-    // Null only after a relayout failed to build its tree; Open builds again.
-    private GameObject? _root;
+    // The tree for the current screen; none after a build failed, and Open builds again.
+    private readonly TouchViewSlot<GameObject> _tree;
     private AndroidNativeSkin _skin = null!;
     private AndroidCollectionGrid _grid = null!;
     private AndroidCollectionInspection _inspection = null!;
@@ -62,7 +62,6 @@ internal sealed class AndroidCollectionPanel
     private TMP_InputField _search = null!;
     private TextMeshProUGUI _searchPlaceholder = null!;
     private TextMeshProUGUI _status = null!;
-    private string _screenKey = string.Empty;
     private string _query = string.Empty;
     private bool _loading;
     private bool _treeLost;
@@ -95,10 +94,21 @@ internal sealed class AndroidCollectionPanel
             new AndroidCollectionDayTierSource(IsInRun),
             _heroStore
         );
-        Build();
+        _tree = new TouchViewSlot<GameObject>(DropTree);
+        // A failed first build leaves no tree: the first Open builds again.
+        var key = AndroidTouchScreen.Key();
+        _tree.Rebuild(key, () => Build(key), exception => LayoutFailed(exception, "", false));
     }
 
-    public bool IsOpen => _root != null && _root.activeSelf;
+    // Through a typed local, so Unity's equality also reads a destroyed root as gone.
+    public bool IsOpen
+    {
+        get
+        {
+            var root = _tree.View;
+            return root != null && root.activeSelf;
+        }
+    }
 
     /// <summary>Times the open panel was laid out again for a new screen.</summary>
     public long Relayouts { get; private set; }
@@ -109,10 +119,11 @@ internal sealed class AndroidCollectionPanel
         if (IsOpen)
             return true;
         if (
+            // No tree first: after a failed build the skin may be the partial one's, or none.
             (
-                _root == null
+                _tree.View == null
                 || _skin.NeedsRefresh
-                || !string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal)
+                || !_tree.IsCurrent(AndroidTouchScreen.Key())
             ) && !Relayout()
         )
             return false;
@@ -120,7 +131,7 @@ internal sealed class AndroidCollectionPanel
         _headerSupporters = Array.Empty<BPPSupporterSample>();
         _supporters?.Warm();
         RefreshSupporterButton(sample: true);
-        var root = _root!;
+        var root = _tree.View!;
         _catalog.RetryIfUnavailable();
         _query = string.Empty;
         _search.SetTextWithoutNotify(string.Empty);
@@ -180,7 +191,7 @@ internal sealed class AndroidCollectionPanel
         {
             returned = _grid.Leases;
             _grid.ReturnAll();
-            _root!.SetActive(false);
+            _tree.View!.SetActive(false);
         }
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.closed"),
@@ -213,10 +224,7 @@ internal sealed class AndroidCollectionPanel
     {
         if (!IsOpen)
             return;
-        if (
-            !string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal)
-            && !Relayout()
-        )
+        if (!_tree.IsCurrent(AndroidTouchScreen.Key()) && !Relayout())
         {
             _requestClose("relayout_failed");
             return;
@@ -241,10 +249,10 @@ internal sealed class AndroidCollectionPanel
 
     // The panel's uGUI tree for the current screen, from Core's CollectionTouchLayout. Every
     // geometry is in canvas units from the safe area and the density; a new screen builds a new
-    // tree (Relayout) and renders the same view state into it.
-    private void Build()
+    // tree (Relayout) and renders the same view state into it. A build that throws destroys its
+    // partial root, opaque and active until its last lines, before the exception leaves.
+    private GameObject Build(string key)
     {
-        _screenKey = AndroidTouchScreen.Key();
         var layout = _layout = CollectionTouchLayout.For(AndroidTouchScreen.Read());
         _port.Touch = layout;
         _skin = new AndroidNativeSkin();
@@ -261,8 +269,37 @@ internal sealed class AndroidCollectionPanel
         // Opaque: the panel covers the whole screen, and nothing of the scene shows through.
         var background = AndroidUiKit.PanelColor;
         background.a = 1f;
+        try
+        {
+            BuildContent(root, background, layout);
+        }
+        catch
+        {
+            UnityEngine.Object.Destroy(root.gameObject);
+            throw;
+        }
+        var dp = metrics.UnitsPerDp;
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.laid_out"),
+            ("screen", key),
+            ("units_per_dp", Math.Round(dp, 3)),
+            ("grid_dp", Math.Round(layout.Grid.Width / dp)),
+            ("rail_dp", Math.Round(layout.Rail.Width / dp)),
+            ("search_dp", Math.Round(layout.Search.Width / dp)),
+            ("item_columns", layout.GridColumns(CardType.Item, layout.Grid.Width)),
+            ("skill_columns", layout.GridColumns(CardType.Skill, layout.Grid.Width)),
+            ("target_dp", Math.Round(metrics.MinTarget / dp, 1)),
+            ("body_sp", Math.Round(chrome.BodyFont / dp, 1))
+        );
+        return root.gameObject;
+    }
+
+    // Everything under the root, which Build destroys when this throws.
+    private void BuildContent(RectTransform root, Color background, CollectionTouchLayout layout)
+    {
+        var chrome = layout.Chrome;
+        var metrics = layout.Metrics;
         AndroidUiKit.Fill(root, background);
-        _root = root.gameObject;
 
         var gridArea = AndroidTouchScreen.Child("Grid", root, layout.Grid);
         _grid = new AndroidCollectionGrid(gridArea, _port, Inspect, _font, chrome.BodyFont);
@@ -350,19 +387,6 @@ internal sealed class AndroidCollectionPanel
         _trackers.Add(new AndroidScrollTracker(Scrolled(), "rail", _railScroll));
         _trackers.Add(new AndroidScrollTracker(Scrolled(), "inspect", _inspection.DetailScroll));
         root.gameObject.SetActive(false);
-        var dp = metrics.UnitsPerDp;
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.laid_out"),
-            ("screen", _screenKey),
-            ("units_per_dp", Math.Round(dp, 3)),
-            ("grid_dp", Math.Round(layout.Grid.Width / dp)),
-            ("rail_dp", Math.Round(layout.Rail.Width / dp)),
-            ("search_dp", Math.Round(layout.Search.Width / dp)),
-            ("item_columns", layout.GridColumns(CardType.Item, layout.Grid.Width)),
-            ("skill_columns", layout.GridColumns(CardType.Skill, layout.Grid.Width)),
-            ("target_dp", Math.Round(metrics.MinTarget / dp, 1)),
-            ("body_sp", Math.Round(chrome.BodyFont / dp, 1))
-        );
     }
 
     private static BppLogEvent Scrolled() =>
@@ -370,44 +394,20 @@ internal sealed class AndroidCollectionPanel
 
     // The screen changed under the panel: the old tree returns its cards, and a tree laid out for
     // the new screen renders the same view state. A build that throws leaves no tree, never the
-    // destroyed one: the panel reads closed, its cards returned, and the next Open builds again.
-    // That retry finds no tree, and its inspection and grid may belong to the destroyed partial
-    // one, whose cards the failed attempt already returned, so it touches neither.
+    // destroyed one: the panel reads closed and the next Open builds again (LayoutFailed).
     private bool Relayout()
     {
-        var before = _screenKey;
+        var before = _tree.ScreenKey;
         var open = IsOpen;
-        if (_root != null)
-        {
-            _inspection.Close("relayout");
-            _grid.ReturnAll();
-            UnityEngine.Object.Destroy(_root);
-        }
-        _root = null;
-        try
-        {
-            Build();
-        }
-        catch (Exception exception)
-        {
-            if (_root != null)
-                UnityEngine.Object.Destroy(_root);
-            _root = null;
-            _grid.ReturnAll();
-            _screenKey = string.Empty;
-            // Open: the panel requests the host's close, which ends the view state (Close).
-            _treeLost = open;
-            BppLog.ErrorEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.collection.relayout_failed"),
-                exception,
-                ("from", before),
-                ("open", open),
-                ("rental_leases", AndroidCardRental.ActiveLeases)
-            );
+        var key = AndroidTouchScreen.Key();
+        var root = _tree.Rebuild(
+            key,
+            () => Build(key),
+            exception => LayoutFailed(exception, before, open)
+        );
+        if (root == null)
             return false;
-        }
         Relayouts++;
-        var root = _root!;
         if (open)
         {
             root.SetActive(true);
@@ -418,11 +418,35 @@ internal sealed class AndroidCollectionPanel
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.relaid_out"),
             ("from", before),
-            ("to", _screenKey),
+            ("to", _tree.ScreenKey),
             ("open", open),
             ("rental_leases", AndroidCardRental.ActiveLeases)
         );
         return true;
+    }
+
+    // The old tree goes with its inspected card and its rented cards.
+    private void DropTree(GameObject root)
+    {
+        _inspection.Close("relayout");
+        _grid.ReturnAll();
+        UnityEngine.Object.Destroy(root);
+    }
+
+    // The build threw and destroyed its partial root. The retry finds no tree, and its inspection
+    // and grid may belong to that partial one, whose cards go back here, so it touches neither.
+    // An open panel requests the host's close, which ends the view state (Close).
+    private void LayoutFailed(Exception exception, string before, bool open)
+    {
+        _grid?.ReturnAll();
+        _treeLost = open;
+        BppLog.ErrorEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.relayout_failed"),
+            exception,
+            ("from", before),
+            ("open", open),
+            ("rental_leases", AndroidCardRental.ActiveLeases)
+        );
     }
 
     private void AdvanceCatalog()
