@@ -1,6 +1,11 @@
 //! Strip rendering: crop a screenshot, cache the PNG, and serve it. Every step
 //! blocks (SQLite, settings file, image decode, cache I/O), so callers run
 //! these functions on a blocking thread.
+//!
+//! Float-to-integer casts here go through `pixel_offset` and `basis_points`,
+//! which spell out the saturating behavior. The cast lints keep a new bare
+//! `as` from slipping in beside them.
+#![warn(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
 use super::overlay_settings::{OverlayCropSettings, OverlaySettingsStore};
 use super::records::OverlayRecordRepository;
@@ -82,10 +87,10 @@ fn crop_cache_path(
         sanitized_cache_name(record_id),
         metadata.len(),
         modified,
-        (crop.left * 10_000.0).round() as i64,
-        (crop.top * 10_000.0).round() as i64,
-        (crop.width * 10_000.0).round() as i64,
-        (crop.height * 10_000.0).round() as i64
+        basis_points(crop.left),
+        basis_points(crop.top),
+        basis_points(crop.width),
+        basis_points(crop.height)
     );
 
     Ok(cache_directory.join(cache_name))
@@ -200,25 +205,59 @@ fn crop_dynamic_image(
         return Err("Overlay source image is empty.".to_string());
     }
 
-    let left = ((width as f64) * crop.left)
-        .floor()
-        .clamp(0.0, (width - 1) as f64) as u32;
-    let top = ((height as f64) * crop.top)
-        .floor()
-        .clamp(0.0, (height - 1) as f64) as u32;
-    let crop_width = ((width as f64) * crop.width)
-        .round()
-        .clamp(1.0, (width - left) as f64) as u32;
-    let crop_height = ((height as f64) * crop.height)
-        .round()
-        .clamp(1.0, (height - top) as f64) as u32;
+    let left = pixel_offset(
+        (f64::from(width) * crop.left)
+            .floor()
+            .clamp(0.0, f64::from(width - 1)),
+    );
+    let top = pixel_offset(
+        (f64::from(height) * crop.top)
+            .floor()
+            .clamp(0.0, f64::from(height - 1)),
+    );
+    let crop_width = pixel_offset(
+        (f64::from(width) * crop.width)
+            .round()
+            .clamp(1.0, f64::from(width - left)),
+    );
+    let crop_height = pixel_offset(
+        (f64::from(height) * crop.height)
+            .round()
+            .clamp(1.0, f64::from(height - top)),
+    );
 
     Ok(image.crop_imm(left, top, crop_width, crop_height))
 }
 
+/// Converts a pixel coordinate that the caller has already clamped into the
+/// image's bounds. Inside those bounds the value is a whole number that fits
+/// `u32`, so nothing is lost. A NaN crop fraction survives `clamp` and becomes
+/// 0 here, because float-to-int `as` saturates and maps NaN to 0.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "callers clamp into [0, u32 image dimension]; `as` saturates and maps NaN to 0"
+)]
+fn pixel_offset(clamped: f64) -> u32 {
+    clamped as u32
+}
+
+/// A crop fraction in ten-thousandths, used only to key the strip cache.
+/// Settings keep fractions in `[0, 1]`, so the result is at most 10 000; any
+/// other value saturates (NaN becomes 0), which at worst misses the cache.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "a cache key; `as` saturates out-of-range values and maps NaN to 0"
+)]
+fn basis_points(fraction: f64) -> i64 {
+    (fraction * 10_000.0).round() as i64
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{cached_strip, crop_cache_path, crop_dynamic_image, TEMP_SUFFIX};
+    use super::{
+        basis_points, cached_strip, crop_cache_path, crop_dynamic_image, pixel_offset, TEMP_SUFFIX,
+    };
     use crate::stream::overlay_settings::OverlayCropSettings;
     use image::{DynamicImage, GenericImageView, RgbaImage};
 
@@ -259,5 +298,16 @@ mod tests {
         );
         assert!(!entries[0].to_string_lossy().ends_with(TEMP_SUFFIX));
         assert_eq!(std::fs::read(&entries[0]).unwrap(), bytes);
+    }
+
+    #[test]
+    fn float_casts_saturate_and_map_nan_to_zero() {
+        assert_eq!(pixel_offset(42.0), 42);
+        assert_eq!(pixel_offset(f64::NAN), 0);
+        assert_eq!(pixel_offset(-1.0), 0);
+        assert_eq!(pixel_offset(1e12), u32::MAX);
+        assert_eq!(basis_points(0.25), 2_500);
+        assert_eq!(basis_points(f64::NAN), 0);
+        assert_eq!(basis_points(f64::INFINITY), i64::MAX);
     }
 }
