@@ -23,7 +23,8 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 /// <see cref="AndroidMainThread"/> before <see cref="LiveBuildPanelState.CompleteRefresh"/> runs,
 /// as the state requires. The view is laid out for the screen it opened on and laid out again
 /// when the resolution, density, or safe area changes, once the new screen has held still
-/// (<see cref="TouchRelayoutDebounce"/>) and no card is still setting up. A card returned while
+/// (<see cref="TouchRelayoutDebounce"/>) and no card is still setting up; a view that fails to
+/// build leaves the panel closed, and the next open builds again. A card returned while
 /// it sets up leaves the old view at once (<see cref="CardRentalCore{TCard, TParent}"/>), so
 /// destroying the view never takes one.
 /// </summary>
@@ -91,6 +92,8 @@ internal sealed class AndroidLiveBuildPanel
         if (IsOpen)
             return;
         var view = EnsureView();
+        if (view == null)
+            return;
         var outcome = AndroidLiveCardSnapshotReader.Read();
         ReportLiveSnapshotIssues(outcome.Issues);
         _state.Open(
@@ -184,16 +187,42 @@ internal sealed class AndroidLiveBuildPanel
         _view = null;
     }
 
-    private AndroidLiveBuildView EnsureView()
+    // A view that fails to build leaves no view, never the destroyed one, and records no screen:
+    // the panel reads closed, the old view's cards already returned, and the next Open builds again.
+    private AndroidLiveBuildView? EnsureView()
     {
         var key = AndroidTouchScreen.Key();
         if (_view != null && string.Equals(key, _screenKey, StringComparison.Ordinal))
             return _view;
+        var before = _screenKey;
+        var open = IsOpen;
         _view?.Destroy();
+        _view = null;
+        _screenKey = string.Empty;
+        try
+        {
+            var layout = LiveBuildTouchLayout.For(AndroidTouchScreen.Read());
+            _view = new AndroidLiveBuildView(_parent, _font, layout, _commands);
+        }
+        catch (Exception exception)
+        {
+            if (open)
+            {
+                _state.Close();
+                Closed++;
+            }
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.layout_failed"),
+                exception,
+                ("from", before),
+                ("to", key),
+                ("open", open),
+                ("rental_leases", AndroidCardRental.ActiveLeases)
+            );
+            return null;
+        }
         _screenKey = key;
         _relayout.LaidOutAt(key);
-        var layout = LiveBuildTouchLayout.For(AndroidTouchScreen.Read());
-        _view = new AndroidLiveBuildView(_parent, _font, layout, _commands);
         return _view;
     }
 
@@ -203,6 +232,8 @@ internal sealed class AndroidLiveBuildPanel
     {
         var before = _screenKey;
         var view = EnsureView();
+        if (view == null)
+            return;
         view.SetVisible(true);
         view.Refresh(_state.BuildSnapshot(), boards: true);
         Relayouts++;
