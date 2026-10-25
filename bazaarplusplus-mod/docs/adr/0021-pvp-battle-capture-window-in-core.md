@@ -1,4 +1,4 @@
-# ADR-0022: PvP Battle Capture Window in Core, behind a per-host reads port
+# ADR-0021: PvP Battle Capture Window in Core, behind a per-host reads port
 
 Status: Accepted
 

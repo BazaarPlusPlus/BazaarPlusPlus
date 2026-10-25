@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The PvP Battle Capture Window (ADR-0022) through its public interface, over a scripted
+  <!-- The PvP Battle Capture Window (ADR-0021) through its public interface, over a scripted
        battle-reading port and real Core collaborators. Needs no game snapshot, so `mod::test` and
        `mod::test-core` both run it. Each host's reads are checked in its own lane. -->
   <PropertyGroup>

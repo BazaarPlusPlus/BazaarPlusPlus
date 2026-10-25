@@ -55,7 +55,7 @@ _Avoid_: replay cache, orphan video
 The Core module (`SavedReplayPlayback`) owning one saved replay's admission, payload lease, start, exit and menu return for both hosts via `ISavedReplayHost` (ADR-0020). Pure `SavedReplayLifecycle` holds its states. Neither exits `ReplayState` (ADR-0002).
 
 **PvP Battle Capture Window**:
-Core's `PvpBattleCaptureWindow`: frames one PvP battle from a host's opening, combat and closing sims, owning which states open it, when each field is read and replay part order. Hosts read (`IPvpBattleReads`) and persist (ADR-0022).
+Core's `PvpBattleCaptureWindow`: frames one PvP battle from a host's opening, combat and closing sims, owning which states open it, when each field is read and replay part order. Hosts read (`IPvpBattleReads`) and persist (ADR-0021).
 _Avoid_: matcher, collector, sequence candidate
 
 ## Overlay panels

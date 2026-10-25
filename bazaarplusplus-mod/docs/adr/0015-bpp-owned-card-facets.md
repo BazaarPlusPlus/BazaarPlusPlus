@@ -15,7 +15,7 @@ ADR-0012 moves into Core only what compiles without game types. Collection and m
 
    The PvP battle model (`PvpBattleCardSnapshot`) carries facets, and its stored forms keep names. A `battle_snapshots` document stores each facet's member name; a card the game gave no size (its unnamed value 0) stores `"0"`, reads back with no size, and reaches the Bundle as size 0 (`PvpBattleSnapshotsCodec`, `PvpBattleCardDocument.NoSize`). A Bundle card read back into a Ghost manifest maps its integers through the host's names (`IPvpBattleEvidenceBinding.TryCardEnumName`), with size 0 again a card without a size. Ghost and favorite payload files store every enum of their manifest by member name (`MessagePackGzipCodec`'s `enumsAsNames`), so a file written with integers does not decode.
 
-   Amended 2026-10-25: both hosts capture a PvP card through their adapter's `Captured*` methods (ADR-0022), Android's included. A type with no facet fails that board to Missing; a size, section or socket with no facet is null.
+   Amended 2026-10-25: both hosts capture a PvP card through their adapter's `Captured*` methods (ADR-0021), Android's included. A type with no facet fails that board to Missing; a size, section or socket with no facet is null.
 
 ## Guardrails
 
