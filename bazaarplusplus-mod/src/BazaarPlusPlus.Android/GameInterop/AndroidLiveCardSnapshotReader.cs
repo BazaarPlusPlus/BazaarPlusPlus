@@ -11,7 +11,7 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// hero, the shop's item offers, and the items on the board and in the stash, on card facets
 /// (ADR-0015, ADR-0017), for Core's <see cref="LiveCardSnapshotRead"/>. The shop is
 /// <c>Data.CurrentState.SelectionSet</c> in its order, as on the desktop. The board and the stash
-/// are read as <see cref="AndroidPvpBattleSnapshots"/> reads the hand, from <c>Data.Entities</c>
+/// are read as <see cref="AndroidPvpBattleReads"/> reads the hand, from <c>Data.Entities</c>
 /// by owner and unboxed section, never through the container's socket tuples, whose IL2CPP proxies
 /// are unreliable, and are put in socket order here because <c>Data.Entities</c> has none. Core's
 /// <see cref="LiveCardSnapshotRead"/> places, numbers and reports the cards. Main thread only.

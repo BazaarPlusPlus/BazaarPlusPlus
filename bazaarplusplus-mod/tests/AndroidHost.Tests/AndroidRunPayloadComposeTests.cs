@@ -154,7 +154,7 @@ public sealed class AndroidRunPayloadComposeTests : IDisposable
         );
     }
 
-    // The documents AndroidPvpBattleSnapshots writes: enum member names, as ToString() gives them.
+    // The documents an Android capture is stored as: enum member names, as the codec writes them.
     private static PvpBattleRecord Battle(string battleId, int day) =>
         new()
         {
