@@ -146,11 +146,11 @@ _Avoid_: per-feed upload controller
 ## Cards
 
 **Card Facet**:
-A Core enum for one card or combat property, such as `CardSize` or a captured card's `CardSocket`, named member for member after the game enum it replaces; each Host's adapter maps by name (ADR-0015, ADR-0019).
+A Core enum for one card or combat property (`CardSize`, a captured card's `CardSocket`), named member for member after the game enum it replaces; each Host's adapter maps by name (ADR-0015, ADR-0019).
 _Avoid_: game enums in Core
 
 **Live Card Walk**:
-A Host's raw read of the run in Card Facets (`LiveCardWalk`), which Core's `LiveCardSnapshotRead` places, numbers and reports (ADR-0017).
+A Host's raw run read in Card Facets (`LiveCardWalk`); Core's `LiveCardSnapshotRead` fits, numbers and reports it.
 
 ## Collection panel
 
