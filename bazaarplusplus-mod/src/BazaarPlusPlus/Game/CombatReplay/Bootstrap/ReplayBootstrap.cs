@@ -175,7 +175,7 @@ internal static class ReplayBootstrap
         {
             var publishOutcome = publishStarting();
             if (!publishOutcome.Succeeded)
-                throw new ReplayPlaybackPublishException(
+                throw new ReplayPlaybackStartException(
                     ReplayPlaybackReasonCode.StartingPublishFailed,
                     publishOutcome.Exception
                 );
@@ -218,7 +218,7 @@ internal static class ReplayBootstrap
         }
     }
 
-    internal static async Task<ReplayBootstrapRollbackOutcome> RollbackBootstrapAsync(
+    internal static async Task<ReplayBootstrapRollback> RollbackBootstrapAsync(
         IReplayPlaybackOutcomeSink outcome
     )
     {
@@ -250,12 +250,12 @@ internal static class ReplayBootstrap
                 showLoadingScene: false
             );
             return cleanupFailure == null
-                ? ReplayBootstrapRollbackOutcome.Success()
-                : ReplayBootstrapRollbackOutcome.Failure(cleanupFailure);
+                ? ReplayBootstrapRollback.Success
+                : ReplayBootstrapRollback.Failure(cleanupFailure);
         }
         catch (Exception ex)
         {
-            return ReplayBootstrapRollbackOutcome.Failure(ex);
+            return ReplayBootstrapRollback.Failure(ex);
         }
     }
 
@@ -280,28 +280,6 @@ internal static class ReplayBootstrap
         );
         return field?.GetValue(null) as T;
     }
-}
-
-internal sealed class ReplayPlaybackPublishException : Exception
-{
-    internal ReplayPlaybackPublishException(
-        ReplayPlaybackReasonCode reasonCode,
-        Exception? innerException
-    )
-        : base("Replay lifecycle event publication failed.", innerException)
-    {
-        ReasonCode = reasonCode;
-    }
-
-    internal ReplayPlaybackReasonCode ReasonCode { get; }
-}
-
-internal readonly record struct ReplayBootstrapRollbackOutcome(bool Succeeded, Exception? Exception)
-{
-    internal static ReplayBootstrapRollbackOutcome Success() => new(true, null);
-
-    internal static ReplayBootstrapRollbackOutcome Failure(Exception exception) =>
-        new(false, exception ?? throw new ArgumentNullException(nameof(exception)));
 }
 
 internal sealed class ReplayBootstrapContext

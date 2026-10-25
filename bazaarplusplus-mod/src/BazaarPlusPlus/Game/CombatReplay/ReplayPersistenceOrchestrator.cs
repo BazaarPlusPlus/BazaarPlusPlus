@@ -59,7 +59,7 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
     public CombatReplayPayloadStore PayloadStore => _payloadStore;
     public bool HasPendingPersistence => _persistenceQueue.HasPendingPersistence;
 
-    internal IDisposable? TryAcquirePlaybackPayloadLease() => _operationGate.TryAcquirePlayback();
+    internal ReplayPayloadOperationGate OperationGate => _operationGate;
 
     public void Enqueue(PvpReplayPayload payload, PvpBattleManifest manifest)
     {

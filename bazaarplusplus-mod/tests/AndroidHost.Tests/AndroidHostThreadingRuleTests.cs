@@ -92,6 +92,44 @@ public sealed class AndroidHostThreadingRuleTests
         );
     }
 
+    // Saved Replay Playback runs the Android replay start from Core (ADR-0020): its awaits must
+    // resume on the context the host installed, so it never leaves it or joins tasks.
+    [Fact]
+    public void Saved_replay_playback_in_core_awaits_only_on_the_callers_context()
+    {
+        string[] scope =
+        [
+            "BazaarPlusPlus.Game.CombatReplay.SavedReplayPlayback",
+            "BazaarPlusPlus.Game.CombatReplay.SavedReplayLifecycle",
+        ];
+        var core = CompiledAssembly.Load(
+            typeof(BazaarPlusPlus.Game.CombatReplay.SavedReplayPlayback).Assembly.Location
+        );
+        var types = core.Types.Where(type => scope.Contains(type.FullName)).ToArray();
+        Assert.Equal(scope.Length, types.Length);
+        var instructions = types
+            .SelectMany(type => type.Methods)
+            .SelectMany(method => method.Instructions.Select(instruction => (method, instruction)))
+            .Where(pair =>
+                pair.instruction.IsMemberAccess
+                && pair.instruction.TargetType is { Namespace: "System.Threading.Tasks" }
+            )
+            .ToArray();
+
+        Assert.Contains(instructions, pair => pair.instruction.TargetMember == "GetAwaiter");
+        var violations = instructions
+            .Where(pair =>
+                pair.instruction.TargetMember is "Run" or "WhenAll" or "WhenAny" or "ConfigureAwait"
+            )
+            .Select(pair => $"{pair.method}: {pair.instruction}")
+            .ToArray();
+        Assert.True(
+            violations.Length == 0,
+            "Saved Replay Playback awaits on the host's context, never the pool:\n  "
+                + string.Join("\n  ", violations)
+        );
+    }
+
     [Fact]
     public void History_controls_are_wired_only_through_the_main_thread_action_scope()
     {
