@@ -12,11 +12,11 @@ _Avoid_: node, map node
 An encounter that upgrades or enchants one of the player's existing items rather than granting a new one. Which pedestal kind the current Choice screen offers drives the upgrade/enchant preview's "smart" mode.
 
 **Encounter Status Probe**:
-The on-demand, pull-based read of the player's *current* run/encounter state (`IEncounterStateProbe`). The project's chosen way to expose "where is the player in the run right now" — status queries, not a recorded timeline (ADR-0001).
+The on-demand, pull-based read of the player's *current* run/encounter state (`IEncounterStateProbe`). Status queries, not a recorded timeline (ADR-0001).
 _Avoid_: encounter tracker, run timeline
 
 **Run Snapshot Probe**:
-The on-demand, pull-based read of the current run's recordable facts — day/hour, win/loss, hero, mode, player stats, rank, leaderboard placement (`IRunSnapshotProbe`). Consumers map the snapshot into their own records instead of reading game globals directly.
+The on-demand, pull-based read of the current run's recordable facts — day/hour, win/loss, hero, mode, player stats, rank, leaderboard placement (`IRunSnapshotProbe`). Consumers map it into their own records, never reading game globals.
 _Avoid_: run tracker
 
 **Game Build Channel**:
@@ -31,7 +31,7 @@ _Avoid_: RunLoggingController, run logger MonoBehaviour
 The feature-owned query boundary for event cards, encounter-step rewards, and hero level rewards. Callers supply only a stable template id, current level, and native text they already hold; the module owns everything from plan generation to final presentation.
 
 **End-of-Run Capture Workflow**:
-The single run-scoped state machine that owns the end-of-run screenshot flow — readiness, bounded attempts, clean-frame preparation, artifact validation, fail-open terminal outcomes. Harmony patches express only Continue and reveal-start intents through `IEndOfRunCaptureWorkflow` and never drive capture directly.
+The single run-scoped state machine that owns the end-of-run screenshot flow, from readiness through bounded attempts to a fail-open outcome. Harmony patches express only Continue and reveal-start intents through `IEndOfRunCaptureWorkflow` and never drive capture directly.
 _Avoid_: screenshot gate
 
 **Ghost Battle**:
@@ -53,6 +53,10 @@ _Avoid_: replay cache, orphan video
 
 **Saved Replay Playback**:
 The Core module (`SavedReplayPlayback`) owning one saved replay's admission, payload lease, start, exit and menu return for both hosts via `ISavedReplayHost` (ADR-0020). Pure `SavedReplayLifecycle` holds its states. Neither exits `ReplayState` (ADR-0002).
+
+**PvP Battle Capture Window**:
+Core's `PvpBattleCaptureWindow`: frames one PvP battle from a host's opening, combat and closing sims, owning which states open it, when each field is read and replay part order. Hosts read (`IPvpBattleReads`) and persist (ADR-0022).
+_Avoid_: matcher, collector, sequence candidate
 
 ## Overlay panels
 
@@ -155,7 +159,7 @@ A Host's raw run read in Card Facets (`LiveCardWalk`); Core's `LiveCardSnapshotR
 ## Collection panel
 
 **Collection View State**:
-The single owner of the Collection Panel's presentable state (`CollectionViewState`, Core): filters, search, catalog acceptance, open and close, and the render model. Commands go in, a complete render outcome comes out; nothing else touches the filter. Open takes **Collection Open Facts** (`CollectionOpenFacts`), what the host read: run or not; in a run the hero, day and encounter ids (empty if unprobed); cached catalog; supporters.
+The single owner of the Collection Panel's presentable state (`CollectionViewState`, Core): filters, search, catalog, open/close, render model; nothing else touches the filter. Open takes **Collection Open Facts** (`CollectionOpenFacts`), the host's run and catalog reads.
 _Avoid_: ApplyFilters/RefreshView pairing; open selection inputs
 
 ## Collection sources
