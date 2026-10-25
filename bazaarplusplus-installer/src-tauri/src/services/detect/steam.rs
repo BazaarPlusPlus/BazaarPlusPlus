@@ -238,15 +238,12 @@ fn get_game_path_from_vdf(steam_path: &Path) -> Option<PathBuf> {
         }
     };
 
-    let parsed_folders = match parse_library_folders(&library_vdf, THE_BAZAAR_APP_ID) {
-        Some(folders) => folders,
-        None => {
-            crate::services::debug_log!(
-                "[detect::steam] failed to parse libraryfolders.vdf path={}",
-                library_vdf_path.display()
-            );
-            return None;
-        }
+    let Some(parsed_folders) = parse_library_folders(&library_vdf, THE_BAZAAR_APP_ID) else {
+        crate::services::debug_log!(
+            "[detect::steam] failed to parse libraryfolders.vdf path={}",
+            library_vdf_path.display()
+        );
+        return None;
     };
 
     crate::services::debug_log!(

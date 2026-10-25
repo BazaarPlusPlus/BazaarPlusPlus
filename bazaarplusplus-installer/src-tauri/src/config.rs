@@ -64,10 +64,6 @@ pub const STEAM_LIBRARY_FALLBACK_CANDIDATES: &[&str] = &[
     r"E:\SteamLibrary\steamapps\common\The Bazaar",
 ];
 
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
-#[cfg(not(target_os = "windows"))]
-pub const STEAM_LIBRARY_FALLBACK_CANDIDATES: &[&str] = &[];
-
 #[cfg(test)]
 mod tests {
     #[test]

@@ -31,26 +31,21 @@ use tray::{build_tray, TrayMenuState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default();
+    let builder = tauri::Builder::default();
     let command_builder = crate::commands::registry::builder();
 
+    // single-instance must be registered first; window-state restores only
+    // geometry and maximization, never visibility or frame configuration.
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    {
-        // single-instance must be registered first; window-state restores only
-        // geometry and maximization, never visibility or frame configuration.
-        builder = builder
-            .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-                crate::main_window::restore(app);
-            }))
-            .plugin(
-                tauri_plugin_window_state::Builder::default()
-                    .with_state_flags(
-                        StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED,
-                    )
-                    .build(),
-            );
-    }
+    let builder = builder
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            crate::main_window::restore(app);
+        }))
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
+                .build(),
+        );
 
     let app = builder
         .plugin(tauri_plugin_updater::Builder::new().build())

@@ -155,13 +155,7 @@ pub(crate) fn install_state_from_snapshot(
     let can_launch = game_found && env.game_path_valid;
     let has_resettable_data = has_resettable_bpp_data(env.game_path.as_deref());
     let has_bepinex_files = has_bepinex_directory(env.game_path.as_deref());
-    let warnings = install_warnings(
-        game_found,
-        env.game_path_valid,
-        env.steam_launch_options,
-        env.trampoline_current,
-        env.obsolete_macos_artifacts_present,
-    );
+    let warnings = install_warnings(&env);
 
     InstallState {
         selected_game_path,
@@ -185,21 +179,17 @@ pub(crate) fn install_state_from_snapshot(
 }
 
 fn install_warnings(
-    game_found: bool,
-    game_path_valid: bool,
-    steam_launch_options: crate::services::vdf::SteamLaunchOptionsState,
-    trampoline_current: bool,
-    obsolete_macos_artifacts_present: bool,
+    env: &crate::services::detect::InstallEnvironmentSnapshot,
 ) -> Vec<InstallWarning> {
     let mut warnings = Vec::new();
-    if !game_found || !game_path_valid {
+    if env.game_path.is_none() || !env.game_path_valid {
         warnings.push(InstallWarning {
             code: InstallWarningCode::GameMissing,
             params: Default::default(),
         });
     }
     if cfg!(target_os = "macos") {
-        match steam_launch_options {
+        match env.steam_launch_options {
             crate::services::vdf::SteamLaunchOptionsState::Empty => {}
             crate::services::vdf::SteamLaunchOptionsState::NonEmpty => {
                 warnings.push(InstallWarning {
@@ -214,13 +204,13 @@ fn install_warnings(
                 });
             }
         }
-        if !trampoline_current {
+        if !env.trampoline_current {
             warnings.push(InstallWarning {
                 code: InstallWarningCode::TrampolineNotReady,
                 params: Default::default(),
             });
         }
-        if obsolete_macos_artifacts_present {
+        if env.obsolete_macos_artifacts_present {
             warnings.push(InstallWarning {
                 code: InstallWarningCode::ObsoleteMacosArtifacts,
                 params: Default::default(),
@@ -291,6 +281,23 @@ mod tests {
     use super::{
         has_bepinex_directory, has_resettable_bpp_data, install_warnings, InstallWarningCode,
     };
+    use crate::services::detect::InstallEnvironmentSnapshot;
+    use crate::services::vdf::SteamLaunchOptionsState;
+
+    /// A found, valid game with no warning-relevant facts set.
+    fn snapshot() -> InstallEnvironmentSnapshot {
+        InstallEnvironmentSnapshot {
+            steam_path: None,
+            game_path: Some("game".into()),
+            game_path_valid: true,
+            bepinex_installed: false,
+            bpp_version: None,
+            bundled_bpp_version: None,
+            steam_launch_options: SteamLaunchOptionsState::Empty,
+            trampoline_current: true,
+            obsolete_macos_artifacts_present: false,
+        }
+    }
 
     #[test]
     fn test_has_resettable_bpp_data_detects_existing_data_directory() {
@@ -324,13 +331,14 @@ mod tests {
 
     #[test]
     fn install_warnings_are_semantic_codes_without_backend_copy() {
-        let warnings = install_warnings(
-            false,
-            false,
-            crate::services::vdf::SteamLaunchOptionsState::Empty,
-            true,
-            false,
-        );
+        let warnings = install_warnings(&InstallEnvironmentSnapshot {
+            game_path: None,
+            game_path_valid: false,
+            steam_launch_options: SteamLaunchOptionsState::Empty,
+            trampoline_current: true,
+            obsolete_macos_artifacts_present: false,
+            ..snapshot()
+        });
 
         assert_eq!(
             warnings
@@ -345,13 +353,12 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn install_warnings_include_macos_bootstrap_problems() {
-        let warnings = install_warnings(
-            true,
-            true,
-            crate::services::vdf::SteamLaunchOptionsState::Unavailable,
-            false,
-            true,
-        );
+        let warnings = install_warnings(&InstallEnvironmentSnapshot {
+            steam_launch_options: SteamLaunchOptionsState::Unavailable,
+            trampoline_current: false,
+            obsolete_macos_artifacts_present: true,
+            ..snapshot()
+        });
 
         assert_eq!(
             warnings
@@ -370,13 +377,12 @@ mod tests {
     #[cfg(not(target_os = "macos"))]
     #[test]
     fn install_warnings_ignore_macos_bootstrap_inputs_on_other_platforms() {
-        let warnings = install_warnings(
-            true,
-            true,
-            crate::services::vdf::SteamLaunchOptionsState::Unavailable,
-            false,
-            true,
-        );
+        let warnings = install_warnings(&InstallEnvironmentSnapshot {
+            steam_launch_options: SteamLaunchOptionsState::Unavailable,
+            trampoline_current: false,
+            obsolete_macos_artifacts_present: true,
+            ..snapshot()
+        });
 
         assert!(warnings.is_empty());
     }

@@ -1,5 +1,7 @@
-// `build.rs` is the only caller of the build-time freshness check.
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "`build.rs` is the only caller of the build-time freshness check"
+)]
 #[path = "../build_support.rs"]
 mod build_support;
 

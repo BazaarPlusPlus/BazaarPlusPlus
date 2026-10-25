@@ -1,0 +1,2 @@
+# A panic is the assertion in a test.
+allow-unwrap-in-tests = true

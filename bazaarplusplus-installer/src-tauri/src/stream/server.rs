@@ -11,7 +11,7 @@ use super::{
 };
 use crate::services::paths;
 use chrono::{Local, SecondsFormat};
-use std::path::PathBuf;
+use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot};
 
 const HOST: &str = "127.0.0.1";
@@ -31,7 +31,7 @@ impl StreamServerAdapter for ProductionServer {
             let active_record_game_path = installation.record_game_path.clone();
             let overlay_record_repository =
                 OverlayRecordRepository::new(installation.record_game_path);
-            let db = stream_db_status(installation.game_path.as_ref());
+            let db = stream_db_status(installation.game_path.as_deref());
             let overlay_settings = OverlaySettingsStore::default();
             let router = http::router(
                 overlay_record_repository,
@@ -76,7 +76,7 @@ impl StreamServerAdapter for ProductionServer {
     }
 }
 
-fn stream_db_status(game_path: Option<&PathBuf>) -> StreamDbStatus {
+fn stream_db_status(game_path: Option<&Path>) -> StreamDbStatus {
     let Some(game_path) = game_path else {
         return StreamDbStatus::default();
     };
