@@ -36,11 +36,14 @@ internal sealed class AndroidTouchUi
     private RectTransform? _shortcuts;
     private AndroidControlIcons? _icons;
     private UnityEngine.UI.Button? _anchor;
+    private RectTransform? _anchorRect;
+    private Canvas? _anchorCanvas;
     private float _nextAnchorCheck;
     private TMP_FontAsset? _font;
     private AndroidCollectionPanel? _collection;
     private AndroidLiveBuildPanel? _liveBuild;
-    private string _screenKey = string.Empty;
+    private string? _shortcutScreen;
+    private TouchRect? _shortcutAnchor;
     private bool _mountFailed;
     private long _relayouts;
 
@@ -172,7 +175,9 @@ internal sealed class AndroidTouchUi
             {
                 _nextAnchorCheck = Time.unscaledTime + 0.5f;
                 _anchor = AndroidNativeHud.FindSettingsButton();
-                _screenKey = "";
+                _anchorRect = _anchor?.GetComponent<RectTransform>();
+                _anchorCanvas = _anchorRect?.GetComponentInParent<Canvas>()?.rootCanvas;
+                _shortcutAnchor = null;
             }
             var visible =
                 _android.TouchMenu.Value
@@ -206,13 +211,18 @@ internal sealed class AndroidTouchUi
     private void LayoutShortcuts()
     {
         var bounds = AndroidNativeHud.ScreenBounds(
-            _anchor!.GetComponent<RectTransform>(),
+            _anchorRect!,
+            _anchorCanvas!,
             AndroidUiKit.ReferenceResolution.y
         );
-        var key = AndroidTouchScreen.Key() + "|" + bounds;
-        if (key == _screenKey)
+        var screen = AndroidTouchScreen.Key();
+        if (
+            bounds == _shortcutAnchor
+            && string.Equals(screen, _shortcutScreen, StringComparison.Ordinal)
+        )
             return;
-        _screenKey = key;
+        _shortcutScreen = screen;
+        _shortcutAnchor = bounds;
         if (_shortcuts != null)
             UnityEngine.Object.Destroy(_shortcuts.gameObject);
         _entries.Clear();
