@@ -13,7 +13,6 @@ public sealed class SourceTextBanTests
         "src/**.cs",
         "build/**.cs",
         "Shared/TestFiles/**.cs",
-        "CombatImpact.Corpus/**.cs",
     };
 
     private static readonly string[] FrozenDebtFiles = [];

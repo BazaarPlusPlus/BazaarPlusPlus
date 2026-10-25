@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("CollectionEncounterTooltip.Tests")]
-[assembly: InternalsVisibleTo("CombatImpact.Corpus")]
+[assembly: InternalsVisibleTo("CombatImpact.CorpusExport")]
 [assembly: InternalsVisibleTo("ItemEnchantPreview.Tests")]
 [assembly: InternalsVisibleTo("CollectionSourceFiltering.Tests")]
 [assembly: InternalsVisibleTo("LiveBuildRecommendations.Tests")]
