@@ -19,7 +19,7 @@
       ReferenceOutputAssembly="false"
     />
     <ProjectReference
-      Include="../CombatImpact.Corpus/CombatImpact.Corpus.csproj"
+      Include="../CombatImpact.CorpusExport/CombatImpact.CorpusExport.csproj"
       ReferenceOutputAssembly="false"
     />
   </ItemGroup>

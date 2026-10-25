@@ -52,8 +52,8 @@ cmd_test_performance() {
 # boundary test, which needs the Interop Snapshot from `just mod::fetch android online`
 # instead), then the console capsules that run against Core's net10.0 output: the two goldens
 # on the binding the Android host ships, the Run segment (BundleV6Codec) and Run Logging's
-# history database, and the Core-only feature capsules. A capsule here also stays in
-# BppScenarioRunnerProjects, which `mod::test` runs.
+# history database, the Combat Impact Corpus runner, and the Core-only feature capsules. A
+# capsule here also stays in BppScenarioRunnerProjects, which `mod::test` runs.
 # BppSnapshotPlatform=none names no lock entry, so a project that reaches a Mono target fails
 # here on every host the way it fails on the Linux lane, not only where no snapshot is fetched.
 cmd_test_core() {
@@ -64,8 +64,8 @@ cmd_test_core() {
         "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     local project
     for project in BundleV6Codec.Net10.Tests RunLoggingPipeline.Net10.Tests \
-        CollectionFilterEngine.Tests CollectionGridLayout.Tests CollectionViewState.Tests \
-        GhostBattleSync.Tests HistoryPanelDecisions.Tests HistoryPanelFiltering.Tests \
+        CombatImpact.Corpus CollectionFilterEngine.Tests CollectionGridLayout.Tests \
+        CollectionViewState.Tests GhostBattleSync.Tests HistoryPanelDecisions.Tests HistoryPanelFiltering.Tests \
         HistoryPanelRepository.Tests LiveBuildPanel.Tests LiveBuildRecommendationCore.Tests \
         OverlayPanelLifecycle.Tests; do
         dotnet run --project "tests/$project/$project.csproj" \
@@ -74,6 +74,8 @@ cmd_test_core() {
 }
 
 # test-corpus <replay-corpus-path> [report-path] [--benchmark]: opt-in Combat Impact acceptance.
+# The host-lane exporter turns the game payloads into a Combat Impact Corpus beside the report
+# (<report>.corpus.json.gz), then the Core-lane runner projects it.
 cmd_test_corpus() {
     local usage="Usage: just mod::test-corpus <replay-corpus-path> [report-path] [--benchmark]"
     local corpus_path="" report_path="" benchmark_arg=() arg
@@ -101,11 +103,14 @@ cmd_test_corpus() {
         exit 2
     fi
     report_path="${report_path:-$MOD_ROOT/artifacts/combat-impact-corpus/report.json}"
-    local props=()
+    local exported="${report_path%.json}.corpus.json.gz" props=()
     while IFS= read -r arg; do props+=("$arg"); done < <(managed_props)
-    dotnet run --project tests/CombatImpact.Corpus/CombatImpact.Corpus.csproj \
+    dotnet run --project tests/CombatImpact.CorpusExport/CombatImpact.CorpusExport.csproj \
         -p:BppDeployToGame=false ${props[@]+"${props[@]}"} \
-        -- "$corpus_path" "$report_path" ${benchmark_arg[@]+"${benchmark_arg[@]}"}
+        -- export "$corpus_path" "$exported"
+    dotnet run --project tests/CombatImpact.Corpus/CombatImpact.Corpus.csproj \
+        -p:BppDeployToGame=false -p:BppSnapshotPlatform=none \
+        -- "$exported" "$report_path" ${benchmark_arg[@]+"${benchmark_arg[@]}"}
 }
 
 dispatch "$@"

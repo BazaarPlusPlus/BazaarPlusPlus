@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Nodes;
 using BazaarPlusPlus.TestSupport;
@@ -7,82 +8,93 @@ using Xunit.Abstractions;
 namespace ScenarioRunner.Tests;
 
 /// <summary>
-/// The Combat Impact anchor: runs <c>CombatImpact.Corpus</c> over the committed pinned corpus
-/// (<c>tests/CombatImpact.Corpus/corpus/</c>) and compares the evidence it writes to
-/// <c>artifacts/combat-impact-corpus/evidence.json</c> with
-/// <c>tests/CombatImpact.Corpus/evidence/pinned-corpus.json</c>. Regenerate with
+/// The host-lane half of the Combat Impact Corpus golden (ADR-0019): runs
+/// <c>CombatImpact.CorpusExport export</c> over the committed game payloads
+/// (<c>tests/CombatImpact.CorpusExport/corpus/</c>) and requires the BPP timeline it writes to
+/// match the committed corpus <c>tests/CombatImpact.Corpus/corpus/pinned-corpus.json.gz</c>,
+/// which the Core-lane runner <c>CombatImpact.Corpus</c> projects. Regenerate with
 /// <c>BPP_UPDATE_GOLDENS=1</c>; <c>tests/CombatImpact.Corpus/evidence/README.md</c> owns the
 /// procedure.
 ///
-/// The whole evidence document must match except the hashes and versions of the
-/// <c>game_types</c> and <c>json_runtime</c> verification inputs: both come from the installed
-/// game's Managed directory and change with every game update. A difference there is printed,
-/// and <c>fullReportSha256</c> decides.
+/// The decompressed JSON must match except the hashes and versions of the <c>game_types</c> and
+/// <c>json_runtime</c> verification inputs: both come from the Managed snapshot the exporter ran
+/// against and change with every game update. A difference there is printed; every battle must
+/// still match.
 /// </summary>
 public sealed partial class ScenarioRunnerTests(ITestOutputHelper output)
 {
-    private const string CorpusRunner = "CombatImpact.Corpus";
-    private const string CorpusDirectory = "tests/CombatImpact.Corpus/corpus";
-    private const string PinnedEvidence = "tests/CombatImpact.Corpus/evidence/pinned-corpus.json";
-    private const string ActualEvidence = "artifacts/combat-impact-corpus/evidence.json";
-    private const string ActualReport = "artifacts/combat-impact-corpus/report.json";
+    private const string CorpusExporter = "CombatImpact.CorpusExport";
+    private const string GamePayloads = "tests/CombatImpact.CorpusExport/corpus";
+    private const string PinnedCorpus = "tests/CombatImpact.Corpus/corpus/pinned-corpus.json.gz";
+    private const string ActualCorpus = "artifacts/combat-impact-corpus/pinned-corpus.json.gz";
     private static readonly string[] GameManagedRoles = ["game_types", "json_runtime"];
 
     [Fact]
     [Trait("TestKind", "ScenarioRunner")]
-    public async Task Combat_impact_corpus_matches_committed_evidence()
+    public async Task Combat_impact_corpus_export_matches_committed_corpus()
     {
         var root = TestInputs.RepoRoot;
-        var evidencePath = Path.Combine(root, ActualEvidence);
-        if (File.Exists(evidencePath))
-            File.Delete(evidencePath);
+        var actualPath = Path.Combine(root, ActualCorpus);
+        var pinnedPath = Path.Combine(root, PinnedCorpus);
+        if (File.Exists(actualPath))
+            File.Delete(actualPath);
 
         await RunAsync(
-            CorpusRunner,
-            [Path.Combine(root, CorpusDirectory), Path.Combine(root, ActualReport)],
-            new Dictionary<string, string>
-            {
-                ["BPP_GAMEDATA_DB"] = Path.Combine(root, CorpusDirectory, "GameData.cards.db"),
-                ["BPP_COMBAT_IMPACT_EVIDENCE_PATH"] = evidencePath,
-            }
+            CorpusExporter,
+            ["export", Path.Combine(root, GamePayloads), actualPath],
+            new Dictionary<string, string>()
         );
 
-        var actual = TestInputs.Fixture(ActualEvidence).Replace("\r\n", "\n");
+        var actual = ReadCorpusText(actualPath);
+        var expected = File.Exists(pinnedPath) ? ReadCorpusText(pinnedPath) : null;
+        var differences = new List<string>();
+        var gameDrift = new List<string>();
+        if (expected != null)
+            Compare(JsonNode.Parse(expected), JsonNode.Parse(actual), "$", differences, gameDrift);
+        foreach (var line in gameDrift)
+            output.WriteLine(line);
+
         if (Environment.GetEnvironmentVariable("BPP_UPDATE_GOLDENS") == "1")
         {
-            File.WriteAllText(Path.Combine(root, PinnedEvidence), actual, new UTF8Encoding(false));
-            output.WriteLine($"Rewrote {PinnedEvidence}; review it with git diff.");
+            // Rewrite only on a real difference, so a regeneration on a newer game snapshot does
+            // not churn the committed file over the game-managed hashes alone.
+            if (expected == null || differences.Count > 0)
+            {
+                File.Copy(actualPath, pinnedPath, overwrite: true);
+                output.WriteLine($"Rewrote {PinnedCorpus}; review it and the evidence golden.");
+            }
             return;
         }
 
         Assert.True(
-            File.Exists(Path.Combine(root, PinnedEvidence)),
-            $"{PinnedEvidence} is missing; create it with BPP_UPDATE_GOLDENS=1."
+            expected != null,
+            $"{PinnedCorpus} is missing; create it with BPP_UPDATE_GOLDENS=1."
         );
-        var expected = TestInputs.Fixture(PinnedEvidence).Replace("\r\n", "\n");
-        var differences = new List<string>();
-        var gameDrift = new List<string>();
-        Compare(JsonNode.Parse(expected), JsonNode.Parse(actual), "$", differences, gameDrift);
-        foreach (var line in gameDrift)
-            output.WriteLine(line);
-
         if (differences.Count == 0)
             return;
         var message = new StringBuilder()
             .AppendLine(
-                $"Combat Impact evidence differs from {PinnedEvidence} in {differences.Count} field(s):"
+                $"The exported Combat Impact Corpus differs from {PinnedCorpus} in {differences.Count} field(s):"
             )
             .AppendJoin('\n', differences.Take(40).Select(line => "  " + line))
             .AppendLine(differences.Count > 40 ? $"\n  ... {differences.Count - 40} more" : "")
             .AppendJoin('\n', gameDrift)
             .AppendLine()
-            .AppendLine(UnifiedDiff.Render(expected, actual, PinnedEvidence))
             .AppendLine(
-                $"Actual evidence: {ActualEvidence}. If the change is intended, regenerate with "
+                $"Actual corpus: {ActualCorpus}. If the change is intended, regenerate with "
                     + "BPP_UPDATE_GOLDENS=1 dotnet test tests/ScenarioRunner.Tests/ScenarioRunner.Tests.csproj "
-                    + "--filter Combat_impact_corpus_matches_committed_evidence, then review git diff."
+                    + "--filter Combat_impact_corpus_export_matches_committed_corpus, then rerun "
+                    + "CombatImpact.Corpus with BPP_UPDATE_GOLDENS=1 and review git diff."
             );
         Assert.Fail(message.ToString());
+    }
+
+    // The JSON text is the contract; the gzip framing around it is not compared.
+    private static string ReadCorpusText(string path)
+    {
+        using var gzip = new GZipStream(File.OpenRead(path), CompressionMode.Decompress);
+        using var reader = new StreamReader(gzip, new UTF8Encoding(false));
+        return reader.ReadToEnd();
     }
 
     private static void Compare(
@@ -103,7 +115,7 @@ public sealed partial class ScenarioRunnerTests(ITestOutputHelper output)
                         if (!JsonNode.DeepEquals(left[key], right[key]))
                         {
                             gameDrift.Add(
-                                $"Game-managed input {role} {key} differs (fullReportSha256 decides): "
+                                $"Game-managed input {role} {key} differs: "
                                     + $"pinned={left[key]?.ToJsonString() ?? "null"} "
                                     + $"actual={right[key]?.ToJsonString() ?? "null"}"
                             );
@@ -112,11 +124,20 @@ public sealed partial class ScenarioRunnerTests(ITestOutputHelper output)
                     left = Without(left, "sha256", "version");
                     right = Without(right, "sha256", "version");
                 }
-                foreach (
-                    var key in left.Select(item => item.Key)
-                        .Union(right.Select(item => item.Key))
-                        .Order(StringComparer.Ordinal)
-                )
+                // Keys compare in document order: the corpus is ordered, and the runner iterates
+                // its dictionaries in that order.
+                var leftKeys = left.Select(item => item.Key).ToList();
+                var rightKeys = right.Select(item => item.Key).ToList();
+                if (!leftKeys.SequenceEqual(rightKeys, StringComparer.Ordinal))
+                {
+                    differences.Add(
+                        $"{path} keys: {Show(new JsonArray([.. leftKeys.Select(key => JsonValue.Create(key))]))} -> "
+                            + Show(
+                                new JsonArray([.. rightKeys.Select(key => JsonValue.Create(key))])
+                            )
+                    );
+                }
+                foreach (var key in leftKeys.Union(rightKeys, StringComparer.Ordinal))
                 {
                     var child = $"{path}.{key}";
                     if (!left.ContainsKey(key) || !right.ContainsKey(key))

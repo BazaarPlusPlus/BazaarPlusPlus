@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Concurrent;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect.Actions;
 using BazaarGameShared.Domain.Effect.AuraActions;
@@ -7,8 +8,11 @@ using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Domain.Values.ReferenceValues;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.Shared;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.GameInterop.CombatSimulation;
 
@@ -17,10 +21,20 @@ namespace BazaarPlusPlus.GameInterop.CombatSimulation;
 /// the card templates' attribute modifiers into Core's combat model, in the game's iteration
 /// order. Every enum crosses through <see cref="DesktopCombatFacets"/>; a value Core has no member
 /// for is left out. The facet pin test (DesktopCombatFacetVocabularyTests) rules that out for the
-/// configured Managed snapshot only; a newer game build can still add a member Core lacks.
+/// configured Managed snapshot only; a newer game build can still add a member Core lacks, so the
+/// first miss of each game enum logs <c>post_combat_impact.timeline.unmapped_member</c>.
 /// </summary>
 internal static class DesktopCombatTimeline
 {
+    private static readonly BppLogEvent UnmappedMemberEvent = new(
+        BppLogFeatureScope.PostCombatImpact,
+        "post_combat_impact.timeline.unmapped_member"
+    );
+
+    // Game enums whose miss has been logged this process. The timeline is built off the main
+    // thread, so the set is concurrent.
+    private static readonly ConcurrentDictionary<Type, byte> ReportedUnmappedEnums = new();
+
     public static CombatTimeline From(CombatSim simulation)
     {
         var timeline = new CombatTimeline { Frames = new List<CombatFrame>() };
@@ -33,7 +47,7 @@ internal static class DesktopCombatTimeline
             var copy = new Dictionary<CombatCardStat, int>();
             foreach (var (stat, value) in stats)
             {
-                if (DesktopCombatFacets.CardStat.TryToFacet(stat, out var facet))
+                if (TryFacet(DesktopCombatFacets.CardStat, stat, out var facet))
                     copy[facet] = value;
             }
             timeline.CardStats[sourceId] = copy;
@@ -62,7 +76,8 @@ internal static class DesktopCombatTimeline
                 Modifier = ToValueModifier(range.Modifier),
             },
             TReferenceValueCardAttribute reference
-                when DesktopCombatFacets.CardAttribute.TryToFacet(
+                when TryFacet(
+                    DesktopCombatFacets.CardAttribute,
                     reference.AttributeType,
                     out var attribute
                 ) => new CombatCardAttributeReference
@@ -85,8 +100,8 @@ internal static class DesktopCombatTimeline
         EAttributeModifierOperation operation,
         ITValue? value
     ) =>
-        DesktopCombatFacets.CardAttribute.TryToFacet(attributeType, out var attribute)
-        && DesktopCombatFacets.AttributeOperation.TryToFacet(operation, out var facetOperation)
+        TryFacet(DesktopCombatFacets.CardAttribute, attributeType, out var attribute)
+        && TryFacet(DesktopCombatFacets.AttributeOperation, operation, out var facetOperation)
             ? new CombatAttributeModifier
             {
                 AttributeType = attribute,
@@ -100,7 +115,8 @@ internal static class DesktopCombatTimeline
         if (modifier == null)
             return null;
         // A mode Core lacks makes the modifier one attribution cannot evaluate.
-        var known = DesktopCombatFacets.ValueModifierMode.TryToFacet(
+        var known = TryFacet(
+            DesktopCombatFacets.ValueModifierMode,
             modifier.ModifyMode,
             out var mode
         );
@@ -154,11 +170,13 @@ internal static class DesktopCombatTimeline
             {
                 if (
                     adjustment == null
-                    || !DesktopCombatFacets.DamageType.TryToFacet(
+                    || !TryFacet(
+                        DesktopCombatFacets.DamageType,
                         adjustment.DamageType,
                         out var damageType
                     )
-                    || !DesktopCombatFacets.HealthChange.TryToFacet(
+                    || !TryFacet(
+                        DesktopCombatFacets.HealthChange,
                         adjustment.AttributeChanged,
                         out var change
                     )
@@ -182,8 +200,9 @@ internal static class DesktopCombatTimeline
             {
                 if (
                     attribute == null
-                    || !DesktopCombatFacets.PlayerAttribute.TryToFacet(key, out var keyFacet)
-                    || !DesktopCombatFacets.PlayerAttribute.TryToFacet(
+                    || !TryFacet(DesktopCombatFacets.PlayerAttribute, key, out var keyFacet)
+                    || !TryFacet(
+                        DesktopCombatFacets.PlayerAttribute,
                         attribute.AttributeType,
                         out var typeFacet
                     )
@@ -212,8 +231,9 @@ internal static class DesktopCombatTimeline
         {
             if (
                 attribute == null
-                || !DesktopCombatFacets.CardAttribute.TryToFacet(key, out var keyFacet)
-                || !DesktopCombatFacets.CardAttribute.TryToFacet(
+                || !TryFacet(DesktopCombatFacets.CardAttribute, key, out var keyFacet)
+                || !TryFacet(
+                    DesktopCombatFacets.CardAttribute,
                     attribute.AttributeType,
                     out var typeFacet
                 )
@@ -236,10 +256,7 @@ internal static class DesktopCombatTimeline
             case null:
                 return null;
             case CombatSimEventEffectExecuted executed:
-                return DesktopCombatFacets.ActionType.TryToFacet(
-                    executed.ActionType,
-                    out var action
-                )
+                return TryFacet(DesktopCombatFacets.ActionType, executed.ActionType, out var action)
                     ? new CombatEffectExecuted
                     {
                         ExecutionContextId = executed.ExecutionContextId ?? string.Empty,
@@ -261,7 +278,7 @@ internal static class DesktopCombatTimeline
                     RemovedFrom = ToTargets(aura.RemovedFrom),
                 };
             case CombatSimEventCombatantDied died:
-                return DesktopCombatFacets.CombatantId.TryToFacet(died.CombatantId, out var dead)
+                return TryFacet(DesktopCombatFacets.CombatantId, died.CombatantId, out var dead)
                     ? new CombatantDied { CombatantId = dead }
                     : null;
             case CombatSimEventCardEnchanted enchanted:
@@ -296,7 +313,7 @@ internal static class DesktopCombatTimeline
                 ExecutingCard = costSpent.ExecutingCard.Value ?? string.Empty,
                 PlayerAttributeSpent =
                     costSpent.PlayerAttributeSpent is { } spent
-                    && DesktopCombatFacets.PlayerAttribute.TryToFacet(spent, out var facet)
+                    && TryFacet(DesktopCombatFacets.PlayerAttribute, spent, out var facet)
                         ? facet
                         : null,
             };
@@ -317,7 +334,30 @@ internal static class DesktopCombatTimeline
         return result;
     }
 
-    private static CombatTarget? ToTarget(IEffectTarget? target) =>
+    // A miss drops the value, as Core has no member for it; the first miss of each game enum is
+    // logged once, naming the member, so a game update that outgrows the facets shows in the log.
+    private static bool TryFacet<TSource, TFacet>(
+        CardFacetNameMap<TSource, TFacet> map,
+        TSource source,
+        out TFacet facet
+    )
+        where TSource : struct, Enum
+        where TFacet : struct, Enum
+    {
+        if (map.TryToFacet(source, out facet))
+            return true;
+        if (ReportedUnmappedEnums.TryAdd(typeof(TSource), 0))
+        {
+            BppLog.WarnEvent(
+                UnmappedMemberEvent,
+                ("enum", typeof(TSource).Name),
+                ("member", source.ToString())
+            );
+        }
+        return false;
+    }
+
+    public static CombatTarget? ToTarget(IEffectTarget? target) =>
         target switch
         {
             EffectTargetCard card => new CombatCardTarget
@@ -325,7 +365,7 @@ internal static class DesktopCombatTimeline
                 Target = card.Target.Value ?? string.Empty,
             },
             EffectTargetPlayer player
-                when DesktopCombatFacets.CombatantId.TryToFacet(player.Target, out var combatant) =>
+                when TryFacet(DesktopCombatFacets.CombatantId, player.Target, out var combatant) =>
                 new CombatPlayerTarget { Target = combatant },
             _ => null,
         };
