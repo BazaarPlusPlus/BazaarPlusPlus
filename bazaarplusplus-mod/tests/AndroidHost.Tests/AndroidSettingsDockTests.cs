@@ -72,24 +72,23 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(1, row.ResolveChoiceState("en").SelectedIndex);
     }
 
+    // A Main Overlay Panel's switch only writes its setting: the Overlay Panel Host reads it as
+    // the panel's Enabled predicate and closes the panel itself (AndroidOverlayPanelsTests).
     [Theory]
-    [InlineData("CollectionPanel", "close_collection")]
-    [InlineData("LiveBuildPanel", "close_live_build")]
-    [InlineData("HistoryPanel", "close_history")]
-    public void Switching_a_panel_off_closes_it_and_returns_its_cards(string key, string close)
+    [InlineData("CollectionPanel")]
+    [InlineData("LiveBuildPanel")]
+    [InlineData("HistoryPanel")]
+    public void Switching_a_panel_off_only_writes_its_setting(string key)
     {
         var dock = new Dock();
         var row = dock.Row(key);
         Assert.True(row.ReadToggle!());
 
         row.WriteToggle!(false);
-
         Assert.False(row.ReadToggle());
-        Assert.Equal(new[] { $"{close}:switched_off", "release_cards:switched_off" }, dock.Calls);
-
-        dock.Calls.Clear();
         row.WriteToggle(true);
         Assert.True(row.ReadToggle());
+
         Assert.Empty(dock.Calls);
     }
 
@@ -216,11 +215,7 @@ public sealed class AndroidSettingsDockTests
                 registry,
                 Android,
                 new AndroidSettingsDockHooks(
-                    reason => Calls.Add($"close_collection:{reason}"),
-                    reason => Calls.Add($"close_live_build:{reason}"),
-                    reason => Calls.Add($"close_history:{reason}"),
                     reason => Calls.Add($"release_upgrade_preview:{reason}"),
-                    reason => Calls.Add($"release_cards:{reason}"),
                     () => HistoryAvailable,
                     () => Calls.Add("open_history"),
                     () => GameUpdateStatus,

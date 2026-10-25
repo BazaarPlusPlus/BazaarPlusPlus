@@ -17,7 +17,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel;
 // in order to regenerate when the user cycles BPP's Chinese variant.
 internal sealed class CollectionPanelMount : IBppMountable
 {
-    private readonly Func<OverlayPanelHost?> _overlayHost;
+    private readonly Func<DesktopOverlayPanels?> _overlayHost;
     private readonly BppStaticCardMapProvider _cardMapProvider;
     private readonly INativeCardPreviewHost _nativeCardPreviewHost;
     private readonly IGameDataDayTierResolver _dayTierResolver;
@@ -25,7 +25,7 @@ internal sealed class CollectionPanelMount : IBppMountable
     private IDisposable? _localeChangedSubscription;
 
     public CollectionPanelMount(
-        Func<OverlayPanelHost?> overlayHost,
+        Func<DesktopOverlayPanels?> overlayHost,
         BppStaticCardMapProvider cardMapProvider,
         INativeCardPreviewHost nativeCardPreviewHost,
         IGameDataDayTierResolver dayTierResolver,
@@ -47,7 +47,7 @@ internal sealed class CollectionPanelMount : IBppMountable
         if (services == null)
             throw new ArgumentNullException(nameof(services));
 
-        OverlayPanelHost? overlayHost;
+        DesktopOverlayPanels? overlayHost;
         try
         {
             overlayHost = _overlayHost();

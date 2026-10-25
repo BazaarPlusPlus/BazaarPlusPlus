@@ -7,6 +7,7 @@ using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel;
+using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
@@ -19,14 +20,17 @@ namespace BazaarPlusPlus.Android.Ui;
 /// The touch entry for the panels the desktop opens by hotkey: a BPP button at the left edge of
 /// the safe area opens a small menu of History, Collection, and Ten-Win Builds, each offered while
 /// its switch is on. The switches and every other BPP setting live in the game's own settings
-/// dialog (<see cref="Settings.AndroidNativeSettingsSection"/>), as on the desktop. History closes
-/// this menu and opens <see cref="AndroidHistoryPanel"/>, and the button hides while History or
-/// the settings dialog's BazaarPlusPlus section is open. Collection opens the full-screen
-/// <see cref="AndroidCollectionPanel"/>, and Ten-Win Builds the full-screen
-/// <see cref="AndroidLiveBuildPanel"/> when the record chain composed its data
-/// (<see cref="AndroidLiveBuildData"/>), which warms only while that panel's switch is on. All of
-/// them close on every scene change, and the back key closes the top-most of them first (<see cref="AndroidBackKey"/>). The geometry is Core's
-/// <see cref="TouchLauncherLayout"/>, laid out again whenever the screen changes.
+/// dialog (<see cref="Settings.AndroidNativeSettingsSection"/>), as on the desktop. An entry closes
+/// this menu and asks the Overlay Panel Host (<see cref="AndroidOverlayPanels"/>) to open its
+/// panel: History (<see cref="AndroidHistoryPanel"/>), the full-screen
+/// <see cref="AndroidCollectionPanel"/>, and the full-screen <see cref="AndroidLiveBuildPanel"/>
+/// when the record chain composed its data (<see cref="AndroidLiveBuildData"/>), which warms only
+/// while that panel's switch is on. Collection and Ten-Win Builds register here, eagerly, so their
+/// switch-off is seen before they are first built; they are built on their first open. The button
+/// hides while a panel or the settings dialog's BazaarPlusPlus section is open. The menu is not a
+/// Main Overlay Panel: it closes on every scene change, and the back key closes it after the
+/// panels. The geometry is Core's <see cref="TouchLauncherLayout"/>, laid out again whenever the
+/// screen changes.
 /// </summary>
 internal sealed class AndroidTouchUi
 {
@@ -39,11 +43,17 @@ internal sealed class AndroidTouchUi
         "所有面板均已關閉：可在遊戲設定的 BazaarPlusPlus 中開啟"
     );
 
+    private const string CollectionPanelId = "collection";
+    private const string LiveBuildPanelId = "live_build";
+    private const string TouchMenuSource = "touch_menu";
+
     private readonly AndroidSettings _android;
-    private readonly Action? _openHistory;
-    private readonly Func<bool> _historyVisible;
+    private readonly AndroidOverlayPanels _panels;
+    private readonly Action<string>? _openHistory;
     private readonly AndroidLiveBuildData? _liveBuildData;
     private readonly AndroidSupporterData? _supporters;
+    private readonly AndroidPanelHandle _collectionHandle;
+    private readonly AndroidPanelHandle _liveBuildHandle;
     private readonly List<GameObject> _entries = new();
 
     private GameObject? _root;
@@ -62,17 +72,39 @@ internal sealed class AndroidTouchUi
 
     public AndroidTouchUi(
         AndroidSettings android,
-        Action? openHistory,
-        Func<bool> historyVisible,
+        AndroidOverlayPanels panels,
+        Action<string>? openHistory,
         AndroidLiveBuildData? liveBuildData,
         AndroidSupporterData? supporters
     )
     {
         _android = android ?? throw new ArgumentNullException(nameof(android));
+        _panels = panels ?? throw new ArgumentNullException(nameof(panels));
         _openHistory = openHistory;
-        _historyVisible = historyVisible ?? throw new ArgumentNullException(nameof(historyVisible));
         _liveBuildData = liveBuildData;
         _supporters = supporters;
+        _collectionHandle = panels.Register(handle => new OverlayPanelRegistration(
+            CollectionPanelId,
+            onOpen: () => OpenCollectionPanel(handle),
+            onClose: reason => _collection?.Close(handle.Describe(reason)),
+            tick: (_, _) => _collection?.Tick()
+        )
+        {
+            Enabled = () => _android.CollectionPanel.Value,
+            IsModalInputActive = () => _collection?.HasModalBackStep == true,
+            DismissModal = () => _collection?.DismissModalBackStep(),
+        });
+        _liveBuildHandle = panels.Register(handle => new OverlayPanelRegistration(
+            LiveBuildPanelId,
+            onOpen: () => OpenLiveBuildPanel(handle),
+            onClose: reason => _liveBuild?.Close(handle.Describe(reason)),
+            tick: (_, _) => _liveBuild?.Tick()
+        )
+        {
+            Enabled = LiveBuildOffered,
+            IsModalInputActive = () => _liveBuild?.IsInspecting == true,
+            DismissModal = () => _liveBuild?.CloseInspection(),
+        });
     }
 
     /// <summary>The menu's and the Live Build panel's counters, which a device run checks return to balance.</summary>
@@ -88,7 +120,7 @@ internal sealed class AndroidTouchUi
             ("live_build_refreshes_completed", _liveBuild?.RefreshesCompleted ?? 0),
             ("live_build_relayouts", _liveBuild?.Relayouts ?? 0),
             ("collection_relayouts", _collection?.Relayouts ?? 0),
-            .. AndroidBackKey.Summary(),
+            .. _panels.BackSummary(),
         ];
 
     /// <summary>Main thread: mounts the UI once the game's font is available.</summary>
@@ -119,18 +151,15 @@ internal sealed class AndroidTouchUi
         }
     }
 
-    /// <summary>A scene loaded: the menu and the panels never outlive the scene they opened in.</summary>
-    public void OnSceneLoaded()
-    {
-        // One guard each: a panel whose close throws never keeps the next one open.
-        Guarded("touch_ui:scene_menu", () => Close("scene_changed"));
-        Guarded("touch_ui:scene_collection", () => _collection?.Close("scene_changed"));
-        Guarded("touch_ui:scene_live_build", () => _liveBuild?.Close("scene_changed"));
-    }
-
-    /// <summary>The host stops: the panels give their leases back and their views go.</summary>
+    /// <summary>
+    /// The host stops: the panels leave the Overlay Panel Host, then give their leases back and
+    /// their views go. One step that throws never skips the next.
+    /// </summary>
     public void Dispose()
     {
+        _panels.SetTouchMenu(null);
+        _collectionHandle.Dispose();
+        _liveBuildHandle.Dispose();
         Guarded("touch_ui:dispose_menu", () => Close("stopped"));
         Guarded("touch_ui:dispose_collection", () => _collection?.Close("stopped"));
         Guarded("touch_ui:dispose_live_build", () => _liveBuild?.Dispose());
@@ -149,12 +178,6 @@ internal sealed class AndroidTouchUi
             AndroidPatchHost.ReportProbeError(probe, exception);
         }
     }
-
-    /// <summary>The Collection switch went off, or another surface needs the panel closed.</summary>
-    public void CloseCollection(string reason) => _collection?.Close(reason);
-
-    /// <summary>The Ten-Win Builds switch went off, or another surface needs the panel closed.</summary>
-    public void CloseLiveBuild(string reason) => _liveBuild?.Close(reason);
 
     private void Mount(TMP_FontAsset font)
     {
@@ -182,19 +205,14 @@ internal sealed class AndroidTouchUi
         _dim = dim.gameObject;
         _dim.SetActive(false);
 
-        // Top-most first: an open full-screen panel, then this menu.
-        AndroidBackKey.Register("live_build", () => _liveBuild?.HandleBack() == true);
-        AndroidBackKey.Register("collection", () => _collection?.HandleBack() == true);
-        AndroidBackKey.Register(
-            "touch_menu",
-            () =>
-            {
-                if (_menu == null)
-                    return false;
-                Close("back_key");
-                return true;
-            }
-        );
+        // Asked after the panels, on a back press and on a scene load.
+        _panels.SetTouchMenu(reason =>
+        {
+            if (_menu == null)
+                return false;
+            Close(reason);
+            return true;
+        });
         LayoutLauncher(force: true);
     }
 
@@ -202,11 +220,12 @@ internal sealed class AndroidTouchUi
     {
         try
         {
-            // The button stays out of History and of the game's settings dialog, which it would cover.
+            // The button stays out of an open panel and of the game's settings dialog, which it
+            // would cover.
             SetActive(
                 _launcher?.gameObject,
                 _android.TouchMenu.Value
-                    && !_historyVisible()
+                    && _panels.OpenPanelId == null
                     && !Settings.AndroidNativeSettingsSection.AnyVisible
             );
             if (!_android.TouchMenu.Value && _menu != null)
@@ -214,13 +233,11 @@ internal sealed class AndroidTouchUi
             LayoutLauncher(force: false);
             if (LiveBuildOffered() && !_liveBuildData!.Warmed)
                 _liveBuildData.Warm("setting_on");
-            _collection?.Tick();
-            _liveBuild?.Tick();
             // The back key also reaches the game's escape hook (BackKeyPatches); a press both
             // see closes one panel.
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
-                AndroidBackKey.TryConsume("keyboard");
+                _panels.TryConsumeBack("keyboard");
         }
         catch (Exception exception)
         {
@@ -361,52 +378,72 @@ internal sealed class AndroidTouchUi
 
     private void OpenHistory()
     {
-        if (_openHistory == null || !_android.HistoryPanel.Value)
+        if (_openHistory == null)
             return;
         Close("history");
-        _openHistory();
+        _openHistory(TouchMenuSource);
     }
 
     private void OpenCollection()
     {
-        if (!_android.CollectionPanel.Value || _root == null || _font == null)
-            return;
         Close("collection");
-        try
+        LogOpenOutcome(CollectionPanelId, _collectionHandle.RequestOpen(TouchMenuSource));
+    }
+
+    private void OpenLiveBuild()
+    {
+        Close("live_build");
+        LogOpenOutcome(LiveBuildPanelId, _liveBuildHandle.RequestOpen(TouchMenuSource));
+    }
+
+    // A tap the host turned down: the menu stays closed.
+    private static void LogOpenOutcome(string panel, OverlayRequestOutcome outcome)
+    {
+        var reasonCode = outcome switch
         {
-            _collection ??= new AndroidCollectionPanel(_root.transform, _font, _supporters);
-            _collection.Open();
-        }
-        catch (Exception exception)
-        {
-            BppLog.ErrorEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.collection.open_failed"),
-                exception
+            OverlayRequestOutcome.SuppressedByCombat => "combat_active",
+            OverlayRequestOutcome.Disabled => "switched_off",
+            OverlayRequestOutcome.OpenFailed => "open_failed",
+            OverlayRequestOutcome.Busy => "host_busy",
+            OverlayRequestOutcome.UnknownPanel => "unknown_panel",
+            _ => null,
+        };
+        if (reasonCode != null)
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.touch_menu.open_skipped"),
+                ("panel", panel),
+                ("reason_code", reasonCode)
             );
-            _collection?.Close("open_failed");
-        }
+    }
+
+    // The host's open: the switch and the combat gate already passed. The panel is built on its
+    // first open; a build that throws is the host's to log and roll back.
+    private bool OpenCollectionPanel(AndroidPanelHandle handle)
+    {
+        if (_root == null || _font == null)
+            return false;
+        _collection ??= new AndroidCollectionPanel(
+            _root.transform,
+            _font,
+            _supporters,
+            reason => handle.RequestClose(reason)
+        );
+        return _collection.Open();
     }
 
     private bool LiveBuildOffered() => _android.LiveBuildPanel.Value && _liveBuildData != null;
 
-    private void OpenLiveBuild()
+    private bool OpenLiveBuildPanel(AndroidPanelHandle handle)
     {
-        if (!LiveBuildOffered() || _root == null || _font == null)
-            return;
-        Close("live_build");
-        try
-        {
-            _liveBuild ??= new AndroidLiveBuildPanel(_root.transform, _font, _liveBuildData!);
-            _liveBuild.Open("touch_menu");
-        }
-        catch (Exception exception)
-        {
-            BppLog.ErrorEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.open_failed"),
-                exception
-            );
-            _liveBuild?.Close("open_failed");
-        }
+        if (_root == null || _font == null || _liveBuildData == null)
+            return false;
+        _liveBuild ??= new AndroidLiveBuildPanel(
+            _root.transform,
+            _font,
+            _liveBuildData,
+            reason => handle.RequestClose(reason)
+        );
+        return _liveBuild.Open(handle.OpenSource);
     }
 
     private static TouchRect Relative(TouchRect area, TouchRect origin) =>

@@ -86,6 +86,9 @@ public enum HistoryPanelOpenReasonCode
     InstanceUnavailable,
     OverlayHandleUnavailable,
     UnknownPanel,
+    PanelDisabled,
+    OpenFailed,
+    OverlayHostBusy,
     CombatActive,
     RequestException,
 }

@@ -12,16 +12,14 @@ using BazaarPlusPlus.Localization;
 namespace BazaarPlusPlus.Android.Settings;
 
 /// <summary>
-/// What a settings row does beyond writing its setting: close the panel a switch turned off,
-/// release its rented cards, open History or the newer game APK. The host supplies these;
-/// <see cref="AndroidSettingsDock"/> stays free of Unity, so a test registers the rows.
+/// What a settings row does beyond writing its setting: release the upgrade preview a switch
+/// turned off, open History or the newer game APK. A Main Overlay Panel's switch only writes its
+/// setting: the Overlay Panel Host reads it as the panel's Enabled predicate and closes the panel
+/// on the next frame (Panel Switch-Off). The host supplies these; <see cref="AndroidSettingsDock"/>
+/// stays free of Unity, so a test registers the rows.
 /// </summary>
 internal sealed record AndroidSettingsDockHooks(
-    Action<string> CloseCollection,
-    Action<string> CloseLiveBuild,
-    Action<string> CloseHistory,
     Action<string> ReleaseUpgradePreview,
-    Action<string> ReleaseRentedCards,
     Func<bool> HistoryAvailable,
     Action OpenHistory,
     Func<AndroidGameUpdateStatus> GameUpdateStatus,
@@ -123,13 +121,7 @@ internal static class AndroidSettingsDock
                 "CollectionPanel",
                 Ui.AndroidTouchText.CollectionPanel,
                 android.CollectionPanel,
-                enabled =>
-                {
-                    if (enabled)
-                        return;
-                    hooks.CloseCollection("switched_off");
-                    hooks.ReleaseRentedCards("switched_off");
-                }
+                _ => { }
             )
         );
         registry.Register(
@@ -138,13 +130,7 @@ internal static class AndroidSettingsDock
                 "LiveBuildPanel",
                 Ui.AndroidTouchText.LiveBuildPanel,
                 android.LiveBuildPanel,
-                enabled =>
-                {
-                    if (enabled)
-                        return;
-                    hooks.CloseLiveBuild("switched_off");
-                    hooks.ReleaseRentedCards("switched_off");
-                }
+                _ => { }
             )
         );
         registry.Register(
@@ -153,13 +139,7 @@ internal static class AndroidSettingsDock
                 "HistoryPanel",
                 Ui.AndroidTouchText.HistoryPanel,
                 android.HistoryPanel,
-                enabled =>
-                {
-                    if (enabled)
-                        return;
-                    hooks.CloseHistory("switched_off");
-                    hooks.ReleaseRentedCards("switched_off");
-                }
+                _ => { }
             )
         );
         registry.Register(

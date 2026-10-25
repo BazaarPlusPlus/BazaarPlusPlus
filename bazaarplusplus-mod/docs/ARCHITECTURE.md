@@ -68,7 +68,7 @@ Each is consumed by two or more features. Re-implementing one's behavior inside 
 
 | Seam | Owner | Consumers |
 |---|---|---|
-| Overlay panel lifecycle | `Game/OverlayPanels/OverlayPanelHost.cs` | Collection, History, LiveBuild |
+| Overlay panel lifecycle | Core `Game/OverlayPanels/`, host adapters | Collection, History, LiveBuild |
 | Native asset loading compatibility | `GameInterop/AssetLoading/` | Card preview, portraits, replay warmers |
 | Native card preview | `GameInterop/CardPreview/` | Collection, combat recap |
 | Native tooltip suppression | `GameInterop/Tooltips/NativeTooltipSuppression` | replay recording, end-of-run capture |

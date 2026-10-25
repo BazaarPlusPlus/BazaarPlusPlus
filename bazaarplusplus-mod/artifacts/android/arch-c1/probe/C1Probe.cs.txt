@@ -1,0 +1,108 @@
+// TEMPORARY PROBE used for logs/2 and logs/3 (plugin sha256 d9dee437e45b...). It was never
+// committed: this copy is the whole source, kept as text so it is not compiled.
+//
+// It was built on ece38f61 as bazaarplusplus-mod/src/BazaarPlusPlus.Android/Host/C1Probe.cs with
+// two hooks in Host/AndroidMod.cs:
+//   OnUpdate, after `_versionCheck?.Tick();`:       C1Probe.Tick();
+//   StartInteraction, after `var versionCheck = _versionCheck;`:
+//                                                    C1Probe.Settings = android;
+//                                                    C1Probe.OpenHistory = () => _historyPanel?.Open("settings");
+// OpenHistory is the settings dock's own hook (`OpenHistory: () => _historyPanel?.Open("settings")`),
+// and the switches write the same ISetting<bool>.Value the dock rows write.
+
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
+using MelonLoader.Utils;
+using UnityEngine;
+
+namespace BazaarPlusPlus.Android.Host;
+
+/// <summary>
+/// TEMPORARY PROBE for the arch-c1 device evidence, never committed. Once a second it reads one
+/// command from the Data Root file "probe-c1", deletes the file, and runs it through the same
+/// delegates the BazaarPlusPlus settings dock calls, because every panel sheet covers the game's
+/// gear and the dock cannot be reached by touch while a panel is open.
+/// </summary>
+internal static class C1Probe
+{
+    private static float _nextPoll;
+    private static bool _armed;
+
+    public static Action? OpenHistory;
+    public static AndroidSettings? Settings;
+
+    public static void Tick()
+    {
+        var now = Time.unscaledTime;
+        if (now < _nextPoll)
+            return;
+        _nextPoll = now + 1f;
+        string path;
+        string command;
+        try
+        {
+            path = Path.Combine(
+                AndroidPaths.DataRoot(MelonEnvironment.MelonBaseDirectory),
+                "probe-c1"
+            );
+            if (!_armed)
+            {
+                _armed = true;
+                BppLog.InfoEvent(
+                    new BppLogEvent(BppLogFeatureScope.Android, "android.probe.armed"),
+                    ("probe", "c1")
+                );
+            }
+            if (!File.Exists(path))
+                return;
+            command = File.ReadAllText(path).Trim();
+            File.Delete(path);
+        }
+        catch (Exception exception)
+        {
+            BppLog.WarnEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.probe.read_failed"),
+                ("error", exception.GetType().Name)
+            );
+            return;
+        }
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.probe.command"),
+            ("cmd", command)
+        );
+        switch (command)
+        {
+            case "open_history":
+                // The dock's hook: OpenHistory: () => _historyPanel?.Open("settings").
+                OpenHistory?.Invoke();
+                break;
+            case "collection_off":
+                Settings!.CollectionPanel.Value = false;
+                break;
+            case "collection_on":
+                Settings!.CollectionPanel.Value = true;
+                break;
+            case "live_build_off":
+                Settings!.LiveBuildPanel.Value = false;
+                break;
+            case "live_build_on":
+                Settings!.LiveBuildPanel.Value = true;
+                break;
+            case "load_scene":
+                // The navigation menu Home button's own call (402 precedent).
+                Il2Cpp.SceneLoader.LoadScene(
+                    Il2CppTheBazaar.SceneID.HeroSelectScene,
+                    true,
+                    true,
+                    null,
+                    null,
+                    new Il2CppSystem.Threading.CancellationToken()
+                );
+                break;
+        }
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.probe.command_done"),
+            ("cmd", command)
+        );
+    }
+}
