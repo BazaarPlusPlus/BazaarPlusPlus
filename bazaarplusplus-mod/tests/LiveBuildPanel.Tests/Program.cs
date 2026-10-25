@@ -20,6 +20,7 @@ L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 LiveBuildRefreshStateTests.Run();
 LiveBuildPanelStateTests.Run();
 LiveBuildTouchLayoutTests.Run();
+LiveCardSnapshotReadTests.Run();
 
 Console.WriteLine("LiveBuildPanel checks passed.");
 

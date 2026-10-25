@@ -5,7 +5,6 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 
 namespace LiveBuildPanel.Tests;
@@ -472,10 +471,5 @@ internal static class LiveBuildPanelStateTests
         }
 
         public void Dispose() => _snapshot = null;
-    }
-
-    private sealed class ListLogSink(List<string> lines) : IBppLogSink
-    {
-        public void Write(BppLogSeverity severity, string message) => lines.Add(message);
     }
 }

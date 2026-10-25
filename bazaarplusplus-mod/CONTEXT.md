@@ -12,7 +12,7 @@ _Avoid_: node, map node
 An encounter that upgrades or enchants one of the player's existing items rather than granting a new one. Which pedestal kind the current Choice screen offers drives the upgrade/enchant preview's "smart" mode.
 
 **Encounter Status Probe**:
-The on-demand, pull-based read of the player's *current* run/encounter state (`IEncounterStateProbe`). The project's chosen way to expose "where is the player in the run right now" — status queries, not a recorded timeline (see [ADR-0001](docs/adr/0001-encounter-status-probe-not-timeline-tracker.md)).
+The on-demand, pull-based read of the player's *current* run/encounter state (`IEncounterStateProbe`). The project's chosen way to expose "where is the player in the run right now" — status queries, not a recorded timeline (ADR-0001).
 _Avoid_: encounter tracker, run timeline
 
 **Run Snapshot Probe**:
@@ -35,7 +35,7 @@ The single run-scoped state machine that owns the end-of-run screenshot flow —
 _Avoid_: screenshot gate
 
 **Ghost Battle**:
-A PvP battle fetched from the mod backend in which the local player's uploaded build fought inside another player's run (the game's PvP is asynchronous — opponents are ghosts). Stored payloads keep the recorder's perspective, stamped as `PerspectiveVersion` (see [ADR-0002](docs/adr/0002-replay-exit-and-ghost-perspective.md)); only the HistoryPanel list row is projected to local perspective, by `GhostBattleLocalProjector`.
+A PvP battle fetched from the mod backend in which the local player's uploaded build fought inside another player's run (the game's PvP is asynchronous — opponents are ghosts). Stored payloads keep the recorder's perspective, stamped as `PerspectiveVersion` (ADR-0002); only the HistoryPanel list row is projected to local perspective, by `GhostBattleLocalProjector`.
 _Avoid_: remote battle, opponent battle
 
 ## Combat replay
@@ -148,6 +148,9 @@ _Avoid_: per-feed upload controller
 **Card Facet**:
 A Core enum for one card or combat property, such as `CardSize` or a captured card's `CardSocket`, named member for member after the game enum it replaces; each Host's adapter maps by name (ADR-0015, ADR-0019).
 _Avoid_: game enums in Core
+
+**Live Card Walk**:
+A Host's raw read of the run in Card Facets (`LiveCardWalk`), which Core's `LiveCardSnapshotRead` places, numbers and reports (ADR-0017).
 
 ## Collection panel
 
