@@ -6,6 +6,7 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 internal enum ReplayCaptureReasonCode
 {
     CaptureOrEnqueueException,
+    ReplayPartMissing,
 }
 
 internal enum ReplayPersistenceReasonCode
