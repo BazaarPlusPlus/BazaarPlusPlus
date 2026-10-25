@@ -8,6 +8,9 @@ using Microsoft.Data.Sqlite;
 
 internal static class ReplayPayloadMaintenanceServiceTests
 {
+    internal static void Benchmark() =>
+        TenThousandPayloadsUseBulkStorageAndLinearWork(enforceTiming: true);
+
     internal static void Run()
     {
         TenThousandPayloadsUseBulkStorageAndLinearWork();
@@ -157,7 +160,7 @@ internal static class ReplayPayloadMaintenanceServiceTests
         }
     }
 
-    private static void TenThousandPayloadsUseBulkStorageAndLinearWork()
+    private static void TenThousandPayloadsUseBulkStorageAndLinearWork(bool enforceTiming = false)
     {
         var now = new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero);
         var inventory = Enumerable
@@ -191,10 +194,11 @@ internal static class ReplayPayloadMaintenanceServiceTests
         Equal(1, catalog.InventoryCallCount, "inventory query count");
         Equal(1, catalog.ScheduleCallCount, "schedule query count");
         Equal(1, catalog.CompleteCallCount, "completion query count");
-        Assert(
-            stopwatch.Elapsed < TimeSpan.FromSeconds(5),
-            $"10,000 synthetic payload maintenance took {stopwatch.Elapsed}."
-        );
+        if (enforceTiming)
+            Assert(
+                stopwatch.Elapsed < TimeSpan.FromSeconds(5),
+                $"10,000 synthetic payload maintenance took {stopwatch.Elapsed}."
+            );
         Assert(
             result.WorkUnits <= 30_000,
             $"Expected linear work, got {result.WorkUnits} work units."

@@ -18,6 +18,10 @@ build *args:
 test *args:
     bash scripts/test.sh test "$@"
 
+# Run timing assertions separately, after the functional suites have finished.
+test-performance *args:
+    bash scripts/test.sh test-performance "$@"
+
 # Run the suites that need no Managed snapshot (Linux too; needs the android online fetch); [-p:Name=Value ...].
 test-core *args:
     bash scripts/test.sh test-core "$@"

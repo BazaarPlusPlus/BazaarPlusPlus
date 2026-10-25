@@ -10,6 +10,15 @@ TEST_PROPS=(
     "-p:RemoteEmbeddedDataDirectory=$MOD_ROOT/tests/TestData/remote-data"
 )
 
+# Keep each invocation's TRX and crash evidence, including when dotnet exits unsuccessfully.
+test_diagnostics() {
+    mkdir -p "$MOD_ROOT/artifacts/tests"
+    local results
+    results="$(mktemp -d "$MOD_ROOT/artifacts/tests/$1.XXXXXX")"
+    TEST_DIAGNOSTICS=(--logger trx --results-directory "$results" --blame-crash --blame-crash-dump-type mini)
+    step "Test evidence: $results"
+}
+
 # Collects -p arguments into PROPS plus BPP_MANAGED_PATH, and sets MANAGED to the
 # game assembly directory the build will resolve.
 resolve_test_inputs() {
@@ -25,7 +34,17 @@ cmd_test() {
     [[ -f "$MANAGED/Assembly-CSharp.dll" ]] ||
         die "Game assemblies not found at '${MANAGED:-<not discovered>}'. Pass -p:ManagedPath=/absolute/path/to/Managed."
     step "Test game assemblies: ${GREEN}${MANAGED}${CYAN}"
-    dotnet test tests/BazaarPlusPlus.Tests.slnx "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
+    test_diagnostics desktop
+    dotnet test tests/BazaarPlusPlus.Tests.slnx --filter 'TestKind!=Performance' \
+        "${TEST_DIAGNOSTICS[@]}" "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
+}
+
+# Run wall-clock assertions separately from parallel functional suites, through the capsule host.
+cmd_test_performance() {
+    resolve_test_inputs "$@"
+    test_diagnostics performance
+    dotnet test tests/ScenarioRunner.Tests/ScenarioRunner.Tests.csproj --filter 'TestKind=Performance' \
+        "${TEST_DIAGNOSTICS[@]}" "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
 }
 
 # test-core [-p:Name=Value ...]: the suites that need no Managed/ snapshot, so they also run on
@@ -40,7 +59,9 @@ cmd_test() {
 cmd_test_core() {
     collect_props "$@"
     local core_props=(-p:BppSnapshotPlatform=none "${TEST_PROPS[@]}")
-    dotnet test tests/BazaarPlusPlus.CoreTests.slnx "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
+    test_diagnostics core
+    dotnet test tests/BazaarPlusPlus.CoreTests.slnx "${TEST_DIAGNOSTICS[@]}" \
+        "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     local project
     for project in BundleV6Codec.Net10.Tests RunLoggingPipeline.Net10.Tests \
         CollectionFilterEngine.Tests CollectionGridLayout.Tests CollectionViewState.Tests \

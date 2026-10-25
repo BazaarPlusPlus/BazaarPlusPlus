@@ -355,6 +355,7 @@ for (const [recipe, script, command] of [
   ['build', 'build', 'build'],
   ['test', 'test', 'test'],
   ['test-core', 'test', 'test-core'],
+  ['test-performance', 'test', 'test-performance'],
   ['fetch-data', 'build', 'fetch-data'],
   ['android-build', 'android', 'build']
 ]) {
