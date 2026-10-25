@@ -26,13 +26,13 @@ impl OverlayRecordRepository {
         &self,
         from: Option<&str>,
         offset: usize,
-    ) -> Result<Option<OverlayRecord>, String> {
+    ) -> anyhow::Result<Option<OverlayRecord>> {
         let database_path = self.database_path()?;
         Ok(load_latest_overlay_snapshot(&database_path, from, offset)?
             .map(|row| to_overlay_record(self.game_path.as_deref(), row)))
     }
 
-    pub fn count_since(&self, from: Option<&str>) -> Result<usize, String> {
+    pub fn count_since(&self, from: Option<&str>) -> anyhow::Result<usize> {
         let database_path = self.database_path()?;
         load_overlay_snapshot_count(&database_path, from)
     }
@@ -41,7 +41,7 @@ impl OverlayRecordRepository {
         &self,
         from: Option<&str>,
         limit: Option<usize>,
-    ) -> Result<Vec<OverlayRecord>, String> {
+    ) -> anyhow::Result<Vec<OverlayRecord>> {
         let database_path = self.database_path()?;
         Ok(load_overlay_snapshot_list(&database_path, from, limit)?
             .into_iter()
@@ -49,16 +49,16 @@ impl OverlayRecordRepository {
             .collect())
     }
 
-    pub fn load_image(&self, record_id: &str) -> Result<Option<(PathBuf, Vec<u8>)>, String> {
+    pub fn load_image(&self, record_id: &str) -> anyhow::Result<Option<(PathBuf, Vec<u8>)>> {
         let Some(image_path) = self.load_image_path(record_id)? else {
             return Ok(None);
         };
-        let bytes = std::fs::read(&image_path).map_err(|err| err.to_string())?;
+        let bytes = std::fs::read(&image_path)?;
 
         Ok(Some((image_path, bytes)))
     }
 
-    pub fn load_image_path(&self, record_id: &str) -> Result<Option<PathBuf>, String> {
+    pub fn load_image_path(&self, record_id: &str) -> anyhow::Result<Option<PathBuf>> {
         let database_path = self.database_path()?;
         let Some(row) = load_overlay_snapshot_by_id(&database_path, record_id)? else {
             return Ok(None);
@@ -69,7 +69,7 @@ impl OverlayRecordRepository {
             .filter(|path| path.exists()))
     }
 
-    fn database_path(&self) -> Result<PathBuf, String> {
+    fn database_path(&self) -> anyhow::Result<PathBuf> {
         if let Some(game_path) = &self.game_path {
             return resolve_database_path(game_path);
         }
@@ -97,7 +97,8 @@ mod tests {
 
         let error = OverlayRecordRepository::new(Some(game_path))
             .load_record_at_offset(None, 0)
-            .unwrap_err();
+            .unwrap_err()
+            .to_string();
 
         assert!(error.contains("found=0"), "{error}");
         assert!(error.contains("supported=1"), "{error}");

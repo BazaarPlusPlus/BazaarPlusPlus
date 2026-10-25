@@ -102,7 +102,8 @@ impl Target {
             .unwrap_or_default();
         if user_version == 0 && objects == 0 {
             self.fresh = true;
-            crate::history::mod_schema::execute_mod_schema(conn).map_err(ImportError::Target)?;
+            crate::history::mod_schema::execute_mod_schema(conn)
+                .map_err(|error| ImportError::Target(crate::problem::error_diagnostic(&error)))?;
         } else if user_version != newest {
             return Err(ImportError::TargetUnsupported(user_version));
         }

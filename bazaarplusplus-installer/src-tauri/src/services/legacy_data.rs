@@ -3,6 +3,7 @@
 //! deletes one only after the user confirms that root. Nothing here runs on its
 //! own, and Reset and uninstall never reach these directories.
 
+use anyhow::Context as _;
 use std::fs::Metadata;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -281,7 +282,7 @@ pub(crate) fn delete_legacy_root_blocking_with(
     probe: &impl GameProcessProbe,
 ) -> Result<DeleteLegacyRootResult, ActionError> {
     let root = LegacyRoot::from_directory_name(name)
-        .ok_or_else(|| format!("{LEGACY_ROOT_ERR_UNKNOWN}:{name}"))?;
+        .with_context(|| format!("{LEGACY_ROOT_ERR_UNKNOWN}:{name}"))?;
     ensure_valid_game_path(game_path)?;
     ensure_game_stopped_with(probe, game_path, GameStoppedOperation::LegacyDelete)?;
 
@@ -308,7 +309,7 @@ mod tests {
     use super::*;
     use crate::problem::SemanticProblemCode;
 
-    fn stopped(_: &Path) -> Result<bool, String> {
+    fn stopped(_: &Path) -> anyhow::Result<bool> {
         Ok(false)
     }
 
@@ -600,13 +601,13 @@ mod tests {
 
     #[test]
     fn deletion_refuses_while_the_game_runs_or_cannot_be_inspected() {
-        fn running(_: &Path) -> Result<bool, String> {
+        fn running(_: &Path) -> anyhow::Result<bool> {
             Ok(true)
         }
-        fn unknown(_: &Path) -> Result<bool, String> {
-            Err("cannot inspect processes".to_string())
+        fn unknown(_: &Path) -> anyhow::Result<bool> {
+            Err(anyhow::anyhow!("cannot inspect processes"))
         }
-        type Probe = fn(&Path) -> Result<bool, String>;
+        type Probe = fn(&Path) -> anyhow::Result<bool>;
         let probes: [Probe; 2] = [running, unknown];
         for refusing in probes {
             let game = valid_game_dir();

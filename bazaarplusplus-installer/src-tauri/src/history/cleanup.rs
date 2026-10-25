@@ -1,3 +1,4 @@
+use anyhow::{anyhow, bail, Context as _};
 use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Utc};
 use rusqlite::{params, Connection};
 use std::collections::HashSet;
@@ -143,7 +144,7 @@ pub fn plan_screenshot_cleanup(
     data_root: &Path,
     cutoff: Option<&CleanupCutoff>,
     today_local_date: NaiveDate,
-) -> Result<ScreenshotCleanupPlan, String> {
+) -> anyhow::Result<ScreenshotCleanupPlan> {
     if !database_path.exists() {
         return Ok(ScreenshotCleanupPlan::empty());
     }
@@ -188,7 +189,7 @@ pub fn execute_screenshot_cleanup(
     data_root: &Path,
     cutoff: Option<&CleanupCutoff>,
     today_local_date: NaiveDate,
-) -> Result<ScreenshotCleanupResult, String> {
+) -> anyhow::Result<ScreenshotCleanupResult> {
     let plan = plan_screenshot_cleanup(database_path, data_root, cutoff, today_local_date)?;
     execute_screenshot_cleanup_plan(database_path, data_root, plan)
 }
@@ -197,7 +198,7 @@ fn execute_screenshot_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
     plan: ScreenshotCleanupPlan,
-) -> Result<ScreenshotCleanupResult, String> {
+) -> anyhow::Result<ScreenshotCleanupResult> {
     let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
     let mut deleted_rows = 0i64;
     let mut deleted_files = 0i64;
@@ -206,14 +207,14 @@ fn execute_screenshot_cleanup_plan(
         let mut session = CleanupSession::open(database_path, data_root, &SystemGameProcessProbe)?;
         let mut candidates = Vec::new();
         for chunk in plan.items.chunks(CLEANUP_CHUNK_SIZE) {
-            let transaction = session.conn.transaction().map_err(|err| err.to_string())?;
+            let transaction = session.conn.transaction()?;
             for item in chunk {
                 if delete_screenshot_if_unprotected(&transaction, &item.screenshot_id)? == 1 {
                     deleted_rows += 1;
                     candidates.push(item.image_relative_path.clone());
                 }
             }
-            transaction.commit().map_err(|err| err.to_string())?;
+            transaction.commit()?;
         }
         candidates.extend(plan.orphan_files.iter().filter_map(|path| {
             path.strip_prefix(&screenshots_dir)
@@ -248,10 +249,10 @@ impl CleanupSession {
         database_path: &Path,
         data_root: &Path,
         game: &impl GameProcessProbe,
-    ) -> Result<Self, String> {
+    ) -> anyhow::Result<Self> {
         let conn = open_cleanup_connection(database_path)?;
         conn.execute_batch("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT;")
-            .map_err(|err| format!("Cannot exclusively lock history for cleanup: {err}"))?;
+            .context("Cannot exclusively lock history for cleanup")?;
 
         // The mod can write a file before its row, so excluding SQL writers alone
         // cannot exclude an in-flight capture. Probe AFTER acquiring the lock:
@@ -260,12 +261,12 @@ impl CleanupSession {
         // startup ordering and its source owners are in docs/history-storage.md.
         let game_path = data_root
             .parent()
-            .ok_or("History Data Root has no game directory.")?;
+            .context("History Data Root has no game directory.")?;
         match game.is_running(game_path) {
             Ok(false) => Ok(Self { conn }),
-            Ok(true) => Err("Close The Bazaar before cleaning up history.".to_string()),
-            Err(err) => Err(format!(
-                "Cannot confirm The Bazaar is closed for history cleanup: {err}"
+            Ok(true) => Err(anyhow!("Close The Bazaar before cleaning up history.")),
+            Err(err) => Err(anyhow!(
+                "Cannot confirm The Bazaar is closed for history cleanup: {err:#}"
             )),
         }
     }
@@ -280,20 +281,15 @@ impl CleanupSession {
         root: &Path,
         reference_query: &str,
         candidates: Vec<String>,
-    ) -> Result<(i64, i64), String> {
+    ) -> anyhow::Result<(i64, i64)> {
         if candidates.is_empty() {
             return Ok((0, 0));
         }
-        let mut statement = self
-            .conn
-            .prepare(reference_query)
-            .map_err(|err| err.to_string())?;
-        let rows = statement
-            .query_map([], |row| row.get::<_, String>(0))
-            .map_err(|err| err.to_string())?;
+        let mut statement = self.conn.prepare(reference_query)?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
         let mut referenced = HashSet::new();
         for row in rows {
-            if let Some(path) = resolve_data_file_path(root, &row.map_err(|err| err.to_string())?) {
+            if let Some(path) = resolve_data_file_path(root, &row?) {
                 referenced.insert(path);
             }
         }
@@ -339,11 +335,9 @@ static DELETE_SCREENSHOT_IF_UNPROTECTED_SQL: LazyLock<String> = LazyLock::new(||
 fn delete_screenshot_if_unprotected(
     conn: &Connection,
     screenshot_id: &str,
-) -> Result<usize, String> {
-    let mut stmt = conn
-        .prepare_cached(&DELETE_SCREENSHOT_IF_UNPROTECTED_SQL)
-        .map_err(|err| err.to_string())?;
-    stmt.execute([screenshot_id]).map_err(|err| err.to_string())
+) -> anyhow::Result<usize> {
+    let mut stmt = conn.prepare_cached(&DELETE_SCREENSHOT_IF_UNPROTECTED_SQL)?;
+    stmt.execute([screenshot_id]).map_err(anyhow::Error::from)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -404,7 +398,7 @@ pub fn plan_run_data_cleanup(
     database_path: &Path,
     data_root: &Path,
     cutoff: Option<&CleanupCutoff>,
-) -> Result<RunDataCleanupPlan, String> {
+) -> anyhow::Result<RunDataCleanupPlan> {
     if !database_path.exists() {
         return Ok(RunDataCleanupPlan::empty());
     }
@@ -485,7 +479,7 @@ pub fn execute_run_data_cleanup(
     database_path: &Path,
     data_root: &Path,
     cutoff: Option<&CleanupCutoff>,
-) -> Result<RunDataCleanupResult, String> {
+) -> anyhow::Result<RunDataCleanupResult> {
     let plan = plan_run_data_cleanup(database_path, data_root, cutoff)?;
     execute_run_data_cleanup_plan(database_path, data_root, plan)
 }
@@ -494,7 +488,7 @@ fn execute_run_data_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
     plan: RunDataCleanupPlan,
-) -> Result<RunDataCleanupResult, String> {
+) -> anyhow::Result<RunDataCleanupResult> {
     let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
     let videos_dir = crate::services::paths::combat_replay_videos_dir_in(data_root);
     let replays_dir = crate::services::paths::combat_replays_dir_in(data_root);
@@ -506,7 +500,7 @@ fn execute_run_data_cleanup_plan(
         validate_run_cleanup_cascade_fks(&session.conn)?;
         let mut deleted_items = Vec::new();
         for chunk in plan.items.chunks(RUN_CLEANUP_CHUNK_SIZE) {
-            let transaction = session.conn.transaction().map_err(|err| err.to_string())?;
+            let transaction = session.conn.transaction()?;
             for item in chunk {
                 if delete_run_if_unprotected(&transaction, &item.run_id)? == 0 {
                     continue;
@@ -515,16 +509,14 @@ fn execute_run_data_cleanup_plan(
                 // Screenshots do not cascade from runs. Their writer only inserts
                 // rows, so their direct Run attachment cannot change after planning.
                 for screenshot in &item.screenshots {
-                    transaction
-                        .execute(
-                            "delete from run_screenshots where screenshot_id = ?1",
-                            [&screenshot.screenshot_id],
-                        )
-                        .map_err(|err| err.to_string())?;
+                    transaction.execute(
+                        "delete from run_screenshots where screenshot_id = ?1",
+                        [&screenshot.screenshot_id],
+                    )?;
                 }
                 deleted_items.push(item);
             }
-            transaction.commit().map_err(|err| err.to_string())?;
+            transaction.commit()?;
         }
 
         deleted_runs = deleted_items.len() as i64;
@@ -534,24 +526,22 @@ fn execute_run_data_cleanup_plan(
         // Include candidates from guarded-delete misses too: their battle may
         // have moved to a Run that was deleted, leaving no current owner.
         for chunk in plan.items.chunks(RUN_CLEANUP_CHUNK_SIZE) {
-            let transaction = session.conn.transaction().map_err(|err| err.to_string())?;
+            let transaction = session.conn.transaction()?;
             for item in chunk {
                 for video in &item.videos {
-                    transaction
-                        .execute(
-                            "delete from combat_replay_videos
+                    transaction.execute(
+                        "delete from combat_replay_videos
                              where video_id = ?1
                                and not exists (
                                    select 1 from battles b
                                    join runs r on r.run_id = b.run_id
                                    where b.battle_id = combat_replay_videos.battle_id
                                )",
-                            [&video.video_id],
-                        )
-                        .map_err(|err| err.to_string())?;
+                        [&video.video_id],
+                    )?;
                 }
             }
-            transaction.commit().map_err(|err| err.to_string())?;
+            transaction.commit()?;
         }
 
         for (root, references, candidates) in [
@@ -613,14 +603,12 @@ static DELETE_RUN_IF_UNPROTECTED_SQL: LazyLock<String> = LazyLock::new(|| {
     )
 });
 
-fn delete_run_if_unprotected(conn: &Connection, run_id: &str) -> Result<usize, String> {
-    let mut stmt = conn
-        .prepare_cached(&DELETE_RUN_IF_UNPROTECTED_SQL)
-        .map_err(|err| err.to_string())?;
-    stmt.execute([run_id]).map_err(|err| err.to_string())
+fn delete_run_if_unprotected(conn: &Connection, run_id: &str) -> anyhow::Result<usize> {
+    let mut stmt = conn.prepare_cached(&DELETE_RUN_IF_UNPROTECTED_SQL)?;
+    stmt.execute([run_id]).map_err(anyhow::Error::from)
 }
 
-fn eligible_run_ids(conn: &Connection, cutoff_ms: Option<i64>) -> Result<Vec<String>, String> {
+fn eligible_run_ids(conn: &Connection, cutoff_ms: Option<i64>) -> anyhow::Result<Vec<String>> {
     let sql = format!(
         "select r.run_id
          from runs r
@@ -631,15 +619,13 @@ fn eligible_run_ids(conn: &Connection, cutoff_ms: Option<i64>) -> Result<Vec<Str
                   r.run_id asc"
     );
 
-    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map(params![cutoff_ms], |row| row.get::<_, String>(0))
-        .map_err(|err| err.to_string())?;
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![cutoff_ms], |row| row.get::<_, String>(0))?;
     rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
-fn skipped_pending_run_count(conn: &Connection, cutoff_ms: Option<i64>) -> Result<i64, String> {
+fn skipped_pending_run_count(conn: &Connection, cutoff_ms: Option<i64>) -> anyhow::Result<i64> {
     let sql = format!(
         "select count(*)
          from runs r
@@ -649,72 +635,61 @@ fn skipped_pending_run_count(conn: &Connection, cutoff_ms: Option<i64>) -> Resul
     );
 
     conn.query_row(&sql, params![cutoff_ms], |row| row.get(0))
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
-fn run_battle_ids(conn: &Connection, run_id: &str) -> Result<Vec<String>, String> {
+fn run_battle_ids(conn: &Connection, run_id: &str) -> anyhow::Result<Vec<String>> {
     let mut stmt = conn
-        .prepare_cached("select battle_id from battles where run_id = ?1 order by battle_id asc")
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([run_id], |row| row.get::<_, String>(0))
-        .map_err(|err| err.to_string())?;
+        .prepare_cached("select battle_id from battles where run_id = ?1 order by battle_id asc")?;
+    let rows = stmt.query_map([run_id], |row| row.get::<_, String>(0))?;
     rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
-fn run_video_refs(conn: &Connection, run_id: &str) -> Result<Vec<RunDataVideoCleanupItem>, String> {
-    let mut stmt = conn
-        .prepare_cached(
-            "select v.video_id, v.video_relative_path
+fn run_video_refs(conn: &Connection, run_id: &str) -> anyhow::Result<Vec<RunDataVideoCleanupItem>> {
+    let mut stmt = conn.prepare_cached(
+        "select v.video_id, v.video_relative_path
              from combat_replay_videos v
              join battles b on b.battle_id = v.battle_id
              where b.run_id = ?1
              order by v.video_id asc",
-        )
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([run_id], |row| {
-            Ok(RunDataVideoCleanupItem {
-                video_id: row.get(0)?,
-                relative_path: row.get(1)?,
-                delete_video_file: false,
-            })
+    )?;
+    let rows = stmt.query_map([run_id], |row| {
+        Ok(RunDataVideoCleanupItem {
+            video_id: row.get(0)?,
+            relative_path: row.get(1)?,
+            delete_video_file: false,
         })
-        .map_err(|err| err.to_string())?;
+    })?;
     rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
 fn run_screenshot_items(
     conn: &Connection,
     run_id: &str,
-) -> Result<Vec<ScreenshotCleanupItem>, String> {
-    let mut stmt = conn
-        .prepare_cached(
-            "select screenshot_id, image_relative_path
+) -> anyhow::Result<Vec<ScreenshotCleanupItem>> {
+    let mut stmt = conn.prepare_cached(
+        "select screenshot_id, image_relative_path
              from run_screenshots
              where run_id = ?1
              order by screenshot_id asc",
-        )
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([run_id], |row| {
-            Ok(ScreenshotCleanupItem {
-                screenshot_id: row.get(0)?,
-                image_relative_path: row.get(1)?,
-                delete_image_file: false,
-            })
+    )?;
+    let rows = stmt.query_map([run_id], |row| {
+        Ok(ScreenshotCleanupItem {
+            screenshot_id: row.get(0)?,
+            image_relative_path: row.get(1)?,
+            delete_image_file: false,
         })
-        .map_err(|err| err.to_string())?;
+    })?;
     rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
 fn remaining_screenshot_relative_paths_after_run_cleanup(
     conn: &Connection,
     planned_run_ids: &[String],
-) -> Result<HashSet<String>, String> {
+) -> anyhow::Result<HashSet<String>> {
     if planned_run_ids.is_empty() {
         return Ok(HashSet::new());
     }
@@ -723,18 +698,14 @@ fn remaining_screenshot_relative_paths_after_run_cleanup(
         .iter()
         .map(String::as_str)
         .collect::<HashSet<_>>();
-    let mut stmt = conn
-        .prepare("select run_id, image_relative_path from run_screenshots")
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|err| err.to_string())?;
+    let mut stmt = conn.prepare("select run_id, image_relative_path from run_screenshots")?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?))
+    })?;
 
     let mut paths = HashSet::new();
     for row in rows {
-        let (run_id, image_relative_path) = row.map_err(|err| err.to_string())?;
+        let (run_id, image_relative_path) = row?;
         if run_id
             .as_deref()
             .is_some_and(|run_id| planned_run_ids.contains(run_id))
@@ -752,7 +723,7 @@ fn remaining_screenshot_relative_paths_after_run_cleanup(
 fn remaining_video_relative_paths_after_run_cleanup(
     conn: &Connection,
     planned_run_ids: &[String],
-) -> Result<HashSet<String>, String> {
+) -> anyhow::Result<HashSet<String>> {
     if planned_run_ids.is_empty() {
         return Ok(HashSet::new());
     }
@@ -761,22 +732,18 @@ fn remaining_video_relative_paths_after_run_cleanup(
         .iter()
         .map(String::as_str)
         .collect::<HashSet<_>>();
-    let mut stmt = conn
-        .prepare(
-            "select b.run_id, v.video_relative_path
+    let mut stmt = conn.prepare(
+        "select b.run_id, v.video_relative_path
              from combat_replay_videos v
              left join battles b on b.battle_id = v.battle_id",
-        )
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|err| err.to_string())?;
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?))
+    })?;
 
     let mut paths = HashSet::new();
     for row in rows {
-        let (run_id, video_relative_path) = row.map_err(|err| err.to_string())?;
+        let (run_id, video_relative_path) = row?;
         if run_id
             .as_deref()
             .is_some_and(|run_id| planned_run_ids.contains(run_id))
@@ -811,7 +778,7 @@ pub(crate) fn replay_payload_path(replays_dir: &Path, battle_id: &str) -> Option
 fn eligible_screenshots(
     conn: &Connection,
     cutoff_ms: Option<i64>,
-) -> Result<Vec<ScreenshotCleanupItem>, String> {
+) -> anyhow::Result<Vec<ScreenshotCleanupItem>> {
     let sql = format!(
         "
         select s.screenshot_id, s.image_relative_path
@@ -832,22 +799,20 @@ fn eligible_screenshots(
         "
     );
 
-    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map(params![cutoff_ms], |row| {
-            Ok(ScreenshotCleanupItem {
-                screenshot_id: row.get(0)?,
-                image_relative_path: row.get(1)?,
-                delete_image_file: false,
-            })
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![cutoff_ms], |row| {
+        Ok(ScreenshotCleanupItem {
+            screenshot_id: row.get(0)?,
+            image_relative_path: row.get(1)?,
+            delete_image_file: false,
         })
-        .map_err(|err| err.to_string())?;
+    })?;
 
     rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
-fn pending_upload_count(conn: &Connection, cutoff_ms: Option<i64>) -> Result<i64, String> {
+fn pending_upload_count(conn: &Connection, cutoff_ms: Option<i64>) -> anyhow::Result<i64> {
     let sql = format!(
         "
         select count(*)
@@ -865,7 +830,7 @@ fn pending_upload_count(conn: &Connection, cutoff_ms: Option<i64>) -> Result<i64
         "
     );
     conn.query_row(&sql, params![cutoff_ms], |row| row.get(0))
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
 /// Both screenshot path sets a plan needs, derived from one table scan.
@@ -881,24 +846,21 @@ struct ScreenshotRelativePathSets {
 fn screenshot_relative_path_sets(
     conn: &Connection,
     items: &[ScreenshotCleanupItem],
-) -> Result<ScreenshotRelativePathSets, String> {
+) -> anyhow::Result<ScreenshotRelativePathSets> {
     let planned_ids = items
         .iter()
         .map(|item| item.screenshot_id.as_str())
         .collect::<HashSet<_>>();
-    let mut stmt = conn
-        .prepare("select screenshot_id, image_relative_path from run_screenshots")
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|err| err.to_string())?;
+    let mut stmt =
+        conn.prepare("select screenshot_id, image_relative_path from run_screenshots")?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
 
     let mut all = HashSet::new();
     let mut remaining = HashSet::new();
     for row in rows {
-        let (screenshot_id, image_relative_path) = row.map_err(|err| err.to_string())?;
+        let (screenshot_id, image_relative_path) = row?;
         let normalized = normalize_relative_path(&image_relative_path);
         if normalized.is_empty() {
             continue;
@@ -1085,15 +1047,15 @@ fn file_size(path: &Path) -> i64 {
         .unwrap_or(0)
 }
 
-fn remove_file_if_exists(path: &Path) -> Result<bool, String> {
+fn remove_file_if_exists(path: &Path) -> anyhow::Result<bool> {
     match std::fs::remove_file(path) {
         Ok(()) => Ok(true),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(err) => Err(format!("failed to remove {}: {err}", path.display())),
+        Err(err) => Err(anyhow!("failed to remove {}: {err}", path.display())),
     }
 }
 
-fn validate_run_cleanup_cascade_fks(conn: &Connection) -> Result<(), String> {
+fn validate_run_cleanup_cascade_fks(conn: &Connection) -> anyhow::Result<()> {
     for (child_table, child_column, parent_table) in [
         ("battles", "run_id", "runs"),
         ("run_events", "run_id", "runs"),
@@ -1101,9 +1063,9 @@ fn validate_run_cleanup_cascade_fks(conn: &Connection) -> Result<(), String> {
         ("bundle_seal_jobs", "run_id", "runs"),
     ] {
         if !has_on_delete_cascade_fk(conn, child_table, child_column, parent_table)? {
-            return Err(format!(
+            bail!(
                 "run cleanup requires {child_table}.{child_column} -> {parent_table} ON DELETE CASCADE before deleting files"
-            ));
+            );
         }
     }
     Ok(())
@@ -1114,7 +1076,7 @@ fn has_on_delete_cascade_fk(
     child_table: &str,
     child_column: &str,
     parent_table: &str,
-) -> Result<bool, String> {
+) -> anyhow::Result<bool> {
     conn.query_row(
         "select exists(
             select 1
@@ -1127,7 +1089,7 @@ fn has_on_delete_cascade_fk(
         |row| row.get::<_, i64>(0),
     )
     .map(|value| value != 0)
-    .map_err(|err| err.to_string())
+    .map_err(anyhow::Error::from)
 }
 
 fn remove_empty_dated_directories(screenshots_dir: &Path) {
@@ -1409,13 +1371,13 @@ mod tests {
 
     #[test]
     fn cleanup_session_refuses_a_running_or_uninspectable_game_and_releases_lock() {
-        for state in [Ok(true), Err("process inspection failed".to_string())] {
+        for state in [Ok(true), Err("process inspection failed")] {
             let fixture = create_fixture();
             let image =
                 write_screenshot_file(&fixture.screenshots_dir, "2026-06-01/shot.png", b"keep");
             let probe = |path: &Path| {
                 assert_eq!(path, fixture.data_root.parent().unwrap());
-                state.clone()
+                state.map_err(|message| anyhow::anyhow!(message))
             };
             assert!(super::CleanupSession::open(
                 &fixture.database_path,
@@ -1462,6 +1424,7 @@ mod tests {
             test_today(),
         )
         .unwrap_err()
+        .to_string()
         .contains("failed to remove"));
         assert!(!first.exists());
         assert!(failure.is_dir());
@@ -2307,8 +2270,9 @@ mod tests {
         fs::create_dir_all(&data_dir).unwrap();
         drop(Connection::open(&database_path).unwrap());
 
-        let error =
-            plan_screenshot_cleanup(&database_path, &data_dir, None, test_today()).unwrap_err();
+        let error = plan_screenshot_cleanup(&database_path, &data_dir, None, test_today())
+            .unwrap_err()
+            .to_string();
 
         assert!(error.contains("found=0"), "{error}");
         let supported = format!(
@@ -3274,7 +3238,9 @@ mod tests {
         );
         drop(conn);
 
-        let error = super::execute_run_data_cleanup(&database_path, &data_dir, None).unwrap_err();
+        let error = super::execute_run_data_cleanup(&database_path, &data_dir, None)
+            .unwrap_err()
+            .to_string();
 
         assert!(
             error.contains("battles.run_id") && error.contains("ON DELETE CASCADE"),

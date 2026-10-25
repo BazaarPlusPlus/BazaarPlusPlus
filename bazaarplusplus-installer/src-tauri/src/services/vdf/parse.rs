@@ -1,9 +1,10 @@
+use anyhow::bail;
 pub(crate) const THE_BAZAAR_APP_ID: &str = "1617400";
 pub(crate) const LAUNCH_OPTIONS_KEY: &str = "LaunchOptions";
-pub(crate) fn launch_options_empty_in_content(vdf_content: &str) -> Result<Option<bool>, String> {
+pub(crate) fn launch_options_empty_in_content(vdf_content: &str) -> anyhow::Result<Option<bool>> {
     let lines = vdf_content.lines().map(str::to_string).collect::<Vec<_>>();
     let Some((apps_open, apps_close)) = find_apps_block(&lines) else {
-        return Err("Malformed VDF: could not locate Steam/apps object".to_string());
+        bail!("Malformed VDF: could not locate Steam/apps object");
     };
     let Some((app_open, app_close)) =
         find_named_block(&lines, apps_open..=apps_close, THE_BAZAAR_APP_ID)
@@ -125,10 +126,10 @@ fn find_named_block(
     None
 }
 
-pub fn clear_launch_options(vdf_content: &str) -> Result<Option<String>, String> {
+pub fn clear_launch_options(vdf_content: &str) -> anyhow::Result<Option<String>> {
     let mut lines = vdf_content.lines().map(str::to_string).collect::<Vec<_>>();
     let Some((apps_open, apps_close)) = find_apps_block(&lines) else {
-        return Err("Malformed VDF: could not locate Steam/apps object".to_string());
+        bail!("Malformed VDF: could not locate Steam/apps object");
     };
     let Some((app_open, app_close)) =
         find_named_block(&lines, apps_open..=apps_close, THE_BAZAAR_APP_ID)

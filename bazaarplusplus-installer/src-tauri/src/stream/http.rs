@@ -3,6 +3,7 @@ use super::overlay_settings::{validate_crop_settings, OverlayCropSettings, Overl
 use super::records::OverlayRecordRepository;
 use super::runtime::StreamRuntime;
 use super::strip::{render_strip, StripRequest};
+use anyhow::Context as _;
 use axum::http::StatusCode;
 use axum::{
     extract::{Path, Query, State},
@@ -159,7 +160,7 @@ async fn load_overlay_asset(_file_name: &str, embedded: &'static str) -> Cow<'st
     #[cfg(debug_assertions)]
     {
         let path = overlay_asset_path(_file_name);
-        let read = move || std::fs::read_to_string(path).map_err(|err| err.to_string());
+        let read = move || std::fs::read_to_string(path).map_err(anyhow::Error::from);
         if let Ok(contents) = run_record_task(read).await {
             return Cow::Owned(contents);
         }
@@ -187,7 +188,11 @@ async fn latest_record(
 
     match run_record_task(move || repository.load_record_at_offset(from.as_deref(), offset)).await {
         Ok(record) => Json(record).into_response(),
-        Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            crate::problem::error_diagnostic(&error),
+        )
+            .into_response(),
     }
 }
 
@@ -202,7 +207,11 @@ async fn record_list(
 
     match run_record_task(move || repository.load_record_list(from.as_deref(), Some(limit))).await {
         Ok(records) => Json(records).into_response(),
-        Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            crate::problem::error_diagnostic(&error),
+        )
+            .into_response(),
     }
 }
 
@@ -210,7 +219,11 @@ async fn get_crop_config(State(app_state): State<HttpAppState>) -> Response {
     let settings = app_state.overlay_settings;
     match run_record_task(move || settings.load_payload()).await {
         Ok(payload) => Json(payload).into_response(),
-        Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            crate::problem::error_diagnostic(&error),
+        )
+            .into_response(),
     }
 }
 
@@ -221,7 +234,11 @@ async fn save_crop_config(
     let settings = app_state.overlay_settings;
     match run_record_task(move || settings.save(request.crop)).await {
         Ok(payload) => Json(payload).into_response(),
-        Err(message) => (StatusCode::BAD_REQUEST, message).into_response(),
+        Err(error) => (
+            StatusCode::BAD_REQUEST,
+            crate::problem::error_diagnostic(&error),
+        )
+            .into_response(),
     }
 }
 
@@ -233,7 +250,13 @@ async fn record_image(
     let (path, bytes) = match run_record_task(move || repository.load_image(&record_id)).await {
         Ok(Some(value)) => value,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
-        Err(message) => return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                crate::problem::error_diagnostic(&error),
+            )
+                .into_response()
+        }
     };
 
     let content_type = detect_content_type(&path);
@@ -256,7 +279,13 @@ async fn record_strip_image(
 ) -> Response {
     let crop = match requested_strip_crop(&query) {
         Ok(crop) => crop,
-        Err(message) => return (StatusCode::BAD_REQUEST, message).into_response(),
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                crate::problem::error_diagnostic(&error),
+            )
+                .into_response()
+        }
     };
     let request = StripRequest {
         record_id,
@@ -270,7 +299,11 @@ async fn record_strip_image(
     match run_record_task(move || render_strip(&records, &settings, &cache_root, &request)).await {
         Ok(Some(bytes)) => png_response(bytes),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            crate::problem::error_diagnostic(&error),
+        )
+            .into_response(),
     }
 }
 
@@ -289,19 +322,19 @@ pub(super) fn png_response(bytes: Vec<u8>) -> Response {
 /// Every SQLite or filesystem access a handler makes runs here: a SQLite open
 /// can sleep on a busy database, and file reads and writes block, so none may
 /// run on the shared tokio workers that also serve the Tauri async commands.
-pub(super) async fn run_record_task<T, F>(task: F) -> Result<T, String>
+pub(super) async fn run_record_task<T, F>(task: F) -> anyhow::Result<T>
 where
     T: Send + 'static,
-    F: FnOnce() -> Result<T, String> + Send + 'static,
+    F: FnOnce() -> anyhow::Result<T> + Send + 'static,
 {
     tauri::async_runtime::spawn_blocking(task)
         .await
-        .map_err(|err| format!("Overlay record task failed: {err}"))?
+        .context("Overlay record task failed")?
 }
 
 /// A crop given in the query, validated before any blocking work; `None` means
 /// the saved overlay settings apply.
-fn requested_strip_crop(query: &StripPreviewQuery) -> Result<Option<OverlayCropSettings>, String> {
+fn requested_strip_crop(query: &StripPreviewQuery) -> anyhow::Result<Option<OverlayCropSettings>> {
     if query.left.is_none()
         && query.top.is_none()
         && query.width.is_none()
@@ -400,7 +433,7 @@ async fn badge_asset(Path((category, file_name)): Path<(String, String)>) -> Res
     #[cfg(debug_assertions)]
     {
         let path = badge_asset_path(&category, &file_name);
-        let read = move || std::fs::read(path).map_err(|err| err.to_string());
+        let read = move || std::fs::read(path).map_err(anyhow::Error::from);
         if let Ok(bytes) = run_record_task(read).await {
             return (
                 [(

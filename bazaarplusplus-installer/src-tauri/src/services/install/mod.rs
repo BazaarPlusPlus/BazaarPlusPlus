@@ -8,6 +8,7 @@ pub use types::{
     InstallWarning, InstallWarningCode, ResetBepinexResult, ResetBppDataResult,
 };
 
+use anyhow::Context as _;
 use std::process::Command;
 
 use tauri::Manager;
@@ -46,7 +47,7 @@ pub(super) fn build_install_state_raw(
     app: tauri::AppHandle,
     state: tauri::State<'_, InstallerContextState>,
     game_path: Option<String>,
-) -> Result<InstallState, String> {
+) -> anyhow::Result<InstallState> {
     let snapshot = detect_for_install(app, state, game_path)?;
     Ok(install_state_from_snapshot(snapshot))
 }
@@ -141,7 +142,7 @@ pub async fn run_uninstall(
     build_install_state(app, state, Some(game_path))
 }
 
-pub fn launch_game_via_steam() -> Result<(), String> {
+pub fn launch_game_via_steam() -> anyhow::Result<()> {
     open_url(STEAM_BAZAAR_URL)
 }
 
@@ -220,10 +221,10 @@ fn install_warnings(
     warnings
 }
 
-fn install_detection_problem(diagnostic: String) -> SemanticProblem {
+fn install_detection_problem(error: anyhow::Error) -> SemanticProblem {
     SemanticProblem::new(SemanticProblemCode::InstallDetectionFailed)
         .with_param("operation", "detect_state")
-        .with_diagnostic(diagnostic)
+        .with_error(&error)
 }
 
 pub(crate) fn install_action_problem(
@@ -247,13 +248,13 @@ fn has_bepinex_directory(game_path: Option<&str>) -> bool {
         .unwrap_or(false)
 }
 
-fn open_url(url: &str) -> Result<(), String> {
+fn open_url(url: &str) -> anyhow::Result<()> {
     #[cfg(target_os = "windows")]
     {
         Command::new("cmd")
             .args(["/C", "start", "", url])
             .spawn()
-            .map_err(|err| format!("failed to open URL: {err}"))?;
+            .context("failed to open URL")?;
         Ok(())
     }
 
@@ -262,7 +263,7 @@ fn open_url(url: &str) -> Result<(), String> {
         Command::new("open")
             .arg(url)
             .spawn()
-            .map_err(|err| format!("failed to open URL: {err}"))?;
+            .context("failed to open URL")?;
         Ok(())
     }
 
@@ -271,7 +272,7 @@ fn open_url(url: &str) -> Result<(), String> {
         Command::new("xdg-open")
             .arg(url)
             .spawn()
-            .map_err(|err| format!("failed to open URL: {err}"))?;
+            .context("failed to open URL")?;
         Ok(())
     }
 }

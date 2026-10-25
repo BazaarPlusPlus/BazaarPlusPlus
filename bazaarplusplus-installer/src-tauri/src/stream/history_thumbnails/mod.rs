@@ -118,7 +118,11 @@ async fn thumbnail(
     {
         Ok(Some(bytes)) => png_response(bytes),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            crate::problem::error_diagnostic(&error),
+        )
+            .into_response(),
     }
 }
 
@@ -128,7 +132,7 @@ fn render(
     screenshot_id: &str,
     settings: &OverlaySettingsStore,
     cache_root: &Path,
-) -> Result<Option<Vec<u8>>, String> {
+) -> anyhow::Result<Option<Vec<u8>>> {
     let crop = settings.load()?.crop;
     let stored = load_screenshot_image_path(&paths::database_path(game_path), screenshot_id)?;
     let Some(image_path) =

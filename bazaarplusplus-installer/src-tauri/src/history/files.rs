@@ -1,16 +1,17 @@
+use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 
 /// Deletes the video file a row names. Like cleanup, it resolves through
 /// [`resolve_cleanup_file_path`], so a row holding an absolute path deletes no
 /// file outside the video directory.
-pub fn remove_video_file(root_dir: &Path, relative_path: &str) -> Result<(), String> {
+pub fn remove_video_file(root_dir: &Path, relative_path: &str) -> anyhow::Result<()> {
     let Some(path) = resolve_cleanup_file_path(root_dir, relative_path) else {
         return Ok(());
     };
     match std::fs::remove_file(&path) {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(format!("failed to remove video {}: {err}", path.display())),
+        Err(err) => Err(anyhow!("failed to remove video {}: {err}", path.display())),
     }
 }
 

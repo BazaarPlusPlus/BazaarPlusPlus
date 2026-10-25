@@ -1,3 +1,4 @@
+use anyhow::{bail, Context as _};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -72,7 +73,7 @@ impl OverlaySettingsStore {
         Self { path, legacy_path }
     }
 
-    pub fn load(&self) -> Result<OverlaySettings, String> {
+    pub fn load(&self) -> anyhow::Result<OverlaySettings> {
         let read_path = if self.path.exists() {
             &self.path
         } else if let Some(legacy_path) = self
@@ -129,7 +130,7 @@ impl OverlaySettingsStore {
         })
     }
 
-    pub fn save(&self, crop: OverlayCropSettings) -> Result<OverlayCropSettingsPayload, String> {
+    pub fn save(&self, crop: OverlayCropSettings) -> anyhow::Result<OverlayCropSettingsPayload> {
         let crop = validate_crop_settings(crop)?;
         let display_mode = self
             .load()
@@ -141,7 +142,7 @@ impl OverlaySettingsStore {
     pub fn save_display_mode(
         &self,
         display_mode: StreamOverlayDisplayMode,
-    ) -> Result<OverlayCropSettingsPayload, String> {
+    ) -> anyhow::Result<OverlayCropSettingsPayload> {
         let crop = self
             .load()
             .map(|settings| settings.crop)
@@ -152,26 +153,26 @@ impl OverlaySettingsStore {
     fn write_settings(
         &self,
         settings: OverlaySettings,
-    ) -> Result<OverlayCropSettingsPayload, String> {
+    ) -> anyhow::Result<OverlayCropSettingsPayload> {
         let document = OverlayCropDocument {
             v: OVERLAY_SETTINGS_VERSION,
             settings,
         };
         let raw = serde_json::to_string_pretty(&document)
-            .map_err(|err| format!("Failed to serialize overlay crop settings: {err}"))?;
+            .context("Failed to serialize overlay crop settings")?;
 
         if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent).map_err(|err| {
+            std::fs::create_dir_all(parent).with_context(|| {
                 format!(
-                    "Failed to create overlay settings directory {}: {err}",
+                    "Failed to create overlay settings directory {}",
                     parent.display()
                 )
             })?;
         }
 
-        std::fs::write(&self.path, raw).map_err(|err| {
+        std::fs::write(&self.path, raw).with_context(|| {
             format!(
-                "Failed to write overlay crop settings to {}: {err}",
+                "Failed to write overlay crop settings to {}",
                 self.path.display()
             )
         })?;
@@ -187,12 +188,12 @@ impl OverlaySettingsStore {
         }
     }
 
-    pub fn load_payload(&self) -> Result<OverlayCropSettingsPayload, String> {
+    pub fn load_payload(&self) -> anyhow::Result<OverlayCropSettingsPayload> {
         let settings = self.load()?;
         Ok(self.payload(settings))
     }
 
-    pub fn import_code(&self, code: &str) -> Result<OverlayCropSettingsPayload, String> {
+    pub fn import_code(&self, code: &str) -> anyhow::Result<OverlayCropSettingsPayload> {
         let crop = decode_crop_code(code)?;
         self.save(crop)
     }
@@ -206,28 +207,28 @@ fn legacy_settings_path() -> PathBuf {
     crate::services::paths::legacy_overlay_settings_path()
 }
 
-pub fn validate_crop_settings(crop: OverlayCropSettings) -> Result<OverlayCropSettings, String> {
+pub fn validate_crop_settings(crop: OverlayCropSettings) -> anyhow::Result<OverlayCropSettings> {
     fn valid_ratio(value: f64) -> bool {
         value.is_finite() && value > 0.0 && value < 1.0
     }
 
     if !valid_ratio(crop.left) {
-        return Err("Overlay crop left must be between 0 and 1.".to_string());
+        bail!("Overlay crop left must be between 0 and 1.");
     }
     if !valid_ratio(crop.top) {
-        return Err("Overlay crop top must be between 0 and 1.".to_string());
+        bail!("Overlay crop top must be between 0 and 1.");
     }
     if !valid_ratio(crop.width) {
-        return Err("Overlay crop width must be between 0 and 1.".to_string());
+        bail!("Overlay crop width must be between 0 and 1.");
     }
     if !valid_ratio(crop.height) {
-        return Err("Overlay crop height must be between 0 and 1.".to_string());
+        bail!("Overlay crop height must be between 0 and 1.");
     }
     if crop.left + crop.width > 1.0 {
-        return Err("Overlay crop left + width must stay within the image.".to_string());
+        bail!("Overlay crop left + width must stay within the image.");
     }
     if crop.top + crop.height > 1.0 {
-        return Err("Overlay crop top + height must stay within the image.".to_string());
+        bail!("Overlay crop top + height must stay within the image.");
     }
 
     Ok(crop)
@@ -246,23 +247,20 @@ pub fn encode_crop_code(crop: OverlayCropSettings) -> String {
     STANDARD.encode(raw)
 }
 
-pub fn decode_crop_code(code: &str) -> Result<OverlayCropSettings, String> {
+pub fn decode_crop_code(code: &str) -> anyhow::Result<OverlayCropSettings> {
     let trimmed = code.trim();
     if trimmed.is_empty() {
-        return Err("Overlay crop code is empty.".to_string());
+        bail!("Overlay crop code is empty.");
     }
 
     let bytes = STANDARD
         .decode(trimmed)
-        .map_err(|err| format!("Overlay crop code is not valid Base64: {err}"))?;
+        .context("Overlay crop code is not valid Base64")?;
     let document = serde_json::from_slice::<OverlayCropDocument>(&bytes)
-        .map_err(|err| format!("Overlay crop code payload is invalid JSON: {err}"))?;
+        .context("Overlay crop code payload is invalid JSON")?;
 
     if document.v != OVERLAY_SETTINGS_VERSION {
-        return Err(format!(
-            "Unsupported overlay crop code version {}.",
-            document.v
-        ));
+        bail!("Unsupported overlay crop code version {}.", document.v);
     }
 
     validate_crop_settings(document.settings.crop)

@@ -5,6 +5,7 @@
 //! `ipc_golden_tests.rs` reuses [`v3_game`] and [`import_copying`] for the
 //! `import_v5_history` DTO goldens.
 
+use anyhow::anyhow;
 use std::cell::Cell;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -54,7 +55,7 @@ impl FixtureGame {
     }
 }
 
-fn stopped(_: &Path) -> Result<bool, String> {
+fn stopped(_: &Path) -> anyhow::Result<bool> {
     Ok(false)
 }
 
@@ -344,7 +345,7 @@ fn a_game_running_at_the_start_changes_nothing() {
     ));
     let error = import_blocking_with(
         &fixture.game,
-        &|_: &Path| Err("ps failed".to_string()),
+        &|_: &Path| Err(anyhow!("ps failed")),
         SystemBackend,
         NOW_MS,
     )
@@ -635,7 +636,7 @@ async fn history_cleanup_started_during_an_import_waits_for_it() {
                 };
                 import_blocking_with(&fixture.game, &probe, SystemBackend, NOW_MS)
                     .map(|report| report.plan.imported_runs.len())
-                    .map_err(|error| error.to_string())
+                    .map_err(anyhow::Error::from)
             })
             .await
         }
@@ -676,7 +677,7 @@ async fn history_cleanup_started_during_an_import_waits_for_it() {
     );
 
     release_tx.send(()).unwrap();
-    assert_eq!(import.await.unwrap(), Ok(Ok(8)));
+    assert_eq!(import.await.unwrap().unwrap().unwrap(), 8);
     let _ = cleanup.await.unwrap();
     // Cleanup saw the committed import.
     assert_eq!(resolved.try_recv(), Ok(true));

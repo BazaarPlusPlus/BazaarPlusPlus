@@ -1,3 +1,4 @@
+use anyhow::bail;
 use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -37,12 +38,12 @@ impl SelectedGameInstallationState {
     pub(crate) fn accept_explicit_path(
         &self,
         game_path: PathBuf,
-    ) -> Result<SelectedGameInstallation, String> {
+    ) -> anyhow::Result<SelectedGameInstallation> {
         if !crate::services::detect::is_valid_game_path(&game_path) {
-            return Err(format!(
+            bail!(
                 "The selected directory is not a valid The Bazaar installation: {}",
                 game_path.display()
-            ));
+            );
         }
 
         let installation = SelectedGameInstallation { game_path };

@@ -1,3 +1,4 @@
+use crate::problem::error_diagnostic;
 use crate::services::game_process;
 
 /// End a game process that outlived its window. Both History and Install stall
@@ -9,5 +10,5 @@ use crate::services::game_process;
 #[tauri::command(async)]
 #[specta::specta]
 pub fn end_game_process() -> Result<bool, String> {
-    game_process::terminate_game()
+    game_process::terminate_game().map_err(|error| error_diagnostic(&error))
 }

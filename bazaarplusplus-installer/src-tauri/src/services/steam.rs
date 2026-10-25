@@ -1,4 +1,7 @@
 use crate::services::debug_log;
+use anyhow::anyhow;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use anyhow::{bail, Context as _};
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
@@ -19,7 +22,7 @@ fn steam_running_from_pgrep(
     status_code: Option<i32>,
     stdout: &[u8],
     stderr: &[u8],
-) -> Result<bool, String> {
+) -> anyhow::Result<bool> {
     match status_code {
         Some(0) => {
             let output = String::from_utf8_lossy(stdout);
@@ -29,9 +32,9 @@ fn steam_running_from_pgrep(
         _ => {
             let stderr = String::from_utf8_lossy(stderr).trim().to_string();
             if stderr.is_empty() {
-                Err("Failed to inspect Steam process state.".to_string())
+                Err(anyhow!("Failed to inspect Steam process state."))
             } else {
-                Err(format!("Failed to inspect Steam process state: {stderr}"))
+                Err(anyhow!("Failed to inspect Steam process state: {stderr}"))
             }
         }
     }
@@ -44,10 +47,10 @@ fn ensure_process_stopped_with<IsRunning, RequestQuit, Sleep>(
     mut sleep: Sleep,
     attempts: usize,
     interval: Duration,
-) -> Result<bool, String>
+) -> anyhow::Result<bool>
 where
-    IsRunning: FnMut() -> Result<bool, String>,
-    RequestQuit: FnMut() -> Result<(), String>,
+    IsRunning: FnMut() -> anyhow::Result<bool>,
+    RequestQuit: FnMut() -> anyhow::Result<()>,
     Sleep: FnMut(Duration),
 {
     if !is_running()? {
@@ -63,32 +66,32 @@ where
         }
     }
 
-    Err(format!(
+    Err(anyhow!(
         "{process_name} did not close in time. Please quit it manually and try again."
     ))
 }
 
 #[cfg(target_os = "macos")]
-fn is_steam_running() -> Result<bool, String> {
+fn is_steam_running() -> anyhow::Result<bool> {
     let output = Command::new("pgrep")
         .args(["-alf", "Steam"])
         .output()
-        .map_err(|err| format!("Failed to inspect Steam process state: {err}"))?;
+        .context("Failed to inspect Steam process state")?;
 
     steam_running_from_pgrep(output.status.code(), &output.stdout, &output.stderr)
 }
 
 #[cfg(target_os = "windows")]
-fn is_steam_running() -> Result<bool, String> {
+fn is_steam_running() -> anyhow::Result<bool> {
     crate::services::process_snapshot::process_is_running(STEAM_PROCESS_NAME)
 }
 
 #[cfg(target_os = "macos")]
-fn request_steam_quit() -> Result<(), String> {
+fn request_steam_quit() -> anyhow::Result<()> {
     let output = Command::new("osascript")
         .args(["-e", "tell application \"Steam\" to quit"])
         .output()
-        .map_err(|err| format!("Failed to ask Steam to quit: {err}"))?;
+        .context("Failed to ask Steam to quit")?;
 
     if output.status.success() {
         return Ok(());
@@ -96,18 +99,18 @@ fn request_steam_quit() -> Result<(), String> {
 
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if stderr.is_empty() {
-        Err("Failed to ask Steam to quit.".to_string())
+        Err(anyhow!("Failed to ask Steam to quit."))
     } else {
-        Err(format!("Failed to ask Steam to quit: {stderr}"))
+        Err(anyhow!("Failed to ask Steam to quit: {stderr}"))
     }
 }
 
 #[cfg(target_os = "windows")]
-fn request_steam_quit() -> Result<(), String> {
+fn request_steam_quit() -> anyhow::Result<()> {
     let output = Command::new("taskkill")
         .args(["/IM", STEAM_PROCESS_NAME, "/T"])
         .output()
-        .map_err(|err| format!("Failed to ask Steam to quit: {err}"))?;
+        .context("Failed to ask Steam to quit")?;
 
     if output.status.success() {
         return Ok(());
@@ -115,14 +118,14 @@ fn request_steam_quit() -> Result<(), String> {
 
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if stderr.is_empty() {
-        Err("Failed to ask Steam to quit.".to_string())
+        Err(anyhow!("Failed to ask Steam to quit."))
     } else {
-        Err(format!("Failed to ask Steam to quit: {stderr}"))
+        Err(anyhow!("Failed to ask Steam to quit: {stderr}"))
     }
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-fn close_steam_internal() -> Result<bool, String> {
+fn close_steam_internal() -> anyhow::Result<bool> {
     ensure_process_stopped_with(
         "Steam",
         is_steam_running,
@@ -134,12 +137,9 @@ fn close_steam_internal() -> Result<bool, String> {
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub fn prepare_steam_for_config_update(steam_path: &Path) -> Result<(), String> {
+pub fn prepare_steam_for_config_update(steam_path: &Path) -> anyhow::Result<()> {
     if !has_steam_userdata(steam_path) {
-        return Err(format!(
-            "Steam userdata was not found at {}",
-            steam_path.display()
-        ));
+        bail!("Steam userdata was not found at {}", steam_path.display());
     }
 
     let stopped = close_steam_internal()?;
@@ -152,7 +152,7 @@ pub fn prepare_steam_for_config_update(steam_path: &Path) -> Result<(), String> 
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-pub fn prepare_steam_for_config_update(_steam_path: &Path) -> Result<(), String> {
+pub fn prepare_steam_for_config_update(_steam_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
@@ -233,7 +233,7 @@ mod tests {
             Duration::from_millis(1),
         );
 
-        let error = result.unwrap_err();
+        let error = format!("{:#}", result.unwrap_err());
         assert!(error.contains("Steam"));
         assert!(error.contains("close"));
     }

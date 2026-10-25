@@ -1,11 +1,12 @@
 //! Deterministic filesystem evidence shared by headless repair and acceptance.
 
+use anyhow::Context as _;
 use std::io::Read;
 use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
-pub(crate) fn tree_manifest(root: &Path) -> Result<Vec<(String, String)>, String> {
+pub(crate) fn tree_manifest(root: &Path) -> anyhow::Result<Vec<(String, String)>> {
     fn walk(
         root: &Path,
         directory: &Path,
@@ -53,18 +54,17 @@ pub(crate) fn tree_manifest(root: &Path) -> Result<Vec<(String, String)>, String
         Ok(())
     }
     let mut entries = Vec::new();
-    walk(root, root, &mut entries)
-        .map_err(|error| format!("Cannot inspect {}: {error}", root.display()))?;
+    walk(root, root, &mut entries).with_context(|| format!("Cannot inspect {}", root.display()))?;
     entries.sort();
     Ok(entries)
 }
 
-pub(crate) fn json(entries: &[(String, String)]) -> Result<String, String> {
+pub(crate) fn json(entries: &[(String, String)]) -> anyhow::Result<String> {
     let entries: Vec<_> = entries
         .iter()
         .map(|(path, sha256)| serde_json::json!({"path": path, "sha256": sha256}))
         .collect();
     serde_json::to_string_pretty(&entries)
         .map(|text| text + "\n")
-        .map_err(|error| error.to_string())
+        .map_err(anyhow::Error::from)
 }

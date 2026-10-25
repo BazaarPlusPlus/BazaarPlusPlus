@@ -6,7 +6,7 @@ use crate::problem::{SemanticProblem, SemanticProblemCode};
 const BAZAAR_PROCESS_NAME: &str = "TheBazaar.exe";
 
 #[cfg(target_os = "windows")]
-fn is_bazaar_running() -> Result<bool, String> {
+fn is_bazaar_running() -> anyhow::Result<bool> {
     crate::services::process_snapshot::process_is_running(BAZAAR_PROCESS_NAME)
 }
 
@@ -29,7 +29,7 @@ pub(crate) fn is_bazaar_running_best_effort() -> bool {
 /// Kill any leftover game process, returning whether one was actually
 /// terminated. The game can keep the mod database open after its window closes;
 /// the user's only other recourse is `taskkill` or a reboot.
-pub(crate) fn terminate_game() -> Result<bool, String> {
+pub(crate) fn terminate_game() -> anyhow::Result<bool> {
     #[cfg(target_os = "windows")]
     {
         crate::services::process_snapshot::terminate_processes(BAZAAR_PROCESS_NAME)
@@ -38,7 +38,9 @@ pub(crate) fn terminate_game() -> Result<bool, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        Err("Ending the game process is not supported on this platform.".to_string())
+        Err(anyhow::anyhow!(
+            "Ending the game process is not supported on this platform."
+        ))
     }
 }
 
@@ -107,6 +109,8 @@ impl GameRunningRefusal {
     }
 }
 
+impl std::error::Error for GameRunningRefusal {}
+
 impl std::fmt::Display for GameRunningRefusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.operation.token())?;
@@ -121,14 +125,14 @@ impl std::fmt::Display for GameRunningRefusal {
 /// take it as a parameter so tests can simulate a running game or a failed
 /// inspection without touching real processes.
 pub(crate) trait GameProcessProbe {
-    fn is_running(&self, game_path: &Path) -> Result<bool, String>;
+    fn is_running(&self, game_path: &Path) -> anyhow::Result<bool>;
 }
 
 impl<F> GameProcessProbe for F
 where
-    F: Fn(&Path) -> Result<bool, String>,
+    F: Fn(&Path) -> anyhow::Result<bool>,
 {
-    fn is_running(&self, game_path: &Path) -> Result<bool, String> {
+    fn is_running(&self, game_path: &Path) -> anyhow::Result<bool> {
         self(game_path)
     }
 }
@@ -138,24 +142,26 @@ where
 pub(crate) struct SystemGameProcessProbe;
 
 impl GameProcessProbe for SystemGameProcessProbe {
-    fn is_running(&self, game_path: &Path) -> Result<bool, String> {
+    fn is_running(&self, game_path: &Path) -> anyhow::Result<bool> {
         #[cfg(target_os = "macos")]
         {
+            use anyhow::Context as _;
+
             let game_path = game_path
                 .canonicalize()
-                .map_err(|err| format!("Cannot resolve the game directory: {err}"))?;
+                .context("Cannot resolve the game directory")?;
             let output = std::process::Command::new("/bin/ps")
                 .args(["-axo", "comm="])
                 .output()
-                .map_err(|err| format!("Cannot inspect game processes: {err}"))?;
+                .context("Cannot inspect game processes")?;
             if !output.status.success() {
-                return Err(format!(
+                anyhow::bail!(
                     "Cannot inspect game processes: ps exited with {}",
                     output.status
-                ));
+                );
             }
-            let processes = String::from_utf8(output.stdout)
-                .map_err(|err| format!("Cannot inspect game processes: {err}"))?;
+            let processes =
+                String::from_utf8(output.stdout).context("Cannot inspect game processes")?;
             Ok(contains_game_process(&processes, &game_path))
         }
         #[cfg(target_os = "windows")]
@@ -194,7 +200,7 @@ pub(crate) fn ensure_game_stopped_with(
         }),
         Err(error) => Err(GameRunningRefusal {
             operation,
-            inspection_error: Some(error),
+            inspection_error: Some(crate::problem::error_diagnostic(&error)),
         }),
     }
 }
@@ -286,7 +292,7 @@ mod tests {
 
     #[test]
     fn failed_inspection_refuses_like_a_running_game() {
-        let broken = |_: &Path| Err("ps failed".to_string());
+        let broken = |_: &Path| Err(anyhow::anyhow!("ps failed"));
 
         let problem =
             ensure_game_stopped_with(&broken, Path::new("/game"), GameStoppedOperation::Reset)

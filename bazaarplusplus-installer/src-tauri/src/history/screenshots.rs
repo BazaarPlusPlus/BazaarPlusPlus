@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use std::{collections::HashMap, path::Path};
 
 use chrono::DateTime;
@@ -28,7 +29,7 @@ pub struct OverlaySnapshotRow {
 pub fn primary_screenshot_ids(
     conn: &Connection,
     run_ids: &[String],
-) -> Result<HashMap<String, String>, String> {
+) -> anyhow::Result<HashMap<String, String>> {
     if run_ids.is_empty() || !table_exists(conn, "run_screenshots")? {
         return Ok(HashMap::new());
     }
@@ -42,15 +43,13 @@ pub fn primary_screenshot_ids(
         where run_id in ({placeholders}) and is_primary = 1
         "
     );
-    let mut stmt = conn.prepare(&primary_sql).map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map(params_from_iter(run_ids.iter()), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|err| err.to_string())?;
+    let mut stmt = conn.prepare(&primary_sql)?;
+    let rows = stmt.query_map(params_from_iter(run_ids.iter()), |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
 
     for row in rows {
-        let (run_id, screenshot_id) = row.map_err(|err| err.to_string())?;
+        let (run_id, screenshot_id) = row?;
         selected.entry(run_id).or_insert(screenshot_id);
     }
 
@@ -71,15 +70,13 @@ pub fn primary_screenshot_ids(
         order by run_id asc, captured_at_ms desc, screenshot_id desc
         "
     );
-    let mut stmt = conn.prepare(&fallback_sql).map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map(params_from_iter(missing_run_ids), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|err| err.to_string())?;
+    let mut stmt = conn.prepare(&fallback_sql)?;
+    let rows = stmt.query_map(params_from_iter(missing_run_ids), |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
 
     for row in rows {
-        let (run_id, screenshot_id) = row.map_err(|err| err.to_string())?;
+        let (run_id, screenshot_id) = row?;
         selected.entry(run_id).or_insert(screenshot_id);
     }
 
@@ -89,7 +86,7 @@ pub fn primary_screenshot_ids(
 pub fn primary_screenshot(
     conn: &Connection,
     run_id: &str,
-) -> Result<Option<ScreenshotRef>, String> {
+) -> anyhow::Result<Option<ScreenshotRef>> {
     if !table_exists(conn, "run_screenshots")? {
         return Ok(None);
     }
@@ -110,8 +107,7 @@ pub fn primary_screenshot(
                 })
             },
         )
-        .optional()
-        .map_err(|err| err.to_string())?;
+        .optional()?;
     if primary.is_some() {
         return Ok(primary);
     }
@@ -133,14 +129,14 @@ pub fn primary_screenshot(
         },
     )
     .optional()
-    .map_err(|err| err.to_string())
+    .map_err(anyhow::Error::from)
 }
 
 pub fn load_latest_overlay_snapshot(
     database_path: &Path,
     from: Option<&str>,
     offset: usize,
-) -> Result<Option<OverlaySnapshotRow>, String> {
+) -> anyhow::Result<Option<OverlaySnapshotRow>> {
     if !database_path.exists() {
         return Ok(None);
     }
@@ -150,7 +146,7 @@ pub fn load_latest_overlay_snapshot(
         return Ok(None);
     }
 
-    let offset_value = i64::try_from(offset).map_err(|err| err.to_string())?;
+    let offset_value = i64::try_from(offset)?;
     let from_ms = from.map(overlay_from_ms);
     let mut stmt = if from.is_some() {
         conn.prepare(
@@ -193,15 +189,13 @@ order by rs.captured_at_ms desc, rs.screenshot_id desc
 limit 1 offset ?1
 ",
         )
-    }
-    .map_err(|err| err.to_string())?;
+    }?;
     let mut rows = if let Some(from_ms) = from_ms {
-        stmt.query((from_ms, offset_value))
-            .map_err(|err| err.to_string())?
+        stmt.query((from_ms, offset_value))?
     } else {
-        stmt.query([offset_value]).map_err(|err| err.to_string())?
+        stmt.query([offset_value])?
     };
-    let Some(row) = rows.next().map_err(|err| err.to_string())? else {
+    let Some(row) = rows.next()? else {
         return Ok(None);
     };
 
@@ -211,7 +205,7 @@ limit 1 offset ?1
 pub fn load_overlay_snapshot_count(
     database_path: &Path,
     from: Option<&str>,
-) -> Result<usize, String> {
+) -> anyhow::Result<usize> {
     if !database_path.exists() {
         return Ok(0);
     }
@@ -232,8 +226,7 @@ where rs.capture_source = 'end_of_run_auto'
 ",
             [from_ms],
             |row| row.get(0),
-        )
-        .map_err(|err| err.to_string())?
+        )?
     } else {
         conn.query_row(
             "
@@ -243,18 +236,17 @@ where rs.capture_source = 'end_of_run_auto'
 ",
             [],
             |row| row.get(0),
-        )
-        .map_err(|err| err.to_string())?
+        )?
     };
 
-    usize::try_from(count).map_err(|err| err.to_string())
+    usize::try_from(count).map_err(anyhow::Error::from)
 }
 
 pub fn load_overlay_snapshot_list(
     database_path: &Path,
     from: Option<&str>,
     limit: Option<usize>,
-) -> Result<Vec<OverlaySnapshotRow>, String> {
+) -> anyhow::Result<Vec<OverlaySnapshotRow>> {
     if !database_path.exists() {
         return Ok(Vec::new());
     }
@@ -268,7 +260,7 @@ pub fn load_overlay_snapshot_list(
     if effective_limit == 0 {
         return Ok(Vec::new());
     }
-    let limit_value = i64::try_from(effective_limit).map_err(|err| err.to_string())?;
+    let limit_value = i64::try_from(effective_limit)?;
     let from_ms = from.map(overlay_from_ms);
 
     let mut records = Vec::new();
@@ -313,15 +305,13 @@ order by rs.captured_at_ms desc, rs.screenshot_id desc
 limit ?1
 ",
         )
-    }
-    .map_err(|err| err.to_string())?;
+    }?;
     let mut rows = if let Some(from_ms) = from_ms {
-        stmt.query((from_ms, limit_value))
-            .map_err(|err| err.to_string())?
+        stmt.query((from_ms, limit_value))?
     } else {
-        stmt.query([limit_value]).map_err(|err| err.to_string())?
+        stmt.query([limit_value])?
     };
-    while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+    while let Some(row) = rows.next()? {
         records.push(map_overlay_snapshot_row(row)?);
     }
 
@@ -331,7 +321,7 @@ limit ?1
 pub fn load_overlay_snapshot_by_id(
     database_path: &Path,
     record_id: &str,
-) -> Result<Option<OverlaySnapshotRow>, String> {
+) -> anyhow::Result<Option<OverlaySnapshotRow>> {
     if !database_path.exists() {
         return Ok(None);
     }
@@ -341,9 +331,8 @@ pub fn load_overlay_snapshot_by_id(
         return Ok(None);
     }
 
-    let mut stmt = conn
-        .prepare(
-            "
+    let mut stmt = conn.prepare(
+        "
 select
   rs.screenshot_id,
   coalesce(nullif(trim(rs.hero_name), ''), 'Unknown') as hero,
@@ -360,11 +349,10 @@ where rs.capture_source = 'end_of_run_auto'
   and rs.screenshot_id = ?1
 limit 1
 ",
-        )
-        .map_err(|err| err.to_string())?;
+    )?;
 
-    let mut rows = stmt.query([record_id]).map_err(|err| err.to_string())?;
-    let Some(row) = rows.next().map_err(|err| err.to_string())? else {
+    let mut rows = stmt.query([record_id])?;
+    let Some(row) = rows.next()? else {
         return Ok(None);
     };
 
@@ -376,7 +364,7 @@ limit 1
 pub fn load_screenshot_image_path(
     database_path: &Path,
     screenshot_id: &str,
-) -> Result<Option<String>, String> {
+) -> anyhow::Result<Option<String>> {
     if !database_path.exists() {
         return Ok(None);
     }
@@ -392,25 +380,26 @@ pub fn load_screenshot_image_path(
         |row| row.get(0),
     )
     .optional()
-    .map_err(|err| err.to_string())
+    .map_err(anyhow::Error::from)
 }
 
-fn map_overlay_snapshot_row(row: &rusqlite::Row<'_>) -> Result<OverlaySnapshotRow, String> {
-    let captured_at_ms: i64 = row.get(9).map_err(|err| err.to_string())?;
-    let utc_offset_minutes: i64 = row.get(3).map_err(|err| err.to_string())?;
+fn map_overlay_snapshot_row(row: &rusqlite::Row<'_>) -> anyhow::Result<OverlaySnapshotRow> {
+    let captured_at_ms: i64 = row.get(9)?;
+    let utc_offset_minutes: i64 = row.get(3)?;
     let unrepresentable =
         || format!("captured_at_ms {captured_at_ms} is not a representable instant");
     Ok(OverlaySnapshotRow {
-        id: row.get(0).map_err(|err| err.to_string())?,
-        hero: row.get(1).map_err(|err| err.to_string())?,
-        game_mode: row.get(2).map_err(|err| err.to_string())?,
-        captured_at: local_text(captured_at_ms, utc_offset_minutes).ok_or_else(unrepresentable)?,
-        image_path: row.get(4).map_err(|err| err.to_string())?,
-        wins: row.get(5).map_err(|err| err.to_string())?,
-        battle_count: row.get(6).map_err(|err| err.to_string())?,
-        rank: row.get(7).map_err(|err| err.to_string())?,
-        rating: row.get(8).map_err(|err| err.to_string())?,
-        captured_at_utc: utc_text(captured_at_ms).ok_or_else(unrepresentable)?,
+        id: row.get(0)?,
+        hero: row.get(1)?,
+        game_mode: row.get(2)?,
+        captured_at: local_text(captured_at_ms, utc_offset_minutes)
+            .with_context(unrepresentable)?,
+        image_path: row.get(4)?,
+        wins: row.get(5)?,
+        battle_count: row.get(6)?,
+        rank: row.get(7)?,
+        rating: row.get(8)?,
+        captured_at_utc: utc_text(captured_at_ms).with_context(unrepresentable)?,
     })
 }
 

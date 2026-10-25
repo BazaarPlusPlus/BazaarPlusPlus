@@ -9,6 +9,7 @@
 
 use super::overlay_settings::{OverlayCropSettings, OverlaySettingsStore};
 use super::records::OverlayRecordRepository;
+use anyhow::{anyhow, bail, Context as _};
 use image::{DynamicImage, ImageFormat};
 use std::{
     io::{Cursor, ErrorKind},
@@ -36,7 +37,7 @@ pub(super) fn render_strip(
     settings: &OverlaySettingsStore,
     cache_root: &Path,
     request: &StripRequest,
-) -> Result<Option<Vec<u8>>, String> {
+) -> anyhow::Result<Option<Vec<u8>>> {
     let crop = match request.crop {
         Some(crop) => crop,
         None => settings.load()?.crop,
@@ -46,8 +47,7 @@ pub(super) fn render_strip(
     };
 
     if request.preview {
-        let bytes = std::fs::read(&path)
-            .map_err(|err| format!("Failed to read overlay source image: {err}"))?;
+        let bytes = std::fs::read(&path).context("Failed to read overlay source image")?;
         return crop_strip_image(&bytes, crop).map(Some);
     }
 
@@ -69,10 +69,10 @@ fn crop_cache_path(
     record_id: &str,
     source_path: &Path,
     crop: OverlayCropSettings,
-) -> Result<PathBuf, String> {
-    let metadata = std::fs::metadata(source_path).map_err(|err| {
+) -> anyhow::Result<PathBuf> {
+    let metadata = std::fs::metadata(source_path).with_context(|| {
         format!(
-            "Failed to read source image metadata from {}: {err}",
+            "Failed to read source image metadata from {}",
             source_path.display()
         )
     })?;
@@ -104,7 +104,7 @@ pub(super) fn cached_strip(
     record_id: &str,
     source_path: &Path,
     crop: OverlayCropSettings,
-) -> Result<Vec<u8>, String> {
+) -> anyhow::Result<Vec<u8>> {
     let cache_path = crop_cache_path(cache_directory, record_id, source_path, crop)?;
     match std::fs::read(&cache_path) {
         Ok(bytes) => {
@@ -113,16 +113,16 @@ pub(super) fn cached_strip(
         }
         Err(err) if err.kind() == ErrorKind::NotFound => {}
         Err(err) => {
-            return Err(format!(
+            bail!(
                 "Failed to read cached overlay strip from {}: {err}",
                 cache_path.display()
-            ))
+            )
         }
     }
 
-    let source_bytes = std::fs::read(source_path).map_err(|err| {
+    let source_bytes = std::fs::read(source_path).with_context(|| {
         format!(
-            "Failed to read overlay source image from {}: {err}",
+            "Failed to read overlay source image from {}",
             source_path.display()
         )
     })?;
@@ -140,13 +140,13 @@ fn touch(path: &Path) {
 
 /// Writes through a uniquely named temporary file, so concurrent requests for
 /// one entry never read a partial PNG.
-fn write_cache_entry(cache_path: &Path, bytes: &[u8]) -> Result<(), String> {
+fn write_cache_entry(cache_path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
     if let Some(parent) = cache_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|err| {
+        std::fs::create_dir_all(parent).with_context(|| {
             format!(
-                "Failed to create overlay cache directory {}: {err}",
+                "Failed to create overlay cache directory {}",
                 parent.display()
             )
         })?;
@@ -161,10 +161,10 @@ fn write_cache_entry(cache_path: &Path, bytes: &[u8]) -> Result<(), String> {
 
     if let Err(err) = std::fs::write(&temp_path, bytes) {
         let _ = std::fs::remove_file(&temp_path);
-        return Err(format!(
+        bail!(
             "Failed to write cached overlay strip to {}: {err}",
             temp_path.display()
-        ));
+        );
     }
     match std::fs::rename(&temp_path, cache_path) {
         Ok(()) => Ok(()),
@@ -175,7 +175,7 @@ fn write_cache_entry(cache_path: &Path, bytes: &[u8]) -> Result<(), String> {
             if cache_path.exists() {
                 Ok(())
             } else {
-                Err(format!(
+                Err(anyhow!(
                     "Failed to store cached overlay strip at {}: {err}",
                     cache_path.display()
                 ))
@@ -184,25 +184,25 @@ fn write_cache_entry(cache_path: &Path, bytes: &[u8]) -> Result<(), String> {
     }
 }
 
-fn crop_strip_image(source_bytes: &[u8], crop: OverlayCropSettings) -> Result<Vec<u8>, String> {
-    let image = image::load_from_memory(source_bytes)
-        .map_err(|err| format!("Failed to decode overlay source image: {err}"))?;
+fn crop_strip_image(source_bytes: &[u8], crop: OverlayCropSettings) -> anyhow::Result<Vec<u8>> {
+    let image =
+        image::load_from_memory(source_bytes).context("Failed to decode overlay source image")?;
     let cropped = crop_dynamic_image(image, crop)?;
     let mut output = Cursor::new(Vec::new());
     cropped
         .write_to(&mut output, ImageFormat::Png)
-        .map_err(|err| format!("Failed to encode overlay strip image: {err}"))?;
+        .context("Failed to encode overlay strip image")?;
     Ok(output.into_inner())
 }
 
 fn crop_dynamic_image(
     image: DynamicImage,
     crop: OverlayCropSettings,
-) -> Result<DynamicImage, String> {
+) -> anyhow::Result<DynamicImage> {
     let width = image.width();
     let height = image.height();
     if width == 0 || height == 0 {
-        return Err("Overlay source image is empty.".to_string());
+        bail!("Overlay source image is empty.");
     }
 
     let left = pixel_offset(
