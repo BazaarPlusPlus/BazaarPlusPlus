@@ -41,6 +41,7 @@ internal sealed class AndroidTouchUi
     private float _nextAnchorCheck;
     private TMP_FontAsset? _font;
     private AndroidCollectionPanel? _collection;
+    private readonly AndroidCollectionCatalog _collectionCatalog;
     private AndroidLiveBuildPanel? _liveBuild;
     private string? _shortcutScreen;
     private TouchRect? _shortcutAnchor;
@@ -52,11 +53,14 @@ internal sealed class AndroidTouchUi
         AndroidOverlayPanels panels,
         Action<string>? openHistory,
         AndroidLiveBuildData? liveBuildData,
-        AndroidSupporterData? supporters
+        AndroidSupporterData? supporters,
+        AndroidCollectionCatalog collectionCatalog
     )
     {
         _android = android ?? throw new ArgumentNullException(nameof(android));
         _panels = panels ?? throw new ArgumentNullException(nameof(panels));
+        _collectionCatalog =
+            collectionCatalog ?? throw new ArgumentNullException(nameof(collectionCatalog));
         _openHistory = openHistory;
         _liveBuildData = liveBuildData;
         _supporters = supporters;
@@ -179,12 +183,14 @@ internal sealed class AndroidTouchUi
                 _anchorCanvas = _anchorRect?.GetComponentInParent<Canvas>()?.rootCanvas;
                 _shortcutAnchor = null;
             }
+            var playing =
+                Il2CppTheBazaar.Data.IsInCombat
+                || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>()
+                    != null;
             var visible =
                 _android.TouchMenu.Value
                 && _panels.OpenPanelId == null
-                && !Il2CppTheBazaar.Data.IsInCombat
-                && Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>()
-                    == null
+                && !playing
                 && !AndroidNativeHud.HasPopup
                 && !AndroidNativeHud.IsInspectingCard
                 && _anchor != null
@@ -198,6 +204,14 @@ internal sealed class AndroidTouchUi
             }
             if (LiveBuildOffered() && !_liveBuildData!.Warmed)
                 _liveBuildData.Warm("setting_on");
+            // Built ahead of the first open, outside fights and replays; an open panel paces it.
+            if (
+                _android.CollectionPanel.Value
+                && !playing
+                && _panels.OpenPanelId != CollectionPanelId
+                && _collectionCatalog.IsBuilding
+            )
+                _collectionCatalog.Advance(AndroidCollectionCatalogPace.Warm);
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
                 _panels.TryConsumeBack("keyboard");
@@ -298,6 +312,7 @@ internal sealed class AndroidTouchUi
         _collection ??= new AndroidCollectionPanel(
             _root.transform,
             _font,
+            _collectionCatalog,
             _supporters,
             reason => handle.RequestClose(reason)
         );

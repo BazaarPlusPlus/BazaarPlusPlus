@@ -1,6 +1,6 @@
 #nullable enable
 using System.Security.Cryptography;
-using Newtonsoft.Json.Linq;
+using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
@@ -15,7 +15,7 @@ public static class EncounterPreviewIdentityResolver
     )
     {
         var resource = $"{(dataBaseUrl ?? string.Empty).TrimEnd('/')}/GameData.db.zip";
-        if (TryReadGameDataEtag(manifestPath, out var etag))
+        if (DataManifestEtag.TryRead(manifestPath, "GameData", out var etag))
         {
             return new EncounterPreviewCacheIdentity(
                 "etag",
@@ -40,29 +40,6 @@ public static class EncounterPreviewIdentityResolver
             gameBuild,
             buildChannel
         );
-    }
-
-    private static bool TryReadGameDataEtag(string manifestPath, out string etag)
-    {
-        etag = string.Empty;
-        if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath))
-            return false;
-
-        try
-        {
-            var document = JObject.Parse(File.ReadAllText(manifestPath));
-            etag = document.SelectToken("Entries.GameData.ETag")?.Value<string>() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(etag);
-        }
-        catch (Exception ex)
-            when (ex is IOException
-                || ex is UnauthorizedAccessException
-                || ex is Newtonsoft.Json.JsonException
-            )
-        {
-            etag = string.Empty;
-            return false;
-        }
     }
 
     private static string ComputeSha256(string databasePath)

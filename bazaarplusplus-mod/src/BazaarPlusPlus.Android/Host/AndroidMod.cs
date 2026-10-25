@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Security.Cryptography;
+using BazaarPlusPlus.Android.Collection;
 using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
@@ -242,7 +243,10 @@ public sealed class AndroidMod : MelonMod
                 panels,
                 _historyPanel == null ? null : source => _historyPanel?.Open(source),
                 _composition?.LiveBuild,
-                _composition?.Supporters
+                _composition?.Supporters,
+                new AndroidCollectionCatalog(
+                    Path.Combine(AndroidPaths.DataRoot(melonBase), "CollectionCatalog")
+                )
             );
             var versionCheck = _versionCheck;
             AndroidSettingsDock.Install(
