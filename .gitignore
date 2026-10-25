@@ -43,6 +43,7 @@ bin/
 obj/
 # The Android release outputs (release/android-release.mjs androidPaths)
 /target/
+/artifacts/
 dist/
 coverage/
 .coverage

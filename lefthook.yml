@@ -13,7 +13,7 @@ pre-commit:
 
     - name: mod
       glob: &mod_paths '{bazaarplusplus-mod/**,bazaarplusplus-server/contracts/**,bazaarplusplus-analyzer/contracts/**,release/**,VERSION,JUSTFILE}'
-      run: just mod::check
+      run: just verify mod::check
 
     - name: installer
       glob: &installer_paths '{bazaarplusplus-installer/**,design/**,release.mjs,release/**,VERSION,scripts/**,JUSTFILE}'
@@ -43,7 +43,7 @@ pre-push:
 
     - name: mod
       glob: *mod_paths
-      run: just mod::test
+      run: just verify mod::test mod::test-performance
 
     - name: installer
       glob: *installer_paths

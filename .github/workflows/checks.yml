@@ -326,8 +326,16 @@ jobs:
       # A null online entry fails here, naming the snapshot to capture.
       - name: Fetch the online snapshot
         run: just mod::fetch "$BPP_CI_PLATFORM" online
-      - run: just mod::check
-      - run: just mod::test
+      - run: just verify mod::check mod::test mod::test-performance
+      - name: Preserve verification and test diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mod-test-diagnostics-${{ env.BPP_CI_PLATFORM }}
+          path: |
+            artifacts/verification/
+            bazaarplusplus-mod/artifacts/tests/
+          if-no-files-found: warn
       - name: Preserve Combat Impact corpus evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -386,8 +394,16 @@ jobs:
       # A null android-online entry fails here, naming the snapshot to capture.
       - name: Fetch the Interop Snapshot and Loader Release
         run: just mod::fetch android online
-      - run: just mod::android-build
-      - run: just mod::test-core
+      - run: just verify mod::android-build mod::test-core
+      - name: Preserve verification and test diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mod-test-diagnostics-android
+          path: |
+            artifacts/verification/
+            bazaarplusplus-mod/artifacts/tests/
+          if-no-files-found: warn
 
   summary:
     name: ${{ github.event_name == 'workflow_dispatch' && format('Manual checks ({0}/{1})', inputs.scope, inputs.platform) || 'Checks summary' }}

@@ -3,6 +3,12 @@ using Microsoft.Data.Sqlite;
 
 try
 {
+    if (args.Length == 1 && args[0] == "--benchmark")
+    {
+        ReplayPayloadMaintenanceServiceTests.Benchmark();
+        Console.WriteLine("Replay payload maintenance benchmark passed.");
+        return;
+    }
     ReplayMaintenanceStorageTests.Run();
     ReplayPayloadRetentionPolicyTests.Run();
     ReplayPayloadOperationGateTests.Run();

@@ -75,7 +75,7 @@ Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能�
 
 master push 用同一套分类规则，因此 Installer 原生或其共享输入变化仍执行双平台验证并保存 Rust 缓存；其他事件只恢复缓存。暂不加定时预热：每周运行不能保证避开七天未访问淘汰，仓库容量压力也可能先触发清理；仅恢复的 schedule 无法重建已丢失缓存。缺缓存时正常冷构建，需全量复核时使用手动入口。
 
-云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 的云端 lane 在 macOS 和 Windows 上按 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md) 从私有存储取 online 快照跑 `mod::check` 与 `mod::test`，再对 staging 和 ptr 快照做 CompatCheck 编译；它不验证 Unity/Mono 加载，Ghost 响应契约的消费方检查在 `mod::test` 中。`mod-android` lane 在 Linux 上取 android online 的 Interop Snapshot 与 Loader Release，编译 Android 宿主并跑 `mod::test-core`；它不验证设备上的加载。本地 `mod::check` 与 `mod::test` 都不编译 Android 宿主，改动链接进 Android 宿主的桌面源码时，本地还须跑 `mod::android-build` 与 `mod::test-core`。Installer 在 Linux 执行前端门禁，Windows 和 macOS 执行所选原生门禁；Windows 额外覆盖平台相关脚本测试。完整本地验证仍使用 `just installer::check`，这些源码检查不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过编译和 .NET 测试不能替代这一步。
+云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 的云端 lane 在 macOS 和 Windows 上按 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md) 从私有存储取 online 快照串行跑 `mod::check`、`mod::test` 与 `mod::test-performance`，再对 staging 和 ptr 快照做 CompatCheck 编译；它不验证 Unity/Mono 加载，Ghost 响应契约的消费方检查在 `mod::test` 中。`mod-android` lane 在 Linux 上取 android online 的 Interop Snapshot 与 Loader Release，编译 Android 宿主并跑 `mod::test-core`；它不验证设备上的加载。本地 `mod::check` 与 `mod::test` 都不编译 Android 宿主，改动链接进 Android 宿主的桌面源码时，本地还须跑 `mod::android-build` 与 `mod::test-core`。Installer 在 Linux 执行前端门禁，Windows 和 macOS 执行所选原生门禁；Windows 额外覆盖平台相关脚本测试。完整本地验证仍使用 `just installer::check`，这些源码检查不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过编译和 .NET 测试不能替代这一步。
 
 游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_TOKEN`（仅限 `bazaarplusplus-game-libs` bucket 的只读 token）和仓库级变量 `CLOUDFLARE_ACCOUNT_ID`；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，受影响的仓库内 Mod PR 和全量运行才执行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。Dependabot 的 PR 读取的是 Dependabot secrets，`BPP_GAME_LIBS_TOKEN` 也须注册在那里（`just secrets-sync --dependabot`）。受影响的仓库内 PR（含 Dependabot）缺 token 或账号变量时，Mod job 和汇总门禁失败；fork 是显式例外，汇总会标明未运行游戏兼容性验证，合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
 
@@ -94,6 +94,12 @@ Android 没有云端的设备 lane：托管 runner 跑不了 arm64 游戏的模�
 ## Git hooks
 
 根目录 `lefthook.yml` 是唯一的 hook 配置，按改动路径选择各项目的 recipe。先在根目录执行 `npm ci`，再执行 `just hooks-install`。它把仓库级 `core.hooksPath` 指向 git common dir 下的 `hooks`，让 linked worktree 共用同一套 hooks，并覆盖全局 hooks 路径。
+
+需要保存验证证据时，使用 `just verify <recipe...>`：桌面端可运行 `just verify mod::check mod::test mod::test-performance`，Android 可运行 `just verify mod::android-build mod::test-core`。每次运行在 `artifacts/verification/` 下生成独立目录，记录 SHA、工作区是否有改动、各步骤最终退出码和完整日志。只有进程和输出流都结束、退出成功且 HEAD 未变化，回执才标记通过；中断留下的 `running` 不能作为通过证据。回执不是缓存，未提交改动的结果也不能证明后续提交已验证。
+
+Mod 的提交钩子负责 `mod::check`，推送钩子负责 `mod::test` 和 `mod::test-performance`，都经由 `verify` 保存结果。同一版本已由钩子完成的检查无需紧接着手工再跑；修改代码或 rebase 后重新验证。共享构建输出的检查串行执行。
+
+`mod::test` 保留批量数据的数量、SQLite 调用次数和工作量断言；墙钟时间预算由 `mod::test-performance` 单独执行，避免与功能测试并发争抢资源。桌面、Core 和性能测试分别在 `bazaarplusplus-mod/artifacts/tests/` 下创建独立目录，保存 TRX；测试宿主崩溃时收集 blame 信息与小型转储。CI 无论通过或失败都会上传这些诊断和验证回执。失败时先查看本次证据，再决定是否重跑。
 
 ## 产品发布
 
