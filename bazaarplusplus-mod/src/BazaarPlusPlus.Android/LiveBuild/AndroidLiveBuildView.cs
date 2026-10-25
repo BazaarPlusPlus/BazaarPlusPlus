@@ -70,249 +70,267 @@ internal sealed class AndroidLiveBuildView
             Vector2.zero,
             Vector2.zero
         );
-        // Opaque: the sheet covers the whole screen, and nothing of the scene shows through.
-        var background = AndroidUiKit.PanelColor;
-        background.a = 1f;
-        AndroidUiKit.Fill(root, background);
-        _root = root.gameObject;
-        var metrics = layout.Metrics;
-
-        // The list first, then the bands over its edges, then everything else.
-        var scrollArea = AndroidTouchScreen.Child("List", root, layout.Scroll);
-        (_scroll, _content) = AndroidUiKit.VerticalScroll(scrollArea);
-        _content.sizeDelta = new Vector2(0f, layout.ScrollContentHeight);
-        var listRows = new[]
+        // A view that throws while it builds destroys its partial sheet, which is opaque and
+        // active until the last line, so a failed build never covers the screen.
+        try
         {
-            (BppItemBoardId.LiveShop, 0),
-            (BppItemBoardId.LiveStash, 1),
-            (BppItemBoardId.LiveBoard, 2),
-        };
-        foreach (var (id, index) in listRows)
-            _rows[id] = CreateRow(
-                _content,
-                _content,
-                font,
-                id,
-                layout.ScrollRowTitle(index),
-                layout.ScrollRowBoard(index),
-                commands
-            );
-        Band(root, background, new TouchRect(0f, 0f, metrics.CanvasWidth, layout.Scroll.Top));
-        Band(
-            root,
-            background,
-            new TouchRect(
-                0f,
-                layout.Scroll.Bottom,
-                metrics.CanvasWidth,
-                Math.Max(0f, metrics.CanvasHeight - layout.Scroll.Bottom)
-            )
-        );
+            // Opaque: the sheet covers the whole screen, and nothing of the scene shows through.
+            var background = AndroidUiKit.PanelColor;
+            background.a = 1f;
+            AndroidUiKit.Fill(root, background);
+            _root = root.gameObject;
+            var metrics = layout.Metrics;
 
-        // Side by side the overview and the final build's cards are fixed; stacked, they scroll.
-        var scrolled = layout.Stacked ? _content : root;
-        _rows[BppItemBoardId.FinalBuild] = CreateRow(
-            root,
-            scrolled,
-            font,
-            BppItemBoardId.FinalBuild,
-            layout.PinnedTitleText,
-            layout.PinnedBoard,
-            commands
-        );
-        _previous = PagerButton(
-            root,
-            font,
-            layout.Previous,
-            layout.LabelInset,
-            "<",
-            "previous",
-            commands.Previous
-        );
-        _next = PagerButton(root, font, layout.Next, layout.LabelInset, ">", "next", commands.Next);
-        _pager = Label(
-            root,
-            font,
-            "Pager",
-            layout.Pager,
-            layout.ButtonFont,
-            TextAlignmentOptions.Center
-        );
-
-        Label(
-            scrolled,
-            font,
-            "Title",
-            layout.Title,
-            layout.TitleFont,
-            TextAlignmentOptions.MidlineLeft
-        ).text = LiveBuildPanelText.Title();
-        var close = AndroidTouchScreen.Child("Close", root, layout.Close);
-        AndroidUiKit.CloseButton(
-            close,
-            font,
-            layout.TitleFont,
-            layout.LabelInset,
-            () => AndroidUiActions.Run("live_build.close", () => commands.Close("close_button"))
-        );
-
-        var refresh = AndroidTouchScreen.Child("Refresh", scrolled, layout.Refresh);
-        (_refresh, _, _refreshLabel) = AndroidUiKit.Button(
-            refresh,
-            font,
-            "",
-            layout.ButtonFont,
-            layout.LabelInset,
-            () => AndroidUiActions.Run("live_build.refresh", commands.Refresh)
-        );
-
-        var corpus = AndroidTouchScreen.Child("Corpus", scrolled, layout.Corpus);
-        var (_, _, corpusLabel) = AndroidUiKit.Button(
-            corpus,
-            font,
-            "",
-            layout.BodyFont,
-            layout.LabelInset,
-            () => AndroidUiActions.Run("live_build.corpus", ToggleCorpusDetail)
-        );
-        _corpus = corpusLabel;
-        _corpus.overflowMode = TextOverflowModes.Ellipsis;
-
-        _hero = Label(
-            scrolled,
-            font,
-            "Hero",
-            layout.Hero,
-            layout.RowTitleFont,
-            TextAlignmentOptions.MidlineLeft
-        );
-        _hero.overflowMode = TextOverflowModes.Ellipsis;
-
-        _guidance = Label(
-            scrolled,
-            font,
-            "Guidance",
-            layout.Info,
-            layout.BodyFont,
-            TextAlignmentOptions.TopLeft
-        );
-        _guidance.color = AndroidUiKit.MutedTextColor;
-        var metricsRoot = AndroidTouchScreen.Child("Metrics", scrolled, layout.Info);
-        _metrics = metricsRoot.gameObject;
-        _metricCells = new (TextMeshProUGUI, TextMeshProUGUI)[LiveBuildTouchLayout.MetricCount];
-        for (var index = 0; index < _metricCells.Length; index++)
-        {
-            var cellArea = layout.MetricCell(index);
-            var cell = AndroidTouchScreen.Child(
-                $"Metric{index}",
-                metricsRoot,
+            // The list first, then the bands over its edges, then everything else.
+            var scrollArea = AndroidTouchScreen.Child("List", root, layout.Scroll);
+            (_scroll, _content) = AndroidUiKit.VerticalScroll(scrollArea);
+            _content.sizeDelta = new Vector2(0f, layout.ScrollContentHeight);
+            var listRows = new[]
+            {
+                (BppItemBoardId.LiveShop, 0),
+                (BppItemBoardId.LiveStash, 1),
+                (BppItemBoardId.LiveBoard, 2),
+            };
+            foreach (var (id, index) in listRows)
+                _rows[id] = CreateRow(
+                    _content,
+                    _content,
+                    font,
+                    id,
+                    layout.ScrollRowTitle(index),
+                    layout.ScrollRowBoard(index),
+                    commands
+                );
+            Band(root, background, new TouchRect(0f, 0f, metrics.CanvasWidth, layout.Scroll.Top));
+            Band(
+                root,
+                background,
                 new TouchRect(
-                    cellArea.Left - layout.Info.Left,
-                    cellArea.Top - layout.Info.Top,
-                    cellArea.Width,
-                    cellArea.Height
+                    0f,
+                    layout.Scroll.Bottom,
+                    metrics.CanvasWidth,
+                    Math.Max(0f, metrics.CanvasHeight - layout.Scroll.Bottom)
                 )
             );
-            AndroidUiKit.Fill(cell, AndroidUiKit.ButtonColor, blocksTouches: false);
-            var inset = layout.Gap;
-            var label = AndroidUiKit.Text(
+
+            // Side by side the overview and the final build's cards are fixed; stacked, they scroll.
+            var scrolled = layout.Stacked ? _content : root;
+            _rows[BppItemBoardId.FinalBuild] = CreateRow(
+                root,
+                scrolled,
+                font,
+                BppItemBoardId.FinalBuild,
+                layout.PinnedTitleText,
+                layout.PinnedBoard,
+                commands
+            );
+            _previous = PagerButton(
+                root,
+                font,
+                layout.Previous,
+                layout.LabelInset,
+                "<",
+                "previous",
+                commands.Previous
+            );
+            _next = PagerButton(
+                root,
+                font,
+                layout.Next,
+                layout.LabelInset,
+                ">",
+                "next",
+                commands.Next
+            );
+            _pager = Label(
+                root,
+                font,
+                "Pager",
+                layout.Pager,
+                layout.ButtonFont,
+                TextAlignmentOptions.Center
+            );
+
+            Label(
+                scrolled,
+                font,
+                "Title",
+                layout.Title,
+                layout.TitleFont,
+                TextAlignmentOptions.MidlineLeft
+            ).text = LiveBuildPanelText.Title();
+            var close = AndroidTouchScreen.Child("Close", root, layout.Close);
+            AndroidUiKit.CloseButton(
+                close,
+                font,
+                layout.TitleFont,
+                layout.LabelInset,
+                () => AndroidUiActions.Run("live_build.close", () => commands.Close("close_button"))
+            );
+
+            var refresh = AndroidTouchScreen.Child("Refresh", scrolled, layout.Refresh);
+            (_refresh, _, _refreshLabel) = AndroidUiKit.Button(
+                refresh,
+                font,
+                "",
+                layout.ButtonFont,
+                layout.LabelInset,
+                () => AndroidUiActions.Run("live_build.refresh", commands.Refresh)
+            );
+
+            var corpus = AndroidTouchScreen.Child("Corpus", scrolled, layout.Corpus);
+            var (_, _, corpusLabel) = AndroidUiKit.Button(
+                corpus,
+                font,
+                "",
+                layout.BodyFont,
+                layout.LabelInset,
+                () => AndroidUiActions.Run("live_build.corpus", ToggleCorpusDetail)
+            );
+            _corpus = corpusLabel;
+            _corpus.overflowMode = TextOverflowModes.Ellipsis;
+
+            _hero = Label(
+                scrolled,
+                font,
+                "Hero",
+                layout.Hero,
+                layout.RowTitleFont,
+                TextAlignmentOptions.MidlineLeft
+            );
+            _hero.overflowMode = TextOverflowModes.Ellipsis;
+
+            _guidance = Label(
+                scrolled,
+                font,
+                "Guidance",
+                layout.Info,
+                layout.BodyFont,
+                TextAlignmentOptions.TopLeft
+            );
+            _guidance.color = AndroidUiKit.MutedTextColor;
+            var metricsRoot = AndroidTouchScreen.Child("Metrics", scrolled, layout.Info);
+            _metrics = metricsRoot.gameObject;
+            _metricCells = new (TextMeshProUGUI, TextMeshProUGUI)[LiveBuildTouchLayout.MetricCount];
+            for (var index = 0; index < _metricCells.Length; index++)
+            {
+                var cellArea = layout.MetricCell(index);
+                var cell = AndroidTouchScreen.Child(
+                    $"Metric{index}",
+                    metricsRoot,
+                    new TouchRect(
+                        cellArea.Left - layout.Info.Left,
+                        cellArea.Top - layout.Info.Top,
+                        cellArea.Width,
+                        cellArea.Height
+                    )
+                );
+                AndroidUiKit.Fill(cell, AndroidUiKit.ButtonColor, blocksTouches: false);
+                var inset = layout.Gap;
+                var label = AndroidUiKit.Text(
+                    AndroidUiKit.Rect(
+                        "Label",
+                        cell,
+                        new(0f, 0.5f),
+                        new(1f, 1f),
+                        new(inset, 0f),
+                        new(-inset, -inset / 2f)
+                    ),
+                    font,
+                    "",
+                    layout.BodyFont,
+                    TextAlignmentOptions.BottomLeft,
+                    AndroidUiKit.MutedTextColor
+                );
+                label.enableWordWrapping = false;
+                label.overflowMode = TextOverflowModes.Ellipsis;
+                var value = AndroidUiKit.Text(
+                    AndroidUiKit.Rect(
+                        "Value",
+                        cell,
+                        new(0f, 0f),
+                        new(1f, 0.5f),
+                        new(inset, inset / 2f),
+                        new(-inset, 0f)
+                    ),
+                    font,
+                    "",
+                    layout.ValueFont,
+                    TextAlignmentOptions.TopLeft,
+                    AndroidUiKit.TextColor
+                );
+                value.enableWordWrapping = false;
+                value.overflowMode = TextOverflowModes.Ellipsis;
+                _metricCells[index] = (label, value);
+            }
+            var detail = AndroidTouchScreen.Child("CorpusDetail", scrolled, layout.Info);
+            AndroidUiKit.Fill(detail, AndroidUiKit.ButtonColor, blocksTouches: false);
+            _corpusDetail = AndroidUiKit.Text(
                 AndroidUiKit.Rect(
-                    "Label",
-                    cell,
-                    new(0f, 0.5f),
-                    new(1f, 1f),
-                    new(inset, 0f),
-                    new(-inset, -inset / 2f)
+                    "Text",
+                    detail,
+                    Vector2.zero,
+                    Vector2.one,
+                    new(layout.Gap, layout.Gap),
+                    new(-layout.Gap, -layout.Gap)
                 ),
                 font,
                 "",
                 layout.BodyFont,
-                TextAlignmentOptions.BottomLeft,
-                AndroidUiKit.MutedTextColor
-            );
-            label.enableWordWrapping = false;
-            label.overflowMode = TextOverflowModes.Ellipsis;
-            var value = AndroidUiKit.Text(
-                AndroidUiKit.Rect(
-                    "Value",
-                    cell,
-                    new(0f, 0f),
-                    new(1f, 0.5f),
-                    new(inset, inset / 2f),
-                    new(-inset, 0f)
-                ),
-                font,
-                "",
-                layout.ValueFont,
                 TextAlignmentOptions.TopLeft,
                 AndroidUiKit.TextColor
             );
-            value.enableWordWrapping = false;
-            value.overflowMode = TextOverflowModes.Ellipsis;
-            _metricCells[index] = (label, value);
+            _corpusDetail.overflowMode = TextOverflowModes.Ellipsis;
+            _corpusDetailRoot = detail.gameObject;
+
+            var hint = Label(
+                scrolled,
+                font,
+                "Hint",
+                layout.Hint,
+                layout.BodyFont,
+                TextAlignmentOptions.MidlineLeft
+            );
+            hint.color = AndroidUiKit.MutedTextColor;
+            hint.overflowMode = TextOverflowModes.Ellipsis;
+            hint.text = L.Resolve(TapHint);
+
+            _supporters = Label(
+                scrolled,
+                font,
+                "Supporters",
+                layout.Supporters,
+                layout.BodyFont,
+                TextAlignmentOptions.MidlineLeft
+            );
+            _supporters.richText = true;
+            _supporters.enableWordWrapping = false;
+            _supporters.overflowMode = TextOverflowModes.Ellipsis;
+            var sponsor = AndroidTouchScreen.Child("Sponsor", scrolled, layout.Sponsor);
+            (_, _, _sponsorLabel) = AndroidUiKit.Button(
+                sponsor,
+                font,
+                "",
+                layout.ButtonFont,
+                layout.LabelInset,
+                () =>
+                    AndroidUiActions.Run(
+                        "live_build.sponsor",
+                        () =>
+                            Application.OpenURL(
+                                BPPSupporterLinks.ResolveSponsorUrl(L.CurrentLanguageCode)
+                            )
+                    )
+            );
+
+            Inspection = new AndroidLiveBuildInspection(root, font, layout);
+            _root.SetActive(false);
         }
-        var detail = AndroidTouchScreen.Child("CorpusDetail", scrolled, layout.Info);
-        AndroidUiKit.Fill(detail, AndroidUiKit.ButtonColor, blocksTouches: false);
-        _corpusDetail = AndroidUiKit.Text(
-            AndroidUiKit.Rect(
-                "Text",
-                detail,
-                Vector2.zero,
-                Vector2.one,
-                new(layout.Gap, layout.Gap),
-                new(-layout.Gap, -layout.Gap)
-            ),
-            font,
-            "",
-            layout.BodyFont,
-            TextAlignmentOptions.TopLeft,
-            AndroidUiKit.TextColor
-        );
-        _corpusDetail.overflowMode = TextOverflowModes.Ellipsis;
-        _corpusDetailRoot = detail.gameObject;
-
-        var hint = Label(
-            scrolled,
-            font,
-            "Hint",
-            layout.Hint,
-            layout.BodyFont,
-            TextAlignmentOptions.MidlineLeft
-        );
-        hint.color = AndroidUiKit.MutedTextColor;
-        hint.overflowMode = TextOverflowModes.Ellipsis;
-        hint.text = L.Resolve(TapHint);
-
-        _supporters = Label(
-            scrolled,
-            font,
-            "Supporters",
-            layout.Supporters,
-            layout.BodyFont,
-            TextAlignmentOptions.MidlineLeft
-        );
-        _supporters.richText = true;
-        _supporters.enableWordWrapping = false;
-        _supporters.overflowMode = TextOverflowModes.Ellipsis;
-        var sponsor = AndroidTouchScreen.Child("Sponsor", scrolled, layout.Sponsor);
-        (_, _, _sponsorLabel) = AndroidUiKit.Button(
-            sponsor,
-            font,
-            "",
-            layout.ButtonFont,
-            layout.LabelInset,
-            () =>
-                AndroidUiActions.Run(
-                    "live_build.sponsor",
-                    () =>
-                        Application.OpenURL(
-                            BPPSupporterLinks.ResolveSponsorUrl(L.CurrentLanguageCode)
-                        )
-                )
-        );
-
-        Inspection = new AndroidLiveBuildInspection(root, font, layout);
-        _root.SetActive(false);
+        catch
+        {
+            UnityEngine.Object.Destroy(root.gameObject);
+            throw;
+        }
     }
 
     public LiveBuildTouchLayout Layout => _layout;
