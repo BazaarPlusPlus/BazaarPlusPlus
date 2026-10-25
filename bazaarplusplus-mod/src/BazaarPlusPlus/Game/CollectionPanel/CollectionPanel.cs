@@ -116,7 +116,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         );
     }
 
-    internal void AttachToOverlayHost(OverlayPanelHost overlayHost)
+    internal void AttachToOverlayHost(DesktopOverlayPanels overlayHost)
     {
         if (_overlayHandle != null)
             return;
@@ -124,17 +124,21 @@ internal sealed class CollectionPanel : MonoBehaviour
         _overlayHandle = overlayHost.Register(
             new OverlayPanelRegistration(
                 OverlayPanelId,
-                BppHotkeyActionId.ToggleCollectionPanel,
-                onOpen: Open,
-                onClose: Close,
+                onOpen: () =>
+                {
+                    Open();
+                    return true;
+                },
+                onClose: _ => Close(),
                 tick: Tick
             )
             {
                 OnSceneChanged = DisposeUnityRuntime,
-                HotkeyGuard = () => !IsVisible || !IsTextInputFocused(),
                 IsModalInputActive = () => _inspection.BlocksInput,
                 DismissModal = () => _inspection.Close(),
-            }
+            },
+            BppHotkeyActionId.ToggleCollectionPanel,
+            hotkeyGuard: () => !IsVisible || !IsTextInputFocused()
         );
     }
 
@@ -183,17 +187,32 @@ internal sealed class CollectionPanel : MonoBehaviour
                     static () => [("reason_code", CollectionPanelLogReasonCode.CombatActive)]
                 );
                 return;
-            case OverlayRequestOutcome.UnknownPanel:
-            default:
-                BppLog.ErrorEvent(
+            case OverlayRequestOutcome.Disabled:
+                BppLog.DebugEvent(
                     new BppLogEvent(
                         BppLogFeatureScope.CollectionPanel,
-                        "collection_panel.open.failed"
+                        "collection_panel.open.skipped"
                     ),
-                    ("reason_code", CollectionPanelLogReasonCode.UnknownPanel)
+                    static () => [("reason_code", CollectionPanelLogReasonCode.PanelDisabled)]
                 );
                 return;
+            case OverlayRequestOutcome.OpenFailed:
+                LogOpenFailed(CollectionPanelLogReasonCode.OpenFailed);
+                return;
+            case OverlayRequestOutcome.Busy:
+                LogOpenFailed(CollectionPanelLogReasonCode.OverlayHostBusy);
+                return;
+            case OverlayRequestOutcome.UnknownPanel:
+            default:
+                LogOpenFailed(CollectionPanelLogReasonCode.UnknownPanel);
+                return;
         }
+
+        static void LogOpenFailed(CollectionPanelLogReasonCode reasonCode) =>
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.CollectionPanel, "collection_panel.open.failed"),
+                ("reason_code", reasonCode)
+            );
     }
 
     private void Open()

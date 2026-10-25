@@ -12,11 +12,11 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
 internal sealed class LiveBuildPanelMount : IBppMountable
 {
-    private readonly Func<OverlayPanelHost?> _overlayHost;
+    private readonly Func<DesktopOverlayPanels?> _overlayHost;
     private readonly BuildRecommendationRepository _recommendations;
 
     public LiveBuildPanelMount(
-        Func<OverlayPanelHost?> overlayHost,
+        Func<DesktopOverlayPanels?> overlayHost,
         BuildRecommendationRepository recommendations
     )
     {

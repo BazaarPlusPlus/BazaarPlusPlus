@@ -64,12 +64,15 @@ _Avoid_: matcher, collector, sequence candidate
 The manual update of the Live Build Panel's recommendation corpus. One successful remote pull is allowed per panel lifetime; failed pulls remain retryable, and closing the panel does not cancel a pending pull.
 
 **Main Overlay Panel**:
-A full-screen mod overlay — Collection Panel, History Panel, or Live Build Panel. At most one is open at a time; the Overlay Panel Host enforces the exclusivity.
+A full-screen mod overlay on either Host: Collection, History, or Live Build Panel; at most one is open. Not the touch menu.
 _Avoid_: popup, window
 
 **Overlay Panel Host**:
-The single module that owns main-overlay-panel lifecycle: mutual exclusion, scene-change policy, combat gating, hotkey and escape routing, and the per-frame tick. Panels register content callbacks with the host instead of re-implementing the lifecycle.
+Core's `OverlayPanelHost` plus a thin adapter per Host; owns panel lifecycle: exclusion, scene policy, combat gate, Panel Switch-Off, escape/back, ticks, release.
 _Avoid_: panel mutex
+
+**Panel Switch-Off**:
+A panel's setting turned off: the host closes and notifies it, then releases Host resources.
 
 **Cursor Page / Counted Page**:
 One read of a History list. A cursor page holds rows plus time/ID anchors and whether newer or older rows exist; the battle timeline and Ghost recovery use it. A counted page adds the one-based position of its first row and the filtered total, from which the neighbours follow; the Runs and Ghost archives use it.

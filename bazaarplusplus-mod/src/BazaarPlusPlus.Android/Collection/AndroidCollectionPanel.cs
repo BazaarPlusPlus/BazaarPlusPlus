@@ -26,8 +26,10 @@ namespace BazaarPlusPlus.Android.Collection;
 /// tap back as a view-state command. The geometry is Core's <see cref="CollectionTouchLayout"/>
 /// inside the safe area (#425): the shared header (title, tabs, search, close), the filter rail and
 /// a grid whose column count follows its width, laid out again when the screen changes. The grid
-/// shows the game's own card prefabs through the card rental. Differences from desktop are listed
-/// in <c>docs/architecture/collection.md</c>.
+/// shows the game's own card prefabs through the card rental. It is a Main Overlay Panel: the
+/// Overlay Panel Host opens and closes it (<see cref="AndroidOverlayPanels"/>), and its own close
+/// button and a failed relayout request the close. Differences from desktop are listed in
+/// <c>docs/architecture/collection.md</c>.
 /// </summary>
 internal sealed class AndroidCollectionPanel
 {
@@ -44,6 +46,7 @@ internal sealed class AndroidCollectionPanel
     private readonly AndroidSupporterData? _supporters;
     private IReadOnlyList<BPPSupporterSample> _headerSupporters = Array.Empty<BPPSupporterSample>();
     private TextMeshProUGUI _supporterLabel = null!;
+    private readonly Action<string> _requestClose;
     private readonly List<AndroidScrollTracker> _trackers = new();
     private CollectionTouchLayout _layout = null!;
 
@@ -62,6 +65,7 @@ internal sealed class AndroidCollectionPanel
     private string _screenKey = string.Empty;
     private string _query = string.Empty;
     private bool _loading;
+    private bool _treeLost;
     private bool _advancedFilters;
     private RailPicker _expandedPicker;
     private float _expandedPickerTop;
@@ -77,12 +81,14 @@ internal sealed class AndroidCollectionPanel
     public AndroidCollectionPanel(
         Transform parent,
         TMP_FontAsset font,
-        AndroidSupporterData? supporters
+        AndroidSupporterData? supporters,
+        Action<string> requestClose
     )
     {
         _parent = parent;
         _font = font;
         _supporters = supporters;
+        _requestClose = requestClose ?? throw new ArgumentNullException(nameof(requestClose));
         _state = new CollectionViewState(
             _port,
             _sources,
@@ -97,10 +103,11 @@ internal sealed class AndroidCollectionPanel
     /// <summary>Times the open panel was laid out again for a new screen.</summary>
     public long Relayouts { get; private set; }
 
-    public void Open()
+    /// <summary>False when no tree could be built for the screen: the panel stays closed.</summary>
+    public bool Open()
     {
         if (IsOpen)
-            return;
+            return true;
         if (
             (
                 _root == null
@@ -108,7 +115,7 @@ internal sealed class AndroidCollectionPanel
                 || !string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal)
             ) && !Relayout()
         )
-            return;
+            return false;
         CollapseFilters();
         _headerSupporters = Array.Empty<BPPSupporterSample>();
         _supporters?.Warm();
@@ -150,20 +157,31 @@ internal sealed class AndroidCollectionPanel
             ("hero", opened.Selection.SelectedHero),
             ("day", day)
         );
+        return true;
     }
 
     public void Close(string reason)
     {
-        if (!IsOpen)
+        // A relayout that failed while open left no tree: the host's close still ends the view state.
+        var treeLost = _treeLost;
+        _treeLost = false;
+        if (!IsOpen && !treeLost)
             return;
-        _inspection.Close(reason);
-        _grid.Scroll.enabled = true;
+        var returned = 0;
+        if (!treeLost)
+        {
+            _inspection.Close(reason);
+            _grid.Scroll.enabled = true;
+        }
         _loading = false;
         // The render is discarded: the root deactivates below.
         _state.Close();
-        var returned = _grid.Leases;
-        _grid.ReturnAll();
-        _root!.SetActive(false);
+        if (!treeLost)
+        {
+            returned = _grid.Leases;
+            _grid.ReturnAll();
+            _root!.SetActive(false);
+        }
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.collection.closed"),
             ("reason", reason),
@@ -173,20 +191,21 @@ internal sealed class AndroidCollectionPanel
         );
     }
 
-    /// <summary>The back key: the inspected card first, then the panel. False when neither was open.</summary>
-    public bool HandleBack()
+    /// <summary>
+    /// A back step the panel answers before it closes: the inspected card, then an expanded rail
+    /// picker. The Overlay Panel Host reads it as the panel's modal.
+    /// </summary>
+    public bool HasModalBackStep =>
+        IsOpen
+        && (_inspection.IsOpen || (_expandedPicker != RailPicker.None && _railModel != null));
+
+    /// <summary>The back key's modal step: the inspected card animates closed, else the picker collapses.</summary>
+    public void DismissModalBackStep()
     {
-        if (!IsOpen)
-            return false;
-        if (_inspection.HandleBack())
-            return true;
+        if (!IsOpen || _inspection.HandleBack())
+            return;
         if (_expandedPicker != RailPicker.None && _railModel is { } model)
-        {
             SelectRail(model, null, "collapse");
-            return true;
-        }
-        Close("back_key");
-        return true;
     }
 
     /// <summary>Main thread, every frame: loads the catalog, debounces the search, fills the grid.</summary>
@@ -198,7 +217,10 @@ internal sealed class AndroidCollectionPanel
             !string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal)
             && !Relayout()
         )
+        {
+            _requestClose("relayout_failed");
             return;
+        }
         if (_headerSupporters.Count == 0)
             RefreshSupporterButton(sample: true);
         if (_loading)
@@ -294,7 +316,7 @@ internal sealed class AndroidCollectionPanel
             L.Resolve(new LocalizedTextSet("Back", "返回", "返回")),
             chrome.TitleFont,
             chrome.LabelInset,
-            () => Close("close_button")
+            () => _requestClose("close_button")
         );
         _itemsTab = Tab(root, layout.ItemsTab, CollectionTabKind.Items);
         _skillsTab = Tab(root, layout.SkillsTab, CollectionTabKind.Skills);
@@ -373,11 +395,8 @@ internal sealed class AndroidCollectionPanel
             _root = null;
             _grid.ReturnAll();
             _screenKey = string.Empty;
-            if (open)
-            {
-                _loading = false;
-                _state.Close();
-            }
+            // Open: the panel requests the host's close, which ends the view state (Close).
+            _treeLost = open;
             BppLog.ErrorEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.collection.relayout_failed"),
                 exception,

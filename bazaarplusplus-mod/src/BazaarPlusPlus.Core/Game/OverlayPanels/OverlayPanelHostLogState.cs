@@ -27,7 +27,8 @@ internal sealed class OverlayPanelHostLogState
         ReportTickRecovered(panelId);
     }
 
-    internal void ExecuteDirective(
+    // Returns false when the callback threw (and was logged).
+    internal bool ExecuteDirective(
         Guid requestId,
         string panelId,
         OverlayDirectiveKind directive,
@@ -37,6 +38,7 @@ internal sealed class OverlayPanelHostLogState
         try
         {
             callback();
+            return true;
         }
         catch (Exception ex)
         {
@@ -51,8 +53,49 @@ internal sealed class OverlayPanelHostLogState
                 ("directive", directive),
                 ("reason_code", OverlayDirectiveFailureReasonCode.CallbackException)
             );
+            return false;
         }
     }
+
+    // A predicate the host reads (Enabled, IsModalInputActive) threw: logged like a failed
+    // directive of that panel, and the caller falls back to the given value.
+    internal bool ReadPredicate(
+        string panelId,
+        OverlayPredicateKind predicate,
+        Func<bool> read,
+        bool fallback
+    )
+    {
+        try
+        {
+            return read();
+        }
+        catch (Exception ex)
+        {
+            BppLog.ErrorEvent(
+                // Read every frame: the storm key keeps a predicate that keeps throwing to one line
+                // per window.
+                new BppLogEvent(
+                    BppLogFeatureScope.OverlayPanels,
+                    "overlay_panels.predicate.failed",
+                    storm: ["panel_id", "predicate", "reason_code"]
+                ),
+                ex,
+                ("panel_id", panelId),
+                ("predicate", predicate),
+                ("reason_code", OverlayDirectiveFailureReasonCode.CallbackException)
+            );
+            return fallback;
+        }
+    }
+
+    internal static void ReportReentrantRequest(string panelId, OverlayPanelRequestKind request) =>
+        BppLog.WarnEvent(
+            new BppLogEvent(BppLogFeatureScope.OverlayPanels, "overlay_panels.request.reentrant"),
+            ("panel_id", panelId),
+            ("request", request),
+            ("reason_code", OverlayRequestRejectionReasonCode.LifecycleCallbackRunning)
+        );
 
     internal bool ReadIsInCombat(Func<bool> read)
     {

@@ -47,6 +47,7 @@ public sealed class AndroidMod : MelonMod
     private AndroidVersionCheck? _versionCheck;
     private AndroidCombatReplayRuntime? _replayRuntime;
     private AndroidHistoryPanel? _historyPanel;
+    private AndroidOverlayPanels? _overlayPanels;
     private readonly AndroidCardTemplateIndex _templates = new();
     private bool _mainThreadBound;
     private int _labelRevision;
@@ -68,6 +69,13 @@ public sealed class AndroidMod : MelonMod
         LogPathProbe();
         var serverOption = LogBuildChannelProbe();
         _composition = StartRecordChain(serverOption, settings);
+        // In every mode: a scene change releases the rented cards through it, open panels or not.
+        _overlayPanels = new AndroidOverlayPanels(
+            static () => Il2CppTheBazaar.Data.IsInCombat,
+            AndroidCardRental.ReleaseAll,
+            static () => Time.frameCount
+        );
+        AndroidPatchHost.OverlayPanels = _overlayPanels;
         AndroidPatchHost.Install(HarmonyInstance, mode, version, _composition);
         if (mode == AndroidPatchMode.Enabled)
             StartInteraction(settings);
@@ -80,7 +88,7 @@ public sealed class AndroidMod : MelonMod
         AndroidMainThread.Host.Tick();
         _composition?.Tick(Time.unscaledTime);
         _replayRuntime?.Tick();
-        _historyPanel?.Tick();
+        _overlayPanels?.Frame(Time.unscaledDeltaTime);
         _touchUi?.EnsureMounted();
         AndroidGameFont.Tick();
         AndroidNativeSettingsSection.Tick(Time.unscaledTime);
@@ -150,6 +158,8 @@ public sealed class AndroidMod : MelonMod
         _historyPanel = null;
         _replayRuntime?.Dispose();
         _replayRuntime = null;
+        AndroidPatchHost.OverlayPanels = null;
+        _overlayPanels = null;
         AndroidGameFont.Dispose();
         AndroidMainThread.Host.Stop();
         StopRecordChain();
@@ -159,7 +169,7 @@ public sealed class AndroidMod : MelonMod
     // own when the chain did not start. A failure here leaves the hooks and the chain running.
     private void StartInteraction(IniSettingsStore? settings)
     {
-        if (settings == null)
+        if (settings == null || _overlayPanels is not { } panels)
             return;
         try
         {
@@ -187,25 +197,20 @@ public sealed class AndroidMod : MelonMod
                     ),
                     ("manifest", devManifest)
                 );
-            StartHistory(android);
-            var touchUi = new AndroidTouchUi(
+            StartHistory(android, panels);
+            _touchUi = new AndroidTouchUi(
                 android,
-                _historyPanel == null ? null : () => _historyPanel?.Open("launcher"),
-                () => _historyPanel?.IsVisible == true,
+                panels,
+                _historyPanel == null ? null : source => _historyPanel?.Open(source),
                 _composition?.LiveBuild,
                 _composition?.Supporters
             );
-            _touchUi = touchUi;
             var versionCheck = _versionCheck;
             AndroidSettingsDock.Install(
                 shared,
                 android,
                 new AndroidSettingsDockHooks(
-                    CloseCollection: touchUi.CloseCollection,
-                    CloseLiveBuild: touchUi.CloseLiveBuild,
-                    CloseHistory: reason => _historyPanel?.Close(reason),
                     ReleaseUpgradePreview: AndroidUpgradePreview.Release,
-                    ReleaseRentedCards: AndroidCardRental.ReleaseAll,
                     HistoryAvailable: () => _historyPanel != null,
                     OpenHistory: () => _historyPanel?.Open("settings"),
                     GameUpdateStatus: () => versionCheck.GameUpdateStatus,
@@ -224,7 +229,7 @@ public sealed class AndroidMod : MelonMod
 
     // History and its replay runtime need the record chain's database and payload gate; without
     // the chain the launcher offers no History.
-    private void StartHistory(AndroidSettings android)
+    private void StartHistory(AndroidSettings android, AndroidOverlayPanels panels)
     {
         var composition = _composition;
         if (composition == null)
@@ -247,7 +252,8 @@ public sealed class AndroidMod : MelonMod
                 () => _replayRuntime?.SavedReplays,
                 _templates,
                 () => AndroidGameFont.Font,
-                android.HistoryPanel
+                android.HistoryPanel,
+                panels
             );
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.history.composed"),
@@ -350,16 +356,15 @@ public sealed class AndroidMod : MelonMod
             ("index", buildIndex),
             ("name", sceneName)
         );
-        // Each step runs in its own guard, so one that throws never skips the release after it.
-        // The panels let go of their leases first, then whatever is left is destroyed: no rented
-        // card outlives the scene it was rented in.
+        // Each step runs in its own guard, so one that throws never skips the next. The Overlay
+        // Panel Host closes the panels the scene policies close and tells every panel, so they
+        // let go of their leases, then releases whatever is left: no rented card outlives the
+        // scene it was rented in.
         Guarded(
             "scene_loaded:upgrade_preview",
             () => AndroidUpgradePreview.Release("scene_changed")
         );
-        Guarded("scene_loaded:touch_ui", () => _touchUi?.OnSceneLoaded());
-        Guarded("scene_loaded:history", () => _historyPanel?.OnSceneLoaded(sceneName));
-        Guarded("scene_loaded:card_rental", () => AndroidCardRental.ReleaseAll("scene_changed"));
+        Guarded("scene_loaded:overlay_panels", () => _overlayPanels?.SceneLoaded());
         if (sceneName == MainMenuSceneName)
             Guarded("scene_loaded:version_check", () => _versionCheck?.Begin());
     }

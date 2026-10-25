@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
+using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
@@ -10,7 +11,8 @@ namespace BazaarPlusPlus.Android.Patches;
 
 /// <summary>
 /// What the Android patches reach: the startup mode, the plugin version they render, the record
-/// chain's composition, and the hit counters the periodic summary reports. Patches are static, so
+/// chain's composition, the Overlay Panel Host's adapter the back key goes to, and the hit
+/// counters the periodic summary reports. Patches are static, so
 /// this is static too, the Android counterpart of the desktop's BppPatchHost.
 /// </summary>
 internal static class AndroidPatchHost
@@ -33,6 +35,9 @@ internal static class AndroidPatchHost
 
     /// <summary>The record chain, or null when it failed to start; hooks then only count.</summary>
     public static AndroidComposition? Composition { get; private set; }
+
+    /// <summary>The Main Overlay Panels' adapter the host composed, or null before it did.</summary>
+    public static AndroidOverlayPanels? OverlayPanels { get; set; }
 
     /// <summary>Applies every patch class on its own: a failing class degrades only itself.</summary>
     public static void Install(

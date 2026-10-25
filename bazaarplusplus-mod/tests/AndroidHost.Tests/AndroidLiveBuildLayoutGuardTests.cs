@@ -18,6 +18,7 @@ public sealed class AndroidLiveBuildLayoutGuardTests
 {
     private const string Panel = "BazaarPlusPlus.Android.LiveBuild.AndroidLiveBuildPanel";
     private const string View = "BazaarPlusPlus.Android.LiveBuild.AndroidLiveBuildView";
+    private const string Inspection = "BazaarPlusPlus.Android.LiveBuild.AndroidLiveBuildInspection";
     private const string State = "BazaarPlusPlus.Game.LiveBuildPanel.LiveBuildPanelState";
     private const string Debounce = "BazaarPlusPlus.Core.Ui.TouchRelayoutDebounce";
 
@@ -68,6 +69,18 @@ public sealed class AndroidLiveBuildLayoutGuardTests
 
         Assert.Contains(method.Instructions, op => op.Targets(State, "Close"));
         Assert.Contains("android.live_build.layout_failed", method.Literals);
+    }
+
+    // The host closes the panel for a scene change, combat, the back key and the rest; every close
+    // returns the view's cards, and with them the inspected card.
+    [Fact]
+    public void Closing_the_ten_win_builds_panel_closes_its_inspected_card()
+    {
+        Assert.Contains(Method(Panel, "Close").Instructions, op => op.Targets(View, "ReturnAll"));
+        Assert.Contains(
+            Method(View, "ReturnAll").Instructions,
+            op => op.Targets(Inspection, "Close")
+        );
     }
 
     [Fact]

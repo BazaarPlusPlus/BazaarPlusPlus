@@ -175,20 +175,27 @@ internal sealed partial class HistoryPanel : MonoBehaviour
                 return;
             }
 
-            var outcome = _overlayHandle.RequestOpen();
-            if (outcome == OverlayRequestOutcome.SuppressedByCombat)
+            switch (_overlayHandle.RequestOpen())
             {
-                BppLog.DebugEvent(
-                    new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.skipped"),
-                    () => [("reason_code", HistoryPanelOpenReasonCode.CombatActive)]
-                );
-            }
-            else if (outcome == OverlayRequestOutcome.UnknownPanel)
-            {
-                BppLog.ErrorEvent(
-                    new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.failed"),
-                    ("reason_code", HistoryPanelOpenReasonCode.UnknownPanel)
-                );
+                case OverlayRequestOutcome.Executed:
+                case OverlayRequestOutcome.AlreadyInState:
+                    break;
+                case OverlayRequestOutcome.SuppressedByCombat:
+                    LogOpenSkipped(HistoryPanelOpenReasonCode.CombatActive);
+                    break;
+                case OverlayRequestOutcome.Disabled:
+                    LogOpenSkipped(HistoryPanelOpenReasonCode.PanelDisabled);
+                    break;
+                case OverlayRequestOutcome.OpenFailed:
+                    LogOpenFailed(HistoryPanelOpenReasonCode.OpenFailed);
+                    break;
+                case OverlayRequestOutcome.Busy:
+                    LogOpenFailed(HistoryPanelOpenReasonCode.OverlayHostBusy);
+                    break;
+                case OverlayRequestOutcome.UnknownPanel:
+                default:
+                    LogOpenFailed(HistoryPanelOpenReasonCode.UnknownPanel);
+                    break;
             }
         }
         catch (Exception ex)
@@ -200,6 +207,18 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             );
         }
     }
+
+    private static void LogOpenSkipped(HistoryPanelOpenReasonCode reasonCode) =>
+        BppLog.DebugEvent(
+            new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.skipped"),
+            () => [("reason_code", reasonCode)]
+        );
+
+    private static void LogOpenFailed(HistoryPanelOpenReasonCode reasonCode) =>
+        BppLog.ErrorEvent(
+            new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.failed"),
+            ("reason_code", reasonCode)
+        );
 
     private void RefreshLocalizationInternal()
     {
@@ -217,7 +236,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         Instance = this;
     }
 
-    internal void AttachToOverlayHost(OverlayPanelHost overlayHost)
+    internal void AttachToOverlayHost(DesktopOverlayPanels overlayHost)
     {
         if (_overlayHandle != null)
             return;
@@ -225,18 +244,22 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         _overlayHandle = overlayHost.Register(
             new OverlayPanelRegistration(
                 OverlayPanelId,
-                BppHotkeyActionId.ToggleHistoryPanel,
-                onOpen: OnOverlayOpen,
-                onClose: OnOverlayClose,
+                onOpen: () =>
+                {
+                    OnOverlayOpen();
+                    return true;
+                },
+                onClose: _ => OnOverlayClose(),
                 tick: Tick
             )
             {
                 // Historical behavior: the panel stays open across non-combat scene changes.
                 SceneChangeClose = SceneChangeClosePolicy.OnlyWhenInCombat,
-                // Swallow the toggle entirely (open AND close) while the search box has focus.
-                HotkeyGuard = () => !IsVisible || !IsTextInputFocused(),
                 OnSceneChanged = OnOverlaySceneChanged,
-            }
+            },
+            BppHotkeyActionId.ToggleHistoryPanel,
+            // Swallow the toggle entirely (open AND close) while the search box has focus.
+            hotkeyGuard: () => !IsVisible || !IsTextInputFocused()
         );
     }
 

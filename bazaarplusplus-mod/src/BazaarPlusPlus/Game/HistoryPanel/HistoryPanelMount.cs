@@ -17,14 +17,14 @@ internal sealed class HistoryPanelMount : IBppMountable
     private readonly Func<CombatReplayRuntime?> _combatReplayRuntime;
     private readonly Func<ModApiSession?> _modApiSession;
     private readonly Func<BazaarDbLinkClient?> _accountLinkClient;
-    private readonly Func<OverlayPanelHost?> _overlayHost;
+    private readonly Func<DesktopOverlayPanels?> _overlayHost;
     private IDisposable? _localeChangedSubscription;
 
     public HistoryPanelMount(
         Func<CombatReplayRuntime?> combatReplayRuntime,
         Func<ModApiSession?> modApiSession,
         Func<BazaarDbLinkClient?> accountLinkClient,
-        Func<OverlayPanelHost?> overlayHost
+        Func<DesktopOverlayPanels?> overlayHost
     )
     {
         _combatReplayRuntime = combatReplayRuntime;

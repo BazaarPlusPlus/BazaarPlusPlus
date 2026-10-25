@@ -1,15 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Overlay Panel Host, driven through its public interface against Core alone: no host
+       source and no game snapshot. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
+  <!-- Named explicitly so the test tree's netstandard2.1 pin leaves Core and its references on
+       net10.0. -->
   <ItemGroup>
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\OverlayPanels\OverlayLifecycleCore.cs"
-      Link="OverlayLifecycleCore.cs"
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
     />
   </ItemGroup>
 </Project>
