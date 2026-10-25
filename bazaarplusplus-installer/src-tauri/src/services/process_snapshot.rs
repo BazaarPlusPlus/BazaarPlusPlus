@@ -5,6 +5,9 @@
 //! console-window flash + Defender scan of `tasklist.exe` from the flows that
 //! close Steam (launch-option writes) and guard destructive resets.
 
+#[cfg(target_os = "windows")]
+use anyhow::Context as _;
+
 /// Case-insensitive comparison of a process image name (e.g. `"Steam.exe"`)
 /// against a target (e.g. `"steam.exe"`).
 #[cfg(target_os = "windows")]
@@ -15,7 +18,7 @@ pub(crate) fn image_name_matches(candidate: &str, target: &str) -> bool {
 /// Return whether any running process has the given image name. Windows-only;
 /// callers on other platforms use their own probe (e.g. `pgrep`).
 #[cfg(target_os = "windows")]
-pub(crate) fn process_is_running(target: &str) -> Result<bool, String> {
+pub(crate) fn process_is_running(target: &str) -> anyhow::Result<bool> {
     Ok(running_processes()?
         .iter()
         .any(|process| image_name_matches(&process.image_name, target)))
@@ -26,7 +29,7 @@ pub(crate) fn process_is_running(target: &str) -> Result<bool, String> {
 /// its window and still holds the mod database open; a process that exits on
 /// its own between the snapshot and the kill is not an error.
 #[cfg(target_os = "windows")]
-pub(crate) fn terminate_processes(target: &str) -> Result<u32, String> {
+pub(crate) fn terminate_processes(target: &str) -> anyhow::Result<u32> {
     use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
 
     let mut terminated = 0u32;
@@ -72,7 +75,7 @@ impl Drop for OwnedHandle {
 
 /// List every running process from one toolhelp snapshot.
 #[cfg(target_os = "windows")]
-fn running_processes() -> Result<Vec<ProcessEntry>, String> {
+fn running_processes() -> anyhow::Result<Vec<ProcessEntry>> {
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
         TH32CS_SNAPPROCESS,
@@ -81,7 +84,7 @@ fn running_processes() -> Result<Vec<ProcessEntry>, String> {
     // SAFETY: `CreateToolhelp32Snapshot` takes no pointers; the returned
     // handle is owned by the guard, which closes it.
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }
-        .map_err(|err| format!("Failed to inspect process state: {err}"))?;
+        .context("Failed to inspect process state")?;
     let snapshot = OwnedHandle(snapshot);
 
     let mut entry = PROCESSENTRY32W {

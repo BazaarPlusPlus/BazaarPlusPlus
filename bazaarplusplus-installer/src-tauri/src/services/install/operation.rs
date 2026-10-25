@@ -45,7 +45,7 @@ pub(crate) async fn install(
             resource_dir: task_app
                 .path()
                 .resource_dir()
-                .map_err(|err| err.to_string())?,
+                .map_err(anyhow::Error::from)?,
             steam_path,
             game_path: request.game_path.clone(),
         };
@@ -98,7 +98,7 @@ impl InstallEffects for ProductionInstallEffects {
 fn execute_and_refresh<T>(
     facts: &InstallEnvironmentSnapshot,
     effects: &mut impl InstallEffects,
-    refresh: impl FnOnce() -> Result<T, String>,
+    refresh: impl FnOnce() -> anyhow::Result<T>,
 ) -> Result<T, ActionError> {
     for effect in plan_install(facts) {
         effects.execute(effect)?;

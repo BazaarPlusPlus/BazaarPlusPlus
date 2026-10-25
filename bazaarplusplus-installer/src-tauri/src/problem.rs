@@ -49,11 +49,51 @@ impl SemanticProblem {
         self.diagnostic = Some(diagnostic.into());
         self
     }
+
+    /// Attaches `error` and its causes as the diagnostic.
+    pub fn with_error(self, error: &anyhow::Error) -> Self {
+        self.with_diagnostic(error_diagnostic(error))
+    }
+}
+
+/// Renders an error and its causes as one diagnostic line, outermost first and
+/// joined by `": "`. A cause whose text the message before it already
+/// contains is skipped, because many library errors embed their source in
+/// their own message.
+pub(crate) fn error_diagnostic(error: &anyhow::Error) -> String {
+    let mut diagnostic = String::new();
+    for cause in error.chain() {
+        let message = cause.to_string();
+        if diagnostic.contains(&message) {
+            continue;
+        }
+        if !diagnostic.is_empty() {
+            diagnostic.push_str(": ");
+        }
+        diagnostic.push_str(&message);
+    }
+    diagnostic
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{SemanticProblem, SemanticProblemCode};
+    use super::{error_diagnostic, SemanticProblem, SemanticProblemCode};
+    use anyhow::Context as _;
+
+    #[test]
+    fn error_diagnostic_joins_causes_and_skips_embedded_ones() {
+        let io = std::io::Error::other("disk full");
+        let error = Err::<(), _>(io)
+            .context("Cannot write manifest")
+            .unwrap_err();
+        assert_eq!(error_diagnostic(&error), "Cannot write manifest: disk full");
+
+        let embedded = anyhow::anyhow!("zip error: disk full").context("Cannot read archive");
+        assert_eq!(
+            error_diagnostic(&embedded),
+            "Cannot read archive: zip error: disk full"
+        );
+    }
 
     #[test]
     fn semantic_problem_serializes_stable_code_params_and_optional_diagnostic() {

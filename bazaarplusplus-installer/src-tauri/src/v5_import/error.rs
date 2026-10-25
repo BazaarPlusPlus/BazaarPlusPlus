@@ -67,6 +67,8 @@ impl ImportError {
     }
 }
 
+impl std::error::Error for ImportError {}
+
 impl fmt::Display for ImportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

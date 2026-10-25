@@ -27,16 +27,13 @@ const TABLE_ORDER: [(&str, &str); 8] = [
 pub(crate) fn manifest_json(
     game_path: &Path,
     outcome: &Result<ImportReport, ImportError>,
-) -> Result<String, String> {
+) -> anyhow::Result<String> {
     let data_root = crate::services::paths::bpp_data_dir(game_path);
     let mut manifest = serde_json::Map::new();
     match outcome {
         Ok(report) => {
             manifest.insert("status".into(), "imported".into());
-            manifest.insert(
-                "report".into(),
-                serde_json::to_value(report).map_err(|error| error.to_string())?,
-            );
+            manifest.insert("report".into(), serde_json::to_value(report)?);
         }
         Err(ImportError::AlreadyImported) => {
             manifest.insert("status".into(), "already_imported".into());
@@ -59,12 +56,12 @@ pub(crate) fn manifest_json(
     manifest.insert("database".into(), database_rows(&data_root)?);
     serde_json::to_string_pretty(&serde_json::Value::Object(manifest))
         .map(|text| text + "\n")
-        .map_err(|error| error.to_string())
+        .map_err(anyhow::Error::from)
 }
 
 /// The Data Root's files except the database, whose bytes depend on SQLite's
 /// page layout; its rows are listed instead. `null` without a Data Root.
-fn data_root_files(data_root: &Path) -> Result<serde_json::Value, String> {
+fn data_root_files(data_root: &Path) -> anyhow::Result<serde_json::Value> {
     if !data_root.is_dir() {
         return Ok(serde_json::Value::Null);
     }
@@ -82,7 +79,7 @@ fn data_root_files(data_root: &Path) -> Result<serde_json::Value, String> {
 
 /// `{"userVersion", "journalMode", "tables": {table: [row, ...]}}`, or `null`
 /// without a database.
-fn database_rows(data_root: &Path) -> Result<serde_json::Value, String> {
+fn database_rows(data_root: &Path) -> anyhow::Result<serde_json::Value> {
     let path = data_root.join(DATABASE_FILE_NAME);
     if !path.is_file() {
         return Ok(serde_json::Value::Null);
@@ -90,29 +87,20 @@ fn database_rows(data_root: &Path) -> Result<serde_json::Value, String> {
     let conn = Connection::open_with_flags(
         &path,
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|error| error.to_string())?;
-    let user_version: i64 = conn
-        .query_row("pragma user_version", [], |row| row.get(0))
-        .map_err(|error| error.to_string())?;
-    let journal_mode: String = conn
-        .query_row("pragma journal_mode", [], |row| row.get(0))
-        .map_err(|error| error.to_string())?;
+    )?;
+    let user_version: i64 = conn.query_row("pragma user_version", [], |row| row.get(0))?;
+    let journal_mode: String = conn.query_row("pragma journal_mode", [], |row| row.get(0))?;
     let mut tables = serde_json::Map::new();
     for (table, order) in TABLE_ORDER {
-        let exists: bool = conn
-            .query_row(
-                "select exists (select 1 from sqlite_master where type = 'table' and name = ?1)",
-                [table],
-                |row| row.get(0),
-            )
-            .map_err(|error| error.to_string())?;
+        let exists: bool = conn.query_row(
+            "select exists (select 1 from sqlite_master where type = 'table' and name = ?1)",
+            [table],
+            |row| row.get(0),
+        )?;
         if !exists {
             continue;
         }
-        let mut statement = conn
-            .prepare(&format!("select * from \"{table}\" order by {order}"))
-            .map_err(|error| error.to_string())?;
+        let mut statement = conn.prepare(&format!("select * from \"{table}\" order by {order}"))?;
         let columns: Vec<String> = statement
             .column_names()
             .into_iter()
@@ -126,8 +114,7 @@ fn database_rows(data_root: &Path) -> Result<serde_json::Value, String> {
                 }
                 Ok(serde_json::Value::Object(object))
             })
-            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
-            .map_err(|error| error.to_string())?;
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())?;
         tables.insert(table.into(), rows.into());
     }
     Ok(serde_json::json!({

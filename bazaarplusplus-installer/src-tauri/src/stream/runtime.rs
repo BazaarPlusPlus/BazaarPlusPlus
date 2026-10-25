@@ -7,6 +7,7 @@ use super::{
 use crate::services::{
     game_path::GamePathAcceptance, selected_game_installation::SelectedGameInstallationState,
 };
+use anyhow::{bail, Context as _};
 use std::{
     future::Future,
     path::{Path, PathBuf},
@@ -17,7 +18,7 @@ use tauri::Manager;
 use tokio::sync::{oneshot, Mutex as AsyncMutex};
 
 pub(super) type StartFuture<'a> =
-    Pin<Box<dyn Future<Output = Result<StartedStream, String>> + Send + 'a>>;
+    Pin<Box<dyn Future<Output = anyhow::Result<StartedStream>> + Send + 'a>>;
 
 pub(super) trait StreamServerAdapter: Send + Sync {
     fn start(&self, runtime: StreamRuntime, installation: StreamInstallation) -> StartFuture<'_>;
@@ -61,7 +62,7 @@ impl StreamRuntime {
     pub(crate) async fn prepare_history_thumbnails(
         &self,
         app: tauri::AppHandle,
-    ) -> Result<(), String> {
+    ) -> anyhow::Result<()> {
         self.prepare_history_thumbnails_with(&production_server(&app), || {
             resolve_installation(&app)
         })
@@ -72,7 +73,7 @@ impl StreamRuntime {
         &self,
         server: &A,
         installation: F,
-    ) -> Result<(), String>
+    ) -> anyhow::Result<()>
     where
         A: StreamServerAdapter + ?Sized,
         F: FnOnce() -> StreamInstallation,
@@ -95,7 +96,7 @@ impl StreamRuntime {
     pub(crate) async fn ensure(
         &self,
         app: tauri::AppHandle,
-    ) -> Result<StreamServiceStatus, String> {
+    ) -> anyhow::Result<StreamServiceStatus> {
         self.ensure_with(&production_server(&app), resolve_installation(&app))
             .await
     }
@@ -103,27 +104,27 @@ impl StreamRuntime {
     pub(crate) async fn restart(
         &self,
         app: tauri::AppHandle,
-    ) -> Result<StreamServiceStatus, String> {
+    ) -> anyhow::Result<StreamServiceStatus> {
         self.restart_with(&production_server(&app), resolve_installation(&app))
             .await
     }
 
-    pub(crate) async fn stop(&self) -> Result<StreamServiceStatus, String> {
+    pub(crate) async fn stop(&self) -> anyhow::Result<StreamServiceStatus> {
         let _lifecycle = self.lifecycle.lock().await;
         self.stop_locked().await
     }
 
-    pub(crate) async fn set_window(&self, offset: usize) -> Result<StreamServiceStatus, String> {
+    pub(crate) async fn set_window(&self, offset: usize) -> anyhow::Result<StreamServiceStatus> {
         self.set_window_with(|snapshot, record_game_path| {
             stream_window_for_offset(snapshot, record_game_path, offset)
         })
         .await
     }
 
-    pub(crate) async fn exclusive_maintenance<T, F, Fut>(&self, operation: F) -> Result<T, String>
+    pub(crate) async fn exclusive_maintenance<T, F, Fut>(&self, operation: F) -> anyhow::Result<T>
     where
         F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<T, String>>,
+        Fut: Future<Output = anyhow::Result<T>>,
     {
         let _lifecycle = self.lifecycle.lock().await;
         self.stop_locked().await?;
@@ -134,7 +135,7 @@ impl StreamRuntime {
         &self,
         server: &A,
         installation: StreamInstallation,
-    ) -> Result<StreamServiceStatus, String>
+    ) -> anyhow::Result<StreamServiceStatus>
     where
         A: StreamServerAdapter + ?Sized,
     {
@@ -146,7 +147,7 @@ impl StreamRuntime {
         &self,
         server: &A,
         installation: StreamInstallation,
-    ) -> Result<StreamServiceStatus, String>
+    ) -> anyhow::Result<StreamServiceStatus>
     where
         A: StreamServerAdapter + ?Sized,
     {
@@ -164,9 +165,9 @@ impl StreamRuntime {
                 self.set_running(started);
                 Ok(status)
             }
-            Err(message) => {
-                self.set_error(message.clone());
-                Err(message)
+            Err(error) => {
+                self.set_error(crate::problem::error_diagnostic(&error));
+                Err(error)
             }
         }
     }
@@ -175,7 +176,7 @@ impl StreamRuntime {
         &self,
         server: &A,
         installation: StreamInstallation,
-    ) -> Result<StreamServiceStatus, String>
+    ) -> anyhow::Result<StreamServiceStatus>
     where
         A: StreamServerAdapter + ?Sized,
     {
@@ -187,7 +188,7 @@ impl StreamRuntime {
         &self,
         server: &A,
         installation: StreamInstallation,
-    ) -> Result<StreamServiceStatus, String>
+    ) -> anyhow::Result<StreamServiceStatus>
     where
         A: StreamServerAdapter + ?Sized,
     {
@@ -199,14 +200,14 @@ impl StreamRuntime {
                 self.set_running(started);
                 Ok(status)
             }
-            Err(message) => {
-                self.set_error(message.clone());
-                Err(message)
+            Err(error) => {
+                self.set_error(crate::problem::error_diagnostic(&error));
+                Err(error)
             }
         }
     }
 
-    async fn stop_locked(&self) -> Result<StreamServiceStatus, String> {
+    async fn stop_locked(&self) -> anyhow::Result<StreamServiceStatus> {
         let task = self
             .inner
             .lock()
@@ -221,9 +222,9 @@ impl StreamRuntime {
         Ok(self.set_idle())
     }
 
-    pub(super) async fn set_window_with<F>(&self, apply: F) -> Result<StreamServiceStatus, String>
+    pub(super) async fn set_window_with<F>(&self, apply: F) -> anyhow::Result<StreamServiceStatus>
     where
-        F: FnOnce(&StreamServiceStatus, Option<PathBuf>) -> Result<(Option<String>, usize), String>,
+        F: FnOnce(&StreamServiceStatus, Option<PathBuf>) -> anyhow::Result<(Option<String>, usize)>,
     {
         let _lifecycle = self.lifecycle.lock().await;
         let snapshot = self.snapshot();
@@ -341,11 +342,11 @@ fn stream_window_for_offset(
     snapshot: &StreamServiceStatus,
     record_game_path: Option<PathBuf>,
     offset: usize,
-) -> Result<(Option<String>, usize), String> {
+) -> anyhow::Result<(Option<String>, usize)> {
     let started_at = snapshot
         .started_at
         .clone()
-        .ok_or_else(|| "Stream start time is unavailable.".to_string())?;
+        .context("Stream start time is unavailable.")?;
     let repository = OverlayRecordRepository::new(record_game_path);
 
     if offset == 0 {
@@ -356,15 +357,15 @@ fn stream_window_for_offset(
     let total = repository.count_since(None)?;
     let existing_before_start = total.saturating_sub(captured_since_start);
     if offset > existing_before_start {
-        return Err(format!(
+        bail!(
             "Requested stream window offset {offset} exceeds the available {existing_before_start} earlier record(s)."
-        ));
+        );
     }
 
     let record_offset = captured_since_start + offset - 1;
     let record = repository
         .load_record_at_offset(None, record_offset)?
-        .ok_or_else(|| {
+        .with_context(|| {
             format!("No end-of-run record is available for stream window offset {offset}.")
         })?;
 
@@ -414,7 +415,7 @@ pub(super) mod test_support {
             Box::pin(async move {
                 self.starts.fetch_add(1, Ordering::SeqCst);
                 if let Some(message) = &self.failure {
-                    return Err(message.clone());
+                    return Err(anyhow::anyhow!("{message}"));
                 }
 
                 let (shutdown, shutdown_rx) = oneshot::channel();
@@ -526,7 +527,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_eq!(error, "bind failed");
+        assert_eq!(error.to_string(), "bind failed");
         assert!(!runtime.snapshot().running);
         assert_eq!(
             runtime.snapshot().last_error.as_deref(),

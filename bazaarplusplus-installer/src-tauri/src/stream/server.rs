@@ -10,6 +10,7 @@ use super::{
     state::{StreamDbStatus, StreamServiceStatus},
 };
 use crate::services::paths;
+use anyhow::anyhow;
 use chrono::{Local, SecondsFormat};
 use std::path::Path;
 use tokio::{net::TcpListener, sync::oneshot};
@@ -105,12 +106,8 @@ fn service_urls() -> ServiceUrls {
     }
 }
 
-async fn bind_listener(host: &str, port: u16) -> Result<TcpListener, String> {
-    TcpListener::bind((host, port)).await.map_err(|err| {
-        format!(
-            "OBS overlay port {port} is unavailable on {host}. Free that port and try again. ({err})"
-        )
-    })
+async fn bind_listener(host: &str, port: u16) -> anyhow::Result<TcpListener> {
+    TcpListener::bind((host, port)).await.map_err(|err| anyhow!("OBS overlay port {port} is unavailable on {host}. Free that port and try again. ({err})"))
 }
 
 fn current_timestamp() -> String {
@@ -127,7 +124,10 @@ mod tests {
         let occupied = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let occupied_port = occupied.local_addr().unwrap().port();
 
-        let error = bind_listener("127.0.0.1", occupied_port).await.unwrap_err();
+        let error = format!(
+            "{:#}",
+            bind_listener("127.0.0.1", occupied_port).await.unwrap_err()
+        );
 
         assert!(error.contains("OBS overlay port"));
     }

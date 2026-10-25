@@ -2,6 +2,7 @@
 //! Content-addressed backups make interrupted and repeated repairs resumable.
 //! Only the latest backup is retained; unknown or modified backups are never removed.
 
+use anyhow::{bail, Context as _};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Read;
@@ -10,18 +11,18 @@ use std::path::{Path, PathBuf};
 const DUPLICATE: &str = "TheBazaar_ARM64.app";
 const BACKUPS: &str = ".bpp-bundle-root-stash";
 
-fn io<T>(path: &Path, result: std::io::Result<T>) -> Result<T, String> {
-    result.map_err(|error| format!("Cannot access {}: {error}", path.display()))
+fn io<T>(path: &Path, result: std::io::Result<T>) -> anyhow::Result<T> {
+    result.with_context(|| format!("Cannot access {}", path.display()))
 }
 
-fn directory(path: &Path) -> Result<(), String> {
+fn directory(path: &Path) -> anyhow::Result<()> {
     if !io(path, fs::symlink_metadata(path))?.file_type().is_dir() {
-        return Err(format!("Expected a real directory at {}", path.display()));
+        bail!("Expected a real directory at {}", path.display());
     }
     Ok(())
 }
 
-fn children(path: &Path) -> Result<Vec<PathBuf>, String> {
+fn children(path: &Path) -> anyhow::Result<Vec<PathBuf>> {
     io(path, fs::read_dir(path))?
         .map(|entry| io(path, entry).map(|entry| entry.path()))
         .collect()
@@ -32,7 +33,7 @@ fn hex(digest: &[u8]) -> String {
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-fn file_digest(path: &Path) -> Result<String, String> {
+fn file_digest(path: &Path) -> anyhow::Result<String> {
     let mut file = io(path, fs::File::open(path))?;
     let mut digest = Sha256::new();
     let mut buffer = [0; 64 * 1024];
@@ -48,13 +49,13 @@ fn file_digest(path: &Path) -> Result<String, String> {
 
 // The manifest is a persistent backup format. Reject ambiguous names and links
 // instead of following them outside the owned tree.
-fn fingerprint(root: &Path) -> Result<String, String> {
-    fn visit(root: &Path, path: &Path, records: &mut Vec<String>) -> Result<(), String> {
-        let relative = path.strip_prefix(root).map_err(|error| error.to_string())?;
+fn fingerprint(root: &Path) -> anyhow::Result<String> {
+    fn visit(root: &Path, path: &Path, records: &mut Vec<String>) -> anyhow::Result<()> {
+        let relative = path.strip_prefix(root)?;
         let relative = relative
             .to_str()
             .filter(|name| !name.contains(['\n', '\r', '\\']))
-            .ok_or_else(|| format!("Unsupported backup path: {}", path.display()))?;
+            .with_context(|| format!("Unsupported backup path: {}", path.display()))?;
         let name = if relative.is_empty() {
             ".".into()
         } else {
@@ -69,10 +70,7 @@ fn fingerprint(root: &Path) -> Result<String, String> {
         } else if kind.is_file() {
             records.push(format!("F {}  {name}\n", file_digest(path)?));
         } else {
-            return Err(format!(
-                "Unsupported file or symbolic link: {}",
-                path.display()
-            ));
+            bail!("Unsupported file or symbolic link: {}", path.display());
         }
         Ok(())
     }
@@ -82,20 +80,20 @@ fn fingerprint(root: &Path) -> Result<String, String> {
     Ok(hex(&Sha256::digest(records.concat().as_bytes())))
 }
 
-fn read_plist(app: &Path, key: &str) -> Result<String, String> {
+fn read_plist(app: &Path, key: &str) -> anyhow::Result<String> {
     let path = app.join("Contents/Info.plist");
     let output = std::process::Command::new("/usr/bin/plutil")
         .args(["-extract", key, "raw", "-o", "-"])
         .arg(&path)
         .output()
-        .map_err(|error| format!("Cannot read {}: {error}", path.display()))?;
+        .with_context(|| format!("Cannot read {}", path.display()))?;
     if !output.status.success() {
-        return Err(format!("Cannot read {key} from {}", path.display()));
+        bail!("Cannot read {key} from {}", path.display());
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-fn validate_duplicate(app: &Path, duplicate: &Path) -> Result<(), String> {
+fn validate_duplicate(app: &Path, duplicate: &Path) -> anyhow::Result<()> {
     directory(duplicate)?;
     for key in [
         "CFBundleIdentifier",
@@ -104,13 +102,13 @@ fn validate_duplicate(app: &Path, duplicate: &Path) -> Result<(), String> {
     ] {
         let value = read_plist(app, key)?;
         if value.is_empty() || value != read_plist(duplicate, key)? {
-            return Err(format!(
+            bail!(
                 "Unexpected {key} in {}; no files were moved",
                 duplicate.display()
-            ));
+            );
         }
         if key == "CFBundleIdentifier" && value != "com.TempoStorm.TheBazaar" {
-            return Err(format!("Unrecognized game bundle: {}", app.display()));
+            bail!("Unrecognized game bundle: {}", app.display());
         }
     }
     // Signatures and the main executable may already have been changed by BPP.
@@ -121,9 +119,7 @@ fn validate_duplicate(app: &Path, duplicate: &Path) -> Result<(), String> {
         "Contents/Resources/Data/boot.config",
     ] {
         if file_digest(&app.join(relative))? != file_digest(&duplicate.join(relative))? {
-            return Err(format!(
-                "Duplicate game bundle differs at {relative}; no files were moved"
-            ));
+            bail!("Duplicate game bundle differs at {relative}; no files were moved");
         }
     }
     Ok(())
@@ -136,13 +132,13 @@ fn valid_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn write_current(backups: &Path, digest: &str) -> Result<(), String> {
+fn write_current(backups: &Path, digest: &str) -> anyhow::Result<()> {
     let staged = backups.join("current.tmp");
     io(&staged, fs::write(&staged, format!("{digest}\n")))?;
     io(&staged, fs::rename(&staged, backups.join("current")))
 }
 
-fn retire(backups: &Path, path: &Path, digest: &str) -> Result<(), String> {
+fn retire(backups: &Path, path: &Path, digest: &str) -> anyhow::Result<()> {
     // Renaming is the commit point: a partly removed directory must never be
     // mistaken for a user-modified backup or an incomplete Steam application.
     let tombstone = backups.join(format!(".delete-{digest}.app"));
@@ -150,7 +146,7 @@ fn retire(backups: &Path, path: &Path, digest: &str) -> Result<(), String> {
     io(&tombstone, fs::remove_dir_all(&tombstone))
 }
 
-pub(super) fn normalize(game: &Path) -> Result<(), String> {
+pub(super) fn normalize(game: &Path) -> anyhow::Result<()> {
     let app = game.join("TheBazaar.app");
     directory(&app)?;
     directory(&app.join("Contents"))?;
@@ -169,14 +165,13 @@ pub(super) fn normalize(game: &Path) -> Result<(), String> {
         {
             continue;
         }
-        return Err(format!(
+        bail!(
             "Unexpected application root entry {}; move it outside TheBazaar.app before repairing",
             entry.display()
-        ));
+        );
     }
     let source = app.join(DUPLICATE);
-    let source_exists = source.try_exists().map_err(|error| error.to_string())?
-        || fs::symlink_metadata(&source).is_ok();
+    let source_exists = source.try_exists()? || fs::symlink_metadata(&source).is_ok();
     let backups = game.join(BACKUPS);
     if !source_exists && !backups.exists() {
         return Ok(());
@@ -207,14 +202,14 @@ pub(super) fn normalize(game: &Path) -> Result<(), String> {
                 .file_type()
                 .is_file()
             {
-                return Err(format!("Invalid Finder metadata: {}", entry.display()));
+                bail!("Invalid Finder metadata: {}", entry.display());
             }
         } else if name == "current" || name == "current.tmp" {
             if !io(&entry, fs::symlink_metadata(&entry))?
                 .file_type()
                 .is_file()
             {
-                return Err(format!("Invalid backup record: {}", entry.display()));
+                bail!("Invalid backup record: {}", entry.display());
             }
         } else if name
             .strip_prefix(".delete-")
@@ -226,27 +221,27 @@ pub(super) fn normalize(game: &Path) -> Result<(), String> {
         } else if name == DUPLICATE {
             directory(&entry)?;
             if read_plist(&entry, "CFBundleIdentifier")? != "com.TempoStorm.TheBazaar" {
-                return Err(format!("Unrecognized legacy backup: {}", entry.display()));
+                bail!("Unrecognized legacy backup: {}", entry.display());
             }
             legacy = Some((entry.clone(), fingerprint(&entry)?));
         } else if name.strip_suffix(".app").is_some_and(valid_digest) {
             let digest = fingerprint(&entry)?;
             if name != format!("{digest}.app") {
-                return Err(format!(
+                bail!(
                     "Backup was modified; preserve or move {} before repairing",
                     entry.display()
-                ));
+                );
             }
             snapshots.push((entry.clone(), digest));
         } else {
-            return Err(format!("Unexpected backup entry: {}", entry.display()));
+            bail!("Unexpected backup entry: {}", entry.display());
         }
     }
     if !tombstones.is_empty() && snapshots.is_empty() {
-        return Err(format!(
+        bail!(
             "No verified backup remains in {}; pending deletion was preserved",
             backups.display()
-        ));
+        );
     }
     for path in tombstones {
         io(&path, fs::remove_dir_all(&path))?;
@@ -284,10 +279,10 @@ pub(super) fn normalize(game: &Path) -> Result<(), String> {
             .to_string()
     };
     if !valid_digest(&current) || !backups.join(format!("{current}.app")).is_dir() {
-        return Err(format!(
+        bail!(
             "Incomplete backup record in {}; no backups were removed",
             backups.display()
-        ));
+        );
     }
     // The current contents are now preserved outside the app, even if signing or
     // cleanup is interrupted. Re-entry completes cleanup without restoring bad layout.
@@ -424,8 +419,7 @@ pub(super) mod tests {
         fs::write(app.join(".DS_Store"), b"Finder metadata").unwrap();
         add_duplicate(game.path(), &app);
         fs::write(app.join("user-file"), b"keep").unwrap();
-        assert!(normalize(game.path())
-            .unwrap_err()
+        assert!(format!("{:#}", normalize(game.path()).unwrap_err())
             .contains("Unexpected application root"));
         assert!(app.join(DUPLICATE).exists());
         fs::remove_file(app.join("user-file")).unwrap();
@@ -436,9 +430,9 @@ pub(super) mod tests {
         let saved = backups.join(format!("{}.app", current.trim()));
         fs::write(saved.join("user-file"), b"keep").unwrap();
         add_duplicate(game.path(), &app);
-        assert!(normalize(game.path())
-            .unwrap_err()
-            .contains("Backup was modified"));
+        assert!(
+            format!("{:#}", normalize(game.path()).unwrap_err()).contains("Backup was modified")
+        );
         assert_eq!(fs::read(saved.join("user-file")).unwrap(), b"keep");
         assert!(app.join(DUPLICATE).exists());
     }
@@ -539,12 +533,10 @@ pub(super) mod tests {
             .join(DUPLICATE)
             .join("Contents/Frameworks/UnityPlayer.dylib");
         fs::write(&engine, b"different").unwrap();
-        assert!(normalize(game.path()).unwrap_err().contains("differs"));
+        assert!(format!("{:#}", normalize(game.path()).unwrap_err()).contains("differs"));
         fs::write(&engine, b"original").unwrap();
         std::os::unix::fs::symlink(game.path(), app.join(DUPLICATE).join("link")).unwrap();
-        assert!(normalize(game.path())
-            .unwrap_err()
-            .contains("symbolic link"));
+        assert!(format!("{:#}", normalize(game.path()).unwrap_err()).contains("symbolic link"));
         assert!(app.join(DUPLICATE).exists());
         assert!(!game.path().join(BACKUPS).exists());
     }

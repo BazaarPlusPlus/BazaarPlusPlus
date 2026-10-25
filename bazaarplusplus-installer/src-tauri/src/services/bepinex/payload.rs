@@ -1,4 +1,5 @@
 // src-tauri/src/services/bepinex/payload.rs
+use anyhow::{anyhow, Context as _};
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
@@ -108,11 +109,11 @@ pub(super) struct InstallTargetBackup {
 }
 
 impl InstallTargetBackup {
-    fn capture(game_path: &Path) -> Result<Self, String> {
+    fn capture(game_path: &Path) -> anyhow::Result<Self> {
         let root = tempfile::Builder::new()
             .prefix("bpp-install-backup-")
             .tempdir()
-            .map_err(|err| format!("Cannot create install rollback snapshot: {err}"))?;
+            .context("Cannot create install rollback snapshot")?;
 
         for relative_path in payload_root_relative_paths() {
             let source = game_path.join(relative_path);
@@ -124,7 +125,7 @@ impl InstallTargetBackup {
         Ok(Self { root })
     }
 
-    pub(super) fn restore(self, game_path: &Path) -> Result<(), String> {
+    pub(super) fn restore(self, game_path: &Path) -> anyhow::Result<()> {
         uninstall_payload(game_path)?;
 
         for relative_path in payload_root_relative_paths() {
@@ -152,16 +153,15 @@ impl RemovalReport {
     }
 }
 
-fn remove_path_if_exists(path: &Path) -> Result<(), String> {
+fn remove_path_if_exists(path: &Path) -> anyhow::Result<()> {
     if !path.exists() {
         return Ok(());
     }
 
     if path.is_dir() {
-        std::fs::remove_dir_all(path)
-            .map_err(|err| format!("Cannot remove {}: {err}", path.display()))
+        std::fs::remove_dir_all(path).with_context(|| format!("Cannot remove {}", path.display()))
     } else {
-        std::fs::remove_file(path).map_err(|err| format!("Cannot remove {}: {err}", path.display()))
+        std::fs::remove_file(path).with_context(|| format!("Cannot remove {}", path.display()))
     }
 }
 
@@ -184,37 +184,37 @@ pub(crate) fn payload_root_relative_paths() -> Vec<&'static str> {
     paths
 }
 
-fn copy_path(source: &Path, destination: &Path) -> Result<(), String> {
+fn copy_path(source: &Path, destination: &Path) -> anyhow::Result<()> {
     let metadata = std::fs::symlink_metadata(source)
-        .map_err(|err| format!("Cannot inspect {}: {err}", source.display()))?;
+        .with_context(|| format!("Cannot inspect {}", source.display()))?;
 
     if metadata.file_type().is_dir() && !metadata.file_type().is_symlink() {
         std::fs::create_dir_all(destination)
-            .map_err(|err| format!("Cannot create {}: {err}", destination.display()))?;
+            .with_context(|| format!("Cannot create {}", destination.display()))?;
         for entry in std::fs::read_dir(source)
-            .map_err(|err| format!("Cannot read {}: {err}", source.display()))?
+            .with_context(|| format!("Cannot read {}", source.display()))?
         {
-            let entry = entry.map_err(|err| format!("Cannot read {}: {err}", source.display()))?;
+            let entry = entry.with_context(|| format!("Cannot read {}", source.display()))?;
             copy_path(&entry.path(), &destination.join(entry.file_name()))?;
         }
         std::fs::set_permissions(destination, metadata.permissions())
-            .map_err(|err| format!("Cannot set permissions on {}: {err}", destination.display()))?;
+            .with_context(|| format!("Cannot set permissions on {}", destination.display()))?;
         return Ok(());
     }
 
     if let Some(parent) = destination.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|err| format!("Cannot create {}: {err}", parent.display()))?;
+            .with_context(|| format!("Cannot create {}", parent.display()))?;
     }
-    std::fs::copy(source, destination).map_err(|err| {
+    std::fs::copy(source, destination).with_context(|| {
         format!(
-            "Cannot copy {} to {}: {err}",
+            "Cannot copy {} to {}",
             source.display(),
             destination.display()
         )
     })?;
     std::fs::set_permissions(destination, metadata.permissions())
-        .map_err(|err| format!("Cannot set permissions on {}: {err}", destination.display()))
+        .with_context(|| format!("Cannot set permissions on {}", destination.display()))
 }
 
 /// Try to delete a single file or empty directory, retrying briefly to absorb
@@ -310,17 +310,17 @@ pub(crate) fn remove_dir_with_retry(root: &Path) -> RemovalReport {
     report
 }
 
-pub(super) fn uninstall_payload(game_path: &Path) -> Result<(), String> {
+pub(super) fn uninstall_payload(game_path: &Path) -> anyhow::Result<()> {
     remove_bpp_files(game_path, true)
 }
 
 pub(super) fn uninstall_payload_preserving_shared_dependencies(
     game_path: &Path,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     remove_bpp_files(game_path, false)
 }
 
-fn remove_bpp_files(game_path: &Path, remove_bundled_dependencies: bool) -> Result<(), String> {
+fn remove_bpp_files(game_path: &Path, remove_bundled_dependencies: bool) -> anyhow::Result<()> {
     for relative_path in owned_paths("private") {
         remove_path_if_exists(&game_path.join(relative_path))?;
     }
@@ -339,19 +339,19 @@ fn remove_bpp_files(game_path: &Path, remove_bundled_dependencies: bool) -> Resu
     Ok(())
 }
 
-fn remove_empty_dir_if_exists(path: &Path) -> Result<(), String> {
+fn remove_empty_dir_if_exists(path: &Path) -> anyhow::Result<()> {
     match std::fs::remove_dir(path) {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::DirectoryNotEmpty => Ok(()),
-        Err(err) => Err(format!(
+        Err(err) => Err(anyhow!(
             "Cannot remove empty directory {}: {err}",
             path.display()
         )),
     }
 }
 
-pub(super) fn remove_bootstrap_files(game_path: &Path) -> Result<(), String> {
+pub(super) fn remove_bootstrap_files(game_path: &Path) -> anyhow::Result<()> {
     for relative_path in owned_paths("bootstrap") {
         remove_path_if_exists(&game_path.join(relative_path))?;
     }
@@ -408,12 +408,12 @@ fn dir_contains_unowned_file(game_path: &Path, dir: &Path) -> bool {
     })
 }
 
-pub(crate) fn ensure_valid_game_path(game_path: &Path) -> Result<(), String> {
+pub(crate) fn ensure_valid_game_path(game_path: &Path) -> anyhow::Result<()> {
     if crate::services::detect::is_valid_game_path(game_path) {
         return Ok(());
     }
 
-    Err(format!(
+    Err(anyhow!(
         "Selected path is not a valid The Bazaar installation: {}",
         game_path.display()
     ))
@@ -422,14 +422,14 @@ pub(crate) fn ensure_valid_game_path(game_path: &Path) -> Result<(), String> {
 pub(super) fn prepare_install_target(
     game_path: &Path,
     incoming_relative_paths: &std::collections::HashSet<String>,
-) -> Result<InstallTargetBackup, String> {
+) -> anyhow::Result<InstallTargetBackup> {
     ensure_valid_game_path(game_path)?;
     let backup = InstallTargetBackup::capture(game_path)?;
     if let Err(cleanup_err) = remove_stale_bpp_files(game_path, incoming_relative_paths) {
         return match backup.restore(game_path) {
             Ok(()) => Err(cleanup_err),
-            Err(restore_err) => Err(format!(
-                "{cleanup_err}; additionally failed to restore previous payload: {restore_err}"
+            Err(restore_err) => Err(anyhow!(
+                "{cleanup_err:#}; additionally failed to restore previous payload: {restore_err:#}"
             )),
         };
     }
@@ -443,7 +443,7 @@ pub(super) fn prepare_install_target(
 fn remove_stale_bpp_files(
     game_path: &Path,
     incoming_relative_paths: &std::collections::HashSet<String>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     for relative_path in owned_paths("private").chain(owned_paths("dependency")) {
         if incoming_relative_paths.contains(relative_path) {
             continue;
@@ -457,14 +457,14 @@ fn remove_stale_bpp_files(
 pub(super) fn preserve_file_if_exists(
     base_dir: &Path,
     relative_path: &'static str,
-) -> Result<Option<PreservedFile>, String> {
+) -> anyhow::Result<Option<PreservedFile>> {
     let path = base_dir.join(relative_path);
     if !path.exists() {
         return Ok(None);
     }
 
     let contents =
-        std::fs::read(&path).map_err(|err| format!("Cannot preserve {}: {err}", path.display()))?;
+        std::fs::read(&path).with_context(|| format!("Cannot preserve {}", path.display()))?;
 
     Ok(Some(PreservedFile {
         relative_path,
@@ -475,15 +475,15 @@ pub(super) fn preserve_file_if_exists(
 pub(super) fn restore_preserved_file(
     base_dir: &Path,
     preserved: &PreservedFile,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let path = base_dir.join(preserved.relative_path);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|err| format!("Cannot recreate {}: {err}", parent.display()))?;
+            .with_context(|| format!("Cannot recreate {}", parent.display()))?;
     }
 
     std::fs::write(&path, &preserved.contents)
-        .map_err(|err| format!("Cannot restore {}: {err}", path.display()))
+        .with_context(|| format!("Cannot restore {}", path.display()))
 }
 
 pub(super) fn cleanup_bpp_data_directory(game_path: &Path) -> RemovalReport {

@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use std::sync::Mutex;
 
 use tauri::{
@@ -127,29 +128,27 @@ impl TrayMenuState {
         *self.items.lock().expect("tray menu state poisoned") = Some(items);
     }
 
-    fn apply_locale(&self, locale: TrayLocale) -> Result<(), String> {
+    fn apply_locale(&self, locale: TrayLocale) -> anyhow::Result<()> {
         let labels = tray_menu_labels(locale);
         let items = self.items.lock().expect("tray menu state poisoned");
-        let items = items
-            .as_ref()
-            .ok_or_else(|| "Tray menu is not initialized.".to_string())?;
+        let items = items.as_ref().context("Tray menu is not initialized.")?;
 
         items
             .show_window
             .set_text(labels.show_window)
-            .map_err(|err| format!("Failed to update tray menu text: {err}"))?;
+            .context("Failed to update tray menu text")?;
         items
             .copy_obs_url
             .set_text(labels.copy_obs_url)
-            .map_err(|err| format!("Failed to update tray menu text: {err}"))?;
+            .context("Failed to update tray menu text")?;
         items
             .stop_stream_service
             .set_text(labels.stop_stream_service)
-            .map_err(|err| format!("Failed to update tray menu text: {err}"))?;
+            .context("Failed to update tray menu text")?;
         items
             .quit
             .set_text(labels.quit)
-            .map_err(|err| format!("Failed to update tray menu text: {err}"))?;
+            .context("Failed to update tray menu text")?;
         Ok(())
     }
 }
@@ -164,8 +163,9 @@ pub async fn set_app_locale(
         "en" => "en",
         _ => "zh",
     };
-    state.apply_locale(TrayLocale::from_code(normalized))?;
-    Ok(())
+    state
+        .apply_locale(TrayLocale::from_code(normalized))
+        .map_err(|error| crate::problem::error_diagnostic(&error))
 }
 
 fn should_show_main_window_for_tray_event(event: &TrayIconEvent) -> bool {
@@ -194,7 +194,7 @@ fn show_main_window(app: &tauri::AppHandle) {
     crate::main_window::restore(app);
 }
 
-fn copy_text_to_clipboard(text: &str) -> Result<(), String> {
+fn copy_text_to_clipboard(text: &str) -> anyhow::Result<()> {
     #[cfg(target_os = "macos")]
     {
         use std::io::Write;
@@ -203,17 +203,12 @@ fn copy_text_to_clipboard(text: &str) -> Result<(), String> {
         let mut child = Command::new("pbcopy")
             .stdin(Stdio::piped())
             .spawn()
-            .map_err(|err| format!("failed to launch pbcopy: {err}"))?;
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| "pbcopy stdin unavailable".to_string())?;
+            .context("failed to launch pbcopy")?;
+        let stdin = child.stdin.as_mut().context("pbcopy stdin unavailable")?;
         stdin
             .write_all(text.as_bytes())
-            .map_err(|err| format!("failed to write to pbcopy: {err}"))?;
-        child
-            .wait()
-            .map_err(|err| format!("failed to wait for pbcopy: {err}"))?;
+            .context("failed to write to pbcopy")?;
+        child.wait().context("failed to wait for pbcopy")?;
         Ok(())
     }
 
@@ -226,23 +221,20 @@ fn copy_text_to_clipboard(text: &str) -> Result<(), String> {
             .args(["/C", "clip"])
             .stdin(Stdio::piped())
             .spawn()
-            .map_err(|err| format!("failed to launch clip: {err}"))?;
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| "clip stdin unavailable".to_string())?;
+            .context("failed to launch clip")?;
+        let stdin = child.stdin.as_mut().context("clip stdin unavailable")?;
         stdin
             .write_all(text.as_bytes())
-            .map_err(|err| format!("failed to write to clip: {err}"))?;
-        child
-            .wait()
-            .map_err(|err| format!("failed to wait for clip: {err}"))?;
+            .context("failed to write to clip")?;
+        child.wait().context("failed to wait for clip")?;
         Ok(())
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = text;
-        Err("clipboard copy is unsupported on this platform".to_string())
+        Err(anyhow::anyhow!(
+            "clipboard copy is unsupported on this platform"
+        ))
     }
 }

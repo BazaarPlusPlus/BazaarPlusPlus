@@ -27,7 +27,7 @@ pub fn detect_for_install(
     app: AppHandle,
     state: State<'_, InstallerContextState>,
     game_path: Option<String>,
-) -> Result<InstallEnvironmentSnapshot, String> {
+) -> anyhow::Result<InstallEnvironmentSnapshot> {
     crate::services::debug_log!(
         "[detect_for_install] start requested_game_path={:?}",
         game_path

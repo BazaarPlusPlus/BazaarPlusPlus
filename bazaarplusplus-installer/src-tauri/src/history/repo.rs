@@ -39,8 +39,10 @@ pub fn list_history_runs(
     }
 
     let summary = load_summary(&conn)?;
-    let effective_limit = i64::try_from(limit.max(1)).map_err(|err| err.to_string())?;
-    let effective_offset = i64::try_from(offset).map_err(|err| err.to_string())?;
+    let effective_limit =
+        i64::try_from(limit.max(1)).map_err(|err| HistoryReadError::Failed(err.to_string()))?;
+    let effective_offset =
+        i64::try_from(offset).map_err(|err| HistoryReadError::Failed(err.to_string()))?;
     let rows = list_run_rows(&conn, effective_limit, effective_offset)?;
     let run_ids = rows
         .iter()
@@ -89,7 +91,7 @@ pub fn load_run_screenshot_path(
     database_path: &Path,
     data_root: &Path,
     run_id: &str,
-) -> Result<Option<PathBuf>, String> {
+) -> anyhow::Result<Option<PathBuf>> {
     let conn = open_connection(database_path)?;
     let path = primary_screenshot(&conn, run_id)?
         .and_then(|screenshot| resolve_screenshot_path(data_root, &screenshot.image_relative_path));
@@ -101,7 +103,7 @@ pub fn load_battle_video_path(
     video_dir: &Path,
     battle_id: &str,
     video_id: &str,
-) -> Result<Option<PathBuf>, String> {
+) -> anyhow::Result<Option<PathBuf>> {
     let conn = open_connection(database_path)?;
     let row = load_battle_video_ref(&conn, battle_id, video_id)?;
     Ok(row.and_then(|video| resolve_data_file_path(video_dir, &video.relative_path)))
@@ -110,7 +112,7 @@ pub fn load_battle_video_path(
 pub fn load_run_id_for_battle(
     database_path: &Path,
     battle_id: &str,
-) -> Result<Option<String>, String> {
+) -> anyhow::Result<Option<String>> {
     let conn = open_connection(database_path)?;
     queries::load_run_id_for_battle(&conn, battle_id)
 }
@@ -120,20 +122,18 @@ pub fn delete_battle_video(
     video_dir: &Path,
     battle_id: &str,
     video_id: &str,
-) -> Result<bool, String> {
+) -> anyhow::Result<bool> {
     let mut conn = open_write_connection(database_path)?;
     let Some(video) = load_battle_video_ref(&conn, battle_id, video_id)? else {
         return Ok(false);
     };
     remove_video_file(video_dir, &video.relative_path)?;
-    let transaction = conn.transaction().map_err(|err| err.to_string())?;
-    let deleted = transaction
-        .execute(
-            "delete from combat_replay_videos where battle_id = ?1 and video_id = ?2",
-            params![battle_id, video_id],
-        )
-        .map_err(|err| err.to_string())?;
-    transaction.commit().map_err(|err| err.to_string())?;
+    let transaction = conn.transaction()?;
+    let deleted = transaction.execute(
+        "delete from combat_replay_videos where battle_id = ?1 and video_id = ?2",
+        params![battle_id, video_id],
+    )?;
+    transaction.commit()?;
     Ok(deleted > 0)
 }
 

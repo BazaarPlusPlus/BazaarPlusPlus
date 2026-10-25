@@ -1,3 +1,4 @@
+use anyhow::{bail, Context as _};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -113,9 +114,9 @@ impl History {
         })
     }
 
-    fn run_detail(&self, run_id: &str) -> Result<HistoryRunDetail, String> {
+    fn run_detail(&self, run_id: &str) -> anyhow::Result<HistoryRunDetail> {
         get_history_run_detail(&self.paths.database_path, run_id)?
-            .ok_or_else(|| format!("History run {run_id} was not found."))
+            .with_context(|| format!("History run {run_id} was not found."))
     }
 
     /// The screenshot file `reveal_run_screenshot` shows for `run_id`.
@@ -123,7 +124,7 @@ impl History {
         as_action_problem(REVEAL_SCREENSHOT, || {
             self.require_database_exists()?;
             load_run_screenshot_path(&self.paths.database_path, &self.paths.data_root, run_id)?
-                .ok_or_else(|| format!("No screenshot is available for run {run_id}."))
+                .with_context(|| format!("No screenshot is available for run {run_id}."))
         })
     }
 
@@ -141,7 +142,7 @@ impl History {
                 battle_id,
                 video_id,
             )?
-            .ok_or_else(|| format!("No completed video is available for battle {battle_id}."))?;
+            .with_context(|| format!("No completed video is available for battle {battle_id}."))?;
             require_video_file_exists(&path)?;
             Ok(path)
         })
@@ -155,7 +156,7 @@ impl History {
         as_action_problem("delete_video", || {
             self.require_database_exists()?;
             let run_id = load_run_id_for_battle(&self.paths.database_path, battle_id)?
-                .ok_or_else(|| format!("Battle {battle_id} was not found."))?;
+                .with_context(|| format!("Battle {battle_id} was not found."))?;
             let deleted = delete_battle_video_in_repo(
                 &self.paths.database_path,
                 &self.paths.combat_replay_videos_dir,
@@ -163,9 +164,7 @@ impl History {
                 video_id,
             )?;
             if !deleted {
-                return Err(format!(
-                    "Video {video_id} was not found for battle {battle_id}."
-                ));
+                bail!("Video {video_id} was not found for battle {battle_id}.");
             }
 
             self.run_detail(&run_id)
@@ -234,12 +233,12 @@ impl History {
         })
     }
 
-    fn require_database_exists(&self) -> Result<(), String> {
+    fn require_database_exists(&self) -> anyhow::Result<()> {
         self.paths
             .database_path
             .exists()
             .then_some(())
-            .ok_or_else(|| {
+            .with_context(|| {
                 format!(
                     "History database was not found at {}.",
                     self.paths.database_path.display()
@@ -320,10 +319,10 @@ pub(crate) async fn execute_storage_cleanup_with(
     maintenance
         .run_blocking(move || History::at(resolve_game_path())?.execute_cleanup(scope, preset))
         .await
-        .map_err(|diagnostic| {
+        .map_err(|error| {
             SemanticProblem::new(SemanticProblemCode::HistoryActionFailed)
                 .with_param("operation", "execute_storage_cleanup")
-                .with_diagnostic(diagnostic)
+                .with_error(&error)
         })?
 }
 
@@ -340,12 +339,12 @@ fn history_paths_for_game_path(game_path: PathBuf) -> HistoryStorage {
 /// `HistoryActionFailed` problem the frontend renders for `operation`.
 fn as_action_problem<T>(
     operation: &str,
-    action: impl FnOnce() -> Result<T, String>,
+    action: impl FnOnce() -> anyhow::Result<T>,
 ) -> Result<T, SemanticProblem> {
-    action().map_err(|diagnostic| {
+    action().map_err(|error| {
         SemanticProblem::new(SemanticProblemCode::HistoryActionFailed)
             .with_param("operation", operation)
-            .with_diagnostic(diagnostic)
+            .with_error(&error)
     })
 }
 
@@ -377,11 +376,11 @@ fn history_read_problem_with(
         .with_diagnostic(diagnostic)
 }
 
-fn require_video_file_exists(path: &Path) -> Result<(), String> {
+fn require_video_file_exists(path: &Path) -> anyhow::Result<()> {
     path.try_exists()
-        .map_err(|err| format!("Failed to inspect video file at {}: {err}", path.display()))?
+        .with_context(|| format!("Failed to inspect video file at {}", path.display()))?
         .then_some(())
-        .ok_or_else(|| format!("Video file was not found at {}.", path.display()))
+        .with_context(|| format!("Video file was not found at {}.", path.display()))
 }
 
 #[cfg(target_os = "windows")]
@@ -395,7 +394,7 @@ fn strip_extended_length_prefix(value: &str) -> String {
     }
 }
 
-fn reveal_in_file_browser(path: &Path) -> Result<(), String> {
+fn reveal_in_file_browser(path: &Path) -> anyhow::Result<()> {
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
@@ -407,7 +406,7 @@ fn reveal_in_file_browser(path: &Path) -> Result<(), String> {
         Command::new("explorer")
             .raw_arg(format!("/select,\"{}\"", canonical))
             .spawn()
-            .map_err(|err| format!("failed to reveal file in Explorer: {err}"))?;
+            .context("failed to reveal file in Explorer")?;
         Ok(())
     }
 
@@ -416,19 +415,17 @@ fn reveal_in_file_browser(path: &Path) -> Result<(), String> {
         Command::new("open")
             .args(["-R", &path.to_string_lossy()])
             .spawn()
-            .map_err(|err| format!("failed to reveal file in Finder: {err}"))?;
+            .context("failed to reveal file in Finder")?;
         Ok(())
     }
 
     #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
     {
-        let parent = path
-            .parent()
-            .ok_or_else(|| "file parent directory is missing".to_string())?;
+        let parent = path.parent().context("file parent directory is missing")?;
         Command::new("xdg-open")
             .arg(parent)
             .spawn()
-            .map_err(|err| format!("failed to open file directory: {err}"))?;
+            .context("failed to open file directory")?;
         Ok(())
     }
 }
@@ -637,7 +634,7 @@ mod tests {
         assert!(require_video_file_exists(&existing).is_ok());
         let missing = dir.path().join("missing.mp4");
         assert_eq!(
-            require_video_file_exists(&missing).unwrap_err(),
+            require_video_file_exists(&missing).unwrap_err().to_string(),
             format!("Video file was not found at {}.", missing.display())
         );
     }

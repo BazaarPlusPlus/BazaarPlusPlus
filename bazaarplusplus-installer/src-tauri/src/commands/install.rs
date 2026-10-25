@@ -1,5 +1,6 @@
 pub use crate::services::install::*;
 
+use anyhow::Context as _;
 use std::path::PathBuf;
 
 use tauri::Manager;
@@ -37,7 +38,7 @@ pub async fn choose_game_directory(
     let folder =
         tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
             .await
-            .map_err(|err| format!("failed to open game directory picker: {err}"))
+            .context("failed to open game directory picker")
             .map_err(|diagnostic| {
                 crate::services::install::install_action_problem("choose_directory", diagnostic)
             })?;

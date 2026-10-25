@@ -4,6 +4,8 @@
 //! instead of passing against a hand-copied shape. The V5 import creates a
 //! missing current database from it; tests build their databases from it.
 
+use anyhow::{bail, Context as _};
+
 const MOD_SCHEMA_SQL: &str = include_str!(
     "../../../../bazaarplusplus-mod/src/BazaarPlusPlus.Storage/history-database-v6.schema.sql"
 );
@@ -11,17 +13,15 @@ const MOD_SCHEMA_SQL: &str = include_str!(
 /// Creates every table, index, and trigger of the mod's current local history
 /// database on an empty connection and sets its `user_version`. Runs inside the
 /// caller's transaction when one is open.
-pub(crate) fn execute_mod_schema(conn: &rusqlite::Connection) -> Result<(), String> {
+pub(crate) fn execute_mod_schema(conn: &rusqlite::Connection) -> anyhow::Result<()> {
     conn.execute_batch(MOD_SCHEMA_SQL)
-        .map_err(|error| format!("Cannot create the history database schema: {error}"))?;
-    let user_version: i64 = conn
-        .query_row("pragma user_version", [], |row| row.get(0))
-        .map_err(|error| error.to_string())?;
+        .context("Cannot create the history database schema")?;
+    let user_version: i64 = conn.query_row("pragma user_version", [], |row| row.get(0))?;
     if Some(&user_version) != crate::config::supported_mod_db_user_versions().last() {
-        return Err(format!(
+        bail!(
             "The mod schema file sets user_version {user_version}, which is not the newest \
              version history-database-compatibility.json supports"
-        ));
+        );
     }
     Ok(())
 }
