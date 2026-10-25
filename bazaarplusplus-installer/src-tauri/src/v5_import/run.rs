@@ -54,7 +54,7 @@ pub(crate) async fn import_v5(
             import_blocking_with(&game_path, &SystemGameProcessProbe, SystemBackend, now_ms)
         })
         .await
-        .map_err(ImportError::Target)?
+        .map_err(|error| ImportError::Target(crate::problem::error_diagnostic(&error)))?
 }
 
 /// The import itself; the caller holds the data maintenance lock.
@@ -142,8 +142,8 @@ pub(crate) fn import_blocking_with<B: PlacementBackend>(
 fn read_retention(game_path: &Path) -> Result<ReplayRetention, ImportError> {
     let path = game_path.join(INSTALLED_HISTORY_DATABASE_CONTRACT);
     let contract: serde_json::Value = std::fs::read(&path)
-        .map_err(|error| error.to_string())
-        .and_then(|bytes| serde_json::from_slice(&bytes).map_err(|error| error.to_string()))
+        .map_err(anyhow::Error::from)
+        .and_then(|bytes| serde_json::from_slice(&bytes).map_err(anyhow::Error::from))
         .map_err(|error| ImportError::ModContract(format!("{}: {error}", path.display())))?;
     let positive = |field: &str| {
         contract

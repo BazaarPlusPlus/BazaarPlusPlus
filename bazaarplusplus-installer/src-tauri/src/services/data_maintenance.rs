@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use std::sync::Arc;
 
 use tokio::sync::Mutex as AsyncMutex;
@@ -22,7 +23,7 @@ impl DataMaintenanceLock {
     /// Runs `task` on the blocking pool while holding the lock. The guard moves
     /// into the task, so the lock outlives a dropped caller until the
     /// filesystem work actually finishes.
-    pub(crate) async fn run_blocking<T, F>(&self, task: F) -> Result<T, String>
+    pub(crate) async fn run_blocking<T, F>(&self, task: F) -> anyhow::Result<T>
     where
         T: Send + 'static,
         F: FnOnce() -> T + Send + 'static,
@@ -37,7 +38,7 @@ impl DataMaintenanceLock {
         &self,
         stream_runtime: &StreamRuntime,
         task: F,
-    ) -> Result<T, String>
+    ) -> anyhow::Result<T>
     where
         T: Send + 'static,
         F: FnOnce() -> T + Send + 'static,
@@ -52,7 +53,7 @@ impl DataMaintenanceLock {
 async fn run_on_blocking_pool<T, F>(
     guard: tokio::sync::OwnedMutexGuard<()>,
     task: F,
-) -> Result<T, String>
+) -> anyhow::Result<T>
 where
     T: Send + 'static,
     F: FnOnce() -> T + Send + 'static,
@@ -62,7 +63,7 @@ where
         task()
     })
     .await
-    .map_err(|err| format!("data maintenance task failed: {err}"))
+    .context("data maintenance task failed")
 }
 
 #[cfg(test)]

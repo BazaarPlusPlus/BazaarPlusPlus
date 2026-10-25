@@ -1,3 +1,4 @@
+use anyhow::{bail, Context as _};
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
@@ -7,26 +8,17 @@ pub(super) fn bundled_zip_relative_path() -> &'static str {
     "BepInExSource/BepInEx.zip"
 }
 
-pub(crate) fn read_bundled_bpp_version(app: &tauri::AppHandle) -> Result<Option<String>, String> {
-    let resource_path = app
-        .path()
-        .resource_dir()
-        .map_err(|err| err.to_string())?
-        .join(bundled_zip_relative_path());
-    let file = File::open(&resource_path)
-        .map_err(|err| format!("Cannot read bundled BepInEx.zip: {err}"))?;
-    let mut archive = zip::ZipArchive::new(file).map_err(|err| err.to_string())?;
+pub(crate) fn read_bundled_bpp_version(app: &tauri::AppHandle) -> anyhow::Result<Option<String>> {
+    let resource_path = app.path().resource_dir()?.join(bundled_zip_relative_path());
+    let file = File::open(&resource_path).context("Cannot read bundled BepInEx.zip")?;
+    let mut archive = zip::ZipArchive::new(file)?;
 
     for index in 0..archive.len() {
-        let mut file = archive.by_index(index).map_err(|err| err.to_string())?;
-        let is_version_file = file
-            .name()
-            .map_err(|err| err.to_string())?
-            .ends_with("BazaarPlusPlus.version");
+        let mut file = archive.by_index(index)?;
+        let is_version_file = file.name()?.ends_with("BazaarPlusPlus.version");
         if is_version_file {
             let mut version = String::new();
-            file.read_to_string(&mut version)
-                .map_err(|err| err.to_string())?;
+            file.read_to_string(&mut version)?;
             let version = version.trim();
             return Ok((!version.is_empty()).then(|| version.to_string()));
         }
@@ -45,21 +37,21 @@ pub(super) fn extract_zip(
     zip_bytes: &[u8],
     dest_dir: &Path,
     skip: &std::collections::HashSet<String>,
-) -> Result<ExtractReport, String> {
+) -> anyhow::Result<ExtractReport> {
     let reader = Cursor::new(zip_bytes);
-    let mut archive = zip::ZipArchive::new(reader).map_err(|err| err.to_string())?;
+    let mut archive = zip::ZipArchive::new(reader)?;
     let mut report = ExtractReport {
         written: Vec::new(),
         skipped_identical: Vec::new(),
     };
 
     for index in 0..archive.len() {
-        let mut file = archive.by_index(index).map_err(|err| err.to_string())?;
+        let mut file = archive.by_index(index)?;
         let Some(relative_path) = file.enclosed_name() else {
-            return Err(format!(
+            bail!(
                 "Zip entry has unsafe path: {}",
                 String::from_utf8_lossy(file.name_raw())
-            ));
+            );
         };
         if !file.is_dir() && skip.contains(&relative_path.to_string_lossy().replace('\\', "/")) {
             continue;
@@ -67,17 +59,16 @@ pub(super) fn extract_zip(
         let output_path = dest_dir.join(relative_path);
 
         if file.is_dir() {
-            std::fs::create_dir_all(&output_path).map_err(|err| err.to_string())?;
+            std::fs::create_dir_all(&output_path)?;
             continue;
         }
 
         if let Some(parent) = output_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+            std::fs::create_dir_all(parent)?;
         }
 
         let mut contents = Vec::new();
-        file.read_to_end(&mut contents)
-            .map_err(|err| err.to_string())?;
+        file.read_to_end(&mut contents)?;
 
         if existing_file_is_identical(&output_path, &contents) {
             report
@@ -86,7 +77,7 @@ pub(super) fn extract_zip(
             continue;
         }
 
-        std::fs::write(&output_path, contents).map_err(|err| err.to_string())?;
+        std::fs::write(&output_path, contents)?;
         report
             .written
             .push(output_path.to_string_lossy().into_owned());
@@ -97,31 +88,29 @@ pub(super) fn extract_zip(
 
 pub(super) fn zip_entry_paths(
     zip_bytes: &[u8],
-) -> Result<std::collections::HashSet<String>, String> {
+) -> anyhow::Result<std::collections::HashSet<String>> {
     let reader = Cursor::new(zip_bytes);
-    let archive = zip::ZipArchive::new(reader).map_err(|err| err.to_string())?;
+    let archive = zip::ZipArchive::new(reader)?;
     archive
         .file_names()
         .filter_map(|name| match name {
             Ok(name) if name.ends_with('/') => None,
             Ok(name) => Some(Ok(name.replace('\\', "/"))),
-            Err(err) => Some(Err(err.to_string())),
+            Err(err) => Some(Err(err.into())),
         })
         .collect()
 }
 
 /// The bytes of one file entry, or `None` when the zip has no such entry.
-pub(super) fn zip_entry_bytes(zip_bytes: &[u8], name: &str) -> Result<Option<Vec<u8>>, String> {
-    let mut archive =
-        zip::ZipArchive::new(Cursor::new(zip_bytes)).map_err(|err| err.to_string())?;
+pub(super) fn zip_entry_bytes(zip_bytes: &[u8], name: &str) -> anyhow::Result<Option<Vec<u8>>> {
+    let mut archive = zip::ZipArchive::new(Cursor::new(zip_bytes))?;
     let mut file = match archive.by_name(name) {
         Ok(file) => file,
         Err(zip::result::ZipError::FileNotFound) => return Ok(None),
-        Err(err) => return Err(err.to_string()),
+        Err(err) => return Err(err.into()),
     };
     let mut contents = Vec::new();
-    file.read_to_end(&mut contents)
-        .map_err(|err| err.to_string())?;
+    file.read_to_end(&mut contents)?;
     Ok(Some(contents))
 }
 

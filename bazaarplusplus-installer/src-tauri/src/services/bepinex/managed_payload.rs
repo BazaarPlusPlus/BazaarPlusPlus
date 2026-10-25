@@ -6,6 +6,7 @@
 //! the bundled zip still supplies every non-managed file, and supplies the
 //! managed files only on a first install or as the fallback.
 
+use anyhow::{anyhow, bail, Context as _};
 use std::collections::HashSet;
 use std::io::Read;
 use std::path::Path;
@@ -85,32 +86,32 @@ fn is_safe_relative(path: &str) -> bool {
 }
 
 impl ManagedPayloadManifest {
-    fn parse(text: &str) -> Result<Self, String> {
+    fn parse(text: &str) -> anyhow::Result<Self> {
         let body = text
             .strip_suffix('\n')
             .filter(|_| !text.contains('\r'))
-            .ok_or("a Managed Payload Manifest is LF-terminated lines")?;
+            .context("a Managed Payload Manifest is LF-terminated lines")?;
         let lines: Vec<&str> = body.split('\n').collect();
         if lines.len() < 5 || lines[0] != MANIFEST_HEADER {
-            return Err("not a Managed Payload Manifest".into());
+            bail!("not a Managed Payload Manifest");
         }
         let field = |index: usize, name: &str| {
             lines[index]
                 .strip_prefix(name)
                 .and_then(|rest| rest.strip_prefix(' '))
-                .ok_or(format!("expected manifest field '{name}'"))
+                .with_context(|| format!("expected manifest field '{name}'"))
         };
         let version_text = field(1, "version")?;
         let version = ProductVersion::parse(version_text)
             .filter(|_| version_text.split('.').count() == 3)
-            .ok_or(format!("invalid manifest version '{version_text}'"))?;
+            .with_context(|| format!("invalid manifest version '{version_text}'"))?;
         let platform = field(2, "platform")?;
         if platform.is_empty()
             || !platform
                 .chars()
                 .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
         {
-            return Err(format!("invalid manifest platform '{platform}'"));
+            bail!("invalid manifest platform '{platform}'");
         }
         let history = field(3, "history-database-user-version")?;
         let history_database_user_version = history
@@ -119,17 +120,17 @@ impl ManagedPayloadManifest {
             .then(|| history.parse::<u32>().ok())
             .flatten()
             .filter(|value| *value > 0)
-            .ok_or("invalid history-database-user-version")?;
+            .context("invalid history-database-user-version")?;
         let digest = field(4, "non-managed-payload-digest")?;
         if !is_sha256(digest) {
-            return Err("invalid non-managed-payload-digest".into());
+            bail!("invalid non-managed-payload-digest");
         }
 
         let mut files: Vec<ManagedPayloadFile> = Vec::new();
         for (index, line) in lines.iter().enumerate().skip(5) {
             let parts: Vec<&str> = line.splitn(4, ' ').collect();
             let [kind, sha256, size, path] = parts[..] else {
-                return Err(format!("invalid manifest line {}", index + 1));
+                bail!("invalid manifest line {}", index + 1);
             };
             let size = size
                 .bytes()
@@ -137,16 +138,16 @@ impl ManagedPayloadManifest {
                 .then(|| size.parse::<u64>().ok())
                 .flatten();
             let (Some(size), true, true) = (size, kind == "file", is_sha256(sha256)) else {
-                return Err(format!("invalid manifest line {}", index + 1));
+                bail!("invalid manifest line {}", index + 1);
             };
             if !is_safe_relative(path) {
-                return Err(format!("unsafe manifest path '{path}'"));
+                bail!("unsafe manifest path '{path}'");
             }
             if files
                 .last()
                 .is_some_and(|previous| previous.path.as_str() >= path)
             {
-                return Err("manifest files must be sorted and unique".into());
+                bail!("manifest files must be sorted and unique");
             }
             files.push(ManagedPayloadFile {
                 path: path.to_owned(),
@@ -155,7 +156,7 @@ impl ManagedPayloadManifest {
             });
         }
         if files.is_empty() {
-            return Err("a Managed Payload Manifest names at least one file".into());
+            bail!("a Managed Payload Manifest names at least one file");
         }
 
         Ok(Self {
@@ -198,7 +199,9 @@ pub(super) fn choose_managed_payload_source(
     match installed_payload_to_keep(game_path, manifest_path, bundled_manifest) {
         Ok(source) => source,
         Err(_reason) => {
-            crate::services::debug_log!("[install] writing the bundled Managed Payload: {_reason}");
+            crate::services::debug_log!(
+                "[install] writing the bundled Managed Payload: {_reason:#}"
+            );
             ManagedPayloadSource::Bundled
         }
     }
@@ -208,36 +211,38 @@ fn installed_payload_to_keep(
     game_path: &Path,
     manifest_path: &str,
     bundled_manifest: Option<&[u8]>,
-) -> Result<ManagedPayloadSource, String> {
-    let bundled = bundled_manifest.ok_or("the bundled Payload has no Managed Payload Manifest")?;
+) -> anyhow::Result<ManagedPayloadSource> {
+    let bundled =
+        bundled_manifest.context("the bundled Payload has no Managed Payload Manifest")?;
     let bundled = std::str::from_utf8(bundled)
-        .map_err(|_| "the bundled Managed Payload Manifest is not UTF-8".to_string())
+        .map_err(|_| anyhow!("the bundled Managed Payload Manifest is not UTF-8"))
         .and_then(ManagedPayloadManifest::parse)?;
     let installed = match std::fs::read(game_path.join(manifest_path)) {
         Ok(bytes) => bytes,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             return Ok(ManagedPayloadSource::Bundled)
         }
-        Err(err) => return Err(format!("cannot read the installed manifest: {err}")),
+        Err(err) => bail!("cannot read the installed manifest: {err}"),
     };
     let installed = std::str::from_utf8(&installed)
-        .map_err(|_| "the installed Managed Payload Manifest is not UTF-8".to_string())
+        .map_err(|_| anyhow!("the installed Managed Payload Manifest is not UTF-8"))
         .and_then(ManagedPayloadManifest::parse)?;
 
     if installed.version <= bundled.version {
         return Ok(ManagedPayloadSource::Bundled);
     }
     if installed.platform != bundled.platform {
-        return Err(format!(
+        bail!(
             "the installed payload is for {}, the bundled one for {}",
-            installed.platform, bundled.platform
-        ));
+            installed.platform,
+            bundled.platform
+        );
     }
     if installed.history_database_user_version != bundled.history_database_user_version {
-        return Err("the installed payload needs another history database schema".into());
+        bail!("the installed payload needs another history database schema");
     }
     if installed.non_managed_payload_digest != bundled.non_managed_payload_digest {
-        return Err("the installed payload was released with other non-managed files".into());
+        bail!("the installed payload was released with other non-managed files");
     }
     for file in &installed.files {
         let writable = file
@@ -245,10 +250,10 @@ fn installed_payload_to_keep(
             .strip_prefix(MOD_DIRECTORY)
             .is_some_and(|name| !name.contains('/'));
         if !writable || file.path == manifest_path {
-            return Err(format!("the installed manifest lists {}", file.path));
+            bail!("the installed manifest lists {}", file.path);
         }
         if !file_matches(&game_path.join(&file.path), file)? {
-            return Err(format!("{} differs from the installed manifest", file.path));
+            bail!("{} differs from the installed manifest", file.path);
         }
     }
 
@@ -268,15 +273,15 @@ fn installed_payload_to_keep(
     })
 }
 
-fn file_matches(path: &Path, expected: &ManagedPayloadFile) -> Result<bool, String> {
+fn file_matches(path: &Path, expected: &ManagedPayloadFile) -> anyhow::Result<bool> {
     let mut file = match std::fs::File::open(path) {
         Ok(file) => file,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(err) => return Err(format!("cannot read {}: {err}", path.display())),
+        Err(err) => bail!("cannot read {}: {err}", path.display()),
     };
     let size = file
         .metadata()
-        .map_err(|err| format!("cannot inspect {}: {err}", path.display()))?
+        .with_context(|| format!("cannot inspect {}", path.display()))?
         .len();
     if size != expected.size {
         return Ok(false);
@@ -286,7 +291,7 @@ fn file_matches(path: &Path, expected: &ManagedPayloadFile) -> Result<bool, Stri
     loop {
         let count = file
             .read(&mut buffer)
-            .map_err(|err| format!("cannot read {}: {err}", path.display()))?;
+            .with_context(|| format!("cannot read {}", path.display()))?;
         if count == 0 {
             break;
         }

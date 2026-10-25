@@ -28,15 +28,23 @@ impl std::fmt::Display for HistoryReadError {
     }
 }
 
+impl std::error::Error for HistoryReadError {}
+
 impl From<String> for HistoryReadError {
     fn from(diagnostic: String) -> Self {
         Self::Failed(diagnostic)
     }
 }
 
-impl From<HistoryReadError> for String {
-    fn from(error: HistoryReadError) -> Self {
-        error.to_string()
+impl From<anyhow::Error> for HistoryReadError {
+    fn from(error: anyhow::Error) -> Self {
+        Self::Failed(crate::problem::error_diagnostic(&error))
+    }
+}
+
+impl From<rusqlite::Error> for HistoryReadError {
+    fn from(error: rusqlite::Error) -> Self {
+        Self::Failed(error.to_string())
     }
 }
 
@@ -175,21 +183,20 @@ fn validate_supported_schema(found: i64) -> Result<(), HistoryReadError> {
 /// this enables per-connection foreign-key enforcement so the mod schema's
 /// ON DELETE CASCADE chains (runs -> run_events/battles/bundle_seal_jobs,
 /// battles -> battle_snapshots) fire on our deletes.
-pub fn open_cleanup_connection(database_path: &Path) -> Result<Connection, String> {
+pub fn open_cleanup_connection(database_path: &Path) -> anyhow::Result<Connection> {
     let conn = open_write_connection(database_path)?;
-    conn.execute_batch("PRAGMA foreign_keys = ON;")
-        .map_err(|err| err.to_string())?;
+    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     Ok(conn)
 }
 
-pub fn table_exists(conn: &Connection, table_name: &str) -> Result<bool, String> {
+pub fn table_exists(conn: &Connection, table_name: &str) -> anyhow::Result<bool> {
     conn.query_row(
         "select exists(select 1 from sqlite_master where type = 'table' and name = ?1)",
         [table_name],
         |row| row.get::<_, i64>(0),
     )
     .map(|value| value != 0)
-    .map_err(|err| err.to_string())
+    .map_err(anyhow::Error::from)
 }
 
 pub fn sql_placeholders(count: usize) -> String {
@@ -198,7 +205,7 @@ pub fn sql_placeholders(count: usize) -> String {
         .join(", ")
 }
 
-pub fn load_summary(conn: &Connection) -> Result<HistorySummary, String> {
+pub fn load_summary(conn: &Connection) -> anyhow::Result<HistorySummary> {
     let (runs, completed_runs, win_runs): (i64, i64, i64) = conn
         .query_row(
             "
@@ -211,14 +218,13 @@ pub fn load_summary(conn: &Connection) -> Result<HistorySummary, String> {
             [],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
-        .map_err(|err| err.to_string())?;
+        ?;
     let videos = if table_exists(conn, "combat_replay_videos")? {
         conn.query_row(
             "select count(*) from combat_replay_videos where status = 'COMPLETED'",
             [],
             |row| row.get(0),
-        )
-        .map_err(|err| err.to_string())?
+        )?
     } else {
         0
     };
@@ -234,10 +240,9 @@ pub fn load_summary(conn: &Connection) -> Result<HistorySummary, String> {
     })
 }
 
-pub fn list_run_rows(conn: &Connection, limit: i64, offset: i64) -> Result<Vec<RunRow>, String> {
-    let mut stmt = conn
-        .prepare(
-            "
+pub fn list_run_rows(conn: &Connection, limit: i64, offset: i64) -> anyhow::Result<Vec<RunRow>> {
+    let mut stmt = conn.prepare(
+        "
             select
               run_id, hero, game_mode, started_at_ms, ended_at_ms,
               status, victories, losses, final_day, final_player_rank, final_player_rating,
@@ -246,16 +251,13 @@ pub fn list_run_rows(conn: &Connection, limit: i64, offset: i64) -> Result<Vec<R
             order by coalesce(ended_at_ms, last_seen_at_ms, started_at_ms) desc, run_id desc
             limit ?1 offset ?2
             ",
-        )
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([limit, offset], map_run_row_from_statement)
-        .map_err(|err| err.to_string())?;
+    )?;
+    let rows = stmt.query_map([limit, offset], map_run_row_from_statement)?;
     rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
-pub fn load_run_row(conn: &Connection, run_id: &str) -> Result<Option<RunRow>, String> {
+pub fn load_run_row(conn: &Connection, run_id: &str) -> anyhow::Result<Option<RunRow>> {
     conn.query_row(
         "
         select
@@ -269,7 +271,7 @@ pub fn load_run_row(conn: &Connection, run_id: &str) -> Result<Option<RunRow>, S
         map_run_row_from_statement,
     )
     .optional()
-    .map_err(|err| err.to_string())
+    .map_err(anyhow::Error::from)
 }
 
 fn map_run_row_from_statement(row: &rusqlite::Row<'_>) -> rusqlite::Result<RunRow> {
@@ -302,7 +304,7 @@ fn map_battle_fields(row: &rusqlite::Row<'_>) -> rusqlite::Result<BattleFields> 
     })
 }
 
-pub fn local_player_name(conn: &Connection, run_id: &str) -> Result<Option<String>, String> {
+pub fn local_player_name(conn: &Connection, run_id: &str) -> anyhow::Result<Option<String>> {
     if !table_exists(conn, "battles")? {
         return Ok(None);
     }
@@ -319,18 +321,17 @@ pub fn local_player_name(conn: &Connection, run_id: &str) -> Result<Option<Strin
         |row| row.get(0),
     )
     .optional()
-    .map_err(|err| err.to_string())
+    .map_err(anyhow::Error::from)
 }
 
-pub fn load_battle_rows(conn: &Connection, run_id: &str) -> Result<Vec<HistoryBattleRow>, String> {
+pub fn load_battle_rows(conn: &Connection, run_id: &str) -> anyhow::Result<Vec<HistoryBattleRow>> {
     if !table_exists(conn, "battles")? {
         return Ok(Vec::new());
     }
 
     if table_exists(conn, "combat_replay_videos")? {
-        let mut stmt = conn
-            .prepare(
-                "
+        let mut stmt = conn.prepare(
+            "
                 select
                   b.battle_id, b.day, b.hour, b.result,
                   b.opponent_hero, b.opponent_name, b.opponent_rank, b.opponent_rating,
@@ -346,30 +347,26 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> Result<Vec<HistoryBa
                 where b.run_id = ?1 and b.source = 'LOCAL' and b.deleted_at_ms is null
                 order by b.recorded_at_ms desc, b.battle_id desc
                 ",
-            )
-            .map_err(|err| err.to_string())?;
-        let rows = stmt
-            .query_map([run_id], |row| {
-                let video_id: Option<String> = row.get(8)?;
-                Ok(map_battle_row(
-                    map_battle_fields(row)?,
-                    video_id.map(|video_id| BattleVideoFields {
-                        video_id,
-                        status: row.get(9).ok().flatten(),
-                        file_size_bytes: row.get(10).ok().flatten(),
-                        duration_ms: row.get(11).ok().flatten(),
-                    }),
-                ))
-            })
-            .map_err(|err| err.to_string())?;
+        )?;
+        let rows = stmt.query_map([run_id], |row| {
+            let video_id: Option<String> = row.get(8)?;
+            Ok(map_battle_row(
+                map_battle_fields(row)?,
+                video_id.map(|video_id| BattleVideoFields {
+                    video_id,
+                    status: row.get(9).ok().flatten(),
+                    file_size_bytes: row.get(10).ok().flatten(),
+                    duration_ms: row.get(11).ok().flatten(),
+                }),
+            ))
+        })?;
         return rows
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|err| err.to_string());
+            .map_err(anyhow::Error::from);
     }
 
-    let mut stmt = conn
-        .prepare(
-            "
+    let mut stmt = conn.prepare(
+        "
             select
               battle_id, day, hour, result,
               opponent_hero, opponent_name, opponent_rank, opponent_rating
@@ -377,22 +374,19 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> Result<Vec<HistoryBa
             where run_id = ?1 and source = 'LOCAL' and deleted_at_ms is null
             order by recorded_at_ms desc, battle_id desc
             ",
-        )
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([run_id], |row| {
-            Ok(map_battle_row(map_battle_fields(row)?, None))
-        })
-        .map_err(|err| err.to_string())?;
+    )?;
+    let rows = stmt.query_map([run_id], |row| {
+        Ok(map_battle_row(map_battle_fields(row)?, None))
+    })?;
     rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())
+        .map_err(anyhow::Error::from)
 }
 
 pub fn load_battle_video_ref(
     conn: &Connection,
     battle_id: &str,
     video_id: &str,
-) -> Result<Option<VideoRef>, String> {
+) -> anyhow::Result<Option<VideoRef>> {
     if !table_exists(conn, "combat_replay_videos")? {
         return Ok(None);
     }
@@ -411,13 +405,13 @@ pub fn load_battle_video_ref(
         },
     )
     .optional()
-    .map_err(|err| err.to_string())
+    .map_err(anyhow::Error::from)
 }
 
 pub fn load_run_id_for_battle(
     conn: &Connection,
     battle_id: &str,
-) -> Result<Option<String>, String> {
+) -> anyhow::Result<Option<String>> {
     if !table_exists(conn, "battles")? {
         return Ok(None);
     }
@@ -428,7 +422,7 @@ pub fn load_run_id_for_battle(
         |row| row.get(0),
     )
     .optional()
-    .map_err(|err| err.to_string())
+    .map_err(anyhow::Error::from)
 }
 
 #[cfg(test)]

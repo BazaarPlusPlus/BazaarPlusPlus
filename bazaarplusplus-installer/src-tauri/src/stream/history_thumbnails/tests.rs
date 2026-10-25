@@ -504,7 +504,8 @@ async fn history_preparation_keeps_start_errors_visible_to_stream_status() {
         runtime
             .prepare_history_thumbnails_with(&server, || installation("/A"))
             .await
-            .unwrap_err(),
+            .unwrap_err()
+            .to_string(),
         "port occupied"
     );
     assert!(!runtime.snapshot().running);

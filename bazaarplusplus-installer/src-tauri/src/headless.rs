@@ -1,5 +1,6 @@
 //! Process entry for developer commands; never initializes a Tauri application.
 
+use anyhow::{anyhow, bail, Context as _};
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -18,7 +19,7 @@ pub fn run(arguments: impl IntoIterator<Item = OsString>) -> Option<i32> {
     } else if command == "import" {
         import(args)
     } else {
-        Err(format!(
+        Err(anyhow!(
             "Unknown command: {}\n{HELP}",
             command.to_string_lossy()
         ))
@@ -26,7 +27,7 @@ pub fn run(arguments: impl IntoIterator<Item = OsString>) -> Option<i32> {
     Some(match result {
         Ok(()) => 0,
         Err(error) => {
-            eprintln!("{error}");
+            eprintln!("{error:#}");
             1
         }
     })
@@ -37,30 +38,27 @@ fn options<const N: usize>(
     command: &str,
     names: [&str; N],
     mut args: impl Iterator<Item = OsString>,
-) -> Result<[Option<OsString>; N], String> {
+) -> anyhow::Result<[Option<OsString>; N]> {
     let mut values: [Option<OsString>; N] = std::array::from_fn(|_| None);
     while let Some(option) = args.next() {
         let Some(index) = names.iter().position(|name| option == *name) else {
-            return Err(format!(
-                "Unknown {command} option: {}",
-                option.to_string_lossy()
-            ));
+            bail!("Unknown {command} option: {}", option.to_string_lossy());
         };
         if values[index].is_some() {
-            return Err(format!("Duplicate option: {}", option.to_string_lossy()));
+            bail!("Duplicate option: {}", option.to_string_lossy());
         }
         values[index] = Some(
             args.next()
-                .ok_or_else(|| format!("Missing value for {}", option.to_string_lossy()))?,
+                .with_context(|| format!("Missing value for {}", option.to_string_lossy()))?,
         );
     }
     Ok(values)
 }
 
-fn canonical_game(game: Option<OsString>, command: &str) -> Result<PathBuf, String> {
-    PathBuf::from(game.ok_or_else(|| format!("{command} requires --game <directory>"))?)
+fn canonical_game(game: Option<OsString>, command: &str) -> anyhow::Result<PathBuf> {
+    PathBuf::from(game.with_context(|| format!("{command} requires --game <directory>"))?)
         .canonicalize()
-        .map_err(|error| format!("Cannot open game directory: {error}"))
+        .context("Cannot open game directory")
 }
 
 /// A temporary file beside the manifest destination, published over it once
@@ -69,51 +67,48 @@ fn canonical_game(game: Option<OsString>, command: &str) -> Result<PathBuf, Stri
 fn stage_manifest(
     path: PathBuf,
     game: &Path,
-) -> Result<(tempfile::NamedTempFile, PathBuf), String> {
+) -> anyhow::Result<(tempfile::NamedTempFile, PathBuf)> {
     let parent = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
     let parent = parent
         .canonicalize()
-        .map_err(|error| format!("Cannot open manifest directory: {error}"))?;
+        .context("Cannot open manifest directory")?;
     if parent.starts_with(game) {
-        return Err("Write the manifest outside the game directory".into());
+        bail!("Write the manifest outside the game directory");
     }
     match std::fs::symlink_metadata(&path) {
         Ok(metadata) if !metadata.file_type().is_file() => {
-            return Err("Manifest destination must be a regular file".into());
+            bail!("Manifest destination must be a regular file");
         }
         Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-            return Err(format!("Cannot inspect manifest destination: {error}"));
+            bail!("Cannot inspect manifest destination: {error}");
         }
         _ => {}
     }
-    let file = tempfile::NamedTempFile::new_in(parent)
-        .map_err(|error| format!("Cannot stage manifest: {error}"))?;
+    let file = tempfile::NamedTempFile::new_in(parent).context("Cannot stage manifest")?;
     Ok((file, path))
 }
 
 fn publish_manifest(
     (mut file, path): (tempfile::NamedTempFile, PathBuf),
     output: &str,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     file.write_all(output.as_bytes())
-        .map_err(|error| format!("Cannot write manifest: {error}"))?;
-    file.persist(path)
-        .map_err(|error| format!("Cannot publish manifest: {error}"))?;
+        .context("Cannot write manifest")?;
+    file.persist(path).context("Cannot publish manifest")?;
     Ok(())
 }
 
-fn repair(args: impl Iterator<Item = OsString>) -> Result<(), String> {
+fn repair(args: impl Iterator<Item = OsString>) -> anyhow::Result<()> {
     let [game, stub, manifest] = options("repair", ["--game", "--stub", "--manifest"], args)?;
     let game = canonical_game(game, "repair")?;
     let stub = match stub {
         Some(path) => PathBuf::from(path),
-        None => std::env::current_exe()
-            .map_err(|error| error.to_string())?
+        None => std::env::current_exe()?
             .parent()
-            .ok_or("Cannot locate installer executable directory")?
+            .context("Cannot locate installer executable directory")?
             .join("../Resources/Trampoline/bpp_launcher"),
     };
     let manifest = manifest
@@ -132,13 +127,13 @@ fn repair(args: impl Iterator<Item = OsString>) -> Result<(), String> {
     }
 }
 
-fn import(args: impl Iterator<Item = OsString>) -> Result<(), String> {
+fn import(args: impl Iterator<Item = OsString>) -> anyhow::Result<()> {
     let [game, manifest, now] = options("import", ["--game", "--manifest", "--now"], args)?;
     let game = canonical_game(game, "import")?;
-    let manifest = manifest.ok_or("import requires --manifest <file>")?;
+    let manifest = manifest.context("import requires --manifest <file>")?;
     let now_ms = match now {
         Some(text) => chrono::DateTime::parse_from_rfc3339(&text.to_string_lossy())
-            .map_err(|error| format!("--now is not an RFC 3339 time: {error}"))?
+            .context("--now is not an RFC 3339 time")?
             .timestamp_millis(),
         None => chrono::Utc::now().timestamp_millis(),
     };
@@ -155,6 +150,6 @@ fn import(args: impl Iterator<Item = OsString>) -> Result<(), String> {
     )?;
     match outcome {
         Ok(_) | Err(crate::v5_import::ImportError::AlreadyImported) => Ok(()),
-        Err(error) => Err(format!("Import failed ({}): {error}", error.code())),
+        Err(error) => Err(anyhow!("Import failed ({}): {error}", error.code())),
     }
 }

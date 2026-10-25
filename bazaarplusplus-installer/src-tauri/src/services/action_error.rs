@@ -50,6 +50,12 @@ impl From<String> for ActionError {
     }
 }
 
+impl From<anyhow::Error> for ActionError {
+    fn from(error: anyhow::Error) -> Self {
+        Self::Failed(crate::problem::error_diagnostic(&error))
+    }
+}
+
 impl From<GameRunningRefusal> for ActionError {
     fn from(refusal: GameRunningRefusal) -> Self {
         Self::Refused(refusal)

@@ -14,24 +14,25 @@ pub(crate) use trampoline::{
 pub(crate) use zip_archive::read_bundled_bpp_version;
 
 /// Repairs developer deployments without extracting the installer's bundled Payload.
-pub(crate) fn repair_deployed_game(game_path: &Path, stub: &Path) -> Result<(), String> {
+pub(crate) fn repair_deployed_game(game_path: &Path, stub: &Path) -> anyhow::Result<()> {
     #[cfg(target_os = "macos")]
     {
         payload::ensure_valid_game_path(game_path)?;
         if !game_path.join("libdoorstop.dylib").is_file() {
-            return Err(
-                "libdoorstop.dylib is missing; install BepInEx with the installer first".into(),
-            );
+            anyhow::bail!("libdoorstop.dylib is missing; install BepInEx with the installer first");
         }
         trampoline::repair_with_stub(game_path, stub)
     }
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (game_path, stub);
-        Err("Launch trampoline repair is supported only on macOS".into())
+        Err(anyhow!(
+            "Launch trampoline repair is supported only on macOS"
+        ))
     }
 }
 
+use anyhow::{anyhow, Context as _};
 use std::path::Path;
 
 use crate::services::action_error::ActionError;
@@ -133,16 +134,17 @@ fn reset_bepinex_folder_blocking_with(
     Ok(had_bepinex)
 }
 
-pub fn install_bepinex(resource_dir: &Path, game_path: &Path) -> Result<(), String> {
+pub fn install_bepinex(resource_dir: &Path, game_path: &Path) -> anyhow::Result<()> {
     let preserved_bpp_config =
         payload::preserve_file_if_exists(game_path, payload::BPP_CONFIG_RELATIVE_PATH)?;
     debug_log!("Reading bundled BepInEx.zip...");
     let relative_zip_path = zip_archive::bundled_zip_relative_path();
     let resource_path = resource_dir.join(relative_zip_path);
-    let zip_bytes = std::fs::read(&resource_path).map_err(|err| {
-        debug_error!("Cannot read bundled BepInEx.zip: {err}");
-        format!("Cannot read bundled BepInEx.zip: {err}")
-    })?;
+    let zip_bytes = std::fs::read(&resource_path)
+        .inspect_err(|err| {
+            debug_error!("Cannot read bundled BepInEx.zip: {err}");
+        })
+        .context("Cannot read bundled BepInEx.zip")?;
     let mut incoming_relative_paths = zip_archive::zip_entry_paths(&zip_bytes)?;
 
     // Repair never writes an older Managed Payload over a newer one the mod's
@@ -170,7 +172,7 @@ pub fn install_bepinex(resource_dir: &Path, game_path: &Path) -> Result<(), Stri
 
     let install_backup = payload::prepare_install_target(game_path, &incoming_relative_paths)?;
 
-    let install_result = (|| -> Result<(), String> {
+    let install_result = (|| -> anyhow::Result<()> {
         debug_log!("Extracting BepInEx...");
         let _report = zip_archive::extract_zip(&zip_bytes, game_path, &skip)?;
         debug_log!(
@@ -191,8 +193,8 @@ pub fn install_bepinex(resource_dir: &Path, game_path: &Path) -> Result<(), Stri
         (Ok(()), Ok(_)) => Ok(()),
         (Err(install_err), Ok(_)) => Err(install_err),
         (Ok(()), Err(restore_err)) => Err(restore_err),
-        (Err(install_err), Err(restore_err)) => Err(format!(
-            "{install_err}; additionally failed to restore preserved config: {restore_err}"
+        (Err(install_err), Err(restore_err)) => Err(anyhow!(
+            "{install_err:#}; additionally failed to restore preserved config: {restore_err:#}"
         )),
     };
 
@@ -200,8 +202,8 @@ pub fn install_bepinex(resource_dir: &Path, game_path: &Path) -> Result<(), Stri
         Ok(()) => Ok(()),
         Err(err) => match install_backup.restore(game_path) {
             Ok(()) => Err(err),
-            Err(rollback_err) => Err(format!(
-                "{err}; additionally failed to restore previous payload: {rollback_err}"
+            Err(rollback_err) => Err(anyhow!(
+                "{err:#}; additionally failed to restore previous payload: {rollback_err:#}"
             )),
         },
     }
@@ -211,7 +213,7 @@ pub fn uninstall_bpp(
     _app: tauri::AppHandle,
     _steam_path: String,
     game_path: String,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let game_path = Path::new(&game_path);
     payload::ensure_valid_game_path(game_path)?;
 
@@ -273,7 +275,7 @@ mod tests {
     use super::*;
     use crate::problem::SemanticProblemCode;
 
-    fn stopped(_: &Path) -> Result<bool, String> {
+    fn stopped(_: &Path) -> anyhow::Result<bool> {
         Ok(false)
     }
 
@@ -382,13 +384,13 @@ mod tests {
 
     #[test]
     fn resets_refuse_with_typed_problems_and_delete_nothing_while_the_game_runs() {
-        fn running(_: &Path) -> Result<bool, String> {
+        fn running(_: &Path) -> anyhow::Result<bool> {
             Ok(true)
         }
-        fn unknown(_: &Path) -> Result<bool, String> {
-            Err("cannot inspect processes".to_string())
+        fn unknown(_: &Path) -> anyhow::Result<bool> {
+            Err(anyhow!("cannot inspect processes"))
         }
-        type Probe = fn(&Path) -> Result<bool, String>;
+        type Probe = fn(&Path) -> anyhow::Result<bool>;
         let probes: [Probe; 2] = [running, unknown];
         for refusing in probes {
             let tmp = make_valid_game_dir();
