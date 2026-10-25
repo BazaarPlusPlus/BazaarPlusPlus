@@ -2,7 +2,6 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Patches;
-using BazaarPlusPlus.Android.Settings;
 using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Config;
@@ -66,6 +65,10 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private readonly TouchViewSlot<AndroidHistoryPanelView> _slot;
     private AndroidHistoryInspection? _inspection;
     private AndroidHistorySkillsSheet? _skills;
+    private readonly AndroidNativeSkillOverlay _nativeSkills = new(
+        AndroidHistoryPanelView.SortingOrder + 1
+    );
+    private IReadOnlyList<IReadOnlyList<BppItemBoardCard>> _skillSides = [];
     private AndroidHistoryMoreDialog? _more;
     private AndroidHistoryNoteDialog? _note;
     private AndroidHistoryOverlays? _overlays;
@@ -99,8 +102,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
         _supporters = supporters;
         _runContext = dependencies.RunContext;
         _slot = new TouchViewSlot<AndroidHistoryPanelView>(DropView);
-        _upper = new AndroidHistoryBoard("history.upper", card => Inspect(card, false, "upper"));
-        _lower = new AndroidHistoryBoard("history.lower", card => Inspect(card, false, "lower"));
+        _upper = new AndroidHistoryBoard("history.upper", card => Inspect(card, "upper"));
+        _lower = new AndroidHistoryBoard("history.lower", card => Inspect(card, "lower"));
         _coordinator = new HistoryPanelCoordinator(
             _state,
             dependencies,
@@ -203,6 +206,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 RefreshBoardMessages();
             View?.Tick();
             _note?.Tick();
+            _nativeSkills.Tick();
         }
         catch (Exception exception)
         {
@@ -331,16 +335,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
         );
     }
 
-    // The More dialog's switch is the settings row's own write; the host sees the switch-off on
-    // its next frame, closes the panel and releases the rented cards (Panel Switch-Off).
-    private void TurnOff() =>
-        AndroidSettingsDock.WriteSwitch(
-            AndroidSettingsDock.HistoryPanelKey,
-            _enabled,
-            false,
-            source: "history_more"
-        );
-
     // Every overlay closes and every card goes back to the rental.
     private int ReturnCards(string reason)
     {
@@ -412,12 +406,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
             _upper.Attach(view.UpperBoard, layout);
             _lower.Attach(view.LowerBoard, layout);
             // Later siblings draw over the sheet and its rented cards.
-            var skills = new AndroidHistorySkillsSheet(
-                view.Surface,
-                font,
-                layout,
-                card => Inspect(card, true, "skills")
-            );
+            var skills = new AndroidHistorySkillsSheet(view.Surface, font, layout, PickSkillSide);
             var inspection = new AndroidHistoryInspection(view.Surface, font, layout);
             var more = new AndroidHistoryMoreDialog(
                 view.Surface,
@@ -427,8 +416,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
                     () => _ = _coordinator.TryCheckServerHealthAsync(),
                     _coordinator.ToggleAccountLinkForm,
                     code => _ = _coordinator.TryRedeemBazaarDbAccountAsync(code),
-                    _coordinator.MarkAccountLinkedManually,
-                    TurnOff
+                    _coordinator.MarkAccountLinkedManually
                 )
             );
             note = new AndroidHistoryNoteDialog(
@@ -442,7 +430,10 @@ internal sealed class AndroidHistoryPanel : IDisposable
             _inspection = inspection;
             _more = more;
             _note = note;
-            _overlays = new AndroidHistoryOverlays([note, more], [inspection, skills]);
+            _overlays = new AndroidHistoryOverlays(
+                [note, more],
+                [new NativeSkillsLayer(_nativeSkills), inspection, skills]
+            );
         }
         catch
         {
@@ -552,6 +543,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         }
         if (battle?.BattleId != _shownBattleId)
         {
+            _nativeSkills.Close("battle_changed");
             _skills?.Close("battle_changed");
             _inspection?.Close("battle_changed");
         }
@@ -614,8 +606,23 @@ internal sealed class AndroidHistoryPanel : IDisposable
             view.SetBoardStatus(status.PlayerBoardMessage, string.Empty);
     }
 
-    private void Inspect(BppItemBoardCard card, bool skill, string source) =>
-        _inspection?.Open(card, skill, source);
+    private void Inspect(BppItemBoardCard card, string source) => _inspection?.Open(card, source);
+
+    // The picker stays open under the game's overlay, so closing the overlay returns to it.
+    private void PickSkillSide(int side)
+    {
+        if (side < 0 || side >= _skillSides.Count)
+            return;
+        var skills = _skillSides[side]
+            .Select(skill => new CardRentalSubject(skill.TemplateId, skill.Tier, null))
+            .ToArray();
+        _nativeSkills.Open(
+            skills,
+            !_shownBoth ? "challenger"
+                : side == 0 ? "opponent"
+                : "player"
+        );
+    }
 
     private void OpenMore()
     {
@@ -673,6 +680,18 @@ internal sealed class AndroidHistoryPanel : IDisposable
                     HistoryBoardProjection.Skills(snapshots.PlayerSkills, has)
                 ),
             ];
+        _skillSides = rows.Select(row => row.Item2).ToArray();
         _skills.Open(rows);
+    }
+
+    // The game's skill overlay, opened from the skills sheet, sits over it and closes with it. It
+    // rents no card: its proxies are destroyed when it closes.
+    private sealed class NativeSkillsLayer(AndroidNativeSkillOverlay overlay) : IHistoryCardOverlay
+    {
+        public bool IsOpen => overlay.IsOpen;
+
+        public bool Close(string reason) => overlay.Close(reason);
+
+        public void ReturnCards() { }
     }
 }

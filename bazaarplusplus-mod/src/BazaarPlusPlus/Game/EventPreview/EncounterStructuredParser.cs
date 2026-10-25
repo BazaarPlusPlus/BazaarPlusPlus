@@ -13,48 +13,55 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 internal static class EncounterStructuredParser
 {
-    // Choice-event spawn groups with their boundaries preserved: a group with its own
-    // SelectionMethod=Random is a pool the event rolls members from (Advanced
-    // Training's 16 trainings, Epic Battle's 14 monsters) rather than a fixed list
-    // of always-offered steps.
-    public static IReadOnlyList<EncounterChoiceGroupData> TryParseEventChoiceGroups(object? source)
-    {
-        var token = ToToken(source);
-        if (token == null)
-            return Array.Empty<EncounterChoiceGroupData>();
+    private static readonly EncounterChoicePlanParser ChoiceParser = new(
+        NormalizeChoiceEnum,
+        ParseChoicePool
+    );
 
-        var spawnContext = token.SelectToken("SelectionContext.SpawnContext") ?? token;
-        var result = new List<EncounterChoiceGroupData>();
-        var seen = new HashSet<Guid>();
-        foreach (var groupsToken in FindProperties(spawnContext, "Groups"))
+    public static IReadOnlyList<EncounterChoiceGroupData> TryParseEventChoiceGroups(
+        object? source
+    ) => ChoiceParser.TryParseEventChoiceGroups(ToToken(source));
+
+    public static int? TryParseEventChoiceLimit(object? source) =>
+        ChoiceParser.TryParseEventChoiceLimit(ToToken(source));
+
+    public static bool TryParseEventOutcomeGroups(
+        object? source,
+        out IReadOnlyList<EncounterOutcomeGroupData> groups
+    ) => ChoiceParser.TryParseEventOutcomeGroups(ToToken(source), out groups);
+
+    internal static IReadOnlyList<EncounterCardRequirement> ReadCardRequirements(JToken? token) =>
+        ChoiceParser.ReadCardRequirements(token);
+
+    private static string? NormalizeChoiceEnum(string kind, string? raw) =>
+        kind switch
         {
-            if (groupsToken is not JArray groups)
-                continue;
-            foreach (var group in groups)
-            {
-                var members = new List<EncounterStepReference>();
-                AppendStepReferencesFromGroup(group, members, seen);
-                if (members.Count == 0)
-                    continue;
+            "SelectionMethod" => Name<ESpawnSelectionMethod>(raw),
+            "Comparison" => Name<EComparisonOperator>(raw),
+            "ListComparison" => Name<EListComparisonOperator>(raw),
+            "HiddenTag" => Name<EHiddenTag>(raw),
+            "Tag" => Name<ECardTag>(raw),
+            _ => null,
+        };
 
-                var isRandomPool =
-                    Enum.TryParse<ESpawnSelectionMethod>(
-                        group["SelectionMethod"]?.ToString(),
-                        ignoreCase: true,
-                        out var selectionMethod
-                    )
-                    && selectionMethod == ESpawnSelectionMethod.Random;
-                result.Add(
-                    new EncounterChoiceGroupData(
-                        isRandomPool,
-                        members,
-                        ReadDayCondition(group["Prerequisites"])
-                    )
-                );
-            }
-        }
+    private static string? Name<T>(string? raw)
+        where T : struct, Enum =>
+        Enum.TryParse<T>(raw, true, out var value) ? value.ToString() : null;
 
-        return result;
+    private static EncounterRewardFilter? ParseChoicePool(
+        JToken context,
+        JToken group,
+        JToken filter,
+        int? quantity
+    )
+    {
+        var constraints = new SpawnConstraints();
+        AddTokenBehaviors(constraints, context["Behaviors"]);
+        AddTokenBehaviors(constraints, group["Behaviors"]);
+        foreach (var obj in EnumerateObjects(filter["Constraints"]!))
+            if (LooksLikeTokenConstraintObject(obj))
+                constraints.AddTokenConstraintObject(obj);
+        return constraints.ToRewardFilter(quantity);
     }
 
     // The factory is invoked only if the runtime route fails, so a caller that has no token yet
@@ -100,284 +107,6 @@ internal static class EncounterStructuredParser
         }
 
         return null;
-    }
-
-    // The number of choices the event actually presents (SelectionContext spawn limit);
-    // groups beyond it never spawn even when their prerequisites hold.
-    public static int? TryParseEventChoiceLimit(object? source)
-    {
-        var token = ToToken(source);
-        if (token == null)
-            return null;
-
-        var spawnContext = token.SelectToken("SelectionContext.SpawnContext") ?? token;
-        return ReadQuantity(spawnContext);
-    }
-
-    // Random-outcome events (outer SelectionMethod=Random) roll one weighted group
-    // instead of presenting choices; returns the group data for probability display.
-    public static bool TryParseEventOutcomeGroups(
-        object? source,
-        out IReadOnlyList<EncounterOutcomeGroupData> groups
-    )
-    {
-        groups = Array.Empty<EncounterOutcomeGroupData>();
-        var token = ToToken(source);
-        if (token == null)
-            return false;
-
-        var spawnContext = token.SelectToken("SelectionContext.SpawnContext");
-        if (spawnContext == null)
-            return false;
-        // Runtime objects serialize enums numerically; raw JSON uses names.
-        if (
-            !Enum.TryParse<ESpawnSelectionMethod>(
-                spawnContext["SelectionMethod"]?.ToString(),
-                ignoreCase: true,
-                out var selectionMethod
-            )
-            || selectionMethod != ESpawnSelectionMethod.Random
-        )
-            return false;
-
-        var result = new List<EncounterOutcomeGroupData>();
-        if (spawnContext["Groups"] is JArray groupArray)
-        {
-            foreach (var group in groupArray)
-            {
-                var ids = new List<Guid>();
-                var queryPools = new List<EncounterOutcomeQueryPool>();
-                if (group["Filters"] is JArray filters)
-                    foreach (var filter in filters)
-                    {
-                        foreach (var id in ReadGuids(filter["Ids"]))
-                            if (!ids.Contains(id))
-                                ids.Add(id);
-
-                        // TSpawnFilterQuery: a dynamic pool instead of fixed ids
-                        // (e.g. Treasure Chest's 9-weight small/medium item pool).
-                        // Dropping these groups would corrupt the probability
-                        // normalization of everything else, so they are kept as
-                        // pool summaries even when the constraints don't parse.
-                        var constraintsToken = filter["Constraints"];
-                        if (constraintsToken != null && constraintsToken.Type != JTokenType.Null)
-                        {
-                            // Constraints arrive as a single (possibly ConstraintAnd)
-                            // object; enumerate to its leaf constraint objects.
-                            var constraints = new SpawnConstraints();
-                            AddTokenBehaviors(constraints, spawnContext["Behaviors"]);
-                            AddTokenBehaviors(constraints, group["Behaviors"]);
-                            foreach (var constraintObject in EnumerateObjects(constraintsToken))
-                                if (LooksLikeTokenConstraintObject(constraintObject))
-                                    constraints.AddTokenConstraintObject(constraintObject);
-                            var quantity = ReadQuantity(group);
-                            queryPools.Add(
-                                new EncounterOutcomeQueryPool(
-                                    constraints.ToRewardFilter(quantity),
-                                    quantity
-                                )
-                            );
-                        }
-                    }
-                if (ids.Count == 0 && queryPools.Count == 0)
-                    continue;
-
-                var weight = ReadUInt(group["RandomWeight"]);
-                result.Add(
-                    new EncounterOutcomeGroupData(
-                        weight,
-                        ids,
-                        queryPools,
-                        ReadCardRequirements(group["Prerequisites"]),
-                        ReadDayCondition(group["Prerequisites"])
-                    )
-                );
-            }
-        }
-
-        groups = result;
-        return result.Count > 0;
-    }
-
-    private static uint ReadUInt(JToken? token) =>
-        token != null && uint.TryParse(token.ToString(), out var value) ? value : 0;
-
-    private static EncounterDayCondition? ReadDayCondition(JToken? token)
-    {
-        if (token == null || token.Type == JTokenType.Null)
-            return null;
-
-        var conditions = new List<EncounterDayCondition>();
-        foreach (var obj in EnumerateObjects(token))
-        {
-            if (obj["CurrentDay"] == null)
-                continue;
-            if (!int.TryParse(obj["CurrentDay"]!.ToString(), out var day))
-                continue;
-            var comparison = Enum.TryParse<EComparisonOperator>(
-                obj["ComparisonOperator"]?.ToString(),
-                ignoreCase: true,
-                out var parsedComparison
-            )
-                ? parsedComparison.ToString()
-                : "Equal";
-            conditions.Add(new EncounterDayCondition(day, comparison));
-        }
-        return conditions.Count == 0
-            ? null
-            : new EncounterDayCondition(
-                conditions[0].Day,
-                conditions[0].Comparison,
-                conditions.Skip(1).ToArray()
-            );
-    }
-
-    private static void AppendStepReferencesFromGroup(
-        JToken group,
-        List<EncounterStepReference> result,
-        HashSet<Guid> seen
-    )
-    {
-        var groupRequirements = ReadCardRequirements(group["Prerequisites"]);
-        var filters = group["Filters"] as JArray;
-        if (filters == null)
-            return;
-
-        foreach (var filter in filters)
-        {
-            var requirements = new List<EncounterCardRequirement>(groupRequirements);
-            requirements.AddRange(ReadCardRequirements(filter["Prerequisites"]));
-
-            foreach (var id in ReadGuids(filter["Ids"]))
-            {
-                if (!seen.Add(id))
-                    continue;
-                result.Add(new EncounterStepReference(id, requirements));
-            }
-        }
-    }
-
-    // Card-count ownership prerequisites (TPrerequisiteCardCount): all must be
-    // satisfied. Prerequisites without Comparison/Amount (run/day/hero conditions)
-    // yield nothing here; shapes that cannot be evaluated against the inventory
-    // snapshot (negated or tier-based conditionals) are skipped entirely — an
-    // unknown prerequisite must count as met, never as a guess.
-    internal static IReadOnlyList<EncounterCardRequirement> ReadCardRequirements(JToken? token)
-    {
-        if (token == null || token.Type == JTokenType.Null)
-            return Array.Empty<EncounterCardRequirement>();
-
-        var requirements = new List<EncounterCardRequirement>();
-        if (token is JArray prerequisites)
-        {
-            foreach (var prerequisite in prerequisites)
-                if (TryReadCardRequirement(prerequisite) is { } requirement)
-                    requirements.Add(requirement);
-        }
-        else if (TryReadCardRequirement(token) is { } requirement)
-        {
-            requirements.Add(requirement);
-        }
-        return requirements;
-    }
-
-    private static EncounterCardRequirement? TryReadCardRequirement(JToken entry)
-    {
-        if (entry is not JObject obj)
-            return null;
-
-        var comparisonToken = obj["Comparison"];
-        var amountToken = obj["Amount"];
-        if (comparisonToken == null || amountToken == null)
-            return null;
-        // Runtime objects serialize enums numerically; raw JSON uses names.
-        if (
-            !Enum.TryParse<EComparisonOperator>(
-                comparisonToken.ToString(),
-                ignoreCase: true,
-                out var comparison
-            )
-        )
-            return null;
-        if (!int.TryParse(amountToken.ToString(), out var amount))
-            return null;
-
-        var tagGroups = new List<IReadOnlyList<string>>();
-        var tagOperator = nameof(EListComparisonOperator.Any);
-        foreach (var conditional in EnumerateObjects(entry))
-        {
-            if (
-                string.Equals(
-                    conditional["IsNot"]?.ToString(),
-                    "true",
-                    StringComparison.OrdinalIgnoreCase
-                )
-            )
-                return null;
-            // Tier conditionals (Grandmaster's "no Bronze/Silver/Gold skills") need
-            // per-card tier data the inventory snapshot doesn't carry.
-            if (conditional["Tiers"] is JArray { Count: > 0 })
-                return null;
-            if (conditional["Tags"] is not JArray tags || tags.Count == 0)
-                continue;
-
-            if (
-                conditional["Operator"] is { } operatorToken
-                && Enum.TryParse<EListComparisonOperator>(
-                    operatorToken.ToString(),
-                    ignoreCase: true,
-                    out var parsedOperator
-                )
-            )
-                tagOperator = parsedOperator.ToString();
-
-            foreach (var tag in tags)
-            {
-                var candidates = ResolveTagCandidates(tag, conditional);
-                if (candidates.Count > 0)
-                    tagGroups.Add(candidates);
-            }
-        }
-
-        var ids = ReadPrerequisiteIds(entry);
-        if (ids.Count == 0 && tagGroups.Count == 0)
-            return null;
-        // A conditional mixing id and tag terms would need the source's exact
-        // and/or structure; skip rather than misjudge.
-        if (ids.Count > 0 && tagGroups.Count > 0)
-            return null;
-
-        return new EncounterCardRequirement(
-            ids,
-            tagGroups,
-            tagOperator,
-            comparison.ToString(),
-            amount
-        );
-    }
-
-    // A tag token is a name in raw JSON but a bare number from runtime objects
-    // (JToken.FromObject drops $type and serializes enums numerically). Numbers are
-    // mapped back through the conditional's declared enum when the $type survives,
-    // otherwise through both plausible tag enums.
-    private static IReadOnlyList<string> ResolveTagCandidates(JToken tag, JObject conditional)
-    {
-        var raw = tag.ToString();
-        if (string.IsNullOrWhiteSpace(raw))
-            return Array.Empty<string>();
-        if (!long.TryParse(raw, out _))
-            return new[] { raw };
-
-        var type = conditional["$type"]?.ToString();
-        var candidates = new List<string>();
-        var allowHidden = type == null || type.Contains("HiddenTag");
-        var allowCard =
-            type == null || (type.Contains("ConditionalTag") && !type.Contains("HiddenTag"));
-        if (allowHidden && Enum.TryParse<EHiddenTag>(raw, out var hiddenTag))
-            candidates.Add(hiddenTag.ToString());
-        if (allowCard && Enum.TryParse<ECardTag>(raw, out var cardTag))
-            candidates.Add(cardTag.ToString());
-        return candidates;
     }
 
     private static EncounterRewardFilter? TryParseTokenSpawnContext(JToken spawnContext)
@@ -606,56 +335,6 @@ internal static class EncounterStructuredParser
                 yield return value;
         }
     }
-
-    private static IReadOnlyList<Guid> ReadGuids(JToken? token)
-    {
-        var result = new List<Guid>();
-        if (token == null)
-            return result;
-
-        if (token is JArray array)
-        {
-            foreach (var child in array)
-                AddGuid(result, child);
-            return result;
-        }
-
-        AddGuid(result, token);
-        return result;
-    }
-
-    private static void AddGuid(List<Guid> result, JToken token)
-    {
-        if (Guid.TryParse(token.ToString(), out var id))
-            result.Add(id);
-    }
-
-    private static IReadOnlyList<Guid> ReadPrerequisiteIds(JToken? token)
-    {
-        if (token == null || token.Type == JTokenType.Null)
-            return Array.Empty<Guid>();
-
-        var ids = new List<Guid>();
-        foreach (var obj in EnumerateObjects(token))
-        {
-            foreach (var property in obj.Properties())
-            {
-                if (!LooksLikeIdProperty(property.Name))
-                    continue;
-                foreach (var id in ReadGuids(property.Value))
-                    if (!ids.Contains(id))
-                        ids.Add(id);
-            }
-        }
-
-        return ids;
-    }
-
-    private static bool LooksLikeIdProperty(string name) =>
-        string.Equals(name, "Id", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(name, "Ids", StringComparison.OrdinalIgnoreCase)
-        || name.EndsWith("Ids", StringComparison.OrdinalIgnoreCase)
-        || name.EndsWith("Id", StringComparison.OrdinalIgnoreCase);
 
     private static bool LooksLikeTokenConstraintObject(JObject obj) =>
         obj.TryGetValue("IsNot", StringComparison.OrdinalIgnoreCase, out _)

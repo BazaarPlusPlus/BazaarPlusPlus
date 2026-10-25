@@ -1,6 +1,7 @@
 #nullable enable
 #pragma warning disable CS0436, Harmony003
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Infrastructure;
@@ -30,7 +31,7 @@ internal static class EncounterEventTooltipPatch
         try
         {
             var content =
-                string.IsNullOrEmpty(text) || !EventPreviewGate.IsEnabled()
+                string.IsNullOrEmpty(text) || !DetailedPreviewGate.IsEnabled()
                     ? null
                     : ResolveContent(__instance, text);
             if (string.IsNullOrEmpty(content))
@@ -65,6 +66,8 @@ internal static class EncounterEventTooltipPatch
             );
         }
     }
+
+    internal static void ClearPooledPresentation() => BppTooltipSections.HideAll(SectionKey);
 
     private static string? ResolveContent(CardTooltipController controller, string nativeText)
     {

@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.GameInterop.Scenes;
 using BazaarPlusPlus.Localization;
@@ -11,7 +10,9 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
+internal sealed class CurrentReplayRecordingButtonController
+    : MonoBehaviour,
+        IBppNativeSettingsButtonCloneOwner
 {
     private const string CloneName = "BPP_CurrentReplayRecordingButton";
 
@@ -35,7 +36,7 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
     private readonly CurrentReplayRecordingStartFailureFeedback _startFailureFeedback = new();
     private readonly BppScreenResizeSyncTracker _screenResizeSync = new(ScreenResizeSyncFrameCount);
     private readonly BppDockLayoutSyncTracker _layoutSync = new(LayoutImmediateSyncFrameCount);
-    private CollectionPanelDockButtonController? _dockAnchorController;
+    private BppPanelDockButtonsController? _dockAnchorController;
     private bool _layoutAvailable;
     private bool _anchorWasActive;
     private CurrentReplayRecordingUiLayoutReasonCode _layoutReasonCode;
@@ -124,8 +125,8 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
     private void LateUpdate()
     {
         // SyncLayout() sweeps every Button in the scene, so it is gated the same way the sibling
-        // CollectionPanelDockButtonController gates its own placement sync. The anchor-activity
-        // check is the extra trigger this controller needs: it docks against the collection button,
+        // BppPanelDockButtonsController gates its own placement sync. The anchor-activity
+        // check is the extra trigger this controller needs: it docks against the last panel button,
         // which screenshot suppression toggles inactive outside of any scene or resolution change.
         var anchorIsActive = IsDockAnchorActive();
         var shouldSync = _layoutSync.ShouldSync(
@@ -142,14 +143,14 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
 
     private bool IsDockAnchorActive()
     {
-        var collectionRect = ResolveDockAnchorController()?.DockButtonRect;
+        var collectionRect = ResolveDockAnchorController()?.LastDockButtonRect;
         return collectionRect != null && collectionRect.gameObject.activeInHierarchy;
     }
 
     // The sibling dock controller lives on the settings button's own GameObject and is stable once
     // attached, so the component lookup is cached. Attach order is not guaranteed (only the
     // FightMenu path orders the two attaches), so a still-missing sibling is re-probed.
-    private CollectionPanelDockButtonController? ResolveDockAnchorController()
+    private BppPanelDockButtonsController? ResolveDockAnchorController()
     {
         if (_dockAnchorController != null)
             return _dockAnchorController;
@@ -157,7 +158,7 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
         if (_settingsButton == null)
             return null;
 
-        _dockAnchorController = _settingsButton.GetComponent<CollectionPanelDockButtonController>();
+        _dockAnchorController = _settingsButton.GetComponent<BppPanelDockButtonsController>();
         return _dockAnchorController;
     }
 
@@ -205,7 +206,10 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
             anchorButton,
             _cloneRect,
             DockButtonGap,
-            out var blockerName
+            out var blockerName,
+            occupiedRect: IsDockAnchorActive()
+                ? ResolveDockAnchorController()?.DockButtonRect
+                : null
         );
         _layoutReasonCode = CurrentReplayRecordingUiLogState.ResolveLayoutReason(
             _layoutAvailable,
@@ -215,7 +219,7 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
 
     private Button ResolveDockAnchorButton(Button settingsButton)
     {
-        var collectionRect = ResolveDockAnchorController()?.DockButtonRect;
+        var collectionRect = ResolveDockAnchorController()?.LastDockButtonRect;
         if (
             collectionRect != null
             && collectionRect.gameObject.activeInHierarchy

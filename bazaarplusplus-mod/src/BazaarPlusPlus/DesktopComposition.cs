@@ -8,6 +8,7 @@ using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.CombatReplay.Video;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.CosmeticNames;
+using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.GraphicsUpscaling;
 using BazaarPlusPlus.Game.HistoryPanel;
@@ -22,7 +23,6 @@ using BazaarPlusPlus.Game.NameOverride;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.PostCombatImpact;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
-using BazaarPlusPlus.Game.QuestPreview;
 using BazaarPlusPlus.Game.RunLifecycle;
 using BazaarPlusPlus.Game.RunLogging;
 using BazaarPlusPlus.Game.Screenshots;
@@ -207,10 +207,13 @@ internal sealed class DesktopComposition : IDisposable
         _settingsDockRegistry.Register(HistoryPanelHotkeyDockEntry.Create());
         _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
         _settingsDockRegistry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
-        _settingsDockRegistry.Register(EventPreviewSettingsDockEntry.Create());
         _settingsDockRegistry.Register(
-            QuestPreviewSettingsDockEntry.Create(() =>
+            DetailedPreviewSettingsDockEntry.Create(enabled =>
             {
+                if (enabled)
+                    return;
+                EncounterEventTooltipPatch.ClearPooledPresentation();
+                HeroLevelRewardsTooltipPatch.ClearPooledPresentation();
                 QuestRewardPreviewTooltipPatch.ClearPooledPresentation();
                 AggregateItemMissingTypesTooltipPatch.ClearPooledPresentation();
             })

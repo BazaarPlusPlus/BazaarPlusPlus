@@ -32,6 +32,8 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     public static bool IsVisible => _instance?._state?.IsVisible == true;
 
+    internal static void OpenFromDockButton() => _instance?._overlayHandle?.RequestOpen();
+
     private void Awake()
     {
         _instance = this;

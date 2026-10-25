@@ -17,6 +17,8 @@ internal static class AndroidUpgradePreview
 {
     private const long LoggedTransitions = 20;
     private static Il2Cpp.CardController? _held;
+    private static bool _ownsPreview;
+    private static bool _selected;
     private static long _entered;
     private static long _exited;
 
@@ -31,20 +33,55 @@ internal static class AndroidUpgradePreview
     public static bool Holds(Card? card) =>
         card != null
         && _held != null
+        && _selected
         && _held.CardData != null
         && _held.CardData.Pointer == card.Pointer;
 
-    /// <summary>Before the game shows a card's tooltip: hold that card in preview, or none.</summary>
-    public static void OnShowTooltips(Il2Cpp.CardController controller)
+    public static bool Selected => _selected;
+    public static bool CanToggle => _held != null && (_ownsPreview || !_held._isInUpgradePreview);
+
+    public static void Toggle()
+    {
+        if (!CanToggle || _held == null)
+            return;
+        _selected = !_selected;
+        Apply();
+    }
+
+    private static void Apply()
+    {
+        if (_held == null)
+            return;
+        if (_selected && !_held._isInUpgradePreview)
+        {
+            _held.EnterUpgradePreview();
+            _ownsPreview = true;
+        }
+        else if (!_selected && _ownsPreview)
+        {
+            _held.ExitUpgradePreview();
+            _ownsPreview = false;
+        }
+    }
+
+    /// <summary>An admitted primary tooltip is rendering: bind its live card and apply the preference.</summary>
+    public static void OnShowTooltips(Il2Cpp.CardController? controller)
     {
         if (_held != null && (controller == null || _held.Pointer != controller.Pointer))
             Release("replaced");
-        if (controller == null || IsEnabled?.Invoke() != true || !IsEligible(controller))
+        if (controller == null || !IsEligible(controller))
+        {
+            Release("ineligible");
             return;
+        }
         if (_held != null)
+        {
+            Apply();
             return;
-        controller.EnterUpgradePreview();
+        }
         _held = controller;
+        _selected = IsEnabled?.Invoke() == true;
+        Apply();
         var count = Interlocked.Increment(ref _entered);
         if (count <= LoggedTransitions)
             BppLog.InfoEvent(
@@ -80,8 +117,9 @@ internal static class AndroidUpgradePreview
             return;
         // A controller destroyed with its scene compares equal to null; there is nothing to undo.
         var alive = held != null && held.WasCollected == false && (UnityEngine.Object)held != null;
-        if (alive)
+        if (alive && _ownsPreview)
             held!.ExitUpgradePreview();
+        _ownsPreview = false;
         var count = Interlocked.Increment(ref _exited);
         if (count <= LoggedTransitions)
             BppLog.InfoEvent(

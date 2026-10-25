@@ -194,6 +194,9 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         _state.SectionMode = mode;
         ClearDetail();
+        // A message and an armed delete belong to the section that raised them.
+        ClearDeleteRunConfirmation();
+        ClearTransientStatus();
         RefreshSectionOnEntry();
     }
 
@@ -1081,16 +1084,14 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             HistoryPanelGhostSyncReasonCode.Completed,
             exception: null
         );
-        SetStatusMessage(syncResult.StatusMessage, StatusSeverity.Success);
-
-        if (_state.SectionMode == HistorySectionMode.Ghost)
-        {
+        // Only new ghosts are news, and only on Ghost; otherwise the sync's own pending line goes.
+        var ghost = _state.SectionMode == HistorySectionMode.Ghost;
+        var message = ghost && syncResult.ImportedCount > 0 ? syncResult.StatusMessage : null;
+        if (ghost)
             RefreshGhostData();
-            SetStatusMessage(syncResult.StatusMessage, StatusSeverity.Success);
-            _requestUiRefresh();
-        }
-        else
-            _requestUiRefresh();
+        if (message != null || _state.StatusMessage == HistoryPanelText.SyncingGhostBattles())
+            SetStatusMessage(message, StatusSeverity.Success);
+        _requestUiRefresh();
     }
 
     public IReadOnlyList<HistoryBattleRecord> GetFilteredGhostBattles() => _state.GhostBattles;

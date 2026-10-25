@@ -12,7 +12,7 @@ using UnityEngine;
 namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
-/// A History board card or skill, tapped, enlarged over the panel with its name and authored
+/// A History board card, tapped, enlarged over the panel with its name and authored
 /// text: the touch counterpart of hovering a card on the desktop's native board, where the game's
 /// own tooltip shows. The card is the game's own prefab, rented at the battle's tier and
 /// enchantment. A tap outside, the close button, or the back key dismisses it, and the lease goes
@@ -88,13 +88,13 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
 
     public int Leases => _lease != null ? 1 : 0;
 
-    public void Open(BppItemBoardCard card, bool skill, string source)
+    public void Open(BppItemBoardCard card, string source)
     {
         ReturnCards();
         var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
         _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
         _description.Set(AndroidCardTemplateText.Description(subject) ?? string.Empty);
-        var scale = _layout.InspectScale(card.DisplaySpan, skill);
+        var scale = _layout.InspectScale(card.DisplaySpan);
         _slot.localScale = new Vector3(scale, scale, 1f);
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
@@ -102,7 +102,6 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.card_inspected"),
             ("source", source),
-            ("skill", skill),
             ("size", card.Size),
             ("tier", card.Tier),
             ("scale", Math.Round(scale, 3))

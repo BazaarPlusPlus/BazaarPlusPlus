@@ -33,6 +33,7 @@ internal static class CombatSimulatePatch
                 ("hits", hits),
                 ("message", __0 != null)
             );
+            AndroidPatchHost.CombatStatus?.State.SetCombatFrameTotal(__0?.Data?.Frames?.Count ?? 0);
             if (__0 != null)
                 AndroidPatchHost.Composition?.EventBus.Publish(
                     new CombatSimObserved(

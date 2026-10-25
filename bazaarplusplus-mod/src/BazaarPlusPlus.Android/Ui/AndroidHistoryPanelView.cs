@@ -23,7 +23,9 @@ namespace BazaarPlusPlus.Android.Ui;
 /// Core's <see cref="HistoryPanelViewModel"/>. The header
 /// holds the section tabs, the supporter action, More, and Close; the archive list, the run's
 /// battle rail (in Ghost, the cloud note in its place), and the detail column with the two board regions and the action row (delete, favorite, skills, replay) stand under it.
-/// Lists drag-scroll with inertia; each finished gesture logs <c>android.history.scrolled</c>.
+/// Lists drag-scroll with inertia and show a thumb while they overflow; each finished gesture logs
+/// <c>android.history.scrolled</c>. A section without rows says so once, centred in the detail
+/// column, with no boards, titles or actions under it.
 /// Hero portraits share the Collection framing; rank and trophy details render as text;
 /// the two BPP badge atlases ship in the assembly. The panel rents the native boards into
 /// <see cref="UpperBoard"/> and <see cref="LowerBoard"/> and lays its overlays over
@@ -64,8 +66,13 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     private TextMeshProUGUI _supporterLabel = null!;
     private GameObject _cloudNote = null!;
     private PageList _archive = null!;
-    private TextMeshProUGUI _archiveEmpty = null!;
+    private TextMeshProUGUI _emptyDetail = null!;
     private Rail _rail = null!;
+    private readonly List<ScrollThumb> _thumbs = new();
+    private bool _empty;
+    private bool? _railPaged;
+    private string _upperMessage = string.Empty,
+        _lowerMessage = string.Empty;
     private TextMeshProUGUI _pageLabel = null!,
         _status = null!,
         _upperTitle = null!,
@@ -161,8 +168,16 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     /// <summary>The board messages, each under the board it describes.</summary>
     public void SetBoardStatus(string upperMessage, string lowerMessage)
     {
-        ShowStatus(_upperStatusBand, _upperStatus, _l.UpperBoard, upperMessage);
-        ShowStatus(_lowerStatusBand, _lowerStatus, _l.LowerBoard, lowerMessage);
+        _upperMessage = upperMessage;
+        _lowerMessage = lowerMessage;
+        ApplyBoardStatus();
+    }
+
+    // An empty section's one message is the detail column's; the boards then carry none.
+    private void ApplyBoardStatus()
+    {
+        ShowStatus(_upperStatusBand, _upperStatus, _l.UpperBoard, _empty ? "" : _upperMessage);
+        ShowStatus(_lowerStatusBand, _lowerStatus, _l.LowerBoard, _empty ? "" : _lowerMessage);
     }
 
     // A board message's band grows to the wrapped text, so a long message is never cut.
@@ -198,6 +213,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         var pressed = AndroidScrollTracker.PointerPressed();
         foreach (var tracker in _trackers)
             tracker.Tick(pressed, _l.Metrics.UnitsPerDp);
+        foreach (var thumb in _thumbs)
+            thumb.Tick(_l.Metrics);
     }
 
     public void Dispose()
@@ -217,30 +234,36 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             AndroidHistoryUi.PanelFill
         );
         var tab = _l.ButtonFont;
-        _runsTab = AndroidHistoryUi.Button(
-            Surface,
-            _font,
-            "tab_runs",
-            _l.RunsTab,
-            tab,
-            () => _actions.Section(HistorySectionMode.Runs)
-        );
-        _ghostTab = AndroidHistoryUi.Button(
-            Surface,
-            _font,
-            "tab_ghost",
-            _l.GhostTab,
-            tab,
-            () => _actions.Section(HistorySectionMode.Ghost)
-        );
-        _favoritesTab = AndroidHistoryUi.Button(
-            Surface,
-            _font,
-            "tab_favorites",
-            _l.FavoritesTab,
-            tab,
-            () => _actions.Section(HistorySectionMode.Favorites)
-        );
+        _runsTab = AndroidHistoryUi
+            .Button(
+                Surface,
+                _font,
+                "tab_runs",
+                _l.RunsTab,
+                tab,
+                () => _actions.Section(HistorySectionMode.Runs)
+            )
+            .As(HistoryButtonStyle.Tab);
+        _ghostTab = AndroidHistoryUi
+            .Button(
+                Surface,
+                _font,
+                "tab_ghost",
+                _l.GhostTab,
+                tab,
+                () => _actions.Section(HistorySectionMode.Ghost)
+            )
+            .As(HistoryButtonStyle.Tab);
+        _favoritesTab = AndroidHistoryUi
+            .Button(
+                Surface,
+                _font,
+                "tab_favorites",
+                _l.FavoritesTab,
+                tab,
+                () => _actions.Section(HistorySectionMode.Favorites)
+            )
+            .As(HistoryButtonStyle.Tab);
         BuildSupporter();
         BuildCloudNote();
         _more = AndroidHistoryUi.Button(
@@ -257,22 +280,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             .Set(AndroidUiKit.CloseGlyph);
 
         _archive = BuildArchive();
-        _archiveEmpty = AndroidHistoryUi.Label(
-            _archive.Scroll.viewport,
-            _font,
-            "Empty",
-            new TouchRect(
-                _l.Gap,
-                _l.Gap,
-                _l.ArchiveList.Width - 2f * _l.Gap,
-                _l.ArchiveList.Height - 2f * _l.Gap
-            ),
-            _l.BodyFont,
-            TextAlignmentOptions.TopLeft,
-            AndroidHistoryUi.Muted,
-            wrap: true
-        );
-        _archiveEmpty.overflowMode = TextOverflowModes.Truncate;
+        _thumbs.Add(new ScrollThumb(_archive.Scroll, _l.Metrics));
         _pageLabel = AndroidHistoryUi.Label(
             Surface,
             _font,
@@ -332,6 +340,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         );
         _railOlder.UseChevron(-90f, _l.Metrics.Dp(18f));
         _rail = BuildRail();
+        _thumbs.Add(new ScrollThumb(_rail.Scroll, _l.Metrics));
 
         _upperTitle = AndroidHistoryUi.Label(
             Surface,
@@ -339,7 +348,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             "UpperTitle",
             _l.UpperBoardTitle,
             _l.BodyFont,
-            color: AndroidHistoryUi.Muted
+            TextAlignmentOptions.Center,
+            AndroidHistoryUi.Muted
         );
         UpperBoard = BoardRegion("UpperBoard", _l.UpperBoard);
         (_upperStatusBand, _upperStatus) = StatusBand("UpperStatus", _l.UpperBoard);
@@ -349,21 +359,32 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             "LowerTitle",
             _l.LowerBoardTitle,
             _l.BodyFont,
-            color: AndroidHistoryUi.Muted
+            TextAlignmentOptions.Center,
+            AndroidHistoryUi.Muted
         );
         _lowerTitleObject = _lowerTitle.gameObject;
         LowerBoard = BoardRegion("LowerBoard", _l.LowerBoard);
         _lowerBoardObject = LowerBoard.gameObject;
         (_lowerStatusBand, _lowerStatus) = StatusBand("LowerStatus", _l.LowerBoard);
-
-        _delete = AndroidHistoryUi.Button(
+        _emptyDetail = AndroidHistoryUi.Label(
             Surface,
             _font,
-            "delete",
-            _l.Delete,
+            "EmptyDetail",
+            new TouchRect(
+                _l.Detail.Left,
+                _l.Detail.Top,
+                _l.Detail.Width,
+                Math.Max(0f, _l.Footer.Top - _l.Gap - _l.Detail.Top)
+            ),
             _l.ButtonFont,
-            () => _actions.Delete()
+            TextAlignmentOptions.Center,
+            AndroidHistoryUi.Muted,
+            wrap: true
         );
+
+        _delete = AndroidHistoryUi
+            .Button(Surface, _font, "delete", _l.Delete, _l.ButtonFont, () => _actions.Delete())
+            .As(HistoryButtonStyle.Danger);
         _favorite = AndroidHistoryUi.Button(
             Surface,
             _font,
@@ -444,13 +465,14 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             "CloudNote",
             _l.CloudNote,
             _l.BodyFont,
-            TextAlignmentOptions.TopLeft,
+            TextAlignmentOptions.Top,
             AndroidHistoryUi.Muted,
             wrap: true
         );
+        // Set in lines for the narrow column rather than left to wrap mid-phrase.
         cloudNote.text = AndroidHistoryUi.T(
-            "Cloud: latest 5 days, up to 200",
-            "云端：最近5天，最多200条"
+            "Cloud keeps\nthe last 5 days,\nup to 200",
+            "云端保留\n最近 5 天\n最多 200 场"
         );
         _cloudNote = cloudNote.gameObject;
     }
@@ -547,6 +569,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 Vector2.one * _l.Metrics.Dp(36f)
             );
             row.Portrait = new AndroidPortraitView(portrait, AndroidHistoryUi.Skin, _l.Metrics);
+            row.Accent = Accent(rect);
             row.Unknown = AndroidHistoryUi.Fraction(
                 row.Badge.transform,
                 _font,
@@ -620,10 +643,27 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                     AndroidHistoryUi.Muted
                 ),
                 Outcome = AndroidUiKit.Fill(outcome, Color.clear, blocksTouches: false),
+                Accent = Accent(rect),
             };
             rect.gameObject.SetActive(false);
         }
         return rail;
+    }
+
+    // A gold bar down the selected row's left edge: the selected fill alone reads too faintly.
+    private GameObject Accent(RectTransform row)
+    {
+        var bar = AndroidUiKit.Rect(
+            "Accent",
+            row,
+            new Vector2(0f, .14f),
+            new Vector2(0f, .86f),
+            Vector2.zero,
+            new Vector2(_l.Metrics.Dp(4f), 0f)
+        );
+        AndroidUiKit.Fill(bar, AndroidHistoryUi.Accent, blocksTouches: false);
+        bar.gameObject.SetActive(false);
+        return bar.gameObject;
     }
 
     private RectTransform BoardRegion(string name, TouchRect area)
@@ -700,23 +740,43 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             ApplyRowMode(runs);
             SyncTrackers();
         }
+        var noRows = (runs ? m.Runs.Count : m.VisibleBattles.Count) == 0;
+        // A run that recorded no battle has nothing for the boards either; it can still be deleted.
+        var noBattles = runs && !noRows && m.VisibleBattles.Count == 0 && !m.PageLoading;
+        _empty = noRows || noBattles;
+        var emptyText =
+            noBattles ? HistoryPanelText.NoBattlesInRun()
+            : m.ArchiveEmptyMessage.Length > 0 ? m.ArchiveEmptyMessage
+            : runs && !m.PageLoading ? HistoryPanelText.NoRuns()
+            : string.Empty;
+        _emptyDetail.text = emptyText;
+        AndroidHistoryUi.SetActive(_emptyDetail.gameObject, _empty && emptyText.Length > 0);
         _runsTab.Set(HistoryPanelText.RunsTab(), runs);
         _ghostTab.Set(HistoryPanelText.GhostTab(), ghost);
         AndroidHistoryUi.SetActive(_favoritesTab.GameObject, m.FavoritesTabVisible);
         _favoritesTab.Set(HistoryPanelText.FavoritesTab(), favorites);
-        AndroidHistoryUi.SetActive(_cloudNote, ghost);
+        // An empty Ghost already says what the cloud keeps.
+        AndroidHistoryUi.SetActive(_cloudNote, ghost && !_empty);
 
+        // One page of battles needs no rail pager; the list then takes the whole rail.
+        var railPaged = m.BattleHasNewer || m.BattleHasOlder;
+        if (_railPaged != railPaged)
+        {
+            _railPaged = railPaged;
+            AndroidTouchScreen.Place(
+                _rail.Scroll.GetComponent<RectTransform>(),
+                railPaged ? _l.RailList : _l.RailListFull
+            );
+        }
         AndroidHistoryUi.SetActive(_rail.Scroll.gameObject, runs);
-        AndroidHistoryUi.SetActive(_railNewer.GameObject, runs);
-        AndroidHistoryUi.SetActive(_railOlder.GameObject, runs);
+        AndroidHistoryUi.SetActive(_railNewer.GameObject, runs && railPaged);
+        AndroidHistoryUi.SetActive(_railOlder.GameObject, runs && railPaged);
         _railNewer.Set(AndroidHistoryUi.T("Newer", "较新"), enabled: m.BattleHasNewer);
         _railOlder.Set(AndroidHistoryUi.T("Older", "较早"), enabled: m.BattleHasOlder);
         _newer.Set(AndroidHistoryUi.T("Newer", "较新"), enabled: m.HasNewer && !m.PageLoading);
         _older.Set(AndroidHistoryUi.T("Older", "较早"), enabled: m.HasOlder && !m.PageLoading);
         _latest.Set(AndroidHistoryUi.T("Latest", "最新"), enabled: !m.PageLoading);
         _pageLabel.text = m.PageLabel.Split('\n')[0];
-        _archiveEmpty.text = m.ArchiveEmptyMessage;
-        AndroidHistoryUi.SetActive(_archiveEmpty.gameObject, m.ArchiveEmptyMessage.Length > 0);
 
         if (runs)
             BindRows(
@@ -748,21 +808,45 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             BindRail(m.VisibleBattles, m.SelectedBattleIndex, m.PageLoading);
 
         // Two boards show yours below the opponent's; one board is the challenger's (ADR-0002).
-        _upperTitle.text = both
-            ? HistoryPanelText.BoardOpponent()
-            : HistoryPanelText.BoardChallenger();
-        _lowerTitle.text = HistoryPanelText.BoardYou();
-        AndroidHistoryUi.SetActive(_lowerTitleObject, both);
+        // Each title names its side: the opponent by name, yours with the battle's outcome.
+        var battle =
+            m.SelectedBattleIndex >= 0 && m.SelectedBattleIndex < m.VisibleBattles.Count
+                ? m.VisibleBattles[m.SelectedBattleIndex]
+                : null;
+        _upperTitle.text = Titled(
+            both ? HistoryPanelText.BoardOpponent() : HistoryPanelText.BoardChallenger(),
+            battle?.OpponentName
+        );
+        _lowerTitle.text = Titled(
+            HistoryPanelText.BoardYou(),
+            battle == null ? null
+                : HistoryPanelFormatter.IsBattleWin(battle)
+                    ? Tinted(HistoryPanelText.BattleWon(), AndroidHistoryUi.Win)
+                : HistoryPanelFormatter.IsBattleLoss(battle)
+                    ? Tinted(HistoryPanelText.BattleLost(), AndroidHistoryUi.Loss)
+                : null
+        );
+        AndroidHistoryUi.SetActive(_upperTitle.gameObject, !_empty);
+        AndroidHistoryUi.SetActive(_lowerTitleObject, both && !_empty);
         AndroidHistoryUi.SetActive(_lowerBoardObject, both);
         if (!both)
             AndroidHistoryUi.SetActive(_lowerStatusBand, false);
+        ApplyBoardStatus();
 
-        AndroidHistoryUi.SetActive(_delete.GameObject, m.DeleteButtonVisible);
+        // An empty section offers no action: there is nothing to act on.
+        AndroidHistoryUi.SetActive(_delete.GameObject, m.DeleteButtonVisible && !noRows);
         // Dimmed but tappable: the tap puts the reason on the status line.
         _delete.Set(m.DeleteButtonText, enabled: !m.PageLoading, dimmed: !m.DeleteButtonEnabled);
-        AndroidHistoryUi.SetActive(_favorite.GameObject, m.FavoriteButtonVisible);
+        AndroidHistoryUi.SetActive(_favorite.GameObject, m.FavoriteButtonVisible && !_empty);
         _favorite.Set(m.FavoriteButtonText, enabled: m.FavoriteButtonEnabled && !m.PageLoading);
-        _replay.Set(m.ReplayButtonText, true, m.ReplayButtonEnabled && !m.PageLoading);
+        AndroidHistoryUi.SetActive(_skills.GameObject, !_empty);
+        AndroidHistoryUi.SetActive(_replay.GameObject, !_empty);
+        // The button keeps naming its action; unavailable reads as dimmed, and the tap explains.
+        var replayText =
+            !m.ReplayButtonEnabled && m.ReplayButtonText == HistoryPanelText.ReplayUnavailable()
+                ? HistoryPanelText.Replay()
+                : m.ReplayButtonText;
+        _replay.Set(replayText, true, enabled: !m.PageLoading, dimmed: !m.ReplayButtonEnabled);
         _status.text = m.StatusMessage ?? string.Empty;
         _status.color = AndroidHistoryUi.StatusColor(m.StatusSeverity);
     }
@@ -824,12 +908,20 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             row.Name.text = fields.Name;
             row.Meta.text = fields.Meta;
             row.Stamp.text = fields.Stamp;
+            // Without a meta line the name drops to sit between the row's top and its stamp.
+            var nameTop = fields.Meta.Length == 0 ? .17f : .03f;
+            var name = row.Name.rectTransform;
+            name.anchorMin = new Vector2(name.anchorMin.x, 1f - nameTop - .36f);
+            name.anchorMax = new Vector2(name.anchorMax.x, 1f - nameTop);
+            AndroidHistoryUi.SetActive(row.Accent, i == selected);
             var outcome = badge(i);
             row.Badge.sprite = outcome.Sprite;
             row.Badge.color = outcome.Sprite != null ? Color.white : Color.clear;
             row.Unknown.text = outcome.Fallback;
             AndroidHistoryUi.SetActive(row.Unknown.gameObject, outcome.Sprite == null);
-            row.Rank.text = string.IsNullOrWhiteSpace(rank(i)) ? "?" : rank(i)!.Trim();
+            row.Rank.text = string.IsNullOrWhiteSpace(rank(i))
+                ? "?"
+                : HistoryPanelText.RankName(rank(i)!);
             row.Rating.text = RatingText(rank(i), rating(i), ratingDelta(i));
             // The stamp runs under the rating column whenever that column is empty, which keeps
             // "Favorited <date> <time>" whole on a phone.
@@ -870,6 +962,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             // The page's newest-first order, matching the archive and the pager.
             var battle = battles[i];
             chip.Control.Set(string.Empty, i == selected, !loading);
+            AndroidHistoryUi.SetActive(chip.Accent, i == selected);
             chip.Day.text = HistoryPanelText.DayBadge(battle.Day);
             chip.Name.text = string.IsNullOrWhiteSpace(battle.OpponentName)
                 ? HistoryPanelText.UnknownOpponent()
@@ -890,7 +983,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             hasSelection ? selected : -1,
             battles.Count,
             position.y,
-            _l.RailList.Height,
+            _railPaged == false ? _l.RailListFull.Height : _l.RailList.Height,
             _l.ChipHeight
         );
         if (position.y != offset)
@@ -956,9 +1049,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         };
         var title = $"{HistoryPanelText.DayBadge(run.FinalDay)} · {mode}";
         var duration = run.EndedAtUtc is { } ended
-            ? HistoryPanelText.DurationMinutes(
-                Math.Max(0, (int)(ended - run.StartedAtUtc).TotalMinutes)
-            )
+            ? HistoryPanelText.Duration(ended - run.StartedAtUtc)
             : string.Empty;
         var date = (run.EndedAtUtc ?? run.LastSeenAtUtc).ToLocalTime();
         var stamp = date.ToString(
@@ -967,6 +1058,12 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         );
         return new(title, duration, stamp);
     }
+
+    private static string Titled(string side, string? detail) =>
+        string.IsNullOrWhiteSpace(detail) ? side : $"{side} · {detail}";
+
+    private static string Tinted(string text, Color color) =>
+        $"<color=#{(int)(color.r * 255f):X2}{(int)(color.g * 255f):X2}{(int)(color.b * 255f):X2}>{text}</color>";
 
     public static string HeroLabel(string? hero)
     {
@@ -1007,6 +1104,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         internal TextMeshProUGUI Name = null!;
         internal TextMeshProUGUI Meta = null!;
         internal TextMeshProUGUI Stamp = null!;
+        internal GameObject Accent = null!;
         internal string? Id;
     }
 
@@ -1026,6 +1124,53 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         internal TextMeshProUGUI Day = null!;
         internal TextMeshProUGUI Name = null!;
         internal Image Outcome = null!;
+        internal GameObject Accent = null!;
+    }
+
+    // A thin bar in the gutter right of a list while its rows overflow, so a list that scrolls
+    // looks it.
+    private sealed class ScrollThumb
+    {
+        private readonly ScrollRect _scroll;
+        private readonly RectTransform _bar;
+
+        internal ScrollThumb(ScrollRect scroll, TouchMetrics metrics)
+        {
+            _scroll = scroll;
+            _bar = AndroidUiKit.Rect(
+                "Thumb",
+                scroll.transform,
+                Vector2.zero,
+                Vector2.zero,
+                Vector2.zero,
+                Vector2.zero
+            );
+            var fill = AndroidUiKit.Fill(_bar, AndroidHistoryUi.Accent, blocksTouches: false);
+            fill.color = new Color(fill.color.r, fill.color.g, fill.color.b, .7f);
+            _bar.gameObject.SetActive(false);
+        }
+
+        internal void Tick(TouchMetrics metrics)
+        {
+            var view = _scroll.viewport.rect.height;
+            var content = _scroll.content.sizeDelta.y;
+            var show = _scroll.gameObject.activeInHierarchy && content > view + 1f;
+            AndroidHistoryUi.SetActive(_bar.gameObject, show);
+            if (!show)
+                return;
+            var height = Mathf.Max(metrics.Dp(20f), view * view / content);
+            var progress = Mathf.Clamp01(_scroll.content.anchoredPosition.y / (content - view));
+            var width = metrics.Dp(3f);
+            AndroidTouchScreen.Place(
+                _bar,
+                new TouchRect(
+                    _scroll.GetComponent<RectTransform>().rect.width + metrics.Dp(2f),
+                    (view - height) * progress,
+                    width,
+                    height
+                )
+            );
+        }
     }
 
     private sealed class Rail

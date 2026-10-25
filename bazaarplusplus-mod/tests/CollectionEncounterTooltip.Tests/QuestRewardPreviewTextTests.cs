@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarPlusPlus.Patches.Tooltips;
+using BazaarPlusPlus.Game.QuestPreview;
 using Xunit;
 
 namespace EncounterTooltip.Tests;

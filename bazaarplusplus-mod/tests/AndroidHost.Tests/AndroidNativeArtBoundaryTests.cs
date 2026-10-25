@@ -25,9 +25,13 @@ public sealed class AndroidNativeArtBoundaryTests
             .ToArray();
         var art = accesses
             .Where(access =>
-                access.op.TargetType?.FullName
-                    is "Il2CppTheBazaar.GenericPopup"
-                        or "Il2CppTheBazaar.UI.Tooltips.BaseTooltipController"
+                access.op.TargetType?.FullName == "Il2CppTheBazaar.GenericPopup"
+                || (
+                    access.op.TargetType?.FullName
+                        == "Il2CppTheBazaar.UI.Tooltips.BaseTooltipController"
+                    && access.op.TargetMember?.Contains("FrameSettings", StringComparison.Ordinal)
+                        == true
+                )
             )
             .ToArray();
         Assert.NotEmpty(art);

@@ -1,5 +1,6 @@
 #nullable enable
 #pragma warning disable CS0436
+using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Infrastructure;
@@ -28,6 +29,8 @@ internal static class HeroLevelRewardsTooltipPatch
         SectionTopPaddingScale = 1f,
     };
 
+    internal static void ClearPooledPresentation() => BppTooltipSections.HideAll(SectionKey);
+
     [HarmonyPostfix]
     private static void Postfix(
         CardTooltipController controller,
@@ -38,7 +41,7 @@ internal static class HeroLevelRewardsTooltipPatch
     {
         try
         {
-            if (!EventPreviewGate.IsEnabled())
+            if (!DetailedPreviewGate.IsEnabled())
                 return;
 
             if (tooltipData is not HeroLevelTooltipData heroLevelTooltipData)

@@ -15,7 +15,8 @@ internal sealed class BppDockButtonScreenLayout
         Button anchorButton,
         RectTransform collectionRect,
         float localGap,
-        out string? blockerName
+        out string? blockerName,
+        RectTransform? occupiedRect = null
     )
     {
         blockerName = null;
@@ -61,6 +62,14 @@ internal sealed class BppDockButtonScreenLayout
             collectionButton,
             anchorCanvas.targetDisplay
         );
+        if (
+            occupiedRect != null
+            && occupiedRect.GetComponent<Button>() is { } occupiedButton
+            && TryCalculateButtonFootprint(occupiedButton, occupiedRect, out var occupiedBounds)
+        )
+            _blockerScratch.Add(
+                new BppDockButtonObstacle(occupiedRect.name, occupiedBounds, isActive: true)
+            );
         var plan = BppCollectionDockButtonLayoutPlanner.Resolve(
             viewportBounds,
             gearBounds,

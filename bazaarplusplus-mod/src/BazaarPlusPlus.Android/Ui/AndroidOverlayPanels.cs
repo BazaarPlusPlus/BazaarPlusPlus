@@ -14,7 +14,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// switch-off, never on a plain close). The scene is a generation counter that
 /// <see cref="SceneLoaded"/> advances. The back key (Escape under Unity) is answered at once,
 /// inside the game's escape hooks (<see cref="BackKeyPatches"/>): the open panel's modal first,
-/// then the panel, then the touch menu, which is not a Main Overlay Panel. One press can reach BPP
+/// then the panel. One press can reach BPP
 /// twice in a frame, through the game's escape hook and through the touch root's own keyboard
 /// read, so a consumed press is stamped with its frame and the second sighting is consumed
 /// without closing a second panel. Every entry runs inside the main-thread pump's scope; nothing
@@ -23,11 +23,10 @@ namespace BazaarPlusPlus.Android.Ui;
 internal sealed class AndroidOverlayPanels
 {
     private const long LoggedPasses = 5;
-    private const string TouchMenuTarget = "touch_menu";
 
     private readonly OverlayPanelHost _host;
     private readonly Func<int> _frameCount;
-    private Func<string, bool>? _closeTouchMenu;
+    private Func<string, bool>? _closeTooltipPreview;
     private long _sceneGeneration;
     private string _sceneToken = "0";
     private int _consumedFrame = -1;
@@ -67,8 +66,8 @@ internal sealed class AndroidOverlayPanels
         return handle;
     }
 
-    /// <summary>The touch menu's close, asked after the panels on a back press and on a scene load.</summary>
-    public void SetTouchMenu(Func<string, bool>? close) => _closeTouchMenu = close;
+    /// <summary>The native tooltip's auxiliary drawer, dismissed before native Back handling.</summary>
+    public void SetTooltipPreview(Func<string, bool>? close) => _closeTooltipPreview = close;
 
     /// <summary>Main thread, every frame: the lifecycle rules, then every panel's tick.</summary>
     public void Frame(float deltaTime)
@@ -78,14 +77,13 @@ internal sealed class AndroidOverlayPanels
     }
 
     /// <summary>
-    /// A scene loaded: the touch menu closes, then the host closes what the scene policies close,
+    /// A scene loaded: the host closes what the scene policies close,
     /// tells every panel, and releases the rented cards. The rental destroys every card right
     /// after this, so no lease may outlive it.
     /// </summary>
     public void SceneLoaded()
     {
         using var scope = AndroidMainThread.Host.Enter();
-        CloseTouchMenu("scene_changed");
         _sceneGeneration++;
         _sceneToken = _sceneGeneration.ToString(System.Globalization.CultureInfo.InvariantCulture);
         _host.ObserveScene(_sceneToken);
@@ -106,12 +104,18 @@ internal sealed class AndroidOverlayPanels
         if (firstSighting)
             _presses++;
 
+        if (_host.OpenPanelId == null && _closeTooltipPreview?.Invoke("back_key") == true)
+        {
+            _consumedFrame = frame;
+            _consumed++;
+            return true;
+        }
         var outcome = _host.Escape();
         var target = outcome.Kind switch
         {
             OverlayEscapeKind.DismissedModal => outcome.PanelId + ".modal",
             OverlayEscapeKind.Closed => outcome.PanelId,
-            _ => CloseTouchMenu("back_key") ? TouchMenuTarget : null,
+            _ => null,
         };
         if (target != null)
         {
@@ -138,21 +142,6 @@ internal sealed class AndroidOverlayPanels
             ("back_key_consumed", _consumed),
             ("back_key_passed", _passed),
         ];
-
-    private bool CloseTouchMenu(string reason)
-    {
-        if (_closeTouchMenu is not { } close)
-            return false;
-        try
-        {
-            return close(reason);
-        }
-        catch (Exception exception)
-        {
-            AndroidPatchHost.ReportProbeError($"{TouchMenuTarget}:{reason}", exception);
-            return false;
-        }
-    }
 
     private static string ReleaseReason(OverlayReleaseReason reason) =>
         reason == OverlayReleaseReason.SceneChange ? "scene_changed" : "switched_off";

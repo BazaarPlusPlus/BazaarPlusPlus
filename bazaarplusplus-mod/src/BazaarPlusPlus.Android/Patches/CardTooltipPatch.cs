@@ -9,8 +9,7 @@ using Il2CppTheBazaar.UI.Tooltips;
 namespace BazaarPlusPlus.Android.Patches;
 
 /// <summary>
-/// The tooltip entry a tap opens on touch screens, and where the upgrade preview takes hold: the
-/// card's controller enters the game's upgrade preview before its tooltip renders.
+/// Counts native tooltip requests. Preview ownership starts only when contents actually render.
 /// <c>CardController</c> lives in the global namespace of the game, so its proxy is
 /// <c>Il2Cpp.CardController</c>.
 /// </summary>
@@ -28,16 +27,6 @@ internal static class CardTooltipPatch
                 new BppLogEvent(BppLogFeatureScope.Android, "android.tooltip.hit"),
                 ("hits", hits)
             );
-        if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled)
-            return;
-        try
-        {
-            AndroidUpgradePreview.OnShowTooltips(__instance);
-        }
-        catch (Exception exception)
-        {
-            AndroidPatchHost.ReportProbeError("upgrade_preview", exception);
-        }
     }
 }
 
@@ -48,6 +37,11 @@ internal static class CardTooltipPatch
 )]
 internal static class CardTooltipHidePatch
 {
+    // Mobile input dismisses the native tooltip after the BPP button's onClick. A touch in
+    // its actions or drawer still belongs to that inspection; outside touches remain native.
+    [HarmonyPrefix]
+    private static bool Prefix() => AndroidPatchHost.GameplayPreviews?.ContainsPointer() != true;
+
     [HarmonyPostfix]
     private static void Postfix(TooltipParentComponent __instance)
     {
@@ -64,28 +58,38 @@ internal static class CardTooltipHidePatch
 }
 
 /// <summary>
-/// A card tooltip's contents render: the enchant preview section is built for this card and
-/// handed to its passive block (<see cref="EnchantPreviewPassivePatch"/>), and a card held in
-/// upgrade preview leases its value projection (<see cref="UpgradeValueTextPatch"/>,
-/// <see cref="UpgradeValueCooldownPatch"/>); both end with the render.
+/// Actual tooltip rendering binds touch actions and leases the existing upgrade value projection.
 /// </summary>
 [HarmonyPatch(typeof(CardTooltipTypeHandler), nameof(CardTooltipTypeHandler.RenderCardContents))]
 internal static class CardTooltipRenderPatch
 {
     [HarmonyPrefix]
-    private static void Prefix(CardTooltipData tooltipData)
+    private static void Prefix(CardTooltipController controller, CardTooltipData tooltipData)
     {
         AndroidPatchHost.CountTooltipRender();
         if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled)
             return;
-        AndroidEnchantPreview.Prepare(tooltipData);
+        try
+        {
+            if (!controller.IsPositioningSecondaryTooltip)
+            {
+                var cardController = Il2CppTheBazaar.Data.CardAndSkillLookup?.GetCardController(
+                    tooltipData.CardInstance
+                );
+                AndroidUpgradePreview.OnShowTooltips(cardController);
+                AndroidPatchHost.GameplayPreviews?.Observe(controller, tooltipData);
+            }
+        }
+        catch (Exception exception)
+        {
+            AndroidPatchHost.ReportProbeError("gameplay_previews", exception);
+        }
         AndroidUpgradePreviewValues.Prepare(tooltipData);
     }
 
     [HarmonyFinalizer]
     private static void Finalizer()
     {
-        AndroidEnchantPreview.Clear();
         AndroidUpgradePreviewValues.Return();
     }
 }
@@ -135,46 +139,5 @@ internal static class UpgradeValueCooldownPatch
         {
             AndroidPatchHost.ReportProbeError("upgrade_values", exception);
         }
-    }
-}
-
-/// <summary>Appends the pending enchant preview section below the native passive text.</summary>
-[HarmonyPatch(typeof(EffectBlockRenderer), nameof(EffectBlockRenderer.RenderPassive))]
-internal static class EnchantPreviewPassivePatch
-{
-    [HarmonyPostfix]
-    private static void Postfix(EffectBlockRenderer __instance, string text)
-    {
-        try
-        {
-            var section = AndroidEnchantPreview.TakePending(
-                RenderedFontPixels(__instance._passiveText.textObject)
-            );
-            if (section == null)
-                return;
-            __instance._passiveParentVisibility.SetVisible(true);
-            __instance._dividerParent?.SetActive(true);
-            __instance._passiveText.SetText(
-                string.IsNullOrEmpty(text) ? section : $"{text}\n{section}"
-            );
-        }
-        catch (Exception exception)
-        {
-            AndroidPatchHost.ReportProbeError("enchant_preview", exception);
-        }
-    }
-
-    // The label's font size in screen pixels: its canvas units, scaled by its transform within
-    // the canvas and by the canvas's own scale factor. Zero when it cannot be read.
-    private static float RenderedFontPixels(Il2CppTMPro.TMP_Text? label)
-    {
-        if (label == null)
-            return 0f;
-        var canvas = label.canvas?.rootCanvas;
-        if (canvas == null)
-            return 0f;
-        var canvasScale = canvas.transform.lossyScale.y;
-        var relative = canvasScale > 0f ? label.transform.lossyScale.y / canvasScale : 1f;
-        return label.fontSize * relative * canvas.scaleFactor;
     }
 }

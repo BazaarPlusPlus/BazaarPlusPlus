@@ -40,7 +40,7 @@ public class BppSettingsTests
     }
 
     [Fact]
-    public void QuestPreviewConfig_defaults_off_with_its_only_key()
+    public void DetailedPreviewConfig_defaults_on_with_one_key()
     {
         var configPath = Path.Combine(
             Path.GetTempPath(),
@@ -51,15 +51,16 @@ public class BppSettingsTests
             var configFile = new ConfigFile(configPath, saveOnInit: false);
             var config = new BppSettings(new BepInExSettingsStore(configFile));
 
-            Assert.False(config.EnableQuestPreviewConfig.Value);
-            var entry = configFile[new ConfigDefinition("QuestPreview", "Enabled")];
-            config.EnableQuestPreviewConfig.Value = true;
-            Assert.Equal(true, entry.BoxedValue);
+            Assert.True(config.EnableDetailedPreviewConfig.Value);
+            var entry = configFile[new ConfigDefinition("DetailedPreview", "Enabled")];
+            config.EnableDetailedPreviewConfig.Value = false;
+            Assert.Equal(false, entry.BoxedValue);
             Assert.Contains("quest completion reward effects", entry.Description.Description);
             Assert.Contains("aggregate-item missing-type hints", entry.Description.Description);
             Assert.DoesNotContain(
                 configFile.Keys,
-                definition => definition.Section == "QuestRewardPreview"
+                definition =>
+                    definition.Section is "EventPreview" or "QuestPreview" or "QuestRewardPreview"
             );
         }
         finally
@@ -96,7 +97,7 @@ public class BppSettingsTests
     }
 
     [Fact]
-    public void QuestPreviewConfig_does_not_read_or_migrate_the_old_contract()
+    public void DetailedPreviewConfig_starts_on_even_when_both_old_switches_were_off()
     {
         var configPath = Path.Combine(
             Path.GetTempPath(),
@@ -104,12 +105,15 @@ public class BppSettingsTests
         );
         try
         {
-            File.WriteAllText(configPath, "[QuestRewardPreview]\nEnabled = true\n");
+            File.WriteAllText(
+                configPath,
+                "[EventPreview]\nEnabled = false\n[QuestPreview]\nEnabled = false\n"
+            );
             var config = new BppSettings(
                 new BepInExSettingsStore(new ConfigFile(configPath, saveOnInit: false))
             );
 
-            Assert.False(config.EnableQuestPreviewConfig!.Value);
+            Assert.True(config.EnableDetailedPreviewConfig!.Value);
         }
         finally
         {

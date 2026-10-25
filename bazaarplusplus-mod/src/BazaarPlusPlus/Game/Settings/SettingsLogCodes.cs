@@ -21,6 +21,7 @@ internal enum SettingsLogReasonCode
 internal enum SettingsDockSpriteResourceId
 {
     CollectionPanelIcon,
+    TenWinBuildsIcon,
     ReplayExportIcon,
     ReplayRecordingIcon,
     ReplayViewIcon,
