@@ -11,13 +11,13 @@ The Android host grew its touch surfaces one at a time: the touch menu, History,
 1. One Unity-free frame, `Core/Ui/TouchChrome`, owns what every touch surface shares: the sheet inside the safe area, its margin, padding and gap, the header row, the type scale, the close button's size and corner (`CloseAt`), and the tap-to-inspect sheet (`TouchInspectLayout`). Each panel's layout (`CollectionTouchLayout`, `HistoryTouchLayout`, `LiveBuildTouchLayout`, `TouchLauncherLayout`) starts from it and owns only its own content.
 2. A card grid on touch chooses its column count from its width (`CollectionTouchLayout.GridColumns`) and passes it to Core's `CollectionGridLayout.Build`. The desktop keeps its fixed display case through the overload without a count, and its geometry is not derived from the touch layout.
 3. The host draws the shared parts through shared helpers: `AndroidUiKit.CloseButton` and `CloseGlyph`, `AndroidUiKit.VerticalScroll`, and `Ui/AndroidScrollTracker`. History keeps its own palette and button type.
-4. A surface's back-key handler closes its top-most layer first (a dialog or inspection, then the panel) and reports whether it closed anything.
+4. The back key closes a surface's top-most layer first (a dialog or inspection, then the panel). Amended 2026-10-25: the surfaces no longer keep their own back-key handlers. The Overlay Panel Host dismisses the open panel's modal layer, then closes the panel, and its Android adapter closes the touch menu last (ADR-0022).
 
 The conventions themselves are in [android-mobile-ui.md](../architecture/android-mobile-ui.md).
 
 ## Relationship to ADR-0003
 
-ADR-0003 rejects a unification that only looks tidier. This one is not about appearance. The surfaces share a behaviour: each one is a full sheet on the same canvas, in the same safe area, held to the same target and text floors, and closed the same way. Issue #425 asks for that sameness. The shared part is geometry only. Each panel keeps its own state, lifecycle and rendering, and History keeps its own palette.
+ADR-0003 rejects a unification that only looks tidier. This one is not about appearance. The surfaces share a behaviour: each one is a full sheet on the same canvas, in the same safe area, held to the same target and text floors, and closed the same way. Issue #425 asks for that sameness. The shared part is geometry; each panel keeps its own state and rendering, and History keeps its own palette. Amended 2026-10-25: this replaces "The shared part is geometry only. Each panel keeps its own state, lifecycle and rendering." Lifecycle is now shared too, through the Overlay Panel Host, because the two hosts had diverged on rules a player sees; ADR-0022 holds that evidence.
 
 ## Consequences
 

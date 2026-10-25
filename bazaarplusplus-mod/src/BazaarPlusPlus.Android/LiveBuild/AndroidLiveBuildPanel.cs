@@ -18,8 +18,10 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 /// The Android shell around Core's <see cref="LiveBuildPanelState"/>, the counterpart of the
 /// desktop's <c>LiveBuildPanel</c>: the live read (<see cref="AndroidLiveCardSnapshotReader"/>),
 /// the touch view, and the manual refresh. Core owns the behavior and the data; this shell feeds
-/// it taps and renders its snapshot. The touch menu opens it; the close button, the back key, a
-/// scene change, and the setting switched off close it, and closing returns every rented card.
+/// it taps and renders its snapshot. It is a Main Overlay Panel: the Overlay Panel Host opens and
+/// closes it (<see cref="AndroidOverlayPanels"/>), for the touch menu, the back key, combat, a
+/// scene change, another panel and the setting switched off; its close button and a failed
+/// relayout request the close. Closing returns every rented card.
 /// A refresh's fetch finishes on a pool thread, so its result is posted to
 /// <see cref="AndroidMainThread"/> before <see cref="LiveBuildPanelState.CompleteRefresh"/> runs,
 /// as the state requires. The view is laid out for the screen it opened on and laid out again
@@ -43,8 +45,14 @@ internal sealed class AndroidLiveBuildPanel
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private float _loggedScroll;
 
-    public AndroidLiveBuildPanel(Transform parent, TMP_FontAsset font, AndroidLiveBuildData data)
+    public AndroidLiveBuildPanel(
+        Transform parent,
+        TMP_FontAsset font,
+        AndroidLiveBuildData data,
+        Action<string> requestClose
+    )
     {
+        ArgumentNullException.ThrowIfNull(requestClose);
         _parent = parent;
         _font = font;
         _data = data;
@@ -55,7 +63,7 @@ internal sealed class AndroidLiveBuildPanel
             AndroidHeroNames.TheDragons
         );
         _commands = new Commands(
-            reason => Close(reason),
+            requestClose,
             Refresh,
             () => Browse(-1),
             () => Browse(+1),
@@ -88,13 +96,14 @@ internal sealed class AndroidLiveBuildPanel
     /// <summary>Cards the panel's boards and inspection hold.</summary>
     public int Leases => _view?.Leases ?? 0;
 
-    public void Open(string source)
+    /// <summary>False when no view could be built: the panel stays closed.</summary>
+    public bool Open(string source)
     {
         if (IsOpen)
-            return;
+            return true;
         var view = EnsureView();
         if (view == null)
-            return;
+            return false;
         var outcome = LiveCardSnapshotRead.Read(
             AndroidLiveCardSnapshotReader.Walk,
             new BppLogEvent(
@@ -129,6 +138,7 @@ internal sealed class AndroidLiveBuildPanel
             ("card_scale", Math.Round(layout.CardScale, 3)),
             ("leases", view.Leases)
         );
+        return true;
     }
 
     /// <summary>False when it was not open.</summary>
@@ -151,15 +161,10 @@ internal sealed class AndroidLiveBuildPanel
         return true;
     }
 
-    /// <summary>The back key: the inspected card first, then the panel. False when neither was open.</summary>
-    public bool HandleBack()
-    {
-        if (!IsOpen)
-            return false;
-        if (_view!.Inspection.Close("back_key"))
-            return true;
-        return Close("back_key");
-    }
+    /// <summary>A card is inspected: the back key closes it before the panel.</summary>
+    public bool IsInspecting => IsOpen && _view!.Inspection.IsOpen;
+
+    public void CloseInspection() => _view?.Inspection.Close("back_key");
 
     /// <summary>Main thread, every frame.</summary>
     public void Tick()
@@ -169,7 +174,8 @@ internal sealed class AndroidLiveBuildPanel
             return;
         if (_relayout.Observe(AndroidTouchScreen.Key(), view.SettingUp))
         {
-            Relayout();
+            if (!Relayout())
+                _commands.Close("relayout_failed");
             return;
         }
         view.Tick();
@@ -235,13 +241,13 @@ internal sealed class AndroidLiveBuildPanel
     }
 
     // The screen changed under the open panel: the old view returns its cards, and a view laid out
-    // for the new screen renders the same state.
-    private void Relayout()
+    // for the new screen renders the same state. False when no view could be built.
+    private bool Relayout()
     {
         var before = _screenKey;
         var view = EnsureView();
         if (view == null)
-            return;
+            return false;
         view.SetVisible(true);
         view.Refresh(_state.BuildSnapshot(), boards: true);
         Relayouts++;
@@ -254,6 +260,7 @@ internal sealed class AndroidLiveBuildPanel
             ("rental_leases", AndroidCardRental.ActiveLeases),
             ("held_frames", _relayout.HeldFrames)
         );
+        return true;
     }
 
     private void ToggleCandidate(Guid templateId)

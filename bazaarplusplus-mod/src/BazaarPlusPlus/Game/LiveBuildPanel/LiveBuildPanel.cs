@@ -39,7 +39,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     internal void Initialize(
         BuildRecommendationRepository recommendations,
-        OverlayPanelHost overlayHost
+        DesktopOverlayPanels overlayHost
     )
     {
         if (_state != null)
@@ -54,7 +54,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         _state.BeginCorpusLoad();
     }
 
-    internal void AttachToOverlayHost(OverlayPanelHost overlayHost)
+    internal void AttachToOverlayHost(DesktopOverlayPanels overlayHost)
     {
         if (_overlayHandle != null)
             return;
@@ -62,11 +62,15 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         _overlayHandle = overlayHost.Register(
             new OverlayPanelRegistration(
                 OverlayPanelId,
-                BppHotkeyActionId.ToggleLiveBuildPanel,
-                onOpen: Open,
-                onClose: Close,
+                onOpen: () =>
+                {
+                    Open();
+                    return true;
+                },
+                onClose: _ => Close(),
                 tick: Tick
-            )
+            ),
+            BppHotkeyActionId.ToggleLiveBuildPanel
         );
     }
 

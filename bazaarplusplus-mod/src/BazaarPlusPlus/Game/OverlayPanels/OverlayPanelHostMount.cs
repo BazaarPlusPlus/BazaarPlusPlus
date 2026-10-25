@@ -10,16 +10,16 @@ namespace BazaarPlusPlus.Game.OverlayPanels;
 // host through the Host property via a nullable accessor.
 internal sealed class OverlayPanelHostMount : IBppMountable
 {
-    public OverlayPanelHost? Host { get; private set; }
+    public DesktopOverlayPanels? Host { get; private set; }
 
     public void Mount(GameObject host, IBppServices services)
     {
-        Host = host.AddComponent<OverlayPanelHost>();
+        Host = host.AddComponent<DesktopOverlayPanels>();
     }
 
     public void Unmount(GameObject host)
     {
-        var component = host.GetComponent<OverlayPanelHost>();
+        var component = host.GetComponent<DesktopOverlayPanels>();
         if (component != null)
             UnityEngine.Object.DestroyImmediate(component);
         Host = null;

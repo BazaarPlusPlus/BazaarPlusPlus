@@ -45,7 +45,8 @@ cmd_test_core() {
     for project in BundleV6Codec.Net10.Tests RunLoggingPipeline.Net10.Tests \
         CollectionFilterEngine.Tests CollectionGridLayout.Tests CollectionViewState.Tests \
         GhostBattleSync.Tests HistoryPanelDecisions.Tests HistoryPanelFiltering.Tests \
-        HistoryPanelRepository.Tests LiveBuildPanel.Tests LiveBuildRecommendationCore.Tests; do
+        HistoryPanelRepository.Tests LiveBuildPanel.Tests LiveBuildRecommendationCore.Tests \
+        OverlayPanelLifecycle.Tests; do
         dotnet run --project "tests/$project/$project.csproj" \
             "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     done
