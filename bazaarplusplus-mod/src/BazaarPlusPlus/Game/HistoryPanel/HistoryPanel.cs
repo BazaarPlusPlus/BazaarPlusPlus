@@ -18,8 +18,6 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
     internal static HistoryPanel? Instance { get; private set; }
 
-    private bool _returnAfterReplay;
-
     private readonly HistoryPanelState _state = new();
     private HistoryPanelDependencies? _dependencies;
     private HistoryPanelCoordinator? _coordinator;
@@ -29,9 +27,6 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     private bool _initialized;
 
     public static bool IsVisible { get; private set; }
-
-    private HistoryRunRecord? SelectedRun =>
-        HistoryPanelViewModelBuilder.SelectedRun(_state, _coordinator);
 
     private HistoryBattleRecord? ActiveSelectedBattle =>
         HistoryPanelViewModelBuilder.ActiveSelectedBattle(_state, _coordinator);
@@ -53,13 +48,21 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             dependencies,
             RefreshUi,
             RefreshSelectedBattlePreview,
-            OnReplayVisibilityChange
+            new HistoryPanelReplayReturnPort(
+                () => SetHistoryVisible(false),
+                () => SetHistoryVisible(true),
+                () => CombatReplayRuntime.Instance?.SavedReplays,
+                () =>
+                    SceneLoader.IsSceneLoaded(SceneID.HeroSelectScene)
+                    && SceneLoader.ActiveScene == SceneID.HeroSelectScene
+            )
         );
     }
 
     private void OnDisable()
     {
-        _returnAfterReplay = false;
+        // Only a disable drops a pending return from a replay; an ordinary close keeps it.
+        _coordinator?.CancelReplayReturn();
         // Route through the host so its open-panel state cannot desync; the unconditional
         // hide below also covers the not-open case (matching the historical force-hide).
         _overlayHandle?.RequestClose();
@@ -82,17 +85,12 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     }
 
     // Lifecycle (scene change, combat gate, hotkey, escape) is owned by the Overlay Panel Host;
-    // this tick restores the accepted replay origin and carries per-frame content work.
+    // this tick lets the coordinator return from an accepted replay and carries per-frame content
+    // work.
     private void Tick(float dt, bool isVisible)
     {
-        if (
-            _returnAfterReplay
-            && !isVisible
-            && CombatReplayRuntime.Instance?.SavedReplays is { HasSavedReplaySession: false }
-            && SceneLoader.IsSceneLoaded(SceneID.HeroSelectScene)
-            && SceneLoader.ActiveScene == SceneID.HeroSelectScene
-        )
-            SetHistoryVisible(true);
+        if (!isVisible)
+            _coordinator?.TickHidden();
 
         if (!IsVisible)
             return;
@@ -101,12 +99,6 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         _uiView?.Tick();
         _nativePlayerBoard?.Fit();
         _nativeOpponentBoard?.Fit();
-    }
-
-    private void OnReplayVisibilityChange(bool visible)
-    {
-        _returnAfterReplay = !visible;
-        SetHistoryVisible(visible);
     }
 
     private void SetHistoryVisible(bool visible)
@@ -122,9 +114,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         EnsureUi();
         _supporters = BPPSupporters.SampleMany(4);
         IsVisible = true;
-        var resumeSelection = _returnAfterReplay;
-        _returnAfterReplay = false;
-        _coordinator?.OnPanelShown(resumeSelection);
+        _coordinator?.OnPanelShown();
         SetUiVisible(true);
         RefreshUi();
     }

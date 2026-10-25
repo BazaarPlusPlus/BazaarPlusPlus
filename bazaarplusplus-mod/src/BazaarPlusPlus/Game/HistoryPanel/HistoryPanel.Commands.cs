@@ -40,21 +40,13 @@ internal sealed partial class HistoryPanel
             _ = _coordinator.TryReplaySelectedBattleAsync(ActiveSelectedBattle, recordVideo);
     }
 
-    // The delete button removes the selected favorite in Favorites and the selected run in Runs.
-    private void TryDeleteSelectedRun()
-    {
-        if (_coordinator == null)
-            return;
-        if (_state.SectionMode == HistorySectionMode.Favorites)
-            _ = _coordinator.TryRemoveSelectedFavoriteAsync();
-        else
-            _coordinator.TryDeleteSelectedRun(SelectedRun);
-    }
+    private void TryDeleteSelectedRun() => _coordinator?.DeleteSelected();
 
+    // In Favorites the coordinator hands back the selected favorite, whose note the dialog edits.
     private void TryFavoriteSelectedBattle()
     {
-        if (_coordinator != null)
-            _ = _coordinator.TryFavoriteSelectedBattleAsync(ActiveSelectedBattle);
+        if (_coordinator?.FavoriteSelected() is { } favorite)
+            _uiView?.OpenNoteDialog(favorite.BattleId, favorite.Note);
     }
 
     private Task<bool> SaveFavoriteNote(string battleId, string note) =>

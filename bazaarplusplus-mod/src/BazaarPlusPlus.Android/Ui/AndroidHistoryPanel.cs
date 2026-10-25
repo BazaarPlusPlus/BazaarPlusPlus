@@ -67,7 +67,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private bool _shownBoth;
     private (HistoryBoardFacts Player, HistoryBoardFacts Opponent) _shownFacts;
     private bool _boardsDirty;
-    private bool _returnAfterReplay;
     private bool _disposed;
     private long _opened;
     private long _relayouts;
@@ -96,7 +95,12 @@ internal sealed class AndroidHistoryPanel : IDisposable
             dependencies,
             RefreshUi,
             RefreshBoards,
-            OnReplayVisibilityChange
+            new HistoryPanelReplayReturnPort(
+                HideForReplay,
+                ReturnFromReplay,
+                _runtime,
+                AndroidLobbyScene.IsActive
+            )
         );
         _handle = panels.Register(handle => new OverlayPanelRegistration(
             PanelId,
@@ -172,12 +176,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         {
             if (!isOpen)
             {
-                if (
-                    _returnAfterReplay
-                    && _runtime() is { HasSavedReplaySession: false }
-                    && AndroidLobbyScene.IsActive()
-                )
-                    ReturnFromReplay();
+                _coordinator.TickHidden();
                 return;
             }
             if (_view != null && _view.ScreenKey != AndroidTouchScreen.Key() && !Relayout())
@@ -203,8 +202,11 @@ internal sealed class AndroidHistoryPanel : IDisposable
         }
     }
 
-    // A combat keeps the return pending, so it is tried again next frame; a switched-off panel
-    // drops it.
+    // The coordinator hides the panel for a replay it started and keeps the return pending.
+    private void HideForReplay() => _handle.RequestClose(ReplayStarted);
+
+    // The coordinator's return from a replay. A combat keeps the return pending, so it is tried
+    // again next frame; a switched-off panel drops it.
     private void ReturnFromReplay()
     {
         if (_handle.RequestOpen("replay_returned") != OverlayRequestOutcome.Disabled)
@@ -271,11 +273,9 @@ internal sealed class AndroidHistoryPanel : IDisposable
         // Ghost replays count their snapshot templates on a pool thread; the index they read is
         // built here, on the main thread, before any download can start.
         _templates.EnsureBuilt();
-        var resumeSelection = _returnAfterReplay;
-        _returnAfterReplay = false;
         IsVisible = true;
         Interlocked.Increment(ref _opened);
-        _coordinator.OnPanelShown(resumeSelection);
+        var resumeSelection = _coordinator.OnPanelShown();
         _view!.SetVisible(true);
         RefreshUi();
         RefreshBoards();
@@ -306,7 +306,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.closed"),
             ("reason", reason),
-            ("return_after_replay", _returnAfterReplay),
+            ("return_after_replay", _coordinator.ReplayReturnPending),
             ("returned", returned),
             ("rental_leases", AndroidCardRental.ActiveLeases)
         );
@@ -314,9 +314,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
 
     private void CancelReturn(string reason)
     {
-        if (!_returnAfterReplay)
+        if (!_coordinator.CancelReplayReturn())
             return;
-        _returnAfterReplay = false;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.return_cancelled"),
             ("reason", reason)
@@ -468,18 +467,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private HistoryBattleRecord? ActiveSelectedBattle =>
         HistoryPanelViewModelBuilder.ActiveSelectedBattle(_state, _coordinator);
 
-    // A replay start hides the panel and remembers to come back once the replay is over.
-    // HistoryPanelCoordinator's shared port: today it only hides for a replay start, and the
-    // return reopens through the replay-return path; the true branch keeps the port total.
-    private void OnReplayVisibilityChange(bool visible)
-    {
-        _returnAfterReplay = !visible;
-        if (visible)
-            _handle.RequestOpen("replay_visibility");
-        else
-            _handle.RequestClose(ReplayStarted);
-    }
-
     private void RefreshUi()
     {
         if (_view == null || _disposed)
@@ -599,18 +586,12 @@ internal sealed class AndroidHistoryPanel : IDisposable
     // coordinator refuses with the reason on the status line when the button reads unavailable.
     private void Delete()
     {
-        var section = _state.SectionMode;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.delete_tapped"),
-            ("section", section),
+            ("section", _state.SectionMode),
             ("enabled", _model?.DeleteButtonEnabled ?? false)
         );
-        if (section == HistorySectionMode.Favorites)
-            _ = _coordinator.TryRemoveSelectedFavoriteAsync();
-        else
-            _coordinator.TryDeleteSelectedRun(
-                HistoryPanelViewModelBuilder.SelectedRun(_state, _coordinator)
-            );
+        _coordinator.DeleteSelected();
     }
 
     private static void LogFilter(string filter, string value) =>
@@ -627,13 +608,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.favorite_tapped"),
             ("section", _state.SectionMode)
         );
-        if (_state.SectionMode == HistorySectionMode.Favorites)
-        {
-            if (_model?.SelectedFavoriteBattleId is { } battleId)
-                _note?.Open(battleId, _model.SelectedFavoriteNote);
-            return;
-        }
-        _ = _coordinator.TryFavoriteSelectedBattleAsync(ActiveSelectedBattle);
+        if (_coordinator.FavoriteSelected() is { } favorite)
+            _note?.Open(favorite.BattleId, favorite.Note);
     }
 
     private void OpenSkills()

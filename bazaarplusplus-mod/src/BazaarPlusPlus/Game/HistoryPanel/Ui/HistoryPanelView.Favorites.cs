@@ -84,19 +84,16 @@ internal sealed partial class HistoryPanelView
     {
         if (_model == null)
             return;
-        if (_model.SectionMode == HistorySectionMode.Favorites)
-            OpenNoteDialog();
-        else
-            _favorite?.Invoke();
+        _favorite?.Invoke();
     }
 
-    private void OpenNoteDialog()
+    internal void OpenNoteDialog(string battleId, string note)
     {
-        if (_noteRoot == null || _noteInput == null || _model?.SelectedFavoriteBattleId == null)
+        if (_noteRoot == null || _noteInput == null)
             return;
-        _noteBattleId = _model.SelectedFavoriteBattleId;
+        _noteBattleId = battleId;
         _noteSaving = false;
-        _noteInput.SetTextWithoutNotify(_model.SelectedFavoriteNote);
+        _noteInput.SetTextWithoutNotify(note);
         RefreshNoteCount();
         _noteRoot.SetActive(true);
         _noteInput.ActivateInputField();

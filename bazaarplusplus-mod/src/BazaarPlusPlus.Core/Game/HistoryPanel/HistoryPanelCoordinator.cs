@@ -22,15 +22,16 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
     private readonly Func<string?> _profileAccountId;
     private readonly Action _requestUiRefresh;
     private readonly Action _requestPreviewRefresh;
-    private readonly Action<bool> _requestVisibilityChange;
+    private readonly HistoryPanelReplayReturnPort _replayReturn;
     private readonly HistoryPanelSessionScope _session = new();
+    private bool _replayReturnPending;
 
     public HistoryPanelCoordinator(
         HistoryPanelState state,
         HistoryPanelDependencies dependencies,
         Action requestUiRefresh,
         Action requestPreviewRefresh,
-        Action<bool> requestVisibilityChange
+        HistoryPanelReplayReturnPort replayReturn
     )
     {
         _state = state ?? throw new ArgumentNullException(nameof(state));
@@ -49,9 +50,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             requestUiRefresh ?? throw new ArgumentNullException(nameof(requestUiRefresh));
         _requestPreviewRefresh =
             requestPreviewRefresh ?? throw new ArgumentNullException(nameof(requestPreviewRefresh));
-        _requestVisibilityChange =
-            requestVisibilityChange
-            ?? throw new ArgumentNullException(nameof(requestVisibilityChange));
+        _replayReturn = replayReturn ?? throw new ArgumentNullException(nameof(replayReturn));
     }
 
     public void Dispose()
@@ -61,11 +60,52 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         _detailReads.Clear();
         _maintenanceReads.Clear();
         _favoriteReads.Clear();
+        _replayReturnPending = false;
         _session.Dispose();
     }
 
-    public void OnPanelShown(bool resumeSelection = false)
+    /// <summary>A replay this panel started is waiting to bring it back.</summary>
+    public bool ReplayReturnPending => _replayReturnPending;
+
+    /// <summary>
+    /// The host's tick while the panel is closed: once the replay is over and the lobby is active,
+    /// asks the host to show the panel. A show that does not open keeps the return pending, so it
+    /// is tried again on the next tick.
+    /// </summary>
+    public void TickHidden()
     {
+        // The pending flag first: the host's probes run only while a return waits.
+        if (
+            !_replayReturnPending
+            || _replayReturn.SavedReplays() is not { HasSavedReplaySession: false }
+            || !_replayReturn.LobbyActive()
+        )
+            return;
+        // The show re-enters OnPanelShown, which consumes the return; nothing is read after it.
+        _replayReturn.Show();
+    }
+
+    /// <summary>
+    /// Drops a pending return; true when one was pending. Each host calls it where its own rule
+    /// says: the desktop when the panel's object disables, Android on switch-off and on every close
+    /// but the replay's own (ADR-0003).
+    /// </summary>
+    public bool CancelReplayReturn()
+    {
+        if (!_replayReturnPending)
+            return false;
+        _replayReturnPending = false;
+        return true;
+    }
+
+    /// <summary>
+    /// Begins a panel session. True when it is the return from a replay this panel started: the
+    /// return is consumed and the selection, filters and pages are resumed.
+    /// </summary>
+    public bool OnPanelShown()
+    {
+        var resumeSelection = _replayReturnPending;
+        _replayReturnPending = false;
         _session.Begin();
         _state.AccountLinkExpanded = false;
         // Begin() cancels any in-flight redeem, whose continuations bail on !IsCurrent without
@@ -101,8 +141,10 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         else
             RefreshSectionOnEntry();
         StartGhostMaintenance();
+        return resumeSelection;
     }
 
+    // Leaves a pending return alone: the replay's own hide runs this right after arming it.
     public void OnPanelHidden()
     {
         _state.GhostSync = GhostSyncPhase.NotStarted;
@@ -423,7 +465,9 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
 
         LogReplayAccepted(logRequestId, battle.BattleId, recordVideo);
         SetStatusMessage(replayResult.StatusMessage, StatusSeverity.Success);
-        _requestVisibilityChange(false);
+        // Armed before the hide, which closes the panel and may log the pending return.
+        _replayReturnPending = true;
+        _replayReturn.Hide();
     }
 
     private void SetReplayFailure(HistoryBattleRecord battle, string message)
@@ -442,7 +486,19 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
     public bool IsDeleteRunConfirmationActive(string runId, float now) =>
         _state.DeleteRunConfirmation.IsActiveFor(runId, now);
 
-    public void TryDeleteSelectedRun(HistoryRunRecord? selectedRun)
+    /// <summary>
+    /// The delete button: removes the selected favorite in Favorites (a first press arms the
+    /// confirmation), deletes the selected run in every other section, which refuses outside Runs.
+    /// </summary>
+    public void DeleteSelected()
+    {
+        if (_state.SectionMode == HistorySectionMode.Favorites)
+            _ = TryRemoveSelectedFavoriteAsync();
+        else
+            TryDeleteSelectedRun(GetSelectedRun());
+    }
+
+    private void TryDeleteSelectedRun(HistoryRunRecord? selectedRun)
     {
         var run = selectedRun;
         if (run == null)
