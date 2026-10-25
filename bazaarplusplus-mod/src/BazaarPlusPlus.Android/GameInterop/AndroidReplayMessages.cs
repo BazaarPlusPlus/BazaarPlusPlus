@@ -15,33 +15,21 @@ namespace BazaarPlusPlus.Android.GameInterop;
 internal static class AndroidReplayMessages
 {
     /// <summary>
-    /// Serializes <paramref name="message"/> and decodes the bytes back as <typeparamref name="T"/>,
-    /// so a payload is only kept when the game's own serializer reads it. Main thread only: it
-    /// calls into the IL2CPP runtime.
+    /// Serializes <paramref name="message"/> as <typeparamref name="T"/>. The bytes are not decoded
+    /// back here: the game's serializer first reads them at playback (<see cref="Deserialize{T}"/>).
+    /// Main thread only: it calls into the IL2CPP runtime.
     /// </summary>
-    public static byte[] Serialize<T>(T message, Func<T, string?> messageId)
+    public static byte[] Serialize<T>(T message)
         where T : Il2CppObjectBase
     {
         ArgumentNullException.ThrowIfNull(message);
-        var options = MessagePackConfig.Options;
         var serialized =
             Il2CppMessagePack.MessagePackSerializer.Serialize(
                 message,
-                options,
+                MessagePackConfig.Options,
                 Il2CppSystem.Threading.CancellationToken.None
             ) ?? throw new InvalidOperationException("The game's serializer returned no bytes.");
-        var bytes = serialized.AsSpan().ToArray();
-
-        var stream = new Il2CppSystem.IO.MemoryStream(serialized);
-        var decoded =
-            Il2CppMessagePack.MessagePackSerializer.Deserialize<T>(
-                stream.Cast<Il2CppSystem.IO.Stream>(),
-                options,
-                Il2CppSystem.Threading.CancellationToken.None
-            ) ?? throw new InvalidDataException("The game's serializer decoded no message.");
-        if (!string.Equals(messageId(decoded), messageId(message), StringComparison.Ordinal))
-            throw new InvalidDataException("The decoded message has another message id.");
-        return bytes;
+        return serialized.AsSpan().ToArray();
     }
 
     /// <summary>
@@ -66,7 +54,7 @@ internal static class AndroidReplayMessages
     /// <summary>
     /// Whether <paramref name="bytes"/> hold exactly one well-formed MessagePack value. This is the
     /// check the Bundle composer runs off the main thread, where the IL2CPP serializer may not be
-    /// called; the full decode already ran when the payload was captured.
+    /// called; only playback decodes a message with the game's serializer.
     /// </summary>
     public static void VerifyWellFormed(byte[] bytes, string label)
     {
