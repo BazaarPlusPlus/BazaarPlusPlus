@@ -76,5 +76,5 @@ secrets-sync *args:
 commands-check:
     for file in {{ just_files }}; do {{ quote(just_executable()) }} --justfile "$file" --fmt --check; done
     npm exec -- prettier --config .prettierrc.json --check {{ root_js }}
-    node --test scripts/just.test.mjs scripts/workspace.test.mjs scripts/verify.test.mjs
+    node --test scripts/*.test.mjs
     node --test .github/scripts/*.test.mjs

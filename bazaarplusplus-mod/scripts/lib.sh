@@ -165,6 +165,15 @@ dispatch() {
     if [[ -z "$command" ]] || ! declare -F "$fn" >/dev/null; then
         die "Usage: $0 <command> [args...]; see 'just --list mod'."
     fi
+    # These entry points share bin/obj even when called outside just. Nested commands
+    # inherit the outer lock, including the serial Android validation pipeline.
+    case "$(basename "$0"):$command" in
+        build.sh:build | build.sh:matrix | test.sh:test | test.sh:test-core | test.sh:test-performance | test.sh:test-corpus | android.sh:build | android.sh:deploy | android.sh:smoke)
+            if [[ -z "${BPP_MOD_BUILD_LOCK:-}" || ! "$BPP_MOD_BUILD_LOCK" -ef "$MOD_ROOT/artifacts/build.lock" ]]; then
+                exec node "$MOD_ROOT/../scripts/mod-validation.mjs" lock -- bash "$MOD_ROOT/scripts/$(basename "$0")" "$@"
+            fi
+            ;;
+    esac
     shift
     "$fn" "$@"
 }

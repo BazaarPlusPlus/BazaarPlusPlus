@@ -93,7 +93,7 @@ Android 没有云端的设备 lane：托管 runner 跑不了 arm64 游戏的模�
 
 ## Git hooks
 
-根目录 `lefthook.yml` 是唯一的 hook 配置，按改动路径选择各项目的 recipe。先在根目录执行 `npm ci`，再执行 `just hooks-install`。它把仓库级 `core.hooksPath` 指向 git common dir 下的 `hooks`，让 linked worktree 共用同一套 hooks，并覆盖全局 hooks 路径。
+根目录 `lefthook.yml` 是唯一的 hook 配置，按改动路径选择各项目的 recipe。pre-push 读取 Git 传入的推送 refs：已有远端分支比较推送前后的提交，首次推送比较当前提交与远端默认分支的 merge-base，并复用 CI 的项目与共享契约映射。远端默认分支引用或差异不可用时保守运行全部检查。先在根目录执行 `npm ci`，再执行 `just hooks-install`。它把仓库级 `core.hooksPath` 指向 git common dir 下的 `hooks`，让 linked worktree 共用同一套 hooks，并覆盖全局 hooks 路径。
 
 需要保存验证证据时，使用 `just verify <recipe...>`：桌面端可运行 `just verify mod::check mod::test mod::test-performance`，Android 可运行 `just verify mod::android-build mod::test-core`。每次运行在 `artifacts/verification/` 下生成独立目录，记录 SHA、工作区是否有改动、各步骤最终退出码和完整日志。只有进程和输出流都结束、退出成功且 HEAD 未变化，回执才标记通过；中断留下的 `running` 不能作为通过证据。回执不是缓存，未提交改动的结果也不能证明后续提交已验证。
 
