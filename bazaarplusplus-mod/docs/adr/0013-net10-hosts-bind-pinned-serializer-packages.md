@@ -20,7 +20,7 @@ ADR-0012 §5 made Core multi-target and narrowed ADR-0010 to the Mono target for
 - A test that needs the `net10.0` output of Core, Storage, or ModApi names it with `SetTargetFramework="TargetFramework=net10.0"`, as the `*.Net10.Tests` projects and `Architecture.Tests` do. Without the default in `tests/Directory.Build.targets`, a `net10.0` test silently resolves the `net10.0` output and loses the game-file coverage. `BundlePipeline.Tests` and `RunLoggingPipeline.Tests` fail when the Core, Storage, or ModApi they load is not the `netstandard2.1` output, and `RunLoggingPipeline.Net10.Tests` when it is not the `net10.0` output (`tests/Shared/SharedTargetPin.cs`).
 - Hand `MessagePackGzipCodec` only bytes BPP wrote itself. Anything from the network goes through a codec with `MessagePackSecurity.UntrustedData`.
 - Not decided here: a `net10.0` sibling for the Bundle pipeline goldens. Core's `net10.0` output of Bundle sealing and upload runs in no golden until the Android host seals Bundles.
-- Not decided here: how the Android host produces a Replay Payload, since `PvpReplayPayloadFactory` serializes the game's own `INetMessage` objects (issue #367 §2.4).
+- Not decided here: how the Android host produces a Replay Payload, since the desktop's `DesktopPvpBattleReads.KeepReplayPart` serializes the game's own `INetMessage` objects (issue #367 §2.4).
 
 ## Evidence
 

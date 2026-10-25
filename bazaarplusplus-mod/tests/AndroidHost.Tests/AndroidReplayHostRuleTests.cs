@@ -47,7 +47,7 @@ public sealed class AndroidReplayHostRuleTests : IDisposable
         var clock = Stopwatch.StartNew();
         var outcome = AndroidPvpBattleCapture.Persist(
             gate,
-            store,
+            new PvpBattleCatalog(store),
             files,
             Battle("during-replay"),
             ReplayMessages.Payload("during-replay"),
@@ -75,7 +75,7 @@ public sealed class AndroidReplayHostRuleTests : IDisposable
 
         var outcome = AndroidPvpBattleCapture.Persist(
             gate,
-            store,
+            new PvpBattleCatalog(store),
             files,
             Battle("live"),
             ReplayMessages.Payload("live"),
@@ -235,7 +235,7 @@ public sealed class AndroidReplayHostRuleTests : IDisposable
             new CombatReplayPayloadStore(PathConstants.CombatReplays(_dataRoot))
         );
 
-    private static PvpBattleRecord Battle(string battleId) =>
+    private static PvpBattleManifest Battle(string battleId) =>
         new()
         {
             BattleId = battleId,
@@ -243,7 +243,7 @@ public sealed class AndroidReplayHostRuleTests : IDisposable
             CombatKind = "PVPCombat",
             Participants = new PvpBattleParticipants(),
             Outcome = new PvpBattleOutcome(),
-            Snapshots = new PvpBattleSnapshotDocuments(),
+            Snapshots = new PvpBattleSnapshots(),
         };
 
     private sealed class FakeTask

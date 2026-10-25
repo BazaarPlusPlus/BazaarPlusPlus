@@ -28,7 +28,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
     private const float CurrentReplayRecapTransitionTimeoutSeconds = 10f;
 
     private IBppServices? _services;
-    private CombatReplayCaptureService? _captureService;
+    private PvpBattleCaptureWindow<BazaarGameShared.Infra.Messages.INetMessage>? _captureWindow;
     private ReplayPersistenceOrchestrator? _persistence;
     private ReplayPlaybackPublisher? _playbackPublisher;
     private Func<CombatReplayVideoRecorder?>? _videoRecorder;
@@ -86,7 +86,13 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
             OnReplayPersistenceCompleted
         );
         _playbackPublisher = new ReplayPlaybackPublisher(_services);
-        _captureService = new CombatReplayCaptureService();
+        _captureWindow = new PvpBattleCaptureWindow<BazaarGameShared.Infra.Messages.INetMessage>(
+            new DesktopPvpBattleReads(),
+            _services.RunContext,
+            _services.RunSnapshot,
+            static () => DateTimeOffset.UtcNow,
+            PvpOpeningKinds.PvpCombat | PvpOpeningKinds.MonsterCombat
+        );
         var catalog = new SavedReplayCatalog(_persistence.Catalog, _persistence.PayloadStore);
         SavedReplays = new SavedReplayPlayback(
             _services,
@@ -155,29 +161,41 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
     public void ObserveMessage(BazaarGameShared.Infra.Messages.INetMessage message)
     {
-        if (_captureService == null || _persistence == null)
+        if (_captureWindow == null || _persistence == null)
             return;
 
         try
         {
-            var artifact = _captureService.Accept(
-                message,
-                _services!.RunContext.CurrentServerRunId
-            );
-            if (artifact == null)
+            if (_captureWindow.Observe(message) is not { } capture)
                 return;
 
-            var route = CapturedReplayRouter.Resolve(artifact.Manifest);
-            _currentRecordingManifest = artifact.Manifest;
-            _currentRecording.LatchBattle(artifact.Manifest.BattleId);
+            var manifest = capture.Manifest;
+            var route = CapturedReplayRouter.Resolve(manifest);
+            // A PvP battle whose replay parts failed is not latched or persisted, as before; the
+            // window has logged which part failed.
+            if (route == CapturedReplayRoute.PersistedPvp && capture.Replay is null)
+            {
+                BppLog.ErrorEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.capture.failed"
+                    ),
+                    ("run_id", manifest.RunId, BppLogCorrelationPolicy.Short),
+                    ("reason_code", ReplayCaptureReasonCode.ReplayPartMissing)
+                );
+                return;
+            }
+
+            _currentRecordingManifest = manifest;
+            _currentRecording.LatchBattle(manifest.BattleId);
             PrepareCurrentReplayRecordingAvailability();
             switch (route)
             {
                 case CapturedReplayRoute.CurrentNative:
-                    _currentRecording.MarkCurrentNativeReady(artifact.Manifest.BattleId);
+                    _currentRecording.MarkCurrentNativeReady(manifest.BattleId);
                     break;
                 case CapturedReplayRoute.PersistedPvp:
-                    _persistence.Enqueue(artifact.Payload, artifact.Manifest);
+                    _persistence.Enqueue(capture.Replay!, manifest);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

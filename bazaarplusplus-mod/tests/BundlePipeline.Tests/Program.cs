@@ -221,6 +221,7 @@ try
     await VerifyRecoveryAsync(Path.Combine(root, "recovery"));
     await VerifyRunSegmentProjectionAsync(Path.Combine(root, "run-segment"));
     BattleSnapshotShapeTests.Run(Path.Combine(root, "battle-snapshots"));
+    DesktopPvpBattleCaptureTests.Run();
     CardEnumTableTests.Run();
     await VerifyUploadClientAsync();
 }

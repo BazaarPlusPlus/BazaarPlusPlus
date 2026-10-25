@@ -9,6 +9,7 @@
         <Project Path="EventPreview.Tests/EventPreview.Tests.csproj" />
         <Project Path="HeroIdentity.Tests/HeroIdentity.Tests.csproj" />
         <Project Path="PostCombatImpact.Tests/PostCombatImpact.Tests.csproj" />
+        <Project Path="PvpBattleCaptureWindow.Tests/PvpBattleCaptureWindow.Tests.csproj" />
         <Project Path="SavedReplayPlayback.Tests/SavedReplayPlayback.Tests.csproj" />
         <Project Path="PureBehavior.Tests/PureBehavior.Tests.csproj" />
         <Project Path="RuntimeIntegration.Tests/RuntimeIntegration.Tests.csproj" />

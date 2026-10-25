@@ -5,6 +5,7 @@
         <Project Path="CombatStatusBarState.Tests/CombatStatusBarState.Tests.csproj" />
         <Project Path="EventPreview.Tests/EventPreview.Tests.csproj" />
         <Project Path="PostCombatImpact.Tests/PostCombatImpact.Tests.csproj" />
+        <Project Path="PvpBattleCaptureWindow.Tests/PvpBattleCaptureWindow.Tests.csproj" />
         <Project Path="SavedReplayPlayback.Tests/SavedReplayPlayback.Tests.csproj" />
         <Project Path="SelfUpdate.Tests/SelfUpdate.Tests.csproj" />
         <Project Path="SettingsDockCore.Tests/SettingsDockCore.Tests.csproj" />

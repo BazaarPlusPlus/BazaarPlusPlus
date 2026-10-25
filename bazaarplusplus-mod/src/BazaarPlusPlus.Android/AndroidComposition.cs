@@ -16,6 +16,7 @@ using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
+using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLifecycle;
 using BazaarPlusPlus.Game.RunLogging;
@@ -31,6 +32,7 @@ using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
 using BazaarPlusPlus.Storage.Sqlite;
+using Il2CppBazaarGameShared.Infra.Messages;
 
 namespace BazaarPlusPlus.Android;
 
@@ -99,13 +101,19 @@ internal sealed class AndroidComposition
             replayGate,
             static () => Array.Empty<string>()
         );
+        // Android records PvP battles only; a monster fight opens no window.
         BattleCapture = new AndroidPvpBattleCapture(
-            battles,
+            new PvpBattleCaptureWindow<INetMessage>(
+                new AndroidPvpBattleReads(),
+                services.RunContext,
+                services.RunSnapshot,
+                static () => DateTimeOffset.UtcNow,
+                PvpOpeningKinds.PvpCombat
+            ),
+            Battles,
             replays,
             replayGate,
-            services.EventBus,
-            () => services.RunContext.CurrentServerRunId,
-            static () => DateTimeOffset.UtcNow
+            services.EventBus
         );
 
         RunLifecycle = new RunLifecycleModule(

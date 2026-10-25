@@ -6,9 +6,9 @@ namespace BazaarPlusPlus.Game.PvpBattles;
 
 /// <summary>
 /// One board capture as the history database stores it in <c>battle_snapshots</c>: snake_case
-/// JSON whose card enums are the game's member names, which equal the card facets' names. The
-/// desktop host writes its facet capture through <see cref="PvpBattleSnapshotsCodec"/>; the Android
-/// host writes this type directly. The Bundle composer reads it through this type.
+/// JSON whose card enums are the game's member names, which equal the card facets' names. Both
+/// hosts write their facet captures through <see cref="PvpBattleSnapshotsCodec"/>. The Bundle
+/// composer reads it through this type.
 /// </summary>
 public sealed class PvpBattleCardSetDocument
 {

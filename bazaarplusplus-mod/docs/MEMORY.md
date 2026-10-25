@@ -40,6 +40,7 @@ One line each, full record in [adr/](adr/). A line here exists to stop a settled
 - ADR-0018: Android touch surfaces lay out in Core's one `TouchChrome` frame (safe area, 48 dp/12 sp floors, one close button, shared inspect sheet); a touch grid picks its columns from its width.
 - ADR-0019: The Combat Impact producer lives in Core on BPP combat facets that copy the game's names and values; the host only copies a `CombatSim` and reads templates.
 - ADR-0020: Saved Replay Playback (admission, lease, start, exit, menu return) lives once in Core behind `ISavedReplayHost`; hosts differ only in port behavior.
+- ADR-0021: The PvP Battle Capture Window (opening kinds, read timing, live retry, run link, replay part order) lives once in Core behind `IPvpBattleReads`; persistence stays per host.
 
 
 ## Gotchas
