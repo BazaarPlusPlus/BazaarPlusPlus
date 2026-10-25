@@ -109,8 +109,8 @@ public sealed class AndroidMod : MelonMod
             ("replay_start_failures", _replayRuntime?.StartFailures ?? 0),
             ("replay_exits", _replayRuntime?.ExitsHandled ?? 0),
             ("replay_menu_returns", _replayRuntime?.MenuReturns ?? 0),
-            ("replay_session", _replayRuntime?.HasSavedReplaySession ?? false),
-            ("payload_leases_held", _replayRuntime?.PayloadLeasesHeld ?? 0),
+            ("replay_session", _replayRuntime?.SavedReplays.HasSavedReplaySession ?? false),
+            ("payload_leases_held", _replayRuntime?.SavedReplays.HoldsPayloadLease == true ? 1 : 0),
             ("main_thread_pending", AndroidMainThread.Host.PendingCallbacks),
             ("main_thread_waits", AndroidMainThread.Host.PendingWaits),
             ("main_thread_failures", AndroidMainThread.Host.CallbackFailures),
@@ -234,14 +234,16 @@ public sealed class AndroidMod : MelonMod
                 composition.Services,
                 composition.RunLifecycle,
                 composition.ReplayGate,
-                new SavedReplayCatalog(composition.Battles, composition.Replays),
-                composition.DatabasePath
+                new SavedReplayCatalog(composition.Battles, composition.Replays)
             );
             runtime.Start();
             _replayRuntime = runtime;
             _historyPanel = new AndroidHistoryPanel(
-                composition.CreateHistoryDependencies(() => _replayRuntime, _templates.Contains),
-                () => _replayRuntime,
+                composition.CreateHistoryDependencies(
+                    () => _replayRuntime?.SavedReplays,
+                    _templates.Contains
+                ),
+                () => _replayRuntime?.SavedReplays,
                 _templates,
                 () => AndroidGameFont.Font,
                 android.HistoryPanel

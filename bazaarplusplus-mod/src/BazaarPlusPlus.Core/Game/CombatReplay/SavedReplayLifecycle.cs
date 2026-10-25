@@ -4,8 +4,9 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// <summary>
 /// Pure owner of a saved-replay playback session's state algebra: start progress, terminal
 /// ownership, the time-bounded duplicate-exit suppression window, bootstrap/menu-return flags,
-/// startup-interruption latch, and the pending menu-return deadline. The runtime feeds
-/// observations and executes the returned decisions. It never exits <c>ReplayState</c> itself:
+/// startup-interruption latch, and the pending menu-return deadline. Saved Replay Playback
+/// (<see cref="SavedReplayPlayback"/>) feeds it observations and executes the returned decisions.
+/// It never exits <c>ReplayState</c> itself:
 /// per ADR-0002 the native recap continue click and the bootstrapped <c>Exit()</c> prefix are the
 /// only exit paths.
 /// </summary>
@@ -13,7 +14,7 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// Zero Unity / zero held delegates. All time is a caller-supplied <c>float now</c>
 /// (typically <c>Time.realtimeSinceStartup</c>).
 /// </remarks>
-public sealed class SavedReplayLifecycle
+internal sealed class SavedReplayLifecycle
 {
     /// <summary>
     /// Escape-hatch window after a bootstrapped exit is latched. ReturnToMainMenu awaits a
@@ -44,6 +45,8 @@ public sealed class SavedReplayLifecycle
 
     public bool IsSavedReplayPlaybackActive =>
         _progress is Progress.StartInProgress or Progress.SavedPlaybackActive;
+
+    public bool HasPendingMenuReturn => _pendingMenuReturn != null;
 
     public bool IsReplayStartInProgress =>
         _progress is Progress.StartInProgress or Progress.StartFailureCleanup;
@@ -322,21 +325,21 @@ public sealed class SavedReplayLifecycle
     }
 }
 
-public enum SavedReplayStartTransition
+internal enum SavedReplayStartTransition
 {
     BecameActive,
     BecameIdle,
     Unchanged,
 }
 
-public readonly record struct SavedReplayExitOwnership(bool OwnsTerminalByStart);
+internal readonly record struct SavedReplayExitOwnership(bool OwnsTerminalByStart);
 
-public readonly record struct SavedReplayStartupInterruption(
+internal readonly record struct SavedReplayStartupInterruption(
     ReplayPlaybackReasonCode ReasonCode,
     Exception? Exception
 );
 
-public enum SavedReplayStateExitKind
+internal enum SavedReplayStateExitKind
 {
     /// <summary>No terminal action for the runtime (startup owns the terminal, or menu return already pending).</summary>
     Defer,
@@ -344,7 +347,7 @@ public enum SavedReplayStateExitKind
     BeginMenuReturn,
 }
 
-public readonly record struct SavedReplayStateExitDecision(
+internal readonly record struct SavedReplayStateExitDecision(
     SavedReplayStateExitKind Kind,
     ReplayPlaybackReasonCode? LatchReason,
     Exception? LatchException,
@@ -405,7 +408,7 @@ public readonly record struct SavedReplayStateExitDecision(
         );
 }
 
-public enum SavedReplayMenuReturnKind
+internal enum SavedReplayMenuReturnKind
 {
     None,
     Wait,
@@ -413,7 +416,7 @@ public enum SavedReplayMenuReturnKind
     CompleteTimeout,
 }
 
-public readonly record struct SavedReplayMenuReturnDecision(
+internal readonly record struct SavedReplayMenuReturnDecision(
     SavedReplayMenuReturnKind Kind,
     ReplayPlaybackEndReasonCode EndReasonCode,
     ReplayPlaybackReasonCode FailureReason,
@@ -454,7 +457,7 @@ public readonly record struct SavedReplayMenuReturnDecision(
         );
 }
 
-public enum SavedReplayExitRequestDecision
+internal enum SavedReplayExitRequestDecision
 {
     Suppressed,
     NotActive,

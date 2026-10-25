@@ -236,7 +236,7 @@ internal static class AndroidReplayBootstrap
         AndroidReplayPlaybackUi.RefillOpponentHealthBar();
         var published = publishStarting();
         if (!published.Succeeded)
-            throw new AndroidReplayPublishException(
+            throw new ReplayPlaybackStartException(
                 ReplayPlaybackReasonCode.StartingPublishFailed,
                 published.Exception
             );
@@ -246,7 +246,7 @@ internal static class AndroidReplayBootstrap
         RequireBoardManager().ShowReplayAndRecapButtons(false, true);
     }
 
-    public static async Task<(bool Succeeded, Exception? Exception)> RollbackBootstrapAsync(
+    public static async Task<ReplayBootstrapRollback> RollbackBootstrapAsync(
         IReplayPlaybackOutcomeSink outcome
     )
     {
@@ -286,11 +286,13 @@ internal static class AndroidReplayBootstrap
                 "SceneLoader.LoadScene(HeroSelectScene)",
                 SceneTimeout
             );
-            return (cleanupFailure == null, cleanupFailure);
+            return cleanupFailure == null
+                ? ReplayBootstrapRollback.Success
+                : ReplayBootstrapRollback.Failure(cleanupFailure);
         }
         catch (Exception exception)
         {
-            return (false, exception);
+            return ReplayBootstrapRollback.Failure(exception);
         }
     }
 
@@ -343,11 +345,3 @@ internal sealed record AndroidReplayBootstrapContext(
     NetMessageProcessor Processor,
     GameSimHandler GameSimHandler
 );
-
-internal sealed class AndroidReplayPublishException(
-    ReplayPlaybackReasonCode reasonCode,
-    Exception? innerException
-) : Exception("Replay lifecycle event publication failed.", innerException)
-{
-    public ReplayPlaybackReasonCode ReasonCode { get; } = reasonCode;
-}

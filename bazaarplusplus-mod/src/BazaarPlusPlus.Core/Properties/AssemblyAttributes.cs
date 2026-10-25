@@ -7,3 +7,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("HistoryPanelFiltering.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelRepository.Tests")]
 [assembly: InternalsVisibleTo("PostCombatImpact.Tests")]
+[assembly: InternalsVisibleTo("SavedReplayPlayback.Tests")]

@@ -51,8 +51,8 @@ _Avoid_: replay state, downloaded flag
 A user-requested MP4 plus its metadata. Attachment to a battle and file health are separate facts: deleting a run detaches the metadata without deleting a completed MP4.
 _Avoid_: replay cache, orphan video
 
-**Saved Replay Lifecycle**:
-The single pure owner (`SavedReplayLifecycle`) of a saved-replay playback session's state algebra; the runtime feeds observations and executes the returned decisions. It never exits `ReplayState` itself; per ADR-0002 there is no programmatic replay exit.
+**Saved Replay Playback**:
+The Core module (`SavedReplayPlayback`) that owns one saved replay's admission, payload lease, start, exit and menu return for both hosts through `ISavedReplayHost` (ADR-0020). Its pure `SavedReplayLifecycle` holds the state algebra. Neither exits `ReplayState` itself (ADR-0002).
 
 ## Overlay panels
 
