@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using Il2CppTheBazaar.UI;
+using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,7 +26,9 @@ internal sealed class AndroidCollectionGrid
     private const int RentBudgetPerFrame = 8;
 
     private readonly AndroidCollectionGridPort _port;
-    private readonly Action<CollectionCardVm> _onTap;
+    private readonly TMP_FontAsset _font;
+    private readonly float _captionSize;
+    private readonly Action<CollectionCardVm, RectTransform?> _onTap;
     private readonly ScrollRect _scroll;
     private readonly RectTransform _viewport;
     private readonly RectTransform _content;
@@ -37,10 +40,14 @@ internal sealed class AndroidCollectionGrid
     public AndroidCollectionGrid(
         RectTransform area,
         AndroidCollectionGridPort port,
-        Action<CollectionCardVm> onTap
+        Action<CollectionCardVm, RectTransform?> onTap,
+        TMP_FontAsset font,
+        float captionSize
     )
     {
         _port = port;
+        _font = font;
+        _captionSize = captionSize;
         _onTap = onTap;
         (_scroll, _content) = AndroidUiKit.VerticalScroll(area);
         _viewport = _scroll.viewport;
@@ -182,7 +189,14 @@ internal sealed class AndroidCollectionGrid
         cell.Root.anchoredPosition = new Vector2(rect.X, -rect.Y);
         cell.Root.sizeDelta = new Vector2(rect.Width, rect.Height);
         var bounds = NaturalBounds(card);
-        var local = new CollectionGridRect(0f, 0f, rect.Width, rect.Height);
+        var captionHeight = _captionSize * 2.6f;
+        cell.Caption.text = card.DisplayName;
+        var local = new CollectionGridRect(
+            0f,
+            0f,
+            rect.Width,
+            Math.Max(1f, rect.Height - captionHeight)
+        );
         var scale = CollectionCardFitMath.ComputeScale(
             bounds,
             bounds.Width / NativeCardPrefab.Height,
@@ -244,7 +258,24 @@ internal sealed class AndroidCollectionGrid
             Vector2.zero,
             Vector2.zero
         );
-        var cell = new Cell(root, slot);
+        var caption = AndroidUiKit.Text(
+            AndroidUiKit.Rect(
+                "Name",
+                root,
+                Vector2.zero,
+                new Vector2(1f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(0f, _captionSize * 2.6f)
+            ),
+            _font,
+            "",
+            _captionSize,
+            TextAlignmentOptions.Top,
+            AndroidUiKit.TextColor
+        );
+        caption.enableWordWrapping = true;
+        caption.overflowMode = TextOverflowModes.Ellipsis;
+        var cell = new Cell(root, slot, caption);
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;
         button.transition = Selectable.Transition.None;
@@ -253,7 +284,10 @@ internal sealed class AndroidCollectionGrid
                 () =>
                 {
                     if (cell.Index >= 0 && cell.Index < _port.Visible.Count)
-                        _onTap(_port.Visible[cell.Index]);
+                        _onTap(
+                            _port.Visible[cell.Index],
+                            cell.Lease?.State == CardRentalLeaseState.Ready ? cell.Slot : null
+                        );
                 }
             )
         );
@@ -269,9 +303,11 @@ internal sealed class AndroidCollectionGrid
         _free.Push(cell);
     }
 
-    private sealed class Cell(RectTransform root, RectTransform slot)
+    private sealed class Cell(RectTransform root, RectTransform slot, TextMeshProUGUI caption)
     {
         public RectTransform Root { get; } = root;
+
+        public TextMeshProUGUI Caption { get; } = caption;
 
         public RectTransform Slot { get; } = slot;
 

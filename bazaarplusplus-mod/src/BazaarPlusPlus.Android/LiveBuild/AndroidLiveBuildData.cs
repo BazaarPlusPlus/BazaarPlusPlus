@@ -1,5 +1,4 @@
 using BazaarPlusPlus.Android.Supporters;
-using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
@@ -8,36 +7,23 @@ using BazaarPlusPlus.Infrastructure.Logging;
 namespace BazaarPlusPlus.Android.LiveBuild;
 
 /// <summary>
-/// What the Ten-Win Builds panel reads besides the live game, owned by the composition root: the
-/// recommendation repository over the ten-win build catalog, and the supporter list
-/// (<see cref="SupporterCatalogModule"/> over <see cref="AndroidSupporterCatalog"/>) that the
-/// panel credits as the desktop's does. Nothing loads or fetches until <see cref="Warm"/>, which
-/// the touch UI calls while the panel's setting is on, so a player who switched the panel off
-/// never warms either catalog.
+/// The Ten-Win Builds recommendation repository and its shared supporter data. Only Warm starts
+/// the build catalog; opening another panel that credits supporters does not load the corpus.
 /// </summary>
 internal sealed class AndroidLiveBuildData
 {
-    private readonly SupporterCatalogModule _supporters;
-    private readonly BPPSupporterAttribution _attribution = new(Environment.TickCount);
+    private readonly AndroidSupporterData _supporters;
     private bool _stopped;
 
     public AndroidLiveBuildData(
         BuildRecommendationRepository recommendations,
-        BppSettings settings,
-        string dataRoot
+        AndroidSupporterData supporters
     )
     {
         ArgumentNullException.ThrowIfNull(recommendations);
-        ArgumentNullException.ThrowIfNull(settings);
-        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        ArgumentNullException.ThrowIfNull(supporters);
         Recommendations = recommendations;
-        BPPSupporterCatalog.Install(settings);
-        _supporters = new SupporterCatalogModule(
-            () => settings.UseFixedSupporterListConfig.Value,
-            observer => AndroidSupporterCatalog.Create(dataRoot, observer),
-            static () => DateTime.UtcNow,
-            SupporterCatalogSettings.BuildCacheFilePath(dataRoot)
-        );
+        _supporters = supporters;
     }
 
     public BuildRecommendationRepository Recommendations { get; }
@@ -55,7 +41,7 @@ internal sealed class AndroidLiveBuildData
             return;
         Warmed = true;
         Recommendations.BeginCorpusLoad();
-        _supporters.Start();
+        _supporters.Warm();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.data_warmed"),
             ("source", source)
@@ -67,16 +53,12 @@ internal sealed class AndroidLiveBuildData
     /// placeholder fallback is never credited.
     /// </summary>
     public IReadOnlyList<BPPSupporterSample> NextSupporters(int count) =>
-        Warmed && BPPSupporterCatalog.HasEntries
-            ? _attribution.Next(BPPSupporterCatalog.GetCurrentEntries(), count)
-            : Array.Empty<BPPSupporterSample>();
+        Warmed && !_stopped ? _supporters.Next(count) : Array.Empty<BPPSupporterSample>();
 
     public void Stop()
     {
         if (_stopped)
             return;
         _stopped = true;
-        _supporters.Stop();
-        BPPSupporterCatalog.Reset();
     }
 }

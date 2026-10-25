@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
+using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
@@ -11,6 +12,7 @@ using BazaarPlusPlus.Game.CollectionPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Localization;
 using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -39,11 +41,15 @@ internal sealed class AndroidCollectionPanel
     private readonly CollectionViewState _state;
     private readonly Transform _parent;
     private readonly TMP_FontAsset _font;
+    private readonly AndroidSupporterData? _supporters;
+    private IReadOnlyList<BPPSupporterSample> _headerSupporters = Array.Empty<BPPSupporterSample>();
+    private TextMeshProUGUI _supporterLabel = null!;
     private readonly List<AndroidScrollTracker> _trackers = new();
     private CollectionTouchLayout _layout = null!;
 
     // Null only after a relayout failed to build its tree; Open builds again.
     private GameObject? _root;
+    private AndroidCollectionSkin _skin = null!;
     private AndroidCollectionGrid _grid = null!;
     private AndroidCollectionInspection _inspection = null!;
     private RectTransform _railContent = null!;
@@ -56,11 +62,27 @@ internal sealed class AndroidCollectionPanel
     private string _screenKey = string.Empty;
     private string _query = string.Empty;
     private bool _loading;
+    private bool _advancedFilters;
+    private RailPicker _expandedPicker;
+    private float _expandedPickerTop;
+    private CollectionPanelViewModel? _railModel;
 
-    public AndroidCollectionPanel(Transform parent, TMP_FontAsset font)
+    private enum RailPicker
+    {
+        None,
+        Hero,
+        Source,
+    }
+
+    public AndroidCollectionPanel(
+        Transform parent,
+        TMP_FontAsset font,
+        AndroidSupporterData? supporters
+    )
     {
         _parent = parent;
         _font = font;
+        _supporters = supporters;
         _state = new CollectionViewState(
             _port,
             _sources,
@@ -82,10 +104,15 @@ internal sealed class AndroidCollectionPanel
         if (
             (
                 _root == null
+                || _skin.NeedsRefresh
                 || !string.Equals(AndroidTouchScreen.Key(), _screenKey, StringComparison.Ordinal)
             ) && !Relayout()
         )
             return;
+        CollapseFilters();
+        _headerSupporters = Array.Empty<BPPSupporterSample>();
+        _supporters?.Warm();
+        RefreshSupporterButton(sample: true);
         var root = _root!;
         _catalog.RetryIfUnavailable();
         _query = string.Empty;
@@ -130,6 +157,7 @@ internal sealed class AndroidCollectionPanel
         if (!IsOpen)
             return;
         _inspection.Close(reason);
+        _grid.Scroll.enabled = true;
         _loading = false;
         // The render is discarded: the root deactivates below.
         _state.Close();
@@ -150,8 +178,13 @@ internal sealed class AndroidCollectionPanel
     {
         if (!IsOpen)
             return false;
-        if (_inspection.Close("back_key"))
+        if (_inspection.HandleBack())
             return true;
+        if (_expandedPicker != RailPicker.None && _railModel is { } model)
+        {
+            SelectRail(model, null, "collapse");
+            return true;
+        }
         Close("back_key");
         return true;
     }
@@ -166,12 +199,19 @@ internal sealed class AndroidCollectionPanel
             && !Relayout()
         )
             return;
+        if (_headerSupporters.Count == 0)
+            RefreshSupporterButton(sample: true);
         if (_loading)
             AdvanceCatalog();
-        var search = _state.TickSearch(Time.unscaledDeltaTime, false);
-        if (search != null)
-            Render(search, "search");
-        _grid.Tick();
+        _inspection.Tick();
+        _grid.Scroll.enabled = !_inspection.IsOpen;
+        if (!_inspection.IsOpen)
+        {
+            var search = _state.TickSearch(Time.unscaledDeltaTime, false);
+            if (search != null)
+                Render(search, "search");
+            _grid.Tick();
+        }
         var pressed = AndroidScrollTracker.PointerPressed();
         foreach (var tracker in _trackers)
             tracker.Tick(pressed, _layout.Metrics.UnitsPerDp);
@@ -185,6 +225,7 @@ internal sealed class AndroidCollectionPanel
         _screenKey = AndroidTouchScreen.Key();
         var layout = _layout = CollectionTouchLayout.For(AndroidTouchScreen.Read());
         _port.Touch = layout;
+        _skin = new AndroidCollectionSkin();
         var chrome = layout.Chrome;
         var metrics = layout.Metrics;
         var root = AndroidUiKit.Rect(
@@ -202,7 +243,7 @@ internal sealed class AndroidCollectionPanel
         _root = root.gameObject;
 
         var gridArea = AndroidTouchScreen.Child("Grid", root, layout.Grid);
-        _grid = new AndroidCollectionGrid(gridArea, _port, Inspect);
+        _grid = new AndroidCollectionGrid(gridArea, _port, Inspect, _font, chrome.BodyFont);
         // The grid's RectMask2D does not clip the rented cards (their prefab carries its own
         // canvas), so the grid draws first and opaque bands above and below it hide the cards
         // scrolled past its edges; the header and the rail draw over those.
@@ -226,19 +267,31 @@ internal sealed class AndroidCollectionPanel
             AndroidUiKit.MutedTextColor
         );
 
-        var title = AndroidUiKit.Text(
-            AndroidTouchScreen.Child("Title", root, layout.Title),
+        (_, _, _supporterLabel) = _skin.Button(
+            AndroidTouchScreen.Child("Supporter", root, layout.Title),
             _font,
-            CollectionPanelText.Title(),
-            chrome.TitleFont,
-            TextAlignmentOptions.MidlineLeft,
-            AndroidUiKit.TextColor
+            BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode),
+            chrome.ButtonFont,
+            chrome.LabelInset,
+            () =>
+                AndroidUiActions.Run(
+                    "collection.sponsor",
+                    () =>
+                        Application.OpenURL(
+                            BPPSupporterLinks.ResolveSponsorUrl(L.CurrentLanguageCode)
+                        )
+                )
         );
-        title.enableWordWrapping = false;
-        title.overflowMode = TextOverflowModes.Ellipsis;
-        AndroidUiKit.CloseButton(
+        _supporterLabel.enableWordWrapping = false;
+        _supporterLabel.enableAutoSizing = true;
+        _supporterLabel.fontSizeMin = chrome.BodyFont;
+        _supporterLabel.fontSizeMax = chrome.ButtonFont;
+        _supporterLabel.overflowMode = TextOverflowModes.Ellipsis;
+        RefreshSupporterButton();
+        _skin.Button(
             AndroidTouchScreen.Child("Close", root, layout.Close),
             _font,
+            L.Resolve(new LocalizedTextSet("Back", "返回", "返回")),
             chrome.TitleFont,
             chrome.LabelInset,
             () => Close("close_button")
@@ -248,9 +301,28 @@ internal sealed class AndroidCollectionPanel
         (_search, _searchPlaceholder) = Search(root, layout.Search, chrome);
 
         var rail = AndroidTouchScreen.Child("Rail", root, layout.Rail);
-        (_railScroll, _railContent) = AndroidUiKit.VerticalScroll(rail);
+        _skin.Frame(
+            AndroidUiKit.Rect(
+                "RailFrame",
+                rail,
+                Vector2.zero,
+                Vector2.one,
+                Vector2.zero,
+                Vector2.zero
+            )
+        );
+        var inset = metrics.Dp(16f);
+        var railInner = AndroidUiKit.Rect(
+            "RailInner",
+            rail,
+            Vector2.zero,
+            Vector2.one,
+            new(inset, inset),
+            new(-inset, -inset)
+        );
+        (_railScroll, _railContent) = AndroidUiKit.VerticalScroll(railInner);
 
-        _inspection = new AndroidCollectionInspection(root, _font, layout);
+        _inspection = new AndroidCollectionInspection(root, _font, layout, _skin);
         _trackers.Clear();
         _trackers.Add(new AndroidScrollTracker(Scrolled(), "grid", _grid.Scroll));
         _trackers.Add(new AndroidScrollTracker(Scrolled(), "rail", _railScroll));
@@ -350,7 +422,12 @@ internal sealed class AndroidCollectionPanel
         }
     }
 
-    private void Inspect(CollectionCardVm card) => _inspection.Open(card);
+    private void Inspect(CollectionCardVm card, RectTransform? source)
+    {
+        _grid.Scroll.StopMovement();
+        _grid.Scroll.enabled = false;
+        _inspection.Open(card, source);
+    }
 
     private void Command(CollectionRenderOutcome? outcome, string command)
     {
@@ -358,9 +435,29 @@ internal sealed class AndroidCollectionPanel
             Render(outcome, command);
     }
 
+    private void RefreshSupporterButton(bool sample = false)
+    {
+        // Late catalog arrival fills the credit once, without resetting filters or rotating names.
+        if (sample)
+        {
+            _headerSupporters = _supporters?.Next(1) ?? Array.Empty<BPPSupporterSample>();
+            if (_headerSupporters.Count == 0)
+                return;
+        }
+        var credit = BPPSupporterAttribution.FormatRichLine(
+            _headerSupporters,
+            L.CurrentLanguageCode
+        );
+        _supporterLabel.text = string.IsNullOrEmpty(credit)
+            ? BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode)
+            : credit;
+        AndroidGameFont.Cover(_supporterLabel);
+    }
+
     private void Render(CollectionRenderOutcome outcome, string? command = null)
     {
         var model = outcome.Model;
+        RefreshSupporterButton();
         RenderTab(_itemsTab, CollectionTabKind.Items, CollectionPanelText.ItemsTab(), model);
         RenderTab(_skillsTab, CollectionTabKind.Skills, CollectionPanelText.SkillsTab(), model);
         _searchPlaceholder.text = CollectionPanelText.SearchPlaceholder(model.ActiveType);
@@ -393,7 +490,7 @@ internal sealed class AndroidCollectionPanel
             );
     }
 
-    private static void RenderTab(
+    private void RenderTab(
         (Image Background, TextMeshProUGUI Label) tab,
         CollectionTabKind kind,
         string label,
@@ -402,68 +499,143 @@ internal sealed class AndroidCollectionPanel
     {
         var active = model.ActiveTab == kind;
         tab.Label.text = active ? $"{label}({model.VisibleCount})" : label;
-        tab.Background.color = active ? AndroidUiKit.ActiveColor : AndroidUiKit.ButtonColor;
+        _skin.Select(tab.Background, active);
     }
 
     // The rail is rebuilt from the model on every render: the chips a tab, hero or source offers
     // change with each command, and a rebuild costs one frame of a hundred buttons at most.
     private void RenderRail(CollectionPanelViewModel model)
     {
+        _railModel = model;
         for (var index = _railContent.childCount - 1; index >= 0; index--)
-            UnityEngine.Object.Destroy(_railContent.GetChild(index).gameObject);
+        {
+            var child = _railContent.GetChild(index).gameObject;
+            child.SetActive(false);
+            UnityEngine.Object.Destroy(child);
+        }
         var flow = new AndroidChipFlow(
             _railContent,
             _font,
             _layout.Chrome,
             CollectionTouchLayout.RailColumns,
-            _layout.RailHeaderHeight
+            _layout.RailHeaderHeight,
+            _skin
         );
         var profile = model.TabProfile;
 
-        flow.Chip(
-            CollectionPanelText.SortQuality(),
-            model.SortPriority == CollectionSortPriority.Quality,
-            () => Command(_state.SetSortPriority(CollectionSortPriority.Quality), "sort"),
-            span: 3
+        var allLabel = CollectionPanelText.FacetMatchMode(CollectionFacetMatchMode.All);
+        var selectedHero = model.SelectedHero ?? CardHero.Common;
+        var heroValue = model.AllHeroesSelected
+            ? L.Resolve(new LocalizedTextSet("All heroes", "全部英雄", "全部英雄"))
+            : AndroidCollectionLabels.Hero(selectedHero);
+        var selectedSource = model.AvailableSources.FirstOrDefault(source =>
+            string.Equals(source.SourceKey, model.SelectedSourceKey, StringComparison.Ordinal)
         );
-        flow.Chip(
-            CollectionPanelText.SortSize(),
-            model.SortPriority == CollectionSortPriority.Size,
-            () => Command(_state.SetSortPriority(CollectionSortPriority.Size), "sort"),
-            span: 3
+        var sourceValue =
+            selectedSource != null
+                ? AndroidEncounterNames.Display(
+                    selectedSource.RepresentativeTemplateId,
+                    selectedSource.DisplayName
+                )
+                : L.Resolve(
+                    model.ActiveType == CardType.Skill
+                        ? new LocalizedTextSet("All trainers", "全部训练师", "全部訓練師")
+                        : new LocalizedTextSet("All merchants", "全部商人", "全部商人")
+                );
+        _expandedPickerTop = flow.Height;
+        flow.Identity(
+            heroValue,
+            _expandedPicker == RailPicker.Hero,
+            () => TogglePicker(RailPicker.Hero, model),
+            model.AllHeroesSelected || selectedHero == CardHero.Common
+                ? null
+                : () => AndroidPortraits.Hero(selectedHero),
+            span: profile.ShowSourceFilter ? 3 : 6,
+            expanded: _expandedPicker == RailPicker.Hero,
+            hero: selectedHero
         );
-        if (model.DayFilterValue is { } day)
+        if (profile.ShowSourceFilter)
+            flow.Identity(
+                sourceValue,
+                _expandedPicker == RailPicker.Source,
+                () =>
+                {
+                    if (model.SourceSelectorEnabled)
+                        TogglePicker(RailPicker.Source, model);
+                },
+                selectedSource == null
+                    ? null
+                    : () => AndroidPortraits.Encounter(selectedSource.RepresentativeTemplateId),
+                expanded: _expandedPicker == RailPicker.Source
+            );
+        flow.Break();
+        if (_expandedPicker == RailPicker.Hero)
+        {
             flow.Chip(
-                $"{CollectionPanelText.DayHeader()} {day}",
-                model.DayFilterActive,
-                () => Command(_state.ToggleRunDayFilter(), "day"),
+                allLabel,
+                model.AllHeroesSelected,
+                () =>
+                    SelectRail(
+                        model,
+                        model.AllHeroesSelected ? null : _state.ToggleAllHeroes(),
+                        "all_heroes"
+                    ),
                 span: 6
             );
-
-        flow.Header(CollectionPanelText.HeroHeader());
-        flow.Chip(
-            CollectionPanelText.FacetMatchMode(CollectionFacetMatchMode.All),
-            model.AllHeroesSelected,
-            () => Command(_state.ToggleAllHeroes(), "all_heroes"),
-            span: 2
-        );
-        foreach (var hero in model.AvailableHeroes)
-        {
-            var chosen = hero;
-            flow.Chip(
-                AndroidCollectionLabels.Hero(hero),
-                !model.AllHeroesSelected && model.SelectedHero == hero,
-                () => Command(_state.ToggleHero(chosen), "hero"),
-                span: 2
-            );
+            foreach (var hero in new[] { CardHero.Common }.Concat(model.AvailableHeroes).Distinct())
+            {
+                var chosen = hero;
+                var selected = !model.AllHeroesSelected && selectedHero == hero;
+                flow.Identity(
+                    AndroidCollectionLabels.Hero(hero),
+                    selected,
+                    () => SelectRail(model, selected ? null : _state.ToggleHero(chosen), "hero"),
+                    hero == CardHero.Common ? null : () => AndroidPortraits.Hero(chosen),
+                    span: 6,
+                    hero: chosen
+                );
+            }
+            flow.Break();
         }
-
-        if (profile.ShowTierFilter || profile.ShowSizeFilter)
-            flow.Header(
-                profile.ShowSizeFilter
-                    ? CollectionPanelText.TierSizeHeader()
-                    : CollectionPanelText.TierHeader()
+        if (
+            _expandedPicker == RailPicker.Source
+            && profile.ShowSourceFilter
+            && model.SourceSelectorEnabled
+        )
+        {
+            flow.Chip(
+                allLabel,
+                string.IsNullOrEmpty(model.SelectedSourceKey),
+                () =>
+                    SelectRail(
+                        model,
+                        string.IsNullOrEmpty(model.SelectedSourceKey)
+                            ? null
+                            : _state.ToggleSource(model.SelectedSourceKey),
+                        "source"
+                    ),
+                span: 6
             );
+            foreach (var source in model.AvailableSources)
+            {
+                var key = source.SourceKey;
+                var templateId = source.RepresentativeTemplateId;
+                var selected = string.Equals(
+                    model.SelectedSourceKey,
+                    key,
+                    StringComparison.Ordinal
+                );
+                flow.Identity(
+                    AndroidEncounterNames.Display(templateId, source.DisplayName),
+                    selected,
+                    () => SelectRail(model, selected ? null : _state.ToggleSource(key), "source"),
+                    () => AndroidPortraits.Encounter(templateId),
+                    span: 6
+                );
+            }
+            flow.Note(CollectionPanelText.SourceDisclaimer(), AndroidUiKit.MutedTextColor);
+        }
+        flow.Divider();
         if (profile.ShowSizeFilter)
         {
             foreach (var size in model.AvailableSizes)
@@ -476,7 +648,7 @@ internal sealed class AndroidCollectionPanel
                     span: 2
                 );
             }
-            flow.Break();
+            flow.Divider();
         }
         if (profile.ShowTierFilter)
         {
@@ -492,69 +664,144 @@ internal sealed class AndroidCollectionPanel
             }
         }
 
-        if (profile.ShowKeywordFilter && model.AvailableKeywordOptions.Count > 0)
-        {
-            flow.Header(CollectionPanelText.KeywordHeader());
-            MatchModes(flow, model.KeywordMatchMode, mode => _state.SetKeywordMatchMode(mode));
-            foreach (var option in model.AvailableKeywordOptions)
+        var activeFacets =
+            model.SelectedKeywords.Count + model.SelectedMechanics.Count + model.SelectedTags.Count;
+        var advancedLabel = L.Resolve(
+            _advancedFilters
+                ? new LocalizedTextSet("Less", "收起", "收起")
+                : new LocalizedTextSet("More", "更多", "更多")
+        );
+        var resetBottom = 0f;
+        flow.Chip(
+            activeFacets > 0 ? $"{advancedLabel}·{activeFacets}" : advancedLabel,
+            _advancedFilters,
+            () =>
             {
-                var chosen = option;
-                var selected = option.Keyword is { } keyword
-                    ? model.SelectedKeywords.Contains(keyword)
-                    : option.Mechanic is { } mechanic && model.SelectedMechanics.Contains(mechanic);
-                flow.Chip(
-                    AndroidCollectionLabels.Keyword(option),
-                    selected,
-                    () => Command(_state.ToggleKeyword(chosen), "keyword"),
-                    span: 2
+                _advancedFilters = !_advancedFilters;
+                RenderRail(model);
+                _railScroll.StopMovement();
+                var viewportHeight = _railScroll.viewport.rect.height;
+                var max = Mathf.Max(0f, _railContent.rect.height - viewportHeight);
+                _railContent.anchoredPosition = new Vector2(
+                    0f,
+                    _advancedFilters
+                        ? Mathf.Clamp(resetBottom + _layout.Gap - viewportHeight, 0f, max)
+                        : 0f
                 );
+            },
+            span: 2
+        );
+        flow.Break();
+        resetBottom = flow.Height + _layout.Chrome.Target;
+        if (_advancedFilters)
+        {
+            flow.Chip(
+                CollectionPanelText.ResetFilters(),
+                false,
+                () =>
+                {
+                    CollapseFilters();
+                    Command(_state.ResetFilters(), "reset");
+                },
+                span: 6
+            );
+            flow.Break();
+            if (model.DayFilterValue is { } day)
+            {
+                flow.Chip(
+                    $"{CollectionPanelText.DayHeader()} {day}",
+                    model.DayFilterActive,
+                    () => Command(_state.ToggleRunDayFilter(), "day"),
+                    span: 6
+                );
+                flow.Break();
             }
-        }
 
-        if (profile.ShowTagFilter && model.AvailableTags.Count > 0)
-        {
-            flow.Header(CollectionPanelText.TagHeader());
-            MatchModes(flow, model.TagMatchMode, mode => _state.SetTagMatchMode(mode));
-            foreach (var tag in model.AvailableTags)
+            flow.Header(L.Resolve(new LocalizedTextSet("Sort", "排序", "排序")));
+            flow.Chip(
+                CollectionPanelText.SortQuality(),
+                model.SortPriority == CollectionSortPriority.Quality,
+                () => Command(_state.SetSortPriority(CollectionSortPriority.Quality), "sort"),
+                span: 3
+            );
+            flow.Chip(
+                CollectionPanelText.SortSize(),
+                model.SortPriority == CollectionSortPriority.Size,
+                () => Command(_state.SetSortPriority(CollectionSortPriority.Size), "sort"),
+                span: 3
+            );
+            if (profile.ShowKeywordFilter && model.AvailableKeywordOptions.Count > 0)
             {
-                var chosen = tag;
-                flow.Chip(
-                    AndroidCollectionLabels.Tag(tag),
-                    model.SelectedTags.Contains(tag),
-                    () => Command(_state.ToggleTag(chosen), "tag"),
-                    span: 2
-                );
+                flow.Header(CollectionPanelText.KeywordHeader());
+                MatchModes(flow, model.KeywordMatchMode, mode => _state.SetKeywordMatchMode(mode));
+                foreach (var option in model.AvailableKeywordOptions)
+                {
+                    var chosen = option;
+                    var selected = option.Keyword is { } keyword
+                        ? model.SelectedKeywords.Contains(keyword)
+                        : option.Mechanic is { } mechanic
+                            && model.SelectedMechanics.Contains(mechanic);
+                    flow.Chip(
+                        AndroidCollectionLabels.Keyword(option),
+                        selected,
+                        () => Command(_state.ToggleKeyword(chosen), "keyword"),
+                        span: 2
+                    );
+                }
             }
-        }
 
-        if (profile.ShowSourceFilter && model.AvailableSources.Count > 0)
-        {
-            flow.Header(CollectionPanelText.SourceHeader(model.ActiveType));
-            foreach (var source in model.AvailableSources)
+            if (profile.ShowTagFilter && model.AvailableTags.Count > 0)
             {
-                var key = source.SourceKey;
-                flow.Chip(
-                    source.DisplayName,
-                    string.Equals(model.SelectedSourceKey, key, StringComparison.Ordinal),
-                    () =>
-                    {
-                        if (model.SourceSelectorEnabled)
-                            Command(_state.ToggleSource(key), "source");
-                    },
-                    span: 3
-                );
+                flow.Header(CollectionPanelText.TagHeader());
+                MatchModes(flow, model.TagMatchMode, mode => _state.SetTagMatchMode(mode));
+                foreach (var tag in model.AvailableTags)
+                {
+                    var chosen = tag;
+                    flow.Chip(
+                        AndroidCollectionLabels.Tag(tag),
+                        model.SelectedTags.Contains(tag),
+                        () => Command(_state.ToggleTag(chosen), "tag"),
+                        span: 2
+                    );
+                }
             }
-            flow.Note(CollectionPanelText.SourceDisclaimer(), AndroidUiKit.MutedTextColor);
         }
 
         flow.Break();
-        flow.Chip(
-            CollectionPanelText.ResetFilters(),
-            false,
-            () => Command(_state.ResetFilters(), "reset"),
-            span: 6
-        );
         _railContent.sizeDelta = new Vector2(0f, flow.Height + _layout.Gap);
+    }
+
+    private void CollapseFilters()
+    {
+        _expandedPicker = RailPicker.None;
+        _advancedFilters = false;
+    }
+
+    private void TogglePicker(RailPicker picker, CollectionPanelViewModel model)
+    {
+        _expandedPicker = _expandedPicker == picker ? RailPicker.None : picker;
+        RenderRail(model);
+        _railScroll.StopMovement();
+        var max = Mathf.Max(0f, _railContent.rect.height - _railScroll.viewport.rect.height);
+        _railContent.anchoredPosition = new Vector2(
+            0f,
+            _expandedPicker == RailPicker.None ? 0f : Mathf.Min(_expandedPickerTop, max)
+        );
+    }
+
+    private void SelectRail(
+        CollectionPanelViewModel model,
+        CollectionRenderOutcome? outcome,
+        string command
+    )
+    {
+        _expandedPicker = RailPicker.None;
+        if (outcome != null)
+            Command(outcome, command);
+        else
+            RenderRail(model);
+        _railScroll.StopMovement();
+        _railContent.anchoredPosition = Vector2.zero;
     }
 
     private void MatchModes(
@@ -582,13 +829,21 @@ internal sealed class AndroidCollectionPanel
         CollectionTabKind kind
     )
     {
-        var (_, background, label) = AndroidUiKit.Button(
+        var (_, background, label) = _skin.Button(
             AndroidTouchScreen.Child(kind.ToString(), root, area),
             _font,
             "",
             _layout.Chrome.ButtonFont,
             _layout.Chrome.LabelInset,
-            () => Command(_state.SetActiveTab(kind), "tab")
+            () =>
+            {
+                CollapseFilters();
+                var outcome = _state.SetActiveTab(kind);
+                if (outcome != null)
+                    Command(outcome, "tab");
+                else if (_railModel is { } model)
+                    SelectRail(model, null, "tab");
+            }
         );
         label.enableWordWrapping = false;
         label.enableAutoSizing = true;
@@ -604,7 +859,7 @@ internal sealed class AndroidCollectionPanel
     )
     {
         var rect = AndroidTouchScreen.Child("Search", root, area);
-        AndroidUiKit.Fill(rect, AndroidUiKit.ButtonColor);
+        _skin.Frame(rect);
         var inset = chrome.Gap;
         var textArea = AndroidUiKit.Rect(
             "TextArea",
