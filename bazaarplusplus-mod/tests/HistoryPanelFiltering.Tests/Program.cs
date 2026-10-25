@@ -44,6 +44,7 @@ TestPageReplacementUpdatesSelection();
 TestCoordinatorRunSelectionUsesFilteredSpace();
 TestAcceptedReplayReturnsWithSelection();
 TestDeleteAndFavoriteDispatchBySection();
+TestDeletePromptMentionsMp4OnlyWhereTheHostRecords();
 TestGhostListTextMarksOnlyTheFinalBattle();
 TestRunRatingShowsItsChangeOnlyWhenKnown();
 TestAccountArrivalSyncsOnlyTheOpenGhostSection();
@@ -475,6 +476,52 @@ void TestDeleteAndFavoriteDispatchBySection()
             && !coordinator.IsDeleteRunConfirmationActive("run-9", 0f),
         "Delete in Favorites must arm the selected favorite's confirmation, not the run's."
     );
+}
+
+// A host that records no video (Android) has no MP4 to keep: its delete prompt does not promise
+// one, and the desktop's, which records, still does.
+void TestDeletePromptMentionsMp4OnlyWhereTheHostRecords()
+{
+    foreach (var recordingSupported in new[] { false, true })
+    {
+        var state = new HistoryPanelState();
+        SetPage(state, "RunPage", CreateRun("run-9", "Vanessa"));
+        var repository = new HistoryPanelRepository(
+            Path.Combine(Path.GetTempPath(), $"bpp-history-prompt-{Guid.NewGuid():N}.sqlite3")
+        );
+        var dependencies = new HistoryPanelDependencies(
+            new StubRunContext(),
+            new HistoryPanelDataService(repository, null),
+            new AcceptingReplay { RecordingSupported = recordingSupported },
+            null,
+            null,
+            null,
+            new BazaarDbAccountLinkStore(_ => false, _ => { }),
+            () => 0f,
+            () => null
+        );
+        using var coordinator = new HistoryPanelCoordinator(
+            state,
+            dependencies,
+            () => { },
+            () => { },
+            NoReplayReturn()
+        );
+
+        coordinator.DeleteSelected();
+
+        Assert(
+            coordinator.IsDeleteRunConfirmationActive("run-9", 0f)
+                && state.StatusMessage?.Contains("run-9", StringComparison.Ordinal) == true,
+            "Delete must arm the confirmation and name the run."
+        );
+        Assert(
+            state.StatusMessage!.Contains("MP4", StringComparison.Ordinal) == recordingSupported,
+            recordingSupported
+                ? "A host that records keeps saying its MP4 recordings are kept."
+                : "A host that records no video must not mention MP4 recordings."
+        );
+    }
 }
 
 void TestAccountArrivalSyncsOnlyTheOpenGhostSection()
@@ -1093,7 +1140,7 @@ internal sealed class UnusedPvpBattleEvidence : IPvpBattleEvidenceBinding
 // Every replay is accepted; the scenarios never reach a recorder or a payload.
 internal sealed class AcceptingReplay : IHistoryPanelReplay
 {
-    public bool RecordingSupported => false;
+    public bool RecordingSupported { get; init; }
 
     public bool CanReplayBattle(HistoryBattleRecord? battle, out string reason)
     {

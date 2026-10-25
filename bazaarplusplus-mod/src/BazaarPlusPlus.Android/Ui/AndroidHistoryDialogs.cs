@@ -18,7 +18,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// Supporter attribution lives in the main header. The code is read from
 /// the input when the user submits it, so the input needs no change listener.
 /// </summary>
-internal sealed class AndroidHistoryMoreDialog
+internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
 {
     private readonly GameObject _root;
     private readonly HistoryTouchLayout _layout;
@@ -305,7 +305,7 @@ internal sealed class AndroidHistoryMoreDialog
 /// reselects another row meanwhile. A failed save keeps the draft; the status line says why. The
 /// character count is polled each frame instead of a change listener.
 /// </summary>
-internal sealed class AndroidHistoryNoteDialog
+internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
 {
     private readonly GameObject _root;
     private readonly TMP_InputField _input;

@@ -92,6 +92,27 @@ public sealed class AndroidSettingsDockTests
         Assert.Empty(dock.Calls);
     }
 
+    // History's More dialog carries the panel's own switch, since the touch button hides while
+    // History is open; it is the row's write, so the row reads what it wrote.
+    [Fact]
+    public void Historys_more_switch_is_the_rows_write()
+    {
+        var dock = new Dock();
+        var row = dock.Row(AndroidSettingsDock.HistoryPanelKey);
+        Assert.True(row.ReadToggle!());
+
+        AndroidSettingsDock.WriteSwitch(
+            AndroidSettingsDock.HistoryPanelKey,
+            dock.Android.HistoryPanel,
+            false,
+            source: "history_more"
+        );
+
+        Assert.False(dock.Android.HistoryPanel.Value);
+        Assert.False(row.ReadToggle());
+        Assert.Empty(dock.Calls);
+    }
+
     // The account link waits on [BazaarDB] UploadScreenshots; the row is its touch switch, off by
     // default, labelled as the desktop's row.
     [Fact]
