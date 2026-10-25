@@ -22,6 +22,7 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 /// </summary>
 internal sealed class AndroidLiveBuildBoard
 {
+    private readonly AndroidNativeSkin _skin;
     private readonly RectTransform _region;
     private readonly RectTransform _tags;
     private readonly TMP_FontAsset _font;
@@ -37,14 +38,17 @@ internal sealed class AndroidLiveBuildBoard
     /// <param name="region">The board's cards and tag band, its top-left corner the board's origin.</param>
     /// <param name="font">The game's font, for the tags.</param>
     /// <param name="id">The board, which names its rental owner.</param>
+    /// <param name="skin">Shared native tag artwork for this view.</param>
     /// <param name="onTap">The tapped card, and whether the board takes candidates.</param>
     public AndroidLiveBuildBoard(
         RectTransform region,
         TMP_FontAsset font,
         BppItemBoardId id,
+        AndroidNativeSkin skin,
         Action<BppItemBoardCard, bool> onTap
     )
     {
+        _skin = skin;
         _region = region;
         _font = font;
         _owner = "live_build." + id;
@@ -199,7 +203,7 @@ internal sealed class AndroidLiveBuildBoard
             Vector2.zero,
             Vector2.zero
         );
-        var background = AndroidUiKit.Fill(root, AndroidUiKit.ActiveColor, blocksTouches: false);
+        var background = _skin.Tag(root);
         var labelRect = AndroidUiKit.Rect(
             "Label",
             root,

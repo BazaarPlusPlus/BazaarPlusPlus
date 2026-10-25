@@ -52,7 +52,7 @@ internal sealed class AndroidCollectionInspection
     private readonly CollectionTouchLayout _layout;
     private CollectionCardVm? _card;
     private CardRentalLease<CardPreviewBase>? _lease;
-    private readonly AndroidCollectionSkin _skin;
+    private readonly AndroidNativeSkin _skin;
     private bool _showEnchantments;
     private List<(CardEnchantment Type, string Text)>? _enchantmentEffects;
     private string _text = string.Empty;
@@ -63,7 +63,7 @@ internal sealed class AndroidCollectionInspection
         RectTransform parent,
         TMP_FontAsset font,
         CollectionTouchLayout layout,
-        AndroidCollectionSkin skin
+        AndroidNativeSkin skin
     )
     {
         _font = font;

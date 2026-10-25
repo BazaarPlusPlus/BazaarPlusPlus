@@ -2,6 +2,7 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Cards.LiveCards;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel;
@@ -44,6 +45,7 @@ internal sealed class AndroidLiveBuildPanel
     private string _screenKey = string.Empty;
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private float _loggedScroll;
+    private BppItemBoardId _selectedBoard = BppItemBoardId.LiveBoard;
 
     public AndroidLiveBuildPanel(
         Transform parent,
@@ -67,7 +69,8 @@ internal sealed class AndroidLiveBuildPanel
             Refresh,
             () => Browse(-1),
             () => Browse(+1),
-            ToggleCandidate
+            ToggleCandidate,
+            CycleBoard
         );
         _state.BeginCorpusLoad();
     }
@@ -78,7 +81,8 @@ internal sealed class AndroidLiveBuildPanel
         Action Refresh,
         Action Previous,
         Action Next,
-        Action<Guid> Toggle
+        Action<Guid> Toggle,
+        Action CycleBoard
     );
 
     public bool IsOpen => _view?.IsVisible == true;
@@ -101,6 +105,7 @@ internal sealed class AndroidLiveBuildPanel
     {
         if (IsOpen)
             return true;
+        _selectedBoard = BppItemBoardId.LiveBoard;
         var view = EnsureView();
         if (view == null)
             return false;
@@ -113,14 +118,11 @@ internal sealed class AndroidLiveBuildPanel
             ),
             LiveCardSnapshotLogValues.MemberName
         );
-        _state.Open(
-            outcome.Snapshot,
-            _data.NextSupporters(LiveBuildPanelState.SupporterAttributionCount)
-        );
+        _state.Open(outcome.Snapshot, _data.NextSupporters(1));
         view.SetVisible(true);
         _loggedScroll = 0f;
         var snapshot = _state.BuildSnapshot();
-        view.Refresh(snapshot, boards: true);
+        view.Refresh(snapshot, boards: true, _selectedBoard);
         Opened++;
         var layout = view.Layout;
         BppLog.InfoEvent(
@@ -206,7 +208,11 @@ internal sealed class AndroidLiveBuildPanel
     private AndroidLiveBuildView? EnsureView()
     {
         var key = AndroidTouchScreen.Key();
-        if (_view != null && string.Equals(key, _screenKey, StringComparison.Ordinal))
+        if (
+            _view != null
+            && !_view.NeedsSkinRefresh
+            && string.Equals(key, _screenKey, StringComparison.Ordinal)
+        )
             return _view;
         var before = _screenKey;
         var open = IsOpen;
@@ -249,7 +255,7 @@ internal sealed class AndroidLiveBuildPanel
         if (view == null)
             return false;
         view.SetVisible(true);
-        view.Refresh(_state.BuildSnapshot(), boards: true);
+        view.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
         Relayouts++;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.relayout"),
@@ -263,12 +269,28 @@ internal sealed class AndroidLiveBuildPanel
         return true;
     }
 
+    private void CycleBoard()
+    {
+        _selectedBoard = _selectedBoard switch
+        {
+            BppItemBoardId.LiveBoard => BppItemBoardId.LiveStash,
+            BppItemBoardId.LiveStash => BppItemBoardId.LiveShop,
+            _ => BppItemBoardId.LiveBoard,
+        };
+        _view?.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.board_selected"),
+            ("board", _selectedBoard),
+            ("leases", Leases)
+        );
+    }
+
     private void ToggleCandidate(Guid templateId)
     {
         if (!_state.ToggleCandidate(templateId))
             return;
         var snapshot = _state.BuildSnapshot();
-        _view?.Refresh(snapshot, boards: true);
+        _view?.Refresh(snapshot, boards: true, _selectedBoard);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.candidate_toggled"),
             ("candidates", snapshot.CandidateTemplateIds.Count),
@@ -283,7 +305,7 @@ internal sealed class AndroidLiveBuildPanel
         if (!(step < 0 ? _state.Previous() : _state.Next()))
             return;
         var snapshot = _state.BuildSnapshot();
-        _view?.Refresh(snapshot, boards: true);
+        _view?.Refresh(snapshot, boards: true, _selectedBoard);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.browsed"),
             ("index", snapshot.RecommendationIndex),
@@ -297,7 +319,7 @@ internal sealed class AndroidLiveBuildPanel
         if (request == LiveBuildRefreshRequest.Ignore)
             return;
         Refreshes++;
-        _view?.Refresh(_state.BuildSnapshot(), boards: false);
+        _view?.Refresh(_state.BuildSnapshot(), boards: false, _selectedBoard);
         _ = RefreshAsync(_state, request, Guid.NewGuid());
     }
 
@@ -340,10 +362,10 @@ internal sealed class AndroidLiveBuildPanel
         switch (effect)
         {
             case LiveBuildRefreshEffect.Recommendations:
-                _view!.Refresh(_state.BuildSnapshot(), boards: true);
+                _view!.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
                 break;
             case LiveBuildRefreshEffect.Status:
-                _view!.Refresh(_state.BuildSnapshot(), boards: false);
+                _view!.Refresh(_state.BuildSnapshot(), boards: false, _selectedBoard);
                 break;
         }
     }

@@ -5,35 +5,16 @@ using BazaarPlusPlus.Core.Ui;
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 
 /// <summary>
-/// The Live Build panel's geometry on a landscape touch screen, in canvas units, top-down from
-/// the canvas's top-left corner. Its pieces are the desktop's four peer boards (the recommended
-/// final build, its title band a full touch target that carries the build pager, then the shop,
-/// stash, and current board in a drag-scrolled list) and the overview: the title and close
-/// button, the manual refresh, the corpus status (tapped to show its details, which the desktop
-/// shows on hover), the hero, the match metrics or guidance, and the tap hint. Every target is at
-/// least <see cref="TouchMetrics.MinTargetDp"/>, every metric cell at least
-/// <see cref="MinMetricCellDp"/> high, every text at least
-/// <see cref="TouchMetrics.MinBodySp"/>, and every card socket at least
-/// <see cref="TouchMetrics.MinTargetDp"/> wide, since a socket is what a tap picks. Cards keep the
-/// game's prefab proportions (<see cref="NativeCardPrefab"/>).
-/// <para>
-/// Side by side (the default): the boards take the left column, the final build pinned over the
-/// list, and the overview the right one; ten sockets span the column unless two rows would then
-/// overflow the height. Stacked (<see cref="Stacked"/>), when that arrangement leaves a socket
-/// under 48dp or the sidebar too short for the metric cells, as on a dense screen: the final build's title band, with the pager and the close
-/// button, stays as a header over the full width, and everything else scrolls under it, the
-/// final build's cards first, then the three list rows, then the overview. Stacked, the final
-/// build's board and the overview's rects are list-content-local, as the rows' are.
-/// </para>
-/// The desktop's <c>LiveBuildPanelLayout</c> is a separate, fixed-pixel layout and is not derived
-/// from this one.
+/// Touch geometry for a pinned recommendation and one selectable live board. Ordinary landscape
+/// screens keep both boards fixed; dense screens scroll the same two boards and their overview
+/// so sockets still meet the 48dp floor. The overview starts with a supporter action beside Close.
 /// </summary>
 public sealed class LiveBuildTouchLayout
 {
     public const int SocketCount = 10;
 
-    /// <summary>The list under the pinned build: shop, stash, and current board.</summary>
-    public const int ScrollRowCount = 3;
+    /// <summary>One board slot, switched between current board, stash and shop.</summary>
+    public const int ScrollRowCount = 1;
 
     public const int MetricCount = 4;
 
@@ -65,32 +46,28 @@ public sealed class LiveBuildTouchLayout
         Sheet = chrome.Sheet;
         var body = chrome.Body;
 
-        RowTitleHeight = metrics.Dp(24f);
+        RowTitleHeight = 0f;
         PinnedTitleHeight = target;
         TagHeight = metrics.Dp(22f);
 
-        // The sidebar takes about a third of the width, within readable bounds, and never so
-        // much that the boards lose half the sheet.
-        var sidebarWidth = Math.Min(
-            Math.Clamp(body.Width * 0.3f, metrics.Dp(240f), metrics.Dp(360f)),
-            body.Width * 0.45f
-        );
+        // A compact utility column leaves the remaining width to the two boards.
+        var sidebarWidth = Math.Min(metrics.Dp(240f), body.Width * 0.45f);
         var columnWidth = Math.Max(1f, body.Width - sidebarWidth - padding);
         // Two rows stay whole on screen: the pinned build and one row of the list.
-        var fixedHeight = PinnedTitleHeight + TagHeight + Gap + RowTitleHeight + TagHeight + Gap;
+        var fixedHeight = PinnedTitleHeight + TagHeight * 2f + Gap * 6f;
         var heightScale = (body.Height - fixedHeight) / 2f / FramedHeight;
-        var widthScale = columnWidth / (NativeCardPrefab.SocketWidth * SocketCount);
+        var widthScale = (columnWidth - Gap * 2f) / (NativeCardPrefab.SocketWidth * SocketCount);
         var sideBySideScale = Math.Max(0.01f, Math.Min(widthScale, heightScale));
-        SupportersHeight = Math.Max(metrics.Dp(24f), BodyFont * 1.5f);
+        var boardColumnHeight =
+            PinnedTitleHeight + 2f * (FramedHeight * sideBySideScale + TagHeight + Gap * 2f) + Gap;
         Stacked =
             NativeCardPrefab.SocketWidth * sideBySideScale < metrics.MinTarget - 0.01f
-            || !SidebarHoldsTheMetrics(metrics, body.Height, sidebarWidth, target);
+            || !SidebarHoldsTheMetrics(metrics, boardColumnHeight, sidebarWidth, target);
 
         if (!Stacked)
         {
             SetCardScale(sideBySideScale);
-            // A height-bound carpet is narrower than its column: the sidebar takes the rest.
-            columnWidth = Math.Min(columnWidth, CarpetWidth);
+            // Keep the utility column compact; extra width belongs to the boards.
             BoardColumn = new TouchRect(body.Left, body.Top, columnWidth, body.Height);
             Sidebar = new TouchRect(
                 BoardColumn.Right + padding,
@@ -103,16 +80,21 @@ public sealed class LiveBuildTouchLayout
                 BoardColumn.Left,
                 PinnedTitle.Bottom,
                 columnWidth,
-                CardHeight + TagHeight
+                CardHeight + TagHeight + Gap * 2f
             );
             Close = chrome.CloseAt(Sidebar);
+            var pagerTop = Close.Bottom + Gap + metrics.Dp(96f) + Gap + target + Gap;
+            // Align the final action to the rendered lower board frame, not the scroll viewport.
+            var actionBottom = body.Top + boardColumnHeight;
+            var actionHeight = (actionBottom - pagerTop - Gap) / 2f;
             Next = PagerFrom(
-                PinnedTitle.Right,
-                PinnedTitle.Top,
+                Sidebar.Right,
+                pagerTop,
                 metrics,
-                target,
+                actionHeight,
                 out var pager,
-                out var previous
+                out var previous,
+                Sidebar.Width
             );
             Pager = pager;
             Previous = previous;
@@ -124,13 +106,13 @@ public sealed class LiveBuildTouchLayout
                 Math.Max(0f, body.Bottom - scrollTop)
             );
             _listTop = 0f;
-            ScrollRowHeight = RowTitleHeight + CardHeight + TagHeight;
-            var listHeight = ScrollRowHeight * ScrollRowCount + Gap * (ScrollRowCount - 1);
+            ScrollRowHeight = RowTitleHeight + CardHeight + TagHeight + Gap * 2f;
             LayOverview(chrome, Sidebar, Close.Bottom + Gap);
-            ScrollContentHeight = listHeight;
+            ScrollContentHeight = Scroll.Height;
         }
         else
         {
+            RowTitleHeight = target;
             BoardColumn = body;
             PinnedTitle = new TouchRect(body.Left, body.Top, body.Width, PinnedTitleHeight);
             Close = chrome.CloseAt(body);
@@ -152,12 +134,14 @@ public sealed class LiveBuildTouchLayout
                 Math.Max(0f, body.Bottom - scrollTop)
             );
             // Ten sockets span the width, and one list row stays whole in the viewport.
-            var stackedWidthScale = body.Width / (NativeCardPrefab.SocketWidth * SocketCount);
-            var rowScale = Math.Max(0f, Scroll.Height - RowTitleHeight - TagHeight) / FramedHeight;
+            var stackedWidthScale =
+                (body.Width - Gap * 2f) / (NativeCardPrefab.SocketWidth * SocketCount);
+            var rowScale =
+                Math.Max(0f, Scroll.Height - RowTitleHeight - TagHeight - Gap * 2f) / FramedHeight;
             SetCardScale(Math.Max(0.01f, Math.Min(stackedWidthScale, rowScale)));
-            PinnedBoard = new TouchRect(0f, 0f, body.Width, CardHeight + TagHeight);
+            PinnedBoard = new TouchRect(0f, 0f, body.Width, CardHeight + TagHeight + Gap * 2f);
             _listTop = PinnedBoard.Bottom + Gap;
-            ScrollRowHeight = RowTitleHeight + CardHeight + TagHeight;
+            ScrollRowHeight = RowTitleHeight + CardHeight + TagHeight + Gap * 2f;
             var overviewTop = _listTop + ScrollRowCount * (ScrollRowHeight + Gap);
             var overview = new TouchRect(0f, overviewTop, body.Width, 0f);
             var bottom = LayOverview(chrome, overview, overviewTop);
@@ -165,10 +149,14 @@ public sealed class LiveBuildTouchLayout
             ScrollContentHeight = bottom;
         }
 
+        BoardSelector = Stacked
+            ? new TouchRect(0f, _listTop, metrics.Target(160f), target)
+            : new TouchRect(Sidebar.Left, Next.Bottom + Gap, Sidebar.Width, Next.Height);
+
         PinnedTitleText = new TouchRect(
             PinnedTitle.Left,
             PinnedTitle.Top,
-            Math.Max(0f, Previous.Left - Gap - PinnedTitle.Left),
+            Stacked ? Math.Max(0f, Previous.Left - Gap - PinnedTitle.Left) : PinnedTitle.Width,
             target
         );
 
@@ -195,87 +183,61 @@ public sealed class LiveBuildTouchLayout
         TouchMetrics metrics,
         float target,
         out TouchRect pager,
-        out TouchRect previous
+        out TouchRect previous,
+        float width = 0f
     )
     {
-        var pagerButton = metrics.Target(64f);
+        var pagerButton = width > 0f ? (width - metrics.Dp(88f)) / 2f : metrics.Target(64f);
         var next = new TouchRect(right - pagerButton, top, pagerButton, target);
         pager = new TouchRect(next.Left - metrics.Dp(88f), top, metrics.Dp(88f), target);
         previous = new TouchRect(pager.Left - pagerButton, top, pagerButton, target);
         return next;
     }
 
-    // The overview's controls down `area` from `top`. Side by side the column ends at the
-    // sheet's bottom: the hint and the sponsor button share the last row, the supporter credit is
-    // one line over it, and the info area takes what is left. Stacked, each has its own height
-    // and the column ends under that row. Returns that bottom.
     private float LayOverview(TouchChrome chrome, TouchRect area, float top)
     {
         var metrics = chrome.Metrics;
         var target = chrome.Target;
-        if (!Stacked)
-            Title = chrome.TitleBeside(area, Close);
-        else
-            Title = new TouchRect(area.Left, top, area.Width, target);
-        var below = Stacked ? Title.Bottom + Gap : top;
-        Refresh = new TouchRect(area.Left, below, area.Width, target);
-        Corpus = new TouchRect(area.Left, Refresh.Bottom + Gap, area.Width, target);
-        Hero = new TouchRect(area.Left, Corpus.Bottom + Gap, area.Width, metrics.Dp(28f));
-        // One line of names, its own line height the gap over it; the row is not a target, the
-        // sponsor button beside the hint is.
-        var supportersHeight = SupportersHeight;
-        var infoTop = Hero.Bottom + Gap;
-        var lastRow = default(TouchRect);
-        if (!Stacked)
-        {
-            lastRow = new TouchRect(area.Left, area.Bottom - target, area.Width, target);
-            Supporters = new TouchRect(
-                area.Left,
-                lastRow.Top - supportersHeight,
-                area.Width,
-                supportersHeight
-            );
-            Info = new TouchRect(
-                area.Left,
-                infoTop,
-                area.Width,
-                Math.Max(0f, Supporters.Top - infoTop)
-            );
-            MetricColumns = TouchMetrics.ColumnCount(Info.Width, metrics.Dp(110f), Gap, 2);
-        }
-        else
-        {
-            MetricColumns = TouchMetrics.ColumnCount(area.Width, metrics.Dp(110f), Gap, 4);
-        }
+        Sponsor = !Stacked
+            ? chrome.TitleBeside(area, Close)
+            : new TouchRect(area.Left, top, area.Width, target);
+        MetricColumns = TouchMetrics.ColumnCount(
+            area.Width,
+            metrics.Dp(110f),
+            Gap,
+            Stacked ? 4 : 2
+        );
         var metricRows = (MetricCount + MetricColumns - 1) / MetricColumns;
         if (Stacked)
         {
-            // Room for the metric cells, and for the guidance or corpus details shown there instead.
-            var infoHeight = Math.Max(
-                metricRows * metrics.Dp(64f) + Gap * (metricRows - 1),
-                metrics.Dp(120f)
+            LayLibraryAction(area, Sponsor.Bottom + Gap, target);
+            Hero = new TouchRect(area.Left, Corpus.Bottom + Gap, area.Width, metrics.Dp(28f));
+            Info = new TouchRect(
+                area.Left,
+                Hero.Bottom + Gap,
+                area.Width,
+                Math.Max(metricRows * metrics.Dp(64f) + Gap * (metricRows - 1), metrics.Dp(120f))
             );
-            Info = new TouchRect(area.Left, infoTop, area.Width, infoHeight);
-            Supporters = new TouchRect(area.Left, Info.Bottom + Gap, area.Width, supportersHeight);
-            lastRow = new TouchRect(area.Left, Supporters.Bottom, area.Width, target);
         }
-        var sponsorWidth = Math.Max(
-            metrics.MinTarget,
-            Math.Min(metrics.Dp(96f), lastRow.Width / 3f)
-        );
-        Sponsor = new TouchRect(lastRow.Right - sponsorWidth, lastRow.Top, sponsorWidth, target);
-        Hint = new TouchRect(
-            lastRow.Left,
-            lastRow.Top,
-            Math.Max(0f, Sponsor.Left - Gap - lastRow.Left),
-            target
-        );
+        else
+        {
+            Hero = new TouchRect(area.Left, top, area.Width, 0f);
+            Info = new TouchRect(area.Left, top, area.Width, metrics.Dp(96f));
+            LayLibraryAction(area, Info.Bottom + Gap, target);
+        }
         MetricCellWidth = (Info.Width - Gap * (MetricColumns - 1)) / MetricColumns;
         MetricCellHeight = Math.Min(
             metrics.Dp(64f),
             (Info.Height - Gap * (metricRows - 1)) / metricRows
         );
-        return Hint.Bottom;
+        return Info.Bottom;
+    }
+
+    private void LayLibraryAction(TouchRect area, float top, float target)
+    {
+        var actionWidth = Metrics.Target(88f);
+        Refresh = new TouchRect(area.Right - actionWidth, top, actionWidth, target);
+        Corpus = new TouchRect(area.Left, top, area.Width - actionWidth - Gap, target);
     }
 
     // Side by side, the sidebar's fixed rows (LayOverview) leave the info area room for every
@@ -289,9 +251,8 @@ public sealed class LiveBuildTouchLayout
     {
         var columns = TouchMetrics.ColumnCount(width, metrics.Dp(110f), Gap, 2);
         var rows = (MetricCount + columns - 1) / columns;
-        var fixedRows = target * 4f + metrics.Dp(28f) + Gap * 4f + SupportersHeight;
-        var info = rows * metrics.Dp(MinMetricCellDp) + Gap * (rows - 1);
-        return height - fixedRows >= info - 0.01f;
+        var info = rows * metrics.Dp(44f) + Gap * (rows - 1);
+        return height >= target * 4f + Gap * 4f + info - 0.01f;
     }
 
     private readonly TouchInspectLayout _inspect;
@@ -338,9 +299,6 @@ public sealed class LiveBuildTouchLayout
 
     public float TagHeight { get; }
 
-    /// <summary>The supporter credit's one line.</summary>
-    public float SupportersHeight { get; }
-
     public float CardScale { get; private set; }
 
     public float SocketWidth { get; private set; }
@@ -372,9 +330,10 @@ public sealed class LiveBuildTouchLayout
 
     public float ScrollContentHeight { get; }
 
-    public TouchRect Title { get; private set; }
-
     public TouchRect Close { get; }
+
+    /// <summary>Lower-board switch: sidebar-local to the sheet, or list-local when stacked.</summary>
+    public TouchRect BoardSelector { get; }
 
     public TouchRect Refresh { get; private set; }
 
@@ -385,15 +344,7 @@ public sealed class LiveBuildTouchLayout
     /// <summary>The match metrics, the guidance, or the corpus details, one at a time.</summary>
     public TouchRect Info { get; private set; }
 
-    public TouchRect Hint { get; private set; }
-
-    /// <summary>
-    /// The supporter credit, the desktop panel's attribution row: one line of names over the
-    /// hint, with <see cref="Sponsor"/> at the hint's right.
-    /// </summary>
-    public TouchRect Supporters { get; private set; }
-
-    /// <summary>The button that opens the sponsor page, as the desktop row's action does.</summary>
+    /// <summary>One supporter credit and sponsor link in the overview header.</summary>
     public TouchRect Sponsor { get; private set; }
 
     public int MetricColumns { get; private set; }
@@ -418,7 +369,7 @@ public sealed class LiveBuildTouchLayout
 
     /// <summary>A list row's cards and tag band, from the list content's top-left corner.</summary>
     public TouchRect ScrollRowBoard(int row) =>
-        new(0f, RowTop(row) + RowTitleHeight, BoardColumn.Width, CardHeight + TagHeight);
+        new(0f, RowTop(row) + RowTitleHeight, BoardColumn.Width, CardHeight + TagHeight + Gap * 2f);
 
     /// <summary>One metric's cell, row-major, in canvas units.</summary>
     public TouchRect MetricCell(int index)

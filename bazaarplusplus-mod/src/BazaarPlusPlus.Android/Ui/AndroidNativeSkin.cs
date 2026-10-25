@@ -1,75 +1,24 @@
-using BazaarPlusPlus.Android.Ui;
-using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Android.GameInterop;
 using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Collection;
+namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>Borrowed game art, with independent controls and no native business callbacks.</summary>
-internal sealed class AndroidCollectionSkin
+internal sealed class AndroidNativeSkin
 {
-    private Sprite? _button;
-    private Sprite? _selected;
-    private Sprite? _frame;
-    private Sprite? _tagFrame;
+    private readonly AndroidNativeArt _art = new();
 
-    public AndroidCollectionSkin()
+    public bool NeedsRefresh => _art.NeedsRefresh;
+
+    public void Frame(RectTransform rect, Color? backing = null)
     {
-        try
-        {
-            foreach (var popup in Resources.FindObjectsOfTypeAll<Il2CppTheBazaar.GenericPopup>())
-            {
-                if (popup._buttons == null)
-                    continue;
-                foreach (var button in popup._buttons)
-                {
-                    if (button == null || button.DefaultImage == null)
-                        continue;
-                    _button = button.DefaultImage;
-                    _selected = button.ClickedImage;
-                    break;
-                }
-                if (_button != null)
-                    break;
-            }
-            foreach (
-                var tooltip in Resources.FindObjectsOfTypeAll<Il2CppTheBazaar.UI.Tooltips.BaseTooltipController>()
-            )
-            {
-                var frame = tooltip.bronzeFrameSettings?.BackgroundFrame;
-                if (frame == null)
-                    continue;
-                _frame = frame;
-                _tagFrame = tooltip.bronzeFrameSettings?.TagFrame;
-                break;
-            }
-        }
-        catch (Exception exception)
-        {
-            BppLog.WarnEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.collection.skin_failed"),
-                exception
-            );
-        }
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.skin_loaded"),
-            ("button", _button != null),
-            ("frame", _frame != null),
-            ("tag_frame", _tagFrame != null)
-        );
-    }
-
-    public bool NeedsRefresh => _button == null || _frame == null || _tagFrame == null;
-
-    public void Frame(RectTransform rect)
-    {
-        var background = AndroidUiKit.PanelColor;
+        var background = backing ?? AndroidUiKit.PanelColor;
         background.a = 1f;
         AndroidUiKit.Fill(rect, background);
-        if (_frame == null)
+        if (_art.Frame == null)
             return;
         // Native frame art has a transparent centre; keep an opaque independent backing.
         var art = AndroidUiKit.Rect(
@@ -81,18 +30,17 @@ internal sealed class AndroidCollectionSkin
             Vector2.zero
         );
         var image = AndroidUiKit.Fill(art, Color.white, false);
-        image.sprite = _frame;
+        image.sprite = _art.Frame;
         image.type = Image.Type.Sliced;
         image.color = Color.white;
     }
 
-    public void Tag(RectTransform rect)
+    public Image Tag(RectTransform rect)
     {
-        if (_tagFrame == null)
-            return;
         var image = AndroidUiKit.Fill(rect, AndroidUiKit.ButtonColor, false);
-        image.sprite = _tagFrame;
+        image.sprite = _art.TagFrame;
         image.type = Image.Type.Sliced;
+        return image;
     }
 
     public void Toggle(
@@ -119,7 +67,7 @@ internal sealed class AndroidCollectionSkin
             track,
             value ? AndroidUiKit.ActiveColor : AndroidUiKit.ButtonColor
         );
-        background.sprite = _tagFrame;
+        background.sprite = _art.TagFrame;
         background.type = Image.Type.Sliced;
         var padding = height * 0.12f;
         var diameter = height - 2f * padding;
@@ -131,7 +79,7 @@ internal sealed class AndroidCollectionSkin
             new Vector2(diameter, diameter)
         );
         var thumbImage = AndroidUiKit.Fill(thumb, AndroidUiKit.TextColor, false);
-        thumbImage.sprite = _tagFrame;
+        thumbImage.sprite = _art.TagFrame;
         thumbImage.type = Image.Type.Sliced;
         var toggle = rect.gameObject.AddComponent<Toggle>();
         toggle.targetGraphic = hitArea;
@@ -168,17 +116,19 @@ internal sealed class AndroidCollectionSkin
         return result;
     }
 
-    public void Select(Image image, bool selected)
+    public void Select(Image image, bool selected, bool dimmed = false)
     {
-        image.sprite = selected && _selected != null ? _selected : _button;
+        image.sprite = selected && _art.Selected != null ? _art.Selected : _art.Button;
         image.type = Image.Type.Sliced;
         image.color =
             image.sprite == null
                 ? selected
                     ? AndroidUiKit.ActiveColor
                     : AndroidUiKit.ButtonColor
-                : selected
-                    ? new Color(1f, 0.88f, 0.62f)
-                    : Color.white;
+                : dimmed
+                    ? new Color(0.48f, 0.43f, 0.36f)
+                    : selected
+                        ? new Color(1f, 0.88f, 0.62f)
+                        : Color.white;
     }
 }

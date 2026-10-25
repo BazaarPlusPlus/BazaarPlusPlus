@@ -29,14 +29,15 @@ internal sealed class AndroidLiveBuildInspection
     private readonly GameObject _root;
     private readonly RectTransform _slot;
     private readonly TextMeshProUGUI _name;
-    private readonly TextMeshProUGUI _description;
+    private readonly AndroidInspectionText _description;
     private readonly LiveBuildTouchLayout _layout;
     private CardRentalLease<CardPreviewBase>? _lease;
 
     public AndroidLiveBuildInspection(
         RectTransform parent,
         TMP_FontAsset font,
-        LiveBuildTouchLayout layout
+        LiveBuildTouchLayout layout,
+        AndroidNativeSkin skin
     )
     {
         _layout = layout;
@@ -66,9 +67,7 @@ internal sealed class AndroidLiveBuildInspection
 
         var info = AndroidTouchScreen.Child("Info", root, layout.InspectInfo);
         // Opaque, so the panel's text under it does not show through.
-        var panel = AndroidUiKit.PanelColor;
-        panel.a = 1f;
-        AndroidUiKit.Fill(info, panel);
+        skin.Frame(info);
         // Swallows taps on the panel, which would otherwise reach the dismiss button behind it.
         var swallow = info.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
@@ -82,23 +81,21 @@ internal sealed class AndroidLiveBuildInspection
             AndroidUiKit.TextColor
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
-        _description = AndroidUiKit.Text(
+        _description = new AndroidInspectionText(
             AndroidTouchScreen.Child(
                 "Description",
                 info,
                 Local(layout.InspectDetail, origin, layout.Gap)
             ),
             font,
-            "",
             layout.BodyFont,
-            TextAlignmentOptions.TopLeft,
-            AndroidUiKit.MutedTextColor
+            AndroidUiKit.TextColor
         );
-        _description.overflowMode = TextOverflowModes.Ellipsis;
         var close = AndroidTouchScreen.Child("Close", info, Local(layout.InspectClose, origin, 0f));
-        AndroidUiKit.CloseButton(
+        skin.Button(
             close,
             font,
+            AndroidUiKit.CloseGlyph,
             layout.TitleFont,
             layout.LabelInset,
             () => Close("close_button")
@@ -119,8 +116,7 @@ internal sealed class AndroidLiveBuildInspection
         Return();
         var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
         _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
-        _description.text = AndroidCardTemplateText.Description(subject) ?? string.Empty;
-        AndroidKeywordSprites.Apply(_description);
+        _description.Set(AndroidCardTemplateText.Description(subject) ?? string.Empty);
         var scale = _layout.InspectScale(card.DisplaySpan);
         _slot.localScale = new Vector3(scale, scale, 1f);
         _root.SetActive(true);
