@@ -114,8 +114,4 @@ public sealed class HistoryPanelViewModel
     public string FavoriteButtonText { get; set; } = string.Empty;
 
     public bool FavoriteButtonEnabled { get; set; }
-
-    public string? SelectedFavoriteBattleId { get; set; }
-
-    public string SelectedFavoriteNote { get; set; } = string.Empty;
 }

@@ -71,7 +71,7 @@ internal static class GhostDownloadSelectionTests
             ),
             () => { },
             () => { },
-            _ => { }
+            new(() => { }, () => { }, () => null, () => false)
         );
         coordinator.SelectBattle(state.GhostPage.FindIndex(row => row.BattleId == a.BattleId));
         context.Until(() => !state.DetailLoading);

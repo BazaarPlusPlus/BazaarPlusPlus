@@ -1,9 +1,13 @@
 #nullable enable
 using System.Collections;
 using System.Reflection;
+using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.BundlePipeline;
+using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Storage.RunLog;
@@ -38,7 +42,8 @@ TestCoordinatorCanonicalizesAliasFilterState();
 TestStateSelectedRunUsesFilteredRunList();
 TestPageReplacementUpdatesSelection();
 TestCoordinatorRunSelectionUsesFilteredSpace();
-TestReplayReturnPreservesSelectionAndFilters();
+TestAcceptedReplayReturnsWithSelection();
+TestDeleteAndFavoriteDispatchBySection();
 TestGhostListTextMarksOnlyTheFinalBattle();
 TestRunRatingShowsItsChangeOnlyWhenKnown();
 TestAccountArrivalSyncsOnlyTheOpenGhostSection();
@@ -109,7 +114,7 @@ void TestCoordinatorCanonicalizesAliasFilterState()
             dependencies,
             (Action)(() => { }),
             (Action)(() => { }),
-            (Action<bool>)(_ => { })
+            NoReplayReturn()
         ) ?? throw new InvalidOperationException("HistoryPanelCoordinator should construct.");
 
     Invoke(coordinatorType, coordinator, "SetRunHeroFilter", "Hero8");
@@ -190,7 +195,7 @@ void TestCoordinatorRunSelectionUsesFilteredSpace()
             dependencies,
             (Action)(() => { }),
             (Action)(() => { }),
-            (Action<bool>)(_ => { })
+            NoReplayReturn()
         ) ?? throw new InvalidOperationException("HistoryPanelCoordinator should construct.");
 
     Invoke(coordinatorType, coordinator, "SelectRun", 1);
@@ -202,22 +207,24 @@ void TestCoordinatorRunSelectionUsesFilteredSpace()
     );
 }
 
-void TestReplayReturnPreservesSelectionAndFilters()
+// An accepted replay arms the return before it hides the panel; the coordinator brings the panel
+// back once no saved replay session remains and the lobby is active (a null runtime keeps it
+// waiting), resuming the selection and filters. A show that does not open keeps the return for
+// the next tick; a cancel drops it, and the next open is an ordinary one.
+void TestAcceptedReplayReturnsWithSelection()
 {
-    var state = Activator.CreateInstance(stateType)!;
+    var state = new HistoryPanelState();
     var firstRun = CreateRun("run-1", "Vanessa");
     var selectedRun = CreateRun("run-2", "Vanessa");
     var selectedBattle = CreateBattle("battle-2", 12, "Lost");
     SetPage(state, "RunPage", firstRun, selectedRun);
     SetPage(state, "BattlePage", CreateBattle("battle-1", 11, "Won"), selectedBattle);
-    stateType.GetProperty("SelectedRunIndex")!.SetValue(state, 1);
-    stateType.GetProperty("SelectedBattleIndex")!.SetValue(state, 1);
-    stateType.GetProperty("SelectedGhostBattleIndex")!.SetValue(state, 2);
-    stateType.GetProperty("SelectedRunHero")!.SetValue(state, "Vanessa");
-    stateType.GetProperty("GhostDayMin10")!.SetValue(state, true);
-    stateType
-        .GetProperty("GhostBattleFilter")!
-        .SetValue(state, Enum.Parse(ghostFilterType, "ILost"));
+    state.SelectedRunIndex = 1;
+    state.SelectedBattleIndex = 1;
+    state.SelectedGhostBattleIndex = 2;
+    state.SelectedRunHero = "Vanessa";
+    state.GhostDayMin10 = true;
+    state.GhostBattleFilter = GhostBattleFilter.ILost;
     var databasePath = Path.Combine(
         Path.GetTempPath(),
         $"bpp-history-selection-{Guid.NewGuid():N}.sqlite3"
@@ -237,84 +244,145 @@ void TestReplayReturnPreservesSelectionAndFilters()
             """;
         command.ExecuteNonQuery();
     }
-    var repository = Construct(
-        RequireType("BazaarPlusPlus.Game.HistoryPanel.Storage.HistoryPanelRepository"),
-        databasePath
+    var repository = new HistoryPanelRepository(databasePath);
+    var dependencies = Dependencies(
+        new HistoryPanelDataService(repository, null),
+        replay: new AcceptingReplay()
     );
-    var dataService = Construct(dataServiceType, repository, null);
-    var dependencies = Dependencies(dataService);
     var previewRequests = 0;
-    using var coordinator = (IDisposable)
-        Activator.CreateInstance(
-            coordinatorType,
-            state,
-            dependencies,
-            (Action)(() => { }),
-            (Action)(() => previewRequests++),
-            (Action<bool>)(_ => { })
-        )!;
+    var hides = 0;
+    var pendingAtHide = false;
+    var shows = 0;
+    var showOpens = true;
+    bool? resumed = null;
+    SavedReplaysStub? savedReplays = null;
+    var lobbyActive = false;
+    HistoryPanelCoordinator? coordinator = null;
+    // The host's side: its hide closes the panel and its show, when it opens, begins a session.
+    var port = new HistoryPanelReplayReturnPort(
+        () =>
+        {
+            hides++;
+            pendingAtHide = coordinator!.ReplayReturnPending;
+            coordinator.OnPanelHidden();
+        },
+        () =>
+        {
+            shows++;
+            if (showOpens)
+                resumed = coordinator!.OnPanelShown();
+        },
+        () => savedReplays,
+        () => lobbyActive
+    );
+    coordinator = new HistoryPanelCoordinator(
+        state,
+        dependencies,
+        () => { },
+        () => previewRequests++,
+        port
+    );
+
+    void ReplaySelected()
+    {
+        var before = hides;
+        _ = coordinator.TryReplaySelectedBattleAsync(
+            HistoryPanelViewModelBuilder.ActiveSelectedBattle(state, coordinator),
+            false
+        );
+        uiContext.Until(() => hides == before + 1);
+        Assert(
+            pendingAtHide && coordinator.ReplayReturnPending,
+            "An accepted replay must arm the return before its hide, which must keep it."
+        );
+    }
+
+    void UntilDetail(string battleId) =>
+        uiContext.Until(() => state.DetailBattleId == battleId && !state.DetailLoading);
 
     // The dependencies' profile reads no account: exercise the panel as a signed-out client.
     try
     {
-        Invoke(coordinatorType, coordinator, "OnPanelHidden");
-        previewRequests = 0;
-        Invoke(coordinatorType, coordinator, "OnPanelShown", true);
-        uiContext.Until(() =>
-            stateType.GetProperty("DetailBattleId")!.GetValue(state)?.ToString() == "battle-2"
-            && !(bool)stateType.GetProperty("DetailLoading")!.GetValue(state)!
+        Assert(!coordinator.OnPanelShown(), "An ordinary open must not resume a selection.");
+        UntilDetail("battle-2");
+        Assert(
+            state.Runs.Count == 2 && !ReferenceEquals(state.Runs[0], selectedRun),
+            "An ordinary panel open must read persisted records."
         );
 
+        ReplaySelected();
+        coordinator.TickHidden();
+        Assert(shows == 0, "A null replay runtime must keep the return waiting.");
+        savedReplays = new SavedReplaysStub { HasSavedReplaySession = true };
+        coordinator.TickHidden();
+        Assert(shows == 0, "A running replay session must keep the return waiting.");
+        savedReplays.HasSavedReplaySession = false;
+        coordinator.TickHidden();
+        Assert(shows == 0, "The return must wait for the lobby.");
+        lobbyActive = true;
+        previewRequests = 0;
+        coordinator.TickHidden();
         Assert(
-            GetList(state, "Runs").Count == 2
-                && GetString(Invoke(coordinatorType, coordinator, "GetSelectedRun"), "RunId")
-                    == "run-2",
+            shows == 1 && resumed == true && !coordinator.ReplayReturnPending,
+            "The return must show the panel once, resuming the selection and consuming the return."
+        );
+        UntilDetail("battle-2");
+
+        Assert(
+            state.Runs.Count == 2
+                && state.GetSelectedRun(coordinator.GetFilteredRuns())?.RunId == "run-2",
             "Returning from replay must reload the page and retain the selected run by ID."
         );
         Assert(
-            GetString(Invoke(stateType, state, "GetSelectedBattle"), "BattleId") == "battle-2",
+            state.GetSelectedBattle()?.BattleId == "battle-2",
             "Returning from replay must retain the selected battle, not the latest battle."
         );
         Assert(
-            (int)stateType.GetProperty("SelectedRunIndex")!.GetValue(state)! == 0,
+            state.SelectedRunIndex == 0,
             "Reloading may change the selected index while retaining run identity."
         );
         Assert(
-            GetNullableString(state, "SelectedRunHero") == "Vanessa"
-                && (bool)stateType.GetProperty("GhostDayMin10")!.GetValue(state)!
-                && stateType.GetProperty("GhostBattleFilter")!.GetValue(state)!.ToString()
-                    == "ILost"
-                && (int)stateType.GetProperty("SelectedGhostBattleIndex")!.GetValue(state)! == 2,
+            state.SelectedRunHero == "Vanessa"
+                && state.GhostDayMin10
+                && state.GhostBattleFilter == GhostBattleFilter.ILost
+                && state.SelectedGhostBattleIndex == 2,
             "Returning from replay must retain both run and ghost filters and selection."
         );
         Assert(
             previewRequests > 0,
             "Returning from replay must refresh the selected preview after loading its detail."
         );
+        coordinator.TickHidden();
+        Assert(shows == 1, "A consumed return must not show the panel again.");
 
-        Invoke(coordinatorType, coordinator, "OnPanelHidden");
-        Invoke(coordinatorType, coordinator, "OnPanelShown", false);
-        uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
+        // A show that does not open (a combat, a missing font) keeps the return for the next tick.
+        showOpens = false;
+        ReplaySelected();
+        coordinator.TickHidden();
+        coordinator.TickHidden();
         Assert(
-            GetList(state, "Runs").Count == 2
-                && !ReferenceEquals(GetList(state, "Runs")[0], selectedRun),
-            "A normal panel open must read persisted records."
+            shows == 3 && coordinator.ReplayReturnPending,
+            "A show that does not open must keep the return and try again on the next tick."
         );
+        Assert(
+            coordinator.CancelReplayReturn() && !coordinator.CancelReplayReturn(),
+            "A cancel drops a pending return once and is a no-op afterwards."
+        );
+        coordinator.TickHidden();
+        Assert(shows == 3, "A cancelled return must not show the panel.");
+        Assert(!coordinator.OnPanelShown(), "The open after a cancel must be an ordinary one.");
+        uiContext.Until(() => !state.PageLoading);
+        Assert(state.Runs.Count == 2, "The ordinary open after a cancel reads persisted records.");
 
         SetPage(state, "GhostPage", CreateBattle("previous-account-battle", 12, "Won"));
-        stateType.GetProperty("CachedAccountId")!.SetValue(state, "previous-account");
-        Invoke(coordinatorType, coordinator, "Tick", 0f);
+        state.CachedAccountId = "previous-account";
+        coordinator.Tick(0f);
         Assert(
-            GetList(state, "GhostBattles").Count == 0
-                && Invoke(
-                    stateType,
-                    state,
-                    "GetSelectedGhostBattle",
-                    GetList(state, "GhostBattles")
-                ) == null,
+            state.GhostBattles.Count == 0
+                && state.GetSelectedGhostBattle(state.GhostBattles) == null,
             "An account change must immediately clear the old Ghost page and its selection."
         );
-        Invoke(coordinatorType, coordinator, "OnPanelHidden");
+        coordinator.OnPanelHidden();
     }
     finally
     {
@@ -325,13 +393,97 @@ void TestReplayReturnPreservesSelectionAndFilters()
     }
 }
 
+// The delete and favorite buttons dispatch by section inside the coordinator: Favorites removes
+// the selected favorite or hands its note to the host's dialog, every other section deletes the
+// selected run or favorites the active battle, and nothing selected does nothing.
+void TestDeleteAndFavoriteDispatchBySection()
+{
+    var state = new HistoryPanelState();
+    SetPage(state, "RunPage", CreateRun("run-9", "Vanessa"));
+    // No database is opened: arming a confirmation and returning a favorite read only state.
+    var repository = new HistoryPanelRepository(
+        Path.Combine(Path.GetTempPath(), $"bpp-history-dispatch-{Guid.NewGuid():N}.sqlite3")
+    );
+    var favorites = new HistoryFavoriteService(
+        repository,
+        string.Empty,
+        (string _, out PvpBattleManifest? _, out PvpReplayPayload? _) =>
+            throw new InvalidOperationException("Dispatch tests load no replay."),
+        (_, _, _) => throw new InvalidOperationException("Dispatch tests load no Ghost replay."),
+        (out string _) => throw new InvalidOperationException("Dispatch tests replay nothing."),
+        (_, _, _, _) => throw new InvalidOperationException("Dispatch tests replay nothing.")
+    );
+    var dependencies = new HistoryPanelDependencies(
+        new StubRunContext(),
+        new HistoryPanelDataService(repository, null),
+        new AcceptingReplay(),
+        null,
+        null,
+        null,
+        new BazaarDbAccountLinkStore(_ => false, _ => { }),
+        () => 0f,
+        () => null
+    )
+    {
+        Favorites = favorites,
+    };
+    using var coordinator = new HistoryPanelCoordinator(
+        state,
+        dependencies,
+        () => { },
+        () => { },
+        NoReplayReturn()
+    );
+
+    coordinator.DeleteSelected();
+    Assert(
+        coordinator.IsDeleteRunConfirmationActive("run-9", 0f),
+        "Delete in Runs must arm the selected run's confirmation."
+    );
+    Assert(
+        coordinator.FavoriteSelected() == null && !state.FavoriteActionInProgress,
+        "Favorite in Runs favorites the active battle and hands no note to edit."
+    );
+
+    state.SectionMode = HistorySectionMode.Favorites;
+    var status = state.StatusMessage;
+    Assert(
+        coordinator.FavoriteSelected() == null && state.StatusMessage == status,
+        "Favorite in Favorites with nothing selected must do nothing."
+    );
+    coordinator.DeleteSelected();
+    Assert(
+        coordinator.IsDeleteRunConfirmationActive("run-9", 0f) && state.StatusMessage == status,
+        "Delete in Favorites with nothing selected must do nothing, not delete the run."
+    );
+
+    var favorite = new HistoryFavoriteRecord(
+        (HistoryBattleRecord)CreateBattle("favorite-1", 9, "Won"),
+        DateTimeOffset.Parse("2026-06-19T00:00:00Z"),
+        "keep this one"
+    );
+    SetPage(state, "FavoritePage", favorite);
+    Assert(
+        ReferenceEquals(coordinator.FavoriteSelected(), favorite)
+            && !state.FavoriteActionInProgress
+            && state.StatusMessage == status,
+        "Favorite in Favorites must hand back the selected favorite and change nothing."
+    );
+    coordinator.DeleteSelected();
+    Assert(
+        coordinator.IsRemoveFavoriteConfirmationActive("favorite-1", 0f)
+            && !coordinator.IsDeleteRunConfirmationActive("run-9", 0f),
+        "Delete in Favorites must arm the selected favorite's confirmation, not the run's."
+    );
+}
+
 void TestAccountArrivalSyncsOnlyTheOpenGhostSection()
 {
     WithProfileCapsule(
         "Ghost",
         (state, coordinator, syncAttempts) =>
         {
-            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "OnPanelShown");
             uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
             Assert(syncAttempts() == 1, "Entering Ghost before the profile loads tries one sync.");
 
@@ -358,7 +510,7 @@ void TestAccountArrivalSyncsOnlyTheOpenGhostSection()
         (state, coordinator, syncAttempts) =>
         {
             FakeClientCache.SetAccountId("account-known");
-            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "OnPanelShown");
             Invoke(coordinatorType, coordinator, "Tick", 0f);
             uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
             Assert(
@@ -373,7 +525,7 @@ void TestAccountArrivalSyncsOnlyTheOpenGhostSection()
         "Runs",
         (state, coordinator, syncAttempts) =>
         {
-            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "OnPanelShown");
             uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
 
             FakeClientCache.SetAccountId("account-arrived");
@@ -400,7 +552,7 @@ void TestAccountLinkActionHandsAccountChangeToTheObserver()
         {
             // The signed-out Ghost read is still in flight when the account-link row reads the
             // profile; that read must not strand the list in its loading state.
-            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "OnPanelShown");
             Assert(syncAttempts() == 1, "Entering Ghost before the profile loads tries one sync.");
 
             FakeClientCache.SetAccountId("account-linked");
@@ -429,7 +581,7 @@ void TestFailedSyncMarksTheEmptyGhostListIncomplete()
         (state, coordinator, syncAttempts) =>
         {
             FakeClientCache.SetAccountId("account-known");
-            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "OnPanelShown");
             uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
             Assert(
                 syncAttempts() == 1 && GhostSync(state) == "Failed",
@@ -458,14 +610,14 @@ void TestSessionBoundariesRestartACancelledSync()
         (state, coordinator, syncAttempts) =>
         {
             FakeClientCache.SetAccountId("account-known");
-            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "OnPanelShown");
             Assert(
                 syncAttempts() == 1 && GhostSync(state) == "Running",
                 "The held Ghost sync stays in flight."
             );
             Invoke(coordinatorType, coordinator, "OnPanelHidden");
             Assert(GhostSync(state) == "NotStarted", "Closing History ends the sync phase.");
-            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "OnPanelShown");
             AssertSyncRestarted(state, syncAttempts, "Reopening History after a cancelled sync");
             Invoke(coordinatorType, coordinator, "OnPanelHidden");
         },
@@ -482,7 +634,7 @@ void TestAccountChangeMidSyncSyncsTheNewAccount()
         (state, coordinator, syncAttempts) =>
         {
             FakeClientCache.SetAccountId("account-a");
-            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "OnPanelShown");
             Assert(
                 syncAttempts() == 1 && GhostSync(state) == "Running",
                 "The held Ghost sync stays in flight."
@@ -604,7 +756,7 @@ void WithProfileCapsule(
             dependencies,
             (Action)(() => { }),
             (Action)(() => { }),
-            (Action<bool>)(_ => { })
+            NoReplayReturn()
         )!;
 
     FakeClientCache.SetAccountId(null);
@@ -838,16 +990,17 @@ Type RequireType(string fullName) =>
     ?? throw new InvalidOperationException($"{fullName} should exist.");
 
 // The coordinator's dependencies with the host ports a test supplies: the profile account (none
-// by default), a clock, and in-memory BazaarDB link hints.
-object Dependencies(
+// by default), a clock, in-memory BazaarDB link hints, and a replay service where a test replays.
+HistoryPanelDependencies Dependencies(
     object dataService,
     Func<string?>? profileAccountId = null,
-    BazaarDbAccountLinkStore? accountLinkStore = null
+    BazaarDbAccountLinkStore? accountLinkStore = null,
+    IHistoryPanelReplay? replay = null
 ) =>
     new HistoryPanelDependencies(
         null!,
         (HistoryPanelDataService)dataService,
-        null!,
+        replay!,
         null,
         null,
         null,
@@ -855,6 +1008,9 @@ object Dependencies(
         () => 0f,
         profileAccountId ?? (() => null)
     );
+
+// A replay return the scenario never arms.
+HistoryPanelReplayReturnPort NoReplayReturn() => new(() => { }, () => { }, () => null, () => false);
 
 object Construct(Type type, params object?[] args)
 {
@@ -932,4 +1088,91 @@ internal sealed class UnusedPvpBattleEvidence : IPvpBattleEvidenceBinding
 
     public void VerifyReplay(PvpReplayPayload payload) =>
         throw new InvalidOperationException("History filtering tests verify no replay.");
+}
+
+// Every replay is accepted; the scenarios never reach a recorder or a payload.
+internal sealed class AcceptingReplay : IHistoryPanelReplay
+{
+    public bool RecordingSupported => false;
+
+    public bool CanReplayBattle(HistoryBattleRecord? battle, out string reason)
+    {
+        reason = string.Empty;
+        return battle != null;
+    }
+
+    public bool CanRecordReplay(HistoryBattleRecord? battle, out string reason) =>
+        CanRecordLoadedReplay(out reason);
+
+    public bool CanRecordReplay(
+        HistoryBattleRecord? battle,
+        out string reason,
+        out HistoryPanelReplayReasonCode reasonCode
+    ) => CanRecordLoadedReplay(out reason, out reasonCode);
+
+    public bool CanRecordLoadedReplay(out string reason)
+    {
+        reason = "no recorder";
+        return false;
+    }
+
+    public bool CanRecordLoadedReplay(
+        out string reason,
+        out HistoryPanelReplayReasonCode reasonCode
+    )
+    {
+        reasonCode = HistoryPanelReplayReasonCode.Completed;
+        return CanRecordLoadedReplay(out reason);
+    }
+
+    public void PrewarmRecordingAvailability() { }
+
+    public Task<HistoryPanelReplayAttemptResult> ReplayBattleAsync(
+        HistoryBattleRecord? battle,
+        bool recordVideo,
+        CancellationToken cancellationToken,
+        Func<bool>? canCommit = null
+    ) => Task.FromResult(HistoryPanelReplayAttemptResult.Success("replay started"));
+
+    public ReplayPayloadCleanupResult CleanupReplayPayloads(IReadOnlyList<string> battleIds) =>
+        throw new InvalidOperationException("History filtering tests clean no payloads.");
+
+    public string GetReplayActionLabel(HistoryBattleRecord? battle) => "Replay";
+}
+
+// The host's saved-replay runtime as the return reads it: only whether a session is running.
+internal sealed class SavedReplaysStub : ISavedReplayRuntime
+{
+    public bool HasSavedReplaySession { get; set; }
+
+    public bool CanReplaySavedCombats(out string reason) => throw Unused();
+
+    public bool CanReplaySavedBattle(string battleId, out string reason) => throw Unused();
+
+    public bool ReplaySaved(string battleId, bool recordVideo) => throw Unused();
+
+    public bool ReplayLoadedBattle(
+        PvpBattleManifest manifest,
+        PvpReplayPayload payload,
+        bool recordVideo,
+        CombatReplayPlaybackSource source
+    ) => throw Unused();
+
+    public SavedBattleLoadOutcome TryLoadSavedBattle(
+        string battleId,
+        out PvpBattleManifest? manifest,
+        out PvpReplayPayload? payload
+    ) => throw Unused();
+
+    private static InvalidOperationException Unused() =>
+        new("The replay return reads only HasSavedReplaySession.");
+}
+
+internal sealed class StubRunContext : IRunContext
+{
+    public bool IsInGameRun { get; set; }
+
+    public string? CurrentServerRunId { get; set; }
+
+    public RunExitKind LastRunExitKind { get; set; }
 }
