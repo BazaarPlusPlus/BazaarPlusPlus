@@ -1,6 +1,6 @@
 # arch-c1 evidence: the Core Overlay Panel Host on Android
 
-Branch `refactor/arch-c1-overlay-panel-host` at `ece38f61` ("run every Main Overlay Panel on both hosts through one Core Overlay Panel Host", ADR-0021).
+Branch `refactor/arch-c1-overlay-panel-host` at `ece38f61` ("run every Main Overlay Panel on both hosts through one Core Overlay Panel Host", ADR-0022).
 Device: AVD `bpp_api35` (emulator-5556, 2400x1080 landscape), game `1.0.12825-production-android-d9601ded`, BPP `6.0.0`.
 Run: Vanessa, Normal, days 1 to 4. Logs hold only `[BPP]` lines, with the MelonLoader `[BazaarPlusPlus]` prefix removed. Screenshots are cropped to the panel or board; History's run list, its PvP list and the main menu show player names and are cut out.
 
@@ -14,6 +14,17 @@ The branch was rebased onto `origin/master` (#457, #458, #459) as `17f6cb7a`. #4
 | Back with the hero picker expanded collapses it and leaves the panel open | Met | 18:16:28 `back_key.consumed target=collection.modal`, with no `collection.closed`; screens `rebased-collection-picker-expanded.png` and `rebased-collection-picker-collapsed-by-back.png` (rail crops) |
 | The next back closes the panel | Met | 18:16:38 `collection.closed reason=back_key returned=18 rental_balanced=true` then `back_key.consumed target=collection` |
 | Balance and no host errors | Met | last summary `card_rented=19 card_returned=19 card_lost=0 card_balanced=true back_key_presses=3 back_key_consumed=3`; no `directive.failed`, `request.reentrant`, `predicate.failed` or `combat_probe.degraded` lines |
+
+## Smoke at 17f6cb7a (2026-10-25, 18:20 to 18:30)
+
+`logs/6-smoke-335b6e602c4c.log`: `just mod::android-build` / `android-deploy` / `android-launch` at code commit `17f6cb7a`; `android.plugin.loaded sha256=335b6e602c4c60a43026f964f3a61c64cb95e03a27f526e1a1ad8eb64e4b3d7f` (the deployed file's hash). The Vanessa run was resumed (day 4 Level Up, then day 5). No screenshots: nothing user-visible changed since log 5.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Back with the inspection open closes it first, with the animation; a second back closes the panel; leases balanced | Met | 18:24:00 `collection.inspected … animated=true`; 18:24:04 `back_key.consumed target=collection.modal` + `collection.inspection_closed reason=back_key`; 18:24:11 `collection.closed reason=back_key returned=18 rental_balanced=true` + `back_key.consumed target=collection`; last summary `card_rented=19 card_returned=19 card_lost=0 card_balanced=true back_key_presses=2 back_key_consumed=2` |
+| In combat, Collection and Ten-Win Builds do not open from the touch menu; an open panel closes when combat starts | Not reached this session | the day 5 encounter's reward could not be placed (board and stash full, emulator drags land off target), so no fight started inside the time box. Covered by log 1 (`touch_menu.open_skipped … reason_code=combat_active`, `collection.closed reason=combat`, `live_build.closed reason=combat`) and the tests `AndroidOverlayPanelsTests.Combat_closes_the_open_panel_and_suppresses_an_open`, `OverlayPanelLifecycle.Tests` `TestCombatClosesTheOpenPanel`, `TestToggleOpenIsSuppressedInCombat`, `TestOpenRequestIsSuppressedInCombat` |
+| One Main Overlay Panel at a time: opening Ten-Win Builds while Collection is open closes Collection | Not reachable by touch | Collection's sheet covers the BPP launcher and the gear. Covered by logs 2 and 3 (probe, `reason=superseded`) and the tests `AndroidOverlayPanelsTests.Opening_a_panel_closes_the_open_one_as_superseded`, `OverlayPanelLifecycle.Tests` `TestTogglingAnotherPanelSupersedesTheOpenOne`, `TestOpenRequestSupersedesTheOpenPanel` |
+| No host errors | Met | no `directive.failed`, `request.reentrant`, `predicate.failed`, `combat_probe.degraded` or `[ERROR]` lines |
 
 ## Builds and sessions
 
