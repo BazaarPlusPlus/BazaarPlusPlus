@@ -11,11 +11,45 @@ namespace BazaarPlusPlus.Android.Ui;
 /// </summary>
 internal static class AndroidTouchScreen
 {
-    /// <summary>What the layout depends on; a change means a new layout.</summary>
+    private static int _keyWidth;
+    private static int _keyHeight;
+    private static float _keyDpi;
+    private static float _keySafeX;
+    private static float _keySafeY;
+    private static float _keySafeWidth;
+    private static float _keySafeHeight;
+    private static string? _key;
+
+    /// <summary>
+    /// What the layout depends on; a change means a new layout. Panels call it every frame, so
+    /// the string is formatted again only when one of its inputs changed.
+    /// </summary>
     public static string Key()
     {
+        var width = Screen.width;
+        var height = Screen.height;
+        var dpi = Screen.dpi;
         var safe = Screen.safeArea;
-        return $"{Screen.width}x{Screen.height}@{Screen.dpi:0.#}|{safe.x:0},{safe.y:0},{safe.width:0},{safe.height:0}";
+        if (
+            _key != null
+            && width == _keyWidth
+            && height == _keyHeight
+            && dpi == _keyDpi
+            && safe.x == _keySafeX
+            && safe.y == _keySafeY
+            && safe.width == _keySafeWidth
+            && safe.height == _keySafeHeight
+        )
+            return _key;
+        _keyWidth = width;
+        _keyHeight = height;
+        _keyDpi = dpi;
+        _keySafeX = safe.x;
+        _keySafeY = safe.y;
+        _keySafeWidth = safe.width;
+        _keySafeHeight = safe.height;
+        return _key =
+            $"{width}x{height}@{dpi:0.#}|{safe.x:0},{safe.y:0},{safe.width:0},{safe.height:0}";
     }
 
     public static TouchMetrics Read()
