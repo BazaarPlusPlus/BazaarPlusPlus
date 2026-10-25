@@ -4,59 +4,35 @@ pre-commit:
   parallel: true
   jobs:
     - name: workspace
-      glob: &workspace_paths '{JUSTFILE,**/*.just,package*.json,.nvmrc,.prettierrc.json,lefthook.yml,VERSION,release.mjs,release/**,scripts/**}'
+      glob: '{JUSTFILE,**/*.just,package*.json,.nvmrc,.prettierrc.json,lefthook.yml,VERSION,release.mjs,release/**,scripts/**}'
       run: just commands-check release::check
 
     - name: design
-      glob: &design_paths 'design/**'
+      glob: 'design/**'
       run: just design::check
 
     - name: mod
-      glob: &mod_paths '{bazaarplusplus-mod/**,bazaarplusplus-server/contracts/**,bazaarplusplus-analyzer/contracts/**,release/**,VERSION,JUSTFILE}'
+      glob: '{bazaarplusplus-mod/**,bazaarplusplus-server/contracts/**,bazaarplusplus-analyzer/contracts/**,release/**,VERSION,JUSTFILE}'
       run: just verify mod::check
 
     - name: installer
-      glob: &installer_paths '{bazaarplusplus-installer/**,design/**,release.mjs,release/**,VERSION,scripts/**,JUSTFILE}'
+      glob: '{bazaarplusplus-installer/**,design/**,release.mjs,release/**,VERSION,scripts/**,JUSTFILE}'
       run: just installer::check-fast
 
     - name: site
-      glob: &site_paths '{bazaarplusplus-site/**,design/**,bazaarplusplus-installer/src/styles/tokens.css,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
+      glob: '{bazaarplusplus-site/**,design/**,bazaarplusplus-installer/src/styles/tokens.css,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
       run: just site::check
 
     - name: server
-      glob: &server_paths '{bazaarplusplus-server/**,JUSTFILE}'
+      glob: '{bazaarplusplus-server/**,JUSTFILE}'
       run: just server::check
 
     - name: analyzer
-      glob: &analyzer_paths '{bazaarplusplus-analyzer/**,bazaarplusplus-server/contracts/**,JUSTFILE}'
+      glob: '{bazaarplusplus-analyzer/**,bazaarplusplus-server/contracts/**,JUSTFILE}'
       run: just analyzer::check
 
 pre-push:
   jobs:
-    - name: workspace
-      glob: *workspace_paths
-      run: just commands-check release::check release::test
-
-    - name: design
-      glob: *design_paths
-      run: just design::check
-
-    - name: mod
-      glob: *mod_paths
-      run: just verify mod::test mod::test-performance
-
-    - name: installer
-      glob: *installer_paths
-      run: just installer::check installer::test
-
-    - name: site
-      glob: *site_paths
-      run: just site::test
-
-    - name: server
-      glob: *server_paths
-      run: just server::test
-
-    - name: analyzer
-      glob: *analyzer_paths
-      run: just analyzer::test
+    - name: affected-projects
+      use_stdin: true
+      run: node scripts/pre-push.mjs "{1}"

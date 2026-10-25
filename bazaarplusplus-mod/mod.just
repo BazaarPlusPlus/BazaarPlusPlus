@@ -26,6 +26,10 @@ test-performance *args:
 test-core *args:
     bash scripts/test.sh test-core "$@"
 
+# Run Android build and functional/performance gates serially; save logs and a revision receipt.
+android-check:
+    node ../scripts/mod-validation.mjs check
+
 # Compile the Android host against the fetched Interop Snapshot; [-p:Name=Value ...].
 android-build *args:
     bash scripts/android.sh build "$@"
@@ -47,9 +51,13 @@ android-setting section key value:
 android-launch:
     bash scripts/android.sh launch
 
-# Save logcat, a screenshot, and Latest.log under artifacts/android/<run>/.
+# Save logs, a screenshot and display metadata under artifacts/android/<run>/.
 android-capture run:
     bash scripts/android.sh capture "$@"
+
+# Capture and reject portrait or overridden displays before judging UI layout; never changes device settings.
+android-screen-check run:
+    bash scripts/android.sh screen-check "$@"
 
 # Build, deploy, relaunch in a mode, capture into artifacts/android/smoke-<mode>/, and assert the three levels.
 [arg('mode', pattern='enabled|observe|disabled')]
