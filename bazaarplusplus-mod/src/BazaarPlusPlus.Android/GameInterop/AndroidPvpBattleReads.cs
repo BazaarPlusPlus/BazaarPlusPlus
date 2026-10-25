@@ -118,7 +118,6 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
             PvpReplayStage.Combat => Serialize(
                 message.TryCast<NetMessageCombatSim>()
                     ?? throw new InvalidCastException("The combat part is not a combat sim."),
-                static sim => sim.MessageId,
                 battleId,
                 "combat"
             ),
@@ -138,23 +137,15 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
     private static int? Attribute(EPlayerAttributeType attribute) =>
         Data.Run?.Player is { } player ? AndroidGameIds.Attribute(player, attribute) : null;
 
-    private static byte[] Serialize(NetMessageGameSim message, string battleId, string part) =>
-        Serialize(message, static sim => sim.MessageId, battleId, part);
-
     // One message's bytes, or none when the game's serializer failed: the battle is still
     // recorded, without its Replay Payload.
-    private static byte[] Serialize<T>(
-        T message,
-        Func<T, string?> messageId,
-        string battleId,
-        string part
-    )
+    private static byte[] Serialize<T>(T message, string battleId, string part)
         where T : Il2CppObjectBase
     {
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            var bytes = AndroidReplayMessages.Serialize(message, messageId);
+            var bytes = AndroidReplayMessages.Serialize(message);
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.replay.message_serialized"),
                 ("battle_id", battleId, BppLogCorrelationPolicy.Short),

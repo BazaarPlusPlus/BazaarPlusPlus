@@ -8,8 +8,8 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// The Android host's game-typed reads for the Bundle composer, which runs on the seal worker
 /// thread and so never calls into the IL2CPP runtime: card enum values come from the interop
 /// enums (managed copies of the game's, same names and values), and a Replay Payload is checked
-/// for well-formed MessagePack. The game's serializer already decoded each message when the
-/// payload was captured (<see cref="AndroidReplayMessages.Serialize"/>).
+/// for well-formed MessagePack. Only playback decodes a message with the game's serializer
+/// (<see cref="AndroidReplayMessages.Deserialize{T}"/>).
 /// </summary>
 internal sealed class AndroidPvpBattleEvidence : IPvpBattleEvidenceBinding
 {
