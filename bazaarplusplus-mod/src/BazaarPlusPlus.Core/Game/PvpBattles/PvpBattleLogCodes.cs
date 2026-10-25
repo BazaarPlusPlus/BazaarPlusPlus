@@ -20,3 +20,11 @@ public enum PvpSnapshotReasonCode
     OpeningMessageException,
     OpeningDataException,
 }
+
+/// <summary>Whose field a <c>pvp_battles.participant.unreadable</c> read failed on.</summary>
+public enum PvpBattleReadSide
+{
+    Battle,
+    Player,
+    Opponent,
+}
