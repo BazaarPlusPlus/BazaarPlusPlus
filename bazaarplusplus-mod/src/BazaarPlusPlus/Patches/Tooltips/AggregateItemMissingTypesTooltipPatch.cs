@@ -1,7 +1,7 @@
 #nullable enable
 #pragma warning disable CS0436
 using BazaarGameClient.Domain.Models.Cards;
-using BazaarPlusPlus.Game.QuestPreview;
+using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.LiveCards;
 using BazaarPlusPlus.GameInterop.StaticCards;
@@ -28,7 +28,7 @@ internal static class AggregateItemMissingTypesTooltipPatch
         try
         {
             BppTooltipSections.Hide(__instance, SectionKey);
-            if (!QuestPreviewGate.IsEnabled())
+            if (!DetailedPreviewGate.IsEnabled())
                 return;
 
             var content = string.IsNullOrEmpty(text) ? null : BuildContent(__instance);

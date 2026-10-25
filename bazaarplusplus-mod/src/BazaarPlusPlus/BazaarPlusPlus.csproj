@@ -52,6 +52,10 @@
       LogicalName="BazaarPlusPlus.Resources.DockButtons.collection-panel-icon.png"
     />
     <EmbeddedResource
+      Include="Resources\DockButtons\ten-win-builds-icon.png"
+      LogicalName="BazaarPlusPlus.Resources.DockButtons.ten-win-builds-icon.png"
+    />
+    <EmbeddedResource
       Include="Resources\DockButtons\replay-export-icon.png"
       LogicalName="BazaarPlusPlus.Resources.DockButtons.replay-export-icon.png"
     />

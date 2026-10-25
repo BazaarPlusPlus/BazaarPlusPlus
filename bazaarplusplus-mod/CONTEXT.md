@@ -27,8 +27,11 @@ _Avoid_: environment, server flag
 The pure `IBppFeature` that owns run-log subscriptions, session transitions, and persistence/checkpoint ordering. It consumes event-bus inputs and owns no run timeline.
 _Avoid_: RunLoggingController, run logger MonoBehaviour
 
+**Detailed Preview**:
+The shared switch for encounter and quest tooltip information supported by each host. Excludes upgrade and enchant previews.
+
 **Encounter Preview Module**:
-The feature-owned query boundary for event cards, encounter-step rewards, and hero level rewards. Callers supply only a stable template id, current level, and native text they already hold; the module owns everything from plan generation to final presentation.
+The event and hero reward query boundary: template id, level, and native text in; rendered preview out.
 
 **End-of-Run Capture Workflow**:
 The single run-scoped state machine that owns the end-of-run screenshot flow, from readiness through bounded attempts to a fail-open outcome. Harmony patches express only Continue and reveal-start intents through `IEndOfRunCaptureWorkflow` and never drive capture directly.

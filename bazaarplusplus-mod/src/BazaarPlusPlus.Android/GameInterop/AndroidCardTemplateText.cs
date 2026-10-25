@@ -33,6 +33,17 @@ internal static class AndroidCardTemplateText
             ?? (string.IsNullOrWhiteSpace(template.InternalName) ? null : template.InternalName);
     }
 
+    public static string? Description(Guid templateId)
+    {
+        var template = Template(templateId);
+        if (template == null)
+            return null;
+        var tier = AndroidCardFacets.Tier.TryToFacet(template.StartingTier, out var facet)
+            ? facet
+            : CardTier.Bronze;
+        return Description(new CardRentalSubject(templateId, tier));
+    }
+
     /// <summary>
     /// The card's description and its ability and aura lines as the game's tooltip shows them for
     /// <paramref name="subject"/>'s tier and enchantment: the card the game's preview prefab builds
@@ -124,11 +135,36 @@ internal static class AndroidCardTemplateText
         }
     }
 
+    /// <summary>
+    /// A detached card for <paramref name="subject"/>'s template, tier and enchantment, built as
+    /// the game's preview prefab builds it; null when the template is unknown or the build fails.
+    /// </summary>
+    public static Card? PreviewCard(CardRentalSubject subject)
+    {
+        var template = Template(subject.TemplateId);
+        return template?.TryCast<ITCard>() is { } cardTemplate
+            ? Guarded("preview_card", () => PreviewCard(template, cardTemplate, subject))
+            : null;
+    }
+
     private static CardTooltipData? TooltipData(TCardBase template, CardRentalSubject subject)
     {
         var cardTemplate = template.TryCast<ITCard>();
         if (cardTemplate == null)
             return null;
+        return new CardTooltipData(
+            PreviewCard(template, cardTemplate, subject),
+            cardTemplate,
+            null
+        );
+    }
+
+    private static Card PreviewCard(
+        TCardBase template,
+        ITCard cardTemplate,
+        CardRentalSubject subject
+    )
+    {
         var tier = AndroidCardFacets.Tier.TryToSource(subject.Tier, out var nativeTier)
             ? nativeTier
             : template.StartingTier;
@@ -170,7 +206,7 @@ internal static class AndroidCardTemplateText
         card.Attributes = attributes;
         card.Size = template.Size;
         card.Tags = template.Tags;
-        return new CardTooltipData(card, cardTemplate, null);
+        return card;
     }
 
     private static void Add(List<string> lines, string? text)

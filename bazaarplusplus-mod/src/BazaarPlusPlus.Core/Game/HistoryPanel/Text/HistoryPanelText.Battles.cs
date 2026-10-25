@@ -33,6 +33,10 @@ public static partial class HistoryPanelText
 
     public static string BoardChallenger() => FormatSimple("Challenger", "挑战者", "挑戰者");
 
+    public static string BattleWon() => FormatSimple("Won", "胜", "勝");
+
+    public static string BattleLost() => FormatSimple("Lost", "负", "負");
+
     public static string GhostSyncUnavailable()
     {
         return FormatSimple("Ghost sync is unavailable right now.", "幽灵同步暂不可用。");

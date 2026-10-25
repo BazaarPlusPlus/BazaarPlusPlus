@@ -15,9 +15,7 @@ public sealed class BppSettings
 
     public ISetting<PreviewVisibilityMode> EnchantPreviewModeConfig { get; }
 
-    public ISetting<bool> EnableEventPreviewConfig { get; }
-
-    public ISetting<bool> EnableQuestPreviewConfig { get; }
+    public ISetting<bool> EnableDetailedPreviewConfig { get; }
 
     public ISetting<bool> EnableBilingualItemNamesConfig { get; }
 
@@ -80,17 +78,11 @@ public sealed class BppSettings
             DefaultEnchantPreviewMode,
             "When to show enchant preview text in item tooltips. Off = hold Ctrl only. AutoOnPedestalChoice = auto-show while an enchant pedestal is offered on the choice screen, hold Ctrl otherwise. Always = append to every eligible tooltip."
         );
-        EnableEventPreviewConfig = config.Bind(
-            "EventPreview",
+        EnableDetailedPreviewConfig = config.Bind(
+            "DetailedPreview",
             "Enabled",
             true,
-            "Whether to append the event-choice breakdown and hero level-up reward sections to native tooltips."
-        );
-        EnableQuestPreviewConfig = config.Bind(
-            "QuestPreview",
-            "Enabled",
-            false,
-            "Whether to show quest completion reward effects and aggregate-item missing-type hints in native tooltips."
+            "Whether native tooltips show event choices, hero level-up rewards, quest completion reward effects, and aggregate-item missing-type hints."
         );
         EnableBilingualItemNamesConfig = config.Bind(
             "BilingualItemNames",

@@ -1,6 +1,5 @@
 #pragma warning disable CS0436
 #nullable enable
-using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -54,7 +53,7 @@ internal static class CollectionPanelDockButtonAwakePatch
         if (button == null)
             return;
 
-        CollectionPanelDockButtonController.Attach(
+        BppPanelDockButtonsController.Attach(
             button,
             BppSettingsDockPlacement.ForButton($"CollectionPanel_{key}", buttonId)
         );
@@ -78,7 +77,7 @@ internal static class CollectionPanelDockButtonFightMenuPatch
             var button = settingButtonCustom?.GetButton();
             if (button != null)
             {
-                CollectionPanelDockButtonController.Attach(
+                BppPanelDockButtonsController.Attach(
                     button,
                     BppSettingsDockPlacement.ForButton(
                         "CollectionPanel_FightMenu",

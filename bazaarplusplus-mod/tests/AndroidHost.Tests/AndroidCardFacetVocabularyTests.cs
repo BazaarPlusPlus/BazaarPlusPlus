@@ -50,8 +50,7 @@ public sealed class AndroidCardFacetVocabularyTests
         );
     }
 
-    // The pedestal catalog names enchantments by member name too: the enchant preview compares them
-    // with the interop EEnchantmentType member names, so a name the enum lacks would never match.
+    // Shared pedestal names must remain valid members of the Android enchantment vocabulary.
     [Fact]
     public void Every_pedestal_enchantment_is_an_interop_enum_member()
     {

@@ -57,8 +57,21 @@ public sealed class CombatStatusBarState
     {
         LastCombatLogicalElapsed = GetCombatLogicalElapsed();
         HasCompletedCombatPlayback = true;
-        SetCombatPaused(false);
+        if (IsCombatPaused)
+            SetCombatPaused(false);
         IsCombatPlaybackActive = false;
+    }
+
+    /// <summary>A scene left playback; no previous battle time belongs to the new scene.</summary>
+    public void ResetPlayback()
+    {
+        if (IsCombatPaused)
+            SetCombatPaused(false);
+        IsCombatPlaybackActive = false;
+        HasCompletedCombatPlayback = false;
+        ProcessedCombatFrames = 0;
+        TotalCombatFrames = 0;
+        LastCombatLogicalElapsed = TimeSpan.Zero;
     }
 
     public void SetCombatFrameTotal(int totalFrames)

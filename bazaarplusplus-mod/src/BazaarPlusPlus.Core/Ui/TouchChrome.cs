@@ -8,7 +8,7 @@ namespace BazaarPlusPlus.Core.Ui;
 /// height, the type scale, and the close button, a <see cref="CloseWidthDp"/> by
 /// <see cref="TouchMetrics.MinTargetDp"/> target in the top-right corner of whatever it closes. A
 /// panel's own layout (<c>CollectionTouchLayout</c>, <c>HistoryTouchLayout</c>,
-/// <c>LiveBuildTouchLayout</c>, <see cref="TouchLauncherLayout"/>) places its content inside this
+/// <c>LiveBuildTouchLayout</c>, <see cref="TouchHudLayout"/>) places its content inside this
 /// frame, so the panels open, read, and close alike; <see cref="Inspect"/> is the shared
 /// tap-to-inspect sheet. Unity-free; the conventions are in <c>docs/architecture/android-mobile-ui.md</c>.
 /// </summary>

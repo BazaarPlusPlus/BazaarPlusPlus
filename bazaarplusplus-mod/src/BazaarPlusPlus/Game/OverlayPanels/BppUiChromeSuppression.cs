@@ -1,6 +1,5 @@
 #nullable enable
-
-using BazaarPlusPlus.Game.CollectionPanel;
+using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
 using CombatStatusBarFeature = BazaarPlusPlus.Game.CombatStatusBar.CombatStatusBar;
 
@@ -13,11 +12,11 @@ internal static class BppUiChromeSuppression
         return mode switch
         {
             BppUiChromeSuppressionMode.Screenshot => UiSuppressionScope.Begin(
-                CollectionPanelDockButtonController.BeginScreenshotSuppression,
+                BppPanelDockButtonsController.BeginScreenshotSuppression,
                 CombatStatusBarFeature.BeginScreenshotSuppression
             ),
             BppUiChromeSuppressionMode.ReplayRecording => UiSuppressionScope.Begin(
-                CollectionPanelDockButtonController.BeginScreenshotSuppression
+                BppPanelDockButtonsController.BeginScreenshotSuppression
             ),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(mode),

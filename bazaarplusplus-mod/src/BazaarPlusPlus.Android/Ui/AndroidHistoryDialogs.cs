@@ -11,10 +11,9 @@ namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
 /// History's More dialog on Android, the desktop's <c>HistoryPanelView</c> More dialog on the
-/// touch layout: the database status with the server health probe, the status line, the History
-/// panel's own off switch (the touch launcher, where the switch otherwise lives, hides while
-/// History is open), and the BazaarDB account row with its link form, drag-scrolled when the form
-/// outgrows a short screen.
+/// touch layout: the database status with the server health probe, the status line (the rows
+/// below rise into it while it is empty), and the BazaarDB account row with its link form. The
+/// dialog is as tall as its rows and drag-scrolls only when the form outgrows a short screen.
 /// Supporter attribution lives in the main header. The code is read from
 /// the input when the user submits it, so the input needs no change listener.
 /// </summary>
@@ -24,9 +23,11 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
     private readonly HistoryTouchLayout _layout;
     private readonly Actions _actions;
     private readonly UnityEngine.UI.ScrollRect _scroll;
+    private readonly RectTransform _dialog;
     private readonly TextMeshProUGUI _database;
     private readonly HistoryButton _health;
     private readonly TextMeshProUGUI _status;
+    private readonly RectTransform _below;
     private readonly TextMeshProUGUI _accountTitle;
     private readonly HistoryButton _accountToggle;
     private readonly TextMeshProUGUI _accountStatus;
@@ -38,7 +39,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
     private readonly TextMeshProUGUI _accountBanner;
     private readonly HistoryButton _accountLinked;
     private string? _inputAccount;
-    private bool? _formShown;
+    private (bool Form, bool Status)? _shownRows;
 
     public AndroidHistoryMoreDialog(
         RectTransform parent,
@@ -57,6 +58,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         );
         _root = root.gameObject;
         var dialog = AndroidHistoryUi.Panel(root, "Dialog", layout.Dialog);
+        _dialog = dialog;
         var origin = layout.Dialog;
         var title = AndroidHistoryUi.Label(
             dialog,
@@ -107,28 +109,25 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             TextAlignmentOptions.TopLeft,
             wrap: true
         );
-        AndroidHistoryUi
-            .Label(content, font, "PanelTitle", layout.MorePanelTitle, layout.RowTitleFont)
-            .text = AndroidHistoryUi.T("History panel", "历史记录面板");
-        AndroidHistoryUi
-            .Button(
-                content,
-                font,
-                "panel_switch_off",
-                layout.MorePanelSwitch,
-                layout.ButtonFont,
-                () => _actions.TurnOffPanel()
-            )
-            .Set(AndroidHistoryUi.T("Turn off", "关闭面板"));
-        _accountTitle = AndroidHistoryUi.Label(
+        // The rows under the status line, moved as one while that line is empty.
+        _below = AndroidUiKit.Rect(
+            "Below",
             content,
+            Vector2.zero,
+            Vector2.one,
+            Vector2.zero,
+            Vector2.zero
+        );
+        var below = _below;
+        _accountTitle = AndroidHistoryUi.Label(
+            below,
             font,
             "AccountTitle",
             layout.AccountTitle,
             layout.RowTitleFont
         );
         _accountToggle = AndroidHistoryUi.Button(
-            content,
+            below,
             font,
             "account_toggle",
             layout.AccountToggle,
@@ -136,7 +135,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             () => _actions.ToggleAccountForm()
         );
         _accountStatus = AndroidHistoryUi.Label(
-            content,
+            below,
             font,
             "AccountStatus",
             layout.AccountStatus,
@@ -146,7 +145,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             wrap: true
         );
         _accountPersistence = AndroidHistoryUi.Label(
-            content,
+            below,
             font,
             "AccountPersistence",
             layout.AccountPersistence,
@@ -157,7 +156,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         );
         var form = AndroidUiKit.Rect(
             "AccountForm",
-            content,
+            below,
             Vector2.zero,
             Vector2.one,
             Vector2.zero,
@@ -252,6 +251,8 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         _health.Set(m.ServerHealthButtonText, enabled: m.ServerHealthButtonEnabled);
         _status.text = m.StatusMessage ?? string.Empty;
         _status.color = AndroidHistoryUi.StatusColor(m.StatusSeverity);
+        var hasStatus = _status.text.Length > 0;
+        AndroidHistoryUi.SetActive(_status.gameObject, hasStatus);
         _accountTitle.text = m.AccountTitleText;
         _accountStatus.text = m.AccountRowStatusText;
         _accountPersistence.text = m.AccountPersistenceText;
@@ -262,13 +263,16 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         if (!m.AccountLinkFormVisible)
             _accountInput.DeactivateInputField(false);
         AndroidHistoryUi.SetActive(_form, m.AccountLinkFormVisible);
-        if (_formShown != m.AccountLinkFormVisible)
+        if (_shownRows != (m.AccountLinkFormVisible, hasStatus))
         {
-            _formShown = m.AccountLinkFormVisible;
-            _scroll.content.sizeDelta = new Vector2(
-                _layout.MoreScroll.Width,
-                m.AccountLinkFormVisible ? _layout.MoreContentHeight : _layout.AccountFormTop
-            );
+            _shownRows = (m.AccountLinkFormVisible, hasStatus);
+            var rise = hasStatus ? 0f : _layout.AccountTitle.Top - _layout.MoreStatus.Top;
+            _below.anchoredPosition = new Vector2(0f, rise);
+            var content =
+                (m.AccountLinkFormVisible ? _layout.MoreContentHeight : _layout.AccountFormTop)
+                - rise;
+            _scroll.content.sizeDelta = new Vector2(_layout.MoreScroll.Width, content);
+            Fit(content);
         }
         _accountWhy.text = m.AccountWhyText + "\n" + m.AccountHintText;
         _accountInput.interactable = m.AccountLinkInputEnabled;
@@ -277,6 +281,29 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         _accountBanner.color = AndroidHistoryUi.StatusColor(m.AccountLinkBannerSeverity);
         AndroidHistoryUi.SetActive(_accountLinked.GameObject, m.AccountAlreadyLinkedButtonVisible);
         _accountLinked.Set(m.AccountAlreadyLinkedButtonText);
+    }
+
+    // The dialog is as tall as its rows, centred where the full-height dialog would stand; only a
+    // form taller than the sheet scrolls.
+    private void Fit(float content)
+    {
+        var full = _layout.Dialog;
+        var header = _layout.MoreScroll.Top - full.Top;
+        var footer = full.Bottom - _layout.MoreScroll.Bottom;
+        var height = Math.Min(full.Height, header + content + footer);
+        AndroidTouchScreen.Place(
+            _dialog,
+            new TouchRect(full.Left, full.Top + (full.Height - height) / 2f, full.Width, height)
+        );
+        AndroidTouchScreen.Place(
+            _scroll.GetComponent<RectTransform>(),
+            new TouchRect(
+                _layout.MoreScroll.Left - full.Left,
+                header,
+                _layout.MoreScroll.Width,
+                height - header - footer
+            )
+        );
     }
 
     private void Submit()
@@ -294,8 +321,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         Action CheckHealth,
         Action ToggleAccountForm,
         Action<string> Redeem,
-        Action MarkLinked,
-        Action TurnOffPanel
+        Action MarkLinked
     );
 }
 

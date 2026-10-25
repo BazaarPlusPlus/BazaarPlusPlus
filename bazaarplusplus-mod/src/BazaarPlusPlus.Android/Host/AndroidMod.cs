@@ -44,6 +44,8 @@ public sealed class AndroidMod : MelonMod
     private long _nextSummaryAt;
     private AndroidComposition? _composition;
     private AndroidTouchUi? _touchUi;
+    private Game.AndroidCombatStatus? _combatStatus;
+    private AndroidCombatStatusView? _combatStatusView;
     private AndroidVersionCheck? _versionCheck;
     private AndroidCombatReplayRuntime? _replayRuntime;
     private AndroidHistoryPanel? _historyPanel;
@@ -90,6 +92,10 @@ public sealed class AndroidMod : MelonMod
         _replayRuntime?.Tick();
         _overlayPanels?.Frame(Time.unscaledDeltaTime);
         _touchUi?.EnsureMounted();
+        Guarded("gameplay_previews", () => AndroidPatchHost.GameplayPreviews?.Tick());
+        Guarded("combat_status", () => _combatStatusView?.Tick());
+        Guarded("quest_preview", () => AndroidPatchHost.QuestPreview?.Tick());
+        Guarded("encounter_preview", () => AndroidPatchHost.EncounterPreview?.Tick());
         AndroidGameFont.Tick();
         AndroidNativeSettingsSection.Tick(Time.unscaledTime);
         AndroidCardRental.Tick();
@@ -161,6 +167,17 @@ public sealed class AndroidMod : MelonMod
     private void Stop()
     {
         AndroidAppLifecycle.PauseChanged = null;
+        AndroidPatchHost.GameplayPreviews?.Dispose();
+        AndroidPatchHost.GameplayPreviews = null;
+        AndroidPatchHost.QuestPreview?.Dispose();
+        AndroidPatchHost.QuestPreview = null;
+        AndroidPatchHost.AggregateItemPreview = null;
+        AndroidPatchHost.EncounterPreview = null;
+        _combatStatusView?.Dispose();
+        _combatStatusView = null;
+        _combatStatus?.Dispose();
+        _combatStatus = null;
+        AndroidPatchHost.CombatStatus = null;
         _versionCheck?.Dispose();
         _versionCheck = null;
         // The touch panels give their rented cards back and drop their views before the rental
@@ -190,12 +207,19 @@ public sealed class AndroidMod : MelonMod
         {
             var shared = _composition?.Settings ?? new BppSettings(settings);
             var android = new AndroidSettings(settings);
+            AndroidPatchHost.GameplayPreviews = new AndroidGameplayPreviews(panels);
+            panels.SetTooltipPreview(AndroidPatchHost.GameplayPreviews.Collapse);
+            AndroidPatchHost.QuestPreview = new Game.AndroidQuestPreview(shared);
+            AndroidPatchHost.AggregateItemPreview = new Game.AndroidAggregateItemPreview(shared);
+            AndroidPatchHost.EncounterPreview = new Game.AndroidEncounterPreview(shared);
+            _combatStatus = new Game.AndroidCombatStatus(shared);
+            AndroidPatchHost.CombatStatus = _combatStatus;
+            _combatStatusView = new AndroidCombatStatusView(_combatStatus, panels, android);
             L.Install(
                 ReadGameLanguageCode,
                 () => ChineseScriptConverter.NormalizeMode(shared.ChineseLocaleModeConfig.Value)
             );
             AndroidUpgradePreview.IsEnabled = () => android.UpgradePreview.Value;
-            AndroidEnchantPreview.Mode = () => shared.EnchantPreviewModeConfig.Value;
             var melonBase = MelonEnvironment.MelonBaseDirectory;
             var devManifest = AndroidVersionCheck.DevManifest(android.DevReleaseManifestPort.Value);
             _versionCheck = new AndroidVersionCheck(
@@ -229,7 +253,8 @@ public sealed class AndroidMod : MelonMod
                     HistoryAvailable: () => _historyPanel != null,
                     OpenHistory: () => _historyPanel?.Open("settings"),
                     GameUpdateStatus: () => versionCheck.GameUpdateStatus,
-                    OpenGameUpdate: () => OpenGameUpdate(versionCheck)
+                    OpenGameUpdate: () => OpenGameUpdate(versionCheck),
+                    RefreshPreviews: () => Guarded("preview_settings_refresh", RefreshNativePreview)
                 )
             );
         }
@@ -380,9 +405,35 @@ public sealed class AndroidMod : MelonMod
             "scene_loaded:upgrade_preview",
             () => AndroidUpgradePreview.Release("scene_changed")
         );
+        Guarded(
+            "scene_loaded:gameplay_previews",
+            () => AndroidPatchHost.GameplayPreviews?.Clear("scene_changed")
+        );
+        Guarded(
+            "scene_loaded:combat_status",
+            () =>
+            {
+                _combatStatus?.Reset();
+                AndroidPatchHost.QuestPreview?.Dispose();
+                _combatStatusView?.Dispose();
+            }
+        );
         Guarded("scene_loaded:overlay_panels", () => _overlayPanels?.SceneLoaded());
         if (sceneName == MainMenuSceneName)
             Guarded("scene_loaded:version_check", () => _versionCheck?.Begin());
+    }
+
+    private static void RefreshNativePreview()
+    {
+        AndroidPatchHost.QuestPreview?.Tick();
+        var controller = Il2CppTheBazaar.Data.TooltipParentComponent?.CardTooltipController;
+        var tooltip =
+            controller?.CurrentTooltipData?.TryCast<Il2CppTheBazaar.Tooltips.CardTooltipData>();
+        if (controller == null || tooltip == null)
+            return;
+        controller.ApplyPreviewTooltip(tooltip);
+        if (!controller.isLocked)
+            controller._legendRenderer?.OnTooltipShown();
     }
 
     private static void Guarded(string probe, Action step)

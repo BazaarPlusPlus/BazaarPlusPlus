@@ -111,11 +111,8 @@ internal static class HistoryTouchLayoutTests
                 layout.ArchiveRow(0, runs: false),
                 layout.RailChip(0),
                 layout.InspectClose,
-                layout.SkillsClose,
-                layout.SkillCell(0, 0),
                 layout.DialogClose,
                 layout.MoreHealth,
-                layout.MorePanelSwitch,
                 layout.AccountToggle,
                 layout.AccountInput,
                 layout.AccountSubmit,
@@ -127,6 +124,16 @@ internal static class HistoryTouchLayoutTests
             RequireTarget(name, metrics, target);
         RequireTarget(name, metrics, layout.Sponsor);
         Require(layout.RailList.Height >= layout.ChipHeight, $"{name}: the rail shows a battle.");
+        Require(
+            layout.RailOlder.Bottom <= layout.Footer.Top - 0.01f
+                && Near(layout.RailListFull.Top, layout.RailNewer.Top)
+                && Near(layout.RailListFull.Bottom, layout.RailOlder.Bottom),
+            $"{name}: the rail and its pager end above the action row; without a pager the list fills it."
+        );
+        Require(
+            layout.Favorite.Left - layout.Delete.Right >= 3f * layout.Gap - 0.01f,
+            $"{name}: delete stands apart from the other actions."
+        );
         // Ghost's cloud note wraps in the column the rail leaves empty: inside the sheet, clear of
         // the header, the archive and the boards, with room for six lines of body text.
         RequireLaidOut(
@@ -196,7 +203,7 @@ internal static class HistoryTouchLayoutTests
         );
         foreach (var span in new[] { 1, 2, 3 })
         {
-            var scale = layout.InspectScale(span, skill: false);
+            var scale = layout.InspectScale(span);
             Require(
                 NativeCardPrefab.SocketWidth * span * scale <= layout.InspectCardArea.Width + 0.01f
                     && NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket * scale
@@ -205,18 +212,47 @@ internal static class HistoryTouchLayoutTests
             );
         }
 
-        var skillsSheet = new List<(string, TouchRect)>
+        // The skills sheet hugs what it shows, from one skill to two full rows.
+        foreach (
+            var counts in new[]
+            {
+                new[] { 1 },
+                new[] { 3, 0 },
+                new[] { 0, 3 },
+                new[] { HistoryTouchLayout.SkillsPerRow, HistoryTouchLayout.SkillsPerRow },
+            }
+        )
         {
-            ("title", layout.SkillsTitle),
-            ("close", layout.SkillsClose),
-        };
-        for (var row = 0; row < 2; row++)
-        {
-            skillsSheet.Add(($"row {row} title", layout.SkillRowTitle(row)));
-            for (var index = 0; index < HistoryTouchLayout.SkillsPerRow; index++)
-                skillsSheet.Add(($"skill {row}.{index}", layout.SkillCell(row, index)));
+            var sheet = layout.SkillsSheet(counts);
+            var label = $"{name} skills {string.Join("/", counts)}";
+            var picker = new List<(string, TouchRect)>
+            {
+                ("title", sheet.Title),
+                ("close", sheet.Close),
+                ("hint", sheet.Hint),
+            };
+            for (var row = 0; row < counts.Length; row++)
+            {
+                picker.Add(($"side {row}", sheet.Sides[row]));
+                var side = new List<(string, TouchRect)> { ("title", sheet.RowTitles[row]) };
+                for (var index = 0; index < counts[row]; index++)
+                    side.Add(($"skill {index}", sheet.Cells[row, index]));
+                RequireLaidOut($"{label} side {row}", sheet.Sides[row], side.ToArray());
+                if (counts[row] > 0)
+                    RequireTarget(label, metrics, sheet.Sides[row]);
+            }
+            Require(layout.Sheet.Contains(sheet.Sheet), $"{label}: the sheet stays on the panel.");
+            RequireLaidOut(label, sheet.Sheet, picker.ToArray());
+            RequireTarget(label, metrics, sheet.Close);
         }
-        RequireLaidOut(name + " skills", layout.Sheet, skillsSheet.ToArray());
+        Require(
+            layout.SkillsSheet([1]).Sheet.Width < layout.Sheet.Width / 2f,
+            $"{name}: one skill opens a small sheet, not the whole panel."
+        );
+        Require(
+            layout.SkillsSheet([1, 0]).Sheet.Height < layout.SkillsSheet([1, 1]).Sheet.Height,
+            $"{name}: a row without skills keeps only its title."
+        );
         Require(
             Near(layout.SkillScale * NativeCardPrefab.Height, layout.SkillSide),
             $"{name}: a skill fills its square."
@@ -240,8 +276,6 @@ internal static class HistoryTouchLayoutTests
                 ("database", layout.MoreDatabase),
                 ("health", layout.MoreHealth),
                 ("status", layout.MoreStatus),
-                ("panel title", layout.MorePanelTitle),
-                ("panel switch", layout.MorePanelSwitch),
                 ("account title", layout.AccountTitle),
                 ("account toggle", layout.AccountToggle),
                 ("account status", layout.AccountStatus),

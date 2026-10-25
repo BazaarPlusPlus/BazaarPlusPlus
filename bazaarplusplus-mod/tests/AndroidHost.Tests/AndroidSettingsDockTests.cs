@@ -24,8 +24,9 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(
             new[]
             {
+                "DetailedPreview",
                 "BazaarDbUpload",
-                "EnchantPreview",
+                "CombatStatusBar",
                 "GameHistory",
                 "UpgradePreview",
                 "CollectionPanel",
@@ -40,7 +41,8 @@ public sealed class AndroidSettingsDockTests
             new[]
             {
                 BppSettingsControlKind.Toggle,
-                BppSettingsControlKind.Choice,
+                BppSettingsControlKind.Toggle,
+                BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Action,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Toggle,
@@ -51,25 +53,6 @@ public sealed class AndroidSettingsDockTests
             },
             dock.Rows.Select(row => row.ControlKind)
         );
-    }
-
-    [Fact]
-    public void Enchant_preview_offers_every_desktop_mode_and_writes_the_shared_setting()
-    {
-        var dock = new Dock();
-        var row = dock.Row("EnchantPreview");
-
-        var state = row.ResolveChoiceState!("en");
-        Assert.Equal(new[] { "OFF", "AUTO", "ON" }, state.Options);
-        Assert.Equal(2, state.SelectedIndex);
-
-        row.SelectStandardChoice!(1);
-
-        Assert.Equal(
-            PreviewVisibilityMode.AutoOnPedestalChoice,
-            dock.Shared.EnchantPreviewModeConfig.Value
-        );
-        Assert.Equal(1, row.ResolveChoiceState("en").SelectedIndex);
     }
 
     // A Main Overlay Panel's switch only writes its setting: the Overlay Panel Host reads it as
@@ -133,10 +116,39 @@ public sealed class AndroidSettingsDockTests
     }
 
     [Fact]
+    public void Detailed_preview_defaults_on_and_controls_both_features_with_one_row()
+    {
+        var dock = new Dock();
+        var row = dock.Row("DetailedPreview");
+        Assert.Equal("Detailed Preview", row.ResolveLabel("en"));
+        Assert.True(row.ReadToggle!());
+        row.WriteToggle!(false);
+        Assert.False(dock.Shared.EnableDetailedPreviewConfig.Value);
+        row.WriteToggle(true);
+        Assert.True(dock.Shared.EnableDetailedPreviewConfig.Value);
+    }
+
+    [Fact]
+    public void Combat_timer_is_an_independent_default_on_touch_switch()
+    {
+        var dock = new Dock();
+        var row = dock.Row("CombatStatusBar");
+        Assert.Equal("Combat timer", row.ResolveLabel("en"));
+        Assert.True(row.ReadToggle!());
+        row.WriteToggle!(true);
+        Assert.True(dock.Android.CombatTimer.Value);
+        row.WriteToggle(false);
+        Assert.False(dock.Android.CombatTimer.Value);
+        Assert.True(dock.Shared.EnableCombatStatusBarConfig.Value);
+    }
+
+    [Fact]
     public void Switching_upgrade_preview_off_releases_its_tooltip()
     {
         var dock = new Dock();
         var row = dock.Row("UpgradePreview");
+        Assert.False(dock.Android.UpgradePreview.Value);
+        Assert.False(row.ReadToggle!());
 
         row.WriteToggle!(true);
         Assert.True(dock.Android.UpgradePreview.Value);

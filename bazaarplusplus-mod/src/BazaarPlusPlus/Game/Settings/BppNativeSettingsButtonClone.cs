@@ -13,7 +13,8 @@ internal static class BppNativeSettingsButtonClone
 {
     internal static RectTransform? FindOrCreate(
         Button anchorButton,
-        BppSettingsDockPlacement placement
+        BppSettingsDockPlacement placement,
+        BppDockButtonSpriteId spriteId = BppDockButtonSpriteId.CollectionPanel
     )
     {
         if (anchorButton == null)
@@ -37,7 +38,8 @@ internal static class BppNativeSettingsButtonClone
                 existing.gameObject,
                 explicitIcon: null,
                 freshClone: false,
-                nativeState: existingVisualState
+                nativeState: existingVisualState,
+                spriteId: spriteId
             );
             return existing;
         }
@@ -60,7 +62,8 @@ internal static class BppNativeSettingsButtonClone
             cloneObject,
             nativeIcon,
             freshClone: true,
-            nativeState: nativeVisualState
+            nativeState: nativeVisualState,
+            spriteId: spriteId
         );
 
         var rect = cloneObject.GetComponent<RectTransform>();

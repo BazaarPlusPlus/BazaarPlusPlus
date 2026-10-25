@@ -22,8 +22,56 @@ public static partial class HistoryPanelText
 
     public static string Unknown() => Resolve(UnknownText);
 
-    public static string DurationMinutes(int minutes) =>
-        FormatSimple($"{minutes} min", $"{minutes} 分钟", $"{minutes} 分鐘");
+    // "34 min", "1 h 20 min", "2 d 10 h": a run left open overnight stays readable.
+    public static string Duration(TimeSpan span)
+    {
+        var minutes = Math.Max(0, (int)span.TotalMinutes);
+        if (minutes < 60)
+            return FormatSimple($"{minutes} min", $"{minutes} 分钟", $"{minutes} 分鐘");
+        var hours = minutes / 60;
+        if (hours < 24)
+        {
+            var rest = minutes % 60;
+            return rest == 0
+                ? FormatSimple($"{hours} h", $"{hours} 小时", $"{hours} 小時")
+                : FormatSimple(
+                    $"{hours} h {rest} min",
+                    $"{hours} 小时 {rest} 分",
+                    $"{hours} 小時 {rest} 分"
+                );
+        }
+        var days = hours / 24;
+        var restHours = hours % 24;
+        return restHours == 0
+            ? FormatSimple($"{days} d", $"{days} 天", $"{days} 天")
+            : FormatSimple(
+                $"{days} d {restHours} h",
+                $"{days} 天 {restHours} 小时",
+                $"{days} 天 {restHours} 小時"
+            );
+    }
+
+    public static string NoRuns() =>
+        FormatSimple("No runs recorded yet.", "还没有对局记录。", "還沒有對局紀錄。");
+
+    public static string NoBattlesInRun() =>
+        FormatSimple(
+            "No battles were recorded in this run.",
+            "这一局没有记录到战斗。",
+            "這一局沒有記錄到戰鬥。"
+        );
+
+    /// <summary>A stored rank under its localized name; an unknown rank stays as stored.</summary>
+    public static string RankName(string rank) =>
+        rank.Trim().ToLowerInvariant() switch
+        {
+            "bronze" => FormatSimple("Bronze", "青铜", "青銅"),
+            "silver" => FormatSimple("Silver", "白银", "白銀"),
+            "gold" => FormatSimple("Gold", "黄金", "黃金"),
+            "diamond" => FormatSimple("Diamond", "钻石", "鑽石"),
+            "legendary" or "legend" => FormatSimple("Legendary", "传奇", "傳奇"),
+            _ => rank.Trim(),
+        };
 
     public static string DayBadge(int? day) =>
         FormatSimple(

@@ -8,7 +8,7 @@ namespace AndroidHost.Tests;
 /// <summary>
 /// The Android adapter of the Overlay Panel Host, run with fake panels: a scene load closes what
 /// the scene policies close, tells every panel and releases the rented cards once; the back key
-/// closes the open panel's modal, then the panel, then the touch menu, and one press seen twice
+/// closes the open panel's modal, then the panel, and one press seen twice
 /// in a frame closes one surface; a switch-off closes the panel and releases its cards, a close
 /// the panel asks for does not. The adapter runs no IL2CPP code: combat, the frame count and the
 /// release are the host's delegates (ADR-0016 §3).
@@ -16,13 +16,29 @@ namespace AndroidHost.Tests;
 public sealed class AndroidOverlayPanelsTests
 {
     [Fact]
-    public void A_scene_load_closes_the_menu_then_the_panel_tells_every_panel_and_releases_once()
+    public void Expanded_tooltip_consumes_one_back_before_native_handling()
+    {
+        var rig = new Rig();
+        var expanded = true;
+        rig.Panels.SetTooltipPreview(_ =>
+        {
+            if (!expanded)
+                return false;
+            expanded = false;
+            return true;
+        });
+        Assert.True(rig.Panels.TryConsumeBack("native"));
+        Assert.True(rig.Panels.TryConsumeBack("keyboard"));
+        Assert.False(expanded);
+    }
+
+    [Fact]
+    public void A_scene_load_closes_the_panel_tells_every_panel_and_releases_once()
     {
         var rig = new Rig();
         var panel = rig.Add("live_build");
         var other = rig.Add("collection");
         Assert.Equal(OverlayRequestOutcome.Executed, panel.Handle.RequestOpen("touch_menu"));
-        rig.MenuOpen = true;
         rig.Events.Clear();
 
         rig.Panels.SceneLoaded();
@@ -30,7 +46,6 @@ public sealed class AndroidOverlayPanelsTests
         Assert.Equal(
             new[]
             {
-                "menu:scene_changed",
                 "close:live_build:scene_changed",
                 "scene:live_build",
                 "scene:collection",
@@ -126,13 +141,12 @@ public sealed class AndroidOverlayPanelsTests
     }
 
     [Fact]
-    public void The_back_key_closes_the_modal_then_the_panel_then_the_menu_then_passes()
+    public void The_back_key_closes_the_modal_then_the_panel_then_passes()
     {
         var rig = new Rig();
         var panel = rig.Add("history", SceneChangeClosePolicy.OnlyWhenInCombat);
         panel.Handle.RequestOpen("launcher");
         panel.Modal = true;
-        rig.MenuOpen = true;
         rig.Events.Clear();
 
         Assert.True(rig.Back("back_key"));
@@ -143,11 +157,8 @@ public sealed class AndroidOverlayPanelsTests
         Assert.Equal("close:history:back_key", rig.Events[^1]);
         Assert.False(panel.Handle.IsVisible);
 
-        Assert.True(rig.Back("back_key"));
-        Assert.Equal("menu:back_key", rig.Events[^1]);
-
         Assert.False(rig.Back("back_key"));
-        Assert.Equal(3, rig.Events.Count);
+        Assert.Equal(2, rig.Events.Count);
     }
 
     // Collection's back steps: an inspection that animates closed stays modal until it is gone,
@@ -196,14 +207,12 @@ public sealed class AndroidOverlayPanelsTests
         var rig = new Rig();
         var panel = rig.Add("collection");
         panel.Handle.RequestOpen("touch_menu");
-        rig.MenuOpen = true;
         rig.Events.Clear();
 
         Assert.True(rig.Panels.TryConsumeBack("escape_hook"));
         Assert.True(rig.Panels.TryConsumeBack("keyboard"));
 
         Assert.Equal(new[] { "close:collection:back_key" }, rig.Events);
-        Assert.True(rig.MenuOpen);
         Assert.Equal(
             new (string, object?)[]
             {
@@ -317,14 +326,6 @@ public sealed class AndroidOverlayPanelsTests
                 reason => Events.Add($"release:{reason}"),
                 () => Frame
             );
-            Panels.SetTouchMenu(reason =>
-            {
-                if (!MenuOpen)
-                    return false;
-                MenuOpen = false;
-                Events.Add($"menu:{reason}");
-                return true;
-            });
         }
 
         public AndroidOverlayPanels Panels { get; }
@@ -332,8 +333,6 @@ public sealed class AndroidOverlayPanelsTests
         public List<string> Events { get; } = new();
 
         public bool InCombat { get; set; }
-
-        public bool MenuOpen { get; set; }
 
         public int Frame { get; set; }
 

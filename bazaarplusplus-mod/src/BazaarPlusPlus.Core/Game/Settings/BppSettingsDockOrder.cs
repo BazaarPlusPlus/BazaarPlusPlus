@@ -7,8 +7,7 @@ public static class BppSettingsDockOrder
     public const int NameOverride = 0;
     public const int FixedSupporterList = 1;
     public const int BilingualItemNames = 2;
-    public const int EventPreview = 3;
-    public const int QuestPreview = 4;
+    public const int DetailedPreview = 3;
     public const int EndOfRunScreenshot = 5;
     public const int BazaarDbUpload = 6;
     public const int CosmeticNames = 7;

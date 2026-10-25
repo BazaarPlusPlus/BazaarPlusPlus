@@ -1,14 +1,16 @@
 #nullable enable
-using BazaarPlusPlus.Game.Settings;
+using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.GameInterop.Scenes;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.UI;
+using CollectionPanelFeature = BazaarPlusPlus.Game.CollectionPanel.CollectionPanel;
+using LiveBuildPanelFeature = BazaarPlusPlus.Game.LiveBuildPanel.LiveBuildPanel;
 
-namespace BazaarPlusPlus.Game.CollectionPanel;
+namespace BazaarPlusPlus.Game.Settings;
 
-internal sealed class CollectionPanelDockButtonController
+internal sealed class BppPanelDockButtonsController
     : MonoBehaviour,
         IBppNativeSettingsButtonCloneOwner
 {
@@ -18,6 +20,8 @@ internal sealed class CollectionPanelDockButtonController
     private Button? _anchorButton;
     private Button? _dockButton;
     private RectTransform? _dockButtonRect;
+    private RectTransform? _liveBuildButtonRect;
+    private bool _hasAvailableLiveBuildLayout;
     private readonly BppScreenResizeSyncTracker _screenResizeSync = new(ScreenResizeSyncFrameCount);
     private readonly BppDockLayoutSyncTracker _layoutSync = new(LayoutImmediateSyncFrameCount);
     private readonly BppDockButtonScreenLayout _screenLayout = new();
@@ -26,6 +30,8 @@ internal sealed class CollectionPanelDockButtonController
     private int _screenshotSuppressionCount;
 
     internal RectTransform? DockButtonRect => _dockButtonRect;
+    internal RectTransform? LastDockButtonRect =>
+        _hasAvailableLiveBuildLayout ? _liveBuildButtonRect : _dockButtonRect;
 
     internal void SetLayoutAvailable(bool available)
     {
@@ -38,8 +44,12 @@ internal sealed class CollectionPanelDockButtonController
         if (anchorButton == null)
             return;
 
-        var existingController = anchorButton.GetComponent<CollectionPanelDockButtonController>();
-        if (existingController != null && existingController._dockButtonRect != null)
+        var existingController = anchorButton.GetComponent<BppPanelDockButtonsController>();
+        if (
+            existingController != null
+            && existingController._dockButtonRect != null
+            && existingController._liveBuildButtonRect != null
+        )
         {
             existingController.SyncDockButtonPlacement();
             return;
@@ -49,17 +59,23 @@ internal sealed class CollectionPanelDockButtonController
         if (dockButton == null)
             return;
 
+        var liveBuildButton = BppNativeSettingsButtonClone.FindOrCreate(
+            anchorButton,
+            BppSettingsDockPlacement.ForButton($"TenWinBuilds_{placement.Key}", placement.ButtonId),
+            BppDockButtonSpriteId.TenWinBuilds
+        );
+        if (liveBuildButton == null)
+            return;
+
         var controller =
             existingController
-            ?? anchorButton.gameObject.AddComponent<CollectionPanelDockButtonController>();
-        controller.Initialize(anchorButton, placement, dockButton);
+            ?? anchorButton.gameObject.AddComponent<BppPanelDockButtonsController>();
+        controller.Initialize(anchorButton, placement, dockButton, liveBuildButton);
     }
 
     internal static IDisposable? BeginScreenshotSuppression()
     {
-        var controllers = FindObjectsOfType<CollectionPanelDockButtonController>(
-            includeInactive: true
-        );
+        var controllers = FindObjectsOfType<BppPanelDockButtonsController>(includeInactive: true);
         if (controllers.Length == 0)
             return null;
 
@@ -73,11 +89,13 @@ internal sealed class CollectionPanelDockButtonController
     private void Initialize(
         Button anchorButton,
         BppSettingsDockPlacement placement,
-        RectTransform dockButton
+        RectTransform dockButton,
+        RectTransform liveBuildButton
     )
     {
         _anchorButton = anchorButton;
         _dockButtonRect = dockButton;
+        _liveBuildButtonRect = liveBuildButton;
         _dockButton = dockButton.GetComponent<Button>();
         if (_dockButton == null)
         {
@@ -93,7 +111,10 @@ internal sealed class CollectionPanelDockButtonController
         }
 
         _dockButton.onClick.RemoveAllListeners();
-        _dockButton.onClick.AddListener(OnDockButtonClicked);
+        _dockButton.onClick.AddListener(CollectionPanelFeature.OpenFromDockButton);
+        var liveBuildAction = liveBuildButton.GetComponent<Button>();
+        liveBuildAction.onClick.RemoveAllListeners();
+        liveBuildAction.onClick.AddListener(LiveBuildPanelFeature.OpenFromDockButton);
 
         SyncDockButtonPlacement();
     }
@@ -118,18 +139,29 @@ internal sealed class CollectionPanelDockButtonController
         if (_anchorButton == null || _dockButtonRect == null)
             return;
 
-        SyncDockCanvas();
+        SyncDockCanvas(_dockButtonRect);
+        if (_liveBuildButtonRect != null)
+            SyncDockCanvas(_liveBuildButtonRect);
         var available = _screenLayout.TryResolveAndApplyCollection(
             _anchorButton,
             _dockButtonRect,
             BppSettingsDockPlacement.DefaultSiblingGap,
             out var blockerName
         );
+        _hasAvailableLiveBuildLayout =
+            _liveBuildButtonRect != null
+            && _screenLayout.TryResolveAndApplyCollection(
+                _anchorButton,
+                _liveBuildButtonRect,
+                BppSettingsDockPlacement.DefaultSiblingGap,
+                out _,
+                occupiedRect: available ? _dockButtonRect : null
+            );
         SetLayoutAvailable(available);
         _layoutLogState.Observe(ToLayoutObservation(available, blockerName));
     }
 
-    private void SyncDockCanvas()
+    private void SyncDockCanvas(RectTransform dockButtonRect)
     {
         var anchorCanvas = _anchorButton!.GetComponentInParent<Canvas>();
         if (anchorCanvas == null)
@@ -145,13 +177,13 @@ internal sealed class CollectionPanelDockButtonController
         // The hero-ready background intercepts clicks below the settings bar.
         // Give only our button a sorting boundary above its native canvas content.
         var canvas =
-            _dockButtonRect!.GetComponent<Canvas>()
-            ?? _dockButtonRect.gameObject.AddComponent<Canvas>();
+            dockButtonRect.GetComponent<Canvas>()
+            ?? dockButtonRect.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true;
         canvas.sortingLayerID = anchorCanvas.sortingLayerID;
         canvas.sortingOrder = anchorCanvas.sortingOrder + 1;
-        if (_dockButtonRect.GetComponent<GraphicRaycaster>() == null)
-            _dockButtonRect.gameObject.AddComponent<GraphicRaycaster>();
+        if (dockButtonRect.GetComponent<GraphicRaycaster>() == null)
+            dockButtonRect.gameObject.AddComponent<GraphicRaycaster>();
     }
 
     private static CollectionPanelDockLayoutObservation ToLayoutObservation(
@@ -211,14 +243,15 @@ internal sealed class CollectionPanelDockButtonController
         var shouldBeVisible = _screenshotSuppressionCount == 0 && _hasAvailableDockLayout;
         if (_dockButtonRect != null && _dockButtonRect.gameObject.activeSelf != shouldBeVisible)
             _dockButtonRect.gameObject.SetActive(shouldBeVisible);
+        var liveBuildVisible = _screenshotSuppressionCount == 0 && _hasAvailableLiveBuildLayout;
+        if (
+            _liveBuildButtonRect != null
+            && _liveBuildButtonRect.gameObject.activeSelf != liveBuildVisible
+        )
+            _liveBuildButtonRect.gameObject.SetActive(liveBuildVisible);
     }
 
-    private void OnDockButtonClicked()
-    {
-        CollectionPanel.OpenFromDockButton();
-    }
-
-    private sealed class ScreenshotSuppressionLease(CollectionPanelDockButtonController controller)
+    private sealed class ScreenshotSuppressionLease(BppPanelDockButtonsController controller)
         : IDisposable
     {
         private bool _disposed;

@@ -1,8 +1,8 @@
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
-using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
@@ -23,7 +23,8 @@ internal sealed record AndroidSettingsDockHooks(
     Func<bool> HistoryAvailable,
     Action OpenHistory,
     Func<AndroidGameUpdateStatus> GameUpdateStatus,
-    Action OpenGameUpdate
+    Action OpenGameUpdate,
+    Action? RefreshPreviews = null
 );
 
 /// <summary>
@@ -31,8 +32,8 @@ internal sealed record AndroidSettingsDockHooks(
 /// (Core's <see cref="SettingsDockEntryRegistry"/> and <see cref="BppSettingsDockCatalog"/>) and
 /// drawn by <see cref="AndroidNativeSettingsSection"/> in the game's own settings dialog. The
 /// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
-/// gates only the account link, since the host takes no end-of-run screenshot), Enchant preview,
-/// with every mode the desktop offers, and Game History, which here has no hotkey. The rest are
+/// gates only the account link, since the host takes no end-of-run screenshot), Combat Status
+/// and Game History, which here has no hotkey. The rest are
 /// the host's switches that stand in for the desktop's
 /// hotkeys (Upgrade preview, the Collection, Ten-Win Builds and History panels, the touch button)
 /// and, when the game is behind the published APK, the link to it.
@@ -43,9 +44,9 @@ internal static class AndroidSettingsDock
     public const string HistoryPanelKey = "HistoryPanel";
 
     public static readonly LocalizedTextSet TouchMenuLabel = new(
-        "BPP touch button",
-        "BPP 触控按钮",
-        "BPP 觸控按鈕"
+        "Panel shortcuts",
+        "面板快捷入口",
+        "面板快捷入口"
     );
     public static readonly LocalizedTextSet GameUpToDate = new(
         "The game is up to date",
@@ -91,6 +92,13 @@ internal static class AndroidSettingsDock
         ArgumentNullException.ThrowIfNull(hooks);
 
         registry.Register(
+            DetailedPreviewSettingsDockEntry.Create(enabled =>
+            {
+                LogChanged("DetailedPreview", "Enabled", enabled);
+                hooks.RefreshPreviews?.Invoke();
+            })
+        );
+        registry.Register(
             CyclingSettingsDockEntry<bool>.Toggle(
                 BppSettingsDockOrder.BazaarDbUpload,
                 "BazaarDbUpload",
@@ -101,8 +109,12 @@ internal static class AndroidSettingsDock
             )
         );
         registry.Register(
-            ItemEnchantPreviewSettingsDockEntry.Create(mode =>
-                LogChanged("EnchantPreview", "Mode", mode)
+            Switch(
+                BppSettingsDockOrder.CombatStatusBar,
+                "CombatStatusBar",
+                new LocalizedTextSet("Combat timer", "战斗计时", "戰鬥計時"),
+                android.CombatTimer,
+                _ => { }
             )
         );
         registry.Register(

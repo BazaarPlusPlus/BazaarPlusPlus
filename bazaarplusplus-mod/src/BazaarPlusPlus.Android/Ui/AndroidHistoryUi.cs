@@ -30,6 +30,7 @@ internal static class AndroidHistoryUi
     public static readonly Color InputFill = new(0.20f, 0.15f, 0.09f, 1f);
     public static readonly Color Win = new(0.62f, 0.80f, 0.54f, 1f);
     public static readonly Color Loss = new(0.90f, 0.40f, 0.31f, 1f);
+    public static readonly Color Accent = new(0.86f, 0.66f, 0.30f, 1f);
 
     /// <summary>A label; it takes no touches.</summary>
     public static TextMeshProUGUI Label(
@@ -331,7 +332,8 @@ internal static class AndroidHistoryUi
 /// <summary>
 /// A History button and its parts. A dimmed button stays tappable: the model says why it cannot
 /// act, and the tap puts that reason on the status line (tap-to-explain), as hover does on the
-/// desktop.
+/// desktop. A tab draws only its selected state, so the tabs read apart from the actions; a
+/// danger button's label carries the loss colour.
 /// </summary>
 internal sealed class HistoryButton(
     Button button,
@@ -342,6 +344,7 @@ internal sealed class HistoryButton(
 {
     private (string Text, bool Selected, bool Enabled, bool Dimmed)? _shown;
     private Image[]? _chevronStrokes;
+    private HistoryButtonStyle _style;
 
     public Button Button { get; } = button;
 
@@ -350,6 +353,14 @@ internal sealed class HistoryButton(
     public TextMeshProUGUI Label { get; } = label;
 
     public GameObject GameObject => Button.gameObject;
+
+    /// <summary>Restyles the button; the next <see cref="Set"/> draws it.</summary>
+    public HistoryButton As(HistoryButtonStyle style)
+    {
+        _style = style;
+        _shown = null;
+        return this;
+    }
 
     /// <summary>A centred navigation chevron; the button keeps its descriptive label and action.</summary>
     public void UseChevron(float angle, float size)
@@ -392,9 +403,23 @@ internal sealed class HistoryButton(
         Button.interactable = enabled;
         var muted = dimmed || !enabled;
         skin.Select(Fill, selected, muted);
-        Label.color = muted ? AndroidHistoryUi.Muted : AndroidHistoryUi.Ink;
+        var quietTab = _style == HistoryButtonStyle.Tab && !selected;
+        // Transparent, not disabled: the fill still takes the tap.
+        if (quietTab)
+            Fill.color = Color.clear;
+        Label.color =
+            muted || quietTab ? AndroidHistoryUi.Muted
+            : _style == HistoryButtonStyle.Danger ? AndroidHistoryUi.Loss
+            : AndroidHistoryUi.Ink;
         if (_chevronStrokes != null)
             foreach (var stroke in _chevronStrokes)
                 stroke.color = Label.color;
     }
+}
+
+internal enum HistoryButtonStyle
+{
+    Action,
+    Tab,
+    Danger,
 }

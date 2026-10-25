@@ -17,9 +17,9 @@ namespace SettingsDockCore.Tests;
 /// </summary>
 public sealed class TouchChromeTests
 {
-    public static TheoryData<string> Screens => TouchLauncherLayoutTests.Screens;
+    public static TheoryData<string> Screens => TouchHudLayoutTests.Screens;
 
-    private static TouchMetrics Metrics(string name) => TouchLauncherLayoutTests.Metrics(name);
+    private static TouchMetrics Metrics(string name) => TouchHudLayoutTests.Metrics(name);
 
     [Theory]
     [MemberData(nameof(Screens))]
@@ -30,18 +30,16 @@ public sealed class TouchChromeTests
         var history = HistoryTouchLayout.For(metrics);
         var liveBuild = LiveBuildTouchLayout.For(metrics);
         var collection = CollectionTouchLayout.For(metrics);
-        var launcher = TouchLauncherLayout.Compute(metrics, 3);
         var closes = new (string Surface, TouchRect Close)[]
         {
             ("history", history.Close),
             ("history inspection", history.InspectClose),
-            ("history skills", history.SkillsClose),
+            ("history skills", history.SkillsSheet([1, 1]).Close),
             ("history dialog", history.DialogClose),
             ("live build", liveBuild.Close),
             ("live build inspection", liveBuild.InspectClose),
             ("collection", collection.Close),
             ("collection inspection", collection.Inspect.Close),
-            ("touch menu", launcher.Close),
         };
         foreach (var (surface, close) in closes)
         {
@@ -165,7 +163,6 @@ public sealed class TouchChromeTests
         var chrome = TouchChrome.For(metrics);
 
         Assert.Equal(metrics.Dp(TouchChrome.LabelInsetDp), chrome.LabelInset, 3);
-        Assert.Equal(chrome.LabelInset, TouchLauncherLayout.Compute(metrics, 3).LabelInset);
         Assert.Equal(chrome.LabelInset, LiveBuildTouchLayout.For(metrics).LabelInset);
         Assert.Equal(chrome.LabelInset, CollectionTouchLayout.For(metrics).Chrome.LabelInset);
         // The padding leaves the narrowest button, a close button, most of its width for a label.
@@ -180,7 +177,6 @@ public sealed class TouchChromeTests
         var chrome = TouchChrome.For(metrics);
         var history = HistoryTouchLayout.For(metrics);
         var liveBuild = LiveBuildTouchLayout.For(metrics);
-        var launcher = TouchLauncherLayout.Compute(metrics, 3);
         var fonts = new (string Text, float Size)[]
         {
             ("chrome title", chrome.TitleFont),
@@ -199,9 +195,6 @@ public sealed class TouchChromeTests
             ("live build value", liveBuild.ValueFont),
             ("live build tag", liveBuild.TagFont),
             ("live build name", liveBuild.NameFont),
-            ("launcher", launcher.LauncherFont),
-            ("menu title", launcher.TitleFont),
-            ("menu entry", launcher.EntryFont),
         };
         foreach (var (text, size) in fonts)
             Assert.True(size >= metrics.BodyText - 0.01f, $"{name}: {text} is at least 12sp");

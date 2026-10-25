@@ -113,4 +113,48 @@ public class BppCollectionDockButtonLayoutPlannerTests
         Assert.Equal(720f, plan.Bounds.CenterY);
         Assert.True(Viewport.Contains(plan.Bounds));
     }
+
+    [Theory]
+    [InlineData(100f)]
+    [InlineData(840f)]
+    public void Panel_and_replay_entries_keep_distinct_slots_near_either_screen_edge(float gearY)
+    {
+        var gear = BppDockButtonBounds.FromCenter(1100f, gearY, 100f, 100f);
+        var collection = BppCollectionDockButtonLayoutPlanner.Resolve(
+            Viewport,
+            gear,
+            100f,
+            100f,
+            20f,
+            []
+        );
+        var collectionBlocker = new BppDockButtonObstacle("collection", collection.Bounds, true);
+        var builds = BppCollectionDockButtonLayoutPlanner.Resolve(
+            Viewport,
+            gear,
+            100f,
+            100f,
+            20f,
+            [collectionBlocker]
+        );
+        var replay = BppCollectionDockButtonLayoutPlanner.Resolve(
+            Viewport,
+            builds.Bounds,
+            100f,
+            100f,
+            20f,
+            [collectionBlocker, new BppDockButtonObstacle("gear", gear, true)]
+        );
+
+        Assert.True(collection.CanApply);
+        Assert.True(builds.CanApply);
+        Assert.True(replay.CanApply);
+        var slots = new[] { gear, collection.Bounds, builds.Bounds, replay.Bounds };
+        for (var index = 0; index < slots.Length; index++)
+        {
+            Assert.True(Viewport.Contains(slots[index]));
+            for (var next = index + 1; next < slots.Length; next++)
+                Assert.False(slots[index].Overlaps(slots[next]));
+        }
+    }
 }

@@ -16,31 +16,37 @@ internal sealed class AndroidSettings
             "Android",
             "TouchMenu",
             true,
-            "Whether the BPP touch button is shown. It opens the panels the desktop opens by hotkey: History, Collection, and Ten-Win Builds."
+            "Whether the native-style icon shortcuts for History, Collection, and Ten-Win Builds are shown."
+        );
+        CombatTimer = store.Bind(
+            "Android",
+            "CombatTimer",
+            true,
+            "Show the touch combat timer and playback controls only during combat or replay."
         );
         UpgradePreview = store.Bind(
             "Android",
             "UpgradePreview",
             false,
-            "Whether item tooltips show the next tier's values, the touch counterpart of holding Shift on desktop."
+            "Whether item tooltips automatically show the next tier's values. Each tooltip also offers a touch toggle."
         );
         CollectionPanel = store.Bind(
             "Android",
             "CollectionPanel",
             true,
-            "Whether the touch menu offers the Collection panel, which shows the game's own cards."
+            "Whether the icon shortcuts offer the Collection panel, which shows the game's own cards."
         );
         HistoryPanel = store.Bind(
             "Android",
             "HistoryPanel",
             true,
-            "Whether the touch menu offers the History panel: past runs, Ghost battles, favorites, and their native boards."
+            "Whether the icon shortcuts offer the History panel: past runs, Ghost battles, favorites, and their native boards."
         );
         LiveBuildPanel = store.Bind(
             "Android",
             "LiveBuildPanel",
             true,
-            "Whether the touch menu offers the Live Build panel, which recommends ten-win builds for the run."
+            "Whether the icon shortcuts offer the Live Build panel, which recommends ten-win builds for the run."
         );
         DevReleaseManifestPort = store.Bind(
             "Dev",
@@ -65,4 +71,6 @@ internal sealed class AndroidSettings
     public ISetting<bool> LiveBuildPanel { get; }
 
     public ISetting<bool> UpgradePreview { get; }
+
+    public ISetting<bool> CombatTimer { get; }
 }

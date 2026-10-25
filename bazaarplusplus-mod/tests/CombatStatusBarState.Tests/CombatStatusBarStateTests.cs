@@ -45,6 +45,38 @@ public sealed class CombatStatusBarStateTests
     }
 
     [Fact]
+    public void Scene_reset_resumes_owned_pause_clears_time_and_keeps_speed()
+    {
+        _pause.Paused = false;
+        _state.SetCombatSpeed(0.5f);
+        _state.SetCombatFrameTotal(100);
+        _state.BeginCombatPlayback();
+        for (var i = 0; i < 30; i++)
+            _state.AdvanceCombatFrame();
+        _state.SetCombatPaused(true);
+
+        _state.ResetPlayback();
+
+        Assert.False(_pause.Paused);
+        Assert.False(_state.IsCombatPlaybackActive);
+        Assert.False(_state.HasCompletedCombatPlayback);
+        Assert.Equal(0, _state.TotalCombatFrames);
+        Assert.Equal("0:00.00", _state.GetDisplayedTimeText());
+        Assert.Equal(0.5f, _state.CombatSpeedMultiplier);
+        _state.AdvanceCombatFrame();
+        Assert.Equal("0:00.00", _state.GetDisplayedTimeText());
+    }
+
+    [Fact]
+    public void Ending_combat_does_not_resume_a_pause_owned_by_the_game()
+    {
+        _pause.Paused = true;
+        _state.BeginCombatPlayback();
+        _state.EndCombatPlayback();
+        Assert.True(_pause.Paused);
+    }
+
+    [Fact]
     public void FrameDisplayText_IsNotPartOfCombatStatusBarState()
     {
         var frameTextMethod = typeof(CombatStatusBarState).GetMethod(

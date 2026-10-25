@@ -18,9 +18,13 @@ internal sealed class AndroidNativeSkin
         var background = backing ?? AndroidUiKit.PanelColor;
         background.a = 1f;
         AndroidUiKit.Fill(rect, background);
+        DrawFrame(rect, fillCenter: true);
+    }
+
+    private void DrawFrame(RectTransform rect, bool fillCenter)
+    {
         if (_art.Frame == null)
             return;
-        // Native frame art has a transparent centre; keep an opaque independent backing.
         var art = AndroidUiKit.Rect(
             "FrameArt",
             rect,
@@ -32,6 +36,7 @@ internal sealed class AndroidNativeSkin
         var image = AndroidUiKit.Fill(art, Color.white, false);
         image.sprite = _art.Frame;
         image.type = Image.Type.Sliced;
+        image.fillCenter = fillCenter;
         image.color = Color.white;
     }
 

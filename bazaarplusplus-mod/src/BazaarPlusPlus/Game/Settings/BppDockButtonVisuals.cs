@@ -75,14 +75,15 @@ internal static class BppDockButtonVisuals
         GameObject cloneObject,
         Image? explicitIcon,
         bool freshClone,
-        BppDockButtonVisualState? nativeState
+        BppDockButtonVisualState? nativeState,
+        BppDockButtonSpriteId spriteId = BppDockButtonSpriteId.CollectionPanel
     )
     {
         if (cloneObject == null)
             return;
 
         var frame = cloneObject.GetComponent<Image>() ?? cloneObject.AddComponent<Image>();
-        var sprite = BppDockButtonSpriteProvider.Get();
+        var sprite = BppDockButtonSpriteProvider.Get(spriteId);
         var icon = explicitIcon ?? FindMarkedIconImage(cloneObject) ?? FindIconImage(cloneObject);
         if (sprite != null && icon != null)
             ApplyIcon(icon, sprite);

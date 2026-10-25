@@ -29,6 +29,11 @@ internal static class BppDockButtonSpriteProvider
     ) Resolve(BppDockButtonSpriteId spriteId) =>
         spriteId switch
         {
+            BppDockButtonSpriteId.TenWinBuilds => (
+                "Resources.DockButtons.ten-win-builds-icon.png",
+                "TenWinBuilds",
+                SettingsDockSpriteResourceId.TenWinBuildsIcon
+            ),
             BppDockButtonSpriteId.ReplayExport => (
                 "Resources.DockButtons.replay-export-icon.png",
                 "ReplayExport",
@@ -129,6 +134,7 @@ internal static class BppDockButtonSpriteProvider
 internal enum BppDockButtonSpriteId
 {
     CollectionPanel,
+    TenWinBuilds,
     ReplayExport,
     ReplayRecording,
     ReplayView,

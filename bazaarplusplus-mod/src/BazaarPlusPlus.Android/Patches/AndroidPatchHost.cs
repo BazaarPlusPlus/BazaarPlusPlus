@@ -29,6 +29,16 @@ internal static class AndroidPatchHost
     private static long _runInitializedHits;
     private static int _probeErrors;
 
+    public static AndroidGameplayPreviews? GameplayPreviews { get; set; }
+
+    public static Game.AndroidEncounterPreview? EncounterPreview { get; set; }
+
+    public static Game.AndroidAggregateItemPreview? AggregateItemPreview { get; set; }
+
+    public static Game.AndroidQuestPreview? QuestPreview { get; set; }
+
+    public static Game.AndroidCombatStatus? CombatStatus { get; set; }
+
     public static AndroidPatchMode Mode { get; private set; } = AndroidPatchMode.Disabled;
 
     public static string PluginVersion { get; private set; } = string.Empty;
@@ -115,10 +125,6 @@ internal static class AndroidPatchHost
             ("upgrade_values_returned", AndroidUpgradePreviewValues.Returned),
             ("upgrade_values_projected", AndroidUpgradePreviewValues.Projected),
             ("enchant_preview_rendered", AndroidEnchantPreview.Rendered),
-            ("enchant_preview_pedestal_shown", AndroidEnchantPreview.PedestalShown),
-            ("enchant_preview_pedestal_hidden", AndroidEnchantPreview.PedestalHidden),
-            ("pedestal_reads", AndroidChoicePedestals.Reads),
-            ("pedestal_read_failures", AndroidChoicePedestals.Failures),
             .. AndroidCardRental.Summary(),
             ("run_initialized_hits", Interlocked.Read(ref _runInitializedHits)),
             .. Composition?.RunLifecycleSource.Summary() ?? [],

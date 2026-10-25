@@ -15,7 +15,7 @@ internal readonly struct BppSettingsDockPlacement
     internal string Key { get; }
     internal SettingsNativeButtonId ButtonId { get; }
 
-    internal string DockButtonObjectName => $"BPP_CollectionDockButton_{Key}";
+    internal string DockButtonObjectName => $"BPP_DockButton_{Key}";
 
     internal static BppSettingsDockPlacement ForButton(
         string key,

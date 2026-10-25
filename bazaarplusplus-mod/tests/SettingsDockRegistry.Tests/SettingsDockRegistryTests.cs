@@ -7,13 +7,12 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BilingualItemNames;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.CosmeticNames;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.LegendaryPosition;
 using BazaarPlusPlus.Game.NameOverride;
-using BazaarPlusPlus.Game.QuestPreview;
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Game.Supporters;
@@ -327,87 +326,62 @@ public class SettingsDockRegistryTests
     }
 
     [Fact]
-    public void EventPreviewDockEntry_uses_true_when_config_is_unavailable()
+    public void DetailedPreviewDockEntry_persists_on_off_on()
     {
-        var definition = EventPreviewSettingsDockEntry
-            .Create()
-            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
-
-        Assert.True(definition.IsActive());
-        Assert.True(definition.ReadToggle!());
-    }
-
-    [Fact]
-    public void QuestPreviewDockEntry_persists_off_on_off_without_changing_event_preview()
-    {
-        var configPath = Path.Combine(
-            Path.GetTempPath(),
-            $"bpp-quest-preview-toggle-{Guid.NewGuid():N}.cfg"
-        );
+        var path = Path.Combine(Path.GetTempPath(), $"bpp-detailed-preview-{Guid.NewGuid():N}.cfg");
         try
         {
-            var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppSettings(new BepInExSettingsStore(configFile));
-            var questDefinition = QuestPreviewSettingsDockEntry.Create(() => { }).Build(config);
-            var eventDefinition = EventPreviewSettingsDockEntry.Create().Build(config);
-
-            Assert.False(questDefinition.ReadToggle!());
-            Assert.True(eventDefinition.ReadToggle!());
-
-            questDefinition.WriteToggle!(true);
-            configFile.Save();
-
-            var reloadedFile = new ConfigFile(configPath, saveOnInit: false);
+            var file = new ConfigFile(path, saveOnInit: false);
+            var config = new BppSettings(new BepInExSettingsStore(file));
+            var definition = DetailedPreviewSettingsDockEntry.Create().Build(config);
+            Assert.True(definition.ReadToggle!());
+            definition.WriteToggle!(false);
+            file.Save();
+            var reloadedFile = new ConfigFile(path, saveOnInit: false);
             var reloaded = new BppSettings(new BepInExSettingsStore(reloadedFile));
-            Assert.True(reloaded.EnableQuestPreviewConfig!.Value);
-            Assert.True(reloaded.EnableEventPreviewConfig!.Value);
-
-            var reloadedEventDefinition = EventPreviewSettingsDockEntry.Create().Build(reloaded);
-            var reloadedQuestDefinition = QuestPreviewSettingsDockEntry
-                .Create(() => { })
-                .Build(reloaded);
-            reloadedEventDefinition.WriteToggle!(false);
-            Assert.True(reloadedQuestDefinition.ReadToggle!());
-
-            reloadedQuestDefinition.WriteToggle!(false);
+            var reloadedDefinition = DetailedPreviewSettingsDockEntry.Create().Build(reloaded);
+            Assert.False(reloadedDefinition.ReadToggle!());
+            reloadedDefinition.WriteToggle!(true);
             reloadedFile.Save();
-
-            var finalFile = new ConfigFile(configPath, saveOnInit: false);
-            var finalConfig = new BppSettings(new BepInExSettingsStore(finalFile));
-            Assert.False(finalConfig.EnableQuestPreviewConfig!.Value);
-            Assert.False(finalConfig.EnableEventPreviewConfig!.Value);
+            Assert.True(
+                new BppSettings(new BepInExSettingsStore(new ConfigFile(path, saveOnInit: false)))
+                    .EnableDetailedPreviewConfig
+                    .Value
+            );
         }
         finally
         {
-            if (File.Exists(configPath))
-                File.Delete(configPath);
+            if (File.Exists(path))
+                File.Delete(path);
         }
     }
 
     [Fact]
-    public void QuestPreviewDockEntry_clears_pooled_tooltips_when_disabled()
+    public void DetailedPreviewDockEntry_notifies_after_writing_the_shared_gate()
     {
-        var clearCount = 0;
-        var definition = QuestPreviewSettingsDockEntry
-            .Create(() => clearCount++)
-            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
-
-        definition.WriteToggle!(true);
-        Assert.Equal(0, clearCount);
-
-        definition.WriteToggle(false);
-        Assert.Equal(1, clearCount);
+        var config = new BppSettings(new BepInExSettingsStore(UnsavedConfigFile()));
+        var observed = new List<bool>();
+        var definition = DetailedPreviewSettingsDockEntry
+            .Create(enabled =>
+            {
+                Assert.Equal(enabled, config.EnableDetailedPreviewConfig.Value);
+                observed.Add(enabled);
+            })
+            .Build(config);
+        definition.WriteToggle!(false);
+        definition.WriteToggle(true);
+        Assert.Equal(new[] { false, true }, observed);
     }
 
     [Theory]
-    [InlineData("en", false, "Quest Preview")]
-    [InlineData("zh-CN", false, "任务预览")]
-    [InlineData("zh-Hant", true, "任務預覽")]
-    [InlineData("de", false, "Questvorschau")]
-    [InlineData("pt-BR", false, "Prévia de Missão")]
-    [InlineData("ko", false, "퀘스트 미리보기")]
-    [InlineData("it", false, "Anteprima Missione")]
-    public void QuestPreviewDockEntry_localizes_broad_label_in_every_supported_locale(
+    [InlineData("en", false, "Detailed Preview")]
+    [InlineData("zh-CN", false, "详细预览")]
+    [InlineData("zh-Hant", true, "詳細預覽")]
+    [InlineData("de", false, "Detaillierte Vorschau")]
+    [InlineData("pt-BR", false, "Prévia detalhada")]
+    [InlineData("ko", false, "상세 미리보기")]
+    [InlineData("it", false, "Anteprima dettagliata")]
+    public void DetailedPreviewDockEntry_localizes_broad_label_in_every_supported_locale(
         string languageCode,
         bool useTaiwanLocale,
         string expected
@@ -418,15 +392,15 @@ public class SettingsDockRegistryTests
             () => useTaiwanLocale ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland
         );
 
-        var definition = QuestPreviewSettingsDockEntry
-            .Create(() => { })
+        var definition = DetailedPreviewSettingsDockEntry
+            .Create()
             .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         Assert.Equal(expected, definition.ResolveLabel(languageCode));
     }
 
     [Fact]
-    public void QuestPreviewGate_reads_only_quest_preview_config()
+    public void DetailedPreviewGate_reads_the_merged_setting()
     {
         var configPath = Path.Combine(
             Path.GetTempPath(),
@@ -442,16 +416,11 @@ public class SettingsDockRegistryTests
                 (BppPatchFeatures)RuntimeHelpers.GetUninitializedObject(typeof(BppPatchFeatures))
             );
 
-            Assert.False(QuestPreviewGate.IsEnabled());
-
-            config.EnableEventPreviewConfig!.Value = false;
-            Assert.False(QuestPreviewGate.IsEnabled());
-
-            config.EnableQuestPreviewConfig!.Value = true;
-            Assert.True(QuestPreviewGate.IsEnabled());
-
-            config.EnableEventPreviewConfig.Value = true;
-            Assert.True(QuestPreviewGate.IsEnabled());
+            Assert.True(DetailedPreviewGate.IsEnabled());
+            config.EnableDetailedPreviewConfig.Value = false;
+            Assert.False(DetailedPreviewGate.IsEnabled());
+            config.EnableDetailedPreviewConfig.Value = true;
+            Assert.True(DetailedPreviewGate.IsEnabled());
         }
         finally
         {
@@ -485,8 +454,7 @@ public class SettingsDockRegistryTests
             registry.Register(HistoryPanelHotkeyDockEntry.Create());
             registry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
             registry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
-            registry.Register(EventPreviewSettingsDockEntry.Create());
-            registry.Register(QuestPreviewSettingsDockEntry.Create(() => { }));
+            registry.Register(DetailedPreviewSettingsDockEntry.Create());
             registry.Register(LegendaryPositionSettingsDockEntry.Create(() => { }));
             registry.Register(NameOverrideSettingsDockEntry.Create(() => { }));
 
@@ -495,15 +463,17 @@ public class SettingsDockRegistryTests
                 .OrderBy(entry => entry.Order)
                 .ToArray();
 
-            Assert.Equal(Enumerable.Range(0, 18), presented.Select(entry => entry.Order));
+            Assert.Equal(
+                Enumerable.Range(0, 18).Where(order => order != 4),
+                presented.Select(entry => entry.Order)
+            );
             Assert.Equal(
                 new[]
                 {
                     "NameOverride",
                     "StreamMode",
                     "BilingualItemNames",
-                    "EventPreview",
-                    "QuestPreview",
+                    "DetailedPreview",
                     "EndOfRunScreenshot",
                     "BazaarDbUpload",
                     "CosmeticNames",
@@ -528,10 +498,9 @@ public class SettingsDockRegistryTests
                 new (string Left, string? Right)[]
                 {
                     ("NameOverride", "StreamMode"),
-                    ("BilingualItemNames", "EventPreview"),
-                    ("QuestPreview", "EndOfRunScreenshot"),
-                    ("BazaarDbUpload", "CosmeticNames"),
-                    ("CombatStatusBar", null),
+                    ("BilingualItemNames", "DetailedPreview"),
+                    ("EndOfRunScreenshot", "BazaarDbUpload"),
+                    ("CosmeticNames", "CombatStatusBar"),
                 },
                 groups.Select(group =>
                     (
@@ -543,11 +512,11 @@ public class SettingsDockRegistryTests
                 )
             );
             Assert.All(
-                presented.Take(9),
+                presented.Take(8),
                 entry => Assert.Equal(BppSettingsControlKind.Toggle, entry.Definition.ControlKind)
             );
             Assert.All(
-                presented.Skip(9).Take(8),
+                presented.Skip(8).Take(8),
                 entry => Assert.Equal(BppSettingsControlKind.Choice, entry.Definition.ControlKind)
             );
             Assert.Equal(BppSettingsControlKind.Action, presented[^1].Definition.ControlKind);
@@ -1135,20 +1104,12 @@ public class SettingsDockRegistryTests
         "false>true>false"
     )]
     [InlineData(
-        "EventPreview",
-        BppSettingsDockOrder.EventPreview,
-        "Event Preview",
-        "事件预览",
+        "DetailedPreview",
+        BppSettingsDockOrder.DetailedPreview,
+        "Detailed Preview",
+        "详细预览",
         "ON>OFF>ON",
         "true>false>true"
-    )]
-    [InlineData(
-        "QuestPreview",
-        BppSettingsDockOrder.QuestPreview,
-        "Quest Preview",
-        "任务预览",
-        "OFF>ON>OFF",
-        "false>true>false"
     )]
     [InlineData(
         "BilingualItemNames",
@@ -1299,8 +1260,7 @@ public class SettingsDockRegistryTests
             "LegendaryPositionDisplay" => LegendaryPositionSettingsDockEntry.Create(() => { }),
             "EnchantPreview" => ItemEnchantPreviewSettingsDockEntry.Create(),
             "UpgradePreviewActivation" => UpgradePreviewActivationSettingsDockEntry.Create(),
-            "EventPreview" => EventPreviewSettingsDockEntry.Create(),
-            "QuestPreview" => QuestPreviewSettingsDockEntry.Create(() => { }),
+            "DetailedPreview" => DetailedPreviewSettingsDockEntry.Create(),
             "BilingualItemNames" => BilingualItemNamesSettingsDockEntry.Create(),
             "ChineseLocaleMode" => ChineseLocaleModeSettingsDockEntry.Create(
                 new InMemoryBppEventBus()

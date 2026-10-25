@@ -32,8 +32,7 @@ public static class HistoryPanelFormatter
         var head = $"{Mode(run)} · {HistoryPanelText.DayBadge(run.FinalDay)}";
         if (run.EndedAtUtc is not { } ended)
             return head;
-        var span = ended - run.StartedAtUtc;
-        return $"{head} · {HistoryPanelText.DurationMinutes(Math.Max(0, (int)span.TotalMinutes))}";
+        return $"{head} · {HistoryPanelText.Duration(ended - run.StartedAtUtc)}";
     }
 
     // "1520 +16": the Run's rating change rides on its rating, tinted like battle outcomes.

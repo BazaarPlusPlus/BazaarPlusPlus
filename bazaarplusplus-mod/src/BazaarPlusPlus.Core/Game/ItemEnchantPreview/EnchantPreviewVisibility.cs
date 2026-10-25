@@ -8,8 +8,8 @@ namespace BazaarPlusPlus.Game.ItemEnchantPreview;
 /// When the enchant preview shows without its hold key, under <c>[EnchantPreview] Mode</c>:
 /// <c>Always</c> on every eligible tooltip, <c>AutoOnPedestalChoice</c> only while an enchant
 /// pedestal is offered (on the choice screen, or the pedestal encounter itself) and then only
-/// for the enchantment(s) that pedestal applies, <c>Off</c> never. Both hosts apply this rule;
-/// the desktop's hold keys win over it before it is asked.
+/// for the enchantment(s) that pedestal applies, <c>Off</c> never. The desktop's hold keys
+/// win over this rule; Android uses its per-tooltip switch instead.
 /// </summary>
 public static class EnchantPreviewVisibility
 {
