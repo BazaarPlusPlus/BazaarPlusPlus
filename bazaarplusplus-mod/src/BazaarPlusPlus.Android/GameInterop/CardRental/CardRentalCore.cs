@@ -120,6 +120,7 @@ internal sealed class CardRentalCore<TCard, TParent>
     private readonly int _maxPooledPerKind;
     private readonly Dictionary<string, Queue<TCard>> _pool = new(StringComparer.Ordinal);
     private readonly List<CardRentalLease<TCard>> _active = new();
+    private readonly List<CardRentalLease<TCard>> _ticking = new();
 
     public CardRentalCore(
         ICardRentalBackend<TCard, TParent> backend,
@@ -272,8 +273,18 @@ internal sealed class CardRentalCore<TCard, TParent>
     /// <summary>Polls every native operation in flight; call once per frame on the main thread.</summary>
     public void Tick()
     {
-        foreach (var lease in _active.ToArray())
-            Advance(lease);
+        // Advance can remove the lease it settles, so it walks a copy; the copy is reused
+        // because this runs every frame while a panel holds cards.
+        _ticking.AddRange(_active);
+        try
+        {
+            foreach (var lease in _ticking)
+                Advance(lease);
+        }
+        finally
+        {
+            _ticking.Clear();
+        }
     }
 
     private void Start(CardRentalLease<TCard> lease)
