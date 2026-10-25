@@ -8,10 +8,9 @@ using Il2CppTheBazaar.Utilities;
 namespace BazaarPlusPlus.Android.Collection;
 
 /// <summary>
-/// Facet chip labels on Android. Tags and keywords read the game's string table, the source the
-/// desktop's <c>NativeTagTypography</c> falls back to; the desktop's keyword colors and icons come
-/// from the tooltip typography table, which the Android panel does not read, so its chips are
-/// text only. A reference keyword reads as its base keyword plus "Related", as on desktop.
+/// Filter labels read the game's string table. Inspection tags additionally use the native
+/// tooltip typography for official labels and colors. A reference keyword reads as its base
+/// keyword plus "Related", as on desktop.
 /// </summary>
 internal static class AndroidCollectionLabels
 {
@@ -21,6 +20,22 @@ internal static class AndroidCollectionLabels
     private static string _language = string.Empty;
 
     public static string Tag(CardTag tag) => StringTable(tag.ToString());
+
+    /// <summary>The same localized label and accent as the game's tooltip tag renderer.</summary>
+    public static string InspectionTag(CardTag tag)
+    {
+        try
+        {
+            var native = Il2CppTheBazaar.Data.TooltipTypography?.ColorTag(tag.ToString());
+            if (!string.IsNullOrWhiteSpace(native))
+                return native;
+        }
+        catch (Exception)
+        {
+            // Typography can be absent during a scene or locale change.
+        }
+        return Tag(tag);
+    }
 
     public static string Keyword(CollectionKeywordFacetOption option)
     {
@@ -56,7 +71,9 @@ internal static class AndroidCollectionLabels
         StringTable(enchantment.ToString());
 
     public static string Hero(CardHero hero) =>
-        CollectionPanelText.Hero(hero, AndroidHeroNames.TheDragons);
+        hero == CardHero.Common
+            ? CollectionPanelText.Hero(hero, AndroidHeroNames.TheDragons)
+            : AndroidHeroNames.Display(hero);
 
     // The game string table keyed by the English source text; a miss returns the key itself.
     private static string StringTable(string key)

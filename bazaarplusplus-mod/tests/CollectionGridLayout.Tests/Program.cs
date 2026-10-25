@@ -64,6 +64,47 @@ AssertEqual(
     "Values shared by every available tier should render only once."
 );
 
+AssertEqual(
+    "Deal <color=#B46241>10</color> <sprite name=Fusion> <color=#FFD700>40</color> damage\nSlow 2 seconds",
+    CollectionTierTooltipTextMerger.MergeLines(
+        new[]
+        {
+            new CollectionTierTooltipText(CardTier.Bronze, "Deal 10 damage"),
+            new CollectionTierTooltipText(CardTier.Gold, "Deal 40 damage\nSlow 2 seconds"),
+        }
+    ),
+    "A higher-tier extra effect must not prevent the shared damage line from merging or disappear."
+);
+AssertEqual(
+    "Heal 10\nShield 20",
+    CollectionTierTooltipTextMerger.MergeLines(
+        new[]
+        {
+            new CollectionTierTooltipText(CardTier.Silver, "Heal 10\r\nShield 20"),
+            new CollectionTierTooltipText(CardTier.Gold, "Heal 10\nShield 20"),
+        }
+    ),
+    "Line ending differences should not duplicate unchanged effects."
+);
+AssertEqual(
+    "",
+    CollectionTierTooltipTextMerger.MergeLines(Array.Empty<CollectionTierTooltipText>()),
+    "An unavailable preview has no merged text."
+);
+
+AssertEqual(
+    "Deal <nobr><color=#B46241>10</color> <sprite name=Fusion> <color=#FFD700>40</color></nobr> damage",
+    CollectionTierTooltipTextMerger.MergeLines(
+        new[]
+        {
+            new CollectionTierTooltipText(CardTier.Bronze, "Deal 10 damage"),
+            new CollectionTierTooltipText(CardTier.Gold, "Deal 40 damage"),
+        },
+        keepValuesTogether: true
+    ),
+    "A narrow inspection should move a changing value chain as a whole without blocking prose wrapping."
+);
+
 var retainedA = Guid.NewGuid();
 var removedB = Guid.NewGuid();
 var retainedC = Guid.NewGuid();

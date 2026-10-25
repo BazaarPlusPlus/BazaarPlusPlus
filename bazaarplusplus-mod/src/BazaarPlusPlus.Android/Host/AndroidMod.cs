@@ -192,7 +192,8 @@ public sealed class AndroidMod : MelonMod
                 android,
                 _historyPanel == null ? null : () => _historyPanel?.Open("launcher"),
                 () => _historyPanel?.IsVisible == true,
-                _composition?.LiveBuild
+                _composition?.LiveBuild,
+                _composition?.Supporters
             );
             _touchUi = touchUi;
             var versionCheck = _versionCheck;

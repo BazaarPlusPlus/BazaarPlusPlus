@@ -421,27 +421,27 @@ static void TestSponsorActionText()
 static void TestSponsorLinks()
 {
     AssertEqual(
-        "https://bazaarplusplus.com",
+        "https://bazaarplusplus.com/support",
         BPPSupporterLinks.ResolveSponsorUrl("zh-CN"),
-        "Chinese sponsor URL should use the canonical no-query domain."
+        "Chinese sponsor URL should open the support page without a language query."
     );
     AssertEqual(
-        "https://bazaarplusplus.com",
+        "https://bazaarplusplus.com/support",
         BPPSupporterLinks.ResolveSponsorUrl("zh-Hant"),
-        "Traditional Chinese sponsor URL should use the canonical no-query domain."
+        "Traditional Chinese sponsor URL should open the support page without a language query."
     );
     AssertEqual(
-        "https://bazaarplusplus.com/?lang=en",
+        "https://bazaarplusplus.com/support?lang=en",
         BPPSupporterLinks.ResolveSponsorUrl("en"),
         "English sponsor URL should force the English site."
     );
     AssertEqual(
-        "https://bazaarplusplus.com/?lang=en",
+        "https://bazaarplusplus.com/support?lang=en",
         BPPSupporterLinks.ResolveSponsorUrl("de-DE"),
         "Non-Chinese sponsor URL should force the English site."
     );
     AssertEqual(
-        "https://bazaarplusplus.com/?lang=en",
+        "https://bazaarplusplus.com/support?lang=en",
         BPPSupporterLinks.ResolveSponsorUrl(string.Empty),
         "Unknown language should fall back to English."
     );

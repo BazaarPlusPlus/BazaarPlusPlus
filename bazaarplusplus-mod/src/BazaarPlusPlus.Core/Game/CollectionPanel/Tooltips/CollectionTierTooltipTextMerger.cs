@@ -28,13 +28,52 @@ public static class CollectionTierTooltipTextMerger
     public static string Merge(IReadOnlyList<CollectionTierTooltipText> variants) =>
         Merge(variants, Arrow);
 
+    public static string Merge(
+        IReadOnlyList<CollectionTierTooltipText> variants,
+        bool keepValuesTogether
+    ) => Merge(variants, Arrow, keepValuesTogether);
+
+    /// <summary>Merge each tooltip line separately so a newly unlocked line stays visible.</summary>
+    public static string MergeLines(
+        IReadOnlyList<CollectionTierTooltipText> variants,
+        bool keepValuesTogether = false
+    )
+    {
+        if (variants == null || variants.Count == 0)
+            return string.Empty;
+        var lines = new string[variants.Count][];
+        var count = 0;
+        for (var index = 0; index < variants.Count; index++)
+        {
+            lines[index] = variants[index]
+                .Text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+            count = Math.Max(count, lines[index].Length);
+        }
+        var output = new List<string>(count);
+        for (var line = 0; line < count; line++)
+        {
+            var values = new List<CollectionTierTooltipText>(variants.Count);
+            for (var index = 0; index < variants.Count; index++)
+                if (line < lines[index].Length)
+                    values.Add(
+                        new CollectionTierTooltipText(variants[index].Tier, lines[index][line])
+                    );
+            output.Add(Merge(values, keepValuesTogether));
+        }
+        return string.Join("\n", output);
+    }
+
     public static string MergeCooldown(IReadOnlyList<CollectionTierTooltipText> variants)
     {
         var merged = Merge(variants, CooldownArrow);
         return string.IsNullOrEmpty(merged) ? merged : $"<size=36%>{merged}</size>";
     }
 
-    private static string Merge(IReadOnlyList<CollectionTierTooltipText> variants, string separator)
+    private static string Merge(
+        IReadOnlyList<CollectionTierTooltipText> variants,
+        string separator,
+        bool keepValuesTogether = false
+    )
     {
         if (variants == null || variants.Count == 0)
             return string.Empty;
@@ -81,7 +120,7 @@ public static class CollectionTierTooltipTextMerger
                 return variants[0].Text;
             }
 
-            AppendValue(output, variants, parsed, valueIndex, separator);
+            AppendValue(output, variants, parsed, valueIndex, separator, keepValuesTogether);
             index = end;
         }
 
@@ -93,7 +132,8 @@ public static class CollectionTierTooltipTextMerger
         IReadOnlyList<CollectionTierTooltipText> variants,
         IReadOnlyList<ParsedText> parsed,
         int valueIndex,
-        string separator
+        string separator,
+        bool keepValuesTogether
     )
     {
         var firstValue = parsed[0].Values[valueIndex];
@@ -119,6 +159,8 @@ public static class CollectionTierTooltipTextMerger
             return;
         }
 
+        if (keepValuesTogether)
+            output.Append("<nobr>");
         for (var index = 0; index < variants.Count; index++)
         {
             if (index > 0)
@@ -129,6 +171,8 @@ public static class CollectionTierTooltipTextMerger
             output.Append(parsed[index].Values[valueIndex]);
             output.Append("</color>");
         }
+        if (keepValuesTogether)
+            output.Append("</nobr>");
     }
 
     private static ParsedText Parse(string text)
