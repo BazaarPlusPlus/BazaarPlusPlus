@@ -243,6 +243,7 @@ public sealed class TouchChromeTests
                 $"{name}: {parts[first].Part} overlaps {parts[second].Part}"
             );
 
+        Assert.True(layout.Rail.Right + layout.Gap <= layout.Grid.Left + 0.01f, name);
         var minimum = metrics.MinTarget - 0.01f;
         foreach (var target in new[] { layout.ItemsTab, layout.SkillsTab, layout.Search })
             Assert.True(target.Height >= minimum && target.Width >= minimum, name);
@@ -322,35 +323,6 @@ public sealed class TouchChromeTests
             var columns = layout.GridColumns(CardType.Item, width);
             Assert.True(columns >= previous, $"{width}: columns never drop as the grid widens");
             previous = columns;
-        }
-    }
-
-    [Theory]
-    [MemberData(nameof(Screens))]
-    public void An_inspection_chip_shows_its_label_whole(string name)
-    {
-        var layout = CollectionTouchLayout.For(Metrics(name));
-        var detail = layout.InspectDetailWidth;
-
-        Assert.Equal(CollectionTouchLayout.InspectChipColumns, layout.InspectChipColumnsFor(0f));
-        Assert.Equal(
-            CollectionTouchLayout.InspectChipColumns,
-            layout.InspectChipColumnsFor(float.NaN)
-        );
-        Assert.Equal(1, layout.InspectChipColumnsFor(detail * 2f));
-        var previous = CollectionTouchLayout.InspectChipColumns;
-        for (var chip = 1f; chip <= detail; chip += detail / 64f)
-        {
-            var columns = layout.InspectChipColumnsFor(chip);
-            Assert.InRange(columns, 1, CollectionTouchLayout.InspectChipColumns);
-            Assert.True(columns <= previous, $"{name}: fewer columns as the label widens");
-            previous = columns;
-            // An inner chip, narrowed by a gap, still holds the label.
-            if (columns > 1)
-                Assert.True(
-                    detail / columns - layout.Gap >= chip - 0.01f,
-                    $"{name}: a {chip:0} unit chip in {columns} columns"
-                );
         }
     }
 

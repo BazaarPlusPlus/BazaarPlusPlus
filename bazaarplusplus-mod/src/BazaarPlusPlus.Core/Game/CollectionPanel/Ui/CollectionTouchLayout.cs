@@ -14,24 +14,20 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 /// size on a phone instead of the desktop's fixed ten-column display case. Every target is at
 /// least <see cref="TouchMetrics.MinTargetDp"/> and every text at least
 /// <see cref="TouchMetrics.MinBodySp"/>. The inspection is the shared tap-to-inspect sheet; its
-/// detail is one drag-scrolled column of the tier and enchantment chips (at most
-/// <see cref="InspectChipColumns"/> across, fewer when a label would not fit whole, see
-/// <see cref="InspectChipColumnsFor"/>) over the card's text. The desktop's Collection geometry stays
-/// on <see cref="CollectionGridConstants"/> and is not derived from this one.
+/// detail is one drag-scrolled column of tags, preview values and effects,
+/// and an expandable enchantment effect list. The desktop's Collection geometry stays on
+/// <see cref="CollectionGridConstants"/> and is not derived from this one.
 /// </summary>
 public sealed class CollectionTouchLayout
 {
-    /// <summary>The narrowest a small item's column gets: a 60dp card still reads on a phone.</summary>
-    public const float MinItemColumnDp = 60f;
+    /// <summary>The narrowest a small item's column gets, with room for its name beneath the art.</summary>
+    public const float MinItemColumnDp = 88f;
 
     /// <summary>The narrowest a skill's square gets.</summary>
     public const float MinSkillDp = 88f;
 
     /// <summary>The rail's chip grid; a chip spans two, three, or all six columns.</summary>
     public const int RailColumns = 6;
-
-    /// <summary>The most chips an inspection row holds: the tiers fit one row.</summary>
-    public const int InspectChipColumns = 5;
 
     private const float RailShare = 0.3f;
     private const float RailMinDp = 240f;
@@ -143,24 +139,6 @@ public sealed class CollectionTouchLayout
                 CollectionGridConstants.ItemColumns
             )
         );
-    }
-
-    /// <summary>The inspection detail's content width, inside its text inset.</summary>
-    public float InspectDetailWidth => Math.Max(0f, Inspect.Detail.Width - 2f * Gap);
-
-    /// <summary>
-    /// The inspection's chip columns when its widest chip (label at body size plus the button's
-    /// padding) is <paramref name="widestChip"/> canvas units: as many as
-    /// <see cref="InspectChipColumns"/> allows while every chip shows its label whole, never
-    /// fewer than one. An unmeasured chip keeps the most.
-    /// </summary>
-    public int InspectChipColumnsFor(float widestChip)
-    {
-        if (!(widestChip > 0f) || float.IsInfinity(widestChip))
-            return InspectChipColumns;
-        // An inner chip loses half a gap on each side of its column.
-        var columns = (int)Math.Floor(InspectDetailWidth / (widestChip + Gap));
-        return Math.Clamp(columns, 1, InspectChipColumns);
     }
 
     /// <summary>

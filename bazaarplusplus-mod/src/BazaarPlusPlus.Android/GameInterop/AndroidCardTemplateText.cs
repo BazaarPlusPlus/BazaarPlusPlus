@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Android.GameInterop.CardRental;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -53,6 +54,52 @@ internal static class AndroidCardTemplateText
         Add(lines, Guarded("description", () => tooltip.GetCardDescription().Item1));
         Add(lines, Guarded("effects", () => tooltip.BuildCombinedEffectDescription()));
         return lines.Count == 0 ? Authored(template) : string.Join("\n", lines);
+    }
+
+    /// <summary>Out-of-combat tooltip values at the selected tier and enchantment.</summary>
+    public static (float? Cooldown, float? Ammo) Attributes(CardRentalSubject subject)
+    {
+        var template = Template(subject.TemplateId);
+        var tooltip =
+            template == null ? null : Guarded("tooltip_data", () => TooltipData(template, subject));
+        if (tooltip == null)
+            return (null, null);
+        float? Read(ECardAttributeType attribute)
+        {
+            try
+            {
+                return AndroidGameIds.Unboxed<float>(() =>
+                    tooltip.GetCurrentAttributeValue(attribute)
+                );
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+        return (Read(ECardAttributeType.CooldownMax), Read(ECardAttributeType.AmmoMax));
+    }
+
+    /// <summary>The same enchantment-only effect renderer used by in-game tooltip previews.</summary>
+    public static string? EnchantmentEffect(CardRentalSubject subject, CardEnchantment enchantment)
+    {
+        var template = Template(subject.TemplateId);
+        if (
+            template == null
+            || !AndroidCardFacets.Enchantment.TryToSource(enchantment, out var native)
+        )
+            return null;
+        return Guarded(
+            "enchantment",
+            () =>
+            {
+                var tooltip = TooltipData(template, subject);
+                // Static catalog previews must not inherit the last run's value context.
+                return tooltip == null
+                    ? null
+                    : AndroidEnchantPreview.RenderEffect(tooltip, native, null);
+            }
+        );
     }
 
     private static T? Guarded<T>(string step, Func<T?> render)

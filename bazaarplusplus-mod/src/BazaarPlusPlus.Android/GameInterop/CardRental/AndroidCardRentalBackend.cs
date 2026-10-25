@@ -27,6 +27,7 @@ namespace BazaarPlusPlus.Android.GameInterop.CardRental;
 internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewBase, RectTransform>
 {
     private readonly Dictionary<Guid, TCardBase> _templates = new();
+    private readonly HashSet<int> _fittedSkillMasks = new();
     private Transform? _poolRoot;
     private long _instanceSerial;
 
@@ -162,6 +163,7 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         card.Show(true);
         card.Resize();
         Place(card);
+        FitSkillMask(card);
         Group(card).alpha = 1f;
         return true;
     }
@@ -178,7 +180,46 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         card.transform.SetParent(PoolRoot(), false);
     }
 
-    public void Destroy(CardPreviewBase card) => UnityEngine.Object.Destroy(card.gameObject);
+    public void Destroy(CardPreviewBase card)
+    {
+        _fittedSkillMasks.Remove(card.GetInstanceID());
+        UnityEngine.Object.Destroy(card.gameObject);
+    }
+
+    private void FitSkillMask(CardPreviewBase card)
+    {
+        if (
+            card.TryCast<CardPreviewSkill>() == null
+            || !_fittedSkillMasks.Add(card.GetInstanceID())
+        )
+            return;
+        var image = card._cardImage;
+        foreach (var mask in card.GetComponentsInChildren<Mask>(true))
+        {
+            if (
+                !image.transform.IsChildOf(mask.transform)
+                || card._frameContainer.IsChildOf(mask.transform)
+            )
+                continue;
+            // The Android prefab's circle extends beyond its decorative frame. Clip beneath
+            // the metal rim with its own circular stencil; keep the artwork's size unchanged.
+            // Applied once per native instance, not on every pooled rebind.
+            const float apertureScale = 0.85f;
+            var artSize = image.rectTransform.rect.size;
+            var rect = mask.graphic.rectTransform;
+            rect.SetSizeWithCurrentAnchors(
+                RectTransform.Axis.Horizontal,
+                rect.rect.width * apertureScale
+            );
+            rect.SetSizeWithCurrentAnchors(
+                RectTransform.Axis.Vertical,
+                rect.rect.height * apertureScale
+            );
+            image.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, artSize.x);
+            image.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, artSize.y);
+            mask.showMaskGraphic = false;
+        }
+    }
 
     public bool IsAlive(CardPreviewBase card) => card != null && card.gameObject != null;
 

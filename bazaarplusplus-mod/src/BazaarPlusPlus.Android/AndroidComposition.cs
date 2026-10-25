@@ -2,6 +2,7 @@ using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.LiveBuild;
+using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
@@ -44,9 +45,9 @@ namespace BazaarPlusPlus.Android;
 /// store and its operation gate, History's BazaarDB link client, and History's own Mod API
 /// session (ADR-0006), which outlives the upload pump's per-activation sessions and is disposed
 /// last. It owns the ten-win build catalog, a Remote Embedded Catalog, and the Ten-Win Builds
-/// panel's data over it (<see cref="AndroidLiveBuildData"/>: the recommendation repository and the
-/// supporter list), as the desktop composition does; the touch UI warms that data only while the
-/// panel's setting is on, and the composition stops it and disposes the catalog on stop.
+/// panel's recommendation repository (<see cref="AndroidLiveBuildData"/>), plus the shared
+/// <see cref="AndroidSupporterData"/> used by Collection and Ten-Win Builds. Each loads on demand;
+/// the composition stops them and disposes the build catalog on stop.
 /// </summary>
 internal sealed class AndroidComposition
 {
@@ -61,6 +62,7 @@ internal sealed class AndroidComposition
     private readonly ModApiSession _historySession;
     private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _buildCatalog;
     private readonly AndroidLiveBuildData _liveBuild;
+    private readonly AndroidSupporterData _supporters;
     private readonly BazaarDbLinkClient _accountLink;
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
@@ -186,10 +188,10 @@ internal sealed class AndroidComposition
                 dataRoot,
                 new AndroidDevSettings(settings).BuildCorpusPort.Value
             );
+            _supporters = new AndroidSupporterData(_core.Services.Config, dataRoot);
             _liveBuild = new AndroidLiveBuildData(
                 new BuildRecommendationRepository(buildCatalog, AndroidCardTemplateSize.Resolve),
-                _core.Services.Config,
-                dataRoot
+                _supporters
             );
             _buildCatalog = buildCatalog;
         }
@@ -228,6 +230,8 @@ internal sealed class AndroidComposition
     /// <summary>The Ten-Win Builds panel's data over the composition-owned build catalog.</summary>
     public AndroidLiveBuildData LiveBuild => _liveBuild;
 
+    public AndroidSupporterData Supporters => _supporters;
+
     public IBppEventBus EventBus => _core.Services.EventBus;
 
     public IRunContext RunContext => _core.Services.RunContext;
@@ -262,6 +266,7 @@ internal sealed class AndroidComposition
         _replayMaintenanceFlight = null;
         _core.Stop();
         _liveBuild.Stop();
+        _supporters.Stop();
         _buildCatalog.Dispose();
         _accountLink.Dispose();
         _historySession.Dispose();

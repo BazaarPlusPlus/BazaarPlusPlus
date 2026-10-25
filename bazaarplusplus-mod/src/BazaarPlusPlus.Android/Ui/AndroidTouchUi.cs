@@ -3,6 +3,7 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.LiveBuild;
 using BazaarPlusPlus.Android.Patches;
+using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel;
@@ -42,6 +43,7 @@ internal sealed class AndroidTouchUi
     private readonly Action? _openHistory;
     private readonly Func<bool> _historyVisible;
     private readonly AndroidLiveBuildData? _liveBuildData;
+    private readonly AndroidSupporterData? _supporters;
     private readonly List<GameObject> _entries = new();
 
     private GameObject? _root;
@@ -62,13 +64,15 @@ internal sealed class AndroidTouchUi
         AndroidSettings android,
         Action? openHistory,
         Func<bool> historyVisible,
-        AndroidLiveBuildData? liveBuildData
+        AndroidLiveBuildData? liveBuildData,
+        AndroidSupporterData? supporters
     )
     {
         _android = android ?? throw new ArgumentNullException(nameof(android));
         _openHistory = openHistory;
         _historyVisible = historyVisible ?? throw new ArgumentNullException(nameof(historyVisible));
         _liveBuildData = liveBuildData;
+        _supporters = supporters;
     }
 
     /// <summary>The menu's and the Live Build panel's counters, which a device run checks return to balance.</summary>
@@ -370,7 +374,7 @@ internal sealed class AndroidTouchUi
         Close("collection");
         try
         {
-            _collection ??= new AndroidCollectionPanel(_root.transform, _font);
+            _collection ??= new AndroidCollectionPanel(_root.transform, _font, _supporters);
             _collection.Open();
         }
         catch (Exception exception)

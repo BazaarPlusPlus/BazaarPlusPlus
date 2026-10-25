@@ -179,7 +179,7 @@ internal static class AndroidEnchantPreview
                 continue;
             if (!Allowed(type, restriction))
                 continue;
-            var effect = Render(card, template, itemTemplate, type, enchantment, run);
+            var effect = RenderEffect(tooltipData, type, run);
             if (string.IsNullOrWhiteSpace(effect))
                 continue;
             lines.Add((type.ToString(), Label(type), effect!));
@@ -212,16 +212,23 @@ internal static class AndroidEnchantPreview
 
     // The game's lock-mode preview card: the item at its tier with this enchantment applied,
     // which carries the enchantment's attributes and lets its ability tokens resolve.
-    private static string? Render(
-        Card card,
-        ITCard template,
-        TCardItem itemTemplate,
+    internal static string? RenderEffect(
+        CardTooltipData tooltipData,
         EEnchantmentType type,
-        Il2CppBazaarGameShared.Domain.Cards.Enchantments.TEnchantment enchantment,
         IRun? run
     )
     {
-        var tooltips = enchantment.Localization?.Tooltips;
+        var card = tooltipData.CardInstance;
+        var template = tooltipData.CardTemplate;
+        var itemTemplate = template?.TryCast<TCardItem>();
+        if (
+            card == null
+            || template == null
+            || itemTemplate?.Enchantments == null
+            || !itemTemplate.Enchantments.ContainsKey(type)
+        )
+            return null;
+        var tooltips = itemTemplate.Enchantments[type]?.Localization?.Tooltips;
         if (tooltips == null || tooltips.Count == 0)
             return null;
 
@@ -246,7 +253,7 @@ internal static class AndroidEnchantPreview
             template,
             new ValueContext(run!, preview.TryCast<ICard>())
         );
-        var tooltipData = new CardTooltipData(preview, template, null);
+        var previewTooltip = new CardTooltipData(preview, template, null);
 
         var text = new StringBuilder();
         foreach (var tooltip in tooltips)
@@ -257,7 +264,7 @@ internal static class AndroidEnchantPreview
             var localized = TooltipExtensions.GetLocalizedText(content);
             if (string.IsNullOrWhiteSpace(localized))
                 continue;
-            var rendered = tooltipData.RenderTooltip(TooltipBuilder.Create(context, localized));
+            var rendered = previewTooltip.RenderTooltip(TooltipBuilder.Create(context, localized));
             if (string.IsNullOrWhiteSpace(rendered))
                 continue;
             if (text.Length > 0)
