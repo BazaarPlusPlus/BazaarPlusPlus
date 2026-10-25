@@ -1164,7 +1164,10 @@ mod tests {
     use tempfile::TempDir;
 
     struct CleanupFixture {
-        #[allow(dead_code)]
+        #[expect(
+            dead_code,
+            reason = "owns the temporary directory until the fixture drops"
+        )]
         temp_dir: TempDir,
         data_root: PathBuf,
         database_path: PathBuf,

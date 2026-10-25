@@ -271,12 +271,9 @@ pub(crate) fn remove_dir_with_retry(root: &Path) -> RemovalReport {
         return report;
     }
 
-    let entries = match std::fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(_) => {
-            report.failed.push(root.to_path_buf());
-            return report;
-        }
+    let Ok(entries) = std::fs::read_dir(root) else {
+        report.failed.push(root.to_path_buf());
+        return report;
     };
 
     for entry in entries {

@@ -36,7 +36,10 @@ pub(crate) enum PlacementMethod {
 /// A placement that shares the source's data instead of copying it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LinkKind {
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    #[cfg_attr(
+        not(target_os = "macos"),
+        expect(dead_code, reason = "only macOS clones files")
+    )]
     Clone,
     HardLink,
 }
@@ -156,8 +159,10 @@ mod platform {
         Ok(std::fs::metadata(existing)?.dev().to_string())
     }
 
-    // `fsblkcnt_t` and `c_ulong` are not `u64` on every unix target.
-    #[allow(clippy::unnecessary_cast)]
+    #[expect(
+        clippy::unnecessary_cast,
+        reason = "`fsblkcnt_t` and `c_ulong` are not `u64` on every unix target"
+    )]
     pub(super) fn available_space(existing: &Path) -> io::Result<u64> {
         let path = c_path(existing)?;
         let mut stat = std::mem::MaybeUninit::<libc::statvfs>::zeroed();
@@ -246,7 +251,10 @@ impl<B: PlacementBackend> Placer<B> {
     }
 
     /// Every file and directory this placer created, in creation order.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "only tests inspect created paths")
+    )]
     pub(crate) fn created_paths(&self) -> impl Iterator<Item = &Path> {
         self.created.iter().map(|created| match created {
             Created::File(path) | Created::Directory(path) => path.as_path(),
