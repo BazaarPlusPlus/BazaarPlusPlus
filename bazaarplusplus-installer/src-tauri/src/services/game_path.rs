@@ -98,7 +98,9 @@ pub(crate) fn resolve_game_path_core(
                 GamePathAcceptance::Any => {
                     with_probed_db(game_path, GamePathSource::Fallback, &probe)
                 }
-                GamePathAcceptance::DatabaseExists => unreachable!(),
+                GamePathAcceptance::DatabaseExists => {
+                    unreachable!("the enclosing branch excludes DatabaseExists")
+                }
             });
         }
     }
@@ -173,6 +175,7 @@ pub(crate) fn fallback_game_candidates() -> Vec<PathBuf> {
         // Only probe drive letters that actually exist. The previous
         // unconditional C..=Z scan issued ~48 `stat`s, and probing a
         // disconnected/removable drive can stall for seconds on Windows.
+        // SAFETY: GetLogicalDrives takes no arguments and only returns a bitmask.
         let present = present_drive_letters(unsafe { GetLogicalDrives() });
         for drive in present.into_iter().filter(|letter| *letter >= 'C') {
             for root in ["Steam", "SteamLibrary"] {
@@ -200,7 +203,10 @@ fn push_unique(paths: &mut Vec<PathBuf>, path: PathBuf) {
 /// Parse the bitmask returned by `GetLogicalDrives` (bit 0 = `A:`, ...,
 /// bit 25 = `Z:`) into the drive letters that currently exist. Kept pure so
 /// the bit math is unit-testable without the Win32 call.
-#[cfg_attr(not(any(target_os = "windows", test)), allow(dead_code))]
+#[cfg_attr(
+    not(any(target_os = "windows", test)),
+    expect(dead_code, reason = "only Windows probes drive letters")
+)]
 fn present_drive_letters(bitmask: u32) -> Vec<char> {
     ('A'..='Z')
         .enumerate()

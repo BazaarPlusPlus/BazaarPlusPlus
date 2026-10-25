@@ -3,6 +3,11 @@
 //! column set, and the seed rows and Data Root sample must agree with each other.
 //! README.md beside the fixtures records where each one came from.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "a failed fixture setup step fails the test"
+)]
+
 use std::path::{Path, PathBuf};
 
 use rusqlite::Connection;

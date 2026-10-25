@@ -5,6 +5,11 @@
 //! `BPP_UPDATE_GOLDENS=1` rewrites the goldens. Failure modes that need an
 //! injected game probe or volume run in `src/v5_import/tests_e2e.rs`.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "a failed fixture setup step fails the test"
+)]
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 

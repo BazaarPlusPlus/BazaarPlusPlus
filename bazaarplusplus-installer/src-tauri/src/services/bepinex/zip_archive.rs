@@ -55,7 +55,7 @@ pub(super) fn extract_zip(
 
     for index in 0..archive.len() {
         let mut file = archive.by_index(index).map_err(|err| err.to_string())?;
-        let Some(relative_path) = file.enclosed_name().map(|path| path.to_path_buf()) else {
+        let Some(relative_path) = file.enclosed_name() else {
             return Err(format!(
                 "Zip entry has unsafe path: {}",
                 String::from_utf8_lossy(file.name_raw())
