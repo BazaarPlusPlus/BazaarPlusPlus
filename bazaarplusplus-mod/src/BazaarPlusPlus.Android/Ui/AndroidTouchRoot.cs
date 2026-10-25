@@ -6,7 +6,7 @@ using UnityEngine;
 namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
-/// The host's one managed <c>MonoBehaviour</c>, registered with the IL2CPP runtime through
+/// The touch UI's managed <c>MonoBehaviour</c>, registered with the IL2CPP runtime through
 /// <see cref="ClassInjector"/> and mounted on the touch UI's root. Unity calls its
 /// <c>Update</c> every frame while the root lives, which drives the touch UI; destroying the root
 /// ends that.
