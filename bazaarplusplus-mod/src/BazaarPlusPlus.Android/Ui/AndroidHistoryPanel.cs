@@ -7,6 +7,7 @@ using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.RunContext;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
@@ -34,7 +35,9 @@ namespace BazaarPlusPlus.Android.Ui;
 /// <c>[Android] HistoryPanel</c> switching off (from the settings row or the More dialog's own
 /// switch); the close button and a replay start request a close. Every other scene change returns
 /// its cards, since the rental destroys them, and renders them again on the next frame. A new
-/// screen size lays the view out again and keeps an open note's draft. A replay started from it
+/// screen size lays the view out again and keeps an open note's draft; the view's lifetime is
+/// Core's <see cref="TouchViewSlot{TView}"/>, so a view that fails to build leaves the panel
+/// closed, and the next open builds again. A replay started from it
 /// reopens it with the selection kept once the replay session is over and the lobby is the active
 /// scene, unless the panel was closed or switched off meanwhile. The Record action is not offered:
 /// the host records no video. Every entry point runs inside the main-thread pump's scope, so the
@@ -58,7 +61,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private readonly AndroidHistoryBoard _upper;
     private readonly AndroidHistoryBoard _lower;
     private readonly AndroidPanelHandle _handle;
-    private AndroidHistoryPanelView? _view;
+    private readonly TouchViewSlot<AndroidHistoryPanelView> _slot;
     private AndroidHistoryInspection? _inspection;
     private AndroidHistorySkillsSheet? _skills;
     private AndroidHistoryMoreDialog? _more;
@@ -92,6 +95,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         _enabled = enabled ?? throw new ArgumentNullException(nameof(enabled));
         _supporters = supporters;
         _runContext = dependencies.RunContext;
+        _slot = new TouchViewSlot<AndroidHistoryPanelView>(DropView);
         _upper = new AndroidHistoryBoard("history.upper", card => Inspect(card, false, "upper"));
         _lower = new AndroidHistoryBoard("history.lower", card => Inspect(card, false, "lower"));
         _coordinator = new HistoryPanelCoordinator(
@@ -135,7 +139,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
 
     public long Opened => Interlocked.Read(ref _opened);
 
-    public int ViewRoots => _view?.RootCount ?? 0;
+    public int ViewRoots => View?.RootCount ?? 0;
 
     /// <summary>Cards History holds from the rental: both boards, the skills sheet, the inspection.</summary>
     public int Leases =>
@@ -183,7 +187,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 _coordinator.TickHidden();
                 return;
             }
-            if (_view != null && _view.ScreenKey != AndroidTouchScreen.Key() && !Relayout())
+            // A visible panel with no view, its last build failed, builds again or closes.
+            if (!_slot.IsCurrent(AndroidTouchScreen.Key()) && !Relayout())
             {
                 _handle.RequestClose("relayout_failed");
                 return;
@@ -197,7 +202,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
             var facts = (PlayerStatus, OpponentStatus);
             if (facts != _shownFacts)
                 RefreshBoardMessages();
-            _view?.Tick();
+            View?.Tick();
             _note?.Tick();
         }
         catch (Exception exception)
@@ -255,10 +260,10 @@ internal sealed class AndroidHistoryPanel : IDisposable
         IsVisible = false;
         _coordinator.Dispose();
         ReturnCards("disposed");
-        _note?.Dispose();
-        _view?.Dispose();
-        _view = null;
+        _slot.Drop();
     }
+
+    private AndroidHistoryPanelView? View => _slot.View;
 
     private HistoryBoardFacts PlayerStatus => _shownBoth ? _lower.Facts() : _upper.Facts();
 
@@ -280,7 +285,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         IsVisible = true;
         Interlocked.Increment(ref _opened);
         var resumeSelection = _coordinator.OnPanelShown();
-        _view!.SetVisible(true);
+        View!.SetVisible(true);
         RefreshUi();
         RefreshBoards();
         BppLog.InfoEvent(
@@ -290,7 +295,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
             ("section", _state.SectionMode),
             ("template_index", _templates.Count),
             ("record_visible", _model?.RecordAndReplayButtonVisible ?? false),
-            ("screen", _view.ScreenKey)
+            ("screen", _slot.ScreenKey)
         );
         return true;
     }
@@ -306,7 +311,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         IsVisible = false;
         _coordinator.OnPanelHidden();
         var returned = ReturnCards(reason);
-        _view?.SetVisible(false);
+        View?.SetVisible(false);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.closed"),
             ("reason", reason),
@@ -349,25 +354,38 @@ internal sealed class AndroidHistoryPanel : IDisposable
         return returned;
     }
 
+    // The view for the current screen, built when the screen changed or the last build failed.
+    // False when none could be built: no font yet, or the build threw (LayoutFailed).
     private bool EnsureView()
     {
-        if (
-            _view != null
-            && !AndroidHistoryUi.Skin.NeedsRefresh
-            && _view.ScreenKey == AndroidTouchScreen.Key()
-        )
+        var key = AndroidTouchScreen.Key();
+        if (_slot.IsCurrent(key) && !AndroidHistoryUi.Skin.NeedsRefresh)
             return true;
-        if (_view != null)
-            DropView();
         var font = _font();
         if (font == null)
         {
+            _slot.Drop();
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.history.open_skipped"),
                 ("reason_code", "font_unavailable")
             );
             return false;
         }
+        var before = _slot.ScreenKey;
+        var visible = IsVisible;
+        // Rebuild, not Ensure: a stale skin rebuilds the view for the same screen.
+        return _slot.Rebuild(
+                key,
+                () => BuildView(font),
+                exception => LayoutFailed(exception, before, key, visible)
+            ) != null;
+    }
+
+    // The view and the overlays laid over it. The view destroys its own canvas when it throws; a
+    // throw after it disposes it, and with it every overlay under its surface. The overlay fields
+    // are set only once every overlay is built.
+    private AndroidHistoryPanelView BuildView(TMP_FontAsset font)
+    {
         var view = new AndroidHistoryPanelView(
             font,
             new AndroidHistoryPanelView.ViewActions(
@@ -385,64 +403,93 @@ internal sealed class AndroidHistoryPanel : IDisposable
             ),
             _supporters
         );
-        _view = view;
-        var layout = view.Layout;
-        _upper.Attach(view.UpperBoard, layout);
-        _lower.Attach(view.LowerBoard, layout);
-        // Later siblings draw over the sheet and its rented cards.
-        _skills = new AndroidHistorySkillsSheet(
-            view.Surface,
-            font,
-            layout,
-            card => Inspect(card, true, "skills")
-        );
-        _inspection = new AndroidHistoryInspection(view.Surface, font, layout);
-        _more = new AndroidHistoryMoreDialog(
-            view.Surface,
-            font,
-            layout,
-            new AndroidHistoryMoreDialog.Actions(
-                () => _ = _coordinator.TryCheckServerHealthAsync(),
-                _coordinator.ToggleAccountLinkForm,
-                code => _ = _coordinator.TryRedeemBazaarDbAccountAsync(code),
-                _coordinator.MarkAccountLinkedManually,
-                TurnOff
-            )
-        );
-        _note = new AndroidHistoryNoteDialog(
-            view.Surface,
-            font,
-            layout,
-            _coordinator.TrySaveFavoriteNoteAsync
-        );
-        _coordinator.PrewarmRecordingAvailability();
-        return true;
+        AndroidHistoryNoteDialog? note = null;
+        try
+        {
+            var layout = view.Layout;
+            _upper.Attach(view.UpperBoard, layout);
+            _lower.Attach(view.LowerBoard, layout);
+            // Later siblings draw over the sheet and its rented cards.
+            var skills = new AndroidHistorySkillsSheet(
+                view.Surface,
+                font,
+                layout,
+                card => Inspect(card, true, "skills")
+            );
+            var inspection = new AndroidHistoryInspection(view.Surface, font, layout);
+            var more = new AndroidHistoryMoreDialog(
+                view.Surface,
+                font,
+                layout,
+                new AndroidHistoryMoreDialog.Actions(
+                    () => _ = _coordinator.TryCheckServerHealthAsync(),
+                    _coordinator.ToggleAccountLinkForm,
+                    code => _ = _coordinator.TryRedeemBazaarDbAccountAsync(code),
+                    _coordinator.MarkAccountLinkedManually,
+                    TurnOff
+                )
+            );
+            note = new AndroidHistoryNoteDialog(
+                view.Surface,
+                font,
+                layout,
+                _coordinator.TrySaveFavoriteNoteAsync
+            );
+            _coordinator.PrewarmRecordingAvailability();
+            _skills = skills;
+            _inspection = inspection;
+            _more = more;
+            _note = note;
+        }
+        catch
+        {
+            note?.Dispose();
+            view.Dispose();
+            throw;
+        }
+        return view;
     }
 
     // The overlays live under the view, so they go with it.
-    private void DropView()
+    private void DropView(AndroidHistoryPanelView view)
     {
         ReturnCards("relayout");
         _note?.Dispose();
-        _view?.Dispose();
-        _view = null;
+        view.Dispose();
         _skills = null;
         _inspection = null;
         _more = null;
         _note = null;
     }
 
+    // The build threw: the slot holds no view, the old view's cards already returned. An open
+    // panel's tick then requests the close, and the next open builds again.
+    private static void LayoutFailed(
+        Exception exception,
+        string before,
+        string key,
+        bool visible
+    ) =>
+        BppLog.ErrorEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.history.layout_failed"),
+            exception,
+            ("from", before),
+            ("to", key),
+            ("visible", visible),
+            ("rental_leases", AndroidCardRental.ActiveLeases)
+        );
+
     // The new view reopens an open note on its draft; the other overlays close. False when no view
     // could be built: the tick then requests the close.
     private bool Relayout()
     {
-        var from = _view?.ScreenKey;
+        var from = _slot.ScreenKey;
         var draft = _note?.Draft;
-        DropView();
         if (!EnsureView())
             return false;
         _relayouts++;
-        _view!.SetVisible(true);
+        var view = View!;
+        view.SetVisible(true);
         RefreshUi();
         RefreshBoards();
         if (draft is { } kept)
@@ -450,7 +497,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.relayout"),
             ("from", from),
-            ("to", _view.ScreenKey),
+            ("to", _slot.ScreenKey),
             ("note_draft_kept", draft != null && _note?.IsOpen == true),
             ("note_length", draft?.Text.Length ?? 0),
             ("rental_leases", AndroidCardRental.ActiveLeases)
@@ -463,7 +510,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
 
     private void RefreshUi()
     {
-        if (_view == null || _disposed)
+        if (View is not { } view || _disposed)
             return;
         var model = HistoryPanelViewModelBuilder.Build(
             _state,
@@ -476,7 +523,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
             OpponentStatus
         );
         _model = model;
-        _view.Refresh(model);
+        view.Refresh(model);
         _more?.Refresh(model);
         _note?.Refresh(model);
         RefreshBoardMessages();
@@ -484,7 +531,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
 
     private void RefreshBoards()
     {
-        if (!IsVisible || _view == null)
+        if (!IsVisible || View is not { } view)
             return;
         var battle = ActiveSelectedBattle;
         var snapshots =
@@ -539,7 +586,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 ("rental_leases", AndroidCardRental.ActiveLeases)
             );
         }
-        _view.SetSkillsAvailable(snapshots != null);
+        view.SetSkillsAvailable(snapshots != null);
         RefreshBoardMessages();
     }
 
@@ -547,7 +594,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     // RefreshNativeHistoryMessages does.
     private void RefreshBoardMessages()
     {
-        if (_view == null)
+        if (View is not { } view)
             return;
         var player = PlayerStatus;
         var opponent = OpponentStatus;
@@ -559,9 +606,9 @@ internal sealed class AndroidHistoryPanel : IDisposable
             opponent
         );
         if (_shownBoth)
-            _view.SetBoardStatus(status.OpponentBoardMessage, status.PlayerBoardMessage);
+            view.SetBoardStatus(status.OpponentBoardMessage, status.PlayerBoardMessage);
         else
-            _view.SetBoardStatus(status.PlayerBoardMessage, string.Empty);
+            view.SetBoardStatus(status.PlayerBoardMessage, string.Empty);
     }
 
     private void Inspect(BppItemBoardCard card, bool skill, string source) =>

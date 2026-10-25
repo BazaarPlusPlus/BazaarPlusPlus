@@ -27,8 +27,9 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 /// <see cref="AndroidMainThread"/> before <see cref="LiveBuildPanelState.CompleteRefresh"/> runs,
 /// as the state requires. The view is laid out for the screen it opened on and laid out again
 /// when the resolution, density, or safe area changes, once the new screen has held still
-/// (<see cref="TouchRelayoutDebounce"/>) and no card is still setting up; a view that fails to
-/// build leaves the panel closed, and the next open builds again. A card returned while
+/// (<see cref="TouchRelayoutDebounce"/>) and no card is still setting up; the view's lifetime is
+/// Core's <see cref="TouchViewSlot{TView}"/>, so a view that fails to build leaves the panel
+/// closed, and the next open builds again. A card returned while
 /// it sets up leaves the old view at once (<see cref="CardRentalCore{TCard, TParent}"/>), so
 /// destroying the view never takes one.
 /// </summary>
@@ -41,8 +42,7 @@ internal sealed class AndroidLiveBuildPanel
     private readonly LiveBuildPanelState _state;
     private readonly AndroidLiveBuildData _data;
     private readonly Commands _commands;
-    private AndroidLiveBuildView? _view;
-    private string _screenKey = string.Empty;
+    private readonly TouchViewSlot<AndroidLiveBuildView> _slot = new(view => view.Destroy());
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private float _loggedScroll;
     private BppItemBoardId _selectedBoard = BppItemBoardId.LiveBoard;
@@ -85,7 +85,7 @@ internal sealed class AndroidLiveBuildPanel
         Action CycleBoard
     );
 
-    public bool IsOpen => _view?.IsVisible == true;
+    public bool IsOpen => _slot.View?.IsVisible == true;
 
     public long Opened { get; private set; }
 
@@ -98,7 +98,7 @@ internal sealed class AndroidLiveBuildPanel
     public long Relayouts { get; private set; }
 
     /// <summary>Cards the panel's boards and inspection hold.</summary>
-    public int Leases => _view?.Leases ?? 0;
+    public int Leases => _slot.View?.Leases ?? 0;
 
     /// <summary>False when no view could be built: the panel stays closed.</summary>
     public bool Open(string source)
@@ -135,7 +135,7 @@ internal sealed class AndroidLiveBuildPanel
             ("matches_state", snapshot.MatchesState),
             ("corpus_state", snapshot.CorpusState),
             ("supporters", snapshot.Supporters.Count),
-            ("screen", _screenKey),
+            ("screen", _slot.ScreenKey),
             ("units_per_dp", Math.Round(layout.Metrics.UnitsPerDp, 3)),
             ("card_scale", Math.Round(layout.CardScale, 3)),
             ("leases", view.Leases)
@@ -146,7 +146,7 @@ internal sealed class AndroidLiveBuildPanel
     /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
-        var view = _view;
+        var view = _slot.View;
         if (view == null || !view.IsVisible)
             return false;
         var returned = view.ReturnAll(reason);
@@ -164,14 +164,14 @@ internal sealed class AndroidLiveBuildPanel
     }
 
     /// <summary>A card is inspected: the back key closes it before the panel.</summary>
-    public bool IsInspecting => IsOpen && _view!.Inspection.IsOpen;
+    public bool IsInspecting => IsOpen && _slot.View!.Inspection.IsOpen;
 
-    public void CloseInspection() => _view?.Inspection.Close("back_key");
+    public void CloseInspection() => _slot.View?.Inspection.Close("back_key");
 
     /// <summary>Main thread, every frame.</summary>
     public void Tick()
     {
-        var view = _view;
+        var view = _slot.View;
         if (view == null || !view.IsVisible)
             return;
         if (_relayout.Observe(AndroidTouchScreen.Key(), view.SettingUp))
@@ -199,58 +199,57 @@ internal sealed class AndroidLiveBuildPanel
     {
         Close("disposed");
         _state.Destroy();
-        _view?.Destroy();
-        _view = null;
+        _slot.Drop();
     }
 
-    // A view that fails to build leaves no view, never the destroyed one, and records no screen:
-    // the panel reads closed, the old view's cards already returned, and the next Open builds again.
+    // The view for the current screen, built when the screen changed or the last build failed.
     private AndroidLiveBuildView? EnsureView()
     {
         var key = AndroidTouchScreen.Key();
-        if (
-            _view != null
-            && !_view.NeedsSkinRefresh
-            && string.Equals(key, _screenKey, StringComparison.Ordinal)
-        )
-            return _view;
-        var before = _screenKey;
+        if (_slot.IsCurrent(key) && !_slot.View!.NeedsSkinRefresh)
+            return _slot.View;
+        var before = _slot.ScreenKey;
         var open = IsOpen;
-        _view?.Destroy();
-        _view = null;
-        _screenKey = string.Empty;
-        try
+        var view = _slot.Rebuild(
+            key,
+            () =>
+                new AndroidLiveBuildView(
+                    _parent,
+                    _font,
+                    LiveBuildTouchLayout.For(AndroidTouchScreen.Read()),
+                    _commands
+                ),
+            exception => LayoutFailed(exception, before, key, open)
+        );
+        if (view != null)
+            _relayout.LaidOutAt(key);
+        return view;
+    }
+
+    // The build threw: the slot holds no view, the old view's cards already returned, and the
+    // next Open builds again. An open panel's state ends with it.
+    private void LayoutFailed(Exception exception, string before, string key, bool open)
+    {
+        if (open)
         {
-            var layout = LiveBuildTouchLayout.For(AndroidTouchScreen.Read());
-            _view = new AndroidLiveBuildView(_parent, _font, layout, _commands);
+            _state.Close();
+            Closed++;
         }
-        catch (Exception exception)
-        {
-            if (open)
-            {
-                _state.Close();
-                Closed++;
-            }
-            BppLog.ErrorEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.layout_failed"),
-                exception,
-                ("from", before),
-                ("to", key),
-                ("open", open),
-                ("rental_leases", AndroidCardRental.ActiveLeases)
-            );
-            return null;
-        }
-        _screenKey = key;
-        _relayout.LaidOutAt(key);
-        return _view;
+        BppLog.ErrorEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.layout_failed"),
+            exception,
+            ("from", before),
+            ("to", key),
+            ("open", open),
+            ("rental_leases", AndroidCardRental.ActiveLeases)
+        );
     }
 
     // The screen changed under the open panel: the old view returns its cards, and a view laid out
     // for the new screen renders the same state. False when no view could be built.
     private bool Relayout()
     {
-        var before = _screenKey;
+        var before = _slot.ScreenKey;
         var view = EnsureView();
         if (view == null)
             return false;
@@ -260,7 +259,7 @@ internal sealed class AndroidLiveBuildPanel
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.relayout"),
             ("from", before),
-            ("to", _screenKey),
+            ("to", _slot.ScreenKey),
             ("units_per_dp", Math.Round(view.Layout.Metrics.UnitsPerDp, 3)),
             ("card_scale", Math.Round(view.Layout.CardScale, 3)),
             ("rental_leases", AndroidCardRental.ActiveLeases),
@@ -277,7 +276,7 @@ internal sealed class AndroidLiveBuildPanel
             BppItemBoardId.LiveStash => BppItemBoardId.LiveShop,
             _ => BppItemBoardId.LiveBoard,
         };
-        _view?.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
+        _slot.View?.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.board_selected"),
             ("board", _selectedBoard),
@@ -290,7 +289,7 @@ internal sealed class AndroidLiveBuildPanel
         if (!_state.ToggleCandidate(templateId))
             return;
         var snapshot = _state.BuildSnapshot();
-        _view?.Refresh(snapshot, boards: true, _selectedBoard);
+        _slot.View?.Refresh(snapshot, boards: true, _selectedBoard);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.candidate_toggled"),
             ("candidates", snapshot.CandidateTemplateIds.Count),
@@ -305,7 +304,7 @@ internal sealed class AndroidLiveBuildPanel
         if (!(step < 0 ? _state.Previous() : _state.Next()))
             return;
         var snapshot = _state.BuildSnapshot();
-        _view?.Refresh(snapshot, boards: true, _selectedBoard);
+        _slot.View?.Refresh(snapshot, boards: true, _selectedBoard);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.browsed"),
             ("index", snapshot.RecommendationIndex),
@@ -319,7 +318,7 @@ internal sealed class AndroidLiveBuildPanel
         if (request == LiveBuildRefreshRequest.Ignore)
             return;
         Refreshes++;
-        _view?.Refresh(_state.BuildSnapshot(), boards: false, _selectedBoard);
+        _slot.View?.Refresh(_state.BuildSnapshot(), boards: false, _selectedBoard);
         _ = RefreshAsync(_state, request, Guid.NewGuid());
     }
 
@@ -362,10 +361,10 @@ internal sealed class AndroidLiveBuildPanel
         switch (effect)
         {
             case LiveBuildRefreshEffect.Recommendations:
-                _view!.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
+                _slot.View!.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
                 break;
             case LiveBuildRefreshEffect.Status:
-                _view!.Refresh(_state.BuildSnapshot(), boards: false, _selectedBoard);
+                _slot.View!.Refresh(_state.BuildSnapshot(), boards: false, _selectedBoard);
                 break;
         }
     }

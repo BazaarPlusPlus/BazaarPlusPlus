@@ -17,7 +17,7 @@ The conventions themselves are in [android-mobile-ui.md](../architecture/android
 
 ## Relationship to ADR-0003
 
-ADR-0003 rejects a unification that only looks tidier. This one is not about appearance. The surfaces share a behaviour: each one is a full sheet on the same canvas, in the same safe area, held to the same target and text floors, and closed the same way. Issue #425 asks for that sameness. The shared part is geometry; each panel keeps its own state and rendering, and History keeps its own palette. Amended 2026-10-25: this replaces "The shared part is geometry only. Each panel keeps its own state, lifecycle and rendering." Lifecycle is now shared too, through the Overlay Panel Host, because the two hosts had diverged on rules a player sees; ADR-0022 holds that evidence.
+ADR-0003 rejects a unification that only looks tidier. This one is not about appearance. The surfaces share a behaviour: each one is a full sheet on the same canvas, in the same safe area, held to the same target and text floors, and closed the same way. Issue #425 asks for that sameness. The shared part is geometry; each panel keeps its own state and rendering, and History keeps its own palette. Amended 2026-10-25: this replaces "The shared part is geometry only. Each panel keeps its own state, lifecycle and rendering." Lifecycle is now shared too, through the Overlay Panel Host, because the two hosts had diverged on rules a player sees; ADR-0022 holds that evidence. Amended 2026-10-25 again: the screen-keyed view lifetime is shared as well, in Core's `TouchViewSlot`. The old view is forgotten and dropped before the new one builds, the key is recorded only on success, and a failed build leaves no view, so the panel reads closed and the next open builds again. The per-panel copies diverged on that correctness rule, not on appearance: Collection (#454) and Ten-Win Builds (#455) were each fixed by hand, and History still left its canvas and a visible panel without a view (#452). Each panel keeps its own state, rendering and failure recovery; only Ten-Win Builds debounces.
 
 ## Consequences
 
@@ -28,5 +28,5 @@ ADR-0003 rejects a unification that only looks tidier. This one is not about app
 
 - Core: `src/BazaarPlusPlus.Core/Ui/TouchChrome.cs`, `src/BazaarPlusPlus.Core/Game/CollectionPanel/Ui/CollectionTouchLayout.cs`, `CollectionGridLayout.Build` in `src/BazaarPlusPlus.Core/Game/CollectionPanel/Grid/CollectionGridLayout.cs`
 - Host: `src/BazaarPlusPlus.Android/Ui/AndroidUiKit.cs`, `src/BazaarPlusPlus.Android/Ui/AndroidScrollTracker.cs`, `src/BazaarPlusPlus.Android/Collection/`
-- Tests: `tests/SettingsDockCore.Tests/TouchChromeTests.cs`, `tests/CollectionGridLayout.Tests/`, `tests/HistoryPanelDecisions.Tests/HistoryTouchLayoutTests.cs`, `tests/LiveBuildPanel.Tests/`
+- Tests: `tests/SettingsDockCore.Tests/TouchChromeTests.cs`, `tests/SettingsDockCore.Tests/TouchViewSlotTests.cs`, `tests/AndroidHost.Tests/AndroidTouchViewBuildGuardTests.cs`, `tests/CollectionGridLayout.Tests/`, `tests/HistoryPanelDecisions.Tests/HistoryTouchLayoutTests.cs`, `tests/LiveBuildPanel.Tests/`
 - Device evidence: `artifacts/android/425-mobile-fit/`

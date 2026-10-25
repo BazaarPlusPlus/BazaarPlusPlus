@@ -19,15 +19,17 @@ namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
 /// The Android twin of the desktop's <c>HistoryPanelView</c>, a full-screen sheet laid out from
-/// Core's <see cref="HistoryTouchLayout"/> for the screen it was built on
-/// (<see cref="ScreenKey"/>) and bound from Core's <see cref="HistoryPanelViewModel"/>. The header
+/// Core's <see cref="HistoryTouchLayout"/> for the screen it was built on and bound from
+/// Core's <see cref="HistoryPanelViewModel"/>. The header
 /// holds the section tabs, the supporter action, More, and Close; the archive list, the run's
 /// battle rail (in Ghost, the cloud note in its place), and the detail column with the two board regions and the action row (delete, favorite, skills, replay) stand under it.
 /// Lists drag-scroll with inertia; each finished gesture logs <c>android.history.scrolled</c>.
 /// Hero portraits share the Collection framing; rank and trophy details render as text;
 /// the two BPP badge atlases ship in the assembly. The panel rents the native boards into
 /// <see cref="UpperBoard"/> and <see cref="LowerBoard"/> and lays its overlays over
-/// <see cref="Surface"/>; a new screen size builds a new view.
+/// <see cref="Surface"/>; a new screen size builds a new view. A view that throws while it builds
+/// destroys its canvas, active and kept across scenes until its last lines, before the exception
+/// leaves.
 /// </summary>
 internal sealed class AndroidHistoryPanelView : IDisposable
 {
@@ -85,25 +87,34 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _supporters = supporters;
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
-        ScreenKey = AndroidTouchScreen.Key();
+        var screen = AndroidTouchScreen.Key();
         _l = HistoryTouchLayout.For(AndroidTouchScreen.Read());
         _badges = AndroidHistoryBadges.TryLoad();
         _root = AndroidUiKit.CreateOverlayCanvas("BPP.HistoryPanel", SortingOrder);
-        Surface = AndroidUiKit.Rect(
-            "Layout",
-            _root.transform,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
-        AndroidHistoryUi.RefreshSkin();
-        Build();
-        _root.SetActive(false);
+        try
+        {
+            Surface = AndroidUiKit.Rect(
+                "Layout",
+                _root.transform,
+                Vector2.zero,
+                Vector2.one,
+                Vector2.zero,
+                Vector2.zero
+            );
+            AndroidHistoryUi.RefreshSkin();
+            Build();
+            _root.SetActive(false);
+        }
+        catch
+        {
+            UnityEngine.Object.Destroy(_root);
+            _badges?.Dispose();
+            throw;
+        }
         var dp = _l.Metrics.UnitsPerDp;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.view_created"),
-            ("screen", ScreenKey),
+            ("screen", screen),
             ("canvas_width", Math.Round(_l.Metrics.CanvasWidth)),
             ("units_per_dp", Math.Round(dp, 3)),
             ("socket_dp", Math.Round(_l.SocketWidth / dp, 1)),
@@ -114,9 +125,6 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             ("badges", _badges != null)
         );
     }
-
-    /// <summary>The screen the view was laid out for (<see cref="AndroidTouchScreen.Key"/>).</summary>
-    public string ScreenKey { get; }
 
     public HistoryTouchLayout Layout => _l;
 
