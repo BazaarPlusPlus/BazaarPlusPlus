@@ -50,9 +50,18 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         return _innerStore.CreateRun(request);
     }
 
+    // Queued like events: the only reader of runs.player_account_id is the seal, which waits for
+    // status 'completed', and CompleteRun drains this queue before it writes that status.
     public void SetPlayerAccountIdOnce(string runId, string? playerAccountId)
     {
-        _innerStore.SetPlayerAccountIdOnce(runId, playerAccountId);
+        if (string.IsNullOrWhiteSpace(playerAccountId))
+            return;
+
+        EnqueueWrite(
+            RunLogStoreWriteOperation.SetPlayerAccountId,
+            runId,
+            () => _innerStore.SetPlayerAccountIdOnce(runId, playerAccountId)
+        );
     }
 
     public void AppendEvent(string runId, RunLogEvent entry)
