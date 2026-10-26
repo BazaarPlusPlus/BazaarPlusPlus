@@ -1,6 +1,4 @@
 #nullable enable
-using System.Security.Cryptography;
-
 namespace BazaarPlusPlus.Infrastructure;
 
 public delegate bool TryDeserialize<T>(
@@ -25,36 +23,29 @@ public sealed class FileBackedPayloadLoadResult<T>
     private FileBackedPayloadLoadResult(
         FileBackedPayloadLoadStatus status,
         T? payload,
-        string? fingerprint,
         Exception? exception
     )
     {
         Status = status;
         Payload = payload;
-        Fingerprint = fingerprint;
         Exception = exception;
     }
 
     public FileBackedPayloadLoadStatus Status { get; }
     public T? Payload { get; }
-    public string? Fingerprint { get; }
     public Exception? Exception { get; }
 
     public static FileBackedPayloadLoadResult<T> Missing() =>
-        new(FileBackedPayloadLoadStatus.Missing, null, null, null);
+        new(FileBackedPayloadLoadStatus.Missing, null, null);
 
-    public static FileBackedPayloadLoadResult<T> Loaded(T? payload, string fingerprint) =>
-        new(FileBackedPayloadLoadStatus.Loaded, payload, fingerprint, null);
+    public static FileBackedPayloadLoadResult<T> Loaded(T? payload) =>
+        new(FileBackedPayloadLoadStatus.Loaded, payload, null);
 
-    public static FileBackedPayloadLoadResult<T> Invalid(
-        string fingerprint,
-        Exception? exception = null
-    ) => new(FileBackedPayloadLoadStatus.Invalid, null, fingerprint, exception);
+    public static FileBackedPayloadLoadResult<T> Invalid(Exception? exception = null) =>
+        new(FileBackedPayloadLoadStatus.Invalid, null, exception);
 
-    public static FileBackedPayloadLoadResult<T> Unreadable(
-        string fingerprint,
-        Exception exception
-    ) => new(FileBackedPayloadLoadStatus.Unreadable, null, fingerprint, exception);
+    public static FileBackedPayloadLoadResult<T> Unreadable(Exception exception) =>
+        new(FileBackedPayloadLoadStatus.Unreadable, null, exception);
 }
 
 public sealed class FileBackedPayloadStore<T>
@@ -141,20 +132,15 @@ public sealed class FileBackedPayloadStore<T>
         }
         catch (Exception ex)
         {
-            return FileBackedPayloadLoadResult<T>.Unreadable(
-                FingerprintUnreadableFile(filePath),
-                ex
-            );
+            return FileBackedPayloadLoadResult<T>.Unreadable(ex);
         }
 
-        var fingerprint = Fingerprint(payloadBytes);
         try
         {
             if (_tryDeserialize(payloadBytes, out var payload, out var reason, out var exception))
-                return FileBackedPayloadLoadResult<T>.Loaded(payload, fingerprint);
+                return FileBackedPayloadLoadResult<T>.Loaded(payload);
 
             return FileBackedPayloadLoadResult<T>.Invalid(
-                fingerprint,
                 reason == "payload_too_large"
                     ? new InvalidDataException("Ghost payload exceeds the decompressed size limit.")
                     : exception
@@ -162,7 +148,7 @@ public sealed class FileBackedPayloadStore<T>
         }
         catch (Exception ex)
         {
-            return FileBackedPayloadLoadResult<T>.Invalid(fingerprint, ex);
+            return FileBackedPayloadLoadResult<T>.Invalid(ex);
         }
     }
 
@@ -201,27 +187,5 @@ public sealed class FileBackedPayloadStore<T>
     private string GetFilePath(string battleId)
     {
         return Path.Combine(_rootPath, $"{battleId}{_fileSuffix}");
-    }
-
-    private static string Fingerprint(byte[] payloadBytes)
-    {
-        using var sha256 = SHA256.Create();
-        return BitConverter
-            .ToString(sha256.ComputeHash(payloadBytes))
-            .Replace("-", "")
-            .ToLowerInvariant();
-    }
-
-    private static string FingerprintUnreadableFile(string filePath)
-    {
-        try
-        {
-            var info = new FileInfo(filePath);
-            return $"metadata:{info.Length:x}:{info.LastWriteTimeUtc.Ticks:x}";
-        }
-        catch
-        {
-            return "metadata:unavailable";
-        }
     }
 }
