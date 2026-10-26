@@ -25,8 +25,8 @@ const isFile = (filePath) =>
   !!fs.statSync(filePath, { throwIfNoEntry: false })?.isFile();
 const lineAt = (content, index) => content.slice(0, index).split('\n').length;
 
-// A missing directory is normal: docs/plans/ and docs/archive/ appear only once
-// there is something to put in them.
+// A missing directory lists nothing: a tree, such as a test fixture, need not
+// have docs/ or docs/adr/.
 export function listDocs(rootDir, relDir) {
   const dirPath = absolute(rootDir, relDir);
   if (!fs.statSync(dirPath, { throwIfNoEntry: false })?.isDirectory())
@@ -66,11 +66,7 @@ export function extractMarkdownLinks(content) {
 // purpose: a decision record must be free to name code that has since been
 // deleted — ADR-0003 documents the removed Tempo launch flow, and that
 // historical mention is the record's value.
-const currentDocs = (rootDir) => [
-  ...ROOT_DOCS,
-  ...listDocs(rootDir, 'docs'),
-  ...listDocs(rootDir, 'docs/plans')
-];
+const currentDocs = (rootDir) => [...ROOT_DOCS, ...listDocs(rootDir, 'docs')];
 
 export function checkCitedPaths(rootDir) {
   const files = currentDocs(rootDir);
@@ -93,11 +89,7 @@ export function checkCitedPaths(rootDir) {
 }
 
 export function checkMarkdownLinks(rootDir) {
-  const files = [
-    ...currentDocs(rootDir),
-    ...listDocs(rootDir, 'docs/adr'),
-    ...listDocs(rootDir, 'docs/archive')
-  ];
+  const files = [...currentDocs(rootDir), ...listDocs(rootDir, 'docs/adr')];
   const failures = [];
   let checked = 0;
 

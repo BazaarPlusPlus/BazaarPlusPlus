@@ -11,12 +11,7 @@ export default defineConfig(
       environment: 'node',
       // The repository-wide golden regeneration switch; `-u` still works.
       update: process.env.BPP_UPDATE_GOLDENS === '1',
-      exclude: [
-        ...configDefaults.exclude,
-        '.claude/**',
-        '.superpowers/**',
-        '.worktrees/**'
-      ]
+      exclude: [...configDefaults.exclude, '.claude/**', '.worktrees/**']
     }
   })
 );

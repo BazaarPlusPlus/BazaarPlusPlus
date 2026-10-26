@@ -136,14 +136,6 @@ internal sealed class AndroidCollectionHeroPreferenceStore : ICollectionPanelHer
             PlayerPrefs.DeleteKey(key);
             PlayerPrefs.Save();
         }
-        else if (
-            result.CanonicalRaw != null
-            && !string.Equals(raw, result.CanonicalRaw, StringComparison.Ordinal)
-        )
-        {
-            PlayerPrefs.SetString(key, result.CanonicalRaw);
-            PlayerPrefs.Save();
-        }
         return result;
     }
 

@@ -283,21 +283,12 @@ for (const [recipe, project, ...args] of [
 
 test('setup and scoped commands preserve arguments without shell expansion', (t) => {
   const f = fixture(t);
-  const source = '/old checkout/$(touch BAD)';
-  succeeded(f.run(['setup', '--from', source, '--skip-deps']));
+  const literal = '/some dir/$(touch BAD)';
+  succeeded(f.run(['setup', '--skip-deps']));
   succeeded(f.run(['doctor']));
-  succeeded(f.run(['with-config', 'mod', 'just', 'mod::build', source]));
+  succeeded(f.run(['with-config', 'mod', 'just', 'mod::build', literal]));
   assert.deepEqual(f.calls(), [
-    call(
-      f.dir,
-      null,
-      'node',
-      'scripts/workspace.mjs',
-      'setup',
-      '--from',
-      source,
-      '--skip-deps'
-    ),
+    call(f.dir, null, 'node', 'scripts/workspace.mjs', 'setup', '--skip-deps'),
     call(f.dir, null, 'node', 'scripts/workspace.mjs', 'doctor'),
     call(
       f.dir,
@@ -309,7 +300,7 @@ test('setup and scoped commands preserve arguments without shell expansion', (t)
       '--',
       'just',
       'mod::build',
-      source
+      literal
     )
   ]);
 });
@@ -321,7 +312,7 @@ test('secrets-check and secrets-sync delegate to the workspace secrets commands'
   succeeded(f.run(['secrets-check']));
   succeeded(f.run(['secrets-check', '--dependabot']));
   succeeded(f.run(['secrets-sync']));
-  succeeded(f.run(['secrets-sync', '--dependabot', '--prune']));
+  succeeded(f.run(['secrets-sync', '--dependabot']));
   assert.deepEqual(f.calls(), [
     call(f.dir, null, 'node', 'scripts/workspace.mjs', 'secrets', 'check'),
     call(
@@ -341,8 +332,7 @@ test('secrets-check and secrets-sync delegate to the workspace secrets commands'
       'scripts/workspace.mjs',
       'secrets',
       'push',
-      '--dependabot',
-      '--prune'
+      '--dependabot'
     )
   ]);
 });

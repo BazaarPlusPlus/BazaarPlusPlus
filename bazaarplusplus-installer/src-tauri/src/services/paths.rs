@@ -5,7 +5,6 @@ use crate::config::{
     DATABASE_FILE_NAME, INSTALLER_STATE_DIRECTORY, SCREENSHOTS_DIRECTORY,
 };
 
-const LEGACY_OVERLAY_SETTINGS_DIRECTORY: &str = "BazaarPlusPlusV4";
 const OVERLAY_CACHE_DIRECTORY: &str = "stream-overlay-cache";
 const OVERLAY_SETTINGS_FILE_NAME: &str = "stream-overlay-crop.json";
 
@@ -58,11 +57,5 @@ fn overlay_settings_base_dir() -> PathBuf {
 pub fn overlay_settings_path() -> PathBuf {
     overlay_settings_base_dir()
         .join(INSTALLER_STATE_DIRECTORY)
-        .join(OVERLAY_SETTINGS_FILE_NAME)
-}
-
-pub fn legacy_overlay_settings_path() -> PathBuf {
-    overlay_settings_base_dir()
-        .join(LEGACY_OVERLAY_SETTINGS_DIRECTORY)
         .join(OVERLAY_SETTINGS_FILE_NAME)
 }

@@ -16,9 +16,9 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 /// <c>builds</c> array; <c>card_index</c> maps a card ref to the build IDs that contain it.
 /// The wire format is whole-tree snake_case at <c>schema_version</c> 2.
 ///
-/// This type owns parsing, recall, and scoring, and touches no game type: The Dragons corpus keys
-/// canonicalize through <see cref="TheDragonsHeroId"/>. Projection of a matched build onto an
-/// item board lives in <see cref="BuildRecommendationRepository"/>.
+/// This type owns parsing, recall, and scoring, and touches no game type: queries canonicalize
+/// through <see cref="TheDragonsHeroId"/>; corpus keys are taken as published. Projection of a
+/// matched build onto an item board lives in <see cref="BuildRecommendationRepository"/>.
 /// </summary>
 public sealed class TenWinBuildCorpus
 {
@@ -149,13 +149,7 @@ public sealed class TenWinBuildCorpus
         }
 
         var heroes = new Dictionary<string, TenWinHero>(StringComparer.Ordinal);
-        foreach (
-            var heroProperty in heroesObj
-                .Properties()
-                .OrderBy(property => CanonicalizeHeroId(property.Name), StringComparer.Ordinal)
-                .ThenBy(AliasMergePriority)
-                .ThenBy(property => property.Name, StringComparer.Ordinal)
-        )
+        foreach (var heroProperty in heroesObj.Properties())
         {
             if (
                 string.IsNullOrWhiteSpace(heroProperty.Name)
@@ -176,11 +170,7 @@ public sealed class TenWinBuildCorpus
             )
                 return null;
 
-            var canonicalHero = CanonicalizeHeroId(heroProperty.Name);
-            var parsedHero = new TenWinHero(builds, cardIndex);
-            heroes[canonicalHero] = heroes.TryGetValue(canonicalHero, out var existing)
-                ? MergeHeroes(existing, parsedHero, refByTemplateId)
-                : parsedHero;
+            heroes[heroProperty.Name] = new TenWinHero(builds, cardIndex);
         }
 
         return new TenWinBuildCorpus(
@@ -328,50 +318,6 @@ public sealed class TenWinBuildCorpus
 
     private static string CanonicalizeHeroId(string heroId) =>
         TheDragonsHeroId.IsAlias(heroId) ? TheDragonsHeroId.CanonicalId : heroId;
-
-    // A mixed transition corpus is merged independently of JObject/dictionary enumeration order:
-    // the exact canonical key wins a shared implicit BuildId, then any other alias contributes only
-    // IDs that were absent. The final ordinal tie-break keeps malformed case variants deterministic.
-    private static int AliasMergePriority(JProperty property) =>
-        string.Equals(property.Name, TheDragonsHeroId.CanonicalId, StringComparison.Ordinal) ? 0
-        : TheDragonsHeroId.IsAlias(property.Name) ? 1
-        : 0;
-
-    private static TenWinHero MergeHeroes(
-        TenWinHero preferred,
-        TenWinHero fallback,
-        IReadOnlyDictionary<Guid, int> refByTemplateId
-    )
-    {
-        var buildsById = new Dictionary<int, TenWinBuild>();
-        foreach (var build in preferred.Builds)
-            buildsById.TryAdd(build.BuildId, build);
-        foreach (var build in fallback.Builds)
-            buildsById.TryAdd(build.BuildId, build);
-
-        var builds = buildsById.Values.OrderBy(build => build.BuildId).ToArray();
-        var cardIndex = new Dictionary<int, List<int>>();
-        foreach (var build in builds)
-        {
-            foreach (var templateId in build.TemplateIdSet)
-            {
-                if (!refByTemplateId.TryGetValue(templateId, out var cardRef))
-                    continue;
-
-                if (!cardIndex.TryGetValue(cardRef, out var buildIds))
-                {
-                    buildIds = new List<int>();
-                    cardIndex[cardRef] = buildIds;
-                }
-                buildIds.Add(build.BuildId);
-            }
-        }
-
-        return new TenWinHero(
-            builds,
-            cardIndex.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<int>)pair.Value)
-        );
-    }
 
     private static HashSet<int> IntersectAll(IReadOnlyList<IReadOnlyList<int>> sets)
     {

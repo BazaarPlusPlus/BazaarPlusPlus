@@ -9,19 +9,14 @@ internal static class GhostBundleImportTests
 {
     internal static async Task RunAsync()
     {
-        await ImportAsync(legacyFailure: false, malformedReplay: false);
-        await ImportAsync(legacyFailure: true, malformedReplay: false);
-        await ImportAsync(legacyFailure: true, malformedReplay: true);
-        await ImportAsync(legacyFailure: false, malformedReplay: true, rejectedReplay: true);
+        await ImportAsync(malformedReplay: false);
+        await ImportAsync(malformedReplay: true);
+        await ImportAsync(malformedReplay: true, rejectedReplay: true);
     }
 
     // malformedReplay fails projecting the battle; rejectedReplay makes the replay's messages fail
-    // the host's verification instead. Either is a fresh import failure.
-    private static async Task ImportAsync(
-        bool legacyFailure,
-        bool malformedReplay,
-        bool rejectedReplay = false
-    )
+    // the host's verification instead. Either is an import failure.
+    private static async Task ImportAsync(bool malformedReplay, bool rejectedReplay = false)
     {
         const string battleId = "valid-battle";
         const string bundleId = "01J00000000000000000000903";
@@ -140,29 +135,6 @@ internal static class GhostBundleImportTests
             )
             .Rows.Single()
             .BattleId;
-        if (legacyFailure)
-        {
-            fixture.Repository.MarkGhostReplayUnavailable(
-                localId,
-                ReplayAvailability.Unavailable,
-                "ghost_bundle_invalid"
-            );
-            fixture.Repository.UpsertGhostBattles("account-local", [record]);
-            if (
-                fixture
-                    .Repository.ListGhostBattles(
-                        "account-local",
-                        HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
-                        false,
-                        new()
-                    )
-                    .Rows.Single()
-                    .Replay != ReplayAvailability.Remote
-            )
-                throw new InvalidOperationException(
-                    "Discovery must restore the replay action for legacy compatibility failures."
-                );
-        }
         var result = await fixture.Service.DownloadReplayAsync(
             localId,
             Path.Combine(fixture.Root, "Replays"),
@@ -172,7 +144,7 @@ internal static class GhostBundleImportTests
         {
             if (result.Succeeded || result.Error != "ghost_bundle_import_failed")
                 throw new InvalidOperationException(
-                    "A fresh unexpected import failure must be distinct from the legacy compatibility failure."
+                    "An unexpected import failure must persist ghost_bundle_import_failed."
                 );
             fixture.Repository.UpsertGhostBattles("account-local", [record]);
             var again = await fixture.Service.DownloadReplayAsync(

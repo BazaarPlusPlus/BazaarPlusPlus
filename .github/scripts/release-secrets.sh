@@ -78,8 +78,6 @@ write_secret_file() {
 # from AuthKey_<APPLE_API_KEY>.p8. Android signs the Managed Payload zip with
 # the same updater key and the APK with the Android release keystore, in the
 # layout androidSigningKey in release/android-release.mjs reads.
-# TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not in the table (the updater key has
-# no password) but is still staged when set.
 staged_names() {
     local platform="$1"
     local names="TAURI_SIGNING_PRIVATE_KEY"
@@ -110,9 +108,6 @@ cmd_stage() {
         mkdir -p "$directory"
     )
     write_secret_file "$directory" tauri-updater.key TAURI_SIGNING_PRIVATE_KEY
-    if [[ -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]]; then
-        write_secret_file "$directory" tauri-updater.password TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-    fi
     if [[ "$platform" == macos ]]; then
         write_secret_file "$directory" apple-signing-identity APPLE_SIGNING_IDENTITY
         write_secret_file "$directory" apple-api-issuer APPLE_API_ISSUER

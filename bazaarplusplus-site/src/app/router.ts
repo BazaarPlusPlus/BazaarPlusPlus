@@ -137,7 +137,6 @@ function buildScopeSearch(currentSearch: string, locale: Locale, scope: Analysis
   } else {
     search.set('w', scope.window);
   }
-  search.delete('t');
   if (scope.segment === 'all') {
     search.delete('s');
   } else {
@@ -161,7 +160,6 @@ function scopeSearchNeedsCanonicalization(
     search.getAll(key).length === 1 && search.get(key) === value;
 
   return (
-    search.has('t') ||
     (scope.window === '1d' ? search.has('w') : !hasCanonicalValue('w', scope.window)) ||
     (scope.segment === 'all' ? search.has('s') : !hasCanonicalValue('s', scope.segment)) ||
     (locale === DEFAULT_LOCALE ? search.has('lang') : !hasCanonicalValue('lang', locale))

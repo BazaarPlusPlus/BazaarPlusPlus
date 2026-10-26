@@ -9,13 +9,11 @@ set -euo pipefail
 
 INSTALLER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MACOS_TRAMPOLINE_STUB="$INSTALLER_ROOT/src-tauri/resources/Trampoline/macos/bpp_launcher"
-SIGNING_SECRETS_DIR="${BPP_SIGNING_SECRETS_DIR:-$INSTALLER_ROOT/signing-secrets}"
-SIGNING_KEY_PATH="$SIGNING_SECRETS_DIR/tauri-updater.key"
-SIGNING_KEY_PASSWORD_PATH="$SIGNING_SECRETS_DIR/tauri-updater.password"
-APPLE_API_ISSUER_PATH="$SIGNING_SECRETS_DIR/apple-api-issuer"
-APPLE_API_KEY_ID_PATH="$SIGNING_SECRETS_DIR/apple-api-key"
-APPLE_API_KEY_PATH_PATH="$SIGNING_SECRETS_DIR/apple-api-key-path"
-APPLE_SIGNING_IDENTITY_PATH="$SIGNING_SECRETS_DIR/apple-signing-identity"
+# Signing files come only from an exported BPP_SIGNING_SECRETS_DIR, staged by
+# SIGNING_STAGE_COMMAND locally and by .github/scripts/release-secrets.sh in CI.
+# Without one, only exported values count.
+SIGNING_SECRETS_DIR="${BPP_SIGNING_SECRETS_DIR:-}"
+SIGNING_STAGE_COMMAND="node scripts/workspace.mjs run signing"
 OFFICIAL_APPLE_TEAM_ID="9Z44S3N293"
 MACOS_GAME_APP_OVERLAY="TheBazaar.app"
 
@@ -67,33 +65,36 @@ set_exported_env() {
     export "$name"
 }
 
-# load_secret_env <NAME> <file> [optional]: reuse an exported value, else read the
-# ignored signing-secrets file. An optional secret defaults to empty.
+# signing_secret_file <file>: the path of <file> in BPP_SIGNING_SECRETS_DIR, or
+# nothing when no directory is exported.
+signing_secret_file() {
+    [ -z "$SIGNING_SECRETS_DIR" ] || printf '%s/%s' "$SIGNING_SECRETS_DIR" "$1"
+}
+
+# load_secret_env <NAME> <file>: reuse an exported value, else read <file> from
+# BPP_SIGNING_SECRETS_DIR.
 load_secret_env() {
     local name="$1"
-    local path="$2"
-    local optional="${3:-}"
+    local file="$2"
+    local path=""
     local value="${!name:-}"
 
+    path="$(signing_secret_file "$file")"
     if [ -n "$value" ]; then
         echo "==> Reusing existing $name from environment"
     elif [ -f "$path" ]; then
-        echo "==> Loading $name from signing-secrets"
+        echo "==> Loading $name from BPP_SIGNING_SECRETS_DIR"
         value="$(<"$path")"
-    elif [ -n "$optional" ]; then
-        echo "==> No $name configured; using empty value"
-        set_exported_env "$name" ""
-        return
     else
         echo "Error: Missing $name." >&2
-        echo "Set $name or create $path" >&2
+        echo "Set $name or stage $file in BPP_SIGNING_SECRETS_DIR ($SIGNING_STAGE_COMMAND)." >&2
         exit 1
     fi
 
     value="$(trim_trailing_newlines "$value")"
-    if [ -z "$value" ] && [ -z "$optional" ]; then
+    if [ -z "$value" ]; then
         echo "Error: Empty $name." >&2
-        echo "Set $name or write a value to $path" >&2
+        echo "Set $name or stage $file in BPP_SIGNING_SECRETS_DIR ($SIGNING_STAGE_COMMAND)." >&2
         exit 1
     fi
 
@@ -144,8 +145,9 @@ ensure_required_rust_targets() {
 }
 
 load_updater_signing_env() {
-    load_secret_env TAURI_SIGNING_PRIVATE_KEY "$SIGNING_KEY_PATH"
-    load_secret_env TAURI_SIGNING_PRIVATE_KEY_PASSWORD "$SIGNING_KEY_PASSWORD_PATH" optional
+    load_secret_env TAURI_SIGNING_PRIVATE_KEY tauri-updater.key
+    # The updater key has no password; the Tauri signer still needs the variable set.
+    set_exported_env TAURI_SIGNING_PRIVATE_KEY_PASSWORD "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
 }
 
 detect_developer_id_application_identity() {
@@ -156,14 +158,16 @@ detect_developer_id_application_identity() {
 
 load_apple_signing_identity_env() {
     local value="${APPLE_SIGNING_IDENTITY:-}"
+    local path=""
     local identities=""
     local identity_count=""
 
+    path="$(signing_secret_file apple-signing-identity)"
     if [ -n "$value" ]; then
         echo "==> Reusing existing APPLE_SIGNING_IDENTITY from environment"
-    elif [ -f "$APPLE_SIGNING_IDENTITY_PATH" ]; then
-        echo "==> Loading APPLE_SIGNING_IDENTITY from signing-secrets"
-        value="$(<"$APPLE_SIGNING_IDENTITY_PATH")"
+    elif [ -f "$path" ]; then
+        echo "==> Loading APPLE_SIGNING_IDENTITY from BPP_SIGNING_SECRETS_DIR"
+        value="$(<"$path")"
     else
         identities="$(detect_developer_id_application_identity)"
         identity_count="$(printf '%s\n' "$identities" | sed '/^$/d' | wc -l | tr -d ' ')"
@@ -175,12 +179,12 @@ load_apple_signing_identity_env() {
                 ;;
             0)
                 echo "Error: Missing APPLE_SIGNING_IDENTITY." >&2
-                echo "Set APPLE_SIGNING_IDENTITY, create $APPLE_SIGNING_IDENTITY_PATH, or install a Developer ID Application certificate." >&2
+                echo "Set APPLE_SIGNING_IDENTITY, stage apple-signing-identity in BPP_SIGNING_SECRETS_DIR ($SIGNING_STAGE_COMMAND), or install a Developer ID Application certificate." >&2
                 exit 1
                 ;;
             *)
                 echo "Error: Multiple Developer ID Application identities found." >&2
-                echo "Set APPLE_SIGNING_IDENTITY or create $APPLE_SIGNING_IDENTITY_PATH with the exact identity to use." >&2
+                echo "Set APPLE_SIGNING_IDENTITY or stage apple-signing-identity in BPP_SIGNING_SECRETS_DIR ($SIGNING_STAGE_COMMAND) with the exact identity to use." >&2
                 printf '%s\n' "$identities" >&2
                 exit 1
                 ;;
@@ -190,7 +194,7 @@ load_apple_signing_identity_env() {
     value="$(trim_trailing_newlines "$value")"
     if [ -z "$value" ]; then
         echo "Error: Empty APPLE_SIGNING_IDENTITY." >&2
-        echo "Set APPLE_SIGNING_IDENTITY or write a value to $APPLE_SIGNING_IDENTITY_PATH" >&2
+        echo "Set APPLE_SIGNING_IDENTITY or stage apple-signing-identity in BPP_SIGNING_SECRETS_DIR ($SIGNING_STAGE_COMMAND)." >&2
         exit 1
     fi
 
@@ -199,21 +203,23 @@ load_apple_signing_identity_env() {
 
 load_apple_api_key_path_env() {
     local value="${APPLE_API_KEY_PATH:-}"
+    local path=""
     local inferred_path=""
 
+    path="$(signing_secret_file apple-api-key-path)"
     if [ -n "$value" ]; then
         echo "==> Reusing existing APPLE_API_KEY_PATH from environment"
-    elif [ -f "$APPLE_API_KEY_PATH_PATH" ]; then
-        echo "==> Loading APPLE_API_KEY_PATH from signing-secrets"
-        value="$(<"$APPLE_API_KEY_PATH_PATH")"
+    elif [ -f "$path" ]; then
+        echo "==> Loading APPLE_API_KEY_PATH from BPP_SIGNING_SECRETS_DIR"
+        value="$(<"$path")"
     else
-        inferred_path="$SIGNING_SECRETS_DIR/AuthKey_${APPLE_API_KEY}.p8"
+        inferred_path="$(signing_secret_file "AuthKey_${APPLE_API_KEY}.p8")"
         if [ -f "$inferred_path" ]; then
-            echo "==> Inferring APPLE_API_KEY_PATH from signing-secrets"
+            echo "==> Inferring APPLE_API_KEY_PATH from BPP_SIGNING_SECRETS_DIR"
             value="$inferred_path"
         else
             echo "Error: Missing APPLE_API_KEY_PATH." >&2
-            echo "Set APPLE_API_KEY_PATH, create $APPLE_API_KEY_PATH_PATH, or place AuthKey_${APPLE_API_KEY}.p8 in $SIGNING_SECRETS_DIR" >&2
+            echo "Set APPLE_API_KEY_PATH, or stage apple-api-key-path or AuthKey_${APPLE_API_KEY}.p8 in BPP_SIGNING_SECRETS_DIR ($SIGNING_STAGE_COMMAND)." >&2
             exit 1
         fi
     fi
@@ -221,12 +227,13 @@ load_apple_api_key_path_env() {
     value="$(trim_trailing_newlines "$value")"
     if [ -z "$value" ]; then
         echo "Error: Empty APPLE_API_KEY_PATH." >&2
-        echo "Set APPLE_API_KEY_PATH or write a value to $APPLE_API_KEY_PATH_PATH" >&2
+        echo "Set APPLE_API_KEY_PATH or stage apple-api-key-path in BPP_SIGNING_SECRETS_DIR ($SIGNING_STAGE_COMMAND)." >&2
         exit 1
     fi
 
     if [[ "$value" != /* ]]; then
-        value="$INSTALLER_ROOT/$value"
+        echo "Error: APPLE_API_KEY_PATH must be absolute: $value" >&2
+        exit 1
     fi
 
     set_exported_env APPLE_API_KEY_PATH "$value"
@@ -235,8 +242,8 @@ load_apple_api_key_path_env() {
 
 load_macos_developer_id_env() {
     load_apple_signing_identity_env
-    load_secret_env APPLE_API_ISSUER "$APPLE_API_ISSUER_PATH"
-    load_secret_env APPLE_API_KEY "$APPLE_API_KEY_ID_PATH"
+    load_secret_env APPLE_API_ISSUER apple-api-issuer
+    load_secret_env APPLE_API_KEY apple-api-key
     load_apple_api_key_path_env
 }
 

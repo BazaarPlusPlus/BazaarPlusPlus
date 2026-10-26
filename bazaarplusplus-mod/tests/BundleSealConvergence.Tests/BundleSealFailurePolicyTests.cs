@@ -451,7 +451,6 @@ internal static class BundleSealFailurePolicyTests
         )[]
         {
             (null, 0, null, 0f, true, "never failed"),
-            (null, 1, 1f, 0f, true, "legacy allocation count without a failure"),
             (Blocked, 2, 100f, 50f, true, "parked in an earlier launch"),
             (Blocked, 2, 10f, 50f, false, "parked in this launch"),
             (Blocked, 2, -5f, 50f, true, "clock moved backwards"),

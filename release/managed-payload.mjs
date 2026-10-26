@@ -285,9 +285,6 @@ export function signWithUpdaterKey({ workspaceRoot, file, env = process.env }) {
   // installer's dependencies are not installed.
   const secrets = env.BPP_SIGNING_SECRETS_DIR;
   const keyFile = secrets ? path.join(secrets, 'tauri-updater.key') : '';
-  const passwordFile = secrets
-    ? path.join(secrets, 'tauri-updater.password')
-    : '';
   const signing = { ...env };
   delete signing.TAURI_SIGNING_PRIVATE_KEY_PATH;
   if (keyFile && fs.existsSync(keyFile)) {
@@ -310,10 +307,7 @@ export function signWithUpdaterKey({ workspaceRoot, file, env = process.env }) {
     throw new Error(
       `Signing the Managed Payload needs the installer's Tauri CLI; run npm ci in bazaarplusplus-installer (missing ${tauri})`
     );
-  if (passwordFile && fs.existsSync(passwordFile))
-    signing.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = fs
-      .readFileSync(passwordFile, 'utf8')
-      .replace(/\n+$/, '');
+  // The updater key has no password; the signer still needs the variable set.
   signing.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ??= '';
   fs.rmSync(`${file}.sig`, { force: true });
   try {

@@ -6,9 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import {
   root,
-  importCheckout,
   initializeConfig,
-  migrateConfig,
   refreshProjections,
   withProfileEnvironment,
   readConfig,
@@ -23,34 +21,31 @@ function fixture(t) {
     fs.mkdtempSync(path.join(os.tmpdir(), 'bpp setup '))
   );
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const repository = path.join(directory, 'new checkout');
-  const source = path.join(directory, 'old checkout');
+  const repository = path.join(directory, 'checkout');
+  const scratch = path.join(directory, 'scratch dir');
   const home = path.join(directory, 'config');
-  for (const checkout of [repository, source]) {
-    for (const project of ['analyzer', 'server', 'installer']) {
-      fs.mkdirSync(path.join(checkout, `bazaarplusplus-${project}`), {
-        recursive: true
-      });
-    }
-    fs.writeFileSync(
-      path.join(checkout, 'bazaarplusplus-analyzer/.env.example'),
-      'BPP_DATA_ROOT=/absolute/path/to/data\n'
-    );
-    fs.mkdirSync(path.join(checkout, 'release'));
-    fs.copyFileSync(
-      path.join(root, 'release/github-secrets.json'),
-      path.join(checkout, 'release/github-secrets.json')
-    );
+  for (const project of ['analyzer', 'server', 'installer']) {
+    fs.mkdirSync(path.join(repository, `bazaarplusplus-${project}`), {
+      recursive: true
+    });
   }
+  fs.writeFileSync(
+    path.join(repository, 'bazaarplusplus-analyzer/.env.example'),
+    'BPP_DATA_ROOT=/absolute/path/to/data\n'
+  );
+  fs.mkdirSync(path.join(repository, 'release'));
+  fs.copyFileSync(
+    path.join(root, 'release/github-secrets.json'),
+    path.join(repository, 'release/github-secrets.json')
+  );
+  fs.mkdirSync(scratch);
   const put = (base, file, text) => {
     const target = path.join(base, file);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, text);
     return target;
   };
-  const values = (section) =>
-    readConfig(home).sections.get(section)?.values || {};
-  return { directory, repository, source, home, put, values };
+  return { directory, repository, scratch, home, put };
 }
 
 const ini = (sections) =>
@@ -58,7 +53,6 @@ const ini = (sections) =>
     .map(([name, body]) => `[${name}]\n${body}`)
     .join('\n');
 
-const signingDir = 'bazaarplusplus-installer/signing-secrets';
 const projectedMarker =
   '# Projected from config.ini [server] and [cloudflare]; edit there.';
 
@@ -67,187 +61,6 @@ const noEcho = (pattern) => (error) => {
   assert.doesNotMatch(error.message, /SECRET/);
   return true;
 };
-
-test('import after setup fills config.ini, keeps data and Apple key meaning, protects permissions, and is repeatable', (t) => {
-  const f = fixture(t);
-  initializeConfig(f.home, f.repository);
-  f.put(
-    f.source,
-    'bazaarplusplus-analyzer/.env',
-    'BPP_DATA_ROOT=../durable-state\nBPP_BUNDLE_SYNC_TOKEN=secret-value\n'
-  );
-  f.put(
-    f.source,
-    'bazaarplusplus-server/.dev.vars',
-    'BUNDLE_SYNC_TOKEN=secret-value\n'
-  );
-  f.put(f.source, `${signingDir}/apple-api-key`, 'TEST\n');
-  f.put(f.source, `${signingDir}/apple-signing-identity`, 'Dev ID: A (#1)\n');
-  f.put(
-    f.source,
-    `${signingDir}/apple-api-key-path`,
-    'signing-secrets/AuthKey_TEST.p8\n'
-  );
-  f.put(f.source, `${signingDir}/AuthKey_TEST.p8`, 'PRIVATE-TEST-KEY');
-  f.put(f.source, `${signingDir}/tauri-updater.key`, 'UPDATER-KEY');
-  f.put(f.source, `${signingDir}/tauri-updater.password`, 'OBSOLETE');
-  const imported = importCheckout(f.source, f.home, f.repository);
-  assert.deepEqual(imported, [
-    '[server]',
-    '[analyzer]',
-    'tauri-updater.password left in place (not read)',
-    '[signing] APPLE_SIGNING_IDENTITY',
-    '[signing] APPLE_API_KEY',
-    'keys/AuthKey_TEST.p8',
-    'keys/tauri-updater.key',
-    '[analyzer] BPP_BUNDLE_SYNC_TOKEN -> [server] BUNDLE_SYNC_TOKEN'
-  ]);
-  const before = fs.readFileSync(path.join(f.home, 'config.ini'));
-  // A value without a backslash keeps the double-quoted form earlier
-  // imports wrote, so their files stay byte-identical.
-  assert.match(before.toString(), /^APPLE_API_KEY="TEST"$/m);
-  importCheckout(f.source, f.home, f.repository);
-  assert.deepEqual(fs.readFileSync(path.join(f.home, 'config.ini')), before);
-  assert.equal(
-    f.values('analyzer').BPP_DATA_ROOT,
-    path.join(f.source, 'durable-state').replaceAll('\\', '/')
-  );
-  assert.equal(fs.existsSync(path.join(f.source, 'durable-state')), false);
-  assert.equal(f.values('server').BUNDLE_SYNC_TOKEN, 'secret-value');
-  assert.equal('BPP_BUNDLE_SYNC_TOKEN' in f.values('analyzer'), false);
-  assert.deepEqual(f.values('signing'), {
-    APPLE_SIGNING_IDENTITY: 'Dev ID: A (#1)',
-    APPLE_API_ISSUER: '',
-    APPLE_API_KEY: 'TEST',
-    APPLE_API_KEY_PATH: '',
-    APPLE_CERTIFICATE_PASSWORD: '',
-    ANDROID_KEYSTORE_PASSWORD: '',
-    ANDROID_KEY_ALIAS: ''
-  });
-  assert.equal(
-    fs.readFileSync(path.join(f.home, 'keys/AuthKey_TEST.p8'), 'utf8'),
-    'PRIVATE-TEST-KEY'
-  );
-  assert.equal(
-    fs.readFileSync(
-      path.join(f.source, `${signingDir}/apple-api-key-path`),
-      'utf8'
-    ),
-    'signing-secrets/AuthKey_TEST.p8\n'
-  );
-  assert.equal(
-    fs.readFileSync(
-      path.join(f.source, `${signingDir}/tauri-updater.password`),
-      'utf8'
-    ),
-    'OBSOLETE'
-  );
-  if (process.platform !== 'win32') {
-    assert.equal(fs.statSync(f.home).mode & 0o777, 0o700);
-    assert.equal(fs.statSync(path.join(f.home, 'keys')).mode & 0o777, 0o700);
-    for (const file of ['config.ini', 'keys/AuthKey_TEST.p8'])
-      assert.equal(fs.statSync(path.join(f.home, file)).mode & 0o777, 0o600);
-  }
-});
-
-test('an imported value with backslashes is written in single quotes and reaches signing staging literally', (t) => {
-  const f = fixture(t);
-  const identity = String.raw`p\new "quoted" \x`;
-  f.put(f.source, `${signingDir}/apple-signing-identity`, `${identity}\n`);
-  assert.deepEqual(importCheckout(f.source, f.home, f.repository), [
-    '[signing] APPLE_SIGNING_IDENTITY'
-  ]);
-  assert.match(
-    fs.readFileSync(path.join(f.home, 'config.ini'), 'utf8'),
-    /^APPLE_SIGNING_IDENTITY='p\\new "quoted" \\x'$/m
-  );
-  assert.equal(f.values('signing').APPLE_SIGNING_IDENTITY, identity);
-  const staged = withProfileEnvironment(
-    'signing',
-    f.home,
-    (env) =>
-      fs.readFileSync(
-        path.join(env.BPP_SIGNING_SECRETS_DIR, 'apple-signing-identity'),
-        'utf8'
-      ),
-    {},
-    f.repository
-  );
-  assert.equal(staged, identity);
-  const before = fs.readFileSync(path.join(f.home, 'config.ini'));
-  importCheckout(f.source, f.home, f.repository);
-  assert.deepEqual(fs.readFileSync(path.join(f.home, 'config.ini')), before);
-});
-
-test('a value no quoting keeps literal is refused by name before any write', (t) => {
-  for (const identity of [
-    String.raw`it's\SECRET`,
-    String.raw`SECRET\\share`,
-    'SECRET\\',
-    'SECRET\\\rmore'
-  ]) {
-    const f = fixture(t);
-    f.put(f.source, `${signingDir}/apple-signing-identity`, identity);
-    assert.throws(
-      () => importCheckout(f.source, f.home, f.repository),
-      noEcho(/Unsupported characters for APPLE_SIGNING_IDENTITY/)
-    );
-    assert.equal(fs.existsSync(f.home), false);
-  }
-});
-
-test('an old checkout file is parsed with config.ini rules and its errors name that file', (t) => {
-  for (const [text, pattern] of [
-    [
-      'BPP_DATA_ROOT=../first\nBPP_DATA_ROOT=../SECRET\n',
-      /Duplicate BPP_DATA_ROOT on .*bazaarplusplus-analyzer[\\/]\.env line 2/
-    ],
-    [
-      '# note\nBPP_DATA_ROOT="C:\\SECRET"\n',
-      /Backslash in a double-quoted value for BPP_DATA_ROOT on .*bazaarplusplus-analyzer[\\/]\.env line 2/
-    ]
-  ]) {
-    const f = fixture(t);
-    f.put(f.source, 'bazaarplusplus-analyzer/.env', text);
-    assert.throws(
-      () => importCheckout(f.source, f.home, f.repository),
-      noEcho(pattern)
-    );
-    assert.equal(fs.existsSync(f.home), false);
-  }
-});
-
-test('an import conflict changes neither existing credentials nor other files', (t) => {
-  const f = fixture(t);
-  f.put(f.source, 'bazaarplusplus-analyzer/.env', 'BPP_DATA_ROOT=/old\n');
-  f.put(
-    f.source,
-    'bazaarplusplus-server/.dev.vars',
-    'BUNDLE_SYNC_TOKEN=NEW-SECRET\n'
-  );
-  f.put(f.source, `${signingDir}/tauri-updater.key`, 'KEY');
-  const existing = ini({ server: 'BUNDLE_SYNC_TOKEN=EXISTING-SECRET\n' });
-  f.put(f.home, 'config.ini', existing);
-  assert.throws(
-    () => importCheckout(f.source, f.home, f.repository),
-    noEcho(/Import conflict: \[server\]/)
-  );
-  assert.equal(
-    fs.readFileSync(path.join(f.home, 'config.ini'), 'utf8'),
-    existing
-  );
-  assert.equal(fs.existsSync(path.join(f.home, 'keys')), false);
-});
-
-test('an unknown signing-secrets entry is refused before any write', (t) => {
-  const f = fixture(t);
-  f.put(f.source, `${signingDir}/extra-token`, 'SECRET');
-  assert.throws(
-    () => importCheckout(f.source, f.home, f.repository),
-    /Unknown signing-secrets entry: extra-token/
-  );
-  assert.equal(fs.existsSync(f.home), false);
-});
 
 test('the template built from the real analyzer .env.example parses and lists every section key once', (t) => {
   const f = fixture(t);
@@ -269,15 +82,6 @@ test('the template built from the real analyzer .env.example parses and lists ev
     'BPP_GAME_LIBS_TOKEN'
   ])
     assert.equal(text.match(new RegExp(`^${key}=$`, 'gm'))?.length, 1, key);
-  for (const key of [
-    'BPP_BUNDLE_SYNC_TOKEN',
-    'BPP_METRICS_R2_ACCOUNT_ID',
-    'BPP_METRICS_R2_ACCESS_KEY_ID',
-    'BPP_METRICS_R2_SECRET_ACCESS_KEY',
-    'BPP_R2_ACCOUNT_ID',
-    'TAURI_SIGNING_PRIVATE_KEY_PASSWORD'
-  ])
-    assert.doesNotMatch(text, new RegExp(`^${key}=`, 'm'), key);
 });
 
 test('setup preserves config.ini, tightens POSIX permissions and removes only stale signing staging', (t) => {
@@ -295,171 +99,6 @@ test('setup preserves config.ini, tightens POSIX permissions and removes only st
   assert.equal(fs.existsSync(path.join(f.home, '.signing-stale')), false);
   if (process.platform !== 'win32')
     assert.equal(fs.statSync(file).mode & 0o777, 0o600);
-});
-
-// The earlier layout kept one derived R2 key pair per bucket and the sync
-// token twice. setup moves the account id and the sync token to their
-// owners, keeps the pairs as comments (they cannot become a token), drops
-// [release], and refuses to guess between two differing values.
-test('setup migrates the earlier layout in place, keeps retired values as comments and is idempotent', (t) => {
-  const f = fixture(t);
-  const file = f.put(
-    f.home,
-    'config.ini',
-    `# mine\n${ini({
-      server: 'BUNDLE_SYNC_TOKEN=sync-value\nBAZAARDB_DELIVERY_TOKEN=deliver\n',
-      analyzer:
-        'BPP_DATA_ROOT=/data\nBPP_V5_API_BASE_URL=https://api.invalid\nBPP_BUNDLE_SYNC_TOKEN=sync-value\nBPP_METRICS_R2_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nBPP_METRICS_R2_BUCKET=bpp-metrics\nBPP_METRICS_R2_ACCESS_KEY_ID=metrics-key\nBPP_METRICS_R2_SECRET_ACCESS_KEY="metrics-secret"\n',
-      release:
-        'BPP_R2_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nBPP_R2_ACCESS_KEY_ID=release-key\nBPP_R2_SECRET_ACCESS_KEY=release-secret\n',
-      signing:
-        'APPLE_SIGNING_IDENTITY=id\nAPPLE_API_ISSUER=issuer\nAPPLE_API_KEY=K1\nTAURI_SIGNING_PRIVATE_KEY_PASSWORD=\n',
-      cloudflare: 'CLOUDFLARE_API_TOKEN=\nCLOUDFLARE_ACCOUNT_ID=\n'
-    })}`
-  );
-  assert.throws(
-    () => readConfig(f.home),
-    /Legacy \[release\] section on config.ini line 15; run just setup --skip-deps/
-  );
-  const migrated = migrateConfig(f.home, f.repository);
-  assert.deepEqual(migrated, [
-    '[release] BPP_R2_ACCOUNT_ID -> [cloudflare] CLOUDFLARE_ACCOUNT_ID',
-    '[release] BPP_R2_ACCESS_KEY_ID -> comment in [cloudflare]',
-    '[release] BPP_R2_SECRET_ACCESS_KEY -> comment in [cloudflare]',
-    '[analyzer] BPP_METRICS_R2_ACCOUNT_ID -> [cloudflare] CLOUDFLARE_ACCOUNT_ID',
-    '[analyzer] BPP_METRICS_R2_ACCESS_KEY_ID -> comment in [cloudflare]',
-    '[analyzer] BPP_METRICS_R2_SECRET_ACCESS_KEY -> comment in [cloudflare]',
-    '[analyzer] BPP_BUNDLE_SYNC_TOKEN -> [server] BUNDLE_SYNC_TOKEN',
-    '[analyzer] BPP_V5_API_BASE_URL -> [analyzer] BPP_API_BASE_URL',
-    '[signing] TAURI_SIGNING_PRIVATE_KEY_PASSWORD (empty, removed)',
-    '[release] removed'
-  ]);
-  const text = fs.readFileSync(file, 'utf8');
-  assert.equal(
-    text,
-    `# mine
-
-[server]
-BUNDLE_SYNC_TOKEN=sync-value
-BAZAARDB_DELIVERY_TOKEN=deliver
-R2_PRESIGN_ACCESS_KEY_ID=
-R2_PRESIGN_SECRET_ACCESS_KEY=
-
-[analyzer]
-BPP_DATA_ROOT=/data
-BPP_METRICS_R2_BUCKET=bpp-metrics
-BPP_API_BASE_URL="https://api.invalid"
-
-[signing]
-APPLE_SIGNING_IDENTITY=id
-APPLE_API_ISSUER=issuer
-APPLE_API_KEY=K1
-APPLE_API_KEY_PATH=
-APPLE_CERTIFICATE_PASSWORD=
-ANDROID_KEYSTORE_PASSWORD=
-ANDROID_KEY_ALIAS=
-
-[cloudflare]
-CLOUDFLARE_API_TOKEN=
-CLOUDFLARE_ACCOUNT_ID="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-BPP_GAME_LIBS_TOKEN=
-# Migrated by setup: the lines below are no longer read (R2 keys derive from CLOUDFLARE_API_TOKEN; the updater key has no password). Delete them once the token is set.
-# [release] BPP_R2_ACCESS_KEY_ID=release-key
-# [release] BPP_R2_SECRET_ACCESS_KEY=release-secret
-# [analyzer] BPP_METRICS_R2_ACCESS_KEY_ID=metrics-key
-# [analyzer] BPP_METRICS_R2_SECRET_ACCESS_KEY="metrics-secret"
-`
-  );
-  assert.deepEqual(migrateConfig(f.home, f.repository), []);
-  assert.equal(fs.readFileSync(file, 'utf8'), text);
-  initializeConfig(f.home, f.repository);
-  refreshProjections(f.home, f.repository);
-  assert.equal(
-    fs.readFileSync(
-      path.join(f.repository, 'bazaarplusplus-analyzer/.env'),
-      'utf8'
-    ),
-    `BPP_DATA_ROOT=/data\nBPP_METRICS_R2_BUCKET=bpp-metrics\nBPP_API_BASE_URL="https://api.invalid"\n${projectedMarker}\nBPP_BUNDLE_SYNC_TOKEN="sync-value"\nCLOUDFLARE_API_TOKEN=""\nCLOUDFLARE_ACCOUNT_ID="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n`
-  );
-});
-
-test('migration refuses differing values by name and leaves the file untouched', (t) => {
-  for (const [sections, pattern] of [
-    [
-      {
-        server: 'BUNDLE_SYNC_TOKEN=SECRET-ONE\n',
-        analyzer: 'BPP_BUNDLE_SYNC_TOKEN=SECRET-TWO\n'
-      },
-      /Migration conflict: \[analyzer\] BPP_BUNDLE_SYNC_TOKEN differs from \[server\] BUNDLE_SYNC_TOKEN/
-    ],
-    [
-      {
-        analyzer: 'BPP_METRICS_R2_ACCOUNT_ID=SECRET-A\n',
-        release: 'BPP_R2_ACCOUNT_ID=SECRET-B\n'
-      },
-      /Migration conflict: \[analyzer\] BPP_METRICS_R2_ACCOUNT_ID differs from \[cloudflare\] CLOUDFLARE_ACCOUNT_ID/
-    ]
-  ]) {
-    const f = fixture(t);
-    const text = ini(sections);
-    const file = f.put(f.home, 'config.ini', text);
-    assert.throws(() => migrateConfig(f.home, f.repository), noEcho(pattern));
-    assert.throws(
-      () => initializeConfig(f.home, f.repository),
-      noEcho(pattern)
-    );
-    assert.equal(fs.readFileSync(file, 'utf8'), text);
-  }
-});
-
-test('setup --from routes an old analyzer .env with metrics keys into the current layout', (t) => {
-  const f = fixture(t);
-  f.put(
-    f.source,
-    'bazaarplusplus-analyzer/.env',
-    'BPP_DATA_ROOT=/old\nBPP_BUNDLE_SYNC_TOKEN=sync\nBPP_METRICS_R2_ACCOUNT_ID=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\nBPP_METRICS_R2_ACCESS_KEY_ID=k\nBPP_METRICS_R2_SECRET_ACCESS_KEY=s\n'
-  );
-  const imported = importCheckout(f.source, f.home, f.repository);
-  assert.deepEqual(imported, [
-    '[analyzer]',
-    '[analyzer] BPP_METRICS_R2_ACCOUNT_ID -> [cloudflare] CLOUDFLARE_ACCOUNT_ID',
-    '[analyzer] BPP_METRICS_R2_ACCESS_KEY_ID -> comment in [cloudflare]',
-    '[analyzer] BPP_METRICS_R2_SECRET_ACCESS_KEY -> comment in [cloudflare]',
-    '[analyzer] BPP_BUNDLE_SYNC_TOKEN -> [server] BUNDLE_SYNC_TOKEN'
-  ]);
-  assert.deepEqual(f.values('analyzer'), { BPP_DATA_ROOT: '/old' });
-  assert.equal(f.values('server').BUNDLE_SYNC_TOKEN, 'sync');
-  assert.equal(
-    f.values('cloudflare').CLOUDFLARE_ACCOUNT_ID,
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-  );
-  assert.match(
-    fs.readFileSync(path.join(f.home, 'config.ini'), 'utf8'),
-    /^# \[analyzer\] BPP_METRICS_R2_ACCESS_KEY_ID=k$/m
-  );
-});
-
-test('a legacy per-file layout is refused before projections are touched', (t) => {
-  const f = fixture(t);
-  f.put(f.home, 'server.dev.vars', 'BUNDLE_SYNC_TOKEN=LEGACY\n');
-  f.put(
-    f.repository,
-    'bazaarplusplus-server/.dev.vars',
-    'BUNDLE_SYNC_TOKEN=LEGACY\n'
-  );
-  for (const run of [
-    () => initializeConfig(f.home, f.repository),
-    () => withProfileEnvironment('server', f.home, () => {}, {}, f.repository)
-  ])
-    assert.throws(run, /Legacy configuration files .*server\.dev\.vars/);
-  assert.equal(fs.existsSync(path.join(f.home, 'config.ini')), false);
-  assert.equal(
-    fs.readFileSync(
-      path.join(f.repository, 'bazaarplusplus-server/.dev.vars'),
-      'utf8'
-    ),
-    'BUNDLE_SYNC_TOKEN=LEGACY\n'
-  );
 });
 
 test('config.ini rejects ambiguous text by line without echoing values', () => {
@@ -503,11 +142,7 @@ test('config.ini rejects ambiguous text by line without echoing values', () => {
       "[machine]\nBPP_GAME_ROOT='\\\\host\\SECRET'\n",
       /Escaped backslash in a single-quoted value for BPP_GAME_ROOT on config.ini line 2/
     ],
-    ['[server]\nA=SEC\rRET\n', /Carriage return or NUL on config.ini line 2/],
-    [
-      '[release]\nBPP_R2_ACCESS_KEY_ID=SECRET\n',
-      /Legacy \[release\] section on config.ini line 1; run just setup --skip-deps to migrate it/
-    ]
+    ['[server]\nA=SEC\rRET\n', /Carriage return or NUL on config.ini line 2/]
   ]) {
     assert.throws(() => parseConfig(text), noEcho(pattern), text);
   }
@@ -733,7 +368,7 @@ test('config inside a checkout and escaping symlink projections are refused', (t
   assert.throws(() => assertExternal(f.home, [f.repository]), /outside/);
   fs.unlinkSync(f.home);
   initializeConfig(f.home, f.repository);
-  const outside = f.put(f.source, 'untouched.env', 'KEEP');
+  const outside = f.put(f.scratch, 'untouched.env', 'KEEP');
   fs.symlinkSync(
     outside,
     path.join(f.repository, 'bazaarplusplus-analyzer/.env')
@@ -749,7 +384,7 @@ test('doctor derives required keys from config sections and resolves signing as 
     'config.ini',
     ini({
       server: 'BUNDLE_SYNC_TOKEN=present\n',
-      analyzer: 'BPP_DATA_ROOT=relative/data\nBPP_METRICS_R2_ACCOUNT_ID=old\n',
+      analyzer: 'BPP_DATA_ROOT=relative/data\n',
       cloudflare: 'CLOUDFLARE_ACCOUNT_ID=present\n'
     })
   );
@@ -757,9 +392,9 @@ test('doctor derives required keys from config sections and resolves signing as 
   const secrets = path.join(f.directory, 'explicit secrets');
   f.put(secrets, 'apple-api-issuer', 'issuer\n');
   f.put(secrets, 'apple-api-key', 'K1\n');
-  f.put(secrets, 'apple-api-key-path', 'signing-secrets/AuthKey_K1.p8\n');
+  const appleKey = f.put(f.directory, 'apple keys/AuthKey_K1.p8', 'KEY');
+  f.put(secrets, 'apple-api-key-path', `${appleKey}\n`);
   f.put(secrets, 'tauri-updater.key', 'UPDATER');
-  f.put(f.repository, `${signingDir}/AuthKey_K1.p8`, 'KEY');
   const rows = doctor(f.home, f.repository, {
     BPP_SIGNING_SECRETS_DIR: secrets,
     BPP_MANAGED_PATH: path.join(f.directory, 'Managed')
@@ -784,14 +419,6 @@ test('doctor derives required keys from config sections and resolves signing as 
   assert.deepEqual(row('release'), [
     { scope: 'release', ok: false, detail: 'missing: CLOUDFLARE_API_TOKEN' }
   ]);
-  assert.ok(
-    row('config').some(
-      (row) =>
-        !row.ok &&
-        row.detail ===
-          'earlier layout keys [analyzer] BPP_METRICS_R2_ACCOUNT_ID: run just setup --skip-deps to migrate'
-    )
-  );
   assert.equal(row('updater signing')[0].ok, true);
   if (process.platform === 'darwin')
     assert.equal(row('Apple notarization')[0].ok, true);
@@ -802,7 +429,7 @@ const cli = (f, args, env = {}) =>
     process.execPath,
     [path.join(root, 'scripts/workspace.mjs'), ...args],
     {
-      cwd: f.source,
+      cwd: f.scratch,
       env: { ...process.env, BPP_CONFIG_HOME: f.home, ...env },
       encoding: 'utf8'
     }
@@ -814,12 +441,11 @@ test('CLI help lists every section and profile from the section table', (t) => {
   assert.equal(result.status, 0, result.stderr);
   for (const name of ['server', 'analyzer', 'signing', 'machine', 'cloudflare'])
     assert.match(result.stdout, new RegExp(`\\[${name}\\]`));
-  assert.doesNotMatch(result.stdout, /^ {4}\[release\]/m);
   assert.match(
     result.stdout,
     /Profiles: server, analyzer, signing, mod, release\./
   );
-  assert.match(result.stdout, /secrets push \[--dependabot\] \[--prune\]/);
+  assert.match(result.stdout, /secrets push \[--dependabot\]$/m);
 });
 
 test('CLI preserves cwd, literal arguments, child status and keeps config values out of output', (t) => {
@@ -830,12 +456,12 @@ test('CLI preserves cwd, literal arguments, child status and keeps config values
     ini({ cloudflare: 'CLOUDFLARE_API_TOKEN=DO-NOT-PRINT\n' })
   );
   const script = f.put(
-    f.source,
+    f.scratch,
     'child.mjs',
     `import assert from 'node:assert/strict';
 assert.equal(process.env.CLOUDFLARE_API_TOKEN, 'DO-NOT-PRINT');
 assert.equal(process.argv[2], '$(touch BAD); argument with spaces');
-assert.equal(process.cwd(), ${JSON.stringify(f.source)});
+assert.equal(process.cwd(), ${JSON.stringify(f.scratch)});
 process.exit(37);
 `
   );
@@ -853,7 +479,7 @@ process.exit(37);
   );
   assert.equal(result.status, 37, result.stdout + result.stderr);
   assert.doesNotMatch(result.stdout + result.stderr, /DO-NOT-PRINT/);
-  assert.equal(fs.existsSync(path.join(f.source, 'BAD')), false);
+  assert.equal(fs.existsSync(path.join(f.scratch, 'BAD')), false);
 });
 
 test('CLI signing run exposes only a staging path and removes it even when the command fails', (t) => {
@@ -867,7 +493,7 @@ test('CLI signing run exposes only a staging path and removes it even when the c
     })
   );
   const script = f.put(
-    f.source,
+    f.scratch,
     'child.mjs',
     `import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -905,11 +531,11 @@ test('CLI refuses an unknown profile naming the profiles the table defines', (t)
 
 // A gh stand-in on PATH: lists come from a JSON state file keyed by scope,
 // every call is recorded with its stdin, and nothing is ever printed back.
-function ghStub(f, state) {
+function ghStub(f) {
   const bin = path.join(f.directory, 'bin');
   fs.mkdirSync(bin, { recursive: true });
   const stateFile = path.join(f.directory, 'gh-state.json');
-  fs.writeFileSync(stateFile, JSON.stringify(state));
+  fs.writeFileSync(stateFile, '{}');
   const log = path.join(f.directory, 'gh-calls.jsonl');
   const script = path.join(f.directory, 'gh-stub.mjs');
   fs.writeFileSync(
@@ -927,9 +553,6 @@ if (args[1] === 'list') {
   state[key] = [...new Set([...(state[key] ?? []), args[2]])];
   fs.writeFileSync(${JSON.stringify(stateFile)}, JSON.stringify(state));
   process.stdout.write('set ' + args[2] + '\\n');
-} else if (args[1] === 'delete') {
-  state[key] = (state[key] ?? []).filter((name) => name !== args[2]);
-  fs.writeFileSync(${JSON.stringify(stateFile)}, JSON.stringify(state));
 }
 `
   );
@@ -961,11 +584,7 @@ test('secrets check names what GitHub and the local configuration hold, never a 
   f.put(f.home, 'config.ini', secretsConfig);
   f.put(f.home, 'keys/tauri-updater.key', 'UPDATER-KEY');
   f.put(f.home, 'keys/AuthKey_K1.p8', 'P8-KEY');
-  const gh = ghStub(f, {
-    'secret:release': ['CLOUDFLARE_API_TOKEN', 'BPP_R2_ACCOUNT_ID'],
-    'variable:site-preview': ['CLOUDFLARE_ACCOUNT_ID'],
-    'variable:site-production': ['CLOUDFLARE_ACCOUNT_ID']
-  });
+  const gh = ghStub(f);
   const result = cli(f, ['secrets', 'check'], {
     PATH: `${gh.bin}${path.delimiter}${process.env.PATH}`
   });
@@ -987,7 +606,6 @@ APPLE_API_KEY_P8            release environment secret    GitHub MISSING  local 
 APPLE_CERTIFICATE           release environment secret    GitHub MISSING  local MISSING (base64 of keys/developer-id.p12)
 APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.ini [signing] APPLE_CERTIFICATE_PASSWORD)
 14 managed names: 14 missing on GitHub, 6 missing locally.
-Stale on GitHub (secrets push --prune removes them): release environment secret CLOUDFLARE_API_TOKEN; site-preview environment variable CLOUDFLARE_ACCOUNT_ID; site-production environment variable CLOUDFLARE_ACCOUNT_ID; release environment secret BPP_R2_ACCOUNT_ID
 Dependabot secrets were not listed; pass --dependabot to include them.
 `
   );
@@ -1003,7 +621,7 @@ Dependabot secrets were not listed; pass --dependabot to include them.
   assert.ok(gh.calls().every(({ stdin }) => stdin === ''));
 });
 
-test('secrets push copies each local value over stdin to its scope, skips absent ones and prunes only when asked', (t) => {
+test('secrets push copies each local value over stdin to its scope and skips absent ones', (t) => {
   const f = fixture(t);
   f.put(
     f.home,
@@ -1017,10 +635,7 @@ test('secrets push copies each local value over stdin to its scope, skips absent
   f.put(f.home, 'keys/AuthKey_K1.p8', 'P8-KEY');
   f.put(f.home, 'keys/developer-id.p12', Buffer.from([0x30, 0x82, 0x00, 0xff]));
   f.put(f.home, 'keys/android-release.p12', Buffer.from([0x30, 0x82, 0x0a]));
-  const gh = ghStub(f, {
-    'variable:site-preview': ['CLOUDFLARE_ACCOUNT_ID'],
-    'secret:release': ['TAURI_SIGNING_PRIVATE_KEY_PASSWORD']
-  });
+  const gh = ghStub(f);
   const env = { PATH: `${gh.bin}${path.delimiter}${process.env.PATH}` };
   let result = cli(f, ['secrets', 'push', '--dependabot'], env);
   assert.equal(result.status, 1, result.stdout + result.stderr);
@@ -1043,10 +658,6 @@ test('secrets push copies each local value over stdin to its scope, skips absent
   assert.match(
     result.stdout,
     /^skipped release environment secret APPLE_CERTIFICATE_PASSWORD: no local value/m
-  );
-  assert.match(
-    result.stdout,
-    /^Left on GitHub \(pass --prune to delete\): site-preview environment variable CLOUDFLARE_ACCOUNT_ID; release environment secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD$/m
   );
   assert.match(
     result.stdout,
@@ -1078,10 +689,6 @@ test('secrets push copies each local value over stdin to its scope, skips absent
       0x30, 0x82, 0x00, 0xff
     ]).toString('base64')
   });
-  assert.ok(gh.calls().every(({ args }) => args[1] !== 'delete'));
-  assert.deepEqual(gh.state()['variable:site-preview'], [
-    'CLOUDFLARE_ACCOUNT_ID'
-  ]);
   // The read-only token, once present, also reaches Dependabot with --dependabot.
   f.put(
     f.home,
@@ -1091,7 +698,7 @@ test('secrets push copies each local value over stdin to its scope, skips absent
       'BPP_GAME_LIBS_TOKEN=read-only\n'
     )
   );
-  result = cli(f, ['secrets', 'push', '--dependabot', '--prune'], env);
+  result = cli(f, ['secrets', 'push', '--dependabot'], env);
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.doesNotMatch(result.stdout + result.stderr, /read-only/);
   const dependabot = gh
@@ -1101,26 +708,13 @@ test('secrets push copies each local value over stdin to its scope, skips absent
     dependabot.map(({ args, stdin }) => [args.slice(0, 3).join(' '), stdin]),
     [['secret set BPP_GAME_LIBS_TOKEN', 'read-only']]
   );
-  assert.match(
-    result.stdout,
-    /^deleted site-preview environment variable CLOUDFLARE_ACCOUNT_ID$/m
-  );
-  assert.match(
-    result.stdout,
-    /^deleted release environment secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD$/m
-  );
-  assert.deepEqual(gh.state()['variable:site-preview'], []);
-  assert.deepEqual(
-    gh.state()['secret:release'].includes('TAURI_SIGNING_PRIVATE_KEY_PASSWORD'),
-    false
-  );
   assert.ok(gh.state()['secret:repository'].includes('BPP_GAME_LIBS_TOKEN'));
 });
 
 test('secrets refuses unknown arguments before calling gh', (t) => {
   const f = fixture(t);
   f.put(f.home, 'config.ini', secretsConfig);
-  const gh = ghStub(f, {});
+  const gh = ghStub(f);
   for (const args of [
     ['secrets'],
     ['secrets', 'list'],

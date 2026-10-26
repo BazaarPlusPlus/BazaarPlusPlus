@@ -219,15 +219,6 @@
         Condition="'$(IsMacHost)' == 'true' and Exists('$(FixedMacAudioTapNativeFile)')"
       />
     </ItemGroup>
-    <ItemGroup Condition="'$(IsMacHost)' == 'true'">
-      <StaleMacRecordingFile Include="$(GamePath)/BepInEx/plugins/ffmpeg" />
-      <StaleMacRecordingFile Include="$(GamePath)/BepInEx/plugins/ffmpeg-LICENSE.txt" />
-    </ItemGroup>
-    <Delete Files="@(StaleMacRecordingFile)" Condition="'$(IsMacHost)' == 'true'" />
-    <RemoveDir
-      Directories="$(GamePath)/BepInEx/plugins/BppReplayRecorder.app"
-      Condition="'$(IsMacHost)' == 'true'"
-    />
     <Copy
       SourceFiles="@(BppDebugPayloadFile)"
       DestinationFiles="@(BppDebugPayloadFile->'$(GamePath)/%(PayloadPath)')"
@@ -265,11 +256,6 @@
       SkipUnchangedFiles="true"
       Condition="'$(IsWindowsHost)' == 'true' and '$(WindowsReplayPlugin)' != ''"
     />
-    <ItemGroup>
-      <StaleWindowsFfmpegFile Include="$(GamePath)\BepInEx\plugins\ffmpeg.exe" />
-      <StaleWindowsFfmpegFile Include="$(GamePath)\BepInEx\plugins\ffmpeg-LICENSE.txt" />
-    </ItemGroup>
-    <Delete Files="@(StaleWindowsFfmpegFile)" />
     <WriteLinesToFile
       File="$(GamePath)\BepInEx\plugins\$(TargetName).version"
       Lines="$(Version).t$([System.DateTime]::Now.ToString('yyyyMMdd.HHmmss')).dev"

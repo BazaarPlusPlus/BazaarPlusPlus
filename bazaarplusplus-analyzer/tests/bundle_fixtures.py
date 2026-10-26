@@ -256,14 +256,12 @@ def bundle_bytes(
 
 
 def envelope(manifest: dict[str, object], run_content: bytes, *, sort_keys: bool = False) -> bytes:
-    """Prefix ``manifest`` with the magic and version its ``bundle_version`` names."""
-    version = manifest["bundle_version"]
-    assert isinstance(version, int)
+    """Prefix ``manifest`` with the Bundle V6 magic and version."""
     encoded = json.dumps(manifest, sort_keys=sort_keys, separators=(",", ":")).encode()
     return b"".join(
         [
-            f"BPPBNDL{version}".encode(),
-            version.to_bytes(4, "big"),
+            b"BPPBNDL6",
+            (6).to_bytes(4, "big"),
             len(encoded).to_bytes(4, "big"),
             encoded,
             run_content,

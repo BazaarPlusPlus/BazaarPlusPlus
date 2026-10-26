@@ -1,7 +1,4 @@
-use super::{
-    cache_directory, sweep, url, CacheLimits, HistoryThumbnails, CACHE_DIRECTORY,
-    LEGACY_CACHE_DIRECTORY,
-};
+use super::{cache_directory, sweep, url, CacheLimits, HistoryThumbnails, CACHE_DIRECTORY};
 use crate::stream::{
     runtime::{
         test_support::{installation, TestServer},
@@ -254,7 +251,7 @@ async fn a_cache_hit_marks_the_entry_as_recently_used() {
 }
 
 #[test]
-fn sweep_removes_the_legacy_tree_stale_entries_and_orphans_but_keeps_fresh_ones() {
+fn sweep_removes_stale_entries_and_orphans_but_keeps_fresh_ones() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
     let now = SystemTime::now();
@@ -263,9 +260,6 @@ fn sweep_removes_the_legacy_tree_stale_entries_and_orphans_but_keeps_fresh_ones(
         max_entries: 100,
         fresh_for: Duration::from_secs(10),
     };
-    let legacy = root.join(LEGACY_CACHE_DIRECTORY).join("0123456789abcdef");
-    std::fs::create_dir_all(&legacy).unwrap();
-    std::fs::write(legacy.join("shot-1-strip.png"), b"old").unwrap();
     let obs_entry = root.join("shot-1-strip.png");
     std::fs::write(&obs_entry, b"obs").unwrap();
     set_age(&obs_entry, now, Duration::from_secs(7200));
@@ -285,7 +279,6 @@ fn sweep_removes_the_legacy_tree_stale_entries_and_orphans_but_keeps_fresh_ones(
 
     sweep(root, now, &limits);
 
-    assert!(!root.join(LEGACY_CACHE_DIRECTORY).exists());
     assert!(!stale.exists());
     assert!(!orphan.exists());
     assert!(used.exists());

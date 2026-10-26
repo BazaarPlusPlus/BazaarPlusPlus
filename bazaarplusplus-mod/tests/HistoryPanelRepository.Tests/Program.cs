@@ -187,14 +187,6 @@ try
         "Permanent payload failure must survive discovery refresh."
     );
 
-    Assert(
-        ReadScalar(
-            databasePath,
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('run_sync_state','battle_replay_sync_state','sync_cursors','sync_checkpoints');"
-        ) == 0,
-        "V4 sync tables must not exist."
-    );
-
     AssertRecentRunProjection(databasePath);
     HistoryPaginationTests.Run(root);
     HistoryFavoritesTests.Run(root);

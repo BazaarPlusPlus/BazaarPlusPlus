@@ -113,9 +113,9 @@ describe('deep SPA location interface', () => {
     });
   });
 
-  test('exposes explicit, invalid, and retired Hero scope values as one canonical href', () => {
+  test('exposes explicit and invalid Hero scope values as one canonical href', () => {
     const { actions, location } = setup(
-      'https://example.test/heroes?lang=zh&w=invalid&s=all&t=high&keep=yes'
+      'https://example.test/heroes?lang=zh&w=invalid&s=all&keep=yes'
     );
 
     expect(location.current()).toMatchObject({

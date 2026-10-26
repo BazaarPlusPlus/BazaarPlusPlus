@@ -394,7 +394,7 @@ internal static class LiveBuildPanelStateTests
             stashItems: []
         );
 
-    // Two Vanessa builds hold A (C only in the second) and one legacy-named Dragons build holds A.
+    // Two Vanessa builds hold A (C only in the second) and one Dragons build holds A.
     private static TenWinBuildCorpus Corpus() =>
         TenWinBuildCorpus.Parse(
             $$"""
@@ -418,7 +418,7 @@ internal static class LiveBuildPanelStateTests
                   ],
                   "card_index": [[0,[0,1]],[1,[1]]]
                 },
-                "Hero8": {
+                "TheDragons": {
                   "builds": [
                     [[0,0,0,0], [[0,0,1,0,3],[0,3,1,0,3],[0,6,1,0,3],[0,9,1,0,1]], [300,80,2667,13,50]]
                   ],

@@ -305,33 +305,12 @@ AssertEqual(
 var catalogDragonsHero = CardHero.TheDragons;
 AssertEqual(
     CollectionSourceHeroParseStatus.Resolved,
-    ParseHero("Hero8", _ => true).Status,
-    "Legacy JSON should resolve when a future runtime exposes only the canonical enum name."
-);
-AssertEqual(
-    CollectionSourceHeroParseStatus.Resolved,
     ParseHero("TheDragons", _ => true).Status,
-    "Canonical JSON should resolve when the current runtime exposes only the legacy enum name."
+    "Canonical JSON should resolve to CardHero.TheDragons."
 );
-var legacyAliasSource = BuildDragonsAliasEntry("Hero8", _ => true);
-var canonicalAliasSource = BuildDragonsAliasEntry("TheDragons", _ => true);
-AssertEqual(
-    canonicalAliasSource.SourceKey,
-    legacyAliasSource.SourceKey,
-    "Source keys should canonicalize The Dragons aliases."
-);
-AssertEqual(
-    canonicalAliasSource.OfferRuleFingerprint,
-    legacyAliasSource.OfferRuleFingerprint,
-    "Offer-rule fingerprints should canonicalize The Dragons aliases."
-);
-AssertEqual(
-    CollectionSourceOfferPoolCacheKey.Build(canonicalAliasSource, catalogDragonsHero),
-    CollectionSourceOfferPoolCacheKey.Build(legacyAliasSource, catalogDragonsHero),
-    "BPP-owned offer-pool cache keys should canonicalize source-rule aliases."
-);
+var dragonsSource = BuildDragonsEntry();
 AssertTrue(
-    canonicalAliasSource.OfferRuleFingerprint.Contains(
+    dragonsSource.OfferRuleFingerprint.Contains(
         TheDragonsHeroId.CanonicalId,
         StringComparison.Ordinal
     ),
@@ -1871,10 +1850,7 @@ static CollectionSourceEntry BuildSingleEntry(
     );
 }
 
-static CollectionSourceEntry BuildDragonsAliasEntry(
-    string heroAlias,
-    Func<CardHero, bool> isHeroAvailable
-)
+static CollectionSourceEntry BuildDragonsEntry()
 {
     const string sourceId = "77777777-0000-0000-0000-000000000006";
     return BuildCatalog(
@@ -1884,20 +1860,20 @@ static CollectionSourceEntry BuildDragonsAliasEntry(
               "groups": ["fixture"],
               "entries": [
                 {
-                  "name": "Alias source",
+                  "name": "Dragons source",
                   "kind": "Merchant",
                   "group": "fixture",
                   "order": 0,
-                  "availableHeroes": ["{{heroAlias}}"],
-                  "description": "Alias fixture",
+                  "availableHeroes": ["TheDragons"],
+                  "description": "Dragons fixture",
                   "portraitTemplateId": "{{sourceId}}",
                   "sourceTemplateIds": ["{{sourceId}}"],
-                  "offerSegments": [{ "key": "normal", "kind": "Normal", "rule": { "heroMode": "FixedHero", "hero": "{{heroAlias}}" } }]
+                  "offerSegments": [{ "key": "normal", "kind": "Normal", "rule": { "heroMode": "FixedHero", "hero": "TheDragons" } }]
                 }
               ]
             }
             """,
-            isHeroAvailable
+            _ => true
         )
         .Single();
 }

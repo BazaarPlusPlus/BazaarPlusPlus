@@ -942,14 +942,7 @@ class _MessagePack:
 def _slots(value: object, count: int, field: str) -> tuple[Any, ...]:
     if isinstance(value, (list, tuple)) and len(value) >= count:
         return tuple(value)
-    if isinstance(value, dict):
-        try:
-            return tuple(
-                value[index] if index in value else value[str(index)] for index in range(count)
-            )
-        except KeyError as error:
-            raise ValueError(f"{field} omits a numeric field") from error
-    raise ValueError(f"{field} must be a numeric-key array or map")
+    raise ValueError(f"{field} must be an array")
 
 
 def _array(value: object, field: str) -> list[Any]:

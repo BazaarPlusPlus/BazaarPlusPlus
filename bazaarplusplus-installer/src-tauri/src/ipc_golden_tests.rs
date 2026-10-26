@@ -142,26 +142,18 @@ fn seed_legacy_roots(fixture: &Fixture) {
     );
 }
 
-const NO_INSTALLER_SETTINGS: &str = "/nonexistent-installer-settings";
-
 #[test]
 fn get_legacy_data_state() {
     let fixture = Fixture::new();
     assert_golden(
         "ipc/get_legacy_data_state.none.json",
-        &fixture.json(&legacy_data::legacy_data_state(
-            &fixture.game,
-            Path::new(NO_INSTALLER_SETTINGS),
-        )),
+        &fixture.json(&legacy_data::legacy_data_state(&fixture.game)),
     );
 
     seed_legacy_roots(&fixture);
     assert_golden(
         "ipc/get_legacy_data_state.legacy-roots.json",
-        &fixture.json(&legacy_data::legacy_data_state(
-            &fixture.game,
-            Path::new(NO_INSTALLER_SETTINGS),
-        )),
+        &fixture.json(&legacy_data::legacy_data_state(&fixture.game)),
     );
 }
 
@@ -176,7 +168,6 @@ fn delete_legacy_root() {
             &legacy_data::delete_legacy_root_blocking_with(
                 &fixture.game,
                 "BazaarPlusPlusV5",
-                Path::new(NO_INSTALLER_SETTINGS),
                 &stopped,
             )
             .unwrap(),
@@ -195,10 +186,7 @@ fn import_v5_history() {
 
     let fixture = v3_game();
     let report = import_copying(&fixture, &|_: &Path| Ok(false)).unwrap();
-    let result = ImportV5HistoryResult::new(
-        &report,
-        legacy_data::legacy_data_state(&fixture.game, Path::new(NO_INSTALLER_SETTINGS)),
-    );
+    let result = ImportV5HistoryResult::new(&report, legacy_data::legacy_data_state(&fixture.game));
     assert_golden(
         "ipc/import_v5_history.imported.json",
         &json(&result, &[(&fixture.game, GAME)]),

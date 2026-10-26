@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Core.GameState;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Sources;
 
@@ -18,8 +17,7 @@ public readonly record struct CollectionSourceHeroParseResult(
 
 public static class CollectionSourceHeroParser
 {
-    // A hero BPP names but this game build lacks is KnownButUnavailable, never Invalid; both
-    // The Dragons ids resolve to CardHero.TheDragons.
+    // A hero BPP names but this game build lacks is KnownButUnavailable, never Invalid.
     public static CollectionSourceHeroParseResult Parse(
         string? value,
         Func<CardHero, bool> isAvailable
@@ -33,12 +31,8 @@ public static class CollectionSourceHeroParser
                 null
             );
 
-        var trimmed = value!.Trim();
-        CardHero hero;
-        if (TheDragonsHeroId.IsAlias(trimmed))
-            hero = CardHero.TheDragons;
-        else if (
-            !Enum.TryParse(trimmed, ignoreCase: true, out hero)
+        if (
+            !Enum.TryParse(value!.Trim(), ignoreCase: true, out CardHero hero)
             || !Enum.IsDefined(typeof(CardHero), hero)
         )
             return new CollectionSourceHeroParseResult(

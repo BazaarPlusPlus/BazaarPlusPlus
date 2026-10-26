@@ -21,10 +21,7 @@ use crate::services::{
     bepinex::{reset_bepinex_folder, reset_bpp_data, uninstall_bpp},
     data_maintenance::DataMaintenanceLock,
     detect::detect_for_install,
-    legacy_data::{
-        delete_legacy_root, installer_settings_directory, legacy_data_state,
-        DeleteLegacyRootResult, LegacyDataState,
-    },
+    legacy_data::{delete_legacy_root, legacy_data_state, DeleteLegacyRootResult, LegacyDataState},
     selected_game_installation::SelectedGameInstallationState,
     startup::InstallerContextState,
 };
@@ -96,8 +93,7 @@ pub async fn run_get_legacy_data_state(
     let Some(game_path) = resolved else {
         return Ok(LegacyDataState::without_game());
     };
-    let settings_dir = installer_settings_directory();
-    tauri::async_runtime::spawn_blocking(move || legacy_data_state(&game_path, &settings_dir))
+    tauri::async_runtime::spawn_blocking(move || legacy_data_state(&game_path))
         .await
         .map_err(|err| {
             install_action_problem(

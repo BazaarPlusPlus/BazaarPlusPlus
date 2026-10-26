@@ -66,7 +66,7 @@ with-config profile +args:
 secrets-check *args:
     node scripts/workspace.mjs secrets check "$@"
 
-# Copy every locally present GitHub secret and variable through gh; [--dependabot] [--prune].
+# Copy every locally present GitHub secret and variable through gh; [--dependabot].
 [group('workspace')]
 secrets-sync *args:
     node scripts/workspace.mjs secrets push "$@"

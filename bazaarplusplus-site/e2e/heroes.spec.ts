@@ -170,7 +170,7 @@ test.describe('route states', () => {
   for (const [locale, href, copy] of [
     [
       'zh',
-      '/heroes?lang=zh&w=invalid&s=all&t=high&keep=yes',
+      '/heroes?lang=zh&w=invalid&s=all&keep=yes',
       {
         h1: '英雄统计',
         title: '正在准备英雄统计',

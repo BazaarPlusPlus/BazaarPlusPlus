@@ -23,7 +23,7 @@ Installer resolution reads each platform's Platform Release Manifest at `latest/
 
 - `src/app/router.ts` is the route catalog for App routing, navigation, and page-title keys. Cloudflare supplies SPA fallback; unknown paths still resolve to the localized not-found page.
 - Default values—Chinese, `1d`, and `all`—omit `lang`, `w`, and `s`; non-default values serialize explicitly.
-- Hero Analysis query values, including retired keys, canonicalize at the SPA location boundary independently of page data loading.
+- Hero Analysis query values canonicalize at the SPA location boundary independently of page data loading.
 - Analysis Scope changes and alias canonicalization replace history. Internal navigation pushes. Locale links preserve the current path, scope, and hash.
 
 ## Hero Metrics Dataset

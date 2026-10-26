@@ -62,66 +62,6 @@ public static class GhostManifestProjection
             },
         };
 
-    internal static PvpBattleManifest SwapPerspective(PvpBattleManifest manifest)
-    {
-        var participants = manifest.Participants;
-        (participants.PlayerName, participants.OpponentName) = (
-            participants.OpponentName,
-            participants.PlayerName
-        );
-        (participants.PlayerAccountId, participants.OpponentAccountId) = (
-            participants.OpponentAccountId,
-            participants.PlayerAccountId
-        );
-        (participants.PlayerHero, participants.OpponentHero) = (
-            participants.OpponentHero,
-            participants.PlayerHero
-        );
-        (participants.PlayerRank, participants.OpponentRank) = (
-            participants.OpponentRank,
-            participants.PlayerRank
-        );
-        (participants.PlayerRating, participants.OpponentRating) = (
-            participants.OpponentRating,
-            participants.PlayerRating
-        );
-        (participants.PlayerLevel, participants.OpponentLevel) = (
-            participants.OpponentLevel,
-            participants.PlayerLevel
-        );
-        (participants.PlayerPrestige, participants.OpponentPrestige) = (
-            participants.OpponentPrestige,
-            participants.PlayerPrestige
-        );
-        (participants.PlayerVictories, participants.OpponentVictories) = (
-            participants.OpponentVictories,
-            participants.PlayerVictories
-        );
-        participants.PlayerIncome = null;
-        participants.PlayerGold = null;
-
-        var snapshots = manifest.Snapshots;
-        (snapshots.PlayerHand, snapshots.OpponentHand) = (
-            snapshots.OpponentHand,
-            snapshots.PlayerHand
-        );
-        (snapshots.PlayerSkills, snapshots.OpponentSkills) = (
-            snapshots.OpponentSkills,
-            snapshots.PlayerSkills
-        );
-
-        var outcome = manifest.Outcome;
-        outcome.Result = GhostBattleLocalProjector.ProjectResultToLocal(outcome.Result);
-        outcome.WinnerCombatantId = GhostBattleLocalProjector.ProjectCombatantIdToLocal(
-            outcome.WinnerCombatantId
-        );
-        outcome.LoserCombatantId = GhostBattleLocalProjector.ProjectCombatantIdToLocal(
-            outcome.LoserCombatantId
-        );
-
-        return manifest;
-    }
-
     private static PvpBattleCardSetCapture BuildCapture(
         BattleCardSnapshotsV6 snapshots,
         string label,

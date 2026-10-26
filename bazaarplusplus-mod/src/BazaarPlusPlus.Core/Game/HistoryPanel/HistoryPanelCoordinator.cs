@@ -210,13 +210,11 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
 
     public void SetRunHeroFilter(string hero)
     {
-        var canonical = HistoryPanelHeroPresentation.CanonicalFilterId(hero);
-        _state.SelectedRunHero = HistoryPanelHeroPresentation.IsSelected(
-            _state.SelectedRunHero,
-            hero
-        )
-            ? null
-            : canonical;
+        _state.SelectedRunHero =
+            string.IsNullOrEmpty(hero)
+            || HistoryPanelHeroPresentation.IsSelected(_state.SelectedRunHero, hero)
+                ? null
+                : hero;
         LoadArchive(new(AnchorId: GetSelectedRun()?.RunId), preserveSelection: true);
     }
 

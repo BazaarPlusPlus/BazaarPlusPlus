@@ -16,7 +16,6 @@ internal static class SeedGateTests
         RegisterAssemblyResolution();
 
         TestEmbeddedSeedResourceIsBundledAndParses();
-        TestBuildRatingTierStaysDeleted();
 
         Console.WriteLine("LiveBuild embedded seed checks passed.");
     }
@@ -68,16 +67,6 @@ internal static class SeedGateTests
             "Prepared data should retain the canonical TheDragons hero."
         );
 #endif
-    }
-
-    private static void TestBuildRatingTierStaysDeleted()
-    {
-        Assert(
-            typeof(TenWinBuildCatalogFactory).Assembly.GetType(
-                "BazaarPlusPlus.Game.LiveBuildPanel.Recommendations.BuildRatingTier"
-            ) == null,
-            "BuildRatingTier must be deleted from the desktop host assembly."
-        );
     }
 
     private static void RegisterAssemblyResolution()

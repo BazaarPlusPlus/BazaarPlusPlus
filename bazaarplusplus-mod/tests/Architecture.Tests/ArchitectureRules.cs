@@ -121,7 +121,7 @@ internal static class ArchitectureRules
         )
         {
             // Word boundaries apply only at edges that are themselves word characters, so
-            // "/run-bundles" still matches inside "/v5/run-bundles".
+            // "/items" still matches inside "/v2/items".
             var end = index + word.Length;
             var startsClean = !IsWordChar(word[0]) || index == 0 || !IsWordChar(text[index - 1]);
             var endsClean = !IsWordChar(word[^1]) || end == text.Length || !IsWordChar(text[end]);

@@ -156,9 +156,9 @@ test('a topic linked from the entry map passes, and ADRs need no entry', () => {
 
 // ---------- runner ----------
 
-test('listDocs tolerates a directory that does not exist yet', () => {
+test('listDocs lists nothing for a missing directory', () => {
   const rootDir = createFixtureRoot();
-  expect(listDocs(rootDir, 'docs/plans')).toEqual([]);
+  expect(listDocs(rootDir, 'docs/missing')).toEqual([]);
 });
 
 test('runDocsCheck reports failure once any seam fails, and passes a clean tree', () => {

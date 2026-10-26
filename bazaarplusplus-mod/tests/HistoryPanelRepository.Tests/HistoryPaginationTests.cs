@@ -129,7 +129,10 @@ internal static class HistoryPaginationTests
             dragons.AddRange(page.Rows.Select(r => r.RunId));
             if (!page.HasOlder)
                 break;
-            page = repository.ListRuns(new(page.Last), HistoryPanelDataService.RunHeroKey("Hero8"));
+            page = repository.ListRuns(
+                new(page.Last),
+                HistoryPanelDataService.RunHeroKey("TheDragons")
+            );
         }
         Check(
             dragons.SequenceEqual(expected.Where(id => int.Parse(id[1..]) % 97 == 0)),
@@ -342,7 +345,7 @@ internal static class HistoryPaginationTests
                     == 3,
                 "An empty hero selection must include every run."
             );
-        foreach (var hero in new[] { "TheDragons", "Hero8", "tHeDrAgOnS" })
+        foreach (var hero in new[] { "TheDragons", "tHeDrAgOnS" })
         {
             var page = repository.ListRuns(new(), HistoryPanelDataService.RunHeroKey(hero));
             CheckCounts(page, 2, 1);
@@ -351,7 +354,7 @@ internal static class HistoryPaginationTests
                 rows.Select(r => r.RunId).OrderBy(id => id).SequenceEqual(["canonical", "spaced"])
                     && rows.Single(r => r.RunId == "canonical").Hero == "TheDragons"
                     && rows.Single(r => r.RunId == "spaced").Hero == "\ttHeDrAgOnS\u00a0",
-                "Either hero alias must select case and whitespace variants without rewriting their values."
+                "Either casing of the hero filter must select case and whitespace variants without rewriting their values."
             );
         }
         Check(

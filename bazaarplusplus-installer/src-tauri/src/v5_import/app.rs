@@ -9,9 +9,7 @@ use super::run::{import_v5, ImportReport};
 use super::ImportError;
 use crate::problem::{SemanticProblem, SemanticProblemCode};
 use crate::services::data_maintenance::DataMaintenanceLock;
-use crate::services::legacy_data::{
-    installer_settings_directory, legacy_data_state, LegacyDataState,
-};
+use crate::services::legacy_data::{legacy_data_state, LegacyDataState};
 use crate::services::placement::PlacementError;
 use crate::stream::runtime::StreamRuntime;
 
@@ -57,14 +55,11 @@ pub(crate) async fn import_v5_history(
     let report = import_v5(maintenance, stream_runtime, game_path.clone(), now_ms)
         .await
         .map_err(ImportError::into_problem)?;
-    let settings_dir = installer_settings_directory();
-    let state =
-        tauri::async_runtime::spawn_blocking(move || legacy_data_state(&game_path, &settings_dir))
-            .await
-            .map_err(|error| {
-                ImportError::Target(format!("failed to measure legacy data: {error}"))
-                    .into_problem()
-            })?;
+    let state = tauri::async_runtime::spawn_blocking(move || legacy_data_state(&game_path))
+        .await
+        .map_err(|error| {
+            ImportError::Target(format!("failed to measure legacy data: {error}")).into_problem()
+        })?;
     Ok(ImportV5HistoryResult::new(&report, state))
 }
 

@@ -279,7 +279,7 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
             );
         }
 
-        var ghostPayload = GhostBattlePayloadReader.Normalize(ghostPayloadResult.Payload);
+        var ghostPayload = ghostPayloadResult.Payload;
         var manifest = ghostPayload?.BattleManifest;
         if (manifest == null)
             return GhostReplayLoad.Failed(
@@ -287,38 +287,6 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
                 HistoryPanelReplayReasonCode.GhostManifestUnavailable
             );
 
-        var payload = ghostPayload?.ReplayPayload;
-        if (payload == null)
-        {
-            var payloadStore = new CombatReplayPayloadStore(replayDirectoryPath);
-            var payloadResult = await Task.Run(
-                () => payloadStore.LoadDetailed(battle.BattleId),
-                cancellationToken
-            );
-            if (payloadResult.Status == FileBackedPayloadLoadStatus.Invalid)
-            {
-                return GhostReplayLoad.Failed(
-                    HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
-                    HistoryPanelReplayReasonCode.ReplayPayloadInvalid
-                );
-            }
-            if (payloadResult.Status == FileBackedPayloadLoadStatus.Unreadable)
-            {
-                return GhostReplayLoad.Failed(
-                    HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
-                    HistoryPanelReplayReasonCode.ReplayPayloadUnreadable,
-                    payloadResult.Exception
-                );
-            }
-            payload = payloadResult.Payload;
-        }
-        if (payload == null)
-            return GhostReplayLoad.Failed(
-                HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
-                HistoryPanelReplayReasonCode.ReplayPayloadMissing
-            );
-
-        ghostPayload!.ReplayPayload = payload;
         if (
             !GhostBattlePayloadReader.MatchesIdentity(
                 ghostPayload,

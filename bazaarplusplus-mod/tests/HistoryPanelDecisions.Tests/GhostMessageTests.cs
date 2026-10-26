@@ -594,7 +594,7 @@ internal static class GhostMessageTests
             Equal(
                 HistoryPanelDecisions.GhostDownloadFailureMessage(
                     null,
-                    "ghost_bundle_invalid",
+                    "ghost_bundle_import_failed",
                     reason
                 ),
                 HistoryPanelText.GhostReplayPayloadUnavailable(),

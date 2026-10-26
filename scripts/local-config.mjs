@@ -105,8 +105,6 @@ export const sections = {
     ]
   }
 };
-// Sections and keys an earlier layout held, migrated by setup (migrateLegacy).
-const legacySections = ['release'];
 for (const [name, spec] of Object.entries(sections)) {
   if ([spec.projection, spec.inject, spec.stage].filter(Boolean).length !== 1)
     throw new Error(`[${name}] needs exactly one delivery`);
@@ -124,14 +122,6 @@ const keyMaterial = (name) =>
   name === 'tauri-updater.key.pub' ||
   name === 'android-release.p12' ||
   /^AuthKey_[A-Za-z0-9]+\.p8$/.test(name);
-const legacyFiles = [
-  'analyzer.env',
-  'server.dev.vars',
-  'release-r2.env',
-  'machine.env',
-  'cloudflare.env',
-  'signing-secrets'
-];
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 function realLocation(file) {
@@ -167,9 +157,7 @@ export function configHome(env = process.env) {
 export function assertExternal(home, repositories = [root]) {
   for (const repository of repositories) {
     if (inside(realLocation(repository), realLocation(home))) {
-      throw new Error(
-        'BPP_CONFIG_HOME must be outside the source and destination checkouts'
-      );
+      throw new Error('BPP_CONFIG_HOME must be outside the checkout');
     }
   }
 }
@@ -258,7 +246,7 @@ function parseValue(raw, key, where) {
   return value.slice(0, hash).trimEnd();
 }
 
-function parse(text, label, start, { legacy = false } = {}) {
+function parse(text, label, start) {
   const preamble = [];
   const found = new Map();
   const open = (name) => {
@@ -280,11 +268,7 @@ function parse(text, label, start, { legacy = false } = {}) {
           throw new Error(
             `Malformed section header on ${where}; put [name] alone on its line`
           );
-        if (!legacy && legacySections.includes(name))
-          throw new Error(
-            `Legacy [${name}] section on ${where}; run just setup --skip-deps to migrate it`
-          );
-        if (!Object.hasOwn(sections, name) && !legacySections.includes(name))
+        if (!Object.hasOwn(sections, name))
           throw new Error(
             `Unknown section header on ${where}; sections are ${Object.keys(sections).join(', ')}`
           );
@@ -327,11 +311,11 @@ function parse(text, label, start, { legacy = false } = {}) {
 }
 
 // Returns the preamble and, per section, its normalized body and values.
-export function parseConfig(text, label = CONFIG, options) {
-  return parse(text, label, undefined, options);
+export function parseConfig(text, label = CONFIG) {
+  return parse(text, label);
 }
 
-// One section's body, such as a project file from an old checkout.
+// One section's body, such as the analyzer's .env.example.
 function parseSection(name, text, label) {
   return parse(text, label, name).sections.get(name);
 }
@@ -341,13 +325,6 @@ function renderConfig({ preamble, sections: found }) {
   for (const name of Object.keys(sections))
     if (found.has(name)) parts.push(`[${name}]\n${found.get(name).body}`);
   return parts.join('\n');
-}
-
-// Parsing rejects duplicate keys first, so at most one line matches.
-const keyLine = (key) => new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=.*$`, 'm');
-
-function removeKey(body, key) {
-  return body.replace(new RegExp(`${keyLine(key).source}\\n?`, 'm'), '');
 }
 
 const PROJECTED_MARKER = '# Projected from config.ini';
@@ -368,191 +345,14 @@ function projectionBody(config, name) {
   return `${body}${PROJECTED_MARKER} ${owners.join(' and ')}; edit there.\n${lines.join('\n')}\n`;
 }
 
-// Keys an earlier layout kept elsewhere. A moved key lands in its owner when
-// the owner is empty or equal and is a conflict otherwise; a retired key
-// (a derived R2 pair, the updater password) is kept as a comment under
-// `into` with a note, never deleted, so nothing is lost silently. Tests and
-// imports of a projected .env also route the projected keys back home.
-const legacyKeys = [
-  {
-    from: 'release',
-    key: 'BPP_R2_ACCOUNT_ID',
-    to: 'cloudflare',
-    as: 'CLOUDFLARE_ACCOUNT_ID'
-  },
-  { from: 'release', key: 'BPP_R2_ACCESS_KEY_ID', into: 'cloudflare' },
-  { from: 'release', key: 'BPP_R2_SECRET_ACCESS_KEY', into: 'cloudflare' },
-  {
-    from: 'analyzer',
-    key: 'BPP_METRICS_R2_ACCOUNT_ID',
-    to: 'cloudflare',
-    as: 'CLOUDFLARE_ACCOUNT_ID'
-  },
-  { from: 'analyzer', key: 'BPP_METRICS_R2_ACCESS_KEY_ID', into: 'cloudflare' },
-  {
-    from: 'analyzer',
-    key: 'BPP_METRICS_R2_SECRET_ACCESS_KEY',
-    into: 'cloudflare'
-  },
-  {
-    from: 'analyzer',
-    key: 'CLOUDFLARE_ACCOUNT_ID',
-    to: 'cloudflare',
-    as: 'CLOUDFLARE_ACCOUNT_ID'
-  },
-  {
-    from: 'analyzer',
-    key: 'CLOUDFLARE_API_TOKEN',
-    to: 'cloudflare',
-    as: 'CLOUDFLARE_API_TOKEN'
-  },
-  {
-    from: 'analyzer',
-    key: 'BPP_BUNDLE_SYNC_TOKEN',
-    to: 'server',
-    as: 'BUNDLE_SYNC_TOKEN'
-  },
-  // The Bundle Server address lost its version: the server's domain names it.
-  {
-    from: 'analyzer',
-    key: 'BPP_V5_API_BASE_URL',
-    to: 'analyzer',
-    as: 'BPP_API_BASE_URL'
-  },
-  {
-    from: 'signing',
-    key: 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD',
-    into: 'signing'
-  },
-  // analyzer.yml uses the operator token since the Cloudflare tokens merged.
-  {
-    from: 'cloudflare',
-    key: 'BPP_ANALYZER_R2_TOKEN',
-    into: 'cloudflare'
-  }
-];
-const RETIRED_NOTE =
-  '# Migrated by setup: the lines below are no longer read (R2 keys derive from CLOUDFLARE_API_TOKEN; the updater key has no password). Delete them once the token is set.';
-
-export function legacyKeysPresent(config) {
-  return legacyKeys
-    .filter(({ from, key }) =>
-      Object.hasOwn(config.sections.get(from)?.values || {}, key)
-    )
-    .map(({ from, key }) => `[${from}] ${key}`);
-}
-
-// Moves a parsed config (legacy sections allowed) to the current layout in
-// memory. Returns the migrated config and what moved; throws on a conflict
-// before anything is written.
-export function migrateLegacy(config, repository = root) {
-  const found = new Map(config.sections);
-  const migrated = [];
-  const section = (name) => {
-    if (!found.has(name)) {
-      const template = templateConfig(repository).sections.get(name);
-      found.set(name, { body: template.body, values: { ...template.values } });
-    }
-    return found.get(name);
-  };
-  const retired = new Map();
-  for (const rule of legacyKeys) {
-    const source = found.get(rule.from);
-    if (!source || !Object.hasOwn(source.values, rule.key)) continue;
-    const value = source.values[rule.key];
-    const line = keyLine(rule.key).exec(source.body)?.[0] ?? `${rule.key}=`;
-    source.body = removeKey(source.body, rule.key);
-    delete source.values[rule.key];
-    if (!value.trim()) {
-      migrated.push(`[${rule.from}] ${rule.key} (empty, removed)`);
-      continue;
-    }
-    if (rule.into) {
-      if (!retired.has(rule.into)) retired.set(rule.into, []);
-      retired.get(rule.into).push(`# [${rule.from}] ${line.trim()}`);
-      migrated.push(`[${rule.from}] ${rule.key} -> comment in [${rule.into}]`);
-      continue;
-    }
-    const target = section(rule.to);
-    const current = target.values[rule.as] ?? '';
-    if (current.trim() && current !== value)
-      throw new Error(
-        `Migration conflict: [${rule.from}] ${rule.key} differs from [${rule.to}] ${rule.as}; keep one value in [${rule.to}] and delete the other line`
-      );
-    if (!current.trim()) {
-      target.body = setValue(target.body, rule.as, value);
-      target.values[rule.as] = value;
-    }
-    migrated.push(`[${rule.from}] ${rule.key} -> [${rule.to}] ${rule.as}`);
-  }
-  for (const name of legacySections)
-    if (found.has(name)) {
-      if (Object.values(found.get(name).values).some((v) => v.trim()))
-        throw new Error(`Migration left values in [${name}]`);
-      found.delete(name);
-      migrated.push(`[${name}] removed`);
-    }
-  // Every current key appears so doctor and secrets check can name it.
-  for (const [name, spec] of Object.entries(sections)) {
-    if (spec.template || !found.has(name)) continue;
-    const target = found.get(name);
-    for (const key of sectionKeys(spec))
-      if (!Object.hasOwn(target.values, key)) {
-        target.body = `${target.body}${key}=\n`;
-        target.values[key] = '';
-      }
-  }
-  for (const [name, lines] of retired) {
-    const target = section(name);
-    target.body = `${target.body}${RETIRED_NOTE}\n${lines.join('\n')}\n`;
-  }
-  // The projection marker of an imported .env is not configuration.
-  for (const target of found.values())
-    target.body = target.body
-      .split('\n')
-      .filter((line) => !line.startsWith(PROJECTED_MARKER))
-      .join('\n');
-  const text = renderConfig({ preamble: config.preamble, sections: found });
-  return { config: parseConfig(text), migrated };
-}
-
-// Rewrites config.ini in the current layout when it holds the earlier one.
-export function migrateConfig(home, repository = root) {
-  const file = ownedPath(home, CONFIG);
-  if (!regularFile(file)) return [];
-  const config = parseConfig(fs.readFileSync(file, 'utf8'), CONFIG, {
-    legacy: true
-  });
-  if (
-    !legacySections.some((name) => config.sections.has(name)) &&
-    legacyKeysPresent(config).length === 0
-  )
-    return [];
-  const { config: next, migrated } = migrateLegacy(config, repository);
-  privateWrite(file, renderConfig(next));
-  return migrated;
-}
-
-function assertCurrentLayout(home) {
-  if (fs.existsSync(path.join(home, CONFIG))) return;
-  const legacy = legacyFiles.filter((name) =>
-    fs.existsSync(path.join(home, name))
-  );
-  if (legacy.length)
-    throw new Error(
-      `Legacy configuration files in ${home} (${legacy.join(', ')}): move their values into ${CONFIG} and key files into ${KEYS}/, then move the old files aside`
-    );
-}
-
 export function readConfig(home) {
-  assertCurrentLayout(home);
   const file = ownedPath(home, CONFIG);
   if (!regularFile(file)) return { preamble: '', sections: new Map() };
   return parseConfig(fs.readFileSync(file, 'utf8'));
 }
 
-// Double quotes keep what earlier imports wrote; single quotes carry a
-// backslash literally. Anything else has no form every reader agrees on.
+// Double quotes by default; single quotes carry a backslash literally.
+// Anything else has no form every reader agrees on.
 function quoted(key, value) {
   if (!/[\\"\r\n\0]/.test(value)) return `${key}="${value}"`;
   if (
@@ -562,14 +362,6 @@ function quoted(key, value) {
   )
     return `${key}='${value}'`;
   throw new Error(`Unsupported characters for ${key}`);
-}
-
-function setValue(body, key, value) {
-  const line = quoted(key, value);
-  const pattern = keyLine(key);
-  return pattern.test(body)
-    ? body.replace(pattern, () => line)
-    : `${body}${line}\n`;
 }
 
 function templateConfig(repository) {
@@ -593,147 +385,14 @@ function templateConfig(repository) {
   return parse(lines.join('\n'), `${CONFIG} template`);
 }
 
-const unset = (section) =>
-  Object.values(section.values).every((value) => !value.trim());
-
-// Files an old signing-secrets directory may hold that nothing reads now.
-const obsoleteSigningFiles = ['tauri-updater.password'];
-
-export function importCheckout(source, home, repository = root) {
-  source = fs.realpathSync(source);
-  assertExternal(home, [repository, source]);
-  assertCurrentLayout(home);
-  const file = ownedPath(home, CONFIG);
-  // The earlier layout is read as is and migrated with the import, in memory.
-  let config = regularFile(file)
-    ? parseConfig(fs.readFileSync(file, 'utf8'), CONFIG, { legacy: true })
-    : templateConfig(repository);
-  const conflict = (name) => {
-    throw new Error(
-      `Import conflict: ${name}; existing configuration was preserved`
-    );
-  };
-  const template = templateConfig(repository).sections;
-  const imported = [];
-  for (const [name, spec] of Object.entries(sections)) {
-    if (!spec.projection) continue;
-    const file = path.join(source, spec.projection);
-    if (!regularFile(file)) continue;
-    let body = fs.readFileSync(file, 'utf8');
-    const { values } = parseSection(name, body, file);
-    // Keep the meaning of a path relative to the old project file.
-    for (const key of spec.absolute || []) {
-      if (values[key] && !path.isAbsolute(values[key])) {
-        const absolute = path.resolve(path.dirname(file), values[key]);
-        body = setValue(body, key, absolute.replaceAll('\\', '/'));
-      }
-    }
-    const section = parseSection(name, body, file);
-    const existing = config.sections.get(name);
-    if (
-      !existing ||
-      unset(existing) ||
-      existing.body === template.get(name)?.body
-    ) {
-      // A first import keeps the old file's text, comments included.
-      config.sections.set(name, section);
-    } else {
-      // Later imports merge by value: an empty key takes the imported value,
-      // an equal one is confirmed, a differing one is a conflict.
-      let merged = existing.body;
-      for (const [key, value] of Object.entries(section.values)) {
-        const current = existing.values[key] ?? '';
-        if (current.trim() && current !== value) conflict(`[${name}] ${key}`);
-        if (!current.trim() && value.trim())
-          merged = setValue(merged, key, value);
-      }
-      config.sections.set(name, parseSection(name, merged, CONFIG));
-    }
-    imported.push(`[${name}]`);
-  }
-  const keys = new Map();
-  const signing = path.join(source, 'bazaarplusplus-installer/signing-secrets');
-  if (fs.existsSync(signing)) {
-    if (fs.lstatSync(signing).isSymbolicLink())
-      throw new Error(
-        'Import signing-secrets from its owning checkout, not a symlink'
-      );
-    const staged = sections.signing.stage;
-    const values = {};
-    for (const entry of fs.readdirSync(signing).sort()) {
-      const file = path.join(signing, entry);
-      regularFile(file);
-      if (keyMaterial(entry)) keys.set(entry, fs.readFileSync(file));
-      else if (Object.hasOwn(staged, entry))
-        values[staged[entry]] = fs.readFileSync(file, 'utf8').trim();
-      else if (obsoleteSigningFiles.includes(entry))
-        imported.push(`${entry} left in place (not read)`);
-      else throw new Error(`Unknown signing-secrets entry: ${entry}`);
-    }
-    if (values.APPLE_API_KEY_PATH) {
-      const oldPath = path.resolve(
-        source,
-        'bazaarplusplus-installer',
-        values.APPLE_API_KEY_PATH
-      );
-      if (!inside(signing, oldPath) || !fs.existsSync(oldPath)) {
-        throw new Error(
-          'Apple API key must exist inside the source signing-secrets directory before import'
-        );
-      }
-      const relative = path.relative(signing, oldPath);
-      // keys/AuthKey_<APPLE_API_KEY>.p8 is found by convention.
-      values.APPLE_API_KEY_PATH =
-        relative === `AuthKey_${values.APPLE_API_KEY}.p8`
-          ? ''
-          : `${KEYS}/${relative.replaceAll('\\', '/')}`;
-    }
-    const existing = config.sections.get('signing');
-    let body = existing?.body || '';
-    const current = existing?.values || {};
-    for (const key of Object.values(staged)) {
-      const value = values[key];
-      if (!value || current[key] === value) continue;
-      if (current[key]?.trim()) conflict(`[signing] ${key}`);
-      body = setValue(body, key, value);
-      imported.push(`[signing] ${key}`);
-    }
-    config.sections.set('signing', parseSection('signing', body, CONFIG));
-  }
-  // Preflight every write before creating any file. A differing credential
-  // is a conflict, never an invitation to guess which identity should win.
-  for (const [name, bytes] of keys) {
-    const target = ownedPath(home, `${KEYS}/${name}`);
-    if (regularFile(target) && !fs.readFileSync(target).equals(bytes))
-      conflict(`${KEYS}/${name}`);
-    imported.push(`${KEYS}/${name}`);
-  }
-  const migration = migrateLegacy(config, repository);
-  config = migration.config;
-  imported.push(...migration.migrated);
-  const text = renderConfig(config);
-  parseConfig(text);
-  privateDirectory(home);
-  privateDirectory(path.join(home, KEYS));
-  for (const [name, bytes] of keys) {
-    const target = ownedPath(home, `${KEYS}/${name}`);
-    if (!fs.existsSync(target)) privateWrite(target, bytes, true);
-    else if (process.platform !== 'win32') fs.chmodSync(target, 0o600);
-  }
-  privateWrite(ownedPath(home, CONFIG), text);
-  return imported;
-}
-
 export function initializeConfig(home, repository = root) {
   assertExternal(home, [repository]);
-  assertCurrentLayout(home);
   privateDirectory(home);
   privateDirectory(path.join(home, KEYS));
   const file = ownedPath(home, CONFIG);
   if (!regularFile(file))
     privateWrite(file, renderConfig(templateConfig(repository)), true);
   else if (process.platform !== 'win32') fs.chmodSync(file, 0o600);
-  migrateConfig(home, repository);
   readConfig(home);
   // Staging left behind by an interrupted signing command. A day's margin
   // spares a build still running from another clone.
@@ -842,9 +501,8 @@ function stagedValues(home, config) {
 // What bundle.sh will see: the files of an exported BPP_SIGNING_SECRETS_DIR,
 // else the staged [signing] and keys/, each overridden by an exported value.
 // Mirrors bundle.sh load_apple_api_key_path_env: the key path falls back to
-// AuthKey_<APPLE_API_KEY>.p8 in that directory, and a relative path resolves
-// against the installer.
-export function resolveSigning(home, env = process.env, repository = root) {
+// AuthKey_<APPLE_API_KEY>.p8 in that directory, and a relative path is refused.
+export function resolveSigning(home, env = process.env) {
   const explicit = env.BPP_SIGNING_SECRETS_DIR;
   const values = {};
   if (explicit) {
@@ -864,8 +522,7 @@ export function resolveSigning(home, env = process.env, repository = root) {
       : '');
   return {
     values,
-    appleKeyPath:
-      keyPath && path.resolve(repository, 'bazaarplusplus-installer', keyPath),
+    appleKeyPath: path.isAbsolute(keyPath) ? keyPath : '',
     updaterKey: path.join(directory, 'tauri-updater.key')
   };
 }

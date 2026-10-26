@@ -11,7 +11,7 @@ D1 的 Ghost 表为 `ghost_battle_summaries`，包含十五列普通列，不存
 
 HTTP 仍按上传者视角构造 `player` 和 `opponent` 对象；`player` 是挑战者，`opponent` 是被查询的本地玩家。下载 URL 及到期时间在查询时签发，对象键来自父 Bundle。普通列名不是公开的扁平 API。
 
-上传 manifest 的校验、描述符和完整 R2 Bundle/Run 不变。只从 D1 摘要及发现响应中省去已确认不消费的属性，详见[字段证据](../ghost-projection-field-audit-2026-09-12.md)。界面所需的挑战者段位和评分仍保留。
+上传 manifest 的校验、描述符和完整 R2 Bundle/Run 不变。只从 D1 摘要及发现响应中省去 Mod 不消费的属性，省去的字段列在 [`GET /ghost-battles`](../api-reference.md#get-ghost-battles)。挑战者段位和评分仍保留：Mod 在 `bazaarplusplus-mod/src/BazaarPlusPlus.ModApi/Clients/GhostBattleClient.cs` 的 `TryParseBattle` 中读取 `player.rank` 和 `player.rating`，并在 History 的 Ghost 战斗行中显示。
 
 ## 不变的业务语义
 

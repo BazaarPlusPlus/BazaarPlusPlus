@@ -22,15 +22,9 @@ BazaarPlusPlus.version
 BazaarPlusPlus.Core.dll
 BazaarPlusPlus.ModApi.dll
 BazaarPlusPlus.Storage.dll
-BazaarPlusPlus.Localization.dll
 BazaarPlusPlus.history-database.json
 BazaarPlusPlus.managed-manifest.txt
 BazaarPlusPlus.Updater.dll
-
-# Retired recorder binaries are forbidden in release Payloads; ignore local leftovers.
-/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg
-/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg.exe
-/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg-LICENSE.txt
 
 # Machine-local provenance receipts and generated archive checksums.
 /src-tauri/resources/BepInExSource/*/payload-build.json

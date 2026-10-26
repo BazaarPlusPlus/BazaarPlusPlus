@@ -22,7 +22,7 @@ const INPUTS = [
   '/supporters/?lang=en&w=3d#lost',
   '/heroes?lang=en&w=7d&s=legend',
   '/heroes?lang=ja&w=30d&s=platinum',
-  '/heroes?lang=zh&w=invalid&s=all&t=high&keep=yes',
+  '/heroes?lang=zh&w=invalid&s=all&keep=yes',
   '/heroes?w=7d&keep=yes#trend',
   '/heroes?campaign=two%20words&w=3d',
 ];

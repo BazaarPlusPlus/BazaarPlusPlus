@@ -116,21 +116,11 @@ impl LegacyDataState {
     }
 }
 
-/// The installer's own settings folder (`legacy_overlay_settings_path`'s
-/// parent). It shares the `BazaarPlusPlusV4` name but is never a Legacy Root.
-pub(crate) fn installer_settings_directory() -> PathBuf {
-    let settings = crate::services::paths::legacy_overlay_settings_path();
-    settings.parent().map(Path::to_path_buf).unwrap_or(settings)
-}
-
 /// Measures the Legacy Roots in `game_path`. Blocking: it walks every file.
-pub(crate) fn legacy_data_state(
-    game_path: &Path,
-    installer_settings_dir: &Path,
-) -> LegacyDataState {
+pub(crate) fn legacy_data_state(game_path: &Path) -> LegacyDataState {
     LegacyDataState {
         game_path: Some(game_path.to_string_lossy().into_owned()),
-        roots: present_legacy_roots(game_path, installer_settings_dir)
+        roots: present_legacy_roots(game_path)
             .into_iter()
             .map(|root| measure_root(root, &root.path_in(game_path)))
             .collect(),
@@ -141,25 +131,15 @@ pub(crate) fn legacy_data_state(
 
 /// The Legacy Roots that exist as real directories directly under `game_path`.
 /// A file or symbolic link with a Legacy Root's name is not one.
-fn present_legacy_roots(game_path: &Path, installer_settings_dir: &Path) -> Vec<LegacyRoot> {
+fn present_legacy_roots(game_path: &Path) -> Vec<LegacyRoot> {
     LegacyRoot::ALL
         .into_iter()
-        .filter(|root| {
-            let path = root.path_in(game_path);
-            is_real_directory(&path) && !same_directory(&path, installer_settings_dir)
-        })
+        .filter(|root| is_real_directory(&root.path_in(game_path)))
         .collect()
 }
 
 pub(crate) fn is_real_directory(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_dir())
-}
-
-fn same_directory(left: &Path, right: &Path) -> bool {
-    match (left.canonicalize(), right.canonicalize()) {
-        (Ok(left), Ok(right)) => left == right,
-        _ => left == right,
-    }
 }
 
 fn measure_root(name: LegacyRoot, root: &Path) -> LegacyDataRoot {
@@ -262,15 +242,9 @@ pub(crate) async fn delete_legacy_root(
     game_path: String,
     name: String,
 ) -> Result<DeleteLegacyRootResult, ActionError> {
-    let installer_settings_dir = installer_settings_directory();
     maintenance
         .run_blocking(move || {
-            delete_legacy_root_blocking_with(
-                Path::new(&game_path),
-                &name,
-                &installer_settings_dir,
-                &SystemGameProcessProbe,
-            )
+            delete_legacy_root_blocking_with(Path::new(&game_path), &name, &SystemGameProcessProbe)
         })
         .await?
 }
@@ -278,7 +252,6 @@ pub(crate) async fn delete_legacy_root(
 pub(crate) fn delete_legacy_root_blocking_with(
     game_path: &Path,
     name: &str,
-    installer_settings_dir: &Path,
     probe: &impl GameProcessProbe,
 ) -> Result<DeleteLegacyRootResult, ActionError> {
     let root = LegacyRoot::from_directory_name(name)
@@ -287,9 +260,6 @@ pub(crate) fn delete_legacy_root_blocking_with(
     ensure_game_stopped_with(probe, game_path, GameStoppedOperation::LegacyDelete)?;
 
     let path = root.path_in(game_path);
-    if same_directory(&path, installer_settings_dir) {
-        return Err(format!("{LEGACY_ROOT_ERR_UNKNOWN}:{name}").into());
-    }
     let removed = is_real_directory(&path);
     if removed {
         // The same removal Reset uses for the current Data Root.
@@ -300,7 +270,7 @@ pub(crate) fn delete_legacy_root_blocking_with(
     }
     Ok(DeleteLegacyRootResult {
         removed,
-        state: legacy_data_state(game_path, installer_settings_dir),
+        state: legacy_data_state(game_path),
     })
 }
 
@@ -342,10 +312,6 @@ mod tests {
         );
     }
 
-    fn no_settings_dir() -> PathBuf {
-        PathBuf::from("/nonexistent-installer-settings")
-    }
-
     #[test]
     fn the_legacy_root_list_never_names_the_current_data_root() {
         for root in LegacyRoot::ALL {
@@ -370,7 +336,7 @@ mod tests {
         write(&game.path().join("BazaarPlusPlusV5.zip"), &[0; 64]);
         write(&game.path().join("BazaarPlusPlusV4.txt"), b"file");
 
-        let state = legacy_data_state(game.path(), &no_settings_dir());
+        let state = legacy_data_state(game.path());
 
         assert_eq!(
             state
@@ -395,43 +361,7 @@ mod tests {
         let game = tempfile::tempdir().unwrap();
         write(&game.path().join("BazaarPlusPlusV5"), b"file");
 
-        assert!(legacy_data_state(game.path(), &no_settings_dir())
-            .roots
-            .is_empty());
-    }
-
-    #[test]
-    fn the_installer_settings_folder_is_never_a_legacy_root() {
-        // The installer keeps overlay settings in a `BazaarPlusPlusV4` folder of
-        // its config directory. Even when that directory is the selected one,
-        // the folder is neither listed nor deleted.
-        let config = valid_game_dir();
-        let settings = config.path().join("BazaarPlusPlusV4");
-        write(&settings.join("stream-overlay-crop.json"), b"{}");
-
-        let state = legacy_data_state(config.path(), &settings);
-        assert!(state.roots.is_empty());
-
-        let refused = delete_legacy_root_blocking_with(
-            config.path(),
-            "BazaarPlusPlusV4",
-            &settings,
-            &stopped,
-        )
-        .unwrap_err();
-        assert_eq!(
-            refused.into_problem("delete_legacy_root").code,
-            SemanticProblemCode::InstallActionFailed
-        );
-        assert!(settings.join("stream-overlay-crop.json").is_file());
-    }
-
-    #[test]
-    fn the_real_installer_settings_path_is_the_legacy_overlay_settings_folder() {
-        assert_eq!(
-            installer_settings_directory().join("stream-overlay-crop.json"),
-            crate::services::paths::legacy_overlay_settings_path()
-        );
+        assert!(legacy_data_state(game.path()).roots.is_empty());
     }
 
     #[cfg(unix)]
@@ -451,7 +381,7 @@ mod tests {
         // A symlinked Legacy Root name is not a Legacy Root directory.
         std::os::unix::fs::symlink(outside.path(), game.path().join("BazaarPlusPlusV4")).unwrap();
 
-        let state = legacy_data_state(game.path(), &no_settings_dir());
+        let state = legacy_data_state(game.path());
 
         assert_eq!(state.roots.len(), 1);
         let root = &state.roots[0];
@@ -517,13 +447,8 @@ mod tests {
         let game = valid_game_dir();
         seed_legacy_roots(game.path());
 
-        let result = delete_legacy_root_blocking_with(
-            game.path(),
-            "BazaarPlusPlusV4",
-            &no_settings_dir(),
-            &stopped,
-        )
-        .unwrap();
+        let result =
+            delete_legacy_root_blocking_with(game.path(), "BazaarPlusPlusV4", &stopped).unwrap();
 
         assert!(result.removed);
         assert!(!game.path().join("BazaarPlusPlusV4").exists());
@@ -540,13 +465,8 @@ mod tests {
             vec![LegacyRoot::Original, LegacyRoot::V5]
         );
 
-        let again = delete_legacy_root_blocking_with(
-            game.path(),
-            "BazaarPlusPlusV4",
-            &no_settings_dir(),
-            &stopped,
-        )
-        .unwrap();
+        let again =
+            delete_legacy_root_blocking_with(game.path(), "BazaarPlusPlusV4", &stopped).unwrap();
         assert!(!again.removed);
     }
 
@@ -568,8 +488,7 @@ mod tests {
             "",
         ] {
             let refused =
-                delete_legacy_root_blocking_with(game.path(), name, &no_settings_dir(), &stopped)
-                    .unwrap_err();
+                delete_legacy_root_blocking_with(game.path(), name, &stopped).unwrap_err();
             let problem = refused.into_problem("delete_legacy_root");
             assert_eq!(problem.code, SemanticProblemCode::InstallActionFailed);
             assert_eq!(
@@ -591,12 +510,7 @@ mod tests {
             .path()
             .join("BazaarPlusPlusV5/Screenshots/run.png")
             .is_file());
-        assert_eq!(
-            legacy_data_state(game.path(), &no_settings_dir())
-                .roots
-                .len(),
-            3
-        );
+        assert_eq!(legacy_data_state(game.path()).roots.len(), 3);
     }
 
     #[test]
@@ -613,13 +527,9 @@ mod tests {
             let game = valid_game_dir();
             seed_legacy_roots(game.path());
 
-            let refused = delete_legacy_root_blocking_with(
-                game.path(),
-                "BazaarPlusPlusV5",
-                &no_settings_dir(),
-                &refusing,
-            )
-            .unwrap_err();
+            let refused =
+                delete_legacy_root_blocking_with(game.path(), "BazaarPlusPlusV5", &refusing)
+                    .unwrap_err();
 
             assert_eq!(
                 refused.into_problem("delete_legacy_root").code,
@@ -645,12 +555,9 @@ mod tests {
 
         let refused = lock
             .run_blocking(move || {
-                delete_legacy_root_blocking_with(
-                    &game_path,
-                    "BazaarPlusPlusV5",
-                    &no_settings_dir(),
-                    &|_: &Path| Ok(true),
-                )
+                delete_legacy_root_blocking_with(&game_path, "BazaarPlusPlusV5", &|_: &Path| {
+                    Ok(true)
+                })
             })
             .await
             .unwrap()
@@ -679,7 +586,7 @@ mod tests {
 
         assert!(removed);
         assert!(!game.path().join(BAZAAR_DATA_DIRECTORY).exists());
-        let state = legacy_data_state(game.path(), &no_settings_dir());
+        let state = legacy_data_state(game.path());
         assert_eq!(
             state
                 .roots
@@ -704,7 +611,7 @@ mod tests {
         );
 
         for _ in 0..2 {
-            let state = legacy_data_state(game.path(), &no_settings_dir());
+            let state = legacy_data_state(game.path());
             assert_eq!(state.roots.len(), 3);
         }
         for root in LegacyRoot::ALL {
