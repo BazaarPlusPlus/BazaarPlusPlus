@@ -12,6 +12,32 @@ namespace BazaarPlusPlus.Game.CombatReplay.Warmup;
 
 internal static class CombatVfxWarmer
 {
+    private const BindingFlags InstanceMembers =
+        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+    private static readonly FieldInfo? VfxConfigField = typeof(VFXManager).GetField(
+        "vfxManagerSO",
+        InstanceMembers
+    );
+    private static readonly MethodInfo? IsActionAttributeMappedMethod =
+        VfxConfigField?.FieldType.GetMethod("IsActionAttributeMapped", InstanceMembers);
+    private static readonly MethodInfo? GetMappedActionVfxMethod =
+        VfxConfigField?.FieldType.GetMethod(
+            "GetVFX",
+            InstanceMembers,
+            null,
+            new[] { typeof(ECardSize), typeof(ActionType) },
+            null
+        );
+    private static readonly MethodInfo? GetActionOverrideVfxMethod =
+        VfxConfigField?.FieldType.GetMethod(
+            "GetActionOverrideVFX",
+            InstanceMembers,
+            null,
+            new[] { typeof(ActionType), typeof(ECardSize), typeof(string) },
+            null
+        );
+
     internal static async Task WarmCombatVfxAsync(
         CombatSequenceMessages sequence,
         ReplayWarmupStats stats,
@@ -35,33 +61,45 @@ internal static class CombatVfxWarmer
             .Where(action => action != ActionType.Unknown)
             .Distinct()
             .ToList();
+        var vfxConfig = VfxConfigField?.GetValue(vfxManager);
         var vfxSemaphore = new SemaphoreSlim(WarmupConstants.ReplayWarmupConcurrency);
         var vfxTasks = new List<Task>();
 
         foreach (var action in actionTypes)
         {
             vfxTasks.Add(
-                WarmActionVfxAsync(assetLoader, vfxManager, action, vfxSemaphore, stats, outcome)
-            );
-        }
-
-        foreach (
-            var overrideKey in sequence
-                .CombatMessage.Data.VfxKeys.Where(key => !string.IsNullOrWhiteSpace(key))
-                .Distinct(StringComparer.Ordinal)
-        )
-        {
-            vfxTasks.Add(
-                WarmOverrideVfxAsync(
+                WarmActionVfxAsync(
                     assetLoader,
                     vfxManager,
-                    actionTypes,
-                    overrideKey,
+                    vfxConfig,
+                    action,
                     vfxSemaphore,
                     stats,
                     outcome
                 )
             );
+        }
+
+        if (vfxConfig != null)
+        {
+            foreach (
+                var overrideKey in sequence
+                    .CombatMessage.Data.VfxKeys.Where(key => !string.IsNullOrWhiteSpace(key))
+                    .Distinct(StringComparer.Ordinal)
+            )
+            {
+                vfxTasks.Add(
+                    WarmOverrideVfxAsync(
+                        assetLoader,
+                        vfxConfig,
+                        actionTypes,
+                        overrideKey,
+                        vfxSemaphore,
+                        stats,
+                        outcome
+                    )
+                );
+            }
         }
         await Task.WhenAll(vfxTasks);
     }
@@ -69,26 +107,14 @@ internal static class CombatVfxWarmer
     private static async Task WarmActionVfxAsync(
         AssetLoader assetLoader,
         VFXManager vfxManager,
+        object? vfxConfig,
         ActionType action,
         SemaphoreSlim semaphore,
         ReplayWarmupStats stats,
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        var vfxConfig = GetVfxConfig(vfxManager);
-        if (vfxConfig == null)
-        {
-            await WarmVfxReferenceAsync(
-                assetLoader,
-                vfxManager.GetVFX(action),
-                semaphore,
-                stats,
-                outcome
-            );
-            return;
-        }
-
-        if (TryIsActionAttributeMapped(vfxConfig, action))
+        if (vfxConfig != null && TryIsActionAttributeMapped(vfxConfig, action))
         {
             foreach (var size in PresentationWarmer.WarmupCardSizes)
             {
@@ -113,7 +139,7 @@ internal static class CombatVfxWarmer
 
     private static async Task WarmOverrideVfxAsync(
         AssetLoader assetLoader,
-        VFXManager vfxManager,
+        object vfxConfig,
         IReadOnlyCollection<ActionType> actionTypes,
         string overrideKey,
         SemaphoreSlim semaphore,
@@ -121,10 +147,6 @@ internal static class CombatVfxWarmer
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        var vfxConfig = GetVfxConfig(vfxManager);
-        if (vfxConfig == null)
-            return;
-
         foreach (var action in actionTypes)
         {
             foreach (var size in PresentationWarmer.WarmupCardSizes)
@@ -140,45 +162,16 @@ internal static class CombatVfxWarmer
         }
     }
 
-    private static object? GetVfxConfig(VFXManager vfxManager)
-    {
-        return vfxManager
-            .GetType()
-            .GetField(
-                "vfxManagerSO",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            )
-            ?.GetValue(vfxManager);
-    }
-
-    private static bool TryIsActionAttributeMapped(object vfxConfig, ActionType action)
-    {
-        var method = vfxConfig
-            .GetType()
-            .GetMethod(
-                "IsActionAttributeMapped",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            );
-        return method?.Invoke(vfxConfig, new object[] { action }) as bool? == true;
-    }
+    private static bool TryIsActionAttributeMapped(object vfxConfig, ActionType action) =>
+        IsActionAttributeMappedMethod?.Invoke(vfxConfig, new object[] { action }) as bool? == true;
 
     private static AssetReference? TryGetMappedActionVfx(
         object vfxConfig,
         ECardSize size,
         ActionType action
-    )
-    {
-        var method = vfxConfig
-            .GetType()
-            .GetMethod(
-                "GetVFX",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                new[] { typeof(ECardSize), typeof(ActionType) },
-                null
-            );
-        return method?.Invoke(vfxConfig, new object[] { size, action }) as AssetReference;
-    }
+    ) =>
+        GetMappedActionVfxMethod?.Invoke(vfxConfig, new object[] { size, action })
+        as AssetReference;
 
     private static async Task<AssetReference?> TryGetOverrideActionVfxAsync(
         object vfxConfig,
@@ -187,19 +180,13 @@ internal static class CombatVfxWarmer
         string overrideKey
     )
     {
-        var method = vfxConfig
-            .GetType()
-            .GetMethod(
-                "GetActionOverrideVFX",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                new[] { typeof(ActionType), typeof(ECardSize), typeof(string) },
-                null
-            );
-        if (method == null)
+        if (GetActionOverrideVfxMethod == null)
             return null;
 
-        var taskObject = method.Invoke(vfxConfig, new object[] { action, size, overrideKey });
+        var taskObject = GetActionOverrideVfxMethod.Invoke(
+            vfxConfig,
+            new object[] { action, size, overrideKey }
+        );
         if (taskObject is Task<AssetReference> typedTask)
             return await typedTask;
 
@@ -223,32 +210,27 @@ internal static class CombatVfxWarmer
         if (assetReference == null || !assetReference.RuntimeKeyIsValid())
             return;
 
-        var key = !string.IsNullOrWhiteSpace(assetReference.AssetGUID)
-            ? assetReference.AssetGUID
-            : assetReference.ToString();
-        if (!WarmupCache.TryReserveCacheKey(WarmupCache.PrewarmedVfxKeys, key))
-        {
-            stats.VfxSkipped++;
-            return;
-        }
-
+        // Current scope, as VFXManager instantiates it during playback: the game releases the
+        // prefab with that scope and dedupes repeat loads within it, so no process-level key set.
         await semaphore.WaitAsync();
         try
         {
             _ = await NativeGlobalAssetLoader.LoadByReferenceAsync<GameObject>(
                 assetLoader,
-                assetReference
+                assetReference,
+                NativeAssetScopeIntent.Current
             );
             stats.VfxPrewarmed++;
         }
         catch (Exception ex)
         {
-            WarmupCache.ReleaseCacheKey(WarmupCache.PrewarmedVfxKeys, key);
             stats.VfxFailed++;
             outcome.ReportDegradation(ReplayPlaybackReasonCode.CombatVfxWarmupFailed, ex);
             ReplayWarmupLogging.AssetSkipped(
                 ReplayWarmupStage.CombatVfx,
-                key,
+                !string.IsNullOrWhiteSpace(assetReference.AssetGUID)
+                    ? assetReference.AssetGUID
+                    : assetReference.ToString(),
                 ReplayWarmupAssetReasonCode.AssetLoadFailed,
                 ex
             );

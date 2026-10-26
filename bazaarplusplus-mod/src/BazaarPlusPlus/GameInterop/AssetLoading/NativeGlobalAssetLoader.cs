@@ -24,20 +24,29 @@ internal static class NativeGlobalAssetLoader
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
     );
 
-    internal static Task<T?> LoadByAddressAsync<T>(AssetLoader assetLoader, string address)
+    // Global by default, for process-static caches that must outlive the lobby <-> run scope
+    // release. A load that serves only the present scene passes Current, so the game releases
+    // it with that scope.
+    internal static Task<T?> LoadByAddressAsync<T>(
+        AssetLoader assetLoader,
+        string address,
+        NativeAssetScopeIntent scope = NativeAssetScopeIntent.Global
+    )
         where T : UnityEngine.Object =>
-        InvokeAsync<T>(assetLoader, LoadByAddressMethod, LoadByAddressMethodName, address);
+        InvokeAsync<T>(assetLoader, LoadByAddressMethod, LoadByAddressMethodName, address, scope);
 
     internal static Task<T?> LoadByReferenceAsync<T>(
         AssetLoader assetLoader,
-        AssetReference assetReference
+        AssetReference assetReference,
+        NativeAssetScopeIntent scope = NativeAssetScopeIntent.Global
     )
         where T : UnityEngine.Object =>
         InvokeAsync<T>(
             assetLoader,
             LoadByReferenceMethod,
             LoadByReferenceMethodName,
-            assetReference
+            assetReference,
+            scope
         );
 
     internal static bool CanRunNativeSharedPreload(AssetLoader assetLoader)
@@ -56,7 +65,8 @@ internal static class NativeGlobalAssetLoader
         AssetLoader assetLoader,
         MethodInfo? method,
         string methodName,
-        object firstArgument
+        object firstArgument,
+        NativeAssetScopeIntent scope
     )
         where T : UnityEngine.Object
     {
@@ -73,7 +83,7 @@ internal static class NativeGlobalAssetLoader
             !NativeAssetLoaderInvocation.TryBuildArguments(
                 method,
                 firstArgument,
-                NativeAssetScopeIntent.Global,
+                scope,
                 out var arguments
             )
         )

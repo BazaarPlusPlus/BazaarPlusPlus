@@ -5,8 +5,6 @@ internal static class WarmupCache
 {
     internal static readonly object Lock = new();
     internal static readonly HashSet<string> PreloadedCardKeys = new(StringComparer.Ordinal);
-    internal static readonly HashSet<string> PreloadedOverrideKeys = new(StringComparer.Ordinal);
-    internal static readonly HashSet<string> PrewarmedVfxKeys = new(StringComparer.Ordinal);
     internal static bool SharedAssetsPreloaded;
 
     internal static bool TryReserveSharedAssetsPreload()

@@ -158,24 +158,20 @@ internal static class PresentationWarmer
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        if (!WarmupCache.TryReserveCacheKey(WarmupCache.PreloadedOverrideKeys, overrideKey))
-        {
-            stats.OverrideAssetsSkipped++;
-            return;
-        }
-
+        // Current scope, as VFXManager instantiates it during playback: the game releases the
+        // asset with that scope and dedupes repeat loads within it, so no process-level key set.
         await semaphore.WaitAsync();
         try
         {
             _ = await NativeGlobalAssetLoader.LoadByAddressAsync<GameObject>(
                 assetLoader,
-                overrideKey
+                overrideKey,
+                NativeAssetScopeIntent.Current
             );
             stats.OverrideAssetsPreloaded++;
         }
         catch (Exception ex)
         {
-            WarmupCache.ReleaseCacheKey(WarmupCache.PreloadedOverrideKeys, overrideKey);
             stats.OverrideAssetsFailed++;
             outcome.ReportDegradation(ReplayPlaybackReasonCode.PresentationWarmupFailed, ex);
             ReplayWarmupLogging.AssetSkipped(
