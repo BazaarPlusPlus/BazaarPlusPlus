@@ -22,6 +22,12 @@ internal sealed partial class CombatStatusBar
     private float _nativeSkinRetryAt;
     private bool _nativeSkinFailureReported;
     private GameObject? _canvasObject;
+    private Canvas? _canvas;
+    private bool _canvasEnabled;
+    private SearchOpponentTransition? _nativeCanvasOwner;
+    private Canvas? _nativeCanvas;
+    private int _layoutScreenWidth;
+    private int _layoutScreenHeight;
     private RectTransform? _barRoot;
     private readonly NativePlayerPortraitBounds _portraitBounds = new();
     private TextMeshProUGUI? _timeValue;
@@ -36,6 +42,10 @@ internal sealed partial class CombatStatusBar
     private void EnsureUi()
     {
         if (_canvasObject != null)
+            return;
+        // A switched-off bar prepares no fonts and builds no canvas. Gate on the setting alone:
+        // ShouldDraw also waits for a run and would move this one-time cost into the first run.
+        if (_services?.Config.EnableCombatStatusBarConfig.Value != true)
             return;
         if (
             NativeGameTypography.PrepareOwnedText(out _uiTypography)
@@ -64,6 +74,8 @@ internal sealed partial class CombatStatusBar
         // An overlay canvas would bypass the game's camera layers and transition covers.
         canvas.renderMode = RenderMode.ScreenSpaceCamera;
         canvas.enabled = false;
+        _canvas = canvas;
+        _canvasEnabled = false;
         var scaler = _canvasObject.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
@@ -243,13 +255,19 @@ internal sealed partial class CombatStatusBar
     {
         if (
             _canvasObject == null
+            || _canvas == null
             || _barRoot == null
             || !_portraitBounds.TryRead(out var frame, out var bottom, out var viewport)
         )
             return false;
 
         var transition = Singleton<SearchOpponentTransition>.Instance;
-        var nativeCanvas = transition != null ? transition.GetComponent<Canvas>() : null;
+        if (transition != _nativeCanvasOwner || _nativeCanvas == null)
+        {
+            _nativeCanvasOwner = transition;
+            _nativeCanvas = transition != null ? transition.GetComponent<Canvas>() : null;
+        }
+        var nativeCanvas = _nativeCanvas;
         if (nativeCanvas == null || nativeCanvas.renderMode != RenderMode.ScreenSpaceCamera)
             return false;
         var camera = nativeCanvas.worldCamera;
@@ -258,20 +276,33 @@ internal sealed partial class CombatStatusBar
         var depth = nativeCanvas.planeDistance;
         if (!float.IsFinite(depth) || depth <= camera.nearClipPlane || depth >= camera.farClipPlane)
             return false;
-        var canvas = _canvasObject.GetComponent<Canvas>();
-        canvas.worldCamera = camera;
-        canvas.planeDistance = depth;
-        canvas.sortingLayerID = nativeCanvas.sortingLayerID;
+        var canvas = _canvas;
+        // Write only what changed: in the shop these inputs hold still for minutes.
+        var placementChanged = !_canvasEnabled;
+        if (canvas.worldCamera != camera)
+        {
+            canvas.worldCamera = camera;
+            placementChanged = true;
+        }
+        if (canvas.planeDistance != depth)
+        {
+            canvas.planeDistance = depth;
+            placementChanged = true;
+        }
+        var sortingLayerID = nativeCanvas.sortingLayerID;
+        if (canvas.sortingLayerID != sortingLayerID)
+            canvas.sortingLayerID = sortingLayerID;
         // AboveBoard clears the scene depth before drawing native foreground UI.
         // Its transition backgrounds start at order 0 (new day) and 14 (PvP).
-        canvas.sortingOrder = -1;
+        if (canvas.sortingOrder != -1)
+            canvas.sortingOrder = -1;
         var layer = ObjectLayers.aboveBoardLayer;
         if (_canvasObject.layer != layer)
         {
             _canvasObject.layer = layer;
             Helpers.UpdateLayerRecursive(_canvasObject, layer);
         }
-        canvas.enabled = true;
+        SetCanvasEnabled(true);
         var scale = canvas.scaleFactor;
         if (
             !CombatStatusBarLayout.TryPlace(
@@ -289,7 +320,18 @@ internal sealed partial class CombatStatusBar
             return false;
 
         var canvasRect = (RectTransform)_canvasObject.transform;
-        canvasRect.ForceUpdateRectTransforms();
+        var screenWidth = Screen.width;
+        var screenHeight = Screen.height;
+        if (screenWidth != _layoutScreenWidth || screenHeight != _layoutScreenHeight)
+        {
+            _layoutScreenWidth = screenWidth;
+            _layoutScreenHeight = screenHeight;
+            placementChanged = true;
+        }
+        // A canvas that was hidden, re-targeted, or resized has not driven its root rect yet;
+        // refresh it before projecting into it. Otherwise the rect from the last frame holds.
+        if (placementChanged)
+            canvasRect.ForceUpdateRectTransforms();
         if (
             !RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 canvasRect,
@@ -299,28 +341,41 @@ internal sealed partial class CombatStatusBar
             )
         )
             return false;
-        _barRoot.anchoredPosition = position - canvasRect.rect.min;
-        _barRoot.sizeDelta = new Vector2(frame.width / scale, height / scale);
-        var contentScale = Mathf.Min(
-            1f,
-            Mathf.Min(_barRoot.rect.width / 220f, _barRoot.rect.height / 46f)
-        );
-        if (_timeValue != null)
-            _timeValue.fontSize = 22f * contentScale;
-        if (_speedValue != null)
-            _speedValue.fontSize = 14f * contentScale;
-        if (_pauseIcon != null)
-            _pauseIcon.rectTransform.sizeDelta = new Vector2(12f, 14f) * contentScale;
+        var anchoredPosition = position - canvasRect.rect.min;
+        if (_barRoot.anchoredPosition != anchoredPosition)
+            _barRoot.anchoredPosition = anchoredPosition;
+        var sizeDelta = new Vector2(frame.width / scale, height / scale);
+        if (_barRoot.sizeDelta != sizeDelta)
+        {
+            _barRoot.sizeDelta = sizeDelta;
+            var contentScale = Mathf.Min(
+                1f,
+                Mathf.Min(_barRoot.rect.width / 220f, _barRoot.rect.height / 46f)
+            );
+            if (_timeValue != null)
+                _timeValue.fontSize = 22f * contentScale;
+            if (_speedValue != null)
+                _speedValue.fontSize = 14f * contentScale;
+            if (_pauseIcon != null)
+                _pauseIcon.rectTransform.sizeDelta = new Vector2(12f, 14f) * contentScale;
+        }
         return true;
     }
 
     private void SetUiVisible(bool visible)
     {
         // Keep the CanvasScaler active while hidden so resize/re-entry uses the current scale.
-        if (_canvasObject != null)
-            _canvasObject.GetComponent<Canvas>().enabled = visible;
+        SetCanvasEnabled(visible);
         if (_barRoot != null && _barRoot.gameObject.activeSelf != visible)
             _barRoot.gameObject.SetActive(visible);
+    }
+
+    private void SetCanvasEnabled(bool enabled)
+    {
+        if (_canvas == null || _canvasEnabled == enabled)
+            return;
+        _canvas.enabled = enabled;
+        _canvasEnabled = enabled;
     }
 
     private void DisposeUi()
@@ -331,6 +386,12 @@ internal sealed partial class CombatStatusBar
             Destroy(_canvasObject);
         }
         _canvasObject = null;
+        _canvas = null;
+        _canvasEnabled = false;
+        _nativeCanvasOwner = null;
+        _nativeCanvas = null;
+        _layoutScreenWidth = 0;
+        _layoutScreenHeight = 0;
         _barRoot = null;
         _uiTypography = null;
         _counterTypography = null;

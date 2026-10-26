@@ -11,6 +11,8 @@ internal sealed class NativePlayerPortraitBounds
     private readonly Vector3[] _corners = new Vector3[4];
     private readonly List<MeshFilter> _frameMeshes = new();
     private Transform? _frameRoot;
+    private UnityEngine.Object? _bar;
+    private Canvas? _barCanvas;
 
     internal bool TryRead(out Rect frame, out float bottom, out Rect viewport)
     {
@@ -84,7 +86,12 @@ internal sealed class NativePlayerPortraitBounds
         var bar = experience.GetBar();
         if (bar == null || bar.transform is not RectTransform barRect)
             return false;
-        var canvas = bar.GetComponentInParent<Canvas>();
+        if (_bar != bar || _barCanvas == null)
+        {
+            _bar = bar;
+            _barCanvas = bar.GetComponentInParent<Canvas>();
+        }
+        var canvas = _barCanvas;
         if (canvas == null)
             return false;
         var uiCamera =
