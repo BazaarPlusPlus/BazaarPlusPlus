@@ -1,4 +1,4 @@
-name: Dependency review
+name: Security / Dependency review
 
 on:
   pull_request:

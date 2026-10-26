@@ -36,6 +36,38 @@ export function installerFrontendOnly(file) {
   );
 }
 
+// Daily checks cover one desktop OS and both Mod hosts. Windows-specific
+// runtime regressions in shared source may be found only by release validation.
+function dailyScopes(project) {
+  return PROJECT_SCOPES[project]
+    ? PROJECT_SCOPES[project].filter((scope) => !scope.endsWith('-windows'))
+    : [project];
+}
+
+export function windowsBuildInput(project, file) {
+  if (!['mod', 'installer'].includes(project)) return false;
+  const relative = file.slice(`bazaarplusplus-${project}/`.length);
+  if (/windows/i.test(relative)) return true;
+  if (project === 'mod') {
+    return (
+      /\.(csproj|props|targets|slnx)$/.test(relative) ||
+      relative.endsWith('packages.lock.json') ||
+      relative === 'global.json' ||
+      relative.endsWith('.just') ||
+      ['build/', 'scripts/', 'native/', '.config/'].some((prefix) =>
+        relative.startsWith(prefix)
+      )
+    );
+  }
+  return (
+    project === 'installer' &&
+    !installerFrontendOnly(file) &&
+    !['src-tauri/src/', 'src-tauri/tests/'].some((prefix) =>
+      relative.startsWith(prefix)
+    )
+  );
+}
+
 export function manualSelection(inputs = {}) {
   const scope = inputs.scope ?? 'full';
   const platform = inputs.platform ?? 'all';
@@ -241,7 +273,7 @@ export function classifyChanges(changes) {
     return fullScope('Diff unavailable or empty');
   const plan = Object.fromEntries(SCOPES.map((scope) => [scope, []]));
   const select = (scope, reason) => {
-    for (const lane of PROJECT_SCOPES[scope] ?? [scope]) {
+    for (const lane of dailyScopes(scope)) {
       if (!plan[lane].includes(reason)) plan[lane].push(reason);
     }
   };
@@ -256,15 +288,18 @@ export function classifyChanges(changes) {
     const project = PROJECTS.find((p) =>
       file.startsWith(`bazaarplusplus-${p}/`)
     );
-    if (file.endsWith('.just'))
-      return fullScope(`Shared command recipe: ${file}`);
     if (project) {
       select(
         project === 'installer' && installerFrontendOnly(file)
           ? 'installer-frontend'
-          : project,
+          : project === 'mod' && file.endsWith('.md')
+            ? 'mod-macos'
+            : project,
         `Project input: ${file}`
       );
+      if (windowsBuildInput(project, file))
+        select(`${project}-windows`, `Windows build input: ${file}`);
+      if (file.endsWith('.just')) select('release', `Command recipe: ${file}`);
       for (const [input, consumers] of SHARED_INPUTS) {
         if (covers(input, file))
           for (const consumer of consumers)
@@ -282,6 +317,14 @@ export function classifyChanges(changes) {
       if (status === 'D' || status === 'T')
         return fullScope(`Removed or replaced root documentation: ${file}`);
       select('release', `Root documentation: ${file}`);
+    } else if (
+      ['.gitignore', '.gitattributes', '.github/dependabot.yml'].includes(
+        file
+      ) ||
+      (file.startsWith('.github/workflows/') &&
+        !['checks.yml', 'release.yml'].includes(path.posix.basename(file)))
+    ) {
+      select('release', `Repository configuration: ${file}`);
     } else return fullScope(`Shared or unknown input: ${file}`);
   }
   return plan;
@@ -337,18 +380,35 @@ export function planRun({
   runGit,
   dependencyProblems = []
 }) {
+  const result = (plan, compatibility = false) => {
+    const desktop = ['mod-macos', 'mod-windows'].some(
+      (scope) => plan[scope].length > 0
+    );
+    return {
+      plan,
+      compatibility: desktop && compatibility,
+      performance: desktop && eventName === 'workflow_dispatch'
+    };
+  };
   if (dependencyProblems.length) {
     const reason = `Unregistered cross-project reference: ${dependencyProblems.join('; ')}`;
     // A partial manual request must not claim coverage when the dependency
     // boundary could not be verified. Automatic runs conservatively expand.
     if (eventName === 'workflow_dispatch') throw new Error(reason);
-    return fullScope(reason);
+    return result(fullScope(reason), true);
   }
-  if (eventName === 'workflow_dispatch') return manualScope(event.inputs);
+  if (eventName === 'workflow_dispatch')
+    return result(manualScope(event.inputs), true);
   try {
-    return classifyChanges(readChanges(eventName, event, cwd, runGit));
+    const changes = readChanges(eventName, event, cwd, runGit);
+    return result(
+      classifyChanges(changes),
+      changes.some(
+        ({ file }) => file === 'bazaarplusplus-mod/build/game-libs.lock.json'
+      )
+    );
   } catch (error) {
-    return fullScope(`Conservative full run: ${error.message}`);
+    return result(fullScope(`Conservative full run: ${error.message}`), true);
   }
 }
 
@@ -364,7 +424,7 @@ if (import.meta.main) {
   }
   if (process.env.HISTORY_FETCH_OUTCOME !== 'success')
     dependencyProblems.push('History fetch failed');
-  const plan = planRun({
+  const { plan, compatibility, performance } = planRun({
     eventName: process.env.GITHUB_EVENT_NAME,
     event,
     dependencyProblems
@@ -375,7 +435,7 @@ if (import.meta.main) {
     .join('\n');
   fs.appendFileSync(
     process.env.GITHUB_OUTPUT,
-    `${output}\nplan=${JSON.stringify(plan)}\n`
+    `${output}\ncompatibility=${compatibility}\nperformance=${performance}\nplan=${JSON.stringify(plan)}\n`
   );
   console.log(JSON.stringify(plan, null, 2));
 }

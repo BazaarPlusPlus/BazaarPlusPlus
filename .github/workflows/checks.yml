@@ -1,4 +1,4 @@
-name: Checks
+name: CI / Checks
 
 on:
   pull_request:
@@ -44,6 +44,8 @@ jobs:
       mod-android: ${{ steps.scope.outputs.mod-android }}
       macos-icon: ${{ steps.scope.outputs.macos-icon }}
       plan: ${{ steps.scope.outputs.plan }}
+      compatibility: ${{ steps.scope.outputs.compatibility }}
+      performance: ${{ steps.scope.outputs.performance }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -102,7 +104,6 @@ jobs:
       - run: npm ci
       - run: just commands-check design::check release::check release::test
       - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
-      - run: node --test .github/scripts/*.test.mjs
 
   site:
     name: site (full check and test)
@@ -128,17 +129,11 @@ jobs:
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
       - run: npm ci
         working-directory: bazaarplusplus-${{ env.PROJECT }}
-      - run: just '${{ env.PROJECT }}::check'
-      - if: env.PROJECT == 'site'
-        run: |
-          just site::test
-          npm --prefix bazaarplusplus-site run deploy:dry-run
-          npm --prefix bazaarplusplus-site run deploy:preview:dry-run
       - if: env.PROJECT == 'site'
         working-directory: bazaarplusplus-site
         run: npx playwright install --with-deps chromium
       - if: env.PROJECT == 'site'
-        run: just site::e2e golden
+        run: just site::ci
       - if: failure() && env.PROJECT == 'site'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -148,7 +143,7 @@ jobs:
             bazaarplusplus-site/e2e/__snapshots__/
           if-no-files-found: ignore
       - if: env.PROJECT == 'server'
-        run: just server::test
+        run: just server::check server::test
 
   server:
     name: server (full check and test)
@@ -247,27 +242,6 @@ jobs:
         shell: bash
     steps: *installer-steps
 
-  installer-timings:
-    name: Installer timing report
-    needs: [classify, installer-frontend, installer-macos, installer-windows]
-    if: always() && needs.classify.outputs.installer-frontend == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-      # Post-job cache saves have finished; the Jobs API includes their timing.
-      - run: node .github/scripts/installer-timings.mjs
-        env:
-          GH_TOKEN: ${{ github.token }}
-
   analyzer:
     name: Analyzer
     needs: classify
@@ -326,7 +300,9 @@ jobs:
       # A null online entry fails here, naming the snapshot to capture.
       - name: Fetch the online snapshot
         run: just mod::fetch "$BPP_CI_PLATFORM" online
-      - run: just verify mod::check mod::test mod::test-performance
+      - run: just verify mod::check mod::test
+      - if: needs.classify.outputs.performance == 'true'
+        run: just verify mod::test-performance
       - name: Preserve verification and test diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -343,8 +319,9 @@ jobs:
           name: combat-impact-corpus-${{ env.BPP_CI_PLATFORM }}
           path: bazaarplusplus-mod/artifacts/combat-impact-corpus/*.json
           if-no-files-found: error
-      # Compatibility builds against the other two channels; a null entry fails.
-      - run: just mod::matrix staging ptr
+      # Compatibility is a snapshot-update and release gate, not a daily gate.
+      - if: needs.classify.outputs.compatibility == 'true'
+        run: just mod::matrix staging ptr
 
   mod-windows:
     name: Mod (windows-latest)
@@ -422,8 +399,7 @@ jobs:
         mod-macos,
         mod-windows,
         mod-android,
-        macos-icon,
-        installer-timings
+        macos-icon
       ]
     runs-on: ubuntu-latest
     timeout-minutes: 5

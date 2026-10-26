@@ -12,6 +12,12 @@ check:
 test:
     npm test
 
+# Build once and reuse the checked output for deploy validation and browser tests.
+ci: check test
+    npm exec -- wrangler deploy --dry-run
+    npm exec -- wrangler deploy --env preview --dry-run
+    BPP_SITE_PREBUILT=1 npm run e2e -- --project=golden
+
 # Run Playwright against the preview build. mode: golden (CI gate) or live (report only).
 e2e mode="golden" *args:
     npm run e2e -- --project="$1" "${@:2}"

@@ -1,4 +1,4 @@
-name: Analyzer
+name: Operations / Analyzer
 
 # Production analyzer V6 runs. Each run restores the Data Root from
 # analyzer-state/ in the private Bundle bucket, heals settled Source Hours,

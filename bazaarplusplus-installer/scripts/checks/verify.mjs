@@ -102,7 +102,7 @@ export function verificationSteps({
     npmStep('scripts', 'Run script tests', 'test:unit', ['--', 'scripts']),
     npmStep('frontend', 'Check documentation', 'docs:check'),
     {
-      subset: 'native',
+      subset: 'release',
       label: 'Build strict Rust documentation',
       command: 'cargo',
       args: [
@@ -120,11 +120,12 @@ export function verificationSteps({
     npmStep('frontend', 'Build production frontend', 'build:frontend')
   ].filter(
     (step) =>
-      subset === 'all' ||
-      step.subset === 'shared' ||
-      step.subset === subset ||
-      (step.subset === 'scripts' &&
-        (subset === 'frontend' || platform === 'win32'))
+      (step.subset !== 'release' || mode === 'release') &&
+      (subset === 'all' ||
+        step.subset === 'shared' ||
+        step.subset === subset ||
+        (step.subset === 'scripts' &&
+          (subset === 'frontend' || platform === 'win32')))
   );
 }
 

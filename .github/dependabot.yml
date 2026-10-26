@@ -1,4 +1,4 @@
-# Verified external application patches are candidates for gated auto-merge.
+# Dependabot PRs are candidates for auto-merge after required checks pass.
 # Mod runtime compatibility is governed by ADR-0010, not package SemVer.
 version: 2
 updates:

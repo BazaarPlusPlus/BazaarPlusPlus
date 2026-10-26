@@ -1,12 +1,19 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { classifyChanges, fullScope, manualScope } from './checks-scope.mjs';
-import { JOB_SCOPES, summarize, renderSummary } from './checks-summary.mjs';
+import {
+  SCOPES,
+  classifyChanges,
+  fullScope,
+  manualScope
+} from './checks-scope.mjs';
+import { summarize, renderSummary } from './checks-summary.mjs';
 
 function fixture(plan = fullScope('fixture')) {
   const outputs = {
     plan: JSON.stringify(plan),
+    compatibility: 'false',
+    performance: 'false',
     ...Object.fromEntries(
       Object.entries(plan).map(([scope, reasons]) => [
         scope,
@@ -18,9 +25,9 @@ function fixture(plan = fullScope('fixture')) {
     needs: {
       classify: { result: 'success', outputs },
       ...Object.fromEntries(
-        Object.entries(JOB_SCOPES).map(([job, scope]) => [
+        SCOPES.map((job) => [
           job,
-          { result: plan[scope].length ? 'success' : 'skipped' }
+          { result: plan[job].length ? 'success' : 'skipped' }
         ])
       )
     },
@@ -33,9 +40,9 @@ function fixture(plan = fullScope('fixture')) {
   };
 }
 
-test('all selected jobs must succeed, including each native platform and timing report', () => {
+test('all selected jobs must succeed, including each selected native platform', () => {
   assert.equal(summarize(fixture()).ok, true);
-  for (const job of Object.keys(JOB_SCOPES))
+  for (const job of SCOPES)
     for (const result of ['failure', 'cancelled', 'skipped', undefined]) {
       const f = fixture();
       f.needs[job].result = result;
@@ -136,10 +143,7 @@ test('workflow wiring summarizes every optional job and isolates every manual ru
     .match(/needs:\s*\[([^\]]+)\]/)[1]
     .split(',')
     .map((job) => job.trim());
-  assert.deepEqual(
-    needs.sort(),
-    ['classify', ...Object.keys(JOB_SCOPES)].sort()
-  );
+  assert.deepEqual(needs.sort(), ['classify', ...SCOPES].sort());
   assert.match(workflow, /group: checks-\$\{\{ github.event_name \}\}/);
   assert.match(workflow, /group: .*inputs.scope.*inputs.platform/);
   assert.match(workflow, /shared-key: installer-.*-installer\n/);
@@ -158,11 +162,11 @@ test('workflow wiring summarizes every optional job and isolates every manual ru
     'Mod (windows-latest)'
   ])
     assert.ok(workflow.includes(`    name: ${name}\n`));
-  for (const [job, scope] of Object.entries(JOB_SCOPES)) {
+  for (const job of SCOPES) {
     const block = workflow.split(`\n  ${job}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0];
     assert.ok(
-      block?.includes(`needs.classify.outputs.${scope} == 'true'`),
-      `${job} consumes ${scope}`
+      block?.includes(`needs.classify.outputs.${job} == 'true'`),
+      `${job} consumes its selection`
     );
   }
   assert.ok(
@@ -178,11 +182,7 @@ test('manual installer/windows requires frontend and Windows but not macOS or Mo
   f.event.inputs = inputs;
   assert.equal(summarize(f).ok, true);
   assert.equal(f.needs['installer-macos'].result, 'skipped');
-  for (const job of [
-    'installer-frontend',
-    'installer-windows',
-    'installer-timings'
-  ]) {
+  for (const job of ['installer-frontend', 'installer-windows']) {
     const broken = structuredClone(f);
     broken.needs[job].result = 'skipped';
     assert.equal(summarize(broken).ok, false);
@@ -208,4 +208,104 @@ test('frontend-only cannot hide a skipped selected frontend or require native cr
   assert.equal(f.needs['installer-windows'].result, 'skipped');
   f.needs['installer-frontend'].result = 'skipped';
   assert.equal(summarize(f).ok, false);
+});
+
+test('daily Mod checks accept deferred Windows but require both selected hosts', () => {
+  const f = fixture(
+    classifyChanges([
+      {
+        status: 'M',
+        file: 'bazaarplusplus-mod/src/BazaarPlusPlus.Core/Example.cs'
+      }
+    ])
+  );
+  assert.equal(f.needs['mod-windows'].result, 'skipped');
+  assert.equal(summarize(f).ok, true);
+  for (const job of ['mod-macos', 'mod-android']) {
+    const broken = structuredClone(f);
+    broken.needs[job].result = 'skipped';
+    assert.equal(summarize(broken).ok, false);
+  }
+});
+
+test('summary distinguishes daily, snapshot and manual desktop verification', () => {
+  for (const [compatibility, performance, expected] of [
+    ['false', 'false', ['online']],
+    ['true', 'false', ['online', 'staging / ptr']],
+    ['true', 'true', ['online', 'staging / ptr', 'performance']]
+  ]) {
+    const f = fixture();
+    Object.assign(f.needs.classify.outputs, { compatibility, performance });
+    const result = summarize(f);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.coverage, expected);
+    assert.ok(
+      renderSummary(result, {
+        eventName: f.eventName,
+        ref: 'refs/heads/test',
+        sha: 'abc'
+      }).includes(`Planned Mod desktop checks: ${expected.join(' + ')}`)
+    );
+  }
+  const android = fixture(manualScope({ scope: 'mod', platform: 'android' }));
+  assert.deepEqual(summarize(android).coverage, []);
+  for (const flag of ['compatibility', 'performance']) {
+    const f = fixture();
+    delete f.needs.classify.outputs[flag];
+    assert.equal(summarize(f).ok, false, `missing ${flag}`);
+    f.needs.classify.outputs[flag] = 'unknown';
+    assert.equal(summarize(f).ok, false, `invalid ${flag}`);
+  }
+});
+
+test('both desktop jobs consume classified extended checks, with release preflight before packaging', () => {
+  const workflow = fs.readFileSync(
+    new URL('../workflows/checks.yml', import.meta.url),
+    'utf8'
+  );
+  const desktop = workflow
+    .split('\n  mod-macos:\n')[1]
+    .split('\n  mod-windows:\n')[0];
+  for (const [flag, command] of [
+    ['compatibility', 'just mod::matrix staging ptr'],
+    ['performance', 'just verify mod::test-performance']
+  ]) {
+    assert.ok(
+      workflow.includes(`${flag}: \${{ steps.scope.outputs.${flag} }}`)
+    );
+    assert.ok(
+      desktop.includes(
+        `- if: needs.classify.outputs.${flag} == 'true'\n        run: ${command}`
+      )
+    );
+  }
+  const windows = workflow
+    .split('\n  mod-windows:\n')[1]
+    .split('\n  mod-android:\n')[0];
+  assert.ok(windows.includes('steps: *mod-steps'));
+  const release = fs.readFileSync(
+    new URL('../workflows/release.yml', import.meta.url),
+    'utf8'
+  );
+  const preflight = release.slice(
+    release.indexOf('- name: Verify the desktop Mod before release'),
+    release.indexOf('- name: Prepare the Payload')
+  );
+  assert.ok(
+    preflight.includes(
+      "if: env.STAGE == 'release' && matrix.platform != 'android'"
+    )
+  );
+  assert.ok(
+    preflight.includes('just verify mod::check mod::test mod::test-performance')
+  );
+  assert.ok(preflight.includes('just mod::matrix staging ptr'));
+  assert.ok(
+    preflight.includes(
+      "if: env.STAGE == 'release' && matrix.platform == 'android'"
+    )
+  );
+  assert.ok(
+    preflight.includes('just verify mod::android-build mod::test-core')
+  );
 });

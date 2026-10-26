@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 // `BPP_UPDATE_GOLDENS=1` is the repository-wide way to rewrite goldens; `--update-snapshots`
 // still works because the CLI flag overrides this value.
 const updateGoldens = process.env.BPP_UPDATE_GOLDENS === '1';
+const prebuilt = process.env.BPP_SITE_PREBUILT === '1';
 
 export default defineConfig({
   testDir: 'e2e',
@@ -28,9 +29,9 @@ export default defineConfig({
     { name: 'live', testMatch: /live\.spec\.ts$/ },
   ],
   webServer: {
-    command: 'npm run preview',
+    command: prebuilt ? 'npm run preview:built' : 'npm run preview',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI && !prebuilt,
     timeout: 120_000,
   },
 });

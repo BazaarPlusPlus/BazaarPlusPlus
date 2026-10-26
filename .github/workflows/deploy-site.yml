@@ -1,4 +1,4 @@
-name: Deploy site
+name: Delivery / Site
 
 # Preview deploys follow master; production deploys only on dispatch and wait
 # for the site-production environment approval. The account id and the
@@ -78,10 +78,10 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [ "$TARGET" = production ]; then
-            npm run deploy
+            npm exec -- wrangler deploy
             echo 'url=https://bazaarplusplus.com' >> "$GITHUB_OUTPUT"
           else
-            npm run deploy:preview | tee "$RUNNER_TEMP/deploy.log"
+            npm exec -- wrangler deploy --env preview | tee "$RUNNER_TEMP/deploy.log"
             url="$(grep -oE 'https://[A-Za-z0-9.-]+\.workers\.dev' "$RUNNER_TEMP/deploy.log" | head -n 1 || true)"
             echo "url=$url" >> "$GITHUB_OUTPUT"
           fi

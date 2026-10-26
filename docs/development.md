@@ -65,23 +65,27 @@ just mod::build "-p:ManagedPath=/absolute/path/The Bazaar/Managed"
 
 ## 依赖更新与云端检查
 
-Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分组和节奏由配置维护，安全告警继续保留。自动合并的资格和必需检查由 `.github/scripts/dependabot-auto-merge.mjs` 维护：仅接受可信机器人提交、限定目录中的稳定补丁更新，新增依赖或其他变更留给人工审查。TypeScript 与类型感知 lint 工具的大版本需要配套升级；Tauri 的 npm 与 Cargo 更新也必须一起验证安装器。
+Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分组和节奏由配置维护，安全告警继续保留。自动合并由 `.github/scripts/dependabot-auto-merge.mjs` 登记，必需检查由 GitHub 分支规则维护。Dependabot PR 通过现有检查即可自动合并，接受兼容问题在后续使用中发现和修复；TypeScript 与类型感知 lint 工具、Tauri 的 npm 与 Cargo 依赖仍可能需要配套调整。
 
 Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
-云端检查由 `.github/scripts/checks-scope.mjs` 按改动选择项目；`.github/workflows/checks.yml` 消费分类结果，Installer 分别验证前端与原生，其余项目保留完整门禁。PR 比较 merge-base 到 head，master push 比较事件的 before 到 after；删除与重命名的旧、新路径都参与分类。项目外的构建输入、命令 recipe 和无法取得可靠 diff 的运行走全量；根文档的普通编辑只跑发布工具，删除或替换根文档则全量检查，防止项目文档留下失效链接。跨项目输入扩展到消费者；分类时扫描源码和配置中的跨项目路径，未登记依赖走全量，并由发布工具中的行为测试阻止规则漂移。路径清单由分类器维护。
+云端 Actions 按用途命名为 `CI /`（代码验证）、`Security /`（安全扫描）、`Delivery /`（发布部署）和 `Operations /`（后台任务与依赖维护）。代码验证由 `.github/scripts/checks-scope.mjs` 的 `classifyChanges` 选择项目，`planRun` 决定是否附加快照兼容性和性能检查；`.github/workflows/checks.yml` 执行计划，汇总消费同一份范围清单并显示本次计划验证的内容。PR 比较 merge-base 到 head，master push 比较 before 到 after，删除与重命名的新旧路径都参与分类。项目自己的命令 recipe 只选择本项目及根工具；已识别的仓库元数据只选根工具。未知共享输入或无法取得可靠 diff 时仍全量验证。跨项目契约扩展到消费者；未登记的源码依赖走全量，并由根工具测试阻止规则漂移。
 
-`Checks summary` 总是执行，逐个列出选择原因，并要求分类成功且所有选中 job 真正成功；未选中的显示“不受影响”，选中后失败、取消或意外跳过都会阻塞。Installer 的已知 UI、样式和文档输入只选择 Linux 前端门禁；`design/` 的改动选择 installer 前端、site 与根目录门禁，根目录门禁会运行 `just design::check`；原生、npm、scripts、生成绑定和不确定的输入同时选择前端及双平台原生门禁，共享契约也会扩展到原生消费者。前端只消费已提交绑定；原生必须重新生成后检查 diff，依据见 [Installer ADR 0004](../bazaarplusplus-installer/docs/adr/0004-tauri-specta-command-bindings.md)。手动入口按 workflow 中的 scope/platform 选项选择项目及原生平台，默认完整双平台；它写出 ref、SHA 和覆盖范围，始终产出 `Manual checks (<scope>/<platform>)`，包括 full/all，不能替代 PR 必需的汇总检查。手动与自动运行使用独立的 concurrency 分组，不同手动选项也互不取消。手动 Checks 仅做验证，正式包仍走 Release 流程。安全与依赖检查不参与范围裁剪。
+Site 的 `site::ci` 在同一次验证中复用构建产物：部署预检和浏览器测试检查的是同一份 `dist`，独立的本地 preview 和 e2e 仍先构建。部署工作流同样上传前置检查生成的产物，避免检查后再次构建。
 
-master push 用同一套分类规则，因此 Installer 原生或其共享输入变化仍执行双平台验证并保存 Rust 缓存；其他事件只恢复缓存。暂不加定时预热：每周运行不能保证避开七天未访问淘汰，仓库容量压力也可能先触发清理；仅恢复的 schedule 无法重建已丢失缓存。缺缓存时正常冷构建，需全量复核时使用手动入口。
+`Checks summary` 要求分类成功，且所有选中的 job 真正成功；未选中的不阻塞，选中后失败、取消或意外跳过会阻塞。普通 Mod 源码验证 macOS Desktop Host 和 Android Host，Mod 文档只在 macOS 执行包含文档约束的测试。Installer 前端只消费已提交绑定，原生输入在 macOS 重新生成绑定并检查 diff，依据见 [Installer ADR 0004](../bazaarplusplus-installer/docs/adr/0004-tauri-specta-command-bindings.md)。Windows 的触发提高到构建、依赖、工具链和显式 Windows 路径等输入变化；具体路径由分类器维护。普通共享源码中仅 Windows 生效的问题，允许推迟到发布验证发现。
 
-云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 的云端 lane 在 macOS 和 Windows 上按 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md) 从私有存储取 online 快照串行跑 `mod::check`、`mod::test` 与 `mod::test-performance`，再对 staging 和 ptr 快照做 CompatCheck 编译；它不验证 Unity/Mono 加载，Ghost 响应契约的消费方检查在 `mod::test` 中。`mod-android` lane 在 Linux 上取 android online 的 Interop Snapshot 与 Loader Release，编译 Android 宿主并跑 `mod::test-core`；它不验证设备上的加载。本地 `mod::check` 与 `mod::test` 都不编译 Android 宿主，改动链接进 Android 宿主的桌面源码时，本地还须跑 `mod::android-build` 与 `mod::test-core`。Installer 在 Linux 执行前端门禁，Windows 和 macOS 执行所选原生门禁；Windows 额外覆盖平台相关脚本测试。完整本地验证仍使用 `just installer::check`，这些源码检查不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过编译和 .NET 测试不能替代这一步。
+staging/ptr 的 CompatCheck 编译只在 Snapshot Lock 更新、手动检查和桌面发布前执行；墙钟性能测试只在手动检查和桌面发布前执行，退出日常云端门禁。手动入口可按 scope/platform 显式选择平台并执行扩展检查，生成 `Manual checks (<scope>/<platform>)`，不能替代 PR 的 `Checks summary`。不可靠 diff 的自动运行保守补齐双平台及兼容检查。安全与依赖检查独立运行，不参与此处范围裁剪。
 
-游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_TOKEN`（仅限 `bazaarplusplus-game-libs` bucket 的只读 token）和仓库级变量 `CLOUDFLARE_ACCOUNT_ID`；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，受影响的仓库内 Mod PR 和全量运行才执行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。Dependabot 的 PR 读取的是 Dependabot secrets，`BPP_GAME_LIBS_TOKEN` 也须注册在那里（`just secrets-sync --dependabot`）。受影响的仓库内 PR（含 Dependabot）缺 token 或账号变量时，Mod job 和汇总门禁失败；fork 是显式例外，汇总会标明未运行游戏兼容性验证，合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
+master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rust 缓存，其他事件只恢复缓存。Windows 因较少运行可能遇到冷构建，接受这一代价以避免每次共享源码修改都运行两个原生工具链。Installer 步骤耗时直接写入各 job 摘要，不再通过独立报告 job 阻塞合并。严格 Rust API 文档编译放到发布验证，普通源码检查保留编译、lint、测试和绑定检查。
+
+源码检查不替代实际运行和发布验收。Mod online 编译与测试不能验证 Unity/Mono 或设备加载；Android 检查仍须取得 Interop Snapshot 与 Loader Release。本地 `mod::check` 与 `mod::test` 不编译 Android Host，共享代码改动仍需另跑 Android 验证。正式发布在所选平台执行完整 Mod 验证，桌面还执行性能与 staging/ptr 检查，Installer 的发布构建执行完整原生验证；`dry_run` 仅准备 Payload。具体流程见 [产品发布](release.md)。运行时依赖升级仍要验证实际启动与受影响功能。
+
+游戏程序集快照只存在于私有存储，不进公开仓库或 Actions cache。Mod job 使用只读 token `BPP_GAME_LIBS_TOKEN` 和账号变量 `CLOUDFLARE_ACCOUNT_ID`；Dependabot 也要注册对应 secrets。被选中的仓库内 job 缺凭据会失败。fork PR 保留明确的跳过例外，汇总说明未验证游戏兼容性；合并前仍需本地验证证据，不能把跳过当作通过。
 
 配置静态检查不能证明机器人已经成功更新锁文件；首次启用及工具链升级后需查看 Dependabot 的实际更新日志，尤其是它的包管理器支持范围尚未覆盖仓库所用版本时。新的 CI 检查需在 GitHub 首轮成功后再设为必需检查。
 
-自动合并工作流只执行目标分支的可信脚本，通过 API 读取 PR 数据，不执行 PR 代码。开启仓库 auto-merge 和 Actions 审批权限后，还须把脚本列出的检查设为来自 GitHub Actions 的严格必需检查，并保留至少一人审批及新提交撤销旧审批；缺少任一条件时不会自动批准。启用后仍使用 GitHub 原生 auto-merge 等待检查，不使用管理员绕过。首次配置完分支规则后，可重跑符合条件的机器人工作流以重新判断资格。
+自动合并工作流只执行目标分支的可信脚本，通过 API 读取 PR 数据，不执行 PR 代码。仓库须开启 auto-merge 和 Actions 审批权限；分支规则继续执行审批和必需检查要求，脚本不再重复维护检查清单。GitHub 原生 auto-merge 等待这些要求满足，不使用管理员绕过。工作流摘要显示跳过、等待合并或已合并的结果；首次配置完仓库权限后，可重跑机器人工作流。
 
 组织策略禁止 Actions 审批时，符合条件的 PR 仍可登记 auto-merge，但保留人工 Approve；组织管理员放开该权限后才可自动审批。两种情况均不取消审批或 CI 要求。
 
@@ -97,7 +101,7 @@ Android 没有云端的设备 lane：托管 runner 跑不了 arm64 游戏的模�
 
 需要保存验证证据时，使用 `just verify <recipe...>`：桌面端可运行 `just verify mod::check mod::test mod::test-performance`，Android 可运行 `just verify mod::android-build mod::test-core`。每次运行在 `artifacts/verification/` 下生成独立目录，记录 SHA、工作区是否有改动、各步骤最终退出码和完整日志。只有进程和输出流都结束、退出成功且 HEAD 未变化，回执才标记通过；中断留下的 `running` 不能作为通过证据。回执不是缓存，未提交改动的结果也不能证明后续提交已验证。
 
-Mod 的提交钩子负责 `mod::check`，推送钩子负责 `mod::test` 和 `mod::test-performance`，都经由 `verify` 保存结果。同一版本已由钩子完成的检查无需紧接着手工再跑；修改代码或 rebase 后重新验证。共享构建输出的检查串行执行。
+本地钩子保持完整验证，不随云端分层裁剪。Mod 的提交钩子负责 `mod::check`，推送钩子负责 `mod::test` 和 `mod::test-performance`，都经由 `verify` 保存结果。同一版本已由钩子完成的检查无需紧接着手工再跑；修改代码或 rebase 后重新验证。共享构建输出的检查串行执行。
 
 `mod::test` 保留批量数据的数量、SQLite 调用次数和工作量断言；墙钟时间预算由 `mod::test-performance` 单独执行，避免与功能测试并发争抢资源。桌面、Core 和性能测试分别在 `bazaarplusplus-mod/artifacts/tests/` 下创建独立目录，保存 TRX；测试宿主崩溃时收集 blame 信息与小型转储。CI 无论通过或失败都会上传这些诊断和验证回执。失败时先查看本次证据，再决定是否重跑。
 

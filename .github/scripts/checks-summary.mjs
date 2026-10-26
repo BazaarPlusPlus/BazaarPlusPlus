@@ -1,24 +1,10 @@
 import fs from 'node:fs';
 import { SCOPES, manualSelection } from './checks-scope.mjs';
 
-export const JOB_SCOPES = {
-  release: 'release',
-  site: 'site',
-  server: 'server',
-  analyzer: 'analyzer',
-  'installer-frontend': 'installer-frontend',
-  'installer-macos': 'installer-macos',
-  'installer-windows': 'installer-windows',
-  'installer-timings': 'installer-frontend',
-  'mod-macos': 'mod-macos',
-  'mod-windows': 'mod-windows',
-  'mod-android': 'mod-android',
-  'macos-icon': 'macos-icon'
-};
-
 export function summarize({ needs, eventName, event, modCredentials }) {
   const errors = [];
   const rows = [];
+  const coverage = [];
   let plan;
   try {
     if (needs.classify?.result !== 'success')
@@ -41,6 +27,16 @@ export function summarize({ needs, eventName, event, modCredentials }) {
     for (const scope of SCOPES)
       if (needs.classify.outputs[scope] !== String(plan[scope].length > 0))
         throw new Error(`Inconsistent selection: ${scope}`);
+    for (const flag of ['compatibility', 'performance'])
+      if (!['true', 'false'].includes(needs.classify.outputs[flag]))
+        throw new Error(`Invalid classification flag: ${flag}`);
+    if (['mod-macos', 'mod-windows'].some((scope) => plan[scope].length)) {
+      coverage.push('online');
+      if (needs.classify.outputs.compatibility === 'true')
+        coverage.push('staging / ptr');
+      if (needs.classify.outputs.performance === 'true')
+        coverage.push('performance');
+    }
   } catch (error) {
     errors.push(error.message);
   }
@@ -50,16 +46,16 @@ export function summarize({ needs, eventName, event, modCredentials }) {
     event.repository?.full_name &&
     event.pull_request.head.repo.full_name !== event.repository.full_name;
   if (!errors.length)
-    for (const [job, scope] of Object.entries(JOB_SCOPES)) {
-      const reasons = plan[scope];
+    for (const job of SCOPES) {
+      const reasons = plan[job];
       let status = needs[job]?.result ?? 'missing';
       if (!reasons.length) status = '不受影响';
-      else if (scope.startsWith('mod-') && fork) {
+      else if (job.startsWith('mod-') && fork) {
         if (status !== 'skipped')
           errors.push(`${job}: fork exception expected skipped, got ${status}`);
         status = 'fork 例外：需本地 Mod 验证，不提供私有快照凭据';
       } else {
-        if (scope.startsWith('mod-') && modCredentials !== 'true')
+        if (job.startsWith('mod-') && modCredentials !== 'true')
           errors.push(
             `${job}: missing BPP_GAME_LIBS_TOKEN or CLOUDFLARE_ACCOUNT_ID; Mod checks were not verified`
           );
@@ -67,7 +63,7 @@ export function summarize({ needs, eventName, event, modCredentials }) {
       }
       rows.push({ job, status, reasons });
     }
-  return { ok: errors.length === 0, errors, rows };
+  return { ok: errors.length === 0, errors, rows, coverage };
 }
 
 export function renderSummary(result, { eventName, ref, sha, inputs }) {
@@ -84,6 +80,9 @@ export function renderSummary(result, { eventName, ref, sha, inputs }) {
       ? [
           `Coverage: ${manualSelection(inputs).scope}/${manualSelection(inputs).platform}`
         ]
+      : []),
+    ...(result.coverage.length
+      ? [`Planned Mod desktop checks: ${result.coverage.join(' + ')}`]
       : []),
     '',
     '| Job | Result | Selection reason |',
