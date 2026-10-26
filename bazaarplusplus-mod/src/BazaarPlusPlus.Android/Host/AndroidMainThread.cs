@@ -32,8 +32,6 @@ internal sealed class AndroidMainThread : SynchronizationContext
     /// <summary>The host's pump; <see cref="Capture"/> binds it to the main thread.</summary>
     public static AndroidMainThread Host { get; } = new();
 
-    public bool IsBound => Volatile.Read(ref _threadId) != 0;
-
     /// <summary>True on the bound thread; false before binding and on every other thread.</summary>
     public bool IsCurrentThread
     {

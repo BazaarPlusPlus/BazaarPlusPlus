@@ -22,12 +22,10 @@ export interface RouteDefinition {
   readonly path: string;
   readonly method: "GET" | "POST";
   readonly auth?: ServiceScope;
-  readonly cors?: boolean;
   readonly handler: RouteHandler;
 }
 
 interface IndexedPath {
-  readonly cors: boolean;
   readonly methods: string[];
   readonly byMethod: Map<string, RouteDefinition>;
 }
@@ -37,27 +35,13 @@ function indexRoutes(routes: readonly RouteDefinition[]): Map<string, IndexedPat
   for (const route of routes) {
     let indexed = paths.get(route.path);
     if (indexed === undefined) {
-      indexed = { cors: route.cors ?? false, methods: [], byMethod: new Map() };
+      indexed = { methods: [], byMethod: new Map() };
       paths.set(route.path, indexed);
     }
     indexed.methods.push(route.method);
     indexed.byMethod.set(route.method, route);
   }
   return paths;
-}
-
-function optionsResponse(route: IndexedPath): Response {
-  const allow = route.methods.join(", ");
-  const headers = new Headers({
-    Allow: allow,
-    "Access-Control-Allow-Methods": allow,
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Content-Digest",
-    "Access-Control-Max-Age": "86400",
-  });
-  if (route.cors) {
-    headers.set("Access-Control-Allow-Origin", "*");
-  }
-  return new Response(null, { status: 204, headers });
 }
 
 function errorResponse(error: HttpError, requestId: string, headers?: HeadersInit): Response {
@@ -84,14 +68,6 @@ function authDenial(outcome: ReturnType<typeof authenticateServiceToken>): HttpE
   return apiError("unauthorized", "A valid service token is required");
 }
 
-function corsHeaders(enabled: boolean, initial?: HeadersInit): Headers {
-  const headers = new Headers(initial);
-  if (enabled) {
-    headers.set("Access-Control-Allow-Origin", "*");
-  }
-  return headers;
-}
-
 const paths = indexRoutes(ROUTES);
 
 export async function fetch(request: Request, env: Env): Promise<Response> {
@@ -101,10 +77,6 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
   if (indexed === undefined) {
     return errorResponse(apiError("not_found", "Route not found"), requestId);
   }
-  if (request.method === "OPTIONS") {
-    return optionsResponse(indexed);
-  }
-
   const route = indexed.byMethod.get(request.method);
   if (route === undefined) {
     return errorResponse(apiError("method_not_allowed", "Method not allowed"), requestId, {
@@ -132,7 +104,6 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
     return jsonResponse(result.body, {
       status: result.status,
       requestId,
-      headers: corsHeaders(indexed.cors),
     });
   } catch (error) {
     if (error instanceof HttpError) {
@@ -144,7 +115,7 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
           code: error.code,
         });
       }
-      return errorResponse(error, requestId, corsHeaders(indexed.cors, error.headers));
+      return errorResponse(error, requestId, error.headers);
     }
     logError("worker.internal_error", {
       request_id: requestId,
@@ -152,10 +123,6 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
       error_name: error instanceof Error ? error.name : "unknown",
       reason: "unclassified_exception",
     });
-    return errorResponse(
-      apiError("internal_error", "An internal error occurred"),
-      requestId,
-      corsHeaders(indexed.cors),
-    );
+    return errorResponse(apiError("internal_error", "An internal error occurred"), requestId);
   }
 }

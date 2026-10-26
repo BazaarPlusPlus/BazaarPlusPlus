@@ -40,15 +40,6 @@ export function ExternalLinkIcon({ className }: IconProps) {
   );
 }
 
-export function ArrowRightIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M5 12h14" />
-      <path d="m12 5 7 7-7 7" />
-    </Icon>
-  );
-}
-
 export function RefreshIcon({ className }: IconProps) {
   return (
     <Icon className={className}>

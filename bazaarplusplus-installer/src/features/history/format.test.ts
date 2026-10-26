@@ -19,7 +19,6 @@ describe('History hero and rank labels', () => {
   it.each([
     ['The Dragons', '双龙', 'The Dragons'],
     ['TheDragons', '双龙', 'The Dragons'],
-    ['Hero8', '双龙', 'The Dragons'],
     ['Vanessa', '凡妮莎', 'Vanessa'],
     ['Pygmalien', '皮格马利翁', 'Pygmalien'],
     ['Dooley', '杜利', 'Dooley'],

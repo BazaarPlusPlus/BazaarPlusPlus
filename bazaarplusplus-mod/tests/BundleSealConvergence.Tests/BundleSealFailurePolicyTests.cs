@@ -340,7 +340,7 @@ internal static class BundleSealFailurePolicyTests
             Retry,
             "payload_compose_failed",
             1,
-            "a revived legacy job's first failure never exhausts"
+            "a revived job's first failure never exhausts"
         );
         Expect(
             BundleSealStage.Publish,

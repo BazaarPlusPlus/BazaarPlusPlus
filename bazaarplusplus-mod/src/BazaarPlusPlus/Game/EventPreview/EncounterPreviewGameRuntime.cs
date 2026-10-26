@@ -39,12 +39,12 @@ internal interface IEncounterPreviewGameRuntime
 
 internal sealed class EncounterPreviewGameRuntime(
     BppStaticCardMapProvider cardMapProvider,
-    IGameDataDayTierResolver dayTierResolver
+    GameDataDayTierResolver dayTierResolver
 ) : IEncounterPreviewGameRuntime
 {
     private readonly BppStaticCardMapProvider _cardMapProvider =
         cardMapProvider ?? throw new ArgumentNullException(nameof(cardMapProvider));
-    private readonly IGameDataDayTierResolver _dayTierResolver =
+    private readonly GameDataDayTierResolver _dayTierResolver =
         dayTierResolver ?? throw new ArgumentNullException(nameof(dayTierResolver));
 
     public bool IsInCombat => Data.IsInCombat;

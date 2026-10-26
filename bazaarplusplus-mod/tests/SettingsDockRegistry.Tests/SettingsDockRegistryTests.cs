@@ -563,35 +563,6 @@ public class SettingsDockRegistryTests
     }
 
     [Fact]
-    public void ChineseLocaleModeConfig_migrates_legacy_hong_kong_to_taiwan()
-    {
-        var configPath = Path.Combine(
-            Path.GetTempPath(),
-            $"bpp-chinese-locale-settings-{Guid.NewGuid():N}.cfg"
-        );
-        try
-        {
-            File.WriteAllText(
-                configPath,
-                """
-                [Localization]
-
-                ChineseLocaleMode = HongKong
-                """
-            );
-            var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppSettings(new BepInExSettingsStore(configFile));
-
-            Assert.Equal(BppChineseLocaleMode.Taiwan, config.ChineseLocaleModeConfig!.Value);
-        }
-        finally
-        {
-            if (File.Exists(configPath))
-                File.Delete(configPath);
-        }
-    }
-
-    [Fact]
     public void ChineseLocaleModeDockEntry_selects_between_cn_and_tw_only()
     {
         var configPath = Path.Combine(

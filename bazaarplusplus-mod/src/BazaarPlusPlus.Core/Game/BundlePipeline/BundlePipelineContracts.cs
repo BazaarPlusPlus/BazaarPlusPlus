@@ -4,19 +4,6 @@ using BazaarPlusPlus.ModApi.Bundle;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-/// <summary>
-/// Builds one run's Bundle V6 inputs from the local history database and stored Replay
-/// Payloads (<see cref="RunPayloadComposer"/>; tests substitute their own).
-/// </summary>
-public interface IRunPayloadComposer
-{
-    string ResolvePlayerAccountId(string runId, string? frozenAccountId);
-
-    RunPayloadComposition Compose(string runId, string playerAccountId);
-
-    void FitToBudget(RunPayloadComposition composition);
-}
-
 /// <summary>The card enums a board capture stores by the game's member name.</summary>
 public enum PvpCardEnum
 {

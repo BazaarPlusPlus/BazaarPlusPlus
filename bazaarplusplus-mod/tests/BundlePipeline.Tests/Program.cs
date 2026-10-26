@@ -736,11 +736,11 @@ static async Task VerifyUploadClientAsync()
         {
             Json(
                 HttpStatusCode.Created,
-                "{\"bundle_id\":\"01J00000000000000000000111\",\"run_id\":\"run-http\",\"outcome\":\"stored\",\"bazaardb_delivery\":\"not_applicable\"}"
+                "{\"bundle_id\":\"01J00000000000000000000111\",\"run_id\":\"run-http\",\"outcome\":\"stored\"}"
             ),
             Json(
                 HttpStatusCode.OK,
-                "{\"bundle_id\":\"01J00000000000000000000111\",\"run_id\":\"run-http\",\"outcome\":\"duplicate\",\"bazaardb_delivery\":\"not_applicable\"}"
+                "{\"bundle_id\":\"01J00000000000000000000111\",\"run_id\":\"run-http\",\"outcome\":\"duplicate\"}"
             ),
             Json(
                 HttpStatusCode.Conflict,

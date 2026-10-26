@@ -382,10 +382,7 @@ const zh: LocalizedSiteCopy = {
       {
         title: '中文模式',
         description: '按你的常用地区术语显示 BazaarPlusPlus 中文界面',
-        details: [
-          '支持简体中文、台湾繁体和香港繁体的术语习惯',
-          '对局历史、设置和提示文案会一起使用对应风格',
-        ],
+        details: ['支持简体中文和台湾繁体的术语习惯', '对局历史、设置和提示文案会一起使用对应风格'],
       },
     ],
     installation: {
@@ -697,7 +694,7 @@ const en: LocalizedSiteCopy = {
         title: 'Chinese terminology',
         description: 'Display BazaarPlusPlus Chinese UI with the regional terminology you prefer.',
         details: [
-          'Supports Mainland, Taiwan, and Hong Kong terminology styles.',
+          'Supports Mainland and Taiwan terminology styles.',
           'History, settings, and item tips follow the selected style.',
         ],
       },

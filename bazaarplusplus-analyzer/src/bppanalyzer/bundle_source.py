@@ -384,33 +384,19 @@ class BundleSource:
             with self._client.stream("GET", item.download_url) as response:
                 if response.status_code >= 400:
                     response.read()
-                    code, body_retryable = _response_error_details(response)
-                else:
-                    code, body_retryable = None, False
-                if response.status_code == 410 and code == "window_expired":
-                    raise HourExpired(code, "The Bundle Server no longer retains this hour")
                 if response.status_code == 403:
                     raise DownloadUrlExpired(
                         "download_url_expired", "Bundle download capability expired"
                     )
-                if response.status_code == 401:
-                    raise SourceContractError(
-                        code or "bundle_download_failed",
-                        "Bundle download authentication failed",
-                    )
-                if (
-                    response.status_code in {408, 429}
-                    or response.status_code >= 500
-                    or body_retryable
-                ):
+                if response.status_code in {408, 429} or response.status_code >= 500:
                     raise RetryableSourceError(
-                        code or "bundle_download_retryable",
+                        "bundle_download_retryable",
                         "Bundle download temporarily failed",
                         retry_after_seconds=_retry_after_seconds(response, self._clock()),
                     )
                 if response.status_code >= 400:
                     raise SourceContractError(
-                        code or "bundle_download_failed", "Bundle download was rejected"
+                        "bundle_download_failed", "Bundle download was rejected"
                     )
                 declared_length: int | None = None
                 if "Content-Length" in response.headers:

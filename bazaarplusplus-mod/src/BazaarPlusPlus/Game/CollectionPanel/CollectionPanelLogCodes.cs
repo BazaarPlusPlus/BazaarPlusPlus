@@ -75,7 +75,6 @@ internal enum CollectionPanelSelectionProbe
 
 internal enum CollectionPanelLoadPhase
 {
-    OpenPrologue,
     PanelLoad,
 }
 

@@ -6,7 +6,6 @@ export interface BundleReceipt {
   bundle_id: string;
   run_id: string;
   outcome: "stored" | "duplicate";
-  bazaardb_delivery: "created" | "existing" | "not_applicable";
 }
 
 export type CommitOutcome =
@@ -24,7 +23,6 @@ interface ExistingBundleRow {
   bundle_id: string;
   run_id: string;
   bundle_sha256: string;
-  has_screenshot: number;
 }
 
 type StatementName = "insert_bundle" | "insert_ghost" | "count_eligible" | "insert_uploader";
@@ -46,13 +44,8 @@ function receipt(
   outcome: BundleReceipt["outcome"],
   bundleId: string,
   runId: string,
-  hasScreenshot: boolean,
 ): BundleReceipt {
-  // The receipt derives BazaarDB eligibility from the immutable Screenshot bit,
-  // the same filter GET /bazaardb/bundles applies.
-  let bazaardbDelivery: BundleReceipt["bazaardb_delivery"] = "not_applicable";
-  if (hasScreenshot) bazaardbDelivery = outcome === "stored" ? "created" : "existing";
-  return { bundle_id: bundleId, run_id: runId, outcome, bazaardb_delivery: bazaardbDelivery };
+  return { bundle_id: bundleId, run_id: runId, outcome };
 }
 
 export function conflictError(reason: ConflictReason): HttpError {
@@ -71,12 +64,7 @@ function decideFromExisting(
     return bundle.bundle_sha256 === digest
       ? {
           kind: "duplicate",
-          receipt: receipt(
-            "duplicate",
-            bundle.bundle_id,
-            bundle.run_id,
-            bundle.has_screenshot === 1,
-          ),
+          receipt: receipt("duplicate", bundle.bundle_id, bundle.run_id),
         }
       : { kind: "conflict", reason: "bundle_id_conflict" };
   }
@@ -93,9 +81,7 @@ export async function inspectExistingBundle(
 ): Promise<CommitOutcome | null> {
   const [bundle, run] = await Promise.all([
     db
-      .prepare(
-        `SELECT bundle_id, run_id, bundle_sha256, has_screenshot FROM bundles WHERE bundle_id = ?1`,
-      )
+      .prepare(`SELECT bundle_id, run_id, bundle_sha256 FROM bundles WHERE bundle_id = ?1`)
       .bind(descriptor.bundleId)
       .first<ExistingBundleRow>(),
     db
@@ -237,11 +223,6 @@ export async function commitBundle(
   }
   return {
     kind: "stored",
-    receipt: receipt(
-      "stored",
-      descriptor.bundleId,
-      descriptor.runId,
-      descriptor.screenshot !== null,
-    ),
+    receipt: receipt("stored", descriptor.bundleId, descriptor.runId),
   };
 }

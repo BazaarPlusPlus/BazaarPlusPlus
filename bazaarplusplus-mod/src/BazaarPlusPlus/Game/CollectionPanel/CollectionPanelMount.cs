@@ -20,7 +20,7 @@ internal sealed class CollectionPanelMount : IBppMountable
     private readonly Func<DesktopOverlayPanels?> _overlayHost;
     private readonly BppStaticCardMapProvider _cardMapProvider;
     private readonly INativeCardPreviewHost _nativeCardPreviewHost;
-    private readonly IGameDataDayTierResolver _dayTierResolver;
+    private readonly GameDataDayTierResolver _dayTierResolver;
     private readonly CollectionInspectionModule _inspection;
     private IDisposable? _localeChangedSubscription;
 
@@ -28,7 +28,7 @@ internal sealed class CollectionPanelMount : IBppMountable
         Func<DesktopOverlayPanels?> overlayHost,
         BppStaticCardMapProvider cardMapProvider,
         INativeCardPreviewHost nativeCardPreviewHost,
-        IGameDataDayTierResolver dayTierResolver,
+        GameDataDayTierResolver dayTierResolver,
         CollectionInspectionModule inspection
     )
     {

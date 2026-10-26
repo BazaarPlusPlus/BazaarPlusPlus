@@ -60,10 +60,7 @@ fn history_router(
         crate::stream::records::OverlayRecordRepository::new(Some(overlay_path.to_path_buf())),
         runtime.clone(),
         thumbnails.clone(),
-        crate::stream::overlay_settings::OverlaySettingsStore::new(
-            root.join("settings.json"),
-            None,
-        ),
+        crate::stream::overlay_settings::OverlaySettingsStore::new(root.join("settings.json")),
         root.join("cache"),
     )
 }

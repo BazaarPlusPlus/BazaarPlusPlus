@@ -11,7 +11,7 @@ V5 delivered Screenshot-bearing Bundles to BazaarDB through a claim/lease/settle
 
 V6 has no delivery state. `GET /bazaardb/bundles` is `GET /bundles` filtered to `has_screenshot = 1`: the same fixed availability window, settle lag, 8-day lookback, keyset order, and `next_after` cursor, authenticated with the BazaarDB service token. Both routes share one collection module, parameterized by feed. The partial index `idx_bundles_screenshot_available` serves the filtered feed, so Run-only Bundles cost no reads.
 
-The upload receipt keeps `bazaardb_delivery` because the mod upload client (`BundleUploadClient.Classify`) rejects a receipt without it; it is derived from the Screenshot bit and reports only whether the Bundle appears in the feed.
+The upload receipt says nothing about BazaarDB; whether a Bundle appears in the feed follows from its Screenshot bit alone.
 
 ## Consequences
 

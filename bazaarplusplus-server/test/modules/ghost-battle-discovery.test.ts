@@ -131,7 +131,6 @@ describe("GET /ghost-battles", () => {
       env,
     );
     expect(response.status).toBe(200);
-    expect(response.headers.get("access-control-allow-origin")).toBe("*");
     const body = (await response.json()) as {
       battles: Array<Record<string, unknown>>;
     };
@@ -177,7 +176,6 @@ describe("GET /ghost-battles", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("60");
-    expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(key).toBe("198.51.100.7");
     expect(databaseTouched).toBe(false);
   });

@@ -208,7 +208,6 @@ export type InstallModState = {
 
 export type InstallState = {
 	selected_game_path: string | null,
-	steam_path: string | null,
 	game: InstallGameState,
 	mod_state: InstallModState,
 	actions: InstallActions,

@@ -15,7 +15,6 @@ describe("POST /bundles", () => {
       bundle_id: "01J00000000000000000000001",
       run_id: "run-001",
       outcome: "stored",
-      bazaardb_delivery: "not_applicable",
     });
 
     const object = await env.BUNDLE_BUCKET.get(
@@ -47,7 +46,6 @@ describe("POST /bundles", () => {
       bundle_id: "01J00000000000000000000002",
       run_id: "run-002",
       outcome: "duplicate",
-      bazaardb_delivery: "not_applicable",
     });
   });
 
@@ -128,7 +126,6 @@ describe("POST /bundles", () => {
       bundle_id: "01J00000000000000000000006",
       run_id: "run-006",
       outcome: "stored",
-      bazaardb_delivery: "created",
     });
     await expectGolden(duplicate, "ingest-screenshot-duplicate");
   });

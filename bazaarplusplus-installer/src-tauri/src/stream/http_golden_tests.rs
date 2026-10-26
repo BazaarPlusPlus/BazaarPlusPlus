@@ -83,7 +83,7 @@ async fn stream_routes_match_goldens() {
         OverlayRecordRepository::new(Some(game.clone())),
         StreamRuntime::default(),
         thumbnails,
-        OverlaySettingsStore::new(temp.path().join("settings.json"), None),
+        OverlaySettingsStore::new(temp.path().join("settings.json")),
         temp.path().join("cache"),
     );
     let roots = [(game.as_path(), "<GAME>")];

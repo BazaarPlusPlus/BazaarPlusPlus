@@ -18,7 +18,6 @@ import bootstrapResource from '../../src-tauri/resources/app-bootstrap.json';
 export const emptyInstallState: InstallState = {
   // These falsy fields gate preview-unreachable install/reset commands.
   selected_game_path: null,
-  steam_path: null,
   game: {
     path_valid: false
   },
