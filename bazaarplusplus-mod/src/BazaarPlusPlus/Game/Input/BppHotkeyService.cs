@@ -178,7 +178,7 @@ internal static class BppHotkeyService
         if (hadCached && string.Equals(cached.Raw, raw, StringComparison.Ordinal))
             return cached.Resolved;
 
-        var resolved = ResolveBindingPath(actionId, raw, out var invalid);
+        var resolved = HotkeyBindingPathCore.ResolveConfigured(actionId, raw, out var invalid);
         CachedBindingPaths[actionId] = (raw, resolved);
         if (invalid)
         {
@@ -194,28 +194,12 @@ internal static class BppHotkeyService
         return resolved;
     }
 
-    private static string ResolveBindingPath(
-        BppHotkeyActionId actionId,
-        string? raw,
-        out bool invalid
-    )
-    {
-        var normalized = HotkeyBindingPathCore.Normalize(raw);
-        invalid = string.IsNullOrWhiteSpace(normalized);
-        return invalid ? HotkeyBindingPathCore.GetDefault(actionId) : normalized;
-    }
-
     // An enabled InputAction keeps the Input System monitoring its controls until disposed.
     // Dispose a replaced binding's action unless another hotkey still resolves to that path.
     private static void ReleaseUnboundAction(string stalePath)
     {
-        foreach (var actionId in HotkeyBindingPathCore.DefaultBindingPaths.Keys)
-        {
-            var path = ResolveBindingPath(actionId, GetConfigValue(actionId), out _);
-            if (string.Equals(path, stalePath, StringComparison.OrdinalIgnoreCase))
-                return;
-        }
-
+        if (HotkeyBindingPathCore.IsBoundToAnyAction(stalePath, GetConfigValue))
+            return;
         if (!CachedActions.Remove(stalePath, out var stale))
             return;
         stale.Disable();

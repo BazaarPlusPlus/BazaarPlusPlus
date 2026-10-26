@@ -41,6 +41,9 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     private bool _dirty = true;
     private float _nextAttempt;
 
+    // Owned by CosmeticNameOverlayObserver's registry.
+    internal bool IsRegistered { get; set; }
+
     internal void Initialize(
         BppSettings config,
         CosmeticItem item,

@@ -142,4 +142,86 @@ public sealed class PedestalVisibilityTests
         Assert.Null(EnchantPreviewVisibility.Restriction(PreviewVisibilityMode.Always, enchant));
         Assert.Null(EnchantPreviewVisibility.Restriction(auto, ChoicePedestalSnapshot.Empty));
     }
+
+    [Theory]
+    [InlineData(PreviewVisibilityMode.Always, false, false)]
+    [InlineData(PreviewVisibilityMode.Off, false, false)]
+    [InlineData(PreviewVisibilityMode.AutoOnPedestalChoice, true, false)]
+    [InlineData(PreviewVisibilityMode.AutoOnPedestalChoice, false, true)]
+    public void Only_the_unheld_pedestal_mode_reads_the_choice_pedestal(
+        PreviewVisibilityMode mode,
+        bool holdUpgrade,
+        bool holdEnchant
+    ) => Assert.False(ChoicePedestalKindCache.ShouldRead(mode, holdUpgrade, holdEnchant));
+
+    [Fact]
+    public void The_pedestal_mode_reads_the_choice_pedestal_with_no_hotkey_held() =>
+        Assert.True(
+            ChoicePedestalKindCache.ShouldRead(
+                PreviewVisibilityMode.AutoOnPedestalChoice,
+                holdUpgrade: false,
+                holdEnchant: false
+            )
+        );
+
+    [Fact]
+    public void A_pedestal_kind_is_reused_until_the_screen_key_changes_or_the_recheck_is_due()
+    {
+        var cache = new ChoicePedestalKindCache();
+        var reads = 0;
+        var next = ChoiceScreenPedestalKind.Enchant;
+        ChoiceScreenPedestalKind Read()
+        {
+            reads++;
+            return next;
+        }
+
+        var choice = new object();
+        var selection = new List<string> { "ped_a", "ped_b" };
+        var key = new ChoicePedestalScreenKey(choice, selection, selection.Count, "enc");
+
+        Assert.Equal(ChoiceScreenPedestalKind.Enchant, cache.Resolve(key, 100, Read));
+        next = ChoiceScreenPedestalKind.Upgrade;
+        Assert.Equal(
+            ChoiceScreenPedestalKind.Enchant,
+            cache.Resolve(key with { }, 100 + ChoicePedestalKindCache.RecheckFrames - 1, Read)
+        );
+        Assert.Equal(1, reads);
+
+        Assert.Equal(
+            ChoiceScreenPedestalKind.Upgrade,
+            cache.Resolve(key, 100 + ChoicePedestalKindCache.RecheckFrames, Read)
+        );
+        Assert.Equal(2, reads);
+
+        var frame = 200;
+        foreach (
+            var changed in new[]
+            {
+                key with
+                {
+                    AppState = new object(),
+                },
+                key with
+                {
+                    SelectionSet = new List<string>(selection),
+                },
+                key with
+                {
+                    SelectionCount = 3,
+                },
+                key with
+                {
+                    CurrentEncounterId = "enc2",
+                },
+            }
+        )
+        {
+            cache.Resolve(key, frame, Read);
+            var before = reads;
+            cache.Resolve(changed, frame + 1, Read);
+            Assert.Equal(before + 1, reads);
+            frame += 10;
+        }
+    }
 }

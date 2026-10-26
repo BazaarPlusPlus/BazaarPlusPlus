@@ -14,7 +14,6 @@ internal sealed class CosmeticNameOverlayObserver : MonoBehaviour
     private static CosmeticNameOverlayObserver? _instance;
 
     private BppSettings? _config;
-    private bool _observed;
     private bool _lastEnabled;
     private string? _lastLanguage;
     private BppChineseLocaleMode _lastChineseMode;
@@ -23,19 +22,32 @@ internal sealed class CosmeticNameOverlayObserver : MonoBehaviour
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _instance = this;
+        CaptureBaseline();
         enabled = Overlays.Count > 0;
     }
 
+    // OnEnable and OnDisable/OnDestroy pair up, so the overlay's own flag keeps each one listed
+    // once without searching the list.
     internal static void Register(CosmeticNameOverlay overlay)
     {
-        if (!Overlays.Contains(overlay))
-            Overlays.Add(overlay);
-        if (_instance != null)
-            _instance.enabled = true;
+        if (overlay.IsRegistered)
+            return;
+        overlay.IsRegistered = true;
+        Overlays.Add(overlay);
+        if (_instance == null || _instance.enabled)
+            return;
+
+        // An idle observer's baseline is stale. Overlays refresh with the current values as they
+        // register, so take the baseline now: a change before the next LateUpdate is then seen.
+        _instance.CaptureBaseline();
+        _instance.enabled = true;
     }
 
     internal static void Unregister(CosmeticNameOverlay overlay)
     {
+        if (!overlay.IsRegistered)
+            return;
+        overlay.IsRegistered = false;
         Overlays.Remove(overlay);
         if (Overlays.Count == 0 && _instance != null)
             _instance.enabled = false;
@@ -47,6 +59,13 @@ internal sealed class CosmeticNameOverlayObserver : MonoBehaviour
             _instance = null;
     }
 
+    private void CaptureBaseline()
+    {
+        _lastEnabled = _config?.EnableCosmeticNamesConfig.Value ?? false;
+        _lastLanguage = L.CurrentLanguageCode;
+        _lastChineseMode = L.CurrentMode;
+    }
+
     private void LateUpdate()
     {
         var featureEnabled = _config?.EnableCosmeticNamesConfig.Value ?? false;
@@ -55,23 +74,18 @@ internal sealed class CosmeticNameOverlayObserver : MonoBehaviour
         var language = L.CurrentLanguageCode;
         var chineseMode = L.CurrentMode;
         var changed =
-            _observed
-            && (
-                featureEnabled != _lastEnabled
-                || !string.Equals(_lastLanguage, language, StringComparison.Ordinal)
-                || _lastChineseMode != chineseMode
-            );
-        _observed = true;
+            featureEnabled != _lastEnabled
+            || !string.Equals(_lastLanguage, language, StringComparison.Ordinal)
+            || _lastChineseMode != chineseMode;
         _lastEnabled = featureEnabled;
         _lastLanguage = language;
         _lastChineseMode = chineseMode;
 
-        // Refresh can destroy an overlay, which unregisters it, so walk the list backwards.
+        // Refresh only toggles or builds the overlay's child label; it never disables or
+        // destroys the overlay itself, so the list does not change during this walk.
         var now = Time.unscaledTime;
         for (var i = Overlays.Count - 1; i >= 0; i--)
         {
-            if (i >= Overlays.Count)
-                continue;
             var overlay = Overlays[i];
             if (overlay == null)
             {

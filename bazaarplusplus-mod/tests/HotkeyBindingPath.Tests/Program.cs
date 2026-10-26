@@ -6,6 +6,7 @@ var failures = new List<string>();
 CheckPrefixConstants();
 CheckBindingFailureGate();
 CheckActivationState();
+CheckStaleActionRelease();
 
 void Check(bool condition, string message)
 {
@@ -57,6 +58,57 @@ void CheckBindingFailureGate()
     Check(
         gate.ShouldReport(action, "invalid-a", "invalid"),
         "cleared lifecycle reopens the failure gate"
+    );
+}
+
+void CheckStaleActionRelease()
+{
+    var configured = HotkeyBindingPathCore.DefaultBindingPaths.ToDictionary(
+        pair => pair.Key,
+        pair => (string?)pair.Value
+    );
+    string? Configured(BppHotkeyActionId actionId) => configured[actionId];
+
+    const string F9 = "<Keyboard>/f9";
+    const string F10 = "<Keyboard>/f10";
+    var history = BppHotkeyActionId.ToggleHistoryPanel;
+    var collection = BppHotkeyActionId.ToggleCollectionPanel;
+
+    // A rebind from F9 to F10 leaves F9 unbound: its action is released.
+    configured[history] = F10;
+    Check(
+        !HotkeyBindingPathCore.IsBoundToAnyAction(F9, Configured),
+        "a path no hotkey resolves to is released"
+    );
+    Check(
+        HotkeyBindingPathCore.IsBoundToAnyAction("<keyboard>/F10", Configured),
+        "a rebound path stays bound, compared case-insensitively"
+    );
+
+    // Another action sharing the old path keeps it.
+    configured[collection] = F9;
+    Check(
+        HotkeyBindingPathCore.IsBoundToAnyAction(F9, Configured),
+        "a path another hotkey shares is kept"
+    );
+
+    // Swapping two bindings keeps both paths when either side is noticed first.
+    configured[history] = F9;
+    configured[collection] = F10;
+    Check(
+        HotkeyBindingPathCore.IsBoundToAnyAction(F10, Configured)
+            && HotkeyBindingPathCore.IsBoundToAnyAction(F9, Configured),
+        "swapped bindings keep both paths"
+    );
+
+    // An invalid configured value falls back to the default, which therefore stays bound.
+    configured[history] = "not-a-binding";
+    Check(
+        HotkeyBindingPathCore.IsBoundToAnyAction(
+            HotkeyBindingPathCore.GetDefault(history),
+            Configured
+        ),
+        "an invalid value keeps its default path bound"
     );
 }
 
