@@ -42,7 +42,7 @@ foreach (var aspect in new[] { .5f, 1f, 1.5f })
     Near(484f, root.rect.height, "valid root must not be reinitialized");
 }
 Console.WriteLine(
-    "Tier/enchantment roundtrips preserve artwork size and center across card sizes and pooled-frame reuse."
+    "Tier/enchantment roundtrips preserve artwork size and center across card sizes and pooled-frame reuse, and each re-measures the description until it is still."
 );
 
 static void RunVariantRoundTrip(float bodyWidth, float bodyHeight)
@@ -73,6 +73,9 @@ static void RunVariantRoundTrip(float bodyWidth, float bodyHeight)
         (Name: "reset-tier-and-enchantment", Width: 1.1f, Height: 1.06f, DescriptionHeight: 400f),
     };
     var anchor = new CollectionInspectionCardAnchor();
+    var settle = new CollectionInspectionLayoutSettle();
+    var frameCount = 0;
+    (float X, float Y)? description = null;
     CollectionInspectionCardPlacement? initial = null;
     foreach (var variant in variants)
     {
@@ -109,6 +112,7 @@ static void RunVariantRoundTrip(float bodyWidth, float bodyHeight)
         );
         var placement = anchor.Resolve(2560f, 1600f, candidate);
         initial ??= placement;
+        SettleDescription(settle, ref frameCount, ref description, candidate, variant.Name);
         var scale = placement.ScaleFor(measured.width, measured.height);
         var bounds = new CardVisualBounds(
             measured.width,
@@ -166,6 +170,77 @@ static void RunVariantRoundTrip(float bodyWidth, float bodyHeight)
     preview.Artwork = new RectTransform { Parent = preview, Rect = new(0f, 0f, 0f, bodyHeight) };
     if (NativeCardPreviewArtworkMeasurement.TryMeasure(preview, out _))
         throw new InvalidOperationException("Unready artwork must not produce a fit.");
+}
+
+// Each tier or enchantment change re-measures the description until it is still and centred,
+// then the inspection stops measuring until the periodic recheck, which finds nothing new.
+static void SettleDescription(
+    CollectionInspectionLayoutSettle settle,
+    ref int frame,
+    ref (float X, float Y)? description,
+    CollectionInspectionLayout layout,
+    string name
+)
+{
+    settle.MarkDirty(); // OnPreviewChanged
+    var opening = description == null;
+    var measured = 0;
+    while (true)
+    {
+        frame++;
+        if (!settle.ShouldMeasure(frame))
+            throw new InvalidOperationException(name + ": a changed description was not measured.");
+        measured++;
+        // PositionDescription finds the description where the previous frame left it.
+        var before = description ?? (0f, 0f);
+        // The opening animation runs for the first three frames of the first variant.
+        var motionDone = !opening || measured > 3;
+        var settled = settle.Observe(
+            frame,
+            before.X,
+            before.Y,
+            layout.DetailWidth,
+            layout.DetailHeight,
+            layout.DetailCenterX,
+            layout.DetailCenterY,
+            motionDone
+        );
+        description = (layout.DetailCenterX, layout.DetailCenterY);
+        if (settled)
+            break;
+        if (measured > 8)
+            throw new InvalidOperationException(name + ": the description never settled.");
+    }
+    if (measured < 2 || (opening && measured < 4))
+        throw new InvalidOperationException(
+            $"{name}: settled after {measured} frames, before two still frames and the motion."
+        );
+    if (settle.MeasuredFrames != measured)
+        throw new InvalidOperationException(
+            $"{name}: reported {settle.MeasuredFrames} measured frames, measured {measured}."
+        );
+    var settledFrame = frame;
+    for (frame++; frame < settledFrame + CollectionInspectionLayoutSettle.RecheckFrames; frame++)
+        if (settle.ShouldMeasure(frame))
+            throw new InvalidOperationException(name + ": a still description was re-measured.");
+    if (!settle.ShouldMeasure(frame))
+        throw new InvalidOperationException(name + ": the periodic recheck did not run.");
+    var still = description!.Value;
+    if (
+        settle.Observe(
+            frame,
+            still.X,
+            still.Y,
+            layout.DetailWidth,
+            layout.DetailHeight,
+            layout.DetailCenterX,
+            layout.DetailCenterY,
+            true
+        ) || settle.ShouldMeasure(frame + 1)
+    )
+        throw new InvalidOperationException(
+            name + ": a recheck that found nothing kept measuring."
+        );
 }
 
 static void Near(float expected, float actual, string label)

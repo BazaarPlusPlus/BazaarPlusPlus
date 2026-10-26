@@ -25,6 +25,7 @@ internal sealed class CollectionInspectionLayoutSettle
         _dirty = true;
         _changed = true;
         _last = null;
+        _measuredFrame = -1;
         _measuredFrames = 0;
     }
 

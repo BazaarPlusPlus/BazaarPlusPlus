@@ -31,6 +31,8 @@ internal sealed class NativeInspectionPresentation : IDisposable
     private readonly Action<Object> _onTextChanged;
     private Vector3 _descriptionScale;
     private bool _descriptionChanged;
+    private Vector2 _contentSize;
+    private Vector2 _tooltipSize;
     private static readonly System.Reflection.FieldInfo? DropdownList = AccessTools.Field(
         typeof(TMP_Dropdown),
         "m_Dropdown"
@@ -134,22 +136,48 @@ internal sealed class NativeInspectionPresentation : IDisposable
         return bounds;
     }
 
-    // True once after a text inside the description changed its mesh.
+    // True once after a text inside the description changed its mesh, or the description's
+    // rect changed size (a section shown or hidden, an image resized). Scale and position
+    // writes never change a rect's size, so measuring cannot report itself.
     public bool ConsumeDescriptionChanged()
     {
         var changed = _descriptionChanged;
         _descriptionChanged = false;
+        if (_released)
+            return changed;
+        changed |= SizeChanged(_controller.CanvasContentRectTransform, ref _contentSize);
+        changed |= SizeChanged(_controller.TooltipRectTransform, ref _tooltipSize);
         return changed;
     }
 
-    // TEXT_CHANGED_EVENT is global, so only texts inside the description count.
+    private static bool SizeChanged(RectTransform? rect, ref Vector2 last)
+    {
+        if (rect == null)
+            return false;
+        var size = rect.rect.size;
+        if (Mathf.Abs(size.x - last.x) <= .01f && Mathf.Abs(size.y - last.y) <= .01f)
+            return false;
+        last = size;
+        return true;
+    }
+
+    // TEXT_CHANGED_EVENT is global, so only texts inside the description count. It runs inside
+    // TMP's dispatch to every listener, so a failure here must not escape; re-measuring is the
+    // safe answer to one.
     private void OnTextChanged(Object changed)
     {
-        if (_released || _descriptionChanged || changed is not TMP_Text text || text == null)
-            return;
-        var content = _controller.CanvasContentRectTransform;
-        if (content != null && text.transform.IsChildOf(content))
+        try
+        {
+            if (_released || _descriptionChanged || changed is not TMP_Text text || text == null)
+                return;
+            var content = _controller.CanvasContentRectTransform;
+            if (content != null && text.transform.IsChildOf(content))
+                _descriptionChanged = true;
+        }
+        catch
+        {
             _descriptionChanged = true;
+        }
     }
 
     // Only the variant controls and their open lists protect clicks from dismissal.

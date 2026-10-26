@@ -24,5 +24,6 @@
   <ItemGroup>
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewArtworkMeasurement.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayout.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayoutSettle.cs" />
   </ItemGroup>
 </Project>

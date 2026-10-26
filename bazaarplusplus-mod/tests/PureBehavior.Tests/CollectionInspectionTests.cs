@@ -219,6 +219,19 @@ public sealed class CollectionInspectionTests
     }
 
     [Fact]
+    public void A_change_measured_in_the_frame_that_already_measured_starts_the_new_count()
+    {
+        var settle = new CollectionInspectionLayoutSettle();
+        settle.Observe(1, 1800f, 800f, 650f, 400f, 1800f, 800f, true);
+        Assert.True(settle.Observe(2, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        // A new preview lands after this frame's tick already measured the old one.
+        settle.MarkDirty();
+        Assert.False(settle.Observe(2, 1800f, 800f, 900f, 400f, 1800f, 800f, true));
+        Assert.True(settle.Observe(3, 1800f, 800f, 900f, 400f, 1800f, 800f, true));
+        Assert.Equal(2, settle.MeasuredFrames);
+    }
+
+    [Fact]
     public void A_change_needs_two_fresh_matching_frames_before_the_layout_settles_again()
     {
         var settle = new CollectionInspectionLayoutSettle();
