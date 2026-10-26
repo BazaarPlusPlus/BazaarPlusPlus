@@ -27,6 +27,36 @@ public sealed class QueuedRunLogStoreDiagnosticTests
     }
 
     [Fact]
+    public async Task Failed_account_write_emits_its_operation_and_run_id()
+    {
+        var failure = new InvalidOperationException("account write failed");
+        var logger = new CapturingRunLogStoreLogger();
+        var written = new List<(string RunId, string? AccountId)>();
+        var inner = new DelegatingRunLogStore
+        {
+            SetAccount = (runId, accountId) =>
+            {
+                written.Add((runId, accountId));
+                throw failure;
+            },
+        };
+        var store = new QueuedRunLogStore(inner, TimeSpan.FromSeconds(1), logger);
+
+        store.SetPlayerAccountIdOnce("run-blank", null);
+        store.SetPlayerAccountIdOnce("run-blank", "   ");
+        store.SetPlayerAccountIdOnce("run-account", "  account-1  ");
+        var diagnostic = await logger.Next.WaitAsync(TimeSpan.FromSeconds(2));
+        store.Dispose();
+
+        Assert.Equal(RunLogStoreDiagnosticKind.WriteFailed, diagnostic.Kind);
+        Assert.Equal(RunLogStoreWriteOperation.SetPlayerAccountId, diagnostic.Operation);
+        Assert.Equal("run-account", diagnostic.RunId);
+        Assert.Same(failure, diagnostic.Exception);
+        Assert.Equal([("run-account", (string?)"account-1")], written);
+        Assert.Single(logger.Diagnostics);
+    }
+
+    [Fact]
     public async Task Shutdown_timeout_emits_timeout_and_outstanding_write_count()
     {
         using var entered = new ManualResetEventSlim();
@@ -88,11 +118,14 @@ public sealed class QueuedRunLogStoreDiagnosticTests
     {
         internal Action<string, RunLogEvent>? Append { get; init; }
 
+        internal Action<string, string?>? SetAccount { get; init; }
+
         public RunLogSessionState? TryResumeActiveRun() => null;
 
         public RunLogSessionState CreateRun(RunLogCreateRequest request) => new();
 
-        public void SetPlayerAccountIdOnce(string runId, string? playerAccountId) { }
+        public void SetPlayerAccountIdOnce(string runId, string? playerAccountId) =>
+            SetAccount?.Invoke(runId, playerAccountId);
 
         public void AppendEvent(string runId, RunLogEvent entry) => Append?.Invoke(runId, entry);
 

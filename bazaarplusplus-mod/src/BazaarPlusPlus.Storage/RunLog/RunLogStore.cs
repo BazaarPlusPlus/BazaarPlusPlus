@@ -448,7 +448,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         };
     }
 
-    private static string? NormalizeAccountId(string? playerAccountId)
+    internal static string? NormalizeAccountId(string? playerAccountId)
     {
         var normalized = playerAccountId?.Trim();
         return string.IsNullOrEmpty(normalized) ? null : normalized;
