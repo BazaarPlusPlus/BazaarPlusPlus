@@ -7,6 +7,7 @@ public enum BundleSealInputGate
     PlayerAccount,
     Screenshot,
     ReplayPayload,
+    RememberedReplayPayload,
     EncodedPayload,
 }
 
@@ -58,6 +59,20 @@ public readonly struct BundleSealInputObservation
     public static BundleSealInputObservation ReplayPayload(int omittedCount) =>
         new(BundleSealInputGate.ReplayPayload, omittedCount == 0, omittedCount, false);
 
+    // The omissions a Run last waited on, without composing again: replays can only appear for an
+    // ended Run through replay persistence, so unless persistence completed since that observation
+    // the Run keeps waiting on it until its deadline.
+    public static BundleSealInputObservation RememberedReplayPayload(
+        int omittedCount,
+        bool persistenceChangedSince
+    ) =>
+        new(
+            BundleSealInputGate.RememberedReplayPayload,
+            persistenceChangedSince,
+            omittedCount,
+            false
+        );
+
     public static BundleSealInputObservation EncodedPayload(bool tooLarge) =>
         new(BundleSealInputGate.EncodedPayload, !tooLarge, 0, tooLarge);
 }
@@ -95,6 +110,13 @@ public static class BundleSealConvergence
                     : BundleSealConvergenceDecision.Wait;
             case BundleSealInputGate.ReplayPayload:
                 return observation.ReplayOmittedCount > 0 && !deadlineReached
+                    ? BundleSealConvergenceDecision.Wait
+                    : BundleSealConvergenceDecision.Continue;
+            case BundleSealInputGate.RememberedReplayPayload:
+                return
+                    !observation.InputAvailable
+                    && observation.ReplayOmittedCount > 0
+                    && !deadlineReached
                     ? BundleSealConvergenceDecision.Wait
                     : BundleSealConvergenceDecision.Continue;
             case BundleSealInputGate.EncodedPayload:

@@ -11,10 +11,12 @@ namespace BazaarPlusPlus.Game.BundlePipeline;
 /// </summary>
 internal static class DesktopBundleSealCoordinator
 {
-    // Tests inject failures at named seal stages; production passes null.
+    // Tests inject failures at named seal stages and may wrap the encoder; production passes
+    // neither.
     internal static BundleSealCoordinator Create(
         IBppServices services,
-        Action<BundleSealStage, string>? faultProbe = null
+        Action<BundleSealStage, string>? faultProbe = null,
+        IBundleScreenshotEncoder? screenshotEncoder = null
     )
     {
         if (services == null)
@@ -28,7 +30,7 @@ internal static class DesktopBundleSealCoordinator
                 DesktopPvpBattleEvidence.Instance,
                 SqliteOpenOptions.Default
             ),
-            new BundleScreenshotEncoder(),
+            screenshotEncoder ?? new BundleScreenshotEncoder(),
             faultProbe,
             SqliteOpenOptions.Default
         );

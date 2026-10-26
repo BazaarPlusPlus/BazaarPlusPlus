@@ -34,6 +34,12 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Action<BundleSealStage, string>? _faultProbe;
 
+    // Runs whose last attempt waited on omitted replays, stamped with the replay persistence
+    // generation it composed under; bounded by the waiting jobs, pruned after every pass.
+    private readonly ConcurrentDictionary<string, ReplayWait> _replayWaits = new(
+        StringComparer.Ordinal
+    );
+
     // Environment-blocked jobs become due once per launch (BundleSealFailurePolicy.IsDue).
     private readonly DateTimeOffset _launchedAtUtc;
     private IDisposable? _runInitialized;
@@ -157,7 +163,13 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         var published = false;
         try
         {
-            foreach (var runId in _queueStore.ListWaitingRunIds())
+            var waiting = _queueStore.ListWaitingRunIds();
+            foreach (var key in _replayWaits.Keys)
+            {
+                if (!waiting.Contains(key, StringComparer.Ordinal))
+                    _replayWaits.TryRemove(key, out _);
+            }
+            foreach (var runId in waiting)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 // One Run's failure is recorded against that Run; it cannot abort the pass.
@@ -248,6 +260,8 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             )
         )
             return false;
+        // Read before any replay file: a completion after this read invalidates the wait below.
+        var persistenceGeneration = ReplayPersistenceStateTracker.CompletionGeneration;
         var secondsUntilInputDeadline = (float)(job.InputDeadlineAtUtc - now).TotalSeconds;
         var jobFacts = new BundleSealJobFacts(
             job.ScreenshotRequested,
@@ -264,6 +278,21 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             ) == BundleSealConvergenceDecision.Wait
         )
             return false;
+        if (_replayWaits.TryGetValue(runId, out var replayWait))
+        {
+            if (
+                BundleSealConvergence.Resolve(
+                    jobFacts,
+                    secondsUntilInputDeadline,
+                    BundleSealInputObservation.RememberedReplayPayload(
+                        replayWait.ReplayOmittedCount,
+                        replayWait.PersistenceGeneration != persistenceGeneration
+                    )
+                ) == BundleSealConvergenceDecision.Wait
+            )
+                return false;
+            _replayWaits.TryRemove(runId, out _);
+        }
 
         var stage = BundleSealStage.AccountResolution;
         try
@@ -294,12 +323,12 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 return false;
             }
 
+            // Only availability here; the encode waits until every input has converged.
             stage = BundleSealStage.Screenshot;
-            Probe(stage, runId);
-            BundleScreenshotBuildInputV6? screenshot = null;
+            ScreenshotSource? source = null;
             if (job.ScreenshotRequested && job.ScreenshotState != BundleScreenshotState.Unavailable)
             {
-                var source = TryReadScreenshot(runId);
+                source = TryReadScreenshot(runId);
                 if (source == null)
                 {
                     var screenshotDecision = BundleSealConvergence.Resolve(
@@ -317,16 +346,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                         == BundleSealConvergenceDecision.MarkScreenshotTimedOutAndContinue
                     )
                         _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.TimedOut);
-                }
-                else
-                {
-                    screenshot = await _screenshotEncoder
-                        .EncodeAsync(source.AbsolutePath, source.CapturedAtMs, cancellationToken)
-                        .ConfigureAwait(false);
-                    if (screenshot == null)
-                        _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.Unavailable);
-                    else
-                        _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.Available);
                 }
             }
 
@@ -371,21 +390,42 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 return false;
             }
 
-            stage = BundleSealStage.PayloadEncode;
-            Probe(stage, runId);
-            _composer.FitToBudget(composition);
+            // Omissions counted before the size budget: a replay trimmed to fit is not one that
+            // has yet to arrive, so it never holds the Run.
+            var replayOmitted = composition.Payload.Degradation.ReplayOmittedBattleIds.Count;
             if (
                 BundleSealConvergence.Resolve(
                     jobFacts,
                     secondsUntilInputDeadline,
-                    BundleSealInputObservation.ReplayPayload(
-                        composition.Payload.Degradation.ReplayOmittedBattleIds.Count
-                    )
+                    BundleSealInputObservation.ReplayPayload(replayOmitted)
                 ) == BundleSealConvergenceDecision.Wait
             )
+            {
+                _replayWaits[runId] = new ReplayWait(replayOmitted, persistenceGeneration);
                 return false;
+            }
             foreach (var (decision, exception) in replayDecisions)
                 LogFailure(decision, exception, runId);
+
+            stage = BundleSealStage.Screenshot;
+            Probe(stage, runId);
+            BundleScreenshotBuildInputV6? screenshot = null;
+            if (source != null)
+            {
+                screenshot = await _screenshotEncoder
+                    .EncodeAsync(source.AbsolutePath, source.CapturedAtMs, cancellationToken)
+                    .ConfigureAwait(false);
+                _queueStore.UpdateScreenshotState(
+                    runId,
+                    screenshot == null
+                        ? BundleScreenshotState.Unavailable
+                        : BundleScreenshotState.Available
+                );
+            }
+
+            stage = BundleSealStage.PayloadEncode;
+            Probe(stage, runId);
+            _composer.FitToBudget(composition);
 
             composition.Payload.Degradation.ScreenshotOmitted =
                 job.ScreenshotRequested && screenshot == null;
@@ -804,4 +844,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     }
 
     private sealed record ScreenshotSource(string AbsolutePath, long CapturedAtMs);
+
+    private readonly record struct ReplayWait(int ReplayOmittedCount, long PersistenceGeneration);
 }

@@ -1,4 +1,7 @@
 using System.IO.Compression;
+using BazaarGameShared;
+using BazaarGameShared.Infra.Messages;
+using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
@@ -9,11 +12,14 @@ using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
+using BazaarPlusPlus.Storage.RunScreenshot;
 using BazaarPlusPlus.TestSupport;
 using BepInEx.Logging;
+using MessagePack;
 using Microsoft.Data.Sqlite;
 
-// Failure behavior observed through the coordinator, durable queue rows, and structured logs.
+// Failure and wait behavior observed through the coordinator, durable queue rows, and structured
+// logs.
 internal static class BundleSealFailureTests
 {
     private const string JsonMismatch =
@@ -28,6 +34,124 @@ internal static class BundleSealFailureTests
         await InvalidReplayDegradesWithLogAsync(Path.Combine(root, "replay"));
         await MaintenanceFailureDoesNotBlockSealingAsync(Path.Combine(root, "maintenance"));
         await EnvironmentFailureKeepsOrphanBundleAsync(Path.Combine(root, "orphan"));
+        await ReplayWaitDefersScreenshotAndCompositionAsync(Path.Combine(root, "replay-wait"));
+        await SizeBudgetTrimDoesNotWaitAsync(Path.Combine(root, "size-budget"));
+    }
+
+    // A Run waiting on a replay neither encodes its screenshot nor composes again until replay
+    // persistence completes or its deadline arrives.
+    private static async Task ReplayWaitDefersScreenshotAndCompositionAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        var compositions = new Dictionary<string, int>(StringComparer.Ordinal);
+        void Count(BundleSealStage stage, string subject)
+        {
+            if (stage == BundleSealStage.Composition)
+                compositions[subject] = compositions.GetValueOrDefault(subject) + 1;
+        }
+        var encoder = new CountingEncoder();
+        using var coordinator = DesktopBundleSealCoordinator.Create(
+            fixture.Services,
+            Count,
+            encoder
+        );
+
+        fixture.AddCompletedRun("wait-run", endedMinutesAgo: 0, screenshotRequested: true);
+        fixture.AddScreenshot("wait-run");
+        fixture.AddBattle("wait-run", "wait-battle", recordedMinutesAgo: 1);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Require(fixture.OutboxCount("wait-run") == 0, "A missing replay holds the Run.");
+        Require(
+            compositions["wait-run"] == 1
+                && encoder.Calls == 0
+                && fixture.Queue.ReadJob("wait-run")!.ScreenshotState
+                    == BundleScreenshotState.Waiting,
+            "A Run that waits on a replay does not encode its screenshot."
+        );
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Require(
+            compositions["wait-run"] == 1 && encoder.Calls == 0,
+            "Without replay persistence the waiting Run is not composed again."
+        );
+
+        SealInputs.SaveReplay(fixture.Replays, "wait-battle");
+        ReplayPersistenceStateTracker.Enqueued("wait-run");
+        ReplayPersistenceStateTracker.Completed("wait-run");
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var payload = fixture.PendingPayload("wait-run", out var opened);
+        Require(
+            compositions["wait-run"] == 2 && encoder.Calls == 1,
+            "Replay persistence recomposes the Run, which encodes its screenshot once."
+        );
+        Require(
+            opened.Screenshot is { Length: > 0 }
+                && payload.ReplayableBattleIds.SequenceEqual(["wait-battle"])
+                && payload.Degradation.ReplayOmittedBattleIds.Count == 0,
+            "The replay that landed before the deadline seals with the screenshot."
+        );
+
+        // No persistence follows this Run's wait, so only its deadline releases it.
+        fixture.AddCompletedRun("deadline-run", endedMinutesAgo: 0);
+        fixture.AddBattle("deadline-run", "deadline-battle", recordedMinutesAgo: 1);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Require(
+            fixture.OutboxCount("deadline-run") == 0 && compositions["deadline-run"] == 1,
+            "The waiting Run is skipped while nothing changed."
+        );
+        SealInputs.ExpireDeadline(fixture.Database, "deadline-run");
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Require(
+            compositions["deadline-run"] == 2
+                && fixture
+                    .PendingPayload("deadline-run", out _)
+                    .Degradation.ReplayOmittedBattleIds.SequenceEqual(["deadline-battle"]),
+            "At its deadline the Run is composed again and seals with the replay omitted."
+        );
+    }
+
+    // A replay trimmed to fit the size budget is on disk, so it never holds the Run.
+    private static async Task SizeBudgetTrimDoesNotWaitAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        fixture.AddCompletedRun("budget-run", endedMinutesAgo: 0);
+        fixture.AddBattle("budget-run", "budget-large", recordedMinutesAgo: 2);
+        fixture.AddBattle("budget-run", "budget-small", recordedMinutesAgo: 1);
+        fixture.Replays.Save(
+            new PvpReplayPayload
+            {
+                BattleId = "budget-large",
+                SpawnMessageBytes = OversizedSpawn(),
+                CombatMessageBytes = ReplayBytes.Combat,
+                DespawnMessageBytes = ReplayBytes.Despawn,
+            }
+        );
+        SealInputs.SaveReplay(fixture.Replays, "budget-small");
+        using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Require(
+            fixture.OutboxCount("budget-run") == 1,
+            "An oversized Run with every replay on disk seals before its deadline."
+        );
+        var payload = fixture.PendingPayload("budget-run", out _);
+        Require(
+            payload.Degradation.Categories.Contains("projection_battle_trimmed")
+                && payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(["budget-large"])
+                && payload.ReplayableBattleIds.SequenceEqual(["budget-small"]),
+            "The size budget trims the oldest replay and keeps the rest."
+        );
+    }
+
+    // Seeded random text survives gzip at about three quarters of its length, so the Run segment
+    // stays over BundleLimitsV6.MaxRunBytes until the size budget trims this replay.
+    private static byte[] OversizedSpawn()
+    {
+        var random = new byte[BundleLimitsV6.MaxRunBytes * 2];
+        new Random(504).NextBytes(random);
+        return MessagePackSerializer.Serialize(
+            new NetMessageGameSim(new GameSim()) { MessageId = Convert.ToBase64String(random) },
+            MessagePackConfig.Options
+        );
     }
 
     private static async Task EnvironmentFailureParksUntilNextLaunchAsync(string root)
@@ -374,6 +498,23 @@ internal static class BundleSealFailureTests
         return output.ToArray();
     }
 
+    private sealed class CountingEncoder : IBundleScreenshotEncoder
+    {
+        private readonly BundleScreenshotEncoder _inner = new();
+
+        internal int Calls { get; private set; }
+
+        public Task<BundleScreenshotBuildInputV6?> EncodeAsync(
+            string absolutePath,
+            long capturedAtMs,
+            CancellationToken cancellationToken
+        )
+        {
+            Calls++;
+            return _inner.EncodeAsync(absolutePath, capturedAtMs, cancellationToken);
+        }
+    }
+
     private static void Require(bool condition, string message)
     {
         if (!condition)
@@ -404,7 +545,11 @@ internal static class BundleSealFailureTests
         internal BundleQueueStore Queue { get; }
         internal TestServices Services { get; }
 
-        internal void AddCompletedRun(string runId, int endedMinutesAgo)
+        internal void AddCompletedRun(
+            string runId,
+            int endedMinutesAgo,
+            bool screenshotRequested = false
+        )
         {
             var ended = DateTimeOffset.UtcNow.AddMinutes(-endedMinutesAgo);
             _runs.CreateRun(
@@ -415,6 +560,7 @@ internal static class BundleSealFailureTests
                     Hero = "Vanessa",
                     GameMode = "Ranked",
                     PlayerAccountId = "account-failure",
+                    BundleScreenshotRequested = screenshotRequested,
                     ModVersion = "5.7.0",
                 }
             );
@@ -424,13 +570,13 @@ internal static class BundleSealFailureTests
             );
         }
 
-        internal void AddBattle(string runId, string battleId) =>
+        internal void AddBattle(string runId, string battleId, int recordedMinutesAgo = 12) =>
             new PvpBattleCatalog(new PvpBattleSqliteStore(_database)).Save(
                 new PvpBattleManifest
                 {
                     BattleId = battleId,
                     RunId = runId,
-                    RecordedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-12),
+                    RecordedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-recordedMinutesAgo),
                     CombatKind = "PVPCombat",
                     Day = 1,
                     Hour = 1,
@@ -458,6 +604,25 @@ internal static class BundleSealFailureTests
                     },
                 }
             );
+
+        internal string Database => _database;
+
+        internal CombatReplayPayloadStore Replays => new(PathConstants.CombatReplays(Root));
+
+        internal void AddScreenshot(string runId)
+        {
+            var relative = $"2099-01-01/final_run-{runId}.png";
+            SealInputs.WritePng(Path.Combine(PathConstants.Screenshots(Root), relative));
+            new RunScreenshotSqliteStore(_database).Save(
+                SealInputs.Screenshot("shot-" + runId, runId, relative, DateTimeOffset.UtcNow)
+            );
+        }
+
+        internal RunPayloadV6 PendingPayload(string runId, out OpenedBundleV6 opened)
+        {
+            opened = BundleV6Codec.Open(TestInputs.ScratchBytes(PendingFile(runId)));
+            return RunPayloadV6Codec.Decode(opened.RunPayload);
+        }
 
         internal int OutboxCount(string runId) =>
             OutboxStatuses(runId).Count(status => status == "pending");

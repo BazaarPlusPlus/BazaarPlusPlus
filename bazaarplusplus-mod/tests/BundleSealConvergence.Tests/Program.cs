@@ -55,6 +55,36 @@ Equal(
     BundleSealConvergence.Resolve(noScreenshot, 0f, BundleSealInputObservation.ReplayPayload(1)),
     "replay omission at deadline"
 );
+
+// A Run that waited on omitted replays is not composed again, its screenshot not encoded,
+// until replay persistence completes or its deadline arrives.
+Equal(
+    BundleSealConvergenceDecision.Wait,
+    BundleSealConvergence.Resolve(
+        waitingScreenshot,
+        1f,
+        BundleSealInputObservation.RememberedReplayPayload(1, persistenceChangedSince: false)
+    ),
+    "remembered replay omission without persistence skips the attempt"
+);
+Equal(
+    BundleSealConvergenceDecision.Continue,
+    BundleSealConvergence.Resolve(
+        waitingScreenshot,
+        1f,
+        BundleSealInputObservation.RememberedReplayPayload(1, persistenceChangedSince: true)
+    ),
+    "replay persistence since the remembered omission recomposes"
+);
+Equal(
+    BundleSealConvergenceDecision.Continue,
+    BundleSealConvergence.Resolve(
+        waitingScreenshot,
+        0f,
+        BundleSealInputObservation.RememberedReplayPayload(1, persistenceChangedSince: false)
+    ),
+    "remembered replay omission at deadline recomposes"
+);
 Equal(
     BundleSealConvergenceDecision.MarkTerminal,
     BundleSealConvergence.Resolve(

@@ -9,6 +9,14 @@ public static class ReplayPersistenceStateTracker
         StringComparer.Ordinal
     );
 
+    // Bumped by every completion, whatever its run: the seal coordinator stamps a replay wait with
+    // it, so a Replay Payload that lands afterwards forces a recompose (BundleSealCoordinator).
+    // A writer must call Completed only after the payload file is written; the Android host
+    // writes synchronously and never calls it (#513 plans an async queue that must keep that order).
+    private static long _completionGeneration;
+
+    public static long CompletionGeneration => Interlocked.Read(ref _completionGeneration);
+
     public static void Enqueued(string? runId)
     {
         if (!string.IsNullOrWhiteSpace(runId))
@@ -17,6 +25,7 @@ public static class ReplayPersistenceStateTracker
 
     public static void Completed(string? runId)
     {
+        Interlocked.Increment(ref _completionGeneration);
         if (string.IsNullOrWhiteSpace(runId))
             return;
         while (PendingByRun.TryGetValue(runId, out var count))
