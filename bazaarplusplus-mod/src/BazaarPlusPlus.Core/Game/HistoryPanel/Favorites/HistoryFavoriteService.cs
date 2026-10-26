@@ -148,14 +148,18 @@ public sealed class HistoryFavoriteService
     }
 
     // The row goes first: a copy left behind by a failed delete is an orphan the sweep removes.
+    // Both run off the caller's thread; once started they finish, whatever the token says.
     public async Task<bool> RemoveAsync(string battleId, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            var removed = _repository.DeleteFavorite(battleId);
-            TryDelete(battleId);
-            return removed;
+            return await Task.Run(() =>
+            {
+                var removed = _repository.DeleteFavorite(battleId);
+                TryDelete(battleId);
+                return removed;
+            });
         }
         finally
         {
@@ -163,8 +167,11 @@ public sealed class HistoryFavoriteService
         }
     }
 
-    // Local battles load on the caller's (Unity) thread like a saved replay does; the copy is
-    // written off it. Ghost battles download first, checked against the account owning the row.
+    // Local battles load on the caller's (Unity) thread like a saved replay does: the read holds
+    // the playback payload lease, which a main-thread persistence would otherwise wait on. The
+    // one-row membership check stays in front of that load so a repeated save never reloads the
+    // original; the copy is written off the caller's thread. Ghost battles download first,
+    // checked against the account owning the row.
     public async Task<FavoriteAddResult> AddAsync(
         HistoryBattleRecord battle,
         string account,

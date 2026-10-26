@@ -9,7 +9,10 @@ namespace BazaarPlusPlus.GameInterop;
 
 internal static class BppClientCacheBridge
 {
-    private static readonly ConcurrentDictionary<string, MemberAccessor> MemberAccessors = new();
+    private static readonly ConcurrentDictionary<
+        (Type Type, string MemberName, BindingFlags Flags),
+        MemberAccessor
+    > MemberAccessors = new();
     private static Type? _clientCacheType;
     private static bool _clientCacheTypeResolved;
 
@@ -183,12 +186,13 @@ internal static class BppClientCacheBridge
         BindingFlags flags
     )
     {
-        var key = $"{type.AssemblyQualifiedName}\u001F{(int)flags}\u001F{memberName}";
+        // A value-tuple key and a static factory: History reads the profile through here every
+        // second, so a lookup allocates neither a key string nor a closure.
         return MemberAccessors.GetOrAdd(
-            key,
-            _ => new MemberAccessor(
-                type.GetProperty(memberName, flags),
-                type.GetField(memberName, flags)
+            (type, memberName, flags),
+            static key => new MemberAccessor(
+                key.Type.GetProperty(key.MemberName, key.Flags),
+                key.Type.GetField(key.MemberName, key.Flags)
             )
         );
     }

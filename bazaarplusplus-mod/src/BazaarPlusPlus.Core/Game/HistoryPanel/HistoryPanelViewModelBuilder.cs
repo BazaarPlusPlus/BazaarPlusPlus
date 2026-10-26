@@ -151,6 +151,11 @@ public static class HistoryPanelViewModelBuilder
                     : HistoryPanelText.RemoveFavorite();
             deleteButtonEnabled = selectedFavorite != null && !state.FavoriteActionInProgress;
         }
+        else if (state.RunDeleteInProgress)
+        {
+            deleteButtonText = HistoryPanelText.Working();
+            deleteButtonEnabled = false;
+        }
 
         return new HistoryPanelViewModel
         {
@@ -269,7 +274,7 @@ public static class HistoryPanelViewModelBuilder
             coordinator.IsSelectedBattleFavorite(selectedBattle)
                 ? HistoryPanelText.FavoritedBattle()
                 : HistoryPanelText.FavoriteBattle(),
-            selectedBattle != null
+            selectedBattle != null && !coordinator.IsBeingDeleted(selectedBattle)
         );
     }
 }

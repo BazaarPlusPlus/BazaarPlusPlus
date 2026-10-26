@@ -28,7 +28,6 @@ public enum HistoryPanelReplayReasonCode
     GhostManifestUnavailable,
     ReplayPayloadMissing,
     ReplayPayloadInvalid,
-    ReplayPayloadUnreadable,
     UnexpectedException,
     Canceled,
 }
@@ -61,6 +60,9 @@ public enum HistoryPanelGhostSyncReasonCode
     RepositoryFailed,
     UnexpectedException,
     Canceled,
+
+    // Succeeded without a request: the account's last discovery is within the sync TTL.
+    UpToDate,
 }
 
 public enum HistoryPanelGhostIdentityReasonCode

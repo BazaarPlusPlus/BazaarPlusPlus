@@ -70,6 +70,9 @@ internal sealed partial class HistoryPanelView
     }
 
     private PageList _archiveList = null!;
+
+    // The archive's record ids, refilled on every refresh instead of a new array each time.
+    private readonly List<string> _archiveIds = new(40);
     private TextMeshProUGUI _archiveEmptyLabel = null!;
     private DayStrip _dayStrip = null!;
     private TextMeshProUGUI _title = null!,
@@ -341,7 +344,7 @@ internal sealed partial class HistoryPanelView
             rect.pivot = new Vector2(.5f, 1);
             rect.sizeDelta = new Vector2(0, rowHeight - 5);
             rect.anchoredPosition = new Vector2(0, -i * rowHeight);
-            var label = button.GetComponentInChildren<TextMeshProUGUI>();
+            var label = ButtonLabel(button);
             label.alignment = TextAlignmentOptions.MidlineLeft;
             label.textWrappingMode = TextWrappingModes.Normal;
             label.rectTransform.anchorMin = new Vector2(.26f, .06f);
@@ -416,7 +419,7 @@ internal sealed partial class HistoryPanelView
             rect.sizeDelta = new Vector2(0, HistoryPanelLayout.DayChipHeight - 5);
             rect.anchoredPosition = new Vector2(0, -i * HistoryPanelLayout.DayChipHeight);
             // The button's own label is unused; each field has its own slot.
-            button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
+            ButtonLabel(button).gameObject.SetActive(false);
             var portrait = CreateRect("OpponentHero", rect, .06f, .10f, .28f, .49f)
                 .gameObject.AddComponent<Image>();
             portrait.raycastTarget = false;
@@ -653,6 +656,14 @@ internal sealed partial class HistoryPanelView
         list.ResetScroll = false;
     }
 
+    private List<string> ArchiveIds<T>(IReadOnlyList<T> rows, Func<T, string> id)
+    {
+        _archiveIds.Clear();
+        for (var i = 0; i < rows.Count; i++)
+            _archiveIds.Add(id(rows[i]));
+        return _archiveIds;
+    }
+
     private Sprite? RunBadge(HistoryRunRecord run) =>
         HistoryPanelFormatter.GetRunOutcomeTier(run) switch
         {
@@ -756,7 +767,7 @@ internal sealed partial class HistoryPanelView
         if (runs)
             BindRows(
                 _archiveList,
-                m.Runs.Select(r => r.RunId).ToArray(),
+                ArchiveIds(m.Runs, r => r.RunId),
                 _ => string.Empty,
                 i => m.Runs[i].Hero,
                 i => RunBadge(m.Runs[i]),
@@ -773,7 +784,7 @@ internal sealed partial class HistoryPanelView
         else
             BindRows(
                 _archiveList,
-                m.VisibleBattles.Select(b => b.BattleId).ToArray(),
+                ArchiveIds(m.VisibleBattles, b => b.BattleId),
                 i =>
                     ghost
                         ? HistoryPanelFormatter.GhostListText(m.VisibleBattles[i])

@@ -15,6 +15,7 @@ using Microsoft.Data.Sqlite;
 await GhostBundleImportTests.RunAsync();
 await DiscoveryImportsServerGhostSummaryContract();
 await RetryAfterStartsCooldown();
+await SuccessfulDiscoveryStaysFreshPerAccount();
 await DownloadLimitsAndTransportErrorsStayClosed();
 await ExpiredUrlRefreshesOnceAndBecomesTerminal();
 await CorruptBundleBecomesPermanentWithoutRepeatedDownload();
@@ -147,6 +148,33 @@ static async Task RetryAfterStartsCooldown()
         "Rate-limited discovery must fail without throwing."
     );
     Assert(fixture.Handler.Count == 1, "Retry-After cooldown must suppress the second HTTP query.");
+}
+
+// A successful discovery stays fresh for its account: entering the Ghost section again within the
+// TTL succeeds as up to date without a request, while another account still queries.
+static async Task SuccessfulDiscoveryStaysFreshPerAccount()
+{
+    var account = "account-local";
+    using var fixture = new GhostFixture(_ => JsonResponse("{\"battles\":[]}"), () => account);
+    var first = await fixture.Service.SyncRecentBattlesAsync(CancellationToken.None);
+    var second = await fixture.Service.SyncRecentBattlesAsync(CancellationToken.None);
+    Assert(
+        first.Succeeded && first.ReasonCode == HistoryPanelGhostSyncReasonCode.Completed,
+        "The first discovery must query and complete."
+    );
+    Assert(
+        second.Succeeded
+            && second.ReasonCode == HistoryPanelGhostSyncReasonCode.UpToDate
+            && fixture.Handler.Count == 1,
+        "A second discovery within the TTL must succeed as up to date without a request."
+    );
+
+    account = "account-other";
+    var other = await fixture.Service.SyncRecentBattlesAsync(CancellationToken.None);
+    Assert(
+        other.ReasonCode == HistoryPanelGhostSyncReasonCode.Completed && fixture.Handler.Count == 2,
+        "Another account's discovery must still query."
+    );
 }
 
 static async Task DownloadLimitsAndTransportErrorsStayClosed()
@@ -566,7 +594,10 @@ internal sealed class GhostFixture : IDisposable
 {
     private readonly ModApiSession _session;
 
-    public GhostFixture(Func<HttpRequestMessage, HttpResponseMessage> respond)
+    public GhostFixture(
+        Func<HttpRequestMessage, HttpResponseMessage> respond,
+        Func<string?>? profileAccountId = null
+    )
     {
         Root = Path.Combine(Path.GetTempPath(), $"bpp-ghost-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Root);
@@ -576,7 +607,7 @@ internal sealed class GhostFixture : IDisposable
         Service = new GhostBattleSyncService(
             Repository,
             _session,
-            () => "account-local",
+            profileAccountId ?? (() => "account-local"),
             FakePvpBattleEvidence.Instance,
             templateId => templateId != Guid.Empty
         );

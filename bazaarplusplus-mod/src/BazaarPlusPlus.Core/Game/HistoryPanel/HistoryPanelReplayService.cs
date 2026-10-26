@@ -2,7 +2,6 @@
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
-using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
@@ -251,32 +250,10 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
                 )
             );
 
-        var ghostPayloadStore = new GhostBattlePayloadStore(
-            GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
-        );
-        var ghostPayloadResult = await Task.Run(
-            () => ghostPayloadStore.LoadDetailed(battle.BattleId),
-            cancellationToken
-        );
-        if (ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Invalid)
-        {
-            return GhostReplayLoad.Failed(
-                HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
-                HistoryPanelReplayReasonCode.ReplayPayloadInvalid
-            );
-        }
-        if (ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Unreadable)
-        {
-            return GhostReplayLoad.Failed(
-                HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
-                HistoryPanelReplayReasonCode.ReplayPayloadUnreadable,
-                ghostPayloadResult.Exception
-            );
-        }
-
-        var ghostPayload = ghostPayloadResult.Payload;
-        var manifest = ghostPayload?.BattleManifest;
-        if (manifest == null)
+        // The download already loaded (or extracted) and identity-checked the payload; reading the
+        // file again would decompress and deserialize it a second time.
+        var ghostPayload = downloadResult.Payload;
+        if (ghostPayload?.BattleManifest == null)
             return GhostReplayLoad.Failed(
                 HistoryPanelText.GhostManifestUnavailable(battle.BattleId),
                 HistoryPanelReplayReasonCode.GhostManifestUnavailable

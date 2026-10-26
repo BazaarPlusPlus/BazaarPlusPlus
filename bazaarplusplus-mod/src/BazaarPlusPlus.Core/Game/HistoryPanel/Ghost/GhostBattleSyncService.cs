@@ -26,7 +26,14 @@ public sealed class GhostBattleSyncService
     private readonly Func<string?> _profileAccountId;
     private readonly IPvpBattleEvidenceBinding _evidence;
     private readonly Func<Guid, bool> _hasCardTemplate;
+
+    // A discovery that succeeded for an account answers the next ones within this window as up to
+    // date without a request, so moving in and out of the Ghost section does not query each time.
+    private static readonly TimeSpan SyncTtl = TimeSpan.FromMinutes(5);
     private readonly SemaphoreSlim _syncGate = new(1, 1);
+
+    // Last successful discovery per account, read and written only under _syncGate.
+    private readonly Dictionary<string, long> _lastSyncedUtcTicks = new(StringComparer.Ordinal);
     private long _cooldownUntilUtcTicks;
 
     public GhostBattleSyncService(
@@ -70,8 +77,17 @@ public sealed class GhostBattleSyncService
                     HistoryPanelGhostSyncReasonCode.IdentityUnavailable
                 );
 
-            return await QueryAndPersistAsync(playerAccountId!, cancellationToken)
+            if (
+                _lastSyncedUtcTicks.TryGetValue(playerAccountId!, out var syncedAt)
+                && now.UtcTicks - syncedAt < SyncTtl.Ticks
+            )
+                return GhostBattleSyncResult.UpToDate();
+
+            var result = await QueryAndPersistAsync(playerAccountId!, cancellationToken)
                 .ConfigureAwait(false);
+            if (result.Succeeded)
+                _lastSyncedUtcTicks[playerAccountId!] = DateTimeOffset.UtcNow.UtcTicks;
+            return result;
         }
         finally
         {
@@ -123,7 +139,7 @@ public sealed class GhostBattleSyncService
                     reference.UploaderAccountId
                 )
             )
-                return GhostBattleReplayDownloadResult.Success();
+                return GhostBattleReplayDownloadResult.Success(cached.Payload!);
         }
         if (reference.ReplayState is ReplayAvailability.Expired or ReplayAvailability.Unavailable)
             return AvailabilityFailure(reference.ReplayState);
@@ -199,7 +215,7 @@ public sealed class GhostBattleSyncService
                 _hasCardTemplate
             )
         );
-        return GhostBattleReplayDownloadResult.Success();
+        return GhostBattleReplayDownloadResult.Success(extraction.Payload);
     }
 
     private async Task<GhostBattleSyncResult> QueryAndPersistAsync(
@@ -457,6 +473,10 @@ public readonly struct GhostBattleSyncResult
             discoveryLimitReached
         );
 
+    // A successful discovery for the same account is recent enough: nothing was requested.
+    public static GhostBattleSyncResult UpToDate() =>
+        new(true, 0, null, HistoryPanelGhostSyncReasonCode.UpToDate, null);
+
     public static GhostBattleSyncResult Failure(
         string error,
         HistoryPanelGhostSyncReasonCode reasonCode,
@@ -467,21 +487,25 @@ public readonly struct GhostBattleSyncResult
 public readonly struct GhostBattleReplayDownloadResult
 {
     private GhostBattleReplayDownloadResult(
-        bool succeeded,
+        GhostBattlePayload? payload,
         string? error,
         HistoryPanelReplayReasonCode reasonCode,
         Exception? exception,
         ReplayAvailability? availability
     )
     {
-        Succeeded = succeeded;
+        Payload = payload;
         Error = error;
         ReasonCode = reasonCode;
         Exception = exception;
         Availability = availability;
     }
 
-    public bool Succeeded { get; }
+    public bool Succeeded => Payload != null;
+
+    // The payload the download confirmed: the identity-checked cached file, or the one it just
+    // extracted and saved. Playback uses it rather than reading the file again.
+    public GhostBattlePayload? Payload { get; }
     public string? Error { get; }
     public HistoryPanelReplayReasonCode ReasonCode { get; }
     public Exception? Exception { get; }
@@ -489,15 +513,21 @@ public readonly struct GhostBattleReplayDownloadResult
     // Set when the failure is the battle's persisted Expired or Unavailable state.
     public ReplayAvailability? Availability { get; }
 
-    public static GhostBattleReplayDownloadResult Success() =>
-        new(true, null, HistoryPanelReplayReasonCode.Completed, null, null);
+    public static GhostBattleReplayDownloadResult Success(GhostBattlePayload payload) =>
+        new(
+            payload ?? throw new ArgumentNullException(nameof(payload)),
+            null,
+            HistoryPanelReplayReasonCode.Completed,
+            null,
+            null
+        );
 
     public static GhostBattleReplayDownloadResult Failure(
         string error,
         HistoryPanelReplayReasonCode reasonCode,
         Exception? exception = null,
         ReplayAvailability? availability = null
-    ) => new(false, error, reasonCode, exception, availability);
+    ) => new(null, error, reasonCode, exception, availability);
 }
 
 internal readonly struct GhostPayloadExtraction

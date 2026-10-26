@@ -90,7 +90,12 @@ public sealed partial class HistoryPanelCoordinator
     // Runs and Ghost: favorite the selected battle, or open it in Favorites when it already is.
     private async Task TryFavoriteSelectedBattleAsync(HistoryBattleRecord? battle)
     {
-        if (battle == null || _favorites == null || _state.FavoriteActionInProgress)
+        if (
+            battle == null
+            || _favorites == null
+            || _state.FavoriteActionInProgress
+            || IsBeingDeleted(battle)
+        )
             return;
         if (IsSelectedBattleFavorite(battle))
         {
@@ -174,6 +179,8 @@ public sealed partial class HistoryPanelCoordinator
         ClearDeleteRunConfirmation();
         _state.FavoriteActionInProgress = true;
         var session = _session.Version;
+        // The removal runs off the main thread; Remove stays disabled until it publishes.
+        _requestUiRefresh();
         try
         {
             await _favorites.RemoveAsync(favorite.BattleId, _session.Token);
@@ -194,6 +201,13 @@ public sealed partial class HistoryPanelCoordinator
         if (!_session.IsCurrent(session))
             return;
         _state.FavoriteActionInProgress = false;
+        // The removal runs off the main thread, so the user may have left Favorites meanwhile:
+        // LoadArchive reads the open section, and Favorites reloads on the way back.
+        if (_state.SectionMode != HistorySectionMode.Favorites)
+        {
+            _requestUiRefresh();
+            return;
+        }
         LoadArchive(new(_state.FavoritePage.First, Inclusive: true), preserveSelection: true);
         SetStatusMessage(HistoryPanelText.FavoriteRemoved(), StatusSeverity.Success);
         _requestUiRefresh();

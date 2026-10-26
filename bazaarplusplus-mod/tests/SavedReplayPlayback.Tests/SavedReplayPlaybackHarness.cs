@@ -72,6 +72,9 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
     public ReplayPlaybackPublisher Publisher { get; }
     public ReplayPayloadOperationGate Gate { get; } = new();
     public SavedReplayCatalog Catalog { get; }
+
+    // Every battle-catalog read, in order: "load:<id>" or "exists:<id>".
+    public IReadOnlyList<string> CatalogReads => _battles.Reads;
     public InMemorySavedReplayHost Host { get; }
     public BazaarPlusPlus.Game.CombatReplay.SavedReplayPlayback Playback { get; }
     public List<string> Timeline { get; } = [];
@@ -211,10 +214,19 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
 
         public void AttachToRun(string battleId, string runId) { }
 
-        public PvpBattleManifest? TryLoad(string battleId) =>
-            _manifests.TryGetValue(battleId, out var manifest) ? manifest : null;
+        public List<string> Reads { get; } = [];
 
-        public bool Exists(string battleId) => _manifests.ContainsKey(battleId);
+        public PvpBattleManifest? TryLoad(string battleId)
+        {
+            Reads.Add("load:" + battleId);
+            return _manifests.TryGetValue(battleId, out var manifest) ? manifest : null;
+        }
+
+        public bool Exists(string battleId)
+        {
+            Reads.Add("exists:" + battleId);
+            return _manifests.ContainsKey(battleId);
+        }
 
         public IReadOnlyList<PvpBattleManifest> ListByRunId(string runId) => [];
 

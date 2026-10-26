@@ -13,6 +13,9 @@ public sealed class HistoryPanelSessionScope : IDisposable
 
     public CancellationToken Token => _cts?.Token ?? CancellationToken.None;
 
+    // A session has begun and not ended: the panel is open.
+    public bool IsActive => _cts != null;
+
     public void Begin()
     {
         End();

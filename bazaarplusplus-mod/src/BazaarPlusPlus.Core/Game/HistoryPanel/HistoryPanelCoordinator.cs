@@ -26,6 +26,11 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
     private readonly HistoryPanelSessionScope _session = new();
     private bool _replayReturnPending;
 
+    // The open panel's tick reads the game profile once a second, not every frame: the account
+    // changes only on a sign-in, and OnPanelShown and the account-link row read it at once.
+    private const float AccountObserveInterval = 1f;
+    private float _nextAccountObserveAt = float.NegativeInfinity;
+
     public HistoryPanelCoordinator(
         HistoryPanelState state,
         HistoryPanelDependencies dependencies,
@@ -121,6 +126,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         _state.ReplayActionInProgress = false;
         _state.ReplayActionBattleId = null;
         _state.ReplayFailureMessage = null;
+        // A run delete is left alone: it cannot be cancelled and clears its own flag when it ends.
         _state.FavoriteActionInProgress = false;
         if (resumeSelection)
         {
@@ -162,7 +168,11 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
 
     public void Tick(float now)
     {
-        ObserveAccount();
+        if (now >= _nextAccountObserveAt)
+        {
+            _nextAccountObserveAt = now + AccountObserveInterval;
+            ObserveAccount();
+        }
         if (!_state.DeleteRunConfirmation.HasExpired(now))
             return;
 
@@ -268,8 +278,23 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
     {
         if (_state.SectionMode == HistorySectionMode.Favorites)
             return CanReplaySelectedFavorite(out reason);
+        if (IsBeingDeleted(activeSelectedBattle))
+        {
+            reason = HistoryPanelText.DeletingRun(
+                HistoryPanelFormatter.ShortenRunId(activeSelectedBattle!.RunId)
+            );
+            return false;
+        }
         return _replayService.CanReplayBattle(activeSelectedBattle, out reason);
     }
+
+    // A battle of the run a delete is removing: it stays listed until the delete publishes, but
+    // its rows and replay files are going, so no replay or favorite may start loading them.
+    public bool IsBeingDeleted(HistoryBattleRecord? battle) =>
+        battle != null
+        && battle.Source == HistoryBattleSource.Local
+        && _state.DeletingRunId != null
+        && battle.RunId == _state.DeletingRunId;
 
     // The recording half of record-and-replay, for a battle CanReplaySelectedBattle already
     // admitted: the view model asks the replay half once and shares it.
@@ -490,13 +515,23 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         if (_state.SectionMode == HistorySectionMode.Favorites)
             _ = TryRemoveSelectedFavoriteAsync();
         else
-            TryDeleteSelectedRun(GetSelectedRun());
+            _ = TryDeleteSelectedRunAsync(GetSelectedRun());
     }
 
-    private void TryDeleteSelectedRun(HistoryRunRecord? selectedRun)
+    // What the off-thread half of a confirmed run delete found: the repository's answer and the
+    // replay files it removed after it.
+    private sealed record RunDeleteOutcome(
+        bool Deleted,
+        bool SealProtected,
+        IReadOnlyList<string> BattleIds,
+        Exception? Error,
+        ReplayPayloadCleanupResult Cleanup
+    );
+
+    private async Task TryDeleteSelectedRunAsync(HistoryRunRecord? selectedRun)
     {
         var run = selectedRun;
-        if (run == null)
+        if (run == null || _state.RunDeleteInProgress)
             return;
 
         if (!CanDeleteSelectedRun(run, out var reason))
@@ -525,50 +560,107 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         ClearDeleteRunConfirmation();
 
         var logRequestId = NewLogRequestId();
+        var session = _session.Version;
+        var shortRunId = HistoryPanelFormatter.ShortenRunId(run.RunId);
+        _state.DeletingRunId = run.RunId;
+        var deletingMessage = HistoryPanelText.DeletingRun(shortRunId);
+        SetStatusMessage(deletingMessage, StatusSeverity.Pending);
+        _requestUiRefresh();
 
-        if (
-            !_dataService.TryDeleteRun(
-                run.RunId,
-                out var battleIds,
-                out var sealProtected,
-                out var error
-            )
-        )
+        // The delete transaction (with its Seal-protection check) and the replay files run off the
+        // main thread; the await resumes on the caller's context, which publishes as before. Once
+        // started it always finishes: no session boundary cancels it.
+        var dataService = _dataService;
+        var replayService = _replayService;
+        RunDeleteOutcome outcome;
+        try
         {
-            if (sealProtected)
+            outcome = await Task.Run(() =>
             {
-                SetStatusMessage(HistoryPanelText.SealProtectedRunDeleteUnavailable());
-                LogRunDeleteRefused(logRequestId, run.RunId);
-                LoadArchive(new(_state.RunPage.First, Inclusive: true), preserveSelection: true);
-                _requestUiRefresh();
-                return;
-            }
+                var deleted = dataService.TryDeleteRun(
+                    run.RunId,
+                    out var battleIds,
+                    out var sealProtected,
+                    out var error
+                );
+                // The run is gone once the delete commits; a cleanup failure is only degraded.
+                ReplayPayloadCleanupResult cleanup = default;
+                if (deleted)
+                {
+                    try
+                    {
+                        cleanup = replayService.CleanupReplayPayloads(battleIds);
+                    }
+                    catch (Exception ex)
+                    {
+                        cleanup = new ReplayPayloadCleanupResult(battleIds.Count, ex);
+                    }
+                }
+                return new RunDeleteOutcome(deleted, sealProtected, battleIds, error, cleanup);
+            });
+        }
+        catch (Exception ex)
+        {
+            outcome = new RunDeleteOutcome(false, false, Array.Empty<string>(), ex, default);
+        }
 
-            SetStatusMessage(
-                HistoryPanelText.RunDeleteFailed(error?.Message ?? HistoryPanelText.Unknown()),
-                StatusSeverity.Failure
-            );
+        // The delete happened whichever session it finishes in, so it is always logged.
+        if (outcome.SealProtected)
+            LogRunDeleteRefused(logRequestId, run.RunId);
+        else if (!outcome.Deleted)
             LogRunDeleteFailed(
                 logRequestId,
                 run.RunId,
-                battleIds.Count,
-                error ?? new InvalidOperationException("Unknown run delete failure.")
+                outcome.BattleIds.Count,
+                outcome.Error ?? new InvalidOperationException("Unknown run delete failure.")
+            );
+        else
+            LogRunDeleteCompleted(
+                logRequestId,
+                run.RunId,
+                outcome.BattleIds.Count,
+                outcome.Cleanup.FailedBattleCount,
+                outcome.Cleanup.Exception
+            );
+
+        _state.DeletingRunId = null;
+        // Finished after a close, reopen, account change or section change: the result is no
+        // longer this view's news, but its pending line must go, and an open Runs list that may
+        // have been read before the delete committed reloads.
+        if (!_session.IsCurrent(session) || _state.SectionMode != HistorySectionMode.Runs)
+        {
+            if (_state.StatusMessage == deletingMessage)
+                SetStatusMessage(null);
+            if (!_session.IsActive)
+                return;
+            if (outcome.Deleted && _state.SectionMode == HistorySectionMode.Runs)
+                LoadArchive(new(_state.RunPage.First, Inclusive: true), preserveSelection: true);
+            _requestUiRefresh();
+            return;
+        }
+        if (outcome.SealProtected)
+        {
+            SetStatusMessage(HistoryPanelText.SealProtectedRunDeleteUnavailable());
+            LoadArchive(new(_state.RunPage.First, Inclusive: true), preserveSelection: true);
+            _requestUiRefresh();
+            return;
+        }
+
+        if (!outcome.Deleted)
+        {
+            SetStatusMessage(
+                HistoryPanelText.RunDeleteFailed(
+                    outcome.Error?.Message ?? HistoryPanelText.Unknown()
+                ),
+                StatusSeverity.Failure
             );
             _requestUiRefresh();
             return;
         }
 
-        var cleanupResult = _replayService.CleanupReplayPayloads(battleIds);
-        LogRunDeleteCompleted(
-            logRequestId,
-            run.RunId,
-            battleIds.Count,
-            cleanupResult.FailedBattleCount,
-            cleanupResult.Exception
-        );
         var deletedMessage = HistoryPanelText.DeletedRun(
-            HistoryPanelFormatter.ShortenRunId(run.RunId),
-            battleIds.Count,
+            shortRunId,
+            outcome.BattleIds.Count,
             RecordingSupported
         );
         LoadArchive(new(_state.RunPage.First, Inclusive: true), preserveSelection: true);
@@ -1073,13 +1165,14 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             logRequestId,
             succeeded: true,
             syncResult.ImportedCount,
-            HistoryPanelGhostSyncReasonCode.Completed,
+            syncResult.ReasonCode,
             exception: null
         );
         // Only new ghosts are news, and only on Ghost; otherwise the sync's own pending line goes.
+        // An up-to-date answer imported nothing, so the page the entry loaded stands.
         var ghost = _state.SectionMode == HistorySectionMode.Ghost;
         var message = ghost && syncResult.ImportedCount > 0 ? syncResult.StatusMessage : null;
-        if (ghost)
+        if (ghost && syncResult.ReasonCode != HistoryPanelGhostSyncReasonCode.UpToDate)
             RefreshGhostData();
         if (message != null || _state.StatusMessage == HistoryPanelText.SyncingGhostBattles())
             SetStatusMessage(message, StatusSeverity.Success);
