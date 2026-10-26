@@ -222,17 +222,16 @@ built_dll_sha256() {
     shasum -a 256 "$source" | awk '{ print $1 }'
 }
 
-# Waits until the main menu has loaded and one hooks summary has followed it, so the counters cover
-# the menu. Scene loads log in every patch mode. Returns 1 on timeout.
+# Waits until the main menu has loaded and a hooks summary follows it in the log, so the counters
+# cover the menu. Scene loads log in every patch mode, and each one forces a summary shortly after
+# (an unchanged summary is otherwise skipped). Returns 1 on timeout.
 wait_for_main_menu() {
-    local deadline=$(($(date +%s) + SMOKE_TIMEOUT_SECONDS)) log summaries menu_summaries=""
+    local deadline=$(($(date +%s) + SMOKE_TIMEOUT_SECONDS)) log
     while (($(date +%s) < deadline)); do
         log="$(device shell cat "$DEVICE_LOG" </dev/null 2>/dev/null || true)"
-        summaries="$(grep -c 'event=android.hooks.summary' <<<"$log" || true)"
-        if [[ -z "$menu_summaries" ]]; then
-            grep -q 'event=android.scene.loaded .*name=MainMenuScene' <<<"$log" &&
-                menu_summaries="$summaries"
-        elif ((summaries > menu_summaries)); then
+        if awk '/event=android\.scene\.loaded .*name=MainMenuScene/ { menu = 1 }
+            menu && /event=android\.hooks\.summary/ { found = 1; exit }
+            END { exit !found }' <<<"$log"; then
             ok "Main menu reached; one hooks summary followed it."
             return 0
         fi

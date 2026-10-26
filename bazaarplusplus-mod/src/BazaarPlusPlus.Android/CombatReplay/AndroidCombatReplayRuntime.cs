@@ -23,7 +23,6 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
 {
     private readonly AndroidSavedReplayHost _host;
     private Il2CppSystem.Action<StateChangedEvent>? _stateListener;
-    private bool _wasInReplayState;
     private bool _disposed;
 
     public AndroidCombatReplayRuntime(
@@ -76,7 +75,8 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         catch (Exception exception)
         {
             // Without the listener, the ReplayState-gone poll in Tick still clears the latch, but
-            // a native recap exit would not complete its operation: log it for the device run.
+            // a native recap exit would not complete its operation and no state_observed is
+            // logged: log it for the device run.
             _stateListener = null;
             BppLog.ErrorEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.replay.state_listener_failed"),
@@ -94,17 +94,6 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         try
         {
             SavedReplays.Tick();
-            var inReplayState = AndroidSavedReplayHost.IsInReplayState();
-            if (_wasInReplayState != inReplayState)
-            {
-                _wasInReplayState = inReplayState;
-                BppLog.InfoEvent(
-                    new BppLogEvent(BppLogFeatureScope.Android, "android.replay.state_observed"),
-                    ("in_replay_state", inReplayState),
-                    ("session", SavedReplays.HasSavedReplaySession),
-                    ("scene", AndroidLobbyScene.Describe())
-                );
-            }
         }
         catch (Exception exception)
         {
@@ -159,6 +148,15 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         {
             var wasReplay = data.PreviousState?.TryCast<ReplayState>() != null;
             var isReplay = data.CurrentState?.TryCast<ReplayState>() != null;
+            // Logged on the transition rather than polled every frame; the session is the one
+            // the transition finds, before a state exit settles it.
+            if (wasReplay != isReplay)
+                BppLog.InfoEvent(
+                    new BppLogEvent(BppLogFeatureScope.Android, "android.replay.state_observed"),
+                    ("in_replay_state", isReplay),
+                    ("session", SavedReplays.HasSavedReplaySession),
+                    ("scene", AndroidLobbyScene.Describe())
+                );
             if (wasReplay && !isReplay)
                 SavedReplays.OnReplayStateExited();
         }

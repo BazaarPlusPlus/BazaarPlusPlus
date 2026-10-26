@@ -27,13 +27,17 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         if (!settings.EnableDetailedPreviewConfig.Value || !Data.IsManagerCreated())
             return;
         var manager = Data.GetStatic();
-        if (manager == null || string.IsNullOrWhiteSpace(manager._dbPath))
+        if (manager == null)
             return;
+        // The path is marshalled only for a new manager: each read of the IL2CPP field allocates
+        // a managed string. An empty path leaves the source unset, so the next frame retries.
         if (_source != manager.Pointer)
         {
+            var path = manager._dbPath;
+            if (string.IsNullOrWhiteSpace(path))
+                return;
             _source = manager.Pointer;
             _snapshot = null;
-            var path = manager._dbPath;
             _load = Task.Run(() => Read(path));
         }
         if (_load?.IsCompleted == true)

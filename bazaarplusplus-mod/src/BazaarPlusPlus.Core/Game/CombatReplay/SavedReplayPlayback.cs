@@ -328,11 +328,12 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
 
     /// <summary>
     /// Every frame: confirms a pending menu return and clears the exit latch once
-    /// <c>ReplayState</c> is gone. Nothing exits on a tick.
+    /// <c>ReplayState</c> is gone. Nothing exits on a tick. With neither pending, it returns before
+    /// entering the host context or reading game state, so an idle frame costs nothing.
     /// </summary>
     public void Tick()
     {
-        if (_disposed)
+        if (_disposed || (!_lifecycle.HasPendingMenuReturn && !_lifecycle.IsExitLatched))
             return;
         using var scope = _host.EnterHostContext();
         var lobbyLoaded = _lifecycle.HasPendingMenuReturn && _host.LobbyLoaded;

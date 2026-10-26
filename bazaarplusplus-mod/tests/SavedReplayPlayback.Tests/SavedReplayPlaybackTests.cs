@@ -608,14 +608,47 @@ public sealed class SavedReplayPlaybackTests
     }
 
     [Fact]
-    public void A_tick_with_no_pending_menu_return_does_not_read_the_lobby()
+    public void An_idle_tick_enters_no_host_context_and_reads_no_game_state()
     {
         using var h = new SavedReplayPlaybackHarness();
         h.Playback.Tick();
         h.Host.InReplayState = true;
         h.Playback.Tick();
         Assert.Equal(0, h.Host.LobbyReads);
+        Assert.Equal(0, h.Host.ReplayStateReads);
+        Assert.Equal(0, h.Host.ScopeEntries);
         Assert.Empty(h.Host.Notices);
+    }
+
+    [Fact]
+    public void A_latched_exit_keeps_the_tick_polling_until_ReplayState_is_gone()
+    {
+        using var h = new SavedReplayPlaybackHarness();
+        h.Save(BattleA);
+        h.Host.ConfigureStart = start => start.BootstrappedFromLobby = true;
+        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        h.Host.InReplayState = true;
+        h.Host.MenuReturnFailure = new InvalidOperationException("menu return failed");
+        // The failed dispatch drops the pending menu return; only the exit latch is left.
+        Assert.True(h.Playback.TryExitBootstrapped());
+        h.Host.Now = 2f;
+        Assert.True(h.Playback.TryExitBootstrapped());
+
+        h.Playback.Tick();
+        Assert.True(h.Playback.TryExitBootstrapped());
+        Assert.Equal(
+            SavedReplayExitOutcome.Suppressed,
+            h.Host.Notices.Last(n => n.Kind == SavedReplayNoticeKind.ExitRequested).ExitOutcome
+        );
+
+        h.Host.InReplayState = false;
+        h.Playback.Tick();
+        h.Host.InReplayState = true;
+        Assert.False(h.Playback.TryExitBootstrapped());
+
+        var reads = h.Host.ReplayStateReads;
+        h.Playback.Tick();
+        Assert.Equal(reads, h.Host.ReplayStateReads);
     }
 
     // --- Displacement and teardown ---

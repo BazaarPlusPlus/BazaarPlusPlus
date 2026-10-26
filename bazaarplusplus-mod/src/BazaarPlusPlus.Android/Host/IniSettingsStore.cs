@@ -8,7 +8,8 @@ namespace BazaarPlusPlus.Android.Host;
 /// Android settings store: an INI file at <c>MelonLoader/UserData/BazaarPlusPlus.cfg</c> in the
 /// BepInEx cfg syntax, so both hosts' settings files have the same shape. A bind reads the
 /// persisted value (unparsable or missing falls back to the default) and rewrites the file when
-/// that changed it; every write persists. Keys nothing binds survive a rewrite, as in BepInEx.
+/// that changed it; a write persists only a value whose serialized form changed, so setting the
+/// current value again touches no file. Keys nothing binds survive a rewrite, as in BepInEx.
 /// </summary>
 internal sealed class IniSettingsStore : IBppSettingsStore
 {
@@ -225,7 +226,10 @@ internal sealed class IniSettingsStore : IBppSettingsStore
             {
                 lock (_store._gate)
                 {
-                    Current = Clamp(value, _range);
+                    var next = Clamp(value, _range);
+                    if (Serialize(next) == Serialized)
+                        return;
+                    Current = next;
                     _store.Save();
                 }
             }

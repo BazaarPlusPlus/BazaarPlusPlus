@@ -243,6 +243,12 @@ internal sealed class SavedReplayLifecycle
 
     // --- Exit-suppression latch (single owner for bootstrapped-exit / native-exit) ---
 
+    /// <summary>
+    /// The exit latch is set, whether or not its suppression window has passed: only
+    /// <see cref="ObserveReplayStateGone"/> clears it.
+    /// </summary>
+    public bool IsExitLatched => _replayExitInProgress;
+
     public bool IsExitSuppressed(float now) =>
         _replayExitInProgress && now - _replayExitRequestedAt < ExitSuppressionWindowSeconds;
 

@@ -41,8 +41,16 @@ public sealed class AndroidMod : MelonMod
 {
     private const string SettingsFileName = "BazaarPlusPlus.cfg";
     private const string MainMenuSceneName = "MainMenuScene";
-    private const long SummaryIntervalMs = 15_000;
+
+    // The hooks summary is checked once a minute and written only when a count changed since the
+    // last one written. A scene load brings the next check forward and writes it even unchanged,
+    // so a device run always finds a summary after the scene it waits for.
+    private const long SummaryIntervalMs = 60_000;
+    private const long SceneSummaryDelayMs = 15_000;
     private long _nextSummaryAt;
+    private bool _summaryForced;
+    private BppLogField[]? _lastSummary;
+    private readonly Action _tickCombatStatus;
     private AndroidComposition? _composition;
     private AndroidTouchUi? _touchUi;
     private Game.AndroidCombatStatus? _combatStatus;
@@ -54,6 +62,12 @@ public sealed class AndroidMod : MelonMod
     private readonly AndroidCardTemplateIndex _templates = new();
     private bool _mainThreadBound;
     private int _labelRevision;
+
+    public AndroidMod()
+    {
+        // Cached once: a lambda over this would allocate a delegate every frame.
+        _tickCombatStatus = () => _combatStatusView?.Tick();
+    }
 
     public override void OnInitializeMelon()
     {
@@ -94,7 +108,7 @@ public sealed class AndroidMod : MelonMod
         _overlayPanels?.Frame(Time.unscaledDeltaTime);
         _touchUi?.EnsureMounted();
         Guarded("gameplay_previews", () => AndroidPatchHost.GameplayPreviews?.Tick());
-        Guarded("combat_status", () => _combatStatusView?.Tick());
+        Guarded("combat_status", _tickCombatStatus);
         Guarded("quest_preview", () => AndroidPatchHost.QuestPreview?.Tick());
         Guarded("encounter_preview", () => AndroidPatchHost.EncounterPreview?.Tick());
         AndroidGameFont.Tick();
@@ -110,10 +124,25 @@ public sealed class AndroidMod : MelonMod
         if (Environment.TickCount64 < _nextSummaryAt)
             return;
         _nextSummaryAt = Environment.TickCount64 + SummaryIntervalMs;
+        BppLogField[] summary = [.. AndroidPatchHost.Summary(), .. InteractionSummary()];
+        if (!_summaryForced && SameSummary(summary, _lastSummary))
+            return;
+        _summaryForced = false;
+        _lastSummary = summary;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.hooks.summary"),
-            [.. AndroidPatchHost.Summary(), .. InteractionSummary()]
+            summary
         );
+    }
+
+    private static bool SameSummary(BppLogField[] summary, BppLogField[]? last)
+    {
+        if (last == null || last.Length != summary.Length)
+            return false;
+        for (var i = 0; i < summary.Length; i++)
+            if (summary[i].Name != last[i].Name || !Equals(summary[i].Value, last[i].Value))
+                return false;
+        return true;
     }
 
     // History's sessions and the replay's lease, which a device run checks return to zero.
@@ -401,6 +430,8 @@ public sealed class AndroidMod : MelonMod
             ("index", buildIndex),
             ("name", sceneName)
         );
+        _summaryForced = true;
+        _nextSummaryAt = Math.Min(_nextSummaryAt, Environment.TickCount64 + SceneSummaryDelayMs);
         // Each step runs in its own guard, so one that throws never skips the next. The Overlay
         // Panel Host closes the panels the scene policies close and tells every panel, so they
         // let go of their leases, then releases whatever is left: no rented card outlives the

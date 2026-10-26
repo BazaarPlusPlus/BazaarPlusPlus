@@ -4,6 +4,7 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using Il2CppBazaarGameShared.Infra.Messages;
+using Il2CppInterop.Runtime;
 using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.Patches;
@@ -11,9 +12,9 @@ namespace BazaarPlusPlus.Android.Patches;
 /// <summary>
 /// The client's single message intake, the Android form of the desktop's
 /// <c>NetMessageDispatchSeam</c>: online <c>ReceiveOrQueue</c> recurses into aggregate children, so
-/// every message passes here. It counts each by native type, publishes the run initialization the
-/// desktop's <c>RunInitializedPatch</c> does, and feeds the PvP battle capture. An interface proxy
-/// never satisfies <c>is</c>; <c>TryCast</c> is the IL2CPP form of the desktop's type test.
+/// every message passes here. It counts each by its IL2CPP class, publishes the run initialization
+/// the desktop's <c>RunInitializedPatch</c> does, and feeds the PvP battle capture. An interface
+/// proxy never satisfies <c>is</c>; <c>TryCast</c> is the IL2CPP form of the desktop's type test.
 /// </summary>
 [HarmonyPatch(typeof(NetMessageProcessor), nameof(NetMessageProcessor.ReceiveOrQueue))]
 internal static class NetMessageReceivePatch
@@ -27,12 +28,19 @@ internal static class NetMessageReceivePatch
         {
             if (__0 == null)
                 return;
-            var nativeType = __0.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName;
-            var hits = AndroidPatchHost.CountMessage(nativeType);
+            // The class pointer is the count's key; the type name is resolved only for a class
+            // not seen before, not for every message.
+            var nativeClass = IL2CPP.il2cpp_object_get_class(__0.Pointer);
+            if (!AndroidPatchHost.IsMessageTypeNamed(nativeClass))
+                AndroidPatchHost.NameMessageType(
+                    nativeClass,
+                    __0.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName
+                );
+            var hits = AndroidPatchHost.CountMessage(nativeClass);
             if (hits <= LoggedHitsPerType)
                 BppLog.InfoEvent(
                     new BppLogEvent(BppLogFeatureScope.Android, "android.net_message.hit"),
-                    ("native_type", nativeType),
+                    ("native_type", AndroidPatchHost.MessageTypeName(nativeClass)),
                     ("hits", hits),
                     ("combat_sim", __0.TryCast<NetMessageCombatSim>() != null)
                 );
