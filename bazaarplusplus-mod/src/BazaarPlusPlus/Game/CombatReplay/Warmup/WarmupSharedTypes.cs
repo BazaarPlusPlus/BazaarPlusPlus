@@ -24,10 +24,24 @@ internal sealed class ReplayAudioWarmupStats
     public int BoardBanksAlreadyLoaded;
     public int BoardBanksFailed;
     public int BoardBanksSkipped;
+    public int BoardBanksOwned;
+    public ReplaySoundtrackSource SoundtrackSource;
     public int SoundtrackBanksLoaded;
     public int SoundtrackBanksAlreadyLoaded;
     public int SoundtrackBanksFailed;
     public int SoundtrackBanksSkipped;
+}
+
+/// <summary>Where the one soundtrack the audio warmup warms came from.</summary>
+internal enum ReplaySoundtrackSource
+{
+    None,
+
+    /// <summary>The game's <c>PlayingSoundTrackSO</c>, already set by its own board load.</summary>
+    GamePlaying,
+
+    /// <summary>Picked by the game's rule and set as <c>PlayingSoundTrackSO</c> by the warmup.</summary>
+    WarmupSet,
 }
 
 internal static class WarmupConstants
@@ -78,6 +92,32 @@ internal static class ReplayWarmupLogging
     }
 
     [Conditional("DEBUG")]
+    internal static void AudioReleased(string? battleId, IReadOnlyList<ReplayAudioBank> released)
+    {
+        BppLog.DebugEvent(
+            new BppLogEvent(BppLogFeatureScope.CombatReplay, "combat_replay.warmup.audio_released"),
+            () =>
+                [
+                    ("battle_id", battleId, BppLogCorrelationPolicy.Short),
+                    ("board_bank_released_count", released.Count),
+                    ("board_banks", string.Join(",", released.Select(bank => bank.MetadataBank))),
+                ]
+        );
+    }
+
+    internal static void AudioReleaseFailed(string? battleId, Exception exception)
+    {
+        BppLog.WarnEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.warmup.audio_release_failed"
+            ),
+            exception,
+            ("battle_id", battleId, BppLogCorrelationPolicy.Short)
+        );
+    }
+
+    [Conditional("DEBUG")]
     internal static void AssetSkipped(
         ReplayWarmupStage stage,
         string? assetKey,
@@ -119,6 +159,8 @@ internal static class ReplayWarmupLogging
             ("board_bank_already_loaded_count", audio?.BoardBanksAlreadyLoaded ?? 0),
             ("board_bank_failed_count", audio?.BoardBanksFailed ?? 0),
             ("board_bank_skipped_count", audio?.BoardBanksSkipped ?? 0),
+            ("board_bank_owned_count", audio?.BoardBanksOwned ?? 0),
+            ("soundtrack_source", audio?.SoundtrackSource ?? ReplaySoundtrackSource.None),
             ("soundtrack_bank_loaded_count", audio?.SoundtrackBanksLoaded ?? 0),
             ("soundtrack_bank_already_loaded_count", audio?.SoundtrackBanksAlreadyLoaded ?? 0),
             ("soundtrack_bank_failed_count", audio?.SoundtrackBanksFailed ?? 0),

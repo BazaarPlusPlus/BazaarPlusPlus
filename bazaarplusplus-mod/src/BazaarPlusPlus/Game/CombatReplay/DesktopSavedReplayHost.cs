@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Game.CombatReplay.Bootstrap;
 using BazaarPlusPlus.Game.CombatReplay.PlaybackUi;
+using BazaarPlusPlus.Game.CombatReplay.Warmup;
 using BazaarPlusPlus.Game.PvpBattles;
 using TheBazaar;
 using TheBazaar.AppFramework;
@@ -11,8 +12,9 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// <summary>
 /// The desktop's side of Saved Replay Playback (ADR-0020): the Mono loader, bootstrap and
 /// opponent portrait, the cleanup each exit path runs with the opening-state restore, History's
-/// row probe's short cache, and the managed recording UI reset when an operation is accepted or
-/// completes.
+/// row probe's short cache, the managed recording UI reset when an operation is accepted or
+/// completes, and the release of the board SFX banks only the audio warmup loaded once the
+/// operation has settled outside <c>ReplayState</c>.
 /// </summary>
 internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 {
@@ -113,6 +115,16 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
     {
         if (notice.Kind is SavedReplayNoticeKind.Accepted or SavedReplayNoticeKind.Completed)
             _resetManagedRecordingUi();
+        // Not a cleanup step: on the Exit button the cleanup runs inside the ReplayState.Exit
+        // prefix, before the game leaves the state and fades its music. A settled menu return
+        // or a completed operation (a failed start included, after its rollback) comes after.
+        if (
+            notice.Kind
+                is SavedReplayNoticeKind.MenuReturnSettled
+                    or SavedReplayNoticeKind.Completed
+            && !InReplayState
+        )
+            AudioBankWarmer.ReleaseOwnedBanks(notice.BattleId);
     }
 
     private sealed class NoContext : IDisposable

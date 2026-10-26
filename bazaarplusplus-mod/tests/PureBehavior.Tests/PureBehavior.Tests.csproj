@@ -49,6 +49,7 @@
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CurrentReplayRecordingStatusCode.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CombatReplay/NativeReplayRestartGate.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Bootstrap/ReplayPresentationTaskTracker.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Warmup/ReplayAudioBankOwnership.cs" />
     <Compile Include="../../src/BazaarPlusPlus.Core/Game/HistoryPanel/HistoryPanelReplayCleanup.cs" />
   </ItemGroup>
 </Project>
