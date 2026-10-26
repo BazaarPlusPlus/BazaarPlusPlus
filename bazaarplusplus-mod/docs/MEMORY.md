@@ -57,7 +57,7 @@ Each of these failed silently, or reported something misleading, at least once.
 - A programmatic native `Button.onClick` invoke can return silently through interaction gates such as `AllowInteraction` without throwing — verify the expected game-state transition before treating the action as successful.
 - `ISetting<T>` has no change event (`PublicizeAll` makes BepInEx `ConfigEntry<T>.SettingChanged` ambiguous, CS0229); invalidate config-derived caches by raw-value compare. [`src/BazaarPlusPlus/Game/Input/BppHotkeyService.cs`]
 - Portrait providers negative-cache exceptions past their service-readiness gates, so one transient asset-load exception caches a null portrait until restart. Preserved by design through the `AsyncLoadCache` migration — changing it is a behavior change. [`src/BazaarPlusPlus/GameInterop/HeroPortraits/`]
-- `AssetLoader` signatures vary by game build; route them through `NativeAssetLoaderInvocation`. Process-static caches must load `Global` because scene-scope handles die across lobby↔run; smoke native cards and hero chips across that transition. [`src/BazaarPlusPlus/GameInterop/AssetLoading/`]
+- Call `AssetLoader` via `NativeAssetLoaderInvocation` (signatures vary by build). Scene-scope handles die across lobby↔run: process-static caches use `Global`, per-scene loads (card previews, replay warmup) `Current` with no process-wide key set. Smoke cards and hero chips across it. [`src/BazaarPlusPlus/GameInterop/AssetLoading/`]
 
 ### Build and tests
 

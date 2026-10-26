@@ -13,10 +13,8 @@ internal sealed class ReplayWarmupStats
     public int CardsSkipped;
     public int CardsFailed;
     public int OverrideAssetsPreloaded;
-    public int OverrideAssetsSkipped;
     public int OverrideAssetsFailed;
     public int VfxPrewarmed;
-    public int VfxSkipped;
     public int VfxFailed;
 }
 
@@ -131,10 +129,8 @@ internal static class ReplayWarmupLogging
             ("card_skipped_count", presentation?.CardsSkipped ?? 0),
             ("card_failed_count", presentation?.CardsFailed ?? 0),
             ("override_asset_preloaded_count", presentation?.OverrideAssetsPreloaded ?? 0),
-            ("override_asset_skipped_count", presentation?.OverrideAssetsSkipped ?? 0),
             ("override_asset_failed_count", presentation?.OverrideAssetsFailed ?? 0),
             ("vfx_prewarmed_count", presentation?.VfxPrewarmed ?? 0),
-            ("vfx_skipped_count", presentation?.VfxSkipped ?? 0),
             ("vfx_failed_count", presentation?.VfxFailed ?? 0),
         ];
 }
