@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Globalization;
 using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
@@ -7,6 +6,7 @@ using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
+using Il2CppBazaarGameShared.Infra.Messages;
 
 namespace BazaarPlusPlus.Android.Patches;
 
@@ -101,27 +101,27 @@ internal static class AndroidPatchHost
 
     public static long CountRunInitialized() => Interlocked.Increment(ref _runInitializedHits);
 
-    /// <summary>The intake names a class the first time it sees one, before counting it.</summary>
-    public static bool IsMessageTypeNamed(IntPtr nativeClass) =>
-        MessageTypeNames.ContainsKey(nativeClass);
-
-    public static void NameMessageType(IntPtr nativeClass, string name) =>
-        MessageTypeNames.TryAdd(nativeClass, name);
+    /// <summary>
+    /// The type name of a message's IL2CPP class, resolved from the message only the first time
+    /// the class is seen. The intake names a class before it counts it, so every counted class
+    /// has a name.
+    /// </summary>
+    public static string NameMessageType(IntPtr nativeClass, INetMessage message) =>
+        MessageTypeNames.GetOrAdd(
+            nativeClass,
+            static (_, first) => first.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName,
+            message
+        );
 
     public static long CountMessage(IntPtr nativeClass) =>
         MessageCounts.AddOrUpdate(nativeClass, 1, static (_, previous) => previous + 1);
-
-    public static string MessageTypeName(IntPtr nativeClass) =>
-        MessageTypeNames.TryGetValue(nativeClass, out var name)
-            ? name
-            : "0x" + nativeClass.ToString("x", CultureInfo.InvariantCulture);
 
     private static string MessageSummary()
     {
         var byName = new SortedDictionary<string, long>(StringComparer.Ordinal);
         foreach (var (nativeClass, count) in MessageCounts)
         {
-            var name = MessageTypeName(nativeClass);
+            var name = MessageTypeNames[nativeClass];
             byName[name] = byName.GetValueOrDefault(name) + count;
         }
         return string.Join(",", byName.Select(pair => $"{pair.Key}:{pair.Value}"));

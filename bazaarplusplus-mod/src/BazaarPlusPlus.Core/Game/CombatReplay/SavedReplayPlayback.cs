@@ -329,12 +329,14 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
     /// <summary>
     /// Every frame: confirms a pending menu return and clears the exit latch once
     /// <c>ReplayState</c> is gone. Nothing exits on a tick. With neither pending, it returns before
-    /// entering the host context or reading game state, so an idle frame costs nothing.
+    /// entering the host context or reading game state, so an idle frame costs nothing. Returns
+    /// true on the tick that clears the latch: the host's only sign that <c>ReplayState</c> is gone
+    /// on the bootstrapped exit path.
     /// </summary>
-    public void Tick()
+    public bool Tick()
     {
         if (_disposed || (!_lifecycle.HasPendingMenuReturn && !_lifecycle.IsExitLatched))
-            return;
+            return false;
         using var scope = _host.EnterHostContext();
         var lobbyLoaded = _lifecycle.HasPendingMenuReturn && _host.LobbyLoaded;
         var decision = _lifecycle.TickMenuReturn(_host.Now, lobbyLoaded);
@@ -366,8 +368,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         }
         // The only reliable signal on the bootstrapped exit path, where the state leaves through
         // the menu return without a ReplayState exit event.
-        if (!_host.InReplayState)
-            _lifecycle.ObserveReplayStateGone();
+        return !_host.InReplayState && _lifecycle.ObserveReplayStateGone();
     }
 
     /// <summary>

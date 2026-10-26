@@ -81,8 +81,9 @@ public sealed class SavedReplayLifecycleTests
         Assert.False(life.IsExitSuppressed(now: 115f));
 
         // Window elapsed: a fresh Exit is allowed through (escape hatch).
-        life.ObserveReplayStateGone();
+        Assert.True(life.ObserveReplayStateGone());
         Assert.False(life.IsExitSuppressed(now: 200f));
+        Assert.False(life.ObserveReplayStateGone());
     }
 
     [Fact]

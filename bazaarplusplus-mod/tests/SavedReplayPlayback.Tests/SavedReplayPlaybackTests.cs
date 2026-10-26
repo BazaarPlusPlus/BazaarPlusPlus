@@ -597,7 +597,7 @@ public sealed class SavedReplayPlaybackTests
         // The game leaves ReplayState through the menu return; the lobby confirms it.
         h.Host.InReplayState = false;
         h.Host.LobbyLoaded = true;
-        h.Playback.Tick();
+        Assert.True(h.Playback.Tick());
         var terminal = h.SingleTerminal();
         Assert.Contains(" end_reason_code=saved_replay_exit", terminal);
         Assert.True(h.LeaseIsFree());
@@ -621,7 +621,7 @@ public sealed class SavedReplayPlaybackTests
     }
 
     [Fact]
-    public void A_latched_exit_keeps_the_tick_polling_until_ReplayState_is_gone()
+    public void A_latched_exit_keeps_the_tick_polling_until_ReplayState_is_gone_and_reports_it_once()
     {
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
@@ -634,20 +634,22 @@ public sealed class SavedReplayPlaybackTests
         h.Host.Now = 2f;
         Assert.True(h.Playback.TryExitBootstrapped());
 
-        h.Playback.Tick();
+        Assert.False(h.Playback.Tick());
         Assert.True(h.Playback.TryExitBootstrapped());
         Assert.Equal(
             SavedReplayExitOutcome.Suppressed,
             h.Host.Notices.Last(n => n.Kind == SavedReplayNoticeKind.ExitRequested).ExitOutcome
         );
 
+        // The tick that sees ReplayState gone clears the latch and reports it, once: the host's
+        // only sign of a bootstrapped exit that raised no state event.
         h.Host.InReplayState = false;
-        h.Playback.Tick();
+        Assert.True(h.Playback.Tick());
         h.Host.InReplayState = true;
         Assert.False(h.Playback.TryExitBootstrapped());
 
         var reads = h.Host.ReplayStateReads;
-        h.Playback.Tick();
+        Assert.False(h.Playback.Tick());
         Assert.Equal(reads, h.Host.ReplayStateReads);
     }
 

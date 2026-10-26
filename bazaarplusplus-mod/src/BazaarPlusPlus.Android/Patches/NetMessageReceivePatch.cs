@@ -31,16 +31,12 @@ internal static class NetMessageReceivePatch
             // The class pointer is the count's key; the type name is resolved only for a class
             // not seen before, not for every message.
             var nativeClass = IL2CPP.il2cpp_object_get_class(__0.Pointer);
-            if (!AndroidPatchHost.IsMessageTypeNamed(nativeClass))
-                AndroidPatchHost.NameMessageType(
-                    nativeClass,
-                    __0.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName
-                );
+            var nativeType = AndroidPatchHost.NameMessageType(nativeClass, __0);
             var hits = AndroidPatchHost.CountMessage(nativeClass);
             if (hits <= LoggedHitsPerType)
                 BppLog.InfoEvent(
                     new BppLogEvent(BppLogFeatureScope.Android, "android.net_message.hit"),
-                    ("native_type", AndroidPatchHost.MessageTypeName(nativeClass)),
+                    ("native_type", nativeType),
                     ("hits", hits),
                     ("combat_sim", __0.TryCast<NetMessageCombatSim>() != null)
                 );

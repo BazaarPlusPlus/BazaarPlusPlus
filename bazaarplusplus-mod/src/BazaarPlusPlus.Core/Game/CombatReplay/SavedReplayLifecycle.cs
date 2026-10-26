@@ -281,11 +281,14 @@ internal sealed class SavedReplayLifecycle
     /// <summary>
     /// Clears the exit-in-progress latch once ReplayState is actually gone. This is the only
     /// reliable signal on the bootstrapped exit path, where the state transition happens via
-    /// RunManager.ReturnToMainMenu without a normal ReplayState exit event.
+    /// RunManager.ReturnToMainMenu without a normal ReplayState exit event. Returns whether the
+    /// latch was set.
     /// </summary>
-    public void ObserveReplayStateGone()
+    public bool ObserveReplayStateGone()
     {
+        var wasLatched = _replayExitInProgress;
         _replayExitInProgress = false;
+        return wasLatched;
     }
 
     /// <summary>Drop a pending menu-return without completing it (runtime destroy path).</summary>
