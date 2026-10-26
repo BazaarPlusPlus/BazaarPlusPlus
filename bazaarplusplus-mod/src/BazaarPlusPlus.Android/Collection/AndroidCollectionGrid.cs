@@ -63,6 +63,21 @@ internal sealed class AndroidCollectionGrid
     /// <summary>Cards held by the grid's cells, Pending or Ready.</summary>
     public int Leases => _realized.Count;
 
+    /// <summary>
+    /// A cell's card is still setting up: a relayout waits for it (<see cref="BazaarPlusPlus.Core.Ui.TouchRelayoutDebounce"/>).
+    /// Read every frame, so a plain loop, not LINQ.
+    /// </summary>
+    public bool SettingUp
+    {
+        get
+        {
+            foreach (var cell in _realized.Values)
+                if (cell.Lease is { State: CardRentalLeaseState.Pending })
+                    return true;
+            return false;
+        }
+    }
+
     public void ResetScroll()
     {
         _scroll.StopMovement();
@@ -146,12 +161,16 @@ internal sealed class AndroidCollectionGrid
         ReturnOutside(first, last);
 
         var budget = RentBudgetPerFrame;
-        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
         for (var index = first; index <= last && budget > 0; index++)
         {
             if (_realized.ContainsKey(index))
                 continue;
-            if (budget < RentBudgetPerFrame && clock.Elapsed.TotalMilliseconds >= RentBudgetMs)
+            if (
+                budget < RentBudgetPerFrame
+                && System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds
+                    >= RentBudgetMs
+            )
                 break;
             var card = _port.Visible[index];
             var cell = Take();

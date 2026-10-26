@@ -139,6 +139,9 @@ internal sealed class AndroidCollectionInspection
 
     public bool IsOpen => _root.activeSelf;
 
+    /// <summary>The inspected card is still setting up: a relayout waits for it.</summary>
+    public bool SettingUp => _lease is { State: CardRentalLeaseState.Pending };
+
     /// <summary>The detail column's scroll view, for the panel's drag-scroll log.</summary>
     public ScrollRect DetailScroll => _detailScroll;
 
@@ -287,12 +290,15 @@ internal sealed class AndroidCollectionInspection
         if (visible && _enchantmentEffects == null)
         {
             _enchantmentEffects = new();
-            foreach (var enchantment in _card!.Enchantments.Keys.OrderBy(value => value))
+            // One template for every enchantment and tier; each tier still builds its own tooltip.
+            var template = AndroidCardTemplateText.Template(_card!.Id);
+            foreach (var enchantment in _card.Enchantments.Keys.OrderBy(value => value))
             {
                 var effects = new List<CollectionTierTooltipText>();
                 foreach (var tier in ReachableTiers(_card.StartingTier))
                 {
                     var effect = AndroidCardTemplateText.EnchantmentEffect(
+                        template,
                         new CardRentalSubject(_card.Id, tier),
                         enchantment
                     );
@@ -336,10 +342,12 @@ internal sealed class AndroidCollectionInspection
         var ammunition = new List<CollectionTierTooltipText>();
         foreach (var tier in ReachableTiers(card.StartingTier))
         {
-            var subject = new CardRentalSubject(card.Id, tier);
-            if (AndroidCardTemplateText.Description(subject) is { } text)
+            // One template and one tooltip per tier for the text and its values.
+            var (text, cooldown, ammo) = AndroidCardTemplateText.Preview(
+                new CardRentalSubject(card.Id, tier)
+            );
+            if (text != null)
                 texts.Add(new CollectionTierTooltipText(tier, text));
-            var (cooldown, ammo) = AndroidCardTemplateText.Attributes(subject);
             if (cooldown is > 0)
                 cooldowns.Add(
                     new CollectionTierTooltipText(
