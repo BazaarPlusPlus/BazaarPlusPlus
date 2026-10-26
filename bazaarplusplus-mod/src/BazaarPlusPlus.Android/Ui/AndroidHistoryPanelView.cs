@@ -26,8 +26,9 @@ namespace BazaarPlusPlus.Android.Ui;
 /// Lists drag-scroll with inertia and show a thumb while they overflow; each finished gesture logs
 /// <c>android.history.scrolled</c>. A section without rows says so once, centred in the detail
 /// column, with no boards, titles or actions under it.
-/// Hero portraits share the Collection framing; rank and trophy details render as text;
-/// the two BPP badge atlases ship in the assembly. The panel rents the native boards into
+/// Hero portraits share the Collection framing; rank badges and run trophies are the game's art
+/// from <see cref="AndroidRankArt"/>, with text while it is missing; the two BPP badge atlases
+/// ship in the assembly. The panel rents the native boards into
 /// <see cref="UpperBoard"/> and <see cref="LowerBoard"/> and lays its overlays over
 /// <see cref="Surface"/>; a new screen size builds a new view. A view that throws while it builds
 /// destroys its canvas, active and kept across scenes until its last lines, before the exception
@@ -515,7 +516,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                     _font,
                     .26f,
                     .03f,
-                    .46f,
+                    .33f,
                     .36f,
                     _l.RowTitleFont
                 ),
@@ -524,7 +525,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                     _font,
                     .26f,
                     .38f,
-                    .46f,
+                    .33f,
                     .3f,
                     _l.BodyFont,
                     color: AndroidHistoryUi.Muted
@@ -539,39 +540,45 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                     _l.BodyFont,
                     color: AndroidHistoryUi.Muted
                 ),
-                Badge = BadgeImage(rect),
-                Rank = AndroidHistoryUi.Fraction(
-                    rect,
-                    _font,
-                    .73f,
-                    .46f,
-                    .26f,
-                    .26f,
-                    _l.BodyFont,
-                    TextAlignmentOptions.Center
-                ),
                 Rating = AndroidHistoryUi.Fraction(
                     rect,
                     _font,
-                    .73f,
-                    .71f,
-                    .26f,
-                    .27f,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
                     _l.BodyFont,
                     TextAlignmentOptions.Center
                 ),
             };
+            var rankImage = ArtImage(rect, "Rank");
+            row.Rank = AndroidHistoryUi.Fraction(
+                rankImage.transform,
+                _font,
+                -.2f,
+                0f,
+                1.4f,
+                1f,
+                _l.BodyFont,
+                TextAlignmentOptions.Center
+            );
+            row.RankArt = new AndroidArtImage(
+                rankImage,
+                shown => AndroidHistoryUi.SetActive(row.Rank.gameObject, shown)
+            );
+            var outcomeImage = ArtImage(rect, "Outcome");
             var portrait = AndroidUiKit.Fixed(
                 "HeroPortrait",
                 rect,
                 new(0f, 1f),
-                new(_l.Metrics.Dp(8f), -_l.Metrics.Dp(6f)),
+                Vector2.zero,
                 Vector2.one * _l.Metrics.Dp(36f)
             );
+            row.PortraitRect = portrait;
             row.Portrait = new AndroidPortraitView(portrait, AndroidHistoryUi.Skin, _l.Metrics);
             row.Accent = Accent(rect);
             row.Unknown = AndroidHistoryUi.Fraction(
-                row.Badge.transform,
+                outcomeImage.transform,
                 _font,
                 0f,
                 0f,
@@ -580,6 +587,10 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 _l.BodyFont,
                 TextAlignmentOptions.Center,
                 AndroidHistoryUi.Muted
+            );
+            row.Badge = new AndroidArtImage(
+                outcomeImage,
+                shown => AndroidHistoryUi.SetActive(row.Unknown.gameObject, shown)
             );
             rect.gameObject.SetActive(false);
             list.Rows[i] = row;
@@ -624,13 +635,14 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 Day = AndroidHistoryUi.Fraction(
                     rect,
                     _font,
+                    .37f,
                     .04f,
-                    .04f,
-                    .92f,
+                    .37f,
                     .42f,
                     _l.BodyFont,
                     TextAlignmentOptions.Center
                 ),
+                Rank = new AndroidArtImage(ArtImage(rect, "Rank", .74f, .06f, .23f, .38f)),
                 Name = AndroidHistoryUi.Fraction(
                     rect,
                     _font,
@@ -645,6 +657,19 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 Outcome = AndroidUiKit.Fill(outcome, Color.clear, blocksTouches: false),
                 Accent = Accent(rect),
             };
+            // The top line reads portrait, day and rank badge, as the desktop chip does.
+            var portrait = AndroidUiKit.Fixed(
+                "HeroPortrait",
+                rect,
+                new(0f, 1f),
+                new(_l.Metrics.Dp(5f), -_l.Metrics.Dp(3f)),
+                Vector2.one * _l.Metrics.Dp(22f)
+            );
+            rail.Chips[i].Portrait = new AndroidPortraitView(
+                portrait,
+                AndroidHistoryUi.Skin,
+                _l.Metrics
+            );
             rect.gameObject.SetActive(false);
         }
         return rail;
@@ -701,17 +726,25 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         return (band.gameObject, label);
     }
 
-    private Image BadgeImage(RectTransform row)
+    // Rows place their images as they bind: where they sit depends on the row mode and rating.
+    private static Image ArtImage(
+        RectTransform parent,
+        string name,
+        float x = 0f,
+        float y = 0f,
+        float width = 0f,
+        float height = 0f
+    )
     {
         var rect = AndroidUiKit.Rect(
-            "Outcome",
-            row,
+            name,
+            parent,
             Vector2.zero,
             Vector2.zero,
             Vector2.zero,
             Vector2.zero
         );
-        Frac(rect, .76f, .05f, .2f, .4f);
+        Frac(rect, x, y, width, height);
         var image = rect.gameObject.AddComponent<Image>();
         image.raycastTarget = false;
         image.preserveAspect = true;
@@ -866,7 +899,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         IReadOnlyList<string> ids,
         Func<int, string> label,
         Func<int, string?> hero,
-        Func<int, (Sprite? Sprite, string Fallback)> badge,
+        Func<int, (Task<Sprite?>? Sprite, string Fallback)> badge,
         Func<int, string?> rank,
         Func<int, int?> rating,
         Func<int, int?> ratingDelta,
@@ -908,28 +941,19 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             row.Name.text = fields.Name;
             row.Meta.text = fields.Meta;
             row.Stamp.text = fields.Stamp;
-            // Without a meta line the name drops to sit between the row's top and its stamp.
-            var nameTop = fields.Meta.Length == 0 ? .17f : .03f;
-            var name = row.Name.rectTransform;
-            name.anchorMin = new Vector2(name.anchorMin.x, 1f - nameTop - .36f);
-            name.anchorMax = new Vector2(name.anchorMax.x, 1f - nameTop);
             AndroidHistoryUi.SetActive(row.Accent, i == selected);
             var outcome = badge(i);
-            row.Badge.sprite = outcome.Sprite;
-            row.Badge.color = outcome.Sprite != null ? Color.white : Color.clear;
             row.Unknown.text = outcome.Fallback;
-            AndroidHistoryUi.SetActive(row.Unknown.gameObject, outcome.Sprite == null);
+            row.Badge.Bind(outcome.Sprite);
             row.Rank.text = string.IsNullOrWhiteSpace(rank(i))
                 ? "?"
                 : HistoryPanelText.RankName(rank(i)!);
+            row.RankArt.Bind(AndroidRankArt.Rank(rank(i)));
             row.Rating.text = RatingText(rank(i), rating(i), ratingDelta(i));
-            // The stamp runs under the rating column whenever that column is empty, which keeps
-            // "Favorited <date> <time>" whole on a phone.
-            var stamp = row.Stamp.rectTransform;
-            stamp.anchorMax = new Vector2(
-                row.Rating.text.Length == 0 ? .96f : .72f,
-                stamp.anchorMax.y
-            );
+            if (runFields != null)
+                PlaceRunRow(row, row.Rating.text.Length > 0);
+            else
+                PlaceBattleRow(row, fields.Meta.Length > 0, row.Rating.text.Length > 0);
         }
         list.Scroll.content.sizeDelta = new Vector2(_l.ArchiveList.Width, ids.Count * list.Height);
         var nextOffset =
@@ -964,6 +988,16 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             chip.Control.Set(string.Empty, i == selected, !loading);
             AndroidHistoryUi.SetActive(chip.Accent, i == selected);
             chip.Day.text = HistoryPanelText.DayBadge(battle.Day);
+            chip.Rank.Bind(AndroidRankArt.Rank(battle.OpponentRank));
+            var hero = ParseHero(battle.OpponentHero);
+            if (chip.Hero != hero)
+            {
+                chip.Hero = hero;
+                chip.Portrait.Bind(
+                    hero is { } value ? () => AndroidPortraits.Hero(value) : null,
+                    hero
+                );
+            }
             chip.Name.text = string.IsNullOrWhiteSpace(battle.OpponentName)
                 ? HistoryPanelText.UnknownOpponent()
                 : battle.OpponentName;
@@ -994,26 +1028,61 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         SyncTrackers();
     }
 
-    // A finished run shows its outcome tier as text (the desktop's trophies are native art);
-    // unfinished runs keep the BPP state badges.
-    private (Sprite? Sprite, string Fallback) RunBadge(HistoryRunRecord run)
+    // The rank badge stands left of the outcome, as on the desktop, with a Legendary rating under
+    // it. A run row is four columns: the portrait, the title over its stamp, then the rank badge
+    // and the trophy at the row's full height.
+    private void PlaceRunRow(Row row, bool rated)
+    {
+        PlacePortrait(row, new Vector2(0f, .5f), 0f);
+        Frac(row.Name.rectTransform, .26f, .14f, .34f, .36f);
+        Frac(row.Meta.rectTransform, 0f, 0f, 0f, 0f);
+        Frac(row.Stamp.rectTransform, .26f, .52f, .34f, .3f);
+        Frac(row.RankArt.Image.rectTransform, .61f, rated ? .06f : .18f, .16f, .64f);
+        Frac(row.Rating.rectTransform, .55f, .66f, .28f, .3f);
+        Frac(row.Badge.Image.rectTransform, .79f, .12f, .18f, .76f);
+    }
+
+    // A battle row keeps name, hero with day, and stamp lines; both badges sit at its top, and
+    // the stamp runs under them whenever the rating is empty, which keeps
+    // "Favorited <date> <time>" whole on a phone. Without a meta line the name drops to sit
+    // between the row's top and its stamp.
+    private void PlaceBattleRow(Row row, bool hasMeta, bool rated)
+    {
+        PlacePortrait(row, new Vector2(0f, 1f), -_l.Metrics.Dp(6f));
+        Frac(row.Name.rectTransform, .26f, hasMeta ? .03f : .17f, .33f, .36f);
+        Frac(row.Meta.rectTransform, .26f, .38f, .33f, .3f);
+        Frac(row.Stamp.rectTransform, .04f, .66f, rated ? .54f : .92f, .3f);
+        Frac(row.RankArt.Image.rectTransform, .61f, .05f, .16f, .52f);
+        Frac(row.Rating.rectTransform, .55f, .58f, .28f, .34f);
+        Frac(row.Badge.Image.rectTransform, .79f, .05f, .18f, .52f);
+    }
+
+    private void PlacePortrait(Row row, Vector2 anchor, float y)
+    {
+        var portrait = row.PortraitRect;
+        portrait.anchorMin = portrait.anchorMax = portrait.pivot = anchor;
+        portrait.anchoredPosition = new Vector2(_l.Metrics.Dp(8f), y);
+    }
+
+    // A finished run shows the trophy its tier earned; unfinished runs keep the BPP state badges.
+    private (Task<Sprite?>? Sprite, string Fallback) RunBadge(HistoryRunRecord run)
     {
         var tier = HistoryPanelFormatter.GetRunOutcomeTier(run);
         if (tier is { } finished && finished != RunOutcomeTier.Misfortune)
-            return (null, finished.ToString());
+            return (AndroidRankArt.Trophy(finished), finished.ToString());
         var index =
             run.RawStatus == "active" ? 2
             : run.RawStatus == "abandoned" ? 1
             : 0;
-        return (_badges?.RunState(index), "?");
+        return (Task.FromResult(_badges?.RunState(index)), "?");
     }
 
-    private (Sprite? Sprite, string Fallback) BattleBadge(HistoryBattleRecord battle) =>
-        HistoryPanelFormatter.IsBattleWin(battle) ? (_badges?.Win, "W")
-        : HistoryPanelFormatter.IsBattleLoss(battle) ? (_badges?.Loss, "L")
+    private (Task<Sprite?>? Sprite, string Fallback) BattleBadge(HistoryBattleRecord battle) =>
+        HistoryPanelFormatter.IsBattleWin(battle) ? (Task.FromResult(_badges?.Win), "W")
+        : HistoryPanelFormatter.IsBattleLoss(battle) ? (Task.FromResult(_badges?.Loss), "L")
         : (null, "?");
 
-    // A Legendary rank carries its rating; the desktop's rank badges are native art.
+    // A Legendary rank carries its rating.
     private static HistoryRunRowFields BattleRowFields(string label, string hero)
     {
         var lines = label.Split(new[] { '\n' }, 3);
@@ -1048,15 +1117,12 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _ => HistoryPanelText.Unknown(),
         };
         var title = $"{HistoryPanelText.DayBadge(run.FinalDay)} · {mode}";
-        var duration = run.EndedAtUtc is { } ended
-            ? HistoryPanelText.Duration(ended - run.StartedAtUtc)
-            : string.Empty;
         var date = (run.EndedAtUtc ?? run.LastSeenAtUtc).ToLocalTime();
         var stamp = date.ToString(
             date.Year == DateTimeOffset.Now.Year ? "MM/dd HH:mm" : "yyyy/MM/dd HH:mm",
             CultureInfo.CurrentCulture
         );
-        return new(title, duration, stamp);
+        return new(title, string.Empty, stamp);
     }
 
     private static string Titled(string side, string? detail) =>
@@ -1095,7 +1161,9 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     {
         internal RectTransform Rect = null!;
         internal HistoryButton Control = null!;
-        internal Image Badge = null!;
+        internal AndroidArtImage Badge = null!;
+        internal AndroidArtImage RankArt = null!;
+        internal RectTransform PortraitRect = null!;
         internal AndroidPortraitView Portrait = null!;
         internal CardHero? Hero;
         internal TextMeshProUGUI Unknown = null!;
@@ -1122,6 +1190,9 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         internal RectTransform Rect = null!;
         internal HistoryButton Control = null!;
         internal TextMeshProUGUI Day = null!;
+        internal AndroidPortraitView Portrait = null!;
+        internal CardHero? Hero;
+        internal AndroidArtImage Rank = null!;
         internal TextMeshProUGUI Name = null!;
         internal Image Outcome = null!;
         internal GameObject Accent = null!;
