@@ -5,7 +5,6 @@ namespace BazaarPlusPlus.Game.CombatReplay.Video;
 internal enum CurrentReplayRecorderAvailabilityPhase
 {
     Unavailable,
-    Preparing,
     Ready,
 }
 

@@ -49,7 +49,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 | **Anonymous Mode**                | Hide the local player name in screenshots, recordings, and streams.                                                                 |
 | **Legendary Rank Display**        | Hide your rank, show an exaggerated power value, or display rank and rating together.                                               |
 | **Enchant and Upgrade Previews**  | Preview post-enchant or post-upgrade item values directly in tooltips.                                                              |
-| **Chinese Terminology Modes**     | Simplified Chinese plus Taiwan and Hong Kong Traditional terminology styles.                                                        |
+| **Chinese Terminology Modes**     | Simplified Chinese plus Taiwan Traditional terminology styles.                                                        |
 
 ### Desktop Installer
 

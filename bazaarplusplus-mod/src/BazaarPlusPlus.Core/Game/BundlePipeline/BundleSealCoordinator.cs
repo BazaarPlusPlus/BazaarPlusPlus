@@ -26,7 +26,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private readonly string _outboxRoot;
     private readonly BundleQueueStore _queueStore;
     private readonly RunScreenshotSqliteStore _screenshotStore;
-    private readonly IRunPayloadComposer _composer;
+    private readonly RunPayloadComposer _composer;
     private readonly IBundleScreenshotEncoder _screenshotEncoder;
     private readonly UlidV6Generator _ulid = new();
     private readonly SemaphoreSlim _wake = new(0);
@@ -50,7 +50,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     // are the host's, required so no store here can open the file in another journal mode.
     public BundleSealCoordinator(
         IBppServices services,
-        IRunPayloadComposer composer,
+        RunPayloadComposer composer,
         IBundleScreenshotEncoder screenshotEncoder,
         Action<BundleSealStage, string>? faultProbe,
         SqliteOpenOptions databaseOptions

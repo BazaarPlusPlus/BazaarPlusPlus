@@ -1148,11 +1148,6 @@ html[data-bpp-platform='windows'] .bpp-header {
   font-size: 14px;
   font-weight: 500;
 }
-.bpp-field-hint {
-  margin: 0;
-  color: var(--text-3);
-  font-size: 14px;
-}
 .bpp-field-row {
   display: flex;
   min-width: 0;

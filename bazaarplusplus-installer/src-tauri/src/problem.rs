@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, specta::Type)]
 pub struct SemanticProblem {
     pub code: SemanticProblemCode,
     pub params: BTreeMap<String, String>,
     pub diagnostic: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum SemanticProblemCode {
     HistoryUnavailable,

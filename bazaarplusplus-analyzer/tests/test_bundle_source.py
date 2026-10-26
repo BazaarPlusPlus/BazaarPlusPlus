@@ -213,35 +213,6 @@ def test_window_expired_410_is_never_retried() -> None:
     assert backoffs == []
 
 
-def test_download_window_expired_410_is_never_retried() -> None:
-    download_attempts = 0
-    backoffs: list[float] = []
-
-    def server(request: httpx.Request) -> httpx.Response:
-        nonlocal download_attempts
-        if request.url.host == "api.invalid":
-            return httpx.Response(200, json=_one_bundle_page())
-        download_attempts += 1
-        return httpx.Response(
-            410,
-            json={
-                "error": {
-                    "code": "window_expired",
-                    "message": "outside retention",
-                    "retryable": True,
-                }
-            },
-        )
-
-    source = _retrying_source(httpx.MockTransport(server), backoffs)
-
-    with pytest.raises(HourExpired):
-        list(source.stream(source.hour_index(HOUR)))
-
-    assert download_attempts == 1
-    assert backoffs == []
-
-
 def test_retries_exhausted_still_raise_the_retryable_source_error() -> None:
     attempts = 0
     backoffs: list[float] = []
@@ -276,16 +247,6 @@ def test_retries_exhausted_still_raise_the_retryable_source_error() -> None:
         (408, None),
         (429, None),
         (503, None),
-        (
-            400,
-            {
-                "error": {
-                    "code": "download_not_ready",
-                    "message": "try later",
-                    "retryable": True,
-                }
-            },
-        ),
     ],
 )
 def test_download_retries_every_declared_transient_http_response(

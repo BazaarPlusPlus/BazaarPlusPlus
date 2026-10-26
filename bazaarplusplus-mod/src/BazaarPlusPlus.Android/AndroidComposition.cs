@@ -233,8 +233,6 @@ internal sealed class AndroidComposition
     /// </summary>
     public ReplayPayloadOperationGate ReplayGate { get; }
 
-    public ModApiSession HistorySession => _historySession;
-
     /// <summary>The Ten-Win Builds panel's data over the composition-owned build catalog.</summary>
     public AndroidLiveBuildData LiveBuild => _liveBuild;
 

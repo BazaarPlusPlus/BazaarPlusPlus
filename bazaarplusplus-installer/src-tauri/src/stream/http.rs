@@ -607,7 +607,7 @@ mod tests {
             OverlayRecordRepository::new(Some(game_path)),
             StreamRuntime::default(),
             thumbnails,
-            OverlaySettingsStore::new(temp.path().join("settings.json"), None),
+            OverlaySettingsStore::new(temp.path().join("settings.json")),
             temp.path().join("cache"),
         );
         let requests = [
@@ -723,7 +723,7 @@ mod tests {
             OverlayRecordRepository::new(None),
             StreamRuntime::default(),
             HistoryThumbnails::default(),
-            OverlaySettingsStore::new(settings_path.clone(), None),
+            OverlaySettingsStore::new(settings_path.clone()),
             temp.path().join("cache"),
         );
         let saved = serde_json::json!({

@@ -11,8 +11,7 @@ export function formatGameMode(mode: string, t: Translate): string {
 }
 
 // Keyed by the hero id with spaces removed and lowercased, so the canonical id
-// (`TheDragons`), its display name (`The Dragons`), and the legacy alias
-// (`Hero8`, see the analyzer's `hero-aliases.json`) all resolve.
+// (`TheDragons`) and its display name (`The Dragons`) both resolve.
 const heroKeys: Record<string, MessageKey> = {
   vanessa: 'heroVanessa',
   pygmalien: 'heroPygmalien',
@@ -21,8 +20,7 @@ const heroKeys: Record<string, MessageKey> = {
   jules: 'heroJules',
   stelle: 'heroStelle',
   karnok: 'heroKarnok',
-  thedragons: 'heroTheDragons',
-  hero8: 'heroTheDragons'
+  thedragons: 'heroTheDragons'
 };
 
 // Unknown heroes (a newly released one) fall back to the stored English name.

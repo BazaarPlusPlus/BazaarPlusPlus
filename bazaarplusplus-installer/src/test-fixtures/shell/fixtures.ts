@@ -28,7 +28,6 @@ export const gameMissing: InstallState = emptyInstallState;
 
 export const installable: InstallState = {
   selected_game_path: '/Games/The Bazaar',
-  steam_path: '/Games/Steam',
   game: { path_valid: true },
   mod_state: { installed: false, ready: false },
   actions: {
