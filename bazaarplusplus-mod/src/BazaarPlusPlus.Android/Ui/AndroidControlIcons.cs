@@ -3,15 +3,17 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;
 
-/// <summary>Panel and playback artwork; owned sprites survive scene loads.</summary>
+/// <summary>
+/// The touch shortcuts' artwork (Collection, History, Ten-Win Builds), decoded from the PNGs
+/// linked into this assembly. Owned sprites survive scene loads, and each texture keeps no CPU
+/// copy of its pixels once its sprite exists.
+/// </summary>
 internal sealed class AndroidControlIcons : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();
     public Sprite Collection { get; }
     public Sprite History { get; }
     public Sprite TenWins { get; }
-    public Sprite Play { get; }
-    public Sprite Pause { get; }
 
     public AndroidControlIcons()
     {
@@ -20,8 +22,6 @@ internal sealed class AndroidControlIcons : IDisposable
             Collection = Load("Controls.collection.png");
             History = Load("Controls.history.png");
             TenWins = Load("Controls.ten-win-builds.png");
-            Play = PlaybackGlyph(true);
-            Pause = PlaybackGlyph(false);
         }
         catch
         {
@@ -39,19 +39,77 @@ internal sealed class AndroidControlIcons : IDisposable
         using var buffer = new MemoryStream();
         stream.CopyTo(buffer);
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        Own(texture);
+        Own(_owned, texture);
         if (!ImageConversion.LoadImage(texture, new Il2CppStructArray<byte>(buffer.ToArray())))
             throw new InvalidOperationException("Cannot decode control artwork: " + resource);
-        return Sprite(texture, texture.width);
+        return GpuOnlySprite(_owned, texture);
     }
 
-    // The same play triangle / pause bars as the desktop CombatPlaybackIcon, rasterized
-    // once for IL2CPP's ordinary Image component instead of injecting a custom Graphic.
-    private Sprite PlaybackGlyph(bool play)
+    /// <summary>
+    /// A sprite over all of <paramref name="texture"/>; then the texture is uploaded without a
+    /// CPU copy. The sprite is cut first because its mesh is read from those pixels.
+    /// </summary>
+    internal static Sprite GpuOnlySprite(List<UnityEngine.Object> owned, Texture2D texture)
+    {
+        texture.filterMode = FilterMode.Bilinear;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        var sprite = Sprite.Create(
+            texture,
+            new Rect(0, 0, texture.width, texture.height),
+            new Vector2(.5f, .5f)
+        );
+        Own(owned, sprite);
+        texture.Apply(false, true);
+        return sprite;
+    }
+
+    internal static void Own(List<UnityEngine.Object> owned, UnityEngine.Object asset)
+    {
+        asset.hideFlags = HideFlags.DontUnloadUnusedAsset;
+        owned.Add(asset);
+    }
+
+    internal static void DestroyAll(List<UnityEngine.Object> owned)
+    {
+        foreach (var asset in owned)
+            if (asset != null)
+                UnityEngine.Object.Destroy(asset);
+        owned.Clear();
+    }
+
+    public void Dispose() => DestroyAll(_owned);
+}
+
+/// <summary>
+/// The combat clock's play and pause glyphs: the same play triangle / pause bars as the desktop
+/// CombatPlaybackIcon, rasterized once for IL2CPP's ordinary Image component instead of injecting
+/// a custom Graphic. It decodes no PNG; owned sprites survive scene loads.
+/// </summary>
+internal sealed class AndroidPlaybackIcons : IDisposable
+{
+    private readonly List<UnityEngine.Object> _owned = new();
+    public Sprite Play { get; }
+    public Sprite Pause { get; }
+
+    public AndroidPlaybackIcons()
+    {
+        try
+        {
+            Play = Glyph(true);
+            Pause = Glyph(false);
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    private Sprite Glyph(bool play)
     {
         const int size = 64;
         var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        Own(texture);
+        AndroidControlIcons.Own(_owned, texture);
         var pixels = new Il2CppStructArray<Color>(size * size * 1L);
         for (var y = 0; y < size; y++)
         for (var x = 0; x < size; x++)
@@ -62,34 +120,8 @@ internal sealed class AndroidControlIcons : IDisposable
             pixels[y * size + x] = inside ? AndroidUiKit.TextColor : Color.clear;
         }
         texture.SetPixels(pixels);
-        texture.Apply();
-        return Sprite(texture, size);
+        return AndroidControlIcons.GpuOnlySprite(_owned, texture);
     }
 
-    private Sprite Sprite(Texture2D texture, int width)
-    {
-        texture.filterMode = FilterMode.Bilinear;
-        texture.wrapMode = TextureWrapMode.Clamp;
-        var sprite = UnityEngine.Sprite.Create(
-            texture,
-            new Rect(0, 0, width, texture.height),
-            new Vector2(.5f, .5f)
-        );
-        Own(sprite);
-        return sprite;
-    }
-
-    private void Own(UnityEngine.Object asset)
-    {
-        asset.hideFlags = HideFlags.DontUnloadUnusedAsset;
-        _owned.Add(asset);
-    }
-
-    public void Dispose()
-    {
-        foreach (var asset in _owned)
-            if (asset != null)
-                UnityEngine.Object.Destroy(asset);
-        _owned.Clear();
-    }
+    public void Dispose() => AndroidControlIcons.DestroyAll(_owned);
 }

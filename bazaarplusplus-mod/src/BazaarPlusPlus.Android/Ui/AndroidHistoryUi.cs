@@ -179,7 +179,7 @@ internal static class AndroidHistoryUi
     public static RectTransform Panel(Transform parent, string name, TouchRect area)
     {
         var rect = AndroidTouchScreen.Child(name, parent, area);
-        Skin.Frame(rect, PanelFill);
+        Skin.Frame(rect, PanelFill, borderOnly: true);
         var swallow = rect.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
         return rect;
@@ -232,7 +232,8 @@ internal static class AndroidHistoryUi
 
     /// <summary>
     /// A text input: one line for a code, several for a note. Its value is read when the user
-    /// submits, so it needs no change listener.
+    /// submits; a caller that follows edits (the note's count) adds its listener through
+    /// <see cref="AndroidUiActions.OnChanged"/>.
     /// </summary>
     public static TMP_InputField Input(
         Transform parent,
@@ -246,7 +247,7 @@ internal static class AndroidHistoryUi
     )
     {
         var rect = AndroidTouchScreen.Child(name, parent, area);
-        Skin.Frame(rect, InputFill);
+        Skin.Frame(rect, InputFill, borderOnly: true);
         var background = rect.GetComponent<Image>();
         var viewport = AndroidUiKit.Rect(
             "TextViewport",

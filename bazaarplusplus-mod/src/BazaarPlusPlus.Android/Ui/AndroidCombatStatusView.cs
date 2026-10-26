@@ -19,7 +19,7 @@ internal sealed class AndroidCombatStatusView(
     private GameObject? _root;
     private TextMeshProUGUI? _time;
     private Image? _pauseIcon;
-    private AndroidControlIcons? _icons;
+    private AndroidPlaybackIcons? _icons;
     private TextMeshProUGUI? _speedText;
     private Button? _pause;
     private Button? _speed;
@@ -63,7 +63,7 @@ internal sealed class AndroidCombatStatusView(
             // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
             // the clock as it reappears; above the board HUD (order 0).
             _root = AndroidUiKit.CreateOverlayCanvas("BPP.CombatStatus", 149);
-            _icons = new AndroidControlIcons();
+            _icons = new AndroidPlaybackIcons();
             var layout = TouchHudLayout.Playback(chrome.Metrics);
             var plaque = AndroidTouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
             var background = AndroidUiKit.Fill(plaque, AndroidUiKit.ButtonColor, false);

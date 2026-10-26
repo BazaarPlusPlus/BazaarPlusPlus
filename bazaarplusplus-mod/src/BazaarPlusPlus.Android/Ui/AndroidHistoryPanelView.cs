@@ -227,12 +227,55 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _badges?.Dispose();
     }
 
+    // The backdrop hides the game around the sheet and takes the touches that land there. It
+    // covers only the margins, as four bands, because the sheet paints its own opaque backing: a
+    // backdrop across the whole canvas would fill every sheet pixel twice. The bands reach the
+    // canvas edges through their anchors, so no rounding of the canvas size leaves a seam.
+    private void BuildBackdrop()
+    {
+        var sheet = _l.Sheet;
+        var metrics = _l.Metrics;
+        if (sheet.Top > 0f)
+            Band("BackdropTop", new(0f, 1f), new(1f, 1f), new(0f, -sheet.Top), Vector2.zero);
+        if (metrics.CanvasHeight > sheet.Bottom)
+            Band("BackdropBottom", Vector2.zero, Vector2.one, Vector2.zero, new(0f, -sheet.Bottom));
+        if (sheet.Left > 0f)
+            Band(
+                "BackdropLeft",
+                new(0f, 1f),
+                new(0f, 1f),
+                new(0f, -sheet.Bottom),
+                new(sheet.Left, -sheet.Top)
+            );
+        if (metrics.CanvasWidth > sheet.Right)
+            Band(
+                "BackdropRight",
+                new(0f, 1f),
+                new(1f, 1f),
+                new(sheet.Right, -sheet.Bottom),
+                new(0f, -sheet.Top)
+            );
+
+        void Band(
+            string name,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            Vector2 offsetMin,
+            Vector2 offsetMax
+        ) =>
+            AndroidUiKit.Fill(
+                AndroidUiKit.Rect(name, Surface, anchorMin, anchorMax, offsetMin, offsetMax),
+                AndroidHistoryUi.Backdrop
+            );
+    }
+
     private void Build()
     {
-        AndroidUiKit.Fill(Surface, AndroidHistoryUi.Backdrop);
+        BuildBackdrop();
         AndroidHistoryUi.Skin.Frame(
             AndroidTouchScreen.Child("Sheet", Surface, _l.Sheet),
-            AndroidHistoryUi.PanelFill
+            AndroidHistoryUi.PanelFill,
+            borderOnly: true
         );
         var tab = _l.ButtonFont;
         _runsTab = AndroidHistoryUi
@@ -1199,15 +1242,21 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     }
 
     // A thin bar in the gutter right of a list while its rows overflow, so a list that scrolls
-    // looks it.
+    // looks it. The bar is written only when its visibility or placement changed, so a list at
+    // rest marks nothing on the view's shared canvas dirty. A view build makes new thumbs, so a
+    // relayout starts from an empty cache.
     private sealed class ScrollThumb
     {
         private readonly ScrollRect _scroll;
+        private readonly RectTransform _scrollRect;
         private readonly RectTransform _bar;
+        private bool _shown;
+        private TouchRect? _placed;
 
         internal ScrollThumb(ScrollRect scroll, TouchMetrics metrics)
         {
             _scroll = scroll;
+            _scrollRect = scroll.GetComponent<RectTransform>();
             _bar = AndroidUiKit.Rect(
                 "Thumb",
                 scroll.transform,
@@ -1226,21 +1275,25 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             var view = _scroll.viewport.rect.height;
             var content = _scroll.content.sizeDelta.y;
             var show = _scroll.gameObject.activeInHierarchy && content > view + 1f;
-            AndroidHistoryUi.SetActive(_bar.gameObject, show);
+            if (show != _shown)
+            {
+                _shown = show;
+                _bar.gameObject.SetActive(show);
+            }
             if (!show)
                 return;
             var height = Mathf.Max(metrics.Dp(20f), view * view / content);
             var progress = Mathf.Clamp01(_scroll.content.anchoredPosition.y / (content - view));
-            var width = metrics.Dp(3f);
-            AndroidTouchScreen.Place(
-                _bar,
-                new TouchRect(
-                    _scroll.GetComponent<RectTransform>().rect.width + metrics.Dp(2f),
-                    (view - height) * progress,
-                    width,
-                    height
-                )
+            var placed = new TouchRect(
+                _scrollRect.rect.width + metrics.Dp(2f),
+                (view - height) * progress,
+                metrics.Dp(3f),
+                height
             );
+            if (placed == _placed)
+                return;
+            _placed = placed;
+            AndroidTouchScreen.Place(_bar, placed);
         }
     }
 

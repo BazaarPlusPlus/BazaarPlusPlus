@@ -205,7 +205,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
             if (facts != _shownFacts)
                 RefreshBoardMessages();
             View?.Tick();
-            _note?.Tick();
             _nativeSkills.Tick();
         }
         catch (Exception exception)

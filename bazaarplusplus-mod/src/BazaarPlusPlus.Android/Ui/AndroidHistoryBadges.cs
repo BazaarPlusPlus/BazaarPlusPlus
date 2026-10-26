@@ -9,10 +9,13 @@ namespace BazaarPlusPlus.Android.Ui;
 /// History's two BPP badge atlases, the desktop's own PNGs linked into this assembly: the
 /// battle win and loss badges, and the run state badges (completed, abandoned, active). They
 /// decode through <c>ImageConversion.LoadImage</c> on the main thread; a failure is logged and
-/// the rows show their text fallback instead. A non-additive scene load unloads every asset no
-/// live object references, which would destroy whichever atlas no row showed at that moment
-/// (the run states while Ghost rows were bound, so runs fell back to "?" after a replay), so each
-/// texture and sprite is marked <c>DontUnloadUnusedAsset</c> and <see cref="Dispose"/> destroys it.
+/// the rows show their text fallback instead. Once its sprites exist an atlas keeps no CPU copy
+/// of its pixels (<c>Apply(false, true)</c>, not <c>LoadImage</c>'s <c>markNonReadable</c>,
+/// whose interop overload goes through a boxed <c>Il2CppSystem.ReadOnlySpan</c>). A
+/// non-additive scene load unloads every asset no live object references, which would destroy
+/// whichever atlas no row showed at that moment (the run states while Ghost rows were bound,
+/// so runs fell back to "?" after a replay), so each texture and sprite is marked
+/// <c>DontUnloadUnusedAsset</c> and <see cref="Dispose"/> destroys it.
 /// </summary>
 internal sealed class AndroidHistoryBadges : IDisposable
 {
@@ -97,6 +100,8 @@ internal sealed class AndroidHistoryBadges : IDisposable
             sprites[index].hideFlags = HideFlags.DontUnloadUnusedAsset;
             _owned.Add(sprites[index]);
         }
+        // The sprites exist, so the decoded pixels go: the texture stays on the GPU only.
+        texture.Apply(false, true);
         return sprites;
     }
 }
