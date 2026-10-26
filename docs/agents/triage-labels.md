@@ -10,4 +10,4 @@ The triage skills speak in five canonical roles. This table maps each role to th
 | `ready-for-human` | `ready-for-human` | Requires human implementation            |
 | `wontfix`         | `wontfix`         | Will not be actioned                     |
 
-`wontfix` already exists on the repository; create the others with `gh label create` the first time a skill applies them.
+All five labels exist on the repository.

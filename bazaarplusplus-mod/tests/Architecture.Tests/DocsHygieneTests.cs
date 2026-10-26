@@ -21,7 +21,7 @@ public class DocsHygieneTests
     private static readonly (string Path, int MaxBytes)[] AlwaysLoadedBudgets =
     {
         ("AGENTS.md", 9 * 1024),
-        ("CONTEXT.md", 13 * 1024),
+        ("GLOSSARY.md", 13 * 1024),
         ("docs/MEMORY.md", 10 * 1024),
         ("docs/ARCHITECTURE.md", 14 * 1024),
         ("docs/README.md", 6 * 1024),
@@ -192,7 +192,7 @@ public class DocsHygieneTests
 
     private static IEnumerable<string> MarkdownFiles(string repoRoot)
     {
-        foreach (var relative in new[] { "AGENTS.md", "CONTEXT.md", "README.md" })
+        foreach (var relative in new[] { "AGENTS.md", "GLOSSARY.md", "README.md" })
         {
             var path = Path.Combine(repoRoot, relative);
             if (File.Exists(path))

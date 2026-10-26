@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// The pure lifecycle rules of the Overlay Panel Host (CONTEXT.md §Overlay panels, ADR-0005): it
+// The pure lifecycle rules of the Overlay Panel Host (GLOSSARY.md §Overlay panels, ADR-0005): it
 // holds no delegate and calls nothing. OverlayPanelHost reads each evaluation's facts, asks this
 // core for directives, and runs them.
 

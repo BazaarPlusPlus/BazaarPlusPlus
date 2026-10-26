@@ -9,5 +9,6 @@ Plans, feature requests, and bugs for every project live as issues in the one mo
   gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'
   ```
 
+- Make a ticket a sub-issue of its parent with `gh issue create --parent <parent>`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards.
 - **PRs as a request surface: no.** Triage runs over issues only. _(Set to `yes` to triage external pull requests too; `/triage` reads this flag.)_
-- "Publish to the issue tracker" means `gh issue create`; "fetch the relevant ticket" means `gh issue view <number> --comments`.
+- "Publish to the issue tracker" means `gh issue create`; "fetch the relevant ticket" means `gh issue view <number> --json number,title,body,labels,comments`.

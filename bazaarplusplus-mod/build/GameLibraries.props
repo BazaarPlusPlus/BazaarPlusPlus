@@ -1,5 +1,5 @@
 <Project>
-  <!-- Game-supplied libraries (see CONTEXT.md and ADR-0010): the game's Managed directory loads
+  <!-- Game-supplied libraries (see GLOSSARY.md and ADR-0010): the game's Managed directory loads
        these at runtime, so BPP compiles against those exact files, never publicizes them, and
        never ships a copy. Removing their central PackageVersion makes a PackageReference fail
        restore. A project opts in with BppReferenceGameLibraries=true. -->

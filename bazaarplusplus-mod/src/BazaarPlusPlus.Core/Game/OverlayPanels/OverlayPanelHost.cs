@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// The Overlay Panel Host (CONTEXT.md §Overlay panels): it holds the registered Main Overlay
+// The Overlay Panel Host (GLOSSARY.md §Overlay panels): it holds the registered Main Overlay
 // Panels, reads each evaluation's facts from them, asks the pure OverlayLifecycleCore for
 // directives, and runs those directives with every callback guarded on its own. One adapter
 // per Host feeds it frames: DesktopOverlayPanels and AndroidOverlayPanels.

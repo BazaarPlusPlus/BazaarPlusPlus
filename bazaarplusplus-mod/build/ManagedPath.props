@@ -1,7 +1,7 @@
 <Project>
   <!--
     Game assemblies are a locked build input (docs/adr/0004-pinned-game-assembly-snapshots.md,
-    the Snapshot Lock in the root CONTEXT.md). ManagedPath resolves in this order and nowhere else:
+    the Snapshot Lock in the root GLOSSARY.md). ManagedPath resolves in this order and nowhere else:
       1. an explicit -p:ManagedPath (scripts forward BPP_MANAGED_PATH this way);
       2. the lock entry game-libs.lock.json names for this host platform and $(BppSnapshotChannel),
          default online: the fetched snapshot under game-libs/<platform>-<channel>-<gameVersion>/,

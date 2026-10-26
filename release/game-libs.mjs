@@ -10,7 +10,7 @@ import { WORKSPACE_ROOT } from './product.mjs';
 import { putReplaceable, r2StoreFromEnvironment } from './r2-store.mjs';
 
 // Game Assembly Snapshots, Interop Snapshots and the Snapshot Lock (root
-// CONTEXT.md, ADR 0004 and ADR 0008). This module owns the lock schema, the
+// GLOSSARY.md, ADR 0004 and ADR 0008). This module owns the lock schema, the
 // Managed- and interop-directory digests that the lock, the snapshot manifest
 // and the sealed build record share, and the private store layout.
 // bazaarplusplus-mod/scripts/game.sh drives it through the CLI at the bottom;

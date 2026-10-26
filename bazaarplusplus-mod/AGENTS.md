@@ -1,19 +1,19 @@
 # AGENTS.md
 
-The mod: the BepInEx Desktop Host and the LemonLoader Android Host (root `CONTEXT.md`, Host). Repo-wide rules are in `../AGENTS.md`; this file holds what is specific to the mod and points at everything else.
+The mod: the BepInEx Desktop Host and the LemonLoader Android Host (root `GLOSSARY.md`, Host). Repo-wide rules are in `../AGENTS.md`; this file holds what is specific to the mod and points at everything else.
 
 | When you are about to | Read |
 |---|---|
 | Touch any code | `docs/MEMORY.md` |
 | Change a feature | its `docs/architecture/` doc, Gotchas included; `docs/ARCHITECTURE.md` routes by feature |
-| Name a domain concept | `CONTEXT.md` |
+| Name a domain concept | `GLOSSARY.md` |
 | Find who owns or constructs something | `docs/ARCHITECTURE.md` |
 | Reopen a settled decision | `docs/adr/` |
 | Add, move, or delete a document | `docs/README.md` |
 
 ## Build and test
 
-`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.sh`. Deploy only through `just mod::build --deploy`: a raw `dotnet build` skips the macOS trampoline repair every game update needs. Game assemblies resolve via `ManagedPath` from the Snapshot Lock (`build/ManagedPath.props`, root `CONTEXT.md`); override with `-p:ManagedPath=...`, and `just mod::fetch <platform> <channel>` explains a mismatch.
+`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.sh`. Deploy only through `just mod::build --deploy`: a raw `dotnet build` skips the macOS trampoline repair every game update needs. Game assemblies resolve via `ManagedPath` from the Snapshot Lock (`build/ManagedPath.props`, root `GLOSSARY.md`); override with `-p:ManagedPath=...`, and `just mod::fetch <platform> <channel>` explains a mismatch.
 
 What `just --list mod` cannot tell you:
 

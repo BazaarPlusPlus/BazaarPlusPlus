@@ -7,7 +7,7 @@ bazaarplusplus.com. Repo-wide rules are in `../AGENTS.md`.
 | Change routes, URL/history behavior, the Hero metrics flow, or code crossing modules (implement in the named owner; if none fits, extend the boundary in that doc in the same change) | `docs/ARCHITECTURE.md` |
 | Change how Hero metrics are fetched locally, or reach for a metrics proxy or credentials | `docs/adr/0001-direct-metrics-origin.md` (dev and preview read the production origin over CORS; no credentials) |
 | Change visual styling, tokens, shared UI components, or user-facing copy | `../docs/design.md` (values live in `../design/`) |
-| Name or change Hero Analysis, its scope, or dataset coverage semantics | `CONTEXT.md` |
+| Name or change Hero Analysis, its scope, or dataset coverage semantics | `GLOSSARY.md` |
 | Upgrade `typescript` or the oxc toolchain (`typescript` and `oxlint-tsgolint` majors move together) | `docs/adr/0002-oxc-toolchain.md` |
 
 ## Verification

@@ -8,7 +8,7 @@ import { buildZipBuffer } from './payload-zip.mjs';
 import { readHistoryDatabaseContract } from './history-database.mjs';
 import { releasePlatform } from './release-platforms.mjs';
 
-// The Managed Payload (root CONTEXT.md, mod ADR-0014): the managed and
+// The Managed Payload (root GLOSSARY.md, mod ADR-0014): the managed and
 // history-contract files of one product version on one platform, which the
 // mod's self-update installs without the installer or a new APK. prepare
 // writes the Managed Payload Manifest into the staged Payload beside the mod,

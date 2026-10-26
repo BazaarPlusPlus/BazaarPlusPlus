@@ -31,4 +31,4 @@ Platform builds run through the workspace release commands (`just release::build
 
 ## Documentation
 
-**Start with [`CONTEXT.md`](CONTEXT.md)**: the vocabulary plus which topic doc to open for which kind of work. Decisions are in `docs/adr/`; [ADR-0007](docs/adr/0007-documentation-contract.md) defines this layout. Platform smoke-test gaps are GitHub issues labelled `manual-validation`.
+**Start with [`GLOSSARY.md`](GLOSSARY.md)**: the vocabulary plus which topic doc to open for which kind of work. Decisions are in `docs/adr/`; [ADR-0007](docs/adr/0007-documentation-contract.md) defines this layout. Platform smoke-test gaps are GitHub issues labelled `manual-validation`.

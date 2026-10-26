@@ -1,6 +1,6 @@
 # Self-update
 
-The mod updates its own Managed Payload (root `CONTEXT.md`). Core downloads and stages it, and the Updater swaps it in at the next start. ADR-0014 records why the work is split this way.
+The mod updates its own Managed Payload (root `GLOSSARY.md`). Core downloads and stages it, and the Updater swaps it in at the next start. ADR-0014 records why the work is split this way.
 
 ## Shape
 

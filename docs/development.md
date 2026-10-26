@@ -21,7 +21,7 @@ just doctor
 
 ### 游戏程序集
 
-mod 对照快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 指向的 Game Assembly Snapshot 编译（词条见根 `CONTEXT.md`，决定见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)），不再探测本机 Steam 路径。新 clone 在 `just setup` 之后执行一次：
+mod 对照快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 指向的 Game Assembly Snapshot 编译（词条见根 `GLOSSARY.md`，决定见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)），不再探测本机 Steam 路径。新 clone 在 `just setup` 之后执行一次：
 
 ```bash
 just mod::fetch macos online      # Windows 用 windows

@@ -22,7 +22,7 @@ function writeFile(rootDir, relativePath, content) {
 function createFixtureRoot() {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-docs-check-'));
   writeFile(rootDir, 'AGENTS.md', '# Agents\n');
-  writeFile(rootDir, 'CONTEXT.md', '# Context\n');
+  writeFile(rootDir, 'GLOSSARY.md', '# Context\n');
   writeFile(rootDir, 'README.md', '# Readme\n');
   return rootDir;
 }
@@ -120,14 +120,14 @@ test('a dead relative link fails and a live one passes', () => {
 
 test('a link is resolved against the linking file, not the repository root', () => {
   const rootDir = createFixtureRoot();
-  writeFile(rootDir, 'CONTEXT.md', '[Architecture](docs/architecture.md)\n');
+  writeFile(rootDir, 'GLOSSARY.md', '[Architecture](docs/architecture.md)\n');
   writeFile(rootDir, 'docs/architecture.md', '[ADR](adr/0001-example.md)\n');
   writeFile(rootDir, 'docs/adr/0001-example.md', '# One\n');
 
   expect(checkMarkdownLinks(rootDir).failures).toEqual([]);
 });
 
-// ---------- seam 3: CONTEXT.md reaches every topic ----------
+// ---------- seam 3: GLOSSARY.md reaches every topic ----------
 
 test('a topic missing from the entry map fails', () => {
   const rootDir = createFixtureRoot();
@@ -137,14 +137,14 @@ test('a topic missing from the entry map fails', () => {
     {
       file: 'docs/architecture.md',
       line: 1,
-      message: 'topic is not linked from `CONTEXT.md`'
+      message: 'topic is not linked from `GLOSSARY.md`'
     }
   ]);
 });
 
 test('a topic linked from the entry map passes, and ADRs need no entry', () => {
   const rootDir = createFixtureRoot();
-  writeFile(rootDir, 'CONTEXT.md', '[Architecture](docs/architecture.md)\n');
+  writeFile(rootDir, 'GLOSSARY.md', '[Architecture](docs/architecture.md)\n');
   writeFile(rootDir, 'docs/architecture.md', '# Architecture\n');
   writeFile(rootDir, 'docs/adr/0001-example.md', '# One\n');
 
@@ -163,7 +163,7 @@ test('listDocs tolerates a directory that does not exist yet', () => {
 
 test('runDocsCheck reports failure once any seam fails, and passes a clean tree', () => {
   const rootDir = createFixtureRoot();
-  writeFile(rootDir, 'CONTEXT.md', '[Architecture](docs/architecture.md)\n');
+  writeFile(rootDir, 'GLOSSARY.md', '[Architecture](docs/architecture.md)\n');
   writeFile(rootDir, 'src/lib.rs', 'fn main() {}\n');
   writeFile(rootDir, 'docs/architecture.md', 'Entry point: `src/lib.rs`.\n');
 

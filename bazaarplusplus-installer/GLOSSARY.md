@@ -11,13 +11,13 @@ BazaarPlusPlus Installer is a Tauri 2 desktop app for installing and managing th
 
 ## Vocabulary
 
-- **Payload**, **Payload Inventory**, **Release Manifest**, **Platform Release Manifest**, **Mainland Mirror** — product-wide terms defined in [the root glossary](../CONTEXT.md).
+- **Payload**, **Payload Inventory**, **Release Manifest**, **Platform Release Manifest**, **Mainland Mirror** — product-wide terms defined in [the root glossary](../GLOSSARY.md).
 - **Selected game installation** — the session-scoped The Bazaar installation shared by Install, History, and Stream.
 - **InstallState** — the native contract supplying detected paths, readiness, warnings, and action gates to the Install workflow.
 - **History List** — the paginated view of local runs, with totals across the complete local history. Its selected page is distinct from the Run Detail view and from thumbnail availability.
 - **History Thumbnail** — the cropped strip of a run's screenshot on a History List card, served under a process-local source bound to the installation the page was read from. Distinct from the OBS overlay's strip, which follows the captured stream installation.
 - **Run Detail** — the view of one history run, its battles, screenshot, and recorded videos.
-- **Data Root**, **Legacy Root** — defined in [the root glossary](../CONTEXT.md). The Install page lists and deletes Legacy Roots one at a time ([Install and reset](docs/install-reset.md#legacy-roots)).
+- **Data Root**, **Legacy Root** — defined in [the root glossary](../GLOSSARY.md). The Install page lists and deletes Legacy Roots one at a time ([Install and reset](docs/install-reset.md#legacy-roots)).
 - **V5 import** — the one-time copy of `BazaarPlusPlusV5/` history into the current Data Root as History-Only Runs, started from the Install page and followed by an offer to delete V5 ([Install and reset](docs/install-reset.md#v5-import), [History and storage](docs/history-storage.md#data-ownership)).
 - **Reset local data** — explicit deletion of the current Data Root, distinct from uninstall, which preserves every Data Root.
 - **Running-game refusal** — the fail-closed check that blocks an operation touching game-directory files while The Bazaar runs or cannot be confirmed closed; each operation has its own problem code.
