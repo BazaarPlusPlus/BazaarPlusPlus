@@ -93,6 +93,10 @@ internal static class NativeTooltipSuppression
     private static readonly NativeTooltipSuppressionOwnershipCore Ownership = new();
     private static readonly NativeTooltipControllerTopologyGeneration ControllerTopology = new();
     private static readonly List<AuxiliaryCanvasGate> AuxiliaryGates = new();
+
+    // One snapshot outlives every lease: controller Awake/OnDestroy patches and the tooltip
+    // parent's identity and child count invalidate it, so Begin rescans only after a change.
+    private static readonly NativeTooltipControllerSnapshot Controllers = new();
     private static bool? _requiredShowGatesInstalled;
     private static bool _suppressionActive;
 
@@ -140,8 +144,7 @@ internal static class NativeTooltipSuppression
                 preparationFailure = UnavailableAudit(cleanupReason);
             }
 
-            var controllers = new NativeTooltipControllerSnapshot();
-            var initialAudit = ConcealAndAuditNativeTooltips(controllers, authoritativeControllers);
+            var initialAudit = ConcealAndAuditNativeTooltips(Controllers, authoritativeControllers);
             if (
                 preparationFailure == null
                 && initialAudit.State == NativeTooltipCleanFrameState.Unavailable
@@ -158,7 +161,7 @@ internal static class NativeTooltipSuppression
                 };
             }
 
-            return new Lease(owner, preparationFailure, controllers, authoritativeControllers);
+            return new Lease(owner, preparationFailure, authoritativeControllers);
         }
         catch
         {
@@ -583,20 +586,17 @@ internal static class NativeTooltipSuppression
     {
         private readonly NativeTooltipSuppressionOwner _owner;
         private readonly NativeTooltipCleanFrameAudit? _preparationFailure;
-        private readonly NativeTooltipControllerSnapshot _controllers;
         private readonly NativeTooltipAuthoritativeControllers _authoritativeControllers;
         private bool _disposed;
 
         internal Lease(
             NativeTooltipSuppressionOwner owner,
             NativeTooltipCleanFrameAudit? preparationFailure,
-            NativeTooltipControllerSnapshot controllers,
             NativeTooltipAuthoritativeControllers authoritativeControllers
         )
         {
             _owner = owner;
             _preparationFailure = preparationFailure;
-            _controllers = controllers;
             _authoritativeControllers = authoritativeControllers;
         }
 
@@ -609,7 +609,7 @@ internal static class NativeTooltipSuppression
             if (_preparationFailure != null)
                 return _preparationFailure.Value;
 
-            return ConcealAndAuditNativeTooltips(_controllers, _authoritativeControllers);
+            return ConcealAndAuditNativeTooltips(Controllers, _authoritativeControllers);
         }
 
         public void Dispose()

@@ -47,6 +47,46 @@ internal static class NativeCardPreviewReflection
     private static readonly FieldInfo? CardImageField =
         CardPreviewBaseType != null ? AccessTools.Field(CardPreviewBaseType, "_cardImage") : null;
 
+    private static readonly FieldInfo? FrameContainerField =
+        CardPreviewBaseType != null
+            ? AccessTools.Field(CardPreviewBaseType, "_frameContainer")
+            : null;
+
+    /// <summary>
+    /// Reads the serialized <c>CardPreviewBase._frameContainer</c> on the preview root, accepted
+    /// only as a <see cref="RectTransform"/> carrying <paramref name="expectedName"/>, so callers
+    /// that located the frame by name keep resolving the same node.
+    /// </summary>
+    public static bool TryGetFrameContainer(
+        RectTransform preview,
+        string expectedName,
+        out RectTransform frameContainer
+    )
+    {
+        frameContainer = null!;
+        if (preview == null || CardPreviewBaseType == null || FrameContainerField == null)
+            return false;
+
+        try
+        {
+            var cardPreview = preview.GetComponent(CardPreviewBaseType);
+            if (
+                cardPreview == null
+                || FrameContainerField.GetValue(cardPreview) is not RectTransform rect
+                || rect == null
+                || !string.Equals(rect.name, expectedName, StringComparison.Ordinal)
+            )
+                return false;
+
+            frameContainer = rect;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static bool TryGetArtworkRect(
         RectTransform preview,
         out RectTransform artwork,

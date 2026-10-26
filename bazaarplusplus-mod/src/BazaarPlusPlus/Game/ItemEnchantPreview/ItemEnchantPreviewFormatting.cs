@@ -2,6 +2,7 @@
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Localization;
 using TheBazaar.Tooltips;
 using TheBazaar.Utilities;
 
@@ -16,6 +17,11 @@ public static class ItemEnchantPreviewFormatting
     private const string EntryBreakLineHeight = "<line-height=2.1em>";
     private const string LineHeightEnd = "</line-height>";
     private static readonly string EntryBreak = BuildEntryBreak(EntryBreakLineHeight);
+
+    // Localized labels for the active game language; a language switch empties the table. Only
+    // successful lookups are kept, so a failing one still reports and falls back every time.
+    private static readonly Dictionary<EEnchantmentType, string> EnchantmentLabels = new();
+    private static string? _enchantmentLabelLanguage;
 
     public static TooltipSegment CreateSegment(
         EEnchantmentType enchantmentType,
@@ -59,7 +65,25 @@ public static class ItemEnchantPreviewFormatting
     {
         try
         {
-            return new LocalizableText(enchantmentType.ToString()).GetLocalizedText();
+            var language = L.CurrentLanguageCode;
+            lock (EnchantmentLabels)
+            {
+                if (!string.Equals(_enchantmentLabelLanguage, language, StringComparison.Ordinal))
+                {
+                    EnchantmentLabels.Clear();
+                    _enchantmentLabelLanguage = language;
+                }
+                if (EnchantmentLabels.TryGetValue(enchantmentType, out var cached))
+                    return cached;
+            }
+
+            var label = new LocalizableText(enchantmentType.ToString()).GetLocalizedText();
+            lock (EnchantmentLabels)
+            {
+                if (string.Equals(_enchantmentLabelLanguage, language, StringComparison.Ordinal))
+                    EnchantmentLabels[enchantmentType] = label;
+            }
+            return label;
         }
         catch (Exception ex)
         {

@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using UnityEngine.AddressableAssets;
@@ -93,7 +94,7 @@ internal static class NativeGlobalAssetLoader
 
         try
         {
-            var raw = method.MakeGenericMethod(typeof(T)).Invoke(assetLoader, arguments);
+            var raw = ClosedMethods<T>.For(method).Invoke(assetLoader, arguments);
             if (raw is not Task<T> task)
             {
                 throw new InvalidOperationException(
@@ -108,6 +109,15 @@ internal static class NativeGlobalAssetLoader
             ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
             throw;
         }
+    }
+
+    // One closed generic per (open method, T); a failed close throws per call, as before.
+    private static class ClosedMethods<T>
+    {
+        private static readonly ConcurrentDictionary<MethodInfo, MethodInfo> Methods = new();
+
+        internal static MethodInfo For(MethodInfo method) =>
+            Methods.GetOrAdd(method, static open => open.MakeGenericMethod(typeof(T)));
     }
 
     private static MethodInfo? ResolveGenericMethod(string methodName, Type firstParameterType) =>

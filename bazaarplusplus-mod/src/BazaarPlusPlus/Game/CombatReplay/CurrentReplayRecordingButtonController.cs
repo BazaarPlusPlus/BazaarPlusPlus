@@ -43,6 +43,10 @@ internal sealed class CurrentReplayRecordingButtonController
     private CurrentReplayRecordingUiLayoutReasonCode _layoutReasonCode;
     private TooltipKey? _lastTooltipKey;
 
+    // Live controllers, so BindNativeActions needs no scene scan. Awake registers; Initialize
+    // registers again for a component added to an inactive object, whose Awake is deferred.
+    private static readonly List<CurrentReplayRecordingButtonController> Instances = new();
+
     internal static CurrentReplayRecordingButtonController? Attach(Button settingsButton)
     {
         if (settingsButton == null || settingsButton.transform.parent is not RectTransform host)
@@ -75,12 +79,15 @@ internal sealed class CurrentReplayRecordingButtonController
         Button nativeRecapBackButton
     )
     {
-        foreach (
-            var controller in FindObjectsOfType<CurrentReplayRecordingButtonController>(
-                includeInactive: true
-            )
-        )
+        for (var index = Instances.Count - 1; index >= 0; index--)
         {
+            var controller = Instances[index];
+            if (controller == null)
+            {
+                Instances.RemoveAt(index);
+                continue;
+            }
+
             controller._nativeReplayButton = nativeReplayButton;
             controller._nativeRecapButton = nativeRecapButton;
             controller._nativeRecapBackButton = nativeRecapBackButton;
@@ -88,8 +95,19 @@ internal sealed class CurrentReplayRecordingButtonController
         }
     }
 
+    private void Awake() => Register();
+
+    private void OnDestroy() => Instances.Remove(this);
+
+    private void Register()
+    {
+        if (!Instances.Contains(this))
+            Instances.Add(this);
+    }
+
     private void Initialize(Button settingsButton, GameObject clone)
     {
+        Register();
         _settingsButton = settingsButton;
         _clone = clone;
         _cloneRect = clone.transform as RectTransform;

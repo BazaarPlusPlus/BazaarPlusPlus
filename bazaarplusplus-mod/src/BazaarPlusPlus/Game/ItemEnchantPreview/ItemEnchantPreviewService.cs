@@ -49,16 +49,14 @@ public static class ItemEnchantPreviewService
                 enchantmentType,
                 enchantment
             );
-            if (ItemEnchantPreviewCache.TryGet(snapshot, out var cachedSegments))
-            {
-                segments.AddRange(cachedSegments);
+            var cacheKey = ItemEnchantPreviewCache.CreateKey(snapshot);
+            if (ItemEnchantPreviewCache.TryAppend(cacheKey, segments))
                 continue;
-            }
 
             var previewCard = ItemEnchantPreviewCardCloneFactory.Create(itemCard, snapshot);
             var renderedSegments = ItemEnchantPreviewRenderer.Render(previewCard, enchantment);
 
-            ItemEnchantPreviewCache.Save(snapshot, renderedSegments);
+            ItemEnchantPreviewCache.Save(cacheKey, renderedSegments);
             segments.AddRange(renderedSegments);
         }
 

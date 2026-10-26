@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using BazaarGameShared.Domain.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
+using BazaarPlusPlus.Localization;
 using TheBazaar;
 using TheBazaar.Tooltips;
 
@@ -27,6 +28,11 @@ internal enum PackageMerchantSummaryFailureReason
 /// </summary>
 internal static class PackageMerchantSummary
 {
+    // A Package item's passive block re-renders on every combat attribute event. The summary is
+    // keyed by static data, package template and game language; run state the native renderer
+    // could read is not, because the selling rule names the merchant rather than a run value.
+    private static readonly StaticDataScopedCache<Guid, Resolution> Resolutions = new();
+
     internal static bool TryResolve(
         ITCard? packageTemplate,
         out string summary,
@@ -34,32 +40,46 @@ internal static class PackageMerchantSummary
         out PackageMerchantSummaryFailureReason failureReason
     )
     {
-        summary = string.Empty;
-        merchantTemplateId = Guid.Empty;
+        var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
+        var language = staticData == null || packageTemplate == null ? null : L.CurrentLanguageCode;
+        if (
+            language == null
+            || !Resolutions.TryGet(staticData!, language, packageTemplate!.Id, out var resolution)
+        )
+        {
+            resolution = ResolveUncached(packageTemplate, staticData);
+            if (language != null && resolution.IsStable)
+                Resolutions.Set(staticData!, language, packageTemplate!.Id, resolution);
+        }
+
+        summary = resolution.Summary;
+        merchantTemplateId = resolution.MerchantTemplateId;
+        failureReason = resolution.FailureReason;
+        return failureReason == PackageMerchantSummaryFailureReason.None;
+    }
+
+    private static Resolution ResolveUncached(ITCard? packageTemplate, object? staticData)
+    {
         if (
             !PackageMerchantIdentity.TryResolveMerchantTemplateId(
                 packageTemplate,
-                out merchantTemplateId
+                out var merchantTemplateId
             )
         )
-        {
-            failureReason = PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable;
-            return false;
-        }
+            return new(PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable);
 
-        var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
         if (staticData == null)
-        {
-            failureReason = PackageMerchantSummaryFailureReason.StaticDataUnavailable;
-            return false;
-        }
+            return new(
+                PackageMerchantSummaryFailureReason.StaticDataUnavailable,
+                merchantTemplateId
+            );
 
         var merchantTemplate = BppStaticDataAccess.GetCardTemplate(staticData, merchantTemplateId);
         if (merchantTemplate == null)
-        {
-            failureReason = PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable;
-            return false;
-        }
+            return new(
+                PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable,
+                merchantTemplateId
+            );
 
         var merchantCard = DTOUtils.CreateCard(
             merchantTemplateId.ToString(),
@@ -67,21 +87,74 @@ internal static class PackageMerchantSummary
         );
         var merchantTooltip = CardTooltipData.CreateCardTooltipData(merchantCard);
         if (merchantTooltip == null)
-        {
-            failureReason = PackageMerchantSummaryFailureReason.NativeTooltipUnavailable;
-            return false;
-        }
+            return new(
+                PackageMerchantSummaryFailureReason.NativeTooltipUnavailable,
+                merchantTemplateId
+            );
 
         var (description, _) = merchantTooltip.GetCardDescription();
-        summary = PackageMerchantSummaryText.Format(merchantTooltip.GetTitle(), description);
+        var summary = PackageMerchantSummaryText.Format(merchantTooltip.GetTitle(), description);
         if (string.IsNullOrWhiteSpace(summary))
-        {
-            failureReason = PackageMerchantSummaryFailureReason.EmptyText;
-            return false;
-        }
+            return new(PackageMerchantSummaryFailureReason.EmptyText, merchantTemplateId);
 
-        failureReason = PackageMerchantSummaryFailureReason.None;
-        return true;
+        return new(PackageMerchantSummaryFailureReason.None, merchantTemplateId, summary);
+    }
+
+    private readonly record struct Resolution(
+        PackageMerchantSummaryFailureReason FailureReason,
+        Guid MerchantTemplateId = default,
+        string Summary = ""
+    )
+    {
+        // Static-data facts only: a native tooltip that failed to build or rendered empty may
+        // succeed on a later render, so those outcomes are recomputed.
+        internal bool IsStable =>
+            FailureReason
+                is PackageMerchantSummaryFailureReason.None
+                    or PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable
+                    or PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable;
+    }
+}
+
+/// <summary>
+/// A main-thread lookup cache bound to one static-data manager and game language; a different
+/// manager (GameData reload) or language empties it.
+/// </summary>
+internal sealed class StaticDataScopedCache<TKey, TValue>
+    where TKey : notnull
+{
+    private readonly Dictionary<TKey, TValue> _values = new();
+    private object? _staticData;
+    private string? _language;
+
+    internal bool TryGet(object staticData, string language, TKey key, out TValue value)
+    {
+        lock (_values)
+        {
+            Rescope(staticData, language);
+            return _values.TryGetValue(key, out value!);
+        }
+    }
+
+    internal void Set(object staticData, string language, TKey key, TValue value)
+    {
+        lock (_values)
+        {
+            Rescope(staticData, language);
+            _values[key] = value;
+        }
+    }
+
+    private void Rescope(object staticData, string language)
+    {
+        if (
+            ReferenceEquals(_staticData, staticData)
+            && string.Equals(_language, language, StringComparison.Ordinal)
+        )
+            return;
+        _values.Clear();
+        _staticData = staticData;
+        _language = language;
     }
 }
 

@@ -37,10 +37,15 @@ internal static class ChineseTranslationCatalog
         {
             try
             {
+                // A hit needs no file IO; only a miss re-stats the database for a game-side
+                // update, so a title cached before such an update refreshes on the next miss.
+                if (_connection != null && Cache.TryGetValue(source!, out var cached))
+                    return cached;
+
                 if (!EnsureConnection())
                     return null;
 
-                if (Cache.TryGetValue(source!, out var cached))
+                if (Cache.TryGetValue(source!, out cached))
                     return cached;
 
                 using var command = _connection!.CreateCommand();

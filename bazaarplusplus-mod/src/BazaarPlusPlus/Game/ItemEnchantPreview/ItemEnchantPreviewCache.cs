@@ -28,35 +28,29 @@ public static class ItemEnchantPreviewCache
         return $"{snapshot.InstanceId}|{snapshot.TemplateId}|{snapshot.Section}|{snapshot.CurrentEnchantment}|{snapshot.PreviewEnchantment}|{attributes}";
     }
 
-    public static bool TryGet(
-        ItemEnchantPreviewSnapshot snapshot,
-        out List<TooltipSegment> segments
-    )
+    /// <summary>
+    /// Appends the cached segments for <paramref name="key"/> (from <see cref="CreateKey"/>) to
+    /// <paramref name="destination"/> while the entry is younger than the TTL.
+    /// </summary>
+    public static bool TryAppend(string key, List<TooltipSegment> destination)
     {
-        var key = CreateKey(snapshot);
-
         lock (Cache)
         {
-            if (Cache.TryGetValue(key, out var entry))
+            if (!Cache.TryGetValue(key, out var entry))
+                return false;
+            if (DateTime.UtcNow - entry.CachedAtUtc <= CacheDuration)
             {
-                if (DateTime.UtcNow - entry.CachedAtUtc <= CacheDuration)
-                {
-                    segments = new List<TooltipSegment>(entry.Segments);
-                    return true;
-                }
-
-                Cache.Remove(key);
+                destination.AddRange(entry.Segments);
+                return true;
             }
-        }
 
-        segments = new List<TooltipSegment>();
-        return false;
+            Cache.Remove(key);
+            return false;
+        }
     }
 
-    public static void Save(ItemEnchantPreviewSnapshot snapshot, List<TooltipSegment> segments)
+    public static void Save(string key, List<TooltipSegment> segments)
     {
-        var key = CreateKey(snapshot);
-
         lock (Cache)
         {
             Cache[key] = new CacheEntry

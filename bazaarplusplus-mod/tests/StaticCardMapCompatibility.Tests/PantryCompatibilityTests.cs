@@ -23,12 +23,23 @@ internal static class PantryCompatibilityTests
         Check(omitted == 0 && map.Count == 1, "Pantry must be retained in the catalog.");
         var pantry = (TCardItem)map.Values.Single();
 
-        var serializer = JsonSerializer.Create(new BazaarJsonSerializerSettings());
-        CompatibleCardValueConverter.Install(serializer);
-        CompatibleCardValueConverter.Install(serializer);
+        var installed = JsonSerializer.Create(new BazaarJsonSerializerSettings());
+        CompatibleCardValueConverter.Install(installed);
+        CompatibleCardValueConverter.Install(installed);
         Check(
-            serializer.Converters.OfType<CompatibleCardValueConverter>().Count() == 1,
-            "Repeated native serializer getter calls must not stack converters."
+            installed.Converters.OfType<CompatibleCardValueConverter>().Count()
+                == (nativeAlreadySupportsPantry ? 0 : 1),
+            "Install the adapter once, and only on a client whose native registry lacks the discriminator."
+        );
+
+        // The fallback and round trips below exercise a client lacking the discriminator, where
+        // Install has put the adapter ahead of the native converter.
+        var serializer = JsonSerializer.Create(new BazaarJsonSerializerSettings());
+        serializer.Converters.Insert(
+            0,
+            new CompatibleCardValueConverter(
+                serializer.Converters.OfType<BazaarJsonDerivedTypeConverter>().Single()
+            )
         );
 
         var stash = new List<ICard> { Card(1, true), Card(1, true), Card(2, true), Card(3, false) };
