@@ -56,6 +56,25 @@ impl SemanticProblem {
     }
 }
 
+/// Runs a command body that touches SQLite, the filesystem or a subprocess on
+/// the blocking pool. Tauri runs an `async` command, including a synchronous
+/// one marked `#[tauri::command(async)]`, on the tokio workers that also serve
+/// the overlay's HTTP handlers and every other async command, so such a body
+/// must not run there. A body that panics reports `failed` with the join error.
+pub(crate) async fn run_blocking<T, F>(
+    failed: impl FnOnce(anyhow::Error) -> SemanticProblem + Send,
+    task: F,
+) -> Result<T, SemanticProblem>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, SemanticProblem> + Send + 'static,
+{
+    match tauri::async_runtime::spawn_blocking(task).await {
+        Ok(result) => result,
+        Err(error) => Err(failed(anyhow::Error::from(error))),
+    }
+}
+
 /// Renders an error and its causes as one diagnostic line, outermost first and
 /// joined by `": "`. A cause whose text the message before it already
 /// contains is skipped, because many library errors embed their source in

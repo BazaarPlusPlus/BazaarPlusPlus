@@ -51,8 +51,7 @@ pub(crate) async fn install(
         };
 
         execute_and_refresh(&before, &mut effects, || {
-            let installer_state = task_app.state::<InstallerContextState>();
-            build_install_state_raw(task_app.clone(), installer_state, Some(request.game_path))
+            build_install_state_raw(&task_app, Some(request.game_path))
         })
     })
     .await

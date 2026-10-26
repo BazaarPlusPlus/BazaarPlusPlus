@@ -63,10 +63,9 @@ impl StreamRuntime {
         &self,
         app: tauri::AppHandle,
     ) -> anyhow::Result<()> {
-        self.prepare_history_thumbnails_with(&production_server(&app), || {
-            resolve_installation(&app)
-        })
-        .await
+        let server = production_server(&app);
+        self.prepare_history_thumbnails_with(&server, move || resolve_installation(&app))
+            .await
     }
 
     pub(super) async fn prepare_history_thumbnails_with<A, F>(
@@ -76,11 +75,12 @@ impl StreamRuntime {
     ) -> anyhow::Result<()>
     where
         A: StreamServerAdapter + ?Sized,
-        F: FnOnce() -> StreamInstallation,
+        F: FnOnce() -> StreamInstallation + Send + 'static,
     {
         let _lifecycle = self.lifecycle.lock().await;
         if !self.snapshot().running {
-            self.ensure_locked(server, installation()).await?;
+            let installation = on_blocking_pool(move || Ok(installation())).await?;
+            self.ensure_locked(server, installation).await?;
         }
         Ok(())
     }
@@ -97,16 +97,18 @@ impl StreamRuntime {
         &self,
         app: tauri::AppHandle,
     ) -> anyhow::Result<StreamServiceStatus> {
-        self.ensure_with(&production_server(&app), resolve_installation(&app))
-            .await
+        let server = production_server(&app);
+        let installation = on_blocking_pool(move || Ok(resolve_installation(&app))).await?;
+        self.ensure_with(&server, installation).await
     }
 
     pub(crate) async fn restart(
         &self,
         app: tauri::AppHandle,
     ) -> anyhow::Result<StreamServiceStatus> {
-        self.restart_with(&production_server(&app), resolve_installation(&app))
-            .await
+        let server = production_server(&app);
+        let installation = on_blocking_pool(move || Ok(resolve_installation(&app))).await?;
+        self.restart_with(&server, installation).await
     }
 
     pub(crate) async fn stop(&self) -> anyhow::Result<StreamServiceStatus> {
@@ -115,7 +117,7 @@ impl StreamRuntime {
     }
 
     pub(crate) async fn set_window(&self, offset: usize) -> anyhow::Result<StreamServiceStatus> {
-        self.set_window_with(|snapshot, record_game_path| {
+        self.set_window_with(move |snapshot, record_game_path| {
             stream_window_for_offset(snapshot, record_game_path, offset)
         })
         .await
@@ -222,9 +224,12 @@ impl StreamRuntime {
         Ok(self.set_idle())
     }
 
+    /// `apply` queries the record database, so it runs on the blocking pool.
     pub(super) async fn set_window_with<F>(&self, apply: F) -> anyhow::Result<StreamServiceStatus>
     where
-        F: FnOnce(&StreamServiceStatus, Option<PathBuf>) -> anyhow::Result<(Option<String>, usize)>,
+        F: FnOnce(&StreamServiceStatus, Option<PathBuf>) -> anyhow::Result<(Option<String>, usize)>
+            + Send
+            + 'static,
     {
         let _lifecycle = self.lifecycle.lock().await;
         let snapshot = self.snapshot();
@@ -237,7 +242,8 @@ impl StreamRuntime {
             .expect("stream runtime poisoned")
             .active_record_game_path
             .clone();
-        let (active_from, active_window_offset) = apply(&snapshot, record_game_path)?;
+        let (active_from, active_window_offset) =
+            on_blocking_pool(move || apply(&snapshot, record_game_path)).await?;
         Ok(self.set_active_window(active_from, active_window_offset))
     }
 
@@ -321,6 +327,19 @@ fn production_server(app: &tauri::AppHandle) -> ProductionServer {
     ProductionServer {
         thumbnails: app.state::<HistoryThumbnails>().inner().clone(),
     }
+}
+
+/// Installation resolution probes the filesystem (and may run the first Steam
+/// detection) and window changes query SQLite, so neither runs on the async
+/// workers the overlay's HTTP handlers share.
+async fn on_blocking_pool<T, F>(task: F) -> anyhow::Result<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> anyhow::Result<T> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .context("Stream runtime task failed")?
 }
 
 fn resolve_installation(app: &tauri::AppHandle) -> StreamInstallation {
