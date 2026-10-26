@@ -55,6 +55,7 @@ public sealed class ManagedPayloadStager
     private readonly string _platformKey;
     private readonly ManagedPayloadHost _host;
     private readonly MinisignPublicKey _publicKey;
+    private string? _verifiedVersion;
 
     public ManagedPayloadStager(string updatesDirectory, string platformKey, SelfUpdateHost host)
         : this(updatesDirectory, platformKey, host, ReleaseSigningKey.PublicKey) { }
@@ -73,17 +74,29 @@ public sealed class ManagedPayloadStager
         _publicKey = publicKey ?? throw new ArgumentNullException(nameof(publicKey));
     }
 
-    /// <summary>Whether <paramref name="version"/> is staged complete and verified.</summary>
-    public bool IsStaged(string version) =>
-        StagedManagedPayload.TryVerify(
-            Path.Combine(_updatesDirectory, version),
-            _host,
-            _platformKey,
-            _publicKey,
-            out var manifest,
-            out _
-        )
-        && manifest!.Version == version;
+    /// <summary>
+    /// Whether <paramref name="version"/> is staged complete and verified. A version this
+    /// instance verified or staged is not read again: only this process and the next start's
+    /// Updater write <c>Updates/</c>, and the Updater verifies it again before any swap.
+    /// </summary>
+    public bool IsStaged(string version)
+    {
+        if (Volatile.Read(ref _verifiedVersion) == version)
+            return true;
+        var verified =
+            StagedManagedPayload.TryVerify(
+                Path.Combine(_updatesDirectory, version),
+                _host,
+                _platformKey,
+                _publicKey,
+                out var manifest,
+                out _
+            )
+            && manifest!.Version == version;
+        if (verified)
+            Volatile.Write(ref _verifiedVersion, version);
+        return verified;
+    }
 
     public async Task<ManagedPayloadStageResult> StageAsync(
         HttpClient httpClient,
@@ -157,6 +170,7 @@ public sealed class ManagedPayloadStager
             if (Directory.Exists(target))
                 Directory.Delete(target, recursive: true);
             Directory.Move(download, target);
+            Volatile.Write(ref _verifiedVersion, release.Version);
             return ManagedPayloadStageResult.Staged;
         }
         finally

@@ -38,6 +38,8 @@ internal sealed class AndroidVersionCheck : IDisposable
     private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(5);
 
     private readonly ReleaseManifestCheckLifecycle _lifecycle = new();
+    private readonly HttpClient _httpClient;
+    private readonly ReleaseManifestClient _client;
     private readonly MainMenuSelfUpdate _selfUpdate;
     private readonly string _gameVersion;
     private readonly Uri _manifest;
@@ -63,6 +65,14 @@ internal sealed class AndroidVersionCheck : IDisposable
         _manifest =
             manifestOverride
             ?? ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.AndroidPlatformKey);
+        // One client for the process: each visit reuses its pooled connection while it is still
+        // open, and the manifest client keeps the last answer for a conditional request.
+        _httpClient = CreateClient("VersionCheck", RequestTimeout);
+        _client = new ReleaseManifestClient(
+            _httpClient,
+            _manifest,
+            ReleaseManifestEndpoints.AndroidPlatformKey
+        );
         _selfUpdate = new MainMenuSelfUpdate(
             installRoot,
             dataRoot,
@@ -115,13 +125,9 @@ internal sealed class AndroidVersionCheck : IDisposable
     /// <summary>Starts this main-menu visit's check, replacing one still in flight.</summary>
     public void Begin()
     {
-        var httpClient = CreateClient("VersionCheck", RequestTimeout);
-        var lease = _lifecycle.Begin(httpClient);
-        var client = new ReleaseManifestClient(
-            httpClient,
-            _manifest,
-            ReleaseManifestEndpoints.AndroidPlatformKey
-        );
+        // The lifecycle only cancels a replaced visit; the shared client outlives every visit.
+        var lease = _lifecycle.Begin(NoOwner.Instance);
+        var client = _client;
         var selfUpdate = _selfUpdate;
         _check = _lifecycle.RunAsync(
             lease,
@@ -160,7 +166,11 @@ internal sealed class AndroidVersionCheck : IDisposable
         );
     }
 
-    public void Dispose() => _lifecycle.Dispose();
+    public void Dispose()
+    {
+        _lifecycle.Dispose();
+        _httpClient.Dispose();
+    }
 
     private void Apply(
         (ReleaseManifestFetchResult Result, MainMenuSelfUpdateEvaluation? Evaluation) check
@@ -237,5 +247,12 @@ internal sealed class AndroidVersionCheck : IDisposable
             BppLog.WarnEvent(logEvent, fields);
         else
             BppLog.WarnEvent(logEvent, result.Exception, fields);
+    }
+
+    private sealed class NoOwner : IDisposable
+    {
+        public static readonly NoOwner Instance = new();
+
+        public void Dispose() { }
     }
 }
