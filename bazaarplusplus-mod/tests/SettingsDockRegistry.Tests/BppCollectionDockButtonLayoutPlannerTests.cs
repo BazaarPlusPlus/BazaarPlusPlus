@@ -177,7 +177,7 @@ public class BppCollectionDockButtonLayoutPlannerTests
     }
 
     [Fact]
-    public void ResolveBeside_steps_left_past_a_blocker()
+    public void ResolveBeside_places_nothing_when_the_slot_next_to_the_gear_is_blocked()
     {
         var blocker = new BppDockButtonObstacle(
             "native-currency",
@@ -194,31 +194,26 @@ public class BppCollectionDockButtonLayoutPlannerTests
             new[] { blocker }
         );
 
-        Assert.True(plan.CanApply);
-        Assert.Equal(860f, plan.Bounds.CenterX);
-        Assert.Equal(100f, plan.Bounds.CenterY);
+        Assert.False(plan.CanApply);
+        Assert.Equal(980f, plan.Bounds.CenterX);
         Assert.Equal("native-currency", plan.BlockerName);
     }
 
     [Fact]
-    public void ResolveBeside_refuses_when_the_row_runs_out_of_viewport()
+    public void ResolveBeside_refuses_a_slot_outside_the_viewport()
     {
-        var blocker = new BppDockButtonObstacle(
-            "wall",
-            new BppDockButtonBounds(0f, 1040f, 0f, 300f),
-            isActive: true
-        );
+        var gearAtEdge = BppDockButtonBounds.FromCenter(50f, 100f, 100f, 100f);
 
         var plan = BppCollectionDockButtonLayoutPlanner.ResolveBeside(
             Viewport,
-            Gear,
+            gearAtEdge,
             100f,
             100f,
             20f,
-            new[] { blocker }
+            Array.Empty<BppDockButtonObstacle>()
         );
 
         Assert.False(plan.CanApply);
-        Assert.Equal("wall", plan.BlockerName);
+        Assert.Equal("viewport", plan.BlockerName);
     }
 }
