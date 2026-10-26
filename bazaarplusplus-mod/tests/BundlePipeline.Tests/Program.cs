@@ -62,7 +62,7 @@ try
     // run-only: one replayable PvP battle, no screenshot requested.
     CreateRun(store, "run-seal-001", minute: 0, screenshotRequested: false);
     SaveBattle(database, "battle-seal-001", "run-seal-001", minute: 0);
-    SaveReplay(replays, "battle-seal-001");
+    SealInputs.SaveReplay(replays, "battle-seal-001");
     var roundTrip = replays.LoadDetailed("battle-seal-001");
     Check.That(
         roundTrip.Status == FileBackedPayloadLoadStatus.Loaded
@@ -85,7 +85,7 @@ try
         "The sealed replayable battle should resolve through the shared contract."
     );
     artifacts.RecordQueue("run-only", database, "run-seal-001");
-    Execute(database, "DELETE FROM runs WHERE run_id='run-seal-001';");
+    SealInputs.Execute(database, "DELETE FROM runs WHERE run_id='run-seal-001';");
     Check.That(
         Count(database, "bundle_outbox", "run-seal-001") == 1,
         "The outbox must not FK-block Run deletion."
@@ -95,13 +95,20 @@ try
     CreateRun(store, "run-screenshot", minute: 60, screenshotRequested: true);
     var capturedAtUtc = PipelineInputs.Base.AddMinutes(61).AddSeconds(50);
     var relativeImage = "2099-01-01/2099-01-01_01-01-50-000_final_run-run-screenshot.png";
-    WritePng(Path.Combine(PathConstants.Screenshots(dataRoot), relativeImage));
+    SealInputs.WritePng(Path.Combine(PathConstants.Screenshots(dataRoot), relativeImage));
     var screenshots = new RunScreenshotSqliteStore(database);
-    screenshots.Save(Screenshot("shot-primary-001", relativeImage, capturedAtUtc));
+    screenshots.Save(
+        SealInputs.Screenshot("shot-primary-001", "run-screenshot", relativeImage, capturedAtUtc)
+    );
     ExpectSqliteConstraint(
         () =>
             screenshots.Save(
-                Screenshot("shot-primary-002", "2099-01-01/duplicate.png", capturedAtUtc)
+                SealInputs.Screenshot(
+                    "shot-primary-002",
+                    "run-screenshot",
+                    "2099-01-01/duplicate.png",
+                    capturedAtUtc
+                )
             ),
         "Only one primary screenshot may exist per run."
     );
@@ -135,7 +142,7 @@ try
         "A requested screenshot keeps the job waiting before its deadline."
     );
     artifacts.RecordQueue("screenshot-deadline:waiting", database, "run-waits-for-screenshot");
-    ExpireDeadline(database, "run-waits-for-screenshot");
+    SealInputs.ExpireDeadline(database, "run-waits-for-screenshot");
     await coordinator.ReconcileAsync(CancellationToken.None);
     var timedOut = Sealed(artifacts, dataRoot, "screenshot-deadline", "run-waits-for-screenshot");
     Check.That(
@@ -171,7 +178,7 @@ try
     // corrupt-replay: an undecodable replay waits for the deadline, then is omitted.
     CreateRun(store, "run-corrupt-replay", minute: 240, screenshotRequested: false);
     SaveBattle(database, "battle-corrupt", "run-corrupt-replay", minute: 240);
-    SaveReplay(replays, "battle-corrupt");
+    SealInputs.SaveReplay(replays, "battle-corrupt");
     File.WriteAllBytes(
         Directory.EnumerateFiles(PathConstants.CombatReplays(dataRoot), "battle-corrupt*").Single(),
         [0, 1, 2, 3]
@@ -187,7 +194,7 @@ try
         "An omitted replay keeps the job waiting before its deadline."
     );
     artifacts.RecordQueue("corrupt-replay:waiting", database, "run-corrupt-replay");
-    ExpireDeadline(database, "run-corrupt-replay");
+    SealInputs.ExpireDeadline(database, "run-corrupt-replay");
     await coordinator.ReconcileAsync(CancellationToken.None);
     var corrupt = Sealed(artifacts, dataRoot, "corrupt-replay", "run-corrupt-replay");
     Check.That(
@@ -300,49 +307,6 @@ static void SaveBattle(
         }
     );
 
-static void SaveReplay(CombatReplayPayloadStore replays, string battleId) =>
-    replays.Save(
-        new PvpReplayPayload
-        {
-            BattleId = battleId,
-            SpawnMessageBytes = ReplayBytes.Spawn,
-            CombatMessageBytes = ReplayBytes.Combat,
-            DespawnMessageBytes = ReplayBytes.Despawn,
-        }
-    );
-
-static RunScreenshotRecord Screenshot(
-    string id,
-    string relativePath,
-    DateTimeOffset capturedAtUtc
-) =>
-    new()
-    {
-        ScreenshotId = id,
-        RunId = "run-screenshot",
-        HeroName = "Vanessa",
-        IsPrimary = true,
-        ImageRelativePath = relativePath,
-        CapturedAtLocal = capturedAtUtc.ToOffset(TimeSpan.FromHours(8)),
-        CapturedAtUtc = capturedAtUtc,
-        Day = 10,
-        PlayerRank = "Legendary",
-        PlayerRating = 1533,
-        PlayerPosition = 41,
-        VictoriesAtCapture = 10,
-    };
-
-// A fixed gradient; the artifact verifier allows only JPEG's small lossy pixel error.
-static void WritePng(string path)
-{
-    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-    using var image = new Image<Rgba32>(96, 64);
-    for (var y = 0; y < image.Height; y++)
-    for (var x = 0; x < image.Width; x++)
-        image[x, y] = PipelineInputs.ScreenshotPixel(x, y);
-    image.SaveAsPng(path);
-}
-
 static void RoutingKeepsPveOutOfPersistence(string database)
 {
     Check.That(
@@ -406,21 +370,6 @@ static SealedBundle Sealed(PipelineArtifacts artifacts, string dataRoot, string 
     var payload = RunPayloadV6Codec.Decode(opened.RunPayload);
     Check.That(payload.RunId == runId, "The payload should preserve the Run identity.");
     return new SealedBundle(bytes, opened, payload);
-}
-
-static void ExpireDeadline(string database, string runId) =>
-    Execute(
-        database,
-        $"UPDATE bundle_seal_jobs SET input_deadline_at_ms={DateTimeOffset.UtcNow.AddSeconds(-1).ToUnixTimeMilliseconds()} WHERE run_id='{runId}';"
-    );
-
-static void Execute(string database, string sql)
-{
-    using var connection = new SqliteConnection($"Data Source={database}");
-    connection.Open();
-    using var command = connection.CreateCommand();
-    command.CommandText = sql;
-    command.ExecuteNonQuery();
 }
 
 static long Count(string database, string table, string runId) =>
@@ -508,7 +457,7 @@ static async Task VerifyRunSegmentProjectionAsync(string root)
     var database = PathConstants.RunLogDatabase(root);
     // The Missing set leaves the Battle unreplayable, which holds the Run until its deadline.
     await coordinator.ReconcileAsync(CancellationToken.None);
-    ExpireDeadline(database, "run-segment");
+    SealInputs.ExpireDeadline(database, "run-segment");
     await coordinator.ReconcileAsync(CancellationToken.None);
     using var connection = new SqliteConnection($"Data Source={database}");
     connection.Open();
@@ -921,6 +870,69 @@ internal static class ReplayBytes
         new NetMessageGameSim(new GameSim()) { MessageId = "despawn" },
         MessagePackConfig.Options
     );
+}
+
+// Seal inputs shared by the anchor and BundleSealFailureTests.
+internal static class SealInputs
+{
+    internal static void SaveReplay(CombatReplayPayloadStore replays, string battleId) =>
+        replays.Save(
+            new PvpReplayPayload
+            {
+                BattleId = battleId,
+                SpawnMessageBytes = ReplayBytes.Spawn,
+                CombatMessageBytes = ReplayBytes.Combat,
+                DespawnMessageBytes = ReplayBytes.Despawn,
+            }
+        );
+
+    internal static RunScreenshotRecord Screenshot(
+        string id,
+        string runId,
+        string relativePath,
+        DateTimeOffset capturedAtUtc
+    ) =>
+        new()
+        {
+            ScreenshotId = id,
+            RunId = runId,
+            HeroName = "Vanessa",
+            IsPrimary = true,
+            ImageRelativePath = relativePath,
+            CapturedAtLocal = capturedAtUtc.ToOffset(TimeSpan.FromHours(8)),
+            CapturedAtUtc = capturedAtUtc,
+            Day = 10,
+            PlayerRank = "Legendary",
+            PlayerRating = 1533,
+            PlayerPosition = 41,
+            VictoriesAtCapture = 10,
+        };
+
+    // A fixed gradient; the artifact verifier allows only JPEG's small lossy pixel error.
+    internal static void WritePng(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var image = new Image<Rgba32>(96, 64);
+        for (var y = 0; y < image.Height; y++)
+        for (var x = 0; x < image.Width; x++)
+            image[x, y] = PipelineInputs.ScreenshotPixel(x, y);
+        image.SaveAsPng(path);
+    }
+
+    internal static void ExpireDeadline(string database, string runId) =>
+        Execute(
+            database,
+            $"UPDATE bundle_seal_jobs SET input_deadline_at_ms={DateTimeOffset.UtcNow.AddSeconds(-1).ToUnixTimeMilliseconds()} WHERE run_id='{runId}';"
+        );
+
+    internal static void Execute(string database, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
 }
 
 internal sealed record SealedBundle(byte[] Bytes, OpenedBundleV6 Opened, RunPayloadV6 Payload);
