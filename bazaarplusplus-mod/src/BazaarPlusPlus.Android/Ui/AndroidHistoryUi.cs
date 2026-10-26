@@ -232,7 +232,8 @@ internal static class AndroidHistoryUi
 
     /// <summary>
     /// A text input: one line for a code, several for a note. Its value is read when the user
-    /// submits, so it needs no change listener.
+    /// submits; a caller that follows edits (the note's count) adds its listener through
+    /// <see cref="AndroidUiActions.OnChanged"/>.
     /// </summary>
     public static TMP_InputField Input(
         Transform parent,

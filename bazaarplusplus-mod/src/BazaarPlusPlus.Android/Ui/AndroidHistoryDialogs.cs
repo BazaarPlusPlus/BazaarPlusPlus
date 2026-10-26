@@ -395,6 +395,8 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
             layout.BodyFont,
             color: AndroidHistoryUi.Muted
         );
+        // The count follows each edit; nothing reads the field's text while it sits unchanged.
+        AndroidUiActions.OnChanged(_input, "history.note_input", text => ShowCount(text.Length));
         AndroidHistoryUi
             .Button(
                 dialog,
@@ -429,9 +431,9 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
         _saving = false;
         _input.SetTextWithoutNotify(note);
         _shownLength = -1;
+        ShowCount(note.Length);
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
-        Tick();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.note_opened"),
             ("note_length", note.Length)
@@ -470,13 +472,10 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
             Close("favorite_gone");
     }
 
-    /// <summary>Main thread, every frame: while open, the count follows the draft.</summary>
-    public void Tick()
+    // The count under the draft; the label is written only when the length changed.
+    private void ShowCount(int length)
     {
-        if (_disposed || !IsOpen)
-            return;
-        var length = (_input.text ?? string.Empty).Length;
-        if (length == _shownLength)
+        if (_disposed || length == _shownLength)
             return;
         _shownLength = length;
         _count.text = HistoryPanelText.FavoriteNoteCount(

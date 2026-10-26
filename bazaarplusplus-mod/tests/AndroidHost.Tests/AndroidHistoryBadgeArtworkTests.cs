@@ -35,4 +35,36 @@ public sealed class AndroidHistoryBadgeArtworkTests
 
         Assert.Equal(2, hideFlags);
     }
+
+    /// <summary>
+    /// History's atlases and the touch controls' artwork keep no CPU copy of their pixels: the
+    /// texture is applied as no longer readable, and only after its sprites are cut, because a
+    /// sprite's mesh is read from those pixels.
+    /// </summary>
+    [Theory]
+    [InlineData(Badges, "LoadAtlas")]
+    [InlineData("BazaarPlusPlus.Android.Ui.AndroidControlIcons", "GpuOnlySprite")]
+    public void Decoded_artwork_drops_its_cpu_pixels_once_its_sprites_exist(
+        string type,
+        string method
+    )
+    {
+        var instructions = Host
+            .Value.Types.Single(candidate => candidate.FullName == type)
+            .Methods.Single(candidate =>
+                candidate.Name == method && candidate.DeclaringType == type
+            )
+            .Instructions.ToList();
+
+        var lastSprite = instructions.FindLastIndex(op =>
+            op.Targets("UnityEngine.Sprite", "Create")
+        );
+        var apply = instructions.FindLastIndex(op => op.Targets("UnityEngine.Texture2D", "Apply"));
+
+        Assert.True(lastSprite >= 0, $"{type}.{method} cuts no sprite");
+        Assert.True(
+            apply > lastSprite,
+            $"{type}.{method} must apply its texture after its last sprite is cut"
+        );
+    }
 }

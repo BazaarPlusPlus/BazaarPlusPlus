@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Patches;
+using Il2CppTMPro;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
@@ -19,6 +20,17 @@ internal static class AndroidUiActions
         ArgumentNullException.ThrowIfNull(button);
         ArgumentNullException.ThrowIfNull(handler);
         button.onClick.AddListener((UnityAction)(() => Run(control, handler)));
+    }
+
+    /// <summary><paramref name="handler"/> gets the field's new text after each edit.</summary>
+    public static void OnChanged(TMP_InputField field, string control, Action<string> handler)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        ArgumentNullException.ThrowIfNull(handler);
+        field.onValueChanged.AddListener(
+            (UnityAction<string>)
+                new Action<string>(value => Run(control, () => handler(value ?? string.Empty)))
+        );
     }
 
     public static void Run(string control, Action handler)

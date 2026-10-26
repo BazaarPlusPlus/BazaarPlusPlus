@@ -13,15 +13,19 @@ internal sealed class AndroidNativeSkin
 
     public bool NeedsRefresh => _art.NeedsRefresh;
 
+    /// <summary>
+    /// An opaque backing with the native frame art's border over it. The art's centre is not
+    /// drawn: the backing is the interior, so a framed rect fills its interior once, not twice.
+    /// </summary>
     public void Frame(RectTransform rect, Color? backing = null)
     {
         var background = backing ?? AndroidUiKit.PanelColor;
         background.a = 1f;
         AndroidUiKit.Fill(rect, background);
-        DrawFrame(rect, fillCenter: true);
+        DrawFrame(rect);
     }
 
-    private void DrawFrame(RectTransform rect, bool fillCenter)
+    private void DrawFrame(RectTransform rect)
     {
         if (_art.Frame == null)
             return;
@@ -36,7 +40,7 @@ internal sealed class AndroidNativeSkin
         var image = AndroidUiKit.Fill(art, Color.white, false);
         image.sprite = _art.Frame;
         image.type = Image.Type.Sliced;
-        image.fillCenter = fillCenter;
+        image.fillCenter = false;
         image.color = Color.white;
     }
 
