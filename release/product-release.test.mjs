@@ -9,8 +9,10 @@ import {
   buildPlatformManifest,
   fragmentKey,
   managedPayloadKey,
-  validatePlatformFragment
+  validatePlatformFragment,
+  validatePlatformManifest
 } from './manifest.mjs';
+import { LEGACY_RELEASE_BASE_URL } from './downloads.ts';
 import {
   uploadPlatform,
   recordMainlandMirror,
@@ -815,6 +817,85 @@ test('re-running a platform promotion after both platforms aligned reports no ad
   const again = await promoteOne(next, store, 'macos');
   expect(again.advanced).toBe(false);
   expect(again.latest.version).toBe('3.1.2');
+});
+
+// The Platform Release Manifest the last 5.x release left under the legacy
+// origin, shaped like the live 5.7.0 one: no self-update facts.
+function legacyPlatformManifest(key) {
+  const release = `${LEGACY_RELEASE_BASE_URL}/5.7.0/${key}`;
+  return {
+    version: '5.7.0',
+    gitCommit: '5'.repeat(40),
+    notes: 'Release 5.7.0',
+    pub_date: '2026-10-08T04:48:26.752Z',
+    platforms: {
+      [key]: {
+        url: `${release}/updater/${key}-updater`,
+        signature: `${key}-signature-5.7.0`
+      }
+    },
+    downloads: {
+      [key]: {
+        url: `${release}/installer/${key}-installer`,
+        size: 8872188,
+        sha256: '9'.repeat(64),
+        mainlandUrl: `https://mirror.example/${key}-5.7.0`
+      }
+    }
+  };
+}
+
+test('the first 6.0.0 release promotes over the 5.x manifests the bucket migration copies', async () => {
+  const store = new MemoryStore();
+  const legacy = ['windows-x86_64', 'darwin-aarch64'].map(
+    legacyPlatformManifest
+  );
+  const seed = (key, value) =>
+    store.objects.set(key, {
+      bytes: Buffer.from(JSON.stringify(value)),
+      etag: `"${key}"`
+    });
+  for (const manifest of legacy)
+    seed(`latest/${Object.keys(manifest.platforms)[0]}.json`, manifest);
+  seed('latest.json', {
+    ...legacy[0],
+    platforms: { ...legacy[0].platforms, ...legacy[1].platforms },
+    downloads: { ...legacy[0].downloads, ...legacy[1].downloads }
+  });
+  const data = fixture('6.0.0');
+  expect((await upload(data, store, 'windows')).selfUpdatable).toBe(false);
+  expect((await upload(data, store, 'macos')).selfUpdatable).toBe(false);
+  await recordAll(data, store);
+  const log = vi.fn();
+  expect((await promoteOne(data, store, 'windows', { log })).advanced).toBe(
+    false
+  );
+  expect(log).toHaveBeenCalledWith(
+    expect.stringMatching(/platforms are at 6\.0\.0 and 5\.7\.0/)
+  );
+  const latest = await promote(data, store);
+  expect(latest).toMatchObject({
+    version: '6.0.0',
+    downloads: {
+      'windows-x86_64': {
+        url: expect.stringMatching(`^${baseUrl}/6.0.0/`),
+        mainlandUrl: mirrorUrl('windows', '6.0.0'),
+        selfUpdatable: false
+      },
+      'darwin-aarch64': {
+        url: expect.stringMatching(`^${baseUrl}/6.0.0/`),
+        mainlandUrl: mirrorUrl('macos', '6.0.0'),
+        selfUpdatable: false
+      }
+    }
+  });
+  // Only a pre-6.0.0 manifest may lack the self-update facts.
+  expect(() =>
+    validatePlatformManifest(
+      { ...legacy[0], version: '6.0.0' },
+      'windows-x86_64'
+    )
+  ).toThrow(/self-update facts for 6\.0\.0/);
 });
 
 test('the writer reproduces every shared platform fixture', () => {
