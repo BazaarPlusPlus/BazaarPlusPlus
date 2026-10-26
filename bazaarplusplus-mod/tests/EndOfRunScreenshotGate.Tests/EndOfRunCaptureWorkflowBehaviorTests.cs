@@ -355,6 +355,16 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
         Assert(!fixture.Surface.IsBlocked, "A later frame should retry physical blocker detach.");
         Assert(fixture.Surface.UnblockCount >= 2, "Failed unblock should be retried.");
+
+        var settledUnblocks = fixture.Surface.UnblockCount;
+        fixture.Core.OnFrame(fixture.Context);
+        fixture.Screen.IsActive = false;
+        fixture.Core.OnFrame(fixture.Context);
+        fixture.Core.OnFrame(fixture.Context);
+        Assert(
+            fixture.Surface.UnblockCount == settledUnblocks,
+            "Once a detach succeeds, later frames must not detach the blocker again."
+        );
     }
 
     private static void Navigation_after_frame_acquisition_keeps_background_capture()

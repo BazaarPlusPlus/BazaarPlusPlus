@@ -54,4 +54,46 @@ public sealed class NativeAuxiliaryTooltipAnomalyRulesTests
                 bodyRenderable
             )
         );
+
+    [Fact]
+    public void Idle_visible_frame_with_active_text_nodes_proves_the_handback_healed() =>
+        Assert.True(
+            NativeAuxiliaryTooltipAnomalyRules.TextNodesProvenRestored(
+                takeoverInProgress: false,
+                frameVisible: true,
+                pairedContentActive: false,
+                headerActive: true,
+                bodyActive: true,
+                headerRenderable: true,
+                bodyRenderable: false
+            )
+        );
+
+    [Theory]
+    [InlineData(true, true, false, true, true, true, true)]
+    [InlineData(false, false, false, true, true, true, true)]
+    [InlineData(false, true, true, true, true, true, true)]
+    [InlineData(false, true, false, true, false, true, false)]
+    [InlineData(false, true, false, false, true, false, true)]
+    [InlineData(false, true, false, true, true, false, false)]
+    public void Takeover_hidden_paired_or_partly_inactive_frames_keep_the_audit_armed(
+        bool takeoverInProgress,
+        bool frameVisible,
+        bool pairedContentActive,
+        bool headerActive,
+        bool bodyActive,
+        bool headerRenderable,
+        bool bodyRenderable
+    ) =>
+        Assert.False(
+            NativeAuxiliaryTooltipAnomalyRules.TextNodesProvenRestored(
+                takeoverInProgress,
+                frameVisible,
+                pairedContentActive,
+                headerActive,
+                bodyActive,
+                headerRenderable,
+                bodyRenderable
+            )
+        );
 }

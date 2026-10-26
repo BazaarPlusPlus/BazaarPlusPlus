@@ -47,6 +47,7 @@ internal sealed class PostCombatImpactController : MonoBehaviour
     private int _transientShowRetries;
     private bool _nativeAuxiliaryTakeoverActive;
     private bool _visibleEmptyAuxiliaryLogged;
+    private bool _auxiliaryAuditArmed;
     private CombatImpactPerspective _requestedPerspective = CombatImpactPerspective.Caused;
 
     internal void Initialize(PostCombatImpactModule module, IPostCombatImpactTooltipView view)
@@ -405,6 +406,7 @@ internal sealed class PostCombatImpactController : MonoBehaviour
             _pendingAuxiliaryAnchor = request.Anchor;
             _pendingAuxiliaryHeader = _view.Header;
             _auxiliaryRequestOutstanding = true;
+            _auxiliaryAuditArmed = true;
             tooltipParent.ShowAuxiliaryTooltipController(
                 request.Anchor,
                 request.TooltipOffset,
@@ -895,8 +897,17 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         _nativeAuxiliaryTakeoverActive = true;
     }
 
+    // The empty-frame leftover comes only from this feature handing a pooled auxiliary
+    // controller back with inactive text nodes, so the audit runs from a takeover until an idle
+    // native display proves the nodes restored, not on every frame of normal play.
     private void AuditVisibleNativeAuxiliaryTooltip()
     {
+        var takeoverInProgress = IsAuxiliaryTakeoverInProgress();
+        if (takeoverInProgress)
+            _auxiliaryAuditArmed = true;
+        if (!_auxiliaryAuditArmed)
+            return;
+
         var tooltipParent = TheBazaar.Data.TooltipParentComponent;
         var controller = tooltipParent?.AuxiliaryTooltipController;
         if (
@@ -920,6 +931,18 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         if (!visibleWithoutText)
         {
             _visibleEmptyAuxiliaryLogged = false;
+            if (
+                NativeAuxiliaryTooltipAnomalyRules.TextNodesProvenRestored(
+                    takeoverInProgress,
+                    state.FrameVisible,
+                    pairedContentActive,
+                    state.HeaderActive,
+                    state.BodyActive,
+                    state.HeaderRenderable,
+                    state.BodyRenderable
+                )
+            )
+                _auxiliaryAuditArmed = false;
             return;
         }
         if (_visibleEmptyAuxiliaryLogged)
@@ -935,6 +958,15 @@ internal sealed class PostCombatImpactController : MonoBehaviour
             recovered
         );
     }
+
+    private bool IsAuxiliaryTakeoverInProgress() =>
+        _hoveredRequest != null
+        || _pendingShow != null
+        || _settlePresentation != null
+        || _auxiliaryRequestOutstanding
+        || _pendingAuxiliaryController != null
+        || _activeAuxiliaryTooltip != null
+        || _view?.IsContentActive == true;
 
     private static NativeAuxiliaryTooltipState CaptureNativeAuxiliaryState(
         AuxiliaryTooltipController controller

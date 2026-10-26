@@ -21,6 +21,8 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
     private INativeCardPreviewHost? _nativeCardPreviewHost;
     private bool _hasResolvedInputs;
     private ResolveInputs _lastInputs;
+    private readonly ChoicePedestalKindCache _pedestalKinds = new();
+    private Func<ChoiceScreenPedestalKind>? _readPedestalKind;
 
     internal void Initialize(
         BppSettings config,
@@ -95,21 +97,38 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         var holdUpgrade = BppHotkeyService.IsActive(BppHotkeyActionId.HoldUpgradePreview);
         var holdEnchant = BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview);
         var enchantMode = _config?.EnchantPreviewModeConfig.Value;
-        var pedestalKind = ChoiceScreenPedestalKind.None;
-        if (
-            !holdUpgrade
-            && !holdEnchant
-            && (enchantMode ?? BppSettings.DefaultEnchantPreviewMode)
-                == PreviewVisibilityMode.AutoOnPedestalChoice
+        var pedestalKind = ChoicePedestalKindCache.ShouldRead(
+            enchantMode ?? BppSettings.DefaultEnchantPreviewMode,
+            holdUpgrade,
+            holdEnchant
         )
-        {
-            pedestalKind =
-                TooltipEncounterProbeReader.ReadChoice(_encounterState)?.Kind
-                ?? ChoiceScreenPedestalKind.None;
-        }
+            ? ReadPedestalKind()
+            : ChoiceScreenPedestalKind.None;
 
         return new ResolveInputs(holdUpgrade, holdEnchant, enchantMode, pedestalKind);
     }
+
+    // The encounter probe rebuilds the selection ids and pedestal snapshot on every read, so the
+    // kind is reused while this screen key is unchanged (ChoicePedestalKindCache).
+    private ChoiceScreenPedestalKind ReadPedestalKind()
+    {
+        var runState = Data.CurrentState;
+        var selection = runState?.SelectionSet;
+        return _pedestalKinds.Resolve(
+            new ChoicePedestalScreenKey(
+                AppState.CurrentState,
+                selection,
+                selection?.Count ?? 0,
+                runState?.CurrentEncounterId
+            ),
+            Time.frameCount,
+            _readPedestalKind ??= ReadProbePedestalKind
+        );
+    }
+
+    private ChoiceScreenPedestalKind ReadProbePedestalKind() =>
+        TooltipEncounterProbeReader.ReadChoice(_encounterState)?.Kind
+        ?? ChoiceScreenPedestalKind.None;
 
     private readonly record struct ResolveInputs(
         bool HoldUpgrade,

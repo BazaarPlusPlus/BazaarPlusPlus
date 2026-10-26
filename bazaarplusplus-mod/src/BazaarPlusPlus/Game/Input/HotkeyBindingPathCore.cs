@@ -156,6 +156,42 @@ internal static class HotkeyBindingPathCore
         return DefaultBindingPaths[actionId];
     }
 
+    /// <summary>The path a configured value binds: its normalized form, or the action's default
+    /// when it does not normalize.</summary>
+    internal static string ResolveConfigured(
+        BppHotkeyActionId actionId,
+        string? configuredPath,
+        out bool invalid
+    )
+    {
+        var normalized = Normalize(configuredPath);
+        invalid = string.IsNullOrWhiteSpace(normalized);
+        return invalid ? GetDefault(actionId) : normalized;
+    }
+
+    /// <summary>Whether any hotkey's current configuration still resolves to
+    /// <paramref name="normalizedPath"/>. A path replaced by a rebind keeps its input action while
+    /// this holds (another action shares it, or the bindings were swapped).</summary>
+    internal static bool IsBoundToAnyAction(
+        string normalizedPath,
+        Func<BppHotkeyActionId, string?> configuredPath
+    )
+    {
+        foreach (var actionId in DefaultBindingPaths.Keys)
+        {
+            if (
+                string.Equals(
+                    ResolveConfigured(actionId, configuredPath(actionId), out _),
+                    normalizedPath,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+                return true;
+        }
+
+        return false;
+    }
+
     private static IReadOnlyDictionary<string, string> CreateDisplayAliases()
     {
         var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

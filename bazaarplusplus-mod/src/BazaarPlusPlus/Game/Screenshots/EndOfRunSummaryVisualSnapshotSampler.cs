@@ -16,15 +16,12 @@ internal readonly record struct EndOfRunSummaryVisualSnapshot(
 internal sealed class EndOfRunSummaryVisualSnapshotSampler
 {
     private const string LoadedCardsFieldName = "loadedCards";
-    private const string AnimatorMemberName = "Animator";
     private const ulong HashOffset = 14695981039346656037UL;
     private const ulong HashPrime = 1099511628211UL;
-    private static readonly FieldInfo? LoadedCardsField = FindField(
+    private static readonly FieldInfo? LoadedCardsField = EndOfRunSummaryReflection.FindField(
         typeof(EndOfRunSummaryController),
         LoadedCardsFieldName
     );
-    private static readonly object AnimatorAccessorGate = new();
-    private static readonly Dictionary<Type, AnimatorAccessor?> AnimatorAccessors = new();
 
     private readonly EndOfRunReusablePlanCache<int, CardSamplingPlan> _plans = new();
     private readonly HashSet<int> _activePlanKeys = new();
@@ -104,7 +101,7 @@ internal sealed class EndOfRunSummaryVisualSnapshotSampler
                 if (loadedCard is UnityEngine.Object unityCard && unityCard == null)
                     return UnavailableAfterPrune();
 
-                var accessor = GetAnimatorAccessor(loadedCard.GetType());
+                var accessor = EndOfRunSummaryReflection.GetAnimatorAccessor(loadedCard.GetType());
                 if (accessor == null || accessor.GetValue(loadedCard) is not Animator animator)
                     return UnavailableAfterPrune();
                 if (animator == null || animator.transform is not { } root || root == null)
@@ -161,49 +158,6 @@ internal sealed class EndOfRunSummaryVisualSnapshotSampler
         }
     }
 
-    private static AnimatorAccessor? GetAnimatorAccessor(Type type)
-    {
-        lock (AnimatorAccessorGate)
-        {
-            if (AnimatorAccessors.TryGetValue(type, out var cached))
-                return cached;
-
-            var property = type.GetProperty(
-                AnimatorMemberName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            );
-            AnimatorAccessor? accessor = property == null ? null : new AnimatorAccessor(property);
-            if (accessor == null)
-            {
-                var field = type.GetField(
-                    AnimatorMemberName,
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-                );
-                if (field != null)
-                    accessor = new AnimatorAccessor(field);
-            }
-            AnimatorAccessors[type] = accessor;
-            return accessor;
-        }
-    }
-
-    private static FieldInfo? FindField(Type type, string fieldName)
-    {
-        for (var current = type; current != null; current = current.BaseType)
-        {
-            var field = current.GetField(
-                fieldName,
-                BindingFlags.Instance
-                    | BindingFlags.Public
-                    | BindingFlags.NonPublic
-                    | BindingFlags.DeclaredOnly
-            );
-            if (field != null)
-                return field;
-        }
-        return null;
-    }
-
     private static bool IsNonStructuralVisualSubtree(Transform transform)
     {
         var name = transform.name;
@@ -240,19 +194,6 @@ internal sealed class EndOfRunSummaryVisualSnapshotSampler
     {
         hash ^= unchecked((uint)value);
         hash *= HashPrime;
-    }
-
-    private sealed class AnimatorAccessor
-    {
-        private readonly PropertyInfo? _property;
-        private readonly FieldInfo? _field;
-
-        internal AnimatorAccessor(PropertyInfo property) => _property = property;
-
-        internal AnimatorAccessor(FieldInfo field) => _field = field;
-
-        internal object? GetValue(object instance) =>
-            _property != null ? _property.GetValue(instance) : _field?.GetValue(instance);
     }
 
     private sealed class CardSamplingPlan

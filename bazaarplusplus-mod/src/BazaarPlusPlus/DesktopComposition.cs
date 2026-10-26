@@ -302,6 +302,11 @@ internal sealed class DesktopComposition : IDisposable
                 _buildRecommendationRepository
             )
         );
+        _mountables.Register(
+            new ComponentMount<CosmeticNameOverlayObserver>(
+                (observer, services) => observer.Initialize(services.Config)
+            )
+        );
         _mountables.Register(new ComponentMount<VoiceLineDisplayDispatcher>());
         _mountables.Register(new ComponentMount<VersionLabelScanner>());
         _mountables.Register(

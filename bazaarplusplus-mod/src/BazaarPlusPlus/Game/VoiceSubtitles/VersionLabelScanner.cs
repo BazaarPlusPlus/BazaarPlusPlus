@@ -10,12 +10,9 @@ namespace BazaarPlusPlus.Game.VoiceSubtitles;
 
 internal sealed class VersionLabelScanner : MonoBehaviour
 {
-    private const float ScanIntervalSeconds = 0.75f;
-    private const float BackoffScanIntervalSeconds = 5f;
-    private const int FullScanMissesBeforeBackoff = 3;
+    private const float ScanIntervalSeconds = VersionLabelMountBackoff.ScanIntervalSeconds;
+    private readonly VersionLabelMountBackoff _backoff = new();
     private float _nextScanAt;
-    private float _nextFullScanAt;
-    private int _consecutiveFullScanMisses;
     private string? _cachedVersionLabelPath;
 
     private void Update()
@@ -35,7 +32,7 @@ internal sealed class VersionLabelScanner : MonoBehaviour
 
         var versionLabel = FindCachedVersionLabel();
         var usedFullScan = false;
-        if (versionLabel == null && Time.unscaledTime >= _nextFullScanAt)
+        if (versionLabel == null && _backoff.CanAttempt(Time.unscaledTime))
         {
             usedFullScan = true;
             versionLabel = FindVisibleVersionLabel();
@@ -43,20 +40,29 @@ internal sealed class VersionLabelScanner : MonoBehaviour
 
         if (versionLabel != null)
         {
+            // Later ticks find the label through the cheap cached path, not a full scan.
+            if (usedFullScan)
+                _cachedVersionLabelPath = BuildPath(versionLabel.transform);
+
             var anchorHasChineseCoverage = FontDiagnostics.HasChineseCoverage(versionLabel.font);
             var typographyWaiting =
                 !anchorHasChineseCoverage
                 && NativeGameTypography.PrepareOwnedText(out _)
                     == NativeGameTypography.Outcome.Waiting;
+            // Waiting typography is a startup state: retry at the scan interval, without backoff.
             if (ShouldDelayMount(anchorHasChineseCoverage, typographyWaiting))
+                return;
+
+            // A failed mount builds and destroys the subtitle objects, so it backs off like a
+            // full-scan miss.
+            if (!usedFullScan && !_backoff.CanAttempt(Time.unscaledTime))
                 return;
 
             VoiceLineDisplay.MountFromVersionLabel(versionLabel);
             if (VoiceLineDisplay.IsMountedFromVersionLabel)
-            {
-                _cachedVersionLabelPath = BuildPath(versionLabel.transform);
                 ResetBackoff();
-            }
+            else
+                RecordFullScanMiss();
             return;
         }
 
@@ -82,22 +88,11 @@ internal sealed class VersionLabelScanner : MonoBehaviour
         return IsUsableVersionLabel(label) ? label : null;
     }
 
-    private void RecordFullScanMiss()
-    {
-        _consecutiveFullScanMisses++;
-        _nextFullScanAt =
-            Time.unscaledTime
-            + (
-                _consecutiveFullScanMisses >= FullScanMissesBeforeBackoff
-                    ? BackoffScanIntervalSeconds
-                    : ScanIntervalSeconds
-            );
-    }
+    private void RecordFullScanMiss() => _backoff.RecordMiss(Time.unscaledTime);
 
     private void ResetBackoff()
     {
-        _consecutiveFullScanMisses = 0;
-        _nextFullScanAt = 0f;
+        _backoff.Reset();
         _nextScanAt = Time.unscaledTime + ScanIntervalSeconds;
     }
 

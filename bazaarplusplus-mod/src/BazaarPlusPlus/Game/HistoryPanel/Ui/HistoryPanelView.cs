@@ -204,19 +204,19 @@ internal sealed partial class HistoryPanelView : IDisposable
         if (_rankBadges.Tick())
             UpdateContent();
         if (
-            (_skin == null || _skin.Any(sprite => sprite == null))
-            && _skinLoad == null
+            _skinLoad == null
             && Time.unscaledTime >= _retryAt
             && Services.TryGet<AssetLoader>(out var loader)
             && loader != null
         )
         {
             _retryAt = Time.unscaledTime + 5;
-            _skinLoad = Task.WhenAll(
-                Addresses.Select(address =>
-                    NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, address)
-                )
-            );
+            if (_skin == null || _skin.Any(sprite => sprite == null))
+                _skinLoad = Task.WhenAll(
+                    Addresses.Select(address =>
+                        NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, address)
+                    )
+                );
         }
         if (_skinLoad?.IsCompleted == true)
         {

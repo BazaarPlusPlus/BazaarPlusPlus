@@ -1,6 +1,8 @@
 #nullable enable
 using System.Collections;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
@@ -30,9 +32,17 @@ internal static class EndOfRunSummaryRevealDetector
     private const string SkillSequenceFieldName = "_skillSequence";
     private const string TweenDurationFieldName = "duration";
     private const string TweenIsCompleteFieldName = "isComplete";
-    private const string AnimatorPropertyName = "Animator";
     private const string GetBoolMethodName = "GetBool";
+    private const string UnityAnimatorTypeName = "UnityEngine.Animator";
     private const string FaceUpParamName = "FaceUp";
+
+    // Polled every frame while the capture waits for readiness, so member lookups are cached
+    // per runtime type, misses included.
+    private static readonly object MemberCacheGate = new();
+    private static readonly Dictionary<(Type Type, string Name), FieldInfo?> Fields = new();
+    private static readonly Dictionary<Type, FaceUpReader> FaceUpReaders = new();
+    private static readonly object[] FaceUpArguments = [FaceUpParamName];
+    private static int? _faceUpHash;
 
     public static EndOfRunSummaryRevealOutcome GetRevealOutcome(object? screenController)
     {
@@ -87,16 +97,20 @@ internal static class EndOfRunSummaryRevealDetector
             if (loadedCard == null)
                 continue;
             loadedCardCount++;
-            if (!TryGetMemberValue(loadedCard, AnimatorPropertyName, out var animator))
+            var animatorAccessor = EndOfRunSummaryReflection.GetAnimatorAccessor(
+                loadedCard.GetType()
+            );
+            if (animatorAccessor == null)
             {
                 return EndOfRunSummaryRevealState.DetectionFailed;
             }
+            var animator = animatorAccessor.GetValue(loadedCard);
             if (animator == null)
             {
                 allLoadedCardsFaceUp = false;
                 continue;
             }
-            if (!TryInvokeAnimatorGetBool(animator, FaceUpParamName, out var isFaceUp))
+            if (!TryReadFaceUp(animator, out var isFaceUp))
             {
                 return EndOfRunSummaryRevealState.DetectionFailed;
             }
@@ -168,23 +182,26 @@ internal static class EndOfRunSummaryRevealDetector
         );
     }
 
+    internal static FieldInfo? FindCachedField(Type type, string fieldName)
+    {
+        lock (MemberCacheGate)
+        {
+            if (Fields.TryGetValue((type, fieldName), out var cached))
+                return cached;
+
+            var field = EndOfRunSummaryReflection.FindField(type, fieldName);
+            Fields[(type, fieldName)] = field;
+            return field;
+        }
+    }
+
     private static bool TryGetFieldValue(object? instance, string fieldName, out object? value)
     {
         value = null;
         if (instance == null)
             return false;
 
-        FieldInfo? field = null;
-        for (var type = instance.GetType(); type != null && field == null; type = type.BaseType)
-        {
-            field = type.GetField(
-                fieldName,
-                BindingFlags.Instance
-                    | BindingFlags.Public
-                    | BindingFlags.NonPublic
-                    | BindingFlags.DeclaredOnly
-            );
-        }
+        var field = FindCachedField(instance.GetType(), fieldName);
         if (field == null)
             return false;
 
@@ -192,56 +209,58 @@ internal static class EndOfRunSummaryRevealDetector
         return true;
     }
 
-    private static bool TryGetMemberValue(object instance, string memberName, out object? value)
-    {
-        value = null;
-        var property = instance
-            .GetType()
-            .GetProperty(
-                memberName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            );
-        if (property != null)
-        {
-            value = property.GetValue(instance);
-            return true;
-        }
-
-        var field = instance
-            .GetType()
-            .GetField(
-                memberName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            );
-        if (field != null)
-        {
-            value = field.GetValue(instance);
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool TryInvokeAnimatorGetBool(
-        object animator,
-        string parameterName,
-        out bool value
-    )
+    private static bool TryReadFaceUp(object animator, out bool value)
     {
         value = false;
-        var method = animator
-            .GetType()
-            .GetMethod(
-                GetBoolMethodName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                types: [typeof(string)],
-                modifiers: null
-            );
-        if (method == null)
+        var reader = GetFaceUpReader(animator.GetType());
+        if (reader.IsUnityAnimator)
+        {
+            value = ReadUnityAnimatorFaceUp(animator);
+            return true;
+        }
+        if (reader.GetBool == null)
             return false;
 
-        value = (bool?)method.Invoke(animator, [parameterName]) == true;
+        value = (bool?)reader.GetBool.Invoke(animator, FaceUpArguments) == true;
         return true;
     }
+
+    // Kept out of TryReadFaceUp so only a real Unity animator binds UnityEngine.Animator; the
+    // reflection fallback then runs where that assembly is absent.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool ReadUnityAnimatorFaceUp(object animator)
+    {
+        _faceUpHash ??= Animator.StringToHash(FaceUpParamName);
+        return ((Animator)animator).GetBool(_faceUpHash.Value);
+    }
+
+    private static FaceUpReader GetFaceUpReader(Type type)
+    {
+        lock (MemberCacheGate)
+        {
+            if (FaceUpReaders.TryGetValue(type, out var cached))
+                return cached;
+
+            var reader = string.Equals(
+                type.FullName,
+                UnityAnimatorTypeName,
+                StringComparison.Ordinal
+            )
+                ? new FaceUpReader(IsUnityAnimator: true, GetBool: null)
+                : new FaceUpReader(
+                    IsUnityAnimator: false,
+                    type.GetMethod(
+                        GetBoolMethodName,
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                        binder: null,
+                        types: [typeof(string)],
+                        modifiers: null
+                    )
+                );
+            FaceUpReaders[type] = reader;
+            return reader;
+        }
+    }
+
+    private readonly record struct FaceUpReader(bool IsUnityAnimator, MethodInfo? GetBool);
 }

@@ -174,21 +174,36 @@ internal static class BppHotkeyService
     internal static string GetBindingPath(BppHotkeyActionId actionId)
     {
         var raw = GetConfigValue(actionId);
-        if (
-            CachedBindingPaths.TryGetValue(actionId, out var cached)
-            && string.Equals(cached.Raw, raw, StringComparison.Ordinal)
-        )
+        var hadCached = CachedBindingPaths.TryGetValue(actionId, out var cached);
+        if (hadCached && string.Equals(cached.Raw, raw, StringComparison.Ordinal))
             return cached.Resolved;
 
-        var normalized = HotkeyBindingPathCore.Normalize(raw);
-        var invalid = string.IsNullOrWhiteSpace(normalized);
-        var resolved = invalid ? HotkeyBindingPathCore.GetDefault(actionId) : normalized;
+        var resolved = HotkeyBindingPathCore.ResolveConfigured(actionId, raw, out var invalid);
         CachedBindingPaths[actionId] = (raw, resolved);
         if (invalid)
         {
             ReportBindingFailure(actionId, raw, SettingsLogReasonCode.InvalidBindingPath);
         }
+        // Any route that changes the config value (rebind, reset, a BepInEx config reload)
+        // lands here, so the replaced path's action is released here.
+        if (
+            hadCached
+            && !string.Equals(cached.Resolved, resolved, StringComparison.OrdinalIgnoreCase)
+        )
+            ReleaseUnboundAction(cached.Resolved);
         return resolved;
+    }
+
+    // An enabled InputAction keeps the Input System monitoring its controls until disposed.
+    // Dispose a replaced binding's action unless another hotkey still resolves to that path.
+    private static void ReleaseUnboundAction(string stalePath)
+    {
+        if (HotkeyBindingPathCore.IsBoundToAnyAction(stalePath, GetConfigValue))
+            return;
+        if (!CachedActions.Remove(stalePath, out var stale))
+            return;
+        stale.Disable();
+        stale.Dispose();
     }
 
     internal static string GetBindingDisplay(BppHotkeyActionId actionId)
