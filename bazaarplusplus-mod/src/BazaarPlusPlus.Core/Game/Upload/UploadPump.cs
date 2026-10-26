@@ -21,6 +21,9 @@ public sealed class UploadPump : IDisposable
 
     private readonly IBppServices _services;
     private BundleUploadFeed.Session? _session;
+
+    // Converted once: a method group passed to Tick would allocate a delegate every frame.
+    private Func<CancellationToken, Task<UploadAttemptResult>>? _runAttempt;
     private CancellationTokenSource? _shutdown;
     private StartupUploadAttemptGate? _startupGate;
     private StartupUploadAttemptRunner? _startupRunner;
@@ -59,6 +62,7 @@ public sealed class UploadPump : IDisposable
             return pump;
 
         pump._session = session;
+        pump._runAttempt = session.RunAttemptAsync;
         pump._shutdown = new CancellationTokenSource();
         pump._startupGate = new StartupUploadAttemptGate(
             nowSeconds + cadence.StartupDelaySeconds,
@@ -77,7 +81,12 @@ public sealed class UploadPump : IDisposable
 
     public void Tick(float nowSeconds)
     {
-        if (_session == null || _shutdown == null || _startupGate == null || _startupRunner == null)
+        if (
+            _runAttempt == null
+            || _shutdown == null
+            || _startupGate == null
+            || _startupRunner == null
+        )
             return;
 
         if (Interlocked.Exchange(ref _armRequested, 0) == 1)
@@ -87,7 +96,7 @@ public sealed class UploadPump : IDisposable
             _startupGate,
             nowSeconds,
             _services.RunContext.IsInGameRun,
-            _session.RunAttemptAsync,
+            _runAttempt,
             _shutdown.Token
         );
     }
@@ -113,6 +122,7 @@ public sealed class UploadPump : IDisposable
 
         var session = _session;
         _session = null;
+        _runAttempt = null;
         Action? disposeSession = session == null ? null : session.Dispose;
         if (_startupRunner != null)
         {

@@ -6,6 +6,7 @@ using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
+using Il2CppBazaarGameShared.Infra.Messages;
 
 namespace BazaarPlusPlus.Android.Patches;
 
@@ -18,9 +19,11 @@ namespace BazaarPlusPlus.Android.Patches;
 internal static class AndroidPatchHost
 {
     private const int LoggedProbeErrors = 5;
-    private static readonly ConcurrentDictionary<string, long> MessageCounts = new(
-        StringComparer.Ordinal
-    );
+
+    // Keyed by IL2CPP class pointer, so a message costs no type name; each class's name is
+    // resolved once, the first time it is seen.
+    private static readonly ConcurrentDictionary<IntPtr, long> MessageCounts = new();
+    private static readonly ConcurrentDictionary<IntPtr, string> MessageTypeNames = new();
     private static long _versionLabelHits;
     private static long _combatSimHits;
     private static long _tooltipHits;
@@ -98,8 +101,31 @@ internal static class AndroidPatchHost
 
     public static long CountRunInitialized() => Interlocked.Increment(ref _runInitializedHits);
 
-    public static long CountMessage(string nativeType) =>
-        MessageCounts.AddOrUpdate(nativeType, 1, (_, previous) => previous + 1);
+    /// <summary>
+    /// The type name of a message's IL2CPP class, resolved from the message only the first time
+    /// the class is seen. The intake names a class before it counts it, so every counted class
+    /// has a name.
+    /// </summary>
+    public static string NameMessageType(IntPtr nativeClass, INetMessage message) =>
+        MessageTypeNames.GetOrAdd(
+            nativeClass,
+            static (_, first) => first.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName,
+            message
+        );
+
+    public static long CountMessage(IntPtr nativeClass) =>
+        MessageCounts.AddOrUpdate(nativeClass, 1, static (_, previous) => previous + 1);
+
+    private static string MessageSummary()
+    {
+        var byName = new SortedDictionary<string, long>(StringComparer.Ordinal);
+        foreach (var (nativeClass, count) in MessageCounts)
+        {
+            var name = MessageTypeNames[nativeClass];
+            byName[name] = byName.GetValueOrDefault(name) + count;
+        }
+        return string.Join(",", byName.Select(pair => $"{pair.Key}:{pair.Value}"));
+    }
 
     public static void ReportProbeError(string probe, Exception exception)
     {
@@ -133,15 +159,7 @@ internal static class AndroidPatchHost
             ("replay_guard_messages", AndroidReplayGuard.IntakeMessages),
             ("replay_guard_capture_skips", AndroidReplayGuard.CaptureSkips),
             .. AndroidReplayPatchCounters.Summary(),
-            (
-                "messages",
-                string.Join(
-                    ",",
-                    MessageCounts
-                        .OrderBy(pair => pair.Key, StringComparer.Ordinal)
-                        .Select(pair => $"{pair.Key}:{pair.Value}")
-                )
-            ),
+            ("messages", MessageSummary()),
         ];
 
     private static string Describe(System.Reflection.MethodInfo method) =>

@@ -242,11 +242,23 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
 internal sealed class InMemorySavedReplayHost(SavedReplayPlaybackHarness harness) : ISavedReplayHost
 {
     private bool _lobbyLoaded;
+    private bool _inReplayState;
 
     public int ScopeDepth { get; private set; }
+    public int ScopeEntries { get; private set; }
     public float Now { get; set; } = 1f;
-    public bool InReplayState { get; set; }
     public int LobbyReads { get; private set; }
+    public int ReplayStateReads { get; private set; }
+
+    public bool InReplayState
+    {
+        get
+        {
+            ReplayStateReads++;
+            return _inReplayState;
+        }
+        set => _inReplayState = value;
+    }
 
     public bool LobbyLoaded
     {
@@ -273,6 +285,7 @@ internal sealed class InMemorySavedReplayHost(SavedReplayPlaybackHarness harness
     public IDisposable EnterHostContext()
     {
         ScopeDepth++;
+        ScopeEntries++;
         return new Scope(this);
     }
 

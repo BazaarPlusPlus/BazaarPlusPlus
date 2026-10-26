@@ -23,7 +23,7 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
 {
     private readonly AndroidSavedReplayHost _host;
     private Il2CppSystem.Action<StateChangedEvent>? _stateListener;
-    private bool _wasInReplayState;
+    private bool? _loggedInReplayState;
     private bool _disposed;
 
     public AndroidCombatReplayRuntime(
@@ -75,8 +75,9 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         }
         catch (Exception exception)
         {
-            // Without the listener, the ReplayState-gone poll in Tick still clears the latch, but
-            // a native recap exit would not complete its operation: log it for the device run.
+            // Without the listener, the ReplayState-gone poll in Tick still clears the latch and
+            // logs that exit's state_observed, but a native recap exit would not complete its
+            // operation and no other replay transition is logged: log it for the device run.
             _stateListener = null;
             BppLog.ErrorEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.replay.state_listener_failed"),
@@ -93,18 +94,9 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         using var scope = AndroidMainThread.Host.Enter();
         try
         {
-            SavedReplays.Tick();
-            var inReplayState = AndroidSavedReplayHost.IsInReplayState();
-            if (_wasInReplayState != inReplayState)
-            {
-                _wasInReplayState = inReplayState;
-                BppLog.InfoEvent(
-                    new BppLogEvent(BppLogFeatureScope.Android, "android.replay.state_observed"),
-                    ("in_replay_state", inReplayState),
-                    ("session", SavedReplays.HasSavedReplaySession),
-                    ("scene", AndroidLobbyScene.Describe())
-                );
-            }
+            // True only on the tick that clears a set exit latch, so an idle frame reads nothing.
+            if (SavedReplays.Tick())
+                LogReplayState(false, "exit_latch_cleared");
         }
         catch (Exception exception)
         {
@@ -150,6 +142,24 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         }
     }
 
+    // ReplayState transitions as the state listener sees them, plus the bootstrapped exit, which
+    // may leave ReplayState without a state event and shows only as Tick clearing the exit latch.
+    // Each change is logged once, whichever signal reports it first; the session is the one the
+    // signal finds, before a state exit settles it.
+    private void LogReplayState(bool inReplayState, string signal)
+    {
+        if (_loggedInReplayState == inReplayState)
+            return;
+        _loggedInReplayState = inReplayState;
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.replay.state_observed"),
+            ("in_replay_state", inReplayState),
+            ("signal", signal),
+            ("session", SavedReplays.HasSavedReplaySession),
+            ("scene", AndroidLobbyScene.Describe())
+        );
+    }
+
     private void OnStateChanged(StateChangedEvent data)
     {
         if (_disposed || data == null)
@@ -159,6 +169,8 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         {
             var wasReplay = data.PreviousState?.TryCast<ReplayState>() != null;
             var isReplay = data.CurrentState?.TryCast<ReplayState>() != null;
+            if (wasReplay != isReplay)
+                LogReplayState(isReplay, "state_changed");
             if (wasReplay && !isReplay)
                 SavedReplays.OnReplayStateExited();
         }

@@ -243,6 +243,12 @@ internal sealed class SavedReplayLifecycle
 
     // --- Exit-suppression latch (single owner for bootstrapped-exit / native-exit) ---
 
+    /// <summary>
+    /// The exit latch is set, whether or not its suppression window has passed: only
+    /// <see cref="ObserveReplayStateGone"/> clears it.
+    /// </summary>
+    public bool IsExitLatched => _replayExitInProgress;
+
     public bool IsExitSuppressed(float now) =>
         _replayExitInProgress && now - _replayExitRequestedAt < ExitSuppressionWindowSeconds;
 
@@ -275,11 +281,14 @@ internal sealed class SavedReplayLifecycle
     /// <summary>
     /// Clears the exit-in-progress latch once ReplayState is actually gone. This is the only
     /// reliable signal on the bootstrapped exit path, where the state transition happens via
-    /// RunManager.ReturnToMainMenu without a normal ReplayState exit event.
+    /// RunManager.ReturnToMainMenu without a normal ReplayState exit event. Returns whether the
+    /// latch was set.
     /// </summary>
-    public void ObserveReplayStateGone()
+    public bool ObserveReplayStateGone()
     {
+        var wasLatched = _replayExitInProgress;
         _replayExitInProgress = false;
+        return wasLatched;
     }
 
     /// <summary>Drop a pending menu-return without completing it (runtime destroy path).</summary>
