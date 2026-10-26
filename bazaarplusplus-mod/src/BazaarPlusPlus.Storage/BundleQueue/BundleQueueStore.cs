@@ -106,17 +106,19 @@ public sealed class BundleQueueStore : SqliteStoreBase
         command.ExecuteNonQuery();
     }
 
-    public IReadOnlyList<string> ListWaitingRunIds()
+    // Every waiting job in one read, earliest input deadline first: the seal worker decides from
+    // these rows which jobs are due and when it next needs to wake.
+    public IReadOnlyList<BundleSealJobRecord> ListWaitingJobs()
     {
         using var connection = OpenConnection();
         using var command = CreateCommand(connection);
         command.CommandText =
-            $"SELECT run_id FROM {RunLogSchema.BundleSealJobsTableName} WHERE state = 'waiting' ORDER BY input_deadline_at_ms, run_id;";
+            $"SELECT {JobColumns} FROM {RunLogSchema.BundleSealJobsTableName} WHERE state = 'waiting' ORDER BY input_deadline_at_ms, run_id;";
         using var reader = command.ExecuteReader();
-        var ids = new List<string>();
+        var jobs = new List<BundleSealJobRecord>();
         while (reader.Read())
-            ids.Add(reader.GetString(0));
-        return ids;
+            jobs.Add(ReadJobRecord(reader));
+        return jobs;
     }
 
     public BundleSealJobRecord? ReadJob(string runId)
@@ -383,12 +385,17 @@ public sealed class BundleQueueStore : SqliteStoreBase
     {
         using var command = CreateCommand(connection, transaction);
         command.CommandText =
-            $"SELECT run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_ms, bundle_id, created_at_ms, attempts, last_attempt_at_ms, last_error_code FROM {RunLogSchema.BundleSealJobsTableName} WHERE run_id = $runId LIMIT 1;";
+            $"SELECT {JobColumns} FROM {RunLogSchema.BundleSealJobsTableName} WHERE run_id = $runId LIMIT 1;";
         command.Parameters.AddWithValue("$runId", runId);
         using var reader = command.ExecuteReader();
-        if (!reader.Read())
-            return null;
-        return new BundleSealJobRecord(
+        return reader.Read() ? ReadJobRecord(reader) : null;
+    }
+
+    private const string JobColumns =
+        "run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_ms, bundle_id, created_at_ms, attempts, last_attempt_at_ms, last_error_code";
+
+    private static BundleSealJobRecord ReadJobRecord(SqliteDataReader reader) =>
+        new BundleSealJobRecord(
             reader.GetString(0),
             ParseJobState(reader.GetString(1)),
             reader.IsDBNull(2) ? null : reader.GetString(2),
@@ -401,7 +408,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
             reader.IsDBNull(9) ? null : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(9)),
             reader.IsDBNull(10) ? null : reader.GetString(10)
         );
-    }
 
     private static BundleOutboxRecord ReadOutbox(SqliteDataReader reader) =>
         new(

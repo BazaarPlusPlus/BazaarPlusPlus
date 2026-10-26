@@ -10,19 +10,27 @@ public sealed class BundleSealConvergenceArchitectureTests
     [Fact]
     public void Convergence_core_is_dependency_free_and_time_is_relative()
     {
-        Holds(
-            "BundleSealConvergence decides from relative seconds; clocks, tasks, and storage stay outside.",
-            build =>
+        foreach (
+            var core in new[]
             {
-                _ = build.TypesIn("BazaarPlusPlus.Storage");
-                return References(
-                    build.Type("BazaarPlusPlus.Game.BundlePipeline.BundleSealConvergence"),
-                    type =>
-                        Is(typeof(DateTime).FullName!, typeof(DateTimeOffset).FullName!)(type)
-                        || InNamespace(typeof(Task).Namespace!, "BazaarPlusPlus.Storage")(type)
-                );
+                "BundleSealConvergence",
+                "BundleSealFailurePolicy",
+                "BundleSealWakeSchedule",
             }
-        );
+        )
+            Holds(
+                $"{core} decides from relative seconds; clocks, tasks, and storage stay outside.",
+                build =>
+                {
+                    _ = build.TypesIn("BazaarPlusPlus.Storage");
+                    return References(
+                        build.Type("BazaarPlusPlus.Game.BundlePipeline." + core),
+                        type =>
+                            Is(typeof(DateTime).FullName!, typeof(DateTimeOffset).FullName!)(type)
+                            || InNamespace(typeof(Task).Namespace!, "BazaarPlusPlus.Storage")(type)
+                    );
+                }
+            );
 
         var project = TestInputs.MsBuild(
             "tests/BundleSealConvergence.Tests/BundleSealConvergence.Tests.csproj"

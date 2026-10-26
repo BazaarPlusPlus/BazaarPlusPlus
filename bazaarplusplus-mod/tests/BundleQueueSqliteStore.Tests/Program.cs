@@ -21,7 +21,7 @@ static void TestEligibilityAllocationPublishAndDueOrdering()
             InsertRun(connection, "casual", "casual", "Online", completed: true, screenshot: false);
             store.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
 
-            var ids = store.ListWaitingRunIds();
+            var ids = store.ListWaitingJobs().Select(job => job.RunId).ToList();
             Assert(
                 ids.SequenceEqual(["ranked"]),
                 "Only completed online ranked runs are eligible."
@@ -280,7 +280,7 @@ static void TestSealFailureBookkeeping()
                 "The bounded diagnostic persists."
             );
             Assert(
-                store.ListWaitingRunIds().SequenceEqual(["retry"]),
+                store.ListWaitingJobs().Select(job => job.RunId).SequenceEqual(["retry"]),
                 "A retrying job stays waiting."
             );
 
@@ -294,7 +294,7 @@ static void TestSealFailureBookkeeping()
             );
             Assert(
                 store.ReadJob("retry")!.State == BundleSealJobState.TerminalFailure
-                    && store.ListWaitingRunIds().Count == 0,
+                    && store.ListWaitingJobs().Count == 0,
                 "A terminal failure leaves the waiting set."
             );
 
@@ -369,7 +369,7 @@ static void TestSealEligibilityFixture()
     );
 }
 
-// bundle_seal_jobs.input_deadline_at_ms is an instant in Unix milliseconds, so ListWaitingRunIds
+// bundle_seal_jobs.input_deadline_at_ms is an instant in Unix milliseconds, so ListWaitingJobs
 // and idx_bundle_seal_jobs_state order deadlines by instant whatever offset `now` carried.
 static void TestSealJobDeadlinesAreInstants()
 {
@@ -419,7 +419,7 @@ static void TestSealJobDeadlinesAreInstants()
                 resealOffset
             );
 
-            var waiting = store.ListWaitingRunIds();
+            var waiting = store.ListWaitingJobs().Select(job => job.RunId).ToList();
             Assert(
                 waiting.SequenceEqual(["reseal-utc", "reseal-offset", "late"]),
                 $"Waiting jobs must sort by deadline instant; got [{string.Join(", ", waiting)}]."

@@ -447,27 +447,44 @@ internal static class BundleSealFailurePolicyTests
             float? SinceAttempt,
             float SinceLaunch,
             bool Due,
+            float? Until,
             string Name
         )[]
         {
-            (null, 0, null, 0f, true, "never failed"),
-            (Blocked, 2, 100f, 50f, true, "parked in an earlier launch"),
-            (Blocked, 2, 10f, 50f, false, "parked in this launch"),
-            (Blocked, 2, -5f, 50f, true, "clock moved backwards"),
-            ("seal_publish_failed", 1, 4.9f, 0f, false, "first backoff"),
-            ("seal_publish_failed", 1, 5f, 0f, true, "first backoff elapsed"),
-            ("seal_publish_failed", 3, 19f, 0f, false, "third backoff"),
-            ("seal_publish_failed", 3, 20f, 0f, true, "third backoff elapsed"),
-            ("seal_publish_failed", 40, 3599f, 0f, false, "backoff cap"),
-            ("seal_publish_failed", 40, 3600f, 0f, true, "backoff cap elapsed"),
-            ("seal_publish_failed", 0, 0f, 0f, true, "no recorded attempts"),
+            (null, 0, null, 0f, true, 0f, "never failed"),
+            (Blocked, 2, 100f, 50f, true, 0f, "parked in an earlier launch"),
+            (Blocked, 2, 10f, 50f, false, null, "parked in this launch"),
+            (Blocked, 2, -5f, 50f, true, 0f, "clock moved backwards"),
+            ("seal_publish_failed", 1, 4.9f, 0f, false, 0.1f, "first backoff"),
+            ("seal_publish_failed", 1, 5f, 0f, true, 0f, "first backoff elapsed"),
+            ("seal_publish_failed", 3, 19f, 0f, false, 1f, "third backoff"),
+            ("seal_publish_failed", 3, 20f, 0f, true, 0f, "third backoff elapsed"),
+            ("seal_publish_failed", 40, 3599f, 0f, false, 1f, "backoff cap"),
+            ("seal_publish_failed", 40, 3600f, 0f, true, 0f, "backoff cap elapsed"),
+            ("seal_publish_failed", 0, 0f, 0f, true, 0f, "no recorded attempts"),
         };
-        foreach (var (code, attempts, sinceAttempt, sinceLaunch, due, name) in cases)
+        foreach (var (code, attempts, sinceAttempt, sinceLaunch, due, until, name) in cases)
+        {
+            // The wake schedule reads the same backoff: due exactly when nothing is left of it.
+            var left = BundleSealFailurePolicy.SecondsUntilDue(
+                code,
+                attempts,
+                sinceAttempt,
+                sinceLaunch
+            );
+            Equal(
+                true,
+                until is { } expected
+                    ? left is { } actual && Math.Abs(actual - expected) < 0.001f
+                    : left == null,
+                $"seconds until due {name}: expected {until}, actual {left}"
+            );
             Equal(
                 due,
                 BundleSealFailurePolicy.IsDue(code, attempts, sinceAttempt, sinceLaunch),
                 "due " + name
             );
+        }
     }
 
     private static void Expect(

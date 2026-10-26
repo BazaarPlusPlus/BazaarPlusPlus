@@ -129,6 +129,64 @@ public static class BundleSealConvergence
     }
 }
 
+// When the seal worker wakes next, from relative seconds. A waiting job wakes it at the end of its
+// backoff, or, once due, every InputWaitPollSeconds until its input deadline: an input such as a
+// replay on the Android host, which publishes no persistence-drained event, lands without a wake.
+// A job parked until the next launch never wakes it. With no job to wake for, the worker sleeps
+// until MaximumIdleWaitSeconds after its last job discovery, the pass that recovers a Run whose
+// completion signal was missed.
+public static class BundleSealWakeSchedule
+{
+    public const float InputWaitPollSeconds = 5f;
+    public const float MinimumWaitSeconds = 1f;
+    public const float MaximumIdleWaitSeconds = 300f;
+
+    // Seconds until this waiting job needs a pass, or null when nothing in this launch makes it due.
+    public static float? SecondsUntilAttempt(
+        string? lastErrorCode,
+        int attempts,
+        float? secondsSinceLastAttempt,
+        float secondsSinceLaunch,
+        float secondsUntilInputDeadline
+    )
+    {
+        var due = BundleSealFailurePolicy.SecondsUntilDue(
+            lastErrorCode,
+            attempts,
+            secondsSinceLastAttempt,
+            secondsSinceLaunch
+        );
+        if (due is not { } seconds)
+            return null;
+        if (seconds > 0f)
+            return seconds;
+        // Due but still waiting: its last attempt waited on an input.
+        if (secondsUntilInputDeadline > 0f)
+            return Math.Min(secondsUntilInputDeadline, InputWaitPollSeconds);
+        return InputWaitPollSeconds;
+    }
+
+    public static bool DiscoveryDue(bool requested, float secondsSinceDiscovery) =>
+        requested || secondsSinceDiscovery >= MaximumIdleWaitSeconds;
+
+    // How long the worker sleeps after a pass. A pass whose job discovery or file recovery failed
+    // retries them within InputWaitPollSeconds, never sooner on their account.
+    public static float WaitSeconds(
+        float? secondsUntilAttempt,
+        float secondsSinceDiscovery,
+        bool maintenanceFailed
+    )
+    {
+        var wait = maintenanceFailed
+            ? Math.Min(secondsUntilAttempt ?? InputWaitPollSeconds, InputWaitPollSeconds)
+            : Math.Min(
+                secondsUntilAttempt ?? MaximumIdleWaitSeconds,
+                MaximumIdleWaitSeconds - secondsSinceDiscovery
+            );
+        return Math.Max(MinimumWaitSeconds, Math.Min(wait, MaximumIdleWaitSeconds));
+    }
+}
+
 // Failure half of the seal decision core: what a thrown or observed failure means for durable
 // queue state. Input deadlines stay in BundleSealConvergence.Resolve; this type never waits on
 // inputs, and Resolve never inspects exceptions.
@@ -459,15 +517,29 @@ public static class BundleSealFailurePolicy
         int attempts,
         float? secondsSinceLastAttempt,
         float secondsSinceLaunch
+    ) =>
+        SecondsUntilDue(lastErrorCode, attempts, secondsSinceLastAttempt, secondsSinceLaunch)
+            is <= 0f;
+
+    // When a waiting job may run next: 0 when it is due now, the rest of its backoff while it
+    // backs off, and null while it is parked until the next launch.
+    public static float? SecondsUntilDue(
+        string? lastErrorCode,
+        int attempts,
+        float? secondsSinceLastAttempt,
+        float secondsSinceLaunch
     )
     {
         if (lastErrorCode == null || attempts <= 0 || secondsSinceLastAttempt is not { } elapsed)
-            return true;
+            return 0f;
         if (elapsed < 0f)
-            return true;
+            return 0f;
         if (lastErrorCode == EnvironmentBlockedCode)
-            return elapsed > secondsSinceLaunch;
-        return elapsed >= BackoffSeconds(attempts);
+            return elapsed > secondsSinceLaunch ? 0f : null;
+        var backoff = BackoffSeconds(attempts);
+        if (elapsed >= backoff)
+            return 0f;
+        return backoff - elapsed;
     }
 
     public static float BackoffSeconds(int attempts)
