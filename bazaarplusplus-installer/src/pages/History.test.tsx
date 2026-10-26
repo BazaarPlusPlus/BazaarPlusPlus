@@ -479,15 +479,15 @@ const v5Only = (overrides: Partial<LegacyDataState>): LegacyDataState => ({
   ...overrides
 });
 
-describe('history without a current database', () => {
-  function installLink() {
-    return [...container.querySelectorAll('a')].find(
-      (link) =>
-        link.getAttribute('href')?.startsWith('/#') ||
-        link.getAttribute('href') === '/'
-    );
-  }
+function installLink() {
+  return [...container.querySelectorAll('a')].find(
+    (link) =>
+      link.getAttribute('href')?.startsWith('/#') ||
+      link.getAttribute('href') === '/'
+  );
+}
 
+describe('history without a current database', () => {
   beforeEach(() => {
     vi.mocked(listHistoryRuns).mockRejectedValue({
       code: 'history_unavailable',

@@ -28,6 +28,15 @@ function render(overrides: Partial<ConfirmDialogProps> = {}) {
   );
 }
 
+const ack = (checked: boolean) =>
+  render({
+    acknowledge: {
+      label: 'ack-label',
+      checked,
+      onChange: () => undefined
+    }
+  });
+
 describe('ConfirmDialog', () => {
   it('wires aria-labelledby <-> h2 id, title, localized close/cancel; slot order', () => {
     const html = render();
@@ -76,14 +85,6 @@ describe('ConfirmDialog', () => {
   });
 
   it('acknowledge gates confirm and renders tone-styled checkbox', () => {
-    const ack = (checked: boolean) =>
-      render({
-        acknowledge: {
-          label: 'ack-label',
-          checked,
-          onChange: () => undefined
-        }
-      });
     const off = ack(false);
     expect(off).toContain('type="checkbox"');
     expect(off).toContain('ack-label');

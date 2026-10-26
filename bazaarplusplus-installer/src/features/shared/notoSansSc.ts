@@ -64,6 +64,8 @@ async function loadNotoSansSc() {
   }
 }
 
+const start = () => void loadNotoSansSc();
+
 /**
  * Starts the optional CJK font download after the first frame. It is kept out
  * of bundled assets and the stylesheet is retained in persistent Cache Storage.
@@ -72,7 +74,6 @@ export function scheduleNotoSansScLoad() {
   if (scheduled || typeof window === 'undefined') return;
   scheduled = true;
 
-  const start = () => void loadNotoSansSc();
   if (window.requestIdleCallback) {
     window.requestIdleCallback(start, { timeout: 2_000 });
   } else {

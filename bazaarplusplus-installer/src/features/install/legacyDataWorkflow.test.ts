@@ -31,6 +31,8 @@ function state(
   } satisfies LegacyDataState;
 }
 
+const eligible = () => state(['BazaarPlusPlusV5'], true);
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((settle) => {
@@ -162,8 +164,6 @@ describe('legacy data workflow', () => {
   });
 
   describe('V5 import', () => {
-    const eligible = () => state(['BazaarPlusPlusV5'], true);
-
     it('runs only while eligible', async () => {
       const port = commands();
       const workflow = createLegacyDataWorkflow({ commands: port });
