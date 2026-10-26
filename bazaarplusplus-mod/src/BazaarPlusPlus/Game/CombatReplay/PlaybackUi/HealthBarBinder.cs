@@ -11,25 +11,18 @@ namespace BazaarPlusPlus.Game.CombatReplay.PlaybackUi;
 
 internal static class HealthBarBinder
 {
+    private const string EncounterPickerMapName = "EncounterPicker_Map(Clone)";
+
+    // Scene instances only, inactive ones included: Resources.FindObjectsOfTypeAll also returns
+    // prefab assets (SetActive would write to the asset) and walking every Transform for its name
+    // costs a scan of every loaded object per call. The picker map is the node-sequence prefab
+    // root that carries the controller (TransitionInComponent reads it with GetComponent on the
+    // spawned root); the ancestor walk keeps hiding the named map if a controller ever moves to
+    // a child of it.
     internal static void HideEncounterPickerOverlays()
     {
-        HideObjectsOfType<EncounterPickerMapController>();
-        HideObjectsOfType<InjectedEncounterPickerMapController>();
-
-        foreach (var transform in Resources.FindObjectsOfTypeAll<Transform>())
-        {
-            if (
-                transform?.gameObject != null
-                && string.Equals(
-                    transform.gameObject.name,
-                    "EncounterPicker_Map(Clone)",
-                    StringComparison.Ordinal
-                )
-            )
-            {
-                transform.gameObject.SetActive(false);
-            }
-        }
+        HideSceneObjectsOfType<EncounterPickerMapController>();
+        HideSceneObjectsOfType<InjectedEncounterPickerMapController>();
     }
 
     internal static void EnsureOpponentPortraitVisible()
@@ -303,13 +296,26 @@ internal static class HealthBarBinder
         targetMethod.Invoke(controller, [argument]);
     }
 
-    private static void HideObjectsOfType<T>()
+    private static void HideSceneObjectsOfType<T>()
         where T : Component
     {
-        foreach (var component in Resources.FindObjectsOfTypeAll<T>())
+        foreach (var component in UnityEngine.Object.FindObjectsOfType<T>(true))
         {
-            if (component?.gameObject != null)
-                component.gameObject.SetActive(false);
+            if (component == null)
+                continue;
+            component.gameObject.SetActive(false);
+            for (
+                var ancestor = component.transform.parent;
+                ancestor != null;
+                ancestor = ancestor.parent
+            )
+            {
+                if (string.Equals(ancestor.name, EncounterPickerMapName, StringComparison.Ordinal))
+                {
+                    ancestor.gameObject.SetActive(false);
+                    break;
+                }
+            }
         }
     }
 }
