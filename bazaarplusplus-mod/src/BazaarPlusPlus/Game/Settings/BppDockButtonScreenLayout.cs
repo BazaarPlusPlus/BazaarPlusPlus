@@ -16,7 +16,8 @@ internal sealed class BppDockButtonScreenLayout
         RectTransform collectionRect,
         float localGap,
         out string? blockerName,
-        RectTransform? occupiedRect = null
+        RectTransform? occupiedRect = null,
+        bool beside = false
     )
     {
         blockerName = null;
@@ -70,14 +71,23 @@ internal sealed class BppDockButtonScreenLayout
             _blockerScratch.Add(
                 new BppDockButtonObstacle(occupiedRect.name, occupiedBounds, isActive: true)
             );
-        var plan = BppCollectionDockButtonLayoutPlanner.Resolve(
-            viewportBounds,
-            gearBounds,
-            collectionBounds.Width,
-            collectionBounds.Height,
-            gap,
-            blockers
-        );
+        var plan = beside
+            ? BppCollectionDockButtonLayoutPlanner.ResolveBeside(
+                viewportBounds,
+                gearBounds,
+                collectionBounds.Width,
+                collectionBounds.Height,
+                gap,
+                blockers
+            )
+            : BppCollectionDockButtonLayoutPlanner.Resolve(
+                viewportBounds,
+                gearBounds,
+                collectionBounds.Width,
+                collectionBounds.Height,
+                gap,
+                blockers
+            );
         blockerName = plan.BlockerName;
         if (!plan.CanApply)
             return false;

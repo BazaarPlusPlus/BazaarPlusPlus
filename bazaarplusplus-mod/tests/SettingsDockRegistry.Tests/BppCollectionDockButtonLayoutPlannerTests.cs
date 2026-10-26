@@ -157,4 +157,63 @@ public class BppCollectionDockButtonLayoutPlannerTests
                 Assert.False(slots[index].Overlaps(slots[next]));
         }
     }
+
+    [Fact]
+    public void ResolveBeside_places_the_button_left_of_the_gear_on_its_row()
+    {
+        var plan = BppCollectionDockButtonLayoutPlanner.ResolveBeside(
+            Viewport,
+            Gear,
+            width: 100f,
+            height: 100f,
+            gap: 20f,
+            Array.Empty<BppDockButtonObstacle>()
+        );
+
+        Assert.True(plan.CanApply);
+        Assert.Equal(980f, plan.Bounds.CenterX);
+        Assert.Equal(100f, plan.Bounds.CenterY);
+        Assert.Null(plan.BlockerName);
+    }
+
+    [Fact]
+    public void ResolveBeside_places_nothing_when_the_slot_next_to_the_gear_is_blocked()
+    {
+        var blocker = new BppDockButtonObstacle(
+            "native-currency",
+            BppDockButtonBounds.FromCenter(980f, 100f, 100f, 100f),
+            isActive: true
+        );
+
+        var plan = BppCollectionDockButtonLayoutPlanner.ResolveBeside(
+            Viewport,
+            Gear,
+            100f,
+            100f,
+            20f,
+            new[] { blocker }
+        );
+
+        Assert.False(plan.CanApply);
+        Assert.Equal(980f, plan.Bounds.CenterX);
+        Assert.Equal("native-currency", plan.BlockerName);
+    }
+
+    [Fact]
+    public void ResolveBeside_refuses_a_slot_outside_the_viewport()
+    {
+        var gearAtEdge = BppDockButtonBounds.FromCenter(50f, 100f, 100f, 100f);
+
+        var plan = BppCollectionDockButtonLayoutPlanner.ResolveBeside(
+            Viewport,
+            gearAtEdge,
+            100f,
+            100f,
+            20f,
+            Array.Empty<BppDockButtonObstacle>()
+        );
+
+        Assert.False(plan.CanApply);
+        Assert.Equal("viewport", plan.BlockerName);
+    }
 }

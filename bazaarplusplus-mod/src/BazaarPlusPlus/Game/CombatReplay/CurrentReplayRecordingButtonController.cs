@@ -143,7 +143,7 @@ internal sealed class CurrentReplayRecordingButtonController
 
     private bool IsDockAnchorActive()
     {
-        var collectionRect = ResolveDockAnchorController()?.LastDockButtonRect;
+        var collectionRect = ResolveDockAnchorController()?.DockButtonRect;
         return collectionRect != null && collectionRect.gameObject.activeInHierarchy;
     }
 
@@ -219,7 +219,7 @@ internal sealed class CurrentReplayRecordingButtonController
 
     private Button ResolveDockAnchorButton(Button settingsButton)
     {
-        var collectionRect = ResolveDockAnchorController()?.LastDockButtonRect;
+        var collectionRect = ResolveDockAnchorController()?.DockButtonRect;
         if (
             collectionRect != null
             && collectionRect.gameObject.activeInHierarchy

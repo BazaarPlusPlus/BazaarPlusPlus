@@ -22,6 +22,7 @@ internal sealed class BppPanelDockButtonsController
     private RectTransform? _dockButtonRect;
     private RectTransform? _liveBuildButtonRect;
     private bool _hasAvailableLiveBuildLayout;
+    private string? _liveBuildBlocker;
     private readonly BppScreenResizeSyncTracker _screenResizeSync = new(ScreenResizeSyncFrameCount);
     private readonly BppDockLayoutSyncTracker _layoutSync = new(LayoutImmediateSyncFrameCount);
     private readonly BppDockButtonScreenLayout _screenLayout = new();
@@ -30,8 +31,6 @@ internal sealed class BppPanelDockButtonsController
     private int _screenshotSuppressionCount;
 
     internal RectTransform? DockButtonRect => _dockButtonRect;
-    internal RectTransform? LastDockButtonRect =>
-        _hasAvailableLiveBuildLayout ? _liveBuildButtonRect : _dockButtonRect;
 
     internal void SetLayoutAvailable(bool available)
     {
@@ -44,11 +43,13 @@ internal sealed class BppPanelDockButtonsController
         if (anchorButton == null)
             return;
 
+        // Ten-Win Builds reads the run's board, so only the run's settings button carries it.
+        var inRun = placement.ButtonId == SettingsNativeButtonId.FightMenu;
         var existingController = anchorButton.GetComponent<BppPanelDockButtonsController>();
         if (
             existingController != null
             && existingController._dockButtonRect != null
-            && existingController._liveBuildButtonRect != null
+            && (existingController._liveBuildButtonRect != null || !inRun)
         )
         {
             existingController.SyncDockButtonPlacement();
@@ -59,13 +60,20 @@ internal sealed class BppPanelDockButtonsController
         if (dockButton == null)
             return;
 
-        var liveBuildButton = BppNativeSettingsButtonClone.FindOrCreate(
-            anchorButton,
-            BppSettingsDockPlacement.ForButton($"TenWinBuilds_{placement.Key}", placement.ButtonId),
-            BppDockButtonSpriteId.TenWinBuilds
-        );
-        if (liveBuildButton == null)
-            return;
+        RectTransform? liveBuildButton = null;
+        if (inRun)
+        {
+            liveBuildButton = BppNativeSettingsButtonClone.FindOrCreate(
+                anchorButton,
+                BppSettingsDockPlacement.ForButton(
+                    $"TenWinBuilds_{placement.Key}",
+                    placement.ButtonId
+                ),
+                BppDockButtonSpriteId.TenWinBuilds
+            );
+            if (liveBuildButton == null)
+                return;
+        }
 
         var controller =
             existingController
@@ -90,7 +98,7 @@ internal sealed class BppPanelDockButtonsController
         Button anchorButton,
         BppSettingsDockPlacement placement,
         RectTransform dockButton,
-        RectTransform liveBuildButton
+        RectTransform? liveBuildButton
     )
     {
         _anchorButton = anchorButton;
@@ -112,9 +120,11 @@ internal sealed class BppPanelDockButtonsController
 
         _dockButton.onClick.RemoveAllListeners();
         _dockButton.onClick.AddListener(CollectionPanelFeature.OpenFromDockButton);
-        var liveBuildAction = liveBuildButton.GetComponent<Button>();
-        liveBuildAction.onClick.RemoveAllListeners();
-        liveBuildAction.onClick.AddListener(LiveBuildPanelFeature.OpenFromDockButton);
+        if (liveBuildButton?.GetComponent<Button>() is { } liveBuildAction)
+        {
+            liveBuildAction.onClick.RemoveAllListeners();
+            liveBuildAction.onClick.AddListener(LiveBuildPanelFeature.OpenFromDockButton);
+        }
 
         SyncDockButtonPlacement();
     }
@@ -148,17 +158,37 @@ internal sealed class BppPanelDockButtonsController
             BppSettingsDockPlacement.DefaultSiblingGap,
             out var blockerName
         );
-        _hasAvailableLiveBuildLayout =
-            _liveBuildButtonRect != null
-            && _screenLayout.TryResolveAndApplyCollection(
+        if (_liveBuildButtonRect != null)
+        {
+            _hasAvailableLiveBuildLayout = _screenLayout.TryResolveAndApplyCollection(
                 _anchorButton,
                 _liveBuildButtonRect,
                 BppSettingsDockPlacement.DefaultSiblingGap,
-                out _,
-                occupiedRect: available ? _dockButtonRect : null
+                out var liveBuildBlocker,
+                occupiedRect: available ? _dockButtonRect : null,
+                beside: true
             );
+            ObserveLiveBuildBlocker(_hasAvailableLiveBuildLayout ? null : liveBuildBlocker);
+        }
         SetLayoutAvailable(available);
         _layoutLogState.Observe(ToLayoutObservation(available, blockerName));
+    }
+
+    // Ten-Win Builds hides while the slot left of the gear is taken; the change is logged with
+    // the blocker's name, once per change, so a recurring blocker can be found.
+    private void ObserveLiveBuildBlocker(string? blocker)
+    {
+        if (
+            _liveBuildButtonRect == null
+            || string.Equals(blocker, _liveBuildBlocker, StringComparison.Ordinal)
+        )
+            return;
+        _liveBuildBlocker = blocker;
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Settings, "settings.dock_button.ten_win_layout"),
+            ("available", blocker == null),
+            ("blocker", blocker)
+        );
     }
 
     private void SyncDockCanvas(RectTransform dockButtonRect)
