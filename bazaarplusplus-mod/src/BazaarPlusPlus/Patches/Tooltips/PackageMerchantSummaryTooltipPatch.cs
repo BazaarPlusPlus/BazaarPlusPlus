@@ -69,16 +69,22 @@ internal static class PackageMerchantSummaryTooltipPatch
     {
         var templateId = tooltipData.CardInstance.TemplateId;
         var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
-        if (
-            staticData != null
-            && PackageTemplates.TryGet(staticData, string.Empty, templateId, out var cached)
-        )
-            return cached;
+        if (staticData == null)
+            return ResolvePackageTemplateUncached(tooltipData, null, templateId);
 
-        var packageTemplate = ResolvePackageTemplateUncached(tooltipData, staticData, templateId);
-        if (staticData != null)
-            PackageTemplates.Set(staticData, string.Empty, templateId, packageTemplate);
-        return packageTemplate;
+        return PackageTemplates.GetOrAdd(
+            staticData,
+            string.Empty,
+            templateId,
+            (tooltipData, staticData, templateId),
+            static inputs =>
+                ResolvePackageTemplateUncached(
+                    inputs.tooltipData,
+                    inputs.staticData,
+                    inputs.templateId
+                ),
+            static _ => true
+        );
     }
 
     private static ITCard? ResolvePackageTemplateUncached(

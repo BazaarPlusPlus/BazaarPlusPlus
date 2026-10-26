@@ -28,9 +28,11 @@ internal enum PackageMerchantSummaryFailureReason
 /// </summary>
 internal static class PackageMerchantSummary
 {
-    // A Package item's passive block re-renders on every combat attribute event. The summary is
-    // keyed by static data, package template and game language; run state the native renderer
-    // could read is not, because the selling rule names the merchant rather than a run value.
+    // A Package item's passive block re-renders on every combat attribute event, so the summary
+    // is cached per static data, package template and game language. Run state is not in the
+    // key, although the native renderer resolves tokens against Data.Run and the first render
+    // may happen outside a run. That is correct only while the first sentence the summary keeps
+    // resolves no run-dependent token (docs/architecture/previews.md, Gotchas).
     private static readonly StaticDataScopedCache<Guid, Resolution> Resolutions = new();
 
     internal static bool TryResolve(
@@ -41,16 +43,17 @@ internal static class PackageMerchantSummary
     )
     {
         var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
-        var language = staticData == null || packageTemplate == null ? null : L.CurrentLanguageCode;
-        if (
-            language == null
-            || !Resolutions.TryGet(staticData!, language, packageTemplate!.Id, out var resolution)
-        )
-        {
-            resolution = ResolveUncached(packageTemplate, staticData);
-            if (language != null && resolution.IsStable)
-                Resolutions.Set(staticData!, language, packageTemplate!.Id, resolution);
-        }
+        var resolution =
+            staticData == null || packageTemplate == null
+                ? ResolveUncached(packageTemplate, staticData)
+                : Resolutions.GetOrAdd(
+                    staticData,
+                    L.CurrentLanguageCode,
+                    packageTemplate.Id,
+                    (packageTemplate, staticData),
+                    static inputs => ResolveUncached(inputs.packageTemplate, inputs.staticData),
+                    static resolved => IsCacheable(resolved.FailureReason)
+                );
 
         summary = resolution.Summary;
         merchantTemplateId = resolution.MerchantTemplateId;
@@ -100,62 +103,21 @@ internal static class PackageMerchantSummary
         return new(PackageMerchantSummaryFailureReason.None, merchantTemplateId, summary);
     }
 
+    /// <summary>
+    /// Whether an outcome is a static-data fact worth caching. A native tooltip that failed to
+    /// build or rendered empty may succeed on a later render, so those outcomes are recomputed.
+    /// </summary>
+    internal static bool IsCacheable(PackageMerchantSummaryFailureReason failureReason) =>
+        failureReason
+            is PackageMerchantSummaryFailureReason.None
+                or PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable
+                or PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable;
+
     private readonly record struct Resolution(
         PackageMerchantSummaryFailureReason FailureReason,
         Guid MerchantTemplateId = default,
         string Summary = ""
-    )
-    {
-        // Static-data facts only: a native tooltip that failed to build or rendered empty may
-        // succeed on a later render, so those outcomes are recomputed.
-        internal bool IsStable =>
-            FailureReason
-                is PackageMerchantSummaryFailureReason.None
-                    or PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable
-                    or PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable;
-    }
-}
-
-/// <summary>
-/// A main-thread lookup cache bound to one static-data manager and game language; a different
-/// manager (GameData reload) or language empties it.
-/// </summary>
-internal sealed class StaticDataScopedCache<TKey, TValue>
-    where TKey : notnull
-{
-    private readonly Dictionary<TKey, TValue> _values = new();
-    private object? _staticData;
-    private string? _language;
-
-    internal bool TryGet(object staticData, string language, TKey key, out TValue value)
-    {
-        lock (_values)
-        {
-            Rescope(staticData, language);
-            return _values.TryGetValue(key, out value!);
-        }
-    }
-
-    internal void Set(object staticData, string language, TKey key, TValue value)
-    {
-        lock (_values)
-        {
-            Rescope(staticData, language);
-            _values[key] = value;
-        }
-    }
-
-    private void Rescope(object staticData, string language)
-    {
-        if (
-            ReferenceEquals(_staticData, staticData)
-            && string.Equals(_language, language, StringComparison.Ordinal)
-        )
-            return;
-        _values.Clear();
-        _staticData = staticData;
-        _language = language;
-    }
+    );
 }
 
 internal static class PackageMerchantSummaryText

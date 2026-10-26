@@ -30,6 +30,9 @@ internal sealed class CompatibleCardValueConverter : JsonConverter
     /// </summary>
     internal static void Install(JsonSerializer serializer)
     {
+        // Once read, a client that maps the discriminator skips the per-row converter scans.
+        if (NativeKnowsUniqueCardCount.IsValueCreated && NativeKnowsUniqueCardCount.Value)
+            return;
         if (serializer.Converters.Any(converter => converter is CompatibleCardValueConverter))
             return;
         var native = serializer.Converters.OfType<BazaarJsonDerivedTypeConverter>().Single();
