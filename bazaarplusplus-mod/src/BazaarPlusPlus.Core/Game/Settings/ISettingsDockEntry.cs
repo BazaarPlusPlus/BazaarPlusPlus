@@ -10,9 +10,7 @@ namespace BazaarPlusPlus.Game.Settings;
 /// </summary>
 public interface ISettingsDockEntry
 {
-    /// <summary>Lower value = earlier in the settings dock. Mirrors the legacy
-    /// hardcoded ordering in BppSettingsDockCatalog so config-row positions stay
-    /// stable across the Phase-3 registration migration.</summary>
+    /// <summary>Lower value = earlier in the settings dock.</summary>
     int Order { get; }
 
     BppSettingsDockDefinition Build(BppSettings config);

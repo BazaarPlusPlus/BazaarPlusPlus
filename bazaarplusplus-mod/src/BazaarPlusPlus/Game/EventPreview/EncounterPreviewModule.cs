@@ -55,7 +55,7 @@ internal sealed class EncounterPreviewModule : IDisposable
     internal EncounterPreviewModule(
         IBppServices services,
         BppStaticCardMapProvider cardMapProvider,
-        IGameDataDayTierResolver dayTierResolver,
+        GameDataDayTierResolver dayTierResolver,
         string cachePath
     )
         : this(

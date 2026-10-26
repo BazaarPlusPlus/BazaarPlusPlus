@@ -24,7 +24,6 @@ import {
 function installState(overrides: Partial<InstallState> = {}): InstallState {
   return {
     selected_game_path: '/Applications/The Bazaar',
-    steam_path: '/Applications/Steam',
     game: { path_valid: true },
     mod_state: {
       installed: false,

@@ -48,7 +48,7 @@ internal sealed class CollectionPanel : MonoBehaviour
     private INativeCardPreviewHost _nativeCardPreviewHost = null!;
     private CollectionInspectionModule _inspection = null!;
     private readonly CollectionInspectionClick _inspectionClick = new();
-    private IGameDataDayTierResolver _dayTierResolver = null!;
+    private GameDataDayTierResolver _dayTierResolver = null!;
     private CollectionPanelView? _view;
     private CollectionGridOverlay? _overlay;
     private INativeCardPreviewScope? _previewScope;
@@ -79,7 +79,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         IBppServices services,
         BppStaticCardMapProvider cardMapProvider,
         INativeCardPreviewHost nativeCardPreviewHost,
-        IGameDataDayTierResolver dayTierResolver,
+        GameDataDayTierResolver dayTierResolver,
         CollectionInspectionModule inspection
     )
     {
@@ -255,21 +255,7 @@ internal sealed class CollectionPanel : MonoBehaviour
                 ]
         );
 
-        // Temporary main-path probe: EnsureView() is heavy one-time UITK construction (visual
-        // tree + CJK glyph raster + cold OTF extract) that runs on the click frame BEFORE the
-        // panel is shown and is invisible to CollectionPanelLoadDiagnostics (created later in the
-        // coroutine). Time the first construction so its click-frame cost is attributable.
-        var firstViewConstruction = _view == null;
-        var openPrologueDiagnostics = firstViewConstruction
-            ? new CollectionPanelLoadDiagnostics()
-            : null;
         EnsureView();
-        if (firstViewConstruction)
-            openPrologueDiagnostics!.Complete(
-                CollectionPanelLoadPhase.OpenPrologue,
-                CollectionPanelLoadOutcome.Completed,
-                null
-            );
         // After EnsureView: ApplyOutcome drops the render while the view does not exist.
         ApplyOutcome(opened.Render);
         _isVisible = true;

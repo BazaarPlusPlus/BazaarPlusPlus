@@ -15,7 +15,6 @@ internal static class AndroidUiKit
     public static readonly Vector2 ReferenceResolution = new(1920f, 1080f);
 
     public static readonly Color PanelColor = new(0.07f, 0.06f, 0.05f, 0.96f);
-    public static readonly Color DimColor = new(0f, 0f, 0f, 0.55f);
     public static readonly Color ButtonColor = new(0.25f, 0.19f, 0.12f, 1f);
     public static readonly Color ActiveColor = new(0.55f, 0.38f, 0.14f, 1f);
     public static readonly Color TextColor = new(0.96f, 0.91f, 0.8f, 1f);

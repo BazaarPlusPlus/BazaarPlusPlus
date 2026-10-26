@@ -5,7 +5,6 @@ use serde::Serialize;
 #[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct InstallState {
     pub selected_game_path: Option<String>,
-    pub steam_path: Option<String>,
     pub game: InstallGameState,
     pub mod_state: InstallModState,
     pub actions: InstallActions,

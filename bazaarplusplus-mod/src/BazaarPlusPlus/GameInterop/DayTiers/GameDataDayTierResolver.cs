@@ -83,15 +83,7 @@ internal interface IGameDataDayTierSource
     );
 }
 
-internal interface IGameDataDayTierResolver
-{
-    GameDataDayTierResolution Resolve();
-
-    GameDataDayTierResolution Resolve(object expectedManager);
-}
-
 internal sealed class GameDataDayTierResolver(IGameDataDayTierSource source)
-    : IGameDataDayTierResolver
 {
     private readonly object _syncRoot = new();
     private readonly IGameDataDayTierSource _source =

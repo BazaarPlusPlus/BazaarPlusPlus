@@ -18,7 +18,7 @@ namespace BazaarPlusPlus.Game.BundlePipeline;
 /// every SQL read (<see cref="RunLogBundleSource"/>, <see cref="PvpBattleSqliteStore"/>); the host
 /// supplies only the game-typed reads, through <see cref="IPvpBattleEvidenceBinding"/>.
 /// </summary>
-public sealed class RunPayloadComposer : IRunPayloadComposer
+public sealed class RunPayloadComposer
 {
     private const string ItemCardType = "Item";
     private const string SkillCardType = "Skill";

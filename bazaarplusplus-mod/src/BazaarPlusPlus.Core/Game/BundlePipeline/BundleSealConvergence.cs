@@ -340,7 +340,7 @@ public static class BundleSealFailurePolicy
         }
 
         // A job that has already failed before cannot outlive the age ceiling; a first failure
-        // (including a revived legacy job's) always gets its normal retry or park.
+        // always gets its normal retry or park.
         var pastAgeCeiling =
             retry.LastErrorCode != null
             && retry.SecondsSinceInputDeadline >= FailureAgeCeilingSeconds;

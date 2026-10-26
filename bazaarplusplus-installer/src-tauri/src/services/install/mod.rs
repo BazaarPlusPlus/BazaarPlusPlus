@@ -160,7 +160,6 @@ pub(crate) fn install_state_from_snapshot(
 
     InstallState {
         selected_game_path,
-        steam_path: env.steam_path,
         game: InstallGameState {
             path_valid: env.game_path_valid,
         },

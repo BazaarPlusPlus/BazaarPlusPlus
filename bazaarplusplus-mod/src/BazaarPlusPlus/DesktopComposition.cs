@@ -62,7 +62,7 @@ internal sealed class DesktopComposition : IDisposable
 {
     private readonly CoreComposition _core;
     private readonly BppStaticCardMapProvider _staticCardMapProvider = new();
-    private readonly IGameDataDayTierResolver _dayTierResolver = new GameDataDayTierResolver(
+    private readonly GameDataDayTierResolver _dayTierResolver = new GameDataDayTierResolver(
         new GameDataDayTierSource()
     );
     private readonly IBppServices _services;

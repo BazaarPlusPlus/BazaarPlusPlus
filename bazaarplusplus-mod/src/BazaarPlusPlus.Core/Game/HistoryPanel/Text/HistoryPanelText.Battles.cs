@@ -11,15 +11,7 @@ public static partial class HistoryPanelText
         "未知对手"
     );
 
-    private static readonly LocalizedTextSet SelectedBattleText = new(
-        "Selected",
-        "当前战斗",
-        "當前戰鬥"
-    );
-
     public static string UnknownOpponent() => Resolve(UnknownOpponentText);
-
-    public static string SelectedBattle() => Resolve(SelectedBattleText);
 
     // The challenger's run ended with this battle.
     public static string FinalBattle() => FormatSimple("Final", "终局", "終局");
