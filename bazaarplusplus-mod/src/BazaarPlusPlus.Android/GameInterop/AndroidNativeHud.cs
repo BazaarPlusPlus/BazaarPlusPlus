@@ -31,14 +31,19 @@ internal static class AndroidNativeHud
     public static bool IsInspectingCard =>
         Il2CppTheBazaar.Data.TooltipParentComponent?.CardTooltipController?.CurrentCard != null;
 
-    public static Button? FindSettingsButton()
+    public static Button? FindSettingsButton() => FindSettingsButton(out _);
+
+    /// <summary>The active settings button; <paramref name="inRun"/> when it is the run's.</summary>
+    public static Button? FindSettingsButton(out bool inRun)
     {
+        inRun = true;
         foreach (var fight in Resources.FindObjectsOfTypeAll<Il2Cpp.FightMenuDialog>())
         {
             var button = fight.SettingButton?.GetButton();
             if (button != null && button.gameObject.activeInHierarchy)
                 return button;
         }
+        inRun = false;
         foreach (var view in Resources.FindObjectsOfTypeAll<Il2Cpp.SettingDialogsView>())
         {
             foreach (

@@ -54,7 +54,7 @@ public sealed class TouchHudLayoutTests
         var metrics = Metrics(name);
         var safe = metrics.SafeArea;
         var gear = new TouchRect(safe.Right - 80, safe.Top + 20, 60, 60);
-        var shortcuts = TouchHudLayout.Shortcuts(metrics, gear, 3);
+        var shortcuts = TouchHudLayout.ShortcutsBelow(metrics, gear, 2);
         foreach (var target in shortcuts)
         {
             Assert.True(safe.Contains(target));
@@ -63,6 +63,15 @@ public sealed class TouchHudLayoutTests
         }
         for (var i = 1; i < shortcuts.Length; i++)
             Assert.False(shortcuts[i].Overlaps(shortcuts[i - 1]));
+        var beside = TouchHudLayout.ShortcutsBeside(metrics, gear, 2);
+        foreach (var target in beside)
+        {
+            Assert.True(safe.Contains(target));
+            Assert.True(target.Height >= metrics.MinTarget && target.Width >= metrics.MinTarget);
+            Assert.True(target.Right <= gear.Left);
+            Assert.True(target.Top <= gear.CenterY && target.Bottom >= gear.CenterY);
+        }
+        Assert.True(beside[1].Right <= beside[0].Left);
         var vault = TouchHudLayout.Vault(metrics);
         var clock = TouchHudLayout.Playback(metrics);
         Assert.True(safe.Contains(clock.Panel));

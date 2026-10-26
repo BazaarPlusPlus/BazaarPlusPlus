@@ -5,6 +5,7 @@ using BazaarPlusPlus.Android.LiveBuild;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -13,8 +14,10 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;
 
-/// <summary>Direct native-style icon entries for the three touch panels; their lifecycle stays
-/// with the Overlay Panel Host. Views and catalog data are still built on first open.</summary>
+/// <summary>The touch panels' entries: native-style icons by the settings button for Collection
+/// and, in a run, Ten-Win Builds; History in the game's own menus, a tile in the lobby's MENU grid
+/// and a row in the in-run menu. Their lifecycle stays with the Overlay Panel Host. Views and
+/// catalog data are still built on first open.</summary>
 internal sealed class AndroidTouchUi
 {
     private const int SortingOrder = 30000;
@@ -22,6 +25,7 @@ internal sealed class AndroidTouchUi
     private const string CollectionPanelId = "collection";
     private const string LiveBuildPanelId = "live_build";
     private const string EntrySource = "touch_icon";
+    private const string MenuSource = "native_menu";
 
     private readonly AndroidSettings _android;
     private readonly AndroidOverlayPanels _panels;
@@ -30,11 +34,17 @@ internal sealed class AndroidTouchUi
     private readonly AndroidSupporterData? _supporters;
     private readonly AndroidPanelHandle _collectionHandle;
     private readonly AndroidPanelHandle _liveBuildHandle;
-    private readonly List<(GameObject Root, Func<bool> Offered)> _entries = new();
+    private readonly List<(RectTransform Rect, Func<bool> Offered)> _entries = new();
+    private TouchRect[] _slots = [];
+    private int _placed = -1;
+    private bool _inRun;
+    private bool _shortcutsInRun;
 
     private GameObject? _root;
     private RectTransform? _shortcuts;
     private AndroidControlIcons? _icons;
+    private AndroidNavigationMenuEntry? _historyMenu;
+    private AndroidFightMenuEntry? _historyFightMenu;
     private UnityEngine.UI.Button? _anchor;
     private RectTransform? _anchorRect;
     private Canvas? _anchorCanvas;
@@ -166,6 +176,26 @@ internal sealed class AndroidTouchUi
         AndroidTouchRoot.Frame = Frame;
         _font = font;
         _icons = new AndroidControlIcons();
+        if (_openHistory != null)
+        {
+            Func<bool> offered = () => _android.HistoryPanel.Value;
+            Action open = () =>
+                AndroidUiActions.Run("open_History", () => _openHistory(MenuSource));
+            _historyMenu = new AndroidNavigationMenuEntry(
+                "History",
+                HistoryPanelText.Title,
+                _icons.History,
+                offered,
+                open
+            );
+            _historyFightMenu = new AndroidFightMenuEntry(
+                "History",
+                HistoryPanelText.Title,
+                offered,
+                () => !IsPlaying(),
+                open
+            );
+        }
     }
 
     private void Frame()
@@ -178,15 +208,12 @@ internal sealed class AndroidTouchUi
             )
             {
                 _nextAnchorCheck = Time.unscaledTime + 0.5f;
-                _anchor = AndroidNativeHud.FindSettingsButton();
+                _anchor = AndroidNativeHud.FindSettingsButton(out _inRun);
                 _anchorRect = _anchor?.GetComponent<RectTransform>();
                 _anchorCanvas = _anchorRect?.GetComponentInParent<Canvas>()?.rootCanvas;
                 _shortcutAnchor = null;
             }
-            var playing =
-                Il2CppTheBazaar.Data.IsInCombat
-                || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>()
-                    != null;
+            var playing = IsPlaying();
             var visible =
                 _android.TouchMenu.Value
                 && _panels.OpenPanelId == null
@@ -199,8 +226,7 @@ internal sealed class AndroidTouchUi
             if (visible)
             {
                 LayoutShortcuts();
-                foreach (var entry in _entries)
-                    SetActive(entry.Root, entry.Offered());
+                PlaceShortcuts();
             }
             if (LiveBuildOffered() && !_liveBuildData!.Warmed)
                 _liveBuildData.Warm("setting_on");
@@ -212,6 +238,8 @@ internal sealed class AndroidTouchUi
                 && _collectionCatalog.IsBuilding
             )
                 _collectionCatalog.Advance(AndroidCollectionCatalogPace.Warm);
+            _historyMenu?.Tick();
+            _historyFightMenu?.Tick();
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
                 _panels.TryConsumeBack("keyboard");
@@ -232,55 +260,57 @@ internal sealed class AndroidTouchUi
         var screen = AndroidTouchScreen.Key();
         if (
             bounds == _shortcutAnchor
+            && _inRun == _shortcutsInRun
             && string.Equals(screen, _shortcutScreen, StringComparison.Ordinal)
         )
             return;
         _shortcutScreen = screen;
         _shortcutAnchor = bounds;
+        _shortcutsInRun = _inRun;
+        _placed = -1;
         if (_shortcuts != null)
             UnityEngine.Object.Destroy(_shortcuts.gameObject);
         _entries.Clear();
         var metrics = AndroidTouchScreen.Read();
         var chrome = TouchChrome.For(metrics);
-        var layout = TouchHudLayout.Shortcuts(metrics, bounds, 3);
+        _slots = _inRun
+            ? TouchHudLayout.ShortcutsBeside(metrics, bounds, 2)
+            : TouchHudLayout.ShortcutsBelow(metrics, bounds, 2);
         var art = new AndroidNativeArt();
         _shortcuts = AndroidTouchScreen.Child(
             "PanelShortcuts",
             _root!.transform,
             new(0, 0, metrics.CanvasWidth, metrics.CanvasHeight)
         );
-        Add(
+        var collection = Add(
             "Collection",
             _icons!.Collection,
             () => _android.CollectionPanel.Value,
-            () => LogOpenOutcome(CollectionPanelId, _collectionHandle.RequestOpen(EntrySource)),
-            0
+            () => LogOpenOutcome(CollectionPanelId, _collectionHandle.RequestOpen(EntrySource))
         );
-        Add(
-            "History",
-            _icons.History,
-            () => _openHistory != null && _android.HistoryPanel.Value,
-            () => _openHistory?.Invoke(EntrySource),
-            1
-        );
-        Add(
+        // Ten-Win Builds reads the run's board, so it is offered in a run only, next to the gear.
+        var tenWins = Add(
             "TenWinBuilds",
             _icons.TenWins,
-            LiveBuildOffered,
-            () => LogOpenOutcome(LiveBuildPanelId, _liveBuildHandle.RequestOpen(EntrySource)),
-            2
+            () => _shortcutsInRun && LiveBuildOffered(),
+            () => LogOpenOutcome(LiveBuildPanelId, _liveBuildHandle.RequestOpen(EntrySource))
         );
+        if (_inRun)
+            _entries.AddRange([tenWins, collection]);
+        else
+            _entries.AddRange([collection, tenWins]);
         _relayouts++;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.ui.shortcuts_layout"),
             ("anchor", bounds),
-            ("first", layout[0]),
+            ("in_run", _inRun),
+            ("first", _slots[0]),
             ("target", chrome.Target)
         );
 
-        void Add(string name, Sprite icon, Func<bool> offered, Action open, int index)
+        (RectTransform, Func<bool>) Add(string name, Sprite icon, Func<bool> offered, Action open)
         {
-            var rect = AndroidTouchScreen.Child(name, _shortcuts, layout[index]);
+            var rect = AndroidTouchScreen.Child(name, _shortcuts, _slots[0]);
             AndroidRoundControl.Create(
                 rect,
                 art.RoundLayers,
@@ -288,7 +318,28 @@ internal sealed class AndroidTouchUi
                 chrome.Metrics.Dp(32),
                 () => AndroidUiActions.Run("open_" + name, open)
             );
-            _entries.Add((rect.gameObject, offered));
+            return (rect, offered);
+        }
+    }
+
+    // The offered icons fill the slots in order, so a switched-off panel leaves no gap.
+    private void PlaceShortcuts()
+    {
+        var mask = 0;
+        for (var i = 0; i < _entries.Count; i++)
+            if (_entries[i].Offered())
+                mask |= 1 << i;
+        if (mask == _placed)
+            return;
+        _placed = mask;
+        var slot = 0;
+        for (var i = 0; i < _entries.Count; i++)
+        {
+            var (rect, _) = _entries[i];
+            var offered = (mask & (1 << i)) != 0;
+            SetActive(rect.gameObject, offered);
+            if (offered)
+                AndroidTouchScreen.Place(rect, _slots[slot++]);
         }
     }
 
@@ -333,6 +384,11 @@ internal sealed class AndroidTouchUi
         );
         return _liveBuild.Open(handle.OpenSource);
     }
+
+    // A combat or a replay is on: no panel opens, as on the desktop.
+    private static bool IsPlaying() =>
+        Il2CppTheBazaar.Data.IsInCombat
+        || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>() != null;
 
     private static void SetActive(GameObject? target, bool active)
     {

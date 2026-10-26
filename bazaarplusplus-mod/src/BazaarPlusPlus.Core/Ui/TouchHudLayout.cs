@@ -4,7 +4,30 @@ namespace BazaarPlusPlus.Core.Ui;
 /// <summary>Touch targets around native HUD anchors; visible artwork may be smaller.</summary>
 public static class TouchHudLayout
 {
-    public static TouchRect[] Shortcuts(TouchMetrics metrics, TouchRect gear, int count)
+    /// <summary>
+    /// A row ending left of the settings button, centred on it: slot 0 sits next to the gear and
+    /// later slots run leftwards. The in-run HUD leaves that strip free.
+    /// </summary>
+    public static TouchRect[] ShortcutsBeside(TouchMetrics metrics, TouchRect gear, int count)
+    {
+        var target = metrics.MinTarget;
+        var safe = metrics.SafeArea;
+        var gap = metrics.Dp(4);
+        var top = Math.Clamp(gear.CenterY - target / 2, safe.Top, safe.Bottom - target);
+        var right = Math.Min(gear.Left - gap, safe.Right);
+        return Enumerable
+            .Range(0, count)
+            .Select(index => new TouchRect(
+                right - (index + 1) * target - index * gap,
+                top,
+                target,
+                target
+            ))
+            .ToArray();
+    }
+
+    /// <summary>A column below the settings button, as in the lobby, whose top row is native.</summary>
+    public static TouchRect[] ShortcutsBelow(TouchMetrics metrics, TouchRect gear, int count)
     {
         var target = metrics.MinTarget;
         var safe = metrics.SafeArea;

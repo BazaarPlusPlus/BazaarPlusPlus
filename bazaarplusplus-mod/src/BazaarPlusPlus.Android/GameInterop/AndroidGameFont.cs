@@ -96,6 +96,9 @@ internal static class AndroidGameFont
     {
         var copy = Object.Instantiate(source);
         copy.name = source.name + " (BPP)";
+        // Only managed code holds the copy, so a scene load's unused-asset sweep would destroy it
+        // under the panels that took it when they were built.
+        copy.hideFlags = UnityEngine.HideFlags.DontUnloadUnusedAsset;
         var chain = new Il2CppSystem.Collections.Generic.List<TMP_FontAsset>();
         if (source.atlasPopulationMode == AtlasPopulationMode.Dynamic)
         {
