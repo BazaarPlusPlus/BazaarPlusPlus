@@ -2,7 +2,7 @@
 
 The Tauri desktop installer. Repo-wide rules are in `../AGENTS.md`.
 
-Read `CONTEXT.md` first; it maps each task to its topic document.
+Read `GLOSSARY.md` first; it maps each task to its topic document.
 
 ## Verification
 
@@ -29,5 +29,5 @@ Stream HTTP handlers run every SQLite or filesystem access through `run_record_t
 
 ## Documentation
 
-- Re-verify every claim in a `docs/*.md` file you change; `npm run docs:check` checks only cited paths, links, and `CONTEXT.md` coverage, not prose.
+- Re-verify every claim in a `docs/*.md` file you change; `npm run docs:check` checks only cited paths, links, and `GLOSSARY.md` coverage, not prose.
 - Keep generated audits and review artifacts under gitignored `tmp/`.

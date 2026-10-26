@@ -80,7 +80,7 @@ The Install workflow fixes the target path when confirmation opens. A successful
 
 ## Legacy Roots
 
-A Legacy Root (root `CONTEXT.md`) is user-owned. `LegacyRoot::ALL` in `src-tauri/src/services/legacy_data.rs` is the installer's only list of their names and never includes `BAZAAR_DATA_DIRECTORY`. Reset and uninstall never touch one, and nothing deletes one without the user confirming that root, including a successful V5 import.
+A Legacy Root (root `GLOSSARY.md`) is user-owned. `LegacyRoot::ALL` in `src-tauri/src/services/legacy_data.rs` is the installer's only list of their names and never includes `BAZAAR_DATA_DIRECTORY`. Reset and uninstall never touch one, and nothing deletes one without the user confirming that root, including a successful V5 import.
 
 The Install page lists them, not History: History resolves its game directory only where the current database exists, which a user with only V5 data does not have. `get_legacy_data_state` resolves the selected directory with `GamePathAcceptance::Any` and returns `LegacyDataState`:
 

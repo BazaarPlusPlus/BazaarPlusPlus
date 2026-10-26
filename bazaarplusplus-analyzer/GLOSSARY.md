@@ -5,7 +5,7 @@ Use these terms for source collection, analysis, and consumer behavior.
 ## Source collection
 
 **Bundle**:
-Defined in the root `../CONTEXT.md`. The analyzer analyzes its Run: the
+Defined in the root `../GLOSSARY.md`. The analyzer analyzes its Run: the
 associated Battles and card snapshots.
 
 **Source Hour**:

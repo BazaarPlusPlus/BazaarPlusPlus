@@ -3,7 +3,7 @@
 The strict schemas in `../../contracts/v6/` own JSON field names, types,
 required fields, enums, and scalar bounds. This document owns population,
 calculation, ordering, and cross-field semantics. Domain terms are defined in
-`../../CONTEXT.md`.
+`../../GLOSSARY.md`.
 
 The public object set is exactly, at `https://cdn.bazaarplusplus.com/metrics/v6`:
 

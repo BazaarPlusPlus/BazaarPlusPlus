@@ -2,7 +2,7 @@
 
 ## Context
 
-The mod updates its own Managed Payload (root `CONTEXT.md`, mod [ADR-0014](../../../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)). The installed copy can therefore be newer than the one in the installer's bundled `BepInEx.zip`. Until now readiness required `BazaarPlusPlus.version` to equal the bundled version, and Repair extracted the whole bundled zip. Such an installer would report a self-updated mod as needing Repair, and Repair would write the older mod back. On the next start the mod would stage the newer release again, and the loop would repeat. [ADR-0002](0002-macos-launch-trampoline.md) defined Repair's final state as whatever the installer bundles.
+The mod updates its own Managed Payload (root `GLOSSARY.md`, mod [ADR-0014](../../../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)). The installed copy can therefore be newer than the one in the installer's bundled `BepInEx.zip`. Until now readiness required `BazaarPlusPlus.version` to equal the bundled version, and Repair extracted the whole bundled zip. Such an installer would report a self-updated mod as needing Repair, and Repair would write the older mod back. On the next start the mod would stage the newer release again, and the loop would repeat. [ADR-0002](0002-macos-launch-trampoline.md) defined Repair's final state as whatever the installer bundles.
 
 ## Decision
 

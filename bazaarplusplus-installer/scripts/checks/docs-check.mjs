@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-const ROOT_DOCS = ['AGENTS.md', 'CONTEXT.md', 'README.md'];
+const ROOT_DOCS = ['AGENTS.md', 'GLOSSARY.md', 'README.md'];
 
 // Docs cite code by symbol (`DefaultStreamWorkflow.deriveSnapshot`,
 // `app.windows`) and prose names files this repo does not own
@@ -117,12 +117,12 @@ export function checkMarkdownLinks(rootDir) {
   return { checked, failures };
 }
 
-// CONTEXT.md is the sole entry map, so an unlinked topic is one an agent can
+// GLOSSARY.md is the sole entry map, so an unlinked topic is one an agent can
 // only find by luck.
 export function checkEntryMapCoverage(rootDir) {
   const linked = new Set(
-    extractMarkdownLinks(read(rootDir, 'CONTEXT.md')).map((link) =>
-      path.resolve(path.dirname(absolute(rootDir, 'CONTEXT.md')), link.target)
+    extractMarkdownLinks(read(rootDir, 'GLOSSARY.md')).map((link) =>
+      path.resolve(path.dirname(absolute(rootDir, 'GLOSSARY.md')), link.target)
     )
   );
   const topics = listDocs(rootDir, 'docs');
@@ -131,7 +131,7 @@ export function checkEntryMapCoverage(rootDir) {
     .map((topic) => ({
       file: topic,
       line: 1,
-      message: 'topic is not linked from `CONTEXT.md`'
+      message: 'topic is not linked from `GLOSSARY.md`'
     }));
   return { checked: topics.length, failures };
 }
@@ -139,7 +139,7 @@ export function checkEntryMapCoverage(rootDir) {
 const ASSERTIONS = [
   { name: 'Cited path existence', run: checkCitedPaths },
   { name: 'Relative markdown links', run: checkMarkdownLinks },
-  { name: 'CONTEXT.md topic coverage', run: checkEntryMapCoverage }
+  { name: 'GLOSSARY.md topic coverage', run: checkEntryMapCoverage }
 ];
 
 export function runDocsCheck(rootDir, { log = console.log } = {}) {

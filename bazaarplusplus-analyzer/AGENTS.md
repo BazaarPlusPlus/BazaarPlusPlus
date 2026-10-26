@@ -4,7 +4,7 @@ The analyzer that turns Bundles into hero and build snapshots. Repo-wide rules a
 
 ## Routing
 
-- **Domain**: Read `CONTEXT.md` before changing source admission, facts,
+- **Domain**: Read `GLOSSARY.md` before changing source admission, facts,
   windows, metrics, or domain names.
 - **Pipeline**: Read `docs/architecture.md` before changing collection,
   persistence, recovery, locking, status, or publication flow.

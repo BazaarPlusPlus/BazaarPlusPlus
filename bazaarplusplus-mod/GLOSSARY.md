@@ -199,7 +199,7 @@ The composition-owned Remote Embedded Catalog consumer for supporter data: fixed
 session-stable snapshots through the supporter facade, retry/disposal ownership.
 
 **Platform Release Manifest**:
-The per-platform release record defined in `../CONTEXT.md`. The mod reads only the `version` of its
+The per-platform release record defined in `../GLOSSARY.md`. The mod reads only the `version` of its
 own platform's manifest for the main-menu update check, through `ReleaseManifestEndpoints`, and
 falls back to the lockstep Release Manifest only on an undeclared platform. Its HTTP/JSON adapter and request-generation lifecycle are separate from
 Mod API health and installer runtime state.

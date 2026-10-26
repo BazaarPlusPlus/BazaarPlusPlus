@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    The Android Host (root CONTEXT.md; docs/ARCHITECTURE.md Hosts): a LemonLoader MelonMod on
+    The Android Host (root GLOSSARY.md; docs/ARCHITECTURE.md Hosts): a LemonLoader MelonMod on
     CoreCLR that compiles against the Interop Snapshot and the Loader Release, never against
     Managed/ and never publicized. net10.0 is the TFM of the Loader Release's own MelonLoader.dll.
   -->

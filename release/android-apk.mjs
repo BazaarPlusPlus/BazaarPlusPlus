@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 // Reads the facts an Interop Snapshot records from an official Android APK
-// (root CONTEXT.md, ADR 0008): the entries interop generation consumes, the
+// (root GLOSSARY.md, ADR 0008): the entries interop generation consumes, the
 // package versionName and versionCode from the binary AndroidManifest.xml, and
 // the Unity version from the data.unity3d bundle header. Nothing here needs the
 // Android SDK; entries are read through `unzip`.

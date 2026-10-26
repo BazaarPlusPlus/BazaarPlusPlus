@@ -1,6 +1,6 @@
 # AGENTS.md
 
-BazaarPlusPlus monorepo. The mod and the installer ship as one Product Release; the server, analyzer, and site are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `CONTEXT.md` glossary. Work inside the project the change touches and follow its `AGENTS.md`; this file holds only what spans projects.
+BazaarPlusPlus monorepo. The mod and the installer ship as one Product Release; the server, analyzer, and site are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `GLOSSARY.md`. Work inside the project the change touches and follow its `AGENTS.md`; this file holds only what spans projects.
 
 | The change touches | Project |
 |---|---|
@@ -12,7 +12,7 @@ BazaarPlusPlus monorepo. The mod and the installer ship as one Product Release; 
 | Product version, Payload Inventory, release pipeline | root `VERSION`, `release.mjs`, `release/`; read `docs/release.md` |
 | Design tokens, shared `bpp-*` styles, brand mark, brand book and writing standard | `design/`; read `docs/design.md` |
 
-Cross-project terms (Product Release, Payload, Release Manifest, Bundle) are defined in `CONTEXT.md`.
+Cross-project terms (Product Release, Payload, Release Manifest, Bundle) are defined in `GLOSSARY.md`.
 
 ## Contracts
 
@@ -56,9 +56,9 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 
 ## Documentation
 
-- Each fact has one owner. A term goes in the project's `CONTEXT.md` (in the root one when several projects use it). Current behavior goes in `docs/*.md`. A decision goes in `docs/adr/`. Plans, feature requests, and bugs go in GitHub issues (see Agent skills).
+- Each fact has one owner. A term goes in the project's `GLOSSARY.md` (in the root one when several projects use it). Current behavior goes in `docs/*.md`. A decision goes in `docs/adr/`. Plans, feature requests, and bugs go in GitHub issues (see Agent skills).
 - Config files, scripts, and `--help` output own every value they state. A doc carries only the convention, the reason, or the gotcha they cannot state.
-- Name domain concepts with the glossary's terms; a real naming gap gets a `CONTEXT.md` entry in the same change. When your output contradicts an ADR, name the ADR and say why it is worth reopening.
+- Name domain concepts with the glossary's terms; a real naming gap gets a `GLOSSARY.md` entry in the same change. When your output contradicts an ADR, name the ADR and say why it is worth reopening.
 - In committed docs and comments, cite code by path plus symbol name; line numbers drift. `file:line` is fine in session evidence and reviews.
 - ADRs are numbered `NNNN-slug.md` per project, in sequence. A number is never reused or renumbered. A replaced ADR gets a `superseded-by:` frontmatter pointer; a retired one is deleted and lives on in git history.
 - Root `README.md`, `docs/development.md`, and `docs/release.md` are in Chinese. `README_en.md` mirrors `README.md` section for section; edit both in one change.
@@ -75,8 +75,8 @@ GitHub Issues on this monorepo through `gh`; issues only, not PRs. Read `docs/ag
 
 ### Triage labels
 
-Each of the five canonical triage roles uses its own name as its label. Read `docs/agents/triage-labels.md` before applying one; most do not exist on the repo yet.
+Each of the five canonical triage roles uses its own name as its label. Read `docs/agents/triage-labels.md` before applying one.
 
 ### Domain docs
 
-`docs/agents/domain.md` names which `CONTEXT.md` and `docs/adr/` files to read before you explore an area.
+`docs/agents/domain.md` names which `GLOSSARY.md` and `docs/adr/` files to read before you explore an area.

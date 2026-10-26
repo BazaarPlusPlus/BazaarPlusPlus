@@ -1,4 +1,4 @@
-//! The Managed Payload (root `CONTEXT.md`) as install and Repair see it.
+//! The Managed Payload (root `GLOSSARY.md`) as install and Repair see it.
 //!
 //! The mod's self-update (mod ADR-0014) can leave a newer Managed Payload in
 //! the game directory than the one in the installer's bundled zip. Repair keeps

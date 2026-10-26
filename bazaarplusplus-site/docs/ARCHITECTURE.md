@@ -30,5 +30,5 @@ Installer resolution reads each platform's Platform Release Manifest at `latest/
 
 - `loadHeroMetricsDataset` fetches the snapshot and is its only decoder. A non-2xx response throws `HeroMetricsHttpError` with the status, so the `/heroes` query never retries a 4xx; network failures, 5xx, timeouts, and undecodable snapshots are retried.
 - One snapshot contains 1–7 contiguous daily entries. Its inclusive `window.end`, rather than the wall clock, governs window selection and freshness.
-- Additive fields and non-canonical heroes are compatible. An invalid envelope fails the page; an invalid daily entry degrades Dataset Coverage under `CONTEXT.md` semantics.
+- Additive fields and non-canonical heroes are compatible. An invalid envelope fails the page; an invalid daily entry degrades Dataset Coverage under `GLOSSARY.md` semantics.
 - Snapshots store `legend` and `non_legend`; analysis derives `all` by additive merge.

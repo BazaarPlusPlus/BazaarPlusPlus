@@ -1,7 +1,7 @@
 <Project>
   <!--
     Android host build inputs (root docs/adr/0008-interop-snapshots-in-snapshot-lock.md, the
-    Interop Snapshot and Loader Release in the root CONTEXT.md). A project that compiles against
+    Interop Snapshot and Loader Release in the root GLOSSARY.md). A project that compiles against
     the Interop assemblies imports this file; Directory.Build.props does not, so desktop builds
     never evaluate it. Each path resolves in this order and nowhere else:
       1. an explicit -p:InteropPath or -p:LemonLoaderPath;

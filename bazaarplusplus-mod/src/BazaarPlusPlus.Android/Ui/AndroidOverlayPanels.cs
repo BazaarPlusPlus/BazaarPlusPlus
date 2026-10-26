@@ -7,7 +7,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
-/// The Android adapter of the Overlay Panel Host (CONTEXT.md §Overlay panels): History, Collection
+/// The Android adapter of the Overlay Panel Host (GLOSSARY.md §Overlay panels): History, Collection
 /// and Ten-Win Builds register with Core's <see cref="OverlayPanelHost"/> through it, which keeps
 /// one of them open at a time, closes them for combat, a scene change and Panel Switch-Off, and
 /// releases the rented cards once every panel let go of its own (on a scene change or a

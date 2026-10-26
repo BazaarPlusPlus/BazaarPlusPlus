@@ -2,7 +2,7 @@
 
 How the plugin is assembled: startup and teardown order, the layer and assembly boundaries, the seams features share, and where runtime data lives. Per-feature detail is under [architecture/](architecture/); this file holds only what spans features.
 
-Terms used here are defined in [../CONTEXT.md](../CONTEXT.md). Why a boundary is where it is lives in [adr/](adr/), indexed one line each in [MEMORY.md](MEMORY.md).
+Terms used here are defined in [../GLOSSARY.md](../GLOSSARY.md). Why a boundary is where it is lives in [adr/](adr/), indexed one line each in [MEMORY.md](MEMORY.md).
 
 ## Runtime Shape
 

@@ -31,7 +31,7 @@ operator interface.
 
 ## Documentation
 
-- Domain terms and boundaries: `CONTEXT.md`
+- Domain terms and boundaries: `GLOSSARY.md`
 - Pipeline recovery and publication invariants: `docs/architecture.md`
 - Consumer calculations and cross-field semantics: `docs/specs/consumer-data-contract.md`
 - JSON wire shapes: `contracts/v6/*.schema.json`

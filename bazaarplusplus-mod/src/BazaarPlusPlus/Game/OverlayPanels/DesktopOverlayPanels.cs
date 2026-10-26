@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// The desktop adapter of the Overlay Panel Host (CONTEXT.md §Overlay panels): it reads the
+// The desktop adapter of the Overlay Panel Host (GLOSSARY.md §Overlay panels): it reads the
 // frame's scene, Escape and toggle hotkeys, and feeds them to the Core OverlayPanelHost, which
 // owns the lifecycle of the three Main Overlay Panels.
 internal sealed class DesktopOverlayPanels : MonoBehaviour

@@ -20,7 +20,7 @@ internal sealed class ManagedPayloadFile
 }
 
 /// <summary>
-/// The Managed Payload Manifest (CONTEXT.md): the release build's signed list of every managed
+/// The Managed Payload Manifest (GLOSSARY.md): the release build's signed list of every managed
 /// and history-contract file one product version installs on one platform, with the two facts
 /// self-update compares against the running copy. The release coordinator writes it
 /// (release/managed-payload.mjs); the installed copy sits beside the mod as

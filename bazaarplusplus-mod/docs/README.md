@@ -6,7 +6,7 @@ The documentation inventory, and the mod-specific rules for changing it. `AGENTS
 
 - [MEMORY.md](MEMORY.md) — invariants, settled decisions, and cross-feature traps that fail silently.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the plugin is assembled and what seams are shared, with per-feature detail under [architecture/](architecture/).
-- [../CONTEXT.md](../CONTEXT.md) — the glossary.
+- [../GLOSSARY.md](../GLOSSARY.md) — the glossary.
 - [adr/](adr/) — decision records.
 - [contracts/](contracts/) — wire and payload formats that outlive any one implementation.
 - [../README.md](../README.md) — the human entry point: features, install, quick start.
