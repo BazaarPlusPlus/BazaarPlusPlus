@@ -179,7 +179,7 @@ internal static class AndroidHistoryUi
     public static RectTransform Panel(Transform parent, string name, TouchRect area)
     {
         var rect = AndroidTouchScreen.Child(name, parent, area);
-        Skin.Frame(rect, PanelFill);
+        Skin.Frame(rect, PanelFill, borderOnly: true);
         var swallow = rect.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
         return rect;
@@ -247,7 +247,7 @@ internal static class AndroidHistoryUi
     )
     {
         var rect = AndroidTouchScreen.Child(name, parent, area);
-        Skin.Frame(rect, InputFill);
+        Skin.Frame(rect, InputFill, borderOnly: true);
         var background = rect.GetComponent<Image>();
         var viewport = AndroidUiKit.Rect(
             "TextViewport",

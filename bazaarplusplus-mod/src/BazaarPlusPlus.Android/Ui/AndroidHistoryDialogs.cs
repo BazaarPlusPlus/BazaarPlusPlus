@@ -329,7 +329,8 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
 /// The favorite note editor on Android, the desktop's note dialog on the touch layout: the note
 /// opens on the selected favorite and saves to the favorite it opened on, even if a reload
 /// reselects another row meanwhile. A failed save keeps the draft; the status line says why. The
-/// character count is polled each frame instead of a change listener.
+/// character count follows the field's change listener (<see cref="AndroidUiActions.OnChanged"/>);
+/// nothing polls the field each frame.
 /// </summary>
 internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
 {
@@ -431,7 +432,9 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
         _saving = false;
         _input.SetTextWithoutNotify(note);
         _shownLength = -1;
-        ShowCount(note.Length);
+        // The field's text, not the note: its character limit may have cut a stored note that
+        // the database counted in code points.
+        ShowCount((_input.text ?? string.Empty).Length);
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
         BppLog.InfoEvent(

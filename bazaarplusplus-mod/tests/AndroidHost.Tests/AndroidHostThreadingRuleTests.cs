@@ -164,14 +164,20 @@ public sealed class AndroidHostThreadingRuleTests
 
         Assert.True(
             violations.Length == 0,
-            "Wire History controls through AndroidUiActions.OnTap:\n  "
+            "Wire History controls through AndroidUiActions.OnTap or OnChanged:\n  "
                 + string.Join("\n  ", violations)
         );
-        Assert.Contains(
-            history.SelectMany(type => type.Methods).SelectMany(method => method.Instructions),
-            instruction =>
-                instruction.TargetType?.FullName == "BazaarPlusPlus.Android.Ui.AndroidUiActions"
-                && instruction.TargetMember == "OnTap"
-        );
+        var calls = history
+            .SelectMany(type => type.Methods)
+            .SelectMany(method => method.Instructions)
+            .ToArray();
+        // Taps, and the note's count following its edits instead of a per-frame poll.
+        foreach (var wiring in new[] { "OnTap", "OnChanged" })
+            Assert.Contains(
+                calls,
+                instruction =>
+                    instruction.TargetType?.FullName == "BazaarPlusPlus.Android.Ui.AndroidUiActions"
+                    && instruction.TargetMember == wiring
+            );
     }
 }

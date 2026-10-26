@@ -274,7 +274,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         BuildBackdrop();
         AndroidHistoryUi.Skin.Frame(
             AndroidTouchScreen.Child("Sheet", Surface, _l.Sheet),
-            AndroidHistoryUi.PanelFill
+            AndroidHistoryUi.PanelFill,
+            borderOnly: true
         );
         var tab = _l.ButtonFont;
         _runsTab = AndroidHistoryUi
