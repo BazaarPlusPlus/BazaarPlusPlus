@@ -108,7 +108,7 @@ internal sealed class LiveBuildPreviewRenderer : IDisposable
             if (!_rows.TryGetValue(row.Board.Id, out var preview))
                 continue;
             preview.Fit();
-            var template = preview.TrackPointer(pointer ?? new Vector2(-1, -1));
+            var template = preview.TrackPointer(pointer);
             if (clicked && row.CanToggleCandidates && template.HasValue)
                 selected = template;
         }

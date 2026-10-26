@@ -53,6 +53,7 @@ internal static class TenWinBuildTests
         TestRemoteRefreshPreservesProductFailure();
         TestCatalogRefreshPublishesSharedSnapshot();
         TestCorpusSummaryIncludesPerHeroBuildCounts();
+        TestProjectedBoardsFollowTheirHeroAndSnapshot();
         TestNonPlayableCorpusKeysCannotBeQueried();
         TestCorpusTooltipsUseCanonicalPresentation();
         TestDragonsQueriesShareTheCanonicalRemoteFixture();
@@ -547,6 +548,41 @@ internal static class TenWinBuildTests
         );
     }
 
+    private static void TestProjectedBoardsFollowTheirHeroAndSnapshot()
+    {
+        var corpus = RequireCorpus(TwoHeroSummaryPayload());
+        using var catalog = new StubCatalog(corpus);
+        var repository = new BuildRecommendationRepository(catalog);
+
+        var vanessa = Find(repository, "Vanessa", [GuidA]).Single().Board;
+        var dooley = Find(repository, "Dooley", [GuidA]).Single().Board;
+        Assert(
+            vanessa.Cards.Single(card => card.SourceSocketId == 0).Tier == CardTier.Bronze
+                && dooley.Cards.Single(card => card.SourceSocketId == 0).Tier == CardTier.Gold,
+            "Each hero's build 0 should project its own layout, not another hero's build 0."
+        );
+        Assert(
+            ReferenceEquals(Find(repository, "Vanessa", [GuidA]).Single().Board, vanessa),
+            "A repeated query against the same snapshot should reuse the projected board."
+        );
+
+        catalog.Enqueue(
+            CatalogRefreshResult<TenWinBuildCorpus>.Published(
+                Snapshot(RequireCorpus(TwoHeroSummaryPayload()), CatalogSource.Remote),
+                degraded: false
+            )
+        );
+        Assert(
+            repository.TryRefreshFinalBuildsFromRemoteAsync().GetAwaiter().GetResult().Succeeded,
+            "The replacement snapshot should publish."
+        );
+        var refreshed = Find(repository, "Vanessa", [GuidA]).Single().Board;
+        Assert(
+            !ReferenceEquals(refreshed, vanessa) && refreshed.Signature == vanessa.Signature,
+            "A replaced snapshot should project its builds afresh."
+        );
+    }
+
     private static void TestNonPlayableCorpusKeysCannotBeQueried()
     {
         var build = Build("[0]", "[[0,0,1,0,1]]", 500);
@@ -822,7 +858,8 @@ internal static class TenWinBuildTests
 
     private static string TwoHeroSummaryPayload()
     {
-        var dooleyBuild = Build("[0]", "[[0,0,1,0,1]]", 111);
+        // Dooley's build 0 differs from Vanessa's build 0 (Gold, not Bronze): build ids are per hero.
+        var dooleyBuild = Build("[0]", "[[0,0,3,0,1]]", 111);
         var vanessaBuildA = Build("[0]", "[[0,0,1,0,1]]", 222);
         var vanessaBuildB = Build("[1]", "[[1,1,1,0,1]]", 333);
 
