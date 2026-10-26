@@ -9,7 +9,7 @@ use crate::history::files::{remove_video_file, resolve_data_file_path, resolve_s
 use crate::history::mapper::{map_run_to_detail_row, map_run_to_list_row};
 use crate::history::queries::{
     self, list_run_rows, load_battle_rows, load_battle_video_ref, load_run_row, load_summary,
-    local_player_name, open_connection, open_write_connection, table_exists, HistoryReadError,
+    local_player_name, open_connection, open_write_connection, HistoryReadError,
 };
 use crate::history::screenshots::{primary_screenshot, primary_screenshot_ids};
 
@@ -34,9 +34,6 @@ pub fn list_history_runs(
     }
 
     let conn = open_connection(database_path)?;
-    if !table_exists(&conn, "runs")? {
-        return Ok(empty());
-    }
 
     let summary = load_summary(&conn)?;
     let effective_limit =
@@ -70,9 +67,6 @@ pub fn get_history_run_detail(
     }
 
     let conn = open_connection(database_path)?;
-    if !table_exists(&conn, "runs")? {
-        return Ok(None);
-    }
 
     let Some(row) = load_run_row(&conn, run_id)? else {
         return Ok(None);

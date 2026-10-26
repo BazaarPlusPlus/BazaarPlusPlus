@@ -40,7 +40,7 @@ internal static class TenWinBuildTests
         TestParserAcceptsDuplicateCardRefsNullableP75AndEmptyHero();
         TestRemoteUrlsUseMetricsV6Latest();
         TestOptionalLiveSampleParses();
-        TestFindRecommendationsHasNoRatingTierParam();
+        TestFindRecommendationsTakesHeroSelectionAndLiveState();
         TestDefaultCachePathUsesBuildsFileName();
         TestSingleCardSelectionResolvesViaCardIndex();
         TestMultiCardSelectionPrefersIntersection();
@@ -53,10 +53,9 @@ internal static class TenWinBuildTests
         TestRemoteRefreshPreservesProductFailure();
         TestCatalogRefreshPublishesSharedSnapshot();
         TestCorpusSummaryIncludesPerHeroBuildCounts();
-        TestMixedAliasCorpusMergesCanonicalFirstByBuildIdentity();
         TestNonPlayableCorpusKeysCannotBeQueried();
         TestCorpusTooltipsUseCanonicalPresentation();
-        TestLegacyCacheAndCanonicalRemoteFixturesShareOneIdentity();
+        TestDragonsQueriesShareTheCanonicalRemoteFixture();
         TestExistingSevenHeroesKeepRecommendationResults();
         TestOnlyPlayableHeroesAreQueried();
 
@@ -257,7 +256,7 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestFindRecommendationsHasNoRatingTierParam()
+    private static void TestFindRecommendationsTakesHeroSelectionAndLiveState()
     {
         var repositoryType = typeof(BuildRecommendationRepository);
 
@@ -271,26 +270,6 @@ internal static class TenWinBuildTests
         Assert(
             parameters[0].ParameterType == typeof(string),
             "First parameter should be the hero string."
-        );
-        Assert(
-            !parameters.Skip(1).Any(p => p.ParameterType == typeof(string)),
-            "FindRecommendations must not take a string rating-tier parameter."
-        );
-
-        Assert(
-            repositoryType.GetMethod("FindFinalRecommendations") == null,
-            "Legacy tier-based FindFinalRecommendations must be removed."
-        );
-        Assert(
-            repositoryType.GetMethod("TryFindFinalRecommendation") == null,
-            "Legacy TryFindFinalRecommendation must be removed."
-        );
-
-        Assert(
-            repositoryType.Assembly.GetType(
-                "BazaarPlusPlus.Game.LiveBuildPanel.Recommendations.BuildRatingTier"
-            ) == null,
-            "BuildRatingTier must be deleted from Core."
         );
     }
 
@@ -568,69 +547,6 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestMixedAliasCorpusMergesCanonicalFirstByBuildIdentity()
-    {
-        var canonicalBuild0 = Build("[0]", "[[0,0,1,0,1]]", 900);
-        var canonicalBuild1 = Build("[1]", "[[1,1,1,0,1]]", 800);
-        var legacyBuild0 = Build("[2]", "[[2,2,1,0,1]]", 100);
-        var legacyBuild1 = Build("[2]", "[[2,3,1,0,1]]", 200);
-        var legacyBuild2 = Build("[0]", "[[0,4,1,0,1]]", 600);
-        var canonicalHero = $$"""
-            "TheDragons": {
-              "builds": [{{canonicalBuild0}},{{canonicalBuild1}}],
-              "card_index": [[0,[0]],[1,[1]]]
-            }
-            """;
-        var legacyHero = $$"""
-            "Hero8": {
-              "builds": [{{legacyBuild0}},{{legacyBuild1}},{{legacyBuild2}}],
-              "card_index": [[0,[2]],[2,[0,1]]]
-            }
-            """;
-
-        foreach (
-            var heroes in new[] { $"{legacyHero},{canonicalHero}", $"{canonicalHero},{legacyHero}" }
-        )
-        {
-            WithCorpus(
-                PayloadWithHeroes(
-                    cards: $"[\"{GuidA}\",\"{GuidB}\",\"{GuidC}\"]",
-                    enchantments: "[null]",
-                    heroes: heroes
-                ),
-                repository =>
-                {
-                    var canonicalScores = ScoresOf(Find(repository, "TheDragons", [GuidA]));
-                    var legacyScores = ScoresOf(Find(repository, "Hero8", [GuidA]));
-                    Assert(
-                        canonicalScores.SequenceEqual([900L, 600L]),
-                        "Canonical alias entries should win duplicate build IDs, while a legacy-only "
-                            + $"build ID remains queryable; got [{string.Join(",", canonicalScores)}]."
-                    );
-                    Assert(
-                        legacyScores.SequenceEqual(canonicalScores),
-                        "Legacy and canonical runtime queries should resolve the same merged build set."
-                    );
-
-                    var summary = repository.GetCorpusSummary()!.Value;
-                    Assert(
-                        summary.HeroCount == 1,
-                        "Both aliases should contribute one canonical hero."
-                    );
-                    Assert(
-                        summary.BuildCount == 3,
-                        "Duplicate alias build IDs should not inflate the total build count."
-                    );
-                    var heroCounts = HeroCounts(summary);
-                    Assert(
-                        heroCounts.SequenceEqual([("TheDragons", 3)]),
-                        "Summary should expose one canonical TheDragons count row."
-                    );
-                }
-            );
-        }
-    }
-
     private static void TestNonPlayableCorpusKeysCannotBeQueried()
     {
         var build = Build("[0]", "[[0,0,1,0,1]]", 500);
@@ -715,23 +631,9 @@ internal static class TenWinBuildTests
             Assert(!LiveBuildPlayableHero.IsPlayable(hero), $"'{hero}' should not be playable.");
     }
 
-    private static void TestLegacyCacheAndCanonicalRemoteFixturesShareOneIdentity()
+    private static void TestDragonsQueriesShareTheCanonicalRemoteFixture()
     {
         var parser = new TenWinBuildCatalogParser();
-        var embeddedDocument = ScorePayload("Hero8", 222);
-        var embedded = parser.Parse(embeddedDocument, CatalogSource.Embedded);
-        Assert(embedded.Succeeded, "A legacy embedded-seed fixture should remain parseable.");
-        AssertAliasQueriesShareScore(embedded.Value!, 222);
-
-        var legacyCacheDocument = ScorePayload("Hero8", 333);
-        var legacyCache = parser.Parse(legacyCacheDocument, CatalogSource.Cache);
-        Assert(legacyCache.Succeeded, "A legacy local-cache fixture should remain parseable.");
-        Assert(
-            legacyCacheDocument.Contains("\"Hero8\"", StringComparison.Ordinal),
-            "Parsing must not rewrite the user's raw legacy cache document."
-        );
-        AssertAliasQueriesShareScore(legacyCache.Value!, 333);
-
         var canonicalRemoteDocument = ScorePayload("TheDragons", 444);
         var canonicalRemote = parser.Parse(canonicalRemoteDocument, CatalogSource.Remote);
         Assert(canonicalRemote.Succeeded, "A canonical remote fixture should parse.");
@@ -815,7 +717,7 @@ internal static class TenWinBuildTests
             summary.HeroCount == 1
                 && summary.BuildCount == 1
                 && summary.HeroBuildCounts.Single().Hero == "TheDragons",
-            "A single-alias source fixture should project one canonical hero/build count."
+            "A canonical source fixture should project one TheDragons hero/build count."
         );
     }
 

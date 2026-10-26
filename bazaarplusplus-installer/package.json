@@ -13,7 +13,6 @@
     "generate:bindings:test": "node scripts/generate-bindings.mjs --with-rust-tests",
     "generate:bindings:if-stale": "node scripts/generate-bindings.mjs --if-stale",
     "dev": "npm run generate:bindings:if-stale && vite dev",
-    "prepare:resources": "node ../release.mjs prepare",
     "check:bindings": "node scripts/checks/prebuild-check.mjs --bindings-only",
     "prebuild-check": "npm run generate:bindings && npm run prebuild-check:after-bindings",
     "prebuild-check:after-bindings": "node scripts/checks/prebuild-check.mjs",

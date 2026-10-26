@@ -117,7 +117,7 @@ public sealed class GhostBattleSyncService
             if (
                 cached.Status == FileBackedPayloadLoadStatus.Loaded
                 && GhostBattlePayloadReader.MatchesIdentity(
-                    GhostBattlePayloadReader.Normalize(cached.Payload),
+                    cached.Payload,
                     reference.LocalBattleId,
                     account!,
                     reference.UploaderAccountId
@@ -337,8 +337,8 @@ public sealed class GhostBattleSyncService
         catch (Exception ex)
         {
             return GhostPayloadExtraction.Failure(
-                // Discovery restores old compatibility failures once. Fresh failures use a
-                // distinct reason so a truly invalid replay cannot be revived on every sync.
+                // Terminal: discovery keeps the payload unavailable, so a truly invalid
+                // replay is not retried on every sync.
                 "ghost_bundle_import_failed",
                 HistoryPanelReplayReasonCode.GhostArtifactInvalid,
                 ex

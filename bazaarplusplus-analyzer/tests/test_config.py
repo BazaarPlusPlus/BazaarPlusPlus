@@ -42,9 +42,6 @@ def test_object_store_configuration_is_complete_and_credentials_are_repr_safe(
         "BPP_METRICS_R2_BUCKET=fixture-bucket\n",
         "BPP_METRICS_R2_BUCKET=fixture-bucket\nCLOUDFLARE_ACCOUNT_ID=fixture-account\n",
         "CLOUDFLARE_ACCOUNT_ID=fixture-account\nCLOUDFLARE_API_TOKEN=fixture-token\n",
-        # The earlier layout's derived pair is not a token.
-        "BPP_METRICS_R2_BUCKET=fixture-bucket\nBPP_METRICS_R2_ACCOUNT_ID=a\n"
-        "BPP_METRICS_R2_ACCESS_KEY_ID=k\nBPP_METRICS_R2_SECRET_ACCESS_KEY=s\n",
     ),
 )
 def test_object_store_configuration_rejects_partial_r2_credentials(

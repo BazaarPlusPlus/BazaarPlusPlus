@@ -189,16 +189,6 @@ pub fn open_cleanup_connection(database_path: &Path) -> anyhow::Result<Connectio
     Ok(conn)
 }
 
-pub fn table_exists(conn: &Connection, table_name: &str) -> anyhow::Result<bool> {
-    conn.query_row(
-        "select exists(select 1 from sqlite_master where type = 'table' and name = ?1)",
-        [table_name],
-        |row| row.get::<_, i64>(0),
-    )
-    .map(|value| value != 0)
-    .map_err(anyhow::Error::from)
-}
-
 pub fn sql_placeholders(count: usize) -> String {
     std::iter::repeat_n("?", count)
         .collect::<Vec<_>>()
@@ -219,15 +209,11 @@ pub fn load_summary(conn: &Connection) -> anyhow::Result<HistorySummary> {
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         ?;
-    let videos = if table_exists(conn, "combat_replay_videos")? {
-        conn.query_row(
-            "select count(*) from combat_replay_videos where status = 'COMPLETED'",
-            [],
-            |row| row.get(0),
-        )?
-    } else {
-        0
-    };
+    let videos = conn.query_row(
+        "select count(*) from combat_replay_videos where status = 'COMPLETED'",
+        [],
+        |row| row.get(0),
+    )?;
 
     Ok(HistorySummary {
         runs,
@@ -305,10 +291,6 @@ fn map_battle_fields(row: &rusqlite::Row<'_>) -> rusqlite::Result<BattleFields> 
 }
 
 pub fn local_player_name(conn: &Connection, run_id: &str) -> anyhow::Result<Option<String>> {
-    if !table_exists(conn, "battles")? {
-        return Ok(None);
-    }
-
     conn.query_row(
         "
         select player_name
@@ -325,58 +307,35 @@ pub fn local_player_name(conn: &Connection, run_id: &str) -> anyhow::Result<Opti
 }
 
 pub fn load_battle_rows(conn: &Connection, run_id: &str) -> anyhow::Result<Vec<HistoryBattleRow>> {
-    if !table_exists(conn, "battles")? {
-        return Ok(Vec::new());
-    }
-
-    if table_exists(conn, "combat_replay_videos")? {
-        let mut stmt = conn.prepare(
-            "
-                select
-                  b.battle_id, b.day, b.hour, b.result,
-                  b.opponent_hero, b.opponent_name, b.opponent_rank, b.opponent_rating,
-                  cv.video_id, cv.status, cv.file_size_bytes, cv.duration_ms
-                from battles b
-                left join combat_replay_videos cv on cv.video_id = (
-                  select video_id
-                  from combat_replay_videos
-                  where battle_id = b.battle_id and status = 'COMPLETED'
-                  order by started_at_ms desc, video_id desc
-                  limit 1
-                )
-                where b.run_id = ?1 and b.source = 'LOCAL' and b.deleted_at_ms is null
-                order by b.recorded_at_ms desc, b.battle_id desc
-                ",
-        )?;
-        let rows = stmt.query_map([run_id], |row| {
-            let video_id: Option<String> = row.get(8)?;
-            Ok(map_battle_row(
-                map_battle_fields(row)?,
-                video_id.map(|video_id| BattleVideoFields {
-                    video_id,
-                    status: row.get(9).ok().flatten(),
-                    file_size_bytes: row.get(10).ok().flatten(),
-                    duration_ms: row.get(11).ok().flatten(),
-                }),
-            ))
-        })?;
-        return rows
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(anyhow::Error::from);
-    }
-
     let mut stmt = conn.prepare(
         "
             select
-              battle_id, day, hour, result,
-              opponent_hero, opponent_name, opponent_rank, opponent_rating
-            from battles
-            where run_id = ?1 and source = 'LOCAL' and deleted_at_ms is null
-            order by recorded_at_ms desc, battle_id desc
+              b.battle_id, b.day, b.hour, b.result,
+              b.opponent_hero, b.opponent_name, b.opponent_rank, b.opponent_rating,
+              cv.video_id, cv.status, cv.file_size_bytes, cv.duration_ms
+            from battles b
+            left join combat_replay_videos cv on cv.video_id = (
+              select video_id
+              from combat_replay_videos
+              where battle_id = b.battle_id and status = 'COMPLETED'
+              order by started_at_ms desc, video_id desc
+              limit 1
+            )
+            where b.run_id = ?1 and b.source = 'LOCAL' and b.deleted_at_ms is null
+            order by b.recorded_at_ms desc, b.battle_id desc
             ",
     )?;
     let rows = stmt.query_map([run_id], |row| {
-        Ok(map_battle_row(map_battle_fields(row)?, None))
+        let video_id: Option<String> = row.get(8)?;
+        Ok(map_battle_row(
+            map_battle_fields(row)?,
+            video_id.map(|video_id| BattleVideoFields {
+                video_id,
+                status: row.get(9).ok().flatten(),
+                file_size_bytes: row.get(10).ok().flatten(),
+                duration_ms: row.get(11).ok().flatten(),
+            }),
+        ))
     })?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(anyhow::Error::from)
@@ -387,10 +346,6 @@ pub fn load_battle_video_ref(
     battle_id: &str,
     video_id: &str,
 ) -> anyhow::Result<Option<VideoRef>> {
-    if !table_exists(conn, "combat_replay_videos")? {
-        return Ok(None);
-    }
-
     conn.query_row(
         "
         select video_relative_path
@@ -412,10 +367,6 @@ pub fn load_run_id_for_battle(
     conn: &Connection,
     battle_id: &str,
 ) -> anyhow::Result<Option<String>> {
-    if !table_exists(conn, "battles")? {
-        return Ok(None);
-    }
-
     conn.query_row(
         "select run_id from battles where battle_id = ?1",
         [battle_id],

@@ -10,7 +10,7 @@ The standalone mod-facing backend, a Cloudflare Worker, ingesting Bundle V6. Rep
 | Change the Bundle binary format or manifest | `contracts/v6/` |
 | Change the BazaarDB Feed | `docs/adr/0004-bazaardb-cursor-feed.md` |
 | Provision, migrate, or deploy | `docs/deployment-runbook.md` |
-| Change D1 or R2 retention, or Ghost storage columns | `GLOSSARY.md` (Runtime boundaries), then `docs/adr/0002-d1-retention.md` and `docs/adr/0003-ghost-summary-columns.md`; the dated field audit under `docs/` is ADR 0003's evidence |
+| Change D1 or R2 retention, or Ghost storage columns | `GLOSSARY.md` (Runtime boundaries), then `docs/adr/0002-d1-retention.md` and `docs/adr/0003-ghost-summary-columns.md` |
 
 ## Guardrails
 

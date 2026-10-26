@@ -50,43 +50,31 @@ jobs:
       BPP_ANALYZER_STATE_PREFIX: analyzer-state
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - id: gate
-        name: Check analyzer secrets
+      - name: Check analyzer secrets
         env:
           BPP_BUNDLE_SYNC_TOKEN: ${{ secrets.BPP_BUNDLE_SYNC_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          EVENT: ${{ github.event_name }}
         run: |
           missing=()
           for name in BPP_BUNDLE_SYNC_TOKEN CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
             [ -n "${!name}" ] || missing+=("$name")
           done
-          if [ "${#missing[@]}" -eq 0 ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "BPP_DATA_ROOT=$RUNNER_TEMP/bpp-data" >> "$GITHUB_ENV"
-          elif [ "$EVENT" = schedule ]; then
-            # Until the environment is provisioned, scheduled runs stay quiet.
-            echo "::notice::Analyzer skipped; missing ${missing[*]}"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
+          if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::Missing ${missing[*]} in the analyzer environment"
             exit 1
           fi
+          echo "BPP_DATA_ROOT=$RUNNER_TEMP/bpp-data" >> "$GITHUB_ENV"
 
-      - if: steps.gate.outputs.ready == 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - if: steps.gate.outputs.ready == 'true'
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           working-directory: bazaarplusplus-analyzer
-      - if: steps.gate.outputs.ready == 'true'
-        run: uv sync --locked --no-dev
+      - run: uv sync --locked --no-dev
         working-directory: bazaarplusplus-analyzer
 
-      - if: steps.gate.outputs.ready == 'true'
-        name: Write analyzer configuration
+      - name: Write analyzer configuration
         working-directory: bazaarplusplus-analyzer
         env:
           BPP_BUNDLE_SYNC_TOKEN: ${{ secrets.BPP_BUNDLE_SYNC_TOKEN }}
@@ -108,8 +96,7 @@ jobs:
             echo "BPP_DUCKDB_THREADS=4"
           } > .env
 
-      - if: steps.gate.outputs.ready == 'true'
-        name: Derive the R2 S3 key pair
+      - name: Derive the R2 S3 key pair
         working-directory: bazaarplusplus-analyzer
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -128,7 +115,6 @@ jobs:
           PY
 
       - id: pull
-        if: steps.gate.outputs.ready == 'true'
         name: Restore the Data Root
         run: bash .github/scripts/analyzer-state.sh pull
       - if: steps.pull.outcome == 'success'

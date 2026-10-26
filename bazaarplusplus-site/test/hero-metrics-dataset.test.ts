@@ -158,7 +158,7 @@ describe('loadHeroMetricsDataset', () => {
     }
   );
 
-  test('accepts additive fields and non-canonical heroes without decoding battle_days', async () => {
+  test('accepts additive fields and non-canonical heroes', async () => {
     const snapshot = makeSnapshot([
       makeDay('2026-06-07', [
         makeRow({
@@ -173,7 +173,6 @@ describe('loadHeroMetricsDataset', () => {
               additive_matchup_field: true,
             },
           ],
-          battle_days: { day_1: { decided: 4, wins: 1, losses: 3 } },
           additive_row_field: true,
         }),
       ]),
@@ -192,7 +191,7 @@ describe('loadHeroMetricsDataset', () => {
       segment: 'non_legend',
       matchups: [{ opponent_hero: 'FutureHero', decided: 3, wins: 2, losses: 1 }],
     });
-    expect(row).not.toHaveProperty('battle_days');
+    expect(row).not.toHaveProperty('additive_row_field');
   });
 
   test.each([

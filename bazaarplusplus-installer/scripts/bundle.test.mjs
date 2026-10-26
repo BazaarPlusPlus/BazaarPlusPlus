@@ -1,29 +1,20 @@
 import { test, expect } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { relative } from 'node:path';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { runShell, toBashPath } from './test-support/shell.mjs';
 
 const projectDir = process.cwd();
 
-// Runs the callback against an ISOLATED, throwaway signing-secrets directory so
-// tests never read, write, or restore the developer's real signing-secrets/.
-// (The old backup/restore approach clobbered real keys whenever a run was
-// interrupted before its finally block ran.) The temp dir lives under the
-// project root with a `signing-secrets` leaf, so bundle.sh's INSTALLER_ROOT-relative
-// resolution of a relative apple-api-key-path still lands inside the fixtures.
-// `files` may be an object or a `(ctx) => object` builder that needs the paths;
-// `fn` receives the same ctx { dir, dirBash, relBash }.
+// Runs the callback against an ISOLATED, throwaway BPP_SIGNING_SECRETS_DIR so
+// tests never read or write real signing material. `files` may be an object or
+// a `(ctx) => object` builder that needs the paths; `fn` receives the same ctx
+// { dir, dirBash }.
 function withSigningSecretFiles(files, fn) {
-  const base = mkdtempSync(
+  const dir = mkdtempSync(
     `${projectDir}/.bpp-signing-test-'$(printf injected)-`
   );
-  const dir = `${base}/signing-secrets`;
-  mkdirSync(dir, { recursive: true });
 
   const dirBash = process.platform === 'win32' ? toBashPath(dir) : dir;
-  const rel = relative(projectDir, dir);
-  const relBash = process.platform === 'win32' ? toBashPath(rel) : rel;
-  const ctx = { dir, dirBash, relBash };
+  const ctx = { dir, dirBash };
 
   const resolved = typeof files === 'function' ? files(ctx) : files;
   for (const [name, content] of Object.entries(resolved)) {
@@ -33,7 +24,7 @@ function withSigningSecretFiles(files, fn) {
   try {
     fn(ctx);
   } finally {
-    rmSync(base, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 
@@ -132,12 +123,12 @@ test('macOS release rejects a replay recorder plugin signed by a local Developer
   );
   expect(output).toContain('exit:1');
 });
-test('macOS Developer ID env loads from signing-secrets files', () => {
+test('macOS Developer ID env loads from BPP_SIGNING_SECRETS_DIR files', () => {
   withSigningSecretFiles(
-    ({ relBash }) => ({
+    ({ dirBash }) => ({
       'apple-api-issuer': 'issuer-from-file\n',
       'apple-api-key': 'KEYFROMFILE\n',
-      'apple-api-key-path': `${relBash}/AuthKey_KEYFROMFILE.p8\n`,
+      'apple-api-key-path': `${dirBash}/AuthKey_KEYFROMFILE.p8\n`,
       'apple-signing-identity':
         'Developer ID Application: Example Builder (TEAMID1234)\n',
       'AuthKey_KEYFROMFILE.p8': 'private key'
@@ -159,20 +150,20 @@ test('macOS Developer ID env loads from signing-secrets files', () => {
       );
 
       expect(output).toContain(
-        'Loading APPLE_SIGNING_IDENTITY from signing-secrets'
+        'Loading APPLE_SIGNING_IDENTITY from BPP_SIGNING_SECRETS_DIR'
       );
-      expect(output).toContain('Loading APPLE_API_ISSUER from signing-secrets');
-      expect(output).toContain('Loading APPLE_API_KEY from signing-secrets');
       expect(output).toContain(
-        'Loading APPLE_API_KEY_PATH from signing-secrets'
+        'Loading APPLE_API_ISSUER from BPP_SIGNING_SECRETS_DIR'
+      );
+      expect(output).toContain(
+        'Loading APPLE_API_KEY from BPP_SIGNING_SECRETS_DIR'
+      );
+      expect(output).toContain(
+        'Loading APPLE_API_KEY_PATH from BPP_SIGNING_SECRETS_DIR'
       );
       expect(output).toContain('issuer=issuer-from-file');
       expect(output).toContain('key=KEYFROMFILE');
-      // A relative key path in signing-secrets is exported as absolute: a
-      // POSIX root, or a drive root under Git Bash on Windows.
-      expect(output).toMatch(
-        /key_path=(?:\/|[A-Za-z]:[/\\]).*[/\\]signing-secrets[/\\]AuthKey_KEYFROMFILE\.p8/
-      );
+      expect(output).toContain(`key_path=${dirBash}/AuthKey_KEYFROMFILE.p8`);
       expect(output).toContain(
         'identity=Developer ID Application: Example Builder (TEAMID1234)'
       );
@@ -209,11 +200,9 @@ test('macOS Developer ID env detects identity and infers API key path', () => {
         'Auto-detected APPLE_SIGNING_IDENTITY from keychain'
       );
       expect(output).toContain(
-        'Inferring APPLE_API_KEY_PATH from signing-secrets'
+        'Inferring APPLE_API_KEY_PATH from BPP_SIGNING_SECRETS_DIR'
       );
-      expect(output).toMatch(
-        /key_path=.*[/\\]signing-secrets[/\\]AuthKey_AUTOKEY\.p8/
-      );
+      expect(output).toContain(`key_path=${dirBash}/AuthKey_AUTOKEY.p8`);
       expect(output).toContain(
         'identity=Developer ID Application: Example Builder (TEAMID1234)'
       );
@@ -235,7 +224,6 @@ test('release prechecks require the product build lock before verification', () 
   expect(output).not.toContain('release.mjs check');
   expect(output).toContain('release.mjs assert-build-owner');
   expect(output).toContain('npm run verify -- --release-platform windows');
-  expect(output).not.toContain('prepare:resources');
 });
 
 test('updater signing env requires the key and defaults the password to empty', () => {
@@ -255,7 +243,7 @@ test('updater signing env requires the key and defaults the password to empty', 
         { BPP_SIGNING_SECRETS_DIR: dirBash }
       );
       expect(output).toContain(
-        'Loading TAURI_SIGNING_PRIVATE_KEY from signing-secrets'
+        'Loading TAURI_SIGNING_PRIVATE_KEY from BPP_SIGNING_SECRETS_DIR'
       );
       expect(output).toContain('key=[updater-key]');
       expect(output).toContain('password=[]');

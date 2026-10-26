@@ -82,7 +82,7 @@ _Avoid_: release R2 keys, per-bucket key pair
 The folder in the game directory where the mod keeps its local database, screenshots, and replays; on the Android Host, the sibling of the MelonLoader base directory under the game's external `files/`. The current name is `BazaarPlusPlusV6`; the mod's `PathConstants.DataRootDirectoryName` and the installer's `BAZAAR_DATA_DIRECTORY` must agree. Unrelated to the analyzer's `BPP_DATA_ROOT`.
 
 **Legacy Root** (旧数据根目录):
-A Data Root an earlier major version wrote (`BazaarPlusPlus/`, `BazaarPlusPlusV4/`, `BazaarPlusPlusV5/`), owned by the user. The mod never reads it; the installer measures it, imports V5 once, and deletes one only on the user's confirmation. The installer's own `BazaarPlusPlusV4` settings folder is not one.
+A Data Root an earlier major version wrote (`BazaarPlusPlus/`, `BazaarPlusPlusV4/`, `BazaarPlusPlusV5/`), owned by the user. The mod never reads it; the installer measures it, imports V5 once, and deletes one only on the user's confirmation.
 
 **History-Only Run** (仅历史对局):
 A run in the current Data Root that appears only in local history: never sealed into a Bundle, never uploaded, and never protected from cleanup as a seal candidate. Every run imported from a Legacy Root is one. Unlike a **Run**, it is never carried inside a Bundle.

@@ -8,7 +8,6 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
-using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
 using Microsoft.Data.Sqlite;
@@ -20,7 +19,6 @@ await DownloadLimitsAndTransportErrorsStayClosed();
 await ExpiredUrlRefreshesOnceAndBecomesTerminal();
 await CorruptBundleBecomesPermanentWithoutRepeatedDownload();
 RecorderPerspectiveManifestKeepsSides();
-LegacyPayloadNormalizesOnceAndIsIdempotent();
 UnknownProjectionAndCountsStayUnknown();
 HistoryGhostRecoveryTests.Run();
 GhostDownloadSelectionTests.Run();
@@ -404,74 +402,6 @@ static void RecorderPerspectiveManifestKeepsSides()
     );
 }
 
-static void LegacyPayloadNormalizesOnceAndIsIdempotent()
-{
-    var payload = new GhostBattlePayload
-    {
-        PerspectiveVersion = 0,
-        BattleManifest = new PvpBattleManifest
-        {
-            Participants = new PvpBattleParticipants
-            {
-                PlayerAccountId = "L",
-                PlayerName = "Local",
-                PlayerIncome = 7,
-                PlayerGold = 11,
-                OpponentAccountId = "U",
-                OpponentName = "Uploader",
-            },
-            Outcome = new PvpBattleOutcome
-            {
-                Result = "Lost",
-                WinnerCombatantId = "Opponent",
-                LoserCombatantId = "Player",
-            },
-            Snapshots = new PvpBattleSnapshots
-            {
-                PlayerHand = Capture("B"),
-                PlayerSkills = Capture("local-skill"),
-                OpponentHand = Capture("A"),
-                OpponentSkills = Capture("uploader-skill"),
-            },
-        },
-    };
-
-    var normalized = GhostBattlePayloadReader.Normalize(payload)!;
-
-    Assert(normalized.PerspectiveVersion == 1, "Legacy payloads must be marked normalized.");
-    Assert(
-        normalized.BattleManifest.Participants.PlayerAccountId == "U"
-            && normalized.BattleManifest.Participants.OpponentAccountId == "L",
-        "Legacy participants must normalize to recorder perspective."
-    );
-    Assert(
-        normalized.BattleManifest.Snapshots.PlayerHand.Items.Single().TemplateId == "A"
-            && normalized.BattleManifest.Snapshots.OpponentHand.Items.Single().TemplateId == "B",
-        "Legacy snapshots must normalize to recorder perspective."
-    );
-    Assert(
-        normalized.BattleManifest.Outcome.Result == "Won"
-            && normalized.BattleManifest.Outcome.WinnerCombatantId == "Player"
-            && normalized.BattleManifest.Outcome.LoserCombatantId == "Opponent",
-        "Legacy outcome must normalize to recorder perspective."
-    );
-    Assert(
-        normalized.BattleManifest.Participants.PlayerIncome == null
-            && normalized.BattleManifest.Participants.PlayerGold == null,
-        "Legacy player income and gold must be missing when no opponent fields existed."
-    );
-
-    var playerHand = normalized.BattleManifest.Snapshots.PlayerHand;
-    var second = GhostBattlePayloadReader.Normalize(normalized)!;
-    Assert(ReferenceEquals(normalized, second), "Normalization must return the same payload.");
-    Assert(
-        ReferenceEquals(second.BattleManifest.Snapshots.PlayerHand, playerHand)
-            && second.BattleManifest.Participants.PlayerAccountId == "U"
-            && second.BattleManifest.Outcome.WinnerCombatantId == "Player",
-        "A normalized payload must not be swapped again."
-    );
-}
-
 // Each set also carries a card whose type no facet names, which the manifest drops.
 static BattleCardSetV6 SnapshotSet(string label, string templateId) =>
     new()
@@ -489,12 +419,6 @@ static BattleCardSetV6 SnapshotSet(string label, string templateId) =>
                 Type = 99,
             },
         ],
-    };
-
-static PvpBattleCardSetCapture Capture(string templateId) =>
-    new()
-    {
-        Items = [new PvpBattleCardSnapshot { InstanceId = templateId, TemplateId = templateId }],
     };
 
 static void UnknownProjectionAndCountsStayUnknown()
@@ -572,7 +496,6 @@ static string BattlePage(
                     ["download_expires_at_ms"] = expiry.ToUnixTimeMilliseconds(),
                     ["day"] = 1,
                     ["hour"] = 2,
-                    ["combat_kind"] = "PVPCombat",
                     ["result"] = "unknown",
                     ["is_final_battle"] = false,
                     ["player"] = new Dictionary<string, object?>
@@ -580,11 +503,7 @@ static string BattlePage(
                         ["account_id"] = uploader,
                         ["display_name"] = "Uploader",
                     },
-                    ["opponent"] = new Dictionary<string, object?>
-                    {
-                        ["account_id"] = opponent,
-                        ["display_name"] = "Local",
-                    },
+                    ["opponent"] = new Dictionary<string, object?> { ["account_id"] = opponent },
                 },
             },
         }

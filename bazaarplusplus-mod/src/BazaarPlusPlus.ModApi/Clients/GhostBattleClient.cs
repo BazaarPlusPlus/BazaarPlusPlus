@@ -176,6 +176,8 @@ internal sealed class GhostBattleClient
         if (string.IsNullOrEmpty(uploaderAccountId) || string.IsNullOrEmpty(opponentAccountId))
             return false;
 
+        // The summary sends only the fields read here, so the record's other fields stay null;
+        // OpponentName and CombatKind keep the values discovery has always stored.
         record = new GhostBattleImportRecord
         {
             BattleId = battleId,
@@ -185,27 +187,17 @@ internal sealed class GhostBattleClient
             RecordedAtUtc = recordedAt,
             Day = ReadNonNegativeInt(battle, "day"),
             Hour = ReadNonNegativeInt(battle, "hour"),
-            EncounterId = ReadString(battle, "encounter_id"),
             PlayerName = ReadString(player, "display_name") ?? string.Empty,
             PlayerAccountId = uploaderAccountId,
             PlayerHero = ReadString(player, "hero_name"),
             PlayerRank = ReadString(player, "rank"),
             PlayerRating = ReadNonNegativeInt(player, "rating"),
-            PlayerLevel = ReadNonNegativeInt(player, "level"),
-            PlayerPrestige = ReadNonNegativeInt(player, "prestige"),
-            PlayerVictories = ReadNonNegativeInt(player, "victories"),
-            OpponentName = ReadString(opponent, "display_name") ?? string.Empty,
+            OpponentName = string.Empty,
             OpponentAccountId = opponentAccountId,
             OpponentHero = ReadString(opponent, "hero_name"),
-            OpponentRank = ReadString(opponent, "rank"),
-            OpponentRating = ReadNonNegativeInt(opponent, "rating"),
-            OpponentLevel = ReadNonNegativeInt(opponent, "level"),
-            OpponentPrestige = ReadNonNegativeInt(opponent, "prestige"),
-            OpponentVictories = ReadNonNegativeInt(opponent, "victories"),
-            CombatKind = ReadString(battle, "combat_kind") ?? "pvp",
+            CombatKind = "pvp",
             Result = NormalizeResult(ReadString(battle, "result")),
             WinnerCombatantId = ReadString(battle, "winner_combatant_id"),
-            LoserCombatantId = ReadString(battle, "loser_combatant_id"),
             IsFinalBattle = battle["is_final_battle"]?.Value<bool?>() ?? false,
         };
         return record.Day.HasValue && record.Hour.HasValue;

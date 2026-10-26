@@ -11,7 +11,7 @@ just setup
 just doctor
 ```
 
-配置文件、分节、取值写法和 `setup --from <旧 checkout>` 的导入规则都由 `node scripts/workspace.mjs --help` 说明。它说不出来的约定：
+配置文件、分节和取值写法都由 `node scripts/workspace.mjs --help` 说明。它说不出来的约定：
 
 - 配置目录（默认 `~/.config/bazaarplusplus`）由同一台机器的所有 clone 共用，必须放在任何 checkout 之外。新机器要单独恢复这个私有目录，以及游戏、平台工具链和系统证书；Git clone 不带这些东西。
 - 只改 `config.ini`。server 的 `.dev.vars` 和 analyzer 的 `.env` 是它的受管理副本；改完配置运行 `just setup --skip-deps`，或者直接用会自动刷新副本的 `just server::dev`、`just analyzer::cli <command>`。直接跑 npm/uv 命令读到的是当前副本，不会刷新。

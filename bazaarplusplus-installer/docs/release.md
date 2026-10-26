@@ -25,7 +25,7 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 
 On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-complete, loadable and ad-hoc signed. The installer verifies their inventory, signs nested Mach-O code and bundles inside-out with the official identity, repacks the signed copy, and packages/notarizes the outer installer. SourceForBuild remains unsigned provenance; final distribution hashes live in the artifact manifest. See [ADR-0006](adr/0006-native-replay-recorder-signing.md).
 
-`load_updater_signing_env` and `load_macos_developer_id_env` in `scripts/bundle.sh` own local environment and ignored signing-secret conventions. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.mjs` independently verifies the trampoline architecture and deployment target.
+`load_updater_signing_env` and `load_macos_developer_id_env` in `scripts/bundle.sh` read each signing value from the environment, else from the files staged in `BPP_SIGNING_SECRETS_DIR`; without that directory only exported values count. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.mjs` independently verifies the trampoline architecture and deployment target.
 
 ## Artifact And Upload Contract
 
@@ -33,4 +33,4 @@ On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-
 
 `validateArtifactManifest` rejects dirty or changed release inputs, mismatched versions/commits, and modified artifacts before upload. The uploader freezes every file before making any remote write. Platform uploads publish nothing; the workspace coordinator promotes either every platform or one platform (`promote --platform`), as specified in the [product release guide](../../docs/release.md).
 
-R2 access uses S3 credentials and ETag conditional writes, not Wrangler login state. Credentials, first-release migration, retry behavior and website deployment ordering are specified in the [product release guide](../../docs/release.md).
+R2 access uses S3 credentials and ETag conditional writes, not Wrangler login state. Credentials, retry behavior and website deployment ordering are specified in the [product release guide](../../docs/release.md).

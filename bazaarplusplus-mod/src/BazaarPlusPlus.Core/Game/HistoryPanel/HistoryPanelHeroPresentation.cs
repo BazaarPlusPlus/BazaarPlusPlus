@@ -21,11 +21,5 @@ public static class HistoryPanelHeroPresentation
     public static IReadOnlyList<string> RunFilterHeroIds => RunFilterRoster;
 
     public static bool IsSelected(string? selectedHero, string heroId) =>
-        (TheDragonsHeroId.IsAlias(selectedHero) && TheDragonsHeroId.IsAlias(heroId))
-        || string.Equals(selectedHero, heroId, StringComparison.OrdinalIgnoreCase);
-
-    public static string? CanonicalFilterId(string? heroId) =>
-        TheDragonsHeroId.IsAlias(heroId) ? TheDragonsHeroId.CanonicalId
-        : string.IsNullOrEmpty(heroId) ? null
-        : heroId;
+        string.Equals(selectedHero, heroId, StringComparison.OrdinalIgnoreCase);
 }

@@ -107,9 +107,7 @@ function asIsoDate(value: unknown): string | null {
 }
 
 function asUtcTimestamp(value: unknown): string | null {
-  return typeof value === 'string' &&
-    /(?:Z|\+00:00)$/.test(value) &&
-    Number.isFinite(Date.parse(value))
+  return typeof value === 'string' && value.endsWith('Z') && Number.isFinite(Date.parse(value))
     ? value
     : null;
 }

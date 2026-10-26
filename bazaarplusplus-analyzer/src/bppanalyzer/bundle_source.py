@@ -18,8 +18,10 @@ import httpx
 
 from bppanalyzer.durable import canonical_json
 
-# Bundle version by prefix magic; the V6 Worker serves only Bundle V6.
-BUNDLE_VERSIONS = {b"BPPBNDL6": 6}
+# The V6 Worker serves only Bundle V6.
+BUNDLE_MAGIC = b"BPPBNDL6"
+BUNDLE_VERSION = 6
+RUN_CONTENT_TYPE = "application/x-bpp-run-v6"
 MAX_BUNDLE_BYTES = 8_388_607
 MAX_MANIFEST_BYTES = 2_097_152
 MAX_RUN_BYTES = 2_097_151
@@ -552,10 +554,9 @@ def validate_bundle(content: bytes, *, expected_bundle_id: str) -> Mapping[str, 
     """Validate a Bundle V6 envelope and every declared segment digest."""
     if len(content) > MAX_BUNDLE_BYTES:
         raise SourceContractError("bundle_too_large", "Bundle exceeds its byte limit")
-    version = BUNDLE_VERSIONS.get(content[:8]) if len(content) >= 16 else None
-    if version is None:
+    if len(content) < 16 or content[:8] != BUNDLE_MAGIC:
         raise SourceContractError("invalid_prefix", "Bundle magic is invalid")
-    if int.from_bytes(content[8:12], "big") != version:
+    if int.from_bytes(content[8:12], "big") != BUNDLE_VERSION:
         raise SourceContractError("unsupported_bundle_version", "Bundle version is unsupported")
     manifest_length = int.from_bytes(content[12:16], "big")
     if not 1 <= manifest_length <= MAX_MANIFEST_BYTES:
@@ -568,7 +569,7 @@ def validate_bundle(content: bytes, *, expected_bundle_id: str) -> Mapping[str, 
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise SourceContractError("manifest_not_json", "Bundle manifest is invalid") from error
     manifest = _mapping(manifest, "manifest")
-    if manifest.get("bundle_version") != version:
+    if manifest.get("bundle_version") != BUNDLE_VERSION:
         raise SourceContractError(
             "unsupported_bundle_version", "Manifest Bundle version is unsupported"
         )
@@ -578,7 +579,7 @@ def validate_bundle(content: bytes, *, expected_bundle_id: str) -> Mapping[str, 
         )
     _integer(manifest.get("created_at_ms"), "created_at_ms")
     run = _mapping(manifest.get("run"), "run")
-    if run.get("run_format_version") != version:
+    if run.get("run_format_version") != BUNDLE_VERSION:
         raise SourceContractError("unsupported_run_format", "Run format is unsupported")
     if not isinstance(run.get("run_id"), str) or not isinstance(run.get("player_account_id"), str):
         raise SourceContractError("manifest_schema_invalid", "Run identities are invalid")
@@ -598,7 +599,7 @@ def validate_bundle(content: bytes, *, expected_bundle_id: str) -> Mapping[str, 
         or _SHA256.fullmatch(run_digest) is None
     ):
         raise SourceContractError("run_missing", "Run segment declaration is invalid")
-    if payload.get("content_type") != f"application/x-bpp-run-v{version}":
+    if payload.get("content_type") != RUN_CONTENT_TYPE:
         raise SourceContractError("manifest_schema_invalid", "Run content type is invalid")
 
     screenshot_length = 0

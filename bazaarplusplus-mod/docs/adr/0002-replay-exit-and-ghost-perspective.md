@@ -17,4 +17,4 @@ A replay remains in `ReplayState` after playback ends. Video finalization depend
 
 ## Ghost payload perspective contract
 
-The manifest inside a ghost replay payload always uses the recorder perspective: the challenger occupies the `Player` side. `GhostBattlePayload.PerspectiveVersion` identifies the stored convention: `0` is the legacy local perspective and is migrated automatically when loaded; `1` is the recorder perspective. External delivery must send ghost payloads with `PerspectiveVersion = 1`.
+The manifest inside a ghost replay payload always uses the recorder perspective: the challenger occupies the `Player` side. `GhostBattlePayload.PerspectiveVersion` stamps that convention: `1` is the only valid value, and a payload carrying any other value fails `GhostBattlePayloadReader.MatchesIdentity`.

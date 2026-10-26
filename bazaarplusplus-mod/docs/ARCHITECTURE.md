@@ -89,7 +89,7 @@ Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(
 
 Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV6/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive their paths from it. No runtime cache uses the process temporary directory.
 
-The V6 database starts a new schema at `user_version` 1 with no migration path: `EnsureInitialized` creates an empty database or opens one already at 1 and refuses any other version, including a V5 database. Every instant is a Unix-millisecond `*_at_ms` integer; `RunPayloadComposer` copies them unchanged into the V6 Run segment. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state. V4 sync cursors, dirty/checkpoint upload state, and independent screenshot upload state do not exist (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
+The V6 database starts a new schema at `user_version` 1 with no migration path: `EnsureInitialized` creates an empty database or opens one already at 1 and refuses any other version, including a V5 database. Every instant is a Unix-millisecond `*_at_ms` integer; `RunPayloadComposer` copies them unchanged into the V6 Run segment. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
 
 ## Event Flow
 

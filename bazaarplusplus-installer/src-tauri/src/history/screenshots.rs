@@ -5,7 +5,7 @@ use chrono::DateTime;
 use rusqlite::{params_from_iter, Connection, OptionalExtension};
 
 use crate::history::instant::{local_text, utc_text};
-use crate::history::queries::{open_connection, sql_placeholders, table_exists};
+use crate::history::queries::{open_connection, sql_placeholders};
 
 pub struct ScreenshotRef {
     pub id: String,
@@ -30,7 +30,7 @@ pub fn primary_screenshot_ids(
     conn: &Connection,
     run_ids: &[String],
 ) -> anyhow::Result<HashMap<String, String>> {
-    if run_ids.is_empty() || !table_exists(conn, "run_screenshots")? {
+    if run_ids.is_empty() {
         return Ok(HashMap::new());
     }
 
@@ -87,10 +87,6 @@ pub fn primary_screenshot(
     conn: &Connection,
     run_id: &str,
 ) -> anyhow::Result<Option<ScreenshotRef>> {
-    if !table_exists(conn, "run_screenshots")? {
-        return Ok(None);
-    }
-
     let primary = conn
         .query_row(
             "
@@ -142,9 +138,6 @@ pub fn load_latest_overlay_snapshot(
     }
 
     let conn = open_connection(database_path)?;
-    if !table_exists(&conn, "run_screenshots")? {
-        return Ok(None);
-    }
 
     let offset_value = i64::try_from(offset)?;
     let from_ms = from.map(overlay_from_ms);
@@ -211,9 +204,6 @@ pub fn load_overlay_snapshot_count(
     }
 
     let conn = open_connection(database_path)?;
-    if !table_exists(&conn, "run_screenshots")? {
-        return Ok(0);
-    }
 
     let count: i64 = if let Some(from) = from {
         let from_ms = overlay_from_ms(from);
@@ -252,9 +242,6 @@ pub fn load_overlay_snapshot_list(
     }
 
     let conn = open_connection(database_path)?;
-    if !table_exists(&conn, "run_screenshots")? {
-        return Ok(Vec::new());
-    }
 
     let effective_limit = limit.unwrap_or(20);
     if effective_limit == 0 {
@@ -327,9 +314,6 @@ pub fn load_overlay_snapshot_by_id(
     }
 
     let conn = open_connection(database_path)?;
-    if !table_exists(&conn, "run_screenshots")? {
-        return Ok(None);
-    }
 
     let mut stmt = conn.prepare(
         "
@@ -370,9 +354,6 @@ pub fn load_screenshot_image_path(
     }
 
     let conn = open_connection(database_path)?;
-    if !table_exists(&conn, "run_screenshots")? {
-        return Ok(None);
-    }
 
     conn.query_row(
         "select image_relative_path from run_screenshots where screenshot_id = ?1",

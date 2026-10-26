@@ -6,10 +6,7 @@ import {
   root,
   configHome,
   assertExternal,
-  importCheckout,
   initializeConfig,
-  legacyKeysPresent,
-  migrateConfig,
   readConfig,
   sections,
   profiles,
@@ -59,11 +56,11 @@ function sectionHelp() {
 
 const help = `Workspace setup (Node only; no npm dependency required)
 
-  node scripts/workspace.mjs setup [--from OLD_CHECKOUT] [--skip-deps]
+  node scripts/workspace.mjs setup [--skip-deps]
   node scripts/workspace.mjs doctor
   node scripts/workspace.mjs run PROFILE -- COMMAND [ARG...]
   node scripts/workspace.mjs secrets check [--dependabot]
-  node scripts/workspace.mjs secrets push [--dependabot] [--prune]
+  node scripts/workspace.mjs secrets push [--dependabot]
 
 just setup, just doctor, just secrets-check and just secrets-sync are equivalent
 shortcuts. just with-config PROFILE COMMAND [ARG...] runs a command from the
@@ -96,25 +93,14 @@ S3 pair every store needs is derived from the token (release/r2-store.mjs).
 signing stages [signing] and keys/ into a private temporary BPP_SIGNING_SECRETS_DIR
 removed after the command; an exported BPP_SIGNING_SECRETS_DIR is used as given.
 Edit config.ini, then rerun setup --skip-deps. Local projection edits conflict.
---from imports an old checkout's analyzer .env, server .dev.vars and installer
-signing-secrets/ into config.ini and keys/ under the same value rules, refuses
-differing existing values, preserves data path meaning, and never deletes source
-files or creates data stores.
-setup also migrates the earlier layout in place: [release] BPP_R2_ACCOUNT_ID and
-[analyzer] BPP_METRICS_R2_ACCOUNT_ID become [cloudflare] CLOUDFLARE_ACCOUNT_ID,
-[analyzer] BPP_BUNDLE_SYNC_TOKEN joins [server] BUNDLE_SYNC_TOKEN (differing values
-are refused), [analyzer] BPP_V5_API_BASE_URL becomes BPP_API_BASE_URL, and the
-derived R2 key pairs stay as commented lines in [cloudflare] until you delete
-them; nothing is dropped silently.
 
 secrets check lists, by name only, what each GitHub scope holds and what config.ini
 and keys/ hold, following release/github-secrets.json; secrets push copies every
 item with a local value through gh (values over stdin, never printed). --dependabot
-also sets the mod lane token for Dependabot; --prune deletes the retired names the
-table lists. Tokens are created in the Cloudflare dashboard (My Profile > API Tokens
-or Account > Manage API tokens): the operator token with Object Read & Write on
-every bucket plus Workers Scripts Edit; the read-only token with Object Read on
-bazaarplusplus-game-libs only.
+also sets the mod lane token for Dependabot. Tokens are created in the Cloudflare
+dashboard (My Profile > API Tokens or Account > Manage API tokens): the operator
+token with Object Read & Write on every bucket plus Workers Scripts Edit; the
+read-only token with Object Read on bazaarplusplus-game-libs only.
 
 setup installs each Node project's locked dependencies, the analyzer environment,
 the mod's local .NET tools and Git hooks. Install language/platform tools first.
@@ -237,7 +223,7 @@ export function doctor(
         : 'configured state path is missing; no empty replacement was created'
     );
   }
-  const signing = resolveSigning(home, env, repository);
+  const signing = resolveSigning(home, env);
   add(
     'updater signing',
     Boolean(
@@ -245,7 +231,7 @@ export function doctor(
       (fs.existsSync(signing.updaterKey) &&
         fs.statSync(signing.updaterKey).size > 0)
     ),
-    'private key presence only; password/signature not validated'
+    'private key presence only; signature not validated'
   );
   if (process.platform === 'darwin') {
     const result = probe('security', [
@@ -276,13 +262,6 @@ export function doctor(
         : 'issuer, key id or referenced .p8 missing'
     );
   }
-  const legacy = legacyKeysPresent(config);
-  if (legacy.length)
-    add(
-      'config',
-      false,
-      `earlier layout keys ${legacy.join(', ')}: run just setup --skip-deps to migrate`
-    );
   const managed = resolveValues(config, 'machine', env).BPP_MANAGED_PATH;
   if (managed) {
     add(
@@ -334,23 +313,10 @@ export function main(args = process.argv.slice(2)) {
     return;
   }
   if (command === 'setup') {
-    let source;
     let skipDeps = false;
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === '--skip-deps') skipDeps = true;
-      else if (rest[i] === '--from' && rest[i + 1])
-        source = path.resolve(rest[++i]);
-      else throw new Error('Usage: setup [--from OLD_CHECKOUT] [--skip-deps]');
-    }
-    if (source) {
-      const imported = importCheckout(source, home);
-      console.log(`Imported ${imported.join(', ')}; originals preserved.`);
-    } else {
-      const migrated = migrateConfig(home);
-      if (migrated.length)
-        console.log(
-          `Migrated config.ini to the current layout: ${migrated.join(', ')}.`
-        );
+    for (const arg of rest) {
+      if (arg === '--skip-deps') skipDeps = true;
+      else throw new Error('Usage: setup [--skip-deps]');
     }
     initializeConfig(home);
     refreshProjections(home);
@@ -379,12 +345,10 @@ export function main(args = process.argv.slice(2)) {
   }
   if (command === 'secrets' && ['check', 'push'].includes(rest[0])) {
     const flags = rest.slice(1);
-    const allowed =
-      rest[0] === 'push' ? ['--dependabot', '--prune'] : ['--dependabot'];
     for (const flag of flags)
-      if (!allowed.includes(flag))
+      if (flag !== '--dependabot')
         throw new Error(
-          `Usage: secrets check [--dependabot] | secrets push [--dependabot] [--prune]`
+          `Usage: secrets check [--dependabot] | secrets push [--dependabot]`
         );
     const dependabot = flags.includes('--dependabot');
     const gh = process.env.BPP_GH_BIN || 'gh';
@@ -394,12 +358,7 @@ export function main(args = process.argv.slice(2)) {
       );
       return;
     }
-    const result = push({
-      home,
-      gh,
-      dependabot,
-      prune: flags.includes('--prune')
-    });
+    const result = push({ home, gh, dependabot });
     console.log(
       `Set ${result.set} GitHub names; ${result.skipped} without a local value.`
     );

@@ -112,24 +112,19 @@ test('windows needs no Apple material and no Android keystore', () => {
   assert.match(macos.stderr, /6 required secret\(s\) missing/);
 });
 
-test('stage writes the files bundle.sh reads from BPP_SIGNING_SECRETS_DIR; the updater password is optional and outside the table', (t) => {
+test('stage writes the files bundle.sh reads from BPP_SIGNING_SECRETS_DIR', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-release-secrets-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const macos = path.join(root, 'macos');
-  let result = run(['stage', 'macos', macos], {
-    ...values,
-    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: 'value-updater-password'
-  });
+  let result = run(['stage', 'macos', macos]);
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assertNoValueLeak(result);
-  assert.ok(!result.stdout.includes('value-updater-password'));
   assert.deepEqual(fs.readdirSync(macos).sort(), [
     'AuthKey_KEYID1234.p8',
     'apple-api-issuer',
     'apple-api-key',
     'apple-signing-identity',
-    'tauri-updater.key',
-    'tauri-updater.password'
+    'tauri-updater.key'
   ]);
   assert.equal(
     fs.readFileSync(path.join(macos, 'tauri-updater.key'), 'utf8'),

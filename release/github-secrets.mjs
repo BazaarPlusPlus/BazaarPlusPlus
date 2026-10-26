@@ -54,8 +54,8 @@ export function loadGithubSecrets(
 ) {
   const file = path.join(workspaceRoot, GITHUB_SECRETS_PATH);
   const table = JSON.parse(fs.readFileSync(file, 'utf8'));
-  if (!Array.isArray(table.items) || !Array.isArray(table.retired))
-    throw new Error(`${GITHUB_SECRETS_PATH} needs items and retired arrays`);
+  if (!Array.isArray(table.items))
+    throw new Error(`${GITHUB_SECRETS_PATH} needs an items array`);
   const seen = new Set();
   for (const item of table.items) {
     assertItem(item);
@@ -63,17 +63,7 @@ export function loadGithubSecrets(
     if (seen.has(key)) throw new Error(`${GITHUB_SECRETS_PATH} repeats ${key}`);
     seen.add(key);
   }
-  for (const entry of table.retired) {
-    if (!NAME.test(entry.name ?? '') || typeof entry.scope !== 'string')
-      throw new Error(
-        `${GITHUB_SECRETS_PATH} retired entries need name and scope`
-      );
-    if (seen.has(`${entry.scope}:${entry.name}`))
-      throw new Error(
-        `${entry.scope}:${entry.name} is both current and retired`
-      );
-  }
-  return { items: table.items, retired: table.retired };
+  return { items: table.items };
 }
 
 // Where `secrets push` reads the value, as release-secrets.sh prints it.

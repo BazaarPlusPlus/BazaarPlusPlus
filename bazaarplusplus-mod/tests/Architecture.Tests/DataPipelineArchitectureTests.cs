@@ -12,21 +12,14 @@ public sealed class DataPipelineArchitectureTests
     private const string Clients = "BazaarPlusPlus.ModApi.Clients";
 
     [Fact]
-    public void ModApi_has_only_bundle_routes_and_no_multipart_wire()
+    public void ModApi_has_no_multipart_wire()
     {
         Holds(
-            "The mod API speaks only the Bundle routes over MessagePack, never multipart.",
+            "The mod API speaks MessagePack, never multipart.",
             build =>
             {
                 var modApi = build.Assembly(ModApi).Types;
-                return Literals(
-                        modApi,
-                        StringComparison.OrdinalIgnoreCase,
-                        "mod-api-v4",
-                        "/run-bundles",
-                        "multipart",
-                        "bazaardb/snapshots"
-                    )
+                return Literals(modApi, StringComparison.OrdinalIgnoreCase, "multipart")
                     .Concat(References(modApi, Is(typeof(MultipartFormDataContent).FullName!)));
             }
         );

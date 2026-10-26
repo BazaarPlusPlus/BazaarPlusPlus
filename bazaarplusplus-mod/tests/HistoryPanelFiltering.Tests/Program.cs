@@ -37,8 +37,6 @@ var dataServiceType = RequireType(
 var cursorType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Storage.HistoryCursor");
 
 TestRunHeroRosterAddsOneCanonicalTheDragonsAfterTheExistingSeven();
-TestRunHeroPresentationTreatsAliasesAsSelected();
-TestCoordinatorCanonicalizesAliasFilterState();
 TestStateSelectedRunUsesFilteredRunList();
 TestPageReplacementUpdatesSelection();
 TestCoordinatorRunSelectionUsesFilteredSpace();
@@ -86,48 +84,6 @@ void TestRunHeroRosterAddsOneCanonicalTheDragonsAfterTheExistingSeven()
     Assert(
         !heroIds.Contains("Hero8"),
         "History should never expose a separate legacy The Dragons chip."
-    );
-}
-
-void TestRunHeroPresentationTreatsAliasesAsSelected()
-{
-    Assert(
-        (bool)InvokeStatic(heroPresentationType, "IsSelected", "Hero8", "TheDragons")!,
-        "A canonical chip should stay selected for legacy filter state."
-    );
-    Assert(
-        (bool)InvokeStatic(heroPresentationType, "IsSelected", "TheDragons", "Hero8")!,
-        "Alias-selected state should be symmetric."
-    );
-}
-
-void TestCoordinatorCanonicalizesAliasFilterState()
-{
-    var state =
-        Activator.CreateInstance(stateType)
-        ?? throw new InvalidOperationException("HistoryPanelState should construct.");
-    var dataService = Construct(dataServiceType, null, null);
-    var dependencies = Dependencies(dataService);
-    var coordinator =
-        Activator.CreateInstance(
-            coordinatorType,
-            state,
-            dependencies,
-            (Action)(() => { }),
-            (Action)(() => { }),
-            NoReplayReturn()
-        ) ?? throw new InvalidOperationException("HistoryPanelCoordinator should construct.");
-
-    Invoke(coordinatorType, coordinator, "SetRunHeroFilter", "Hero8");
-    Assert(
-        GetNullableString(state, "SelectedRunHero") == "TheDragons",
-        "Legacy filter input should persist as canonical History UI state."
-    );
-
-    Invoke(coordinatorType, coordinator, "SetRunHeroFilter", "TheDragons");
-    Assert(
-        GetNullableString(state, "SelectedRunHero") == null,
-        "Selecting either alias again should toggle the canonical filter off."
     );
 }
 

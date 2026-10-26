@@ -30,8 +30,6 @@ mod tests;
 pub(super) const ROUTE: &str = "/history/{source}/images/{screenshot_id}/strip";
 /// Beneath the service cache root; the OBS strips at that root stay unswept.
 const CACHE_DIRECTORY: &str = "history-thumbnails";
-/// Where History strips were cached per source file before this namespace.
-const LEGACY_CACHE_DIRECTORY: &str = "history";
 const CACHE_LIMITS: CacheLimits = CacheLimits {
     unused_for: Duration::from_secs(30 * 24 * 60 * 60),
     max_entries: 1000,
@@ -184,8 +182,6 @@ struct CacheLimits {
 /// Every deletion is best effort: Windows refuses to remove an open file.
 /// Namespace directories stay, so a concurrent write never loses its parent.
 fn sweep(cache_root: &Path, now: SystemTime, limits: &CacheLimits) {
-    let _ = std::fs::remove_dir_all(cache_root.join(LEGACY_CACHE_DIRECTORY));
-
     let Ok(namespaces) = std::fs::read_dir(cache_root.join(CACHE_DIRECTORY)) else {
         return;
     };

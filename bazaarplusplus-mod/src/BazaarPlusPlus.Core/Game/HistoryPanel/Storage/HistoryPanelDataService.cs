@@ -42,12 +42,10 @@ public sealed class HistoryPanelDataService
         _repository?.ListRuns(request, RunHeroKey(hero))
         ?? HistoryCountedPage<HistoryRunRecord>.Empty();
 
-    // The stored hero key a Runs hero filter matches: a blank filter lists every Run, an alias
-    // reads as its canonical hero, and an unknown hero still filters (to no Runs).
+    // The stored hero key a Runs hero filter matches: a blank filter lists every Run, and an
+    // unknown hero still filters (to no Runs).
     internal static string? RunHeroKey(string? hero) =>
-        string.IsNullOrWhiteSpace(hero)
-            ? null
-            : HistoryPanelHeroPresentation.CanonicalFilterId(hero)?.Trim().ToLowerInvariant() ?? "";
+        string.IsNullOrWhiteSpace(hero) ? null : hero!.Trim().ToLowerInvariant();
 
     public HistoryCursorPage<HistoryBattleRecord> LoadBattles(
         string runId,
@@ -96,7 +94,7 @@ public sealed class HistoryPanelDataService
             throw new InvalidDataException(InvalidGhostPayloadMessage, result.Exception);
         if (result.Status == FileBackedPayloadLoadStatus.Unreadable)
             throw result.Exception ?? new InvalidDataException(InvalidGhostPayloadMessage);
-        var payload = GhostBattlePayloadReader.Normalize(result.Payload);
+        var payload = result.Payload;
         if (payload == null)
             return null;
         if (
@@ -154,7 +152,7 @@ public sealed class HistoryPanelDataService
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var result = store.LoadDetailed(candidate.Cursor.Id);
-                var payload = GhostBattlePayloadReader.Normalize(result.Payload);
+                var payload = result.Payload;
                 if (
                     result.Status == FileBackedPayloadLoadStatus.Loaded
                     && GhostBattlePayloadReader.MatchesIdentity(

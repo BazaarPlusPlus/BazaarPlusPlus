@@ -657,7 +657,7 @@
         ]
       }
     },
-    "/heroes?lang=zh&w=invalid&s=all&t=high&keep=yes": {
+    "/heroes?lang=zh&w=invalid&s=all&keep=yes": {
       "url": "/heroes?keep=yes",
       "history": [
         {

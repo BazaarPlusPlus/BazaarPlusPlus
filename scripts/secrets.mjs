@@ -70,7 +70,7 @@ function describeScope(scope) {
 }
 
 // One row per item: its scope, name, whether GitHub has it and whether the
-// local source holds a value; then the retired names GitHub still holds.
+// local source holds a value.
 export function inventory({
   home,
   env = process.env,
@@ -80,10 +80,7 @@ export function inventory({
 }) {
   const table = loadGithubSecrets(workspaceRoot);
   const config = readConfig(home);
-  const scopes = new Set([
-    ...table.items.map((item) => item.scope),
-    ...table.retired.map((entry) => entry.scope)
-  ]);
+  const scopes = new Set(table.items.map((item) => item.scope));
   const remote = new Map();
   for (const scope of scopes) {
     const { kind, env: environment } = ghScope(scope);
@@ -105,17 +102,10 @@ export function inventory({
     local: localValue(item, home, config, env) !== null,
     source: localSource(item)
   }));
-  const stale = table.retired
-    .filter((entry) => remote.get(entry.scope).has(entry.name))
-    .map((entry) => ({
-      ...entry,
-      scope: describeScope(entry.scope),
-      raw: entry.scope
-    }));
-  return { rows, stale, config };
+  return { rows, config };
 }
 
-export function formatInventory({ rows, stale }, { dependabot = false } = {}) {
+export function formatInventory({ rows }, { dependabot = false } = {}) {
   const width = Math.max(...rows.map((row) => row.item.name.length));
   const scopeWidth = Math.max(...rows.map((row) => row.scope.length));
   const lines = rows.map((row) => {
@@ -132,10 +122,6 @@ export function formatInventory({ rows, stale }, { dependabot = false } = {}) {
   lines.push(
     `${rows.length} managed names: ${missingRemote} missing on GitHub, ${missingLocal} missing locally.`
   );
-  if (stale.length)
-    lines.push(
-      `Stale on GitHub (secrets push --prune removes them): ${stale.map((entry) => `${entry.scope} ${entry.name}`).join('; ')}`
-    );
   if (dependabot === false && rows.some((row) => row.item.dependabot))
     lines.push(
       'Dependabot secrets were not listed; pass --dependabot to include them.'
@@ -152,29 +138,17 @@ function setOne(gh, kind, name, bytes, { env = null, app = null }) {
     throw new Error(`gh ${kind} set ${name} failed: ${result.stderr.trim()}`);
 }
 
-function deleteOne(gh, kind, name, { env = null }) {
-  const args = [kind, 'delete', name];
-  if (env) args.push('--env', env);
-  const result = runGh(gh, args);
-  if (result.status !== 0)
-    throw new Error(
-      `gh ${kind} delete ${name} failed: ${result.stderr.trim()}`
-    );
-}
-
 // Copies every item with a local value; names the ones without one. With
-// --dependabot, items marked for Dependabot are set there too. With --prune,
-// retired names still on GitHub are deleted.
+// --dependabot, items marked for Dependabot are set there too.
 export function push({
   home,
   env = process.env,
   gh = 'gh',
   dependabot = false,
-  prune = false,
   workspaceRoot = root,
   log = console.log
 }) {
-  const { rows, stale, config } = inventory({
+  const { rows, config } = inventory({
     home,
     env,
     gh,
@@ -196,16 +170,6 @@ export function push({
       log(`set dependabot secret ${row.item.name}`);
     }
   }
-  if (prune)
-    for (const entry of stale) {
-      const { kind, env: environment } = ghScope(entry.raw);
-      deleteOne(gh, kind, entry.name, { env: environment });
-      log(`deleted ${entry.scope} ${entry.name}`);
-    }
-  else if (stale.length)
-    log(
-      `Left on GitHub (pass --prune to delete): ${stale.map((entry) => `${entry.scope} ${entry.name}`).join('; ')}`
-    );
   for (const row of skipped)
     log(
       `skipped ${row.scope} ${row.item.name}: no local value (${row.source})`

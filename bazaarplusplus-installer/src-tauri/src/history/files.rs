@@ -2,8 +2,8 @@ use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 
 /// Deletes the video file a row names. Like cleanup, it resolves through
-/// [`resolve_cleanup_file_path`], so a row holding an absolute path deletes no
-/// file outside the video directory.
+/// [`resolve_cleanup_file_path`], so no row deletes a file outside the video
+/// directory.
 pub fn remove_video_file(root_dir: &Path, relative_path: &str) -> anyhow::Result<()> {
     let Some(path) = resolve_cleanup_file_path(root_dir, relative_path) else {
         return Ok(());
@@ -15,15 +15,12 @@ pub fn remove_video_file(root_dir: &Path, relative_path: &str) -> anyhow::Result
     }
 }
 
+/// Resolves a path the mod stored relative to `root_dir`, with `/` or `\`
+/// separators. An absolute path resolves to nothing.
 pub fn resolve_data_file_path(root_dir: &Path, raw_path: &str) -> Option<PathBuf> {
     let raw_path = raw_path.trim();
-    if raw_path.is_empty() {
+    if raw_path.is_empty() || PathBuf::from(raw_path).is_absolute() {
         return None;
-    }
-
-    let candidate = PathBuf::from(raw_path);
-    if candidate.is_absolute() {
-        return Some(candidate);
     }
 
     let mut normalized = PathBuf::new();
@@ -36,15 +33,11 @@ pub fn resolve_data_file_path(root_dir: &Path, raw_path: &str) -> Option<PathBuf
     Some(root_dir.join(normalized))
 }
 
-/// Resolver for delete operations: unlike `resolve_screenshot_path`, absolute
-/// paths stored in the DB are refused so a malformed row can never point a
-/// deletion outside the data directory.
+/// Resolver for delete operations: beyond [`resolve_data_file_path`], it refuses
+/// any path that resolves outside `root_dir`, so a malformed row can never point
+/// a deletion outside the data directory.
 pub fn resolve_cleanup_file_path(root_dir: &Path, raw_path: &str) -> Option<PathBuf> {
-    let trimmed = raw_path.trim();
-    if trimmed.is_empty() || PathBuf::from(trimmed).is_absolute() {
-        return None;
-    }
-    let resolved = resolve_data_file_path(root_dir, trimmed)?;
+    let resolved = resolve_data_file_path(root_dir, raw_path)?;
     // Defense in depth: a Windows drive-relative segment like `C:evil.png` is
     // not `is_absolute()`, yet `PathBuf::join` treats its drive prefix as
     // replacing the root, so the resolved path can escape `root_dir`. Confirm
@@ -53,14 +46,6 @@ pub fn resolve_cleanup_file_path(root_dir: &Path, raw_path: &str) -> Option<Path
 }
 
 pub fn resolve_screenshot_path(data_root: &Path, raw_path: &str) -> Option<PathBuf> {
-    let raw_path = raw_path.trim();
-    if raw_path.is_empty() {
-        return None;
-    }
-    let candidate = PathBuf::from(raw_path);
-    if candidate.is_absolute() {
-        return Some(candidate);
-    }
     resolve_data_file_path(
         &crate::services::paths::screenshots_dir_in(data_root),
         raw_path,
