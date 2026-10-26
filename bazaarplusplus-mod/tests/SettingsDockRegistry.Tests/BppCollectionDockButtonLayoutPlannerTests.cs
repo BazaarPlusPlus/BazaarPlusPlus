@@ -77,6 +77,31 @@ public class BppCollectionDockButtonLayoutPlannerTests
     }
 
     [Fact]
+    public void Resolve_reports_an_unnamed_scanned_blocker_by_source_ahead_of_the_viewport()
+    {
+        // Scanned native buttons carry only a source index; the caller names the one that blocks.
+        var blocker = new BppDockButtonObstacle(
+            name: null,
+            new BppDockButtonBounds(1000f, 1200f, 150f, 900f),
+            isActive: true,
+            sourceIndex: 3
+        );
+
+        var plan = BppCollectionDockButtonLayoutPlanner.Resolve(
+            Viewport,
+            Gear,
+            100f,
+            100f,
+            20f,
+            new[] { blocker }
+        );
+
+        Assert.False(plan.CanApply);
+        Assert.Equal(3, plan.Blocker?.SourceIndex);
+        Assert.Null(plan.BlockerName);
+    }
+
+    [Fact]
     public void Resolve_clamps_collection_horizontally_inside_viewport()
     {
         var edgeGear = BppDockButtonBounds.FromCenter(1190f, 100f, 100f, 100f);

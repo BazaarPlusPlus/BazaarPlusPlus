@@ -39,6 +39,7 @@ internal sealed class CurrentReplayRecordingButtonController
     private BppPanelDockButtonsController? _dockAnchorController;
     private bool _layoutAvailable;
     private bool _anchorWasActive;
+    private bool _snapshotWasVisible;
     private CurrentReplayRecordingUiLayoutReasonCode _layoutReasonCode;
     private TooltipKey? _lastTooltipKey;
 
@@ -124,10 +125,12 @@ internal sealed class CurrentReplayRecordingButtonController
 
     private void LateUpdate()
     {
-        // SyncLayout() sweeps every Button in the scene, so it is gated the same way the sibling
-        // BppPanelDockButtonsController gates its own placement sync. The anchor-activity
-        // check is the extra trigger this controller needs: it docks against the last panel button,
-        // which screenshot suppression toggles inactive outside of any scene or resolution change.
+        // SyncLayout() sweeps every Button in the scene. The triggers follow the sibling
+        // BppPanelDockButtonsController's cadence, plus anchor activity: this button docks against
+        // the last panel button, which screenshot suppression toggles inactive outside of any scene
+        // or resolution change. The trackers always advance, but the sweep runs only while the
+        // button can show (a ReplayState with a latched battle), and once on the frame it becomes
+        // showable so it never appears at a stale position.
         var anchorIsActive = IsDockAnchorActive();
         var shouldSync = _layoutSync.ShouldSync(
             ActiveSceneNameCache.Current,
@@ -136,9 +139,11 @@ internal sealed class CurrentReplayRecordingButtonController
         shouldSync |= _screenResizeSync.ShouldSync(Screen.width, Screen.height);
         shouldSync |= anchorIsActive != _anchorWasActive;
         _anchorWasActive = anchorIsActive;
-        if (shouldSync)
+        var snapshot = GetDisplaySnapshot();
+        if (snapshot.Visible && (shouldSync || !_snapshotWasVisible))
             SyncLayout();
-        Refresh();
+        _snapshotWasVisible = snapshot.Visible;
+        Refresh(snapshot);
     }
 
     private bool IsDockAnchorActive()
@@ -203,6 +208,7 @@ internal sealed class CurrentReplayRecordingButtonController
 
         var anchorButton = ResolveDockAnchorButton(_settingsButton);
         _layoutAvailable = _screenLayout.TryResolveAndApplyCollection(
+            BppDockButtonScreenLayout.FindSceneButtons(),
             anchorButton,
             _cloneRect,
             DockButtonGap,
@@ -232,11 +238,12 @@ internal sealed class CurrentReplayRecordingButtonController
         return settingsButton;
     }
 
-    private void Refresh()
+    private void Refresh() => Refresh(GetDisplaySnapshot());
+
+    private void Refresh(CurrentReplayRecordingSnapshot snapshot)
     {
         if (_clone == null || _button == null)
             return;
-        var snapshot = GetDisplaySnapshot();
         var startFailureStatusCode = _startFailureFeedback.Observe(snapshot);
         var visible = snapshot.Visible && _layoutAvailable;
         var wasActive = _clone.activeSelf;

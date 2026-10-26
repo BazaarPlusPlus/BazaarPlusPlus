@@ -4,17 +4,23 @@ namespace BazaarPlusPlus.Game.Settings;
 internal readonly struct BppCollectionDockButtonLayoutPlan(
     bool canApply,
     BppDockButtonBounds bounds,
-    string? blockerName
+    BppDockButtonObstacle? blocker
 )
 {
     internal bool CanApply { get; } = canApply;
     internal BppDockButtonBounds Bounds { get; } = bounds;
-    internal string? BlockerName { get; } = blockerName;
+    internal BppDockButtonObstacle? Blocker { get; } = blocker;
+    internal string? BlockerName => Blocker?.Name;
 }
 
 internal static class BppCollectionDockButtonLayoutPlanner
 {
     private const int MaximumVerticalSlots = 12;
+    private static readonly BppDockButtonObstacle ViewportBlocker = new(
+        "viewport",
+        default,
+        isActive: false
+    );
 
     internal static BppCollectionDockButtonLayoutPlan Resolve(
         BppDockButtonBounds viewportBounds,
@@ -71,7 +77,7 @@ internal static class BppCollectionDockButtonLayoutPlanner
         return new BppCollectionDockButtonLayoutPlan(
             false,
             upwardPlan.Bounds,
-            upwardPlan.BlockerName ?? downwardPlan.BlockerName
+            upwardPlan.Blocker ?? downwardPlan.Blocker
         );
     }
 
@@ -106,9 +112,9 @@ internal static class BppCollectionDockButtonLayoutPlanner
             height
         );
         if (!viewportBounds.Contains(candidate))
-            return new BppCollectionDockButtonLayoutPlan(false, candidate, "viewport");
+            return new BppCollectionDockButtonLayoutPlan(false, candidate, ViewportBlocker);
         var blocker = FindBlocker(candidate, blockers);
-        return new BppCollectionDockButtonLayoutPlan(blocker == null, candidate, blocker?.Name);
+        return new BppCollectionDockButtonLayoutPlan(blocker == null, candidate, blocker);
     }
 
     private static BppCollectionDockButtonLayoutPlan ResolveDirection(
@@ -118,20 +124,20 @@ internal static class BppCollectionDockButtonLayoutPlanner
         IReadOnlyList<BppDockButtonObstacle> blockers
     )
     {
-        string? lastBlockerName = null;
+        BppDockButtonObstacle? lastBlocker = null;
         for (var slot = 0; slot < MaximumVerticalSlots; slot++)
         {
             if (!viewportBounds.Contains(candidate))
             {
-                lastBlockerName ??= "viewport";
+                lastBlocker ??= ViewportBlocker;
                 break;
             }
 
             var blocker = FindBlocker(candidate, blockers);
             if (blocker == null)
-                return new BppCollectionDockButtonLayoutPlan(true, candidate, lastBlockerName);
+                return new BppCollectionDockButtonLayoutPlan(true, candidate, lastBlocker);
 
-            lastBlockerName = blocker.Value.Name;
+            lastBlocker = blocker;
             candidate = BppDockButtonBounds.FromCenter(
                 candidate.CenterX,
                 candidate.CenterY + verticalStep,
@@ -140,7 +146,7 @@ internal static class BppCollectionDockButtonLayoutPlanner
             );
         }
 
-        return new BppCollectionDockButtonLayoutPlan(false, candidate, lastBlockerName);
+        return new BppCollectionDockButtonLayoutPlan(false, candidate, lastBlocker);
     }
 
     private static BppDockButtonObstacle? FindBlocker(

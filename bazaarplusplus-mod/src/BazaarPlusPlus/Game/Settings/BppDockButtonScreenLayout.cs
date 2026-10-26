@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.GameInterop.Scenes;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,11 +8,37 @@ namespace BazaarPlusPlus.Game.Settings;
 internal sealed class BppDockButtonScreenLayout
 {
     private const string BppObjectPrefix = "BPP_";
+
+    // Transforms seen in one scene; a guard against unbounded growth in a long-lived scene.
+    private const int MaximumCachedBppNameVerdicts = 8192;
+
+    // Whether a Transform's own name carries the BPP prefix, keyed by instance ID. Only the name is
+    // cached, never the ancestor verdict, so a native subtree reparented under a BPP container is
+    // still seen on the next walk. BPP names its objects as it creates them, so a cached name does
+    // not go stale.
+    private static readonly Dictionary<int, bool> BppNameVerdicts = [];
+    private static string? _bppNameVerdictsScene;
+
     private readonly List<BppDockButtonObstacle> _blockerScratch = [];
+    private readonly List<(Transform Button, Transform Canvas)> _blockerSourceScratch = [];
     private readonly List<Graphic> _graphicScratch = [];
+    private readonly List<CanvasGroup> _canvasGroupScratch = [];
     private readonly Vector3[] _cornerScratch = new Vector3[4];
 
+    /// <summary>
+    /// The scene-wide scan one layout probe shares across every
+    /// <see cref="TryResolveAndApplyCollection"/> call it makes.
+    /// </summary>
+    internal static Button[] FindSceneButtons() =>
+        UnityEngine.Object.FindObjectsOfType<Button>(includeInactive: false);
+
+    /// <summary>
+    /// Places <paramref name="collectionRect"/> beside the anchor clear of every visible native
+    /// button in <paramref name="sceneButtons"/>. <paramref name="blockerName"/> names what stopped
+    /// the placement and is set only when this returns false.
+    /// </summary>
     internal bool TryResolveAndApplyCollection(
+        Button[] sceneButtons,
         Button anchorButton,
         RectTransform collectionRect,
         float localGap,
@@ -58,6 +85,7 @@ internal sealed class BppDockButtonScreenLayout
 
         var gap = ResolveScreenGap(collectionRect.parent as RectTransform, localGap);
         var blockers = CollectVisibleNativeBlockers(
+            sceneButtons,
             viewportBounds,
             anchorButton,
             collectionButton,
@@ -88,9 +116,13 @@ internal sealed class BppDockButtonScreenLayout
                 gap,
                 blockers
             );
-        blockerName = plan.BlockerName;
         if (!plan.CanApply)
+        {
+            // Names are log labels only, so a scanned blocker's path is built here, before the
+            // next call clears the source scratch, and only when it actually blocks.
+            blockerName = DescribeBlocker(plan.Blocker);
             return false;
+        }
 
         if (
             !TryCalculateTargetLocalPosition(
@@ -113,6 +145,7 @@ internal sealed class BppDockButtonScreenLayout
     }
 
     private IReadOnlyList<BppDockButtonObstacle> CollectVisibleNativeBlockers(
+        Button[] sceneButtons,
         BppDockButtonBounds viewportBounds,
         Button anchorButton,
         Button collectionButton,
@@ -120,7 +153,9 @@ internal sealed class BppDockButtonScreenLayout
     )
     {
         _blockerScratch.Clear();
-        foreach (var button in UnityEngine.Object.FindObjectsOfType<Button>(includeInactive: false))
+        _blockerSourceScratch.Clear();
+        ResetBppNameVerdictsOnSceneChange();
+        foreach (var button in sceneButtons)
         {
             if (
                 button == null
@@ -150,14 +185,29 @@ internal sealed class BppDockButtonScreenLayout
 
             _blockerScratch.Add(
                 new BppDockButtonObstacle(
-                    $"{BuildHierarchyPath(button.transform)} [canvas={BuildHierarchyPath(canvas.transform)}]",
+                    name: null,
                     bounds,
-                    isActive: true
+                    isActive: true,
+                    sourceIndex: _blockerSourceScratch.Count
                 )
             );
+            _blockerSourceScratch.Add((button.transform, canvas.transform));
         }
 
         return _blockerScratch;
+    }
+
+    private string? DescribeBlocker(BppDockButtonObstacle? blocker)
+    {
+        if (
+            blocker is not { SourceIndex: var index }
+            || index < 0
+            || index >= _blockerSourceScratch.Count
+        )
+            return blocker?.Name;
+
+        var (button, canvas) = _blockerSourceScratch[index];
+        return $"{BuildHierarchyPath(button)} [canvas={BuildHierarchyPath(canvas)}]";
     }
 
     private bool TryCalculateButtonFootprint(
@@ -287,7 +337,7 @@ internal sealed class BppDockButtonScreenLayout
         return true;
     }
 
-    private static bool IsVisible(Graphic graphic)
+    private bool IsVisible(Graphic graphic)
     {
         if (
             graphic == null
@@ -310,7 +360,8 @@ internal sealed class BppDockButtonScreenLayout
             if (canvas != null && !canvas.isActiveAndEnabled)
                 return false;
 
-            foreach (var group in current.GetComponents<CanvasGroup>())
+            current.GetComponents(_canvasGroupScratch);
+            foreach (var group in _canvasGroupScratch)
             {
                 alpha *= group.alpha;
                 if (group.ignoreParentGroups)
@@ -324,7 +375,7 @@ internal sealed class BppDockButtonScreenLayout
         return alpha > BppDockButtonVisualFootprint.VisibleAlphaThreshold;
     }
 
-    private static bool IsFootprintGraphic(Button owner, Graphic graphic) =>
+    private bool IsFootprintGraphic(Button owner, Graphic graphic) =>
         graphic != null
         && BppDockButtonVisualFootprint.ShouldIncludeGraphic(
             graphic.enabled,
@@ -363,7 +414,7 @@ internal sealed class BppDockButtonScreenLayout
         return true;
     }
 
-    private static float ResolveAuthoredAlpha(Graphic graphic, Transform buttonRoot)
+    private float ResolveAuthoredAlpha(Graphic graphic, Transform buttonRoot)
     {
         var alpha = graphic.color.a;
         var stopAtCurrentTransform = false;
@@ -373,7 +424,8 @@ internal sealed class BppDockButtonScreenLayout
             current = current.parent
         )
         {
-            foreach (var group in current.GetComponents<CanvasGroup>())
+            current.GetComponents(_canvasGroupScratch);
+            foreach (var group in _canvasGroupScratch)
             {
                 alpha *= group.alpha;
                 if (group.ignoreParentGroups)
@@ -446,11 +498,36 @@ internal sealed class BppDockButtonScreenLayout
     {
         for (var current = transform; current != null; current = current.parent)
         {
-            if (current.name.StartsWith(BppObjectPrefix, StringComparison.Ordinal))
+            if (HasBppName(current))
                 return true;
         }
 
         return false;
+    }
+
+    // Transform.name marshals a fresh string on every read; read it once per Transform per scene.
+    private static bool HasBppName(Transform transform)
+    {
+        var instanceId = transform.GetInstanceID();
+        if (BppNameVerdicts.TryGetValue(instanceId, out var hasBppName))
+            return hasBppName;
+
+        hasBppName = transform.name.StartsWith(BppObjectPrefix, StringComparison.Ordinal);
+        BppNameVerdicts[instanceId] = hasBppName;
+        return hasBppName;
+    }
+
+    private static void ResetBppNameVerdictsOnSceneChange()
+    {
+        var sceneName = ActiveSceneNameCache.Current;
+        if (
+            string.Equals(sceneName, _bppNameVerdictsScene, StringComparison.Ordinal)
+            && BppNameVerdicts.Count < MaximumCachedBppNameVerdicts
+        )
+            return;
+
+        _bppNameVerdictsScene = sceneName;
+        BppNameVerdicts.Clear();
     }
 
     private static bool IsRelated(Transform candidate, Transform anchor) =>

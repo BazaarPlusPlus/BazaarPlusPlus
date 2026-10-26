@@ -69,15 +69,22 @@ internal readonly struct BppDockButtonBounds(float minX, float maxX, float minY,
     }
 }
 
+/// <summary>
+/// A rectangle the planner must not overlap. A scanned native button carries no
+/// <see cref="Name"/>, only a <see cref="SourceIndex"/> into the caller's own source list, so its
+/// hierarchy path is built only when it ends up blocking the layout.
+/// </summary>
 internal readonly struct BppDockButtonObstacle(
-    string name,
+    string? name,
     BppDockButtonBounds bounds,
-    bool isActive
+    bool isActive,
+    int sourceIndex = -1
 )
 {
-    internal string Name { get; } = name;
+    internal string? Name { get; } = name;
     internal BppDockButtonBounds Bounds { get; } = bounds;
     internal bool IsActive { get; } = isActive;
+    internal int SourceIndex { get; } = sourceIndex;
 }
 
 internal static class BppDockButtonVisualFootprint
