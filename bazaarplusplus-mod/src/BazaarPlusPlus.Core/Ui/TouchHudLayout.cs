@@ -4,17 +4,27 @@ namespace BazaarPlusPlus.Core.Ui;
 /// <summary>Touch targets around native HUD anchors; visible artwork may be smaller.</summary>
 public static class TouchHudLayout
 {
-    public static TouchRect[] Shortcuts(TouchMetrics metrics, TouchRect gear, int count)
+    /// <summary>
+    /// The target left of the settings button, level with it. A target is wider than the gear, so
+    /// it ends left of <see cref="ShortcutBelow"/>'s as well, and the corner's hit areas never meet.
+    /// </summary>
+    public static TouchRect ShortcutBeside(TouchMetrics metrics, TouchRect gear)
     {
         var target = metrics.MinTarget;
         var safe = metrics.SafeArea;
-        var gap = metrics.Dp(4);
+        var top = Math.Clamp(gear.CenterY - target / 2, safe.Top, safe.Bottom - target);
+        var right = Math.Min(gear.Left, ShortcutBelow(metrics, gear).Left) - metrics.Dp(4);
+        return new TouchRect(Math.Max(safe.Left, right - target), top, target, target);
+    }
+
+    /// <summary>The target below the settings button, centred under it.</summary>
+    public static TouchRect ShortcutBelow(TouchMetrics metrics, TouchRect gear)
+    {
+        var target = metrics.MinTarget;
+        var safe = metrics.SafeArea;
         var left = Math.Clamp(gear.CenterX - target / 2, safe.Left, safe.Right - target);
-        var top = Math.Max(safe.Top, gear.Bottom + gap);
-        return Enumerable
-            .Range(0, count)
-            .Select(index => new TouchRect(left, top + index * (target + gap), target, target))
-            .ToArray();
+        var top = Math.Max(safe.Top, gear.Bottom + metrics.Dp(4));
+        return new TouchRect(left, top, target, target);
     }
 
     /// <summary>
