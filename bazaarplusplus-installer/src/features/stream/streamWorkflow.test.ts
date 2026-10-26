@@ -8,6 +8,8 @@
 // - A semantic notice persists, or a one-off failure leaks to other targets.
 // - Responses or timers fire after dispose, or a dispose-start replay accepts
 //   the old initialization.
+// - Polling keeps running while the window is hidden, or a resume waits a
+//   full interval before the first fresh status.
 import { describe, expect, it, vi } from 'vitest';
 import {
   defaultCropSettings,
@@ -271,6 +273,60 @@ describe('stream workflow lifecycle and effects', () => {
 
     expect(workflow.getSnapshot()).toBe(before);
     expect(scheduler.intervals.size).toBe(0);
+  });
+
+  it('stops polling while hidden and polls at once on resume', async () => {
+    const getStreamStatus = vi.fn().mockResolvedValue(runningStatus());
+    const { workflow, scheduler } = setup({ getStreamStatus });
+    await workflow.start();
+    expect(scheduler.intervals.size).toBe(1);
+
+    workflow.pause();
+    expect(scheduler.intervals.size).toBe(0);
+    // A second resume signal, such as focus after visibility, polls once.
+    workflow.resume();
+    workflow.resume();
+    expect(getStreamStatus).toHaveBeenCalledOnce();
+    expect(scheduler.intervals.size).toBe(1);
+
+    getStreamStatus.mockResolvedValue(
+      runningStatus({ active_window_offset: 4 })
+    );
+    await flush();
+    scheduler.fireIntervals();
+    await flush();
+    expect(workflow.getSnapshot().service.status?.active_window_offset).toBe(4);
+  });
+
+  it('leaves the first schedule to the initial load when hidden during it', async () => {
+    const status = deferred<StreamServiceStatus>();
+    const getStreamStatus = vi.fn().mockResolvedValue(runningStatus());
+    const { workflow, scheduler } = setup({
+      ensureStreamSession: () => status.promise,
+      getStreamStatus
+    });
+    const started = workflow.start();
+    workflow.pause();
+    status.resolve(runningStatus());
+    await started;
+    expect(scheduler.intervals.size).toBe(0);
+
+    workflow.resume();
+    expect(getStreamStatus).toHaveBeenCalledOnce();
+    expect(scheduler.intervals.size).toBe(1);
+
+    const replayStatus = deferred<StreamServiceStatus>();
+    const replay = setup({
+      ensureStreamSession: () => replayStatus.promise,
+      getStreamStatus
+    });
+    const replayStarted = replay.workflow.start();
+    replay.workflow.pause();
+    replay.workflow.resume();
+    replayStatus.resolve(runningStatus());
+    await replayStarted;
+    expect(getStreamStatus).toHaveBeenCalledOnce();
+    expect(replay.scheduler.intervals.size).toBe(1);
   });
 
   it('supports a dispose-start replay without accepting old initialization', async () => {

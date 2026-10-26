@@ -4,6 +4,10 @@ import { commandClient } from '../../api/commandClient';
 import { hasTauriRuntime } from '../../api/runtime';
 import { useI18n } from '../../i18n/LocaleProvider';
 import {
+  observeWindowHidden,
+  observeWindowResume
+} from '../shared/windowActivity';
+import {
   createStreamWorkflow,
   type StreamClipboard,
   type StreamOpener,
@@ -58,7 +62,15 @@ export function useStreamPage() {
 
   useEffect(() => {
     void workflow.start();
-    return () => workflow.dispose();
+    // A window hidden to the tray keeps this page mounted; polling stops
+    // until the window comes back.
+    const stopObservingHidden = observeWindowHidden(() => workflow.pause());
+    const stopObservingResume = observeWindowResume(() => workflow.resume());
+    return () => {
+      stopObservingHidden();
+      stopObservingResume();
+      workflow.dispose();
+    };
   }, [workflow]);
 
   return { snapshot, intents: workflow.intents };

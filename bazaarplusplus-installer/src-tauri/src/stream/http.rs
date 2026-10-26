@@ -2,7 +2,7 @@ use super::history_thumbnails::{self, HistoryThumbnails};
 use super::overlay_settings::{validate_crop_settings, OverlayCropSettings, OverlaySettingsStore};
 use super::records::OverlayRecordRepository;
 use super::runtime::StreamRuntime;
-use super::strip::{render_strip, StripRequest};
+use super::strip::{render_strip, SourcePaths, StripRequest};
 use anyhow::Context as _;
 use axum::http::StatusCode;
 use axum::{
@@ -48,6 +48,8 @@ struct HttpAppState {
     runtime: StreamRuntime,
     overlay_settings: OverlaySettingsStore,
     cache_directory: PathBuf,
+    /// The OBS strip route's screenshot paths, kept for this service run.
+    strip_sources: SourcePaths,
 }
 
 #[derive(Debug, Deserialize)]
@@ -118,6 +120,7 @@ pub(super) fn router(
             runtime,
             overlay_settings,
             cache_directory,
+            strip_sources: SourcePaths::default(),
         })
         .merge(history_thumbnails)
         .layer(cors)
@@ -295,8 +298,13 @@ async fn record_strip_image(
     let records = app_state.overlay_records;
     let settings = app_state.overlay_settings;
     let cache_root = app_state.cache_directory;
+    let sources = app_state.strip_sources;
 
-    match run_record_task(move || render_strip(&records, &settings, &cache_root, &request)).await {
+    match run_record_task(move || {
+        render_strip(&records, &settings, &sources, &cache_root, &request)
+    })
+    .await
+    {
         Ok(Some(bytes)) => png_response(bytes),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(error) => (

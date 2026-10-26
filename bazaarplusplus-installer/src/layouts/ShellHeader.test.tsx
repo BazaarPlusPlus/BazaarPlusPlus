@@ -14,7 +14,10 @@ import { commandClient } from '../api/commandClient';
 import { ShellHeader } from './ShellHeader';
 
 const tauriWindow = vi.hoisted(() => {
-  const state: { resizeHandler?: () => void } = {};
+  const state: {
+    resizeHandler?: () => void;
+    focusHandler?: (event: { payload: boolean }) => void;
+  } = {};
   const unlisten = vi.fn();
   return {
     state,
@@ -26,7 +29,13 @@ const tauriWindow = vi.hoisted(() => {
       onResized: vi.fn(async (handler: () => void) => {
         state.resizeHandler = handler;
         return unlisten;
-      })
+      }),
+      onFocusChanged: vi.fn(
+        async (handler: (event: { payload: boolean }) => void) => {
+          state.focusHandler = handler;
+          return unlisten;
+        }
+      )
     }
   };
 });
@@ -269,4 +278,76 @@ describe('ShellHeader', () => {
       }
     }
   );
+
+  it('reads the stream status when the window returns or the close control is reached, never on a timer', async () => {
+    const userAgent = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: 'Windows'
+    });
+    Object.defineProperty(window, '__TAURI_INTERNALS__', {
+      configurable: true,
+      value: {}
+    });
+    vi.useFakeTimers({ toFake: ['setInterval'] });
+    vi.mocked(getStreamStatus).mockResolvedValue(idleStreamStatus);
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    const closeLabel = () =>
+      container
+        .querySelector('.bpp-window-control-button:last-child')
+        ?.getAttribute('aria-label');
+    try {
+      await act(async () =>
+        root.render(
+          <MemoryRouter initialEntries={['/stream']}>
+            <LocaleProvider>
+              <UpdaterProvider>
+                <ShellHeader
+                  app={app}
+                  showBilibili={false}
+                  onToggleBilibili={() => undefined}
+                  onCloseBilibili={() => undefined}
+                />
+              </UpdaterProvider>
+            </LocaleProvider>
+          </MemoryRouter>
+        )
+      );
+      expect(getStreamStatus).toHaveBeenCalledOnce();
+      expect(closeLabel()).toBe('关闭窗口');
+
+      // The service starts from the tray; an idle window does not ask.
+      vi.mocked(getStreamStatus).mockResolvedValue({
+        ...idleStreamStatus,
+        running: true
+      });
+      await act(async () => vi.advanceTimersByTime(60_000));
+      expect(getStreamStatus).toHaveBeenCalledOnce();
+
+      const close = container.querySelector(
+        '.bpp-window-control-button:last-child'
+      );
+      await act(async () => {
+        close?.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+      });
+      expect(getStreamStatus).toHaveBeenCalledTimes(2);
+      expect(closeLabel()).toBe('隐藏到托盘（直播服务仍在运行）');
+
+      vi.mocked(getStreamStatus).mockResolvedValue(idleStreamStatus);
+      await act(async () =>
+        tauriWindow.state.focusHandler?.({ payload: true })
+      );
+      expect(getStreamStatus).toHaveBeenCalledTimes(3);
+      expect(closeLabel()).toBe('关闭窗口');
+    } finally {
+      await act(async () => root.unmount());
+      container.remove();
+      vi.useRealTimers();
+      delete (window as Window & { __TAURI_INTERNALS__?: unknown })
+        .__TAURI_INTERNALS__;
+      if (userAgent) Object.defineProperty(navigator, 'userAgent', userAgent);
+    }
+  });
 });

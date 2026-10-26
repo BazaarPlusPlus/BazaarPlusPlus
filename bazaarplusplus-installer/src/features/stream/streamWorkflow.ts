@@ -96,6 +96,10 @@ export interface StreamWorkflow {
   subscribe(listener: () => void): () => void;
   start(): Promise<void>;
   dispose(): void;
+  /** Stops status polling while the window is hidden. */
+  pause(): void;
+  /** Ends a pause: polls at once, then on the usual interval. */
+  resume(): void;
   readonly intents: StreamWorkflowIntents;
 }
 
@@ -143,6 +147,9 @@ class DefaultStreamWorkflow implements StreamWorkflow {
   private latestPollRequest = 0;
   private consecutivePollFailures = 0;
   private intervalHandle: unknown = null;
+  private paused = false;
+  /** The initial load has landed, so polling may run. */
+  private pollingReady = false;
   private noticeTimeoutHandle: unknown = null;
 
   readonly intents: StreamWorkflowIntents = {
@@ -178,6 +185,8 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     const statusEpoch = ++this.statusEpoch;
     this.state = initialState();
     this.consecutivePollFailures = 0;
+    this.paused = false;
+    this.pollingReady = false;
     this.clearNoticeTimer();
     this.publish();
 
@@ -186,10 +195,8 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     await Promise.all([statusLoad, cropLoad]);
     if (!this.isCurrentLifecycle(lifecycle)) return;
 
-    this.intervalHandle = this.ports.scheduler.setInterval(
-      () => void this.poll(),
-      POLL_INTERVAL_MS
-    );
+    this.pollingReady = true;
+    this.schedulePolling();
   }
 
   dispose() {
@@ -202,12 +209,38 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     this.state.statusOperation = null;
     this.state.cropOperation = null;
     this.state.oneOffOperations.clear();
-    if (this.intervalHandle !== null) {
-      this.ports.scheduler.clearInterval(this.intervalHandle);
-      this.intervalHandle = null;
-    }
+    this.stopPolling();
     this.clearNoticeTimer();
     this.listeners.clear();
+  }
+
+  pause() {
+    if (this.disposed || !this.started) return;
+    this.paused = true;
+    this.stopPolling();
+  }
+
+  resume() {
+    if (this.disposed || !this.paused) return;
+    this.paused = false;
+    // A pause during the initial load leaves the first schedule to `start`.
+    if (!this.pollingReady) return;
+    void this.poll();
+    this.schedulePolling();
+  }
+
+  private schedulePolling() {
+    if (this.paused || this.intervalHandle !== null) return;
+    this.intervalHandle = this.ports.scheduler.setInterval(
+      () => void this.poll(),
+      POLL_INTERVAL_MS
+    );
+  }
+
+  private stopPolling() {
+    if (this.intervalHandle === null) return;
+    this.ports.scheduler.clearInterval(this.intervalHandle);
+    this.intervalHandle = null;
   }
 
   private async loadInitialStatus(lifecycle: number, epoch: number) {

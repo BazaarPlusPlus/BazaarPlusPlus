@@ -7,6 +7,8 @@ const emptyDetail = document.getElementById('overlay-empty-detail');
 const list = document.getElementById('overlay-list');
 
 let lastRecordKey = null;
+/** The detail of the empty state on screen, or null when it is not shown. */
+let renderedEmptyDetail = null;
 let rowResizeObserver = null;
 let currentDisplayMode = 'current';
 
@@ -185,6 +187,14 @@ function buildRowMarkup(record) {
 }
 
 function renderEmpty(message) {
+  const detail =
+    message ?? 'Start a match and the overlay will update automatically.';
+  // Each poll without records lands here; an unchanged empty state keeps its DOM.
+  if (renderedEmptyDetail === detail && root?.classList.contains('empty')) {
+    return;
+  }
+  renderedEmptyDetail = detail;
+
   setClassNames('empty');
   setText(signal, 'Local feed idle');
   setText(status, 'Waiting');
@@ -200,10 +210,7 @@ function renderEmpty(message) {
   }
 
   setText(emptyTitle, 'No records yet');
-  setText(
-    emptyDetail,
-    message ?? 'Start a match and the overlay will update automatically.'
-  );
+  setText(emptyDetail, detail);
 }
 
 function renderRecords(records, options = {}) {
@@ -212,6 +219,7 @@ function renderRecords(records, options = {}) {
   }
 
   const { stale = false, updated = false } = options;
+  renderedEmptyDetail = null;
   setClassNames(stale ? 'stale' : 'live');
   setText(
     signal,

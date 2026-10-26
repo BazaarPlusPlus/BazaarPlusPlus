@@ -1,10 +1,11 @@
-use super::{cache_directory, sweep, url, CacheLimits, HistoryThumbnails, CACHE_DIRECTORY};
+use super::{cache_directory, url, HistoryThumbnails};
 use crate::stream::{
     runtime::{
         test_support::{installation, TestServer},
         StreamInstallation, StreamRuntime,
     },
     server,
+    strip::{cache_namespace, HISTORY_THUMBNAIL_CACHE, OBS_STRIP_CACHE},
 };
 use std::{
     path::{Path, PathBuf},
@@ -147,7 +148,7 @@ fn cache_namespace_is_a_stable_digest_of_the_installation_path() {
 }
 
 #[tokio::test]
-async fn one_installation_caches_its_thumbnails_in_one_namespace() {
+async fn each_route_caches_one_installation_in_one_namespace() {
     let temp = tempfile::tempdir().unwrap();
     let game_path = temp.path().join("game");
     add_screenshot(&game_path, "shot-1", "end_of_run_auto", [255, 0, 0, 255]);
@@ -163,12 +164,66 @@ async fn one_installation_caches_its_thumbnails_in_one_namespace() {
 
     for id in ["shot-1", "shot-2"] {
         image_pixel(router.clone(), route_of(&url(source, id))).await;
+        image_pixel(router.clone(), &format!("/images/{id}/strip")).await;
     }
 
     let cache_root = temp.path().join("cache");
-    let namespaces = files_in(&cache_root.join(CACHE_DIRECTORY));
+    let namespaces = files_in(&cache_root.join(HISTORY_THUMBNAIL_CACHE));
     assert_eq!(namespaces, [cache_directory(&cache_root, &game_path)]);
     assert_eq!(files_in(&namespaces[0]).len(), 2);
+    let obs = cache_namespace(&cache_root, OBS_STRIP_CACHE, &game_path);
+    assert_eq!(
+        files_in(&cache_root.join(OBS_STRIP_CACHE)),
+        std::slice::from_ref(&obs)
+    );
+    assert_eq!(files_in(&obs).len(), 2);
+    // Nothing is left at the root, where the sweep would not count it.
+    assert_eq!(
+        files_in(&cache_root),
+        [
+            cache_root.join(HISTORY_THUMBNAIL_CACHE),
+            cache_root.join(OBS_STRIP_CACHE)
+        ]
+    );
+}
+
+#[tokio::test]
+async fn repeated_strips_skip_the_database_until_their_image_is_gone() {
+    let temp = tempfile::tempdir().unwrap();
+    let game_path = temp.path().join("game");
+    let color = [40, 50, 60, 255];
+    let image = screenshot_fixture(&game_path, color);
+    let thumbnails = HistoryThumbnails::default();
+    let thumbnail = url(thumbnails.register(&game_path), "shot-1");
+    let router = history_router(
+        &StreamRuntime::default(),
+        &thumbnails,
+        &game_path,
+        temp.path(),
+    );
+    let uris = [route_of(&thumbnail), "/images/shot-1/strip"];
+    for uri in uris {
+        assert_eq!(image_pixel(router.clone(), uri).await, color);
+    }
+
+    // Both routes remember where the screenshot lives: an exclusive lock, which
+    // would make a database read fail after its busy timeout, does not matter.
+    let lock =
+        rusqlite::Connection::open(crate::services::paths::database_path(&game_path)).unwrap();
+    lock.execute_batch("begin exclusive;").unwrap();
+    for uri in uris {
+        assert_eq!(image_pixel(router.clone(), uri).await, color);
+    }
+    drop(lock);
+
+    // A remembered image that is gone is looked up again, not served as an error.
+    std::fs::remove_file(image).unwrap();
+    for uri in uris {
+        assert_eq!(
+            get(router.clone(), uri).await.0,
+            axum::http::StatusCode::NOT_FOUND
+        );
+    }
 }
 
 #[tokio::test]
@@ -222,7 +277,7 @@ async fn unknown_sources_and_missing_screenshots_are_not_found() {
 }
 
 #[tokio::test]
-async fn a_cache_hit_marks_the_entry_as_recently_used() {
+async fn a_cache_hit_marks_an_aging_entry_as_recently_used() {
     let temp = tempfile::tempdir().unwrap();
     let game_path = temp.path().join("game");
     screenshot_fixture(&game_path, [1, 2, 3, 255]);
@@ -238,86 +293,21 @@ async fn a_cache_hit_marks_the_entry_as_recently_used() {
     let [entry] = files_in(&cache_directory(&temp.path().join("cache"), &game_path))
         .try_into()
         .unwrap();
-    let stale = SystemTime::now() - Duration::from_secs(90 * 24 * 60 * 60);
-    set_age(
-        &entry,
-        SystemTime::now(),
-        Duration::from_secs(90 * 24 * 60 * 60),
-    );
+    let modified = || std::fs::metadata(&entry).unwrap().modified().unwrap();
+
+    // A recently used entry is served without writing to it.
+    let now = SystemTime::now();
+    set_age(&entry, now, Duration::from_secs(60 * 60));
+    let recent = modified();
+    image_pixel(router.clone(), route_of(&uri)).await;
+    assert_eq!(modified(), recent);
+
+    let stale = now - Duration::from_secs(90 * 24 * 60 * 60);
+    set_age(&entry, now, Duration::from_secs(90 * 24 * 60 * 60));
 
     image_pixel(router, route_of(&uri)).await;
 
-    assert!(std::fs::metadata(&entry).unwrap().modified().unwrap() > stale);
-}
-
-#[test]
-fn sweep_removes_stale_entries_and_orphans_but_keeps_fresh_ones() {
-    let temp = tempfile::tempdir().unwrap();
-    let root = temp.path();
-    let now = SystemTime::now();
-    let limits = CacheLimits {
-        unused_for: Duration::from_secs(3600),
-        max_entries: 100,
-        fresh_for: Duration::from_secs(10),
-    };
-    let obs_entry = root.join("shot-1-strip.png");
-    std::fs::write(&obs_entry, b"obs").unwrap();
-    set_age(&obs_entry, now, Duration::from_secs(7200));
-    let namespace = cache_directory(root, Path::new("/Games/The Bazaar"));
-    std::fs::create_dir_all(&namespace).unwrap();
-    let entry = |name: &str, age: u64| {
-        let path = namespace.join(name);
-        std::fs::write(&path, b"png").unwrap();
-        set_age(&path, now, Duration::from_secs(age));
-        path
-    };
-    let stale = entry("stale-strip.png", 7200);
-    let used = entry("used-strip.png", 60);
-    let orphan = entry("used-strip.png.1-0.tmp", 60);
-    let writing = entry("used-strip.png.1-1.tmp", 1);
-    let just_served = entry("just-served-strip.png", 1);
-
-    sweep(root, now, &limits);
-
-    assert!(!stale.exists());
-    assert!(!orphan.exists());
-    assert!(used.exists());
-    assert!(writing.exists());
-    assert!(just_served.exists());
-    // The OBS strips at the cache root are not History's to sweep.
-    assert!(obs_entry.exists());
-}
-
-#[test]
-fn sweep_caps_the_entry_count_by_removing_the_oldest() {
-    let temp = tempfile::tempdir().unwrap();
-    let root = temp.path();
-    let now = SystemTime::now();
-    let limits = CacheLimits {
-        unused_for: Duration::from_secs(3600),
-        max_entries: 2,
-        fresh_for: Duration::from_secs(10),
-    };
-    let entries = ["/Games/A", "/Games/B", "/Games/A"]
-        .into_iter()
-        .zip([300, 200, 100])
-        .enumerate()
-        .map(|(index, (game_path, age))| {
-            let namespace = cache_directory(root, Path::new(game_path));
-            std::fs::create_dir_all(&namespace).unwrap();
-            let path = namespace.join(format!("shot-{index}-strip.png"));
-            std::fs::write(&path, b"png").unwrap();
-            set_age(&path, now, Duration::from_secs(age));
-            path
-        })
-        .collect::<Vec<_>>();
-
-    sweep(root, now, &limits);
-
-    assert_eq!(
-        entries.iter().map(|path| path.exists()).collect::<Vec<_>>(),
-        [false, true, true]
-    );
+    assert!(modified() > stale);
 }
 
 #[tokio::test]

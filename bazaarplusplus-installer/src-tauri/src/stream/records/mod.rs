@@ -10,16 +10,34 @@ pub(in crate::stream) use image::resolve_overlay_image_path;
 pub use locator::{find_database_path_anywhere, resolve_database_path};
 use mapper::to_overlay_record;
 pub use mapper::OverlayRecord;
-use std::path::PathBuf;
+use std::{
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
+
+/// How long a failed search for a database outside any installation is
+/// reused before the known Steam libraries are scanned again.
+const DATABASE_MISS_TTL: Duration = Duration::from_secs(15);
 
 #[derive(Clone, Debug)]
 pub struct OverlayRecordRepository {
     game_path: Option<PathBuf>,
+    /// When and why the last search without a game path failed; clones share it.
+    database_miss: Arc<Mutex<Option<(Instant, String)>>>,
 }
 
 impl OverlayRecordRepository {
     pub fn new(game_path: Option<PathBuf>) -> Self {
-        Self { game_path }
+        Self {
+            game_path,
+            database_miss: Arc::default(),
+        }
+    }
+
+    /// The installation whose records and screenshots this repository reads.
+    pub fn game_path(&self) -> Option<&Path> {
+        self.game_path.as_deref()
     }
 
     pub fn load_record_at_offset(
@@ -73,7 +91,22 @@ impl OverlayRecordRepository {
         if let Some(game_path) = &self.game_path {
             return resolve_database_path(game_path);
         }
-        find_database_path_anywhere()
+        // Held across the scan so concurrent requests share one search.
+        let mut miss = self
+            .database_miss
+            .lock()
+            .expect("overlay database miss poisoned");
+        if let Some((at, message)) = miss.as_ref() {
+            if at.elapsed() < DATABASE_MISS_TTL {
+                return Err(anyhow::anyhow!("{message}"));
+            }
+        }
+        let found = find_database_path_anywhere();
+        *miss = found
+            .as_ref()
+            .err()
+            .map(|error| (Instant::now(), error.to_string()));
+        found
     }
 
     fn resolve_image_path(&self, raw_path: Option<&str>) -> Option<PathBuf> {

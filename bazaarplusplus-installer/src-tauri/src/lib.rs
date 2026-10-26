@@ -111,7 +111,7 @@ pub fn run() {
                 let runtime = window.state::<crate::stream::runtime::StreamRuntime>();
                 if runtime.snapshot().running {
                     api.prevent_close();
-                    let _ = window.hide();
+                    crate::main_window::hide_to_tray(window);
                 }
             }
         })

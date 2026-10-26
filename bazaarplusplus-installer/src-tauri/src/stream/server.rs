@@ -1,5 +1,5 @@
 use super::{
-    history_thumbnails::{self, HistoryThumbnails},
+    history_thumbnails::HistoryThumbnails,
     http,
     overlay_settings::OverlaySettingsStore,
     records::OverlayRecordRepository,
@@ -8,6 +8,7 @@ use super::{
         StreamTaskHandle,
     },
     state::{StreamDbStatus, StreamServiceStatus},
+    strip,
 };
 use crate::services::paths;
 use anyhow::anyhow;
@@ -26,7 +27,7 @@ impl StreamServerAdapter for ProductionServer {
     fn start(&self, runtime: StreamRuntime, installation: StreamInstallation) -> StartFuture<'_> {
         Box::pin(async move {
             let listener = bind_listener(HOST, PREFERRED_PORT).await?;
-            history_thumbnails::sweep_cache();
+            strip::sweep_cache();
             let urls = service_urls();
             let started_at = current_timestamp();
             let active_record_game_path = installation.record_game_path.clone();
