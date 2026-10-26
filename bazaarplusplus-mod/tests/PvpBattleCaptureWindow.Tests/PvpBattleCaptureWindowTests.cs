@@ -635,7 +635,9 @@ public sealed class PvpBattleCaptureWindowTests
                 new PvpBattleSqliteStore(Path.Combine(directory, "history.db"))
             );
 
+            Assert.False(catalog.Exists(capture.Manifest.BattleId));
             catalog.Save(capture.Manifest);
+            Assert.True(catalog.Exists(capture.Manifest.BattleId));
             var loaded = Assert.IsType<PvpBattleManifest>(
                 catalog.TryLoad(capture.Manifest.BattleId)
             );

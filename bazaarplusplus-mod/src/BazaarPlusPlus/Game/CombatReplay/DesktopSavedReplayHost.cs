@@ -10,12 +10,17 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 
 /// <summary>
 /// The desktop's side of Saved Replay Playback (ADR-0020): the Mono loader, bootstrap and
-/// opponent portrait, the cleanup each exit path runs with the opening-state restore, and the
-/// managed recording UI reset when an operation is accepted or completes.
+/// opponent portrait, the cleanup each exit path runs with the opening-state restore, History's
+/// row probe's short cache, and the managed recording UI reset when an operation is accepted or
+/// completes.
 /// </summary>
 internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 {
+    private static readonly TimeSpan SavedReplayCacheLifetime = TimeSpan.FromSeconds(5);
     private readonly SavedReplayCatalog _catalog;
+    private readonly Dictionary<string, (bool Saved, DateTime At)> _savedReplayCache = new(
+        StringComparer.Ordinal
+    );
     private readonly OpponentPortraitController _portrait;
     private readonly CombatReplayLoader _loader = new();
     private readonly Action _resetManagedRecordingUi;
@@ -44,9 +49,25 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 
     public bool RecordsVideo => true;
 
-    public bool CanOfferSavedReplay(string battleId) => _catalog.HasSavedReplay(battleId);
+    // History asks on every refresh; the answer is cached briefly, as on Android, so a burst of
+    // refreshes does not query the database and stat the payload on the main thread each time
+    // (ReplaySaved rechecks the catalog uncached).
+    public bool CanOfferSavedReplay(string battleId)
+    {
+        var now = DateTime.UtcNow;
+        if (
+            _savedReplayCache.TryGetValue(battleId, out var cached)
+            && now - cached.At < SavedReplayCacheLifetime
+        )
+            return cached.Saved;
+        var saved = _catalog.HasSavedReplay(battleId);
+        if (_savedReplayCache.Count > 256)
+            _savedReplayCache.Clear();
+        _savedReplayCache[battleId] = (saved, now);
+        return saved;
+    }
 
-    public void ForgetOffer(string battleId) { }
+    public void ForgetOffer(string battleId) => _savedReplayCache.Remove(battleId);
 
     public ISavedReplayStart BeginStart(
         PvpBattleManifest manifest,

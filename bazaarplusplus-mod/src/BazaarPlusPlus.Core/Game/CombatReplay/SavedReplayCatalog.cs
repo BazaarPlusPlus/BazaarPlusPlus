@@ -28,8 +28,8 @@ public sealed class SavedReplayCatalog
         if (string.IsNullOrWhiteSpace(battleId))
             return false;
 
-        var manifest = _battleCatalog.TryLoad(battleId);
-        return manifest != null && _payloadStore.Exists(manifest.BattleId);
+        // Existence only: History probes this on every view refresh, so no manifest is built.
+        return _battleCatalog.Exists(battleId) && _payloadStore.Exists(battleId);
     }
 
     public PvpBattleManifest? LoadBattle(string battleId)
