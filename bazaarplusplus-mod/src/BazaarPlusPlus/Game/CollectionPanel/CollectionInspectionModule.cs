@@ -16,6 +16,7 @@ internal sealed class CollectionInspectionModule
 {
     private readonly CollectionInspectionState _state = new();
     private readonly CollectionInspectionCardAnchor _cardAnchor = new();
+    private readonly CollectionInspectionLayoutSettle _layout = new();
     private INativeCardPreviewHost? _host;
     private Action<bool>? _blockInput;
     private Func<Rect>? _sourceBounds;
@@ -83,6 +84,7 @@ internal sealed class CollectionInspectionModule
         _origin = _sourceBounds?.Invoke() ?? default;
         _state.Open();
         _cardAnchor.Reset();
+        _layout.MarkDirty();
         _animation = 0f;
         try
         {
@@ -121,6 +123,7 @@ internal sealed class CollectionInspectionModule
             ),
             InstanceIdPrefix = "bpp-inspection",
         };
+        _layout.MarkDirty();
         _ = AcquirePreviewAsync(_scope, subject, _state.Select());
     }
 
@@ -193,8 +196,13 @@ internal sealed class CollectionInspectionModule
     {
         if (_presentation == null)
             return;
+        if (_presentation.ConsumeDescriptionChanged())
+            _layout.MarkDirty();
         if (_card != null && _cardAnchor.NeedsLayout(Screen.width, Screen.height))
+        {
             _bounds.InvalidateOnScaleDirty();
+            _layout.MarkDirty();
+        }
         if (_card != null && !_bounds.IsValid)
         {
             if (!_measurementPending)
@@ -233,6 +241,11 @@ internal sealed class CollectionInspectionModule
                 null
             );
         }
+        // A still layout skips the whole pass: measuring and positioning the description are
+        // one reset-and-move pair, and the card is already at its final placement.
+        var frame = Time.frameCount;
+        if (!_layout.ShouldMeasure(frame))
+            return;
         var detail = _presentation.MeasureDescription(Screen.width * .92f, Screen.height * .74f);
         if (_card == null)
         {
@@ -256,7 +269,11 @@ internal sealed class CollectionInspectionModule
             detail.x,
             detail.y
         );
-        _presentation.PositionDescription(layout.DetailCenterX, layout.DetailCenterY, layout.Scale);
+        var description = _presentation.PositionDescription(
+            layout.DetailCenterX,
+            layout.DetailCenterY,
+            layout.Scale
+        );
         var placement = _cardAnchor.Resolve(Screen.width, Screen.height, layout);
         _animation = Mathf.Min(1f, _animation + dt / .25f);
         var progress = 1f - Mathf.Pow(1f - _animation, 3f);
@@ -290,6 +307,24 @@ internal sealed class CollectionInspectionModule
             }
             _cardRevealed = true;
         }
+        var settled = _layout.Observe(
+            frame,
+            description.center.x,
+            description.center.y,
+            description.width,
+            description.height,
+            layout.DetailCenterX,
+            layout.DetailCenterY,
+            motionDone: _animation >= 1f
+        );
+        if (settled)
+            BppLog.DebugEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.inspection.layout_settled"
+                ),
+                () => [("measured_frames", _layout.MeasuredFrames)]
+            );
     }
 
     private async Task AcquirePreviewAsync(
@@ -315,6 +350,7 @@ internal sealed class CollectionInspectionModule
             _card?.Dispose();
             _card = result.Session;
             _bounds = new NativeCardCellBoundsCache();
+            _layout.MarkDirty();
             _cardRevealed = false;
             _measurementPending = false;
             var shown = _card.Show();
