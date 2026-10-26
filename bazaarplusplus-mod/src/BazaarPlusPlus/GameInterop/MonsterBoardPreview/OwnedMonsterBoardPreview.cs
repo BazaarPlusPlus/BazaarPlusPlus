@@ -27,6 +27,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
     private readonly RectTransform _skillContent;
     private readonly ScrollRect _skillScroll;
     private RectTransform? _ownedSkillParent;
+    private SkillParentHome _skillParentHome;
     private readonly Vector3[] _carpetCorners = new Vector3[4];
     private readonly Action<NativeMonsterBoardStatus, Exception?> _report;
     private readonly bool _itemsOnly;
@@ -218,66 +219,18 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         {
             try
             {
-                ClearView();
-                if (!Services.TryGet<AssetLoader>(out var loader) || loader == null)
-                    throw new InvalidOperationException("Native asset loader is unavailable.");
-                var prefab = await NativeGlobalAssetLoader.LoadByAddressAsync<GameObject>(
-                    loader,
-                    TooltipAddress
-                );
-                if (_disposed || generation != _generation)
+                // The shell outlives a replacement; only its cards are re-rented.
+                ClearCards();
+                var view = _view != null ? _view : await CreateShell(generation);
+                if (view == null || _disposed || generation != _generation)
                     return;
-                var donor =
-                    prefab != null
-                        ? prefab.GetComponentInChildren<MonsterBoardTooltip>(true)
-                        : null;
-                if (donor == null)
-                    throw new InvalidOperationException(
-                        "Native monster board prefab is unavailable."
-                    );
-                _view = UnityEngine.Object.Instantiate(donor, _boardRegion, false);
-                // The tooltip prefab overrides sorting at order zero. Owned previews must
-                // inherit this host canvas, or the opaque history panel covers every card.
-                foreach (var nestedCanvas in _view.GetComponentsInChildren<Canvas>(true))
-                    nestedCanvas.overrideSorting = false;
-                _view.gameObject.SetActive(true);
-                _view._healthText.gameObject.SetActive(false);
-                _view.transform.Find("MainSize/Healthbar_Parent")?.gameObject.SetActive(false);
-                var rect = (RectTransform)_view.transform;
-                rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
-                rect.localScale = Vector3.one;
-                if (
-                    !Services.TryGet<CollectionManager>(out var collection)
-                    || collection?.defaultCarpet == null
-                )
-                    throw new InvalidOperationException("Native default carpet is unavailable.");
-                var carpet = await NativeGlobalAssetLoader.LoadByReferenceAsync<Texture2D>(
-                    loader,
-                    collection.defaultCarpet.mainImageReference
-                );
-                if (carpet == null)
-                    throw new InvalidOperationException(
-                        "Native default carpet texture is unavailable."
-                    );
-                if (_disposed || generation != _generation)
-                {
-                    ClearView();
-                    return;
-                }
-                _view._carpetImage.texture = carpet;
-                if (_view._skillParent.TryGetComponent<HorizontalLayoutGroup>(out var skillLayout))
-                {
-                    _view._skillSpacing = skillLayout.spacing;
-                    _view._skillHeight = _view._skillParent.sizeDelta.y;
-                    skillLayout.enabled = false;
-                }
                 Exception? partialFailure = null;
                 var missingCount = 0;
                 foreach (var instance in items.Cast<TCardInstance>().Concat(skills))
                 {
                     if (_disposed || generation != _generation)
                     {
-                        ClearView();
+                        ClearCards();
                         return;
                     }
                     try
@@ -292,14 +245,15 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
                 }
                 if (_disposed || generation != _generation)
                 {
-                    ClearView();
+                    ClearCards();
                     return;
                 }
                 RegisterTooltips();
-                _view.Show(0f);
-                _view._visibilitySequence?.Complete();
+                view.Show(0f);
+                view._visibilitySequence?.Complete();
                 // Keep native skill visuals and pooling, but own their layout independently.
-                _ownedSkillParent = _view._skillParent;
+                // ClearCards puts the skill parent back before the next replacement.
+                _ownedSkillParent = view._skillParent;
                 _ownedSkillParent.SetParent(_skillContent, false);
                 _ownedSkillParent.anchorMin = _ownedSkillParent.anchorMax = new Vector2(0, .5f);
                 _skillContent.anchoredPosition = Vector2.zero;
@@ -311,7 +265,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
                 _gate.alpha = _region.rect.width > 1 && _region.rect.height > 1 ? 1 : 0;
                 _gate.blocksRaycasts = true;
                 _report(
-                    _view._activeCards.Count + _view._activeSkills.Count == 0
+                    view._activeCards.Count + view._activeSkills.Count == 0
                         ? items.Count + skills.Count == 0
                             ? NativeMonsterBoardStatus.Empty
                             : NativeMonsterBoardStatus.Failed
@@ -325,7 +279,8 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
             }
             catch (Exception ex)
             {
-                ClearView();
+                // A failed attempt may leave the shell half-built: retry from a fresh clone.
+                DestroyShell();
                 if (_disposed || generation != _generation)
                     return;
                 if (attempt == 2)
@@ -342,6 +297,68 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
             }
             return;
         }
+    }
+
+    // Clones the native board and does its one-time setup; the clone then serves every
+    // replacement until Dispose or a failed attempt. Null when the request went stale first.
+    private async Task<MonsterBoardTooltip?> CreateShell(int generation)
+    {
+        if (!Services.TryGet<AssetLoader>(out var loader) || loader == null)
+            throw new InvalidOperationException("Native asset loader is unavailable.");
+        var prefab = await NativeGlobalAssetLoader.LoadByAddressAsync<GameObject>(
+            loader,
+            TooltipAddress
+        );
+        if (_disposed || generation != _generation)
+            return null;
+        var donor =
+            prefab != null ? prefab.GetComponentInChildren<MonsterBoardTooltip>(true) : null;
+        if (donor == null)
+            throw new InvalidOperationException("Native monster board prefab is unavailable.");
+        var view = UnityEngine.Object.Instantiate(donor, _boardRegion, false);
+        try
+        {
+            // The tooltip prefab overrides sorting at order zero. Owned previews must
+            // inherit this host canvas, or the opaque history panel covers every card.
+            foreach (var nestedCanvas in view.GetComponentsInChildren<Canvas>(true))
+                nestedCanvas.overrideSorting = false;
+            view.gameObject.SetActive(true);
+            view._healthText.gameObject.SetActive(false);
+            view.transform.Find("MainSize/Healthbar_Parent")?.gameObject.SetActive(false);
+            var rect = (RectTransform)view.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+            rect.localScale = Vector3.one;
+            if (
+                !Services.TryGet<CollectionManager>(out var collection)
+                || collection?.defaultCarpet == null
+            )
+                throw new InvalidOperationException("Native default carpet is unavailable.");
+            var carpet = await NativeGlobalAssetLoader.LoadByReferenceAsync<Texture2D>(
+                loader,
+                collection.defaultCarpet.mainImageReference
+            );
+            if (carpet == null)
+                throw new InvalidOperationException(
+                    "Native default carpet texture is unavailable."
+                );
+            view._carpetImage.texture = carpet;
+            if (view._skillParent.TryGetComponent<HorizontalLayoutGroup>(out var skillLayout))
+            {
+                view._skillSpacing = skillLayout.spacing;
+                view._skillHeight = view._skillParent.sizeDelta.y;
+                skillLayout.enabled = false;
+            }
+            _skillParentHome = SkillParentHome.Capture(view._skillParent);
+        }
+        catch
+        {
+            UnityEngine.Object.Destroy(view.gameObject);
+            throw;
+        }
+        // A stale or disposed request still keeps the finished shell: the next replacement
+        // reuses it, and DisposeAfterLoad destroys it once this drain completes.
+        _view = view;
+        return view;
     }
 
     private async Task AddOwnedCard(TCardInstance instance)
@@ -446,7 +463,10 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         }
     }
 
-    private void ClearView()
+    // Returns every rental and puts the skill parent back where the prefab had it, so the
+    // shell is again as CreateShell left it. Rentals settle, restore prefab layout and
+    // detach before pooling, because native pooling does not reparent.
+    private void ClearCards()
     {
         _ready = false;
         if (_view == null)
@@ -459,10 +479,49 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         _view._activeCards.Clear();
         _view._activeSkills.Clear();
         if (_ownedSkillParent != null)
-            UnityEngine.Object.Destroy(_ownedSkillParent.gameObject);
+            _skillParentHome.Restore(_ownedSkillParent);
         _ownedSkillParent = null;
+    }
+
+    private void DestroyShell()
+    {
+        ClearCards();
+        if (_view == null)
+            return;
         UnityEngine.Object.Destroy(_view.gameObject);
         _view = null;
+    }
+
+    // Where the clone's skill parent sits inside the shell before a render moves it into
+    // the owned scroll content.
+    private readonly record struct SkillParentHome(
+        Transform Parent,
+        int SiblingIndex,
+        Vector2 AnchorMin,
+        Vector2 AnchorMax,
+        Vector2 AnchoredPosition,
+        Vector3 LocalScale
+    )
+    {
+        internal static SkillParentHome Capture(RectTransform rect) =>
+            new(
+                rect.parent,
+                rect.GetSiblingIndex(),
+                rect.anchorMin,
+                rect.anchorMax,
+                rect.anchoredPosition,
+                rect.localScale
+            );
+
+        internal void Restore(RectTransform rect)
+        {
+            rect.SetParent(Parent, false);
+            rect.SetSiblingIndex(SiblingIndex);
+            rect.anchorMin = AnchorMin;
+            rect.anchorMax = AnchorMax;
+            rect.anchoredPosition = AnchoredPosition;
+            rect.localScale = LocalScale;
+        }
     }
 
     public void Dispose()
@@ -483,7 +542,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
     private async Task DisposeAfterLoad()
     {
         await _pending;
-        ClearView();
+        DestroyShell();
         UnityEngine.Object.Destroy(_root);
     }
 }

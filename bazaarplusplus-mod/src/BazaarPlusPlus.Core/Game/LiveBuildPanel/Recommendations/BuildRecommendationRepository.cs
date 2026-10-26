@@ -10,7 +10,8 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 /// <summary>
 /// Consumes the analyzer ten-win build catalog, answers recommendation queries against the live
 /// state, and projects matched builds onto renderable item boards. The corpus is a static package —
-/// recommendation queries read the catalog snapshot and never hit the server.
+/// recommendation queries read the catalog snapshot and never hit the server. Not thread-safe: the
+/// Live Build panel queries on its host's main thread.
 /// </summary>
 public sealed class BuildRecommendationRepository
 {
@@ -18,6 +19,12 @@ public sealed class BuildRecommendationRepository
 
     private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _catalog;
     private readonly Func<Guid, CardSize?> _templateSize;
+
+    // A build's projection never changes within one corpus snapshot, so each is projected once and
+    // reused by later queries; a new snapshot drops them all. Keyed by the build itself: BuildId is
+    // a per-hero index, so two heroes share id 0.
+    private readonly Dictionary<TenWinBuild, BppItemBoard> _projectedBoards = new();
+    private TenWinBuildCorpus? _projectedCorpus;
 
     /// <param name="catalog">The plugin-lifetime build catalog, owned by the composition root.</param>
     /// <param name="templateSize">
@@ -46,6 +53,14 @@ public sealed class BuildRecommendationRepository
         if (corpus == null)
             return Array.Empty<BuildRecommendation>();
 
+        // Drop a replaced snapshot's boards on the first query against the new one, matched or
+        // not, so the cache never keeps the old corpus reachable.
+        if (!ReferenceEquals(corpus, _projectedCorpus))
+        {
+            _projectedBoards.Clear();
+            _projectedCorpus = corpus;
+        }
+
         var matches = corpus.FindBuilds(
             hero,
             selectedTemplateIds ?? Array.Empty<Guid>(),
@@ -57,7 +72,11 @@ public sealed class BuildRecommendationRepository
         var results = new List<BuildRecommendation>(matches.Count);
         foreach (var match in matches)
         {
-            var board = ProjectBoard(match.Build);
+            if (!_projectedBoards.TryGetValue(match.Build, out var board))
+            {
+                board = ProjectBoard(match.Build);
+                _projectedBoards.Add(match.Build, board);
+            }
             if (board.Cards.Count == 0)
                 continue;
 
@@ -122,6 +141,8 @@ public sealed class BuildRecommendationRepository
             2 => CardSize.Medium,
             3 => CardSize.Large,
             // Out-of-range/absent payload size: fall back to the game's authoritative card size.
+            // TenWinBuildCorpus.Parse rejects a layout size outside 1..3, so a cached projection
+            // never freezes the Small answer given while static data is not ready.
             _ => ResolveTemplateSize(templateId),
         };
     }
