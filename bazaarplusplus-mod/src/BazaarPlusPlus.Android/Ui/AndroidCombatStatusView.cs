@@ -24,6 +24,7 @@ internal sealed class AndroidCombatStatusView(
     private Button? _pause;
     private Button? _speed;
     private string? _screen;
+    private AndroidNativeSkin? _skin;
 
     // What the view last wrote, so a frame that changes nothing makes no Unity call.
     private bool _shown;
@@ -66,7 +67,9 @@ internal sealed class AndroidCombatStatusView(
             var layout = TouchHudLayout.Playback(chrome.Metrics);
             var plaque = AndroidTouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
             var background = AndroidUiKit.Fill(plaque, AndroidUiKit.ButtonColor, false);
-            new AndroidNativeSkin().Select(background, false);
+            if (_skin == null || _skin.NeedsRefresh)
+                _skin = new AndroidNativeSkin();
+            _skin.Select(background, false);
             var rule = chrome.Metrics.Dp(.5f);
             var inset = chrome.Metrics.Dp(8);
             Divider(
