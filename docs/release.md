@@ -28,7 +28,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## 发布顺序
 
-1. 修改 `VERSION`，执行 `sync`，验证源码。
+1. 修改 `VERSION`，执行 `sync`，验证源码。本机发版时，在所发桌面平台取得 online 快照后，执行 `just verify mod::check mod::test mod::test-performance` 和 `just with-config release just mod::matrix staging ptr`；日常 PR 不再提供完整双平台与 staging/ptr 证据，不能代替此步骤。
 2. 两个平台分别执行 `prepare`。游戏程序集来自本平台的 online 锁条目，构建记录会写入这个条目；本机执行前先 `just mod::fetch <platform> online`，让条目在本机可解析。online 条目尚未采集时，本机只能显式传 `-p:ManagedPath=...` 指向一个哈希到其他锁条目（如 staging）的 Managed，`prepare` 和后续 `build` 传同一个值，日志会带非 online 告警。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
 3. 两个平台在这个相同提交上分别执行 `build`，托管 runner 或各自的原生宿主均可。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
 4. 在执行 `build` 的同一台机器上执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
@@ -41,7 +41,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## GitHub Actions 发版
 
-`.github/workflows/release.yml` 在原生 macOS 与 Windows runner 上依次执行 `just release::check`、`just mod::fetch <platform> online`、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求。macOS runner 必须支持 Icon Composer 源文件；工作流在准备 Payload 前运行 `bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs` 的 `compileMacOSIcon`，提前发现图标工具链不兼容，PR 检查也执行相同的真实图标编译。
+`.github/workflows/release.yml` 在原生 macOS 与 Windows runner 上依次执行 `just release::check`、`just mod::fetch <platform> online`、所选平台的 Mod 验证（正式构建）、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求。正式构建在 Payload 准备、签名与上传之前补齐所选平台的 Mod 验证：桌面执行 online 检查、功能测试、墙钟性能测试及 staging/ptr 兼容编译，Android 执行宿主编译和 Core 测试。任一步失败即停止发布；Installer 的完整原生验证由 `release::build` 调用 `bazaarplusplus-installer/scripts/bundle.sh` 的 `run_release_prechecks` 执行。`build_only` 同样执行这些验证，`dry_run` 保留仅准备 Payload 的行为。macOS runner 必须支持 Icon Composer 源文件；工作流在准备 Payload 前运行 `bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs` 的 `compileMacOSIcon`，提前发现图标工具链不兼容，PR 检查也执行相同的真实图标编译。
 
 触发方式两种：`workflow_dispatch` 填 `version`（必须等于所选 ref 上的 `VERSION`，否则在装任何工具链之前失败），或推送 `v<VERSION>` 标签。手动触发时可选 `platform`，只重建需要验证的平台。`dry_run` 在 `prepare` 之后停止，只验证取包与 Payload 准备；需要验证完整签名和打包时用 `build_only`，它保留 Actions 安装包产物而不向 R2 上传。后者适合验证已暂存版本的修复，避免以新提交覆盖不可变版本目录。两者同时开启时，仍在 `prepare` 后停止。
 
@@ -146,7 +146,7 @@ just release::upload android
 just release::promote --platform android
 ```
 
-1. 与桌面同一个提交（`VERSION` 相同）。`mod::fetch android online` 把锁条目 `android-online` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
+1. 与桌面同一个提交（`VERSION` 相同）。本机发版在取包后先执行 `just verify mod::android-build mod::test-core`。`mod::fetch android online` 把锁条目 `android-online` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
 2. `prepare` 对照锁定的 interop 与 Loader Release 编译 Android 宿主，并核对宿主暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。`-p:InteropPath=`、`-p:LemonLoaderPath=` 可以覆盖目录，但覆盖的仍必须是锁条目钉住的那一份。
 3. `build` 重做 `prepare`，把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。APK 的身份是游戏版本加上 `nonManagedPayloadDigest`（锁条目中 loader、interop 与 `nativeLibs` 的摘要，加上 Updater 的 sha256，见 [ADR 0010](adr/0010-android-release-platform.md)）。这个身份已经在 R2 上时跳过注入，这次只是 mod 更新；否则注入、对齐并签名一个新 APK，步骤与工具要求见 `release/android-release.mjs` 的 `injectAndroidApk` 与 `resolveBuildTools`。注入只能在 Linux x64 上跑，因为 Patcher CLI 只有这一种发行包。原生库必须不压缩地放进 APK，系统才能就地映射。签名材料的来源见上面的 secret 表与 [ADR 0009](adr/0009-android-release-key.md)。`--rebuild-apk` 不管身份是否已发布都重新注入，供 `build_only` 验收使用。所有输出都在工作区根的 `target/android/`。
 4. `upload` 在同一台机器上用流式条件写上传。APK 身份尚未发布时，先传 APK，再在旁边写 sidecar；已发布时 fragment 直接指向线上那份。之后传 Managed Payload zip 与 `.sig`，最后写 fragment。如果上传停在 APK 与 sidecar 之间，用同一次构建再跑一遍 `upload` 会补写 sidecar；R2 上的对象不是这次构建的 APK 时，错误信息会给出要删除的对象。新 APK 的签名证书必须与已提升的 APK 相同，`promote` 也做同样的检查。APK 来自更早的产品版本时，`selfUpdatable` 为 true。

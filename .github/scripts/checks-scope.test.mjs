@@ -7,13 +7,14 @@ import { runFixtureGit } from '../../scripts/test-support/git-fixture.mjs';
 import {
   classifyChanges,
   manualScope,
-  planRun,
+  planRun as planChecks,
   readChanges,
   scanDependencies,
   SCOPES,
   unregisteredReferences
 } from './checks-scope.mjs';
 
+const planRun = (args) => planChecks(args).plan;
 const changed = (...files) => files.map((file) => ({ status: 'M', file }));
 const selected = (plan) =>
   Object.keys(plan)
@@ -28,9 +29,9 @@ const expand = (scopes) =>
   scopes
     .flatMap((scope) =>
       scope === 'installer'
-        ? nativeInstaller
+        ? ['installer-frontend', 'installer-macos']
         : scope === 'mod'
-          ? ['mod-macos', 'mod-windows', 'mod-android']
+          ? ['mod-macos', 'mod-android']
           : [scope]
     )
     .sort();
@@ -40,7 +41,7 @@ const expectScopes = (files, scopes) =>
     expand(scopes)
   );
 
-test('root documents, each project and global inputs select their complete gates', () => {
+test('root documents, each project and global inputs select their daily gates', () => {
   expectScopes(['README.md', 'AGENTS.md', 'docs/development.md'], ['release']);
   expectScopes(['bazaarplusplus-server/package-lock.json'], ['server']);
   expectScopes(
@@ -59,16 +60,19 @@ test('root documents, each project and global inputs select their complete gates
     ['bazaarplusplus-installer/src-tauri/src/v5_import/mod.rs'],
     ['installer', 'release']
   );
-  expectScopes(['bazaarplusplus-installer/rust-toolchain.toml'], ['installer']);
+  expectScopes(
+    ['bazaarplusplus-installer/rust-toolchain.toml'],
+    ['installer', 'installer-windows']
+  );
   expectScopes(
     ['bazaarplusplus-installer/src-tauri/.cargo/config.toml'],
-    ['installer']
+    ['installer', 'installer-windows']
   );
   expectScopes(
     ['bazaarplusplus-installer/package-lock.json'],
-    ['installer', 'release']
+    ['installer', 'installer-windows', 'release']
   );
-  expectScopes(['bazaarplusplus-mod/docs/MEMORY.md'], ['mod']);
+  expectScopes(['bazaarplusplus-mod/docs/MEMORY.md'], ['mod-macos']);
   expectScopes(['bazaarplusplus-analyzer/src/main.py'], ['analyzer']);
   expectScopes(['bazaarplusplus-site/src/main.tsx'], ['site']);
   for (const file of [
@@ -77,7 +81,6 @@ test('root documents, each project and global inputs select their complete gates
     'release/manifest.mjs',
     'package-lock.json',
     'JUSTFILE',
-    'bazaarplusplus-site/site.just',
     '.nvmrc',
     '.github/workflows/checks.yml',
     'scripts/workspace.mjs',
@@ -107,7 +110,7 @@ test('shared inputs select owners and every contract consumer', () => {
     ],
     [
       'bazaarplusplus-mod/docs/contracts/run-payload-v6.md',
-      ['mod', 'server', 'analyzer']
+      ['mod-macos', 'server', 'analyzer']
     ],
     [
       'bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64',
@@ -135,7 +138,7 @@ test('shared inputs select owners and every contract consumer', () => {
     ],
     [
       'bazaarplusplus-installer/src-tauri/history-database-compatibility.json',
-      ['installer', 'mod', 'release']
+      ['installer', 'installer-windows', 'mod', 'release']
     ],
     [
       'bazaarplusplus-installer/src/styles/tokens.css',
@@ -145,14 +148,17 @@ test('shared inputs select owners and every contract consumer', () => {
       'bazaarplusplus-installer/static/support/wechat-pay.svg',
       ['installer-frontend', 'site']
     ],
-    ['bazaarplusplus-installer/scripts/headless.mjs', ['installer', 'mod']],
+    [
+      'bazaarplusplus-installer/scripts/headless.mjs',
+      ['installer', 'installer-windows', 'mod']
+    ],
     [
       'bazaarplusplus-installer/src-tauri/icons/source/AppIcon.icon/icon.json',
-      ['installer', 'macos-icon']
+      ['installer', 'installer-windows', 'macos-icon']
     ],
     [
       'bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs',
-      ['installer', 'macos-icon']
+      ['installer', 'installer-windows', 'macos-icon']
     ]
   ])
     expectScopes([file], consumers);
@@ -292,13 +298,14 @@ test('design system inputs select the installer frontend, the site and the root 
     ],
     ['installer-frontend', 'site', 'release']
   );
-  assert.deepEqual(
-    selected(classifyChanges(changed('design/design.just'))),
-    [...SCOPES].sort()
-  );
+  assert.deepEqual(selected(classifyChanges(changed('design/design.just'))), [
+    'installer-frontend',
+    'release',
+    'site'
+  ]);
 });
 
-test('only known Installer frontend paths avoid both native platforms', () => {
+test('Installer build inputs request Windows while ordinary source uses macOS', () => {
   for (const file of [
     'src/App.tsx',
     'src/styles/app.css',
@@ -326,15 +333,21 @@ test('only known Installer frontend paths avoid both native platforms', () => {
     'rust-toolchain.toml',
     'unknown-input'
   ]) {
-    expectScopes([`bazaarplusplus-installer/${file}`], ['installer']);
+    expectScopes(
+      [`bazaarplusplus-installer/${file}`],
+      ['installer', 'installer-windows']
+    );
   }
   for (const file of ['package.json', 'package-lock.json']) {
     expectScopes(
       [`bazaarplusplus-installer/${file}`],
-      ['installer', 'release']
+      ['installer', 'installer-windows', 'release']
     );
   }
-  expectScopes(['bazaarplusplus-installer/installer.just'], [...SCOPES]);
+  expectScopes(
+    ['bazaarplusplus-installer/installer.just'],
+    ['installer', 'installer-windows', 'release']
+  );
   assert.deepEqual(
     selected(
       classifyChanges([
@@ -405,4 +418,103 @@ test('manual checks fail closed when dependency scanning or history retrieval is
       /Unregistered cross-project reference/
     );
   }
+});
+
+test('ordinary Mod source skips Windows; build and snapshot inputs retain it', () => {
+  expectScopes(
+    ['bazaarplusplus-mod/src/BazaarPlusPlus.Core/Example.cs'],
+    ['mod']
+  );
+  for (const file of [
+    'Directory.Build.props',
+    'global.json',
+    'src/BazaarPlusPlus/BazaarPlusPlus.csproj',
+    'src/BazaarPlusPlus/packages.lock.json',
+    'native/windows/build.ps1'
+  ]) {
+    const extra = file === 'global.json' ? ['release'] : [];
+    expectScopes(
+      [`bazaarplusplus-mod/${file}`],
+      ['mod', 'mod-windows', ...extra]
+    );
+  }
+  expectScopes(
+    ['bazaarplusplus-mod/build/game-libs.lock.json'],
+    ['mod', 'mod-windows', 'release']
+  );
+  expectScopes(
+    ['bazaarplusplus-installer/src-tauri/src/services/history.rs'],
+    ['installer']
+  );
+  expectScopes(
+    ['bazaarplusplus-installer/src-tauri/src/windows.rs'],
+    ['installer', 'installer-windows']
+  );
+});
+
+test('repository metadata and project recipes do not fan out to all platforms', () => {
+  for (const file of [
+    '.gitignore',
+    '.gitattributes',
+    '.github/dependabot.yml',
+    '.github/workflows/codeql.yml'
+  ])
+    expectScopes([file], ['release']);
+  expectScopes(['bazaarplusplus-site/site.just'], ['site', 'release']);
+  expectScopes(['bazaarplusplus-site/src/windows.ts'], ['site']);
+});
+
+test('compatibility builds run for snapshot updates and manual checks, not daily source changes', () => {
+  const automatic = (file) =>
+    planChecks({
+      eventName: 'push',
+      event: { before: 'a'.repeat(40), after: 'b'.repeat(40) },
+      runGit: () => `M\0${file}\0`
+    });
+  assert.equal(
+    automatic('bazaarplusplus-mod/src/BazaarPlusPlus.Core/Example.cs')
+      .compatibility,
+    false
+  );
+  const snapshot = automatic('bazaarplusplus-mod/build/game-libs.lock.json');
+  assert.equal(snapshot.compatibility, true);
+  assert.ok(snapshot.plan['mod-windows'].length);
+  assert.ok(snapshot.plan['mod-macos'].length);
+  assert.equal(
+    planChecks({ eventName: 'workflow_dispatch', event: {} }).compatibility,
+    true
+  );
+  assert.equal(
+    planChecks({ eventName: 'push', event: {} }).compatibility,
+    true
+  );
+});
+
+test('extended checks belong only to selected desktop Mod jobs', () => {
+  for (const [scope, platform, enabled] of [
+    ['full', 'all', true],
+    ['mod', 'macos', true],
+    ['mod', 'windows', true],
+    ['mod', 'android', false],
+    ['installer', 'all', false]
+  ]) {
+    const plan = planChecks({
+      eventName: 'workflow_dispatch',
+      event: { inputs: { scope, platform } }
+    });
+    assert.equal(plan.compatibility, enabled, `${scope}/${platform}`);
+    assert.equal(plan.performance, enabled, `${scope}/${platform}`);
+  }
+  for (const file of [
+    'bazaarplusplus-mod/src/BazaarPlusPlus.Core/Example.cs',
+    'bazaarplusplus-mod/build/game-libs.lock.json'
+  ]) {
+    const plan = planChecks({
+      eventName: 'push',
+      event: { before: 'a'.repeat(40), after: 'b'.repeat(40) },
+      runGit: () => `M\0${file}\0`
+    });
+    assert.equal(plan.performance, false, file);
+  }
+  assert.equal(planChecks({ eventName: 'push', event: {} }).performance, false);
 });

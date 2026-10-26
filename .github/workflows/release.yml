@@ -1,4 +1,4 @@
-name: Release
+name: Delivery / Product release
 
 # One Product Release build per platform on hosted runners: release::prepare,
 # release::build and release::upload, in one job so build and upload share a
@@ -141,6 +141,28 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: just mod::fetch "$RELEASE_PLATFORM" online
+      # Daily CI defers Windows and wall-clock/preview-channel checks here.
+      # dry_run retains its payload-preparation-only contract.
+      - name: Verify the desktop Mod before release
+        if: env.STAGE == 'release' && matrix.platform != 'android'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          just verify mod::check mod::test mod::test-performance
+          just mod::matrix staging ptr
+      - name: Verify the Android Mod before release
+        if: env.STAGE == 'release' && matrix.platform == 'android'
+        run: just verify mod::android-build mod::test-core
+      - name: Preserve Mod release verification evidence
+        if: always() && env.STAGE == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mod-release-verification-${{ matrix.platform }}
+          path: |
+            artifacts/verification/
+            bazaarplusplus-mod/artifacts/tests/
+          if-no-files-found: ignore
       # prepare reuses the committed native recorder inputs when
       # release/native-recorder-input.mjs finds them fresh and rebuilds them on
       # this runner otherwise; a rebuild changes tracked files, which the next

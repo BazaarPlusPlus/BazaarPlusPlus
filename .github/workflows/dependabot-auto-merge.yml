@@ -1,4 +1,4 @@
-name: Dependabot auto-merge
+name: Operations / Dependabot auto-merge
 
 on:
   pull_request_target:
@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  approve-patch:
+  auto-merge:
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.base.ref == 'master'
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -54,10 +54,10 @@ test('source verification excludes bundle resources in child processes without c
         .config.bundle.resources
     ).toEqual([]);
     expect(
-      observed.find(
+      observed.some(
         ({ command, args }) => command === 'cargo' && args.includes('doc')
-      ).config.bundle.resources
-    ).toEqual([]);
+      )
+    ).toBe(false);
     expect(JSON.parse(process.env.TAURI_CONFIG)).toEqual(config);
     runVerification({
       rootDir: process.cwd(),
@@ -264,3 +264,14 @@ test('only explicit source verification accepts subsets; complete release remain
     );
   }
 });
+
+test.each(['source', 'release'])(
+  'strict Rust documentation in %s mode',
+  (mode) => {
+    expect(
+      verificationSteps({ mode }).some(
+        ({ command, args }) => command === 'cargo' && args.includes('doc')
+      )
+    ).toBe(mode === 'release');
+  }
+);
