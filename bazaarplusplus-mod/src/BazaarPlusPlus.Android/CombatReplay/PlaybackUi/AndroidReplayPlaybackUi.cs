@@ -23,6 +23,8 @@ namespace BazaarPlusPlus.Android.CombatReplay.PlaybackUi;
 /// </summary>
 internal static class AndroidReplayPlaybackUi
 {
+    private const string EncounterPickerMapName = "EncounterPicker_Map(Clone)";
+
     private static readonly HashSet<int> InitializedBoardUi = new();
 
     /// <summary>The replay's temporary opponent portrait, while one is shown.</summary>
@@ -30,32 +32,38 @@ internal static class AndroidReplayPlaybackUi
 
     public static void ClearBoardUi() => InitializedBoardUi.Clear();
 
+    /// <summary>
+    /// Hides the scene's encounter picker controllers, inactive ones included, and the
+    /// <c>EncounterPicker_Map(Clone)</c> root above one. Scene objects only: prefab assets stay
+    /// untouched, and names cross the IL2CPP bridge only for the ancestors of the found
+    /// controllers, not for every loaded Transform.
+    /// </summary>
     public static void HideEncounterPickerOverlays()
     {
-        foreach (var picker in Resources.FindObjectsOfTypeAll<EncounterPickerMapController>())
-        {
-            if (picker != null && picker.gameObject != null)
-                picker.gameObject.SetActive(false);
-        }
         foreach (
-            var picker in Resources.FindObjectsOfTypeAll<InjectedEncounterPickerMapController>()
+            var picker in UnityEngine.Object.FindObjectsOfType<EncounterPickerMapController>(true)
         )
-        {
-            if (picker != null && picker.gameObject != null)
-                picker.gameObject.SetActive(false);
-        }
-        foreach (var transform in Resources.FindObjectsOfTypeAll<Transform>())
-        {
-            if (
-                transform != null
-                && transform.gameObject != null
-                && string.Equals(
-                    transform.gameObject.name,
-                    "EncounterPicker_Map(Clone)",
-                    StringComparison.Ordinal
-                )
+            HidePicker(picker);
+        foreach (
+            var picker in UnityEngine.Object.FindObjectsOfType<InjectedEncounterPickerMapController>(
+                true
             )
-                transform.gameObject.SetActive(false);
+        )
+            HidePicker(picker);
+    }
+
+    private static void HidePicker(Component? picker)
+    {
+        if (picker == null)
+            return;
+        picker.gameObject.SetActive(false);
+        for (var ancestor = picker.transform.parent; ancestor != null; ancestor = ancestor.parent)
+        {
+            if (string.Equals(ancestor.name, EncounterPickerMapName, StringComparison.Ordinal))
+            {
+                ancestor.gameObject.SetActive(false);
+                return;
+            }
         }
     }
 
