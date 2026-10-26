@@ -24,6 +24,9 @@ internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDi
     private RectTransform? _actions;
     private ScrollRect? _nativeScroll;
     private Camera? _eventCamera;
+
+    // Kept across renders, as the panels keep theirs; rebuilt only once its art is gone.
+    private AndroidNativeSkin? _skin;
     private bool _expanded;
     private bool _dirty;
     private string? _screen;
@@ -193,8 +196,16 @@ internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDi
             root,
             new(chrome.Padding, chrome.Gap, parent.rect.width - 2 * chrome.Padding, 0)
         );
-        var skin = new AndroidNativeSkin();
-        var flow = new AndroidChipFlow(area, AndroidGameFont.Font!, chrome, 1, chrome.Target, skin);
+        if (_skin == null || _skin.NeedsRefresh)
+            _skin = new AndroidNativeSkin();
+        var flow = new AndroidChipFlow(
+            area,
+            AndroidGameFont.Font!,
+            chrome,
+            1,
+            chrome.Target,
+            _skin
+        );
         if (upgrade)
             flow.Toggle(
                 L.Resolve(new LocalizedTextSet("Upgrade preview", "升级预览", "升級預覽")),
