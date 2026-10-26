@@ -37,8 +37,14 @@ pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             "show_window" => show_main_window(app),
             "copy_obs_url" => {
                 let runtime = app.state::<crate::stream::runtime::StreamRuntime>();
+                // Menu events run on the event loop thread; the clipboard copy
+                // starts a process and waits for it, so it runs elsewhere.
                 if let Some(url) = runtime.snapshot().overlay_url {
-                    let _ = copy_text_to_clipboard(&url);
+                    tauri::async_runtime::spawn_blocking(move || {
+                        if let Err(_error) = copy_text_to_clipboard(&url) {
+                            crate::services::debug_log!("Cannot copy the OBS URL: {_error:#}");
+                        }
+                    });
                 }
             }
             "stop_stream_service" => {

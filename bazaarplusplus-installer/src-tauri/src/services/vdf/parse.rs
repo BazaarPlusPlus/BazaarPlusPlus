@@ -2,7 +2,7 @@ use anyhow::bail;
 pub(crate) const THE_BAZAAR_APP_ID: &str = "1617400";
 pub(crate) const LAUNCH_OPTIONS_KEY: &str = "LaunchOptions";
 pub(crate) fn launch_options_empty_in_content(vdf_content: &str) -> anyhow::Result<Option<bool>> {
-    let lines = vdf_content.lines().map(str::to_string).collect::<Vec<_>>();
+    let lines = vdf_content.lines().collect::<Vec<_>>();
     let Some((apps_open, apps_close)) = find_apps_block(&lines) else {
         bail!("Malformed VDF: could not locate Steam/apps object");
     };
@@ -13,7 +13,7 @@ pub(crate) fn launch_options_empty_in_content(vdf_content: &str) -> anyhow::Resu
     };
 
     let mut nested_depth = 0usize;
-    for line in &lines[app_open + 1..app_close] {
+    for &line in &lines[app_open + 1..app_close] {
         match line.trim() {
             "{" => {
                 nested_depth += 1;
@@ -74,7 +74,7 @@ fn parse_line_pair(line: &str) -> Option<(&str, &str)> {
     Some((key, value))
 }
 
-fn find_apps_block(lines: &[String]) -> Option<(usize, usize)> {
+fn find_apps_block(lines: &[&str]) -> Option<(usize, usize)> {
     let start = lines
         .iter()
         .position(|line| line.trim().eq_ignore_ascii_case("\"apps\""))?;
@@ -98,13 +98,14 @@ fn find_apps_block(lines: &[String]) -> Option<(usize, usize)> {
 }
 
 fn find_named_block(
-    lines: &[String],
+    lines: &[&str],
     range: std::ops::RangeInclusive<usize>,
     key: &str,
 ) -> Option<(usize, usize)> {
+    let needle = format!("\"{key}\"");
     let mut idx = *range.start();
     while idx <= *range.end() {
-        if lines[idx].trim() == format!("\"{key}\"") {
+        if lines[idx].trim() == needle {
             let open = (idx + 1..=*range.end()).find(|&line_idx| lines[line_idx].trim() == "{")?;
             let mut depth = 0usize;
             for (offset, line) in lines[open..=*range.end()].iter().enumerate() {
@@ -127,7 +128,7 @@ fn find_named_block(
 }
 
 pub fn clear_launch_options(vdf_content: &str) -> anyhow::Result<Option<String>> {
-    let mut lines = vdf_content.lines().map(str::to_string).collect::<Vec<_>>();
+    let lines = vdf_content.lines().collect::<Vec<_>>();
     let Some((apps_open, apps_close)) = find_apps_block(&lines) else {
         bail!("Malformed VDF: could not locate Steam/apps object");
     };
@@ -139,7 +140,7 @@ pub fn clear_launch_options(vdf_content: &str) -> anyhow::Result<Option<String>>
 
     let mut nested_depth = 0usize;
     let mut launch_option_lines = Vec::new();
-    for (idx, line) in lines.iter().enumerate().take(app_close).skip(app_open + 1) {
+    for (idx, &line) in lines.iter().enumerate().take(app_close).skip(app_open + 1) {
         match line.trim() {
             "{" => {
                 nested_depth += 1;
@@ -160,9 +161,13 @@ pub fn clear_launch_options(vdf_content: &str) -> anyhow::Result<Option<String>>
     if launch_option_lines.is_empty() {
         return Ok(None);
     }
-    for idx in launch_option_lines.into_iter().rev() {
-        lines.remove(idx);
-    }
-
-    Ok(Some(lines.join("\n")))
+    Ok(Some(
+        lines
+            .iter()
+            .enumerate()
+            .filter(|(idx, _)| !launch_option_lines.contains(idx))
+            .map(|(_, &line)| line)
+            .collect::<Vec<_>>()
+            .join("\n"),
+    ))
 }

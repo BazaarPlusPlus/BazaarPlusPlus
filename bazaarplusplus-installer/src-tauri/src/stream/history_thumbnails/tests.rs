@@ -352,10 +352,11 @@ async fn preparation_preserves_obs_and_isolates_sources_and_cached_pixels() {
     let thumbnails = HistoryThumbnails::default();
     let url_a = url(thumbnails.register(&a), "shot-1");
     let url_b = url(thumbnails.register(&b), "shot-1");
+    let installation_b = b.clone();
     runtime
-        .prepare_history_thumbnails_with(&server, || StreamInstallation {
-            game_path: Some(b.clone()),
-            record_game_path: Some(b.clone()),
+        .prepare_history_thumbnails_with(&server, move || StreamInstallation {
+            game_path: Some(installation_b.clone()),
+            record_game_path: Some(installation_b),
         })
         .await
         .unwrap();
@@ -381,9 +382,10 @@ async fn thumbnails_work_when_the_database_appears_after_an_empty_startup() {
     let game_path = temp.path().join("game");
     let runtime = StreamRuntime::default();
     let server = TestServer::default();
+    let installation_path = game_path.clone();
     runtime
-        .prepare_history_thumbnails_with(&server, || StreamInstallation {
-            game_path: Some(game_path.clone()),
+        .prepare_history_thumbnails_with(&server, move || StreamInstallation {
+            game_path: Some(installation_path),
             record_game_path: None,
         })
         .await

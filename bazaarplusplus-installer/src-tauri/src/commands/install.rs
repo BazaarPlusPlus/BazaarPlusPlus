@@ -10,24 +10,22 @@ use crate::problem::SemanticProblem;
 use crate::services::{
     data_maintenance::DataMaintenanceLock,
     install::{
-        build_install_state, install, launch_game_via_steam, run_delete_legacy_root,
+        detect_install_state, install, launch_game_via_steam, run_delete_legacy_root,
         run_get_legacy_data_state, run_reset_bepinex, run_reset_bpp_data, run_uninstall,
         InstallRequest,
     },
     legacy_data::{DeleteLegacyRootResult, LegacyDataState},
-    startup::InstallerContextState,
 };
 use crate::stream::runtime::StreamRuntime;
 use crate::v5_import::ImportV5HistoryResult;
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn get_install_state(
+pub async fn get_install_state(
     app: tauri::AppHandle,
-    state: tauri::State<'_, InstallerContextState>,
     game_path: Option<String>,
 ) -> Result<InstallState, SemanticProblem> {
-    build_install_state(app, state, game_path)
+    detect_install_state(app, game_path).await
 }
 
 #[tauri::command]
@@ -62,21 +60,19 @@ pub async fn install_mod(
 #[specta::specta]
 pub async fn reset_bpp_data(
     app: tauri::AppHandle,
-    install_state: tauri::State<'_, InstallerContextState>,
     stream_runtime: tauri::State<'_, StreamRuntime>,
     game_path: String,
 ) -> Result<ResetBppDataResult, SemanticProblem> {
-    run_reset_bpp_data(app, install_state, stream_runtime, game_path).await
+    run_reset_bpp_data(app, stream_runtime, game_path).await
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn reset_bepinex(
     app: tauri::AppHandle,
-    install_state: tauri::State<'_, InstallerContextState>,
     game_path: String,
 ) -> Result<ResetBepinexResult, SemanticProblem> {
-    run_reset_bepinex(app, install_state, game_path).await
+    run_reset_bepinex(app, game_path).await
 }
 
 #[tauri::command]
@@ -118,10 +114,9 @@ pub async fn delete_legacy_root(
 #[specta::specta]
 pub async fn uninstall_mod(
     app: tauri::AppHandle,
-    state: tauri::State<'_, InstallerContextState>,
     game_path: String,
 ) -> Result<InstallState, SemanticProblem> {
-    run_uninstall(app, state, game_path).await
+    run_uninstall(app, game_path).await
 }
 
 #[tauri::command(async)]

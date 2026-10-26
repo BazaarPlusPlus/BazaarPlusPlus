@@ -16,6 +16,7 @@
 - `StreamRuntime` in `src-tauri/src/stream/runtime.rs` is the only lifecycle-mutation boundary for the local overlay service. History Thumbnails in `src-tauri/src/stream/history_thumbnails/mod.rs` are served by that service but own their source registry, URLs, route, and cache; `History` reaches them through managed `HistoryThumbnails` state, never through the runtime.
 - Updater phase state belongs to `createUpdaterMachine` in `src/features/about/updater.ts`; modal metadata is derived by `getUpdaterUiContract` in `src/features/about/updaterPresentation.ts`.
 - Install, History, and Stream native failures cross IPC as `SemanticProblem` from `src-tauri/src/problem.rs`. Each domain owns its stable codes and parameters; diagnostics remain separate from localized user copy.
+- Tauri runs every `async` command, including a synchronous function marked `#[tauri::command(async)]`, on the tokio workers that also serve the overlay's HTTP handlers. Their SQLite, filesystem and subprocess work therefore runs on the blocking pool. `run_blocking` in `src-tauri/src/problem.rs` carries `get_install_state`, install, uninstall, the post-reset detection, `get_legacy_data_state`, and every History command except `execute_storage_cleanup`, which runs under `DataMaintenanceLock::run_blocking` in `src-tauri/src/services/data_maintenance.rs`. In debug and test builds `run_blocking` reports a panicked task as the command's own problem code; release builds abort on panic.
 
 ## Generated IPC
 

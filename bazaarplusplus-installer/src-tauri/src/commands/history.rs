@@ -1,62 +1,108 @@
-use crate::problem::SemanticProblem;
+use crate::problem::{run_blocking, SemanticProblem, SemanticProblemCode};
 use crate::services::history::{
     self, HistoryRunDetail, HistoryRunList, StorageCleanupExecution, StorageCleanupPreset,
     StorageCleanupPreview, StorageCleanupScope,
 };
 
-#[tauri::command(async)]
+/// The problem a history command reports when its blocking task panics,
+/// under the same code and `operation` its own failures use.
+fn task_failed(
+    code: SemanticProblemCode,
+    operation: &'static str,
+) -> impl FnOnce(anyhow::Error) -> SemanticProblem {
+    move |error| {
+        SemanticProblem::new(code)
+            .with_param("operation", operation)
+            .with_error(&error)
+    }
+}
+
+#[tauri::command]
 #[specta::specta]
-pub fn list_history_runs(
+pub async fn list_history_runs(
     app: tauri::AppHandle,
     limit: usize,
     offset: usize,
 ) -> Result<HistoryRunList, SemanticProblem> {
-    history::list_runs(&app, limit, offset)
+    run_blocking(
+        task_failed(SemanticProblemCode::HistoryReadFailed, "list_runs"),
+        move || history::list_runs(&app, limit, offset),
+    )
+    .await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn get_history_run_detail(
+pub async fn get_history_run_detail(
     app: tauri::AppHandle,
     run_id: String,
 ) -> Result<Option<HistoryRunDetail>, SemanticProblem> {
-    history::get_run_detail(&app, &run_id)
+    run_blocking(
+        task_failed(SemanticProblemCode::HistoryReadFailed, "get_run_detail"),
+        move || history::get_run_detail(&app, &run_id),
+    )
+    .await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn reveal_run_screenshot(app: tauri::AppHandle, run_id: String) -> Result<(), SemanticProblem> {
-    history::reveal_run_screenshot(&app, &run_id)
+pub async fn reveal_run_screenshot(
+    app: tauri::AppHandle,
+    run_id: String,
+) -> Result<(), SemanticProblem> {
+    run_blocking(
+        task_failed(
+            SemanticProblemCode::HistoryActionFailed,
+            "reveal_screenshot",
+        ),
+        move || history::reveal_run_screenshot(&app, &run_id),
+    )
+    .await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn reveal_battle_video(
+pub async fn reveal_battle_video(
     app: tauri::AppHandle,
     battle_id: String,
     video_id: String,
 ) -> Result<(), SemanticProblem> {
-    history::reveal_battle_video(&app, &battle_id, &video_id)
+    run_blocking(
+        task_failed(SemanticProblemCode::HistoryActionFailed, "reveal_video"),
+        move || history::reveal_battle_video(&app, &battle_id, &video_id),
+    )
+    .await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn delete_battle_video(
+pub async fn delete_battle_video(
     app: tauri::AppHandle,
     battle_id: String,
     video_id: String,
 ) -> Result<HistoryRunDetail, SemanticProblem> {
-    history::delete_battle_video(&app, &battle_id, &video_id)
+    run_blocking(
+        task_failed(SemanticProblemCode::HistoryActionFailed, "delete_video"),
+        move || history::delete_battle_video(&app, &battle_id, &video_id),
+    )
+    .await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn preview_storage_cleanup(
+pub async fn preview_storage_cleanup(
     app: tauri::AppHandle,
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
 ) -> Result<StorageCleanupPreview, SemanticProblem> {
-    history::preview_storage_cleanup(&app, scope, preset)
+    run_blocking(
+        task_failed(
+            SemanticProblemCode::HistoryActionFailed,
+            "preview_storage_cleanup",
+        ),
+        move || history::preview_storage_cleanup(&app, scope, preset),
+    )
+    .await
 }
 
 #[tauri::command]

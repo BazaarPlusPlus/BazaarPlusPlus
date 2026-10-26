@@ -293,8 +293,7 @@ mod imp {
         }
     }
 
-    pub(super) fn is_trampolined(game_path: &Path) -> anyhow::Result<bool> {
-        let layout = bundle_paths(game_path)?;
+    pub(super) fn is_trampolined(layout: &BundleLayout) -> anyhow::Result<bool> {
         if !layout.orig_path.exists() {
             return Ok(false);
         }
@@ -432,10 +431,11 @@ pub(crate) fn is_current_trampoline(app: &AppHandle, game_path: &Path) -> anyhow
 
 #[cfg(target_os = "macos")]
 fn is_current_with_stub(game_path: &Path, bundled: &Path) -> anyhow::Result<bool> {
-    if !imp::is_trampolined(game_path)? {
+    // One `plutil` read of `CFBundleExecutable` serves the whole check.
+    let layout = imp::bundle_paths(game_path)?;
+    if !imp::is_trampolined(&layout)? {
         return Ok(false);
     }
-    let layout = imp::bundle_paths(game_path)?;
     Ok(trampoline_builds_match(&layout.exe_path, bundled)?
         && imp::verify_bundle(&layout.app_path).is_ok())
 }
@@ -1214,7 +1214,7 @@ mod tests {
     fn test_is_trampolined_is_false_for_vanilla_bundle() {
         let tmp = make_bundle(b"real");
         // No `.orig` -> not trampolined; short-circuits before inspecting the executable.
-        assert!(!is_trampolined(tmp.path()).unwrap());
+        assert!(!is_trampolined(&bundle_paths(tmp.path()).unwrap()).unwrap());
     }
 
     #[test]

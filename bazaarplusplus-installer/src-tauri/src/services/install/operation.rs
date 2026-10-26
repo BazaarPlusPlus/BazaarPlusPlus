@@ -4,7 +4,7 @@ use tauri::Manager;
 
 use super::plan::{plan_install, InstallEffect};
 use super::{build_install_state_raw, install_action_problem, InstallState};
-use crate::problem::SemanticProblem;
+use crate::problem::{run_blocking, SemanticProblem};
 use crate::services::{
     action_error::ActionError,
     bepinex::{self, install_bepinex},
@@ -22,44 +22,45 @@ pub(crate) async fn install(
     app: tauri::AppHandle,
     request: InstallRequest,
 ) -> Result<InstallState, SemanticProblem> {
-    let task_app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || -> Result<_, ActionError> {
-        let installer_state = task_app.state::<InstallerContextState>();
-        let before = detect_for_install(
-            task_app.clone(),
-            installer_state,
-            Some(request.game_path.clone()),
-        )?;
-        let steam_path = before.steam_path.clone().unwrap_or_default();
-        let requires_macos_bootstrap = cfg!(target_os = "macos");
-        if requires_macos_bootstrap
-            && (steam_path.trim().is_empty()
-                || before.steam_launch_options == SteamLaunchOptionsState::Unavailable)
-        {
-            return Err(ActionError::Failed(
-                "Steam localconfig.vdf is unavailable; start Steam once, close it, and retry."
-                    .to_string(),
-            ));
-        }
-        let mut effects = ProductionInstallEffects {
-            resource_dir: task_app
-                .path()
-                .resource_dir()
-                .map_err(anyhow::Error::from)?,
-            steam_path,
-            game_path: request.game_path.clone(),
-        };
-
-        execute_and_refresh(&before, &mut effects, || {
-            let installer_state = task_app.state::<InstallerContextState>();
-            build_install_state_raw(task_app.clone(), installer_state, Some(request.game_path))
-        })
-    })
+    run_blocking(
+        |error| install_action_problem("install", error),
+        move || {
+            install_on_blocking_thread(&app, request.game_path)
+                .map_err(|error| install_action_problem("install", error))
+        },
+    )
     .await
-    .map_err(|error| {
-        install_action_problem("install", format!("failed to run install task: {error}"))
-    })?
-    .map_err(|error| install_action_problem("install", error))
+}
+
+fn install_on_blocking_thread(
+    app: &tauri::AppHandle,
+    game_path: String,
+) -> Result<InstallState, ActionError> {
+    let before = detect_for_install(
+        app.clone(),
+        app.state::<InstallerContextState>(),
+        Some(game_path.clone()),
+    )?;
+    let steam_path = before.steam_path.clone().unwrap_or_default();
+    let requires_macos_bootstrap = cfg!(target_os = "macos");
+    if requires_macos_bootstrap
+        && (steam_path.trim().is_empty()
+            || before.steam_launch_options == SteamLaunchOptionsState::Unavailable)
+    {
+        return Err(ActionError::Failed(
+            "Steam localconfig.vdf is unavailable; start Steam once, close it, and retry."
+                .to_string(),
+        ));
+    }
+    let mut effects = ProductionInstallEffects {
+        resource_dir: app.path().resource_dir().map_err(anyhow::Error::from)?,
+        steam_path,
+        game_path: game_path.clone(),
+    };
+
+    execute_and_refresh(&before, &mut effects, || {
+        build_install_state_raw(app, Some(game_path))
+    })
 }
 
 trait InstallEffects {

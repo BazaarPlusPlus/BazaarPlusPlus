@@ -26,32 +26,42 @@ use crate::services::{
     startup::InstallerContextState,
 };
 use crate::{
-    problem::{SemanticProblem, SemanticProblemCode},
+    problem::{run_blocking, SemanticProblem, SemanticProblemCode},
     stream::runtime::StreamRuntime,
 };
 
 const STEAM_BAZAAR_URL: &str = "steam://rungameid/1617400";
 
-pub fn build_install_state(
+/// Detects the install state on the blocking pool: on macOS, detection runs
+/// `codesign --verify --deep --strict` over the whole game bundle.
+pub async fn detect_install_state(
     app: tauri::AppHandle,
-    state: tauri::State<'_, InstallerContextState>,
     game_path: Option<String>,
 ) -> Result<InstallState, SemanticProblem> {
-    build_install_state_raw(app, state, game_path).map_err(install_detection_problem)
+    run_blocking(install_detection_problem, move || {
+        build_install_state(&app, game_path)
+    })
+    .await
+}
+
+fn build_install_state(
+    app: &tauri::AppHandle,
+    game_path: Option<String>,
+) -> Result<InstallState, SemanticProblem> {
+    build_install_state_raw(app, game_path).map_err(install_detection_problem)
 }
 
 pub(super) fn build_install_state_raw(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, InstallerContextState>,
+    app: &tauri::AppHandle,
     game_path: Option<String>,
 ) -> anyhow::Result<InstallState> {
-    let snapshot = detect_for_install(app, state, game_path)?;
+    let snapshot =
+        detect_for_install(app.clone(), app.state::<InstallerContextState>(), game_path)?;
     Ok(install_state_from_snapshot(snapshot))
 }
 
 pub async fn run_reset_bpp_data(
     app: tauri::AppHandle,
-    install_state: tauri::State<'_, InstallerContextState>,
     stream_runtime: tauri::State<'_, StreamRuntime>,
     game_path: String,
 ) -> Result<ResetBppDataResult, SemanticProblem> {
@@ -59,7 +69,7 @@ pub async fn run_reset_bpp_data(
     let removed_data = reset_bpp_data(&maintenance, &stream_runtime, game_path.clone())
         .await
         .map_err(|diagnostic| install_action_problem("reset_bpp_data", diagnostic))?;
-    let state = build_install_state(app, install_state, Some(game_path))?;
+    let state = detect_install_state(app, Some(game_path)).await?;
     Ok(ResetBppDataResult {
         state,
         removed_data,
@@ -68,39 +78,37 @@ pub async fn run_reset_bpp_data(
 
 pub async fn run_reset_bepinex(
     app: tauri::AppHandle,
-    install_state: tauri::State<'_, InstallerContextState>,
     game_path: String,
 ) -> Result<ResetBepinexResult, SemanticProblem> {
     let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
     let removed = reset_bepinex_folder(&maintenance, game_path.clone())
         .await
         .map_err(|diagnostic| install_action_problem("reset_bepinex", diagnostic))?;
-    let state = build_install_state(app, install_state, Some(game_path))?;
+    let state = detect_install_state(app, Some(game_path)).await?;
     Ok(ResetBepinexResult { state, removed })
 }
 
 /// Legacy Roots of the selected game directory. History needs a database to
 /// resolve its directory; this accepts any directory, so a user with only V5
-/// data still sees it. Sizes are measured on the blocking pool.
+/// data still sees it. Resolution and measurement run on the blocking pool.
 pub async fn run_get_legacy_data_state(
     app: tauri::AppHandle,
     game_path: Option<String>,
 ) -> Result<LegacyDataState, SemanticProblem> {
-    let resolved = app
-        .state::<SelectedGameInstallationState>()
-        .resolve(&app, game_path, GamePathAcceptance::Any)
-        .map(|resolution| resolution.game_path);
-    let Some(game_path) = resolved else {
-        return Ok(LegacyDataState::without_game());
-    };
-    tauri::async_runtime::spawn_blocking(move || legacy_data_state(&game_path))
-        .await
-        .map_err(|err| {
-            install_action_problem(
-                "get_legacy_data_state",
-                format!("failed to measure legacy data: {err}"),
-            )
-        })
+    run_blocking(
+        |error| install_action_problem("get_legacy_data_state", error),
+        move || {
+            let resolved = app
+                .state::<SelectedGameInstallationState>()
+                .resolve(&app, game_path, GamePathAcceptance::Any)
+                .map(|resolution| resolution.game_path);
+            Ok(match resolved {
+                Some(game_path) => legacy_data_state(&game_path),
+                None => LegacyDataState::without_game(),
+            })
+        },
+    )
+    .await
 }
 
 pub async fn run_delete_legacy_root(
@@ -114,28 +122,29 @@ pub async fn run_delete_legacy_root(
         .map_err(|diagnostic| install_action_problem("delete_legacy_root", diagnostic))
 }
 
+/// Uninstalls, then returns the state detected afterwards. Uninstall needs only
+/// the Steam path, which the startup context holds for the whole session, so
+/// it does not detect (and verify the bundle signature) once more beforehand.
 pub async fn run_uninstall(
     app: tauri::AppHandle,
-    state: tauri::State<'_, InstallerContextState>,
     game_path: String,
 ) -> Result<InstallState, SemanticProblem> {
-    let before = detect_for_install(app.clone(), state, Some(game_path.clone()))
-        .map_err(install_detection_problem)?;
-    let app_for_task = app.clone();
-    let steam_path = before.steam_path.clone().unwrap_or_default();
-    let game_path_for_task = game_path.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        uninstall_bpp(app_for_task, steam_path, game_path_for_task)
-    })
+    run_blocking(
+        |error| install_action_problem("uninstall", error),
+        move || {
+            let steam_path = app
+                .state::<InstallerContextState>()
+                .get_or_initialize(&app)
+                .steam_path
+                .as_ref()
+                .map(|path| path.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            uninstall_bpp(app.clone(), steam_path, game_path.clone())
+                .map_err(|diagnostic| install_action_problem("uninstall", diagnostic))?;
+            build_install_state(&app, Some(game_path))
+        },
+    )
     .await
-    .map_err(|err| {
-        install_action_problem("uninstall", format!("failed to run uninstall task: {err}"))
-    })?
-    .map_err(|diagnostic| install_action_problem("uninstall", diagnostic))?;
-
-    let app_for_state = app.clone();
-    let state = app_for_state.state::<InstallerContextState>();
-    build_install_state(app, state, Some(game_path))
 }
 
 pub fn launch_game_via_steam() -> anyhow::Result<()> {
