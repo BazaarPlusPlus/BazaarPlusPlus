@@ -31,8 +31,6 @@ internal static class AndroidNativeHud
     public static bool IsInspectingCard =>
         Il2CppTheBazaar.Data.TooltipParentComponent?.CardTooltipController?.CurrentCard != null;
 
-    public static Button? FindSettingsButton() => FindSettingsButton(out _);
-
     /// <summary>The active settings button; <paramref name="inRun"/> when it is the run's.</summary>
     public static Button? FindSettingsButton(out bool inRun)
     {
@@ -59,12 +57,9 @@ internal static class AndroidNativeHud
         return null;
     }
 
-    public static TouchRect ScreenBounds(RectTransform rect, float referenceHeight) =>
-        ScreenBounds(rect, rect.GetComponentInParent<Canvas>().rootCanvas, referenceHeight);
-
     /// <summary>
-    /// <paramref name="rect"/>'s screen rect, for a caller that reads it every frame and keeps
-    /// the rect's <paramref name="rootCanvas"/> from the first read.
+    /// <paramref name="rect"/>'s screen rect, scaled to <paramref name="referenceHeight"/>; the
+    /// caller resolves the rect's <paramref name="rootCanvas"/> once and keeps it.
     /// </summary>
     public static TouchRect ScreenBounds(
         RectTransform rect,

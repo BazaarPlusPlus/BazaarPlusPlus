@@ -16,7 +16,9 @@ internal sealed class AndroidNativeArt
     public readonly record struct ButtonLayer(Sprite Sprite, Color Color, TouchRect Bounds);
 
     // Button with Selected and Frame with TagFrame come from one native object each, so each
-    // pair is replaced together. Selected may legitimately be absent; Button and Frame decide.
+    // pair is replaced together. A pair rescans when its primary is missing or collected, or
+    // when its captured secondary was collected; a secondary absent from the start (Selected
+    // may legitimately be) never triggers a rescan.
     private static Sprite? _button;
     private static Sprite? _selected;
     private static Sprite? _frame;
@@ -32,12 +34,12 @@ internal sealed class AndroidNativeArt
         var scanned = false;
         try
         {
-            if (!Alive(_button))
+            if (!Alive(_button) || Lost(_selected))
             {
                 scanned = true;
                 ScanPopupButtons();
             }
-            if (!Alive(_frame))
+            if (!Alive(_frame) || Lost(_tagFrame))
             {
                 scanned = true;
                 ScanTooltipFrames();
@@ -153,6 +155,9 @@ internal sealed class AndroidNativeArt
     }
 
     private static bool Alive(Sprite? sprite) => sprite != null && !sprite.WasCollected;
+
+    // Captured, then destroyed or collected; a reference check, so a never-found sprite is not lost.
+    private static bool Lost(Sprite? sprite) => sprite is not null && !Alive(sprite);
 
     private static Sprite? Live(Sprite? sprite) => Alive(sprite) ? sprite : null;
 }
