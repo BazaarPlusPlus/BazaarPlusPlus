@@ -1,11 +1,11 @@
 # Shared by every project. A project's own .gitignore holds only the outputs
 # that project generates.
 
-# OS
+# Operating system files
 .DS_Store
 Thumbs.db
 
-# Editors
+# Editor settings and temporary files
 .idea/
 .vscode/
 .vs/
@@ -19,36 +19,35 @@ Thumbs.db
 *.swo
 *~
 
-# Agent tooling (the shared .claude/settings.json is tracked)
-.claude/*
-!.claude/settings.json
-.agents/
-.superpowers/
-.gstack/
+# Local worktrees
 .worktrees/
 
-# Dependencies and tool caches
+# Installed dependencies
 node_modules/
 .venv/
+
+# Language and tool caches
 __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
 .wrangler/
 *.tsbuildinfo
-*.log
 
-# Build and coverage output
+# Build and packaging output
 bin/
 obj/
 # The Android release outputs (release/android-release.mjs androidPaths)
 /target/
-/artifacts/
 dist/
+*.egg-info/
+
+# Reports, logs, and verification artifacts
+/artifacts/
 coverage/
 .coverage
 .coverage.*
-*.egg-info/
+*.log
 
 # Secrets and machine-local config
 .env
