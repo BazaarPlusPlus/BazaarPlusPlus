@@ -33,7 +33,7 @@ namespace BazaarPlusPlus.Android.Collection;
 /// </summary>
 internal sealed class AndroidCollectionPanel
 {
-    private readonly AndroidCollectionCatalog _catalog = new();
+    private readonly AndroidCollectionCatalog _catalog;
     private readonly AndroidCollectionGridPort _port = new();
     private readonly EmbeddedCollectionSourceCatalog _sources = new(
         AndroidCardFacets.IsHeroAvailable
@@ -80,12 +80,14 @@ internal sealed class AndroidCollectionPanel
     public AndroidCollectionPanel(
         Transform parent,
         TMP_FontAsset font,
+        AndroidCollectionCatalog catalog,
         AndroidSupporterData? supporters,
         Action<string> requestClose
     )
     {
         _parent = parent;
         _font = font;
+        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _supporters = supporters;
         _requestClose = requestClose ?? throw new ArgumentNullException(nameof(requestClose));
         _state = new CollectionViewState(
@@ -451,7 +453,7 @@ internal sealed class AndroidCollectionPanel
 
     private void AdvanceCatalog()
     {
-        _catalog.Advance();
+        _catalog.Advance(AndroidCollectionCatalogPace.Waiting);
         switch (_catalog.Status)
         {
             case AndroidCollectionCatalogStatus.Ready:

@@ -25,6 +25,10 @@ internal sealed class AndroidCollectionGrid
     // New rentals per frame: each one instantiates a prefab or sets a pooled card up.
     private const int RentBudgetPerFrame = 8;
 
+    // A rent past the first stops here: a template the catalog did not hand over (a catalog read
+    // from its cache) is one game data read inside Rent.
+    private const double RentBudgetMs = 5;
+
     private readonly AndroidCollectionGridPort _port;
     private readonly TMP_FontAsset _font;
     private readonly float _captionSize;
@@ -142,10 +146,13 @@ internal sealed class AndroidCollectionGrid
         ReturnOutside(first, last);
 
         var budget = RentBudgetPerFrame;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         for (var index = first; index <= last && budget > 0; index++)
         {
             if (_realized.ContainsKey(index))
                 continue;
+            if (budget < RentBudgetPerFrame && clock.Elapsed.TotalMilliseconds >= RentBudgetMs)
+                break;
             var card = _port.Visible[index];
             var cell = Take();
             cell.TemplateId = card.Id;
