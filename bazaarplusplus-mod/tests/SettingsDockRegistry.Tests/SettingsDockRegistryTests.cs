@@ -381,6 +381,14 @@ public class SettingsDockRegistryTests
     [InlineData("pt-BR", false, "Prévia detalhada")]
     [InlineData("ko", false, "상세 미리보기")]
     [InlineData("it", false, "Anteprima dettagliata")]
+    // Underscore separators, case, and region subtags match; a longer base code does not.
+    [InlineData("zh_CN", false, "详细预览")]
+    [InlineData("ZH_hant", true, "詳細預覽")]
+    [InlineData("pt_BR", false, "Prévia detalhada")]
+    [InlineData("de-CH", false, "Detaillierte Vorschau")]
+    [InlineData("ko-KR", false, "상세 미리보기")]
+    [InlineData("deu", false, "Detailed Preview")]
+    [InlineData("zhx", false, "Detailed Preview")]
     public void DetailedPreviewDockEntry_localizes_broad_label_in_every_supported_locale(
         string languageCode,
         bool useTaiwanLocale,

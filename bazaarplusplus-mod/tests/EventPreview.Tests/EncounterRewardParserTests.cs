@@ -38,6 +38,26 @@ public sealed class EncounterRewardParserTests
         Assert.Equal("Freeze skill", reward.FilterSummary);
     }
 
+    [Theory]
+    // A word inside a longer word is skipped and a later standalone one still counts:
+    // "golden" is not Gold, "toolboxes" is not Tool, "tool." is.
+    [InlineData("Get 2 Golden Toolboxes or a Diamond tool.", 2, "Diamond Tool")]
+    // One trailing "s" is allowed; a hyphen and a word at the end of the text are boundaries.
+    [InlineData("Get a Silver-tier Weapons", 1, "Silver Weapon")]
+    // "foodie" and "toolss" are not Food or Tool; the text has no card reward.
+    [InlineData("Get a foodie toolss", null, null)]
+    public void TryParse_matches_whole_words_with_an_optional_plural_s(
+        string resultText,
+        int? quantity,
+        string? summary
+    )
+    {
+        var reward = EncounterRewardParser.TryParse(resultText);
+
+        Assert.Equal(quantity, reward?.Quantity);
+        Assert.Equal(summary, reward?.FilterSummary);
+    }
+
     [Fact]
     public void TryParse_ignores_non_card_player_stat_results()
     {

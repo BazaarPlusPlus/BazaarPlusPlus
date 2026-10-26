@@ -180,10 +180,34 @@ public static class EncounterRewardParser
             : string.Join(" ", parts);
     }
 
-    private static bool ContainsWord(string lower, string word) =>
-        Regex.IsMatch(
-            lower,
-            $@"(^|[^a-z]){Regex.Escape(word)}s?([^a-z]|$)",
-            RegexOptions.CultureInvariant
-        );
+    // Matches `word` (or `word` plus one trailing `s`) bounded by the string ends or by
+    // any character outside ASCII a-z on both sides, without building a regex per call.
+    private static bool ContainsWord(string lower, string word)
+    {
+        var start = 0;
+        while (start <= lower.Length - word.Length)
+        {
+            var index = lower.IndexOf(word, start, StringComparison.Ordinal);
+            if (index < 0)
+                return false;
+
+            if (index == 0 || !IsAsciiLowerLetter(lower[index - 1]))
+            {
+                var end = index + word.Length;
+                if (end == lower.Length || !IsAsciiLowerLetter(lower[end]))
+                    return true;
+                if (
+                    lower[end] == 's'
+                    && (end + 1 == lower.Length || !IsAsciiLowerLetter(lower[end + 1]))
+                )
+                    return true;
+            }
+
+            start = index + 1;
+        }
+
+        return false;
+    }
+
+    private static bool IsAsciiLowerLetter(char c) => c is >= 'a' and <= 'z';
 }
