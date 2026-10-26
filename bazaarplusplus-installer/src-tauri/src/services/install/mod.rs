@@ -90,26 +90,25 @@ pub async fn run_reset_bepinex(
 
 /// Legacy Roots of the selected game directory. History needs a database to
 /// resolve its directory; this accepts any directory, so a user with only V5
-/// data still sees it. Sizes are measured on the blocking pool.
+/// data still sees it. Resolution and measurement run on the blocking pool.
 pub async fn run_get_legacy_data_state(
     app: tauri::AppHandle,
     game_path: Option<String>,
 ) -> Result<LegacyDataState, SemanticProblem> {
-    let resolved = app
-        .state::<SelectedGameInstallationState>()
-        .resolve(&app, game_path, GamePathAcceptance::Any)
-        .map(|resolution| resolution.game_path);
-    let Some(game_path) = resolved else {
-        return Ok(LegacyDataState::without_game());
-    };
-    tauri::async_runtime::spawn_blocking(move || legacy_data_state(&game_path))
-        .await
-        .map_err(|err| {
-            install_action_problem(
-                "get_legacy_data_state",
-                format!("failed to measure legacy data: {err}"),
-            )
-        })
+    run_blocking(
+        |error| install_action_problem("get_legacy_data_state", error),
+        move || {
+            let resolved = app
+                .state::<SelectedGameInstallationState>()
+                .resolve(&app, game_path, GamePathAcceptance::Any)
+                .map(|resolution| resolution.game_path);
+            Ok(match resolved {
+                Some(game_path) => legacy_data_state(&game_path),
+                None => LegacyDataState::without_game(),
+            })
+        },
+    )
+    .await
 }
 
 pub async fn run_delete_legacy_root(

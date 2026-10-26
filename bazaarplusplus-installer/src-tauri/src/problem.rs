@@ -60,7 +60,8 @@ impl SemanticProblem {
 /// the blocking pool. Tauri runs an `async` command, including a synchronous
 /// one marked `#[tauri::command(async)]`, on the tokio workers that also serve
 /// the overlay's HTTP handlers and every other async command, so such a body
-/// must not run there. A body that panics reports `failed` with the join error.
+/// must not run there. In debug and test builds a body that panics reports
+/// `failed` with the join error; release builds abort on panic.
 pub(crate) async fn run_blocking<T, F>(
     failed: impl FnOnce(anyhow::Error) -> SemanticProblem + Send,
     task: F,
@@ -96,8 +97,38 @@ pub(crate) fn error_diagnostic(error: &anyhow::Error) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{error_diagnostic, SemanticProblem, SemanticProblemCode};
+    use super::{error_diagnostic, run_blocking, SemanticProblem, SemanticProblemCode};
     use anyhow::Context as _;
+
+    fn read_failed(error: anyhow::Error) -> SemanticProblem {
+        SemanticProblem::new(SemanticProblemCode::HistoryReadFailed)
+            .with_param("operation", "list_runs")
+            .with_error(&error)
+    }
+
+    #[tokio::test]
+    async fn run_blocking_returns_the_task_result_and_maps_a_panic_to_the_given_problem() {
+        assert_eq!(run_blocking(read_failed, || Ok(7)).await, Ok(7));
+
+        let own = SemanticProblem::new(SemanticProblemCode::HistoryUnavailable);
+        let returned = own.clone();
+        assert_eq!(
+            run_blocking(read_failed, move || Err::<(), _>(returned)).await,
+            Err(own)
+        );
+
+        let panicked = run_blocking(read_failed, || -> Result<(), SemanticProblem> {
+            panic!("database driver panicked")
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(panicked.code, SemanticProblemCode::HistoryReadFailed);
+        assert_eq!(
+            panicked.params.get("operation").map(String::as_str),
+            Some("list_runs")
+        );
+        assert!(panicked.diagnostic.is_some());
+    }
 
     #[test]
     fn error_diagnostic_joins_causes_and_skips_embedded_ones() {

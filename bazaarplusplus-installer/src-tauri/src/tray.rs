@@ -41,7 +41,9 @@ pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 // starts a process and waits for it, so it runs elsewhere.
                 if let Some(url) = runtime.snapshot().overlay_url {
                     tauri::async_runtime::spawn_blocking(move || {
-                        let _ = copy_text_to_clipboard(&url);
+                        if let Err(_error) = copy_text_to_clipboard(&url) {
+                            crate::services::debug_log!("Cannot copy the OBS URL: {_error:#}");
+                        }
                     });
                 }
             }
