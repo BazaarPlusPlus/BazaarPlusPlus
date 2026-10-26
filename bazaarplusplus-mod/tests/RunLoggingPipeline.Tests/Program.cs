@@ -27,11 +27,12 @@ using Microsoft.Data.Sqlite;
 // 1. Start: the store is created before Start, or a Start that throws after creating it leaves
 //    the store's writer alive. A Subscribe failure would take the same rollback, but
 //    InMemoryBppEventBus.Subscribe cannot throw for a non-null handler, so it is not driven.
-// 2. Run created: a field of the create request maps to the wrong column, or a second
-//    RunInitializedObserved for the same run appends a second run_started.
+// 2. Run created: a field of the create request maps to the wrong column, a second
+//    RunInitializedObserved for the same run appends a second run_started, or a player account
+//    resolved only after the run row exists never reaches it.
 // 3. PvP recorded: a matching PvP battle is not attached to the run (a replay captured before
 //    the run id was known keeps battles.run_id NULL), a mismatched or PvE battle is linked,
-//    or run_events.seq and runs.last_seq drift apart.
+//    run_events.seq and runs.last_seq drift apart, or a later account replaces the run's first.
 // 4. Completion: a run completes while replay persistence is still pending, a stale deadline
 //    completes a run that resumed or was replaced, or a replacement inherits the old deadline.
 // 5. Interruption: an interrupted run that comes back is abandoned, or a different run starts
@@ -106,7 +107,14 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
     // 2. run-created: a run initialization creates the run row and one run_started event.
     h.Clock.Advance(TimeSpan.FromMinutes(1));
     h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
+    // The profile account is not known yet when the run row is created.
+    h.PlayerAccountId = null;
     h.Activate(bus, "run-alpha");
+    Check.That(
+        h.Text("SELECT player_account_id FROM runs WHERE run_id='run-alpha'") == null,
+        "2: a run created before the account is known stores no account."
+    );
+    h.PlayerAccountId = "account-001";
     h.Clock.Advance(TimeSpan.FromSeconds(5));
     h.Activate(bus, "run-alpha");
     h.Record(artifacts, 2, "run-created");
@@ -114,8 +122,14 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
         h.Count("SELECT COUNT(*) FROM run_events WHERE run_id='run-alpha'") == 1,
         "2: a repeated initialization of the same run appends no second run_started."
     );
+    Check.That(
+        h.Text("SELECT player_account_id FROM runs WHERE run_id='run-alpha'") == "account-001",
+        "2: an account resolved after the run row exists is written to it."
+    );
 
     // 3. pvp-recorded: matching PvP battles attach and append; mismatched and PvE ones do not.
+    // A different account resolved mid-run must not replace the run's first one.
+    h.PlayerAccountId = "account-other";
     h.Clock.Advance(TimeSpan.FromMinutes(3));
     h.Probe.Basics = Basics(day: 2, hour: 1, victories: 1, losses: 0);
     h.Probe.Stats = Stats(gold: 14);
@@ -143,6 +157,11 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
             && h.Count("SELECT MAX(seq) FROM run_events WHERE run_id='run-alpha'") == 3,
         "3: run_events.seq counts from 1 and runs.last_seq follows it."
     );
+    Check.That(
+        h.Text("SELECT player_account_id FROM runs WHERE run_id='run-alpha'") == "account-001",
+        "3: the first account written to a run is never replaced."
+    );
+    h.PlayerAccountId = "account-001";
 
     // 4. completion: pending replay persistence defers completion until drained or the deadline.
     h.Clock.Advance(TimeSpan.FromMinutes(2));
@@ -407,6 +426,7 @@ internal sealed class Harness
     internal TestRunContext Context { get; } = new();
     internal TestSnapshotProbe Probe { get; } = new();
     internal bool PendingReplayPersistence { get; set; }
+    internal string? PlayerAccountId { get; set; } = "account-001";
     internal int StoresCreated { get; private set; }
     internal QueuedRunLogStore? LiveStore { get; private set; }
 
@@ -430,7 +450,7 @@ internal sealed class Harness
             () => Clock.Now,
             Database,
             Scheduler.Schedule,
-            playerAccountIdResolver: () => "account-001",
+            playerAccountIdResolver: () => PlayerAccountId,
             bundleScreenshotRequestedResolver: () => true,
             modVersionResolver: () => "5.0.0"
         );

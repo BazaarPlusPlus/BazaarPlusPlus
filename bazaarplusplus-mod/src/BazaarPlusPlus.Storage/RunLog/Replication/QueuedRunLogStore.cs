@@ -50,9 +50,21 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         return _innerStore.CreateRun(request);
     }
 
+    // Queued like events, so an active Run's runs.player_account_id may lag this call. Its only
+    // reader is the seal, which takes completed Runs, and CompleteRun drains this queue before it
+    // writes that status. A Dispose drain timeout can drop the write, like a queued event; the
+    // next activation of the resumed Run enqueues it again.
     public void SetPlayerAccountIdOnce(string runId, string? playerAccountId)
     {
-        _innerStore.SetPlayerAccountIdOnce(runId, playerAccountId);
+        var accountId = RunLogStore.NormalizeAccountId(playerAccountId);
+        if (accountId == null)
+            return;
+
+        EnqueueWrite(
+            RunLogStoreWriteOperation.SetPlayerAccountId,
+            runId,
+            () => _innerStore.SetPlayerAccountIdOnce(runId, accountId)
+        );
     }
 
     public void AppendEvent(string runId, RunLogEvent entry)

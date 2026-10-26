@@ -13,6 +13,7 @@ public enum RunLogStoreWriteOperation
     AppendEvent,
     SaveCheckpoint,
     DrainBarrier,
+    SetPlayerAccountId,
 }
 
 public sealed class RunLogStoreDiagnostic

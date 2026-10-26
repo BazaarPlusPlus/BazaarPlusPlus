@@ -334,7 +334,7 @@ public sealed class PvpBattleSqliteStore : SqliteStoreBase, IReplayPayloadMainte
             SET run_id = $runId
             WHERE battle_id = $battleId
               AND source = 'LOCAL'
-              AND (run_id IS NULL OR run_id = $runId)
+              AND run_id IS NULL
               AND EXISTS (
                   SELECT 1
                   FROM {RunLogSchema.RunsTableName}

@@ -122,8 +122,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         using var command = CreateCommand(connection);
         command.CommandText = $"""
             UPDATE {RunLogSchema.RunsTableName}
-            SET player_account_id = COALESCE(player_account_id, $playerAccountId)
-            WHERE run_id = $runId;
+            SET player_account_id = $playerAccountId
+            WHERE run_id = $runId
+              AND player_account_id IS NULL;
             """;
         command.Parameters.AddWithValue("$runId", runId);
         command.Parameters.AddWithValue("$playerAccountId", normalizedAccountId);
@@ -447,7 +448,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         };
     }
 
-    private static string? NormalizeAccountId(string? playerAccountId)
+    internal static string? NormalizeAccountId(string? playerAccountId)
     {
         var normalized = playerAccountId?.Trim();
         return string.IsNullOrEmpty(normalized) ? null : normalized;
