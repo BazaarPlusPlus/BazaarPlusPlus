@@ -1,7 +1,11 @@
 use anyhow::{bail, Context as _};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex, MutexGuard, OnceLock},
+    time::SystemTime,
+};
 
 const OVERLAY_SETTINGS_VERSION: u8 = 4;
 
@@ -56,46 +60,108 @@ pub struct OverlayCropSettingsPayload {
     pub display_mode: StreamOverlayDisplayMode,
 }
 
+/// Reads and writes the overlay settings file. Clones share one parse memo,
+/// and every `Default` store is a clone of one process-wide store, so the
+/// stream service and the Tauri commands clear the same memo when they write.
 #[derive(Clone, Debug)]
 pub struct OverlaySettingsStore {
     path: PathBuf,
+    memo: Arc<Mutex<Option<SettingsMemo>>>,
+}
+
+/// The last parse of a regular settings file, reused while the file keeps the
+/// same modification time and length. A write through the store clears it, so
+/// only an edit from outside the installer relies on that stamp.
+#[derive(Debug)]
+struct SettingsMemo {
+    modified: SystemTime,
+    len: u64,
+    settings: OverlaySettings,
 }
 
 impl Default for OverlaySettingsStore {
     fn default() -> Self {
-        Self::new(default_settings_path())
+        static SHARED: OnceLock<OverlaySettingsStore> = OnceLock::new();
+        SHARED
+            .get_or_init(|| Self::new(default_settings_path()))
+            .clone()
     }
 }
 
 impl OverlaySettingsStore {
     pub(crate) fn new(path: PathBuf) -> Self {
-        Self { path }
+        Self {
+            path,
+            memo: Arc::default(),
+        }
     }
 
+    /// The saved settings, or the defaults when the file is missing or
+    /// invalid. The OBS overlay asks every few seconds, so the file is parsed
+    /// again only after its modification time or length changes.
     pub fn load(&self) -> anyhow::Result<OverlaySettings> {
-        let read_path = &self.path;
-        if !read_path.exists() {
+        let Ok(metadata) = std::fs::metadata(&self.path) else {
             return Ok(OverlaySettings::default());
+        };
+        // Only a regular file has a stamp that follows its contents.
+        let stamp = metadata
+            .is_file()
+            .then(|| metadata.modified().ok())
+            .flatten()
+            .map(|modified| (modified, metadata.len()));
+        if let Some((modified, len)) = stamp {
+            if let Some(memo) = self.memo().as_ref() {
+                if memo.modified == modified && memo.len == len {
+                    return Ok(memo.settings);
+                }
+            }
         }
 
-        let raw = match std::fs::read_to_string(read_path) {
-            Ok(raw) => raw,
-            Err(err) => {
+        // The stamp is taken before the read: a write racing this parse leaves
+        // a different stamp on the file, so the next load parses again.
+        let Some(raw) = self.read_raw() else {
+            // A failed read may be transient (another process holding the
+            // file), so it is not remembered: the next load reads again.
+            return Ok(OverlaySettings::default());
+        };
+        // Invalid contents stay invalid until the file changes, so the
+        // defaults they yield are remembered like any parse.
+        let settings = self.parse_settings(&raw);
+        if let Some((modified, len)) = stamp {
+            *self.memo() = Some(SettingsMemo {
+                modified,
+                len,
+                settings,
+            });
+        }
+        Ok(settings)
+    }
+
+    fn memo(&self) -> MutexGuard<'_, Option<SettingsMemo>> {
+        self.memo.lock().expect("overlay settings memo poisoned")
+    }
+
+    fn read_raw(&self) -> Option<String> {
+        std::fs::read_to_string(&self.path)
+            .inspect_err(|err| {
                 crate::services::debug_error!(
                     "Failed to read overlay crop settings from {}: {err}",
-                    read_path.display()
+                    self.path.display()
                 );
-                return Ok(OverlaySettings::default());
-            }
-        };
-        let document = match serde_json::from_str::<OverlayCropDocument>(&raw) {
+            })
+            .ok()
+    }
+
+    fn parse_settings(&self, raw: &str) -> OverlaySettings {
+        let read_path = &self.path;
+        let document = match serde_json::from_str::<OverlayCropDocument>(raw) {
             Ok(document) => document,
             Err(err) => {
                 crate::services::debug_error!(
                     "Failed to parse overlay crop settings from {}: {err}",
                     read_path.display()
                 );
-                return Ok(OverlaySettings::default());
+                return OverlaySettings::default();
             }
         };
         if document.v != OVERLAY_SETTINGS_VERSION {
@@ -103,7 +169,7 @@ impl OverlaySettingsStore {
                 "Unsupported overlay crop settings version {}.",
                 document.v
             );
-            return Ok(OverlaySettings::default());
+            return OverlaySettings::default();
         }
 
         let crop = match validate_crop_settings(document.settings.crop) {
@@ -113,13 +179,13 @@ impl OverlaySettingsStore {
                     "Invalid overlay crop settings in {}: {err}",
                     read_path.display()
                 );
-                return Ok(OverlaySettings::default());
+                return OverlaySettings::default();
             }
         };
-        Ok(OverlaySettings {
+        OverlaySettings {
             crop,
             display_mode: document.settings.display_mode,
-        })
+        }
     }
 
     pub fn save(&self, crop: OverlayCropSettings) -> anyhow::Result<OverlayCropSettingsPayload> {
@@ -162,7 +228,11 @@ impl OverlaySettingsStore {
             })?;
         }
 
-        std::fs::write(&self.path, raw).with_context(|| {
+        let written = std::fs::write(&self.path, raw);
+        // Cleared even when the write fails part way: the next load must read
+        // whatever reached the file.
+        *self.memo() = None;
+        written.with_context(|| {
             format!(
                 "Failed to write overlay crop settings to {}",
                 self.path.display()
@@ -347,5 +417,105 @@ mod tests {
         assert_eq!(saved, loaded);
         assert_eq!(loaded.crop, sample_crop());
         assert_eq!(loaded.display_mode, StreamOverlayDisplayMode::Herohalf);
+    }
+
+    #[test]
+    fn store_parses_again_only_when_the_file_stamp_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("overlay.json");
+        let reader = OverlaySettingsStore::new(path.clone());
+        let writer = OverlaySettingsStore::new(path.clone());
+        let document = |mode: &str| {
+            serde_json::json!({ "v": 4, "crop": sample_crop(), "display_mode": mode }).to_string()
+        };
+        let stamp = |modified_secs: u64| {
+            std::fs::File::options()
+                .write(true)
+                .open(&path)
+                .unwrap()
+                .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(modified_secs))
+                .unwrap();
+        };
+        std::fs::write(&path, document("hero")).unwrap();
+        stamp(1_700_000_000);
+        assert_eq!(
+            reader.load().unwrap().display_mode,
+            StreamOverlayDisplayMode::Hero
+        );
+
+        // Same length and modification time: the memoized parse is served.
+        std::fs::write(&path, document("hero").replace("\"hero\"", "\"HERO\"")).unwrap();
+        stamp(1_700_000_000);
+        assert_eq!(
+            reader.load().unwrap().display_mode,
+            StreamOverlayDisplayMode::Hero
+        );
+
+        // An outside edit that moves the stamp is read back.
+        std::fs::write(&path, document("herohalf")).unwrap();
+        stamp(1_700_000_100);
+        assert_eq!(
+            reader.load().unwrap().display_mode,
+            StreamOverlayDisplayMode::Herohalf
+        );
+
+        // So is a save through another store.
+        writer
+            .save_display_mode(StreamOverlayDisplayMode::Current)
+            .unwrap();
+        assert_eq!(
+            reader.load().unwrap().display_mode,
+            StreamOverlayDisplayMode::Current
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_read_is_not_remembered() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("overlay.json");
+        let store = OverlaySettingsStore::new(path.clone());
+        OverlaySettingsStore::new(path.clone())
+            .save(sample_crop())
+            .unwrap();
+        let set_mode = |mode| {
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+        };
+
+        // The file keeps its stamp, but its contents cannot be read for now.
+        set_mode(0o000);
+        let unreadable = store.load().unwrap().crop;
+        set_mode(0o600);
+
+        assert_eq!(unreadable, OverlayCropSettings::default());
+        assert_eq!(store.load().unwrap().crop, sample_crop());
+    }
+
+    #[test]
+    fn a_save_clears_the_memo_of_every_store_sharing_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("overlay.json");
+        let reader = OverlaySettingsStore::new(path.clone());
+        let writer = reader.clone();
+        writer.save(sample_crop()).unwrap();
+        let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+        assert_eq!(reader.load().unwrap().crop, sample_crop());
+
+        // Same length, and the stamp is pinned, so only the cleared memo can
+        // show the new crop.
+        let moved = OverlayCropSettings {
+            left: 0.28,
+            ..sample_crop()
+        };
+        writer.save(moved).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
+
+        assert_eq!(reader.load().unwrap().crop, moved);
     }
 }

@@ -19,12 +19,8 @@ pub fn resolve_overlay_image_path(
     let game_path = game_path?;
     let screenshots_directory = paths::screenshots_dir(&game_path);
     let normalized_relative_path = normalized_relative_image_path(raw_path)?;
-    let from_screenshots = Some(screenshots_directory.join(normalized_relative_path));
-    if let Some(path) = from_screenshots.as_ref().filter(|path| path.exists()) {
-        return Some(path.clone());
-    }
-
-    from_screenshots
+    // Callers that need the file check it exists; this only builds the path.
+    Some(screenshots_directory.join(normalized_relative_path))
 }
 
 fn normalized_relative_image_path(raw_path: &str) -> Option<PathBuf> {

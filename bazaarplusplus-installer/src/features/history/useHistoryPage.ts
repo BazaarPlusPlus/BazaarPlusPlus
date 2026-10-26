@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { commandClient } from '../../api/commandClient';
 import { createHistoryListWorkflow } from './historyListWorkflow';
-import { observeHistoryWindowResume } from './historyWindowResume';
+import { observeWindowResume } from '../shared/windowActivity';
 import { parseHistoryPage } from './pagination';
 
 export function useHistoryPage() {
@@ -25,7 +25,7 @@ export function useHistoryPage() {
 
   useEffect(() => {
     void workflow.start();
-    const stopObserving = observeHistoryWindowResume(() => {
+    const stopObserving = observeWindowResume(() => {
       void workflow.intents.refresh();
     });
     return () => {

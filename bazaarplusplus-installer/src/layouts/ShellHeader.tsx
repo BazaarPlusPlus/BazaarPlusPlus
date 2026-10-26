@@ -204,7 +204,8 @@ function closeWindow() {
 
 function WindowsWindowControlsContent() {
   const { t } = useI18n();
-  const streamRunning = useShellStreamServiceRunning();
+  const { running: streamRunning, refresh: refreshStreamRunning } =
+    useShellStreamServiceRunning();
   const historyRoute = useMatch('/history/*');
   const [isMaximized, setIsMaximized] = useState(false);
   const closeLabel = streamRunning
@@ -280,6 +281,8 @@ function WindowsWindowControlsContent() {
       <button
         type="button"
         onClick={closeWindow}
+        onPointerEnter={refreshStreamRunning}
+        onFocus={refreshStreamRunning}
         className="bpp-window-control-button bpp-window-close-button"
         title={closeLabel}
         aria-label={closeLabel}
