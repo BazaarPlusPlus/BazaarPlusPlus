@@ -28,6 +28,7 @@ internal sealed partial class CombatStatusBar
     private Canvas? _nativeCanvas;
     private int _layoutScreenWidth;
     private int _layoutScreenHeight;
+    private Rect _layoutCameraRect;
     private RectTransform? _barRoot;
     private readonly NativePlayerPortraitBounds _portraitBounds = new();
     private TextMeshProUGUI? _timeValue;
@@ -322,10 +323,16 @@ internal sealed partial class CombatStatusBar
         var canvasRect = (RectTransform)_canvasObject.transform;
         var screenWidth = Screen.width;
         var screenHeight = Screen.height;
-        if (screenWidth != _layoutScreenWidth || screenHeight != _layoutScreenHeight)
+        var cameraRect = camera.pixelRect;
+        if (
+            screenWidth != _layoutScreenWidth
+            || screenHeight != _layoutScreenHeight
+            || cameraRect != _layoutCameraRect
+        )
         {
             _layoutScreenWidth = screenWidth;
             _layoutScreenHeight = screenHeight;
+            _layoutCameraRect = cameraRect;
             placementChanged = true;
         }
         // A canvas that was hidden, re-targeted, or resized has not driven its root rect yet;
@@ -392,6 +399,7 @@ internal sealed partial class CombatStatusBar
         _nativeCanvas = null;
         _layoutScreenWidth = 0;
         _layoutScreenHeight = 0;
+        _layoutCameraRect = default;
         _barRoot = null;
         _uiTypography = null;
         _counterTypography = null;

@@ -43,8 +43,6 @@ internal static class NativeGameTypography
     private static readonly List<PanelScope> PanelScopes = new();
     private static readonly OperationalHealthTracker<int, NativeGameFontReasonCode> Health = new();
 
-    private const float FallbackRetrySeconds = 30f;
-
     private static TMP_FontAsset[]? _serifFallbacks;
     private static TMP_FontAsset[]? _sansFallbacks;
     private static float _serifFallbacksRetryAt;
@@ -489,8 +487,8 @@ internal static class NativeGameTypography
 
         _serifFallbacks = null;
         _sansFallbacks = null;
-        _serifFallbacksRetryAt = 0f;
-        _sansFallbacksRetryAt = 0f;
+        _serifFallbacksRetryAt = NativeGameFontSelection.NoFallbackRetryWait;
+        _sansFallbacksRetryAt = NativeGameFontSelection.NoFallbackRetryWait;
         _serifFontAsset = null;
         _sansFontAsset = null;
         _sansDynamicFontAsset = null;
@@ -580,10 +578,9 @@ internal static class NativeGameTypography
         if (!NotoFontFallbackRuntime.HasConfiguration)
             return FontLoadAttempt.NotReady();
 
-        // A failed chain is not retried every call: callers poll per frame or per tooltip, and
-        // each retry blocks the main thread on WaitForCompletion for every key that failed.
         var now = Time.realtimeSinceStartup;
-        if (now < (preferSerif ? _serifFallbacksRetryAt : _sansFallbacksRetryAt))
+        var retryAt = preferSerif ? _serifFallbacksRetryAt : _sansFallbacksRetryAt;
+        if (NativeGameFontSelection.IsFallbackRetryWaiting(now, retryAt))
             return FontLoadAttempt.Failed(
                 NativeGameFontStage.LoadFonts,
                 NativeGameFontReasonCode.FontLoadFailed,
@@ -591,19 +588,24 @@ internal static class NativeGameTypography
             );
 
         var attempt = LoadChineseFallbacks(preferSerif);
-        if (attempt.Fonts.Length > 0)
+        var loaded = attempt.Fonts.Length > 0;
+        retryAt = NativeGameFontSelection.NextFallbackRetryAt(
+            now,
+            attempt.WasAttempted,
+            loaded,
+            retryAt
+        );
+        if (preferSerif)
         {
-            if (preferSerif)
+            _serifFallbacksRetryAt = retryAt;
+            if (loaded)
                 _serifFallbacks = attempt.Fonts;
-            else
-                _sansFallbacks = attempt.Fonts;
         }
-        else if (attempt.WasAttempted)
+        else
         {
-            if (preferSerif)
-                _serifFallbacksRetryAt = now + FallbackRetrySeconds;
-            else
-                _sansFallbacksRetryAt = now + FallbackRetrySeconds;
+            _sansFallbacksRetryAt = retryAt;
+            if (loaded)
+                _sansFallbacks = attempt.Fonts;
         }
         return attempt;
     }
