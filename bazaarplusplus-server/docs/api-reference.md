@@ -26,11 +26,9 @@ Cache-Control: no-store
 X-Request-Id: <CF-Ray or server UUID>
 ```
 
-`GET /health` and every `/ghost-battles` response also have `Access-Control-Allow-Origin: *`.
-
 Error responses preserve route-specific headers such as `Allow` and `Retry-After`.
 
-A known path with an unsupported method returns `405` with the path's methods in `Allow`. `OPTIONS` returns `204` only for a known path, with `Allow`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, and `Access-Control-Max-Age`. An unknown path, including an unknown `OPTIONS` path, returns `404 not_found`.
+A known path with an unsupported method returns `405` with the path's methods in `Allow`. An unknown path returns `404 not_found`. No route sends CORS headers or answers `OPTIONS`: every client is a native program, not a browser.
 
 Errors use:
 
@@ -219,12 +217,11 @@ First logical commit returns `201`:
 {
   "bundle_id": "01J00000000000000000000001",
   "run_id": "run-id",
-  "outcome": "stored",
-  "bazaardb_delivery": "created"
+  "outcome": "stored"
 }
 ```
 
-An identical stored Bundle returns `200` with `outcome: "duplicate"`. `bazaardb_delivery` is `created` for a newly stored Screenshot-bearing Bundle, `existing` for its duplicate, or `not_applicable` for a Run-only Bundle; it says only whether the Bundle appears in [`GET /bazaardb/bundles`](#get-bazaardbbundles), and no delivery state is stored.
+An identical stored Bundle returns `200` with `outcome: "duplicate"`.
 
 Conflicts preserve the first immutable identity:
 

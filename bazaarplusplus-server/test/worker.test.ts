@@ -24,7 +24,6 @@ test("GET /health reports liveness without dependency access", async () => {
   expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
   expect(response.headers.get("cache-control")).toBe("no-store");
   expect(response.headers.get("x-request-id")).toBeTruthy();
-  expect(response.headers.get("access-control-allow-origin")).toBe("*");
 
   const body = (await response.json()) as {
     status: string;
@@ -81,7 +80,7 @@ describe("the public route table", () => {
     ["/bundles", "GET, POST"],
     ["/ghost-battles", "GET"],
     ["/bazaardb/bundles", "GET"],
-  ])("OPTIONS %s only advertises the real route", async (path, allow) => {
+  ])("OPTIONS %s is not a route and advertises the real methods", async (path, allow) => {
     const response = await worker.fetch(
       new Request(`https://mod-api-v6.bazaarplusplus.com${path}`, {
         method: "OPTIONS",
@@ -89,18 +88,9 @@ describe("the public route table", () => {
       env,
     );
 
-    expect(response.status).toBe(204);
-    expect(response.body).toBeNull();
+    expect(response.status).toBe(405);
     expect(response.headers.get("allow")).toBe(allow);
-    expect(response.headers.get("access-control-allow-methods")).toBe(allow);
-    const cors = path === "/health" || path === "/ghost-battles";
-    expect([...response.headers.keys()]).toEqual([
-      "access-control-allow-headers",
-      "access-control-allow-methods",
-      ...(cors ? ["access-control-allow-origin"] : []),
-      "access-control-max-age",
-      "allow",
-    ]);
+    expect(response.headers.has("access-control-allow-origin")).toBe(false);
   });
 
   test("OPTIONS does not make an unknown route appear available", async () => {
@@ -246,26 +236,6 @@ describe("route shell outcomes", () => {
         code: "invalid_configuration",
       }),
     );
-  });
-
-  test("applies route CORS to route errors but not to non-CORS routes or shell errors", async () => {
-    const ghostError = await worker.fetch(
-      new Request(`${ORIGIN}/ghost-battles?bad=1`, {
-        headers: { "CF-Connecting-IP": "192.0.2.44" },
-      }),
-      env,
-    );
-    expect(ghostError.status).toBe(400);
-    expect(ghostError.headers.get("access-control-allow-origin")).toBe("*");
-
-    for (const response of [
-      await collection("?unknown=1"),
-      await worker.fetch(new Request(`${ORIGIN}/missing`), env),
-      await worker.fetch(new Request(`${ORIGIN}/ghost-battles`, { method: "POST" }), env),
-    ]) {
-      expect(response.status).toBeGreaterThanOrEqual(400);
-      expect(response.headers.has("access-control-allow-origin")).toBe(false);
-    }
   });
 
   test("logs and maps an unclassified exception to the canonical 500 envelope", async () => {
