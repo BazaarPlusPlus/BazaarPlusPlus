@@ -176,6 +176,86 @@ public sealed class CollectionInspectionTests
     }
 
     [Fact]
+    public void A_still_description_stops_being_measured_after_two_matching_frames()
+    {
+        var settle = new CollectionInspectionLayoutSettle();
+        Assert.True(settle.ShouldMeasure(1));
+        Assert.False(settle.Observe(1, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        Assert.True(settle.ShouldMeasure(2));
+        Assert.True(settle.Observe(2, 1800.2f, 800f, 650.3f, 400f, 1800f, 800f, true));
+        Assert.Equal(2, settle.MeasuredFrames);
+        for (var frame = 3; frame < 2 + CollectionInspectionLayoutSettle.RecheckFrames; frame++)
+            Assert.False(settle.ShouldMeasure(frame));
+    }
+
+    [Fact]
+    public void Animation_or_an_off_target_description_keeps_the_layout_measured()
+    {
+        var settle = new CollectionInspectionLayoutSettle();
+        for (var frame = 1; frame <= 4; frame++)
+        {
+            Assert.True(settle.ShouldMeasure(frame));
+            Assert.False(settle.Observe(frame, 1800f, 800f, 650f, 400f, 1800f, 800f, false));
+        }
+        // Something outside the module moves the description back every frame.
+        for (var frame = 5; frame <= 8; frame++)
+        {
+            Assert.True(settle.ShouldMeasure(frame));
+            Assert.False(settle.Observe(frame, 1700f, 800f, 650f, 400f, 1800f, 800f, true));
+        }
+        Assert.True(settle.ShouldMeasure(9));
+        Assert.False(settle.Observe(9, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        Assert.True(settle.Observe(10, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+    }
+
+    [Fact]
+    public void Two_measurements_in_one_frame_do_not_count_as_two_matching_frames()
+    {
+        var settle = new CollectionInspectionLayoutSettle();
+        Assert.False(settle.Observe(1, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        Assert.False(settle.Observe(1, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        Assert.True(settle.ShouldMeasure(1));
+        Assert.True(settle.Observe(2, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+    }
+
+    [Fact]
+    public void A_change_needs_two_fresh_matching_frames_before_the_layout_settles_again()
+    {
+        var settle = new CollectionInspectionLayoutSettle();
+        settle.Observe(1, 1800f, 800f, 650f, 400f, 1800f, 800f, true);
+        Assert.True(settle.Observe(2, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        settle.MarkDirty();
+        Assert.True(settle.ShouldMeasure(3));
+        // The first frame after a change matches the old bounds but cannot settle alone.
+        Assert.False(settle.Observe(3, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        Assert.False(settle.Observe(4, 1800f, 800f, 900f, 400f, 1800f, 800f, true));
+        Assert.True(settle.Observe(5, 1800f, 800f, 900f, 400f, 1800f, 800f, true));
+        Assert.Equal(3, settle.MeasuredFrames);
+        Assert.False(settle.ShouldMeasure(6));
+    }
+
+    [Fact]
+    public void A_settled_layout_is_rechecked_and_reports_only_a_missed_change()
+    {
+        var settle = new CollectionInspectionLayoutSettle();
+        settle.Observe(1, 1800f, 800f, 650f, 400f, 1800f, 800f, true);
+        Assert.True(settle.Observe(2, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        var recheck = 2 + CollectionInspectionLayoutSettle.RecheckFrames;
+        Assert.False(settle.ShouldMeasure(recheck - 1));
+        Assert.True(settle.ShouldMeasure(recheck));
+        // Nothing changed: one frame re-settles silently.
+        Assert.False(settle.Observe(recheck, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
+        Assert.False(settle.ShouldMeasure(recheck + 1));
+        // A change no dirty source reported is caught by the next recheck and reported.
+        recheck += CollectionInspectionLayoutSettle.RecheckFrames;
+        Assert.True(settle.ShouldMeasure(recheck));
+        Assert.False(settle.Observe(recheck, 1800f, 800f, 700f, 400f, 1800f, 800f, true));
+        Assert.True(settle.ShouldMeasure(recheck + 1));
+        Assert.True(settle.Observe(recheck + 1, 1800f, 800f, 700f, 400f, 1800f, 800f, true));
+        Assert.Equal(2, settle.MeasuredFrames);
+    }
+
+    [Fact]
     public void Primary_click_opens_only_when_released_on_the_same_card_without_dragging()
     {
         var click = new CollectionInspectionClick();

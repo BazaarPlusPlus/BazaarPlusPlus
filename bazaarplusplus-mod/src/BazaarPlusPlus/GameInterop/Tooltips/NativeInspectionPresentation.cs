@@ -26,7 +26,11 @@ internal sealed class NativeInspectionPresentation : IDisposable
     private readonly List<Selectable> _controls = new();
     private readonly List<TMP_Dropdown> _dropdowns = new();
     private readonly List<TMP_Text> _captions = new();
+    private readonly List<Graphic> _graphics = new();
+    private readonly Vector3[] _corners = new Vector3[4];
+    private readonly Action<Object> _onTextChanged;
     private Vector3 _descriptionScale;
+    private bool _descriptionChanged;
     private static readonly System.Reflection.FieldInfo? DropdownList = AccessTools.Field(
         typeof(TMP_Dropdown),
         "m_Dropdown"
@@ -39,6 +43,7 @@ internal sealed class NativeInspectionPresentation : IDisposable
     public NativeInspectionPresentation(CardTooltipController controller)
     {
         _controller = controller;
+        _onTextChanged = OnTextChanged;
         _tooltipRect = new RectState(controller.TooltipRectTransform);
         _root = new GameObject(
             "BppCollectionInspection",
@@ -95,6 +100,7 @@ internal sealed class NativeInspectionPresentation : IDisposable
                 );
             PromoteVariantControls();
             controller.SetCanvasInteractable(true);
+            TMPro_EventManager.TEXT_CHANGED_EVENT.Add(_onTextChanged);
         }
         catch
         {
@@ -117,12 +123,33 @@ internal sealed class NativeInspectionPresentation : IDisposable
         return DescriptionVisualBounds().size;
     }
 
-    public void PositionDescription(float centerX, float centerY, float scale)
+    // Returns the description bounds found before the move; once they are centred on the
+    // target, the previous frame already left the description in place.
+    public Rect PositionDescription(float centerX, float centerY, float scale)
     {
         var rect = _controller.TooltipRectTransform;
         rect.localScale = _descriptionScale * scale;
         var bounds = DescriptionVisualBounds();
         rect.position += new Vector3(centerX - bounds.center.x, centerY - bounds.center.y, 0f);
+        return bounds;
+    }
+
+    // True once after a text inside the description changed its mesh.
+    public bool ConsumeDescriptionChanged()
+    {
+        var changed = _descriptionChanged;
+        _descriptionChanged = false;
+        return changed;
+    }
+
+    // TEXT_CHANGED_EVENT is global, so only texts inside the description count.
+    private void OnTextChanged(Object changed)
+    {
+        if (_released || _descriptionChanged || changed is not TMP_Text text || text == null)
+            return;
+        var content = _controller.CanvasContentRectTransform;
+        if (content != null && text.transform.IsChildOf(content))
+            _descriptionChanged = true;
     }
 
     // Only the variant controls and their open lists protect clicks from dismissal.
@@ -154,6 +181,7 @@ internal sealed class NativeInspectionPresentation : IDisposable
         if (_released)
             return;
         _released = true;
+        TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(_onTextChanged);
         // Restore descendants before parents; captured parents remain alive throughout.
         foreach (var lease in _canvases.AsEnumerable().Reverse())
             lease.Restore();
@@ -238,11 +266,8 @@ internal sealed class NativeInspectionPresentation : IDisposable
     {
         var found = false;
         var bounds = default(Rect);
-        foreach (
-            var graphic in _controller.CanvasContentRectTransform.GetComponentsInChildren<Graphic>(
-                false
-            )
-        )
+        _controller.CanvasContentRectTransform.GetComponentsInChildren(false, _graphics);
+        foreach (var graphic in _graphics)
         {
             if (!IsVisible(graphic))
                 continue;
@@ -261,6 +286,7 @@ internal sealed class NativeInspectionPresentation : IDisposable
                 : next;
             found = true;
         }
+        _graphics.Clear();
         return found ? bounds : ScreenBounds(_controller.CanvasContentRectTransform);
     }
 
@@ -290,16 +316,22 @@ internal sealed class NativeInspectionPresentation : IDisposable
         rect.offsetMin = rect.offsetMax = Vector2.zero;
     }
 
-    private static Rect ScreenBounds(RectTransform rect)
+    private Rect ScreenBounds(RectTransform rect)
     {
-        var corners = new Vector3[4];
-        rect.GetWorldCorners(corners);
-        return Rect.MinMaxRect(
-            corners.Min(p => p.x),
-            corners.Min(p => p.y),
-            corners.Max(p => p.x),
-            corners.Max(p => p.y)
-        );
+        rect.GetWorldCorners(_corners);
+        float x0 = _corners[0].x,
+            x1 = x0,
+            y0 = _corners[0].y,
+            y1 = y0;
+        for (var i = 1; i < _corners.Length; i++)
+        {
+            var p = _corners[i];
+            x0 = Mathf.Min(x0, p.x);
+            x1 = Mathf.Max(x1, p.x);
+            y0 = Mathf.Min(y0, p.y);
+            y1 = Mathf.Max(y1, p.y);
+        }
+        return Rect.MinMaxRect(x0, y0, x1, y1);
     }
 
     private sealed class CanvasLease

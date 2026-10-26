@@ -16,6 +16,7 @@
     <Compile Include="../AsyncLoadCache.Tests/*.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionState.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayout.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayoutSettle.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionClick.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/Tooltips/NativeInspectionSizing.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/Tooltips/InspectionBackgroundPress.cs" />
