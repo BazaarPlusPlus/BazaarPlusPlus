@@ -77,7 +77,11 @@ public sealed class ManagedPayloadStager
     /// <summary>
     /// Whether <paramref name="version"/> is staged complete and verified. A version this
     /// instance verified or staged is not read again: only this process and the next start's
-    /// Updater write <c>Updates/</c>, and the Updater verifies it again before any swap.
+    /// Updater write <c>Updates/</c>. The trade-off: if <c>Updates/&lt;version&gt;/</c> is deleted
+    /// or corrupted later in the session, this keeps answering true, so the decision stays
+    /// Staged, nothing stages it again this session, and the label keeps saying restart to
+    /// update. That restart's Updater verifies again, finds nothing valid to swap, and the next
+    /// session stages it, so the update lands one start later.
     /// </summary>
     public bool IsStaged(string version)
     {

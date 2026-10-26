@@ -65,14 +65,6 @@ internal sealed class AndroidVersionCheck : IDisposable
         _manifest =
             manifestOverride
             ?? ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.AndroidPlatformKey);
-        // One client for the process: each visit reuses its pooled connection while it is still
-        // open, and the manifest client keeps the last answer for a conditional request.
-        _httpClient = CreateClient("VersionCheck", RequestTimeout);
-        _client = new ReleaseManifestClient(
-            _httpClient,
-            _manifest,
-            ReleaseManifestEndpoints.AndroidPlatformKey
-        );
         _selfUpdate = new MainMenuSelfUpdate(
             installRoot,
             dataRoot,
@@ -80,6 +72,15 @@ internal sealed class AndroidVersionCheck : IDisposable
             SelfUpdateHost.Android,
             RunLogSchema.LocalDatabaseSchemaVersion,
             () => CreateClient("SelfUpdate", DownloadTimeout)
+        );
+        // One client for the process, created last so a throwing constructor leaks none: each
+        // visit reuses its pooled connection while it is still open, and the manifest client
+        // keeps the last tagged answer for a conditional request.
+        _httpClient = CreateClient("VersionCheck", RequestTimeout);
+        _client = new ReleaseManifestClient(
+            _httpClient,
+            _manifest,
+            ReleaseManifestEndpoints.AndroidPlatformKey
         );
     }
 

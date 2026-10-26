@@ -349,12 +349,27 @@ static async Task TestMissingAndMalformedManifestsAreClosedFailures()
 static async Task TestTimeoutAndCallerCancellationRemainDistinct()
 {
     var timedOut = await Fetch(_ => throw new TaskCanceledException("timeout"));
+    // The request waits on the token it was sent with, so only the caller's token reaching
+    // SendAsync can end it.
     using var cancellation = new CancellationTokenSource();
-    cancellation.Cancel();
-    var cancelled = await Fetch(
-        _ => throw new OperationCanceledException(cancellation.Token),
-        cancellation.Token
+    var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    using var waiting = new HttpClient(
+        new Handler(
+            async (_, cancellationToken) =>
+            {
+                sent.SetResult();
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                throw new InvalidOperationException("Unreachable.");
+            }
+        )
     );
+    var pending = new ReleaseManifestClient(
+        waiting,
+        new Uri("https://example.test/latest.json")
+    ).FetchAsync(cancellation.Token);
+    await sent.Task;
+    cancellation.Cancel();
+    var cancelled = await pending;
 
     Equal(
         ReleaseManifestFailureKind.RequestTimedOut,
@@ -448,9 +463,12 @@ static void True(bool condition, string message)
 
 internal sealed class Handler : HttpMessageHandler
 {
-    private readonly Func<HttpRequestMessage, HttpResponseMessage> _send;
+    private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _send;
 
     internal Handler(Func<HttpRequestMessage, HttpResponseMessage> send)
+        : this((request, _) => Task.FromResult(send(request))) { }
+
+    internal Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send)
     {
         _send = send;
     }
@@ -458,7 +476,7 @@ internal sealed class Handler : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken
-    ) => Task.FromResult(_send(request));
+    ) => _send(request, cancellationToken);
 }
 
 internal sealed class TrackingDisposable : IDisposable
