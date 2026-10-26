@@ -18,7 +18,7 @@ internal static class NativeCardPreviewSlotFitter
         if (preview == null || slot == null || corners == null || corners.Length < 4)
             return NativeCardPreviewSlotFitResult.Unavailable;
 
-        var frame = FindDescendant(preview, "FrameContainer") ?? preview;
+        var frame = FindFrameContainer(preview) ?? preview;
         frame.GetWorldCorners(corners);
         var minX = float.PositiveInfinity;
         var minY = float.PositiveInfinity;
@@ -110,12 +110,29 @@ internal static class NativeCardPreviewSlotFitter
     private static RectTransform? FindNativeArtwork(RectTransform preview) =>
         NativeCardPreviewReflection.TryGetArtworkRect(preview, out var artwork) ? artwork : null;
 
+    private const string FrameContainerName = "FrameContainer";
+
+    // The native serialized field is the frame node; the name walk remains for a preview whose
+    // field is missing or points elsewhere.
+    private static RectTransform? FindFrameContainer(RectTransform preview) =>
+        NativeCardPreviewReflection.TryGetFrameContainer(
+            preview,
+            FrameContainerName,
+            out var frameContainer
+        )
+            ? frameContainer
+            : FindDescendant(preview, FrameContainerName);
+
+    // Depth-first pre-order, the order GetComponentsInChildren returned, without its array.
     private static RectTransform? FindDescendant(Transform root, string name)
     {
-        foreach (var child in root.GetComponentsInChildren<Transform>(true))
+        if (root is RectTransform rect && root.name == name)
+            return rect;
+        for (var index = 0; index < root.childCount; index++)
         {
-            if (child is RectTransform rect && rect.name == name)
-                return rect;
+            var match = FindDescendant(root.GetChild(index), name);
+            if (match != null)
+                return match;
         }
         return null;
     }

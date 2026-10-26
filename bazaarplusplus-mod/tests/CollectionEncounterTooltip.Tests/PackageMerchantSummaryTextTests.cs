@@ -1,5 +1,6 @@
 using System.Text;
 using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.GameInterop.StaticCards;
 using Xunit;
 
 namespace EncounterTooltip.Tests;
@@ -109,5 +110,85 @@ public sealed class PackageMerchantSummaryTextTests
     )
     {
         Assert.Empty(PackageMerchantSummaryText.Format(title, description));
+    }
+
+    // The merchant summary cache: key scope is the static-data manager reference plus the game
+    // language, and only static-data outcomes (PackageMerchantSummary.IsCacheable) are kept.
+    [Fact]
+    public void Summary_cache_reuses_a_resolution_only_within_one_manager_and_language()
+    {
+        var cache = new StaticDataScopedCache<Guid, string>();
+        var package = Guid.NewGuid();
+        var managerA = new object();
+        var managerB = new object();
+        var resolver = new CountingResolver();
+
+        Assert.Equal("1", Resolve(cache, managerA, "en", package, resolver));
+        Assert.Equal("1", Resolve(cache, managerA, "en", package, resolver));
+
+        Assert.Equal("2", Resolve(cache, managerB, "en", package, resolver));
+        Assert.Equal("3", Resolve(cache, managerA, "en", package, resolver));
+
+        Assert.Equal("4", Resolve(cache, managerA, "zh-CN", package, resolver));
+        Assert.Equal("5", Resolve(cache, managerA, "en", package, resolver));
+        Assert.Equal("5", Resolve(cache, managerA, "en", package, resolver));
+    }
+
+    [Theory]
+    [InlineData(nameof(PackageMerchantSummaryFailureReason.None), true)]
+    [InlineData(nameof(PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable), true)]
+    [InlineData(nameof(PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable), true)]
+    [InlineData(nameof(PackageMerchantSummaryFailureReason.NativeTooltipUnavailable), false)]
+    [InlineData(nameof(PackageMerchantSummaryFailureReason.EmptyText), false)]
+    public void Summary_cache_keeps_static_data_outcomes_and_recomputes_transient_failures(
+        string outcomeName,
+        bool cached
+    )
+    {
+        var outcome = Enum.Parse<PackageMerchantSummaryFailureReason>(outcomeName);
+        var cache = new StaticDataScopedCache<Guid, PackageMerchantSummaryFailureReason>();
+        var package = Guid.NewGuid();
+        var manager = new object();
+        var calls = new CountingResolver();
+
+        for (var render = 0; render < 2; render++)
+            cache.GetOrAdd(
+                manager,
+                "en",
+                package,
+                (calls, outcome),
+                static state =>
+                {
+                    state.calls.Next();
+                    return state.outcome;
+                },
+                static resolved => PackageMerchantSummary.IsCacheable(resolved)
+            );
+
+        Assert.Equal(cached ? 1 : 2, calls.Count);
+    }
+
+    private static string Resolve(
+        StaticDataScopedCache<Guid, string> cache,
+        object manager,
+        string language,
+        Guid package,
+        CountingResolver resolver
+    ) =>
+        cache.GetOrAdd(
+            manager,
+            language,
+            package,
+            resolver,
+            static state => state.Next(),
+            static _ => true
+        );
+
+    private sealed class CountingResolver
+    {
+        internal int Count { get; private set; }
+
+        internal string Next() =>
+            (++Count).ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 }

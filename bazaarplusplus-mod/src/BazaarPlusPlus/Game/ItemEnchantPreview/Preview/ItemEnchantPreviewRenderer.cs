@@ -131,35 +131,40 @@ public static class ItemEnchantPreviewRenderer
         return string.IsNullOrWhiteSpace(rendered) ? RenderTooltipBuilder(builder) : rendered;
     }
 
+    private static readonly ConstructorInfo? TooltipContextConstructor =
+        typeof(TooltipContext).GetConstructor(
+            new[] { typeof(Card), typeof(ITCard), typeof(ValueContext) }
+        );
+    private static readonly FieldInfo? TooltipContextInstanceField = TooltipContextField(
+        nameof(TooltipContext.Instance)
+    );
+    private static readonly FieldInfo? TooltipContextTemplateField = TooltipContextField(
+        nameof(TooltipContext.Template)
+    );
+    private static readonly FieldInfo? TooltipContextValueContextField = TooltipContextField(
+        nameof(TooltipContext.ValueContext)
+    );
+
     private static TooltipContext CreateTooltipContext(
         Card instance,
         ITCard template,
         ValueContext valueContext
     )
     {
-        var constructor = typeof(TooltipContext).GetConstructor(
-            new[] { typeof(Card), typeof(ITCard), typeof(ValueContext) }
-        );
-        if (constructor != null)
+        if (TooltipContextConstructor != null)
             return (TooltipContext)
-                constructor.Invoke(new object[] { instance, template, valueContext });
+                TooltipContextConstructor.Invoke(new object[] { instance, template, valueContext });
 
         var context = default(TooltipContext);
         object boxed = context;
-        SetTooltipContextField(boxed, nameof(TooltipContext.Instance), instance);
-        SetTooltipContextField(boxed, nameof(TooltipContext.Template), template);
-        SetTooltipContextField(boxed, nameof(TooltipContext.ValueContext), valueContext);
+        TooltipContextInstanceField?.SetValue(boxed, instance);
+        TooltipContextTemplateField?.SetValue(boxed, template);
+        TooltipContextValueContextField?.SetValue(boxed, valueContext);
         return (TooltipContext)boxed;
     }
 
-    private static void SetTooltipContextField(object context, string fieldName, object value)
-    {
-        var field = typeof(TooltipContext).GetField(
-            fieldName,
-            BindingFlags.Instance | BindingFlags.Public
-        );
-        field?.SetValue(context, value);
-    }
+    private static FieldInfo? TooltipContextField(string fieldName) =>
+        typeof(TooltipContext).GetField(fieldName, BindingFlags.Instance | BindingFlags.Public);
 
     private static string GetLocalizedText(TLocalizableText content, EEnchantmentType enchantment)
     {

@@ -61,16 +61,42 @@ internal static class PackageMerchantSummaryTooltipPatch
         }
     }
 
+    // Template id -> its package template, or null for a non-package card, per static-data
+    // manager. Tag identity does not vary with language, so the scope carries none.
+    private static readonly StaticDataScopedCache<Guid, ITCard?> PackageTemplates = new();
+
     private static ITCard? ResolvePackageTemplate(CardTooltipData tooltipData)
+    {
+        var templateId = tooltipData.CardInstance.TemplateId;
+        var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
+        if (staticData == null)
+            return ResolvePackageTemplateUncached(tooltipData, null, templateId);
+
+        return PackageTemplates.GetOrAdd(
+            staticData,
+            string.Empty,
+            templateId,
+            (tooltipData, staticData, templateId),
+            static inputs =>
+                ResolvePackageTemplateUncached(
+                    inputs.tooltipData,
+                    inputs.staticData,
+                    inputs.templateId
+                ),
+            static _ => true
+        );
+    }
+
+    private static ITCard? ResolvePackageTemplateUncached(
+        CardTooltipData tooltipData,
+        object? staticData,
+        Guid templateId
+    )
     {
         if (PackageIdentity.IsPackage(tooltipData.CardTemplate?.HiddenTags))
             return tooltipData.CardTemplate;
 
-        var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
-        var canonicalTemplate = BppStaticDataAccess.GetCardTemplate(
-            staticData,
-            tooltipData.CardInstance.TemplateId
-        );
+        var canonicalTemplate = BppStaticDataAccess.GetCardTemplate(staticData, templateId);
         return PackageIdentity.IsPackage(canonicalTemplate?.HiddenTags) ? canonicalTemplate : null;
     }
 

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using BazaarGameShared.Domain.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
+using BazaarPlusPlus.Localization;
 using TheBazaar;
 using TheBazaar.Tooltips;
 
@@ -27,6 +28,13 @@ internal enum PackageMerchantSummaryFailureReason
 /// </summary>
 internal static class PackageMerchantSummary
 {
+    // A Package item's passive block re-renders on every combat attribute event, so the summary
+    // is cached per static data, package template and game language. Run state is not in the
+    // key, although the native renderer resolves tokens against Data.Run and the first render
+    // may happen outside a run. That is correct only while the first sentence the summary keeps
+    // resolves no run-dependent token (docs/architecture/previews.md, Gotchas).
+    private static readonly StaticDataScopedCache<Guid, Resolution> Resolutions = new();
+
     internal static bool TryResolve(
         ITCard? packageTemplate,
         out string summary,
@@ -34,32 +42,47 @@ internal static class PackageMerchantSummary
         out PackageMerchantSummaryFailureReason failureReason
     )
     {
-        summary = string.Empty;
-        merchantTemplateId = Guid.Empty;
+        var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
+        var resolution =
+            staticData == null || packageTemplate == null
+                ? ResolveUncached(packageTemplate, staticData)
+                : Resolutions.GetOrAdd(
+                    staticData,
+                    L.CurrentLanguageCode,
+                    packageTemplate.Id,
+                    (packageTemplate, staticData),
+                    static inputs => ResolveUncached(inputs.packageTemplate, inputs.staticData),
+                    static resolved => IsCacheable(resolved.FailureReason)
+                );
+
+        summary = resolution.Summary;
+        merchantTemplateId = resolution.MerchantTemplateId;
+        failureReason = resolution.FailureReason;
+        return failureReason == PackageMerchantSummaryFailureReason.None;
+    }
+
+    private static Resolution ResolveUncached(ITCard? packageTemplate, object? staticData)
+    {
         if (
             !PackageMerchantIdentity.TryResolveMerchantTemplateId(
                 packageTemplate,
-                out merchantTemplateId
+                out var merchantTemplateId
             )
         )
-        {
-            failureReason = PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable;
-            return false;
-        }
+            return new(PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable);
 
-        var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
         if (staticData == null)
-        {
-            failureReason = PackageMerchantSummaryFailureReason.StaticDataUnavailable;
-            return false;
-        }
+            return new(
+                PackageMerchantSummaryFailureReason.StaticDataUnavailable,
+                merchantTemplateId
+            );
 
         var merchantTemplate = BppStaticDataAccess.GetCardTemplate(staticData, merchantTemplateId);
         if (merchantTemplate == null)
-        {
-            failureReason = PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable;
-            return false;
-        }
+            return new(
+                PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable,
+                merchantTemplateId
+            );
 
         var merchantCard = DTOUtils.CreateCard(
             merchantTemplateId.ToString(),
@@ -67,22 +90,34 @@ internal static class PackageMerchantSummary
         );
         var merchantTooltip = CardTooltipData.CreateCardTooltipData(merchantCard);
         if (merchantTooltip == null)
-        {
-            failureReason = PackageMerchantSummaryFailureReason.NativeTooltipUnavailable;
-            return false;
-        }
+            return new(
+                PackageMerchantSummaryFailureReason.NativeTooltipUnavailable,
+                merchantTemplateId
+            );
 
         var (description, _) = merchantTooltip.GetCardDescription();
-        summary = PackageMerchantSummaryText.Format(merchantTooltip.GetTitle(), description);
+        var summary = PackageMerchantSummaryText.Format(merchantTooltip.GetTitle(), description);
         if (string.IsNullOrWhiteSpace(summary))
-        {
-            failureReason = PackageMerchantSummaryFailureReason.EmptyText;
-            return false;
-        }
+            return new(PackageMerchantSummaryFailureReason.EmptyText, merchantTemplateId);
 
-        failureReason = PackageMerchantSummaryFailureReason.None;
-        return true;
+        return new(PackageMerchantSummaryFailureReason.None, merchantTemplateId, summary);
     }
+
+    /// <summary>
+    /// Whether an outcome is a static-data fact worth caching. A native tooltip that failed to
+    /// build or rendered empty may succeed on a later render, so those outcomes are recomputed.
+    /// </summary>
+    internal static bool IsCacheable(PackageMerchantSummaryFailureReason failureReason) =>
+        failureReason
+            is PackageMerchantSummaryFailureReason.None
+                or PackageMerchantSummaryFailureReason.MerchantReferenceUnavailable
+                or PackageMerchantSummaryFailureReason.MerchantTemplateUnavailable;
+
+    private readonly record struct Resolution(
+        PackageMerchantSummaryFailureReason FailureReason,
+        Guid MerchantTemplateId = default,
+        string Summary = ""
+    );
 }
 
 internal static class PackageMerchantSummaryText
