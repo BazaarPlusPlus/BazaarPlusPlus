@@ -194,7 +194,9 @@ fn a_new_current_database_is_the_mods_schema_in_wal_mode_with_history_only_runs(
             assert!(!fixture.v6().join(absent).exists(), "{absent}");
         }
 
-        // Run ids, collision ids included, and hero names are copied verbatim.
+        // Run ids, collision ids included, are copied verbatim. V5's legacy
+        // `hero8` is stored as `TheDragons`, as the mod writes it, so the
+        // History hero filter finds the Run.
         assert_eq!(
             strings(&conn, "select run_id from runs order by run_id"),
             [
@@ -210,7 +212,14 @@ fn a_new_current_database_is_the_mods_schema_in_wal_mode_with_history_only_runs(
         );
         assert_eq!(
             strings(&conn, "select hero from runs where run_id = 'run-golf'"),
-            ["hero8"]
+            ["TheDragons"]
+        );
+        assert_eq!(
+            strings(
+                &conn,
+                "select player_hero from battles where run_id = 'run-golf'"
+            ),
+            ["TheDragons"]
         );
 
         // An absolute path inside the V5 root becomes relative; one outside

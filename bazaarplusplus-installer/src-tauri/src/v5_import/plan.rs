@@ -17,6 +17,7 @@ use super::source::{V5History, V5Row, V5Shape};
 use super::ImportError;
 use crate::history::cleanup::{normalize_relative_path, replay_payload_path};
 use crate::history::files::resolve_cleanup_file_path;
+use crate::history::hero::canonical_hero_id;
 use crate::services::paths::{
     combat_replay_videos_dir_in, combat_replays_dir_in, screenshots_dir_in,
 };
@@ -266,7 +267,6 @@ const SNAPSHOT_COLUMNS: &[&str] = &[
 /// V6 `runs` columns copied unchanged.
 const RUN_COPIED: &[&str] = &[
     "run_id",
-    "hero",
     "game_mode",
     "player_rank",
     "player_rating",
@@ -306,7 +306,6 @@ const BATTLE_COPIED: &[&str] = &[
     "combat_kind",
     "player_name",
     "player_account_id",
-    "player_hero",
     "player_rank",
     "player_rating",
     "player_level",
@@ -318,7 +317,6 @@ const BATTLE_COPIED: &[&str] = &[
     "player_skill_count",
     "opponent_name",
     "opponent_account_id",
-    "opponent_hero",
     "opponent_rank",
     "opponent_rating",
     "opponent_level",
@@ -360,7 +358,6 @@ const VIDEO_COPIED: &[&str] = &[
 const SCREENSHOT_COPIED: &[&str] = &[
     "screenshot_id",
     "run_id",
-    "hero_name",
     "capture_source",
     "is_primary",
     "day",
@@ -460,6 +457,15 @@ fn nullable(value: Option<i64>) -> Value {
     value.map_or(Value::Null, Value::Integer)
 }
 
+/// The hero id in `column`, canonical as the mod writes it: V5 kept the game's
+/// legacy `Hero8` for The Dragons, which the History hero filter does not match.
+fn hero(row: &V5Row, column: &str) -> Value {
+    match row.value(column) {
+        Value::Text(text) => Value::Text(canonical_hero_id(&text)),
+        other => other,
+    }
+}
+
 /// Returns the V6 row and whether the Run was unfinished and is closed here.
 fn map_run(run: &V5Row) -> Result<(V6Row, bool), ImportError> {
     let started = required_instant(run, "runs", "run_id", "started_at_utc")?;
@@ -470,6 +476,7 @@ fn map_run(run: &V5Row) -> Result<(V6Row, bool), ImportError> {
     let finished =
         run.integer("completed") == Some(1) && matches!(status.as_str(), "completed" | "abandoned");
     let mut row = copy(run, RUN_COPIED);
+    row.push(("hero", hero(run, "hero")));
     row.push(("started_at_ms", Value::Integer(started)));
     row.push(("last_seen_at_ms", Value::Integer(last_seen)));
     if finished {
@@ -501,6 +508,8 @@ fn map_battle(
     battle: &V5Row,
 ) -> Result<(V6Row, bool), ImportError> {
     let mut row = copy(battle, BATTLE_COPIED);
+    row.push(("player_hero", hero(battle, "player_hero")));
+    row.push(("opponent_hero", hero(battle, "opponent_hero")));
     row.push((
         "recorded_at_ms",
         Value::Integer(required_instant(
@@ -746,6 +755,7 @@ fn map_screenshot(
     );
 
     let mut row = copy(screenshot, SCREENSHOT_COPIED);
+    row.push(("hero_name", hero(screenshot, "hero_name")));
     row.push(("image_relative_path", Value::Text(relative)));
     row.push(("captured_at_ms", Value::Integer(captured)));
     row.push(("captured_utc_offset_minutes", Value::Integer(offset)));
