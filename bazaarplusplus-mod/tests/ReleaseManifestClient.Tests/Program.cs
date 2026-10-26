@@ -11,6 +11,7 @@ await TestAndroidApkIsReadOnlyWhenComplete();
 TestAndroidGameUpdateComparesVersionCodes();
 await TestIncompleteManagedPayloadIsAbsent();
 await TestSuccessfulManifestIsTrimmed();
+await TestUnchangedManifestIsAnsweredFromTheLastRead();
 await TestHttpStatusIsClosedFailure();
 await TestMissingAndMalformedManifestsAreClosedFailures();
 await TestTimeoutAndCallerCancellationRemainDistinct();
@@ -251,6 +252,70 @@ static async Task TestSuccessfulManifestIsTrimmed()
     Equal("3.4.5", result.Version, "The adapter should normalize surrounding whitespace.");
 }
 
+static async Task TestUnchangedManifestIsAnsweredFromTheLastRead()
+{
+    var body = TestInputs.Scratch(
+        Path.Combine(AppContext.BaseDirectory, "fixtures", "latest", "android-aarch64.json")
+    );
+    const string newer = """{"version":"9.9.9"}""";
+    var sentValidators = new List<string?>();
+    var respond = new Queue<Func<HttpResponseMessage>>(
+        new Func<HttpResponseMessage>[]
+        {
+            () => Tagged(Response(HttpStatusCode.OK, body), "\"v1\""),
+            () => new HttpResponseMessage(HttpStatusCode.NotModified),
+            () => Tagged(Response(HttpStatusCode.OK, newer), "\"v2\""),
+            () => Response(HttpStatusCode.OK, newer),
+            () => new HttpResponseMessage(HttpStatusCode.NotModified),
+        }
+    );
+    using var http = new HttpClient(
+        new Handler(request =>
+        {
+            sentValidators.Add(request.Headers.IfNoneMatch.SingleOrDefault()?.Tag);
+            return respond.Dequeue()();
+        })
+    );
+    var client = new ReleaseManifestClient(
+        http,
+        new Uri("https://example.test/latest/android-aarch64.json"),
+        ReleaseManifestEndpoints.AndroidPlatformKey
+    );
+
+    var first = await client.FetchAsync(default);
+    var unchanged = await client.FetchAsync(default);
+    var changed = await client.FetchAsync(default);
+    var untagged = await client.FetchAsync(default);
+    var unaskedNotModified = await client.FetchAsync(default);
+
+    Equal(
+        "[none] \"v1\" \"v1\" \"v2\" [none]",
+        string.Join(" ", sentValidators.Select(tag => tag ?? "[none]")),
+        "Every check asks the server, conditionally on the last tagged answer only."
+    );
+    True(unchanged.Succeeded, "A 304 for the remembered answer is a successful check.");
+    Equal(first.Version, unchanged.Version, "A 304 answers with the remembered version.");
+    True(
+        unchanged.ManagedPayload == first.ManagedPayload
+            && unchanged.AndroidApk == first.AndroidApk,
+        "A 304 answers with the remembered Managed Payload and APK."
+    );
+    Equal("9.9.9", changed.Version, "A changed manifest replaces the remembered answer.");
+    Equal("9.9.9", untagged.Version, "An untagged answer is still read.");
+    Equal(
+        ReleaseManifestFailureKind.HttpFailureStatus,
+        unaskedNotModified.FailureKind,
+        "A 304 to an unconditional request has nothing to answer with."
+    );
+    Equal(304, unaskedNotModified.HttpStatus, "The stray 304 stays diagnostic.");
+}
+
+static HttpResponseMessage Tagged(HttpResponseMessage response, string etag)
+{
+    response.Headers.ETag = new System.Net.Http.Headers.EntityTagHeaderValue(etag);
+    return response;
+}
+
 static async Task TestHttpStatusIsClosedFailure()
 {
     var result = await Fetch(_ => Response(HttpStatusCode.ServiceUnavailable, "down"));
@@ -284,12 +349,27 @@ static async Task TestMissingAndMalformedManifestsAreClosedFailures()
 static async Task TestTimeoutAndCallerCancellationRemainDistinct()
 {
     var timedOut = await Fetch(_ => throw new TaskCanceledException("timeout"));
+    // The request waits on the token it was sent with, so only the caller's token reaching
+    // SendAsync can end it.
     using var cancellation = new CancellationTokenSource();
-    cancellation.Cancel();
-    var cancelled = await Fetch(
-        _ => throw new OperationCanceledException(cancellation.Token),
-        cancellation.Token
+    var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    using var waiting = new HttpClient(
+        new Handler(
+            async (_, cancellationToken) =>
+            {
+                sent.SetResult();
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                throw new InvalidOperationException("Unreachable.");
+            }
+        )
     );
+    var pending = new ReleaseManifestClient(
+        waiting,
+        new Uri("https://example.test/latest.json")
+    ).FetchAsync(cancellation.Token);
+    await sent.Task;
+    cancellation.Cancel();
+    var cancelled = await pending;
 
     Equal(
         ReleaseManifestFailureKind.RequestTimedOut,
@@ -383,9 +463,12 @@ static void True(bool condition, string message)
 
 internal sealed class Handler : HttpMessageHandler
 {
-    private readonly Func<HttpRequestMessage, HttpResponseMessage> _send;
+    private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _send;
 
     internal Handler(Func<HttpRequestMessage, HttpResponseMessage> send)
+        : this((request, _) => Task.FromResult(send(request))) { }
+
+    internal Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send)
     {
         _send = send;
     }
@@ -393,7 +476,7 @@ internal sealed class Handler : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken
-    ) => Task.FromResult(_send(request));
+    ) => _send(request, cancellationToken);
 }
 
 internal sealed class TrackingDisposable : IDisposable

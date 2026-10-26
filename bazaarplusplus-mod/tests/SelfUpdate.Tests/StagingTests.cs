@@ -83,6 +83,25 @@ public sealed class StagingTests : IDisposable
     }
 
     [Fact]
+    public async Task A_verified_stage_is_not_read_again_in_the_same_process()
+    {
+        var zip = Zip(Version, TestSigner.Default, ("A.dll", "a-new"));
+        var stager = Stager();
+        Assert.True((await stager.StageAsync(Http(zip), Release(zip), default)).Succeeded);
+        var reader = Stager();
+        Assert.True(reader.IsStaged(Version));
+
+        // Only an outside process removes a staged version while the game runs; the label keeps
+        // "restart to update" until the next start, whose Updater verifies Updates/ again.
+        Directory.Delete(Path.Combine(Updates, Version), recursive: true);
+
+        Assert.True(stager.IsStaged(Version));
+        Assert.True(reader.IsStaged(Version));
+        Assert.False(Stager().IsStaged(Version));
+        Assert.False(stager.IsStaged("6.0.2"));
+    }
+
+    [Fact]
     public async Task A_zip_that_is_not_the_published_one_is_refused()
     {
         var zip = Zip(Version, TestSigner.Default, ("A.dll", "a-new"));

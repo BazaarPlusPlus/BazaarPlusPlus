@@ -55,6 +55,7 @@ public sealed class ManagedPayloadStager
     private readonly string _platformKey;
     private readonly ManagedPayloadHost _host;
     private readonly MinisignPublicKey _publicKey;
+    private string? _verifiedVersion;
 
     public ManagedPayloadStager(string updatesDirectory, string platformKey, SelfUpdateHost host)
         : this(updatesDirectory, platformKey, host, ReleaseSigningKey.PublicKey) { }
@@ -73,17 +74,33 @@ public sealed class ManagedPayloadStager
         _publicKey = publicKey ?? throw new ArgumentNullException(nameof(publicKey));
     }
 
-    /// <summary>Whether <paramref name="version"/> is staged complete and verified.</summary>
-    public bool IsStaged(string version) =>
-        StagedManagedPayload.TryVerify(
-            Path.Combine(_updatesDirectory, version),
-            _host,
-            _platformKey,
-            _publicKey,
-            out var manifest,
-            out _
-        )
-        && manifest!.Version == version;
+    /// <summary>
+    /// Whether <paramref name="version"/> is staged complete and verified. A version this
+    /// instance verified or staged is not read again: only this process and the next start's
+    /// Updater write <c>Updates/</c>. The trade-off: if <c>Updates/&lt;version&gt;/</c> is deleted
+    /// or corrupted later in the session, this keeps answering true, so the decision stays
+    /// Staged, nothing stages it again this session, and the label keeps saying restart to
+    /// update. That restart's Updater verifies again, finds nothing valid to swap, and the next
+    /// session stages it, so the update lands one start later.
+    /// </summary>
+    public bool IsStaged(string version)
+    {
+        if (Volatile.Read(ref _verifiedVersion) == version)
+            return true;
+        var verified =
+            StagedManagedPayload.TryVerify(
+                Path.Combine(_updatesDirectory, version),
+                _host,
+                _platformKey,
+                _publicKey,
+                out var manifest,
+                out _
+            )
+            && manifest!.Version == version;
+        if (verified)
+            Volatile.Write(ref _verifiedVersion, version);
+        return verified;
+    }
 
     public async Task<ManagedPayloadStageResult> StageAsync(
         HttpClient httpClient,
@@ -157,6 +174,7 @@ public sealed class ManagedPayloadStager
             if (Directory.Exists(target))
                 Directory.Delete(target, recursive: true);
             Directory.Move(download, target);
+            Volatile.Write(ref _verifiedVersion, release.Version);
             return ManagedPayloadStageResult.Staged;
         }
         finally

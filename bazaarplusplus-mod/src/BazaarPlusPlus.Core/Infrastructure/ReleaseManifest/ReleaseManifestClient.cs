@@ -1,4 +1,6 @@
 #nullable enable
+using System.Net;
+using System.Net.Http.Headers;
 using BazaarPlusPlus.Infrastructure.SelfUpdate;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -55,11 +57,18 @@ public readonly record struct ReleaseManifestFetchResult(
     ) => new(null, null, kind, httpStatus, exception);
 }
 
+/// <summary>
+/// Reads one Release Manifest endpoint. A client kept across checks remembers the last
+/// successful answer with its <c>ETag</c> and asks with <c>If-None-Match</c>, so an unchanged
+/// manifest comes back as <c>304</c> and the remembered answer is returned; every check still
+/// asks the server.
+/// </summary>
 public sealed class ReleaseManifestClient
 {
     private readonly HttpClient _httpClient;
     private readonly Uri _endpoint;
     private readonly string? _platformKey;
+    private Remembered? _remembered;
 
     /// <summary>
     /// <paramref name="platformKey"/> names the platform whose Managed Payload to read; null
@@ -76,9 +85,15 @@ public sealed class ReleaseManifestClient
     {
         try
         {
+            var remembered = Volatile.Read(ref _remembered);
+            using var request = new HttpRequestMessage(HttpMethod.Get, _endpoint);
+            if (remembered != null)
+                request.Headers.IfNoneMatch.Add(remembered.ETag);
             using var response = await _httpClient
-                .GetAsync(_endpoint, cancellationToken)
+                .SendAsync(request, cancellationToken)
                 .ConfigureAwait(false);
+            if (response.StatusCode == HttpStatusCode.NotModified && remembered != null)
+                return remembered.Result;
             if (!response.IsSuccessStatusCode)
             {
                 return ReleaseManifestFetchResult.Failure(
@@ -91,15 +106,20 @@ public sealed class ReleaseManifestClient
             cancellationToken.ThrowIfCancellationRequested();
             var document = JsonConvert.DeserializeObject<JObject>(body);
             var version = document?.Value<string>("version");
-            return string.IsNullOrWhiteSpace(version)
-                ? ReleaseManifestFetchResult.Failure(
+            if (string.IsNullOrWhiteSpace(version))
+                return ReleaseManifestFetchResult.Failure(
                     ReleaseManifestFailureKind.ManifestVersionMissing
-                )
-                : ReleaseManifestFetchResult.Success(
-                    version!.Trim(),
-                    ReadManagedPayload(document!, version!.Trim()),
-                    ReadAndroidApk(document!)
                 );
+            var result = ReleaseManifestFetchResult.Success(
+                version!.Trim(),
+                ReadManagedPayload(document!, version!.Trim()),
+                ReadAndroidApk(document!)
+            );
+            Volatile.Write(
+                ref _remembered,
+                response.Headers.ETag is { } etag ? new Remembered(etag, result) : null
+            );
+            return result;
         }
         catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
@@ -185,4 +205,7 @@ public sealed class ReleaseManifestClient
             return null;
         return new AndroidApkRelease(gameVersion, uri);
     }
+
+    // The last successful answer and the validator it came with, replaced as one.
+    private sealed record Remembered(EntityTagHeaderValue ETag, ReleaseManifestFetchResult Result);
 }
