@@ -15,12 +15,20 @@ namespace BazaarPlusPlus.Game.Tooltips;
 
 internal sealed class TooltipModifierRefreshController : MonoBehaviour
 {
+    // Upper bound on how long a reused pedestal kind can miss an in-place SelectionSet edit
+    // that keeps the same list instance and Count.
+    private const int PedestalKindRefreshFrames = 30;
+
     private TooltipPreviewMode _lastMode;
     private BppSettings? _config;
     private IEncounterStateProbe? _encounterState;
     private INativeCardPreviewHost? _nativeCardPreviewHost;
     private bool _hasResolvedInputs;
     private ResolveInputs _lastInputs;
+    private bool _hasPedestalKind;
+    private PedestalProbeKey _pedestalKey;
+    private int _pedestalKindReadFrame;
+    private ChoiceScreenPedestalKind _pedestalKind;
 
     internal void Initialize(
         BppSettings config,
@@ -103,12 +111,61 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
                 == PreviewVisibilityMode.AutoOnPedestalChoice
         )
         {
-            pedestalKind =
-                TooltipEncounterProbeReader.ReadChoice(_encounterState)?.Kind
-                ?? ChoiceScreenPedestalKind.None;
+            pedestalKind = ReadPedestalKind();
         }
 
         return new ResolveInputs(holdUpgrade, holdEnchant, enchantMode, pedestalKind);
+    }
+
+    // The encounter probe rebuilds the selection ids and the pedestal snapshot on every frame it
+    // is read. The kind can only change with the app state, the selection set, or the encounter,
+    // so reuse it while those are unchanged, rereading every PedestalKindRefreshFrames frames.
+    private ChoiceScreenPedestalKind ReadPedestalKind()
+    {
+        var runState = Data.CurrentState;
+        var selection = runState?.SelectionSet;
+        var key = new PedestalProbeKey(
+            AppState.CurrentState,
+            selection,
+            selection?.Count ?? 0,
+            runState?.CurrentEncounterId
+        );
+        var frame = Time.frameCount;
+        if (
+            _hasPedestalKind
+            && key.Equals(_pedestalKey)
+            && frame - _pedestalKindReadFrame < PedestalKindRefreshFrames
+        )
+            return _pedestalKind;
+
+        _pedestalKind =
+            TooltipEncounterProbeReader.ReadChoice(_encounterState)?.Kind
+            ?? ChoiceScreenPedestalKind.None;
+        _pedestalKey = key;
+        _pedestalKindReadFrame = frame;
+        _hasPedestalKind = true;
+        return _pedestalKind;
+    }
+
+    private readonly record struct PedestalProbeKey(
+        object? AppState,
+        object? SelectionSet,
+        int SelectionCount,
+        string? CurrentEncounterId
+    )
+    {
+        // Game states and the selection list are compared by identity, not by any Equals override.
+        public bool Equals(PedestalProbeKey other) =>
+            ReferenceEquals(AppState, other.AppState)
+            && ReferenceEquals(SelectionSet, other.SelectionSet)
+            && SelectionCount == other.SelectionCount
+            && string.Equals(
+                CurrentEncounterId,
+                other.CurrentEncounterId,
+                StringComparison.Ordinal
+            );
+
+        public override int GetHashCode() => SelectionCount;
     }
 
     private readonly record struct ResolveInputs(

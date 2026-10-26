@@ -1,5 +1,4 @@
 #nullable enable
-using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
@@ -261,12 +260,10 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
     private static bool TryGetTransitionCount(object screen, out int transitionCount)
     {
         transitionCount = 0;
-        var field = screen
-            .GetType()
-            .GetField(
-                TransitionCountFieldName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            );
+        var field = EndOfRunSummaryRevealDetector.FindCachedField(
+            screen.GetType(),
+            TransitionCountFieldName
+        );
         if (field == null)
             return false;
 

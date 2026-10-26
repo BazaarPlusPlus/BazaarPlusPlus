@@ -1,5 +1,6 @@
 #nullable enable
 using System.Globalization;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -11,10 +12,14 @@ internal sealed class UrpUpscalingAdapter : IDisposable
         "UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset";
     private UrpAssetSurface? _modifiedAsset;
     private AssetSnapshot _original;
+    private RenderPipelineAsset? _surfaceSource;
+    private UrpAssetSurface? _surface;
 
+    // Runs on every controller refresh: reuse the reflected surface while the same pipeline
+    // asset stays current, and write a property only when the game changed it back.
     internal UrpUpscalingState Apply(bool enabled, float renderScale, float fsrSharpness)
     {
-        var currentAsset = UrpAssetSurface.TryCreate(GraphicsSettings.currentRenderPipeline);
+        var currentAsset = ResolveSurface(GraphicsSettings.currentRenderPipeline);
         if (currentAsset == null)
         {
             Restore();
@@ -23,9 +28,9 @@ internal sealed class UrpUpscalingAdapter : IDisposable
 
         if (!enabled)
         {
+            // Restore never changes which asset is current, so the surface stays valid.
             Restore();
-            currentAsset = UrpAssetSurface.TryCreate(GraphicsSettings.currentRenderPipeline);
-            return currentAsset == null ? Unavailable(fsrSharpness) : Observe(currentAsset);
+            return Observe(currentAsset);
         }
 
         if (
@@ -39,10 +44,16 @@ internal sealed class UrpUpscalingAdapter : IDisposable
             _original = AssetSnapshot.Capture(currentAsset);
         }
 
-        currentAsset.RenderScale = Mathf.Clamp(renderScale, 0.1f, 1f);
-        currentAsset.Filter = UrpUpscalingFilter.Fsr;
-        currentAsset.FsrOverrideSharpness = true;
-        currentAsset.FsrSharpness = Mathf.Clamp01(fsrSharpness);
+        var targetScale = Mathf.Clamp(renderScale, 0.1f, 1f);
+        if (currentAsset.RenderScale != targetScale)
+            currentAsset.RenderScale = targetScale;
+        if (currentAsset.Filter != UrpUpscalingFilter.Fsr)
+            currentAsset.SetFsrFilter();
+        if (!currentAsset.FsrOverrideSharpness)
+            currentAsset.FsrOverrideSharpness = true;
+        var targetSharpness = Mathf.Clamp01(fsrSharpness);
+        if (currentAsset.FsrSharpness != targetSharpness)
+            currentAsset.FsrSharpness = targetSharpness;
 
         // The game's separate dynamic-resolution scaler is disabled in the current quality
         // assets. Keep its multiplier neutral so a future quality preset cannot
@@ -56,6 +67,18 @@ internal sealed class UrpUpscalingAdapter : IDisposable
         }
 
         return Observe(currentAsset);
+    }
+
+    // A quality preset switch replaces GraphicsSettings.currentRenderPipeline; until then the
+    // surface reflected for the current asset is reused.
+    private UrpAssetSurface? ResolveSurface(RenderPipelineAsset? asset)
+    {
+        if (asset != null && ReferenceEquals(asset, _surfaceSource))
+            return _surface;
+
+        _surfaceSource = asset;
+        _surface = UrpAssetSurface.TryCreate(asset);
+        return _surface;
     }
 
     public void Dispose() => Restore();
@@ -139,24 +162,34 @@ internal sealed class UrpUpscalingAdapter : IDisposable
     private sealed class UrpAssetSurface
     {
         private readonly UnityEngine.Object _asset;
-        private readonly System.Reflection.PropertyInfo _renderScale;
-        private readonly System.Reflection.PropertyInfo _filter;
-        private readonly System.Reflection.PropertyInfo _fsrOverrideSharpness;
-        private readonly System.Reflection.PropertyInfo _fsrSharpness;
+        private readonly PropertyInfo _filter;
+        private readonly object _fsrFilterValue;
+        private readonly Func<float> _getRenderScale;
+        private readonly Action<float> _setRenderScale;
+        private readonly Func<bool> _getFsrOverrideSharpness;
+        private readonly Action<bool> _setFsrOverrideSharpness;
+        private readonly Func<float> _getFsrSharpness;
+        private readonly Action<float> _setFsrSharpness;
 
         private UrpAssetSurface(
             UnityEngine.Object asset,
-            System.Reflection.PropertyInfo renderScale,
-            System.Reflection.PropertyInfo filter,
-            System.Reflection.PropertyInfo fsrOverrideSharpness,
-            System.Reflection.PropertyInfo fsrSharpness
+            PropertyInfo renderScale,
+            PropertyInfo filter,
+            PropertyInfo fsrOverrideSharpness,
+            PropertyInfo fsrSharpness
         )
         {
             _asset = asset;
-            _renderScale = renderScale;
             _filter = filter;
-            _fsrOverrideSharpness = fsrOverrideSharpness;
-            _fsrSharpness = fsrSharpness;
+            _fsrFilterValue = Enum.ToObject(filter.PropertyType, (int)UrpUpscalingFilter.Fsr);
+            // Delegates bound to this asset read and write the float and bool properties
+            // without boxing; the enum-typed filter keeps reflection.
+            _getRenderScale = Getter<float>(asset, renderScale);
+            _setRenderScale = Setter<float>(asset, renderScale);
+            _getFsrOverrideSharpness = Getter<bool>(asset, fsrOverrideSharpness);
+            _setFsrOverrideSharpness = Setter<bool>(asset, fsrOverrideSharpness);
+            _getFsrSharpness = Getter<float>(asset, fsrSharpness);
+            _setFsrSharpness = Setter<float>(asset, fsrSharpness);
         }
 
         internal int InstanceId => _asset.GetInstanceID();
@@ -164,8 +197,8 @@ internal sealed class UrpUpscalingAdapter : IDisposable
 
         internal float RenderScale
         {
-            get => (float)_renderScale.GetValue(_asset);
-            set => _renderScale.SetValue(_asset, value);
+            get => _getRenderScale();
+            set => _setRenderScale(value);
         }
 
         internal UrpUpscalingFilter Filter
@@ -178,15 +211,17 @@ internal sealed class UrpUpscalingAdapter : IDisposable
 
         internal bool FsrOverrideSharpness
         {
-            get => (bool)_fsrOverrideSharpness.GetValue(_asset);
-            set => _fsrOverrideSharpness.SetValue(_asset, value);
+            get => _getFsrOverrideSharpness();
+            set => _setFsrOverrideSharpness(value);
         }
 
         internal float FsrSharpness
         {
-            get => (float)_fsrSharpness.GetValue(_asset);
-            set => _fsrSharpness.SetValue(_asset, value);
+            get => _getFsrSharpness();
+            set => _setFsrSharpness(value);
         }
+
+        internal void SetFsrFilter() => _filter.SetValue(_asset, _fsrFilterValue);
 
         internal static UrpAssetSurface? TryCreate(RenderPipelineAsset? asset)
         {
@@ -194,13 +229,13 @@ internal sealed class UrpUpscalingAdapter : IDisposable
                 return null;
 
             var type = asset.GetType();
-            var renderScale = WritableProperty(type, "renderScale");
-            var filter = WritableProperty(type, "upscalingFilter");
-            var fsrOverrideSharpness = WritableProperty(type, "fsrOverrideSharpness");
-            var fsrSharpness = WritableProperty(type, "fsrSharpness");
+            var renderScale = WritableProperty(type, "renderScale", typeof(float));
+            var filter = WritableProperty(type, "upscalingFilter", null);
+            var fsrOverrideSharpness = WritableProperty(type, "fsrOverrideSharpness", typeof(bool));
+            var fsrSharpness = WritableProperty(type, "fsrSharpness", typeof(float));
             return
                 renderScale == null
-                || filter == null
+                || filter is not { PropertyType.IsEnum: true }
                 || fsrOverrideSharpness == null
                 || fsrSharpness == null
                 ? null
@@ -213,10 +248,21 @@ internal sealed class UrpUpscalingAdapter : IDisposable
                 );
         }
 
-        private static System.Reflection.PropertyInfo? WritableProperty(Type type, string name)
+        private static PropertyInfo? WritableProperty(Type type, string name, Type? propertyType)
         {
             var property = type.GetProperty(name);
-            return property is { CanRead: true, CanWrite: true } ? property : null;
+            return
+                property is { CanRead: true, CanWrite: true }
+                && (propertyType == null || property.PropertyType == propertyType)
+                ? property
+                : null;
         }
+
+        private static Func<T> Getter<T>(object asset, PropertyInfo property) =>
+            (Func<T>)Delegate.CreateDelegate(typeof(Func<T>), asset, property.GetGetMethod(true)!);
+
+        private static Action<T> Setter<T>(object asset, PropertyInfo property) =>
+            (Action<T>)
+                Delegate.CreateDelegate(typeof(Action<T>), asset, property.GetSetMethod(true)!);
     }
 }

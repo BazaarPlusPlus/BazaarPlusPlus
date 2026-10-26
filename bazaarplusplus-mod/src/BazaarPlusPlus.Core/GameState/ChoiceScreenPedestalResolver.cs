@@ -18,12 +18,15 @@ public static class ChoiceScreenPedestalResolver
         // taking the first non-None pedestal's kind is safe; enchant type names are
         // still aggregated across every offered enchant pedestal so the preview can
         // match all of them.
+        // The name collections are created on the first enchant name, so a selection without an
+        // enchant pedestal allocates nothing.
         var kind = ChoiceScreenPedestalKind.None;
-        var enchantNames = new List<string>();
-        var seenNames = new HashSet<string>(StringComparer.Ordinal);
+        List<string>? enchantNames = null;
+        HashSet<string>? seenNames = null;
 
-        foreach (var templateId in templateIds)
+        for (var i = 0; i < templateIds.Count; i++)
         {
+            var templateId = templateIds[i];
             if (templateId == Guid.Empty)
                 continue;
 
@@ -31,8 +34,11 @@ public static class ChoiceScreenPedestalResolver
             if (kind == ChoiceScreenPedestalKind.None && entryKind != ChoiceScreenPedestalKind.None)
                 kind = entryKind;
 
-            if (enchant != null && seenNames.Add(enchant))
-                enchantNames.Add(enchant);
+            if (enchant == null)
+                continue;
+            seenNames ??= new HashSet<string>(StringComparer.Ordinal);
+            if (seenNames.Add(enchant))
+                (enchantNames ??= new List<string>()).Add(enchant);
         }
 
         if (kind == ChoiceScreenPedestalKind.None)
@@ -42,7 +48,7 @@ public static class ChoiceScreenPedestalResolver
         {
             Kind = kind,
             EnchantmentTypeNames =
-                enchantNames.Count == 0 ? Array.Empty<string>() : enchantNames.ToArray(),
+                enchantNames == null ? Array.Empty<string>() : enchantNames.ToArray(),
         };
     }
 }

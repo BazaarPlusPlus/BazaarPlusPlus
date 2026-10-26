@@ -43,20 +43,29 @@ internal sealed class VersionLabelScanner : MonoBehaviour
 
         if (versionLabel != null)
         {
+            // Later ticks find the label through the cheap cached path, not a full scan.
+            if (usedFullScan)
+                _cachedVersionLabelPath = BuildPath(versionLabel.transform);
+
             var anchorHasChineseCoverage = FontDiagnostics.HasChineseCoverage(versionLabel.font);
             var typographyWaiting =
                 !anchorHasChineseCoverage
                 && NativeGameTypography.PrepareOwnedText(out _)
                     == NativeGameTypography.Outcome.Waiting;
+            // Waiting typography is a startup state: retry at the scan interval, without backoff.
             if (ShouldDelayMount(anchorHasChineseCoverage, typographyWaiting))
+                return;
+
+            // A failed mount builds and destroys the subtitle objects, so it backs off like a
+            // full-scan miss.
+            if (!usedFullScan && Time.unscaledTime < _nextFullScanAt)
                 return;
 
             VoiceLineDisplay.MountFromVersionLabel(versionLabel);
             if (VoiceLineDisplay.IsMountedFromVersionLabel)
-            {
-                _cachedVersionLabelPath = BuildPath(versionLabel.transform);
                 ResetBackoff();
-            }
+            else
+                RecordFullScanMiss();
             return;
         }
 

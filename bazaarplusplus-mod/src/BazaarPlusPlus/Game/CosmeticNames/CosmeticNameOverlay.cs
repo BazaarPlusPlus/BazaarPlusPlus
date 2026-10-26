@@ -17,6 +17,7 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Game.CosmeticNames;
 
 // Lives on the native item, so list rebuilds and scene changes destroy the overlay with it.
+// CosmeticNameOverlayObserver invalidates it on a switch or locale change and drives retries.
 internal sealed class CosmeticNameOverlay : MonoBehaviour
 {
     private const float NameFontSize = 32f;
@@ -38,9 +39,6 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     private TextMeshProUGUI? _label;
     private bool _placeholder;
     private bool _dirty = true;
-    private bool _lastEnabled;
-    private string? _lastLanguage;
-    private BppChineseLocaleMode _lastChineseMode;
     private float _nextAttempt;
 
     internal void Initialize(
@@ -70,21 +68,24 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     private void OnEnable()
     {
         Invalidate();
+        CosmeticNameOverlayObserver.Register(this);
     }
 
     private void OnDisable()
     {
+        CosmeticNameOverlayObserver.Unregister(this);
         if (_overlay != null)
             _overlay.SetActive(false);
     }
 
     private void OnDestroy()
     {
+        CosmeticNameOverlayObserver.Unregister(this);
         if (_overlay != null)
             Destroy(_overlay);
     }
 
-    private void Invalidate()
+    internal void Invalidate()
     {
         _dirty = true;
         _nextAttempt = 0f;
@@ -93,28 +94,18 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
             _overlay.SetActive(false);
     }
 
-    private void LateUpdate()
+    internal void RefreshIfDue(float now)
     {
-        var enabled = _config?.EnableCosmeticNamesConfig.Value ?? false;
-        // Publicized native events have ambiguous backing fields; observe the locale value
-        // just like config values instead of subscribing to LocalizationService.LocaleChanged.
-        if (
-            enabled != _lastEnabled
-            || !string.Equals(_lastLanguage, L.CurrentLanguageCode, StringComparison.Ordinal)
-            || _lastChineseMode != L.CurrentMode
-        )
-            Invalidate();
-        if (_dirty && Time.unscaledTime >= _nextAttempt)
+        if (_dirty && now >= _nextAttempt)
             Refresh();
     }
 
     private void Refresh()
     {
-        _lastEnabled = _config?.EnableCosmeticNamesConfig.Value ?? false;
-        _lastLanguage = L.CurrentLanguageCode;
-        _lastChineseMode = L.CurrentMode;
+        var featureEnabled = _config?.EnableCosmeticNamesConfig.Value ?? false;
+        var language = L.CurrentLanguageCode;
         _dirty = false;
-        if (!_lastEnabled || _placeholder || _thumbnailViewport == null)
+        if (!featureEnabled || _placeholder || _thumbnailViewport == null)
         {
             if (_overlay != null)
                 _overlay.SetActive(false);
@@ -130,9 +121,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
                 return;
             }
 
-            _label!.text = LanguageCodeMatcher.IsChinese(_lastLanguage)
-                ? L.ResolveChinese(name)
-                : name;
+            _label!.text = LanguageCodeMatcher.IsChinese(language) ? L.ResolveChinese(name) : name;
             _overlay!.transform.SetAsLastSibling();
             _overlay.SetActive(true);
             RaiseOverlayByHalfCharacter();

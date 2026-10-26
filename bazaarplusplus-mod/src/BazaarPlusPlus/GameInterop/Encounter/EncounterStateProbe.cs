@@ -9,6 +9,7 @@ namespace BazaarPlusPlus.GameInterop.Encounter;
 /// <summary>Read-only encounter state module. Keep the id and choice reads cheap.</summary>
 internal sealed class EncounterStateProbe : IEncounterStateProbe
 {
+    private readonly Guid[] _pedestalEncounterTemplateId = new Guid[1];
     private int _encounterIdsFrame = int.MinValue;
     private int _choicePedestalFrame = int.MinValue;
     private EncounterIdsProbeOutcome _encounterIdsOutcome = EncounterIdsProbeOutcome.Success(
@@ -47,14 +48,21 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe
             }
             else if (!idsOutcome.Snapshot.IsSelectionState)
             {
-                _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
-                    AppState.CurrentState is PedestalState
-                    && idsOutcome.Snapshot.CurrentEncounterTemplateId.HasValue
-                        ? ChoiceScreenPedestalResolver.Resolve(
-                            new[] { idsOutcome.Snapshot.CurrentEncounterTemplateId.Value }
-                        )
-                        : ChoicePedestalSnapshot.Empty
-                );
+                var pedestalTemplateId = idsOutcome.Snapshot.CurrentEncounterTemplateId;
+                if (AppState.CurrentState is PedestalState && pedestalTemplateId.HasValue)
+                {
+                    // Resolve does not retain its input, so one slot serves every read.
+                    _pedestalEncounterTemplateId[0] = pedestalTemplateId.Value;
+                    _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
+                        ChoiceScreenPedestalResolver.Resolve(_pedestalEncounterTemplateId)
+                    );
+                }
+                else
+                {
+                    _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
+                        ChoicePedestalSnapshot.Empty
+                    );
+                }
             }
             else
             {
