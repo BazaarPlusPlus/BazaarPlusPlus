@@ -16,9 +16,10 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// </summary>
 internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 {
-    private static readonly TimeSpan SavedReplayCacheLifetime = TimeSpan.FromSeconds(5);
+    // Realtime seconds on the host's Now clock, which never steps backwards.
+    private const float SavedReplayCacheLifetimeSeconds = 5f;
     private readonly SavedReplayCatalog _catalog;
-    private readonly Dictionary<string, (bool Saved, DateTime At)> _savedReplayCache = new(
+    private readonly Dictionary<string, (bool Saved, float At)> _savedReplayCache = new(
         StringComparer.Ordinal
     );
     private readonly OpponentPortraitController _portrait;
@@ -49,15 +50,16 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 
     public bool RecordsVideo => true;
 
-    // History asks on every refresh; the answer is cached briefly, as on Android, so a burst of
-    // refreshes does not query the database and stat the payload on the main thread each time
-    // (ReplaySaved rechecks the catalog uncached).
+    // History asks on every refresh; the answer is cached for the same five seconds Android uses,
+    // so a burst of refreshes does not query the database and stat the payload on the main thread
+    // each time (ReplaySaved rechecks the catalog uncached). Unlike Android, a read failure is
+    // not caught here; it reaches History as it did before the cache.
     public bool CanOfferSavedReplay(string battleId)
     {
-        var now = DateTime.UtcNow;
+        var now = Now;
         if (
             _savedReplayCache.TryGetValue(battleId, out var cached)
-            && now - cached.At < SavedReplayCacheLifetime
+            && now - cached.At < SavedReplayCacheLifetimeSeconds
         )
             return cached.Saved;
         var saved = _catalog.HasSavedReplay(battleId);
