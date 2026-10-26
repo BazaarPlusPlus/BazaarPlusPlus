@@ -63,6 +63,62 @@ static void TestNativeGameFontSelection()
         NativeGameFontSelection.HasCompleteChain(candidates.Length, candidates.Length),
         "The complete Static/SecondSet/Dynamic chain should be accepted."
     );
+
+    var noWait = NativeGameFontSelection.NoFallbackRetryWait;
+    Assert(
+        !NativeGameFontSelection.IsFallbackRetryWaiting(0f, noWait),
+        "A chain that never failed must be loaded on the first call."
+    );
+    var failedAt = 12f;
+    var retryAt = NativeGameFontSelection.NextFallbackRetryAt(
+        failedAt,
+        attempted: true,
+        loadedAny: false,
+        noWait
+    );
+    Assert(
+        NativeGameFontSelection.IsFallbackRetryWaiting(failedAt + 1f, retryAt)
+            && NativeGameFontSelection.IsFallbackRetryWaiting(failedAt + 29.9f, retryAt),
+        "A load attempt that returned nothing must not be retried for 30 seconds."
+    );
+    Assert(
+        !NativeGameFontSelection.IsFallbackRetryWaiting(failedAt + 30f, retryAt),
+        "A failed chain must be loaded again once its wait is over, so a recovered asset is found."
+    );
+    Assert(
+        NativeGameFontSelection.NextFallbackRetryAt(
+            failedAt + 5f,
+            attempted: false,
+            loadedAny: false,
+            retryAt
+        ) == retryAt,
+        "A skipped call (not ready, or still waiting) must neither start nor extend a wait."
+    );
+    Assert(
+        NativeGameFontSelection.NextFallbackRetryAt(
+            failedAt,
+            attempted: false,
+            loadedAny: false,
+            noWait
+        ) == noWait,
+        "A call made before the game's font configuration exists must not start a wait."
+    );
+    Assert(
+        !NativeGameFontSelection.IsFallbackRetryWaiting(
+            failedAt + 30f,
+            NativeGameFontSelection.NextFallbackRetryAt(
+                failedAt + 30f,
+                attempted: true,
+                loadedAny: true,
+                retryAt
+            )
+        ),
+        "A chain that loaded must clear its wait."
+    );
+    Assert(
+        !NativeGameFontSelection.IsFallbackRetryWaiting(failedAt + 1f, noWait),
+        "Reset clears a pending wait, so the next call loads the chain again."
+    );
 }
 
 static void TestBilingualItemNamePresentation()

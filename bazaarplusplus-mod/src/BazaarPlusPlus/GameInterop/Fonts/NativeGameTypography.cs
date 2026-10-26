@@ -45,6 +45,8 @@ internal static class NativeGameTypography
 
     private static TMP_FontAsset[]? _serifFallbacks;
     private static TMP_FontAsset[]? _sansFallbacks;
+    private static float _serifFallbacksRetryAt;
+    private static float _sansFallbacksRetryAt;
     private static TMP_FontAsset? _serifFontAsset;
     private static TMP_FontAsset? _sansFontAsset;
     private static TMP_FontAsset? _sansDynamicFontAsset;
@@ -485,6 +487,8 @@ internal static class NativeGameTypography
 
         _serifFallbacks = null;
         _sansFallbacks = null;
+        _serifFallbacksRetryAt = NativeGameFontSelection.NoFallbackRetryWait;
+        _sansFallbacksRetryAt = NativeGameFontSelection.NoFallbackRetryWait;
         _serifFontAsset = null;
         _sansFontAsset = null;
         _sansDynamicFontAsset = null;
@@ -574,6 +578,40 @@ internal static class NativeGameTypography
         if (!NotoFontFallbackRuntime.HasConfiguration)
             return FontLoadAttempt.NotReady();
 
+        var now = Time.realtimeSinceStartup;
+        var retryAt = preferSerif ? _serifFallbacksRetryAt : _sansFallbacksRetryAt;
+        if (NativeGameFontSelection.IsFallbackRetryWaiting(now, retryAt))
+            return FontLoadAttempt.Failed(
+                NativeGameFontStage.LoadFonts,
+                NativeGameFontReasonCode.FontLoadFailed,
+                wasAttempted: false
+            );
+
+        var attempt = LoadChineseFallbacks(preferSerif);
+        var loaded = attempt.Fonts.Length > 0;
+        retryAt = NativeGameFontSelection.NextFallbackRetryAt(
+            now,
+            attempt.WasAttempted,
+            loaded,
+            retryAt
+        );
+        if (preferSerif)
+        {
+            _serifFallbacksRetryAt = retryAt;
+            if (loaded)
+                _serifFallbacks = attempt.Fonts;
+        }
+        else
+        {
+            _sansFallbacksRetryAt = retryAt;
+            if (loaded)
+                _sansFallbacks = attempt.Fonts;
+        }
+        return attempt;
+    }
+
+    private static FontLoadAttempt LoadChineseFallbacks(bool preferSerif)
+    {
         var configuration = NotoFontFallbackRuntime._configuration;
         if (
             configuration == null
@@ -586,18 +624,9 @@ internal static class NativeGameTypography
             );
         }
 
-        var references = preferSerif
-            ? rule.NotoSerifFallbacksOrdered
-            : rule.NotoSansFallbacksOrdered;
-        var attempt = LoadReferences(references);
-        if (attempt.Fonts.Length > 0)
-        {
-            if (preferSerif)
-                _serifFallbacks = attempt.Fonts;
-            else
-                _sansFallbacks = attempt.Fonts;
-        }
-        return attempt;
+        return LoadReferences(
+            preferSerif ? rule.NotoSerifFallbacksOrdered : rule.NotoSansFallbacksOrdered
+        );
     }
 
     private static FontLoadAttempt LoadReferences(AssetReferenceT<TMP_FontAsset>[]? references)
