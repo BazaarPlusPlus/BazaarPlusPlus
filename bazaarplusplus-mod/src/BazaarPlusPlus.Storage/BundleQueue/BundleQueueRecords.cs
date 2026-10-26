@@ -111,7 +111,8 @@ public sealed class BundleOutboxRecord
         string fileName,
         string contentSha256Hex,
         string contentDigest,
-        long totalBytes
+        long totalBytes,
+        int attempts
     )
     {
         BundleId = bundleId;
@@ -120,6 +121,7 @@ public sealed class BundleOutboxRecord
         ContentSha256Hex = contentSha256Hex;
         ContentDigest = contentDigest;
         TotalBytes = totalBytes;
+        Attempts = attempts;
     }
 
     public string BundleId { get; }
@@ -128,6 +130,10 @@ public sealed class BundleOutboxRecord
     public string ContentSha256Hex { get; }
     public string ContentDigest { get; }
     public long TotalBytes { get; }
+
+    // Every recorded upload attempt of any kind, network failures included; unlike
+    // BundleSealJobRecord.Attempts it is never reset and does not track one error code.
+    public int Attempts { get; }
 }
 
 public sealed class BundleOutboxStateRecord

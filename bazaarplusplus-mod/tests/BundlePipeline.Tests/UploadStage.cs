@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.Upload;
+using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.BundleQueue;
@@ -12,8 +13,9 @@ using Microsoft.Data.Sqlite;
 
 /// <summary>
 /// Uploads the sealed outbox through <see cref="BundleUploadFeed.Session"/> against a recording
-/// Mod API handler that answers like the server: transient failures keep file and row, an
-/// accepted upload commits before its file is deleted, and the cleanup pass reclaims leftovers.
+/// Mod API handler that answers like the server: an unavailable endpoint stops the batch and
+/// keeps file and row, an accepted upload commits before its file is deleted, and the cleanup pass
+/// reclaims leftovers.
 /// </summary>
 internal static class UploadStage
 {
@@ -29,13 +31,26 @@ internal static class UploadStage
         var services = new TestServices(new TestPaths(root));
         var all = runIds.ToArray();
 
-        // A 5xx keeps the file and the pending row; the retry is due at once (interval 0).
+        // A 5xx stops the batch at its first Bundle and keeps that file and pending row; the row
+        // stays due at once, and only this session backs off the whole queue.
         var unavailable = new ServerHandler(HttpStatusCode.ServiceUnavailable);
         using (var session = Session(services, store, unavailable, Files(outboxRoot)))
+        {
             await session.RunAttemptAsync(CancellationToken.None);
+            var backingOff = await session.RunAttemptAsync(CancellationToken.None);
+            Check.That(
+                backingOff.Observations.Single().ReasonCode == UploadLogReasonCode.QueueBackoff,
+                "The session that saw the endpoint unavailable must defer its next attempt."
+            );
+        }
         Record(artifacts, "transient", unavailable);
-        Check.That(unavailable.Requests.Count == BundleUploadFeed.MaximumAttemptBatch, "batch");
-        foreach (var fileName in OutboxFiles(database, "pending", attempts: 1))
+        Check.That(
+            unavailable.Requests.Count == 1,
+            "An unavailable endpoint must stop the batch after one request."
+        );
+        var attempted = OutboxFiles(database, "pending", attempts: 1);
+        Check.That(attempted.Count == 1, "Only the first Bundle of the batch is attempted.");
+        foreach (var fileName in attempted)
             Check.That(
                 File.Exists(Path.Combine(outboxRoot, fileName)),
                 "A transient response must never delete the outbox file."
@@ -90,7 +105,7 @@ internal static class UploadStage
     ) =>
         new(
             services,
-            0,
+            ModApiUploadDefaults.IntervalSeconds,
             ModApiSession.TryCreate(
                 "https://example.test",
                 "test",
@@ -202,7 +217,7 @@ internal static class UploadStage
 
 /// <summary>
 /// Upload-feed rules the sealed pipeline cannot reach with real files: the 512 MB soft limit,
-/// the outbox root boundary, and the live-run gate.
+/// the outbox root boundary, the live-run gate, and the retry schedule under a manual clock.
 /// </summary>
 internal static class UploadFeedBoundaries
 {
@@ -211,6 +226,37 @@ internal static class UploadFeedBoundaries
         await CleanupRetentionAndSoftLimitStopAtThreshold(Path.Combine(root, "cleanup"));
         ProductionFilePortRejectsPathsOutsideItsRoot(Path.Combine(root, "file-port"));
         LiveRunDefersUploadAndArmWakesIt();
+        RetryDelayDoublesWithJitterUnderTheCap();
+        await UploadBackoffScenarios.RunAsync(Path.Combine(root, "backoff"));
+    }
+
+    private static void RetryDelayDoublesWithJitterUnderTheCap()
+    {
+        static double Seconds(int priorFailures, double jitter, int? retryAfter = null) =>
+            BundleUploadFeed.RetryDelay(180, priorFailures, jitter, retryAfter).TotalSeconds;
+
+        var schedule = Enumerable.Range(0, 7).Select(n => Seconds(n, 0.5)).ToArray();
+        Check.That(
+            schedule.SequenceEqual(new double[] { 180, 360, 720, 1440, 1800, 1800, 1800 }),
+            $"The base schedule doubles from 180 s and holds at the 30-minute cap: {string.Join(",", schedule)}"
+        );
+        Check.That(
+            Math.Abs(Seconds(0, 0) - 162) < 0.001 && Math.Abs(Seconds(3, 1) - 1584) < 0.001,
+            "Jitter scales a delay below the cap by 0.9 to 1.1."
+        );
+        Check.That(
+            Seconds(4, 1) == 1800 && Seconds(4, 0) == 1800,
+            "Jitter never lifts a delay above the cap."
+        );
+        Check.That(
+            Seconds(int.MaxValue, 0.5) == 1800 && Seconds(1000, 1) == 1800,
+            "A long outage must keep the capped delay, not overflow to zero."
+        );
+        Check.That(
+            Seconds(0, 0.5, 600) == 600 && Seconds(0, 0.5, 7200) == 1800,
+            "Retry-After is a floor, and the cap applies to it too."
+        );
+        Check.That(Seconds(0, double.NaN) == 180, "A NaN jitter sample counts as no jitter.");
     }
 
     private static void LiveRunDefersUploadAndArmWakesIt()

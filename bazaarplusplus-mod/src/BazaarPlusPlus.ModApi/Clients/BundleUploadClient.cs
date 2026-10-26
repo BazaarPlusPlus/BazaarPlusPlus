@@ -51,7 +51,7 @@ internal sealed class BundleUploadClient
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return BundleUploadResponse.Transient("request_timeout");
+            return BundleUploadResponse.EndpointUnavailable("request_timeout");
         }
         catch (OperationCanceledException)
         {
@@ -59,7 +59,10 @@ internal sealed class BundleUploadClient
         }
         catch (Exception ex)
         {
-            return BundleUploadResponse.Transient("transport_error", diagnosticException: ex);
+            return BundleUploadResponse.EndpointUnavailable(
+                "transport_error",
+                diagnosticException: ex
+            );
         }
     }
 
@@ -114,7 +117,14 @@ internal sealed class BundleUploadClient
             );
         if (statusCode is 400 or 411 or 413 or 415 or 422)
             return BundleUploadResponse.Permanent(code, envelope.Message, response.RequestId);
-        if (statusCode is 408 or 429 || statusCode >= 500 || envelope.Retryable == true)
+        if (statusCode is 408 or 429 || statusCode >= 500)
+            return BundleUploadResponse.EndpointUnavailable(
+                code,
+                envelope.Message,
+                response.RequestId,
+                response.RetryAfterSeconds
+            );
+        if (envelope.Retryable == true)
             return BundleUploadResponse.Transient(
                 code,
                 envelope.Message,
@@ -139,7 +149,15 @@ public enum BundleUploadDisposition
     Uploaded,
     Equivalent,
     Permanent,
+
+    /// <summary>Retry this Bundle later; the failure is about this Bundle or this response.</summary>
     Transient,
+
+    /// <summary>
+    /// The endpoint could not take any Bundle now: request timeout, transport error, HTTP 408, 429
+    /// or 5xx. Retry the whole queue later, not just this Bundle.
+    /// </summary>
+    EndpointUnavailable,
 }
 
 public sealed class BundleUploadResponse
@@ -182,6 +200,23 @@ public sealed class BundleUploadResponse
         string? detail = null,
         string? requestId = null
     ) => new(BundleUploadDisposition.Permanent, code, detail, requestId, null, null, null);
+
+    public static BundleUploadResponse EndpointUnavailable(
+        string code,
+        string? detail = null,
+        string? requestId = null,
+        int? retryAfterSeconds = null,
+        Exception? diagnosticException = null
+    ) =>
+        new(
+            BundleUploadDisposition.EndpointUnavailable,
+            code,
+            detail,
+            requestId,
+            null,
+            retryAfterSeconds,
+            diagnosticException
+        );
 
     public static BundleUploadResponse Transient(
         string code,

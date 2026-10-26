@@ -680,29 +680,86 @@ static async Task VerifyUploadClientAsync()
             RunPayload = payload,
         }
     );
-    var responses = new Queue<HttpResponseMessage>(
-        new[]
-        {
+    // Each entry is an answer or a thrown exception, with the disposition and code it must map to.
+    var matrix = new (object Answer, BundleUploadDisposition Disposition, string? Code)[]
+    {
+        (
             Json(
                 HttpStatusCode.Created,
                 "{\"bundle_id\":\"01J00000000000000000000111\",\"run_id\":\"run-http\",\"outcome\":\"stored\"}"
             ),
+            BundleUploadDisposition.Uploaded,
+            null
+        ),
+        (
             Json(
                 HttpStatusCode.OK,
                 "{\"bundle_id\":\"01J00000000000000000000111\",\"run_id\":\"run-http\",\"outcome\":\"duplicate\"}"
             ),
+            BundleUploadDisposition.Uploaded,
+            null
+        ),
+        (
             Json(
                 HttpStatusCode.Conflict,
                 "{\"error\":{\"code\":\"bundle_id_conflict\",\"message\":\"different\",\"retryable\":false,\"request_id\":\"body-request-id\"}}"
             ),
+            BundleUploadDisposition.Permanent,
+            null
+        ),
+        // An untrusted (legacy-shaped) 409 is about this Bundle, not the endpoint.
+        (
             Json(HttpStatusCode.Conflict, "{\"error\":\"bundle_id_conflict\",\"retryable\":false}"),
+            BundleUploadDisposition.Transient,
+            null
+        ),
+        (
             Json(
                 HttpStatusCode.ServiceUnavailable,
                 "{\"error\":{\"code\":\"storage_unavailable\",\"message\":\"later\",\"retryable\":true,\"request_id\":\"r\"}}"
             ),
-        }
-    );
-    var handler = new CaptureHandler(responses);
+            BundleUploadDisposition.EndpointUnavailable,
+            "http_503"
+        ),
+        (
+            new HttpResponseMessage(HttpStatusCode.TooManyRequests),
+            BundleUploadDisposition.EndpointUnavailable,
+            "http_429"
+        ),
+        (
+            new HttpResponseMessage(HttpStatusCode.RequestTimeout),
+            BundleUploadDisposition.EndpointUnavailable,
+            "http_408"
+        ),
+        (
+            Json(
+                HttpStatusCode.Created,
+                "{\"bundle_id\":\"01J00000000000000000000999\",\"run_id\":\"run-http\",\"outcome\":\"stored\"}"
+            ),
+            BundleUploadDisposition.Transient,
+            "invalid_success_receipt"
+        ),
+        // A server-marked retryable error on another status stays a per-Bundle retry.
+        (
+            Json(
+                HttpStatusCode.Forbidden,
+                "{\"error\":{\"code\":\"busy\",\"message\":\"later\",\"retryable\":true}}"
+            ),
+            BundleUploadDisposition.Transient,
+            "http_403"
+        ),
+        (
+            new HttpRequestException("network is unreachable"),
+            BundleUploadDisposition.EndpointUnavailable,
+            "transport_error"
+        ),
+        (
+            new TaskCanceledException("request timed out"),
+            BundleUploadDisposition.EndpointUnavailable,
+            "request_timeout"
+        ),
+    };
+    var handler = new CaptureHandler(new Queue<object>(matrix.Select(entry => entry.Answer)));
     using var session =
         ModApiSession.TryCreate(
             "https://example.test",
@@ -712,9 +769,8 @@ static async Task VerifyUploadClientAsync()
             TimeSpan.FromSeconds(120),
             handler
         ) ?? throw new InvalidOperationException("test Mod API session");
-    var dispositions = new List<BundleUploadDisposition>();
     var results = new List<BundleUploadResponse>();
-    for (var index = 0; index < 5; index++)
+    for (var index = 0; index < matrix.Length; index++)
     {
         using var stream = new MemoryStream(built.Bytes, writable: false);
         var response = await session.UploadBundleAsync(
@@ -726,21 +782,13 @@ static async Task VerifyUploadClientAsync()
             CancellationToken.None
         );
         results.Add(response);
-        dispositions.Add(response.Disposition);
+        Assert(
+            response.Disposition == matrix[index].Disposition
+                && (matrix[index].Code == null || response.Code == matrix[index].Code),
+            $"upload response matrix entry {index} should classify as {matrix[index].Disposition} "
+                + $"{matrix[index].Code}, got {response.Disposition} {response.Code}"
+        );
     }
-    Assert(
-        dispositions.SequenceEqual(
-            new[]
-            {
-                BundleUploadDisposition.Uploaded,
-                BundleUploadDisposition.Uploaded,
-                BundleUploadDisposition.Permanent,
-                BundleUploadDisposition.Transient,
-                BundleUploadDisposition.Transient,
-            }
-        ),
-        "upload response matrix should classify exactly"
-    );
     Assert(
         results[2].RequestId == "body-request-id",
         "nested body request ID should remain available when the header is absent"
@@ -792,7 +840,8 @@ internal static class LogPrivacy
     }
 }
 
-internal sealed class CaptureHandler(Queue<HttpResponseMessage> responses) : HttpMessageHandler
+/// <summary>Answers each request with the next queued response, or throws the next queued exception.</summary>
+internal sealed class CaptureHandler(Queue<object> answers) : HttpMessageHandler
 {
     internal List<byte[]> Bodies { get; } = new();
     internal List<string?> ContentDigests { get; } = new();
@@ -810,7 +859,12 @@ internal sealed class CaptureHandler(Queue<HttpResponseMessage> responses) : Htt
             throw new InvalidOperationException("Content-Length required");
         if (request.Content.Headers.ContentType!.MediaType != BundleLimitsV6.BundleContentType)
             throw new InvalidOperationException("Bundle Content-Type required");
-        return responses.Dequeue();
+        return answers.Dequeue() switch
+        {
+            HttpResponseMessage response => response,
+            Exception exception => throw exception,
+            var other => throw new InvalidOperationException($"Unexpected answer {other}."),
+        };
     }
 }
 
