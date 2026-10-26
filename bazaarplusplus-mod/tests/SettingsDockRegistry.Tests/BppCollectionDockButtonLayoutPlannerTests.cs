@@ -157,4 +157,68 @@ public class BppCollectionDockButtonLayoutPlannerTests
                 Assert.False(slots[index].Overlaps(slots[next]));
         }
     }
+
+    [Fact]
+    public void ResolveBeside_places_the_button_left_of_the_gear_on_its_row()
+    {
+        var plan = BppCollectionDockButtonLayoutPlanner.ResolveBeside(
+            Viewport,
+            Gear,
+            width: 100f,
+            height: 100f,
+            gap: 20f,
+            Array.Empty<BppDockButtonObstacle>()
+        );
+
+        Assert.True(plan.CanApply);
+        Assert.Equal(980f, plan.Bounds.CenterX);
+        Assert.Equal(100f, plan.Bounds.CenterY);
+        Assert.Null(plan.BlockerName);
+    }
+
+    [Fact]
+    public void ResolveBeside_steps_left_past_a_blocker()
+    {
+        var blocker = new BppDockButtonObstacle(
+            "native-currency",
+            BppDockButtonBounds.FromCenter(980f, 100f, 100f, 100f),
+            isActive: true
+        );
+
+        var plan = BppCollectionDockButtonLayoutPlanner.ResolveBeside(
+            Viewport,
+            Gear,
+            100f,
+            100f,
+            20f,
+            new[] { blocker }
+        );
+
+        Assert.True(plan.CanApply);
+        Assert.Equal(860f, plan.Bounds.CenterX);
+        Assert.Equal(100f, plan.Bounds.CenterY);
+        Assert.Equal("native-currency", plan.BlockerName);
+    }
+
+    [Fact]
+    public void ResolveBeside_refuses_when_the_row_runs_out_of_viewport()
+    {
+        var blocker = new BppDockButtonObstacle(
+            "wall",
+            new BppDockButtonBounds(0f, 1040f, 0f, 300f),
+            isActive: true
+        );
+
+        var plan = BppCollectionDockButtonLayoutPlanner.ResolveBeside(
+            Viewport,
+            Gear,
+            100f,
+            100f,
+            20f,
+            new[] { blocker }
+        );
+
+        Assert.False(plan.CanApply);
+        Assert.Equal("wall", plan.BlockerName);
+    }
 }

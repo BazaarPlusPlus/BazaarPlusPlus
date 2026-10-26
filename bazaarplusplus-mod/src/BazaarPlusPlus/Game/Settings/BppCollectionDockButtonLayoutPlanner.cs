@@ -14,7 +14,7 @@ internal readonly struct BppCollectionDockButtonLayoutPlan(
 
 internal static class BppCollectionDockButtonLayoutPlanner
 {
-    private const int MaximumVerticalSlots = 12;
+    private const int MaximumSlots = 12;
 
     internal static BppCollectionDockButtonLayoutPlan Resolve(
         BppDockButtonBounds viewportBounds,
@@ -48,6 +48,7 @@ internal static class BppCollectionDockButtonLayoutPlanner
                 collectionWidth,
                 collectionHeight
             ),
+            0f,
             collectionHeight + safeGap,
             blockers
         );
@@ -62,6 +63,7 @@ internal static class BppCollectionDockButtonLayoutPlanner
                 collectionWidth,
                 collectionHeight
             ),
+            0f,
             -(collectionHeight + safeGap),
             blockers
         );
@@ -75,15 +77,52 @@ internal static class BppCollectionDockButtonLayoutPlanner
         );
     }
 
+    /// <summary>
+    /// A button left of the gear, level with it, stepping further left past each blocker: the
+    /// corner's other arm, beside the column <see cref="Resolve"/> stacks on the gear.
+    /// </summary>
+    internal static BppCollectionDockButtonLayoutPlan ResolveBeside(
+        BppDockButtonBounds viewportBounds,
+        BppDockButtonBounds gearBounds,
+        float width,
+        float height,
+        float gap,
+        IReadOnlyList<BppDockButtonObstacle> blockers
+    )
+    {
+        if (!viewportBounds.IsValid || !gearBounds.IsValid || width <= 0f || height <= 0f)
+            return new BppCollectionDockButtonLayoutPlan(false, default, null);
+
+        var safeGap = Math.Max(0f, gap);
+        var centerY = Math.Clamp(
+            gearBounds.CenterY,
+            viewportBounds.MinY + height * 0.5f,
+            viewportBounds.MaxY - height * 0.5f
+        );
+        return ResolveDirection(
+            viewportBounds,
+            BppDockButtonBounds.FromCenter(
+                gearBounds.MinX - safeGap - (width * 0.5f),
+                centerY,
+                width,
+                height
+            ),
+            -(width + safeGap),
+            0f,
+            blockers
+        );
+    }
+
     private static BppCollectionDockButtonLayoutPlan ResolveDirection(
         BppDockButtonBounds viewportBounds,
         BppDockButtonBounds candidate,
+        float horizontalStep,
         float verticalStep,
         IReadOnlyList<BppDockButtonObstacle> blockers
     )
     {
         string? lastBlockerName = null;
-        for (var slot = 0; slot < MaximumVerticalSlots; slot++)
+        for (var slot = 0; slot < MaximumSlots; slot++)
         {
             if (!viewportBounds.Contains(candidate))
             {
@@ -97,7 +136,7 @@ internal static class BppCollectionDockButtonLayoutPlanner
 
             lastBlockerName = blocker.Value.Name;
             candidate = BppDockButtonBounds.FromCenter(
-                candidate.CenterX,
+                candidate.CenterX + horizontalStep,
                 candidate.CenterY + verticalStep,
                 candidate.Width,
                 candidate.Height
