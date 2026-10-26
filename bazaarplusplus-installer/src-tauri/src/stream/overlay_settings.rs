@@ -119,7 +119,14 @@ impl OverlaySettingsStore {
 
         // The stamp is taken before the read: a write racing this parse leaves
         // a different stamp on the file, so the next load parses again.
-        let settings = self.read_settings();
+        let Some(raw) = self.read_raw() else {
+            // A failed read may be transient (another process holding the
+            // file), so it is not remembered: the next load reads again.
+            return Ok(OverlaySettings::default());
+        };
+        // Invalid contents stay invalid until the file changes, so the
+        // defaults they yield are remembered like any parse.
+        let settings = self.parse_settings(&raw);
         if let Some((modified, len)) = stamp {
             *self.memo() = Some(SettingsMemo {
                 modified,
@@ -134,19 +141,20 @@ impl OverlaySettingsStore {
         self.memo.lock().expect("overlay settings memo poisoned")
     }
 
-    fn read_settings(&self) -> OverlaySettings {
-        let read_path = &self.path;
-        let raw = match std::fs::read_to_string(read_path) {
-            Ok(raw) => raw,
-            Err(err) => {
+    fn read_raw(&self) -> Option<String> {
+        std::fs::read_to_string(&self.path)
+            .inspect_err(|err| {
                 crate::services::debug_error!(
                     "Failed to read overlay crop settings from {}: {err}",
-                    read_path.display()
+                    self.path.display()
                 );
-                return OverlaySettings::default();
-            }
-        };
-        let document = match serde_json::from_str::<OverlayCropDocument>(&raw) {
+            })
+            .ok()
+    }
+
+    fn parse_settings(&self, raw: &str) -> OverlaySettings {
+        let read_path = &self.path;
+        let document = match serde_json::from_str::<OverlayCropDocument>(raw) {
             Ok(document) => document,
             Err(err) => {
                 crate::services::debug_error!(
@@ -459,6 +467,29 @@ mod tests {
             reader.load().unwrap().display_mode,
             StreamOverlayDisplayMode::Current
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_read_is_not_remembered() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("overlay.json");
+        let store = OverlaySettingsStore::new(path.clone());
+        OverlaySettingsStore::new(path.clone())
+            .save(sample_crop())
+            .unwrap();
+        let set_mode = |mode| {
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+        };
+
+        // The file keeps its stamp, but its contents cannot be read for now.
+        set_mode(0o000);
+        let unreadable = store.load().unwrap().crop;
+        set_mode(0o600);
+
+        assert_eq!(unreadable, OverlayCropSettings::default());
+        assert_eq!(store.load().unwrap().crop, sample_crop());
     }
 
     #[test]

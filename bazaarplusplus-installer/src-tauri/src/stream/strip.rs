@@ -41,9 +41,11 @@ const CACHE_LIMITS: CacheLimits = CacheLimits {
     fresh_for: Duration::from_secs(10),
 };
 /// A hit rewrites an entry's modification time only once it is this old: a
-/// strip served every few seconds is not written on every request, and still
-/// never looks unused to the sweep.
-const REFRESH_AFTER: Duration = Duration::from_secs(CACHE_LIMITS.unused_for.as_secs() / 2);
+/// strip served every few seconds is written about once a day, not on every
+/// request. Kept short because the count cap removes the oldest times across
+/// both caches; a day keeps that order within a day of least recently used,
+/// so a strip OBS shows all the time outlives thumbnails viewed once.
+const REFRESH_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
 /// Screenshot source paths remembered per process and per route.
 const SOURCE_PATH_CAPACITY: usize = 512;
 
@@ -569,6 +571,49 @@ mod tests {
             entries.iter().map(|path| path.exists()).collect::<Vec<_>>(),
             [false, true, true]
         );
+    }
+
+    #[test]
+    fn the_count_cap_keeps_a_strip_served_daily_over_thumbnails_viewed_once() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        let now = SystemTime::now();
+        let limits = CacheLimits {
+            unused_for: Duration::from_secs(30 * 24 * 60 * 60),
+            max_entries: 2,
+            fresh_for: Duration::from_secs(10),
+        };
+        let source = root.join("source.png");
+        RgbaImage::from_pixel(64, 32, image::Rgba([1, 2, 3, 255]))
+            .save(&source)
+            .unwrap();
+        let obs = cache_namespace(root, OBS_STRIP_CACHE, Path::new("/Games/A"));
+        let crop = OverlayCropSettings::default();
+        cached_strip(&obs, "shot-1", &source, crop).unwrap();
+        let served = crop_cache_path(&obs, "shot-1", &source, crop).unwrap();
+        let set_age = |path: &Path, age: u64| {
+            std::fs::File::options()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(now - Duration::from_secs(age))
+                .unwrap();
+        };
+        // Written two days ago and served ever since, every few seconds.
+        set_age(&served, 2 * 24 * 60 * 60);
+        let history = cache_namespace(root, HISTORY_THUMBNAIL_CACHE, Path::new("/Games/A"));
+        let viewed_once = [
+            cache_file(history.join("shot-2-strip.png"), now, 24 * 60 * 60),
+            cache_file(history.join("shot-3-strip.png"), now, 23 * 60 * 60),
+        ];
+        cached_strip(&obs, "shot-1", &source, crop).unwrap();
+
+        // Swept at the next start, once the refreshed entry is past `fresh_for`.
+        sweep(root, SystemTime::now() + Duration::from_secs(60), &limits);
+
+        assert!(served.exists());
+        assert!(!viewed_once[0].exists());
+        assert!(viewed_once[1].exists());
     }
 
     #[test]

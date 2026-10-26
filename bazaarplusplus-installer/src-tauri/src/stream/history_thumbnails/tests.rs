@@ -302,8 +302,8 @@ async fn a_cache_hit_marks_an_aging_entry_as_recently_used() {
     image_pixel(router.clone(), route_of(&uri)).await;
     assert_eq!(modified(), recent);
 
-    let stale = now - Duration::from_secs(90 * 24 * 60 * 60);
-    set_age(&entry, now, Duration::from_secs(90 * 24 * 60 * 60));
+    let stale = now - Duration::from_secs(2 * 24 * 60 * 60);
+    set_age(&entry, now, Duration::from_secs(2 * 24 * 60 * 60));
 
     image_pixel(router, route_of(&uri)).await;
 

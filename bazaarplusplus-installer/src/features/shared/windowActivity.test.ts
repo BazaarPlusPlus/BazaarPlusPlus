@@ -6,10 +6,14 @@
 // disposal.
 // - Native focus registration fails and the page never refreshes on focus.
 // - A blur or a hidden-to-hidden change triggers a refresh.
-// - The native hide-to-tray event, or a hidden page, does not report hidden.
+// - Under Tauri a page that becomes visible without focus stays paused.
+// - The native hide-to-tray event, or a hidden page, does not report hidden,
+//   or the event name drifts from the one the native side emits.
 // - A listener keeps firing after disposal, or a native registration that
 //   finishes after disposal is never released.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Event as TauriEvent } from '@tauri-apps/api/event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { hasTauriRuntime } from '../../api/runtime';
@@ -81,13 +85,29 @@ describe('window resume', () => {
     expect(resumed).not.toHaveBeenCalled();
     focused({ event: 'tauri://focus', id: 1, payload: true });
     expect(resumed).toHaveBeenCalledOnce();
+    // An uncovered window becomes visible without gaining focus.
+    const visibility = vi.spyOn(document, 'visibilityState', 'get');
+    visibility.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(resumed).toHaveBeenCalledTimes(2);
     dispose();
     focused({ event: 'tauri://focus', id: 1, payload: true });
+    document.dispatchEvent(new Event('visibilitychange'));
     const stopped = vi.fn();
     registered(stopped);
     await Promise.resolve();
     expect(stopped).toHaveBeenCalledOnce();
-    expect(resumed).toHaveBeenCalledOnce();
+    expect(resumed).toHaveBeenCalledTimes(2);
+  });
+
+  it('names the event the native side emits after hiding to the tray', () => {
+    const native = readFileSync(
+      join(__dirname, '../../../src-tauri/src/main_window.rs'),
+      'utf8'
+    );
+    expect(native).toContain(
+      `HIDDEN_EVENT: &str = "${MAIN_WINDOW_HIDDEN_EVENT}";`
+    );
   });
 });
 

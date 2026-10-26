@@ -9,44 +9,67 @@ import { hasTauriRuntime } from '../../api/runtime';
  */
 export const MAIN_WINDOW_HIDDEN_EVENT = 'main-window-hidden';
 
+const noop: () => void = () => undefined;
+
 /**
- * Calls `onResume` whenever the window regains focus or becomes visible. In
- * Tauri it follows native focus, falling back to browser focus and visibility
- * events outside Tauri or when native registration fails.
+ * Registers a native listener and returns its release. A registration that
+ * lands after release is stopped at once; a failed one calls `onFailure`
+ * unless already released.
+ */
+function nativeListener(
+  register: () => Promise<() => void>,
+  onFailure: () => void = noop
+): () => void {
+  let active = true;
+  let stop: (() => void) | undefined;
+  void register()
+    .then((registered) => {
+      if (active) stop = registered;
+      else registered();
+    })
+    .catch(() => {
+      if (active) onFailure();
+    });
+  return () => {
+    active = false;
+    stop?.();
+  };
+}
+
+/**
+ * Calls `onResume` whenever the window regains focus or the page becomes
+ * visible. Visibility counts in every mode, because a page can become visible
+ * without the window gaining focus (an uncovered macOS window). In Tauri focus
+ * follows the native window, falling back to browser focus outside Tauri or
+ * when native registration fails.
  */
 export function observeWindowResume(onResume: () => void): () => void {
   let active = true;
-  let unlisten: (() => void) | undefined;
   const resume = () => {
     if (active) onResume();
   };
   const visibilityChanged = () => {
     if (document.visibilityState === 'visible') resume();
   };
-  const observeDom = () => {
-    window.addEventListener('focus', resume);
-    document.addEventListener('visibilitychange', visibilityChanged);
-  };
+  const observeDomFocus = () => window.addEventListener('focus', resume);
+  document.addEventListener('visibilitychange', visibilityChanged);
+  let stopNative = noop;
   if (hasTauriRuntime()) {
-    void getCurrentWindow()
-      .onFocusChanged(({ payload: focused }) => {
-        if (focused) resume();
-      })
-      .then((stop) => {
-        if (active) unlisten = stop;
-        else stop();
-      })
-      .catch(() => {
-        if (active) observeDom();
-      });
+    stopNative = nativeListener(
+      () =>
+        getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+          if (focused) resume();
+        }),
+      observeDomFocus
+    );
   } else {
-    observeDom();
+    observeDomFocus();
   }
   return () => {
     active = false;
     window.removeEventListener('focus', resume);
     document.removeEventListener('visibilitychange', visibilityChanged);
-    unlisten?.();
+    stopNative();
   };
 }
 
@@ -56,7 +79,6 @@ export function observeWindowResume(onResume: () => void): () => void {
  */
 export function observeWindowHidden(onHidden: () => void): () => void {
   let active = true;
-  let unlisten: (() => void) | undefined;
   const hidden = () => {
     if (active) onHidden();
   };
@@ -64,18 +86,13 @@ export function observeWindowHidden(onHidden: () => void): () => void {
     if (document.visibilityState === 'hidden') hidden();
   };
   document.addEventListener('visibilitychange', visibilityChanged);
-  if (hasTauriRuntime()) {
-    void listen(MAIN_WINDOW_HIDDEN_EVENT, hidden)
-      .then((stop) => {
-        if (active) unlisten = stop;
-        else stop();
-      })
-      // The page then pauses only on `visibilitychange`.
-      .catch(() => undefined);
-  }
+  // Without the native event the page pauses only on `visibilitychange`.
+  const stopNative = hasTauriRuntime()
+    ? nativeListener(() => listen(MAIN_WINDOW_HIDDEN_EVENT, hidden))
+    : noop;
   return () => {
     active = false;
     document.removeEventListener('visibilitychange', visibilityChanged);
-    unlisten?.();
+    stopNative();
   };
 }
