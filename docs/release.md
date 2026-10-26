@@ -83,7 +83,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 生产者 `managed` 与 `history-contract` 的条目组成 Managed Payload，mod 自己更新它；其余条目（加载器、native、`bootstrap`、`sqlite-*` 和生产者 `updater` 的 Updater）只由 installer 或新 APK 更新，它们的 sha256 汇成 fragment 的 `nonManagedPayloadDigest`。决策记录见 [mod ADR 0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)。
 
 - `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.mjs`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
-- fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：桌面在 `upload` 时与已提升的平台清单比较这两项，Android 看 APK 是否复用。mod 只与正在运行的副本比较。
+- fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：桌面在 `upload` 时与已提升的平台清单比较这两项，Android 看 APK 是否复用。mod 只与正在运行的副本比较。迁移进 `installer/` 的 5.x 平台清单（[ADR 0007](adr/0007-one-public-bucket-and-domain.md)）没有这些字段，6.0.0 把它们读作不可自更新，见 `release/manifest.mjs` 的 `predatesSelfUpdate`。
 - Updater 以固定版本 1.0.0 确定性构建，源码不变则文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新 APK。
 
 ## 本地准备与恢复
