@@ -164,6 +164,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         if (_captureWindow == null || _persistence == null)
             return;
 
+        var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         try
         {
             if (_captureWindow.Observe(message) is not { } capture)
@@ -200,6 +201,19 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+            // Once per closed battle: the whole call that closed the window, replay part
+            // serialization included, so the share outside serialization can be measured.
+            // Temporary #514 probe: this event and its timestamp are deleted in the commit that
+            // acts on #514's measurement, or when #514 is closed.
+            BppLog.InfoEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.capture.window_closed"
+                ),
+                ("battle_id", manifest.BattleId, BppLogCorrelationPolicy.Short),
+                ("route", route),
+                ("observe_elapsed_ms", ElapsedMilliseconds(startedAt))
+            );
         }
         catch (Exception ex)
         {
@@ -211,6 +225,14 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
             );
         }
     }
+
+    private static double ElapsedMilliseconds(long startedAt) =>
+        Math.Round(
+            (System.Diagnostics.Stopwatch.GetTimestamp() - startedAt)
+                * 1000.0
+                / System.Diagnostics.Stopwatch.Frequency,
+            3
+        );
 
     internal CurrentReplayRecordingSnapshot GetCurrentReplayRecordingSnapshot()
     {

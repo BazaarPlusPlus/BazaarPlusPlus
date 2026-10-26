@@ -10,6 +10,9 @@ using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.Host;
+using BazaarPlusPlus.Infrastructure;
+using BepInEx.Logging;
 using MessagePack;
 
 // The desktop's PvP Battle Capture Window: Core's window over the real DesktopPvpBattleReads and
@@ -156,8 +159,38 @@ internal static class DesktopPvpBattleCaptureTests
         var expectedSpawn = MessagePackSerializer.Serialize(opening, MessagePackConfig.Options);
         var expectedCombat = MessagePackSerializer.Serialize(combat, MessagePackConfig.Options);
         var expectedDespawn = MessagePackSerializer.Serialize(closing, MessagePackConfig.Options);
+        var logLines = new List<string>();
+        using var logSource = new ManualLogSource("desktop-pvp-capture");
+        logSource.LogEvent += (_, args) => logLines.Add(args.Data?.ToString() ?? string.Empty);
+        BppLog.Install(new BepInExLogSink(logSource));
 
         var capture = Capture(opening, combat, closing);
+
+        BppLog.Flush();
+        // Each deferred part logs its serialization once, at the close, in part order. Temporary
+        // #514 probe: this sink and assertion go with the part_serialized event.
+        var serialized = logLines
+            .Where(line =>
+                line.Contains(
+                    "event=combat_replay.capture.part_serialized",
+                    StringComparison.Ordinal
+                )
+            )
+            .ToList();
+        Check.That(
+            serialized.Count == 3
+                && serialized[0].Contains("part=spawn", StringComparison.Ordinal)
+                && serialized[0].Contains($"bytes={expectedSpawn.Length}", StringComparison.Ordinal)
+                && serialized[1].Contains("part=combat", StringComparison.Ordinal)
+                && serialized[1]
+                    .Contains($"bytes={expectedCombat.Length}", StringComparison.Ordinal)
+                && serialized[2].Contains("part=despawn", StringComparison.Ordinal)
+                && serialized[2]
+                    .Contains($"bytes={expectedDespawn.Length}", StringComparison.Ordinal)
+                && serialized.All(line => line.Contains("elapsed_ms=", StringComparison.Ordinal)),
+            "Each replay part logs its bytes and elapsed time once, in part order:\n"
+                + string.Join("\n", logLines)
+        );
 
         var replay = capture.Replay;
         Check.That(replay != null, "A PvP combat keeps its replay.");
