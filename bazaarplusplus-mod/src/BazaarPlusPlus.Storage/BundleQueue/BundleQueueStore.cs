@@ -248,7 +248,8 @@ public sealed class BundleQueueStore : SqliteStoreBase
         using var connection = OpenConnection();
         using var command = CreateCommand(connection);
         command.CommandText = $"""
-            SELECT bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes
+            SELECT bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes,
+                attempts
             FROM {RunLogSchema.BundleOutboxTableName}
             WHERE status = 'pending'
               AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= $now)
@@ -409,7 +410,8 @@ public sealed class BundleQueueStore : SqliteStoreBase
             reader.GetString(2),
             reader.GetString(3),
             reader.GetString(4),
-            reader.GetInt64(5)
+            reader.GetInt64(5),
+            reader.GetInt32(6)
         );
 
     private static void InsertOutbox(

@@ -1,5 +1,6 @@
 #nullable enable
 using System.Security.Cryptography;
+using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.Infrastructure;
@@ -16,6 +17,12 @@ public static class BundleUploadFeed
 {
     public const int MaximumAttemptBatch = 3;
 
+    /// <summary>The cap on every upload retry delay, Retry-After included.</summary>
+    public static readonly TimeSpan MaximumRetryDelay = TimeSpan.FromMinutes(30);
+
+    // A queue backoff window counts as over within this fraction of the base interval of its end.
+    private const double WindowEndSlackFraction = 0.1;
+
     public static Session Activate(
         IBppServices services,
         UploadPumpCadence cadence,
@@ -24,8 +31,29 @@ public static class BundleUploadFeed
     ) => new(services, cadence, platformKey, databaseOptions);
 
     /// <summary>
-    /// Feed-owned behavior for one pump lifetime: enablement, one attempt, feed-private arm
-    /// signals, and attempt-resource disposal. The pump owns Unity cadence, shared arms, and
+    /// The retry delay after a failure: <paramref name="baseSeconds"/> doubled per prior
+    /// consecutive failure, scaled by a jitter factor in [0.9, 1.1] drawn from
+    /// <paramref name="jitterSample"/> (a caller-supplied uniform sample in [0, 1)), floored by
+    /// the server's Retry-After, and capped at <see cref="MaximumRetryDelay"/>.
+    /// </summary>
+    public static TimeSpan RetryDelay(
+        int baseSeconds,
+        int priorFailures,
+        double jitterSample,
+        int? retryAfterSeconds
+    )
+    {
+        var exponent = Math.Min(Math.Max(priorFailures, 0), 30);
+        var sample = double.IsNaN(jitterSample) ? 0.5d : Math.Min(Math.Max(jitterSample, 0d), 1d);
+        var factor = 1d + 0.2d * (sample - 0.5d);
+        var backoff = Math.Max(baseSeconds, 0) * Math.Pow(2, exponent) * factor;
+        var seconds = Math.Max(backoff, Math.Max(retryAfterSeconds ?? 0, 0));
+        return TimeSpan.FromSeconds(Math.Min(seconds, MaximumRetryDelay.TotalSeconds));
+    }
+
+    /// <summary>
+    /// Feed-owned behavior for one pump lifetime: enablement, one attempt, the in-memory queue
+    /// backoff, and attempt-resource disposal. The pump owns Unity cadence, shared arms, and
     /// shutdown drain.
     /// </summary>
     public sealed class Session : IDisposable
@@ -38,6 +66,14 @@ public static class BundleUploadFeed
         private readonly BundleQueueStore _queueStore;
         private readonly IBundleOutboxFiles _files;
         private readonly int _retryIntervalSeconds;
+        private readonly Func<DateTimeOffset> _utcNow;
+        private readonly Func<double> _jitterSample;
+
+        // Queue backoff after EndpointUnavailable outcomes. Only the single in-flight attempt
+        // touches these two; another thread only sets _backoffClearRequested.
+        private int _consecutiveEndpointFailures;
+        private DateTimeOffset? _queueBackoffUntil;
+        private int _backoffClearRequested;
 
         public Session(
             IBppServices services,
@@ -59,6 +95,8 @@ public static class BundleUploadFeed
                     TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
                 ) ?? throw new InvalidOperationException("Mod API route is invalid.");
             _retryIntervalSeconds = cadence.RetryIntervalSeconds;
+            _utcNow = static () => DateTimeOffset.UtcNow;
+            _jitterSample = new Random().NextDouble;
         }
 
         public Session(
@@ -66,7 +104,9 @@ public static class BundleUploadFeed
             int retryIntervalSeconds,
             ModApiSession modApiSession,
             BundleQueueStore queueStore,
-            IBundleOutboxFiles files
+            IBundleOutboxFiles files,
+            Func<DateTimeOffset>? utcNow = null,
+            Func<double>? jitterSample = null
         )
         {
             _services = services ?? throw new ArgumentNullException(nameof(services));
@@ -75,12 +115,23 @@ public static class BundleUploadFeed
                 modApiSession ?? throw new ArgumentNullException(nameof(modApiSession));
             _queueStore = queueStore ?? throw new ArgumentNullException(nameof(queueStore));
             _files = files ?? throw new ArgumentNullException(nameof(files));
+            _utcNow = utcNow ?? (static () => DateTimeOffset.UtcNow);
+            _jitterSample = jitterSample ?? new Random().NextDouble;
         }
 
         public async Task<UploadAttemptResult> RunAttemptAsync(CancellationToken cancellationToken)
         {
-            Cleanup();
-            var rows = _queueStore.ListDue(DateTimeOffset.UtcNow, MaximumAttemptBatch);
+            // One instant for the whole attempt: the backoff window opens from it, so the pump's
+            // next tick at attempt start + interval lands on the window edge, not past it.
+            var startedAt = _utcNow();
+            if (Interlocked.Exchange(ref _backoffClearRequested, 0) == 1)
+                EndQueueBackoff();
+            Cleanup(startedAt);
+            if (IsQueueBackingOff(startedAt))
+                return UploadAttemptResult.From(
+                    UploadAttemptObservation.Deferred(UploadLogReasonCode.QueueBackoff)
+                );
+            var rows = _queueStore.ListDue(startedAt, MaximumAttemptBatch);
             if (rows.Count == 0)
                 return UploadAttemptResult.NoWork();
             var observations = new List<UploadAttemptObservation>();
@@ -112,63 +163,59 @@ public static class BundleUploadFeed
                         )
                         .ConfigureAwait(false);
                     ApplyResponse(row, response);
-                    if (
-                        response.Disposition
-                        is BundleUploadDisposition.Uploaded
-                            or BundleUploadDisposition.Equivalent
-                    )
+                    switch (response.Disposition)
                     {
-                        _files.Delete(row.FileName);
-                        BundlePipelineLog.Info(
-                            new BppLogEvent(
-                                BppLogFeatureScope.BundlePipeline,
-                                "bundle_pipeline.upload.succeeded"
-                            ),
-                            row.RunId,
-                            row.BundleId
-                        );
-                        observations.Add(UploadAttemptObservation.Succeeded(row.RunId));
-                    }
-                    else if (response.Disposition == BundleUploadDisposition.Transient)
-                    {
-                        BundlePipelineLog.Warn(
-                            new BppLogEvent(
-                                BppLogFeatureScope.BundlePipeline,
-                                "bundle_pipeline.upload.degraded",
-                                storm: ["category"]
-                            ),
-                            response.Code,
-                            response.DiagnosticException,
-                            runId: row.RunId
-                        );
-                        observations.Add(
-                            UploadAttemptObservation.Degraded(
+                        case BundleUploadDisposition.Uploaded:
+                        case BundleUploadDisposition.Equivalent:
+                            // The upload is committed; a file delete that throws below must not
+                            // keep the queue backing off.
+                            EndQueueBackoff();
+                            _files.Delete(row.FileName);
+                            BundlePipelineLog.Info(
+                                new BppLogEvent(
+                                    BppLogFeatureScope.BundlePipeline,
+                                    "bundle_pipeline.upload.succeeded"
+                                ),
                                 row.RunId,
-                                UploadLogReasonCode.RemoteUploadFailed,
-                                response.DiagnosticException
-                            )
-                        );
-                        _services.EventBus.Publish(new UploadArmRequested());
-                    }
-                    else
-                    {
-                        BundlePipelineLog.Warn(
-                            new BppLogEvent(
-                                BppLogFeatureScope.BundlePipeline,
-                                "bundle_pipeline.upload.degraded",
-                                storm: ["category"]
-                            ),
-                            response.Code,
-                            response.DiagnosticException,
-                            runId: row.RunId
-                        );
-                        observations.Add(
-                            UploadAttemptObservation.Degraded(
-                                row.RunId,
-                                UploadLogReasonCode.PayloadInvalid,
-                                response.DiagnosticException
-                            )
-                        );
+                                row.BundleId
+                            );
+                            observations.Add(UploadAttemptObservation.Succeeded(row.RunId));
+                            break;
+                        case BundleUploadDisposition.Transient:
+                            LogUploadDegraded(row, response);
+                            observations.Add(
+                                UploadAttemptObservation.Degraded(
+                                    row.RunId,
+                                    UploadLogReasonCode.RemoteUploadFailed,
+                                    response.DiagnosticException
+                                )
+                            );
+                            break;
+                        case BundleUploadDisposition.EndpointUnavailable:
+                            LogUploadDegraded(row, response);
+                            observations.Add(
+                                UploadAttemptObservation.Degraded(
+                                    row.RunId,
+                                    UploadLogReasonCode.RemoteUploadFailed,
+                                    response.DiagnosticException
+                                )
+                            );
+                            // The rest of the batch would fail the same way: stop here and back
+                            // the whole queue off instead of reading, hashing and sending each.
+                            OpenQueueBackoff(startedAt, response);
+                            return UploadAttemptResult.From(observations);
+                        case BundleUploadDisposition.Permanent:
+                            LogUploadDegraded(row, response);
+                            observations.Add(
+                                UploadAttemptObservation.Degraded(
+                                    row.RunId,
+                                    UploadLogReasonCode.PayloadInvalid,
+                                    response.DiagnosticException
+                                )
+                            );
+                            break;
+                        default:
+                            throw UnhandledDisposition(response.Disposition);
                     }
                 }
                 catch (FileNotFoundException)
@@ -177,7 +224,7 @@ public static class BundleUploadFeed
                         row.BundleId,
                         row.RunId,
                         "pending_file_missing",
-                        DateTimeOffset.UtcNow
+                        _utcNow()
                     );
                     BundlePipelineLog.Warn(
                         new BppLogEvent(
@@ -201,7 +248,7 @@ public static class BundleUploadFeed
                         row.BundleId,
                         row.RunId,
                         ex.Message,
-                        DateTimeOffset.UtcNow
+                        _utcNow()
                     );
                     BundlePipelineLog.Warn(
                         new BppLogEvent(
@@ -223,7 +270,7 @@ public static class BundleUploadFeed
                 }
                 catch (IOException ex)
                 {
-                    RecordTransient(row, "file_io_error", ex.Message, null);
+                    RecordTransient(row, "file_io_error", ex.Message, RowRetryDelay(row, null));
                     BundlePipelineLog.Warn(
                         new BppLogEvent(
                             BppLogFeatureScope.BundlePipeline,
@@ -247,52 +294,150 @@ public static class BundleUploadFeed
         }
 
         /// <summary>
-        /// Subscribe feed-private arm signals; null when the feed has none. The pump holds the
-        /// handle and disposes it first on shutdown; Dispose only owns attempt resources.
+        /// The feed has no private arm signals, but it observes the shared ones: an explicit arm
+        /// (<see cref="UploadArmRequested"/>, or leaving a run) ends the queue backoff, so the
+        /// attempt the pump arms really runs. The pump holds the handle and disposes it first on
+        /// shutdown; Dispose only owns attempt resources.
         /// </summary>
-        public IDisposable? SubscribeArmSignals(Action arm) => null;
+        public IDisposable? SubscribeArmSignals(Action arm) =>
+            new ArmSubscriptions(
+                _services.EventBus.Subscribe<UploadArmRequested>(_ => RequestBackoffClear()),
+                _services.EventBus.Subscribe<RunLifecycleChanged>(change =>
+                {
+                    if (change != null && !change.IsInGameRun)
+                        RequestBackoffClear();
+                })
+            );
 
         public void Dispose() => _modApiSession.Dispose();
 
-        private void ApplyResponse(BundleOutboxRecord row, BundleUploadResponse response)
+        // Set from the event bus on any thread; the next attempt consumes it at its start, so an
+        // arm that lands during an in-flight attempt is not undone by that attempt's failure.
+        private void RequestBackoffClear() => Interlocked.Exchange(ref _backoffClearRequested, 1);
+
+        private void EndQueueBackoff()
         {
-            if (response.Disposition == BundleUploadDisposition.Transient)
-            {
-                RecordTransient(row, response.Code, response.Detail, response.RetryAfterSeconds);
-                return;
-            }
-            var uploaded =
-                response.Disposition
-                is BundleUploadDisposition.Uploaded
-                    or BundleUploadDisposition.Equivalent;
-            _queueStore.RecordOutcome(
-                row.BundleId,
-                new BundleUploadOutcomeRecord(
-                    uploaded,
-                    response.Code,
-                    response.Detail,
-                    response.RequestId,
-                    response.Outcome
+            _consecutiveEndpointFailures = 0;
+            _queueBackoffUntil = null;
+        }
+
+        private void OpenQueueBackoff(DateTimeOffset startedAt, BundleUploadResponse response)
+        {
+            var delay = RetryDelay(
+                _retryIntervalSeconds,
+                _consecutiveEndpointFailures,
+                _jitterSample(),
+                response.RetryAfterSeconds
+            );
+            _consecutiveEndpointFailures++;
+            _queueBackoffUntil = startedAt + delay;
+            BppLog.InfoEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.upload.backoff_opened"
                 ),
-                DateTimeOffset.UtcNow
+                ("category", response.Code),
+                ("consecutive_failures", _consecutiveEndpointFailures),
+                ("delay_seconds", (long)Math.Round(delay.TotalSeconds))
             );
         }
+
+        // A window counts as over within a tenth of the base interval of its end, so a pump tick
+        // that lands a little early still attempts. A window longer than the cap means the wall
+        // clock moved backwards; that ends it instead of stretching it. Only success, an arm, or
+        // a new Session resets the failure count.
+        private bool IsQueueBackingOff(DateTimeOffset now)
+        {
+            if (_queueBackoffUntil is not { } until)
+                return false;
+            var remaining = until - now;
+            if (
+                remaining.TotalSeconds >= _retryIntervalSeconds * WindowEndSlackFraction
+                && remaining <= MaximumRetryDelay
+            )
+                return true;
+            _queueBackoffUntil = null;
+            return false;
+        }
+
+        private static void LogUploadDegraded(
+            BundleOutboxRecord row,
+            BundleUploadResponse response
+        ) =>
+            BundlePipelineLog.Warn(
+                new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.upload.degraded",
+                    storm: ["category"]
+                ),
+                response.Code,
+                response.DiagnosticException,
+                runId: row.RunId
+            );
+
+        private static InvalidOperationException UnhandledDisposition(
+            BundleUploadDisposition disposition
+        ) => new($"Unhandled Bundle upload disposition '{disposition}'.");
+
+        private void ApplyResponse(BundleOutboxRecord row, BundleUploadResponse response)
+        {
+            switch (response.Disposition)
+            {
+                case BundleUploadDisposition.Uploaded:
+                case BundleUploadDisposition.Equivalent:
+                case BundleUploadDisposition.Permanent:
+                    _queueStore.RecordOutcome(
+                        row.BundleId,
+                        new BundleUploadOutcomeRecord(
+                            response.Disposition != BundleUploadDisposition.Permanent,
+                            response.Code,
+                            response.Detail,
+                            response.RequestId,
+                            response.Outcome
+                        ),
+                        _utcNow()
+                    );
+                    return;
+                case BundleUploadDisposition.Transient:
+                    RecordTransient(
+                        row,
+                        response.Code,
+                        response.Detail,
+                        RowRetryDelay(row, response.RetryAfterSeconds)
+                    );
+                    return;
+                case BundleUploadDisposition.EndpointUnavailable:
+                    // The queue backoff owns the wait; the row keeps only the server's own
+                    // Retry-After, so a restart or an arm retries it at once.
+                    RecordTransient(
+                        row,
+                        response.Code,
+                        response.Detail,
+                        RetryDelay(0, 0, 0d, response.RetryAfterSeconds)
+                    );
+                    return;
+                default:
+                    throw UnhandledDisposition(response.Disposition);
+            }
+        }
+
+        // A failure about this Bundle backs off this row only, from its recorded attempt count.
+        private TimeSpan RowRetryDelay(BundleOutboxRecord row, int? retryAfterSeconds) =>
+            RetryDelay(_retryIntervalSeconds, row.Attempts, _jitterSample(), retryAfterSeconds);
 
         private void RecordTransient(
             BundleOutboxRecord row,
             string code,
             string? detail,
-            int? retryAfterSeconds
+            TimeSpan delay
         )
         {
-            var delay = Math.Max(_retryIntervalSeconds, retryAfterSeconds ?? 0);
-            var now = DateTimeOffset.UtcNow;
-            _queueStore.RecordTransient(row.BundleId, code, detail, now, now.AddSeconds(delay));
+            var now = _utcNow();
+            _queueStore.RecordTransient(row.BundleId, code, detail, now, now + delay);
         }
 
-        private void Cleanup()
+        private void Cleanup(DateTimeOffset now)
         {
-            var now = DateTimeOffset.UtcNow;
             _queueStore.ExpirePending(now.Subtract(PendingRetention), now);
             foreach (
                 var fileName in _queueStore.ListRetentionFileNames(
@@ -325,6 +470,15 @@ public static class BundleUploadFeed
                 var length = _files.GetLength(fileName);
                 _files.Delete(fileName);
                 total -= length;
+            }
+        }
+
+        private sealed class ArmSubscriptions(IDisposable first, IDisposable second) : IDisposable
+        {
+            public void Dispose()
+            {
+                first.Dispose();
+                second.Dispose();
             }
         }
     }

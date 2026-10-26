@@ -73,9 +73,10 @@ static void TestEligibilityAllocationPublishAndDueOrdering()
                 store.ContainsOutbox("bundle-a"),
                 "Published allocation should exist in outbox."
             );
+            var due = store.ListDue(Now(), 3).Single();
             Assert(
-                store.ListDue(Now(), 3).Single().BundleId == "bundle-a",
-                "Pending outbox should be due."
+                due.BundleId == "bundle-a" && due.Attempts == 0,
+                "Pending outbox should be due, with no attempts yet."
             );
 
             store.RecordTransient("bundle-a", "busy", null, Now(), Now().AddMinutes(3));
@@ -84,8 +85,8 @@ static void TestEligibilityAllocationPublishAndDueOrdering()
                 "Transient delay must postpone due work."
             );
             Assert(
-                store.ListDue(Now().AddMinutes(3), 3).Count == 1,
-                "Due time boundary is inclusive."
+                store.ListDue(Now().AddMinutes(3), 3).Single().Attempts == 1,
+                "Due time boundary is inclusive, and the row carries its recorded attempts."
             );
         }
     );
