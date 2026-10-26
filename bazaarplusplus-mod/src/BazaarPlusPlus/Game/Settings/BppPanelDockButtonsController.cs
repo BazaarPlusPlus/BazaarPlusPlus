@@ -152,7 +152,11 @@ internal sealed class BppPanelDockButtonsController
         SyncDockCanvas(_dockButtonRect);
         if (_liveBuildButtonRect != null)
             SyncDockCanvas(_liveBuildButtonRect);
+        // One scene scan serves both placements: the dock button it moves is a BPP object the
+        // scan never counts, and the Ten-Win call adds it back as an occupied rect.
+        var sceneButtons = BppDockButtonScreenLayout.FindSceneButtons();
         var available = _screenLayout.TryResolveAndApplyCollection(
+            sceneButtons,
             _anchorButton,
             _dockButtonRect,
             BppSettingsDockPlacement.DefaultSiblingGap,
@@ -161,6 +165,7 @@ internal sealed class BppPanelDockButtonsController
         if (_liveBuildButtonRect != null)
         {
             _hasAvailableLiveBuildLayout = _screenLayout.TryResolveAndApplyCollection(
+                sceneButtons,
                 _anchorButton,
                 _liveBuildButtonRect,
                 BppSettingsDockPlacement.DefaultSiblingGap,

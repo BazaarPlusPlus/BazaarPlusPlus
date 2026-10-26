@@ -18,3 +18,4 @@ Traps and rules that bite only this feature; most failed silently at least once.
 
 - The BPP hotkey conflict check compares BPP actions only against other BPP actions, never native `Gameplay/*` bindings. [`src/BazaarPlusPlus/Game/Input/BppHotkeyService.cs`]
 - BPP settings dock buttons are clones of native dock buttons that must avoid native-button bounds and re-sync geometry for several frames after a screen-size change. [`src/BazaarPlusPlus/Game/Settings/BppDockButtonVisuals.cs`]
+- The dock layout probe skips any button under a `BPP_`-named object and caches each Transform's name verdict by instance ID until the scene changes, so an object must carry its final name from the frame it is created: renamed to `BPP_` after a probe has seen it, it still counts as a native blocker; renamed away from `BPP_`, it is still skipped. [`src/BazaarPlusPlus/Game/Settings/BppDockButtonScreenLayout.cs`, `HasBppName`]

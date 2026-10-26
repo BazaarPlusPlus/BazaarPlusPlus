@@ -28,7 +28,7 @@ public class BppCollectionDockButtonLayoutPlannerTests
         Assert.True(plan.CanApply);
         Assert.Equal(1100f, plan.Bounds.CenterX);
         Assert.Equal(220f, plan.Bounds.CenterY);
-        Assert.Null(plan.BlockerName);
+        Assert.Null(plan.Blocker);
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class BppCollectionDockButtonLayoutPlannerTests
 
         Assert.True(plan.CanApply);
         Assert.Equal(340f, plan.Bounds.CenterY);
-        Assert.Equal("native-info", plan.BlockerName);
+        Assert.Equal("native-info", plan.Blocker?.Name);
     }
 
     [Fact]
@@ -73,7 +73,31 @@ public class BppCollectionDockButtonLayoutPlannerTests
         );
 
         Assert.False(plan.CanApply);
-        Assert.Equal("wall", plan.BlockerName);
+        Assert.Equal("wall", plan.Blocker?.Name);
+    }
+
+    [Fact]
+    public void Resolve_reports_an_unnamed_scanned_blocker_by_source_ahead_of_the_viewport()
+    {
+        // Scanned native buttons carry only a source index; the caller names the one that blocks.
+        var blocker = new BppDockButtonObstacle(
+            name: null,
+            new BppDockButtonBounds(1000f, 1200f, 150f, 900f),
+            isActive: true,
+            sourceIndex: 3
+        );
+
+        var plan = BppCollectionDockButtonLayoutPlanner.Resolve(
+            Viewport,
+            Gear,
+            100f,
+            100f,
+            20f,
+            new[] { blocker }
+        );
+
+        Assert.False(plan.CanApply);
+        Assert.Equal(3, plan.Blocker?.SourceIndex);
     }
 
     [Fact]
@@ -173,7 +197,7 @@ public class BppCollectionDockButtonLayoutPlannerTests
         Assert.True(plan.CanApply);
         Assert.Equal(980f, plan.Bounds.CenterX);
         Assert.Equal(100f, plan.Bounds.CenterY);
-        Assert.Null(plan.BlockerName);
+        Assert.Null(plan.Blocker);
     }
 
     [Fact]
@@ -196,7 +220,7 @@ public class BppCollectionDockButtonLayoutPlannerTests
 
         Assert.False(plan.CanApply);
         Assert.Equal(980f, plan.Bounds.CenterX);
-        Assert.Equal("native-currency", plan.BlockerName);
+        Assert.Equal("native-currency", plan.Blocker?.Name);
     }
 
     [Fact]
@@ -214,6 +238,6 @@ public class BppCollectionDockButtonLayoutPlannerTests
         );
 
         Assert.False(plan.CanApply);
-        Assert.Equal("viewport", plan.BlockerName);
+        Assert.Equal("viewport", plan.Blocker?.Name);
     }
 }
