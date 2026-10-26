@@ -61,8 +61,9 @@ public sealed class SavedReplayCatalog
     {
         manifest = null;
         payload = null;
-        if (!HasSavedReplay(battleId))
+        if (string.IsNullOrWhiteSpace(battleId))
             return SavedBattleLoadOutcome.Missing;
+        // One catalog read: LoadBattle answers null for a missing row or payload file.
         manifest = LoadBattle(battleId);
         payload = manifest == null ? null : LoadPayload(manifest);
         return payload == null ? SavedBattleLoadOutcome.Missing : SavedBattleLoadOutcome.Loaded;

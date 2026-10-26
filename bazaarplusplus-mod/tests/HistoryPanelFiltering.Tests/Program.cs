@@ -42,6 +42,7 @@ TestPageReplacementUpdatesSelection();
 TestCoordinatorRunSelectionUsesFilteredSpace();
 TestAcceptedReplayReturnsWithSelection();
 TestDeleteAndFavoriteDispatchBySection();
+TestConfirmedDeleteRunsOffTheCallerThenReloads();
 TestDeletePromptMentionsMp4OnlyWhereTheHostRecords();
 TestGhostListTextMarksOnlyTheFinalBattle();
 TestRunRatingShowsItsChangeOnlyWhenKnown();
@@ -434,6 +435,98 @@ void TestDeleteAndFavoriteDispatchBySection()
     );
 }
 
+// A confirmed run delete runs its transaction and payload cleanup off the caller's thread: until it
+// publishes, the run stays listed and Delete is disabled; then the run leaves the list and the
+// status line reports it, through the same reload a synchronous delete used.
+void TestConfirmedDeleteRunsOffTheCallerThenReloads()
+{
+    var databasePath = Path.Combine(
+        Path.GetTempPath(),
+        $"bpp-history-delete-{Guid.NewGuid():N}.sqlite3"
+    );
+    using (var db = new SqliteConnection($"Data Source={databasePath}"))
+    {
+        db.Open();
+        RunLogSchema.EnsureInitialized(db);
+        using var command = db.CreateCommand();
+        command.CommandText = """
+            INSERT INTO runs (run_id,hero,game_mode,status,started_at_ms,last_seen_at_ms)
+            VALUES ('run-keep','Vanessa','Unranked','abandoned',1767225600000,1767225600000),
+                ('run-gone','Vanessa','Unranked','abandoned',1767312000000,1767312000000);
+            INSERT INTO battles (battle_id,run_id,source,recorded_at_ms,combat_kind,local_payload_state)
+            VALUES ('battle-gone','run-gone','LOCAL',1767312000000,'PVPCombat','missing');
+            """;
+        command.ExecuteNonQuery();
+    }
+    var state = new HistoryPanelState();
+    var replay = new AcceptingReplay();
+    var dependencies = new HistoryPanelDependencies(
+        new StubRunContext(),
+        new HistoryPanelDataService(new HistoryPanelRepository(databasePath), null),
+        replay,
+        null,
+        null,
+        null,
+        new BazaarDbAccountLinkStore(_ => false, _ => { }),
+        () => 0f,
+        () => null
+    );
+    var coordinator = new HistoryPanelCoordinator(
+        state,
+        dependencies,
+        () => { },
+        () => { },
+        NoReplayReturn()
+    );
+    try
+    {
+        coordinator.OnPanelShown();
+        uiContext.Until(() => !state.PageLoading && !state.DetailLoading);
+        var gone = state.Runs.ToList().FindIndex(run => run.RunId == "run-gone");
+        coordinator.SelectRun(gone);
+        uiContext.Until(() => !state.DetailLoading);
+
+        coordinator.DeleteSelected();
+        coordinator.DeleteSelected();
+        Assert(
+            state.RunDeleteInProgress
+                && state.StatusSeverity == StatusSeverity.Pending
+                && state.Runs.Any(run => run.RunId == "run-gone"),
+            "Until the off-thread delete publishes, the run stays listed and the line is pending."
+        );
+        var model = HistoryPanelViewModelBuilder.Build(
+            state,
+            coordinator,
+            new StubRunContext(),
+            null,
+            0f,
+            Array.Empty<BazaarPlusPlus.Game.Supporters.BPPSupporterSample>(),
+            default,
+            default
+        );
+        Assert(!model.DeleteButtonEnabled, "Delete must stay disabled while a delete runs.");
+        coordinator.DeleteSelected();
+
+        uiContext.Until(() => !state.RunDeleteInProgress && !state.PageLoading);
+        Assert(
+            state.Runs.Select(run => run.RunId).SequenceEqual(["run-keep"]),
+            "The deleted run must leave the list once the delete publishes."
+        );
+        Assert(
+            state.StatusSeverity == StatusSeverity.Success
+                && replay.CleanedBattleIds.SequenceEqual(["battle-gone"]),
+            "The delete must clean the run's replay payloads once and report success."
+        );
+        coordinator.OnPanelHidden();
+    }
+    finally
+    {
+        DisposeAndDrainReads(coordinator);
+        SqliteConnection.ClearAllPools();
+        File.Delete(databasePath);
+    }
+}
+
 // A host that records no video (Android) has no MP4 to keep: its delete prompt does not promise
 // one, and the desktop's, which records, still does.
 void TestDeletePromptMentionsMp4OnlyWhereTheHostRecords()
@@ -504,6 +597,23 @@ void TestAccountArrivalSyncsOnlyTheOpenGhostSection()
 
             Invoke(coordinatorType, coordinator, "Tick", 0f);
             Assert(syncAttempts() == 2, "An unchanged account must not sync again.");
+
+            // The tick reads the profile once a second, not every frame: a scenario that needs a
+            // second observation advances the clock by at least a second.
+            FakeClientCache.SetAccountId("account-switched");
+            Invoke(coordinatorType, coordinator, "Tick", 0.5f);
+            Assert(
+                syncAttempts() == 2
+                    && GetNullableString(state, "CachedAccountId") == "account-arrived",
+                "A tick within a second of the last profile read must not read it again."
+            );
+            Invoke(coordinatorType, coordinator, "Tick", 1f);
+            Assert(
+                syncAttempts() == 3
+                    && GetNullableString(state, "CachedAccountId") == "account-switched",
+                "The first tick a second later must observe the switched account and sync it."
+            );
+            uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
             Invoke(coordinatorType, coordinator, "OnPanelHidden");
         }
     );
@@ -1134,8 +1244,14 @@ internal sealed class AcceptingReplay : IHistoryPanelReplay
         Func<bool>? canCommit = null
     ) => Task.FromResult(HistoryPanelReplayAttemptResult.Success("replay started"));
 
-    public ReplayPayloadCleanupResult CleanupReplayPayloads(IReadOnlyList<string> battleIds) =>
-        throw new InvalidOperationException("History filtering tests clean no payloads.");
+    // The battles whose payloads a delete asked to clean, in order.
+    public List<string> CleanedBattleIds { get; } = [];
+
+    public ReplayPayloadCleanupResult CleanupReplayPayloads(IReadOnlyList<string> battleIds)
+    {
+        CleanedBattleIds.AddRange(battleIds);
+        return new ReplayPayloadCleanupResult(0, null);
+    }
 
     public string GetReplayActionLabel(HistoryBattleRecord? battle) => "Replay";
 }

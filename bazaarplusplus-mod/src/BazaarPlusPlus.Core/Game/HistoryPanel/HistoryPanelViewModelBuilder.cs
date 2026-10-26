@@ -151,6 +151,11 @@ public static class HistoryPanelViewModelBuilder
                     : HistoryPanelText.RemoveFavorite();
             deleteButtonEnabled = selectedFavorite != null && !state.FavoriteActionInProgress;
         }
+        else if (state.RunDeleteInProgress)
+        {
+            deleteButtonText = HistoryPanelText.Working();
+            deleteButtonEnabled = false;
+        }
 
         return new HistoryPanelViewModel
         {

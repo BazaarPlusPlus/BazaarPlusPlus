@@ -227,6 +227,8 @@ public sealed class HistoryPanelDataService
                     result.ReasonCode,
                     result.Exception
                 );
+            if (result.ReasonCode == HistoryPanelGhostSyncReasonCode.UpToDate)
+                return HistoryPanelAttemptResult.UpToDate();
 
             return HistoryPanelAttemptResult.Success(
                 HistoryPanelText.GhostSyncSucceeded(
@@ -278,6 +280,10 @@ public readonly struct HistoryPanelAttemptResult
 
     public static HistoryPanelAttemptResult Success(string statusMessage, int importedCount) =>
         new(true, statusMessage, importedCount, HistoryPanelGhostSyncReasonCode.Completed, null);
+
+    // A Ghost sync answered from the TTL: it succeeded, imported nothing and has no news to show.
+    public static HistoryPanelAttemptResult UpToDate() =>
+        new(true, string.Empty, 0, HistoryPanelGhostSyncReasonCode.UpToDate, null);
 
     public static HistoryPanelAttemptResult Failure(
         string statusMessage,

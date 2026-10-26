@@ -152,12 +152,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         }
         try
         {
-            // The catalog is read uncached: an offer can be stale by the time it is taken.
-            if (
-                !CanReplaySavedCombats(out _)
-                || string.IsNullOrWhiteSpace(battleId)
-                || !_catalog.HasSavedReplay(battleId)
-            )
+            if (!CanReplaySavedCombats(out _) || string.IsNullOrWhiteSpace(battleId))
             {
                 LogRequestRejected(
                     CombatReplayPlaybackSource.LocalSaved,
@@ -166,12 +161,15 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
                 );
                 return false;
             }
+            // The catalog is read uncached, since an offer can be stale by the time it is taken,
+            // and once: a missing row, an unreadable manifest and a missing payload file all load
+            // as null.
             var manifest = _catalog.LoadBattle(battleId);
             if (manifest == null)
             {
                 LogRequestRejected(
                     CombatReplayPlaybackSource.LocalSaved,
-                    ReplayRequestRejectionReasonCode.ManifestUnavailable,
+                    ReplayRequestRejectionReasonCode.PayloadUnavailable,
                     battleId
                 );
                 return false;
@@ -634,17 +632,10 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         _host.Notify(new SavedReplayNotice(SavedReplayNoticeKind.Completed, operation.BattleId));
     }
 
-    private ReplayRequestRejectionReasonCode ResolveSavedReplayRejectionReason(string? battleId)
-    {
-        if (string.IsNullOrWhiteSpace(battleId))
-            return ReplayRequestRejectionReasonCode.InvalidBattleId;
-        var general = ResolveGeneralReplayRejectionReason();
-        if (general != ReplayRequestRejectionReasonCode.RuntimeUnavailable)
-            return general;
-        return !_catalog.HasSavedReplay(battleId)
-            ? ReplayRequestRejectionReasonCode.PayloadUnavailable
-            : ReplayRequestRejectionReasonCode.RuntimeUnavailable;
-    }
+    private ReplayRequestRejectionReasonCode ResolveSavedReplayRejectionReason(string? battleId) =>
+        string.IsNullOrWhiteSpace(battleId)
+            ? ReplayRequestRejectionReasonCode.InvalidBattleId
+            : ResolveGeneralReplayRejectionReason();
 
     private ReplayRequestRejectionReasonCode ResolveGeneralReplayRejectionReason()
     {

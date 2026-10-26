@@ -69,7 +69,7 @@ internal sealed partial class HistoryPanelView : IDisposable
     private Vector2 _screenSize;
     private readonly Vector3[] _corners = new Vector3[4];
     private readonly List<(Image Image, int Index, Color Tint)> _art = new();
-    private readonly Dictionary<Button, bool> _buttonSelection = new();
+    private readonly Dictionary<Button, ButtonBinding> _buttons = new();
     private Action<int>? _pageArchive;
     private Action<int>? _pageBattles;
     public event Action<Rect>? PreviewContainerBoundsChanged;
@@ -291,8 +291,8 @@ internal sealed partial class HistoryPanelView : IDisposable
             art.Image.sprite = _skin?[art.Index];
             art.Image.color = art.Image.sprite != null ? art.Tint : Color.clear;
         }
-        foreach (var entry in _buttonSelection)
-            ApplyButtonSkin(entry.Key, entry.Value);
+        foreach (var entry in _buttons)
+            ApplyButtonSkin(entry.Key, entry.Value.Selected);
         _supporterAttribution?.SetSkin(_skin?[0], _skin?[1]);
         UpdateContent();
     }
@@ -307,13 +307,30 @@ internal sealed partial class HistoryPanelView : IDisposable
             : new Color(.13f, .09f, .055f);
     }
 
+    // Every refresh rebinds every button, so an unchanged one is left alone: no label write, no
+    // interactable toggle, no skin. RefreshSkin reapplies the skin itself when the art arrives.
     private void SetButton(Button button, string label, bool selected = false, bool enabled = true)
     {
-        button.GetComponentInChildren<TextMeshProUGUI>(true).text = label;
+        var binding = _buttons[button];
+        if (binding.Label == label && binding.Selected == selected && binding.Enabled == enabled)
+            return;
+        if (binding.Label != label)
+            binding.Text.text = label;
         button.interactable = enabled;
-        _buttonSelection[button] = selected;
         ApplyButtonSkin(button, selected);
+        _buttons[button] = binding with { Label = label, Selected = selected, Enabled = enabled };
     }
+
+    // A button's own label, found once at construction, and what SetButton last bound. Label
+    // starts null so the first SetButton always binds.
+    private readonly record struct ButtonBinding(
+        TextMeshProUGUI Text,
+        string? Label,
+        bool Selected,
+        bool Enabled
+    );
+
+    private TextMeshProUGUI ButtonLabel(Button button) => _buttons[button].Text;
 
     private void LoadResultBadges()
     {
@@ -436,8 +453,8 @@ internal sealed partial class HistoryPanelView : IDisposable
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = image;
         button.onClick.AddListener(() => click());
-        Text(rect, label, .04f, .06f, .92f, .88f, size, Ink, true);
-        _buttonSelection[button] = selected;
+        var text = Text(rect, label, .04f, .06f, .92f, .88f, size, Ink, true);
+        _buttons[button] = new ButtonBinding(text, null, selected, true);
         return button;
     }
 

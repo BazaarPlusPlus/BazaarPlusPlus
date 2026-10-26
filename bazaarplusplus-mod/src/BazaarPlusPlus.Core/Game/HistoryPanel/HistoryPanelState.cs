@@ -85,6 +85,9 @@ public sealed class HistoryPanelState
 
     public bool DeleteRunConfirmationStatusActive { get; set; }
 
+    // A confirmed run delete is running off the main thread; Delete stays disabled until it ends.
+    public bool RunDeleteInProgress { get; set; }
+
     public HistorySectionMode SectionMode { get; set; } = HistorySectionMode.Runs;
 
     public GhostSyncPhase GhostSync { get; set; }

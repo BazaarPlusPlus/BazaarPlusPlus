@@ -153,6 +153,8 @@ public sealed class SavedReplayPlaybackTests
         h.Save(BattleA);
 
         Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: true));
+        // The start reads the catalog once; the manifest load answers whether the battle is saved.
+        Assert.Equal([$"load:{BattleA}"], h.CatalogReads);
         Assert.True(h.Playback.HoldsPayloadLease);
         Assert.False(h.LeaseIsFree());
         Assert.True(h.Playback.IsSavedReplayPlaybackActive);

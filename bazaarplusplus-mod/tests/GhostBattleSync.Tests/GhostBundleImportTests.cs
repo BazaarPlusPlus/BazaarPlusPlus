@@ -191,5 +191,15 @@ internal static class GhostBundleImportTests
             throw new InvalidOperationException(
                 "A saved Ghost replay must load from cache without another download."
             );
+        // Playback takes the payload the download confirmed instead of reading the file again.
+        if (
+            result.Payload?.BattleId != localId
+            || cached.Payload?.BattleId != localId
+            || cached.Payload.ReplayPayload.CombatMessageBytes.Length == 0
+            || ReferenceEquals(result.Payload, cached.Payload)
+        )
+            throw new InvalidOperationException(
+                "A download and a cached load must each hand back the identity-checked payload."
+            );
     }
 }

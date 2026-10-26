@@ -55,5 +55,4 @@ public enum ReplayRequestRejectionReasonCode
     ReplayAlreadyActive,
     PayloadUnavailable,
     PayloadOperationBusy,
-    ManifestUnavailable,
 }

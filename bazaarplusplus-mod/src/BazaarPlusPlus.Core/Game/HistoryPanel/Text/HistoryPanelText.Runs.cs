@@ -127,6 +127,11 @@ public static partial class HistoryPanelText
         );
     }
 
+    public static string DeletingRun(string shortRunId)
+    {
+        return FormatSimple($"Deleting run {shortRunId}...", $"正在删除对局 {shortRunId}...");
+    }
+
     public static string RunDeleteFailed(string details)
     {
         return FormatSimple($"Couldn't delete run: {details}", $"删除对局失败：{details}");

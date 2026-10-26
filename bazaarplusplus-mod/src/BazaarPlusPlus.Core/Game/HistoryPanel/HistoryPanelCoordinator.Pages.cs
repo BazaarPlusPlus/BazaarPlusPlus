@@ -328,6 +328,7 @@ public sealed partial class HistoryPanelCoordinator
             return;
         _session.Begin();
         _state.ReplayActionInProgress = _state.AccountLinkInProgress = false;
+        _state.RunDeleteInProgress = false;
         _state.GhostSync = GhostSyncPhase.NotStarted;
         _state.ServerHealthProbeInProgress = false;
         SetAccountLinkBanner(null, StatusSeverity.Neutral);

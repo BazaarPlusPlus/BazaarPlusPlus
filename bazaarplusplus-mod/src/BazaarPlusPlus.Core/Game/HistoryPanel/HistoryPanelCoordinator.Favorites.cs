@@ -174,6 +174,8 @@ public sealed partial class HistoryPanelCoordinator
         ClearDeleteRunConfirmation();
         _state.FavoriteActionInProgress = true;
         var session = _session.Version;
+        // The removal runs off the main thread; Remove stays disabled until it publishes.
+        _requestUiRefresh();
         try
         {
             await _favorites.RemoveAsync(favorite.BattleId, _session.Token);
