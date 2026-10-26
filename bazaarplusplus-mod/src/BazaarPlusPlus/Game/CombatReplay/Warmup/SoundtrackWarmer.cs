@@ -9,38 +9,37 @@ namespace BazaarPlusPlus.Game.CombatReplay.Warmup;
 
 internal static class SoundtrackWarmer
 {
-    internal static async Task WarmSoundtracksAsync(
+    /// <summary>
+    /// Warms only the soundtrack the game plays, so its banks stay on the one path the game
+    /// unloads: <c>SoundManager.UnloadSoundTrack</c> on <c>RunInterrupted</c> releases
+    /// <c>PlayingSoundTrackSO</c> and nothing else. The bootstrap's own
+    /// <c>BoardBuilder.LoadBoardAudio</c> normally set it already; otherwise the warmup picks it by
+    /// the same rule (equipped soundtrack, else the player board's) and sets it.
+    /// </summary>
+    internal static async Task WarmPlayingSoundtrackAsync(
         SoundManager soundManager,
         CollectionManager? collectionManager,
-        IReadOnlyCollection<BoardAssetDataSO> boardAssets,
+        BoardAssetDataSO? playerBoard,
         ReplayAudioWarmupStats stats,
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        var warmedAny = false;
-        var warmedSoundtracks = new HashSet<string>(StringComparer.Ordinal);
-        warmedAny |= await WarmSoundtrackAsync(
-            soundManager,
-            await TryGetSoundtrackAsync(collectionManager, outcome),
-            stats,
-            warmedSoundtracks,
-            setPlayingSoundtrack: true,
-            outcome: outcome
-        );
-
-        foreach (var boardAsset in boardAssets)
+        var playing = soundManager.PlayingSoundTrackSO;
+        bool warmed;
+        if (playing != null)
         {
-            warmedAny |= await WarmSoundtrackAsync(
-                soundManager,
-                boardAsset.soundtrack,
-                stats,
-                warmedSoundtracks,
-                setPlayingSoundtrack: soundManager.PlayingSoundTrackSO == null,
-                outcome: outcome
-            );
+            stats.SoundtrackSource = ReplaySoundtrackSource.GamePlaying;
+            warmed = await WarmSoundtrackTracksAsync(soundManager, playing, stats, outcome);
+        }
+        else
+        {
+            var target = await ResolveGameSoundtrackAsync(collectionManager, playerBoard, outcome);
+            stats.SoundtrackSource =
+                target == null ? ReplaySoundtrackSource.None : ReplaySoundtrackSource.WarmupSet;
+            warmed = await WarmSoundtrackAsync(soundManager, target, stats, outcome);
         }
 
-        if (!warmedAny)
+        if (!warmed)
         {
             stats.SoundtrackBanksSkipped++;
             outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
@@ -50,6 +49,8 @@ internal static class SoundtrackWarmer
     internal static async Task WarmBoardAudioAsync(
         SoundManager soundManager,
         BoardAssetDataSO boardAsset,
+        bool isPlayerBoard,
+        ReplayAudioBankOwnership ownership,
         ReplayAudioWarmupStats stats,
         IReplayPlaybackOutcomeSink outcome
     )
@@ -89,6 +90,17 @@ internal static class SoundtrackWarmer
             stats.BoardBanksAlreadyLoaded++;
         else
             stats.BoardBanksLoaded++;
+
+        if (
+            ownership.RecordWarmed(
+                boardAsset.boardBank,
+                boardAsset.boardAssetBank,
+                wasMetadataLoaded,
+                wasAssetLoaded,
+                isPlayerBoard
+            )
+        )
+            stats.BoardBanksOwned++;
     }
 
     internal static void AddBoardAsset(
@@ -150,19 +162,11 @@ internal static class SoundtrackWarmer
         SoundManager soundManager,
         SoundtrackSO? soundtrack,
         ReplayAudioWarmupStats stats,
-        ISet<string> warmedSoundtracks,
-        bool setPlayingSoundtrack,
         IReplayPlaybackOutcomeSink outcome
     )
     {
         if (soundtrack == null)
             return false;
-
-        var key = !string.IsNullOrWhiteSpace(soundtrack.SoundtrackPath)
-            ? soundtrack.SoundtrackPath
-            : soundtrack.name;
-        if (!string.IsNullOrWhiteSpace(key) && warmedSoundtracks.Contains(key))
-            return true;
 
         var loadedSoundtrack = await TryLoadSoundtrackAssetAsync(soundtrack, outcome);
         if (loadedSoundtrack == null)
@@ -171,51 +175,69 @@ internal static class SoundtrackWarmer
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(key))
-            warmedSoundtracks.Add(key);
-
-        if (loadedSoundtrack.MusicTracks == null || loadedSoundtrack.MusicTracks.Length == 0)
-        {
-            stats.SoundtrackBanksSkipped++;
-            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
+        // An empty soundtrack is never handed to the game, which nulls one itself; the caller
+        // counts and reports it once.
+        if (!HasTracks(loadedSoundtrack))
             return false;
-        }
 
-        if (setPlayingSoundtrack)
+        // Re-checked after the await: the game's own LoadSoundtrack may have set it meanwhile.
+        // Never release this handle: PlayingSoundTrackSO keeps the asset, as the game's own
+        // LoadSoundtrack never releases it either.
+        if (soundManager.PlayingSoundTrackSO == null)
             soundManager.PlayingSoundTrackSO = loadedSoundtrack;
 
-        for (uint trackIndex = 0; trackIndex < loadedSoundtrack.MusicTracks.Length; trackIndex++)
+        return await WarmSoundtrackTracksAsync(
+            soundManager,
+            soundManager.PlayingSoundTrackSO,
+            stats,
+            outcome
+        );
+    }
+
+    private static async Task<bool> WarmSoundtrackTracksAsync(
+        SoundManager soundManager,
+        SoundtrackSO soundtrack,
+        ReplayAudioWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
+    )
+    {
+        if (!HasTracks(soundtrack))
+            return false;
+
+        for (uint trackIndex = 0; trackIndex < soundtrack.MusicTracks.Length; trackIndex++)
         {
-            await WarmSoundtrackTrackAsync(
-                soundManager,
-                loadedSoundtrack,
-                trackIndex,
-                stats,
-                outcome
-            );
+            await WarmSoundtrackTrackAsync(soundManager, soundtrack, trackIndex, stats, outcome);
         }
 
         return true;
     }
 
-    private static async Task<SoundtrackSO?> TryGetSoundtrackAsync(
+    private static bool HasTracks(SoundtrackSO soundtrack) =>
+        soundtrack.MusicTracks != null && soundtrack.MusicTracks.Length > 0;
+
+    // BoardBuilder.LoadBoardAudio's rule: an equipped soundtrack wins even when its
+    // SoundtrackObject is missing; only no equipped soundtrack falls back to the board's.
+    private static async Task<SoundtrackSO?> ResolveGameSoundtrackAsync(
         CollectionManager? collectionManager,
+        BoardAssetDataSO? playerBoard,
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        if (collectionManager == null)
-            return null;
+        if (collectionManager != null)
+        {
+            try
+            {
+                var equipped = await collectionManager.GetEquippedSoundtrack();
+                if (equipped != null)
+                    return equipped.SoundtrackObject;
+            }
+            catch (Exception ex)
+            {
+                outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed, ex);
+            }
+        }
 
-        try
-        {
-            var soundtrack = await collectionManager.GetEquippedSoundtrack();
-            return soundtrack != null ? soundtrack.SoundtrackObject : null;
-        }
-        catch (Exception ex)
-        {
-            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed, ex);
-            return null;
-        }
+        return playerBoard != null ? playerBoard.soundtrack : null;
     }
 
     private static async Task<SoundtrackSO?> TryLoadSoundtrackAssetAsync(
