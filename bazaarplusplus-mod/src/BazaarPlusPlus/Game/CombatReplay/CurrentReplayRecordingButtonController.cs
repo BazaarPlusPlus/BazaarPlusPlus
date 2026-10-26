@@ -52,8 +52,7 @@ internal sealed class CurrentReplayRecordingButtonController
         if (existing != null)
         {
             existing._settingsButton = settingsButton;
-            existing.SyncLayout();
-            existing.Refresh();
+            existing.SyncLayoutAndRefresh();
             return existing;
         }
 
@@ -119,8 +118,16 @@ internal sealed class CurrentReplayRecordingButtonController
         ApplyIcon(CurrentReplayRecordingPhase.Ready);
 
         CombatReplayRuntime.Instance?.PrepareCurrentReplayRecordingAvailability();
+        SyncLayoutAndRefresh();
+    }
+
+    // An unconditional sync already carries a fresh layout, so Refresh need not repeat it.
+    private void SyncLayoutAndRefresh()
+    {
         SyncLayout();
-        Refresh();
+        var snapshot = GetDisplaySnapshot();
+        _snapshotWasVisible = snapshot.Visible;
+        Refresh(snapshot);
     }
 
     private void LateUpdate()
@@ -129,8 +136,8 @@ internal sealed class CurrentReplayRecordingButtonController
         // BppPanelDockButtonsController's cadence, plus anchor activity: this button docks against
         // the last panel button, which screenshot suppression toggles inactive outside of any scene
         // or resolution change. The trackers always advance, but the sweep runs only while the
-        // button can show (a ReplayState with a latched battle), and once on the frame it becomes
-        // showable so it never appears at a stale position.
+        // button can show (a ReplayState with a latched battle); the sync on the frame it becomes
+        // showable lives in Refresh, which every path that can show the button goes through.
         var anchorIsActive = IsDockAnchorActive();
         var shouldSync = _layoutSync.ShouldSync(
             ActiveSceneNameCache.Current,
@@ -140,9 +147,8 @@ internal sealed class CurrentReplayRecordingButtonController
         shouldSync |= anchorIsActive != _anchorWasActive;
         _anchorWasActive = anchorIsActive;
         var snapshot = GetDisplaySnapshot();
-        if (snapshot.Visible && (shouldSync || !_snapshotWasVisible))
+        if (shouldSync && snapshot.Visible && _snapshotWasVisible)
             SyncLayout();
-        _snapshotWasVisible = snapshot.Visible;
         Refresh(snapshot);
     }
 
@@ -244,6 +250,11 @@ internal sealed class CurrentReplayRecordingButtonController
     {
         if (_clone == null || _button == null)
             return;
+        // The layout stops updating while the button is hidden, so whichever path first sees it
+        // showable syncs before deciding to show it.
+        if (snapshot.Visible && !_snapshotWasVisible)
+            SyncLayout();
+        _snapshotWasVisible = snapshot.Visible;
         var startFailureStatusCode = _startFailureFeedback.Observe(snapshot);
         var visible = snapshot.Visible && _layoutAvailable;
         var wasActive = _clone.activeSelf;

@@ -10,7 +10,6 @@ internal readonly struct BppCollectionDockButtonLayoutPlan(
     internal bool CanApply { get; } = canApply;
     internal BppDockButtonBounds Bounds { get; } = bounds;
     internal BppDockButtonObstacle? Blocker { get; } = blocker;
-    internal string? BlockerName => Blocker?.Name;
 }
 
 internal static class BppCollectionDockButtonLayoutPlanner
