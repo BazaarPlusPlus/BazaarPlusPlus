@@ -271,16 +271,10 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         return _replayService.CanReplayBattle(activeSelectedBattle, out reason);
     }
 
-    public bool CanRecordSelectedBattle(
-        HistoryBattleRecord? activeSelectedBattle,
-        out string reason
-    )
-    {
-        if (_state.SectionMode == HistorySectionMode.Favorites)
-            return CanReplaySelectedFavorite(out reason)
-                && _replayService.CanRecordLoadedReplay(out reason);
-        return _replayService.CanRecordReplay(activeSelectedBattle, out reason);
-    }
+    // The recording half of record-and-replay, for a battle CanReplaySelectedBattle already
+    // admitted: the view model asks the replay half once and shares it.
+    public bool CanRecordLoadedReplay(out string reason) =>
+        _replayService.CanRecordLoadedReplay(out reason);
 
     public bool RecordingSupported => _replayService.RecordingSupported;
 

@@ -12,8 +12,6 @@ public interface IHistoryPanelReplay
 {
     bool CanReplayBattle(HistoryBattleRecord? battle, out string reason);
 
-    bool CanRecordReplay(HistoryBattleRecord? battle, out string reason);
-
     bool CanRecordReplay(
         HistoryBattleRecord? battle,
         out string reason,

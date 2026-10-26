@@ -43,11 +43,6 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
     public void PrewarmRecordingAvailability() => _recording.Prewarm();
 
     // Recording is feasible only when the replay itself can run AND the host can record.
-    public bool CanRecordReplay(HistoryBattleRecord? battle, out string reason)
-    {
-        return CanRecordReplay(battle, out reason, out _);
-    }
-
     public bool CanRecordReplay(
         HistoryBattleRecord? battle,
         out string reason,

@@ -89,7 +89,10 @@ public static class HistoryPanelViewModelBuilder
                 selectedBattle,
                 out replayUnavailableReason
             );
-            canRecordSelectedBattle = coordinator.CanRecordSelectedBattle(selectedBattle, out _);
+            // Record needs the replay to be possible; reuse that answer rather than asking the
+            // saved-replay catalog again on every refresh.
+            canRecordSelectedBattle =
+                canReplaySelectedBattle && coordinator.CanRecordLoadedReplay(out _);
             canDeleteSelectedRun = coordinator.CanDeleteSelectedRun(selectedRun, out _);
         }
         var visibleRuns = (

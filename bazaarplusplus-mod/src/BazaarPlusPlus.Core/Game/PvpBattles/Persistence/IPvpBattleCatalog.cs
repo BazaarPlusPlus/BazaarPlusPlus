@@ -9,5 +9,8 @@ public interface IPvpBattleCatalog : IReplayPayloadMaintenanceCatalog
 
     PvpBattleManifest? TryLoad(string battleId);
 
+    /// <summary>Whether <see cref="TryLoad"/> would find the battle, without building its manifest.</summary>
+    bool Exists(string battleId);
+
     IReadOnlyList<PvpBattleManifest> ListByRunId(string runId);
 }

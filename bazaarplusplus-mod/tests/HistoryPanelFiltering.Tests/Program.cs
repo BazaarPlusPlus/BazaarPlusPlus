@@ -1104,9 +1104,6 @@ internal sealed class AcceptingReplay : IHistoryPanelReplay
         return battle != null;
     }
 
-    public bool CanRecordReplay(HistoryBattleRecord? battle, out string reason) =>
-        CanRecordLoadedReplay(out reason);
-
     public bool CanRecordReplay(
         HistoryBattleRecord? battle,
         out string reason,

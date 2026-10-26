@@ -322,6 +322,27 @@ public sealed class PvpBattleSqliteStore : SqliteStoreBase, IReplayPayloadMainte
         return ReadRecord(reader);
     }
 
+    // The row TryLoad would find, without reading its columns or snapshots: History asks on every
+    // view refresh whether the selected battle has a saved replay.
+    public bool Exists(string battleId)
+    {
+        if (string.IsNullOrWhiteSpace(battleId))
+            return false;
+
+        using var connection = OpenConnection();
+        using var command = CreateCommand(connection);
+        command.CommandText = $"""
+            SELECT EXISTS (
+                SELECT 1
+                FROM {RunLogSchema.BattlesTableName}
+                WHERE battle_id = $battleId
+                  AND source = 'LOCAL'
+            );
+            """;
+        command.Parameters.AddWithValue("$battleId", battleId);
+        return command.ExecuteScalar() is long exists && exists != 0;
+    }
+
     public void AttachToRun(string battleId, string runId)
     {
         if (string.IsNullOrWhiteSpace(battleId) || string.IsNullOrWhiteSpace(runId))

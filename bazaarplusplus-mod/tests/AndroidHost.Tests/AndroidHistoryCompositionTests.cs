@@ -92,6 +92,14 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         Assert.True(synced.Succeeded, synced.StatusMessage);
         Assert.Equal(1, synced.ImportedCount);
         Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM battles WHERE source = 'GHOST';"));
+        // A Ghost row is no local battle: the saved-replay probe does not see it.
+        var ghostBattleId = (string)
+            Scalar("SELECT battle_id FROM battles WHERE source = 'GHOST';")!;
+        Assert.False(
+            new PvpBattleSqliteStore(DatabasePath, AndroidComposition.DatabaseOptions).Exists(
+                ghostBattleId
+            )
+        );
         Assert.Equal("delete", JournalMode());
     }
 
@@ -108,19 +116,21 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
     }
 
     // Core's view model hides Record on a host whose recording port records no video at all, and
-    // shows it on one that does (the desktop's).
+    // shows it on one that does (the desktop's). A build asks the runtime once whether the
+    // selected saved battle can replay, and Record reuses that answer.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void The_record_action_shows_only_where_the_host_records_video(bool supported)
     {
-        var composed = Compose(session: null, new StandInRuntime());
+        var runtime = new StandInRuntime();
+        var composed = Compose(session: null, runtime);
         var dependencies = supported
             ? new HistoryPanelDependencies(
                 composed.RunContext,
                 composed.DataService,
                 new HistoryPanelReplayService(
-                    () => new StandInRuntime(),
+                    () => runtime,
                     new RecordingPort(),
                     ReplayDirectory,
                     static () => LocalAccount
@@ -133,7 +143,18 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
                 composed.ProfileAccountId
             )
             : composed;
-        var state = new HistoryPanelState();
+        var battle = Battle(HistoryBattleSource.Local, ReplayAvailability.Saved);
+        var anchor = new HistoryCursor(0, battle.BattleId);
+        var state = new HistoryPanelState
+        {
+            BattlePage = new HistoryCursorPage<HistoryBattleRecord>(
+                [battle],
+                anchor,
+                anchor,
+                hasNewer: false,
+                hasOlder: false
+            ),
+        };
         using var coordinator = new HistoryPanelCoordinator(
             state,
             dependencies,
@@ -155,6 +176,9 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
 
         Assert.Equal(supported, dependencies.ReplayService.RecordingSupported);
         Assert.Equal(supported, model.RecordAndReplayButtonVisible);
+        Assert.True(model.ReplayButtonEnabled);
+        Assert.Equal(supported, model.RecordAndReplayButtonEnabled);
+        Assert.Equal(new[] { battle.BattleId }, runtime.SavedBattleProbes);
     }
 
     [Fact]
@@ -339,8 +363,14 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
             return !Busy;
         }
 
-        public bool CanReplaySavedBattle(string battleId, out string reason) =>
-            CanReplaySavedCombats(out reason);
+        // Each call is one saved-replay catalog probe on a real host.
+        public List<string> SavedBattleProbes { get; } = new();
+
+        public bool CanReplaySavedBattle(string battleId, out string reason)
+        {
+            SavedBattleProbes.Add(battleId);
+            return CanReplaySavedCombats(out reason);
+        }
 
         public bool ReplaySaved(string battleId, bool recordVideo)
         {

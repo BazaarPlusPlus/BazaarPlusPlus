@@ -45,6 +45,8 @@ public sealed class PvpBattleCatalog : IPvpBattleCatalog
     public PvpBattleManifest? TryLoad(string battleId) =>
         _store.TryLoad(battleId) is { } record ? ToManifest(record) : null;
 
+    public bool Exists(string battleId) => _store.Exists(battleId);
+
     public IReadOnlyList<PvpBattleManifest> ListByRunId(string runId) =>
         _store.ListByRunId(runId).Select(ToManifest).ToList();
 

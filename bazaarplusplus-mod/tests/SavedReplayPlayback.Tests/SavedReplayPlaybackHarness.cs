@@ -214,6 +214,8 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
         public PvpBattleManifest? TryLoad(string battleId) =>
             _manifests.TryGetValue(battleId, out var manifest) ? manifest : null;
 
+        public bool Exists(string battleId) => _manifests.ContainsKey(battleId);
+
         public IReadOnlyList<PvpBattleManifest> ListByRunId(string runId) => [];
 
         public IReadOnlyList<ReplayPayloadMaintenanceRecord> ListReplayMaintenanceInventory() => [];
