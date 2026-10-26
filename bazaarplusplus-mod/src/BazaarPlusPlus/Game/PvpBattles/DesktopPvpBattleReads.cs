@@ -1,4 +1,5 @@
 #nullable enable
+using System.Diagnostics;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared;
 using BazaarGameShared.Domain.Core.Types;
@@ -7,6 +8,8 @@ using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.Heroes;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using MessagePack;
 using TheBazaar;
 
@@ -123,14 +126,33 @@ internal sealed class DesktopPvpBattleReads : IPvpBattleReads<INetMessage>
         if (stage == PvpReplayStage.Combat)
         {
             var combat = (NetMessageCombatSim)message;
-            return PvpReplayPart.Deferred(() =>
-                MessagePackSerializer.Serialize(combat, MessagePackConfig.Options)
-            );
+            return PvpReplayPart.Deferred(() => Serialize(combat, battleId, "combat"));
         }
         var gameSim = AsGameSim(message);
-        return PvpReplayPart.Deferred(() =>
-            MessagePackSerializer.Serialize(gameSim, MessagePackConfig.Options)
+        var part = stage == PvpReplayStage.Spawn ? "spawn" : "despawn";
+        return PvpReplayPart.Deferred(() => Serialize(gameSim, battleId, part));
+    }
+
+    // Runs once per part when the window closes, inside the call that delivered the closing
+    // message; a throw is left to the window, which fails the part. Temporary #514 probe: the
+    // part_serialized event, its timing, and the assertions on it in DesktopPvpBattleCaptureTests
+    // are deleted in the commit that acts on #514's measurement, or when #514 is closed.
+    private static byte[] Serialize<T>(T message, string battleId, string part)
+    {
+        var startedAt = Stopwatch.GetTimestamp();
+        var bytes = MessagePackSerializer.Serialize(message, MessagePackConfig.Options);
+        var elapsedMs = (Stopwatch.GetTimestamp() - startedAt) * 1000.0 / Stopwatch.Frequency;
+        BppLog.InfoEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.capture.part_serialized"
+            ),
+            ("battle_id", battleId, BppLogCorrelationPolicy.Short),
+            ("part", part),
+            ("bytes", bytes.Length),
+            ("elapsed_ms", Math.Round(elapsedMs, 3))
         );
+        return bytes;
     }
 
     private static NetMessageGameSim AsGameSim(INetMessage message) => (NetMessageGameSim)message;
