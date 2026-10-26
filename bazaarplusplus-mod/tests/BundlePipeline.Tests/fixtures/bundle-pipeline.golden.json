@@ -164,6 +164,149 @@
           "content_type": "application/x-bpp-run-v6"
         }
       }
+    },
+    "size-budget-replays": {
+      "bundle_id": "<ulid>",
+      "bundle_version": 6,
+      "created_at_ms": 0,
+      "run": {
+        "run_id": "run-budget-replays",
+        "player_account_id": "account-001",
+        "run_format_version": 6,
+        "projection": {
+          "run": {},
+          "battles": [
+            {
+              "battle_id": "budget-projection-3",
+              "recorded_at_ms": 4070945010000,
+              "day": 1,
+              "hour": 1,
+              "encounter_id": null,
+              "combat_kind": "PVPCombat",
+              "result": "win",
+              "winner_combatant_id": "Player",
+              "loser_combatant_id": "Opponent",
+              "is_final_battle": false,
+              "player": {
+                "account_id": "account-001",
+                "display_name": "Player",
+                "hero_id": null,
+                "hero_name": "Vanessa",
+                "rank": null,
+                "rating": null,
+                "level": null,
+                "prestige": null,
+                "victories": null
+              },
+              "opponent": {
+                "account_id": "account-002",
+                "display_name": "Opponent",
+                "hero_id": null,
+                "hero_name": "Pygmalien",
+                "rank": null,
+                "rating": null,
+                "level": null,
+                "prestige": null,
+                "victories": null
+              }
+            },
+            {
+              "battle_id": "budget-projection-4",
+              "recorded_at_ms": 4070945070000,
+              "day": 1,
+              "hour": 1,
+              "encounter_id": null,
+              "combat_kind": "PVPCombat",
+              "result": "win",
+              "winner_combatant_id": "Player",
+              "loser_combatant_id": "Opponent",
+              "is_final_battle": false,
+              "player": {
+                "account_id": "account-001",
+                "display_name": "Player",
+                "hero_id": null,
+                "hero_name": "Vanessa",
+                "rank": null,
+                "rating": null,
+                "level": null,
+                "prestige": null,
+                "victories": null
+              },
+              "opponent": {
+                "account_id": "account-002",
+                "display_name": "Opponent",
+                "hero_id": null,
+                "hero_name": "Pygmalien",
+                "rank": null,
+                "rating": null,
+                "level": null,
+                "prestige": null,
+                "victories": null
+              }
+            },
+            {
+              "battle_id": "budget-projection-5",
+              "recorded_at_ms": 4070945130000,
+              "day": 1,
+              "hour": 1,
+              "encounter_id": null,
+              "combat_kind": "PVPCombat",
+              "result": "win",
+              "winner_combatant_id": "Player",
+              "loser_combatant_id": "Opponent",
+              "is_final_battle": true,
+              "player": {
+                "account_id": "account-001",
+                "display_name": "Player",
+                "hero_id": null,
+                "hero_name": "Vanessa",
+                "rank": null,
+                "rating": null,
+                "level": null,
+                "prestige": null,
+                "victories": null
+              },
+              "opponent": {
+                "account_id": "account-002",
+                "display_name": "Opponent",
+                "hero_id": null,
+                "hero_name": "Pygmalien",
+                "rank": null,
+                "rating": null,
+                "level": null,
+                "prestige": null,
+                "victories": null
+              }
+            }
+          ]
+        },
+        "payload": {
+          "offset": 0,
+          "length": "<normalized>",
+          "sha256": "<normalized>",
+          "content_type": "application/x-bpp-run-v6"
+        }
+      }
+    },
+    "size-budget-events": {
+      "bundle_id": "<ulid>",
+      "bundle_version": 6,
+      "created_at_ms": 0,
+      "run": {
+        "run_id": "run-budget-events",
+        "player_account_id": "account-001",
+        "run_format_version": 6,
+        "projection": {
+          "run": {},
+          "battles": []
+        },
+        "payload": {
+          "offset": 0,
+          "length": "<normalized>",
+          "sha256": "<normalized>",
+          "content_type": "application/x-bpp-run-v6"
+        }
+      }
     }
   },
   "checksums": {
@@ -202,6 +345,18 @@
       "manifest_bytes": "<normalized>",
       "sha256": "<normalized>",
       "expected": "valid"
+    },
+    "size-budget-replays.bundle": {
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
+      "sha256": "<normalized>",
+      "expected": "valid"
+    },
+    "size-budget-events.bundle": {
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
+      "sha256": "<normalized>",
+      "expected": "valid"
     }
   },
   "run_payloads": {
@@ -228,6 +383,14 @@
     "corrupt-replay": {
       "messagepack_bytes": 418,
       "sha256": "a3d0ff6dc6921b44b0225c2f5f778f394e4ee9898b4036c8aeb5b3687f47054d"
+    },
+    "size-budget-replays": {
+      "messagepack_bytes": 2411332,
+      "sha256": "b254fa92f84f9bc27dccca3728463ac0914e49b53f96c4d97f8547c9c06d16ec"
+    },
+    "size-budget-events": {
+      "messagepack_bytes": 2667583,
+      "sha256": "b0ca2437c12bd828c702ab77ce1d54b0520fcafd85f185d4278b5526d5abd665"
     }
   },
   "run_screenshots": {
