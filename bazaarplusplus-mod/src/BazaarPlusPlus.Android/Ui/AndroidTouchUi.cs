@@ -14,9 +14,9 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;
 
-/// <summary>The touch panels' entries: native-style icons by the settings button for Collection
-/// and, in a run, Ten-Win Builds; History in the game's own menus, a tile in the lobby's MENU grid
-/// and a row in the in-run menu. Their lifecycle stays with the Overlay Panel Host. Views and
+/// <summary>The touch panels' entries: in a run, native-style icons in a corner around the settings
+/// button, Collection below it and Ten-Win Builds left of it; History in the game's own menus, a
+/// tile in the lobby's MENU grid and a row in the in-run menu. Their lifecycle stays with the Overlay Panel Host. Views and
 /// catalog data are still built on first open.</summary>
 internal sealed class AndroidTouchUi
 {
@@ -34,11 +34,8 @@ internal sealed class AndroidTouchUi
     private readonly AndroidSupporterData? _supporters;
     private readonly AndroidPanelHandle _collectionHandle;
     private readonly AndroidPanelHandle _liveBuildHandle;
-    private readonly List<(RectTransform Rect, Func<bool> Offered)> _entries = new();
-    private TouchRect[] _slots = [];
-    private int _placed = -1;
+    private readonly List<(GameObject Root, Func<bool> Offered)> _entries = new();
     private bool _inRun;
-    private bool _shortcutsInRun;
 
     private GameObject? _root;
     private RectTransform? _shortcuts;
@@ -220,13 +217,15 @@ internal sealed class AndroidTouchUi
                 && !playing
                 && !AndroidNativeHud.HasPopup
                 && !AndroidNativeHud.IsInspectingCard
+                && _inRun
                 && _anchor != null
                 && _anchor.gameObject.activeInHierarchy;
             SetActive(_shortcuts?.gameObject, visible);
             if (visible)
             {
                 LayoutShortcuts();
-                PlaceShortcuts();
+                foreach (var entry in _entries)
+                    SetActive(entry.Root, entry.Offered());
             }
             if (LiveBuildOffered() && !_liveBuildData!.Warmed)
                 _liveBuildData.Warm("setting_on");
@@ -260,57 +259,47 @@ internal sealed class AndroidTouchUi
         var screen = AndroidTouchScreen.Key();
         if (
             bounds == _shortcutAnchor
-            && _inRun == _shortcutsInRun
             && string.Equals(screen, _shortcutScreen, StringComparison.Ordinal)
         )
             return;
         _shortcutScreen = screen;
         _shortcutAnchor = bounds;
-        _shortcutsInRun = _inRun;
-        _placed = -1;
         if (_shortcuts != null)
             UnityEngine.Object.Destroy(_shortcuts.gameObject);
         _entries.Clear();
         var metrics = AndroidTouchScreen.Read();
         var chrome = TouchChrome.For(metrics);
-        _slots = _inRun
-            ? TouchHudLayout.ShortcutsBeside(metrics, bounds, 2)
-            : TouchHudLayout.ShortcutsBelow(metrics, bounds, 2);
         var art = new AndroidNativeArt();
         _shortcuts = AndroidTouchScreen.Child(
             "PanelShortcuts",
             _root!.transform,
             new(0, 0, metrics.CanvasWidth, metrics.CanvasHeight)
         );
-        var collection = Add(
+        // A corner around the gear: Collection below it, Ten-Win Builds left of it.
+        Add(
             "Collection",
             _icons!.Collection,
+            TouchHudLayout.ShortcutBelow(metrics, bounds),
             () => _android.CollectionPanel.Value,
             () => LogOpenOutcome(CollectionPanelId, _collectionHandle.RequestOpen(EntrySource))
         );
-        // Ten-Win Builds reads the run's board, so it is offered in a run only, next to the gear.
-        var tenWins = Add(
+        Add(
             "TenWinBuilds",
             _icons.TenWins,
-            () => _shortcutsInRun && LiveBuildOffered(),
+            TouchHudLayout.ShortcutBeside(metrics, bounds),
+            LiveBuildOffered,
             () => LogOpenOutcome(LiveBuildPanelId, _liveBuildHandle.RequestOpen(EntrySource))
         );
-        if (_inRun)
-            _entries.AddRange([tenWins, collection]);
-        else
-            _entries.AddRange([collection, tenWins]);
         _relayouts++;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.ui.shortcuts_layout"),
             ("anchor", bounds),
-            ("in_run", _inRun),
-            ("first", _slots[0]),
             ("target", chrome.Target)
         );
 
-        (RectTransform, Func<bool>) Add(string name, Sprite icon, Func<bool> offered, Action open)
+        void Add(string name, Sprite icon, TouchRect area, Func<bool> offered, Action open)
         {
-            var rect = AndroidTouchScreen.Child(name, _shortcuts, _slots[0]);
+            var rect = AndroidTouchScreen.Child(name, _shortcuts, area);
             AndroidRoundControl.Create(
                 rect,
                 art.RoundLayers,
@@ -318,28 +307,7 @@ internal sealed class AndroidTouchUi
                 chrome.Metrics.Dp(32),
                 () => AndroidUiActions.Run("open_" + name, open)
             );
-            return (rect, offered);
-        }
-    }
-
-    // The offered icons fill the slots in order, so a switched-off panel leaves no gap.
-    private void PlaceShortcuts()
-    {
-        var mask = 0;
-        for (var i = 0; i < _entries.Count; i++)
-            if (_entries[i].Offered())
-                mask |= 1 << i;
-        if (mask == _placed)
-            return;
-        _placed = mask;
-        var slot = 0;
-        for (var i = 0; i < _entries.Count; i++)
-        {
-            var (rect, _) = _entries[i];
-            var offered = (mask & (1 << i)) != 0;
-            SetActive(rect.gameObject, offered);
-            if (offered)
-                AndroidTouchScreen.Place(rect, _slots[slot++]);
+            _entries.Add((rect.gameObject, offered));
         }
     }
 
