@@ -163,12 +163,25 @@ internal static class PresentationWarmer
         await semaphore.WaitAsync();
         try
         {
-            _ = await NativeGlobalAssetLoader.LoadByAddressAsync<GameObject>(
+            var asset = await NativeGlobalAssetLoader.LoadByAddressAsync<GameObject>(
                 assetLoader,
                 overrideKey,
                 NativeAssetScopeIntent.Current
             );
-            stats.OverrideAssetsPreloaded++;
+            if (asset != null)
+            {
+                stats.OverrideAssetsPreloaded++;
+            }
+            else
+            {
+                // The game's loader logs the cause and returns null instead of throwing.
+                stats.OverrideAssetsFailed++;
+                ReplayWarmupLogging.AssetSkipped(
+                    ReplayWarmupStage.Presentation,
+                    overrideKey,
+                    ReplayWarmupAssetReasonCode.AssetLoadFailed
+                );
+            }
         }
         catch (Exception ex)
         {
