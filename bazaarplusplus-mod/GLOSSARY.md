@@ -153,7 +153,7 @@ length, enumeration, and deletion so upload ordering and retention can be tested
 filesystem policy into Storage.
 
 **Upload Feed Session**:
-The behavior object (`BundleUploadFeed.Session`) the Bundle feed returns from activation: one upload attempt, its queue backoff, and resource disposal. The background pump owns only the Unity cadence, the shutdown drain, and the shared gates (PTR channel precondition, run-lifecycle and `UploadArmRequested` arm signals); it never rewires feed internals.
+The behavior object (`BundleUploadFeed.Session`) the Bundle feed returns from activation: one upload attempt, its queue backoff and the arm signals that end it, and resource disposal. The background pump owns only the Unity cadence, the shutdown drain, and the shared gates (PTR precondition, run-lifecycle and `UploadArmRequested` arms); it never rewires feed internals.
 _Avoid_: per-feed upload controller
 
 ## Cards

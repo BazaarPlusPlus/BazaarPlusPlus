@@ -65,13 +65,16 @@ public sealed class UploadPump : IDisposable
             cadence.RetryIntervalSeconds
         );
         pump._startupRunner = new StartupUploadAttemptRunner(new UploadFeedLogState());
+        // The feed subscribes first: the bus calls handlers in subscription order on the
+        // publisher's thread, so an arm ends the feed's queue backoff before the pump's handler
+        // lets a main-thread Tick start the armed attempt.
+        pump._feedArmSubscription = session.SubscribeArmSignals();
         pump._runLifecycleSubscription = services.EventBus.Subscribe<RunLifecycleChanged>(
             pump.OnRunLifecycleChanged
         );
         pump._uploadArmSubscription = services.EventBus.Subscribe<UploadArmRequested>(
             pump.OnUploadArmRequested
         );
-        pump._feedArmSubscription = session.SubscribeArmSignals(pump.ArmImmediate);
         return pump;
     }
 

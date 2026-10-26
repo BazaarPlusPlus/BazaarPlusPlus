@@ -27,6 +27,41 @@ internal static class UploadBackoffScenarios
         await OneFailingBundleDoesNotStarveTheQueue(Path.Combine(root, "one-bad-bundle"));
         await RetryAfterFloorsTheWindowAndStaysOnTheRow(Path.Combine(root, "retry-after"));
         await BundleFailureBacksOffOnlyItsRow(Path.Combine(root, "bundle-failure"));
+        await LongAttemptStillWaitsAfterItsFailure(Path.Combine(root, "long-attempt"));
+    }
+
+    // The window lines up with the attempt's start, but an attempt that outlasts it (a slow
+    // request, then a timeout) still waits the base interval, or Retry-After, after its failure.
+    private static async Task LongAttemptStillWaitsAfterItsFailure(string root)
+    {
+        int? retryAfter = null;
+        using var harness = new Harness(root, ["a", "b", "c"], _ => Unavailable503(retryAfter));
+        harness.RequestDuration = TimeSpan.FromSeconds(150);
+
+        var startedAt = harness.Now;
+        await harness.AttemptAsync();
+        Check.That(harness.Now == startedAt.AddSeconds(150), "The clock moved during the request.");
+        // The pump ticks one interval after the attempt started: the window from the attempt's
+        // start is over, but only 30 s have passed since the failure.
+        harness.Advance(TimeSpan.FromSeconds(Base - 150));
+        harness.ExpectDeferred(await harness.AttemptAsync(), requests: 1, reads: 1);
+        harness.Advance(TimeSpan.FromSeconds(150));
+        await harness.AttemptAsync();
+        Check.That(
+            harness.Requests.Count == 2,
+            "The window ends one base interval after the failure."
+        );
+
+        // The same holds for a Retry-After floor: it counts from the failure, not the start.
+        harness.Publish(new UploadArmRequested());
+        retryAfter = 600;
+        startedAt = harness.Now;
+        await harness.AttemptAsync();
+        harness.Now = startedAt.AddSeconds(700);
+        harness.ExpectDeferred(await harness.AttemptAsync(), requests: 3, reads: 3);
+        harness.Now = startedAt.AddSeconds(750);
+        await harness.AttemptAsync();
+        Check.That(harness.Requests.Count == 4, "Retry-After counts from the failure.");
     }
 
     private static async Task UnavailableEndpointBacksOffTheWholeQueue(string root)
@@ -120,7 +155,8 @@ internal static class UploadBackoffScenarios
         await harness.ExpectWindowAsync(Base);
     }
 
-    // The server answers 503 for one Bundle whose stored object went bad; the rest must still drain.
+    // Resilience: a 5xx is service-wide by the API reference, but if one Bundle keeps getting one
+    // while the others are accepted, the rest of the queue must still drain.
     private static async Task OneFailingBundleDoesNotStarveTheQueue(string root)
     {
         using var harness = new Harness(
@@ -295,7 +331,11 @@ internal static class UploadBackoffScenarios
                 }
             }
             _files = new CountingFiles(files);
-            _handler = new ScriptedHandler(answer);
+            _handler = new ScriptedHandler(bundleId =>
+            {
+                Now += RequestDuration;
+                return answer(bundleId);
+            });
             _services = new TestServices(new TestPaths(root));
             _session = new BundleUploadFeed.Session(
                 _services,
@@ -313,10 +353,13 @@ internal static class UploadBackoffScenarios
                 () => Now,
                 () => 0.5
             );
-            _armSubscription = _session.SubscribeArmSignals(() => { });
+            _armSubscription = _session.SubscribeArmSignals();
         }
 
-        internal DateTimeOffset Now { get; private set; }
+        internal DateTimeOffset Now { get; set; }
+
+        // How far the clock moves while a request is in flight; zero unless a scenario sets it.
+        internal TimeSpan RequestDuration { get; set; }
         internal IReadOnlyList<string> Requests => _handler.Requests;
         internal int Reads => _files.Reads;
 

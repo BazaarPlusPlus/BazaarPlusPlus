@@ -20,8 +20,10 @@ public static class BundleUploadFeed
     /// <summary>The cap on every upload retry delay, Retry-After included.</summary>
     public static readonly TimeSpan MaximumRetryDelay = TimeSpan.FromMinutes(30);
 
-    // A queue backoff window counts as over within this fraction of the base interval of its end.
-    private const double WindowEndSlackFraction = 0.1;
+    // A queue backoff window counts as over within this fraction of the base interval of its end;
+    // larger than the first step's largest jitter (a tenth), so a jittered first retry still
+    // lands on the pump tick one interval after the failed attempt started.
+    private const double WindowEndSlackFraction = 0.15;
 
     public static Session Activate(
         IBppServices services,
@@ -53,8 +55,8 @@ public static class BundleUploadFeed
 
     /// <summary>
     /// Feed-owned behavior for one pump lifetime: enablement, one attempt, the in-memory queue
-    /// backoff, and attempt-resource disposal. The pump owns Unity cadence, shared arms, and
-    /// shutdown drain.
+    /// backoff and the arm signals that end it, and attempt-resource disposal. The pump owns
+    /// Unity cadence, its own arm of the next attempt, and shutdown drain.
     /// </summary>
     public sealed class Session : IDisposable
     {
@@ -294,12 +296,14 @@ public static class BundleUploadFeed
         }
 
         /// <summary>
-        /// The feed has no private arm signals, but it observes the shared ones: an explicit arm
-        /// (<see cref="UploadArmRequested"/>, or leaving a run) ends the queue backoff, so the
-        /// attempt the pump arms really runs. The pump holds the handle and disposes it first on
-        /// shutdown; Dispose only owns attempt resources.
+        /// Handles the shared arm signals for the queue backoff: an explicit arm
+        /// (<see cref="UploadArmRequested"/>, or leaving a run) ends it, so the attempt the pump
+        /// arms really runs. The pump subscribes this before its own arm handlers, so the bus,
+        /// which calls handlers in subscription order, clears the backoff before the pump can
+        /// start that attempt. The pump holds the handle and disposes it first on shutdown;
+        /// Dispose only owns attempt resources.
         /// </summary>
-        public IDisposable? SubscribeArmSignals(Action arm) =>
+        public IDisposable SubscribeArmSignals() =>
             new ArmSubscriptions(
                 _services.EventBus.Subscribe<UploadArmRequested>(_ => RequestBackoffClear()),
                 _services.EventBus.Subscribe<RunLifecycleChanged>(change =>
@@ -321,6 +325,10 @@ public static class BundleUploadFeed
             _queueBackoffUntil = null;
         }
 
+        // The window is measured from the attempt's start, so it lines up with the pump tick, but
+        // it never ends sooner after the failure itself than the base interval (or the server's
+        // Retry-After): an attempt that spent its window on a slow upload and a request timeout
+        // must not retry straight away.
         private void OpenQueueBackoff(DateTimeOffset startedAt, BundleUploadResponse response)
         {
             var delay = RetryDelay(
@@ -329,8 +337,16 @@ public static class BundleUploadFeed
                 _jitterSample(),
                 response.RetryAfterSeconds
             );
+            var minimumQuiet = RetryDelay(
+                _retryIntervalSeconds,
+                0,
+                0.5d,
+                response.RetryAfterSeconds
+            );
+            var fromStart = startedAt + delay;
+            var fromFailure = _utcNow() + minimumQuiet;
             _consecutiveEndpointFailures++;
-            _queueBackoffUntil = startedAt + delay;
+            _queueBackoffUntil = fromStart > fromFailure ? fromStart : fromFailure;
             BppLog.InfoEvent(
                 new BppLogEvent(
                     BppLogFeatureScope.BundlePipeline,
@@ -342,7 +358,7 @@ public static class BundleUploadFeed
             );
         }
 
-        // A window counts as over within a tenth of the base interval of its end, so a pump tick
+        // A window counts as over within a fraction of the base interval of its end, so a pump tick
         // that lands a little early still attempts. A window longer than the cap means the wall
         // clock moved backwards; that ends it instead of stretching it. Only success, an arm, or
         // a new Session resets the failure count.
