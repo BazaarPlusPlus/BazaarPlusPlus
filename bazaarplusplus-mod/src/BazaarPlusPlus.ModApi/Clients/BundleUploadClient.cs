@@ -78,15 +78,8 @@ internal sealed class BundleUploadClient
                 var bundleId = receipt["bundle_id"]?.Value<string>();
                 var runId = receipt["run_id"]?.Value<string>();
                 var outcome = receipt["outcome"]?.Value<string>();
-                var delivery = receipt["bazaardb_delivery"]?.Value<string>();
                 var validOutcome = statusCode == 201 ? outcome == "stored" : outcome == "duplicate";
-                var validDelivery = delivery is "created" or "existing" or "not_applicable";
-                if (
-                    bundleId != expectedBundleId
-                    || runId != expectedRunId
-                    || !validOutcome
-                    || !validDelivery
-                )
+                if (bundleId != expectedBundleId || runId != expectedRunId || !validOutcome)
                     return BundleUploadResponse.Transient(
                         "invalid_success_receipt",
                         requestId: response.RequestId

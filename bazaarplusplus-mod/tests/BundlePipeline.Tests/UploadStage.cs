@@ -161,7 +161,7 @@ internal static class UploadStage
             var manifest = BundleV6Codec.Open(body).Manifest;
             var json =
                 status == HttpStatusCode.Created
-                    ? $"{{\"bundle_id\":\"{manifest.BundleId}\",\"run_id\":\"{manifest.Run.RunId}\",\"outcome\":\"stored\",\"bazaardb_delivery\":\"not_applicable\"}}"
+                    ? $"{{\"bundle_id\":\"{manifest.BundleId}\",\"run_id\":\"{manifest.Run.RunId}\",\"outcome\":\"stored\"}}"
                     : "{\"error\":{\"code\":\"storage_unavailable\",\"message\":\"later "
                         + LogPrivacy.ResponseSecret
                         + " "

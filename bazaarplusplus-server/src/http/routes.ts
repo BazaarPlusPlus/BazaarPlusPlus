@@ -7,7 +7,6 @@ export const ROUTES = [
   {
     path: "/health",
     method: "GET",
-    cors: true,
     handler: async () => ({
       status: 200,
       body: { status: "ok", server_time_ms: Date.now() },
@@ -33,7 +32,6 @@ export const ROUTES = [
   {
     path: "/ghost-battles",
     method: "GET",
-    cors: true,
     handler: async (context) => ({
       status: 200,
       body: await discoverGhostBattles(context.request, context.env, context.requestId),

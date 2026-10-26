@@ -79,10 +79,10 @@ Then hand the V6 base URL and tokens to their consumers: the analyzer's reposito
 Run this before 6.0.0 is promoted. Use a generated Bundle from the checked-in V6 contract implementation, not a production player's data.
 
 1. `GET /health` returns `200`, a request ID, and a safe-integer server time.
-2. Upload a Run-only Bundle with `POST /bundles`; expect `201 stored` and `not_applicable`.
+2. Upload a Run-only Bundle with `POST /bundles`; expect `201 stored`.
 3. Repeat identical bytes; expect `200 duplicate`.
 4. Upload a Bundle with another Bundle version; expect it to be rejected without storage.
-5. Upload a Screenshot-bearing Bundle; expect `201 stored` and `created`.
+5. Upload a Screenshot-bearing Bundle; expect `201 stored`.
 6. After the 60-second settle lag, list both with the Bundle Sync token. Confirm keyset ordering, `X-Amz-Expires=604800`, and the `bazaarplusplus-bundle-v6` host.
 7. Download one URL twice with `GET`; both responses must equal the uploaded bytes.
 8. Change the URL object key, use `HEAD`, change `X-Amz-Expires`, and change one signature character. R2 must reject every modified request.
