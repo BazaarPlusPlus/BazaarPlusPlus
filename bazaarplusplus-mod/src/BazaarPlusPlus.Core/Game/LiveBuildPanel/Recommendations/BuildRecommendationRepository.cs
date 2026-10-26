@@ -53,6 +53,14 @@ public sealed class BuildRecommendationRepository
         if (corpus == null)
             return Array.Empty<BuildRecommendation>();
 
+        // Drop a replaced snapshot's boards on the first query against the new one, matched or
+        // not, so the cache never keeps the old corpus reachable.
+        if (!ReferenceEquals(corpus, _projectedCorpus))
+        {
+            _projectedBoards.Clear();
+            _projectedCorpus = corpus;
+        }
+
         var matches = corpus.FindBuilds(
             hero,
             selectedTemplateIds ?? Array.Empty<Guid>(),
@@ -60,12 +68,6 @@ public sealed class BuildRecommendationRepository
         );
         if (matches.Count == 0)
             return Array.Empty<BuildRecommendation>();
-
-        if (!ReferenceEquals(corpus, _projectedCorpus))
-        {
-            _projectedBoards.Clear();
-            _projectedCorpus = corpus;
-        }
 
         var results = new List<BuildRecommendation>(matches.Count);
         foreach (var match in matches)

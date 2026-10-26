@@ -566,9 +566,17 @@ internal static class TenWinBuildTests
             "A repeated query against the same snapshot should reuse the projected board."
         );
 
+        // The replacement keeps Vanessa's build id 0 but upgrades its socket-0 card to Diamond.
+        var replacement = Payload(
+            cards: $"[\"{GuidA}\"]",
+            enchantments: "[null]",
+            hero: "Vanessa",
+            builds: $"[{Build("[0]", "[[0,0,4,0,1]]", 222)}]",
+            cardIndex: "[[0,[0]]]"
+        );
         catalog.Enqueue(
             CatalogRefreshResult<TenWinBuildCorpus>.Published(
-                Snapshot(RequireCorpus(TwoHeroSummaryPayload()), CatalogSource.Remote),
+                Snapshot(RequireCorpus(replacement), CatalogSource.Remote),
                 degraded: false
             )
         );
@@ -578,8 +586,8 @@ internal static class TenWinBuildTests
         );
         var refreshed = Find(repository, "Vanessa", [GuidA]).Single().Board;
         Assert(
-            !ReferenceEquals(refreshed, vanessa) && refreshed.Signature == vanessa.Signature,
-            "A replaced snapshot should project its builds afresh."
+            refreshed.Cards.Single(card => card.SourceSocketId == 0).Tier == CardTier.Diamond,
+            "A replaced snapshot should project its own builds, not the previous snapshot's."
         );
     }
 
