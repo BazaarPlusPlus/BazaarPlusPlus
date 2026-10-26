@@ -126,8 +126,8 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         _state.ReplayActionInProgress = false;
         _state.ReplayActionBattleId = null;
         _state.ReplayFailureMessage = null;
+        // A run delete is left alone: it cannot be cancelled and clears its own flag when it ends.
         _state.FavoriteActionInProgress = false;
-        _state.RunDeleteInProgress = false;
         if (resumeSelection)
         {
             ClearTransientStatus();
@@ -157,7 +157,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         _state.ReplayActionInProgress = false;
         _state.ServerHealthProbeInProgress = false;
         _state.AccountLinkInProgress = false;
-        _state.RunDeleteInProgress = false;
         ClearDeleteRunConfirmation();
         _archiveReads.Clear();
         _battleReads.Clear();
@@ -279,8 +278,23 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
     {
         if (_state.SectionMode == HistorySectionMode.Favorites)
             return CanReplaySelectedFavorite(out reason);
+        if (IsBeingDeleted(activeSelectedBattle))
+        {
+            reason = HistoryPanelText.DeletingRun(
+                HistoryPanelFormatter.ShortenRunId(activeSelectedBattle!.RunId)
+            );
+            return false;
+        }
         return _replayService.CanReplayBattle(activeSelectedBattle, out reason);
     }
+
+    // A battle of the run a delete is removing: it stays listed until the delete publishes, but
+    // its rows and replay files are going, so no replay or favorite may start loading them.
+    public bool IsBeingDeleted(HistoryBattleRecord? battle) =>
+        battle != null
+        && battle.Source == HistoryBattleSource.Local
+        && _state.DeletingRunId != null
+        && battle.RunId == _state.DeletingRunId;
 
     // The recording half of record-and-replay, for a battle CanReplaySelectedBattle already
     // admitted: the view model asks the replay half once and shares it.
@@ -548,12 +562,14 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         var logRequestId = NewLogRequestId();
         var session = _session.Version;
         var shortRunId = HistoryPanelFormatter.ShortenRunId(run.RunId);
-        _state.RunDeleteInProgress = true;
-        SetStatusMessage(HistoryPanelText.DeletingRun(shortRunId), StatusSeverity.Pending);
+        _state.DeletingRunId = run.RunId;
+        var deletingMessage = HistoryPanelText.DeletingRun(shortRunId);
+        SetStatusMessage(deletingMessage, StatusSeverity.Pending);
         _requestUiRefresh();
 
         // The delete transaction (with its Seal-protection check) and the replay files run off the
-        // main thread; the await resumes on the caller's context, which publishes as before.
+        // main thread; the await resumes on the caller's context, which publishes as before. Once
+        // started it always finishes: no session boundary cancels it.
         var dataService = _dataService;
         var replayService = _replayService;
         RunDeleteOutcome outcome;
@@ -567,13 +583,20 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
                     out var sealProtected,
                     out var error
                 );
-                return new RunDeleteOutcome(
-                    deleted,
-                    sealProtected,
-                    battleIds,
-                    error,
-                    deleted ? replayService.CleanupReplayPayloads(battleIds) : default
-                );
+                // The run is gone once the delete commits; a cleanup failure is only degraded.
+                ReplayPayloadCleanupResult cleanup = default;
+                if (deleted)
+                {
+                    try
+                    {
+                        cleanup = replayService.CleanupReplayPayloads(battleIds);
+                    }
+                    catch (Exception ex)
+                    {
+                        cleanup = new ReplayPayloadCleanupResult(battleIds.Count, ex);
+                    }
+                }
+                return new RunDeleteOutcome(deleted, sealProtected, battleIds, error, cleanup);
             });
         }
         catch (Exception ex)
@@ -600,16 +623,21 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
                 outcome.Cleanup.Exception
             );
 
-        if (!_session.IsCurrent(session))
-            return;
-        _state.RunDeleteInProgress = false;
-        // A section change dropped the pending line; the run list reloads on the way back.
-        if (_state.SectionMode != HistorySectionMode.Runs)
+        _state.DeletingRunId = null;
+        // Finished after a close, reopen, account change or section change: the result is no
+        // longer this view's news, but its pending line must go, and an open Runs list that may
+        // have been read before the delete committed reloads.
+        if (!_session.IsCurrent(session) || _state.SectionMode != HistorySectionMode.Runs)
         {
+            if (_state.StatusMessage == deletingMessage)
+                SetStatusMessage(null);
+            if (!_session.IsActive)
+                return;
+            if (outcome.Deleted && _state.SectionMode == HistorySectionMode.Runs)
+                LoadArchive(new(_state.RunPage.First, Inclusive: true), preserveSelection: true);
             _requestUiRefresh();
             return;
         }
-
         if (outcome.SealProtected)
         {
             SetStatusMessage(HistoryPanelText.SealProtectedRunDeleteUnavailable());

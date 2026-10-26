@@ -85,8 +85,12 @@ public sealed class HistoryPanelState
 
     public bool DeleteRunConfirmationStatusActive { get; set; }
 
-    // A confirmed run delete is running off the main thread; Delete stays disabled until it ends.
-    public bool RunDeleteInProgress { get; set; }
+    // The run a confirmed delete is removing off the main thread. Only the delete clears it, when
+    // it ends: it cannot be cancelled, so a session boundary leaves it alone. Delete stays
+    // disabled meanwhile, and the run's replay and favorite actions too.
+    public string? DeletingRunId { get; set; }
+
+    public bool RunDeleteInProgress => DeletingRunId != null;
 
     public HistorySectionMode SectionMode { get; set; } = HistorySectionMode.Runs;
 

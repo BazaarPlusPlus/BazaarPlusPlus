@@ -274,7 +274,7 @@ public static class HistoryPanelViewModelBuilder
             coordinator.IsSelectedBattleFavorite(selectedBattle)
                 ? HistoryPanelText.FavoritedBattle()
                 : HistoryPanelText.FavoriteBattle(),
-            selectedBattle != null
+            selectedBattle != null && !coordinator.IsBeingDeleted(selectedBattle)
         );
     }
 }

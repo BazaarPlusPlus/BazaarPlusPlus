@@ -42,7 +42,7 @@ TestPageReplacementUpdatesSelection();
 TestCoordinatorRunSelectionUsesFilteredSpace();
 TestAcceptedReplayReturnsWithSelection();
 TestDeleteAndFavoriteDispatchBySection();
-TestConfirmedDeleteRunsOffTheCallerThenReloads();
+TestOffThreadDeleteAndRemovalPublishInTheirSection();
 TestDeletePromptMentionsMp4OnlyWhereTheHostRecords();
 TestGhostListTextMarksOnlyTheFinalBattle();
 TestRunRatingShowsItsChangeOnlyWhenKnown();
@@ -435,10 +435,13 @@ void TestDeleteAndFavoriteDispatchBySection()
     );
 }
 
-// A confirmed run delete runs its transaction and payload cleanup off the caller's thread: until it
-// publishes, the run stays listed and Delete is disabled; then the run leaves the list and the
-// status line reports it, through the same reload a synchronous delete used.
-void TestConfirmedDeleteRunsOffTheCallerThenReloads()
+// A confirmed run delete and a favorite removal run their SQLite and file work off the caller's
+// thread. Until a delete publishes, its run stays listed, Delete is disabled and nothing may start
+// loading the run's replays; then the run leaves the list through the same reload a synchronous
+// delete used. A delete cannot be cancelled, so one that crosses a close and reopen still owns its
+// flag and still reloads the open list. A removal that finishes after the user left Favorites
+// does not load its page into the open section.
+void TestOffThreadDeleteAndRemovalPublishInTheirSection()
 {
     var databasePath = Path.Combine(
         Path.GetTempPath(),
@@ -452,17 +455,25 @@ void TestConfirmedDeleteRunsOffTheCallerThenReloads()
         command.CommandText = """
             INSERT INTO runs (run_id,hero,game_mode,status,started_at_ms,last_seen_at_ms)
             VALUES ('run-keep','Vanessa','Unranked','abandoned',1767225600000,1767225600000),
-                ('run-gone','Vanessa','Unranked','abandoned',1767312000000,1767312000000);
+                ('run-gone','Vanessa','Unranked','abandoned',1767312000000,1767312000000),
+                ('run-late','Vanessa','Unranked','abandoned',1767398400000,1767398400000);
             INSERT INTO battles (battle_id,run_id,source,recorded_at_ms,combat_kind,local_payload_state)
-            VALUES ('battle-gone','run-gone','LOCAL',1767312000000,'PVPCombat','missing');
+            VALUES ('battle-gone','run-gone','LOCAL',1767312000000,'PVPCombat','missing'),
+                ('battle-late','run-late','LOCAL',1767398400000,'PVPCombat','missing'),
+                ('battle-fav','run-keep','LOCAL',1767225600000,'PVPCombat','missing');
             """;
         command.ExecuteNonQuery();
     }
+    var repository = new HistoryPanelRepository(databasePath);
+    Assert(
+        repository.AddFavorite("battle-fav", false, null, DateTimeOffset.UtcNow),
+        "The scenario's favorite must insert."
+    );
     var state = new HistoryPanelState();
     var replay = new AcceptingReplay();
     var dependencies = new HistoryPanelDependencies(
         new StubRunContext(),
-        new HistoryPanelDataService(new HistoryPanelRepository(databasePath), null),
+        new HistoryPanelDataService(repository, null),
         replay,
         null,
         null,
@@ -470,7 +481,18 @@ void TestConfirmedDeleteRunsOffTheCallerThenReloads()
         new BazaarDbAccountLinkStore(_ => false, _ => { }),
         () => 0f,
         () => null
-    );
+    )
+    {
+        Favorites = new HistoryFavoriteService(
+            repository,
+            string.Empty,
+            (string _, out PvpBattleManifest? _, out PvpReplayPayload? _) =>
+                throw new InvalidOperationException("Nothing may load a replay to favorite."),
+            (_, _, _) => throw new InvalidOperationException("No Ghost replay is loaded."),
+            (out string _) => throw new InvalidOperationException("No favorite replays."),
+            (_, _, _, _) => throw new InvalidOperationException("No favorite replays.")
+        ),
+    };
     var coordinator = new HistoryPanelCoordinator(
         state,
         dependencies,
@@ -478,23 +500,8 @@ void TestConfirmedDeleteRunsOffTheCallerThenReloads()
         () => { },
         NoReplayReturn()
     );
-    try
-    {
-        coordinator.OnPanelShown();
-        uiContext.Until(() => !state.PageLoading && !state.DetailLoading);
-        var gone = state.Runs.ToList().FindIndex(run => run.RunId == "run-gone");
-        coordinator.SelectRun(gone);
-        uiContext.Until(() => !state.DetailLoading);
-
-        coordinator.DeleteSelected();
-        coordinator.DeleteSelected();
-        Assert(
-            state.RunDeleteInProgress
-                && state.StatusSeverity == StatusSeverity.Pending
-                && state.Runs.Any(run => run.RunId == "run-gone"),
-            "Until the off-thread delete publishes, the run stays listed and the line is pending."
-        );
-        var model = HistoryPanelViewModelBuilder.Build(
+    HistoryPanelViewModel Model() =>
+        HistoryPanelViewModelBuilder.Build(
             state,
             coordinator,
             new StubRunContext(),
@@ -504,12 +511,55 @@ void TestConfirmedDeleteRunsOffTheCallerThenReloads()
             default,
             default
         );
-        Assert(!model.DeleteButtonEnabled, "Delete must stay disabled while a delete runs.");
+    void SelectRun(string runId)
+    {
+        coordinator.SelectRun(state.Runs.ToList().FindIndex(run => run.RunId == runId));
+        // The run's battle page, its detail and its favorite check have all published.
+        uiContext.Until(() =>
+            state.GetSelectedBattle() is { } battle
+            && battle.RunId == runId
+            && !state.DetailLoading
+            && state.FavoriteCheckBattleId == battle.BattleId
+        );
+    }
+    try
+    {
+        coordinator.OnPanelShown();
+        uiContext.Until(() => !state.PageLoading && !state.DetailLoading);
+        SelectRun("run-gone");
+        Assert(
+            Model() is { ReplayButtonEnabled: true, FavoriteButtonEnabled: true },
+            "Before the delete the run's battle can replay and be favorited."
+        );
+
+        coordinator.DeleteSelected();
+        coordinator.DeleteSelected();
+        Assert(
+            state.RunDeleteInProgress
+                && state.StatusSeverity == StatusSeverity.Pending
+                && state.Runs.Any(run => run.RunId == "run-gone"),
+            "Until the off-thread delete publishes, the run stays listed and the line is pending."
+        );
+        Assert(
+            Model()
+                is {
+                    DeleteButtonEnabled: false,
+                    ReplayButtonEnabled: false,
+                    RecordAndReplayButtonEnabled: false,
+                    FavoriteButtonEnabled: false,
+                },
+            "While the delete runs, Delete and the run's replay and favorite actions are disabled."
+        );
+        coordinator.FavoriteSelected();
+        Assert(
+            !state.FavoriteActionInProgress,
+            "Favorite must not start loading a battle of the run being deleted."
+        );
         coordinator.DeleteSelected();
 
         uiContext.Until(() => !state.RunDeleteInProgress && !state.PageLoading);
         Assert(
-            state.Runs.Select(run => run.RunId).SequenceEqual(["run-keep"]),
+            state.Runs.Select(run => run.RunId).SequenceEqual(["run-late", "run-keep"]),
             "The deleted run must leave the list once the delete publishes."
         );
         Assert(
@@ -517,6 +567,46 @@ void TestConfirmedDeleteRunsOffTheCallerThenReloads()
                 && replay.CleanedBattleIds.SequenceEqual(["battle-gone"]),
             "The delete must clean the run's replay payloads once and report success."
         );
+
+        // A delete that crosses a close and reopen keeps its flag, then reloads the open list and
+        // drops its pending line.
+        SelectRun("run-late");
+        coordinator.DeleteSelected();
+        coordinator.DeleteSelected();
+        var deleting = state.StatusMessage;
+        coordinator.OnPanelHidden();
+        coordinator.OnPanelShown();
+        Assert(
+            state.RunDeleteInProgress && !Model().DeleteButtonEnabled,
+            "A session boundary must not end a delete that cannot be cancelled."
+        );
+        uiContext.Until(() => !state.RunDeleteInProgress && !state.PageLoading);
+        Assert(
+            state.Runs.Select(run => run.RunId).SequenceEqual(["run-keep"])
+                && state.StatusMessage != deleting
+                && Model().DeleteButtonEnabled,
+            "A delete finishing in the next session must reload the list and clear its line."
+        );
+
+        // A removal finishing after the user left Favorites publishes nothing into Runs.
+        coordinator.SetSectionMode(HistorySectionMode.Favorites);
+        uiContext.Until(() => !state.PageLoading && !state.DetailLoading);
+        Assert(state.Favorites.Count == 1, "The scenario's favorite must list.");
+        coordinator.DeleteSelected();
+        coordinator.DeleteSelected();
+        Assert(
+            state.FavoriteActionInProgress && !Model().DeleteButtonEnabled,
+            "Remove must stay disabled until the off-thread removal publishes."
+        );
+        coordinator.SetSectionMode(HistorySectionMode.Runs);
+        uiContext.Until(() => !state.FavoriteActionInProgress && !state.PageLoading);
+        Assert(
+            state.SectionMode == HistorySectionMode.Runs
+                && state.Runs.Select(run => run.RunId).SequenceEqual(["run-keep"])
+                && state.StatusMessage != HistoryPanelText.FavoriteRemoved(),
+            "A removal finishing in Runs must not load the favorites page or report into Runs."
+        );
+        Assert(!repository.IsFavorite("battle-fav"), "The removal itself must complete.");
         coordinator.OnPanelHidden();
     }
     finally
