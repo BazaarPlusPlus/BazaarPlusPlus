@@ -57,44 +57,41 @@ internal static class AndroidCardTemplateText
         if (template == null)
             return null;
         var tooltip = Guarded("tooltip_data", () => TooltipData(template, subject));
-        if (tooltip == null)
-            return Authored(template);
-        // Each block on its own: an effect token that needs the run, absent at the main menu,
-        // costs only its block.
-        var lines = new List<string>();
-        Add(lines, Guarded("description", () => tooltip.GetCardDescription().Item1));
-        Add(lines, Guarded("effects", () => tooltip.BuildCombinedEffectDescription()));
-        return lines.Count == 0 ? Authored(template) : string.Join("\n", lines);
+        return tooltip == null ? Authored(template) : DescriptionFrom(tooltip, template);
     }
 
-    /// <summary>Out-of-combat tooltip values at the selected tier and enchantment.</summary>
-    public static (float? Cooldown, float? Ammo) Attributes(CardRentalSubject subject)
+    /// <summary>
+    /// What an inspection shows for <paramref name="subject"/>'s tier and enchantment from one
+    /// template lookup and one <see cref="CardTooltipData"/>: the text
+    /// <see cref="Description(CardRentalSubject)"/> returns, and the out-of-combat cooldown and
+    /// ammo the tooltip reads. Values are null when the tooltip cannot be built or lacks them.
+    /// </summary>
+    public static (string? Text, float? Cooldown, float? Ammo) Preview(CardRentalSubject subject)
     {
         var template = Template(subject.TemplateId);
-        var tooltip =
-            template == null ? null : Guarded("tooltip_data", () => TooltipData(template, subject));
+        if (template == null)
+            return (null, null, null);
+        var tooltip = Guarded("tooltip_data", () => TooltipData(template, subject));
         if (tooltip == null)
-            return (null, null);
-        float? Read(ECardAttributeType attribute)
-        {
-            try
-            {
-                return AndroidGameIds.Unboxed<float>(() =>
-                    tooltip.GetCurrentAttributeValue(attribute)
-                );
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-        }
-        return (Read(ECardAttributeType.CooldownMax), Read(ECardAttributeType.AmmoMax));
+            return (Authored(template), null, null);
+        return (
+            DescriptionFrom(tooltip, template),
+            ReadAttribute(tooltip, ECardAttributeType.CooldownMax),
+            ReadAttribute(tooltip, ECardAttributeType.AmmoMax)
+        );
     }
 
-    /// <summary>The same enchantment-only effect renderer used by in-game tooltip previews.</summary>
-    public static string? EnchantmentEffect(CardRentalSubject subject, CardEnchantment enchantment)
+    /// <summary>
+    /// The same enchantment-only effect renderer used by in-game tooltip previews, for a
+    /// <paramref name="template"/> the caller looked up once (<see cref="Template"/>) across its
+    /// enchantments and tiers. Null when the template is unknown or the render fails.
+    /// </summary>
+    public static string? EnchantmentEffect(
+        TCardBase? template,
+        CardRentalSubject subject,
+        CardEnchantment enchantment
+    )
     {
-        var template = Template(subject.TemplateId);
         if (
             template == null
             || !AndroidCardFacets.Enchantment.TryToSource(enchantment, out var native)
@@ -111,6 +108,28 @@ internal static class AndroidCardTemplateText
                     : AndroidEnchantPreview.RenderEffect(tooltip, native, null);
             }
         );
+    }
+
+    // Each block on its own: an effect token that needs the run, absent at the main menu, costs
+    // only its block. The authored text stands in when neither renders.
+    private static string? DescriptionFrom(CardTooltipData tooltip, TCardBase template)
+    {
+        var lines = new List<string>();
+        Add(lines, Guarded("description", () => tooltip.GetCardDescription().Item1));
+        Add(lines, Guarded("effects", () => tooltip.BuildCombinedEffectDescription()));
+        return lines.Count == 0 ? Authored(template) : string.Join("\n", lines);
+    }
+
+    private static float? ReadAttribute(CardTooltipData tooltip, ECardAttributeType attribute)
+    {
+        try
+        {
+            return AndroidGameIds.Unboxed<float>(() => tooltip.GetCurrentAttributeValue(attribute));
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static T? Guarded<T>(string step, Func<T?> render)
@@ -249,7 +268,8 @@ internal static class AndroidCardTemplateText
         return string.IsNullOrWhiteSpace(formatted) ? null : formatted;
     }
 
-    private static TCardBase? Template(Guid templateId)
+    /// <summary>The static template for <paramref name="templateId"/>; null when unknown or not ready.</summary>
+    public static TCardBase? Template(Guid templateId)
     {
         try
         {

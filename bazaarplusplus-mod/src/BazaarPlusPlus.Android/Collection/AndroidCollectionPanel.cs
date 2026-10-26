@@ -52,6 +52,10 @@ internal sealed class AndroidCollectionPanel
 
     // The tree for the current screen; none after a build failed, and Open builds again.
     private readonly TouchViewSlot<GameObject> _tree;
+
+    // An open panel lays out again only once the screen key holds still and no card is setting
+    // up, as Ten-Win Builds does; Open still rebuilds at once for a changed screen.
+    private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private AndroidNativeSkin _skin = null!;
     private AndroidCollectionGrid _grid = null!;
     private AndroidCollectionInspection _inspection = null!;
@@ -99,7 +103,11 @@ internal sealed class AndroidCollectionPanel
         _tree = new TouchViewSlot<GameObject>(DropTree);
         // A failed first build leaves no tree: the first Open builds again.
         var key = AndroidTouchScreen.Key();
-        _tree.Rebuild(key, () => Build(key), exception => LayoutFailed(exception, "", false));
+        if (
+            _tree.Rebuild(key, () => Build(key), exception => LayoutFailed(exception, "", false))
+            != null
+        )
+            _relayout.LaidOutAt(key);
     }
 
     // Through a typed local, so Unity's equality also reads a destroyed root as gone.
@@ -226,7 +234,10 @@ internal sealed class AndroidCollectionPanel
     {
         if (!IsOpen)
             return;
-        if (!_tree.IsCurrent(AndroidTouchScreen.Key()) && !Relayout())
+        if (
+            _relayout.Observe(AndroidTouchScreen.Key(), _grid.SettingUp || _inspection.SettingUp)
+            && !Relayout()
+        )
         {
             _requestClose("relayout_failed");
             return;
@@ -409,6 +420,7 @@ internal sealed class AndroidCollectionPanel
         );
         if (root == null)
             return false;
+        _relayout.LaidOutAt(key);
         Relayouts++;
         if (open)
         {
@@ -422,7 +434,8 @@ internal sealed class AndroidCollectionPanel
             ("from", before),
             ("to", _tree.ScreenKey),
             ("open", open),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", AndroidCardRental.ActiveLeases),
+            ("held_frames", _relayout.HeldFrames)
         );
         return true;
     }
@@ -506,7 +519,19 @@ internal sealed class AndroidCollectionPanel
         RenderTab(_itemsTab, CollectionTabKind.Items, CollectionPanelText.ItemsTab(), model);
         RenderTab(_skillsTab, CollectionTabKind.Skills, CollectionPanelText.SkillsTab(), model);
         _searchPlaceholder.text = CollectionPanelText.SearchPlaceholder(model.ActiveType);
-        RenderRail(model);
+        // The facets come from the whole catalog, not the search, and the selections are the
+        // view state's live sets: a search changes only the run day the query re-reads and,
+        // while loading, the source selector. Otherwise the drawn chips stay, bound to an
+        // equivalent model.
+        if (
+            command == "search"
+            && _railModel is { } drawn
+            && drawn.DayFilterValue == model.DayFilterValue
+            && drawn.SourceSelectorEnabled == model.SourceSelectorEnabled
+        )
+            _railModel = model;
+        else
+            RenderRail(model);
         _status.text =
             model.StatusMessage
             ?? (
@@ -547,8 +572,9 @@ internal sealed class AndroidCollectionPanel
         _skin.Select(tab.Background, active);
     }
 
-    // The rail is rebuilt from the model on every render: the chips a tab, hero or source offers
-    // change with each command, and a rebuild costs one frame of a hundred buttons at most.
+    // The rail is rebuilt from the model on every render but a search's (Render): the chips a tab,
+    // hero or source offers change with each command, and a rebuild costs one frame of a hundred
+    // buttons at most.
     private void RenderRail(CollectionPanelViewModel model)
     {
         _railModel = model;
