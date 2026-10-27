@@ -13,6 +13,8 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// </summary>
 public sealed class ReplayPayloadMaintenanceService
 {
+    private const int MaximumConcurrentFileDeletes = 4;
+    private readonly Action<string> _deleteFile;
     private readonly IReplayPayloadMaintenanceCatalog _catalog;
     private readonly CombatReplayPayloadStore _files;
     private readonly ReplayPayloadOperationGate _operationGate;
@@ -24,9 +26,19 @@ public sealed class ReplayPayloadMaintenanceService
         ReplayPayloadOperationGate operationGate,
         Func<IReadOnlyCollection<string>> protectedBattleIds
     )
+        : this(catalog, files, operationGate, protectedBattleIds, deleteFile: null) { }
+
+    internal ReplayPayloadMaintenanceService(
+        IReplayPayloadMaintenanceCatalog catalog,
+        CombatReplayPayloadStore files,
+        ReplayPayloadOperationGate operationGate,
+        Func<IReadOnlyCollection<string>> protectedBattleIds,
+        Action<string>? deleteFile
+    )
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _files = files ?? throw new ArgumentNullException(nameof(files));
+        _deleteFile = deleteFile ?? _files.Delete;
         _operationGate = operationGate ?? throw new ArgumentNullException(nameof(operationGate));
         _protectedBattleIds =
             protectedBattleIds ?? throw new ArgumentNullException(nameof(protectedBattleIds));
@@ -94,20 +106,13 @@ public sealed class ReplayPayloadMaintenanceService
             StringComparer.Ordinal
         );
         var storedBattleIdSet = new HashSet<string>(storedBattleIds, StringComparer.Ordinal);
-        var orphanDeleteCount = 0;
         var failedDeleteCount = 0;
-
-        foreach (var battleId in storedBattleIds)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (databaseBattleIds.Contains(battleId))
-                continue;
-            workUnits++;
-            if (TryDelete(battleId))
-                orphanDeleteCount++;
-            else
-                failedDeleteCount++;
-        }
+        var orphanDeleteCount = DeleteFiles(
+            storedBattleIds.Where(battleId => !databaseBattleIds.Contains(battleId)).ToArray(),
+            cancellationToken,
+            ref workUnits,
+            ref failedDeleteCount
+        ).Count;
 
         var deletedPayloadCount = 0;
         var pending = inventory
@@ -182,13 +187,32 @@ public sealed class ReplayPayloadMaintenanceService
         ref int failedDeleteCount
     )
     {
-        var deleted = new List<string>();
-        foreach (var battleId in battleIds)
+        var ids = battleIds.ToArray();
+        var succeeded = new bool[ids.Length];
+        // Parallel.For joins every started deletion before returning or throwing cancellation.
+        // Run therefore retains its maintenance lease until all file operations have stopped.
+        // Workers touch files and their own result slot only; catalog updates stay on the caller.
+        Parallel.For(
+            0,
+            ids.Length,
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = MaximumConcurrentFileDeletes,
+                CancellationToken = cancellationToken,
+            },
+            index =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                succeeded[index] = TryDelete(ids[index]);
+            }
+        );
+
+        var deleted = new List<string>(ids.Length);
+        for (var index = 0; index < ids.Length; index++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             workUnits++;
-            if (TryDelete(battleId))
-                deleted.Add(battleId);
+            if (succeeded[index])
+                deleted.Add(ids[index]);
             else
                 failedDeleteCount++;
         }
@@ -213,7 +237,7 @@ public sealed class ReplayPayloadMaintenanceService
     {
         try
         {
-            _files.Delete(battleId);
+            _deleteFile(battleId);
             return true;
         }
         catch

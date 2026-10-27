@@ -6,7 +6,7 @@ using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
-internal static class ReplayPayloadMaintenanceServiceTests
+internal static partial class ReplayPayloadMaintenanceServiceTests
 {
     internal static void Benchmark() =>
         TenThousandPayloadsUseBulkStorageAndLinearWork(enforceTiming: true);
@@ -18,6 +18,8 @@ internal static class ReplayPayloadMaintenanceServiceTests
         MissingPayloadsDoNotConsumeNewestRetentionSlots();
         FailedFileDeleteRemainsPendingUntilAReentrantRetry();
         MaintenanceFlightsAreSingleAndCancelable();
+        ParallelDeletionPreservesCatalogThreadAndOrder();
+        CancellationKeepsTheLeaseUntilFileDeletionEnds();
     }
 
     private static void MissingPayloadsDoNotConsumeNewestRetentionSlots()
@@ -254,12 +256,15 @@ internal static class ReplayPayloadMaintenanceServiceTests
         private readonly List<ReplayPayloadMaintenanceRecord> _inventory = inventory.ToList();
 
         internal IReadOnlyList<ReplayPayloadMaintenanceRecord> Inventory => _inventory;
+        internal List<int> CallThreads { get; } = [];
+        internal List<IReadOnlyList<string>> CompletedBatches { get; } = [];
         internal int InventoryCallCount { get; private set; }
         internal int ScheduleCallCount { get; private set; }
         internal int CompleteCallCount { get; private set; }
 
         public IReadOnlyList<ReplayPayloadMaintenanceRecord> ListReplayMaintenanceInventory()
         {
+            CallThreads.Add(Environment.CurrentManagedThreadId);
             InventoryCallCount++;
             return _inventory.ToList();
         }
@@ -269,6 +274,7 @@ internal static class ReplayPayloadMaintenanceServiceTests
             DateTimeOffset now
         )
         {
+            CallThreads.Add(Environment.CurrentManagedThreadId);
             ScheduleCallCount++;
             var set = new HashSet<string>(battleIds, StringComparer.Ordinal);
             var scheduled = _inventory
@@ -289,6 +295,8 @@ internal static class ReplayPayloadMaintenanceServiceTests
             DateTimeOffset now
         )
         {
+            CallThreads.Add(Environment.CurrentManagedThreadId);
+            CompletedBatches.Add(battleIds.ToArray());
             CompleteCallCount++;
             Replace(battleIds, record => record with { PayloadState = ReplayPayloadState.Evicted });
         }
@@ -298,6 +306,7 @@ internal static class ReplayPayloadMaintenanceServiceTests
             DateTimeOffset now
         )
         {
+            CallThreads.Add(Environment.CurrentManagedThreadId);
             Replace(battleIds, record => record with { PayloadState = ReplayPayloadState.Missing });
         }
 
