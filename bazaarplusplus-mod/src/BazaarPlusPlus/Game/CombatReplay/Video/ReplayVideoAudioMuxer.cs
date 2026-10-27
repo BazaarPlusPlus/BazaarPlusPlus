@@ -477,6 +477,16 @@ internal sealed class ReplayVideoAudioMuxer
         return task;
     }
 
+    internal static Task<T> DispatchTracked<T>(Func<T> work)
+    {
+        if (work == null)
+            throw new ArgumentNullException(nameof(work));
+
+        var task = Task.Run(work);
+        Track(task);
+        return task;
+    }
+
     private static void Track(Task task)
     {
         lock (s_pendingLock)

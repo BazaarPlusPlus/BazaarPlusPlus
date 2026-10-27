@@ -6,6 +6,7 @@ try
     if (args.Length == 1 && args[0] == "--benchmark")
     {
         ReplayPayloadMaintenanceServiceTests.Benchmark();
+        ReplayVideoMetadataLifecycleTests.Benchmark();
         Console.WriteLine("Replay payload maintenance benchmark passed.");
         return;
     }

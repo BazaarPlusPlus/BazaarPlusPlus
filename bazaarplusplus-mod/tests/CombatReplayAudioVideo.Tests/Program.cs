@@ -605,8 +605,8 @@ file static class VideoBufferPlanTests
 }
 
 // ---------------------------------------------------------------------------
-// 6) Readback limiter: reservations never exceed two and a released slot can be
-//    reused without blocking the Unity main thread.
+// 6) Copy timing: Debug builds keep the samples their diagnostic events report;
+//    Release builds, whose Debug events compile out, keep none.
 // ---------------------------------------------------------------------------
 file static class CopyTimingTests
 {
@@ -632,6 +632,7 @@ file static class CopyTimingTests
                 new object[] { value }
             );
         }
+#if DEBUG
         TestReflection.Assert(
             (long)TestReflection.GetProp(type, timing, "P50Microseconds")! == 3,
             "Copy timing p50 must select the median of every retained sample."
@@ -640,6 +641,13 @@ file static class CopyTimingTests
             (long)TestReflection.GetProp(type, timing, "P95Microseconds")! == 100,
             "Copy timing p95 must select the 95th percentile sample."
         );
+#else
+        TestReflection.Assert(
+            (long)TestReflection.GetProp(type, timing, "P50Microseconds")! == 0
+                && (long)TestReflection.GetProp(type, timing, "P95Microseconds")! == 0,
+            "A Release build must keep no copy timing samples."
+        );
+#endif
     }
 }
 

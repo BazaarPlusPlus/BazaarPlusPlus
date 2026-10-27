@@ -19,13 +19,28 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
     public CombatReplayVideoMetadataStore(string databasePath)
         : base(databasePath) { }
 
-    public void SaveStart(VideoRecordingStarted record)
+    // The current-replay arm reserves its row on the Unity main thread, so a locked database
+    // stalls the click for at most about one second (one native wait, then the managed retry
+    // loop's one-second CommandTimeout) instead of the default two; past it the insert throws
+    // SQLITE_BUSY and the arm reports the reservation failure.
+    private const int MainThreadLockWaitSeconds = 1;
+
+    public void SaveStart(VideoRecordingStarted record) => SaveStart(record, lockWaitSeconds: null);
+
+    public void ReserveStartOnMainThread(VideoRecordingStarted record) =>
+        SaveStart(record, MainThreadLockWaitSeconds);
+
+    private void SaveStart(VideoRecordingStarted record, int? lockWaitSeconds)
     {
         if (record == null)
             throw new ArgumentNullException(nameof(record));
 
-        using var connection = OpenConnection();
+        using var connection = lockWaitSeconds is { } seconds
+            ? OpenConnection(seconds * 1000)
+            : OpenConnection();
         using var command = CreateCommand(connection);
+        if (lockWaitSeconds is { } commandSeconds)
+            command.CommandTimeout = commandSeconds;
         command.CommandText = $"""
             INSERT INTO {RunLogSchema.CombatReplayVideosTableName} (
                 video_id,
