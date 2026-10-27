@@ -39,3 +39,8 @@ for (const width of [1280, 390]) {
     });
   }
 }
+
+// TEMPORARY: fail the run so CI uploads the freshly written download-android-pending baselines.
+test('temporary: upload new baselines', () => {
+  throw new Error('temporary failure to publish the new screenshot baselines as an artifact');
+});
