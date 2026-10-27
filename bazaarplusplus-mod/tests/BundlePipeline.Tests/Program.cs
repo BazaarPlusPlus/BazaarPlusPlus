@@ -392,6 +392,56 @@ static async Task SealOverBudgetRuns(
         "The size budget drops the oldest non-terminal events and keeps the terminal ones."
     );
     ExpectBudgetMargin(trimmedEvents, EventEntropy, BudgetMargin, "event trim");
+
+    // Trimming every projected replay still overflows, so the budget goes on into the events:
+    // their random bytes alone exceed the limit by more than the margin.
+    const int MixedEventCount = 13;
+    Check.That(
+        MixedEventCount * EventEntropy - BundleLimitsV6.MaxRunBytes >= BudgetMargin,
+        "The mixed Run must overflow with every projection trimmed."
+    );
+    CreateRun(store, "run-budget-mixed", minute: 800, screenshotRequested: false);
+    for (var index = 1; index <= 2; index++)
+    {
+        var battleId = $"budget-mixed-{index}";
+        SaveBattle(database, battleId, "run-budget-mixed", 800 + index);
+        replays.Save(BudgetReplay(battleId, 300_000, seed: 5500 + index));
+    }
+    var mixedSeq = 0L;
+    void AppendMixed(string kind, string? body) =>
+        store.AppendEvent(
+            "run-budget-mixed",
+            new RunLogEvent
+            {
+                RunId = "run-budget-mixed",
+                Seq = ++mixedSeq,
+                Ts = PipelineInputs.Base.AddMinutes(800).AddSeconds(mixedSeq),
+                Kind = kind,
+                EncounterId = body,
+            }
+        );
+    AppendMixed("run_started", null);
+    for (var index = 0; index < MixedEventCount; index++)
+        AppendMixed("budget_padding", SeededBase64(EventEntropy, seed: 5600 + index));
+    AppendMixed("run_completed", null);
+    CompleteRun(store, "run-budget-mixed", minute: 803);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    var trimmedMixed = Sealed(artifacts, dataRoot, "size-budget-mixed", "run-budget-mixed");
+    var mixedOmitted = trimmedMixed.Payload.Degradation.EventsOmitted;
+    Check.That(
+        trimmedMixed.Payload.Degradation.Categories.SequenceEqual(
+            new[] { "projection_battle_trimmed", "events_trimmed" }
+        )
+            && trimmedMixed.Payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
+                new[] { "budget-mixed-1", "budget-mixed-2" }
+            )
+            && trimmedMixed.Payload.ReplayableBattleIds.Count == 0
+            && trimmedMixed.Opened.Manifest.Run.Projection.Battles.Count == 0
+            && mixedOmitted is > 0 and < MixedEventCount
+            && trimmedMixed.Payload.Events.Count == MixedEventCount + 2 - mixedOmitted,
+        "Projections that cannot fit are all trimmed before the oldest events go."
+    );
+    ExpectBudgetMargin(trimmedMixed, EventEntropy, BudgetMargin, "mixed trim");
 }
 
 // The sealed segment fits with the margin to spare, and one fewer trim would put back at least

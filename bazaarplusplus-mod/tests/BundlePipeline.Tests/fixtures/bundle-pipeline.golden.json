@@ -307,6 +307,26 @@
           "content_type": "application/x-bpp-run-v6"
         }
       }
+    },
+    "size-budget-mixed": {
+      "bundle_id": "<ulid>",
+      "bundle_version": 6,
+      "created_at_ms": 0,
+      "run": {
+        "run_id": "run-budget-mixed",
+        "player_account_id": "account-001",
+        "run_format_version": 6,
+        "projection": {
+          "run": {},
+          "battles": []
+        },
+        "payload": {
+          "offset": 0,
+          "length": "<normalized>",
+          "sha256": "<normalized>",
+          "content_type": "application/x-bpp-run-v6"
+        }
+      }
     }
   },
   "checksums": {
@@ -357,6 +377,12 @@
       "manifest_bytes": "<normalized>",
       "sha256": "<normalized>",
       "expected": "valid"
+    },
+    "size-budget-mixed.bundle": {
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
+      "sha256": "<normalized>",
+      "expected": "valid"
     }
   },
   "run_payloads": {
@@ -391,6 +417,10 @@
     "size-budget-events": {
       "messagepack_bytes": 2667583,
       "sha256": "b0ca2437c12bd828c702ab77ce1d54b0520fcafd85f185d4278b5526d5abd665"
+    },
+    "size-budget-mixed": {
+      "messagepack_bytes": 2667920,
+      "sha256": "23204d8408122fb8606dd1d6a6bd0a0a9bdebec5fc6d2d3a3b128e69c014f17c"
     }
   },
   "run_screenshots": {

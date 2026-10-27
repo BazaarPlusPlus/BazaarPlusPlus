@@ -123,11 +123,11 @@ separate sessions.
 _Avoid_: shared global HttpClient, public endpoint-client chain
 
 **Bundle Seal Convergence**:
-The pure decision core for one Bundle seal pass. It receives the remaining relative deadline and
-observed input facts, then decides whether to continue, wait, degrade the screenshot, or terminate;
-it owns no clock, SQLite connection, file, codec, or Unity object. Its failure half,
-`BundleSealFailurePolicy`, maps a failure and the seal stage it happened in to retry with backoff,
-park until next launch, reseal, degrade, skip, or terminal, plus the log event.
+The pure decision core for one Bundle seal pass. From the relative deadline left and input facts it
+decides to continue, wait, degrade the screenshot, or terminate; it owns no clock, connection,
+file, codec, or Unity object. Its failure half, `BundleSealFailurePolicy`, maps a failure and its
+seal stage to retry with backoff, park until next launch, reseal, degrade, skip, or terminal, plus
+the log event; its wake half, `BundleSealWakeSchedule`, sets the next pass.
 
 **Environment-Blocked Seal**:
 A waiting seal job whose failure came from the loaded runtime (a missing member, type load, or
@@ -137,7 +137,7 @@ _Avoid_: JSON failure
 
 **Seal-Eligible Run**:
 A completed, non-PTR Ranked Run, not History-Only, with neither a seal job nor any outbox row;
-the next seal pass gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule
+job discovery gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule
 (root `AGENTS.md` Contracts).
 _Avoid_: sealable run
 

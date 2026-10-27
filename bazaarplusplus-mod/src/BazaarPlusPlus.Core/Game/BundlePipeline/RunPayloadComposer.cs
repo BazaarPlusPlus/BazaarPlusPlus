@@ -367,8 +367,8 @@ public sealed class RunPayloadComposer
     // then projected battles oldest first, then snapshots without a replay, then non-terminal
     // events oldest first. Each ordered phase keeps the fewest leading trims that fit, found by
     // probing 1, 2, 4, ... trims and bisecting, so a large Run is encoded a logarithmic number of
-    // times instead of once per trim. While the encoded size never grows with another trim, the
-    // result is exactly what trimming one step at a time produced.
+    // times instead of once per trim. This assumes another trim never grows the gzip size; while
+    // that holds, the result is exactly what trimming one step at a time produced.
     private static void ApplySizeBudget(
         RunPayloadV6 payload,
         List<BundleBattleProjectionV6> projections
@@ -420,33 +420,22 @@ public sealed class RunPayloadComposer
 
     // The fewest trims in 1..count whose encoded size fits, given that zero trims does not:
     // probes 1, 2, 4, ... (capped at count), then bisects between the last probe over the limit
-    // and the first that fits. If even count trims do not fit, the counts not yet probed are
-    // tried in order, as the one-at-a-time loop did, so a smaller fitting trim is never lost.
+    // and the first that fits. When even count trims do not fit, every trim applies, as the
+    // one-at-a-time loop did; under the assumption above no smaller count can fit either.
     // measure(k) puts the payload in its k-trim state and returns the encoded size; the caller
     // applies the returned count afterwards.
     private static (int Count, int Size) FewestFittingTrims(int count, Func<int, int> measure)
     {
         var over = 0;
-        var overSize = 0;
         for (var probe = 1; ; probe = Math.Min(probe * 2, count))
         {
             var size = measure(probe);
             if (size <= BundleLimitsV6.MaxRunBytes)
                 return Bisect(over, probe, size, measure);
-            over = probe;
-            overSize = size;
             if (probe == count)
-                break;
+                return (count, size);
+            over = probe;
         }
-        for (var probe = 1; probe < count; probe++)
-        {
-            if ((probe & (probe - 1)) == 0)
-                continue;
-            var size = measure(probe);
-            if (size <= BundleLimitsV6.MaxRunBytes)
-                return (probe, size);
-        }
-        return (count, overSize);
     }
 
     private static (int Count, int Size) Bisect(

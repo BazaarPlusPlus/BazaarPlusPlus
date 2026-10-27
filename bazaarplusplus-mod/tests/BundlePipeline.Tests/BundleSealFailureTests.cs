@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Compression;
 using BazaarGameShared;
 using BazaarGameShared.Infra.Messages;
@@ -47,10 +48,17 @@ internal static class BundleSealFailureTests
         using var fixture = new Fixture(root);
         var discoveries = 0;
         var passes = 0;
+        var failNextDiscovery = 0;
+        var discoveredAt = new ConcurrentQueue<DateTime>();
         void Count(BundleSealStage stage, string subject)
         {
             if (stage == BundleSealStage.JobDiscovery)
+            {
                 Interlocked.Increment(ref discoveries);
+                discoveredAt.Enqueue(DateTime.UtcNow);
+                if (Interlocked.Exchange(ref failNextDiscovery, 0) == 1)
+                    throw new IOException("database is locked");
+            }
             else if (stage == BundleSealStage.ScreenshotTerminal)
                 Interlocked.Increment(ref passes);
         }
@@ -77,6 +85,21 @@ internal static class BundleSealFailureTests
         Require(
             Volatile.Read(ref passes) == idle && Volatile.Read(ref discoveries) == 2,
             "With nothing waiting the worker runs no pass."
+        );
+
+        // A failed discovery is retried at the input-wait cadence: not at once, not at the cap.
+        Interlocked.Exchange(ref failNextDiscovery, 1);
+        fixture.AddCompletedRun("retried-run", endedMinutesAgo: 0);
+        fixture.Services.EventBus.Publish(new RunLogRunCompleted { RunId = "retried-run" });
+        await Eventually(
+            () => fixture.OutboxCount("retried-run") == 1,
+            "The retried discovery seals the Run."
+        );
+        var times = discoveredAt.ToArray();
+        var retryAfter = (times[^1] - times[^2]).TotalSeconds;
+        Require(
+            Volatile.Read(ref discoveries) == 4 && retryAfter is >= 4 and < 15,
+            $"A failed discovery retries once, about 5 s later (after {retryAfter:0.0} s)."
         );
     }
 
