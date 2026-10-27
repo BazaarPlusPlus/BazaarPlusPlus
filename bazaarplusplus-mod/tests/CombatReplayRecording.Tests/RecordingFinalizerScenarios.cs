@@ -23,6 +23,7 @@ internal static class RecordingFinalizerScenarios
             BeginExceptionLeavesActiveOperationToAbortFinalizer(root);
             BeginExceptionClosesOperationTheAbortNeverTook();
             EndedRecordingReportsRealAudioAndMetadataOutcomes(root);
+            DrainReportsTheVideoTimelineLength(root);
         }
         finally
         {
@@ -219,6 +220,51 @@ internal static class RecordingFinalizerScenarios
         );
     }
 
+    // The persisted duration is what the History page shows as the video's length, so it comes
+    // from the encoded timeline, not from the session span that includes encoder start and drain.
+    private static void DrainReportsTheVideoTimelineLength(string root)
+    {
+        var tempPath = Path.Combine(root, "timeline-length.tmp.mp4");
+        File.WriteAllBytes(tempPath, new byte[] { 1, 2, 3 });
+        var drain = new ReplayVideoEncoderDrain(
+            new ReplayVideoEncoderDrainInput(
+                new ScriptedEncoder(),
+                new ReplayVideoCaptureRequest
+                {
+                    VideoId = "timeline-length",
+                    BattleId = "battle-timeline-length",
+                    Source = CombatReplayPlaybackSource.ImportedGhost,
+                    OutputFilePath = tempPath,
+                    FinalOutputFilePath = Path.Combine(root, "timeline-length.mp4"),
+                    OutputDirectoryPath = root,
+                    Width = 64,
+                    Height = 64,
+                    Fps = 30,
+                    EncoderProfile = ReplayVideoEncoderProfile.NativeVideoToolbox(64, 64, 30),
+                    BufferPlan = ReplayVideoBufferPlan.Create(64, 64),
+                },
+                DateTimeOffset.UtcNow.AddSeconds(-60),
+                CapturedFrames: 80,
+                DroppedFrames: 0,
+                RepeatedFrames: 10,
+                FailureReasonCode: null,
+                DegradationReasonCode: null,
+                FailureException: null,
+                FrameByteLength: 64 * 64 * 4,
+                NativeSlotCount: 0,
+                CfrCopyP95Us: 0,
+                OutputFrames: 90
+            )
+        );
+
+        var result = drain.Complete();
+        Assert(
+            result.VideoDurationMs == 3000,
+            "90 encoded frames at 30 fps are a 3 s video, however long the session ran."
+        );
+        Assert(result.DurationMs >= 60_000, "The diagnostic span still covers the whole session.");
+    }
+
     private static ReplayAudioStopOutcome Stop(params ReplayAudioCaptureResult[] results) =>
         new(results);
 
@@ -329,7 +375,8 @@ internal static class RecordingFinalizerScenarios
                     FailureException: null,
                     FrameByteLength: 64 * 64 * 4,
                     NativeSlotCount: 0,
-                    CfrCopyP95Us: 0
+                    CfrCopyP95Us: 0,
+                    OutputFrames: capturedFrames
                 )
             );
             return new RecordingFinalizeContext(

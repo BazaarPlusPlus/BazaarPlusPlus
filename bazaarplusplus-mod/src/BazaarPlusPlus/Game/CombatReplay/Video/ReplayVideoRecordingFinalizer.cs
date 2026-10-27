@@ -389,7 +389,7 @@ internal static class ReplayVideoRecordingFinalizer
                     VideoId = result.VideoId,
                     VideoRelativePath = relativePath,
                     EndedAtUtc = endedAt,
-                    DurationMs = result.DurationMs,
+                    DurationMs = result.VideoDurationMs,
                     CapturedFrames = result.CapturedFrames,
                     DroppedFrames = result.DroppedFrames,
                     FileSizeBytes = finalFileSize,
