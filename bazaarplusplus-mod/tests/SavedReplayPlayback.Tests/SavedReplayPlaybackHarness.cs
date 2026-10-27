@@ -75,12 +75,23 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
 
     // Every battle-catalog read, in order: "load:<id>" or "exists:<id>".
     public IReadOnlyList<string> CatalogReads => _battles.Reads;
+    public Action? BeforeCatalogRead
+    {
+        get => _battles.BeforeRead;
+        set => _battles.BeforeRead = value;
+    }
     public InMemorySavedReplayHost Host { get; }
     public BazaarPlusPlus.Game.CombatReplay.SavedReplayPlayback Playback { get; }
     public List<string> Timeline { get; } = [];
     public List<string> Log { get; } = [];
     public Exception? StartingPublishFailure { get; set; }
     public Exception? EndedPublishFailure { get; set; }
+
+    public bool ReplaySaved(string battleId, bool recordVideo)
+    {
+        using var context = new ReplayTestContext();
+        return context.Finish(Playback.ReplaySavedAsync(battleId, recordVideo));
+    }
 
     public PvpBattleManifest Save(string battleId)
     {
@@ -215,9 +226,11 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
         public void AttachToRun(string battleId, string runId) { }
 
         public List<string> Reads { get; } = [];
+        public Action? BeforeRead { get; set; }
 
         public PvpBattleManifest? TryLoad(string battleId)
         {
+            BeforeRead?.Invoke();
             Reads.Add("load:" + battleId);
             return _manifests.TryGetValue(battleId, out var manifest) ? manifest : null;
         }
@@ -295,6 +308,7 @@ internal sealed class InMemorySavedReplayHost(SavedReplayPlaybackHarness harness
     /// <summary>Configures each start the module begins; the last one is <see cref="Start"/>.</summary>
     public Action<InMemorySavedReplayStart>? ConfigureStart { get; set; }
     public InMemorySavedReplayStart? Start { get; private set; }
+    public int BeginStartThread { get; private set; }
 
     public IDisposable EnterHostContext()
     {
@@ -313,6 +327,7 @@ internal sealed class InMemorySavedReplayHost(SavedReplayPlaybackHarness harness
         IReplayPlaybackOutcomeSink outcome
     )
     {
+        BeginStartThread = Environment.CurrentManagedThreadId;
         harness.Timeline.Add($"begin-start:{manifest.BattleId}");
         if (BeginStartFailure != null)
             throw BeginStartFailure;

@@ -1,4 +1,5 @@
 #nullable enable
+using System.Runtime.ExceptionServices;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.RunLifecycle;
@@ -23,8 +24,8 @@ public sealed record ActiveSavedReplay(
 /// its observations in the order that core requires. The game side is the host's
 /// <see cref="ISavedReplayHost"/> and the per-start <see cref="ISavedReplayStart"/>. It never exits
 /// <c>ReplayState</c> itself (ADR-0002). Playback entry points run on the host's main thread inside
-/// its context; the start's awaits resume on the context its caller installed. Payload maintenance
-/// acquires only the shared gate and runs on a worker.
+/// its context; awaits resume on the context its caller installed. Only the managed catalog and
+/// payload read runs on a worker. Payload maintenance acquires the same gate.
 /// </summary>
 public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
 {
@@ -38,6 +39,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
     private readonly ISavedReplayHost _host;
     private readonly SavedReplayLifecycle _lifecycle = new();
     private ActiveOperation? _active;
+    private PendingSavedReplayRead? _pendingRead;
     private ReplayPlaybackLogOperation? _completedAwaitingExit;
     private ReplayPlaybackLogOperation? _pendingMenuReturn;
     private volatile bool _disposed;
@@ -61,7 +63,8 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
 
     public bool IsSavedReplayPlaybackActive => _lifecycle.IsSavedReplayPlaybackActive;
 
-    public bool IsReplayStartInProgress => _lifecycle.IsReplayStartInProgress;
+    public bool IsReplayStartInProgress =>
+        _pendingRead != null || _lifecycle.IsReplayStartInProgress;
 
     // A replay is starting, playing, or returning to the menu: History's gate.
     public bool HasSavedReplaySession =>
@@ -90,8 +93,8 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         return null;
     }
 
-    /// <summary>The active operation holds the payload gate's playback lease.</summary>
-    public bool HoldsPayloadLease => _active?.Lease != null;
+    /// <summary>A pending read or active operation holds the payload gate's playback lease.</summary>
+    public bool HoldsPayloadLease => _pendingRead != null || _active?.Lease != null;
 
     public ActiveSavedReplay? Active =>
         _active is { } active
@@ -147,7 +150,12 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         return true;
     }
 
-    public bool ReplaySaved(string battleId, bool recordVideo)
+    public Task<bool> ReplaySavedAsync(
+        string battleId,
+        bool recordVideo,
+        CancellationToken cancellationToken = default,
+        Func<bool>? canCommit = null
+    )
     {
         using var scope = _host.EnterHostContext();
         _host.ForgetOffer(battleId ?? string.Empty);
@@ -159,7 +167,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
                 ReplayRequestRejectionReasonCode.RuntimeUnavailable,
                 battleId
             );
-            return false;
+            return Task.FromResult(false);
         }
         var lease = _gate.TryAcquirePlayback();
         if (lease == null)
@@ -169,7 +177,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
                 ReplayRequestRejectionReasonCode.PayloadOperationBusy,
                 battleId
             );
-            return false;
+            return Task.FromResult(false);
         }
         try
         {
@@ -180,45 +188,68 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
                     ResolveSavedReplayRejectionReason(battleId),
                     battleId
                 );
-                return false;
+                return Task.FromResult(false);
             }
-            // The catalog is read uncached, since an offer can be stale by the time it is taken,
-            // and once: a missing row, an unreadable manifest and a missing payload file all load
-            // as null.
-            var manifest = _catalog.LoadBattle(battleId);
-            if (manifest == null)
-            {
-                LogRequestRejected(
-                    CombatReplayPlaybackSource.LocalSaved,
-                    ReplayRequestRejectionReasonCode.PayloadUnavailable,
-                    battleId
-                );
-                return false;
-            }
-            var payload = _catalog.LoadPayload(manifest);
-            if (payload == null)
-            {
-                LogRequestRejected(
-                    CombatReplayPlaybackSource.LocalSaved,
-                    ReplayRequestRejectionReasonCode.PayloadUnavailable,
-                    battleId
-                );
-                return false;
-            }
-            var heldLease = lease;
+            cancellationToken.ThrowIfCancellationRequested();
+            var pending = new PendingSavedReplayRead(lease);
+            _pendingRead = pending;
             lease = null;
+            return ReadAndBeginAsync(pending, battleId, recordVideo, cancellationToken, canCommit);
+        }
+        finally
+        {
+            lease?.Dispose();
+        }
+    }
+
+    private async Task<bool> ReadAndBeginAsync(
+        PendingSavedReplayRead pending,
+        string battleId,
+        bool recordVideo,
+        CancellationToken cancellationToken,
+        Func<bool>? canCommit
+    )
+    {
+        try
+        {
+            var (manifest, payload, exception) = await pending.LoadAsync(_catalog, battleId);
+            if (_disposed || !ReferenceEquals(_pendingRead, pending))
+                return false;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (canCommit?.Invoke() == false)
+                throw new OperationCanceledException(
+                    "History selection is no longer active.",
+                    cancellationToken
+                );
+            if (pending.Interrupted || _services.RunContext.IsInGameRun || _host.InReplayState)
+                return false;
+            if (exception != null)
+                ExceptionDispatchInfo.Capture(exception).Throw();
+            if (manifest == null || payload == null)
+            {
+                LogRequestRejected(
+                    CombatReplayPlaybackSource.LocalSaved,
+                    ReplayRequestRejectionReasonCode.PayloadUnavailable,
+                    battleId
+                );
+                return false;
+            }
+            using var scope = _host.EnterHostContext();
+            _pendingRead = null;
             return Begin(
                 manifest,
                 payload,
                 battleId,
                 CombatReplayPlaybackSource.LocalSaved,
                 recordVideo,
-                heldLease
+                pending.TakeOwnerLease()
             );
         }
         finally
         {
-            lease?.Dispose();
+            if (ReferenceEquals(_pendingRead, pending))
+                _pendingRead = null;
+            pending.ReleaseOwner();
         }
     }
 
@@ -269,6 +300,8 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
     {
         if (_disposed)
             return;
+        if (_pendingRead is { } pending)
+            pending.Interrupted = true;
         using var scope = _host.EnterHostContext();
         var now = _host.Now;
         var ownership = _lifecycle.BeginReplayStateExit(now);
@@ -431,6 +464,8 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         if (_disposed)
             return;
         _disposed = true;
+        _pendingRead?.ReleaseOwner();
+        _pendingRead = null;
         using var scope = _host.EnterHostContext();
         var active = _active;
         if (active != null)

@@ -115,6 +115,31 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         Assert.False(dependencies.ReplayService.CanRecordLoadedReplay(out _));
     }
 
+    [Fact]
+    public async Task History_waits_for_the_local_read_and_preserves_a_missing_payload_failure()
+    {
+        var read = new TaskCompletionSource<bool>();
+        var runtime = new StandInRuntime { Read = read.Task };
+        var dependencies = Compose(session: null, runtime);
+        using var cancellation = new CancellationTokenSource();
+        Func<bool> canCommit = () => true;
+        var pending = dependencies.ReplayService.ReplayBattleAsync(
+            Battle(HistoryBattleSource.Local, ReplayAvailability.Saved),
+            false,
+            cancellation.Token,
+            canCommit
+        );
+
+        Assert.False(pending.IsCompleted);
+        Assert.Equal(cancellation.Token, runtime.ReadCancellation);
+        Assert.Same(canCommit, runtime.ReadCanCommit);
+        read.SetResult(false);
+        var result = await pending;
+        Assert.False(result.Succeeded);
+        Assert.Equal(HistoryPanelReplayReasonCode.ReplayRejected, result.ReasonCode);
+        Assert.NotEmpty(result.StatusMessage);
+    }
+
     // Core's view model hides Record on a host whose recording port records no video at all, and
     // shows it on one that does (the desktop's). A build asks the runtime once whether the
     // selected saved battle can replay, and Record reuses that answer.
@@ -376,6 +401,9 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         public List<string> Replayed { get; } = new();
 
         public bool Busy { get; set; }
+        public Task<bool>? Read { get; set; }
+        public CancellationToken ReadCancellation { get; private set; }
+        public Func<bool>? ReadCanCommit { get; private set; }
 
         public bool HasSavedReplaySession => Busy;
 
@@ -399,10 +427,17 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
             return CanReplaySavedCombats(out reason);
         }
 
-        public bool ReplaySaved(string battleId, bool recordVideo)
+        public Task<bool> ReplaySavedAsync(
+            string battleId,
+            bool recordVideo,
+            CancellationToken cancellationToken = default,
+            Func<bool>? canCommit = null
+        )
         {
             Replayed.Add(battleId);
-            return true;
+            ReadCancellation = cancellationToken;
+            ReadCanCommit = canCommit;
+            return Read ?? Task.FromResult(true);
         }
 
         public bool ReplayLoadedBattle(

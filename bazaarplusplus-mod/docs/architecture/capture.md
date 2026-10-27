@@ -1,5 +1,7 @@
 # Combat Replay, Screenshots, Uploads, And Ghost Battles
 
+Local saved replay startup awaits `ISavedReplayRuntime.ReplaySavedAsync`. Core reserves admission and a payload lease before `PendingSavedReplayRead` reads the catalog and compressed payload on a worker. History keeps its pending state until the read and `BeginStart` handoff finish. Cancellation, stale selection, an active Run or a ReplayState exit during the read prevents handoff without starting or rolling back a game. The worker owns a separate reference to the same lease: runtime disposal releases admission immediately but maintenance stays blocked until the read actually ends, even after the host stops pumping continuations. Successful handoff transfers the owner reference continuously through playback. Game decoding and startup remain on the existing host path.
+
 Replay recording and playback, optional video capture, end-of-run screenshot capture, bundle sealing, the single upload feed, and ghost battle import.
 
 Combat replay records local PvP battle replay payloads and lets HistoryPanel start playback when a local or downloaded ghost replay payload is available. Video recording is optional and supported on macOS and Windows through platform-native render plugins (Metal/VideoToolbox/AVFoundation; D3D11/Media Foundation); availability is gated by the native plugin and output directory configuration (`src/BazaarPlusPlus/Game/CombatReplay/Video/CombatReplayRecordingGate.cs`).

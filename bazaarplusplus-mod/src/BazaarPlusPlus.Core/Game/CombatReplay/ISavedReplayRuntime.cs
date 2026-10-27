@@ -22,7 +22,14 @@ public interface ISavedReplayRuntime
 
     bool CanReplaySavedBattle(string battleId, out string reason);
 
-    bool ReplaySaved(string battleId, bool recordVideo);
+    // Called on the host thread. Reads managed storage on a worker, then checks cancellation
+    // and the caller's current selection before handing off to the host's existing start.
+    Task<bool> ReplaySavedAsync(
+        string battleId,
+        bool recordVideo,
+        CancellationToken cancellationToken = default,
+        Func<bool>? canCommit = null
+    );
 
     // Plays a manifest and payload the caller already holds; source names where they came from.
     // Player is the recorder in both a local manifest and a Ghost payload's manifest.

@@ -131,6 +131,36 @@ public sealed class AndroidHostThreadingRuleTests
     }
 
     [Fact]
+    public void Saved_replay_read_worker_calls_only_the_managed_catalog_and_lease_ownership()
+    {
+        const string worker = "BazaarPlusPlus.Game.CombatReplay.PendingSavedReplayRead";
+        var core = CompiledAssembly.Load(
+            typeof(BazaarPlusPlus.Game.CombatReplay.SavedReplayPlayback).Assembly.Location
+        );
+        var instructions = core
+            .Types.Where(type => type.FullName.StartsWith(worker, StringComparison.Ordinal))
+            .SelectMany(type => type.Methods)
+            .SelectMany(method => method.Instructions)
+            .Where(instruction => instruction.IsMemberAccess)
+            .ToArray();
+        Assert.Contains(
+            instructions,
+            instruction =>
+                instruction.TargetType?.FullName == "System.Threading.Tasks.Task"
+                && instruction.TargetMember == "Run"
+        );
+        var violations = instructions
+            .Where(instruction =>
+                instruction.TargetType is { } target
+                && target.Namespace.StartsWith("BazaarPlusPlus", StringComparison.Ordinal)
+                && !target.FullName.StartsWith(worker, StringComparison.Ordinal)
+                && target.FullName != "BazaarPlusPlus.Game.CombatReplay.SavedReplayCatalog"
+            )
+            .ToArray();
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void History_controls_are_wired_only_through_the_main_thread_action_scope()
     {
         string[] historyTypes =

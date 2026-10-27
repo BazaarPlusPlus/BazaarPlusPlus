@@ -26,7 +26,7 @@ public interface ISavedReplayHost
 
     /// <summary>
     /// History's per-row probe of whether a saved battle can replay. A host may answer from a
-    /// short cache; <see cref="SavedReplayPlayback.ReplaySaved"/> always rechecks the catalog.
+    /// short cache; <see cref="SavedReplayPlayback.ReplaySavedAsync"/> always rechecks the catalog.
     /// </summary>
     bool CanOfferSavedReplay(string battleId);
 

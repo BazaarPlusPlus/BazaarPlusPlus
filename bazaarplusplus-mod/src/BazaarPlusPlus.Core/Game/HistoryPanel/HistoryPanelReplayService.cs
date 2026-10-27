@@ -154,7 +154,14 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
             );
 
         CheckCommit(cancellationToken, canCommit);
-        if (!runtime.ReplaySaved(battle.BattleId, recordVideo))
+        if (
+            !await runtime.ReplaySavedAsync(
+                battle.BattleId,
+                recordVideo,
+                cancellationToken,
+                canCommit
+            )
+        )
             return HistoryPanelReplayAttemptResult.Failure(
                 HistoryPanelText.ReplayRejectedForBattle(battle.BattleId),
                 HistoryPanelReplayReasonCode.ReplayRejected
