@@ -116,7 +116,15 @@ static void TestOutcomeResealAndCleanupQueries()
                     == "uploaded",
                 "Uploaded outcome should persist before file cleanup."
             );
-            store.FailOutboxAndScheduleReseal("bundle-a", "run-a", "pending_file_invalid", Now());
+            Assert(
+                !store.FailOutboxAndScheduleReseal(
+                    "bundle-a",
+                    "run-a",
+                    "pending_file_invalid",
+                    Now()
+                ),
+                "A stale validation must not report a recreated job."
+            );
             Assert(
                 Scalar(connection, "SELECT status FROM bundle_outbox WHERE bundle_id='bundle-a';")
                     == "uploaded"
@@ -138,7 +146,10 @@ static void TestOutcomeResealAndCleanupQueries()
                 null
             );
             InsertRun(connection, "run-b", "ranked", "Online", completed: true, screenshot: true);
-            store.FailOutboxAndScheduleReseal("bundle-b", "run-b", "invalid", Now());
+            Assert(
+                store.FailOutboxAndScheduleReseal("bundle-b", "run-b", "invalid", Now()),
+                "A recreated job is reported only after committing it."
+            );
             Assert(
                 Scalar(connection, "SELECT status FROM bundle_outbox WHERE bundle_id='bundle-b';")
                     == "permanent_failure",
