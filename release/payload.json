@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 1,
   "files": [
     {
       "path": "BepInEx/config/BazaarPlusPlus.cfg",

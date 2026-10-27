@@ -303,7 +303,7 @@ function verifyPlatformArtifacts({ rootDir, platform, platformRecord }) {
 
 function readManifest(lockPath) {
   const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-  if (lock.schemaVersion !== 3) {
+  if (lock.schemaVersion !== 1) {
     throw new Error(
       `Unsupported native recorder input lock schema: ${lock.schemaVersion}`
     );
@@ -336,13 +336,13 @@ export function verifyNativeRecorderInput({
 function loadManifestForPromotion(lockPath) {
   if (!fs.existsSync(lockPath)) {
     return {
-      schemaVersion: 3,
+      schemaVersion: 1,
       sourceRepository: expectedRepository,
       platforms: {}
     };
   }
   const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-  if (lock.schemaVersion === 3) {
+  if (lock.schemaVersion === 1) {
     if (lock.sourceRepository !== expectedRepository) {
       throw new Error(
         `Native recorder source repository must be ${expectedRepository}`
@@ -535,7 +535,7 @@ export function nativeRecorderStatus({
     return { fresh: false, reason: 'manifest is missing', requirement };
   }
   const raw = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-  if (raw.schemaVersion !== 3) {
+  if (raw.schemaVersion !== 1) {
     throw new Error(
       `Unsupported native recorder input lock schema: ${raw.schemaVersion}`
     );

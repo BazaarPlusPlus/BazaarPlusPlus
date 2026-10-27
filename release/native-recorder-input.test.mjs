@@ -239,7 +239,7 @@ test('local promotion writes schema 3 provenance and exact artifact trees', () =
     );
     expect(result.platforms).toEqual(['macos']);
     expect(manifest).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 1,
       sourceRepository: 'BazaarPlusPlus/bazaarplusplus-mod',
       platforms: {
         macos: {
