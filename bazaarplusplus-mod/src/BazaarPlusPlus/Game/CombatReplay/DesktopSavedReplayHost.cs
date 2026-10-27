@@ -18,12 +18,7 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// </summary>
 internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 {
-    // Realtime seconds on the host's Now clock, which never steps backwards.
-    private const float SavedReplayCacheLifetimeSeconds = 5f;
-    private readonly SavedReplayCatalog _catalog;
-    private readonly Dictionary<string, (bool Saved, float At)> _savedReplayCache = new(
-        StringComparer.Ordinal
-    );
+    private readonly SavedReplayOfferCache _offers;
     private readonly OpponentPortraitController _portrait;
     private readonly CombatReplayLoader _loader = new();
     private readonly Action _resetManagedRecordingUi;
@@ -34,7 +29,9 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
         Action resetManagedRecordingUi
     )
     {
-        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+        if (catalog == null)
+            throw new ArgumentNullException(nameof(catalog));
+        _offers = new SavedReplayOfferCache(catalog.HasSavedReplay);
         _portrait = portrait ?? throw new ArgumentNullException(nameof(portrait));
         _resetManagedRecordingUi =
             resetManagedRecordingUi
@@ -52,26 +49,10 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 
     public bool RecordsVideo => true;
 
-    // History asks on every refresh; the answer is cached for the same five seconds Android uses,
-    // so a burst of refreshes does not query the database and stat the payload on the main thread
-    // each time (ReplaySavedAsync rechecks the catalog uncached). Unlike Android, a read failure is
-    // not caught here; it reaches History as it did before the cache.
-    public bool CanOfferSavedReplay(string battleId)
-    {
-        var now = Now;
-        if (
-            _savedReplayCache.TryGetValue(battleId, out var cached)
-            && now - cached.At < SavedReplayCacheLifetimeSeconds
-        )
-            return cached.Saved;
-        var saved = _catalog.HasSavedReplay(battleId);
-        if (_savedReplayCache.Count > 256)
-            _savedReplayCache.Clear();
-        _savedReplayCache[battleId] = (saved, now);
-        return saved;
-    }
+    // A read failure still reaches History; the shared cache never remembers exceptions.
+    public bool CanOfferSavedReplay(string battleId) => _offers.CanOffer(battleId, Now);
 
-    public void ForgetOffer(string battleId) => _savedReplayCache.Remove(battleId);
+    public void ForgetOffer(string battleId) => _offers.Forget(battleId);
 
     public ISavedReplayStart BeginStart(
         PvpBattleManifest manifest,
