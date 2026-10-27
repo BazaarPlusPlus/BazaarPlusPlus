@@ -5,6 +5,7 @@ using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TheBazaar;
 using TheBazaar.AppFramework;
@@ -237,7 +238,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
         rect.offsetMax = new Vector2(-6f, 0f);
 
         var background = _overlay.AddComponent<Image>();
-        background.color = new Color(0f, 0f, 0f, 0.65f);
+        background.color = InGameTheme.Plate;
         background.raycastTarget = false;
         var layout = _overlay.AddComponent<LayoutElement>();
         layout.ignoreLayout = true;

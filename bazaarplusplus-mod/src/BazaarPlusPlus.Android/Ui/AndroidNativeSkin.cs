@@ -137,9 +137,9 @@ internal sealed class AndroidNativeSkin
                     ? AndroidUiKit.ActiveColor
                     : AndroidUiKit.ButtonColor
                 : dimmed
-                    ? new Color(0.48f, 0.43f, 0.36f)
+                    ? InGameTheme.ArtPanelTint
                     : selected
-                        ? new Color(1f, 0.88f, 0.62f)
+                        ? InGameTheme.ArtSelectedTint
                         : Color.white;
     }
 }

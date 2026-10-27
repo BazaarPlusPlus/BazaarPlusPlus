@@ -14,11 +14,11 @@ internal static class AndroidUiKit
 {
     public static readonly Vector2 ReferenceResolution = new(1920f, 1080f);
 
-    public static readonly Color PanelColor = new(0.07f, 0.06f, 0.05f, 0.96f);
-    public static readonly Color ButtonColor = new(0.25f, 0.19f, 0.12f, 1f);
-    public static readonly Color ActiveColor = new(0.55f, 0.38f, 0.14f, 1f);
-    public static readonly Color TextColor = new(0.96f, 0.91f, 0.8f, 1f);
-    public static readonly Color MutedTextColor = new(0.72f, 0.66f, 0.56f, 1f);
+    public static readonly Color PanelColor = InGameTheme.Backdrop;
+    public static readonly Color ButtonColor = InGameTheme.Chip;
+    public static readonly Color ActiveColor = InGameTheme.ChipActive;
+    public static readonly Color TextColor = InGameTheme.Ink;
+    public static readonly Color MutedTextColor = InGameTheme.InkMuted;
 
     public static GameObject CreateOverlayCanvas(string name, int sortingOrder)
     {

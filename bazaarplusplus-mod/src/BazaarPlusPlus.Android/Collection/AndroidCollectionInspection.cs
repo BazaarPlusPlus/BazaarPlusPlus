@@ -270,7 +270,7 @@ internal sealed class AndroidCollectionInspection
             ? Vector3.Lerp(_sourceScale, _previewScale, progress)
             : _previewScale;
         _cardOpacity.alpha = _transition.Pending ? 0f : 1f;
-        _backdrop.color = new Color(0f, 0f, 0f, 0.85f * progress);
+        _backdrop.color = InGameTheme.WithAlpha(InGameTheme.Scrim, InGameTheme.Scrim.a * progress);
         _infoOpacity.alpha = Mathf.Clamp01((progress - 0.15f) / 0.85f);
         _detailInteraction.interactable = progress >= 1f && !_transition.Closing;
     }

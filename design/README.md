@@ -1,6 +1,6 @@
 The BazaarPlusPlus installer and bazaarplusplus.com share one visual language: a modern desktop tool finished to the standard of Linear, Steam and the Discord client. The brand keeps only the BazaarPlusPlus mark, a chevron over a gem; its single accent is the amber of that gem. Everything else is warm near-black, 1px lines and system type.
 
-Scope: the installer app and the website. The OBS stream overlay keeps its own older look, and in-game panels follow The Bazaar's native UI; neither uses this system.
+Scope: the installer app and the website, plus the colours the mod draws in game (the **In game** section). The OBS stream overlay keeps its own older look and does not use this system.
 
 ## Principles
 
@@ -119,8 +119,19 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 - The **app icon** (`bazaarplusplus-icon.webp`, `app-icon.png`: silver chevron, amber "++" gem and a BAZAAR++ plate on a dark squircle) is the desktop app icon. `favicon.webp` is the site's browser-tab icon.
 - If an image is unavailable, set "BazaarPlusPlus" in `body-strong`.
 
+## In game
+
+The mod's panels sit inside The Bazaar, so they speak the game's language rather than the installer's. One visual language serves the desktop and the Android host; only the layouts differ.
+
+- **Native art first.** Fonts, button and frame sprites (`Btn_Rct_*`), trophies, rank badges, cards, boards and portraits are the game's own, borrowed at runtime and never redrawn. BPP draws only what no native sprite covers: grounds, scrims, text colour, gold rules and status colour.
+- **Those colours are the `ingame-*` tokens**, generated into `InGameTheme.g.cs` for both hosts (`bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/UiTokens/` and `bazaarplusplus-mod/src/BazaarPlusPlus.Android/Ui/`) by `just design::build`. A panel never writes a colour literal; a fraction of a token goes through `InGameTheme.WithAlpha`.
+- **Warm brown ground, parchment ink, gold emphasis.** `ingame-backdrop` → `ingame-panel` → `ingame-dialog` are the grounds; `ingame-ink` and `ingame-ink-muted` the text; `ingame-accent` (the game's gold) is the one emphasis colour, as `accent` is in the installer. Status is `ingame-success`, `ingame-failure`, `ingame-warning` and `ingame-pending`, each one value on both hosts.
+- **Two layouts.** The desktop lays panels out for a mouse (`HistoryPanelLayout`, `LiveBuildPanelLayout`, `UiTokens/Sizes.cs`); Android lays them out for touch from `TouchChrome` and `TouchMetrics` (48dp targets, 12sp minimum text, ADR-0018 in the mod). A panel looks the same on both and is arranged for its input.
+- `components/InGamePanel/` previews the result.
+- **Not yet migrated:** the desktop Collection panel still uses its own cool palette in `UiTokens/Colors.cs`; it moves to these tokens next.
+
 ## Exceptions
 
 - **Previews are static.** Each component preview is the `bpp-*` markup styled by `components/bundle.css`, the same stylesheet the installer imports; the React components themselves live in `bazaarplusplus-installer/src/components/ui/` and `bazaarplusplus-site/src/shared/components/`.
 - **Page-specific styles** (Install status, History run cards and stats, Run detail, Stream) stay in the installer's `src/styles/index.css`, on the same tokens.
-- **Outside this system:** the OBS stream overlay (`src-tauri/resources/stream/`, with its Cinzel font and hero badge SVGs), the mod's in-game panels and dock icons (they follow the game's UI), and the third-party WeChat Pay and Xiaohongshu marks under `static/support/`.
+- **Outside this system:** the OBS stream overlay (`src-tauri/resources/stream/`, with its Cinzel font and hero badge SVGs), the mod's native art (it is the game's), and the third-party WeChat Pay and Xiaohongshu marks under `static/support/`.

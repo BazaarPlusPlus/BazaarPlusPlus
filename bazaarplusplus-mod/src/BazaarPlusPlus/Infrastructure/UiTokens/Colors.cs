@@ -119,14 +119,14 @@ internal static class Colors
     public static Color SupporterTier4Text => Rgba(1f, 0.78f, 0.20f, 1f);
 
     public static Color HeroUnknownBackground => Rgba(0.20f, 0.29f, 0.38f, 0.95f);
-    public static Color HeroVanessaBackground => FromRgb(192, 33, 33);
-    public static Color HeroPygmalienBackground => FromRgb(39, 103, 192);
-    public static Color HeroDooleyBackground => FromRgb(225, 154, 8);
-    public static Color HeroMakBackground => FromRgb(190, 230, 91);
-    public static Color HeroJulesBackground => FromRgb(180, 52, 236);
-    public static Color HeroKarnokBackground => FromRgb(59, 136, 156);
-    public static Color HeroStelleBackground => FromRgb(255, 235, 24);
-    public static Color HeroTheDragonsBackground => FromRgb(45, 210, 208);
+    public static Color HeroVanessaBackground => InGameTheme.HeroVanessa;
+    public static Color HeroPygmalienBackground => InGameTheme.HeroPygmalien;
+    public static Color HeroDooleyBackground => InGameTheme.HeroDooley;
+    public static Color HeroMakBackground => InGameTheme.HeroMak;
+    public static Color HeroJulesBackground => InGameTheme.HeroJules;
+    public static Color HeroKarnokBackground => InGameTheme.HeroKarnok;
+    public static Color HeroStelleBackground => InGameTheme.HeroStelle;
+    public static Color HeroTheDragonsBackground => InGameTheme.HeroDragons;
     public static Color HeroDefaultBackground => FromRgb(57, 73, 97);
     public static Color HeroDarkText => Rgba(0.10f, 0.12f, 0.15f, 1f);
 

@@ -4,6 +4,7 @@ using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Infrastructure.UiTokens;
 using TheBazaar;
 using TMPro;
 using UnityEngine;
@@ -13,8 +14,8 @@ namespace BazaarPlusPlus.Game.CombatStatusBar;
 
 internal sealed partial class CombatStatusBar
 {
-    private static readonly Color Ink = new(0.96f, 0.89f, 0.73f);
-    private static readonly Color MutedInk = new(0.78f, 0.70f, 0.57f);
+    private static readonly Color Ink = InGameTheme.Ink;
+    private static readonly Color MutedInk = InGameTheme.InkSoft;
     private NativeGameTypography.OwnedTextPreparation? _uiTypography;
     private NativeGameTypography.OwnedTextPreparation? _counterTypography;
     private CombatStatusBarNativeSkin? _nativeSkin;
@@ -169,7 +170,7 @@ internal sealed partial class CombatStatusBar
         rect.anchorMin = new Vector2(x, 0.28f);
         rect.anchorMax = new Vector2(x, 0.72f);
         var image = rect.gameObject.AddComponent<Image>();
-        image.color = new Color(0.69f, 0.52f, 0.255f, 0.32f);
+        image.color = InGameTheme.WithAlpha(InGameTheme.RuleStrong, 0.32f);
         image.raycastTarget = false;
     }
 
@@ -190,9 +191,9 @@ internal sealed partial class CombatStatusBar
         button.colors = new ColorBlock
         {
             normalColor = Color.clear,
-            highlightedColor = new Color(0.92f, 0.67f, 0.26f, 0.12f),
-            pressedColor = new Color(0.92f, 0.67f, 0.26f, 0.24f),
-            selectedColor = new Color(0.92f, 0.67f, 0.26f, 0.12f),
+            highlightedColor = InGameTheme.WithAlpha(InGameTheme.Accent, 0.12f),
+            pressedColor = InGameTheme.WithAlpha(InGameTheme.Accent, 0.24f),
+            selectedColor = InGameTheme.WithAlpha(InGameTheme.Accent, 0.12f),
             disabledColor = Color.clear,
             colorMultiplier = 1f,
             fadeDuration = 0.08f,
@@ -246,7 +247,7 @@ internal sealed partial class CombatStatusBar
             _renderedPause = State.IsCombatPaused;
             _pauseIcon.ShowPlay = State.IsCombatPaused;
             _pauseIcon.SetVerticesDirty();
-            _pauseIcon.color = State.IsCombatPaused ? new Color(1f, 0.78f, 0.35f) : Ink;
+            _pauseIcon.color = State.IsCombatPaused ? InGameTheme.AccentBright : Ink;
             if (!interactable)
                 _pauseIcon.color *= new Color(1f, 1f, 1f, 0.4f);
         }

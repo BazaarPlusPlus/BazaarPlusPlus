@@ -2,7 +2,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 set working-directory := '..'
 
-# Regenerate the installer's tokens.css from design/tokens.json.
+# Regenerate the installer's tokens.css and the mod's InGameTheme.g.cs from design/tokens.json.
 build:
     node design/build.mjs
 

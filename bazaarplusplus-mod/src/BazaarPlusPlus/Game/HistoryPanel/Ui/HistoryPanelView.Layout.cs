@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
+using BazaarPlusPlus.Infrastructure.UiTokens;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -102,7 +103,7 @@ internal sealed partial class HistoryPanelView
     private void CreateLayout()
     {
         _layout = CreateRect("Layout", _root!.transform, 0, 0, 1, 1);
-        _layout.gameObject.AddComponent<Image>().color = new Color(.055f, .038f, .026f, 1);
+        _layout.gameObject.AddComponent<Image>().color = InGameTheme.Backdrop;
         Panel(_layout, .014f, .018f, .972f, .962f);
         _title = Text(_layout, "", HistoryPanelLayout.Title, 34);
         Button(_layout, HistoryPanelText.Close(), HistoryPanelLayout.CloseButton, _close);
@@ -483,8 +484,8 @@ internal sealed partial class HistoryPanelView
                 ? HistoryPanelText.UnknownOpponent()
                 : battle.OpponentName;
             chip.Outcome.color =
-                HistoryPanelFormatter.IsBattleWin(battle) ? new Color(.62f, .80f, .54f)
-                : HistoryPanelFormatter.IsBattleLoss(battle) ? new Color(.90f, .40f, .31f)
+                HistoryPanelFormatter.IsBattleWin(battle) ? InGameTheme.Success
+                : HistoryPanelFormatter.IsBattleLoss(battle) ? InGameTheme.Failure
                 : Color.clear;
             var hero = battle.OpponentHero;
             if (chip.Hero != hero)

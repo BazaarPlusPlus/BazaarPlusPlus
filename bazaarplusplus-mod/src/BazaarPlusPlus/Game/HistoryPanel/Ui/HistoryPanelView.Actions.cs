@@ -55,9 +55,9 @@ internal sealed partial class HistoryPanelView
         canvas.overrideSorting = true;
         canvas.sortingOrder = BppOverlaySorting.PanelForeground;
         shade.gameObject.AddComponent<GraphicRaycaster>();
-        shade.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, .75f);
+        shade.gameObject.AddComponent<Image>().color = InGameTheme.Scrim;
         var dialog = CreateRect("Dialog", shade, .24f, .18f, .52f, .66f);
-        dialog.gameObject.AddComponent<Image>().color = new Color(.065f, .043f, .025f);
+        dialog.gameObject.AddComponent<Image>().color = InGameTheme.Dialog;
         Panel(dialog, 0, 0, 1, 1);
         Text(dialog, T("History options", "历史记录选项"), .05f, .035f, .65f, .07f, 27);
         Button(
@@ -97,7 +97,7 @@ internal sealed partial class HistoryPanelView
         _accountWhy.textWrappingMode = TextWrappingModes.Normal;
         var inputRect = CreateRect("AccountLinkCode", _accountForm, 0, .25f, .61f, .14f);
         var background = inputRect.gameObject.AddComponent<Image>();
-        background.color = new Color(.20f, .15f, .09f);
+        background.color = InGameTheme.Input;
         var viewport = CreateRect("TextViewport", inputRect, .035f, .03f, .93f, .94f);
         viewport.gameObject.AddComponent<RectMask2D>();
         var inputText = Text(viewport, "", 0, 0, 1, 1, 20);
@@ -227,8 +227,8 @@ internal sealed partial class HistoryPanelView
     private static Color StatusColor(StatusSeverity severity) =>
         severity switch
         {
-            StatusSeverity.Failure => new Color(.90f, .40f, .31f),
-            StatusSeverity.Success => new Color(.48f, .76f, .42f),
+            StatusSeverity.Failure => InGameTheme.Failure,
+            StatusSeverity.Success => InGameTheme.Success,
             StatusSeverity.Confirm => Ink,
             _ => Muted,
         };

@@ -60,7 +60,7 @@ internal sealed class NativeInspectionPresentation : IDisposable
         var backdrop = new GameObject("DismissBackground", typeof(RectTransform), typeof(Image));
         backdrop.transform.SetParent(_root.transform, false);
         Stretch(backdrop.GetComponent<RectTransform>());
-        backdrop.GetComponent<Image>().color = new Color(0f, 0f, 0f, .53f);
+        backdrop.GetComponent<Image>().color = InGameTheme.ScrimLight;
         var card = new GameObject("InspectionCard", typeof(RectTransform));
         card.transform.SetParent(_root.transform, false);
         CardRoot = card.GetComponent<RectTransform>();

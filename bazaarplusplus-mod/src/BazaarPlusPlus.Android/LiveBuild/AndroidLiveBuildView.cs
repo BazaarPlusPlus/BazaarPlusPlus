@@ -657,9 +657,9 @@ internal sealed class AndroidLiveBuildView
     private static Color StatusColor(LiveBuildRefreshSeverity severity) =>
         severity switch
         {
-            LiveBuildRefreshSeverity.Failure => new Color(.92f, .62f, .34f),
-            LiveBuildRefreshSeverity.Success => new Color(.62f, .8f, .54f),
-            LiveBuildRefreshSeverity.Pending => new Color(.59f, .76f, .89f),
+            LiveBuildRefreshSeverity.Failure => InGameTheme.Warning,
+            LiveBuildRefreshSeverity.Success => InGameTheme.Success,
+            LiveBuildRefreshSeverity.Pending => InGameTheme.Pending,
             _ => AndroidUiKit.MutedTextColor,
         };
 

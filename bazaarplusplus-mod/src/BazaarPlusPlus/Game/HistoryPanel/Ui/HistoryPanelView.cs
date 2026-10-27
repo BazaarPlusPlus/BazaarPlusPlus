@@ -27,8 +27,8 @@ internal sealed partial class HistoryPanelView : IDisposable
         "Trophy_Gold_TUI",
         "Trophy_Diamond_TUI",
     ];
-    private static readonly Color Ink = new(0.96f, 0.89f, 0.73f);
-    private static readonly Color Muted = new(0.69f, 0.63f, 0.53f);
+    private static readonly Color Ink = InGameTheme.Ink;
+    private static readonly Color Muted = InGameTheme.InkMuted;
     private readonly Transform _parent;
     private readonly Action _close;
     private readonly Action _replay;
@@ -303,8 +303,8 @@ internal sealed partial class HistoryPanelView : IDisposable
         image.sprite = _skin?[selected ? 2 : 1];
         image.color =
             image.sprite != null ? Color.white
-            : selected ? new Color(.25f, .20f, .10f)
-            : new Color(.13f, .09f, .055f);
+            : selected ? InGameTheme.ButtonSelected
+            : InGameTheme.Button;
     }
 
     // Every refresh rebinds every button, so an unchanged one is left alone: no label write, no
@@ -427,8 +427,8 @@ internal sealed partial class HistoryPanelView : IDisposable
     private void Panel(Transform parent, float x, float y, float width, float height)
     {
         var rect = CreateRect("NativePanel", parent, x, y, width, height);
-        Layer(rect, 1, new Color(.48f, .43f, .38f));
-        Layer(rect, 0, new Color(.72f, .62f, .45f));
+        Layer(rect, 1, InGameTheme.ArtPanelTint);
+        Layer(rect, 0, InGameTheme.ArtFrameTint);
     }
 
     private Button Button(
@@ -448,8 +448,8 @@ internal sealed partial class HistoryPanelView : IDisposable
         image.sprite = _skin?[selected ? 2 : 1];
         image.type = Image.Type.Sliced;
         image.pixelsPerUnitMultiplier = 2.5f;
-        image.color = image.sprite == null ? new Color(.18f, .14f, .1f) : Color.white;
-        Layer(rect, 0, selected ? Ink : new Color(.65f, .55f, .39f));
+        image.color = image.sprite == null ? InGameTheme.ArtFallback : Color.white;
+        Layer(rect, 0, selected ? Ink : InGameTheme.ArtButtonTint);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = image;
         button.onClick.AddListener(() => click());

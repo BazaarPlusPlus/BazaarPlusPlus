@@ -20,17 +20,17 @@ internal static class AndroidHistoryUi
 
     public static void RefreshSkin() => Skin = new AndroidNativeSkin();
 
-    public static readonly Color Ink = new(0.96f, 0.89f, 0.73f, 1f);
-    public static readonly Color Muted = new(0.69f, 0.63f, 0.53f, 1f);
-    public static readonly Color ButtonFill = new(0.13f, 0.09f, 0.055f, 1f);
-    public static readonly Color ButtonDimmed = new(0.09f, 0.065f, 0.045f, 1f);
-    public static readonly Color Backdrop = new(0.055f, 0.038f, 0.026f, 1f);
-    public static readonly Color PanelFill = new(0.09f, 0.07f, 0.05f, 1f);
-    public static readonly Color Shade = new(0f, 0f, 0f, 0.8f);
-    public static readonly Color InputFill = new(0.20f, 0.15f, 0.09f, 1f);
-    public static readonly Color Win = new(0.62f, 0.80f, 0.54f, 1f);
-    public static readonly Color Loss = new(0.90f, 0.40f, 0.31f, 1f);
-    public static readonly Color Accent = new(0.86f, 0.66f, 0.30f, 1f);
+    public static readonly Color Ink = InGameTheme.Ink;
+    public static readonly Color Muted = InGameTheme.InkMuted;
+    public static readonly Color ButtonFill = InGameTheme.Button;
+    public static readonly Color ButtonDimmed = InGameTheme.ButtonDimmed;
+    public static readonly Color Backdrop = InGameTheme.Backdrop;
+    public static readonly Color PanelFill = InGameTheme.Panel;
+    public static readonly Color Shade = InGameTheme.Scrim;
+    public static readonly Color InputFill = InGameTheme.Input;
+    public static readonly Color Win = InGameTheme.Success;
+    public static readonly Color Loss = InGameTheme.Failure;
+    public static readonly Color Accent = InGameTheme.Accent;
 
     /// <summary>A label; it takes no touches.</summary>
     public static TextMeshProUGUI Label(
@@ -307,7 +307,7 @@ internal static class AndroidHistoryUi
         severity switch
         {
             StatusSeverity.Failure => Loss,
-            StatusSeverity.Success => new Color(0.48f, 0.76f, 0.42f, 1f),
+            StatusSeverity.Success => InGameTheme.Success,
             StatusSeverity.Confirm => Ink,
             _ => Muted,
         };

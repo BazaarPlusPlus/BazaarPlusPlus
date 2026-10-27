@@ -49,7 +49,7 @@ internal sealed class AndroidLiveBuildInspection
             Vector2.zero,
             Vector2.zero
         );
-        AndroidUiKit.Fill(root, new Color(0f, 0f, 0f, 0.85f));
+        AndroidUiKit.Fill(root, InGameTheme.Scrim);
         var dismiss = root.gameObject.AddComponent<Button>();
         dismiss.transition = Selectable.Transition.None;
         AndroidUiActions.OnTap(dismiss, "live_build.inspection", () => Close("outside_tap"));

@@ -7,6 +7,7 @@ using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.VoiceSubtitles;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TMPro;
 using UnityEngine;
@@ -445,7 +446,7 @@ internal static class VoiceLineDisplay
         target.raycastTarget = false;
         target.fontSize = Math.Max(source.fontSize, 16f);
         target.lineSpacing = 8f;
-        target.color = new Color(1f, 0.96f, 0.84f, 0.96f);
+        target.color = InGameTheme.InkBright;
     }
 
     private static void ConfigureSplitText(
@@ -486,7 +487,7 @@ internal static class VoiceLineDisplay
             english.raycastTarget = false;
             english.fontSize = englishFontSize;
             english.lineSpacing = 0f;
-            english.color = new Color(1f, 0.96f, 0.84f, 0.96f);
+            english.color = InGameTheme.InkBright;
         }
 
         if (chineseUi != null)
@@ -504,7 +505,7 @@ internal static class VoiceLineDisplay
             chineseUi.raycastTarget = false;
             chineseUi.fontSize = Math.Max(chineseFontSize, 16f);
             chineseUi.lineSpacing = 1f;
-            chineseUi.color = new Color(1f, 0.96f, 0.84f, 0.96f);
+            chineseUi.color = InGameTheme.InkBright;
             chineseUi.text = string.Empty;
         }
 

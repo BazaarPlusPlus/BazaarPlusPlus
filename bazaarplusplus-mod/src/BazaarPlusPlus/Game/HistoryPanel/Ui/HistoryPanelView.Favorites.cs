@@ -36,14 +36,14 @@ internal sealed partial class HistoryPanelView
         canvas.overrideSorting = true;
         canvas.sortingOrder = BppOverlaySorting.PanelForeground;
         shade.gameObject.AddComponent<GraphicRaycaster>();
-        shade.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, .75f);
+        shade.gameObject.AddComponent<Image>().color = InGameTheme.Scrim;
         var dialog = CreateRect("Dialog", shade, .26f, .24f, .48f, .48f);
-        dialog.gameObject.AddComponent<Image>().color = new Color(.065f, .043f, .025f);
+        dialog.gameObject.AddComponent<Image>().color = InGameTheme.Dialog;
         Panel(dialog, 0, 0, 1, 1);
         Text(dialog, HistoryPanelText.FavoriteNoteTitle(), .05f, .04f, .6f, .09f, 25);
         var inputRect = CreateRect("FavoriteNote", dialog, .05f, .17f, .90f, .57f);
         var background = inputRect.gameObject.AddComponent<Image>();
-        background.color = new Color(.20f, .15f, .09f);
+        background.color = InGameTheme.Input;
         var viewport = CreateRect("TextViewport", inputRect, .025f, .03f, .95f, .94f);
         viewport.gameObject.AddComponent<RectMask2D>();
         var inputText = Wrapped(Text(viewport, "", 0, 0, 1, 1, 17));

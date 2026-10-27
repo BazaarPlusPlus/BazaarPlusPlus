@@ -10,7 +10,7 @@ namespace BazaarPlusPlus.Game.Supporters.Ui;
 // Native attribution shared by the archive and live build panels.
 internal sealed class BPPSupporterNativeAttributionRow
 {
-    private static readonly Color Muted = new(.69f, .63f, .53f);
+    private static readonly Color Muted = InGameTheme.InkMuted;
     private readonly NativeGameTypography.OwnedTextPreparation _font;
     private readonly RectTransform _names;
     private readonly TextMeshProUGUI _actionLabel;
@@ -64,7 +64,7 @@ internal sealed class BPPSupporterNativeAttributionRow
         _actionFrame.sprite = frame;
         _actionFrame.color = frame == null ? Color.clear : Color.white;
         _actionBackground.sprite = background;
-        _actionBackground.color = background == null ? new Color(.18f, .14f, .1f) : Color.white;
+        _actionBackground.color = background == null ? InGameTheme.ArtFallback : Color.white;
     }
 
     internal void Bind(IReadOnlyList<BPPSupporterSample> samples, string fallback)

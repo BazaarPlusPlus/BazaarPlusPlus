@@ -1,0 +1,44 @@
+<!-- @dsCard group="In game" height=420 subtitle="Desktop History layout; native sprites shown as tinted outlines" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>InGamePanel</title>
+<style>
+body{margin:0;padding:20px;background:var(--bg-canvas);font-family:var(--font-ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.sheet{position:relative;background:var(--ingame-backdrop);color:var(--ingame-ink);border:2px solid var(--ingame-art-frame-tint);border-radius:6px;padding:16px;display:grid;grid-template-columns:240px 1fr;gap:16px;overflow:hidden}
+.head{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid color-mix(in srgb,var(--ingame-rule) 50%,transparent)}
+.title{font-size:20px;font-weight:600;margin:0 12px 0 0}
+.tab{padding:4px 14px;border:1px solid var(--ingame-art-button-tint);border-radius:4px;background:var(--ingame-button);color:var(--ingame-ink-muted)}
+.tab.on{background:var(--ingame-button-selected);border-color:var(--ingame-accent);color:var(--ingame-ink)}
+.list{display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:8px 10px;background:var(--ingame-panel);border:1px solid var(--ingame-art-panel-tint);border-radius:4px}
+.row.on{border-color:var(--ingame-accent)}
+.meta{color:var(--ingame-ink-muted);font-size:12px}
+.num{color:var(--ingame-accent);font-weight:600;font-variant-numeric:tabular-nums}
+.win{color:var(--ingame-success)}.loss{color:var(--ingame-failure)}
+.board{background:var(--ingame-panel);border:1px solid var(--ingame-art-panel-tint);border-radius:4px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.owner{font-size:12px;color:var(--ingame-ink-muted);padding-bottom:6px;border-bottom:1px solid var(--ingame-rule-strong)}
+.cards{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.card{aspect-ratio:3/4;background:var(--ingame-art-fallback);border:1px solid var(--ingame-art-button-tint);border-radius:3px}
+.card.l{grid-column:span 2;aspect-ratio:auto}
+.status{grid-column:1/-1;display:flex;gap:16px;font-size:12px;color:var(--ingame-ink-muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="sheet">
+<div class="head"><h3 class="title">战绩</h3><span class="tab on">对局</span><span class="tab">幽灵</span><span class="tab">收藏</span></div>
+<div class="list">
+<div class="row on"><span>Vanessa · 排位</span><span class="num">10 胜</span><span class="meta">第 14 天 · 23 分钟</span><span class="meta win">传奇 +18</span></div>
+<div class="row"><span>Dooley · 排位</span><span class="num">7 胜</span><span class="meta">第 11 天 · 19 分钟</span><span class="meta loss">传奇 −9</span></div>
+<div class="row"><span>Mak · 普通</span><span class="num">4 胜</span><span class="meta">第 8 天 · 14 分钟</span><span class="meta">未完成</span></div>
+</div>
+<div class="board">
+<div class="owner">对手 · 第 14 天</div>
+<div class="cards"><div class="card"></div><div class="card l"></div><div class="card"></div><div class="card"></div><div class="card l"></div><div class="card"></div><div class="card"></div></div>
+<div class="owner">你</div>
+<div class="cards"><div class="card l"></div><div class="card"></div><div class="card"></div><div class="card l"></div><div class="card"></div><div class="card"></div><div class="card"></div><div class="card"></div></div>
+</div>
+<div class="status"><span><span class="dot" style="background:var(--ingame-success)"></span>已同步</span><span><span class="dot" style="background:var(--ingame-pending)"></span>正在下载回放</span><span><span class="dot" style="background:var(--ingame-warning)"></span>刷新失败，显示的是上次的数据</span></div>
+</div>
+</body>
+</html>
