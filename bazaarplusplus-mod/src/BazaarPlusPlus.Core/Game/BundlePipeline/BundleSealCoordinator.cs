@@ -47,11 +47,12 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private IDisposable? _replayDrained;
     private IDisposable? _screenshotTerminal;
     private IDisposable? _runCompleted;
+    private IDisposable? _jobRecreated;
     private Task? _worker;
     private int _wakePending;
 
     // Job discovery (EnsureEligibleJobs) runs when a Run is written completed, at startup and
-    // resume, and at least every BundleSealWakeSchedule.MaximumIdleWaitSeconds; other wakes skip it.
+    // resume, after upload validation recreates a job, and at the idle cap; other wakes skip it.
     private int _discoveryRequested = 1;
     private readonly Stopwatch _sinceDiscovery = new();
     private volatile bool _started;
@@ -102,6 +103,9 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             Signal();
         });
         _runCompleted = _services.EventBus.Subscribe<RunLogRunCompleted>(_ => RequestDiscovery());
+        _jobRecreated = _services.EventBus.Subscribe<BundleSealJobRecreated>(_ =>
+            RequestDiscovery()
+        );
         _sinceDiscovery.Start();
         _worker = Task.Run(() => WorkerAsync(_shutdown.Token));
         Signal();
@@ -119,6 +123,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         _replayDrained?.Dispose();
         _screenshotTerminal?.Dispose();
         _runCompleted?.Dispose();
+        _jobRecreated?.Dispose();
         _shutdown.Cancel();
         _wake.Release();
         try
@@ -511,11 +516,15 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
             stage = BundleSealStage.PayloadEncode;
             Probe(stage, runId);
-            _composer.FitToBudget(composition);
-
-            composition.Payload.Degradation.ScreenshotOmitted =
-                job.ScreenshotRequested && screenshot == null;
-            var encodedPayload = RunPayloadV6Codec.Encode(composition.Payload);
+            var encodedPayload = _composer.FitToBudget(composition);
+            var screenshotOmitted = job.ScreenshotRequested && screenshot == null;
+            if (composition.Payload.Degradation.ScreenshotOmitted != screenshotOmitted)
+            {
+                // Keep this after budgeting: moving it before the probes changes which trims
+                // fit near the limit. Only a changed final field needs another encoding.
+                composition.Payload.Degradation.ScreenshotOmitted = screenshotOmitted;
+                encodedPayload = RunPayloadV6Codec.Encode(composition.Payload);
+            }
             if (
                 BundleSealConvergence.Resolve(
                     jobFacts,

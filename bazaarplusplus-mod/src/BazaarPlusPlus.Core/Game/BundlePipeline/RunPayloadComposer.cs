@@ -95,8 +95,9 @@ public sealed class RunPayloadComposer
     }
 
     // Encoding belongs to the payload-encode seal stage: a codec failure here is deterministic,
-    // unlike a read failure while composing. The coordinator encodes the final payload itself.
-    public void FitToBudget(RunPayloadComposition composition) =>
+    // unlike a read failure while composing. Return the selected bytes so the coordinator only
+    // encodes again if it changes a final field after budgeting.
+    public byte[] FitToBudget(RunPayloadComposition composition) =>
         ApplySizeBudget(composition.Payload, composition.Projections);
 
     private RunFactsV6 ReadRunFacts(string runId)
@@ -369,13 +370,14 @@ public sealed class RunPayloadComposer
     // probing 1, 2, 4, ... trims and bisecting, so a large Run is encoded a logarithmic number of
     // times instead of once per trim. This assumes another trim never grows the gzip size; while
     // that holds, the result is exactly what trimming one step at a time produced.
-    private static void ApplySizeBudget(
+    private static byte[] ApplySizeBudget(
         RunPayloadV6 payload,
         List<BundleBattleProjectionV6> projections
     )
     {
-        if (EncodedSize(payload) <= BundleLimitsV6.MaxRunBytes)
-            return;
+        var encoded = RunPayloadV6Codec.Encode(payload);
+        if (encoded.Length <= BundleLimitsV6.MaxRunBytes)
+            return encoded;
         var projected = projections
             .Select(value => value.BattleId)
             .ToHashSet(StringComparer.Ordinal);
@@ -386,17 +388,17 @@ public sealed class RunPayloadComposer
             payload.ReplayableBattleIds.Remove(battle.BattleId);
             AddDegradation(payload, "non_projection_replay_trimmed", battle.BattleId);
         }
-        var size = EncodedSize(payload);
-        if (size <= BundleLimitsV6.MaxRunBytes)
-            return;
+        encoded = RunPayloadV6Codec.Encode(payload);
+        if (encoded.Length <= BundleLimitsV6.MaxRunBytes)
+            return encoded;
 
         if (projections.Count > 0)
         {
             var trim = new ProjectionTrim(payload, projections);
-            var (count, trimmedSize) = FewestFittingTrims(projections.Count, trim.Measure);
+            var (count, trimmedBytes) = FewestFittingTrims(projections.Count, trim.Measure);
             trim.Apply(count);
             projections.RemoveRange(0, count);
-            size = trimmedSize;
+            encoded = trimmedBytes;
         }
         var snapshotsDropped = false;
         foreach (
@@ -409,55 +411,63 @@ public sealed class RunPayloadComposer
             snapshotsDropped = true;
         }
         if (snapshotsDropped)
-            size = EncodedSize(payload);
-        if (size <= BundleLimitsV6.MaxRunBytes)
-            return;
+            encoded = RunPayloadV6Codec.Encode(payload);
+        if (encoded.Length <= BundleLimitsV6.MaxRunBytes)
+            return encoded;
 
         var eventTrim = new EventTrim(payload);
         if (eventTrim.Trimmable > 0)
-            eventTrim.Apply(FewestFittingTrims(eventTrim.Trimmable, eventTrim.Measure).Count);
+        {
+            var (count, trimmedBytes) = FewestFittingTrims(eventTrim.Trimmable, eventTrim.Measure);
+            eventTrim.Apply(count);
+            encoded = trimmedBytes;
+        }
+        return encoded;
     }
 
     // The fewest trims in 1..count whose encoded size fits, given that zero trims does not:
     // probes 1, 2, 4, ... (capped at count), then bisects between the last probe over the limit
     // and the first that fits. When even count trims do not fit, every trim applies, as the
     // one-at-a-time loop did; under the assumption above no smaller count can fit either.
-    // measure(k) puts the payload in its k-trim state and returns the encoded size; the caller
-    // applies the returned count afterwards.
-    private static (int Count, int Size) FewestFittingTrims(int count, Func<int, int> measure)
+    // measure(k) puts the payload in its k-trim state and returns its bytes. Keep the selected
+    // candidate, which need not be the last probe; the caller restores the returned count.
+    private static (int Count, byte[] Bytes) FewestFittingTrims(
+        int count,
+        Func<int, byte[]> measure
+    )
     {
         var over = 0;
         for (var probe = 1; ; probe = Math.Min(probe * 2, count))
         {
-            var size = measure(probe);
-            if (size <= BundleLimitsV6.MaxRunBytes)
-                return Bisect(over, probe, size, measure);
+            var bytes = measure(probe);
+            if (bytes.Length <= BundleLimitsV6.MaxRunBytes)
+                return Bisect(over, probe, bytes, measure);
             if (probe == count)
-                return (count, size);
+                return (count, bytes);
             over = probe;
         }
     }
 
-    private static (int Count, int Size) Bisect(
+    private static (int Count, byte[] Bytes) Bisect(
         int over,
         int fits,
-        int fitsSize,
-        Func<int, int> measure
+        byte[] fitsBytes,
+        Func<int, byte[]> measure
     )
     {
         while (fits - over > 1)
         {
             var middle = over + (fits - over) / 2;
-            var size = measure(middle);
-            if (size <= BundleLimitsV6.MaxRunBytes)
+            var bytes = measure(middle);
+            if (bytes.Length <= BundleLimitsV6.MaxRunBytes)
             {
                 fits = middle;
-                fitsSize = size;
+                fitsBytes = bytes;
             }
             else
                 over = middle;
         }
-        return (fits, fitsSize);
+        return (fits, fitsBytes);
     }
 
     // The payload after the first k projected battles are trimmed, oldest first, rebuilt from the
@@ -487,10 +497,10 @@ public sealed class RunPayloadComposer
             _omitted = [.. payload.Degradation.ReplayOmittedBattleIds];
         }
 
-        internal int Measure(int count)
+        internal byte[] Measure(int count)
         {
             Apply(count);
-            return EncodedSize(_payload);
+            return RunPayloadV6Codec.Encode(_payload);
         }
 
         internal void Apply(int count)
@@ -533,10 +543,10 @@ public sealed class RunPayloadComposer
 
         internal int Trimmable { get; }
 
-        internal int Measure(int count)
+        internal byte[] Measure(int count)
         {
             Apply(count);
-            return EncodedSize(_payload);
+            return RunPayloadV6Codec.Encode(_payload);
         }
 
         internal void Apply(int count)
@@ -575,9 +585,6 @@ public sealed class RunPayloadComposer
 
     private static bool IsTerminalEvent(string kind) =>
         kind is "run_started" or "run_completed" or "run_abandoned";
-
-    private static int EncodedSize(RunPayloadV6 payload) =>
-        RunPayloadV6Codec.Encode(payload).Length;
 
     // The RunEventV6 envelope owns run_id, seq, ts, and kind; the stored payload_json repeats them
     // (ts as text), so the Run segment carries only the remaining fields, in stored order.

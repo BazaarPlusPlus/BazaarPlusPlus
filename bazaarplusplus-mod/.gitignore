@@ -1,5 +1,5 @@
 # Game assemblies and decompiled game source: local only, never redistributed.
-game-libs/
+game-libs
 decompiled/
 decompiled-*/
 

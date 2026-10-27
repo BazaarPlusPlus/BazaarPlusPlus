@@ -315,7 +315,8 @@ public sealed class BundleQueueStore : SqliteStoreBase
             ("$detail", detail)
         );
 
-    public void FailOutboxAndScheduleReseal(
+    /// <summary>Invalidates a pending artifact and returns whether a new seal job was committed.</summary>
+    public bool FailOutboxAndScheduleReseal(
         string bundleId,
         string runId,
         string reason,
@@ -338,8 +339,8 @@ public sealed class BundleQueueStore : SqliteStoreBase
         );
         // File validation works from a snapshot; the upload may have completed since then.
         if (invalidate.ExecuteNonQuery() == 0)
-            return;
-        Execute(
+            return false;
+        var created = Execute(
             connection,
             transaction,
             $"""
@@ -356,6 +357,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
             ("$now", now.ToUnixTimeMilliseconds())
         );
         transaction.Commit();
+        return created > 0;
     }
 
     public void ExpirePending(DateTimeOffset cutoff, DateTimeOffset now) =>
@@ -522,7 +524,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
         Execute(connection, null, sql, parameters);
     }
 
-    private static void Execute(
+    private static int Execute(
         SqliteConnection connection,
         SqliteTransaction? transaction,
         string sql,
@@ -532,7 +534,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
         using var command = CreateCommand(connection, transaction);
         command.CommandText = sql;
         AddParameters(command, parameters);
-        command.ExecuteNonQuery();
+        return command.ExecuteNonQuery();
     }
 
     private static void AddParameters(

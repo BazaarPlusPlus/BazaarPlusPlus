@@ -222,12 +222,7 @@ public static class BundleUploadFeed
                 }
                 catch (FileNotFoundException)
                 {
-                    _queueStore.FailOutboxAndScheduleReseal(
-                        row.BundleId,
-                        row.RunId,
-                        "pending_file_missing",
-                        _utcNow()
-                    );
+                    ScheduleReseal(row, "pending_file_missing");
                     BundlePipelineLog.Warn(
                         new BppLogEvent(
                             BppLogFeatureScope.BundlePipeline,
@@ -246,12 +241,7 @@ public static class BundleUploadFeed
                 }
                 catch (InvalidDataException ex)
                 {
-                    _queueStore.FailOutboxAndScheduleReseal(
-                        row.BundleId,
-                        row.RunId,
-                        ex.Message,
-                        _utcNow()
-                    );
+                    ScheduleReseal(row, ex.Message);
                     BundlePipelineLog.Warn(
                         new BppLogEvent(
                             BppLogFeatureScope.BundlePipeline,
@@ -293,6 +283,12 @@ public static class BundleUploadFeed
                 }
             }
             return UploadAttemptResult.From(observations);
+        }
+
+        private void ScheduleReseal(BundleOutboxRecord row, string reason)
+        {
+            if (_queueStore.FailOutboxAndScheduleReseal(row.BundleId, row.RunId, reason, _utcNow()))
+                _services.EventBus.Publish(new BundleSealJobRecreated { RunId = row.RunId });
         }
 
         /// <summary>

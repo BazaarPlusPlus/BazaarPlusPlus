@@ -11,6 +11,7 @@ using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
+using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
@@ -38,7 +39,127 @@ internal static class BundleSealFailureTests
         await EnvironmentFailureKeepsOrphanBundleAsync(Path.Combine(root, "orphan"));
         await ReplayWaitDefersScreenshotAndCompositionAsync(Path.Combine(root, "replay-wait"));
         await SizeBudgetTrimDoesNotWaitAsync(Path.Combine(root, "size-budget"));
+        await SizeBudgetKeepsSelectedCandidateAsync(Path.Combine(root, "budget-candidate"));
+        await OversizedTerminalEventRemainsTerminalAsync(Path.Combine(root, "budget-terminal"));
         await WorkerWakesOnRunCompletionAsync(Path.Combine(root, "worker-wake"));
+        await UploadValidationWakesIdleWorkerAsync(Path.Combine(root, "upload-wake"));
+    }
+
+    private static async Task UploadValidationWakesIdleWorkerAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        fixture.AddCompletedRun("reseal-run", endedMinutesAgo: 0);
+        fixture.AddBattle("reseal-run", "reseal-battle");
+        SealInputs.SaveReplay(fixture.Replays, "reseal-battle");
+        var passes = 0;
+        var recreated = 0;
+        var committedBeforePublish = true;
+        // Subscribe before the coordinator, so its worker cannot consume the new job before
+        // this observer checks that the upload transaction is already visible.
+        using var observer = fixture.Services.EventBus.Subscribe<BundleSealJobRecreated>(change =>
+        {
+            recreated++;
+            var previouslyCommitted = committedBeforePublish;
+            // Event handlers isolate exceptions. Leave this false if the read throws (for
+            // example, if an incorrectly early publication still holds the transaction lock).
+            committedBeforePublish = false;
+            committedBeforePublish =
+                previouslyCommitted
+                && change.RunId == "reseal-run"
+                && fixture.Queue.ReadJob(change.RunId)?.State == BundleSealJobState.Waiting;
+        });
+        using var coordinator = DesktopBundleSealCoordinator.Create(
+            fixture.Services,
+            (stage, _) =>
+            {
+                if (stage == BundleSealStage.ScreenshotTerminal)
+                    Interlocked.Increment(ref passes);
+            }
+        );
+        coordinator.Start();
+        await Eventually(() => fixture.OutboxCount("reseal-run") == 1, "The initial Bundle seals.");
+        using var session = new BundleUploadFeed.Session(
+            fixture.Services,
+            180,
+            ModApiSession.TryCreate(
+                "https://example.test",
+                "test",
+                null,
+                "BundleUpload",
+                TimeSpan.FromSeconds(30),
+                new RejectUploadHandler()
+            )!,
+            fixture.Queue,
+            new SystemBundleOutboxFiles(PathConstants.BundleOutbox(root))
+        );
+
+        foreach (var damage in new[] { "missing", "length", "digest", "paused" })
+        {
+            await Quiescent(() => Volatile.Read(ref passes));
+            var previousFile = fixture.PendingFile("reseal-run");
+            if (damage == "paused")
+                coordinator.Pause();
+            if (damage is "missing" or "paused")
+                File.Delete(previousFile);
+            else if (damage == "length")
+                File.WriteAllBytes(previousFile, [0]);
+            else
+            {
+                var bytes = TestInputs.ScratchBytes(previousFile);
+                bytes[^1] ^= 1;
+                File.WriteAllBytes(previousFile, bytes);
+            }
+
+            var before = recreated;
+            await session.RunAttemptAsync(CancellationToken.None);
+            Require(
+                recreated == before + 1 && committedBeforePublish,
+                "Reseal is committed before its wake."
+            );
+            if (damage == "paused")
+            {
+                Require(
+                    fixture.OutboxCount("reseal-run") == 0,
+                    "A paused worker leaves the job pending."
+                );
+                coordinator.Resume();
+            }
+            // No manual ReconcileAsync: only the upload event can wake the idle worker before
+            // its five-minute safety scan. Eventually's timeout is a liveness bound, not a benchmark.
+            await Eventually(
+                () => fixture.OutboxCount("reseal-run") == 1,
+                "Upload validation must wake the idle worker to reseal."
+            );
+            var payload = fixture.PendingPayload("reseal-run", out _);
+            Require(
+                fixture.PendingFile("reseal-run") != previousFile
+                    && payload.ReplayableBattleIds.SequenceEqual(["reseal-battle"]),
+                "A new valid Bundle replaces the rejected file."
+            );
+        }
+
+        coordinator.Dispose();
+        var stopped = Volatile.Read(ref passes);
+        File.Delete(fixture.PendingFile("reseal-run"));
+        await session.RunAttemptAsync(CancellationToken.None);
+        Require(
+            recreated == 5
+                && committedBeforePublish
+                && Volatile.Read(ref passes) == stopped
+                && fixture.Queue.ReadJob("reseal-run")?.State == BundleSealJobState.Waiting,
+            "After shutdown, reseal stays durable without invoking the disposed worker."
+        );
+    }
+
+    private sealed class RejectUploadHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        ) =>
+            throw new InvalidOperationException(
+                "An invalid local Bundle must never reach the network."
+            );
     }
 
     // The running worker discovers a Run when Run Logging reports it completed, and with nothing
@@ -236,13 +357,88 @@ internal static class BundleSealFailureTests
 
     // Seeded random text survives gzip at about three quarters of its length, so the Run segment
     // stays over BundleLimitsV6.MaxRunBytes until the size budget trims this replay.
-    private static byte[] OversizedSpawn()
+    private static byte[] OversizedSpawn(
+        int entropy = BundleLimitsV6.MaxRunBytes * 2,
+        int seed = 504
+    )
     {
-        var random = new byte[BundleLimitsV6.MaxRunBytes * 2];
-        new Random(504).NextBytes(random);
+        var random = new byte[entropy];
+        new Random(seed).NextBytes(random);
         return MessagePackSerializer.Serialize(
             new NetMessageGameSim(new GameSim()) { MessageId = Convert.ToBase64String(random) },
             MessagePackConfig.Options
+        );
+    }
+
+    private static async Task SizeBudgetKeepsSelectedCandidateAsync(string root)
+    {
+        foreach (var omitScreenshot in new[] { false, true })
+        {
+            using var fixture = new Fixture(Path.Combine(root, omitScreenshot.ToString()));
+            fixture.AddCompletedRun(
+                "candidate-run",
+                endedMinutesAgo: 10,
+                screenshotRequested: omitScreenshot
+            );
+            for (var i = 1; i <= 7; i++)
+            {
+                var battleId = "candidate-" + i;
+                fixture.AddBattle("candidate-run", battleId, recordedMinutesAgo: 20 - i);
+                fixture.Replays.Save(
+                    new PvpReplayPayload
+                    {
+                        BattleId = battleId,
+                        SpawnMessageBytes = OversizedSpawn(600_000, seed: 5650 + i),
+                        CombatMessageBytes = ReplayBytes.Combat,
+                        DespawnMessageBytes = ReplayBytes.Despawn,
+                    }
+                );
+            }
+            using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services);
+            await coordinator.ReconcileAsync(CancellationToken.None);
+            var payload = fixture.PendingPayload("candidate-run", out var opened);
+            // Probes trim 1, 2, 4, then 3. The last probe is too large: the selected bytes
+            // must still represent four trims, including the final screenshot flag.
+            Require(
+                payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
+                    new[] { "candidate-1", "candidate-2", "candidate-3", "candidate-4" }
+                )
+                    && payload.ReplayableBattleIds.SequenceEqual(
+                        new[] { "candidate-5", "candidate-6", "candidate-7" }
+                    )
+                    && opened.Manifest.Run.Projection.Battles.Count == 3
+                    && payload.Degradation.ScreenshotOmitted == omitScreenshot
+                    && opened.RunPayload.Length < BundleLimitsV6.MaxRunBytes,
+                "The selected fitting candidate, projections and final screenshot flag must agree."
+            );
+        }
+    }
+
+    private static async Task OversizedTerminalEventRemainsTerminalAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        fixture.AddCompletedRun("terminal-run", endedMinutesAgo: 10);
+        var random = new byte[BundleLimitsV6.MaxRunBytes * 2];
+        new Random(565).NextBytes(random);
+        new RunLogStore(new TestPaths(root)).AppendEvent(
+            "terminal-run",
+            new RunLogEvent
+            {
+                RunId = "terminal-run",
+                Seq = 1,
+                Ts = DateTimeOffset.UtcNow.AddMinutes(-10),
+                Kind = "run_completed",
+                EncounterId = Convert.ToBase64String(random),
+            }
+        );
+        using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var job = fixture.Queue.ReadJob("terminal-run");
+        Require(
+            fixture.OutboxCount("terminal-run") == 0
+                && job?.State == BundleSealJobState.TerminalFailure
+                && job.LastErrorCode == "minimal_run_payload_too_large",
+            "A Run that cannot fit without removing a terminal event must remain terminal."
         );
     }
 
