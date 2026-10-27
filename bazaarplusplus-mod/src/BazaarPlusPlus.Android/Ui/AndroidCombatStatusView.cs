@@ -77,7 +77,7 @@ internal sealed class AndroidCombatStatusView(
         if (!string.Equals(time, _shownTime, StringComparison.Ordinal))
         {
             _shownTime = time;
-            _time!.text = Tabular(time);
+            _time!.text = CombatStatusBarState.WithTabularDigits(time);
         }
         var paused = state.IsCombatPaused;
         if (paused != _shownPaused)
@@ -211,29 +211,6 @@ internal sealed class AndroidCombatStatusView(
             ("pause", layout.Pause),
             ("speed", layout.Speed)
         );
-    }
-
-    // Digits share one advance so the time never shifts; the separators keep their natural width.
-    // Each run of ASCII digits is wrapped, as the time's formatter writes no other digits.
-    private static readonly System.Text.StringBuilder TabularBuffer = new(64);
-
-    private static string Tabular(string time)
-    {
-        TabularBuffer.Clear();
-        var inDigits = false;
-        foreach (var c in time)
-        {
-            var digit = c >= '0' && c <= '9';
-            if (digit && !inDigits)
-                TabularBuffer.Append("<mspace=0.55em>");
-            else if (!digit && inDigits)
-                TabularBuffer.Append("</mspace>");
-            TabularBuffer.Append(c);
-            inDigits = digit;
-        }
-        if (inDigits)
-            TabularBuffer.Append("</mspace>");
-        return TabularBuffer.ToString();
     }
 
     private static void Outline(TextMeshProUGUI label)

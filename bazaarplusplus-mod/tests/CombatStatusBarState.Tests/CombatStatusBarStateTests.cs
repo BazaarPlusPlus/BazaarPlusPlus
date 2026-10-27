@@ -32,6 +32,26 @@ public sealed class CombatStatusBarStateTests
         Assert.Equal("0:01.20", result);
     }
 
+    // The Android clock wrapped digit runs with Regex.Replace(@"\d+") before; the output stays.
+    [Theory]
+    [InlineData("0:00.00")]
+    [InlineData("0:01.20")]
+    [InlineData("75:09.99")]
+    [InlineData("-1:-05.-30")]
+    [InlineData("1234")]
+    [InlineData("")]
+    [InlineData("x:y")]
+    public void WithTabularDigits_WrapsDigitRunsAsTheRegexDid(string time)
+    {
+        var expected = System.Text.RegularExpressions.Regex.Replace(
+            time,
+            @"\d+",
+            "<mspace=0.55em>$0</mspace>"
+        );
+
+        Assert.Equal(expected, CombatStatusBarState.WithTabularDigits(time));
+    }
+
     [Fact]
     public void GetDisplayedTimeText_ReturnsLastCombatTimeAfterCombatEnds()
     {

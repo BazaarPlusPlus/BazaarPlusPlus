@@ -36,13 +36,13 @@ internal static class NativeSettingsScrollSpyAwakePatch
 internal static class NativeSettingsDialogEnablePatch
 {
     [HarmonyPostfix]
-    private static void Postfix()
+    private static void Postfix(OptionsDialogController __instance)
     {
         if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled)
             return;
         try
         {
-            AndroidNativeSettingsSection.RefreshAll(relayout: false);
+            AndroidNativeSettingsSection.Opened(__instance);
         }
         catch (Exception exception)
         {
@@ -65,7 +65,7 @@ internal static class NativeSettingsLanguagePatch
             return;
         try
         {
-            AndroidNativeSettingsSection.RefreshAll(relayout: true);
+            AndroidNativeSettingsSection.RefreshAll();
         }
         catch (Exception exception)
         {

@@ -89,11 +89,12 @@ internal static class QuestRewardPreviewTooltipPatch
                 passiveRewardText,
                 activeRewardText
             );
+            // Before the first change, so a throw part way still rebuilds the group.
+            LayoutDirty = true;
             ApplyPreviewTextLayout(descriptionText, hasInlineSprite);
             TrackPreviewPresentation(descriptionText, questText);
             descriptionText.text = text;
             descriptionText.ForceMeshUpdate();
-            LayoutDirty = true;
         }
         catch (Exception ex)
         {

@@ -43,6 +43,8 @@ internal sealed class AndroidQuestPreview(BppSettings settings) : IDisposable
         if (text == nativeText)
             return;
         _presentations[id] = new(label, nativeText, label.margin, label.lineSpacing);
+        // Before the first change, so a throw part way still rebuilds the group.
+        _layoutDirty = true;
         var margin = label.margin;
         label.margin = new(
             margin.x,
@@ -53,7 +55,6 @@ internal sealed class AndroidQuestPreview(BppSettings settings) : IDisposable
         if (!BppQuestRewardPreviewText.ContainsInlineSprite(nativeText, passive, active))
             label.lineSpacing += BppQuestRewardPreviewText.RewardLineSpacingIncrease;
         label.text = text;
-        _layoutDirty = true;
     }
 
     /// <summary>
