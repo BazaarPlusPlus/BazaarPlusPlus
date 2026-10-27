@@ -12,6 +12,7 @@ import type {
   HistoryRunList,
   HistoryRunRow,
   InstallState,
+  LegacyDataPresence,
   LegacyDataState,
   SemanticProblem,
   StreamServiceStatus
@@ -103,6 +104,14 @@ export const v5ImportEligible: LegacyDataState = {
   ],
   installed_mod_data_root: 'current',
   v5_import_eligible: true
+};
+
+/** The same installation as History's unavailable guidance reads it. */
+export const v5ImportEligiblePresence: LegacyDataPresence = {
+  game_path: v5ImportEligible.game_path,
+  roots: v5ImportEligible.roots.map((root) => root.name),
+  installed_mod_data_root: v5ImportEligible.installed_mod_data_root,
+  v5_import_eligible: v5ImportEligible.v5_import_eligible
 };
 
 export const installDetectionFailed: SemanticProblem = {

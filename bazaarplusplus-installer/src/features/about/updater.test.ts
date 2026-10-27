@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createUpdaterMachine,
   initialUpdaterSnapshot,
+  PROGRESS_PUBLISH_INTERVAL_MS,
   type UpdateHandle,
   type UpdaterImpl
 } from './updater';
@@ -49,6 +50,7 @@ function fakeImpl(overrides: Partial<UpdaterImpl> = {}): UpdaterImpl {
     relaunch: async () => undefined,
     hasRuntime: () => true,
     isWindows: () => false,
+    now: () => 0,
     ...overrides
   };
 }
@@ -198,10 +200,12 @@ describe('createUpdaterMachine checkNow', () => {
 describe('createUpdaterMachine install', () => {
   it('walks downloading → installing → ready-to-restart and accumulates progress', async () => {
     const download = drivableDownload();
+    let clock = 0;
     const { machine, phases, snapshot } = harness(
       fakeImpl({
         check: async () =>
-          fakeUpdate({ downloadAndInstall: download.downloadAndInstall })
+          fakeUpdate({ downloadAndInstall: download.downloadAndInstall }),
+        now: () => clock
       })
     );
     await machine.checkNow();
@@ -212,6 +216,7 @@ describe('createUpdaterMachine install', () => {
     download.emit({ event: 'Started', data: { contentLength: 100 } });
     expect(snapshot().progress).toEqual({ downloaded: 0, total: 100 });
     download.emit({ event: 'Progress', data: { chunkLength: 30 } });
+    clock += PROGRESS_PUBLISH_INTERVAL_MS;
     download.emit({ event: 'Progress', data: { chunkLength: 45 } });
     expect(snapshot().progress).toEqual({ downloaded: 75, total: 100 });
 
@@ -225,6 +230,51 @@ describe('createUpdaterMachine install', () => {
     expect(phases).toEqual(
       expect.arrayContaining(['downloading', 'installing', 'ready-to-restart'])
     );
+  });
+
+  it('publishes chunk progress at most once per interval', async () => {
+    const download = drivableDownload();
+    let clock = 0;
+    const published: (number | undefined)[] = [];
+    const machine = createUpdaterMachine(
+      fakeImpl({
+        check: async () =>
+          fakeUpdate({ downloadAndInstall: download.downloadAndInstall }),
+        now: () => clock
+      }),
+      (snapshot) => {
+        if (snapshot.phase === 'downloading') {
+          published.push(snapshot.progress?.downloaded);
+        }
+      }
+    );
+    await machine.checkNow();
+    const installed = machine.install();
+    published.length = 0;
+
+    // 50 MiB in 16 KiB chunks arriving every 2 ms: 3200 chunks over 6.4 s.
+    const chunk = 16 * 1024;
+    const chunks = (50 * 1024 * 1024) / chunk;
+    download.emit({
+      event: 'Started',
+      data: { contentLength: chunks * chunk }
+    });
+    for (let index = 0; index < chunks; index += 1) {
+      clock += 2;
+      download.emit({ event: 'Progress', data: { chunkLength: chunk } });
+    }
+
+    // Started, then one publish per elapsed interval instead of per chunk.
+    expect(published.length).toBe(
+      1 + Math.ceil((chunks * 2) / PROGRESS_PUBLISH_INTERVAL_MS)
+    );
+    expect(published.slice(0, 3)).toEqual([0, chunk, 51 * chunk]);
+    expect(machine.getSnapshot().progress?.total).toBe(chunks * chunk);
+
+    download.emit({ event: 'Finished' });
+    expect(machine.getSnapshot().phase).toBe('installing');
+    download.finish();
+    await installed;
   });
 
   it('keeps an indeterminate total when Started has no contentLength', async () => {

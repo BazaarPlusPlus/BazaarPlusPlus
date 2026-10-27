@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { commandClient } from '../../api/commandClient';
-import type { LegacyDataState } from '../../types/backend';
+import type { LegacyDataPresence } from '../../types/backend';
 
 /**
  * Where History sends a user who has no current database: `import` when the
@@ -10,21 +10,22 @@ import type { LegacyDataState } from '../../types/backend';
 export type HistoryUnavailableGuidance = 'import' | 'reinstall' | null;
 
 export function historyUnavailableGuidance(
-  state: LegacyDataState | null
+  presence: LegacyDataPresence | null
 ): HistoryUnavailableGuidance {
-  if (!state?.game_path) return null;
-  if (state.v5_import_eligible) return 'import';
-  const hasV5 = state.roots.some((root) => root.name === 'BazaarPlusPlusV5');
-  if (hasV5 && state.installed_mod_data_root === 'reinstall_required') {
+  if (!presence?.game_path) return null;
+  if (presence.v5_import_eligible) return 'import';
+  const hasV5 = presence.roots.includes('BazaarPlusPlusV5');
+  if (hasV5 && presence.installed_mod_data_root === 'reinstall_required') {
     return 'reinstall';
   }
   return null;
 }
 
 /**
- * Reads the Legacy Roots of the selected game directory while History is
- * unavailable. The read accepts any directory, so it answers even where
- * History cannot resolve one; a failure keeps the plain Install link.
+ * Reads which Legacy Roots exist in the selected game directory while History
+ * is unavailable, without measuring them (the Install page does that). The
+ * read accepts any directory, so it answers even where History cannot resolve
+ * one; a failure keeps the plain Install link.
  */
 export function useHistoryUnavailableGuidance(
   active: boolean
@@ -37,9 +38,9 @@ export function useHistoryUnavailableGuidance(
       return;
     }
     let current = true;
-    commandClient.getLegacyDataState(null).then(
-      (state) => {
-        if (current) setGuidance(historyUnavailableGuidance(state));
+    commandClient.getLegacyDataPresence(null).then(
+      (presence) => {
+        if (current) setGuidance(historyUnavailableGuidance(presence));
       },
       () => {
         if (current) setGuidance(null);

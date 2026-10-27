@@ -105,12 +105,16 @@ pub async fn preview_storage_cleanup(
     .await
 }
 
+/// Executes the cleanup the user confirmed. `plan_id` is the id the preview
+/// returned; when that plan is gone the cleanup plans again from `scope` and
+/// `preset`.
 #[tauri::command]
 #[specta::specta]
 pub async fn execute_storage_cleanup(
     app: tauri::AppHandle,
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
+    plan_id: u32,
 ) -> Result<StorageCleanupExecution, SemanticProblem> {
-    history::execute_storage_cleanup(&app, scope, preset).await
+    history::execute_storage_cleanup(&app, scope, preset, plan_id).await
 }

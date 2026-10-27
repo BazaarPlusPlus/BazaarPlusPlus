@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use crate::history::files::{resolve_cleanup_file_path, resolve_data_file_path};
 use crate::history::queries::{open_cleanup_connection, open_connection};
-use crate::services::game_process::{GameProcessProbe, SystemGameProcessProbe};
+use crate::services::game_process::GameProcessProbe;
 
 /// Wire strings are a stable contract with the frontend preset buttons.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -71,6 +71,16 @@ impl CleanupCutoff {
         })
     }
 }
+
+/// A Run's last activity. Completion and abandonment set `ended_at_ms`, so a
+/// Run the mod resumed and ended again has a new value.
+const RUN_LAST_ACTIVITY: &str = "coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms)";
+
+/// A finished Run whose last activity precedes the cutoff `?1` (null: every
+/// finished Run). Planning selects candidates with it, and execution checks it
+/// again per Run with the plan's own cutoff.
+static RUN_BEFORE_CUTOFF_PREDICATE: LazyLock<String> =
+    LazyLock::new(|| format!("r.status <> 'active' and (?1 is null or {RUN_LAST_ACTIVITY} < ?1)"));
 
 pub(crate) const PROTECTED_RUN_PREDICATE: &str = "
     r.upload_policy = 'bundle'
@@ -184,27 +194,21 @@ pub struct ScreenshotCleanupResult {
     pub skipped_pending_uploads: i64,
 }
 
-pub fn execute_screenshot_cleanup(
+/// Executes a plan computed earlier, possibly by a preview the user confirmed.
+/// It never trusts the plan: each row delete re-checks protection, and files
+/// are unlinked only while no surviving row references them.
+pub(crate) fn execute_screenshot_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
-    cutoff: Option<&CleanupCutoff>,
-    today_local_date: NaiveDate,
-) -> anyhow::Result<ScreenshotCleanupResult> {
-    let plan = plan_screenshot_cleanup(database_path, data_root, cutoff, today_local_date)?;
-    execute_screenshot_cleanup_plan(database_path, data_root, plan)
-}
-
-fn execute_screenshot_cleanup_plan(
-    database_path: &Path,
-    data_root: &Path,
-    plan: ScreenshotCleanupPlan,
+    plan: &ScreenshotCleanupPlan,
+    game: &impl GameProcessProbe,
 ) -> anyhow::Result<ScreenshotCleanupResult> {
     let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
     let mut deleted_rows = 0i64;
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
     if !plan.items.is_empty() || !plan.orphan_files.is_empty() {
-        let mut session = CleanupSession::open(database_path, data_root, &SystemGameProcessProbe)?;
+        let mut session = CleanupSession::open(database_path, data_root, game)?;
         let mut candidates = Vec::new();
         for chunk in plan.items.chunks(CLEANUP_CHUNK_SIZE) {
             let transaction = session.conn.transaction()?;
@@ -353,12 +357,18 @@ pub struct RunDataCleanupItem {
     pub battle_ids: Vec<String>,
     pub videos: Vec<RunDataVideoCleanupItem>,
     pub screenshots: Vec<ScreenshotCleanupItem>,
+    /// The Run's last activity when planned; execution deletes the Run only
+    /// while it is unchanged.
+    last_activity_ms: Option<i64>,
 }
 
 pub struct RunDataCleanupPlan {
     pub items: Vec<RunDataCleanupItem>,
     pub estimated_bytes: i64,
     pub skipped_pending_uploads: i64,
+    /// The cutoff the items were selected under; execution re-checks each Run
+    /// against it.
+    cutoff_ms: Option<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
@@ -376,6 +386,7 @@ impl RunDataCleanupPlan {
             items: Vec::new(),
             estimated_bytes: 0,
             skipped_pending_uploads: 0,
+            cutoff_ms: None,
         }
     }
 
@@ -405,7 +416,11 @@ pub fn plan_run_data_cleanup(
 
     let conn = open_connection(database_path)?;
     let cutoff_ms = cutoff.map(|value| value.utc.timestamp_millis());
-    let run_ids = eligible_run_ids(&conn, cutoff_ms)?;
+    let eligible_runs = eligible_runs(&conn, cutoff_ms)?;
+    let run_ids = eligible_runs
+        .iter()
+        .map(|(run_id, _)| run_id.clone())
+        .collect::<Vec<_>>();
     let skipped_pending_uploads = skipped_pending_run_count(&conn, cutoff_ms)?;
     let remaining_screenshot_paths =
         remaining_screenshot_relative_paths_after_run_cleanup(&conn, &run_ids)?;
@@ -423,7 +438,7 @@ pub fn plan_run_data_cleanup(
     // `deleted_replay_payloads` in `execute_run_data_cleanup_plan`.
     let mut estimated_replay_payloads = HashSet::new();
     let mut estimated_bytes = 0i64;
-    for run_id in run_ids {
+    for (run_id, last_activity_ms) in eligible_runs {
         let battle_ids = run_battle_ids(&conn, &run_id)?;
         let videos =
             mark_video_file_deletions(run_video_refs(&conn, &run_id)?, &remaining_video_paths);
@@ -449,6 +464,7 @@ pub fn plan_run_data_cleanup(
             battle_ids,
             videos,
             screenshots,
+            last_activity_ms,
         });
     }
 
@@ -459,6 +475,7 @@ pub fn plan_run_data_cleanup(
         items,
         estimated_bytes,
         skipped_pending_uploads,
+        cutoff_ms,
     })
 }
 
@@ -475,19 +492,18 @@ pub struct RunDataCleanupResult {
     pub skipped_pending_uploads: i64,
 }
 
-pub fn execute_run_data_cleanup(
+/// Executes a plan computed earlier, possibly by a preview the user confirmed
+/// minutes ago while the game kept writing. A planned Run is deleted only
+/// while it is exactly what the plan counted: still eligible under the plan's
+/// cutoff, unprotected, with the same last activity, and holding no battle,
+/// video, or screenshot outside the plan. Otherwise it is skipped like a Run
+/// that became protected. Files are unlinked only while no surviving row
+/// references them.
+pub(crate) fn execute_run_data_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
-    cutoff: Option<&CleanupCutoff>,
-) -> anyhow::Result<RunDataCleanupResult> {
-    let plan = plan_run_data_cleanup(database_path, data_root, cutoff)?;
-    execute_run_data_cleanup_plan(database_path, data_root, plan)
-}
-
-fn execute_run_data_cleanup_plan(
-    database_path: &Path,
-    data_root: &Path,
-    plan: RunDataCleanupPlan,
+    plan: &RunDataCleanupPlan,
+    game: &impl GameProcessProbe,
 ) -> anyhow::Result<RunDataCleanupResult> {
     let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
     let videos_dir = crate::services::paths::combat_replay_videos_dir_in(data_root);
@@ -496,25 +512,31 @@ fn execute_run_data_cleanup_plan(
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
     if !plan.items.is_empty() {
-        let mut session = CleanupSession::open(database_path, data_root, &SystemGameProcessProbe)?;
+        let mut session = CleanupSession::open(database_path, data_root, game)?;
         validate_run_cleanup_cascade_fks(&session.conn)?;
+        let planned = PlannedRunChildren::of(plan);
         let mut deleted_items = Vec::new();
         for chunk in plan.items.chunks(RUN_CLEANUP_CHUNK_SIZE) {
             let transaction = session.conn.transaction()?;
             for item in chunk {
-                if delete_run_if_unprotected(&transaction, &item.run_id)? == 0 {
+                // Read under the session lock, so nothing can attach to the
+                // Run between this check and its delete.
+                let battle_ids = run_battle_ids(&transaction, &item.run_id)?;
+                if !planned.holds_children_of(&transaction, &item.run_id, &battle_ids)?
+                    || delete_run_if_unprotected(&transaction, item, plan.cutoff_ms)? == 0
+                {
                     continue;
                 }
 
                 // Screenshots do not cascade from runs. Their writer only inserts
-                // rows, so their direct Run attachment cannot change after planning.
+                // rows, and the check above found none outside the plan.
                 for screenshot in &item.screenshots {
                     transaction.execute(
                         "delete from run_screenshots where screenshot_id = ?1",
                         [&screenshot.screenshot_id],
                     )?;
                 }
-                deleted_items.push(item);
+                deleted_items.push((item, battle_ids));
             }
             transaction.commit()?;
         }
@@ -558,7 +580,7 @@ fn execute_run_data_cleanup_plan(
                 "select battle_id || '.payload.mpack.gz' from battles",
                 deleted_items
                     .iter()
-                    .flat_map(|item| &item.battle_ids)
+                    .flat_map(|(_, battle_ids)| battle_ids)
                     .filter_map(|battle_id| replay_payload_path(&replays_dir, battle_id))
                     .filter_map(|path| {
                         path.file_name()
@@ -571,7 +593,7 @@ fn execute_run_data_cleanup_plan(
                 "select image_relative_path from run_screenshots",
                 deleted_items
                     .iter()
-                    .flat_map(|item| {
+                    .flat_map(|(item, _)| {
                         item.screenshots
                             .iter()
                             .map(|shot| shot.image_relative_path.clone())
@@ -594,33 +616,100 @@ fn execute_run_data_cleanup_plan(
     })
 }
 
-/// Built once from `PROTECTED_RUN_PREDICATE`; see the screenshot twin above.
+/// Built once from the planning predicates; see the screenshot twin above.
+/// The planned Run is deleted only while it is still eligible under the plan's
+/// cutoff and its last activity is the one planned, so a plan computed long
+/// before execution never deletes a Run the mod resumed since.
 static DELETE_RUN_IF_UNPROTECTED_SQL: LazyLock<String> = LazyLock::new(|| {
     format!(
         "delete from runs as r
-         where r.run_id = ?1
-           and not ({PROTECTED_RUN_PREDICATE})"
+         where r.run_id = ?2
+           and {}
+           and {RUN_LAST_ACTIVITY} is ?3
+           and not ({PROTECTED_RUN_PREDICATE})",
+        *RUN_BEFORE_CUTOFF_PREDICATE
     )
 });
 
-fn delete_run_if_unprotected(conn: &Connection, run_id: &str) -> anyhow::Result<usize> {
+fn delete_run_if_unprotected(
+    conn: &Connection,
+    item: &RunDataCleanupItem,
+    cutoff_ms: Option<i64>,
+) -> anyhow::Result<usize> {
     let mut stmt = conn.prepare_cached(&DELETE_RUN_IF_UNPROTECTED_SQL)?;
-    stmt.execute([run_id]).map_err(anyhow::Error::from)
+    stmt.execute(params![cutoff_ms, item.run_id, item.last_activity_ms])
+        .map_err(anyhow::Error::from)
 }
 
-fn eligible_run_ids(conn: &Connection, cutoff_ms: Option<i64>) -> anyhow::Result<Vec<String>> {
+/// Every battle, video, and screenshot a run-data plan counted, across all of
+/// its Runs: a battle the plan saw under one planned Run may since have moved
+/// to another.
+struct PlannedRunChildren<'a> {
+    battles: HashSet<&'a str>,
+    videos: HashSet<&'a str>,
+    screenshots: HashSet<&'a str>,
+}
+
+impl<'a> PlannedRunChildren<'a> {
+    fn of(plan: &'a RunDataCleanupPlan) -> Self {
+        Self {
+            battles: plan
+                .items
+                .iter()
+                .flat_map(|item| item.battle_ids.iter().map(String::as_str))
+                .collect(),
+            videos: plan
+                .items
+                .iter()
+                .flat_map(|item| item.videos.iter().map(|video| video.video_id.as_str()))
+                .collect(),
+            screenshots: plan
+                .items
+                .iter()
+                .flat_map(|item| {
+                    item.screenshots
+                        .iter()
+                        .map(|shot| shot.screenshot_id.as_str())
+                })
+                .collect(),
+        }
+    }
+
+    /// Whether everything `run_id` holds now was counted by the plan.
+    fn holds_children_of(
+        &self,
+        conn: &Connection,
+        run_id: &str,
+        battle_ids: &[String],
+    ) -> anyhow::Result<bool> {
+        Ok(battle_ids
+            .iter()
+            .all(|battle_id| self.battles.contains(battle_id.as_str()))
+            && run_video_refs(conn, run_id)?
+                .iter()
+                .all(|video| self.videos.contains(video.video_id.as_str()))
+            && run_screenshot_items(conn, run_id)?
+                .iter()
+                .all(|shot| self.screenshots.contains(shot.screenshot_id.as_str())))
+    }
+}
+
+/// Each eligible Run with its last activity.
+fn eligible_runs(
+    conn: &Connection,
+    cutoff_ms: Option<i64>,
+) -> anyhow::Result<Vec<(String, Option<i64>)>> {
     let sql = format!(
-        "select r.run_id
+        "select r.run_id, {RUN_LAST_ACTIVITY}
          from runs r
-         where r.status <> 'active'
-           and (?1 is null or coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms) < ?1)
+         where {}
            and not ({PROTECTED_RUN_PREDICATE})
-         order by coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms) asc,
-                  r.run_id asc"
+         order by {RUN_LAST_ACTIVITY} asc, r.run_id asc",
+        *RUN_BEFORE_CUTOFF_PREDICATE
     );
 
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(params![cutoff_ms], |row| row.get::<_, String>(0))?;
+    let rows = stmt.query_map(params![cutoff_ms], |row| Ok((row.get(0)?, row.get(1)?)))?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(anyhow::Error::from)
 }
@@ -629,9 +718,9 @@ fn skipped_pending_run_count(conn: &Connection, cutoff_ms: Option<i64>) -> anyho
     let sql = format!(
         "select count(*)
          from runs r
-         where r.status <> 'active'
-           and (?1 is null or coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms) < ?1)
-           and ({PROTECTED_RUN_PREDICATE})"
+         where {}
+           and ({PROTECTED_RUN_PREDICATE})",
+        *RUN_BEFORE_CUTOFF_PREDICATE
     );
 
     conn.query_row(&sql, params![cutoff_ms], |row| row.get(0))
@@ -1118,6 +1207,7 @@ fn remove_empty_dated_directories(screenshots_dir: &Path) {
 mod tests {
     use super::{plan_screenshot_cleanup, CleanupCutoff, StorageCleanupPreset};
     use crate::history::mod_schema::create_mod_schema;
+    use crate::services::game_process::SystemGameProcessProbe;
     use chrono::{DateTime, FixedOffset, NaiveDate, SecondsFormat, TimeZone, Utc};
     use rusqlite::Connection;
     use std::collections::HashSet;
@@ -1180,6 +1270,37 @@ mod tests {
     /// exercised by the dedicated all-preset tests below.
     fn test_today() -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 7, 15).unwrap()
+    }
+
+    /// Plans and executes at once, as a confirmation whose preview plan is
+    /// gone does.
+    fn execute_screenshot_cleanup(
+        database_path: &Path,
+        data_root: &Path,
+        cutoff: Option<&CleanupCutoff>,
+        today_local_date: NaiveDate,
+    ) -> anyhow::Result<super::ScreenshotCleanupResult> {
+        let plan = plan_screenshot_cleanup(database_path, data_root, cutoff, today_local_date)?;
+        super::execute_screenshot_cleanup_plan(
+            database_path,
+            data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+    }
+
+    fn execute_run_data_cleanup(
+        database_path: &Path,
+        data_root: &Path,
+        cutoff: Option<&CleanupCutoff>,
+    ) -> anyhow::Result<super::RunDataCleanupResult> {
+        let plan = super::plan_run_data_cleanup(database_path, data_root, cutoff)?;
+        super::execute_run_data_cleanup_plan(
+            database_path,
+            data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
     }
 
     /// Seeds keep RFC 3339 text for readability; the database stores Unix milliseconds.
@@ -1417,7 +1538,7 @@ mod tests {
             "2026-06-01T00:00:00Z",
         );
         drop(conn);
-        assert!(super::execute_screenshot_cleanup(
+        assert!(execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None,
@@ -1472,9 +1593,13 @@ mod tests {
         )
         .unwrap();
         drop(conn);
-        let result =
-            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.data_root, plan)
-                .unwrap();
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
         assert_eq!(result.deleted_runs, 1);
         let conn = Connection::open(&fixture.database_path).unwrap();
         assert_eq!(
@@ -1590,7 +1715,8 @@ mod tests {
             let result = super::execute_run_data_cleanup_plan(
                 &fixture.database_path,
                 &fixture.data_root,
-                plan,
+                &plan,
+                &SystemGameProcessProbe,
             )
             .unwrap();
             assert_eq!(
@@ -1658,7 +1784,8 @@ mod tests {
         let result = super::execute_screenshot_cleanup_plan(
             &fixture.database_path,
             &fixture.data_root,
-            plan,
+            &plan,
+            &SystemGameProcessProbe,
         )
         .unwrap();
 
@@ -1710,7 +1837,8 @@ mod tests {
                 let result = super::execute_screenshot_cleanup_plan(
                     &fixture.database_path,
                     &fixture.data_root,
-                    plan,
+                    &plan,
+                    &SystemGameProcessProbe,
                 )
                 .unwrap();
                 assert_eq!(result.deleted_rows, 1);
@@ -1719,7 +1847,8 @@ mod tests {
                 let result = super::execute_run_data_cleanup_plan(
                     &fixture.database_path,
                     &fixture.data_root,
-                    run_plan.unwrap(),
+                    &run_plan.unwrap(),
+                    &SystemGameProcessProbe,
                 )
                 .unwrap();
                 assert_eq!(result.deleted_runs, 1);
@@ -1894,7 +2023,8 @@ mod tests {
         let result = super::execute_screenshot_cleanup_plan(
             &fixture.database_path,
             &fixture.data_root,
-            plan,
+            &plan,
+            &SystemGameProcessProbe,
         )
         .unwrap();
 
@@ -1974,7 +2104,8 @@ mod tests {
         let result = super::execute_screenshot_cleanup_plan(
             &fixture.database_path,
             &fixture.data_root,
-            plan,
+            &plan,
+            &SystemGameProcessProbe,
         )
         .unwrap();
 
@@ -2179,7 +2310,7 @@ mod tests {
             b"tmp",
         );
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"
@@ -2372,6 +2503,247 @@ mod tests {
         assert_eq!(plan.skipped_pending_uploads, 0);
     }
 
+    /// A confirmed preview's plan can be minutes old. A Run the mod resumed
+    /// since, or whose last activity moved past the plan's cutoff, is no
+    /// longer a candidate and survives.
+    #[test]
+    fn stale_run_plan_spares_runs_resumed_or_touched_after_planning() {
+        let fixture = create_fixture();
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        for run_id in ["resumed", "touched", "eligible"] {
+            insert_run(&conn, run_id, "abandoned", "Normal", "2026-06-10T10:00:00Z");
+        }
+        drop(conn);
+        let cutoff = cutoff("2026-06-15T00:00:00Z", (2026, 6, 15));
+        let plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, Some(&cutoff))
+                .unwrap();
+        assert_eq!(plan.items.len(), 3);
+
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        conn.execute(
+            "update runs set status = 'active' where run_id = 'resumed'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "update runs set ended_at_ms = ?1, last_seen_at_ms = ?1 where run_id = 'touched'",
+            [ms("2026-06-20T10:00:00Z")],
+        )
+        .unwrap();
+        drop(conn);
+
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
+
+        assert_eq!(result.deleted_runs, 1);
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        let remaining = conn
+            .prepare("select run_id from runs order by run_id")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(remaining, vec!["resumed", "touched"]);
+    }
+
+    /// The last-activity check on its own: under the `all` preset, a planned
+    /// Run the mod resumed and ended again without attaching anything new is
+    /// still eligible and holds only planned children, yet it is no longer
+    /// the Run the preview showed, so it survives.
+    #[test]
+    fn stale_all_preset_plan_spares_a_run_ended_again_without_new_children() {
+        let fixture = create_fixture();
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        insert_run(
+            &conn,
+            "ended-again",
+            "abandoned",
+            "Normal",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_battle(
+            &conn,
+            "battle",
+            "LOCAL",
+            Some("ended-again"),
+            "2026-06-10T09:00:00Z",
+            Some("ready"),
+        );
+        drop(conn);
+        let plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
+        assert_eq!(plan.items.len(), 1);
+
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        conn.execute(
+            "update runs set status = 'completed', ended_at_ms = ?1, last_seen_at_ms = ?1
+             where run_id = 'ended-again'",
+            [ms("2026-06-12T10:00:00Z")],
+        )
+        .unwrap();
+        drop(conn);
+
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
+
+        assert_eq!(result.deleted_runs, 0);
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        assert_eq!(
+            conn.query_row("select count(*) from battles", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+
+    /// Under the `all` preset there is no cutoff to move past. The mod resumes
+    /// a planned Run, records one more battle with its payload, video, and
+    /// screenshot, and ends the Run again before the user confirms. The Run
+    /// is no longer what the preview counted, so it survives whole.
+    #[test]
+    fn stale_all_preset_plan_spares_a_run_resumed_and_ended_again() {
+        let fixture = create_fixture();
+        let replays = crate::services::paths::combat_replays_dir_in(&fixture.data_root);
+        let videos = crate::services::paths::combat_replay_videos_dir_in(&fixture.data_root);
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        insert_run(
+            &conn,
+            "resumed",
+            "abandoned",
+            "Normal",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_battle(
+            &conn,
+            "old-battle",
+            "LOCAL",
+            Some("resumed"),
+            "2026-06-10T09:00:00Z",
+            Some("ready"),
+        );
+        drop(conn);
+        let plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
+        assert_eq!(plan.items.len(), 1);
+
+        // The upsert in the mod's `RunLogStore` sets `status = excluded.status`.
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        conn.execute(
+            "update runs set status = 'active' where run_id = 'resumed'",
+            [],
+        )
+        .unwrap();
+        insert_battle(
+            &conn,
+            "new-battle",
+            "LOCAL",
+            Some("resumed"),
+            "2026-06-12T09:00:00Z",
+            Some("ready"),
+        );
+        fs::create_dir_all(&replays).unwrap();
+        let payload = replays.join("new-battle.payload.mpack.gz");
+        fs::write(&payload, b"payload").unwrap();
+        let video = write_screenshot_file(&videos, "2026-06-12/new.mp4", b"video");
+        insert_video(
+            &conn,
+            "new-video",
+            "new-battle",
+            "2026-06-12/new.mp4",
+            "2026-06-12T09:00:00Z",
+        );
+        let shot = write_screenshot_file(&fixture.screenshots_dir, "2026-06-12/new.png", b"shot");
+        insert_screenshot(
+            &conn,
+            "new-shot",
+            Some("resumed"),
+            1,
+            "2026-06-12/new.png",
+            "2026-06-12T10:00:00Z",
+        );
+        conn.execute(
+            "update runs set status = 'abandoned', ended_at_ms = ?1, last_seen_at_ms = ?1
+             where run_id = 'resumed'",
+            [ms("2026-06-12T10:00:00Z")],
+        )
+        .unwrap();
+        drop(conn);
+
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
+
+        assert_eq!(result.deleted_runs, 0);
+        assert_eq!(result.deleted_files, 0);
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        for (table, expected) in [
+            ("runs", 1),
+            ("battles", 2),
+            ("combat_replay_videos", 1),
+            ("run_screenshots", 1),
+        ] {
+            assert_eq!(
+                conn.query_row(&format!("select count(*) from {table}"), [], |row| row
+                    .get::<_, i64>(0))
+                    .unwrap(),
+                expected,
+                "{table}"
+            );
+        }
+        assert!(payload.exists() && video.exists() && shot.exists());
+
+        // A replay video recorded later for a battle the preview counted
+        // leaves the Run row untouched, and still spares the Run: the preview
+        // never counted that video.
+        let fixture = create_fixture();
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        insert_run(&conn, "old", "abandoned", "Normal", "2026-06-10T10:00:00Z");
+        insert_battle(
+            &conn,
+            "old-battle",
+            "LOCAL",
+            Some("old"),
+            "2026-06-10T09:00:00Z",
+            Some("ready"),
+        );
+        drop(conn);
+        let plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        insert_video(
+            &conn,
+            "late-video",
+            "old-battle",
+            "2026-06-12/late.mp4",
+            "2026-06-12T09:00:00Z",
+        );
+        drop(conn);
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
+        assert_eq!(result.deleted_runs, 0);
+    }
+
     #[test]
     fn stale_run_plan_preserves_all_reseal_inputs_when_run_becomes_protected() {
         let fixture = create_fixture();
@@ -2437,9 +2809,13 @@ mod tests {
         insert_seal_job(&conn, "run-race", "waiting");
         drop(conn);
 
-        let result =
-            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.data_root, plan)
-                .unwrap();
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
 
         assert_eq!(result.deleted_runs, 0);
         assert_eq!(result.deleted_files, 0);
@@ -2562,9 +2938,13 @@ mod tests {
         insert_seal_job(&conn, "run-b", "waiting");
         drop(conn);
 
-        let result =
-            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.data_root, plan)
-                .unwrap();
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
 
         assert_eq!(result.deleted_runs, 1);
         assert_eq!(result.deleted_files, 0);
@@ -2743,8 +3123,7 @@ mod tests {
         );
 
         let result =
-            super::execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
-                .unwrap();
+            execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert_eq!(result.deleted_runs, 1);
         assert_eq!(result.deleted_files, 0);
@@ -3005,9 +3384,13 @@ mod tests {
         assert_eq!(current_plan.estimated_bytes, 7 + 9 + 9 + 4);
         assert_eq!(other_plan.estimated_bytes, current_plan.estimated_bytes);
 
-        let result =
-            super::execute_run_data_cleanup_plan(&fixture.database_path, &other_root, other_plan)
-                .unwrap();
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &other_root,
+            &other_plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
 
         assert_eq!(result.deleted_runs, 2);
         assert_eq!(result.deleted_files, 4);
@@ -3120,8 +3503,7 @@ mod tests {
         drop(conn);
 
         let result =
-            super::execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
-                .unwrap();
+            execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert_eq!(result.deleted_runs, 1);
         // v1.mp4 + battle-1 payload + shot.png; shared.png stays for the pending run.
@@ -3238,7 +3620,7 @@ mod tests {
         );
         drop(conn);
 
-        let error = super::execute_run_data_cleanup(&database_path, &data_dir, None)
+        let error = execute_run_data_cleanup(&database_path, &data_dir, None)
             .unwrap_err()
             .to_string();
 
@@ -3313,7 +3695,7 @@ mod tests {
         let cache =
             write_screenshot_file(&fixture.screenshots_dir, "UploadCache/shot-old.png", b"cc");
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"
@@ -3393,7 +3775,7 @@ mod tests {
         assert_eq!(plan.items[0].screenshot_id, "shot-old");
         assert_eq!(plan.estimated_bytes, 0);
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"
@@ -3467,7 +3849,7 @@ mod tests {
         assert_eq!(plan.items.len(), 2);
         assert_eq!(plan.estimated_bytes, 4);
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"
@@ -3513,7 +3895,7 @@ mod tests {
         assert_eq!(plan.items.len(), 1);
         assert_eq!(plan.estimated_bytes, 0);
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"

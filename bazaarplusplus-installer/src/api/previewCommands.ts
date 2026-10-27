@@ -4,6 +4,7 @@ import {
   defaultCropSettings,
   emptyHistoryRunList,
   emptyInstallState,
+  emptyLegacyDataPresence,
   emptyLegacyDataState,
   emptyRunDataCleanupPreview,
   emptyRunDataCleanupResult,
@@ -23,6 +24,7 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     resetBppData: (...args) => native.resetBppData(...args),
     resetBepinex: (...args) => native.resetBepinex(...args),
     getLegacyDataState: async () => emptyLegacyDataState,
+    getLegacyDataPresence: async () => emptyLegacyDataPresence,
     importV5History: (...args) => native.importV5History(...args),
     deleteLegacyRoot: (...args) => native.deleteLegacyRoot(...args),
     uninstallMod: (...args) => native.uninstallMod(...args),
@@ -54,8 +56,8 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     deleteBattleVideo: (...args) => native.deleteBattleVideo(...args),
     previewStorageCleanup: async (scope) =>
       scope === 'screenshots'
-        ? { scope, preview: emptyScreenshotCleanupPreview }
-        : { scope, preview: emptyRunDataCleanupPreview },
+        ? { scope, preview: emptyScreenshotCleanupPreview, plan_id: 0 }
+        : { scope, preview: emptyRunDataCleanupPreview, plan_id: 0 },
     executeStorageCleanup: async (scope) =>
       scope === 'screenshots'
         ? { scope, result: emptyScreenshotCleanupResult }

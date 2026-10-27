@@ -3,7 +3,7 @@
 ## State Machine
 
 - `runCheck` in `src/features/about/updater.ts` returns Browser Preview state outside Tauri, an available update with its native handle, or current-version state.
-- `UpdaterSnapshot` and `createUpdaterMachine` in the same module make checking, availability, download, install, restart readiness, restart, and failure mutually exclusive. Only download carries progress.
+- `UpdaterSnapshot` and `createUpdaterMachine` in the same module make checking, availability, download, install, restart readiness, restart, and failure mutually exclusive. Only download carries progress. The plugin reports every downloaded chunk; `Started` and the end of the download publish at once, and chunk progress publishes at most once per `PROGRESS_PUBLISH_INTERVAL_MS`, because each publish re-renders the Shell.
 - The native `Update` handle returned by `check` remains alive until `downloadAndInstall`; retry obtains a fresh handle after one is consumed.
 - `updaterProblemFromError` in `src/features/about/updaterProblems.ts` converts native errors into stable operation/version parameters plus optional diagnostics. Localized recovery copy is derived separately.
 

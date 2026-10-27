@@ -1,5 +1,5 @@
 //! IPC JSON goldens: the DTOs `get_install_state`, `get_legacy_data_state`,
-//! `import_v5_history`, `delete_legacy_root`, `list_history_runs`,
+//! `get_legacy_data_presence`, `import_v5_history`, `delete_legacy_root`, `list_history_runs`,
 //! `get_history_run_detail` and `preview_storage_cleanup` return to the frontend, produced by the service layer each command wraps from a fixture
 //! game directory and database. The commands themselves are not driven through
 //! the IPC bridge: through IPC, `get_install_state` and history path resolution
@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use crate::goldens::{assert_golden, json};
 use crate::history::mod_schema::create_mod_schema;
 use crate::services::detect::InstallEnvironmentSnapshot;
-use crate::services::history::{History, StorageCleanupPreset, StorageCleanupScope};
+use crate::services::history::{CleanupPlans, History, StorageCleanupPreset, StorageCleanupScope};
 use crate::services::install::install_state_from_snapshot;
 use crate::services::legacy_data;
 use crate::services::paths;
@@ -154,6 +154,21 @@ fn get_legacy_data_state() {
     assert_golden(
         "ipc/get_legacy_data_state.legacy-roots.json",
         &fixture.json(&legacy_data::legacy_data_state(&fixture.game)),
+    );
+}
+
+#[test]
+fn get_legacy_data_presence() {
+    let fixture = Fixture::new();
+    assert_golden(
+        "ipc/get_legacy_data_presence.none.json",
+        &fixture.json(&legacy_data::legacy_data_presence(&fixture.game)),
+    );
+
+    seed_legacy_roots(&fixture);
+    assert_golden(
+        "ipc/get_legacy_data_presence.legacy-roots.json",
+        &fixture.json(&legacy_data::legacy_data_presence(&fixture.game)),
     );
 }
 
@@ -329,11 +344,16 @@ fn preview_storage_cleanup() {
     let fixture = Fixture::new();
     seed_history(&fixture);
     let history = history(&fixture);
+    let plans = CleanupPlans::default();
     assert_golden(
         "ipc/preview_storage_cleanup.screenshots-all.json",
         &fixture.json(
             &history
-                .preview_cleanup(StorageCleanupScope::Screenshots, StorageCleanupPreset::All)
+                .preview_cleanup(
+                    StorageCleanupScope::Screenshots,
+                    StorageCleanupPreset::All,
+                    &plans,
+                )
                 .unwrap(),
         ),
     );
@@ -341,7 +361,11 @@ fn preview_storage_cleanup() {
         "ipc/preview_storage_cleanup.run-data-all.json",
         &fixture.json(
             &history
-                .preview_cleanup(StorageCleanupScope::RunData, StorageCleanupPreset::All)
+                .preview_cleanup(
+                    StorageCleanupScope::RunData,
+                    StorageCleanupPreset::All,
+                    &plans,
+                )
                 .unwrap(),
         ),
     );

@@ -11,10 +11,10 @@ use crate::services::{
     data_maintenance::DataMaintenanceLock,
     install::{
         detect_install_state, install, launch_game_via_steam, run_delete_legacy_root,
-        run_get_legacy_data_state, run_reset_bepinex, run_reset_bpp_data, run_uninstall,
-        InstallRequest,
+        run_get_legacy_data_presence, run_get_legacy_data_state, run_reset_bepinex,
+        run_reset_bpp_data, run_uninstall, InstallRequest,
     },
-    legacy_data::{DeleteLegacyRootResult, LegacyDataState},
+    legacy_data::{DeleteLegacyRootResult, LegacyDataPresence, LegacyDataState},
 };
 use crate::stream::runtime::StreamRuntime;
 use crate::v5_import::ImportV5HistoryResult;
@@ -82,6 +82,18 @@ pub async fn get_legacy_data_state(
     game_path: Option<String>,
 ) -> Result<LegacyDataState, SemanticProblem> {
     run_get_legacy_data_state(app, game_path).await
+}
+
+/// Which Legacy Roots exist, without measuring them. History's unavailable
+/// guidance needs only this; the Install page measures through
+/// `get_legacy_data_state`.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_legacy_data_presence(
+    app: tauri::AppHandle,
+    game_path: Option<String>,
+) -> Result<LegacyDataPresence, SemanticProblem> {
+    run_get_legacy_data_presence(app, game_path).await
 }
 
 /// Imports `BazaarPlusPlusV5/` history into the current Data Root once

@@ -15,6 +15,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             crate::commands::install::reset_bpp_data,
             crate::commands::install::reset_bepinex,
             crate::commands::install::get_legacy_data_state,
+            crate::commands::install::get_legacy_data_presence,
             crate::commands::install::import_v5_history,
             crate::commands::install::delete_legacy_root,
             crate::commands::install::uninstall_mod,

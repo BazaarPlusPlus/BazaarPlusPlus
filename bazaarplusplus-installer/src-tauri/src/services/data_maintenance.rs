@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::Mutex as AsyncMutex;
@@ -17,6 +18,11 @@ use crate::stream::runtime::StreamRuntime;
 #[derive(Clone, Default)]
 pub(crate) struct DataMaintenanceLock {
     gate: Arc<AsyncMutex<()>>,
+    /// Counts the operations that may delete or replace the current Data
+    /// Root's database (Reset, the V5 import), so state derived from it
+    /// outside the lock, such as a cleanup preview's plan, can tell it is
+    /// stale.
+    database_generation: Arc<AtomicU64>,
 }
 
 impl DataMaintenanceLock {
@@ -33,7 +39,10 @@ impl DataMaintenanceLock {
     }
 
     /// Like [`Self::run_blocking`], and also stops the OBS overlay for the
-    /// duration, for work that deletes the database the overlay reads.
+    /// duration, for work that deletes the database the overlay reads. It
+    /// advances [`Self::database_generation`] when it takes the lock and again
+    /// when the task ends, before releasing the lock: state derived while the
+    /// task ran is stale too.
     pub(crate) async fn run_blocking_with_overlay_stopped<T, F>(
         &self,
         stream_runtime: &StreamRuntime,
@@ -44,9 +53,33 @@ impl DataMaintenanceLock {
         F: FnOnce() -> T + Send + 'static,
     {
         let guard = self.gate.clone().lock_owned().await;
+        self.database_generation.fetch_add(1, Ordering::SeqCst);
+        let ended = AdvanceOnDrop(self.database_generation.clone());
+        let task = move || {
+            // Dropped when the task returns or unwinds, while the lock is held.
+            let _ended = ended;
+            task()
+        };
         stream_runtime
             .exclusive_maintenance(|| run_on_blocking_pool(guard, task))
             .await
+    }
+
+    /// Changes whenever an operation that may delete or replace the current
+    /// Data Root's database takes the lock, and again when it completes. Read
+    /// it before deriving state from the database, and compare it again while
+    /// holding the lock.
+    pub(crate) fn database_generation(&self) -> u64 {
+        self.database_generation.load(Ordering::SeqCst)
+    }
+}
+
+/// Advances a database generation when dropped.
+struct AdvanceOnDrop(Arc<AtomicU64>);
+
+impl Drop for AdvanceOnDrop {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -137,12 +170,14 @@ mod tests {
             async move {
                 execute_storage_cleanup_with(
                     &lock,
+                    Default::default(),
                     move || {
                         resolved_tx.send(data_dir.exists()).unwrap();
                         Some(game_path)
                     },
                     StorageCleanupScope::RunData,
                     StorageCleanupPreset::All,
+                    0,
                 )
                 .await
             }

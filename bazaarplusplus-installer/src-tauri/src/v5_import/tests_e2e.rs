@@ -665,12 +665,14 @@ async fn history_cleanup_started_during_an_import_waits_for_it() {
             let database = fixture.v6().join("bazaarplusplus.db");
             execute_storage_cleanup_with(
                 &lock,
+                Default::default(),
                 move || {
                     resolved_tx.send(database.exists()).unwrap();
                     Some(game)
                 },
                 StorageCleanupScope::RunData,
                 StorageCleanupPreset::All,
+                0,
             )
             .await
         }

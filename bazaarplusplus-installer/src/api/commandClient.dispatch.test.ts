@@ -76,9 +76,9 @@ describe('native command adapter', () => {
     {
       call: 'executeStorageCleanup',
       run: (client: CommandAdapter) =>
-        client.executeStorageCleanup('run_data', 'all'),
+        client.executeStorageCleanup('run_data', 'all', 3),
       command: 'execute_storage_cleanup',
-      args: { scope: 'run_data', preset: 'all' },
+      args: { scope: 'run_data', preset: 'all', planId: 3 },
       problem: {
         code: 'history_action_failed',
         params: { operation: 'execute_storage_cleanup' },

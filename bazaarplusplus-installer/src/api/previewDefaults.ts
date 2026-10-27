@@ -5,6 +5,7 @@ import type {
   AppBootstrap,
   HistoryRunList,
   InstallState,
+  LegacyDataPresence,
   LegacyDataState,
   RunDataCleanupPreview,
   RunDataCleanupResult,
@@ -39,6 +40,13 @@ export const emptyInstallState: InstallState = {
 };
 
 export const emptyLegacyDataState: LegacyDataState = {
+  game_path: null,
+  roots: [],
+  installed_mod_data_root: 'reinstall_required',
+  v5_import_eligible: false
+};
+
+export const emptyLegacyDataPresence: LegacyDataPresence = {
   game_path: null,
   roots: [],
   installed_mod_data_root: 'reinstall_required',

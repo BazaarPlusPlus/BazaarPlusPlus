@@ -13,6 +13,12 @@ export const commands = {
 	resetBepinex: (gamePath: string) => __TAURI_INVOKE<ResetBepinexResult>("reset_bepinex", { gamePath }),
 	getLegacyDataState: (gamePath: string | null) => __TAURI_INVOKE<LegacyDataState>("get_legacy_data_state", { gamePath }),
 	/**
+	 *  Which Legacy Roots exist, without measuring them. History's unavailable
+	 *  guidance needs only this; the Install page measures through
+	 *  `get_legacy_data_state`.
+	 */
+	getLegacyDataPresence: (gamePath: string | null) => __TAURI_INVOKE<LegacyDataPresence>("get_legacy_data_presence", { gamePath }),
+	/**
 	 *  Imports `BazaarPlusPlusV5/` history into the current Data Root once
 	 *  (ADR-0008) and returns the remeasured Legacy Roots. It never deletes V5.
 	 */
@@ -51,7 +57,12 @@ export const commands = {
 	revealBattleVideo: (battleId: string, videoId: string) => __TAURI_INVOKE<null>("reveal_battle_video", { battleId, videoId }),
 	deleteBattleVideo: (battleId: string, videoId: string) => __TAURI_INVOKE<HistoryRunDetail>("delete_battle_video", { battleId, videoId }),
 	previewStorageCleanup: (scope: StorageCleanupScope, preset: StorageCleanupPreset) => __TAURI_INVOKE<StorageCleanupPreview>("preview_storage_cleanup", { scope, preset }),
-	executeStorageCleanup: (scope: StorageCleanupScope, preset: StorageCleanupPreset) => __TAURI_INVOKE<StorageCleanupExecution>("execute_storage_cleanup", { scope, preset }),
+	/**
+	 *  Executes the cleanup the user confirmed. `plan_id` is the id the preview
+	 *  returned; when that plan is gone the cleanup plans again from `scope` and
+	 *  `preset`.
+	 */
+	executeStorageCleanup: (scope: StorageCleanupScope, preset: StorageCleanupPreset, planId: number) => __TAURI_INVOKE<StorageCleanupExecution>("execute_storage_cleanup", { scope, preset, planId }),
 };
 
 /* Types */
@@ -240,6 +251,24 @@ export type InstalledModDataRoot =
 "reinstall_required";
 
 /**
+ *  What the History unavailable guidance needs to know about the Legacy
+ *  Roots: which exist, never their size. Reading it stats the root and marker
+ *  paths and reads the installed mod's contract file; it never walks into a
+ *  root.
+ */
+export type LegacyDataPresence = {
+	game_path: string | null,
+	/**
+	 *  The Legacy Roots present as real directories, in [`LegacyRoot::ALL`]
+	 *  order.
+	 */
+	roots: LegacyRoot[],
+	installed_mod_data_root: InstalledModDataRoot,
+	/**  The one-time V5 import may run (`v5_import::is_v5_import_eligible`). */
+	v5_import_eligible: boolean,
+};
+
+/**
  *  One Legacy Root present in the selected game directory, measured without
  *  following symbolic links. A file with more than one hard link is counted in
  *  `size_bytes` and in `hard_linked_file_count`: deleting the root frees its
@@ -324,7 +353,11 @@ export type StorageCleanupExecution = { scope: "screenshots"; result: Screenshot
 /**  Wire strings are a stable contract with the frontend preset buttons. */
 export type StorageCleanupPreset = "all" | "older_than_7_days" | "before_this_month";
 
-export type StorageCleanupPreview = { scope: "screenshots"; preview: ScreenshotCleanupPreview } | { scope: "run_data"; preview: RunDataCleanupPreview };
+/**
+ *  A cleanup preview and the id of the plan behind it, which stays native.
+ *  Confirming passes the id back so execution runs the plan the user saw.
+ */
+export type StorageCleanupPreview = { scope: "screenshots"; preview: ScreenshotCleanupPreview; plan_id: number } | { scope: "run_data"; preview: RunDataCleanupPreview; plan_id: number };
 
 export type StorageCleanupScope = "screenshots" | "run_data";
 
