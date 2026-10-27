@@ -7,8 +7,12 @@ use crate::services::game_process;
 ///
 /// Returns whether a process was actually terminated: finding none means the
 /// state the caller was recovering from is already gone.
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn end_game_process() -> Result<bool, String> {
-    game_process::terminate_game().map_err(|error| error_diagnostic(&error))
+pub async fn end_game_process() -> Result<bool, String> {
+    // Snapshotting and terminating processes are blocking system calls.
+    tauri::async_runtime::spawn_blocking(game_process::terminate_game)
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(|error| error_diagnostic(&error))
 }
