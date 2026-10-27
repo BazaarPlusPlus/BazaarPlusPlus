@@ -18,6 +18,7 @@ internal sealed record ReplayVideoEncoderDrainInput(
     int FrameByteLength,
     int NativeSlotCount,
     long CfrCopyP95Us,
+    long OutputFrames,
     ReplayVideoSessionTimeline Timeline = default
 );
 
@@ -78,6 +79,8 @@ internal sealed class ReplayVideoEncoderDrain
         var endedAt = DateTimeOffset.UtcNow;
         var drainedTimestamp = Stopwatch.GetTimestamp();
         var durationMs = (long)Math.Max(0, (endedAt - _input.StartedAtUtc).TotalMilliseconds);
+        // Native encoders stamp frame n at n / fps, so the timeline frame count is the video length.
+        var videoDurationMs = Math.Max(0, _input.OutputFrames) * 1000 / Math.Max(1, request.Fps);
         var fileSize = ReplayVideoFileHelpers.TryGetFileSize(request.OutputFilePath);
         var status =
             failureReasonCode.HasValue || fileSize <= 0
@@ -100,6 +103,7 @@ internal sealed class ReplayVideoEncoderDrain
             OutputFilePath = request.OutputFilePath,
             EndedAtUtc = endedAt,
             DurationMs = durationMs,
+            VideoDurationMs = videoDurationMs,
             CapturedFrames = _input.CapturedFrames,
             DroppedFrames = _input.DroppedFrames,
             FileSizeBytes = fileSize,
@@ -153,6 +157,7 @@ internal sealed class ReplayVideoEncoderDrain
                     ("dropped_frames", result.DroppedFrames),
                     // Session construction to drain end: a diagnostic span, not the video length.
                     ("duration_ms", result.DurationMs),
+                    ("video_duration_ms", result.VideoDurationMs),
                     ("init_ms", timeline.InitMs),
                     ("first_frame_wait_ms", timeline.FirstFrameWaitMs),
                     ("capture_ms", timeline.CaptureMs),

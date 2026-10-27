@@ -482,6 +482,7 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
                     _frameByteLength,
                     metalEncoder?.SlotCount ?? windowsEncoder?.SlotCount ?? 0,
                     _cfrCopyTiming.P95Microseconds,
+                    _nativeOutputFrameIndex,
                     new ReplayVideoSessionTimeline(
                         _constructedTimestamp,
                         _startedTimestamp,

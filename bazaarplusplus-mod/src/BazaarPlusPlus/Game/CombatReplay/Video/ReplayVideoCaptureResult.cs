@@ -9,7 +9,11 @@ internal sealed class ReplayVideoCaptureResult
 
     public DateTimeOffset? EndedAtUtc { get; init; }
 
+    /// <summary>Session construction to drain end: a diagnostic span, not the video length.</summary>
     public long DurationMs { get; init; }
+
+    /// <summary>Length of the encoded video timeline.</summary>
+    public long VideoDurationMs { get; init; }
 
     public int CapturedFrames { get; init; }
 
