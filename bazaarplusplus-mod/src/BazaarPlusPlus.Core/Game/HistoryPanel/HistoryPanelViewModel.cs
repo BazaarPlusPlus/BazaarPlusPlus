@@ -89,6 +89,9 @@ public sealed class HistoryPanelViewModel
 
     public bool ReplayButtonEnabled { get; set; }
 
+    // Android keeps ordinary unavailable actions tappable to explain their reason, but not busy ones.
+    public bool ReplayButtonBusy { get; set; }
+
     public string RecordAndReplayButtonText { get; set; } = string.Empty;
 
     public bool RecordAndReplayButtonEnabled { get; set; }
@@ -101,6 +104,8 @@ public sealed class HistoryPanelViewModel
     public string DeleteButtonText { get; set; } = string.Empty;
 
     public bool DeleteButtonEnabled { get; set; }
+
+    public bool DeleteButtonBusy { get; set; }
 
     // Favorites rows reuse VisibleBattles for portraits and badges; their text comes from here.
     public List<string> FavoriteRowLabels { get; set; } = new();

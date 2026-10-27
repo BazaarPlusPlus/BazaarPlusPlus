@@ -409,6 +409,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             Func<bool> canCommit = () =>
                 _session.IsCurrent(sessionVersion)
                 && ActiveBattle()?.BattleId == battle.BattleId
+                && (favorite != null || !IsBeingDeleted(battle))
                 && replayAccount == NormalizeAccountId(_profileAccountId());
             // A favorite replays from its own copy, which belongs to no account.
             replayResult =
@@ -575,8 +576,14 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         RunDeleteOutcome outcome;
         try
         {
+            var acquireMaintenance = replayService.PreparePayloadMaintenance();
             outcome = await Task.Run(() =>
             {
+                using var maintenance =
+                    acquireMaintenance()
+                    ?? throw new InvalidOperationException(
+                        "Replay payload maintenance unavailable."
+                    );
                 var deleted = dataService.TryDeleteRun(
                     run.RunId,
                     out var battleIds,

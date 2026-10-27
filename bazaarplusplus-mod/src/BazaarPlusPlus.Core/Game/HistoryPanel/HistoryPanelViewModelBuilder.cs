@@ -241,12 +241,19 @@ public static class HistoryPanelViewModelBuilder
             FavoriteButtonEnabled = favoriteButton.Enabled,
             ReplayButtonText = buttons.ReplayButtonText,
             ReplayButtonEnabled = buttons.ReplayButtonEnabled,
+            ReplayButtonBusy =
+                section != HistorySectionMode.Favorites
+                && coordinator?.IsBeingDeleted(selectedBattle) == true,
             RecordAndReplayButtonText = buttons.RecordAndReplayButtonText,
             RecordAndReplayButtonEnabled = buttons.RecordAndReplayButtonEnabled,
             RecordAndReplayButtonVisible = coordinator?.RecordingSupported == true,
             DeleteButtonVisible = section != HistorySectionMode.Ghost,
             DeleteButtonText = deleteButtonText,
             DeleteButtonEnabled = deleteButtonEnabled,
+            DeleteButtonBusy =
+                section == HistorySectionMode.Favorites
+                    ? state.FavoriteActionInProgress
+                    : state.RunDeleteInProgress,
         };
     }
 

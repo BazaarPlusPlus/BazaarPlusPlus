@@ -912,7 +912,11 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         // An empty section offers no action: there is nothing to act on.
         AndroidHistoryUi.SetActive(_delete.GameObject, m.DeleteButtonVisible && !noRows);
         // Dimmed but tappable: the tap puts the reason on the status line.
-        _delete.Set(m.DeleteButtonText, enabled: !m.PageLoading, dimmed: !m.DeleteButtonEnabled);
+        _delete.Set(
+            m.DeleteButtonText,
+            enabled: !m.PageLoading && !m.DeleteButtonBusy,
+            dimmed: !m.DeleteButtonEnabled
+        );
         AndroidHistoryUi.SetActive(_favorite.GameObject, m.FavoriteButtonVisible && !_empty);
         _favorite.Set(m.FavoriteButtonText, enabled: m.FavoriteButtonEnabled && !m.PageLoading);
         AndroidHistoryUi.SetActive(_skills.GameObject, !_empty);
@@ -922,7 +926,12 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             !m.ReplayButtonEnabled && m.ReplayButtonText == HistoryPanelText.ReplayUnavailable()
                 ? HistoryPanelText.Replay()
                 : m.ReplayButtonText;
-        _replay.Set(replayText, true, enabled: !m.PageLoading, dimmed: !m.ReplayButtonEnabled);
+        _replay.Set(
+            replayText,
+            true,
+            enabled: !m.PageLoading && !m.ReplayButtonBusy,
+            dimmed: !m.ReplayButtonEnabled
+        );
         _status.text = m.StatusMessage ?? string.Empty;
         _status.color = AndroidHistoryUi.StatusColor(m.StatusSeverity);
     }

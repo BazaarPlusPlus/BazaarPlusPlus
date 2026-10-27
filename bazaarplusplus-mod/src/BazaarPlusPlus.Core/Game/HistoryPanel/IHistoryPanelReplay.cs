@@ -38,6 +38,11 @@ public interface IHistoryPanelReplay
         Func<bool>? canCommit = null
     );
 
+    // Capture the runtime on the UI thread. Invoke the returned factory only on a worker;
+    // a null lease refuses deletion before its database transaction starts.
+    Func<IDisposable?> PreparePayloadMaintenance();
+
+    // The caller holds the prepared maintenance lease over both the DB delete and this cleanup.
     ReplayPayloadCleanupResult CleanupReplayPayloads(IReadOnlyList<string> battleIds);
 
     string GetReplayActionLabel(HistoryBattleRecord? battle);

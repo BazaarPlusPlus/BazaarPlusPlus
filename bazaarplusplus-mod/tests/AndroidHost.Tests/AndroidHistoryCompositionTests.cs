@@ -163,22 +163,39 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
             new(static () => { }, static () => { }, static () => null, static () => false)
         );
 
-        var model = HistoryPanelViewModelBuilder.Build(
-            state,
-            coordinator,
-            dependencies.RunContext,
-            dependencies.AccountLinkGate,
-            0f,
-            [],
-            default,
-            default
-        );
+        HistoryPanelViewModel Model() =>
+            HistoryPanelViewModelBuilder.Build(
+                state,
+                coordinator,
+                dependencies.RunContext,
+                dependencies.AccountLinkGate,
+                0f,
+                [],
+                default,
+                default
+            );
 
+        var model = Model();
         Assert.Equal(supported, dependencies.ReplayService.RecordingSupported);
         Assert.Equal(supported, model.RecordAndReplayButtonVisible);
         Assert.True(model.ReplayButtonEnabled);
         Assert.Equal(supported, model.RecordAndReplayButtonEnabled);
         Assert.Equal(new[] { battle.BattleId }, runtime.SavedBattleProbes);
+
+        runtime.Busy = true;
+        Assert.False(Model().ReplayButtonEnabled);
+        Assert.False(Model().ReplayButtonBusy); // Ordinary unavailable actions still explain why.
+        state.DeletingRunId = battle.RunId;
+        Assert.True(Model().ReplayButtonBusy);
+        Assert.True(Model().DeleteButtonBusy);
+        state.DeletingRunId = "another-run";
+        Assert.False(Model().ReplayButtonBusy);
+        Assert.True(Model().DeleteButtonBusy);
+        state.SectionMode = HistorySectionMode.Favorites;
+        Assert.False(Model().ReplayButtonBusy);
+        Assert.False(Model().DeleteButtonBusy); // A favorite owns an independent copy.
+        state.FavoriteActionInProgress = true;
+        Assert.True(Model().DeleteButtonBusy);
     }
 
     [Fact]
@@ -220,9 +237,14 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
     }
 
     [Fact]
-    public void Replay_payload_cleanup_deletes_the_local_and_ghost_files_of_deleted_battles()
+    public async Task Replay_payload_cleanup_deletes_the_local_and_ghost_files_of_deleted_battles()
     {
-        var dependencies = Compose(session: null, new StandInRuntime());
+        var runtime = new StandInRuntime();
+        var dependencies = Compose(session: null, runtime);
+        var acquire = dependencies.ReplayService.PreparePayloadMaintenance();
+        using var lease = await Task.Run(acquire);
+        Assert.NotNull(lease);
+        Assert.Null(runtime.PayloadGate.TryAcquirePlayback());
         var payloads = new CombatReplayPayloadStore(ReplayDirectory);
         payloads.Save(ReplayMessages.Payload("deleted"));
         payloads.Save(ReplayMessages.Payload("kept"));
@@ -356,6 +378,11 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         public bool Busy { get; set; }
 
         public bool HasSavedReplaySession => Busy;
+
+        public ReplayPayloadOperationGate PayloadGate { get; } = new();
+
+        public IDisposable? AcquirePayloadMaintenance() =>
+            PayloadGate.AcquireMaintenance(CancellationToken.None);
 
         public bool CanReplaySavedCombats(out string reason)
         {

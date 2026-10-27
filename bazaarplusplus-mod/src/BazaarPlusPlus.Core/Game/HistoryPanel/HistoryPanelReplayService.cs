@@ -282,6 +282,12 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
             throw new OperationCanceledException("History selection is no longer active.", token);
     }
 
+    public Func<IDisposable?> PreparePayloadMaintenance()
+    {
+        var runtime = _runtimeAccessor();
+        return () => runtime?.AcquirePayloadMaintenance();
+    }
+
     public ReplayPayloadCleanupResult CleanupReplayPayloads(IReadOnlyList<string> battleIds)
     {
         if (battleIds.Count == 0)

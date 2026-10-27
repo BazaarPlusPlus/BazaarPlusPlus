@@ -22,8 +22,9 @@ public sealed record ActiveSavedReplay(
 /// <c>ReplayState.Exit</c>, the menu return and teardown, and feeds <see cref="SavedReplayLifecycle"/>
 /// its observations in the order that core requires. The game side is the host's
 /// <see cref="ISavedReplayHost"/> and the per-start <see cref="ISavedReplayStart"/>. It never exits
-/// <c>ReplayState</c> itself (ADR-0002), and every entry point runs on the host's main thread inside
-/// its context; the start's awaits resume on the context its caller installed.
+/// <c>ReplayState</c> itself (ADR-0002). Playback entry points run on the host's main thread inside
+/// its context; the start's awaits resume on the context its caller installed. Payload maintenance
+/// acquires only the shared gate and runs on a worker.
 /// </summary>
 public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
 {
@@ -39,7 +40,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
     private ActiveOperation? _active;
     private ReplayPlaybackLogOperation? _completedAwaitingExit;
     private ReplayPlaybackLogOperation? _pendingMenuReturn;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public SavedReplayPlayback(
         IBppServices services,
@@ -68,6 +69,26 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         || _pendingMenuReturn != null
         || IsReplayStartInProgress
         || IsSavedReplayPlaybackActive;
+
+    public IDisposable? AcquirePayloadMaintenance()
+    {
+        if (_disposed)
+            return null;
+        IDisposable lease;
+        try
+        {
+            lease = _gate.AcquireMaintenance(CancellationToken.None);
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+        // A runtime can be disposed while this worker waits for playback to release its lease.
+        if (!_disposed)
+            return lease;
+        lease.Dispose();
+        return null;
+    }
 
     /// <summary>The active operation holds the payload gate's playback lease.</summary>
     public bool HoldsPayloadLease => _active?.Lease != null;

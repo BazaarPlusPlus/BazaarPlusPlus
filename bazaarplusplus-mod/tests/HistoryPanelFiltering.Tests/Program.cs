@@ -43,6 +43,7 @@ TestCoordinatorRunSelectionUsesFilteredSpace();
 TestAcceptedReplayReturnsWithSelection();
 TestDeleteAndFavoriteDispatchBySection();
 TestOffThreadDeleteAndRemovalPublishInTheirSection();
+TestDeleteLeaseFailurePaths();
 TestDeletePromptMentionsMp4OnlyWhereTheHostRecords();
 TestGhostListTextMarksOnlyTheFinalBattle();
 TestRunRatingShowsItsChangeOnlyWhenKnown();
@@ -441,6 +442,116 @@ void TestDeleteAndFavoriteDispatchBySection()
 // delete used. A delete cannot be cancelled, so one that crosses a close and reopen still owns its
 // flag and still reloads the open list. A removal that finishes after the user left Favorites
 // does not load its page into the open section.
+void TestDeleteLeaseFailurePaths()
+{
+    foreach (var failure in new[] { "unavailable", "protected", "database", "cleanup" })
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"bpp-delete-failure-{Guid.NewGuid():N}.sqlite3"
+        );
+        using var db = new SqliteConnection($"Data Source={path}");
+        db.Open();
+        RunLogSchema.EnsureInitialized(db);
+        void Execute(string sql)
+        {
+            using var command = db.CreateCommand();
+            command.CommandText = sql;
+            command.ExecuteNonQuery();
+        }
+        Execute(
+            """
+            INSERT INTO runs(run_id,hero,game_mode,status,started_at_ms,last_seen_at_ms)
+            VALUES ('delete-me','Vanessa','Unranked','abandoned',0,0);
+            INSERT INTO battles(battle_id,run_id,source,recorded_at_ms,combat_kind,local_payload_state)
+            VALUES ('battle','delete-me','LOCAL',0,'PVPCombat','missing');
+            """
+        );
+        var state = new HistoryPanelState();
+        var replay = new AcceptingReplay();
+        using var gate = replay.PayloadGate;
+        using var entered = new ManualResetEventSlim();
+        replay.PrepareMaintenance = () =>
+            () =>
+            {
+                entered.Set();
+                return failure == "unavailable"
+                    ? null
+                    : gate.AcquireMaintenance(CancellationToken.None);
+            };
+        replay.Cleanup = _ =>
+        {
+            using var competing = gate.TryAcquirePlayback();
+            Assert(competing == null, "Cleanup errors still occur inside the exclusive lease.");
+            throw new IOException("Injected payload cleanup failure.");
+        };
+        var dependencies = new HistoryPanelDependencies(
+            new StubRunContext(),
+            new HistoryPanelDataService(new HistoryPanelRepository(path), null),
+            replay,
+            null,
+            null,
+            null,
+            new BazaarDbAccountLinkStore(_ => false, _ => { }),
+            () => 0f,
+            () => null
+        );
+        var coordinator = new HistoryPanelCoordinator(
+            state,
+            dependencies,
+            () => { },
+            () => { },
+            NoReplayReturn()
+        );
+        try
+        {
+            coordinator.OnPanelShown();
+            uiContext.Until(() => !state.PageLoading && !state.DetailLoading);
+            using var playing = gate.TryAcquirePlayback();
+            coordinator.DeleteSelected();
+            coordinator.DeleteSelected();
+            Assert(
+                entered.Wait(TimeSpan.FromSeconds(5)),
+                "The delete must reach the lease factory."
+            );
+            if (failure == "protected")
+                Execute(
+                    "UPDATE runs SET status='completed', game_mode='ranked' WHERE run_id='delete-me'"
+                );
+            if (failure == "database")
+                Execute(
+                    "CREATE TRIGGER refuse_delete BEFORE DELETE ON runs BEGIN SELECT RAISE(ABORT,'injected'); END"
+                );
+            playing!.Dispose();
+            uiContext.Until(() => !state.RunDeleteInProgress && !state.PageLoading);
+            using var query = db.CreateCommand();
+            query.CommandText = "SELECT COUNT(*) FROM runs WHERE run_id='delete-me'";
+            var count = (long)query.ExecuteScalar()!;
+            Assert(
+                count == (failure == "cleanup" ? 0 : 1),
+                $"{failure}: only a post-commit cleanup error may leave the run deleted."
+            );
+            Assert(
+                replay.CleanedBattleIds.Count == (failure == "cleanup" ? 1 : 0),
+                $"{failure}: a refused or failed transaction must not clean payloads."
+            );
+            using var available = gate.TryAcquirePlayback();
+            Assert(available != null, $"{failure}: every exit must release the maintenance lease.");
+            Assert(
+                !state.RunDeleteInProgress,
+                $"{failure}: every exit must clear the pending state."
+            );
+        }
+        finally
+        {
+            DisposeAndDrainReads(coordinator);
+            db.Close();
+            SqliteConnection.ClearAllPools();
+            File.Delete(path);
+        }
+    }
+}
+
 void TestOffThreadDeleteAndRemovalPublishInTheirSection()
 {
     var databasePath = Path.Combine(
@@ -471,6 +582,43 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
     );
     var state = new HistoryPanelState();
     var replay = new AcceptingReplay();
+    var replayDirectory = databasePath + ".replays";
+    Directory.CreateDirectory(replayDirectory);
+    var payloadPath = Path.Combine(replayDirectory, "battle-gone.payload.mpack.gz");
+    File.WriteAllBytes(payloadPath, [1, 2, 3]);
+    using var maintenanceEntered = new ManualResetEventSlim();
+    var runtime = new SavedReplaysStub
+    {
+        Maintenance = () =>
+        {
+            Assert(
+                SynchronizationContext.Current != uiContext,
+                "Only a worker may wait for the lease."
+            );
+            maintenanceEntered.Set();
+            return replay.PayloadGate.AcquireMaintenance(CancellationToken.None);
+        },
+    };
+    var realReplay = new HistoryPanelReplayService(
+        () =>
+        {
+            Assert(
+                SynchronizationContext.Current == uiContext,
+                "Capture the host runtime on the UI thread."
+            );
+            return runtime;
+        },
+        new NoRecording(),
+        replayDirectory,
+        () => null
+    );
+    replay.PrepareMaintenance = realReplay.PreparePayloadMaintenance;
+    replay.Cleanup = ids =>
+    {
+        using var competing = replay.PayloadGate.TryAcquirePlayback();
+        Assert(competing == null, "The delete lease must cover payload cleanup too.");
+        return realReplay.CleanupReplayPayloads(ids);
+    };
     var dependencies = new HistoryPanelDependencies(
         new StubRunContext(),
         new HistoryPanelDataService(repository, null),
@@ -532,8 +680,34 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
             "Before the delete the run's battle can replay and be favorited."
         );
 
+        var replayResult = new TaskCompletionSource<HistoryPanelReplayAttemptResult>();
+        replay.PendingReplay = replayResult.Task;
+        var pendingReplay = coordinator.TryReplaySelectedBattleAsync(
+            state.GetSelectedBattle(),
+            recordVideo: false
+        );
+        Assert(replay.CanCommit?.Invoke() == true, "The replay starts with an active selection.");
+        using var playing = replay.PayloadGate.TryAcquirePlayback();
+        Assert(playing != null, "The playing replay must own the real gate.");
         coordinator.DeleteSelected();
         coordinator.DeleteSelected();
+        Assert(
+            maintenanceEntered.Wait(TimeSpan.FromSeconds(5)),
+            "The worker must reach maintenance acquisition."
+        );
+        using (var db = new SqliteConnection($"Data Source={databasePath}"))
+        {
+            db.Open();
+            using var command = db.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM runs WHERE run_id='run-gone'";
+            Assert(
+                (long)command.ExecuteScalar()! == 1 && File.Exists(payloadPath),
+                "Playback must protect both the DB row and file before the delete transaction."
+            );
+        }
+        var uiResponded = false;
+        uiContext.Post(_ => uiResponded = true, null);
+        uiContext.Until(() => uiResponded);
         Assert(
             state.RunDeleteInProgress
                 && state.StatusSeverity == StatusSeverity.Pending
@@ -544,7 +718,9 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
             Model()
                 is {
                     DeleteButtonEnabled: false,
+                    DeleteButtonBusy: true,
                     ReplayButtonEnabled: false,
+                    ReplayButtonBusy: true,
                     RecordAndReplayButtonEnabled: false,
                     FavoriteButtonEnabled: false,
                 },
@@ -556,8 +732,29 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
             "Favorite must not start loading a battle of the run being deleted."
         );
         coordinator.DeleteSelected();
+        Assert(
+            replay.CanCommit?.Invoke() == false,
+            "A replay already loading cannot commit after deletion starts."
+        );
+        replayResult.SetCanceled();
+        uiContext.Until(() => pendingReplay.IsCompleted);
+        coordinator
+            .TryReplaySelectedBattleAsync(state.GetSelectedBattle(), recordVideo: false)
+            .GetAwaiter()
+            .GetResult();
+        Assert(
+            !state.ReplayActionInProgress,
+            "The coordinator refuses replay even if a click races rendering."
+        );
+        playing!.Dispose();
 
         uiContext.Until(() => !state.RunDeleteInProgress && !state.PageLoading);
+        Assert(
+            !File.Exists(payloadPath),
+            "The payload is removed after playback releases its lease."
+        );
+        using (var available = replay.PayloadGate.TryAcquirePlayback())
+            Assert(available != null, "A completed delete releases its maintenance lease.");
         Assert(
             state.Runs.Select(run => run.RunId).SequenceEqual(["run-late", "run-keep"]),
             "The deleted run must leave the list once the delete publishes."
@@ -614,6 +811,8 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
         DisposeAndDrainReads(coordinator);
         SqliteConnection.ClearAllPools();
         File.Delete(databasePath);
+        Directory.Delete(replayDirectory, recursive: true);
+        replay.PayloadGate.Dispose();
     }
 }
 
@@ -1298,6 +1497,16 @@ internal sealed class AcceptingReplay : IHistoryPanelReplay
 {
     public bool RecordingSupported { get; init; }
 
+    public ReplayPayloadOperationGate PayloadGate { get; } = new();
+
+    public Func<Func<IDisposable?>>? PrepareMaintenance { get; set; }
+
+    public Func<IDisposable?> PreparePayloadMaintenance() =>
+        PrepareMaintenance?.Invoke()
+        ?? (() => PayloadGate.AcquireMaintenance(CancellationToken.None));
+
+    public Func<IReadOnlyList<string>, ReplayPayloadCleanupResult>? Cleanup { get; set; }
+
     public bool CanReplayBattle(HistoryBattleRecord? battle, out string reason)
     {
         reason = string.Empty;
@@ -1327,12 +1536,21 @@ internal sealed class AcceptingReplay : IHistoryPanelReplay
 
     public void PrewarmRecordingAvailability() { }
 
+    public Task<HistoryPanelReplayAttemptResult>? PendingReplay { get; set; }
+
+    public Func<bool>? CanCommit { get; private set; }
+
     public Task<HistoryPanelReplayAttemptResult> ReplayBattleAsync(
         HistoryBattleRecord? battle,
         bool recordVideo,
         CancellationToken cancellationToken,
         Func<bool>? canCommit = null
-    ) => Task.FromResult(HistoryPanelReplayAttemptResult.Success("replay started"));
+    )
+    {
+        CanCommit = canCommit;
+        return PendingReplay
+            ?? Task.FromResult(HistoryPanelReplayAttemptResult.Success("replay started"));
+    }
 
     // The battles whose payloads a delete asked to clean, in order.
     public List<string> CleanedBattleIds { get; } = [];
@@ -1340,7 +1558,7 @@ internal sealed class AcceptingReplay : IHistoryPanelReplay
     public ReplayPayloadCleanupResult CleanupReplayPayloads(IReadOnlyList<string> battleIds)
     {
         CleanedBattleIds.AddRange(battleIds);
-        return new ReplayPayloadCleanupResult(0, null);
+        return Cleanup?.Invoke(battleIds) ?? new ReplayPayloadCleanupResult(0, null);
     }
 
     public string GetReplayActionLabel(HistoryBattleRecord? battle) => "Replay";
@@ -1350,6 +1568,10 @@ internal sealed class AcceptingReplay : IHistoryPanelReplay
 internal sealed class SavedReplaysStub : ISavedReplayRuntime
 {
     public bool HasSavedReplaySession { get; set; }
+
+    public Func<IDisposable?> Maintenance { get; set; } = () => throw Unused();
+
+    public IDisposable? AcquirePayloadMaintenance() => Maintenance();
 
     public bool CanReplaySavedCombats(out string reason) => throw Unused();
 
@@ -1381,4 +1603,13 @@ internal sealed class StubRunContext : IRunContext
     public string? CurrentServerRunId { get; set; }
 
     public RunExitKind LastRunExitKind { get; set; }
+}
+
+internal sealed class NoRecording : IReplayRecordingAvailability
+{
+    public bool Supported => false;
+
+    public bool CanRecord() => false;
+
+    public void Prewarm() { }
 }
