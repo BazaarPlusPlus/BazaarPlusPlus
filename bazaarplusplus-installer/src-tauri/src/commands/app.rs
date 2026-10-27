@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::services::startup::InstallerContextState;
 
@@ -51,19 +51,22 @@ pub struct AppLicense {
     pub category: String,
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn get_app_bootstrap(
-    app: AppHandle,
-    state: tauri::State<'_, InstallerContextState>,
-) -> AppBootstrap {
-    let startup = state.get_or_initialize(&app);
-    let static_content = load_static_bootstrap();
-    AppBootstrap {
-        app_version: env!("CARGO_PKG_VERSION").to_string(),
-        bundled_bpp_version: startup.bundled_bpp_version.clone(),
-        links: static_content.links,
-        credits: static_content.credits,
-        licenses: static_content.licenses,
-    }
+pub async fn get_app_bootstrap(app: AppHandle) -> AppBootstrap {
+    // The first call can be the one that detects Steam and reads the bundled
+    // payload, or waits for the startup task doing so.
+    tauri::async_runtime::spawn_blocking(move || {
+        let startup = app.state::<InstallerContextState>().get_or_initialize(&app);
+        let static_content = load_static_bootstrap();
+        AppBootstrap {
+            app_version: env!("CARGO_PKG_VERSION").to_string(),
+            bundled_bpp_version: startup.bundled_bpp_version.clone(),
+            links: static_content.links,
+            credits: static_content.credits,
+            licenses: static_content.licenses,
+        }
+    })
+    .await
+    .expect("app bootstrap task panicked")
 }

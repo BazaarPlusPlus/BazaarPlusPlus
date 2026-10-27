@@ -131,10 +131,12 @@ pub async fn uninstall_mod(
     run_uninstall(app, game_path).await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn launch_game() -> Result<(), SemanticProblem> {
-    launch_game_via_steam().map_err(|diagnostic| {
+pub async fn launch_game() -> Result<(), SemanticProblem> {
+    // Opening the Steam URL spawns a subprocess.
+    let problem = |diagnostic: anyhow::Error| {
         crate::services::install::install_action_problem("launch", diagnostic)
-    })
+    };
+    crate::problem::run_blocking(problem, move || launch_game_via_steam().map_err(problem)).await
 }

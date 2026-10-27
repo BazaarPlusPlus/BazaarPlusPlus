@@ -1,4 +1,4 @@
-use crate::problem::{SemanticProblem, SemanticProblemCode};
+use crate::problem::{run_blocking, SemanticProblem, SemanticProblemCode};
 use crate::stream::{
     overlay_settings::{
         OverlayCropSettings, OverlayCropSettingsPayload, OverlaySettingsStore,
@@ -64,40 +64,54 @@ pub async fn set_stream_window(
         .map_err(|error| stream_window_problem(offset, error))
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn get_overlay_settings() -> Result<OverlayCropSettingsPayload, SemanticProblem> {
-    OverlaySettingsStore::default()
-        .load_payload()
-        .map_err(|error| stream_crop_problem("load", error))
+pub async fn get_overlay_settings() -> Result<OverlayCropSettingsPayload, SemanticProblem> {
+    with_overlay_settings("load", |store| store.load_payload()).await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn apply_overlay_crop_code(
+pub async fn apply_overlay_crop_code(
     code: String,
 ) -> Result<OverlayCropSettingsPayload, SemanticProblem> {
-    OverlaySettingsStore::default()
-        .import_code(&code)
-        .map_err(|error| stream_crop_problem("apply_code", error))
+    with_overlay_settings("apply_code", move |store| store.import_code(&code)).await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn save_overlay_display_mode(
+pub async fn save_overlay_display_mode(
     display_mode: StreamOverlayDisplayMode,
 ) -> Result<OverlayCropSettingsPayload, SemanticProblem> {
-    OverlaySettingsStore::default()
-        .save_display_mode(display_mode)
-        .map_err(|error| stream_crop_problem("save_display_mode", error))
+    with_overlay_settings("save_display_mode", move |store| {
+        store.save_display_mode(display_mode)
+    })
+    .await
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn reset_overlay_crop() -> Result<OverlayCropSettingsPayload, SemanticProblem> {
-    OverlaySettingsStore::default()
-        .save(OverlayCropSettings::default())
-        .map_err(|error| stream_crop_problem("reset", error))
+pub async fn reset_overlay_crop() -> Result<OverlayCropSettingsPayload, SemanticProblem> {
+    with_overlay_settings("reset", |store| store.save(OverlayCropSettings::default())).await
+}
+
+/// The settings file is read and written on the blocking pool, as the overlay's
+/// own crop routes do through `run_record_task`.
+async fn with_overlay_settings<F>(
+    operation: &'static str,
+    task: F,
+) -> Result<OverlayCropSettingsPayload, SemanticProblem>
+where
+    F: FnOnce(OverlaySettingsStore) -> anyhow::Result<OverlayCropSettingsPayload> + Send + 'static,
+{
+    run_blocking(
+        move |error| stream_crop_problem(operation, error),
+        move || {
+            task(OverlaySettingsStore::default())
+                .map_err(|error| stream_crop_problem(operation, error))
+        },
+    )
+    .await
 }
 
 fn stream_service_problem(operation: &str, error: anyhow::Error) -> SemanticProblem {
