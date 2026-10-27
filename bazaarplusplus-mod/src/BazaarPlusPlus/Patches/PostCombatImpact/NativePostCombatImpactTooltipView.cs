@@ -26,6 +26,11 @@ namespace BazaarPlusPlus.Patches.PostCombatImpact;
 internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactTooltipView
 {
     private const float EntityPreviewHeight = 52f;
+
+    // The native fade-in tweens the auxiliary controller's scale (BaseTooltipController DOScale),
+    // so the scale read at Show can differ from the one Position later trims with. Doubling the
+    // measured row capacity keeps it an upper bound for any such tween.
+    private const int EntityPreviewRowCapacityHeadroom = 2;
     private const float SkillPreviewTrailingPadding = 4f;
     private const float TooltipPreferredWidth = 660f;
     private const float TooltipReadableWidth = 360f;
@@ -93,6 +98,9 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     private bool _receivedPerspectiveBuilt;
     private bool _isSkill;
     private int _pendingPreviewCount;
+    private int _entityPreviewRowCapacity = int.MaxValue;
+    private int _entityPreviewRowsBuilt;
+    private int _entityPreviewRowsSkipped;
     private int _contentGeneration;
     private CombatImpactPerspective _activePerspective = CombatImpactPerspective.Caused;
 
@@ -185,6 +193,9 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         _previewCancellation = new CancellationTokenSource();
         _previewOwner = new NativePreviewOwner(auxiliary.gameObject.layer);
         _previewScope = _previewHost.OpenScope(_previewOwner);
+        _entityPreviewRowCapacity = _session.TryMeasureContentHeightLimit(out var heightLimit)
+            ? ResolveEntityPreviewRowCapacity(heightLimit)
+            : int.MaxValue;
         if (!EnsurePerspectiveBuilt(_activePerspective))
             return false;
         ApplyPerspectiveVisibility(_activePerspective);
@@ -353,6 +364,9 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         _causedBlocks.Clear();
         _receivedBlocks.Clear();
         _pendingPreviewCount = 0;
+        _entityPreviewRowCapacity = int.MaxValue;
+        _entityPreviewRowsBuilt = 0;
+        _entityPreviewRowsSkipped = 0;
         _overflowDegradedLogged = false;
         _widthDegradedLogged = false;
         _topAlignmentDegradedLogged = false;
@@ -583,6 +597,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             if (_causedRoot?.transform is not RectTransform causedRoot)
                 return false;
 
+            var causedStartedAt = BeginPerspectiveBuild();
             BuildCaused(
                 _headingTemplate,
                 _bodyTemplate,
@@ -593,6 +608,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
                 _contentGeneration
             );
             _causedPerspectiveBuilt = true;
+            LogPerspectiveBuilt(perspective, causedStartedAt);
             return true;
         }
 
@@ -601,6 +617,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         if (_receivedRoot?.transform is not RectTransform receivedRoot)
             return false;
 
+        var receivedStartedAt = BeginPerspectiveBuild();
         BuildReceived(
             _headingTemplate,
             _bodyTemplate,
@@ -611,7 +628,64 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             _contentGeneration
         );
         _receivedPerspectiveBuilt = true;
+        LogPerspectiveBuilt(perspective, receivedStartedAt);
         return true;
+    }
+
+    /// <summary>
+    /// The most entity rows, counted in build order across one perspective, that can still be
+    /// visible after <see cref="ImpactContentBudget"/> trims the panel to the canvas.
+    /// </summary>
+    /// <remarks>
+    /// The budget hides rows from the end, so the visible rows are a prefix in build order, and
+    /// each row is at least <see cref="EntityPreviewHeight"/> tall. A row past this capacity is
+    /// always trimmed into the "+N more" disclosure, so it gets no native preview: no
+    /// <c>AcquireAsync</c>, no canvas fit, no pending reveal count.
+    /// </remarks>
+    private static int ResolveEntityPreviewRowCapacity(float contentHeightLimit)
+    {
+        var rows = NativePairedTooltipPlacementMath.MaximumVisibleRows(
+            contentHeightLimit,
+            EntityPreviewHeight
+        );
+        return rows > int.MaxValue / EntityPreviewRowCapacityHeadroom
+            ? int.MaxValue
+            : rows * EntityPreviewRowCapacityHeadroom;
+    }
+
+    private long BeginPerspectiveBuild()
+    {
+        _entityPreviewRowsBuilt = 0;
+        _entityPreviewRowsSkipped = 0;
+        return System.Diagnostics.Stopwatch.GetTimestamp();
+    }
+
+    // Debug builds record what one hover built, so the cost of a perspective build and the
+    // previews it skipped can be read from LogOutput.log without a profiler.
+    [System.Diagnostics.Conditional("DEBUG")]
+    private void LogPerspectiveBuilt(CombatImpactPerspective perspective, long startedAt)
+    {
+        var elapsedMs =
+            (System.Diagnostics.Stopwatch.GetTimestamp() - startedAt)
+            * 1000d
+            / System.Diagnostics.Stopwatch.Frequency;
+        var rowsBuilt = _entityPreviewRowsBuilt;
+        var rowsSkipped = _entityPreviewRowsSkipped;
+        var capacity = _entityPreviewRowCapacity;
+        BppLog.DebugEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.interaction.perspective_built"
+            ),
+            () =>
+                [
+                    ("perspective", perspective),
+                    ("entity_rows", rowsBuilt),
+                    ("previews_skipped", rowsSkipped),
+                    ("preview_row_capacity", capacity),
+                    ("elapsed_ms", elapsedMs),
+                ]
+        );
     }
 
     private void BuildCaused(
@@ -1063,9 +1137,18 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     )
     {
         var row = CreateHorizontal(rowName, parent, 10f, preferredHeight: EntityPreviewHeight + 2f);
-        // CombatImpactProjector builds every ledger entity as the host record that carries the
-        // preview facts.
-        BuildEntityIcon(row, (CombatImpactEntity)entity, EntityPreviewHeight, generation);
+        // A row past the capacity is always trimmed, so it skips the preview column that a
+        // failed preview would hide anyway (ResolveEntityPreviewRowCapacity).
+        if (_entityPreviewRowsBuilt++ < _entityPreviewRowCapacity)
+        {
+            // CombatImpactProjector builds every ledger entity as the host record that carries
+            // the preview facts.
+            BuildEntityIcon(row, (CombatImpactEntity)entity, EntityPreviewHeight, generation);
+        }
+        else
+        {
+            _entityPreviewRowsSkipped++;
+        }
         var name = CloneText(
             textTemplate,
             row,
@@ -1528,8 +1611,11 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             layout.preferredWidth = columnWidth;
         }
 
+        // Nothing reads the row's geometry before the next canvas update or Position's full
+        // rebuild, so the row is only marked. One deferred pass replaces a synchronous rebuild
+        // per preview.
         if (column.parent is RectTransform row)
-            LayoutRebuilder.ForceRebuildLayoutImmediate(row);
+            LayoutRebuilder.MarkLayoutForRebuild(row);
         return true;
     }
 

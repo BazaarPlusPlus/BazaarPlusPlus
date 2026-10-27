@@ -7,7 +7,6 @@ using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
 using BazaarGameShared.Domain.Effect.AuraActions;
 using BazaarGameShared.Domain.Values.ReferenceValues;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.Shared;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
@@ -35,7 +34,11 @@ internal static class CombatImpactEntitySnapshotReader
         return CombatImpactEntityName.RemoveNativeEnchantmentPrefix(nativeTooltipTitle);
     }
 
-    internal static IReadOnlyDictionary<string, CombatImpactEntity> Read(CombatSim simulation)
+    /// <summary>
+    /// Reads the live cards and both players from <c>TheBazaar.Data</c>. Call it on the game
+    /// thread before the simulation plays, because these are mutable runtime objects.
+    /// </summary>
+    internal static CombatImpactRuntimeEntities ReadRuntime()
     {
         var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal);
         var order = 0;
@@ -54,29 +57,46 @@ internal static class CombatImpactEntitySnapshotReader
             AddCard(entities, card, order++);
         }
 
-        order = AddTransformedEntities(simulation, entities, order, CreateTransformedCard);
-
         var playerHero = NormalizeHero(TheBazaar.Data.Run?.Player?.Hero);
-        AddPlayer(entities, Combatant.Player, playerHero, CombatImpactEntityName.Player, order++);
         var opponentHero = NormalizeHero(TheBazaar.Data.Run?.Opponent?.Hero);
         var opponentName = TheBazaar.Data.SimPvpOpponent?.Name;
         if (string.IsNullOrWhiteSpace(opponentName))
             opponentName = ResolveOpponentName(opponentHero);
-        AddPlayer(entities, Combatant.Opponent, opponentHero, opponentName, order);
-        return entities;
+        return new CombatImpactRuntimeEntities(
+            entities,
+            order,
+            playerHero,
+            opponentHero,
+            opponentName!
+        );
     }
 
-    internal static int AddTransformedEntities(
-        CombatSim simulation,
-        IDictionary<string, CombatImpactEntity> entities,
-        int order,
-        Func<SimEventCardTransformation, Card?> createCard
+    /// <summary>
+    /// Adds the cards that transforms created during combat, then both players, after the live
+    /// cards and in the same order as before the read was split. Call it on the game thread.
+    /// Rehydrating a card reads the game's static-data cache, which a cache miss writes to. It
+    /// also reads the current run and localization. Only the scan that finds
+    /// <paramref name="transformedCards"/> may run off the game thread.
+    /// </summary>
+    internal static Dictionary<string, CombatImpactEntity> Complete(
+        CombatImpactRuntimeEntities runtime,
+        IReadOnlyList<CombatImpactTransformedCardSnapshot> transformedCards
     )
     {
-        foreach (var snapshot in CombatImpactTransformedCardSnapshotReader.Read(simulation))
-            AddTransformedEntity(snapshot, entities, ref order, createCard);
+        var entities = runtime.Entities;
+        var order = runtime.NextOrder;
+        foreach (var snapshot in transformedCards)
+            AddTransformedEntity(snapshot, entities, ref order);
 
-        return order;
+        AddPlayer(
+            entities,
+            Combatant.Player,
+            runtime.PlayerHero,
+            CombatImpactEntityName.Player,
+            order++
+        );
+        AddPlayer(entities, Combatant.Opponent, runtime.OpponentHero, runtime.OpponentName, order);
+        return entities;
     }
 
     private static Card CreateTransformedCard(SimEventCardTransformation transformed)
@@ -104,8 +124,7 @@ internal static class CombatImpactEntitySnapshotReader
     private static void AddTransformedEntity(
         CombatImpactTransformedCardSnapshot snapshot,
         IDictionary<string, CombatImpactEntity> entities,
-        ref int order,
-        Func<SimEventCardTransformation, Card?> createCard
+        ref int order
     )
     {
         var transformed = snapshot.Card;
@@ -115,10 +134,7 @@ internal static class CombatImpactEntitySnapshotReader
         )
             return;
 
-        var card = createCard(transformed);
-        if (card == null)
-            return;
-
+        var card = CreateTransformedCard(transformed);
         card.InstanceId = InstanceId.TryParse(transformed.InstanceId);
         if (Guid.TryParse(transformed.TemplateId, out var templateId))
             card.TemplateId = templateId;
@@ -464,3 +480,15 @@ internal static class CombatImpactEntitySnapshotReader
         IEnumerable<TCardAura>? Auras
     );
 }
+
+/// <summary>
+/// What <see cref="CombatImpactEntitySnapshotReader.ReadRuntime"/> copied on the game thread: the
+/// live cards keyed by instance id, the order the next entity takes, and both players.
+/// </summary>
+internal sealed record CombatImpactRuntimeEntities(
+    Dictionary<string, CombatImpactEntity> Entities,
+    int NextOrder,
+    EHero? PlayerHero,
+    EHero? OpponentHero,
+    string OpponentName
+);

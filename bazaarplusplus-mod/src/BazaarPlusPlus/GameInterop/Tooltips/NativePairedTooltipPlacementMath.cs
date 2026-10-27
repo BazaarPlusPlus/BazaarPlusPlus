@@ -163,4 +163,40 @@ internal static class NativePairedTooltipPlacementMath
             && panelHeight
                 > availableHeight - reclaimablePadding + NativePairedTooltipMetrics.Epsilon;
     }
+
+    /// <summary>
+    /// The tallest panel, in the content's local units, that fits the inset canvas height. This is
+    /// the limit the placement height budget trims to. A panel scaled up (more than one canvas
+    /// unit per local unit) is treated as unscaled, so the limit is never smaller than the canvas
+    /// gives an unscaled panel.
+    /// </summary>
+    internal static float ContentHeightLimit(
+        float canvasHeight,
+        float canvasMargin,
+        float canvasUnitsPerLocalUnit
+    )
+    {
+        var insetHeight = Mathf.Max(
+            0f,
+            canvasHeight - 2f * Mathf.Min(canvasMargin, canvasHeight * 0.5f)
+        );
+        return insetHeight / Mathf.Clamp(canvasUnitsPerLocalUnit, 0.0001f, 1f);
+    }
+
+    /// <summary>
+    /// An upper bound on how many rows, each at least <paramref name="minimumRowHeight"/> tall,
+    /// can stay visible within <paramref name="contentHeightLimit"/>. The height budget trims from
+    /// the end, so the visible rows are always a prefix. Headers, spacing and padding are not
+    /// counted, so they can only lower the true number.
+    /// </summary>
+    internal static int MaximumVisibleRows(float contentHeightLimit, float minimumRowHeight)
+    {
+        if (minimumRowHeight <= 0f)
+            return int.MaxValue;
+        var rows = Mathf.Ceil(
+            (Mathf.Max(0f, contentHeightLimit) + NativePairedTooltipMetrics.Epsilon)
+                / minimumRowHeight
+        );
+        return rows >= int.MaxValue ? int.MaxValue : (int)rows;
+    }
 }

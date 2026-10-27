@@ -2,6 +2,7 @@
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
+using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using BazaarPlusPlus.GameInterop.CombatSimulation;
@@ -159,68 +160,57 @@ internal sealed class PostCombatImpactModule : IBppFeature
         if (simulation == null)
             return;
 
-        IReadOnlyDictionary<string, CombatImpactEntity> entities;
+        CombatImpactRuntimeEntities runtimeEntities;
+        var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         try
         {
-            // This is the only Unity/game-runtime read. The expensive replay projection below
-            // operates only on the detached snapshot and immutable combat message data.
-            entities = CombatImpactEntitySnapshotReader.Read(simulation);
+            // The live cards and players are mutable runtime objects, so they are copied here,
+            // before the simulation plays. Every pass over the simulation's frames runs later,
+            // off the game thread.
+            runtimeEntities = CombatImpactEntitySnapshotReader.ReadRuntime();
         }
         catch (Exception ex)
         {
             ReportProjectionException(ex);
             return;
         }
+        LogProjectionStep("runtime_read", startedAt, runtimeEntities.Entities.Count);
 
         var cardMapLoad = _cardMapProvider.BeginLoad(out _);
-        _ = ProjectInBackgroundAsync(simulation, entities, cardMapLoad, generation);
+        _ = ProjectInBackgroundAsync(simulation, runtimeEntities, cardMapLoad, generation);
     }
 
+    // Started on the game thread by the combat-simulation prefix. The first await deliberately
+    // keeps Unity's synchronization context, so transformed cards are rehydrated back on the game
+    // thread, as LiveBuildPanel.RefreshFinalBuildsAsync relies on.
     private async Task ProjectInBackgroundAsync(
         CombatSim simulation,
-        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        CombatImpactRuntimeEntities runtimeEntities,
         Task<Dictionary<Guid, ITCard>?>? cardMapLoad,
         long generation
     )
     {
         try
         {
-            // The producer reads Core's combat timeline (ADR-0019); the copy runs off the game
-            // thread, as the projection does.
-            var timeline = await Task.Run(() => DesktopCombatTimeline.From(simulation))
-                .ConfigureAwait(false);
-            var detachedEntities = new Dictionary<string, CombatImpactEntity>(
-                entities,
-                StringComparer.Ordinal
-            );
-            if (cardMapLoad != null)
-            {
-                Dictionary<Guid, ITCard>? cardMap;
-                try
-                {
-                    cardMap = await cardMapLoad.ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Static-data enrichment is optional. Keep the ordinary projection available
-                    // if the shared card-map warmup failed for an unrelated feature.
-                    cardMap = null;
-                }
-                if (cardMap != null)
-                {
-                    // Runs on the thread pool after the first await, so AddMissing must read only
-                    // static template data and never touch Unity objects.
-                    CombatImpactImplicitPlayerEffectReader.AddMissing(
-                        timeline,
-                        detachedEntities,
-                        cardMap.Values.OfType<TCardBase>()
-                    );
-                }
-            }
-
-            var report = await Task.Run(() =>
-                    CombatImpactProjector.Project(timeline, detachedEntities)
+            // Both passes read only the immutable combat message. The producer reads Core's
+            // combat timeline (ADR-0019). The transformed-card scan finds the cards a transform
+            // created during combat, which Data.Entities does not hold.
+            var scan = await Task.Run(() =>
+                (
+                    Timeline: DesktopCombatTimeline.From(simulation),
+                    TransformedCards: CombatImpactTransformedCardSnapshotReader.Read(simulation)
                 )
+            );
+
+            // Back on the game thread, which CombatImpactEntitySnapshotReader.Complete requires.
+            var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+            var entities = CombatImpactEntitySnapshotReader.Complete(
+                runtimeEntities,
+                scan.TransformedCards
+            );
+            LogProjectionStep("transformed_read", startedAt, scan.TransformedCards.Count);
+
+            var report = await Task.Run(() => ProjectAsync(scan.Timeline, entities, cardMapLoad))
                 .ConfigureAwait(false);
             if (!_reports.TryPublish(generation, report))
                 return;
@@ -243,6 +233,58 @@ internal sealed class PostCombatImpactModule : IBppFeature
             if (_reports.TryPublish(generation, CombatImpactReport.Empty))
                 ReportProjectionException(ex);
         }
+    }
+
+    // Runs on the thread pool, so AddMissing must read only static template data and never touch
+    // Unity objects.
+    private static async Task<CombatImpactReport> ProjectAsync(
+        CombatTimeline timeline,
+        Dictionary<string, CombatImpactEntity> entities,
+        Task<Dictionary<Guid, ITCard>?>? cardMapLoad
+    )
+    {
+        if (cardMapLoad != null)
+        {
+            Dictionary<Guid, ITCard>? cardMap;
+            try
+            {
+                cardMap = await cardMapLoad.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Static-data enrichment is optional. Keep the ordinary projection available
+                // if the shared card-map warmup failed for an unrelated feature.
+                cardMap = null;
+            }
+            if (cardMap != null)
+            {
+                CombatImpactImplicitPlayerEffectReader.AddMissing(
+                    timeline,
+                    entities,
+                    cardMap.Values.OfType<TCardBase>()
+                );
+            }
+        }
+
+        return CombatImpactProjector.Project(timeline, entities);
+    }
+
+    // Debug builds time the two game-thread steps of a projection, so a profiler-free run can
+    // read the combat-start cost from LogOutput.log.
+    [System.Diagnostics.Conditional("DEBUG")]
+    private static void LogProjectionStep(string step, long startedAt, int entityCount)
+    {
+        var elapsedMs =
+            (System.Diagnostics.Stopwatch.GetTimestamp() - startedAt)
+            * 1000d
+            / System.Diagnostics.Stopwatch.Frequency;
+        BppLog.DebugEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.projection.game_thread_step"
+            ),
+            () => [("step", step), ("entity_count", entityCount), ("elapsed_ms", elapsedMs)]
+        );
     }
 
     private static void ReportProjectionException(Exception ex)

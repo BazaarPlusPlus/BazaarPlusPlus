@@ -398,6 +398,31 @@ internal sealed class NativePairedTooltipSession
         return true;
     }
 
+    /// <summary>
+    /// Measures the tallest content, in its local units, that <see cref="Position"/> could leave
+    /// visible on the current canvas (<see cref="NativePairedTooltipPlacementMath.ContentHeightLimit"/>).
+    /// Owners call it after <see cref="TryOpen"/>, while they build content, to skip work for rows
+    /// the height budget would hide. Returns false when the pair has no canvas yet.
+    /// </summary>
+    internal bool TryMeasureContentHeightLimit(out float contentHeightLimit)
+    {
+        contentHeightLimit = 0f;
+        if (
+            _activeAuxiliary == null
+            || _activePrimary == null
+            || _activePrimary.RootCanvasComponent == null
+            || _activePrimary.RootCanvasComponent.transform is not RectTransform canvasRect
+        )
+            return false;
+
+        contentHeightLimit = NativePairedTooltipPlacementMath.ContentHeightLimit(
+            canvasRect.rect.height,
+            _options.CanvasMargin,
+            CanvasUnitsPerLocalUnit(_activeAuxiliary.PositioningRectTransform, canvasRect)
+        );
+        return true;
+    }
+
     // ── Placement ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>
