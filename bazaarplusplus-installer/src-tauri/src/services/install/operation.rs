@@ -8,7 +8,7 @@ use crate::problem::{run_blocking, SemanticProblem};
 use crate::services::{
     action_error::ActionError,
     bepinex::{self, install_bepinex},
-    detect::{detect_for_install, InstallEnvironmentSnapshot},
+    detect::{detect_for_install, BundleVerification, InstallEnvironmentSnapshot},
     startup::InstallerContextState,
     steam::prepare_steam_for_config_update,
     vdf::{clear_launch_options_for_steam, SteamLaunchOptionsState},
@@ -40,6 +40,7 @@ fn install_on_blocking_thread(
         app.clone(),
         app.state::<InstallerContextState>(),
         Some(game_path.clone()),
+        &BundleVerification::Verify,
     )?;
     let steam_path = before.steam_path.clone().unwrap_or_default();
     let requires_macos_bootstrap = cfg!(target_os = "macos");
@@ -58,8 +59,13 @@ fn install_on_blocking_thread(
         game_path: game_path.clone(),
     };
 
-    execute_and_refresh(&before, &mut effects, || {
-        build_install_state_raw(app, Some(game_path))
+    execute_and_refresh(&before, &mut effects, |bundle_verified| {
+        let verification = if bundle_verified {
+            BundleVerification::VerifiedIn(game_path.clone().into())
+        } else {
+            BundleVerification::Verify
+        };
+        build_install_state_raw(app, Some(game_path), &verification)
     })
 }
 
@@ -96,15 +102,23 @@ impl InstallEffects for ProductionInstallEffects {
     }
 }
 
+/// `refresh` learns whether this operation verified the bundle signature with
+/// nothing written inside the bundle since: the trampoline effect seals and
+/// verifies it, and the effects after it touch only the game directory root
+/// and Steam's configuration. An empty plan means the detection that produced
+/// `facts` verified it a moment ago.
 fn execute_and_refresh<T>(
     facts: &InstallEnvironmentSnapshot,
     effects: &mut impl InstallEffects,
-    refresh: impl FnOnce() -> anyhow::Result<T>,
+    refresh: impl FnOnce(bool) -> anyhow::Result<T>,
 ) -> Result<T, ActionError> {
-    for effect in plan_install(facts) {
+    let plan = plan_install(facts);
+    let bundle_verified = plan.contains(&InstallEffect::InstallTrampoline)
+        || (plan.is_empty() && facts.trampoline_current);
+    for effect in plan {
         effects.execute(effect)?;
     }
-    Ok(refresh()?)
+    Ok(refresh(bundle_verified)?)
 }
 
 #[cfg(test)]
@@ -153,7 +167,7 @@ mod tests {
         };
         let mut refreshed = false;
 
-        let error = execute_and_refresh(&facts(false, false), &mut recorder, || {
+        let error = execute_and_refresh(&facts(false, false), &mut recorder, |_| {
             refreshed = true;
             Ok(())
         })
@@ -164,6 +178,29 @@ mod tests {
         assert_eq!(
             recorder.effects.last(),
             Some(&InstallEffect::InstallBepInEx)
+        );
+    }
+
+    /// Failure mode: the detection after an install either verifies the
+    /// signature the trampoline effect has just verified, or skips a
+    /// verification no effect of this operation performed.
+    #[test]
+    fn the_refresh_reuses_only_a_verification_this_operation_performed() {
+        let refreshed_with = |facts: InstallEnvironmentSnapshot| {
+            execute_and_refresh(&facts, &mut Recorder::default(), Ok).unwrap()
+        };
+
+        // Nothing to do: the detection that found it ready verified it.
+        assert!(refreshed_with(facts(true, true)));
+        // On macOS every non-empty plan ends with the trampoline effect, which
+        // seals and verifies the bundle; elsewhere nothing verifies it.
+        assert_eq!(
+            refreshed_with(facts(false, false)),
+            cfg!(target_os = "macos")
+        );
+        assert_eq!(
+            refreshed_with(facts(true, false)),
+            cfg!(target_os = "macos")
         );
     }
 }
@@ -291,7 +328,7 @@ mod fresh_install_acceptance {
             steam_path: steam.to_string_lossy().into_owned(),
             game_path: game.to_string_lossy().into_owned(),
         });
-        let verified = execute_and_refresh(&facts, &mut effects, || {
+        let verified = execute_and_refresh(&facts, &mut effects, |_| {
             let mut archive = zip::ZipArchive::new(
                 std::fs::File::open(resources.join("BepInExSource/BepInEx.zip")).unwrap(),
             )

@@ -424,20 +424,34 @@ mod imp {
     }
 }
 
+/// `signature_verified` skips only the deep signature verification, for the
+/// one caller that has just sealed and verified this bundle itself.
 #[cfg(target_os = "macos")]
-pub(crate) fn is_current_trampoline(app: &AppHandle, game_path: &Path) -> anyhow::Result<bool> {
-    is_current_with_stub(game_path, &imp::stub_resource_path(app)?)
+pub(crate) fn is_current_trampoline(
+    app: &AppHandle,
+    game_path: &Path,
+    signature_verified: bool,
+) -> anyhow::Result<bool> {
+    is_current_with_stub(
+        game_path,
+        &imp::stub_resource_path(app)?,
+        signature_verified,
+    )
 }
 
 #[cfg(target_os = "macos")]
-fn is_current_with_stub(game_path: &Path, bundled: &Path) -> anyhow::Result<bool> {
+fn is_current_with_stub(
+    game_path: &Path,
+    bundled: &Path,
+    signature_verified: bool,
+) -> anyhow::Result<bool> {
     // One `plutil` read of `CFBundleExecutable` serves the whole check.
     let layout = imp::bundle_paths(game_path)?;
     if !imp::is_trampolined(&layout)? {
         return Ok(false);
     }
     Ok(trampoline_builds_match(&layout.exe_path, bundled)?
-        && imp::verify_bundle(&layout.app_path).is_ok())
+        && (signature_verified || imp::verify_bundle(&layout.app_path).is_ok()))
 }
 
 #[cfg(target_os = "macos")]
@@ -660,7 +674,11 @@ fn read_macho_uuid(path: &Path) -> anyhow::Result<[u8; 16]> {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub(crate) fn is_current_trampoline(_app: &AppHandle, _game_path: &Path) -> anyhow::Result<bool> {
+pub(crate) fn is_current_trampoline(
+    _app: &AppHandle,
+    _game_path: &Path,
+    _signature_verified: bool,
+) -> anyhow::Result<bool> {
     Ok(true)
 }
 
@@ -789,7 +807,7 @@ mod tests {
         );
         for _ in 0..3 {
             imp::install_with_stub(game.path(), &stub).unwrap();
-            assert!(is_current_with_stub(game.path(), &stub).unwrap());
+            assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
             assert!(imp::links_unity(&layout.orig_path).unwrap());
             assert!(!layout.app_path.join("TheBazaar_ARM64.app").exists());
         }
@@ -808,21 +826,21 @@ mod tests {
         // Steam restores its executable and duplicate over the existing .orig.
         std::fs::copy(clean.join("Contents/MacOS/The Bazaar"), &layout.exe_path).unwrap();
         copy_tree(&clean, &layout.app_path.join("TheBazaar_ARM64.app"));
-        assert!(!is_current_with_stub(game.path(), &stub).unwrap());
+        assert!(!is_current_with_stub(game.path(), &stub, false).unwrap());
         imp::install_with_stub(game.path(), &stub).unwrap();
-        assert!(is_current_with_stub(game.path(), &stub).unwrap());
+        assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
 
         // Resource damage must change readiness even when the stub UUID matches.
         let resource = layout.app_path.join("Contents/Resources/Data/boot.config");
         std::fs::write(&resource, b"changed").unwrap();
-        assert!(!is_current_with_stub(game.path(), &stub).unwrap());
+        assert!(!is_current_with_stub(game.path(), &stub, false).unwrap());
         imp::install_with_stub(game.path(), &stub).unwrap();
-        assert!(is_current_with_stub(game.path(), &stub).unwrap());
+        assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
 
         // A shared-bootstrap uninstall removes an in-bundle plugin, then seals.
         std::fs::remove_file(&resource).unwrap();
         finalize_game_bundle(game.path()).unwrap();
-        assert!(is_current_with_stub(game.path(), &stub).unwrap());
+        assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
         let error = with_finalized_bundle(game.path(), || {
             imp::uninstall_trampoline(game.path())?;
             Err(anyhow!("simulated payload removal failure"))
@@ -858,7 +876,7 @@ mod tests {
         assert!(!layout.orig_path.exists());
         imp::verify_bundle(&layout.app_path).unwrap();
         imp::install_with_stub(game.path(), &stub).unwrap();
-        assert!(is_current_with_stub(game.path(), &stub).unwrap());
+        assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
     }
 
     #[test]
@@ -949,7 +967,7 @@ mod tests {
         let stub = resources.join("Trampoline/bpp_launcher");
         for iteration in 1..=3 {
             imp::install_with_stub(game.path(), &stub).unwrap();
-            assert!(is_current_with_stub(game.path(), &stub).unwrap());
+            assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
             assert!(!app.join("TheBazaar_ARM64.app").exists());
             eprintln!("Copied Steam bundle repair {iteration}: strict signature and current stub verified");
         }
@@ -965,7 +983,7 @@ mod tests {
                 bpp_version: crate::services::detect::read_installed_bpp_version(game.path()),
                 bundled_bpp_version: Some(bundled_version.trim().to_owned()),
                 steam_launch_options: crate::services::vdf::SteamLaunchOptionsState::Empty,
-                trampoline_current: is_current_with_stub(game.path(), &stub).unwrap(),
+                trampoline_current: is_current_with_stub(game.path(), &stub, false).unwrap(),
                 obsolete_macos_artifacts_present: super::super::obsolete_macos_artifacts_present(
                     game.path(),
                 ),
@@ -1036,7 +1054,7 @@ mod tests {
                 crate::services::file_manifest::json(&crate::goldens::tree_manifest(game.path()))
                     .unwrap()
             );
-            assert!(is_current_with_stub(game.path(), &stub).unwrap());
+            assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
             assert_eq!(
                 std::fs::read(game.path().join("BepInEx/plugins/BazaarPlusPlus.dll")).unwrap(),
                 b"developer-payload"

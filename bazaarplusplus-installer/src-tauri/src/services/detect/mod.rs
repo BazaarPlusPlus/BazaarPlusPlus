@@ -8,7 +8,17 @@ use crate::services::game_path::GamePathAcceptance;
 use crate::services::selected_game_installation::SelectedGameInstallationState;
 use crate::services::startup::InstallerContextState;
 use crate::services::vdf::SteamLaunchOptionsState;
+use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
+
+/// Whether detection verifies the game bundle's signature itself.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum BundleVerification {
+    Verify,
+    /// The operation now detecting sealed and verified the bundle in this game
+    /// directory, and nothing it ran since writes inside the bundle.
+    VerifiedIn(PathBuf),
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct InstallEnvironmentSnapshot {
@@ -27,6 +37,7 @@ pub fn detect_for_install(
     app: AppHandle,
     state: State<'_, InstallerContextState>,
     game_path: Option<String>,
+    verification: &BundleVerification,
 ) -> anyhow::Result<InstallEnvironmentSnapshot> {
     crate::services::debug_log!(
         "[detect_for_install] start requested_game_path={:?}",
@@ -56,9 +67,16 @@ pub fn detect_for_install(
     // macOS bootstrap facts are recomputed on every detection so Steam Verify,
     // game updates, launch-option edits, and obsolete files immediately route
     // the UI to Repair. Other platforms have no Steam launch-option invariant.
+    // Only the detection that ends an install, for the directory that install
+    // just verified, reuses its signature verification.
     let trampoline_current = game_path
         .as_ref()
-        .map(|path| crate::services::bepinex::is_current_trampoline(&app, path).unwrap_or(false))
+        .map(|path| {
+            let signature_verified =
+                matches!(verification, BundleVerification::VerifiedIn(verified) if verified == path);
+            crate::services::bepinex::is_current_trampoline(&app, path, signature_verified)
+                .unwrap_or(false)
+        })
         .unwrap_or(false);
     let obsolete_macos_artifacts_present = game_path
         .as_ref()

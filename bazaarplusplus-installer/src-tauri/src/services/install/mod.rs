@@ -20,7 +20,7 @@ use crate::services::{
     action_error::ActionError,
     bepinex::{reset_bepinex_folder, reset_bpp_data, uninstall_bpp},
     data_maintenance::DataMaintenanceLock,
-    detect::detect_for_install,
+    detect::{detect_for_install, BundleVerification},
     legacy_data::{
         delete_legacy_root, legacy_data_presence, legacy_data_state, DeleteLegacyRootResult,
         LegacyDataPresence, LegacyDataState,
@@ -51,15 +51,21 @@ fn build_install_state(
     app: &tauri::AppHandle,
     game_path: Option<String>,
 ) -> Result<InstallState, SemanticProblem> {
-    build_install_state_raw(app, game_path).map_err(install_detection_problem)
+    build_install_state_raw(app, game_path, &BundleVerification::Verify)
+        .map_err(install_detection_problem)
 }
 
 pub(super) fn build_install_state_raw(
     app: &tauri::AppHandle,
     game_path: Option<String>,
+    verification: &BundleVerification,
 ) -> anyhow::Result<InstallState> {
-    let snapshot =
-        detect_for_install(app.clone(), app.state::<InstallerContextState>(), game_path)?;
+    let snapshot = detect_for_install(
+        app.clone(),
+        app.state::<InstallerContextState>(),
+        game_path,
+        verification,
+    )?;
     Ok(install_state_from_snapshot(snapshot))
 }
 
