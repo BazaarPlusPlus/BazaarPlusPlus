@@ -27,9 +27,10 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
 {
     private const float EntityPreviewHeight = 52f;
 
-    // The native fade-in tweens the auxiliary controller's scale (BaseTooltipController DOScale),
-    // so the scale read at Show can differ from the one Position later trims with. Doubling the
-    // measured row capacity keeps it an upper bound for any such tween.
+    // The row capacity is measured once, at Show. The controller only reaches Show after the native
+    // fade-in completes, so the scale is already final. The canvas can still grow before a later
+    // Position or a lazily built Received perspective (a window resize, a fullscreen toggle), and
+    // doubling the capacity keeps it an upper bound unless the canvas more than doubles.
     private const int EntityPreviewRowCapacityHeadroom = 2;
     private const float SkillPreviewTrailingPadding = 4f;
     private const float TooltipPreferredWidth = 660f;

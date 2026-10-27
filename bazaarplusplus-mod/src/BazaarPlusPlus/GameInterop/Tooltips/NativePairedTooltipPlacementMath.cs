@@ -185,13 +185,18 @@ internal static class NativePairedTooltipPlacementMath
 
     /// <summary>
     /// An upper bound on how many rows, each at least <paramref name="minimumRowHeight"/> tall,
-    /// can stay visible within <paramref name="contentHeightLimit"/>. The height budget trims from
-    /// the end, so the visible rows are always a prefix. Headers, spacing and padding are not
-    /// counted, so they can only lower the true number.
+    /// fit within <paramref name="contentHeightLimit"/>. Any other content only lowers the true
+    /// number. A non-finite input (degenerate geometry) gives no bound.
     /// </summary>
     internal static int MaximumVisibleRows(float contentHeightLimit, float minimumRowHeight)
     {
-        if (minimumRowHeight <= 0f)
+        if (
+            float.IsNaN(contentHeightLimit)
+            || float.IsInfinity(contentHeightLimit)
+            || float.IsNaN(minimumRowHeight)
+            || float.IsInfinity(minimumRowHeight)
+            || minimumRowHeight <= 0f
+        )
             return int.MaxValue;
         var rows = Mathf.Ceil(
             (Mathf.Max(0f, contentHeightLimit) + NativePairedTooltipMetrics.Epsilon)

@@ -21,6 +21,11 @@ internal sealed class PostCombatImpactModule : IBppFeature
     private readonly BppStaticCardMapProvider _cardMapProvider;
     private readonly CombatImpactReportRegistry _reports = new();
     private bool _started;
+
+    // The newest projection generation, written and read only on the game thread. A projection
+    // whose generation is no longer this one, or that resumes after Stop, skips its remaining
+    // game-thread work: TryPublish would discard its report anyway.
+    private long _gameThreadGeneration;
     private PostCombatImpactController? _runtime;
 
     internal PostCombatImpactModule(BppStaticCardMapProvider cardMapProvider)
@@ -129,6 +134,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
     public void Stop()
     {
         _started = false;
+        _gameThreadGeneration = 0;
         _reports.Reset();
         _runtime?.HideDetails();
     }
@@ -157,6 +163,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
     private void BeginProjection(CombatSim? simulation)
     {
         var generation = _reports.BeginGeneration();
+        _gameThreadGeneration = generation;
         if (simulation == null)
             return;
 
@@ -182,7 +189,8 @@ internal sealed class PostCombatImpactModule : IBppFeature
 
     // Started on the game thread by the combat-simulation prefix. The first await deliberately
     // keeps Unity's synchronization context, so transformed cards are rehydrated back on the game
-    // thread, as LiveBuildPanel.RefreshFinalBuildsAsync relies on.
+    // thread, as LiveBuildPanel.RefreshFinalBuildsAsync relies on
+    // (src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildPanel.cs).
     private async Task ProjectInBackgroundAsync(
         CombatSim simulation,
         CombatImpactRuntimeEntities runtimeEntities,
@@ -203,6 +211,8 @@ internal sealed class PostCombatImpactModule : IBppFeature
             );
 
             // Back on the game thread, which CombatImpactEntitySnapshotReader.Complete requires.
+            if (!_started || generation != _gameThreadGeneration)
+                return;
             var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
             var entities = CombatImpactEntitySnapshotReader.Complete(
                 runtimeEntities,
@@ -269,8 +279,9 @@ internal sealed class PostCombatImpactModule : IBppFeature
         return CombatImpactProjector.Project(timeline, entities);
     }
 
-    // Debug builds time the two game-thread steps of a projection, so a profiler-free run can
-    // read the combat-start cost from LogOutput.log.
+    // Temporary timing probe for issue #528: Debug builds time the two game-thread steps of a
+    // projection, so a profiler-free run can read the combat-start cost from LogOutput.log. Delete
+    // it in the commit that decides P-22 step 2 (moving template analysis off the game thread).
     [System.Diagnostics.Conditional("DEBUG")]
     private static void LogProjectionStep(string step, long startedAt, int entityCount)
     {

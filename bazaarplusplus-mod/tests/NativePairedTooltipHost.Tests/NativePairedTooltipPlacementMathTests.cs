@@ -480,4 +480,17 @@ public class NativePairedTooltipPlacementMathTests
     [Fact]
     public void Visible_row_bound_is_unbounded_for_rows_without_height() =>
         Assert.Equal(int.MaxValue, NativePairedTooltipPlacementMath.MaximumVisibleRows(1000f, 0f));
+
+    [Theory]
+    [InlineData(float.NaN, 52f)]
+    [InlineData(float.PositiveInfinity, 52f)]
+    [InlineData(1000f, float.NaN)]
+    public void Visible_row_bound_is_unbounded_for_degenerate_geometry(
+        float contentHeightLimit,
+        float rowHeight
+    ) =>
+        Assert.Equal(
+            int.MaxValue,
+            NativePairedTooltipPlacementMath.MaximumVisibleRows(contentHeightLimit, rowHeight)
+        );
 }
