@@ -45,6 +45,83 @@ internal static class BundleSealFailureTests
         await OversizedTerminalEventRemainsTerminalAsync(Path.Combine(root, "budget-terminal"));
         await WorkerWakesOnRunCompletionAsync(Path.Combine(root, "worker-wake"));
         await UploadValidationWakesIdleWorkerAsync(Path.Combine(root, "upload-wake"));
+        await LateDiscoveryKeepsLateInputsAsync(Path.Combine(root, "late-discovery"));
+    }
+
+    // The input deadline is the Run's end plus two minutes, fixed when the job is created, so a
+    // Run first discovered after it (at startup, on resume, or by the safety pass after a missed
+    // completion report) seals at once with every input that has landed by then: discovering
+    // later can delay a Bundle but never drops an input a timely discovery would have kept.
+    private static async Task LateDiscoveryKeepsLateInputsAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        var passes = 0;
+        void Count(BundleSealStage stage, string subject)
+        {
+            if (stage == BundleSealStage.ScreenshotTerminal)
+                Interlocked.Increment(ref passes);
+        }
+        // Ended five minutes ago, its inputs landing only now, and never reported completed.
+        void AddLateRun(string runId)
+        {
+            fixture.AddCompletedRun(runId, endedMinutesAgo: 5, screenshotRequested: true);
+            fixture.AddBattle(runId, runId + "-battle", recordedMinutesAgo: 6);
+            SealInputs.SaveReplay(fixture.Replays, runId + "-battle");
+            fixture.AddScreenshot(runId);
+        }
+        void RequireAllInputs(string runId, string discovery)
+        {
+            var payload = fixture.PendingPayload(runId, out var opened);
+            Require(
+                opened.Screenshot is { Length: > 0 }
+                    && !payload.Degradation.ScreenshotOmitted
+                    && payload.ReplayableBattleIds.SequenceEqual([runId + "-battle"])
+                    && payload.Degradation.ReplayOmittedBattleIds.Count == 0,
+                $"Discovered {discovery}, past its deadline, the Run seals with its late inputs."
+            );
+        }
+
+        AddLateRun("startup-run");
+        using (var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services, Count))
+        {
+            coordinator.Start();
+            await Eventually(
+                () => fixture.OutboxCount("startup-run") == 1,
+                "Startup discovery seals a Run left from an earlier launch."
+            );
+            RequireAllInputs("startup-run", "at startup");
+
+            await Quiescent(() => Volatile.Read(ref passes));
+            coordinator.Pause();
+            AddLateRun("resume-run");
+            fixture.Services.EventBus.Publish(new RunLogRunCompleted { RunId = "resume-run" });
+            await Quiescent(() => Volatile.Read(ref passes));
+            Require(fixture.OutboxCount("resume-run") == 0, "A paused worker seals nothing.");
+            coordinator.Resume();
+            await Eventually(
+                () => fixture.OutboxCount("resume-run") == 1,
+                "Resume discovery seals a Run completed while paused."
+            );
+            RequireAllInputs("resume-run", "on resume");
+
+            await Quiescent(() => Volatile.Read(ref passes));
+            AddLateRun("missed-run");
+            await Quiescent(() => Volatile.Read(ref passes));
+            Require(
+                fixture.OutboxCount("missed-run") == 0,
+                "Without its completion report the idle worker leaves the Run to the safety pass."
+            );
+        }
+
+        // The safety pass is a full pass with job discovery, the pass ReconcileAsync runs; its
+        // 300 s timing is pinned by BundleSealWakeSchedule in BundleSealConvergence.Tests.
+        using (var safetyPass = DesktopBundleSealCoordinator.Create(fixture.Services))
+            await safetyPass.ReconcileAsync(CancellationToken.None);
+        Require(
+            fixture.OutboxCount("missed-run") == 1,
+            "The safety pass seals a Run whose completion report was missed."
+        );
+        RequireAllInputs("missed-run", "by the safety pass");
     }
 
     private static async Task UploadValidationWakesIdleWorkerAsync(string root)
