@@ -334,24 +334,86 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
 // --- An accepted catalog sorts names within a facet in the culture's case-insensitive order ---
 {
     var names = new[] { "beta", "Delta", "alpha", "Gamma", "Älpha", "charlie", "Bravo" };
-    var cards = names.Select(name => Card(name, CardTier.Bronze)).ToArray();
+    // "alpha", "ALPHA" and "Alpha" compare equal ignoring case and share one rank; their sizes
+    // differ, so the facet orders them and the expected sequence has no tie.
+    CollectionCardVm[] BuildCards() =>
+        names
+            .Select(name => Card(name, CardTier.Bronze))
+            .Append(Card("ALPHA", CardTier.Bronze, size: CardSize.Large))
+            .Append(Card("Alpha", CardTier.Bronze, size: CardSize.Small))
+            .ToArray();
+    var expected = new[] { "Alpha" }
+        .Concat(names.OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase))
+        .Append("ALPHA")
+        .ToArray();
     grid.Reset();
     prefs.Reset();
     var state = CreateState();
-    state.AcceptCatalog(cards);
-    var expected = names.OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+    state.AcceptCatalog(BuildCards());
     AssertTrue(
         grid.LastPublishedCards.Select(card => card.DisplayName).SequenceEqual(expected),
         "The accepted catalog's ranked name order must match the culture comparison."
     );
     // The same names in a list no catalog ranked compare directly, in the same order.
-    var unranked = CollectionFilterEngine.Apply(
-        names.Select(name => Card(name, CardTier.Bronze)).ToArray(),
-        new CollectionFilterState()
-    );
+    var unranked = CollectionFilterEngine.Apply(BuildCards(), new CollectionFilterState());
     AssertTrue(
         unranked.Select(card => card.DisplayName).SequenceEqual(expected),
         "An unranked list must sort names in the same culture order."
+    );
+}
+
+// --- Open from a cached list, then accept a different list: the accepted list's state wins ---
+{
+    var cachedCards = new[]
+    {
+        Card("Old Tool", CardTier.Bronze, tags: new[] { CardTag.Tool }),
+        Card("Old Vanessa", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }),
+    };
+    var rebuiltCards = new[]
+    {
+        Card(
+            "zeta Weapon",
+            CardTier.Bronze,
+            tags: new[] { CardTag.Weapon },
+            heroes: new[] { CardHero.Vanessa }
+        ),
+        Card(
+            "Alpha Weapon",
+            CardTier.Bronze,
+            tags: new[] { CardTag.Weapon },
+            heroes: new[] { CardHero.Vanessa }
+        ),
+        Card("Dragon Item", CardTier.Bronze, heroes: new[] { CardHero.TheDragons }),
+    };
+    grid.Reset();
+    prefs.Reset();
+    var state = CreateState();
+    var opened = state.Open(
+        CollectionOpenFacts.OutOfRun(cachedCards, Array.Empty<BPPSupporterSample>())
+    );
+    AssertFalse(
+        opened.Render.Model.AvailableHeroes.Contains(CardHero.TheDragons),
+        "Precondition: the cached list has no Dragons cards."
+    );
+    AssertEqual(
+        (CardHero?)CardHero.Vanessa,
+        opened.Selection.SelectedHero,
+        "Precondition: an out-of-run open without a remembered hero picks Vanessa."
+    );
+    var accepted = state.AcceptCatalog(rebuiltCards);
+    AssertTrue(
+        accepted.Model.AvailableHeroes.Contains(CardHero.TheDragons),
+        "A different accepted list must recompute the available heroes."
+    );
+    AssertTrue(
+        accepted.Model.AvailableTags.Contains(CardTag.Weapon)
+            && !accepted.Model.AvailableTags.Contains(CardTag.Tool),
+        "A different accepted list must recompute the facets."
+    );
+    AssertTrue(
+        grid.LastPublishedCards.Select(card => card.DisplayName)
+            .SequenceEqual(new[] { "Alpha Weapon", "zeta Weapon" }),
+        "A different accepted list must be queried and sorted by its own names."
     );
 }
 

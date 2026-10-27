@@ -65,7 +65,7 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
         }
 
         // PlayerPrefs.Save writes to disk (the registry on Windows); a hero click only stages
-        // the value and the panel flushes it on close or app pause.
+        // the value and the panel flushes it on close, focus loss, pause or destroy.
         PlayerPrefs.SetString(BuildScopedPrefsKey(), CollectionPanelHeroPreference.Serialize(hero));
         _unsaved = true;
     }
@@ -74,8 +74,9 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
     {
         if (!_unsaved)
             return;
-        _unsaved = false;
+        // Cleared only after the write, so a save that throws is retried on the next flush.
         PlayerPrefs.Save();
+        _unsaved = false;
     }
 
     private string BuildScopedPrefsKey()

@@ -148,7 +148,7 @@ internal sealed class AndroidCollectionHeroPreferenceStore : ICollectionPanelHer
             return;
         }
         // PlayerPrefs.Save rewrites the SharedPreferences file; a hero tap only stages the value
-        // and the panel flushes it on close or app pause.
+        // and the panel flushes it on close or when the app pauses (leaves the foreground).
         PlayerPrefs.SetString(Key(), CollectionPanelHeroPreference.Serialize(hero));
         _unsaved = true;
     }
@@ -157,8 +157,9 @@ internal sealed class AndroidCollectionHeroPreferenceStore : ICollectionPanelHer
     {
         if (!_unsaved)
             return;
-        _unsaved = false;
+        // Cleared only after the write, so a save that throws is retried on the next flush.
         PlayerPrefs.Save();
+        _unsaved = false;
     }
 
     private static string Key()

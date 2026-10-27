@@ -19,13 +19,11 @@ internal static class CollectionTierTooltipPreview
     private static bool _isRenderingVariant;
 
     // One card's render runs the active, passive and cooldown postfixes back to back, and each
-    // needs the same tier list and tier variants. The slot holds the last card's, keyed by its
-    // instance, template and tier; a different card replaces it whole. Reuse is safe: rendering
-    // only fills CardTooltipData's own compiled-tooltip memo, and native lock-variant previews
-    // render their own card copies, which the registry never holds.
-    [ThreadStatic]
-    private static VariantSlot? _variantSlot;
-
+    // needs the same tier list and tier variants. The registry's preview slot holds the last
+    // card's, keyed by its instance, template and tier; a different card replaces it whole, and
+    // unregistering the card drops it. Reuse is safe: rendering only fills CardTooltipData's own
+    // compiled-tooltip memo, and native lock-variant previews render their own card copies,
+    // which the registry never holds.
     public static bool IsRenderingVariant => _isRenderingVariant;
 
     public static void MergeActive(
@@ -221,15 +219,18 @@ internal static class CollectionTierTooltipPreview
         )
             return false;
 
-        var cached = _variantSlot;
-        if (cached == null || !cached.Matches(tooltipData))
+        var card = tooltipData.CardInstance;
+        if (
+            CollectionTierTooltipRegistry.PreviewSlotFor(card) is not VariantSlot cached
+            || !cached.Matches(tooltipData)
+        )
         {
             var tiers = tierData
                 .Tiers.Keys.Where(tier => tier >= tooltipData.CardTemplate.StartingTier)
                 .OrderBy(tier => tier)
                 .ToArray();
             cached = new VariantSlot(tooltipData, tiers);
-            _variantSlot = cached;
+            CollectionTierTooltipRegistry.SetPreviewSlot(card, cached);
         }
 
         slot = cached;

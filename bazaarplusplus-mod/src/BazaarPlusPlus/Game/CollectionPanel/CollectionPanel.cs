@@ -553,8 +553,15 @@ internal sealed class CollectionPanel : MonoBehaviour
         _overlay?.SetVisible(false);
     }
 
-    // Desktop builds pause when they lose focus with Run In Background off; write a hero choice
-    // staged by a panel that is still open.
+    // A hero choice staged by a panel that is still open reaches disk when the game loses focus
+    // (alt-tab, another window). Desktop Unity sends OnApplicationPause only with Run In
+    // Background off, which the game does not rely on, so focus is the message that fires.
+    private void OnApplicationFocus(bool focused)
+    {
+        if (!focused)
+            _heroPreferenceStore.Flush();
+    }
+
     private void OnApplicationPause(bool paused)
     {
         if (paused)

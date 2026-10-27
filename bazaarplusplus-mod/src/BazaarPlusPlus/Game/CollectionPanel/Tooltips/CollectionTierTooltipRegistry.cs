@@ -9,6 +9,15 @@ internal static class CollectionTierTooltipRegistry
     private static readonly object Gate = new();
     private static readonly HashSet<Card> Cards = new(ReferenceCardComparer.Instance);
 
+    // The tier tooltip's render cache for the last hovered card, owned by the tooltip patch.
+    // Unregistering that card drops it, so a released card (and the run its tooltip data
+    // captured) is not kept alive past a recycle, the closed panel's release or a scene change.
+    [ThreadStatic]
+    private static Card? _previewSlotCard;
+
+    [ThreadStatic]
+    private static object? _previewSlot;
+
     public static void Register(Card? card)
     {
         if (card == null)
@@ -23,6 +32,11 @@ internal static class CollectionTierTooltipRegistry
             return;
         lock (Gate)
             Cards.Remove(card);
+        if (ReferenceEquals(_previewSlotCard, card))
+        {
+            _previewSlotCard = null;
+            _previewSlot = null;
+        }
     }
 
     public static bool Contains(Card? card)
@@ -31,6 +45,15 @@ internal static class CollectionTierTooltipRegistry
             return false;
         lock (Gate)
             return Cards.Contains(card);
+    }
+
+    public static object? PreviewSlotFor(Card card) =>
+        ReferenceEquals(_previewSlotCard, card) ? _previewSlot : null;
+
+    public static void SetPreviewSlot(Card card, object slot)
+    {
+        _previewSlotCard = card;
+        _previewSlot = slot;
     }
 
     private sealed class ReferenceCardComparer : IEqualityComparer<Card>
