@@ -47,6 +47,8 @@ pub fn run() {
                 .build(),
         );
 
+    // Cleanup plans watch the same lock Reset and the V5 import hold.
+    let maintenance = crate::services::data_maintenance::DataMaintenanceLock::default();
     let app = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -55,8 +57,10 @@ pub fn run() {
             crate::services::selected_game_installation::SelectedGameInstallationState::default(),
         )
         .manage(crate::stream::runtime::StreamRuntime::default())
-        .manage(crate::services::data_maintenance::DataMaintenanceLock::default())
-        .manage(crate::services::history::CleanupPlans::default())
+        .manage(crate::services::history::CleanupPlans::new(
+            maintenance.clone(),
+        ))
+        .manage(maintenance)
         .manage(crate::stream::history_thumbnails::HistoryThumbnails::default())
         .manage(InstallerContextState::default())
         .manage(TrayMenuState::default())

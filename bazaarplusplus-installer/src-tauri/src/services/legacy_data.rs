@@ -99,8 +99,9 @@ pub struct LegacyDataState {
 }
 
 /// What the History unavailable guidance needs to know about the Legacy
-/// Roots: which exist, never their size. Reading it lists the game directory
-/// and never walks into a root.
+/// Roots: which exist, never their size. Reading it stats the root and marker
+/// paths and reads the installed mod's contract file; it never walks into a
+/// root.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, specta::Type)]
 pub struct LegacyDataPresence {
     pub game_path: Option<String>,

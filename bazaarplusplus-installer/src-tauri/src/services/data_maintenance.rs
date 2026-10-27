@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::Mutex as AsyncMutex;
@@ -17,6 +18,11 @@ use crate::stream::runtime::StreamRuntime;
 #[derive(Clone, Default)]
 pub(crate) struct DataMaintenanceLock {
     gate: Arc<AsyncMutex<()>>,
+    /// Counts the operations that may delete or replace the current Data
+    /// Root's database (Reset, the V5 import), so state derived from it
+    /// outside the lock, such as a cleanup preview's plan, can tell it is
+    /// stale.
+    database_generation: Arc<AtomicU64>,
 }
 
 impl DataMaintenanceLock {
@@ -33,7 +39,8 @@ impl DataMaintenanceLock {
     }
 
     /// Like [`Self::run_blocking`], and also stops the OBS overlay for the
-    /// duration, for work that deletes the database the overlay reads.
+    /// duration, for work that deletes the database the overlay reads. It
+    /// advances [`Self::database_generation`].
     pub(crate) async fn run_blocking_with_overlay_stopped<T, F>(
         &self,
         stream_runtime: &StreamRuntime,
@@ -44,9 +51,17 @@ impl DataMaintenanceLock {
         F: FnOnce() -> T + Send + 'static,
     {
         let guard = self.gate.clone().lock_owned().await;
+        self.database_generation.fetch_add(1, Ordering::SeqCst);
         stream_runtime
             .exclusive_maintenance(|| run_on_blocking_pool(guard, task))
             .await
+    }
+
+    /// Changes whenever an operation that may delete or replace the current
+    /// Data Root's database takes the lock. Read it before deriving state
+    /// from the database, and compare it again while holding the lock.
+    pub(crate) fn database_generation(&self) -> u64 {
+        self.database_generation.load(Ordering::SeqCst)
     }
 }
 

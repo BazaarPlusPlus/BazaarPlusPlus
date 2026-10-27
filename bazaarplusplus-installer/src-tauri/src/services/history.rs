@@ -14,6 +14,7 @@ use crate::history::{
 use crate::problem::{SemanticProblem, SemanticProblemCode};
 use crate::services::data_maintenance::DataMaintenanceLock;
 use crate::services::game_path::GamePathAcceptance;
+use crate::services::game_process::{GameProcessProbe as _, SystemGameProcessProbe};
 use crate::services::paths;
 use crate::services::selected_game_installation::SelectedGameInstallationState;
 use crate::stream::history_thumbnails::{self, HistoryThumbnails};
@@ -64,6 +65,8 @@ struct StoredCleanupPlan {
     data_root: PathBuf,
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
+    /// `DataMaintenanceLock::database_generation` read before planning.
+    database_generation: u64,
     plan: CleanupPlan,
 }
 
@@ -72,11 +75,13 @@ struct StoredCleanupPlan {
 /// instead of scanning again. The plan stays a nomination: execution re-checks
 /// every candidate (`execute_*_cleanup_plan` in `history/cleanup.rs`), so a
 /// plan that aged while the user read the dialog only leaves later candidates
-/// for the next cleanup. One slot: a newer preview replaces it, and executing
-/// consumes it.
+/// for the next cleanup. One slot: a newer preview replaces it, a Reset or V5
+/// import invalidates it, a successful execution consumes it, and a failed
+/// one puts it back for the dialog's retry.
 #[derive(Clone, Default)]
 pub(crate) struct CleanupPlans {
     slot: Arc<Mutex<CleanupPlanSlot>>,
+    maintenance: DataMaintenanceLock,
 }
 
 #[derive(Default)]
@@ -86,11 +91,25 @@ struct CleanupPlanSlot {
 }
 
 impl CleanupPlans {
+    /// Plans whose database generation follows `maintenance`, the lock Reset
+    /// and the V5 import hold.
+    pub(crate) fn new(maintenance: DataMaintenanceLock) -> Self {
+        Self {
+            slot: Arc::default(),
+            maintenance,
+        }
+    }
+
+    fn database_generation(&self) -> u64 {
+        self.maintenance.database_generation()
+    }
+
     fn store(
         &self,
         data_root: &Path,
         scope: StorageCleanupScope,
         preset: StorageCleanupPreset,
+        database_generation: u64,
         plan: CleanupPlan,
     ) -> u32 {
         let mut slot = self
@@ -104,20 +123,23 @@ impl CleanupPlans {
             data_root: data_root.to_path_buf(),
             scope,
             preset,
+            database_generation,
             plan,
         });
         id
     }
 
     /// The stored plan `id` names, when it was computed for this data root,
-    /// scope, and preset. `None` asks the caller to plan afresh.
+    /// scope, and preset, and no Reset or V5 import ran since. `None` asks
+    /// the caller to plan afresh. Call it while holding the data maintenance
+    /// lock.
     fn take(
         &self,
         id: u32,
         data_root: &Path,
         scope: StorageCleanupScope,
         preset: StorageCleanupPreset,
-    ) -> Option<CleanupPlan> {
+    ) -> Option<StoredCleanupPlan> {
         let mut slot = self
             .slot
             .lock()
@@ -126,8 +148,25 @@ impl CleanupPlans {
             return None;
         }
         let stored = slot.stored.take()?;
-        (stored.data_root == data_root && stored.scope == scope && stored.preset == preset)
-            .then_some(stored.plan)
+        (stored.data_root == data_root
+            && stored.scope == scope
+            && stored.preset == preset
+            && stored.database_generation == self.database_generation())
+        .then_some(stored)
+    }
+
+    /// Puts back a plan whose execution failed, so retrying the same
+    /// confirmation runs it again; every delete is re-checked, so rows a
+    /// partial execution already removed are simply missed. A newer preview
+    /// wins over it.
+    fn restore(&self, stored: StoredCleanupPlan) {
+        let mut slot = self
+            .slot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if slot.last_id == stored.id && slot.stored.is_none() {
+            slot.stored = Some(stored);
+        }
     }
 }
 
@@ -141,6 +180,8 @@ struct HistoryStorage {
 pub(crate) struct History {
     paths: HistoryStorage,
     is_game_running: fn() -> bool,
+    /// Cleanup refuses unless this confirms the game is closed.
+    cleanup_game_probe: fn(&Path) -> anyhow::Result<bool>,
 }
 
 impl History {
@@ -171,7 +212,17 @@ impl History {
         Ok(Self {
             paths: history_paths_for_game_path(game_path),
             is_game_running,
+            cleanup_game_probe: |game_path| SystemGameProcessProbe.is_running(game_path),
         })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_cleanup_game_probe(
+        mut self,
+        probe: fn(&Path) -> anyhow::Result<bool>,
+    ) -> Self {
+        self.cleanup_game_probe = probe;
+        self
     }
 
     pub(crate) fn list_runs_for_page(
@@ -264,6 +315,9 @@ impl History {
         plans: &CleanupPlans,
     ) -> Result<StorageCleanupPreview, SemanticProblem> {
         as_action_problem("preview_storage_cleanup", || {
+            // Read before planning: a Reset or import that starts after this
+            // read invalidates the plan.
+            let database_generation = plans.database_generation();
             let plan = self.plan_cleanup(scope, preset)?;
             Ok(match plan {
                 CleanupPlan::Screenshots(plan) => {
@@ -274,6 +328,7 @@ impl History {
                             &self.paths.data_root,
                             scope,
                             preset,
+                            database_generation,
                             CleanupPlan::Screenshots(plan),
                         ),
                     }
@@ -286,6 +341,7 @@ impl History {
                             &self.paths.data_root,
                             scope,
                             preset,
+                            database_generation,
                             CleanupPlan::RunData(plan),
                         ),
                     }
@@ -321,6 +377,7 @@ impl History {
 
     /// Executes the confirmed preview's plan when `plans` still holds it for
     /// this installation, scope, and preset; otherwise plans again first.
+    /// Call it while holding the data maintenance lock.
     fn execute_cleanup(
         &self,
         scope: StorageCleanupScope,
@@ -329,25 +386,36 @@ impl History {
         plan_id: u32,
     ) -> Result<StorageCleanupExecution, SemanticProblem> {
         as_action_problem("execute_storage_cleanup", || {
-            let plan = match plans.take(plan_id, &self.paths.data_root, scope, preset) {
-                Some(plan) => plan,
-                None => self.plan_cleanup(scope, preset)?,
+            let Some(stored) = plans.take(plan_id, &self.paths.data_root, scope, preset) else {
+                return self.execute_plan(&self.plan_cleanup(scope, preset)?);
             };
-            match plan {
-                CleanupPlan::Screenshots(plan) => cleanup::execute_screenshot_cleanup_plan(
-                    &self.paths.database_path,
-                    &self.paths.data_root,
-                    plan,
-                )
-                .map(|result| StorageCleanupExecution::Screenshots { result }),
-                CleanupPlan::RunData(plan) => cleanup::execute_run_data_cleanup_plan(
-                    &self.paths.database_path,
-                    &self.paths.data_root,
-                    plan,
-                )
-                .map(|result| StorageCleanupExecution::RunData { result }),
+            let result = self.execute_plan(&stored.plan);
+            if result.is_err() {
+                // A refusal (the game is running) or a failure leaves the
+                // preview's plan for the dialog's retry.
+                plans.restore(stored);
             }
+            result
         })
+    }
+
+    fn execute_plan(&self, plan: &CleanupPlan) -> anyhow::Result<StorageCleanupExecution> {
+        match plan {
+            CleanupPlan::Screenshots(plan) => cleanup::execute_screenshot_cleanup_plan(
+                &self.paths.database_path,
+                &self.paths.data_root,
+                plan,
+                &self.cleanup_game_probe,
+            )
+            .map(|result| StorageCleanupExecution::Screenshots { result }),
+            CleanupPlan::RunData(plan) => cleanup::execute_run_data_cleanup_plan(
+                &self.paths.database_path,
+                &self.paths.data_root,
+                plan,
+                &self.cleanup_game_probe,
+            )
+            .map(|result| StorageCleanupExecution::RunData { result }),
+        }
     }
 
     fn require_database_exists(&self) -> anyhow::Result<()> {
@@ -566,6 +634,7 @@ mod tests {
     use crate::history::cleanup::{RunDataCleanupPlan, ScreenshotCleanupPlan};
     use crate::history::mod_schema::create_mod_schema;
     use crate::problem::SemanticProblemCode;
+    use crate::services::data_maintenance::DataMaintenanceLock;
     use crate::services::paths;
     use std::path::Path;
 
@@ -955,15 +1024,17 @@ mod tests {
         assert_eq!(run_count(), 0);
     }
 
-    #[test]
-    fn cleanup_reuses_a_preview_plan_only_for_its_installation_scope_and_preset() {
-        let plans = CleanupPlans::default();
+    #[tokio::test]
+    async fn cleanup_reuses_a_preview_plan_only_for_its_installation_scope_and_preset() {
+        let maintenance = DataMaintenanceLock::default();
+        let plans = CleanupPlans::new(maintenance.clone());
         let root = Path::new("/game/BazaarPlusPlusV6");
         let store = |scope| {
             plans.store(
                 root,
                 scope,
                 StorageCleanupPreset::All,
+                plans.database_generation(),
                 match scope {
                     StorageCleanupScope::Screenshots => {
                         super::CleanupPlan::Screenshots(ScreenshotCleanupPlan::empty())
@@ -1034,6 +1105,111 @@ mod tests {
                 )
                 .is_none());
         }
+
+        let take = |id| {
+            plans.take(
+                id,
+                root,
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+            )
+        };
+        // A failed execution puts its plan back for the retry, unless a newer
+        // preview came meanwhile.
+        let id = store(StorageCleanupScope::RunData);
+        plans.restore(take(id).unwrap());
+        let failed = take(id).unwrap();
+        let newer = store(StorageCleanupScope::RunData);
+        plans.restore(failed);
+        assert!(take(id).is_none());
+        assert!(take(newer).is_some());
+
+        // A Reset or V5 import between preview and confirmation invalidates it.
+        let id = store(StorageCleanupScope::RunData);
+        maintenance
+            .run_blocking_with_overlay_stopped(
+                &crate::stream::runtime::StreamRuntime::default(),
+                || (),
+            )
+            .await
+            .unwrap();
+        assert!(take(id).is_none());
+    }
+
+    /// The dialog offers Retry after "Close The Bazaar". Retrying the same
+    /// confirmation must run the preview's plan, not a fresh one.
+    #[test]
+    fn a_refused_cleanup_keeps_the_preview_plan_for_its_retry() {
+        let temp = tempfile::tempdir().unwrap();
+        let game_path = temp.path().join("The Bazaar");
+        let database_path = paths::database_path(&game_path);
+        std::fs::create_dir_all(database_path.parent().unwrap()).unwrap();
+        create_mod_schema(&rusqlite::Connection::open(&database_path).unwrap());
+        let insert_run = |run_id: &str| {
+            rusqlite::Connection::open(&database_path)
+                .unwrap()
+                .execute(
+                    "insert into runs (
+                        run_id, started_at_ms, last_seen_at_ms, status,
+                        hero, game_mode, ended_at_ms, victories, losses
+                    ) values (?1, 1767258000000, 1767261600000,
+                        'completed', 'Vanessa', 'Normal', 1767261600000, 3, 3)",
+                    [run_id],
+                )
+                .unwrap();
+        };
+        insert_run("run-1");
+        let plans = CleanupPlans::default();
+        let running = History::at_with(Some(game_path.clone()), || false)
+            .unwrap()
+            .with_cleanup_game_probe(|_| Ok(true));
+        let StorageCleanupPreview::RunData { preview, plan_id } = running
+            .preview_cleanup(
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+                &plans,
+            )
+            .unwrap()
+        else {
+            panic!("expected run-data preview");
+        };
+        assert_eq!(preview.runs, 1);
+        insert_run("run-2");
+
+        let refused = running
+            .execute_cleanup(
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+                &plans,
+                plan_id,
+            )
+            .unwrap_err();
+        assert_eq!(refused.code, SemanticProblemCode::HistoryActionFailed);
+
+        let closed = History::at_with(Some(game_path), || false)
+            .unwrap()
+            .with_cleanup_game_probe(|_| Ok(false));
+        let StorageCleanupExecution::RunData { result } = closed
+            .execute_cleanup(
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+                &plans,
+                plan_id,
+            )
+            .unwrap()
+        else {
+            panic!("expected run-data result");
+        };
+        assert_eq!(result.deleted_runs, 1);
+        assert_eq!(
+            closed
+                .list_runs_for_page(50, 0, &HistoryThumbnails::default())
+                .unwrap()
+                .summary
+                .runs,
+            1,
+            "the run recorded after the preview survives"
+        );
     }
 
     #[test]
