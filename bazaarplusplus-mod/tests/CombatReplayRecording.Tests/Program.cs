@@ -7,6 +7,7 @@ RecordedManagedReplayTakesDisplayPriority();
 RecordingRestartStatusIsLocalized();
 StartFailureFeedbackSurvivesRefreshAndClearsAtItsBoundaries();
 RecordingFinalizerScenarios.Run();
+SessionTimelineSplitsDiagnosticPhases();
 
 Console.WriteLine("Combat replay recording tests passed.");
 
@@ -196,6 +197,41 @@ static void StartFailureFeedbackSurvivesRefreshAndClearsAtItsBoundaries()
         feedback.Observe(ready) == null,
         "A successful retry must explicitly clear the prior start failure."
     );
+}
+
+// The phases a slow recording is diagnosed by: the video timeline starts at the first frame, so
+// a session that never captured one reports no capture span instead of a zero or a session-long
+// one, and each span runs between its own two phase boundaries.
+static void SessionTimelineSplitsDiagnosticPhases()
+{
+    var ticksPerMs = System.Diagnostics.Stopwatch.Frequency / 1000;
+    var constructed = 1_000 * ticksPerMs;
+    var timeline = new BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoSessionTimeline(
+        constructed,
+        constructed + 40 * ticksPerMs,
+        constructed + 140 * ticksPerMs,
+        constructed + 10_140 * ticksPerMs
+    );
+    Assert(timeline.InitMs == 40, "Init spans construction to encoder start.");
+    Assert(timeline.FirstFrameWaitMs == 100, "The first-frame wait ends when the pacer locks.");
+    Assert(timeline.CaptureMs == 10_000, "Capture spans the first frame to finalization.");
+    Assert(
+        timeline.DrainMs(constructed + 12_140 * ticksPerMs) == 2_000,
+        "Drain spans finalization to the encoder's completion."
+    );
+
+    var noFrame = timeline with { FirstFrameTimestamp = 0 };
+    Assert(
+        noFrame.FirstFrameWaitMs == null && noFrame.CaptureMs == null,
+        "A session without a frame reports no first-frame wait or capture span."
+    );
+    var neverStarted = new BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoSessionTimeline(
+        constructed,
+        0,
+        0,
+        constructed + 5 * ticksPerMs
+    );
+    Assert(neverStarted.InitMs == null, "A session whose encoder never started reports no init.");
 }
 
 static void Assert(bool condition, string message)

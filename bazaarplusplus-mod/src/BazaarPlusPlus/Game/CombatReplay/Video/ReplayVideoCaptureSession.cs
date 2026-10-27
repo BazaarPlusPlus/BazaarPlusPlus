@@ -38,6 +38,10 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
     private int _nativePacerResyncDroppedFrames;
     private long _nativeOutputFrameIndex;
     private int? _previousMaxQueuedFrames;
+    private readonly long _constructedTimestamp = Stopwatch.GetTimestamp();
+    private long _startedTimestamp;
+    private long _firstFrameTimestamp;
+    private long _finalizedTimestamp;
     private bool _started;
     private bool _disposed;
     private bool _finalized;
@@ -162,6 +166,7 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
         }
 
         _started = true;
+        _startedTimestamp = Stopwatch.GetTimestamp();
 
         BppLog.DebugEvent(
             new BppLogEvent(
@@ -308,6 +313,8 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
             Graphics.ExecuteCommandBuffer(commandBuffer);
             encoder.CommitRenderEvent(eventData);
             _capturedFrames += plan.CapturedFrameCount;
+            if (_firstFrameTimestamp == 0 && _capturedFrames > 0)
+                _firstFrameTimestamp = Stopwatch.GetTimestamp();
             _repeatedFrames += plan.RepeatedFrameCount;
             _droppedFrames += plan.PacerDroppedFrameCount;
         }
@@ -401,6 +408,8 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
             Graphics.ExecuteCommandBuffer(commandBuffer);
             encoder.CommitRenderEvent(eventData);
             _capturedFrames += plan.CapturedFrameCount;
+            if (_firstFrameTimestamp == 0 && _capturedFrames > 0)
+                _firstFrameTimestamp = Stopwatch.GetTimestamp();
             _repeatedFrames += plan.RepeatedFrameCount;
             _droppedFrames += plan.PacerDroppedFrameCount;
         }
@@ -428,6 +437,7 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
                 return _finalizeDrain;
 
             _finalized = true;
+            _finalizedTimestamp = Stopwatch.GetTimestamp();
 
             var encoder = _encoder;
             var metalEncoder = _metalEncoder;
@@ -471,7 +481,13 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
                     _failureException,
                     _frameByteLength,
                     metalEncoder?.SlotCount ?? windowsEncoder?.SlotCount ?? 0,
-                    _cfrCopyTiming.P95Microseconds
+                    _cfrCopyTiming.P95Microseconds,
+                    new ReplayVideoSessionTimeline(
+                        _constructedTimestamp,
+                        _startedTimestamp,
+                        _firstFrameTimestamp,
+                        _finalizedTimestamp
+                    )
                 )
             );
             _metalEncoder = null;
