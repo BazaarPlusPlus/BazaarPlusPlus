@@ -144,7 +144,10 @@ function hexChannels(hex) {
     throw new Error(`in-game colours must be #rrggbb[aa], got ${hex}`);
   const bytes = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16));
   bytes.push(match[2] ? parseInt(match[2], 16) : 255);
-  return bytes.map((byte) => `${Number((byte / 255).toFixed(4))}f`);
+  // Exact byte fractions, so a token matches the 8-bit colour it came from.
+  return bytes.map((byte) =>
+    byte === 0 ? '0f' : byte === 255 ? '1f' : `${byte}f / 255f`
+  );
 }
 
 export function buildInGameTheme(tokens, namespace) {
