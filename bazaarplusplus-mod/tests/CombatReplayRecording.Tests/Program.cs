@@ -6,6 +6,7 @@ OrdinaryManagedReplayKeepsRecordingButtonVisible();
 RecordedManagedReplayTakesDisplayPriority();
 RecordingRestartStatusIsLocalized();
 StartFailureFeedbackSurvivesRefreshAndClearsAtItsBoundaries();
+RecordingFinalizerScenarios.Run();
 
 Console.WriteLine("Combat replay recording tests passed.");
 
