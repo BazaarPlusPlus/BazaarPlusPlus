@@ -41,7 +41,8 @@ version. Its keys are `0..21` in property declaration order.
 `RunEventV6` uses keys `0..3` for sequence, timestamp, kind, and the structured event JSON.
 `PayloadJson` does not repeat `run_id`, `seq`, `ts`, or `kind`: the Run root and the event's keys
 `0..2` own them, and every consumer reads them from there. The JSON keeps the remaining fields of
-the stored event in stored order, including `schema_version` (`RunLogEvent.PayloadSchemaVersion`);
+the stored event in stored order; the events carry no version of their own, the run format
+version (`BundleLimitsV6.RunFormatVersion`) covers them.
 `RunPayloadComposer.EventPayloadBody` does the stripping. The Bundle pipeline does not reinterpret it.
 
 `RunBattleV6` uses keys `0..4` for Battle ID, `BattleFactsV6`, `BattleParticipantsV6`, nullable

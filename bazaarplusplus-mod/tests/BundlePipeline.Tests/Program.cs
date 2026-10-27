@@ -650,12 +650,12 @@ static async Task VerifyRunSegmentProjectionAsync(string root)
     );
     var body = JsonNode.Parse(runEvent.PayloadJson)!.AsObject();
     Assert(
-        body["schema_version"]?.GetValue<int>() == 3
+        !body.ContainsKey("schema_version")
             && !body.ContainsKey("run_id")
             && !body.ContainsKey("seq")
             && !body.ContainsKey("ts")
             && !body.ContainsKey("kind"),
-        "Event payload_json keeps schema_version 3 and drops the keys the envelope owns."
+        "Event payload_json carries no schema_version and drops the keys the envelope owns."
     );
     var participants = payload.Battles.Single().Participants;
     Assert(

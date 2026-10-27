@@ -415,12 +415,12 @@
       "sha256": "b254fa92f84f9bc27dccca3728463ac0914e49b53f96c4d97f8547c9c06d16ec"
     },
     "size-budget-events": {
-      "messagepack_bytes": 2667583,
-      "sha256": "b0ca2437c12bd828c702ab77ce1d54b0520fcafd85f185d4278b5526d5abd665"
+      "messagepack_bytes": 2667357,
+      "sha256": "6e00ff7705e2673ecc4e559093c31849d3cb181143926958fb64954cd9d10073"
     },
     "size-budget-mixed": {
-      "messagepack_bytes": 2667920,
-      "sha256": "23204d8408122fb8606dd1d6a6bd0a0a9bdebec5fc6d2d3a3b128e69c014f17c"
+      "messagepack_bytes": 2667694,
+      "sha256": "21054b6155c474caa26db65d90150a7ca548428206aa62ebcf006fefe119f7bc"
     }
   },
   "run_screenshots": {

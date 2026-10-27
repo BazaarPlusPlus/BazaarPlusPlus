@@ -9,7 +9,7 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 public sealed class EncounterPreviewCacheStore
 {
-    public const int SchemaVersion = 6;
+    public const int SchemaVersion = 1;
     public const int MaxCacheFileBytes = 32 * 1024 * 1024;
 
     private static readonly UTF8Encoding Utf8NoBom = new(

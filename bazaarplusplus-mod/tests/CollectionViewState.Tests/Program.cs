@@ -683,7 +683,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     var entries = CollectionSourceCatalog.Build(
         $$"""
         {
-          "schemaVersion": 4,
+          "schemaVersion": 1,
           "groups": [
             "generalist",
             "all-hero",
