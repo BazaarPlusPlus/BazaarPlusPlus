@@ -10,7 +10,6 @@ internal sealed class ReplayWarmupStats
     public int SharedAssetsPreloaded;
     public int SharedAssetsSkipped;
     public int CardsPreloaded;
-    public int CardsSkipped;
     public int CardsFailed;
     public int OverrideAssetsPreloaded;
     public int OverrideAssetsFailed;
@@ -168,7 +167,6 @@ internal static class ReplayWarmupLogging
             ("shared_asset_preloaded_count", presentation?.SharedAssetsPreloaded ?? 0),
             ("shared_asset_skipped_count", presentation?.SharedAssetsSkipped ?? 0),
             ("card_preloaded_count", presentation?.CardsPreloaded ?? 0),
-            ("card_skipped_count", presentation?.CardsSkipped ?? 0),
             ("card_failed_count", presentation?.CardsFailed ?? 0),
             ("override_asset_preloaded_count", presentation?.OverrideAssetsPreloaded ?? 0),
             ("override_asset_failed_count", presentation?.OverrideAssetsFailed ?? 0),
