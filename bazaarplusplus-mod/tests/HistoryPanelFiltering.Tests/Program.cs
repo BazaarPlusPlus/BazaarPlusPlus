@@ -36,6 +36,7 @@ var dataServiceType = RequireType(
 );
 var cursorType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Storage.HistoryCursor");
 
+TestUiRefreshConsumesLatestStateOnce();
 TestRunHeroRosterAddsOneCanonicalTheDragonsAfterTheExistingSeven();
 TestStateSelectedRunUsesFilteredRunList();
 TestPageReplacementUpdatesSelection();
@@ -54,6 +55,75 @@ TestSessionBoundariesRestartACancelledSync();
 TestAccountChangeMidSyncSyncsTheNewAccount();
 
 Console.WriteLine("HistoryPanelFiltering checks passed.");
+
+void TestUiRefreshConsumesLatestStateOnce()
+{
+    var refresh = new HistoryPanelUiRefresh();
+    var state = new HistoryPanelState();
+    var models = new List<HistoryPanelViewModel>();
+    void Render() =>
+        models.Add(
+            HistoryPanelViewModelBuilder.Build(state, null, null, null, 0f, [], default, default)
+        );
+    var selected = 0;
+    var select = refresh.Guard<int>(index => selected = index);
+    var deletes = 0;
+    var delete = refresh.Guard(() => deletes++);
+    refresh.Flush(Render);
+    Assert(models.Count == 0, "A clean frame must not build a model.");
+    state.SectionMode = HistorySectionMode.Ghost;
+    refresh.Request();
+    select(1);
+    delete();
+    Assert(
+        selected == 0 && deletes == 0,
+        "Stale row and delete inputs must not act in a new section."
+    );
+    state.StatusMessage = "latest error";
+    state.StatusSeverity = StatusSeverity.Failure;
+    refresh.Request();
+    refresh.Request();
+    refresh.Flush(Render);
+    Assert(
+        models.Count == 1 && models[0].SectionMode == HistorySectionMode.Ghost,
+        "One frame must build one model from the latest section."
+    );
+    Assert(
+        models[0].StatusMessage == "latest error",
+        "Coalescing must preserve the final failure."
+    );
+    select(2);
+    delete();
+    Assert(selected == 2 && deletes == 1, "Published controls must act again.");
+    refresh.Request();
+    refresh.Flush(() =>
+    {
+        select(3);
+        Assert(selected == 2, "A partially rendered model must not accept reentrant input.");
+        Render();
+        refresh.Request();
+    });
+    Assert(models.Count == 2 && !refresh.CanAct, "A reentrant request belongs to the next frame.");
+    refresh.Flush(Render);
+    Assert(models.Count == 3 && refresh.CanAct, "The next frame consumes the reentrant request.");
+    refresh.Request();
+    try
+    {
+        refresh.Flush(() => throw new IOException("render failed"));
+        throw new InvalidOperationException("Rendering must propagate failures.");
+    }
+    catch (IOException) { }
+    Assert(!refresh.CanAct, "A failed render must remain dirty for retry.");
+    // Hidden hosts do not flush. A reopen requests and immediately renders the latest state.
+    state.StatusMessage = "completed while hidden";
+    refresh.Request();
+    refresh.Flush(Render);
+    refresh.Flush(Render);
+    Assert(
+        models.Count == 4 && models[^1].StatusMessage == "completed while hidden" && refresh.CanAct,
+        "Reopening must show the latest state once, including updates while hidden."
+    );
+}
 
 void TestRunHeroRosterAddsOneCanonicalTheDragonsAfterTheExistingSeven()
 {
@@ -641,10 +711,22 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
             (_, _, _, _) => throw new InvalidOperationException("No favorite replays.")
         ),
     };
-    var coordinator = new HistoryPanelCoordinator(
+    var refresh = new HistoryPanelUiRefresh();
+    var immediateBuilds = 0;
+    var frameBuilds = 0;
+    HistoryPanelViewModel? published = null;
+    HistoryPanelCoordinator coordinator = null!;
+    coordinator = new HistoryPanelCoordinator(
         state,
         dependencies,
-        () => { },
+        () =>
+        {
+            // The former host built on every notification. Count the actual builder, then
+            // compare the new host's one consumption at a simulated visible-frame boundary.
+            _ = Model();
+            immediateBuilds++;
+            refresh.Request();
+        },
         () => { },
         NoReplayReturn()
     );
@@ -659,6 +741,31 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
             default,
             default
         );
+    void Frame(string stage)
+    {
+        var before = frameBuilds;
+        refresh.Flush(() =>
+        {
+            published = Model();
+            frameBuilds++;
+        });
+        refresh.Flush(() =>
+        {
+            published = Model();
+            frameBuilds++;
+        });
+        Assert(
+            frameBuilds == before + 1,
+            $"{stage}: dirty consumes once and clean consumes nothing."
+        );
+        Assert(
+            published!.StatusMessage == state.StatusMessage,
+            $"{stage}: the rendered model keeps the latest completion or failure message."
+        );
+        Console.WriteLine(
+            $"History refresh {stage}: immediate builds={immediateBuilds}, frame builds={frameBuilds}"
+        );
+    }
     void SelectRun(string runId)
     {
         coordinator.SelectRun(state.Runs.ToList().FindIndex(run => run.RunId == runId));
@@ -674,7 +781,14 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
     {
         coordinator.OnPanelShown();
         uiContext.Until(() => !state.PageLoading && !state.DetailLoading);
+        Frame("open");
+        var selectionBuilds = immediateBuilds;
         SelectRun("run-gone");
+        Frame("selection");
+        Assert(
+            immediateBuilds - selectionBuilds > 1,
+            "Selection must reproduce redundant full model builds."
+        );
         Assert(
             Model() is { ReplayButtonEnabled: true, FavoriteButtonEnabled: true },
             "Before the delete the run's battle can replay and be favorited."
@@ -705,6 +819,11 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
                 "Playback must protect both the DB row and file before the delete transaction."
             );
         }
+        Frame("delete pending");
+        Assert(
+            published!.DeleteButtonBusy && published.ReplayButtonBusy,
+            "The pending frame must disable delete and replay."
+        );
         var uiResponded = false;
         uiContext.Post(_ => uiResponded = true, null);
         uiContext.Until(() => uiResponded);
@@ -765,6 +884,12 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
             "The delete must clean the run's replay payloads once and report success."
         );
 
+        Frame("delete completed");
+        Assert(
+            !published!.DeleteButtonBusy,
+            "The completion frame must release the delete busy state."
+        );
+
         // A delete that crosses a close and reopen keeps its flag, then reloads the open list and
         // drops its pending line.
         SelectRun("run-late");
@@ -795,6 +920,8 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
             state.FavoriteActionInProgress && !Model().DeleteButtonEnabled,
             "Remove must stay disabled until the off-thread removal publishes."
         );
+        Frame("favorite removal pending");
+        Assert(!published!.DeleteButtonEnabled, "Favorite removal must remain visibly busy.");
         coordinator.SetSectionMode(HistorySectionMode.Runs);
         uiContext.Until(() => !state.FavoriteActionInProgress && !state.PageLoading);
         Assert(
@@ -802,6 +929,11 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
                 && state.Runs.Select(run => run.RunId).SequenceEqual(["run-keep"])
                 && state.StatusMessage != HistoryPanelText.FavoriteRemoved(),
             "A removal finishing in Runs must not load the favorites page or report into Runs."
+        );
+        Frame("favorite removal completed in Runs");
+        Assert(
+            immediateBuilds > frameBuilds,
+            "Coordinator callbacks must build fewer models after coalescing."
         );
         Assert(!repository.IsFavorite("battle-fav"), "The removal itself must complete.");
         coordinator.OnPanelHidden();

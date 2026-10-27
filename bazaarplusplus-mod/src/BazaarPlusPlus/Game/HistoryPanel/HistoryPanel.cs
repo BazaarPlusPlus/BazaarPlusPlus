@@ -96,6 +96,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             return;
 
         _coordinator?.Tick(Time.unscaledTime);
+        FlushUi();
         _uiView?.Tick();
         _nativePlayerBoard?.Fit();
         _nativeOpponentBoard?.Fit();
@@ -117,6 +118,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         _coordinator?.OnPanelShown();
         SetUiVisible(true);
         RefreshUi();
+        FlushUi();
     }
 
     private void OnOverlayClose()

@@ -5,6 +5,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal sealed partial class HistoryPanel
 {
+    private readonly HistoryPanelUiRefresh _uiRefresh = new();
     private Ui.HistoryPanelView? _uiView;
     private Rect _previewContainerBounds;
     private bool _hasPreviewContainerBounds;
@@ -16,15 +17,15 @@ internal sealed partial class HistoryPanel
             _uiView = new Ui.HistoryPanelView(
                 transform,
                 () => SetHistoryVisible(false),
-                () => TryReplaySelectedBattle(false),
-                () => TryReplaySelectedBattle(true),
-                TryDeleteSelectedRun,
+                _uiRefresh.Guard(() => TryReplaySelectedBattle(false)),
+                _uiRefresh.Guard(() => TryReplaySelectedBattle(true)),
+                _uiRefresh.Guard(TryDeleteSelectedRun),
                 TryCheckServerHealth,
-                SubmitAccountLinkCode,
+                _uiRefresh.Guard<string?>(SubmitAccountLinkCode),
                 ToggleAccountLinkForm,
-                MarkAccountLinkedManually,
-                SelectRun,
-                SelectBattle,
+                _uiRefresh.Guard(MarkAccountLinkedManually),
+                _uiRefresh.Guard<int>(SelectRun),
+                _uiRefresh.Guard<int>(SelectBattle),
                 SetSectionMode,
                 SetGhostBattleFilter,
                 SetRunHero,
@@ -32,10 +33,13 @@ internal sealed partial class HistoryPanel
             );
 
             _uiView.SetPaginationActions(
-                direction => _coordinator?.PageArchive(direction),
-                direction => _coordinator?.PageBattles(direction)
+                _uiRefresh.Guard<int>(direction => _coordinator?.PageArchive(direction)),
+                _uiRefresh.Guard<int>(direction => _coordinator?.PageBattles(direction))
             );
-            _uiView.SetFavoriteActions(TryFavoriteSelectedBattle, SaveFavoriteNote);
+            _uiView.SetFavoriteActions(
+                _uiRefresh.Guard(TryFavoriteSelectedBattle),
+                SaveFavoriteNote
+            );
             _uiView.PreviewContainerBoundsChanged += OnPreviewContainerBoundsChanged;
             _uiView.OpponentBoundsChanged += bounds =>
             {
@@ -78,7 +82,11 @@ internal sealed partial class HistoryPanel
         return _uiView?.IsTextInputFocused() == true;
     }
 
-    private void RefreshUi()
+    private void RefreshUi() => _uiRefresh.Request();
+
+    private void FlushUi() => _uiRefresh.Flush(RenderUi);
+
+    private void RenderUi()
     {
         _uiView?.Refresh(BuildUiModel());
         RefreshNativeHistoryMessages();
