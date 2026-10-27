@@ -15,7 +15,7 @@ installer 与 bazaarplusplus.com 共用一套设计系统，放在仓库根目�
 | 游戏内颜色 | `design/tokens.json` 的 `ingame-*` | `just design::build` 生成 mod 桌面与安卓的 `InGameTheme.g.cs` |
 | 品牌标志 | `design/assets/Logos/bpp-mark.svg` | `just design::build` 复制到 installer 的 `static/brand/`；site 页头使用现有的 `public/bazaarplusplus-icon.webp` 应用图标 |
 
-`design/` 同时发布为 claude.ai 上的 Design System artifact，用来浏览组件预览和品牌手册；仓库是源头，artifact 跟随仓库更新。维护流程见 `design/AGENTS.md`。
+`design/` 同时发布为 claude.ai 上的 [Design System artifact](https://claude.ai/artifact/4Xv54mp3y68YPc95PWNGVk)，用来浏览组件预览和品牌手册；仓库是源头，artifact 跟随仓库更新。维护流程见 `design/AGENTS.md`。
 
 ## 改动流程
 

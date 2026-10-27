@@ -3,7 +3,7 @@
  "layout": "files",
  "createdOnFiles": {
   "v": 1,
-  "at": "2026-10-23T10:45:39Z"
+  "at": "2026-10-27T07:03:23Z"
  },
  "title": "BazaarPlusPlus",
  "namespace": "BazaarPlusPlus",
@@ -29,43 +29,43 @@
    "files": {
     "bpp-mark.svg": {
      "name": "bpp-mark.svg",
-     "blob": "1b60c1f046730edf1396f5b2d5483dbf",
+     "blob": "1d5014ecc538a681c500bcbceb863f72",
      "size": 272,
      "type": "image/svg+xml"
     },
     "bpp-mark-on-light.svg": {
      "name": "bpp-mark-on-light.svg",
-     "blob": "8b2ae67fc55651f640e1db213e49ad6f",
+     "blob": "bd698291cc0816018f562df906326b9e",
      "size": 272,
      "type": "image/svg+xml"
     },
     "bpp-mark-mono-white.svg": {
      "name": "bpp-mark-mono-white.svg",
-     "blob": "ff052198060de3445f50e26790a9359b",
+     "blob": "8c3b7e5fa9a870188682e6fdb5306c19",
      "size": 272,
      "type": "image/svg+xml"
     },
     "bazaarplusplus-icon.webp": {
      "name": "bazaarplusplus-icon.webp",
-     "blob": "568ddc860c9e395035bf047e5b029b07",
+     "blob": "957e573873efc2c798a21be5ee7826f7",
      "size": 7296,
      "type": "image/webp"
     },
     "favicon.webp": {
      "name": "favicon.webp",
-     "blob": "4f8b27c9af6bdaec5b41a3159c3d034c",
+     "blob": "97f5d989a451c5fcfb285bf57bd54df2",
      "size": 2812,
      "type": "image/webp"
     },
     "app-icon.png": {
      "name": "app-icon.png",
-     "blob": "26f47499e9ae473cef9adcbb7a132c86",
+     "blob": "d470c56e26a925571f800b4f1862a194",
      "size": 2462082,
      "type": "image/png"
     },
     "tray-macos.svg": {
      "name": "tray-macos.svg",
-     "blob": "5dcb0b8124e553dddd9690eeec8ef3cf",
+     "blob": "211f96cc78c85a03df9ae0561586ca82",
      "size": 81054,
      "type": "image/svg+xml"
     }
@@ -88,55 +88,55 @@
    "files": {
     "download.svg": {
      "name": "download.svg",
-     "blob": "338542f82618c4084bdf4180b63063b2",
+     "blob": "09668a8b600becba367a33156832cb86",
      "size": 298,
      "type": "image/svg+xml"
     },
     "external-link.svg": {
      "name": "external-link.svg",
-     "blob": "a24365836ca1e8dbb96ffdf3cd3f32f9",
+     "blob": "f257530a2871b1a25769119b2c8e0bb5",
      "size": 312,
      "type": "image/svg+xml"
     },
     "arrow-right.svg": {
      "name": "arrow-right.svg",
-     "blob": "0260e1d116f699f7dc2e879f9d41354c",
+     "blob": "8515a490c6c5d7dd98fc5ef17171fcb9",
      "size": 239,
      "type": "image/svg+xml"
     },
     "refresh.svg": {
      "name": "refresh.svg",
-     "blob": "bdc384e0c09897beeb34f22fb40406fc",
+     "blob": "69eb9cd7a99c61ea391a3401ca913934",
      "size": 374,
      "type": "image/svg+xml"
     },
     "close.svg": {
      "name": "close.svg",
-     "blob": "9cfd9828cc7ed237e1fbc7052f3bd058",
+     "blob": "65420e085e8ea072f23de193eea13ca2",
      "size": 238,
      "type": "image/svg+xml"
     },
     "spinner.svg": {
      "name": "spinner.svg",
-     "blob": "85998ee02a1b12b62ba1a8e28b531219",
+     "blob": "0295eee5745933529f83aa1c8f5c5b5e",
      "size": 226,
      "type": "image/svg+xml"
     },
     "alert.svg": {
      "name": "alert.svg",
-     "blob": "7d0e5c4a4d73d769e71712cd3600049a",
+     "blob": "0481643886b61e82b099ef3fb8f93b15",
      "size": 275,
      "type": "image/svg+xml"
     },
     "inbox.svg": {
      "name": "inbox.svg",
-     "blob": "5d055111736ac67e4571515981115c50",
+     "blob": "a14d8c7bcc206faf4669b21cc4f76102",
      "size": 348,
      "type": "image/svg+xml"
     },
     "compass.svg": {
      "name": "compass.svg",
-     "blob": "dd129ba4484aca84ef84b6364899aa8a",
+     "blob": "e4351ffe27237e9928484016a6bf0936",
      "size": 320,
      "type": "image/svg+xml"
     }
@@ -149,9 +149,9 @@
   "sections": []
  },
  "lastChange": {
-  "by": "Xinyu YANG",
-  "at": "2026-10-23T13:11:43Z",
+  "by": "Wenwen",
+  "at": "2026-10-27T07:03:23Z",
   "via": "Claude Code · BazaarPlusPlus/BazaarPlusPlus design/",
-  "note": "Published from the repository's design/ folder, now the source of truth; the installer and site use these tokens, styles, mark and copy rules."
+  "note": "Recreated from the repository's design/ folder, with the in-game theme (ingame-* tokens, InGamePanel) added."
  }
 }
