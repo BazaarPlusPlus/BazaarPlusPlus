@@ -212,6 +212,34 @@ public sealed class CombatStatusBarState
         return $"{minutes}:{elapsed.Seconds:00}.{elapsed.Milliseconds / 10:00}";
     }
 
+    [ThreadStatic]
+    private static System.Text.StringBuilder? _tabularBuffer;
+
+    /// <summary>
+    /// <paramref name="time"/> with each run of ASCII digits in a TMP <c>mspace</c> tag, so the
+    /// digits share one advance and the time never shifts while the separators keep their own
+    /// width. The time text above writes no other digits.
+    /// </summary>
+    public static string WithTabularDigits(string time)
+    {
+        var buffer = _tabularBuffer ??= new System.Text.StringBuilder(64);
+        buffer.Clear();
+        var inDigits = false;
+        foreach (var c in time)
+        {
+            var digit = c >= '0' && c <= '9';
+            if (digit && !inDigits)
+                buffer.Append("<mspace=0.55em>");
+            else if (!digit && inDigits)
+                buffer.Append("</mspace>");
+            buffer.Append(c);
+            inDigits = digit;
+        }
+        if (inDigits)
+            buffer.Append("</mspace>");
+        return buffer.ToString();
+    }
+
     private int GetCurrentCombatFrameIndex()
     {
         return Math.Max(ProcessedCombatFrames - 1, 0);

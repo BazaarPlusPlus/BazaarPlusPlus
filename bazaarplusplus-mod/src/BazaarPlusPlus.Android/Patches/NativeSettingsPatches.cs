@@ -28,18 +28,21 @@ internal static class NativeSettingsScrollSpyAwakePatch
     }
 }
 
-/// <summary>The settings dialog opened: its BazaarPlusPlus rows read the settings again.</summary>
+/// <summary>
+/// The settings dialog opened: its BazaarPlusPlus rows read the settings again. Their layout and
+/// touch targets wait for the section's next tick, which sees it opened.
+/// </summary>
 [HarmonyPatch(typeof(OptionsDialogController), nameof(OptionsDialogController.OnEnable))]
 internal static class NativeSettingsDialogEnablePatch
 {
     [HarmonyPostfix]
-    private static void Postfix()
+    private static void Postfix(OptionsDialogController __instance)
     {
         if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled)
             return;
         try
         {
-            AndroidNativeSettingsSection.RefreshAll();
+            AndroidNativeSettingsSection.Opened(__instance);
         }
         catch (Exception exception)
         {

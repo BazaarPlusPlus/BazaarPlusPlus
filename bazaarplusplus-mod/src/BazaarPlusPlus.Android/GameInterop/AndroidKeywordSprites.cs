@@ -22,6 +22,11 @@ internal static class AndroidKeywordSprites
     private static readonly HashSet<string> Reported = new(StringComparer.Ordinal);
     private static TMP_SpriteAsset[] _assets = [];
 
+    // The frame of the last scan: labels built in one frame share it, so an icon no loaded asset
+    // holds costs one scan per frame, not one per label. A later frame scans again, since an
+    // asset loaded since then may hold it.
+    private static int _scanFrame = -1;
+
     /// <summary>Call after setting <paramref name="label"/>'s text.</summary>
     public static void Apply(TMP_Text label)
     {
@@ -33,7 +38,7 @@ internal static class AndroidKeywordSprites
         var name = match.Groups[1].Value;
         if (Holds(label.spriteAsset ?? TMP_Settings.defaultSpriteAsset, name))
             return;
-        var asset = Find(name, rescan: false) ?? Find(name, rescan: true);
+        var asset = Find(name) ?? (Rescan() ? Find(name) : null);
         if (asset != null)
             label.spriteAsset = asset;
         if (Reported.Add((asset == null ? "missing:" : "found:") + name))
@@ -44,10 +49,18 @@ internal static class AndroidKeywordSprites
             );
     }
 
-    private static TMP_SpriteAsset? Find(string name, bool rescan)
+    private static bool Rescan()
     {
-        if (rescan)
-            _assets = Scan();
+        var frame = Time.frameCount;
+        if (frame == _scanFrame)
+            return false;
+        _scanFrame = frame;
+        _assets = Scan();
+        return true;
+    }
+
+    private static TMP_SpriteAsset? Find(string name)
+    {
         foreach (var asset in _assets)
             if (Holds(asset, name))
                 return asset;

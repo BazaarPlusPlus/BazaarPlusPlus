@@ -30,6 +30,9 @@ internal static class QuestRewardPreviewTooltipPatch
     > DescriptionLayoutBaselines = new();
     private static readonly List<ActivePreviewPresentation> ActivePreviewPresentations = new();
 
+    // An entry's text or layout was restored or rewritten since its group last laid out.
+    private static bool LayoutDirty;
+
     [HarmonyPostfix]
     private static void Postfix(
         TooltipQuestEntry __instance,
@@ -86,6 +89,8 @@ internal static class QuestRewardPreviewTooltipPatch
                 passiveRewardText,
                 activeRewardText
             );
+            // Before the first change, so a throw part way still rebuilds the group.
+            LayoutDirty = true;
             ApplyPreviewTextLayout(descriptionText, hasInlineSprite);
             TrackPreviewPresentation(descriptionText, questText);
             descriptionText.text = text;
@@ -95,6 +100,18 @@ internal static class QuestRewardPreviewTooltipPatch
         {
             ReportDegraded(ex);
         }
+    }
+
+    /// <summary>
+    /// Whether a quest entry's height may have changed since the last call: only then does its
+    /// group need the forced layout rebuild. A restore counts, or a pooled entry keeps the
+    /// previous card's height.
+    /// </summary>
+    internal static bool ConsumeLayoutDirty()
+    {
+        var dirty = LayoutDirty;
+        LayoutDirty = false;
+        return dirty;
     }
 
     private static void ApplyPreviewTextLayout(TMP_Text descriptionText, bool hasInlineSprite)
@@ -117,22 +134,35 @@ internal static class QuestRewardPreviewTooltipPatch
 
     private static void RestoreNativeTextLayout(TMP_Text descriptionText)
     {
-        RestoreNativeTextLayoutCore(descriptionText);
-        ForgetPreviewPresentation(descriptionText);
+        // Either one: the entry showed the preview, or its layout was the preview's.
+        if (
+            RestoreNativeTextLayoutCore(descriptionText)
+            | ForgetPreviewPresentation(descriptionText)
+        )
+            LayoutDirty = true;
     }
 
-    private static void RestoreNativeTextLayoutCore(TMP_Text descriptionText)
+    // True when it wrote the margin or the line spacing back.
+    private static bool RestoreNativeTextLayoutCore(TMP_Text descriptionText)
     {
+        var restored = false;
         if (
             DescriptionLayoutBaselines.TryGetValue(descriptionText, out var baseline)
             && descriptionText.margin != baseline.Margin
         )
+        {
             descriptionText.margin = baseline.Margin;
+            restored = true;
+        }
         if (
             DescriptionLayoutBaselines.TryGetValue(descriptionText, out baseline)
             && !Mathf.Approximately(descriptionText.lineSpacing, baseline.LineSpacing)
         )
+        {
             descriptionText.lineSpacing = baseline.LineSpacing;
+            restored = true;
+        }
+        return restored;
     }
 
     private static void TrackPreviewPresentation(TMP_Text descriptionText, string nativeText)
@@ -156,17 +186,26 @@ internal static class QuestRewardPreviewTooltipPatch
         ActivePreviewPresentations.Add(new ActivePreviewPresentation(descriptionText, nativeText));
     }
 
-    private static void ForgetPreviewPresentation(TMP_Text descriptionText)
+    // True when it forgot a presentation of descriptionText itself.
+    private static bool ForgetPreviewPresentation(TMP_Text descriptionText)
     {
+        var forgot = false;
         for (var index = ActivePreviewPresentations.Count - 1; index >= 0; index--)
         {
             if (
                 !ActivePreviewPresentations[index]
                     .Description.TryGetTarget(out var trackedDescription)
-                || ReferenceEquals(trackedDescription, descriptionText)
             )
+            {
                 ActivePreviewPresentations.RemoveAt(index);
+                continue;
+            }
+            if (!ReferenceEquals(trackedDescription, descriptionText))
+                continue;
+            ActivePreviewPresentations.RemoveAt(index);
+            forgot = true;
         }
+        return forgot;
     }
 
     internal static void ClearPooledPresentation()
@@ -216,8 +255,8 @@ internal static class QuestRewardPreviewTooltipPatch
 // QuestDisplayService only rebuilds the outer quest-group parent after populating its rows.
 // Our entry postfix applies the preview layout or restores the native baseline after each native
 // SetData call, so pooled entries can retain the previous card's height in either transition.
-// Rebuild the group once all entries have been populated; the native outer-parent rebuild that
-// follows then consumes the corrected sizes.
+// Rebuild the group once all entries have been populated, and only when one of them made either
+// transition; the native outer-parent rebuild that follows then consumes the corrected sizes.
 [HarmonyPatch(typeof(TooltipQuestGroup), nameof(TooltipQuestGroup.SetData))]
 internal static class QuestRewardPreviewQuestGroupLayoutPatch
 {
@@ -226,7 +265,8 @@ internal static class QuestRewardPreviewQuestGroupLayoutPatch
     {
         try
         {
-            __instance.ForceRebuildLayout();
+            if (QuestRewardPreviewTooltipPatch.ConsumeLayoutDirty())
+                __instance.ForceRebuildLayout();
         }
         catch (Exception ex)
         {

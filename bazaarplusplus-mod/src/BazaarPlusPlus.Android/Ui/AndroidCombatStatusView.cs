@@ -2,6 +2,7 @@ using BazaarPlusPlus.Android.Game;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Game.CombatStatusBar;
 using Il2CppTheBazaar;
 using Il2CppTMPro;
 using UnityEngine;
@@ -26,6 +27,14 @@ internal sealed class AndroidCombatStatusView(
     private string? _screen;
     private AndroidNativeSkin? _skin;
 
+    // Hidden frames between checks for a run or replay to build the plaque ahead in.
+    private const int BuildAheadCheckFrames = 30;
+
+    private int _hiddenFrames;
+
+    // Built ahead while the native art was not yet found: build again when first shown.
+    private bool _builtWithoutArt;
+
     // What the view last wrote, so a frame that changes nothing makes no Unity call.
     private bool _shown;
     private string? _shownTime;
@@ -49,113 +58,26 @@ internal sealed class AndroidCombatStatusView(
             if (_shown)
                 _root?.SetActive(false);
             _shown = false;
+            BuildAhead(state);
             return;
         }
-        var font = AndroidGameFont.Font;
-        if (font == null)
-            return;
         var screen = AndroidTouchScreen.Key();
-        if (_root == null || screen != _screen)
+        if (_root == null || screen != _screen || _builtWithoutArt)
         {
-            Dispose();
-            _screen = screen;
-            var chrome = TouchChrome.For(AndroidTouchScreen.Read());
-            // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
-            // the clock as it reappears; above the board HUD (order 0).
-            _root = AndroidUiKit.CreateOverlayCanvas("BPP.CombatStatus", 149);
-            _icons = new AndroidPlaybackIcons();
-            var layout = TouchHudLayout.Playback(chrome.Metrics);
-            var plaque = AndroidTouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
-            var background = AndroidUiKit.Fill(plaque, AndroidUiKit.ButtonColor, false);
-            if (_skin == null || _skin.NeedsRefresh)
-                _skin = new AndroidNativeSkin();
-            _skin.Select(background, false);
-            var rule = chrome.Metrics.Dp(.5f);
-            var inset = chrome.Metrics.Dp(8);
-            Divider(
-                new TouchRect(
-                    layout.Controls.Left + inset,
-                    layout.Controls.Top,
-                    layout.Controls.Width - 2 * inset,
-                    rule
-                )
-            );
-            Divider(
-                new TouchRect(
-                    layout.Controls.CenterX,
-                    layout.Controls.Top + inset,
-                    rule,
-                    layout.Controls.Height - 2 * inset
-                )
-            );
-            _time = AndroidUiKit.Text(
-                AndroidTouchScreen.Child("Time", _root.transform, layout.Time),
-                font,
-                "",
-                chrome.Metrics.Sp(22),
-                TextAlignmentOptions.Center,
-                AndroidUiKit.TextColor
-            );
-            Outline(_time);
-            var half = layout.Controls with { Width = layout.Controls.Width / 2 };
-            _speedText = AndroidUiKit.Text(
-                AndroidTouchScreen.Child("Multiplier", _root.transform, half),
-                font,
-                "",
-                chrome.Metrics.Sp(16),
-                TextAlignmentOptions.Center,
-                AndroidUiKit.TextColor
-            );
-            Outline(_speedText);
-            var glyph = AndroidUiKit.Fixed(
-                "PauseIcon",
-                AndroidTouchScreen.Child(
-                    "PauseCell",
-                    _root.transform,
-                    half with
-                    {
-                        Left = half.Right,
-                    }
-                ),
-                new(.5f, .5f),
-                Vector2.zero,
-                new(chrome.Metrics.Dp(16), chrome.Metrics.Dp(16))
-            );
-            _pauseIcon = AndroidUiKit.Fill(glyph, Color.white, false);
-            _pauseIcon.sprite = _icons.Pause;
-            _pauseIcon.preserveAspect = true;
-            var shadow = glyph.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0.05f, 0.035f, 0.02f, 0.85f);
-            shadow.effectDistance = new Vector2(chrome.Metrics.Dp(1), -chrome.Metrics.Dp(1));
-            _speed = Control(
-                AndroidTouchScreen.Child("Speed", _root.transform, layout.Speed),
-                _speedText,
-                () => state.CycleCombatSpeed()
-            );
-            _pause = Control(
-                AndroidTouchScreen.Child("Pause", _root.transform, layout.Pause),
-                _pauseIcon,
-                playback.TogglePause
-            );
-            BazaarPlusPlus.Infrastructure.BppLog.InfoEvent(
-                new BazaarPlusPlus.Infrastructure.Logging.BppLogEvent(
-                    BazaarPlusPlus.Infrastructure.Logging.BppLogFeatureScope.Android,
-                    "android.combat_status.layout"
-                ),
-                ("panel", layout.Panel),
-                ("pause", layout.Pause),
-                ("speed", layout.Speed)
-            );
+            var font = AndroidGameFont.Font;
+            if (font == null)
+                return;
+            Build(font, screen, ahead: false);
         }
         if (!_shown)
-            _root.SetActive(true);
+            _root!.SetActive(true);
         _shown = true;
         // The state hands back the same string until the displayed time changes.
         var time = state.GetDisplayedTimeText();
         if (!string.Equals(time, _shownTime, StringComparison.Ordinal))
         {
             _shownTime = time;
-            _time!.text = TabularDigits.Replace(time, "<mspace=0.55em>$0</mspace>");
+            _time!.text = CombatStatusBarState.WithTabularDigits(time);
         }
         var paused = state.IsCombatPaused;
         if (paused != _shownPaused)
@@ -184,8 +106,112 @@ internal sealed class AndroidCombatStatusView(
         }
     }
 
-    // Digits share one advance so the time never shifts; the separators keep their natural width.
-    private static readonly System.Text.RegularExpressions.Regex TabularDigits = new(@"\d+");
+    // Outside a fight, in a run or a replay, and once per scene (a scene load disposes the view):
+    // the plaque is built hidden, so the first fight's first frame does not pay for the build.
+    private void BuildAhead(CombatStatusBarState state)
+    {
+        if (_root != null || !settings.CombatTimer.Value || state.IsCombatPlaybackActive)
+            return;
+        if (_hiddenFrames++ % BuildAheadCheckFrames != 0)
+            return;
+        if (!Data.HasActiveRun && AppState.CurrentState?.TryCast<ReplayState>() == null)
+            return;
+        var font = AndroidGameFont.Font;
+        if (font == null)
+            return;
+        Build(font, AndroidTouchScreen.Key(), ahead: true);
+        _root!.SetActive(false);
+    }
+
+    private void Build(TMP_FontAsset font, string screen, bool ahead)
+    {
+        DestroyCanvas();
+        _screen = screen;
+        // The glyphs are owned sprites that outlive the canvas; only Dispose destroys them.
+        var icons = _icons ??= new AndroidPlaybackIcons();
+        var chrome = TouchChrome.For(AndroidTouchScreen.Read());
+        // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
+        // the clock as it reappears; above the board HUD (order 0).
+        _root = AndroidUiKit.CreateOverlayCanvas("BPP.CombatStatus", 149);
+        var layout = TouchHudLayout.Playback(chrome.Metrics);
+        var plaque = AndroidTouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
+        var background = AndroidUiKit.Fill(plaque, AndroidUiKit.ButtonColor, false);
+        if (_skin == null || _skin.NeedsRefresh)
+            _skin = new AndroidNativeSkin();
+        _skin.Select(background, false);
+        // Only the button sprite is read here; a plaque built ahead without it tries again.
+        _builtWithoutArt = ahead && background.sprite == null;
+        var rule = chrome.Metrics.Dp(.5f);
+        var inset = chrome.Metrics.Dp(8);
+        Divider(
+            new TouchRect(
+                layout.Controls.Left + inset,
+                layout.Controls.Top,
+                layout.Controls.Width - 2 * inset,
+                rule
+            )
+        );
+        Divider(
+            new TouchRect(
+                layout.Controls.CenterX,
+                layout.Controls.Top + inset,
+                rule,
+                layout.Controls.Height - 2 * inset
+            )
+        );
+        _time = AndroidUiKit.Text(
+            AndroidTouchScreen.Child("Time", _root.transform, layout.Time),
+            font,
+            "",
+            chrome.Metrics.Sp(22),
+            TextAlignmentOptions.Center,
+            AndroidUiKit.TextColor
+        );
+        Outline(_time);
+        var half = layout.Controls with { Width = layout.Controls.Width / 2 };
+        _speedText = AndroidUiKit.Text(
+            AndroidTouchScreen.Child("Multiplier", _root.transform, half),
+            font,
+            "",
+            chrome.Metrics.Sp(16),
+            TextAlignmentOptions.Center,
+            AndroidUiKit.TextColor
+        );
+        Outline(_speedText);
+        var glyph = AndroidUiKit.Fixed(
+            "PauseIcon",
+            AndroidTouchScreen.Child("PauseCell", _root.transform, half with { Left = half.Right }),
+            new(.5f, .5f),
+            Vector2.zero,
+            new(chrome.Metrics.Dp(16), chrome.Metrics.Dp(16))
+        );
+        _pauseIcon = AndroidUiKit.Fill(glyph, Color.white, false);
+        _pauseIcon.sprite = icons.Pause;
+        _pauseIcon.preserveAspect = true;
+        var shadow = glyph.gameObject.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0.05f, 0.035f, 0.02f, 0.85f);
+        shadow.effectDistance = new Vector2(chrome.Metrics.Dp(1), -chrome.Metrics.Dp(1));
+        _speed = Control(
+            AndroidTouchScreen.Child("Speed", _root.transform, layout.Speed),
+            _speedText,
+            () => playback.State.CycleCombatSpeed()
+        );
+        _pause = Control(
+            AndroidTouchScreen.Child("Pause", _root.transform, layout.Pause),
+            _pauseIcon,
+            playback.TogglePause
+        );
+        BazaarPlusPlus.Infrastructure.BppLog.InfoEvent(
+            new BazaarPlusPlus.Infrastructure.Logging.BppLogEvent(
+                BazaarPlusPlus.Infrastructure.Logging.BppLogFeatureScope.Android,
+                "android.combat_status.layout"
+            ),
+            ("ahead", ahead),
+            ("panel", layout.Panel),
+            ("pause", layout.Pause),
+            ("speed", layout.Speed)
+        );
+    }
 
     private static void Outline(TextMeshProUGUI label)
     {
@@ -211,13 +237,21 @@ internal sealed class AndroidCombatStatusView(
         return button;
     }
 
+    /// <summary>A scene change or the host's stop: the canvas and the glyphs go.</summary>
     public void Dispose()
+    {
+        DestroyCanvas();
+        _icons?.Dispose();
+        _icons = null;
+        _hiddenFrames = 0;
+    }
+
+    private void DestroyCanvas()
     {
         if (_root != null)
             UnityEngine.Object.Destroy(_root);
         _root = null;
-        _icons?.Dispose();
-        _icons = null;
+        _builtWithoutArt = false;
         _shown = false;
         _shownTime = null;
         _shownPaused = null;

@@ -199,8 +199,14 @@ internal sealed class AndroidTouchUi
     {
         try
         {
+            var playing = IsPlaying();
+            // The gear anchors only the shortcuts, which show with the switch on and outside
+            // fights: no scene search otherwise. A gear hidden during a fight is kept, so it
+            // needs no search, and its shortcuts no new layout, when it shows again.
             if (
-                (_anchor == null || !_anchor.gameObject.activeInHierarchy)
+                _android.TouchMenu.Value
+                && !playing
+                && (_anchor == null || !_anchor.gameObject.activeInHierarchy)
                 && Time.unscaledTime >= _nextAnchorCheck
             )
             {
@@ -210,7 +216,6 @@ internal sealed class AndroidTouchUi
                 _anchorCanvas = _anchorRect?.GetComponentInParent<Canvas>()?.rootCanvas;
                 _shortcutAnchor = null;
             }
-            var playing = IsPlaying();
             var visible =
                 _android.TouchMenu.Value
                 && _panels.OpenPanelId == null

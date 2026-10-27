@@ -34,28 +34,29 @@ internal static class AndroidNativeHud
     /// <summary>The active settings button; <paramref name="inRun"/> when it is the run's.</summary>
     public static Button? FindSettingsButton(out bool inRun)
     {
+        // Scene objects only, inactive ones included: an asset is never active in a hierarchy.
         inRun = true;
-        foreach (var fight in Resources.FindObjectsOfTypeAll<Il2Cpp.FightMenuDialog>())
+        foreach (var fight in UnityEngine.Object.FindObjectsOfType<Il2Cpp.FightMenuDialog>(true))
         {
             var button = fight.SettingButton?.GetButton();
-            if (button != null && button.gameObject.activeInHierarchy)
+            if (Active(button))
                 return button;
         }
         inRun = false;
-        foreach (var view in Resources.FindObjectsOfTypeAll<Il2Cpp.SettingDialogsView>())
+        foreach (var view in UnityEngine.Object.FindObjectsOfType<Il2Cpp.SettingDialogsView>(true))
         {
-            foreach (
-                var button in new[]
-                {
-                    view.MainMenuSettingOptionButton,
-                    view.HeroSelectSettingOptionButton,
-                }
-            )
-                if (button != null && button.gameObject.activeInHierarchy)
-                    return button;
+            var mainMenu = view.MainMenuSettingOptionButton;
+            if (Active(mainMenu))
+                return mainMenu;
+            var heroSelect = view.HeroSelectSettingOptionButton;
+            if (Active(heroSelect))
+                return heroSelect;
         }
         return null;
     }
+
+    private static bool Active(Button? button) =>
+        button != null && button.gameObject.activeInHierarchy;
 
     /// <summary>
     /// <paramref name="rect"/>'s screen rect, scaled to <paramref name="referenceHeight"/>; the
