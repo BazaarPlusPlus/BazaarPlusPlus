@@ -141,7 +141,14 @@ Near(
 
 Near(
     15f,
-    BundleSealWakeSchedule.SecondsUntilAttempt("seal_publish_failed", 3, 5f, 100f, 60f),
+    BundleSealWakeSchedule.SecondsUntilAttempt(
+        "seal_publish_failed",
+        3,
+        5f,
+        100f,
+        60f,
+        attemptedInPass: false
+    ),
     "a job backing off wakes the worker when its backoff ends"
 );
 Equal(
@@ -151,24 +158,68 @@ Equal(
         1,
         5f,
         100f,
-        60f
+        60f,
+        attemptedInPass: false
     ),
     "a job parked in this launch never wakes the worker"
 );
 Near(
     BundleSealWakeSchedule.InputWaitPollSeconds,
-    BundleSealWakeSchedule.SecondsUntilAttempt(null, 0, null, 100f, 60f),
+    BundleSealWakeSchedule.SecondsUntilAttempt(null, 0, null, 100f, 60f, attemptedInPass: true),
     "a due job still waiting on an input is polled until its deadline"
 );
 Near(
     2f,
-    BundleSealWakeSchedule.SecondsUntilAttempt(null, 0, null, 100f, 2f),
+    BundleSealWakeSchedule.SecondsUntilAttempt(null, 0, null, 100f, 2f, attemptedInPass: true),
     "a due job waiting on an input wakes the worker at its deadline"
 );
 Near(
     BundleSealWakeSchedule.InputWaitPollSeconds,
-    BundleSealWakeSchedule.SecondsUntilAttempt("seal_publish_failed", 1, 30f, 100f, -10f),
+    BundleSealWakeSchedule.SecondsUntilAttempt(
+        "seal_publish_failed",
+        1,
+        30f,
+        100f,
+        -10f,
+        attemptedInPass: true
+    ),
     "a due job past its deadline is polled, never in a tight loop"
+);
+
+// Advance relative time through a pass: the backoff expires while a different Run seals.
+foreach (var deadline in new[] { 60f, -10f })
+{
+    Near(
+        1f,
+        BundleSealWakeSchedule.SecondsUntilAttempt(
+            "seal_publish_failed",
+            1,
+            4f,
+            100f,
+            deadline,
+            attemptedInPass: false
+        ),
+        "a skipped job keeps its remaining backoff"
+    );
+    var due = BundleSealWakeSchedule.SecondsUntilAttempt(
+        "seal_publish_failed",
+        1,
+        6f,
+        102f,
+        deadline - 2f,
+        attemptedInPass: false
+    );
+    Near(0f, due, "a skipped job that becomes due requests the next pass immediately");
+    Near(
+        BundleSealWakeSchedule.MinimumWaitSeconds,
+        BundleSealWakeSchedule.WaitSeconds(due, 2f, maintenanceFailed: false),
+        "the worker still applies its minimum wait to avoid a busy loop"
+    );
+}
+Near(
+    0f,
+    BundleSealWakeSchedule.SecondsUntilAttempt(null, 0, null, 100f, 60f, attemptedInPass: false),
+    "a newly listed due job has not yet waited on an input"
 );
 Equal(true, BundleSealWakeSchedule.DiscoveryDue(requested: true, 0f), "a requested discovery runs");
 Equal(

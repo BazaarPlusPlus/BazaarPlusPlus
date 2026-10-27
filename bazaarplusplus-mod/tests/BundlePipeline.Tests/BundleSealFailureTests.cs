@@ -35,6 +35,7 @@ internal static class BundleSealFailureTests
         await PendingValidationKeepsOutboxOnEnvironmentFailureAsync(Path.Combine(root, "pending"));
         await PendingValidationRunsOncePerLaunchAsync(Path.Combine(root, "pending-once"));
         await InvalidReplayDegradesWithLogAsync(Path.Combine(root, "replay"));
+        await InvalidReplayReasonReachesLogAsync(Path.Combine(root, "replay-reason"));
         await MaintenanceFailureDoesNotBlockSealingAsync(Path.Combine(root, "maintenance"));
         await EnvironmentFailureKeepsOrphanBundleAsync(Path.Combine(root, "orphan"));
         await ReplayWaitDefersScreenshotAndCompositionAsync(Path.Combine(root, "replay-wait"));
@@ -675,6 +676,29 @@ internal static class BundleSealFailureTests
         );
     }
 
+    private static async Task InvalidReplayReasonReachesLogAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        fixture.AddCompletedRun("reason-run", endedMinutesAgo: 10);
+        fixture.AddBattle("reason-run", "empty-replay");
+        var replayRoot = PathConstants.CombatReplays(root);
+        Directory.CreateDirectory(replayRoot);
+        File.WriteAllBytes(Path.Combine(replayRoot, "empty-replay.payload.mpack.gz"), []);
+        using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Require(
+            fixture.OutboxCount("reason-run") == 1,
+            "A codec failure without an exception still degrades and seals the Run."
+        );
+        var line = fixture.SingleLine("bundle_pipeline.seal.degraded");
+        Require(
+            line.Contains("category=replay_invalid", StringComparison.Ordinal)
+                && line.Contains("payload_empty", StringComparison.Ordinal)
+                && line.Contains(nameof(PvpReplayPayload), StringComparison.Ordinal),
+            "The original codec reason and payload type must reach the seal diagnostic."
+        );
+    }
+
     private static async Task MaintenanceFailureDoesNotBlockSealingAsync(string root)
     {
         using var fixture = new Fixture(root);
@@ -930,7 +954,7 @@ internal static class BundleSealFailureTests
 
         internal IReadOnlyList<string> Lines(string eventId) =>
             _output
-                .Where(line => line.Contains("event=" + eventId, StringComparison.Ordinal))
+                .Where(line => line.Contains(" event=" + eventId + " ", StringComparison.Ordinal))
                 .ToArray();
 
         internal string SingleLine(string eventId)

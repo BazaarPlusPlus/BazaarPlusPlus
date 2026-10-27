@@ -130,7 +130,7 @@ public static class BundleSealConvergence
 }
 
 // When the seal worker wakes next, from relative seconds. A waiting job wakes it at the end of its
-// backoff, or, once due, every InputWaitPollSeconds until its input deadline: an input such as a
+// backoff, or, after an attempt, every InputWaitPollSeconds until its input deadline: an input such as a
 // replay on the Android host, which publishes no persistence-drained event, lands without a wake.
 // A job parked until the next launch never wakes it. With no job to wake for, the worker sleeps
 // until MaximumIdleWaitSeconds after its last job discovery, the pass that recovers a Run whose
@@ -147,7 +147,8 @@ public static class BundleSealWakeSchedule
         int attempts,
         float? secondsSinceLastAttempt,
         float secondsSinceLaunch,
-        float secondsUntilInputDeadline
+        float secondsUntilInputDeadline,
+        bool attemptedInPass
     )
     {
         var due = BundleSealFailurePolicy.SecondsUntilDue(
@@ -160,7 +161,10 @@ public static class BundleSealWakeSchedule
             return null;
         if (seconds > 0f)
             return seconds;
-        // Due but still waiting: its last attempt waited on an input.
+        // A job skipped earlier in the pass may have become due while another Run sealed.
+        if (!attemptedInPass)
+            return 0f;
+        // Attempted but still waiting: poll for its remaining input.
         if (secondsUntilInputDeadline > 0f)
             return Math.Min(secondsUntilInputDeadline, InputWaitPollSeconds);
         return InputWaitPollSeconds;

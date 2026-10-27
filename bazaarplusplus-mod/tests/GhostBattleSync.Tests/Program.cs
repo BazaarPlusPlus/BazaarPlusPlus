@@ -16,6 +16,7 @@ await GhostBundleImportTests.RunAsync();
 await DiscoveryImportsServerGhostSummaryContract();
 await RetryAfterStartsCooldown();
 await SuccessfulDiscoveryStaysFreshPerAccount();
+await FreshDiscoverySurvivesDownloadCooldown();
 await DownloadLimitsAndTransportErrorsStayClosed();
 await ExpiredUrlRefreshesOnceAndBecomesTerminal();
 await CorruptBundleBecomesPermanentWithoutRepeatedDownload();
@@ -24,6 +25,7 @@ UnknownProjectionAndCountsStayUnknown();
 HistoryGhostRecoveryTests.Run();
 GhostDownloadSelectionTests.Run();
 PayloadFacetNameTests.Run();
+FileBackedPayloadDiagnosticsTests.Run();
 
 Console.WriteLine("Ghost battle sync tests passed.");
 
@@ -174,6 +176,69 @@ static async Task SuccessfulDiscoveryStaysFreshPerAccount()
     Assert(
         other.ReasonCode == HistoryPanelGhostSyncReasonCode.Completed && fixture.Handler.Count == 2,
         "Another account's discovery must still query."
+    );
+}
+
+static async Task FreshDiscoverySurvivesDownloadCooldown()
+{
+    var account = "account-local";
+    var requests = 0;
+    using var fixture = new GhostFixture(
+        _ =>
+        {
+            if (++requests == 1)
+                return JsonResponse(
+                    BattlePage(
+                        "expired-url",
+                        "bundle",
+                        "https://r2.example/expired",
+                        DateTimeOffset.UtcNow.AddMinutes(-1),
+                        "account-uploader",
+                        account
+                    )
+                );
+            var response = new HttpResponseMessage((HttpStatusCode)429)
+            {
+                Content = new StringContent(
+                    "{\"error\":{\"code\":\"rate_limited\",\"retryable\":true}}"
+                ),
+            };
+            response.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(60));
+            return response;
+        },
+        () => account
+    );
+    var first = await fixture.Service.SyncRecentBattlesAsync(CancellationToken.None);
+    Assert(first.Succeeded && first.ImportedCount == 1, "Initial discovery imports a battle.");
+    var localId = fixture
+        .Repository.ListGhostBattles(
+            account,
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+            false,
+            new()
+        )
+        .Rows.Single()
+        .BattleId;
+    var download = await fixture.Service.DownloadReplayAsync(
+        localId,
+        Path.Combine(fixture.Root, "CombatReplays"),
+        CancellationToken.None
+    );
+    Assert(
+        !download.Succeeded && fixture.Handler.Count == 2,
+        "The expired URL refresh must receive the second request's 429."
+    );
+    var fresh = await fixture.Service.SyncRecentBattlesAsync(CancellationToken.None);
+    Assert(
+        fresh.Succeeded && fresh.ReasonCode == HistoryPanelGhostSyncReasonCode.UpToDate,
+        "Download cooldown must not reject a fresh discovery that needs no network."
+    );
+    Assert(fixture.Handler.Count == 2, "Fresh discovery must not send a request during cooldown.");
+    account = "account-other";
+    var cold = await fixture.Service.SyncRecentBattlesAsync(CancellationToken.None);
+    Assert(
+        !cold.Succeeded && cold.Error == "ghost_sync_rate_limited" && fixture.Handler.Count == 2,
+        "An account without fresh discovery must still respect the cooldown."
     );
 }
 

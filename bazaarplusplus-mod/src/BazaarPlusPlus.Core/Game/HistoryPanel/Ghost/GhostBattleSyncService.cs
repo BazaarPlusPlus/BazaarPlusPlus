@@ -64,12 +64,6 @@ public sealed class GhostBattleSyncService
         try
         {
             var now = DateTimeOffset.UtcNow;
-            if (now.UtcTicks < Interlocked.Read(ref _cooldownUntilUtcTicks))
-                return GhostBattleSyncResult.Failure(
-                    "ghost_sync_rate_limited",
-                    HistoryPanelGhostSyncReasonCode.QueryFailed
-                );
-
             var playerAccountId = ResolvePlayerAccountId();
             if (string.IsNullOrWhiteSpace(playerAccountId))
                 return GhostBattleSyncResult.Failure(
@@ -82,6 +76,13 @@ public sealed class GhostBattleSyncService
                 && now.UtcTicks - syncedAt < SyncTtl.Ticks
             )
                 return GhostBattleSyncResult.UpToDate();
+
+            // Cooldown gates requests; a fresh account snapshot above needs none.
+            if (now.UtcTicks < Interlocked.Read(ref _cooldownUntilUtcTicks))
+                return GhostBattleSyncResult.Failure(
+                    "ghost_sync_rate_limited",
+                    HistoryPanelGhostSyncReasonCode.QueryFailed
+                );
 
             var result = await QueryAndPersistAsync(playerAccountId!, cancellationToken)
                 .ConfigureAwait(false);

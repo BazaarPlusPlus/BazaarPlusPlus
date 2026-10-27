@@ -106,7 +106,7 @@ public sealed class FileBackedPayloadStore<T>
                 using var stream = File.OpenRead(filePath);
                 if (stream.Length > maximum)
                     throw new InvalidDataException(
-                        "Ghost payload exceeds the compressed size limit."
+                        $"{typeof(T).Name} exceeds the compressed size limit."
                     );
                 using var output = new MemoryStream();
                 var buffer = new byte[64 * 1024];
@@ -115,7 +115,7 @@ public sealed class FileBackedPayloadStore<T>
                 {
                     if (output.Length + read > maximum)
                         throw new InvalidDataException(
-                            "Ghost payload exceeds the compressed size limit."
+                            $"{typeof(T).Name} exceeds the compressed size limit."
                         );
                     output.Write(buffer, 0, read);
                 }
@@ -141,9 +141,12 @@ public sealed class FileBackedPayloadStore<T>
                 return FileBackedPayloadLoadResult<T>.Loaded(payload);
 
             return FileBackedPayloadLoadResult<T>.Invalid(
-                reason == "payload_too_large"
-                    ? new InvalidDataException("Ghost payload exceeds the decompressed size limit.")
-                    : exception
+                exception
+                    ?? new InvalidDataException(
+                        reason == "payload_too_large"
+                            ? $"{typeof(T).Name} exceeds the decompressed size limit ({reason})."
+                            : $"{typeof(T).Name} decode failed: {reason ?? "payload_decode_failed"}."
+                    )
             );
         }
         catch (Exception ex)
