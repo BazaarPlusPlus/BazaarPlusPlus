@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay.Audio;
 using BazaarPlusPlus.Game.OverlayPanels;
@@ -45,8 +46,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
     // before its SaveFinish, which only updates an existing row.
     private Task<MetadataWriteOutcome>? _activeStartMetadata;
 
-    // The last recording's tap stop, which runs off the main thread. The next recording waits for
-    // it before starting a tap: the macOS aggregate device has a fixed UID.
+    // The last recording's tap stop, which runs off the main thread. On macOS the next recording
+    // waits for it before building its session: the aggregate device has a fixed UID.
     private Task<ReplayAudioStopOutcome>? _pendingAudioStop;
     private ReplayVideoRecordingReasonCode? _activeDegradationReason;
     private Exception? _activeDegradationException;
@@ -486,8 +487,10 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         catch (Exception ex)
         {
             _activeDegradationException = ex;
-            AbortActiveSession("begin-exception");
-            TryMarkPreparedMetadataFailed(prepared, ex.Message);
+            // The abort's finalizer writes this row's real outcome (a usable MP4 included), so
+            // the FAILED mark goes first and the finalizer waits for it before its SaveFinish.
+            var failedMark = TryMarkPreparedMetadataFailed(prepared, ex.Message);
+            AbortActiveSession("begin-exception", metadataWriteBefore: failedMark);
             if (!prepared.Operation.IsCompleted)
             {
                 _operations.TryComplete(
@@ -893,11 +896,21 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         return stop;
     }
 
-    // A tap stop joins its capture thread for at most StopTimeoutMs before handing cleanup to a
-    // deferred thread, so this bounds the wait; past it the new tap starts anyway and, should
-    // the backend still be busy, the recording falls back to silent video.
+    // Only the macOS process tap needs this: its aggregate device has a fixed UID, so a new one
+    // cannot be created while the last recording's teardown still holds it. A WASAPI loopback
+    // start has nothing to collide with. It runs before the capture session is built, so the
+    // wait never counts toward the recording. A tap stop joins its capture thread for at most
+    // StopTimeoutMs before handing cleanup to a deferred thread, which bounds the wait; past
+    // it the new tap starts anyway and, if the device still exists, the recording continues as
+    // silent video with AudioCaptureFailed.
     private void WaitForPreviousAudioStop()
     {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            _pendingAudioStop = null;
+            return;
+        }
+
         var pending = _pendingAudioStop;
         if (pending == null)
             return;
@@ -932,6 +945,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         );
         if (!_artifactProtectionLeases.TryAdd(operation.RecordingId, protection))
             protection.Dispose();
+        WaitForPreviousAudioStop();
         var session = new ReplayVideoCaptureSession(request);
         _activeOperation = operation;
         _activeSession = session;
@@ -989,7 +1003,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         // spatialised combat/board SFX that no FMOD channel group exposes.
         var wavPath = ReplayVideoAudioTapPlan.DeriveAudioWavPath(tempVideoPath);
         _activeAudioWavPaths = new List<string> { wavPath };
-        WaitForPreviousAudioStop();
         TryStartAudioTap(operation, wavPath);
 
         if (_audioTaps.Count == 0)
@@ -1058,7 +1071,18 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 )
             );
 
-        var started = CreateStartedMetadata(request, services);
+        // Built on the main thread (it reads the services' paths); a throw here, like one from
+        // the insert, only marks the metadata failed.
+        VideoRecordingStarted started;
+        try
+        {
+            started = CreateStartedMetadata(request, services);
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(new MetadataWriteOutcome(ReplayVideoMetadataStatus.Failed, ex));
+        }
+
         return ReplayVideoAudioMuxer.DispatchTracked(() =>
         {
             try
@@ -1188,7 +1212,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         }
     }
 
-    private void AbortActiveSession(string reason)
+    private void AbortActiveSession(string reason, Task? metadataWriteBefore = null)
     {
         var session = _activeSession;
         var operation = _activeOperation;
@@ -1227,6 +1251,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         var videoDir = _services == null ? null : VideoDirectory(_services);
         var startMetadata =
             _activeStartMetadata ?? Task.FromResult(MetadataWriteOutcome.Unavailable);
+        if (metadataWriteBefore != null)
+            startMetadata = AfterWrite(metadataWriteBefore, startMetadata);
         var operations = _operations;
         ReplayVideoEncoderDrain? drain = null;
         if (session != null)
@@ -1579,14 +1605,32 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         }
     }
 
-    private void TryMarkPreparedMetadataFailed(
+    // Finalization joins the start metadata before its SaveFinish; this makes it also wait for
+    // an earlier write to the same row.
+    private static async Task<MetadataWriteOutcome> AfterWrite(
+        Task earlierWrite,
+        Task<MetadataWriteOutcome> startMetadata
+    )
+    {
+        try
+        {
+            await earlierWrite.ConfigureAwait(false);
+        }
+        catch
+        {
+            // The earlier write is best effort; only its ordering matters here.
+        }
+        return await startMetadata.ConfigureAwait(false);
+    }
+
+    private Task TryMarkPreparedMetadataFailed(
         PreparedCurrentReplayRecording prepared,
         string error
     )
     {
         var store = _metadataStore;
         if (store == null)
-            return;
+            return Task.CompletedTask;
 
         var finished = new VideoRecordingFinished
         {
@@ -1605,7 +1649,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         };
         // Off the main thread: the arm reserved the row synchronously, so this update always
         // follows it, and the shutdown drain in OnDestroy waits for it after OnDisable's cancel.
-        ReplayVideoAudioMuxer.DispatchTracked(() =>
+        return ReplayVideoAudioMuxer.DispatchTracked(() =>
         {
             try
             {

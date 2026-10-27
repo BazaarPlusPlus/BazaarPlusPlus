@@ -9,13 +9,18 @@ internal static class ReplayVideoMetadataLifecycleTests
     {
         AttachmentAndFileStateRemainOrthogonal();
         ReconcileDoesNotOverwriteAConcurrentFinish();
-        MainThreadReservationGivesUpOnALockedDatabase();
+        MainThreadReservationGivesUpOnALockedDatabase(enforceTiming: false);
     }
+
+    // The performance lane (--benchmark) adds the wall-clock bound, which the parallel
+    // functional run cannot hold reliably.
+    internal static void Benchmark() =>
+        MainThreadReservationGivesUpOnALockedDatabase(enforceTiming: true);
 
     // The current-replay arm reserves its row on the Unity main thread: while another writer
     // holds the database it fails with SQLITE_BUSY after about a second (the default store wait
     // is two), reserves nothing, and succeeds once the writer is gone.
-    private static void MainThreadReservationGivesUpOnALockedDatabase()
+    private static void MainThreadReservationGivesUpOnALockedDatabase(bool enforceTiming)
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-reserve-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -43,7 +48,7 @@ internal static class ReplayVideoMetadataLifecycleTests
                 stopwatch.Stop();
 
                 Equal(5, busy?.SqliteErrorCode ?? 0, "reservation error code (SQLITE_BUSY)");
-                if (stopwatch.Elapsed >= TimeSpan.FromMilliseconds(1900))
+                if (enforceTiming && stopwatch.Elapsed >= TimeSpan.FromMilliseconds(1900))
                     throw new InvalidOperationException(
                         $"Expected the main-thread reservation to give up before the default "
                             + $"two-second wait, took {stopwatch.ElapsedMilliseconds} ms."

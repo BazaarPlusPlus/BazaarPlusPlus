@@ -35,7 +35,9 @@ public interface ISavedReplayHost
 
     /// <summary>
     /// Turns the payload into the game's messages and clears the board UI. A throw is a clean
-    /// start failure: the module completes the operation and frees the lease.
+    /// start failure: the module completes the operation and frees the lease. A host may defer
+    /// the decode into the start (desktop awaits it in <see cref="ISavedReplayStart.BootstrapAsync"/>);
+    /// a decode failure then fails the start like any other <c>BootstrapAsync</c> throw.
     /// </summary>
     ISavedReplayStart BeginStart(
         PvpBattleManifest manifest,
