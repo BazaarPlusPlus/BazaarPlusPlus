@@ -250,15 +250,27 @@ internal static class AndroidReplayBootstrap
         IReplayPlaybackOutcomeSink outcome
     )
     {
+        Exception? cleanupFailure = null;
         try
         {
-            Exception? cleanupFailure = null;
+            // Native listeners must release run audio and effects before scene destruction
+            // unregisters them. A dispatch failure must not prevent the remaining rollback.
+            Events.RunInterrupted.Trigger();
+        }
+        catch (Exception exception)
+        {
+            cleanupFailure = exception;
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.BootstrapRollbackFailed, exception);
+        }
+
+        try
+        {
             AppState.Reset();
             Data.ResetRunData();
             var network = AndroidReplayGameServices.DisposeNetwork();
             if (!network.Succeeded)
             {
-                cleanupFailure = network.Exception;
+                cleanupFailure ??= network.Exception;
                 outcome.ReportDegradation(
                     ReplayPlaybackReasonCode.SocketCleanupFailed,
                     network.Exception
@@ -292,7 +304,7 @@ internal static class AndroidReplayBootstrap
         }
         catch (Exception exception)
         {
-            return ReplayBootstrapRollback.Failure(exception);
+            return ReplayBootstrapRollback.Failure(cleanupFailure ?? exception);
         }
     }
 

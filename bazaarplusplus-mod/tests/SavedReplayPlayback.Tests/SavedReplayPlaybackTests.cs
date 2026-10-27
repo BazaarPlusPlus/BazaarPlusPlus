@@ -447,6 +447,60 @@ public sealed class SavedReplayPlaybackTests
         Assert.False(thrown.Playback.IsReplayStartInProgress);
     }
 
+    [Theory]
+    [InlineData("prepare", false)]
+    [InlineData("bootstrap", false)]
+    [InlineData("inject", false)]
+    [InlineData("bootstrap", true)]
+    [InlineData("inject", true)]
+    public void A_failed_start_releases_its_lease_and_allows_the_next_replay(
+        string stage,
+        bool rollbackFails
+    )
+    {
+        using var h = new SavedReplayPlaybackHarness();
+        h.Save(BattleA);
+        h.Save(BattleB);
+        h.Host.ConfigureStart = start =>
+        {
+            start.NeedsBootstrap = true;
+            start.BootstrappedFromLobby = true;
+            var failure = new InvalidOperationException(stage + " failure");
+            if (stage == "prepare")
+                start.PrepareFailure = failure;
+            else if (stage == "bootstrap")
+                start.BootstrapFailure = failure;
+            else
+                start.InjectFailure = failure;
+            if (rollbackFails)
+                start.Rollback = ReplayBootstrapRollback.Failure(
+                    new InvalidOperationException("interruption failure")
+                );
+        };
+
+        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.Equal(stage == "prepare" ? 0 : 1, h.Host.Start!.Rollbacks);
+        Assert.False(h.Playback.IsReplayStartInProgress);
+        Assert.False(h.Playback.IsSavedReplayPlaybackActive);
+        Assert.True(h.LeaseIsFree());
+        Assert.Contains("cleanup:StartFailed:second:" + BattleA, h.Timeline);
+        Assert.Contains(
+            rollbackFails
+                ? " reason_code=bootstrap_rollback_failed"
+                : " reason_code=start_exception",
+            h.SingleTerminal()
+        );
+
+        h.Host.ConfigureStart = null;
+        Assert.True(h.Playback.ReplaySaved(BattleB, recordVideo: false));
+        Assert.True(h.Playback.IsSavedReplayPlaybackActive);
+        Assert.False(h.LeaseIsFree());
+        h.Playback.OnReplayStateExited();
+        Assert.False(h.Playback.IsSavedReplayPlaybackActive);
+        Assert.True(h.LeaseIsFree());
+        Assert.Equal(2, h.Terminals().Count);
+    }
+
     [Fact]
     public void An_opponent_failure_only_degrades_the_replay()
     {
