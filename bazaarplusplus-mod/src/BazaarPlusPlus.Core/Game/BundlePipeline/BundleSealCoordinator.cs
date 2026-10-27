@@ -204,7 +204,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 if (!waiting.Any(job => string.Equals(job.RunId, key, StringComparison.Ordinal)))
                     _replayWaits.TryRemove(key, out _);
             }
-            var attempted = false;
+            HashSet<string>? attempted = null;
             foreach (var job in waiting)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -212,7 +212,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 // fresh read would; a job backing off or parked is not read again.
                 if (!IsDue(job, DateTimeOffset.UtcNow))
                     continue;
-                attempted = true;
+                (attempted ??= new(StringComparer.Ordinal)).Add(job.RunId);
                 // One Run's failure is recorded against that Run; it cannot abort the pass.
                 try
                 {
@@ -227,7 +227,10 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             return new PassResult(
                 discovered,
                 maintenanceFailed,
-                SecondsUntilAttempt(attempted ? _queueStore.ListWaitingJobs() : waiting)
+                SecondsUntilAttempt(
+                    attempted != null ? _queueStore.ListWaitingJobs() : waiting,
+                    attempted
+                )
             );
         }
         finally
@@ -249,7 +252,10 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         );
 
     // The soonest any waiting job needs a pass, each row evaluated at one fresh instant.
-    private float? SecondsUntilAttempt(IReadOnlyList<BundleSealJobRecord> jobs)
+    private float? SecondsUntilAttempt(
+        IReadOnlyList<BundleSealJobRecord> jobs,
+        HashSet<string>? attempted
+    )
     {
         var now = DateTimeOffset.UtcNow;
         float? soonest = null;
@@ -262,7 +268,8 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                     ? (float)(now - lastAttempt).TotalSeconds
                     : null,
                 (float)(now - _launchedAtUtc).TotalSeconds,
-                (float)(job.InputDeadlineAtUtc - now).TotalSeconds
+                (float)(job.InputDeadlineAtUtc - now).TotalSeconds,
+                attemptedInPass: attempted?.Contains(job.RunId) == true
             );
             if (seconds is { } value && (soonest == null || value < soonest))
                 soonest = value;
