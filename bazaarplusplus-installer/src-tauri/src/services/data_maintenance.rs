@@ -40,7 +40,9 @@ impl DataMaintenanceLock {
 
     /// Like [`Self::run_blocking`], and also stops the OBS overlay for the
     /// duration, for work that deletes the database the overlay reads. It
-    /// advances [`Self::database_generation`].
+    /// advances [`Self::database_generation`] when it takes the lock and again
+    /// when the task ends, before releasing the lock: state derived while the
+    /// task ran is stale too.
     pub(crate) async fn run_blocking_with_overlay_stopped<T, F>(
         &self,
         stream_runtime: &StreamRuntime,
@@ -52,16 +54,32 @@ impl DataMaintenanceLock {
     {
         let guard = self.gate.clone().lock_owned().await;
         self.database_generation.fetch_add(1, Ordering::SeqCst);
+        let ended = AdvanceOnDrop(self.database_generation.clone());
+        let task = move || {
+            // Dropped when the task returns or unwinds, while the lock is held.
+            let _ended = ended;
+            task()
+        };
         stream_runtime
             .exclusive_maintenance(|| run_on_blocking_pool(guard, task))
             .await
     }
 
     /// Changes whenever an operation that may delete or replace the current
-    /// Data Root's database takes the lock. Read it before deriving state
-    /// from the database, and compare it again while holding the lock.
+    /// Data Root's database takes the lock, and again when it completes. Read
+    /// it before deriving state from the database, and compare it again while
+    /// holding the lock.
     pub(crate) fn database_generation(&self) -> u64 {
         self.database_generation.load(Ordering::SeqCst)
+    }
+}
+
+/// Advances a database generation when dropped.
+struct AdvanceOnDrop(Arc<AtomicU64>);
+
+impl Drop for AdvanceOnDrop {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
     }
 }
 

@@ -1134,6 +1134,27 @@ mod tests {
             .await
             .unwrap();
         assert!(take(id).is_none());
+
+        // So does one that was still running when the preview planned.
+        let during = {
+            let plans = plans.clone();
+            maintenance
+                .run_blocking_with_overlay_stopped(
+                    &crate::stream::runtime::StreamRuntime::default(),
+                    move || {
+                        plans.store(
+                            root,
+                            StorageCleanupScope::RunData,
+                            StorageCleanupPreset::All,
+                            plans.database_generation(),
+                            super::CleanupPlan::RunData(RunDataCleanupPlan::empty()),
+                        )
+                    },
+                )
+                .await
+                .unwrap()
+        };
+        assert!(take(during).is_none());
     }
 
     /// The dialog offers Retry after "Close The Bazaar". Retrying the same

@@ -2553,6 +2553,61 @@ mod tests {
         assert_eq!(remaining, vec!["resumed", "touched"]);
     }
 
+    /// The last-activity check on its own: under the `all` preset, a planned
+    /// Run the mod resumed and ended again without attaching anything new is
+    /// still eligible and holds only planned children, yet it is no longer
+    /// the Run the preview showed, so it survives.
+    #[test]
+    fn stale_all_preset_plan_spares_a_run_ended_again_without_new_children() {
+        let fixture = create_fixture();
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        insert_run(
+            &conn,
+            "ended-again",
+            "abandoned",
+            "Normal",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_battle(
+            &conn,
+            "battle",
+            "LOCAL",
+            Some("ended-again"),
+            "2026-06-10T09:00:00Z",
+            Some("ready"),
+        );
+        drop(conn);
+        let plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
+        assert_eq!(plan.items.len(), 1);
+
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        conn.execute(
+            "update runs set status = 'completed', ended_at_ms = ?1, last_seen_at_ms = ?1
+             where run_id = 'ended-again'",
+            [ms("2026-06-12T10:00:00Z")],
+        )
+        .unwrap();
+        drop(conn);
+
+        let result = super::execute_run_data_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            &plan,
+            &SystemGameProcessProbe,
+        )
+        .unwrap();
+
+        assert_eq!(result.deleted_runs, 0);
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        assert_eq!(
+            conn.query_row("select count(*) from battles", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+
     /// Under the `all` preset there is no cutoff to move past. The mod resumes
     /// a planned Run, records one more battle with its payload, video, and
     /// screenshot, and ends the Run again before the user confirms. The Run
