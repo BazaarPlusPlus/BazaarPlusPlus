@@ -7,8 +7,8 @@ const emptyDetail = document.getElementById('overlay-empty-detail');
 const list = document.getElementById('overlay-list');
 
 let lastRecordKey = null;
-/** The detail of the empty state on screen, or null when it is not shown. */
-let renderedEmptyDetail = null;
+/** The title and detail of the empty state on screen, or null when it is not shown. */
+let renderedEmptyKey = null;
 let rowResizeObserver = null;
 let currentDisplayMode = 'current';
 
@@ -186,14 +186,18 @@ function buildRowMarkup(record) {
   `;
 }
 
-function renderEmpty(message) {
+/** The body of a record route's 404 when the service has no record installation. */
+const NO_RECORD_INSTALLATION = 'no_record_installation';
+
+function renderEmpty(message, title = 'No records yet') {
   const detail =
     message ?? 'Start a match and the overlay will update automatically.';
+  const key = `${title}\n${detail}`;
   // Each poll without records lands here; an unchanged empty state keeps its DOM.
-  if (renderedEmptyDetail === detail && root?.classList.contains('empty')) {
+  if (renderedEmptyKey === key && root?.classList.contains('empty')) {
     return;
   }
-  renderedEmptyDetail = detail;
+  renderedEmptyKey = key;
 
   setClassNames('empty');
   setText(signal, 'Local feed idle');
@@ -209,7 +213,7 @@ function renderEmpty(message) {
     list.innerHTML = '';
   }
 
-  setText(emptyTitle, 'No records yet');
+  setText(emptyTitle, title);
   setText(emptyDetail, detail);
 }
 
@@ -219,7 +223,7 @@ function renderRecords(records, options = {}) {
   }
 
   const { stale = false, updated = false } = options;
-  renderedEmptyDetail = null;
+  renderedEmptyKey = null;
   setClassNames(stale ? 'stale' : 'live');
   setText(
     signal,
@@ -329,6 +333,14 @@ async function refresh() {
     const response = await fetch(endpoint, { cache: 'no-store' });
     if (!response.ok) {
       const message = (await response.text()).trim();
+      if (response.status === 404 && message === NO_RECORD_INSTALLATION) {
+        lastRecordKey = null;
+        renderEmpty(
+          'Finish a run, then restart the service on the Stream page.',
+          'No local data found'
+        );
+        return;
+      }
       throw new Error(message || `unexpected status ${response.status}`);
     }
     const payload = await response.json();

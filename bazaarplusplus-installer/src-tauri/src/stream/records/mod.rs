@@ -7,32 +7,35 @@ use crate::history::screenshots::{
     load_overlay_snapshot_list,
 };
 pub(in crate::stream) use image::resolve_overlay_image_path;
-pub use locator::{find_database_path_anywhere, resolve_database_path};
+pub use locator::resolve_database_path;
 use mapper::to_overlay_record;
 pub use mapper::OverlayRecord;
-use std::{
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
+use std::path::{Path, PathBuf};
 
-/// How long a failed search for a database outside any installation is
-/// reused before the known Steam libraries are scanned again.
-const DATABASE_MISS_TTL: Duration = Duration::from_secs(15);
+/// The service started without a record installation: no game directory had a
+/// BazaarPlusPlus database when it resolved one. A database found anywhere else
+/// could not resolve its screenshots, so the repository reads none.
+#[derive(Debug)]
+pub struct NoRecordInstallation;
+
+impl std::fmt::Display for NoRecordInstallation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            "No game directory had a BazaarPlusPlus database when the stream service started.",
+        )
+    }
+}
+
+impl std::error::Error for NoRecordInstallation {}
 
 #[derive(Clone, Debug)]
 pub struct OverlayRecordRepository {
     game_path: Option<PathBuf>,
-    /// When and why the last search without a game path failed; clones share it.
-    database_miss: Arc<Mutex<Option<(Instant, String)>>>,
 }
 
 impl OverlayRecordRepository {
     pub fn new(game_path: Option<PathBuf>) -> Self {
-        Self {
-            game_path,
-            database_miss: Arc::default(),
-        }
+        Self { game_path }
     }
 
     /// The installation whose records and screenshots this repository reads.
@@ -88,25 +91,10 @@ impl OverlayRecordRepository {
     }
 
     fn database_path(&self) -> anyhow::Result<PathBuf> {
-        if let Some(game_path) = &self.game_path {
-            return resolve_database_path(game_path);
+        match &self.game_path {
+            Some(game_path) => resolve_database_path(game_path),
+            None => Err(NoRecordInstallation.into()),
         }
-        // Held across the scan so concurrent requests share one search.
-        let mut miss = self
-            .database_miss
-            .lock()
-            .expect("overlay database miss poisoned");
-        if let Some((at, message)) = miss.as_ref() {
-            if at.elapsed() < DATABASE_MISS_TTL {
-                return Err(anyhow::anyhow!("{message}"));
-            }
-        }
-        let found = find_database_path_anywhere();
-        *miss = found
-            .as_ref()
-            .err()
-            .map(|error| (Instant::now(), error.to_string()));
-        found
     }
 
     fn resolve_image_path(&self, raw_path: Option<&str>) -> Option<PathBuf> {
