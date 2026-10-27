@@ -4,39 +4,61 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
-internal static class ReplayAudioTapStopper
+/// <summary>What stopping a recording's taps left: each tap's result, and the WAVs worth muxing.</summary>
+internal sealed class ReplayAudioStopOutcome
 {
-    public static List<string> StopAndCollectUsableWavPaths(
-        List<IReplayAudioCaptureTap> taps,
-        string recordingId,
-        out IReadOnlyList<ReplayAudioCaptureResult> captureResults
-    )
+    internal static readonly ReplayAudioStopOutcome Empty = new(
+        Array.Empty<ReplayAudioCaptureResult>()
+    );
+
+    internal ReplayAudioStopOutcome(IReadOnlyList<ReplayAudioCaptureResult> results)
     {
-        var results = Stop(taps, recordingId);
-        captureResults = results;
-        var usableWavPaths = new List<string>(results.Count);
+        Results = results;
+        var usable = new List<string>(results.Count);
         foreach (var result in results)
         {
             if (result.Usable)
-                usableWavPaths.Add(result.WavPath);
+                usable.Add(result.WavPath);
         }
-
-        return usableWavPaths;
+        UsableWavPaths = usable;
     }
 
-    public static List<ReplayAudioCaptureResult> Stop(
-        List<IReplayAudioCaptureTap> taps,
+    internal IReadOnlyList<ReplayAudioCaptureResult> Results { get; }
+
+    /// <summary>Closed WAVs whose tap pushed PCM; header-only WAVs are already deleted.</summary>
+    internal IReadOnlyList<string> UsableWavPaths { get; }
+}
+
+/// <summary>
+/// Stops a recording's taps in two steps: <see cref="Detach"/> on the main thread hands the taps
+/// over, and <see cref="Stop"/> runs off it, because a tap's stop joins its capture thread and
+/// then releases the backend (WASAPI COM objects, or the CoreAudio IOProc, aggregate device and
+/// process tap), closes the WAV and checks the file.
+/// </summary>
+internal static class ReplayAudioTapStopper
+{
+    public static IReadOnlyList<IReplayAudioCaptureTap> Detach(List<IReplayAudioCaptureTap> taps)
+    {
+        if (taps == null)
+            throw new ArgumentNullException(nameof(taps));
+
+        var snapshot = taps.ToArray();
+        taps.Clear();
+        return snapshot;
+    }
+
+    public static ReplayAudioStopOutcome Stop(
+        IReadOnlyList<IReplayAudioCaptureTap> taps,
         string recordingId
     )
     {
         if (taps == null)
             throw new ArgumentNullException(nameof(taps));
+        if (taps.Count == 0)
+            return ReplayAudioStopOutcome.Empty;
 
-        var snapshot = new List<IReplayAudioCaptureTap>(taps);
-        taps.Clear();
-
-        var results = new List<ReplayAudioCaptureResult>(snapshot.Count);
-        foreach (var tap in snapshot)
+        var results = new List<ReplayAudioCaptureResult>(taps.Count);
+        foreach (var tap in taps)
         {
             Exception? stopException = null;
             try
@@ -95,7 +117,7 @@ internal static class ReplayAudioTapStopper
             );
         }
 
-        return results;
+        return new ReplayAudioStopOutcome(results);
     }
 
     public static bool IsUsable(bool capturedAnySamples, string wavPath)

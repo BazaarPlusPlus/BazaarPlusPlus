@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
@@ -30,8 +31,18 @@ public abstract class SqliteStoreBase
         RunLogSchema.EnsureInitialized(connection);
     }
 
-    protected SqliteConnection OpenConnection()
+    protected const int DefaultBusyTimeoutMilliseconds = 2000;
+
+    protected SqliteConnection OpenConnection() => OpenConnection(DefaultBusyTimeoutMilliseconds);
+
+    // A shorter busy_timeout bounds only the native wait; Microsoft.Data.Sqlite still retries
+    // SQLITE_BUSY until SqliteCommand.CommandTimeout (whole seconds, 0 waits forever), so a
+    // caller that must give up sooner lowers its command's CommandTimeout as well.
+    protected SqliteConnection OpenConnection(int busyTimeoutMilliseconds)
     {
+        if (busyTimeoutMilliseconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(busyTimeoutMilliseconds));
+
         // Foreign-key enforcement rides the connection string so it costs no extra round trip.
         // busy_timeout stays a pragma: Microsoft.Data.Sqlite 8.0's "Default Timeout" only seeds
         // SqliteCommand.CommandTimeout (a managed SQLITE_BUSY retry loop, and CreateCommand
@@ -41,7 +52,8 @@ public abstract class SqliteStoreBase
         {
             connection.Open();
             using var command = CreateCommand(connection);
-            command.CommandText = "PRAGMA busy_timeout = 2000;";
+            command.CommandText =
+                $"PRAGMA busy_timeout = {busyTimeoutMilliseconds.ToString(CultureInfo.InvariantCulture)};";
             command.ExecuteNonQuery();
             return connection;
         }

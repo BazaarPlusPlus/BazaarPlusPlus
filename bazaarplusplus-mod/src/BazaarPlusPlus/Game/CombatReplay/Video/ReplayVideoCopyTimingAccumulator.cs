@@ -1,8 +1,11 @@
 #nullable enable
+#if DEBUG
 using System.Diagnostics;
+#endif
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
+#if DEBUG
 internal sealed class ReplayVideoCopyTimingAccumulator
 {
     private readonly long[] _samples;
@@ -50,3 +53,25 @@ internal sealed class ReplayVideoCopyTimingAccumulator
             _count++;
     }
 }
+#else
+// Every reader of these percentiles is a BppLog.DebugEvent, which compiles out of Release, so a
+// Release build keeps no samples: no per-playback buffer, and no copy and sort at finalize.
+internal sealed class ReplayVideoCopyTimingAccumulator
+{
+    internal ReplayVideoCopyTimingAccumulator(int capacity = 2048)
+    {
+        if (capacity <= 0)
+            throw new ArgumentOutOfRangeException(nameof(capacity));
+    }
+
+    internal long P50Microseconds => 0;
+
+    internal long P95Microseconds => 0;
+
+    internal long P99Microseconds => 0;
+
+    internal void ObserveSince(long startedTimestamp) { }
+
+    internal void ObserveMicroseconds(long microseconds) { }
+}
+#endif

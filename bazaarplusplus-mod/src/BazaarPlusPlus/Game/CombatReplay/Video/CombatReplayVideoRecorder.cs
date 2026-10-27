@@ -40,8 +40,14 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
     );
     private ReplayVideoCaptureSettings _availabilitySettings;
     private string? _availabilityVideoDirectory;
-    private ReplayVideoAudioStatus _activeAudioStatus = ReplayVideoAudioStatus.Silent;
-    private ReplayVideoMetadataStatus _activeMetadataStatus = ReplayVideoMetadataStatus.Unavailable;
+
+    // The History path writes its start row off the main thread; finalization joins this task
+    // before its SaveFinish, which only updates an existing row.
+    private Task<MetadataWriteOutcome>? _activeStartMetadata;
+
+    // The last recording's tap stop, which runs off the main thread. The next recording waits for
+    // it before starting a tap: the macOS aggregate device has a fixed UID.
+    private Task<ReplayAudioStopOutcome>? _pendingAudioStop;
     private ReplayVideoRecordingReasonCode? _activeDegradationReason;
     private Exception? _activeDegradationException;
     private Exception? _metadataInitializationException;
@@ -220,9 +226,11 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 );
             }
 
+            // The arm's contract is a reserved row, so this write stays synchronous, bounded to
+            // about a second on a locked database; a timeout is the reservation failure below.
             try
             {
-                _metadataStore.SaveStart(CreateStartedMetadata(request, services));
+                _metadataStore.ReserveStartOnMainThread(CreateStartedMetadata(request, services));
             }
             catch (Exception ex)
             {
@@ -506,20 +514,15 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         var operation = _activeOperation;
         var reason = evt.Reason ?? (evt.Failed ? "playback-failed" : "playback-ended");
         ReplayVideoEncoderDrain? drain = null;
+        Task<ReplayAudioStopOutcome>? audioStop = null;
 
         try
         {
             StopCaptureCoroutine();
             drain = session.Finalize(reason);
-            // Closes + unlocks the WAVs before the muxer reads them, returning
-            // only paths whose tap actually pushed PCM. Header-only WAVs are
-            // deleted inside ReplayAudioTapStopper.
-            var wavPaths = ReplayAudioTapStopper.StopAndCollectUsableWavPaths(
-                _audioTaps,
-                operation.RecordingId,
-                out var audioResults
-            );
-            ApplyAudioStopOutcomes(audioResults, wavPaths.Count > 0);
+            // The taps stop off the main thread: their WAVs are closed and judged before the
+            // continuation muxes them (CompleteEndedRecording waits for this task).
+            audioStop = StopAudioTapsOffMainThread(operation.RecordingId);
 
             // Freeze every continuation input before clearing the active recording. A superseding
             // replay may replace all _active* fields as soon as this method returns.
@@ -527,10 +530,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             var finalPath = _activeRecordingFinalPath ?? session.Request.FinalOutputFilePath;
             var videoDir = _services == null ? null : VideoDirectory(_services);
             var store = _metadataStore;
-            var audioStatus = _activeAudioStatus;
-            var metadataStatus = _activeMetadataStatus;
-            var degradationReason = _activeDegradationReason;
-            var degradationException = _activeDegradationException;
+            var startInputs = FreezeStartInputs();
             var operations = _operations;
             _muxer ??= new ReplayVideoAudioMuxer();
             var muxer = _muxer;
@@ -544,17 +544,15 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 drain,
                 tempVideoPath,
                 finalPath,
-                wavPaths
+                _activeAudioWavPaths,
+                audioStop
             );
             var endedContext = new EndedRecordingFinalizeContext(
                 recordingContext,
                 muxer,
                 store,
                 videoDir,
-                audioStatus,
-                metadataStatus,
-                degradationReason,
-                degradationException
+                startInputs
             );
             ReplayVideoAudioMuxer.DispatchTracked(() => CompleteEndedRecording(endedContext));
             ClearActiveState();
@@ -562,16 +560,13 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         catch (Exception ex)
         {
             var wavPaths = _activeAudioWavPaths;
-            ReplayAudioTapStopper.StopAndCollectUsableWavPaths(
-                _audioTaps,
-                operation.RecordingId,
-                out _
-            );
+            audioStop ??= StopAudioTapsOffMainThread(operation.RecordingId);
             var tempPath = _activeRecordingTempPath ?? session.Request.OutputFilePath;
             var finalPath = _activeRecordingFinalPath ?? session.Request.FinalOutputFilePath;
             DisposeUiState();
             session.Dispose();
             var operations = _operations;
+            ClearActiveState();
             if (drain != null)
             {
                 var recordingContext = new RecordingFinalizeContext(
@@ -580,29 +575,33 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                     drain,
                     tempPath,
                     finalPath,
-                    wavPaths
+                    wavPaths,
+                    audioStop
                 );
                 ReplayVideoAudioMuxer.DispatchTracked(() =>
                     CompleteEndedFailure(recordingContext, ex)
                 );
-                ClearActiveState();
                 return;
             }
 
-            ClearActiveState();
-            DeleteTempFile(tempPath, operation.RecordingId);
-            DeleteWavBestEffort(wavPaths);
-            operations.TryComplete(
-                operation,
-                new ReplayVideoRecordingCompletion
-                {
-                    FinalFilePath = finalPath,
-                    AudioStatus = ReplayVideoAudioStatus.Failed,
-                    MetadataStatus = ReplayVideoMetadataStatus.Failed,
-                    ReasonCode = ReplayVideoRecordingReasonCode.CaptureFailed,
-                    Exception = ex,
-                }
-            );
+            var stop = audioStop;
+            ReplayVideoAudioMuxer.DispatchTracked(() =>
+            {
+                WaitForAudioStop(stop);
+                DeleteTempFile(tempPath, operation.RecordingId);
+                DeleteWavBestEffort(wavPaths);
+                operations.TryComplete(
+                    operation,
+                    new ReplayVideoRecordingCompletion
+                    {
+                        FinalFilePath = finalPath,
+                        AudioStatus = ReplayVideoAudioStatus.Failed,
+                        MetadataStatus = ReplayVideoMetadataStatus.Failed,
+                        ReasonCode = ReplayVideoRecordingReasonCode.CaptureFailed,
+                        Exception = ex,
+                    }
+                );
+            });
         }
     }
 
@@ -641,12 +640,16 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         try
         {
             result = recording.Drain.Complete();
+            var inputs = ResolveEndedInputs(
+                context.Start,
+                recording.AudioStop.GetAwaiter().GetResult()
+            );
             var mux = context.Muxer.Resolve(
                 recording.Operation.RecordingId,
                 result.Status,
                 recording.TempVideoPath,
                 recording.FinalPath,
-                recording.WavPaths ?? Array.Empty<string>()
+                inputs.UsableWavPaths
             );
             try
             {
@@ -657,16 +660,16 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                     result,
                     mux.Status != ReplayVideoAudioMuxer.MuxStatus.Failed,
                     mux.FileSizeBytes,
-                    context.MetadataStatus
+                    inputs.MetadataStatus
                 );
                 recording.Operations.CompleteResolved(
                     recording.Operation,
                     result,
                     mux,
-                    context.AudioStatus,
+                    inputs.AudioStatus,
                     resolvedMetadata.Status,
-                    context.DegradationReason,
-                    context.DegradationException ?? resolvedMetadata.Exception
+                    inputs.DegradationReason,
+                    inputs.DegradationException ?? resolvedMetadata.Exception
                 );
             }
             catch (Exception ex)
@@ -675,8 +678,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                     recording.Operation,
                     result,
                     mux,
-                    context.AudioStatus,
-                    context.MetadataStatus,
+                    inputs.AudioStatus,
+                    inputs.MetadataStatus,
                     ex
                 );
             }
@@ -711,6 +714,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         Exception exception
     )
     {
+        // A WAV is still open until its tap has stopped.
+        WaitForAudioStop(recording.AudioStop);
         DeleteTempFile(recording.TempVideoPath, recording.Operation.RecordingId);
         DeleteWavBestEffort(recording.WavPaths);
         recording.Operations.TryComplete(
@@ -733,6 +738,75 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 EndedAtUtc = result?.EndedAtUtc,
             }
         );
+    }
+
+    // Off the main thread only: the start-metadata write and the tap stop are short, bounded
+    // background tasks; the precedence below is the order the main thread used to apply them in
+    // (audio start, then start metadata, then audio stop).
+    private static EndedRecordingInputs ResolveEndedInputs(
+        RecordingStartInputs start,
+        ReplayAudioStopOutcome audio
+    )
+    {
+        var metadata = start.Metadata.GetAwaiter().GetResult();
+        var degradationReason = start.DegradationReason;
+        var degradationException = start.DegradationException;
+        if (metadata.Status != ReplayVideoMetadataStatus.Complete)
+        {
+            degradationReason ??= ReplayVideoRecordingReasonCode.MetadataFailed;
+            degradationException ??= metadata.Exception;
+        }
+
+        var audioStatus = ResolveAudioStatus(audio, out var audioFailure);
+        if (audioFailure.HasValue)
+        {
+            degradationReason ??= ReplayVideoRecordingReasonCode.AudioStopFailed;
+            degradationException ??= audioFailure.Value.FailureException;
+        }
+        else if (audioStatus != ReplayVideoAudioStatus.Full)
+        {
+            degradationReason ??= ReplayVideoRecordingReasonCode.AudioUnavailable;
+        }
+
+        return new EndedRecordingInputs(
+            audio.UsableWavPaths,
+            audioStatus,
+            metadata.Status,
+            degradationReason,
+            degradationException
+        );
+    }
+
+    private static ReplayVideoAudioStatus ResolveAudioStatus(
+        ReplayAudioStopOutcome audio,
+        out ReplayAudioCaptureResult? firstFailure
+    )
+    {
+        firstFailure = null;
+        foreach (var result in audio.Results)
+        {
+            if (result.FailureReason != ReplayAudioFailureReasonCode.None)
+            {
+                firstFailure = result;
+                return ReplayVideoAudioStatus.Failed;
+            }
+        }
+
+        return audio.UsableWavPaths.Count > 0
+            ? ReplayVideoAudioStatus.Full
+            : ReplayVideoAudioStatus.Silent;
+    }
+
+    private static void WaitForAudioStop(Task<ReplayAudioStopOutcome>? audioStop)
+    {
+        try
+        {
+            audioStop?.Wait();
+        }
+        catch
+        {
+            // The stop already reported its own failure; cleanup only needs the WAVs closed.
+        }
     }
 
     private static void DeleteWavBestEffort(string? wavPath)
@@ -782,36 +856,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             _ => ReplayVideoRecordingReasonCode.CaptureFailed,
         };
 
-    private void ApplyAudioStopOutcomes(
-        IReadOnlyList<ReplayAudioCaptureResult> results,
-        bool hasUsableAudio
-    )
-    {
-        ReplayAudioCaptureResult? firstFailure = null;
-        for (var index = 0; index < results.Count; index++)
-        {
-            if (results[index].FailureReason != ReplayAudioFailureReasonCode.None)
-            {
-                firstFailure = results[index];
-                break;
-            }
-        }
-
-        if (firstFailure.HasValue)
-        {
-            _activeAudioStatus = ReplayVideoAudioStatus.Failed;
-            _activeDegradationReason ??= ReplayVideoRecordingReasonCode.AudioStopFailed;
-            _activeDegradationException ??= firstFailure.Value.FailureException;
-            return;
-        }
-
-        _activeAudioStatus = hasUsableAudio
-            ? ReplayVideoAudioStatus.Full
-            : ReplayVideoAudioStatus.Silent;
-        if (!hasUsableAudio)
-            _activeDegradationReason ??= ReplayVideoRecordingReasonCode.AudioUnavailable;
-    }
-
     private void ClearActiveState()
     {
         _activeSession = null;
@@ -820,10 +864,56 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         _activeRecordingTempPath = null;
         _activeRecordingFinalPath = null;
         _activeAudioWavPaths = null;
-        _activeAudioStatus = ReplayVideoAudioStatus.Silent;
-        _activeMetadataStatus = ReplayVideoMetadataStatus.Unavailable;
+        _activeStartMetadata = null;
         _activeDegradationReason = null;
         _activeDegradationException = null;
+    }
+
+    // MAIN thread: everything the start contributed to the terminal outcome, frozen before
+    // ClearActiveState so a superseding recording cannot overwrite it.
+    private RecordingStartInputs FreezeStartInputs() =>
+        new(
+            _activeStartMetadata ?? Task.FromResult(MetadataWriteOutcome.Unavailable),
+            _activeDegradationReason,
+            _activeDegradationException
+        );
+
+    // MAIN thread: hands the taps to a tracked background stop, which the shutdown drain also
+    // waits for, and remembers it so the next tap start waits until this one has torn down.
+    private Task<ReplayAudioStopOutcome> StopAudioTapsOffMainThread(string recordingId)
+    {
+        var taps = ReplayAudioTapStopper.Detach(_audioTaps);
+        if (taps.Count == 0)
+            return Task.FromResult(ReplayAudioStopOutcome.Empty);
+
+        var stop = ReplayVideoAudioMuxer.DispatchTracked(() =>
+            ReplayAudioTapStopper.Stop(taps, recordingId)
+        );
+        _pendingAudioStop = stop;
+        return stop;
+    }
+
+    // A tap stop joins its capture thread for at most StopTimeoutMs before handing cleanup to a
+    // deferred thread, so this bounds the wait; past it the new tap starts anyway and, should
+    // the backend still be busy, the recording falls back to silent video.
+    private void WaitForPreviousAudioStop()
+    {
+        var pending = _pendingAudioStop;
+        if (pending == null)
+            return;
+        if (!pending.IsCompleted)
+        {
+            try
+            {
+                pending.Wait(ReplayAudioCaptureThreadJoiner.StopTimeoutMs + 500);
+            }
+            catch
+            {
+                // The stop's own failure is reported with its recording.
+            }
+        }
+        if (pending.IsCompleted)
+            _pendingAudioStop = null;
     }
 
     private void BeginRecording(
@@ -847,8 +937,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         _activeSession = session;
         _activeRecordingTempPath = request.OutputFilePath;
         _activeRecordingFinalPath = request.FinalOutputFilePath;
-        _activeAudioStatus = ReplayVideoAudioStatus.Silent;
-        _activeMetadataStatus = ReplayVideoMetadataStatus.Unavailable;
+        _activeStartMetadata = null;
         _activeDegradationReason = null;
         _activeDegradationException = null;
         try
@@ -870,15 +959,11 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
 
         _uiSuppressionScope = BeginUiSuppression(operation.RecordingId);
 
-        _activeMetadataStatus =
+        // The current replay's row was reserved when it was armed.
+        _activeStartMetadata =
             operation.Source == CombatReplayPlaybackSource.CurrentNative
-                ? ReplayVideoMetadataStatus.Complete
-                : TrySaveStartMetadata(request, services);
-        if (_activeMetadataStatus != ReplayVideoMetadataStatus.Complete)
-        {
-            _activeDegradationReason ??= ReplayVideoRecordingReasonCode.MetadataFailed;
-            _activeDegradationException ??= _metadataInitializationException;
-        }
+                ? Task.FromResult(MetadataWriteOutcome.Complete)
+                : SaveStartMetadataOffMainThread(request, services);
 
         _captureCoroutine = StartCoroutine(CaptureLoop(session));
 
@@ -904,6 +989,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         // spatialised combat/board SFX that no FMOD channel group exposes.
         var wavPath = ReplayVideoAudioTapPlan.DeriveAudioWavPath(tempVideoPath);
         _activeAudioWavPaths = new List<string> { wavPath };
+        WaitForPreviousAudioStop();
         TryStartAudioTap(operation, wavPath);
 
         if (_audioTaps.Count == 0)
@@ -922,7 +1008,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             if (outcome.Started)
             {
                 _audioTaps.Add(tap);
-                _activeAudioStatus = ReplayVideoAudioStatus.Full;
                 BppLog.DebugEvent(
                     new BppLogEvent(
                         BppLogFeatureScope.CombatReplay,
@@ -940,7 +1025,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 return;
             }
 
-            _activeAudioStatus = ReplayVideoAudioStatus.Silent;
             _activeDegradationReason =
                 outcome.ReasonCode == ReplayAudioFailureReasonCode.UnsupportedPlatform
                     ? ReplayVideoRecordingReasonCode.AudioUnavailable
@@ -951,32 +1035,42 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         }
         catch (Exception ex)
         {
-            _activeAudioStatus = ReplayVideoAudioStatus.Silent;
             _activeDegradationReason = ReplayVideoRecordingReasonCode.AudioCaptureFailed;
             _activeDegradationException = ex;
             DeleteWavBestEffort(wavPath);
         }
     }
 
-    private ReplayVideoMetadataStatus TrySaveStartMetadata(
+    // A History recording does not depend on its row to start, so the insert runs off the main
+    // thread instead of waiting there on a locked database. Finalization joins it before
+    // SaveFinish, and the shutdown drain waits for it like any tracked task.
+    private Task<MetadataWriteOutcome> SaveStartMetadataOffMainThread(
         ReplayVideoCaptureRequest request,
         IBppServices services
     )
     {
         var store = _metadataStore;
         if (store == null)
-            return ReplayVideoMetadataStatus.Unavailable;
+            return Task.FromResult(
+                new MetadataWriteOutcome(
+                    ReplayVideoMetadataStatus.Unavailable,
+                    _metadataInitializationException
+                )
+            );
 
-        try
+        var started = CreateStartedMetadata(request, services);
+        return ReplayVideoAudioMuxer.DispatchTracked(() =>
         {
-            store.SaveStart(CreateStartedMetadata(request, services));
-            return ReplayVideoMetadataStatus.Complete;
-        }
-        catch (Exception ex)
-        {
-            _activeDegradationException = ex;
-            return ReplayVideoMetadataStatus.Failed;
-        }
+            try
+            {
+                store.SaveStart(started);
+                return MetadataWriteOutcome.Complete;
+            }
+            catch (Exception ex)
+            {
+                return new MetadataWriteOutcome(ReplayVideoMetadataStatus.Failed, ex);
+            }
+        });
     }
 
     private static VideoRecordingStarted CreateStartedMetadata(
@@ -1107,19 +1201,21 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         var terminalException = _activeDegradationException;
 
         StopCaptureCoroutine();
-        // Tear the tap down synchronously: stop + join before any new recording's
-        // capture thread starts (covers superseded, OnDisable, OnDestroy, and the
-        // scene-change-driven OnDisable). Abort never muxes — it deletes temps.
+        // Unlike a playback end, an abort tears the taps down synchronously: stop + join before
+        // any new recording's capture thread starts (superseded) or the process exits (OnDisable,
+        // OnDestroy, the scene-change-driven OnDisable). Those callers would wait for the stop on
+        // the main thread anyway, and waiting there on a background CoreAudio teardown would only
+        // add a thread hop; the playback-end path stops off the main thread because nothing waits
+        // for it. Abort never muxes — it deletes temps.
         var wavPaths = _activeAudioWavPaths;
-        if (operation != null)
-        {
-            var usable = ReplayAudioTapStopper.StopAndCollectUsableWavPaths(
-                _audioTaps,
-                operation.RecordingId,
-                out var audioResults
-            );
-            ApplyAudioStopOutcomes(audioResults, usable.Count > 0);
-        }
+        var audioStop = Task.FromResult(
+            operation == null
+                ? ReplayAudioStopOutcome.Empty
+                : ReplayAudioTapStopper.Stop(
+                    ReplayAudioTapStopper.Detach(_audioTaps),
+                    operation.RecordingId
+                )
+        );
 
         // Freeze all state before dispatch. ClearActiveState runs before this method returns, and a
         // superseding recording is then free to overwrite every _active* field.
@@ -1129,8 +1225,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             ?? (session == null ? string.Empty : session.Request.FinalOutputFilePath);
         var store = _metadataStore;
         var videoDir = _services == null ? null : VideoDirectory(_services);
-        var audioStatus = _activeAudioStatus;
-        var metadataStatus = _activeMetadataStatus;
+        var startMetadata =
+            _activeStartMetadata ?? Task.FromResult(MetadataWriteOutcome.Unavailable);
         var operations = _operations;
         ReplayVideoEncoderDrain? drain = null;
         if (session != null)
@@ -1158,9 +1254,9 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         }
 
         DisposeUiState();
+        ClearActiveState();
         if (operation == null)
         {
-            ClearActiveState();
             DeleteTempFile(tempPath, recordingId: null);
             DeleteWavBestEffort(wavPaths);
             return;
@@ -1174,37 +1270,46 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 drain,
                 tempPath,
                 finalPath,
-                wavPaths
+                wavPaths,
+                audioStop
             );
             var abortedContext = new AbortedRecordingFinalizeContext(
                 recordingContext,
                 reason,
                 store,
                 videoDir,
-                audioStatus,
-                metadataStatus,
+                startMetadata,
                 terminalReason,
                 terminalException
             );
             ReplayVideoAudioMuxer.DispatchTracked(() => CompleteAbortedRecording(abortedContext));
-            ClearActiveState();
             return;
         }
 
-        ClearActiveState();
-        DeleteTempFile(tempPath, operation.RecordingId);
-        DeleteWavBestEffort(wavPaths);
-        operations.TryComplete(
-            operation,
-            new ReplayVideoRecordingCompletion
-            {
-                FinalFilePath = finalPath,
-                AudioStatus = audioStatus,
-                MetadataStatus = metadataStatus,
-                ReasonCode = terminalReason,
-                Exception = terminalException,
-            }
-        );
+        ReplayVideoAudioMuxer.DispatchTracked(() =>
+        {
+            var audioStatus = ResolveAudioStatus(audioStop.GetAwaiter().GetResult(), out _);
+            var metadata = startMetadata.GetAwaiter().GetResult();
+            DeleteTempFile(tempPath, operation.RecordingId);
+            DeleteWavBestEffort(wavPaths);
+            operations.TryComplete(
+                operation,
+                new ReplayVideoRecordingCompletion
+                {
+                    FinalFilePath = finalPath,
+                    AudioStatus = audioStatus,
+                    MetadataStatus = metadata.Status,
+                    ReasonCode = terminalReason,
+                    Exception =
+                        terminalException
+                        ?? (
+                            metadata.Status == ReplayVideoMetadataStatus.Complete
+                                ? null
+                                : metadata.Exception
+                        ),
+                }
+            );
+        });
     }
 
     private static void CompleteAbortedRecording(AbortedRecordingFinalizeContext context)
@@ -1212,12 +1317,19 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         var recording = context.Recording;
         var terminalReason = context.TerminalReason;
         var terminalException = context.TerminalException;
-        var metadataStatus = context.MetadataStatus;
+        var audioStatus = ReplayVideoAudioStatus.Failed;
+        var metadataStatus = ReplayVideoMetadataStatus.Failed;
         ReplayVideoCaptureResult? result = null;
         var finalResolutionSucceeded = false;
         try
         {
             result = recording.Drain.Complete();
+            audioStatus = ResolveAudioStatus(recording.AudioStop.GetAwaiter().GetResult(), out _);
+            var startMetadata = context.StartMetadata.GetAwaiter().GetResult();
+            metadataStatus = startMetadata.Status;
+            if (metadataStatus != ReplayVideoMetadataStatus.Complete)
+                terminalException ??= startMetadata.Exception;
+
             if (result.Status == ReplayVideoCaptureStatus.Completed)
             {
                 try
@@ -1258,6 +1370,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             terminalException = ex;
         }
 
+        WaitForAudioStop(recording.AudioStop);
         DeleteTempFile(recording.TempVideoPath, recording.Operation.RecordingId);
         DeleteWavBestEffort(recording.WavPaths);
         recording.Operations.TryComplete(
@@ -1267,7 +1380,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 FinalFilePath = recording.FinalPath,
                 CapturedFrames = result?.CapturedFrames ?? 0,
                 DroppedFrames = result?.DroppedFrames ?? 0,
-                AudioStatus = context.AudioStatus,
+                AudioStatus = audioStatus,
                 MetadataStatus = metadataStatus,
                 ReasonCode = terminalReason,
                 ExitCode = result?.ExitCode,
@@ -1475,30 +1588,34 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         if (store == null)
             return;
 
-        try
+        var finished = new VideoRecordingFinished
         {
-            store.SaveFinish(
-                new VideoRecordingFinished
-                {
-                    VideoId = prepared.Operation.RecordingId,
-                    VideoRelativePath = ComputeRelativePath(
-                        _services == null ? null : VideoDirectory(_services),
-                        prepared.Request.FinalOutputFilePath
-                    ),
-                    EndedAtUtc = DateTimeOffset.UtcNow,
-                    DurationMs = 0,
-                    CapturedFrames = 0,
-                    DroppedFrames = 0,
-                    FileSizeBytes = null,
-                    Status = "FAILED",
-                    Error = error,
-                }
-            );
-        }
-        catch
+            VideoId = prepared.Operation.RecordingId,
+            VideoRelativePath = ComputeRelativePath(
+                _services == null ? null : VideoDirectory(_services),
+                prepared.Request.FinalOutputFilePath
+            ),
+            EndedAtUtc = DateTimeOffset.UtcNow,
+            DurationMs = 0,
+            CapturedFrames = 0,
+            DroppedFrames = 0,
+            FileSizeBytes = null,
+            Status = "FAILED",
+            Error = error,
+        };
+        // Off the main thread: the arm reserved the row synchronously, so this update always
+        // follows it, and the shutdown drain in OnDestroy waits for it after OnDisable's cancel.
+        ReplayVideoAudioMuxer.DispatchTracked(() =>
         {
-            // Best effort: the terminal observer still reports the reservation failure.
-        }
+            try
+            {
+                store.SaveFinish(finished);
+            }
+            catch
+            {
+                // Best effort: the terminal observer still reports the reservation failure.
+            }
+        });
     }
 
     private static string VideoDirectory(IBppServices services) =>
@@ -1603,6 +1720,12 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
 
     private readonly struct MetadataWriteOutcome
     {
+        internal static MetadataWriteOutcome Complete =>
+            new(ReplayVideoMetadataStatus.Complete, null);
+
+        internal static MetadataWriteOutcome Unavailable =>
+            new(ReplayVideoMetadataStatus.Unavailable, null);
+
         internal MetadataWriteOutcome(ReplayVideoMetadataStatus status, Exception? exception)
         {
             Status = status;
@@ -1619,7 +1742,22 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         ReplayVideoEncoderDrain Drain,
         string TempVideoPath,
         string FinalPath,
-        IReadOnlyList<string>? WavPaths
+        IReadOnlyList<string>? WavPaths,
+        Task<ReplayAudioStopOutcome> AudioStop
+    );
+
+    private sealed record RecordingStartInputs(
+        Task<MetadataWriteOutcome> Metadata,
+        ReplayVideoRecordingReasonCode? DegradationReason,
+        Exception? DegradationException
+    );
+
+    private sealed record EndedRecordingInputs(
+        IReadOnlyList<string> UsableWavPaths,
+        ReplayVideoAudioStatus AudioStatus,
+        ReplayVideoMetadataStatus MetadataStatus,
+        ReplayVideoRecordingReasonCode? DegradationReason,
+        Exception? DegradationException
     );
 
     private sealed record PreparedCurrentReplayRecording(
@@ -1632,10 +1770,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         ReplayVideoAudioMuxer Muxer,
         CombatReplayVideoMetadataStore? Store,
         string? VideoDir,
-        ReplayVideoAudioStatus AudioStatus,
-        ReplayVideoMetadataStatus MetadataStatus,
-        ReplayVideoRecordingReasonCode? DegradationReason,
-        Exception? DegradationException
+        RecordingStartInputs Start
     );
 
     private sealed record AbortedRecordingFinalizeContext(
@@ -1643,8 +1778,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         string EndReason,
         CombatReplayVideoMetadataStore? Store,
         string? VideoDir,
-        ReplayVideoAudioStatus AudioStatus,
-        ReplayVideoMetadataStatus MetadataStatus,
+        Task<MetadataWriteOutcome> StartMetadata,
         ReplayVideoRecordingReasonCode TerminalReason,
         Exception? TerminalException
     );

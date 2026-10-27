@@ -9,6 +9,59 @@ internal static class ReplayVideoMetadataLifecycleTests
     {
         AttachmentAndFileStateRemainOrthogonal();
         ReconcileDoesNotOverwriteAConcurrentFinish();
+        MainThreadReservationGivesUpOnALockedDatabase();
+    }
+
+    // The current-replay arm reserves its row on the Unity main thread: while another writer
+    // holds the database it fails with SQLITE_BUSY after about a second (the default store wait
+    // is two), reserves nothing, and succeeds once the writer is gone.
+    private static void MainThreadReservationGivesUpOnALockedDatabase()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bpp-video-reserve-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var databasePath = Path.Combine(root, "run.db");
+        try
+        {
+            var store = new CombatReplayVideoMetadataStore(databasePath);
+            using (var writer = new SqliteConnection($"Data Source={databasePath};Pooling=False"))
+            {
+                writer.Open();
+                Execute(writer, "BEGIN IMMEDIATE;");
+
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+                SqliteException? busy = null;
+                try
+                {
+                    store.ReserveStartOnMainThread(
+                        Started("locked", "locked-battle", "2026/locked.mp4")
+                    );
+                }
+                catch (SqliteException ex)
+                {
+                    busy = ex;
+                }
+                stopwatch.Stop();
+
+                Equal(5, busy?.SqliteErrorCode ?? 0, "reservation error code (SQLITE_BUSY)");
+                if (stopwatch.Elapsed >= TimeSpan.FromMilliseconds(1900))
+                    throw new InvalidOperationException(
+                        $"Expected the main-thread reservation to give up before the default "
+                            + $"two-second wait, took {stopwatch.ElapsedMilliseconds} ms."
+                    );
+
+                Execute(writer, "ROLLBACK;");
+            }
+
+            Equal(0, store.ListArtifacts().Count, "rows reserved while locked");
+            store.ReserveStartOnMainThread(Started("locked", "locked-battle", "2026/locked.mp4"));
+            Equal("RECORDING", store.ListArtifacts().Single().Status, "reservation after unlock");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
     }
 
     private static void ReconcileDoesNotOverwriteAConcurrentFinish()

@@ -79,7 +79,18 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        var sequence = _loader.Load(payload);
+        // Decoding the three MessagePack parts into game objects is the start's one heavy step, so
+        // it runs on a pool thread while the start resets the board and bootstraps; the seal
+        // worker already decodes replays off the main thread through the same loader
+        // (DesktopPvpBattleEvidence.VerifyReplay). The start awaits it before its first use.
+        var sequence = Task.Run(() => _loader.Load(payload));
+        // A start that fails before BootstrapAsync never awaits the decode; observe its fault.
+        _ = sequence.ContinueWith(
+            static task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        );
         PlaybackUiState.InitializedBoardUiControllers.Clear();
         return new DesktopSavedReplayStart(manifest, sequence, outcome, _portrait);
     }
@@ -137,12 +148,16 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 
 internal sealed class DesktopSavedReplayStart(
     PvpBattleManifest manifest,
-    CombatSequenceMessages sequence,
+    Task<CombatSequenceMessages> decode,
     IReplayPlaybackOutcomeSink outcome,
     OpponentPortraitController portrait
 ) : ISavedReplayStart
 {
     private ReplayBootstrapContext? _context;
+    private CombatSequenceMessages? _sequence;
+
+    private CombatSequenceMessages Sequence =>
+        _sequence ?? throw new InvalidOperationException("The replay payload was not decoded.");
 
     public void Prepare()
     {
@@ -158,12 +173,15 @@ internal sealed class DesktopSavedReplayStart(
     {
         var bootstrappedFromLobby = await ReplayBootstrap.EnsureBootstrapReadyAsync();
         _context = ReplayBootstrap.ResolveDependencies(outcome);
+        // Resumes on the Unity main thread. A payload that does not decode fails the start here,
+        // after the bootstrap, through the start-failed cleanup and its rollback.
+        _sequence = await decode;
         return bootstrappedFromLobby;
     }
 
     public async Task PrepareOpponentAsync()
     {
-        OpponentPortraitController.EnsureOpponentIdentity(manifest, sequence.SpawnMessage, outcome);
+        OpponentPortraitController.EnsureOpponentIdentity(manifest, Sequence.SpawnMessage, outcome);
         await portrait.EnsureTemporaryOpponentPortraitAsync(manifest, outcome);
     }
 
@@ -171,7 +189,7 @@ internal sealed class DesktopSavedReplayStart(
         ReplayBootstrap.InjectSavedReplayAsync(
             _context ?? throw new InvalidOperationException("Replay bootstrap did not resolve."),
             manifest,
-            sequence,
+            Sequence,
             outcome,
             publishStarting
         );

@@ -15,6 +15,9 @@ internal static class SqliteStoreConnectionTests
             : base(databasePath) { }
 
         internal SqliteConnection Acquire() => OpenConnection();
+
+        internal SqliteConnection Acquire(int busyTimeoutMilliseconds) =>
+            OpenConnection(busyTimeoutMilliseconds);
     }
 
     private static void ForeignKeysStayEnforcedOnEveryAcquisition()
@@ -31,6 +34,16 @@ internal static class SqliteStoreConnectionTests
                 Equal(1L, Scalar(connection, "PRAGMA foreign_keys;"), "foreign_keys pragma");
                 Equal(2000L, Scalar(connection, "PRAGMA busy_timeout;"), "busy_timeout pragma");
             }
+
+            // A shorter wait applies to its own acquisition only: the pooled connection it used
+            // goes back to the default wait on the next default acquisition.
+            using (var connection = store.Acquire(250))
+            {
+                Equal(1L, Scalar(connection, "PRAGMA foreign_keys;"), "short-wait foreign_keys");
+                Equal(250L, Scalar(connection, "PRAGMA busy_timeout;"), "short busy_timeout");
+            }
+            using (var connection = store.Acquire())
+                Equal(2000L, Scalar(connection, "PRAGMA busy_timeout;"), "restored busy_timeout");
 
             using (var connection = store.Acquire())
             {

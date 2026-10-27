@@ -75,6 +75,13 @@ constexpr unsigned long long kD3D11GuidLow = 0xBF76967F07EFB177ULL;
 IUnityGraphicsD3D11 *g_unityD3D11 = nullptr;
 std::mutex g_mfMutex;
 int g_mfReferences = 0;
+// The first successful MFStartup keeps one reference until UnityPluginUnload, so a recording
+// that starts after the last one ended does not pay MFStartup and MFShutdown again.
+bool g_mfProcessReferenceHeld = false;
+std::mutex g_hardwareEncodersMutex;
+// MFTEnumEx's hardware H.264 catalog, enumerated once per process; an empty result is not kept,
+// so a failed enumeration is retried by the next recording.
+std::unordered_map<std::string, std::string> g_hardwareEncoders;
 
 enum class SlotState : uint8_t
 {
@@ -267,6 +274,11 @@ bool StartMediaFoundation(std::string &error)
         }
     }
     ++g_mfReferences;
+    if (!g_mfProcessReferenceHeld)
+    {
+        g_mfProcessReferenceHeld = true;
+        ++g_mfReferences;
+    }
     return true;
 }
 
@@ -278,6 +290,17 @@ void StopMediaFoundation()
     --g_mfReferences;
     if (g_mfReferences == 0)
         MFShutdown();
+}
+
+void ReleaseProcessMediaFoundationReference()
+{
+    {
+        std::lock_guard<std::mutex> guard(g_mfMutex);
+        if (!g_mfProcessReferenceHeld)
+            return;
+        g_mfProcessReferenceHeld = false;
+    }
+    StopMediaFoundation();
 }
 
 DWORD WINAPI DestroyEncoderWorker(void *context)
@@ -420,9 +443,17 @@ bool TransformOutputsH264(IMFTransform *transform)
     return false;
 }
 
+std::unordered_map<std::string, std::string> HardwareEncoders()
+{
+    std::lock_guard<std::mutex> guard(g_hardwareEncodersMutex);
+    if (g_hardwareEncoders.empty())
+        g_hardwareEncoders = EnumerateHardwareEncoders();
+    return g_hardwareEncoders;
+}
+
 bool VerifyHardwareEncoder(Encoder *encoder)
 {
-    const auto hardware = EnumerateHardwareEncoders();
+    const auto hardware = HardwareEncoders();
     if (hardware.empty())
     {
         SetFailure(encoder, "Media Foundation did not enumerate a hardware NV12 to H.264 encoder.");
@@ -977,6 +1008,7 @@ extern "C" UNITY_INTERFACE_EXPORT void UNITY_INTERFACE_API UnityPluginLoad(
 extern "C" UNITY_INTERFACE_EXPORT void UNITY_INTERFACE_API UnityPluginUnload()
 {
     g_unityD3D11 = nullptr;
+    ReleaseProcessMediaFoundationReference();
 }
 
 extern "C" int __cdecl BppMfHasUnityD3D11Interface()
