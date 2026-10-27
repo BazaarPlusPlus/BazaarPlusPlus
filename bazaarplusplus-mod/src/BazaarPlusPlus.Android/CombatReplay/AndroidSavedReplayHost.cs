@@ -19,12 +19,8 @@ namespace BazaarPlusPlus.Android.CombatReplay;
 /// </summary>
 internal sealed class AndroidSavedReplayHost : ISavedReplayHost
 {
-    private static readonly TimeSpan SavedReplayCacheLifetime = TimeSpan.FromSeconds(5);
-    private readonly SavedReplayCatalog _saved;
+    private readonly SavedReplayOfferCache _offers;
     private readonly AndroidReplayOpponent _opponent = new();
-    private readonly Dictionary<string, (bool Saved, DateTime At)> _savedReplayCache = new(
-        StringComparer.Ordinal
-    );
     private long _starts;
     private long _startFailures;
     private long _exitsHandled;
@@ -32,7 +28,9 @@ internal sealed class AndroidSavedReplayHost : ISavedReplayHost
 
     public AndroidSavedReplayHost(SavedReplayCatalog saved)
     {
-        _saved = saved ?? throw new ArgumentNullException(nameof(saved));
+        if (saved == null)
+            throw new ArgumentNullException(nameof(saved));
+        _offers = new SavedReplayOfferCache(saved.HasSavedReplay);
     }
 
     public long Starts => Interlocked.Read(ref _starts);
@@ -54,20 +52,13 @@ internal sealed class AndroidSavedReplayHost : ISavedReplayHost
 
     public bool RecordsVideo => false;
 
-    // History asks on every refresh; the answer is cached briefly so a refresh does not open the
-    // DELETE-mode database on the main thread each time (ReplaySavedAsync rechecks the catalog).
+    // Keep the Android notice and unavailable fallback outside the shared cache: a failed probe
+    // must retry on the next request rather than caching the fallback as a missing payload.
     public bool CanOfferSavedReplay(string battleId)
     {
-        var now = DateTime.UtcNow;
-        if (
-            _savedReplayCache.TryGetValue(battleId, out var cached)
-            && now - cached.At < SavedReplayCacheLifetime
-        )
-            return cached.Saved;
-        bool saved;
         try
         {
-            saved = _saved.HasSavedReplay(battleId);
+            return _offers.CanOffer(battleId, Now);
         }
         catch (Exception exception)
         {
@@ -82,13 +73,9 @@ internal sealed class AndroidSavedReplayHost : ISavedReplayHost
             );
             return false;
         }
-        if (_savedReplayCache.Count > 256)
-            _savedReplayCache.Clear();
-        _savedReplayCache[battleId] = (saved, now);
-        return saved;
     }
 
-    public void ForgetOffer(string battleId) => _savedReplayCache.Remove(battleId);
+    public void ForgetOffer(string battleId) => _offers.Forget(battleId);
 
     public ISavedReplayStart BeginStart(
         PvpBattleManifest manifest,
