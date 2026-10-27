@@ -269,6 +269,13 @@ internal static class BundleSealFailurePolicyTests
                 "file_recovery_failed"
             ),
             (
+                BundleSealStage.JobRead,
+                codec,
+                Skip,
+                BundleSealFailureLog.MaintenanceFailed,
+                "seal_job_unreadable"
+            ),
+            (
                 BundleSealStage.JobDiscovery,
                 missing,
                 Skip,

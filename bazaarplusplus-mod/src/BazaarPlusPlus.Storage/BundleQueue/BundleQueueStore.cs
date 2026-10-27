@@ -108,7 +108,9 @@ public sealed class BundleQueueStore : SqliteStoreBase
 
     // Every waiting job in one read, earliest input deadline first: the seal worker decides from
     // these rows which jobs are due and when it next needs to wake.
-    public IReadOnlyList<BundleSealJobRecord> ListWaitingJobs()
+    public IReadOnlyList<BundleSealJobRecord> ListWaitingJobs(
+        out IReadOnlyList<BundleSealJobReadFailure> invalidRows
+    )
     {
         using var connection = OpenConnection();
         using var command = CreateCommand(connection);
@@ -116,8 +118,35 @@ public sealed class BundleQueueStore : SqliteStoreBase
             $"SELECT {JobColumns} FROM {RunLogSchema.BundleSealJobsTableName} WHERE state = 'waiting' ORDER BY input_deadline_at_ms, run_id;";
         using var reader = command.ExecuteReader();
         var jobs = new List<BundleSealJobRecord>();
+        List<BundleSealJobReadFailure>? failures = null;
+        var rowNumber = 0;
         while (reader.Read())
-            jobs.Add(ReadJobRecord(reader));
+        {
+            rowNumber++;
+            try
+            {
+                jobs.Add(ReadJobRecord(reader));
+            }
+            catch (Exception ex)
+                when (ex
+                        is InvalidDataException
+                            or InvalidCastException
+                            or FormatException
+                            or OverflowException
+                            or ArgumentOutOfRangeException
+                )
+            {
+                // Isolate only row conversion failures. Query/connection failures still escape.
+                // Preserve the stored row so a repaired value is retried on a later pass.
+                (failures ??= new()).Add(
+                    new BundleSealJobReadFailure(
+                        reader.GetValue(0) as string,
+                        new InvalidDataException($"Cannot parse seal job row {rowNumber}.", ex)
+                    )
+                );
+            }
+        }
+        invalidRows = failures is null ? Array.Empty<BundleSealJobReadFailure>() : failures;
         return jobs;
     }
 
@@ -156,18 +185,33 @@ public sealed class BundleQueueStore : SqliteStoreBase
     public void FreezePlayerAccountId(string runId, string accountId)
     {
         using var connection = OpenConnection();
+        // An UPDATE of an unchanged row still needs SQLite's writer lock. Check with a read
+        // first, but require both rows to exist: a concurrent writer may still be creating one.
+        // The conditional writes below recheck after acquiring the transaction.
+        using (var probe = CreateCommand(connection))
+        {
+            probe.CommandText = $"""
+                SELECT EXISTS (SELECT 1 FROM {RunLogSchema.RunsTableName}
+                    WHERE run_id=$runId AND player_account_id IS NOT NULL)
+                    AND EXISTS (SELECT 1 FROM {RunLogSchema.BundleSealJobsTableName}
+                    WHERE run_id=$runId AND player_account_id IS NOT NULL);
+                """;
+            probe.Parameters.AddWithValue("$runId", runId);
+            if (probe.ExecuteScalar() is long known && known != 0)
+                return;
+        }
         using var transaction = connection.BeginTransaction();
         Execute(
             connection,
             transaction,
-            $"UPDATE {RunLogSchema.RunsTableName} SET player_account_id = COALESCE(player_account_id, $accountId) WHERE run_id = $runId;",
+            $"UPDATE {RunLogSchema.RunsTableName} SET player_account_id = $accountId WHERE run_id = $runId AND player_account_id IS NULL;",
             ("$runId", runId),
             ("$accountId", accountId)
         );
         Execute(
             connection,
             transaction,
-            $"UPDATE {RunLogSchema.BundleSealJobsTableName} SET player_account_id = COALESCE(player_account_id, $accountId) WHERE run_id = $runId;",
+            $"UPDATE {RunLogSchema.BundleSealJobsTableName} SET player_account_id = $accountId WHERE run_id = $runId AND player_account_id IS NULL;",
             ("$runId", runId),
             ("$accountId", accountId)
         );
@@ -398,7 +442,9 @@ public sealed class BundleQueueStore : SqliteStoreBase
 
     private static BundleSealJobRecord ReadJobRecord(SqliteDataReader reader) =>
         new BundleSealJobRecord(
-            reader.GetString(0),
+            reader.IsDBNull(0)
+                ? throw new InvalidDataException("Seal job run_id is missing.")
+                : reader.GetString(0),
             ParseJobState(reader.GetString(1)),
             reader.IsDBNull(2) ? null : reader.GetString(2),
             reader.GetInt32(3) == 1,

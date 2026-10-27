@@ -350,21 +350,28 @@ public sealed class PvpBattleSqliteStore : SqliteStoreBase, IReplayPayloadMainte
 
         using var connection = OpenConnection();
         using var command = CreateCommand(connection);
-        command.CommandText = $"""
-            UPDATE {RunLogSchema.BattlesTableName}
-            SET run_id = $runId
-            WHERE battle_id = $battleId
+        const string eligible = $"""
+            battle_id = $battleId
               AND source = 'LOCAL'
               AND run_id IS NULL
               AND EXISTS (
-                  SELECT 1
-                  FROM {RunLogSchema.RunsTableName}
-                  WHERE run_id = $runId
-                  LIMIT 1
-              );
+                  SELECT 1 FROM {RunLogSchema.RunsTableName}
+                  WHERE run_id = $runId LIMIT 1
+              )
             """;
         command.Parameters.AddWithValue("$battleId", battleId);
+        // Skip only an existing ineligible battle. An absent row may still be arriving through
+        // another writer, so it must retain the original write/lock path.
+        command.CommandText = $"""
+            SELECT EXISTS (SELECT 1 FROM {RunLogSchema.BattlesTableName}
+                WHERE battle_id=$battleId AND (source <> 'LOCAL' OR run_id IS NOT NULL));
+            """;
+        if (command.ExecuteScalar() is long known && known != 0)
+            return;
         command.Parameters.AddWithValue("$runId", runId);
+        // Keep the predicate on the write too: another writer may attach it after the probe.
+        command.CommandText =
+            $"UPDATE {RunLogSchema.BattlesTableName} SET run_id = $runId WHERE {eligible};";
         command.ExecuteNonQuery();
     }
 

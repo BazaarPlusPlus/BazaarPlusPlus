@@ -198,7 +198,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         var published = false;
         try
         {
-            var waiting = _queueStore.ListWaitingJobs();
+            var waiting = ListWaitingJobs();
             foreach (var key in _replayWaits.Keys)
             {
                 if (!waiting.Any(job => string.Equals(job.RunId, key, StringComparison.Ordinal)))
@@ -227,10 +227,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             return new PassResult(
                 discovered,
                 maintenanceFailed,
-                SecondsUntilAttempt(
-                    attempted != null ? _queueStore.ListWaitingJobs() : waiting,
-                    attempted
-                )
+                SecondsUntilAttempt(attempted != null ? ListWaitingJobs() : waiting, attempted)
             );
         }
         finally
@@ -239,6 +236,18 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             if (published)
                 _services.EventBus.Publish(new UploadArmRequested());
         }
+    }
+
+    private IReadOnlyList<BundleSealJobRecord> ListWaitingJobs()
+    {
+        var jobs = _queueStore.ListWaitingJobs(out var invalidRows);
+        foreach (var failure in invalidRows)
+            LogFailure(
+                BundleSealFailurePolicy.Decide(BundleSealStage.JobRead, failure.Exception, default),
+                failure.Exception,
+                failure.RunId
+            );
+        return jobs;
     }
 
     private bool IsDue(BundleSealJobRecord job, DateTimeOffset now) =>
