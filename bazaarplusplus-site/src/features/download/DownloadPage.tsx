@@ -101,21 +101,26 @@ function DownloadCard({
   );
 }
 
-/** The Android Release APK and the steps to install it; rendered only once its manifest loads. */
+/**
+ * The Android Release APK and the steps to install it. Until Android's Platform Release Manifest
+ * loads (or while it is missing or invalid), the card stays with its steps, a pending version, a
+ * disabled download, and a pointer to the GitHub release page.
+ */
 function AndroidCard({
   copy,
   locale,
   release,
+  loading,
 }: {
   copy: DownloadPageCopy;
   locale: Locale;
-  release: AndroidDownload;
+  release: AndroidDownload | undefined;
+  loading: boolean;
 }) {
   const androidCopy = copy.android;
-  const apkName = androidCopy.apkName.replace(
-    '{gameVersion}',
-    gameReleaseNumber(release.game.gameVersion)
-  );
+  const apkName = release
+    ? androidCopy.apkName.replace('{gameVersion}', gameReleaseNumber(release.game.gameVersion))
+    : null;
 
   return (
     <article className="panel grid gap-6 p-6 md:grid-cols-2 md:gap-8">
@@ -128,26 +133,53 @@ function AndroidCard({
 
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-[15px] text-text-3">{copy.versionLabel}</span>
-          <span className="text-lg font-semibold text-accent tabular-nums">v{release.version}</span>
+          {loading ? (
+            <span className="inline-block h-5 w-20 self-center rounded-control bg-hover motion-safe:animate-pulse" />
+          ) : release ? (
+            <span className="text-lg font-semibold text-accent tabular-nums">
+              v{release.version}
+            </span>
+          ) : (
+            <span className="text-[15px] text-text-2">{androidCopy.pendingVersion}</span>
+          )}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-[15px] font-semibold text-text-1">{apkName}</span>
-            <span className="text-[15px] text-text-3 tabular-nums">
-              {formatFileSize(release.apk.size, locale)}
-            </span>
+        {release && apkName ? (
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-[15px] font-semibold text-text-1">{apkName}</span>
+              <span className="text-[15px] text-text-3 tabular-nums">
+                {formatFileSize(release.apk.size, locale)}
+              </span>
+            </p>
+            <p className="text-sm text-text-3">
+              {androidCopy.sha256Label}{' '}
+              <code className="font-(family-name:--font-mono) break-all text-text-2">
+                {release.apk.sha256}
+              </code>
+            </p>
+          </div>
+        ) : loading ? null : (
+          <p className="text-[15px] text-text-2">
+            {androidCopy.pendingNote}
+            <a
+              href={GITHUB_RELEASE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent underline-offset-4 hover:underline"
+            >
+              {copy.releaseFallbackLink}
+            </a>
           </p>
-          <p className="text-sm text-text-3">
-            {androidCopy.sha256Label}{' '}
-            <code className="font-(family-name:--font-mono) break-all text-text-2">
-              {release.apk.sha256}
-            </code>
-          </p>
-        </div>
+        )}
 
         <div className="mt-auto flex flex-wrap gap-2">
-          <Button variant="primary" href={release.apk.url} icon={<DownloadIcon />}>
+          <Button
+            variant="primary"
+            href={release?.apk.url ?? '#'}
+            disabled={release == null}
+            icon={<DownloadIcon />}
+          >
             {androidCopy.actionLabel}
           </Button>
         </div>
@@ -202,9 +234,9 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
     queryFn: ({ signal }) => loadLatestInstaller(signal),
   });
   const status: DownloadStatus = isLoading ? 'loading' : isError ? 'error' : 'ready';
-  // Android is optional: until its manifest loads, and whenever it is missing or invalid, the
-  // page shows only the desktop downloads.
-  const { data: android } = useQuery({
+  // Android is not in the lockstep release: its card shows a pending state until its own
+  // manifest loads, and whenever that manifest is missing or invalid.
+  const { data: android, isLoading: androidLoading } = useQuery({
     queryKey: ['android-release'],
     queryFn: ({ signal }) => loadAndroidRelease(signal),
   });
@@ -224,13 +256,11 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
             />
           ))}
         </div>
-        {android ? <AndroidCard copy={copy} locale={locale} release={android} /> : null}
+        <AndroidCard copy={copy} locale={locale} release={android} loading={androidLoading} />
       </section>
 
       <section className="panel flex flex-col gap-3 p-6">
-        <h2 className="text-[15px] font-semibold text-text-1">
-          {android ? copy.desktopNoteTitle : copy.noteTitle}
-        </h2>
+        <h2 className="text-[15px] font-semibold text-text-1">{copy.desktopNoteTitle}</h2>
         <ul className="flex flex-col gap-2 text-[15px] text-text-2">
           {copy.noteParagraphs.map((paragraph, index) => (
             <li key={index} className="flex items-start gap-3">

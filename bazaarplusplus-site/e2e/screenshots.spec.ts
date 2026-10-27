@@ -16,15 +16,14 @@ const ROUTES: Record<string, string> = {
   support: '/support',
   tutorial: '/tutorial',
   download: '/download',
-  // Without an Android manifest the download page must stay pixel-identical to the desktop-only
-  // page it was before Android shipped; this baseline is that page, unchanged.
-  'download-without-android': '/download',
+  // Without an Android manifest the Android card stays on the page in its pending state.
+  'download-android-pending': '/download',
   heroes: '/heroes',
   'not-found': '/unknown',
 };
 
 const SOURCES: Record<string, Partial<GoldenSources>> = {
-  'download-without-android': { android: { status: 404 } },
+  'download-android-pending': { android: { status: 404 } },
 };
 
 for (const width of [1280, 390]) {
