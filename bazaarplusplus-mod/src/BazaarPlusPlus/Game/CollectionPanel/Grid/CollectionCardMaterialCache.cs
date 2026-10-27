@@ -18,7 +18,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // OnDestroy Harmony prefix nulls the card's _cardMaterial field before the original
 // OnDestroy fires, so the game's defensive `if (_cardMaterial) Destroy(_cardMaterial)` is a
 // no-op for our tracked cards. DisposeAll() actually destroys the Materials when the panel
-// itself is torn down (scene change or panel mount unmounts).
+// itself is torn down (scene change, the closed panel's idle release, or panel mount unmounts).
 internal sealed class CollectionCardMaterialCache
 {
     private const int DefaultCapacity = 256;

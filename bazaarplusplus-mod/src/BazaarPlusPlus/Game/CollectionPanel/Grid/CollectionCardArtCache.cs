@@ -13,7 +13,9 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // game never releases. Without L2, scrolling through 1146 Items would leak 1146 ref counts.
 //
 // We hold the AsyncOperationHandle ourselves so we can call Addressables.Release exactly
-// once per artKey when the panel closes. An LRU bound caps resident SOs at a fixed number
+// once per artKey when CollectionPanel tears its Unity runtime down: on a scene change, or once
+// the closed panel has idled past its release delay. A close alone keeps the handles, so a
+// quick reopen stays warm. An LRU bound caps resident SOs at a fixed number
 // regardless of catalog size; the LRU only evicts entries with refcount 0 so handles still
 // in use by active or pooled cards stay resident.
 internal sealed class CollectionCardArtCache

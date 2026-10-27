@@ -184,7 +184,10 @@ public sealed class AndroidMod : MelonMod
             () =>
             {
                 if (paused)
+                {
+                    _touchUi?.OnAppPaused();
                     _composition?.Pause();
+                }
                 else
                     _composition?.Resume();
             }

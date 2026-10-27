@@ -109,6 +109,10 @@ internal sealed class AndroidTouchUi
             .. _panels.BackSummary(),
         ];
 
+    /// <summary>Main thread, when the app leaves the foreground: persists staged preferences.</summary>
+    public void OnAppPaused() =>
+        Guarded("touch_ui:pause_collection", () => _collection?.FlushHeroPreference());
+
     /// <summary>Main thread: mounts the UI once the game's font is available.</summary>
     public void EnsureMounted()
     {

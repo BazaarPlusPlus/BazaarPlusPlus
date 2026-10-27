@@ -113,6 +113,7 @@ internal sealed class AndroidCollectionDayTierSource(Func<bool> isInRun) : IColl
 internal sealed class AndroidCollectionHeroPreferenceStore : ICollectionPanelHeroPreferenceStore
 {
     private bool _degradedReported;
+    private bool _unsaved;
 
     public CollectionPanelHeroPreferenceLoadResult Load(
         CollectionCatalogReadiness catalogReadiness,
@@ -146,8 +147,19 @@ internal sealed class AndroidCollectionHeroPreferenceStore : ICollectionPanelHer
             ReportDegraded("unsupported_hero");
             return;
         }
+        // PlayerPrefs.Save rewrites the SharedPreferences file; a hero tap only stages the value
+        // and the panel flushes it on close or when the app pauses (leaves the foreground).
         PlayerPrefs.SetString(Key(), CollectionPanelHeroPreference.Serialize(hero));
+        _unsaved = true;
+    }
+
+    public void Flush()
+    {
+        if (!_unsaved)
+            return;
+        // Cleared only after the write, so a save that throws is retried on the next flush.
         PlayerPrefs.Save();
+        _unsaved = false;
     }
 
     private static string Key()

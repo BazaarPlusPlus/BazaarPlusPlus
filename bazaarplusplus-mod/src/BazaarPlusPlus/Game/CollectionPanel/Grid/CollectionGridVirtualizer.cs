@@ -521,7 +521,9 @@ internal sealed class CollectionGridVirtualizer
             ++_perCellGeneration,
             hover,
             hoverScale,
-            rect
+            rect,
+            // The owner attached this group while the card was inactive; TickFades writes it.
+            card.GetComponent<CanvasGroup>()
         );
         _realized[index] = cell;
         BindArtLoadedHook(cell);
@@ -651,7 +653,7 @@ internal sealed class CollectionGridVirtualizer
                 cell.FadeAlpha = 1f;
                 cell.FadeActive = false;
             }
-            var canvasGroup = root.GetComponent<CanvasGroup>();
+            var canvasGroup = cell.Group;
             if (canvasGroup != null)
                 canvasGroup.alpha = cell.FadeAlpha;
         }
@@ -865,7 +867,8 @@ internal sealed class CollectionGridVirtualizer
             int generation,
             CollectionCardHoverRelay hoverRelay,
             CollectionCardHoverScaleController hoverScale,
-            RectTransform cachedRect
+            RectTransform cachedRect,
+            CanvasGroup? group
         )
         {
             Index = index;
@@ -875,6 +878,7 @@ internal sealed class CollectionGridVirtualizer
             HoverRelay = hoverRelay;
             HoverScale = hoverScale;
             CachedRect = cachedRect;
+            Group = group;
             BoundsCache = new NativeCardCellBoundsCache();
         }
 
@@ -885,11 +889,12 @@ internal sealed class CollectionGridVirtualizer
         public CollectionCardHoverRelay HoverRelay { get; }
         public CollectionCardHoverScaleController HoverScale { get; }
         public RectTransform CachedRect { get; }
+        public CanvasGroup? Group { get; }
         public NativeCardCellBoundsCache BoundsCache { get; }
         public bool IsShown { get; set; }
 
         // Fade state. ShowCell sets FadeActive=true with FadeAlpha=0 right after the
-        // card's Show(true); TickFades ramps FadeAlpha → 1 and writes it to the CanvasGroup.
+        // card's Show(true); TickFades ramps FadeAlpha → 1 and writes it to Group.
         public bool FadeActive { get; set; }
         public float FadeAlpha { get; set; }
     }

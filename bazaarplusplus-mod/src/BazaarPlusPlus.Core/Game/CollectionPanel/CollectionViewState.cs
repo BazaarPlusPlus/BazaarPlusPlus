@@ -337,7 +337,16 @@ public sealed class CollectionViewState
         if (cards == null)
             throw new ArgumentNullException(nameof(cards));
 
-        SetCatalogState(CollectionCatalogReadiness.Accepted, cards);
+        // An Open from the host's cached catalog already accepted this list: its heroes and facet
+        // snapshot stand, and only the source options are recomputed. The query still runs here,
+        // since Open renders without one.
+        if (
+            _catalogReadiness == CollectionCatalogReadiness.Accepted
+            && ReferenceEquals(cards, _catalogCards)
+        )
+            _availableSourcesCache = null;
+        else
+            SetCatalogState(CollectionCatalogReadiness.Accepted, cards);
         NormalizeHeroSelectionWithoutSave();
         PruneInvisibleSourceSelections();
         return FinishCatalogLoad();
@@ -568,6 +577,7 @@ public sealed class CollectionViewState
     {
         _catalogCards = cards;
         _facetAvailability = CollectionFacetAvailability.SnapshotFor(cards);
+        CollectionCardNameOrder.Assign(cards);
         _availableSourcesCache = null;
     }
 

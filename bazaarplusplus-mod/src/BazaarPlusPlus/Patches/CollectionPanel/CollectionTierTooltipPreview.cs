@@ -1,5 +1,7 @@
 #nullable enable
 using System.Text;
+using BazaarGameClient.Domain.Models.Cards;
+using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Interfaces;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Cards;
@@ -16,6 +18,12 @@ internal static class CollectionTierTooltipPreview
     [ThreadStatic]
     private static bool _isRenderingVariant;
 
+    // One card's render runs the active, passive and cooldown postfixes back to back, and each
+    // needs the same tier list and tier variants. The registry's preview slot holds the last
+    // card's, keyed by its instance, template and tier; a different card replaces it whole, and
+    // unregistering the card drops it. Reuse is safe: rendering only fills CardTooltipData's own
+    // compiled-tooltip memo, and native lock-variant previews render their own card copies,
+    // which the registry never holds.
     public static bool IsRenderingVariant => _isRenderingVariant;
 
     public static void MergeActive(
@@ -25,12 +33,14 @@ internal static class CollectionTierTooltipPreview
     {
         if (
             originalSegments == null
-            || !TryGetPreviewTiers(tooltipData, out var tiers)
-            || tiers.Count < 2
+            || !TryGetPreviewTiers(tooltipData, out var slot)
+            || slot.Tiers.Length < 2
         )
             return;
 
-        var variants = new List<IReadOnlyList<string>>(tiers.Count);
+        var tiers = slot.Tiers;
+
+        var variants = new List<IReadOnlyList<string>>(tiers.Length);
         foreach (var tier in tiers)
         {
             if (tier == tooltipData.CardInstance.Tier)
@@ -39,7 +49,7 @@ internal static class CollectionTierTooltipPreview
                 continue;
             }
 
-            var tierData = CreateTierTooltipData(tooltipData, tier);
+            var tierData = slot.VariantFor(tooltipData, tier);
             var tierSegments = RenderVariant(tierData.GetActiveAbilityTooltipBlock);
             try
             {
@@ -84,12 +94,14 @@ internal static class CollectionTierTooltipPreview
     {
         if (
             original.Item1 == null
-            || !TryGetPreviewTiers(tooltipData, out var tiers)
-            || tiers.Count < 2
+            || !TryGetPreviewTiers(tooltipData, out var slot)
+            || slot.Tiers.Length < 2
         )
             return;
 
-        var variants = new List<IReadOnlyList<string>>(tiers.Count);
+        var tiers = slot.Tiers;
+
+        var variants = new List<IReadOnlyList<string>>(tiers.Length);
         foreach (var tier in tiers)
         {
             if (tier == tooltipData.CardInstance.Tier)
@@ -98,7 +110,7 @@ internal static class CollectionTierTooltipPreview
                 continue;
             }
 
-            var tierData = CreateTierTooltipData(tooltipData, tier);
+            var tierData = slot.VariantFor(tooltipData, tier);
             var tierResult = RenderVariant(() =>
                 tierData.GetPassiveTooltipBlock(tierData.CardInstance)
             );
@@ -130,16 +142,18 @@ internal static class CollectionTierTooltipPreview
     )
     {
         values = Array.Empty<CollectionTierTooltipText>();
-        if (!TryGetPreviewTiers(tooltipData, out var tiers) || tiers.Count < 2)
+        if (!TryGetPreviewTiers(tooltipData, out var slot) || slot.Tiers.Length < 2)
             return false;
 
-        var result = new List<CollectionTierTooltipText>(tiers.Count);
+        var tiers = slot.Tiers;
+
+        var result = new List<CollectionTierTooltipText>(tiers.Length);
         foreach (var tier in tiers)
         {
             var tierData =
                 tier == tooltipData.CardInstance.Tier
                     ? tooltipData
-                    : CreateTierTooltipData(tooltipData, tier);
+                    : slot.VariantFor(tooltipData, tier);
             var value = tierData.GetCurrentAttributeValue(attributeType);
             if (!value.HasValue || value.Value <= 0f)
                 return false;
@@ -194,12 +208,10 @@ internal static class CollectionTierTooltipPreview
         return new CardTooltipData(previewCard, source.CardTemplate);
     }
 
-    private static bool TryGetPreviewTiers(
-        CardTooltipData tooltipData,
-        out IReadOnlyList<ETier> tiers
-    )
+    // The registry check runs before the slot is read, so a released card never reuses it.
+    private static bool TryGetPreviewTiers(CardTooltipData tooltipData, out VariantSlot slot)
     {
-        tiers = Array.Empty<ETier>();
+        slot = null!;
         if (
             tooltipData == null
             || !CollectionTierTooltipRegistry.Contains(tooltipData.CardInstance)
@@ -207,11 +219,22 @@ internal static class CollectionTierTooltipPreview
         )
             return false;
 
-        tiers = tierData
-            .Tiers.Keys.Where(tier => tier >= tooltipData.CardTemplate.StartingTier)
-            .OrderBy(tier => tier)
-            .ToArray();
-        return tiers.Count > 0;
+        var card = tooltipData.CardInstance;
+        if (
+            CollectionTierTooltipRegistry.PreviewSlotFor(card) is not VariantSlot cached
+            || !cached.Matches(tooltipData)
+        )
+        {
+            var tiers = tierData
+                .Tiers.Keys.Where(tier => tier >= tooltipData.CardTemplate.StartingTier)
+                .OrderBy(tier => tier)
+                .ToArray();
+            cached = new VariantSlot(tooltipData, tiers);
+            CollectionTierTooltipRegistry.SetPreviewSlot(card, cached);
+        }
+
+        slot = cached;
+        return slot.Tiers.Length > 0;
     }
 
     private static T RenderVariant<T>(Func<T> render)
@@ -225,6 +248,31 @@ internal static class CollectionTierTooltipPreview
         finally
         {
             _isRenderingVariant = previous;
+        }
+    }
+
+    private sealed class VariantSlot(CardTooltipData source, ETier[] tiers)
+    {
+        private readonly Card _card = source.CardInstance;
+        private readonly ITCard _template = source.CardTemplate;
+        private readonly ETier _tier = source.CardInstance.Tier;
+        private readonly Dictionary<ETier, CardTooltipData> _variants = new();
+
+        public ETier[] Tiers { get; } = tiers;
+
+        public bool Matches(CardTooltipData data) =>
+            ReferenceEquals(_card, data.CardInstance)
+            && ReferenceEquals(_template, data.CardTemplate)
+            && _tier == data.CardInstance.Tier;
+
+        public CardTooltipData VariantFor(CardTooltipData source, ETier tier)
+        {
+            if (!_variants.TryGetValue(tier, out var variant))
+            {
+                variant = CreateTierTooltipData(source, tier);
+                _variants[tier] = variant;
+            }
+            return variant;
         }
     }
 

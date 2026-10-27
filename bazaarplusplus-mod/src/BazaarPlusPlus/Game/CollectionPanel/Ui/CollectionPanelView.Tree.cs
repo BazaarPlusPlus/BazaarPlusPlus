@@ -844,12 +844,24 @@ internal sealed partial class CollectionPanelView
         return container;
     }
 
+    // The focus pulse breathes twice, then rests on the highlight colour at its peak, so a
+    // focused search field stops restyling (and repainting) the panel every frame.
+    private const float SearchFocusPulseSeconds = 2.4f;
+    private const float SearchFocusPulseEndSeconds = SearchFocusPulseSeconds * 2.5f;
+
     private void TickSearchFocusPulse(float deltaSeconds)
     {
-        if (!_searchFocused || _searchFrame == null)
+        if (
+            !_searchFocused
+            || _searchFrame == null
+            || _searchFocusPulseElapsed >= SearchFocusPulseEndSeconds
+        )
             return;
 
-        _searchFocusPulseElapsed += deltaSeconds;
+        _searchFocusPulseElapsed = Mathf.Min(
+            _searchFocusPulseElapsed + deltaSeconds,
+            SearchFocusPulseEndSeconds
+        );
         ApplySearchFocusPulse();
     }
 
@@ -858,8 +870,8 @@ internal sealed partial class CollectionPanelView
         if (_searchFrame == null)
             return;
 
-        const float pulseSeconds = 2.4f;
-        var phase = _searchFocusPulseElapsed * (Mathf.PI * 2f / pulseSeconds) - Mathf.PI * 0.5f;
+        var elapsed = Mathf.Min(_searchFocusPulseElapsed, SearchFocusPulseEndSeconds);
+        var phase = elapsed * (Mathf.PI * 2f / SearchFocusPulseSeconds) - Mathf.PI * 0.5f;
         var pulse = Mathf.SmoothStep(0f, 1f, (Mathf.Sin(phase) + 1f) * 0.5f);
         _searchFrame.style.backgroundColor = Color.Lerp(
             Colors.CollectionChipSelectedBackground,

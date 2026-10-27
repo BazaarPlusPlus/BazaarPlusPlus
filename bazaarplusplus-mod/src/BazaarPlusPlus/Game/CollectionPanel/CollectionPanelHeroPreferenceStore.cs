@@ -12,6 +12,7 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
 {
     private readonly HashSet<CollectionPanelLogReasonCode> _reportedPreferenceReasons = [];
     private bool _scopeDegradedReported;
+    private bool _unsaved;
 
     public CollectionPanelHeroPreferenceLoadResult Load(
         CollectionCatalogReadiness catalogReadiness,
@@ -63,8 +64,19 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
             return;
         }
 
+        // PlayerPrefs.Save writes to disk (the registry on Windows); a hero click only stages
+        // the value and the panel flushes it on close, focus loss, pause or destroy.
         PlayerPrefs.SetString(BuildScopedPrefsKey(), CollectionPanelHeroPreference.Serialize(hero));
+        _unsaved = true;
+    }
+
+    public void Flush()
+    {
+        if (!_unsaved)
+            return;
+        // Cleared only after the write, so a save that throws is retried on the next flush.
         PlayerPrefs.Save();
+        _unsaved = false;
     }
 
     private string BuildScopedPrefsKey()

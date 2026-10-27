@@ -72,6 +72,8 @@ public static class CollectionFilterEngine
             result.Add(card);
         }
 
+        // An accepted catalog carries its culture's name ranks; any other list compares names.
+        var rankedNames = CollectionCardNameOrder.Covers(result);
         result.Sort(
             (a, b) =>
             {
@@ -81,11 +83,9 @@ public static class CollectionFilterEngine
                         : CompareByTierThenSize(a, b);
                 if (facetOrder != 0)
                     return facetOrder;
-                return string.Compare(
-                    a.DisplayName,
-                    b.DisplayName,
-                    StringComparison.CurrentCultureIgnoreCase
-                );
+                return rankedNames
+                    ? a.NameRank.CompareTo(b.NameRank)
+                    : CollectionCardNameOrder.CompareNames(a, b);
             }
         );
         return result;
