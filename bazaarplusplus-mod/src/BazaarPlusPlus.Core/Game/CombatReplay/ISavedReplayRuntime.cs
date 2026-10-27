@@ -14,6 +14,10 @@ public interface ISavedReplayRuntime
     // A replay is starting, playing, or returning to the menu.
     bool HasSavedReplaySession { get; }
 
+    // Worker-only: waits for the shared payload gate without touching host/game objects.
+    // Null means the runtime is unavailable; the caller must not delete rows or payloads.
+    IDisposable? AcquirePayloadMaintenance();
+
     bool CanReplaySavedCombats(out string reason);
 
     bool CanReplaySavedBattle(string battleId, out string reason);

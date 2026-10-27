@@ -121,6 +121,7 @@ public sealed class SavedReplayPlaybackTests
         Assert.Equal("Combat replay runtime is unavailable.", reason);
         // Disposing the gate proves the answer comes before the gate is touched.
         h.Gate.Dispose();
+        Assert.Null(runtime.AcquirePayloadMaintenance());
         Assert.Equal(
             SavedBattleLoadOutcome.Unavailable,
             runtime.TryLoadSavedBattle(BattleA, out _, out _)
@@ -142,6 +143,59 @@ public sealed class SavedReplayPlaybackTests
         h.Playback.Tick();
         h.Playback.OnReplayStateExited();
         Assert.Null(h.Host.Start);
+    }
+
+    [Fact]
+    public async Task History_maintenance_waits_for_playback_and_excludes_persistence_without_host_calls()
+    {
+        using var h = new SavedReplayPlaybackHarness();
+        h.Save(BattleA);
+        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        using var entered = new ManualResetEventSlim();
+        var pending = Task.Run(() =>
+        {
+            entered.Set();
+            return h.Playback.AcquirePayloadMaintenance();
+        });
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+        Assert.False(pending.IsCompleted);
+        h.Playback.OnReplayStateExited();
+        var hostCalls = h.Host.ScopeEntries;
+        using (var maintenance = await pending.WaitAsync(TimeSpan.FromSeconds(5)))
+        {
+            Assert.NotNull(maintenance);
+            Assert.Null(h.Gate.TryAcquirePlayback());
+            Assert.Null(h.Gate.TryAcquirePersistence(TimeSpan.Zero));
+            Assert.Equal(hostCalls, h.Host.ScopeEntries);
+        }
+        Assert.True(h.LeaseIsFree());
+    }
+
+    [Fact]
+    public async Task Disposed_runtime_refuses_queued_maintenance_and_releases_its_lease()
+    {
+        using var h = new SavedReplayPlaybackHarness();
+        using var persistence = h.Gate.AcquirePersistence(CancellationToken.None);
+        using var entered = new ManualResetEventSlim();
+        var pending = Task.Run(() =>
+        {
+            entered.Set();
+            return h.Playback.AcquirePayloadMaintenance();
+        });
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+        Assert.False(pending.IsCompleted);
+        h.Playback.Dispose();
+        persistence.Dispose();
+        Assert.Null(await pending.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(h.LeaseIsFree());
+    }
+
+    [Fact]
+    public void Disposed_gate_refuses_maintenance_without_throwing()
+    {
+        using var h = new SavedReplayPlaybackHarness();
+        h.Gate.Dispose();
+        Assert.Null(h.Playback.AcquirePayloadMaintenance());
     }
 
     // --- Happy path, notices and lease ---
