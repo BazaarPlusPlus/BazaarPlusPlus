@@ -16,7 +16,9 @@ public static class ItemEnchantPreviewCache
         new Dictionary<string, CacheEntry>();
     private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(2);
 
-    public static string CreateKey(ItemEnchantPreviewSnapshot snapshot)
+    // The cached segments hold localized text, and the game switches language live, so the
+    // language is part of the key.
+    public static string CreateKey(ItemEnchantPreviewSnapshot snapshot, string languageCode)
     {
         var attributes = string.Join(
             ",",
@@ -25,7 +27,7 @@ public static class ItemEnchantPreviewCache
                 .Select(pair => $"{pair.Key}:{pair.Value}")
         );
 
-        return $"{snapshot.InstanceId}|{snapshot.TemplateId}|{snapshot.Section}|{snapshot.CurrentEnchantment}|{snapshot.PreviewEnchantment}|{attributes}";
+        return $"{languageCode}|{snapshot.InstanceId}|{snapshot.TemplateId}|{snapshot.Section}|{snapshot.CurrentEnchantment}|{snapshot.PreviewEnchantment}|{attributes}";
     }
 
     /// <summary>
