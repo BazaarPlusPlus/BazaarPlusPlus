@@ -127,6 +127,7 @@ The mod's panels sit inside The Bazaar, so they speak the game's language rather
 - **Those colours are the `ingame-*` tokens**, generated into `InGameTheme.g.cs` for both hosts (`bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/UiTokens/` and `bazaarplusplus-mod/src/BazaarPlusPlus.Android/Ui/`) by `just design::build`. A panel never writes a colour literal; a fraction of a token goes through `InGameTheme.WithAlpha`.
 - **Warm brown ground, parchment ink, gold emphasis.** `ingame-backdrop` → `ingame-panel` → `ingame-dialog` are the grounds; `ingame-ink` and `ingame-ink-muted` the text; `ingame-accent` (the game's gold) is the one emphasis colour, as `accent` is in the installer. Status is `ingame-success`, `ingame-failure`, `ingame-warning` and `ingame-pending`, each one value on both hosts.
 - **Two layouts.** The desktop lays panels out for a mouse (`HistoryPanelLayout`, `LiveBuildPanelLayout`, `UiTokens/Sizes.cs`); Android lays them out for touch from `TouchChrome` and `TouchMetrics` (48dp targets, 12sp minimum text, ADR-0018 in the mod). A panel looks the same on both and is arranged for its input.
+- `components/InGamePanel/` previews the result.
 - **Not yet migrated:** the desktop Collection panel still uses its own cool palette in `UiTokens/Colors.cs`; it moves to these tokens next.
 
 ## Exceptions
