@@ -77,6 +77,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private string? _shownBattleId;
     private bool _shownBoth;
     private (HistoryBoardFacts Player, HistoryBoardFacts Opponent) _shownFacts;
+    private readonly HistoryPanelUiRefresh _uiRefresh = new();
     private bool _boardsDirty;
     private bool _disposed;
     private long _opened;
@@ -196,6 +197,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 return;
             }
             _coordinator.Tick(_dependencies.UnscaledTime());
+            FlushUi();
             if (_boardsDirty)
             {
                 _boardsDirty = false;
@@ -290,6 +292,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         var resumeSelection = _coordinator.OnPanelShown();
         View!.SetVisible(true);
         RefreshUi();
+        FlushUi();
         RefreshBoards();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.history.opened"),
@@ -385,16 +388,18 @@ internal sealed class AndroidHistoryPanel : IDisposable
             font,
             new AndroidHistoryPanelView.ViewActions(
                 () => _handle.RequestClose("close_button"),
-                () => _ = _coordinator.TryReplaySelectedBattleAsync(ActiveSelectedBattle, false),
-                _coordinator.SelectRun,
-                _coordinator.SelectBattle,
+                _uiRefresh.Guard(() =>
+                    _ = _coordinator.TryReplaySelectedBattleAsync(ActiveSelectedBattle, false)
+                ),
+                _uiRefresh.Guard<int>(_coordinator.SelectRun),
+                _uiRefresh.Guard<int>(_coordinator.SelectBattle),
                 _coordinator.SetSectionMode,
-                _coordinator.PageArchive,
-                _coordinator.PageBattles,
+                _uiRefresh.Guard<int>(_coordinator.PageArchive),
+                _uiRefresh.Guard<int>(_coordinator.PageBattles),
                 OpenMore,
-                Delete,
-                Favorite,
-                OpenSkills
+                _uiRefresh.Guard(Delete),
+                _uiRefresh.Guard(Favorite),
+                _uiRefresh.Guard(OpenSkills)
             ),
             _supporters
         );
@@ -414,15 +419,20 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 new AndroidHistoryMoreDialog.Actions(
                     () => _ = _coordinator.TryCheckServerHealthAsync(),
                     _coordinator.ToggleAccountLinkForm,
-                    code => _ = _coordinator.TryRedeemBazaarDbAccountAsync(code),
-                    _coordinator.MarkAccountLinkedManually
+                    _uiRefresh.Guard<string?>(code =>
+                        _ = _coordinator.TryRedeemBazaarDbAccountAsync(code)
+                    ),
+                    _uiRefresh.Guard(_coordinator.MarkAccountLinkedManually)
                 )
             );
             note = new AndroidHistoryNoteDialog(
                 view.Surface,
                 font,
                 layout,
-                _coordinator.TrySaveFavoriteNoteAsync
+                (battleId, text) =>
+                    _uiRefresh.CanAct
+                        ? _coordinator.TrySaveFavoriteNoteAsync(battleId, text)
+                        : Task.FromResult(false)
             );
             _coordinator.PrewarmRecordingAvailability();
             _skills = skills;
@@ -485,6 +495,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         var view = View!;
         view.SetVisible(true);
         RefreshUi();
+        FlushUi();
         RefreshBoards();
         if (draft is { } kept)
             _note?.Open(kept.BattleId, kept.Text);
@@ -501,7 +512,11 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private HistoryBattleRecord? ActiveSelectedBattle =>
         HistoryPanelViewModelBuilder.ActiveSelectedBattle(_state, _coordinator);
 
-    private void RefreshUi()
+    private void RefreshUi() => _uiRefresh.Request();
+
+    private void FlushUi() => _uiRefresh.Flush(RenderUi);
+
+    private void RenderUi()
     {
         if (View is not { } view || _disposed)
             return;

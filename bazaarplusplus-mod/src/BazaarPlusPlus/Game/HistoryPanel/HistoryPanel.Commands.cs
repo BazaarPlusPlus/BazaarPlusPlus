@@ -50,7 +50,9 @@ internal sealed partial class HistoryPanel
     }
 
     private Task<bool> SaveFavoriteNote(string battleId, string note) =>
-        _coordinator?.TrySaveFavoriteNoteAsync(battleId, note) ?? Task.FromResult(false);
+        _uiRefresh.CanAct && _coordinator != null
+            ? _coordinator.TrySaveFavoriteNoteAsync(battleId, note)
+            : Task.FromResult(false);
 
     private void TryCheckServerHealth()
     {
