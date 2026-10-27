@@ -58,28 +58,18 @@ internal static class PresentationWarmer
             return;
         }
 
-        if (WarmupCache.TryReserveSharedAssetsPreload())
+        // The game's preload state is reset with InRun; a process-wide success flag would
+        // skip the next replay after that scope releases its pools and asset handles.
+        if (NativeGlobalAssetLoader.CanRunNativeSharedPreload(assetLoader))
         {
-            if (!NativeGlobalAssetLoader.CanRunNativeSharedPreload(assetLoader))
+            try
             {
-                WarmupCache.ReleaseSharedAssetsPreload();
-                stats.SharedAssetsSkipped++;
+                await assetLoader.PreloadAssets();
+                stats.SharedAssetsPreloaded++;
             }
-            else
+            catch (Exception ex)
             {
-                try
-                {
-                    await assetLoader.PreloadAssets();
-                    stats.SharedAssetsPreloaded++;
-                }
-                catch (Exception ex)
-                {
-                    WarmupCache.ReleaseSharedAssetsPreload();
-                    outcome.ReportDegradation(
-                        ReplayPlaybackReasonCode.PresentationWarmupFailed,
-                        ex
-                    );
-                }
+                outcome.ReportDegradation(ReplayPlaybackReasonCode.PresentationWarmupFailed, ex);
             }
         }
         else
@@ -102,8 +92,8 @@ internal static class PresentationWarmer
         }
 
         var cardSemaphore = new SemaphoreSlim(WarmupConstants.ReplayWarmupConcurrency);
-        var cardWarmupTasks = preloadRequests.Select(request =>
-            WarmCardAsync(assetLoader, request.Key, request.Value, cardSemaphore, stats, outcome)
+        var cardWarmupTasks = preloadRequests.Values.Select(request =>
+            WarmCardAsync(assetLoader, request, cardSemaphore, stats, outcome)
         );
         await Task.WhenAll(cardWarmupTasks);
 
@@ -119,19 +109,12 @@ internal static class PresentationWarmer
 
     private static async Task WarmCardAsync(
         AssetLoader assetLoader,
-        string cacheKey,
         (Guid TemplateId, ECardSize Size) request,
         SemaphoreSlim semaphore,
         ReplayWarmupStats stats,
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        if (!WarmupCache.TryReserveCacheKey(WarmupCache.PreloadedCardKeys, cacheKey))
-        {
-            stats.CardsSkipped++;
-            return;
-        }
-
         await semaphore.WaitAsync();
         try
         {
@@ -140,7 +123,6 @@ internal static class PresentationWarmer
         }
         catch (Exception ex)
         {
-            WarmupCache.ReleaseCacheKey(WarmupCache.PreloadedCardKeys, cacheKey);
             stats.CardsFailed++;
             outcome.ReportDegradation(ReplayPlaybackReasonCode.PresentationWarmupFailed, ex);
         }
