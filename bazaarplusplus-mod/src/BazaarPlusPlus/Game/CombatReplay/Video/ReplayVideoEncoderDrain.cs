@@ -1,4 +1,5 @@
 #nullable enable
+using System.Diagnostics;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 
@@ -16,7 +17,8 @@ internal sealed record ReplayVideoEncoderDrainInput(
     Exception? FailureException,
     int FrameByteLength,
     int NativeSlotCount,
-    long CfrCopyP95Us
+    long CfrCopyP95Us,
+    ReplayVideoSessionTimeline Timeline = default
 );
 
 /// <summary>
@@ -74,6 +76,7 @@ internal sealed class ReplayVideoEncoderDrain
         }
 
         var endedAt = DateTimeOffset.UtcNow;
+        var drainedTimestamp = Stopwatch.GetTimestamp();
         var durationMs = (long)Math.Max(0, (endedAt - _input.StartedAtUtc).TotalMilliseconds);
         var fileSize = ReplayVideoFileHelpers.TryGetFileSize(request.OutputFilePath);
         var status =
@@ -109,12 +112,13 @@ internal sealed class ReplayVideoEncoderDrain
             Degraded = _input.DegradationReasonCode.HasValue,
         };
 
-        LogCaptureFinalized(result);
+        LogCaptureFinalized(result, drainedTimestamp);
         return result;
     }
 
-    private void LogCaptureFinalized(ReplayVideoCaptureResult result)
+    private void LogCaptureFinalized(ReplayVideoCaptureResult result, long drainedTimestamp)
     {
+        var timeline = _input.Timeline;
         var request = _input.Request;
         var usesNativeSlots = _input.NativeSlotCount > 0;
         var frameByteLength = usesNativeSlots
@@ -147,7 +151,12 @@ internal sealed class ReplayVideoEncoderDrain
                     ("captured_frames", result.CapturedFrames),
                     ("repeated_frames", _input.RepeatedFrames),
                     ("dropped_frames", result.DroppedFrames),
+                    // Session construction to drain end: a diagnostic span, not the video length.
                     ("duration_ms", result.DurationMs),
+                    ("init_ms", timeline.InitMs),
+                    ("first_frame_wait_ms", timeline.FirstFrameWaitMs),
+                    ("capture_ms", timeline.CaptureMs),
+                    ("drain_ms", timeline.DrainMs(drainedTimestamp)),
                     ("size_bytes", result.FileSizeBytes),
                     ("output_path", result.OutputFilePath),
                     ("codec", request.EncoderProfile.Codec),
