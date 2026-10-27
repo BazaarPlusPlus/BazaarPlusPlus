@@ -57,6 +57,16 @@ namespace TheBazaar
         internal bool FailNextCard { get; set; }
         internal bool FailNextShared { get; set; }
         internal HashSet<(Guid, ECardSize)> Cards { get; } = [];
+        internal HashSet<string> Addresses { get; } = new(StringComparer.Ordinal);
+        internal int AddressProbes { get; private set; }
+
+        internal void ResetAddressProbes() => AddressProbes = 0;
+
+        internal bool DoesAddressExist(string address)
+        {
+            AddressProbes++;
+            return Addresses.Contains(address);
+        }
 
         internal Task PreloadAssets()
         {
@@ -119,6 +129,9 @@ namespace BazaarPlusPlus.GameInterop.AssetLoading
     {
         internal static bool ReturnNull { get; set; }
         internal static int OverrideCalls { get; set; }
+        internal static List<(string Key, NativeAssetScopeIntent Scope)> Loads { get; } = [];
+        internal static HashSet<string> NullKeys { get; } = new(StringComparer.Ordinal);
+        internal static HashSet<string> ThrowingKeys { get; } = new(StringComparer.Ordinal);
 
         internal static bool CanRunNativeSharedPreload(AssetLoader loader) => loader.CanPreload;
 
@@ -130,7 +143,10 @@ namespace BazaarPlusPlus.GameInterop.AssetLoading
             where T : class, new()
         {
             OverrideCalls++;
-            return Task.FromResult(ReturnNull ? null : new T());
+            Loads.Add((key, scope));
+            if (ThrowingKeys.Contains(key))
+                throw new InvalidOperationException("override load failed");
+            return Task.FromResult(ReturnNull || NullKeys.Contains(key) ? null : new T());
         }
     }
 }

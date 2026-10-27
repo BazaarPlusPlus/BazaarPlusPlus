@@ -145,6 +145,75 @@ internal static class PresentationWarmer
         await semaphore.WaitAsync();
         try
         {
+            // VFXManager.TryInstantiateVFXByAddress instantiates the key's /Emitters/ twin when
+            // that address exists, and falls back to the key itself only when the twin loads as
+            // null, so the twin is the asset playback uses.
+            var emitterKey = overrideKey.Replace(ProjectilesPath, EmittersPath);
+            if (
+                !string.Equals(emitterKey, overrideKey, StringComparison.Ordinal)
+                && await TryWarmEmitterAsync(assetLoader, emitterKey)
+            )
+            {
+                stats.OverrideAssetsPreloaded++;
+                return;
+            }
+
+            await WarmOverrideAddressAsync(assetLoader, overrideKey, stats, outcome);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    private const string ProjectilesPath = "/Projectiles/";
+    private const string EmittersPath = "/Emitters/";
+
+    // A missing or failed twin is not a degradation: playback falls back to the original key,
+    // which is warmed next.
+    private static async Task<bool> TryWarmEmitterAsync(AssetLoader assetLoader, string emitterKey)
+    {
+        try
+        {
+            if (!assetLoader.DoesAddressExist(emitterKey))
+                return false;
+
+            var asset = await NativeGlobalAssetLoader.LoadByAddressAsync<GameObject>(
+                assetLoader,
+                emitterKey,
+                NativeAssetScopeIntent.Current
+            );
+            if (asset != null)
+                return true;
+
+            ReplayWarmupLogging.AssetSkipped(
+                ReplayWarmupStage.Presentation,
+                emitterKey,
+                ReplayWarmupAssetReasonCode.AssetLoadFailed
+            );
+            return false;
+        }
+        catch (Exception ex)
+        {
+            ReplayWarmupLogging.AssetSkipped(
+                ReplayWarmupStage.Presentation,
+                emitterKey,
+                ReplayWarmupAssetReasonCode.AssetLoadFailed,
+                ex
+            );
+            return false;
+        }
+    }
+
+    private static async Task WarmOverrideAddressAsync(
+        AssetLoader assetLoader,
+        string overrideKey,
+        ReplayWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
+    )
+    {
+        try
+        {
             var asset = await NativeGlobalAssetLoader.LoadByAddressAsync<GameObject>(
                 assetLoader,
                 overrideKey,
@@ -175,10 +244,6 @@ internal static class PresentationWarmer
                 ReplayWarmupAssetReasonCode.AssetLoadFailed,
                 ex
             );
-        }
-        finally
-        {
-            semaphore.Release();
         }
     }
 
