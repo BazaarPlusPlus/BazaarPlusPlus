@@ -8,6 +8,7 @@ RunLogSchemaInitializationTests.Run();
 RunLogSchemaIndexTests.Run();
 RunLogSchemaColumnShapeTests.Run();
 SqliteStoreConnectionTests.Run();
+IdempotentAccountWriteTests.Run();
 RunLogEventPayloadTests.Run();
 RunLogSchemaReleaseContractTests.Run();
 

@@ -210,6 +210,7 @@ public enum BundleSealStage
     OrphanAdoption,
     FileRecovery,
     JobDiscovery,
+    JobRead,
     ScreenshotTerminal,
 }
 
@@ -406,6 +407,7 @@ public static class BundleSealFailurePolicy
                 };
             case BundleSealStage.FileRecovery:
             case BundleSealStage.JobDiscovery:
+            case BundleSealStage.JobRead:
             case BundleSealStage.ScreenshotTerminal:
                 return Maintenance(
                     BundleSealFailureDisposition.Skip,
@@ -417,6 +419,7 @@ public static class BundleSealFailurePolicy
                     {
                         BundleSealStage.FileRecovery => "file_recovery_failed",
                         BundleSealStage.JobDiscovery => "job_discovery_failed",
+                        BundleSealStage.JobRead => "seal_job_unreadable",
                         _ => "screenshot_terminal_failed",
                     },
                     detail

@@ -32,6 +32,7 @@ internal static class BundleSealFailureTests
     {
         await EnvironmentFailureParksUntilNextLaunchAsync(Path.Combine(root, "environment"));
         await PoisonRunCannotStarveLaterRunsAsync(Path.Combine(root, "poison"));
+        await MalformedQueueRowCannotStarveLaterRunsAsync(Path.Combine(root, "malformed-row"));
         await PendingValidationKeepsOutboxOnEnvironmentFailureAsync(Path.Combine(root, "pending"));
         await PendingValidationRunsOncePerLaunchAsync(Path.Combine(root, "pending-once"));
         await InvalidReplayDegradesWithLogAsync(Path.Combine(root, "replay"));
@@ -621,6 +622,49 @@ internal static class BundleSealFailureTests
         using (var next = DesktopBundleSealCoordinator.Create(fixture.Services, Count))
             await next.ReconcileAsync(CancellationToken.None);
         Require(validations == 2, "The next launch validates it again.");
+    }
+
+    private static async Task MalformedQueueRowCannotStarveLaterRunsAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        fixture.AddCompletedRun("badrow01", endedMinutesAgo: 20);
+        fixture.AddCompletedRun("healthy-row", endedMinutesAgo: 10);
+        fixture.Queue.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
+        using var connection = new SqliteConnection(
+            $"Data Source={PathConstants.RunLogDatabase(root)}"
+        );
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "UPDATE bundle_seal_jobs SET last_attempt_at_ms=9223372036854775807 WHERE run_id='badrow01';";
+        command.ExecuteNonQuery();
+        using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Require(
+            fixture.OutboxCount("healthy-row") == 1,
+            "A malformed queue row must not stop a later healthy Run from sealing."
+        );
+        var line = fixture.SingleLine("bundle_pipeline.reconcile.failed");
+        Require(
+            line.Contains("category=seal_job_unreadable", StringComparison.Ordinal)
+                && line.Contains("run_id=badrow01", StringComparison.Ordinal)
+                && line.Contains("ArgumentOutOfRangeException", StringComparison.Ordinal),
+            "The isolated row needs its Run identity and original parse error in diagnostics."
+        );
+        command.CommandText =
+            "SELECT state FROM bundle_seal_jobs WHERE run_id='badrow01' AND last_attempt_at_ms=9223372036854775807;";
+        Require(
+            command.ExecuteScalar() as string == "waiting",
+            "Isolation must preserve the bad row rather than deleting or terminating it."
+        );
+        command.CommandText =
+            "UPDATE bundle_seal_jobs SET last_attempt_at_ms=NULL WHERE run_id='badrow01';";
+        command.ExecuteNonQuery();
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Require(
+            fixture.OutboxCount("badrow01") == 1,
+            "Repairing the row must let the same worker seal it on a later pass."
+        );
     }
 
     private static async Task InvalidReplayDegradesWithLogAsync(string root)

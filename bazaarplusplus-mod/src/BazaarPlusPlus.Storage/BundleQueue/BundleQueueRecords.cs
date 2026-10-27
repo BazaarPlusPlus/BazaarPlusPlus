@@ -61,6 +61,19 @@ public sealed class BundleSealJobRecord
     public string? LastErrorCode { get; }
 }
 
+// A stored waiting row that could not be converted; the caller must report it, not delete it.
+public sealed class BundleSealJobReadFailure
+{
+    public BundleSealJobReadFailure(string? runId, Exception exception)
+    {
+        RunId = runId;
+        Exception = exception;
+    }
+
+    public string? RunId { get; }
+    public Exception Exception { get; }
+}
+
 public sealed class BundleAllocationRecord
 {
     public BundleAllocationRecord(string bundleId, long createdAtMs)

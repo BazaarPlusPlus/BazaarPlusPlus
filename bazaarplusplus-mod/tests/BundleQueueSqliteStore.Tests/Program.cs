@@ -8,6 +8,7 @@ TestFinalOutboxEndsEligibility();
 TestSealFailureBookkeeping();
 TestSealEligibilityFixture();
 TestSealJobDeadlinesAreInstants();
+TestMalformedWaitingRows();
 
 Console.WriteLine("Bundle queue SQLite store checks passed.");
 
@@ -21,7 +22,7 @@ static void TestEligibilityAllocationPublishAndDueOrdering()
             InsertRun(connection, "casual", "casual", "Online", completed: true, screenshot: false);
             store.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
 
-            var ids = store.ListWaitingJobs().Select(job => job.RunId).ToList();
+            var ids = store.ListWaitingJobs(out _).Select(job => job.RunId).ToList();
             Assert(
                 ids.SequenceEqual(["ranked"]),
                 "Only completed online ranked runs are eligible."
@@ -291,7 +292,7 @@ static void TestSealFailureBookkeeping()
                 "The bounded diagnostic persists."
             );
             Assert(
-                store.ListWaitingJobs().Select(job => job.RunId).SequenceEqual(["retry"]),
+                store.ListWaitingJobs(out _).Select(job => job.RunId).SequenceEqual(["retry"]),
                 "A retrying job stays waiting."
             );
 
@@ -305,7 +306,7 @@ static void TestSealFailureBookkeeping()
             );
             Assert(
                 store.ReadJob("retry")!.State == BundleSealJobState.TerminalFailure
-                    && store.ListWaitingJobs().Count == 0,
+                    && store.ListWaitingJobs(out _).Count == 0,
                 "A terminal failure leaves the waiting set."
             );
 
@@ -430,7 +431,7 @@ static void TestSealJobDeadlinesAreInstants()
                 resealOffset
             );
 
-            var waiting = store.ListWaitingJobs().Select(job => job.RunId).ToList();
+            var waiting = store.ListWaitingJobs(out _).Select(job => job.RunId).ToList();
             Assert(
                 waiting.SequenceEqual(["reseal-utc", "reseal-offset", "late"]),
                 $"Waiting jobs must sort by deadline instant; got [{string.Join(", ", waiting)}]."
@@ -448,6 +449,96 @@ static void TestSealJobDeadlinesAreInstants()
             Assert(
                 store.ReadJob("reseal-offset")!.InputDeadlineAtUtc == resealOffset,
                 "A reseal deadline with an offset names the same instant."
+            );
+        }
+    );
+}
+
+static void TestMalformedWaitingRows()
+{
+    WithStore(
+        (store, connection) =>
+        {
+            foreach (var id in new[] { "healthy", "bad-deadline", "bad-retry", "bad-state" })
+                InsertRun(connection, id, "ranked", "Online", completed: true, screenshot: false);
+            store.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
+            Execute(
+                connection,
+                "UPDATE bundle_seal_jobs SET input_deadline_at_ms=9223372036854775807 WHERE run_id='bad-deadline';"
+            );
+            Execute(
+                connection,
+                "UPDATE bundle_seal_jobs SET last_attempt_at_ms=9223372036854775807 WHERE run_id='bad-retry';"
+            );
+            Execute(connection, "PRAGMA ignore_check_constraints=ON;");
+            Execute(
+                connection,
+                "UPDATE bundle_seal_jobs SET screenshot_state='future_state' WHERE run_id='bad-state';"
+            );
+            Execute(connection, "PRAGMA ignore_check_constraints=OFF;");
+            Execute(
+                connection,
+                "INSERT INTO bundle_seal_jobs(run_id,screenshot_requested,screenshot_state,input_deadline_at_ms) VALUES(NULL,0,'not_requested',0);"
+            );
+            var healthy = store.ListWaitingJobs(out var failures);
+            Assert(
+                failures
+                    .Select(failure => failure.RunId)
+                    .OrderBy(id => id)
+                    .SequenceEqual([null, "bad-deadline", "bad-retry", "bad-state"]),
+                "Every malformed row must be reported, including a missing Run identity."
+            );
+            Assert(
+                failures.Count(failure =>
+                    failure.Exception.InnerException is ArgumentOutOfRangeException
+                ) == 2
+                    && failures.Count(failure =>
+                        failure.Exception.InnerException is InvalidDataException
+                    ) == 2,
+                "The original timestamp parse error must be retained."
+            );
+            Assert(
+                healthy.Select(job => job.RunId).SequenceEqual(["healthy"]),
+                "Malformed timestamps must not prevent reading the healthy job."
+            );
+            Assert(
+                Scalar(
+                    connection,
+                    "SELECT CAST(input_deadline_at_ms AS TEXT) FROM bundle_seal_jobs WHERE run_id='bad-deadline'"
+                ) == "9223372036854775807",
+                "Reading must leave the corrupted value untouched."
+            );
+            Execute(
+                connection,
+                "UPDATE bundle_seal_jobs SET input_deadline_at_ms=0,last_attempt_at_ms=NULL,screenshot_state='not_requested';"
+            );
+            InsertRun(
+                connection,
+                "repaired-id",
+                "ranked",
+                "Online",
+                completed: true,
+                screenshot: false
+            );
+            Execute(
+                connection,
+                "UPDATE bundle_seal_jobs SET run_id='repaired-id' WHERE run_id IS NULL;"
+            );
+            Assert(
+                store.ListWaitingJobs(out var repaired).Count == 5 && repaired.Count == 0,
+                "A repaired row must return on the next read without a migration or restart."
+            );
+            Execute(connection, "DROP TABLE bundle_seal_jobs;");
+            try
+            {
+                store.ListWaitingJobs(out _);
+            }
+            catch (SqliteException)
+            {
+                return;
+            }
+            throw new InvalidOperationException(
+                "Query failures must escape rather than masquerade as an empty queue."
             );
         }
     );
