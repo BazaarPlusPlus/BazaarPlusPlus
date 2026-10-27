@@ -208,6 +208,7 @@ pub(crate) fn execute_screenshot_cleanup_plan(
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
     if !plan.items.is_empty() || !plan.orphan_files.is_empty() {
+        let mut unlinks = UnlinkOutcome::default();
         let mut session = CleanupSession::open(database_path, data_root, game)?;
         let mut candidates = Vec::new();
         for chunk in plan.items.chunks(CLEANUP_CHUNK_SIZE) {
@@ -225,12 +226,14 @@ pub(crate) fn execute_screenshot_cleanup_plan(
                 .ok()
                 .map(|relative| relative.to_string_lossy().into_owned())
         }));
-        (deleted_files, freed_bytes) = session.delete_unreferenced_files(
+        session.delete_unreferenced_files(
             &screenshots_dir,
             "select image_relative_path from run_screenshots",
             candidates,
+            &mut unlinks,
         )?;
         remove_empty_dated_directories(&screenshots_dir);
+        (deleted_files, freed_bytes) = unlinks.into_result()?;
     }
 
     Ok(ScreenshotCleanupResult {
@@ -280,14 +283,16 @@ impl CleanupSession {
     /// the session still excludes writers.
     /// Call only after the row transactions commit: an unlink failure must not
     /// roll back deleted rows into references to already removed files.
+    /// A failed unlink does not stop the others; the caller reports it.
     fn delete_unreferenced_files(
         &self,
         root: &Path,
         reference_query: &str,
         candidates: Vec<String>,
-    ) -> anyhow::Result<(i64, i64)> {
+        outcome: &mut UnlinkOutcome,
+    ) -> anyhow::Result<()> {
         if candidates.is_empty() {
-            return Ok((0, 0));
+            return Ok(());
         }
         let mut statement = self.conn.prepare(reference_query)?;
         let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
@@ -298,8 +303,6 @@ impl CleanupSession {
             }
         }
         let mut visited = HashSet::new();
-        let mut deleted_files = 0;
-        let mut freed_bytes = 0;
         for candidate in candidates {
             let Some(path) = resolve_cleanup_file_path(root, &candidate) else {
                 continue;
@@ -308,13 +311,80 @@ impl CleanupSession {
                 continue;
             }
             let bytes = file_size(&path);
-            if remove_file_if_exists(&path)? {
-                deleted_files += 1;
-                freed_bytes += bytes;
+            match remove_file_if_exists(&path) {
+                Ok(true) => {
+                    outcome.deleted_files += 1;
+                    outcome.freed_bytes += bytes;
+                }
+                Ok(false) => {}
+                Err(err) => outcome.failed.push((candidate, err)),
             }
         }
-        Ok((deleted_files, freed_bytes))
+        Ok(())
     }
+}
+
+/// What the unlinks of one cleanup execution did. `failed` keeps each
+/// candidate whose file is still on disk, with its error.
+#[derive(Default)]
+struct UnlinkOutcome {
+    deleted_files: i64,
+    freed_bytes: i64,
+    failed: Vec<(String, anyhow::Error)>,
+}
+
+impl UnlinkOutcome {
+    /// The execution's result once every unlink was attempted: rows stay
+    /// deleted whatever this returns.
+    fn into_result(self) -> anyhow::Result<(i64, i64)> {
+        match self.failed.as_slice() {
+            [] => Ok((self.deleted_files, self.freed_bytes)),
+            [(_, err)] => Err(anyhow!("{err}")),
+            [(_, err), rest @ ..] => Err(anyhow!("{err} (and {} more files)", rest.len())),
+        }
+    }
+}
+
+/// Video files a run-data cleanup failed to unlink after deleting their rows,
+/// one path relative to the video directory per line. Nothing else can find
+/// them again: the mod keeps a successful MP4 it has no row for. Payloads and
+/// screenshots need no record, since the mod's replay maintenance and the
+/// screenshot orphan sweep find theirs. It lives in the Data Root, so a Reset
+/// discards it with the files it names.
+const VIDEO_UNLINK_RETRY_FILE_NAME: &str = "installer-cleanup-video-retry.txt";
+
+fn video_unlink_retry_path(data_root: &Path) -> PathBuf {
+    data_root.join(VIDEO_UNLINK_RETRY_FILE_NAME)
+}
+
+fn read_video_unlink_retries(data_root: &Path) -> anyhow::Result<Vec<String>> {
+    match std::fs::read_to_string(video_unlink_retry_path(data_root)) {
+        Ok(text) => Ok(text
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_string)
+            .collect()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(err) => Err(anyhow!("failed to read the cleanup retry record: {err}")),
+    }
+}
+
+fn write_video_unlink_retries(
+    data_root: &Path,
+    failed: &[(String, anyhow::Error)],
+) -> anyhow::Result<()> {
+    let path = video_unlink_retry_path(data_root);
+    if failed.is_empty() {
+        remove_file_if_exists(&path)?;
+        return Ok(());
+    }
+    let text = failed
+        .iter()
+        .map(|(candidate, _)| format!("{}\n", normalize_relative_path(candidate)))
+        .collect::<String>();
+    std::fs::write(&path, text)
+        .map_err(|err| anyhow!("failed to write the cleanup retry record: {err}"))
 }
 
 /// Built once from `PROTECTED_RUN_PREDICATE` — the per-row delete loop must not
@@ -369,6 +439,9 @@ pub struct RunDataCleanupPlan {
     /// The cutoff the items were selected under; execution re-checks each Run
     /// against it.
     cutoff_ms: Option<i64>,
+    /// Unreferenced video files an earlier cleanup failed to unlink. They
+    /// count as videos, so a plan with no Run still lets the user retry.
+    retry_videos: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
@@ -387,6 +460,7 @@ impl RunDataCleanupPlan {
             estimated_bytes: 0,
             skipped_pending_uploads: 0,
             cutoff_ms: None,
+            retry_videos: Vec::new(),
         }
     }
 
@@ -398,7 +472,12 @@ impl RunDataCleanupPlan {
                 .iter()
                 .map(|item| item.battle_ids.len() as i64)
                 .sum(),
-            videos: self.items.iter().map(|item| item.videos.len() as i64).sum(),
+            videos: self
+                .items
+                .iter()
+                .map(|item| item.videos.len() as i64)
+                .sum::<i64>()
+                + self.retry_videos.len() as i64,
             estimated_bytes: self.estimated_bytes,
             skipped_pending_uploads: self.skipped_pending_uploads,
         }
@@ -468,7 +547,22 @@ pub fn plan_run_data_cleanup(
         });
     }
 
-    estimated_bytes += estimate_video_bytes(&videos_dir, &video_items_for_estimate);
+    let retry_videos = read_video_unlink_retries(data_root)?
+        .into_iter()
+        .filter(|relative| {
+            !remaining_video_paths.contains(&normalize_relative_path(relative))
+                && resolve_cleanup_file_path(&videos_dir, relative)
+                    .is_some_and(|path| path.exists())
+        })
+        .collect::<Vec<_>>();
+    estimated_bytes += estimate_video_bytes(
+        &videos_dir,
+        video_items_for_estimate
+            .iter()
+            .filter(|item| item.delete_video_file)
+            .map(|item| item.relative_path.as_str())
+            .chain(retry_videos.iter().map(String::as_str)),
+    );
     estimated_bytes += estimate_screenshot_bytes(&screenshots_dir, &screenshot_items_for_estimate);
 
     Ok(RunDataCleanupPlan {
@@ -476,6 +570,7 @@ pub fn plan_run_data_cleanup(
         estimated_bytes,
         skipped_pending_uploads,
         cutoff_ms,
+        retry_videos,
     })
 }
 
@@ -511,7 +606,7 @@ pub(crate) fn execute_run_data_cleanup_plan(
     let mut deleted_runs = 0i64;
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
-    if !plan.items.is_empty() {
+    if !plan.items.is_empty() || !plan.retry_videos.is_empty() {
         let mut session = CleanupSession::open(database_path, data_root, game)?;
         validate_run_cleanup_cascade_fks(&session.conn)?;
         let planned = PlannedRunChildren::of(plan);
@@ -566,15 +661,23 @@ pub(crate) fn execute_run_data_cleanup_plan(
             transaction.commit()?;
         }
 
+        // Read under the lock: the record is current even when this plan is
+        // older than an execution that failed since.
+        let mut video_candidates = read_video_unlink_retries(data_root)?;
+        video_candidates.extend(
+            plan.items
+                .iter()
+                .flat_map(|item| item.videos.iter().map(|video| video.relative_path.clone())),
+        );
+        let mut unlinks = UnlinkOutcome::default();
+        session.delete_unreferenced_files(
+            &videos_dir,
+            "select video_relative_path from combat_replay_videos",
+            video_candidates,
+            &mut unlinks,
+        )?;
+        let video_failures = unlinks.failed.len();
         for (root, references, candidates) in [
-            (
-                &videos_dir,
-                "select video_relative_path from combat_replay_videos",
-                plan.items
-                    .iter()
-                    .flat_map(|item| item.videos.iter().map(|video| video.relative_path.clone()))
-                    .collect::<Vec<_>>(),
-            ),
             (
                 &replays_dir,
                 "select battle_id || '.payload.mpack.gz' from battles",
@@ -601,11 +704,11 @@ pub(crate) fn execute_run_data_cleanup_plan(
                     .collect(),
             ),
         ] {
-            let (files, bytes) = session.delete_unreferenced_files(root, references, candidates)?;
-            deleted_files += files;
-            freed_bytes += bytes;
+            session.delete_unreferenced_files(root, references, candidates, &mut unlinks)?;
         }
         remove_empty_dated_directories(&screenshots_dir);
+        write_video_unlink_retries(data_root, &unlinks.failed[..video_failures])?;
+        (deleted_files, freed_bytes) = unlinks.into_result()?;
     }
 
     Ok(RunDataCleanupResult {
@@ -813,10 +916,6 @@ fn remaining_video_relative_paths_after_run_cleanup(
     conn: &Connection,
     planned_run_ids: &[String],
 ) -> anyhow::Result<HashSet<String>> {
-    if planned_run_ids.is_empty() {
-        return Ok(HashSet::new());
-    }
-
     let planned_run_ids = planned_run_ids
         .iter()
         .map(String::as_str)
@@ -992,14 +1091,15 @@ fn mark_screenshot_file_deletions(
         .collect()
 }
 
-fn estimate_video_bytes(videos_dir: &Path, items: &[RunDataVideoCleanupItem]) -> i64 {
+fn estimate_video_bytes<'a>(
+    videos_dir: &Path,
+    relative_paths: impl Iterator<Item = &'a str>,
+) -> i64 {
     let mut estimated_paths = HashSet::new();
-    items
-        .iter()
-        .filter(|item| item.delete_video_file)
-        .filter_map(|item| {
-            let path = resolve_cleanup_file_path(videos_dir, &item.relative_path)?;
-            let normalized = normalize_relative_path(&item.relative_path);
+    relative_paths
+        .filter_map(|relative_path| {
+            let path = resolve_cleanup_file_path(videos_dir, relative_path)?;
+            let normalized = normalize_relative_path(relative_path);
             estimated_paths
                 .insert(normalized)
                 .then_some(file_size(&path))
@@ -1467,16 +1567,16 @@ mod tests {
             );
             transaction.commit().unwrap();
             assert_writer_blocked();
-            assert_eq!(
-                session
-                    .delete_unreferenced_files(
-                        &fixture.screenshots_dir,
-                        "select image_relative_path from run_screenshots",
-                        vec![relative.to_string()],
-                    )
-                    .unwrap(),
-                (1, 3)
-            );
+            let mut unlinks = super::UnlinkOutcome::default();
+            session
+                .delete_unreferenced_files(
+                    &fixture.screenshots_dir,
+                    "select image_relative_path from run_screenshots",
+                    vec![relative.to_string()],
+                    &mut unlinks,
+                )
+                .unwrap();
+            assert_eq!(unlinks.into_result().unwrap(), (1, 3));
             assert!(!image.exists());
             assert_writer_blocked();
             drop(session);
@@ -3561,6 +3661,100 @@ mod tests {
             count("select count(*) from run_screenshots where screenshot_id = 'shot-pending'"),
             1
         );
+    }
+
+    #[test]
+    fn a_failed_unlink_is_retried_by_the_next_cleanup_after_its_rows_are_gone() {
+        let fixture = create_fixture();
+        let videos_dir = fixture.data_root.join("CombatReplayVideos");
+        let replays_dir = fixture.data_root.join("CombatReplays");
+        let payload = replays_dir.join("battle-1.payload.mpack.gz");
+        // A directory stands in for a video another process holds open: its
+        // unlink fails, as a locked MP4's does on Windows.
+        let video = videos_dir.join("2026-06-10/v1.mp4");
+        fs::create_dir_all(&video).unwrap();
+        fs::create_dir_all(&replays_dir).unwrap();
+        fs::write(&payload, b"ppp").unwrap();
+        let shot = write_screenshot_file(&fixture.screenshots_dir, "2026-06-10/shot.png", b"ss");
+        let conn = Connection::open(&fixture.database_path).unwrap();
+        insert_run(
+            &conn,
+            "run-1",
+            "completed",
+            "Normal",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_battle(
+            &conn,
+            "battle-1",
+            "LOCAL",
+            Some("run-1"),
+            "2026-06-10T09:00:00Z",
+            Some("ready"),
+        );
+        insert_video(
+            &conn,
+            "video-1",
+            "battle-1",
+            "2026-06-10/v1.mp4",
+            "2026-06-10T09:05:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-1",
+            Some("run-1"),
+            0,
+            "2026-06-10/shot.png",
+            "2026-06-10T10:00:00Z",
+        );
+        drop(conn);
+
+        let error = execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("failed to remove"), "{error}");
+        assert!(video.is_dir());
+        assert!(
+            !payload.exists(),
+            "one failed unlink must not strand the rest"
+        );
+        assert!(!shot.exists(), "one failed unlink must not strand the rest");
+
+        // Nothing references the video now, yet the next preview still offers
+        // it, so a cleanup with no Run left can retry it.
+        let preview = || {
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
+                .unwrap()
+                .to_preview()
+        };
+        assert_eq!((preview().runs, preview().videos), (0, 1));
+        assert!(
+            execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
+                .unwrap_err()
+                .to_string()
+                .contains("failed to remove")
+        );
+        assert!(video.is_dir());
+
+        // The holder lets go.
+        fs::remove_dir(&video).unwrap();
+        fs::write(&video, b"vvvv").unwrap();
+        assert_eq!(
+            (preview().runs, preview().videos, preview().estimated_bytes),
+            (0, 1, 4)
+        );
+        let result =
+            execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
+        assert_eq!(
+            (
+                result.deleted_runs,
+                result.deleted_files,
+                result.freed_bytes
+            ),
+            (0, 1, 4)
+        );
+        assert!(!video.exists());
+        assert_eq!(preview().videos, 0);
     }
 
     #[test]
