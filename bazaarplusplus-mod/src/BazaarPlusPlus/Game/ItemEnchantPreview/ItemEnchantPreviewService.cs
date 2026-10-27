@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarPlusPlus.Game.ItemEnchantPreview.Preview;
+using BazaarPlusPlus.Localization;
 using TheBazaar;
 using TheBazaar.Tooltips;
 
@@ -38,6 +39,7 @@ public static class ItemEnchantPreviewService
             restrictToEnchantmentNames
         );
 
+        var languageCode = L.CurrentLanguageCode;
         var segments = new List<TooltipSegment>();
         foreach (var enchantmentType in candidates)
         {
@@ -49,7 +51,7 @@ public static class ItemEnchantPreviewService
                 enchantmentType,
                 enchantment
             );
-            var cacheKey = ItemEnchantPreviewCache.CreateKey(snapshot);
+            var cacheKey = ItemEnchantPreviewCache.CreateKey(snapshot, languageCode);
             if (ItemEnchantPreviewCache.TryAppend(cacheKey, segments))
                 continue;
 

@@ -348,7 +348,7 @@ Assert(
     "Other enchant preview languages should use the shared entry break."
 );
 
-var key1 = ItemEnchantPreviewCache.CreateKey(snapshot);
+var key1 = ItemEnchantPreviewCache.CreateKey(snapshot, "en");
 
 var changedSnapshot = new ItemEnchantPreviewSnapshot
 {
@@ -360,9 +360,13 @@ var changedSnapshot = new ItemEnchantPreviewSnapshot
     },
 };
 
-var key2 = ItemEnchantPreviewCache.CreateKey(changedSnapshot);
+var key2 = ItemEnchantPreviewCache.CreateKey(changedSnapshot, "en");
 
 Assert(key1 != key2, "Cache keys must change when preview-relevant attributes change.");
+Assert(
+    key1 != ItemEnchantPreviewCache.CreateKey(snapshot, "zh-Hans"),
+    "Cache keys must change with the game language, which switches live."
+);
 
 // The pedestal catalog names enchantments by EEnchantmentType member name (ADR-0015); the desktop
 // restricts its preview by those names, so each must still be a member of the game's enum.
