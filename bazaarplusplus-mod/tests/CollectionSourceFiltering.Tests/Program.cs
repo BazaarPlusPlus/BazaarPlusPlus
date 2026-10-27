@@ -18,7 +18,7 @@ var collisionId = Guid.Parse("55555555-5555-5555-5555-555555555555");
 var entries = BuildCatalog(
     $$"""
     {
-      "schemaVersion": 4,
+      "schemaVersion": 1,
       "groups": [
         "generalist",
         "all-hero",
@@ -129,15 +129,15 @@ AssertTrue(
 );
 
 AssertThrows<InvalidOperationException>(
-    () => BuildCatalog("""{ "schemaVersion": 1, "entries": [] }"""),
-    "Schema v1 source catalogs should fail validation."
+    () => BuildCatalog("""{ "schemaVersion": 2, "entries": [] }"""),
+    "Source catalogs of another schema version should fail validation."
 );
 AssertThrows<InvalidOperationException>(
     () =>
         BuildCatalog(
             $$"""
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "groups": ["generalist"],
               "entries": [
                 {
@@ -162,7 +162,7 @@ AssertThrows<InvalidOperationException>(
         BuildCatalog(
             $$"""
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "entries": [
                 {
                   "name": "Broken",
@@ -186,7 +186,7 @@ AssertThrows<InvalidOperationException>(
         BuildCatalog(
             $$"""
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "groups": ["generalist", "generalist"],
               "entries": [
                 {
@@ -211,7 +211,7 @@ AssertThrows<InvalidOperationException>(
         BuildCatalog(
             $$"""
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "groups": ["generalist"],
               "entries": [
                 {
@@ -236,7 +236,7 @@ AssertThrows<InvalidOperationException>(
         BuildCatalog(
             $$"""
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "groups": ["generalist"],
               "entries": [
                 {
@@ -260,7 +260,7 @@ AssertThrows<InvalidOperationException>(
         BuildCatalog(
             $$"""
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "groups": ["generalist"],
               "entries": [
                 {
@@ -320,7 +320,7 @@ AssertTrue(
 var unavailableHeroCatalog = BuildCatalog(
     $$"""
     {
-      "schemaVersion": 4,
+      "schemaVersion": 1,
       "groups": ["fixture"],
       "entries": [
         {
@@ -392,7 +392,7 @@ AssertThrows<InvalidOperationException>(
         BuildCatalog(
             """
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "groups": ["fixture"],
               "entries": [
                 {
@@ -1856,7 +1856,7 @@ static CollectionSourceEntry BuildDragonsEntry()
     return BuildCatalog(
             $$"""
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "groups": ["fixture"],
               "entries": [
                 {
@@ -1898,7 +1898,7 @@ static IReadOnlyList<CollectionSourceEntry> BuildHeroFieldCatalog(
     return BuildCatalog(
         $$"""
         {
-          "schemaVersion": 4,
+          "schemaVersion": 1,
           "groups": ["fixture"],
           "entries": [
             {
@@ -1928,7 +1928,7 @@ static IReadOnlyList<CollectionSourceEntry> BuildHeroValidationCatalog(
     return BuildCatalog(
         $$"""
         {
-          "schemaVersion": 4,
+          "schemaVersion": 1,
           "groups": ["fixture"],
           "entries": [
             {
@@ -1959,7 +1959,7 @@ static CollectionSourceEntry BuildEntryWithSegments(
     return BuildCatalog(
             $$"""
             {
-              "schemaVersion": 4,
+              "schemaVersion": 1,
               "groups": ["fixture"],
               "entries": [
                 {

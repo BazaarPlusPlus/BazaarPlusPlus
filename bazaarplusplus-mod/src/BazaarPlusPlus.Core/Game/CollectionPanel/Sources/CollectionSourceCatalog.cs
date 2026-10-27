@@ -6,7 +6,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Sources;
 
 public static class CollectionSourceCatalog
 {
-    public const int ExpectedSchemaVersion = 4;
+    public const int ExpectedSchemaVersion = 1;
 
     // isHeroAvailable answers whether this game build defines a hero (a host answer, ADR-0015):
     // a FixedHero rule naming an unavailable hero drops its entry instead of failing the catalog.

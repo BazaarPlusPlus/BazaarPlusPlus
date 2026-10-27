@@ -50,7 +50,7 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         }
       ],
       "battles": []
@@ -98,21 +98,21 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 2,
           "ts_at_ms": 1784376245000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
           "ts_at_ms": 1784376425000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
         }
       ],
       "battles": [
@@ -366,42 +366,42 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 2,
           "ts_at_ms": 1784376245000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
           "ts_at_ms": 1784376425000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-bravo",
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         }
       ],
       "battles": [
@@ -766,56 +766,56 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 2,
           "ts_at_ms": 1784376245000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
           "ts_at_ms": 1784376425000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-bravo",
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-delta",
           "seq": 1,
           "ts_at_ms": 1784376672000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-echo",
           "seq": 1,
           "ts_at_ms": 1784376792000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         }
       ],
       "battles": [
@@ -1212,70 +1212,70 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 2,
           "ts_at_ms": 1784376245000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
           "ts_at_ms": 1784376425000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
           "seq": 1,
           "ts_at_ms": 1784376912000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
           "seq": 2,
           "ts_at_ms": 1784377032000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha:bpp:#1\",\"seq\":2,\"ts\":\"2026-07-18T12:17:12.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":4,\"encounter_id\":\"encounter-battle-alpha-reused\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-reused\",\"opponent_name\":\"Rival battle-alpha-reused\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":2,\"ts\":\"2026-07-18T12:17:12.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":4,\"encounter_id\":\"encounter-battle-alpha-reused\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-reused\",\"opponent_name\":\"Rival battle-alpha-reused\"}"
         },
         {
           "run_id": "run-bravo",
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-delta",
           "seq": 1,
           "ts_at_ms": 1784376672000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-echo",
           "seq": 1,
           "ts_at_ms": 1784376792000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         }
       ],
       "battles": [
@@ -1751,84 +1751,84 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 2,
           "ts_at_ms": 1784376245000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
           "ts_at_ms": 1784376425000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
           "seq": 1,
           "ts_at_ms": 1784376912000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
           "seq": 2,
           "ts_at_ms": 1784377032000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha:bpp:#1\",\"seq\":2,\"ts\":\"2026-07-18T12:17:12.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":4,\"encounter_id\":\"encounter-battle-alpha-reused\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-reused\",\"opponent_name\":\"Rival battle-alpha-reused\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":2,\"ts\":\"2026-07-18T12:17:12.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":4,\"encounter_id\":\"encounter-battle-alpha-reused\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-reused\",\"opponent_name\":\"Rival battle-alpha-reused\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
           "seq": 3,
           "ts_at_ms": 1784377092000,
           "kind": "run_resumed",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha:bpp:#1\",\"seq\":3,\"ts\":\"2026-07-18T12:18:12.000+00:00\",\"kind\":\"run_resumed\",\"day\":2,\"hour\":4,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":3,\"ts\":\"2026-07-18T12:18:12.000+00:00\",\"kind\":\"run_resumed\",\"day\":2,\"hour\":4,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-bravo",
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-delta",
           "seq": 1,
           "ts_at_ms": 1784376672000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-echo",
           "seq": 1,
           "ts_at_ms": 1784376792000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-foxtrot",
           "seq": 1,
           "ts_at_ms": 1784377152000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-foxtrot\",\"seq\":1,\"ts\":\"2026-07-18T12:19:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-foxtrot\",\"seq\":1,\"ts\":\"2026-07-18T12:19:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         }
       ],
       "battles": [
@@ -2304,84 +2304,84 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 2,
           "ts_at_ms": 1784376245000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
           "ts_at_ms": 1784376425000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
           "seq": 1,
           "ts_at_ms": 1784376912000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
           "seq": 2,
           "ts_at_ms": 1784377032000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha:bpp:#1\",\"seq\":2,\"ts\":\"2026-07-18T12:17:12.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":4,\"encounter_id\":\"encounter-battle-alpha-reused\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-reused\",\"opponent_name\":\"Rival battle-alpha-reused\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":2,\"ts\":\"2026-07-18T12:17:12.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":4,\"encounter_id\":\"encounter-battle-alpha-reused\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-reused\",\"opponent_name\":\"Rival battle-alpha-reused\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
           "seq": 3,
           "ts_at_ms": 1784377092000,
           "kind": "run_resumed",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-alpha:bpp:#1\",\"seq\":3,\"ts\":\"2026-07-18T12:18:12.000+00:00\",\"kind\":\"run_resumed\",\"day\":2,\"hour\":4,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":3,\"ts\":\"2026-07-18T12:18:12.000+00:00\",\"kind\":\"run_resumed\",\"day\":2,\"hour\":4,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-bravo",
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-delta",
           "seq": 1,
           "ts_at_ms": 1784376672000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-echo",
           "seq": 1,
           "ts_at_ms": 1784376792000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         },
         {
           "run_id": "run-foxtrot",
           "seq": 1,
           "ts_at_ms": 1784377152000,
           "kind": "run_started",
-          "payload_json": "{\"schema_version\":3,\"run_id\":\"run-foxtrot\",\"seq\":1,\"ts\":\"2026-07-18T12:19:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-foxtrot\",\"seq\":1,\"ts\":\"2026-07-18T12:19:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
         }
       ],
       "battles": [

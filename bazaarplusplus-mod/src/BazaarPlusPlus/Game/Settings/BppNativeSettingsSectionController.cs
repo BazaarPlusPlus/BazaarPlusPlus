@@ -812,12 +812,6 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         target.SetActive(false);
     }
 
-    private static IEnumerable<string> BuildMutationPaths(IEnumerable<FooterMutation> mutations)
-    {
-        foreach (var mutation in mutations)
-            yield return BuildPath(mutation.Target.transform);
-    }
-
     private static RectTransform? CloneInactive(RectTransform source, Transform parent, string name)
     {
         var clone = Instantiate(source.gameObject, parent, worldPositionStays: false);
@@ -887,14 +881,6 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         }
 
         return -1;
-    }
-
-    private static string BuildPath(Transform transform)
-    {
-        var path = transform.name;
-        for (var current = transform.parent; current != null; current = current.parent)
-            path = current.name + "/" + path;
-        return path;
     }
 
     private static string CurrentLanguageCode => PlayerPreferences.Data.LanguageCode;
