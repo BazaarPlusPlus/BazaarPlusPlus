@@ -222,16 +222,28 @@ internal static class ReplayBootstrap
         IReplayPlaybackOutcomeSink outcome
     )
     {
+        Exception? cleanupFailure = null;
         try
         {
-            Exception? cleanupFailure = null;
+            // Native listeners must release run audio and effects before scene destruction
+            // unregisters them. A dispatch failure must not prevent the remaining rollback.
+            Events.RunInterrupted.Trigger();
+        }
+        catch (Exception exception)
+        {
+            cleanupFailure = exception;
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.BootstrapRollbackFailed, exception);
+        }
+
+        try
+        {
             ReplayOpeningStateRestorer.Cleanup();
             AppState.Reset();
             Data.ResetRunData();
             var socketCleanup = SocketBehaviorBridge.DisposeSocketBehavior(outcome);
             if (!socketCleanup.Succeeded)
             {
-                cleanupFailure = socketCleanup.Exception;
+                cleanupFailure ??= socketCleanup.Exception;
                 outcome.ReportDegradation(
                     ReplayPlaybackReasonCode.SocketCleanupFailed,
                     socketCleanup.Exception
@@ -255,7 +267,7 @@ internal static class ReplayBootstrap
         }
         catch (Exception ex)
         {
-            return ReplayBootstrapRollback.Failure(ex);
+            return ReplayBootstrapRollback.Failure(cleanupFailure ?? ex);
         }
     }
 
