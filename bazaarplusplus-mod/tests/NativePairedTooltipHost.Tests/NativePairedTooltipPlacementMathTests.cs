@@ -430,4 +430,67 @@ public class NativePairedTooltipPlacementMathTests
         Assert.Equal(2f, inset.yMin, 3);
         Assert.Equal(2f, inset.yMax, 3);
     }
+
+    // ── Content height limit ───────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(1080f, 16f, 1f, 1048f)]
+    [InlineData(1080f, 16f, 0.5f, 2096f)]
+    [InlineData(1080f, 16f, 2f, 1048f)]
+    [InlineData(20f, 16f, 1f, 0f)]
+    public void Content_height_limit_is_the_inset_canvas_in_local_units_and_never_assumes_upscaling(
+        float canvasHeight,
+        float canvasMargin,
+        float canvasUnitsPerLocalUnit,
+        float expected
+    ) =>
+        Assert.Equal(
+            expected,
+            NativePairedTooltipPlacementMath.ContentHeightLimit(
+                canvasHeight,
+                canvasMargin,
+                canvasUnitsPerLocalUnit
+            ),
+            3
+        );
+
+    [Theory]
+    [InlineData(1048f, 52f)]
+    [InlineData(1040f, 52f)]
+    [InlineData(51f, 52f)]
+    [InlineData(0f, 52f)]
+    public void Every_row_prefix_that_fits_the_limit_is_within_the_visible_row_bound(
+        float contentHeightLimit,
+        float rowHeight
+    )
+    {
+        var bound = NativePairedTooltipPlacementMath.MaximumVisibleRows(
+            contentHeightLimit,
+            rowHeight
+        );
+
+        // The longest prefix of rows the height budget can leave visible.
+        var fitting = 0;
+        while ((fitting + 1) * rowHeight <= contentHeightLimit + Epsilon)
+            fitting++;
+        Assert.True(bound >= fitting);
+        Assert.True(bound <= fitting + 1);
+    }
+
+    [Fact]
+    public void Visible_row_bound_is_unbounded_for_rows_without_height() =>
+        Assert.Equal(int.MaxValue, NativePairedTooltipPlacementMath.MaximumVisibleRows(1000f, 0f));
+
+    [Theory]
+    [InlineData(float.NaN, 52f)]
+    [InlineData(float.PositiveInfinity, 52f)]
+    [InlineData(1000f, float.NaN)]
+    public void Visible_row_bound_is_unbounded_for_degenerate_geometry(
+        float contentHeightLimit,
+        float rowHeight
+    ) =>
+        Assert.Equal(
+            int.MaxValue,
+            NativePairedTooltipPlacementMath.MaximumVisibleRows(contentHeightLimit, rowHeight)
+        );
 }
