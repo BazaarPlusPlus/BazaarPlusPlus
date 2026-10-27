@@ -133,10 +133,6 @@ pub fn load_latest_overlay_snapshot(
     from: Option<&str>,
     offset: usize,
 ) -> anyhow::Result<Option<OverlaySnapshotRow>> {
-    if !database_path.exists() {
-        return Ok(None);
-    }
-
     let conn = open_connection(database_path)?;
 
     let offset_value = i64::try_from(offset)?;
@@ -199,10 +195,6 @@ pub fn load_overlay_snapshot_count(
     database_path: &Path,
     from: Option<&str>,
 ) -> anyhow::Result<usize> {
-    if !database_path.exists() {
-        return Ok(0);
-    }
-
     let conn = open_connection(database_path)?;
 
     let count: i64 = if let Some(from) = from {
@@ -237,10 +229,6 @@ pub fn load_overlay_snapshot_list(
     from: Option<&str>,
     limit: Option<usize>,
 ) -> anyhow::Result<Vec<OverlaySnapshotRow>> {
-    if !database_path.exists() {
-        return Ok(Vec::new());
-    }
-
     let conn = open_connection(database_path)?;
 
     let effective_limit = limit.unwrap_or(20);
@@ -309,10 +297,6 @@ pub fn load_overlay_snapshot_by_id(
     database_path: &Path,
     record_id: &str,
 ) -> anyhow::Result<Option<OverlaySnapshotRow>> {
-    if !database_path.exists() {
-        return Ok(None);
-    }
-
     let conn = open_connection(database_path)?;
 
     let mut stmt = conn.prepare(
@@ -460,15 +444,6 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(latest.id, "snap-2");
-    }
-
-    #[test]
-    fn latest_overlay_record_returns_none_when_database_file_is_missing() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let missing = temp_dir.path().join("missing-bazaarplusplus.db");
-        let latest = load_latest_overlay_snapshot(&missing, None, 0).unwrap();
-
-        assert!(latest.is_none());
     }
 
     #[test]

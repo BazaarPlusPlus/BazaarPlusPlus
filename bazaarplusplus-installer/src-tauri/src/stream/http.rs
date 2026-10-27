@@ -1,6 +1,6 @@
 use super::history_thumbnails::{self, HistoryThumbnails};
 use super::overlay_settings::{validate_crop_settings, OverlayCropSettings, OverlaySettingsStore};
-use super::records::OverlayRecordRepository;
+use super::records::{NoRecordInstallation, OverlayRecordRepository};
 use super::runtime::StreamRuntime;
 use super::strip::{render_strip, SourcePaths, StripRequest};
 use anyhow::Context as _;
@@ -41,6 +41,9 @@ const SETTINGS_CSS_ROUTE: &str = "/assets/settings.css";
 const SETTINGS_JS_ROUTE: &str = "/assets/settings.js";
 const BADGE_ROUTE: &str = "/assets/badges/{category}/{file_name}";
 const CINZEL_FONT_ROUTE: &str = "/assets/fonts/cinzel-latin.woff2";
+/// The body of a record route's 404 when the service has no record
+/// installation; `overlay.js` shows its own copy for it.
+const NO_RECORD_INSTALLATION: &str = "no_record_installation";
 
 #[derive(Clone)]
 struct HttpAppState {
@@ -191,11 +194,7 @@ async fn latest_record(
 
     match run_record_task(move || repository.load_record_at_offset(from.as_deref(), offset)).await {
         Ok(record) => Json(record).into_response(),
-        Err(error) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            crate::problem::error_diagnostic(&error),
-        )
-            .into_response(),
+        Err(error) => record_error_response(&error),
     }
 }
 
@@ -210,12 +209,21 @@ async fn record_list(
 
     match run_record_task(move || repository.load_record_list(from.as_deref(), Some(limit))).await {
         Ok(records) => Json(records).into_response(),
-        Err(error) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            crate::problem::error_diagnostic(&error),
-        )
-            .into_response(),
+        Err(error) => record_error_response(&error),
     }
+}
+
+/// Without a record installation no record can show, so the record routes say
+/// that instead of reporting a failure.
+fn record_error_response(error: &anyhow::Error) -> Response {
+    if error.is::<NoRecordInstallation>() {
+        return (StatusCode::NOT_FOUND, NO_RECORD_INSTALLATION).into_response();
+    }
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        crate::problem::error_diagnostic(error),
+    )
+        .into_response()
 }
 
 async fn get_crop_config(State(app_state): State<HttpAppState>) -> Response {
@@ -253,13 +261,7 @@ async fn record_image(
     let (path, bytes) = match run_record_task(move || repository.load_image(&record_id)).await {
         Ok(Some(value)) => value,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
-        Err(error) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                crate::problem::error_diagnostic(&error),
-            )
-                .into_response()
-        }
+        Err(error) => return record_error_response(&error),
     };
 
     let content_type = detect_content_type(&path);
@@ -481,6 +483,44 @@ mod tests {
         SETTINGS_JS_ROUTE, SETTINGS_ROUTE, STRIP_IMAGE_ROUTE,
     };
     use axum::http::HeaderValue;
+
+    /// Failure mode: a service started before any game directory had a
+    /// database found one elsewhere later, returned its rows without screenshots,
+    /// and the overlay, which shows only rows with a strip, stayed empty.
+    #[tokio::test]
+    async fn record_routes_report_a_missing_record_installation() {
+        use tower::ServiceExt;
+        let temp = tempfile::tempdir().unwrap();
+        let app = router(
+            OverlayRecordRepository::new(None),
+            StreamRuntime::default(),
+            HistoryThumbnails::default(),
+            OverlaySettingsStore::new(temp.path().join("settings.json")),
+            temp.path().join("cache"),
+        );
+
+        for uri in [RECORD_LIST_ROUTE, LATEST_RECORD_ROUTE, "/images/shot-1"] {
+            let response = app
+                .clone()
+                .oneshot(
+                    axum::http::Request::builder()
+                        .uri(uri)
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                axum::http::StatusCode::NOT_FOUND,
+                "{uri}"
+            );
+            let body = axum::body::to_bytes(response.into_body(), 1024)
+                .await
+                .unwrap();
+            assert_eq!(&body[..], b"no_record_installation", "{uri}");
+        }
+    }
 
     #[test]
     fn embedded_badge_assets_are_complete_for_every_hero() {

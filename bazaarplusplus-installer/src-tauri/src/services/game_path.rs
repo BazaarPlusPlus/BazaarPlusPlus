@@ -140,12 +140,6 @@ pub(crate) fn fs_probe(probe: GamePathProbe, path: &Path) -> bool {
     }
 }
 
-pub(crate) fn find_fallback_game_path_with_database() -> Option<PathBuf> {
-    fallback_game_candidates()
-        .into_iter()
-        .find(|path| fs_probe(GamePathProbe::DatabaseFile, path))
-}
-
 #[cfg(target_os = "windows")]
 pub(crate) fn find_existing_fallback_game_path() -> Option<PathBuf> {
     let candidates = fallback_game_candidates();
