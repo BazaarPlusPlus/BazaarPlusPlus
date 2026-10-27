@@ -13,7 +13,9 @@ internal static class NameOverrideUiRefresh
         if (string.IsNullOrWhiteSpace(displayName))
             return;
 
-        var banners = Object.FindObjectsOfType<HeroBannerController>();
+        var banners = Object.FindObjectsByType<HeroBannerController>(
+            UnityEngine.FindObjectsSortMode.None
+        );
         if (banners == null || banners.Length == 0)
             return;
 

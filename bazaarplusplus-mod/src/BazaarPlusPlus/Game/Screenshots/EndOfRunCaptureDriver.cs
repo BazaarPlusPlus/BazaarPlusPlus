@@ -117,8 +117,9 @@ internal sealed class EndOfRunCaptureDriver
         _nextControllerScanAtSeconds = now + ControllerScanIntervalSeconds;
 
         foreach (
-            var controller in UnityEngine.Object.FindObjectsOfType<EndOfRunScreenController>(
-                includeInactive: true
+            var controller in UnityEngine.Object.FindObjectsByType<EndOfRunScreenController>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.InstanceID
             )
         )
         {

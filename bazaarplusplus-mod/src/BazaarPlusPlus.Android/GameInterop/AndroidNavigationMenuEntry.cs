@@ -39,7 +39,7 @@ internal sealed class AndroidNavigationMenuEntry(
             if (Time.unscaledTime < _nextLookup)
                 return;
             _nextLookup = Time.unscaledTime + 1f;
-            _menu = UnityEngine.Object.FindObjectOfType<NavigationMenuController>();
+            _menu = UnityEngine.Object.FindFirstObjectByType<NavigationMenuController>();
             if (_menu == null)
                 return;
         }

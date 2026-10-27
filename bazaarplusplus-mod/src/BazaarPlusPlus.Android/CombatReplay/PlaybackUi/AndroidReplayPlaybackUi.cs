@@ -41,12 +41,16 @@ internal static class AndroidReplayPlaybackUi
     public static void HideEncounterPickerOverlays()
     {
         foreach (
-            var picker in UnityEngine.Object.FindObjectsOfType<EncounterPickerMapController>(true)
+            var picker in UnityEngine.Object.FindObjectsByType<EncounterPickerMapController>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None
+            )
         )
             HidePicker(picker);
         foreach (
-            var picker in UnityEngine.Object.FindObjectsOfType<InjectedEncounterPickerMapController>(
-                true
+            var picker in UnityEngine.Object.FindObjectsByType<InjectedEncounterPickerMapController>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None
             )
         )
             HidePicker(picker);
@@ -130,9 +134,17 @@ internal static class AndroidReplayPlaybackUi
             Apply(attributes, EPlayerAttributeType.Prestige, manifest.Participants.PlayerPrestige);
             Apply(attributes, EPlayerAttributeType.Income, manifest.Participants.PlayerIncome);
             Apply(attributes, EPlayerAttributeType.Gold, manifest.Participants.PlayerGold);
-            foreach (var prestige in UnityEngine.Object.FindObjectsOfType<PrestigeBarController>())
+            foreach (
+                var prestige in UnityEngine.Object.FindObjectsByType<PrestigeBarController>(
+                    FindObjectsSortMode.None
+                )
+            )
                 prestige?.ImmediateUpdate();
-            foreach (var bank in UnityEngine.Object.FindObjectsOfType<BankToyController>())
+            foreach (
+                var bank in UnityEngine.Object.FindObjectsByType<BankToyController>(
+                    FindObjectsSortMode.None
+                )
+            )
                 bank?.UpdateUI();
         }
         catch (Exception exception)
@@ -161,7 +173,10 @@ internal static class AndroidReplayPlaybackUi
                 if (run == null)
                     return;
                 foreach (
-                    var clock in UnityEngine.Object.FindObjectsOfType<ClockViewController>(true)
+                    var clock in UnityEngine.Object.FindObjectsByType<ClockViewController>(
+                        FindObjectsInactive.Include,
+                        FindObjectsSortMode.None
+                    )
                 )
                 {
                     if (clock == null)
@@ -199,7 +214,12 @@ internal static class AndroidReplayPlaybackUi
     ) ResolveBoardUiControllers()
     {
         var controllers = new List<BoardUIController>();
-        foreach (var controller in UnityEngine.Object.FindObjectsOfType<BoardUIController>(true))
+        foreach (
+            var controller in UnityEngine.Object.FindObjectsByType<BoardUIController>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.InstanceID
+            )
+        )
         {
             if (controller != null && controller.gameObject.scene.rootCount > 0)
                 controllers.Add(controller);

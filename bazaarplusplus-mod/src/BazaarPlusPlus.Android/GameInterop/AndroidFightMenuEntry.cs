@@ -40,7 +40,7 @@ internal sealed class AndroidFightMenuEntry(
             if (Time.unscaledTime < _nextLookup)
                 return;
             _nextLookup = Time.unscaledTime + 1f;
-            _dialog = UnityEngine.Object.FindObjectOfType<Il2Cpp.FightMenuDialog>();
+            _dialog = UnityEngine.Object.FindFirstObjectByType<Il2Cpp.FightMenuDialog>();
             if (_dialog == null)
                 return;
         }

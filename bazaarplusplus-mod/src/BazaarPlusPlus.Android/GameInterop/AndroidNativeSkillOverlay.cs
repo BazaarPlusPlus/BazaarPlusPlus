@@ -77,7 +77,8 @@ internal sealed class AndroidNativeSkillOverlay(int sortingOrder)
         if (_proxies == null)
             return;
         if (_overlay == null)
-            _overlay = UnityEngine.Object.FindObjectOfType<Il2Cpp.MobileSkillOverlayController>();
+            _overlay =
+                UnityEngine.Object.FindFirstObjectByType<Il2Cpp.MobileSkillOverlayController>();
         var showing = _overlay != null && _overlay.gameObject.activeInHierarchy;
         if (showing && !_shown)
         {

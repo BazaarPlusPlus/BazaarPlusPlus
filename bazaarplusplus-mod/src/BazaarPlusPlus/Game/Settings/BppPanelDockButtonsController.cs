@@ -83,7 +83,10 @@ internal sealed class BppPanelDockButtonsController
 
     internal static IDisposable? BeginScreenshotSuppression()
     {
-        var controllers = FindObjectsOfType<BppPanelDockButtonsController>(includeInactive: true);
+        var controllers = FindObjectsByType<BppPanelDockButtonsController>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None
+        );
         if (controllers.Length == 0)
             return null;
 
