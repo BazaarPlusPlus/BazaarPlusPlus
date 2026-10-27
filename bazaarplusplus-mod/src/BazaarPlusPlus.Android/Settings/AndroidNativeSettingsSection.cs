@@ -250,8 +250,14 @@ internal sealed class AndroidNativeSettingsSection
         }
     }
 
-    /// <summary>A settings dialog was enabled or changed language: redraw every section.</summary>
-    public static void RefreshAll()
+    /// <summary>
+    /// A settings dialog was enabled (<paramref name="relayout"/> false) or changed language
+    /// (true): redraw every section. An enabled dialog's rows are laid out by the section's
+    /// next <see cref="Tick"/>, at or after this call, which sees it opened; that was the later
+    /// of the two passes an open used to run. A language change keeps the section open, so no
+    /// tick sees it opened and it lays out here.
+    /// </summary>
+    public static void RefreshAll(bool relayout)
     {
         for (var index = Sections.Count - 1; index >= 0; index--)
         {
@@ -261,6 +267,13 @@ internal sealed class AndroidNativeSettingsSection
                 // A dialog destroyed since the last tick (a scene change) is dropped, as in Tick.
                 if (DropIfDestroyed(index, "refresh"))
                     continue;
+                if (!relayout)
+                {
+                    section.Refresh(force: true);
+                    // Closed and opened again between two ticks still reads as opened.
+                    section._wasVisible = false;
+                    continue;
+                }
                 section.RebuildLayout();
                 section.Refresh(force: true);
                 if (section._sectionRoot.gameObject.activeInHierarchy)

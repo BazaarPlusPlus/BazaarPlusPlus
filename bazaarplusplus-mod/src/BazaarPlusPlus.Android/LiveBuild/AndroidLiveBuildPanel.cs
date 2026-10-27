@@ -174,7 +174,11 @@ internal sealed class AndroidLiveBuildPanel
         var view = _slot.View;
         if (view == null || !view.IsVisible)
             return;
-        if (_relayout.Observe(AndroidTouchScreen.Key(), view.SettingUp))
+        // The debounce reads the setup state only for a changed key: skip it while the key holds.
+        var key = AndroidTouchScreen.Key();
+        var settingUp =
+            !string.Equals(key, _relayout.LaidOut, StringComparison.Ordinal) && view.SettingUp;
+        if (_relayout.Observe(key, settingUp))
         {
             if (!Relayout())
                 _commands.Close("relayout_failed");

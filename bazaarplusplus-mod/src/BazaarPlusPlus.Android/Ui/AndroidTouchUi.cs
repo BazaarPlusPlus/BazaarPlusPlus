@@ -199,18 +199,28 @@ internal sealed class AndroidTouchUi
     {
         try
         {
+            var playing = IsPlaying();
+            // The gear anchors only the shortcuts, which show with the switch on and outside
+            // fights: no scene search otherwise.
             if (
-                (_anchor == null || !_anchor.gameObject.activeInHierarchy)
+                _android.TouchMenu.Value
+                && !playing
+                && (_anchor == null || !_anchor.gameObject.activeInHierarchy)
                 && Time.unscaledTime >= _nextAnchorCheck
             )
             {
                 _nextAnchorCheck = Time.unscaledTime + 0.5f;
-                _anchor = AndroidNativeHud.FindSettingsButton(out _inRun);
-                _anchorRect = _anchor?.GetComponent<RectTransform>();
-                _anchorCanvas = _anchorRect?.GetComponentInParent<Canvas>()?.rootCanvas;
-                _shortcutAnchor = null;
+                var found = AndroidNativeHud.FindSettingsButton(out _inRun);
+                // The same gear found again keeps its shortcuts; another one lays them out anew,
+                // since their round frame is read from the gear's own art.
+                if (found == null || _anchor == null || found.Pointer != _anchor.Pointer)
+                {
+                    _anchorRect = found?.GetComponent<RectTransform>();
+                    _anchorCanvas = _anchorRect?.GetComponentInParent<Canvas>()?.rootCanvas;
+                    _shortcutAnchor = null;
+                }
+                _anchor = found;
             }
-            var playing = IsPlaying();
             var visible =
                 _android.TouchMenu.Value
                 && _panels.OpenPanelId == null

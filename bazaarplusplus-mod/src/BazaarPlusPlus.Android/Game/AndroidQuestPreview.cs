@@ -13,6 +13,9 @@ internal sealed class AndroidQuestPreview(BppSettings settings) : IDisposable
 {
     private readonly Dictionary<int, Presentation> _presentations = new();
 
+    // An entry's text or layout was restored or rewritten since the group last laid out.
+    private bool _layoutDirty;
+
     public void Render(
         TooltipQuestEntry entryView,
         CardQuestEntryData entry,
@@ -24,7 +27,10 @@ internal sealed class AndroidQuestPreview(BppSettings settings) : IDisposable
             return;
         var id = label.GetInstanceID();
         if (_presentations.Remove(id, out var previous))
+        {
+            _layoutDirty = true;
             RestoreLayout(previous);
+        }
         if (!settings.EnableDetailedPreviewConfig.Value)
             return;
         var reward = entry.QuestEntry.Reward?.Localization?.Tooltips;
@@ -47,6 +53,19 @@ internal sealed class AndroidQuestPreview(BppSettings settings) : IDisposable
         if (!BppQuestRewardPreviewText.ContainsInlineSprite(nativeText, passive, active))
             label.lineSpacing += BppQuestRewardPreviewText.RewardLineSpacingIncrease;
         label.text = text;
+        _layoutDirty = true;
+    }
+
+    /// <summary>
+    /// Whether a quest entry's height may have changed since the last call: only then does its
+    /// group need the forced layout rebuild. A restore counts, or a reused entry keeps the
+    /// previous card's height.
+    /// </summary>
+    public bool ConsumeLayoutDirty()
+    {
+        var dirty = _layoutDirty;
+        _layoutDirty = false;
+        return dirty;
     }
 
     public void Tick()

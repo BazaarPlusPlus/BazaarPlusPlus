@@ -343,8 +343,16 @@ internal sealed class AndroidLiveBuildView
     public int Leases => _rows.Values.Sum(row => row.Board.Leases) + Inspection.Leases;
 
     /// <summary>A board card or the inspected one is still being instantiated or set up.</summary>
-    public bool SettingUp =>
-        _rows.Values.Any(row => row.Board.Status().Pending > 0) || Inspection.SettingUp;
+    public bool SettingUp
+    {
+        get
+        {
+            foreach (var row in _rows.Values)
+                if (row.Board.Status().Pending > 0)
+                    return true;
+            return Inspection.SettingUp;
+        }
+    }
 
     public void SetVisible(bool visible)
     {
@@ -530,8 +538,11 @@ internal sealed class AndroidLiveBuildView
                 : failed > 0 ? LiveBuildPanelText.BoardFailed()
                 : row.CardCount == 0 ? row.EmptyText
                 : string.Empty;
-            if (!string.Equals(row.Status.text, text, StringComparison.Ordinal))
-                row.Status.text = text;
+            // Compared with what was last written, not read back through the IL2CPP getter.
+            if (string.Equals(row.LastStatus, text, StringComparison.Ordinal))
+                continue;
+            row.LastStatus = text;
+            row.Status.text = text;
         }
     }
 
@@ -669,5 +680,8 @@ internal sealed class AndroidLiveBuildView
         public string EmptyText { get; set; } = string.Empty;
 
         public int CardCount { get; set; }
+
+        /// <summary>The status text last written; the label is created empty.</summary>
+        public string LastStatus { get; set; } = string.Empty;
     }
 }
