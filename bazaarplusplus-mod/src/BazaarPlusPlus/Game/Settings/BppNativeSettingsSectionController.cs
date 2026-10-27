@@ -201,8 +201,9 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
     internal static void RefreshAll()
     {
         foreach (
-            var controller in FindObjectsOfType<BppNativeSettingsSectionController>(
-                includeInactive: true
+            var controller in FindObjectsByType<BppNativeSettingsSectionController>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None
             )
         )
             controller.RefreshView(force: true);

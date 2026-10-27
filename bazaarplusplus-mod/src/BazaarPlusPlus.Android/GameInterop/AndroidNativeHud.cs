@@ -19,7 +19,7 @@ internal static class AndroidNativeHud
         get
         {
             if (_popup == null)
-                _popup = UnityEngine.Object.FindObjectOfType<Il2CppTheBazaar.PopupManager>();
+                _popup = UnityEngine.Object.FindFirstObjectByType<Il2CppTheBazaar.PopupManager>();
             return _popup;
         }
     }
@@ -36,14 +36,24 @@ internal static class AndroidNativeHud
     {
         // Scene objects only, inactive ones included: an asset is never active in a hierarchy.
         inRun = true;
-        foreach (var fight in UnityEngine.Object.FindObjectsOfType<Il2Cpp.FightMenuDialog>(true))
+        foreach (
+            var fight in UnityEngine.Object.FindObjectsByType<Il2Cpp.FightMenuDialog>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.InstanceID
+            )
+        )
         {
             var button = fight.SettingButton?.GetButton();
             if (Active(button))
                 return button;
         }
         inRun = false;
-        foreach (var view in UnityEngine.Object.FindObjectsOfType<Il2Cpp.SettingDialogsView>(true))
+        foreach (
+            var view in UnityEngine.Object.FindObjectsByType<Il2Cpp.SettingDialogsView>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.InstanceID
+            )
+        )
         {
             var mainMenu = view.MainMenuSettingOptionButton;
             if (Active(mainMenu))

@@ -187,8 +187,9 @@ internal static class NativeTooltipSuppression
             () =>
             {
                 foreach (
-                    var controller in Object.FindObjectsOfType<CardController>(
-                        includeInactive: false
+                    var controller in Object.FindObjectsByType<CardController>(
+                        FindObjectsInactive.Exclude,
+                        FindObjectsSortMode.None
                     )
                 )
                 {
@@ -211,8 +212,9 @@ internal static class NativeTooltipSuppression
             () =>
             {
                 foreach (
-                    var renderer in Object.FindObjectsOfType<SkillProxyRenderer>(
-                        includeInactive: false
+                    var renderer in Object.FindObjectsByType<SkillProxyRenderer>(
+                        FindObjectsInactive.Exclude,
+                        FindObjectsSortMode.None
                     )
                 )
                     TryApply(
@@ -228,8 +230,9 @@ internal static class NativeTooltipSuppression
             () =>
             {
                 foreach (
-                    var controller in Object.FindObjectsOfType<RecapItemVisualController>(
-                        includeInactive: false
+                    var controller in Object.FindObjectsByType<RecapItemVisualController>(
+                        FindObjectsInactive.Exclude,
+                        FindObjectsSortMode.None
                     )
                 )
                     TryApply(
@@ -703,13 +706,19 @@ internal static class NativeTooltipSuppression
                     _cacheGeneration,
                     static controller => controller != null,
                     static () =>
-                        Object.FindObjectsOfType<CardTooltipController>(includeInactive: true)
+                        Object.FindObjectsByType<CardTooltipController>(
+                            FindObjectsInactive.Include,
+                            FindObjectsSortMode.InstanceID
+                        )
                 );
                 auxiliaryControllers = _auxiliaryControllers.GetOrRefresh(
                     _cacheGeneration,
                     static controller => controller != null,
                     static () =>
-                        Object.FindObjectsOfType<AuxiliaryTooltipController>(includeInactive: true)
+                        Object.FindObjectsByType<AuxiliaryTooltipController>(
+                            FindObjectsInactive.Include,
+                            FindObjectsSortMode.InstanceID
+                        )
                 );
                 return true;
             }

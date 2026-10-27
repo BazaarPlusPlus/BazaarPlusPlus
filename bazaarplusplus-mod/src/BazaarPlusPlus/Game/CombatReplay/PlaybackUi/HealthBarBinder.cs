@@ -86,7 +86,10 @@ internal static class HealthBarBinder
     private static IEnumerable<BoardUIController> GetSceneBoardUiControllers()
     {
         return UnityEngine
-            .Object.FindObjectsOfType<BoardUIController>(true)
+            .Object.FindObjectsByType<BoardUIController>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.InstanceID
+            )
             .Where(controller => controller != null && controller.gameObject.scene.rootCount > 0);
     }
 
@@ -299,7 +302,12 @@ internal static class HealthBarBinder
     private static void HideSceneObjectsOfType<T>()
         where T : Component
     {
-        foreach (var component in UnityEngine.Object.FindObjectsOfType<T>(true))
+        foreach (
+            var component in UnityEngine.Object.FindObjectsByType<T>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None
+            )
+        )
         {
             if (component == null)
                 continue;

@@ -121,7 +121,7 @@ internal static class ReplayPresentationRestorer
         where T : Component
     {
         return UnityEngine
-            .Object.FindObjectsOfType<T>(true)
+            .Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None)
             .Where(component => component != null && component.gameObject.scene.rootCount > 0);
     }
 

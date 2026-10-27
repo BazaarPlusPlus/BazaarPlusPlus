@@ -20,7 +20,10 @@ internal static class LegendaryPositionUiRefresh
     {
         BppClientCacheBridge.TryGetPlayerLeaderboardPosition(out var leaderboardPosition);
 
-        var banners = Object.FindObjectsOfType<HeroBannerController>(includeInactive: true);
+        var banners = Object.FindObjectsByType<HeroBannerController>(
+            UnityEngine.FindObjectsInactive.Include,
+            UnityEngine.FindObjectsSortMode.None
+        );
         if (banners == null || banners.Length == 0)
             return;
 
@@ -43,7 +46,10 @@ internal static class LegendaryPositionUiRefresh
 
     private static void TryRefreshVisibleEndOfRunRanks()
     {
-        var controllers = Object.FindObjectsOfType<EndOfRunRankController>(includeInactive: true);
+        var controllers = Object.FindObjectsByType<EndOfRunRankController>(
+            UnityEngine.FindObjectsInactive.Include,
+            UnityEngine.FindObjectsSortMode.None
+        );
         if (controllers == null || controllers.Length == 0)
             return;
 

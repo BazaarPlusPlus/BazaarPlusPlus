@@ -262,13 +262,21 @@ internal static class PlayerAttributeRepairer
 
     private static void RefreshRecordedAttributePresentation()
     {
-        foreach (var prestigeBar in UnityEngine.Object.FindObjectsOfType<PrestigeBarController>())
+        foreach (
+            var prestigeBar in UnityEngine.Object.FindObjectsByType<PrestigeBarController>(
+                UnityEngine.FindObjectsSortMode.None
+            )
+        )
         {
             prestigeBar?.ImmediateUpdate();
         }
 
         var updateUiFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-        foreach (var bank in UnityEngine.Object.FindObjectsOfType<BankToyController>())
+        foreach (
+            var bank in UnityEngine.Object.FindObjectsByType<BankToyController>(
+                UnityEngine.FindObjectsSortMode.None
+            )
+        )
         {
             bank?.GetType().GetMethod("UpdateUI", updateUiFlags)?.Invoke(bank, null);
         }

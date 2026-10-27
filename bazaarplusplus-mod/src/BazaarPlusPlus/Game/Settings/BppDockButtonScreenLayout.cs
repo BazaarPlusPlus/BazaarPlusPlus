@@ -30,7 +30,10 @@ internal sealed class BppDockButtonScreenLayout
     /// <see cref="TryResolveAndApplyCollection"/> call it makes.
     /// </summary>
     internal static Button[] FindSceneButtons() =>
-        UnityEngine.Object.FindObjectsOfType<Button>(includeInactive: false);
+        UnityEngine.Object.FindObjectsByType<Button>(
+            FindObjectsInactive.Exclude,
+            FindObjectsSortMode.InstanceID
+        );
 
     /// <summary>
     /// Places <paramref name="collectionRect"/> beside the anchor clear of every visible native

@@ -36,7 +36,10 @@ internal static class AudioBankWarmer
                 outcome.ReportDegradation(ReplayPlaybackReasonCode.AudioWarmupFailed);
 
             var boardAssets = UnityEngine
-                .Object.FindObjectsOfType<HeroBoardController>(true)
+                .Object.FindObjectsByType<HeroBoardController>(
+                    UnityEngine.FindObjectsInactive.Include,
+                    UnityEngine.FindObjectsSortMode.InstanceID
+                )
                 .Where(controller =>
                     controller != null && controller.gameObject.scene.rootCount > 0
                 )
