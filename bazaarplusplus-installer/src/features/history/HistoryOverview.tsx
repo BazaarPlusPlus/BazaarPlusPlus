@@ -44,7 +44,7 @@ function pendingItemCount(pending: PendingCleanup): number {
   if (pending.scope === 'screenshots') {
     return pending.preview.screenshots + pending.preview.orphan_files;
   }
-  return pending.preview.runs;
+  return pending.preview.runs + pending.preview.videos;
 }
 
 export function HistoryOverview({
