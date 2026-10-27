@@ -189,7 +189,7 @@ internal sealed class AndroidCombatStatusView(
         _pauseIcon.sprite = icons.Pause;
         _pauseIcon.preserveAspect = true;
         var shadow = glyph.gameObject.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0.05f, 0.035f, 0.02f, 0.85f);
+        shadow.effectColor = InGameTheme.WithAlpha(InGameTheme.Outline, 0.85f);
         shadow.effectDistance = new Vector2(chrome.Metrics.Dp(1), -chrome.Metrics.Dp(1));
         _speed = Control(
             AndroidTouchScreen.Child("Speed", _root.transform, layout.Speed),
@@ -215,14 +215,14 @@ internal sealed class AndroidCombatStatusView(
 
     private static void Outline(TextMeshProUGUI label)
     {
-        label.outlineColor = new Color(0.05f, 0.035f, 0.02f, 1f);
+        label.outlineColor = InGameTheme.Outline;
         label.outlineWidth = 0.1f;
     }
 
     private void Divider(TouchRect area) =>
         AndroidUiKit.Fill(
             AndroidTouchScreen.Child("Divider", _root!.transform, area),
-            new Color(.67f, .48f, .22f, .65f),
+            InGameTheme.WithAlpha(InGameTheme.RuleStrong, .65f),
             false
         );
 

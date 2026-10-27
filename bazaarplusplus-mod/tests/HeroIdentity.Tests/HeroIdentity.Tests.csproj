@@ -36,6 +36,10 @@
       Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/Colors.cs"
       Link="Colors.cs"
     />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/InGameTheme.g.cs"
+      Link="InGameTheme.g.cs"
+    />
     <!-- History's hero display names are a desktop adapter over the game's hero enum. -->
     <Compile
       Include="../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelHeroNames.cs"

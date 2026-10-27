@@ -27,8 +27,8 @@ internal sealed class LiveBuildPanelView : IDisposable
         Art + "Btn_Rct_Brown_S_Center_Active_TUI.png",
         Art + "Btn_Rct_Blue_S_Center_Active_TUI.png",
     ];
-    private static readonly Color Ink = new(.96f, .89f, .73f);
-    private static readonly Color Muted = new(.69f, .63f, .53f);
+    private static readonly Color Ink = InGameTheme.Ink;
+    private static readonly Color Muted = InGameTheme.InkMuted;
 
     private sealed class Row
     {
@@ -141,7 +141,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         // shrink their content rail relative to the text and header actions.
         scaler.matchWidthOrHeight = 1;
         _layout = Rect("Panel", _root.transform, 0, 0, 1, 1);
-        _layout.gameObject.AddComponent<Image>().color = new Color(.16f, .105f, .065f, 1);
+        _layout.gameObject.AddComponent<Image>().color = InGameTheme.BackdropRaised;
         _backdrop = Rect("NativeBackdrop", _layout, 0, 0, 1, 1).gameObject.AddComponent<RawImage>();
         _backdrop.raycastTarget = false;
         _backdrop.color = Color.clear;
@@ -149,7 +149,7 @@ internal sealed class LiveBuildPanelView : IDisposable
             .AspectMode
             .EnvelopeParent;
         var shade = Rect("BackgroundShade", _layout, 0, 0, 1, 1).gameObject.AddComponent<Image>();
-        shade.color = new Color(.055f, .038f, .028f, .64f);
+        shade.color = InGameTheme.Veil;
         shade.raycastTarget = false;
         var frame = Rect("PanelFrame", _layout, 0, 0, 1, 1);
         frame.offsetMin = new Vector2(7, 7);
@@ -159,13 +159,16 @@ internal sealed class LiveBuildPanelView : IDisposable
         var sidebarRule = Rect("SidebarRule", _sidebar, 0, 0, 0, 1);
         sidebarRule.sizeDelta = new Vector2(1, 0);
         var sidebarRuleImage = sidebarRule.gameObject.AddComponent<Image>();
-        sidebarRuleImage.color = new Color(.58f, .43f, .20f, .35f);
+        sidebarRuleImage.color = InGameTheme.WithAlpha(InGameTheme.Rule, .35f);
         sidebarRuleImage.raycastTarget = false;
         foreach (var dividerY in new[] { .11f, .70f })
         {
             var divider = Rect("SectionDivider", _sidebar, .08f, dividerY, .84f, 0);
             divider.sizeDelta = new Vector2(0, 1);
-            divider.gameObject.AddComponent<Image>().color = new Color(.58f, .43f, .20f, .5f);
+            divider.gameObject.AddComponent<Image>().color = InGameTheme.WithAlpha(
+                InGameTheme.Rule,
+                .5f
+            );
         }
         _title = Text(_layout, string.Empty, .02f, .008f, .49f, .05f, 32);
         _title.textWrappingMode = TextWrappingModes.Normal;
@@ -198,7 +201,9 @@ internal sealed class LiveBuildPanelView : IDisposable
             row.Divider = Rect("RowDivider", _layout, 0, 0, 0, 0);
             var divider = row.Divider.gameObject.AddComponent<Image>();
             divider.color =
-                i == 0 ? new Color(.72f, .54f, .24f, .8f) : new Color(.58f, .43f, .20f, .3f);
+                i == 0
+                    ? InGameTheme.WithAlpha(InGameTheme.RuleStrong, .8f)
+                    : InGameTheme.WithAlpha(InGameTheme.Rule, .3f);
             divider.raycastTarget = false;
             row.Header = Rect("RowHeader", _layout, .02f, y, .96f, .024f);
             row.Title = Text(row.Header, "", 0, 0, .50f, 1, 18);
@@ -240,7 +245,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         foreground.sortingOrder = BppOverlaySorting.PanelForeground;
         var detail = Rect("CorpusDetail", _markerRoot, .48f, .091f, .49f, .10f);
         var detailBackground = detail.gameObject.AddComponent<Image>();
-        detailBackground.color = new Color(.10f, .065f, .02f, .99f);
+        detailBackground.color = InGameTheme.WithAlpha(InGameTheme.Panel, .99f);
         detailBackground.raycastTarget = false;
         _corpusDetail = Text(detail, "", 0, 0, 1, 1, 17);
         _corpusDetail.textWrappingMode = TextWrappingModes.Normal;
@@ -661,9 +666,9 @@ internal sealed class LiveBuildPanelView : IDisposable
     private static Color StatusColor(LiveBuildRefreshSeverity severity) =>
         severity switch
         {
-            LiveBuildRefreshSeverity.Failure => new Color(.92f, .62f, .34f),
-            LiveBuildRefreshSeverity.Success => new Color(.62f, .8f, .54f),
-            LiveBuildRefreshSeverity.Pending => new Color(.59f, .76f, .89f),
+            LiveBuildRefreshSeverity.Failure => InGameTheme.Warning,
+            LiveBuildRefreshSeverity.Success => InGameTheme.Success,
+            LiveBuildRefreshSeverity.Pending => InGameTheme.Pending,
             _ => Muted,
         };
 

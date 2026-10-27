@@ -270,7 +270,7 @@ internal sealed class AndroidChipFlow
             new(0f, -_y - _chrome.Metrics.Dp(1f)),
             new(0f, -_y)
         );
-        AndroidUiKit.Fill(line, new Color(0.35f, 0.28f, 0.19f, 0.8f), false);
+        AndroidUiKit.Fill(line, InGameTheme.RuleFaint, false);
         _y += Gap;
     }
 

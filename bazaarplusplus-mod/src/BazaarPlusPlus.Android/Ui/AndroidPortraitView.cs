@@ -32,7 +32,7 @@ internal sealed class AndroidPortraitView
             Vector2.one * metrics.Dp(2f),
             Vector2.one * -metrics.Dp(2f)
         );
-        AndroidUiKit.Fill(viewport, new Color(0.09f, 0.075f, 0.055f), false);
+        AndroidUiKit.Fill(viewport, InGameTheme.Panel, false);
         viewport.gameObject.AddComponent<RectMask2D>();
         var fallback = AndroidUiKit.Rect(
             "Group",

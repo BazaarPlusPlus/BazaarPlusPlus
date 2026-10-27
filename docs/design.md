@@ -1,6 +1,8 @@
 # 视觉规范
 
-installer 与 bazaarplusplus.com 共用一套设计系统，放在仓库根目录的 `design/`：token、共享组件样式、品牌手册、文案规范和品牌标志都只在这里维护，取值不在本文重复。完成度以 Linear、Steam 与 Discord 客户端为参照。OBS 叠加层的直播画面暂时保持原有样式，不在本规范范围内；游戏内面板跟随游戏原生 UI。
+installer 与 bazaarplusplus.com 共用一套设计系统，放在仓库根目录的 `design/`：token、共享组件样式、品牌手册、文案规范和品牌标志都只在这里维护，取值不在本文重复。完成度以 Linear、Steam 与 Discord 客户端为参照。OBS 叠加层的直播画面暂时保持原有样式，不在本规范范围内。
+
+游戏内面板优先借用游戏原生美术（字体、按钮和边框贴图、奖杯、卡牌），BPP 自己画的颜色（底色、遮罩、文字、金线、状态色）统一来自 `design/tokens.json` 的 `ingame-*` token，`just design::build` 生成桌面和安卓两个宿主的 `InGameTheme.g.cs`。两个平台共用这一套视觉，只有布局分开：桌面按鼠标布局，安卓按 `TouchChrome` 的触屏布局。细则见 `design/README.md` 的 In game 一节。
 
 ## 设计系统在哪里
 
@@ -10,6 +12,7 @@ installer 与 bazaarplusplus.com 共用一套设计系统，放在仓库根目�
 | 共享 `bpp-*` 组件样式 | `design/components/bundle.css` | installer 的 `src/styles/index.css` 直接 `@import`；site 用 Tailwind 工具类实现同一套规格 |
 | 视觉、对齐、动效与组件规则 | `design/README.md` 与 `design/components/*/README.md` | 两个产品 |
 | 文案：语气、术语表、大小写与标点、句式 | `design/writing.md` | installer 的 `src/i18n/messages.ts` 与 site 的 `src/content/site-copy.ts` |
+| 游戏内颜色 | `design/tokens.json` 的 `ingame-*` | `just design::build` 生成 mod 桌面与安卓的 `InGameTheme.g.cs` |
 | 品牌标志 | `design/assets/Logos/bpp-mark.svg` | `just design::build` 复制到 installer 的 `static/brand/`；site 页头使用现有的 `public/bazaarplusplus-icon.webp` 应用图标 |
 
 `design/` 同时发布为 claude.ai 上的 Design System artifact，用来浏览组件预览和品牌手册；仓库是源头，artifact 跟随仓库更新。维护流程见 `design/AGENTS.md`。

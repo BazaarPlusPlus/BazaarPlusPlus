@@ -4,7 +4,7 @@ The BazaarPlusPlus design system: the one source for design tokens, the shared `
 
 | File | Owns | Consumers |
 |---|---|---|
-| `tokens.json` | Every colour, spacing, radius, size, shadow, motion and font-stack value | `bazaarplusplus-installer/src/styles/tokens.css` (generated), which the site copies |
+| `tokens.json` | Every colour, spacing, radius, size, shadow, motion and font-stack value | `bazaarplusplus-installer/src/styles/tokens.css` (generated), which the site copies; the `ingame-*` colours generate the mod's two `InGameTheme.g.cs` files instead |
 | `components/bundle.css` | The shared `bpp-*` classes | Imported by `bazaarplusplus-installer/src/styles/index.css`; the site mirrors the same values in Tailwind utilities |
 | `README.md`, `writing.md`, `components/*/README.md` | Visual rules, alignment, voice, glossary and component guidelines | Both products |
 | `assets/Logos/bpp-mark*.svg` | The brand mark | Installer title bar, About and Install pages |
