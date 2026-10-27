@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
-import { pushPlan, pushCommands } from './pre-push.mjs';
+import { missingDependencies, pushPlan, pushCommands } from './pre-push.mjs';
 import { runFixtureGit } from './test-support/git-fixture.mjs';
 import { gitEnvironment } from './git-command.mjs';
 
@@ -66,6 +66,39 @@ test('later pushes use the remote tip and preserve shared contract consumers', (
   const commands = f.plan(shared, head);
   for (const gate of ['mod::test', 'server::test', 'analyzer::test'])
     assert.ok(commands.flat().includes(gate));
+});
+
+test('a rebased force push selects the branch changes, not the default branch commits it moved onto', (t) => {
+  const f = fixture(t);
+  const before = f.commit('bazaarplusplus-site/src/page.ts');
+  f.git('checkout', '--detach', f.base);
+  f.commit('bazaarplusplus-mod/src/panel.cs');
+  const master = f.commit('bazaarplusplus-server/src/route.ts');
+  f.git('update-ref', 'refs/remotes/upstream/master', master);
+  f.git('cherry-pick', before);
+  const rebased = f.git('rev-parse', 'HEAD');
+  assert.deepEqual(f.plan(rebased, before), [['site::test']]);
+  // A lease on a tip this clone never fetched is equally a rewrite.
+  assert.deepEqual(f.plan(rebased, 'f'.repeat(40)), [['site::test']]);
+  const next = f.commit('bazaarplusplus-site/src/other.ts');
+  assert.deepEqual(f.plan(next, rebased), [['site::test']]);
+});
+
+test('selected gates name their missing npm dependencies', (t) => {
+  const f = fixture(t);
+  const commands = pushCommands({
+    release: ['x'],
+    'mod-macos': ['x'],
+    site: ['x']
+  });
+  assert.deepEqual(missingDependencies(commands, f.cwd), [
+    '.',
+    'bazaarplusplus-site'
+  ]);
+  fs.mkdirSync(path.join(f.cwd, 'bazaarplusplus-site/node_modules'), {
+    recursive: true
+  });
+  assert.deepEqual(missingDependencies(commands, f.cwd), ['.']);
 });
 
 test('unknown bases run all gates and deletions run none', (t) => {
