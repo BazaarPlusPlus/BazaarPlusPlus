@@ -32,7 +32,7 @@ fn inventory() -> &'static PayloadInventory {
             "/../../release/payload.json"
         )))
         .expect("the compiled Payload Inventory must be valid JSON");
-        assert_eq!(inventory.schema_version, 2, "unsupported Payload Inventory");
+        assert_eq!(inventory.schema_version, 1, "unsupported Payload Inventory");
         assert!(
             inventory
                 .files

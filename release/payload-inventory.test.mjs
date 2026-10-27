@@ -81,7 +81,7 @@ test.each([
 ])('inventory rejects unsafe ownership %s', (name) => {
   expect(() =>
     validateInventory({
-      schemaVersion: 2,
+      schemaVersion: 1,
       files: [
         {
           path: name,
@@ -105,7 +105,7 @@ test.each([
   (name) => {
     expect(() =>
       validateInventory({
-        schemaVersion: 2,
+        schemaVersion: 1,
         files: [
           {
             path: name,
@@ -174,7 +174,7 @@ test.each([
   (_, host, name, ownership, producer) => {
     expect(() =>
       validateInventory({
-        schemaVersion: 2,
+        schemaVersion: 1,
         files: [{ path: name, host, ownership, producer }]
       })
     ).toThrow(/approved install roots/);
@@ -185,11 +185,11 @@ test.each([
   ['an unknown host', { host: 'mono' }],
   ['a missing host', { host: undefined }],
   ['a platform of another host', { platforms: ['android'] }],
-  ['the v1 schema', null]
+  ['another schema version', null]
 ])('inventory rejects %s', (_, change) => {
   const inventory = structuredClone(readInventory());
   if (change) Object.assign(inventory.files[0], change);
-  else inventory.schemaVersion = 1;
+  else inventory.schemaVersion = 2;
   expect(() => validateInventory(inventory)).toThrow();
 });
 

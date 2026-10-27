@@ -29,7 +29,7 @@ test('successful build records exact artifacts, hashes, signature, and provenanc
     });
 
     expect(manifest).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 1,
       appVersion: '9.9.9',
       buildPlatform: 'windows',
       releasePlatformKey: 'windows-x86_64',

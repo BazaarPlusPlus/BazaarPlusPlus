@@ -284,7 +284,7 @@ export function buildAndroidFragment({
     (definition) => definition.kind === 'android'
   ).key;
   const fragment = {
-    schemaVersion: 2,
+    schemaVersion: 1,
     kind: 'android',
     version,
     platform,
@@ -395,7 +395,7 @@ function validateAndroidRelease(release, version, platform) {
 
 function validateAndroidFragment(fragment, version, platform) {
   if (
-    fragment?.schemaVersion !== 2 ||
+    fragment?.schemaVersion !== 1 ||
     fragment.kind !== 'android' ||
     fragment.version !== version ||
     fragment.platform !== platform ||

@@ -17,7 +17,7 @@ const releasePaths = [
 // schema 3 names the Snapshot Lock entry the Payload compiled against, so
 // every artifact answers which platform, channel and game version it was built
 // for (ADR 0004). An older record is re-prepared, never accepted.
-export const PAYLOAD_BUILD_RECORD_SCHEMA_VERSION = 3;
+export const PAYLOAD_BUILD_RECORD_SCHEMA_VERSION = 1;
 
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -201,7 +201,7 @@ export function createArtifactManifest({
   assertFileNameContainsVersion(managedFile, version);
 
   const manifest = {
-    schemaVersion: 3,
+    schemaVersion: 1,
     appVersion: version,
     buildPlatform: platform,
     releasePlatformKey: definition.key,
@@ -280,7 +280,7 @@ export function validateArtifactManifest({
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const definition = tauriPlatform(platform);
-  if (manifest.schemaVersion !== 3)
+  if (manifest.schemaVersion !== 1)
     throw new Error('Unsupported artifact manifest schema');
   if (
     manifest.appVersion !== version ||

@@ -109,7 +109,7 @@ export function assertRelativePayloadPath(value) {
 
 export function validateInventory(inventory) {
   if (
-    inventory?.schemaVersion !== 2 ||
+    inventory?.schemaVersion !== 1 ||
     !Array.isArray(inventory.files) ||
     !inventory.files.length
   )
