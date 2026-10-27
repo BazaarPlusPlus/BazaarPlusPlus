@@ -309,6 +309,50 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     AssertTrue(opened.HeroPreferenceFailure == null, "A loading store reports no failure.");
     AssertTrue(opened.Render.ResetScroll, "Open must reset the list scroll.");
     AssertTrue(opened.Render.ResetControlsScroll, "Open must reset the controls scroll.");
+
+    // The host then accepts the same cached list: Open's catalog state stands, and the accept
+    // still runs the open's first query.
+    var accepted = state.AcceptCatalog(cards);
+    AssertEqual(publishesBefore + 1, grid.PublishCount, "The accept must run the first query.");
+    AssertEqual(
+        "Mak Item",
+        grid.LastPublishedCards.Single().DisplayName,
+        "The accept of the cached list must publish the remembered hero's cards."
+    );
+    AssertEqual(
+        (CardHero?)CardHero.Mak,
+        accepted.Model.SelectedHero,
+        "The accept of the cached list must keep the remembered hero."
+    );
+    AssertTrue(
+        accepted.Model.AvailableHeroes.Contains(CardHero.Mak),
+        "The accept of the cached list must keep the open's available heroes."
+    );
+    AssertEqual(0, prefs.SaveCount, "The accept of the cached list must not save.");
+}
+
+// --- An accepted catalog sorts names within a facet in the culture's case-insensitive order ---
+{
+    var names = new[] { "beta", "Delta", "alpha", "Gamma", "Älpha", "charlie", "Bravo" };
+    var cards = names.Select(name => Card(name, CardTier.Bronze)).ToArray();
+    grid.Reset();
+    prefs.Reset();
+    var state = CreateState();
+    state.AcceptCatalog(cards);
+    var expected = names.OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+    AssertTrue(
+        grid.LastPublishedCards.Select(card => card.DisplayName).SequenceEqual(expected),
+        "The accepted catalog's ranked name order must match the culture comparison."
+    );
+    // The same names in a list no catalog ranked compare directly, in the same order.
+    var unranked = CollectionFilterEngine.Apply(
+        names.Select(name => Card(name, CardTier.Bronze)).ToArray(),
+        new CollectionFilterState()
+    );
+    AssertTrue(
+        unranked.Select(card => card.DisplayName).SequenceEqual(expected),
+        "An unranked list must sort names in the same culture order."
+    );
 }
 
 {

@@ -163,11 +163,22 @@ internal sealed class AndroidCollectionPanel
         );
         root.SetActive(true);
         root.transform.SetAsLastSibling();
-        Render(opened.Render);
         if (cached != null)
-            Render(_state.AcceptCatalog(cached));
+        {
+            // The open's render has not run the query yet and the accept's supersedes it, so
+            // draw the rail once, keeping the open's scroll resets.
+            var accepted = _state.AcceptCatalog(cached);
+            Render(
+                new CollectionRenderOutcome(
+                    accepted.Model,
+                    accepted.ResetScroll || opened.Render.ResetScroll,
+                    accepted.ResetControlsScroll || opened.Render.ResetControlsScroll
+                )
+            );
+        }
         else
         {
+            Render(opened.Render);
             _loading = true;
             Render(_state.BeginCatalogLoad());
         }
@@ -183,6 +194,8 @@ internal sealed class AndroidCollectionPanel
 
     public void Close(string reason)
     {
+        // Hero taps only stage the preference; it reaches disk once per close.
+        _heroStore.Flush();
         // A relayout that failed while open left no tree: the host's close still ends the view state.
         var treeLost = _treeLost;
         _treeLost = false;
@@ -211,6 +224,9 @@ internal sealed class AndroidCollectionPanel
             ("rental_balanced", AndroidCardRental.IsBalanced)
         );
     }
+
+    /// <summary>Main thread, on app pause: writes a hero choice staged by the open panel.</summary>
+    public void FlushHeroPreference() => _heroStore.Flush();
 
     /// <summary>
     /// A back step the panel answers before it closes: the inspected card, then an expanded rail

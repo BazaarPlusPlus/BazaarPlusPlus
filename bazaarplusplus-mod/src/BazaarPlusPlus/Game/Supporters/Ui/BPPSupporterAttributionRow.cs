@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.GameInterop.Fonts;
+using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -28,9 +29,22 @@ internal static class BPPSupporterAttributionRow
         NativeGameTypography.PanelScope typography
     )
     {
-        row.Clear();
-
+        // The Collection panel binds on every refresh with the list it sampled at open. Rebuild
+        // only when an input changed; native typography availability is part of the key so the
+        // panel's late-typography re-render still rebuilds the row.
         var languageCode = GetLanguageCode();
+        var key = new BoundKey(
+            supporters,
+            fallbackText,
+            languageCode,
+            typography,
+            NativeTagTypography.IsNativeTypographyAvailable
+        );
+        if (row.userData is BoundKey bound && bound.Matches(key))
+            return;
+
+        row.Clear();
+        row.userData = key;
         var sponsorText = BPPSupporterAttributionText.FormatSponsorAction(languageCode);
         var samples = supporters
             .Where(sample =>
@@ -62,6 +76,28 @@ internal static class BPPSupporterAttributionRow
             row.Add(CreateSuffixLabel(suffix, typography));
 
         row.Add(CreateSponsorButton(sponsorText, typography));
+    }
+
+    private sealed class BoundKey(
+        IReadOnlyList<BPPSupporterSample> supporters,
+        string fallbackText,
+        string languageCode,
+        NativeGameTypography.PanelScope typography,
+        bool nativeTypographyAvailable
+    )
+    {
+        private readonly IReadOnlyList<BPPSupporterSample> _supporters = supporters;
+        private readonly string _fallbackText = fallbackText;
+        private readonly string _languageCode = languageCode;
+        private readonly NativeGameTypography.PanelScope _typography = typography;
+        private readonly bool _nativeTypographyAvailable = nativeTypographyAvailable;
+
+        public bool Matches(BoundKey other) =>
+            ReferenceEquals(_supporters, other._supporters)
+            && string.Equals(_fallbackText, other._fallbackText, StringComparison.Ordinal)
+            && string.Equals(_languageCode, other._languageCode, StringComparison.Ordinal)
+            && ReferenceEquals(_typography, other._typography)
+            && _nativeTypographyAvailable == other._nativeTypographyAvailable;
     }
 
     private static Label CreatePlainLabel(string text, NativeGameTypography.PanelScope typography)

@@ -31,6 +31,11 @@ internal sealed class CollectionPanel : MonoBehaviour
     private const float CatalogWarmupFrameBudgetMs = 1f;
     private const string OverlayPanelId = "CollectionPanel";
 
+    // How long a closed, fully faded panel keeps its Unity runtime (card art handles, shared
+    // materials, pooled native cards, overlay canvas, UITK document) before releasing it. A
+    // quick reopen stays warm; a later one rebuilds the view and reloads card art.
+    private const float ClosedRuntimeReleaseDelaySeconds = 60f;
+
     private static CollectionPanel? _instance;
     public static bool IsVisible => _instance != null && _instance._isVisible;
     internal static CollectionPanel? Instance => _instance;
@@ -38,8 +43,7 @@ internal sealed class CollectionPanel : MonoBehaviour
     private CollectionCatalog _catalog = null!;
     private Keyboard? _imeKeyboard;
     private bool _isImeComposing;
-    private readonly ICollectionPanelHeroPreferenceStore _heroPreferenceStore =
-        new CollectionPanelHeroPreferenceStore();
+    private readonly CollectionPanelHeroPreferenceStore _heroPreferenceStore = new();
     private readonly CollectionPanelSelectionLogState _selectionLogState = new();
     private readonly CollectionGridPortAdapter _gridPort = new();
     private CollectionViewState _viewState = null!;
@@ -66,6 +70,7 @@ internal sealed class CollectionPanel : MonoBehaviour
     private float _scrollY;
     private Coroutine? _loadCoroutine;
     private int _loadGeneration;
+    private float _closedIdleSeconds;
 
     // True when the last render ran before the game's async tooltip typography registration
     // completed: tag chips rendered degraded (string-table labels, no accent color) and nothing
@@ -255,6 +260,7 @@ internal sealed class CollectionPanel : MonoBehaviour
                 ]
         );
 
+        _closedIdleSeconds = 0f;
         EnsureView();
         // After EnsureView: ApplyOutcome drops the render while the view does not exist.
         ApplyOutcome(opened.Render);
@@ -355,6 +361,8 @@ internal sealed class CollectionPanel : MonoBehaviour
         // Cancel a deferred focus requested by the expanded presentation before the fading view
         // remains alive for another frame.
         ApplyOutcome(_viewState.Close());
+        // Hero clicks only stage the preference; the panel writes it to disk once per close.
+        _heroPreferenceStore.Flush();
         // Drop composition state with the panel: a composition whose terminating Count==0
         // event never arrives would otherwise keep Advance() blocked after the next Open().
         DetachImeKeyboard();
@@ -419,6 +427,9 @@ internal sealed class CollectionPanel : MonoBehaviour
             {
                 _overlay?.SetVisible(false);
                 _virtualizer?.Dispose();
+                _closedIdleSeconds += dt;
+                if (_closedIdleSeconds >= ClosedRuntimeReleaseDelaySeconds)
+                    ReleaseClosedRuntime();
             }
             return;
         }
@@ -520,6 +531,21 @@ internal sealed class CollectionPanel : MonoBehaviour
         _view?.ShowStagingTemplateIdCopied(card.DisplayName, templateId);
     }
 
+    // The scene-change teardown, run once the closed panel has idled: it keeps the catalog, and
+    // the next Open rebuilds the view through EnsureView.
+    private void ReleaseClosedRuntime()
+    {
+        _closedIdleSeconds = 0f;
+        DisposeUnityRuntime();
+        BppLog.InfoEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.CollectionPanel,
+                "collection_panel.runtime.released"
+            ),
+            ("idle_seconds", ClosedRuntimeReleaseDelaySeconds)
+        );
+    }
+
     private void HideNativeCardLayerImmediately()
     {
         _virtualizer?.Dispose();
@@ -527,8 +553,17 @@ internal sealed class CollectionPanel : MonoBehaviour
         _overlay?.SetVisible(false);
     }
 
+    // Desktop builds pause when they lose focus with Run In Background off; write a hero choice
+    // staged by a panel that is still open.
+    private void OnApplicationPause(bool paused)
+    {
+        if (paused)
+            _heroPreferenceStore.Flush();
+    }
+
     private void OnDestroy()
     {
+        _heroPreferenceStore.Flush();
         _inspection?.Detach();
         DetachImeKeyboard();
         if (ReferenceEquals(_instance, this))

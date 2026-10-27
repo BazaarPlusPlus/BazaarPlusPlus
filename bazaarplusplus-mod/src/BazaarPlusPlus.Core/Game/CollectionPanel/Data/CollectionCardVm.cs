@@ -70,4 +70,15 @@ public sealed class CollectionCardVm
 
     public string[] InitialismKeys =>
         _initialismKeys ??= CollectionCardSearch.BuildInitialismKeys(this);
+
+    // Filter-side memoisation: the hero scope reads one bit per CardHero instead of enumerating
+    // Heroes through its interface for every card on every query.
+    private int? _heroMask;
+
+    internal int HeroMask => _heroMask ??= CollectionHeroScope.MaskOf(Heroes);
+
+    // The accepted catalog's name order (CollectionCardNameOrder); null until one ranks this card.
+    internal CollectionCardNameOrder? NameOrder { get; set; }
+
+    internal int NameRank { get; set; }
 }
