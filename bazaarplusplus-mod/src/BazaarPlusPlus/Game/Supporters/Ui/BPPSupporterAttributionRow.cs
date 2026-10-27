@@ -43,8 +43,10 @@ internal static class BPPSupporterAttributionRow
         if (row.userData is BoundKey bound && bound.Matches(key))
             return;
 
+        // The key is stored only once the row is complete, so a build that throws retries on the
+        // next refresh.
         row.Clear();
-        row.userData = key;
+        row.userData = null;
         var sponsorText = BPPSupporterAttributionText.FormatSponsorAction(languageCode);
         var samples = supporters
             .Where(sample =>
@@ -58,6 +60,7 @@ internal static class BPPSupporterAttributionRow
         {
             row.Add(CreateFallbackLabel(fallbackText, typography));
             row.Add(CreateSponsorButton(sponsorText, typography));
+            row.userData = key;
             return;
         }
 
@@ -76,6 +79,7 @@ internal static class BPPSupporterAttributionRow
             row.Add(CreateSuffixLabel(suffix, typography));
 
         row.Add(CreateSponsorButton(sponsorText, typography));
+        row.userData = key;
     }
 
     private sealed class BoundKey(
