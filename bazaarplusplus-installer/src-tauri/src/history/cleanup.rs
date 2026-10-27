@@ -72,6 +72,15 @@ impl CleanupCutoff {
     }
 }
 
+/// A finished Run whose last activity precedes the cutoff `?1` (null: every
+/// finished Run). Planning selects candidates with it, and execution checks it
+/// again per Run with the plan's own cutoff, so a Run the mod resumed or
+/// touched after planning is not deleted.
+const RUN_BEFORE_CUTOFF_PREDICATE: &str = "
+    r.status <> 'active'
+    and (?1 is null or coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms) < ?1)
+";
+
 pub(crate) const PROTECTED_RUN_PREDICATE: &str = "
     r.upload_policy = 'bundle'
     and r.status = 'completed'
@@ -184,17 +193,10 @@ pub struct ScreenshotCleanupResult {
     pub skipped_pending_uploads: i64,
 }
 
-pub fn execute_screenshot_cleanup(
-    database_path: &Path,
-    data_root: &Path,
-    cutoff: Option<&CleanupCutoff>,
-    today_local_date: NaiveDate,
-) -> anyhow::Result<ScreenshotCleanupResult> {
-    let plan = plan_screenshot_cleanup(database_path, data_root, cutoff, today_local_date)?;
-    execute_screenshot_cleanup_plan(database_path, data_root, plan)
-}
-
-fn execute_screenshot_cleanup_plan(
+/// Executes a plan computed earlier, possibly by a preview the user confirmed.
+/// It never trusts the plan: each row delete re-checks protection, and files
+/// are unlinked only while no surviving row references them.
+pub(crate) fn execute_screenshot_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
     plan: ScreenshotCleanupPlan,
@@ -359,6 +361,9 @@ pub struct RunDataCleanupPlan {
     pub items: Vec<RunDataCleanupItem>,
     pub estimated_bytes: i64,
     pub skipped_pending_uploads: i64,
+    /// The cutoff the items were selected under; execution re-checks each Run
+    /// against it.
+    cutoff_ms: Option<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
@@ -376,6 +381,7 @@ impl RunDataCleanupPlan {
             items: Vec::new(),
             estimated_bytes: 0,
             skipped_pending_uploads: 0,
+            cutoff_ms: None,
         }
     }
 
@@ -459,6 +465,7 @@ pub fn plan_run_data_cleanup(
         items,
         estimated_bytes,
         skipped_pending_uploads,
+        cutoff_ms,
     })
 }
 
@@ -475,16 +482,10 @@ pub struct RunDataCleanupResult {
     pub skipped_pending_uploads: i64,
 }
 
-pub fn execute_run_data_cleanup(
-    database_path: &Path,
-    data_root: &Path,
-    cutoff: Option<&CleanupCutoff>,
-) -> anyhow::Result<RunDataCleanupResult> {
-    let plan = plan_run_data_cleanup(database_path, data_root, cutoff)?;
-    execute_run_data_cleanup_plan(database_path, data_root, plan)
-}
-
-fn execute_run_data_cleanup_plan(
+/// Executes a plan computed earlier, possibly by a preview the user confirmed.
+/// Each Run delete re-checks eligibility under the plan's cutoff and
+/// protection; files are unlinked only while no surviving row references them.
+pub(crate) fn execute_run_data_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
     plan: RunDataCleanupPlan,
@@ -502,7 +503,7 @@ fn execute_run_data_cleanup_plan(
         for chunk in plan.items.chunks(RUN_CLEANUP_CHUNK_SIZE) {
             let transaction = session.conn.transaction()?;
             for item in chunk {
-                if delete_run_if_unprotected(&transaction, &item.run_id)? == 0 {
+                if delete_run_if_unprotected(&transaction, &item.run_id, plan.cutoff_ms)? == 0 {
                     continue;
                 }
 
@@ -594,26 +595,33 @@ fn execute_run_data_cleanup_plan(
     })
 }
 
-/// Built once from `PROTECTED_RUN_PREDICATE`; see the screenshot twin above.
+/// Built once from the planning predicates; see the screenshot twin above.
+/// The planned Run is deleted only while it is still eligible under the plan's
+/// cutoff, so a plan computed long before execution stays safe.
 static DELETE_RUN_IF_UNPROTECTED_SQL: LazyLock<String> = LazyLock::new(|| {
     format!(
         "delete from runs as r
-         where r.run_id = ?1
+         where r.run_id = ?2
+           and {RUN_BEFORE_CUTOFF_PREDICATE}
            and not ({PROTECTED_RUN_PREDICATE})"
     )
 });
 
-fn delete_run_if_unprotected(conn: &Connection, run_id: &str) -> anyhow::Result<usize> {
+fn delete_run_if_unprotected(
+    conn: &Connection,
+    run_id: &str,
+    cutoff_ms: Option<i64>,
+) -> anyhow::Result<usize> {
     let mut stmt = conn.prepare_cached(&DELETE_RUN_IF_UNPROTECTED_SQL)?;
-    stmt.execute([run_id]).map_err(anyhow::Error::from)
+    stmt.execute(params![cutoff_ms, run_id])
+        .map_err(anyhow::Error::from)
 }
 
 fn eligible_run_ids(conn: &Connection, cutoff_ms: Option<i64>) -> anyhow::Result<Vec<String>> {
     let sql = format!(
         "select r.run_id
          from runs r
-         where r.status <> 'active'
-           and (?1 is null or coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms) < ?1)
+         where {RUN_BEFORE_CUTOFF_PREDICATE}
            and not ({PROTECTED_RUN_PREDICATE})
          order by coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms) asc,
                   r.run_id asc"
@@ -629,8 +637,7 @@ fn skipped_pending_run_count(conn: &Connection, cutoff_ms: Option<i64>) -> anyho
     let sql = format!(
         "select count(*)
          from runs r
-         where r.status <> 'active'
-           and (?1 is null or coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms) < ?1)
+         where {RUN_BEFORE_CUTOFF_PREDICATE}
            and ({PROTECTED_RUN_PREDICATE})"
     );
 
@@ -1182,6 +1189,27 @@ mod tests {
         NaiveDate::from_ymd_opt(2026, 7, 15).unwrap()
     }
 
+    /// Plans and executes at once, as a confirmation whose preview plan is
+    /// gone does.
+    fn execute_screenshot_cleanup(
+        database_path: &Path,
+        data_root: &Path,
+        cutoff: Option<&CleanupCutoff>,
+        today_local_date: NaiveDate,
+    ) -> anyhow::Result<super::ScreenshotCleanupResult> {
+        let plan = plan_screenshot_cleanup(database_path, data_root, cutoff, today_local_date)?;
+        super::execute_screenshot_cleanup_plan(database_path, data_root, plan)
+    }
+
+    fn execute_run_data_cleanup(
+        database_path: &Path,
+        data_root: &Path,
+        cutoff: Option<&CleanupCutoff>,
+    ) -> anyhow::Result<super::RunDataCleanupResult> {
+        let plan = super::plan_run_data_cleanup(database_path, data_root, cutoff)?;
+        super::execute_run_data_cleanup_plan(database_path, data_root, plan)
+    }
+
     /// Seeds keep RFC 3339 text for readability; the database stores Unix milliseconds.
     fn ms(rfc3339: &str) -> i64 {
         DateTime::parse_from_rfc3339(rfc3339)
@@ -1417,7 +1445,7 @@ mod tests {
             "2026-06-01T00:00:00Z",
         );
         drop(conn);
-        assert!(super::execute_screenshot_cleanup(
+        assert!(execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None,
@@ -2179,7 +2207,7 @@ mod tests {
             b"tmp",
         );
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"
@@ -2370,6 +2398,52 @@ mod tests {
 
         assert!(plan.items.is_empty());
         assert_eq!(plan.skipped_pending_uploads, 0);
+    }
+
+    /// A confirmed preview's plan can be minutes old. A Run the mod resumed
+    /// since, or whose last activity moved past the plan's cutoff, is no
+    /// longer a candidate and survives.
+    #[test]
+    fn stale_run_plan_spares_runs_resumed_or_touched_after_planning() {
+        let fixture = create_fixture();
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        for run_id in ["resumed", "touched", "eligible"] {
+            insert_run(&conn, run_id, "abandoned", "Normal", "2026-06-10T10:00:00Z");
+        }
+        drop(conn);
+        let cutoff = cutoff("2026-06-15T00:00:00Z", (2026, 6, 15));
+        let plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, Some(&cutoff))
+                .unwrap();
+        assert_eq!(plan.items.len(), 3);
+
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        conn.execute(
+            "update runs set status = 'active' where run_id = 'resumed'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "update runs set ended_at_ms = ?1, last_seen_at_ms = ?1 where run_id = 'touched'",
+            [ms("2026-06-20T10:00:00Z")],
+        )
+        .unwrap();
+        drop(conn);
+
+        let result =
+            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.data_root, plan)
+                .unwrap();
+
+        assert_eq!(result.deleted_runs, 1);
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        let remaining = conn
+            .prepare("select run_id from runs order by run_id")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(remaining, vec!["resumed", "touched"]);
     }
 
     #[test]
@@ -2743,8 +2817,7 @@ mod tests {
         );
 
         let result =
-            super::execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
-                .unwrap();
+            execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert_eq!(result.deleted_runs, 1);
         assert_eq!(result.deleted_files, 0);
@@ -3120,8 +3193,7 @@ mod tests {
         drop(conn);
 
         let result =
-            super::execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
-                .unwrap();
+            execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert_eq!(result.deleted_runs, 1);
         // v1.mp4 + battle-1 payload + shot.png; shared.png stays for the pending run.
@@ -3238,7 +3310,7 @@ mod tests {
         );
         drop(conn);
 
-        let error = super::execute_run_data_cleanup(&database_path, &data_dir, None)
+        let error = execute_run_data_cleanup(&database_path, &data_dir, None)
             .unwrap_err()
             .to_string();
 
@@ -3313,7 +3385,7 @@ mod tests {
         let cache =
             write_screenshot_file(&fixture.screenshots_dir, "UploadCache/shot-old.png", b"cc");
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"
@@ -3393,7 +3465,7 @@ mod tests {
         assert_eq!(plan.items[0].screenshot_id, "shot-old");
         assert_eq!(plan.estimated_bytes, 0);
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"
@@ -3467,7 +3539,7 @@ mod tests {
         assert_eq!(plan.items.len(), 2);
         assert_eq!(plan.estimated_bytes, 4);
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"
@@ -3513,7 +3585,7 @@ mod tests {
         assert_eq!(plan.items.len(), 1);
         assert_eq!(plan.estimated_bytes, 0);
 
-        let result = super::execute_screenshot_cleanup(
+        let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
             None, // preset "all"

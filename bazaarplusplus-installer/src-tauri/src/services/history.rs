@@ -1,11 +1,12 @@
 use anyhow::{bail, Context as _};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 
 use crate::history::{
     cleanup::{
-        self, RunDataCleanupPreview, RunDataCleanupResult, ScreenshotCleanupPreview,
-        ScreenshotCleanupResult,
+        self, RunDataCleanupPlan, RunDataCleanupPreview, RunDataCleanupResult,
+        ScreenshotCleanupPlan, ScreenshotCleanupPreview, ScreenshotCleanupResult,
     },
     delete_battle_video as delete_battle_video_in_repo, get_history_run_detail, list_history_runs,
     load_battle_video_path, load_run_id_for_battle, load_run_screenshot_path, HistoryReadError,
@@ -31,11 +32,19 @@ pub enum StorageCleanupScope {
     RunData,
 }
 
+/// A cleanup preview and the id of the plan behind it, which stays native.
+/// Confirming passes the id back so execution runs the plan the user saw.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
 #[serde(tag = "scope", rename_all = "snake_case")]
 pub enum StorageCleanupPreview {
-    Screenshots { preview: ScreenshotCleanupPreview },
-    RunData { preview: RunDataCleanupPreview },
+    Screenshots {
+        preview: ScreenshotCleanupPreview,
+        plan_id: u32,
+    },
+    RunData {
+        preview: RunDataCleanupPreview,
+        plan_id: u32,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
@@ -43,6 +52,83 @@ pub enum StorageCleanupPreview {
 pub enum StorageCleanupExecution {
     Screenshots { result: ScreenshotCleanupResult },
     RunData { result: RunDataCleanupResult },
+}
+
+enum CleanupPlan {
+    Screenshots(ScreenshotCleanupPlan),
+    RunData(RunDataCleanupPlan),
+}
+
+struct StoredCleanupPlan {
+    id: u32,
+    data_root: PathBuf,
+    scope: StorageCleanupScope,
+    preset: StorageCleanupPreset,
+    plan: CleanupPlan,
+}
+
+/// The plan the latest cleanup preview computed, held natively so the
+/// frontend passes only its id. Confirming that preview executes this plan
+/// instead of scanning again. The plan stays a nomination: execution re-checks
+/// every candidate (`execute_*_cleanup_plan` in `history/cleanup.rs`), so a
+/// plan that aged while the user read the dialog only leaves later candidates
+/// for the next cleanup. One slot: a newer preview replaces it, and executing
+/// consumes it.
+#[derive(Clone, Default)]
+pub(crate) struct CleanupPlans {
+    slot: Arc<Mutex<CleanupPlanSlot>>,
+}
+
+#[derive(Default)]
+struct CleanupPlanSlot {
+    last_id: u32,
+    stored: Option<StoredCleanupPlan>,
+}
+
+impl CleanupPlans {
+    fn store(
+        &self,
+        data_root: &Path,
+        scope: StorageCleanupScope,
+        preset: StorageCleanupPreset,
+        plan: CleanupPlan,
+    ) -> u32 {
+        let mut slot = self
+            .slot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let id = slot.last_id.wrapping_add(1).max(1);
+        slot.last_id = id;
+        slot.stored = Some(StoredCleanupPlan {
+            id,
+            data_root: data_root.to_path_buf(),
+            scope,
+            preset,
+            plan,
+        });
+        id
+    }
+
+    /// The stored plan `id` names, when it was computed for this data root,
+    /// scope, and preset. `None` asks the caller to plan afresh.
+    fn take(
+        &self,
+        id: u32,
+        data_root: &Path,
+        scope: StorageCleanupScope,
+        preset: StorageCleanupPreset,
+    ) -> Option<CleanupPlan> {
+        let mut slot = self
+            .slot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if slot.stored.as_ref().is_none_or(|stored| stored.id != id) {
+            return None;
+        }
+        let stored = slot.stored.take()?;
+        (stored.data_root == data_root && stored.scope == scope && stored.preset == preset)
+            .then_some(stored.plan)
+    }
 }
 
 struct HistoryStorage {
@@ -175,58 +261,89 @@ impl History {
         &self,
         scope: StorageCleanupScope,
         preset: StorageCleanupPreset,
+        plans: &CleanupPlans,
     ) -> Result<StorageCleanupPreview, SemanticProblem> {
         as_action_problem("preview_storage_cleanup", || {
-            let now = chrono::Local::now();
-            let today = now.date_naive();
-            let cutoff = cleanup::CleanupCutoff::for_preset(preset, now);
-            match scope {
-                StorageCleanupScope::Screenshots => {
-                    let plan = cleanup::plan_screenshot_cleanup(
-                        &self.paths.database_path,
-                        &self.paths.data_root,
-                        cutoff.as_ref(),
-                        today,
-                    )?;
-                    Ok(StorageCleanupPreview::Screenshots {
-                        preview: plan.to_preview(),
-                    })
+            let plan = self.plan_cleanup(scope, preset)?;
+            Ok(match plan {
+                CleanupPlan::Screenshots(plan) => {
+                    let preview = plan.to_preview();
+                    StorageCleanupPreview::Screenshots {
+                        preview,
+                        plan_id: plans.store(
+                            &self.paths.data_root,
+                            scope,
+                            preset,
+                            CleanupPlan::Screenshots(plan),
+                        ),
+                    }
                 }
-                StorageCleanupScope::RunData => {
-                    let plan = cleanup::plan_run_data_cleanup(
-                        &self.paths.database_path,
-                        &self.paths.data_root,
-                        cutoff.as_ref(),
-                    )?;
-                    Ok(StorageCleanupPreview::RunData {
-                        preview: plan.to_preview(),
-                    })
+                CleanupPlan::RunData(plan) => {
+                    let preview = plan.to_preview();
+                    StorageCleanupPreview::RunData {
+                        preview,
+                        plan_id: plans.store(
+                            &self.paths.data_root,
+                            scope,
+                            preset,
+                            CleanupPlan::RunData(plan),
+                        ),
+                    }
                 }
-            }
+            })
         })
     }
 
+    /// Plans with cutoffs derived from `preset` at the current local time.
+    fn plan_cleanup(
+        &self,
+        scope: StorageCleanupScope,
+        preset: StorageCleanupPreset,
+    ) -> anyhow::Result<CleanupPlan> {
+        let now = chrono::Local::now();
+        let cutoff = cleanup::CleanupCutoff::for_preset(preset, now);
+        Ok(match scope {
+            StorageCleanupScope::Screenshots => {
+                CleanupPlan::Screenshots(cleanup::plan_screenshot_cleanup(
+                    &self.paths.database_path,
+                    &self.paths.data_root,
+                    cutoff.as_ref(),
+                    now.date_naive(),
+                )?)
+            }
+            StorageCleanupScope::RunData => CleanupPlan::RunData(cleanup::plan_run_data_cleanup(
+                &self.paths.database_path,
+                &self.paths.data_root,
+                cutoff.as_ref(),
+            )?),
+        })
+    }
+
+    /// Executes the confirmed preview's plan when `plans` still holds it for
+    /// this installation, scope, and preset; otherwise plans again first.
     fn execute_cleanup(
         &self,
         scope: StorageCleanupScope,
         preset: StorageCleanupPreset,
+        plans: &CleanupPlans,
+        plan_id: u32,
     ) -> Result<StorageCleanupExecution, SemanticProblem> {
         as_action_problem("execute_storage_cleanup", || {
-            let now = chrono::Local::now();
-            let today = now.date_naive();
-            let cutoff = cleanup::CleanupCutoff::for_preset(preset, now);
-            match scope {
-                StorageCleanupScope::Screenshots => cleanup::execute_screenshot_cleanup(
+            let plan = match plans.take(plan_id, &self.paths.data_root, scope, preset) {
+                Some(plan) => plan,
+                None => self.plan_cleanup(scope, preset)?,
+            };
+            match plan {
+                CleanupPlan::Screenshots(plan) => cleanup::execute_screenshot_cleanup_plan(
                     &self.paths.database_path,
                     &self.paths.data_root,
-                    cutoff.as_ref(),
-                    today,
+                    plan,
                 )
                 .map(|result| StorageCleanupExecution::Screenshots { result }),
-                StorageCleanupScope::RunData => cleanup::execute_run_data_cleanup(
+                CleanupPlan::RunData(plan) => cleanup::execute_run_data_cleanup_plan(
                     &self.paths.database_path,
                     &self.paths.data_root,
-                    cutoff.as_ref(),
+                    plan,
                 )
                 .map(|result| StorageCleanupExecution::RunData { result }),
             }
@@ -289,35 +406,44 @@ pub fn preview_storage_cleanup(
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
 ) -> Result<StorageCleanupPreview, SemanticProblem> {
-    History::selected(app)?.preview_cleanup(scope, preset)
+    History::selected(app)?.preview_cleanup(scope, preset, &app.state::<CleanupPlans>())
 }
 
 pub async fn execute_storage_cleanup(
     app: &tauri::AppHandle,
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
+    plan_id: u32,
 ) -> Result<StorageCleanupExecution, SemanticProblem> {
     let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
+    let plans = app.state::<CleanupPlans>().inner().clone();
     let app = app.clone();
     execute_storage_cleanup_with(
         &maintenance,
+        plans,
         move || History::resolved_game_path(&app),
         scope,
         preset,
+        plan_id,
     )
     .await
 }
 
 /// Cleanup holds the data maintenance lock and resolves the installation only
-/// once it holds it, so it never acts on a data root a Reset is deleting.
+/// once it holds it, so it never acts on a data root a Reset is deleting. A
+/// preview plan computed for another data root is not reused.
 pub(crate) async fn execute_storage_cleanup_with(
     maintenance: &DataMaintenanceLock,
+    plans: CleanupPlans,
     resolve_game_path: impl FnOnce() -> Option<PathBuf> + Send + 'static,
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
+    plan_id: u32,
 ) -> Result<StorageCleanupExecution, SemanticProblem> {
     maintenance
-        .run_blocking(move || History::at(resolve_game_path())?.execute_cleanup(scope, preset))
+        .run_blocking(move || {
+            History::at(resolve_game_path())?.execute_cleanup(scope, preset, &plans, plan_id)
+        })
         .await
         .map_err(|error| {
             SemanticProblem::new(SemanticProblemCode::HistoryActionFailed)
@@ -434,9 +560,10 @@ fn reveal_in_file_browser(path: &Path) -> anyhow::Result<()> {
 mod tests {
     use super::{
         history_paths_for_game_path, history_read_problem_with, history_thumbnails,
-        require_video_file_exists, History, HistoryReadError, HistoryThumbnails,
+        require_video_file_exists, CleanupPlans, History, HistoryReadError, HistoryThumbnails,
         StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview, StorageCleanupScope,
     };
+    use crate::history::cleanup::{RunDataCleanupPlan, ScreenshotCleanupPlan};
     use crate::history::mod_schema::create_mod_schema;
     use crate::problem::SemanticProblemCode;
     use crate::services::paths;
@@ -531,7 +658,11 @@ mod tests {
         rusqlite::Connection::open(&history.paths.database_path).unwrap();
 
         let problem = history
-            .preview_cleanup(StorageCleanupScope::RunData, StorageCleanupPreset::All)
+            .preview_cleanup(
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+                &CleanupPlans::default(),
+            )
             .unwrap_err();
 
         assert_eq!(problem.code, SemanticProblemCode::HistoryActionFailed);
@@ -606,13 +737,22 @@ mod tests {
             (
                 "preview_storage_cleanup",
                 history
-                    .preview_cleanup(StorageCleanupScope::RunData, StorageCleanupPreset::All)
+                    .preview_cleanup(
+                        StorageCleanupScope::RunData,
+                        StorageCleanupPreset::All,
+                        &CleanupPlans::default(),
+                    )
                     .unwrap_err(),
             ),
             (
                 "execute_storage_cleanup",
                 history
-                    .execute_cleanup(StorageCleanupScope::RunData, StorageCleanupPreset::All)
+                    .execute_cleanup(
+                        StorageCleanupScope::RunData,
+                        StorageCleanupPreset::All,
+                        &CleanupPlans::default(),
+                        1,
+                    )
                     .unwrap_err(),
             ),
         ] {
@@ -721,15 +861,25 @@ mod tests {
         assert_eq!(detail.battles[0].video, None);
         assert!(!video_path.exists());
 
+        let plans = CleanupPlans::default();
         let preview = history
-            .preview_cleanup(StorageCleanupScope::Screenshots, StorageCleanupPreset::All)
+            .preview_cleanup(
+                StorageCleanupScope::Screenshots,
+                StorageCleanupPreset::All,
+                &plans,
+            )
             .unwrap();
-        let StorageCleanupPreview::Screenshots { preview } = preview else {
+        let StorageCleanupPreview::Screenshots { preview, plan_id } = preview else {
             panic!("expected screenshot preview");
         };
         assert_eq!(preview.screenshots, 1);
         let execution = history
-            .execute_cleanup(StorageCleanupScope::Screenshots, StorageCleanupPreset::All)
+            .execute_cleanup(
+                StorageCleanupScope::Screenshots,
+                StorageCleanupPreset::All,
+                &plans,
+                plan_id,
+            )
             .unwrap();
         let StorageCleanupExecution::Screenshots { result } = execution else {
             panic!("expected screenshot result");
@@ -738,28 +888,152 @@ mod tests {
         assert!(!screenshot_path.exists());
 
         let preview = history
-            .preview_cleanup(StorageCleanupScope::RunData, StorageCleanupPreset::All)
+            .preview_cleanup(
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+                &plans,
+            )
             .unwrap();
-        let StorageCleanupPreview::RunData { preview } = preview else {
+        let StorageCleanupPreview::RunData { preview, plan_id } = preview else {
             panic!("expected run-data preview");
         };
         assert_eq!(preview.runs, 1);
         assert_eq!(preview.battles, 1);
+
+        // A run that finishes after the preview is not what the user confirmed:
+        // executing the preview's plan leaves it for the next cleanup.
+        let conn = rusqlite::Connection::open(&database_path).unwrap();
+        conn.execute_batch(
+            "
+            insert into runs (
+                run_id, started_at_ms, last_seen_at_ms, status,
+                hero, game_mode, ended_at_ms, victories, losses
+            ) values (
+                'run-2', 1767344400000, 1767348000000,
+                'completed', 'Dooley', 'Normal', 1767348000000, 4, 3
+            );
+            ",
+        )
+        .unwrap();
+        drop(conn);
+        let run_count = || {
+            history
+                .list_runs_for_page(50, 0, &HistoryThumbnails::default())
+                .unwrap()
+                .summary
+                .runs
+        };
+
         let execution = history
-            .execute_cleanup(StorageCleanupScope::RunData, StorageCleanupPreset::All)
+            .execute_cleanup(
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+                &plans,
+                plan_id,
+            )
             .unwrap();
         let StorageCleanupExecution::RunData { result } = execution else {
             panic!("expected run-data result");
         };
         assert_eq!(result.deleted_runs, 1);
-        assert_eq!(
-            history
-                .list_runs_for_page(50, 0, &HistoryThumbnails::default())
-                .unwrap()
-                .summary
-                .runs,
-            0
-        );
+        assert_eq!(run_count(), 1);
+
+        // Execution consumed the plan; confirming the same id again (a retry
+        // after a failure) plans afresh and reaches the new run.
+        let execution = history
+            .execute_cleanup(
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+                &plans,
+                plan_id,
+            )
+            .unwrap();
+        let StorageCleanupExecution::RunData { result } = execution else {
+            panic!("expected run-data result");
+        };
+        assert_eq!(result.deleted_runs, 1);
+        assert_eq!(run_count(), 0);
+    }
+
+    #[test]
+    fn cleanup_reuses_a_preview_plan_only_for_its_installation_scope_and_preset() {
+        let plans = CleanupPlans::default();
+        let root = Path::new("/game/BazaarPlusPlusV6");
+        let store = |scope| {
+            plans.store(
+                root,
+                scope,
+                StorageCleanupPreset::All,
+                match scope {
+                    StorageCleanupScope::Screenshots => {
+                        super::CleanupPlan::Screenshots(ScreenshotCleanupPlan::empty())
+                    }
+                    StorageCleanupScope::RunData => {
+                        super::CleanupPlan::RunData(RunDataCleanupPlan::empty())
+                    }
+                },
+            )
+        };
+
+        let older = store(StorageCleanupScope::Screenshots);
+        let latest = store(StorageCleanupScope::Screenshots);
+        assert_ne!(older, latest);
+        // A superseded id misses and leaves the latest plan in place.
+        assert!(plans
+            .take(
+                older,
+                root,
+                StorageCleanupScope::Screenshots,
+                StorageCleanupPreset::All
+            )
+            .is_none());
+        assert!(plans
+            .take(
+                latest,
+                root,
+                StorageCleanupScope::Screenshots,
+                StorageCleanupPreset::All
+            )
+            .is_some());
+        // Taking consumes it.
+        assert!(plans
+            .take(
+                latest,
+                root,
+                StorageCleanupScope::Screenshots,
+                StorageCleanupPreset::All
+            )
+            .is_none());
+
+        for (other_root, scope, preset) in [
+            (
+                Path::new("/other/BazaarPlusPlusV6"),
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::All,
+            ),
+            (
+                root,
+                StorageCleanupScope::Screenshots,
+                StorageCleanupPreset::All,
+            ),
+            (
+                root,
+                StorageCleanupScope::RunData,
+                StorageCleanupPreset::OlderThan7Days,
+            ),
+        ] {
+            let id = store(StorageCleanupScope::RunData);
+            assert!(plans.take(id, other_root, scope, preset).is_none());
+            // A mismatched confirmation discards the plan rather than keep it.
+            assert!(plans
+                .take(
+                    id,
+                    root,
+                    StorageCleanupScope::RunData,
+                    StorageCleanupPreset::All
+                )
+                .is_none());
+        }
     }
 
     #[test]
@@ -771,6 +1045,7 @@ mod tests {
                 estimated_bytes: 42,
                 skipped_pending_uploads: 0,
             },
+            plan_id: 7,
         };
 
         assert_eq!(
@@ -782,7 +1057,8 @@ mod tests {
                     "orphan_files": 1,
                     "estimated_bytes": 42,
                     "skipped_pending_uploads": 0
-                }
+                },
+                "plan_id": 7
             })
         );
         assert_eq!(

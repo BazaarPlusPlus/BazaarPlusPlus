@@ -56,6 +56,7 @@ pub fn run() {
         )
         .manage(crate::stream::runtime::StreamRuntime::default())
         .manage(crate::services::data_maintenance::DataMaintenanceLock::default())
+        .manage(crate::services::history::CleanupPlans::default())
         .manage(crate::stream::history_thumbnails::HistoryThumbnails::default())
         .manage(InstallerContextState::default())
         .manage(TrayMenuState::default())

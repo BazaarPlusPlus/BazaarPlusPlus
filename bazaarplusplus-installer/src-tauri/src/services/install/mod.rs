@@ -21,7 +21,10 @@ use crate::services::{
     bepinex::{reset_bepinex_folder, reset_bpp_data, uninstall_bpp},
     data_maintenance::DataMaintenanceLock,
     detect::detect_for_install,
-    legacy_data::{delete_legacy_root, legacy_data_state, DeleteLegacyRootResult, LegacyDataState},
+    legacy_data::{
+        delete_legacy_root, legacy_data_presence, legacy_data_state, DeleteLegacyRootResult,
+        LegacyDataPresence, LegacyDataState,
+    },
     selected_game_installation::SelectedGameInstallationState,
     startup::InstallerContextState,
 };
@@ -105,6 +108,28 @@ pub async fn run_get_legacy_data_state(
             Ok(match resolved {
                 Some(game_path) => legacy_data_state(&game_path),
                 None => LegacyDataState::without_game(),
+            })
+        },
+    )
+    .await
+}
+
+/// The Legacy Roots present in the selected (or given) game directory,
+/// unmeasured; History's unavailable guidance reads only this.
+pub async fn run_get_legacy_data_presence(
+    app: tauri::AppHandle,
+    game_path: Option<String>,
+) -> Result<LegacyDataPresence, SemanticProblem> {
+    run_blocking(
+        |error| install_action_problem("get_legacy_data_presence", error),
+        move || {
+            let resolved = app
+                .state::<SelectedGameInstallationState>()
+                .resolve(&app, game_path, GamePathAcceptance::Any)
+                .map(|resolution| resolution.game_path);
+            Ok(match resolved {
+                Some(game_path) => legacy_data_presence(&game_path),
+                None => LegacyDataPresence::without_game(),
             })
         },
     )

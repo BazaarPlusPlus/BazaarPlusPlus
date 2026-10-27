@@ -33,20 +33,30 @@ export type UpdateCheckResult =
       update: UpdateHandle;
     };
 
-/** Tauri-facing effects, injectable for tests. */
+/** Tauri-facing effects and the clock, injectable for tests. */
 export type UpdaterImpl = {
   check: () => Promise<UpdateHandle | null>;
   relaunch: () => Promise<void>;
   hasRuntime: () => boolean;
   isWindows: () => boolean;
+  /** Monotonic milliseconds; spaces download progress publishes. */
+  now: () => number;
 };
 
 export const tauriUpdaterImpl: UpdaterImpl = {
   check: () => check(),
   relaunch: () => relaunch(),
   hasRuntime: hasTauriRuntime,
-  isWindows: isWindowsPlatform
+  isWindows: isWindowsPlatform,
+  now: () => performance.now()
 };
+
+/**
+ * The plugin reports every downloaded chunk, thousands per update, and each
+ * publish re-renders the Shell. Progress publishes at most this often; a
+ * slower stream still publishes every chunk.
+ */
+export const PROGRESS_PUBLISH_INTERVAL_MS = 100;
 
 export async function runCheck(impl: UpdaterImpl): Promise<UpdateCheckResult> {
   if (!impl.hasRuntime()) {
@@ -279,19 +289,20 @@ export function createUpdaterMachine(
       // fetch a new resource instead of reusing the consumed native handle.
       handle = null;
       let downloaded = 0;
+      let total: number | null = null;
+      let progressPublishedAt = Number.NEGATIVE_INFINITY;
       await update.downloadAndInstall((event) => {
         if (event.event === 'Started') {
           downloaded = 0;
-          publishDownloading({
-            downloaded,
-            total: event.data.contentLength ?? null
-          });
+          total = event.data.contentLength ?? null;
+          progressPublishedAt = Number.NEGATIVE_INFINITY;
+          publishDownloading({ downloaded, total });
         } else if (event.event === 'Progress') {
           downloaded += event.data.chunkLength;
-          publishDownloading({
-            downloaded,
-            total: snapshot.progress?.total ?? null
-          });
+          const at = impl.now();
+          if (at - progressPublishedAt < PROGRESS_PUBLISH_INTERVAL_MS) return;
+          progressPublishedAt = at;
+          publishDownloading({ downloaded, total });
         } else {
           operation = 'install';
           publishKnown('installing');

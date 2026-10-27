@@ -137,12 +137,14 @@ mod tests {
             async move {
                 execute_storage_cleanup_with(
                     &lock,
+                    Default::default(),
                     move || {
                         resolved_tx.send(data_dir.exists()).unwrap();
                         Some(game_path)
                     },
                     StorageCleanupScope::RunData,
                     StorageCleanupPreset::All,
+                    0,
                 )
                 .await
             }

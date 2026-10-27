@@ -153,8 +153,8 @@ const cases: Case[] = [
       vi.spyOn(c, 'listHistoryRuns').mockImplementation(
         reject(fixtures.historyUnavailable)
       );
-      vi.spyOn(c, 'getLegacyDataState').mockResolvedValue(
-        fixtures.v5ImportEligible
+      vi.spyOn(c, 'getLegacyDataPresence').mockResolvedValue(
+        fixtures.v5ImportEligiblePresence
       );
     }
   },

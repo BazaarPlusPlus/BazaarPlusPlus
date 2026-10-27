@@ -52,7 +52,8 @@ beforeEach(() => {
         orphan_files: 0,
         estimated_bytes: 1024,
         skipped_pending_uploads: 0
-      }
+      },
+      plan_id: 5
     });
   container = document.createElement('div');
   document.body.append(container);
@@ -143,5 +144,33 @@ describe('history overview', () => {
     expect(container.querySelector('dialog')).toBeNull();
     expect(select.value).toBe('older_than_7_days');
     expect(executeStorageCleanup).not.toHaveBeenCalled();
+  });
+
+  it('confirms the plan the preview showed', async () => {
+    vi.mocked(executeStorageCleanup).mockResolvedValue({
+      scope: 'screenshots',
+      result: {
+        deleted_rows: 2,
+        deleted_files: 2,
+        freed_bytes: 1024,
+        skipped_pending_uploads: 0
+      }
+    });
+    await render();
+    await click(container.querySelector<HTMLButtonElement>('[aria-expanded]')!);
+    await click(
+      container.querySelector<HTMLButtonElement>(
+        'button[aria-label="预览清理对局结算截图"]'
+      )!
+    );
+    const confirm = [
+      ...container.querySelectorAll<HTMLButtonElement>('dialog button')
+    ].find((button) => button.textContent?.startsWith('确认清理'))!;
+    await click(confirm);
+    expect(executeStorageCleanup).toHaveBeenCalledWith(
+      'screenshots',
+      vi.mocked(previewStorageCleanup).mock.calls[0]?.[1],
+      5
+    );
   });
 });

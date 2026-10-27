@@ -6,14 +6,14 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   emptyHistoryRunList,
-  emptyLegacyDataState,
+  emptyLegacyDataPresence,
   idleStreamStatus
 } from '../api/previewDefaults';
 import { commandClient } from '../api/commandClient';
 import { ToastProvider } from '../components/ui/Toast';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { formatMessage, LOCALE_STORAGE_KEY } from '../i18n/messages';
-import type { LegacyDataState } from '../types/backend';
+import type { LegacyDataPresence } from '../types/backend';
 import History from './History';
 
 vi.mock('../api/commandClient', () => ({
@@ -22,7 +22,7 @@ vi.mock('../api/commandClient', () => ({
     endGameProcess: vi.fn(),
     prepareHistoryThumbnails: vi.fn(),
     getStreamStatus: vi.fn(),
-    getLegacyDataState: vi.fn()
+    getLegacyDataPresence: vi.fn()
   }
 }));
 const { listHistoryRuns, endGameProcess, prepareHistoryThumbnails } =
@@ -76,9 +76,9 @@ beforeEach(() => {
   vi.mocked(commandClient.getStreamStatus)
     .mockReset()
     .mockResolvedValue(idleStreamStatus);
-  vi.mocked(commandClient.getLegacyDataState)
+  vi.mocked(commandClient.getLegacyDataPresence)
     .mockReset()
-    .mockResolvedValue(emptyLegacyDataState);
+    .mockResolvedValue(emptyLegacyDataPresence);
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -463,17 +463,11 @@ describe('History thumbnails', () => {
   });
 });
 
-const v5Only = (overrides: Partial<LegacyDataState>): LegacyDataState => ({
+const v5Only = (
+  overrides: Partial<LegacyDataPresence>
+): LegacyDataPresence => ({
   game_path: '/Games/The Bazaar',
-  roots: [
-    {
-      name: 'BazaarPlusPlusV5',
-      size_bytes: 4096,
-      file_count: 3,
-      hard_linked_file_count: 0,
-      unreadable_entry_count: 0
-    }
-  ],
+  roots: ['BazaarPlusPlusV5'],
   installed_mod_data_root: 'current',
   v5_import_eligible: true,
   ...overrides
@@ -497,10 +491,12 @@ describe('history without a current database', () => {
   });
 
   it('points at the Install page import card when V5 history can be imported', async () => {
-    vi.mocked(commandClient.getLegacyDataState).mockResolvedValue(v5Only({}));
+    vi.mocked(commandClient.getLegacyDataPresence).mockResolvedValue(
+      v5Only({})
+    );
     await render('/history');
 
-    expect(commandClient.getLegacyDataState).toHaveBeenCalledWith(null);
+    expect(commandClient.getLegacyDataPresence).toHaveBeenCalledWith(null);
     expect(container.textContent).toContain(
       formatMessage('zh', 'historyUnavailableImport')
     );
@@ -510,7 +506,7 @@ describe('history without a current database', () => {
   });
 
   it('points at the reinstall hint when the mod still writes an old folder', async () => {
-    vi.mocked(commandClient.getLegacyDataState).mockResolvedValue(
+    vi.mocked(commandClient.getLegacyDataPresence).mockResolvedValue(
       v5Only({
         installed_mod_data_root: 'reinstall_required',
         v5_import_eligible: false
@@ -525,7 +521,7 @@ describe('history without a current database', () => {
   });
 
   it('keeps the plain Install link without V5 history', async () => {
-    vi.mocked(commandClient.getLegacyDataState).mockRejectedValue(
+    vi.mocked(commandClient.getLegacyDataPresence).mockRejectedValue(
       new Error('unreadable')
     );
     await render('/history');

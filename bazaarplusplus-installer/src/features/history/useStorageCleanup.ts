@@ -58,7 +58,8 @@ export function useStorageCleanup(onCompleted: () => Promise<void> | void) {
     operation.controller.run(async (target) => {
       const result = await commandClient.executeStorageCleanup(
         target.scope,
-        target.preset
+        target.preset,
+        target.plan_id
       );
       await onCompleted();
       setOutcome(result);

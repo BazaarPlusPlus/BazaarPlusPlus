@@ -29,7 +29,8 @@ describe('browser-preview command adapter', () => {
         orphan_files: 0,
         estimated_bytes: 0,
         skipped_pending_uploads: 0
-      }
+      },
+      plan_id: 0
     });
     expect(
       await commandClient.previewStorageCleanup('run_data', 'all')
@@ -41,10 +42,11 @@ describe('browser-preview command adapter', () => {
         videos: 0,
         estimated_bytes: 0,
         skipped_pending_uploads: 0
-      }
+      },
+      plan_id: 0
     });
     expect(
-      await commandClient.executeStorageCleanup('screenshots', 'all')
+      await commandClient.executeStorageCleanup('screenshots', 'all', 0)
     ).toEqual({
       scope: 'screenshots',
       result: {
@@ -55,7 +57,7 @@ describe('browser-preview command adapter', () => {
       }
     });
     expect(
-      await commandClient.executeStorageCleanup('run_data', 'all')
+      await commandClient.executeStorageCleanup('run_data', 'all', 0)
     ).toEqual({
       scope: 'run_data',
       result: {
