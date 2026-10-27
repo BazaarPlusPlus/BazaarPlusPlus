@@ -76,18 +76,22 @@ async function text(locator: Locator) {
   return (await locator.textContent())?.trim();
 }
 
-/** The Android entry as a visitor reads it, or null when the page shows none. */
+/** The Android entry as a visitor reads it; a pending card has no APK facts but a release link. */
 async function describeAndroid(page: Page) {
   const card = platformCard(page, 'Android');
   if ((await card.count()) === 0) return null;
   const download = card.getByRole('link', { name: 'Download .apk' });
+  const apk = card.getByText(/^The Bazaar /);
+  const published = (await apk.count()) > 0;
+  const releaseLink = card.getByRole('link', { name: 'GitHub Release' });
   return {
     version: await text(
       card.getByText('Current version', { exact: true }).locator('xpath=following-sibling::*[1]')
     ),
-    apk: await text(card.getByText(/^The Bazaar /)),
-    size: await text(card.getByText(/^The Bazaar /).locator('xpath=following-sibling::*[1]')),
-    sha256: await text(card.locator('code')),
+    apk: published ? await text(apk) : null,
+    size: published ? await text(apk.locator('xpath=following-sibling::*[1]')) : null,
+    sha256: published ? await text(card.locator('code')) : null,
+    releaseLink: (await releaseLink.count()) === 0 ? null : await releaseLink.getAttribute('href'),
     download: {
       href: await download.getAttribute('href'),
       disabled: (await download.getAttribute('aria-disabled')) === 'true',
@@ -100,7 +104,9 @@ async function describeAndroid(page: Page) {
 /** What a visitor can act on in each card, plus whether the GitHub fallback appears. */
 async function describeDownloads(page: Page) {
   const cards = await Promise.all(PLATFORM_TITLES.map((title) => describeCard(page, title)));
-  const fallback = page.getByRole('link', { name: 'GitHub Release' });
+  const fallback = page
+    .locator('p', { hasText: 'Cannot reach the latest version right now' })
+    .getByRole('link', { name: 'GitHub Release' });
   return {
     cards: Object.fromEntries(PLATFORM_TITLES.map((title, index) => [title, cards[index]])),
     android: await describeAndroid(page),
@@ -131,10 +137,23 @@ for (const [state, overrides] of Object.entries(STATES)) {
   });
 }
 
-test('a missing or invalid Android manifest leaves only the desktop downloads', () => {
-  const desktopOnly = { ...(result['both platforms load'] as object), android: null };
-  expect(result['android manifest responds 404']).toEqual(desktopOnly);
-  expect(result['android apk is outside the release origin']).toEqual(desktopOnly);
+test('a missing or invalid Android manifest leaves the Android card pending', () => {
+  type Downloads = { cards: unknown; fallback: unknown; android: Record<string, unknown> | null };
+  const loaded = result['both platforms load'] as Downloads;
+  const missing = result['android manifest responds 404'] as Downloads;
+  expect(result['android apk is outside the release origin']).toEqual(missing);
+  expect({ cards: missing.cards, fallback: missing.fallback }).toEqual({
+    cards: loaded.cards,
+    fallback: loaded.fallback,
+  });
+  expect(missing.android).toMatchObject({
+    version: 'Coming soon',
+    apk: null,
+    releaseLink: 'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest',
+    download: { href: '#', disabled: true },
+    stepsTitle: loaded.android?.stepsTitle,
+    steps: loaded.android?.steps,
+  });
 });
 
 test('each Platform Release Manifest degrades only its own card (download-cards.json)', () => {

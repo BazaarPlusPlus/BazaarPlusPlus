@@ -133,9 +133,12 @@ export type DownloadPageCopy = {
     actionLabel: string;
     stepsTitle: string;
     steps: string[];
+    /** Shown instead of a version while no Android release is published. */
+    pendingVersion: string;
+    /** Followed by the GitHub release link while no Android release is published. */
+    pendingNote: string;
   };
-  noteTitle: string;
-  /** The install notes' title once the Android card shows: the notes cover only Windows and macOS. */
+  /** The install notes cover only Windows and macOS; Android has its own steps on its card. */
   desktopNoteTitle: string;
   noteParagraphs: string[];
 };
@@ -483,8 +486,9 @@ const zh: LocalizedSiteCopy = {
         '打开下载好的 APK 安装；Android 询问时，允许浏览器或文件管理器安装应用',
         '游戏更新后，回到这里下载新的 APK 直接覆盖安装，不需要再卸载',
       ],
+      pendingVersion: '即将发布',
+      pendingNote: 'Android 版正在准备中，发布后会出现在这里，也可以关注 ',
     },
-    noteTitle: '安装提示',
     desktopNoteTitle: 'Windows 与 macOS 安装提示',
     noteParagraphs: [
       '建议先退出游戏再安装。更新时建议先卸载旧版本，再安装新版本',
@@ -800,8 +804,10 @@ const en: LocalizedSiteCopy = {
         'Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.',
         'When the game updates, download the new APK here and install it over this one; no uninstall needed.',
       ],
+      pendingVersion: 'Coming soon',
+      pendingNote:
+        'The Android build is on its way and will appear here once released. You can also follow the ',
     },
-    noteTitle: 'Install notes',
     desktopNoteTitle: 'Windows and macOS install notes',
     noteParagraphs: [
       'Quit the game before installing. To update, uninstall the previous build first, then run the new installer.',
