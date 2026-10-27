@@ -96,6 +96,9 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
 {
     // 1. start: the store is created by Start, once.
     var bus = new InMemoryBppEventBus();
+    // The seal worker discovers a Run when Run Logging reports it completed.
+    var completed = new List<(string RunId, string? Status)>();
+    bus.Subscribe<RunLogRunCompleted>(done => completed.Add((done.RunId, h.Status(done.RunId))));
     var module = h.CreateModule(bus);
     Check.That(h.StoresCreated == 0, "1: constructing the module must not create its store.");
     module.Start();
@@ -173,12 +176,16 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
     h.Clock.Advance(TimeSpan.FromSeconds(1));
     bus.Publish(new CombatReplayPersistenceDrained());
     Check.That(
-        h.Status("run-alpha") == "active",
-        "4: completion waits while replay persistence is pending."
+        h.Status("run-alpha") == "active" && completed.Count == 0,
+        "4: completion waits while replay persistence is pending, and reports nothing yet."
     );
     h.PendingReplayPersistence = false;
     bus.Publish(new CombatReplayPersistenceDrained());
     Check.That(h.Status("run-alpha") == "completed", "4: a drain completes the run at once.");
+    Check.That(
+        completed.SequenceEqual([("run-alpha", (string?)"completed")]),
+        "4: the drained completion is reported once, after its row reads completed."
+    );
 
     h.Clock.Advance(TimeSpan.FromMinutes(1));
     h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
@@ -207,7 +214,7 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
     h.Scheduler.FireEarly();
     h.Clock.Advance(TimeSpan.FromSeconds(1));
     Check.That(
-        h.Status("run-charlie") == "active",
+        h.Status("run-charlie") == "active" && completed.Count == 1,
         "4: a replacement gets its own full grace period, and an early timer re-arms."
     );
     h.Clock.Advance(TimeSpan.FromSeconds(1));
@@ -218,6 +225,13 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
                 && log.Contains("replay_drain_timeout", StringComparison.Ordinal)
             ),
         "4: the deadline completes the run as a replay-drain timeout."
+    );
+    Check.That(
+        completed.SequenceEqual([
+            ("run-alpha", (string?)"completed"),
+            ("run-charlie", (string?)"completed"),
+        ]),
+        "4: the deadline completion is reported once; resumed and replaced runs are not."
     );
     h.PendingReplayPersistence = false;
     h.Record(artifacts, 4, "completion");

@@ -95,8 +95,101 @@ Equal(
     "minimal payload overflow is terminal"
 );
 
+// The seal worker wakes only for a job that needs a pass; with nothing waiting it does not scan
+// until the idle cap after its last job discovery.
+const float Cap = BundleSealWakeSchedule.MaximumIdleWaitSeconds;
+Near(
+    Cap,
+    BundleSealWakeSchedule.WaitSeconds(null, 0f, maintenanceFailed: false),
+    "no waiting job sleeps until the idle cap"
+);
+Near(
+    Cap - 200f,
+    BundleSealWakeSchedule.WaitSeconds(null, 200f, maintenanceFailed: false),
+    "the idle cap counts from the last discovery"
+);
+Near(
+    BundleSealWakeSchedule.MinimumWaitSeconds,
+    BundleSealWakeSchedule.WaitSeconds(null, Cap + 30f, maintenanceFailed: false),
+    "an overdue discovery runs on the next short wait"
+);
+Near(
+    BundleSealWakeSchedule.InputWaitPollSeconds,
+    BundleSealWakeSchedule.WaitSeconds(null, Cap + 30f, maintenanceFailed: true),
+    "a failed discovery retries at the input-wait cadence, never faster"
+);
+Near(
+    2f,
+    BundleSealWakeSchedule.WaitSeconds(2f, Cap + 30f, maintenanceFailed: true),
+    "a failed discovery does not delay a job due sooner"
+);
+Near(
+    BundleSealWakeSchedule.MinimumWaitSeconds,
+    BundleSealWakeSchedule.WaitSeconds(0.01f, 0f, maintenanceFailed: false),
+    "a job due at once still waits the minimum"
+);
+Near(
+    Cap,
+    BundleSealWakeSchedule.WaitSeconds(3500f, 0f, maintenanceFailed: false),
+    "a long backoff is cut to the idle cap"
+);
+Near(
+    15f,
+    BundleSealWakeSchedule.WaitSeconds(15f, 0f, maintenanceFailed: false),
+    "a backoff shorter than the cap wakes at its end"
+);
+
+Near(
+    15f,
+    BundleSealWakeSchedule.SecondsUntilAttempt("seal_publish_failed", 3, 5f, 100f, 60f),
+    "a job backing off wakes the worker when its backoff ends"
+);
+Equal(
+    null,
+    BundleSealWakeSchedule.SecondsUntilAttempt(
+        BundleSealFailurePolicy.EnvironmentBlockedCode,
+        1,
+        5f,
+        100f,
+        60f
+    ),
+    "a job parked in this launch never wakes the worker"
+);
+Near(
+    BundleSealWakeSchedule.InputWaitPollSeconds,
+    BundleSealWakeSchedule.SecondsUntilAttempt(null, 0, null, 100f, 60f),
+    "a due job still waiting on an input is polled until its deadline"
+);
+Near(
+    2f,
+    BundleSealWakeSchedule.SecondsUntilAttempt(null, 0, null, 100f, 2f),
+    "a due job waiting on an input wakes the worker at its deadline"
+);
+Near(
+    BundleSealWakeSchedule.InputWaitPollSeconds,
+    BundleSealWakeSchedule.SecondsUntilAttempt("seal_publish_failed", 1, 30f, 100f, -10f),
+    "a due job past its deadline is polled, never in a tight loop"
+);
+Equal(true, BundleSealWakeSchedule.DiscoveryDue(requested: true, 0f), "a requested discovery runs");
+Equal(
+    false,
+    BundleSealWakeSchedule.DiscoveryDue(requested: false, Cap - 1f),
+    "other wakes skip discovery"
+);
+Equal(
+    true,
+    BundleSealWakeSchedule.DiscoveryDue(requested: false, Cap),
+    "discovery runs once the idle cap has passed"
+);
+
 BundleSealFailurePolicyTests.Run();
 Console.WriteLine("Bundle seal convergence checks passed.");
+
+static void Near(float expected, float? actual, string message)
+{
+    if (actual is not { } value || Math.Abs(value - expected) > 0.001f)
+        throw new InvalidOperationException($"{message}: expected {expected}, actual {actual}");
+}
 
 static BundleSealConvergenceDecision Resolve(
     BundleSealJobFacts job,

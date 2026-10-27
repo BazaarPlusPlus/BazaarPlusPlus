@@ -587,10 +587,14 @@ public sealed class RunLoggingModule : IBppFeature
         }
 
         var completedRunId = activeSession.RunId;
+        var completedStatus = _deferredRunCompletion.Status;
         sessionManager.SetPlayerAccountIdOnce(_playerAccountIdResolver());
         sessionManager.CompleteRun(_deferredRunCompletion);
         _startedEventRunId = null;
         ClearDeferredRunCompletion();
+        // CompleteRun has drained the write queue and committed the row, so the seal can find it.
+        if (string.Equals(completedStatus, "completed", StringComparison.Ordinal))
+            _eventBus.Publish(new RunLogRunCompleted { RunId = completedRunId });
         if (degradationReason.HasValue)
         {
             BppLog.WarnEvent(

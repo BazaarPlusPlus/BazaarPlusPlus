@@ -363,6 +363,12 @@ public sealed class RunPayloadComposer
             Victories = NonNegativeLong(participant.Victories),
         };
 
+    // Trims a Run segment over BundleLimitsV6.MaxRunBytes in a fixed order: non-projection replays,
+    // then projected battles oldest first, then snapshots without a replay, then non-terminal
+    // events oldest first. Each ordered phase keeps the fewest leading trims that fit, found by
+    // probing 1, 2, 4, ... trims and bisecting, so a large Run is encoded a logarithmic number of
+    // times instead of once per trim. This assumes another trim never grows the gzip size; while
+    // that holds, the result is exactly what trimming one step at a time produced.
     private static void ApplySizeBudget(
         RunPayloadV6 payload,
         List<BundleBattleProjectionV6> projections
@@ -380,44 +386,183 @@ public sealed class RunPayloadComposer
             payload.ReplayableBattleIds.Remove(battle.BattleId);
             AddDegradation(payload, "non_projection_replay_trimmed", battle.BattleId);
         }
-        if (EncodedSize(payload) <= BundleLimitsV6.MaxRunBytes)
+        var size = EncodedSize(payload);
+        if (size <= BundleLimitsV6.MaxRunBytes)
             return;
 
-        while (projections.Count > 0 && EncodedSize(payload) > BundleLimitsV6.MaxRunBytes)
+        if (projections.Count > 0)
         {
-            var projection = projections[0];
-            projections.RemoveAt(0);
-            var battle = payload.Battles.First(value => value.BattleId == projection.BattleId);
-            battle.Snapshots = null;
-            battle.Replay = null;
-            payload.ReplayableBattleIds.Remove(battle.BattleId);
-            AddDegradation(payload, "projection_battle_trimmed", battle.BattleId);
+            var trim = new ProjectionTrim(payload, projections);
+            var (count, trimmedSize) = FewestFittingTrims(projections.Count, trim.Measure);
+            trim.Apply(count);
+            projections.RemoveRange(0, count);
+            size = trimmedSize;
         }
+        var snapshotsDropped = false;
         foreach (
             var battle in payload.Battles.Where(value =>
                 value.Snapshots != null && value.Replay == null
             )
         )
+        {
             battle.Snapshots = null;
-        if (EncodedSize(payload) <= BundleLimitsV6.MaxRunBytes)
+            snapshotsDropped = true;
+        }
+        if (snapshotsDropped)
+            size = EncodedSize(payload);
+        if (size <= BundleLimitsV6.MaxRunBytes)
             return;
 
-        for (
-            var index = 0;
-            index < payload.Events.Count && EncodedSize(payload) > BundleLimitsV6.MaxRunBytes;
+        var eventTrim = new EventTrim(payload);
+        if (eventTrim.Trimmable > 0)
+            eventTrim.Apply(FewestFittingTrims(eventTrim.Trimmable, eventTrim.Measure).Count);
+    }
 
-        )
+    // The fewest trims in 1..count whose encoded size fits, given that zero trims does not:
+    // probes 1, 2, 4, ... (capped at count), then bisects between the last probe over the limit
+    // and the first that fits. When even count trims do not fit, every trim applies, as the
+    // one-at-a-time loop did; under the assumption above no smaller count can fit either.
+    // measure(k) puts the payload in its k-trim state and returns the encoded size; the caller
+    // applies the returned count afterwards.
+    private static (int Count, int Size) FewestFittingTrims(int count, Func<int, int> measure)
+    {
+        var over = 0;
+        for (var probe = 1; ; probe = Math.Min(probe * 2, count))
         {
-            if (IsTerminalEvent(payload.Events[index].Kind))
-            {
-                index++;
-                continue;
-            }
-            payload.Events.RemoveAt(index);
-            payload.Degradation.EventsOmitted++;
-            if (!payload.Degradation.Categories.Contains("events_trimmed"))
-                payload.Degradation.Categories.Add("events_trimmed");
+            var size = measure(probe);
+            if (size <= BundleLimitsV6.MaxRunBytes)
+                return Bisect(over, probe, size, measure);
+            if (probe == count)
+                return (count, size);
+            over = probe;
         }
+    }
+
+    private static (int Count, int Size) Bisect(
+        int over,
+        int fits,
+        int fitsSize,
+        Func<int, int> measure
+    )
+    {
+        while (fits - over > 1)
+        {
+            var middle = over + (fits - over) / 2;
+            var size = measure(middle);
+            if (size <= BundleLimitsV6.MaxRunBytes)
+            {
+                fits = middle;
+                fitsSize = size;
+            }
+            else
+                over = middle;
+        }
+        return (fits, fitsSize);
+    }
+
+    // The payload after the first k projected battles are trimmed, oldest first, rebuilt from the
+    // state before any of them was: battles resolve once, lists restore before each replay.
+    private sealed class ProjectionTrim
+    {
+        private readonly RunPayloadV6 _payload;
+        private readonly RunBattleV6[] _battles;
+        private readonly BattleCardSnapshotsV6?[] _snapshots;
+        private readonly BattleReplayV6?[] _replays;
+        private readonly List<string> _replayable;
+        private readonly List<string> _categories;
+        private readonly List<string> _omitted;
+
+        internal ProjectionTrim(RunPayloadV6 payload, List<BundleBattleProjectionV6> projections)
+        {
+            _payload = payload;
+            _battles = projections
+                .Select(projection =>
+                    payload.Battles.First(value => value.BattleId == projection.BattleId)
+                )
+                .ToArray();
+            _snapshots = _battles.Select(battle => battle.Snapshots).ToArray();
+            _replays = _battles.Select(battle => battle.Replay).ToArray();
+            _replayable = [.. payload.ReplayableBattleIds];
+            _categories = [.. payload.Degradation.Categories];
+            _omitted = [.. payload.Degradation.ReplayOmittedBattleIds];
+        }
+
+        internal int Measure(int count)
+        {
+            Apply(count);
+            return EncodedSize(_payload);
+        }
+
+        internal void Apply(int count)
+        {
+            for (var index = 0; index < _battles.Length; index++)
+            {
+                _battles[index].Snapshots = _snapshots[index];
+                _battles[index].Replay = _replays[index];
+            }
+            Restore(_payload.ReplayableBattleIds, _replayable);
+            Restore(_payload.Degradation.Categories, _categories);
+            Restore(_payload.Degradation.ReplayOmittedBattleIds, _omitted);
+            for (var index = 0; index < count; index++)
+            {
+                var battle = _battles[index];
+                battle.Snapshots = null;
+                battle.Replay = null;
+                _payload.ReplayableBattleIds.Remove(battle.BattleId);
+                AddDegradation(_payload, "projection_battle_trimmed", battle.BattleId);
+            }
+        }
+    }
+
+    // The payload after its first k non-terminal events are dropped; terminal events stay in place.
+    private sealed class EventTrim
+    {
+        private readonly RunPayloadV6 _payload;
+        private readonly List<RunEventV6> _events;
+        private readonly List<string> _categories;
+        private readonly int _omitted;
+
+        internal EventTrim(RunPayloadV6 payload)
+        {
+            _payload = payload;
+            _events = [.. payload.Events];
+            _categories = [.. payload.Degradation.Categories];
+            _omitted = payload.Degradation.EventsOmitted;
+            Trimmable = _events.Count(value => !IsTerminalEvent(value.Kind));
+        }
+
+        internal int Trimmable { get; }
+
+        internal int Measure(int count)
+        {
+            Apply(count);
+            return EncodedSize(_payload);
+        }
+
+        internal void Apply(int count)
+        {
+            _payload.Events.Clear();
+            var dropped = 0;
+            foreach (var value in _events)
+            {
+                if (dropped < count && !IsTerminalEvent(value.Kind))
+                {
+                    dropped++;
+                    continue;
+                }
+                _payload.Events.Add(value);
+            }
+            _payload.Degradation.EventsOmitted = _omitted + count;
+            Restore(_payload.Degradation.Categories, _categories);
+            if (count > 0 && !_payload.Degradation.Categories.Contains("events_trimmed"))
+                _payload.Degradation.Categories.Add("events_trimmed");
+        }
+    }
+
+    private static void Restore(List<string> target, List<string> original)
+    {
+        target.Clear();
+        target.AddRange(original);
     }
 
     private static void AddDegradation(RunPayloadV6 payload, string category, string battleId)

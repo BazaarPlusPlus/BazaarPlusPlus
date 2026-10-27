@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
 using System.IO.Compression;
 using BazaarGameShared;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
+using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
@@ -36,6 +38,96 @@ internal static class BundleSealFailureTests
         await EnvironmentFailureKeepsOrphanBundleAsync(Path.Combine(root, "orphan"));
         await ReplayWaitDefersScreenshotAndCompositionAsync(Path.Combine(root, "replay-wait"));
         await SizeBudgetTrimDoesNotWaitAsync(Path.Combine(root, "size-budget"));
+        await WorkerWakesOnRunCompletionAsync(Path.Combine(root, "worker-wake"));
+    }
+
+    // The running worker discovers a Run when Run Logging reports it completed, and with nothing
+    // waiting it stays asleep: no pass on a five-second timer.
+    private static async Task WorkerWakesOnRunCompletionAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        var discoveries = 0;
+        var passes = 0;
+        var failNextDiscovery = 0;
+        var discoveredAt = new ConcurrentQueue<DateTime>();
+        void Count(BundleSealStage stage, string subject)
+        {
+            if (stage == BundleSealStage.JobDiscovery)
+            {
+                Interlocked.Increment(ref discoveries);
+                discoveredAt.Enqueue(DateTime.UtcNow);
+                if (Interlocked.Exchange(ref failNextDiscovery, 0) == 1)
+                    throw new IOException("database is locked");
+            }
+            else if (stage == BundleSealStage.ScreenshotTerminal)
+                Interlocked.Increment(ref passes);
+        }
+        using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services, Count);
+        coordinator.Start();
+        await Eventually(() => Volatile.Read(ref discoveries) == 1, "Start runs one discovery.");
+        await Quiescent(() => Volatile.Read(ref passes));
+
+        // The Run is written without a wake; only the completion report brings the worker.
+        fixture.AddCompletedRun("completed-run", endedMinutesAgo: 0);
+        fixture.Services.EventBus.Publish(new RunLogRunCompleted { RunId = "completed-run" });
+        await Eventually(
+            () => fixture.OutboxCount("completed-run") == 1,
+            "A reported completion seals the Run."
+        );
+        Require(
+            Volatile.Read(ref discoveries) == 2,
+            "A reported completion runs exactly one more job discovery."
+        );
+
+        await Quiescent(() => Volatile.Read(ref passes));
+        var idle = Volatile.Read(ref passes);
+        await Task.Delay(TimeSpan.FromSeconds(6));
+        Require(
+            Volatile.Read(ref passes) == idle && Volatile.Read(ref discoveries) == 2,
+            "With nothing waiting the worker runs no pass."
+        );
+
+        // A failed discovery is retried at the input-wait cadence: not at once, not at the cap.
+        Interlocked.Exchange(ref failNextDiscovery, 1);
+        fixture.AddCompletedRun("retried-run", endedMinutesAgo: 0);
+        fixture.Services.EventBus.Publish(new RunLogRunCompleted { RunId = "retried-run" });
+        await Eventually(
+            () => fixture.OutboxCount("retried-run") == 1,
+            "The retried discovery seals the Run."
+        );
+        var times = discoveredAt.ToArray();
+        var retryAfter = (times[^1] - times[^2]).TotalSeconds;
+        Require(
+            Volatile.Read(ref discoveries) == 4 && retryAfter is >= 4 and < 15,
+            $"A failed discovery retries once, about 5 s later (after {retryAfter:0.0} s)."
+        );
+    }
+
+    private static async Task Eventually(Func<bool> condition, string message)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!condition())
+        {
+            if (DateTime.UtcNow > deadline)
+                throw new InvalidOperationException(message);
+            await Task.Delay(50);
+        }
+    }
+
+    // Waits until the counter holds still for a second, so a pass in flight cannot land later.
+    private static async Task Quiescent(Func<int> counter)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        var last = counter();
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            var current = counter();
+            if (current == last)
+                return;
+            last = current;
+        }
+        throw new InvalidOperationException("The seal worker never went idle.");
     }
 
     // A Run waiting on a replay neither encodes its screenshot nor composes again until replay

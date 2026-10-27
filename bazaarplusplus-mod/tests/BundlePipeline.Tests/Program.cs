@@ -216,6 +216,11 @@ try
             "run-corrupt-replay",
         ]
     );
+
+    // size-budget: Runs over BundleLimitsV6.MaxRunBytes trim in a fixed order. They seal after
+    // the upload stage so their Bundles stay out of its steps.
+    await SealOverBudgetRuns(store, database, replays, coordinator, artifacts, dataRoot);
+
     BppLog.Flush();
     LogPrivacy.Verify(logLines);
 
@@ -269,7 +274,8 @@ static void SaveBattle(
     string battleId,
     string runId,
     int minute,
-    PvpBattleSnapshots? snapshots = null
+    PvpBattleSnapshots? snapshots = null,
+    string? opponentAccountId = "account-002"
 ) =>
     new PvpBattleCatalog(new PvpBattleSqliteStore(database)).Save(
         new PvpBattleManifest
@@ -286,7 +292,7 @@ static void SaveBattle(
                 PlayerAccountId = "account-001",
                 PlayerHero = "Vanessa",
                 OpponentName = "Opponent",
-                OpponentAccountId = "account-002",
+                OpponentAccountId = opponentAccountId,
                 OpponentHero = "Pygmalien",
             },
             Outcome = new PvpBattleOutcome
@@ -306,6 +312,168 @@ static void SaveBattle(
                 },
         }
     );
+
+// Two Runs whose Run segment is over BundleLimitsV6.MaxRunBytes. The golden pins each trimmed
+// payload byte for byte (its MessagePack sha256), so the trim order and count cannot change
+// unnoticed. Replay and event bodies are seeded random base64, which gzip cannot shrink below
+// their random bytes; every trim decision stays BudgetMargin from the limit on both sides, so the
+// trim count does not depend on the platform's zlib.
+static async Task SealOverBudgetRuns(
+    RunLogStore store,
+    string database,
+    CombatReplayPayloadStore replays,
+    BundleSealCoordinator coordinator,
+    PipelineArtifacts artifacts,
+    string dataRoot
+)
+{
+    const int BudgetMargin = 64 * 1024;
+
+    // Five projected replays and one replayable battle that is no projection (no opponent
+    // account): the latter is trimmed first, then the oldest projections until the segment fits.
+    const int ReplayEntropy = 600_000;
+    CreateRun(store, "run-budget-replays", minute: 600, screenshotRequested: false);
+    SaveBattle(database, "budget-extra", "run-budget-replays", 600, opponentAccountId: null);
+    replays.Save(BudgetReplay("budget-extra", 300_000, seed: 5300));
+    for (var index = 1; index <= 5; index++)
+    {
+        var battleId = $"budget-projection-{index}";
+        SaveBattle(database, battleId, "run-budget-replays", 600 + index);
+        replays.Save(BudgetReplay(battleId, ReplayEntropy, seed: 5300 + index));
+    }
+    CompleteRun(store, "run-budget-replays", minute: 606);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    var trimmedReplays = Sealed(artifacts, dataRoot, "size-budget-replays", "run-budget-replays");
+    Check.That(
+        trimmedReplays.Payload.Degradation.Categories.SequenceEqual(
+            new[] { "non_projection_replay_trimmed", "projection_battle_trimmed" }
+        )
+            && trimmedReplays.Payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
+                new[] { "budget-extra", "budget-projection-1", "budget-projection-2" }
+            )
+            && trimmedReplays.Opened.Manifest.Run.Projection.Battles.Count == 3,
+        "The size budget trims the non-projection replay, then the two oldest projections."
+    );
+    ExpectBudgetMargin(trimmedReplays, ReplayEntropy, BudgetMargin, "replay trim");
+
+    // Terminal events stay; the other events go oldest first until the segment fits.
+    const int EventEntropy = 200_000;
+    const int EventCount = 27;
+    CreateRun(store, "run-budget-events", minute: 700, screenshotRequested: false);
+    var seq = 0L;
+    void Append(string kind, string? body) =>
+        store.AppendEvent(
+            "run-budget-events",
+            new RunLogEvent
+            {
+                RunId = "run-budget-events",
+                Seq = ++seq,
+                Ts = PipelineInputs.Base.AddMinutes(700).AddSeconds(seq),
+                Kind = kind,
+                EncounterId = body,
+            }
+        );
+    Append("run_started", null);
+    for (var index = 0; index < EventCount; index++)
+        Append("budget_padding", SeededBase64(EventEntropy, seed: 5400 + index));
+    Append("run_completed", null);
+    CompleteRun(store, "run-budget-events", minute: 701);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    var trimmedEvents = Sealed(artifacts, dataRoot, "size-budget-events", "run-budget-events");
+    var events = trimmedEvents.Payload.Events;
+    var omitted = trimmedEvents.Payload.Degradation.EventsOmitted;
+    Check.That(
+        trimmedEvents.Payload.Degradation.Categories.SequenceEqual(new[] { "events_trimmed" })
+            && omitted is > 10 and < EventCount
+            && events.Count == EventCount + 2 - omitted
+            && events[0].Kind == "run_started"
+            && events[^1].Kind == "run_completed"
+            && events[1].Seq == 2 + omitted,
+        "The size budget drops the oldest non-terminal events and keeps the terminal ones."
+    );
+    ExpectBudgetMargin(trimmedEvents, EventEntropy, BudgetMargin, "event trim");
+
+    // Trimming every projected replay still overflows, so the budget goes on into the events:
+    // their random bytes alone exceed the limit by more than the margin.
+    const int MixedEventCount = 13;
+    Check.That(
+        MixedEventCount * EventEntropy - BundleLimitsV6.MaxRunBytes >= BudgetMargin,
+        "The mixed Run must overflow with every projection trimmed."
+    );
+    CreateRun(store, "run-budget-mixed", minute: 800, screenshotRequested: false);
+    for (var index = 1; index <= 2; index++)
+    {
+        var battleId = $"budget-mixed-{index}";
+        SaveBattle(database, battleId, "run-budget-mixed", 800 + index);
+        replays.Save(BudgetReplay(battleId, 300_000, seed: 5500 + index));
+    }
+    var mixedSeq = 0L;
+    void AppendMixed(string kind, string? body) =>
+        store.AppendEvent(
+            "run-budget-mixed",
+            new RunLogEvent
+            {
+                RunId = "run-budget-mixed",
+                Seq = ++mixedSeq,
+                Ts = PipelineInputs.Base.AddMinutes(800).AddSeconds(mixedSeq),
+                Kind = kind,
+                EncounterId = body,
+            }
+        );
+    AppendMixed("run_started", null);
+    for (var index = 0; index < MixedEventCount; index++)
+        AppendMixed("budget_padding", SeededBase64(EventEntropy, seed: 5600 + index));
+    AppendMixed("run_completed", null);
+    CompleteRun(store, "run-budget-mixed", minute: 803);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    var trimmedMixed = Sealed(artifacts, dataRoot, "size-budget-mixed", "run-budget-mixed");
+    var mixedOmitted = trimmedMixed.Payload.Degradation.EventsOmitted;
+    Check.That(
+        trimmedMixed.Payload.Degradation.Categories.SequenceEqual(
+            new[] { "projection_battle_trimmed", "events_trimmed" }
+        )
+            && trimmedMixed.Payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
+                new[] { "budget-mixed-1", "budget-mixed-2" }
+            )
+            && trimmedMixed.Payload.ReplayableBattleIds.Count == 0
+            && trimmedMixed.Opened.Manifest.Run.Projection.Battles.Count == 0
+            && mixedOmitted is > 0 and < MixedEventCount
+            && trimmedMixed.Payload.Events.Count == MixedEventCount + 2 - mixedOmitted,
+        "Projections that cannot fit are all trimmed before the oldest events go."
+    );
+    ExpectBudgetMargin(trimmedMixed, EventEntropy, BudgetMargin, "mixed trim");
+}
+
+// The sealed segment fits with the margin to spare, and one fewer trim would put back at least
+// `entropy` random bytes, which no compressor removes, so it would overflow by the margin.
+static void ExpectBudgetMargin(SealedBundle sealedBundle, int entropy, int margin, string name)
+{
+    var length = sealedBundle.Opened.RunPayload.Length;
+    Check.That(
+        BundleLimitsV6.MaxRunBytes - length >= margin
+            && length + entropy - BundleLimitsV6.MaxRunBytes >= margin,
+        $"{name}: the trim decision must stay {margin} bytes from the limit (segment {length})."
+    );
+}
+
+static PvpReplayPayload BudgetReplay(string battleId, int entropy, int seed) =>
+    new()
+    {
+        BattleId = battleId,
+        SpawnMessageBytes = MessagePackSerializer.Serialize(
+            new NetMessageGameSim(new GameSim()) { MessageId = SeededBase64(entropy, seed) },
+            MessagePackConfig.Options
+        ),
+        CombatMessageBytes = ReplayBytes.Combat,
+        DespawnMessageBytes = ReplayBytes.Despawn,
+    };
+
+static string SeededBase64(int entropy, int seed)
+{
+    var random = new byte[entropy];
+    new Random(seed).NextBytes(random);
+    return Convert.ToBase64String(random);
+}
 
 static void RoutingKeepsPveOutOfPersistence(string database)
 {
