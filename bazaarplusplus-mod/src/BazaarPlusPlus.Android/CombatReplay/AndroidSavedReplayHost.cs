@@ -55,7 +55,7 @@ internal sealed class AndroidSavedReplayHost : ISavedReplayHost
     public bool RecordsVideo => false;
 
     // History asks on every refresh; the answer is cached briefly so a refresh does not open the
-    // DELETE-mode database on the main thread each time (ReplaySaved rechecks the catalog).
+    // DELETE-mode database on the main thread each time (ReplaySavedAsync rechecks the catalog).
     public bool CanOfferSavedReplay(string battleId)
     {
         var now = DateTime.UtcNow;

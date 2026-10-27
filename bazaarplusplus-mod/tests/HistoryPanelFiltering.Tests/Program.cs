@@ -1709,7 +1709,12 @@ internal sealed class SavedReplaysStub : ISavedReplayRuntime
 
     public bool CanReplaySavedBattle(string battleId, out string reason) => throw Unused();
 
-    public bool ReplaySaved(string battleId, bool recordVideo) => throw Unused();
+    public Task<bool> ReplaySavedAsync(
+        string battleId,
+        bool recordVideo,
+        CancellationToken cancellationToken = default,
+        Func<bool>? canCommit = null
+    ) => throw Unused();
 
     public bool ReplayLoadedBattle(
         PvpBattleManifest manifest,

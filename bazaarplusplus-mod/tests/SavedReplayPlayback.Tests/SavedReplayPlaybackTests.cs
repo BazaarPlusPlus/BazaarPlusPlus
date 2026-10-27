@@ -19,17 +19,17 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
 
-        Assert.False(h.Playback.ReplaySaved("  ", recordVideo: false));
-        Assert.False(h.Playback.ReplaySaved("battle-missing", recordVideo: false));
+        Assert.False(h.ReplaySaved("  ", recordVideo: false));
+        Assert.False(h.ReplaySaved("battle-missing", recordVideo: false));
         h.Services.RunContext.IsInGameRun = true;
-        Assert.False(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.False(h.ReplaySaved(BattleA, recordVideo: false));
         h.Services.RunContext.IsInGameRun = false;
         h.Host.InReplayState = true;
-        Assert.False(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.False(h.ReplaySaved(BattleA, recordVideo: false));
         h.Host.InReplayState = false;
         using (h.Gate.AcquireMaintenance(CancellationToken.None))
         {
-            Assert.False(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+            Assert.False(h.ReplaySaved(BattleA, recordVideo: false));
             Assert.Equal(
                 SavedBattleLoadOutcome.Busy,
                 h.Playback.TryLoadSavedBattle(BattleA, out _, out _)
@@ -62,7 +62,7 @@ public sealed class SavedReplayPlaybackTests
         h.Save(BattleA);
         var gate = new TaskCompletionSource();
         h.Host.ConfigureStart = start => start.BootstrapGate = gate;
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         Assert.False(h.Playback.CanReplaySavedCombats(out var reason));
         Assert.Equal("A saved replay is already starting.", reason);
@@ -114,7 +114,7 @@ public sealed class SavedReplayPlaybackTests
         h.Playback.Dispose();
         ISavedReplayRuntime runtime = h.Playback;
 
-        Assert.False(runtime.ReplaySaved(BattleA, recordVideo: false));
+        Assert.False(h.ReplaySaved(BattleA, recordVideo: false));
         Assert.False(runtime.CanReplaySavedCombats(out var reason));
         Assert.Equal("Combat replay runtime is unavailable.", reason);
         Assert.False(runtime.CanReplaySavedBattle(BattleA, out reason));
@@ -150,7 +150,7 @@ public sealed class SavedReplayPlaybackTests
     {
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         using var entered = new ManualResetEventSlim();
         var pending = Task.Run(() =>
         {
@@ -206,7 +206,7 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: true));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: true));
         // The start reads the catalog once; the manifest load answers whether the battle is saved.
         Assert.Equal([$"load:{BattleA}"], h.CatalogReads);
         Assert.True(h.Playback.HoldsPayloadLease);
@@ -255,7 +255,7 @@ public sealed class SavedReplayPlaybackTests
         h.Host.ConfigureStart = start =>
             start.BootstrapFailure = new InvalidOperationException("bootstrap boom");
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         Assert.Equal(
             [
@@ -288,7 +288,7 @@ public sealed class SavedReplayPlaybackTests
         h.Save(BattleA);
         h.Host.BeginStartFailure = new InvalidOperationException("loader boom");
 
-        Assert.False(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.False(h.ReplaySaved(BattleA, recordVideo: false));
 
         Assert.Contains(" reason_code=start_exception", h.SingleTerminal());
         Assert.True(h.LeaseIsFree());
@@ -310,11 +310,12 @@ public sealed class SavedReplayPlaybackTests
             start.BootstrapGate = gate;
         };
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         Assert.Equal(0, h.Host.ScopeDepth);
         var running = h.Host.Start!;
-        Assert.Equal(1, running.DepthAt["prepare"]);
-        Assert.Equal(1, running.DepthAt["bootstrap"]);
+        // A fast read can complete before the outer entry scope has returned.
+        Assert.InRange(running.DepthAt["prepare"], 1, 2);
+        Assert.InRange(running.DepthAt["bootstrap"], 1, 2);
         Assert.True(h.Playback.IsReplayStartInProgress);
 
         gate.SetResult();
@@ -332,7 +333,7 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness(recordsVideo: false);
         h.Save(BattleA);
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: true));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: true));
 
         Assert.False(h.Playback.Active!.RecordVideo);
         Assert.Contains($"starting:{BattleA}:record=False", h.Timeline);
@@ -347,7 +348,7 @@ public sealed class SavedReplayPlaybackTests
         h.Save(BattleA);
         h.StartingPublishFailure = new InvalidOperationException("starting subscriber boom");
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         var terminal = h.SingleTerminal();
         Assert.Contains(" reason_code=starting_publish_failed", terminal);
@@ -365,7 +366,7 @@ public sealed class SavedReplayPlaybackTests
         h.StartingPublishFailure = new InvalidOperationException("starting boom");
         h.EndedPublishFailure = new InvalidOperationException("ended boom");
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         var terminal = h.SingleTerminal();
         Assert.Contains(" reason_code=ended_publish_failed", terminal);
@@ -385,7 +386,7 @@ public sealed class SavedReplayPlaybackTests
                 new FormatException("inner cause")
             );
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         var terminal = h.SingleTerminal();
         Assert.Contains(" reason_code=start_exception", terminal);
@@ -400,7 +401,7 @@ public sealed class SavedReplayPlaybackTests
         noBootstrap.Save(BattleA);
         noBootstrap.Host.ConfigureStart = start =>
             start.InjectFailure = new InvalidOperationException("inject boom");
-        Assert.True(noBootstrap.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(noBootstrap.ReplaySaved(BattleA, recordVideo: false));
         Assert.Equal(0, noBootstrap.Host.Start!.Rollbacks);
         Assert.Contains(" rollback_status=not_required", noBootstrap.SingleTerminal());
 
@@ -411,7 +412,7 @@ public sealed class SavedReplayPlaybackTests
             start.NeedsBootstrap = true;
             start.InjectFailure = new InvalidOperationException("inject boom");
         };
-        Assert.True(rolledBack.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(rolledBack.ReplaySaved(BattleA, recordVideo: false));
         Assert.Equal(1, rolledBack.Host.Start!.Rollbacks);
         var succeeded = rolledBack.SingleTerminal();
         Assert.Contains(" rollback_status=succeeded", succeeded);
@@ -427,7 +428,7 @@ public sealed class SavedReplayPlaybackTests
                 new InvalidOperationException("rollback boom")
             );
         };
-        Assert.True(failed.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(failed.ReplaySaved(BattleA, recordVideo: false));
         var rollbackFailed = failed.SingleTerminal();
         Assert.Contains(" rollback_status=failed", rollbackFailed);
         Assert.Contains(" reason_code=bootstrap_rollback_failed", rollbackFailed);
@@ -442,7 +443,7 @@ public sealed class SavedReplayPlaybackTests
             start.BootstrapFailure = new InvalidOperationException("bootstrap boom");
             start.RollbackThrows = new InvalidOperationException("rollback threw");
         };
-        Assert.True(thrown.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(thrown.ReplaySaved(BattleA, recordVideo: false));
         Assert.Contains(" reason_code=bootstrap_rollback_failed", thrown.SingleTerminal());
         Assert.False(thrown.Playback.IsReplayStartInProgress);
     }
@@ -478,7 +479,7 @@ public sealed class SavedReplayPlaybackTests
                 );
         };
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         Assert.Equal(stage == "prepare" ? 0 : 1, h.Host.Start!.Rollbacks);
         Assert.False(h.Playback.IsReplayStartInProgress);
         Assert.False(h.Playback.IsSavedReplayPlaybackActive);
@@ -492,7 +493,7 @@ public sealed class SavedReplayPlaybackTests
         );
 
         h.Host.ConfigureStart = null;
-        Assert.True(h.Playback.ReplaySaved(BattleB, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleB, recordVideo: false));
         Assert.True(h.Playback.IsSavedReplayPlaybackActive);
         Assert.False(h.LeaseIsFree());
         h.Playback.OnReplayStateExited();
@@ -509,7 +510,7 @@ public sealed class SavedReplayPlaybackTests
         h.Host.ConfigureStart = start =>
             start.OpponentFailure = new InvalidOperationException("portrait boom");
 
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         Assert.True(h.Playback.IsSavedReplayPlaybackActive);
         h.Playback.OnReplayStateExited();
 
@@ -529,7 +530,7 @@ public sealed class SavedReplayPlaybackTests
             start.BootstrappedFromLobby = true;
             start.InjectGate = gate;
         };
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         h.Playback.OnReplayStateExited();
         Assert.Contains($"ended:{BattleA}:state-exit:failed=True", h.Timeline);
@@ -582,7 +583,7 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
         h.Host.CleanupFailure = new InvalidOperationException("cleanup boom");
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         h.Playback.OnReplayStateExited();
 
@@ -601,7 +602,7 @@ public sealed class SavedReplayPlaybackTests
             start.NeedsBootstrap = true;
             start.BootstrappedFromLobby = true;
         };
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         h.Host.Now = 10f;
         h.Playback.OnReplayStateExited();
@@ -631,7 +632,7 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
         h.Host.ConfigureStart = start => start.BootstrappedFromLobby = true;
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         h.Host.Now = 100f;
         h.Playback.OnReplayStateExited();
 
@@ -656,7 +657,7 @@ public sealed class SavedReplayPlaybackTests
         h.Save(BattleA);
         h.Host.ConfigureStart = start => start.BootstrappedFromLobby = true;
         h.Host.MenuReturnFailure = new InvalidOperationException("RunManager is unavailable.");
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         h.Playback.OnReplayStateExited();
 
@@ -682,7 +683,7 @@ public sealed class SavedReplayPlaybackTests
 
         h.Save(BattleA);
         h.Host.ConfigureStart = start => start.BootstrappedFromLobby = true;
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         h.Host.InReplayState = true;
         h.Host.Now = 50f;
 
@@ -736,7 +737,7 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
         h.Host.ConfigureStart = start => start.BootstrappedFromLobby = true;
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         h.Host.InReplayState = true;
         h.Host.MenuReturnFailure = new InvalidOperationException("menu return failed");
         // The failed dispatch drops the pending menu return; only the exit latch is left.
@@ -771,7 +772,7 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
         h.Host.ConfigureStart = start => start.BootstrappedFromLobby = true;
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         h.Playback.OnReplayStateExited();
         Assert.False(h.LeaseIsFree());
 
@@ -800,7 +801,7 @@ public sealed class SavedReplayPlaybackTests
     {
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         Assert.True(h.Playback.IsSavedReplayPlaybackActive);
 
         Assert.True(
@@ -827,7 +828,7 @@ public sealed class SavedReplayPlaybackTests
         h.Save(BattleA);
         var gate = new TaskCompletionSource();
         h.Host.ConfigureStart = start => start.BootstrapGate = gate;
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         h.Playback.Dispose();
 
@@ -847,7 +848,7 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
         h.Host.ConfigureStart = start => start.BootstrappedFromLobby = true;
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         h.Playback.OnReplayStateExited();
 
         h.Playback.Dispose();
@@ -865,7 +866,7 @@ public sealed class SavedReplayPlaybackTests
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
         Assert.False(h.Playback.TryPromoteActiveToRecording());
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
 
         Assert.True(h.Playback.TryPromoteActiveToRecording());
         Assert.True(h.Playback.Active!.RecordVideo);
@@ -876,7 +877,7 @@ public sealed class SavedReplayPlaybackTests
     {
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         h.Timeline.Clear();
         var cause = new InvalidOperationException("restart boom");
 
@@ -911,7 +912,7 @@ public sealed class SavedReplayPlaybackTests
     {
         using var h = new SavedReplayPlaybackHarness();
         h.Save(BattleA);
-        Assert.True(h.Playback.ReplaySaved(BattleA, recordVideo: false));
+        Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         var ended = new InvalidOperationException("ended boom");
         h.EndedPublishFailure = ended;
 

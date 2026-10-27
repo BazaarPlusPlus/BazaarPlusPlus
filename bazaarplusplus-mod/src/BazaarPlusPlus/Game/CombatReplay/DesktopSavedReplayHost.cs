@@ -54,7 +54,7 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 
     // History asks on every refresh; the answer is cached for the same five seconds Android uses,
     // so a burst of refreshes does not query the database and stat the payload on the main thread
-    // each time (ReplaySaved rechecks the catalog uncached). Unlike Android, a read failure is
+    // each time (ReplaySavedAsync rechecks the catalog uncached). Unlike Android, a read failure is
     // not caught here; it reaches History as it did before the cache.
     public bool CanOfferSavedReplay(string battleId)
     {
