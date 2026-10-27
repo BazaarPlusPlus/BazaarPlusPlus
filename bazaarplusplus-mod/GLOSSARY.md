@@ -1,6 +1,6 @@
 # BazaarPlusPlus Mod
 
-In-game mod for *The Bazaar*. This glossary captures the project-specific vocabulary. Definitions pin down what a term means and where its boundary sits; responsibilities and mechanics live in code and `docs/ARCHITECTURE.md`.
+Definitions pin down what a term means and where its boundary sits; mechanics live in code and `docs/ARCHITECTURE.md`.
 
 ## Run / encounters
 
@@ -9,7 +9,7 @@ A single stop on a run — a combat, PvP combat, event, shop, pedestal, loot, or
 _Avoid_: node, map node
 
 **Pedestal**:
-An encounter that upgrades or enchants one of the player's existing items rather than granting a new one. Which pedestal kind the current Choice screen offers drives the upgrade/enchant preview's "smart" mode.
+An encounter that upgrades or enchants one of the player's existing items rather than granting a new one.
 
 **Encounter Status Probe**:
 The on-demand, pull-based read of the player's *current* run/encounter state (`IEncounterStateProbe`). Status queries, not a recorded timeline (ADR-0001).
@@ -20,11 +20,11 @@ The on-demand, pull-based read of the current run's recordable facts — day/hou
 _Avoid_: run tracker
 
 **Game Build Channel**:
-The client's `Online`, `Ptr`, or `Unknown` classification, resolved at startup by `GameBuildInfoResolver`; conflicting signals resolve to `Ptr`. `Ptr` covers PTR and staging, while the raw version preserves branch identity. The channel gates uploads and is recorded on runs to keep test data out of production.
+The client's `Online`, `Ptr` (PTR and staging), or `Unknown` classification (`GameBuildInfoResolver`). It gates uploads and is recorded on runs to keep test data out of production.
 _Avoid_: environment, server flag
 
 **Run Logging Intake**:
-The pure `IBppFeature` that owns run-log subscriptions, session transitions, and persistence/checkpoint ordering. It consumes event-bus inputs and owns no run timeline.
+The pure `IBppFeature` that turns event-bus inputs into run-log sessions and persistence; it owns no run timeline.
 _Avoid_: RunLoggingController, run logger MonoBehaviour
 
 **Detailed Preview**:
@@ -34,20 +34,20 @@ The shared switch for encounter and quest tooltip information supported by each 
 The event and hero reward query boundary: template id, level, and native text in; rendered preview out.
 
 **End-of-Run Capture Workflow**:
-The single run-scoped state machine that owns the end-of-run screenshot flow, from readiness through bounded attempts to a fail-open outcome. Harmony patches express only Continue and reveal-start intents through `IEndOfRunCaptureWorkflow` and never drive capture directly.
+The single run-scoped state machine owning the end-of-run screenshot, from readiness to a fail-open outcome. Patches only send Continue and reveal-start intents (`IEndOfRunCaptureWorkflow`).
 _Avoid_: screenshot gate
 
 **Ghost Battle**:
-A PvP battle fetched from the mod backend in which the local player's uploaded build fought inside another player's run (the game's PvP is asynchronous — opponents are ghosts). Stored payloads keep the recorder's perspective, stamped as `PerspectiveVersion` (ADR-0002); only the HistoryPanel list row is projected to local perspective, by `GhostBattleLocalProjector`.
+A PvP battle fetched from the mod backend in which the local player's uploaded build fought inside another player's run (the game's PvP is asynchronous — opponents are ghosts). Stored in the recorder's perspective (ADR-0002).
 _Avoid_: remote battle, opponent battle
 
 ## Combat replay
 
 **Replay Payload**:
-The local serialized combat input used to replay a recorded PvP battle. It is a recoverable cache governed by `ReplayPayloadRetentionPolicy`; the battle fact remains after eviction, but only a favorite's own copy still offers Replay.
+The local serialized combat input used to replay a recorded PvP battle: a recoverable cache (`ReplayPayloadRetentionPolicy`) whose battle fact outlives its eviction.
 
 **Replay Availability**:
-Whether History can replay a battle: Remote (a Ghost Battle not yet downloaded), Saved (a local Replay Payload exists), Expired, or Unavailable. Local battles are only Saved or Unavailable. `ReplayAvailabilityCodec` alone maps it to stored columns.
+Whether History can replay a battle: Remote (a Ghost Battle not yet downloaded), Saved (a local Replay Payload exists), Expired, or Unavailable. Local battles are only Saved or Unavailable.
 _Avoid_: replay state, downloaded flag
 
 **Replay Video Artifact**:
@@ -55,26 +55,26 @@ A user-requested MP4 plus its metadata. Attachment to a battle and file health a
 _Avoid_: replay cache, orphan video
 
 **Saved Replay Playback**:
-The Core module (`SavedReplayPlayback`) owning one saved replay's admission, payload lease, start, exit and menu return for both hosts via `ISavedReplayHost` (ADR-0020). Pure `SavedReplayLifecycle` holds its states. Neither exits `ReplayState` (ADR-0002).
+The Core module (`SavedReplayPlayback`) owning one saved replay from admission to menu return on both hosts (ADR-0020).
 
 **Combat Impact Corpus**:
 Combat Impact's acceptance input in BPP types, exported host-side from game payloads (ADR-0019).
 
 **PvP Battle Capture Window**:
-Core's `PvpBattleCaptureWindow`: frames one PvP battle from a host's opening, combat and closing sims, owning which states open it, when each field is read and replay part order. Hosts read (`IPvpBattleReads`) and persist (ADR-0021).
+Core's `PvpBattleCaptureWindow`: frames one PvP battle from a host's opening, combat and closing sims; hosts read and persist (ADR-0021).
 _Avoid_: matcher, collector, sequence candidate
 
 ## Overlay panels
 
 **Live Build Refresh**:
-The manual update of the Live Build Panel's recommendation corpus. One successful remote pull is allowed per panel lifetime; failed pulls remain retryable, and closing the panel does not cancel a pending pull.
+The manual update of the Live Build Panel's recommendation corpus; one successful pull per panel lifetime.
 
 **Main Overlay Panel**:
 A full-screen mod overlay on either Host: Collection, History, or Live Build Panel; at most one is open. Not the touch menu.
 _Avoid_: popup, window
 
 **Overlay Panel Host**:
-Core's `OverlayPanelHost` plus a thin adapter per Host; owns panel lifecycle: exclusion, scene policy, combat gate, Panel Switch-Off, escape/back, ticks, release.
+Core's `OverlayPanelHost` plus a thin adapter per Host, owning Main Overlay Panel lifecycle (ADR-0022).
 _Avoid_: panel mutex
 
 **Panel Switch-Off**:
@@ -85,54 +85,47 @@ One read of a History list. A cursor page holds rows plus time/ID anchors and wh
 _Avoid_: page with optional counts
 
 **Native Card Preview Host**:
-The sole owning module (`GameInterop/CardPreview`) for the game's native card prefabs: setup, full visibility, hover, tooltip replacement, pooling, and destruction. Consumers open their own scopes through the host instead of holding runtime, reflection, or pool internals.
+The sole owning module (`GameInterop/CardPreview`) for the game's native card prefabs; consumers reach them only through their own scopes.
 _Avoid_: global preview pool
 
 **Native Card Preview Scope / Session**:
-A scope is one real UI owner's resource boundary, with its own pool; closing it settles pending acquisitions and destroys its objects. A session is an opaque lease of one set-up card, exposing only the layout root/rect and show/hide/hover intents — callers never hold native components or setup tasks.
+A scope is one real UI owner's resource boundary, with its own pool. A session is an opaque lease of one set-up card, exposing only layout and show/hide/hover intents.
 _Avoid_: preview handle
 
 ## Fonts
 
 **Native Game Typography**:
-The single adapter (`GameInterop/Fonts/NativeGameTypography`) through which every BPP surface gets text rendering. It reuses the game's own font assets and zh-CN fallback chains and never exposes a raw `Font`/`TMP_FontAsset`; BPP embeds no fonts of its own.
+The single adapter (`GameInterop/Fonts/NativeGameTypography`) through which every BPP surface renders text with the game's own fonts; BPP embeds none.
 _Avoid_: custom font, font selector
 
 ## Settings dock
 
 **Cycling Settings Dock Entry**:
-The unified settings-dock concept for entries that cycle through an ordered value ladder on click, highlight when off-default, and render localized state. Features contribute data only, not behavior classes; a bool toggle is the two-value special case. Action buttons and lock toggles are not this concept.
+A settings-dock entry that cycles through an ordered value ladder on click; a bool toggle is the two-value case. Features contribute data only. Action buttons and lock toggles are not this concept.
 
 ## Uploads
 
 **Run Bundle Contract**:
-The shared V6 reader/writer boundary that opens a Bundle, verifies manifest-to-payload Run identity,
-and decides whether a Battle has the exact snapshot and replay inputs required for import. Bundle
-composition and Ghost Battle import use the same contract.
+The shared V6 reader/writer boundary (`RunBundleV6Contract`) that opens a Bundle, verifies its Run
+identity, and decides whether a Battle is importable; Bundle composition and Ghost Battle import share it.
 
 **Mod API Response**:
-The bounded HTTP response boundary for mod-backend JSON: nested and legacy error-envelope shape,
-request ID precedence, `Retry-After`, and the separation between a closed user code and diagnostic
-exception. Endpoint-specific disposition and retry policy stay with each client.
+The bounded HTTP response boundary for mod-backend JSON: error envelope, request ID, `Retry-After`,
+closed user code. Endpoint disposition and retry policy stay with each client.
 
 **Mod API Session**:
-One owned transport lifetime for one mod-backend consumer. It combines normalized routes, standard
-headers and timeout with typed Bundle, Ghost Battle, and health operations, without exposing its
-`HttpClient` or endpoint adapters. Plugin History, each Upload Feed activation, and tools own
-separate sessions.
+One owned transport lifetime (`ModApiSession`) for one mod-backend consumer, exposing typed Bundle,
+Ghost Battle, and health operations but never its `HttpClient`.
 _Avoid_: shared global HttpClient, public endpoint-client chain
 
 **Bundle Seal Convergence**:
-The pure decision core for one Bundle seal pass. From the relative deadline left and input facts it
-decides to continue, wait, degrade the screenshot, or terminate; it owns no clock, connection,
-file, codec, or Unity object. Its failure half, `BundleSealFailurePolicy`, maps a failure and its
-seal stage to retry with backoff, park until next launch, reseal, degrade, skip, or terminal, plus
-the log event; its wake half, `BundleSealWakeSchedule`, sets the next pass.
+The pure decision core for one Bundle seal pass (`BundleSealConvergence`, with
+`BundleSealFailurePolicy` and `BundleSealWakeSchedule`): continue, wait, degrade the screenshot, or
+terminate. It owns no clock, connection, file, codec, or Unity object.
 
 **Environment-Blocked Seal**:
 A waiting seal job whose failure came from the loaded runtime (a missing member, type load, or
-assembly binding failure) rather than its data. It is retried once per launch, so an update revives
-it without a migration, and a pending file that fails this way is never resealed.
+assembly binding failure) rather than its data; it is retried once per launch.
 _Avoid_: JSON failure
 
 **Seal-Eligible Run**:
@@ -142,24 +135,21 @@ job discovery gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition
 _Avoid_: sealable run
 
 **Bundle Queue Store**:
-The concrete Storage owner of `bundle_seal_jobs` and `bundle_outbox` rows, SQL, and multi-row
-transactions. Game workflows translate its storage records into composition and upload behavior;
-there is deliberately no same-shape single-implementation repository interface.
+The concrete Storage owner of `bundle_seal_jobs` and `bundle_outbox` rows, SQL, and transactions,
+deliberately behind no same-shape repository interface.
 _Avoid_: outbox repository interface
 
 **Bundle Outbox Files**:
-The Game-owned file port for sealed Bundle artifacts. It exposes root-confined open, existence,
-length, enumeration, and deletion so upload ordering and retention can be tested without moving
-filesystem policy into Storage.
+The Game-owned, root-confined file port (`IBundleOutboxFiles`) for sealed Bundle artifacts.
 
 **Upload Feed Session**:
-The behavior object (`BundleUploadFeed.Session`) the Bundle feed returns from activation: one upload attempt, its queue backoff and the arm signals that end it, and resource disposal. The background pump owns only the Unity cadence, the shutdown drain, and the shared gates (PTR precondition, run-lifecycle and `UploadArmRequested` arms); it never rewires feed internals.
+`BundleUploadFeed.Session`, returned by feed activation: upload attempts, queue backoff, and their resources. The pump owns only cadence, shutdown drain, and shared gates.
 _Avoid_: per-feed upload controller
 
 ## Cards
 
 **Card Facet**:
-A Core enum for one card or combat property (`CardSize`, a captured card's `CardSocket`), named member for member after the game enum it replaces; each Host's adapter maps by name (ADR-0015, ADR-0019).
+A Core enum for one card or combat property (`CardSize`, `CardSocket`), named member for member after the game enum it replaces (ADR-0015, ADR-0019).
 _Avoid_: game enums in Core
 
 **Live Card Walk**:
@@ -168,7 +158,7 @@ A Host's raw run read in Card Facets (`LiveCardWalk`); Core's `LiveCardSnapshotR
 ## Collection panel
 
 **Collection View State**:
-The single owner of the Collection Panel's presentable state (`CollectionViewState`, Core): filters, search, catalog, open/close, render model; nothing else touches the filter. Open takes **Collection Open Facts** (`CollectionOpenFacts`), the host's run and catalog reads.
+The single owner of the Collection Panel's presentable state (`CollectionViewState`, Core). Open takes **Collection Open Facts** (`CollectionOpenFacts`), the host's run and catalog reads.
 _Avoid_: ApplyFilters/RefreshView pairing; open selection inputs
 
 ## Collection sources
@@ -185,29 +175,25 @@ The source chip category: `Merchant` sources offer Items, `Trainer` sources offe
 ## Day tiers
 
 **Day Tier Resolver**:
-The shared GameInterop adapter `DayTiers/GameDataDayTierResolver` that turns live GameData into the run day's normalized item/skill tier weights plus `MaximumTier`, the highest usable Bronze-to-Diamond tier (not the most likely). Its consumers (Collection's Day gate, Event Preview) fail open without it.
+The shared GameInterop adapter (`DayTiers/GameDataDayTierResolver`) turning live GameData into the run day's tier weights and `MaximumTier`, the highest usable tier (not the most likely).
 _Avoid_: DayTierSchedule, hardcoded tier table
 
 ## Remote embedded data
 
 **Remote Embedded Catalog**:
-The shared runtime lifecycle for data shipped as an embedded seed, cached under `<GameRoot>/BazaarPlusPlusV6/`, and refreshed from a remote source (`IRemoteEmbeddedCatalog<T>`). The interface exposes only current-snapshot lookup, warm-up, explicit refresh, and disposal; feature modules keep their own parser, logging, and user-facing refresh policy.
+The shared runtime lifecycle (`IRemoteEmbeddedCatalog<T>`) for data shipped as an embedded seed, cached under `<GameRoot>/BazaarPlusPlusV6/`, and refreshed remotely; features keep their parser and refresh policy (ADR-0007).
 _Avoid_: feature repository loader
 
 **Supporter Catalog Module**:
-The composition-owned Remote Embedded Catalog consumer for supporter data: fixed-list bypass,
-session-stable snapshots through the supporter facade, retry/disposal ownership.
+The composition-owned Remote Embedded Catalog consumer for supporter data.
 
 **Platform Release Manifest**:
-The per-platform release record defined in `../GLOSSARY.md`. The mod reads only the `version` of its
-own platform's manifest for the main-menu update check, through `ReleaseManifestEndpoints`, and
-falls back to the lockstep Release Manifest only on an undeclared platform. Its HTTP/JSON adapter and request-generation lifecycle are separate from
-Mod API health and installer runtime state.
+Defined in `../GLOSSARY.md`; the mod reads only its own platform's `version` for the update check
+(`ReleaseManifestEndpoints`), separately from Mod API health.
 _Avoid_: Mod API health
 
 **Build Seed Fetch**:
-The build-time transport operation that stages remote embedded seeds, checks coarse transfer
-integrity, runs feature-owned semantic gates, and promotes the complete seed set transactionally.
+The build-time operation that stages, gates, and transactionally promotes remote embedded seeds.
 
 ## Build
 
