@@ -507,24 +507,9 @@ export function validatePlatformManifest(manifest, platform) {
   const installer = { ...release };
   for (const field of DESKTOP_SELF_UPDATE_FIELDS) delete installer[field];
   assertRecord(installer, `${platform} installer`);
-  if (!predatesSelfUpdate(manifest.version, release))
-    assertSelfUpdateFacts(release, manifest.version, platform);
+  assertSelfUpdateFacts(release, manifest.version, platform);
   if (mainlandUrl !== undefined) assertMirrorUrl(mainlandUrl);
   return manifest;
-}
-
-// The bucket migration copies the 5.x Platform Release Manifests into
-// installer/ (ADR 0007). They predate mod self-update and carry none of its
-// facts, so the first 6.0.0 upload reads them as not self-updatable and its
-// promotion replaces them. Retire this once 6.0.0 is promoted on every
-// Lockstep Platform.
-const SELF_UPDATE_SINCE = '6.0.0';
-
-function predatesSelfUpdate(version, release) {
-  return (
-    compareProductVersions(version, SELF_UPDATE_SINCE) < 0 &&
-    DESKTOP_SELF_UPDATE_FIELDS.every((field) => release[field] === undefined)
-  );
 }
 
 // One platform's promoted release: the Platform Release Manifest. It is a
