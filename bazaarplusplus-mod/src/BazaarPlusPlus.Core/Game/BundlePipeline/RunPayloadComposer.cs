@@ -95,10 +95,18 @@ public sealed class RunPayloadComposer
     }
 
     // Encoding belongs to the payload-encode seal stage: a codec failure here is deterministic,
-    // unlike a read failure while composing. Return the selected bytes so the coordinator only
-    // encodes again if it changes a final field after budgeting.
-    public byte[] FitToBudget(RunPayloadComposition composition) =>
-        ApplySizeBudget(composition.Payload, composition.Projections);
+    // unlike a read failure while composing.
+    public byte[] EncodeFinal(RunPayloadComposition composition, bool screenshotOmitted)
+    {
+        var encoded = ApplySizeBudget(composition.Payload, composition.Projections);
+        if (composition.Payload.Degradation.ScreenshotOmitted == screenshotOmitted)
+            return encoded;
+
+        // Keep the final flag after budgeting: setting it before the probes changes which
+        // trims fit near the limit. Reuse the selected bytes unless this final field changes.
+        composition.Payload.Degradation.ScreenshotOmitted = screenshotOmitted;
+        return RunPayloadV6Codec.Encode(composition.Payload);
+    }
 
     private RunFactsV6 ReadRunFacts(string runId)
     {

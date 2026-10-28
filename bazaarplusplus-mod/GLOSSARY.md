@@ -54,6 +54,9 @@ _Avoid_: replay state, downloaded flag
 A user-requested MP4 plus its metadata. Attachment to a battle and file health are separate facts: deleting a run detaches the metadata without deleting a completed MP4.
 _Avoid_: replay cache, orphan video
 
+**Native Frame Submission**:
+One recording tick's admission of the current rendered frame to a native encoder, including its output timing and capture/drop accounting. Platform capture resources live for the recording, not for the tick.
+
 **Saved Replay Playback**:
 The Core module (`SavedReplayPlayback`) owning one saved replay from admission to menu return on both hosts (ADR-0020).
 
