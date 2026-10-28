@@ -37,6 +37,8 @@ Most players should get the installer or APK from [bazaarplusplus.com/download](
 3. Launch _The Bazaar_ once after installation so BazaarPlusPlus can finish setup.
 4. On the main menu, confirm that the **Card Collection** button appears and the footer version text includes `BPP version`.
 
+The desktop installer also provides repair, uninstall, data reset, and local history cleanup, and can update itself. When only the mod changes, it updates itself in game.
+
 After upgrading from 5.x, one click on the installer's Install page imports your old runs, screenshots, and replays into the new 6.0 data folder; imported runs stay local and are never uploaded, the old folder is left unchanged, and you can delete it from the installer later.
 
 ### Android
@@ -46,52 +48,25 @@ After upgrading from 5.x, one click on the installer's Install page imports your
 3. Install the downloaded APK and sign in. BazaarPlusPlus settings live in the game's own Settings dialog.
 4. When the game updates, download the new APK and install it over this one; no uninstall needed. When only the mod changes, it updates itself in game.
 
-Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tutorial](https://bazaarplusplus.com/tutorial?lang=en).
-
 ## Feature Matrix
 
-✅ supported　◐ partial　— not available
+Desktop includes Windows and macOS. ✅ supported　◐ partial　— not available
 
-### In Game
+| Feature                                               | Desktop |            Android            |
+| ----------------------------------------------------- | :-----: | :---------------------------: |
+| Card collection and ten-win build recommendations     |   ✅    |              ✅               |
+| Run history, favorites, and notes                     |   ✅    |      ◐ no hero portraits      |
+| Combat replays and Ghost Battles                      |   ✅    |              ✅               |
+| Combat status bar and speed controls                  |   ✅    |              ✅               |
+| Enchant, upgrade, and detailed previews               |   ✅    | ◐ controls and content differ |
+| Replay recording and automatic end-of-run screenshots |   ✅    |               —               |
+| OBS stream overlay                                    |   ✅    |               —               |
 
-| Feature                              | What it does                                                                                                                                       | Windows | macOS |             Android              |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | :-----: | :---: | :------------------------------: |
-| **Card Collection**                  | Browse items and skills at any time, filter by hero, tier, size, source, and day, and compare tier values and available enchantments               |   ✅    |  ✅   |                ✅                |
-| **Ten-Win Builds**                   | Compare your shop, board, and stash with matching ten-win final builds                                                                             |   ✅    |  ✅   |                ✅                |
-| **Run History**                      | Browse local runs, PvP battles, and Ghost Battles with both boards as saved                                                                        |   ✅    |  ✅   |       ◐ no hero portraits        |
-| **Combat Replays and Ghost Battles** | Replay saved battles from History, or download battles other players uploaded                                                                      |   ✅    |  ✅   |                ✅                |
-| **Favorites and Notes**              | Favorite key battles and write notes; a favorite outlives its deleted run                                                                          |   ✅    |  ✅   |                ✅                |
-| **Replay Video**                     | Record a replay to a video file                                                                                                                    |   ✅    |  ✅   |                —                 |
-| **Combat Status Bar**                | Combat time, pause, and 0.5× / 0.67× / 1× speed                                                                                                    |   ✅    |  ✅   |                ✅                |
-| **Enchant Preview**                  | See an item's enchanted effects in its tooltip                                                                                                     |   ✅    |  ✅   |                ✅                |
-| **Upgrade Preview**                  | See an item's next-tier values; holding Shift also marks where music notes land                                                                    |   ✅    |  ✅   | ◐ tooltip toggle, no music notes |
-| **Detailed Preview**                 | Event choices and random outcomes, quest rewards, missing types for aggregate items; the desktop adds merchant tier odds and hero level-up rewards |   ✅    |  ✅   |                ◐                 |
-| **Monster Board Preview**            | Hover an encounter to see the monster's board                                                                                                      |   ✅    |  ✅   |                —                 |
-| **Combat Impact**                    | After a fight, hover an item to see its damage, healing, and other contributions                                                                   |   ✅    |  ✅   |                —                 |
-| **Bilingual Item Names**             | Show the English and Chinese names together in tooltips                                                                                            |   ✅    |  ✅   |                —                 |
-| **Cosmetic Names**                   | Label cosmetic thumbnails in the loadout list                                                                                                      |   ✅    |  ✅   |                —                 |
-| **Voice Subtitles**                  | English and Chinese subtitles for character voice lines                                                                                            |   ✅    |  ✅   |                —                 |
-| **Anonymous Mode**                   | Show the local player as Anonymous for screenshots, recordings, and streams                                                                        |   ✅    |  ✅   |                —                 |
-| **Legendary Rank Display**           | Hide the rank, show an over-the-top value, or show rank and rating together                                                                        |   ✅    |  ✅   |                —                 |
-| **FSR Upscaling**                    | Render at a lower resolution and upscale with FSR 1 for higher frame rates                                                                         |   ✅    |  ✅   |                —                 |
-| **Chinese Terminology**              | Mainland Simplified or Taiwan Traditional terms in the BazaarPlusPlus UI                                                                           |   ✅    |  ✅   |                ✅                |
-| **End-of-Run Screenshot**            | Capture the summary screen once its animation settles                                                                                              |   ✅    |  ✅   |                —                 |
-| **Run Upload**                       | Upload runs and replays in the background for Ghost Battles and hero statistics, never during a run                                                |   ✅    |  ✅   |                ✅                |
-| **BazaarDB Screenshot Upload**       | Share end-of-run screenshots with BazaarDB; off by default                                                                                         |   ✅    |  ✅   |                —                 |
-| **Supporter Credits**                | Show the supporter list                                                                                                                            |   ✅    |  ✅   |                ✅                |
-| **Mod Self-Update**                  | Update the mod in game when only the mod changed; Android also points to the new APK after a game update                                           |   ✅    |  ✅   |                ✅                |
+Desktop also offers monster board previews, combat impact, bilingual item names, voice subtitles, and other display aids, plus FSR upscaling and optional BazaarDB screenshot uploads (off by default). All platforms support Mainland Simplified and Taiwan Traditional Chinese terminology.
 
-### Install and Beyond
+All platforms upload run and replay data in the background while outside a run, powering Ghost Battles and the website's [hero statistics](https://bazaarplusplus.com/heroes?lang=en).
 
-| Feature                             | What it does                                                                                                                   |  Windows  |   macOS   | Android |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | :-------: | :-------: | :-----: |
-| **Install**                         | The desktop installer finds the Steam copy of the game; Android installs an APK                                                | Installer | Installer |   APK   |
-| **Repair / Uninstall / Reset Data** | Fix a broken install or return to a clean state                                                                                |    ✅     |    ✅     |    —    |
-| **5.x History Import**              | Import old run history when upgrading to 6.0 and manage the old data folders                                                   |    ✅     |    ✅     |    —    |
-| **History Management**              | View, locate, and clean up local history and replay videos from the installer                                                  |    ✅     |    ✅     |    —    |
-| **Stream Overlay**                  | A local browser-source server that shows run info in OBS and similar tools                                                     |    ✅     |    ✅     |    —    |
-| **Installer Auto-Update**           | Check for and install new versions through the Tauri updater                                                                   |    ✅     |    ✅     |    —    |
-| **Hero Statistics (website)**       | [bazaarplusplus.com/heroes](https://bazaarplusplus.com/heroes?lang=en) aggregates hero win rates and trends from uploaded runs |    ✅     |    ✅     |   ✅    |
+See the [tutorial](https://bazaarplusplus.com/tutorial?lang=en) for the full feature list, platform differences, and instructions.
 
 ## Repository Layout
 
