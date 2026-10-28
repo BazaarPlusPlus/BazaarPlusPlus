@@ -50,6 +50,10 @@
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CombatReplay/NativeReplayRestartGate.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Bootstrap/ReplayPresentationTaskTracker.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Warmup/ReplayAudioBankOwnership.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Video/NativeFrameSubmission.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Video/NativeFrameSubmissionPlan.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Video/WallClockCfrPacer.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Video/ReplayVideoCopyTimingAccumulator.cs" />
     <Compile Include="../../src/BazaarPlusPlus.Core/Game/HistoryPanel/HistoryPanelReplayCleanup.cs" />
   </ItemGroup>
 </Project>

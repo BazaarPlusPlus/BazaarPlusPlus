@@ -532,15 +532,10 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
             stage = BundleSealStage.PayloadEncode;
             Probe(stage, runId);
-            var encodedPayload = _composer.FitToBudget(composition);
-            var screenshotOmitted = job.ScreenshotRequested && screenshot == null;
-            if (composition.Payload.Degradation.ScreenshotOmitted != screenshotOmitted)
-            {
-                // Keep this after budgeting: moving it before the probes changes which trims
-                // fit near the limit. Only a changed final field needs another encoding.
-                composition.Payload.Degradation.ScreenshotOmitted = screenshotOmitted;
-                encodedPayload = RunPayloadV6Codec.Encode(composition.Payload);
-            }
+            var encodedPayload = _composer.EncodeFinal(
+                composition,
+                screenshotOmitted: job.ScreenshotRequested && screenshot == null
+            );
             if (
                 BundleSealConvergence.Resolve(
                     jobFacts,
