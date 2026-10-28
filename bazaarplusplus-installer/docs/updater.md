@@ -15,6 +15,6 @@ Under the zh locale, the modal may also offer the mainland-China mirror page pub
 
 ## Installer And Mod Updates
 
-This updater replaces the installer, and with it the bundled Payload. The mod updates only its own Managed Payload (mod ADR-0014), and Repair keeps a newer one ([ADR-0009](adr/0009-repair-keeps-self-updated-managed-payload.md)), so a release whose non-managed files or history database schema changed reaches the user only through this updater.
+This updater replaces the installer, and with it the bundled Payload. The mod updates only its own Managed Payload (mod ADR-0014), and Repair keeps a newer one ([ADR-0009](adr/0009-repair-keeps-self-updated-managed-payload.md)), so a release whose non-managed files or history database schema changed requires the updated installer on desktop. Users can obtain it through this updater or download the complete installer manually. Every desktop release includes both a complete installer containing that version’s Payload and a Managed Payload zip. The installer and mod use separate update endpoints published from the same release record; the installer neither checks nor downloads the mod independently. Root [ADR 0011](../../docs/adr/0011-separate-mod-update-endpoint.md) records the endpoint split.
 
 Updater endpoint, public key, artifact creation, and runtime permissions are configured in `src-tauri/tauri.conf.json` and `src-tauri/capabilities/default.json`; those environment files remain authoritative for their literal values.

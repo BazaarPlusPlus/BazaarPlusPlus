@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { compareProductVersions, readProductVersion } from './product.mjs';
 import {
   RELEASE_BUCKET,
@@ -23,6 +24,7 @@ import {
   managedPayloadKey,
   mergeReleaseManifest,
   mirrorRecordKey,
+  modManifestPath,
   platformManifestPath,
   validateMirrorRecord,
   validatePlatformFragment,
@@ -545,6 +547,43 @@ async function writePlatformManifest(
   );
 }
 
+// Both update entry points carry the same release facts. Copy the stored
+// platform manifest, including its original publication date and mirror,
+// so retrying a partial promotion never invents another record for a version.
+function modManifestUpdate(platform, manifest, existing) {
+  validatePlatformManifest(manifest, platform);
+  if (existing) {
+    validatePlatformManifest(existing, platform);
+    if (compareProductVersions(manifest.version, existing.version) < 0)
+      throw new Error(
+        `Refusing ${platform} mod release rollback from ${existing.version} to ${manifest.version}`
+      );
+    if (existing.version === manifest.version) {
+      if (!isDeepStrictEqual(existing, manifest))
+        throw new Error(
+          `Published ${manifest.version} ${platform} mod manifest differs; publish a new product version`
+        );
+      return null;
+    }
+  }
+  return manifest;
+}
+
+async function preflightModManifest(store, platform, manifest) {
+  const key = modManifestPath(platform);
+  modManifestUpdate(
+    platform,
+    manifest,
+    readOptionalJson(await store.get(key), key)
+  );
+}
+
+async function writeModManifest(store, platform, manifest) {
+  return compareAndSwapJson(store, modManifestPath(platform), (existing) =>
+    modManifestUpdate(platform, manifest, existing)
+  );
+}
+
 // Advance the Release Manifest when every Lockstep Platform manifest names the
 // same release; otherwise leave it at the last lockstep release.
 async function writeLockstepManifest(store, log) {
@@ -618,19 +657,21 @@ export async function promotePlatform({
         })
       : {};
   // Validate against the current manifest before any remote write.
-  buildPlatformManifest({
+  const candidate = buildPlatformManifest({
     version,
     fragment,
     mirror: mirrors[key],
     existing,
     now
   });
+  await preflightModManifest(store, key, candidate);
   const manifest = await writePlatformManifest(store, {
     version,
     fragment,
     mirror: mirrors[key] ?? null,
     now
   });
+  await writeModManifest(store, key, manifest);
   if (!lockstep) return { platform: manifest, latest: null, advanced: false };
   const latest = await writeLockstepManifest(store, log);
   return {
@@ -665,6 +706,7 @@ export async function promoteRelease({
   if (existingLatest?.version === version) {
     // Confirming a published release: the Release Manifest is authoritative
     // and each fragment must still match it.
+    const confirmed = [];
     for (const fragment of fragments) {
       const platform = fragment.platform;
       const split = {
@@ -674,7 +716,18 @@ export async function promoteRelease({
       };
       validatePlatformManifest(split, platform);
       buildPlatformManifest({ version, fragment, existing: split, now });
+      const current = existingPlatforms[platform];
+      // Confirming an older lockstep release must not move a platform that
+      // has since advanced. Its newer promotion owns the mod endpoint too.
+      if (current && compareProductVersions(current.version, version) > 0)
+        continue;
+      const manifest = current?.version === version ? current : split;
+      buildPlatformManifest({ version, fragment, existing: manifest, now });
+      await preflightModManifest(store, platform, manifest);
+      confirmed.push([platform, manifest]);
     }
+    for (const [platform, manifest] of confirmed)
+      await writeModManifest(store, platform, manifest);
     return existingLatest;
   }
   const mirrors = await readMirrors(store, version, fragments, {
@@ -692,19 +745,25 @@ export async function promoteRelease({
     })
   );
   mergeReleaseManifest({ platformManifests, existingLatest });
+  for (const [index, fragment] of fragments.entries())
+    await preflightModManifest(
+      store,
+      fragment.platform,
+      platformManifests[index]
+    );
   // Platform manifests first: a client that installs this release through
   // the lockstep manifest reads its platform manifest next and must find it.
   // The stored manifests, not this promoter's copies, feed the merge.
   const stored = [];
   for (const fragment of fragments) {
-    stored.push(
-      await writePlatformManifest(store, {
-        version,
-        fragment,
-        mirror: mirrors[fragment.platform] ?? null,
-        now
-      })
-    );
+    const manifest = await writePlatformManifest(store, {
+      version,
+      fragment,
+      mirror: mirrors[fragment.platform] ?? null,
+      now
+    });
+    await writeModManifest(store, fragment.platform, manifest);
+    stored.push(manifest);
   }
   return compareAndSwapJson(store, RELEASE_MANIFEST_PATH, (existing) => {
     const latest = mergeReleaseManifest({

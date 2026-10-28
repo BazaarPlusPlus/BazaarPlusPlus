@@ -1,8 +1,10 @@
 # BazaarPlusPlus
 
-面向《The Bazaar》的 BepInEx 5 模组。它不改变游戏平衡，只做信息增强与记录：战斗界面增强、附魔 / 升级预览、run 记录与历史回放、终局自动截图与阵容推荐，以及可选的后台云同步。
+面向《The Bazaar》的模组，桌面版通过 BepInEx 加载，Android 版通过 LemonLoader 加载，两者共享 Core。它不改变游戏平衡，只做信息增强与记录：战斗界面增强、附魔 / 升级预览、对局历史与回放、阵容推荐，以及后台上传。
 
 ## 功能
+
+下列功能和快捷键说明适用于桌面版；Android 使用触控入口，支持范围见[仓库首页的功能矩阵](../README.md#功能矩阵)，交互细节见 [Android Host](docs/architecture/android-host.md)。
 
 **对局界面**
 
@@ -27,17 +29,21 @@
 
 ## 安装（玩家）
 
-用[安装器](https://bazaarplusplus.com/download)安装：mod 的 DLL、依赖和原生组件由仓库根目录的 Payload Inventory 定义，手动复制容易漏。首次运行后，配置文件生成于 `BepInEx/config/BazaarPlusPlus.cfg`。
+桌面版用[安装器](https://bazaarplusplus.com/download)安装：mod 的 DLL、依赖和原生组件由仓库根目录的 Payload Inventory 定义，手动复制容易漏。首次运行后，配置文件生成于 `BepInEx/config/BazaarPlusPlus.cfg`。
+
+Android 从同一下载页获取注入了模组的 APK，安装步骤见[仓库首页](../README.md#android)。设置位于游戏自带的设置界面，配置保存在 `MelonLoader/UserData/BazaarPlusPlus.cfg`。
 
 ## 从源码构建（开发者）
 
 在仓库根目录用 `just mod::<命令>` 构建和测试，`just --list mod` 列出全部命令；环境要求见[开发命令](../docs/development.md)。`just mod::build` 只编译，部署进游戏用 `just mod::build --deploy`（它会在游戏更新后修复 macOS trampoline，`dotnet build` 不做这一步）。游戏程序集通过 `ManagedPath` 从快照锁 `build/game-libs.lock.json` 解析（词条见根 `GLOSSARY.md` 的 Snapshot Lock）：先执行 `just mod::fetch macos online`（Windows 用 `windows`），它接受 `globalgamemanagers` 版本串与锁条目一致的本机 Steam 安装，否则从私有存储取包到 `game-libs/`；两者都不满足时报错并列出两个版本串，切换 Steam 分支或等锁更新。显式 `-p:ManagedPath=/path/to/Managed` 覆盖解析，但 `mod::check` 仍按锁条目核对该目录的 sha256，`release::prepare` 拒绝不对应任何锁条目的目录。
 
+Android Host 单独构建：先执行 `just mod::fetch android online` 获取 Interop Snapshot 和 Loader Release，再执行 `just mod::android-build`；连接设备后用 `just mod::android-deploy` 部署。设备验证见[Android 冒烟](../docs/development.md#android-冒烟)。
+
 ## 数据与网络行为
 
-- run 记录、战斗回放与终局截图均保存在本地（SQLite、replay payload、截图文件）。
+- 对局记录与战斗回放保存在本地；桌面版还保存终局截图。Android 不采集终局截图，上传的 Bundle 只包含 Run。
 - 云同步不携带任何鉴权凭证，且只在非 live run 状态下执行上传扫描。
-- 语音字幕与终局 build 种子由构建管线嵌入，运行时在本地缓存过期后后台刷新。
+- 十胜阵容种子由构建管线嵌入，运行时在本地缓存过期后后台刷新；桌面版的语音字幕目录也沿用这一加载流程。
 - 云端后端（上传、ghost battles、BazaarDB 快照投递）在 monorepo 的 `bazaarplusplus-server/`；mod 侧 HTTP 客户端在 `src/BazaarPlusPlus.ModApi/`。
 
 ## 文档

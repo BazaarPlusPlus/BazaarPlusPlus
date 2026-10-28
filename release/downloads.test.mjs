@@ -2,6 +2,10 @@ import { expect, test } from 'vitest';
 import {
   LEGACY_RELEASE_BASE_URL,
   RELEASE_BASE_URL,
+  DOWNLOAD_PLATFORM_KEYS,
+  UPDATER_ENDPOINTS,
+  modManifestPath,
+  platformManifestPath,
   decodeAndroidDownload,
   decodeMainlandDownloadUrl
 } from './downloads.ts';
@@ -120,4 +124,15 @@ test.each([
   ['a non-object manifest', () => null]
 ])('%s yields no Android download', (_, manifest) => {
   expect(decodeAndroidDownload(manifest())).toBeNull();
+});
+
+test('mod endpoints are separate while installer and website endpoints stay compatible', () => {
+  for (const key of Object.values(DOWNLOAD_PLATFORM_KEYS)) {
+    expect(modManifestPath(key)).toBe(`latest/mod/${key}.json`);
+    expect(platformManifestPath(key)).toBe(`latest/${key}.json`);
+  }
+  expect(UPDATER_ENDPOINTS).toEqual([
+    `${RELEASE_BASE_URL}/latest/{{target}}-{{arch}}.json`,
+    `${RELEASE_BASE_URL}/latest.json`
+  ]);
 });

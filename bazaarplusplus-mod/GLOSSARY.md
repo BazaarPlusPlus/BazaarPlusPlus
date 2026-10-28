@@ -191,8 +191,9 @@ _Avoid_: feature repository loader
 The composition-owned Remote Embedded Catalog consumer for supporter data.
 
 **Platform Release Manifest**:
-Defined in `../GLOSSARY.md`; the mod reads only its own platform's `version` for the update check
-(`ReleaseManifestEndpoints`), separately from Mod API health.
+Defined in `../GLOSSARY.md`; the mod reads its platform's version, Managed Payload and Android APK
+metadata through the dedicated mod endpoint (`ReleaseManifestEndpoints`), separately from the
+installer's updater and Mod API health.
 _Avoid_: Mod API health
 
 **Build Seed Fetch**:

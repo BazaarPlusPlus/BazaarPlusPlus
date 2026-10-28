@@ -24,6 +24,12 @@ export function platformManifestPath(platformKey: string): string {
   return `latest/${platformKey}.json`;
 }
 
+// The mod reads a separate endpoint of the same Platform Release Manifest.
+// Both endpoints are published together from the complete release artifacts.
+export function modManifestPath(platformKey: string): string {
+  return `latest/mod/${platformKey}.json`;
+}
+
 // The Tauri updater expands `{{target}}-{{arch}}` to the platform key and
 // falls through to the next endpoint on a non-2xx response, so the lockstep
 // manifest remains the fallback while a platform file is missing.

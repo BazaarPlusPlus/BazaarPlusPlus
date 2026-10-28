@@ -26,11 +26,11 @@ Newer-only combat events and enum members stay behind runtime adapters in `GameI
 
 ## Assemblies And Boundaries
 
-Five assemblies ship. Dependencies run host → Core → {Storage, ModApi}; a shared assembly exists only for a dependency class it carries (ADR-0012).
+Each host ships five BPP assemblies. Dependencies run host → Core → {Storage, ModApi}; shared assemblies carry distinct dependency classes (ADR-0012).
 
 | Assembly | Contents |
 |---|---|
-| `BazaarPlusPlus.dll` | the desktop (BepInEx) host: Unity/game integration, feature modules, Harmony patches, embedded resources, `DesktopComposition` |
+| `BazaarPlusPlus.dll` (desktop) / `BazaarPlusPlus.Android.dll` (Android) | host-specific game integration, patches, resources and `DesktopComposition` / `AndroidComposition` |
 | `BazaarPlusPlus.Core.dll` | the shared core every host references (directories below) |
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |
@@ -87,7 +87,7 @@ Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(
 
 ## Data And File Locations
 
-Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV6/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive their paths from it. No runtime cache uses the process temporary directory.
+The Data Root is `<GameRoot>/BazaarPlusPlusV6/` on desktop (`BepInExPathProvider`); `AndroidPaths` places it beside MelonLoader under the app's external files directory ([Android Host](architecture/android-host.md)). All storage derives paths from that root; no runtime cache uses the process temporary directory.
 
 The V6 database starts a new schema at `user_version` 1 with no migration path: `EnsureInitialized` creates an empty database or opens one already at 1 and refuses any other version, including a V5 database. Every instant is a Unix-millisecond `*_at_ms` integer; `RunPayloadComposer` copies them unchanged into the V6 Run segment. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
 

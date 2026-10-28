@@ -50,7 +50,22 @@ static async Task TestSharedPlatformReleaseManifests()
             Path.Combine(AppContext.BaseDirectory, "fixtures", "latest", $"{platformKey}.json")
         );
         using var fixture = JsonDocument.Parse(body);
-        var result = await Fetch(_ => Response(HttpStatusCode.OK, body), platformKey: platformKey);
+        using var http = new HttpClient(
+            new Handler(request =>
+            {
+                Equal(
+                    $"https://cdn.bazaarplusplus.com/installer/latest/mod/{platformKey}.json",
+                    request.RequestUri!.ToString(),
+                    "The mod requests its own update endpoint."
+                );
+                return Response(HttpStatusCode.OK, body);
+            })
+        );
+        var result = await new ReleaseManifestClient(
+            http,
+            ReleaseManifestEndpoints.ForPlatformKey(platformKey),
+            platformKey
+        ).FetchAsync(default);
 
         True(
             result.Succeeded,
@@ -195,19 +210,19 @@ static void TestAndroidGameUpdateComparesVersionCodes()
 static void TestEndpointFollowsThePlatform()
 {
     Equal(
-        "https://cdn.bazaarplusplus.com/installer/latest/windows-x86_64.json",
+        "https://cdn.bazaarplusplus.com/installer/latest/mod/windows-x86_64.json",
         ReleaseManifestEndpoints
             .ForPlatformKey(ReleaseManifestEndpoints.WindowsPlatformKey)
             .ToString(),
         "Windows should read its own Platform Release Manifest."
     );
     Equal(
-        "https://cdn.bazaarplusplus.com/installer/latest/darwin-aarch64.json",
+        "https://cdn.bazaarplusplus.com/installer/latest/mod/darwin-aarch64.json",
         ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.MacPlatformKey).ToString(),
         "macOS should read its own Platform Release Manifest."
     );
     Equal(
-        "https://cdn.bazaarplusplus.com/installer/latest/android-aarch64.json",
+        "https://cdn.bazaarplusplus.com/installer/latest/mod/android-aarch64.json",
         ReleaseManifestEndpoints
             .ForPlatformKey(ReleaseManifestEndpoints.AndroidPlatformKey)
             .ToString(),

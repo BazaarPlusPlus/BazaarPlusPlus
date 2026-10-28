@@ -9,6 +9,7 @@ import {
   buildPlatformManifest,
   fragmentKey,
   managedPayloadKey,
+  modManifestPath,
   validatePlatformFragment,
   validatePlatformManifest
 } from './manifest.mjs';
@@ -301,7 +302,9 @@ test('upload is platform-local; latest is promoted only after both verified plat
   // that installs through latest.json finds its platform file afterwards.
   const order = [
     'latest/windows-x86_64.json',
-    'latest/darwin-aarch64.json'
+    'latest/mod/windows-x86_64.json',
+    'latest/darwin-aarch64.json',
+    'latest/mod/darwin-aarch64.json'
   ].map((key) => store.writes.indexOf(key));
   expect(Math.max(...order)).toBeLessThan(store.writes.indexOf('latest.json'));
   expect(
@@ -318,10 +321,103 @@ test('upload is platform-local; latest is promoted only after both verified plat
   expect(latest.downloads['windows-x86_64'].mainlandUrl).toBe(
     mirrorUrl('windows', data.version)
   );
+  for (const key of Object.keys(latest.platforms)) {
+    expect((await store.get(modManifestPath(key))).bytes).toEqual(
+      (await store.get(`latest/${key}.json`)).bytes
+    );
+  }
   const writes = store.writes.length;
   await promote(data, store);
   expect(store.writes).toHaveLength(writes);
 });
+
+test.each(['all', 'windows'])(
+  'a failed mod endpoint write is completed by retrying %s promotion',
+  async (mode) => {
+    const data = fixture();
+    const store = new MemoryStore();
+    await stage(data, store);
+    const run = () =>
+      mode === 'all' ? promote(data, store) : promoteOne(data, store, mode);
+    const modKey = modManifestPath('windows-x86_64');
+    store.beforePut = (key) => {
+      if (key === modKey) throw new Error('mod endpoint unavailable');
+    };
+    await expect(run()).rejects.toThrow('mod endpoint unavailable');
+    const published = (await store.get('latest/windows-x86_64.json')).bytes;
+    expect(await store.get(modKey)).toBeNull();
+    expect(await store.get('latest.json')).toBeNull();
+    store.beforePut = undefined;
+    await run();
+    expect((await store.get(modKey)).bytes).toEqual(published);
+    expect((await store.get('latest/windows-x86_64.json')).bytes).toEqual(
+      published
+    );
+  }
+);
+
+test('confirming an already published release fills missing mod endpoints without changing installer manifests', async () => {
+  const data = fixture();
+  const store = new MemoryStore();
+  await stage(data, store);
+  await promote(data, store);
+  const modKeys = ['windows-x86_64', 'darwin-aarch64'].map(modManifestPath);
+  for (const key of modKeys) store.objects.delete(key);
+  // Published mirror addresses are authoritative, even without their old records.
+  for (const key of store.objects.keys())
+    if (key.includes('/mirror/')) store.objects.delete(key);
+  const before = store.writes.length;
+  await promote(data, store);
+  expect(store.writes.slice(before)).toEqual(modKeys);
+  for (const platform of ['windows-x86_64', 'darwin-aarch64'])
+    expect((await store.get(modManifestPath(platform))).bytes).toEqual(
+      (await store.get(`latest/${platform}.json`)).bytes
+    );
+});
+
+test.each(['all', 'windows'])(
+  'a changed mod manifest rejects %s confirmation before writing',
+  async (mode) => {
+    const data = fixture();
+    const store = new MemoryStore();
+    await stage(data, store);
+    await promote(data, store);
+    const key = modManifestPath('windows-x86_64');
+    const changed = JSON.parse((await store.get(key)).bytes);
+    changed.gitCommit = 'f'.repeat(40);
+    store.objects.set(key, {
+      bytes: Buffer.from(JSON.stringify(changed)),
+      etag: '"changed"'
+    });
+    const before = store.writes.length;
+    await expect(
+      mode === 'all' ? promote(data, store) : promoteOne(data, store, mode)
+    ).rejects.toThrow(/mod manifest differs/);
+    expect(store.writes).toHaveLength(before);
+  }
+);
+
+test.each(['installer', 'managedPayload'])(
+  'a missing %s blocks both update endpoints',
+  async (artifact) => {
+    const data = fixture();
+    const store = new MemoryStore();
+    await stage(data, store);
+    const fragment = JSON.parse(
+      (await store.get(fragmentKey(data.version, 'windows-x86_64'))).bytes
+    );
+    store.objects.delete(
+      decodeURIComponent(fragment[artifact].url.slice(baseUrl.length + 1))
+    );
+    const before = store.writes.length;
+    await expect(promote(data, store)).rejects.toThrow(
+      /Release artifact is missing/
+    );
+    expect(store.writes).toHaveLength(before);
+    expect(await store.get(modManifestPath('windows-x86_64'))).toBeNull();
+    expect(await store.get('latest/windows-x86_64.json')).toBeNull();
+  }
+);
 
 test('platform fragments preserve source identity and actual artifact names', () => {
   const record = { path: 'some/renamed.dmg', size: 4, sha256: 'b'.repeat(64) };
@@ -726,6 +822,12 @@ test('one platform can run ahead once a lockstep release carries the per-platfor
       /latest\.json unchanged: platforms are at 3\.1\.2 and 3\.1\.1/
     )
   );
+  // Confirming the old lockstep release cannot move the newer mod endpoint back.
+  const modAhead = (await store.get(modManifestPath('windows-x86_64'))).bytes;
+  await promote(data, store);
+  expect((await store.get(modManifestPath('windows-x86_64'))).bytes).toEqual(
+    modAhead
+  );
   // The published platform manifest freezes its mirror and refuses rollback.
   await expect(record(next, store, 'windows')).rejects.toThrow(
     /already published/
@@ -984,8 +1086,12 @@ test('Android promotion checks both artifacts and publishes only its own manifes
     advanced: false
   });
   expect([...store.objects.keys()].filter((key) => !before.has(key))).toEqual([
-    `latest/${ANDROID}.json`
+    `latest/${ANDROID}.json`,
+    modManifestPath(ANDROID)
   ]);
+  expect((await store.get(modManifestPath(ANDROID))).bytes).toEqual(
+    (await store.get(`latest/${ANDROID}.json`)).bytes
+  );
   // No mirror record is read, and none can be waived.
   expect(store.writes.some((key) => key.includes('mirror'))).toBe(false);
   await expect(
