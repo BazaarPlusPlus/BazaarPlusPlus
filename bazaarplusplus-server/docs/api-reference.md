@@ -4,6 +4,8 @@ Base URL: `https://mod-api-v6.bazaarplusplus.com`
 
 Mod 6.0 and later use this Worker.
 
+The Worker also serves a generated OpenAPI 3.1 document at [`/openapi.json`](https://mod-api-v6.bazaarplusplus.com/openapi.json) and an interactive [Scalar](https://scalar.com) reference at [`/docs`](https://mod-api-v6.bazaarplusplus.com/docs). Response bodies are Zod schemas in `src/http/schemas.ts`, which the modules take their types from; each route's operation lives beside its handler in `src/http/routes.ts`. `test/goldens/openapi.json` is the rendered document, reviewed as a diff. This page owns the prose rules the document cannot state.
+
 The Worker exposes exactly these routes:
 
 | Method | Path | Authentication |
@@ -13,12 +15,14 @@ The Worker exposes exactly these routes:
 | `GET` | `/bundles` | `BUNDLE_SYNC_TOKEN` |
 | `GET` | `/ghost-battles` | None; per-IP rate limited |
 | `GET` | `/bazaardb/bundles` | `BAZAARDB_DELIVERY_TOKEN` |
+| `GET` | `/openapi.json` | None |
+| `GET` | `/docs` | None |
 
 There is no Bundle download route. Discovery responses contain a seven-day R2 presigned `GET` URL, and clients download the complete Bundle directly from the R2 S3 endpoint.
 
 ## Common HTTP behavior
 
-JSON responses have these headers:
+JSON responses have these headers (`/docs` sends the same with `Content-Type: text/html; charset=utf-8`):
 
 ```http
 Content-Type: application/json; charset=utf-8
@@ -368,6 +372,10 @@ Response `200`:
 ```
 
 `sha256` is the digest of the complete Bundle. Run-only Bundles never appear. Route errors match `GET /bundles`.
+
+## `GET /openapi.json` and `GET /docs`
+
+`/openapi.json` returns the OpenAPI 3.1 document built from the route table, so a route cannot exist undocumented. `/docs` returns an HTML page that loads a pinned `@scalar/api-reference` build from jsDelivr (`SCALAR_SCRIPT` in `src/http/openapi.ts`) and renders `/openapi.json`. Neither touches D1, R2, secrets, the limiter, or the presigner. Query and header schemas in the document describe the handwritten parsers; the parsers own the error semantics above.
 
 ## Presigned downloads
 

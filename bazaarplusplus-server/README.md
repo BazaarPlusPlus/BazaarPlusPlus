@@ -8,7 +8,7 @@ A Bundle is the immutable unit of upload, storage, and delivery — exactly one 
 - **Streaming, not buffering.** Ingest buffers only the fixed prefix and the bounded manifest; Run and Screenshot bytes stream through incremental digest validation into a single conditional R2 PUT and are never decompressed.
 - **No download proxy.** Every consumer downloads the same complete Bundle directly from R2 through a seven-day presigned `GET` URL, inside an 8-day R2 lifecycle window.
 
-The public surface is five routes: liveness, public streaming ingest, token-protected analyzer sync, rate-limited Ghost discovery, and the token-protected BazaarDB Feed ([ADR 0004](docs/adr/0004-bazaardb-cursor-feed.md)). The wire contract is [docs/api-reference.md](docs/api-reference.md); the binary Bundle format and its golden vectors are [contracts/v6](contracts/v6); the domain language is [GLOSSARY.md](GLOSSARY.md).
+The public surface is five routes: liveness, public streaming ingest, token-protected analyzer sync, rate-limited Ghost discovery, and the token-protected BazaarDB Feed ([ADR 0004](docs/adr/0004-bazaardb-cursor-feed.md)), plus the generated OpenAPI document at `/openapi.json` and its Scalar reference at `/docs`. The wire contract is [docs/api-reference.md](docs/api-reference.md); the binary Bundle format and its golden vectors are [contracts/v6](contracts/v6); the domain language is [GLOSSARY.md](GLOSSARY.md).
 
 ## Architecture
 

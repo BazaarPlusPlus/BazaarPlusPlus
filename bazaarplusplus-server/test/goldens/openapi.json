@@ -1,0 +1,1379 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BazaarPlusPlus Mod API V6",
+    "version": "6",
+    "description": "The mod-facing backend for Bundle V6. Errors share one envelope; clients act on the status, `code`, and `retryable`, never on `message`. A known path with another method returns `405 method_not_allowed` with `Allow`, and an unknown path returns `404 not_found`. No route sends CORS headers."
+  },
+  "servers": [
+    {
+      "url": "https://mod-api-v6.bazaarplusplus.com"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Liveness"
+    },
+    {
+      "name": "Ingest",
+      "description": "Public Bundle upload"
+    },
+    {
+      "name": "Discovery",
+      "description": "Bundle and Ghost Battle discovery"
+    },
+    {
+      "name": "Documentation",
+      "description": "This document and its reference page"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness probe",
+        "description": "Touches no D1, R2, secret, limiter, or presigner.",
+        "responses": {
+          "200": {
+            "description": "Alive",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bundles": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Enumerate Bundles for the analyzer",
+        "description": "Keyset pages over a fixed, stateless availability window. Parameters may appear only once and unknown parameters are invalid. The Worker signs only returned rows.",
+        "security": [
+          {
+            "BundleSyncToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "available_from_ms",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Inclusive window start; no earlier than server time minus 8 days"
+            },
+            "required": true,
+            "description": "Inclusive window start; no earlier than server time minus 8 days"
+          },
+          {
+            "in": "query",
+            "name": "available_before_ms",
+            "schema": {
+              "description": "Exclusive window end; defaults to and may not exceed `server_now_ms - 60000`",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Exclusive window end; defaults to and may not exceed `server_now_ms - 60000`"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 200,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_available_at_ms",
+            "schema": {
+              "description": "Keyset cursor, paired with `after_bundle_id`: the last returned availability time",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Keyset cursor, paired with `after_bundle_id`: the last returned availability time"
+          },
+          {
+            "in": "query",
+            "name": "after_bundle_id",
+            "schema": {
+              "description": "Keyset cursor, paired with `after_available_at_ms`: the last returned Bundle ID",
+              "type": "string",
+              "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+              "example": "01J00000000000000000000001"
+            },
+            "description": "Keyset cursor, paired with `after_available_at_ms`: the last returned Bundle ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the window",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleCollectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_query`: Missing, repeated, unknown, or invalid query parameter\n- `window_not_settled`: Bundle window ends after the settle point",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `unauthorized`: Missing or invalid service token",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `insufficient_scope`: Service token does not grant access to the route",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "- `window_expired`: Bundle window is outside R2 retention",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Ingest"
+        ],
+        "summary": "Upload one sealed Bundle",
+        "description": "Public and unauthenticated: `run.player_account_id` is a caller assertion. The body is the Bundle V6 binary (prefix, manifest, Run, optional Screenshot), streamed into R2 while length and digests are validated. Stable `invalid_bundle.details.reason` values are listed in `docs/api-reference.md`.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Content-Length",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8388607,
+              "description": "Exact Bundle byte length"
+            },
+            "required": true,
+            "description": "Exact Bundle byte length"
+          },
+          {
+            "in": "header",
+            "name": "Content-Digest",
+            "schema": {
+              "type": "string",
+              "description": "Exactly one RFC 9530 value: `sha-256=:<base64 SHA-256>:`"
+            },
+            "required": true,
+            "description": "Exactly one RFC 9530 value: `sha-256=:<base64 SHA-256>:`"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-bpp-bundle-v6": {
+              "schema": {
+                "type": "string",
+                "description": "Bundle V6 binary, 1–8388607 bytes",
+                "contentMediaType": "application/x-bpp-bundle-v6"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Identical Bundle already stored",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleReceipt"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "First logical commit",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_content_length`: Invalid header or actual length mismatch\n- `invalid_content_digest`: Invalid or unsupported digest field",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `bundle_id_conflict`: Bundle identity has different bytes\n- `run_already_bundled`: Run belongs to another Bundle",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "411": {
+            "description": "- `content_length_required`: Content-Length header missing",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "- `bundle_too_large`: Declared or actual size reaches 8 MiB",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "- `unsupported_content_type`: Wrong Bundle media type",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "- `invalid_bundle`: Prefix, manifest, layout, or bounds invalid\n- `unsupported_bundle_version`: Bundle version not accepted\n- `unsupported_run_format`: Run format not accepted\n- `bundle_digest_mismatch`: Complete digest mismatch\n- `segment_digest_mismatch`: Run or Screenshot digest mismatch",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ghost-battles": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Discover Ghost Battles against a player",
+        "description": "Per-IP rate limited before parsing. Looks back exactly five days. An unknown account returns an empty list.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "player_account_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "description": "The local player whose Ghosts to find"
+            },
+            "required": true,
+            "description": "The local player whose Ghosts to find"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 200,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ghost Battle summaries",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GhostDiscoveryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_query`: Missing, repeated, unknown, or invalid query parameter",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "- `rate_limited` (retryable): Ghost request rate exceeded",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bazaardb/bundles": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "BazaarDB Feed of Screenshot-bearing Bundles",
+        "description": "`GET /bundles` with a Screenshot filter: same query, settle point, lookback, keyset order, and cursor. The consumer stores its own cursor.",
+        "security": [
+          {
+            "BazaarDbDeliveryToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "available_from_ms",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Inclusive window start; no earlier than server time minus 8 days"
+            },
+            "required": true,
+            "description": "Inclusive window start; no earlier than server time minus 8 days"
+          },
+          {
+            "in": "query",
+            "name": "available_before_ms",
+            "schema": {
+              "description": "Exclusive window end; defaults to and may not exceed `server_now_ms - 60000`",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Exclusive window end; defaults to and may not exceed `server_now_ms - 60000`"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 200,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_available_at_ms",
+            "schema": {
+              "description": "Keyset cursor, paired with `after_bundle_id`: the last returned availability time",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Keyset cursor, paired with `after_bundle_id`: the last returned availability time"
+          },
+          {
+            "in": "query",
+            "name": "after_bundle_id",
+            "schema": {
+              "description": "Keyset cursor, paired with `after_available_at_ms`: the last returned Bundle ID",
+              "type": "string",
+              "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+              "example": "01J00000000000000000000001"
+            },
+            "description": "Keyset cursor, paired with `after_available_at_ms`: the last returned Bundle ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the window",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BazaarDbBundlePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_query`: Missing, repeated, unknown, or invalid query parameter\n- `window_not_settled`: Bundle window ends after the settle point",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `unauthorized`: Missing or invalid service token",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `insufficient_scope`: Service token does not grant access to the route",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "- `window_expired`: Bundle window is outside R2 retention",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": [
+          "Documentation"
+        ],
+        "summary": "OpenAPI 3.1 document",
+        "description": "Generated from the route table and its Zod schemas.",
+        "responses": {
+          "200": {
+            "description": "This document",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "tags": [
+          "Documentation"
+        ],
+        "summary": "Interactive API reference",
+        "description": "A Scalar page rendering `/openapi.json`.",
+        "responses": {
+          "200": {
+            "description": "HTML page",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "text/html": {}
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          },
+          "server_time_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          }
+        },
+        "required": [
+          "status",
+          "server_time_ms"
+        ],
+        "additionalProperties": false
+      },
+      "ApiErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_content_length",
+                  "invalid_content_digest",
+                  "invalid_query",
+                  "window_not_settled",
+                  "unauthorized",
+                  "insufficient_scope",
+                  "not_found",
+                  "method_not_allowed",
+                  "bundle_id_conflict",
+                  "run_already_bundled",
+                  "window_expired",
+                  "content_length_required",
+                  "bundle_too_large",
+                  "unsupported_content_type",
+                  "invalid_bundle",
+                  "unsupported_bundle_version",
+                  "unsupported_run_format",
+                  "bundle_digest_mismatch",
+                  "segment_digest_mismatch",
+                  "rate_limited",
+                  "internal_error",
+                  "storage_unavailable"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "Diagnostic text; clients do not match it"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "retryable",
+              "request_id"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "BundleCollectionPage": {
+        "type": "object",
+        "properties": {
+          "window": {
+            "$ref": "#/components/schemas/CollectionWindow"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BundleCollectionItem"
+            },
+            "description": "Sorted by `available_at_ms ASC, bundle_id ASC`"
+          },
+          "next_after": {
+            "$ref": "#/components/schemas/CollectionCursor"
+          }
+        },
+        "required": [
+          "window",
+          "items",
+          "next_after"
+        ],
+        "additionalProperties": false
+      },
+      "CollectionWindow": {
+        "type": "object",
+        "properties": {
+          "available_from_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          },
+          "available_before_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          }
+        },
+        "required": [
+          "available_from_ms",
+          "available_before_ms"
+        ],
+        "additionalProperties": false
+      },
+      "BundleCollectionItem": {
+        "type": "object",
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+            "description": "Canonical uppercase ULID",
+            "example": "01J00000000000000000000001"
+          },
+          "available_at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          },
+          "download_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Seven-day R2 presigned GET URL; a bearer capability for the complete Bundle"
+          },
+          "download_expires_at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          }
+        },
+        "required": [
+          "bundle_id",
+          "available_at_ms",
+          "download_url",
+          "download_expires_at_ms"
+        ],
+        "additionalProperties": false
+      },
+      "CollectionCursor": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "available_at_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Unix time in milliseconds"
+              },
+              "bundle_id": {
+                "type": "string",
+                "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+                "description": "Canonical uppercase ULID",
+                "example": "01J00000000000000000000001"
+              }
+            },
+            "required": [
+              "available_at_ms",
+              "bundle_id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "`null` on the final page"
+      },
+      "BundleReceipt": {
+        "type": "object",
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+            "description": "Canonical uppercase ULID",
+            "example": "01J00000000000000000000001"
+          },
+          "run_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "description": "Opaque identity"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "stored",
+              "duplicate"
+            ],
+            "description": "`stored` on the first logical commit (201), `duplicate` for identical bytes (200)"
+          }
+        },
+        "required": [
+          "bundle_id",
+          "run_id",
+          "outcome"
+        ],
+        "additionalProperties": false
+      },
+      "GhostDiscoveryResponse": {
+        "type": "object",
+        "properties": {
+          "battles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GhostBattleSummary"
+            },
+            "description": "Sorted by `recorded_at_ms DESC, battle_id DESC`"
+          }
+        },
+        "required": [
+          "battles"
+        ],
+        "additionalProperties": false
+      },
+      "GhostBattleSummary": {
+        "type": "object",
+        "properties": {
+          "battle_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "description": "Opaque identity"
+          },
+          "bundle_id": {
+            "type": "string",
+            "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+            "description": "Canonical uppercase ULID",
+            "example": "01J00000000000000000000001"
+          },
+          "recorded_at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "hour": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "result": {
+            "type": "string"
+          },
+          "winner_combatant_id": {
+            "type": "string"
+          },
+          "is_final_battle": {
+            "type": "boolean"
+          },
+          "player": {
+            "type": "object",
+            "properties": {
+              "account_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "description": "Opaque identity"
+              },
+              "display_name": {
+                "type": "string"
+              },
+              "hero_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rank": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rating": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "account_id",
+              "display_name",
+              "hero_name",
+              "rank",
+              "rating"
+            ],
+            "additionalProperties": false,
+            "description": "The uploader, who becomes the challenger"
+          },
+          "opponent": {
+            "type": "object",
+            "properties": {
+              "account_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "description": "Opaque identity"
+              },
+              "hero_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "account_id",
+              "hero_name"
+            ],
+            "additionalProperties": false,
+            "description": "The queried local player"
+          },
+          "download_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Seven-day R2 presigned GET URL; a bearer capability for the complete Bundle"
+          },
+          "download_expires_at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          }
+        },
+        "required": [
+          "battle_id",
+          "bundle_id",
+          "recorded_at_ms",
+          "day",
+          "hour",
+          "result",
+          "winner_combatant_id",
+          "is_final_battle",
+          "player",
+          "opponent",
+          "download_url",
+          "download_expires_at_ms"
+        ],
+        "additionalProperties": false
+      },
+      "BazaarDbBundlePage": {
+        "type": "object",
+        "properties": {
+          "window": {
+            "$ref": "#/components/schemas/CollectionWindow"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BazaarDbBundleItem"
+            },
+            "description": "Sorted by `available_at_ms ASC, bundle_id ASC`"
+          },
+          "next_after": {
+            "$ref": "#/components/schemas/CollectionCursor"
+          }
+        },
+        "required": [
+          "window",
+          "items",
+          "next_after"
+        ],
+        "additionalProperties": false
+      },
+      "BazaarDbBundleItem": {
+        "type": "object",
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+            "description": "Canonical uppercase ULID",
+            "example": "01J00000000000000000000001"
+          },
+          "available_at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          },
+          "download_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Seven-day R2 presigned GET URL; a bearer capability for the complete Bundle"
+          },
+          "download_expires_at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          },
+          "run_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "description": "Opaque identity"
+          },
+          "content_type": {
+            "type": "string",
+            "const": "application/x-bpp-bundle-v6"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Digest of the complete Bundle"
+          }
+        },
+        "required": [
+          "bundle_id",
+          "available_at_ms",
+          "download_url",
+          "download_expires_at_ms",
+          "run_id",
+          "content_type",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "BundleSyncToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`BUNDLE_SYNC_TOKEN`, a 43-character unpadded base64url service token"
+      },
+      "BazaarDbDeliveryToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`BAZAARDB_DELIVERY_TOKEN`, a 43-character unpadded base64url service token"
+      }
+    }
+  }
+}

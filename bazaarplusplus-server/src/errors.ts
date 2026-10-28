@@ -17,7 +17,7 @@ export class HttpError extends Error {
 // TypeScript widens JSON string values, so the literal union is spelled here once
 // and checked against contracts/mod-api-errors.json when this module loads; the
 // JSON stays the only owner of each code's status and retry flag.
-const API_ERROR_CODES = [
+export const API_ERROR_CODES = [
   "invalid_content_length",
   "invalid_content_digest",
   "invalid_query",

@@ -13,7 +13,7 @@ The architecture therefore uses a small number of explicit seams rather than con
 
 ### Route table and HTTP shell
 
-`src/http/routes.ts` is the complete public route table. `src/http/route-shell.ts` binds that table into the Worker `fetch`; it is the sole HTTP exit and owns path and method resolution, request IDs, authentication ordering, JSON envelopes, route-specific error headers, and unclassified-error logging. Route handlers return status and body data; they do not construct the final HTTP response.
+`src/http/routes.ts` is the complete public route table. `src/http/route-shell.ts` binds that table into the Worker `fetch`; it is the sole HTTP exit and owns path and method resolution, request IDs, authentication ordering, JSON envelopes (and the HTML envelope for `/docs`), route-specific error headers, and unclassified-error logging. Route handlers return status and body data; they do not construct the final HTTP response. Each route also carries its OpenAPI operation, which `src/http/openapi.ts` renders into `/openapi.json`.
 
 ### Handler dependencies
 

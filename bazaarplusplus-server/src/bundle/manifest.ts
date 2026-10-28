@@ -1,5 +1,5 @@
-const BUNDLE_ID = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
-const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+export const BUNDLE_ID = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+export const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 export interface ValidatedBattleProjection {
   battle_id: string;

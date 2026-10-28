@@ -3,6 +3,7 @@ import { BUNDLE_CONTENT_TYPE } from "../bundle/prefix";
 import type { Env } from "../env";
 import { apiError } from "../errors";
 import { oneQueryValue } from "../http/request";
+import type { BazaarDbBundleItem, BundleCollectionItem, CollectionPage } from "../http/schemas";
 import {
   SYNC_DEFAULT_LIMIT,
   SYNC_MAX_LIMIT,
@@ -15,25 +16,6 @@ import {
   type SignedBundleDownload,
   signDownloadPage,
 } from "../presigner";
-
-interface BundleCollectionItem {
-  bundle_id: string;
-  available_at_ms: number;
-  download_url: string;
-  download_expires_at_ms: number;
-}
-
-interface BazaarDbBundleItem extends BundleCollectionItem {
-  run_id: string;
-  content_type: typeof BUNDLE_CONTENT_TYPE;
-  sha256: string;
-}
-
-export interface CollectionPage<Item> {
-  window: { available_from_ms: number; available_before_ms: number };
-  items: Item[];
-  next_after: { available_at_ms: number; bundle_id: string } | null;
-}
 
 interface CollectionRow {
   bundle_id: string;

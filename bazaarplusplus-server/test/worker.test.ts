@@ -80,6 +80,8 @@ describe("the public route table", () => {
     ["/bundles", "GET, POST"],
     ["/ghost-battles", "GET"],
     ["/bazaardb/bundles", "GET"],
+    ["/openapi.json", "GET"],
+    ["/docs", "GET"],
   ])("OPTIONS %s is not a route and advertises the real methods", async (path, allow) => {
     const response = await worker.fetch(
       new Request(`https://mod-api-v6.bazaarplusplus.com${path}`, {

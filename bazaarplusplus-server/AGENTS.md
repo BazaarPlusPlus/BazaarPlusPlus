@@ -20,6 +20,6 @@ The standalone mod-facing backend, a Cloudflare Worker, ingesting Bundle V6. Rep
 - Bundle upload is intentionally unauthenticated. `uploader_account_id` and `bundle_uploaders` are caller assertions; treat them as data, never as authentication or authorization facts.
 - Before changing ingest, Ghost projection eligibility, or Bundle download delivery, read the invariants in `GLOSSARY.md` (Runtime boundaries) and `docs/adr/0001-deep-module-seams.md` (Bundle opening, Bundle persistence).
 - Protected routes authenticate before parsing or querying, and `GET /ghost-battles` calls its rate-limit binding before business query parsing or D1 access.
-- Adding a route updates `src/http/routes.ts`, the `the public route table` cases in `test/worker.test.ts`, and `docs/api-reference.md` together.
+- Adding a route updates `src/http/routes.ts` (handler and its `docs` operation), the `the public route table` cases in `test/worker.test.ts`, `docs/api-reference.md`, and the `test/goldens/openapi.json` golden together. A response body shape changes in `src/http/schemas.ts`, never in a module-local interface.
 - `contracts/mod-api-errors.json` owns HTTP error codes, statuses, and retry flags. A new or changed code also updates the error table in `docs/api-reference.md`, which `test/contracts/mod-api-errors.test.ts` requires to match the JSON row for row.
 - Tests exercise public module interfaces. Storage adapter tests may inspect schema and query plans only when the migration or SQL statement is the interface under test.

@@ -4,6 +4,7 @@ import { expect, test, vi } from "vitest";
 import contract from "../../contracts/mod-api-errors.json";
 import apiReference from "../../docs/api-reference.md?raw";
 import type { Env } from "../../src/env";
+import { ApiErrorResponse } from "../../src/http/schemas";
 import worker from "../../src/index";
 import { contentDigest, makeBundleFixture, sealBundle, uploadRequest } from "../fixtures/bundle";
 
@@ -26,6 +27,7 @@ test("real HTTP failures emit exactly the declared codes, statuses, and retry fl
     const response = await worker.fetch(request, bindings);
     const body = await response.json<{ error: { code: string; retryable: boolean } }>();
     expect(body, `${request.method} ${request.url}`).toHaveProperty("error.code");
+    expect(ApiErrorResponse.safeParse(body).error?.issues).toBeUndefined();
     const actual = {
       code: body.error.code,
       status: response.status,
