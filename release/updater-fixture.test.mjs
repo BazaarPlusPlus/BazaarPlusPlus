@@ -13,6 +13,7 @@ import {
 import {
   DOWNLOAD_PLATFORM_KEYS,
   decodeAndroidDownload,
+  modManifestPath,
   platformManifestPath
 } from './downloads.ts';
 import { validatePlatformManifest } from './manifest.mjs';
@@ -119,7 +120,7 @@ test('the mod restates the release origin, platform keys and manifest path exact
   expect(source).toContain(`"${RELEASE_BASE_URL}"`);
   expect(source).toContain(`"${DOWNLOAD_PLATFORM_KEYS.windows}"`);
   expect(source).toContain(`"${DOWNLOAD_PLATFORM_KEYS.mac}"`);
-  expect(source).toContain(platformManifestPath('{platformKey}'));
+  expect(source).toContain(modManifestPath('{platformKey}'));
   expect(source).toContain('latest.json');
 });
 

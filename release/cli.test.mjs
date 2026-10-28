@@ -618,6 +618,12 @@ test('publish pipeline reproduces the shared fixtures', async () => {
   // The temporary checkout's commits depend on every copied file; the
   // fixtures keep synthetic commits instead.
   for (const file of goldenFiles) {
+    if (file.startsWith('latest/')) {
+      const modFile = file.replace('latest/', 'latest/mod/');
+      expect((await store.get(modFile)).bytes).toEqual(
+        (await store.get(file)).bytes
+      );
+    }
     const published = (await store.get(file)).bytes
       .toString('utf8')
       .replaceAll(lockstepCommit, 'a'.repeat(40))

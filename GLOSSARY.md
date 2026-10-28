@@ -14,7 +14,7 @@ The files the mod loader host loads: on desktop, what the installer carries and 
 The shared facts about Payload files (`release/payload.json`): current files, their host (`bepinex` or `melonloader`) and platform scope, ownership, producer, and retired files. Each release platform installs only its own host's entries. User data and third-party plugins are outside it.
 
 **Platform Release Manifest**:
-One platform's newest promoted release (`latest/<platformKey>.json`). A desktop one carries its version, updater package, actual installer download URL, and recorded Mainland Mirror address; the Android one carries the Android Release APK and the game it was built for. Each carries its Managed Payload with the history database schema and the `nonManagedPayloadDigest` it needs. Platforms may be at different versions.
+One platform's newest promoted release. The installer and website read `latest/<platformKey>.json`; the mod reads the same record at its separate endpoint `latest/mod/<platformKey>.json`. Both are published by the same Release Promotion. A desktop one carries its version, updater package, actual installer download URL, and recorded Mainland Mirror address; the Android one carries the Android Release APK and the game it was built for. Each carries its Managed Payload with the history database schema and the `nonManagedPayloadDigest` it needs. Platforms may be at different versions.
 
 **Lockstep Platform** (lockstep 平台):
 A platform the Release Manifest waits for: Windows and macOS (`LOCKSTEP_PLATFORM_KEYS` in `release/release-platforms.mjs`). Android is a release platform but not a Lockstep Platform, so its game-driven cadence never holds back a desktop release.
@@ -23,7 +23,7 @@ A platform the Release Manifest waits for: Windows and macOS (`LOCKSTEP_PLATFORM
 The newest Product Release that every Lockstep Platform promoted at the same version and commit, in the same Tauri shape for each (`latest.json`). Installers whose own Platform Release Manifest fails to load fall back to it, so it never runs ahead of any Lockstep Platform.
 
 **Release Promotion**:
-Publishing one platform's Platform Release Manifest once its artifacts are in place and, on desktop, its Mainland Mirror is recorded or explicitly waived; the Release Manifest advances when every Lockstep Platform names the same release. Repeating the promotion of the same release leaves the existing artifacts unchanged.
+Publishing both update endpoints of one platform's Platform Release Manifest once its complete artifacts are in place and, on desktop, its Mainland Mirror is recorded or explicitly waived; the Release Manifest advances when every Lockstep Platform names the same release. Repeating the promotion of the same release leaves the existing artifacts unchanged.
 
 **Android Release APK** (Android 发布 APK):
 The official game APK with the Loader Release, the Interop Snapshot and an Android Mod Payload injected, signed with BPP's Android release key (`docs/adr/0009-android-release-key.md`): what an Android user installs. Its identity is the game version, the loader, the interop, the injected native libraries and the Updater, not the product version: it is stored once under `installer/android/apk/` in the public bucket and named by the game build and the fragment's `nonManagedPayloadDigest` over the other four, `builtForProductVersion` records which Mods it carries, and later product versions point at the same APK until any of the five changes. `docs/adr/0010-android-release-platform.md` records why BPP may distribute it.

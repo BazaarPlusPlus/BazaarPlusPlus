@@ -37,7 +37,7 @@ Most players should get the installer or APK from [bazaarplusplus.com/download](
 3. Launch _The Bazaar_ once after installation so BazaarPlusPlus can finish setup.
 4. On the main menu, confirm that the **Card Collection** button appears and the footer version text includes `BPP version`.
 
-The desktop installer also provides repair, uninstall, data reset, and local history cleanup, and can update itself. When only the mod changes, it updates itself in game.
+The desktop installer also provides repair, uninstall, data reset, and local history cleanup, and can update itself. Compatible mod updates download in game and take effect after restarting. Every desktop release also provides a complete installer with that version of the mod; if in-game updating cannot connect, download the installer and update manually.
 
 After upgrading from 5.x, one click on the installer's Install page imports your old runs, screenshots, and replays into the new 6.0 data folder; imported runs stay local and are never uploaded, the old folder is left unchanged, and you can delete it from the installer later.
 
@@ -55,7 +55,7 @@ Desktop includes Windows and macOS. ✅ supported　◐ partial　— not availa
 | Feature                                               | Desktop |            Android            |
 | ----------------------------------------------------- | :-----: | :---------------------------: |
 | Card collection and ten-win build recommendations     |   ✅    |              ✅               |
-| Run history, favorites, and notes                     |   ✅    |      ◐ no hero portraits      |
+| Run history, favorites, and notes                     |   ✅    |              ✅               |
 | Combat replays and Ghost Battles                      |   ✅    |              ✅               |
 | Combat status bar and speed controls                  |   ✅    |              ✅               |
 | Enchant, upgrade, and detailed previews               |   ✅    | ◐ controls and content differ |

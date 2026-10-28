@@ -29,7 +29,7 @@ On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-
 
 ## Artifact And Upload Contract
 
-`createArtifactManifest` in `../release/artifact-manifest.mjs` is called by the product coordinator only after packaging and source/Git revalidation. It records one installer/updater pair, the sealed Payload receipt, Git identity, sizes, hashes and signature content. Failed builds remove the previous receipt; there is no standalone command to create a receipt for leftover bundles.
+`createArtifactManifest` in `../release/artifact-manifest.mjs` is called by the product coordinator only after packaging and source/Git revalidation. It records one complete installer/updater pair and the signed Managed Payload zip for every desktop release, the sealed Payload receipt, Git identity, sizes, hashes and signature content. Failed builds remove the previous receipt; there is no standalone command to create a receipt for leftover bundles.
 
 `validateArtifactManifest` rejects dirty or changed release inputs, mismatched versions/commits, and modified artifacts before upload. The uploader freezes every file before making any remote write. Platform uploads publish nothing; the workspace coordinator promotes either every platform or one platform (`promote --platform`), as specified in the [product release guide](../../docs/release.md).
 

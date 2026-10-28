@@ -11,10 +11,11 @@ import {
 import {
   RELEASE_BASE_URL,
   RELEASE_MANIFEST_PATH,
+  modManifestPath,
   platformManifestPath
 } from './downloads.ts';
 
-export { RELEASE_MANIFEST_PATH, platformManifestPath };
+export { RELEASE_MANIFEST_PATH, modManifestPath, platformManifestPath };
 
 // Artifact paths sit below the release origin's path (/installer).
 const RELEASE_BASE_PATH = new URL(RELEASE_BASE_URL).pathname.replace(/\/$/, '');
