@@ -83,7 +83,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 生产者 `managed` 与 `history-contract` 的条目组成 Managed Payload，mod 自己更新它；其余条目（加载器、native、`bootstrap`、`sqlite-*` 和生产者 `updater` 的 Updater）只由 installer 或新 APK 更新，它们的 sha256 汇成 fragment 的 `nonManagedPayloadDigest`。决策记录见 [mod ADR 0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)。
 
 - `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.mjs`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
-- fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：桌面在 `upload` 时与已提升的平台清单比较这两项，Android 看 APK 是否复用。mod 只与正在运行的副本比较。迁移进 `installer/` 的 5.x 平台清单（[ADR 0007](adr/0007-one-public-bucket-and-domain.md)）没有这些字段，6.0.0 把它们读作不可自更新，见 `release/manifest.mjs` 的 `predatesSelfUpdate`。
+- fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：桌面在 `upload` 时与已提升的平台清单比较这两项，Android 看 APK 是否复用。mod 只与正在运行的副本比较。
 - Updater 以固定版本 1.0.0 确定性构建，同一编译器构建不变的源码时文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新 APK。
 
 ## 本地准备与恢复
@@ -96,7 +96,13 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## 远端发布
 
-发布产物放在公开桶 `bazaarplusplus-public` 的 `installer/` 前缀下，对外地址是 `https://cdn.bazaarplusplus.com/installer`（`RELEASE_BASE_URL`）。同一个桶还放 analyzer 的 `metrics/v6/` 和 `just release::mod-data` 上传的 `mod-data/`，见 [ADR 0007](adr/0007-one-public-bucket-and-domain.md)。6.0.0 之前推广的版本仍以 `bppinstaller.bazaarplusplus.com` 记录地址，这个域名作为别名改写到 `installer/`。
+发布产物放在公开桶 `bazaarplusplus-public` 的 `installer/` 前缀下，对外地址是 `https://cdn.bazaarplusplus.com/installer`（`RELEASE_BASE_URL`）。同一个桶还放 analyzer 的 `metrics/v6/` 和 `just release::mod-data` 上传的 `mod-data/`，见 [ADR 0007](adr/0007-one-public-bucket-and-domain.md)。新桶从 6.0.0 开始，之前的版本不在里面；第一次 `upload` 读不到已提升的平台清单，`selfUpdatable` 记为 false。
+
+### 5.x 客户端桥接
+
+5.x 的安装器和 mod 只读旧桶 `bppinstaller`（`bppinstaller.bazaarplusplus.com`）的清单。6.0.0 两个平台都 `promote` 完、`verify-mirror --latest` 通过之后，手工执行一次：先把旧桶里的 `latest.json`、`latest/windows-x86_64.json`、`latest/darwin-aarch64.json` 下载下来备份，再把新桶 `installer/` 下的同名三份清单原样写进旧桶的根目录（`wrangler r2 object get/put --remote`，`--content-type application/json`）。清单里的安装包地址仍然指向 `cdn.`，5.x 的 updater 用相同的公钥验签。写完后用一台装着 5.7.0 的机器确认它能自动更新到 6.0.0。要回滚，就把备份写回去。
+
+只桥接 6.0.0。之后的版本不再写旧桶，满一个月后旧桶和旧域名一起删除（#664）。
 
 上传使用 R2 S3 条件写，凭据是操作员 token 与账号 ID：
 

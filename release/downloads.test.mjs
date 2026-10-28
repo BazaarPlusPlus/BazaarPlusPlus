@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest';
 import {
-  LEGACY_RELEASE_BASE_URL,
   RELEASE_BASE_URL,
   DOWNLOAD_PLATFORM_KEYS,
   UPDATER_ENDPOINTS,
@@ -81,16 +80,6 @@ test.each([
     () =>
       brokenAndroid((record) => {
         record.apk.url = record.apk.url.replace('/installer/', '/');
-      })
-  ],
-  [
-    'an APK under the pre-6.0.0 release origin',
-    () =>
-      brokenAndroid((record) => {
-        record.apk.url = record.apk.url.replace(
-          RELEASE_BASE_URL,
-          LEGACY_RELEASE_BASE_URL
-        );
       })
   ],
   [

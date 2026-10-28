@@ -1,5 +1,4 @@
 import {
-  LEGACY_RELEASE_BASE_URL,
   RELEASE_BASE_URL,
   DOWNLOAD_PLATFORM_KEYS,
   decodeAndroidDownload,
@@ -60,9 +59,7 @@ function decodeDownloadUrl(
     url.password ||
     url.hash ||
     url.search ||
-    ![RELEASE_BASE_URL, LEGACY_RELEASE_BASE_URL].some((base) =>
-      url.href.startsWith(`${base}${release}`)
-    )
+    !url.href.startsWith(`${RELEASE_BASE_URL}${release}`)
   ) {
     throw new Error(`${path} has an invalid ${platformKey} download`);
   }

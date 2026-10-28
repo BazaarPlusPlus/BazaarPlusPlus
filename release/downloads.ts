@@ -1,11 +1,6 @@
 // Browser-safe Product Release facts shared by the website, installer and writer.
 export const RELEASE_BASE_URL = 'https://cdn.bazaarplusplus.com/installer';
 
-// Releases promoted before 6.0.0 name artifacts under this origin. It stays an
-// alias of the public bucket, rewritten to installer/, until 5.x clients age out.
-export const LEGACY_RELEASE_BASE_URL =
-  'https://bppinstaller.bazaarplusplus.com';
-
 export const DOWNLOAD_PLATFORM_KEYS = Object.freeze({
   windows: 'windows-x86_64',
   mac: 'darwin-aarch64',
@@ -116,8 +111,7 @@ function positiveInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) > 0;
 }
 
-// True when `value` is an https URL below RELEASE_BASE_URL and `prefix`. Android
-// is new in 6.0.0, so LEGACY_RELEASE_BASE_URL never names its artifacts.
+// True when `value` is an https URL below RELEASE_BASE_URL and `prefix`.
 function releaseUrlUnder(value: unknown, prefix: string): value is string {
   if (typeof value !== 'string') return false;
   let url: URL;
