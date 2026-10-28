@@ -16,7 +16,9 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "aws4fetch": "^1.0.20"
+    "aws4fetch": "^1.0.20",
+    "zod": "4.6.7",
+    "zod-openapi": "6.0.2"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

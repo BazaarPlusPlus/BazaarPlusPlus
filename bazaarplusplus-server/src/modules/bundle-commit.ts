@@ -1,12 +1,7 @@
 import type { ValidatedBundleDescriptor } from "../bundle/manifest";
 import { apiError, type HttpError } from "../errors";
+import type { BundleReceipt } from "../http/schemas";
 import { logEvent } from "../observability";
-
-export interface BundleReceipt {
-  bundle_id: string;
-  run_id: string;
-  outcome: "stored" | "duplicate";
-}
 
 export type CommitOutcome =
   | { kind: "stored" | "duplicate"; receipt: BundleReceipt }

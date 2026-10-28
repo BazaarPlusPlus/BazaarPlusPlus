@@ -10,6 +10,18 @@ export function jsonResponse(body: unknown, init: ResponseInit & { requestId: st
   });
 }
 
+export function htmlResponse(html: string, init: ResponseInit & { requestId: string }): Response {
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "text/html; charset=utf-8");
+  headers.set("Cache-Control", "no-store");
+  headers.set("X-Request-Id", init.requestId);
+
+  return new Response(html, {
+    ...init,
+    headers,
+  });
+}
+
 export function jsonError(
   error: {
     code: string;

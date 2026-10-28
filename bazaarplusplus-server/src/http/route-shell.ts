@@ -2,7 +2,8 @@ import type { Env } from "../env";
 import { apiError, HttpError } from "../errors";
 import { logError } from "../observability";
 import { authenticateServiceToken, type ServiceScope } from "./auth";
-import { jsonError, jsonResponse } from "./json";
+import { htmlResponse, jsonError, jsonResponse } from "./json";
+import type { RouteDocs } from "./openapi";
 import { ROUTES } from "./routes";
 
 export interface HandlerContext {
@@ -11,10 +12,9 @@ export interface HandlerContext {
   readonly requestId: string;
 }
 
-export interface HandlerResult {
-  readonly status: number;
-  readonly body: unknown;
-}
+export type HandlerResult =
+  | { readonly status: number; readonly body: unknown }
+  | { readonly status: number; readonly html: string };
 
 export type RouteHandler = (context: HandlerContext) => Promise<HandlerResult>;
 
@@ -23,6 +23,7 @@ export interface RouteDefinition {
   readonly method: "GET" | "POST";
   readonly auth?: ServiceScope;
   readonly handler: RouteHandler;
+  readonly docs: RouteDocs;
 }
 
 interface IndexedPath {
@@ -101,6 +102,9 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
 
   try {
     const result = await route.handler({ request, env, requestId });
+    if ("html" in result) {
+      return htmlResponse(result.html, { status: result.status, requestId });
+    }
     return jsonResponse(result.body, {
       status: result.status,
       requestId,

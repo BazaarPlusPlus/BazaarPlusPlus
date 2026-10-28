@@ -3,37 +3,10 @@ import { validIdentifier } from "../bundle/manifest";
 import type { Env } from "../env";
 import { apiError } from "../errors";
 import { oneQueryValue } from "../http/request";
+import type { GhostBattleSummary, GhostDiscoveryResponse } from "../http/schemas";
 import { GHOST_DEFAULT_LIMIT, GHOST_LOOKBACK_MS, GHOST_MAX_LIMIT } from "../limits";
 import { logEvent } from "../observability";
 import { createBundleDownloadSigner, signDownloadPage } from "../presigner";
-
-interface GhostBattleSummary {
-  battle_id: string;
-  bundle_id: string;
-  recorded_at_ms: number;
-  is_final_battle: boolean;
-  day: number;
-  hour: number;
-  result: string;
-  winner_combatant_id: string;
-  player: {
-    account_id: string;
-    display_name: string;
-    hero_name: string | null;
-    rank: string | null;
-    rating: number | null;
-  };
-  opponent: {
-    account_id: string;
-    hero_name: string | null;
-  };
-  download_url: string;
-  download_expires_at_ms: number;
-}
-
-export interface GhostDiscoveryResponse {
-  battles: GhostBattleSummary[];
-}
 
 interface GhostRow {
   uploader_account_id: string;

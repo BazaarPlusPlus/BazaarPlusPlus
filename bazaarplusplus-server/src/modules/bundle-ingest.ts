@@ -3,10 +3,10 @@ import { type OpenedBundle, openBundle } from "../bundle/open";
 import { BUNDLE_CONTENT_TYPE, BUNDLE_VERSION } from "../bundle/prefix";
 import type { Env } from "../env";
 import { apiError, HttpError } from "../errors";
+import type { BundleReceipt } from "../http/schemas";
 import { MAX_BUNDLE_BYTES } from "../limits";
 import { logError, logEvent } from "../observability";
 import {
-  type BundleReceipt,
   type CommitOutcome,
   commitBundle,
   conflictError,
