@@ -3,13 +3,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { compareProductVersions, readProductVersion } from './product.mjs';
-import {
-  RELEASE_BUCKET,
-  RELEASE_PREFIX,
-  putImmutable,
-  putImmutableFile,
-  putReplaceable
-} from './r2-store.mjs';
+import { putImmutable, putImmutableFile, putReplaceable } from './r2-store.mjs';
 import {
   RELEASE_MANIFEST_PATH,
   assertMirrorUrl,
@@ -42,12 +36,7 @@ import {
   gitStateForRoot,
   validateArtifactManifest
 } from './artifact-manifest.mjs';
-import {
-  androidApkFacts,
-  androidApkRecordKey,
-  publishedAndroidApk,
-  readAndroidArtifacts
-} from './android-release.mjs';
+import { readAndroidArtifacts } from './android-release.mjs';
 
 const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 function readJsonObject(object, description) {
@@ -198,11 +187,12 @@ function objectKey(url, baseUrl) {
 
 // The publisher's hint whether installs of the promoted release can take this
 // one as a Managed Payload: same history database schema and same non-managed
-// payload. The mod never reads it; it compares against its running copy.
-async function selfUpdatableFromPromoted(store, platform, facts) {
-  const promoted = (await readPlatformManifest(store, platform))?.downloads[
-    platform
-  ];
+// payload. The mod never reads it; it compares against its running copy. Once
+// `version` itself is promoted, uploading it again repeats the published hint.
+async function selfUpdatableFromPromoted(store, platform, version, facts) {
+  const manifest = await readPlatformManifest(store, platform);
+  const promoted = manifest?.downloads[platform];
+  if (manifest?.version === version) return promoted.selfUpdatable;
   return (
     promoted?.historyDatabaseUserVersion === facts.historyDatabaseUserVersion &&
     promoted?.nonManagedPayloadDigest === facts.nonManagedPayloadDigest
@@ -229,6 +219,7 @@ export async function uploadPlatform({
     selfUpdatable: await selfUpdatableFromPromoted(
       store,
       validated.manifest.releasePlatformKey,
+      version,
       validated.manifest
     )
   });
@@ -283,12 +274,9 @@ async function assertAndroidSigner(store, platform, signerSha256) {
     );
 }
 
-// Uploads the Android build of VERSION: the Android Release APK under its own
-// identity unless that identity is already published (a mod-only release then
-// points at the published APK), the Managed Payload zip and its signature,
-// and last the fragment naming both. Large files stream from disk. An APK
-// whose upload stopped before its sidecar is completed when this build holds
-// the same bytes.
+// Uploads the Android build of VERSION: its Android Release APK, the Managed
+// Payload zip and its signature, and last the fragment naming both. Large files
+// stream from disk.
 export async function uploadAndroidPlatform({
   workspaceRoot,
   baseUrl,
@@ -307,34 +295,8 @@ export async function uploadAndroidPlatform({
     );
   if (checkout.dirty)
     throw new Error('Current checkout is dirty; refusing upload');
-  const apkKey = manifest.apk.key;
-  const { nonManagedPayloadDigest } = manifest;
-  const published = await publishedAndroidApk(store, {
-    key: apkKey,
-    nonManagedPayloadDigest
-  });
-  let apk;
-  if (published?.record) {
-    if (files.apk)
-      log(
-        `${apkKey} is already published (built for ${published.record.builtForProductVersion}); the APK built here is not uploaded`
-      );
-    apk = androidApkFacts(published.record);
-  } else if (!files.apk) {
-    throw new Error(
-      `${apkKey} was published when the Android build ran but is missing now; build again with --rebuild-apk`
-    );
-  } else {
-    apk = androidApkFacts(manifest.apk);
-    if (published) {
-      const { object } = published;
-      if (object.size !== apk.size || object.sha256 !== apk.sha256)
-        throw new Error(
-          `${apkKey} is on R2 without its sidecar ${androidApkRecordKey(apkKey)}, and it is not the APK built here (${object.sha256}, not ${apk.sha256}); delete ${RELEASE_BUCKET}/${RELEASE_PREFIX}/${apkKey} from R2, then upload again`
-        );
-      log(`${apkKey} is on R2 without its sidecar; completing that upload`);
-    }
-  }
+  const { key: apkKey, ...apk } = manifest.apk;
+  const { nonManagedPayloadDigest, historyDatabaseUserVersion } = manifest;
   const fragment = buildAndroidFragment({
     version,
     gitCommit: manifest.gitCommit,
@@ -345,10 +307,16 @@ export async function uploadAndroidPlatform({
       sha256: manifest.managedPayload.sha256,
       signature: manifest.managedPayload.signature
     },
-    // A client running an APK of an earlier product version can take this
-    // release as a Managed Payload; one built here needs the new APK.
-    selfUpdatable: apk.builtForProductVersion !== version,
-    historyDatabaseUserVersion: manifest.historyDatabaseUserVersion,
+    selfUpdatable: await selfUpdatableFromPromoted(
+      store,
+      releasePlatform('android').key,
+      version,
+      {
+        historyDatabaseUserVersion,
+        nonManagedPayloadDigest
+      }
+    ),
+    historyDatabaseUserVersion,
     nonManagedPayloadDigest,
     game: manifest.game,
     loader: manifest.loader,
@@ -357,21 +325,13 @@ export async function uploadAndroidPlatform({
   if (objectKey(fragment.apk.url, baseUrl) !== apkKey)
     throw new Error(`Android build names ${apkKey}, not ${fragment.apk.url}`);
   await assertSameCommitAcrossPlatforms(store, version, fragment);
-  if (!published?.record) {
-    await assertAndroidSigner(store, fragment.platform, apk.signerSha256);
-    log(`Uploading ${apkKey} (${apk.size} bytes)`);
-    await putImmutableFile(store, apkKey, files.apk, {
-      sha256: apk.sha256,
-      size: apk.size,
-      contentType: 'application/vnd.android.package-archive'
-    });
-    await putImmutable(
-      store,
-      androidApkRecordKey(apkKey),
-      jsonBytes({ ...apk, nonManagedPayloadDigest }),
-      'application/json'
-    );
-  }
+  await assertAndroidSigner(store, fragment.platform, apk.signerSha256);
+  log(`Uploading ${apkKey} (${apk.size} bytes)`);
+  await putImmutableFile(store, apkKey, files.apk, {
+    sha256: apk.sha256,
+    size: apk.size,
+    contentType: 'application/vnd.android.package-archive'
+  });
   const zipKey = managedPayloadKey(version, fragment.platform);
   await putImmutableFile(store, zipKey, files.managedPayload, {
     sha256: manifest.managedPayload.sha256,

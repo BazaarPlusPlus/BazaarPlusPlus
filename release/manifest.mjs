@@ -78,9 +78,9 @@ export function fragmentKey(version, platform) {
 // the game: the Loader Release, the Interop Snapshot and the native libraries
 // the injection adds, as the Snapshot Lock's android-online entry pins them,
 // and the Updater plugin baked into its deployment. A fragment's
-// `nonManagedPayloadDigest` is this digest of the APK it names; with the game
-// version it is that APK's identity (ADR 0010), and a running copy that
-// records another digest cannot take the release as a Managed Payload.
+// `nonManagedPayloadDigest` is this digest of the APK it names (ADR 0010); a
+// running copy that records another digest cannot take the release as a
+// Managed Payload.
 export function androidNonManagedPayloadDigest({
   loader,
   interopSha256,
@@ -105,26 +105,17 @@ export function androidNonManagedPayloadDigest({
     .digest('hex');
 }
 
-// The Android Release APK is named by what it is built from (game build,
-// loader tag, the first eight hex digits of its non-managed payload digest),
-// never by the product version: one APK serves every product version until
-// the game, the loader, the interop or a native library changes (ADR 0010).
-// The key is immutable once used.
-export function androidApkKey({
-  gameVersion,
-  loaderTag,
-  nonManagedPayloadDigest
-}) {
+// Every product version injects its own Android Release APK, so a new install
+// starts on that version's Mods (ADR 0010); the game build stays in the name
+// for the person downloading it. The key is immutable once used.
+export function androidApkKey({ version, gameVersion }) {
+  assertProductVersion(version);
   const build = /^(\d+(?:\.\d+)+)-/.exec(gameVersion ?? '')?.[1];
-  if (
-    !build ||
-    !/^[A-Za-z0-9._-]+$/.test(loaderTag ?? '') ||
-    !SHA256.test(nonManagedPayloadDigest ?? '')
-  )
+  if (!build)
     throw new Error(
-      'An Android APK is identified by its game version, loader tag and non-managed payload digest'
+      'An Android APK is named by its product version and game version'
     );
-  return `android/apk/BazaarPlusPlus_${build}_lemon-${loaderTag}_${nonManagedPayloadDigest.slice(0, 8)}.apk`;
+  return `android/apk/BazaarPlusPlus_${version}_${build}.apk`;
 }
 
 // The Managed Payload zip of one product version on one platform.
@@ -291,11 +282,7 @@ export function buildAndroidFragment({
     platform,
     gitCommit,
     apk: {
-      url: `${origin}/${androidApkKey({
-        gameVersion: game?.gameVersion,
-        loaderTag: loader?.tag,
-        nonManagedPayloadDigest
-      })}`,
+      url: `${origin}/${androidApkKey({ version, gameVersion: game?.gameVersion })}`,
       size: apk?.size,
       sha256: apk?.sha256,
       versionCode: apk?.versionCode,
@@ -371,21 +358,15 @@ function validateAndroidRelease(release, version, platform) {
   if (
     !positiveInteger(apk.versionCode) ||
     !SHA256.test(apk.signerSha256 ?? '') ||
-    compareProductVersions(
-      assertProductVersion(apk.builtForProductVersion),
-      version
-    ) > 0
+    apk.builtForProductVersion !== version
   )
     throw new Error(`Invalid ${platform} APK for ${version}`);
-  const apkKey = androidApkKey({
-    gameVersion: game.gameVersion,
-    loaderTag: loader.tag,
-    nonManagedPayloadDigest: release.nonManagedPayloadDigest
-  });
-  if (new URL(apk.url).pathname !== `${RELEASE_BASE_PATH}/${apkKey}`)
-    throw new Error(
-      `${platform} APK URL does not name its game, loader and non-managed payload digest: ${apk.url}`
-    );
+  // Upload checks the exact key; the releases before 6.0.3 named theirs by
+  // the non-managed payload digest instead of the version.
+  if (
+    !new URL(apk.url).pathname.startsWith(`${RELEASE_BASE_PATH}/android/apk/`)
+  )
+    throw new Error(`${platform} APK URL is outside android/apk/: ${apk.url}`);
   assertManagedPayload(managedPayload, version, platform);
   if (
     new URL(managedPayload.url).pathname !==

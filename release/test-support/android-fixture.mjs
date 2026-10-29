@@ -11,17 +11,15 @@ const sha256 = (bytes) =>
 const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 
 // What the Android release job (#358) leaves in the store for one product
-// version: the Android Release APK under its own identity, the Managed Payload
-// zip of the version, and the fragment that names both. The bytes are
-// literal; `apkVersion` is the product version whose Mods the APK carries.
+// version: its Android Release APK, its Managed Payload zip, and the fragment
+// that names both. The bytes are literal.
 export async function uploadAndroid(
   store,
   {
     version,
     gitCommit,
     baseUrl,
-    apkVersion = version,
-    apk = `android apk 1.0.12825 with ${apkVersion}\n`,
+    apk = `android apk 1.0.12825 with ${version}\n`,
     managedPayload = `android managed payload ${version}\n`,
     signature = `android-managed-signature-${version}`
   }
@@ -37,7 +35,7 @@ export async function uploadAndroid(
       sha256: sha256(apkBytes),
       versionCode: 12825,
       signerSha256: '5'.repeat(64),
-      builtForProductVersion: apkVersion
+      builtForProductVersion: version
     },
     managedPayload: {
       size: zipBytes.length,
