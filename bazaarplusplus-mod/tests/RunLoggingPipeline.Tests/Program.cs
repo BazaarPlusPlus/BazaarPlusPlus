@@ -42,6 +42,9 @@ using Microsoft.Data.Sqlite;
 //    the unfinished run, or returns a run that was abandoned since.
 // 8. Quiescence: Stop leaves the module subscribed, or a handler captured before Stop writes
 //    after the store is disposed.
+// 9. Rank refresh (RankedRunWaitsForTheRankRefresh, outside the goldens): a Ranked Run completes
+//    with the starting rating the game still caches at exit instead of the one its end-of-run
+//    screen fetches, waits forever for a refresh that never comes, or makes an unranked Run wait.
 // The order "attach the battle, then append the event and checkpoint" is not provable from final
 // rows: the attach commits synchronously while the event and checkpoint go through the queue.
 #if BPP_NET10_BINDING
@@ -69,6 +72,7 @@ try
 {
     StartFailureDisposesTheOwnedStore(Path.Combine(root, "start-failure"));
     RunScenario(new Harness(Path.Combine(root, "history")), artifacts, logs);
+    RankedRunWaitsForTheRankRefresh(new Harness(Path.Combine(root, "rank-refresh")), logs);
 }
 catch (Exception ex)
 {
@@ -347,6 +351,69 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
     GC.KeepAlive(restartedBus);
 }
 
+static void RankedRunWaitsForTheRankRefresh(Harness h, List<string> logs)
+{
+    var bus = new InMemoryBppEventBus();
+    var completed = new List<string>();
+    bus.Subscribe<RunLogRunCompleted>(done => completed.Add(done.RunId));
+    var module = h.CreateModule(bus, observeRankRefresh: true);
+    module.Start();
+    Check.That(h.RankListeners.Count == 1, "9: Start subscribes to rank refreshes once.");
+
+    // The game still caches the starting rating when the Run exits.
+    h.Probe.Rank = new RankSnapshot { Rank = "Legendary", Rating = 1052 };
+    h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
+    h.Activate(bus, "run-ranked");
+    h.Clock.Advance(TimeSpan.FromMinutes(20));
+    h.Probe.Basics = Basics(day: 12, hour: 5, victories: 8, losses: 10);
+    h.EndRun(bus, RunExitKind.Completed);
+    Check.That(
+        h.Status("run-ranked") == "active" && completed.Count == 0,
+        "9: a Ranked Run waits for the end-of-run rank refresh."
+    );
+    h.Clock.Advance(TimeSpan.FromSeconds(1));
+    h.RefreshRank(new RankSnapshot { Rank = "Legendary", Rating = 1046 });
+    Check.That(
+        h.Status("run-ranked") == "completed"
+            && h.Count("SELECT final_player_rating FROM runs WHERE run_id='run-ranked'") == 1046
+            && h.Count("SELECT final_player_rating_delta FROM runs WHERE run_id='run-ranked'") == -6
+            && completed.SequenceEqual(["run-ranked"]),
+        "9: the refreshed rating is the Run's final rating, and the Run is reported once."
+    );
+    h.RefreshRank(new RankSnapshot { Rank = "Legendary", Rating = 1100 });
+    Check.That(
+        h.Count("SELECT final_player_rating FROM runs WHERE run_id='run-ranked'") == 1046,
+        "9: a refresh after the completion is written changes nothing."
+    );
+
+    // Without a refresh the deadline completes the Run with the rating read at exit.
+    h.Probe.Rank = new RankSnapshot { Rank = "Legendary", Rating = 1046 };
+    h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
+    h.Activate(bus, "run-unrefreshed");
+    h.EndRun(bus, RunExitKind.Completed);
+    h.Clock.Advance(TimeSpan.FromSeconds(14));
+    Check.That(h.Status("run-unrefreshed") == "active", "9: the rank refresh has a grace period.");
+    h.Clock.Advance(TimeSpan.FromSeconds(1));
+    Check.That(
+        h.Status("run-unrefreshed") == "completed"
+            && h.Count("SELECT final_player_rating FROM runs WHERE run_id='run-unrefreshed'")
+                == 1046
+            && logs.Any(log => log.Contains("rank_refresh_timeout", StringComparison.Ordinal)),
+        "9: the deadline completes the Run as a rank-refresh timeout."
+    );
+
+    // An unranked Run's rating never changes, so it does not wait.
+    h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
+    h.Probe.Basics.GameMode = "Unranked";
+    h.Activate(bus, "run-unranked");
+    h.EndRun(bus, RunExitKind.Completed);
+    Check.That(h.Status("run-unranked") == "completed", "9: an unranked Run completes at once.");
+
+    module.Stop();
+    h.ForgetStore();
+    Check.That(h.RankListeners.Count == 0, "9: Stop releases the rank subscription.");
+}
+
 static void StartFailureDisposesTheOwnedStore(string dataRoot)
 {
     var h = new Harness(dataRoot);
@@ -444,7 +511,9 @@ internal sealed class Harness
     internal int StoresCreated { get; private set; }
     internal QueuedRunLogStore? LiveStore { get; private set; }
 
-    internal RunLoggingModule CreateModule(IBppEventBus bus) =>
+    internal List<Action<RankSnapshot>> RankListeners { get; } = [];
+
+    internal RunLoggingModule CreateModule(IBppEventBus bus, bool observeRankRefresh = false) =>
         new(
             bus,
             Context,
@@ -466,8 +535,28 @@ internal sealed class Harness
             Scheduler.Schedule,
             playerAccountIdResolver: () => PlayerAccountId,
             bundleScreenshotRequestedResolver: () => true,
-            modVersionResolver: () => "5.0.0"
+            modVersionResolver: () => "5.0.0",
+            subscribeRankRefreshed: observeRankRefresh ? SubscribeRankRefreshed : null
         );
+
+    /// <summary>As the game's end-of-run screen does: replace the cached rank, then notify.</summary>
+    internal void RefreshRank(RankSnapshot rank)
+    {
+        Probe.Rank = rank;
+        foreach (var listener in RankListeners.ToArray())
+            listener(rank);
+    }
+
+    private IDisposable SubscribeRankRefreshed(Action<RankSnapshot> listener)
+    {
+        RankListeners.Add(listener);
+        return new Unsubscribe(() => RankListeners.Remove(listener));
+    }
+
+    private sealed class Unsubscribe(Action dispose) : IDisposable
+    {
+        public void Dispose() => dispose();
+    }
 
     /// <summary>The store is gone after Stop; later dumps need no drain.</summary>
     internal void ForgetStore() => LiveStore = null;
