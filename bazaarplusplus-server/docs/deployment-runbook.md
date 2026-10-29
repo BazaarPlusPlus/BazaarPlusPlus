@@ -72,7 +72,7 @@ Until they are set, signing and protected routes fail closed (`500 internal_erro
 
 Verify the custom domain resolves only to `bazaarplusplus-mod-api-v6` and that the Worker has the `*/15 * * * *` Cron Trigger from `wrangler.toml`, which runs D1 retention. Allow up to 15 minutes for trigger configuration to propagate.
 
-Then hand the V6 base URL and tokens to their consumers: the analyzer's repository `.env` (`BPP_API_BASE_URL` and `BPP_BUNDLE_SYNC_TOKEN`), and BazaarDB, which reads `GET /bazaardb/bundles` with the V6 delivery token ([API reference](api-reference.md#get-bazaardbbundles)), with notice before 6.0.0 ships.
+Then hand the V6 base URL and tokens to their consumers: the analyzer's repository `.env` (`BPP_API_BASE_URL` and `BPP_BUNDLE_SYNC_TOKEN`), and BazaarDB, which reads `GET /bazaardb/bundles` with the V6 delivery token: send them the [BazaarDB integration guide](bazaardb-integration.md) and, separately, the token.
 
 ## 5. Production smoke test
 
