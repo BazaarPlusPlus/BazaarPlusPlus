@@ -13,8 +13,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;
 
-/// <summary>The touch panels' entries: in a run, native-style icons in a corner around the settings
-/// button, Collection below it and Ten-Win Builds left of it; History in the game's own menus, a
+/// <summary>The touch panels' entries: native-style icons in a corner around the settings button,
+/// Collection below it in the lobby and in a run, Ten-Win Builds left of it in a run only; History in the game's own menus, a
 /// tile in the lobby's MENU grid and a row in the in-run menu. Their lifecycle stays with the Overlay Panel Host. Views and
 /// catalog data are still built on first open.</summary>
 internal sealed class AndroidTouchUi
@@ -219,7 +219,6 @@ internal sealed class AndroidTouchUi
                 && !playing
                 && !AndroidNativeHud.HasPopup
                 && !AndroidNativeHud.IsInspectingCard
-                && _inRun
                 && _anchor != null
                 && _anchor.gameObject.activeInHierarchy;
             SetActive(_shortcuts?.gameObject, visible);
@@ -288,7 +287,7 @@ internal sealed class AndroidTouchUi
             "TenWinBuilds",
             _icons.TenWins,
             TouchHudLayout.ShortcutBeside(metrics, bounds),
-            LiveBuildOffered,
+            () => _inRun && LiveBuildOffered(),
             () => LogOpenOutcome(LiveBuildPanelId, _liveBuildHandle.RequestOpen(EntrySource))
         );
         _relayouts++;
