@@ -105,6 +105,7 @@ public sealed class AndroidMod : MelonMod
         BindMainThread();
         AndroidMainThread.Host.Tick();
         _composition?.Tick(Time.unscaledTime);
+        Guarded("screen_fill", AndroidScreenFill.Tick);
         _replayRuntime?.Tick();
         _overlayPanels?.Frame(Time.unscaledDeltaTime);
         _touchUi?.EnsureMounted();
