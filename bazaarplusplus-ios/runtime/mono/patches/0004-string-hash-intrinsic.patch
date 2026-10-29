@@ -1,0 +1,55 @@
+diff --git a/mono/mini/interp/interp.c b/mono/mini/interp/interp.c
+index 26e7fa2d..a61c76c7 100644
+--- a/mono/mini/interp/interp.c
++++ b/mono/mini/interp/interp.c
+@@ -5690,6 +5690,24 @@ call:
+ 			ip += 3;
+ 			MINT_IN_BREAK;
+ 		}
++		MINT_IN_CASE(MINT_STRHASH) {
++			MonoObject *o = LOCAL_VAR (ip [2], MonoObject*);
++			NULL_CHECK (o);
++			/* String.GetLegacyNonRandomizedHashCode, bit for bit: two interleaved hashes over the chars, up to
++			 * the first NUL. Unsigned arithmetic gives C#'s unchecked int wraparound. */
++			const gunichar2 *p = mono_string_chars_internal ((MonoString*) o);
++			guint32 h1 = 5381, h2 = 5381, c;
++			while ((c = p [0]) != 0) {
++				h1 = ((h1 << 5) + h1) ^ c;
++				if ((c = p [1]) == 0)
++					break;
++				h2 = ((h2 << 5) + h2) ^ c;
++				p += 2;
++			}
++			LOCAL_VAR (ip [1], gint32) = (gint32)(h1 + h2 * 1566083941u);
++			ip += 3;
++			MINT_IN_BREAK;
++		}
+ 		MINT_IN_CASE(MINT_ARRAY_RANK) {
+ 			MonoObject *o = LOCAL_VAR (ip [2], MonoObject*);
+ 			NULL_CHECK (o);
+diff --git a/mono/mini/interp/mintops.def b/mono/mini/interp/mintops.def
+index d94d90ea..ae1457c6 100644
+--- a/mono/mini/interp/mintops.def
++++ b/mono/mini/interp/mintops.def
+@@ -606,6 +606,7 @@ OPDEF(MINT_CKNULL, "cknull", 3, 1, 1, MintOpNoArgs)
+ 
+ OPDEF(MINT_GETCHR, "getchr", 4, 1, 2, MintOpNoArgs)
+ OPDEF(MINT_STRLEN, "strlen", 3, 1, 1, MintOpNoArgs)
++OPDEF(MINT_STRHASH, "strhash", 3, 1, 1, MintOpNoArgs)
+ OPDEF(MINT_ARRAY_RANK, "array_rank", 3, 1, 1, MintOpNoArgs)
+ OPDEF(MINT_ARRAY_ELEMENT_SIZE, "array_element_size", 3, 1, 1, MintOpNoArgs)
+ OPDEF(MINT_ARRAY_IS_PRIMITIVE, "array_is_primitive", 3, 1, 1, MintOpNoArgs)
+diff --git a/mono/mini/interp/transform.c b/mono/mini/interp/transform.c
+index b4284ae0..159a70e8 100644
+--- a/mono/mini/interp/transform.c
++++ b/mono/mini/interp/transform.c
+@@ -1970,6 +1970,9 @@ interp_handle_intrinsics (TransformData *td, MonoMethod *target_method, MonoClas
+ 				*op = MINT_GETCHR;
+ 			else if (strcmp (tm, "get_Length") == 0)
+ 				*op = MINT_STRLEN;
++		} else if ((!strcmp (tm, "GetHashCode") || !strcmp (tm, "GetLegacyNonRandomizedHashCode")) && csignature->param_count == 0 && csignature->hasthis) {
++			/* String hashing is a per-char loop: interpreted, it dominates Dictionary/HashSet-heavy code. */
++			*op = MINT_STRHASH;
+ 		}
+ 	} else if (type_index >= 0) {
+ 		return interp_handle_magic_type_intrinsics (td, target_method, csignature, type_index);

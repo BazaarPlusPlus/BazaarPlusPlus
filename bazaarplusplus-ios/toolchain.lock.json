@@ -1,0 +1,109 @@
+{
+  "unity": {
+    "version": "6000.3.11f1",
+    "revision": "3000ef702840"
+  },
+  "mono": {
+    "url": "https://github.com/Unity-Technologies/mono.git",
+    "commit": "dc7ab1aa0dd66ca15d4ffc9776e058993d53dee5",
+    "submodules": {
+      "external/bdwgc": "1113fefc4ba0e895767ac780d84e9e456fd624db",
+      "external/corefx": "5b4edb9b0a721aed60c9c8ddeed441bdd7451e42"
+    }
+  },
+  "bcdec": {
+    "url": "https://github.com/iOrange/bcdec",
+    "version": "0.985",
+    "sha256": "134520764d96f70a27db814173616c89ad85db95fbd3328417c7a8c77e7ca189"
+  },
+  "depotDownloader": {
+    "version": "3.4.0",
+    "url": "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_3.4.0/DepotDownloader-macos-arm64.zip",
+    "sha256": "60e80c7c496f3f9a079cd3c62036b35d088c27bc0149baf38f009eb57a52f6a5",
+    "license": "GPL-2.0",
+    "purpose": "External macOS protocol validation tool; not bundled with the iOS app"
+  },
+  "zstd": {
+    "version": "1.5.7",
+    "url": "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz",
+    "sha256": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3"
+  },
+  "deviceEngine": {
+    "sha256": "bbcc8824fcbd51a36da89b9331f6c40505d29f3aedfc996daf238a79b9e4948b",
+    "graphicsObject": "Runtime_Graphics_8_d4es8.o",
+    "serializeObject": "Runtime_Serialize_1_d4es8.o",
+    "icallRegistrations": 10768
+  },
+  "sqlite": {
+    "version": "3.50.1",
+    "url": "https://www.sqlite.org/2025/sqlite-amalgamation-3500100.zip",
+    "sha256": "41716b44ac8777188c4c3f1f370f01c9cb9e3b6428eb5c981d086c35de2d9d3f",
+    "folder": "sqlite-amalgamation-3500100",
+    "defines": [
+      "SQLITE_THREADSAFE=1",
+      "SQLITE_ENABLE_FTS5",
+      "SQLITE_ENABLE_GEOPOLY",
+      "SQLITE_ENABLE_HIDDEN_COLUMNS",
+      "SQLITE_ENABLE_MATH_FUNCTIONS",
+      "SQLITE_ENABLE_RTREE",
+      "SQLITE_OMIT_PROGRESS_CALLBACK",
+      "SQLITE_OMIT_SHARED_CACHE",
+      "SQLITE_ENABLE_COLUMN_METADATA"
+    ]
+  },
+  "alembicNative": {
+    "unityAlembic": {
+      "revision": "f9db82fb3443ed8a8fa89b6b53d20c6293829db2",
+      "url": "https://codeload.github.com/Unity-Technologies/com.unity.formats.alembic/tar.gz/f9db82fb3443ed8a8fa89b6b53d20c6293829db2",
+      "sha256": "d22e57c414abd3e82dfcc1f47a2df4414d38c37ab5739078691a69485ffb0bd9",
+      "folder": "com.unity.formats.alembic-f9db82fb3443ed8a8fa89b6b53d20c6293829db2"
+    },
+    "alembic": {
+      "revision": "f4e3cc33e4270ade9d076a2cac7a2a4409c61675",
+      "url": "https://codeload.github.com/alembic/alembic/tar.gz/f4e3cc33e4270ade9d076a2cac7a2a4409c61675",
+      "sha256": "3194b8f8d2f80e387db6ed076ccae4d1b6b37521bb27b7822f3fc7973b769a89",
+      "folder": "alembic-f4e3cc33e4270ade9d076a2cac7a2a4409c61675"
+    },
+    "openexr": {
+      "revision": "dcaf5fdb4d1244d8e60a58832cfe9c54734a2257",
+      "url": "https://codeload.github.com/AcademySoftwareFoundation/openexr/tar.gz/dcaf5fdb4d1244d8e60a58832cfe9c54734a2257",
+      "sha256": "d6943bda5418353ff37ddb6dbf7473dcab99d91c3022f27e5da64eb4925791e7",
+      "folder": "openexr-dcaf5fdb4d1244d8e60a58832cfe9c54734a2257"
+    }
+  },
+  "fmodRequired": {
+    "version": "2.02.33",
+    "versionNumber": 131635,
+    "unityIntegrationSource": {
+      "revision": "9b4cacf1a68cfb6332fcc1b1197fb7a353e2ca4e",
+      "url": "https://codeload.github.com/fmod/fmod-for-unity/tar.gz/9b4cacf1a68cfb6332fcc1b1197fb7a353e2ca4e",
+      "sha256": "d97d2287ae2787edfe99b37915435999b9c8603ee32e400a3a440f5320d95256",
+      "containsNativeBinaries": false
+    },
+    "deviceLibraries": [
+      "libfmodstudiounityplugin.a",
+      "libresonanceaudio.a"
+    ],
+    "simulatorLibraries": [
+      "libfmodstudiounitypluginsimulator.a",
+      "libresonanceaudiosimulator.a"
+    ],
+    "plugins": [
+      "fmodstudio",
+      "resonanceaudio"
+    ],
+    "unityPackage": {
+      "filename": "fmodstudio20233.unitypackage",
+      "sha256": "32ef206337b9cec6f26bfe8d511f72aff3a9b8b97296589e5992029a984594aa",
+      "source": "https://www.fmod.com/download#fmodforunity",
+      "files": {
+        "LICENSE.txt": "d0ca0af0de7b3ce8ccd4d909da83f2d22bd4ea2d81957312dfd03683ba743a11",
+        "src/fmod.cs": "bce6d1d083db050d4985d2a38b389dd869f2dd08985c6c748dea78c6918ab787",
+        "platforms/ios/lib/libfmodstudiounityplugin.a": "564d609a52dbd6c042b8d897c89590306f39a51458bfa3d2b84b2da1312f4bb8",
+        "platforms/ios/lib/libresonanceaudio.a": "0f643e36a2b2c431da24434359df5da1412dcf7373e8b1a42b547aef34681b89",
+        "platforms/ios/lib/libfmodstudiounitypluginsimulator.a": "05eac757dd88e92ee2c9f1a5eea360bab6e3566a9b1bc07945d3f345cff62a9b",
+        "platforms/ios/lib/libresonanceaudiosimulator.a": "6839312ca32cc9a860361d3167d442059c0382dd136750fd931ba1391dd6e2b1"
+      }
+    }
+  }
+}

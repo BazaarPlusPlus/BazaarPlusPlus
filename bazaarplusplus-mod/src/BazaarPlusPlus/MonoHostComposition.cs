@@ -54,11 +54,11 @@ using BazaarPlusPlus.Storage.Sqlite;
 namespace BazaarPlusPlus;
 
 /// <summary>
-/// The desktop (BepInEx/Mono) composition root: binds the desktop ports and Mono probes into
+/// The Mono host composition root (desktop BepInEx, iOS port): binds the host ports and Mono probes into
 /// <see cref="CoreComposition"/>, then wires the feature modules, settings dock rows, and Unity
 /// mountables that still live in this host.
 /// </summary>
-internal sealed class DesktopComposition : IDisposable
+internal sealed class MonoHostComposition : IDisposable
 {
     private readonly CoreComposition _core;
     private readonly BppStaticCardMapProvider _staticCardMapProvider = new();
@@ -102,15 +102,20 @@ internal sealed class DesktopComposition : IDisposable
     public SettingsDockEntryRegistry SettingsDockRegistry => _settingsDockRegistry;
     public BppPatchFeatures PatchFeatures => _patchFeatures;
 
-    public DesktopComposition(IBppSettingsStore settingsStore, IGameBuildInfo gameBuild)
+    public MonoHostComposition(
+        IBppSettingsStore settingsStore,
+        IGameBuildInfo gameBuild,
+        IPathProvider paths,
+        bool selfUpdate
+    )
     {
         if (settingsStore == null)
             throw new ArgumentNullException(nameof(settingsStore));
         if (gameBuild == null)
             throw new ArgumentNullException(nameof(gameBuild));
 
-        var paths = new BepInExPathProvider();
-        paths.Initialize();
+        if (paths == null)
+            throw new ArgumentNullException(nameof(paths));
         _core = new CoreComposition(
             settingsStore,
             paths,
@@ -283,11 +288,12 @@ internal sealed class DesktopComposition : IDisposable
                 (driver, services) => driver.Initialize(_endOfRunCaptureWorkflow, services)
             )
         );
-        _mountables.Register(
-            new ComponentMount<MainMenuVersionCheckController>(
-                (c, services) => c.Initialize(services)
-            )
-        );
+        if (selfUpdate)
+            _mountables.Register(
+                new ComponentMount<MainMenuVersionCheckController>(
+                    (c, services) => c.Initialize(services)
+                )
+            );
         _mountables.Register(
             new HistoryPanelMount(
                 combatReplayRuntime: () => _combatReplayModule.Runtime,

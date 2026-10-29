@@ -1,0 +1,48 @@
+diff --git a/mono/metadata/boehm-gc.c b/mono/metadata/boehm-gc.c
+index 4a012db8..b06fa929 100644
+--- a/mono/metadata/boehm-gc.c
++++ b/mono/metadata/boehm-gc.c
+@@ -65,6 +65,7 @@ static gboolean gc_strict_wbarriers = FALSE;
+ static mono_mutex_t mono_gc_lock;
+ 
+ static GC_push_other_roots_proc default_push_other_roots;
++static MonoGCCallbacks gc_callbacks;
+ static GHashTable *roots;
+ 
+ typedef struct ephemeron_node ephemeron_node;
+@@ -801,9 +802,18 @@ GC_roots_proc (word* addr, mse* mark_stack_ptr,	mse* mark_stack_limit, word env)
+ 	return mark_stack_ptr;
+ }
+ 
++// ios-unity-runner: the interpreter keeps managed locals on its own data stack, which only SGen scanned
++// (sgen-mono.c calls interp_mark_func). Under Boehm those objects were collected while still live.
++static void
++push_interp_slot (gpointer *slot, gpointer gc_data)
++{
++	GC_push_all_eager (slot, slot + 1);
++}
++
+ static void
+ mono_push_other_roots (void)
+ {
++	MonoGCCallbacks *callbacks = &gc_callbacks;
+ 	if (GC_roots_proc_index) {
+ 		GC_mark_stack_top++;
+ 		GC_mark_stack_top->mse_descr.w = GC_MAKE_PROC (GC_roots_proc_index, 0 /* continue processing */);
+@@ -813,6 +823,8 @@ mono_push_other_roots (void)
+ 		HandleStack* stack = info->handle_stack;
+ 		if (stack)
+ 			push_handle_stack (stack);
++		if (callbacks->interp_mark_func)
++			callbacks->interp_mark_func (info, push_interp_slot, NULL, FALSE);
+ 	} FOREACH_THREAD_END
+ 	GC_push_all (&ephemeron_list, &ephemeron_list + 1);
+ 	if (default_push_other_roots)
+@@ -1411,6 +1423,7 @@ mono_gc_get_bitmap_for_descr (void *descr, int *numbits)
+ void
+ mono_gc_set_gc_callbacks (MonoGCCallbacks *callbacks)
+ {
++	gc_callbacks = *callbacks;
+ }
+ 
+ void

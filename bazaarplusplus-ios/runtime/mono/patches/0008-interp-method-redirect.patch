@@ -1,0 +1,163 @@
+--- a/mono/mini/interp/transform.c
++++ b/mono/mini/interp/transform.c
+@@ -2592,6 +2592,9 @@
+ #define INLINE_LENGTH_LIMIT 20
+ #define INLINE_DEPTH_LIMIT 10
+ 
++static MonoMethod* interp_method_redirect (MonoMethod *method);
++static void interp_record_inline (MonoMethod *root, MonoMethod *inlined);
++
+ static gboolean
+ interp_method_check_inlining (TransformData *td, MonoMethod *method, MonoMethodSignature *csignature)
+ {
+@@ -2615,6 +2618,9 @@
+ 		return FALSE;
+ 
+ 	if (td->inline_depth > INLINE_DEPTH_LIMIT)
++		return FALSE;
++
++	if (interp_method_redirect (method))
+ 		return FALSE;
+ 
+ 	if (header.code_size >= INLINE_LENGTH_LIMIT && !(method->iflags & METHOD_IMPL_ATTRIBUTE_AGGRESSIVE_INLINING))
+@@ -2679,6 +2685,8 @@
+ 		if (generic_container)
+ 			generic_context = &generic_container->context;
+ 	}
++
++	interp_record_inline (td->method, target_method);
+ 
+ 	prev_ip = td->ip;
+ 	prev_il_code = td->il_code;
+@@ -8460,6 +8468,88 @@
+ 
+ static mono_mutex_t calc_section;
+ 
++/*
++ * Method redirects. Calls to a redirected method run its target, a method with the same arguments
++ * (`this` first for instance methods): method_entry swaps the frame to the target, so everything the
++ * target's code reads from its frame is its own. Harmony patches use this in place of native detours,
++ * which need writable code. Callers that inlined a method keep a copy of its old body, so every root
++ * method that inlined a candidate is indexed and re-transformed on redirect. Guarded by calc_section.
++ */
++static GHashTable *method_redirects;   /* MonoMethod* -> MonoMethod* */
++static GHashTable *inline_roots;       /* inlined MonoMethod* -> GPtrArray of root MonoMethod* */
++
++static MonoMethod*
++interp_method_redirect (MonoMethod *method)
++{
++	MonoMethod *target = NULL;
++	mono_os_mutex_lock (&calc_section);
++	if (method_redirects)
++		target = (MonoMethod*)g_hash_table_lookup (method_redirects, method);
++	mono_os_mutex_unlock (&calc_section);
++	return target;
++}
++
++static void
++interp_record_inline (MonoMethod *root, MonoMethod *inlined)
++{
++	if (m_class_get_image (inlined->klass) == mono_defaults.corlib)
++		return;
++	mono_os_mutex_lock (&calc_section);
++	if (!inline_roots)
++		inline_roots = g_hash_table_new (NULL, NULL);
++	GPtrArray *roots = (GPtrArray*)g_hash_table_lookup (inline_roots, inlined);
++	if (!roots) {
++		roots = g_ptr_array_new ();
++		g_hash_table_insert (inline_roots, inlined, roots);
++	}
++	guint i;
++	for (i = 0; i < roots->len && g_ptr_array_index (roots, i) != root; ++i)
++		;
++	if (i == roots->len)
++		g_ptr_array_add (roots, root);
++	mono_os_mutex_unlock (&calc_section);
++}
++
++static void
++interp_invalidate_method (MonoDomain *domain, MonoMethod *method)
++{
++	MonoJitDomainInfo *info = domain_jit_info (domain);
++	mono_domain_jit_code_hash_lock (domain);
++	InterpMethod *imethod = (InterpMethod*)mono_internal_hash_table_lookup (&info->interp_code_hash, method);
++	mono_domain_jit_code_hash_unlock (domain);
++	if (imethod)
++		imethod->transformed = FALSE;
++}
++
++/* Redirects ORIGINAL to TARGET; a NULL TARGET restores ORIGINAL. Frames already running keep their code. */
++MONO_API void
++mono_interp_redirect_method (MonoMethod *original, MonoMethod *target)
++{
++	ERROR_DECL (error);
++	MonoDomain *domain = mono_domain_get ();
++	InterpMethod *imethod = mono_interp_get_imethod (domain, original, error);
++	InterpMethod *redirect = target ? mono_interp_get_imethod (domain, target, error) : NULL;
++	if (!is_ok (error)) {
++		mono_error_cleanup (error);
++		return;
++	}
++	mono_os_mutex_lock (&calc_section);
++	if (!method_redirects)
++		method_redirects = g_hash_table_new (NULL, NULL);
++	if (target)
++		g_hash_table_insert (method_redirects, original, target);
++	else
++		g_hash_table_remove (method_redirects, original);
++	imethod->redirect = redirect;
++	mono_memory_barrier ();
++	/* Untransformed, so the next call takes method_entry's slow path, which follows the redirect. */
++	imethod->transformed = FALSE;
++	GPtrArray *roots = inline_roots ? (GPtrArray*)g_hash_table_lookup (inline_roots, original) : NULL;
++	for (guint i = 0; roots && i < roots->len; ++i)
++		interp_invalidate_method (domain, (MonoMethod*)g_ptr_array_index (roots, i));
++	mono_os_mutex_unlock (&calc_section);
++}
++
+ #ifdef ENABLE_EXPERIMENT_TIERED
+ static gboolean
+ tiered_patcher (MiniTieredPatchPointContext *ctx, gpointer patchsite)
+--- a/mono/mini/interp/interp.c
++++ b/mono/mini/interp/interp.c
+@@ -3200,6 +3200,11 @@
+ 	*out_ex = NULL;
+ 	if (!G_UNLIKELY (frame->imethod->transformed)) {
+ 		slow = TRUE;
++		/* A redirected method never transforms; its frame runs the target (patch 0008). */
++		while (frame->imethod->redirect)
++			frame->imethod = frame->imethod->redirect;
++		if (frame->imethod->transformed)
++			return slow;
+ 		MonoException *ex = do_transform_method (frame, context);
+ 		if (ex) {
+ 			*out_ex = ex;
+@@ -3425,6 +3430,8 @@
+ 			MINT_IN_BREAK;
+ 		MINT_IN_CASE(MINT_JMP) {
+ 			InterpMethod *new_method = (InterpMethod*)frame->imethod->data_items [ip [1]];
++			while (new_method->redirect)
++				new_method = new_method->redirect;
+ 
+ 			if (frame->imethod->prof_flags & MONO_PROFILER_CALL_INSTRUMENTATION_TAIL_CALL)
+ 				MONO_PROFILER_RAISE (method_tail_call, (frame->imethod->method, new_method->method));
+@@ -3703,7 +3710,7 @@
+ 				EXCEPTION_CHECKPOINT;
+ 			}
+ 
+-			context->stack_pointer = (guchar*)frame->stack + cmethod->alloca_size;
++			context->stack_pointer = (guchar*)frame->stack + frame->imethod->alloca_size;
+ 			/* Make sure the stack pointer is bumped before we store any references on the stack */
+ 			mono_compiler_barrier ();
+ 
+--- a/mono/mini/interp/interp-internals.h
++++ b/mono/mini/interp/interp-internals.h
+@@ -109,6 +109,8 @@
+ 	   internal hash table in MonoDomain. */
+ 	MonoMethod *method;
+ 	InterpMethod *next_jit_code_hash;
++	/* Set by mono_interp_redirect_method: calls to this method run REDIRECT instead (patch 0008). */
++	InterpMethod *redirect;
+ 
+ 	// Sort pointers ahead of integers to minimize padding for alignment.
+ 

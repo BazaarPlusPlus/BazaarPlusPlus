@@ -11,7 +11,7 @@ internal static class TenWinBuildCatalogFactory
 {
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(
         productVersion: BppPluginVersion.Current,
-        platformKey: DesktopPlatformKey.Current,
+        platformKey: HostPlatformKey.Current,
         userAgentSuffix: "TenWinBuildRepository",
         timeout: TimeSpan.FromSeconds(10)
     );

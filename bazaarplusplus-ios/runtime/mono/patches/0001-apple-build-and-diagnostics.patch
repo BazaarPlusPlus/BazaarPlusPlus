@@ -1,0 +1,72 @@
+diff --git a/mono/metadata/assembly.c b/mono/metadata/assembly.c
+index c343d130..f2d5d7de 100644
+--- a/mono/metadata/assembly.c
++++ b/mono/metadata/assembly.c
+@@ -887,6 +887,8 @@ load_in_path (const char *basename, const char** search_path, const MonoAssembly
+ 	for (i = 0; search_path [i]; ++i) {
+ 		fullpath = g_build_filename (search_path [i], basename, (const char*)NULL);
+ 		result = mono_assembly_request_open (fullpath, req, status);
++		if (g_getenv ("BPP_TRACE_LOAD"))
++			g_print ("[ur] load_in_path %s -> %p status=%d\n", fullpath, result, status ? (int)*status : -1);
+ 		g_free (fullpath);
+ 		if (result)
+ 			return result;
+diff --git a/mono/metadata/icall.c b/mono/metadata/icall.c
+index bd92ef1c..77fc7582 100644
+--- a/mono/metadata/icall.c
++++ b/mono/metadata/icall.c
+@@ -9682,6 +9682,7 @@ mono_lookup_icall_symbol (MonoMethod *m)
+ typedef enum ICallSigType {
+ 	ICALL_SIG_TYPE_bool     = 0x00,
+ 	ICALL_SIG_TYPE_boolean  = ICALL_SIG_TYPE_bool,
++	ICALL_SIG_TYPE__Bool    = ICALL_SIG_TYPE_bool, /* stdbool expands bool before pasting */
+ 	ICALL_SIG_TYPE_double   = 0x01,
+ 	ICALL_SIG_TYPE_float    = 0x02,
+ 	ICALL_SIG_TYPE_int      = 0x03,
+diff --git a/mono/utils/mono-log-darwin.c b/mono/utils/mono-log-darwin.c
+index 2cb41b14..6dbfca01 100644
+--- a/mono/utils/mono-log-darwin.c
++++ b/mono/utils/mono-log-darwin.c
+@@ -5,7 +5,7 @@
+  */
+ #include <config.h>
+ 
+-#if (defined(HOST_WATCHOS) && (__WATCH_OS_VERSION_MIN_REQUIRED >= __WATCHOS_3_0)) || defined(HOST_MACCAT)
++#if (defined(HOST_WATCHOS) && (__WATCH_OS_VERSION_MIN_REQUIRED >= __WATCHOS_3_0)) || defined(HOST_MACCAT) || defined(HOST_IOS)
+ /* emitted by clang:
+  *   > /Users/lewurm/work/mono-watch4/mono/utils/mono-log-darwin.c:35:2: error: 'asl_log' is \
+  *   > deprecated: first deprecated in watchOS 3.0 - os_log(3) has replaced \
+diff --git a/mono/utils/mono-threads-mach-helper.c b/mono/utils/mono-threads-mach-helper.c
+index 7b4f140b..8d01c3cf 100644
+--- a/mono/utils/mono-threads-mach-helper.c
++++ b/mono/utils/mono-threads-mach-helper.c
+@@ -59,7 +59,7 @@ mono_dead_letter_dealloc (id self, SEL _cmd)
+ {
+ 	struct objc_super super;
+ 	super.receiver = self;
+-#if !defined(__cplusplus) && !__OBJC2__
++#if !defined(__cplusplus) && !__OBJC2__ && !defined(__arm64__)
+ 	super.class = nsobject;
+ #else
+ 	super.super_class = nsobject;
+diff --git a/scripts/update_submodules.sh b/scripts/update_submodules.sh
+index db456bdf..86cc9a96 100755
+--- a/scripts/update_submodules.sh
++++ b/scripts/update_submodules.sh
+@@ -1,14 +1,6 @@
+ #!/bin/sh
+-SUBMODULE_ERROR='Could not recursively update all git submodules. You may experience compilation problems if some submodules are out of date'
+-SUBMODULE_OK='Git submodules updated successfully'
+-if test -e .git; then \
+-	   (git submodule update --init --recursive && echo $SUBMODULE_OK) \
+-	|| (git submodule init && git submodule update --recursive && echo $SUBMODULE_OK) \
+-	|| (git submodule init && git submodule update && echo $SUBMODULE_ERROR) \
+-	|| (echo 'Git submodules could not be updated. Compilation will fail') \
+-fi
+-
++# BazaarPlusPlus: runtime/mono/bootstrap.py fetches only the submodules the runtime needs.
+ if ! test -e external/corefx/README.md; then
+-	echo "Error: Couldn't find the required submodules. This usually happens when using an archive from GitHub instead of https://download.mono-project.com/sources/mono/, or something went wrong while updating submodules."
++	echo "Error: external/corefx is missing"
+ 	exit 1
+ fi

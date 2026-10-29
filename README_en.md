@@ -77,6 +77,7 @@ See the [tutorial](https://bazaarplusplus.com/tutorial?lang=en) for the full fea
 | `bazaarplusplus-server/`             | Cloudflare Worker: Bundle upload, Ghost discovery, and BazaarDB delivery     |
 | `bazaarplusplus-analyzer/`           | Turns Bundles into hero and build snapshots                                  |
 | `bazaarplusplus-site/`               | bazaarplusplus.com                                                           |
+| `bazaarplusplus-ios/`                | iOS App: runs the game's Mac build on iPhone/iPad with the mod (interim)     |
 | `design/`                            | Design tokens, shared styles, and the brand book                             |
 | `VERSION`, `release.mjs`, `release/` | Product version and the release pipeline for all three platforms             |
 

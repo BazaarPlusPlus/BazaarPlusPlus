@@ -1,17 +1,16 @@
 using System.Globalization;
 using System.Text;
-using BazaarPlusPlus.Core.Config;
 
-namespace BazaarPlusPlus.Android.Host;
+namespace BazaarPlusPlus.Core.Config;
 
 /// <summary>
-/// Android settings store: an INI file at <c>MelonLoader/UserData/BazaarPlusPlus.cfg</c> in the
-/// BepInEx cfg syntax, so both hosts' settings files have the same shape. A bind reads the
+/// Settings store for hosts without BepInEx (Android, iOS): an INI file in the BepInEx cfg syntax,
+/// so every host's settings file has the same shape. A bind reads the
 /// persisted value (unparsable or missing falls back to the default) and rewrites the file when
 /// that changed it; a write persists only a value whose serialized form changed, so setting the
 /// current value again touches no file. Keys nothing binds survive a rewrite, as in BepInEx.
 /// </summary>
-internal sealed class IniSettingsStore : IBppSettingsStore
+public sealed class IniSettingsStore : IBppSettingsStore
 {
     private readonly string _path;
     private readonly object _gate = new();
@@ -65,8 +64,10 @@ internal sealed class IniSettingsStore : IBppSettingsStore
     )
         where T : IComparable
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(section);
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        if (string.IsNullOrWhiteSpace(section))
+            throw new ArgumentException("A setting needs a section.", nameof(section));
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException("A setting needs a key.", nameof(key));
         var type = typeof(T);
         if (
             !type.IsEnum
@@ -122,7 +123,11 @@ internal sealed class IniSettingsStore : IBppSettingsStore
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         var staging = _path + ".tmp";
         File.WriteAllText(staging, text.ToString(), new UTF8Encoding(false));
-        File.Move(staging, _path, overwrite: true);
+        // netstandard2.1 has no File.Move overwrite; Replace swaps the file in one step.
+        if (File.Exists(_path))
+            File.Replace(staging, _path, destinationBackupFileName: null);
+        else
+            File.Move(staging, _path);
     }
 
     private static T Clamp<T>(T value, SettingRange<T>? range)

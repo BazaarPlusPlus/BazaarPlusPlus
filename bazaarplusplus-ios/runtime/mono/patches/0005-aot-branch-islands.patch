@@ -1,0 +1,22 @@
+diff --git a/mono/mini/aot-runtime.c b/mono/mini/aot-runtime.c
+index 884c5f2a..1fca338f 100644
+--- a/mono/mini/aot-runtime.c
++++ b/mono/mini/aot-runtime.c
+@@ -2126,10 +2126,16 @@ method_address_resolve (guint8 *code_addr) {
+ 		return code_addr;
+ #endif
+ 	for (;;) {
++#if defined(TARGET_ARM64)
++		/* Only B can be a linker island. BL changes LR and belongs to the method body. */
++		if ((*(guint32 *)code_addr & 0xfc000000) != 0x14000000)
++			return code_addr;
++#endif
+ 		// `mono_arch_get_call_target` takes the IP after the branch
+ 		// instruction, not before. Add 4 bytes to compensate.
+ 		guint8 *next = mono_arch_get_call_target (code_addr + 4);
+-		if (next == NULL) return code_addr;
++		/* A branch to itself is a method body, not a linker branch island. */
++		if (next == NULL || next == code_addr) return code_addr;
+ 		code_addr = next;
+ 	}
+ }

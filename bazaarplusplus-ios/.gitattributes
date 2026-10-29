@@ -1,0 +1,8 @@
+# Patch context and vendored upstream files must retain their original whitespace.
+runtime/mono/patches/*.patch -whitespace
+third_party/** -whitespace
+# Unity writes empty YAML scalar values with a trailing space.
+*.meta whitespace=-blank-at-eol
+*.asset whitespace=-blank-at-eol
+*.unity whitespace=-blank-at-eol
+*.mat whitespace=-blank-at-eol

@@ -1,0 +1,9 @@
+0001-apple-build-and-diagnostics.patch
+0002-apple-jit-memory.patch
+0003-boehm-interpreter-roots.patch
+0004-string-hash-intrinsic.patch
+0005-aot-branch-islands.patch
+0006-no-remoting-build.patch
+0007-unbox-trampoline-option.patch
+0008-interp-method-redirect.patch
+0009-interp-skip-verification.patch

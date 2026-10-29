@@ -15,7 +15,7 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
     {
         _pump = UploadPump.Start(
             services,
-            DesktopPlatformKey.Current,
+            HostPlatformKey.Current,
             Time.unscaledTime,
             SqliteOpenOptions.Default
         );

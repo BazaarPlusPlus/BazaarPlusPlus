@@ -26,7 +26,7 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
 
     public void Initialize(IBppServices services)
     {
-        var platformKey = DesktopPlatformKey.Current;
+        var platformKey = HostPlatformKey.Current;
         _selfUpdate = new MainMenuSelfUpdate(
             installRoot: BepInEx.Paths.GameRootPath,
             dataRoot: services.Paths.RequireDataRoot(),

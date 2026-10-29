@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Managed helper loaded into the game through RuntimeInitializeOnLoads.json (service/Managed/Installer.cs::Prepare).
+       Compiled against the game's own Managed DLLs; GAME_MANAGED points at them. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>BazaarPlusPlus.Ios.Helper</AssemblyName>
+    <LangVersion>9.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(GAME_MANAGED)/netstandard.dll" Private="false" />
+    <Reference Include="$(GAME_MANAGED)/mscorlib.dll" Private="false" />
+    <Reference Include="$(GAME_MANAGED)/System.dll" Private="false" />
+    <Reference Include="$(GAME_MANAGED)/System.Net.Http.dll" Private="false" />
+    <Reference Include="$(GAME_MANAGED)/UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="$(GAME_MANAGED)/UnityEngine.InputLegacyModule.dll" Private="false" />
+    <Reference Include="$(GAME_MANAGED)/Unity.InputSystem.dll" Private="false" />
+    <Reference Include="$(GAME_MANAGED)/UnityEngine.UI.dll" Private="false" />
+    <Reference Include="$(GAME_MANAGED)/UnityEngine.UIModule.dll" Private="false" />
+  </ItemGroup>
+</Project>

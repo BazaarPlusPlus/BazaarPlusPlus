@@ -1,0 +1,33 @@
+[
+  {
+    "nameSpace": "BazaarPlusPlus.Ios.Helper",
+    "className": "InputDiagnostics",
+    "methodName": "Start",
+    "loadTypes": 0
+  },
+  {
+    "nameSpace": "BazaarPlusPlus.Ios.Helper",
+    "className": "TlsProbe",
+    "methodName": "Start",
+    "loadTypes": 0
+  },
+  {
+    "nameSpace": "BazaarPlusPlus.Ios.Helper",
+    "className": "FrameStats",
+    "methodName": "Start",
+    "loadTypes": 0
+  },
+  {
+    "nameSpace": "BazaarPlusPlus.Ios.Helper",
+    "className": "SelfTest",
+    "methodName": "Start",
+    "loadTypes": 0
+  },
+  {
+    "assemblyName": "BazaarPlusPlus",
+    "nameSpace": "BazaarPlusPlus.Host.Ios",
+    "className": "IosEntry",
+    "methodName": "Start",
+    "loadTypes": 1
+  }
+]

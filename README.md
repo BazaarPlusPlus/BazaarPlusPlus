@@ -77,6 +77,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏�
 | `bazaarplusplus-server/`             | Cloudflare Worker：Bundle 上传、Ghost 发现与 BazaarDB 投递         |
 | `bazaarplusplus-analyzer/`           | 把 Bundle 汇总成英雄与阵容快照                                     |
 | `bazaarplusplus-site/`               | bazaarplusplus.com                                                 |
+| `bazaarplusplus-ios/`                | iOS App：在 iPhone/iPad 上运行游戏 Mac 版并加载模组（过渡方案）    |
 | `design/`                            | 设计 token、共享样式与品牌规范                                     |
 | `VERSION`、`release.mjs`、`release/` | 产品版本与三个平台的发布流程                                       |
 
