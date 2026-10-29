@@ -1,0 +1,136 @@
+name: Android APK watch
+
+# Watches the publisher's official Android APK. When it no longer matches the
+# android-online entry of the Snapshot Lock, captures it as the new entry
+# (ADR 0008), publishes the inputs to the private bucket, checks that the
+# Android Mod still builds against the new interop, and opens a pull request
+# with the lock and the next patch VERSION. Merging it and running release.yml
+# with platform: android ships the new APK (docs/release.md "Android 发布").
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: android-apk-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: release
+    defaults:
+      run:
+        shell: bash
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+      # The release modules this job runs import only node built-ins.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Sizes only: the hourly check never downloads 2.8 GB.
+      - name: Compare the official APK with the locked one
+        id: compare
+        run: |
+          state="$(node release/game-libs.mjs official-apk)"
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+          echo "Official APK: $state" >> "$GITHUB_STEP_SUMMARY"
+      - if: steps.compare.outputs.state == 'changed'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+          cache: true
+          cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
+      - if: steps.compare.outputs.state == 'changed'
+        uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: just@1.58.0
+      - if: steps.compare.outputs.state == 'changed'
+        name: Download the official APK
+        run: |
+          sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
+          url="$(node --input-type=module -e "import { OFFICIAL_ANDROID_APK_URL } from './release/game-libs.mjs'; console.log(OFFICIAL_ANDROID_APK_URL)")"
+          curl --fail --location --retry 5 --retry-all-errors --output "$RUNNER_TEMP/TheBazaar.apk" "$url"
+          ls -l "$RUNNER_TEMP/TheBazaar.apk"
+      # Captures on Linux x64, where the Patcher generates the interop, with the
+      # locked toolchain; the lock is written last.
+      - if: steps.compare.outputs.state == 'changed'
+        name: Capture the new android-online entry
+        id: capture
+        run: |
+          just mod::snapshot-android "$RUNNER_TEMP/TheBazaar.apk"
+          game="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].gameVersion")"
+          code="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].versionCode")"
+          echo "game=$game" >> "$GITHUB_OUTPUT"
+          echo "branch=chore/android-online-$code" >> "$GITHUB_OUTPUT"
+          if git diff --quiet -- bazaarplusplus-mod/build/game-libs.lock.json; then
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "The official APK is the locked one" >> "$GITHUB_STEP_SUMMARY"
+          elif git ls-remote --exit-code --heads origin "chore/android-online-$code" > /dev/null; then
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "A pull request for $game is already open" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.capture.outputs.fresh == 'true'
+        name: Publish the captured inputs
+        run: just mod::publish android online
+      # The pull request below is opened with GITHUB_TOKEN, which starts no
+      # checks, so the Android lane runs here and its result goes in the body.
+      - if: steps.capture.outputs.fresh == 'true'
+        name: Check the Android Mod against the new interop
+        id: verify
+        continue-on-error: true
+        run: just verify mod::android-build mod::test-core
+      - if: steps.capture.outputs.fresh == 'true'
+        name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GAME: ${{ steps.capture.outputs.game }}
+          BRANCH: ${{ steps.capture.outputs.branch }}
+          VERIFY: ${{ steps.verify.outcome }}
+        run: |
+          node --input-type=module -e "
+            import fs from 'node:fs';
+            const [major, minor, patch] = fs.readFileSync('VERSION', 'utf8').trim().split('.').map(Number);
+            fs.writeFileSync('VERSION', [major, minor, patch + 1].join('.') + '\n');
+          "
+          just release::sync
+          version="$(cat VERSION)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add VERSION README.md README_en.md bazaarplusplus-mod/build/game-libs.lock.json \
+            bazaarplusplus-installer/package.json bazaarplusplus-installer/package-lock.json \
+            bazaarplusplus-installer/src-tauri/Cargo.toml bazaarplusplus-installer/src-tauri/Cargo.lock \
+            bazaarplusplus-installer/src-tauri/tauri.conf.json
+          git commit -m "chore(mod): capture Android game $GAME"
+          git push origin "$BRANCH"
+          if [[ "$VERIFY" == success ]]; then
+            check='`just verify mod::android-build mod::test-core` passed against the new interop.'
+          else
+            check='`just verify mod::android-build mod::test-core` **failed** against the new interop; see the workflow run.'
+          fi
+          cat > "$RUNNER_TEMP/body.md" <<EOF
+          The publisher's official APK is now $GAME. This captures it as the android-online entry of the Snapshot Lock (inputs published to the private bucket) and bumps VERSION to $version.
+
+          - $check
+          - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          - After merging, run release.yml with version $version and platform android, then \`just release::promote --platform android\`.
+
+          Release Notes:
+
+          - Improved: Android supports game $GAME.
+          EOF
+          gh pr create --base master --head "$BRANCH" --title "chore(mod): capture Android game $GAME" --body-file "$RUNNER_TEMP/body.md"
