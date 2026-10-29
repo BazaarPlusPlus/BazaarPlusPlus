@@ -101,6 +101,23 @@ internal static class BppClientCacheBridge
         }
     }
 
+    /// <summary>
+    /// Calls <paramref name="onRefreshed"/> each time the game replaces the cached rank, as the
+    /// end-of-run screen does once the server has applied the Run's rating change.
+    /// </summary>
+    public static IDisposable SubscribeRankRefreshed(Action<string?, int?> onRefreshed)
+    {
+        Action<PlayerRankResponse> listener = response =>
+            onRefreshed(response.Rank.ToString(), response.Rating);
+        TheBazaar.ClientCache.Rank.Subscribe(listener);
+        return new RankSubscription(listener);
+    }
+
+    private sealed class RankSubscription(Action<PlayerRankResponse> listener) : IDisposable
+    {
+        public void Dispose() => TheBazaar.ClientCache.Rank.Unsubscribe(listener);
+    }
+
     public static bool TryGetPlayerLeaderboardPosition(out int? position)
     {
         position = null;

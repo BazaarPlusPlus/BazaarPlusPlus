@@ -1,3 +1,5 @@
+using Il2CppBazaarGameShared.TempoNet.Models;
+using Il2CppInterop.Runtime;
 using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.GameInterop;
@@ -60,5 +62,27 @@ internal static class AndroidClientCache
             rating = null;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Calls <paramref name="onRefreshed"/> each time the game replaces the cached rank, as the
+    /// end-of-run screen does once the server has applied the Run's rating change. Main thread.
+    /// </summary>
+    public static IDisposable SubscribeRankRefreshed(Action<string?, int?> onRefreshed)
+    {
+        var listener =
+            DelegateSupport.ConvertDelegate<Il2CppSystem.Action<PlayerRankResponse>>(
+                new Action<PlayerRankResponse>(response =>
+                    onRefreshed(response.Rank.ToString(), response.Rating)
+                )
+            ) ?? throw new InvalidOperationException("Il2CppInterop returned no delegate.");
+        ClientCache.Rank.Subscribe(listener);
+        return new RankSubscription(listener);
+    }
+
+    private sealed class RankSubscription(Il2CppSystem.Action<PlayerRankResponse> listener)
+        : IDisposable
+    {
+        public void Dispose() => ClientCache.Rank.Unsubscribe(listener);
     }
 }

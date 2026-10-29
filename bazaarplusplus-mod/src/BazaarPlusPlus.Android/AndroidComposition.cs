@@ -143,7 +143,12 @@ internal sealed class AndroidComposition
                 playerAccountIdResolver: AndroidClientCache.TryGetProfileAccountId,
                 // The Android host takes no end-of-run screenshot, so its Bundles are Run-only.
                 bundleScreenshotRequestedResolver: static () => false,
-                modVersionResolver: static () => BppPluginVersion.Current
+                modVersionResolver: static () => BppPluginVersion.Current,
+                subscribeRankRefreshed: static onRefreshed =>
+                    AndroidClientCache.SubscribeRankRefreshed(
+                        (rank, rating) =>
+                            onRefreshed(new RankSnapshot { Rank = rank, Rating = rating })
+                    )
             )
         );
         _sealCoordinator = new BundleSealCoordinator(
