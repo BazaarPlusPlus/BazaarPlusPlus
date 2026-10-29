@@ -48,6 +48,7 @@
       "gameVersion": "1.0.12825-production-android-d9601ded",
       "versionCode": 12825,
       "apkSha256": "3af9bbd19d5792eb538edb970d5f36ce64762017c2a59d9e425f252568aa5c1c",
+      "apkEtag": null,
       "il2cppSha256": "7468bb59490835353343244452b3ee505d35344ebbe7cc785d00d4e8836eae95",
       "metadataSha256": "8da8011b16be208555ac4e25916093f1c2f3f99182cf38b96669758d200c24fe",
       "unityVersion": "6000.3.11f1",
