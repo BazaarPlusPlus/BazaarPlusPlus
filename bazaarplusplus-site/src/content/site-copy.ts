@@ -127,10 +127,15 @@ export type DownloadPageCopy = {
   android: {
     title: string;
     arch: string;
-    /** `{gameVersion}` is replaced with the game's release number, such as 1.0.12825. */
-    apkName: string;
+    /** The status badge beside the title. */
+    badge: string;
+    /** What experimental means, in the banner under the header. */
+    notice: string;
+    gameVersionLabel: string;
+    sizeLabel: string;
     sha256Label: string;
     actionLabel: string;
+    feedbackLabel: string;
     stepsTitle: string;
     steps: string[];
     /** Shown instead of a version while no Android release is published. */
@@ -477,9 +482,13 @@ const zh: LocalizedSiteCopy = {
     android: {
       title: 'Android',
       arch: 'arm64',
-      apkName: 'The Bazaar {gameVersion} + BazaarPlusPlus',
+      badge: '实验版',
+      notice: 'Android 版仍在实验阶段：部分功能与桌面版有差异，也可能有尚未发现的问题。',
+      gameVersionLabel: '游戏版本',
+      sizeLabel: '文件大小',
       sha256Label: 'SHA-256',
       actionLabel: '下载 .apk',
+      feedbackLabel: '反馈问题',
       stepsTitle: '安装前必读',
       steps: [
         '先卸载官方版 The Bazaar：Android 不允许用签名不同的安装包覆盖安装。账号与进度保存在服务器上，卸载只会丢失登录状态，重新登录即可',
@@ -795,9 +804,14 @@ const en: LocalizedSiteCopy = {
     android: {
       title: 'Android',
       arch: 'arm64',
-      apkName: 'The Bazaar {gameVersion} + BazaarPlusPlus',
+      badge: 'Experimental',
+      notice:
+        'The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.',
+      gameVersionLabel: 'Game version',
+      sizeLabel: 'Size',
       sha256Label: 'SHA-256',
       actionLabel: 'Download .apk',
+      feedbackLabel: 'Report a problem',
       stepsTitle: 'Before you install',
       steps: [
         'Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.',

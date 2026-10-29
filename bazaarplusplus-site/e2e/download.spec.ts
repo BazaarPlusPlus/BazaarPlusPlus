@@ -76,25 +76,35 @@ async function text(locator: Locator) {
   return (await locator.textContent())?.trim();
 }
 
+/** The value beside a key in the Android card's facts list, or null when the row is absent. */
+async function fact(card: Locator, label: string) {
+  const key = card.locator('dt', { hasText: label });
+  if ((await key.count()) === 0) return null;
+  return text(key.locator('xpath=following-sibling::dd[1]'));
+}
+
 /** The Android entry as a visitor reads it; a pending card has no APK facts but a release link. */
 async function describeAndroid(page: Page) {
   const card = platformCard(page, 'Android');
   if ((await card.count()) === 0) return null;
   const download = card.getByRole('link', { name: 'Download .apk' });
-  const apk = card.getByText(/^The Bazaar /);
-  const published = (await apk.count()) > 0;
+  const feedback = card.getByRole('link', { name: 'Report a problem' });
   const releaseLink = card.getByRole('link', { name: 'GitHub Release' });
   return {
-    version: await text(
-      card.getByText('Current version', { exact: true }).locator('xpath=following-sibling::*[1]')
-    ),
-    apk: published ? await text(apk) : null,
-    size: published ? await text(apk.locator('xpath=following-sibling::*[1]')) : null,
-    sha256: published ? await text(card.locator('code')) : null,
+    badge: await text(card.getByText('Experimental', { exact: true })),
+    notice: await text(card.getByText(/^The Android build is experimental/)),
+    version: await fact(card, 'Current version'),
+    gameVersion: await fact(card, 'Game version'),
+    size: await fact(card, 'Size'),
+    sha256: await fact(card, 'SHA-256'),
     releaseLink: (await releaseLink.count()) === 0 ? null : await releaseLink.getAttribute('href'),
     download: {
       href: await download.getAttribute('href'),
       disabled: (await download.getAttribute('aria-disabled')) === 'true',
+    },
+    feedback: {
+      href: await feedback.getAttribute('href'),
+      target: await feedback.getAttribute('target'),
     },
     stepsTitle: await text(card.getByRole('heading', { level: 3 })),
     steps: await card.getByRole('listitem').locator('span:not([aria-hidden])').allTextContents(),
@@ -147,10 +157,15 @@ test('a missing or invalid Android manifest leaves the Android card pending', ()
     fallback: loaded.fallback,
   });
   expect(missing.android).toMatchObject({
+    badge: loaded.android?.badge,
+    notice: loaded.android?.notice,
     version: 'Coming soon',
-    apk: null,
+    gameVersion: null,
+    size: null,
+    sha256: null,
     releaseLink: 'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest',
     download: { href: '#', disabled: true },
+    feedback: loaded.android?.feedback,
     stepsTitle: loaded.android?.stepsTitle,
     steps: loaded.android?.steps,
   });

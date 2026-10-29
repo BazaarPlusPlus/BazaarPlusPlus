@@ -29,14 +29,20 @@
       }
     },
     "android": {
+      "badge": "Experimental",
+      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "gameVersion": "1.0.12825",
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "releaseLink": null,
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
         "disabled": false
+      },
+      "feedback": {
+        "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues",
+        "target": "_blank"
       },
       "stepsTitle": "Before you install",
       "steps": [
@@ -77,14 +83,20 @@
       }
     },
     "android": {
+      "badge": "Experimental",
+      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "gameVersion": "1.0.12825",
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "releaseLink": null,
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
         "disabled": false
+      },
+      "feedback": {
+        "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues",
+        "target": "_blank"
       },
       "stepsTitle": "Before you install",
       "steps": [
@@ -125,14 +137,20 @@
       }
     },
     "android": {
+      "badge": "Experimental",
+      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "gameVersion": "1.0.12825",
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "releaseLink": null,
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
         "disabled": false
+      },
+      "feedback": {
+        "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues",
+        "target": "_blank"
       },
       "stepsTitle": "Before you install",
       "steps": [
@@ -173,14 +191,20 @@
       }
     },
     "android": {
+      "badge": "Experimental",
+      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "gameVersion": "1.0.12825",
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "releaseLink": null,
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
         "disabled": false
+      },
+      "feedback": {
+        "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues",
+        "target": "_blank"
       },
       "stepsTitle": "Before you install",
       "steps": [
@@ -224,14 +248,20 @@
       }
     },
     "android": {
+      "badge": "Experimental",
+      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "Coming soon",
-      "apk": null,
+      "gameVersion": null,
       "size": null,
       "sha256": null,
       "releaseLink": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest",
       "download": {
         "href": "#",
         "disabled": true
+      },
+      "feedback": {
+        "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues",
+        "target": "_blank"
       },
       "stepsTitle": "Before you install",
       "steps": [
@@ -272,14 +302,20 @@
       }
     },
     "android": {
+      "badge": "Experimental",
+      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "Coming soon",
-      "apk": null,
+      "gameVersion": null,
       "size": null,
       "sha256": null,
       "releaseLink": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest",
       "download": {
         "href": "#",
         "disabled": true
+      },
+      "feedback": {
+        "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues",
+        "target": "_blank"
       },
       "stepsTitle": "Before you install",
       "steps": [
@@ -320,14 +356,20 @@
       }
     },
     "android": {
+      "badge": "Experimental",
+      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "gameVersion": "1.0.12825",
       "size": "2.8 GB",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "releaseLink": null,
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
         "disabled": false
+      },
+      "feedback": {
+        "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues",
+        "target": "_blank"
       },
       "stepsTitle": "Before you install",
       "steps": [
