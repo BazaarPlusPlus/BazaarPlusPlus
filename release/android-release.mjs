@@ -45,10 +45,8 @@ import { releasePlatform } from './release-platforms.mjs';
 // The Android release (ADR 0010, docs/release.md "Android 发布"): prepare
 // compiles the Android host against the locked Interop Snapshot and stages the
 // Android Mod Payload; build zips and signs that Payload as the Managed Payload
-// zip and, unless the APK of the locked (game version, loader, interop, native
-// libraries) is already published, injects the official APK and signs it with
-// the BPP Android release key (ADR 0009); upload (publish.mjs) streams both to
-// R2.
+// zip, injects the official APK with it and signs that with the BPP Android
+// release key (ADR 0009); upload (publish.mjs) streams both to R2.
 // Every output lives under target/android/ at the workspace root, outside the
 // release inputs, and is replaced as a whole by the next run.
 
@@ -98,48 +96,16 @@ export function androidPaths(workspaceRoot) {
   };
 }
 
-// The sidecar written beside each published APK: the facts a later fragment
-// pointing at the same APK needs, without downloading 2.8 GB, and the
-// non-managed payload digest the APK was built with.
-export function androidApkRecordKey(apkKey) {
-  return `${apkKey}.json`;
-}
-
-// The facts of a published Android Release APK its sidecar carries into every
-// fragment that points at it.
-export const ANDROID_APK_FACTS = Object.freeze([
-  'size',
-  'sha256',
-  'versionCode',
-  'signerSha256',
-  'builtForProductVersion'
-]);
-
-export const androidApkFacts = (record) =>
-  Object.fromEntries(ANDROID_APK_FACTS.map((name) => [name, record[name]]));
-
-// The APK identity of a Snapshot Lock android-online entry and the Updater
-// plugin the APK carries (ADR 0010): the Updater ships only inside the APK, so
-// a changed Updater is a new APK.
-export function androidApkIdentity(entry, updaterSha256) {
-  const nonManagedPayloadDigest = androidNonManagedPayloadDigest({
+// The non-managed payload digest of a Snapshot Lock android-online entry and
+// the Updater plugin the APK carries (ADR 0010): the Updater ships only inside
+// the APK, so a changed Updater needs the new APK.
+export const androidEntryNonManagedPayloadDigest = (entry, updaterSha256) =>
+  androidNonManagedPayloadDigest({
     loader: entry.loader,
     interopSha256: entry.interopSha256,
     nativeLibs: entry.nativeLibs ?? {},
     updaterSha256
   });
-  return {
-    key: androidApkKey({
-      gameVersion: entry.gameVersion,
-      loaderTag: entry.loader.tag,
-      nonManagedPayloadDigest
-    }),
-    nonManagedPayloadDigest
-  };
-}
-
-export const androidApkKeyForEntry = (entry, updaterSha256) =>
-  androidApkIdentity(entry, updaterSha256).key;
 
 // The SHA-256 of the Updater plugin in a staged Android Payload.
 export function stagedUpdaterSha256(payloadRoot) {
@@ -323,10 +289,10 @@ async function prepareUnlocked({
       sourceDir: payloadRoot,
       platform: PLATFORM,
       version: productVersion,
-      nonManagedPayloadDigest: androidApkIdentity(
+      nonManagedPayloadDigest: androidEntryNonManagedPayloadDigest(
         entry,
         stagedUpdaterSha256(payloadRoot)
-      ).nonManagedPayloadDigest
+      )
     });
     validateAndroidPayload(payloadRoot, productVersion);
     const record = {
@@ -714,32 +680,9 @@ export function signerCertificateSha256(output, apk) {
   return [...digests][0];
 }
 
-// The APK published under an identity: null when nothing is stored at its
-// key; { object, record } otherwise, where `record` is the sidecar and is null
-// when an upload stopped between the APK and its sidecar (upload completes it).
-export async function publishedAndroidApk(
-  store,
-  { key, nonManagedPayloadDigest }
-) {
-  const object = await store.head(key);
-  if (!object) return null;
-  const sidecar = await store.get(androidApkRecordKey(key));
-  if (!sidecar) return { object, record: null };
-  const record = JSON.parse(sidecar.bytes.toString('utf8'));
-  if (
-    record.size !== object.size ||
-    record.sha256 !== object.sha256 ||
-    record.nonManagedPayloadDigest !== nonManagedPayloadDigest
-  )
-    throw new Error(`${androidApkRecordKey(key)} does not describe ${key}`);
-  return { object, record };
-}
-
 async function buildUnlocked({
   workspaceRoot,
   msbuildArgs = [],
-  rebuildApk = false,
-  releaseStore,
   resolveSnapshot,
   produce,
   gameLibsStore = gameLibsStoreFromEnvironment,
@@ -788,57 +731,43 @@ async function buildUnlocked({
   const signature = sign({ workspaceRoot, file: zipPath });
   log(`Signed ${path.basename(zipPath)}`);
 
-  const apkIdentity = androidApkIdentity(
+  const nonManagedPayloadDigest = androidEntryNonManagedPayloadDigest(
     entry,
     stagedUpdaterSha256(paths.payload)
   );
-  const apkKey = apkIdentity.key;
-  const published = await publishedAndroidApk(releaseStore(), apkIdentity);
-  let apk;
-  if (published?.record && !rebuildApk) {
-    log(
-      `${apkKey} is already published (built for ${published.record.builtForProductVersion}); skipping APK injection`
-    );
-    apk = { path: null, published: true, ...androidApkFacts(published.record) };
-  } else {
-    if (published && !published.record)
-      log(
-        `${apkKey} is on R2 without its sidecar (an interrupted upload); injecting again, and upload completes it only if this APK has the same bytes`
-      );
-    const apkPath = path.join(paths.root, path.posix.basename(apkKey));
-    const signing = signingKey();
-    const tools = buildTools();
-    const inputs = await resolveInputs({
-      workspaceRoot,
-      entry,
-      into: path.join(paths.root, 'native'),
-      gameLibsStore,
-      log
-    });
-    log(`Injecting ${entry.gameVersion} with ${entry.loader.tag}`);
-    const { signerSha256 } = inject({
-      ...inputs,
-      interopPath: record.interopPath,
-      deployment: path.join(paths.payload, DEPLOYMENT_ROOT),
-      signing,
-      tools,
-      output: apkPath,
-      work: paths.work
-    });
-    fs.rmSync(path.join(paths.root, 'native'), {
-      recursive: true,
-      force: true
-    });
-    apk = {
-      path: path.relative(paths.root, apkPath),
-      published: Boolean(published?.record),
-      size: fs.statSync(apkPath).size,
-      sha256: await sha256File(apkPath),
-      versionCode: entry.versionCode,
-      signerSha256,
-      builtForProductVersion: version
-    };
-  }
+  const apkKey = androidApkKey({ version, gameVersion: entry.gameVersion });
+  const apkPath = path.join(paths.root, path.posix.basename(apkKey));
+  const signing = signingKey();
+  const tools = buildTools();
+  const inputs = await resolveInputs({
+    workspaceRoot,
+    entry,
+    into: path.join(paths.root, 'native'),
+    gameLibsStore,
+    log
+  });
+  log(`Injecting ${entry.gameVersion} with ${entry.loader.tag}`);
+  const { signerSha256 } = inject({
+    ...inputs,
+    interopPath: record.interopPath,
+    deployment: path.join(paths.payload, DEPLOYMENT_ROOT),
+    signing,
+    tools,
+    output: apkPath,
+    work: paths.work
+  });
+  fs.rmSync(path.join(paths.root, 'native'), {
+    recursive: true,
+    force: true
+  });
+  const apk = {
+    path: path.relative(paths.root, apkPath),
+    size: fs.statSync(apkPath).size,
+    sha256: await sha256File(apkPath),
+    versionCode: entry.versionCode,
+    signerSha256,
+    builtForProductVersion: version
+  };
   verifyAndroidPayload(workspaceRoot);
   if (JSON.stringify(captureIdentity(rootDir)) !== JSON.stringify(identity))
     throw new Error(
@@ -848,7 +777,7 @@ async function buildUnlocked({
     paths.payload,
     PLATFORM
   );
-  if (managed.nonManagedPayloadDigest !== apkIdentity.nonManagedPayloadDigest)
+  if (managed.nonManagedPayloadDigest !== nonManagedPayloadDigest)
     throw new Error(
       'The Managed Payload Manifest names another non-managed payload than the APK; run node release.mjs prepare --platform android'
     );
@@ -867,7 +796,7 @@ async function buildUnlocked({
     },
     apk: { key: apkKey, ...apk },
     historyDatabaseUserVersion: managed.historyDatabaseUserVersion,
-    nonManagedPayloadDigest: apkIdentity.nonManagedPayloadDigest,
+    nonManagedPayloadDigest,
     game: {
       gameVersion: entry.gameVersion,
       versionCode: entry.versionCode,
@@ -921,12 +850,10 @@ export async function readAndroidArtifacts(workspaceRoot) {
       manifest.managedPayload,
       'Managed Payload zip'
     ),
-    apk: manifest.apk.path
-      ? file(manifest.apk.path, manifest.apk, 'Android Release APK')
-      : null
+    apk: file(manifest.apk.path, manifest.apk, 'Android Release APK')
   };
   for (const [name, absolute] of Object.entries(files))
-    if (absolute && (await sha256File(absolute)) !== manifest[name].sha256)
+    if ((await sha256File(absolute)) !== manifest[name].sha256)
       throw new Error(`Artifact changed before upload: ${absolute}`);
   return { manifest, files };
 }

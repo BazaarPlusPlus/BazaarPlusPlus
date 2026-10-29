@@ -1100,12 +1100,10 @@ test('an Android fragment pins the version to one commit for every platform', as
 test('an Android release refuses rollback and changed facts at a published version', async () => {
   const data = fixture('3.1.2');
   const store = new MemoryStore();
-  // Both versions point at the one APK that carries the 3.1.1 Mods.
   await uploadAndroid(store, {
     version: '3.1.2',
     gitCommit: data.commits.a,
-    baseUrl,
-    apkVersion: '3.1.1'
+    baseUrl
   });
   await promoteAndroid(data, store);
   await uploadAndroid(store, {
@@ -1125,7 +1123,7 @@ test('an Android release refuses rollback and changed facts at a published versi
   );
 });
 
-test('an Android fragment names its APK by game, loader and non-managed payload digest, and the Mods it carries', () => {
+test("an Android fragment names its own version's APK and Mods", () => {
   const facts = {
     version: '3.1.2',
     gitCommit: 'a'.repeat(40),
@@ -1135,7 +1133,7 @@ test('an Android fragment names its APK by game, loader and non-managed payload 
       sha256: 'b'.repeat(64),
       versionCode: 12825,
       signerSha256: 'c'.repeat(64),
-      builtForProductVersion: '3.1.1'
+      builtForProductVersion: '3.1.2'
     },
     managedPayload: { size: 1, sha256: 'b'.repeat(64), signature: 'sig' },
     selfUpdatable: true,
@@ -1149,10 +1147,9 @@ test('an Android fragment names its APK by game, loader and non-managed payload 
     loader: { tag: 'v0.7.4-android.4', sha256: 'f'.repeat(64) },
     interopSha256: `0123abcd${'0'.repeat(56)}`
   };
-  // A pure Mods update points at the APK an earlier version baked.
   const fragment = buildAndroidFragment(facts);
   expect(fragment.apk.url).toBe(
-    `${baseUrl}/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_dddddddd.apk`
+    `${baseUrl}/android/apk/BazaarPlusPlus_3.1.2_1.0.12825.apk`
   );
   expect(fragment.managedPayload.url).toBe(
     `${baseUrl}/3.1.2/${ANDROID}/managed/BazaarPlusPlus_3.1.2_${ANDROID}-managed.zip`
@@ -1160,7 +1157,7 @@ test('an Android fragment names its APK by game, loader and non-managed payload 
   expect(() =>
     buildAndroidFragment({
       ...facts,
-      apk: { ...facts.apk, builtForProductVersion: '3.1.3' }
+      apk: { ...facts.apk, builtForProductVersion: '3.1.1' }
     })
   ).toThrow(/Invalid android-aarch64 APK/);
   expect(() =>
@@ -1175,7 +1172,7 @@ test('an Android fragment names its APK by game, loader and non-managed payload 
       '3.1.2',
       ANDROID
     )
-  ).toThrow(/does not name its game, loader and non-managed payload digest/);
+  ).toThrow(/APK URL is outside android\/apk\//);
   expect(() =>
     validatePlatformFragment({ ...fragment, kind: 'tauri' }, '3.1.2', ANDROID)
   ).toThrow(/Invalid android-aarch64 platform fragment/);

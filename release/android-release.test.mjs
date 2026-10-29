@@ -5,8 +5,6 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
-  androidApkKeyForEntry,
-  androidApkRecordKey,
   androidPaths,
   buildAndroidRelease,
   injectAndroidApk,
@@ -25,6 +23,7 @@ import {
   interopDirectoryDigest
 } from './game-libs.mjs';
 import {
+  androidApkKey,
   androidNonManagedPayloadDigest,
   fragmentKey,
   managedPayloadKey,
@@ -43,8 +42,8 @@ import { MemoryStore } from './test-support/memory-store.mjs';
 // and apksigner, and upload and promote write to an in-memory store. Failure
 // modes: a host build that misses a required inventory file, an interop
 // directory that is not the locked one, a Payload changed after preparation,
-// and a mod-only release that must reuse the published APK instead of
-// injecting or uploading 2.8 GB again.
+// and a release whose unchanged non-managed payload must stay self-updatable
+// although it ships its own APK.
 
 const KEY = 'android-aarch64';
 const COMMIT = 'c'.repeat(40);
@@ -385,15 +384,15 @@ test('prepare refuses an interop directory that is not the locked snapshot and u
   ).rejects.toThrow(/Unsupported release build override/);
 });
 
-test('a new APK identity is injected, aligned and signed, then streamed with its sidecar and promoted', async () => {
+test('a release injects, aligns and signs its own APK, then streams it and promotes', async () => {
   const f = fixture();
   const store = new MemoryStore();
-  const manifest = await buildAndroidRelease({
-    ...f.options,
-    releaseStore: () => store
-  });
+  const manifest = await buildAndroidRelease(f.options);
   const paths = androidPaths(f.workspaceRoot);
-  const apkKey = androidApkKeyForEntry(f.entry, UPDATER_SHA256);
+  const apkKey = androidApkKey({
+    version: version(f.workspaceRoot),
+    gameVersion: f.entry.gameVersion
+  });
   expect(f.calls().filter(Boolean)).toEqual(['inject']);
   expect(manifest).toMatchObject({
     platform: KEY,
@@ -402,7 +401,6 @@ test('a new APK identity is injected, aligned and signed, then streamed with its
     dirty: false,
     apk: {
       key: apkKey,
-      published: false,
       versionCode: f.entry.versionCode,
       signerSha256: SIGNER,
       builtForProductVersion: version(f.workspaceRoot)
@@ -467,19 +465,6 @@ test('a new APK identity is injected, aligned and signed, then streamed with its
   expect(fragment.apk.url).toBe(`${RELEASE_BASE_URL}/${apkKey}`);
   expect(store.objects.get(apkKey).bytes).toEqual(fs.readFileSync(apk));
   expect(
-    JSON.parse(store.objects.get(androidApkRecordKey(apkKey)).bytes)
-  ).toEqual({
-    size: manifest.apk.size,
-    sha256: manifest.apk.sha256,
-    versionCode: f.entry.versionCode,
-    signerSha256: SIGNER,
-    builtForProductVersion: current,
-    nonManagedPayloadDigest: androidNonManagedPayloadDigest({
-      ...f.entry,
-      updaterSha256: UPDATER_SHA256
-    })
-  });
-  expect(
     store.objects.get(`${managedPayloadKey(current, KEY)}.sig`).bytes.toString()
   ).toBe(`${SIGNATURE}\n`);
   expect(store.writes.at(-1)).toBe(fragmentKey(current, KEY));
@@ -505,82 +490,64 @@ test('a new APK identity is injected, aligned and signed, then streamed with its
   expect(store.writes.length).toBe(writes);
 });
 
-test('a mod-only release reuses the published APK and uploads only the Managed Payload', async () => {
+const nextVersion = (workspaceRoot, step = 1) => {
+  const [major, minor, patch] = version(workspaceRoot).split('.').map(Number);
+  const next = `${major}.${minor}.${patch + step}`;
+  write(path.join(workspaceRoot, 'VERSION'), `${next}\n`);
+  return next;
+};
+
+test('the next release ships its own APK, and an unchanged non-managed payload stays self-updatable', async () => {
   const f = fixture();
   const store = new MemoryStore();
   const gitState = () => ({ commit: COMMIT, dirty: false });
+  const upload = () =>
+    uploadAndroidPlatform({
+      workspaceRoot: f.workspaceRoot,
+      baseUrl: RELEASE_BASE_URL,
+      store,
+      gitState
+    });
   const first = version(f.workspaceRoot);
-  await buildAndroidRelease({ ...f.options, releaseStore: () => store });
-  await uploadAndroidPlatform({
-    workspaceRoot: f.workspaceRoot,
+  await buildAndroidRelease(f.options);
+  const promotedFragment = await upload();
+  await promotePlatform({
+    version: first,
+    platform: 'android',
     baseUrl: RELEASE_BASE_URL,
-    store,
-    gitState
+    store
   });
-  const [major, minor, patch] = first.split('.').map(Number);
-  const next = `${major}.${minor}.${patch + 1}`;
-  write(path.join(f.workspaceRoot, 'VERSION'), `${next}\n`);
-  const apkKey = androidApkKeyForEntry(f.entry, UPDATER_SHA256);
 
-  const manifest = await buildAndroidRelease({
-    ...f.options,
-    releaseStore: () => store,
-    signingKey: () => {
-      throw new Error('a reused APK needs no signing key');
-    }
+  const next = nextVersion(f.workspaceRoot);
+  const manifest = await buildAndroidRelease(f.options);
+  expect(f.calls().filter(Boolean)).toEqual(['inject', 'inject']);
+  const apkKey = androidApkKey({
+    version: next,
+    gameVersion: f.entry.gameVersion
   });
-  expect(f.calls().filter(Boolean)).toEqual(['inject']);
   expect(manifest.apk).toMatchObject({
-    path: null,
-    published: true,
-    builtForProductVersion: first
+    key: apkKey,
+    builtForProductVersion: next
   });
   const before = store.writes.length;
-  const fragment = await uploadAndroidPlatform({
-    workspaceRoot: f.workspaceRoot,
-    baseUrl: RELEASE_BASE_URL,
-    store,
-    gitState
-  });
+  const fragment = await upload();
   expect(store.writes.slice(before)).toEqual([
+    apkKey,
     managedPayloadKey(next, KEY),
     `${managedPayloadKey(next, KEY)}.sig`,
     fragmentKey(next, KEY)
   ]);
-  expect(fragment.apk.builtForProductVersion).toBe(first);
+  expect(fragment.nonManagedPayloadDigest).toBe(
+    promotedFragment.nonManagedPayloadDigest
+  );
+  // Installed copies take it as a Managed Payload; a new install gets its APK.
   expect(fragment.selfUpdatable).toBe(true);
-
-  // --rebuild-apk (build_only) injects anyway; upload keeps the published APK.
-  write(
-    path.join(f.workspaceRoot, 'VERSION'),
-    `${major}.${minor}.${patch + 2}\n`
-  );
-  const rebuilt = await buildAndroidRelease({
-    ...f.options,
-    releaseStore: () => store,
-    rebuildApk: true
-  });
-  expect(f.calls().filter(Boolean)).toEqual(['inject', 'inject']);
-  expect(rebuilt.apk.published).toBe(true);
-  expect(rebuilt.apk.path).toMatch(/\.apk$/);
-  const log = vi.fn();
-  const kept = await uploadAndroidPlatform({
-    workspaceRoot: f.workspaceRoot,
-    baseUrl: RELEASE_BASE_URL,
-    store,
-    gitState,
-    log
-  });
-  expect(kept.apk.builtForProductVersion).toBe(first);
-  expect(log).toHaveBeenCalledWith(
-    expect.stringContaining(`${apkKey} is already published`)
-  );
 });
 
 test('upload refuses a build from another commit or a dirty checkout', async () => {
   const f = fixture();
   const store = new MemoryStore();
-  await buildAndroidRelease({ ...f.options, releaseStore: () => store });
+  await buildAndroidRelease(f.options);
   const upload = (gitState) =>
     uploadAndroidPlatform({
       workspaceRoot: f.workspaceRoot,
@@ -597,14 +564,7 @@ test('upload refuses a build from another commit or a dirty checkout', async () 
   expect(store.writes).toEqual([]);
 });
 
-const nextVersion = (workspaceRoot, step = 1) => {
-  const [major, minor, patch] = version(workspaceRoot).split('.').map(Number);
-  const next = `${major}.${minor}.${patch + step}`;
-  write(path.join(workspaceRoot, 'VERSION'), `${next}\n`);
-  return next;
-};
-
-test('a native library change alone is a new APK identity, so the fragment never names an APK without it', async () => {
+test('a native library change alone is a new non-managed payload, so installed copies need the new APK', async () => {
   const f = fixture();
   const store = new MemoryStore();
   const gitState = () => ({ commit: COMMIT, dirty: false });
@@ -615,22 +575,19 @@ test('a native library change alone is a new APK identity, so the fragment never
       store,
       gitState
     });
-  await buildAndroidRelease({ ...f.options, releaseStore: () => store });
+  await buildAndroidRelease(f.options);
   const first = await upload();
-  const firstKey = androidApkKeyForEntry(f.entry, UPDATER_SHA256);
+  await promotePlatform({
+    version: first.version,
+    platform: 'android',
+    baseUrl: RELEASE_BASE_URL,
+    store
+  });
 
   nextVersion(f.workspaceRoot);
   const entry = f.upgradeNativeLib('sqlite elf 3.53.5');
-  const secondKey = androidApkKeyForEntry(entry, UPDATER_SHA256);
-  expect(secondKey).not.toBe(firstKey);
-  const manifest = await buildAndroidRelease({
-    ...f.options,
-    releaseStore: () => store
-  });
-  expect(f.calls().filter(Boolean)).toEqual(['inject', 'inject']);
-  expect(manifest.apk).toMatchObject({ key: secondKey, published: false });
+  const manifest = await buildAndroidRelease(f.options);
   const fragment = await upload();
-  expect(fragment.apk.url).toBe(`${RELEASE_BASE_URL}/${secondKey}`);
   expect(fragment.nonManagedPayloadDigest).toBe(
     androidNonManagedPayloadDigest({ ...entry, updaterSha256: UPDATER_SHA256 })
   );
@@ -647,57 +604,34 @@ test('a native library change alone is a new APK identity, so the fragment never
   ).toBe('sqlite elf 3.53.5');
 });
 
-test('an APK upload that stopped before its sidecar is completed by uploading again', async () => {
+test('an upload that stopped before its fragment completes by uploading the same build again', async () => {
   const f = fixture();
   const store = new MemoryStore();
-  const manifest = await buildAndroidRelease({
-    ...f.options,
-    releaseStore: () => store
-  });
+  const manifest = await buildAndroidRelease(f.options);
   const apkKey = manifest.apk.key;
-  const upload = (log) =>
+  const current = version(f.workspaceRoot);
+  const upload = (target = store) =>
     uploadAndroidPlatform({
       workspaceRoot: f.workspaceRoot,
       baseUrl: RELEASE_BASE_URL,
-      store,
-      gitState: () => ({ commit: COMMIT, dirty: false }),
-      log
+      store: target,
+      gitState: () => ({ commit: COMMIT, dirty: false })
     });
   store.beforePut = async (key) => {
-    if (key === androidApkRecordKey(apkKey))
-      throw new Error('the job timed out');
+    if (key === fragmentKey(current, KEY)) throw new Error('the job timed out');
   };
   await expect(upload()).rejects.toThrow(/timed out/);
   expect(store.objects.has(apkKey)).toBe(true);
-  expect(store.objects.has(androidApkRecordKey(apkKey))).toBe(false);
 
   store.beforePut = undefined;
-  const log = vi.fn();
-  const fragment = await upload(log);
-  expect(log).toHaveBeenCalledWith(
-    `${apkKey} is on R2 without its sidecar; completing that upload`
-  );
-  expect(
-    JSON.parse(store.objects.get(androidApkRecordKey(apkKey)).bytes)
-  ).toMatchObject({
-    sha256: manifest.apk.sha256,
-    nonManagedPayloadDigest: manifest.nonManagedPayloadDigest
-  });
-  expect(store.writes.at(-1)).toBe(fragmentKey(fragment.version, KEY));
+  await upload();
+  expect(store.writes.at(-1)).toBe(fragmentKey(current, KEY));
 
-  // Other bytes under the key cannot be completed; the error says how to
-  // recover instead of pointing at another upload.
+  // A rebuilt APK has other bytes; the stored one is never replaced.
   const other = new MemoryStore();
   await other.put(apkKey, Buffer.from('another APK'), { ifNoneMatch: true });
-  await expect(
-    uploadAndroidPlatform({
-      workspaceRoot: f.workspaceRoot,
-      baseUrl: RELEASE_BASE_URL,
-      store: other,
-      gitState: () => ({ commit: COMMIT, dirty: false })
-    })
-  ).rejects.toThrow(
-    `delete bazaarplusplus-public/installer/${apkKey} from R2, then upload again`
+  await expect(upload(other)).rejects.toThrow(
+    `Immutable release object differs: ${apkKey}`
   );
 });
 
@@ -705,7 +639,7 @@ test('upload and promote refuse an APK signed by another key than the promoted o
   const f = fixture();
   const store = new MemoryStore();
   const gitState = () => ({ commit: COMMIT, dirty: false });
-  await buildAndroidRelease({ ...f.options, releaseStore: () => store });
+  await buildAndroidRelease(f.options);
   await uploadAndroidPlatform({
     workspaceRoot: f.workspaceRoot,
     baseUrl: RELEASE_BASE_URL,
@@ -724,7 +658,6 @@ test('upload and promote refuse an APK signed by another key than the promoted o
   const otherSigner = 'b'.repeat(64);
   const build = await buildAndroidRelease({
     ...f.options,
-    releaseStore: () => store,
     buildTools: () => ({
       ...f.options.buildTools(),
       apksigner: script(

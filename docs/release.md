@@ -83,7 +83,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 生产者 `managed` 与 `history-contract` 的条目组成 Managed Payload，mod 自己更新它；其余条目（加载器、native、`bootstrap`、`sqlite-*` 和生产者 `updater` 的 Updater）只由 installer 或新 APK 更新，它们的 sha256 汇成 fragment 的 `nonManagedPayloadDigest`。决策记录见 [mod ADR 0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)。
 
 - `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.mjs`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
-- fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：桌面在 `upload` 时与已提升的平台清单比较这两项，Android 看 APK 是否复用。mod 只与正在运行的副本比较。
+- fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：`upload` 时与已提升的平台清单比较这两项。mod 只与正在运行的副本比较。
 - Updater 以固定版本 1.0.0 确定性构建，同一编译器构建不变的源码时文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新 APK。
 
 ## 本地准备与恢复
@@ -134,7 +134,7 @@ lockstep 平台（Windows 与 macOS）的 Platform Release Manifest（`latest/<�
 
 ## Android 发布
 
-Android 是第三个发布平台（平台键 `android-aarch64`），不进 `latest.json` 的 lockstep 集合，决策记录见 [ADR 0010](adr/0010-android-release-platform.md)。它发布两样东西：Android Release APK（其对象键由 `release/manifest.mjs` 的 `androidApkKey` 根据游戏版本、loader 标签和非托管 Payload 摘要生成，放在 `installer/android/apk/`，不在版本目录下）和每个产品版本的 Android Mod Payload zip（`<版本>/android-aarch64/managed/`）。fragment 与平台清单的字段由 `release/manifest.mjs` 的 `buildAndroidFragment` 定义；一次纯 mod 更新的 fragment 指向已有的 APK。
+Android 是第三个发布平台（平台键 `android-aarch64`），不进 `latest.json` 的 lockstep 集合，决策记录见 [ADR 0010](adr/0010-android-release-platform.md)。每个产品版本发布两样东西：Android Release APK（对象键由 `release/manifest.mjs` 的 `androidApkKey` 根据产品版本和游戏版本生成，放在 `installer/android/apk/`）和 Android Mod Payload zip（`<版本>/android-aarch64/managed/`）。新用户装的 APK 带着当版的 Mods；已安装的用户在 `nonManagedPayloadDigest` 不变时只下载 zip。fragment 与平台清单的字段由 `release/manifest.mjs` 的 `buildAndroidFragment` 定义。
 
 ```bash
 just release::promote --platform android
@@ -154,11 +154,11 @@ just release::promote --platform android
 
 1. 与桌面同一个提交（`VERSION` 相同）。本机发版在取包后先执行 `just verify mod::android-build mod::test-core`。`mod::fetch android online` 把锁条目 `android-online` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
 2. `prepare` 对照锁定的 interop 与 Loader Release 编译 Android 宿主，并核对宿主暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。`-p:InteropPath=`、`-p:LemonLoaderPath=` 可以覆盖目录，但覆盖的仍必须是锁条目钉住的那一份。
-3. `build` 重做 `prepare`，把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。APK 的身份是游戏版本加上 `nonManagedPayloadDigest`（锁条目中 loader、interop 与 `nativeLibs` 的摘要，加上 Updater 的 sha256，见 [ADR 0010](adr/0010-android-release-platform.md)）。这个身份已经在 R2 上时跳过注入，这次只是 mod 更新；否则注入、对齐并签名一个新 APK，步骤与工具要求见 `release/android-release.mjs` 的 `injectAndroidApk` 与 `resolveBuildTools`。注入只能在 Linux x64 上跑，因为 Patcher CLI 只有这一种发行包。原生库必须不压缩地放进 APK，系统才能就地映射。签名材料的来源见上面的 secret 表与 [ADR 0009](adr/0009-android-release-key.md)。`--rebuild-apk` 不管身份是否已发布都重新注入，供 `build_only` 验收使用。所有输出都在工作区根的 `target/android/`。
-4. `upload` 在同一台机器上用流式条件写上传。APK 身份尚未发布时，先传 APK，再在旁边写 sidecar；已发布时 fragment 直接指向线上那份。之后传 Managed Payload zip 与 `.sig`，最后写 fragment。如果上传停在 APK 与 sidecar 之间，用同一次构建再跑一遍 `upload` 会补写 sidecar；R2 上的对象不是这次构建的 APK 时，错误信息会给出要删除的对象。新 APK 的签名证书必须与已提升的 APK 相同，`promote` 也做同样的检查。APK 来自更早的产品版本时，`selfUpdatable` 为 true。
+3. `build` 重做 `prepare`，把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。然后注入、对齐并签名当版的 APK，步骤与工具要求见 `release/android-release.mjs` 的 `injectAndroidApk` 与 `resolveBuildTools`。注入只能在 Linux x64 上跑，因为 Patcher CLI 只有这一种发行包。原生库必须不压缩地放进 APK，系统才能就地映射。签名材料的来源见上面的 secret 表与 [ADR 0009](adr/0009-android-release-key.md)。所有输出都在工作区根的 `target/android/`。
+4. `upload` 在同一台机器上用流式条件写依次上传 APK、Managed Payload zip 与 `.sig`，最后写 fragment。新 APK 的签名证书必须与已提升的 APK 相同，`promote` 也做同样的检查。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同（Patcher 与 zip 的输出不可复现），会被已上传的对象拒绝，这时先从 R2 删掉这个 APK 再上传，或者升版本。
 5. `promote --platform android`。
 
-`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，标签推送只构建桌面两平台。输入 APK、中间产物和输出 APK 同时占约 9 GB，所以 job 先删掉用不到的预装工具链，结束后清理中间目录。`dry_run` 只跑到 `prepare`。`build_only` 带 `--rebuild-apk` 构建，把 APK 与 Managed Payload zip 留作 Actions 产物、不上传 R2，用于在干净的 AVD 上验收。
+`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，标签推送只构建桌面两平台。输入 APK、中间产物和输出 APK 同时占约 9 GB，所以 job 先删掉用不到的预装工具链，结束后清理中间目录。`dry_run` 只跑到 `prepare`。`build_only` 构建后把 APK 与 Managed Payload zip 留作 Actions 产物、不上传 R2，用于在干净的 AVD 上验收。
 
 ## 中国大陆镜像
 

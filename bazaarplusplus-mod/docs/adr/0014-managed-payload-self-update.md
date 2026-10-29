@@ -17,7 +17,7 @@ Until now only the installer updated the mod on desktop, and only a new APK upda
 ## Consequences
 
 - On Android, LemonLoader loads `MelonLoader/UserLibs/` before plugins. A swapped UserLib therefore takes effect one launch after the Mods that ship with it. The pinned serializer versions (ADR-0013) keep that set unchanged across ordinary releases.
-- A fragment's `selfUpdatable` is a hint for the download page. On desktop it compares the release with the promoted one; on Android it means the APK is reused. The mod decides from the running copy alone.
+- A fragment's `selfUpdatable` is a hint for the download page. On both desktop and Android it compares the release with the promoted one. The mod decides from the running copy alone.
 - The installer owns the Updater like any other private Payload file. A BPP patcher alone does not count as a third-party BepInEx patcher.
 - An installer that bundles N-1 neither asks to repair a self-updated N nor writes N-1 back (installer [ADR-0009](../../../bazaarplusplus-installer/docs/adr/0009-repair-keeps-self-updated-managed-payload.md)).
 - An unintended change to the built Updater, such as one from an SDK feature-band bump on a release runner, changes every release's `nonManagedPayloadDigest`. Every desktop copy would then get ManualUpdate and Android a new APK. Pinning the built Updater's sha256 per target, or failing the upload when it changes without a source change, is a follow-up.

@@ -72,7 +72,6 @@ test.each(['prepare', 'build'])(
       platform: 'windows',
       msbuildArgs: [managed],
       latest: false,
-      rebuildApk: false,
       allowUnverifiedMirror: false,
       withoutMainlandMirror: false
     });
@@ -161,9 +160,7 @@ test.each([
   ['prepare', '--platform', 'android', '--', managed],
   ['build', '--platform', 'android', '--', '-p:InteropPath=a;Version=1'],
   ['prepare', '--platform', 'macos', '--', '-p:InteropPath=/interop/'],
-  ['build', '--platform', 'macos', '--rebuild-apk'],
-  ['prepare', '--platform', 'android', '--rebuild-apk'],
-  ['upload', '--platform', 'android', '--rebuild-apk'],
+  ['build', '--platform', 'android', '--rebuild-apk'],
   ['upload', '--platform', 'android', '--', '-p:InteropPath=/interop/'],
   ['mirror', '--platform', 'android', '--url', 'https://mirror.example/apk'],
   ['verify-mirror', '--platform', 'android'],
@@ -188,7 +185,7 @@ test.each([
   }
 );
 
-test('android prepare and build take the Interop Snapshot overrides and build takes --rebuild-apk', () => {
+test('android prepare and build take the Interop Snapshot overrides', () => {
   const interop = '-p:InteropPath=/game-libs/android-online/interop/';
   const loader = '-p:LemonLoaderPath=/game-libs/loader-v0.7.4-android.4/';
   expect(
@@ -196,24 +193,14 @@ test('android prepare and build take the Interop Snapshot overrides and build ta
   ).toMatchObject({
     command: 'prepare',
     platform: 'android',
-    msbuildArgs: [interop],
-    rebuildApk: false
+    msbuildArgs: [interop]
   });
   expect(
-    parseReleaseArgs([
-      'build',
-      '--platform',
-      'android',
-      '--rebuild-apk',
-      '--',
-      interop,
-      loader
-    ])
+    parseReleaseArgs(['build', '--platform', 'android', '--', interop, loader])
   ).toMatchObject({
     command: 'build',
     platform: 'android',
-    msbuildArgs: [interop, loader],
-    rebuildApk: true
+    msbuildArgs: [interop, loader]
   });
   expect(parseReleaseArgs(['upload', '--platform', 'android'])).toMatchObject({
     command: 'upload',
