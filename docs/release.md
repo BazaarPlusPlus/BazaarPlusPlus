@@ -144,6 +144,8 @@ just release::promote --platform android
 
 ### Android 发布顺序
 
+官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和锁定 APK 在私有桶里的大小（`node release/game-libs.mjs official-apk`，不下载）。不一致时，它在 Linux runner 上下载并采集新的 `android-online` 条目，上传输入，跑 `mod::android-build` 和 `mod::test-core`，再开一个更新锁文件并把 `VERSION` 升一个补丁号的 PR。这个 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。合并后从下面第 1 步开始发布。仓库设置里要允许 GitHub Actions 创建 PR。
+
 ```bash
 just with-config release just mod::fetch android online
 just release::prepare android

@@ -22,6 +22,7 @@ import {
   fetchLockedAndroidInput,
   interopBlobKey,
   interopDirectoryDigest,
+  officialApkChanged,
   lockKey,
   lockKeys,
   managedEntries,
@@ -802,4 +803,45 @@ test('the CLI fetches android online by printing the interop directory', async (
   expect(out).toEqual([`${path.join(directory, 'interop')}\n`]);
   expect(err.join('')).toMatch(/Loader Release .*loader-v0\.7\.4-android\.4/);
   expect(err.join('')).toMatch(/Unknown android snapshot channel 'ptr'/);
+});
+
+test('the official APK reads as changed only when its length differs from the locked one', async () => {
+  const root = tempRoot('bpp-official-apk-');
+  const ws = workspace();
+  await firstCapture(ws, root);
+  const store = memoryStore();
+  const apkKey = androidInputKey('apk', ws.entry().apkSha256);
+  const head =
+    (length, ok = true) =>
+    async (url, init) => {
+      expect(init.method).toBe('HEAD');
+      return {
+        ok,
+        status: ok ? 200 : 503,
+        headers: new Headers(
+          length === null ? {} : { 'content-length': `${length}` }
+        )
+      };
+    };
+  const check = (fetchImpl) =>
+    officialApkChanged({
+      workspaceRoot: ws.workspaceRoot,
+      url: 'https://cdn.example/TheBazaar.apk',
+      storeFactory: () => store,
+      fetchImpl
+    });
+
+  await expect(check(head(10))).rejects.toThrow(
+    `The locked APK ${apkKey} is not in the store`
+  );
+  store.objects.set(apkKey, Buffer.alloc(10));
+  expect(await check(head(10))).toMatchObject({
+    changed: false,
+    officialSize: 10,
+    lockedSize: 10
+  });
+  expect((await check(head(11))).changed).toBe(true);
+  // A publisher that cannot answer never reads as unchanged.
+  await expect(check(head(10, false))).rejects.toThrow(/answered 503/);
+  await expect(check(head(null))).rejects.toThrow(/no Content-Length/);
 });

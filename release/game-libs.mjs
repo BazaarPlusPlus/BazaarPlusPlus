@@ -781,6 +781,38 @@ export function interopBlobKey(sha256) {
   return `game-libs/interop/${sha256}.tar.gz`;
 }
 
+// Where the publisher serves the official Android APK. It overwrites the file in
+// place on every game update, which is why the private bucket keeps each one.
+export const OFFICIAL_ANDROID_APK_URL =
+  'https://data.playthebazaar.com/game/android/TheBazaar.apk';
+
+// Whether the official APK differs from the one the android-online entry
+// locks, read without downloading either: the publisher's Content-Length
+// against the stored copy's size. Two game builds of the same byte length are
+// not expected; a capture still reads the APK's own identity.
+export async function officialApkChanged({
+  workspaceRoot = WORKSPACE_ROOT,
+  url = OFFICIAL_ANDROID_APK_URL,
+  storeFactory = gameLibsStoreFromEnvironment,
+  fetchImpl = fetch
+}) {
+  const response = await fetchImpl(url, { method: 'HEAD', redirect: 'follow' });
+  if (!response.ok) throw new Error(`HEAD ${url} answered ${response.status}`);
+  const officialSize = Number(response.headers.get('content-length'));
+  if (!Number.isSafeInteger(officialSize) || officialSize <= 0)
+    throw new Error(`HEAD ${url} gave no Content-Length`);
+  const entry = lockedInteropEntry(workspaceRoot);
+  const key = androidInputKey('apk', entry.apkSha256);
+  const stored = await storeFactory().head(key);
+  if (!stored) throw new Error(`The locked APK ${key} is not in the store`);
+  return {
+    changed: stored.size !== officialSize,
+    officialSize,
+    lockedSize: stored.size,
+    lockedGameVersion: entry.gameVersion
+  };
+}
+
 export function androidInputKey(kind, sha256) {
   const { extension } = inputKind(kind);
   if (!isSha256(sha256)) throw new Error(`Invalid ${kind} sha256`);
@@ -1724,6 +1756,8 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
   node release/game-libs.mjs fetch-input --input <apk|loader|patcher|cpp2il>
   node release/game-libs.mjs lock-check [--managed <dir>]
   node release/game-libs.mjs entries
+  node release/game-libs.mjs official-apk     Print changed or unchanged: the publisher's APK against
+                                             the android-online entry's (sizes only, no download)
 snapshot-android reuses the android-online entry's toolchain unless files are
 given, and generates interop with the Patcher's Linux x64 CLI unless --interop
 names a directory generated from the same APK. fetch android online prints the
@@ -1769,6 +1803,14 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
       return values[name];
     };
     switch (verb) {
+      case 'official-apk': {
+        const result = await officialApkChanged({ workspaceRoot });
+        log(
+          `Official APK ${result.officialSize} bytes, locked ${result.lockedGameVersion} ${result.lockedSize} bytes`
+        );
+        printLine(result.changed ? 'changed' : 'unchanged');
+        return 0;
+      }
       case 'game-version':
       case 'digest': {
         if (positionals.length !== 1)
