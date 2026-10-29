@@ -1,8 +1,8 @@
-using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.CardRental;
 using Xunit;
 
-namespace AndroidHost.Tests;
+namespace SettingsDockCore.Tests;
 
 /// <summary>
 /// The native card rental's ledger (#396), driven over a fake backend: every instance the game

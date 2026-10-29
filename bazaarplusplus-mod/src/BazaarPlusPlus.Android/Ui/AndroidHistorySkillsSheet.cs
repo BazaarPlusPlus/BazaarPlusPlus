@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Android.GameInterop.CardRental;
+using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Infrastructure;

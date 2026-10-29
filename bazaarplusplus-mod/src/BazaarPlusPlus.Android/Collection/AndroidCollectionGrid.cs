@@ -1,8 +1,10 @@
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
+using BazaarPlusPlus.Game.CollectionPanel.Ui;
 using Il2CppTheBazaar.UI;
 using Il2CppTMPro;
 using UnityEngine;
@@ -29,7 +31,7 @@ internal sealed class AndroidCollectionGrid
     // from its cache) is one game data read inside Rent.
     private const double RentBudgetMs = 5;
 
-    private readonly AndroidCollectionGridPort _port;
+    private readonly TouchCollectionGridPort _port;
     private readonly TMP_FontAsset _font;
     private readonly float _captionSize;
     private readonly Action<CollectionCardVm, RectTransform?> _onTap;
@@ -43,7 +45,7 @@ internal sealed class AndroidCollectionGrid
 
     public AndroidCollectionGrid(
         RectTransform area,
-        AndroidCollectionGridPort port,
+        TouchCollectionGridPort port,
         Action<CollectionCardVm, RectTransform?> onTap,
         TMP_FontAsset font,
         float captionSize

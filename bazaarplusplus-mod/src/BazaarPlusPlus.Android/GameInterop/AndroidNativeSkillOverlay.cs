@@ -1,4 +1,4 @@
-using BazaarPlusPlus.Android.GameInterop.CardRental;
+using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Il2CppTheBazaar;

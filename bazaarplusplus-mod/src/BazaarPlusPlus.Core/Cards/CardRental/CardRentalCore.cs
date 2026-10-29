@@ -1,15 +1,13 @@
-using BazaarPlusPlus.Core.Cards;
-
-namespace BazaarPlusPlus.Android.GameInterop.CardRental;
+namespace BazaarPlusPlus.Core.Cards.CardRental;
 
 /// <summary>What a lease shows: a card template at a tier, with an optional enchantment.</summary>
-internal readonly record struct CardRentalSubject(
+public readonly record struct CardRentalSubject(
     Guid TemplateId,
     CardTier Tier,
     CardEnchantment? Enchantment = null
 );
 
-internal enum CardRentalLeaseState
+public enum CardRentalLeaseState
 {
     /// <summary>Instantiating or setting up; <see cref="CardRentalLease{TCard}.Card"/> may be null.</summary>
     Pending,
@@ -28,7 +26,7 @@ internal enum CardRentalLeaseState
 /// One rented native card. The owner reads <see cref="State"/> each frame; a lease never changes
 /// owner, and a released lease stays released.
 /// </summary>
-internal sealed class CardRentalLease<TCard>
+public sealed class CardRentalLease<TCard>
     where TCard : class
 {
     internal CardRentalLease(CardRentalSubject subject, string owner)
@@ -66,11 +64,11 @@ internal sealed class CardRentalLease<TCard>
 }
 
 /// <summary>
-/// The game-facing half of the rental: everything that touches a native card. The Android host
-/// implements it over IL2CPP (<c>AndroidCardRentalBackend</c>); tests implement it over fakes.
+/// The game-facing half of the rental: everything that touches a native card. Each host
+/// implements it over its runtime (<c>AndroidCardRentalBackend</c>, <c>MonoCardRentalBackend</c>); tests implement it over fakes.
 /// Every method runs on the main thread; an operation handle is polled until it completes.
 /// </summary>
-internal interface ICardRentalBackend<TCard, TParent>
+public interface ICardRentalBackend<TCard, TParent>
     where TCard : class
     where TParent : class
 {
@@ -102,15 +100,16 @@ internal interface ICardRentalBackend<TCard, TParent>
 }
 
 /// <summary>
-/// The native card rental every Android panel shares: per-kind pooling of the game's card UI
+/// The native card rental every touch panel shares, on Android and on the Mono host's touch
+/// surfaces: per-kind pooling of the game's card UI
 /// prefabs, leases polled to readiness, and the counts that prove every instance is accounted for.
-/// No IL2CPP call happens here, so AndroidHost.Tests drives it over a fake backend (ADR-0016).
+/// No game or engine call happens here, so tests drive it over a fake backend (ADR-0016).
 /// <para>
 /// Invariant (<see cref="IsBalanced"/>): every instance ever instantiated is destroyed, lost (the
 /// game destroyed it), held by a lease, or parked in the pool.
 /// </para>
 /// </summary>
-internal sealed class CardRentalCore<TCard, TParent>
+public sealed class CardRentalCore<TCard, TParent>
     where TCard : class
     where TParent : class
 {
@@ -157,7 +156,8 @@ internal sealed class CardRentalCore<TCard, TParent>
 
     public CardRentalLease<TCard> Rent(CardRentalSubject subject, TParent parent, string owner)
     {
-        ArgumentNullException.ThrowIfNull(parent);
+        if (parent == null)
+            throw new ArgumentNullException(nameof(parent));
         var lease = new CardRentalLease<TCard>(subject, owner) { Parent = parent };
         Rented++;
         _active.Add(lease);
@@ -168,7 +168,8 @@ internal sealed class CardRentalCore<TCard, TParent>
     /// <summary>Sets a held lease up again for another subject of the same kind, or re-rents it.</summary>
     public void Retarget(CardRentalLease<TCard> lease, CardRentalSubject subject)
     {
-        ArgumentNullException.ThrowIfNull(lease);
+        if (lease == null)
+            throw new ArgumentNullException(nameof(lease));
         if (lease.State is CardRentalLeaseState.Released || !_active.Contains(lease))
             return;
         lease.Subject = subject;

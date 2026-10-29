@@ -168,6 +168,8 @@ internal sealed class CollectionPanel : MonoBehaviour
 
     internal static void OpenFromDockButton()
     {
+        if (Touch.TouchCollectionHost.TryOpenFromDockButton())
+            return;
         if (_instance?._overlayHandle == null)
         {
             BppLog.ErrorEvent(

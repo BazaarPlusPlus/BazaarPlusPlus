@@ -1,7 +1,7 @@
-using BazaarPlusPlus.Android.Collection;
+using BazaarPlusPlus.Core.Ui;
 using Xunit;
 
-namespace AndroidHost.Tests;
+namespace SettingsDockCore.Tests;
 
 public sealed class InspectionTransitionTests
 {

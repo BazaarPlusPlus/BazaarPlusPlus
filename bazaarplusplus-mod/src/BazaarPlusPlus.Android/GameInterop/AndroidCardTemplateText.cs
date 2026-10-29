@@ -1,5 +1,5 @@
-using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;

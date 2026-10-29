@@ -811,6 +811,9 @@ internal static class NativeGameTypography
             _preparedGeneration = preparedGeneration;
         }
 
+        /// <summary>The prepared font, for a surface that assigns it to text it creates itself.</summary>
+        internal TMP_FontAsset Font => _fontAsset;
+
         internal Outcome Apply(TMP_Text text)
         {
             EnsureMainThread();
