@@ -1,11 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy, type DownloadPageCopy } from '../../content/site-copy';
 import Badge from '../../shared/components/Badge';
 import Button from '../../shared/components/Button';
-import { AlertIcon, DownloadIcon, ExternalLinkIcon } from '../../shared/components/icons';
+import {
+  AlertIcon,
+  CheckIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
+  UsersIcon,
+} from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import {
@@ -128,6 +134,38 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 
 /** Where Android players report problems while the build is experimental. */
 const ANDROID_FEEDBACK_QQ_GROUP = '1083470305';
+const COPIED_RESET_MS = 2000;
+
+/** The Android feedback QQ group as a button that copies its number. */
+function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), COPIED_RESET_MS);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  return (
+    <Button
+      title={copy.feedbackCopy}
+      icon={copied ? <CheckIcon className="text-success" /> : <UsersIcon />}
+      onClick={() => {
+        void navigator.clipboard?.writeText(ANDROID_FEEDBACK_QQ_GROUP).then(() => setCopied(true));
+      }}
+    >
+      <span aria-live="polite">
+        {copied ? (
+          copy.feedbackCopied
+        ) : (
+          <>
+            {copy.feedbackGroup} <span className="tabular-nums">{ANDROID_FEEDBACK_QQ_GROUP}</span>
+          </>
+        )}
+      </span>
+    </Button>
+  );
+}
 
 /**
  * The experimental Android Release APK and the steps to install it. While Android's Platform
@@ -192,7 +230,7 @@ function AndroidCard({
             ) : null}
           </dl>
 
-          <div className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="mt-auto flex flex-wrap gap-2">
             <Button
               variant="primary"
               href={release?.apk.url ?? '#'}
@@ -201,13 +239,7 @@ function AndroidCard({
             >
               {androidCopy.actionLabel}
             </Button>
-            <p className="text-[15px] text-text-3">
-              {androidCopy.feedbackLabel}
-              <span className="ml-3 text-text-1">
-                {androidCopy.feedbackChannel}{' '}
-                <span className="select-all tabular-nums">{ANDROID_FEEDBACK_QQ_GROUP}</span>
-              </span>
-            </p>
+            <FeedbackGroupButton copy={androidCopy} />
           </div>
         </div>
 

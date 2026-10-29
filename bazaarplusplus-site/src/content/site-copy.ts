@@ -135,9 +135,12 @@ export type DownloadPageCopy = {
     sizeLabel: string;
     sha256Label: string;
     actionLabel: string;
-    feedbackLabel: string;
-    /** Followed by the QQ group number. */
-    feedbackChannel: string;
+    /** Followed by the QQ group number on the feedback button. */
+    feedbackGroup: string;
+    /** The feedback button's tooltip: clicking copies the group number. */
+    feedbackCopy: string;
+    /** Replaces the feedback button's label for a moment after copying. */
+    feedbackCopied: string;
     stepsTitle: string;
     steps: string[];
   };
@@ -486,8 +489,9 @@ const zh: LocalizedSiteCopy = {
       sizeLabel: '文件大小',
       sha256Label: 'SHA-256',
       actionLabel: '下载 .apk',
-      feedbackLabel: '反馈问题',
-      feedbackChannel: 'QQ 群',
+      feedbackGroup: 'QQ 反馈群',
+      feedbackCopy: '复制群号',
+      feedbackCopied: '已复制群号',
       stepsTitle: '安装前必读',
       steps: [
         '先卸载官方版 The Bazaar：Android 不允许用签名不同的安装包覆盖安装。账号与进度保存在服务器上，卸载只会丢失登录状态，重新登录即可',
@@ -808,8 +812,9 @@ const en: LocalizedSiteCopy = {
       sizeLabel: 'Size',
       sha256Label: 'SHA-256',
       actionLabel: 'Download .apk',
-      feedbackLabel: 'Feedback',
-      feedbackChannel: 'QQ group',
+      feedbackGroup: 'QQ feedback group',
+      feedbackCopy: 'Copy the group number',
+      feedbackCopied: 'Group number copied',
       stepsTitle: 'Before you install',
       steps: [
         'Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.',

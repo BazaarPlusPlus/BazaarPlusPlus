@@ -99,12 +99,7 @@ async function describeAndroid(page: Page) {
       href: await download.getAttribute('href'),
       disabled: (await download.getAttribute('aria-disabled')) === 'true',
     },
-    feedback: await text(
-      card
-        .locator('p', { hasText: /^Feedback/ })
-        .locator('span')
-        .first()
-    ),
+    feedback: await text(card.getByRole('button', { name: /^QQ feedback group/ })),
     stepsTitle: await text(card.getByRole('heading', { level: 3 })),
     steps: await card.getByRole('listitem').locator('span:not([aria-hidden])').allTextContents(),
   };
@@ -172,4 +167,15 @@ test('a missing or invalid Android manifest leaves the Android card unavailable'
 test('each Platform Release Manifest degrades only its own card (download-cards.json)', () => {
   expect(Object.keys(result)).toEqual(Object.keys(STATES));
   expect(goldenJson(result)).toMatchSnapshot('download-cards.json');
+});
+
+test('the Android feedback button copies the QQ group number', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await installGoldenRoutes(page, goldenSources());
+  await page.goto('/download?lang=en');
+  await settle(page);
+  const button = platformCard(page, 'Android').getByTitle('Copy the group number');
+  await button.click();
+  await expect(button).toHaveText('Group number copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('1083470305');
 });
