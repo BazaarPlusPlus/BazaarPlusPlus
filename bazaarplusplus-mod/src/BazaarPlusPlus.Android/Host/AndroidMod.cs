@@ -269,9 +269,8 @@ public sealed class AndroidMod : MelonMod
                     ),
                     ("manifest", devManifest)
                 );
-            StartHistory(android, panels);
+            StartHistory(panels);
             _touchUi = new AndroidTouchUi(
-                android,
                 panels,
                 _historyPanel == null ? null : source => _historyPanel?.Open(source),
                 _composition?.LiveBuild,
@@ -305,7 +304,7 @@ public sealed class AndroidMod : MelonMod
 
     // History and its replay runtime need the record chain's database and payload gate; without
     // the chain the launcher offers no History.
-    private void StartHistory(AndroidSettings android, AndroidOverlayPanels panels)
+    private void StartHistory(AndroidOverlayPanels panels)
     {
         var composition = _composition;
         if (composition == null)
@@ -328,7 +327,6 @@ public sealed class AndroidMod : MelonMod
                 () => _replayRuntime?.SavedReplays,
                 _templates,
                 () => AndroidGameFont.Font,
-                android.HistoryPanel,
                 panels,
                 composition.Supporters
             );

@@ -4,7 +4,6 @@ using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
-using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CombatReplay;
@@ -40,7 +39,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// Core's <see cref="TouchViewSlot{TView}"/>, so a view that fails to build leaves the panel
 /// closed, and the next open builds again. A replay started from it
 /// reopens it with the selection kept once the replay session is over and the lobby is the active
-/// scene, unless the panel was closed or switched off meanwhile. The Record action is not offered:
+/// scene, unless the panel was closed meanwhile. The Record action is not offered:
 /// the host records no video. Every entry point runs inside the main-thread pump's scope, so the
 /// coordinator's continuations resume on the main thread.
 /// </summary>
@@ -48,7 +47,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
 {
     public const string PanelId = "history";
     private const string ReplayStarted = "replay_started";
-    private const string SwitchedOff = "switched_off";
 
     private readonly HistoryPanelState _state = new();
     private readonly HistoryPanelCoordinator _coordinator;
@@ -57,7 +55,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private readonly Func<ISavedReplayRuntime?> _runtime;
     private readonly AndroidCardTemplateIndex _templates;
     private readonly Func<TMP_FontAsset?> _font;
-    private readonly ISetting<bool> _enabled;
     private readonly AndroidSupporterData? _supporters;
     private readonly AndroidHistoryBoard _upper;
     private readonly AndroidHistoryBoard _lower;
@@ -89,7 +86,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
         Func<ISavedReplayRuntime?> runtime,
         AndroidCardTemplateIndex templates,
         Func<TMP_FontAsset?> font,
-        ISetting<bool> enabled,
         AndroidOverlayPanels panels,
         AndroidSupporterData? supporters
     )
@@ -99,7 +95,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         _templates = templates ?? throw new ArgumentNullException(nameof(templates));
         _font = font ?? throw new ArgumentNullException(nameof(font));
-        _enabled = enabled ?? throw new ArgumentNullException(nameof(enabled));
         _supporters = supporters;
         _runContext = dependencies.RunContext;
         _slot = new TouchViewSlot<AndroidHistoryPanelView>(DropView);
@@ -126,12 +121,9 @@ internal sealed class AndroidHistoryPanel : IDisposable
         {
             // The panel stays open across scenes, except into a combat, as on the desktop.
             SceneChangeClose = SceneChangeClosePolicy.OnlyWhenInCombat,
-            Enabled = () => _enabled.Value,
             IsModalInputActive = () => _overlays?.AnyOpen == true,
             DismissModal = () => _overlays?.DismissTop("back_key"),
             OnSceneChanged = OnSceneChanged,
-            // A pending return from a replay is dropped, the panel open or not.
-            OnSwitchedOff = () => CancelReturn(SwitchedOff),
         });
     }
 
@@ -168,10 +160,6 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 {
                     case OverlayRequestOutcome.SuppressedByCombat:
                         LogOpenSkipped("combat_active");
-                        break;
-                    case OverlayRequestOutcome.Disabled:
-                        CancelReturn(SwitchedOff);
-                        LogOpenSkipped(SwitchedOff);
                         break;
                 }
             }
@@ -219,14 +207,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private void HideForReplay() => _handle.RequestClose(ReplayStarted);
 
     // The coordinator's return from a replay. A combat keeps the return pending, so it is tried
-    // again next frame; a switched-off panel drops it.
-    private void ReturnFromReplay()
-    {
-        if (_handle.RequestOpen("replay_returned") != OverlayRequestOutcome.Disabled)
-            return;
-        CancelReturn(SwitchedOff);
-        LogOpenSkipped(SwitchedOff);
-    }
+    // again next frame.
+    private void ReturnFromReplay() => _handle.RequestOpen("replay_returned");
 
     // A scene loaded and the panel is still open, or was closed: the rental destroys every card
     // right after this, so the cards go back first and come again next frame. The dialogs hold no
