@@ -40,15 +40,24 @@ internal sealed class AndroidCombatStatusView(
     private string? _shownTime;
     private bool? _shownPaused;
     private float _shownSpeed = float.NaN;
-    private (bool Active, bool CanToggle)? _shownControls;
+    private bool? _shownCanToggle;
+    private Color? _shownTimeColor;
+
+    // As the desktop bar: the time fades to muted ink outside a fight and back to ink in one.
+    private float _visualBlend;
 
     public void Tick()
     {
         var state = playback.State;
         state.OnVisibilitySettingChanged(settings.CombatTimer.Value);
+        _visualBlend = CombatStatusBarState.AdvanceVisualBlend(
+            _visualBlend,
+            state.IsCombatPlaybackActive,
+            Time.unscaledDeltaTime
+        );
+        // As the desktop bar: shown for the whole run or replay, not only while a fight plays.
         var visible =
             settings.CombatTimer.Value
-            && state.IsCombatPlaybackActive
             && (Data.HasActiveRun || AppState.CurrentState?.TryCast<ReplayState>() != null)
             && panels.OpenPanelId == null
             && !AndroidNativeHud.HasPopup
@@ -58,7 +67,7 @@ internal sealed class AndroidCombatStatusView(
             if (_shown)
                 _root?.SetActive(false);
             _shown = false;
-            BuildAhead(state);
+            BuildAhead();
             return;
         }
         var screen = AndroidTouchScreen.Key();
@@ -79,6 +88,12 @@ internal sealed class AndroidCombatStatusView(
             _shownTime = time;
             _time!.text = CombatStatusBarState.WithTabularDigits(time);
         }
+        var timeColor = Color.Lerp(InGameTheme.InkSoft, AndroidUiKit.TextColor, _visualBlend);
+        if (timeColor != _shownTimeColor)
+        {
+            _shownTimeColor = timeColor;
+            _time!.color = timeColor;
+        }
         var paused = state.IsCombatPaused;
         if (paused != _shownPaused)
         {
@@ -92,25 +107,22 @@ internal sealed class AndroidCombatStatusView(
             _speedText!.text =
                 speed.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "×";
         }
-        var controls = (
-            Active: state.IsCombatPlaybackActive,
-            CanToggle: state.CanToggleCombatPause()
-        );
-        if (controls != _shownControls)
+        // Speed stays tappable between fights and sets the next fight's pace; pause only
+        // applies to a playing fight, so it dims outside one.
+        var canToggle = state.CanToggleCombatPause();
+        if (canToggle != _shownCanToggle)
         {
-            _shownControls = controls;
-            _pause!.gameObject.SetActive(controls.Active);
-            _speed!.gameObject.SetActive(controls.Active);
-            _pause.interactable = controls.CanToggle;
-            _speed.interactable = controls.Active;
+            _shownCanToggle = canToggle;
+            _pause!.interactable = canToggle;
         }
     }
 
-    // Outside a fight, in a run or a replay, and once per scene (a scene load disposes the view):
-    // the plaque is built hidden, so the first fight's first frame does not pay for the build.
-    private void BuildAhead(CombatStatusBarState state)
+    // While hidden by a panel, popup or inspection, in a run or a replay, and once per scene (a
+    // scene load disposes the view): the plaque is built hidden, so the frame it reappears on
+    // does not pay for the build.
+    private void BuildAhead()
     {
-        if (_root != null || !settings.CombatTimer.Value || state.IsCombatPlaybackActive)
+        if (_root != null || !settings.CombatTimer.Value)
             return;
         if (_hiddenFrames++ % BuildAheadCheckFrames != 0)
             return;
@@ -256,6 +268,7 @@ internal sealed class AndroidCombatStatusView(
         _shownTime = null;
         _shownPaused = null;
         _shownSpeed = float.NaN;
-        _shownControls = null;
+        _shownCanToggle = null;
+        _shownTimeColor = null;
     }
 }
