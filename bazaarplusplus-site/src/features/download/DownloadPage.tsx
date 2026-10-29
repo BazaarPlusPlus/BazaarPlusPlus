@@ -9,7 +9,6 @@ import { AlertIcon, DownloadIcon, ExternalLinkIcon } from '../../shared/componen
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import {
-  GITHUB_ISSUES_URL,
   GITHUB_RELEASE_URL,
   gameReleaseNumber,
   loadAndroidRelease,
@@ -127,10 +126,13 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** Where Android players report problems while the build is experimental. */
+const ANDROID_FEEDBACK_QQ_GROUP = '1083470305';
+
 /**
- * The experimental Android Release APK and the steps to install it. Until Android's Platform
- * Release Manifest loads (or while it is missing or invalid), the card keeps its badge, notice and
- * steps, with a pending version, a disabled download, and a pointer to the GitHub release page.
+ * The experimental Android Release APK and the steps to install it. While Android's Platform
+ * Release Manifest is missing or invalid, the card degrades like a desktop card: an unavailable
+ * version and a disabled download, with its badge, notice, feedback group and steps kept.
  */
 function AndroidCard({
   copy,
@@ -168,7 +170,7 @@ function AndroidCard({
                   v{release.version}
                 </span>
               ) : (
-                <span className="text-text-2">{androidCopy.pendingVersion}</span>
+                <span className="text-text-2">{copy.versionUnavailable}</span>
               )}
             </Fact>
             {release ? (
@@ -190,21 +192,7 @@ function AndroidCard({
             ) : null}
           </dl>
 
-          {release == null && !loading ? (
-            <p className="text-[15px] text-text-2">
-              {androidCopy.pendingNote}
-              <a
-                href={GITHUB_RELEASE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="text-accent underline-offset-4 hover:underline"
-              >
-                {copy.releaseFallbackLink}
-              </a>
-            </p>
-          ) : null}
-
-          <div className="mt-auto flex flex-wrap gap-2">
+          <div className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-3">
             <Button
               variant="primary"
               href={release?.apk.url ?? '#'}
@@ -213,14 +201,13 @@ function AndroidCard({
             >
               {androidCopy.actionLabel}
             </Button>
-            <Button
-              href={GITHUB_ISSUES_URL}
-              target="_blank"
-              rel="noreferrer"
-              icon={<ExternalLinkIcon />}
-            >
+            <p className="text-[15px] text-text-3">
               {androidCopy.feedbackLabel}
-            </Button>
+              <span className="ml-3 text-text-1">
+                {androidCopy.feedbackChannel}{' '}
+                <span className="select-all tabular-nums">{ANDROID_FEEDBACK_QQ_GROUP}</span>
+              </span>
+            </p>
           </div>
         </div>
 
@@ -284,8 +271,8 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
     queryFn: ({ signal }) => loadLatestInstaller(signal),
   });
   const status: DownloadStatus = isLoading ? 'loading' : isError ? 'error' : 'ready';
-  // Android is not in the lockstep release: its card shows a pending state until its own
-  // manifest loads, and whenever that manifest is missing or invalid.
+  // Android is not in the lockstep release: its card reads its own manifest, and a missing or
+  // invalid one degrades only that card, never the page-level GitHub fallback.
   const { data: android, isLoading: androidLoading } = useQuery({
     queryKey: ['android-release'],
     queryFn: ({ signal }) => loadAndroidRelease(signal),

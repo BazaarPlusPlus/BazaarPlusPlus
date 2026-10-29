@@ -13,7 +13,6 @@ export type { AndroidDownload } from '../../../../release/downloads';
 export type DownloadPlatform = Exclude<ReleasePlatform, 'android'>;
 export const GITHUB_RELEASE_URL =
   'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest';
-export const GITHUB_ISSUES_URL = 'https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues';
 
 export type PlatformDownload = {
   version: string;

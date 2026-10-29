@@ -83,13 +83,11 @@ async function fact(card: Locator, label: string) {
   return text(key.locator('xpath=following-sibling::dd[1]'));
 }
 
-/** The Android entry as a visitor reads it; a pending card has no APK facts but a release link. */
+/** The Android entry as a visitor reads it; an unavailable card has no APK facts. */
 async function describeAndroid(page: Page) {
   const card = platformCard(page, 'Android');
   if ((await card.count()) === 0) return null;
   const download = card.getByRole('link', { name: 'Download .apk' });
-  const feedback = card.getByRole('link', { name: 'Report a problem' });
-  const releaseLink = card.getByRole('link', { name: 'GitHub Release' });
   return {
     badge: await text(card.getByText('Experimental', { exact: true })),
     notice: await text(card.getByText(/^The Android build is experimental/)),
@@ -97,15 +95,16 @@ async function describeAndroid(page: Page) {
     gameVersion: await fact(card, 'Game version'),
     size: await fact(card, 'Size'),
     sha256: await fact(card, 'SHA-256'),
-    releaseLink: (await releaseLink.count()) === 0 ? null : await releaseLink.getAttribute('href'),
     download: {
       href: await download.getAttribute('href'),
       disabled: (await download.getAttribute('aria-disabled')) === 'true',
     },
-    feedback: {
-      href: await feedback.getAttribute('href'),
-      target: await feedback.getAttribute('target'),
-    },
+    feedback: await text(
+      card
+        .locator('p', { hasText: /^Feedback/ })
+        .locator('span')
+        .first()
+    ),
     stepsTitle: await text(card.getByRole('heading', { level: 3 })),
     steps: await card.getByRole('listitem').locator('span:not([aria-hidden])').allTextContents(),
   };
@@ -147,7 +146,7 @@ for (const [state, overrides] of Object.entries(STATES)) {
   });
 }
 
-test('a missing or invalid Android manifest leaves the Android card pending', () => {
+test('a missing or invalid Android manifest leaves the Android card unavailable', () => {
   type Downloads = { cards: unknown; fallback: unknown; android: Record<string, unknown> | null };
   const loaded = result['both platforms load'] as Downloads;
   const missing = result['android manifest responds 404'] as Downloads;
@@ -159,11 +158,10 @@ test('a missing or invalid Android manifest leaves the Android card pending', ()
   expect(missing.android).toMatchObject({
     badge: loaded.android?.badge,
     notice: loaded.android?.notice,
-    version: 'Coming soon',
+    version: 'Unavailable',
     gameVersion: null,
     size: null,
     sha256: null,
-    releaseLink: 'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest',
     download: { href: '#', disabled: true },
     feedback: loaded.android?.feedback,
     stepsTitle: loaded.android?.stepsTitle,
