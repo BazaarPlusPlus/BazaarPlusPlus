@@ -15,6 +15,9 @@
     <!-- Not the product VERSION: the Updater ships with the installer and the APK, and its bytes
          enter the non-managed payload digest, so they change only when its source does. -->
     <Version>1.0.0</Version>
+    <!-- The SDK appends +<git commit> to the informational version by default, which would
+         change the bytes on every commit. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Deterministic>true</Deterministic>
     <DebugType>none</DebugType>
     <GenerateDependencyFile>false</GenerateDependencyFile>
