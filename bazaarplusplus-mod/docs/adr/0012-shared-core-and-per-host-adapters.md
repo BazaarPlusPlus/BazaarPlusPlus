@@ -25,5 +25,5 @@ The mod is gaining a second host: an Android build loaded by MelonLoader on Core
 
 - Boundary: `tests/Architecture.Tests/CoreAssemblyBoundaryTests.cs`
 - Newtonsoft binding: `tests/Architecture.Tests/SharedLibraryBindingTests.cs`
-- Composition split: `CoreComposition` in `src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`, `DesktopComposition` in `src/BazaarPlusPlus/DesktopComposition.cs`
+- Composition split: `CoreComposition` in `src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`, `DesktopComposition` in `src/BazaarPlusPlus/MonoHostComposition.cs` (`DesktopComposition` until ADR-0023)
 - Storage owns SQLite (§3): History's SQL, row mapping, records and pages in `src/BazaarPlusPlus.Storage/History/`, which Core's History services call for both hosts' History panels

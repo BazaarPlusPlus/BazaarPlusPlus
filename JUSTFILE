@@ -9,6 +9,7 @@ mod installer 'bazaarplusplus-installer/installer.just'
 mod site 'bazaarplusplus-site/site.just'
 mod server 'bazaarplusplus-server/server.just'
 mod analyzer 'bazaarplusplus-analyzer/analyzer.just'
+mod ios 'bazaarplusplus-ios/ios.just'
 mod release 'release/release.just'
 mod design 'design/design.just'
 
@@ -16,7 +17,7 @@ mod design 'design/design.just'
 root_js := "package.json package-lock.json .prettierrc.json release.mjs 'release/**/*.{mjs,ts,json}' 'scripts/**/*.mjs' 'design/**/*.mjs'"
 
 # `just --fmt` does not descend into modules, so format each file explicitly.
-just_files := "JUSTFILE bazaarplusplus-mod/mod.just bazaarplusplus-installer/installer.just bazaarplusplus-site/site.just bazaarplusplus-server/server.just bazaarplusplus-analyzer/analyzer.just release/release.just design/design.just"
+just_files := "JUSTFILE bazaarplusplus-mod/mod.just bazaarplusplus-installer/installer.just bazaarplusplus-site/site.just bazaarplusplus-server/server.just bazaarplusplus-analyzer/analyzer.just bazaarplusplus-ios/ios.just release/release.just design/design.just"
 
 # List commands without building or publishing anything.
 default:

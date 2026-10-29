@@ -1,0 +1,55 @@
+--- a/mono/mini/interp/transform.c
++++ b/mono/mini/interp/transform.c
+@@ -2593,6 +2593,25 @@
+ #define INLINE_DEPTH_LIMIT 10
+ 
+ static MonoMethod* interp_method_redirect (MonoMethod *method);
++
++/*
++ * The JIT's visibility rule (mini_assembly_can_skip_verification, which the interpreter-only runtime
++ * does not link): a method skips visibility checks when it asks to, or its assembly carries
++ * SkipVerification, which /unsafe compilers emit. Code that runs under the JIT on the desktop must
++ * also run here.
++ */
++static gboolean
++interp_skips_visibility (MonoMethod *method)
++{
++	if (method->skip_visibility)
++		return TRUE;
++	MonoAssembly *assembly = m_class_get_image (method->klass)->assembly;
++	if (method->wrapper_type != MONO_WRAPPER_NONE && method->wrapper_type != MONO_WRAPPER_DYNAMIC_METHOD)
++		return FALSE;
++	if (assembly->in_gac || assembly->image == mono_defaults.corlib)
++		return FALSE;
++	return mono_assembly_has_skip_verification (assembly);
++}
+ static void interp_record_inline (MonoMethod *root, MonoMethod *inlined);
+ 
+ static gboolean
+@@ -3208,7 +3227,7 @@
+ 		return_val_if_nok (error, NULL);
+ 	}
+ 
+-	if (!method->skip_visibility && !mono_method_can_access_field (method, field)) {
++	if (!interp_skips_visibility (method) && !mono_method_can_access_field (method, field)) {
+ 		char *method_fname = mono_method_full_name (method, TRUE);
+ 		char *field_fname = mono_field_full_name (field);
+ 		mono_error_set_generic_error (error, "System", "FieldAccessException", "Field `%s' is inaccessible from method `%s'\n", field_fname, method_fname);
+@@ -4590,7 +4609,7 @@
+ 			if (sym_seq_points && !mono_bitset_test_fast (seq_point_locs, td->ip + 5 - header->code))
+ 				need_seq_point = TRUE;
+ 
+-			if (!interp_transform_call (td, method, NULL, domain, generic_context, constrained_class, readonly, error, TRUE, save_last_error, tailcall))
++			if (!interp_transform_call (td, method, NULL, domain, generic_context, constrained_class, readonly, error, !interp_skips_visibility (method), save_last_error, tailcall))
+ 				goto exit;
+ 
+ 			if (need_seq_point) {
+@@ -6944,7 +6963,7 @@
+ 				m = interp_get_method (method, token, image, generic_context, error);
+ 				goto_if_nok (error, exit);
+ 
+-				if (!mono_method_can_access_method (method, m))
++				if (!interp_skips_visibility (method) && !mono_method_can_access_method (method, m))
+ 					interp_generate_mae_throw (td, method, m);
+ 
+ 				if (method->wrapper_type == MONO_WRAPPER_NONE && m->iflags & METHOD_IMPL_ATTRIBUTE_SYNCHRONIZED)

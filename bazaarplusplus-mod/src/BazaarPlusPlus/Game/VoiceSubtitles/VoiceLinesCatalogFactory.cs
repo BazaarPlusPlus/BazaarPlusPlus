@@ -18,7 +18,7 @@ internal static class VoiceLinesCatalogFactory
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(20);
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(
         productVersion: BppPluginVersion.Current,
-        platformKey: DesktopPlatformKey.Current,
+        platformKey: HostPlatformKey.Current,
         userAgentSuffix: "VoiceSubtitlesRepository",
         timeout: TimeSpan.FromSeconds(10)
     );

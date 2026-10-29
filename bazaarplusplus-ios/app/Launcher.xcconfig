@@ -1,0 +1,2 @@
+// Machine-specific signing stays outside the generated project and Git.
+#include? "Signing.local.xcconfig"

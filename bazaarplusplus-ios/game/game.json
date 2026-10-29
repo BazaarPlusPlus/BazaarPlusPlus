@@ -1,0 +1,48 @@
+{
+  "id": "the-bazaar",
+  "displayName": "The Bazaar",
+  "unityVersion": "6000.3.11f1",
+  "testedGameVersion": "1.0.12764-prod-macos-arm64-013ff919",
+  "installPath": "TheBazaar.app",
+  "dataPath": "Contents/Resources/Data",
+  "pluginPath": "Contents/PlugIns",
+  "steam": {
+    "appId": 1617400,
+    "macDepots": [
+      1617401
+    ]
+  },
+  "simulatorPlugins": {
+    "abci.dylib": "abci.bundle/Contents/MacOS/abci",
+    "fmodstudio.dylib": "fmodstudio.bundle/Contents/MacOS/fmodstudio",
+    "gilzoide-sqlite-net.dylib": "libgilzoide-sqlite-net.dylib",
+    "resonanceaudio.dylib": "resonanceaudio.bundle/Contents/MacOS/resonanceaudio"
+  },
+  "simulatorBurst": "lib_burst_generated.bundle",
+  "library": {
+    "subtitle": "构筑属于你的冒险",
+    "genre": "策略 · 自动战斗",
+    "description": "挑选英雄，搭配物品，在不断变化的市集中探索自己的构筑。",
+    "accent": "D99147",
+    "monogram": "B",
+    "platforms": {
+      "simulator": {
+        "launch": true,
+        "label": "模拟器适配",
+        "reason": ""
+      },
+      "device": {
+        "launch": false,
+        "label": "设备适配中",
+        "reason": "可先登录 Steam 并下载。原生依赖已编入设备版；游戏启动仍需开发签名和真机验证。"
+      }
+    }
+  },
+  "managedAdapters": [
+    {
+      "assembly": "FMODUnity.dll",
+      "sourceSha256": "6161436b4ad17cea006adb9f6034d9abf9c69ba3a676ae79349c0d4a46252646",
+      "adapter": "fmod-static-resonance"
+    }
+  ]
+}

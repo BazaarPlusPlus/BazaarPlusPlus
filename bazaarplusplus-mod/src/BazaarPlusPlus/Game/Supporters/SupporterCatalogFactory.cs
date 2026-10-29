@@ -11,7 +11,7 @@ internal static class SupporterCatalogFactory
 {
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(
         productVersion: BppPluginVersion.Current,
-        platformKey: DesktopPlatformKey.Current,
+        platformKey: HostPlatformKey.Current,
         userAgentSuffix: "BPPSupporterCatalog",
         timeout: TimeSpan.FromSeconds(10)
     );

@@ -1,0 +1,39 @@
+diff --git a/mono/metadata/icall-decl.h b/mono/metadata/icall-decl.h
+index 7ac0a342..e341fba1 100644
+--- a/mono/metadata/icall-decl.h
++++ b/mono/metadata/icall-decl.h
+@@ -72,6 +72,10 @@ typedef enum {
+ #undef NOHANDLES
+ #undef MONO_HANDLE_REGISTER_ICALL
+ 
++#ifdef DISABLE_REMOTING
++ICALL_EXPORT MonoBoolean ves_icall_IsTransparentProxy (MonoObject *proxy);
++#endif
++
+ // This is sorted.
+ // grep ICALL_EXPORT | sort | uniq
+ ICALL_EXPORT MonoAssemblyName* ves_icall_System_Reflection_AssemblyName_GetNativeName (MonoAssembly*);
+diff --git a/mono/metadata/unity-liveness.c b/mono/metadata/unity-liveness.c
+index 3db3a892..fa7e8ebe 100644
+--- a/mono/metadata/unity-liveness.c
++++ b/mono/metadata/unity-liveness.c
+@@ -347,7 +347,9 @@ static gboolean mono_traverse_object_internal(MonoObject *object, gboolean isStr
+ 	MonoClass *p;
+ 	gboolean added_objects = FALSE;
+ 
++#ifndef DISABLE_REMOTING
+ 	if (!isStruct && mono_class_has_parent_fast(klass, mono_defaults.real_proxy_class)) return FALSE;
++#endif
+ 
+ 	g_assert(object);
+ 
+@@ -400,7 +402,9 @@ static gboolean mono_validate_object_internal(MonoObject *object, gboolean isStr
+ 	MonoClass* p;
+ 	gboolean added_objects = FALSE;
+ 
++#ifndef DISABLE_REMOTING
+ 	if (!isStruct && mono_class_has_parent_fast(klass, mono_defaults.real_proxy_class)) return FALSE;
++#endif
+ 
+ 	g_assert(object);
+ 

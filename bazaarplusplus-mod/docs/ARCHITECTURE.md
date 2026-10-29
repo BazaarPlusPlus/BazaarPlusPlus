@@ -6,9 +6,9 @@ Terms used here are defined in [../GLOSSARY.md](../GLOSSARY.md). Why a boundary 
 
 ## Runtime Shape
 
-`Plugin.Awake()` resolves the game build channel via `GameBuildProbe`, creates `DesktopComposition`, installs static facades such as `BppLog`, `BppPatchHost`, localization, settings dock entries, supporters, and hotkeys, applies Harmony patches per patch class, starts feature modules, builds the owner-scoped Mod API session and separate BazaarDB-link client, then mounts Unity components onto the plugin `GameObject` (`src/BazaarPlusPlus/Plugin.cs`).
+`BppMonoHost.Start()` (`src/BazaarPlusPlus/Host/BppMonoHost.cs`; `Plugin`/`IosEntry` run it, ADR-0023) resolves the build channel (`GameBuildProbe`), creates `MonoHostComposition`, installs static facades such as `BppLog`, `BppPatchHost`, localization, settings dock entries, supporters, and hotkeys, applies Harmony patches per class, starts feature modules, builds the owner-scoped Mod API session and BazaarDB-link client, then mounts Unity components.
 
-Composition is manual; there is no DI container. `CoreComposition` owns the host-independent half: event bus, settings, run context, `IBppServices`, and feature start/stop through `BppFeatureRegistry` (`src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`). `DesktopComposition` binds the BepInEx path provider, Mono probes, and resolved `IGameBuildInfo` into it, then wires feature modules, Unity components through `BppMountableRegistry`, and in-game settings rows through `SettingsDockEntryRegistry` (`src/BazaarPlusPlus/DesktopComposition.cs`). Simple components mount through `ComponentMount<T>`; a bespoke mount exists only where a feature owns additional dependencies or object lifecycles, and `CombatReplayRuntime` is the bootstrap exception because other modules need it before mountables run.
+Composition is manual; there is no DI container. `CoreComposition` owns the host-independent half: event bus, settings, run context, `IBppServices`, and feature start/stop through `BppFeatureRegistry` (`src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`). `MonoHostComposition` binds the host's paths, Mono probes, and resolved `IGameBuildInfo` into it, then wires feature modules, Unity components through `BppMountableRegistry`, and in-game settings rows through `SettingsDockEntryRegistry` (`src/BazaarPlusPlus/MonoHostComposition.cs`). Simple components mount through `ComponentMount<T>`; a bespoke mount exists only where a feature owns additional dependencies or object lifecycles, and `CombatReplayRuntime` is the bootstrap exception because other modules need it before mountables run.
 
 Three ordering facts are load-bearing; each fails silently when reordered:
 
@@ -30,7 +30,7 @@ Each host ships five BPP assemblies. Dependencies run host → Core → {Storage
 
 | Assembly | Contents |
 |---|---|
-| `BazaarPlusPlus.dll` (desktop) / `BazaarPlusPlus.Android.dll` (Android) | host-specific game integration, patches, resources and `DesktopComposition` / `AndroidComposition` |
+| `BazaarPlusPlus.dll` (desktop and iOS) / `BazaarPlusPlus.Android.dll` (Android) | host-specific game integration, patches, resources and `MonoHostComposition` / `AndroidComposition` |
 | `BazaarPlusPlus.Core.dll` | the shared core every host references (directories below) |
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |
@@ -93,7 +93,7 @@ The V6 database starts a new schema at `user_version` 1 with no migration path: 
 
 ## Event Flow
 
-An in-memory event bus decouples runtime coordination between feature modules registered at startup (`src/BazaarPlusPlus/DesktopComposition.cs` — the `Register` call order is the authoritative roster).
+An in-memory event bus decouples runtime coordination between feature modules registered at startup (`src/BazaarPlusPlus/MonoHostComposition.cs` — the `Register` call order is the authoritative roster).
 
 `RunLoggingModule` (Core) is the feature-owned event intake; hosts supply its ports. `Start` creates its replicated/queued store chain and session manager only after composition construction succeeds, subscribes once to run lifecycle, run initialization, PvP, and replay-drained events, then links a matching `PVPCombat` battle to its run. Battles attach to the stable active or deferred run id before the event append and checkpoint. Interrupted runs stay resumable; normal completion owns an active, cancellable deadline for replay persistence and a Ranked Run's rank refresh; `Stop` is a quiescence barrier that forces any deferred completion before unsubscribing and disposing the store. No Run Logging `MonoBehaviour` is mounted. Every time it writes comes from the module's one injected clock, which it hands to `RunLogRecordMapper` and `RunLogSessionManager`. `tests/RunLoggingPipeline.Tests` is its end-to-end anchor: it drives the real bus, queue, and SQLite stores from an empty database and fails unless the schema dump and per-step rows match `src/BazaarPlusPlus.Storage/history-database-v6.schema.sql` (the schema file the installer's tests load) and `tests/RunLoggingPipeline.Tests/fixtures/history-database-v6.rows.json` byte for byte. Regenerate them only with `BPP_UPDATE_GOLDENS=1` and review the diff (`HistoryDatabaseArtifacts`).
 

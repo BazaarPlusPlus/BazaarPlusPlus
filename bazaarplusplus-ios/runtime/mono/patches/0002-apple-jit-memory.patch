@@ -1,0 +1,72 @@
+diff --git a/mono/utils/mono-codeman.c b/mono/utils/mono-codeman.c
+index 8fdf267e..24134fad 100644
+--- a/mono/utils/mono-codeman.c
++++ b/mono/utils/mono-codeman.c
+@@ -3,6 +3,7 @@
+  */
+ 
+ #include "config.h"
++#include "bpp-apple-jit.h"
+ 
+ #if defined(TARGET_OSX)
+ /* So we can use the declaration of pthread_jit_write_protect_np () */
+@@ -666,7 +667,7 @@ mono_code_manager_size (MonoCodeManager *cman, int *used_size)
+ void
+ mono_codeman_enable_write (void)
+ {
+-#if defined(HAVE_PTHREAD_JIT_WRITE_PROTECT_NP) && defined(TARGET_OSX)
++#if (defined(HAVE_PTHREAD_JIT_WRITE_PROTECT_NP) && defined(TARGET_OSX)) || BPP_APPLE_JIT
+ 	if (__builtin_available (macOS 11, *)) {
+ 		int level = GPOINTER_TO_INT (mono_native_tls_get_value (write_level_tls_id));
+ 		level ++;
+@@ -685,7 +686,7 @@ mono_codeman_enable_write (void)
+ void
+ mono_codeman_disable_write (void)
+ {
+-#if defined(HAVE_PTHREAD_JIT_WRITE_PROTECT_NP) && defined(TARGET_OSX)
++#if (defined(HAVE_PTHREAD_JIT_WRITE_PROTECT_NP) && defined(TARGET_OSX)) || BPP_APPLE_JIT
+ 	if (__builtin_available (macOS 11, *)) {
+ 		int level = GPOINTER_TO_INT (mono_native_tls_get_value (write_level_tls_id));
+ 		g_assert (level);
+diff --git a/mono/utils/mono-mmap.c b/mono/utils/mono-mmap.c
+index e9405d36..a7355d72 100644
+--- a/mono/utils/mono-mmap.c
++++ b/mono/utils/mono-mmap.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <config.h>
++#include "bpp-apple-jit.h"
+ 
+ #ifndef HOST_WIN32
+ #include <sys/types.h>
+@@ -289,8 +290,8 @@ mono_valloc (void *addr, size_t length, int flags, MonoMemAccountType type)
+ 		return NULL;
+ #endif
+ 
+-#if defined(__APPLE__) && defined(MAP_JIT) && defined(TARGET_OSX)
+-	if (get_darwin_version () >= DARWIN_VERSION_MOJAVE) {
++#if defined(__APPLE__) && defined(MAP_JIT) && (defined(TARGET_OSX) || BPP_APPLE_JIT)
++	if (BPP_APPLE_JIT || get_darwin_version () >= DARWIN_VERSION_MOJAVE) {
+ 		/* Check for hardened runtime */
+ 		static int is_hardened_runtime;
+ 
+diff --git a/mono/utils/bpp-apple-jit.h b/mono/utils/bpp-apple-jit.h
+new file mode 100644
+index 00000000..7028fa3c
+--- /dev/null
++++ b/mono/utils/bpp-apple-jit.h
+@@ -0,0 +1,13 @@
++// BazaarPlusPlus: arm64 simulator and macOS AOT-host processes enforce W^X, so runtime
++// trampolines need MAP_JIT and pthread_jit_write_protect_np. Real devices get no JIT at all.
++#ifndef BPP_APPLE_JIT_H
++#define BPP_APPLE_JIT_H
++#include <TargetConditionals.h>
++#if (TARGET_OS_SIMULATOR || TARGET_OS_OSX) && defined(__aarch64__)
++#define BPP_APPLE_JIT 1
++#include <pthread.h>
++extern void pthread_jit_write_protect_np(int enabled);
++#else
++#define BPP_APPLE_JIT 0
++#endif
++#endif

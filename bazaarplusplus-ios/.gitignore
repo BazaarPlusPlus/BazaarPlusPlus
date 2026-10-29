@@ -1,0 +1,28 @@
+# Build products, imported game content, credentials and diagnostic captures stay local.
+/build/
+/third_party/mono/
+**/bin/
+**/obj/
+**/__pycache__/
+*.pyc
+*.log
+*.dll
+*.dylib
+*.a
+*.o
+*.exe
+*.pdb
+*.app/
+.DS_Store
+.env
+.env.*
+*.mobileprovision
+*.p12
+*.xcuserstate
+xcuserdata/
+/app/Signing.local.xcconfig
+# Unity shell project: only Assets, Packages and ProjectSettings are source.
+/runtime/engine/shell/*
+!/runtime/engine/shell/Assets/
+!/runtime/engine/shell/Packages/
+!/runtime/engine/shell/ProjectSettings/
