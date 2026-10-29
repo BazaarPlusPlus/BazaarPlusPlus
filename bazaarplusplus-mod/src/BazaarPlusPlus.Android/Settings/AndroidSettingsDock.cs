@@ -37,6 +37,11 @@ internal sealed record AndroidSettingsDockHooks(
 /// </summary>
 internal static class AndroidSettingsDock
 {
+    public static readonly LocalizedTextSet RuntimeUpdated = new(
+        "BazaarPlusPlus needs a new APK: download it",
+        "BazaarPlusPlus 需要新版安装包，请下载",
+        "BazaarPlusPlus 需要新版安裝包，請下載"
+    );
     public static readonly LocalizedTextSet GameUpToDate = new(
         "The game is up to date",
         "游戏已是最新版本",
@@ -159,9 +164,9 @@ internal static class AndroidSettingsDock
             ("value", value)
         );
 
-    // Offered only while the published APK is for a newer game; otherwise it says why not, dimmed:
-    // the game is current, the check has not answered yet, or it failed. A failed check never
-    // reads as current.
+    // Offered only while this copy needs the published APK (a newer game, or a BPP runtime it
+    // cannot take by itself); otherwise it says why not, dimmed: the APK is current, the check has
+    // not answered yet, or it failed. A failed check never reads as current.
     private sealed class GameUpdateEntry(AndroidSettingsDockHooks hooks) : ISettingsDockEntry
     {
         public int Order => BppSettingsDockOrder.GameUpdate;
@@ -171,7 +176,10 @@ internal static class AndroidSettingsDock
                 "GameUpdate",
                 languageCode =>
                     Label(hooks.GameUpdateStatus()).Resolve(languageCode, L.CurrentMode),
-                () => hooks.GameUpdateStatus() == AndroidGameUpdateStatus.Available,
+                () =>
+                    hooks.GameUpdateStatus()
+                        is AndroidGameUpdateStatus.GameUpdated
+                            or AndroidGameUpdateStatus.RuntimeChanged,
                 hooks.OpenGameUpdate,
                 collapseAfterActivate: false
             );
@@ -179,7 +187,8 @@ internal static class AndroidSettingsDock
         private static LocalizedTextSet Label(AndroidGameUpdateStatus status) =>
             status switch
             {
-                AndroidGameUpdateStatus.Available => Ui.AndroidTouchText.GameUpdated,
+                AndroidGameUpdateStatus.GameUpdated => Ui.AndroidTouchText.GameUpdated,
+                AndroidGameUpdateStatus.RuntimeChanged => RuntimeUpdated,
                 AndroidGameUpdateStatus.Current => GameUpToDate,
                 AndroidGameUpdateStatus.CheckFailed => GameUpdateCheckFailed,
                 _ => GameUpdateChecking,

@@ -19,9 +19,10 @@ public enum ReleaseManifestFailureKind
 
 /// <summary>
 /// The Android Release APK a Platform Release Manifest names: the game version it was injected
-/// into, as the game reports it in <c>Application.version</c>, and where to download it.
+/// into, as the game reports it in <c>Application.version</c>, where to download it, and the size
+/// and SHA-256 a download is checked against.
 /// </summary>
-public sealed record AndroidApkRelease(string GameVersion, Uri Url);
+public sealed record AndroidApkRelease(string GameVersion, Uri Url, long Size, string Sha256);
 
 /// <summary>
 /// One read of a Release Manifest: the published product version and, from a Platform Release
@@ -185,8 +186,8 @@ public sealed class ReleaseManifestClient
     }
 
     // An Android record names the game it was injected into (game.gameVersion, the string the
-    // running game reports) and the APK to install for it (apk.url); release/manifest.mjs owns
-    // both. Anything incomplete is no APK.
+    // running game reports) and the APK to install for it (apk.url, size, sha256);
+    // release/manifest.mjs owns them. Anything incomplete is no APK.
     private AndroidApkRelease? ReadAndroidApk(JObject document)
     {
         if (_platformKey == null || document["downloads"]?[_platformKey] is not JObject release)
@@ -197,14 +198,21 @@ public sealed class ReleaseManifestClient
             return null;
         var gameVersion = game.Value<string>("gameVersion")!.Trim();
         var url = apk.Value<string>("url");
+        var size = apk["size"]?.Type == JTokenType.Integer ? apk.Value<long>("size") : 0;
+        var sha256 = apk["sha256"]?.Type == JTokenType.String ? apk.Value<string>("sha256")! : "";
         if (
             gameVersion.Length == 0
             || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || uri.Scheme != Uri.UriSchemeHttps
+            || size <= 0
+            || !IsSha256(sha256)
         )
             return null;
-        return new AndroidApkRelease(gameVersion, uri);
+        return new AndroidApkRelease(gameVersion, uri, size, sha256);
     }
+
+    private static bool IsSha256(string value) =>
+        value.Length == 64 && value.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'));
 
     // The last successful answer and the validator it came with, replaced as one.
     private sealed record Remembered(EntityTagHeaderValue ETag, ReleaseManifestFetchResult Result);
