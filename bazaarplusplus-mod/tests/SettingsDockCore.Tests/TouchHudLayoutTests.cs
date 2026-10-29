@@ -47,6 +47,21 @@ public sealed class TouchHudLayoutTests
         );
     }
 
+    /// <summary>
+    /// Where the bank sits on a height-scaled, centered board: its right border 0.59 canvas
+    /// heights right of center, spanning 0.761 to 0.978 canvas heights from the top.
+    /// </summary>
+    private static TouchRect Bank(TouchMetrics metrics)
+    {
+        var height = metrics.CanvasHeight;
+        return new(
+            metrics.CanvasWidth / 2 + height * .378f,
+            height * .761f,
+            height * .212f,
+            height * .217f
+        );
+    }
+
     [Theory]
     [MemberData(nameof(Screens))]
     public void Hud_controls_fit_safe_area_and_keep_full_touch_targets(string name)
@@ -66,8 +81,9 @@ public sealed class TouchHudLayoutTests
         Assert.True(below.Top >= gear.Bottom);
         Assert.True(beside.Right <= gear.Left);
         Assert.True(beside.Top <= gear.CenterY && beside.Bottom >= gear.CenterY);
-        var vault = TouchHudLayout.Vault(metrics);
-        var clock = TouchHudLayout.Playback(metrics);
+        var vault = Bank(metrics);
+        Assert.True(TouchHudLayout.FitsBesideVault(metrics, vault));
+        var clock = TouchHudLayout.Playback(metrics, vault);
         Assert.True(safe.Contains(clock.Panel));
         Assert.True(clock.Panel.Left >= vault.Right);
         Assert.Equal(Math.Max(vault.Top, safe.Top), clock.Panel.Top, 0.01f);
@@ -84,5 +100,52 @@ public sealed class TouchHudLayoutTests
         }
         Assert.False(clock.Speed.Overlaps(clock.Pause));
         Assert.True(clock.Speed.Right <= clock.Pause.Left);
+    }
+
+    [Theory]
+    [MemberData(nameof(Screens))]
+    public void Clock_follows_the_vault_wherever_the_board_puts_it(string name)
+    {
+        var metrics = Metrics(name);
+        var bank = Bank(metrics);
+        // A cosmetic narrower than the usual bank and sitting higher on the board.
+        var vault = new TouchRect(bank.Left + 30, bank.Top - 40, bank.Width - 60, bank.Height - 20);
+        Assert.True(TouchHudLayout.FitsBesideVault(metrics, vault));
+        var clock = TouchHudLayout.Playback(metrics, vault);
+        Assert.True(metrics.SafeArea.Contains(clock.Panel));
+        Assert.Equal(vault.Right + metrics.Dp(4), clock.Panel.Left, 0.01f);
+        Assert.Equal(Math.Max(vault.Top, metrics.SafeArea.Top), clock.Panel.Top, 0.01f);
+        Assert.Equal(Math.Min(vault.Bottom, metrics.SafeArea.Bottom), clock.Panel.Bottom, 0.01f);
+    }
+
+    [Theory]
+    [MemberData(nameof(Screens))]
+    public void No_clock_beside_a_vault_read_it_cannot_sit_beside(string name)
+    {
+        var metrics = Metrics(name);
+        var bank = Bank(metrics);
+        foreach (
+            var read in new[]
+            {
+                // Off the canvas, left of center (the stash), shorter than a touch target, not finite.
+                bank with
+                {
+                    Top = metrics.CanvasHeight - 10,
+                },
+                bank with
+                {
+                    Left = 10,
+                },
+                bank with
+                {
+                    Height = metrics.MinTarget / 2,
+                },
+                bank with
+                {
+                    Width = float.NaN,
+                },
+            }
+        )
+            Assert.False(TouchHudLayout.FitsBesideVault(metrics, read));
     }
 }

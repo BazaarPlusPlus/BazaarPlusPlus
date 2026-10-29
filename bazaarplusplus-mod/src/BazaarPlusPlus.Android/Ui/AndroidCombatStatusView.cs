@@ -24,8 +24,22 @@ internal sealed class AndroidCombatStatusView(
     private TextMeshProUGUI? _speedText;
     private Button? _pause;
     private Button? _speed;
-    private string? _screen;
     private AndroidNativeSkin? _skin;
+
+    // The vault the plaque sits beside, read from the board as the desktop reads the hero
+    // portrait, every few shown frames; as on the desktop, no vault on screen means no plaque. A
+    // vault that moves, or a screen that changes, lays the plaque out again once the new place
+    // has held still for a few reads; a plaque shown again after hiding lays out at once.
+    private const int VaultReadFrames = 5;
+    private const int VaultStableReads = 2;
+    private readonly AndroidVaultBounds _vaultBounds = new();
+    private int _shownFrames;
+    private int _missedFrames;
+    private TouchRect _vault;
+    private string? _layoutKey;
+    private string? _keyScreen;
+    private (int, int, int, int)? _keyVault;
+    private TouchRelayoutDebounce? _relayout;
 
     // Hidden frames between checks for a run or replay to build the plaque ahead in.
     private const int BuildAheadCheckFrames = 30;
@@ -64,19 +78,34 @@ internal sealed class AndroidCombatStatusView(
             && !AndroidNativeHud.IsInspectingCard;
         if (!visible)
         {
-            if (_shown)
-                _root?.SetActive(false);
-            _shown = false;
+            Hide();
             BuildAhead();
             return;
         }
-        var screen = AndroidTouchScreen.Key();
-        if (_root == null || screen != _screen || _builtWithoutArt)
+        var appearing = !_shown;
+        // With no vault last read, as in the main menu beside a run to resume, check again only
+        // every so often.
+        var read =
+            _layoutKey == null
+                ? _missedFrames++ % BuildAheadCheckFrames == 0
+                : appearing || _shownFrames++ % VaultReadFrames == 0;
+        var key = read ? LayoutKey() : _layoutKey;
+        if (key == null)
+        {
+            Hide();
+            return;
+        }
+        if (
+            _root == null
+            || _builtWithoutArt
+            || (appearing && !string.Equals(key, _relayout?.LaidOut, StringComparison.Ordinal))
+            || (read && _relayout != null && _relayout.Observe(key, settingUp: false))
+        )
         {
             var font = AndroidGameFont.Font;
             if (font == null)
                 return;
-            Build(font, screen, ahead: false);
+            Build(font, key, ahead: false);
         }
         if (!_shown)
             _root!.SetActive(true);
@@ -117,6 +146,13 @@ internal sealed class AndroidCombatStatusView(
         }
     }
 
+    private void Hide()
+    {
+        if (_shown)
+            _root?.SetActive(false);
+        _shown = false;
+    }
+
     // While hidden by a panel, popup or inspection, in a run or a replay, and once per scene (a
     // scene load disposes the view): the plaque is built hidden, so the frame it reappears on
     // does not pay for the build.
@@ -129,23 +165,52 @@ internal sealed class AndroidCombatStatusView(
         if (!Data.HasActiveRun && AppState.CurrentState?.TryCast<ReplayState>() == null)
             return;
         var font = AndroidGameFont.Font;
-        if (font == null)
+        if (font == null || LayoutKey() is not { } key)
             return;
-        Build(font, AndroidTouchScreen.Key(), ahead: true);
+        Build(font, key, ahead: true);
         _root!.SetActive(false);
     }
 
-    private void Build(TMP_FontAsset font, string screen, bool ahead)
+    /// <summary>
+    /// The screen and the vault's place in whole canvas units, or null with no vault the plaque
+    /// can sit beside; the string is formatted again only when one of them changed.
+    /// </summary>
+    private string? LayoutKey()
+    {
+        if (
+            !_vaultBounds.TryRead(AndroidUiKit.ReferenceResolution.y, out var vault)
+            || !TouchHudLayout.FitsBesideVault(AndroidTouchScreen.Read(), vault)
+        )
+            return _layoutKey = null;
+        var screen = AndroidTouchScreen.Key();
+        var rounded = (
+            (int)MathF.Round(vault.Left),
+            (int)MathF.Round(vault.Top),
+            (int)MathF.Round(vault.Width),
+            (int)MathF.Round(vault.Height)
+        );
+        _vault = vault;
+        if (_layoutKey != null && ReferenceEquals(screen, _keyScreen) && rounded == _keyVault)
+            return _layoutKey;
+        _keyScreen = screen;
+        _keyVault = rounded;
+        return _layoutKey = $"{screen}|vault {rounded}";
+    }
+
+    private void Build(TMP_FontAsset font, string key, bool ahead)
     {
         DestroyCanvas();
-        _screen = screen;
+        if (_relayout == null)
+            _relayout = new TouchRelayoutDebounce(key, VaultStableReads);
+        else
+            _relayout.LaidOutAt(key);
         // The glyphs are owned sprites that outlive the canvas; only Dispose destroys them.
         var icons = _icons ??= new AndroidPlaybackIcons();
         var chrome = TouchChrome.For(AndroidTouchScreen.Read());
         // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
         // the clock as it reappears; above the board HUD (order 0).
         _root = AndroidUiKit.CreateOverlayCanvas("BPP.CombatStatus", 149);
-        var layout = TouchHudLayout.Playback(chrome.Metrics);
+        var layout = TouchHudLayout.Playback(chrome.Metrics, _vault);
         var plaque = AndroidTouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
         var background = AndroidUiKit.Fill(plaque, AndroidUiKit.ButtonColor, false);
         if (_skin == null || _skin.NeedsRefresh)
@@ -219,6 +284,7 @@ internal sealed class AndroidCombatStatusView(
                 "android.combat_status.layout"
             ),
             ("ahead", ahead),
+            ("vault", _vault),
             ("panel", layout.Panel),
             ("pause", layout.Pause),
             ("speed", layout.Speed)
@@ -256,6 +322,7 @@ internal sealed class AndroidCombatStatusView(
         _icons?.Dispose();
         _icons = null;
         _hiddenFrames = 0;
+        _relayout = null;
     }
 
     private void DestroyCanvas()

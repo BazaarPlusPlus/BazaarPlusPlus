@@ -28,29 +28,26 @@ public static class TouchHudLayout
     }
 
     /// <summary>
-    /// The vault's frame. Native board art is height-scaled and centered: the frame's right
-    /// border is 0.59 canvas heights right of center, and it spans 0.761 to 0.978 canvas heights
-    /// from the top, level with the backpack opposite it.
+    /// Whether the clock can sit beside <paramref name="vault"/>, the box read from the board:
+    /// wholly on the canvas, right of center, and at least a touch target tall.
     /// </summary>
-    public static TouchRect Vault(TouchMetrics metrics)
-    {
-        var height = metrics.CanvasHeight;
-        return new(
-            metrics.CanvasWidth / 2 + height * .378f,
-            height * .761f,
-            height * .212f,
-            height * .217f
-        );
-    }
+    public static bool FitsBesideVault(TouchMetrics metrics, TouchRect vault) =>
+        float.IsFinite(vault.Left)
+        && float.IsFinite(vault.Top)
+        && float.IsFinite(vault.Width)
+        && float.IsFinite(vault.Height)
+        && new TouchRect(0, 0, metrics.CanvasWidth, metrics.CanvasHeight).Contains(vault)
+        && vault.CenterX > metrics.CanvasWidth / 2
+        && vault.Height >= metrics.MinTarget;
 
     /// <summary>
-    /// The combat clock right of the vault: the plaque spans the vault frame's height, the time
-    /// row sits above a shorter control row, and the speed and pause hit areas keep a full
-    /// <see cref="TouchMetrics.MinTarget"/> by extending below the plaque towards the screen edge.
+    /// The combat clock right of <paramref name="vault"/>: the plaque spans the vault's height,
+    /// the time row sits above a shorter control row, and the speed and pause hit areas keep a
+    /// full <see cref="TouchMetrics.MinTarget"/> by extending below the plaque towards the
+    /// screen edge.
     /// </summary>
-    public static PlaybackLayout Playback(TouchMetrics metrics)
+    public static PlaybackLayout Playback(TouchMetrics metrics, TouchRect vault)
     {
-        var vault = Vault(metrics);
         var target = metrics.MinTarget;
         var padding = metrics.Dp(4);
         var safe = metrics.SafeArea;
