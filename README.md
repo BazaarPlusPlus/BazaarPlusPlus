@@ -43,7 +43,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏�
 
 ### Android
 
-1. 在 [下载页](https://bazaarplusplus.com/download) 的 Android 卡片下载 `.apk`（arm64）。首个 Android 版本发布前，卡片显示为「即将发布」。
+1. 在 [下载页](https://bazaarplusplus.com/download) 的 Android 卡片下载 `.apk`（arm64）。Android 版目前是实验版，问题可以在 QQ 群 1083470305 反馈。
 2. 先卸载官方版 The Bazaar：Android 不允许用签名不同的安装包覆盖安装。账号与进度保存在服务器上，卸载只会丢失登录状态。
 3. 安装下载的 APK，登录后即可使用；BazaarPlusPlus 的设置在游戏自带的「设置」里。
 4. 游戏更新后，回到下载页下载新的 APK 直接覆盖安装，不需要再卸载。只有模组更新时，模组会在游戏内自行更新。

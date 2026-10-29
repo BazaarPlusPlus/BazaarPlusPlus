@@ -127,16 +127,22 @@ export type DownloadPageCopy = {
   android: {
     title: string;
     arch: string;
-    /** `{gameVersion}` is replaced with the game's release number, such as 1.0.12825. */
-    apkName: string;
+    /** The status badge beside the title. */
+    badge: string;
+    /** What experimental means, in the banner under the header. */
+    notice: string;
+    gameVersionLabel: string;
+    sizeLabel: string;
     sha256Label: string;
     actionLabel: string;
+    /** Followed by the QQ group number on the feedback button. */
+    feedbackGroup: string;
+    /** The feedback button's tooltip: clicking copies the group number. */
+    feedbackCopy: string;
+    /** Replaces the feedback button's label for a moment after copying. */
+    feedbackCopied: string;
     stepsTitle: string;
     steps: string[];
-    /** Shown instead of a version while no Android release is published. */
-    pendingVersion: string;
-    /** Followed by the GitHub release link while no Android release is published. */
-    pendingNote: string;
   };
   /** The install notes cover only Windows and macOS; Android has its own steps on its card. */
   desktopNoteTitle: string;
@@ -477,17 +483,21 @@ const zh: LocalizedSiteCopy = {
     android: {
       title: 'Android',
       arch: 'arm64',
-      apkName: 'The Bazaar {gameVersion} + BazaarPlusPlus',
+      badge: '实验版',
+      notice: 'Android 版仍在实验阶段：部分功能与桌面版有差异，也可能有尚未发现的问题。',
+      gameVersionLabel: '游戏版本',
+      sizeLabel: '文件大小',
       sha256Label: 'SHA-256',
       actionLabel: '下载 .apk',
+      feedbackGroup: 'QQ 反馈群',
+      feedbackCopy: '复制群号',
+      feedbackCopied: '已复制群号',
       stepsTitle: '安装前必读',
       steps: [
         '先卸载官方版 The Bazaar：Android 不允许用签名不同的安装包覆盖安装。账号与进度保存在服务器上，卸载只会丢失登录状态，重新登录即可',
         '打开下载好的 APK 安装；Android 询问时，允许浏览器或文件管理器安装应用',
         '游戏更新后，回到这里下载新的 APK 直接覆盖安装，不需要再卸载',
       ],
-      pendingVersion: '即将发布',
-      pendingNote: 'Android 版正在准备中，发布后会出现在这里，也可以关注 ',
     },
     desktopNoteTitle: 'Windows 与 macOS 安装提示',
     noteParagraphs: [
@@ -795,18 +805,22 @@ const en: LocalizedSiteCopy = {
     android: {
       title: 'Android',
       arch: 'arm64',
-      apkName: 'The Bazaar {gameVersion} + BazaarPlusPlus',
+      badge: 'Experimental',
+      notice:
+        'The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.',
+      gameVersionLabel: 'Game version',
+      sizeLabel: 'Size',
       sha256Label: 'SHA-256',
       actionLabel: 'Download .apk',
+      feedbackGroup: 'QQ feedback group',
+      feedbackCopy: 'Copy the group number',
+      feedbackCopied: 'Group number copied',
       stepsTitle: 'Before you install',
       steps: [
         'Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.',
         'Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.',
         'When the game updates, download the new APK here and install it over this one; no uninstall needed.',
       ],
-      pendingVersion: 'Coming soon',
-      pendingNote:
-        'The Android build is on its way and will appear here once released. You can also follow the ',
     },
     desktopNoteTitle: 'Windows and macOS install notes',
     noteParagraphs: [

@@ -76,26 +76,30 @@ async function text(locator: Locator) {
   return (await locator.textContent())?.trim();
 }
 
-/** The Android entry as a visitor reads it; a pending card has no APK facts but a release link. */
+/** The value beside a key in the Android card's facts list, or null when the row is absent. */
+async function fact(card: Locator, label: string) {
+  const key = card.locator('dt', { hasText: label });
+  if ((await key.count()) === 0) return null;
+  return text(key.locator('xpath=following-sibling::dd[1]'));
+}
+
+/** The Android entry as a visitor reads it; an unavailable card has no APK facts. */
 async function describeAndroid(page: Page) {
   const card = platformCard(page, 'Android');
   if ((await card.count()) === 0) return null;
   const download = card.getByRole('link', { name: 'Download .apk' });
-  const apk = card.getByText(/^The Bazaar /);
-  const published = (await apk.count()) > 0;
-  const releaseLink = card.getByRole('link', { name: 'GitHub Release' });
   return {
-    version: await text(
-      card.getByText('Current version', { exact: true }).locator('xpath=following-sibling::*[1]')
-    ),
-    apk: published ? await text(apk) : null,
-    size: published ? await text(apk.locator('xpath=following-sibling::*[1]')) : null,
-    sha256: published ? await text(card.locator('code')) : null,
-    releaseLink: (await releaseLink.count()) === 0 ? null : await releaseLink.getAttribute('href'),
+    badge: await text(card.getByText('Experimental', { exact: true })),
+    notice: await text(card.getByText(/^The Android build is experimental/)),
+    version: await fact(card, 'Current version'),
+    gameVersion: await fact(card, 'Game version'),
+    size: await fact(card, 'Size'),
+    sha256: await fact(card, 'SHA-256'),
     download: {
       href: await download.getAttribute('href'),
       disabled: (await download.getAttribute('aria-disabled')) === 'true',
     },
+    feedback: await text(card.getByRole('button', { name: /^QQ feedback group/ })),
     stepsTitle: await text(card.getByRole('heading', { level: 3 })),
     steps: await card.getByRole('listitem').locator('span:not([aria-hidden])').allTextContents(),
   };
@@ -137,7 +141,7 @@ for (const [state, overrides] of Object.entries(STATES)) {
   });
 }
 
-test('a missing or invalid Android manifest leaves the Android card pending', () => {
+test('a missing or invalid Android manifest leaves the Android card unavailable', () => {
   type Downloads = { cards: unknown; fallback: unknown; android: Record<string, unknown> | null };
   const loaded = result['both platforms load'] as Downloads;
   const missing = result['android manifest responds 404'] as Downloads;
@@ -147,10 +151,14 @@ test('a missing or invalid Android manifest leaves the Android card pending', ()
     fallback: loaded.fallback,
   });
   expect(missing.android).toMatchObject({
-    version: 'Coming soon',
-    apk: null,
-    releaseLink: 'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest',
+    badge: loaded.android?.badge,
+    notice: loaded.android?.notice,
+    version: 'Unavailable',
+    gameVersion: null,
+    size: null,
+    sha256: null,
     download: { href: '#', disabled: true },
+    feedback: loaded.android?.feedback,
     stepsTitle: loaded.android?.stepsTitle,
     steps: loaded.android?.steps,
   });
@@ -159,4 +167,15 @@ test('a missing or invalid Android manifest leaves the Android card pending', ()
 test('each Platform Release Manifest degrades only its own card (download-cards.json)', () => {
   expect(Object.keys(result)).toEqual(Object.keys(STATES));
   expect(goldenJson(result)).toMatchSnapshot('download-cards.json');
+});
+
+test('the Android feedback button copies the QQ group number', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await installGoldenRoutes(page, goldenSources());
+  await page.goto('/download?lang=en');
+  await settle(page);
+  const button = platformCard(page, 'Android').getByTitle('Copy the group number');
+  await button.click();
+  await expect(button).toHaveText('Group number copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('1083470305');
 });
