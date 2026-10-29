@@ -9,6 +9,7 @@ await TestSharedPlatformReleaseManifests();
 TestEndpointFollowsThePlatform();
 await TestAndroidApkIsReadOnlyWhenComplete();
 TestAndroidGameUpdateComparesVersionCodes();
+TestAndroidApkIsNeededForANewerGameOrAChangedRuntime();
 await TestIncompleteManagedPayloadIsAbsent();
 await TestSuccessfulManifestIsTrimmed();
 await TestUnchangedManifestIsAnsweredFromTheLastRead();
@@ -138,6 +139,16 @@ static async Task TestAndroidApkIsReadOnlyWhenComplete()
         result.AndroidApk.Url.ToString(),
         "The APK URL is the writer's."
     );
+    Equal(
+        release.GetProperty("apk").GetProperty("size").GetInt64(),
+        result.AndroidApk.Size,
+        "The APK size is the writer's."
+    );
+    Equal(
+        release.GetProperty("apk").GetProperty("sha256").GetString(),
+        result.AndroidApk.Sha256,
+        "The APK SHA-256 is the writer's."
+    );
 
     var desktop = await Fetch(
         _ => Response(HttpStatusCode.OK, body),
@@ -156,20 +167,31 @@ static async Task TestAndroidApkIsReadOnlyWhenComplete()
     True(incomplete.AndroidApk == null, "An APK without its game version is no APK.");
 
     const string plainHttp = """
-        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"http://cdn.example/a.apk"},"game":{"gameVersion":"1.0.13000-production-android-0000000a"}}}}
+        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"http://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"game":{"gameVersion":"1.0.13000-production-android-0000000a"}}}}
         """;
     var insecure = await Fetch(
         _ => Response(HttpStatusCode.OK, plainHttp),
         platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
     );
     True(insecure.AndroidApk == null, "An APK link that is not HTTPS is never offered.");
+
+    const string withoutDigest = """
+        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"https://cdn.example/a.apk","size":1},"game":{"gameVersion":"1.0.13000-production-android-0000000a"}}}}
+        """;
+    var unverifiable = await Fetch(
+        _ => Response(HttpStatusCode.OK, withoutDigest),
+        platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
+    );
+    True(unverifiable.AndroidApk == null, "An APK a download cannot check is no APK.");
 }
 
 static void TestAndroidGameUpdateComparesVersionCodes()
 {
     var apk = new AndroidApkRelease(
         "1.0.12900-production-android-0000000b",
-        new Uri("https://cdn.example/a.apk")
+        new Uri("https://cdn.example/a.apk"),
+        1,
+        new string('0', 64)
     );
     Equal(
         12825,
@@ -201,9 +223,48 @@ static void TestAndroidGameUpdateComparesVersionCodes()
     True(
         AndroidGameUpdate.Newer(
             "1.0.12825-production-android-d9601ded",
-            new AndroidApkRelease("garbled", apk.Url)
+            apk with
+            {
+                GameVersion = "garbled",
+            }
         ) == null,
         "An unreadable published version offers nothing."
+    );
+}
+
+static void TestAndroidApkIsNeededForANewerGameOrAChangedRuntime()
+{
+    const string game = "1.0.12825-production-android-d9601ded";
+    var same = new AndroidApkRelease(
+        game,
+        new Uri("https://cdn.example/a.apk"),
+        1,
+        new string('0', 64)
+    );
+    var newer = same with { GameVersion = "1.0.12900-production-android-0000000b" };
+    var older = same with { GameVersion = "1.0.12800-production-android-0000000c" };
+
+    Equal(
+        AndroidApkUpdateReason.GameUpdated,
+        AndroidGameUpdate.Needed(game, newer, manualUpdate: false)?.Reason,
+        "A newer game needs the APK even when the Managed Payload could come."
+    );
+    Equal(
+        AndroidApkUpdateReason.RuntimeChanged,
+        AndroidGameUpdate.Needed(game, same, manualUpdate: true)?.Reason,
+        "The same game with a release this copy cannot take needs the APK."
+    );
+    True(
+        AndroidGameUpdate.Needed(game, same, manualUpdate: false) == null,
+        "A release the Managed Payload brings needs no APK."
+    );
+    True(
+        AndroidGameUpdate.Needed(game, older, manualUpdate: true) == null,
+        "An APK for an older game is never offered."
+    );
+    True(
+        AndroidGameUpdate.Needed("garbled", same, manualUpdate: true) == null,
+        "An unreadable running version offers nothing."
     );
 }
 

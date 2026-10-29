@@ -235,21 +235,15 @@ jobs:
       - if: env.STAGE == 'release' && matrix.platform != 'android'
         name: Build and sign the installer
         run: just release::build "$RELEASE_PLATFORM"
-      # Android build reads the release store (is this APK identity published?)
-      # and the private snapshot store (the official APK, Loader Release and
-      # Patcher). build_only always injects, so the run keeps an APK to install.
+      # Android build reads the private snapshot store (the official APK, Loader
+      # Release and Patcher).
       - if: env.STAGE == 'release' && matrix.platform == 'android'
         name: Build the Managed Payload zip and the Android Release APK
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          BUILD_ONLY: ${{ inputs.build_only == true }}
         run: |
-          if [[ "$BUILD_ONLY" == true ]]; then
-            node release.mjs build --platform android --rebuild-apk
-          else
-            just release::build android
-          fi
+          just release::build android
           # The official APK copy is no longer needed; upload streams the outputs.
           rm -rf bazaarplusplus-mod/game-libs/inputs
           df -h "$GITHUB_WORKSPACE"

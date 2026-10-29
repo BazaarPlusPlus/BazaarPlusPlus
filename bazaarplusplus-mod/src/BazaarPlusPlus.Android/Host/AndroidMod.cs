@@ -56,6 +56,7 @@ public sealed class AndroidMod : MelonMod
     private Game.AndroidCombatStatus? _combatStatus;
     private AndroidCombatStatusView? _combatStatusView;
     private AndroidVersionCheck? _versionCheck;
+    private AndroidApkUpdatePrompt? _apkPrompt;
     private AndroidCombatReplayRuntime? _replayRuntime;
     private AndroidHistoryPanel? _historyPanel;
     private AndroidOverlayPanels? _overlayPanels;
@@ -115,6 +116,7 @@ public sealed class AndroidMod : MelonMod
         AndroidNativeSettingsSection.Tick(Time.unscaledTime);
         AndroidCardRental.Tick();
         _versionCheck?.Tick();
+        Guarded("apk_prompt", () => _apkPrompt?.Tick());
         var revision = MainMenuVersionUpdateState.Current.Revision;
         if (revision != _labelRevision)
         {
@@ -211,6 +213,8 @@ public sealed class AndroidMod : MelonMod
         _combatStatus?.Dispose();
         _combatStatus = null;
         AndroidPatchHost.CombatStatus = null;
+        AndroidPatchHost.ApkUpdatePrompt = null;
+        _apkPrompt = null;
         _versionCheck?.Dispose();
         _versionCheck = null;
         // The touch panels give their rented cards back and drop their views before the rental
@@ -261,6 +265,13 @@ public sealed class AndroidMod : MelonMod
                 Application.version ?? "",
                 devManifest
             );
+            _apkPrompt = new AndroidApkUpdatePrompt(
+                _versionCheck,
+                AndroidPaths.DataRoot(melonBase),
+                OpenApkUpdate,
+                () => panels.OpenPanelId != null
+            );
+            AndroidPatchHost.ApkUpdatePrompt = _apkPrompt;
             if (devManifest != null)
                 BppLog.WarnEvent(
                     new BppLogEvent(
@@ -269,9 +280,8 @@ public sealed class AndroidMod : MelonMod
                     ),
                     ("manifest", devManifest)
                 );
-            StartHistory(android, panels);
+            StartHistory(panels);
             _touchUi = new AndroidTouchUi(
-                android,
                 panels,
                 _historyPanel == null ? null : source => _historyPanel?.Open(source),
                 _composition?.LiveBuild,
@@ -289,7 +299,11 @@ public sealed class AndroidMod : MelonMod
                     HistoryAvailable: () => _historyPanel != null,
                     OpenHistory: () => _historyPanel?.Open("settings"),
                     GameUpdateStatus: () => versionCheck.GameUpdateStatus,
-                    OpenGameUpdate: () => OpenGameUpdate(versionCheck),
+                    OpenGameUpdate: () =>
+                    {
+                        if (versionCheck.ApkUpdate is { } update)
+                            OpenApkUpdate(update);
+                    },
                     RefreshPreviews: () => Guarded("preview_settings_refresh", RefreshNativePreview)
                 )
             );
@@ -305,7 +319,7 @@ public sealed class AndroidMod : MelonMod
 
     // History and its replay runtime need the record chain's database and payload gate; without
     // the chain the launcher offers no History.
-    private void StartHistory(AndroidSettings android, AndroidOverlayPanels panels)
+    private void StartHistory(AndroidOverlayPanels panels)
     {
         var composition = _composition;
         if (composition == null)
@@ -328,7 +342,6 @@ public sealed class AndroidMod : MelonMod
                 () => _replayRuntime?.SavedReplays,
                 _templates,
                 () => AndroidGameFont.Font,
-                android.HistoryPanel,
                 panels,
                 composition.Supporters
             );
@@ -350,16 +363,14 @@ public sealed class AndroidMod : MelonMod
         }
     }
 
-    private static void OpenGameUpdate(AndroidVersionCheck versionCheck)
+    private static void OpenApkUpdate(AndroidApkUpdate update)
     {
-        var apk = versionCheck.GameUpdate;
-        if (apk == null)
-            return;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.ui.game_update_opened"),
-            ("game_version", apk.GameVersion)
+            ("game_version", update.Apk.GameVersion),
+            ("reason", update.Reason)
         );
-        Application.OpenURL(apk.Url.ToString());
+        Application.OpenURL(update.Apk.Url.ToString());
     }
 
     private static string ReadGameLanguageCode()

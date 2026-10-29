@@ -13,10 +13,8 @@ namespace BazaarPlusPlus.Android.Settings;
 
 /// <summary>
 /// What a settings row does beyond writing its setting: release the upgrade preview a switch
-/// turned off, open History or the newer game APK. A Main Overlay Panel's switch only writes its
-/// setting: the Overlay Panel Host reads it as the panel's Enabled predicate and closes the panel
-/// on the next frame (Panel Switch-Off). The host supplies these; <see cref="AndroidSettingsDock"/>
-/// stays free of Unity, so a test registers the rows.
+/// turned off, open History or the newer game APK. The host supplies these;
+/// <see cref="AndroidSettingsDock"/> stays free of Unity, so a test registers the rows.
 /// </summary>
 internal sealed record AndroidSettingsDockHooks(
     Action<string> ReleaseUpgradePreview,
@@ -33,20 +31,16 @@ internal sealed record AndroidSettingsDockHooks(
 /// drawn by <see cref="AndroidNativeSettingsSection"/> in the game's own settings dialog. The
 /// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
 /// gates only the account link, since the host takes no end-of-run screenshot), Combat Status
-/// and Game History, which here has no hotkey. The rest are
-/// the host's switches that stand in for the desktop's
-/// hotkeys (Upgrade preview, the Collection, Ten-Win Builds and History panels, the touch button)
-/// and, when the game is behind the published APK, the link to it.
+/// and Game History, which here has no hotkey. The rest are the host's Upgrade preview switch,
+/// which stands in for the desktop's hotkey, and, when the game is behind the published APK, the
+/// link to it.
 /// </summary>
 internal static class AndroidSettingsDock
 {
-    /// <summary>The History panel's switch, <c>[Android] HistoryPanel</c>.</summary>
-    public const string HistoryPanelKey = "HistoryPanel";
-
-    public static readonly LocalizedTextSet TouchMenuLabel = new(
-        "Panel shortcuts",
-        "面板快捷入口",
-        "面板快捷入口"
+    public static readonly LocalizedTextSet RuntimeUpdated = new(
+        "BazaarPlusPlus needs a new APK: download it",
+        "BazaarPlusPlus 需要新版安装包，请下载",
+        "BazaarPlusPlus 需要新版安裝包，請下載"
     );
     public static readonly LocalizedTextSet GameUpToDate = new(
         "The game is up to date",
@@ -131,45 +125,9 @@ internal static class AndroidSettingsDock
             )
         );
         registry.Register(
-            Switch(
-                BppSettingsDockOrder.CollectionPanelSwitch,
-                "CollectionPanel",
-                Ui.AndroidTouchText.CollectionPanel,
-                android.CollectionPanel,
-                _ => { }
-            )
-        );
-        registry.Register(
-            Switch(
-                BppSettingsDockOrder.LiveBuildPanelSwitch,
-                "LiveBuildPanel",
-                Ui.AndroidTouchText.LiveBuildPanel,
-                android.LiveBuildPanel,
-                _ => { }
-            )
-        );
-        registry.Register(
-            Switch(
-                BppSettingsDockOrder.HistoryPanelSwitch,
-                HistoryPanelKey,
-                Ui.AndroidTouchText.HistoryPanel,
-                android.HistoryPanel,
-                _ => { }
-            )
-        );
-        registry.Register(
-            Switch(
-                BppSettingsDockOrder.TouchMenu,
-                "TouchMenu",
-                TouchMenuLabel,
-                android.TouchMenu,
-                _ => { }
-            )
-        );
-        registry.Register(
             new HistoryPanelSettingsDockEntry(
                 resolveHotkeyDisplay: null,
-                () => android.HistoryPanel.Value && hooks.HistoryAvailable(),
+                hooks.HistoryAvailable,
                 hooks.OpenHistory
             )
         );
@@ -192,45 +150,23 @@ internal static class AndroidSettingsDock
             onChanged
         );
 
-    /// <summary>
-    /// What a host switch's row writes, and every other control that sets the same switch, such
-    /// as History's More dialog, whose <paramref name="source"/> names it in the log line.
-    /// </summary>
-    public static void WriteSwitch(
-        string key,
-        ISetting<bool> setting,
-        bool enabled,
-        string? source = null
-    )
+    private static void WriteSwitch(string key, ISetting<bool> setting, bool enabled)
     {
-        ArgumentNullException.ThrowIfNull(setting);
         setting.Value = enabled;
-        LogChanged("Android", key, enabled, source);
+        LogChanged("Android", key, enabled);
     }
 
-    /// <summary>A setting changed; <paramref name="source"/> names a control outside this dialog.</summary>
-    private static void LogChanged(string section, string key, object value, string? source = null)
-    {
-        if (source == null)
-            BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.settings.changed"),
-                ("section", section),
-                ("key", key),
-                ("value", value)
-            );
-        else
-            BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.settings.changed"),
-                ("section", section),
-                ("key", key),
-                ("value", value),
-                ("source", source)
-            );
-    }
+    private static void LogChanged(string section, string key, object value) =>
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.settings.changed"),
+            ("section", section),
+            ("key", key),
+            ("value", value)
+        );
 
-    // Offered only while the published APK is for a newer game; otherwise it says why not, dimmed:
-    // the game is current, the check has not answered yet, or it failed. A failed check never
-    // reads as current.
+    // Offered only while this copy needs the published APK (a newer game, or a BPP runtime it
+    // cannot take by itself); otherwise it says why not, dimmed: the APK is current, the check has
+    // not answered yet, or it failed. A failed check never reads as current.
     private sealed class GameUpdateEntry(AndroidSettingsDockHooks hooks) : ISettingsDockEntry
     {
         public int Order => BppSettingsDockOrder.GameUpdate;
@@ -240,7 +176,10 @@ internal static class AndroidSettingsDock
                 "GameUpdate",
                 languageCode =>
                     Label(hooks.GameUpdateStatus()).Resolve(languageCode, L.CurrentMode),
-                () => hooks.GameUpdateStatus() == AndroidGameUpdateStatus.Available,
+                () =>
+                    hooks.GameUpdateStatus()
+                        is AndroidGameUpdateStatus.GameUpdated
+                            or AndroidGameUpdateStatus.RuntimeChanged,
                 hooks.OpenGameUpdate,
                 collapseAfterActivate: false
             );
@@ -248,7 +187,8 @@ internal static class AndroidSettingsDock
         private static LocalizedTextSet Label(AndroidGameUpdateStatus status) =>
             status switch
             {
-                AndroidGameUpdateStatus.Available => Ui.AndroidTouchText.GameUpdated,
+                AndroidGameUpdateStatus.GameUpdated => Ui.AndroidTouchText.GameUpdated,
+                AndroidGameUpdateStatus.RuntimeChanged => RuntimeUpdated,
                 AndroidGameUpdateStatus.Current => GameUpToDate,
                 AndroidGameUpdateStatus.CheckFailed => GameUpdateCheckFailed,
                 _ => GameUpdateChecking,

@@ -12,12 +12,6 @@ internal sealed class AndroidSettings
     public AndroidSettings(IBppSettingsStore store)
     {
         ArgumentNullException.ThrowIfNull(store);
-        TouchMenu = store.Bind(
-            "Android",
-            "TouchMenu",
-            true,
-            "Whether the native-style icon shortcuts for History, Collection, and Ten-Win Builds are shown."
-        );
         CombatTimer = store.Bind(
             "Android",
             "CombatTimer",
@@ -29,24 +23,6 @@ internal sealed class AndroidSettings
             "UpgradePreview",
             false,
             "Whether item tooltips automatically show the next tier's values. Each tooltip also offers a touch toggle."
-        );
-        CollectionPanel = store.Bind(
-            "Android",
-            "CollectionPanel",
-            true,
-            "Whether the icon shortcuts offer the Collection panel, which shows the game's own cards."
-        );
-        HistoryPanel = store.Bind(
-            "Android",
-            "HistoryPanel",
-            true,
-            "Whether the icon shortcuts offer the History panel: past runs, Ghost battles, favorites, and their native boards."
-        );
-        LiveBuildPanel = store.Bind(
-            "Android",
-            "LiveBuildPanel",
-            true,
-            "Whether the icon shortcuts offer the Live Build panel, which recommends ten-win builds for the run."
         );
         DevReleaseManifestPort = store.Bind(
             "Dev",
@@ -61,14 +37,6 @@ internal sealed class AndroidSettings
     /// (<see cref="Lobby.AndroidVersionCheck.DevManifest"/>).
     /// </summary>
     public ISetting<int> DevReleaseManifestPort { get; }
-
-    public ISetting<bool> TouchMenu { get; }
-
-    public ISetting<bool> CollectionPanel { get; }
-
-    public ISetting<bool> HistoryPanel { get; }
-
-    public ISetting<bool> LiveBuildPanel { get; }
 
     public ISetting<bool> UpgradePreview { get; }
 

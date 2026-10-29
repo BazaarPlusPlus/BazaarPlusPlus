@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BilingualItemNames;
 using BazaarPlusPlus.Game.BundlePipeline;
@@ -187,7 +188,11 @@ internal sealed class MonoHostComposition : IDisposable
             PathConstants.RunLogDatabase(_services.Paths.RequireDataRoot()),
             playerAccountIdResolver: BppClientCacheBridge.TryGetProfileAccountId,
             bundleScreenshotRequestedResolver: () => _services.Config.BazaarDbUploadEnabled.Value,
-            modVersionResolver: () => BppPluginVersion.Current
+            modVersionResolver: () => BppPluginVersion.Current,
+            subscribeRankRefreshed: onRefreshed =>
+                BppClientCacheBridge.SubscribeRankRefreshed(
+                    (rank, rating) => onRefreshed(new RankSnapshot { Rank = rank, Rating = rating })
+                )
         );
         _bundleSealCoordinator = DesktopBundleSealCoordinator.Create(_services);
 

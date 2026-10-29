@@ -29,10 +29,6 @@ public sealed class AndroidSettingsDockTests
                 "CombatStatusBar",
                 "GameHistory",
                 "UpgradePreview",
-                "CollectionPanel",
-                "LiveBuildPanel",
-                "HistoryPanel",
-                "TouchMenu",
                 "GameUpdate",
             },
             dock.Rows.Select(row => row.Key)
@@ -45,55 +41,10 @@ public sealed class AndroidSettingsDockTests
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Action,
                 BppSettingsControlKind.Toggle,
-                BppSettingsControlKind.Toggle,
-                BppSettingsControlKind.Toggle,
-                BppSettingsControlKind.Toggle,
-                BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Action,
             },
             dock.Rows.Select(row => row.ControlKind)
         );
-    }
-
-    // A Main Overlay Panel's switch only writes its setting: the Overlay Panel Host reads it as
-    // the panel's Enabled predicate and closes the panel itself (AndroidOverlayPanelsTests).
-    [Theory]
-    [InlineData("CollectionPanel")]
-    [InlineData("LiveBuildPanel")]
-    [InlineData("HistoryPanel")]
-    public void Switching_a_panel_off_only_writes_its_setting(string key)
-    {
-        var dock = new Dock();
-        var row = dock.Row(key);
-        Assert.True(row.ReadToggle!());
-
-        row.WriteToggle!(false);
-        Assert.False(row.ReadToggle());
-        row.WriteToggle(true);
-        Assert.True(row.ReadToggle());
-
-        Assert.Empty(dock.Calls);
-    }
-
-    // History's More dialog carries the panel's own switch, since the touch button hides while
-    // History is open; it is the row's write, so the row reads what it wrote.
-    [Fact]
-    public void Historys_more_switch_is_the_rows_write()
-    {
-        var dock = new Dock();
-        var row = dock.Row(AndroidSettingsDock.HistoryPanelKey);
-        Assert.True(row.ReadToggle!());
-
-        AndroidSettingsDock.WriteSwitch(
-            AndroidSettingsDock.HistoryPanelKey,
-            dock.Android.HistoryPanel,
-            false,
-            source: "history_more"
-        );
-
-        Assert.False(dock.Android.HistoryPanel.Value);
-        Assert.False(row.ReadToggle());
-        Assert.Empty(dock.Calls);
     }
 
     // The account link waits on [BazaarDB] UploadScreenshots; the row is its touch switch, off by
@@ -160,7 +111,7 @@ public sealed class AndroidSettingsDockTests
     }
 
     [Fact]
-    public void Game_history_has_no_hotkey_and_follows_the_history_switch()
+    public void Game_history_has_no_hotkey_and_follows_history_availability()
     {
         var dock = new Dock { HistoryAvailable = true };
         var row = dock.Row("GameHistory");
@@ -171,15 +122,12 @@ public sealed class AndroidSettingsDockTests
         row.Activate!();
         Assert.Equal(new[] { "open_history" }, dock.Calls);
 
-        dock.Android.HistoryPanel.Value = false;
-        Assert.False(row.IsActive());
-        dock.Android.HistoryPanel.Value = true;
         dock.HistoryAvailable = false;
         Assert.False(row.IsActive());
     }
 
     [Fact]
-    public void Game_update_is_offered_only_for_a_newer_game()
+    public void The_new_apk_is_offered_only_while_this_copy_needs_it()
     {
         var dock = new Dock { GameUpdateStatus = AndroidGameUpdateStatus.Current };
         var row = dock.Row("GameUpdate");
@@ -188,11 +136,17 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal("The game is up to date", row.ResolveLabel("en"));
         Assert.False(row.CollapseAfterActivate);
 
-        dock.GameUpdateStatus = AndroidGameUpdateStatus.Available;
+        dock.GameUpdateStatus = AndroidGameUpdateStatus.GameUpdated;
         Assert.True(row.IsActive());
         Assert.Equal("The game has updated: download the new APK", row.ResolveLabel("en"));
         row.Activate!();
         Assert.Equal(new[] { "open_game_update" }, dock.Calls);
+
+        // Same game, but the BPP runtime inside the APK changed: the row never says current.
+        dock.GameUpdateStatus = AndroidGameUpdateStatus.RuntimeChanged;
+        Assert.True(row.IsActive());
+        Assert.Equal("BazaarPlusPlus needs a new APK: download it", row.ResolveLabel("en"));
+        Assert.Equal("BazaarPlusPlus 需要新版安装包，请下载", row.ResolveLabel("zh-Hans"));
     }
 
     // The published manifest could not be read (a 404 while Android is unreleased, no network):

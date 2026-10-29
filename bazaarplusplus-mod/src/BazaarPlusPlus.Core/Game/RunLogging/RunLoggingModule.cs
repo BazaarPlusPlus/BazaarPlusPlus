@@ -20,6 +20,10 @@ public sealed class RunLoggingModule : IBppFeature
         2
     );
 
+    // The game fetches a Ranked Run's new rating while its end-of-run screen loads, after the Run
+    // has exited; until then the cached rank still holds the starting rating.
+    private static readonly TimeSpan RankRefreshCompletionGracePeriod = TimeSpan.FromSeconds(15);
+
     private readonly IBppEventBus _eventBus;
     private readonly object _lifecycleGate = new();
     private readonly IRunContext _runContext;
@@ -34,14 +38,17 @@ public sealed class RunLoggingModule : IBppFeature
     private readonly Func<string?> _playerAccountIdResolver;
     private readonly Func<bool> _bundleScreenshotRequestedResolver;
     private readonly Func<string?> _modVersionResolver;
+    private readonly Func<Action<RankSnapshot>, IDisposable>? _subscribeRankRefreshed;
     private IDisposable? _storeLifetime;
     private RunLogSessionManager? _sessionManager;
     private IDisposable? _runLifecycleSubscription;
     private IDisposable? _pvpBattleSubscription;
     private IDisposable? _runInitializedSubscription;
     private IDisposable? _replayPersistenceDrainedSubscription;
+    private IDisposable? _rankRefreshedSubscription;
     private RunLogCompletion? _deferredRunCompletion;
     private string? _deferredRunCompletionRunId;
+    private bool _deferredRunCompletionAwaitsRank;
     private DateTimeOffset? _deferredRunCompletionDeadlineUtc;
     private IDisposable? _deferredRunCompletionTimer;
     private string? _pendingInterruptedRunId;
@@ -52,6 +59,8 @@ public sealed class RunLoggingModule : IBppFeature
     /// <summary>
     /// Builds the module; nothing opens until <see cref="Start"/>. <c>attachBattleToRun</c> links a
     /// saved battle (battle id) to a run (run id) in the host's battle store.
+    /// <c>subscribeRankRefreshed</c> calls back on the main thread each time the game replaces its
+    /// cached rank; a completed Ranked Run waits for that refresh to record its final rating.
     /// </summary>
     public RunLoggingModule(
         IBppEventBus eventBus,
@@ -66,7 +75,8 @@ public sealed class RunLoggingModule : IBppFeature
         Func<TimeSpan, Action, IDisposable>? scheduleDeferredCompletion = null,
         Func<string?>? playerAccountIdResolver = null,
         Func<bool>? bundleScreenshotRequestedResolver = null,
-        Func<string?>? modVersionResolver = null
+        Func<string?>? modVersionResolver = null,
+        Func<Action<RankSnapshot>, IDisposable>? subscribeRankRefreshed = null
     )
     {
         _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
@@ -86,6 +96,7 @@ public sealed class RunLoggingModule : IBppFeature
         _playerAccountIdResolver = playerAccountIdResolver ?? (() => null);
         _bundleScreenshotRequestedResolver = bundleScreenshotRequestedResolver ?? (() => false);
         _modVersionResolver = modVersionResolver ?? (() => null);
+        _subscribeRankRefreshed = subscribeRankRefreshed;
     }
 
     public void Start()
@@ -111,6 +122,7 @@ public sealed class RunLoggingModule : IBppFeature
                     _eventBus.Subscribe<CombatReplayPersistenceDrained>(
                         OnCombatReplayPersistenceDrained
                     );
+                _rankRefreshedSubscription = TrySubscribeRankRefreshed();
                 _started = true;
             }
             catch
@@ -193,6 +205,8 @@ public sealed class RunLoggingModule : IBppFeature
 
     private void DisposeSubscriptions()
     {
+        _rankRefreshedSubscription?.Dispose();
+        _rankRefreshedSubscription = null;
         _replayPersistenceDrainedSubscription?.Dispose();
         _replayPersistenceDrainedSubscription = null;
         _runInitializedSubscription?.Dispose();
@@ -201,6 +215,30 @@ public sealed class RunLoggingModule : IBppFeature
         _pvpBattleSubscription = null;
         _runLifecycleSubscription?.Dispose();
         _runLifecycleSubscription = null;
+    }
+
+    // Without the subscription a Ranked Run completes at once with the rating cached at exit.
+    private IDisposable? TrySubscribeRankRefreshed()
+    {
+        if (_subscribeRankRefreshed == null)
+            return null;
+        try
+        {
+            return _subscribeRankRefreshed(OnRankRefreshed);
+        }
+        catch (Exception ex)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.rank_refresh.subscribe_failed",
+                    storm: []
+                ),
+                ex,
+                ("reason_code", RunLoggingReasonCode.RankRefreshSubscribeException)
+            );
+            return null;
+        }
     }
 
     private static IDisposable ScheduleDeferredCompletionWithTimer(
@@ -287,6 +325,13 @@ public sealed class RunLoggingModule : IBppFeature
             ClearDeferredRunCompletion();
             _deferredRunCompletionRunId = activeSession.RunId;
             _deferredRunCompletion = BuildRunLogCompletion("run_state_exit");
+            _deferredRunCompletionAwaitsRank =
+                _rankRefreshedSubscription != null
+                && string.Equals(
+                    ReadRunBasics()?.GameMode,
+                    "Ranked",
+                    StringComparison.OrdinalIgnoreCase
+                );
             TryCompleteDeferredRunExit();
         }
         catch (Exception ex)
@@ -384,6 +429,45 @@ public sealed class RunLoggingModule : IBppFeature
                 ex,
                 ("run_id", runId, BppLogCorrelationPolicy.Short),
                 ("reason_code", RunLoggingReasonCode.ReplayDrainHandlingException)
+            );
+        }
+    }
+
+    private void OnRankRefreshed(RankSnapshot rank)
+    {
+        lock (_lifecycleGate)
+        {
+            if (!_started || _stopped)
+                return;
+            OnRankRefreshedUnderLock(rank);
+        }
+    }
+
+    private void OnRankRefreshedUnderLock(RankSnapshot rank)
+    {
+        string? runId = null;
+        try
+        {
+            if (_deferredRunCompletion == null || !_deferredRunCompletionAwaitsRank)
+                return;
+            runId = _deferredRunCompletionRunId;
+            _deferredRunCompletion.FinalPlayerRank = rank.Rank;
+            _deferredRunCompletion.FinalPlayerRating = rank.Rating;
+            _deferredRunCompletionAwaitsRank = false;
+            if (!_runContext.IsInGameRun)
+                TryCompleteDeferredRunExit();
+        }
+        catch (Exception ex)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.rank_refresh.handling_failed",
+                    storm: []
+                ),
+                ex,
+                ("run_id", runId, BppLogCorrelationPolicy.Short),
+                ("reason_code", RunLoggingReasonCode.RankRefreshHandlingException)
             );
         }
     }
@@ -565,10 +649,13 @@ public sealed class RunLoggingModule : IBppFeature
 
         var now = _utcNow();
         RunLoggingReasonCode? degradationReason = null;
-        if (!forceCompletion && _hasPendingReplayPersistence())
+        var replayPending = _hasPendingReplayPersistence();
+        var gracePeriod = _deferredRunCompletionAwaitsRank
+            ? RankRefreshCompletionGracePeriod
+            : ReplayPersistenceCompletionGracePeriod;
+        if (!forceCompletion && (replayPending || _deferredRunCompletionAwaitsRank))
         {
-            var deadline =
-                _deferredRunCompletionDeadlineUtc ?? (now + ReplayPersistenceCompletionGracePeriod);
+            var deadline = _deferredRunCompletionDeadlineUtc ?? (now + gracePeriod);
             _deferredRunCompletionDeadlineUtc = deadline;
             if (now < deadline)
             {
@@ -579,9 +666,11 @@ public sealed class RunLoggingModule : IBppFeature
                 return false;
             }
 
-            degradationReason = RunLoggingReasonCode.ReplayDrainTimeout;
+            degradationReason = replayPending
+                ? RunLoggingReasonCode.ReplayDrainTimeout
+                : RunLoggingReasonCode.RankRefreshTimeout;
         }
-        else if (forceCompletion && _hasPendingReplayPersistence())
+        else if (forceCompletion && (replayPending || _deferredRunCompletionAwaitsRank))
         {
             degradationReason = RunLoggingReasonCode.ShutdownForced;
         }
@@ -605,7 +694,7 @@ public sealed class RunLoggingModule : IBppFeature
                 ),
                 ("run_id", completedRunId, BppLogCorrelationPolicy.Short),
                 ("reason_code", degradationReason.Value),
-                ("grace_ms", (long)ReplayPersistenceCompletionGracePeriod.TotalMilliseconds)
+                ("grace_ms", (long)gracePeriod.TotalMilliseconds)
             );
         }
         return true;
@@ -714,6 +803,7 @@ public sealed class RunLoggingModule : IBppFeature
         _deferredRunCompletionTimer = null;
         _deferredRunCompletion = null;
         _deferredRunCompletionRunId = null;
+        _deferredRunCompletionAwaitsRank = false;
         _deferredRunCompletionDeadlineUtc = null;
         timer?.Dispose();
     }

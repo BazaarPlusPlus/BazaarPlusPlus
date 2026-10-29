@@ -1,6 +1,5 @@
 using BazaarPlusPlus.Android.Collection;
 using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.LiveBuild;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Supporters;
@@ -14,8 +13,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;
 
-/// <summary>The touch panels' entries: in a run, native-style icons in a corner around the settings
-/// button, Collection below it and Ten-Win Builds left of it; History in the game's own menus, a
+/// <summary>The touch panels' entries: native-style icons in a corner around the settings button,
+/// Collection below it in the lobby and in a run, Ten-Win Builds left of it in a run only; History in the game's own menus, a
 /// tile in the lobby's MENU grid and a row in the in-run menu. Their lifecycle stays with the Overlay Panel Host. Views and
 /// catalog data are still built on first open.</summary>
 internal sealed class AndroidTouchUi
@@ -27,7 +26,6 @@ internal sealed class AndroidTouchUi
     private const string EntrySource = "touch_icon";
     private const string MenuSource = "native_menu";
 
-    private readonly AndroidSettings _android;
     private readonly AndroidOverlayPanels _panels;
     private readonly Action<string>? _openHistory;
     private readonly AndroidLiveBuildData? _liveBuildData;
@@ -56,7 +54,6 @@ internal sealed class AndroidTouchUi
     private long _relayouts;
 
     public AndroidTouchUi(
-        AndroidSettings android,
         AndroidOverlayPanels panels,
         Action<string>? openHistory,
         AndroidLiveBuildData? liveBuildData,
@@ -64,7 +61,6 @@ internal sealed class AndroidTouchUi
         AndroidCollectionCatalog collectionCatalog
     )
     {
-        _android = android ?? throw new ArgumentNullException(nameof(android));
         _panels = panels ?? throw new ArgumentNullException(nameof(panels));
         _collectionCatalog =
             collectionCatalog ?? throw new ArgumentNullException(nameof(collectionCatalog));
@@ -78,7 +74,6 @@ internal sealed class AndroidTouchUi
             tick: (_, _) => _collection?.Tick()
         )
         {
-            Enabled = () => _android.CollectionPanel.Value,
             IsModalInputActive = () => _collection?.HasModalBackStep == true,
             DismissModal = () => _collection?.DismissModalBackStep(),
         });
@@ -179,7 +174,7 @@ internal sealed class AndroidTouchUi
         _icons = new AndroidControlIcons();
         if (_openHistory != null)
         {
-            Func<bool> offered = () => _android.HistoryPanel.Value;
+            Func<bool> offered = () => true;
             Action open = () =>
                 AndroidUiActions.Run("open_History", () => _openHistory(MenuSource));
             _historyMenu = new AndroidNavigationMenuEntry(
@@ -204,12 +199,11 @@ internal sealed class AndroidTouchUi
         try
         {
             var playing = IsPlaying();
-            // The gear anchors only the shortcuts, which show with the switch on and outside
-            // fights: no scene search otherwise. A gear hidden during a fight is kept, so it
+            // The gear anchors only the shortcuts, which show outside fights: no scene search
+            // otherwise. A gear hidden during a fight is kept, so it
             // needs no search, and its shortcuts no new layout, when it shows again.
             if (
-                _android.TouchMenu.Value
-                && !playing
+                !playing
                 && (_anchor == null || !_anchor.gameObject.activeInHierarchy)
                 && Time.unscaledTime >= _nextAnchorCheck
             )
@@ -221,12 +215,10 @@ internal sealed class AndroidTouchUi
                 _shortcutAnchor = null;
             }
             var visible =
-                _android.TouchMenu.Value
-                && _panels.OpenPanelId == null
+                _panels.OpenPanelId == null
                 && !playing
                 && !AndroidNativeHud.HasPopup
                 && !AndroidNativeHud.IsInspectingCard
-                && _inRun
                 && _anchor != null
                 && _anchor.gameObject.activeInHierarchy;
             SetActive(_shortcuts?.gameObject, visible);
@@ -237,11 +229,10 @@ internal sealed class AndroidTouchUi
                     SetActive(entry.Root, entry.Offered());
             }
             if (LiveBuildOffered() && !_liveBuildData!.Warmed)
-                _liveBuildData.Warm("setting_on");
+                _liveBuildData.Warm("touch_ui");
             // Built ahead of the first open, outside fights and replays; an open panel paces it.
             if (
-                _android.CollectionPanel.Value
-                && !playing
+                !playing
                 && _panels.OpenPanelId != CollectionPanelId
                 && _collectionCatalog.IsBuilding
             )
@@ -289,14 +280,14 @@ internal sealed class AndroidTouchUi
             "Collection",
             _icons!.Collection,
             TouchHudLayout.ShortcutBelow(metrics, bounds),
-            () => _android.CollectionPanel.Value,
+            () => true,
             () => LogOpenOutcome(CollectionPanelId, _collectionHandle.RequestOpen(EntrySource))
         );
         Add(
             "TenWinBuilds",
             _icons.TenWins,
             TouchHudLayout.ShortcutBeside(metrics, bounds),
-            LiveBuildOffered,
+            () => _inRun && LiveBuildOffered(),
             () => LogOpenOutcome(LiveBuildPanelId, _liveBuildHandle.RequestOpen(EntrySource))
         );
         _relayouts++;
@@ -332,7 +323,7 @@ internal sealed class AndroidTouchUi
         );
     }
 
-    // The host's open: the switch and the combat gate already passed. The panel is built on its
+    // The host's open: the combat gate already passed. The panel is built on its
     // first open; a build that throws is the host's to log and roll back.
     private bool OpenCollectionPanel(AndroidPanelHandle handle)
     {
@@ -348,7 +339,7 @@ internal sealed class AndroidTouchUi
         return _collection.Open();
     }
 
-    private bool LiveBuildOffered() => _android.LiveBuildPanel.Value && _liveBuildData != null;
+    private bool LiveBuildOffered() => _liveBuildData != null;
 
     private bool OpenLiveBuildPanel(AndroidPanelHandle handle)
     {

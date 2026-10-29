@@ -1,6 +1,7 @@
 using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Localization;
 using HarmonyLib;
 using Il2CppTheBazaar;
 using Il2CppTMPro;
@@ -30,12 +31,18 @@ internal static class VersionLabelPatch
             _label!.text = Build();
     }
 
+    private static readonly LocalizedTextSet ManualUpdateText = new(
+        MainMenuVersionLabelFormatter.AndroidManualUpdateText,
+        "请下载新版安装包",
+        "請下載新版安裝包"
+    );
+
     private static string Build() =>
         MainMenuVersionLabelFormatter.Build(
             Application.version,
             AndroidPatchHost.PluginVersion,
             MainMenuVersionUpdateState.Current.Status,
-            MainMenuVersionLabelFormatter.AndroidManualUpdateText
+            L.Resolve(ManualUpdateText)
         );
 
     private static bool IsAlive(TextMeshProUGUI? label) => label != null && !label.WasCollected;

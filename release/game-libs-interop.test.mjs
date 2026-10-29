@@ -22,6 +22,8 @@ import {
   fetchLockedAndroidInput,
   interopBlobKey,
   interopDirectoryDigest,
+  officialApkChanged,
+  recordApkEtag,
   lockKey,
   lockKeys,
   managedEntries,
@@ -367,6 +369,7 @@ test('a first capture records the APK, the interop digest and the named toolchai
     gameVersion: ANDROID_VERSION,
     versionCode: 12825,
     apkSha256: sha(fs.readFileSync(path.join(root, 'TheBazaar.apk'))),
+    apkEtag: null,
     il2cppSha256: sha('il2cpp'),
     metadataSha256: sha('metadata'),
     unityVersion: UNITY_VERSION,
@@ -679,6 +682,7 @@ test('lock validation holds the android-online entry to its schema and field ord
     gameVersion: ANDROID_VERSION,
     versionCode: 12825,
     apkSha256: 'a'.repeat(64),
+    apkEtag: '72439fcc9794ac65abd8649b18aa59ac',
     il2cppSha256: 'b'.repeat(64),
     metadataSha256: 'c'.repeat(64),
     unityVersion: UNITY_VERSION,
@@ -711,6 +715,11 @@ test('lock validation holds the android-online entry to its schema and field ord
     ],
     [{ ...entry, versionCode: '12825' }, /versionCode/],
     [{ ...entry, apkSha256: 'xyz' }, /invalid apkSha256/],
+    [
+      { ...entry, apkEtag: '"quoted"' },
+      /apkEtag must be null or a strong ETag/
+    ],
+    [{ ...entry, apkEtag: '' }, /apkEtag must be null or a strong ETag/],
     [{ ...entry, unityVersion: '6000.3' }, /unityVersion/],
     [
       { ...entry, loader: { tag: 'v0.7.4', sha256: 'e'.repeat(64) } },
@@ -802,4 +811,64 @@ test('the CLI fetches android online by printing the interop directory', async (
   expect(out).toEqual([`${path.join(directory, 'interop')}\n`]);
   expect(err.join('')).toMatch(/Loader Release .*loader-v0\.7\.4-android\.4/);
   expect(err.join('')).toMatch(/Unknown android snapshot channel 'ptr'/);
+});
+
+test('the official APK reads as changed when its length or its recorded ETag differs', async () => {
+  const root = tempRoot('bpp-official-apk-');
+  const ws = workspace();
+  const { apk } = await firstCapture(ws, root).then((result) => ({
+    ...result,
+    apk: path.join(root, 'TheBazaar.apk')
+  }));
+  const store = memoryStore();
+  const apkKey = androidInputKey('apk', ws.entry().apkSha256);
+  const head =
+    (length, etag = '"v1"', ok = true) =>
+    async (url, init) => {
+      expect(init.method).toBe('HEAD');
+      const headers = new Headers();
+      if (length !== null) headers.set('content-length', `${length}`);
+      if (etag !== null) headers.set('etag', etag);
+      return { ok, status: ok ? 200 : 503, headers };
+    };
+  const check = (fetchImpl) =>
+    officialApkChanged({
+      workspaceRoot: ws.workspaceRoot,
+      url: 'https://cdn.example/TheBazaar.apk',
+      storeFactory: () => store,
+      fetchImpl
+    });
+
+  await expect(check(head(10))).rejects.toThrow(
+    `The locked APK ${apkKey} is not in the store`
+  );
+  store.objects.set(apkKey, Buffer.alloc(10));
+  // A manual capture recorded no ETag: sizes alone decide.
+  expect(await check(head(10, '"v2"'))).toMatchObject({
+    changed: false,
+    officialSize: 10,
+    officialEtag: 'v2',
+    lockedEtag: null
+  });
+  expect((await check(head(11))).changed).toBe(true);
+
+  // Recording needs the locked bytes, so another file never takes its place.
+  await expect(
+    recordApkEtag({
+      workspaceRoot: ws.workspaceRoot,
+      apk: toolchain(root).loader,
+      etag: 'v1'
+    })
+  ).rejects.toThrow(/not the locked APK/);
+  await recordApkEtag({ workspaceRoot: ws.workspaceRoot, apk, etag: 'v1' });
+  expect(ws.entry().apkEtag).toBe('v1');
+  expect((await check(head(10, '"v1"'))).changed).toBe(false);
+  expect((await check(head(10, '"v2"'))).changed).toBe(true);
+  // A weak or missing ETag names no bytes, so it never matches a recorded one.
+  expect((await check(head(10, 'W/"v1"'))).changed).toBe(true);
+  expect((await check(head(10, null))).changed).toBe(true);
+
+  // A publisher that cannot answer never reads as unchanged.
+  await expect(check(head(10, '"v1"', false))).rejects.toThrow(/answered 503/);
+  await expect(check(head(null))).rejects.toThrow(/no Content-Length/);
 });

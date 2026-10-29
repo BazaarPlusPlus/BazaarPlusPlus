@@ -49,6 +49,9 @@ internal static class AndroidPatchHost
     /// <summary>The record chain, or null when it failed to start; hooks then only count.</summary>
     public static AndroidComposition? Composition { get; private set; }
 
+    /// <summary>The main menu's new-APK popup, or null before the host composed it.</summary>
+    public static Lobby.AndroidApkUpdatePrompt? ApkUpdatePrompt { get; set; }
+
     /// <summary>The Main Overlay Panels' adapter the host composed, or null before it did.</summary>
     public static AndroidOverlayPanels? OverlayPanels { get; set; }
 

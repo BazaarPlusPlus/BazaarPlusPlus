@@ -8,7 +8,7 @@ using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Android.Lobby;
 
-/// <summary>What the game-update row says: the last check's answer about the game itself.</summary>
+/// <summary>What the game-update row says: the last check's answer about the APK.</summary>
 internal enum AndroidGameUpdateStatus
 {
     /// <summary>No check has answered yet this session.</summary>
@@ -17,11 +17,17 @@ internal enum AndroidGameUpdateStatus
     /// <summary>The last check failed, so whether the game is current is unknown.</summary>
     CheckFailed,
 
-    /// <summary>The published APK is for this game or an older one.</summary>
+    /// <summary>This copy needs no new APK.</summary>
     Current,
 
-    /// <summary>The published APK is for a newer game (<see cref="AndroidVersionCheck.GameUpdate"/>).</summary>
-    Available,
+    /// <summary>The published APK carries a newer game (<see cref="AndroidVersionCheck.ApkUpdate"/>).</summary>
+    GameUpdated,
+
+    /// <summary>
+    /// Same game, but this copy cannot take the release by itself: the BPP runtime inside the APK
+    /// changed (<see cref="AndroidVersionCheck.ApkUpdate"/>).
+    /// </summary>
+    RuntimeChanged,
 }
 
 /// <summary>
@@ -29,8 +35,8 @@ internal enum AndroidGameUpdateStatus
 /// <c>MainMenuVersionCheckController</c>: each main-menu visit reads
 /// <c>latest/android-aarch64.json</c>, hands the result to Core's <see cref="MainMenuSelfUpdate"/>
 /// (which stages a newer Managed Payload for the Updater), and keeps the Android Release APK to
-/// offer when the game itself is behind it. Results land off the main thread; <see cref="Tick"/>
-/// observes them on it.
+/// offer when this copy cannot take the release by itself (<see cref="AndroidGameUpdate.Needed"/>).
+/// Results land off the main thread; <see cref="Tick"/> observes them on it.
 /// </summary>
 internal sealed class AndroidVersionCheck : IDisposable
 {
@@ -44,7 +50,8 @@ internal sealed class AndroidVersionCheck : IDisposable
     private readonly string _gameVersion;
     private readonly Uri _manifest;
     private readonly object _gate = new();
-    private AndroidApkRelease? _gameUpdate;
+    private AndroidApkUpdate? _apkUpdate;
+    private string? _latestVersion;
     private AndroidGameUpdateStatus _status = AndroidGameUpdateStatus.Checking;
     private Task? _check;
 
@@ -100,13 +107,23 @@ internal sealed class AndroidVersionCheck : IDisposable
     /// <summary>The manifest this check reads.</summary>
     public Uri Manifest => _manifest;
 
-    /// <summary>The APK to offer when the published one is for a newer game; null otherwise.</summary>
-    public AndroidApkRelease? GameUpdate
+    /// <summary>The APK this copy needs, and why; null otherwise.</summary>
+    public AndroidApkUpdate? ApkUpdate
     {
         get
         {
             lock (_gate)
-                return _gameUpdate;
+                return _apkUpdate;
+        }
+    }
+
+    /// <summary>The product version the last successful check read; null before one.</summary>
+    public string? LatestVersion
+    {
+        get
+        {
+            lock (_gate)
+                return _latestVersion;
         }
     }
 
@@ -187,20 +204,28 @@ internal sealed class AndroidVersionCheck : IDisposable
             return;
         }
 
-        var gameUpdate = AndroidGameUpdate.Newer(_gameVersion, check.Result.AndroidApk);
+        var apkUpdate = AndroidGameUpdate.Needed(
+            _gameVersion,
+            check.Result.AndroidApk,
+            check.Evaluation.Decision == SelfUpdateDecision.ManualUpdate
+        );
         lock (_gate)
         {
-            _gameUpdate = gameUpdate;
-            _status =
-                gameUpdate == null
-                    ? AndroidGameUpdateStatus.Current
-                    : AndroidGameUpdateStatus.Available;
+            _apkUpdate = apkUpdate;
+            _latestVersion = check.Evaluation.LatestVersion;
+            _status = apkUpdate?.Reason switch
+            {
+                null => AndroidGameUpdateStatus.Current,
+                AndroidApkUpdateReason.GameUpdated => AndroidGameUpdateStatus.GameUpdated,
+                _ => AndroidGameUpdateStatus.RuntimeChanged,
+            };
         }
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Lobby, "lobby.game_update.checked"),
             ("game_version", _gameVersion),
             ("published_game_version", check.Result.AndroidApk?.GameVersion),
-            ("decision", gameUpdate == null ? "current" : "download_apk"),
+            ("decision", apkUpdate == null ? "current" : "download_apk"),
+            ("reason", apkUpdate?.Reason),
             ("manifest", _manifest.IsLoopback ? "dev_loopback" : "published")
         );
         _selfUpdate.Apply(check.Evaluation);
@@ -210,7 +235,7 @@ internal sealed class AndroidVersionCheck : IDisposable
     {
         lock (_gate)
         {
-            _gameUpdate = null;
+            _apkUpdate = null;
             _status = AndroidGameUpdateStatus.CheckFailed;
         }
     }

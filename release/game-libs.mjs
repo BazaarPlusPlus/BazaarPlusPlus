@@ -58,10 +58,13 @@ const ENTRY_FIELDS = Object.freeze([
 // proof of where interopSha256 came from. The official APK, the Loader
 // Release, the Patcher and the Cpp2IL Linux binary are stored by sha256 beside
 // the interop collection, so a release job can inject from the lock alone.
+// apkEtag is the strong ETag the publisher served the APK with, or null for an
+// APK captured from a file of unknown origin; android-apk-watch.yml compares it.
 const INTEROP_ENTRY_FIELDS = Object.freeze([
   'gameVersion',
   'versionCode',
   'apkSha256',
+  'apkEtag',
   'il2cppSha256',
   'metadataSha256',
   'unityVersion',
@@ -190,6 +193,16 @@ function assertFields(label, value, fields) {
     );
 }
 
+const isApkEtag = (value) =>
+  typeof value === 'string' && /^[\x21\x23-\x7e]{1,256}$/.test(value);
+
+// The value of a strong ETag header ("abc" -> abc); null for a weak, missing or
+// malformed one, which identifies no bytes.
+export function strongEtag(header) {
+  const match = /^"([\x21\x23-\x7e]{1,256})"$/.exec(header?.trim() ?? '');
+  return match ? match[1] : null;
+}
+
 function assertSha256(key, label, value) {
   if (!isSha256(value))
     throw new Error(`Lock entry ${key} has an invalid ${label}`);
@@ -226,6 +239,10 @@ function assertInteropEntry(key, entry) {
     'cpp2ilSha256'
   ])
     assertSha256(key, field, entry[field]);
+  if (entry.apkEtag !== null && !isApkEtag(entry.apkEtag))
+    throw new Error(
+      `Lock entry ${key} apkEtag must be null or a strong ETag's value without quotes`
+    );
   if (!/^\d+\.\d+\.\d+[abfp]\d+$/.test(entry.unityVersion ?? ''))
     throw new Error(
       `Lock entry ${key} unityVersion must be a Unity version such as 6000.3.11f1`
@@ -781,6 +798,66 @@ export function interopBlobKey(sha256) {
   return `game-libs/interop/${sha256}.tar.gz`;
 }
 
+// Where the publisher serves the official Android APK. It overwrites the file in
+// place on every game update, which is why the private bucket keeps each one.
+export const OFFICIAL_ANDROID_APK_URL =
+  'https://data.playthebazaar.com/game/android/TheBazaar.apk';
+
+// Whether the official APK differs from the one the android-online entry
+// locks, read without downloading either: the publisher's Content-Length
+// against the stored copy's size, and its ETag against the one the entry
+// recorded. An entry without an ETag (a manual capture) compares sizes only.
+export async function officialApkChanged({
+  workspaceRoot = WORKSPACE_ROOT,
+  url = OFFICIAL_ANDROID_APK_URL,
+  storeFactory = gameLibsStoreFromEnvironment,
+  fetchImpl = fetch
+}) {
+  const response = await fetchImpl(url, { method: 'HEAD', redirect: 'follow' });
+  if (!response.ok) throw new Error(`HEAD ${url} answered ${response.status}`);
+  const officialSize = Number(response.headers.get('content-length'));
+  if (!Number.isSafeInteger(officialSize) || officialSize <= 0)
+    throw new Error(`HEAD ${url} gave no Content-Length`);
+  const officialEtag = strongEtag(response.headers.get('etag'));
+  const entry = lockedInteropEntry(workspaceRoot);
+  const key = androidInputKey('apk', entry.apkSha256);
+  const stored = await storeFactory().head(key);
+  if (!stored) throw new Error(`The locked APK ${key} is not in the store`);
+  return {
+    changed:
+      stored.size !== officialSize ||
+      (entry.apkEtag !== null && officialEtag !== entry.apkEtag),
+    officialSize,
+    officialEtag,
+    lockedSize: stored.size,
+    lockedEtag: entry.apkEtag,
+    lockedGameVersion: entry.gameVersion
+  };
+}
+
+// Records the ETag the publisher now serves the locked APK with, after
+// checking that `apk` is that APK: the publisher can change the ETag of
+// unchanged bytes, and an entry that kept the old one would be downloaded on
+// every check.
+export async function recordApkEtag({
+  workspaceRoot = WORKSPACE_ROOT,
+  apk,
+  etag
+}) {
+  if (!isApkEtag(etag)) throw new Error(`Not a strong ETag value: ${etag}`);
+  const entry = lockedInteropEntry(workspaceRoot);
+  const sha256 = await sha256File(apk);
+  if (sha256 !== entry.apkSha256)
+    throw new Error(
+      `${apk} is ${sha256}, not the locked APK ${entry.apkSha256}; capture it with snapshot-android`
+    );
+  writeGameLibsLockEntry(workspaceRoot, INTEROP_KEY, {
+    ...entry,
+    apkEtag: etag
+  });
+  return entry.gameVersion;
+}
+
 export function androidInputKey(kind, sha256) {
   const { extension } = inputKind(kind);
   if (!isSha256(sha256)) throw new Error(`Invalid ${kind} sha256`);
@@ -1234,6 +1311,7 @@ export async function captureInteropSnapshot({
   workspaceRoot = WORKSPACE_ROOT,
   modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
   apk,
+  apkEtag = null,
   interop = '',
   loader = '',
   loaderTag = '',
@@ -1301,6 +1379,7 @@ export async function captureInteropSnapshot({
       gameVersion: facts.versionName,
       versionCode: facts.versionCode,
       apkSha256: facts.apkSha256,
+      apkEtag,
       il2cppSha256: facts.il2cppSha256,
       metadataSha256: facts.metadataSha256,
       unityVersion: facts.unityVersion,
@@ -1716,7 +1795,7 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
   node release/game-libs.mjs game-version <managed-dir>
   node release/game-libs.mjs digest <managed-dir>
   node release/game-libs.mjs snapshot --managed <dir> --buildid <id> --steam-branch <branch>
-  node release/game-libs.mjs snapshot-android --apk <TheBazaar.apk> [--interop <dir>]
+  node release/game-libs.mjs snapshot-android --apk <TheBazaar.apk> [--apk-etag <etag>] [--interop <dir>]
       [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>]
       [--cpp2il <file>] [--native-package <id>@<version> ...]
   node release/game-libs.mjs publish --platform <macos|windows|android> --channel <online|staging|ptr>
@@ -1724,6 +1803,10 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
   node release/game-libs.mjs fetch-input --input <apk|loader|patcher|cpp2il>
   node release/game-libs.mjs lock-check [--managed <dir>]
   node release/game-libs.mjs entries
+  node release/game-libs.mjs official-apk     Print changed or unchanged: the publisher's APK against
+                                             the android-online entry's (size and ETag, no download)
+  node release/game-libs.mjs record-apk-etag --apk <TheBazaar.apk> --apk-etag <etag>
+                                             Record the ETag the locked APK is now served with
 snapshot-android reuses the android-online entry's toolchain unless files are
 given, and generates interop with the Patcher's Linux x64 CLI unless --interop
 names a directory generated from the same APK. fetch android online prints the
@@ -1759,7 +1842,8 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
         'patcher-tag': { type: 'string' },
         cpp2il: { type: 'string' },
         'native-package': { type: 'string', multiple: true },
-        input: { type: 'string' }
+        input: { type: 'string' },
+        'apk-etag': { type: 'string' }
       }
     });
     const modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod');
@@ -1769,6 +1853,23 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
       return values[name];
     };
     switch (verb) {
+      case 'official-apk': {
+        const result = await officialApkChanged({ workspaceRoot });
+        log(
+          `Official APK ${result.officialSize} bytes, ETag ${result.officialEtag}; locked ${result.lockedGameVersion} ${result.lockedSize} bytes, ETag ${result.lockedEtag}`
+        );
+        printLine(result.changed ? 'changed' : 'unchanged');
+        return 0;
+      }
+      case 'record-apk-etag': {
+        const gameVersion = await recordApkEtag({
+          workspaceRoot,
+          apk: required('apk'),
+          etag: required('apk-etag')
+        });
+        log(`Recorded the ETag of ${gameVersion} in ${GAME_LIBS_LOCK_PATH}`);
+        return 0;
+      }
       case 'game-version':
       case 'digest': {
         if (positionals.length !== 1)
@@ -1799,6 +1900,7 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
           workspaceRoot,
           modRoot,
           apk: required('apk'),
+          apkEtag: values['apk-etag'] ?? null,
           interop: values.interop ?? '',
           loader: values.loader ?? '',
           loaderTag: values['loader-tag'] ?? '',

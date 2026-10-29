@@ -50,12 +50,10 @@ const usage = `Product release commands (run from any directory):
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
   node release.mjs prepare --platform android    Build the Android host and stage the Android Mod Payload
-  node release.mjs build --platform android [--rebuild-apk]
-                                                Zip and sign the Managed Payload; inject, align and sign
-                                                the Android Release APK unless its identity is published
-                                                (--rebuild-apk injects anyway, for build_only)
-  node release.mjs upload --platform android     Stream the APK (when new), the Managed Payload zip and
-                                                the fragment to R2
+  node release.mjs build --platform android      Zip and sign the Managed Payload; inject, align and sign
+                                                the Android Release APK
+  node release.mjs upload --platform android     Stream the APK, the Managed Payload zip and the fragment
+                                                to R2
   node release.mjs mirror-all --windows-url <share-url> --macos-url <share-url>
                                                 Verify both uploaded platforms and record both mainland mirrors
   node release.mjs mirror --platform macos --url <share-url>
@@ -116,7 +114,6 @@ export function parseReleaseArgs(args) {
       'windows-url': { type: 'string' },
       'macos-url': { type: 'string' },
       latest: { type: 'boolean' },
-      'rebuild-apk': { type: 'boolean' },
       'allow-unverified-mirror': { type: 'boolean' },
       'without-mainland-mirror': { type: 'boolean' }
     }
@@ -190,8 +187,6 @@ export function parseReleaseArgs(args) {
   }
   if (values.latest && command !== 'verify-mirror')
     throw new Error('--latest is only valid for verify-mirror');
-  if (values['rebuild-apk'] && !(command === 'build' && platform === 'android'))
-    throw new Error('--rebuild-apk is only valid for build --platform android');
   if (
     values['allow-unverified-mirror'] &&
     !['mirror', 'mirror-all'].includes(command)
@@ -217,7 +212,6 @@ export function parseReleaseArgs(args) {
     urls,
     msbuildArgs: positionals,
     latest: values.latest ?? false,
-    rebuildApk: values['rebuild-apk'] ?? false,
     allowUnverifiedMirror: values['allow-unverified-mirror'] ?? false,
     withoutMainlandMirror: values['without-mainland-mirror'] ?? false
   };
@@ -259,7 +253,6 @@ export async function main(
     urls,
     msbuildArgs,
     latest,
-    rebuildApk,
     allowUnverifiedMirror,
     withoutMainlandMirror
   } = parseReleaseArgs(args);
@@ -322,17 +315,14 @@ export async function main(
     return;
   }
   if (command === 'build' && android) {
-    let releaseStore;
     const manifest = await buildAndroidRelease({
       workspaceRoot,
       msbuildArgs,
-      rebuildApk,
-      releaseStore: () => (releaseStore ??= createStore()),
       gameLibsStore: createGameLibsStore,
       log
     });
     log(
-      `Built android ${version} against lock entry ${manifest.lockEntry.key} (${manifest.game.gameVersion}): ${manifest.apk.path ? `APK ${manifest.apk.path}` : `published APK ${manifest.apk.key}`}, Managed Payload ${manifest.managedPayload.path} in ${androidPaths(workspaceRoot).root}`
+      `Built android ${version} against lock entry ${manifest.lockEntry.key} (${manifest.game.gameVersion}): APK ${manifest.apk.path}, Managed Payload ${manifest.managedPayload.path} in ${androidPaths(workspaceRoot).root}`
     );
     return;
   }
