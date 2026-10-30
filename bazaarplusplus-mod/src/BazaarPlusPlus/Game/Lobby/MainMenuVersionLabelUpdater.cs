@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Lobby;

@@ -4,7 +4,6 @@ using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using Il2CppTheBazaar;
-using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;

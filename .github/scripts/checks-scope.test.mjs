@@ -73,6 +73,11 @@ test('root documents, each project and global inputs select their daily gates', 
     ['installer', 'installer-windows', 'release']
   );
   expectScopes(['bazaarplusplus-mod/docs/MEMORY.md'], ['mod-macos']);
+  // The Mobile UI tree compiles into both hosts (mod ADR-0025), so it builds both.
+  expectScopes(
+    ['bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/Ui/ScrollTracker.cs'],
+    ['mod']
+  );
   expectScopes(['bazaarplusplus-analyzer/src/main.py'], ['analyzer']);
   expectScopes(['bazaarplusplus-site/src/main.tsx'], ['site']);
   for (const file of [

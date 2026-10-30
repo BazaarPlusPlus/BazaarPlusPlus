@@ -6,7 +6,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
-using TMPro;
 
 namespace BazaarPlusPlus.Patches.Tooltips;
 

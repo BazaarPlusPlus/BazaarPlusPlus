@@ -7,8 +7,8 @@ using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar.UI;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Touch;
@@ -27,7 +27,7 @@ internal sealed class TouchHistoryInspection : IHistoryCardOverlay
     private readonly GameObject _root;
     private readonly RectTransform _slot;
     private readonly TextMeshProUGUI _name;
-    private readonly TouchInspectionText _description;
+    private readonly InspectionText _description;
     private readonly HistoryTouchLayout _layout;
     private CardRentalLease<CardPreviewBase>? _lease;
 
@@ -64,7 +64,7 @@ internal sealed class TouchHistoryInspection : IHistoryCardOverlay
             layout.NameFont,
             wrap: true
         );
-        _description = new TouchInspectionText(
+        _description = new InspectionText(
             TouchScreen.Child("Description", info, Local(layout.InspectDetail, origin, layout.Gap)),
             font,
             layout.BodyFont,

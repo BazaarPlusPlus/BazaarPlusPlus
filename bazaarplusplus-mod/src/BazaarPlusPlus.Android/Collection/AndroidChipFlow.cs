@@ -2,7 +2,6 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
-using Il2CppTMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Collection;

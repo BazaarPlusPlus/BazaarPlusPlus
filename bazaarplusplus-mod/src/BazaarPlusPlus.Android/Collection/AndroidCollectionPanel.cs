@@ -13,7 +13,7 @@ using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
-using Il2CppTMPro;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -47,7 +47,7 @@ internal sealed class AndroidCollectionPanel
     private IReadOnlyList<BPPSupporterSample> _headerSupporters = Array.Empty<BPPSupporterSample>();
     private TextMeshProUGUI _supporterLabel = null!;
     private readonly Action<string> _requestClose;
-    private readonly List<AndroidScrollTracker> _trackers = new();
+    private readonly List<ScrollTracker> _trackers = new();
     private CollectionTouchLayout _layout = null!;
 
     // The tree for the current screen; none after a build failed, and Open builds again.
@@ -271,7 +271,7 @@ internal sealed class AndroidCollectionPanel
                 Render(search, "search");
             _grid.Tick();
         }
-        var pressed = AndroidScrollTracker.PointerPressed();
+        var pressed = ScrollTracker.PointerPressed();
         foreach (var tracker in _trackers)
             tracker.Tick(pressed, _layout.Metrics.UnitsPerDp);
     }
@@ -412,14 +412,14 @@ internal sealed class AndroidCollectionPanel
 
         _inspection = new AndroidCollectionInspection(root, _font, layout, _skin);
         _trackers.Clear();
-        _trackers.Add(new AndroidScrollTracker(Scrolled(), "grid", _grid.Scroll));
-        _trackers.Add(new AndroidScrollTracker(Scrolled(), "rail", _railScroll));
-        _trackers.Add(new AndroidScrollTracker(Scrolled(), "inspect", _inspection.DetailScroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "grid", _grid.Scroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "rail", _railScroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "inspect", _inspection.DetailScroll));
         root.gameObject.SetActive(false);
     }
 
     private static BppLogEvent Scrolled() =>
-        new(BppLogFeatureScope.Android, "android.collection.scrolled");
+        new(BppLogFeatureScope.Touch, "touch.collection.scrolled");
 
     // The screen changed under the panel: the old tree returns its cards, and a tree laid out for
     // the new screen renders the same view state. A build that throws leaves no tree, never the

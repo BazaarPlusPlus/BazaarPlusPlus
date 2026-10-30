@@ -7,7 +7,6 @@ using Il2Cpp;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using Il2CppTheBazaar.UI.Components;
 using Il2CppTheBazaar.UIScripts;
-using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;

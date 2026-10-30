@@ -4,7 +4,6 @@ using Il2CppBazaarGameShared.Domain.Tooltips;
 using Il2CppTheBazaar;
 using Il2CppTheBazaar.Tooltips;
 using Il2CppTheBazaar.UI.Tooltips;
-using Il2CppTMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Game;

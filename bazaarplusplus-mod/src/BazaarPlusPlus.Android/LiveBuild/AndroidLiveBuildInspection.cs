@@ -7,8 +7,8 @@ using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using Il2CppTheBazaar.UI;
-using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -30,7 +30,7 @@ internal sealed class AndroidLiveBuildInspection
     private readonly GameObject _root;
     private readonly RectTransform _slot;
     private readonly TextMeshProUGUI _name;
-    private readonly AndroidInspectionText _description;
+    private readonly InspectionText _description;
     private readonly LiveBuildTouchLayout _layout;
     private CardRentalLease<CardPreviewBase>? _lease;
 
@@ -82,7 +82,7 @@ internal sealed class AndroidLiveBuildInspection
             AndroidUiKit.TextColor
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
-        _description = new AndroidInspectionText(
+        _description = new InspectionText(
             AndroidTouchScreen.Child(
                 "Description",
                 info,

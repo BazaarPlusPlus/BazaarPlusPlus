@@ -2,7 +2,6 @@
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using TMPro;
 
 namespace BazaarPlusPlus.Game.Touch;
 

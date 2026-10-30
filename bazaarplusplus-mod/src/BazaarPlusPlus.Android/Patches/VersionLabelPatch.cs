@@ -4,7 +4,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using HarmonyLib;
 using Il2CppTheBazaar;
-using Il2CppTMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Patches;

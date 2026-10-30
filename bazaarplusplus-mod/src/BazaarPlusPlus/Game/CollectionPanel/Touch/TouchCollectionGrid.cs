@@ -9,7 +9,6 @@ using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar.UI;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

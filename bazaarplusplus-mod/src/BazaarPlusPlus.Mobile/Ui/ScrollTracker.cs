@@ -3,7 +3,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>
 /// One drag-scrolled list's gestures, from the first moving frame to the frame it settles: each
@@ -11,7 +11,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// and how many frames it coasted after the finger lifted (inertia). History's lists and
 /// Collection's grid and rail log through it; tick it every frame the list is visible.
 /// </summary>
-internal sealed class AndroidScrollTracker(BppLogEvent scrolled, string name, ScrollRect scroll)
+internal sealed class ScrollTracker(BppLogEvent scrolled, string name, ScrollRect scroll)
 {
     private Vector2 _last = scroll.content.anchoredPosition;
     private Vector2 _start;

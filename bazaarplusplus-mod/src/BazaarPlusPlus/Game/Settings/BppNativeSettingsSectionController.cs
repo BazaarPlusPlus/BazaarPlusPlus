@@ -3,7 +3,6 @@ using System.Reflection;
 using HarmonyLib;
 using TheBazaar.UI.Components;
 using TheBazaar.UIScripts;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

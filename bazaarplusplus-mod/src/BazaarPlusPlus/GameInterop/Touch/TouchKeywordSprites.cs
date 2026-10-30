@@ -2,7 +2,6 @@
 using System.Text.RegularExpressions;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.Touch;

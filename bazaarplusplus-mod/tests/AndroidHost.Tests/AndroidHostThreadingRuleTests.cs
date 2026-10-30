@@ -64,14 +64,15 @@ public sealed class AndroidHostThreadingRuleTests
             "BazaarPlusPlus.Android.CombatReplay",
             "BazaarPlusPlus.Android.Ui",
             "BazaarPlusPlus.Android.Patches",
+            // The Mobile UI tree History and Collection draw with (ADR-0025).
+            "BazaarPlusPlus.Mobile",
         ];
-        var violations = Host
-            .Value.Types.Where(type =>
-                namespaces.Any(ns =>
-                    type.Namespace == ns
-                    || type.Namespace.StartsWith(ns + ".", StringComparison.Ordinal)
-                )
-            )
+        static bool In(CompiledType type, string ns) =>
+            type.Namespace == ns || type.Namespace.StartsWith(ns + ".", StringComparison.Ordinal);
+        var scope = Host.Value.Types.Where(type => namespaces.Any(ns => In(type, ns))).ToArray();
+        // A moved or renamed namespace would leave its rule inspecting nothing.
+        Assert.All(namespaces, ns => Assert.Contains(scope, type => In(type, ns)));
+        var violations = scope
             .SelectMany(type => type.Methods)
             .SelectMany(method =>
                 method

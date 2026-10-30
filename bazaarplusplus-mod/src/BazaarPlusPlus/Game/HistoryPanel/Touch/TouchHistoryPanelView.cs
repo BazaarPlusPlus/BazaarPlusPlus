@@ -11,7 +11,7 @@ using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
-using TMPro;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -24,7 +24,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Touch;
 /// holds the section tabs, the supporter action, More, and Close; the archive list, the run's
 /// battle rail (in Ghost, the cloud note in its place), and the detail column with the two board regions and the action row (delete, favorite, skills, replay) stand under it.
 /// Lists drag-scroll with inertia and show a thumb while they overflow; each finished gesture logs
-/// <c>android.history.scrolled</c>. A section without rows says so once, centred in the detail
+/// <c>touch.history.scrolled</c>. A section without rows says so once, centred in the detail
 /// column, with no boards, titles or actions under it.
 /// Hero portraits share the Collection framing; rank badges and run trophies are the game's art
 /// from <see cref="TouchRankArt"/>, with text while it is missing; the two BPP badge atlases
@@ -44,7 +44,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     private readonly HistoryTouchLayout _l;
     private readonly GameObject _root;
     private readonly TouchHistoryBadges? _badges;
-    private readonly List<TouchScrollTracker> _trackers = new();
+    private readonly List<ScrollTracker> _trackers = new();
     private HistoryPanelViewModel? _model;
     private bool _visible;
     private bool _disposed;
@@ -204,7 +204,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             if (_headerSupporters.Count > 0)
                 RefreshSupporter();
         }
-        var pressed = TouchScrollTracker.PointerPressed();
+        var pressed = ScrollTracker.PointerPressed();
         foreach (var tracker in _trackers)
             tracker.Tick(pressed, _l.Metrics.UnitsPerDp);
         foreach (var thumb in _thumbs)
@@ -515,7 +515,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.ArchiveList,
             horizontal: false
         );
-        _trackers.Add(new TouchScrollTracker(Scrolled(), "archive", scroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "archive", scroll));
         var list = new PageList { Scroll = scroll, Height = _l.RunRowHeight };
         for (var i = 0; i < Rows; i++)
         {
@@ -572,7 +572,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                     TextAlignmentOptions.Center
                 ),
             };
-            var rankImage = ArtImage(rect, "Rank");
+            var rankImage = ArtSlot(rect, "Rank");
             row.Rank = TouchPanelUi.Fraction(
                 rankImage.transform,
                 _font,
@@ -583,11 +583,11 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 _l.BodyFont,
                 TextAlignmentOptions.Center
             );
-            row.RankArt = new TouchArtImage(
+            row.RankArt = new ArtImage(
                 rankImage,
                 shown => TouchPanelUi.SetActive(row.Rank.gameObject, shown)
             );
-            var outcomeImage = ArtImage(rect, "Outcome");
+            var outcomeImage = ArtSlot(rect, "Outcome");
             var portrait = TouchUiKit.Fixed(
                 "HeroPortrait",
                 rect,
@@ -609,7 +609,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 TextAlignmentOptions.Center,
                 TouchPanelUi.Muted
             );
-            row.Badge = new TouchArtImage(
+            row.Badge = new ArtImage(
                 outcomeImage,
                 shown => TouchPanelUi.SetActive(row.Unknown.gameObject, shown)
             );
@@ -627,7 +627,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.RailList,
             horizontal: false
         );
-        _trackers.Add(new TouchScrollTracker(Scrolled(), "rail", scroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "rail", scroll));
         var rail = new Rail { Scroll = scroll };
         for (var i = 0; i < Rows; i++)
         {
@@ -663,7 +663,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                     _l.BodyFont,
                     TextAlignmentOptions.Center
                 ),
-                Rank = new TouchArtImage(ArtImage(rect, "Rank", .74f, .06f, .23f, .38f)),
+                Rank = new ArtImage(ArtSlot(rect, "Rank", .74f, .06f, .23f, .38f)),
                 Name = TouchPanelUi.Fraction(
                     rect,
                     _font,
@@ -744,7 +744,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     }
 
     // Rows place their images as they bind: where they sit depends on the row mode and rating.
-    private static Image ArtImage(
+    private static Image ArtSlot(
         RectTransform parent,
         string name,
         float x = 0f,
@@ -1187,8 +1187,8 @@ internal sealed class TouchHistoryPanelView : IDisposable
     {
         internal RectTransform Rect = null!;
         internal HistoryButton Control = null!;
-        internal TouchArtImage Badge = null!;
-        internal TouchArtImage RankArt = null!;
+        internal ArtImage Badge = null!;
+        internal ArtImage RankArt = null!;
         internal RectTransform PortraitRect = null!;
         internal TouchPortraitView Portrait = null!;
         internal CardHero? Hero;
@@ -1218,7 +1218,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         internal TextMeshProUGUI Day = null!;
         internal TouchPortraitView Portrait = null!;
         internal CardHero? Hero;
-        internal TouchArtImage Rank = null!;
+        internal ArtImage Rank = null!;
         internal TextMeshProUGUI Name = null!;
         internal Image Outcome = null!;
         internal GameObject Accent = null!;

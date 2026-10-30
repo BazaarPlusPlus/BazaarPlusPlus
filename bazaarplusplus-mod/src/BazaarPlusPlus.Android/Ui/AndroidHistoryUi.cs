@@ -1,7 +1,6 @@
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Localization;
-using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

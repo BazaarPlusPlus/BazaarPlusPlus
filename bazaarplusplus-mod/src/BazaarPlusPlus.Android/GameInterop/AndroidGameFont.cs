@@ -2,7 +2,6 @@ using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Il2CppTheBazaar.Localization;
-using Il2CppTMPro;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Object = UnityEngine.Object;

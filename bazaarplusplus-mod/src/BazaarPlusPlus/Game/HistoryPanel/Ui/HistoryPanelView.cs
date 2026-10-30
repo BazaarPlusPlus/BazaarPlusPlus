@@ -6,7 +6,6 @@ using BazaarPlusPlus.GameInterop.Ranks;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

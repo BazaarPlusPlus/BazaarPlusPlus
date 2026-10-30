@@ -7,7 +7,6 @@ using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar.UI;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Touch;

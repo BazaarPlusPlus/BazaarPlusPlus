@@ -8,7 +8,6 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using Il2CppTMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;

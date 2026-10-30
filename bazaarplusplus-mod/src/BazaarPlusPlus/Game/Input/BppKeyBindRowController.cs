@@ -2,7 +2,6 @@
 using System.Collections;
 using HarmonyLib;
 using TheBazaar.UI;
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;

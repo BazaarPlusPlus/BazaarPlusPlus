@@ -5,7 +5,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Il2CppTheBazaar.UI;
-using Il2CppTMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;

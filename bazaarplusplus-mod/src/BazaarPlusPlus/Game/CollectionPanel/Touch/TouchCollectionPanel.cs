@@ -14,7 +14,7 @@ using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
-using TMPro;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -46,7 +46,7 @@ internal sealed class TouchCollectionPanel
     private IReadOnlyList<BPPSupporterSample> _headerSupporters = Array.Empty<BPPSupporterSample>();
     private TextMeshProUGUI _supporterLabel = null!;
     private readonly Action<string> _requestClose;
-    private readonly List<TouchScrollTracker> _trackers = new();
+    private readonly List<ScrollTracker> _trackers = new();
     private CollectionTouchLayout _layout = null!;
 
     // The tree for the current screen; none after a build failed, and Open builds again.
@@ -265,7 +265,7 @@ internal sealed class TouchCollectionPanel
                 Render(search, "search");
             _grid.Tick();
         }
-        var pressed = TouchScrollTracker.PointerPressed();
+        var pressed = ScrollTracker.PointerPressed();
         foreach (var tracker in _trackers)
             tracker.Tick(pressed, _layout.Metrics.UnitsPerDp);
     }
@@ -406,9 +406,9 @@ internal sealed class TouchCollectionPanel
 
         _inspection = new TouchCollectionInspection(root, _font, layout, _skin);
         _trackers.Clear();
-        _trackers.Add(new TouchScrollTracker(Scrolled(), "grid", _grid.Scroll));
-        _trackers.Add(new TouchScrollTracker(Scrolled(), "rail", _railScroll));
-        _trackers.Add(new TouchScrollTracker(Scrolled(), "inspect", _inspection.DetailScroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "grid", _grid.Scroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "rail", _railScroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "inspect", _inspection.DetailScroll));
         root.gameObject.SetActive(false);
     }
 

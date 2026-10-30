@@ -15,7 +15,6 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using Il2CppTMPro;
 
 namespace BazaarPlusPlus.Android.Ui;
 

@@ -5,7 +5,6 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar;
-using TMPro;
 
 namespace BazaarPlusPlus.Patches.Lobby;
 

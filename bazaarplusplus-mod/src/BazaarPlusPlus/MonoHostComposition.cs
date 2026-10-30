@@ -45,6 +45,7 @@ using BazaarPlusPlus.GameInterop.VoiceSubtitles;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
+using BazaarPlusPlus.Mobile;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Patches;
 using BazaarPlusPlus.Patches.PostCombatImpact;
@@ -219,6 +220,8 @@ internal sealed class MonoHostComposition : IDisposable
         _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
         if (TouchPlatform.IsMobile)
         {
+            // Before any touch surface builds Mobile UI (ADR-0025).
+            MobilePlatform.Install(new TouchMobilePlatform());
             // A touch screen has no keyboard: the History row drops its hotkey, the upgrade
             // switch sets where each tooltip's own toggle starts, and the enchant preview mode
             // lists the enchantments in each tooltip's main text, as on Android (ADR-0024).

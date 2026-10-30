@@ -9,7 +9,6 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

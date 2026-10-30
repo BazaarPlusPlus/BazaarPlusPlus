@@ -6,8 +6,8 @@ using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using Il2CppTheBazaar.UI;
-using Il2CppTMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;
@@ -26,7 +26,7 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
     private readonly GameObject _root;
     private readonly RectTransform _slot;
     private readonly TextMeshProUGUI _name;
-    private readonly AndroidInspectionText _description;
+    private readonly InspectionText _description;
     private readonly HistoryTouchLayout _layout;
     private CardRentalLease<CardPreviewBase>? _lease;
 
@@ -63,7 +63,7 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
             layout.NameFont,
             wrap: true
         );
-        _description = new AndroidInspectionText(
+        _description = new InspectionText(
             AndroidTouchScreen.Child(
                 "Description",
                 info,

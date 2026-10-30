@@ -2,7 +2,7 @@
 
 How the plugin is assembled: startup and teardown order, the layer and assembly boundaries, the seams features share, and where runtime data lives. Per-feature detail is under [architecture/](architecture/); this file holds only what spans features.
 
-Terms used here are defined in [../GLOSSARY.md](../GLOSSARY.md). Why a boundary is where it is lives in [adr/](adr/), indexed one line each in [MEMORY.md](MEMORY.md).
+Terms are defined in [../GLOSSARY.md](../GLOSSARY.md); why a boundary is where it is, in [adr/](adr/), indexed one line each in [MEMORY.md](MEMORY.md).
 
 ## Runtime Shape
 
@@ -30,7 +30,7 @@ Each host ships five BPP assemblies. Dependencies run host → Core → {Storage
 
 | Assembly | Contents |
 |---|---|
-| `BazaarPlusPlus.dll` (desktop and iOS) / `BazaarPlusPlus.Android.dll` (Android) | host-specific game integration, patches, resources and `MonoHostComposition` / `AndroidComposition` |
+| `BazaarPlusPlus.dll` (desktop and iOS) / `BazaarPlusPlus.Android.dll` (Android) | host-specific game integration, patches, resources and `MonoHostComposition` / `AndroidComposition`; both compile the Mobile UI, `src/BazaarPlusPlus.Mobile/` (ADR-0025) |
 | `BazaarPlusPlus.Core.dll` | the shared core every host references (directories below) |
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |
@@ -60,11 +60,11 @@ Inside the desktop host assembly:
 
 The main project targets `netstandard2.1`, uses C# 12, and publicizes game assemblies, so `internal` game members are accessible. Remote seed data is declared in `RemoteEmbeddedData.targets` and delegates transport to `build/RemoteEmbeddedDataFetcher`; `BppVersion` in `Directory.Build.props` reads the workspace-root `VERSION`. The shared Payload Inventory generates the MSBuild copy items; production assembly versions are checked from compiled metadata. `just release::prepare <platform>` runs isolated preparation through the [product release coordinator](../../docs/release.md).
 
-Architecture tests ratchet dependency boundaries, shared ownership, and test/build safety contracts over compiled assemblies (`tests/Architecture.Tests/`, ADR-0009). Concrete composition behavior remains in `tests/CompositionRuntime.Tests/` and is compiled by `RuntimeIntegration.Tests`: feature start/stop is fault-isolated, while `BppMountableRegistry.MountAll` deliberately is not.
+Architecture tests ratchet dependency boundaries, shared ownership, and test/build safety contracts over compiled assemblies (`tests/Architecture.Tests/`, ADR-0009). Composition behavior is tested in `tests/CompositionRuntime.Tests/`, compiled by `RuntimeIntegration.Tests`: feature start/stop is fault-isolated, while `BppMountableRegistry.MountAll` deliberately is not.
 
 ## Shared Seams
 
-Each is consumed by two or more features. Re-implementing one's behavior inside a feature is the failure this section exists to prevent.
+Each is consumed by two or more features; re-implementing one inside a feature is the failure this section prevents.
 
 | Seam | Owner | Consumers |
 |---|---|---|
@@ -93,7 +93,7 @@ The V6 database starts a new schema at `user_version` 1 with no migration path: 
 
 ## Event Flow
 
-An in-memory event bus decouples runtime coordination between feature modules registered at startup (`src/BazaarPlusPlus/MonoHostComposition.cs` — the `Register` call order is the authoritative roster).
+An in-memory event bus decouples the feature modules registered at startup (`src/BazaarPlusPlus/MonoHostComposition.cs` — the `Register` call order is the authoritative roster).
 
 `RunLoggingModule` (Core) is the feature-owned event intake; hosts supply its ports. `Start` creates its replicated/queued store chain and session manager only after composition construction succeeds, subscribes once to run lifecycle, run initialization, PvP, and replay-drained events, then links a matching `PVPCombat` battle to its run. Battles attach to the stable active or deferred run id before the event append and checkpoint. Interrupted runs stay resumable; normal completion owns an active, cancellable deadline for replay persistence and a Ranked Run's rank refresh; `Stop` is a quiescence barrier that forces any deferred completion before unsubscribing and disposing the store. No Run Logging `MonoBehaviour` is mounted. Every time it writes comes from the module's one injected clock, which it hands to `RunLogRecordMapper` and `RunLogSessionManager`. `tests/RunLoggingPipeline.Tests` is its end-to-end anchor: it drives the real bus, queue, and SQLite stores from an empty database and fails unless the schema dump and per-step rows match `src/BazaarPlusPlus.Storage/history-database-v6.schema.sql` (the schema file the installer's tests load) and `tests/RunLoggingPipeline.Tests/fixtures/history-database-v6.rows.json` byte for byte. Regenerate them only with `BPP_UPDATE_GOLDENS=1` and review the diff (`HistoryDatabaseArtifacts`).
 
@@ -112,5 +112,5 @@ Each feature doc ends with its own Gotchas.
 | Desktop native build freshness, local promotion, and signing | [architecture/native-artifacts.md](architecture/native-artifacts.md) |
 | Hotkey bindings and settings dock rows | [architecture/input-and-settings.md](architecture/input-and-settings.md) |
 | Fonts, localization, voice subtitles, supporter attribution | [architecture/text.md](architecture/text.md) |
-| Android Host; its touch fit | [architecture/android-host.md](architecture/android-host.md); [touch fit](architecture/android-mobile-ui.md) |
+| Android Host; the Mobile UI | [architecture/android-host.md](architecture/android-host.md); [Mobile UI](architecture/android-mobile-ui.md) |
 | The V6 bundle wire format | [contracts/run-payload-v6.md](contracts/run-payload-v6.md) |

@@ -5,7 +5,6 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
 using TheBazaar.UI;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

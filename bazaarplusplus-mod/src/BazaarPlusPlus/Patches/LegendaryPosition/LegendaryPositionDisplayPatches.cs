@@ -6,7 +6,6 @@ using BazaarPlusPlus.Game.LegendaryPosition;
 using HarmonyLib;
 using TheBazaar;
 using TheBazaar.UI.EndOfRun;
-using TMPro;
 using UnityEngine.Playables;
 
 namespace BazaarPlusPlus.Patches.LegendaryPosition;

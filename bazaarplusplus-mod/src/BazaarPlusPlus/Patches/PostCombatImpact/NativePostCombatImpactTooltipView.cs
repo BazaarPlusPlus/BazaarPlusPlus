@@ -16,7 +16,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using TheBazaar;
 using TheBazaar.UI.Tooltips;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
