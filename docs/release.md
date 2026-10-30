@@ -60,7 +60,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 | `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
 | `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.ini` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
 
-发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时注册只读 token）。只有三件事要人工做：在 Cloudflare dashboard 造操作员 token 和只读 token 填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`。环境 secret 会覆盖同名的仓库 secret，所以不要在任何环境里再建仓库 secret 的副本。
+发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时注册只读 token）。只有三件事要人工做：在 Cloudflare dashboard 造操作员 token 和只读 token（`release/r2-store.mjs` 只接受 Account API Token）填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`。环境 secret 会覆盖同名的仓库 secret，所以不要在任何环境里再建仓库 secret 的副本。
 
 `promote` 不进工作流：它要求两个平台都有大陆镜像记录（或显式豁免），而蓝奏云上传是手动步骤，分享页地址只有上传后才存在，`mirror-all` 必须在 `promote` 之前拿到它们。所以两平台 job 成功后仍按[发布顺序](#发布顺序)第 5、6 步在本机执行 `mirror-all` 与 `promote`，这两步只需要 `[cloudflare]` 的操作员 token。
 
@@ -106,10 +106,10 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 上传使用 R2 S3 条件写，凭据是操作员 token 与账号 ID：
 
-- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_API_TOKEN`：必须是该账号的 Account API Token，User API Token 会被拒绝
 - `CLOUDFLARE_ACCOUNT_ID`
 
-S3 密钥对由 `release/r2-store.mjs` 从 token 推导（一次 `GET /user/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
+S3 密钥对由 `release/r2-store.mjs` 从 token 推导（一次 `GET /accounts/{account_id}/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
 
 对应的 just 命令通过 `scripts/workspace.mjs` 的 `release` profile 从 `[cloudflare]` 接入这两个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `node release.mjs` 仍要求调用者提供环境。
 

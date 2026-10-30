@@ -53,11 +53,12 @@ export function describeTransportError(error, depth = 0) {
   return text;
 }
 
-// R2's S3 credentials are a view of a Cloudflare API token: the Access Key ID
-// is the token's id, which GET /user/tokens/verify reveals, and the Secret
-// Access Key is the SHA-256 of the token value. Every store derives the pair
-// from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID this way; nothing stores
-// the pair. The verified id is cached per process under the token's digest.
+// R2's S3 credentials are a view of a Cloudflare Account API Token: the Access
+// Key ID is the token's id, which GET /accounts/{account}/tokens/verify
+// reveals, and the Secret Access Key is the SHA-256 of the token value. Every
+// store derives the pair from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+// this way; nothing stores the pair. The verified id is cached per process
+// under the account and the token's digest.
 const verifiedTokenIds = new Map();
 
 export function assertAccountId(accountId) {
@@ -74,14 +75,18 @@ function assertToken(token) {
   return token.trim();
 }
 
-async function verifyToken(token, fetchImpl) {
+// Only account-owned tokens are supported; a user token is rejected here.
+async function verifyToken(token, account, fetchImpl) {
   let response;
   try {
-    response = await fetchImpl(`${CLOUDFLARE_API}/user/tokens/verify`, {
-      headers: { authorization: `Bearer ${token}` },
-      redirect: 'error',
-      signal: AbortSignal.timeout(30000)
-    });
+    response = await fetchImpl(
+      `${CLOUDFLARE_API}/accounts/${account}/tokens/verify`,
+      {
+        headers: { authorization: `Bearer ${token}` },
+        redirect: 'error',
+        signal: AbortSignal.timeout(30000)
+      }
+    );
   } catch (error) {
     // undici's header validation quotes the raw header value in its message.
     const reason = describeTransportError(error).replaceAll(token, '<token>');
@@ -96,7 +101,7 @@ async function verifyToken(token, fetchImpl) {
     .join(', ');
   if (!response.ok || body?.success !== true)
     throw new Error(
-      `Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP ${response.status}${codes ? ` (error ${codes})` : ''}`
+      `Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP ${response.status}${codes ? ` (error ${codes})` : ''}; it must be an Account API Token of CLOUDFLARE_ACCOUNT_ID`
     );
   const { id, status } = body.result ?? {};
   if (!TOKEN_ID.test(id ?? ''))
@@ -116,13 +121,14 @@ export async function credentialsFromApiToken({
   const value = assertToken(token);
   const account = assertAccountId(accountId);
   const secretAccessKey = digest(value);
-  let pending = verifiedTokenIds.get(secretAccessKey);
+  const cacheKey = `${account}:${secretAccessKey}`;
+  let pending = verifiedTokenIds.get(cacheKey);
   if (!pending) {
-    pending = verifyToken(value, fetchImpl).catch((error) => {
-      verifiedTokenIds.delete(secretAccessKey);
+    pending = verifyToken(value, account, fetchImpl).catch((error) => {
+      verifiedTokenIds.delete(cacheKey);
       throw error;
     });
-    verifiedTokenIds.set(secretAccessKey, pending);
+    verifiedTokenIds.set(cacheKey, pending);
   }
   return { accountId: account, accessKeyId: await pending, secretAccessKey };
 }
