@@ -473,6 +473,9 @@ mod tests {
     #[test]
     fn a_failed_read_is_not_remembered() {
         use std::os::unix::fs::PermissionsExt as _;
+        if crate::test_support::permission_bits_are_bypassed() {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("overlay.json");
         let store = OverlaySettingsStore::new(path.clone());

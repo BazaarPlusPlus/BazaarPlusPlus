@@ -442,6 +442,9 @@ mod tests {
 
     #[test]
     fn write_connection_refuses_a_write_protected_database_at_open() {
+        if crate::test_support::permission_bits_are_bypassed() {
+            return;
+        }
         let temp_dir = tempfile::tempdir().unwrap();
         let database_path = temp_dir.path().join("bazaarplusplus.db");
         rusqlite::Connection::open(&database_path)

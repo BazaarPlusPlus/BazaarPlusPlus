@@ -11,6 +11,8 @@ mod main_window;
 mod problem;
 mod services;
 mod stream;
+#[cfg(test)]
+mod test_support;
 mod tray;
 mod v5_import;
 

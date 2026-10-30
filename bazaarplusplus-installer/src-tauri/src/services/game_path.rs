@@ -151,6 +151,10 @@ pub(crate) fn find_existing_fallback_game_path() -> Option<PathBuf> {
 }
 
 pub(crate) fn fallback_game_candidates() -> Vec<PathBuf> {
+    #[cfg_attr(
+        not(any(target_os = "macos", target_os = "windows")),
+        expect(unused_mut, reason = "only macOS and Windows have fallback game paths")
+    )]
     let mut candidates = Vec::new();
 
     #[cfg(target_os = "macos")]
@@ -188,6 +192,7 @@ pub(crate) fn fallback_game_candidates() -> Vec<PathBuf> {
     candidates
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn push_unique(paths: &mut Vec<PathBuf>, path: PathBuf) {
     if !paths.iter().any(|existing| existing == &path) {
         paths.push(path);

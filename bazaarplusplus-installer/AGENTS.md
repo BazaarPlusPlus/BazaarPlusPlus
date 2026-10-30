@@ -19,6 +19,8 @@ Tests prove a behavior seam, an observable outcome of the boundary under test, t
 
 Rewrite goldens (`src/__shell_snapshots__/`, `src-tauri/tests/goldens/`) under `BPP_UPDATE_GOLDENS=1` with `npx vitest run src/shell.snapshot.test.tsx` for the shell and `npm run generate:bindings:test` for Rust. A bare `cargo test` also needs `TAURI_CONFIG='{"bundle":{"resources":[]}}'`, the empty bundle `scripts/tauri-source-env.mjs` supplies.
 
+The Rust gates also run on Linux (cloud sessions; prerequisites in `../docs/development.md`). Code only macOS or Windows calls needs a matching `#[cfg(any(target_os = "macos", target_os = "windows"))]`, or Linux Clippy fails it as unused. A test that makes a file unreadable or unwritable returns early on `crate::test_support::permission_bits_are_bypassed()`, since root ignores permission bits.
+
 ## Local workflow
 
 `just installer::dev` serves the frontend alone; anything touching a native command needs the full shell from `just installer::app`.

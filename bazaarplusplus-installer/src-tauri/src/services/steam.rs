@@ -1,9 +1,13 @@
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use crate::services::debug_log;
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 use anyhow::anyhow;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use anyhow::{bail, Context as _};
 use std::path::Path;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use std::process::Command;
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 use std::time::Duration;
 
 #[cfg(target_os = "windows")]
@@ -13,6 +17,7 @@ const STEAM_EXIT_WAIT_ATTEMPTS: usize = 60;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 const STEAM_EXIT_WAIT_INTERVAL: Duration = Duration::from_millis(500);
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn has_steam_userdata(steam_path: &Path) -> bool {
     steam_path.join("userdata").is_dir()
 }
@@ -40,6 +45,7 @@ fn steam_running_from_pgrep(
     }
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 fn ensure_process_stopped_with<IsRunning, RequestQuit, Sleep>(
     process_name: &str,
     mut is_running: IsRunning,
