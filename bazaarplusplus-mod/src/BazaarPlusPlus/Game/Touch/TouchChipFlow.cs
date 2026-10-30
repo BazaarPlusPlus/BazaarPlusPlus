@@ -123,24 +123,15 @@ internal sealed class TouchChipFlow
         if (compact)
         {
             text.rectTransform.anchorMax = new Vector2(1f, 0f);
-            text.rectTransform.offsetMin = new Vector2(
-                _chrome.Metrics.Dp(8f),
-                _chrome.Metrics.Dp(8f)
-            );
-            text.rectTransform.offsetMax = new Vector2(
-                -_chrome.Metrics.Dp(8f),
-                _chrome.Metrics.Dp(36f)
-            );
+            text.rectTransform.offsetMin = new Vector2(_chrome.Padding, _chrome.Padding);
+            text.rectTransform.offsetMax = new Vector2(-_chrome.Padding, _chrome.Metrics.Dp(36f));
         }
         else
         {
-            text.rectTransform.offsetMin = new Vector2(
-                _chrome.Metrics.Dp(56f),
-                _chrome.Metrics.Dp(8f)
-            );
+            text.rectTransform.offsetMin = new Vector2(_chrome.Metrics.Dp(56f), _chrome.Padding);
             text.rectTransform.offsetMax = new Vector2(
-                -_chrome.Metrics.Dp(expanded.HasValue ? 28f : 8f),
-                -_chrome.Metrics.Dp(8f)
+                -(expanded.HasValue ? _chrome.Metrics.Dp(28f) : _chrome.Padding),
+                -_chrome.Padding
             );
         }
         var portraitY = compact ? _chrome.Metrics.Dp(16f) : 0f;
@@ -148,7 +139,7 @@ internal sealed class TouchChipFlow
             "Portrait",
             rect,
             new(compact ? 0.5f : 0f, 0.5f),
-            new(compact ? 0f : _chrome.Metrics.Dp(8f), portraitY),
+            new(compact ? 0f : _chrome.Padding, portraitY),
             Vector2.one * _chrome.Metrics.Dp(40f)
         );
         new TouchPortraitView(icon, _skin, _chrome.Metrics).Bind(portrait, hero);
@@ -158,7 +149,7 @@ internal sealed class TouchChipFlow
                 "Chevron",
                 rect,
                 new(1f, 0.5f),
-                new(-_chrome.Metrics.Dp(8f), portraitY),
+                new(-_chrome.Padding, portraitY),
                 Vector2.one * _chrome.Metrics.Dp(10f)
             );
             foreach (var side in new[] { -1f, 1f })
