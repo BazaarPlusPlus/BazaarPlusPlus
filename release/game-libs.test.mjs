@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -483,6 +484,37 @@ test('fetch prefers a verified snapshot, then a matching Steam install, then the
   ).rejects.toThrow();
   expect(fs.existsSync(directory)).toBe(false);
   expect(fs.readdirSync(path.join(modRoot, 'game-libs'))).toEqual([]);
+});
+
+test('a store fetch skips the AppleDouble members a macOS tar packed', async () => {
+  const { workspaceRoot, directory, manifest } = await capturedWorkspace();
+  // Pack the captured Managed with a `._<name>.dll` beside every DLL, as a
+  // macOS tar without COPYFILE_DISABLE does.
+  const packed = path.join(workspaceRoot, 'packed');
+  fs.cpSync(path.join(directory, 'Managed'), path.join(packed, 'Managed'), {
+    recursive: true
+  });
+  for (const name of fs.readdirSync(path.join(packed, 'Managed')))
+    write(path.join(packed, 'Managed', `._${name}`), 'appledouble');
+  execFileSync('tar', ['-czf', 'Managed.tar.gz', 'Managed'], { cwd: packed });
+  const store = memoryStore();
+  store.objects.set(
+    snapshotBlobKey(manifest.sha256),
+    fs.readFileSync(path.join(packed, 'Managed.tar.gz'))
+  );
+  fs.rmSync(directory, { recursive: true });
+
+  const fetched = await fetchSnapshot({
+    workspaceRoot,
+    platform: 'macos',
+    channel: 'staging',
+    storeFactory: () => store
+  });
+  expect(fetched.source).toBe('store');
+  expect(managedDirectoryDigest(fetched.managedPath)).toBe(manifest.sha256);
+  expect(
+    fs.readdirSync(fetched.managedPath).filter((name) => name.startsWith('._'))
+  ).toEqual([]);
 });
 
 test('a store fetch that fails in transport reports the cause chain, not the signature', async () => {

@@ -564,10 +564,13 @@ function extractTarball(bytes, into) {
     const file = path.join(temp, 'Managed.tar.gz');
     fs.writeFileSync(file, bytes);
     fs.mkdirSync(into, { recursive: true });
+    // Snapshots packed on macOS before COPYFILE_DISABLE still carry `._<name>`
+    // members; skip them so the extracted digest matches the lock entry.
     tar(
       [
         '-xzf',
         path.basename(file),
+        '--exclude=._*',
         '-C',
         path.resolve(into).split(path.sep).join('/')
       ],
