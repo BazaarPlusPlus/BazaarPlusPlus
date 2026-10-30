@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Localization;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -10,6 +11,11 @@ namespace EventPreview.Tests;
 /// </summary>
 public sealed class EncounterMerchantTierRuleTests
 {
+    public EncounterMerchantTierRuleTests()
+    {
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+    }
+
     // The host maps runtime enum numbers to names; raw JSON already carries names.
     private static readonly EncounterChoicePlanParser Parser = new(
         (kind, raw) => kind == "Tier" && raw == "3" ? "Diamond" : null,
