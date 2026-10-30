@@ -2,7 +2,7 @@
 
 在 iPhone 和 iPad 上运行 The Bazaar，并加载 BazaarPlusPlus 模组。官方还没有 iOS 版本，所以 App 运行 Mac 版：从 Steam 下载你已拥有的 Mac depot，游戏脚本和模组交给 Unity Mono 解释执行，渲染和平台集成由 iOS Unity 引擎承担，两者通过 IL2CPP API 兼容层连接。启动器是原生 SwiftUI App。
 
-当前状态：iOS Simulator 上已跑通 App 内 Steam 登录（密码 + 手机批准或验证码、扫码）、Keychain 恢复、完整下载与校验、游戏票据和游戏服务器认证，The Bazaar 的 19 个启动任务全部通过，模组的 Harmony 补丁通过解释器方法重定向生效。设备版能编译，原生自检和 Steam 登录已在真机通过；游戏和模组在真机上的运行还没有验证，`game/game.json` 的设备启动门禁保持关闭。
+当前状态：iOS Simulator 上已跑通 App 内 Steam 登录（密码 + 手机批准或验证码、扫码）、Keychain 恢复、完整下载与校验、游戏票据和游戏服务器认证，The Bazaar 的 19 个启动任务全部通过，模组的 Harmony 补丁通过解释器方法重定向生效。设备版能编译，原生自检和 Steam 登录已在真机通过；`game/game.json` 的设备启动门禁已打开，用于首次真机验证；游戏和模组在真机上的运行还没有验证。
 
 ## 目录
 
