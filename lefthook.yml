@@ -15,6 +15,10 @@ pre-commit:
       glob: '{bazaarplusplus-mod/**,bazaarplusplus-server/contracts/**,bazaarplusplus-analyzer/contracts/**,release/**,VERSION,JUSTFILE}'
       run: just verify mod::check
 
+    - name: touch-twins
+      glob: '{bazaarplusplus-mod/src/BazaarPlusPlus.Android/**/Android*.cs,bazaarplusplus-mod/src/BazaarPlusPlus/**/Touch*.cs}'
+      run: node scripts/touch-twins.mjs {staged_files}
+
     - name: installer
       glob: '{bazaarplusplus-installer/**,design/**,release.mjs,release/**,VERSION,scripts/**,JUSTFILE}'
       run: just installer::check-fast
