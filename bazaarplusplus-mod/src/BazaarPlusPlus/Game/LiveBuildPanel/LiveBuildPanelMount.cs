@@ -2,7 +2,9 @@
 
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
+using BazaarPlusPlus.Game.LiveBuildPanel.Touch;
 using BazaarPlusPlus.Game.OverlayPanels;
+using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -36,6 +38,13 @@ internal sealed class LiveBuildPanelMount : IBppMountable
             return;
         }
 
+        if (TouchPlatform.IsMobile)
+        {
+            // ADR-0024: on a mobile platform Ten-Win Builds is the touch panel.
+            host.AddComponent<TouchLiveBuildHost>().Initialize(_recommendations, overlayHost);
+            return;
+        }
+
         var panel = host.AddComponent<LiveBuildPanel>();
         panel.Initialize(_recommendations, overlayHost);
     }
@@ -45,5 +54,8 @@ internal sealed class LiveBuildPanelMount : IBppMountable
         var panel = host.GetComponent<LiveBuildPanel>();
         if (panel != null)
             UnityEngine.Object.DestroyImmediate(panel);
+        var touch = host.GetComponent<TouchLiveBuildHost>();
+        if (touch != null)
+            UnityEngine.Object.DestroyImmediate(touch);
     }
 }

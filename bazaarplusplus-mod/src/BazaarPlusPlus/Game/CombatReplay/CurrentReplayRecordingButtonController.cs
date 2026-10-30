@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.GameInterop.Scenes;
+using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Localization;
 using TheBazaar.Cues;
 using TheBazaar.SequenceFramework;
@@ -49,6 +50,10 @@ internal sealed class CurrentReplayRecordingButtonController
 
     internal static CurrentReplayRecordingButtonController? Attach(Button settingsButton)
     {
+        // A mobile platform (ADR-0024) has no video encoder, so it offers no recording, as on
+        // Android.
+        if (TouchPlatform.IsMobile)
+            return null;
         if (settingsButton == null || settingsButton.transform.parent is not RectTransform host)
             return null;
 

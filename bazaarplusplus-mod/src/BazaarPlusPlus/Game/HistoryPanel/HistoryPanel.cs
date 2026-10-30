@@ -132,6 +132,11 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
     internal static void OpenFromDockEntry()
     {
+        if (Touch.TouchHistoryPanel.Current is { } touch)
+        {
+            touch.Open("dock_entry");
+            return;
+        }
         if (Instance == null)
         {
             BppLog.ErrorEvent(
@@ -146,6 +151,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
     internal static void RefreshLocalization()
     {
+        Touch.TouchHistoryPanel.Current?.RefreshLocalization();
         if (Instance == null || !IsVisible)
             return;
 

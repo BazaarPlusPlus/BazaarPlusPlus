@@ -1,0 +1,349 @@
+#nullable enable
+using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Game.Touch;
+using BazaarPlusPlus.GameInterop.Touch;
+using BazaarPlusPlus.Infrastructure.UiTokens;
+using TheBazaar;
+using TMPro;
+using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
+
+namespace BazaarPlusPlus.Game.CombatStatusBar.Touch;
+
+/// <summary>
+/// The combat clock on a mobile platform (ADR-0024), as the Android host's
+/// <c>AndroidCombatStatusView</c>: a plaque right of the vault with the logical time and touch
+/// speed and pause controls, over the desktop bar's <see cref="CombatStatusBarState"/>. The
+/// desktop's <see cref="CombatStatusBar"/> keeps feeding the state and decides when the clock
+/// shows; this view only draws it.
+/// </summary>
+internal sealed class TouchCombatStatusView : IDisposable
+{
+    private static CombatStatusBarState State => CombatStatusBar.State;
+
+    private GameObject? _root;
+    private TextMeshProUGUI? _time;
+    private Image? _pauseIcon;
+    private TouchPlaybackIcons? _icons;
+    private TextMeshProUGUI? _speedText;
+    private Button? _pause;
+    private Button? _speed;
+    private TouchNativeSkin? _skin;
+
+    // The vault the plaque sits beside, read from the board as the desktop reads the hero
+    // portrait, every few shown frames; as on the desktop, no vault on screen means no plaque. A
+    // vault that moves, or a screen that changes, lays the plaque out again once the new place
+    // has held still for a few reads; a plaque shown again after hiding lays out at once.
+    private const int VaultReadFrames = 5;
+    private const int VaultStableReads = 2;
+    private readonly TouchVaultBounds _vaultBounds = new();
+    private int _shownFrames;
+    private int _missedFrames;
+    private TouchRect _vault;
+    private string? _layoutKey;
+    private string? _keyScreen;
+    private (int, int, int, int)? _keyVault;
+    private TouchRelayoutDebounce? _relayout;
+
+    // Hidden frames between checks for a run or replay to build the plaque ahead in.
+    private const int BuildAheadCheckFrames = 30;
+
+    private int _hiddenFrames;
+
+    // Built ahead while the native art was not yet found: build again when first shown.
+    private bool _builtWithoutArt;
+
+    // What the view last wrote, so a frame that changes nothing makes no Unity call.
+    private bool _shown;
+    private string? _shownTime;
+    private bool? _shownPaused;
+    private float _shownSpeed = float.NaN;
+    private bool? _shownCanToggle;
+    private Color? _shownTimeColor;
+
+    // As the desktop bar: the time fades to muted ink outside a fight and back to ink in one.
+    private float _visualBlend;
+
+    /// <param name="shouldDraw">The desktop bar's own rule: the setting, a run or replay, and no screenshot.</param>
+    /// <param name="enabled">The setting alone: a switched-off clock builds nothing ahead.</param>
+    public void Tick(bool shouldDraw, bool enabled)
+    {
+        var state = State;
+        _visualBlend = CombatStatusBarState.AdvanceVisualBlend(
+            _visualBlend,
+            state.IsCombatPlaybackActive,
+            Time.unscaledDeltaTime
+        );
+        // As the desktop bar: shown for the whole run or replay, not only while a fight plays.
+        var visible = shouldDraw && !TouchNativeHud.HasPopup && !TouchNativeHud.IsInspectingCard;
+        if (!visible)
+        {
+            Hide();
+            if (enabled)
+                BuildAhead();
+            return;
+        }
+        var appearing = !_shown;
+        // With no vault last read, as in the main menu beside a run to resume, check again only
+        // every so often.
+        var read =
+            _layoutKey == null
+                ? _missedFrames++ % BuildAheadCheckFrames == 0
+                : appearing || _shownFrames++ % VaultReadFrames == 0;
+        var key = read ? LayoutKey() : _layoutKey;
+        if (key == null)
+        {
+            Hide();
+            return;
+        }
+        if (
+            _root == null
+            || _builtWithoutArt
+            || (appearing && !string.Equals(key, _relayout?.LaidOut, StringComparison.Ordinal))
+            || (read && _relayout != null && _relayout.Observe(key, settingUp: false))
+        )
+        {
+            var font = TouchFonts.Body();
+            if (font == null)
+                return;
+            Build(font, key, ahead: false);
+        }
+        if (!_shown)
+            _root!.SetActive(true);
+        _shown = true;
+        // The state hands back the same string until the displayed time changes.
+        var time = state.GetDisplayedTimeText();
+        if (!string.Equals(time, _shownTime, StringComparison.Ordinal))
+        {
+            _shownTime = time;
+            _time!.text = CombatStatusBarState.WithTabularDigits(time);
+        }
+        var timeColor = Color.Lerp(InGameTheme.InkSoft, TouchUiKit.TextColor, _visualBlend);
+        if (timeColor != _shownTimeColor)
+        {
+            _shownTimeColor = timeColor;
+            _time!.color = timeColor;
+        }
+        var paused = state.IsCombatPaused;
+        if (paused != _shownPaused)
+        {
+            _shownPaused = paused;
+            _pauseIcon!.sprite = paused ? _icons!.Play : _icons!.Pause;
+        }
+        var speed = state.CombatSpeedMultiplier;
+        if (speed != _shownSpeed)
+        {
+            _shownSpeed = speed;
+            _speedText!.text =
+                speed.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "×";
+        }
+        // Speed stays tappable between fights and sets the next fight's pace; pause only
+        // applies to a playing fight, so it dims outside one.
+        var canToggle = state.CanToggleCombatPause();
+        if (canToggle != _shownCanToggle)
+        {
+            _shownCanToggle = canToggle;
+            _pause!.interactable = canToggle;
+        }
+    }
+
+    public void Hide()
+    {
+        if (_shown)
+            _root?.SetActive(false);
+        _shown = false;
+    }
+
+    // While hidden by a panel, popup or inspection, in a run or a replay, and once per scene (a
+    // scene load disposes the view): the plaque is built hidden, so the frame it reappears on
+    // does not pay for the build.
+    private void BuildAhead()
+    {
+        if (_root != null)
+            return;
+        if (_hiddenFrames++ % BuildAheadCheckFrames != 0)
+            return;
+        if (!Data.HasActiveRun && AppState.CurrentState is not ReplayState)
+            return;
+        var font = TouchFonts.Body();
+        if (font == null || LayoutKey() is not { } key)
+            return;
+        Build(font, key, ahead: true);
+        _root!.SetActive(false);
+    }
+
+    /// <summary>
+    /// The screen and the vault's place in whole canvas units, or null with no vault the plaque
+    /// can sit beside; the string is formatted again only when one of them changed.
+    /// </summary>
+    private string? LayoutKey()
+    {
+        if (
+            !_vaultBounds.TryRead(TouchUiKit.ReferenceResolution.y, out var vault)
+            || !TouchHudLayout.FitsBesideVault(TouchScreen.Read(), vault)
+        )
+            return _layoutKey = null;
+        var screen = TouchScreen.Key();
+        var rounded = (
+            (int)MathF.Round(vault.Left),
+            (int)MathF.Round(vault.Top),
+            (int)MathF.Round(vault.Width),
+            (int)MathF.Round(vault.Height)
+        );
+        _vault = vault;
+        if (_layoutKey != null && ReferenceEquals(screen, _keyScreen) && rounded == _keyVault)
+            return _layoutKey;
+        _keyScreen = screen;
+        _keyVault = rounded;
+        return _layoutKey = $"{screen}|vault {rounded}";
+    }
+
+    private void Build(TMP_FontAsset font, string key, bool ahead)
+    {
+        DestroyCanvas();
+        if (_relayout == null)
+            _relayout = new TouchRelayoutDebounce(key, VaultStableReads);
+        else
+            _relayout.LaidOutAt(key);
+        // The glyphs are owned sprites that outlive the canvas; only Dispose destroys them.
+        var icons = _icons ??= new TouchPlaybackIcons();
+        var chrome = TouchChrome.For(TouchScreen.Read());
+        // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
+        // the clock as it reappears; above the board HUD (order 0).
+        _root = TouchUiKit.CreateOverlayCanvas("BPP.CombatStatus", 149);
+        var layout = TouchHudLayout.Playback(chrome.Metrics, _vault);
+        var plaque = TouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
+        var background = TouchUiKit.Fill(plaque, TouchUiKit.ButtonColor, false);
+        if (_skin == null || _skin.NeedsRefresh)
+            _skin = new TouchNativeSkin();
+        _skin.Select(background, false);
+        // Only the button sprite is read here; a plaque built ahead without it tries again.
+        _builtWithoutArt = ahead && background.sprite == null;
+        var rule = chrome.Metrics.Dp(.5f);
+        var inset = chrome.Metrics.Dp(8);
+        Divider(
+            new TouchRect(
+                layout.Controls.Left + inset,
+                layout.Controls.Top,
+                layout.Controls.Width - 2 * inset,
+                rule
+            )
+        );
+        Divider(
+            new TouchRect(
+                layout.Controls.CenterX,
+                layout.Controls.Top + inset,
+                rule,
+                layout.Controls.Height - 2 * inset
+            )
+        );
+        _time = TouchUiKit.Text(
+            TouchScreen.Child("Time", _root.transform, layout.Time),
+            font,
+            "",
+            chrome.Metrics.Sp(22),
+            TextAlignmentOptions.Center,
+            TouchUiKit.TextColor
+        );
+        Outline(_time);
+        var half = layout.Controls with { Width = layout.Controls.Width / 2 };
+        _speedText = TouchUiKit.Text(
+            TouchScreen.Child("Multiplier", _root.transform, half),
+            font,
+            "",
+            chrome.Metrics.Sp(16),
+            TextAlignmentOptions.Center,
+            TouchUiKit.TextColor
+        );
+        Outline(_speedText);
+        var glyph = TouchUiKit.Fixed(
+            "PauseIcon",
+            TouchScreen.Child("PauseCell", _root.transform, half with { Left = half.Right }),
+            new(.5f, .5f),
+            Vector2.zero,
+            new(chrome.Metrics.Dp(16), chrome.Metrics.Dp(16))
+        );
+        _pauseIcon = TouchUiKit.Fill(glyph, Color.white, false);
+        _pauseIcon.sprite = icons.Pause;
+        _pauseIcon.preserveAspect = true;
+        var shadow = glyph.gameObject.AddComponent<Shadow>();
+        shadow.effectColor = InGameTheme.WithAlpha(InGameTheme.Outline, 0.85f);
+        shadow.effectDistance = new Vector2(chrome.Metrics.Dp(1), -chrome.Metrics.Dp(1));
+        _speed = Control(
+            TouchScreen.Child("Speed", _root.transform, layout.Speed),
+            _speedText,
+            () => State.CycleCombatSpeed()
+        );
+        _pause = Control(
+            TouchScreen.Child("Pause", _root.transform, layout.Pause),
+            _pauseIcon,
+            TogglePause
+        );
+        BazaarPlusPlus.Infrastructure.BppLog.InfoEvent(
+            new BazaarPlusPlus.Infrastructure.Logging.BppLogEvent(
+                BazaarPlusPlus.Infrastructure.Logging.BppLogFeatureScope.Touch,
+                "touch.combat_status.layout"
+            ),
+            ("ahead", ahead),
+            ("vault", _vault),
+            ("panel", layout.Panel),
+            ("pause", layout.Pause),
+            ("speed", layout.Speed)
+        );
+    }
+
+    private static void TogglePause()
+    {
+        if (State.CanToggleCombatPause())
+            State.ToggleCombatPause();
+    }
+
+    private static void Outline(TextMeshProUGUI label)
+    {
+        label.outlineColor = InGameTheme.Outline;
+        label.outlineWidth = 0.1f;
+    }
+
+    private void Divider(TouchRect area) =>
+        TouchUiKit.Fill(
+            TouchScreen.Child("Divider", _root!.transform, area),
+            InGameTheme.WithAlpha(InGameTheme.RuleStrong, .65f),
+            false
+        );
+
+    /// <summary>A transparent hit area that tints the visible label or glyph it drives.</summary>
+    private static Button Control(RectTransform rect, Graphic visual, Action action)
+    {
+        TouchUiKit.Fill(rect, new Color(0, 0, 0, .001f));
+        var button = rect.gameObject.AddComponent<Button>();
+        button.targetGraphic = visual;
+        button.onClick.AddListener(new UnityAction(action));
+        button.navigation = new Navigation { mode = Navigation.Mode.None };
+        return button;
+    }
+
+    /// <summary>A scene change or the host's stop: the canvas and the glyphs go.</summary>
+    public void Dispose()
+    {
+        DestroyCanvas();
+        _icons?.Dispose();
+        _icons = null;
+        _hiddenFrames = 0;
+        _relayout = null;
+    }
+
+    private void DestroyCanvas()
+    {
+        if (_root != null)
+            UnityEngine.Object.Destroy(_root);
+        _root = null;
+        _builtWithoutArt = false;
+        _shown = false;
+        _shownTime = null;
+        _shownPaused = null;
+        _shownSpeed = float.NaN;
+        _shownCanToggle = null;
+        _shownTimeColor = null;
+    }
+}

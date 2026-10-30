@@ -13,6 +13,27 @@ namespace BazaarPlusPlus.Game.Touch;
 /// </summary>
 internal static class TouchUiActions
 {
+    public static void OnTap(UnityEngine.UI.Button button, string control, Action handler)
+    {
+        if (button == null)
+            throw new ArgumentNullException(nameof(button));
+        if (handler == null)
+            throw new ArgumentNullException(nameof(handler));
+        button.onClick.AddListener(() => Run(control, handler));
+    }
+
+    /// <summary><paramref name="handler"/> gets the field's new text after each edit.</summary>
+    public static void OnChanged(TMP_InputField field, string control, Action<string> handler)
+    {
+        if (field == null)
+            throw new ArgumentNullException(nameof(field));
+        if (handler == null)
+            throw new ArgumentNullException(nameof(handler));
+        field.onValueChanged.AddListener(value =>
+            Run(control, () => handler(value ?? string.Empty))
+        );
+    }
+
     public static void Run(string control, Action handler)
     {
         try
@@ -31,6 +52,35 @@ internal static class TouchUiActions
                 ("control", control)
             );
         }
+    }
+}
+
+/// <summary>
+/// The main thread, captured once from it: a pool-thread completion posts back through Unity's
+/// own synchronization context, as the Android host's main-thread pump does.
+/// </summary>
+internal static class TouchMainThread
+{
+    private static System.Threading.SynchronizationContext? _context;
+    private static int _threadId = -1;
+
+    /// <summary>Main thread, once at startup.</summary>
+    public static void Capture()
+    {
+        _context = System.Threading.SynchronizationContext.Current;
+        _threadId = Environment.CurrentManagedThreadId;
+    }
+
+    public static bool IsCurrent => Environment.CurrentManagedThreadId == _threadId;
+
+    public static void Post(Action action)
+    {
+        if (_context == null || IsCurrent)
+        {
+            action();
+            return;
+        }
+        _context.Post(_ => action(), null);
     }
 }
 

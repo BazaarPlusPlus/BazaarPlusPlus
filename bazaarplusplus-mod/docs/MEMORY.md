@@ -41,7 +41,7 @@ One line each, to stop a settled question from being reopened; the ADR says why.
 - ADR-0020: Saved Replay Playback lives once in Core behind `ISavedReplayHost`; hosts differ only in port behavior.
 - ADR-0021: The PvP Battle Capture Window lives once in Core behind `IPvpBattleReads`; persistence stays per host.
 - ADR-0022: Main Overlay Panel lifecycle runs through Core's one `OverlayPanelHost` on both hosts; each host keeps a thin adapter.
-- ADR-0024: on a mobile platform the Mono host draws touch surfaces over Core's touch layouts, not desktop ones; History and Ten-Win Builds are not ported yet.
+- ADR-0024: on a mobile platform the Mono host draws every BPP surface as the Android host does (ported under `Touch/` folders), restores the game's compiled-out mobile input through mobile-only patches, and mounts no feature that needs a key or hover.
 
 ## Gotchas
 
