@@ -41,10 +41,12 @@ public static class TouchHudLayout
         && vault.Height >= metrics.MinTarget;
 
     /// <summary>
-    /// The combat clock right of <paramref name="vault"/>: the plaque spans the vault's height,
-    /// the time row sits above a shorter control row, and the speed and pause hit areas keep a
-    /// full <see cref="TouchMetrics.MinTarget"/> by extending below the plaque towards the
-    /// screen edge.
+    /// The combat clock beside <paramref name="vault"/>. Where the screen leaves a band under the
+    /// board at least <see cref="BelowVaultHeightDp"/> tall, as a screen squarer than 16:10 does,
+    /// the clock sits in it, under the vault and as wide; otherwise it sits right of the vault and
+    /// spans its height. Either way the time row sits above a shorter control row, and the speed
+    /// and pause hit areas keep a full <see cref="TouchMetrics.MinTarget"/> by extending below the
+    /// plaque towards the screen edge.
     /// </summary>
     public static PlaybackLayout Playback(TouchMetrics metrics, TouchRect vault)
     {
@@ -52,23 +54,39 @@ public static class TouchHudLayout
         var padding = metrics.Dp(4);
         var safe = metrics.SafeArea;
         var width = 2 * target + 2 * padding;
-        var left = Math.Clamp(vault.Right + padding, safe.Left, safe.Right - width);
-        var bottom = Math.Min(vault.Bottom, safe.Bottom);
-        var top = Math.Max(safe.Top, Math.Min(vault.Top, bottom - metrics.Dp(80)));
-        var inner = new TouchRect(left, top, width, bottom - top).Inset(padding);
+        TouchRect panel;
+        var belowHeight = metrics.Dp(BelowVaultHeightDp);
+        if (safe.Bottom - vault.Bottom >= belowHeight + padding)
+        {
+            var wide = Math.Max(width, vault.Width);
+            var left = Math.Clamp(vault.CenterX - wide / 2, safe.Left, safe.Right - wide);
+            panel = new(left, vault.Bottom + padding, wide, belowHeight);
+        }
+        else
+        {
+            var left = Math.Clamp(vault.Right + padding, safe.Left, safe.Right - width);
+            var bottom = Math.Min(vault.Bottom, safe.Bottom);
+            var top = Math.Max(safe.Top, Math.Min(vault.Top, bottom - metrics.Dp(80)));
+            panel = new(left, top, width, bottom - top);
+        }
+        var inner = panel.Inset(padding);
         var controlsHeight = inner.Height * .42f;
         var time = inner with { Height = inner.Height - controlsHeight };
         var controls = inner with { Top = time.Bottom, Height = controlsHeight };
         var hitTop = Math.Min(controls.Top, safe.Bottom - target);
         var hitHeight = safe.Bottom - hitTop;
+        var half = inner.Width / 2;
         return new(
-            new(left, top, width, bottom - top),
+            panel,
             time,
             controls,
-            new(inner.Left, hitTop, target, hitHeight),
-            new(inner.Left + target, hitTop, target, hitHeight)
+            new(inner.Left, hitTop, half, hitHeight),
+            new(inner.Left + half, hitTop, half, hitHeight)
         );
     }
+
+    /// <summary>The clock's height when it sits under the vault.</summary>
+    public const float BelowVaultHeightDp = 80f;
 }
 
 /// <summary>

@@ -118,6 +118,35 @@ public sealed class TouchHudLayoutTests
         Assert.Equal(Math.Min(vault.Bottom, metrics.SafeArea.Bottom), clock.Panel.Bottom, 0.01f);
     }
 
+    /// <summary>
+    /// A foldable's inner display (2480x2248) fills with the board scaled by width, which leaves
+    /// a band under it; the vault read there on the emulator sits 0.15 canvas heights above the
+    /// bottom edge.
+    /// </summary>
+    [Fact]
+    public void Clock_sits_under_the_vault_on_a_nearly_square_screen()
+    {
+        var metrics = TouchMetrics.From(2480f, 2248f, 420f, Reference, 0f, 0f, 2480f, 2248f);
+        var safe = metrics.SafeArea;
+        var vault = new TouchRect(875f, 735f, 163f, 163f);
+        Assert.True(TouchHudLayout.FitsBesideVault(metrics, vault));
+        var clock = TouchHudLayout.Playback(metrics, vault);
+        Assert.True(safe.Contains(clock.Panel));
+        Assert.False(clock.Panel.Overlaps(vault));
+        Assert.True(clock.Panel.Top >= vault.Bottom);
+        Assert.Equal(vault.CenterX, clock.Panel.CenterX, 0.01f);
+        Assert.Equal(metrics.Dp(TouchHudLayout.BelowVaultHeightDp), clock.Panel.Height, 0.01f);
+        Assert.True(clock.Panel.Contains(clock.Time) && clock.Panel.Contains(clock.Controls));
+        foreach (var target in new[] { clock.Speed, clock.Pause })
+        {
+            Assert.True(safe.Contains(target));
+            Assert.True(target.Width >= metrics.MinTarget && target.Height >= metrics.MinTarget);
+            Assert.True(target.Top <= clock.Controls.Top && target.Bottom >= clock.Controls.Bottom);
+        }
+        Assert.Equal(clock.Speed.Right, clock.Pause.Left, 0.01f);
+        Assert.Equal(clock.Controls.CenterX, clock.Speed.Right, 0.01f);
+    }
+
     [Theory]
     [MemberData(nameof(Screens))]
     public void No_clock_beside_a_vault_read_it_cannot_sit_beside(string name)

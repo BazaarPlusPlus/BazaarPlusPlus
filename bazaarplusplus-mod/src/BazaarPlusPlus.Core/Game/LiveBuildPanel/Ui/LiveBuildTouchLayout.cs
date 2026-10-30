@@ -60,8 +60,14 @@ public sealed class LiveBuildTouchLayout
         var sideBySideScale = Math.Max(0.01f, Math.Min(widthScale, heightScale));
         var boardColumnHeight =
             PinnedTitleHeight + 2f * (FramedHeight * sideBySideScale + TagHeight + Gap * 2f) + Gap;
+        // A screen squarer than 16:10 holds the side-by-side boards by width and leaves the
+        // lower half empty; stacked, they take the full width and the overview fills the rest.
+        // That arrangement is taken whenever it fits without scrolling and its cards are larger.
+        var roomyScale = StackedScaleWithoutScrolling(metrics, body, target);
+        Roomy = roomyScale > sideBySideScale * RoomyGain;
         Stacked =
-            NativeCardPrefab.SocketWidth * sideBySideScale < metrics.MinTarget - 0.01f
+            Roomy
+            || NativeCardPrefab.SocketWidth * sideBySideScale < metrics.MinTarget - 0.01f
             || !SidebarHoldsTheMetrics(metrics, boardColumnHeight, sidebarWidth, target);
 
         if (!Stacked)
@@ -138,7 +144,9 @@ public sealed class LiveBuildTouchLayout
                 (body.Width - Gap * 2f) / (NativeCardPrefab.SocketWidth * SocketCount);
             var rowScale =
                 Math.Max(0f, Scroll.Height - RowTitleHeight - TagHeight - Gap * 2f) / FramedHeight;
-            SetCardScale(Math.Max(0.01f, Math.Min(stackedWidthScale, rowScale)));
+            SetCardScale(
+                Math.Max(0.01f, Roomy ? roomyScale : Math.Min(stackedWidthScale, rowScale))
+            );
             PinnedBoard = new TouchRect(0f, 0f, body.Width, CardHeight + TagHeight + Gap * 2f);
             _listTop = PinnedBoard.Bottom + Gap;
             ScrollRowHeight = RowTitleHeight + CardHeight + TagHeight + Gap * 2f;
@@ -240,6 +248,29 @@ public sealed class LiveBuildTouchLayout
         Corpus = new TouchRect(area.Left, top, area.Width - actionWidth - Gap, target);
     }
 
+    /// <summary>How much larger stacked cards must be before a screen with room stacks.</summary>
+    private const float RoomyGain = 1.15f;
+
+    // Stacked, the card scale at which the header, both boards, the list row's title and the
+    // overview (as LayOverview stacks it) fill the body without scrolling, ten sockets at most
+    // spanning its width.
+    private float StackedScaleWithoutScrolling(TouchMetrics metrics, TouchRect body, float target)
+    {
+        var columns = TouchMetrics.ColumnCount(body.Width, metrics.Dp(110f), Gap, 4);
+        var rows = (MetricCount + columns - 1) / columns;
+        var info = Math.Max(rows * metrics.Dp(64f) + Gap * (rows - 1), metrics.Dp(120f));
+        var overview = target + Gap + target + Gap + metrics.Dp(28f) + Gap + info;
+        var fixedHeight =
+            PinnedTitleHeight
+            + Gap
+            + (TagHeight + Gap * 2f + Gap)
+            + (target + TagHeight + Gap * 2f + Gap)
+            + overview;
+        var widthScale = (body.Width - Gap * 2f) / (NativeCardPrefab.SocketWidth * SocketCount);
+        var heightScale = (body.Height - fixedHeight) / 2f / FramedHeight;
+        return Math.Min(widthScale, heightScale);
+    }
+
     // Side by side, the sidebar's fixed rows (LayOverview) leave the info area room for every
     // metric cell at its floor.
     private bool SidebarHoldsTheMetrics(
@@ -264,6 +295,12 @@ public sealed class LiveBuildTouchLayout
     /// their rects are list-content-local.
     /// </summary>
     public bool Stacked { get; }
+
+    /// <summary>
+    /// Stacked because the screen has room rather than density: everything fits the viewport, so
+    /// nothing scrolls.
+    /// </summary>
+    public bool Roomy { get; }
 
     public TouchMetrics Metrics { get; }
 
