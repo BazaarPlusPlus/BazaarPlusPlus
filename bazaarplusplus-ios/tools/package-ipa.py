@@ -10,8 +10,8 @@ app = ROOT / 'build/steam-app/device/launcher-derived/Build/Products/Release-iph
 if not app.exists():
     raise SystemExit('Build the device App first: python3 tools/build.py device')
 info = plistlib.loads((app / 'Info.plist').read_bytes())
-game = info['CFBundleShortVersionString'].split('-')[0]
-name = f"BazaarPlusPlus_{info['BPPProductVersion']}_ios-aarch64_game{game}"
+game = info['BPPGameVersion'].split('-')[0]
+name = f"BazaarPlusPlus_{info['CFBundleShortVersionString']}_ios-aarch64_game{game}"
 with tempfile.TemporaryDirectory() as staging:
     payload = Path(staging) / 'Payload'
     payload.mkdir()
