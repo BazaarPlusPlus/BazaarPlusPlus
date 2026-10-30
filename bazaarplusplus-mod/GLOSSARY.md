@@ -158,6 +158,20 @@ _Avoid_: game enums in Core
 **Live Card Walk**:
 A Host's raw run read in Card Facets (`LiveCardWalk`); Core's `LiveCardSnapshotRead` fits, numbers and reports it.
 
+## Mobile UI
+
+**Mobile UI**:
+BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) that both hosts compile: the Mono host on iOS and the Android host (ADR-0025). The Desktop UI is the Mono host's mouse-and-keyboard surfaces.
+_Avoid_: Android UI, iOS UI, touch port
+
+**Mobile Platform Port**:
+What a host gives the Mobile UI to reach its runtime: frame driving, the main-thread scope, object liveness, casts, overlay registration, font, text wrapping and button listeners.
+_Avoid_: shim, `#if` branch
+
+**Native Adjustment**:
+A change BPP makes to the game's own UI on a mobile platform, such as screen fill, the day clock's place or a HUD shortcut. Core decides it, the Mobile UI runs it, and the host reads and writes the game objects.
+_Avoid_: native patch, HUD hack
+
 ## Collection panel
 
 **Collection View State**:
