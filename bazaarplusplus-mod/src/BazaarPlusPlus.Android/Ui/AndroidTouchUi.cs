@@ -276,11 +276,10 @@ internal sealed class AndroidTouchUi
             new(0, 0, metrics.CanvasWidth, metrics.CanvasHeight)
         );
         // A corner around the gear: Collection below it, Ten-Win Builds left of it. In a run on a
-        // screen narrower than 16:10 the board is drawn nearer (AndroidScreenFill) and reaches up
+        // screen that gathers the HUD above the board (AndroidScreenFill), the board reaches up
         // to just under the gear, so both sit in a row left of it.
         var row =
-            _inRun
-            && metrics.CanvasWidth < metrics.CanvasHeight * AndroidScreenFill.ReferenceAspect;
+            _inRun && AndroidScreenFill.GathersHudAbove(metrics.CanvasWidth / metrics.CanvasHeight);
         Add(
             "Collection",
             _icons!.Collection,

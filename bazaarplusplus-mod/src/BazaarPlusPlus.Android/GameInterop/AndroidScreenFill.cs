@@ -32,10 +32,14 @@ internal static class AndroidScreenFill
     // margin, and still shows the board's full height on a nearly square screen.
     private const float BoardZoom = 1.3f;
 
-    // The least the vertical view grows: the board fills about 97% of the game's own view, and
-    // this leaves about an eighth of the screen above it for the HUD band. On a screen between
-    // 4:3 and 16:10 it sets the zoom rather than BoardZoom does.
+    // The least the vertical view grows when the HUD gathers above the board: the board fills
+    // about 97% of the game's own view, and this leaves about an eighth of the screen above it
+    // for the band. Near 4:3 it sets the zoom rather than BoardZoom does.
     private const float MinStretch = 1.12f;
+
+    // How much larger the band must draw the board than the 16:10 framing for the band to be
+    // worth it.
+    private const float BandGain = 1.05f;
 
     // Of the screen's height, what is kept clear under the lowered board.
     private const float BottomMargin = 0.012f;
@@ -137,7 +141,18 @@ internal static class AndroidScreenFill
         return true;
     }
 
-    // True when the camera draws the board nearer than 16:10 does.
+    /// <summary>
+    /// Whether a screen of <paramref name="aspect"/> gathers the HUD in a band above the board.
+    /// Making that band costs at least <see cref="MinStretch"/> of vertical view, which shrinks
+    /// the board more than the 16:10 framing does on a screen wider than about 1.43:1 (3:2, say),
+    /// and gains it little just below; so only from about 1.36:1 down (4:3 and squarer) does the
+    /// band draw the board at least <see cref="BandGain"/> times larger. Wider, the board keeps
+    /// the 16:10 framing and the HUD its usual places beside it.
+    /// </summary>
+    public static bool GathersHudAbove(float aspect) =>
+        aspect > 0f && aspect < ReferenceAspect / (MinStretch * BandGain);
+
+    // True when the HUD gathers above the board (GathersHudAbove).
     private static bool WidenFieldOfView(Camera camera)
     {
         if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled)
@@ -149,14 +164,17 @@ internal static class AndroidScreenFill
             return false;
         var key = camera.Pointer;
         var fieldOfView = camera.fieldOfView;
+        var above = GathersHudAbove(aspect);
         if (Widened.TryGetValue(key, out var written) && written == fieldOfView)
-            return true;
+            return above;
         var halfTan = Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad);
-        var stretch = Math.Max(MinStretch, ReferenceAspect / (aspect * BoardZoom));
+        var stretch = above
+            ? Math.Max(MinStretch, ReferenceAspect / (aspect * BoardZoom))
+            : ReferenceAspect / aspect;
         var widened = 2f * Mathf.Atan(halfTan * stretch) * Mathf.Rad2Deg;
         camera.fieldOfView = widened;
         // Read back: the camera clamps the value it stores.
         Widened[key] = camera.fieldOfView;
-        return true;
+        return above;
     }
 }
