@@ -3,7 +3,6 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure.UiTokens;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Touch;

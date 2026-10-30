@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure.UiTokens;
-using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;

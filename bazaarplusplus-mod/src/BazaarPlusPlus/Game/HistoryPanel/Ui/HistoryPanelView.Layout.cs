@@ -3,7 +3,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.Infrastructure.UiTokens;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

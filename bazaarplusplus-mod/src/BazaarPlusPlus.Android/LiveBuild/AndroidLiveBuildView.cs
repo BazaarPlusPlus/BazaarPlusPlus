@@ -7,7 +7,7 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Localization;
-using Il2CppTMPro;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -44,7 +44,7 @@ internal sealed class AndroidLiveBuildView
     private readonly GameObject _metrics;
     private readonly (TextMeshProUGUI Label, TextMeshProUGUI Value)[] _metricCells;
     private readonly GameObject _corpusDetailRoot;
-    private readonly AndroidInspectionText _corpusDetail;
+    private readonly InspectionText _corpusDetail;
     private bool _showCorpusDetail;
     private bool _hasRecommendation;
 
@@ -283,7 +283,7 @@ internal sealed class AndroidLiveBuildView
             }
             var detail = AndroidTouchScreen.Child("CorpusDetail", scrolled, layout.Info);
             _skin.Frame(detail);
-            _corpusDetail = new AndroidInspectionText(
+            _corpusDetail = new InspectionText(
                 AndroidUiKit.Rect(
                     "Text",
                     detail,

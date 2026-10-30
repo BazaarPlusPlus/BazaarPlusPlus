@@ -3,7 +3,6 @@ using BazaarPlusPlus.Infrastructure.UiTokens;
 using DG.Tweening;
 using HarmonyLib;
 using TheBazaar.UI.Tooltips;
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;

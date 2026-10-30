@@ -6,7 +6,6 @@ using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.CollectionPanel.Ui;
 using Il2CppTheBazaar.UI;
-using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

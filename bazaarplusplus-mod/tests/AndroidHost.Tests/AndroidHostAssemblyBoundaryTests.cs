@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using Architecture.Tests;
 using Xunit;
 
 namespace AndroidHost.Tests;
@@ -10,7 +11,8 @@ namespace AndroidHost.Tests;
 /// The Android host compiles against the Loader Release, the Interop Snapshot, and the shared
 /// assemblies (ADR-0012). A reference to BepInEx or to the desktop host assembly would load
 /// nothing on a device, and a linked desktop source would fork shared code, so both are caught
-/// here, over the compiled artifact, rather than by a failed launch.
+/// here, over the compiled artifact, rather than by a failed launch. The one linked source is the
+/// Mobile UI tree (ADR-0025), which reaches the host only through its Mobile Platform Port.
 /// </summary>
 public sealed class AndroidHostAssemblyBoundaryTests
 {
@@ -42,24 +44,30 @@ public sealed class AndroidHostAssemblyBoundaryTests
         );
     }
 
+    private const string MobileTree = "BazaarPlusPlus.Mobile";
+
+    // The port, its holder and the leaves #701 step 2 moved; a dropped <Compile Include> of the
+    // tree leaves fewer, so the rules over the tree cannot pass on nothing.
+    private const int MinimumMobileTreeTypes = 5;
+
     [Fact]
     public void Android_host_defines_only_its_own_types()
     {
         // A Compile-Include of a Core or desktop file keeps that file's namespace, so any BPP type
-        // outside BazaarPlusPlus.Android is a linked source that should come from Core.
+        // outside BazaarPlusPlus.Android is a linked source that should come from Core; the Mobile
+        // UI tree is the one linked source (ADR-0025).
         using var reader = OpenHost();
         var metadata = reader.GetMetadataReader();
-        var foreign = metadata
+        var namespaces = metadata
             .TypeDefinitions.Select(handle => metadata.GetTypeDefinition(handle))
             .Where(type => type.GetDeclaringType().IsNil)
             .Select(type => metadata.GetString(type.Namespace))
+            .ToArray();
+        var foreign = namespaces
             .Where(ns =>
-                (
-                    ns == "BazaarPlusPlus"
-                    || ns.StartsWith("BazaarPlusPlus.", StringComparison.Ordinal)
-                )
-                && ns != "BazaarPlusPlus.Android"
-                && !ns.StartsWith("BazaarPlusPlus.Android.", StringComparison.Ordinal)
+                IsIn(ns, "BazaarPlusPlus")
+                && !IsIn(ns, "BazaarPlusPlus.Android")
+                && !IsIn(ns, MobileTree)
             )
             .Distinct()
             .ToArray();
@@ -68,6 +76,39 @@ public sealed class AndroidHostAssemblyBoundaryTests
             foreign.Length == 0,
             "The Android host compiles BPP sources outside its namespace: "
                 + string.Join(", ", foreign)
+        );
+        Assert.True(
+            namespaces.Count(ns => IsIn(ns, MobileTree)) >= MinimumMobileTreeTypes,
+            "The Android host no longer compiles the Mobile UI tree (src/BazaarPlusPlus.Mobile/)."
+        );
+    }
+
+    [Fact]
+    public void Mobile_tree_reaches_the_android_host_only_through_its_port()
+    {
+        // ADR-0025 decision 3: shared Mobile UI reaches the host through IMobilePlatformPort, whose
+        // implementation the host installs; a direct reference to a host type would not compile on
+        // the other host.
+        var host = CompiledAssembly.Load(HostPath());
+        var tree = host.Types.Where(type => IsIn(type.Namespace, MobileTree)).ToArray();
+        Assert.True(
+            tree.Length >= MinimumMobileTreeTypes,
+            $"Expected at least {MinimumMobileTreeTypes} Mobile UI types, found {tree.Length}."
+        );
+
+        var violations = tree.SelectMany(type =>
+                type.References.Where(target =>
+                        target.Assembly == host.Name
+                        && IsIn(target.Namespace, "BazaarPlusPlus")
+                        && !IsIn(target.Namespace, MobileTree)
+                    )
+                    .Select(target => $"{type} references {target}")
+            )
+            .ToArray();
+        Assert.True(
+            violations.Length == 0,
+            "Reach the Android host from the Mobile UI through IMobilePlatformPort:\n  "
+                + string.Join("\n  ", violations)
         );
     }
 
@@ -105,7 +146,16 @@ public sealed class AndroidHostAssemblyBoundaryTests
             .ToArray();
     }
 
+    private static bool IsIn(string ns, string scope) =>
+        ns == scope || ns.StartsWith(scope + ".", StringComparison.Ordinal);
+
     private static PEReader OpenHost() => Open("BppAndroidHostAssembly");
+
+    private static string HostPath() =>
+        typeof(AndroidHostAssemblyBoundaryTests)
+            .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(attribute => attribute.Key == "BppAndroidHostAssembly")
+            .Value!;
 
     private static PEReader Open(string key)
     {

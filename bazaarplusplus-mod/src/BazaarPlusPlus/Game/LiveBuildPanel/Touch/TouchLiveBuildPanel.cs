@@ -9,7 +9,6 @@ using BazaarPlusPlus.GameInterop.LiveCards;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Touch;

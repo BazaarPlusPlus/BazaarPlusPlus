@@ -123,6 +123,15 @@
     <PackageReference Include="SourceGear.sqlite3" GeneratePathProperty="true" />
   </ItemGroup>
 
+  <!-- The Mobile UI tree (ADR-0025): BazaarPlusPlus.Mobile.* sources both hosts compile, drawn
+       here only on a mobile platform (TouchPlatform.IsMobile). -->
+  <ItemGroup>
+    <Compile
+      Include="../BazaarPlusPlus.Mobile/**/*.cs"
+      Link="Mobile/%(RecursiveDir)%(Filename)%(Extension)"
+    />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
     <ProjectReference Include="../BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />

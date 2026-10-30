@@ -52,11 +52,17 @@ public sealed class AndroidNativeArtBoundaryTests
                         or "BazaarPlusPlus.Android.GameInterop.AndroidNativeArt"
                 && access.op.TargetType?.Namespace == "BazaarPlusPlus.Android.Collection"
         );
+        // The runtime owner never reaches back into the UI, the Mobile UI tree's included.
         Assert.DoesNotContain(
             accesses,
             access =>
                 access.type.FullName == "BazaarPlusPlus.Android.GameInterop.AndroidNativeArt"
-                && access.op.TargetType?.Namespace == "BazaarPlusPlus.Android.Ui"
+                && access.op.TargetType?.Namespace is { } ns
+                && (
+                    ns == "BazaarPlusPlus.Android.Ui"
+                    || ns == "BazaarPlusPlus.Mobile"
+                    || ns.StartsWith("BazaarPlusPlus.Mobile.", StringComparison.Ordinal)
+                )
         );
     }
 }

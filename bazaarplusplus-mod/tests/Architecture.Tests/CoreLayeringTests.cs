@@ -48,6 +48,33 @@ public sealed class CoreLayeringTests
     }
 
     [Fact]
+    public void Mobile_tree_reaches_the_host_only_through_its_port()
+    {
+        // ADR-0025 decision 3: the Mobile UI tree compiles into this host and the Android host, so
+        // it reaches either only through IMobilePlatformPort, never a host type directly. Five
+        // types (the port, its holder, the leaves #701 step 2 moved) keep the scope from emptying.
+        const string mobile = "BazaarPlusPlus.Mobile";
+        Holds(
+            "Reach the Mono host from the Mobile UI through IMobilePlatformPort.",
+            build =>
+            {
+                var tree = build.TypesIn(mobile);
+                Assert.True(
+                    tree.Count >= 5,
+                    $"{build.Configuration}: {tree.Count} Mobile UI types."
+                );
+                return References(
+                    tree,
+                    target =>
+                        target.Assembly == CompiledArtifacts.MainAssembly
+                        && CompiledBuild.IsInNamespace(target.Namespace, "BazaarPlusPlus")
+                        && !CompiledBuild.IsInNamespace(target.Namespace, mobile)
+                );
+            }
+        );
+    }
+
+    [Fact]
     public void GameInterop_is_reusable_across_features()
     {
         Holds(

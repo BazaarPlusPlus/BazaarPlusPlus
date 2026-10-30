@@ -11,7 +11,6 @@ using TheBazaar;
 using TheBazaar.AppFramework;
 using TheBazaar.Assets.Scripts.ScriptableObjectsScripts;
 using TheBazaar.Localization;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

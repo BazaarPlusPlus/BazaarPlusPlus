@@ -1,5 +1,4 @@
 #nullable enable
-using TMPro;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;

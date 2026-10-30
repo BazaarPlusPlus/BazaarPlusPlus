@@ -15,7 +15,6 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using Il2CppTheBazaar.UI;
-using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

@@ -4,7 +4,6 @@ using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using Il2CppTheBazaar.UI;
-using Il2CppTMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

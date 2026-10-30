@@ -5,7 +5,6 @@ using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Storage.RunLog;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Touch;

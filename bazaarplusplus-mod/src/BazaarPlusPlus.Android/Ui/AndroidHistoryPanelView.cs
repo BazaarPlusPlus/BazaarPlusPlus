@@ -11,7 +11,7 @@ using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
-using Il2CppTMPro;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -24,7 +24,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// holds the section tabs, the supporter action, More, and Close; the archive list, the run's
 /// battle rail (in Ghost, the cloud note in its place), and the detail column with the two board regions and the action row (delete, favorite, skills, replay) stand under it.
 /// Lists drag-scroll with inertia and show a thumb while they overflow; each finished gesture logs
-/// <c>android.history.scrolled</c>. A section without rows says so once, centred in the detail
+/// <c>touch.history.scrolled</c>. A section without rows says so once, centred in the detail
 /// column, with no boards, titles or actions under it.
 /// Hero portraits share the Collection framing; rank badges and run trophies are the game's art
 /// from <see cref="AndroidRankArt"/>, with text while it is missing; the two BPP badge atlases
@@ -44,7 +44,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     private readonly HistoryTouchLayout _l;
     private readonly GameObject _root;
     private readonly AndroidHistoryBadges? _badges;
-    private readonly List<AndroidScrollTracker> _trackers = new();
+    private readonly List<ScrollTracker> _trackers = new();
     private HistoryPanelViewModel? _model;
     private bool _visible;
     private bool _disposed;
@@ -211,7 +211,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             if (_headerSupporters.Count > 0)
                 RefreshSupporter();
         }
-        var pressed = AndroidScrollTracker.PointerPressed();
+        var pressed = ScrollTracker.PointerPressed();
         foreach (var tracker in _trackers)
             tracker.Tick(pressed, _l.Metrics.UnitsPerDp);
         foreach (var thumb in _thumbs)
@@ -529,7 +529,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _l.ArchiveList,
             horizontal: false
         );
-        _trackers.Add(new AndroidScrollTracker(Scrolled(), "archive", scroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "archive", scroll));
         var list = new PageList { Scroll = scroll, Height = _l.RunRowHeight };
         for (var i = 0; i < Rows; i++)
         {
@@ -594,7 +594,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                     TextAlignmentOptions.Center
                 ),
             };
-            var rankImage = ArtImage(rect, "Rank");
+            var rankImage = ArtSlot(rect, "Rank");
             row.Rank = AndroidHistoryUi.Fraction(
                 rankImage.transform,
                 _font,
@@ -605,11 +605,11 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 _l.BodyFont,
                 TextAlignmentOptions.Center
             );
-            row.RankArt = new AndroidArtImage(
+            row.RankArt = new ArtImage(
                 rankImage,
                 shown => AndroidHistoryUi.SetActive(row.Rank.gameObject, shown)
             );
-            var outcomeImage = ArtImage(rect, "Outcome");
+            var outcomeImage = ArtSlot(rect, "Outcome");
             var portrait = AndroidUiKit.Fixed(
                 "HeroPortrait",
                 rect,
@@ -631,7 +631,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 TextAlignmentOptions.Center,
                 AndroidHistoryUi.Muted
             );
-            row.Badge = new AndroidArtImage(
+            row.Badge = new ArtImage(
                 outcomeImage,
                 shown => AndroidHistoryUi.SetActive(row.Unknown.gameObject, shown)
             );
@@ -649,7 +649,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             _l.RailList,
             horizontal: false
         );
-        _trackers.Add(new AndroidScrollTracker(Scrolled(), "rail", scroll));
+        _trackers.Add(new ScrollTracker(Scrolled(), "rail", scroll));
         var rail = new Rail { Scroll = scroll };
         for (var i = 0; i < Rows; i++)
         {
@@ -685,7 +685,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                     _l.BodyFont,
                     TextAlignmentOptions.Center
                 ),
-                Rank = new AndroidArtImage(ArtImage(rect, "Rank", .74f, .06f, .23f, .38f)),
+                Rank = new ArtImage(ArtSlot(rect, "Rank", .74f, .06f, .23f, .38f)),
                 Name = AndroidHistoryUi.Fraction(
                     rect,
                     _font,
@@ -770,7 +770,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     }
 
     // Rows place their images as they bind: where they sit depends on the row mode and rating.
-    private static Image ArtImage(
+    private static Image ArtSlot(
         RectTransform parent,
         string name,
         float x = 0f,
@@ -1201,7 +1201,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     }
 
     private static BppLogEvent Scrolled() =>
-        new(BppLogFeatureScope.Android, "android.history.scrolled");
+        new(BppLogFeatureScope.Touch, "touch.history.scrolled");
 
     private void SyncTrackers()
     {
@@ -1213,8 +1213,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     {
         internal RectTransform Rect = null!;
         internal HistoryButton Control = null!;
-        internal AndroidArtImage Badge = null!;
-        internal AndroidArtImage RankArt = null!;
+        internal ArtImage Badge = null!;
+        internal ArtImage RankArt = null!;
         internal RectTransform PortraitRect = null!;
         internal AndroidPortraitView Portrait = null!;
         internal CardHero? Hero;
@@ -1244,7 +1244,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         internal TextMeshProUGUI Day = null!;
         internal AndroidPortraitView Portrait = null!;
         internal CardHero? Hero;
-        internal AndroidArtImage Rank = null!;
+        internal ArtImage Rank = null!;
         internal TextMeshProUGUI Name = null!;
         internal Image Outcome = null!;
         internal GameObject Accent = null!;

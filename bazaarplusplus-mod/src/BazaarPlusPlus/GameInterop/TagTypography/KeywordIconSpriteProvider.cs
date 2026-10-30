@@ -1,5 +1,4 @@
 #nullable enable
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.TagTypography;

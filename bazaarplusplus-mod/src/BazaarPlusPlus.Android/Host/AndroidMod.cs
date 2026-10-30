@@ -15,6 +15,7 @@ using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile;
 using HarmonyLib;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -73,6 +74,7 @@ public sealed class AndroidMod : MelonMod
     public override void OnInitializeMelon()
     {
         AndroidMainThread.Host.Capture();
+        MobilePlatform.Install(new AndroidMobilePlatform());
         BppLog.Install(new MelonLogSink(LoggerInstance));
         var version = Info.Version;
         var settings = OpenSettings();

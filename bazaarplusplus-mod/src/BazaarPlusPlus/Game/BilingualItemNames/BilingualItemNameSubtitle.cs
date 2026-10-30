@@ -1,7 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.GameInterop.Fonts;
 using TheBazaar.UI.Tooltips;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 

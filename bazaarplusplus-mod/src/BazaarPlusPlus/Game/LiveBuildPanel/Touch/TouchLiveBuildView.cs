@@ -8,7 +8,7 @@ using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
-using TMPro;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -45,7 +45,7 @@ internal sealed class TouchLiveBuildView
     private readonly GameObject _metrics;
     private readonly (TextMeshProUGUI Label, TextMeshProUGUI Value)[] _metricCells;
     private readonly GameObject _corpusDetailRoot;
-    private readonly TouchInspectionText _corpusDetail;
+    private readonly InspectionText _corpusDetail;
     private bool _showCorpusDetail;
     private bool _hasRecommendation;
 
@@ -284,7 +284,7 @@ internal sealed class TouchLiveBuildView
             }
             var detail = TouchScreen.Child("CorpusDetail", scrolled, layout.Info);
             _skin.Frame(detail);
-            _corpusDetail = new TouchInspectionText(
+            _corpusDetail = new InspectionText(
                 TouchUiKit.Rect(
                     "Text",
                     detail,

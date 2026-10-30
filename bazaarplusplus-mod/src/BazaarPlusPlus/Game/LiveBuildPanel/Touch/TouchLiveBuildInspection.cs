@@ -8,8 +8,8 @@ using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.UiTokens;
+using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar.UI;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -31,7 +31,7 @@ internal sealed class TouchLiveBuildInspection
     private readonly GameObject _root;
     private readonly RectTransform _slot;
     private readonly TextMeshProUGUI _name;
-    private readonly TouchInspectionText _description;
+    private readonly InspectionText _description;
     private readonly LiveBuildTouchLayout _layout;
     private CardRentalLease<CardPreviewBase>? _lease;
 
@@ -83,7 +83,7 @@ internal sealed class TouchLiveBuildInspection
             TouchUiKit.TextColor
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
-        _description = new TouchInspectionText(
+        _description = new InspectionText(
             TouchScreen.Child("Description", info, Local(layout.InspectDetail, origin, layout.Gap)),
             font,
             layout.BodyFont,

@@ -12,7 +12,6 @@ using HarmonyLib;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Patches.Tooltips;

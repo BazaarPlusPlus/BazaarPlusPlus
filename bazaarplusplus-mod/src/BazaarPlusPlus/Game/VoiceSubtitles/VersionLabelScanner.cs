@@ -3,7 +3,6 @@
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using TMPro;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;

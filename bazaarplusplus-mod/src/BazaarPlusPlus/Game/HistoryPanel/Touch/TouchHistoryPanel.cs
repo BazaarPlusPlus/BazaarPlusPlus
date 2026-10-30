@@ -14,7 +14,6 @@ using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
-using TMPro;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Touch;
 

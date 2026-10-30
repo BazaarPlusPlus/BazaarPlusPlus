@@ -1,15 +1,14 @@
-using BazaarPlusPlus.Android.Host;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>
 /// A row's image bound to a sprite that may still be loading. A reused row drops a load it no
 /// longer shows; <c>fallback</c> hears whether its text stand-in should show, which it does only
 /// once a load ends without a sprite, so a first load does not flash the text.
 /// </summary>
-internal sealed class AndroidArtImage(Image image, Action<bool>? fallback = null)
+internal sealed class ArtImage(Image image, Action<bool>? fallback = null)
 {
     private int _binding;
 
@@ -24,7 +23,7 @@ internal sealed class AndroidArtImage(Image image, Action<bool>? fallback = null
             return;
         }
         Show(null, false);
-        using var scope = AndroidMainThread.Host.Enter();
+        using var scope = MobilePlatform.Port.EnterMainThread();
         _ = Load(sprite, binding);
     }
 
