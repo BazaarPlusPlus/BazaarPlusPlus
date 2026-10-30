@@ -18,7 +18,7 @@ internal static class ScreenFillFieldOfViewPatch
     {
         try
         {
-            AndroidScreenFill.WidenFieldOfView(__instance.OutputCamera);
+            AndroidScreenFill.AfterCameraUpdate(__instance.OutputCamera);
         }
         catch (Exception exception)
         {

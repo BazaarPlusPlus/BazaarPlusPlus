@@ -17,6 +17,20 @@ public static class TouchHudLayout
         return new TouchRect(Math.Max(safe.Left, right - target), top, target, target);
     }
 
+    /// <summary>
+    /// The <paramref name="index"/>th target left of the settings button (from 0), level with it:
+    /// a row along the screen's top edge for a board that reaches up to just under the gear.
+    /// </summary>
+    public static TouchRect ShortcutInRow(TouchMetrics metrics, TouchRect gear, int index)
+    {
+        var target = metrics.MinTarget;
+        var safe = metrics.SafeArea;
+        var gap = metrics.Dp(4);
+        var top = Math.Clamp(gear.CenterY - target / 2, safe.Top, safe.Bottom - target);
+        var right = gear.Left - gap - index * (target + gap);
+        return new TouchRect(Math.Max(safe.Left, right - target), top, target, target);
+    }
+
     /// <summary>The target below the settings button, centred under it.</summary>
     public static TouchRect ShortcutBelow(TouchMetrics metrics, TouchRect gear)
     {
@@ -41,34 +55,97 @@ public static class TouchHudLayout
         && vault.Height >= metrics.MinTarget;
 
     /// <summary>
-    /// The combat clock right of <paramref name="vault"/>: the plaque spans the vault's height,
-    /// the time row sits above a shorter control row, and the speed and pause hit areas keep a
-    /// full <see cref="TouchMetrics.MinTarget"/> by extending below the plaque towards the
-    /// screen edge.
+    /// The combat clock. Where the screen leaves a band for a <see cref="TouchMetrics.MinTarget"/>
+    /// row above <paramref name="boardTop"/> (the board's top edge, when the host gathers the HUD
+    /// there), the clock is one row centred in it: the time, then speed and pause. Else, where a
+    /// band under the board fits that row, as a screen squarer than 16:10 leaves, it is that row
+    /// centred under <paramref name="vault"/>. A row's speed and pause hit areas grow about the
+    /// controls to a full <see cref="TouchMetrics.MinTarget"/>. Otherwise the clock sits right of
+    /// the vault and spans its height, the time row above a shorter control row, and the hit areas
+    /// keep a full target by extending below the plaque towards the screen edge.
     /// </summary>
-    public static PlaybackLayout Playback(TouchMetrics metrics, TouchRect vault)
+    public static PlaybackLayout Playback(
+        TouchMetrics metrics,
+        TouchRect vault,
+        float? boardTop = null
+    )
     {
         var target = metrics.MinTarget;
         var padding = metrics.Dp(4);
         var safe = metrics.SafeArea;
-        var width = 2 * target + 2 * padding;
-        var left = Math.Clamp(vault.Right + padding, safe.Left, safe.Right - width);
-        var bottom = Math.Min(vault.Bottom, safe.Bottom);
-        var top = Math.Max(safe.Top, Math.Min(vault.Top, bottom - metrics.Dp(80)));
-        var inner = new TouchRect(left, top, width, bottom - top).Inset(padding);
-        var controlsHeight = inner.Height * .42f;
-        var time = inner with { Height = inner.Height - controlsHeight };
-        var controls = inner with { Top = time.Bottom, Height = controlsHeight };
-        var hitTop = Math.Min(controls.Top, safe.Bottom - target);
-        var hitHeight = safe.Bottom - hitTop;
+        TouchRect time;
+        TouchRect controls;
+        TouchRect panel;
+        var width = metrics.Dp(RowTimeWidthDp) + 2 * target + 2 * padding;
+        var above = (boardTop ?? safe.Top) - safe.Top - 2 * padding;
+        var below = safe.Bottom - vault.Bottom - padding;
+        if (above >= target || below >= target)
+        {
+            if (above >= target)
+            {
+                var height = Math.Min(above, metrics.Dp(RowHeightDp));
+                var top = safe.Top + padding + (above - height) / 2;
+                var left = Math.Clamp(
+                    metrics.CanvasWidth / 2 - width / 2,
+                    safe.Left,
+                    safe.Right - width
+                );
+                panel = new(left, top, width, height);
+            }
+            else
+            {
+                var height = Math.Min(below, metrics.Dp(RowHeightDp));
+                var left = Math.Clamp(vault.CenterX - width / 2, safe.Left, safe.Right - width);
+                panel = new(left, vault.Bottom + padding, width, height);
+            }
+            var inner = panel.Inset(padding);
+            controls = inner with { Left = inner.Right - 2 * target, Width = 2 * target };
+            time = inner with { Width = controls.Left - inner.Left };
+        }
+        else
+        {
+            width = 2 * target + 2 * padding;
+            var left = Math.Clamp(vault.Right + padding, safe.Left, safe.Right - width);
+            var bottom = Math.Min(vault.Bottom, safe.Bottom);
+            var top = Math.Max(safe.Top, Math.Min(vault.Top, bottom - metrics.Dp(80)));
+            panel = new(left, top, width, bottom - top);
+            var inner = panel.Inset(padding);
+            var controlsHeight = inner.Height * .42f;
+            time = inner with { Height = inner.Height - controlsHeight };
+            controls = inner with { Top = time.Bottom, Height = controlsHeight };
+        }
+        float hitTop;
+        float hitHeight;
+        if (controls.Left >= time.Right - 0.01f)
+        {
+            // A row: the hit areas are the controls, grown about their centre to a target.
+            hitHeight = Math.Max(target, controls.Height);
+            hitTop = Math.Clamp(
+                controls.CenterY - hitHeight / 2,
+                safe.Top,
+                safe.Bottom - hitHeight
+            );
+        }
+        else
+        {
+            hitTop = Math.Min(controls.Top, safe.Bottom - target);
+            hitHeight = safe.Bottom - hitTop;
+        }
+        var half = controls.Width / 2;
         return new(
-            new(left, top, width, bottom - top),
+            panel,
             time,
             controls,
-            new(inner.Left, hitTop, target, hitHeight),
-            new(inner.Left + target, hitTop, target, hitHeight)
+            new(controls.Left, hitTop, half, hitHeight),
+            new(controls.Left + half, hitTop, half, hitHeight)
         );
     }
+
+    /// <summary>The tallest the one-row clock under the vault gets.</summary>
+    public const float RowHeightDp = 52f;
+
+    /// <summary>The time's width in the one-row clock.</summary>
+    public const float RowTimeWidthDp = 96f;
 }
 
 /// <summary>
@@ -81,4 +158,8 @@ public readonly record struct PlaybackLayout(
     TouchRect Controls,
     TouchRect Speed,
     TouchRect Pause
-);
+)
+{
+    /// <summary>The time and the controls side by side in one row, rather than stacked.</summary>
+    public bool Row => Controls.Left >= Time.Right - 0.01f;
+}

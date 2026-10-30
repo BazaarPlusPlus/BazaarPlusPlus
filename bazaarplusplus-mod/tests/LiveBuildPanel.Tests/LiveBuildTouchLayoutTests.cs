@@ -38,6 +38,8 @@ internal static class LiveBuildTouchLayoutTests
         yield return ("2400x1080@480", Screen(2400f, 1080f, 480f));
         yield return ("2400x1080@560", Screen(2400f, 1080f, 560f));
         yield return ("2400x1080@640", Screen(2400f, 1080f, 640f));
+        // A foldable's inner display, nearly square: the panel stacks for room, not density.
+        yield return ("2480x2248@420", Screen(2480f, 2248f, 420f));
     }
 
     private static TouchMetrics Screen(
@@ -290,9 +292,9 @@ internal static class LiveBuildTouchLayoutTests
             $"{name}: one list row does not fit the viewport."
         );
         Check.That(
-            layout.Stacked
+            layout.Stacked && !layout.Roomy
                 ? layout.ScrollContentHeight > layout.Scroll.Height
-                : Math.Abs(layout.ScrollContentHeight - layout.Scroll.Height) < 0.01f,
+                : layout.ScrollContentHeight <= layout.Scroll.Height + 0.01f,
             $"{name}: only the dense fallback scrolls; the ordinary lower board stays fixed."
         );
         for (var row = 0; row < LiveBuildTouchLayout.ScrollRowCount; row++)
@@ -357,6 +359,15 @@ internal static class LiveBuildTouchLayoutTests
         Check.That(
             LiveBuildTouchLayout.For(Screen(2400f, 1080f, 640f)).Stacked,
             "At 640 dpi side by side would leave sockets under 48dp, so the panel stacks."
+        );
+        var square = LiveBuildTouchLayout.For(Screen(2480f, 2248f, 420f));
+        Check.That(
+            square.Stacked && square.Roomy,
+            "A nearly square screen stacks the boards over the overview."
+        );
+        Check.That(
+            square.ScrollContentHeight <= square.Scroll.Height + 0.01f,
+            "Stacked for room, everything fits without scrolling."
         );
     }
 
