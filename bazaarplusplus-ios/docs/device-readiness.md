@@ -1,6 +1,6 @@
 # 设备适配与首次真机验证
 
-设备启动器已完成开发签名构建和物理设备安装，包含静态 Mono/AOT、Steam 登录与下载、独立票据服务、原生 SQLite/Alembic、FMOD/Resonance Audio 和引擎资源适配。**尚不能宣称 The Bazaar 在真机可玩。** 已在 iPhone 16 Pro Max 验证启动器的静态 Mono/AOT 初始化及原生自检，Steam 登录、Steam Guard 与 Keychain 会话恢复已通过；游戏运行尚未验证，`games/the-bazaar/profile.json` 的设备启动门禁保持关闭。具体版本、哈希和能力值以 profile 与 `toolchain.lock.json` 为准。
+设备启动器已完成开发签名构建和物理设备安装，包含静态 Mono/AOT、Steam 登录与下载、独立票据服务、原生 SQLite/Alembic、FMOD/Resonance Audio 和引擎资源适配。**尚不能宣称 The Bazaar 在真机可玩。** 已在 iPhone 16 Pro Max 验证启动器的静态 Mono/AOT 初始化及原生自检，Steam 登录、Steam Guard 与 Keychain 会话恢复已通过；`game/game.json` 的设备启动门禁已打开，用于首次真机验证，游戏运行尚未验证。具体版本、哈希和能力值以 `game/game.json` 与 `toolchain.lock.json` 为准。
 
 ## 已接入的路径
 

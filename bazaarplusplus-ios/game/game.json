@@ -32,9 +32,9 @@
         "reason": ""
       },
       "device": {
-        "launch": false,
-        "label": "设备适配中",
-        "reason": "可先登录 Steam 并下载。原生依赖已编入设备版；游戏启动仍需开发签名和真机验证。"
+        "launch": true,
+        "label": "真机验证中",
+        "reason": ""
       }
     }
   },
