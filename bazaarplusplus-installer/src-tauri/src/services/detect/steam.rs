@@ -61,6 +61,10 @@ fn parse_library_folders(vdf_content: &str, app_id: &str) -> Option<Vec<(String,
 }
 
 fn candidate_steam_paths() -> Vec<PathBuf> {
+    #[cfg_attr(
+        not(any(target_os = "macos", target_os = "windows")),
+        expect(unused_mut, reason = "only macOS and Windows have Steam paths")
+    )]
     let mut candidates = Vec::new();
 
     #[cfg(target_os = "macos")]

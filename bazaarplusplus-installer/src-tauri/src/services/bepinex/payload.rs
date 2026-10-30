@@ -504,10 +504,12 @@ pub(super) fn reset_bepinex_directory(game_path: &Path) -> RemovalReport {
 mod tests {
     use crate::config::{BAZAAR_DATA_DIRECTORY, DATABASE_FILE_NAME};
 
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    use super::prepare_install_target;
     use super::{
-        cleanup_bpp_data_directory, ensure_valid_game_path, prepare_install_target,
-        preserve_file_if_exists, remove_bootstrap_files, restore_preserved_file, uninstall_payload,
-        PreservedFile, BPP_CONFIG_RELATIVE_PATH,
+        cleanup_bpp_data_directory, ensure_valid_game_path, preserve_file_if_exists,
+        remove_bootstrap_files, restore_preserved_file, uninstall_payload, PreservedFile,
+        BPP_CONFIG_RELATIVE_PATH,
     };
 
     #[test]
@@ -519,6 +521,8 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // The fixture lays out a macOS or Windows game root only.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[test]
     fn test_prepare_install_target_removes_only_stale_bpp_files() {
         let tmp = tempfile::tempdir().unwrap();
@@ -582,6 +586,8 @@ mod tests {
         }
     }
 
+    // The fixture lays out a macOS or Windows game root only.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[test]
     fn test_install_target_backup_restores_previous_payload_after_partial_install() {
         let tmp = tempfile::tempdir().unwrap();
@@ -626,6 +632,8 @@ mod tests {
         );
     }
 
+    // The fixture lays out a macOS or Windows game root only.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[test]
     fn test_prepare_install_target_preserves_bpp_data_directory() {
         let tmp = tempfile::tempdir().unwrap();
@@ -979,6 +987,9 @@ mod tests {
     #[test]
     fn test_cleanup_bpp_data_directory_reports_locked_files_without_aborting_siblings() {
         use std::os::unix::fs::PermissionsExt;
+        if crate::test_support::permission_bits_are_bypassed() {
+            return;
+        }
 
         let tmp = tempfile::tempdir().unwrap();
         let data_dir = tmp.path().join(BAZAAR_DATA_DIRECTORY);
