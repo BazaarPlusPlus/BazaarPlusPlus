@@ -230,7 +230,11 @@ internal static class TouchCardText
     // The game's lock-mode preview card: the item at its tier with this enchantment applied,
     // which carries the enchantment's attributes and lets its ability tokens resolve. A static
     // catalog preview reads no run, as on Android.
-    private static string? RenderEffect(CardTooltipData tooltipData, EEnchantmentType type)
+    internal static string? RenderEffect(
+        CardTooltipData tooltipData,
+        EEnchantmentType type,
+        ETier? tier = null
+    )
     {
         var card = tooltipData.CardInstance;
         var template = tooltipData.CardTemplate;
@@ -247,10 +251,11 @@ internal static class TouchCardText
         if (TheBazaar.CardExtensions.CreateCopy(card) is not ItemCard preview)
             return null;
         preview.Template ??= template;
+        preview.Tier = tier ?? card.Tier;
         var attributes = TheBazaar.CardExtensions.BuildAttributeDictionaryForTier(
             card,
             template,
-            card.Tier
+            preview.Tier
         );
         TheBazaar.CardExtensions.ApplyPreviewEnchantment(itemTemplate, preview, attributes, type);
         preview.Attributes = attributes;

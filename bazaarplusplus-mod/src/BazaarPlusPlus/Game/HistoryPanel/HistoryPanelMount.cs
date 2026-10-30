@@ -3,6 +3,7 @@ using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.OverlayPanels;
+using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -19,6 +20,7 @@ internal sealed class HistoryPanelMount : IBppMountable
     private readonly Func<BazaarDbLinkClient?> _accountLinkClient;
     private readonly Func<DesktopOverlayPanels?> _overlayHost;
     private IDisposable? _localeChangedSubscription;
+    private Touch.TouchHistoryPanel? _touchPanel;
 
     public HistoryPanelMount(
         Func<CombatReplayRuntime?> combatReplayRuntime,
@@ -55,33 +57,38 @@ internal sealed class HistoryPanelMount : IBppMountable
             return;
         }
 
-        var panel = host.AddComponent<HistoryPanel>();
-
         // CombatReplayRuntime accessor is not a path and is not on services.Paths — pass it
         // straight through to Factory. Paths are startup-stable strings.
-        panel.Configure(
-            HistoryPanelFactory.Create(
-                services.RunContext,
-                modApiSession,
-                () => combatReplayRuntime,
-                PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
-                PathConstants.CombatReplays(services.Paths.RequireDataRoot()),
-                PathConstants.CombatReplayVideos(services.Paths.RequireDataRoot()),
-                _accountLinkClient(),
-                () =>
-                    HistoryPanelDecisions.ResolveAccountLinkGate(
-                        services.Config.BazaarDbUploadEnabled.Value,
-                        services.GameBuild.Channel
-                    )
-            )
+        var dependencies = HistoryPanelFactory.Create(
+            services.RunContext,
+            modApiSession,
+            () => combatReplayRuntime,
+            PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
+            PathConstants.CombatReplays(services.Paths.RequireDataRoot()),
+            PathConstants.CombatReplayVideos(services.Paths.RequireDataRoot()),
+            _accountLinkClient(),
+            () =>
+                HistoryPanelDecisions.ResolveAccountLinkGate(
+                    services.Config.BazaarDbUploadEnabled.Value,
+                    services.GameBuild.Channel
+                )
         );
-        // Register with the host only once fully configured; an unconfigured panel (skip paths
-        // above) must stay invisible to overlay lifecycle routing.
-        panel.AttachToOverlayHost(overlayHost!);
-
         _localeChangedSubscription = services.EventBus.Subscribe<ChineseLocaleModeChanged>(_ =>
             HistoryPanel.RefreshLocalization()
         );
+        // A mobile platform (ADR-0024) draws the Android host's touch History in place of the
+        // desktop panel, over the same dependencies and panel id.
+        if (TouchPlatform.IsMobile)
+        {
+            _touchPanel = new Touch.TouchHistoryPanel(dependencies, overlayHost!);
+            return;
+        }
+
+        var panel = host.AddComponent<HistoryPanel>();
+        panel.Configure(dependencies);
+        // Register with the host only once fully configured; an unconfigured panel (skip paths
+        // above) must stay invisible to overlay lifecycle routing.
+        panel.AttachToOverlayHost(overlayHost!);
     }
 
     private static void LogMissingDependency(HistoryPanelMountDependency dependency)
@@ -97,6 +104,8 @@ internal sealed class HistoryPanelMount : IBppMountable
     {
         _localeChangedSubscription?.Dispose();
         _localeChangedSubscription = null;
+        _touchPanel?.Dispose();
+        _touchPanel = null;
 
         var panel = host.GetComponent<HistoryPanel>();
         if (panel != null)

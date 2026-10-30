@@ -32,7 +32,12 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     public static bool IsVisible => _instance?._state?.IsVisible == true;
 
-    internal static void OpenFromDockButton() => _instance?._overlayHandle?.RequestOpen();
+    internal static void OpenFromDockButton()
+    {
+        if (Touch.TouchLiveBuildHost.TryOpenFromDockButton())
+            return;
+        _instance?._overlayHandle?.RequestOpen();
+    }
 
     private void Awake()
     {
