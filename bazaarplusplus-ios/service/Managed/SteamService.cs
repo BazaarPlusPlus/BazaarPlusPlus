@@ -18,6 +18,7 @@ namespace BazaarPlusPlus.Ios.Service
         // savedAccount mirrors the Keychain entry so snapshots never touch the Keychain.
         static string savedAccount = "", errorCode = "", verification = "", qrUrl = "", deviceName = "iOS";
         static double progress;
+        static long downloadedBytes, totalBytes, bytesPerSecond;
         static JObject profile = new JObject();
         static GameDefinition definition = null!;
         static bool launched;
@@ -49,12 +50,13 @@ namespace BazaarPlusPlus.Ios.Service
 
         }
         internal static uint AppId => (uint)profile["steam"]!["appId"]!;
-        internal static void Set(string next, string text, double fraction = 0)
+        internal static void Set(string next, string text, double fraction = 0, long done = 0, long total = 0, long speed = 0)
         {
             lock (gate)
             {
                 if (operation.Value != 0 && operation.Value != generation) return;
                 state = next; message = text; progress = fraction;
+                downloadedBytes = done; totalBytes = total; bytesPerSecond = speed;
                 if (next != "error") errorCode = "";
                 if (next != "code") verification = "";
                 if (next != "qr") qrUrl = "";
@@ -64,7 +66,7 @@ namespace BazaarPlusPlus.Ios.Service
         public static string Snapshot()
         {
             lock (gate) return JsonConvert.SerializeObject(new {
-                state, message, progress, busy, launched, loggedIn = session?.LoggedIn ?? false,
+                state, message, progress, downloadedBytes, totalBytes, bytesPerSecond, busy, launched, loggedIn = session?.LoggedIn ?? false,
                 account = session?.LoggedIn == true ? session.Account : "", savedAccount, errorCode, verification, qrUrl,
                 runtimeRoot = GameDefinition.RuntimeRoot(root, profile),
                 canLaunch = definition.CanLaunch, platform = definition.Platform,

@@ -269,6 +269,7 @@ struct ActivityBar: View {
                     if s.state == "downloading" { Text("\(Int(s.progress * 100))%").font(.footnote.monospacedDigit()).foregroundColor(Theme.secondary) }
                 }
                 if s.state == "downloading" { ProgressView(value: s.progress).tint(Theme.brand) } else { ProgressView().progressViewStyle(.linear).tint(Theme.brand) }
+                if let detail = model.downloadDetail { Text(detail).font(.caption.monospacedDigit()).foregroundColor(Theme.secondary).lineLimit(1) }
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.regularMaterial))
@@ -461,6 +462,7 @@ struct ActionPanel: View {
                         if let progress { Text("\(Int(progress * 100))%").font(.subheadline.monospacedDigit().weight(.bold)) }
                     }
                     if let progress { ProgressView(value: progress).tint(accent) }
+                    if let detail = model.downloadDetail { Text(detail).font(.footnote.monospacedDigit()).foregroundColor(Theme.secondary).lineLimit(1) }
                     Button(role: .destructive) { model.cancel() } label: { Text(model.isSigningIn ? "取消登录" : "停止并断开 Steam").font(.footnote.weight(.semibold)) }
                         .accessibilityIdentifier("cancel-operation")
                 }

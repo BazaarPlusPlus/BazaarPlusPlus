@@ -48,6 +48,9 @@ struct ServiceSnapshot: Decodable, Equatable {
     var state = "starting"
     var message = "正在初始化…"
     var progress = 0.0
+    var downloadedBytes: Int64 = 0
+    var totalBytes: Int64 = 0
+    var bytesPerSecond: Int64 = 0
     var busy = false
     var launched = false
     var loggedIn = false
@@ -65,6 +68,9 @@ struct ServiceSnapshot: Decodable, Equatable {
         state = try c.decodeIfPresent(String.self, forKey: .state) ?? "error"
         message = try c.decodeIfPresent(String.self, forKey: .message) ?? ""
         progress = try c.decodeIfPresent(Double.self, forKey: .progress) ?? 0
+        downloadedBytes = try c.decodeIfPresent(Int64.self, forKey: .downloadedBytes) ?? 0
+        totalBytes = try c.decodeIfPresent(Int64.self, forKey: .totalBytes) ?? 0
+        bytesPerSecond = try c.decodeIfPresent(Int64.self, forKey: .bytesPerSecond) ?? 0
         busy = try c.decodeIfPresent(Bool.self, forKey: .busy) ?? false
         launched = try c.decodeIfPresent(Bool.self, forKey: .launched) ?? false
         loggedIn = try c.decodeIfPresent(Bool.self, forKey: .loggedIn) ?? false
@@ -78,7 +84,7 @@ struct ServiceSnapshot: Decodable, Equatable {
         game = try c.decodeIfPresent(Game.self, forKey: .game)
     }
     enum CodingKeys: String, CodingKey {
-        case state, message, progress, busy, launched, loggedIn, canLaunch, platform, account, savedAccount, errorCode, verification, qrUrl, game
+        case state, message, progress, downloadedBytes, totalBytes, bytesPerSecond, busy, launched, loggedIn, canLaunch, platform, account, savedAccount, errorCode, verification, qrUrl, game
     }
 }
 
@@ -102,6 +108,7 @@ final class LauncherModel: ObservableObject {
     /// Display name from Info.plist; the one place the product name lives.
     let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "BazaarPlusPlus"
     private var started = false
+    private var keepAwake = false
     private static let onboardingKey = "launcher.onboarding"
     let artwork = ArtworkStore()
     private let send: (NSDictionary) -> Void
@@ -128,6 +135,9 @@ final class LauncherModel: ObservableObject {
         guard let data = try? JSONSerialization.data(withJSONObject: raw),
               let next = try? JSONDecoder().decode(ServiceSnapshot.self, from: data) else { return }
         if next != snapshot { snapshot = next }
+        // Downloads run for minutes; iOS suspends the network when the screen locks.
+        let awake = next.busy && !isSigningIn
+        if awake != keepAwake { keepAwake = awake; UIApplication.shared.isIdleTimerDisabled = awake }
         if !started {
             started = true
             // A remembered account signs itself back in; only brand-new players see the intro.
@@ -220,6 +230,26 @@ final class LauncherModel: ObservableObject {
         }
         return game.downloaded ? .prepare : .download
     }
+
+    /// "1.2 GB / 4.5 GB · 12 MB/s · 5分钟", or nil before the first byte count arrives.
+    var downloadDetail: String? {
+        let s = snapshot
+        guard s.state == "downloading", s.totalBytes > 0 else { return nil }
+        var parts = ["\(Self.bytes.string(fromByteCount: s.downloadedBytes)) / \(Self.bytes.string(fromByteCount: s.totalBytes))"]
+        if s.bytesPerSecond > 0 {
+            parts.append(Self.bytes.string(fromByteCount: s.bytesPerSecond) + "/s")
+            let left = Double(s.totalBytes - s.downloadedBytes) / Double(s.bytesPerSecond)
+            if let eta = Self.duration.string(from: max(left, 1)) { parts.append(eta) }
+        }
+        return parts.joined(separator: " · ")
+    }
+    private static let bytes: ByteCountFormatter = {
+        let f = ByteCountFormatter(); f.countStyle = .file; f.allowsNonnumericFormatting = false; return f
+    }()
+    private static let duration: DateComponentsFormatter = {
+        let f = DateComponentsFormatter(); f.allowedUnits = [.hour, .minute, .second]
+        f.unitsStyle = .abbreviated; f.maximumUnitCount = 2; return f
+    }()
 
     /// One-line install state used on cards.
     func installLabel(_ game: ServiceSnapshot.Game) -> String {
