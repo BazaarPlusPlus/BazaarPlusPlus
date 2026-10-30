@@ -21,6 +21,17 @@
 			<key>sourceTree</key>
 			<string>BUILT_PRODUCTS_DIR</string>
 		</dict>
+		<key>03BB1577514CC7151CA8B40D</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>folder.assetcatalog</string>
+			<key>path</key>
+			<string>../build/app-icon/Assets.xcassets</string>
+			<key>sourceTree</key>
+			<string>SOURCE_ROOT</string>
+		</dict>
 		<key>0B9876461F26768646C10055</key>
 		<dict>
 			<key>attributes</key>
@@ -78,7 +89,7 @@
 			<integer>2147483647</integer>
 			<key>files</key>
 			<array>
-				<string>705CEC317E675D613E1878DD</string>
+				<string>59F0F7DCB691617467F733B2</string>
 			</array>
 			<key>isa</key>
 			<string>PBXResourcesBuildPhase</string>
@@ -141,6 +152,13 @@
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<integer>0</integer>
 		</dict>
+		<key>59F0F7DCB691617467F733B2</key>
+		<dict>
+			<key>fileRef</key>
+			<string>03BB1577514CC7151CA8B40D</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+		</dict>
 		<key>5B913AA6A6F1E5297B297240</key>
 		<dict>
 			<key>buildConfigurationList</key>
@@ -199,13 +217,6 @@
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
-		<key>705CEC317E675D613E1878DD</key>
-		<dict>
-			<key>fileRef</key>
-			<string>CE44947B1DABB6419CE3540D</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
 		<key>7905AC1F4064472642E3D4D9</key>
 		<dict>
 			<key>buildSettings</key>
@@ -262,17 +273,6 @@
 			<string>sourcecode.swift</string>
 			<key>path</key>
 			<string>Artwork/Artwork.swift</string>
-			<key>sourceTree</key>
-			<string>SOURCE_ROOT</string>
-		</dict>
-		<key>CE44947B1DABB6419CE3540D</key>
-		<dict>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>folder.iconcomposer.icon</string>
-			<key>path</key>
-			<string>../../bazaarplusplus-installer/src-tauri/icons/source/AppIcon.icon</string>
 			<key>sourceTree</key>
 			<string>SOURCE_ROOT</string>
 		</dict>
@@ -399,7 +399,7 @@
 				<string>62D9CBC7F6FB0954F254701B</string>
 				<string>F5A88F73950FB3969A9DAD8B</string>
 				<string>35000C08F06D638432CD23FB</string>
-				<string>CE44947B1DABB6419CE3540D</string>
+				<string>03BB1577514CC7151CA8B40D</string>
 				<string>8BC3B94E90713C3337684895</string>
 				<string>E59E532974752CDEAB048F68</string>
 				<string>654A91872D9173148450D813</string>

@@ -30,3 +30,7 @@ test:
 # Zip the signed device build into a sideloadable IPA under build/.
 ipa:
     python3 tools/package-ipa.py
+
+# Build, sign and upload the device App to TestFlight; the build number must exceed every earlier upload of this version.
+testflight build:
+    python3 tools/testflight.py "$1"
