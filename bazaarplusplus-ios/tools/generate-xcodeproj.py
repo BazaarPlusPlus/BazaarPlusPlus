@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PRODUCT = 'BazaarPlusPlus'
 # The keychain service and the simulator access group derive from this id; changing it
 # starts a new App sandbox and keychain, so saved logins and downloaded games stay behind.
-BUNDLE_ID = 'com.bazaarplusplus.monogo'
+BUNDLE_ID = 'com.bazaarplusplus.ios'
 
 
 def generate():
