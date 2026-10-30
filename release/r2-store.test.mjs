@@ -22,10 +22,12 @@ import {
 //   the account id is not 32 hex characters   -> "CLOUDFLARE_ACCOUNT_ID must be"
 //   the bucket name is not a valid R2 bucket  -> "Invalid R2 bucket"
 // and on the first request when:
-//   /user/tokens/verify is not 2xx or success -> "Cloudflare rejected ... HTTP"
+//   /accounts/{account}/tokens/verify is not 2xx or success
+//                                             -> "Cloudflare rejected ... HTTP"
 //   the verify result has no 32-hex token id  -> "returned no token id"
 //   the token is not active                   -> "not active"
-// A verified id is reused for the process; a failed verification is not.
+// A verified id is reused for the process and account; a failed verification
+// is not.
 
 const credentials = {
   accountId: 'a'.repeat(32),
@@ -43,9 +45,7 @@ const uniqueToken = () => `token-${crypto.randomUUID()}`;
 test('the S3 pair is the verified token id and the SHA-256 of the token value', async () => {
   const token = uniqueToken();
   const id = 'b'.repeat(32);
-  const fetchImpl = vi
-    .fn()
-    .mockResolvedValue(verifyResponse({ id, status: 'active' }));
+  const fetchImpl = vi.fn(async () => verifyResponse({ id, status: 'active' }));
   const derived = await credentialsFromApiToken({
     token: ` ${token} `,
     accountId: 'A'.repeat(32),
@@ -57,7 +57,9 @@ test('the S3 pair is the verified token id and the SHA-256 of the token value', 
     secretAccessKey: sha256(token)
   });
   const [url, request] = fetchImpl.mock.calls[0];
-  expect(url).toBe(`${CLOUDFLARE_API}/user/tokens/verify`);
+  expect(url).toBe(
+    `${CLOUDFLARE_API}/accounts/${'a'.repeat(32)}/tokens/verify`
+  );
   expect(request.headers.authorization).toBe(`Bearer ${token}`);
   expect(request.redirect).toBe('error');
   // The id is cached per process: a second derivation makes no request.
@@ -67,6 +69,17 @@ test('the S3 pair is the verified token id and the SHA-256 of the token value', 
     fetchImpl
   });
   expect(fetchImpl).toHaveBeenCalledTimes(1);
+  // An Account API Token belongs to one account, so another account verifies
+  // the same token again.
+  await credentialsFromApiToken({
+    token,
+    accountId: 'b'.repeat(32),
+    fetchImpl
+  });
+  expect(fetchImpl).toHaveBeenCalledTimes(2);
+  expect(fetchImpl.mock.calls[1][0]).toBe(
+    `${CLOUDFLARE_API}/accounts/${'b'.repeat(32)}/tokens/verify`
+  );
 });
 
 test('a token-backed store signs requests with the derived pair after one verify call', async () => {
@@ -140,7 +153,7 @@ test('a rejected, malformed or inactive verification fails the request and is re
   const cases = [
     [
       verifyResponse(null, { status: 401, success: false }),
-      /Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP 401/
+      /Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP 401; it must be an Account API Token/
     ],
     [new Response('not json', { status: 500 }), /HTTP 500/],
     [verifyResponse({ status: 'active' }), /returned no token id/],
