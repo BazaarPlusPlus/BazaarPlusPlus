@@ -13,7 +13,11 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.Ui;
 
-/// <summary>Touch actions for the currently displayed native tooltip; owns no rented cards.</summary>
+/// <summary>
+/// Touch actions for the currently displayed native tooltip, in its description scroll: the
+/// upgrade preview switch, and the enchantment switch for an item whose main text lists no
+/// enchantments (<see cref="AndroidEnchantPreview.InlineCandidates"/>). Owns no rented cards.
+/// </summary>
 internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDisposable
 {
     private CardTooltipController? _controller;
@@ -64,7 +68,12 @@ internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDi
         }
         _controller = controller;
         _tooltip = tooltip;
-        _candidates = AndroidEnchantPreview.Candidates(tooltip);
+        // The main text lists the enchantments under [EnchantPreview] Mode; only a tooltip whose
+        // main text lists none offers them here, behind the switch.
+        _candidates =
+            AndroidEnchantPreview.InlineCandidates(tooltip).Count > 0
+                ? Array.Empty<EEnchantmentType>()
+                : AndroidEnchantPreview.Candidates(tooltip);
         _dirty = true;
     }
 

@@ -27,6 +27,7 @@ public sealed class AndroidSettingsDockTests
                 "DetailedPreview",
                 "BazaarDbUpload",
                 "CombatStatusBar",
+                "EnchantPreview",
                 "GameHistory",
                 "UpgradePreview",
                 "GameUpdate",
@@ -39,6 +40,7 @@ public sealed class AndroidSettingsDockTests
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Toggle,
+                BppSettingsControlKind.Choice,
                 BppSettingsControlKind.Action,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Action,
@@ -77,6 +79,26 @@ public sealed class AndroidSettingsDockTests
         Assert.False(dock.Shared.EnableDetailedPreviewConfig.Value);
         row.WriteToggle(true);
         Assert.True(dock.Shared.EnableDetailedPreviewConfig.Value);
+    }
+
+    [Fact]
+    public void Enchant_preview_offers_every_desktop_mode_and_writes_the_shared_setting()
+    {
+        var dock = new Dock();
+        var row = dock.Row("EnchantPreview");
+
+        var state = row.ResolveChoiceState!("en");
+        Assert.Equal(new[] { "OFF", "AUTO", "ON" }, state.Options);
+        Assert.Equal(2, state.SelectedIndex);
+
+        row.SelectStandardChoice!(1);
+
+        Assert.Equal(
+            PreviewVisibilityMode.AutoOnPedestalChoice,
+            dock.Shared.EnchantPreviewModeConfig.Value
+        );
+        Assert.Equal(1, row.ResolveChoiceState("en").SelectedIndex);
+        Assert.Equal(new[] { "refresh_previews" }, dock.Calls);
     }
 
     [Fact]
@@ -206,7 +228,8 @@ public sealed class AndroidSettingsDockTests
                     () => HistoryAvailable,
                     () => Calls.Add("open_history"),
                     () => GameUpdateStatus,
-                    () => Calls.Add("open_game_update")
+                    () => Calls.Add("open_game_update"),
+                    () => Calls.Add("refresh_previews")
                 )
             );
             Rows = registry
