@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Net;
 using System.Linq;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,6 +38,49 @@ namespace BazaarPlusPlus.Ios.Service
         }
     }
     internal sealed class NoHttpsContentServerException : IOException { }
+    public static class PartialFile
+    {
+        // Chunks a cancelled or killed download already wrote pass their checksum and are kept.
+        public static List<DepotManifest.ChunkData> Missing(Stream partial, IEnumerable<DepotManifest.ChunkData> chunks)
+        {
+            var missing = new List<DepotManifest.ChunkData>();
+            var data = Array.Empty<byte>();
+            foreach (var chunk in chunks.OrderBy(c => c.Offset))
+            {
+                // Chunks share one size except the tail; reuse the buffer rather than feed the deferred collector.
+                if (data.Length != chunk.UncompressedLength) data = new byte[chunk.UncompressedLength];
+                partial.Position = checked((long)chunk.Offset);
+                int read = 0, count;
+                while (read < data.Length && (count = partial.Read(data, read, data.Length - read)) > 0) read += count;
+                if (read != data.Length || !CryptoHelper.AdlerHash(data).SequenceEqual(chunk.Checksum!)) missing.Add(chunk);
+            }
+            return missing;
+        }
+    }
+    sealed class DownloadProgress
+    {
+        readonly long total;
+        readonly object gate = new object();
+        long done, received, lastReceived, lastTicks = DateTime.UtcNow.Ticks;
+        double speed;
+        public DownloadProgress(long total) { this.total = total; }
+        public void Verified(long bytes) => Add(bytes, 0);
+        public void Downloaded(long bytes) => Add(bytes, bytes);
+        void Add(long bytes, long network)
+        {
+            lock (gate)
+            {
+                done += bytes; received += network;
+                long now = DateTime.UtcNow.Ticks;
+                double seconds = (double)(now - lastTicks) / TimeSpan.TicksPerSecond;
+                if (seconds < 1) return;
+                double sample = (received - lastReceived) / seconds;
+                speed = speed == 0 ? sample : speed * 0.7 + sample * 0.3;
+                lastReceived = received; lastTicks = now;
+                SteamService.Set("downloading", received > 0 ? "正在下载" : "正在校验本地文件", total > 0 ? (double)done / total : 0, done, total, (long)speed);
+            }
+        }
+    }
     internal static class Downloader
     {
         static readonly object collectionGate = new object();
@@ -71,6 +116,8 @@ namespace BazaarPlusPlus.Ios.Service
             }
             if (servers.Length == 0) servers = await ContentServers.LoadWeb(client, app, cancellation);
             if (servers.Length == 0) throw new NoHttpsContentServerException();
+            // Mono's ServicePointManager allows two connections per host unless told otherwise.
+            ServicePointManager.DefaultConnectionLimit = Math.Max(ServicePointManager.DefaultConnectionLimit, 32);
             using (var cdn = new Client(client))
             {
                 foreach (var id in (JArray)profile["steam"]!["macDepots"]!)
@@ -92,13 +139,17 @@ namespace BazaarPlusPlus.Ios.Service
                     }
                     if (manifest == null) throw new InvalidDataException("Missing depot manifest");
                     if (manifest.FilenamesEncrypted || manifest.Files == null || manifest.DepotID != depot) throw new InvalidDataException("Invalid depot manifest");
-                    long done = 0, total = checked((long)manifest.TotalUncompressedSize), lastUpdate = 0;
-                    SteamService.Set("downloading", "正在校验本地文件并下载缺失内容");
-                    using (var limit = new SemaphoreSlim(4))
+                    long total = checked((long)manifest.TotalUncompressedSize);
+                    var progress = new DownloadProgress(total);
+                    int resumed = 0;
+                    var pool = new ContentServerPool(servers);
+                    SteamService.Set("downloading", "正在校验本地文件");
+                    using (var files = new SemaphoreSlim(4))
+                    using (var transfers = new SemaphoreSlim(16))
                     {
                         var tasks = manifest.Files.Select(async file =>
                         {
-                            await limit.WaitAsync(cancellation);
+                            await files.WaitAsync(cancellation);
                             try
                             {
                                 string path = DownloadPaths.Resolve(destination, file.FileName);
@@ -106,41 +157,56 @@ namespace BazaarPlusPlus.Ios.Service
                                 if (!string.IsNullOrEmpty(file.LinkTarget)) throw new InvalidDataException("Depot symlinks are not supported");
                                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                                 if (File.Exists(path) && new FileInfo(path).Length == (long)file.TotalSize && HashMatches(path, file.FileHash))
-                                { Interlocked.Add(ref done, (long)file.TotalSize); return; }
+                                { progress.Verified((long)file.TotalSize); return; }
+                                foreach (var chunk in file.Chunks)
+                                    if (chunk.UncompressedLength > 16 * 1024 * 1024 || chunk.CompressedLength > 32 * 1024 * 1024 ||
+                                        chunk.Offset + chunk.UncompressedLength > file.TotalSize) throw new InvalidDataException("Invalid chunk bounds");
                                 string partial = DownloadPaths.Resolve(destination, file.FileName + ".download");
-                                using (var output = new FileStream(partial, FileMode.Create, FileAccess.Write, FileShare.None))
+                                using (var output = new FileStream(partial, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
                                 {
-                                    output.SetLength(checked((long)file.TotalSize));
-                                    foreach (var chunk in file.Chunks.OrderBy(c => c.Offset))
+                                    var missing = file.Chunks.ToList();
+                                    if (output.Length == (long)file.TotalSize)
                                     {
-                                        cancellation.ThrowIfCancellationRequested();
-                                        if (chunk.UncompressedLength > 16 * 1024 * 1024 || chunk.CompressedLength > 32 * 1024 * 1024 ||
-                                            chunk.Offset + chunk.UncompressedLength > file.TotalSize) throw new InvalidDataException("Invalid chunk bounds");
-                                        DepotChunk? downloaded = null;
-                                        for (int attempt = 0; attempt < 4; ++attempt)
-                                        {
-                                            try { downloaded = await cdn.DownloadDepotChunkAsync(depot, chunk, servers[attempt % servers.Length]); break; }
-                                            catch when (attempt < 3) { await Task.Delay(500 * (attempt + 1), cancellation); }
-                                        }
-                                        byte[] data = Decode(downloaded!, key.DepotKey);
-                                        output.Position = checked((long)chunk.Offset); await output.WriteAsync(data, 0, data.Length, cancellation);
-                                        int decodedLength = data.Length;
-                                        data = null!; downloaded = null;
-                                        CollectDownloadBuffers();
-                                        long current = Interlocked.Add(ref done, decodedLength);
-                                        long now = DateTime.UtcNow.Ticks;
-                                        if (now - Interlocked.Read(ref lastUpdate) > TimeSpan.TicksPerSecond && Interlocked.Exchange(ref lastUpdate, now) != now)
-                                            SteamService.Set("downloading", $"正在下载并校验：{current / 1048576} / {total / 1048576} MB", total > 0 ? (double)current / total : 0);
+                                        missing = PartialFile.Missing(output, file.Chunks);
+                                        long kept = (long)file.TotalSize - missing.Sum(c => (long)c.UncompressedLength);
+                                        if (kept > 0) { progress.Verified(kept); Interlocked.Increment(ref resumed); }
                                     }
+                                    else output.SetLength(checked((long)file.TotalSize));
+                                    await Task.WhenAll(missing.Select(async chunk =>
+                                    {
+                                        await transfers.WaitAsync(cancellation);
+                                        try
+                                        {
+                                            DepotChunk? downloaded = null;
+                                            for (int attempt = 0; attempt < 4; ++attempt)
+                                            {
+                                                int node = pool.Rent(); var clock = Stopwatch.StartNew();
+                                                try
+                                                {
+                                                    downloaded = await cdn.DownloadDepotChunkAsync(depot, chunk, pool[node]);
+                                                    pool.Served(node, clock.Elapsed, chunk.CompressedLength); break;
+                                                }
+                                                catch when (Fail(pool, node) && attempt < 3) { await Task.Delay(500 * (attempt + 1), cancellation); }
+                                            }
+                                            byte[] data = Decode(downloaded!, key.DepotKey);
+                                            lock (output) { output.Position = checked((long)chunk.Offset); output.Write(data, 0, data.Length); }
+                                            progress.Downloaded(data.Length);
+                                            data = null!; downloaded = null;
+                                            CollectDownloadBuffers();
+                                        }
+                                        finally { transfers.Release(); }
+                                    }));
                                 }
-                                if (!HashMatches(partial, file.FileHash)) throw new InvalidDataException("Downloaded file hash mismatch");
+                                if (!HashMatches(partial, file.FileHash))
+                                { File.Delete(partial); throw new InvalidDataException("Downloaded file hash mismatch"); }
                                 if (File.Exists(path)) File.Delete(path);
                                 File.Move(partial, path);
                             }
-                            finally { limit.Release(); }
+                            finally { files.Release(); }
                         }).ToArray();
                         await Task.WhenAll(tasks);
                     }
+                    Console.WriteLine($"STEAM_APP_DEPOT_RESUMED files={resumed}");
                     File.WriteAllText(Path.Combine(destination, "verified-" + depot + ".json"), new JObject {
                         ["appId"] = app, ["depotId"] = depot, ["manifestId"] = manifestId.ToString(),
                         ["bytes"] = total, ["files"] = manifest.Files.Count }.ToString());
@@ -148,6 +214,8 @@ namespace BazaarPlusPlus.Ios.Service
                 }
             }
         }
+        // Exception filter: every failed attempt counts against its node, including the last one that rethrows.
+        static bool Fail(ContentServerPool pool, int node) { pool.Failed(node); return true; }
         static bool HashMatches(string path, byte[] expected)
         {
             var digest = new byte[20];

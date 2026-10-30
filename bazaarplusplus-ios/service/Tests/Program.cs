@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Linq;
 using BazaarPlusPlus.Ios.Service;
 var root = Path.Combine(Path.GetTempPath(), "steam-path-test-" + Guid.NewGuid());
 Directory.CreateDirectory(root);
@@ -21,7 +22,25 @@ try {
         throw new Exception("TLS capability or CDN restrictions lost");
     restricted.allowed_app_ids.Add(1);
     if (ContentServers.Select(cdnDirectory, 1).Length != 3) throw new Exception("Owned app CDN rejected");
-    Console.WriteLine("PASS: optional TLS accepted; HTTP, unknown, proxy, regional and app restrictions enforced.");
+    var preferred = Node("preferred.example.com", "optional"); preferred.preferred_server = true; preferred.weighted_load = 90;
+    cdnDirectory.servers.Add(preferred);
+    if (ContentServers.Select(cdnDirectory, 1)[0].Host != "preferred.example.com") throw new Exception("Preferred CDN node not tried first");
+    Console.WriteLine("PASS: optional TLS accepted; HTTP, unknown, proxy, regional and app restrictions enforced; preferred nodes first.");
+
+    // Faster nodes take more of the chunks in flight; a failing node drops behind.
+    var pool = new ContentServerPool(new SteamKit2.CDN.Server[] { new System.Net.DnsEndPoint("fast", 443), new System.Net.DnsEndPoint("slow", 443) });
+    for (int i = 0; i < 5; ++i)
+    {
+        int a = pool.Rent(), b = pool.Rent();
+        pool.Served(a, TimeSpan.FromSeconds(a == 0 ? 0.1 : 2), 1 << 20); pool.Served(b, TimeSpan.FromSeconds(b == 0 ? 0.1 : 2), 1 << 20);
+    }
+    var rented = Enumerable.Range(0, 10).Select(_ => pool.Rent()).ToList();
+    if (rented.Count(n => n == 0) < 8 || !rented.Contains(1)) throw new Exception("CDN pool ignores measured speed or starves the slow node");
+    foreach (int node in rented) pool.Served(node, TimeSpan.FromSeconds(node == 0 ? 0.1 : 2), 1 << 20);
+    int failures = 0;
+    for (int node; (node = pool.Rent()) == 0 && failures < 4; ++failures) pool.Failed(node);
+    if (failures == 0 || failures > 3) throw new Exception("CDN pool drops a fast node on one failure or keeps a failing one first");
+    Console.WriteLine("PASS: CDN pool favours measured fast nodes, keeps slow ones in use and backs off failing ones.");
     if (AuthTickets.Crc(Encoding.ASCII.GetBytes("123456789")) != 0xcbf43926) throw new Exception("Ticket CRC does not match IEEE CRC32");
     if (DownloadPaths.Resolve(root,"game/Data/file") != Path.Combine(root,"game/Data/file")) throw new Exception("Nested path rejected");
     foreach(var bad in new[]{"../escape", "game/../../escape", "/absolute", "game/./file", "game//file", "game\\..\\file", "bad\0path"}) {
@@ -36,6 +55,18 @@ try {
     try { DownloadPaths.Resolve(root,"dangling"); throw new Exception("Accepted dangling symlink"); }
     catch(InvalidDataException) { }
     Console.WriteLine("PASS: manifest traversal, absolute paths and symlinks rejected; ticket CRC matches standard vector.");
+
+    // A resumed download keeps chunks whose checksum matches and refetches the rest.
+    var written = new byte[3000]; new Random(1).NextBytes(written);
+    SteamKit2.DepotManifest.ChunkData Chunk(int offset, int length) => new() {
+        Offset = (ulong)offset, UncompressedLength = (uint)length,
+        Checksum = SteamKit2.CryptoHelper.AdlerHash(written.AsSpan(offset, length).ToArray()) };
+    var partialChunks = new[] { Chunk(2000, 1000), Chunk(0, 1000), Chunk(1000, 1000) };
+    var interrupted = (byte[])written.Clone(); Array.Clear(interrupted, 1000, 1000);
+    var refetch = PartialFile.Missing(new MemoryStream(interrupted), partialChunks);
+    if (refetch.Count != 1 || refetch[0].Offset != 1000) throw new Exception("Resume kept a missing chunk or dropped a written one");
+    if (PartialFile.Missing(new MemoryStream(written, 0, 2500), partialChunks).Count != 1) throw new Exception("Resume kept a truncated chunk");
+    Console.WriteLine("PASS: resumed downloads keep written chunks and refetch missing or truncated ones.");
 
     // A relocated runtime must include the iOS player's resources, not only game assets.
     string assets = Path.Combine(root, "app");
