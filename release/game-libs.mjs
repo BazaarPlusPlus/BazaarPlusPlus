@@ -447,9 +447,8 @@ export function snapshotManifestKey(platform, channel, gameVersion) {
   return `game-libs/${lockKey(platform, channel)}-${gameVersion}.json`;
 }
 
-// The private store through a Cloudflare API token that can read (publish:
-// write) the bucket: the operator token locally and in release.yml, the
-// read-only BPP_GAME_LIBS_TOKEN in checks.yml.
+// The private store through CLOUDFLARE_API_TOKEN, which reads and writes the
+// bucket.
 export function gameLibsStoreFromEnvironment(env = process.env) {
   return r2StoreFromEnvironment(env, { bucket: GAME_LIBS_BUCKET });
 }

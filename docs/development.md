@@ -15,7 +15,7 @@ just doctor
 
 - 配置目录（默认 `~/.config/bazaarplusplus`）由同一台机器的所有 clone 共用，必须放在任何 checkout 之外。新机器要单独恢复这个私有目录，以及游戏、平台工具链和系统证书；Git clone 不带这些东西。
 - 只改 `config.ini`。server 的 `.dev.vars` 和 analyzer 的 `.env` 是它的受管理副本；改完配置运行 `just setup --skip-deps`，或者直接用会自动刷新副本的 `just server::dev`、`just analyzer::cli <command>`。直接跑 npm/uv 命令读到的是当前副本，不会刷新。
-- Cloudflare 只有两把 token，都必须是 Account API Token（`release/r2-store.mjs` 和 analyzer 的 `object_store.py` 只在 `/accounts/{account_id}/tokens/verify` 校验）。操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`，R2 读写所有桶，加 Wrangler 部署需要的权限）是唯一能写的凭据：本机发版、部署都用它，GitHub 上它是一个仓库级 secret，`release.yml`、`analyzer.yml` 和 `deploy-site.yml` 共用。CI 只读 token（仅读 `bazaarplusplus-game-libs`，`[cloudflare] BPP_GAME_LIBS_TOKEN`，GitHub 仓库 secret 和 Dependabot secret `BPP_GAME_LIBS_TOKEN`）单独存在，是因为 Dependabot PR 会在 CI 里执行依赖更新带进来的代码，那里只能拿到只读凭据。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.mjs` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
+- Cloudflare 只有一把 token：操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`），必须是 Account API Token（`release/r2-store.mjs` 和 analyzer 的 `object_store.py` 只在 `/accounts/{account_id}/tokens/verify` 校验），权限是 R2 读写所有桶，加 Wrangler 部署需要的权限。本机发版、部署都用它；GitHub 上它是一个仓库级 secret，`release.yml`、`checks.yml`、`analyzer.yml` 和 `deploy-site.yml` 共用，Dependabot 也注册同一份。Dependabot PR 会在 CI 里执行依赖更新带进来的代码，并能拿到这把可写 token；为了只维护一把 token，接受这个风险。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.mjs` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
 - GitHub secrets 和变量按 `release/github-secrets.json` 同步：`just secrets-check` 只列名字，`just secrets-sync` 把本地有值的项通过 `gh` 写上去（值走 stdin，不打印）；人工步骤只剩造 token 和导出证书，见[产品发布](release.md#github-actions-发版)。
 - `doctor` 只是清单：退出成功不代表远端权限、签名密码或服务可用。
 
@@ -82,7 +82,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 源码检查不替代实际运行和发布验收。Mod online 编译与测试不能验证 Unity/Mono 或设备加载；Android 检查仍须取得 Interop Snapshot 与 Loader Release。本地 `mod::check` 与 `mod::test` 不编译 Android Host，共享代码改动仍需另跑 Android 验证。正式发布在所选平台执行完整 Mod 验证，桌面还执行性能与 staging/ptr 检查，Installer 的发布构建执行完整原生验证；`dry_run` 仅准备 Payload。具体流程见 [产品发布](release.md)。运行时依赖升级仍要验证实际启动与受影响功能。
 
-游戏程序集快照只存在于私有存储，不进公开仓库或 Actions cache。Mod job 使用只读 token `BPP_GAME_LIBS_TOKEN` 和账号变量 `CLOUDFLARE_ACCOUNT_ID`；Dependabot 也要注册对应 secrets。被选中的仓库内 job 缺凭据会失败。fork PR 保留明确的跳过例外，汇总说明未验证游戏兼容性；合并前仍需本地验证证据，不能把跳过当作通过。
+游戏程序集快照只存在于私有存储，不进公开仓库或 Actions cache。Mod job 使用 `CLOUDFLARE_API_TOKEN` 和账号变量 `CLOUDFLARE_ACCOUNT_ID`；Dependabot 也要注册对应 secrets。被选中的仓库内 job 缺凭据会失败。fork PR 保留明确的跳过例外，汇总说明未验证游戏兼容性；合并前仍需本地验证证据，不能把跳过当作通过。
 
 配置静态检查不能证明机器人已经成功更新锁文件；首次启用及工具链升级后需查看 Dependabot 的实际更新日志，尤其是它的包管理器支持范围尚未覆盖仓库所用版本时。新的 CI 检查需在 GitHub 首轮成功后再设为必需检查。
 

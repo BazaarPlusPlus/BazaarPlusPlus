@@ -78,8 +78,7 @@ test('the template built from the real analyzer .env.example parses and lists ev
     'APPLE_CERTIFICATE_PASSWORD',
     'BPP_GAME_ROOT',
     'CLOUDFLARE_API_TOKEN',
-    'CLOUDFLARE_ACCOUNT_ID',
-    'BPP_GAME_LIBS_TOKEN'
+    'CLOUDFLARE_ACCOUNT_ID'
   ])
     assert.equal(text.match(new RegExp(`^${key}=$`, 'gm'))?.length, 1, key);
 });
@@ -256,7 +255,7 @@ test('scoped environment only injects its section allowlist; explicit environmen
     'config.ini',
     ini({
       cloudflare:
-        'CLOUDFLARE_ACCOUNT_ID=account\nCLOUDFLARE_API_TOKEN="$(touch never); `exit 1`"\nBPP_GAME_LIBS_TOKEN=read-only\nNODE_OPTIONS=--bad\n',
+        'CLOUDFLARE_ACCOUNT_ID=account\nCLOUDFLARE_API_TOKEN="$(touch never); `exit 1`"\nNODE_OPTIONS=--bad\n',
       machine: 'CLOUDFLARE_ACCOUNT_ID=wrong-section\n'
     })
   );
@@ -576,7 +575,7 @@ const secretsConfig = ini({
   signing:
     'APPLE_SIGNING_IDENTITY=Developer ID Application: X\nAPPLE_API_ISSUER=issuer-id\nAPPLE_API_KEY=K1\nAPPLE_CERTIFICATE_PASSWORD=\n',
   cloudflare:
-    'CLOUDFLARE_API_TOKEN=operator-token\nCLOUDFLARE_ACCOUNT_ID=cccccccccccccccccccccccccccccccc\nBPP_GAME_LIBS_TOKEN=\n'
+    'CLOUDFLARE_API_TOKEN=operator-token\nCLOUDFLARE_ACCOUNT_ID=cccccccccccccccccccccccccccccccc\n'
 });
 
 test('secrets check names what GitHub and the local configuration hold, never a value', (t) => {
@@ -592,7 +591,6 @@ test('secrets check names what GitHub and the local configuration hold, never a 
   assert.equal(
     result.stdout,
     `CLOUDFLARE_ACCOUNT_ID       repository variable           GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_ACCOUNT_ID)
-BPP_GAME_LIBS_TOKEN         repository secret             GitHub MISSING  local MISSING (config.ini [cloudflare] BPP_GAME_LIBS_TOKEN)
 CLOUDFLARE_API_TOKEN        repository secret             GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_API_TOKEN)
 BPP_BUNDLE_SYNC_TOKEN       analyzer environment secret   GitHub MISSING  local present (config.ini [server] BUNDLE_SYNC_TOKEN)
 TAURI_SIGNING_PRIVATE_KEY   release environment secret    GitHub MISSING  local present (contents of keys/tauri-updater.key)
@@ -605,7 +603,7 @@ APPLE_API_KEY               release environment variable  GitHub MISSING  local 
 APPLE_API_KEY_P8            release environment secret    GitHub MISSING  local present (contents of keys/AuthKey_<APPLE_API_KEY>.p8)
 APPLE_CERTIFICATE           release environment secret    GitHub MISSING  local MISSING (base64 of keys/developer-id.p12)
 APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.ini [signing] APPLE_CERTIFICATE_PASSWORD)
-14 managed names: 14 missing on GitHub, 6 missing locally.
+13 managed names: 13 missing on GitHub, 5 missing locally.
 Dependabot secrets were not listed; pass --dependabot to include them.
 `
   );
@@ -653,15 +651,11 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   );
   assert.match(
     result.stdout,
-    /^skipped repository secret BPP_GAME_LIBS_TOKEN: no local value \(config\.ini \[cloudflare\] BPP_GAME_LIBS_TOKEN\)$/m
-  );
-  assert.match(
-    result.stdout,
     /^skipped release environment secret APPLE_CERTIFICATE_PASSWORD: no local value/m
   );
   assert.match(
     result.stdout,
-    /^Set 12 GitHub names; 2 without a local value\.$/m
+    /^Set 12 GitHub names; 1 without a local value\.$/m
   );
   const sets = gh.calls().filter(({ args }) => args[1] === 'set');
   const byName = Object.fromEntries(
@@ -673,6 +667,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   assert.deepEqual(byName, {
     'variable:CLOUDFLARE_ACCOUNT_ID:': 'cccccccccccccccccccccccccccccccc',
     'secret:CLOUDFLARE_API_TOKEN:': 'operator-token',
+    'secret:CLOUDFLARE_API_TOKEN:--app dependabot': 'operator-token',
     'secret:BPP_BUNDLE_SYNC_TOKEN:--env analyzer': 'sync',
     'secret:TAURI_SIGNING_PRIVATE_KEY:--env release': 'UPDATER-KEY\n',
     'secret:ANDROID_KEYSTORE:--env release': Buffer.from([
@@ -689,26 +684,6 @@ test('secrets push copies each local value over stdin to its scope and skips abs
       0x30, 0x82, 0x00, 0xff
     ]).toString('base64')
   });
-  // The read-only token, once present, also reaches Dependabot with --dependabot.
-  f.put(
-    f.home,
-    'config.ini',
-    secretsConfig.replace(
-      'BPP_GAME_LIBS_TOKEN=\n',
-      'BPP_GAME_LIBS_TOKEN=read-only\n'
-    )
-  );
-  result = cli(f, ['secrets', 'push', '--dependabot'], env);
-  assert.equal(result.status, 1, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stdout + result.stderr, /read-only/);
-  const dependabot = gh
-    .calls()
-    .filter(({ args }) => args.includes('dependabot') && args[1] === 'set');
-  assert.deepEqual(
-    dependabot.map(({ args, stdin }) => [args.slice(0, 3).join(' '), stdin]),
-    [['secret set BPP_GAME_LIBS_TOKEN', 'read-only']]
-  );
-  assert.ok(gh.state()['secret:repository'].includes('BPP_GAME_LIBS_TOKEN'));
 });
 
 test('secrets refuses unknown arguments before calling gh', (t) => {
