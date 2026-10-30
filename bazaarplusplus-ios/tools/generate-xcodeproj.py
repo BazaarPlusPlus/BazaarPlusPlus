@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Generate the standalone launcher project using only Python's standard library."""
 import hashlib
+import json
+import subprocess
 from pathlib import Path
 import plistlib
 import xml.etree.ElementTree as ET
@@ -13,6 +15,17 @@ BUNDLE_ID = 'com.bazaarplusplus.ios'
 
 
 def generate():
+    catalog = ROOT / 'build/app-icon/Assets.xcassets'
+    icon = catalog / 'AppIcon.appiconset'
+    icon.mkdir(parents=True, exist_ok=True)
+    subprocess.run(['xcrun', 'swift', str(ROOT / 'tools/export-app-icon.swift'),
+                    str(ROOT.parent / 'bazaarplusplus-installer/src-tauri/icons/app-icon.png'),
+                    str(icon / 'AppIcon.png')], check=True)
+    info = {'author': 'xcode', 'version': 1}
+    (catalog / 'Contents.json').write_text(json.dumps({'info': info}) + '\n')
+    (icon / 'Contents.json').write_text(json.dumps({
+        'images': [{'filename': 'AppIcon.png', 'idiom': 'universal', 'platform': 'ios', 'size': '1024x1024'}],
+        'info': info}, indent=2) + '\n')
     objects = {}
 
     def add(identity, isa, **fields):
@@ -38,8 +51,8 @@ def generate():
     # main.mm loads the framework with NSBundle, so it is embedded, not linked.
     frameworks = add('frameworks', 'PBXFrameworksBuildPhase', buildActionMask=2147483647,
                      files=[], runOnlyForDeploymentPostprocessing=0)
-    # Icon Composer document; actool also derives the pre-iOS 26 PNG icons from it.
-    assets = file('../../bazaarplusplus-installer/src-tauri/icons/source/AppIcon.icon', 'folder.iconcomposer.icon')
+    # Compile the full-resolution master through the standard iOS icon catalog.
+    assets = file('../build/app-icon/Assets.xcassets', 'folder.assetcatalog')
     resources = add('resources', 'PBXResourcesBuildPhase', buildActionMask=2147483647,
                     files=[add('resource:' + assets, 'PBXBuildFile', fileRef=assets)],
                     runOnlyForDeploymentPostprocessing=0)
