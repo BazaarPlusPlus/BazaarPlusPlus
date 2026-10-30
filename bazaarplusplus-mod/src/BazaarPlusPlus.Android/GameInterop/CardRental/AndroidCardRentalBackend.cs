@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.CardRental;
 using Il2Cpp;
 using Il2CppBazaarGameShared.Domain.Cards;
 using Il2CppBazaarGameShared.Domain.Cards.Item;

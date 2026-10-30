@@ -1,7 +1,10 @@
-namespace BazaarPlusPlus.Android.Collection;
+namespace BazaarPlusPlus.Core.Ui;
 
-/// <summary>Readiness and interruptible timing; the view owns transforms and rental cleanup.</summary>
-internal sealed class InspectionTransition
+/// <summary>
+/// A touch inspection's open and close timing, shared by both hosts: readiness and interruptible
+/// easing. The view owns transforms and rental cleanup.
+/// </summary>
+public sealed class InspectionTransition
 {
     private float _elapsed;
     private float _exitFrom;

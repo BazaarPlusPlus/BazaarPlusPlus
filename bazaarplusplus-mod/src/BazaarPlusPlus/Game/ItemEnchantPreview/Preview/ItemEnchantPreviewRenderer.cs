@@ -56,7 +56,7 @@ public static class ItemEnchantPreviewRenderer
         return segments;
     }
 
-    private static string RenderTooltipText(ItemCard previewCard, TLocalizableText content)
+    internal static string RenderTooltipText(ItemCard previewCard, TLocalizableText content)
     {
         var enchantment = previewCard.Enchantment ?? EEnchantmentType.Heavy;
         var localized = GetLocalizedText(content, enchantment);

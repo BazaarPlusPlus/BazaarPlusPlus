@@ -1,6 +1,6 @@
 # Android Mobile UI
 
-How every BPP surface on the Android host fits a phone: the native-style panel shortcuts, Collection, History (with its Ghost section and replay entry), Ten-Win Builds, the rows BPP adds to the game's settings dialog, and the upgrade and enchant previews in the game's own tooltip. The host itself is [android-host.md](android-host.md); the reason for one shared frame is [ADR-0018](../adr/0018-android-touch-surfaces-share-one-frame.md).
+How every BPP surface on the Android host fits a phone: the native-style panel shortcuts, Collection, History (with its Ghost section and replay entry), Ten-Win Builds, the rows BPP adds to the game's settings dialog, and the upgrade and enchant previews in the game's own tooltip. The host itself is [android-host.md](android-host.md); the reason for one shared frame is [ADR-0018](../adr/0018-android-touch-surfaces-share-one-frame.md). The Mono host on iOS follows the same conventions for the surfaces it has ported ([ADR-0024](../adr/0024-mono-host-touch-surfaces-on-mobile.md)).
 
 ## The shared frame
 

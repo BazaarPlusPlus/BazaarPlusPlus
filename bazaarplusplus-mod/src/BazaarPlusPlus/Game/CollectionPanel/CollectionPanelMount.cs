@@ -1,10 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Game.CollectionPanel.Touch;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
+using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -76,6 +78,17 @@ internal sealed class CollectionPanelMount : IBppMountable
             return;
         }
 
+        if (TouchPlatform.IsMobile)
+        {
+            // ADR-0024: on a mobile platform Collection is the touch panel.
+            host.AddComponent<TouchCollectionHost>()
+                .Initialize(services, _cardMapProvider, _dayTierResolver, overlayHost);
+            _localeChangedSubscription = services.EventBus.Subscribe<ChineseLocaleModeChanged>(_ =>
+                TouchCollectionHost.NotifyLocaleChanged()
+            );
+            return;
+        }
+
         var panel = host.AddComponent<CollectionPanel>();
         panel.Initialize(
             services,
@@ -99,5 +112,8 @@ internal sealed class CollectionPanelMount : IBppMountable
         var panel = host.GetComponent<CollectionPanel>();
         if (panel != null)
             UnityEngine.Object.DestroyImmediate(panel);
+        var touch = host.GetComponent<TouchCollectionHost>();
+        if (touch != null)
+            UnityEngine.Object.DestroyImmediate(touch);
     }
 }

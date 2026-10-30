@@ -34,7 +34,7 @@ namespace BazaarPlusPlus.Android.Collection;
 internal sealed class AndroidCollectionPanel
 {
     private readonly AndroidCollectionCatalog _catalog;
-    private readonly AndroidCollectionGridPort _port = new();
+    private readonly TouchCollectionGridPort _port = new();
     private readonly EmbeddedCollectionSourceCatalog _sources = new(
         AndroidCardFacets.IsHeroAvailable
     );

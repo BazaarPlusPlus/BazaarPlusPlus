@@ -30,6 +30,7 @@ using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Game.VoiceSubtitles;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.GameInterop.CardPreview;
@@ -39,6 +40,7 @@ using BazaarPlusPlus.GameInterop.RunLifecycle;
 using BazaarPlusPlus.GameInterop.RunSnapshot;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.GameInterop.Tooltips;
+using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.GameInterop.VoiceSubtitles;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
@@ -214,9 +216,22 @@ internal sealed class MonoHostComposition : IDisposable
         _settingsDockRegistry.Register(CosmeticNamesSettingsDockEntry.Create());
         _settingsDockRegistry.Register(CombatStatusBarSettingsDockEntry.Create());
         _settingsDockRegistry.Register(new EndOfRunScreenshotSettingsDockEntry());
-        _settingsDockRegistry.Register(HistoryPanelHotkeyDockEntry.Create());
         _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
-        _settingsDockRegistry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
+        if (TouchPlatform.IsMobile)
+        {
+            // A touch screen has no keyboard: the History row drops its hotkey and a switch
+            // stands in for holding Shift, as on Android (ADR-0024).
+            TouchUpgradePreview.Bind(settingsStore);
+            _settingsDockRegistry.Register(
+                HistoryPanelHotkeyDockEntry.Create(resolveHotkeyDisplay: null)
+            );
+            _settingsDockRegistry.Register(TouchUpgradePreview.CreateDockEntry());
+        }
+        else
+        {
+            _settingsDockRegistry.Register(HistoryPanelHotkeyDockEntry.Create());
+            _settingsDockRegistry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
+        }
         _settingsDockRegistry.Register(
             DetailedPreviewSettingsDockEntry.Create(enabled =>
             {

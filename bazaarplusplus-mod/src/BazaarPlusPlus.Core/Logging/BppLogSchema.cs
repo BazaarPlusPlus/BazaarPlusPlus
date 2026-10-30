@@ -46,6 +46,7 @@ public sealed class BppLogFeatureScope
     public static BppLogFeatureScope GraphicsUpscaling { get; } =
         new("GraphicsUpscaling", "graphics_upscaling");
     public static BppLogFeatureScope Android { get; } = new("Android", "android");
+    public static BppLogFeatureScope Touch { get; } = new("Touch", "touch");
     public static BppLogFeatureScope SelfUpdate { get; } = new("SelfUpdate", "self_update");
 
     private static readonly BppLogFeatureScope[] DeclaredScopes =
@@ -78,6 +79,7 @@ public sealed class BppLogFeatureScope
         Supporters,
         GraphicsUpscaling,
         Android,
+        Touch,
         SelfUpdate,
     ];
 
