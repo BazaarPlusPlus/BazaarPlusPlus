@@ -18,6 +18,7 @@ The mod is gaining a second host: an Android build loaded by MelonLoader on Core
 
 - Move a file into Core only when Core still compiles without it reaching a game or Unity type. Fully qualified names and `BazaarGameShared` DTOs count. Adding a project reference to make it compile is the wrong fix.
 - Do not add an `InternalsVisibleTo` for a host. Make the member `public`, or keep it in the host.
+- A host compiles no linked BPP source, except the Mobile UI tree `src/BazaarPlusPlus.Mobile/` (ADR-0025).
 - Test projects that reference Core do not also Compile-Include Core sources. A public Core type and its linked copy conflict (CS0436).
 - Storage and ModApi multi-target the same way (ADR-0013). Not decided here: which features move into Core and when. Issue #367 tracks it.
 

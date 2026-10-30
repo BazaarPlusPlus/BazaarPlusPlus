@@ -18,4 +18,4 @@ ADR-0023 runs the desktop Mono host on iOS. The game's Mac build already carries
 ## Consequences
 
 - Every BPP surface on iOS uses the Android layout: Collection, History, Ten-Win Builds, the combat clock, the settings rows and the tooltip toggles. The saved-replay presentation repair needs no port: the Android files are the IL2CPP forms of the desktop's own repair.
-- A change to a touch layout in Core reaches both hosts; a change to the Android uGUI kit or an Android touch surface must be mirrored in the Mono port by hand, because the two kits bind different Unity type surfaces (IL2CPP proxies and Mono). The ported surfaces keep the Android file and member names with a `Touch` prefix so a diff between the two maps one to one.
+- A change to a touch layout in Core reaches both hosts. The hand mirroring this record first asked for, of the Android uGUI kit and touch surfaces into a `Touch`-prefixed Mono port, is replaced by one Mobile UI source tree compiled into both hosts (ADR-0025).
