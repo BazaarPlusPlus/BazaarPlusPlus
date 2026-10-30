@@ -18,8 +18,8 @@ namespace BazaarPlusPlus.Game.Touch;
 /// Touch actions for the native item tooltip on a mobile platform (ADR-0024), as the Android
 /// host's <c>AndroidGameplayPreviews</c>: an Upgrade preview toggle and an Enchantments toggle
 /// that lists each other enchantment's effect, drawn into the native description column so they
-/// scroll with it. They replace the desktop's Shift and Ctrl hotkeys and the enchant preview
-/// mode, which a touch screen cannot reach.
+/// scroll with it, when the main text lists none (<see cref="TouchEnchantPreview.InlineCandidates"/>).
+/// They replace the desktop's Shift and Ctrl hotkeys, which a touch screen cannot reach.
 /// </summary>
 internal sealed class TouchGameplayPreviews : MonoBehaviour
 {
@@ -88,7 +88,12 @@ internal sealed class TouchGameplayPreviews : MonoBehaviour
         _controller = controller;
         _tooltip = tooltip;
         _card = tooltip.CardInstance;
-        _candidates = TouchEnchantPreview.Candidates(tooltip);
+        // The main text lists the enchantments under [EnchantPreview] Mode; only a tooltip whose
+        // main text lists none offers them here, behind the toggle.
+        _candidates =
+            TouchEnchantPreview.InlineCandidates(tooltip).Count > 0
+                ? Array.Empty<EEnchantmentType>()
+                : TouchEnchantPreview.Candidates(tooltip);
         _dirty = true;
     }
 

@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Android.Patches;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Il2CppTheBazaar.UI;
@@ -7,42 +8,23 @@ using UnityEngine;
 namespace BazaarPlusPlus.Android.GameInterop;
 
 /// <summary>
-/// Lets the game fill a screen narrower than 16:10. <c>LetterBoxManager</c> clamps the target
-/// aspect ratio to <c>[_minResolution, _maxResolution]</c> (16:10 to 21:9) and crops everything
-/// outside it: the camera rects, the root canvases' children and two black bars. On a foldable's
-/// inner display (OPPO Find N6, 2480×2248, about 1.1:1) that crop drops a third of the height.
-/// Lowering the floor to 1:1 makes the game use the screen's own ratio for any landscape screen;
-/// the 21:9 ceiling stays. The game re-reads the floor only when the screen size changes, so the
-/// write also clears <c>_lastScreenSize</c> and the next <c>LetterBoxManager.Update</c> recomputes
-/// the crop and raises <c>ScreenSizeChanged</c> to every letterbox listener. Checked every frame,
-/// because the class's static initializer may run after the first write.
-/// The 3D cameras keep a fixed vertical field of view, so a narrower screen would cut the board's
-/// sides; <see cref="WidenFieldOfView"/> draws the board <see cref="BoardZoom"/> times nearer than
-/// 16:10 does, showing more above and below, and <see cref="AndroidScreenFillClock"/> moves the day
-/// clock the trimmed sides held. Enabled mode only; main thread only.
+/// Screen Fill on the Android host: Core's <see cref="ScreenFill"/> decides, this reads and
+/// writes the game. <c>LetterBoxManager</c> clamps the target aspect ratio to
+/// <c>[_minResolution, _maxResolution]</c> (16:10 to 21:9) and crops everything outside it: the
+/// camera rects, the root canvases' children and two black bars. On a foldable's inner display
+/// (OPPO Find N6, 2480×2248, about 1.1:1) that crop drops a third of the height. Lowering the
+/// floor to 1:1 makes the game use the screen's own ratio for any landscape screen; the 21:9
+/// ceiling stays. The game re-reads the floor only when the screen size changes, so the write also
+/// clears <c>_lastScreenSize</c> and the next <c>LetterBoxManager.Update</c> recomputes the crop
+/// and raises <c>ScreenSizeChanged</c> to every letterbox listener. Checked every frame, because
+/// the class's static initializer may run after the first write. After each camera update the
+/// board is drawn nearer (<see cref="ScreenFill.WidenedFieldOfView"/>), lowered, and
+/// <see cref="AndroidScreenFillClock"/> moves the day clock the trimmed sides held. Enabled mode
+/// only; main thread only.
 /// </summary>
 internal static class AndroidScreenFill
 {
-    // The game's own floor: every layout was made for 16:10 or wider.
-    public const float ReferenceAspect = 16f / 10f;
-    private static readonly Vector2Int Floor = new(1, 1);
-
-    // How much nearer than the 16:10 view the board is drawn. 16:10 frames the board with a band
-    // of scenery on each side, about a quarter of its width; this trims most of it, leaving a
-    // margin, and still shows the board's full height on a nearly square screen.
-    private const float BoardZoom = 1.3f;
-
-    // The least the vertical view grows when the HUD gathers above the board: the board fills
-    // about 97% of the game's own view, and this leaves about an eighth of the screen above it
-    // for the band. Near 4:3 it sets the zoom rather than BoardZoom does.
-    private const float MinStretch = 1.12f;
-
-    // How much larger the band must draw the board than the 16:10 framing for the band to be
-    // worth it.
-    private const float BandGain = 1.05f;
-
-    // Of the screen's height, what is kept clear under the lowered board.
-    private const float BottomMargin = 0.012f;
+    private static readonly Vector2Int Floor = new(ScreenFill.FloorWidth, ScreenFill.FloorHeight);
 
     private static readonly AndroidScreenFillClock Clock = new();
     private static readonly AndroidVaultBounds Vault = new();
@@ -75,13 +57,11 @@ internal static class AndroidScreenFill
     }
 
     /// <summary>
-    /// Called after Cinemachine's brain updated <paramref name="camera"/> this frame: on a
-    /// perspective camera narrower than 16:10, raises the vertical field of view until the
-    /// horizontal one is <see cref="BoardZoom"/> times narrower than what 16:10 shows, but by at
-    /// least <see cref="MinStretch"/>; then lowers the board to the screen's bottom edge and places the day clock in
-    /// the band left above it. The brain writes the lens again on most frames;
-    /// a frame it skipped still holds the value written here, which is left alone so the change
-    /// never compounds.
+    /// Called after Cinemachine's brain updated <paramref name="camera"/> this frame: widens its
+    /// field of view on a screen narrower than 16:10, then, where the HUD gathers above the
+    /// board, lowers the board to the screen's bottom edge and places the day clock in the band
+    /// left above it. The brain writes the lens again on most frames; a frame it skipped still
+    /// holds the value written here, which is left alone so the change never compounds.
     /// </summary>
     public static void AfterCameraUpdate(Camera? camera)
     {
@@ -100,12 +80,11 @@ internal static class AndroidScreenFill
     public static float? BoardTop { get; private set; }
 
     /// <summary>
-    /// Raises the camera until the board's bottom edge (the vault's) sits a margin above the
-    /// screen's, so the room left above and below the nearer board is one band above it, and
-    /// gives the board's top-left corner in screen pixels down from the top. The board's
-    /// top-left corner mirrors the vault, its bottom-right, through
-    /// <c>BoardManager.boardCenter</c>. As with the lens, a frame on which the brain did not
-    /// move the camera still holds the position written here and is not raised again.
+    /// Raises the camera by <see cref="ScreenFill.BoardDrop"/>, so the room left above and below
+    /// the nearer board is one band above it, and gives the board's top-left corner in screen
+    /// pixels down from the top (<see cref="ScreenFill.BoardTopLeft"/>, the vault's bottom-right
+    /// mirrored through <c>BoardManager.boardCenter</c>). As with the lens, a frame on which the
+    /// brain did not move the camera still holds the position written here and is not raised again.
     /// </summary>
     private static bool TryLowerBoard(Camera camera, out Vector2 topLeft)
     {
@@ -120,16 +99,15 @@ internal static class AndroidScreenFill
             var depth = camera.WorldToScreenPoint(center.position).z;
             if (depth <= 0f)
                 return false;
-            var floor = Screen.height - Screen.safeArea.yMin - Screen.height * BottomMargin;
-            var drop = floor - vault.Bottom;
+            var drop = ScreenFill.BoardDrop(Screen.height, Screen.safeArea.yMin, vault.Bottom);
             if (drop > 0f)
             {
-                var perPixel =
-                    2f
-                    * depth
-                    * Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad)
-                    / Screen.height;
-                transform.position += transform.up * (drop * perPixel);
+                transform.position +=
+                    transform.up
+                    * (
+                        drop
+                        * ScreenFill.WorldUnitsPerPixel(depth, camera.fieldOfView, Screen.height)
+                    );
                 if (!Vault.TryRead(Screen.height, out vault))
                     return false;
             }
@@ -138,22 +116,17 @@ internal static class AndroidScreenFill
         var middle = camera.WorldToScreenPoint(center.position);
         if (middle.z <= 0f)
             return false;
-        topLeft = new(2f * middle.x - vault.Right, 2f * (Screen.height - middle.y) - vault.Bottom);
+        var (x, y) = ScreenFill.BoardTopLeft(
+            middle.x,
+            Screen.height - middle.y,
+            vault.Right,
+            vault.Bottom
+        );
+        topLeft = new(x, y);
         return true;
     }
 
-    /// <summary>
-    /// Whether a screen of <paramref name="aspect"/> gathers the HUD in a band above the board.
-    /// Making that band costs at least <see cref="MinStretch"/> of vertical view, which shrinks
-    /// the board more than the 16:10 framing does on a screen wider than about 1.43:1 (3:2, say),
-    /// and gains it little just below; so only from about 1.36:1 down (4:3 and squarer) does the
-    /// band draw the board at least <see cref="BandGain"/> times larger. Wider, the board keeps
-    /// the 16:10 framing and the HUD its usual places beside it.
-    /// </summary>
-    public static bool GathersHudAbove(float aspect) =>
-        aspect > 0f && aspect < ReferenceAspect / (MinStretch * BandGain);
-
-    // True when the HUD gathers above the board (GathersHudAbove).
+    // True when the HUD gathers above the board (ScreenFill.GathersHudAbove).
     private static bool WidenFieldOfView(Camera camera)
     {
         if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled)
@@ -161,19 +134,14 @@ internal static class AndroidScreenFill
         if (camera.orthographic || camera.usePhysicalProperties)
             return false;
         var aspect = camera.aspect;
-        if (aspect <= 0f || aspect >= ReferenceAspect)
+        if (!ScreenFill.Fills(aspect))
             return false;
         var key = camera.Pointer;
         var fieldOfView = camera.fieldOfView;
-        var above = GathersHudAbove(aspect);
+        var above = ScreenFill.GathersHudAbove(aspect);
         if (Widened.TryGetValue(key, out var written) && written == fieldOfView)
             return above;
-        var halfTan = Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad);
-        var stretch = above
-            ? Math.Max(MinStretch, ReferenceAspect / (aspect * BoardZoom))
-            : ReferenceAspect / aspect;
-        var widened = 2f * Mathf.Atan(halfTan * stretch) * Mathf.Rad2Deg;
-        camera.fieldOfView = widened;
+        camera.fieldOfView = ScreenFill.WidenedFieldOfView(fieldOfView, aspect);
         // Read back: the camera clamps the value it stores.
         Widened[key] = camera.fieldOfView;
         return above;

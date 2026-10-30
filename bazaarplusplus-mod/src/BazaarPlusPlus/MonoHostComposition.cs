@@ -216,12 +216,17 @@ internal sealed class MonoHostComposition : IDisposable
         _settingsDockRegistry.Register(CosmeticNamesSettingsDockEntry.Create());
         _settingsDockRegistry.Register(CombatStatusBarSettingsDockEntry.Create());
         _settingsDockRegistry.Register(new EndOfRunScreenshotSettingsDockEntry());
+        _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
         if (TouchPlatform.IsMobile)
         {
             // A touch screen has no keyboard: the History row drops its hotkey, the upgrade
-            // switch sets where each tooltip's own toggle starts, and the enchant preview is
-            // each tooltip's Enchantments toggle instead of a mode row, as on Android (ADR-0024).
+            // switch sets where each tooltip's own toggle starts, and the enchant preview mode
+            // lists the enchantments in each tooltip's main text, as on Android (ADR-0024).
             TouchUpgradePreview.Bind(settingsStore);
+            TouchEnchantPreview.Bind(
+                () => _services.Config.EnchantPreviewModeConfig.Value,
+                () => TooltipEncounterProbeReader.ReadChoice(_services.EncounterState)
+            );
             _settingsDockRegistry.Register(
                 HistoryPanelHotkeyDockEntry.Create(resolveHotkeyDisplay: null)
             );
@@ -229,7 +234,6 @@ internal sealed class MonoHostComposition : IDisposable
         }
         else
         {
-            _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
             _settingsDockRegistry.Register(HistoryPanelHotkeyDockEntry.Create());
             _settingsDockRegistry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
         }
@@ -292,7 +296,11 @@ internal sealed class MonoHostComposition : IDisposable
         // preview waits for a held key and the post-combat impact for a hover and Shift, so
         // neither is reachable by touch; the tooltip toggles take the held key's place.
         if (TouchPlatform.IsMobile)
+        {
             _mountables.Register(new ComponentMount<TouchGameplayPreviews>());
+            // The game fills a screen narrower than 16:10 instead of letterboxing it (ADR-0025).
+            _mountables.Register(new ComponentMount<TouchScreenFill>());
+        }
         else
         {
             _mountables.Register(new ComponentMount<NativeMusicNotePreviewController>());

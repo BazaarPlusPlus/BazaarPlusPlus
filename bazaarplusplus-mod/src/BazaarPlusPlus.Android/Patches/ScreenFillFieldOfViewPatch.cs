@@ -6,7 +6,7 @@ namespace BazaarPlusPlus.Android.Patches;
 
 /// <summary>
 /// Cinemachine's brain writes its lens to the output camera in <c>LateUpdate</c>; once it has,
-/// <see cref="AndroidScreenFill.WidenFieldOfView"/> widens it for a screen narrower than 16:10.
+/// <see cref="AndroidScreenFill.AfterCameraUpdate"/> widens it for a screen narrower than 16:10.
 /// <c>PushStateToUnityCamera</c> itself is not hooked: its <c>ref CameraState</c> argument crashes
 /// the native trampoline as the Gameplay scene loads.
 /// </summary>

@@ -33,6 +33,10 @@ internal static class TouchUpgradePreview
         _selected = _setting.Value;
     }
 
+    /// <summary>Whether <paramref name="card"/>'s tooltip is the current one and shows its upgrade.</summary>
+    internal static bool Holds(object card) =>
+        _setting != null && _selected && ReferenceEquals(card, _card);
+
     /// <summary>The current tooltip's touch toggle.</summary>
     internal static bool Toggle() => _selected = !_selected;
 

@@ -44,6 +44,8 @@ internal sealed class TouchCombatStatusView : IDisposable
     private string? _layoutKey;
     private string? _keyScreen;
     private (int, int, int, int)? _keyVault;
+    private float? _boardTop;
+    private int? _keyBoardTop;
     private TouchRelayoutDebounce? _relayout;
 
     // Hidden frames between checks for a run or replay to build the plaque ahead in.
@@ -192,11 +194,20 @@ internal sealed class TouchCombatStatusView : IDisposable
             (int)MathF.Round(vault.Height)
         );
         _vault = vault;
-        if (_layoutKey != null && ReferenceEquals(screen, _keyScreen) && rounded == _keyVault)
+        // On a screen the board is drawn nearer on, the HUD gathers above it (TouchScreenFill).
+        _boardTop = TouchScreenFill.BoardTop * TouchUiKit.ReferenceResolution.y / Screen.height;
+        var boardTop = _boardTop is { } top ? (int?)MathF.Round(top) : null;
+        if (
+            _layoutKey != null
+            && ReferenceEquals(screen, _keyScreen)
+            && rounded == _keyVault
+            && boardTop == _keyBoardTop
+        )
             return _layoutKey;
         _keyScreen = screen;
         _keyVault = rounded;
-        return _layoutKey = $"{screen}|vault {rounded}";
+        _keyBoardTop = boardTop;
+        return _layoutKey = $"{screen}|vault {rounded}|board top {boardTop}";
     }
 
     private void Build(TMP_FontAsset font, string key, bool ahead)
@@ -212,7 +223,7 @@ internal sealed class TouchCombatStatusView : IDisposable
         // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
         // the clock as it reappears; above the board HUD (order 0).
         _root = TouchUiKit.CreateOverlayCanvas("BPP.CombatStatus", 149);
-        var layout = TouchHudLayout.Playback(chrome.Metrics, _vault);
+        var layout = TouchHudLayout.Playback(chrome.Metrics, _vault, _boardTop);
         var plaque = TouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
         var background = TouchUiKit.Fill(plaque, TouchUiKit.ButtonColor, false);
         if (_skin == null || _skin.NeedsRefresh)
@@ -223,12 +234,19 @@ internal sealed class TouchCombatStatusView : IDisposable
         var rule = chrome.Metrics.Dp(.5f);
         var inset = chrome.Padding;
         Divider(
-            new TouchRect(
-                layout.Controls.Left + inset,
-                layout.Controls.Top,
-                layout.Controls.Width - 2 * inset,
-                rule
-            )
+            layout.Row
+                ? new TouchRect(
+                    layout.Controls.Left,
+                    layout.Controls.Top + inset,
+                    rule,
+                    layout.Controls.Height - 2 * inset
+                )
+                : new TouchRect(
+                    layout.Controls.Left + inset,
+                    layout.Controls.Top,
+                    layout.Controls.Width - 2 * inset,
+                    rule
+                )
         );
         Divider(
             new TouchRect(
@@ -287,6 +305,7 @@ internal sealed class TouchCombatStatusView : IDisposable
             ),
             ("ahead", ahead),
             ("vault", _vault),
+            ("board_top", _boardTop),
             ("panel", layout.Panel),
             ("pause", layout.Pause),
             ("speed", layout.Speed)
