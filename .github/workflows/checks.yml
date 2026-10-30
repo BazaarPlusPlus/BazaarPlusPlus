@@ -274,13 +274,13 @@ jobs:
         shell: bash
     env:
       BPP_CI_PLATFORM: macos
-      CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps: &mod-steps
       - name: Require private store credentials
         run: |
           if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
-            echo '::error::BPP_GAME_LIBS_TOKEN or CLOUDFLARE_ACCOUNT_ID is missing; selected Mod checks cannot run.'
+            echo '::error::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is missing; selected Mod checks cannot run.'
             exit 1
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -334,7 +334,7 @@ jobs:
         shell: bash
     env:
       BPP_CI_PLATFORM: windows
-      CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps: *mod-steps
 
@@ -347,13 +347,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Require private store credentials
         run: |
           if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
-            echo '::error::BPP_GAME_LIBS_TOKEN or CLOUDFLARE_ACCOUNT_ID is missing; selected Mod checks cannot run.'
+            echo '::error::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is missing; selected Mod checks cannot run.'
             exit 1
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -413,7 +413,7 @@ jobs:
       - run: node .github/scripts/checks-summary.mjs
         env:
           CHECK_NEEDS: ${{ toJSON(needs) }}
-          MOD_CREDENTIALS: ${{ secrets.BPP_GAME_LIBS_TOKEN != '' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+          MOD_CREDENTIALS: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
 
   bot-mod-boundary:
     name: Bot Mod dependency boundary

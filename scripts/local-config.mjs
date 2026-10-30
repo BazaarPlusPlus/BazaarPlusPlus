@@ -94,14 +94,12 @@ export const sections = {
   },
   cloudflare: {
     profile: 'release',
-    keys: [...cloudflareKeys, 'BPP_GAME_LIBS_TOKEN'],
+    keys: cloudflareKeys,
     inject: cloudflareKeys,
-    optional: ['BPP_GAME_LIBS_TOKEN'],
     required: { release: cloudflareKeys },
     notes: [
-      '# CLOUDFLARE_API_TOKEN is the operator token: R2 read and write on every bucket, plus what',
-      '# Wrangler needs. GitHub holds it as one repository secret for release, analyzer and site.',
-      '# BPP_GAME_LIBS_TOKEN is the read-only token checks.yml uses; only secrets push reads it.'
+      '# CLOUDFLARE_API_TOKEN is the one Account API Token: R2 read and write on every bucket, plus',
+      '# what Wrangler needs. GitHub holds it as one repository secret, also given to Dependabot.'
     ]
   }
 };

@@ -57,7 +57,7 @@ export function summarize({ needs, eventName, event, modCredentials }) {
       } else {
         if (job.startsWith('mod-') && modCredentials !== 'true')
           errors.push(
-            `${job}: missing BPP_GAME_LIBS_TOKEN or CLOUDFLARE_ACCOUNT_ID; Mod checks were not verified`
+            `${job}: missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID; Mod checks were not verified`
           );
         if (status !== 'success') errors.push(`${job}: selected but ${status}`);
       }

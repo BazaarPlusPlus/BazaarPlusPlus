@@ -97,10 +97,9 @@ Edit config.ini, then rerun setup --skip-deps. Local projection edits conflict.
 secrets check lists, by name only, what each GitHub scope holds and what config.ini
 and keys/ hold, following release/github-secrets.json; secrets push copies every
 item with a local value through gh (values over stdin, never printed). --dependabot
-also sets the mod lane token for Dependabot. Tokens are created in the Cloudflare
-dashboard (My Profile > API Tokens or Account > Manage API tokens): the operator
-token with Object Read & Write on every bucket plus Workers Scripts Edit; the
-read-only token with Object Read on bazaarplusplus-game-libs only.
+also sets CLOUDFLARE_API_TOKEN for Dependabot. The token is an Account API Token
+(Account > Manage API tokens) with Object Read & Write on every bucket plus Workers
+Scripts Edit.
 
 setup installs each Node project's locked dependencies, the analyzer environment,
 the mod's local .NET tools and Git hooks. Install language/platform tools first.
