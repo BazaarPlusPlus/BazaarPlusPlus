@@ -6,7 +6,6 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
@@ -27,7 +26,7 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Touch;
 /// </summary>
 internal sealed class TouchLiveBuildView
 {
-    private readonly TouchNativeSkin _skin = new();
+    private readonly NativeSkin _skin = new();
     private readonly GameObject _root;
     private readonly LiveBuildTouchLayout _layout;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
@@ -57,7 +56,7 @@ internal sealed class TouchLiveBuildView
     )
     {
         _layout = layout;
-        var root = TouchUiKit.Rect(
+        var root = UiKit.Rect(
             "LiveBuild",
             parent,
             Vector2.zero,
@@ -70,15 +69,15 @@ internal sealed class TouchLiveBuildView
         try
         {
             // Opaque: the sheet covers the whole screen, and nothing of the scene shows through.
-            var background = TouchUiKit.PanelColor;
+            var background = UiKit.PanelColor;
             background.a = 1f;
-            TouchUiKit.Fill(root, background);
+            UiKit.Fill(root, background);
             _root = root.gameObject;
             var metrics = layout.Metrics;
 
             // The list first, then the bands over its edges, then everything else.
             var scrollArea = TouchScreen.Child("List", root, layout.Scroll);
-            (_scroll, _content) = TouchUiKit.VerticalScroll(scrollArea);
+            (_scroll, _content) = UiKit.VerticalScroll(scrollArea);
             _content.sizeDelta = new Vector2(0f, layout.ScrollContentHeight);
             _scroll.enabled = layout.Stacked;
             foreach (
@@ -90,7 +89,7 @@ internal sealed class TouchLiveBuildView
                 }
             )
             {
-                var group = TouchUiKit.Rect(
+                var group = UiKit.Rect(
                     id.ToString(),
                     _content,
                     Vector2.zero,
@@ -173,7 +172,7 @@ internal sealed class TouchLiveBuildView
             _skin.Button(
                 close,
                 font,
-                TouchUiKit.CloseGlyph,
+                UiKit.CloseGlyph,
                 layout.TitleFont,
                 layout.LabelInset,
                 () => TouchUiActions.Run("live_build.close", () => commands.Close("close_button"))
@@ -190,13 +189,13 @@ internal sealed class TouchLiveBuildView
             );
 
             var corpus = TouchScreen.Child("CorpusStatus", scrolled, layout.Corpus);
-            var statusHit = TouchUiKit.Fill(corpus, new Color(0f, 0f, 0f, 0.001f));
+            var statusHit = UiKit.Fill(corpus, new Color(0f, 0f, 0f, 0.001f));
             var statusButton = corpus.gameObject.AddComponent<Button>();
             statusButton.targetGraphic = statusHit;
             statusButton.transition = Selectable.Transition.None;
             TouchUiActions.OnTap(statusButton, "live_build.corpus", ToggleCorpusDetail);
-            _corpus = TouchUiKit.Text(
-                TouchUiKit.Rect(
+            _corpus = UiKit.Text(
+                UiKit.Rect(
                     "Status",
                     corpus,
                     Vector2.zero,
@@ -208,7 +207,7 @@ internal sealed class TouchLiveBuildView
                 "",
                 layout.BodyFont,
                 TextAlignmentOptions.Center,
-                TouchUiKit.MutedTextColor
+                UiKit.MutedTextColor
             );
             _corpus.textWrappingMode = TextWrappingModes.NoWrap;
             _corpus.overflowMode = TextOverflowModes.Ellipsis;
@@ -243,8 +242,8 @@ internal sealed class TouchLiveBuildView
                 );
                 // The metric reads as typography, without a competing solid tile.
                 var inset = layout.Gap;
-                var label = TouchUiKit.Text(
-                    TouchUiKit.Rect(
+                var label = UiKit.Text(
+                    UiKit.Rect(
                         "Label",
                         cell,
                         new(0f, 0.5f),
@@ -256,12 +255,12 @@ internal sealed class TouchLiveBuildView
                     "",
                     layout.BodyFont,
                     TextAlignmentOptions.BottomLeft,
-                    TouchUiKit.MutedTextColor
+                    UiKit.MutedTextColor
                 );
                 label.textWrappingMode = TextWrappingModes.NoWrap;
                 label.overflowMode = TextOverflowModes.Ellipsis;
-                var value = TouchUiKit.Text(
-                    TouchUiKit.Rect(
+                var value = UiKit.Text(
+                    UiKit.Rect(
                         "Value",
                         cell,
                         new(0f, 0f),
@@ -273,7 +272,7 @@ internal sealed class TouchLiveBuildView
                     "",
                     layout.ValueFont,
                     TextAlignmentOptions.TopLeft,
-                    TouchUiKit.TextColor
+                    UiKit.TextColor
                 );
                 value.textWrappingMode = TextWrappingModes.NoWrap;
                 value.enableAutoSizing = true;
@@ -285,7 +284,7 @@ internal sealed class TouchLiveBuildView
             var detail = TouchScreen.Child("CorpusDetail", scrolled, layout.Info);
             _skin.Frame(detail);
             _corpusDetail = new InspectionText(
-                TouchUiKit.Rect(
+                UiKit.Rect(
                     "Text",
                     detail,
                     Vector2.zero,
@@ -295,7 +294,7 @@ internal sealed class TouchLiveBuildView
                 ),
                 font,
                 layout.BodyFont,
-                TouchUiKit.TextColor
+                UiKit.TextColor
             );
             _corpusDetailRoot = detail.gameObject;
 
@@ -391,9 +390,7 @@ internal sealed class TouchLiveBuildView
             : snapshot.CorpusStatusSeverity == LiveBuildRefreshSeverity.Pending
                 ? TouchPanelUi.T("Loading…", "加载中…")
             : snapshot.CorpusStatusText;
-        _corpus.color = summary
-            ? TouchUiKit.MutedTextColor
-            : StatusColor(snapshot.CorpusStatusSeverity);
+        _corpus.color = summary ? UiKit.MutedTextColor : StatusColor(snapshot.CorpusStatusSeverity);
         _corpusDetail.Set(
             string.Join(
                 "\n",
@@ -568,7 +565,7 @@ internal sealed class TouchLiveBuildView
         title.overflowMode = TextOverflowModes.Ellipsis;
         var frame = TouchScreen.Child($"{id}BoardFrame", boardParent, boardArea);
         _skin.Frame(frame);
-        var region = TouchUiKit.Rect(
+        var region = UiKit.Rect(
             $"{id}Board",
             frame,
             Vector2.zero,
@@ -578,20 +575,13 @@ internal sealed class TouchLiveBuildView
         );
         // The frame takes empty-space drags; cards and tags stay inside its inset.
 
-        var status = TouchUiKit.Text(
-            TouchUiKit.Rect(
-                "Status",
-                region,
-                Vector2.zero,
-                Vector2.one,
-                Vector2.zero,
-                Vector2.zero
-            ),
+        var status = UiKit.Text(
+            UiKit.Rect("Status", region, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
             font,
             "",
             _layout.BodyFont,
             TextAlignmentOptions.Center,
-            TouchUiKit.MutedTextColor
+            UiKit.MutedTextColor
         );
         var board = new TouchLiveBuildBoard(
             region,
@@ -639,20 +629,20 @@ internal sealed class TouchLiveBuildView
         float size,
         TextAlignmentOptions alignment
     ) =>
-        TouchUiKit.Text(
+        UiKit.Text(
             TouchScreen.Child(name, parent, area),
             font,
             "",
             size,
             alignment,
-            TouchUiKit.TextColor
+            UiKit.TextColor
         );
 
     private static void Band(RectTransform root, Color color, TouchRect area)
     {
         if (area.Height <= 0f)
             return;
-        TouchUiKit.Fill(TouchScreen.Child("ListEdge", root, area), color);
+        UiKit.Fill(TouchScreen.Child("ListEdge", root, area), color);
     }
 
     private static Color StatusColor(LiveBuildRefreshSeverity severity) =>
@@ -661,7 +651,7 @@ internal sealed class TouchLiveBuildView
             LiveBuildRefreshSeverity.Failure => InGameTheme.Warning,
             LiveBuildRefreshSeverity.Success => InGameTheme.Success,
             LiveBuildRefreshSeverity.Pending => InGameTheme.Pending,
-            _ => TouchUiKit.MutedTextColor,
+            _ => UiKit.MutedTextColor,
         };
 
     private sealed class Row(

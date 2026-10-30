@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
+using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,7 +24,7 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Touch;
 /// </summary>
 internal sealed class TouchLiveBuildBoard
 {
-    private readonly TouchNativeSkin _skin;
+    private readonly NativeSkin _skin;
     private readonly RectTransform _region;
     private readonly RectTransform _tags;
     private readonly TMP_FontAsset _font;
@@ -45,7 +46,7 @@ internal sealed class TouchLiveBuildBoard
         RectTransform region,
         TMP_FontAsset font,
         BppItemBoardId id,
-        TouchNativeSkin skin,
+        NativeSkin skin,
         Action<BppItemBoardCard, bool> onTap
     )
     {
@@ -55,14 +56,7 @@ internal sealed class TouchLiveBuildBoard
         _owner = "live_build." + id;
         _onTap = onTap;
         // Tags draw over the cards.
-        _tags = TouchUiKit.Rect(
-            "Tags",
-            region,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
+        _tags = UiKit.Rect("Tags", region, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
     }
 
     /// <summary>Cards rented and not yet returned, Pending or Ready.</summary>
@@ -179,9 +173,7 @@ internal sealed class TouchLiveBuildBoard
                     tag.Root,
                     layout.TagRect(card.DisplaySocketId ?? 0, card.DisplaySpan)
                 );
-                tag.Background.color = _selectable
-                    ? TouchUiKit.ActiveColor
-                    : TouchUiKit.ButtonColor;
+                tag.Background.color = _selectable ? UiKit.ActiveColor : UiKit.ButtonColor;
                 tag.Label.fontSize = layout.TagFont;
                 tag.Label.text = tagText;
                 tag.Root.gameObject.SetActive(true);
@@ -196,16 +188,9 @@ internal sealed class TouchLiveBuildBoard
     {
         if (index < _tagPool.Count)
             return _tagPool[index];
-        var root = TouchUiKit.Rect(
-            "Tag",
-            _tags,
-            Vector2.zero,
-            Vector2.zero,
-            Vector2.zero,
-            Vector2.zero
-        );
+        var root = UiKit.Rect("Tag", _tags, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
         var background = _skin.Tag(root);
-        var labelRect = TouchUiKit.Rect(
+        var labelRect = UiKit.Rect(
             "Label",
             root,
             Vector2.zero,
@@ -213,13 +198,13 @@ internal sealed class TouchLiveBuildBoard
             Vector2.zero,
             Vector2.zero
         );
-        var label = TouchUiKit.Text(
+        var label = UiKit.Text(
             labelRect,
             _font,
             "",
             _layout!.TagFont,
             TextAlignmentOptions.Center,
-            TouchUiKit.TextColor
+            UiKit.TextColor
         );
         label.textWrappingMode = TextWrappingModes.NoWrap;
         label.overflowMode = TextOverflowModes.Ellipsis;
@@ -236,7 +221,7 @@ internal sealed class TouchLiveBuildBoard
             reused.Root.gameObject.SetActive(true);
             return reused;
         }
-        var root = TouchUiKit.Rect(
+        var root = UiKit.Rect(
             "Card",
             _region,
             Vector2.zero,
@@ -244,15 +229,8 @@ internal sealed class TouchLiveBuildBoard
             Vector2.zero,
             Vector2.zero
         );
-        var hit = TouchUiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
-        var slot = TouchUiKit.Rect(
-            "Slot",
-            root,
-            new(0f, 1f),
-            new(0f, 1f),
-            Vector2.zero,
-            Vector2.zero
-        );
+        var hit = UiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
+        var slot = UiKit.Rect("Slot", root, new(0f, 1f), new(0f, 1f), Vector2.zero, Vector2.zero);
         var cell = new Cell(root, slot);
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;

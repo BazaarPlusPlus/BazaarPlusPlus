@@ -12,8 +12,8 @@ using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -52,7 +52,7 @@ internal sealed class TouchCollectionInspection
     private readonly CollectionTouchLayout _layout;
     private CollectionCardVm? _card;
     private CardRentalLease<CardPreviewBase>? _lease;
-    private readonly TouchNativeSkin _skin;
+    private readonly NativeSkin _skin;
     private bool _showEnchantments;
     private List<(CardEnchantment Type, string Text)>? _enchantmentEffects;
     private string _text = string.Empty;
@@ -63,7 +63,7 @@ internal sealed class TouchCollectionInspection
         RectTransform parent,
         TMP_FontAsset font,
         CollectionTouchLayout layout,
-        TouchNativeSkin skin
+        NativeSkin skin
     )
     {
         _font = font;
@@ -71,7 +71,7 @@ internal sealed class TouchCollectionInspection
         _layout = layout;
         var inspect = layout.Inspect;
         var chrome = layout.Chrome;
-        var root = TouchUiKit.Rect(
+        var root = UiKit.Rect(
             "Inspection",
             parent,
             Vector2.zero,
@@ -79,14 +79,14 @@ internal sealed class TouchCollectionInspection
             Vector2.zero,
             Vector2.zero
         );
-        _backdrop = TouchUiKit.Fill(root, Color.clear);
+        _backdrop = UiKit.Fill(root, Color.clear);
         var dismiss = root.gameObject.AddComponent<Button>();
         dismiss.transition = Selectable.Transition.None;
         dismiss.onClick.AddListener((UnityEngine.Events.UnityAction)(() => Dismiss("outside_tap")));
         _root = root.gameObject;
 
         var area = TouchScreen.Child("CardArea", root, inspect.CardArea);
-        _slot = TouchUiKit.Rect(
+        _slot = UiKit.Rect(
             "CardSlot",
             area,
             new(0.5f, 0.5f),
@@ -104,13 +104,13 @@ internal sealed class TouchCollectionInspection
         var swallow = info.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
         var origin = inspect.Info;
-        _name = TouchUiKit.Text(
+        _name = UiKit.Text(
             TouchScreen.Child("Name", info, Local(inspect.Name, origin, chrome.Padding * 2f)),
             font,
             "",
             chrome.NameFont,
             TextAlignmentOptions.MidlineLeft,
-            TouchUiKit.TextColor
+            UiKit.TextColor
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
         var close = TouchScreen.Child("Close", info, Local(inspect.Close, origin, 0f));
@@ -129,7 +129,7 @@ internal sealed class TouchCollectionInspection
             Local(inspect.Detail, origin, chrome.Padding * 2f)
         );
         _detailInteraction = detail.gameObject.AddComponent<CanvasGroup>();
-        (_detailScroll, _detail) = TouchUiKit.VerticalScroll(detail);
+        (_detailScroll, _detail) = UiKit.VerticalScroll(detail);
         _root.SetActive(false);
     }
 
@@ -380,7 +380,7 @@ internal sealed class TouchCollectionInspection
         if (card == null)
             return;
         var chrome = _layout.Chrome;
-        var flow = new TouchChipFlow(_detail, _font, chrome, 1, _layout.RailHeaderHeight, _skin);
+        var flow = new ChipFlow(_detail, _font, chrome, 1, _layout.RailHeaderHeight, _skin);
         var identity = card.Tags.Distinct().Select(TouchCollectionLabels.InspectionTag).ToList();
         if (card.Type == CardType.Item)
             identity.Insert(0, CollectionPanelText.Size(card.Size));
@@ -403,7 +403,7 @@ internal sealed class TouchCollectionInspection
             flow.Divider();
         }
         if (!string.IsNullOrWhiteSpace(_text))
-            flow.Note(_text, TouchUiKit.TextColor, chrome.ButtonFont);
+            flow.Note(_text, UiKit.TextColor, chrome.ButtonFont);
         if (card.IsEnchantable && card.Enchantments.Count > 0)
         {
             flow.Divider();

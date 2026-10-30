@@ -1,10 +1,10 @@
 using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.CollectionPanel.Ui;
+using BazaarPlusPlus.Mobile.Ui;
 using Il2CppTheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -54,7 +54,7 @@ internal sealed class AndroidCollectionGrid
         _font = font;
         _captionSize = captionSize;
         _onTap = onTap;
-        (_scroll, _content) = AndroidUiKit.VerticalScroll(area);
+        (_scroll, _content) = UiKit.VerticalScroll(area);
         _viewport = _scroll.viewport;
     }
 
@@ -276,17 +276,10 @@ internal sealed class AndroidCollectionGrid
         root.SetParent(_content, false);
         root.anchorMin = root.anchorMax = new Vector2(0f, 1f);
         root.pivot = new Vector2(0f, 1f);
-        var hit = AndroidUiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
-        var slot = AndroidUiKit.Rect(
-            "Slot",
-            root,
-            new(0f, 1f),
-            new(0f, 1f),
-            Vector2.zero,
-            Vector2.zero
-        );
-        var caption = AndroidUiKit.Text(
-            AndroidUiKit.Rect(
+        var hit = UiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
+        var slot = UiKit.Rect("Slot", root, new(0f, 1f), new(0f, 1f), Vector2.zero, Vector2.zero);
+        var caption = UiKit.Text(
+            UiKit.Rect(
                 "Name",
                 root,
                 Vector2.zero,
@@ -298,7 +291,7 @@ internal sealed class AndroidCollectionGrid
             "",
             _captionSize,
             TextAlignmentOptions.Top,
-            AndroidUiKit.TextColor
+            UiKit.TextColor
         );
         caption.enableWordWrapping = true;
         caption.overflowMode = TextOverflowModes.Ellipsis;

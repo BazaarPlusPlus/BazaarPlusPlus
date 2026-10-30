@@ -92,10 +92,10 @@ internal sealed class TouchHistoryPanelView : IDisposable
         var screen = TouchScreen.Key();
         _l = HistoryTouchLayout.For(TouchScreen.Read());
         _badges = TouchHistoryBadges.TryLoad();
-        _root = TouchUiKit.CreateOverlayCanvas("BPP.HistoryPanel", SortingOrder);
+        _root = UiKit.CreateOverlayCanvas("BPP.HistoryPanel", SortingOrder);
         try
         {
-            Surface = TouchUiKit.Rect(
+            Surface = UiKit.Rect(
                 "Layout",
                 _root.transform,
                 Vector2.zero,
@@ -256,8 +256,8 @@ internal sealed class TouchHistoryPanelView : IDisposable
             Vector2 offsetMin,
             Vector2 offsetMax
         ) =>
-            TouchUiKit.Fill(
-                TouchUiKit.Rect(name, Surface, anchorMin, anchorMax, offsetMin, offsetMax),
+            UiKit.Fill(
+                UiKit.Rect(name, Surface, anchorMin, anchorMax, offsetMin, offsetMax),
                 TouchPanelUi.Backdrop
             );
     }
@@ -307,7 +307,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         _more.Set(TouchPanelUi.T("More", "更多"));
         TouchPanelUi
             .Button(Surface, _font, "close", _l.Close, _l.TitleFont, () => _actions.Close())
-            .Set(TouchUiKit.CloseGlyph);
+            .Set(UiKit.CloseGlyph);
 
         _archive = BuildArchive();
         _thumbs.Add(new ScrollThumb(_archive.Scroll, _l.Metrics));
@@ -588,7 +588,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 shown => TouchPanelUi.SetActive(row.Rank.gameObject, shown)
             );
             var outcomeImage = ArtSlot(rect, "Outcome");
-            var portrait = TouchUiKit.Fixed(
+            var portrait = UiKit.Fixed(
                 "HeroPortrait",
                 rect,
                 new(0f, 1f),
@@ -596,7 +596,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 Vector2.one * _l.Metrics.Dp(36f)
             );
             row.PortraitRect = portrait;
-            row.Portrait = new TouchPortraitView(portrait, TouchPanelUi.Skin, _l.Metrics);
+            row.Portrait = new PortraitView(portrait, TouchPanelUi.Skin, _l.Metrics);
             row.Accent = Accent(rect);
             row.Unknown = TouchPanelUi.Fraction(
                 outcomeImage.transform,
@@ -641,7 +641,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 () => _actions.SelectBattle(slot)
             );
             control.Label.gameObject.SetActive(false);
-            var outcome = TouchUiKit.Rect(
+            var outcome = UiKit.Rect(
                 "Outcome",
                 rect,
                 new Vector2(.08f, .04f),
@@ -675,18 +675,18 @@ internal sealed class TouchHistoryPanelView : IDisposable
                     TextAlignmentOptions.Center,
                     TouchPanelUi.Muted
                 ),
-                Outcome = TouchUiKit.Fill(outcome, Color.clear, blocksTouches: false),
+                Outcome = UiKit.Fill(outcome, Color.clear, blocksTouches: false),
                 Accent = Accent(rect),
             };
             // The top line reads portrait, day and rank badge, as the desktop chip does.
-            var portrait = TouchUiKit.Fixed(
+            var portrait = UiKit.Fixed(
                 "HeroPortrait",
                 rect,
                 new(0f, 1f),
                 new(_l.Metrics.Dp(5f), -_l.Metrics.Dp(3f)),
                 Vector2.one * _l.Metrics.Dp(22f)
             );
-            rail.Chips[i].Portrait = new TouchPortraitView(portrait, TouchPanelUi.Skin, _l.Metrics);
+            rail.Chips[i].Portrait = new PortraitView(portrait, TouchPanelUi.Skin, _l.Metrics);
             rect.gameObject.SetActive(false);
         }
         return rail;
@@ -695,7 +695,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     // A gold bar down the selected row's left edge: the selected fill alone reads too faintly.
     private GameObject Accent(RectTransform row)
     {
-        var bar = TouchUiKit.Rect(
+        var bar = UiKit.Rect(
             "Accent",
             row,
             new Vector2(0f, .14f),
@@ -703,7 +703,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             Vector2.zero,
             new Vector2(_l.Metrics.Dp(4f), 0f)
         );
-        TouchUiKit.Fill(bar, TouchPanelUi.Accent, blocksTouches: false);
+        UiKit.Fill(bar, TouchPanelUi.Accent, blocksTouches: false);
         bar.gameObject.SetActive(false);
         return bar.gameObject;
     }
@@ -711,7 +711,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     private RectTransform BoardRegion(string name, TouchRect area)
     {
         var region = TouchScreen.Child(name, Surface, area);
-        TouchUiKit.Fill(region, TouchPanelUi.ButtonDimmed, blocksTouches: false);
+        UiKit.Fill(region, TouchPanelUi.ButtonDimmed, blocksTouches: false);
         return region;
     }
 
@@ -727,7 +727,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             Surface,
             new TouchRect(board.Left, board.Bottom - height, board.Width, height)
         );
-        TouchUiKit.Fill(band, TouchPanelUi.Shade, blocksTouches: false);
+        UiKit.Fill(band, TouchPanelUi.Shade, blocksTouches: false);
         var label = TouchPanelUi.Fraction(
             band,
             _font,
@@ -753,14 +753,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         float height = 0f
     )
     {
-        var rect = TouchUiKit.Rect(
-            name,
-            parent,
-            Vector2.zero,
-            Vector2.zero,
-            Vector2.zero,
-            Vector2.zero
-        );
+        var rect = UiKit.Rect(name, parent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
         Frac(rect, x, y, width, height);
         var image = rect.gameObject.AddComponent<Image>();
         image.raycastTarget = false;
@@ -1190,7 +1183,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         internal ArtImage Badge = null!;
         internal ArtImage RankArt = null!;
         internal RectTransform PortraitRect = null!;
-        internal TouchPortraitView Portrait = null!;
+        internal PortraitView Portrait = null!;
         internal CardHero? Hero;
         internal TextMeshProUGUI Unknown = null!;
         internal TextMeshProUGUI Rank = null!;
@@ -1216,7 +1209,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         internal RectTransform Rect = null!;
         internal HistoryButton Control = null!;
         internal TextMeshProUGUI Day = null!;
-        internal TouchPortraitView Portrait = null!;
+        internal PortraitView Portrait = null!;
         internal CardHero? Hero;
         internal ArtImage Rank = null!;
         internal TextMeshProUGUI Name = null!;
@@ -1240,7 +1233,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         {
             _scroll = scroll;
             _scrollRect = scroll.GetComponent<RectTransform>();
-            _bar = TouchUiKit.Rect(
+            _bar = UiKit.Rect(
                 "Thumb",
                 scroll.transform,
                 Vector2.zero,
@@ -1248,7 +1241,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 Vector2.zero,
                 Vector2.zero
             );
-            var fill = TouchUiKit.Fill(_bar, TouchPanelUi.Accent, blocksTouches: false);
+            var fill = UiKit.Fill(_bar, TouchPanelUi.Accent, blocksTouches: false);
             fill.color = new Color(fill.color.r, fill.color.g, fill.color.b, .7f);
             _bar.gameObject.SetActive(false);
         }

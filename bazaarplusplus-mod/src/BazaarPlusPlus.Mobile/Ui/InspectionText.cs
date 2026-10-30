@@ -13,10 +13,9 @@ internal sealed class InspectionText
 
     public InspectionText(RectTransform area, TMP_FontAsset font, float size, Color color)
     {
-        var platform = MobilePlatform.Port;
         _area = area;
-        (_scroll, _content) = platform.VerticalScroll(area);
-        var rect = platform.Rect(
+        (_scroll, _content) = UiKit.VerticalScroll(area);
+        var rect = UiKit.Rect(
             "Text",
             _content,
             Vector2.zero,
@@ -24,14 +23,14 @@ internal sealed class InspectionText
             Vector2.zero,
             Vector2.zero
         );
-        _text = platform.Text(rect, font, "", size, TextAlignmentOptions.TopLeft, color);
+        _text = UiKit.Text(rect, font, "", size, TextAlignmentOptions.TopLeft, color);
         _text.overflowMode = TextOverflowModes.Overflow;
     }
 
     public void Set(string text)
     {
         _text.text = text;
-        MobilePlatform.Port.ApplyKeywordSprites(_text);
+        KeywordSprites.Apply(_text);
         _content.sizeDelta = new Vector2(
             0f,
             Mathf.Max(_area.rect.height, _text.GetPreferredValues(text, _area.rect.width, 0f).y)

@@ -9,6 +9,7 @@ using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Touch;
@@ -97,7 +98,7 @@ internal sealed class TouchCollectionHost : MonoBehaviour
             );
             return false;
         }
-        _canvas = TouchUiKit.CreateOverlayCanvas("BPP.TouchCollection", TouchUiKit.SortingOrder);
+        _canvas = UiKit.CreateOverlayCanvas("BPP.TouchCollection", UiKit.SortingOrder);
         _panel = new TouchCollectionPanel(
             _canvas.transform,
             font,

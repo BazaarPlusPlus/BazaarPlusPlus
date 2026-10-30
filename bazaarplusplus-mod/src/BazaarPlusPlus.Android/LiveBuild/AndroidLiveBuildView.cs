@@ -26,7 +26,7 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 /// </summary>
 internal sealed class AndroidLiveBuildView
 {
-    private readonly AndroidNativeSkin _skin = new();
+    private readonly NativeSkin _skin = new();
     private readonly GameObject _root;
     private readonly LiveBuildTouchLayout _layout;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
@@ -56,7 +56,7 @@ internal sealed class AndroidLiveBuildView
     )
     {
         _layout = layout;
-        var root = AndroidUiKit.Rect(
+        var root = UiKit.Rect(
             "LiveBuild",
             parent,
             Vector2.zero,
@@ -69,15 +69,15 @@ internal sealed class AndroidLiveBuildView
         try
         {
             // Opaque: the sheet covers the whole screen, and nothing of the scene shows through.
-            var background = AndroidUiKit.PanelColor;
+            var background = UiKit.PanelColor;
             background.a = 1f;
-            AndroidUiKit.Fill(root, background);
+            UiKit.Fill(root, background);
             _root = root.gameObject;
             var metrics = layout.Metrics;
 
             // The list first, then the bands over its edges, then everything else.
             var scrollArea = AndroidTouchScreen.Child("List", root, layout.Scroll);
-            (_scroll, _content) = AndroidUiKit.VerticalScroll(scrollArea);
+            (_scroll, _content) = UiKit.VerticalScroll(scrollArea);
             _content.sizeDelta = new Vector2(0f, layout.ScrollContentHeight);
             _scroll.enabled = layout.Stacked;
             foreach (
@@ -89,7 +89,7 @@ internal sealed class AndroidLiveBuildView
                 }
             )
             {
-                var group = AndroidUiKit.Rect(
+                var group = UiKit.Rect(
                     id.ToString(),
                     _content,
                     Vector2.zero,
@@ -172,7 +172,7 @@ internal sealed class AndroidLiveBuildView
             _skin.Button(
                 close,
                 font,
-                AndroidUiKit.CloseGlyph,
+                UiKit.CloseGlyph,
                 layout.TitleFont,
                 layout.LabelInset,
                 () => AndroidUiActions.Run("live_build.close", () => commands.Close("close_button"))
@@ -189,13 +189,13 @@ internal sealed class AndroidLiveBuildView
             );
 
             var corpus = AndroidTouchScreen.Child("CorpusStatus", scrolled, layout.Corpus);
-            var statusHit = AndroidUiKit.Fill(corpus, new Color(0f, 0f, 0f, 0.001f));
+            var statusHit = UiKit.Fill(corpus, new Color(0f, 0f, 0f, 0.001f));
             var statusButton = corpus.gameObject.AddComponent<Button>();
             statusButton.targetGraphic = statusHit;
             statusButton.transition = Selectable.Transition.None;
             AndroidUiActions.OnTap(statusButton, "live_build.corpus", ToggleCorpusDetail);
-            _corpus = AndroidUiKit.Text(
-                AndroidUiKit.Rect(
+            _corpus = UiKit.Text(
+                UiKit.Rect(
                     "Status",
                     corpus,
                     Vector2.zero,
@@ -207,7 +207,7 @@ internal sealed class AndroidLiveBuildView
                 "",
                 layout.BodyFont,
                 TextAlignmentOptions.Center,
-                AndroidUiKit.MutedTextColor
+                UiKit.MutedTextColor
             );
             _corpus.enableWordWrapping = false;
             _corpus.overflowMode = TextOverflowModes.Ellipsis;
@@ -242,8 +242,8 @@ internal sealed class AndroidLiveBuildView
                 );
                 // The metric reads as typography, without a competing solid tile.
                 var inset = layout.Gap;
-                var label = AndroidUiKit.Text(
-                    AndroidUiKit.Rect(
+                var label = UiKit.Text(
+                    UiKit.Rect(
                         "Label",
                         cell,
                         new(0f, 0.5f),
@@ -255,12 +255,12 @@ internal sealed class AndroidLiveBuildView
                     "",
                     layout.BodyFont,
                     TextAlignmentOptions.BottomLeft,
-                    AndroidUiKit.MutedTextColor
+                    UiKit.MutedTextColor
                 );
                 label.enableWordWrapping = false;
                 label.overflowMode = TextOverflowModes.Ellipsis;
-                var value = AndroidUiKit.Text(
-                    AndroidUiKit.Rect(
+                var value = UiKit.Text(
+                    UiKit.Rect(
                         "Value",
                         cell,
                         new(0f, 0f),
@@ -272,7 +272,7 @@ internal sealed class AndroidLiveBuildView
                     "",
                     layout.ValueFont,
                     TextAlignmentOptions.TopLeft,
-                    AndroidUiKit.TextColor
+                    UiKit.TextColor
                 );
                 value.enableWordWrapping = false;
                 value.enableAutoSizing = true;
@@ -284,7 +284,7 @@ internal sealed class AndroidLiveBuildView
             var detail = AndroidTouchScreen.Child("CorpusDetail", scrolled, layout.Info);
             _skin.Frame(detail);
             _corpusDetail = new InspectionText(
-                AndroidUiKit.Rect(
+                UiKit.Rect(
                     "Text",
                     detail,
                     Vector2.zero,
@@ -294,7 +294,7 @@ internal sealed class AndroidLiveBuildView
                 ),
                 font,
                 layout.BodyFont,
-                AndroidUiKit.TextColor
+                UiKit.TextColor
             );
             _corpusDetailRoot = detail.gameObject;
 
@@ -390,9 +390,7 @@ internal sealed class AndroidLiveBuildView
             : snapshot.CorpusStatusSeverity == LiveBuildRefreshSeverity.Pending
                 ? AndroidHistoryUi.T("Loading…", "加载中…")
             : snapshot.CorpusStatusText;
-        _corpus.color = summary
-            ? AndroidUiKit.MutedTextColor
-            : StatusColor(snapshot.CorpusStatusSeverity);
+        _corpus.color = summary ? UiKit.MutedTextColor : StatusColor(snapshot.CorpusStatusSeverity);
         _corpusDetail.Set(
             string.Join(
                 "\n",
@@ -567,7 +565,7 @@ internal sealed class AndroidLiveBuildView
         title.overflowMode = TextOverflowModes.Ellipsis;
         var frame = AndroidTouchScreen.Child($"{id}BoardFrame", boardParent, boardArea);
         _skin.Frame(frame);
-        var region = AndroidUiKit.Rect(
+        var region = UiKit.Rect(
             $"{id}Board",
             frame,
             Vector2.zero,
@@ -577,20 +575,13 @@ internal sealed class AndroidLiveBuildView
         );
         // The frame takes empty-space drags; cards and tags stay inside its inset.
 
-        var status = AndroidUiKit.Text(
-            AndroidUiKit.Rect(
-                "Status",
-                region,
-                Vector2.zero,
-                Vector2.one,
-                Vector2.zero,
-                Vector2.zero
-            ),
+        var status = UiKit.Text(
+            UiKit.Rect("Status", region, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
             font,
             "",
             _layout.BodyFont,
             TextAlignmentOptions.Center,
-            AndroidUiKit.MutedTextColor
+            UiKit.MutedTextColor
         );
         var board = new AndroidLiveBuildBoard(
             region,
@@ -638,20 +629,20 @@ internal sealed class AndroidLiveBuildView
         float size,
         TextAlignmentOptions alignment
     ) =>
-        AndroidUiKit.Text(
+        UiKit.Text(
             AndroidTouchScreen.Child(name, parent, area),
             font,
             "",
             size,
             alignment,
-            AndroidUiKit.TextColor
+            UiKit.TextColor
         );
 
     private static void Band(RectTransform root, Color color, TouchRect area)
     {
         if (area.Height <= 0f)
             return;
-        AndroidUiKit.Fill(AndroidTouchScreen.Child("ListEdge", root, area), color);
+        UiKit.Fill(AndroidTouchScreen.Child("ListEdge", root, area), color);
     }
 
     private static Color StatusColor(LiveBuildRefreshSeverity severity) =>
@@ -660,7 +651,7 @@ internal sealed class AndroidLiveBuildView
             LiveBuildRefreshSeverity.Failure => InGameTheme.Warning,
             LiveBuildRefreshSeverity.Success => InGameTheme.Success,
             LiveBuildRefreshSeverity.Pending => InGameTheme.Pending,
-            _ => AndroidUiKit.MutedTextColor,
+            _ => UiKit.MutedTextColor,
         };
 
     private sealed class Row(

@@ -10,7 +10,7 @@ The Android host grew its touch surfaces one at a time: the touch menu, History,
 
 1. One Unity-free frame, `Core/Ui/TouchChrome`, owns what every touch surface shares: the sheet inside the safe area, its margin, padding and gap, the header row, the type scale, the close button's size and corner (`CloseAt`), and the tap-to-inspect sheet (`TouchInspectLayout`). Each panel's layout (`CollectionTouchLayout`, `HistoryTouchLayout`, `LiveBuildTouchLayout`, `TouchLauncherLayout`) starts from it and owns only its own content.
 2. A card grid on touch chooses its column count from its width (`CollectionTouchLayout.GridColumns`) and passes it to Core's `CollectionGridLayout.Build`. The desktop keeps its fixed display case through the overload without a count, and its geometry is not derived from the touch layout.
-3. The host draws the shared parts through shared helpers: `AndroidUiKit.CloseButton` and `CloseGlyph`, `AndroidUiKit.VerticalScroll`, and `ScrollTracker` (in the Mobile UI tree since ADR-0025). History keeps its own palette and button type.
+3. The host draws the shared parts through shared helpers: `UiKit.CloseButton` and `CloseGlyph`, `UiKit.VerticalScroll`, and `ScrollTracker` (all in the Mobile UI tree since ADR-0025). History keeps its own palette and button type.
 4. The back key closes a surface's top-most layer first (a dialog or inspection, then the panel). Amended 2026-10-25: the surfaces no longer keep their own back-key handlers. The Overlay Panel Host dismisses the open panel's modal layer, then closes the panel, and its Android adapter closes the touch menu last (ADR-0022).
 
 The conventions themselves are in [android-mobile-ui.md](../architecture/android-mobile-ui.md).
@@ -27,6 +27,6 @@ ADR-0003 rejects a unification that only looks tidier. This one is not about app
 ## Evidence
 
 - Core: `src/BazaarPlusPlus.Core/Ui/TouchChrome.cs`, `src/BazaarPlusPlus.Core/Game/CollectionPanel/Ui/CollectionTouchLayout.cs`, `CollectionGridLayout.Build` in `src/BazaarPlusPlus.Core/Game/CollectionPanel/Grid/CollectionGridLayout.cs`
-- Host: `src/BazaarPlusPlus.Android/Ui/AndroidUiKit.cs`, `src/BazaarPlusPlus.Mobile/Ui/ScrollTracker.cs`, `src/BazaarPlusPlus.Android/Collection/`
+- Host: `src/BazaarPlusPlus.Mobile/Ui/UiKit.cs`, `src/BazaarPlusPlus.Mobile/Ui/ScrollTracker.cs`, `src/BazaarPlusPlus.Android/Collection/`
 - Tests: `tests/SettingsDockCore.Tests/TouchChromeTests.cs`, `tests/SettingsDockCore.Tests/TouchViewSlotTests.cs`, `tests/AndroidHost.Tests/AndroidTouchViewBuildGuardTests.cs`, `tests/CollectionGridLayout.Tests/`, `tests/HistoryPanelDecisions.Tests/HistoryTouchLayoutTests.cs`, `tests/LiveBuildPanel.Tests/`
 - Device evidence: PR #454 (captured under `artifacts/android/425-mobile-fit/`, local only)

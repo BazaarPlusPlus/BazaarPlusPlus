@@ -1,18 +1,24 @@
-#nullable enable
-using BazaarPlusPlus.GameInterop.Touch;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>Borrowed game art, with independent controls and no native business callbacks.</summary>
-internal sealed class TouchNativeSkin
+internal sealed class NativeSkin
 {
-    private readonly TouchNativeArt _art = new();
+    private readonly NativeSkinArt _art = MobilePlatform.Port.ReadNativeSkinArt();
 
-    public bool NeedsRefresh => _art.NeedsRefresh;
+    /// <summary>The game destroyed or never loaded a sprite this skin draws with.</summary>
+    public bool NeedsRefresh
+    {
+        get
+        {
+            var platform = MobilePlatform.Port;
+            return !platform.IsAlive(_art.Button)
+                || !platform.IsAlive(_art.Frame)
+                || !platform.IsAlive(_art.TagFrame);
+        }
+    }
 
     /// <summary>
     /// An opaque backing with the native frame art over it. With <paramref name="borderOnly"/>
@@ -22,9 +28,9 @@ internal sealed class TouchNativeSkin
     /// </summary>
     public void Frame(RectTransform rect, Color? backing = null, bool borderOnly = false)
     {
-        var background = backing ?? TouchUiKit.PanelColor;
+        var background = backing ?? UiKit.PanelColor;
         background.a = 1f;
-        TouchUiKit.Fill(rect, background);
+        UiKit.Fill(rect, background);
         DrawFrame(rect, fillCenter: !borderOnly);
     }
 
@@ -32,7 +38,7 @@ internal sealed class TouchNativeSkin
     {
         if (_art.Frame == null)
             return;
-        var art = TouchUiKit.Rect(
+        var art = UiKit.Rect(
             "FrameArt",
             rect,
             Vector2.zero,
@@ -40,7 +46,7 @@ internal sealed class TouchNativeSkin
             Vector2.zero,
             Vector2.zero
         );
-        var image = TouchUiKit.Fill(art, Color.white, false);
+        var image = UiKit.Fill(art, Color.white, false);
         image.sprite = _art.Frame;
         image.type = Image.Type.Sliced;
         image.fillCenter = fillCenter;
@@ -49,7 +55,7 @@ internal sealed class TouchNativeSkin
 
     public Image Tag(RectTransform rect)
     {
-        var image = TouchUiKit.Fill(rect, TouchUiKit.ButtonColor, false);
+        var image = UiKit.Fill(rect, UiKit.ButtonColor, false);
         image.sprite = _art.TagFrame;
         image.type = Image.Type.Sliced;
         return image;
@@ -65,40 +71,37 @@ internal sealed class TouchNativeSkin
         Action<bool> onChanged
     )
     {
-        var hitArea = TouchUiKit.Fill(rect, new Color(0f, 0f, 0f, 0.001f));
+        var hitArea = UiKit.Fill(rect, new Color(0f, 0f, 0f, 0.001f));
         var height = trackHeight;
         var width = height * 1.75f;
-        var track = TouchUiKit.Fixed(
+        var track = UiKit.Fixed(
             "Track",
             rect,
             new Vector2(1f, 0.5f),
             Vector2.zero,
             new Vector2(width, height)
         );
-        var background = TouchUiKit.Fill(
-            track,
-            value ? TouchUiKit.ActiveColor : TouchUiKit.ButtonColor
-        );
+        var background = UiKit.Fill(track, value ? UiKit.ActiveColor : UiKit.ButtonColor);
         background.sprite = _art.TagFrame;
         background.type = Image.Type.Sliced;
         var padding = height * 0.12f;
         var diameter = height - 2f * padding;
-        var thumb = TouchUiKit.Fixed(
+        var thumb = UiKit.Fixed(
             "Thumb",
             track,
             new Vector2(value ? 1f : 0f, 0.5f),
             new Vector2(value ? -padding : padding, 0f),
             new Vector2(diameter, diameter)
         );
-        var thumbImage = TouchUiKit.Fill(thumb, TouchUiKit.TextColor, false);
+        var thumbImage = UiKit.Fill(thumb, UiKit.TextColor, false);
         thumbImage.sprite = _art.TagFrame;
         thumbImage.type = Image.Type.Sliced;
         var toggle = rect.gameObject.AddComponent<Toggle>();
         toggle.targetGraphic = hitArea;
         toggle.SetIsOnWithoutNotify(value);
-        toggle.onValueChanged.AddListener(new UnityAction<bool>(onChanged));
-        TouchUiKit.Text(
-            TouchUiKit.Rect(
+        MobilePlatform.Port.OnValueChanged(toggle, onChanged);
+        UiKit.Text(
+            UiKit.Rect(
                 "Label",
                 rect,
                 Vector2.zero,
@@ -110,7 +113,7 @@ internal sealed class TouchNativeSkin
             label,
             fontSize,
             TextAlignmentOptions.Left,
-            TouchUiKit.TextColor
+            UiKit.TextColor
         );
     }
 
@@ -123,7 +126,7 @@ internal sealed class TouchNativeSkin
         Action onTap
     )
     {
-        var result = TouchUiKit.Button(rect, font, label, size, inset, onTap);
+        var result = UiKit.Button(rect, font, label, size, inset, onTap);
         Select(result.Background, false);
         return result;
     }
@@ -135,8 +138,8 @@ internal sealed class TouchNativeSkin
         image.color =
             image.sprite == null
                 ? selected
-                    ? TouchUiKit.ActiveColor
-                    : TouchUiKit.ButtonColor
+                    ? UiKit.ActiveColor
+                    : UiKit.ButtonColor
                 : dimmed
                     ? InGameTheme.ArtPanelTint
                     : selected

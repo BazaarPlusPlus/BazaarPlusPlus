@@ -46,7 +46,7 @@ internal sealed class TouchHistoryInspection : IHistoryCardOverlay
         );
         _root = root.gameObject;
         var area = TouchScreen.Child("CardArea", root, layout.InspectCardArea);
-        _slot = TouchUiKit.Rect(
+        _slot = UiKit.Rect(
             "CardSlot",
             area,
             new(0.5f, 0.5f),
@@ -77,7 +77,7 @@ internal sealed class TouchHistoryInspection : IHistoryCardOverlay
             Local(layout.InspectClose, origin, 0f),
             layout.TitleFont,
             () => Close("close_button"),
-            TouchUiKit.CloseGlyph
+            UiKit.CloseGlyph
         );
         _root.SetActive(false);
     }

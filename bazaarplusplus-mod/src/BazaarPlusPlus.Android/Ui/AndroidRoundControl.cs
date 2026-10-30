@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -22,12 +23,12 @@ internal static class AndroidRoundControl
         Action action
     )
     {
-        var hit = AndroidUiKit.Fill(target, new Color(0, 0, 0, .001f));
-        var visual = AndroidUiKit.Fixed("NativeFrame", target, new(.5f, .5f), Vector2.zero, size);
+        var hit = UiKit.Fill(target, new Color(0, 0, 0, .001f));
+        var visual = UiKit.Fixed("NativeFrame", target, new(.5f, .5f), Vector2.zero, size);
         Image? surface = null;
         foreach (var layer in art.Layers)
         {
-            var layerImage = AndroidUiKit.Fill(
+            var layerImage = UiKit.Fill(
                 Part("Art", visual, layer.Bounds, size),
                 layer.Color,
                 false
@@ -38,8 +39,8 @@ internal static class AndroidRoundControl
         var side = Math.Min(size.x, size.y) * .56f;
         var glyph = art.Icon is { } place
             ? Part("Icon", visual, place, size)
-            : AndroidUiKit.Fixed("Icon", visual, new(.5f, .5f), Vector2.zero, new(side, side));
-        var image = AndroidUiKit.Fill(glyph, Color.white, false);
+            : UiKit.Fixed("Icon", visual, new(.5f, .5f), Vector2.zero, new(side, side));
+        var image = UiKit.Fill(glyph, Color.white, false);
         image.sprite = icon;
         image.enabled = icon != null;
         image.preserveAspect = true;

@@ -4,9 +4,9 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Mobile;
 
 /// <summary>
-/// The Mobile Platform Port (root GLOSSARY.md; ADR-0025 decision 3): what a host gives the Mobile
-/// UI to reach its runtime. Code in this tree reaches the host only through it, never through
-/// <c>#if</c>. Each host implements it once and installs it through
+/// The Mobile Platform Port (the mod's GLOSSARY.md; ADR-0025 decision 3): what a host gives the
+/// Mobile UI to reach its runtime. Code in this tree reaches the host only through it, never
+/// through <c>#if</c>. Each host implements it once and installs it through
 /// <see cref="MobilePlatform.Install"/> before any Mobile UI is built.
 /// </summary>
 internal interface IMobilePlatformPort
@@ -17,38 +17,42 @@ internal interface IMobilePlatformPort
     /// </summary>
     IDisposable EnterMainThread();
 
-    // The members below reach the host's uGUI kit and keyword sprites. They leave the port when
-    // the kit moves into this tree (issue #701, step 3) and the keyword sprites follow it.
+    /// <summary>
+    /// Whether <paramref name="value"/> is a live Unity object: neither destroyed nor, on an
+    /// IL2CPP host, collected under its managed proxy.
+    /// </summary>
+    bool IsAlive(UnityEngine.Object? value);
 
-    /// <summary>A child rect anchored to a fraction of its parent, inset by pixel offsets.</summary>
-    RectTransform Rect(
-        string name,
-        Transform parent,
-        Vector2 anchorMin,
-        Vector2 anchorMax,
-        Vector2 offsetMin,
-        Vector2 offsetMax
-    );
+    /// <summary><paramref name="value"/> as <typeparamref name="T"/>, which it must be.</summary>
+    T Cast<T>(UnityEngine.Object value)
+        where T : UnityEngine.Object;
 
-    /// <summary>A wrapping rich-text label in <paramref name="rect"/> that takes no touches.</summary>
-    TextMeshProUGUI Text(
-        RectTransform rect,
-        TMP_FontAsset font,
-        string text,
-        float size,
-        TextAlignmentOptions alignment,
-        Color color
-    );
+    /// <summary>Lets <paramref name="label"/> wrap at its rect's width, or keeps it on one line.</summary>
+    void SetWordWrapping(TMP_Text label, bool wrap);
 
-    /// <summary>A vertical drag-scrolled list filling <paramref name="area"/>, with inertia.</summary>
-    (ScrollRect Scroll, RectTransform Content) VerticalScroll(RectTransform area);
+    /// <summary>Runs <paramref name="onTap"/> each time <paramref name="button"/> is clicked.</summary>
+    void OnClick(Button button, Action onTap);
+
+    /// <summary>Runs <paramref name="onChanged"/> with each new value of <paramref name="toggle"/>.</summary>
+    void OnValueChanged(Toggle toggle, Action<bool> onChanged);
 
     /// <summary>
-    /// Gives <paramref name="label"/> the game's sprite asset that holds the keyword icons its
-    /// text names; call after setting the text.
+    /// The game sprites the native skin borrows, from a host read of the game's own popups and
+    /// tooltips; a sprite the game has not loaded is null.
     /// </summary>
-    void ApplyKeywordSprites(TMP_Text label);
+    NativeSkinArt ReadNativeSkinArt();
 }
+
+/// <summary>
+/// The game's popup button at rest and clicked (<see cref="Button"/>, <see cref="Selected"/>), and
+/// its tooltip frame and tag frame (<see cref="Frame"/>, <see cref="TagFrame"/>).
+/// </summary>
+internal sealed record NativeSkinArt(
+    Sprite? Button,
+    Sprite? Selected,
+    Sprite? Frame,
+    Sprite? TagFrame
+);
 
 /// <summary>The host's <see cref="IMobilePlatformPort"/>, installed once at startup.</summary>
 internal static class MobilePlatform

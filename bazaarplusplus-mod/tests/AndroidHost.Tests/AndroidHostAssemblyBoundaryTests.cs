@@ -46,9 +46,10 @@ public sealed class AndroidHostAssemblyBoundaryTests
 
     private const string MobileTree = "BazaarPlusPlus.Mobile";
 
-    // The port, its holder and the leaves #701 step 2 moved; a dropped <Compile Include> of the
-    // tree leaves fewer, so the rules over the tree cannot pass on nothing.
-    private const int MinimumMobileTreeTypes = 5;
+    // The port, its holder and art record, the theme, and the kit and leaves #701 steps 2 and 3
+    // moved; a dropped <Compile Include> of the tree leaves fewer, so the rules over the tree
+    // cannot pass on nothing.
+    private const int MinimumMobileTreeTypes = 12;
 
     [Fact]
     public void Android_host_defines_only_its_own_types()

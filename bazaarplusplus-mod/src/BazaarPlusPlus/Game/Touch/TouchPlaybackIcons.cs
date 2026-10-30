@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Touch;
@@ -40,7 +41,7 @@ internal sealed class TouchPlaybackIcons : IDisposable
             var inside = play
                 ? x >= 8 && x <= 56 - Math.Abs(y - 32) * 1.5f
                 : y >= 8 && y < 56 && (x >= 10 && x < 24 || x >= 40 && x < 54);
-            pixels[y * size + x] = inside ? TouchUiKit.TextColor : Color.clear;
+            pixels[y * size + x] = inside ? UiKit.TextColor : Color.clear;
         }
         texture.SetPixels(pixels);
         return GpuOnlySprite(_owned, texture);

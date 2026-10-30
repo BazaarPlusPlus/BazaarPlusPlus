@@ -56,7 +56,7 @@ internal sealed class AndroidCollectionPanel
     // An open panel lays out again only once the screen key holds still and no card is setting
     // up, as Ten-Win Builds does; Open still rebuilds at once for a changed screen.
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
-    private AndroidNativeSkin _skin = null!;
+    private NativeSkin _skin = null!;
     private AndroidCollectionGrid _grid = null!;
     private AndroidCollectionInspection _inspection = null!;
     private RectTransform _railContent = null!;
@@ -284,10 +284,10 @@ internal sealed class AndroidCollectionPanel
     {
         var layout = _layout = CollectionTouchLayout.For(AndroidTouchScreen.Read());
         _port.Touch = layout;
-        _skin = new AndroidNativeSkin();
+        _skin = new NativeSkin();
         var chrome = layout.Chrome;
         var metrics = layout.Metrics;
-        var root = AndroidUiKit.Rect(
+        var root = UiKit.Rect(
             "Collection",
             _parent,
             Vector2.zero,
@@ -296,7 +296,7 @@ internal sealed class AndroidCollectionPanel
             Vector2.zero
         );
         // Opaque: the panel covers the whole screen, and nothing of the scene shows through.
-        var background = AndroidUiKit.PanelColor;
+        var background = UiKit.PanelColor;
         background.a = 1f;
         try
         {
@@ -328,7 +328,7 @@ internal sealed class AndroidCollectionPanel
     {
         var chrome = layout.Chrome;
         var metrics = layout.Metrics;
-        AndroidUiKit.Fill(root, background);
+        UiKit.Fill(root, background);
 
         var gridArea = AndroidTouchScreen.Child("Grid", root, layout.Grid);
         _grid = new AndroidCollectionGrid(gridArea, _port, Inspect, _font, chrome.BodyFont);
@@ -346,13 +346,13 @@ internal sealed class AndroidCollectionPanel
                 Math.Max(0f, metrics.CanvasHeight - layout.Grid.Bottom)
             )
         );
-        _status = AndroidUiKit.Text(
+        _status = UiKit.Text(
             AndroidTouchScreen.Child("Status", root, layout.Grid),
             _font,
             "",
             chrome.ButtonFont,
             TextAlignmentOptions.Center,
-            AndroidUiKit.MutedTextColor
+            UiKit.MutedTextColor
         );
 
         (_, _, _supporterLabel) = _skin.Button(
@@ -390,17 +390,10 @@ internal sealed class AndroidCollectionPanel
 
         var rail = AndroidTouchScreen.Child("Rail", root, layout.Rail);
         _skin.Frame(
-            AndroidUiKit.Rect(
-                "RailFrame",
-                rail,
-                Vector2.zero,
-                Vector2.one,
-                Vector2.zero,
-                Vector2.zero
-            )
+            UiKit.Rect("RailFrame", rail, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero)
         );
         var inset = metrics.Dp(16f);
-        var railInner = AndroidUiKit.Rect(
+        var railInner = UiKit.Rect(
             "RailInner",
             rail,
             Vector2.zero,
@@ -408,7 +401,7 @@ internal sealed class AndroidCollectionPanel
             new(inset, inset),
             new(-inset, -inset)
         );
-        (_railScroll, _railContent) = AndroidUiKit.VerticalScroll(railInner);
+        (_railScroll, _railContent) = UiKit.VerticalScroll(railInner);
 
         _inspection = new AndroidCollectionInspection(root, _font, layout, _skin);
         _trackers.Clear();
@@ -600,7 +593,7 @@ internal sealed class AndroidCollectionPanel
             child.SetActive(false);
             UnityEngine.Object.Destroy(child);
         }
-        var flow = new AndroidChipFlow(
+        var flow = new ChipFlow(
             _railContent,
             _font,
             _layout.Chrome,
@@ -720,7 +713,7 @@ internal sealed class AndroidCollectionPanel
                     span: 6
                 );
             }
-            flow.Note(CollectionPanelText.SourceDisclaimer(), AndroidUiKit.MutedTextColor);
+            flow.Note(CollectionPanelText.SourceDisclaimer(), UiKit.MutedTextColor);
         }
         flow.Divider();
         if (profile.ShowSizeFilter)
@@ -892,7 +885,7 @@ internal sealed class AndroidCollectionPanel
     }
 
     private void MatchModes(
-        AndroidChipFlow flow,
+        ChipFlow flow,
         CollectionFacetMatchMode current,
         Func<CollectionFacetMatchMode, CollectionRenderOutcome?> set
     )
@@ -948,7 +941,7 @@ internal sealed class AndroidCollectionPanel
         var rect = AndroidTouchScreen.Child("Search", root, area);
         _skin.Frame(rect);
         var inset = chrome.Gap;
-        var textArea = AndroidUiKit.Rect(
+        var textArea = UiKit.Rect(
             "TextArea",
             rect,
             Vector2.zero,
@@ -957,8 +950,8 @@ internal sealed class AndroidCollectionPanel
             new(-inset * 1.5f, -inset * 0.5f)
         );
         textArea.gameObject.AddComponent<RectMask2D>();
-        var placeholder = AndroidUiKit.Text(
-            AndroidUiKit.Rect(
+        var placeholder = UiKit.Text(
+            UiKit.Rect(
                 "Placeholder",
                 textArea,
                 Vector2.zero,
@@ -970,24 +963,17 @@ internal sealed class AndroidCollectionPanel
             "",
             chrome.ButtonFont,
             TextAlignmentOptions.MidlineLeft,
-            AndroidUiKit.MutedTextColor
+            UiKit.MutedTextColor
         );
         placeholder.enableWordWrapping = false;
         placeholder.overflowMode = TextOverflowModes.Ellipsis;
-        var text = AndroidUiKit.Text(
-            AndroidUiKit.Rect(
-                "Text",
-                textArea,
-                Vector2.zero,
-                Vector2.one,
-                Vector2.zero,
-                Vector2.zero
-            ),
+        var text = UiKit.Text(
+            UiKit.Rect("Text", textArea, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
             _font,
             "",
             chrome.ButtonFont,
             TextAlignmentOptions.MidlineLeft,
-            AndroidUiKit.TextColor
+            UiKit.TextColor
         );
         text.enableWordWrapping = false;
         // Configured while inactive: the field's OnEnable reads its text component.
@@ -1017,7 +1003,7 @@ internal sealed class AndroidCollectionPanel
     {
         if (area.Height <= 0f)
             return;
-        AndroidUiKit.Fill(AndroidTouchScreen.Child("GridEdge", root, area), color);
+        UiKit.Fill(AndroidTouchScreen.Child("GridEdge", root, area), color);
     }
 
     private bool IsInRun()

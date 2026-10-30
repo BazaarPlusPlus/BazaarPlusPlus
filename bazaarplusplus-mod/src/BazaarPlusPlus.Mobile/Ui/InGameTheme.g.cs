@@ -5,9 +5,9 @@
 #nullable enable
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>The colours BPP draws in game, shared by the desktop and Android hosts.</summary>
+/// <summary>The colours BPP draws in game, shared by the Desktop UI and the Mobile UI.</summary>
 internal static class InGameTheme
 {
     /// <summary>Ground of every opaque full-screen BPP sheet: History, and Android's Collection and Ten-Win Builds. The darkest step of the warm brown ladder.</summary>

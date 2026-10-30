@@ -68,8 +68,6 @@ internal sealed class AndroidNativeArt
             );
     }
 
-    public bool NeedsRefresh => !Alive(Button) || !Alive(Frame) || !Alive(TagFrame);
-
     /// <summary>
     /// The round <paramref name="gear"/> button at rest: its visible layers except its icon, and
     /// where the icon sits, each placed as a fraction of the button's bounds; no layers when they

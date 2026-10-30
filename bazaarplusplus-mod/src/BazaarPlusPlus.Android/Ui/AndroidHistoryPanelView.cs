@@ -98,10 +98,10 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         var screen = AndroidTouchScreen.Key();
         _l = HistoryTouchLayout.For(AndroidTouchScreen.Read());
         _badges = AndroidHistoryBadges.TryLoad();
-        _root = AndroidUiKit.CreateOverlayCanvas("BPP.HistoryPanel", SortingOrder);
+        _root = UiKit.CreateOverlayCanvas("BPP.HistoryPanel", SortingOrder);
         try
         {
-            Surface = AndroidUiKit.Rect(
+            Surface = UiKit.Rect(
                 "Layout",
                 _root.transform,
                 Vector2.zero,
@@ -263,8 +263,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             Vector2 offsetMin,
             Vector2 offsetMax
         ) =>
-            AndroidUiKit.Fill(
-                AndroidUiKit.Rect(name, Surface, anchorMin, anchorMax, offsetMin, offsetMax),
+            UiKit.Fill(
+                UiKit.Rect(name, Surface, anchorMin, anchorMax, offsetMin, offsetMax),
                 AndroidHistoryUi.Backdrop
             );
     }
@@ -321,7 +321,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _more.Set(AndroidHistoryUi.T("More", "更多"));
         AndroidHistoryUi
             .Button(Surface, _font, "close", _l.Close, _l.TitleFont, () => _actions.Close())
-            .Set(AndroidUiKit.CloseGlyph);
+            .Set(UiKit.CloseGlyph);
 
         _archive = BuildArchive();
         _thumbs.Add(new ScrollThumb(_archive.Scroll, _l.Metrics));
@@ -610,7 +610,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 shown => AndroidHistoryUi.SetActive(row.Rank.gameObject, shown)
             );
             var outcomeImage = ArtSlot(rect, "Outcome");
-            var portrait = AndroidUiKit.Fixed(
+            var portrait = UiKit.Fixed(
                 "HeroPortrait",
                 rect,
                 new(0f, 1f),
@@ -618,7 +618,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 Vector2.one * _l.Metrics.Dp(36f)
             );
             row.PortraitRect = portrait;
-            row.Portrait = new AndroidPortraitView(portrait, AndroidHistoryUi.Skin, _l.Metrics);
+            row.Portrait = new PortraitView(portrait, AndroidHistoryUi.Skin, _l.Metrics);
             row.Accent = Accent(rect);
             row.Unknown = AndroidHistoryUi.Fraction(
                 outcomeImage.transform,
@@ -663,7 +663,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 () => _actions.SelectBattle(slot)
             );
             control.Label.gameObject.SetActive(false);
-            var outcome = AndroidUiKit.Rect(
+            var outcome = UiKit.Rect(
                 "Outcome",
                 rect,
                 new Vector2(.08f, .04f),
@@ -697,22 +697,18 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                     TextAlignmentOptions.Center,
                     AndroidHistoryUi.Muted
                 ),
-                Outcome = AndroidUiKit.Fill(outcome, Color.clear, blocksTouches: false),
+                Outcome = UiKit.Fill(outcome, Color.clear, blocksTouches: false),
                 Accent = Accent(rect),
             };
             // The top line reads portrait, day and rank badge, as the desktop chip does.
-            var portrait = AndroidUiKit.Fixed(
+            var portrait = UiKit.Fixed(
                 "HeroPortrait",
                 rect,
                 new(0f, 1f),
                 new(_l.Metrics.Dp(5f), -_l.Metrics.Dp(3f)),
                 Vector2.one * _l.Metrics.Dp(22f)
             );
-            rail.Chips[i].Portrait = new AndroidPortraitView(
-                portrait,
-                AndroidHistoryUi.Skin,
-                _l.Metrics
-            );
+            rail.Chips[i].Portrait = new PortraitView(portrait, AndroidHistoryUi.Skin, _l.Metrics);
             rect.gameObject.SetActive(false);
         }
         return rail;
@@ -721,7 +717,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     // A gold bar down the selected row's left edge: the selected fill alone reads too faintly.
     private GameObject Accent(RectTransform row)
     {
-        var bar = AndroidUiKit.Rect(
+        var bar = UiKit.Rect(
             "Accent",
             row,
             new Vector2(0f, .14f),
@@ -729,7 +725,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             Vector2.zero,
             new Vector2(_l.Metrics.Dp(4f), 0f)
         );
-        AndroidUiKit.Fill(bar, AndroidHistoryUi.Accent, blocksTouches: false);
+        UiKit.Fill(bar, AndroidHistoryUi.Accent, blocksTouches: false);
         bar.gameObject.SetActive(false);
         return bar.gameObject;
     }
@@ -737,7 +733,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     private RectTransform BoardRegion(string name, TouchRect area)
     {
         var region = AndroidTouchScreen.Child(name, Surface, area);
-        AndroidUiKit.Fill(region, AndroidHistoryUi.ButtonDimmed, blocksTouches: false);
+        UiKit.Fill(region, AndroidHistoryUi.ButtonDimmed, blocksTouches: false);
         return region;
     }
 
@@ -753,7 +749,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             Surface,
             new TouchRect(board.Left, board.Bottom - height, board.Width, height)
         );
-        AndroidUiKit.Fill(band, AndroidHistoryUi.Shade, blocksTouches: false);
+        UiKit.Fill(band, AndroidHistoryUi.Shade, blocksTouches: false);
         var label = AndroidHistoryUi.Fraction(
             band,
             _font,
@@ -779,14 +775,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         float height = 0f
     )
     {
-        var rect = AndroidUiKit.Rect(
-            name,
-            parent,
-            Vector2.zero,
-            Vector2.zero,
-            Vector2.zero,
-            Vector2.zero
-        );
+        var rect = UiKit.Rect(name, parent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
         Frac(rect, x, y, width, height);
         var image = rect.gameObject.AddComponent<Image>();
         image.raycastTarget = false;
@@ -1216,7 +1205,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         internal ArtImage Badge = null!;
         internal ArtImage RankArt = null!;
         internal RectTransform PortraitRect = null!;
-        internal AndroidPortraitView Portrait = null!;
+        internal PortraitView Portrait = null!;
         internal CardHero? Hero;
         internal TextMeshProUGUI Unknown = null!;
         internal TextMeshProUGUI Rank = null!;
@@ -1242,7 +1231,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         internal RectTransform Rect = null!;
         internal HistoryButton Control = null!;
         internal TextMeshProUGUI Day = null!;
-        internal AndroidPortraitView Portrait = null!;
+        internal PortraitView Portrait = null!;
         internal CardHero? Hero;
         internal ArtImage Rank = null!;
         internal TextMeshProUGUI Name = null!;
@@ -1266,7 +1255,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         {
             _scroll = scroll;
             _scrollRect = scroll.GetComponent<RectTransform>();
-            _bar = AndroidUiKit.Rect(
+            _bar = UiKit.Rect(
                 "Thumb",
                 scroll.transform,
                 Vector2.zero,
@@ -1274,7 +1263,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
                 Vector2.zero,
                 Vector2.zero
             );
-            var fill = AndroidUiKit.Fill(_bar, AndroidHistoryUi.Accent, blocksTouches: false);
+            var fill = UiKit.Fill(_bar, AndroidHistoryUi.Accent, blocksTouches: false);
             fill.color = new Color(fill.color.r, fill.color.g, fill.color.b, .7f);
             _bar.gameObject.SetActive(false);
         }

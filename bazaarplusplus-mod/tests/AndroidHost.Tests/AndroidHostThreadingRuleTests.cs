@@ -70,8 +70,13 @@ public sealed class AndroidHostThreadingRuleTests
         static bool In(CompiledType type, string ns) =>
             type.Namespace == ns || type.Namespace.StartsWith(ns + ".", StringComparison.Ordinal);
         var scope = Host.Value.Types.Where(type => namespaces.Any(ns => In(type, ns))).ToArray();
-        // A moved or renamed namespace would leave its rule inspecting nothing.
+        // A moved or renamed namespace would leave its rule inspecting nothing; the Mobile UI tree
+        // holds the port, the theme, the kit and the leaves #701 steps 2 and 3 moved.
         Assert.All(namespaces, ns => Assert.Contains(scope, type => In(type, ns)));
+        Assert.True(
+            scope.Count(type => In(type, "BazaarPlusPlus.Mobile")) >= 12,
+            "The Mobile UI tree left the Android host's threading rule."
+        );
         var violations = scope
             .SelectMany(type => type.Methods)
             .SelectMany(method =>

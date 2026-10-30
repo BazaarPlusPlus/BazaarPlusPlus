@@ -1,10 +1,9 @@
-#nullable enable
 using System.Text.RegularExpressions;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 
-namespace BazaarPlusPlus.GameInterop.Touch;
+namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>
 /// The game's card text names its keyword icons as <c>&lt;sprite name=…&gt;</c>, which resolve
@@ -13,7 +12,7 @@ namespace BazaarPlusPlus.GameInterop.Touch;
 /// text the loaded sprite asset that holds its first keyword icon, found the way the desktop's
 /// <c>KeywordIconSpriteProvider</c> finds it. Main thread only.
 /// </summary>
-internal static class TouchKeywordSprites
+internal static class KeywordSprites
 {
     private static readonly Regex SpriteName = new(
         "<sprite\\s+name=\"?([^\">\\s]+)\"?",
@@ -68,7 +67,7 @@ internal static class TouchKeywordSprites
     }
 
     private static bool Holds(TMP_SpriteAsset? asset, string name) =>
-        asset != null && asset!.GetSpriteIndexFromName(name) >= 0;
+        MobilePlatform.Port.IsAlive(asset) && asset!.GetSpriteIndexFromName(name) >= 0;
 
     // The game's own text components first, then any sprite asset loaded at all.
     private static TMP_SpriteAsset[] Scan()

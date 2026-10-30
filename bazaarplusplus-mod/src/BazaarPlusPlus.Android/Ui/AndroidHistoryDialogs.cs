@@ -3,6 +3,7 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using BazaarPlusPlus.Storage.RunLog;
 using UnityEngine;
 
@@ -74,7 +75,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             Local(layout.DialogClose, origin),
             layout.TitleFont,
             () => Close("close_button"),
-            AndroidUiKit.CloseGlyph
+            UiKit.CloseGlyph
         );
         var (scroll, content) = AndroidHistoryUi.Scroll(
             dialog,
@@ -109,7 +110,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             wrap: true
         );
         // The rows under the status line, moved as one while that line is empty.
-        _below = AndroidUiKit.Rect(
+        _below = UiKit.Rect(
             "Below",
             content,
             Vector2.zero,
@@ -153,7 +154,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             AndroidHistoryUi.Muted,
             wrap: true
         );
-        var form = AndroidUiKit.Rect(
+        var form = UiKit.Rect(
             "AccountForm",
             below,
             Vector2.zero,
@@ -375,7 +376,7 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
             Local(layout.DialogClose, origin),
             layout.TitleFont,
             () => Close("close_button"),
-            AndroidUiKit.CloseGlyph
+            UiKit.CloseGlyph
         );
         _input = AndroidHistoryUi.Input(
             dialog,

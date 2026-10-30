@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
@@ -29,7 +30,7 @@ internal sealed class TouchGameplayPreviews : MonoBehaviour
     private IReadOnlyList<EEnchantmentType> _candidates = Array.Empty<EEnchantmentType>();
     private IReadOnlyList<(string Label, string Text)>? _effects;
     private GameObject? _root;
-    private TouchNativeSkin? _skin;
+    private NativeSkin? _skin;
     private bool _expanded;
     private bool _dirty;
     private string? _screen;
@@ -191,8 +192,8 @@ internal sealed class TouchGameplayPreviews : MonoBehaviour
             new(chrome.Padding, chrome.Gap, parent.rect.width - 2 * chrome.Padding, 0)
         );
         if (_skin == null || _skin.NeedsRefresh)
-            _skin = new TouchNativeSkin();
-        var flow = new TouchChipFlow(area, TouchFonts.Body()!, chrome, 1, chrome.Target, _skin);
+            _skin = new NativeSkin();
+        var flow = new ChipFlow(area, TouchFonts.Body()!, chrome, 1, chrome.Target, _skin);
         if (upgrade)
             flow.Toggle(
                 L.Resolve(new LocalizedTextSet("Upgrade preview", "升级预览", "升級預覽")),
@@ -214,7 +215,7 @@ internal sealed class TouchGameplayPreviews : MonoBehaviour
                     L.Resolve(
                         new LocalizedTextSet("Effect unavailable", "效果暂不可用", "效果暫不可用")
                     ),
-                    TouchUiKit.MutedTextColor
+                    UiKit.MutedTextColor
                 );
         }
         var height = flow.Height + 2 * chrome.Gap;
