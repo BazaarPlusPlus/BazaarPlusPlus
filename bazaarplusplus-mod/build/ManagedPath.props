@@ -14,7 +14,9 @@
   -->
   <PropertyGroup>
     <BppGameLibsLock>$(MSBuildThisFileDirectory)game-libs.lock.json</BppGameLibsLock>
-    <BppGameLibsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'game-libs'))</BppGameLibsRoot>
+    <BppGameLibsRoot Condition="'$(BppGameLibsRoot)' == ''"
+      >$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'game-libs'))</BppGameLibsRoot>
+    <_BppGitFile>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '.git'))</_BppGitFile>
     <BppSnapshotPlatform
       Condition="'$(BppSnapshotPlatform)' == '' and $([MSBuild]::IsOSPlatform('OSX'))"
       >macos</BppSnapshotPlatform>
@@ -24,6 +26,13 @@
     <BppSnapshotChannel Condition="'$(BppSnapshotChannel)' == ''">online</BppSnapshotChannel>
     <!-- release/game-libs.mjs GAME_VERSION_PATTERN; a release test keeps the two equal. -->
     <BppGameVersionPattern>\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:(?:macos|windows)-[a-z0-9]+|android)-[0-9a-f]+</BppGameVersionPattern>
+  </PropertyGroup>
+  <!-- git ignores game-libs/, so a linked worktree has none until it fetches; it borrows the main
+       checkout's. Its .git is a file naming <main>/.git/worktrees/<name>. -->
+  <PropertyGroup Condition="!Exists('$(BppGameLibsRoot)') and $([System.IO.File]::Exists('$(_BppGitFile)'))">
+    <_BppMainGitDir>$([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('$(_BppGitFile)').Trim()), '^gitdir:\s*(.*)[\\/]worktrees[\\/][^\\/]+$', '$1'))</_BppMainGitDir>
+    <_BppMainGameLibs>$([MSBuild]::NormalizeDirectory('$(_BppMainGitDir)', '..', 'bazaarplusplus-mod', 'game-libs'))</_BppMainGameLibs>
+    <BppGameLibsRoot Condition="Exists('$(_BppMainGameLibs)')">$(_BppMainGameLibs)</BppGameLibsRoot>
   </PropertyGroup>
 
   <!-- Steam install discovery: the same candidate list as before, now only a source record. -->
