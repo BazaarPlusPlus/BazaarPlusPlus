@@ -32,6 +32,11 @@ internal static class AndroidScreenFill
     // margin, and still shows the board's full height on a nearly square screen.
     private const float BoardZoom = 1.3f;
 
+    // The least the vertical view grows: the board fills about 97% of the game's own view, and
+    // this leaves about an eighth of the screen above it for the HUD band. On a screen between
+    // 4:3 and 16:10 it sets the zoom rather than BoardZoom does.
+    private const float MinStretch = 1.12f;
+
     // Of the screen's height, what is kept clear under the lowered board.
     private const float BottomMargin = 0.012f;
 
@@ -67,8 +72,8 @@ internal static class AndroidScreenFill
     /// <summary>
     /// Called after Cinemachine's brain updated <paramref name="camera"/> this frame: on a
     /// perspective camera narrower than 16:10, raises the vertical field of view until the
-    /// horizontal one is <see cref="BoardZoom"/> times narrower than what 16:10 shows, never
-    /// lowering it; then lowers the board to the screen's bottom edge and places the day clock in
+    /// horizontal one is <see cref="BoardZoom"/> times narrower than what 16:10 shows, but by at
+    /// least <see cref="MinStretch"/>; then lowers the board to the screen's bottom edge and places the day clock in
     /// the band left above it. The brain writes the lens again on most frames;
     /// a frame it skipped still holds the value written here, which is left alone so the change
     /// never compounds.
@@ -147,7 +152,7 @@ internal static class AndroidScreenFill
         if (Widened.TryGetValue(key, out var written) && written == fieldOfView)
             return true;
         var halfTan = Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad);
-        var stretch = Math.Max(1f, ReferenceAspect / (aspect * BoardZoom));
+        var stretch = Math.Max(MinStretch, ReferenceAspect / (aspect * BoardZoom));
         var widened = 2f * Mathf.Atan(halfTan * stretch) * Mathf.Rad2Deg;
         camera.fieldOfView = widened;
         // Read back: the camera clamps the value it stores.
