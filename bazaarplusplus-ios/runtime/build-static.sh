@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 KIND=${1:-simulator}
-SOURCES=(runtime/bridge/il2cpp_on_mono.c runtime/bridge/engine_hooks.c runtime/bridge/ui_diag.m runtime/bridge/gc_stats.c middleware/fmod/coreaudio_compat.c middleware/steamworks/steam_api_stub.c middleware/steamworks/steam_api_runtime.c
+SOURCES=(runtime/bridge/il2cpp_on_mono.c runtime/bridge/engine_hooks.c runtime/bridge/ui_diag.m runtime/bridge/gc_stats.c middleware/steamworks/steam_api_stub.c middleware/steamworks/steam_api_runtime.c
  service/Native/bridge.m service/Native/keychain.m service/Native/chunks.c)
 case "$KIND" in
  simulator) SDK=iphonesimulator; TARGET=arm64-apple-ios15.0-simulator; FLAVOR=sim-aot ;;
