@@ -15,6 +15,9 @@ internal sealed class AndroidNativeArt
 {
     public readonly record struct ButtonLayer(Sprite Sprite, Color Color, TouchRect Bounds);
 
+    /// <summary>A round button's layers, and its icon's bounds when it has one.</summary>
+    public readonly record struct RoundArt(IReadOnlyList<ButtonLayer> Layers, TouchRect? Icon);
+
     // Button with Selected and Frame with TagFrame come from one native object each, so each
     // pair is replaced together. A pair rescans when its primary is missing or collected, or
     // when its captured secondary was collected; a secondary absent from the start (Selected
@@ -68,11 +71,12 @@ internal sealed class AndroidNativeArt
     public bool NeedsRefresh => !Alive(Button) || !Alive(Frame) || !Alive(TagFrame);
 
     /// <summary>
-    /// The visible layers of the round <paramref name="gear"/> button except its icon, each
-    /// placed as a fraction of the button's bounds; empty when they cannot be read.
-    /// <paramref name="rect"/> is the gear's, and <paramref name="rootCanvas"/> its root canvas.
+    /// The round <paramref name="gear"/> button at rest: its visible layers except its icon, and
+    /// where the icon sits, each placed as a fraction of the button's bounds; no layers when they
+    /// cannot be read. <paramref name="rect"/> is the gear's, and <paramref name="rootCanvas"/>
+    /// its root canvas.
     /// </summary>
-    public static IReadOnlyList<ButtonLayer> RoundLayersFor(
+    public static RoundArt RoundArtFor(
         UnityEngine.UI.Button gear,
         RectTransform rect,
         Canvas rootCanvas
@@ -81,32 +85,44 @@ internal sealed class AndroidNativeArt
         try
         {
             var native = gear.GetComponent<Il2Cpp.BazaarButtonController>();
+            var resting = RestingLayers(gear, native, out var swapClones);
             var bounds = AndroidNativeHud.ScreenBounds(rect, rootCanvas, 1);
+            TouchRect Relative(RectTransform part)
+            {
+                var area = AndroidNativeHud.ScreenBounds(part, rootCanvas, 1);
+                return new(
+                    (area.Left - bounds.Left) / bounds.Width,
+                    (area.Top - bounds.Top) / bounds.Height,
+                    area.Width / bounds.Width,
+                    area.Height / bounds.Height
+                );
+            }
+            var icon = native?.ButtonIcon;
             var layers = new List<ButtonLayer>();
             foreach (var image in gear.GetComponentsInChildren<Image>(true))
             {
                 if (
                     !image.enabled
                     || !image.gameObject.activeInHierarchy
-                    || image.sprite == null
-                    || native?.ButtonIcon?.Pointer == image.Pointer
+                    || icon?.Pointer == image.Pointer
+                    || swapClones.Contains(image.gameObject.name)
                 )
                     continue;
-                var area = AndroidNativeHud.ScreenBounds(image.rectTransform, rootCanvas, 1);
-                layers.Add(
-                    new(
-                        image.sprite,
-                        image.color,
-                        new(
-                            (area.Left - bounds.Left) / bounds.Width,
-                            (area.Top - bounds.Top) / bounds.Height,
-                            area.Width / bounds.Width,
-                            area.Height / bounds.Height
-                        )
-                    )
-                );
+                var sprite = image.sprite;
+                var color = image.color;
+                if (resting.TryGetValue(image.Pointer, out var rest))
+                {
+                    if (!rest.Shown)
+                        continue;
+                    sprite = rest.Sprite ?? sprite;
+                    if (rest.Opaque)
+                        color.a = 1f;
+                }
+                if (sprite == null)
+                    continue;
+                layers.Add(new(sprite, color, Relative(image.rectTransform)));
             }
-            return layers;
+            return new(layers, icon != null ? Relative(icon.rectTransform) : null);
         }
         catch (Exception exception)
         {
@@ -114,8 +130,57 @@ internal sealed class AndroidNativeArt
                 new BppLogEvent(BppLogFeatureScope.Android, "android.native_art.round_failed"),
                 exception
             );
-            return [];
+            return new([], null);
         }
+    }
+
+    /// <summary>
+    /// The gear's state-driven images as they look at rest, keyed by image. A tap leaves a touch
+    /// gear selected, and the game then shows ClickedImage, its state graphics' selected sprites,
+    /// and its ActiveState layers; a sprite swap fades a clone (<paramref name="swapClones"/>, by
+    /// name) out over a faded-in original.
+    /// </summary>
+    private static Dictionary<IntPtr, (bool Shown, Sprite? Sprite, bool Opaque)> RestingLayers(
+        UnityEngine.UI.Button gear,
+        Il2Cpp.BazaarButtonController? native,
+        out HashSet<string> swapClones
+    )
+    {
+        var resting = new Dictionary<IntPtr, (bool, Sprite?, bool)>();
+        swapClones = new HashSet<string>(StringComparer.Ordinal);
+        if (native?.image != null && native.DefaultImage != null)
+            resting[native.image.Pointer] = (true, native.DefaultImage, false);
+        var graphics =
+            gear.GetComponent<Il2CppTheBazaar.UI.Components.BazaarSelectableGraphics>()?.Graphics;
+        if (graphics == null)
+            return resting;
+        foreach (var graphic in graphics)
+        {
+            var target = graphic?._graphic;
+            if (target == null)
+                continue;
+            switch (graphic!._transition)
+            {
+                case Il2CppTheBazaar
+                    .UI
+                    .Components
+                    .BazaarSelectableGraphics
+                    .BazaarTransition
+                    .SpriteSwap:
+                    resting[target.Pointer] = (true, graphic._originalSprite, true);
+                    swapClones.Add(target.gameObject.name + "(Clone)");
+                    break;
+                case Il2CppTheBazaar
+                    .UI
+                    .Components
+                    .BazaarSelectableGraphics
+                    .BazaarTransition
+                    .ActiveState:
+                    resting[target.Pointer] = (false, null, false);
+                    break;
+            }
+        }
+        return resting;
     }
 
     private static void ScanPopupButtons()

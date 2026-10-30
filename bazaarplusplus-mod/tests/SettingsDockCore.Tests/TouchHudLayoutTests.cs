@@ -68,19 +68,21 @@ public sealed class TouchHudLayoutTests
     {
         var metrics = Metrics(name);
         var safe = metrics.SafeArea;
-        var gear = new TouchRect(safe.Right - 80, safe.Top + 20, 60, 60);
-        var below = TouchHudLayout.ShortcutBelow(metrics, gear);
-        var beside = TouchHudLayout.ShortcutBeside(metrics, gear);
-        foreach (var target in new[] { below, beside })
+        foreach (var gear in Gears(metrics))
         {
-            Assert.True(safe.Contains(target));
-            Assert.True(target.Height >= metrics.MinTarget && target.Width >= metrics.MinTarget);
-            Assert.False(target.Overlaps(gear));
+            var below = TouchHudLayout.ShortcutBelow(metrics, gear);
+            var beside = TouchHudLayout.ShortcutBeside(metrics, gear);
+            foreach (var target in new[] { below, beside })
+            {
+                Assert.True(safe.Contains(target));
+                AssertFitsShortcut(metrics, gear, target);
+                Assert.False(target.Overlaps(gear));
+            }
+            Assert.False(below.Overlaps(beside));
+            Assert.True(below.Top >= gear.Bottom);
+            Assert.True(beside.Right <= gear.Left);
+            Assert.True(beside.Top <= gear.CenterY && beside.Bottom >= gear.CenterY);
         }
-        Assert.False(below.Overlaps(beside));
-        Assert.True(below.Top >= gear.Bottom);
-        Assert.True(beside.Right <= gear.Left);
-        Assert.True(beside.Top <= gear.CenterY && beside.Bottom >= gear.CenterY);
         var vault = Bank(metrics);
         Assert.True(TouchHudLayout.FitsBesideVault(metrics, vault));
         var clock = TouchHudLayout.Playback(metrics, vault);
@@ -108,23 +110,47 @@ public sealed class TouchHudLayoutTests
     {
         var metrics = Metrics(name);
         var safe = metrics.SafeArea;
-        var gear = new TouchRect(safe.Right - 80, safe.Top + 20, 60, 60);
-        var first = TouchHudLayout.ShortcutInRow(metrics, gear, 0);
-        var second = TouchHudLayout.ShortcutInRow(metrics, gear, 1);
-        foreach (var target in new[] { first, second })
+        foreach (var gear in Gears(metrics))
         {
-            Assert.True(safe.Contains(target));
-            Assert.True(target.Height >= metrics.MinTarget && target.Width >= metrics.MinTarget);
-            Assert.False(target.Overlaps(gear));
-            // Centred on the gear unless that would leave the safe area's top.
-            Assert.Equal(
-                Math.Max(safe.Top, gear.CenterY - metrics.MinTarget / 2),
-                target.Top,
-                0.01f
-            );
+            var first = TouchHudLayout.ShortcutInRow(metrics, gear, 0);
+            var second = TouchHudLayout.ShortcutInRow(metrics, gear, 1);
+            foreach (var target in new[] { first, second })
+            {
+                Assert.True(safe.Contains(target));
+                AssertFitsShortcut(metrics, gear, target);
+                Assert.False(target.Overlaps(gear));
+                // Centred on the gear unless that would leave the safe area's top.
+                Assert.Equal(
+                    Math.Max(safe.Top, gear.CenterY - target.Height / 2),
+                    target.Top,
+                    0.01f
+                );
+            }
+            Assert.True(second.Right < first.Left);
+            Assert.True(first.Right < gear.Left);
         }
-        Assert.True(second.Right < first.Left);
-        Assert.True(first.Right < gear.Left);
+    }
+
+    /// <summary>
+    /// A settings button in the top-right corner, smaller and larger than a touch target: the
+    /// shortcuts copy its artwork at its size.
+    /// </summary>
+    private static TouchRect[] Gears(TouchMetrics metrics)
+    {
+        var safe = metrics.SafeArea;
+        var large = metrics.MinTarget * 1.5f;
+        return
+        [
+            new TouchRect(safe.Right - 80, safe.Top + 20, 60, 60),
+            new TouchRect(safe.Right - large - 20, safe.Top + 20, large, large),
+        ];
+    }
+
+    /// <summary>A full touch target with room for the gear's artwork.</summary>
+    private static void AssertFitsShortcut(TouchMetrics metrics, TouchRect gear, TouchRect target)
+    {
+        Assert.True(target.Height >= metrics.MinTarget && target.Width >= metrics.MinTarget);
+        Assert.True(target.Width >= gear.Width && target.Height >= gear.Height);
     }
 
     [Theory]

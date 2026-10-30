@@ -269,7 +269,7 @@ internal sealed class AndroidTouchUi
         _entries.Clear();
         var metrics = AndroidTouchScreen.Read();
         var chrome = TouchChrome.For(metrics);
-        var layers = AndroidNativeArt.RoundLayersFor(_anchor!, _anchorRect!, _anchorCanvas!);
+        var art = AndroidNativeArt.RoundArtFor(_anchor!, _anchorRect!, _anchorCanvas!);
         _shortcuts = AndroidTouchScreen.Child(
             "PanelShortcuts",
             _root!.transform,
@@ -303,7 +303,7 @@ internal sealed class AndroidTouchUi
             new BppLogEvent(BppLogFeatureScope.Android, "android.ui.shortcuts_layout"),
             ("anchor", bounds),
             ("target", chrome.Target),
-            ("round_layers", layers.Count)
+            ("round_layers", art.Layers.Count)
         );
 
         void Add(string name, Sprite icon, TouchRect area, Func<bool> offered, Action open)
@@ -311,9 +311,9 @@ internal sealed class AndroidTouchUi
             var rect = AndroidTouchScreen.Child(name, _shortcuts, area);
             AndroidRoundControl.Create(
                 rect,
-                layers,
+                art,
                 icon,
-                chrome.Metrics.Dp(32),
+                new(bounds.Width, bounds.Height),
                 () => AndroidUiActions.Run("open_" + name, open)
             );
             _entries.Add((rect.gameObject, offered));

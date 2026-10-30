@@ -5,12 +5,13 @@ namespace BazaarPlusPlus.Core.Ui;
 public static class TouchHudLayout
 {
     /// <summary>
-    /// The target left of the settings button, level with it. A target is wider than the gear, so
-    /// it ends left of <see cref="ShortcutBelow"/>'s as well, and the corner's hit areas never meet.
+    /// The target left of the settings button, level with it. A target is at least as wide as the
+    /// gear, so it ends left of <see cref="ShortcutBelow"/>'s as well, and the corner's hit areas
+    /// never meet.
     /// </summary>
     public static TouchRect ShortcutBeside(TouchMetrics metrics, TouchRect gear)
     {
-        var target = metrics.MinTarget;
+        var target = ShortcutSize(metrics, gear);
         var safe = metrics.SafeArea;
         var top = Math.Clamp(gear.CenterY - target / 2, safe.Top, safe.Bottom - target);
         var right = Math.Min(gear.Left, ShortcutBelow(metrics, gear).Left) - metrics.Dp(4);
@@ -23,7 +24,7 @@ public static class TouchHudLayout
     /// </summary>
     public static TouchRect ShortcutInRow(TouchMetrics metrics, TouchRect gear, int index)
     {
-        var target = metrics.MinTarget;
+        var target = ShortcutSize(metrics, gear);
         var safe = metrics.SafeArea;
         var gap = metrics.Dp(4);
         var top = Math.Clamp(gear.CenterY - target / 2, safe.Top, safe.Bottom - target);
@@ -34,12 +35,19 @@ public static class TouchHudLayout
     /// <summary>The target below the settings button, centred under it.</summary>
     public static TouchRect ShortcutBelow(TouchMetrics metrics, TouchRect gear)
     {
-        var target = metrics.MinTarget;
+        var target = ShortcutSize(metrics, gear);
         var safe = metrics.SafeArea;
         var left = Math.Clamp(gear.CenterX - target / 2, safe.Left, safe.Right - target);
         var top = Math.Max(safe.Top, gear.Bottom + metrics.Dp(4));
         return new TouchRect(left, top, target, target);
     }
+
+    /// <summary>
+    /// A shortcut's side: a full touch target, and room for artwork the gear's size, which the
+    /// shortcut copies.
+    /// </summary>
+    private static float ShortcutSize(TouchMetrics metrics, TouchRect gear) =>
+        Math.Max(metrics.MinTarget, Math.Max(gear.Width, gear.Height));
 
     /// <summary>
     /// Whether the clock can sit beside <paramref name="vault"/>, the box read from the board:
