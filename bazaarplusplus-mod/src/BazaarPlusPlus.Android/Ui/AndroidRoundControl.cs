@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Core.Ui;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -8,47 +9,36 @@ namespace BazaarPlusPlus.Android.Ui;
 /// <summary>Native circular artwork inside an independent, full-sized touch target.</summary>
 internal static class AndroidRoundControl
 {
+    /// <summary>
+    /// <paramref name="art"/> drawn at <paramref name="size"/>, the native button's own size,
+    /// centred in <paramref name="target"/>; <paramref name="icon"/> sits where the native icon
+    /// does.
+    /// </summary>
     public static (Button Button, Image Icon) Create(
         RectTransform target,
-        IReadOnlyList<AndroidNativeArt.ButtonLayer> layers,
+        AndroidNativeArt.RoundArt art,
         Sprite? icon,
-        float diameter,
+        Vector2 size,
         Action action
     )
     {
         var hit = AndroidUiKit.Fill(target, new Color(0, 0, 0, .001f));
-        var visual = AndroidUiKit.Fixed(
-            "NativeFrame",
-            target,
-            new(.5f, .5f),
-            Vector2.zero,
-            new(diameter, diameter)
-        );
+        var visual = AndroidUiKit.Fixed("NativeFrame", target, new(.5f, .5f), Vector2.zero, size);
         Image? surface = null;
-        foreach (var layer in layers)
+        foreach (var layer in art.Layers)
         {
-            var area = layer.Bounds;
-            var rect = AndroidTouchScreen.Child(
-                "Art",
-                visual,
-                new(
-                    area.Left * diameter,
-                    area.Top * diameter,
-                    area.Width * diameter,
-                    area.Height * diameter
-                )
+            var layerImage = AndroidUiKit.Fill(
+                Part("Art", visual, layer.Bounds, size),
+                layer.Color,
+                false
             );
-            var layerImage = AndroidUiKit.Fill(rect, layer.Color, false);
             layerImage.sprite = layer.Sprite;
             surface ??= layerImage;
         }
-        var glyph = AndroidUiKit.Fixed(
-            "Icon",
-            visual,
-            new(.5f, .5f),
-            Vector2.zero,
-            new(diameter * .56f, diameter * .56f)
-        );
+        var side = Math.Min(size.x, size.y) * .56f;
+        var glyph = art.Icon is { } place
+            ? Part("Icon", visual, place, size)
+            : AndroidUiKit.Fixed("Icon", visual, new(.5f, .5f), Vector2.zero, new(side, side));
         var image = AndroidUiKit.Fill(glyph, Color.white, false);
         image.sprite = icon;
         image.enabled = icon != null;
@@ -59,4 +49,16 @@ internal static class AndroidRoundControl
         button.navigation = new Navigation { mode = Navigation.Mode.None };
         return (button, image);
     }
+
+    private static RectTransform Part(
+        string name,
+        RectTransform visual,
+        TouchRect area,
+        Vector2 size
+    ) =>
+        AndroidTouchScreen.Child(
+            name,
+            visual,
+            new(area.Left * size.x, area.Top * size.y, area.Width * size.x, area.Height * size.y)
+        );
 }
