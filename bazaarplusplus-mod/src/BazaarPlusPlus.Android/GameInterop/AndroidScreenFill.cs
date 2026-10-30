@@ -17,14 +17,22 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// the crop and raises <c>ScreenSizeChanged</c> to every letterbox listener. Checked every frame,
 /// because the class's static initializer may run after the first write.
 /// The 3D cameras keep a fixed vertical field of view, so a narrower screen would cut the board's
-/// sides; <see cref="WidenFieldOfView"/> keeps the 16:10 horizontal view and shows more above and
-/// below instead. Enabled mode only; main thread only.
+/// sides; <see cref="WidenFieldOfView"/> draws the board <see cref="BoardZoom"/> times nearer than
+/// 16:10 does, showing more above and below, and <see cref="AndroidScreenFillClock"/> moves the day
+/// clock the trimmed sides held. Enabled mode only; main thread only.
 /// </summary>
 internal static class AndroidScreenFill
 {
     // The game's own floor: every layout was made for 16:10 or wider.
-    private const float ReferenceAspect = 16f / 10f;
+    public const float ReferenceAspect = 16f / 10f;
     private static readonly Vector2Int Floor = new(1, 1);
+
+    // How much nearer than the 16:10 view the board is drawn. 16:10 frames the board with a band
+    // of scenery on each side, about a quarter of its width; this trims most of it, leaving a
+    // margin, and still shows the board's full height on a nearly square screen.
+    private const float BoardZoom = 1.2f;
+
+    private static readonly AndroidScreenFillClock Clock = new();
     private static bool _logged;
 
     // The field of view last written to each camera, by native pointer.
@@ -52,27 +60,39 @@ internal static class AndroidScreenFill
     /// <summary>
     /// Called after Cinemachine's brain updated <paramref name="camera"/> this frame: on a
     /// perspective camera narrower than 16:10, raises the vertical field of view until the
-    /// horizontal one matches what 16:10 shows. The brain writes the lens again on most frames;
+    /// horizontal one is <see cref="BoardZoom"/> times narrower than what 16:10 shows, never
+    /// lowering it, then places the day clock. The brain writes the lens again on most frames;
     /// a frame it skipped still holds the value written here, which is left alone so the change
     /// never compounds.
     /// </summary>
-    public static void WidenFieldOfView(Camera? camera)
+    public static void AfterCameraUpdate(Camera? camera)
     {
-        if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled || camera == null)
+        if (camera == null)
             return;
+        var nearer = WidenFieldOfView(camera);
+        Clock.Place(camera, nearer);
+    }
+
+    // True when the camera draws the board nearer than 16:10 does.
+    private static bool WidenFieldOfView(Camera camera)
+    {
+        if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled)
+            return false;
         if (camera.orthographic || camera.usePhysicalProperties)
-            return;
+            return false;
         var aspect = camera.aspect;
         if (aspect <= 0f || aspect >= ReferenceAspect)
-            return;
+            return false;
         var key = camera.Pointer;
         var fieldOfView = camera.fieldOfView;
         if (Widened.TryGetValue(key, out var written) && written == fieldOfView)
-            return;
+            return true;
         var halfTan = Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad);
-        var widened = 2f * Mathf.Atan(halfTan * ReferenceAspect / aspect) * Mathf.Rad2Deg;
+        var stretch = Math.Max(1f, ReferenceAspect / (aspect * BoardZoom));
+        var widened = 2f * Mathf.Atan(halfTan * stretch) * Mathf.Rad2Deg;
         camera.fieldOfView = widened;
         // Read back: the camera clamps the value it stores.
         Widened[key] = camera.fieldOfView;
+        return true;
     }
 }

@@ -221,12 +221,19 @@ internal sealed class AndroidCombatStatusView(
         var rule = chrome.Metrics.Dp(.5f);
         var inset = chrome.Metrics.Dp(8);
         Divider(
-            new TouchRect(
-                layout.Controls.Left + inset,
-                layout.Controls.Top,
-                layout.Controls.Width - 2 * inset,
-                rule
-            )
+            layout.Row
+                ? new TouchRect(
+                    layout.Controls.Left,
+                    layout.Controls.Top + inset,
+                    rule,
+                    layout.Controls.Height - 2 * inset
+                )
+                : new TouchRect(
+                    layout.Controls.Left + inset,
+                    layout.Controls.Top,
+                    layout.Controls.Width - 2 * inset,
+                    rule
+                )
         );
         Divider(
             new TouchRect(

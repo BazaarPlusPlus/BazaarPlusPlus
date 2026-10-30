@@ -104,6 +104,31 @@ public sealed class TouchHudLayoutTests
 
     [Theory]
     [MemberData(nameof(Screens))]
+    public void Shortcuts_in_a_row_line_up_left_of_the_gear(string name)
+    {
+        var metrics = Metrics(name);
+        var safe = metrics.SafeArea;
+        var gear = new TouchRect(safe.Right - 80, safe.Top + 20, 60, 60);
+        var first = TouchHudLayout.ShortcutInRow(metrics, gear, 0);
+        var second = TouchHudLayout.ShortcutInRow(metrics, gear, 1);
+        foreach (var target in new[] { first, second })
+        {
+            Assert.True(safe.Contains(target));
+            Assert.True(target.Height >= metrics.MinTarget && target.Width >= metrics.MinTarget);
+            Assert.False(target.Overlaps(gear));
+            // Centred on the gear unless that would leave the safe area's top.
+            Assert.Equal(
+                Math.Max(safe.Top, gear.CenterY - metrics.MinTarget / 2),
+                target.Top,
+                0.01f
+            );
+        }
+        Assert.True(second.Right < first.Left);
+        Assert.True(first.Right < gear.Left);
+    }
+
+    [Theory]
+    [MemberData(nameof(Screens))]
     public void Clock_follows_the_vault_wherever_the_board_puts_it(string name)
     {
         var metrics = Metrics(name);
@@ -116,12 +141,13 @@ public sealed class TouchHudLayoutTests
         Assert.Equal(vault.Right + metrics.Dp(4), clock.Panel.Left, 0.01f);
         Assert.Equal(Math.Max(vault.Top, metrics.SafeArea.Top), clock.Panel.Top, 0.01f);
         Assert.Equal(Math.Min(vault.Bottom, metrics.SafeArea.Bottom), clock.Panel.Bottom, 0.01f);
+        Assert.False(clock.Row);
     }
 
     /// <summary>
     /// A foldable's inner display (2480x2248) fills with the board scaled by width, which leaves
     /// a band under it; the vault read there on the emulator sits 0.15 canvas heights above the
-    /// bottom edge.
+    /// bottom edge. The clock is one row in that band.
     /// </summary>
     [Fact]
     public void Clock_sits_under_the_vault_on_a_nearly_square_screen()
@@ -135,8 +161,10 @@ public sealed class TouchHudLayoutTests
         Assert.False(clock.Panel.Overlaps(vault));
         Assert.True(clock.Panel.Top >= vault.Bottom);
         Assert.Equal(vault.CenterX, clock.Panel.CenterX, 0.01f);
-        Assert.Equal(metrics.Dp(TouchHudLayout.BelowVaultHeightDp), clock.Panel.Height, 0.01f);
+        Assert.True(clock.Row);
+        Assert.True(clock.Panel.Height <= metrics.Dp(TouchHudLayout.RowHeightDp) + 0.01f);
         Assert.True(clock.Panel.Contains(clock.Time) && clock.Panel.Contains(clock.Controls));
+        Assert.True(clock.Time.Right <= clock.Controls.Left + 0.01f);
         foreach (var target in new[] { clock.Speed, clock.Pause })
         {
             Assert.True(safe.Contains(target));

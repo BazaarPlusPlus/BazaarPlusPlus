@@ -275,18 +275,27 @@ internal sealed class AndroidTouchUi
             _root!.transform,
             new(0, 0, metrics.CanvasWidth, metrics.CanvasHeight)
         );
-        // A corner around the gear: Collection below it, Ten-Win Builds left of it.
+        // A corner around the gear: Collection below it, Ten-Win Builds left of it. In a run on a
+        // screen narrower than 16:10 the board is drawn nearer (AndroidScreenFill) and reaches up
+        // to just under the gear, so both sit in a row left of it.
+        var row =
+            _inRun
+            && metrics.CanvasWidth < metrics.CanvasHeight * AndroidScreenFill.ReferenceAspect;
         Add(
             "Collection",
             _icons!.Collection,
-            TouchHudLayout.ShortcutBelow(metrics, bounds),
+            row
+                ? TouchHudLayout.ShortcutInRow(metrics, bounds, 0)
+                : TouchHudLayout.ShortcutBelow(metrics, bounds),
             () => true,
             () => LogOpenOutcome(CollectionPanelId, _collectionHandle.RequestOpen(EntrySource))
         );
         Add(
             "TenWinBuilds",
             _icons.TenWins,
-            TouchHudLayout.ShortcutBeside(metrics, bounds),
+            row
+                ? TouchHudLayout.ShortcutInRow(metrics, bounds, 1)
+                : TouchHudLayout.ShortcutBeside(metrics, bounds),
             () => _inRun && LiveBuildOffered(),
             () => LogOpenOutcome(LiveBuildPanelId, _liveBuildHandle.RequestOpen(EntrySource))
         );
