@@ -30,10 +30,10 @@ internal static class AndroidScreenFill
     // How much nearer than the 16:10 view the board is drawn. 16:10 frames the board with a band
     // of scenery on each side, about a quarter of its width; this trims most of it, leaving a
     // margin, and still shows the board's full height on a nearly square screen.
-    private const float BoardZoom = 1.2f;
+    private const float BoardZoom = 1.3f;
 
     // Of the screen's height, what is kept clear under the lowered board.
-    private const float BottomMargin = 0.02f;
+    private const float BottomMargin = 0.012f;
 
     private static readonly AndroidScreenFillClock Clock = new();
     private static readonly AndroidVaultBounds Vault = new();
