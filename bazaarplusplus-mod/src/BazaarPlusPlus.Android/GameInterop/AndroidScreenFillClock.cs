@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Core.Ui;
 using Il2CppTheBazaar;
 using UnityEngine;
 
@@ -7,24 +8,13 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// The day clock on a screen <see cref="AndroidScreenFill"/> draws the board nearer on. The clock
 /// (the prefab <see cref="ClockViewController"/> sits on) is board meshes left of the board, in
 /// the scenery the nearer view trims, so it would fall off the screen's left edge. Instead it
-/// shrinks into the band above the board, its left edge level with the board's. It is placed again after
+/// shrinks into the band above the board, its left edge level with the board's
+/// (<see cref="ScreenFill.PlaceDayClock"/>). It is placed again after
 /// every camera update; a position or scale the game writes in between is taken as the new
 /// original, so its own animations still play. Main thread only.
 /// </summary>
 internal sealed class AndroidScreenFillClock
 {
-    // Of the band's height, what is kept clear above and below the clock.
-    private const float BandMargin = 0.12f;
-
-    // Below this the clock is too small to read; it is left where the game put it.
-    private const float MinScale = 0.4f;
-
-    // However tall the band, the clock is drawn smaller than the board's own.
-    private const float MaxScale = 0.8f;
-
-    // Of its distance from the camera, how far the clock is drawn.
-    private const float Nearer = 0.5f;
-
     private ClockViewController? _view;
     private int _searchCooldown;
     private Transform? _anchor;
@@ -65,31 +55,28 @@ internal sealed class AndroidScreenFillClock
             || !TryScreenRect(_clock, camera, out var clock)
         )
             return;
-        // Screen pixels run up from the bottom.
-        var boardTop = Screen.height - corner.y;
-        var boardLeft = corner.x;
-        var bandTop = Screen.safeArea.yMax;
-        var band = bandTop - boardTop;
-        var height = Math.Min(clock.height * MaxScale, band * (1f - 2f * BandMargin));
-        var scale = height / clock.height;
-        if (scale < MinScale)
-            return;
-        var target = new Vector2(
-            Math.Max(Screen.safeArea.xMin, boardLeft) + clock.width * scale / 2f,
-            boardTop + band / 2f
-        );
         var pivot = camera.WorldToScreenPoint(anchor.position);
         if (pivot.z <= 0f)
             return;
-        // Scaling about the pivot draws the clock's centre that much nearer to it.
-        var pivotTarget = target - ((Vector2)clock.center - (Vector2)pivot) * scale;
-        // The scenery over the band (palm fronds) stands above the board; drawn nearer the
-        // camera, and smaller by as much, the clock stays in front of it.
-        var depth = pivot.z * Nearer;
+        var safe = Screen.safeArea;
+        if (
+            ScreenFill.PlaceDayClock(
+                Screen.height,
+                safe.xMin,
+                safe.yMax,
+                corner.x,
+                corner.y,
+                new ScreenBox(clock.xMin, clock.yMin, clock.width, clock.height),
+                pivot.x,
+                pivot.y
+            )
+            is not { } placement
+        )
+            return;
         anchor.position = camera.ScreenToWorldPoint(
-            new Vector3(pivotTarget.x, pivotTarget.y, depth)
+            new Vector3(placement.PivotX, placement.PivotY, pivot.z * ScreenFill.ClockNearer)
         );
-        anchor.localScale = _originalScale * (scale * Nearer);
+        anchor.localScale = _originalScale * (placement.Scale * ScreenFill.ClockNearer);
         _writtenPosition = anchor.localPosition;
         _writtenScale = anchor.localScale;
     }

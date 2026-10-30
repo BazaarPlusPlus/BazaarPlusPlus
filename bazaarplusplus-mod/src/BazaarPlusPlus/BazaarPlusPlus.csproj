@@ -164,6 +164,9 @@
     <Reference Include="Unity.InputSystem">
       <HintPath>$(ManagedPath)\Unity.InputSystem.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.Cinemachine">
+      <HintPath>$(ManagedPath)\Unity.Cinemachine.dll</HintPath>
+    </Reference>
     <Reference Include="DOTween">
       <HintPath>$(ManagedPath)\DOTween.dll</HintPath>
       <Private>false</Private>

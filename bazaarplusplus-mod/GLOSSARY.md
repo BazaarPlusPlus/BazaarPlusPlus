@@ -172,6 +172,10 @@ _Avoid_: shim, `#if` branch
 A change BPP makes to the game's own UI on a mobile platform, such as screen fill, the day clock's place or a HUD shortcut. Core decides it, the Mobile UI runs it, and the host reads and writes the game objects.
 _Avoid_: native patch, HUD hack
 
+**Screen Fill**:
+The Native Adjustment that lets the game fill a landscape screen narrower than 16:10 instead of letterboxing it: a lower aspect floor, a wider field of view, the day clock in the band above the board, and canvases kept as wide as 16:10 (`ScreenFill`, Core).
+_Avoid_: letterbox fix, fullscreen mode
+
 ## Collection panel
 
 **Collection View State**:
