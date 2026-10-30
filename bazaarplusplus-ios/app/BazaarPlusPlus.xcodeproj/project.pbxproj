@@ -370,7 +370,7 @@
 					<string>CoreGraphics</string>
 				</array>
 				<key>PRODUCT_BUNDLE_IDENTIFIER</key>
-				<string>com.bazaarplusplus.monogo</string>
+				<string>com.bazaarplusplus.ios</string>
 				<key>PRODUCT_NAME</key>
 				<string>BazaarPlusPlus</string>
 				<key>SDKROOT</key>
@@ -572,7 +572,7 @@
 					<string>CoreGraphics</string>
 				</array>
 				<key>PRODUCT_BUNDLE_IDENTIFIER</key>
-				<string>com.bazaarplusplus.monogo</string>
+				<string>com.bazaarplusplus.ios</string>
 				<key>PRODUCT_NAME</key>
 				<string>BazaarPlusPlus</string>
 				<key>SDKROOT</key>

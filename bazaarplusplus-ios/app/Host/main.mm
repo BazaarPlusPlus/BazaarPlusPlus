@@ -19,6 +19,15 @@ static NSString *gameRoot;
 static NSString *jsonString(NSDictionary *value) {
     return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:value options:0 error:nil] encoding:NSUTF8StringEncoding];
 }
+// Unity's Application.version reads CFBundleShortVersionString, which holds the numeric Product Release
+// App Store Connect requires; the game and the mod need the game's own version string there. The main
+// bundle's info dictionary is mutable storage shared by NSBundle and CFBundle readers.
+static void exposeGameVersion(void) {
+    NSString *game = [NSBundle.mainBundle objectForInfoDictionaryKey:@"BPPGameVersion"];
+    @try { [(NSMutableDictionary *)NSBundle.mainBundle.infoDictionary setObject:game forKey:@"CFBundleShortVersionString"]; }
+    @catch (NSException *error) { fprintf(stderr,"STEAM_APP_GAME_VERSION failed=%s\n",error.reason.UTF8String); return; }
+    fprintf(stderr,"STEAM_APP_GAME_VERSION %s\n",[[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] UTF8String]);
+}
 // The launcher UI is SwiftUI (app/); this controller keeps the engine,
 // the service bridge, the refresh timer and the game hand-off.
 @protocol BPPLauncherHosting <NSObject>
@@ -147,7 +156,7 @@ static NSString *jsonString(NSDictionary *value) {
     [self command:@{@"action":@"launch"}]; s=[self readSnapshot]; if(![s[@"launched"] boolValue]) return;
     self.launched=YES; [self.timer invalidate]; self.timer=nil; [self.view endEditing:YES]; [self.host releaseForGame]; UIApplication.sharedApplication.idleTimerDisabled=YES;
     setenv("BPP_GAME_ROOT",[s[@"runtimeRoot"] UTF8String],1); setenv("BPP_SELFTEST","1",1); setenv("BPP_FRAME_STATS","1",1);
-    fprintf(stderr,"STEAM_APP_LAUNCH_GAME independent-session=1\n"); [engine runEmbeddedWithArgc:savedArgc argv:savedArgv appLaunchOpts:nil];
+    exposeGameVersion(); fprintf(stderr,"STEAM_APP_LAUNCH_GAME independent-session=1\n"); [engine runEmbeddedWithArgc:savedArgc argv:savedArgv appLaunchOpts:nil];
     // The engine owns its own window now; drop the launcher UI so its decoded artwork is freed.
     UIViewController *ui=self.host.viewController; [ui willMoveToParentViewController:nil]; [ui.view removeFromSuperview]; [ui removeFromParentViewController]; self.host=nil;
 }

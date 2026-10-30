@@ -25,6 +25,8 @@ namespace BazaarPlusPlus.Ios.Helper
                 }
             }
             Debug.Log($"[BppIos] selftest string hash {(failures == 0 ? "ok" : "FAILED")} ({samples.Length} strings)");
+            // The host replaces the App's numeric bundle version with the game's before the engine starts.
+            Debug.Log($"[BppIos] selftest application.version={Application.version}");
         }
 
         static unsafe int ManagedHash(string s)

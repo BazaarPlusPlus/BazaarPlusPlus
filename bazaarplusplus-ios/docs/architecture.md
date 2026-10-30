@@ -37,7 +37,7 @@ BazaarPlusPlus for iOS 在 iPhone 和 iPad 上运行 The Bazaar 的 Mac 版本�
 
 `game/game.json::testedGameVersion` 固定一个已验证的游戏版本。Steam 只提供最新版本，所以 Steam 上的游戏更新后，App 仍能登录和下载，但准备阶段抛出 `GameVersionUnsupportedException`，服务进入 `outdated` 状态（`errorCode` 为 `GameVersionUnsupported`），启动器的开始按钮显示"等待适配"。这不是错误，下载会保留。适配完成后发新版 App，更新 `testedGameVersion`、托管适配的哈希和模组。
 
-App 的 `CFBundleShortVersionString` 必须是游戏版本：Unity 的 `Application.version` 读它，游戏和模组都靠它识别游戏版本。App 自己的产品版本（根目录 `VERSION`，和其中的模组相同）写在 `BPPProductVersion`。启动器打开时读 `https://cdn.bazaarplusplus.com/installer/latest/mod/ios-aarch64.json`，版本更新时在首页显示一条提醒，有 `downloads.ios-aarch64.url` 时可以点开下载。提醒不阻止游戏；清单不存在或读不到时什么也不显示。发布流水线还没有发布这个清单。
+App Store Connect 只接受数字版本：App 的 `CFBundleShortVersionString` 是产品版本（根目录 `VERSION`，和其中的模组相同），`CFBundleVersion` 是游戏 build 号。Unity 的 `Application.version` 读 `CFBundleShortVersionString`，而游戏和模组靠完整的游戏版本字符串识别游戏，所以完整字符串写在 `BPPGameVersion`，`app/Host/main.mm::exposeGameVersion` 在引擎启动前把它写回主 bundle 的 info 字典。启动器打开时读 `https://cdn.bazaarplusplus.com/installer/latest/mod/ios-aarch64.json`，版本更新时在首页显示一条提醒，有 `downloads.ios-aarch64.url` 时可以点开下载。提醒不阻止游戏；清单不存在或读不到时什么也不显示。发布流水线还没有发布这个清单。
 
 ## 将来：官方 iOS 版
 

@@ -174,7 +174,7 @@ final class LauncherModel: ObservableObject {
     static let releaseManifest = URL(string: "https://cdn.bazaarplusplus.com/installer/latest/mod/ios-aarch64.json")!
 
     func checkForUpdate() async {
-        let current = Bundle.main.object(forInfoDictionaryKey: "BPPProductVersion") as? String ?? ""
+        let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         var request = URLRequest(url: Self.releaseManifest, timeoutInterval: 10)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         guard let (data, response) = try? await URLSession.shared.data(for: request),

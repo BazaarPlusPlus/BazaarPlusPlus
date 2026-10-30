@@ -16,12 +16,13 @@ info = plistlib.loads((install / 'Contents/Info.plist').read_bytes())
 if info['CFBundleShortVersionString'] != profile['testedGameVersion']:
     raise SystemExit('The downloaded game version has not been validated for game/game.json')
 app_info = plistlib.loads((app / 'Info.plist').read_bytes())
-# Unity's Application.version reads CFBundleShortVersionString, and the game and the mod both identify
-# the game build by it, so the bundle versions stay the game's. The Product Release the App ships
-# (the repository VERSION, the same as the mod inside it) has its own key.
-for key in ['CFBundleVersion', 'CFBundleShortVersionString']:
-    app_info[key] = info[key]
-app_info['BPPProductVersion'] = (ROOT.parent / 'VERSION').read_text().strip()
+# App Store Connect takes only numbers here: the App's version is the Product Release it ships (the
+# repository VERSION, the same as the mod inside it) and its build is the game build number. The game
+# and the mod identify the game by the full Application.version string, which the host hands to Unity
+# from BPPGameVersion before the engine starts (app/Host/main.mm::exposeGameVersion).
+app_info['CFBundleShortVersionString'] = (ROOT.parent / 'VERSION').read_text().strip()
+app_info['CFBundleVersion'] = profile['testedGameVersion'].split('-')[0].split('.')[-1]
+app_info['BPPGameVersion'] = profile['testedGameVersion']
 (app / 'Info.plist').write_bytes(plistlib.dumps(app_info))
 shutil.copy2(ROOT / 'game/game.json', app / 'game.json')
 shutil.copy2(ROOT / 'runtime/helper/entrypoints.json', app / 'entrypoints.json')

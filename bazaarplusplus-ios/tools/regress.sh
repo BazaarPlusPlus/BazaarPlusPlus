@@ -16,3 +16,5 @@ python3 "$CTL" launch >/dev/null
 for i in $(seq 1 120); do tail -n +$START "$LOG" | grep -qE 'RunTasks complete' && break; sleep 2; done
 tail -n +$START "$LOG" | grep -a -E 'RunTasks complete|STEAM_APP_WEB_TICKET|\[BppIos\]|\[BazaarPlusPlus\]' | head -40 | cut -c1-240
 tail -n +$START "$LOG" | grep -aq 'RunTasks complete.*Failed: 0' || { echo GAME_START_FAIL; exit 1; }
+GAME=$(python3 -c 'import json; print(json.load(open("game/game.json"))["testedGameVersion"])')
+tail -n +$START "$LOG" | grep -aqF "application.version=$GAME" || { echo GAME_VERSION_FAIL; exit 1; }
