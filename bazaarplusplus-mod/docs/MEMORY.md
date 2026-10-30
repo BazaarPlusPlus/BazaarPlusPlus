@@ -56,6 +56,7 @@ Each of these failed silently, or reported something misleading, at least once.
 - `ISetting<T>` has no change event (`PublicizeAll` makes BepInEx `ConfigEntry<T>.SettingChanged` ambiguous, CS0229); invalidate config-derived caches by raw-value compare. [`src/BazaarPlusPlus/Game/Input/BppHotkeyService.cs`]
 - Portrait providers negative-cache exceptions past their readiness gates: one transient asset-load exception caches a null portrait until restart. Deliberate; changing it is a behavior change. [`src/BazaarPlusPlus/GameInterop/HeroPortraits/`]
 - Call `AssetLoader` via `NativeAssetLoaderInvocation` (signatures vary by build). Scene-scope handles die across lobby↔run: process-static caches use `Global`, per-scene loads (card previews, replay warmup) `Current` with no process-wide key set. Smoke cards and hero chips across it. [`src/BazaarPlusPlus/GameInterop/AssetLoading/`]
+- A tap leaves a native `BazaarButtonController` Selected: its image shows `ClickedImage`, its `BazaarSelectableGraphics` show selected sprites and ActiveState layers, and a sprite swap fades a `(Clone)` over a half-faded original. Copy a native button at rest (`DefaultImage`, `_originalSprite`) and at its own rect. Both types are in `TheBazaarRuntime.dll`, not `Assembly-CSharp.dll`. [`src/BazaarPlusPlus.Android/GameInterop/AndroidNativeArt.cs` | `src/BazaarPlusPlus/Game/Settings/BppDockButtonVisualState.cs`]
 
 ### Build and tests
 
