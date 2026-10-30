@@ -19,10 +19,12 @@ internal sealed class AndroidScreenFillClock
     // Below this the clock is too small to read; it is left where the game put it.
     private const float MinScale = 0.4f;
 
+    // However tall the band, the clock is drawn smaller than the board's own.
+    private const float MaxScale = 0.8f;
+
     // Of its distance from the camera, how far the clock is drawn.
     private const float Nearer = 0.5f;
 
-    private readonly AndroidVaultBounds _vault = new();
     private ClockViewController? _view;
     private int _searchCooldown;
     private Transform? _anchor;
@@ -32,7 +34,11 @@ internal sealed class AndroidScreenFillClock
     private Vector3 _writtenScale;
     private MeshRenderer[] _clock = [];
 
-    public void Place(Camera camera, bool nearer)
+    /// <summary>
+    /// Places the clock in the band above <paramref name="board"/>, the board's top-left corner in
+    /// screen pixels down from the top, or back where the game put it when that is null.
+    /// </summary>
+    public void Place(Camera camera, Vector2? board)
     {
         var anchor = Find();
         if (anchor == null)
@@ -53,26 +59,18 @@ internal sealed class AndroidScreenFillClock
         anchor.localScale = _originalScale;
         _writtenPosition = _originalPosition;
         _writtenScale = _originalScale;
-        if (!nearer || !anchor.gameObject.activeInHierarchy)
-            return;
-
-        // The board's top-left corner mirrors the vault, its bottom-right, through its centre.
-        var center = Il2Cpp.BoardManager.Instance?.boardCenter;
         if (
-            center == null
+            board is not { } corner
+            || !anchor.gameObject.activeInHierarchy
             || !TryScreenRect(_clock, camera, out var clock)
-            || !_vault.TryRead(Screen.height, out var vault)
         )
             return;
-        var middle = camera.WorldToScreenPoint(center.position);
-        if (middle.z <= 0f)
-            return;
-        // Screen pixels run up from the bottom; the vault is read top-down.
-        var boardTop = 2f * middle.y - (Screen.height - vault.Bottom);
-        var boardLeft = 2f * middle.x - vault.Right;
+        // Screen pixels run up from the bottom.
+        var boardTop = Screen.height - corner.y;
+        var boardLeft = corner.x;
         var bandTop = Screen.safeArea.yMax;
         var band = bandTop - boardTop;
-        var height = Math.Min(clock.height, band * (1f - 2f * BandMargin));
+        var height = Math.Min(clock.height * MaxScale, band * (1f - 2f * BandMargin));
         var scale = height / clock.height;
         if (scale < MinScale)
             return;

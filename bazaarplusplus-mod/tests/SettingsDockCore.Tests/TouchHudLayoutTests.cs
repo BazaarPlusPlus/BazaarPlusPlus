@@ -175,6 +175,32 @@ public sealed class TouchHudLayoutTests
         Assert.Equal(clock.Controls.CenterX, clock.Speed.Right, 0.01f);
     }
 
+    /// <summary>
+    /// With the board lowered to the bottom edge of a 2480x2248 screen, the HUD gathers in the
+    /// band above it: the clock is one row centred there, its hit areas a target tall and no
+    /// lower than the band.
+    /// </summary>
+    [Fact]
+    public void Clock_sits_in_the_band_above_a_lowered_board()
+    {
+        var metrics = TouchMetrics.From(2480f, 2248f, 420f, Reference, 0f, 0f, 2480f, 2248f);
+        var safe = metrics.SafeArea;
+        var vault = new TouchRect(985f, 880f, 180f, 180f);
+        const float boardTop = 190f;
+        var clock = TouchHudLayout.Playback(metrics, vault, boardTop);
+        Assert.True(clock.Row);
+        Assert.True(safe.Contains(clock.Panel));
+        Assert.True(clock.Panel.Bottom <= boardTop);
+        Assert.Equal(metrics.CanvasWidth / 2, clock.Panel.CenterX, 0.01f);
+        foreach (var target in new[] { clock.Speed, clock.Pause })
+        {
+            Assert.True(safe.Contains(target));
+            Assert.True(target.Width >= metrics.MinTarget && target.Height >= metrics.MinTarget);
+            Assert.True(target.Bottom <= boardTop);
+        }
+        Assert.Equal(clock.Speed.Right, clock.Pause.Left, 0.01f);
+    }
+
     [Theory]
     [MemberData(nameof(Screens))]
     public void No_clock_beside_a_vault_read_it_cannot_sit_beside(string name)

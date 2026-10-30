@@ -32,7 +32,14 @@ internal static class AndroidScreenFill
     // margin, and still shows the board's full height on a nearly square screen.
     private const float BoardZoom = 1.2f;
 
+    // Of the screen's height, what is kept clear under the lowered board.
+    private const float BottomMargin = 0.02f;
+
     private static readonly AndroidScreenFillClock Clock = new();
+    private static readonly AndroidVaultBounds Vault = new();
+
+    // The position last written to each camera, by native pointer.
+    private static readonly Dictionary<IntPtr, Vector3> Raised = new();
     private static bool _logged;
 
     // The field of view last written to each camera, by native pointer.
@@ -61,7 +68,8 @@ internal static class AndroidScreenFill
     /// Called after Cinemachine's brain updated <paramref name="camera"/> this frame: on a
     /// perspective camera narrower than 16:10, raises the vertical field of view until the
     /// horizontal one is <see cref="BoardZoom"/> times narrower than what 16:10 shows, never
-    /// lowering it, then places the day clock. The brain writes the lens again on most frames;
+    /// lowering it; then lowers the board to the screen's bottom edge and places the day clock in
+    /// the band left above it. The brain writes the lens again on most frames;
     /// a frame it skipped still holds the value written here, which is left alone so the change
     /// never compounds.
     /// </summary>
@@ -69,8 +77,59 @@ internal static class AndroidScreenFill
     {
         if (camera == null)
             return;
-        var nearer = WidenFieldOfView(camera);
-        Clock.Place(camera, nearer);
+        Vector2? corner =
+            WidenFieldOfView(camera) && TryLowerBoard(camera, out var topLeft) ? topLeft : null;
+        BoardTop = corner?.y;
+        Clock.Place(camera, corner);
+    }
+
+    /// <summary>
+    /// While the board is drawn nearer, its top edge in screen pixels down from the top: the HUD
+    /// gathers in the band above it. Null otherwise.
+    /// </summary>
+    public static float? BoardTop { get; private set; }
+
+    /// <summary>
+    /// Raises the camera until the board's bottom edge (the vault's) sits a margin above the
+    /// screen's, so the room left above and below the nearer board is one band above it, and
+    /// gives the board's top-left corner in screen pixels down from the top. The board's
+    /// top-left corner mirrors the vault, its bottom-right, through
+    /// <c>BoardManager.boardCenter</c>. As with the lens, a frame on which the brain did not
+    /// move the camera still holds the position written here and is not raised again.
+    /// </summary>
+    private static bool TryLowerBoard(Camera camera, out Vector2 topLeft)
+    {
+        topLeft = default;
+        var center = Il2Cpp.BoardManager.Instance?.boardCenter;
+        if (center == null || !Vault.TryRead(Screen.height, out var vault))
+            return false;
+        var transform = camera.transform;
+        var key = camera.Pointer;
+        if (!Raised.TryGetValue(key, out var written) || written != transform.position)
+        {
+            var depth = camera.WorldToScreenPoint(center.position).z;
+            if (depth <= 0f)
+                return false;
+            var floor = Screen.height - Screen.safeArea.yMin - Screen.height * BottomMargin;
+            var drop = floor - vault.Bottom;
+            if (drop > 0f)
+            {
+                var perPixel =
+                    2f
+                    * depth
+                    * Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad)
+                    / Screen.height;
+                transform.position += transform.up * (drop * perPixel);
+                if (!Vault.TryRead(Screen.height, out vault))
+                    return false;
+            }
+            Raised[key] = transform.position;
+        }
+        var middle = camera.WorldToScreenPoint(center.position);
+        if (middle.z <= 0f)
+            return false;
+        topLeft = new(2f * middle.x - vault.Right, 2f * (Screen.height - middle.y) - vault.Bottom);
+        return true;
     }
 
     // True when the camera draws the board nearer than 16:10 does.

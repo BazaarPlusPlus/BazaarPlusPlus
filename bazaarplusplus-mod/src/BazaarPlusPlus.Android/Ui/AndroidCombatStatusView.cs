@@ -39,6 +39,8 @@ internal sealed class AndroidCombatStatusView(
     private string? _layoutKey;
     private string? _keyScreen;
     private (int, int, int, int)? _keyVault;
+    private float? _boardTop;
+    private int? _keyBoardTop;
     private TouchRelayoutDebounce? _relayout;
 
     // Hidden frames between checks for a run or replay to build the plaque ahead in.
@@ -190,11 +192,20 @@ internal sealed class AndroidCombatStatusView(
             (int)MathF.Round(vault.Height)
         );
         _vault = vault;
-        if (_layoutKey != null && ReferenceEquals(screen, _keyScreen) && rounded == _keyVault)
+        // On a screen the board is drawn nearer on, the HUD gathers above it (AndroidScreenFill).
+        _boardTop = AndroidScreenFill.BoardTop * AndroidUiKit.ReferenceResolution.y / Screen.height;
+        var boardTop = _boardTop is { } top ? (int?)MathF.Round(top) : null;
+        if (
+            _layoutKey != null
+            && ReferenceEquals(screen, _keyScreen)
+            && rounded == _keyVault
+            && boardTop == _keyBoardTop
+        )
             return _layoutKey;
         _keyScreen = screen;
         _keyVault = rounded;
-        return _layoutKey = $"{screen}|vault {rounded}";
+        _keyBoardTop = boardTop;
+        return _layoutKey = $"{screen}|vault {rounded}|board top {boardTop}";
     }
 
     private void Build(TMP_FontAsset font, string key, bool ahead)
@@ -210,7 +221,7 @@ internal sealed class AndroidCombatStatusView(
         // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
         // the clock as it reappears; above the board HUD (order 0).
         _root = AndroidUiKit.CreateOverlayCanvas("BPP.CombatStatus", 149);
-        var layout = TouchHudLayout.Playback(chrome.Metrics, _vault);
+        var layout = TouchHudLayout.Playback(chrome.Metrics, _vault, _boardTop);
         var plaque = AndroidTouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
         var background = AndroidUiKit.Fill(plaque, AndroidUiKit.ButtonColor, false);
         if (_skin == null || _skin.NeedsRefresh)
@@ -292,6 +303,7 @@ internal sealed class AndroidCombatStatusView(
             ),
             ("ahead", ahead),
             ("vault", _vault),
+            ("board_top", _boardTop),
             ("panel", layout.Panel),
             ("pause", layout.Pause),
             ("speed", layout.Speed)
