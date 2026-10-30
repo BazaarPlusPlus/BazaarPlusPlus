@@ -1,0 +1,42 @@
+name: Operations / Prune merged branches
+
+# Every three days, deletes branches whose tip is the head of a merged pull
+# request (.github/scripts/prune-merged-branches.mjs). Manual runs default to
+# a dry run that only lists what would be deleted.
+
+on:
+  schedule:
+    - cron: '41 2 */3 * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only list the branches that would be deleted
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prune-merged-branches
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        with:
+          script: |
+            const { run } = await import('${{ github.workspace }}/.github/scripts/prune-merged-branches.mjs');
+            await run({ github, context, core, dryRun: process.env.DRY_RUN === 'true' });

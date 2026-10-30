@@ -67,6 +67,8 @@ just mod::build "-p:ManagedPath=/absolute/path/The Bazaar/Managed"
 
 Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分组和节奏由配置维护，安全告警继续保留。自动合并由 `.github/scripts/dependabot-auto-merge.mjs` 登记，必需检查由 GitHub 分支规则维护。Dependabot PR 通过现有检查即可自动合并，接受兼容问题在后续使用中发现和修复；TypeScript 与类型感知 lint 工具、Tauri 的 npm 与 Cargo 依赖仍可能需要配套调整。
 
+已合并的分支由 `.github/workflows/prune-merged-branches.yml` 每三天清理一次：仓库使用 squash 合并，脚本只删除分支末端仍是某个已合并 PR head 的分支，跳过默认分支、受保护分支、`N.x` 发布线以及仍作为 open PR head 或 base 的分支。手动运行默认是 dry run，只在汇总里列出将要删除的分支。
+
 Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
 云端 Actions 按用途命名为 `CI /`（代码验证）、`Security /`（安全扫描）、`Delivery /`（发布部署）和 `Operations /`（后台任务与依赖维护）。代码验证由 `.github/scripts/checks-scope.mjs` 的 `classifyChanges` 选择项目，`planRun` 决定是否附加快照兼容性和性能检查；`.github/workflows/checks.yml` 执行计划，汇总消费同一份范围清单并显示本次计划验证的内容。PR 比较 merge-base 到 head，master push 比较 before 到 after，删除与重命名的新旧路径都参与分类。项目自己的命令 recipe 只选择本项目及根工具；已识别的仓库元数据只选根工具。未知共享输入或无法取得可靠 diff 时仍全量验证。跨项目契约扩展到消费者；未登记的源码依赖走全量，并由根工具测试阻止规则漂移。
