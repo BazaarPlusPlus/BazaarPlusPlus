@@ -27,7 +27,7 @@ just doctor
 just mod::fetch macos online      # Windows 用 windows
 ```
 
-它按本平台的 online 锁条目解析 Managed 目录并打印出来：本机 Steam 安装的 `globalgamemanagers` 版本串与条目一致、Managed 目录 sha256 也一致时直接采用；否则从私有存储取包到 `bazaarplusplus-mod/game-libs/`，这一步需要 `[cloudflare]` 的操作员 token（`release` profile），写作 `just with-config release just mod::fetch macos online`。两边都不满足时报错并列出锁和本机的两个版本串：切换 Steam 分支、等锁更新，或显式传 `-p:ManagedPath=...`。没有凭据的外部贡献者只能对着 online 构建；staging 和 ptr 条目只要求云端能取到。
+它按本平台的 online 锁条目解析 Managed 目录并打印出来：本机 Steam 安装的 `globalgamemanagers` 版本串与条目一致、Managed 目录 sha256 也一致时直接采用；否则从私有存储取包到 `bazaarplusplus-mod/game-libs/`，这一步需要 `[cloudflare]` 的操作员 token（`release` profile），写作 `just with-config release just mod::fetch macos online`。两边都不满足时报错并列出锁和本机的两个版本串：切换 Steam 分支、等锁更新，或显式传 `-p:ManagedPath=...`。没有凭据的外部贡献者只能对着 online 构建；staging 和 ptr 条目只要求云端能取到。linked worktree 里没有 `game-libs/`（被 git 忽略）时，`ManagedPath.props` 改用主 checkout 的 `bazaarplusplus-mod/game-libs/`，桌面和 Android 构建都不必在每个 worktree 里重新取包。
 
 它说不出来的约定：
 

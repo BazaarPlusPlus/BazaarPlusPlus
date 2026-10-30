@@ -230,7 +230,7 @@ internal sealed class AndroidCombatStatusView(
         // Only the button sprite is read here; a plaque built ahead without it tries again.
         _builtWithoutArt = ahead && background.sprite == null;
         var rule = chrome.Metrics.Dp(.5f);
-        var inset = chrome.Metrics.Dp(8);
+        var inset = chrome.Padding;
         Divider(
             layout.Row
                 ? new TouchRect(
@@ -258,7 +258,7 @@ internal sealed class AndroidCombatStatusView(
             AndroidTouchScreen.Child("Time", _root.transform, layout.Time),
             font,
             "",
-            chrome.Metrics.Sp(22),
+            chrome.ClockTimeFont,
             TextAlignmentOptions.Center,
             AndroidUiKit.TextColor
         );
@@ -268,7 +268,7 @@ internal sealed class AndroidCombatStatusView(
             AndroidTouchScreen.Child("Multiplier", _root.transform, half),
             font,
             "",
-            chrome.Metrics.Sp(16),
+            chrome.ClockSpeedFont,
             TextAlignmentOptions.Center,
             AndroidUiKit.TextColor
         );

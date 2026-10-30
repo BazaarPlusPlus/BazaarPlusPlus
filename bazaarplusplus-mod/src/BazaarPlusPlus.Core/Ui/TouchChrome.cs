@@ -34,6 +34,12 @@ public sealed class TouchChrome
     /// <summary>Body text, notes, and status lines: <see cref="TouchMetrics.MinBodySp"/>.</summary>
     public const float BodySp = TouchMetrics.MinBodySp;
 
+    /// <summary>The combat clock's time.</summary>
+    public const float ClockTimeSp = 22f;
+
+    /// <summary>The combat clock's speed multiplier.</summary>
+    public const float ClockSpeedSp = 16f;
+
     private TouchChrome(TouchMetrics metrics)
     {
         Metrics = metrics;
@@ -47,6 +53,8 @@ public sealed class TouchChrome
         NameFont = metrics.Sp(NameSp);
         ButtonFont = metrics.Sp(ButtonSp);
         BodyFont = metrics.Sp(BodySp);
+        ClockTimeFont = metrics.Sp(ClockTimeSp);
+        ClockSpeedFont = metrics.Sp(ClockSpeedSp);
         Sheet = metrics.SafeArea.Inset(Margin);
         Body = Sheet.Inset(Padding);
         Close = CloseAt(Body);
@@ -78,6 +86,10 @@ public sealed class TouchChrome
     public float ButtonFont { get; }
 
     public float BodyFont { get; }
+
+    public float ClockTimeFont { get; }
+
+    public float ClockSpeedFont { get; }
 
     /// <summary>A full-screen panel: the safe area less the margin.</summary>
     public TouchRect Sheet { get; }
