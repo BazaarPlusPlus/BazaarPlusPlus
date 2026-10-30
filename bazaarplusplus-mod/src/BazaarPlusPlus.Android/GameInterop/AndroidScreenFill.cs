@@ -58,6 +58,7 @@ internal static class AndroidScreenFill
     {
         if (AndroidPatchHost.Mode != AndroidPatchMode.Enabled)
             return;
+        AndroidScreenFillCanvases.Tick();
         var floor = LetterBoxManager._minResolution;
         if (floor.x == Floor.x && floor.y == Floor.y)
             return;
