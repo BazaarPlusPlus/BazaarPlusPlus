@@ -3,6 +3,7 @@ using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
@@ -30,8 +31,9 @@ internal sealed record AndroidSettingsDockHooks(
 /// (Core's <see cref="SettingsDockEntryRegistry"/> and <see cref="BppSettingsDockCatalog"/>) and
 /// drawn by <see cref="AndroidNativeSettingsSection"/> in the game's own settings dialog. The
 /// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
-/// gates only the account link, since the host takes no end-of-run screenshot), Combat Status
-/// and Game History, which here has no hotkey. The rest are the host's Upgrade preview switch,
+/// gates only the account link, since the host takes no end-of-run screenshot), Combat Status,
+/// Enchant preview, with every mode the desktop offers, and Game History, which here has no
+/// hotkey. The rest are the host's Upgrade preview switch,
 /// which stands in for the desktop's hotkey, and, when the game is behind the published APK, the
 /// link to it.
 /// </summary>
@@ -110,6 +112,13 @@ internal static class AndroidSettingsDock
                 android.CombatTimer,
                 _ => { }
             )
+        );
+        registry.Register(
+            ItemEnchantPreviewSettingsDockEntry.Create(mode =>
+            {
+                LogChanged("EnchantPreview", "Mode", mode);
+                hooks.RefreshPreviews?.Invoke();
+            })
         );
         registry.Register(
             Switch(

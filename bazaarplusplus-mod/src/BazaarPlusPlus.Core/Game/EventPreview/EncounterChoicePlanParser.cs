@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Core.Cards;
 using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EventPreview;
@@ -10,6 +11,79 @@ public sealed class EncounterChoicePlanParser(
 )
 {
     private string? Normalize(string kind, string? raw) => normalize(kind, raw);
+
+    /// <summary>
+    /// A merchant event's quality rule, read off its JSON as the desktop's
+    /// <c>EncounterMerchantTierResolver</c> reads the typed template: no query spawn context or no
+    /// behaviours sells by the day's distribution; a <c>TSpawnBehaviorTier</c> that is not an
+    /// exclusion and names one tier pins it; an enabled <c>TSpawnBehaviorIgnoreTierTable</c>
+    /// without a pinned tier leaves no rule. The tier goes through the host's <c>"Tier"</c>
+    /// normalization, since runtime objects serialize enums numerically.
+    /// </summary>
+    public EncounterMerchantTierRule TryParseMerchantTierRule(JToken? card)
+    {
+        if (
+            card?.SelectToken("SelectionContext.SpawnContext") is not JObject spawnContext
+            || !TypeIs(spawnContext, "TSpawnContextQuery", whenUntyped: true)
+            || spawnContext["Behaviors"] is not JArray behaviors
+        )
+            return EncounterMerchantTierRule.DayDistribution;
+
+        var pinned = false;
+        CardTier? fixedTier = null;
+        var ignoresDayTable = false;
+        foreach (var behavior in behaviors.OfType<JObject>())
+        {
+            if (
+                TypeIs(behavior, "TSpawnBehaviorIgnoreTierTable", whenUntyped: false)
+                && ReadFlag(behavior["IgnoreTierTable"])
+            )
+                ignoresDayTable = true;
+            if (
+                TypeIs(behavior, "TSpawnBehaviorTier", whenUntyped: false)
+                && !ReadFlag(behavior["IsNot"])
+                && behavior["Tiers"] is JArray { Count: 1 } tiers
+            )
+            {
+                pinned = true;
+                fixedTier = ReadTier(tiers[0]);
+            }
+        }
+
+        // A pinned tier with no facet is still pinned: neither a fixed tier line nor the day
+        // distribution describes it.
+        return pinned
+            ? new EncounterMerchantTierRule(fixedTier, UsesDayDistribution: false)
+            : new EncounterMerchantTierRule(null, UsesDayDistribution: !ignoresDayTable);
+    }
+
+    // "$type" names the short type, or the full one with its assembly after a comma.
+    private static bool TypeIs(JObject token, string typeName, bool whenUntyped)
+    {
+        var type = token["$type"]?.ToString();
+        if (string.IsNullOrWhiteSpace(type))
+            return whenUntyped;
+        var comma = type!.IndexOf(',');
+        var name = (comma >= 0 ? type.Substring(0, comma) : type).Trim();
+        return name == typeName || name.EndsWith("." + typeName, StringComparison.Ordinal);
+    }
+
+    private static bool ReadFlag(JToken? token) =>
+        token != null
+        && (
+            token.Type == JTokenType.Boolean
+                ? token.Value<bool>()
+                : bool.TryParse(token.ToString(), out var parsed) && parsed
+        );
+
+    private CardTier? ReadTier(JToken token)
+    {
+        var raw = token.ToString();
+        var name = Normalize("Tier", raw) ?? raw;
+        return !long.TryParse(name, out _) && Enum.TryParse<CardTier>(name, true, out var tier)
+            ? tier
+            : null;
+    }
 
     public IReadOnlyList<EncounterChoiceGroupData> TryParseEventChoiceGroups(JToken? source)
     {

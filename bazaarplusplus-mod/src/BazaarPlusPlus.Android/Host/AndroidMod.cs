@@ -258,6 +258,7 @@ public sealed class AndroidMod : MelonMod
                 () => ChineseScriptConverter.NormalizeMode(shared.ChineseLocaleModeConfig.Value)
             );
             AndroidUpgradePreview.IsEnabled = () => android.UpgradePreview.Value;
+            AndroidEnchantPreview.Mode = () => shared.EnchantPreviewModeConfig.Value;
             var melonBase = MelonEnvironment.MelonBaseDirectory;
             var devManifest = AndroidVersionCheck.DevManifest(android.DevReleaseManifestPort.Value);
             _versionCheck = new AndroidVersionCheck(

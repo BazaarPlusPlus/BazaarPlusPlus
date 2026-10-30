@@ -14,12 +14,16 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Android.Game;
 
-/// <summary>Reads encounter choices off-thread; resolves current native descriptions only on inspection.</summary>
+/// <summary>
+/// Reads encounter choices and merchant quality rules off-thread; resolves current native
+/// descriptions only on inspection. A merchant shows the quality it sells, as on the desktop: its
+/// pinned tier, or the day's tier odds (<see cref="AndroidDayTiers"/>).
+/// </summary>
 internal sealed class AndroidEncounterPreview(BppSettings settings)
 {
     private IntPtr _source;
-    private Task<EncounterPreviewSnapshot>? _load;
-    private EncounterPreviewSnapshot? _snapshot;
+    private Task<AndroidEncounterPlans>? _load;
+    private AndroidEncounterPlans? _plans;
     private static readonly EncounterChoicePlanParser Parser = new(Normalize, (_, _, _, _) => null);
 
     public void Tick()
@@ -37,17 +41,18 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             if (string.IsNullOrWhiteSpace(path))
                 return;
             _source = manager.Pointer;
-            _snapshot = null;
+            _plans = null;
             _load = Task.Run(() => Read(path));
         }
         if (_load?.IsCompleted == true)
         {
             if (_load.IsCompletedSuccessfully)
             {
-                _snapshot = _load.Result;
+                _plans = _load.Result;
                 BppLog.InfoEvent(
                     new BppLogEvent(BppLogFeatureScope.Android, "android.encounter_preview.ready"),
-                    ("events", _snapshot.EventCount)
+                    ("events", _plans.Snapshot.EventCount),
+                    ("merchants", _plans.Merchants.Count)
                 );
             }
             else
@@ -62,15 +67,27 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
 
     public string? Render(CardTooltipController controller)
     {
-        if (!settings.EnableDetailedPreviewConfig.Value || Data.IsInCombat || _snapshot == null)
+        if (!settings.EnableDetailedPreviewConfig.Value || Data.IsInCombat || _plans == null)
             return null;
         var card = controller.CurrentCard;
         if (
             card == null
             || card.Type != ECardType.EventEncounter
             || !Guid.TryParse(card.TemplateId.ToString(), out var id)
-            || !_snapshot.TryGetEvent(id, out var plan)
         )
+            return null;
+        if (_plans.Merchants.TryGetValue(id, out var merchant))
+        {
+            if (!merchant.IsSupported)
+                return null;
+            var quality = EncounterPreviewTextFormatter.BuildQualityLine(
+                merchant.UsesDayDistribution ? AndroidDayTiers.Current() : null,
+                merchant.FixedTier
+            );
+            return string.IsNullOrWhiteSpace(quality) ? null : quality;
+        }
+        var loaded = _plans.Snapshot;
+        if (!loaded.TryGetEvent(id, out var plan))
             return null;
         var ids = plan
             .ChoiceGroups.SelectMany(group => group.Members.Select(member => member.TemplateId))
@@ -80,7 +97,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         var templates = new List<EncounterPreviewTemplatePlan>();
         foreach (var templateId in ids)
         {
-            if (!_snapshot.TryGetTemplate(templateId, out var template))
+            if (!loaded.TryGetTemplate(templateId, out var template))
                 continue;
             var title = AndroidCardTemplateText.Title(templateId) ?? template.Title.FallbackText;
             var description =
@@ -115,7 +132,9 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             Inventory(),
             run == null ? null : (int)run.Day
         );
-        return option == null ? null : EncounterPreviewTextFormatter.Build(option);
+        return option == null
+            ? null
+            : EncounterPreviewTextFormatter.Build(option, dayTiers: AndroidDayTiers.Current());
     }
 
     private static EncounterInventory? Inventory()
@@ -154,7 +173,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         return new(cards);
     }
 
-    internal static EncounterPreviewSnapshot Read(string path)
+    internal static AndroidEncounterPlans Read(string path)
     {
         using var connection = new SqliteConnection(
             new SqliteConnectionStringBuilder
@@ -170,6 +189,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         using var reader = command.ExecuteReader();
         var events = new List<EncounterPreviewEventPlan>();
         var templates = new List<EncounterPreviewTemplatePlan>();
+        var merchants = new Dictionary<Guid, EncounterMerchantTierRule>();
         while (reader.Read())
         {
             var card = JObject.Parse(Encoding.UTF8.GetString((byte[])reader.GetValue(0)));
@@ -215,6 +235,8 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             var random = Parser.TryParseEventOutcomeGroups(card, out var outcomes);
             var merchant =
                 card["Tags"] is JArray tags && tags.Any(tag => tag.ToString() == "Merchant");
+            if (merchant)
+                merchants[id] = Parser.TryParseMerchantTierRule(card);
             events.Add(
                 new(
                     id,
@@ -226,7 +248,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                 )
             );
         }
-        return new(events, templates);
+        return new(new EncounterPreviewSnapshot(events, templates), merchants);
     }
 
     private static string? Normalize(string kind, string? raw) =>
@@ -237,6 +259,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             "ListComparison" => Name<EListComparisonOperator>(raw),
             "HiddenTag" => Name<EHiddenTag>(raw),
             "Tag" => Name<ECardTag>(raw),
+            "Tier" => Name<ETier>(raw),
             _ => null,
         };
 
@@ -244,3 +267,9 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         where T : struct, Enum =>
         Enum.TryParse<T>(raw, true, out var value) ? value.ToString() : null;
 }
+
+/// <summary>The encounter plans read from one static-data source, and its merchants' quality rules.</summary>
+internal sealed record AndroidEncounterPlans(
+    EncounterPreviewSnapshot Snapshot,
+    IReadOnlyDictionary<Guid, EncounterMerchantTierRule> Merchants
+);

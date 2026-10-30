@@ -58,7 +58,9 @@ internal static class CardTooltipHidePatch
 }
 
 /// <summary>
-/// Actual tooltip rendering binds touch actions and leases the existing upgrade value projection.
+/// Actual tooltip rendering binds touch actions, builds the enchant preview section for this card
+/// and hands it to its passive block (<see cref="EnchantPreviewPassivePatch"/>), and leases the
+/// existing upgrade value projection; the section and the lease end with the render.
 /// </summary>
 [HarmonyPatch(typeof(CardTooltipTypeHandler), nameof(CardTooltipTypeHandler.RenderCardContents))]
 internal static class CardTooltipRenderPatch
@@ -84,13 +86,56 @@ internal static class CardTooltipRenderPatch
         {
             AndroidPatchHost.ReportProbeError("gameplay_previews", exception);
         }
+        AndroidEnchantPreview.Prepare(tooltipData);
         AndroidUpgradePreviewValues.Prepare(tooltipData);
     }
 
     [HarmonyFinalizer]
     private static void Finalizer()
     {
+        AndroidEnchantPreview.Clear();
         AndroidUpgradePreviewValues.Return();
+    }
+}
+
+/// <summary>Appends the pending enchant preview section below the native passive text.</summary>
+[HarmonyPatch(typeof(EffectBlockRenderer), nameof(EffectBlockRenderer.RenderPassive))]
+internal static class EnchantPreviewPassivePatch
+{
+    [HarmonyPostfix]
+    private static void Postfix(EffectBlockRenderer __instance, string text)
+    {
+        try
+        {
+            var section = AndroidEnchantPreview.TakePending(
+                RenderedFontPixels(__instance._passiveText.textObject)
+            );
+            if (section == null)
+                return;
+            __instance._passiveParentVisibility.SetVisible(true);
+            __instance._dividerParent?.SetActive(true);
+            __instance._passiveText.SetText(
+                string.IsNullOrEmpty(text) ? section : $"{text}\n{section}"
+            );
+        }
+        catch (Exception exception)
+        {
+            AndroidPatchHost.ReportProbeError("enchant_preview", exception);
+        }
+    }
+
+    // The label's font size in screen pixels: its canvas units, scaled by its transform within
+    // the canvas and by the canvas's own scale factor. Zero when it cannot be read.
+    private static float RenderedFontPixels(Il2CppTMPro.TMP_Text? label)
+    {
+        if (label == null)
+            return 0f;
+        var canvas = label.canvas?.rootCanvas;
+        if (canvas == null)
+            return 0f;
+        var canvasScale = canvas.transform.lossyScale.y;
+        var relative = canvasScale > 0f ? label.transform.lossyScale.y / canvasScale : 1f;
+        return label.fontSize * relative * canvas.scaleFactor;
     }
 }
 
