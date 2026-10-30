@@ -4,12 +4,12 @@ Credential derivation fails closed, before any bucket request, when:
   the token is empty                        -> ValueError "Complete R2 configuration"
   the account id is not 32 hex characters   -> ValueError "CLOUDFLARE_ACCOUNT_ID must be"
   the bucket name is not a valid R2 bucket  -> ValueError "Invalid R2 bucket"
-  /user/tokens/verify is not 200 or success -> ObjectStoreError "Cloudflare rejected",
-    unless the account verify endpoint accepts an account-owned token
+  /accounts/{account}/tokens/verify is not 200 or success
+                                            -> ObjectStoreError "Cloudflare rejected"
   the verify result has no 32-hex token id  -> ObjectStoreError "returned no token id"
   the token is not active                   -> ObjectStoreError "not active"
   the verify request itself fails           -> ObjectStoreError "verification failed"
-A verified id is reused for the process; a failed verification is not.
+A verified id is reused for the process and account; a failed verification is not.
 """
 
 import hashlib
@@ -100,39 +100,40 @@ def test_s3_pair_is_the_verified_token_id_and_the_sha256_of_the_token() -> None:
     token = _token()
     verify = _Verify(_verified())
     with verify.client() as client:
-        access_key_id, secret = derive_s3_credentials(f" {token} ", client=client)
-        again = derive_s3_credentials(token, client=client)
+        access_key_id, secret = derive_s3_credentials(
+            f" {token} ", account_id=ACCOUNT.upper(), client=client
+        )
+        again = derive_s3_credentials(token, account_id=ACCOUNT, client=client)
 
     assert (access_key_id, secret) == (TOKEN_ID, hashlib.sha256(token.encode()).hexdigest())
     assert again == (access_key_id, secret)
     assert len(verify.requests) == 1
-    assert str(verify.requests[0].url) == f"{CLOUDFLARE_API}/user/tokens/verify"
+    assert str(verify.requests[0].url) == f"{CLOUDFLARE_API}/accounts/{ACCOUNT}/tokens/verify"
     assert verify.requests[0].headers["authorization"] == f"Bearer {token}"
 
 
-def test_account_owned_token_verifies_at_its_account_after_the_user_endpoint_rejects_it() -> None:
+def test_an_account_token_verifies_again_under_another_account() -> None:
     token = _token()
-    verify = _Verify(_verified(code=401, success=False), _verified())
+    other = "c" * 32
+    verify = _Verify(_verified(), _verified())
     with verify.client() as client:
-        pair = derive_s3_credentials(token, account_id=ACCOUNT.upper(), client=client)
+        derive_s3_credentials(token, account_id=ACCOUNT, client=client)
+        derive_s3_credentials(token, account_id=other, client=client)
 
-    assert pair == (TOKEN_ID, hashlib.sha256(token.encode()).hexdigest())
     assert [str(request.url) for request in verify.requests] == [
-        f"{CLOUDFLARE_API}/user/tokens/verify",
         f"{CLOUDFLARE_API}/accounts/{ACCOUNT}/tokens/verify",
+        f"{CLOUDFLARE_API}/accounts/{other}/tokens/verify",
     ]
 
 
-def test_token_rejected_by_both_endpoints_or_without_an_account_fails() -> None:
-    rejected = _Verify(_verified(code=401, success=False), _verified(code=401, success=False))
-    with rejected.client() as client, pytest.raises(ObjectStoreError, match="Cloudflare rejected"):
+def test_a_token_the_account_endpoint_rejects_fails_without_another_request() -> None:
+    rejected = _Verify(_verified(code=401, success=False))
+    with (
+        rejected.client() as client,
+        pytest.raises(ObjectStoreError, match="must be an Account API Token"),
+    ):
         derive_s3_credentials(_token(), account_id=ACCOUNT, client=client)
-    assert len(rejected.requests) == 2
-
-    user_only = _Verify(_verified(code=401, success=False))
-    with user_only.client() as client, pytest.raises(ObjectStoreError, match="Cloudflare rejected"):
-        derive_s3_credentials(_token(), client=client)
-    assert len(user_only.requests) == 1
+    assert len(rejected.requests) == 1
 
     with pytest.raises(ValueError, match="CLOUDFLARE_ACCOUNT_ID must be"):
         derive_s3_credentials(_token(), account_id="not-an-account")
@@ -303,11 +304,7 @@ def test_a_rejected_malformed_or_failed_verification_fails_and_is_retried(
         lambda *_args, **_kwargs: _FakeR2Client(datetime(2026, 8, 11, tzinfo=UTC)),
     )
     token = _token()
-    # A rejection at /user is retried once at the account endpoint.
-    rejected = response is not None and response.status_code != 200
     first = [] if response is None else [response]
-    if rejected:
-        first.append(httpx.Response(response.status_code, content=response.content))
     verify = _Verify() if response is None else _Verify(*first, _verified())
     with verify.client() as http:
         with pytest.raises(ObjectStoreError, match=message):

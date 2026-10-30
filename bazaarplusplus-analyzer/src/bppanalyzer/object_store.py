@@ -16,7 +16,8 @@ CLOUDFLARE_API = "https://api.cloudflare.com/client/v4"
 _ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
 _TOKEN_ID = re.compile(r"[0-9a-f]{32}")
 _BUCKET = re.compile(r"[a-z0-9][a-z0-9-]*[a-z0-9]")
-# Verified token ids per process, keyed by the token's digest, never its value.
+# Verified token ids per process, keyed by the account and the token's digest,
+# never its value.
 _verified_token_ids: dict[str, str] = {}
 
 
@@ -24,23 +25,10 @@ class ObjectStoreError(RuntimeError):
     """An object-store request failed or returned inconsistent metadata."""
 
 
-class _TokenRejected(ObjectStoreError):
-    """One verify endpoint does not recognize the token."""
+def _verify_token(token: str, account_id: str, client: httpx.Client | None) -> str:
+    # Only account-owned tokens are supported; a user token is rejected here.
+    url = f"{CLOUDFLARE_API}/accounts/{account_id}/tokens/verify"
 
-
-def _verify_token(token: str, account_id: str | None, client: httpx.Client | None) -> str:
-    # A user token verifies at /user; an account-owned token only at its account.
-    try:
-        return _verify_at(f"{CLOUDFLARE_API}/user/tokens/verify", token, client)
-    except _TokenRejected:
-        if account_id is None:
-            raise
-    return _verify_at(
-        f"{CLOUDFLARE_API}/accounts/{account_id.lower()}/tokens/verify", token, client
-    )
-
-
-def _verify_at(url: str, token: str, client: httpx.Client | None) -> str:
     def request(http: httpx.Client) -> httpx.Response:
         return http.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30.0)
 
@@ -57,8 +45,9 @@ def _verify_at(url: str, token: str, client: httpx.Client | None) -> str:
     except ValueError:
         body = None
     if response.status_code != 200 or not isinstance(body, dict) or body.get("success") is not True:
-        raise _TokenRejected(
-            f"Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP {response.status_code}"
+        raise ObjectStoreError(
+            f"Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP {response.status_code}; "
+            "it must be an Account API Token of CLOUDFLARE_ACCOUNT_ID"
         )
     result = body.get("result") or {}
     token_id = result.get("id")
@@ -73,29 +62,29 @@ def _verify_at(url: str, token: str, client: httpx.Client | None) -> str:
 def derive_s3_credentials(
     api_token: str,
     *,
-    account_id: str | None = None,
+    account_id: str,
     client: httpx.Client | None = None,
 ) -> tuple[str, str]:
-    """The S3 pair R2 accepts for an API token.
+    """The S3 pair R2 accepts for an Account API Token.
 
-    The Access Key ID is the token's id, which only a token verify call
-    reveals, and the Secret Access Key is the SHA-256 of the token value. A
-    user token verifies at ``/user/tokens/verify``; an account-owned token is
-    rejected there and verifies at ``/accounts/{account_id}/tokens/verify``
-    when ``account_id`` is given. The verified id is reused for the rest of
-    the process.
+    The Access Key ID is the token's id, which only
+    ``/accounts/{account_id}/tokens/verify`` reveals, and the Secret Access
+    Key is the SHA-256 of the token value. A user token is rejected. The
+    verified id is reused for the rest of the process.
     """
     token = api_token.strip()
     if not token:
         raise ValueError("CLOUDFLARE_API_TOKEN is empty")
-    if account_id is not None and _ACCOUNT_ID.fullmatch(account_id) is None:
+    if _ACCOUNT_ID.fullmatch(account_id) is None:
         raise ValueError("CLOUDFLARE_ACCOUNT_ID must be the 32-character hexadecimal account id")
+    account = account_id.lower()
     # Cloudflare defines the secret as this digest; it is not password storage.
     secret = hashlib.sha256(token.encode()).hexdigest()  # lgtm[py/weak-sensitive-data-hashing]
-    access_key_id = _verified_token_ids.get(secret)
+    cache_key = f"{account}:{secret}"
+    access_key_id = _verified_token_ids.get(cache_key)
     if access_key_id is None:
-        access_key_id = _verify_token(token, account_id, client)
-        _verified_token_ids[secret] = access_key_id
+        access_key_id = _verify_token(token, account, client)
+        _verified_token_ids[cache_key] = access_key_id
     return access_key_id, secret
 
 
