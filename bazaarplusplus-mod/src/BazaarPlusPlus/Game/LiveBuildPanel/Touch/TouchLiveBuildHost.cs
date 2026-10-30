@@ -5,6 +5,7 @@ using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Touch;
@@ -77,7 +78,7 @@ internal sealed class TouchLiveBuildHost : MonoBehaviour
             );
             return false;
         }
-        _canvas = TouchUiKit.CreateOverlayCanvas("BPP.TouchLiveBuild", TouchUiKit.SortingOrder);
+        _canvas = UiKit.CreateOverlayCanvas("BPP.TouchLiveBuild", UiKit.SortingOrder);
         _panel = new TouchLiveBuildPanel(
             _canvas.transform,
             font,

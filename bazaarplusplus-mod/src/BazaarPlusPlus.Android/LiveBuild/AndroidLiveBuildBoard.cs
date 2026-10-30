@@ -3,6 +3,7 @@ using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
+using BazaarPlusPlus.Mobile.Ui;
 using Il2CppTheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,7 +23,7 @@ namespace BazaarPlusPlus.Android.LiveBuild;
 /// </summary>
 internal sealed class AndroidLiveBuildBoard
 {
-    private readonly AndroidNativeSkin _skin;
+    private readonly NativeSkin _skin;
     private readonly RectTransform _region;
     private readonly RectTransform _tags;
     private readonly TMP_FontAsset _font;
@@ -44,7 +45,7 @@ internal sealed class AndroidLiveBuildBoard
         RectTransform region,
         TMP_FontAsset font,
         BppItemBoardId id,
-        AndroidNativeSkin skin,
+        NativeSkin skin,
         Action<BppItemBoardCard, bool> onTap
     )
     {
@@ -54,14 +55,7 @@ internal sealed class AndroidLiveBuildBoard
         _owner = "live_build." + id;
         _onTap = onTap;
         // Tags draw over the cards.
-        _tags = AndroidUiKit.Rect(
-            "Tags",
-            region,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
+        _tags = UiKit.Rect("Tags", region, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
     }
 
     /// <summary>Cards rented and not yet returned, Pending or Ready.</summary>
@@ -178,9 +172,7 @@ internal sealed class AndroidLiveBuildBoard
                     tag.Root,
                     layout.TagRect(card.DisplaySocketId ?? 0, card.DisplaySpan)
                 );
-                tag.Background.color = _selectable
-                    ? AndroidUiKit.ActiveColor
-                    : AndroidUiKit.ButtonColor;
+                tag.Background.color = _selectable ? UiKit.ActiveColor : UiKit.ButtonColor;
                 tag.Label.fontSize = layout.TagFont;
                 tag.Label.text = tagText;
                 tag.Root.gameObject.SetActive(true);
@@ -195,16 +187,9 @@ internal sealed class AndroidLiveBuildBoard
     {
         if (index < _tagPool.Count)
             return _tagPool[index];
-        var root = AndroidUiKit.Rect(
-            "Tag",
-            _tags,
-            Vector2.zero,
-            Vector2.zero,
-            Vector2.zero,
-            Vector2.zero
-        );
+        var root = UiKit.Rect("Tag", _tags, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
         var background = _skin.Tag(root);
-        var labelRect = AndroidUiKit.Rect(
+        var labelRect = UiKit.Rect(
             "Label",
             root,
             Vector2.zero,
@@ -212,13 +197,13 @@ internal sealed class AndroidLiveBuildBoard
             Vector2.zero,
             Vector2.zero
         );
-        var label = AndroidUiKit.Text(
+        var label = UiKit.Text(
             labelRect,
             _font,
             "",
             _layout!.TagFont,
             TextAlignmentOptions.Center,
-            AndroidUiKit.TextColor
+            UiKit.TextColor
         );
         label.enableWordWrapping = false;
         label.overflowMode = TextOverflowModes.Ellipsis;
@@ -235,7 +220,7 @@ internal sealed class AndroidLiveBuildBoard
             reused.Root.gameObject.SetActive(true);
             return reused;
         }
-        var root = AndroidUiKit.Rect(
+        var root = UiKit.Rect(
             "Card",
             _region,
             Vector2.zero,
@@ -243,15 +228,8 @@ internal sealed class AndroidLiveBuildBoard
             Vector2.zero,
             Vector2.zero
         );
-        var hit = AndroidUiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
-        var slot = AndroidUiKit.Rect(
-            "Slot",
-            root,
-            new(0f, 1f),
-            new(0f, 1f),
-            Vector2.zero,
-            Vector2.zero
-        );
+        var hit = UiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
+        var slot = UiKit.Rect("Slot", root, new(0f, 1f), new(0f, 1f), Vector2.zero, Vector2.zero);
         var cell = new Cell(root, slot);
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;

@@ -8,6 +8,7 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Ui;
@@ -18,8 +19,6 @@ namespace BazaarPlusPlus.Android.Ui;
 /// catalog data are still built on first open.</summary>
 internal sealed class AndroidTouchUi
 {
-    private const int SortingOrder = 30000;
-
     private const string CollectionPanelId = "collection";
     private const string LiveBuildPanelId = "live_build";
     private const string EntrySource = "touch_icon";
@@ -166,7 +165,7 @@ internal sealed class AndroidTouchUi
 
     private void Mount(TMP_FontAsset font)
     {
-        _root = AndroidUiKit.CreateOverlayCanvas("BPP.TouchUi", SortingOrder);
+        _root = UiKit.CreateOverlayCanvas("BPP.TouchUi", UiKit.SortingOrder);
         _root.AddComponent<AndroidTouchRoot>();
         AndroidTouchRoot.Frame = Frame;
         _font = font;
@@ -253,7 +252,7 @@ internal sealed class AndroidTouchUi
         var bounds = AndroidNativeHud.ScreenBounds(
             _anchorRect!,
             _anchorCanvas!,
-            AndroidUiKit.ReferenceResolution.y
+            UiKit.ReferenceResolution.y
         );
         var screen = AndroidTouchScreen.Key();
         if (

@@ -1,8 +1,8 @@
 #nullable enable
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,9 +17,9 @@ namespace BazaarPlusPlus.Game.Touch;
 /// </summary>
 internal static class TouchPanelUi
 {
-    public static TouchNativeSkin Skin { get; private set; } = null!;
+    public static NativeSkin Skin { get; private set; } = null!;
 
-    public static void RefreshSkin() => Skin = new TouchNativeSkin();
+    public static void RefreshSkin() => Skin = new NativeSkin();
 
     public static readonly Color Ink = InGameTheme.Ink;
     public static readonly Color Muted = InGameTheme.InkMuted;
@@ -45,7 +45,7 @@ internal static class TouchPanelUi
         bool wrap = false
     )
     {
-        var label = TouchUiKit.Text(
+        var label = UiKit.Text(
             TouchScreen.Child(name, parent, area),
             font,
             "",
@@ -71,7 +71,7 @@ internal static class TouchPanelUi
         bool wrap = false
     )
     {
-        var rect = TouchUiKit.Rect(
+        var rect = UiKit.Rect(
             "Label",
             parent,
             new Vector2(x, 1f - y - height),
@@ -79,7 +79,7 @@ internal static class TouchPanelUi
             Vector2.zero,
             Vector2.zero
         );
-        var label = TouchUiKit.Text(rect, font, "", size, alignment, color ?? Ink);
+        var label = UiKit.Text(rect, font, "", size, alignment, color ?? Ink);
         Shape(label, wrap);
         return label;
     }
@@ -107,12 +107,12 @@ internal static class TouchPanelUi
         string text = ""
     )
     {
-        var fill = TouchUiKit.Fill(rect, ButtonFill);
+        var fill = UiKit.Fill(rect, ButtonFill);
         Skin.Select(fill, false);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = fill;
         TouchUiActions.OnTap(button, "history." + control, onTap);
-        var labelRect = TouchUiKit.Rect(
+        var labelRect = UiKit.Rect(
             "Label",
             rect,
             Vector2.zero,
@@ -120,7 +120,7 @@ internal static class TouchPanelUi
             new Vector2(size * 0.4f, 2f),
             new Vector2(-size * 0.4f, -2f)
         );
-        var label = TouchUiKit.Text(labelRect, font, text, size, TextAlignmentOptions.Center, Ink);
+        var label = UiKit.Text(labelRect, font, text, size, TextAlignmentOptions.Center, Ink);
         Shape(label, wrap: true);
         return new HistoryButton(button, fill, label, Skin);
     }
@@ -137,7 +137,7 @@ internal static class TouchPanelUi
         Color? fill = null
     )
     {
-        var hit = TouchUiKit.Fill(rect, fill ?? new Color(0f, 0f, 0f, 0f));
+        var hit = UiKit.Fill(rect, fill ?? new Color(0f, 0f, 0f, 0f));
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;
         button.transition = Selectable.Transition.None;
@@ -153,15 +153,8 @@ internal static class TouchPanelUi
         Action onOutsideTap
     )
     {
-        var root = TouchUiKit.Rect(
-            name,
-            parent,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
-        var shade = TouchUiKit.Fill(root, Shade);
+        var root = UiKit.Rect(name, parent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        var shade = UiKit.Fill(root, Shade);
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = shade;
         button.transition = Selectable.Transition.None;
@@ -191,7 +184,7 @@ internal static class TouchPanelUi
     )
     {
         var rect = TouchScreen.Child(name, parent, area);
-        var viewport = TouchUiKit.Rect(
+        var viewport = UiKit.Rect(
             "Viewport",
             rect,
             Vector2.zero,
@@ -200,9 +193,9 @@ internal static class TouchPanelUi
             Vector2.zero
         );
         // Transparent but raycast: a drag anywhere in the list scrolls it.
-        TouchUiKit.Fill(viewport, new Color(0f, 0f, 0f, 0.001f));
+        UiKit.Fill(viewport, new Color(0f, 0f, 0f, 0.001f));
         viewport.gameObject.AddComponent<RectMask2D>();
-        var content = TouchUiKit.Rect(
+        var content = UiKit.Rect(
             "Content",
             viewport,
             new Vector2(0f, 1f),
@@ -243,7 +236,7 @@ internal static class TouchPanelUi
         var rect = TouchScreen.Child(name, parent, area);
         Skin.Frame(rect, InputFill, borderOnly: true);
         var background = rect.GetComponent<Image>();
-        var viewport = TouchUiKit.Rect(
+        var viewport = UiKit.Rect(
             "TextViewport",
             rect,
             Vector2.zero,
@@ -253,23 +246,16 @@ internal static class TouchPanelUi
         );
         viewport.gameObject.AddComponent<RectMask2D>();
         var alignment = multiLine ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.MidlineLeft;
-        var text = TouchUiKit.Text(
-            TouchUiKit.Rect(
-                "Text",
-                viewport,
-                Vector2.zero,
-                Vector2.one,
-                Vector2.zero,
-                Vector2.zero
-            ),
+        var text = UiKit.Text(
+            UiKit.Rect("Text", viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
             font,
             "",
             size,
             alignment,
             Ink
         );
-        var hint = TouchUiKit.Text(
-            TouchUiKit.Rect(
+        var hint = UiKit.Text(
+            UiKit.Rect(
                 "Placeholder",
                 viewport,
                 Vector2.zero,
@@ -334,7 +320,7 @@ internal sealed class HistoryButton(
     Button button,
     Image fill,
     TextMeshProUGUI label,
-    TouchNativeSkin skin
+    NativeSkin skin
 )
 {
     private (string Text, bool Selected, bool Enabled, bool Dimmed)? _shown;
@@ -361,7 +347,7 @@ internal sealed class HistoryButton(
     public void UseChevron(float angle, float size)
     {
         Label.gameObject.SetActive(false);
-        var icon = TouchUiKit.Fixed(
+        var icon = UiKit.Fixed(
             "Chevron",
             Button.transform,
             new(0.5f, 0.5f),
@@ -373,7 +359,7 @@ internal sealed class HistoryButton(
         for (var index = 0; index < _chevronStrokes.Length; index++)
         {
             var side = index == 0 ? -1f : 1f;
-            var stroke = TouchUiKit.Fixed(
+            var stroke = UiKit.Fixed(
                 "Stroke",
                 icon,
                 new(0.5f, 0.5f),
@@ -381,7 +367,7 @@ internal sealed class HistoryButton(
                 new(size * 0.68f, size * 0.15f)
             );
             stroke.localRotation = Quaternion.Euler(0f, 0f, -side * 45f);
-            _chevronStrokes[index] = TouchUiKit.Fill(stroke, Label.color, false);
+            _chevronStrokes[index] = UiKit.Fill(stroke, Label.color, false);
         }
     }
 

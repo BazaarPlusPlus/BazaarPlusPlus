@@ -1,12 +1,13 @@
 #nullable enable
 using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Touch;
 
 /// <summary>
 /// The screen as Core's <see cref="TouchMetrics"/> sees it: Unity's pixel size, density, and safe
-/// area against the touch canvas's reference height (<see cref="TouchUiKit.ReferenceResolution"/>,
+/// area against the touch canvas's reference height (<see cref="UiKit.ReferenceResolution"/>,
 /// matched by height). A panel built on it compares <see cref="Key"/> each frame and lays itself out
 /// again when the resolution, density, or safe area changes. Main thread only.
 /// </summary>
@@ -60,7 +61,7 @@ internal static class TouchScreen
             Math.Max(1, Screen.width),
             Math.Max(1, Screen.height),
             Screen.dpi,
-            TouchUiKit.ReferenceResolution.y,
+            UiKit.ReferenceResolution.y,
             safe.x,
             safe.y,
             safe.width,
@@ -85,7 +86,7 @@ internal static class TouchScreen
     /// <summary>A new child placed at <paramref name="area"/>.</summary>
     public static RectTransform Child(string name, Transform parent, TouchRect area) =>
         Place(
-            TouchUiKit.Rect(name, parent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero),
+            UiKit.Rect(name, parent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero),
             area
         );
 }

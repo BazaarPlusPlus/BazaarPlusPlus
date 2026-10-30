@@ -55,7 +55,7 @@ internal sealed class TouchCollectionPanel
     // An open panel lays out again only once the screen key holds still and no card is setting
     // up, as Ten-Win Builds does; Open still rebuilds at once for a changed screen.
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
-    private TouchNativeSkin _skin = null!;
+    private NativeSkin _skin = null!;
     private TouchCollectionGrid _grid = null!;
     private TouchCollectionInspection _inspection = null!;
     private RectTransform _railContent = null!;
@@ -278,10 +278,10 @@ internal sealed class TouchCollectionPanel
     {
         var layout = _layout = CollectionTouchLayout.For(TouchScreen.Read());
         _port.Touch = layout;
-        _skin = new TouchNativeSkin();
+        _skin = new NativeSkin();
         var chrome = layout.Chrome;
         var metrics = layout.Metrics;
-        var root = TouchUiKit.Rect(
+        var root = UiKit.Rect(
             "Collection",
             _parent,
             Vector2.zero,
@@ -290,7 +290,7 @@ internal sealed class TouchCollectionPanel
             Vector2.zero
         );
         // Opaque: the panel covers the whole screen, and nothing of the scene shows through.
-        var background = TouchUiKit.PanelColor;
+        var background = UiKit.PanelColor;
         background.a = 1f;
         try
         {
@@ -322,7 +322,7 @@ internal sealed class TouchCollectionPanel
     {
         var chrome = layout.Chrome;
         var metrics = layout.Metrics;
-        TouchUiKit.Fill(root, background);
+        UiKit.Fill(root, background);
 
         var gridArea = TouchScreen.Child("Grid", root, layout.Grid);
         _grid = new TouchCollectionGrid(gridArea, _port, Inspect, _font, chrome.BodyFont);
@@ -340,13 +340,13 @@ internal sealed class TouchCollectionPanel
                 Math.Max(0f, metrics.CanvasHeight - layout.Grid.Bottom)
             )
         );
-        _status = TouchUiKit.Text(
+        _status = UiKit.Text(
             TouchScreen.Child("Status", root, layout.Grid),
             _font,
             "",
             chrome.ButtonFont,
             TextAlignmentOptions.Center,
-            TouchUiKit.MutedTextColor
+            UiKit.MutedTextColor
         );
 
         (_, _, _supporterLabel) = _skin.Button(
@@ -384,17 +384,10 @@ internal sealed class TouchCollectionPanel
 
         var rail = TouchScreen.Child("Rail", root, layout.Rail);
         _skin.Frame(
-            TouchUiKit.Rect(
-                "RailFrame",
-                rail,
-                Vector2.zero,
-                Vector2.one,
-                Vector2.zero,
-                Vector2.zero
-            )
+            UiKit.Rect("RailFrame", rail, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero)
         );
         var inset = metrics.Dp(16f);
-        var railInner = TouchUiKit.Rect(
+        var railInner = UiKit.Rect(
             "RailInner",
             rail,
             Vector2.zero,
@@ -402,7 +395,7 @@ internal sealed class TouchCollectionPanel
             new(inset, inset),
             new(-inset, -inset)
         );
-        (_railScroll, _railContent) = TouchUiKit.VerticalScroll(railInner);
+        (_railScroll, _railContent) = UiKit.VerticalScroll(railInner);
 
         _inspection = new TouchCollectionInspection(root, _font, layout, _skin);
         _trackers.Clear();
@@ -593,7 +586,7 @@ internal sealed class TouchCollectionPanel
             child.SetActive(false);
             UnityEngine.Object.Destroy(child);
         }
-        var flow = new TouchChipFlow(
+        var flow = new ChipFlow(
             _railContent,
             _font,
             _layout.Chrome,
@@ -713,7 +706,7 @@ internal sealed class TouchCollectionPanel
                     span: 6
                 );
             }
-            flow.Note(CollectionPanelText.SourceDisclaimer(), TouchUiKit.MutedTextColor);
+            flow.Note(CollectionPanelText.SourceDisclaimer(), UiKit.MutedTextColor);
         }
         flow.Divider();
         if (profile.ShowSizeFilter)
@@ -885,7 +878,7 @@ internal sealed class TouchCollectionPanel
     }
 
     private void MatchModes(
-        TouchChipFlow flow,
+        ChipFlow flow,
         CollectionFacetMatchMode current,
         Func<CollectionFacetMatchMode, CollectionRenderOutcome?> set
     )
@@ -941,7 +934,7 @@ internal sealed class TouchCollectionPanel
         var rect = TouchScreen.Child("Search", root, area);
         _skin.Frame(rect);
         var inset = chrome.Gap;
-        var textArea = TouchUiKit.Rect(
+        var textArea = UiKit.Rect(
             "TextArea",
             rect,
             Vector2.zero,
@@ -950,8 +943,8 @@ internal sealed class TouchCollectionPanel
             new(-inset * 1.5f, -inset * 0.5f)
         );
         textArea.gameObject.AddComponent<RectMask2D>();
-        var placeholder = TouchUiKit.Text(
-            TouchUiKit.Rect(
+        var placeholder = UiKit.Text(
+            UiKit.Rect(
                 "Placeholder",
                 textArea,
                 Vector2.zero,
@@ -963,24 +956,17 @@ internal sealed class TouchCollectionPanel
             "",
             chrome.ButtonFont,
             TextAlignmentOptions.MidlineLeft,
-            TouchUiKit.MutedTextColor
+            UiKit.MutedTextColor
         );
         placeholder.textWrappingMode = TextWrappingModes.NoWrap;
         placeholder.overflowMode = TextOverflowModes.Ellipsis;
-        var text = TouchUiKit.Text(
-            TouchUiKit.Rect(
-                "Text",
-                textArea,
-                Vector2.zero,
-                Vector2.one,
-                Vector2.zero,
-                Vector2.zero
-            ),
+        var text = UiKit.Text(
+            UiKit.Rect("Text", textArea, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
             _font,
             "",
             chrome.ButtonFont,
             TextAlignmentOptions.MidlineLeft,
-            TouchUiKit.TextColor
+            UiKit.TextColor
         );
         text.textWrappingMode = TextWrappingModes.NoWrap;
         // Configured while inactive: the field's OnEnable reads its text component.
@@ -1010,7 +996,7 @@ internal sealed class TouchCollectionPanel
     {
         if (area.Height <= 0f)
             return;
-        TouchUiKit.Fill(TouchScreen.Child("GridEdge", root, area), color);
+        UiKit.Fill(TouchScreen.Child("GridEdge", root, area), color);
     }
 
     private bool IsInRun()

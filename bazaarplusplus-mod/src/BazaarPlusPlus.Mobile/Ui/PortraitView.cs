@@ -1,22 +1,20 @@
-#nullable enable
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>Shared framed portrait geometry and async binding for Collection and reusable History rows.</summary>
-internal sealed class TouchPortraitView
+internal sealed class PortraitView
 {
     private readonly Image _image;
     private readonly GameObject _fallback;
     private int _binding;
 
-    public TouchPortraitView(RectTransform icon, TouchNativeSkin skin, TouchMetrics metrics)
+    public PortraitView(RectTransform icon, NativeSkin skin, TouchMetrics metrics)
     {
-        var frame = TouchUiKit.Rect(
+        var frame = UiKit.Rect(
             "PortraitFrame",
             icon,
             Vector2.zero,
@@ -25,7 +23,7 @@ internal sealed class TouchPortraitView
             Vector2.zero
         );
         skin.Tag(frame);
-        var viewport = TouchUiKit.Rect(
+        var viewport = UiKit.Rect(
             "PortraitViewport",
             icon,
             Vector2.zero,
@@ -33,9 +31,9 @@ internal sealed class TouchPortraitView
             Vector2.one * metrics.Dp(2f),
             Vector2.one * -metrics.Dp(2f)
         );
-        TouchUiKit.Fill(viewport, InGameTheme.Panel, false);
+        UiKit.Fill(viewport, InGameTheme.Panel, false);
         viewport.gameObject.AddComponent<RectMask2D>();
-        var fallback = TouchUiKit.Rect(
+        var fallback = UiKit.Rect(
             "Group",
             icon,
             Vector2.zero,
@@ -45,7 +43,7 @@ internal sealed class TouchPortraitView
         );
         for (var index = 0; index < 4; index++)
         {
-            var dot = TouchUiKit.Fixed(
+            var dot = UiKit.Fixed(
                 "Member",
                 fallback,
                 new(0.5f, 0.5f),
@@ -55,16 +53,16 @@ internal sealed class TouchPortraitView
                 ),
                 Vector2.one * metrics.Dp(6f)
             );
-            TouchUiKit.Fill(dot, TouchUiKit.MutedTextColor, false);
+            UiKit.Fill(dot, UiKit.MutedTextColor, false);
         }
-        var art = TouchUiKit.Fixed(
+        var art = UiKit.Fixed(
             "PortraitArt",
             viewport,
             new(0.5f, 0.5f),
             Vector2.zero,
             viewport.rect.size
         );
-        var image = TouchUiKit.Fill(art, Color.white, false);
+        var image = UiKit.Fill(art, Color.white, false);
         image.preserveAspect = false;
         image.enabled = false;
         _image = image;
@@ -79,6 +77,7 @@ internal sealed class TouchPortraitView
         ready?.Invoke(false);
         if (load == null)
             return;
+        using var scope = MobilePlatform.Port.EnterMainThread();
         _ = Load(load, hero, binding, ready);
     }
 
@@ -120,7 +119,7 @@ internal sealed class TouchPortraitView
             max = source;
             visible = source;
         }
-        var frame = ((RectTransform)image.rectTransform.parent).rect.size;
+        var frame = MobilePlatform.Port.Cast<RectTransform>(image.rectTransform.parent).rect.size;
         var scale = Math.Min(frame.x / visible.x, frame.y / visible.y);
         // These default hero portraits support an upper-body crop. Dooley's antennae,
         // multi-character heroes and encounter compositions keep their complete silhouette.

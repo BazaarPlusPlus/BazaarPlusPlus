@@ -1,11 +1,8 @@
-#nullable enable
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
-using BazaarPlusPlus.GameInterop.Touch;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>
 /// Lays chips, headers and notes top to bottom in a fixed column grid under one parent. Columns
@@ -15,10 +12,10 @@ namespace BazaarPlusPlus.Game.Touch;
 /// would not fit whole at body size widens across more columns (<see cref="TouchChrome.ChipSpan"/>);
 /// a note is as tall as its wrapped text.
 /// </summary>
-internal sealed class TouchChipFlow
+internal sealed class ChipFlow
 {
     private readonly RectTransform _parent;
-    private readonly TouchNativeSkin _skin;
+    private readonly NativeSkin _skin;
     private readonly TMP_FontAsset _font;
     private readonly TouchChrome _chrome;
     private readonly int _columns;
@@ -28,13 +25,13 @@ internal sealed class TouchChipFlow
     private float _rowHeight;
     private TextMeshProUGUI? _probe;
 
-    public TouchChipFlow(
+    public ChipFlow(
         RectTransform parent,
         TMP_FontAsset font,
         TouchChrome chrome,
         int columns,
         float headerHeight,
-        TouchNativeSkin skin
+        NativeSkin skin
     )
     {
         _parent = parent;
@@ -57,7 +54,7 @@ internal sealed class TouchChipFlow
         span = TouchChrome.ChipSpan(_parent.rect.width, _columns, span, Gap, ChipWidth(label));
         if (_column + span > _columns)
             Break();
-        var rect = TouchUiKit.Rect(
+        var rect = UiKit.Rect(
             "Chip",
             _parent,
             new((float)_column / _columns, 1f),
@@ -74,7 +71,7 @@ internal sealed class TouchChipFlow
             onTap
         );
         _skin.Select(background, selected);
-        text.textWrappingMode = TextWrappingModes.NoWrap;
+        MobilePlatform.Port.SetWordWrapping(text, false);
         text.enableAutoSizing = true;
         text.fontSizeMin = _chrome.BodyFont;
         text.fontSizeMax = _chrome.ButtonFont;
@@ -96,7 +93,7 @@ internal sealed class TouchChipFlow
             Break();
         var compact = span * 2 <= _columns;
         var height = _chrome.Metrics.Dp(compact ? 88f : 64f);
-        var rect = TouchUiKit.Rect(
+        var rect = UiKit.Rect(
             "Identity",
             _parent,
             new((float)_column / _columns, 1f),
@@ -114,7 +111,7 @@ internal sealed class TouchChipFlow
         );
         _skin.Select(background, selected);
         text.alignment = compact ? TextAlignmentOptions.Center : TextAlignmentOptions.Left;
-        text.textWrappingMode = TextWrappingModes.NoWrap;
+        MobilePlatform.Port.SetWordWrapping(text, false);
         text.enableAutoSizing = true;
         text.fontSizeMin = _chrome.BodyFont;
         text.fontSizeMax = compact ? _chrome.BodyFont : _chrome.ButtonFont;
@@ -134,17 +131,17 @@ internal sealed class TouchChipFlow
             );
         }
         var portraitY = compact ? _chrome.Metrics.Dp(16f) : 0f;
-        var icon = TouchUiKit.Fixed(
+        var icon = UiKit.Fixed(
             "Portrait",
             rect,
             new(compact ? 0.5f : 0f, 0.5f),
             new(compact ? 0f : _chrome.Padding, portraitY),
             Vector2.one * _chrome.Metrics.Dp(40f)
         );
-        new TouchPortraitView(icon, _skin, _chrome.Metrics).Bind(portrait, hero);
+        new PortraitView(icon, _skin, _chrome.Metrics).Bind(portrait, hero);
         if (expanded is { } open)
         {
-            var arrow = TouchUiKit.Fixed(
+            var arrow = UiKit.Fixed(
                 "Chevron",
                 rect,
                 new(1f, 0.5f),
@@ -153,7 +150,7 @@ internal sealed class TouchChipFlow
             );
             foreach (var side in new[] { -1f, 1f })
             {
-                var stroke = TouchUiKit.Fixed(
+                var stroke = UiKit.Fixed(
                     "Stroke",
                     arrow,
                     new(0.5f, 0.5f),
@@ -161,7 +158,7 @@ internal sealed class TouchChipFlow
                     new(_chrome.Metrics.Dp(6f), _chrome.Metrics.Dp(1.5f))
                 );
                 stroke.localRotation = Quaternion.Euler(0f, 0f, side * (open ? -45f : 45f));
-                TouchUiKit.Fill(stroke, TouchUiKit.MutedTextColor, false);
+                UiKit.Fill(stroke, UiKit.MutedTextColor, false);
             }
         }
         _column += span;
@@ -171,7 +168,7 @@ internal sealed class TouchChipFlow
     public void Toggle(string label, bool value, Action<bool> onChanged)
     {
         Break();
-        var rect = TouchUiKit.Rect(
+        var rect = UiKit.Rect(
             "Toggle",
             _parent,
             new(0f, 1f),
@@ -196,15 +193,15 @@ internal sealed class TouchChipFlow
     {
         if (_probe == null)
         {
-            _probe = TouchUiKit.Text(
-                TouchUiKit.Fixed("ChipProbe", _parent, Vector2.zero, Vector2.zero, Vector2.zero),
+            _probe = UiKit.Text(
+                UiKit.Fixed("ChipProbe", _parent, Vector2.zero, Vector2.zero, Vector2.zero),
                 _font,
                 "",
                 _chrome.BodyFont,
                 TextAlignmentOptions.Left,
                 Color.clear
             );
-            _probe.textWrappingMode = TextWrappingModes.NoWrap;
+            MobilePlatform.Port.SetWordWrapping(_probe, false);
         }
         return _probe.GetPreferredValues(label).x + 2f * _chrome.LabelInset;
     }
@@ -214,7 +211,7 @@ internal sealed class TouchChipFlow
             text,
             _headerHeight,
             _chrome.ButtonFont,
-            TouchUiKit.TextColor,
+            UiKit.TextColor,
             TextAlignmentOptions.BottomLeft
         );
 
@@ -222,7 +219,7 @@ internal sealed class TouchChipFlow
     public TextMeshProUGUI Note(string text, Color color, float? fontSize = null)
     {
         Break();
-        var rect = TouchUiKit.Rect(
+        var rect = UiKit.Rect(
             "Note",
             _parent,
             new(0f, 1f),
@@ -230,7 +227,7 @@ internal sealed class TouchChipFlow
             new(0f, -_y),
             new(0f, -_y)
         );
-        var label = TouchUiKit.Text(
+        var label = UiKit.Text(
             rect,
             _font,
             text,
@@ -238,7 +235,7 @@ internal sealed class TouchChipFlow
             TextAlignmentOptions.TopLeft,
             color
         );
-        TouchKeywordSprites.Apply(label);
+        KeywordSprites.Apply(label);
         var width = Math.Max(1f, _parent.rect.width);
         var height = Math.Max(
             fontSize ?? _chrome.BodyFont,
@@ -253,7 +250,7 @@ internal sealed class TouchChipFlow
     {
         Break();
         _y += Gap * 0.5f;
-        var line = TouchUiKit.Rect(
+        var line = UiKit.Rect(
             "Divider",
             _parent,
             new(0f, 1f),
@@ -261,7 +258,7 @@ internal sealed class TouchChipFlow
             new(0f, -_y - _chrome.Metrics.Dp(1f)),
             new(0f, -_y)
         );
-        TouchUiKit.Fill(line, InGameTheme.RuleFaint, false);
+        UiKit.Fill(line, InGameTheme.RuleFaint, false);
         _y += Gap;
     }
 
@@ -278,7 +275,7 @@ internal sealed class TouchChipFlow
         {
             var width = availableWidth * entry.Weight / totalWeight;
             var text = $"<color=#B8A98F><size=60%>{entry.Label}</size></color>\n{entry.Value}";
-            var rect = TouchUiKit.Rect(
+            var rect = UiKit.Rect(
                 "Attribute",
                 _parent,
                 new(0f, 1f),
@@ -286,15 +283,15 @@ internal sealed class TouchChipFlow
                 new(x, -_y),
                 new(x + width, -_y)
             );
-            var label = TouchUiKit.Text(
+            var label = UiKit.Text(
                 rect,
                 _font,
                 text,
                 _chrome.NameFont,
                 TextAlignmentOptions.TopLeft,
-                TouchUiKit.TextColor
+                UiKit.TextColor
             );
-            TouchKeywordSprites.Apply(label);
+            KeywordSprites.Apply(label);
             var height = label.GetPreferredValues(text, Math.Max(1f, width), 0f).y;
             rect.offsetMin = new(x, -_y - height);
             rowHeight = Math.Max(rowHeight, height);
@@ -316,7 +313,7 @@ internal sealed class TouchChipFlow
         );
         foreach (var (name, text) in entries)
         {
-            var labelRect = TouchUiKit.Rect(
+            var labelRect = UiKit.Rect(
                 "EnchantmentName",
                 _parent,
                 new(0f, 1f),
@@ -324,7 +321,7 @@ internal sealed class TouchChipFlow
                 new(0f, -_y),
                 new(nameWidth, -_y)
             );
-            var effectRect = TouchUiKit.Rect(
+            var effectRect = UiKit.Rect(
                 "EnchantmentEffect",
                 _parent,
                 new(0f, 1f),
@@ -332,23 +329,23 @@ internal sealed class TouchChipFlow
                 new(nameWidth + Gap, -_y),
                 new(0f, -_y)
             );
-            var label = TouchUiKit.Text(
+            var label = UiKit.Text(
                 labelRect,
                 _font,
                 name,
                 _chrome.BodyFont,
                 TextAlignmentOptions.TopLeft,
-                TouchUiKit.TextColor
+                UiKit.TextColor
             );
-            var effect = TouchUiKit.Text(
+            var effect = UiKit.Text(
                 effectRect,
                 _font,
                 text,
                 _chrome.BodyFont,
                 TextAlignmentOptions.TopLeft,
-                TouchUiKit.TextColor
+                UiKit.TextColor
             );
-            TouchKeywordSprites.Apply(effect);
+            KeywordSprites.Apply(effect);
             var labelHeight = label.GetPreferredValues(name, nameWidth, 0f).y;
             var effectHeight = effect
                 .GetPreferredValues(text, Math.Max(1f, width - nameWidth - Gap), 0f)
@@ -388,7 +385,7 @@ internal sealed class TouchChipFlow
                 x = 0f;
                 rowHeight = 0f;
             }
-            var rect = TouchUiKit.Rect(
+            var rect = UiKit.Rect(
                 "Tag",
                 _parent,
                 new(0f, 1f),
@@ -397,8 +394,8 @@ internal sealed class TouchChipFlow
                 new(x + tagWidth, -_y)
             );
             _skin.Tag(rect);
-            var label = TouchUiKit.Text(
-                TouchUiKit.Rect(
+            var label = UiKit.Text(
+                UiKit.Rect(
                     "Label",
                     rect,
                     Vector2.zero,
@@ -410,9 +407,9 @@ internal sealed class TouchChipFlow
                 text,
                 _chrome.BodyFont,
                 TextAlignmentOptions.Center,
-                TouchUiKit.MutedTextColor
+                UiKit.MutedTextColor
             );
-            TouchKeywordSprites.Apply(label);
+            KeywordSprites.Apply(label);
             var height =
                 Math.Max(
                     _chrome.BodyFont,
@@ -446,7 +443,7 @@ internal sealed class TouchChipFlow
     )
     {
         Break();
-        var rect = TouchUiKit.Rect(
+        var rect = UiKit.Rect(
             "Line",
             _parent,
             new(0f, 1f),
@@ -454,8 +451,8 @@ internal sealed class TouchChipFlow
             new(0f, -_y - height),
             new(0f, -_y)
         );
-        var label = TouchUiKit.Text(rect, _font, text, size, alignment, color);
-        label.textWrappingMode = TextWrappingModes.NoWrap;
+        var label = UiKit.Text(rect, _font, text, size, alignment, color);
+        MobilePlatform.Port.SetWordWrapping(label, false);
         label.overflowMode = TextOverflowModes.Ellipsis;
         _y += height + Gap;
     }

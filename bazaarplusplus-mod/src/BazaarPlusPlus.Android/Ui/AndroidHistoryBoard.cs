@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
+using BazaarPlusPlus.Mobile.Ui;
 using Il2CppTheBazaar.UI;
 using UnityEngine;
 
@@ -146,7 +147,7 @@ internal sealed class AndroidHistoryBoard
             reused.Root.gameObject.SetActive(true);
             return reused;
         }
-        var root = AndroidUiKit.Rect(
+        var root = UiKit.Rect(
             "Card",
             _region!,
             Vector2.zero,
@@ -154,14 +155,7 @@ internal sealed class AndroidHistoryBoard
             Vector2.zero,
             Vector2.zero
         );
-        var slot = AndroidUiKit.Rect(
-            "Slot",
-            root,
-            new(0f, 1f),
-            new(0f, 1f),
-            Vector2.zero,
-            Vector2.zero
-        );
+        var slot = UiKit.Rect("Slot", root, new(0f, 1f), new(0f, 1f), Vector2.zero, Vector2.zero);
         var cell = new Cell(root, slot);
         AndroidHistoryUi.TapArea(
             root,

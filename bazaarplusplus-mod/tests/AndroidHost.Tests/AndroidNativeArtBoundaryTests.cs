@@ -43,13 +43,19 @@ public sealed class AndroidNativeArtBoundaryTests
                     access.type.FullName
                 )
         );
+        // The skin and the portrait moved into the Mobile UI tree (ADR-0025); both must still be
+        // here, or the clause below would hold over nothing.
+        string[] sharedUi =
+        [
+            "BazaarPlusPlus.Mobile.Ui.NativeSkin",
+            "BazaarPlusPlus.Mobile.Ui.PortraitView",
+            "BazaarPlusPlus.Android.GameInterop.AndroidNativeArt",
+        ];
+        Assert.Equal(sharedUi.Length, host.Types.Count(type => sharedUi.Contains(type.FullName)));
         Assert.DoesNotContain(
             accesses,
             access =>
-                access.type.FullName
-                    is "BazaarPlusPlus.Android.Ui.AndroidNativeSkin"
-                        or "BazaarPlusPlus.Android.Ui.AndroidPortraitView"
-                        or "BazaarPlusPlus.Android.GameInterop.AndroidNativeArt"
+                sharedUi.Contains(access.type.FullName)
                 && access.op.TargetType?.Namespace == "BazaarPlusPlus.Android.Collection"
         );
         // The runtime owner never reaches back into the UI, the Mobile UI tree's included.

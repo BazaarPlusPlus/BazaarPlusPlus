@@ -45,7 +45,7 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
         );
         _root = root.gameObject;
         var area = AndroidTouchScreen.Child("CardArea", root, layout.InspectCardArea);
-        _slot = AndroidUiKit.Rect(
+        _slot = UiKit.Rect(
             "CardSlot",
             area,
             new(0.5f, 0.5f),
@@ -80,7 +80,7 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
             Local(layout.InspectClose, origin, 0f),
             layout.TitleFont,
             () => Close("close_button"),
-            AndroidUiKit.CloseGlyph
+            UiKit.CloseGlyph
         );
         _root.SetActive(false);
     }

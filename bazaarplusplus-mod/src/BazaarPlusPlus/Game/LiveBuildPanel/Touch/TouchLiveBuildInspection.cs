@@ -7,7 +7,6 @@ using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar.UI;
 using UnityEngine;
@@ -39,11 +38,11 @@ internal sealed class TouchLiveBuildInspection
         RectTransform parent,
         TMP_FontAsset font,
         LiveBuildTouchLayout layout,
-        TouchNativeSkin skin
+        NativeSkin skin
     )
     {
         _layout = layout;
-        var root = TouchUiKit.Rect(
+        var root = UiKit.Rect(
             "Inspection",
             parent,
             Vector2.zero,
@@ -51,14 +50,14 @@ internal sealed class TouchLiveBuildInspection
             Vector2.zero,
             Vector2.zero
         );
-        TouchUiKit.Fill(root, InGameTheme.Scrim);
+        UiKit.Fill(root, InGameTheme.Scrim);
         var dismiss = root.gameObject.AddComponent<Button>();
         dismiss.transition = Selectable.Transition.None;
         TouchUiActions.OnTap(dismiss, "live_build.inspection", () => Close("outside_tap"));
         _root = root.gameObject;
 
         var area = TouchScreen.Child("CardArea", root, layout.InspectCardArea);
-        _slot = TouchUiKit.Rect(
+        _slot = UiKit.Rect(
             "CardSlot",
             area,
             new(0.5f, 0.5f),
@@ -74,26 +73,26 @@ internal sealed class TouchLiveBuildInspection
         var swallow = info.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
         var origin = layout.InspectInfo;
-        _name = TouchUiKit.Text(
+        _name = UiKit.Text(
             TouchScreen.Child("Name", info, Local(layout.InspectName, origin, layout.Gap)),
             font,
             "",
             layout.NameFont,
             TextAlignmentOptions.MidlineLeft,
-            TouchUiKit.TextColor
+            UiKit.TextColor
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
         _description = new InspectionText(
             TouchScreen.Child("Description", info, Local(layout.InspectDetail, origin, layout.Gap)),
             font,
             layout.BodyFont,
-            TouchUiKit.TextColor
+            UiKit.TextColor
         );
         var close = TouchScreen.Child("Close", info, Local(layout.InspectClose, origin, 0f));
         skin.Button(
             close,
             font,
-            TouchUiKit.CloseGlyph,
+            UiKit.CloseGlyph,
             layout.TitleFont,
             layout.LabelInset,
             () => Close("close_button")

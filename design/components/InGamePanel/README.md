@@ -1,6 +1,6 @@
 The look of a BPP panel in game: native frames and buttons on a warm brown ground, parchment text, gold emphasis. This preview stands in for the game's sprites with tinted outlines; the real panels borrow them at runtime.
 
-Source: `InGameTheme.g.cs` (generated from the `ingame-*` tokens) in both mod hosts. Desktop: `bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryPanelView*.cs`, `Game/LiveBuildPanel/Ui/LiveBuildPanelView.cs`. Android: `bazaarplusplus-mod/src/BazaarPlusPlus.Android/Ui/AndroidHistory*.cs`, `AndroidUiKit.cs`, `AndroidNativeSkin.cs`.
+Source: `InGameTheme.g.cs` (generated from the `ingame-*` tokens) for the Desktop UI and the Mobile UI. Desktop: `bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryPanelView*.cs`, `Game/LiveBuildPanel/Ui/LiveBuildPanelView.cs`. Mobile: `bazaarplusplus-mod/src/BazaarPlusPlus.Android/Ui/AndroidHistory*.cs`, `bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/Ui/UiKit.cs`, `NativeSkin.cs`.
 
 ## Use
 

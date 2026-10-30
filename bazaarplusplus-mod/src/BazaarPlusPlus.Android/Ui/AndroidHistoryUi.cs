@@ -1,6 +1,7 @@
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,9 +16,9 @@ namespace BazaarPlusPlus.Android.Ui;
 /// </summary>
 internal static class AndroidHistoryUi
 {
-    public static AndroidNativeSkin Skin { get; private set; } = null!;
+    public static NativeSkin Skin { get; private set; } = null!;
 
-    public static void RefreshSkin() => Skin = new AndroidNativeSkin();
+    public static void RefreshSkin() => Skin = new NativeSkin();
 
     public static readonly Color Ink = InGameTheme.Ink;
     public static readonly Color Muted = InGameTheme.InkMuted;
@@ -43,7 +44,7 @@ internal static class AndroidHistoryUi
         bool wrap = false
     )
     {
-        var label = AndroidUiKit.Text(
+        var label = UiKit.Text(
             AndroidTouchScreen.Child(name, parent, area),
             font,
             "",
@@ -69,7 +70,7 @@ internal static class AndroidHistoryUi
         bool wrap = false
     )
     {
-        var rect = AndroidUiKit.Rect(
+        var rect = UiKit.Rect(
             "Label",
             parent,
             new Vector2(x, 1f - y - height),
@@ -77,7 +78,7 @@ internal static class AndroidHistoryUi
             Vector2.zero,
             Vector2.zero
         );
-        var label = AndroidUiKit.Text(rect, font, "", size, alignment, color ?? Ink);
+        var label = UiKit.Text(rect, font, "", size, alignment, color ?? Ink);
         Shape(label, wrap);
         return label;
     }
@@ -105,12 +106,12 @@ internal static class AndroidHistoryUi
         string text = ""
     )
     {
-        var fill = AndroidUiKit.Fill(rect, ButtonFill);
+        var fill = UiKit.Fill(rect, ButtonFill);
         Skin.Select(fill, false);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = fill;
         AndroidUiActions.OnTap(button, "history." + control, onTap);
-        var labelRect = AndroidUiKit.Rect(
+        var labelRect = UiKit.Rect(
             "Label",
             rect,
             Vector2.zero,
@@ -118,14 +119,7 @@ internal static class AndroidHistoryUi
             new Vector2(size * 0.4f, 2f),
             new Vector2(-size * 0.4f, -2f)
         );
-        var label = AndroidUiKit.Text(
-            labelRect,
-            font,
-            text,
-            size,
-            TextAlignmentOptions.Center,
-            Ink
-        );
+        var label = UiKit.Text(labelRect, font, text, size, TextAlignmentOptions.Center, Ink);
         Shape(label, wrap: true);
         return new HistoryButton(button, fill, label, Skin);
     }
@@ -142,7 +136,7 @@ internal static class AndroidHistoryUi
         Color? fill = null
     )
     {
-        var hit = AndroidUiKit.Fill(rect, fill ?? new Color(0f, 0f, 0f, 0f));
+        var hit = UiKit.Fill(rect, fill ?? new Color(0f, 0f, 0f, 0f));
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;
         button.transition = Selectable.Transition.None;
@@ -158,15 +152,8 @@ internal static class AndroidHistoryUi
         Action onOutsideTap
     )
     {
-        var root = AndroidUiKit.Rect(
-            name,
-            parent,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
-        var shade = AndroidUiKit.Fill(root, Shade);
+        var root = UiKit.Rect(name, parent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        var shade = UiKit.Fill(root, Shade);
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = shade;
         button.transition = Selectable.Transition.None;
@@ -196,7 +183,7 @@ internal static class AndroidHistoryUi
     )
     {
         var rect = AndroidTouchScreen.Child(name, parent, area);
-        var viewport = AndroidUiKit.Rect(
+        var viewport = UiKit.Rect(
             "Viewport",
             rect,
             Vector2.zero,
@@ -205,9 +192,9 @@ internal static class AndroidHistoryUi
             Vector2.zero
         );
         // Transparent but raycast: a drag anywhere in the list scrolls it.
-        AndroidUiKit.Fill(viewport, new Color(0f, 0f, 0f, 0.001f));
+        UiKit.Fill(viewport, new Color(0f, 0f, 0f, 0.001f));
         viewport.gameObject.AddComponent<RectMask2D>();
-        var content = AndroidUiKit.Rect(
+        var content = UiKit.Rect(
             "Content",
             viewport,
             new Vector2(0f, 1f),
@@ -248,7 +235,7 @@ internal static class AndroidHistoryUi
         var rect = AndroidTouchScreen.Child(name, parent, area);
         Skin.Frame(rect, InputFill, borderOnly: true);
         var background = rect.GetComponent<Image>();
-        var viewport = AndroidUiKit.Rect(
+        var viewport = UiKit.Rect(
             "TextViewport",
             rect,
             Vector2.zero,
@@ -258,23 +245,16 @@ internal static class AndroidHistoryUi
         );
         viewport.gameObject.AddComponent<RectMask2D>();
         var alignment = multiLine ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.MidlineLeft;
-        var text = AndroidUiKit.Text(
-            AndroidUiKit.Rect(
-                "Text",
-                viewport,
-                Vector2.zero,
-                Vector2.one,
-                Vector2.zero,
-                Vector2.zero
-            ),
+        var text = UiKit.Text(
+            UiKit.Rect("Text", viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
             font,
             "",
             size,
             alignment,
             Ink
         );
-        var hint = AndroidUiKit.Text(
-            AndroidUiKit.Rect(
+        var hint = UiKit.Text(
+            UiKit.Rect(
                 "Placeholder",
                 viewport,
                 Vector2.zero,
@@ -339,7 +319,7 @@ internal sealed class HistoryButton(
     Button button,
     Image fill,
     TextMeshProUGUI label,
-    AndroidNativeSkin skin
+    NativeSkin skin
 )
 {
     private (string Text, bool Selected, bool Enabled, bool Dimmed)? _shown;
@@ -366,7 +346,7 @@ internal sealed class HistoryButton(
     public void UseChevron(float angle, float size)
     {
         Label.gameObject.SetActive(false);
-        var icon = AndroidUiKit.Fixed(
+        var icon = UiKit.Fixed(
             "Chevron",
             Button.transform,
             new(0.5f, 0.5f),
@@ -378,7 +358,7 @@ internal sealed class HistoryButton(
         for (var index = 0; index < _chevronStrokes.Length; index++)
         {
             var side = index == 0 ? -1f : 1f;
-            var stroke = AndroidUiKit.Fixed(
+            var stroke = UiKit.Fixed(
                 "Stroke",
                 icon,
                 new(0.5f, 0.5f),
@@ -386,7 +366,7 @@ internal sealed class HistoryButton(
                 new(size * 0.68f, size * 0.15f)
             );
             stroke.localRotation = Quaternion.Euler(0f, 0f, -side * 45f);
-            _chevronStrokes[index] = AndroidUiKit.Fill(stroke, Label.color, false);
+            _chevronStrokes[index] = UiKit.Fill(stroke, Label.color, false);
         }
     }
 

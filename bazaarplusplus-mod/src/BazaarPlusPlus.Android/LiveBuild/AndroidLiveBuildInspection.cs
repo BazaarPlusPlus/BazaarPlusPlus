@@ -38,11 +38,11 @@ internal sealed class AndroidLiveBuildInspection
         RectTransform parent,
         TMP_FontAsset font,
         LiveBuildTouchLayout layout,
-        AndroidNativeSkin skin
+        NativeSkin skin
     )
     {
         _layout = layout;
-        var root = AndroidUiKit.Rect(
+        var root = UiKit.Rect(
             "Inspection",
             parent,
             Vector2.zero,
@@ -50,14 +50,14 @@ internal sealed class AndroidLiveBuildInspection
             Vector2.zero,
             Vector2.zero
         );
-        AndroidUiKit.Fill(root, InGameTheme.Scrim);
+        UiKit.Fill(root, InGameTheme.Scrim);
         var dismiss = root.gameObject.AddComponent<Button>();
         dismiss.transition = Selectable.Transition.None;
         AndroidUiActions.OnTap(dismiss, "live_build.inspection", () => Close("outside_tap"));
         _root = root.gameObject;
 
         var area = AndroidTouchScreen.Child("CardArea", root, layout.InspectCardArea);
-        _slot = AndroidUiKit.Rect(
+        _slot = UiKit.Rect(
             "CardSlot",
             area,
             new(0.5f, 0.5f),
@@ -73,13 +73,13 @@ internal sealed class AndroidLiveBuildInspection
         var swallow = info.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
         var origin = layout.InspectInfo;
-        _name = AndroidUiKit.Text(
+        _name = UiKit.Text(
             AndroidTouchScreen.Child("Name", info, Local(layout.InspectName, origin, layout.Gap)),
             font,
             "",
             layout.NameFont,
             TextAlignmentOptions.MidlineLeft,
-            AndroidUiKit.TextColor
+            UiKit.TextColor
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
         _description = new InspectionText(
@@ -90,13 +90,13 @@ internal sealed class AndroidLiveBuildInspection
             ),
             font,
             layout.BodyFont,
-            AndroidUiKit.TextColor
+            UiKit.TextColor
         );
         var close = AndroidTouchScreen.Child("Close", info, Local(layout.InspectClose, origin, 0f));
         skin.Button(
             close,
             font,
-            AndroidUiKit.CloseGlyph,
+            UiKit.CloseGlyph,
             layout.TitleFont,
             layout.LabelInset,
             () => Close("close_button")

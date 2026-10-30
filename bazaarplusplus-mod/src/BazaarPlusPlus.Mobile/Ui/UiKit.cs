@@ -1,17 +1,19 @@
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>
-/// uGUI building blocks over the IL2CPP proxies. Geometry is in the canvas's reference units
+/// uGUI building blocks for every touch surface on both hosts. Geometry is in the canvas's reference units
 /// (<see cref="ReferenceResolution"/>, scaled by screen height); text uses the game's own font,
 /// borrowed from a live label, so BPP ships no font of its own.
 /// </summary>
-internal static class AndroidUiKit
+internal static class UiKit
 {
     public static readonly Vector2 ReferenceResolution = new(1920f, 1080f);
+
+    /// <summary>The touch root's canvas order, above the game's own canvases.</summary>
+    public const int SortingOrder = 30000;
 
     public static readonly Color PanelColor = InGameTheme.Backdrop;
     public static readonly Color ButtonColor = InGameTheme.Chip;
@@ -93,7 +95,7 @@ internal static class AndroidUiKit
         label.alignment = alignment;
         label.color = color;
         label.raycastTarget = false;
-        label.enableWordWrapping = true;
+        MobilePlatform.Port.SetWordWrapping(label, true);
         label.richText = true;
         label.text = text;
         return label;
@@ -116,7 +118,7 @@ internal static class AndroidUiKit
         var background = Fill(rect, ButtonColor);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = background;
-        button.onClick.AddListener((UnityAction)onTap);
+        MobilePlatform.Port.OnClick(button, onTap);
         var labelRect = Rect("Label", rect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         InsetLabel(labelRect, labelInset);
         var label = Text(labelRect, font, text, size, TextAlignmentOptions.Center, TextColor);

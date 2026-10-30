@@ -28,7 +28,8 @@ const COPIES = [
   }
 ];
 // The mod's in-game theme: every `ingame-*` colour token, generated as C# for
-// each host. Both hosts read one palette; only their layouts differ.
+// the Desktop UI (the Mono host) and the Mobile UI tree both hosts compile.
+// Both read one palette; only their layouts differ.
 const INGAME_PREFIX = 'ingame-';
 const INGAME_TARGETS = [
   {
@@ -36,8 +37,8 @@ const INGAME_TARGETS = [
     namespace: 'BazaarPlusPlus.Infrastructure.UiTokens'
   },
   {
-    file: 'bazaarplusplus-mod/src/BazaarPlusPlus.Android/Ui/InGameTheme.g.cs',
-    namespace: 'BazaarPlusPlus.Android.Ui'
+    file: 'bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/Ui/InGameTheme.g.cs',
+    namespace: 'BazaarPlusPlus.Mobile.Ui'
   }
 ];
 const heroesPath = path.join(
@@ -161,7 +162,7 @@ export function buildInGameTheme(tokens, namespace) {
     '',
     `namespace ${namespace};`,
     '',
-    '/// <summary>The colours BPP draws in game, shared by the desktop and Android hosts.</summary>',
+    '/// <summary>The colours BPP draws in game, shared by the Desktop UI and the Mobile UI.</summary>',
     'internal static class InGameTheme',
     '{'
   ];

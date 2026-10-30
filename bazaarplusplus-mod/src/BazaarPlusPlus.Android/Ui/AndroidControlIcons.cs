@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Mobile.Ui;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 
@@ -117,7 +118,7 @@ internal sealed class AndroidPlaybackIcons : IDisposable
             var inside = play
                 ? x >= 8 && x <= 56 - Math.Abs(y - 32) * 1.5f
                 : y >= 8 && y < 56 && (x >= 10 && x < 24 || x >= 40 && x < 54);
-            pixels[y * size + x] = inside ? AndroidUiKit.TextColor : Color.clear;
+            pixels[y * size + x] = inside ? UiKit.TextColor : Color.clear;
         }
         texture.SetPixels(pixels);
         return AndroidControlIcons.GpuOnlySprite(_owned, texture);

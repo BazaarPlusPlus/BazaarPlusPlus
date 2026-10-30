@@ -5,6 +5,7 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
+using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar.UI;
 using UnityEngine;
 
@@ -147,7 +148,7 @@ internal sealed class TouchHistoryBoard
             reused.Root.gameObject.SetActive(true);
             return reused;
         }
-        var root = TouchUiKit.Rect(
+        var root = UiKit.Rect(
             "Card",
             _region!,
             Vector2.zero,
@@ -155,14 +156,7 @@ internal sealed class TouchHistoryBoard
             Vector2.zero,
             Vector2.zero
         );
-        var slot = TouchUiKit.Rect(
-            "Slot",
-            root,
-            new(0f, 1f),
-            new(0f, 1f),
-            Vector2.zero,
-            Vector2.zero
-        );
+        var slot = UiKit.Rect("Slot", root, new(0f, 1f), new(0f, 1f), Vector2.zero, Vector2.zero);
         var cell = new Cell(root, slot);
         TouchPanelUi.TapArea(
             root,

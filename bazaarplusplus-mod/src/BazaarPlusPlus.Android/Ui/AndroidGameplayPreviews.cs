@@ -1,9 +1,9 @@
-using BazaarPlusPlus.Android.Collection;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile.Ui;
 using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppTheBazaar;
 using Il2CppTheBazaar.Tooltips;
@@ -30,7 +30,7 @@ internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDi
     private Camera? _eventCamera;
 
     // Kept across renders, as the panels keep theirs; rebuilt only once its art is gone.
-    private AndroidNativeSkin? _skin;
+    private NativeSkin? _skin;
     private bool _expanded;
     private bool _dirty;
     private string? _screen;
@@ -206,15 +206,8 @@ internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDi
             new(chrome.Padding, chrome.Gap, parent.rect.width - 2 * chrome.Padding, 0)
         );
         if (_skin == null || _skin.NeedsRefresh)
-            _skin = new AndroidNativeSkin();
-        var flow = new AndroidChipFlow(
-            area,
-            AndroidGameFont.Font!,
-            chrome,
-            1,
-            chrome.Target,
-            _skin
-        );
+            _skin = new NativeSkin();
+        var flow = new ChipFlow(area, AndroidGameFont.Font!, chrome, 1, chrome.Target, _skin);
         if (upgrade)
             flow.Toggle(
                 L.Resolve(new LocalizedTextSet("Upgrade preview", "升级预览", "升級預覽")),
@@ -236,7 +229,7 @@ internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDi
                     L.Resolve(
                         new LocalizedTextSet("Effect unavailable", "效果暂不可用", "效果暫不可用")
                     ),
-                    AndroidUiKit.MutedTextColor
+                    UiKit.MutedTextColor
                 );
         }
         var height = flow.Height + 2 * chrome.Gap;

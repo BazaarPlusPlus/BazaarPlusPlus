@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using Il2CppTheBazaar.UI;
 using UnityEngine;
 
@@ -71,7 +72,7 @@ internal sealed class AndroidHistorySkillsSheet : IHistoryCardOverlay
                 Local(full.Close, origin),
                 layout.TitleFont,
                 () => Close("close_button"),
-                AndroidUiKit.CloseGlyph
+                UiKit.CloseGlyph
             )
             .Button.GetComponent<RectTransform>();
         for (var row = 0; row < 2; row++)
@@ -102,7 +103,7 @@ internal sealed class AndroidHistorySkillsSheet : IHistoryCardOverlay
                     sheet,
                     Local(full.Cells[row, index], origin)
                 );
-                var slot = AndroidUiKit.Rect(
+                var slot = UiKit.Rect(
                     "Slot",
                     rect,
                     new(0f, 1f),

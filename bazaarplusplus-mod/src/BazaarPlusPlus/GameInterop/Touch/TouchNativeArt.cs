@@ -62,8 +62,6 @@ internal sealed class TouchNativeArt
             );
     }
 
-    public bool NeedsRefresh => !Alive(Button) || !Alive(Frame) || !Alive(TagFrame);
-
     private static void ScanPopupButtons()
     {
         _button = null;

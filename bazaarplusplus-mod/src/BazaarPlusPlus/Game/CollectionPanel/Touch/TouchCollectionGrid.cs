@@ -4,10 +4,10 @@ using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.CollectionPanel.Ui;
-using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -58,7 +58,7 @@ internal sealed class TouchCollectionGrid
         _font = font;
         _captionSize = captionSize;
         _onTap = onTap;
-        (_scroll, _content) = TouchUiKit.VerticalScroll(area);
+        (_scroll, _content) = UiKit.VerticalScroll(area);
         _viewport = _scroll.viewport;
     }
 
@@ -305,17 +305,10 @@ internal sealed class TouchCollectionGrid
         root.SetParent(_content, false);
         root.anchorMin = root.anchorMax = new Vector2(0f, 1f);
         root.pivot = new Vector2(0f, 1f);
-        var hit = TouchUiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
-        var slot = TouchUiKit.Rect(
-            "Slot",
-            root,
-            new(0f, 1f),
-            new(0f, 1f),
-            Vector2.zero,
-            Vector2.zero
-        );
-        var caption = TouchUiKit.Text(
-            TouchUiKit.Rect(
+        var hit = UiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
+        var slot = UiKit.Rect("Slot", root, new(0f, 1f), new(0f, 1f), Vector2.zero, Vector2.zero);
+        var caption = UiKit.Text(
+            UiKit.Rect(
                 "Name",
                 root,
                 Vector2.zero,
@@ -327,7 +320,7 @@ internal sealed class TouchCollectionGrid
             "",
             _captionSize,
             TextAlignmentOptions.Top,
-            TouchUiKit.TextColor
+            UiKit.TextColor
         );
         caption.textWrappingMode = TextWrappingModes.Normal;
         caption.overflowMode = TextOverflowModes.Ellipsis;

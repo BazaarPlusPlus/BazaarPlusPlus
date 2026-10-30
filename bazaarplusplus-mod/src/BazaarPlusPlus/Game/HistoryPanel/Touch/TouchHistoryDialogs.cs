@@ -4,6 +4,7 @@ using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using BazaarPlusPlus.Storage.RunLog;
 using UnityEngine;
 
@@ -70,7 +71,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             Local(layout.DialogClose, origin),
             layout.TitleFont,
             () => Close("close_button"),
-            TouchUiKit.CloseGlyph
+            UiKit.CloseGlyph
         );
         var (scroll, content) = TouchPanelUi.Scroll(
             dialog,
@@ -105,7 +106,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             wrap: true
         );
         // The rows under the status line, moved as one while that line is empty.
-        _below = TouchUiKit.Rect(
+        _below = UiKit.Rect(
             "Below",
             content,
             Vector2.zero,
@@ -149,7 +150,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             TouchPanelUi.Muted,
             wrap: true
         );
-        var form = TouchUiKit.Rect(
+        var form = UiKit.Rect(
             "AccountForm",
             below,
             Vector2.zero,
@@ -369,7 +370,7 @@ internal sealed class TouchHistoryNoteDialog : IHistoryOverlay
             Local(layout.DialogClose, origin),
             layout.TitleFont,
             () => Close("close_button"),
-            TouchUiKit.CloseGlyph
+            UiKit.CloseGlyph
         );
         _input = TouchPanelUi.Input(
             dialog,

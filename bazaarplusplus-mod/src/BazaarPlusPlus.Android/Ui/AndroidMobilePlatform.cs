@@ -1,39 +1,37 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Mobile;
-using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
 /// The Android host's Mobile Platform Port (ADR-0025): the main-thread scope is the host's own
-/// pump (<see cref="AndroidMainThread"/>), since IL2CPP installs no synchronization context.
+/// pump (<see cref="AndroidMainThread"/>), since IL2CPP installs no synchronization context; a
+/// Unity object is alive only while its IL2CPP proxy is not collected; casts and listeners go
+/// through Il2CppInterop; the native skin's sprites come from <see cref="AndroidNativeArt"/>.
 /// </summary>
 internal sealed class AndroidMobilePlatform : IMobilePlatformPort
 {
     public IDisposable EnterMainThread() => AndroidMainThread.Host.Enter();
 
-    public RectTransform Rect(
-        string name,
-        Transform parent,
-        Vector2 anchorMin,
-        Vector2 anchorMax,
-        Vector2 offsetMin,
-        Vector2 offsetMax
-    ) => AndroidUiKit.Rect(name, parent, anchorMin, anchorMax, offsetMin, offsetMax);
+    public bool IsAlive(UnityEngine.Object? value) => value != null && !value.WasCollected;
 
-    public TextMeshProUGUI Text(
-        RectTransform rect,
-        TMP_FontAsset font,
-        string text,
-        float size,
-        TextAlignmentOptions alignment,
-        Color color
-    ) => AndroidUiKit.Text(rect, font, text, size, alignment, color);
+    public T Cast<T>(UnityEngine.Object value)
+        where T : UnityEngine.Object => value.Cast<T>();
 
-    public (ScrollRect Scroll, RectTransform Content) VerticalScroll(RectTransform area) =>
-        AndroidUiKit.VerticalScroll(area);
+    public void SetWordWrapping(TMP_Text label, bool wrap) => label.enableWordWrapping = wrap;
 
-    public void ApplyKeywordSprites(TMP_Text label) => AndroidKeywordSprites.Apply(label);
+    public void OnClick(Button button, Action onTap) =>
+        button.onClick.AddListener((UnityAction)onTap);
+
+    public void OnValueChanged(Toggle toggle, Action<bool> onChanged) =>
+        toggle.onValueChanged.AddListener((UnityAction<bool>)onChanged);
+
+    public NativeSkinArt ReadNativeSkinArt()
+    {
+        var art = new AndroidNativeArt();
+        return new NativeSkinArt(art.Button, art.Selected, art.Frame, art.TagFrame);
+    }
 }
