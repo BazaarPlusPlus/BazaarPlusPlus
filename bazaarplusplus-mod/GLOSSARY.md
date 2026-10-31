@@ -173,7 +173,7 @@ A change BPP makes to the game's own UI on a mobile platform, such as screen fil
 _Avoid_: native patch, HUD hack
 
 **Screen Fill**:
-The Native Adjustment that lets the game fill a landscape screen narrower than 16:10 instead of letterboxing it: a lower aspect floor, a wider field of view, the day clock in the band above the board, and canvases kept as wide as 16:10 (`ScreenFill`, Core).
+The Native Adjustment that lets the game fill a landscape screen narrower than 16:10 instead of letterboxing it: a lower aspect floor, a wider field of view, the day clock in the band above the board, and canvases kept as wide as 16:10 (`ScreenFill`, Core; the Mobile UI's `TouchScreenFill` runs it).
 _Avoid_: letterbox fix, fullscreen mode
 
 ## Collection panel

@@ -1,4 +1,3 @@
-using BazaarPlusPlus.Android.GameInterop;
 using HarmonyLib;
 using Unity.Cinemachine;
 
@@ -6,7 +5,8 @@ namespace BazaarPlusPlus.Android.Patches;
 
 /// <summary>
 /// Cinemachine's brain writes its lens to the output camera in <c>LateUpdate</c>; once it has,
-/// <see cref="AndroidScreenFill.AfterCameraUpdate"/> widens it for a screen narrower than 16:10.
+/// the Mobile UI's <c>TouchScreenFill.AfterCameraUpdate</c> (<see cref="AndroidPatchHost.ScreenFill"/>)
+/// widens it for a screen narrower than 16:10.
 /// <c>PushStateToUnityCamera</c> itself is not hooked: its <c>ref CameraState</c> argument crashes
 /// the native trampoline as the Gameplay scene loads.
 /// </summary>
@@ -18,7 +18,7 @@ internal static class ScreenFillFieldOfViewPatch
     {
         try
         {
-            AndroidScreenFill.AfterCameraUpdate(__instance.OutputCamera);
+            AndroidPatchHost.ScreenFill?.AfterCameraUpdate(__instance.OutputCamera);
         }
         catch (Exception exception)
         {

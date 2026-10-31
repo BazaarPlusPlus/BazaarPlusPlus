@@ -9,6 +9,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Mobile.Collection;
 using BazaarPlusPlus.Mobile.Hud;
 using BazaarPlusPlus.Mobile.LiveBuild;
+using BazaarPlusPlus.Mobile.NativeAdjustment;
 using BazaarPlusPlus.Mobile.Previews;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
@@ -44,7 +45,8 @@ internal sealed class AndroidTouchUi
         AndroidSupporterData? supporters,
         AndroidCollectionCatalog collectionCatalog,
         TouchCombatClockData? clock,
-        TouchPreviewSwitches? previews
+        TouchPreviewSwitches? previews,
+        TouchScreenFill? screenFill
     )
     {
         _panels = panels ?? throw new ArgumentNullException(nameof(panels));
@@ -77,7 +79,8 @@ internal sealed class AndroidTouchUi
                 // Android takes no end-of-run screenshot, so nothing of its own hides them.
                 static () => true,
                 clock,
-                previews
+                previews,
+                screenFill
             )
         );
     }

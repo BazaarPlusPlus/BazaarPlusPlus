@@ -46,6 +46,7 @@ using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.Mobile;
+using BazaarPlusPlus.Mobile.Previews;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Patches;
 using BazaarPlusPlus.Patches.PostCombatImpact;
@@ -228,10 +229,12 @@ internal sealed class MonoHostComposition : IDisposable
             // switch sets where each tooltip's own toggle starts, and the enchant preview mode
             // lists the enchantments in each tooltip's main text, as on Android (ADR-0024).
             TouchUpgradePreview.Bind(settingsStore, TouchTooltipPreviewHost.ShowsReplay);
-            TouchEnchantPreview.Bind(
-                () => _services.Config.EnchantPreviewModeConfig.Value,
-                () => TooltipEncounterProbeReader.ReadChoice(_services.EncounterState)
-            );
+            TouchEnchantPreviewHost.Preview =
+                new TouchEnchantPreview<TheBazaar.Tooltips.CardTooltipData>(
+                    new TouchEnchantPreviewHost(),
+                    () => _services.Config.EnchantPreviewModeConfig.Value,
+                    () => TooltipEncounterProbeReader.ReadChoice(_services.EncounterState)
+                );
             _settingsDockRegistry.Register(
                 HistoryPanelHotkeyDockEntry.Create(resolveHotkeyDisplay: null)
             );
@@ -299,12 +302,7 @@ internal sealed class MonoHostComposition : IDisposable
         // A mobile platform (ADR-0024) mounts only what the Android host has: the music note
         // preview waits for a held key and the post-combat impact for a hover and Shift, so
         // neither is reachable by touch; the HUD's tooltip switches take the held key's place.
-        if (TouchPlatform.IsMobile)
-        {
-            // The game fills a screen narrower than 16:10 instead of letterboxing it (ADR-0025).
-            _mountables.Register(new ComponentMount<TouchScreenFill>());
-        }
-        else
+        if (!TouchPlatform.IsMobile)
         {
             _mountables.Register(new ComponentMount<NativeMusicNotePreviewController>());
             // Plugin-lifetime, like _nativeCardPreviewHost: composition does not dispose
@@ -348,7 +346,8 @@ internal sealed class MonoHostComposition : IDisposable
                 _buildRecommendationRepository
             )
         );
-        // The Mobile UI's shortcuts and combat clock take the dock buttons' and the bar's place.
+        // The Mobile UI's shortcuts and combat clock take the dock buttons' and the bar's place,
+        // and its Screen Fill fills a screen narrower than 16:10 instead of letterboxing it.
         if (TouchPlatform.IsMobile)
             _mountables.Register(new TouchHudMount());
         _mountables.Register(

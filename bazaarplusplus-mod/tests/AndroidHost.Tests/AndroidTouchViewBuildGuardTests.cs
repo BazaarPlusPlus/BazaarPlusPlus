@@ -76,14 +76,28 @@ public sealed class AndroidTouchViewBuildGuardTests
         );
     }
 
-    // The tooltip's preview switches moved into the Mobile UI tree too: the switches and the host
-    // read they reach the tooltip through must still compile into the host.
+    // The tooltip's preview switches and enchant preview moved into the Mobile UI tree too: both,
+    // and the host reads they reach the tooltip through, must still compile into the host.
     [Fact]
     public void The_preview_switches_compile_into_the_host()
     {
         Assert.True(
-            Host.Value.Types.Count(type => type.Namespace == "BazaarPlusPlus.Mobile.Previews") >= 2,
+            Host.Value.Types.Count(type => type.Namespace == "BazaarPlusPlus.Mobile.Previews") >= 4,
             "The preview switches left the Android host's Mobile UI tree."
+        );
+    }
+
+    // Screen Fill's flow moved into the Mobile UI tree too (ADR-0025 decision 5): it, its day
+    // clock and canvases, and the host read it reaches the game through must still compile into
+    // the host.
+    [Fact]
+    public void Screen_fill_compiles_into_the_host()
+    {
+        Assert.True(
+            Host.Value.Types.Count(type =>
+                type.Namespace == "BazaarPlusPlus.Mobile.NativeAdjustment"
+            ) >= 4,
+            "Screen Fill left the Android host's Mobile UI tree."
         );
     }
 

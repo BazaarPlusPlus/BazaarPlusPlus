@@ -38,6 +38,12 @@ internal static class AndroidPatchHost
     /// <summary>The Mobile UI's preview switches, which the hide patch asks about the pointer.</summary>
     public static Mobile.Previews.TouchPreviewSwitches? PreviewSwitches { get; set; }
 
+    /// <summary>The Mobile UI's enchant preview, which the tooltip render patches drive.</summary>
+    public static Mobile.Previews.TouchEnchantPreview<Il2CppTheBazaar.Tooltips.CardTooltipData>? EnchantPreview { get; set; }
+
+    /// <summary>The Mobile UI's Screen Fill, which the camera patch drives after each camera update.</summary>
+    public static Mobile.NativeAdjustment.TouchScreenFill? ScreenFill { get; set; }
+
     public static Game.AndroidEncounterPreview? EncounterPreview { get; set; }
 
     public static Game.AndroidAggregateItemPreview? AggregateItemPreview { get; set; }
@@ -157,8 +163,8 @@ internal static class AndroidPatchHost
             ("upgrade_values_leased", AndroidUpgradePreviewValues.Leased),
             ("upgrade_values_returned", AndroidUpgradePreviewValues.Returned),
             ("upgrade_values_projected", AndroidUpgradePreviewValues.Projected),
-            ("enchant_preview_rendered", AndroidEnchantPreview.Rendered),
-            ("enchant_preview_inline", AndroidEnchantPreview.Inline),
+            ("enchant_preview_rendered", EnchantPreview?.Rendered ?? 0),
+            ("enchant_preview_inline", EnchantPreview?.Inline ?? 0),
             ("pedestal_reads", AndroidChoicePedestals.Reads),
             ("pedestal_read_failures", AndroidChoicePedestals.Failures),
             .. AndroidCardRental.Summary(),

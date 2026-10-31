@@ -1,6 +1,5 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Mobile.Previews;
-using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppTheBazaar;
 using Il2CppTheBazaar.Tooltips;
 using Il2CppTheBazaar.UI.Tooltips;
@@ -12,14 +11,14 @@ namespace BazaarPlusPlus.Android.Ui;
 /// The Android host's item tooltip for the Mobile UI's preview switches. <c>CardTooltipRenderPatch</c>
 /// hands it each primary tooltip that renders (<see cref="Observe"/>); it reports that tooltip as
 /// shown while the game still shows its card, outside a fight and the native settings section.
-/// The upgrade preview is <see cref="AndroidUpgradePreview"/>'s, the enchantments
-/// <see cref="AndroidEnchantPreview"/>'s.
+/// The upgrade preview is <see cref="AndroidUpgradePreview"/>'s, the enchantments the Mobile UI's
+/// enchant preview's (<see cref="Patches.AndroidPatchHost.EnchantPreview"/>).
 /// </summary>
 internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
 {
     private CardTooltipController? _controller;
     private CardTooltipData? _tooltip;
-    private IReadOnlyList<EEnchantmentType> _candidates = [];
+    private IReadOnlyList<string> _candidates = [];
 
     // A new object for each new card and each render: the switches compare them, and nothing
     // allocates per frame.
@@ -36,10 +35,11 @@ internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
         _tooltip = tooltip;
         // The main text lists the enchantments under [EnchantPreview] Mode; only a tooltip whose
         // main text lists none offers them behind the switch.
+        var preview = Patches.AndroidPatchHost.EnchantPreview;
         _candidates =
-            AndroidEnchantPreview.InlineCandidates(tooltip).Count > 0
-                ? Array.Empty<EEnchantmentType>()
-                : AndroidEnchantPreview.Candidates(tooltip);
+            preview == null || preview.InlineCandidates(tooltip).Count > 0
+                ? []
+                : preview.Candidates(tooltip);
     }
 
     public bool TryReadShown(out object card, out object render)
@@ -80,7 +80,9 @@ internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
     public bool OffersEnchantments() => _candidates.Count > 0;
 
     public IReadOnlyList<(string Label, string Text)> EnchantmentEffects() =>
-        _tooltip == null ? [] : AndroidEnchantPreview.Build(_tooltip, _candidates);
+        _tooltip == null || Patches.AndroidPatchHost.EnchantPreview is not { } preview
+            ? []
+            : preview.Build(_tooltip, _candidates);
 
     public void Release(string reason)
     {

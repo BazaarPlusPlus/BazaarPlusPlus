@@ -1,21 +1,24 @@
 using BazaarPlusPlus.Core.Ui;
-using Il2CppTheBazaar;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.GameInterop;
+namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 
 /// <summary>
-/// The day clock on a screen <see cref="AndroidScreenFill"/> draws the board nearer on. The clock
-/// (the prefab <see cref="ClockViewController"/> sits on) is board meshes left of the board, in
-/// the scenery the nearer view trims, so it would fall off the screen's left edge. Instead it
-/// shrinks into the band above the board, its left edge level with the board's
-/// (<see cref="ScreenFill.PlaceDayClock"/>). It is placed again after
-/// every camera update; a position or scale the game writes in between is taken as the new
-/// original, so its own animations still play. Main thread only.
+/// The day clock on a screen <see cref="TouchScreenFill"/> draws the board nearer on. The clock
+/// (the encounter prefab <c>ClockViewController</c> sits on, not the board's empty
+/// <c>playerClockAnchor</c>) is board meshes left of the board, in the scenery the nearer view
+/// trims, so it would fall off the screen's left edge. Instead it shrinks into the band above the
+/// board, its left edge level with the board's (<see cref="ScreenFill.PlaceDayClock"/>). It is
+/// placed again after every camera update; a position or scale the game writes in between is taken
+/// as the new original, so its own animations still play. Main thread only.
 /// </summary>
-internal sealed class AndroidScreenFillClock
+internal sealed class TouchDayClock
 {
-    private ClockViewController? _view;
+    // While the clock is missing, it is searched for at most every half second.
+    private const int SearchEvery = 30;
+
+    private readonly IScreenFillHost _host;
+    private Transform? _found;
     private int _searchCooldown;
     private Transform? _anchor;
     private Vector3 _originalPosition;
@@ -23,6 +26,8 @@ internal sealed class AndroidScreenFillClock
     private Vector3 _writtenPosition;
     private Vector3 _writtenScale;
     private MeshRenderer[] _clock = [];
+
+    public TouchDayClock(IScreenFillHost host) => _host = host;
 
     /// <summary>
     /// Places the clock in the band above <paramref name="board"/>, the board's top-left corner in
@@ -52,7 +57,7 @@ internal sealed class AndroidScreenFillClock
         if (
             board is not { } corner
             || !anchor.gameObject.activeInHierarchy
-            || !TryScreenRect(_clock, camera, out var clock)
+            || !TryScreenBox(_clock, camera, out var clock)
         )
             return;
         var pivot = camera.WorldToScreenPoint(anchor.position);
@@ -66,7 +71,7 @@ internal sealed class AndroidScreenFillClock
                 safe.yMax,
                 corner.x,
                 corner.y,
-                new ScreenBox(clock.xMin, clock.yMin, clock.width, clock.height),
+                clock,
                 pivot.x,
                 pivot.y
             )
@@ -81,27 +86,32 @@ internal sealed class AndroidScreenFillClock
         _writtenScale = anchor.localScale;
     }
 
-    // The clock is the encounter prefab ClockViewController sits on, not the board's empty
-    // playerClockAnchor. Searched for at most every half second while missing.
     private Transform? Find()
     {
-        if (_view != null)
-            return _view.transform;
+        if (MobilePlatform.Port.IsAlive(_found))
+            return _found;
+        _found = null;
         _anchor = null;
         if (_searchCooldown-- > 0)
             return null;
-        _searchCooldown = 30;
-        _view = UnityEngine.Object.FindObjectOfType<ClockViewController>();
-        return _view != null ? _view.transform : null;
+        _searchCooldown = SearchEvery;
+        _found = _host.FindDayClock();
+        return MobilePlatform.Port.IsAlive(_found) ? _found : null;
     }
 
-    private static bool TryScreenRect(MeshRenderer[] renderers, Camera camera, out Rect rect)
+    private static bool TryScreenBox(MeshRenderer[] renderers, Camera camera, out ScreenBox box)
     {
+        box = default;
         var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
         var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+        var port = MobilePlatform.Port;
         foreach (var renderer in renderers)
         {
-            if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+            if (
+                !port.IsAlive(renderer)
+                || !renderer.enabled
+                || !renderer.gameObject.activeInHierarchy
+            )
                 continue;
             var bounds = renderer.bounds;
             for (var i = 0; i < 8; i++)
@@ -118,15 +128,14 @@ internal sealed class AndroidScreenFillClock
                     );
                 var point = camera.WorldToScreenPoint(corner);
                 if (point.z <= 0f)
-                {
-                    rect = default;
                     return false;
-                }
                 min = Vector2.Min(min, point);
                 max = Vector2.Max(max, point);
             }
         }
-        rect = Rect.MinMaxRect(min.x, min.y, max.x, max.y);
-        return float.IsFinite(min.x) && max.x > min.x && max.y > min.y;
+        if (!float.IsFinite(min.x) || max.x <= min.x || max.y <= min.y)
+            return false;
+        box = new ScreenBox(min.x, min.y, max.x - min.x, max.y - min.y);
+        return true;
     }
 }

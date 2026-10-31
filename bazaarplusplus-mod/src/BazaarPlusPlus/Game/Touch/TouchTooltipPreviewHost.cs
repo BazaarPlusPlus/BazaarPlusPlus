@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarGameClient.Domain.Models.Cards;
-using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Mobile.Previews;
 using TheBazaar;
@@ -14,14 +13,15 @@ namespace BazaarPlusPlus.Game.Touch;
 /// The Mono host's item tooltip for the Mobile UI's preview switches on a mobile platform
 /// (ADR-0025): it reads the shown tooltip each frame, outside a fight. The upgrade preview is
 /// <see cref="TouchUpgradePreview"/>'s, which the desktop's tooltip patches read through
-/// <c>BppHotkeyService</c>; the enchantments are <see cref="TouchEnchantPreview"/>'s.
+/// <c>BppHotkeyService</c>; the enchantments are the Mobile UI's enchant preview's
+/// (<see cref="TouchEnchantPreviewHost.Preview"/>).
 /// </summary>
 internal sealed class TouchTooltipPreviewHost : ITooltipPreviewHost
 {
     private CardTooltipController? _controller;
     private CardTooltipData? _tooltip;
     private Card? _cardInstance;
-    private IReadOnlyList<EEnchantmentType> _candidates = Array.Empty<EEnchantmentType>();
+    private IReadOnlyList<string> _candidates = Array.Empty<string>();
 
     // A new object for each new card: the switches compare it, and nothing allocates per frame.
     private object _card = new();
@@ -93,24 +93,25 @@ internal sealed class TouchTooltipPreviewHost : ITooltipPreviewHost
     {
         // The main text lists the enchantments under [EnchantPreview] Mode; only a tooltip whose
         // main text lists none offers them behind the switch.
+        var preview = TouchEnchantPreviewHost.Preview;
         _candidates =
-            _tooltip == null || TouchEnchantPreview.InlineCandidates(_tooltip).Count > 0
-                ? Array.Empty<EEnchantmentType>()
-                : TouchEnchantPreview.Candidates(_tooltip);
+            _tooltip == null || preview == null || preview.InlineCandidates(_tooltip).Count > 0
+                ? Array.Empty<string>()
+                : preview.Candidates(_tooltip);
         return _candidates.Count > 0;
     }
 
     public IReadOnlyList<(string Label, string Text)> EnchantmentEffects() =>
-        _tooltip == null
+        _tooltip == null || TouchEnchantPreviewHost.Preview is not { } preview
             ? Array.Empty<(string, string)>()
-            : TouchEnchantPreview.Build(_tooltip, _candidates);
+            : preview.Build(_tooltip, _candidates);
 
     public void Release(string reason)
     {
         _controller = null;
         _tooltip = null;
         _cardInstance = null;
-        _candidates = Array.Empty<EEnchantmentType>();
+        _candidates = Array.Empty<string>();
         // As on the Android host, the card's next tooltip starts at the settings switch again.
         TouchUpgradePreview.End();
     }

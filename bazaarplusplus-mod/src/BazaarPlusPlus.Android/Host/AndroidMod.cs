@@ -18,8 +18,10 @@ using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile;
 using BazaarPlusPlus.Mobile.History;
 using BazaarPlusPlus.Mobile.Hud;
+using BazaarPlusPlus.Mobile.NativeAdjustment;
 using BazaarPlusPlus.Mobile.Previews;
 using HarmonyLib;
+using Il2CppTheBazaar.Tooltips;
 using MelonLoader;
 using MelonLoader.Utils;
 using UnityEngine;
@@ -109,7 +111,6 @@ public sealed class AndroidMod : MelonMod
         BindMainThread();
         AndroidMainThread.Host.Tick();
         _composition?.Tick(Time.unscaledTime);
-        Guarded("screen_fill", AndroidScreenFill.Tick);
         _replayRuntime?.Tick();
         _overlayPanels?.Frame(Time.unscaledDeltaTime);
         _touchUi?.EnsureMounted();
@@ -208,6 +209,8 @@ public sealed class AndroidMod : MelonMod
         AndroidAppLifecycle.PauseChanged = null;
         AndroidPatchHost.PreviewSwitches = null;
         AndroidPatchHost.TooltipPreviewHost = null;
+        AndroidPatchHost.EnchantPreview = null;
+        AndroidPatchHost.ScreenFill = null;
         AndroidPatchHost.QuestPreview?.Dispose();
         AndroidPatchHost.QuestPreview = null;
         AndroidPatchHost.AggregateItemPreview = null;
@@ -264,7 +267,18 @@ public sealed class AndroidMod : MelonMod
                 () => ChineseScriptConverter.NormalizeMode(shared.ChineseLocaleModeConfig.Value)
             );
             AndroidUpgradePreview.IsEnabled = () => android.UpgradePreview.Value;
-            AndroidEnchantPreview.Mode = () => shared.EnchantPreviewModeConfig.Value;
+            AndroidPatchHost.EnchantPreview = new TouchEnchantPreview<CardTooltipData>(
+                new AndroidEnchantPreviewHost(),
+                () => shared.EnchantPreviewModeConfig.Value,
+                static () =>
+                    AndroidChoicePedestals.Read() is { IsSuccess: true } outcome
+                        ? outcome.Snapshot
+                        : null
+            );
+            // The game fills a screen narrower than 16:10 instead of letterboxing it; the HUD
+            // ticks it and the camera patch drives it.
+            var screenFill = new TouchScreenFill(new AndroidScreenFillHost());
+            AndroidPatchHost.ScreenFill = screenFill;
             var melonBase = MelonEnvironment.MelonBaseDirectory;
             var devManifest = AndroidVersionCheck.DevManifest(android.DevReleaseManifestPort.Value);
             _versionCheck = new AndroidVersionCheck(
@@ -306,7 +320,8 @@ public sealed class AndroidMod : MelonMod
                             != null,
                     combatStatus.TogglePause
                 ),
-                previewSwitches
+                previewSwitches,
+                screenFill
             );
             var versionCheck = _versionCheck;
             AndroidSettingsDock.Install(

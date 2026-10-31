@@ -172,8 +172,6 @@ internal sealed class TouchMobilePlatform(Func<DesktopOverlayPanels?> overlayPan
     public bool TryReadVault(float referenceHeight, out TouchRect vault) =>
         _vault.TryRead(referenceHeight, out vault);
 
-    public float? BoardTop => TouchScreenFill.BoardTop;
-
     private sealed class EmptyScope : IDisposable
     {
         public static readonly EmptyScope Instance = new();
