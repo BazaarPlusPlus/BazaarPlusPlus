@@ -3,11 +3,12 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Game.CollectionPanel.Sources;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Mobile;
+using BazaarPlusPlus.Mobile.Collection;
 using BazaarPlusPlus.Mobile.LiveBuild;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
@@ -20,15 +21,14 @@ namespace BazaarPlusPlus.Android.Ui;
 /// catalog data are still built on first open.</summary>
 internal sealed class AndroidTouchUi
 {
-    private const string CollectionPanelId = "collection";
     private const string EntrySource = "touch_icon";
     private const string MenuSource = "native_menu";
 
     private readonly AndroidOverlayPanels _panels;
     private readonly Action<string>? _openHistory;
     private readonly TouchLiveBuildData? _liveBuildData;
-    private readonly AndroidSupporterData? _supporters;
-    private readonly MobilePanelHandle _collectionHandle;
+    private readonly TouchCollectionEntry _collection;
+    private readonly AndroidCollectionCatalog _collectionCatalog;
     private readonly TouchLiveBuildEntry? _liveBuild;
     private readonly List<(GameObject Root, Func<bool> Offered)> _entries = new();
     private bool _inRun;
@@ -42,9 +42,6 @@ internal sealed class AndroidTouchUi
     private RectTransform? _anchorRect;
     private Canvas? _anchorCanvas;
     private float _nextAnchorCheck;
-    private TMP_FontAsset? _font;
-    private AndroidCollectionPanel? _collection;
-    private readonly AndroidCollectionCatalog _collectionCatalog;
     private string? _shortcutScreen;
     private TouchRect? _shortcutAnchor;
     private bool _mountFailed;
@@ -63,19 +60,21 @@ internal sealed class AndroidTouchUi
             collectionCatalog ?? throw new ArgumentNullException(nameof(collectionCatalog));
         _openHistory = openHistory;
         _liveBuildData = liveBuildData;
-        _supporters = supporters;
-        _collectionHandle = panels.Register(handle => new OverlayPanelRegistration(
-            CollectionPanelId,
-            onOpen: () => OpenCollectionPanel(handle),
-            onClose: reason => _collection?.Close(handle.Describe(reason)),
-            tick: (_, _) => _collection?.Tick()
-        )
-        {
-            IsModalInputActive = () => _collection?.HasModalBackStep == true,
-            DismissModal = () => _collection?.DismissModalBackStep(),
-        });
-        // Ten-Win Builds is the Mobile UI's (ADR-0025): it registers itself through the port and
-        // builds under the touch root on its first open.
+        // Collection and Ten-Win Builds are the Mobile UI's (ADR-0025): each registers itself
+        // through the port and builds under the touch root on its first open.
+        var run = new AndroidCollectionRunReads();
+        _collection = new TouchCollectionEntry(
+            new TouchCollectionData(
+                collectionCatalog,
+                new EmbeddedCollectionSourceCatalog(AndroidCardFacets.IsHeroAvailable),
+                new AndroidCollectionDayTierSource(run),
+                new AndroidCollectionHeroPreferenceStore(),
+                run,
+                AndroidComposition.NoEncounterState.Instance,
+                supporters
+            ),
+            () => _root?.transform
+        );
         if (liveBuildData != null)
             _liveBuild = new TouchLiveBuildEntry(liveBuildData, () => _root?.transform);
     }
@@ -90,21 +89,20 @@ internal sealed class AndroidTouchUi
             ("live_build_refreshes", _liveBuild?.Panel?.Refreshes ?? 0),
             ("live_build_refreshes_completed", _liveBuild?.Panel?.RefreshesCompleted ?? 0),
             ("live_build_relayouts", _liveBuild?.Panel?.Relayouts ?? 0),
-            ("collection_relayouts", _collection?.Relayouts ?? 0),
+            ("collection_relayouts", _collection.Panel?.Relayouts ?? 0),
             .. _panels.BackSummary(),
         ];
 
     /// <summary>Main thread, when the app leaves the foreground: persists staged preferences.</summary>
     public void OnAppPaused() =>
-        Guarded("touch_ui:pause_collection", () => _collection?.FlushHeroPreference());
+        Guarded("touch_ui:pause_collection", _collection.FlushHeroPreference);
 
     /// <summary>Main thread: mounts the UI once the game's font is available.</summary>
     public void EnsureMounted()
     {
         if (_root != null || _mountFailed)
             return;
-        var font = AndroidGameFont.Font;
-        if (font == null)
+        if (AndroidGameFont.Font == null)
             return;
         try
         {
@@ -113,7 +111,7 @@ internal sealed class AndroidTouchUi
                 _mountFailed = true;
                 return;
             }
-            Mount(font);
+            Mount();
             BppLog.InfoEvent(new BppLogEvent(BppLogFeatureScope.Android, "android.ui.mounted"));
         }
         catch (Exception exception)
@@ -132,8 +130,7 @@ internal sealed class AndroidTouchUi
     /// </summary>
     public void Dispose()
     {
-        _collectionHandle.Dispose();
-        Guarded("touch_ui:dispose_collection", () => _collection?.Close("stopped"));
+        Guarded("touch_ui:dispose_collection", _collection.Dispose);
         Guarded("touch_ui:dispose_live_build", () => _liveBuild?.Dispose());
         AndroidTouchRoot.Frame = null;
         if (_root != null)
@@ -153,12 +150,11 @@ internal sealed class AndroidTouchUi
         }
     }
 
-    private void Mount(TMP_FontAsset font)
+    private void Mount()
     {
         _root = UiKit.CreateOverlayCanvas("BPP.TouchUi", UiKit.SortingOrder);
         _root.AddComponent<AndroidTouchRoot>();
         AndroidTouchRoot.Frame = Frame;
-        _font = font;
         _icons = new AndroidControlIcons();
         if (_openHistory != null)
         {
@@ -221,7 +217,7 @@ internal sealed class AndroidTouchUi
             // Built ahead of the first open, outside fights and replays; an open panel paces it.
             if (
                 !playing
-                && _panels.OpenPanelId != CollectionPanelId
+                && _panels.OpenPanelId != TouchCollectionEntry.PanelId
                 && _collectionCatalog.IsBuilding
             )
                 _collectionCatalog.Advance(AndroidCollectionCatalogPace.Warm);
@@ -274,7 +270,7 @@ internal sealed class AndroidTouchUi
                 ? TouchHudLayout.ShortcutInRow(metrics, bounds, 0)
                 : TouchHudLayout.ShortcutBelow(metrics, bounds),
             () => true,
-            () => LogOpenOutcome(CollectionPanelId, _collectionHandle.RequestOpen(EntrySource))
+            () => LogOpenOutcome(TouchCollectionEntry.PanelId, _collection.RequestOpen(EntrySource))
         );
         Add(
             "TenWinBuilds",
@@ -316,22 +312,6 @@ internal sealed class AndroidTouchUi
             ("panel", panel),
             ("outcome", outcome)
         );
-    }
-
-    // The host's open: the combat gate already passed. The panel is built on its
-    // first open; a build that throws is the host's to log and roll back.
-    private bool OpenCollectionPanel(MobilePanelHandle handle)
-    {
-        if (_root == null || _font == null)
-            return false;
-        _collection ??= new AndroidCollectionPanel(
-            _root.transform,
-            _font,
-            _collectionCatalog,
-            _supporters,
-            reason => handle.RequestClose(reason)
-        );
-        return _collection.Open();
     }
 
     private bool LiveBuildOffered() => _liveBuild != null;

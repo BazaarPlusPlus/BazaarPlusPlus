@@ -87,6 +87,55 @@ internal sealed class TouchMobilePlatform(Func<DesktopOverlayPanels?> overlayPan
             )
         ).Register(registration, toggleHotkey: null);
 
+    public void OnTextChanged(TMP_InputField field, Action<string> onChanged) =>
+        field.onValueChanged.AddListener(new UnityAction<string>(onChanged));
+
+    // The mobile build has no system switch for animations: they are always on.
+    public bool AnimationsEnabled() => true;
+
+    public string? GameText(string key)
+    {
+        try
+        {
+            return new TheBazaar.Utilities.LocalizableText(key).GetLocalizedText();
+        }
+        catch (Exception)
+        {
+            // The localization service may come up later.
+            return null;
+        }
+    }
+
+    public string? TooltipTag(string tag)
+    {
+        try
+        {
+            return TheBazaar.Data.TooltipTypography?.ColorTag(tag);
+        }
+        catch (Exception)
+        {
+            // Typography can be absent during a scene or locale change.
+            return null;
+        }
+    }
+
+    public string EncounterName(Guid templateId, string fallback) =>
+        TouchEncounterNames.Display(templateId, fallback);
+
+    public Task<Sprite?> HeroPortrait(CardHero hero) => TouchPortraits.Hero(hero);
+
+    public Task<Sprite?> EncounterPortrait(Guid templateId) => TouchPortraits.Encounter(templateId);
+
+    public (string? Text, float? Cooldown, float? Ammo) CardPreview(CardRentalSubject subject) =>
+        TouchCardText.Preview(subject);
+
+    public Func<CardRentalSubject, CardEnchantment, string?> EnchantmentEffects(Guid templateId)
+    {
+        var template = TouchCardText.Template(templateId);
+        return (subject, enchantment) =>
+            TouchCardText.EnchantmentEffect(template, subject, enchantment);
+    }
+
     private sealed class EmptyScope : IDisposable
     {
         public static readonly EmptyScope Instance = new();

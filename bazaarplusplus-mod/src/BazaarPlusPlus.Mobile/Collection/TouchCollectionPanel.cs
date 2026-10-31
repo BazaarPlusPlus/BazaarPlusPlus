@@ -1,13 +1,8 @@
-using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.Supporters;
-using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
-using BazaarPlusPlus.Game.CollectionPanel.Sources;
 using BazaarPlusPlus.Game.CollectionPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
@@ -17,33 +12,28 @@ using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Collection;
+namespace BazaarPlusPlus.Mobile.Collection;
 
 /// <summary>
-/// The Collection panel on Android (#396), entered from the touch menu. Core's
+/// The Collection panel on a mobile platform (#396), on both hosts. Core's
 /// <see cref="CollectionViewState"/> owns every filter, the search, the sort and the render model,
-/// as it does on desktop; this class draws that model in uGUI over the touch root and forwards each
-/// tap back as a view-state command. The geometry is Core's <see cref="CollectionTouchLayout"/>
-/// inside the safe area (#425): the shared header (title, tabs, search, close), the filter rail and
-/// a grid whose column count follows its width, laid out again when the screen changes. The grid
-/// shows the game's own card prefabs through the card rental. It is a Main Overlay Panel: the
-/// Overlay Panel Host opens and closes it (<see cref="AndroidOverlayPanels"/>), and its own close
-/// button and a failed relayout request the close. Differences from desktop are listed in
-/// <c>docs/architecture/collection.md</c>.
+/// as it does on desktop; this class draws that model in uGUI over the host's touch canvas and
+/// forwards each tap back as a view-state command. The geometry is Core's
+/// <see cref="CollectionTouchLayout"/> inside the safe area (#425): the shared header (title, tabs,
+/// search, close), the filter rail and a grid whose column count follows its width, laid out again
+/// when the screen changes. The grid shows the game's own card prefabs through the card rental;
+/// the catalog, the run and the rest of the host's services come in
+/// <see cref="TouchCollectionData"/>. It is a Main Overlay Panel (<see cref="TouchCollectionEntry"/>):
+/// the Overlay Panel Host opens and closes it, and its own close button and a failed relayout
+/// request the close. Differences from desktop are listed in <c>docs/architecture/collection.md</c>.
 /// </summary>
-internal sealed class AndroidCollectionPanel
+internal sealed class TouchCollectionPanel
 {
-    private readonly AndroidCollectionCatalog _catalog;
+    private readonly TouchCollectionData _data;
     private readonly TouchCollectionGridPort _port = new();
-    private readonly EmbeddedCollectionSourceCatalog _sources = new(
-        AndroidCardFacets.IsHeroAvailable
-    );
-    private readonly AndroidGameStateProbe _gameState = new();
-    private readonly AndroidCollectionHeroPreferenceStore _heroStore = new();
     private readonly CollectionViewState _state;
     private readonly Transform _parent;
     private readonly TMP_FontAsset _font;
-    private readonly AndroidSupporterData? _supporters;
     private IReadOnlyList<BPPSupporterSample> _headerSupporters = Array.Empty<BPPSupporterSample>();
     private TextMeshProUGUI _supporterLabel = null!;
     private readonly Action<string> _requestClose;
@@ -57,8 +47,8 @@ internal sealed class AndroidCollectionPanel
     // up, as Ten-Win Builds does; Open still rebuilds at once for a changed screen.
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private NativeSkin _skin = null!;
-    private AndroidCollectionGrid _grid = null!;
-    private AndroidCollectionInspection _inspection = null!;
+    private TouchCollectionGrid _grid = null!;
+    private TouchCollectionInspection _inspection = null!;
     private RectTransform _railContent = null!;
     private ScrollRect _railScroll = null!;
     private (Image Background, TextMeshProUGUI Label) _itemsTab;
@@ -81,25 +71,18 @@ internal sealed class AndroidCollectionPanel
         Source,
     }
 
-    public AndroidCollectionPanel(
+    public TouchCollectionPanel(
         Transform parent,
         TMP_FontAsset font,
-        AndroidCollectionCatalog catalog,
-        AndroidSupporterData? supporters,
+        TouchCollectionData data,
         Action<string> requestClose
     )
     {
         _parent = parent;
         _font = font;
-        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-        _supporters = supporters;
+        _data = data ?? throw new ArgumentNullException(nameof(data));
         _requestClose = requestClose ?? throw new ArgumentNullException(nameof(requestClose));
-        _state = new CollectionViewState(
-            _port,
-            _sources,
-            new AndroidCollectionDayTierSource(IsInRun),
-            _heroStore
-        );
+        _state = new CollectionViewState(_port, data.Sources, data.DayTiers, data.HeroPreference);
         _tree = new TouchViewSlot<GameObject>(DropTree);
         // A failed first build leaves no tree: the first Open builds again.
         var key = TouchScreen.Key();
@@ -124,7 +107,7 @@ internal sealed class AndroidCollectionPanel
     public long Relayouts { get; private set; }
 
     /// <summary>False when no tree could be built for the screen: the panel stays closed.</summary>
-    public bool Open()
+    public bool Open(string source)
     {
         if (IsOpen)
             return true;
@@ -136,23 +119,22 @@ internal sealed class AndroidCollectionPanel
             return false;
         CollapseFilters();
         _headerSupporters = Array.Empty<BPPSupporterSample>();
-        _supporters?.Warm();
+        _data.Supporters?.Warm();
         RefreshSupporterButton(sample: true);
         var root = _tree.View!;
-        _catalog.RetryIfUnavailable();
+        _data.Catalog.RetryIfUnavailable();
         _query = string.Empty;
         _search.SetTextWithoutNotify(string.Empty);
-        var cached = _catalog.Cached;
-        var inRun = IsInRun();
-        var day = inRun ? AndroidCollectionDayTierSource.CurrentDay() : null;
-        // A failed hero-preference load opens on the default hero; this host does not report it.
+        var cached = _data.Catalog.Cached;
+        var inRun = _data.Run.IsInRun();
+        var day = inRun ? _data.Run.Day() : null;
+        // A failed hero-preference load opens on the default hero; the panel does not report it.
         var opened = _state.Open(
             inRun
                 ? CollectionOpenFacts.InRun(
-                    CurrentHero(),
+                    _data.Run.Hero(),
                     day,
-                    // This host composes NoEncounterState (AndroidComposition).
-                    EncounterIdsSnapshot.Empty,
+                    EncounterIds(),
                     cached,
                     Array.Empty<BPPSupporterSample>()
                 )
@@ -180,7 +162,8 @@ internal sealed class AndroidCollectionPanel
             Render(_state.BeginCatalogLoad());
         }
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.opened"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.opened"),
+            ("source", source),
             ("cached", cached != null),
             ("in_run", inRun),
             ("hero", opened.Selection.SelectedHero),
@@ -192,7 +175,7 @@ internal sealed class AndroidCollectionPanel
     public void Close(string reason)
     {
         // Hero taps only stage the preference; it reaches disk once per close.
-        _heroStore.Flush();
+        _data.HeroPreference.Flush();
         // A relayout that failed while open left no tree: the host's close still ends the view state.
         var treeLost = _treeLost;
         _treeLost = false;
@@ -214,16 +197,16 @@ internal sealed class AndroidCollectionPanel
             _tree.View!.SetActive(false);
         }
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.closed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.closed"),
             ("reason", reason),
             ("returned", returned),
-            ("rental_leases", AndroidCardRental.ActiveLeases),
-            ("rental_balanced", AndroidCardRental.IsBalanced)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases),
+            ("rental_balanced", MobilePlatform.Port.CardRental.IsBalanced)
         );
     }
 
     /// <summary>Main thread, on app pause: writes a hero choice staged by the open panel.</summary>
-    public void FlushHeroPreference() => _heroStore.Flush();
+    public void FlushHeroPreference() => _data.HeroPreference.Flush();
 
     /// <summary>
     /// A back step the panel answers before it closes: the inspected card, then an expanded rail
@@ -306,7 +289,7 @@ internal sealed class AndroidCollectionPanel
         }
         var dp = metrics.UnitsPerDp;
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.laid_out"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.laid_out"),
             ("screen", key),
             ("units_per_dp", Math.Round(dp, 3)),
             ("grid_dp", Math.Round(layout.Grid.Width / dp)),
@@ -328,7 +311,7 @@ internal sealed class AndroidCollectionPanel
         UiKit.Fill(root, background);
 
         var gridArea = TouchScreen.Child("Grid", root, layout.Grid);
-        _grid = new AndroidCollectionGrid(gridArea, _port, Inspect, _font, chrome.BodyFont);
+        _grid = new TouchCollectionGrid(gridArea, _port, Inspect, _font, chrome.BodyFont);
         // The grid's RectMask2D does not clip the rented cards (their prefab carries its own
         // canvas), so the grid draws first and opaque bands above and below it hide the cards
         // scrolled past its edges; the header and the rail draw over those.
@@ -359,7 +342,7 @@ internal sealed class AndroidCollectionPanel
             chrome.ButtonFont,
             chrome.LabelInset,
             () =>
-                AndroidUiActions.Run(
+                UiActions.Run(
                     "collection.sponsor",
                     () =>
                         Application.OpenURL(
@@ -367,7 +350,7 @@ internal sealed class AndroidCollectionPanel
                         )
                 )
         );
-        _supporterLabel.enableWordWrapping = false;
+        MobilePlatform.Port.SetWordWrapping(_supporterLabel, false);
         _supporterLabel.enableAutoSizing = true;
         _supporterLabel.fontSizeMin = chrome.BodyFont;
         _supporterLabel.fontSizeMax = chrome.ButtonFont;
@@ -400,7 +383,7 @@ internal sealed class AndroidCollectionPanel
         );
         (_railScroll, _railContent) = UiKit.VerticalScroll(railInner);
 
-        _inspection = new AndroidCollectionInspection(root, _font, layout, _skin);
+        _inspection = new TouchCollectionInspection(root, _font, layout, _skin);
         _trackers.Clear();
         _trackers.Add(new ScrollTracker(Scrolled(), "grid", _grid.Scroll));
         _trackers.Add(new ScrollTracker(Scrolled(), "rail", _railScroll));
@@ -436,11 +419,11 @@ internal sealed class AndroidCollectionPanel
             Render(_state.Rebuild());
         }
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.relaid_out"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.relaid_out"),
             ("from", before),
             ("to", _tree.ScreenKey),
             ("open", open),
-            ("rental_leases", AndroidCardRental.ActiveLeases),
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases),
             ("held_frames", _relayout.HeldFrames)
         );
         return true;
@@ -462,24 +445,23 @@ internal sealed class AndroidCollectionPanel
         _grid?.ReturnAll();
         _treeLost = open;
         BppLog.ErrorEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.relayout_failed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.relayout_failed"),
             exception,
             ("from", before),
             ("open", open),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
         );
     }
 
     private void AdvanceCatalog()
     {
-        _catalog.Advance(AndroidCollectionCatalogPace.Waiting);
-        switch (_catalog.Status)
+        switch (_data.Catalog.Advance())
         {
-            case AndroidCollectionCatalogStatus.Ready:
+            case CollectionCardCatalogStatus.Ready when _data.Catalog.Cached is { } cards:
                 _loading = false;
-                Render(_state.AcceptCatalog(_catalog.Cards!));
+                Render(_state.AcceptCatalog(cards));
                 break;
-            case AndroidCollectionCatalogStatus.Unavailable:
+            case CollectionCardCatalogStatus.Unavailable:
                 _loading = false;
                 Render(_state.CatalogUnavailable());
                 break;
@@ -504,7 +486,7 @@ internal sealed class AndroidCollectionPanel
         // Late catalog arrival fills the credit once, without resetting filters or rotating names.
         if (sample)
         {
-            _headerSupporters = _supporters?.Next(1) ?? Array.Empty<BPPSupporterSample>();
+            _headerSupporters = _data.Supporters?.Next(1) ?? Array.Empty<BPPSupporterSample>();
             if (_headerSupporters.Count == 0)
                 return;
         }
@@ -515,7 +497,7 @@ internal sealed class AndroidCollectionPanel
         _supporterLabel.text = string.IsNullOrEmpty(credit)
             ? BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode)
             : credit;
-        AndroidGameFont.Cover(_supporterLabel);
+        MobilePlatform.Port.CoverText(_supporterLabel);
     }
 
     private void Render(CollectionRenderOutcome outcome, string? command = null)
@@ -558,7 +540,7 @@ internal sealed class AndroidCollectionPanel
             tracker.Sync();
         if (command != null)
             BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.collection.filtered"),
+                new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.filtered"),
                 ("command", command),
                 ("tab", model.ActiveTab),
                 ("visible", model.VisibleCount),
@@ -604,13 +586,13 @@ internal sealed class AndroidCollectionPanel
         var selectedHero = model.SelectedHero ?? CardHero.Common;
         var heroValue = model.AllHeroesSelected
             ? L.Resolve(new LocalizedTextSet("All heroes", "全部英雄", "全部英雄"))
-            : AndroidCollectionLabels.Hero(selectedHero);
+            : TouchCollectionLabels.Hero(selectedHero);
         var selectedSource = model.AvailableSources.FirstOrDefault(source =>
             string.Equals(source.SourceKey, model.SelectedSourceKey, StringComparison.Ordinal)
         );
         var sourceValue =
             selectedSource != null
-                ? AndroidEncounterNames.Display(
+                ? MobilePlatform.Port.EncounterName(
                     selectedSource.RepresentativeTemplateId,
                     selectedSource.DisplayName
                 )
@@ -626,7 +608,7 @@ internal sealed class AndroidCollectionPanel
             () => TogglePicker(RailPicker.Hero, model),
             model.AllHeroesSelected || selectedHero == CardHero.Common
                 ? null
-                : () => AndroidPortraits.Hero(selectedHero),
+                : () => MobilePlatform.Port.HeroPortrait(selectedHero),
             span: profile.ShowSourceFilter ? 3 : 6,
             expanded: _expandedPicker == RailPicker.Hero,
             hero: selectedHero
@@ -642,7 +624,10 @@ internal sealed class AndroidCollectionPanel
                 },
                 selectedSource == null
                     ? null
-                    : () => AndroidPortraits.Encounter(selectedSource.RepresentativeTemplateId),
+                    : () =>
+                        MobilePlatform.Port.EncounterPortrait(
+                            selectedSource.RepresentativeTemplateId
+                        ),
                 expanded: _expandedPicker == RailPicker.Source
             );
         flow.Break();
@@ -664,10 +649,10 @@ internal sealed class AndroidCollectionPanel
                 var chosen = hero;
                 var selected = !model.AllHeroesSelected && selectedHero == hero;
                 flow.Identity(
-                    AndroidCollectionLabels.Hero(hero),
+                    TouchCollectionLabels.Hero(hero),
                     selected,
                     () => SelectRail(model, selected ? null : _state.ToggleHero(chosen), "hero"),
-                    hero == CardHero.Common ? null : () => AndroidPortraits.Hero(chosen),
+                    hero == CardHero.Common ? null : () => MobilePlatform.Port.HeroPortrait(chosen),
                     span: 6,
                     hero: chosen
                 );
@@ -703,10 +688,10 @@ internal sealed class AndroidCollectionPanel
                     StringComparison.Ordinal
                 );
                 flow.Identity(
-                    AndroidEncounterNames.Display(templateId, source.DisplayName),
+                    MobilePlatform.Port.EncounterName(templateId, source.DisplayName),
                     selected,
                     () => SelectRail(model, selected ? null : _state.ToggleSource(key), "source"),
-                    () => AndroidPortraits.Encounter(templateId),
+                    () => MobilePlatform.Port.EncounterPortrait(templateId),
                     span: 6
                 );
             }
@@ -819,7 +804,7 @@ internal sealed class AndroidCollectionPanel
                         : option.Mechanic is { } mechanic
                             && model.SelectedMechanics.Contains(mechanic);
                     flow.Chip(
-                        AndroidCollectionLabels.Keyword(option),
+                        TouchCollectionLabels.Keyword(option),
                         selected,
                         () => Command(_state.ToggleKeyword(chosen), "keyword"),
                         span: 2
@@ -835,7 +820,7 @@ internal sealed class AndroidCollectionPanel
                 {
                     var chosen = tag;
                     flow.Chip(
-                        AndroidCollectionLabels.Tag(tag),
+                        TouchCollectionLabels.Tag(tag),
                         model.SelectedTags.Contains(tag),
                         () => Command(_state.ToggleTag(chosen), "tag"),
                         span: 2
@@ -922,7 +907,7 @@ internal sealed class AndroidCollectionPanel
                     SelectRail(model, null, "tab");
             }
         );
-        label.enableWordWrapping = false;
+        MobilePlatform.Port.SetWordWrapping(label, false);
         label.enableAutoSizing = true;
         label.fontSizeMin = _layout.Chrome.BodyFont;
         label.fontSizeMax = _layout.Chrome.ButtonFont;
@@ -962,7 +947,7 @@ internal sealed class AndroidCollectionPanel
             TextAlignmentOptions.MidlineLeft,
             UiKit.MutedTextColor
         );
-        placeholder.enableWordWrapping = false;
+        MobilePlatform.Port.SetWordWrapping(placeholder, false);
         placeholder.overflowMode = TextOverflowModes.Ellipsis;
         var text = UiKit.Text(
             UiKit.Rect("Text", textArea, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
@@ -972,7 +957,7 @@ internal sealed class AndroidCollectionPanel
             TextAlignmentOptions.MidlineLeft,
             UiKit.TextColor
         );
-        text.enableWordWrapping = false;
+        MobilePlatform.Port.SetWordWrapping(text, false);
         // Configured while inactive: the field's OnEnable reads its text component.
         rect.gameObject.SetActive(false);
         var field = rect.gameObject.AddComponent<TMP_InputField>();
@@ -983,9 +968,7 @@ internal sealed class AndroidCollectionPanel
         field.pointSize = chrome.ButtonFont;
         field.lineType = TMP_InputField.LineType.SingleLine;
         field.characterLimit = 64;
-        field.onValueChanged.AddListener(
-            (UnityEngine.Events.UnityAction<string>)new Action<string>(OnSearchChanged)
-        );
+        MobilePlatform.Port.OnTextChanged(field, OnSearchChanged);
         rect.gameObject.SetActive(true);
         return (field, placeholder);
     }
@@ -1003,40 +986,16 @@ internal sealed class AndroidCollectionPanel
         UiKit.Fill(TouchScreen.Child("GridEdge", root, area), color);
     }
 
-    private bool IsInRun()
+    // The host's encounter state: Android composes none, so its ids are empty there.
+    private EncounterIdsSnapshot EncounterIds()
     {
         try
         {
-            return _gameState.ComputeIsInGameRun();
+            return _data.Encounters.GetEncounterIdsOutcome().Snapshot;
         }
         catch (Exception)
         {
-            return false;
-        }
-    }
-
-    private static CardHero? CurrentHero()
-    {
-        try
-        {
-            var player = Il2CppTheBazaar.Data.Run?.Player;
-            if (
-                player != null
-                && AndroidCardFacets.Hero.TryToFacet(player.Hero, out var runHero)
-                && CollectionPanelSelectionState.IsConcreteHero(runHero)
-            )
-                return runHero;
-            return
-                AndroidCardFacets.Hero.TryToFacet(
-                    Il2CppTheBazaar.Data.SelectedHero,
-                    out var selected
-                ) && CollectionPanelSelectionState.IsConcreteHero(selected)
-                ? selected
-                : null;
-        }
-        catch (Exception)
-        {
-            return null;
+            return EncounterIdsSnapshot.Empty;
         }
     }
 }

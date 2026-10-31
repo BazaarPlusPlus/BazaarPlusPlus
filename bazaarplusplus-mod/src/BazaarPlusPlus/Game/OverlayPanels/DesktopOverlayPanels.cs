@@ -1,6 +1,7 @@
 #nullable enable
 
 using BazaarPlusPlus.Game.Input;
+using BazaarPlusPlus.GameInterop.Touch;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -9,10 +10,21 @@ namespace BazaarPlusPlus.Game.OverlayPanels;
 
 // The desktop adapter of the Overlay Panel Host (GLOSSARY.md §Overlay panels): it reads the
 // frame's scene, Escape and toggle hotkeys, and feeds them to the Core OverlayPanelHost, which
-// owns the lifecycle of the three Main Overlay Panels.
+// owns the lifecycle of the three Main Overlay Panels. On a mobile platform it also drives the
+// touch panels' one card rental, as the Android host does: it ticks it every frame and releases
+// its cards on a scene change, open panels or not.
 internal sealed class DesktopOverlayPanels : MonoBehaviour
 {
-    private readonly OverlayPanelHost _host = new(static () => TheBazaar.Data.IsInCombat);
+    private readonly OverlayPanelHost _host = new(
+        static () => TheBazaar.Data.IsInCombat,
+        static reason =>
+        {
+            if (TouchPlatform.IsMobile)
+                TouchCardRental.ReleaseAll(
+                    reason == OverlayReleaseReason.SceneChange ? "scene_changed" : "switched_off"
+                );
+        }
+    );
     private readonly List<(string PanelId, BppHotkeyActionId Hotkey, Func<bool>? Guard)> _hotkeys =
         new();
     private Scene _sceneTokenScene;
@@ -45,6 +57,14 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
                 ResolvePressedHotkeyPanelId(keyboard)
             )
         );
+        if (TouchPlatform.IsMobile)
+            TouchCardRental.Tick();
+    }
+
+    private void OnDestroy()
+    {
+        if (TouchPlatform.IsMobile)
+            TouchCardRental.ReleaseAll("destroyed");
     }
 
     private string? ResolvePressedHotkeyPanelId(Keyboard? keyboard)

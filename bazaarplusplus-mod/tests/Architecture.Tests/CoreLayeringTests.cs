@@ -52,8 +52,9 @@ public sealed class CoreLayeringTests
     {
         // ADR-0025 decision 3: the Mobile UI tree compiles into this host and the Android host, so
         // it reaches either only through IMobilePlatformPort, never a host type directly.
-        // Twenty-one types (the port, its holder, art record and panel handle, the theme, the kit
-        // and leaves #701 steps 2 and 3 moved, and Ten-Win Builds) keep the scope from emptying.
+        // Twenty-seven types (the port, its holder, art record and panel handle, the theme, the kit
+        // and leaves #701 steps 2 and 3 moved, Ten-Win Builds and Collection) keep the scope from
+        // emptying.
         const string mobile = "BazaarPlusPlus.Mobile";
         Holds(
             "Reach the Mono host from the Mobile UI through IMobilePlatformPort.",
@@ -61,7 +62,7 @@ public sealed class CoreLayeringTests
             {
                 var tree = build.TypesIn(mobile);
                 Assert.True(
-                    tree.Count >= 21,
+                    tree.Count >= 27,
                     $"{build.Configuration}: {tree.Count} Mobile UI types."
                 );
                 return References(

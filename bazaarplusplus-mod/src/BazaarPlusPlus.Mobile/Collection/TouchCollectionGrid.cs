@@ -1,25 +1,26 @@
-using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.CollectionPanel.Ui;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Mobile.Ui;
-using Il2CppTheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Collection;
+namespace BazaarPlusPlus.Mobile.Collection;
 
 /// <summary>
-/// The Collection grid on Android: the desktop's shelf geometry from Core
+/// The Collection grid on a touch screen: the desktop's shelf geometry from Core
 /// (<see cref="CollectionGridLayout"/>, <see cref="CollectionGridPixelization"/>,
 /// <see cref="CollectionCardFitMath"/>) laid out in a uGUI scroll view, with a rented native card
 /// in each cell near the viewport. Cells scrolled more than a shelf out of view return their card
 /// to the rental; a republished grid keeps the cards whose template stays visible
-/// (<see cref="CollectionGridRetentionPlan"/>). A cell takes the tap, never the card under it.
+/// (<see cref="CollectionGridRetentionPlan"/>). A cell takes the tap, never the card under it. A
+/// failed rental leaves its cell empty and is logged once per reason.
 /// </summary>
-internal sealed class AndroidCollectionGrid
+internal sealed class TouchCollectionGrid
 {
     public const string RentalOwner = "collection.grid";
 
@@ -39,10 +40,11 @@ internal sealed class AndroidCollectionGrid
     private readonly RectTransform _content;
     private readonly Dictionary<int, Cell> _realized = new();
     private readonly Stack<Cell> _free = new();
+    private readonly HashSet<string> _reportedFailures = new(StringComparer.Ordinal);
     private int _revision = -1;
     private bool _layoutDirty = true;
 
-    public AndroidCollectionGrid(
+    public TouchCollectionGrid(
         RectTransform area,
         TouchCollectionGridPort port,
         Action<CollectionCardVm, RectTransform?> onTap,
@@ -108,6 +110,29 @@ internal sealed class AndroidCollectionGrid
             _layoutDirty = false;
         }
         Realize();
+        ReportFailures();
+    }
+
+    // A failed rental leaves its cell empty; log each failure reason once per grid.
+    private void ReportFailures()
+    {
+        foreach (var cell in _realized.Values)
+        {
+            if (
+                cell.Lease is not { State: CardRentalLeaseState.Failed } lease
+                || !_reportedFailures.Add(lease.FailureReason ?? string.Empty)
+            )
+                continue;
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Touch,
+                    "touch.collection.card_rent_failed",
+                    storm: ["reason_code"]
+                ),
+                ("reason_code", lease.FailureReason),
+                ("template_id", cell.TemplateId)
+            );
+        }
     }
 
     /// <summary>The panel closed or switched off: every cell returns its card.</summary>
@@ -169,7 +194,9 @@ internal sealed class AndroidCollectionGrid
                 continue;
             if (
                 budget < RentBudgetPerFrame
-                && System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds
+                && (System.Diagnostics.Stopwatch.GetTimestamp() - started)
+                    * 1000.0
+                    / System.Diagnostics.Stopwatch.Frequency
                     >= RentBudgetMs
             )
                 break;
@@ -178,7 +205,7 @@ internal sealed class AndroidCollectionGrid
             cell.TemplateId = card.Id;
             _realized[index] = cell;
             Place(cell, index);
-            cell.Lease = AndroidCardRental.Rent(
+            cell.Lease = MobilePlatform.Port.CardRental.Rent(
                 new CardRentalSubject(card.Id, card.StartingTier),
                 cell.Slot,
                 RentalOwner
@@ -293,30 +320,29 @@ internal sealed class AndroidCollectionGrid
             TextAlignmentOptions.Top,
             UiKit.TextColor
         );
-        caption.enableWordWrapping = true;
+        MobilePlatform.Port.SetWordWrapping(caption, true);
         caption.overflowMode = TextOverflowModes.Ellipsis;
         var cell = new Cell(root, slot, caption);
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;
         button.transition = Selectable.Transition.None;
-        button.onClick.AddListener(
-            (UnityEngine.Events.UnityAction)(
-                () =>
-                {
-                    if (cell.Index >= 0 && cell.Index < _port.Visible.Count)
-                        _onTap(
-                            _port.Visible[cell.Index],
-                            cell.Lease?.State == CardRentalLeaseState.Ready ? cell.Slot : null
-                        );
-                }
-            )
+        MobilePlatform.Port.OnClick(
+            button,
+            () =>
+            {
+                if (cell.Index >= 0 && cell.Index < _port.Visible.Count)
+                    _onTap(
+                        _port.Visible[cell.Index],
+                        cell.Lease?.State == CardRentalLeaseState.Ready ? cell.Slot : null
+                    );
+            }
         );
         return cell;
     }
 
     private void Recycle(Cell cell)
     {
-        AndroidCardRental.Return(cell.Lease);
+        MobilePlatform.Port.CardRental.Return(cell.Lease);
         cell.Lease = null;
         cell.Index = -1;
         cell.Root.gameObject.SetActive(false);
@@ -335,6 +361,6 @@ internal sealed class AndroidCollectionGrid
 
         public int Index { get; set; } = -1;
 
-        public CardRentalLease<CardPreviewBase>? Lease { get; set; }
+        public CardRentalLease<GameCardPreview>? Lease { get; set; }
     }
 }

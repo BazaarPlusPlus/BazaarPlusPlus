@@ -14,16 +14,60 @@ namespace BazaarPlusPlus.Android.Collection;
 /// open: the Day toggle shows the day and filters nothing. Out of a run there is no day; the game
 /// keeps the last run's object after it ends, so its day is not read there.
 /// </summary>
-internal sealed class AndroidCollectionDayTierSource(Func<bool> isInRun) : ICollectionDayTierSource
+internal sealed class AndroidCollectionDayTierSource(ICollectionRunReads run)
+    : ICollectionDayTierSource
 {
-    public CollectionDayTiers Resolve() => new(isInRun() ? CurrentDay() : null, null);
+    public CollectionDayTiers Resolve() => new(run.IsInRun() ? run.Day() : null, null);
+}
 
-    public static int? CurrentDay()
+/// <summary>The touch Collection's reads of the run, over the IL2CPP game data.</summary>
+internal sealed class AndroidCollectionRunReads : ICollectionRunReads
+{
+    private readonly AndroidGameStateProbe _gameState = new();
+
+    public bool IsInRun()
+    {
+        try
+        {
+            return _gameState.ComputeIsInGameRun();
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    public int? Day()
     {
         try
         {
             var run = Il2CppTheBazaar.Data.Run;
             return run == null ? null : unchecked((int)run.Day);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    public CardHero? Hero()
+    {
+        try
+        {
+            var player = Il2CppTheBazaar.Data.Run?.Player;
+            if (
+                player != null
+                && AndroidCardFacets.Hero.TryToFacet(player.Hero, out var runHero)
+                && CollectionPanelSelectionState.IsConcreteHero(runHero)
+            )
+                return runHero;
+            return
+                AndroidCardFacets.Hero.TryToFacet(
+                    Il2CppTheBazaar.Data.SelectedHero,
+                    out var selected
+                ) && CollectionPanelSelectionState.IsConcreteHero(selected)
+                ? selected
+                : null;
         }
         catch (Exception)
         {

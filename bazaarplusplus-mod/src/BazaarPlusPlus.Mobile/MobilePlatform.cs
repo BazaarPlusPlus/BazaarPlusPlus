@@ -87,6 +87,45 @@ internal interface IMobilePlatformPort
     /// ticks and closes it. Main thread.
     /// </summary>
     IOverlayPanelHandle RegisterOverlayPanel(OverlayPanelRegistration registration);
+
+    /// <summary>Runs <paramref name="onChanged"/> with each new text of <paramref name="field"/>.</summary>
+    void OnTextChanged(TMP_InputField field, Action<string> onChanged);
+
+    /// <summary>Whether the system lets the UI animate; read on each interaction.</summary>
+    bool AnimationsEnabled();
+
+    /// <summary>
+    /// The game's string table entry for the English source text <paramref name="key"/>, or null
+    /// while the table cannot be read.
+    /// </summary>
+    string? GameText(string key);
+
+    /// <summary>
+    /// <paramref name="tag"/>'s label in the game's tooltip typography, with its colour, or null
+    /// while the typography is absent.
+    /// </summary>
+    string? TooltipTag(string tag);
+
+    /// <summary>A merchant's or trainer's localized name, or <paramref name="fallback"/>.</summary>
+    string EncounterName(Guid templateId, string fallback);
+
+    /// <summary>The hero's default portrait, or null when the game has none.</summary>
+    Task<Sprite?> HeroPortrait(CardHero hero);
+
+    /// <summary>The encounter template's portrait, or null when the game has none.</summary>
+    Task<Sprite?> EncounterPortrait(Guid templateId);
+
+    /// <summary>
+    /// A card's text, out-of-combat cooldown and ammo at its tier, from one tooltip; each is null
+    /// when the game cannot build or lacks it.
+    /// </summary>
+    (string? Text, float? Cooldown, float? Ammo) CardPreview(CardRentalSubject subject);
+
+    /// <summary>
+    /// The in-game enchant preview's renderer for one card template, looked up once: the
+    /// enchantment-only effect at a subject's tier, or null when it cannot be rendered.
+    /// </summary>
+    Func<CardRentalSubject, CardEnchantment, string?> EnchantmentEffects(Guid templateId);
 }
 
 /// <summary>

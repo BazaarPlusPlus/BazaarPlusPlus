@@ -39,11 +39,12 @@ internal enum AndroidCollectionCatalogPace
 /// <c>cards</c> table (<see cref="ReadCandidateIds"/>). A miss then projects one candidate at a
 /// time in frame slices, each loaded by the game's own per-card <c>GetCardById</c>, hands every
 /// projected template to the card rental, and saves a clean build for the next launch. A hit
-/// hands the rental nothing: it loads each template when a card is rented.
+/// hands the rental nothing: it loads each template when a card is rented. It is the Android
+/// host's <see cref="ICollectionCardCatalog"/> (ADR-0025 decision 4); the touch UI warms it ahead
+/// of the first open.
 /// </summary>
-internal sealed class AndroidCollectionCatalog
+internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
 {
-    private const double WaitingBudgetMs = 33;
     private const float SlowFrameSeconds = 0.02f;
 
     // Any rebuild of the projection or the view model invalidates a cached catalog.
@@ -114,6 +115,18 @@ internal sealed class AndroidCollectionCatalog
             default:
                 return;
         }
+    }
+
+    /// <summary>The open panel's step: a slice at the waiting pace.</summary>
+    public CollectionCardCatalogStatus Advance()
+    {
+        Advance(AndroidCollectionCatalogPace.Waiting);
+        return Status switch
+        {
+            AndroidCollectionCatalogStatus.Ready => CollectionCardCatalogStatus.Ready,
+            AndroidCollectionCatalogStatus.Unavailable => CollectionCardCatalogStatus.Unavailable,
+            _ => CollectionCardCatalogStatus.Building,
+        };
     }
 
     /// <summary>A failed build may be retried on the next open.</summary>
@@ -310,7 +323,9 @@ internal sealed class AndroidCollectionCatalog
             }
             _cardMs.Add(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         } while (
-            !warm && _cursor < candidates.Count && slice.Elapsed.TotalMilliseconds < WaitingBudgetMs
+            !warm
+            && _cursor < candidates.Count
+            && slice.Elapsed.TotalMilliseconds < CollectionCardCatalogBudget.WaitingFrameBudgetMs
         );
         _projectClock.Stop();
         if (_cursor < candidates.Count)

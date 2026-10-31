@@ -1,7 +1,4 @@
 using System.Globalization;
-using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Ui;
@@ -15,18 +12,17 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile.Ui;
-using Il2CppTheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Collection;
+namespace BazaarPlusPlus.Mobile.Collection;
 
 /// <summary>
 /// The selected card and its tier comparison in the shared touch inspection frame.
 /// A toggle expands all available enchantment effects using the in-game preview renderer.
 /// The base card, cooldown and ammo remain above the list.
 /// </summary>
-internal sealed class AndroidCollectionInspection
+internal sealed class TouchCollectionInspection
 {
     public const string RentalOwner = "collection.inspection";
 
@@ -52,7 +48,7 @@ internal sealed class AndroidCollectionInspection
     private readonly TMP_FontAsset _font;
     private readonly CollectionTouchLayout _layout;
     private CollectionCardVm? _card;
-    private CardRentalLease<CardPreviewBase>? _lease;
+    private CardRentalLease<GameCardPreview>? _lease;
     private readonly NativeSkin _skin;
     private bool _showEnchantments;
     private List<(CardEnchantment Type, string Text)>? _enchantmentEffects;
@@ -60,7 +56,7 @@ internal sealed class AndroidCollectionInspection
     private string _cooldown = string.Empty;
     private string _ammo = string.Empty;
 
-    public AndroidCollectionInspection(
+    public TouchCollectionInspection(
         RectTransform parent,
         TMP_FontAsset font,
         CollectionTouchLayout layout,
@@ -83,7 +79,7 @@ internal sealed class AndroidCollectionInspection
         _backdrop = UiKit.Fill(root, Color.clear);
         var dismiss = root.gameObject.AddComponent<Button>();
         dismiss.transition = Selectable.Transition.None;
-        dismiss.onClick.AddListener((UnityEngine.Events.UnityAction)(() => Dismiss("outside_tap")));
+        MobilePlatform.Port.OnClick(dismiss, () => Dismiss("outside_tap"));
         _root = root.gameObject;
 
         var area = TouchScreen.Child("CardArea", root, inspect.CardArea);
@@ -150,14 +146,14 @@ internal sealed class AndroidCollectionInspection
         _enchantmentEffects = null;
         UpdatePreview();
         _name.text = card.DisplayName;
-        var bounds = AndroidCollectionGrid.NaturalBounds(card);
+        var bounds = TouchCollectionGrid.NaturalBounds(card);
         var widthScale =
             card.Type == CardType.Item ? CollectionGridConstants.ItemCardWidthScale : 1f;
         var scale = _layout.InspectScale(bounds.Width * widthScale, bounds.Height);
         _previewScale = new Vector3(scale * widthScale, scale, 1f);
         _slot.anchoredPosition = Vector2.zero;
         _previewPosition = _slot.localPosition;
-        _transition.Begin(AndroidMotion.AnimationsEnabled());
+        _transition.Begin(MobilePlatform.Port.AnimationsEnabled());
         _spatialMotion = source != null && _transition.Animated;
         if (source != null)
         {
@@ -177,12 +173,12 @@ internal sealed class AndroidCollectionInspection
         ApplyTransition();
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
-        _lease = AndroidCardRental.Rent(Subject(), _slot, RentalOwner);
+        _lease = MobilePlatform.Port.CardRental.Rent(Subject(), _slot, RentalOwner);
         RenderDetail();
         _detailScroll.StopMovement();
         _detail.anchoredPosition = Vector2.zero;
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.inspected"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.inspected"),
             ("type", card.Type),
             ("size", card.Size),
             ("tier", card.StartingTier),
@@ -205,9 +201,9 @@ internal sealed class AndroidCollectionInspection
         Return();
         _root.SetActive(false);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.inspection_closed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.inspection_closed"),
             ("reason", reason),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
         );
         return true;
     }
@@ -274,7 +270,7 @@ internal sealed class AndroidCollectionInspection
 
     private void Return()
     {
-        AndroidCardRental.Return(_lease);
+        MobilePlatform.Port.CardRental.Return(_lease);
         _lease = null;
         _card = null;
     }
@@ -288,17 +284,13 @@ internal sealed class AndroidCollectionInspection
         {
             _enchantmentEffects = new();
             // One template for every enchantment and tier; each tier still builds its own tooltip.
-            var template = AndroidCardTemplateText.Template(_card!.Id);
+            var effectAt = MobilePlatform.Port.EnchantmentEffects(_card!.Id);
             foreach (var enchantment in _card.Enchantments.Keys.OrderBy(value => value))
             {
                 var effects = new List<CollectionTierTooltipText>();
                 foreach (var tier in ReachableTiers(_card.StartingTier))
                 {
-                    var effect = AndroidCardTemplateText.EnchantmentEffect(
-                        template,
-                        new CardRentalSubject(_card.Id, tier),
-                        enchantment
-                    );
+                    var effect = effectAt(new CardRentalSubject(_card.Id, tier), enchantment);
                     if (!string.IsNullOrWhiteSpace(effect))
                         effects.Add(new CollectionTierTooltipText(tier, effect));
                 }
@@ -325,7 +317,7 @@ internal sealed class AndroidCollectionInspection
         _detailScroll.StopMovement();
         RenderDetail();
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.collection.enchantments_toggled"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.collection.enchantments_toggled"),
             ("visible", visible),
             ("count", _enchantmentEffects?.Count ?? 0)
         );
@@ -340,7 +332,7 @@ internal sealed class AndroidCollectionInspection
         foreach (var tier in ReachableTiers(card.StartingTier))
         {
             // One template and one tooltip per tier for the text and its values.
-            var (text, cooldown, ammo) = AndroidCardTemplateText.Preview(
+            var (text, cooldown, ammo) = MobilePlatform.Port.CardPreview(
                 new CardRentalSubject(card.Id, tier)
             );
             if (text != null)
@@ -382,7 +374,7 @@ internal sealed class AndroidCollectionInspection
             return;
         var chrome = _layout.Chrome;
         var flow = new ChipFlow(_detail, _font, chrome, 1, _layout.RailHeaderHeight, _skin);
-        var identity = card.Tags.Distinct().Select(AndroidCollectionLabels.InspectionTag).ToList();
+        var identity = card.Tags.Distinct().Select(TouchCollectionLabels.InspectionTag).ToList();
         if (card.Type == CardType.Item)
             identity.Insert(0, CollectionPanelText.Size(card.Size));
         if (identity.Count > 0)
@@ -418,7 +410,7 @@ internal sealed class AndroidCollectionInspection
                     _enchantmentEffects
                         .Select(entry =>
                             (
-                                $"<color=#{ItemEnchantPreviewText.ColorHex(entry.Type.ToString())}>{AndroidCollectionLabels.Enchantment(entry.Type)}</color>",
+                                $"<color=#{ItemEnchantPreviewText.ColorHex(entry.Type.ToString())}>{TouchCollectionLabels.Enchantment(entry.Type)}</color>",
                                 entry.Text
                             )
                         )
