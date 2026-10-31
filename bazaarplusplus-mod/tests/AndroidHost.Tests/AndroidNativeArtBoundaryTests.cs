@@ -56,7 +56,7 @@ public sealed class AndroidNativeArtBoundaryTests
             accesses,
             access =>
                 sharedUi.Contains(access.type.FullName)
-                && access.op.TargetType?.Namespace == "BazaarPlusPlus.Android.Collection"
+                && access.op.TargetType?.Namespace == "BazaarPlusPlus.Mobile.Collection"
         );
         // The runtime owner never reaches back into the UI, the Mobile UI tree's included.
         Assert.DoesNotContain(

@@ -1,18 +1,16 @@
-using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Localization;
-using Il2CppTheBazaar.Utilities;
 
-namespace BazaarPlusPlus.Android.Collection;
+namespace BazaarPlusPlus.Mobile.Collection;
 
 /// <summary>
 /// Filter labels read the game's string table. Inspection tags additionally use the native
 /// tooltip typography for official labels and colors. A reference keyword reads as its base
 /// keyword plus "Related", as on desktop.
 /// </summary>
-internal static class AndroidCollectionLabels
+internal static class TouchCollectionLabels
 {
     private static readonly LocalizedTextSet RelatedSuffix = new(" Related", "相关", "相關");
     private static readonly LocalizedTextSet EconomyBase = new("Economy", "经济", "經濟");
@@ -24,17 +22,8 @@ internal static class AndroidCollectionLabels
     /// <summary>The same localized label and accent as the game's tooltip tag renderer.</summary>
     public static string InspectionTag(CardTag tag)
     {
-        try
-        {
-            var native = Il2CppTheBazaar.Data.TooltipTypography?.ColorTag(tag.ToString());
-            if (!string.IsNullOrWhiteSpace(native))
-                return native;
-        }
-        catch (Exception)
-        {
-            // Typography can be absent during a scene or locale change.
-        }
-        return Tag(tag);
+        var native = MobilePlatform.Port.TooltipTag(tag.ToString());
+        return string.IsNullOrWhiteSpace(native) ? Tag(tag) : native!;
     }
 
     public static string Keyword(CollectionKeywordFacetOption option)
@@ -72,8 +61,11 @@ internal static class AndroidCollectionLabels
 
     public static string Hero(CardHero hero) =>
         hero == CardHero.Common
-            ? CollectionPanelText.Hero(hero, AndroidHeroNames.TheDragons)
-            : AndroidHeroNames.Display(hero);
+            ? CollectionPanelText.Hero(
+                hero,
+                () => MobilePlatform.Port.HeroName(CardHero.TheDragons)
+            )
+            : MobilePlatform.Port.HeroName(hero);
 
     // The game string table keyed by the English source text; a miss returns the key itself.
     private static string StringTable(string key)
@@ -86,16 +78,10 @@ internal static class AndroidCollectionLabels
         }
         if (Cache.TryGetValue(key, out var cached))
             return cached;
-        string label;
-        try
-        {
-            var text = new LocalizableText(key).GetLocalizedText();
-            label = string.IsNullOrEmpty(text) ? key : text;
-        }
-        catch (Exception)
-        {
+        var text = MobilePlatform.Port.GameText(key);
+        if (text == null)
             return key; // not cached: the service may come up later
-        }
+        var label = text.Length == 0 ? key : text;
         Cache[key] = label;
         return label;
     }

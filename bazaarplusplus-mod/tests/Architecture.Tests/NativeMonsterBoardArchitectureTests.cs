@@ -71,6 +71,7 @@ public sealed class NativeMonsterBoardArchitectureTests
                     "BazaarPlusPlus.Game.HistoryPanel",
                     "BazaarPlusPlus.Game.LiveBuildPanel",
                     "BazaarPlusPlus.Mobile.LiveBuild",
+                    "BazaarPlusPlus.Mobile.Collection",
                 };
                 foreach (var panel in panels)
                     _ = build.TypesIn(panel);

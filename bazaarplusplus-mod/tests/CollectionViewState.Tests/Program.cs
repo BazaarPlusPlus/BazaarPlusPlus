@@ -1114,6 +1114,8 @@ internal sealed class RecordingHeroPreferenceStore : ICollectionPanelHeroPrefere
         LastLoadHeroes = null;
     }
 
+    public void Flush() { }
+
     public CollectionPanelHeroPreferenceLoadResult Load(
         CollectionCatalogReadiness catalogReadiness,
         IReadOnlyCollection<CardHero> availableHeroes

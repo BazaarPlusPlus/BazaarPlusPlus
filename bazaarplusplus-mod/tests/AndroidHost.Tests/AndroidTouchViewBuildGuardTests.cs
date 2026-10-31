@@ -20,6 +20,7 @@ public sealed class AndroidTouchViewBuildGuardTests
     private const string LiveBuildView = "BazaarPlusPlus.Mobile.LiveBuild.TouchLiveBuildView";
     private const string LiveBuildInspection =
         "BazaarPlusPlus.Mobile.LiveBuild.TouchLiveBuildInspection";
+    private const string CollectionPanel = "BazaarPlusPlus.Mobile.Collection.TouchCollectionPanel";
 
     private static readonly Lazy<CompiledAssembly> Host = new(() =>
         CompiledAssembly.Load(
@@ -42,10 +43,21 @@ public sealed class AndroidTouchViewBuildGuardTests
         );
     }
 
+    // Collection moved into the Mobile UI tree too: its six types must still compile into the host.
+    [Fact]
+    public void The_collection_panel_compiles_into_the_host()
+    {
+        Assert.True(
+            Host.Value.Types.Count(type => type.Namespace == "BazaarPlusPlus.Mobile.Collection")
+                >= 6,
+            "Collection left the Android host's Mobile UI tree."
+        );
+    }
+
     [Theory]
     [InlineData(LiveBuildView, ".ctor")]
     [InlineData("BazaarPlusPlus.Android.Ui.AndroidHistoryPanelView", ".ctor")]
-    [InlineData("BazaarPlusPlus.Android.Collection.AndroidCollectionPanel", "Build")]
+    [InlineData(CollectionPanel, "Build")]
     public void A_build_that_throws_destroys_its_partial_tree(string type, string method)
     {
         Assert.Contains(

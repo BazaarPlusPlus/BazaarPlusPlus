@@ -54,12 +54,6 @@ internal static class TouchUiActions
     }
 }
 
-/// <summary>The touch surfaces follow the mobile build: animations are always on.</summary>
-internal static class TouchMotion
-{
-    public static bool AnimationsEnabled() => true;
-}
-
 /// <summary>
 /// The font every touch surface draws with: the game's own sans face through
 /// <see cref="NativeGameTypography"/>, with its CJK fallbacks added when a label needs them.

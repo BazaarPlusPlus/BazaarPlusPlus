@@ -387,9 +387,9 @@ internal sealed class AndroidComposition
     }
 
     // Encounter Preview is not composed on Android; nothing here reads encounter ids or the
-    // offered pedestal. This probe makes no Unity call, so it is safe from any thread a Core
-    // service might ask it on.
-    private sealed class NoEncounterState : IEncounterStateProbe
+    // offered pedestal, so the touch Collection pre-selects no source. This probe makes no Unity
+    // call, so it is safe from any thread a Core service might ask it on.
+    internal sealed class NoEncounterState : IEncounterStateProbe
     {
         public static NoEncounterState Instance { get; } = new();
 

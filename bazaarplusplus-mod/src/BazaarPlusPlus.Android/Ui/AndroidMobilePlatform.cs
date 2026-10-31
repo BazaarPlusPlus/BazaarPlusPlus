@@ -73,4 +73,53 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
                 "A Mobile UI panel registered before the Overlay Panel Host existed."
             )
         ).Register(registration);
+
+    public void OnTextChanged(TMP_InputField field, Action<string> onChanged) =>
+        field.onValueChanged.AddListener((UnityAction<string>)onChanged);
+
+    public bool AnimationsEnabled() => AndroidMotion.AnimationsEnabled();
+
+    public string? GameText(string key)
+    {
+        try
+        {
+            return new Il2CppTheBazaar.Utilities.LocalizableText(key).GetLocalizedText();
+        }
+        catch (Exception)
+        {
+            // The localization service may come up later.
+            return null;
+        }
+    }
+
+    public string? TooltipTag(string tag)
+    {
+        try
+        {
+            return Il2CppTheBazaar.Data.TooltipTypography?.ColorTag(tag);
+        }
+        catch (Exception)
+        {
+            // Typography can be absent during a scene or locale change.
+            return null;
+        }
+    }
+
+    public string EncounterName(Guid templateId, string fallback) =>
+        AndroidEncounterNames.Display(templateId, fallback);
+
+    public Task<Sprite?> HeroPortrait(CardHero hero) => AndroidPortraits.Hero(hero);
+
+    public Task<Sprite?> EncounterPortrait(Guid templateId) =>
+        AndroidPortraits.Encounter(templateId);
+
+    public (string? Text, float? Cooldown, float? Ammo) CardPreview(CardRentalSubject subject) =>
+        AndroidCardTemplateText.Preview(subject);
+
+    public Func<CardRentalSubject, CardEnchantment, string?> EnchantmentEffects(Guid templateId)
+    {
+        var template = AndroidCardTemplateText.Template(templateId);
+        return (subject, enchantment) =>
+            AndroidCardTemplateText.EnchantmentEffect(template, subject, enchantment);
+    }
 }
