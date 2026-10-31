@@ -6,7 +6,7 @@ requires-python = "==3.14.*"
 dependencies = [
     "boto3==1.43.114",
     "click==8.5.0",
-    "duckdb==1.5.6",
+    "duckdb==2.0.0",
     "httpx==0.28.1",
     "jsonschema==4.26.0",
     "pyarrow==26.0.0",
