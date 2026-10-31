@@ -3,6 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
+using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppTheBazaar.Tooltips;
 using Il2CppTheBazaar.UI.Tooltips;
 using UnityEngine;
@@ -49,10 +50,16 @@ internal static class HeroLevelRewardsTooltipPatch
             // quest rows, which the handler's reset does not clear.
             controller._questDisplayService?.BuildDisplay(null, null);
 
-            var level = heroLevel.GetCurrentAndNextLevel().Item1;
-            // The badge's own player, so a replay shows the rewards of the hero it replays.
+            // The level as GetCurrentAndNextLevel reads it, whose returned tuple does not marshal
+            // through the interop. The badge's own player, so a replay shows the rewards of the
+            // hero it replays.
+            var player = heroLevel._player;
+            var level =
+                player?.Attributes?.TryGetValue(EPlayerAttributeType.Level, out var value) == true
+                    ? value
+                    : 0;
             CardHero? hero =
-                heroLevel._player is { } player
+                player != null
                 && AndroidCardFacets.Hero.TryToFacet(player.Hero, out var facet)
                 && facet != CardHero.Common
                     ? facet
@@ -66,11 +73,24 @@ internal static class HeroLevelRewardsTooltipPatch
 
             var text = controller.passiveEffectText;
             var visibility = controller.passiveEffectParentVisibilityControl;
-            if (text == null || visibility == null)
+            var block = controller.passiveEffectParent?.transform;
+            var strip = controller._heroLevelTooltipViewComponent?._parent?.transform;
+            if (
+                text == null
+                || visibility == null
+                || block == null
+                || strip == null
+                || strip.parent != block.parent
+            )
             {
                 ReportObserved("section_unavailable", "section_unavailable", level, content.Length);
                 return;
             }
+            // The prefab lays the passive block out above the strip; the desktop's section sits
+            // below it. Only this tooltip shows the strip, so moving it right before the block
+            // leaves every other tooltip's order as it was.
+            if (strip.GetSiblingIndex() > block.GetSiblingIndex())
+                strip.SetSiblingIndex(block.GetSiblingIndex());
             visibility.SetVisible(true);
             controller.dividerParent?.SetActive(true);
             text.SetText("<size=75%>" + content + "</size>");
