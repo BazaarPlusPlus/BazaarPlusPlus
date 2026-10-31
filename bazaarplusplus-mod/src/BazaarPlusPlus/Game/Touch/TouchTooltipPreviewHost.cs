@@ -57,12 +57,14 @@ internal sealed class TouchTooltipPreviewHost : ITooltipPreviewHost
 
     public ScrollRect? DescriptionScroll() => _controller?.MobileSecondaryTooltipScrollRect;
 
+    /// <summary>Whether the game shows a replay, whose cards preview no upgrade (<see cref="TouchUpgradePreview"/>).</summary>
+    internal static bool ShowsReplay() => AppState.CurrentState is ReplayState;
+
     // As on the Android host, BPP never previews the upgrade of a replay's or a recap's card.
     public bool CanToggleUpgrade =>
         _cardInstance is ItemCard item
         && item.CanCardUpgrade()
-        && TouchUpgradePreview.Active != null
-        && AppState.CurrentState is not ReplayState
+        && TouchUpgradePreview.Offered
         && Singleton<BoardManager>.Instance?.IsRecapViewOpen != true;
 
     public bool UpgradeShown => TouchUpgradePreview.Active == true;

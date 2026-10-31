@@ -1,9 +1,11 @@
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards.Enchantments;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.ItemEnchantPreview.Preview;
 using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Patches.Tooltips;
 using TheBazaar.Tooltips;
 
@@ -376,10 +378,68 @@ foreach (var name in BazaarPlusPlus.Core.GameState.PedestalEnchantCatalog.Enchan
         $"The pedestal catalog's enchantment '{name}' must be an EEnchantmentType member."
     );
 
+// iOS host: as on the Android host, a replay's card neither previews its upgrade nor offers the
+// switch, whatever [Touch] UpgradePreview says. BppHotkeyService.IsActive(HoldUpgradePreview), which
+// the tooltip patches read, returns TouchUpgradePreview.Active on a mobile platform.
+var touchSettings = new MemorySettingsStore();
+var showsReplay = false;
+TouchUpgradePreview.Bind(touchSettings, () => showsReplay);
+touchSettings.Bool("Touch", "UpgradePreview").Value = true;
+var shopCard = new object();
+TouchUpgradePreview.BeginTooltip(shopCard);
+Assert(
+    TouchUpgradePreview.Active == true
+        && TouchUpgradePreview.Offered
+        && TouchUpgradePreview.Holds(shopCard),
+    "Outside a replay a new tooltip starts with the upgrade preview the settings switch turns on."
+);
+showsReplay = true;
+var replayCard = new object();
+TouchUpgradePreview.BeginTooltip(replayCard);
+Assert(
+    TouchUpgradePreview.Active == false && !TouchUpgradePreview.Holds(replayCard),
+    "A replay card's tooltip must not start with the upgrade preview."
+);
+Assert(!TouchUpgradePreview.Offered, "A replay card's tooltip must not offer the upgrade switch.");
+showsReplay = false;
+TouchUpgradePreview.BeginTooltip(shopCard);
+Assert(
+    TouchUpgradePreview.Active == true,
+    "After the replay a card's tooltip starts at the settings switch again."
+);
+TouchUpgradePreview.End();
+
 Console.WriteLine("ItemEnchantPreview checks passed.");
 
 static void Assert(bool condition, string message)
 {
     if (!condition)
         throw new InvalidOperationException(message);
+}
+
+internal sealed class MemorySettingsStore : IBppSettingsStore
+{
+    private readonly Dictionary<string, object> _bound = new();
+
+    public ISetting<T> Bind<T>(
+        string section,
+        string key,
+        T defaultValue,
+        string description,
+        SettingRange<T>? acceptableRange = null
+    )
+        where T : IComparable
+    {
+        var setting = new Setting<T> { Value = defaultValue };
+        _bound[section + "/" + key] = setting;
+        return setting;
+    }
+
+    public ISetting<bool> Bool(string section, string key) =>
+        (ISetting<bool>)_bound[section + "/" + key];
+
+    private sealed class Setting<T> : ISetting<T>
+    {
+        public T Value { get; set; } = default!;
+    }
 }
