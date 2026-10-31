@@ -7,10 +7,11 @@ namespace BazaarPlusPlus.Game.Touch;
 
 /// <summary>
 /// The upgrade preview on a mobile platform (ADR-0024): a touch screen has no Shift key, so, as
-/// on the Android host, each item tooltip has its own upgrade toggle
-/// (<see cref="TouchGameplayPreviews"/>) and the settings switch chooses where a new tooltip
-/// starts. <c>BppHotkeyService.IsActive(HoldUpgradePreview)</c> reads the current tooltip's
-/// toggle.
+/// on the Android host, each item tooltip has its own upgrade switch (the Mobile UI's
+/// <c>TouchPreviewSwitches</c>, through <see cref="TouchTooltipPreviewHost"/>) and the settings
+/// switch chooses where a new tooltip starts. <c>BppHotkeyService.IsActive(HoldUpgradePreview)</c>
+/// reads the current tooltip's switch. Host state the desktop's tooltip patches read, so it stays
+/// in the host, as Android's <c>AndroidUpgradePreview</c> does.
 /// </summary>
 internal static class TouchUpgradePreview
 {
@@ -21,10 +22,10 @@ internal static class TouchUpgradePreview
     private static object? _card;
     private static bool _selected;
 
-    /// <summary>The current tooltip's toggle, or null when the host is not on a mobile platform.</summary>
+    /// <summary>The current tooltip's switch, or null when the host is not on a mobile platform.</summary>
     internal static bool? Active => _setting == null ? null : _selected;
 
-    /// <summary>Main thread, before a card shows its tooltip: a new card starts at the switch.</summary>
+    /// <summary>Main thread, before a card shows its tooltip: a new card starts at the settings switch.</summary>
     internal static void BeginTooltip(object? card)
     {
         if (_setting == null || ReferenceEquals(card, _card))
@@ -37,8 +38,15 @@ internal static class TouchUpgradePreview
     internal static bool Holds(object card) =>
         _setting != null && _selected && ReferenceEquals(card, _card);
 
-    /// <summary>The current tooltip's touch toggle.</summary>
+    /// <summary>The current tooltip's touch switch.</summary>
     internal static bool Toggle() => _selected = !_selected;
+
+    /// <summary>The tooltip closed: the card's next tooltip starts at the settings switch again.</summary>
+    internal static void End()
+    {
+        _card = null;
+        _selected = false;
+    }
 
     internal static void Bind(IBppSettingsStore store) =>
         _setting = store.Bind(

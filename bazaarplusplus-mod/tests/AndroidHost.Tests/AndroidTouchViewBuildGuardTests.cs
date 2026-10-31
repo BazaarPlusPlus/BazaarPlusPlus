@@ -76,6 +76,17 @@ public sealed class AndroidTouchViewBuildGuardTests
         );
     }
 
+    // The tooltip's preview switches moved into the Mobile UI tree too: the switches and the host
+    // read they reach the tooltip through must still compile into the host.
+    [Fact]
+    public void The_preview_switches_compile_into_the_host()
+    {
+        Assert.True(
+            Host.Value.Types.Count(type => type.Namespace == "BazaarPlusPlus.Mobile.Previews") >= 2,
+            "The preview switches left the Android host's Mobile UI tree."
+        );
+    }
+
     [Theory]
     [InlineData(LiveBuildView, ".ctor")]
     [InlineData(HistoryView, ".ctor")]

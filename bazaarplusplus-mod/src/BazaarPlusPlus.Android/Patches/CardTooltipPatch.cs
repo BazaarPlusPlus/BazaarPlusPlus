@@ -38,9 +38,12 @@ internal static class CardTooltipPatch
 internal static class CardTooltipHidePatch
 {
     // Mobile input dismisses the native tooltip after the BPP button's onClick. A touch in
-    // its actions or drawer still belongs to that inspection; outside touches remain native.
+    // its actions or drawer still belongs to that inspection, outside a fight; outside touches
+    // remain native.
     [HarmonyPrefix]
-    private static bool Prefix() => AndroidPatchHost.GameplayPreviews?.ContainsPointer() != true;
+    private static bool Prefix() =>
+        Il2CppTheBazaar.Data.IsInCombat
+        || AndroidPatchHost.PreviewSwitches?.ContainsPointer() != true;
 
     [HarmonyPostfix]
     private static void Postfix(TooltipParentComponent __instance)
@@ -79,12 +82,12 @@ internal static class CardTooltipRenderPatch
                     tooltipData.CardInstance
                 );
                 AndroidUpgradePreview.OnShowTooltips(cardController);
-                AndroidPatchHost.GameplayPreviews?.Observe(controller, tooltipData);
+                AndroidPatchHost.TooltipPreviewHost?.Observe(controller, tooltipData);
             }
         }
         catch (Exception exception)
         {
-            AndroidPatchHost.ReportProbeError("gameplay_previews", exception);
+            AndroidPatchHost.ReportProbeError("preview_switches", exception);
         }
         AndroidEnchantPreview.Prepare(tooltipData);
         AndroidUpgradePreviewValues.Prepare(tooltipData);

@@ -64,7 +64,7 @@ public sealed class AndroidHostThreadingRuleTests
             "BazaarPlusPlus.Android.CombatReplay",
             "BazaarPlusPlus.Android.Ui",
             "BazaarPlusPlus.Android.Patches",
-            // The Mobile UI tree: Ten-Win Builds, Collection, History and the HUD (ADR-0025).
+            // The Mobile UI tree: Ten-Win Builds, Collection, History, the HUD and the previews (ADR-0025).
             "BazaarPlusPlus.Mobile",
         ];
         static bool In(CompiledType type, string ns) =>
@@ -72,10 +72,10 @@ public sealed class AndroidHostThreadingRuleTests
         var scope = Host.Value.Types.Where(type => namespaces.Any(ns => In(type, ns))).ToArray();
         // A moved or renamed namespace would leave its rule inspecting nothing; the Mobile UI tree
         // holds the port, the theme, the kit, the leaves #701 steps 2 and 3 moved, Ten-Win Builds,
-        // Collection, History and the HUD.
+        // Collection, History, the HUD and the preview switches.
         Assert.All(namespaces, ns => Assert.Contains(scope, type => In(type, ns)));
         Assert.True(
-            scope.Count(type => In(type, "BazaarPlusPlus.Mobile")) >= 54,
+            scope.Count(type => In(type, "BazaarPlusPlus.Mobile")) >= 56,
             "The Mobile UI tree left the Android host's threading rule."
         );
         var violations = scope

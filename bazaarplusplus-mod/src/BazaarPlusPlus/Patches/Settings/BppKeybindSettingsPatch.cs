@@ -22,23 +22,19 @@ internal static class BppKeybindSettingsAwakePatch
     internal const string ToggleLiveBuildPanelObjectName = "BPP_Keybind_ToggleLiveBuildPanel";
     internal const string ToggleHistoryPanelObjectName = "BPP_Keybind_ToggleHistoryPanel";
 
-    private static readonly BppKeybindDefinition[] PreviewDefinitions =
+    private static readonly BppKeybindDefinition[] Definitions =
     [
         new(EnchantPreviewObjectName, BppHotkeyActionId.HoldEnchantPreview),
         new(UpgradePreviewObjectName, BppHotkeyActionId.HoldUpgradePreview),
-    ];
-    private static readonly BppKeybindDefinition[] AllDefinitions =
-    [
-        .. PreviewDefinitions,
         new(ToggleCollectionPanelObjectName, BppHotkeyActionId.ToggleCollectionPanel),
         new(ToggleLiveBuildPanelObjectName, BppHotkeyActionId.ToggleLiveBuildPanel),
         new(ToggleHistoryPanelObjectName, BppHotkeyActionId.ToggleHistoryPanel),
     ];
 
-    // The rows the dialog shows. On a mobile platform the touch panels register no toggle
-    // hotkey (ADR-0024, ADR-0025), so their three rows would bind keys that open nothing.
-    private static BppKeybindDefinition[] Definitions =>
-        TouchPlatform.IsMobile ? PreviewDefinitions : AllDefinitions;
+    // A mobile platform has no keyboard and adds no key rows, as on the Android host: the touch
+    // panels register no toggle hotkey, and the tooltip's touch switches replace the two hold
+    // keys (ADR-0024, ADR-0025).
+    private static bool Prepare() => !TouchPlatform.IsMobile;
 
     internal static IEnumerable<string> DefinitionObjectNames =>
         Definitions.Select(definition => definition.ObjectName);

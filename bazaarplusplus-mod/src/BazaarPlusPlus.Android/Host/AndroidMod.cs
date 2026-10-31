@@ -18,6 +18,7 @@ using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile;
 using BazaarPlusPlus.Mobile.History;
 using BazaarPlusPlus.Mobile.Hud;
+using BazaarPlusPlus.Mobile.Previews;
 using HarmonyLib;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -113,7 +114,6 @@ public sealed class AndroidMod : MelonMod
         _overlayPanels?.Frame(Time.unscaledDeltaTime);
         _touchUi?.EnsureMounted();
         Guarded("touch_ui", _tickTouchUi);
-        Guarded("gameplay_previews", () => AndroidPatchHost.GameplayPreviews?.Tick());
         Guarded("quest_preview", () => AndroidPatchHost.QuestPreview?.Tick());
         Guarded("encounter_preview", () => AndroidPatchHost.EncounterPreview?.Tick());
         AndroidGameFont.Tick();
@@ -206,8 +206,8 @@ public sealed class AndroidMod : MelonMod
     private void Stop()
     {
         AndroidAppLifecycle.PauseChanged = null;
-        AndroidPatchHost.GameplayPreviews?.Dispose();
-        AndroidPatchHost.GameplayPreviews = null;
+        AndroidPatchHost.PreviewSwitches = null;
+        AndroidPatchHost.TooltipPreviewHost = null;
         AndroidPatchHost.QuestPreview?.Dispose();
         AndroidPatchHost.QuestPreview = null;
         AndroidPatchHost.AggregateItemPreview = null;
@@ -246,8 +246,13 @@ public sealed class AndroidMod : MelonMod
         {
             var shared = _composition?.Settings ?? new BppSettings(settings);
             var android = new AndroidSettings(settings);
-            AndroidPatchHost.GameplayPreviews = new AndroidGameplayPreviews(panels);
-            panels.SetTooltipPreview(AndroidPatchHost.GameplayPreviews.Collapse);
+            // The Mobile UI's preview switches in the item tooltip, which the HUD ticks; Back
+            // collapses their effects first.
+            var tooltipPreviewHost = new AndroidTooltipPreviewHost();
+            var previewSwitches = new TouchPreviewSwitches(tooltipPreviewHost);
+            AndroidPatchHost.TooltipPreviewHost = tooltipPreviewHost;
+            AndroidPatchHost.PreviewSwitches = previewSwitches;
+            panels.SetTooltipPreview(previewSwitches.Collapse);
             AndroidPatchHost.QuestPreview = new Game.AndroidQuestPreview(shared);
             AndroidPatchHost.AggregateItemPreview = new Game.AndroidAggregateItemPreview(shared);
             AndroidPatchHost.EncounterPreview = new Game.AndroidEncounterPreview(shared);
@@ -300,7 +305,8 @@ public sealed class AndroidMod : MelonMod
                         || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>()
                             != null,
                     combatStatus.TogglePause
-                )
+                ),
+                previewSwitches
             );
             var versionCheck = _versionCheck;
             AndroidSettingsDock.Install(
@@ -466,10 +472,6 @@ public sealed class AndroidMod : MelonMod
         Guarded(
             "scene_loaded:upgrade_preview",
             () => AndroidUpgradePreview.Release("scene_changed")
-        );
-        Guarded(
-            "scene_loaded:gameplay_previews",
-            () => AndroidPatchHost.GameplayPreviews?.Clear("scene_changed")
         );
         Guarded(
             "scene_loaded:combat_status",

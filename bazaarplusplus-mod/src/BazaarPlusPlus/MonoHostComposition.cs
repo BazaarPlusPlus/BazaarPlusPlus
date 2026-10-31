@@ -298,10 +298,9 @@ internal sealed class MonoHostComposition : IDisposable
         _mountables.Register(new ComponentMount<CombatStatusBar>((c, s) => c.Initialize(s)));
         // A mobile platform (ADR-0024) mounts only what the Android host has: the music note
         // preview waits for a held key and the post-combat impact for a hover and Shift, so
-        // neither is reachable by touch; the tooltip toggles take the held key's place.
+        // neither is reachable by touch; the HUD's tooltip switches take the held key's place.
         if (TouchPlatform.IsMobile)
         {
-            _mountables.Register(new ComponentMount<TouchGameplayPreviews>());
             // The game fills a screen narrower than 16:10 instead of letterboxing it (ADR-0025).
             _mountables.Register(new ComponentMount<TouchScreenFill>());
         }
