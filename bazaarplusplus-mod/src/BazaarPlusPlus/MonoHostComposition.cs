@@ -349,6 +349,9 @@ internal sealed class MonoHostComposition : IDisposable
                 _buildRecommendationRepository
             )
         );
+        // The Mobile UI's shortcuts and combat clock take the dock buttons' and the bar's place.
+        if (TouchPlatform.IsMobile)
+            _mountables.Register(new TouchHudMount());
         _mountables.Register(
             new ComponentMount<CosmeticNameOverlayObserver>(
                 (observer, services) => observer.Initialize(services.Config)

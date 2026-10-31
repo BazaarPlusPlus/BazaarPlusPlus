@@ -22,7 +22,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel;
 // could not subscribe to ChineseLocaleModeChanged, which the catalog cache + UI labels need
 // in order to regenerate when the user cycles BPP's Chinese variant. On a mobile platform
 // (ADR-0024) it mounts the Mobile UI's TouchCollectionEntry (ADR-0025) instead, under a touch
-// canvas of its own, which the dock button opens through TryOpenTouchPanel.
+// canvas of its own, which the HUD's shortcut opens through OpenTouchPanel.
 internal sealed class CollectionPanelMount : IBppMountable
 {
     private static TouchCollectionEntry? _touch;
@@ -53,18 +53,9 @@ internal sealed class CollectionPanelMount : IBppMountable
             dayTierResolver ?? throw new ArgumentNullException(nameof(dayTierResolver));
     }
 
-    /// <summary>The dock button's open on a mobile platform; false when the touch panel is not mounted.</summary>
-    internal static bool TryOpenTouchPanel()
-    {
-        if (_touch == null)
-            return false;
-        var outcome = _touch.RequestOpen("dock_button");
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.CollectionPanel, "collection_panel.touch.dock_open"),
-            ("outcome", outcome)
-        );
-        return true;
-    }
+    /// <summary>The HUD shortcut's open on a mobile platform (the Mono host's TouchHudMount).</summary>
+    internal static OverlayRequestOutcome OpenTouchPanel(string source) =>
+        _touch?.RequestOpen(source) ?? OverlayRequestOutcome.UnknownPanel;
 
     public void Mount(GameObject host, IBppServices services)
     {

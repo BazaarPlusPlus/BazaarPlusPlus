@@ -1,29 +1,43 @@
-using BazaarPlusPlus.Android.Game;
-using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CombatStatusBar;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Mobile.Ui;
-using Il2CppTheBazaar;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.Hud;
 
-internal sealed class AndroidCombatStatusView(
-    AndroidCombatStatus playback,
-    AndroidOverlayPanels panels,
-    AndroidSettings settings
-) : IDisposable
+/// <summary>What a host hands the combat clock.</summary>
+/// <param name="State">The playback state the host's combat hooks feed, as the desktop bar's.</param>
+/// <param name="Enabled">The clock's setting.</param>
+/// <param name="Shown">
+/// The host's own rule beyond the setting: a run or a replay is on, and nothing of the host's
+/// hides the clock (on the Mono host, an end-of-run screenshot).
+/// </param>
+/// <param name="TogglePause">Pauses or resumes the playing fight.</param>
+internal sealed record TouchCombatClockData(
+    CombatStatusBarState State,
+    Func<bool> Enabled,
+    Func<bool> Shown,
+    Action TogglePause
+);
+
+/// <summary>
+/// The combat clock on a mobile platform: a plaque by the vault with the logical time and touch
+/// speed and pause controls, over the desktop bar's <see cref="CombatStatusBarState"/>. It shows
+/// for the whole run or replay, as the desktop bar does, and hides under a panel, a native popup
+/// or card inspection.
+/// </summary>
+internal sealed class TouchCombatClock : IDisposable
 {
+    private readonly TouchCombatClockData _data;
     private GameObject? _root;
     private TextMeshProUGUI? _time;
     private Image? _pauseIcon;
-    private AndroidPlaybackIcons? _icons;
+    private TouchPlaybackIcons? _icons;
     private TextMeshProUGUI? _speedText;
     private Button? _pause;
-    private Button? _speed;
     private NativeSkin? _skin;
 
     // The vault the plaque sits beside, read from the board as the desktop reads the hero
@@ -32,7 +46,6 @@ internal sealed class AndroidCombatStatusView(
     // has held still for a few reads; a plaque shown again after hiding lays out at once.
     private const int VaultReadFrames = 5;
     private const int VaultStableReads = 2;
-    private readonly AndroidVaultBounds _vaultBounds = new();
     private int _shownFrames;
     private int _missedFrames;
     private TouchRect _vault;
@@ -62,26 +75,28 @@ internal sealed class AndroidCombatStatusView(
     // As the desktop bar: the time fades to muted ink outside a fight and back to ink in one.
     private float _visualBlend;
 
-    public void Tick()
+    public TouchCombatClock(TouchCombatClockData data) =>
+        _data = data ?? throw new ArgumentNullException(nameof(data));
+
+    /// <summary>Every frame, from the host's Overlay Panel Host.</summary>
+    public void Tick(bool panelOpen)
     {
-        var state = playback.State;
-        state.OnVisibilitySettingChanged(settings.CombatTimer.Value);
+        var state = _data.State;
+        var enabled = _data.Enabled();
+        // A hidden pause button must not leave a fight paused.
+        state.OnVisibilitySettingChanged(enabled);
         _visualBlend = CombatStatusBarState.AdvanceVisualBlend(
             _visualBlend,
             state.IsCombatPlaybackActive,
             Time.unscaledDeltaTime
         );
-        // As the desktop bar: shown for the whole run or replay, not only while a fight plays.
-        var visible =
-            settings.CombatTimer.Value
-            && (Data.HasActiveRun || AppState.CurrentState?.TryCast<ReplayState>() != null)
-            && panels.OpenPanelId == null
-            && !AndroidNativeHud.HasPopup
-            && !AndroidNativeHud.IsInspectingCard;
+        var shown = enabled && _data.Shown();
+        var visible = shown && !panelOpen && !MobilePlatform.Port.NativeHudBusy();
         if (!visible)
         {
             Hide();
-            BuildAhead();
+            if (shown)
+                BuildAhead();
             return;
         }
         var appearing = !_shown;
@@ -104,7 +119,7 @@ internal sealed class AndroidCombatStatusView(
             || (read && _relayout != null && _relayout.Observe(key, settingUp: false))
         )
         {
-            var font = AndroidGameFont.Font;
+            var font = MobilePlatform.Port.GameFont();
             if (font == null)
                 return;
             Build(font, key, ahead: false);
@@ -156,17 +171,15 @@ internal sealed class AndroidCombatStatusView(
     }
 
     // While hidden by a panel, popup or inspection, in a run or a replay, and once per scene (a
-    // scene load disposes the view): the plaque is built hidden, so the frame it reappears on
+    // scene change disposes the clock): the plaque is built hidden, so the frame it reappears on
     // does not pay for the build.
     private void BuildAhead()
     {
-        if (_root != null || !settings.CombatTimer.Value)
+        if (_root != null)
             return;
         if (_hiddenFrames++ % BuildAheadCheckFrames != 0)
             return;
-        if (!Data.HasActiveRun && AppState.CurrentState?.TryCast<ReplayState>() == null)
-            return;
-        var font = AndroidGameFont.Font;
+        var font = MobilePlatform.Port.GameFont();
         if (font == null || LayoutKey() is not { } key)
             return;
         Build(font, key, ahead: true);
@@ -179,8 +192,9 @@ internal sealed class AndroidCombatStatusView(
     /// </summary>
     private string? LayoutKey()
     {
+        var port = MobilePlatform.Port;
         if (
-            !_vaultBounds.TryRead(UiKit.ReferenceResolution.y, out var vault)
+            !port.TryReadVault(UiKit.ReferenceResolution.y, out var vault)
             || !TouchHudLayout.FitsBesideVault(TouchScreen.Read(), vault)
         )
             return _layoutKey = null;
@@ -192,8 +206,8 @@ internal sealed class AndroidCombatStatusView(
             (int)MathF.Round(vault.Height)
         );
         _vault = vault;
-        // On a screen the board is drawn nearer on, the HUD gathers above it (AndroidScreenFill).
-        _boardTop = AndroidScreenFill.BoardTop * UiKit.ReferenceResolution.y / Screen.height;
+        // On a screen the board is drawn nearer on, the HUD gathers above it (Screen Fill).
+        _boardTop = port.BoardTop * UiKit.ReferenceResolution.y / Screen.height;
         var boardTop = _boardTop is { } top ? (int?)MathF.Round(top) : null;
         if (
             _layoutKey != null
@@ -216,7 +230,7 @@ internal sealed class AndroidCombatStatusView(
         else
             _relayout.LaidOutAt(key);
         // The glyphs are owned sprites that outlive the canvas; only Dispose destroys them.
-        var icons = _icons ??= new AndroidPlaybackIcons();
+        var icons = _icons ??= new TouchPlaybackIcons();
         var chrome = TouchChrome.For(TouchScreen.Read());
         // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
         // the clock as it reappears; above the board HUD (order 0).
@@ -286,21 +300,20 @@ internal sealed class AndroidCombatStatusView(
         var shadow = glyph.gameObject.AddComponent<Shadow>();
         shadow.effectColor = InGameTheme.WithAlpha(InGameTheme.Outline, 0.85f);
         shadow.effectDistance = new Vector2(chrome.Metrics.Dp(1), -chrome.Metrics.Dp(1));
-        _speed = Control(
+        Control(
             TouchScreen.Child("Speed", _root.transform, layout.Speed),
             _speedText,
-            () => playback.State.CycleCombatSpeed()
+            "combat_speed",
+            () => _data.State.CycleCombatSpeed()
         );
         _pause = Control(
             TouchScreen.Child("Pause", _root.transform, layout.Pause),
             _pauseIcon,
-            playback.TogglePause
+            "combat_pause",
+            _data.TogglePause
         );
-        BazaarPlusPlus.Infrastructure.BppLog.InfoEvent(
-            new BazaarPlusPlus.Infrastructure.Logging.BppLogEvent(
-                BazaarPlusPlus.Infrastructure.Logging.BppLogFeatureScope.Android,
-                "android.combat_status.layout"
-            ),
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.combat_status.layout"),
             ("ahead", ahead),
             ("vault", _vault),
             ("board_top", _boardTop),
@@ -324,13 +337,13 @@ internal sealed class AndroidCombatStatusView(
         );
 
     /// <summary>A transparent hit area that tints the visible label or glyph it drives.</summary>
-    private static Button Control(RectTransform rect, Graphic visual, Action action)
+    private static Button Control(RectTransform rect, Graphic visual, string control, Action action)
     {
         UiKit.Fill(rect, new Color(0, 0, 0, .001f));
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = visual;
-        button.onClick.AddListener((UnityAction)action);
         button.navigation = new Navigation { mode = Navigation.Mode.None };
+        UiActions.OnTap(button, control, action);
         return button;
     }
 

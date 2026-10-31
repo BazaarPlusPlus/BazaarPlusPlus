@@ -83,6 +83,19 @@ internal sealed partial class CombatStatusBar : MonoBehaviour
             );
     }
 
+    /// <summary>
+    /// The Mobile UI's combat clock's rule beyond its setting (TouchHudMount): a run or a replay
+    /// is on, and no end-of-run screenshot is being taken.
+    /// </summary>
+    internal static bool ShowsTouchClock() =>
+        _current is { _screenshotSuppressionCount: 0 }
+        && _services != null
+        && CombatStatusBarState.ShouldRenderForState(
+            true,
+            _services.RunContext,
+            _services.GameStateProbe
+        );
+
     internal static IDisposable? BeginScreenshotSuppression()
     {
         return _current?.BeginInstanceScreenshotSuppression();

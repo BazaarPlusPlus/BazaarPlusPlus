@@ -26,7 +26,7 @@ ADR-0012 forbids the Android host to compile linked sources, and `AndroidHostAss
 1. **Two UI forms.** The Desktop UI stays in the Mono host's `Game/` panels and mounts only on a desktop platform. The Mobile UI is one source tree, `src/BazaarPlusPlus.Mobile/`, which both hosts compile through `<Compile Include>`: the Mono host for iOS (when `TouchPlatform.IsMobile` is true), and the Android host always. Its namespaces are `BazaarPlusPlus.Mobile.*`. It is never a project or an assembly of its own, and no test project links it in addition to a host.
 2. **This narrows ADR-0012 for the Mobile tree only.** Each host may compile `src/BazaarPlusPlus.Mobile/` and no other linked BPP source. `Android_host_defines_only_its_own_types` accepts `BazaarPlusPlus.Mobile.*` and still rejects everything else. Core keeps every other ADR-0012 rule.
 3. **One Mobile Platform Port per host.** Shared code reaches the runtime only through the port, never through `#if`:
-   - frame driving
+   - frame driving: no port member of its own (amended 2026-10-31). Both hosts tick the Mobile UI through Core's Overlay Panel Host (ADR-0022): a panel through its overlay registration, and the HUD, which is no panel, through a registration that never opens.
    - the main-thread scope
    - object liveness
    - casts

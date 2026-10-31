@@ -17,6 +17,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile;
 using BazaarPlusPlus.Mobile.History;
+using BazaarPlusPlus.Mobile.Hud;
 using HarmonyLib;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -52,11 +53,10 @@ public sealed class AndroidMod : MelonMod
     private long _nextSummaryAt;
     private bool _summaryForced;
     private BppLogField[]? _lastSummary;
-    private readonly Action _tickCombatStatus;
+    private readonly Action _tickTouchUi;
     private AndroidComposition? _composition;
     private AndroidTouchUi? _touchUi;
     private Game.AndroidCombatStatus? _combatStatus;
-    private AndroidCombatStatusView? _combatStatusView;
     private AndroidVersionCheck? _versionCheck;
     private AndroidApkUpdatePrompt? _apkPrompt;
     private AndroidCombatReplayRuntime? _replayRuntime;
@@ -69,7 +69,7 @@ public sealed class AndroidMod : MelonMod
     public AndroidMod()
     {
         // Cached once: a lambda over this would allocate a delegate every frame.
-        _tickCombatStatus = () => _combatStatusView?.Tick();
+        _tickTouchUi = () => _touchUi?.Tick();
     }
 
     public override void OnInitializeMelon()
@@ -112,8 +112,8 @@ public sealed class AndroidMod : MelonMod
         _replayRuntime?.Tick();
         _overlayPanels?.Frame(Time.unscaledDeltaTime);
         _touchUi?.EnsureMounted();
+        Guarded("touch_ui", _tickTouchUi);
         Guarded("gameplay_previews", () => AndroidPatchHost.GameplayPreviews?.Tick());
-        Guarded("combat_status", _tickCombatStatus);
         Guarded("quest_preview", () => AndroidPatchHost.QuestPreview?.Tick());
         Guarded("encounter_preview", () => AndroidPatchHost.EncounterPreview?.Tick());
         AndroidGameFont.Tick();
@@ -212,8 +212,6 @@ public sealed class AndroidMod : MelonMod
         AndroidPatchHost.QuestPreview = null;
         AndroidPatchHost.AggregateItemPreview = null;
         AndroidPatchHost.EncounterPreview = null;
-        _combatStatusView?.Dispose();
-        _combatStatusView = null;
         _combatStatus?.Dispose();
         _combatStatus = null;
         AndroidPatchHost.CombatStatus = null;
@@ -253,9 +251,9 @@ public sealed class AndroidMod : MelonMod
             AndroidPatchHost.QuestPreview = new Game.AndroidQuestPreview(shared);
             AndroidPatchHost.AggregateItemPreview = new Game.AndroidAggregateItemPreview(shared);
             AndroidPatchHost.EncounterPreview = new Game.AndroidEncounterPreview(shared);
-            _combatStatus = new Game.AndroidCombatStatus(shared);
-            AndroidPatchHost.CombatStatus = _combatStatus;
-            _combatStatusView = new AndroidCombatStatusView(_combatStatus, panels, android);
+            var combatStatus = new Game.AndroidCombatStatus(shared);
+            _combatStatus = combatStatus;
+            AndroidPatchHost.CombatStatus = combatStatus;
             L.Install(
                 ReadGameLanguageCode,
                 () => ChineseScriptConverter.NormalizeMode(shared.ChineseLocaleModeConfig.Value)
@@ -293,6 +291,15 @@ public sealed class AndroidMod : MelonMod
                 _composition?.Supporters,
                 new AndroidCollectionCatalog(
                     Path.Combine(AndroidPaths.DataRoot(melonBase), "CollectionCatalog")
+                ),
+                new TouchCombatClockData(
+                    combatStatus.State,
+                    () => android.CombatTimer.Value,
+                    static () =>
+                        Il2CppTheBazaar.Data.HasActiveRun
+                        || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>()
+                            != null,
+                    combatStatus.TogglePause
                 )
             );
             var versionCheck = _versionCheck;
@@ -470,7 +477,6 @@ public sealed class AndroidMod : MelonMod
             {
                 _combatStatus?.Reset();
                 AndroidPatchHost.QuestPreview?.Dispose();
-                _combatStatusView?.Dispose();
             }
         );
         Guarded("scene_loaded:overlay_panels", () => _overlayPanels?.SceneLoaded());

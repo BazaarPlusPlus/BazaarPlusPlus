@@ -1,25 +1,24 @@
-using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.Hud;
 
 /// <summary>Native circular artwork inside an independent, full-sized touch target.</summary>
-internal static class AndroidRoundControl
+internal static class TouchRoundControl
 {
     /// <summary>
     /// <paramref name="art"/> drawn at <paramref name="size"/>, the native button's own size,
     /// centred in <paramref name="target"/>; <paramref name="icon"/> sits where the native icon
-    /// does.
+    /// does. A tap runs <paramref name="action"/> as the control <paramref name="control"/>.
     /// </summary>
-    public static (Button Button, Image Icon) Create(
+    public static Button Create(
         RectTransform target,
-        AndroidNativeArt.RoundArt art,
+        NativeRoundArt art,
         Sprite? icon,
         Vector2 size,
+        string control,
         Action action
     )
     {
@@ -46,9 +45,9 @@ internal static class AndroidRoundControl
         image.preserveAspect = true;
         var button = target.gameObject.AddComponent<Button>();
         button.targetGraphic = surface ?? hit;
-        button.onClick.AddListener((UnityAction)action);
         button.navigation = new Navigation { mode = Navigation.Mode.None };
-        return (button, image);
+        UiActions.OnTap(button, control, action);
+        return button;
     }
 
     private static RectTransform Part(

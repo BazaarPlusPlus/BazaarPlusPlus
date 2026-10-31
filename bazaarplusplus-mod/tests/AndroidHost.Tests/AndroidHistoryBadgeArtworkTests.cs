@@ -43,7 +43,7 @@ public sealed class AndroidHistoryBadgeArtworkTests
     /// </summary>
     [Theory]
     [InlineData(Badges, "LoadAtlas")]
-    [InlineData("BazaarPlusPlus.Android.Ui.AndroidControlIcons", "GpuOnlySprite")]
+    [InlineData("BazaarPlusPlus.Mobile.Hud.TouchHudIcons", "GpuOnlySprite")]
     public void Decoded_artwork_drops_its_cpu_pixels_once_its_sprites_exist(
         string type,
         string method

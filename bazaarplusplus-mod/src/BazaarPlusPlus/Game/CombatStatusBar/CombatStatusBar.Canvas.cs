@@ -41,17 +41,12 @@ internal sealed partial class CombatStatusBar
     private bool? _renderedPause;
     private bool? _renderedInteractable;
 
-    // On a mobile platform (ADR-0024) the Android clock beside the vault replaces this bar; this
-    // component still feeds the state and decides when the clock shows.
-    private Touch.TouchCombatStatusView? _touchView;
-
     private void EnsureUi()
     {
+        // On a mobile platform (ADR-0024) the Mobile UI's combat clock by the vault replaces this
+        // bar (TouchHudMount); this component still feeds the state.
         if (TouchPlatform.IsMobile)
-        {
-            _touchView ??= new Touch.TouchCombatStatusView();
             return;
-        }
         if (_canvasObject != null)
             return;
         // A switched-off bar prepares no fonts and builds no canvas. Gate on the setting alone:
@@ -221,14 +216,6 @@ internal sealed partial class CombatStatusBar
 
     private void RefreshUi()
     {
-        if (_touchView != null)
-        {
-            _touchView.Tick(
-                ShouldDraw(),
-                _services?.Config.EnableCombatStatusBarConfig.Value == true
-            );
-            return;
-        }
         if (_canvasObject == null)
             return;
         var visible = ShouldDraw() && RefreshLayout();
@@ -389,8 +376,6 @@ internal sealed partial class CombatStatusBar
 
     private void SetUiVisible(bool visible)
     {
-        if (!visible)
-            _touchView?.Hide();
         // Keep the CanvasScaler active while hidden so resize/re-entry uses the current scale.
         SetCanvasEnabled(visible);
         if (_barRoot != null && _barRoot.gameObject.activeSelf != visible)
@@ -407,8 +392,6 @@ internal sealed partial class CombatStatusBar
 
     private void DisposeUi()
     {
-        _touchView?.Dispose();
-        _touchView = null;
         if (_canvasObject != null)
         {
             _canvasObject.SetActive(false);

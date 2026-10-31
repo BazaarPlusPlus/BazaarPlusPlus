@@ -32,6 +32,19 @@ public static class TouchHudLayout
         return new TouchRect(Math.Max(safe.Left, right - target), top, target, target);
     }
 
+    /// <summary>
+    /// The <paramref name="index"/>th shortcut's target by the settings button (0 Collection, 1
+    /// Ten-Win Builds). In a run on a screen that gathers the HUD above the board
+    /// (<see cref="ScreenFill.GathersHudAbove"/>), the board reaches up to just under the gear, so
+    /// all sit in a row left of it (<see cref="ShortcutInRow"/>). Elsewhere they make a corner:
+    /// the first below the gear, the second beside it.
+    /// </summary>
+    public static TouchRect Shortcut(TouchMetrics metrics, TouchRect gear, int index, bool inRun) =>
+        inRun && ScreenFill.GathersHudAbove(metrics.CanvasWidth / metrics.CanvasHeight)
+            ? ShortcutInRow(metrics, gear, index)
+        : index == 0 ? ShortcutBelow(metrics, gear)
+        : ShortcutBeside(metrics, gear);
+
     /// <summary>The target below the settings button, centred under it.</summary>
     public static TouchRect ShortcutBelow(TouchMetrics metrics, TouchRect gear)
     {

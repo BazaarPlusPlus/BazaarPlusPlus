@@ -4,6 +4,7 @@ using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.LiveCards;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Mobile;
@@ -24,6 +25,8 @@ namespace BazaarPlusPlus.Android.Ui;
 internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayPanels)
     : IMobilePlatformPort
 {
+    private readonly AndroidVaultBounds _vault = new();
+
     public IDisposable EnterMainThread() => AndroidMainThread.Host.Enter();
 
     public bool IsAlive(UnityEngine.Object? value) => value != null && !value.WasCollected;
@@ -130,4 +133,33 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
 
     public INativeSkillOverlay NativeSkillOverlay(int sortingOrder) =>
         new AndroidNativeSkillOverlay(sortingOrder);
+
+    public string? OpenPanelId => overlayPanels()?.OpenPanelId;
+
+    public Button? FindSettingsButton(out bool inRun) =>
+        AndroidNativeHud.FindSettingsButton(out inRun);
+
+    public TouchRect ScreenBounds(RectTransform rect, Canvas rootCanvas, float referenceHeight) =>
+        AndroidNativeHud.ScreenBounds(rect, rootCanvas, referenceHeight);
+
+    public NativeRoundArt ReadRoundArt(Button gear, RectTransform rect, Canvas rootCanvas)
+    {
+        var art = AndroidNativeArt.RoundArtFor(gear, rect, rootCanvas);
+        return new NativeRoundArt(
+            art.Layers.Select(layer => new NativeArtLayer(layer.Sprite, layer.Color, layer.Bounds))
+                .ToArray(),
+            art.Icon
+        );
+    }
+
+    public bool NativeHudBusy() => AndroidNativeHud.HasPopup || AndroidNativeHud.IsInspectingCard;
+
+    public bool IsPlaying() =>
+        Il2CppTheBazaar.Data.IsInCombat
+        || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>() != null;
+
+    public bool TryReadVault(float referenceHeight, out TouchRect vault) =>
+        _vault.TryRead(referenceHeight, out vault);
+
+    public float? BoardTop => AndroidScreenFill.BoardTop;
 }

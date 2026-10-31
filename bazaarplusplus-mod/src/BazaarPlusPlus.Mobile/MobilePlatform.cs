@@ -1,6 +1,7 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.LiveCards;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using UnityEngine;
@@ -142,7 +143,57 @@ internal interface IMobilePlatformPort
     /// open so it stands over the panel that opened it.
     /// </summary>
     INativeSkillOverlay NativeSkillOverlay(int sortingOrder);
+
+    /// <summary>The open Main Overlay Panel's id in the host's Overlay Panel Host, or null.</summary>
+    string? OpenPanelId { get; }
+
+    /// <summary>
+    /// The game's active settings button, or null; <paramref name="inRun"/> is true when it is the
+    /// run's, false when it is the lobby's or hero select's.
+    /// </summary>
+    Button? FindSettingsButton(out bool inRun);
+
+    /// <summary>
+    /// <paramref name="rect"/>'s screen rect in canvas units scaled to
+    /// <paramref name="referenceHeight"/>, down from the top; <paramref name="rootCanvas"/> is the
+    /// rect's root canvas, which the caller resolves once and keeps.
+    /// </summary>
+    TouchRect ScreenBounds(RectTransform rect, Canvas rootCanvas, float referenceHeight);
+
+    /// <summary>
+    /// The round <paramref name="gear"/> button at rest (its <paramref name="rect"/> and
+    /// <paramref name="rootCanvas"/>): its visible layers except its icon, and where the icon sits;
+    /// no layers when they cannot be read.
+    /// </summary>
+    NativeRoundArt ReadRoundArt(Button gear, RectTransform rect, Canvas rootCanvas);
+
+    /// <summary>Whether a native popup (settings included) is open or the native card drawer shows an inspected card.</summary>
+    bool NativeHudBusy();
+
+    /// <summary>Whether a fight or a replay is playing.</summary>
+    bool IsPlaying();
+
+    /// <summary>
+    /// The vault, the player's bank on the board, in canvas units scaled to
+    /// <paramref name="referenceHeight"/>; false with no vault on screen.
+    /// </summary>
+    bool TryReadVault(float referenceHeight, out TouchRect vault);
+
+    /// <summary>
+    /// The board's top edge in screen pixels down from the top, where Screen Fill gathers the
+    /// HUD in a band above the board; null elsewhere.
+    /// </summary>
+    float? BoardTop { get; }
 }
+
+/// <summary>
+/// A round native button's artwork: its layers, each placed as a fraction of the button's bounds,
+/// and where its icon sits, when it has one.
+/// </summary>
+internal sealed record NativeRoundArt(IReadOnlyList<NativeArtLayer> Layers, TouchRect? Icon);
+
+/// <summary>One layer of a native button: its sprite, tint and place within the button.</summary>
+internal readonly record struct NativeArtLayer(Sprite Sprite, Color Color, TouchRect Bounds);
 
 /// <summary>
 /// The game's own mobile skill overlay (<c>MobileSkillOverlayController</c>) over skills that are
