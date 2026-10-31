@@ -26,6 +26,9 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
     private AndroidEncounterPlans? _plans;
     private static readonly EncounterChoicePlanParser Parser = new(Normalize, (_, _, _, _) => null);
 
+    /// <summary>The Detailed Preview switch.</summary>
+    public bool Enabled => settings.EnableDetailedPreviewConfig.Value;
+
     public void Tick()
     {
         if (!settings.EnableDetailedPreviewConfig.Value || !Data.IsManagerCreated())
@@ -52,7 +55,8 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                 BppLog.InfoEvent(
                     new BppLogEvent(BppLogFeatureScope.Android, "android.encounter_preview.ready"),
                     ("events", _plans.Snapshot.EventCount),
-                    ("merchants", _plans.Merchants.Count)
+                    ("merchants", _plans.Merchants.Count),
+                    ("level_ups", _plans.Snapshot.LevelUpCount)
                 );
             }
             else
@@ -62,6 +66,50 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                     ("reason_code", "database_read")
                 );
             _load = null;
+        }
+    }
+
+    /// <summary>
+    /// What leveling up from <paramref name="currentLevel"/> gives <paramref name="hero"/>, the
+    /// desktop's level-up text over the same Core formatter: max health, board slots below level
+    /// four, and the rewards to choose from, with each reward's text as its Android tooltip
+    /// renders it. Shown in fights and replays too, as on the desktop. Null when the switch is
+    /// off, the plans are not read yet, or the level has none.
+    /// </summary>
+    public string? RenderLevelUp(int currentLevel, CardHero? hero)
+    {
+        if (!settings.EnableDetailedPreviewConfig.Value || _plans == null)
+            return null;
+        var loaded = _plans.Snapshot;
+        if (!loaded.TryGetLevelUp(currentLevel, out var plan))
+            return null;
+        return LevelUpPreviewTextFormatter.Build(
+            plan,
+            id => loaded.TryGetTemplate(id, out var template) ? Localized(template) : null,
+            hero,
+            ColorKeywords,
+            currentLevel
+        );
+    }
+
+    // The desktop colors keywords in the plain lines it builds. A description the game's tooltip
+    // rendered already carries its colors and sprites, so it is left as it is.
+    private static string ColorKeywords(string text)
+    {
+        if (text.Contains('<'))
+            return text;
+        try
+        {
+            return Data.TooltipTypography?.ColorKeywords(
+                    text,
+                    false,
+                    false,
+                    new Il2CppSystem.Nullable<ECardAttributeType>()
+                ) ?? text;
+        }
+        catch (Exception)
+        {
+            return text;
         }
     }
 
@@ -96,28 +144,8 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             .Distinct();
         var templates = new List<EncounterPreviewTemplatePlan>();
         foreach (var templateId in ids)
-        {
-            if (!loaded.TryGetTemplate(templateId, out var template))
-                continue;
-            var title = AndroidCardTemplateText.Title(templateId) ?? template.Title.FallbackText;
-            var description =
-                template.Kind == EncounterPreviewTemplateKind.CombatEncounter
-                    ? template.Description.FallbackText
-                    : AndroidCardTemplateText.Description(templateId)
-                        ?? template.Description.FallbackText;
-            templates.Add(
-                new(
-                    templateId,
-                    template.Kind,
-                    template.Heroes,
-                    template.InternalName,
-                    new(null, title),
-                    new(null, description),
-                    null,
-                    template.RewardFilter
-                )
-            );
-        }
+            if (loaded.TryGetTemplate(templateId, out var template))
+                templates.Add(Localized(template));
         var snapshot = new EncounterPreviewSnapshot([plan], templates);
         var run = Data.Run;
         CardHero? hero =
@@ -135,6 +163,28 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         return option == null
             ? null
             : EncounterPreviewTextFormatter.Build(option, dayTiers: AndroidDayTiers.Current());
+    }
+
+    // A static template with the title and description the current language and the game's
+    // tooltip give it.
+    private static EncounterPreviewTemplatePlan Localized(EncounterPreviewTemplatePlan template)
+    {
+        var id = template.TemplateId;
+        var title = AndroidCardTemplateText.Title(id) ?? template.Title.FallbackText;
+        var description =
+            template.Kind == EncounterPreviewTemplateKind.CombatEncounter
+                ? template.Description.FallbackText
+                : AndroidCardTemplateText.Description(id) ?? template.Description.FallbackText;
+        return new(
+            id,
+            template.Kind,
+            template.Heroes,
+            template.InternalName,
+            new(null, title),
+            new(null, description),
+            null,
+            template.RewardFilter
+        );
     }
 
     private static EncounterInventory? Inventory()
@@ -208,10 +258,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             var heroes = new List<CardHero>();
             if (card["Heroes"] is JArray heroNames)
                 foreach (var name in heroNames)
-                    if (
-                        Enum.TryParse<EHero>(name.ToString(), out var native)
-                        && AndroidCardFacets.Hero.TryToFacet(native, out var hero)
-                    )
+                    if (Hero(name.ToString()) is { } hero)
                         heroes.Add(hero);
             EncounterPreviewLocalizedText Text(string key) =>
                 new(
@@ -248,8 +295,28 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                 )
             );
         }
-        return new(new EncounterPreviewSnapshot(events, templates), merchants);
+        reader.Close();
+        command.CommandText = "SELECT Id, Data FROM level_ups";
+        using var levelReader = command.ExecuteReader();
+        var levelUps = new List<LevelUpPreviewPlan>();
+        while (levelReader.Read())
+            if (
+                Parser.TryParseLevelUp(
+                    levelReader.GetInt32(0),
+                    JObject.Parse(Encoding.UTF8.GetString((byte[])levelReader.GetValue(1))),
+                    Hero
+                ) is
+                { } levelUp
+            )
+                levelUps.Add(levelUp);
+        return new(new EncounterPreviewSnapshot(events, templates, levelUps), merchants);
     }
+
+    private static CardHero? Hero(string name) =>
+        Enum.TryParse<EHero>(name, out var native)
+        && AndroidCardFacets.Hero.TryToFacet(native, out var hero)
+            ? hero
+            : null;
 
     private static string? Normalize(string kind, string? raw) =>
         kind switch

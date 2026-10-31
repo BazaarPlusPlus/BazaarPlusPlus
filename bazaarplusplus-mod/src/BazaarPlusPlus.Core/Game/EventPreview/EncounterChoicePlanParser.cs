@@ -57,6 +57,107 @@ public sealed class EncounterChoicePlanParser(
             : new EncounterMerchantTierRule(null, UsesDayDistribution: !ignoresDayTable);
     }
 
+    /// <summary>
+    /// A static-data <c>level_ups</c> row's rewards, read off its JSON as the desktop's
+    /// <c>EncounterPreviewPlanCompiler.CompileLevelUps</c> reads the typed <c>TLevelUp</c>: a
+    /// group gated on board cards (<c>TPrerequisiteCardCount</c>) is left out, a
+    /// <c>TRunConditionalPlayerHero</c> run prerequisite becomes a hero condition and any other
+    /// prerequisite is ignored, only <c>TSpawnFilterIdList</c> filters contribute ids, a
+    /// <c>TFixedValue</c> limit counts and any other limit is one. <paramref name="hero"/> maps a
+    /// native hero name to its facet, null when it has none. Null when the row's
+    /// <paramref name="key"/> disagrees with its level, as the compiler rejects it, or the row
+    /// does not read.
+    /// </summary>
+    public LevelUpPreviewPlan? TryParseLevelUp(
+        int key,
+        JToken? levelUp,
+        Func<string, CardHero?> hero
+    )
+    {
+        try
+        {
+            var level = levelUp?["Level"]?.Value<int>();
+            if (levelUp == null || level != key)
+                return null;
+
+            var groups = new List<LevelUpPreviewGroup>();
+            var isRandomSelection = false;
+            if (
+                levelUp["Rewards"] is JObject rewards
+                && TypeIs(rewards, "TSpawnContextQuery", whenUntyped: true)
+            )
+            {
+                var selection = rewards["SelectionMethod"]?.ToString();
+                isRandomSelection =
+                    (Normalize("SelectionMethod", selection) ?? selection) == "Random";
+                if (rewards["Groups"] is JArray groupArray)
+                    foreach (var group in groupArray.OfType<JObject>())
+                        if (ReadLevelUpGroup(group, hero) is { } parsed)
+                            groups.Add(parsed);
+            }
+
+            return new LevelUpPreviewPlan(
+                key,
+                checked((int)(levelUp["HealthIncrease"]?.Value<long>() ?? 0)),
+                isRandomSelection,
+                groups
+            );
+        }
+        catch (Exception exception)
+            when (exception is FormatException or InvalidCastException or OverflowException)
+        {
+            return null;
+        }
+    }
+
+    private LevelUpPreviewGroup? ReadLevelUpGroup(JObject group, Func<string, CardHero?> hero)
+    {
+        var heroConditions = new List<LevelUpPreviewHeroCondition>();
+        if (group["Prerequisites"] is JArray prerequisites)
+            foreach (var prerequisite in prerequisites.OfType<JObject>())
+            {
+                if (TypeIs(prerequisite, "TPrerequisiteCardCount", whenUntyped: false))
+                    return null;
+                if (
+                    TypeIs(prerequisite, "TPrerequisiteRun", whenUntyped: false)
+                    && prerequisite["Conditions"] is JObject condition
+                    && TypeIs(condition, "TRunConditionalPlayerHero", whenUntyped: false)
+                )
+                {
+                    var heroes = new List<CardHero>();
+                    if (condition["Heroes"] is JArray names)
+                        foreach (var name in names)
+                            if (hero(name.ToString()) is { } facet && !heroes.Contains(facet))
+                                heroes.Add(facet);
+                    var comparison = condition["Operator"]?.ToString();
+                    heroConditions.Add(
+                        new LevelUpPreviewHeroCondition(
+                            heroes,
+                            Normalize("ListComparison", comparison) ?? comparison ?? string.Empty
+                        )
+                    );
+                }
+            }
+
+        var ids = new List<Guid>();
+        if (group["Filters"] is JArray filters)
+            foreach (var filter in filters.OfType<JObject>())
+                if (TypeIs(filter, "TSpawnFilterIdList", whenUntyped: false))
+                    ids.AddRange(ReadGuids(filter["Ids"]));
+        if (ids.Count == 0)
+            return null;
+
+        var limit = 1;
+        if (
+            group["Limit"] is JObject limitToken
+            && TypeIs(limitToken, "TFixedValue", whenUntyped: false)
+            && limitToken["Value"] is { } value
+        )
+            limit = Math.Max(1, checked((int)value.Value<double>()));
+
+        return new LevelUpPreviewGroup(ReadUInt(group["RandomWeight"]), limit, ids, heroConditions);
+    }
+
     // "$type" names the short type, or the full one with its assembly after a comma.
     private static bool TypeIs(JObject token, string typeName, bool whenUntyped)
     {
