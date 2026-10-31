@@ -142,22 +142,98 @@ public sealed class LevelUpPlanParserTests
         Assert.Equal(22u, plan.Groups[3].RandomWeight);
     }
 
+    private static readonly Guid Yetarian = Guid.Parse("04f879e5-94fe-42ae-aa7a-273edbd6d410");
+    private static readonly Guid Sanguine = Guid.Parse("8dead654-6cd3-4819-a0f1-b9d5a70b59f7");
+    private static readonly Guid Arcane = Guid.Parse("f1878b7e-cad6-4301-a5c1-bccf5d35da7b");
+
+    // A trimmed copy of the game's level 9 row (Behaviors dropped): the outer query is Random
+    // over a pool of nine pedestals weighted 199 and two enchant groups weighted by their card
+    // count, each group with a null Limit.
+    private static readonly string LevelNine = $$"""
+        {
+          "$type": "TLevelUp",
+          "Level": 9,
+          "Rewards": {
+            "$type": "TSpawnContextQuery",
+            "Groups": [
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [{
+                  "$type": "TSpawnFilterIdList",
+                  "Ids": [
+                    "4df2e5f8-1a7f-4046-b374-8f1642b24751", "5f65bbe1-bf39-4fe7-8eeb-57b669df1ee6",
+                    "9c1f2654-3077-4c4e-b38e-946aed17cbfb", "c1e69f94-fa5a-4d96-bb3e-1a4a0c8b4b04",
+                    "47c256d3-6f3e-495b-b119-12739adda129", "320e7f80-334b-440c-8cc1-0b54e3141335",
+                    "c3925fd2-d174-40ff-8d15-3d9c41b3615b", "81110f4a-ab1e-4a9e-af1f-a0a4ce44b629",
+                    "41e6d3fc-2795-4107-ba0a-29ecad00f37b"
+                  ]
+                }],
+                "SelectionMethod": "Random",
+                "Limit": null,
+                "Prerequisites": null,
+                "RandomWeight": 199
+              },
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [{ "$type": "TSpawnFilterIdList", "Ids": ["{{Yetarian}}", "{{Sanguine}}"] }],
+                "SelectionMethod": "Random",
+                "Limit": null,
+                "Prerequisites": null,
+                "RandomWeight": 2
+              },
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [{ "$type": "TSpawnFilterIdList", "Ids": ["{{Arcane}}"] }],
+                "SelectionMethod": "Random",
+                "Limit": null,
+                "Prerequisites": null,
+                "RandomWeight": 1
+              }
+            ],
+            "SelectionMethod": "Random",
+            "Limit": { "$type": "TFixedValue", "Value": 2.0 }
+          },
+          "TutorialRewards": null,
+          "HealthIncrease": 600,
+          "Version": "5.0.0"
+        }
+        """;
+
     [Fact]
-    public void Reads_random_selection_off_the_outer_query()
+    public void Reads_random_selection_off_the_outer_query_and_renders_the_desktop_text()
     {
-        var plan = Parse(
-            9,
-            """
-            {
-              "Level": 9,
-              "Rewards": { "$type": "TSpawnContextQuery", "SelectionMethod": "Random", "Groups": [] },
-              "HealthIncrease": 0
-            }
-            """
+        var plan = Parse(9, LevelNine);
+
+        Assert.NotNull(plan);
+        Assert.True(plan!.IsRandomSelection);
+        Assert.Equal(600, plan.HealthIncrease);
+        Assert.Equal(new uint[] { 199, 2, 1 }, plan.Groups.Select(group => group.RandomWeight));
+        // A null Limit is one draw.
+        Assert.All(plan.Groups, group => Assert.Equal(1, group.Limit));
+        Assert.Equal(new[] { Yetarian, Sanguine }, plan.Groups[1].TemplateIds);
+
+        var templates = new Dictionary<Guid, EncounterPreviewTemplatePlan>
+        {
+            [Yetarian] = Template(Yetarian, "Yetarian Tomb", "Enchant an item with Icy."),
+            [Sanguine] = Template(Sanguine, "Sanguine Valley", "Enchant an item with Obsidian."),
+            [Arcane] = Template(Arcane, "Arcane Abyss", "Enchant an item with Shiny."),
+        };
+        var text = LevelUpPreviewTextFormatter.Build(
+            plan,
+            id => templates.TryGetValue(id, out var template) ? template : null,
+            CardHero.Vanessa,
+            currentLevel: 9
         );
 
-        Assert.True(plan!.IsRandomSelection);
-        Assert.Empty(plan.Groups);
+        Assert.Contains("+ 600 Max Health", text);
+        Assert.DoesNotContain("board slots", text);
+        Assert.Contains("Choose one:", text);
+        Assert.Contains("Random reward (9 options)", text);
+        // The two enchant groups, weighted by their card count, are one pool of three.
+        Assert.Contains("one of 3", text);
+        Assert.Contains("Yetarian Tomb", text);
+        Assert.Contains("Sanguine Valley", text);
+        Assert.Contains("Arcane Abyss", text);
     }
 
     [Fact]

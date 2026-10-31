@@ -73,12 +73,13 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
     /// What leveling up from <paramref name="currentLevel"/> gives <paramref name="hero"/>, the
     /// desktop's level-up text over the same Core formatter: max health, board slots below level
     /// four, and the rewards to choose from, with each reward's text as its Android tooltip
-    /// renders it. Shown in fights and replays too, as on the desktop. Null when the switch is
-    /// off, the plans are not read yet, or the level has none.
+    /// renders it. Null when the switch is off, in combat (as the desktop's
+    /// <c>EncounterPreviewModule</c> leaves the native strip alone in a fight), the plans are not
+    /// read yet, or the level has none.
     /// </summary>
     public string? RenderLevelUp(int currentLevel, CardHero? hero)
     {
-        if (!settings.EnableDetailedPreviewConfig.Value || _plans == null)
+        if (!settings.EnableDetailedPreviewConfig.Value || Data.IsInCombat || _plans == null)
             return null;
         var loaded = _plans.Snapshot;
         if (!loaded.TryGetLevelUp(currentLevel, out var plan))
