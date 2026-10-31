@@ -95,21 +95,23 @@
     />
   </ItemGroup>
 
+  <!-- The touch shortcuts' and History menu's icons, likewise linked under the Mono host's
+       names, which the Mobile UI's TouchHudIcons reads on both hosts. -->
   <ItemGroup>
     <EmbeddedResource
       Include="../BazaarPlusPlus/Resources/DockButtons/collection-panel-icon.png"
-      LogicalName="BazaarPlusPlus.Android.Resources.Controls.collection.png"
+      Link="Resources/DockButtons/collection-panel-icon.png"
+      LogicalName="BazaarPlusPlus.Resources.DockButtons.collection-panel-icon.png"
+    />
+    <EmbeddedResource
+      Include="../BazaarPlusPlus/Resources/DockButtons/ten-win-builds-icon.png"
+      Link="Resources/DockButtons/ten-win-builds-icon.png"
+      LogicalName="BazaarPlusPlus.Resources.DockButtons.ten-win-builds-icon.png"
     />
     <EmbeddedResource
       Include="../BazaarPlusPlus/Resources/HistoryPanel/history-menu.png"
-      LogicalName="BazaarPlusPlus.Android.Resources.Controls.history.png"
-    />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource
-      Include="../BazaarPlusPlus/Resources/DockButtons/ten-win-builds-icon.png"
-      LogicalName="BazaarPlusPlus.Android.Resources.Controls.ten-win-builds.png"
+      Link="Resources/HistoryPanel/history-menu.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.history-menu.png"
     />
   </ItemGroup>
 

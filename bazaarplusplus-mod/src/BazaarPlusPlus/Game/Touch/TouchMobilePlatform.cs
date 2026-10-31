@@ -1,6 +1,7 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.LiveCards;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.GameInterop.LiveCards;
@@ -29,6 +30,7 @@ internal sealed class TouchMobilePlatform(Func<DesktopOverlayPanels?> overlayPan
         .SynchronizationContext
         .Current;
     private readonly int _mainThreadId = Environment.CurrentManagedThreadId;
+    private readonly TouchVaultBounds _vault = new();
 
     public IDisposable EnterMainThread() => EmptyScope.Instance;
 
@@ -143,6 +145,34 @@ internal sealed class TouchMobilePlatform(Func<DesktopOverlayPanels?> overlayPan
 
     public INativeSkillOverlay NativeSkillOverlay(int sortingOrder) =>
         new TouchNativeSkillOverlay(sortingOrder);
+
+    public string? OpenPanelId => overlayPanels()?.OpenPanelId;
+
+    public Button? FindSettingsButton(out bool inRun) =>
+        TouchNativeHud.FindSettingsButton(out inRun);
+
+    public TouchRect ScreenBounds(RectTransform rect, Canvas rootCanvas, float referenceHeight) =>
+        TouchNativeHud.ScreenBounds(rect, rootCanvas, referenceHeight);
+
+    public NativeRoundArt ReadRoundArt(Button gear, RectTransform rect, Canvas rootCanvas)
+    {
+        var art = TouchNativeArt.RoundArtFor(gear, rect, rootCanvas);
+        return new NativeRoundArt(
+            art.Layers.Select(layer => new NativeArtLayer(layer.Sprite, layer.Color, layer.Bounds))
+                .ToArray(),
+            art.Icon
+        );
+    }
+
+    public bool NativeHudBusy() => TouchNativeHud.HasPopup || TouchNativeHud.IsInspectingCard;
+
+    public bool IsPlaying() =>
+        TheBazaar.Data.IsInCombat || TheBazaar.AppState.CurrentState is TheBazaar.ReplayState;
+
+    public bool TryReadVault(float referenceHeight, out TouchRect vault) =>
+        _vault.TryRead(referenceHeight, out vault);
+
+    public float? BoardTop => TouchScreenFill.BoardTop;
 
     private sealed class EmptyScope : IDisposable
     {

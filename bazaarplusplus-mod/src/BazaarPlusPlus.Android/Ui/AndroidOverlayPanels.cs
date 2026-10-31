@@ -9,14 +9,15 @@ namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
 /// The Android adapter of the Overlay Panel Host (GLOSSARY.md §Overlay panels): History, Collection
-/// and Ten-Win Builds register with Core's <see cref="OverlayPanelHost"/> through it, which keeps
+/// and Ten-Win Builds register with Core's <see cref="OverlayPanelHost"/> through it, and so does
+/// the Mobile UI's HUD, which never opens but takes the ticks and scene changes. The host keeps
 /// one of them open at a time, closes them for combat, a scene change and Panel Switch-Off, and
 /// releases the rented cards once every panel let go of its own (on a scene change or a
 /// switch-off, never on a plain close). The scene is a generation counter that
 /// <see cref="SceneLoaded"/> advances. The back key (Escape under Unity) is answered at once,
 /// inside the game's escape hooks (<see cref="BackKeyPatches"/>): the open panel's modal first,
 /// then the panel. One press can reach BPP
-/// twice in a frame, through the game's escape hook and through the touch root's own keyboard
+/// twice in a frame, through the game's escape hook and through the touch UI's own keyboard
 /// read, so a consumed press is stamped with its frame and the second sighting is consumed
 /// without closing a second panel. Every entry runs inside the main-thread pump's scope; nothing
 /// here touches the IL2CPP runtime, which the host injects as delegates (ADR-0016 §3).

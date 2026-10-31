@@ -131,6 +131,39 @@ public sealed class TouchHudLayoutTests
         }
     }
 
+    [Fact]
+    public void Shortcuts_make_a_row_only_in_a_run_on_a_screen_that_gathers_the_hud_above()
+    {
+        // 4:3 gathers the HUD above the board; 16:10 and 20:9 do not.
+        var square = TouchMetrics.From(2048f, 1536f, 264f, Reference, 0f, 0f, 2048f, 1536f);
+        foreach (
+            var (metrics, row) in new[]
+            {
+                (square, true),
+                (Metrics("2560x1600@420"), false),
+                (Metrics("2400x1080@420"), false),
+            }
+        )
+        foreach (var gear in Gears(metrics))
+        {
+            Assert.Equal(
+                TouchHudLayout.ShortcutBelow(metrics, gear),
+                TouchHudLayout.Shortcut(metrics, gear, 0, inRun: false)
+            );
+            Assert.Equal(
+                TouchHudLayout.ShortcutBeside(metrics, gear),
+                TouchHudLayout.Shortcut(metrics, gear, 1, inRun: false)
+            );
+            for (var index = 0; index < 2; index++)
+                Assert.Equal(
+                    row ? TouchHudLayout.ShortcutInRow(metrics, gear, index)
+                        : index == 0 ? TouchHudLayout.ShortcutBelow(metrics, gear)
+                        : TouchHudLayout.ShortcutBeside(metrics, gear),
+                    TouchHudLayout.Shortcut(metrics, gear, index, inRun: true)
+                );
+        }
+    }
+
     /// <summary>
     /// A settings button in the top-right corner, smaller and larger than a touch target: the
     /// shortcuts copy its artwork at its size.

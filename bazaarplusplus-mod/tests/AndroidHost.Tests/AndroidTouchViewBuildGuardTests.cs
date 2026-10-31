@@ -65,6 +65,17 @@ public sealed class AndroidTouchViewBuildGuardTests
         );
     }
 
+    // The HUD (shortcuts and combat clock) moved into the Mobile UI tree too: its eight types must
+    // still compile into the host.
+    [Fact]
+    public void The_hud_compiles_into_the_host()
+    {
+        Assert.True(
+            Host.Value.Types.Count(type => type.Namespace == "BazaarPlusPlus.Mobile.Hud") >= 8,
+            "The HUD left the Android host's Mobile UI tree."
+        );
+    }
+
     [Theory]
     [InlineData(LiveBuildView, ".ctor")]
     [InlineData(HistoryView, ".ctor")]

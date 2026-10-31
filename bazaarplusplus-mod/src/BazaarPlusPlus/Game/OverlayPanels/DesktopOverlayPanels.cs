@@ -31,6 +31,9 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
     private bool _sceneTokenLoaded;
     private string _sceneToken = string.Empty;
 
+    // The open Main Overlay Panel's id, or null.
+    public string? OpenPanelId => _host.OpenPanelId;
+
     // hotkeyGuard returning false swallows the whole toggle (open and close) for that frame,
     // e.g. while a text input inside the panel has focus. A null toggleHotkey registers a panel
     // that no key toggles, as the Mobile UI's panels (ADR-0024).

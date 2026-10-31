@@ -17,7 +17,7 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel;
 /// <summary>
 /// Mounts Ten-Win Builds: the desktop's <see cref="LiveBuildPanel"/>, or on a mobile platform
 /// (ADR-0024) the Mobile UI's <see cref="TouchLiveBuildEntry"/> (ADR-0025) under a touch canvas of
-/// its own, which the dock button opens through <see cref="TryOpenTouchPanel"/>.
+/// its own, which the HUD's shortcut opens through <see cref="OpenTouchPanel"/>.
 /// </summary>
 internal sealed class LiveBuildPanelMount : IBppMountable
 {
@@ -37,18 +37,9 @@ internal sealed class LiveBuildPanelMount : IBppMountable
         _recommendations = recommendations;
     }
 
-    /// <summary>The dock button's open on a mobile platform; false when the touch panel is not mounted.</summary>
-    internal static bool TryOpenTouchPanel()
-    {
-        if (_touch == null)
-            return false;
-        var outcome = _touch.RequestOpen("dock_button");
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.LiveBuildPanel, "live_build_panel.touch.dock_open"),
-            ("outcome", outcome)
-        );
-        return true;
-    }
+    /// <summary>The HUD shortcut's open on a mobile platform (the Mono host's TouchHudMount).</summary>
+    internal static OverlayRequestOutcome OpenTouchPanel(string source) =>
+        _touch?.RequestOpen(source) ?? OverlayRequestOutcome.UnknownPanel;
 
     public void Mount(GameObject host, IBppServices services)
     {

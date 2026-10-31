@@ -201,7 +201,7 @@ public sealed class AndroidOverlayPanelsTests
         Assert.False(handle.IsVisible);
     }
 
-    // The game's escape hook and the touch root's keyboard read both see one press.
+    // The game's escape hook and the touch UI's keyboard read both see one press.
     [Fact]
     public void One_press_seen_twice_in_a_frame_closes_one_surface()
     {

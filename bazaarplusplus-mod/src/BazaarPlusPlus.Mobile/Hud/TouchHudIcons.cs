@@ -1,28 +1,32 @@
 using BazaarPlusPlus.Mobile.Ui;
-using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.Hud;
 
 /// <summary>
-/// The touch shortcuts' artwork (Collection, History, Ten-Win Builds), decoded from the PNGs
-/// linked into this assembly. Owned sprites survive scene loads, and each texture keeps no CPU
-/// copy of its pixels once its sprite exists.
+/// The touch shortcuts' artwork (Collection, Ten-Win Builds) and History's menu icon, decoded
+/// from the desktop's own PNGs linked into the host assembly under the Mono host's names. Owned
+/// sprites survive scene loads, and each texture keeps no CPU copy of its pixels once its sprite
+/// exists.
 /// </summary>
-internal sealed class AndroidControlIcons : IDisposable
+internal sealed class TouchHudIcons : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();
+
     public Sprite Collection { get; }
-    public Sprite History { get; }
+
     public Sprite TenWins { get; }
 
-    public AndroidControlIcons()
+    /// <summary>History's tile in the game's menus (the Android host's).</summary>
+    public Sprite History { get; }
+
+    public TouchHudIcons()
     {
         try
         {
-            Collection = Load("Controls.collection.png");
-            History = Load("Controls.history.png");
-            TenWins = Load("Controls.ten-win-builds.png");
+            Collection = Load("DockButtons.collection-panel-icon.png");
+            TenWins = Load("DockButtons.ten-win-builds-icon.png");
+            History = Load("HistoryPanel.history-menu.png");
         }
         catch
         {
@@ -34,14 +38,14 @@ internal sealed class AndroidControlIcons : IDisposable
     private Sprite Load(string resource)
     {
         using var stream =
-            typeof(AndroidControlIcons).Assembly.GetManifestResourceStream(
-                "BazaarPlusPlus.Android.Resources." + resource
+            typeof(TouchHudIcons).Assembly.GetManifestResourceStream(
+                "BazaarPlusPlus.Resources." + resource
             ) ?? throw new InvalidOperationException("Missing control artwork: " + resource);
         using var buffer = new MemoryStream();
         stream.CopyTo(buffer);
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         Own(_owned, texture);
-        if (!ImageConversion.LoadImage(texture, new Il2CppStructArray<byte>(buffer.ToArray())))
+        if (!ImageConversion.LoadImage(texture, buffer.ToArray()))
             throw new InvalidOperationException("Cannot decode control artwork: " + resource);
         return GpuOnlySprite(_owned, texture);
     }
@@ -83,16 +87,19 @@ internal sealed class AndroidControlIcons : IDisposable
 
 /// <summary>
 /// The combat clock's play and pause glyphs: the same play triangle / pause bars as the desktop
-/// CombatPlaybackIcon, rasterized once for IL2CPP's ordinary Image component instead of injecting
-/// a custom Graphic. It decodes no PNG; owned sprites survive scene loads.
+/// CombatPlaybackIcon, rasterized once into an ordinary Image sprite instead of a custom
+/// Graphic, which an IL2CPP host cannot inject. It decodes no PNG; owned sprites survive scene
+/// loads.
 /// </summary>
-internal sealed class AndroidPlaybackIcons : IDisposable
+internal sealed class TouchPlaybackIcons : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();
+
     public Sprite Play { get; }
+
     public Sprite Pause { get; }
 
-    public AndroidPlaybackIcons()
+    public TouchPlaybackIcons()
     {
         try
         {
@@ -110,8 +117,8 @@ internal sealed class AndroidPlaybackIcons : IDisposable
     {
         const int size = 64;
         var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        AndroidControlIcons.Own(_owned, texture);
-        var pixels = new Il2CppStructArray<Color>(size * size * 1L);
+        TouchHudIcons.Own(_owned, texture);
+        var pixels = new Color[size * size];
         for (var y = 0; y < size; y++)
         for (var x = 0; x < size; x++)
         {
@@ -121,8 +128,8 @@ internal sealed class AndroidPlaybackIcons : IDisposable
             pixels[y * size + x] = inside ? UiKit.TextColor : Color.clear;
         }
         texture.SetPixels(pixels);
-        return AndroidControlIcons.GpuOnlySprite(_owned, texture);
+        return TouchHudIcons.GpuOnlySprite(_owned, texture);
     }
 
-    public void Dispose() => AndroidControlIcons.DestroyAll(_owned);
+    public void Dispose() => TouchHudIcons.DestroyAll(_owned);
 }
