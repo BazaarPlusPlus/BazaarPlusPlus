@@ -80,17 +80,18 @@
     />
   </ItemGroup>
 
-  <!-- History's BPP badge atlases are the desktop's own artwork, linked rather than copied. -->
+  <!-- History's BPP badge atlases are the desktop's own artwork, linked rather than copied, under
+       the Mono host's names: the Mobile UI's TouchHistoryBadges reads one name on both hosts. -->
   <ItemGroup>
     <EmbeddedResource
       Include="../BazaarPlusPlus/Resources/HistoryPanel/battle-result-badges.png"
       Link="Resources/HistoryPanel/battle-result-badges.png"
-      LogicalName="BazaarPlusPlus.Android.Resources.HistoryPanel.battle-result-badges.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.battle-result-badges.png"
     />
     <EmbeddedResource
       Include="../BazaarPlusPlus/Resources/HistoryPanel/run-state-badges.png"
       Link="Resources/HistoryPanel/run-state-badges.png"
-      LogicalName="BazaarPlusPlus.Android.Resources.HistoryPanel.run-state-badges.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.run-state-badges.png"
     />
   </ItemGroup>
 

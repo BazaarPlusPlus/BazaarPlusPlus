@@ -1,4 +1,4 @@
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>One layer History draws over its sheet: a dialog, the card inspection or the skills sheet.</summary>
 internal interface IHistoryOverlay
@@ -17,7 +17,7 @@ internal interface IHistoryCardOverlay : IHistoryOverlay
 }
 
 /// <summary>
-/// History's modal layer on Android (ADR-0022's modal layer): the note and More dialogs, which
+/// History's modal layer on a mobile platform (ADR-0022's modal layer): the note and More dialogs, which
 /// hold no card, and the card inspection and skills sheet, which rent theirs. The back key closes
 /// the top-most one in that order. A close of the panel, a relayout and a disposal close all of
 /// them. A scene change closes only the card overlays, since the rental destroys every card right
@@ -25,14 +25,14 @@ internal interface IHistoryCardOverlay : IHistoryOverlay
 /// draft and More its typed code, as on the desktop, whose scene change rebuilds only the boards.
 /// Unity-free, so <c>AndroidHost.Tests</c> drives it with fakes (ADR-0016).
 /// </summary>
-internal sealed class AndroidHistoryOverlays
+internal sealed class TouchHistoryOverlays
 {
     private readonly IHistoryOverlay[] _dialogs;
     private readonly IHistoryCardOverlay[] _cardOverlays;
 
     /// <param name="dialogs">The overlays that hold no card, top-most first.</param>
     /// <param name="cardOverlays">The overlays that rent cards, top-most first, under the dialogs.</param>
-    public AndroidHistoryOverlays(
+    public TouchHistoryOverlays(
         IReadOnlyList<IHistoryOverlay> dialogs,
         IReadOnlyList<IHistoryCardOverlay> cardOverlays
     )

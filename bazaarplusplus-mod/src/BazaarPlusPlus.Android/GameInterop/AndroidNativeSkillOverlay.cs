@@ -1,6 +1,7 @@
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile;
 using Il2CppTheBazaar;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,7 +18,7 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// <paramref name="sortingOrder"/> so it stands over the BPP panel that opened it; its own order
 /// comes back on close, since the board opens the same overlay. Main thread only.
 /// </summary>
-internal sealed class AndroidNativeSkillOverlay(int sortingOrder)
+internal sealed class AndroidNativeSkillOverlay(int sortingOrder) : INativeSkillOverlay
 {
     private GameObject? _proxies;
     private Il2Cpp.MobileSkillOverlayController? _overlay;

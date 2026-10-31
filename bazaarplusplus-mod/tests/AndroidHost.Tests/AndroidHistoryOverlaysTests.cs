@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Mobile.History;
 using Xunit;
 
 namespace AndroidHost.Tests;
@@ -105,7 +105,7 @@ public sealed class AndroidHistoryOverlaysTests
             More = new FakeOverlay("more", Events);
             Inspection = new FakeOverlay("inspection", Events);
             Skills = new FakeOverlay("skills", Events);
-            Overlays = new AndroidHistoryOverlays([Note, More], [Inspection, Skills]);
+            Overlays = new TouchHistoryOverlays([Note, More], [Inspection, Skills]);
         }
 
         public List<string> Events { get; } = new();
@@ -120,7 +120,7 @@ public sealed class AndroidHistoryOverlaysTests
 
         public FakeOverlay[] All => [Note, More, Inspection, Skills];
 
-        public AndroidHistoryOverlays Overlays { get; }
+        public TouchHistoryOverlays Overlays { get; }
     }
 
     private sealed class FakeOverlay(string name, List<string> events) : IHistoryCardOverlay

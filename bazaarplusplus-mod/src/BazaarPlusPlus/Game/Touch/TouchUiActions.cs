@@ -12,27 +12,6 @@ namespace BazaarPlusPlus.Game.Touch;
 /// </summary>
 internal static class TouchUiActions
 {
-    public static void OnTap(UnityEngine.UI.Button button, string control, Action handler)
-    {
-        if (button == null)
-            throw new ArgumentNullException(nameof(button));
-        if (handler == null)
-            throw new ArgumentNullException(nameof(handler));
-        button.onClick.AddListener(() => Run(control, handler));
-    }
-
-    /// <summary><paramref name="handler"/> gets the field's new text after each edit.</summary>
-    public static void OnChanged(TMP_InputField field, string control, Action<string> handler)
-    {
-        if (field == null)
-            throw new ArgumentNullException(nameof(field));
-        if (handler == null)
-            throw new ArgumentNullException(nameof(handler));
-        field.onValueChanged.AddListener(value =>
-            Run(control, () => handler(value ?? string.Empty))
-        );
-    }
-
     public static void Run(string control, Action handler)
     {
         try

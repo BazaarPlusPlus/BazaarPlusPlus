@@ -1,17 +1,15 @@
-using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Mobile.Ui;
-using Il2CppTheBazaar.UI;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
-/// One of History's native boards on Android, the counterpart of the desktop's owned
+/// One of History's native boards on a mobile platform, the counterpart of the desktop's owned
 /// <c>MonsterBoardTooltip</c> preview: each planned card of a stored battle
 /// (<see cref="HistoryBoardProjection.Items"/>) rents the game's own card prefab at its tier and
 /// enchantment, on its display socket (<see cref="HistoryTouchLayout.CardRect"/>). A re-render
@@ -21,7 +19,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// <see cref="Facts"/> reports what the rented cards show as Core's board facts.
 /// <see cref="ReturnAll"/> gives every card back.
 /// </summary>
-internal sealed class AndroidHistoryBoard
+internal sealed class TouchHistoryBoard
 {
     private readonly string _owner;
     private readonly Action<BppItemBoardCard> _onTap;
@@ -31,7 +29,7 @@ internal sealed class AndroidHistoryBoard
     private HistoryTouchLayout? _layout;
     private bool _shown;
 
-    public AndroidHistoryBoard(string owner, Action<BppItemBoardCard> onTap)
+    public TouchHistoryBoard(string owner, Action<BppItemBoardCard> onTap)
     {
         _owner = owner;
         _onTap = onTap;
@@ -81,7 +79,7 @@ internal sealed class AndroidHistoryBoard
             cell.Card = card;
             _cells[key] = cell;
             Place(cell);
-            cell.Lease = AndroidCardRental.Rent(
+            cell.Lease = MobilePlatform.Port.CardRental.Rent(
                 new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType),
                 cell.Slot,
                 _owner
@@ -157,7 +155,7 @@ internal sealed class AndroidHistoryBoard
         );
         var slot = UiKit.Rect("Slot", root, new(0f, 1f), new(0f, 1f), Vector2.zero, Vector2.zero);
         var cell = new Cell(root, slot);
-        AndroidHistoryUi.TapArea(
+        TouchHistoryUi.TapArea(
             root,
             "board_card",
             () =>
@@ -171,7 +169,7 @@ internal sealed class AndroidHistoryBoard
 
     private void Recycle(Cell cell)
     {
-        AndroidCardRental.Return(cell.Lease);
+        MobilePlatform.Port.CardRental.Return(cell.Lease);
         cell.Lease = null;
         cell.Card = null;
         if (cell.Root != null)
@@ -187,6 +185,6 @@ internal sealed class AndroidHistoryBoard
 
         public BppItemBoardCard? Card { get; set; }
 
-        public CardRentalLease<CardPreviewBase>? Lease { get; set; }
+        public CardRentalLease<GameCardPreview>? Lease { get; set; }
     }
 }

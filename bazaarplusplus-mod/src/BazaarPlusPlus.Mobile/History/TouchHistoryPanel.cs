@@ -1,13 +1,7 @@
-using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.Host;
-using BazaarPlusPlus.Android.Patches;
-using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Ui;
-using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.OverlayPanels;
@@ -15,62 +9,57 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Mobile;
 using BazaarPlusPlus.Mobile.Ui;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
-/// The Android twin of the desktop's <c>HistoryPanel</c>: it owns History's state and Core's
-/// <see cref="HistoryPanelCoordinator"/> for the host's lifetime and renders Core's view model
-/// through <see cref="AndroidHistoryPanelView"/>. The selected battle's boards are the game's own
-/// cards, rented into the view's two board regions (<see cref="AndroidHistoryBoard"/>, the
-/// counterpart of the desktop's <c>HistoryPanel.NativeBoards</c>); a tap inspects a card, and the
-/// skills sheet shows both players' skills. Favorites, delete (refused for a run Seal eligibility
-/// protects), the More dialog with the account link, and the note editor act through
-/// the coordinator as the desktop's do. It is a Main Overlay Panel: its lifecycle is the Overlay
-/// Panel Host's (<see cref="AndroidOverlayPanels"/>), which opens it from the touch menu and the
-/// settings row, and closes it for the back key (an open dialog first), combat, a scene change
-/// into combat (<see cref="SceneChangeClosePolicy.OnlyWhenInCombat"/>), another panel opening, and
-/// <c>[Android] HistoryPanel</c> switching off (from the settings row or the More dialog's own
-/// switch); the close button and a replay start request a close. On Android a combat loads no
-/// scene, so the host's per-frame combat rule is what closes it for one. Every other scene change
+/// History on a mobile platform, the touch twin of the desktop's <c>HistoryPanel</c>: it owns
+/// History's state and Core's <see cref="HistoryPanelCoordinator"/> for the host's lifetime and
+/// renders Core's view model through <see cref="TouchHistoryPanelView"/>. The selected battle's
+/// boards are the game's own cards, rented into the view's two board regions
+/// (<see cref="TouchHistoryBoard"/>, the counterpart of the desktop's
+/// <c>HistoryPanel.NativeBoards</c>); a tap inspects a card, and the skills sheet shows both
+/// players' skills. Favorites, delete (refused for a run Seal eligibility protects), the More
+/// dialog with the account link, and the note editor act through the coordinator as the
+/// desktop's do. It is a Main Overlay Panel (<see cref="TouchHistoryEntry"/>): the Overlay Panel
+/// Host opens it, and closes it for the back key (an open dialog first), combat, a scene change
+/// into combat (<see cref="SceneChangeClosePolicy.OnlyWhenInCombat"/>) and another panel
+/// opening; the close button and a replay start request a close. Every other scene change
 /// returns its cards, since the rental destroys them, and renders them again on the next frame;
-/// the note and More dialogs hold no card and stay open (<see cref="AndroidHistoryOverlays"/>). A
+/// the note and More dialogs hold no card and stay open (<see cref="TouchHistoryOverlays"/>). A
 /// new screen size lays the view out again and keeps an open note's draft; the view's lifetime is
 /// Core's <see cref="TouchViewSlot{TView}"/>, so a view that fails to build leaves the panel
-/// closed, and the next open builds again. A replay started from it
-/// reopens it with the selection kept once the replay session is over and the lobby is the active
-/// scene, unless the panel was closed meanwhile. The Record action is not offered:
-/// the host records no video. Every entry point runs inside the main-thread pump's scope, so the
-/// coordinator's continuations resume on the main thread.
+/// closed, and the next open builds again. A replay started from it reopens it with the
+/// selection kept once the replay session is over and the lobby is the active scene, unless the
+/// panel was closed meanwhile. The Record action is not offered: a mobile platform records no
+/// video. Every entry point runs inside the host's main-thread scope, so the coordinator's
+/// continuations resume on the main thread.
 /// </summary>
-internal sealed class AndroidHistoryPanel : IDisposable
+internal sealed class TouchHistoryPanel : IDisposable
 {
-    public const string PanelId = "history";
     private const string ReplayStarted = "replay_started";
 
     private readonly HistoryPanelState _state = new();
     private readonly HistoryPanelCoordinator _coordinator;
     private readonly HistoryPanelDependencies _dependencies;
     private readonly IRunContext _runContext;
-    private readonly Func<ISavedReplayRuntime?> _runtime;
-    private readonly AndroidCardTemplateIndex _templates;
-    private readonly Func<TMP_FontAsset?> _font;
-    private readonly AndroidSupporterData? _supporters;
-    private readonly AndroidHistoryBoard _upper;
-    private readonly AndroidHistoryBoard _lower;
-    private readonly MobilePanelHandle _handle;
-    private readonly TouchViewSlot<AndroidHistoryPanelView> _slot;
-    private AndroidHistoryInspection? _inspection;
-    private AndroidHistorySkillsSheet? _skills;
-    private readonly AndroidNativeSkillOverlay _nativeSkills = new(
-        AndroidHistoryPanelView.SortingOrder + 1
+    private readonly IHistoryCardTemplates _templates;
+    private readonly ISupporterRotation? _supporters;
+    private readonly Func<string, OverlayRequestOutcome> _requestOpen;
+    private readonly Func<string, OverlayRequestOutcome> _requestClose;
+    private readonly TouchHistoryBoard _upper;
+    private readonly TouchHistoryBoard _lower;
+    private readonly TouchViewSlot<TouchHistoryPanelView> _slot;
+    private TouchHistoryInspection? _inspection;
+    private TouchHistorySkillsSheet? _skills;
+    private readonly INativeSkillOverlay _nativeSkills = MobilePlatform.Port.NativeSkillOverlay(
+        TouchHistoryPanelView.SortingOrder + 1
     );
     private IReadOnlyList<IReadOnlyList<BppItemBoardCard>> _skillSides = [];
-    private AndroidHistoryMoreDialog? _more;
-    private AndroidHistoryNoteDialog? _note;
-    private AndroidHistoryOverlays? _overlays;
+    private TouchHistoryMoreDialog? _more;
+    private TouchHistoryNoteDialog? _note;
+    private TouchHistoryOverlays? _overlays;
     private HistoryPanelViewModel? _model;
     private PvpBattleSnapshots? _shownSnapshots;
     private string? _shownBattleId;
@@ -83,53 +72,44 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private long _relayouts;
     private long _boardRenders;
 
-    public AndroidHistoryPanel(
-        HistoryPanelDependencies dependencies,
-        Func<ISavedReplayRuntime?> runtime,
-        AndroidCardTemplateIndex templates,
-        Func<TMP_FontAsset?> font,
-        AndroidOverlayPanels panels,
-        AndroidSupporterData? supporters
+    /// <param name="data">The host services the panel reads.</param>
+    /// <param name="requestOpen">The Overlay Panel Host's open, with its source.</param>
+    /// <param name="requestClose">The Overlay Panel Host's close, with its reason.</param>
+    public TouchHistoryPanel(
+        TouchHistoryData data,
+        Func<string, OverlayRequestOutcome> requestOpen,
+        Func<string, OverlayRequestOutcome> requestClose
     )
     {
-        ArgumentNullException.ThrowIfNull(panels);
-        _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
-        _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
-        _templates = templates ?? throw new ArgumentNullException(nameof(templates));
-        _font = font ?? throw new ArgumentNullException(nameof(font));
-        _supporters = supporters;
-        _runContext = dependencies.RunContext;
-        _slot = new TouchViewSlot<AndroidHistoryPanelView>(DropView);
-        _upper = new AndroidHistoryBoard("history.upper", card => Inspect(card, "upper"));
-        _lower = new AndroidHistoryBoard("history.lower", card => Inspect(card, "lower"));
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+        _requestOpen = requestOpen ?? throw new ArgumentNullException(nameof(requestOpen));
+        _requestClose = requestClose ?? throw new ArgumentNullException(nameof(requestClose));
+        _dependencies = data.Dependencies;
+        _templates = data.Templates;
+        _supporters = data.Supporters;
+        _runContext = _dependencies.RunContext;
+        _slot = new TouchViewSlot<TouchHistoryPanelView>(DropView);
+        _upper = new TouchHistoryBoard("history.upper", card => Inspect(card, "upper"));
+        _lower = new TouchHistoryBoard("history.lower", card => Inspect(card, "lower"));
         _coordinator = new HistoryPanelCoordinator(
             _state,
-            dependencies,
+            _dependencies,
             RefreshUi,
             RefreshBoards,
             new HistoryPanelReplayReturnPort(
                 HideForReplay,
                 ReturnFromReplay,
-                _runtime,
-                AndroidLobbyScene.IsActive
+                data.SavedReplays,
+                data.LobbyActive
             )
         );
-        _handle = panels.Register(handle => new OverlayPanelRegistration(
-            PanelId,
-            onOpen: () => OpenInternal(handle.OpenSource),
-            onClose: reason => Hide(handle.Describe(reason)),
-            tick: Tick
-        )
-        {
-            // The panel stays open across scenes, except into a combat, as on the desktop.
-            SceneChangeClose = SceneChangeClosePolicy.OnlyWhenInCombat,
-            IsModalInputActive = () => _overlays?.AnyOpen == true,
-            DismissModal = () => _overlays?.DismissTop("back_key"),
-            OnSceneChanged = OnSceneChanged,
-        });
     }
 
     public bool IsVisible { get; private set; }
+
+    /// <summary>An open dialog, inspection or skills layer takes the back key before the panel.</summary>
+    public bool HasModalBackStep => _overlays?.AnyOpen == true;
 
     /// <summary>Panel sessions opened and not yet closed: 0 or 1, for the hooks summary.</summary>
     public long OpenSessions => IsVisible ? 1 : 0;
@@ -152,24 +132,21 @@ internal sealed class AndroidHistoryPanel : IDisposable
             ("history_relayouts", _relayouts),
         ];
 
-    /// <summary>Main thread: opens the panel unless a combat is running, it is off, or no font is ready.</summary>
-    public void Open(string reason) =>
-        AndroidUiActions.Run(
-            "history_open",
-            () =>
-            {
-                switch (_handle.RequestOpen(reason))
-                {
-                    case OverlayRequestOutcome.SuppressedByCombat:
-                        LogOpenSkipped("combat_active");
-                        break;
-                }
-            }
-        );
+    /// <summary>The back key closes the top-most open dialog or layer.</summary>
+    public void DismissModalBackStep() => _overlays?.DismissTop("back_key");
 
-    // The host's tick, every frame: the return from a replay while closed, the open panel's work
-    // while open.
-    private void Tick(float deltaTime, bool isOpen)
+    /// <summary>A new locale: an open panel renders its text again.</summary>
+    public void RefreshLocalization()
+    {
+        if (IsVisible)
+            RefreshUi();
+    }
+
+    /// <summary>
+    /// The host's tick, every frame: the return from a replay while closed, the open panel's work
+    /// while open.
+    /// </summary>
+    public void Tick(float deltaTime, bool isOpen)
     {
         if (_disposed)
             return;
@@ -183,7 +160,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
             // A visible panel with no view, its last build failed, builds again or closes.
             if (!_slot.IsCurrent(TouchScreen.Key()) && !Relayout())
             {
-                _handle.RequestClose("relayout_failed");
+                _requestClose("relayout_failed");
                 return;
             }
             _coordinator.Tick(_dependencies.UnscaledTime());
@@ -201,21 +178,26 @@ internal sealed class AndroidHistoryPanel : IDisposable
         }
         catch (Exception exception)
         {
-            AndroidPatchHost.ReportProbeError("history_tick", exception);
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.tick_failed"),
+                exception
+            );
         }
     }
 
     // The coordinator hides the panel for a replay it started and keeps the return pending.
-    private void HideForReplay() => _handle.RequestClose(ReplayStarted);
+    private void HideForReplay() => _requestClose(ReplayStarted);
 
     // The coordinator's return from a replay. A combat keeps the return pending, so it is tried
     // again next frame.
-    private void ReturnFromReplay() => _handle.RequestOpen("replay_returned");
+    private void ReturnFromReplay() => _requestOpen("replay_returned");
 
-    // A scene loaded and the panel is still open, or was closed: the rental destroys every card
-    // right after this, so the cards go back first and come again next frame. The dialogs hold no
-    // card and stay open, a note on its unsaved draft.
-    private void OnSceneChanged()
+    /// <summary>
+    /// A scene loaded and the panel is still open, or was closed: the rental destroys every card
+    /// right after this, so the cards go back first and come again next frame. The dialogs hold no
+    /// card and stay open, a note on its unsaved draft.
+    /// </summary>
+    public void OnSceneChanged()
     {
         var dialogsKept = _overlays?.SceneChanged("scene_changed") ?? 0;
         var returned = ReturnBoards();
@@ -223,7 +205,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         if (!IsVisible)
             return;
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.scene_changed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.scene_changed"),
             ("returned", returned),
             ("dialogs_kept", dialogsKept),
             ("note_draft_kept", _note?.IsOpen == true),
@@ -231,19 +213,13 @@ internal sealed class AndroidHistoryPanel : IDisposable
         );
     }
 
-    private static void LogOpenSkipped(string reasonCode) =>
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.open_skipped"),
-            ("reason_code", reasonCode)
-        );
-
+    /// <summary>The host stops: the panel hides, its cards go back and its coordinator ends.</summary>
     public void Dispose()
     {
         if (_disposed)
             return;
         _disposed = true;
-        using var scope = AndroidMainThread.Host.Enter();
-        _handle.Dispose();
+        using var scope = MobilePlatform.Port.EnterMainThread();
         if (IsVisible)
             _coordinator.OnPanelHidden();
         IsVisible = false;
@@ -252,15 +228,17 @@ internal sealed class AndroidHistoryPanel : IDisposable
         _slot.Drop();
     }
 
-    private AndroidHistoryPanelView? View => _slot.View;
+    private TouchHistoryPanelView? View => _slot.View;
 
     private HistoryBoardFacts PlayerStatus => _shownBoth ? _lower.Facts() : _upper.Facts();
 
     private HistoryBoardFacts OpponentStatus => _shownBoth ? _upper.Facts() : default;
 
-    // The host's open: the switch and the combat gate already passed. False when no view could be
-    // built, and the panel stays closed. A return from a replay resumes its selection.
-    private bool OpenInternal(string reason)
+    /// <summary>
+    /// The host's open: the combat gate already passed. False when no view could be built, and
+    /// the panel stays closed. A return from a replay resumes its selection.
+    /// </summary>
+    public bool Open(string reason)
     {
         if (_disposed)
             return false;
@@ -268,8 +246,8 @@ internal sealed class AndroidHistoryPanel : IDisposable
             return true;
         if (!EnsureView())
             return false;
-        // Ghost replays count their snapshot templates on a pool thread; the index they read is
-        // built here, on the main thread, before any download can start.
+        // Ghost replays count their snapshot templates on a pool thread; the templates they read
+        // are readied here, on the main thread, before any download can start.
         _templates.EnsureBuilt();
         IsVisible = true;
         Interlocked.Increment(ref _opened);
@@ -279,20 +257,21 @@ internal sealed class AndroidHistoryPanel : IDisposable
         FlushUi();
         RefreshBoards();
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.opened"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.opened"),
             ("reason", reason),
             ("resume_selection", resumeSelection),
             ("section", _state.SectionMode),
-            ("template_index", _templates.Count),
             ("record_visible", _model?.RecordAndReplayButtonVisible ?? false),
             ("screen", _slot.ScreenKey)
         );
         return true;
     }
 
-    // Every close but a replay start drops a pending return from a replay, the panel already
-    // hidden by the replay included.
-    private void Hide(string reason)
+    /// <summary>
+    /// The host's close. Every close but a replay start drops a pending return from a replay, the
+    /// panel already hidden by the replay included.
+    /// </summary>
+    public void Hide(string reason)
     {
         if (reason != ReplayStarted)
             CancelReturn(reason);
@@ -303,11 +282,11 @@ internal sealed class AndroidHistoryPanel : IDisposable
         var returned = ReturnCards(reason);
         View?.SetVisible(false);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.closed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.closed"),
             ("reason", reason),
             ("return_after_replay", _coordinator.ReplayReturnPending),
             ("returned", returned),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
         );
     }
 
@@ -316,7 +295,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         if (!_coordinator.CancelReplayReturn())
             return;
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.return_cancelled"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.return_cancelled"),
             ("reason", reason)
         );
     }
@@ -341,14 +320,14 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private bool EnsureView()
     {
         var key = TouchScreen.Key();
-        if (_slot.IsCurrent(key) && !AndroidHistoryUi.Skin.NeedsRefresh)
+        if (_slot.IsCurrent(key) && !TouchHistoryUi.Skin.NeedsRefresh)
             return true;
-        var font = _font();
+        var font = MobilePlatform.Port.GameFont();
         if (font == null)
         {
             _slot.Drop();
             BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.history.open_skipped"),
+                new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.open_skipped"),
                 ("reason_code", "font_unavailable")
             );
             return false;
@@ -366,12 +345,12 @@ internal sealed class AndroidHistoryPanel : IDisposable
     // The view and the overlays laid over it. The view destroys its own canvas when it throws; a
     // throw after it disposes it, and with it every overlay under its surface. The overlay fields
     // are set only once every overlay is built.
-    private AndroidHistoryPanelView BuildView(TMP_FontAsset font)
+    private TouchHistoryPanelView BuildView(TMP_FontAsset font)
     {
-        var view = new AndroidHistoryPanelView(
+        var view = new TouchHistoryPanelView(
             font,
-            new AndroidHistoryPanelView.ViewActions(
-                () => _handle.RequestClose("close_button"),
+            new TouchHistoryPanelView.ViewActions(
+                () => _requestClose("close_button"),
                 _uiRefresh.Guard(() =>
                     _ = _coordinator.TryReplaySelectedBattleAsync(ActiveSelectedBattle, false)
                 ),
@@ -387,20 +366,20 @@ internal sealed class AndroidHistoryPanel : IDisposable
             ),
             _supporters
         );
-        AndroidHistoryNoteDialog? note = null;
+        TouchHistoryNoteDialog? note = null;
         try
         {
             var layout = view.Layout;
             _upper.Attach(view.UpperBoard, layout);
             _lower.Attach(view.LowerBoard, layout);
             // Later siblings draw over the sheet and its rented cards.
-            var skills = new AndroidHistorySkillsSheet(view.Surface, font, layout, PickSkillSide);
-            var inspection = new AndroidHistoryInspection(view.Surface, font, layout);
-            var more = new AndroidHistoryMoreDialog(
+            var skills = new TouchHistorySkillsSheet(view.Surface, font, layout, PickSkillSide);
+            var inspection = new TouchHistoryInspection(view.Surface, font, layout);
+            var more = new TouchHistoryMoreDialog(
                 view.Surface,
                 font,
                 layout,
-                new AndroidHistoryMoreDialog.Actions(
+                new TouchHistoryMoreDialog.Actions(
                     () => _ = _coordinator.TryCheckServerHealthAsync(),
                     _coordinator.ToggleAccountLinkForm,
                     _uiRefresh.Guard<string?>(code =>
@@ -409,7 +388,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
                     _uiRefresh.Guard(_coordinator.MarkAccountLinkedManually)
                 )
             );
-            note = new AndroidHistoryNoteDialog(
+            note = new TouchHistoryNoteDialog(
                 view.Surface,
                 font,
                 layout,
@@ -423,7 +402,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
             _inspection = inspection;
             _more = more;
             _note = note;
-            _overlays = new AndroidHistoryOverlays(
+            _overlays = new TouchHistoryOverlays(
                 [note, more],
                 [new NativeSkillsLayer(_nativeSkills), inspection, skills]
             );
@@ -438,7 +417,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     }
 
     // The overlays live under the view, so they go with it.
-    private void DropView(AndroidHistoryPanelView view)
+    private void DropView(TouchHistoryPanelView view)
     {
         ReturnCards("relayout");
         _note?.Dispose();
@@ -459,12 +438,12 @@ internal sealed class AndroidHistoryPanel : IDisposable
         bool visible
     ) =>
         BppLog.ErrorEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.layout_failed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.layout_failed"),
             exception,
             ("from", before),
             ("to", key),
             ("visible", visible),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
         );
 
     // The new view reopens an open note on its draft; the other overlays close. False when no view
@@ -484,7 +463,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
         if (draft is { } kept)
             _note?.Open(kept.BattleId, kept.Text);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.relayout"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.relayout"),
             ("from", from),
             ("to", _slot.ScreenKey),
             ("note_draft_kept", draft != null && _note?.IsOpen == true),
@@ -570,13 +549,13 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 _lower.ReturnAll();
             _boardRenders++;
             BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.history.boards_rendered"),
+                new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.boards_rendered"),
                 ("section", _state.SectionMode),
                 ("both_boards", both),
                 ("day", battle.Day),
                 ("upper_leases", _upper.Leases),
                 ("lower_leases", _lower.Leases),
-                ("rental_leases", AndroidCardRental.ActiveLeases)
+                ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
             );
         }
         view.SetSkillsAvailable(snapshots != null);
@@ -636,7 +615,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private void Delete()
     {
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.delete_tapped"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.delete_tapped"),
             ("section", _state.SectionMode),
             ("enabled", _model?.DeleteButtonEnabled ?? false)
         );
@@ -647,7 +626,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private void Favorite()
     {
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.favorite_tapped"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.favorite_tapped"),
             ("section", _state.SectionMode)
         );
         if (_coordinator.FavoriteSelected() is { } favorite)
@@ -684,7 +663,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
 
     // The game's skill overlay, opened from the skills sheet, sits over it and closes with it. It
     // rents no card: its proxies are destroyed when it closes.
-    private sealed class NativeSkillsLayer(AndroidNativeSkillOverlay overlay) : IHistoryCardOverlay
+    private sealed class NativeSkillsLayer(INativeSkillOverlay overlay) : IHistoryCardOverlay
     {
         public bool IsOpen => overlay.IsOpen;
 

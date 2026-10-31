@@ -3,24 +3,28 @@ using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.OverlayPanels;
+using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.History;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.Paths;
+using TheBazaar;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal sealed class HistoryPanelMount : IBppMountable
 {
+    private static TouchHistoryEntry? _touch;
+
     private readonly Func<CombatReplayRuntime?> _combatReplayRuntime;
     private readonly Func<ModApiSession?> _modApiSession;
     private readonly Func<BazaarDbLinkClient?> _accountLinkClient;
     private readonly Func<DesktopOverlayPanels?> _overlayHost;
     private IDisposable? _localeChangedSubscription;
-    private Touch.TouchHistoryPanel? _touchPanel;
 
     public HistoryPanelMount(
         Func<CombatReplayRuntime?> combatReplayRuntime,
@@ -34,6 +38,20 @@ internal sealed class HistoryPanelMount : IBppMountable
         _accountLinkClient = accountLinkClient;
         _overlayHost = overlayHost;
     }
+
+    /// <summary>
+    /// The desktop entries' open on a mobile platform; false when the touch panel is not mounted.
+    /// </summary>
+    internal static bool TryOpenTouchPanel(string source)
+    {
+        if (_touch == null)
+            return false;
+        _touch.Open(source);
+        return true;
+    }
+
+    /// <summary>A new locale on a mobile platform: an open touch panel renders its text again.</summary>
+    internal static void RefreshTouchLocalization() => _touch?.RefreshLocalization();
 
     public void Mount(GameObject host, IBppServices services)
     {
@@ -76,11 +94,19 @@ internal sealed class HistoryPanelMount : IBppMountable
         _localeChangedSubscription = services.EventBus.Subscribe<ChineseLocaleModeChanged>(_ =>
             HistoryPanel.RefreshLocalization()
         );
-        // A mobile platform (ADR-0024) draws the Android host's touch History in place of the
-        // desktop panel, over the same dependencies and panel id.
+        // A mobile platform (ADR-0024) draws the Mobile UI's touch History (ADR-0025) in place of
+        // the desktop panel, over the same dependencies.
         if (TouchPlatform.IsMobile)
         {
-            _touchPanel = new Touch.TouchHistoryPanel(dependencies, overlayHost!);
+            _touch = new TouchHistoryEntry(
+                new TouchHistoryData(
+                    dependencies,
+                    () => CombatReplayRuntime.Instance?.SavedReplays,
+                    LobbyActive,
+                    DesktopHistoryCardTemplates.Instance,
+                    new DesktopSupporterRotation()
+                )
+            );
             return;
         }
 
@@ -90,6 +116,11 @@ internal sealed class HistoryPanelMount : IBppMountable
         // above) must stay invisible to overlay lifecycle routing.
         panel.AttachToOverlayHost(overlayHost!);
     }
+
+    // A replay returns History to the lobby: the hero select scene, loaded and active.
+    private static bool LobbyActive() =>
+        SceneLoader.IsSceneLoaded(SceneID.HeroSelectScene)
+        && SceneLoader.ActiveScene == SceneID.HeroSelectScene;
 
     private static void LogMissingDependency(HistoryPanelMountDependency dependency)
     {
@@ -104,8 +135,8 @@ internal sealed class HistoryPanelMount : IBppMountable
     {
         _localeChangedSubscription?.Dispose();
         _localeChangedSubscription = null;
-        _touchPanel?.Dispose();
-        _touchPanel = null;
+        _touch?.Dispose();
+        _touch = null;
 
         var panel = host.GetComponent<HistoryPanel>();
         if (panel != null)

@@ -7,17 +7,17 @@ using BazaarPlusPlus.Mobile.Ui;
 using BazaarPlusPlus.Storage.RunLog;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
-/// History's More dialog on Android, the desktop's <c>HistoryPanelView</c> More dialog on the
+/// History's More dialog on a mobile platform, the desktop's <c>HistoryPanelView</c> More dialog on the
 /// touch layout: the database status with the server health probe, the status line (the rows
 /// below rise into it while it is empty), and the BazaarDB account row with its link form. The
 /// dialog is as tall as its rows and drag-scrolls only when the form outgrows a short screen.
 /// Supporter attribution lives in the main header. The code is read from
 /// the input when the user submits it, so the input needs no change listener.
 /// </summary>
-internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
+internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
 {
     private readonly GameObject _root;
     private readonly HistoryTouchLayout _layout;
@@ -41,7 +41,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
     private string? _inputAccount;
     private (bool Form, bool Status)? _shownRows;
 
-    public AndroidHistoryMoreDialog(
+    public TouchHistoryMoreDialog(
         RectTransform parent,
         TMP_FontAsset font,
         HistoryTouchLayout layout,
@@ -50,25 +50,25 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
     {
         _layout = layout;
         _actions = actions;
-        var root = AndroidHistoryUi.Overlay(
+        var root = TouchHistoryUi.Overlay(
             parent,
             "More",
             "more_outside",
             () => Close("outside_tap")
         );
         _root = root.gameObject;
-        var dialog = AndroidHistoryUi.Panel(root, "Dialog", layout.Dialog);
+        var dialog = TouchHistoryUi.Panel(root, "Dialog", layout.Dialog);
         _dialog = dialog;
         var origin = layout.Dialog;
-        var title = AndroidHistoryUi.Label(
+        var title = TouchHistoryUi.Label(
             dialog,
             font,
             "Title",
             Local(layout.DialogTitle, origin),
             layout.TitleFont
         );
-        title.text = AndroidHistoryUi.T("History options", "历史记录选项");
-        AndroidHistoryUi.Button(
+        title.text = TouchHistoryUi.T("History options", "历史记录选项");
+        TouchHistoryUi.Button(
             dialog,
             font,
             "more_close",
@@ -77,14 +77,14 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             () => Close("close_button"),
             UiKit.CloseGlyph
         );
-        var (scroll, content) = AndroidHistoryUi.Scroll(
+        var (scroll, content) = TouchHistoryUi.Scroll(
             dialog,
             "Rows",
             Local(layout.MoreScroll, origin),
             horizontal: false
         );
         _scroll = scroll;
-        _database = AndroidHistoryUi.Label(
+        _database = TouchHistoryUi.Label(
             content,
             font,
             "Database",
@@ -92,7 +92,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             layout.BodyFont,
             wrap: true
         );
-        _health = AndroidHistoryUi.Button(
+        _health = TouchHistoryUi.Button(
             content,
             font,
             "server_health",
@@ -100,7 +100,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             layout.ButtonFont,
             () => _actions.CheckHealth()
         );
-        _status = AndroidHistoryUi.Label(
+        _status = TouchHistoryUi.Label(
             content,
             font,
             "Status",
@@ -119,14 +119,14 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             Vector2.zero
         );
         var below = _below;
-        _accountTitle = AndroidHistoryUi.Label(
+        _accountTitle = TouchHistoryUi.Label(
             below,
             font,
             "AccountTitle",
             layout.AccountTitle,
             layout.RowTitleFont
         );
-        _accountToggle = AndroidHistoryUi.Button(
+        _accountToggle = TouchHistoryUi.Button(
             below,
             font,
             "account_toggle",
@@ -134,24 +134,24 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             layout.ButtonFont,
             () => _actions.ToggleAccountForm()
         );
-        _accountStatus = AndroidHistoryUi.Label(
+        _accountStatus = TouchHistoryUi.Label(
             below,
             font,
             "AccountStatus",
             layout.AccountStatus,
             layout.BodyFont,
             TextAlignmentOptions.TopLeft,
-            AndroidHistoryUi.Muted,
+            TouchHistoryUi.Muted,
             wrap: true
         );
-        _accountPersistence = AndroidHistoryUi.Label(
+        _accountPersistence = TouchHistoryUi.Label(
             below,
             font,
             "AccountPersistence",
             layout.AccountPersistence,
             layout.BodyFont,
             TextAlignmentOptions.TopLeft,
-            AndroidHistoryUi.Muted,
+            TouchHistoryUi.Muted,
             wrap: true
         );
         var form = UiKit.Rect(
@@ -163,17 +163,17 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             Vector2.zero
         );
         _form = form.gameObject;
-        _accountWhy = AndroidHistoryUi.Label(
+        _accountWhy = TouchHistoryUi.Label(
             form,
             font,
             "AccountWhy",
             layout.AccountWhy,
             layout.BodyFont,
             TextAlignmentOptions.TopLeft,
-            AndroidHistoryUi.Muted,
+            TouchHistoryUi.Muted,
             wrap: true
         );
-        _accountInput = AndroidHistoryUi.Input(
+        _accountInput = TouchHistoryUi.Input(
             form,
             font,
             "AccountCode",
@@ -183,7 +183,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             10,
             multiLine: false
         );
-        _accountSubmit = AndroidHistoryUi.Button(
+        _accountSubmit = TouchHistoryUi.Button(
             form,
             font,
             "account_submit",
@@ -191,7 +191,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             layout.ButtonFont,
             Submit
         );
-        _accountBanner = AndroidHistoryUi.Label(
+        _accountBanner = TouchHistoryUi.Label(
             form,
             font,
             "AccountBanner",
@@ -200,7 +200,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             TextAlignmentOptions.TopLeft,
             wrap: true
         );
-        _accountLinked = AndroidHistoryUi.Button(
+        _accountLinked = TouchHistoryUi.Button(
             form,
             font,
             "account_linked",
@@ -219,9 +219,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         _root.transform.SetAsLastSibling();
         _scroll.StopMovement();
         _scroll.content.anchoredPosition = Vector2.zero;
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.more_opened")
-        );
+        BppLog.InfoEvent(new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.more_opened"));
     }
 
     /// <summary>False when it was not open.</summary>
@@ -232,7 +230,7 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         _accountInput.DeactivateInputField(false);
         _root.SetActive(false);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.more_closed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.more_closed"),
             ("reason", reason)
         );
         return true;
@@ -247,22 +245,22 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
             _accountInput.DeactivateInputField(false);
         }
         _database.text = m.DatabaseChipText;
-        _database.color = AndroidHistoryUi.StatusColor(m.DatabaseChipSeverity);
+        _database.color = TouchHistoryUi.StatusColor(m.DatabaseChipSeverity);
         _health.Set(m.ServerHealthButtonText, enabled: m.ServerHealthButtonEnabled);
         _status.text = m.StatusMessage ?? string.Empty;
-        _status.color = AndroidHistoryUi.StatusColor(m.StatusSeverity);
+        _status.color = TouchHistoryUi.StatusColor(m.StatusSeverity);
         var hasStatus = _status.text.Length > 0;
-        AndroidHistoryUi.SetActive(_status.gameObject, hasStatus);
+        TouchHistoryUi.SetActive(_status.gameObject, hasStatus);
         _accountTitle.text = m.AccountTitleText;
         _accountStatus.text = m.AccountRowStatusText;
         _accountPersistence.text = m.AccountPersistenceText;
-        AndroidHistoryUi.SetActive(_accountToggle.GameObject, m.AccountRowActionVisible);
+        TouchHistoryUi.SetActive(_accountToggle.GameObject, m.AccountRowActionVisible);
         _accountToggle.Set(
             m.AccountLinkFormVisible ? m.AccountLinkCollapseText : m.AccountRowActionText
         );
         if (!m.AccountLinkFormVisible)
             _accountInput.DeactivateInputField(false);
-        AndroidHistoryUi.SetActive(_form, m.AccountLinkFormVisible);
+        TouchHistoryUi.SetActive(_form, m.AccountLinkFormVisible);
         if (_shownRows != (m.AccountLinkFormVisible, hasStatus))
         {
             _shownRows = (m.AccountLinkFormVisible, hasStatus);
@@ -278,8 +276,8 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         _accountInput.interactable = m.AccountLinkInputEnabled;
         _accountSubmit.Set(m.AccountLinkButtonText, true, m.AccountLinkButtonEnabled);
         _accountBanner.text = m.AccountLinkBannerText ?? string.Empty;
-        _accountBanner.color = AndroidHistoryUi.StatusColor(m.AccountLinkBannerSeverity);
-        AndroidHistoryUi.SetActive(_accountLinked.GameObject, m.AccountAlreadyLinkedButtonVisible);
+        _accountBanner.color = TouchHistoryUi.StatusColor(m.AccountLinkBannerSeverity);
+        TouchHistoryUi.SetActive(_accountLinked.GameObject, m.AccountAlreadyLinkedButtonVisible);
         _accountLinked.Set(m.AccountAlreadyLinkedButtonText);
     }
 
@@ -326,13 +324,13 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
 }
 
 /// <summary>
-/// The favorite note editor on Android, the desktop's note dialog on the touch layout: the note
+/// The favorite note editor on a mobile platform, the desktop's note dialog on the touch layout: the note
 /// opens on the selected favorite and saves to the favorite it opened on, even if a reload
 /// reselects another row meanwhile. A failed save keeps the draft; the status line says why. The
-/// character count follows the field's change listener (<see cref="AndroidUiActions.OnChanged"/>);
+/// character count follows the field's change listener (<see cref="UiActions.OnChanged"/>);
 /// nothing polls the field each frame.
 /// </summary>
-internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
+internal sealed class TouchHistoryNoteDialog : IHistoryOverlay
 {
     private readonly GameObject _root;
     private readonly TMP_InputField _input;
@@ -344,7 +342,7 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
     private int _shownLength = -1;
     private bool _disposed;
 
-    public AndroidHistoryNoteDialog(
+    public TouchHistoryNoteDialog(
         RectTransform parent,
         TMP_FontAsset font,
         HistoryTouchLayout layout,
@@ -352,16 +350,16 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
     )
     {
         _saveNote = saveNote;
-        var root = AndroidHistoryUi.Overlay(
+        var root = TouchHistoryUi.Overlay(
             parent,
             "FavoriteNote",
             "note_outside",
             () => Close("outside_tap")
         );
         _root = root.gameObject;
-        var dialog = AndroidHistoryUi.Panel(root, "Dialog", layout.Dialog);
+        var dialog = TouchHistoryUi.Panel(root, "Dialog", layout.Dialog);
         var origin = layout.Dialog;
-        var title = AndroidHistoryUi.Label(
+        var title = TouchHistoryUi.Label(
             dialog,
             font,
             "Title",
@@ -369,7 +367,7 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
             layout.TitleFont
         );
         title.text = HistoryPanelText.FavoriteNoteTitle();
-        AndroidHistoryUi.Button(
+        TouchHistoryUi.Button(
             dialog,
             font,
             "note_close",
@@ -378,7 +376,7 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
             () => Close("close_button"),
             UiKit.CloseGlyph
         );
-        _input = AndroidHistoryUi.Input(
+        _input = TouchHistoryUi.Input(
             dialog,
             font,
             "Note",
@@ -388,17 +386,17 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
             RunLogSchema.FavoriteNoteMaxLength,
             multiLine: true
         );
-        _count = AndroidHistoryUi.Label(
+        _count = TouchHistoryUi.Label(
             dialog,
             font,
             "Count",
             Local(layout.NoteCount, origin),
             layout.BodyFont,
-            color: AndroidHistoryUi.Muted
+            color: TouchHistoryUi.Muted
         );
         // The count follows each edit; nothing reads the field's text while it sits unchanged.
-        AndroidUiActions.OnChanged(_input, "history.note_input", text => ShowCount(text.Length));
-        AndroidHistoryUi
+        UiActions.OnChanged(_input, "history.note_input", text => ShowCount(text.Length));
+        TouchHistoryUi
             .Button(
                 dialog,
                 font,
@@ -408,7 +406,7 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
                 () => Close("cancel_button")
             )
             .Set(HistoryPanelText.Cancel());
-        _save = AndroidHistoryUi.Button(
+        _save = TouchHistoryUi.Button(
             dialog,
             font,
             "note_save",
@@ -438,7 +436,7 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.note_opened"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.note_opened"),
             ("note_length", note.Length)
         );
     }
@@ -454,7 +452,7 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
         _input.SetTextWithoutNotify(string.Empty);
         _root.SetActive(false);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.note_closed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.note_closed"),
             ("reason", reason)
         );
         return true;
@@ -511,7 +509,7 @@ internal sealed class AndroidHistoryNoteDialog : IHistoryOverlay
         _saving = false;
         _save.Set(HistoryPanelText.SaveNote(), selected: true);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.note_saved"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.note_saved"),
             ("saved", saved),
             ("note_length", note.Length)
         );

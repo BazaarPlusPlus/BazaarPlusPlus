@@ -64,19 +64,18 @@ public sealed class AndroidHostThreadingRuleTests
             "BazaarPlusPlus.Android.CombatReplay",
             "BazaarPlusPlus.Android.Ui",
             "BazaarPlusPlus.Android.Patches",
-            // The Mobile UI tree: Ten-Win Builds, Collection, and the kit History draws with
-            // (ADR-0025).
+            // The Mobile UI tree: Ten-Win Builds, Collection and History (ADR-0025).
             "BazaarPlusPlus.Mobile",
         ];
         static bool In(CompiledType type, string ns) =>
             type.Namespace == ns || type.Namespace.StartsWith(ns + ".", StringComparison.Ordinal);
         var scope = Host.Value.Types.Where(type => namespaces.Any(ns => In(type, ns))).ToArray();
         // A moved or renamed namespace would leave its rule inspecting nothing; the Mobile UI tree
-        // holds the port, the theme, the kit, the leaves #701 steps 2 and 3 moved, Ten-Win Builds
-        // and Collection.
+        // holds the port, the theme, the kit, the leaves #701 steps 2 and 3 moved, Ten-Win Builds,
+        // Collection and History.
         Assert.All(namespaces, ns => Assert.Contains(scope, type => In(type, ns)));
         Assert.True(
-            scope.Count(type => In(type, "BazaarPlusPlus.Mobile")) >= 27,
+            scope.Count(type => In(type, "BazaarPlusPlus.Mobile")) >= 44,
             "The Mobile UI tree left the Android host's threading rule."
         );
         var violations = scope
@@ -173,15 +172,16 @@ public sealed class AndroidHostThreadingRuleTests
     {
         string[] historyTypes =
         [
-            "BazaarPlusPlus.Android.Ui.AndroidHistoryPanel",
-            "BazaarPlusPlus.Android.Ui.AndroidHistoryPanelView",
-            "BazaarPlusPlus.Android.Ui.AndroidHistoryUi",
-            "BazaarPlusPlus.Android.Ui.HistoryButton",
-            "BazaarPlusPlus.Android.Ui.AndroidHistoryBoard",
-            "BazaarPlusPlus.Android.Ui.AndroidHistoryInspection",
-            "BazaarPlusPlus.Android.Ui.AndroidHistorySkillsSheet",
-            "BazaarPlusPlus.Android.Ui.AndroidHistoryMoreDialog",
-            "BazaarPlusPlus.Android.Ui.AndroidHistoryNoteDialog",
+            "BazaarPlusPlus.Mobile.History.TouchHistoryEntry",
+            "BazaarPlusPlus.Mobile.History.TouchHistoryPanel",
+            "BazaarPlusPlus.Mobile.History.TouchHistoryPanelView",
+            "BazaarPlusPlus.Mobile.History.TouchHistoryUi",
+            "BazaarPlusPlus.Mobile.History.HistoryButton",
+            "BazaarPlusPlus.Mobile.History.TouchHistoryBoard",
+            "BazaarPlusPlus.Mobile.History.TouchHistoryInspection",
+            "BazaarPlusPlus.Mobile.History.TouchHistorySkillsSheet",
+            "BazaarPlusPlus.Mobile.History.TouchHistoryMoreDialog",
+            "BazaarPlusPlus.Mobile.History.TouchHistoryNoteDialog",
         ];
         var history = Host
             .Value.Types.Where(type => historyTypes.Contains(type.FullName))
@@ -202,7 +202,7 @@ public sealed class AndroidHostThreadingRuleTests
 
         Assert.True(
             violations.Length == 0,
-            "Wire History controls through AndroidUiActions.OnTap or OnChanged:\n  "
+            "Wire History controls through UiActions.OnTap or OnChanged:\n  "
                 + string.Join("\n  ", violations)
         );
         var calls = history
@@ -214,7 +214,7 @@ public sealed class AndroidHostThreadingRuleTests
             Assert.Contains(
                 calls,
                 instruction =>
-                    instruction.TargetType?.FullName == "BazaarPlusPlus.Android.Ui.AndroidUiActions"
+                    instruction.TargetType?.FullName == "BazaarPlusPlus.Mobile.Ui.UiActions"
                     && instruction.TargetMember == wiring
             );
     }

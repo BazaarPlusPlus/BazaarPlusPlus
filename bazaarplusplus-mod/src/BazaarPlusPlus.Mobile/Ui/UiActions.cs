@@ -19,6 +19,19 @@ internal static class UiActions
         MobilePlatform.Port.OnClick(button, () => Run(control, handler));
     }
 
+    /// <summary><paramref name="handler"/> gets the field's new text after each edit.</summary>
+    public static void OnChanged(TMP_InputField field, string control, Action<string> handler)
+    {
+        if (field == null)
+            throw new ArgumentNullException(nameof(field));
+        if (handler == null)
+            throw new ArgumentNullException(nameof(handler));
+        MobilePlatform.Port.OnTextChanged(
+            field,
+            value => Run(control, () => handler(value ?? string.Empty))
+        );
+    }
+
     public static void Run(string control, Action handler) =>
         MobilePlatform.Port.RunUiAction(control, handler);
 }

@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Diagnostics;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Microsoft.Data.Sqlite;
@@ -17,7 +18,7 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// <see cref="Contains"/> answers true: an unknown template is counted rather than dropped, and a
 /// lookup never builds the set.
 /// </summary>
-internal sealed class AndroidCardTemplateIndex
+internal sealed class AndroidCardTemplateIndex : IHistoryCardTemplates
 {
     private FrozenSet<Guid>? _templates;
     private IntPtr _builtFrom;

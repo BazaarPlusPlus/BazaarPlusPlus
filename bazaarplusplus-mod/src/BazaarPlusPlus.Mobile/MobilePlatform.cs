@@ -1,6 +1,7 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.LiveCards;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using UnityEngine;
 using UnityEngine.UI;
@@ -126,6 +127,41 @@ internal interface IMobilePlatformPort
     /// enchantment-only effect at a subject's tier, or null when it cannot be rendered.
     /// </summary>
     Func<CardRentalSubject, CardEnchantment, string?> EnchantmentEffects(Guid templateId);
+
+    /// <summary>
+    /// The game's badge for a stored rank name, held in its Global asset scope; null when the
+    /// name is no game rank.
+    /// </summary>
+    Task<Sprite?>? RankBadge(string? rank);
+
+    /// <summary>The game's trophy for a finished run; null for an outcome that earns none.</summary>
+    Task<Sprite?>? RunTrophy(RunOutcomeTier tier);
+
+    /// <summary>
+    /// The game's own mobile skill overlay, which sorts at <paramref name="sortingOrder"/> while
+    /// open so it stands over the panel that opened it.
+    /// </summary>
+    INativeSkillOverlay NativeSkillOverlay(int sortingOrder);
+}
+
+/// <summary>
+/// The game's own mobile skill overlay (<c>MobileSkillOverlayController</c>) over skills that are
+/// on no live board, as the end-of-run summary opens it. A host adapter, since the controller is
+/// a global-namespace game type. Main thread only.
+/// </summary>
+internal interface INativeSkillOverlay
+{
+    /// <summary>Requested or showing; the overlay owns input until it closes.</summary>
+    bool IsOpen { get; }
+
+    /// <summary>False when the game has no popup manager or none of the skills builds a card.</summary>
+    bool Open(IReadOnlyList<CardRentalSubject> skills, string source);
+
+    /// <summary>Every frame while the opener is visible: notices the overlay showing and closing.</summary>
+    void Tick();
+
+    /// <summary>False when it was not open.</summary>
+    bool Close(string reason);
 }
 
 /// <summary>
