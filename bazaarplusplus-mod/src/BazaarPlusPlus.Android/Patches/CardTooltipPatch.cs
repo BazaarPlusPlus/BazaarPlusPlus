@@ -89,14 +89,14 @@ internal static class CardTooltipRenderPatch
         {
             AndroidPatchHost.ReportProbeError("preview_switches", exception);
         }
-        AndroidEnchantPreview.Prepare(tooltipData);
+        AndroidPatchHost.EnchantPreview?.Prepare(tooltipData);
         AndroidUpgradePreviewValues.Prepare(tooltipData);
     }
 
     [HarmonyFinalizer]
     private static void Finalizer()
     {
-        AndroidEnchantPreview.Clear();
+        AndroidPatchHost.EnchantPreview?.Clear();
         AndroidUpgradePreviewValues.Return();
     }
 }
@@ -110,8 +110,8 @@ internal static class EnchantPreviewPassivePatch
     {
         try
         {
-            var section = AndroidEnchantPreview.TakePending(
-                RenderedFontPixels(__instance._passiveText.textObject)
+            var section = AndroidPatchHost.EnchantPreview?.TakePending(
+                __instance._passiveText.textObject
             );
             if (section == null)
                 return;
@@ -125,20 +125,6 @@ internal static class EnchantPreviewPassivePatch
         {
             AndroidPatchHost.ReportProbeError("enchant_preview", exception);
         }
-    }
-
-    // The label's font size in screen pixels: its canvas units, scaled by its transform within
-    // the canvas and by the canvas's own scale factor. Zero when it cannot be read.
-    private static float RenderedFontPixels(Il2CppTMPro.TMP_Text? label)
-    {
-        if (label == null)
-            return 0f;
-        var canvas = label.canvas?.rootCanvas;
-        if (canvas == null)
-            return 0f;
-        var canvasScale = canvas.transform.lossyScale.y;
-        var relative = canvasScale > 0f ? label.transform.lossyScale.y / canvasScale : 1f;
-        return label.fontSize * relative * canvas.scaleFactor;
     }
 }
 

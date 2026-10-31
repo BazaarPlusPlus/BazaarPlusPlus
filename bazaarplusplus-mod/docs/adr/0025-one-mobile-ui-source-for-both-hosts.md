@@ -63,6 +63,6 @@ ADR-0012 forbids the Android host to compile linked sources, and `AndroidHostAss
 
 - Linked-source rule this narrows: `src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj` (comment above the Core reference), `tests/AndroidHost.Tests/AndroidHostAssemblyBoundaryTests.cs`
 - Hand-mirrored twins: `src/BazaarPlusPlus.Android/Ui/`, `src/BazaarPlusPlus/Game/Touch/`, `src/BazaarPlusPlus/Game/*/Touch/`
-- Drift: `AndroidEnchantPreview.InlineCandidates` against `src/BazaarPlusPlus/Game/Touch/TouchEnchantPreview.cs`
-- Android-only Native Adjustments: `src/BazaarPlusPlus.Android/GameInterop/AndroidScreenFill.cs`, `AndroidScreenFillClock.cs`, `src/BazaarPlusPlus.Android/Patches/ScreenFillFieldOfViewPatch.cs`
+- Drift: `AndroidEnchantPreview.InlineCandidates` against the Mono host's `TouchEnchantPreview`; #701 replaced both with `src/BazaarPlusPlus.Mobile/Previews/TouchEnchantPreview.cs`
+- Android-only Native Adjustments: `AndroidScreenFill`, `AndroidScreenFillClock` (#701 moved their flow to `src/BazaarPlusPlus.Mobile/NativeAdjustment/`), `src/BazaarPlusPlus.Android/Patches/ScreenFillFieldOfViewPatch.cs`
 - Continuous screen metrics: `src/BazaarPlusPlus.Core/Ui/TouchMetrics.cs`, `TouchHudLayout.cs`

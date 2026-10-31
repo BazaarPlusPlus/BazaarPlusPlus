@@ -32,6 +32,7 @@ internal sealed record TouchCombatClockData(
 internal sealed class TouchCombatClock : IDisposable
 {
     private readonly TouchCombatClockData _data;
+    private readonly Func<float?> _readBoardTop;
     private GameObject? _root;
     private TextMeshProUGUI? _time;
     private Image? _pauseIcon;
@@ -75,8 +76,16 @@ internal sealed class TouchCombatClock : IDisposable
     // As the desktop bar: the time fades to muted ink outside a fight and back to ink in one.
     private float _visualBlend;
 
-    public TouchCombatClock(TouchCombatClockData data) =>
+    /// <param name="data">What the host hands the clock.</param>
+    /// <param name="boardTop">
+    /// Screen Fill's board top in screen pixels down from the top, where the HUD gathers in a band
+    /// above the board; null elsewhere.
+    /// </param>
+    public TouchCombatClock(TouchCombatClockData data, Func<float?> boardTop)
+    {
         _data = data ?? throw new ArgumentNullException(nameof(data));
+        _readBoardTop = boardTop ?? throw new ArgumentNullException(nameof(boardTop));
+    }
 
     /// <summary>Every frame, from the host's Overlay Panel Host.</summary>
     public void Tick(bool panelOpen)
@@ -208,7 +217,7 @@ internal sealed class TouchCombatClock : IDisposable
         );
         _vault = vault;
         // On a screen the board is drawn nearer on, the HUD gathers above it (Screen Fill).
-        _boardTop = port.BoardTop * UiKit.ReferenceResolution.y / Screen.height;
+        _boardTop = _readBoardTop() * UiKit.ReferenceResolution.y / Screen.height;
         var boardTop = _boardTop is { } top ? (int?)MathF.Round(top) : null;
         if (
             _layoutKey != null

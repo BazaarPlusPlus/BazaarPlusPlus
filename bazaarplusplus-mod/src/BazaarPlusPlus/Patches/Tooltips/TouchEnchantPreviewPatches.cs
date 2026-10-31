@@ -10,10 +10,11 @@ using TheBazaar.UI.Tooltips;
 namespace BazaarPlusPlus.Patches.Tooltips;
 
 /// <summary>
-/// The enchant preview in the native tooltip's main text on a mobile platform (ADR-0024), as the
-/// Android host's <c>CardTooltipRenderPatch</c> and <c>EnchantPreviewPassivePatch</c>: a card
-/// tooltip's render builds the section (<see cref="TouchEnchantPreview.Prepare"/>), its passive
-/// block appends it below the passive text, and the section ends with the render. The desktop's
+/// The Mobile UI's enchant preview in the native tooltip's main text on a mobile platform
+/// (ADR-0024, ADR-0025), as the Android host's <c>CardTooltipRenderPatch</c> and
+/// <c>EnchantPreviewPassivePatch</c>: a card tooltip's render builds the section
+/// (<c>TouchEnchantPreview.Prepare</c>, through <see cref="TouchEnchantPreviewHost.Preview"/>), its
+/// passive block appends it below the passive text, and the section ends with the render. The desktop's
 /// own section (<c>BppTooltipSectionRenderPatch</c>) stays off on a mobile platform
 /// (<c>TooltipPreviewModePolicy</c>).
 /// </summary>
@@ -31,14 +32,14 @@ internal static class TouchEnchantPreviewPatches
         nameof(CardTooltipTypeHandler.RenderCardContents)
     )]
     private static void Rendering(CardTooltipData tooltipData) =>
-        TouchEnchantPreview.Prepare(tooltipData);
+        TouchEnchantPreviewHost.Preview?.Prepare(tooltipData);
 
     [HarmonyFinalizer]
     [HarmonyPatch(
         typeof(CardTooltipTypeHandler),
         nameof(CardTooltipTypeHandler.RenderCardContents)
     )]
-    private static void Rendered() => TouchEnchantPreview.Clear();
+    private static void Rendered() => TouchEnchantPreviewHost.Preview?.Clear();
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(EffectBlockRenderer), nameof(EffectBlockRenderer.RenderPassive))]
@@ -46,8 +47,8 @@ internal static class TouchEnchantPreviewPatches
     {
         try
         {
-            var section = TouchEnchantPreview.TakePending(
-                RenderedFontPixels(__instance._passiveText?.textObject)
+            var section = TouchEnchantPreviewHost.Preview?.TakePending(
+                __instance._passiveText?.textObject
             );
             if (section == null)
                 return;
@@ -69,19 +70,5 @@ internal static class TouchEnchantPreviewPatches
                     exception
                 );
         }
-    }
-
-    // The label's font size in screen pixels: its canvas units, scaled by its transform within
-    // the canvas and by the canvas's own scale factor. Zero when it cannot be read.
-    private static float RenderedFontPixels(TMP_Text? label)
-    {
-        if (label == null)
-            return 0f;
-        var canvas = label.canvas != null ? label.canvas.rootCanvas : null;
-        if (canvas == null)
-            return 0f;
-        var canvasScale = canvas.transform.lossyScale.y;
-        var relative = canvasScale > 0f ? label.transform.lossyScale.y / canvasScale : 1f;
-        return label.fontSize * relative * canvas.scaleFactor;
     }
 }

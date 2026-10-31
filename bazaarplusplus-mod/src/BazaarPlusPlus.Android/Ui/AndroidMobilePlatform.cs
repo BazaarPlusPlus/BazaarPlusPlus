@@ -160,6 +160,4 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
 
     public bool TryReadVault(float referenceHeight, out TouchRect vault) =>
         _vault.TryRead(referenceHeight, out vault);
-
-    public float? BoardTop => AndroidScreenFill.BoardTop;
 }

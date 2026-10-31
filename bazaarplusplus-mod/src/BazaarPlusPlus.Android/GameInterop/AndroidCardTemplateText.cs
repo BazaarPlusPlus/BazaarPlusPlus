@@ -105,7 +105,7 @@ internal static class AndroidCardTemplateText
                 // Static catalog previews must not inherit the last run's value context.
                 return tooltip == null
                     ? null
-                    : AndroidEnchantPreview.RenderEffect(tooltip, native, null);
+                    : AndroidEnchantPreviewHost.RenderEffect(tooltip, native, null);
             }
         );
     }

@@ -178,12 +178,6 @@ internal interface IMobilePlatformPort
     /// <paramref name="referenceHeight"/>; false with no vault on screen.
     /// </summary>
     bool TryReadVault(float referenceHeight, out TouchRect vault);
-
-    /// <summary>
-    /// The board's top edge in screen pixels down from the top, where Screen Fill gathers the
-    /// HUD in a band above the board; null elsewhere.
-    /// </summary>
-    float? BoardTop { get; }
 }
 
 /// <summary>
