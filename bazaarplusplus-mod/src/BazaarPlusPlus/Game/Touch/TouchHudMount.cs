@@ -38,10 +38,13 @@ internal sealed class TouchHudMount : IBppMountable
                 )
             )
         );
+        // An end-of-run screenshot hides the HUD in the frame it begins in.
+        TouchShortcutSuppression.Hide = _hud.Hide;
     }
 
     public void Unmount(GameObject host)
     {
+        TouchShortcutSuppression.Hide = null;
         _hud?.Dispose();
         _hud = null;
     }

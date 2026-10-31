@@ -90,6 +90,9 @@ internal sealed class TouchShortcuts : IDisposable
             SetActive(entry.Root, !entry.InRunOnly || _inRun);
     }
 
+    /// <summary>Hides the shortcuts until the next <see cref="Tick"/> shows them again.</summary>
+    public void Hide() => SetActive(_shortcuts?.gameObject, false);
+
     private void Layout(IMobilePlatformPort port)
     {
         var gear = port.ScreenBounds(_anchorRect!, _anchorCanvas!, UiKit.ReferenceResolution.y);

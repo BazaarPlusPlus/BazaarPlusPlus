@@ -163,7 +163,8 @@ internal sealed class TouchCombatClock : IDisposable
         }
     }
 
-    private void Hide()
+    /// <summary>Hides the plaque until the next <see cref="Tick"/> shows it again.</summary>
+    public void Hide()
     {
         if (_shown)
             _root?.SetActive(false);

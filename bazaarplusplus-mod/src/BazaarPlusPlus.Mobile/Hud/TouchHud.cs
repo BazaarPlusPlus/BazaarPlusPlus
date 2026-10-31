@@ -56,6 +56,13 @@ internal sealed class TouchHud : IDisposable
 
     public TouchShortcuts Shortcuts { get; }
 
+    /// <summary>Hides the shortcuts and the clock until the next tick shows them again.</summary>
+    public void Hide()
+    {
+        Shortcuts.Hide();
+        _clock?.Hide();
+    }
+
     private void Tick()
     {
         var panelOpen = MobilePlatform.Port.OpenPanelId != null;

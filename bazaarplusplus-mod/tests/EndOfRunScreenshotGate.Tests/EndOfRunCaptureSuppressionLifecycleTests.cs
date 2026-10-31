@@ -200,13 +200,18 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
     private static void Touch_shortcuts_hide_until_the_capture_restores_bpp_chrome()
     {
         Assert(TouchShortcutSuppression.Shown(), "The shortcuts show outside a capture.");
+        var hides = 0;
+        TouchShortcutSuppression.Hide = () => hides++;
         var lifecycle = new EndOfRunCaptureSuppressionLifecycle();
         var native = new NativeLease(NativeTooltipCleanFrameState.Clean);
         Assert(
             lifecycle.TryInstall(TouchShortcutSuppression.Begin(), native),
             "Suppression should install on an open lifecycle."
         );
+        // A degraded capture takes the frame the lease began in, before the HUD's next tick.
+        Assert(hides == 1, "Begin must hide the HUD in the frame it begins in.");
         var nested = TouchShortcutSuppression.Begin();
+        TouchShortcutSuppression.Hide = null;
 
         Assert(!TouchShortcutSuppression.Shown(), "The capture must hide the shortcuts.");
         lifecycle.ReleaseAll();
