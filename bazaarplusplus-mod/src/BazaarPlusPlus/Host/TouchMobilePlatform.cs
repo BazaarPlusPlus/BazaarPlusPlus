@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Cards.LiveCards;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
+using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.LiveCards;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Mobile;
@@ -11,7 +12,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Host;
 
 /// <summary>
 /// The Mono host's Mobile Platform Port (ADR-0025), installed on a mobile platform only, on the

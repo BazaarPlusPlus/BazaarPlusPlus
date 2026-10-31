@@ -14,7 +14,7 @@ using BazaarPlusPlus.Mobile.Previews;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Android.Host;
 
 /// <summary>The touch panels' entries on the Android host: the Mobile UI's HUD, whose shortcuts open
 /// Collection and Ten-Win Builds by the settings button, and History in the game's own menus, a

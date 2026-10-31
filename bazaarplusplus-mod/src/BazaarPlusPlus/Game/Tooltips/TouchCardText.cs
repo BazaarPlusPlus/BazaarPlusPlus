@@ -15,7 +15,7 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar.Tooltips;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Game.Tooltips;
 
 /// <summary>
 /// A static card template's text in the current language, the one card-text resolver every

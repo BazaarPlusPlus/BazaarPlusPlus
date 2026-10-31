@@ -20,6 +20,8 @@ The tests that pinned this read compiled IL order and registration lists, not be
 2. A panel registers an `OverlayPanelRegistration` and opens or closes only through its handle's `RequestOpen` and `RequestClose`, which return an `OverlayRequestOutcome`. A request made while a lifecycle callback runs is `Busy`. An open whose callback returns false or throws rolls back as `OpenFailed`. Register adopts the predicate's first value, so a switch-off before the next frame is still an edge.
 3. Each host keeps one thin adapter that feeds frames and scene tokens in. `DesktopOverlayPanels` is a MonoBehaviour that reads Escape, the toggle hotkeys and the scene. `AndroidOverlayPanels` is a plain class: the melon injects combat, the frame count and the card release as delegates, so it calls no IL2CPP (ADR-0016). It advances a scene generation on each load and answers the back key synchronously inside the game's escape hook, because the Harmony prefix decides whether the game's handler runs. It also owns the touch menu's back slot: the menu is not a Main Overlay Panel and is asked after the panels.
 
+Amended 2026-10-31 (#701): the host also holds one registrant that is no Main Overlay Panel. The Mobile UI's HUD registers under the id `hud` with a registration that never opens, only to take the per-frame tick and the scene change (ADR-0025 decision 3), so `overlay_panels.*` lines can name `panel_id=hud`. Nothing may call `RequestOpen` on it: the host would close the open panel as superseded and then fail the HUD's open. The touch menu is gone; the Android adapter's back slot now collapses the item tooltip's expanded preview section while no panel is open.
+
 ## Why this reopens ADR-0003
 
 ADR-0003 asks for code evidence that two peers share behavior and ownership before they share a seam. The drift above is that evidence: the hosts were meant to follow the same rules and did not, and the order the source warned about was held by hand. The shared part is lifecycle only. Each panel keeps its own state and rendering, and each host its own input reading.
@@ -34,5 +36,5 @@ ADR-0003 asks for code evidence that two peers share behavior and ownership befo
 
 - Core: `src/BazaarPlusPlus.Core/Game/OverlayPanels/OverlayPanelHost.cs`, `OverlayLifecycleCore.cs`, `OverlayPanelRegistration.cs`
 - Desktop: `src/BazaarPlusPlus/Game/OverlayPanels/DesktopOverlayPanels.cs`
-- Android: `src/BazaarPlusPlus.Android/Ui/AndroidOverlayPanels.cs`, `src/BazaarPlusPlus.Android/Patches/BackKeyPatches.cs`, `src/BazaarPlusPlus.Android/Host/AndroidMod.cs`
+- Android: `src/BazaarPlusPlus.Android/Host/AndroidOverlayPanels.cs`, `src/BazaarPlusPlus.Android/Patches/BackKeyPatches.cs`, `src/BazaarPlusPlus.Android/Host/AndroidMod.cs`
 - Tests: `tests/OverlayPanelLifecycle.Tests/`, `tests/AndroidHost.Tests/AndroidOverlayPanelsTests.cs`

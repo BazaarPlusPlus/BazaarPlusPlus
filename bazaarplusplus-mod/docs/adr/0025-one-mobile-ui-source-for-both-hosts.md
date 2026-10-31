@@ -57,12 +57,12 @@ ADR-0012 forbids the Android host to compile linked sources, and `AndroidHostAss
 - ADR-0023 stands: iOS keeps the desktop Mono host, its `GameInterop/` and its `Patches/`.
 - A Mobile UI change costs two game snapshots to build: the Mono managed snapshot and the Android interop snapshot.
 - iOS screen fill needs a Mono reference to `Unity.Cinemachine.dll`. It also needs a device check that a `CinemachineBrain.LateUpdate` postfix fires under `InterpreterMethodPatcher`.
-- Until the migration ends, both the old twins and the tree exist. Each pair is in exactly one place at any time.
+- During the migration (#701, finished 2026-10-31) both the old twins and the tree existed, each pair in exactly one place at any time. Now only the tree and the hosts' thin adapters remain.
 
 ## Evidence
 
 - Linked-source rule this narrows: `src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj` (comment above the Core reference), `tests/AndroidHost.Tests/AndroidHostAssemblyBoundaryTests.cs`
-- Hand-mirrored twins: `src/BazaarPlusPlus.Android/Ui/`, `src/BazaarPlusPlus/Game/Touch/`, `src/BazaarPlusPlus/Game/*/Touch/`
+- Hand-mirrored twins: `src/BazaarPlusPlus.Android/Ui/`, `src/BazaarPlusPlus/Game/Touch/`, `src/BazaarPlusPlus/Game/*/Touch/`, all deleted by #701; `CoreLayeringTests.Mobile_ui_has_no_second_source_tree` keeps them gone, and [mobile-ui.md](../architecture/mobile-ui.md) lists where each host's adapters went
 - Drift: `AndroidEnchantPreview.InlineCandidates` against the Mono host's `TouchEnchantPreview`; #701 replaced both with `src/BazaarPlusPlus.Mobile/Previews/TouchEnchantPreview.cs`
 - Android-only Native Adjustments: `AndroidScreenFill`, `AndroidScreenFillClock` (#701 moved their flow to `src/BazaarPlusPlus.Mobile/NativeAdjustment/`), `src/BazaarPlusPlus.Android/Patches/ScreenFillFieldOfViewPatch.cs`
 - Continuous screen metrics: `src/BazaarPlusPlus.Core/Ui/TouchMetrics.cs`, `TouchHudLayout.cs`

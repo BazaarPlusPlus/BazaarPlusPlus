@@ -3,7 +3,7 @@ using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Localization;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Game.Tooltips;
 
 /// <summary>
 /// The upgrade preview on a mobile platform (ADR-0024): a touch screen has no Shift key, so, as

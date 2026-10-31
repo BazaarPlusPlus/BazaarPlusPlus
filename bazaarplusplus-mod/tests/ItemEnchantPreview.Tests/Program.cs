@@ -5,7 +5,6 @@ using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.ItemEnchantPreview.Preview;
 using BazaarPlusPlus.Game.Tooltips;
-using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Patches.Tooltips;
 using TheBazaar.Tooltips;
 

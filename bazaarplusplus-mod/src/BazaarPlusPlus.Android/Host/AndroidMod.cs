@@ -7,7 +7,6 @@ using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Settings;
-using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;

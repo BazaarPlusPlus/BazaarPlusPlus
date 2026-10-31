@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarPlusPlus.Game.Touch;
+using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;

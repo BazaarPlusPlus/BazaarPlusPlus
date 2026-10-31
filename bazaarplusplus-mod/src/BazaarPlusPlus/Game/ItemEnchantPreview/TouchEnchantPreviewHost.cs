@@ -3,12 +3,13 @@ using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Tooltips;
+using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.Mobile.Previews;
 using TheBazaar;
 using TheBazaar.Tooltips;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Game.ItemEnchantPreview;
 
 /// <summary>
 /// The Mono host's card tooltip for the Mobile UI's enchant preview

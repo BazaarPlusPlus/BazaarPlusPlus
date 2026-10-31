@@ -30,7 +30,6 @@ using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Game.Tooltips;
-using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Game.VoiceSubtitles;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.GameInterop.CardPreview;

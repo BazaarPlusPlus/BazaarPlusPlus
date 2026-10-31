@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;

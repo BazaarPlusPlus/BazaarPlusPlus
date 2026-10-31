@@ -73,11 +73,11 @@ _Avoid_: matcher, collector, sequence candidate
 The manual update of the Live Build Panel's recommendation corpus; one successful pull per panel lifetime.
 
 **Main Overlay Panel**:
-A full-screen mod overlay on either Host: Collection, History, or Live Build Panel; at most one is open. Not the touch menu.
+A full-screen mod overlay on either Host: Collection, History, or Live Build Panel; at most one is open. Not the Mobile UI's HUD, which registers with the Overlay Panel Host but never opens.
 _Avoid_: popup, window
 
 **Overlay Panel Host**:
-Core's `OverlayPanelHost` plus a thin adapter per Host, owning Main Overlay Panel lifecycle (ADR-0022).
+Core's `OverlayPanelHost` plus a thin adapter per Host, owning Main Overlay Panel lifecycle (ADR-0022). It also ticks the Mobile UI's HUD, registered as `hud`, which never opens: nothing calls `RequestOpen` on it.
 _Avoid_: panel mutex
 
 **Panel Switch-Off**:

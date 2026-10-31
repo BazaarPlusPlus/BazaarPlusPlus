@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Core.Cards.CardRental;
+using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -8,7 +9,7 @@ using TheBazaar;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Game.HistoryPanel;
 
 /// <summary>
 /// The game's own mobile skill overlay (<c>MobileSkillOverlayController</c>, opened through

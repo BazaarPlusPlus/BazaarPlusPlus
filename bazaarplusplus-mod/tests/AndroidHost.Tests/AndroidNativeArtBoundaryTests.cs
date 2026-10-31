@@ -58,14 +58,15 @@ public sealed class AndroidNativeArtBoundaryTests
                 sharedUi.Contains(access.type.FullName)
                 && access.op.TargetType?.Namespace == "BazaarPlusPlus.Mobile.Collection"
         );
-        // The runtime owner never reaches back into the UI, the Mobile UI tree's included.
+        // The runtime owner never reaches back into the UI: the Mobile UI tree, or the host's side
+        // of it in Host/ (its port, Overlay Panel Host adapter and entries).
         Assert.DoesNotContain(
             accesses,
             access =>
                 access.type.FullName == "BazaarPlusPlus.Android.GameInterop.AndroidNativeArt"
                 && access.op.TargetType?.Namespace is { } ns
                 && (
-                    ns == "BazaarPlusPlus.Android.Ui"
+                    ns == "BazaarPlusPlus.Android.Host"
                     || ns == "BazaarPlusPlus.Mobile"
                     || ns.StartsWith("BazaarPlusPlus.Mobile.", StringComparison.Ordinal)
                 )

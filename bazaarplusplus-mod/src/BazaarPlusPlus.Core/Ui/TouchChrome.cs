@@ -10,7 +10,7 @@ namespace BazaarPlusPlus.Core.Ui;
 /// panel's own layout (<c>CollectionTouchLayout</c>, <c>HistoryTouchLayout</c>,
 /// <c>LiveBuildTouchLayout</c>, <see cref="TouchHudLayout"/>) places its content inside this
 /// frame, so the panels open, read, and close alike; <see cref="Inspect"/> is the shared
-/// tap-to-inspect sheet. Unity-free; the conventions are in <c>docs/architecture/android-mobile-ui.md</c>.
+/// tap-to-inspect sheet. Unity-free; the conventions are in <c>docs/architecture/mobile-ui.md</c>.
 /// </summary>
 public sealed class TouchChrome
 {

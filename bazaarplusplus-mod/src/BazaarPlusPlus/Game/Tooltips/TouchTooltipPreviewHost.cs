@@ -1,13 +1,13 @@
 #nullable enable
 using BazaarGameClient.Domain.Models.Cards;
-using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Mobile.Previews;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Game.Tooltips;
 
 /// <summary>
 /// The Mono host's item tooltip for the Mobile UI's preview switches on a mobile platform

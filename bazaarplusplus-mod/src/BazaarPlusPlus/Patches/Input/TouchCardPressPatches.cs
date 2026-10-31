@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarPlusPlus.Game.Touch;
+using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.Touch;
 using HarmonyLib;
 using UnityEngine.EventSystems;
