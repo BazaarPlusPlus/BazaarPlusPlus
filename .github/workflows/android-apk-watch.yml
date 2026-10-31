@@ -61,7 +61,7 @@ jobs:
           cache: true
           cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
       - if: steps.compare.outputs.state == 'changed'
-        uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: just@1.58.0
       # Keeps the ETag the bytes came with; the lock records its value.
