@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Game.OverlayPanels;
+using BazaarPlusPlus.Mobile.Previews;
 
 namespace BazaarPlusPlus.Mobile.Hud;
 
@@ -10,20 +11,27 @@ namespace BazaarPlusPlus.Mobile.Hud;
 /// the Mono host, an end-of-run screenshot; Android takes none).
 /// </param>
 /// <param name="Clock">The combat clock's state, or null for no clock.</param>
+/// <param name="Previews">
+/// The item tooltip's preview switches, which the HUD ticks, clears on a scene change and
+/// disposes; null for none.
+/// </param>
 internal sealed record TouchHudData(
     Func<string, OverlayRequestOutcome> OpenCollection,
     Func<string, OverlayRequestOutcome>? OpenLiveBuild,
     Func<bool> ShortcutsShown,
-    TouchCombatClockData? Clock
+    TouchCombatClockData? Clock,
+    TouchPreviewSwitches? Previews
 );
 
 /// <summary>
 /// The Mobile UI's HUD beside the game's own: the panel shortcuts by the settings button
-/// (<see cref="TouchShortcuts"/>) and the combat clock by the vault
-/// (<see cref="TouchCombatClock"/>). It is no Main Overlay Panel, but it registers with the
+/// (<see cref="TouchShortcuts"/>), the combat clock by the vault
+/// (<see cref="TouchCombatClock"/>) and the preview switches in the item tooltip
+/// (<see cref="TouchPreviewSwitches"/>). It is no Main Overlay Panel, but it registers with the
 /// host's Overlay Panel Host through the Mobile Platform Port as the panels do, under
 /// <see cref="Id"/> and with a registration that never opens, so the host ticks it every frame
-/// and tells it of a scene change, which drops the clock's plaque (ADR-0025 decision 3).
+/// and tells it of a scene change, which drops the clock's plaque and the switches (ADR-0025
+/// decision 3). Nothing calls <c>RequestOpen</c> on it.
 /// </summary>
 internal sealed class TouchHud : IDisposable
 {
@@ -31,6 +39,7 @@ internal sealed class TouchHud : IDisposable
     public const string Id = "hud";
 
     private readonly TouchCombatClock? _clock;
+    private readonly TouchPreviewSwitches? _previews;
     private readonly MobilePanelHandle _handle;
 
     public TouchHud(TouchHudData data)
@@ -43,6 +52,7 @@ internal sealed class TouchHud : IDisposable
             data.ShortcutsShown
         );
         _clock = data.Clock is { } clock ? new TouchCombatClock(clock) : null;
+        _previews = data.Previews;
         _handle = MobilePanelHandle.Register(_ => new OverlayPanelRegistration(
             Id,
             onOpen: static () => false,
@@ -50,7 +60,7 @@ internal sealed class TouchHud : IDisposable
             tick: (_, _) => Tick()
         )
         {
-            OnSceneChanged = () => _clock?.Dispose(),
+            OnSceneChanged = SceneChanged,
         });
     }
 
@@ -65,9 +75,18 @@ internal sealed class TouchHud : IDisposable
 
     private void Tick()
     {
+        // First, and catching their own failure: the switches never skip or are skipped by the
+        // shortcuts and the clock.
+        _previews?.Tick();
         var panelOpen = MobilePlatform.Port.OpenPanelId != null;
         Shortcuts.Tick(panelOpen);
         _clock?.Tick(panelOpen);
+    }
+
+    private void SceneChanged()
+    {
+        _clock?.Dispose();
+        _previews?.Clear("scene_changed");
     }
 
     /// <summary>The host stops: the HUD leaves the Overlay Panel Host, then its views go.</summary>
@@ -76,5 +95,6 @@ internal sealed class TouchHud : IDisposable
         _handle.Dispose();
         Shortcuts.Dispose();
         _clock?.Dispose();
+        _previews?.Dispose();
     }
 }

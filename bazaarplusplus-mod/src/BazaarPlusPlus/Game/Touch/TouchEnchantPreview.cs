@@ -25,7 +25,7 @@ namespace BazaarPlusPlus.Game.Touch;
 /// The section is built when the tooltip's contents render (<see cref="Prepare"/>) and consumed
 /// by the passive block of that same render (<see cref="TakePending"/>), so nothing carries over
 /// to the next card. A tooltip whose main text lists none keeps the collapsed Enchantments toggle
-/// in the native description scroll (<see cref="TouchGameplayPreviews"/>), which lists each
+/// in the native description scroll (<see cref="TouchTooltipPreviewHost"/>), which lists each
 /// enchantment's effect from the item's tier up through the game's own lock-mode preview card
 /// (<see cref="TouchCardText"/>).
 /// </summary>

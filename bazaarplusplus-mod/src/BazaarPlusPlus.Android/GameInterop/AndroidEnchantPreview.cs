@@ -29,7 +29,7 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// The section is built when the tooltip's contents render (<see cref="Prepare"/>) and consumed
 /// by the passive block of that same render (<see cref="TakePending"/>), so nothing carries over to
 /// the next card. A tooltip whose main text lists none keeps the collapsed switch in the native
-/// description scroll (<c>Ui/AndroidGameplayPreviews</c>), which renders every tier.
+/// description scroll (the Mobile UI's <c>Previews/TouchPreviewSwitches</c>), which renders every tier.
 /// </summary>
 internal static class AndroidEnchantPreview
 {

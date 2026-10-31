@@ -4,6 +4,7 @@ using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Mobile.Hud;
+using BazaarPlusPlus.Mobile.Previews;
 using UnityEngine;
 using CombatClock = BazaarPlusPlus.Game.CombatStatusBar.CombatStatusBar;
 
@@ -12,8 +13,9 @@ namespace BazaarPlusPlus.Game.Touch;
 /// <summary>
 /// The Mobile UI's HUD on a mobile platform (ADR-0025), in place of the desktop's dock buttons and
 /// combat status bar: its shortcuts open the touch Collection and Ten-Win Builds the panel mounts
-/// own, and its clock reads the desktop bar's state, which <see cref="CombatClock"/> still feeds.
-/// It mounts after the Overlay Panel Host, which ticks it, and after those panels.
+/// own, its clock reads the desktop bar's state, which <see cref="CombatClock"/> still feeds, and
+/// its preview switches take the place of the desktop's Shift and Ctrl hold keys in the item
+/// tooltip. It mounts after the Overlay Panel Host, which ticks it, and after those panels.
 /// </summary>
 internal sealed class TouchHudMount : IBppMountable
 {
@@ -35,7 +37,8 @@ internal sealed class TouchHudMount : IBppMountable
                         if (CombatClock.State.CanToggleCombatPause())
                             CombatClock.State.ToggleCombatPause();
                     }
-                )
+                ),
+                new TouchPreviewSwitches(new TouchTooltipPreviewHost())
             )
         );
         // An end-of-run screenshot hides the HUD in the frame it begins in.

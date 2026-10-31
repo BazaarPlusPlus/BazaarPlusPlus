@@ -32,7 +32,11 @@ internal static class AndroidPatchHost
     private static long _runInitializedHits;
     private static int _probeErrors;
 
-    public static AndroidGameplayPreviews? GameplayPreviews { get; set; }
+    /// <summary>The item tooltip the preview switches read; the render patch hands it each tooltip.</summary>
+    public static AndroidTooltipPreviewHost? TooltipPreviewHost { get; set; }
+
+    /// <summary>The Mobile UI's preview switches, which the hide patch asks about the pointer.</summary>
+    public static Mobile.Previews.TouchPreviewSwitches? PreviewSwitches { get; set; }
 
     public static Game.AndroidEncounterPreview? EncounterPreview { get; set; }
 
