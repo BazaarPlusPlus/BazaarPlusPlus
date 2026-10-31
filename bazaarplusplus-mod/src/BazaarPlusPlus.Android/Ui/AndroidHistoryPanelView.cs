@@ -95,8 +95,8 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         _supporters = supporters;
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
-        var screen = AndroidTouchScreen.Key();
-        _l = HistoryTouchLayout.For(AndroidTouchScreen.Read());
+        var screen = TouchScreen.Key();
+        _l = HistoryTouchLayout.For(TouchScreen.Read());
         _badges = AndroidHistoryBadges.TryLoad();
         _root = UiKit.CreateOverlayCanvas("BPP.HistoryPanel", SortingOrder);
         try
@@ -190,7 +190,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             return;
         var lines = label.GetPreferredValues(text, board.Width * StatusTextShare, 0f).y;
         var height = Math.Min(board.Height, Math.Max(_l.Metrics.Dp(StatusMinDp), lines + _l.Gap));
-        AndroidTouchScreen.Place(
+        TouchScreen.Place(
             band.GetComponent<RectTransform>(),
             new TouchRect(board.Left, board.Bottom - height, board.Width, height)
         );
@@ -273,7 +273,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     {
         BuildBackdrop();
         AndroidHistoryUi.Skin.Frame(
-            AndroidTouchScreen.Child("Sheet", Surface, _l.Sheet),
+            TouchScreen.Child("Sheet", Surface, _l.Sheet),
             AndroidHistoryUi.PanelFill,
             borderOnly: true
         );
@@ -468,7 +468,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     private void BuildSupporter()
     {
         (_, _, _supporterLabel) = AndroidHistoryUi.Skin.Button(
-            AndroidTouchScreen.Child("Supporter", Surface, _l.Sponsor),
+            TouchScreen.Child("Supporter", Surface, _l.Sponsor),
             _font,
             BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode),
             _l.ButtonFont,
@@ -534,7 +534,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         for (var i = 0; i < Rows; i++)
         {
             var index = i;
-            var rect = AndroidTouchScreen.Child("Row", content, _l.ArchiveRow(i, runs: true));
+            var rect = TouchScreen.Child("Row", content, _l.ArchiveRow(i, runs: true));
             var control = AndroidHistoryUi.Button(
                 rect,
                 _font,
@@ -654,7 +654,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         for (var i = 0; i < Rows; i++)
         {
             var slot = i;
-            var rect = AndroidTouchScreen.Child("Chip", content, _l.RailChip(i));
+            var rect = TouchScreen.Child("Chip", content, _l.RailChip(i));
             var control = AndroidHistoryUi.Button(
                 rect,
                 _font,
@@ -732,7 +732,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
 
     private RectTransform BoardRegion(string name, TouchRect area)
     {
-        var region = AndroidTouchScreen.Child(name, Surface, area);
+        var region = TouchScreen.Child(name, Surface, area);
         UiKit.Fill(region, AndroidHistoryUi.ButtonDimmed, blocksTouches: false);
         return region;
     }
@@ -744,7 +744,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
     private (GameObject Band, TextMeshProUGUI Label) StatusBand(string name, TouchRect board)
     {
         var height = Math.Min(board.Height, _l.Metrics.Dp(StatusMinDp));
-        var band = AndroidTouchScreen.Child(
+        var band = TouchScreen.Child(
             name,
             Surface,
             new TouchRect(board.Left, board.Bottom - height, board.Width, height)
@@ -828,7 +828,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         if (_railPaged != railPaged)
         {
             _railPaged = railPaged;
-            AndroidTouchScreen.Place(
+            TouchScreen.Place(
                 _rail.Scroll.GetComponent<RectTransform>(),
                 railPaged ? _l.RailList : _l.RailListFull
             );
@@ -932,7 +932,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
         for (var i = 0; i < Rows; i++)
         {
             var row = _archive.Rows[i];
-            AndroidTouchScreen.Place(row.Rect, _l.ArchiveRow(i, runs));
+            TouchScreen.Place(row.Rect, _l.ArchiveRow(i, runs));
         }
     }
 
@@ -1291,7 +1291,7 @@ internal sealed class AndroidHistoryPanelView : IDisposable
             if (placed == _placed)
                 return;
             _placed = placed;
-            AndroidTouchScreen.Place(_bar, placed);
+            TouchScreen.Place(_bar, placed);
         }
     }
 

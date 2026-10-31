@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Game.OverlayPanels;
+using BazaarPlusPlus.Mobile;
 using Xunit;
 
 namespace AndroidHost.Tests;
@@ -384,7 +385,7 @@ public sealed class AndroidOverlayPanelsTests
             rig.Events.Clear();
         }
 
-        public AndroidPanelHandle Handle { get; }
+        public MobilePanelHandle Handle { get; }
 
         public bool Enabled { get; set; } = true;
 

@@ -12,7 +12,7 @@ namespace LiveBuildPanel.Tests;
 internal static class LiveCardSnapshotReadTests
 {
     private const string DesktopEventId = "live_build_panel.live_snapshot.degraded";
-    private const string AndroidEventId = "android.live_build.live_snapshot.degraded";
+    private const string TouchEventId = "touch.live_build.live_snapshot.degraded";
 
     private static readonly Guid CardA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid CardB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -157,15 +157,15 @@ internal static class LiveCardSnapshotReadTests
             $"The desktop lines keep their snake-case values: {string.Join(" | ", desktop)}"
         );
 
-        var android = Install();
-        LiveCardSnapshotRead.Read(() => walk, AndroidEvent(), LiveCardSnapshotLogValues.MemberName);
+        var touch = Install();
+        LiveCardSnapshotRead.Read(() => walk, TouchEvent(), LiveCardSnapshotLogValues.MemberName);
         Check.That(
-            Degraded(android, AndroidEventId)
+            Degraded(touch, TouchEventId)
                 .SequenceEqual([
-                    "[BPP][Android] event=android.live_build.live_snapshot.degraded section=board reason_code=invalid_placement template_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa socket_id=Socket_8 item_size=Large",
-                    "[BPP][Android] event=android.live_build.live_snapshot.degraded section=stash reason_code=invalid_placement template_id=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb socket_id=12 item_size=Medium",
+                    "[BPP][Touch] event=touch.live_build.live_snapshot.degraded section=board reason_code=invalid_placement template_id=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa socket_id=Socket_8 item_size=Large",
+                    "[BPP][Touch] event=touch.live_build.live_snapshot.degraded section=stash reason_code=invalid_placement template_id=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb socket_id=12 item_size=Medium",
                 ]),
-            $"The Android lines keep their member-name values: {string.Join(" | ", android)}"
+            $"The Mobile UI lines keep their member-name values: {string.Join(" | ", touch)}"
         );
     }
 
@@ -276,8 +276,8 @@ internal static class LiveCardSnapshotReadTests
     private static BppLogEvent DesktopEvent() =>
         new(BppLogFeatureScope.LiveBuildPanel, DesktopEventId, storm: ["section", "reason_code"]);
 
-    private static BppLogEvent AndroidEvent() =>
-        new(BppLogFeatureScope.Android, AndroidEventId, storm: ["section", "reason_code"]);
+    private static BppLogEvent TouchEvent() =>
+        new(BppLogFeatureScope.Touch, TouchEventId, storm: ["section", "reason_code"]);
 
     // A fresh pipeline per test resets the storm window; the previous pipeline's flush can still
     // write its storm summaries (source_event=...) here, so lines are filtered by their own event

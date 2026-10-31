@@ -218,10 +218,12 @@ internal sealed class MonoHostComposition : IDisposable
         _settingsDockRegistry.Register(CombatStatusBarSettingsDockEntry.Create());
         _settingsDockRegistry.Register(new EndOfRunScreenshotSettingsDockEntry());
         _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
+        // The Mobile Platform Port registers touch panels with the host this mount adds.
+        var overlayPanelHostMount = new OverlayPanelHostMount();
         if (TouchPlatform.IsMobile)
         {
             // Before any touch surface builds Mobile UI (ADR-0025).
-            MobilePlatform.Install(new TouchMobilePlatform());
+            MobilePlatform.Install(new TouchMobilePlatform(() => overlayPanelHostMount.Host));
             // A touch screen has no keyboard: the History row drops its hotkey, the upgrade
             // switch sets where each tooltip's own toggle starts, and the enchant preview mode
             // lists the enchantments in each tooltip's main text, as on Android (ADR-0024).
@@ -280,7 +282,6 @@ internal sealed class MonoHostComposition : IDisposable
         );
         // The overlay host must mount before every Main Overlay Panel mount below: panels
         // register their lifecycle with it through the accessor.
-        var overlayPanelHostMount = new OverlayPanelHostMount();
         _mountables.Register(overlayPanelHostMount);
         _mountables.Register(
             new CollectionPanelMount(

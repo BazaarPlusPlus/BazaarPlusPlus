@@ -4,7 +4,7 @@ namespace BazaarPlusPlus.Core.Ui;
 
 /// <summary>
 /// The view a touch panel has laid out for one screen key (the Android host's
-/// <c>AndroidTouchScreen.Key</c>), and the one rule for replacing it. The old view is forgotten,
+/// <c>TouchScreen.Key</c>), and the one rule for replacing it. The old view is forgotten,
 /// then dropped (the panel's drop returns its cards and destroys its tree), before the new one
 /// builds; the key is recorded only once the build returned. A build that throws leaves no view
 /// and no key, so the panel reads closed, the next <see cref="Ensure"/> builds again without

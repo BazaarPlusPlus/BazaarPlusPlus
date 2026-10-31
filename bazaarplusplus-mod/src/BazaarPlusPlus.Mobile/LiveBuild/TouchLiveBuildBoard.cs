@@ -1,19 +1,15 @@
-#nullable enable
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
-using BazaarPlusPlus.Game.Touch;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Mobile.Ui;
-using TheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Game.LiveBuildPanel.Touch;
+namespace BazaarPlusPlus.Mobile.LiveBuild;
 
 /// <summary>
-/// One of the Live Build panel's four boards on Android: the native board mapper over the card
-/// rental, where the desktop renders an owned <c>MonsterBoardTooltip</c>. Each planned
+/// One of the Live Build panel's four boards on a mobile platform: the native board mapper over
+/// the card rental, where the desktop renders an owned <c>MonsterBoardTooltip</c>. Each planned
 /// <see cref="BppItemBoardCard"/> rents the game's own card prefab at its tier and enchantment, on
 /// its display socket (<see cref="LiveBuildTouchLayout.CardRect"/>). A re-render keeps the cards
 /// whose identity, socket, tier, and enchantment did not change and returns the rest, so toggling
@@ -101,7 +97,7 @@ internal sealed class TouchLiveBuildBoard
             cell.Card = card;
             _cells[key] = cell;
             Place(cell);
-            cell.Lease = TouchCardRental.Rent(
+            cell.Lease = MobilePlatform.Port.CardRental.Rent(
                 new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType),
                 cell.Slot,
                 _owner
@@ -206,7 +202,7 @@ internal sealed class TouchLiveBuildBoard
             TextAlignmentOptions.Center,
             UiKit.TextColor
         );
-        label.textWrappingMode = TextWrappingModes.NoWrap;
+        MobilePlatform.Port.SetWordWrapping(label, false);
         label.overflowMode = TextOverflowModes.Ellipsis;
         var tag = (root, background, label);
         _tagPool.Add(tag);
@@ -235,7 +231,7 @@ internal sealed class TouchLiveBuildBoard
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;
         button.transition = Selectable.Transition.None;
-        TouchUiActions.OnTap(
+        UiActions.OnTap(
             button,
             "live_build.card",
             () =>
@@ -251,7 +247,7 @@ internal sealed class TouchLiveBuildBoard
 
     private void Recycle(Cell cell)
     {
-        TouchCardRental.Return(cell.Lease);
+        MobilePlatform.Port.CardRental.Return(cell.Lease);
         cell.Lease = null;
         cell.Card = null;
         cell.Root.gameObject.SetActive(false);
@@ -266,6 +262,6 @@ internal sealed class TouchLiveBuildBoard
 
         public BppItemBoardCard? Card { get; set; }
 
-        public CardRentalLease<CardPreviewBase>? Lease { get; set; }
+        public CardRentalLease<GameCardPreview>? Lease { get; set; }
     }
 }

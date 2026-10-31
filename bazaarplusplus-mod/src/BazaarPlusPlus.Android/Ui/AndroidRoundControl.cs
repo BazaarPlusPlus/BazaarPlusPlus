@@ -57,7 +57,7 @@ internal static class AndroidRoundControl
         TouchRect area,
         Vector2 size
     ) =>
-        AndroidTouchScreen.Child(
+        TouchScreen.Child(
             name,
             visual,
             new(area.Left * size.x, area.Top * size.y, area.Width * size.x, area.Height * size.y)

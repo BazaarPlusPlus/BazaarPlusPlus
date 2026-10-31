@@ -94,7 +94,7 @@ internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDi
             Clear("tooltip_closed");
             return;
         }
-        var screen = AndroidTouchScreen.Key();
+        var screen = TouchScreen.Key();
         if (screen != _screen)
         {
             _screen = screen;
@@ -193,14 +193,14 @@ internal sealed class AndroidGameplayPreviews(AndroidOverlayPanels panels) : IDi
                 Screen.height
             )
         );
-        var root = AndroidTouchScreen.Child(
+        var root = TouchScreen.Child(
             "BPP.GameplayPreviews",
             parent,
             new(0, 0, parent.rect.width, 0)
         );
         _root = root.gameObject;
         _actions = root;
-        var area = AndroidTouchScreen.Child(
+        var area = TouchScreen.Child(
             "Content",
             root,
             new(chrome.Padding, chrome.Gap, parent.rect.width - 2 * chrome.Padding, 0)

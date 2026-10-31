@@ -13,6 +13,7 @@ using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using TheBazaar;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Touch;

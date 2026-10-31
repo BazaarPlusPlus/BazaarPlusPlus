@@ -16,10 +16,10 @@ namespace AndroidHost.Tests;
 /// </summary>
 public sealed class AndroidTouchViewBuildGuardTests
 {
-    private const string LiveBuildPanel = "BazaarPlusPlus.Android.LiveBuild.AndroidLiveBuildPanel";
-    private const string LiveBuildView = "BazaarPlusPlus.Android.LiveBuild.AndroidLiveBuildView";
+    private const string LiveBuildPanel = "BazaarPlusPlus.Mobile.LiveBuild.TouchLiveBuildPanel";
+    private const string LiveBuildView = "BazaarPlusPlus.Mobile.LiveBuild.TouchLiveBuildView";
     private const string LiveBuildInspection =
-        "BazaarPlusPlus.Android.LiveBuild.AndroidLiveBuildInspection";
+        "BazaarPlusPlus.Mobile.LiveBuild.TouchLiveBuildInspection";
 
     private static readonly Lazy<CompiledAssembly> Host = new(() =>
         CompiledAssembly.Load(
@@ -29,6 +29,18 @@ public sealed class AndroidTouchViewBuildGuardTests
                 .Value!
         )
     );
+
+    // Ten-Win Builds moved into the Mobile UI tree (ADR-0025): its six types must still compile
+    // into the host, so the rules below cannot pass on a type that no longer exists.
+    [Fact]
+    public void The_ten_win_builds_panel_compiles_into_the_host()
+    {
+        Assert.True(
+            Host.Value.Types.Count(type => type.Namespace == "BazaarPlusPlus.Mobile.LiveBuild")
+                >= 6,
+            "Ten-Win Builds left the Android host's Mobile UI tree."
+        );
+    }
 
     [Theory]
     [InlineData(LiveBuildView, ".ctor")]

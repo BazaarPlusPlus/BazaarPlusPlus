@@ -3,6 +3,7 @@ using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using Il2Cpp;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using Il2CppTheBazaar.UI.Components;
@@ -776,7 +777,7 @@ internal sealed class AndroidNativeSettingsSection
         return (min, max);
     }
 
-    private static string AndroidScreenKey() => Ui.AndroidTouchScreen.Key();
+    private static string AndroidScreenKey() => TouchScreen.Key();
 
     private void RebuildLayout()
     {

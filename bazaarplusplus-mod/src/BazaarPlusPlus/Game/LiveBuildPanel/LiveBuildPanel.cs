@@ -34,7 +34,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     internal static void OpenFromDockButton()
     {
-        if (Touch.TouchLiveBuildHost.TryOpenFromDockButton())
+        if (LiveBuildPanelMount.TryOpenTouchPanel())
             return;
         _instance?._overlayHandle?.RequestOpen();
     }

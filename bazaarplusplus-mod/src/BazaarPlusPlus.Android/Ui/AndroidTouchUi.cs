@@ -1,6 +1,5 @@
 using BazaarPlusPlus.Android.Collection;
 using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.LiveBuild;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Core.Ui;
@@ -8,6 +7,8 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile;
+using BazaarPlusPlus.Mobile.LiveBuild;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
@@ -20,16 +21,15 @@ namespace BazaarPlusPlus.Android.Ui;
 internal sealed class AndroidTouchUi
 {
     private const string CollectionPanelId = "collection";
-    private const string LiveBuildPanelId = "live_build";
     private const string EntrySource = "touch_icon";
     private const string MenuSource = "native_menu";
 
     private readonly AndroidOverlayPanels _panels;
     private readonly Action<string>? _openHistory;
-    private readonly AndroidLiveBuildData? _liveBuildData;
+    private readonly TouchLiveBuildData? _liveBuildData;
     private readonly AndroidSupporterData? _supporters;
-    private readonly AndroidPanelHandle _collectionHandle;
-    private readonly AndroidPanelHandle _liveBuildHandle;
+    private readonly MobilePanelHandle _collectionHandle;
+    private readonly TouchLiveBuildEntry? _liveBuild;
     private readonly List<(GameObject Root, Func<bool> Offered)> _entries = new();
     private bool _inRun;
 
@@ -45,7 +45,6 @@ internal sealed class AndroidTouchUi
     private TMP_FontAsset? _font;
     private AndroidCollectionPanel? _collection;
     private readonly AndroidCollectionCatalog _collectionCatalog;
-    private AndroidLiveBuildPanel? _liveBuild;
     private string? _shortcutScreen;
     private TouchRect? _shortcutAnchor;
     private bool _mountFailed;
@@ -54,7 +53,7 @@ internal sealed class AndroidTouchUi
     public AndroidTouchUi(
         AndroidOverlayPanels panels,
         Action<string>? openHistory,
-        AndroidLiveBuildData? liveBuildData,
+        TouchLiveBuildData? liveBuildData,
         AndroidSupporterData? supporters,
         AndroidCollectionCatalog collectionCatalog
     )
@@ -75,29 +74,22 @@ internal sealed class AndroidTouchUi
             IsModalInputActive = () => _collection?.HasModalBackStep == true,
             DismissModal = () => _collection?.DismissModalBackStep(),
         });
-        _liveBuildHandle = panels.Register(handle => new OverlayPanelRegistration(
-            LiveBuildPanelId,
-            onOpen: () => OpenLiveBuildPanel(handle),
-            onClose: reason => _liveBuild?.Close(handle.Describe(reason)),
-            tick: (_, _) => _liveBuild?.Tick()
-        )
-        {
-            Enabled = LiveBuildOffered,
-            IsModalInputActive = () => _liveBuild?.IsInspecting == true,
-            DismissModal = () => _liveBuild?.CloseInspection(),
-        });
+        // Ten-Win Builds is the Mobile UI's (ADR-0025): it registers itself through the port and
+        // builds under the touch root on its first open.
+        if (liveBuildData != null)
+            _liveBuild = new TouchLiveBuildEntry(liveBuildData, () => _root?.transform);
     }
 
     /// <summary>Panel lifecycle and shortcut layout counters for device validation.</summary>
     public BppLogField[] Summary() =>
         [
             ("touch_icon_relayouts", _relayouts),
-            ("live_build_opened", _liveBuild?.Opened ?? 0),
-            ("live_build_closed", _liveBuild?.Closed ?? 0),
-            ("live_build_leases", _liveBuild?.Leases ?? 0),
-            ("live_build_refreshes", _liveBuild?.Refreshes ?? 0),
-            ("live_build_refreshes_completed", _liveBuild?.RefreshesCompleted ?? 0),
-            ("live_build_relayouts", _liveBuild?.Relayouts ?? 0),
+            ("live_build_opened", _liveBuild?.Panel?.Opened ?? 0),
+            ("live_build_closed", _liveBuild?.Panel?.Closed ?? 0),
+            ("live_build_leases", _liveBuild?.Panel?.Leases ?? 0),
+            ("live_build_refreshes", _liveBuild?.Panel?.Refreshes ?? 0),
+            ("live_build_refreshes_completed", _liveBuild?.Panel?.RefreshesCompleted ?? 0),
+            ("live_build_relayouts", _liveBuild?.Panel?.Relayouts ?? 0),
             ("collection_relayouts", _collection?.Relayouts ?? 0),
             .. _panels.BackSummary(),
         ];
@@ -141,10 +133,8 @@ internal sealed class AndroidTouchUi
     public void Dispose()
     {
         _collectionHandle.Dispose();
-        _liveBuildHandle.Dispose();
         Guarded("touch_ui:dispose_collection", () => _collection?.Close("stopped"));
         Guarded("touch_ui:dispose_live_build", () => _liveBuild?.Dispose());
-        _liveBuild = null;
         AndroidTouchRoot.Frame = null;
         if (_root != null)
             UnityEngine.Object.Destroy(_root);
@@ -254,7 +244,7 @@ internal sealed class AndroidTouchUi
             _anchorCanvas!,
             UiKit.ReferenceResolution.y
         );
-        var screen = AndroidTouchScreen.Key();
+        var screen = TouchScreen.Key();
         if (
             bounds == _shortcutAnchor
             && string.Equals(screen, _shortcutScreen, StringComparison.Ordinal)
@@ -265,10 +255,10 @@ internal sealed class AndroidTouchUi
         if (_shortcuts != null)
             UnityEngine.Object.Destroy(_shortcuts.gameObject);
         _entries.Clear();
-        var metrics = AndroidTouchScreen.Read();
+        var metrics = TouchScreen.Read();
         var chrome = TouchChrome.For(metrics);
         var art = AndroidNativeArt.RoundArtFor(_anchor!, _anchorRect!, _anchorCanvas!);
-        _shortcuts = AndroidTouchScreen.Child(
+        _shortcuts = TouchScreen.Child(
             "PanelShortcuts",
             _root!.transform,
             new(0, 0, metrics.CanvasWidth, metrics.CanvasHeight)
@@ -293,7 +283,7 @@ internal sealed class AndroidTouchUi
                 ? TouchHudLayout.ShortcutInRow(metrics, bounds, 1)
                 : TouchHudLayout.ShortcutBeside(metrics, bounds),
             () => _inRun && LiveBuildOffered(),
-            () => LogOpenOutcome(LiveBuildPanelId, _liveBuildHandle.RequestOpen(EntrySource))
+            () => LogOpenOutcome(TouchLiveBuildEntry.PanelId, _liveBuild!.RequestOpen(EntrySource))
         );
         _relayouts++;
         BppLog.InfoEvent(
@@ -305,7 +295,7 @@ internal sealed class AndroidTouchUi
 
         void Add(string name, Sprite icon, TouchRect area, Func<bool> offered, Action open)
         {
-            var rect = AndroidTouchScreen.Child(name, _shortcuts, area);
+            var rect = TouchScreen.Child(name, _shortcuts, area);
             AndroidRoundControl.Create(
                 rect,
                 art,
@@ -330,7 +320,7 @@ internal sealed class AndroidTouchUi
 
     // The host's open: the combat gate already passed. The panel is built on its
     // first open; a build that throws is the host's to log and roll back.
-    private bool OpenCollectionPanel(AndroidPanelHandle handle)
+    private bool OpenCollectionPanel(MobilePanelHandle handle)
     {
         if (_root == null || _font == null)
             return false;
@@ -344,20 +334,7 @@ internal sealed class AndroidTouchUi
         return _collection.Open();
     }
 
-    private bool LiveBuildOffered() => _liveBuildData != null;
-
-    private bool OpenLiveBuildPanel(AndroidPanelHandle handle)
-    {
-        if (_root == null || _font == null || _liveBuildData == null)
-            return false;
-        _liveBuild ??= new AndroidLiveBuildPanel(
-            _root.transform,
-            _font,
-            _liveBuildData,
-            reason => handle.RequestClose(reason)
-        );
-        return _liveBuild.Open(handle.OpenSource);
-    }
+    private bool LiveBuildOffered() => _liveBuild != null;
 
     // A combat or a replay is on: no panel opens, as on the desktop.
     private static bool IsPlaying() =>

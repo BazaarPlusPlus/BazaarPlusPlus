@@ -20,15 +20,17 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
     private string _sceneToken = string.Empty;
 
     // hotkeyGuard returning false swallows the whole toggle (open and close) for that frame,
-    // e.g. while a text input inside the panel has focus.
+    // e.g. while a text input inside the panel has focus. A null toggleHotkey registers a panel
+    // that no key toggles, as the Mobile UI's panels (ADR-0024).
     public IOverlayPanelHandle Register(
         OverlayPanelRegistration registration,
-        BppHotkeyActionId toggleHotkey,
+        BppHotkeyActionId? toggleHotkey,
         Func<bool>? hotkeyGuard = null
     )
     {
         var handle = _host.Register(registration);
-        _hotkeys.Add((registration.PanelId, toggleHotkey, hotkeyGuard));
+        if (toggleHotkey is { } hotkey)
+            _hotkeys.Add((registration.PanelId, hotkey, hotkeyGuard));
         return new HotkeyHandle(this, registration.PanelId, handle);
     }
 

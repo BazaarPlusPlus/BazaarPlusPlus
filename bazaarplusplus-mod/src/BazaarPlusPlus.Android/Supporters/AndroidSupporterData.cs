@@ -4,7 +4,7 @@ using BazaarPlusPlus.Game.Supporters;
 namespace BazaarPlusPlus.Android.Supporters;
 
 /// <summary>The composition-owned supporter catalog and rotation shared by touch panels.</summary>
-internal sealed class AndroidSupporterData
+internal sealed class AndroidSupporterData : ISupporterRotation
 {
     private readonly SupporterCatalogModule _catalog;
     private readonly BPPSupporterAttribution _attribution = new(Environment.TickCount);
