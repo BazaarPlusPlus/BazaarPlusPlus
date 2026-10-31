@@ -54,35 +54,6 @@ internal static class TouchUiActions
     }
 }
 
-/// <summary>
-/// The main thread, captured once from it: a pool-thread completion posts back through Unity's
-/// own synchronization context, as the Android host's main-thread pump does.
-/// </summary>
-internal static class TouchMainThread
-{
-    private static System.Threading.SynchronizationContext? _context;
-    private static int _threadId = -1;
-
-    /// <summary>Main thread, once at startup.</summary>
-    public static void Capture()
-    {
-        _context = System.Threading.SynchronizationContext.Current;
-        _threadId = Environment.CurrentManagedThreadId;
-    }
-
-    public static bool IsCurrent => Environment.CurrentManagedThreadId == _threadId;
-
-    public static void Post(Action action)
-    {
-        if (_context == null || IsCurrent)
-        {
-            action();
-            return;
-        }
-        _context.Post(_ => action(), null);
-    }
-}
-
 /// <summary>The touch surfaces follow the mobile build: animations are always on.</summary>
 internal static class TouchMotion
 {

@@ -1,6 +1,3 @@
-using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Ui;
@@ -8,22 +5,21 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Mobile.Ui;
-using Il2CppTheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.LiveBuild;
+namespace BazaarPlusPlus.Mobile.LiveBuild;
 
 /// <summary>
 /// A recommended build's card, tapped, enlarged over the panel with its name and its text as the
-/// game's tooltip renders it (<see cref="AndroidCardTemplateText.Description(CardRentalSubject)"/>):
+/// game's tooltip renders it (<see cref="IMobilePlatformPort.CardDescription"/>):
 /// the touch counterpart of hovering a card on the desktop, where the game's own tooltip shows.
-/// Android has no hover tooltip, so the text stands beside the card as in the Collection
+/// A touch screen has no hover tooltip, so the text stands beside the card as in the Collection
 /// inspection. The card is the game's own prefab, rented at the build's tier and enchantment. A
 /// tap outside, the close button, or the back key dismisses it, and the lease goes back to the
 /// rental.
 /// </summary>
-internal sealed class AndroidLiveBuildInspection
+internal sealed class TouchLiveBuildInspection
 {
     public const string RentalOwner = "live_build.inspection";
 
@@ -32,9 +28,9 @@ internal sealed class AndroidLiveBuildInspection
     private readonly TextMeshProUGUI _name;
     private readonly InspectionText _description;
     private readonly LiveBuildTouchLayout _layout;
-    private CardRentalLease<CardPreviewBase>? _lease;
+    private CardRentalLease<GameCardPreview>? _lease;
 
-    public AndroidLiveBuildInspection(
+    public TouchLiveBuildInspection(
         RectTransform parent,
         TMP_FontAsset font,
         LiveBuildTouchLayout layout,
@@ -53,10 +49,10 @@ internal sealed class AndroidLiveBuildInspection
         UiKit.Fill(root, InGameTheme.Scrim);
         var dismiss = root.gameObject.AddComponent<Button>();
         dismiss.transition = Selectable.Transition.None;
-        AndroidUiActions.OnTap(dismiss, "live_build.inspection", () => Close("outside_tap"));
+        UiActions.OnTap(dismiss, "live_build.inspection", () => Close("outside_tap"));
         _root = root.gameObject;
 
-        var area = AndroidTouchScreen.Child("CardArea", root, layout.InspectCardArea);
+        var area = TouchScreen.Child("CardArea", root, layout.InspectCardArea);
         _slot = UiKit.Rect(
             "CardSlot",
             area,
@@ -66,7 +62,7 @@ internal sealed class AndroidLiveBuildInspection
             Vector2.zero
         );
 
-        var info = AndroidTouchScreen.Child("Info", root, layout.InspectInfo);
+        var info = TouchScreen.Child("Info", root, layout.InspectInfo);
         // Opaque, so the panel's text under it does not show through.
         skin.Frame(info);
         // Swallows taps on the panel, which would otherwise reach the dismiss button behind it.
@@ -74,7 +70,7 @@ internal sealed class AndroidLiveBuildInspection
         swallow.transition = Selectable.Transition.None;
         var origin = layout.InspectInfo;
         _name = UiKit.Text(
-            AndroidTouchScreen.Child("Name", info, Local(layout.InspectName, origin, layout.Gap)),
+            TouchScreen.Child("Name", info, Local(layout.InspectName, origin, layout.Gap)),
             font,
             "",
             layout.NameFont,
@@ -83,16 +79,12 @@ internal sealed class AndroidLiveBuildInspection
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
         _description = new InspectionText(
-            AndroidTouchScreen.Child(
-                "Description",
-                info,
-                Local(layout.InspectDetail, origin, layout.Gap)
-            ),
+            TouchScreen.Child("Description", info, Local(layout.InspectDetail, origin, layout.Gap)),
             font,
             layout.BodyFont,
             UiKit.TextColor
         );
-        var close = AndroidTouchScreen.Child("Close", info, Local(layout.InspectClose, origin, 0f));
+        var close = TouchScreen.Child("Close", info, Local(layout.InspectClose, origin, 0f));
         skin.Button(
             close,
             font,
@@ -116,15 +108,15 @@ internal sealed class AndroidLiveBuildInspection
     {
         Return();
         var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
-        _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
-        _description.Set(AndroidCardTemplateText.Description(subject) ?? string.Empty);
+        _name.text = MobilePlatform.Port.CardTitle(card.TemplateId) ?? string.Empty;
+        _description.Set(MobilePlatform.Port.CardDescription(subject) ?? string.Empty);
         var scale = _layout.InspectScale(card.DisplaySpan);
         _slot.localScale = new Vector3(scale, scale, 1f);
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
-        _lease = AndroidCardRental.Rent(subject, _slot, RentalOwner);
+        _lease = MobilePlatform.Port.CardRental.Rent(subject, _slot, RentalOwner);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.inspected"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.inspected"),
             ("source", source),
             ("size", card.Size),
             ("tier", card.Tier),
@@ -140,16 +132,16 @@ internal sealed class AndroidLiveBuildInspection
         Return();
         _root.SetActive(false);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.inspection_closed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.inspection_closed"),
             ("reason", reason),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
         );
         return true;
     }
 
     private void Return()
     {
-        AndroidCardRental.Return(_lease);
+        MobilePlatform.Port.CardRental.Return(_lease);
         _lease = null;
     }
 

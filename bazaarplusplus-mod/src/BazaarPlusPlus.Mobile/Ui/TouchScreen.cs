@@ -1,9 +1,7 @@
-#nullable enable
 using BazaarPlusPlus.Core.Ui;
-using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>
 /// The screen as Core's <see cref="TouchMetrics"/> sees it: Unity's pixel size, density, and safe

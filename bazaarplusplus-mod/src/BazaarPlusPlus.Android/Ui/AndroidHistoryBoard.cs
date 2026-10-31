@@ -133,7 +133,7 @@ internal sealed class AndroidHistoryBoard
         var layout = _layout!;
         var card = cell.Card!;
         var rect = layout.CardRect(card.DisplaySocketId ?? 0, card.DisplaySpan);
-        AndroidTouchScreen.Place(cell.Root, rect);
+        TouchScreen.Place(cell.Root, rect);
         // The rental centres the card on its slot's top-left corner at the prefab's size.
         cell.Slot.anchoredPosition = new Vector2(rect.Width / 2f, -rect.Height / 2f);
         cell.Slot.localScale = new Vector3(layout.CardScale, layout.CardScale, 1f);

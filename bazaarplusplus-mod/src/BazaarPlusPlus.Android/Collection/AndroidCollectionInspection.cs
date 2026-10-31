@@ -86,7 +86,7 @@ internal sealed class AndroidCollectionInspection
         dismiss.onClick.AddListener((UnityEngine.Events.UnityAction)(() => Dismiss("outside_tap")));
         _root = root.gameObject;
 
-        var area = AndroidTouchScreen.Child("CardArea", root, inspect.CardArea);
+        var area = TouchScreen.Child("CardArea", root, inspect.CardArea);
         _slot = UiKit.Rect(
             "CardSlot",
             area,
@@ -97,7 +97,7 @@ internal sealed class AndroidCollectionInspection
         );
 
         _cardOpacity = _slot.gameObject.AddComponent<CanvasGroup>();
-        var info = AndroidTouchScreen.Child("Info", root, inspect.Info);
+        var info = TouchScreen.Child("Info", root, inspect.Info);
         _infoOpacity = info.gameObject.AddComponent<CanvasGroup>();
         // Opaque, so the grid under it does not show through.
         _skin.Frame(info);
@@ -106,11 +106,7 @@ internal sealed class AndroidCollectionInspection
         swallow.transition = Selectable.Transition.None;
         var origin = inspect.Info;
         _name = UiKit.Text(
-            AndroidTouchScreen.Child(
-                "Name",
-                info,
-                Local(inspect.Name, origin, chrome.Padding * 2f)
-            ),
+            TouchScreen.Child("Name", info, Local(inspect.Name, origin, chrome.Padding * 2f)),
             font,
             "",
             chrome.NameFont,
@@ -118,7 +114,7 @@ internal sealed class AndroidCollectionInspection
             UiKit.TextColor
         );
         _name.overflowMode = TextOverflowModes.Ellipsis;
-        var close = AndroidTouchScreen.Child("Close", info, Local(inspect.Close, origin, 0f));
+        var close = TouchScreen.Child("Close", info, Local(inspect.Close, origin, 0f));
         close.anchoredPosition += new Vector2(-chrome.Padding * 2f, -chrome.Padding);
         _skin.Button(
             close,
@@ -128,7 +124,7 @@ internal sealed class AndroidCollectionInspection
             chrome.LabelInset,
             () => HandleBack()
         );
-        var detail = AndroidTouchScreen.Child(
+        var detail = TouchScreen.Child(
             "Detail",
             info,
             Local(inspect.Detail, origin, chrome.Padding * 2f)

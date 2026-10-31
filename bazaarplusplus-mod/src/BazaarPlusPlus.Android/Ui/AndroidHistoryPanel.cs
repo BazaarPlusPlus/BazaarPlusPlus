@@ -15,6 +15,8 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile;
+using BazaarPlusPlus.Mobile.Ui;
 
 namespace BazaarPlusPlus.Android.Ui;
 
@@ -58,7 +60,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     private readonly AndroidSupporterData? _supporters;
     private readonly AndroidHistoryBoard _upper;
     private readonly AndroidHistoryBoard _lower;
-    private readonly AndroidPanelHandle _handle;
+    private readonly MobilePanelHandle _handle;
     private readonly TouchViewSlot<AndroidHistoryPanelView> _slot;
     private AndroidHistoryInspection? _inspection;
     private AndroidHistorySkillsSheet? _skills;
@@ -179,7 +181,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
                 return;
             }
             // A visible panel with no view, its last build failed, builds again or closes.
-            if (!_slot.IsCurrent(AndroidTouchScreen.Key()) && !Relayout())
+            if (!_slot.IsCurrent(TouchScreen.Key()) && !Relayout())
             {
                 _handle.RequestClose("relayout_failed");
                 return;
@@ -338,7 +340,7 @@ internal sealed class AndroidHistoryPanel : IDisposable
     // False when none could be built: no font yet, or the build threw (LayoutFailed).
     private bool EnsureView()
     {
-        var key = AndroidTouchScreen.Key();
+        var key = TouchScreen.Key();
         if (_slot.IsCurrent(key) && !AndroidHistoryUi.Skin.NeedsRefresh)
             return true;
         var font = _font();

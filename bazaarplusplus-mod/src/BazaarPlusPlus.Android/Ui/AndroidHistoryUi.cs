@@ -45,7 +45,7 @@ internal static class AndroidHistoryUi
     )
     {
         var label = UiKit.Text(
-            AndroidTouchScreen.Child(name, parent, area),
+            TouchScreen.Child(name, parent, area),
             font,
             "",
             size,
@@ -95,7 +95,7 @@ internal static class AndroidHistoryUi
         float size,
         Action onTap,
         string text = ""
-    ) => Button(AndroidTouchScreen.Child(control, parent, area), font, control, size, onTap, text);
+    ) => Button(TouchScreen.Child(control, parent, area), font, control, size, onTap, text);
 
     public static HistoryButton Button(
         RectTransform rect,
@@ -164,7 +164,7 @@ internal static class AndroidHistoryUi
     /// <summary>An opaque panel that swallows taps, so they do not reach the shade behind it.</summary>
     public static RectTransform Panel(Transform parent, string name, TouchRect area)
     {
-        var rect = AndroidTouchScreen.Child(name, parent, area);
+        var rect = TouchScreen.Child(name, parent, area);
         Skin.Frame(rect, PanelFill, borderOnly: true);
         var swallow = rect.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
@@ -182,7 +182,7 @@ internal static class AndroidHistoryUi
         bool horizontal
     )
     {
-        var rect = AndroidTouchScreen.Child(name, parent, area);
+        var rect = TouchScreen.Child(name, parent, area);
         var viewport = UiKit.Rect(
             "Viewport",
             rect,
@@ -232,7 +232,7 @@ internal static class AndroidHistoryUi
         bool multiLine
     )
     {
-        var rect = AndroidTouchScreen.Child(name, parent, area);
+        var rect = TouchScreen.Child(name, parent, area);
         Skin.Frame(rect, InputFill, borderOnly: true);
         var background = rect.GetComponent<Image>();
         var viewport = UiKit.Rect(

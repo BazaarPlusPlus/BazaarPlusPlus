@@ -44,7 +44,7 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
             () => Close("outside_tap")
         );
         _root = root.gameObject;
-        var area = AndroidTouchScreen.Child("CardArea", root, layout.InspectCardArea);
+        var area = TouchScreen.Child("CardArea", root, layout.InspectCardArea);
         _slot = UiKit.Rect(
             "CardSlot",
             area,
@@ -64,11 +64,7 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
             wrap: true
         );
         _description = new InspectionText(
-            AndroidTouchScreen.Child(
-                "Description",
-                info,
-                Local(layout.InspectDetail, origin, layout.Gap)
-            ),
+            TouchScreen.Child("Description", info, Local(layout.InspectDetail, origin, layout.Gap)),
             font,
             layout.BodyFont,
             AndroidHistoryUi.Ink

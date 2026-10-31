@@ -1,7 +1,4 @@
-using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.Host;
-using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Cards.LiveCards;
@@ -11,50 +8,52 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.LiveBuild;
+namespace BazaarPlusPlus.Mobile.LiveBuild;
 
 /// <summary>
-/// The Android shell around Core's <see cref="LiveBuildPanelState"/>, the counterpart of the
-/// desktop's <c>LiveBuildPanel</c>: the live read (<see cref="AndroidLiveCardSnapshotReader"/>),
-/// the touch view, and the manual refresh. Core owns the behavior and the data; this shell feeds
-/// it taps and renders its snapshot. It is a Main Overlay Panel: the Overlay Panel Host opens and
-/// closes it (<see cref="AndroidOverlayPanels"/>), for the touch menu, the back key, combat, a
-/// scene change, another panel and the setting switched off; its close button and a failed
-/// relayout request the close. Closing returns every rented card.
-/// A refresh's fetch finishes on a pool thread, so its result is posted to
-/// <see cref="AndroidMainThread"/> before <see cref="LiveBuildPanelState.CompleteRefresh"/> runs,
-/// as the state requires. The view is laid out for the screen it opened on and laid out again
-/// when the resolution, density, or safe area changes, once the new screen has held still
-/// (<see cref="TouchRelayoutDebounce"/>) and no card is still setting up; the view's lifetime is
-/// Core's <see cref="TouchViewSlot{TView}"/>, so a view that fails to build leaves the panel
-/// closed, and the next open builds again. A card returned while
-/// it sets up leaves the old view at once (<see cref="CardRentalCore{TCard, TParent}"/>), so
+/// Ten-Win Builds on a mobile platform: the touch shell around Core's
+/// <see cref="LiveBuildPanelState"/>, the counterpart of the desktop's <c>LiveBuildPanel</c>: the
+/// live read (<see cref="IMobilePlatformPort.WalkLiveCards"/>), the touch view, and the manual
+/// refresh. Core owns the behavior and the data; this shell feeds it taps and renders its
+/// snapshot. It is a Main Overlay Panel (<see cref="TouchLiveBuildEntry"/>): the Overlay Panel
+/// Host opens and closes it, for the touch icon, the back key, combat, a scene change, another
+/// panel and the setting switched off; its close button and a failed relayout request the close.
+/// Closing returns every rented card. A refresh's fetch finishes on a pool thread, so its result
+/// is posted to the main thread (<see cref="IMobilePlatformPort.PostToMainThread"/>) before
+/// <see cref="LiveBuildPanelState.CompleteRefresh"/> runs, as the state requires. The view is
+/// laid out for the screen it opened on and laid out again when the resolution, density, or safe
+/// area changes, once the new screen has held still (<see cref="TouchRelayoutDebounce"/>) and no
+/// card is still setting up; the view's lifetime is Core's <see cref="TouchViewSlot{TView}"/>,
+/// so a view that fails to build leaves the panel closed, and the next open builds again. A card
+/// returned while it sets up leaves the old view at once (<see cref="CardRentalCore{TCard, TParent}"/>), so
 /// destroying the view never takes one.
 /// </summary>
-internal sealed class AndroidLiveBuildPanel
+internal sealed class TouchLiveBuildPanel
 {
     private const float ScrollLogStep = 40f;
 
     private readonly Transform _parent;
     private readonly TMP_FontAsset _font;
     private readonly LiveBuildPanelState _state;
-    private readonly AndroidLiveBuildData _data;
+    private readonly TouchLiveBuildData _data;
     private readonly Commands _commands;
-    private readonly TouchViewSlot<AndroidLiveBuildView> _slot = new(view => view.Destroy());
+    private readonly TouchViewSlot<TouchLiveBuildView> _slot = new(view => view.Destroy());
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private float _loggedScroll;
     private BppItemBoardId _selectedBoard = BppItemBoardId.LiveBoard;
 
-    public AndroidLiveBuildPanel(
+    public TouchLiveBuildPanel(
         Transform parent,
         TMP_FontAsset font,
-        AndroidLiveBuildData data,
+        TouchLiveBuildData data,
         Action<string> requestClose
     )
     {
-        ArgumentNullException.ThrowIfNull(requestClose);
+        if (requestClose == null)
+            throw new ArgumentNullException(nameof(requestClose));
         _parent = parent;
         _font = font;
         _data = data;
@@ -62,7 +61,7 @@ internal sealed class AndroidLiveBuildPanel
         _state = new LiveBuildPanelState(
             data.Recommendations,
             () => DateTimeOffset.UtcNow,
-            AndroidHeroNames.TheDragons
+            () => MobilePlatform.Port.HeroName(CardHero.TheDragons)
         );
         _commands = new Commands(
             requestClose,
@@ -110,10 +109,10 @@ internal sealed class AndroidLiveBuildPanel
         if (view == null)
             return false;
         var outcome = LiveCardSnapshotRead.Read(
-            AndroidLiveCardSnapshotReader.Walk,
+            MobilePlatform.Port.WalkLiveCards,
             new BppLogEvent(
-                BppLogFeatureScope.Android,
-                "android.live_build.live_snapshot.degraded",
+                BppLogFeatureScope.Touch,
+                "touch.live_build.live_snapshot.degraded",
                 storm: ["section", "reason_code"]
             ),
             LiveCardSnapshotLogValues.MemberName
@@ -126,7 +125,7 @@ internal sealed class AndroidLiveBuildPanel
         Opened++;
         var layout = view.Layout;
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.opened"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.opened"),
             ("source", source),
             ("hero", snapshot.Hero),
             ("shop", snapshot.Shop.Cards.Count),
@@ -154,11 +153,11 @@ internal sealed class AndroidLiveBuildPanel
         view.SetVisible(false);
         Closed++;
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.closed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.closed"),
             ("reason", reason),
             ("returned", returned),
-            ("rental_leases", AndroidCardRental.ActiveLeases),
-            ("rental_balanced", AndroidCardRental.IsBalanced)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases),
+            ("rental_balanced", MobilePlatform.Port.CardRental.IsBalanced)
         );
         return true;
     }
@@ -175,7 +174,7 @@ internal sealed class AndroidLiveBuildPanel
         if (view == null || !view.IsVisible)
             return;
         // The debounce reads the setup state only for a changed key: skip it while the key holds.
-        var key = AndroidTouchScreen.Key();
+        var key = TouchScreen.Key();
         var settingUp =
             !string.Equals(key, _relayout.LaidOut, StringComparison.Ordinal) && view.SettingUp;
         if (_relayout.Observe(key, settingUp))
@@ -189,7 +188,7 @@ internal sealed class AndroidLiveBuildPanel
         if (Math.Abs(offset - _loggedScroll) >= ScrollLogStep && view.ScrollSettled)
         {
             BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.scrolled"),
+                new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.scrolled"),
                 ("from", Math.Round(_loggedScroll)),
                 ("to", Math.Round(offset)),
                 ("max", Math.Round(view.ScrollMax))
@@ -207,9 +206,9 @@ internal sealed class AndroidLiveBuildPanel
     }
 
     // The view for the current screen, built when the screen changed or the last build failed.
-    private AndroidLiveBuildView? EnsureView()
+    private TouchLiveBuildView? EnsureView()
     {
-        var key = AndroidTouchScreen.Key();
+        var key = TouchScreen.Key();
         if (_slot.IsCurrent(key) && !_slot.View!.NeedsSkinRefresh)
             return _slot.View;
         var before = _slot.ScreenKey;
@@ -217,10 +216,10 @@ internal sealed class AndroidLiveBuildPanel
         var view = _slot.Rebuild(
             key,
             () =>
-                new AndroidLiveBuildView(
+                new TouchLiveBuildView(
                     _parent,
                     _font,
-                    LiveBuildTouchLayout.For(AndroidTouchScreen.Read()),
+                    LiveBuildTouchLayout.For(TouchScreen.Read()),
                     _commands
                 ),
             exception => LayoutFailed(exception, before, key, open)
@@ -240,12 +239,12 @@ internal sealed class AndroidLiveBuildPanel
             Closed++;
         }
         BppLog.ErrorEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.layout_failed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.layout_failed"),
             exception,
             ("from", before),
             ("to", key),
             ("open", open),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
         );
     }
 
@@ -261,12 +260,12 @@ internal sealed class AndroidLiveBuildPanel
         view.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
         Relayouts++;
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.relayout"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.relayout"),
             ("from", before),
             ("to", _slot.ScreenKey),
             ("units_per_dp", Math.Round(view.Layout.Metrics.UnitsPerDp, 3)),
             ("card_scale", Math.Round(view.Layout.CardScale, 3)),
-            ("rental_leases", AndroidCardRental.ActiveLeases),
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases),
             ("held_frames", _relayout.HeldFrames)
         );
         return true;
@@ -282,7 +281,7 @@ internal sealed class AndroidLiveBuildPanel
         };
         _slot.View?.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.board_selected"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.board_selected"),
             ("board", _selectedBoard),
             ("leases", Leases)
         );
@@ -295,7 +294,7 @@ internal sealed class AndroidLiveBuildPanel
         var snapshot = _state.BuildSnapshot();
         _slot.View?.Refresh(snapshot, boards: true, _selectedBoard);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.candidate_toggled"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.candidate_toggled"),
             ("candidates", snapshot.CandidateTemplateIds.Count),
             ("matches_state", snapshot.MatchesState),
             ("recommendations", snapshot.RecommendationCount),
@@ -310,7 +309,7 @@ internal sealed class AndroidLiveBuildPanel
         var snapshot = _state.BuildSnapshot();
         _slot.View?.Refresh(snapshot, boards: true, _selectedBoard);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.browsed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.browsed"),
             ("index", snapshot.RecommendationIndex),
             ("count", snapshot.RecommendationCount)
         );
@@ -335,11 +334,9 @@ internal sealed class AndroidLiveBuildPanel
     )
     {
         var result = await state.FetchRefreshAsync(request).ConfigureAwait(false);
-        var fetchedOnMain = AndroidMainThread.Host.IsCurrentThread;
-        AndroidMainThread.Host.Post(
-            _ => CompleteRefresh(state, result, requestId, fetchedOnMain),
-            null
-        );
+        var platform = MobilePlatform.Port;
+        var fetchedOnMain = platform.IsMainThread;
+        platform.PostToMainThread(() => CompleteRefresh(state, result, requestId, fetchedOnMain));
     }
 
     private void CompleteRefresh(
@@ -352,13 +349,13 @@ internal sealed class AndroidLiveBuildPanel
         var effect = state.CompleteRefresh(result, requestId);
         RefreshesCompleted++;
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.refresh_completed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.refresh_completed"),
             ("request_id", requestId, BppLogCorrelationPolicy.Short),
             ("succeeded", result.Succeeded),
             ("outcome", result.Outcome),
             ("effect", effect),
             ("fetched_on_main_thread", fetchedOnMain),
-            ("completed_on_main_thread", AndroidMainThread.Host.IsCurrentThread)
+            ("completed_on_main_thread", MobilePlatform.Port.IsMainThread)
         );
         if (!ReferenceEquals(state, _state) || !IsOpen)
             return;

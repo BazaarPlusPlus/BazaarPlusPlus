@@ -98,7 +98,7 @@ internal sealed class AndroidHistorySkillsSheet : IHistoryCardOverlay
             );
             for (var index = 0; index < HistoryTouchLayout.SkillsPerRow; index++)
             {
-                var rect = AndroidTouchScreen.Child(
+                var rect = TouchScreen.Child(
                     $"Skill{row}.{index}",
                     sheet,
                     Local(full.Cells[row, index], origin)
@@ -176,7 +176,7 @@ internal sealed class AndroidHistorySkillsSheet : IHistoryCardOverlay
                 var cell = _cells[row, index];
                 var skill = index < skills.Count ? skills[index] : null;
                 if (skill != null)
-                    AndroidTouchScreen.Place(cell.Root, Local(fit.Cells[row, index], fit.Sheet));
+                    TouchScreen.Place(cell.Root, Local(fit.Cells[row, index], fit.Sheet));
                 AndroidHistoryUi.SetActive(cell.Root.gameObject, skill != null);
                 if (skill == null)
                     continue;
@@ -243,20 +243,17 @@ internal sealed class AndroidHistorySkillsSheet : IHistoryCardOverlay
     // The sheet and its fixed parts; the shown cells are placed as they are filled.
     private void Place(HistorySkillsSheetLayout fit)
     {
-        AndroidTouchScreen.Place(_sheet, fit.Sheet);
-        AndroidTouchScreen.Place(_title.rectTransform, Local(fit.Title, fit.Sheet));
-        AndroidTouchScreen.Place(_close, Local(fit.Close, fit.Sheet));
-        AndroidTouchScreen.Place(_hint.rectTransform, Local(fit.Hint, fit.Sheet));
+        TouchScreen.Place(_sheet, fit.Sheet);
+        TouchScreen.Place(_title.rectTransform, Local(fit.Title, fit.Sheet));
+        TouchScreen.Place(_close, Local(fit.Close, fit.Sheet));
+        TouchScreen.Place(_hint.rectTransform, Local(fit.Hint, fit.Sheet));
         for (var row = 0; row < fit.RowTitles.Length; row++)
         {
-            AndroidTouchScreen.Place(
+            TouchScreen.Place(
                 _sides[row].Button.GetComponent<RectTransform>(),
                 Local(fit.Sides[row], fit.Sheet)
             );
-            AndroidTouchScreen.Place(
-                _rowTitles[row].rectTransform,
-                Local(fit.RowTitles[row], fit.Sheet)
-            );
+            TouchScreen.Place(_rowTitles[row].rectTransform, Local(fit.RowTitles[row], fit.Sheet));
         }
     }
 

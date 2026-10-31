@@ -17,7 +17,9 @@ namespace BazaarPlusPlus.Android.GameInterop.CardRental;
 internal static class AndroidCardRental
 {
     private static readonly AndroidCardRentalBackend Backend = new();
-    private static readonly CardRentalCore<CardPreviewBase, RectTransform> Core = new(Backend);
+
+    /// <summary>The rental itself, which the Mobile Platform Port hands the Mobile UI.</summary>
+    internal static readonly CardRentalCore<CardPreviewBase, RectTransform> Core = new(Backend);
 
     public static int ActiveLeases => Core.ActiveLeases;
 

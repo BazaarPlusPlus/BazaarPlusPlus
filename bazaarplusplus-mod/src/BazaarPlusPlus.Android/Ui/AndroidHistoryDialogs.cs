@@ -291,11 +291,11 @@ internal sealed class AndroidHistoryMoreDialog : IHistoryOverlay
         var header = _layout.MoreScroll.Top - full.Top;
         var footer = full.Bottom - _layout.MoreScroll.Bottom;
         var height = Math.Min(full.Height, header + content + footer);
-        AndroidTouchScreen.Place(
+        TouchScreen.Place(
             _dialog,
             new TouchRect(full.Left, full.Top + (full.Height - height) / 2f, full.Width, height)
         );
-        AndroidTouchScreen.Place(
+        TouchScreen.Place(
             _scroll.GetComponent<RectTransform>(),
             new TouchRect(
                 _layout.MoreScroll.Left - full.Left,

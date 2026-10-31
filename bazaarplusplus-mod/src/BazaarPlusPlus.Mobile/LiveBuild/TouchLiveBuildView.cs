@@ -1,17 +1,15 @@
-#nullable enable
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
-using BazaarPlusPlus.Game.Touch;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Game.LiveBuildPanel.Touch;
+namespace BazaarPlusPlus.Mobile.LiveBuild;
 
 /// <summary>
 /// The Live Build panel's touch view for one <see cref="LiveBuildTouchLayout"/>: the full sheet,
@@ -130,7 +128,7 @@ internal sealed class TouchLiveBuildView
                 "",
                 layout.TitleFont,
                 layout.LabelInset,
-                () => TouchUiActions.Run("live_build.switch_board", commands.CycleBoard)
+                () => UiActions.Run("live_build.switch_board", commands.CycleBoard)
             );
             _rows[BppItemBoardId.FinalBuild] = CreateRow(
                 root,
@@ -175,7 +173,7 @@ internal sealed class TouchLiveBuildView
                 UiKit.CloseGlyph,
                 layout.TitleFont,
                 layout.LabelInset,
-                () => TouchUiActions.Run("live_build.close", () => commands.Close("close_button"))
+                () => UiActions.Run("live_build.close", () => commands.Close("close_button"))
             );
 
             var refresh = TouchScreen.Child("Refresh", scrolled, layout.Refresh);
@@ -185,7 +183,7 @@ internal sealed class TouchLiveBuildView
                 "",
                 layout.ButtonFont,
                 layout.LabelInset,
-                () => TouchUiActions.Run("live_build.refresh", commands.Refresh)
+                () => UiActions.Run("live_build.refresh", commands.Refresh)
             );
 
             var corpus = TouchScreen.Child("CorpusStatus", scrolled, layout.Corpus);
@@ -193,7 +191,7 @@ internal sealed class TouchLiveBuildView
             var statusButton = corpus.gameObject.AddComponent<Button>();
             statusButton.targetGraphic = statusHit;
             statusButton.transition = Selectable.Transition.None;
-            TouchUiActions.OnTap(statusButton, "live_build.corpus", ToggleCorpusDetail);
+            UiActions.OnTap(statusButton, "live_build.corpus", ToggleCorpusDetail);
             _corpus = UiKit.Text(
                 UiKit.Rect(
                     "Status",
@@ -209,7 +207,7 @@ internal sealed class TouchLiveBuildView
                 TextAlignmentOptions.Center,
                 UiKit.MutedTextColor
             );
-            _corpus.textWrappingMode = TextWrappingModes.NoWrap;
+            MobilePlatform.Port.SetWordWrapping(_corpus, false);
             _corpus.overflowMode = TextOverflowModes.Ellipsis;
             if (layout.Stacked)
             {
@@ -257,7 +255,7 @@ internal sealed class TouchLiveBuildView
                     TextAlignmentOptions.BottomLeft,
                     UiKit.MutedTextColor
                 );
-                label.textWrappingMode = TextWrappingModes.NoWrap;
+                MobilePlatform.Port.SetWordWrapping(label, false);
                 label.overflowMode = TextOverflowModes.Ellipsis;
                 var value = UiKit.Text(
                     UiKit.Rect(
@@ -274,7 +272,7 @@ internal sealed class TouchLiveBuildView
                     TextAlignmentOptions.TopLeft,
                     UiKit.TextColor
                 );
-                value.textWrappingMode = TextWrappingModes.NoWrap;
+                MobilePlatform.Port.SetWordWrapping(value, false);
                 value.enableAutoSizing = true;
                 value.fontSizeMin = layout.BodyFont;
                 value.fontSizeMax = layout.ValueFont;
@@ -306,7 +304,7 @@ internal sealed class TouchLiveBuildView
                 layout.ButtonFont,
                 layout.LabelInset,
                 () =>
-                    TouchUiActions.Run(
+                    UiActions.Run(
                         "live_build.sponsor",
                         () =>
                             Application.OpenURL(
@@ -315,7 +313,7 @@ internal sealed class TouchLiveBuildView
                     )
             );
 
-            _sponsorLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            MobilePlatform.Port.SetWordWrapping(_sponsorLabel, false);
             _sponsorLabel.enableAutoSizing = true;
             _sponsorLabel.fontSizeMin = layout.BodyFont;
             _sponsorLabel.fontSizeMax = layout.ButtonFont;
@@ -379,16 +377,16 @@ internal sealed class TouchLiveBuildView
     public void Refresh(LiveBuildPanelSnapshot snapshot, bool boards, BppItemBoardId selectedBoard)
     {
         _refreshLabel.text = snapshot.FinalBuildRefreshButtonEnabled
-            ? TouchPanelUi.T("Update", "更新")
-            : TouchPanelUi.T("Updating…", "更新中…");
+            ? T("Update", "更新")
+            : T("Updating…", "更新中…");
         _refresh.interactable = snapshot.FinalBuildRefreshButtonEnabled;
         var summary = snapshot.CorpusState == LiveBuildCorpusState.Summary;
         _corpus.text =
-            summary ? TouchPanelUi.T("Library ready", "阵容库已就绪")
+            summary ? T("Library ready", "阵容库已就绪")
             : snapshot.CorpusStatusSeverity == LiveBuildRefreshSeverity.Failure
-                ? TouchPanelUi.T("Update failed", "更新失败")
+                ? T("Update failed", "更新失败")
             : snapshot.CorpusStatusSeverity == LiveBuildRefreshSeverity.Pending
-                ? TouchPanelUi.T("Loading…", "加载中…")
+                ? T("Loading…", "加载中…")
             : snapshot.CorpusStatusText;
         _corpus.color = summary ? UiKit.MutedTextColor : StatusColor(snapshot.CorpusStatusSeverity);
         _corpusDetail.Set(
@@ -408,7 +406,9 @@ internal sealed class TouchLiveBuildView
                 ? $"{snapshot.RecommendationIndex + 1} / {snapshot.RecommendationCount}"
                 : "0 / 0";
         _previous.interactable = _next.interactable = snapshot.RecommendationCount > 1;
-        var heroName = snapshot.Hero is { } hero ? TouchHeroNames.Display(hero) : string.Empty;
+        var heroName = snapshot.Hero is { } hero
+            ? MobilePlatform.Port.HeroName(hero)
+            : string.Empty;
         if (_hero != null)
             _hero.text = heroName;
         _hasRecommendation = snapshot.MatchesState == LiveBuildMatchesState.HasRecommendation;
@@ -420,7 +420,7 @@ internal sealed class TouchLiveBuildView
         _sponsorLabel.text = string.IsNullOrEmpty(credit)
             ? BPPSupporterAttributionText.FormatSponsorAction(language)
             : credit;
-        TouchFonts.Cover(_sponsorLabel);
+        MobilePlatform.Port.CoverText(_sponsorLabel);
         SetMetric(
             0,
             LiveBuildPanelText.MatchRateLabel(),
@@ -500,12 +500,15 @@ internal sealed class TouchLiveBuildView
         UnityEngine.Object.Destroy(_root);
     }
 
+    private static string T(string english, string chinese) =>
+        L.Resolve(new LocalizedTextSet(english, chinese));
+
     private static string BoardLabel(BppItemBoardId id) =>
         id switch
         {
-            BppItemBoardId.LiveStash => TouchPanelUi.T("Stash", "箱子"),
-            BppItemBoardId.LiveShop => TouchPanelUi.T("Shop", "商店"),
-            _ => TouchPanelUi.T("Board", "场上"),
+            BppItemBoardId.LiveStash => T("Stash", "箱子"),
+            BppItemBoardId.LiveShop => T("Shop", "商店"),
+            _ => T("Board", "场上"),
         };
 
     private void ToggleCorpusDetail()
@@ -616,7 +619,7 @@ internal sealed class TouchLiveBuildView
             text,
             Math.Min(area.Height * 0.5f, _layout.Metrics.Sp(32f)),
             labelInset,
-            () => TouchUiActions.Run($"live_build.{control}", onTap)
+            () => UiActions.Run($"live_build.{control}", onTap)
         );
         return button;
     }

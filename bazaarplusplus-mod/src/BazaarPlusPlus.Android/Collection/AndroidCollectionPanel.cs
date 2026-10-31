@@ -102,7 +102,7 @@ internal sealed class AndroidCollectionPanel
         );
         _tree = new TouchViewSlot<GameObject>(DropTree);
         // A failed first build leaves no tree: the first Open builds again.
-        var key = AndroidTouchScreen.Key();
+        var key = TouchScreen.Key();
         if (
             _tree.Rebuild(key, () => Build(key), exception => LayoutFailed(exception, "", false))
             != null
@@ -130,11 +130,8 @@ internal sealed class AndroidCollectionPanel
             return true;
         if (
             // No tree first: after a failed build the skin may be the partial one's, or none.
-            (
-                _tree.View == null
-                || _skin.NeedsRefresh
-                || !_tree.IsCurrent(AndroidTouchScreen.Key())
-            ) && !Relayout()
+            (_tree.View == null || _skin.NeedsRefresh || !_tree.IsCurrent(TouchScreen.Key()))
+            && !Relayout()
         )
             return false;
         CollapseFilters();
@@ -251,7 +248,7 @@ internal sealed class AndroidCollectionPanel
         if (!IsOpen)
             return;
         if (
-            _relayout.Observe(AndroidTouchScreen.Key(), _grid.SettingUp || _inspection.SettingUp)
+            _relayout.Observe(TouchScreen.Key(), _grid.SettingUp || _inspection.SettingUp)
             && !Relayout()
         )
         {
@@ -282,7 +279,7 @@ internal sealed class AndroidCollectionPanel
     // partial root, opaque and active until its last lines, before the exception leaves.
     private GameObject Build(string key)
     {
-        var layout = _layout = CollectionTouchLayout.For(AndroidTouchScreen.Read());
+        var layout = _layout = CollectionTouchLayout.For(TouchScreen.Read());
         _port.Touch = layout;
         _skin = new NativeSkin();
         var chrome = layout.Chrome;
@@ -330,7 +327,7 @@ internal sealed class AndroidCollectionPanel
         var metrics = layout.Metrics;
         UiKit.Fill(root, background);
 
-        var gridArea = AndroidTouchScreen.Child("Grid", root, layout.Grid);
+        var gridArea = TouchScreen.Child("Grid", root, layout.Grid);
         _grid = new AndroidCollectionGrid(gridArea, _port, Inspect, _font, chrome.BodyFont);
         // The grid's RectMask2D does not clip the rented cards (their prefab carries its own
         // canvas), so the grid draws first and opaque bands above and below it hide the cards
@@ -347,7 +344,7 @@ internal sealed class AndroidCollectionPanel
             )
         );
         _status = UiKit.Text(
-            AndroidTouchScreen.Child("Status", root, layout.Grid),
+            TouchScreen.Child("Status", root, layout.Grid),
             _font,
             "",
             chrome.ButtonFont,
@@ -356,7 +353,7 @@ internal sealed class AndroidCollectionPanel
         );
 
         (_, _, _supporterLabel) = _skin.Button(
-            AndroidTouchScreen.Child("Supporter", root, layout.Title),
+            TouchScreen.Child("Supporter", root, layout.Title),
             _font,
             BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode),
             chrome.ButtonFont,
@@ -377,7 +374,7 @@ internal sealed class AndroidCollectionPanel
         _supporterLabel.overflowMode = TextOverflowModes.Ellipsis;
         RefreshSupporterButton();
         _skin.Button(
-            AndroidTouchScreen.Child("Close", root, layout.Close),
+            TouchScreen.Child("Close", root, layout.Close),
             _font,
             L.Resolve(new LocalizedTextSet("Back", "返回", "返回")),
             chrome.TitleFont,
@@ -388,7 +385,7 @@ internal sealed class AndroidCollectionPanel
         _skillsTab = Tab(root, layout.SkillsTab, CollectionTabKind.Skills);
         (_search, _searchPlaceholder) = Search(root, layout.Search, chrome);
 
-        var rail = AndroidTouchScreen.Child("Rail", root, layout.Rail);
+        var rail = TouchScreen.Child("Rail", root, layout.Rail);
         _skin.Frame(
             UiKit.Rect("RailFrame", rail, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero)
         );
@@ -421,7 +418,7 @@ internal sealed class AndroidCollectionPanel
     {
         var before = _tree.ScreenKey;
         var open = IsOpen;
-        var key = AndroidTouchScreen.Key();
+        var key = TouchScreen.Key();
         var root = _tree.Rebuild(
             key,
             () => Build(key),
@@ -910,7 +907,7 @@ internal sealed class AndroidCollectionPanel
     )
     {
         var (_, background, label) = _skin.Button(
-            AndroidTouchScreen.Child(kind.ToString(), root, area),
+            TouchScreen.Child(kind.ToString(), root, area),
             _font,
             "",
             _layout.Chrome.ButtonFont,
@@ -938,7 +935,7 @@ internal sealed class AndroidCollectionPanel
         TouchChrome chrome
     )
     {
-        var rect = AndroidTouchScreen.Child("Search", root, area);
+        var rect = TouchScreen.Child("Search", root, area);
         _skin.Frame(rect);
         var inset = chrome.Gap;
         var textArea = UiKit.Rect(
@@ -1003,7 +1000,7 @@ internal sealed class AndroidCollectionPanel
     {
         if (area.Height <= 0f)
             return;
-        UiKit.Fill(AndroidTouchScreen.Child("GridEdge", root, area), color);
+        UiKit.Fill(TouchScreen.Child("GridEdge", root, area), color);
     }
 
     private bool IsInRun()

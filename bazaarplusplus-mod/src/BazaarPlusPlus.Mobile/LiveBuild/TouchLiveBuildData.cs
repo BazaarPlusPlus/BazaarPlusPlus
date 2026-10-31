@@ -1,29 +1,28 @@
-using BazaarPlusPlus.Android.Supporters;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 
-namespace BazaarPlusPlus.Android.LiveBuild;
+namespace BazaarPlusPlus.Mobile.LiveBuild;
 
 /// <summary>
-/// The Ten-Win Builds recommendation repository and its shared supporter data. Only Warm starts
-/// the build catalog; opening another panel that credits supporters does not load the corpus.
+/// The Ten-Win Builds recommendation repository and the supporter rotation the host's composition
+/// binds (<see cref="ISupporterRotation"/>). Only Warm starts the build catalog; opening another
+/// panel that credits supporters does not load the corpus.
 /// </summary>
-internal sealed class AndroidLiveBuildData
+internal sealed class TouchLiveBuildData
 {
-    private readonly AndroidSupporterData _supporters;
+    private readonly ISupporterRotation _supporters;
     private bool _stopped;
 
-    public AndroidLiveBuildData(
+    public TouchLiveBuildData(
         BuildRecommendationRepository recommendations,
-        AndroidSupporterData supporters
+        ISupporterRotation supporters
     )
     {
-        ArgumentNullException.ThrowIfNull(recommendations);
-        ArgumentNullException.ThrowIfNull(supporters);
-        Recommendations = recommendations;
-        _supporters = supporters;
+        Recommendations =
+            recommendations ?? throw new ArgumentNullException(nameof(recommendations));
+        _supporters = supporters ?? throw new ArgumentNullException(nameof(supporters));
     }
 
     public BuildRecommendationRepository Recommendations { get; }
@@ -43,7 +42,7 @@ internal sealed class AndroidLiveBuildData
         Recommendations.BeginCorpusLoad();
         _supporters.Warm();
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.data_warmed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.live_build.data_warmed"),
             ("source", source)
         );
     }
@@ -55,10 +54,5 @@ internal sealed class AndroidLiveBuildData
     public IReadOnlyList<BPPSupporterSample> NextSupporters(int count) =>
         Warmed && !_stopped ? _supporters.Next(count) : Array.Empty<BPPSupporterSample>();
 
-    public void Stop()
-    {
-        if (_stopped)
-            return;
-        _stopped = true;
-    }
+    public void Stop() => _stopped = true;
 }

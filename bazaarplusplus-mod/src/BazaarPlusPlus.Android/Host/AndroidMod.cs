@@ -74,7 +74,7 @@ public sealed class AndroidMod : MelonMod
     public override void OnInitializeMelon()
     {
         AndroidMainThread.Host.Capture();
-        MobilePlatform.Install(new AndroidMobilePlatform());
+        MobilePlatform.Install(new AndroidMobilePlatform(() => _overlayPanels));
         BppLog.Install(new MelonLogSink(LoggerInstance));
         var version = Info.Version;
         var settings = OpenSettings();

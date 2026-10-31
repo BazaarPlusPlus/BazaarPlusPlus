@@ -181,10 +181,10 @@ internal sealed class AndroidCombatStatusView(
     {
         if (
             !_vaultBounds.TryRead(UiKit.ReferenceResolution.y, out var vault)
-            || !TouchHudLayout.FitsBesideVault(AndroidTouchScreen.Read(), vault)
+            || !TouchHudLayout.FitsBesideVault(TouchScreen.Read(), vault)
         )
             return _layoutKey = null;
-        var screen = AndroidTouchScreen.Key();
+        var screen = TouchScreen.Key();
         var rounded = (
             (int)MathF.Round(vault.Left),
             (int)MathF.Round(vault.Top),
@@ -217,12 +217,12 @@ internal sealed class AndroidCombatStatusView(
             _relayout.LaidOutAt(key);
         // The glyphs are owned sprites that outlive the canvas; only Dispose destroys them.
         var icons = _icons ??= new AndroidPlaybackIcons();
-        var chrome = TouchChrome.For(AndroidTouchScreen.Read());
+        var chrome = TouchChrome.For(TouchScreen.Read());
         // Beneath the native card drawer (Tooltip_Mobile_P, order 150) so its slide-out covers
         // the clock as it reappears; above the board HUD (order 0).
         _root = UiKit.CreateOverlayCanvas("BPP.CombatStatus", 149);
         var layout = TouchHudLayout.Playback(chrome.Metrics, _vault, _boardTop);
-        var plaque = AndroidTouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
+        var plaque = TouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
         var background = UiKit.Fill(plaque, UiKit.ButtonColor, false);
         if (_skin == null || _skin.NeedsRefresh)
             _skin = new NativeSkin();
@@ -255,7 +255,7 @@ internal sealed class AndroidCombatStatusView(
             )
         );
         _time = UiKit.Text(
-            AndroidTouchScreen.Child("Time", _root.transform, layout.Time),
+            TouchScreen.Child("Time", _root.transform, layout.Time),
             font,
             "",
             chrome.ClockTimeFont,
@@ -265,7 +265,7 @@ internal sealed class AndroidCombatStatusView(
         Outline(_time);
         var half = layout.Controls with { Width = layout.Controls.Width / 2 };
         _speedText = UiKit.Text(
-            AndroidTouchScreen.Child("Multiplier", _root.transform, half),
+            TouchScreen.Child("Multiplier", _root.transform, half),
             font,
             "",
             chrome.ClockSpeedFont,
@@ -275,7 +275,7 @@ internal sealed class AndroidCombatStatusView(
         Outline(_speedText);
         var glyph = UiKit.Fixed(
             "PauseIcon",
-            AndroidTouchScreen.Child("PauseCell", _root.transform, half with { Left = half.Right }),
+            TouchScreen.Child("PauseCell", _root.transform, half with { Left = half.Right }),
             new(.5f, .5f),
             Vector2.zero,
             new(chrome.Metrics.Dp(16), chrome.Metrics.Dp(16))
@@ -287,12 +287,12 @@ internal sealed class AndroidCombatStatusView(
         shadow.effectColor = InGameTheme.WithAlpha(InGameTheme.Outline, 0.85f);
         shadow.effectDistance = new Vector2(chrome.Metrics.Dp(1), -chrome.Metrics.Dp(1));
         _speed = Control(
-            AndroidTouchScreen.Child("Speed", _root.transform, layout.Speed),
+            TouchScreen.Child("Speed", _root.transform, layout.Speed),
             _speedText,
             () => playback.State.CycleCombatSpeed()
         );
         _pause = Control(
-            AndroidTouchScreen.Child("Pause", _root.transform, layout.Pause),
+            TouchScreen.Child("Pause", _root.transform, layout.Pause),
             _pauseIcon,
             playback.TogglePause
         );
@@ -318,7 +318,7 @@ internal sealed class AndroidCombatStatusView(
 
     private void Divider(TouchRect area) =>
         UiKit.Fill(
-            AndroidTouchScreen.Child("Divider", _root!.transform, area),
+            TouchScreen.Child("Divider", _root!.transform, area),
             InGameTheme.WithAlpha(InGameTheme.RuleStrong, .65f),
             false
         );

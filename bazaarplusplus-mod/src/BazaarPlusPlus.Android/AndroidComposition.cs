@@ -24,6 +24,7 @@ using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.ReleaseManifest;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
+using BazaarPlusPlus.Mobile.LiveBuild;
 using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
@@ -47,7 +48,7 @@ namespace BazaarPlusPlus.Android;
 /// store and its operation gate, History's BazaarDB link client, and History's own Mod API
 /// session (ADR-0006), which outlives the upload pump's per-activation sessions and is disposed
 /// last. It owns the ten-win build catalog, a Remote Embedded Catalog, and the Ten-Win Builds
-/// panel's recommendation repository (<see cref="AndroidLiveBuildData"/>), plus the shared
+/// panel's recommendation repository (<see cref="TouchLiveBuildData"/>), plus the shared
 /// <see cref="AndroidSupporterData"/> used by Collection and Ten-Win Builds. Each loads on demand;
 /// the composition stops them and disposes the build catalog on stop.
 /// </summary>
@@ -63,7 +64,7 @@ internal sealed class AndroidComposition
     private readonly ReplayPayloadMaintenanceService _replayMaintenance;
     private readonly ModApiSession _historySession;
     private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _buildCatalog;
-    private readonly AndroidLiveBuildData _liveBuild;
+    private readonly TouchLiveBuildData _liveBuild;
     private readonly AndroidSupporterData _supporters;
     private readonly BazaarDbLinkClient _accountLink;
     private readonly BundleSealCoordinator _sealCoordinator;
@@ -202,7 +203,7 @@ internal sealed class AndroidComposition
                 new AndroidDevSettings(settings).BuildCorpusPort.Value
             );
             _supporters = new AndroidSupporterData(_core.Services.Config, dataRoot);
-            _liveBuild = new AndroidLiveBuildData(
+            _liveBuild = new TouchLiveBuildData(
                 new BuildRecommendationRepository(buildCatalog, AndroidCardTemplateSize.Resolve),
                 _supporters
             );
@@ -239,7 +240,7 @@ internal sealed class AndroidComposition
     public ReplayPayloadOperationGate ReplayGate { get; }
 
     /// <summary>The Ten-Win Builds panel's data over the composition-owned build catalog.</summary>
-    public AndroidLiveBuildData LiveBuild => _liveBuild;
+    public TouchLiveBuildData LiveBuild => _liveBuild;
 
     public AndroidSupporterData Supporters => _supporters;
 

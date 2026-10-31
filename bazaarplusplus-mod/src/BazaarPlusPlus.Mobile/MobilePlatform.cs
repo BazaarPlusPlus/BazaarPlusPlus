@@ -1,3 +1,7 @@
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.CardRental;
+using BazaarPlusPlus.Core.Cards.LiveCards;
+using BazaarPlusPlus.Game.OverlayPanels;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -41,6 +45,48 @@ internal interface IMobilePlatformPort
     /// tooltips; a sprite the game has not loaded is null.
     /// </summary>
     NativeSkinArt ReadNativeSkinArt();
+
+    /// <summary>Whether the caller runs on the main thread.</summary>
+    bool IsMainThread { get; }
+
+    /// <summary>Runs <paramref name="action"/> on the main thread: now when already there, else later.</summary>
+    void PostToMainThread(Action action);
+
+    /// <summary>
+    /// Runs a control's handler as the host runs its own controls': inside the main-thread scope,
+    /// with an exception reported instead of escaping into uGUI's event loop.
+    /// </summary>
+    void RunUiAction(string control, Action handler);
+
+    /// <summary>The game's body font, or null while the game has not loaded it yet.</summary>
+    TMP_FontAsset? GameFont();
+
+    /// <summary>Adds the game's CJK fallbacks when <paramref name="label"/>'s text needs them.</summary>
+    void CoverText(TMP_Text label);
+
+    /// <summary>The game's localized name for <paramref name="hero"/>, or its English name.</summary>
+    string HeroName(CardHero hero);
+
+    /// <summary>A card template's localized title, or null when the game cannot name it.</summary>
+    string? CardTitle(Guid templateId);
+
+    /// <summary>A card's text as the game's tooltip renders it at its tier and enchantment.</summary>
+    string? CardDescription(CardRentalSubject subject);
+
+    /// <summary>
+    /// The host's one native card rental. The host ticks it every frame and releases it on a
+    /// scene load; the Mobile UI only rents and returns.
+    /// </summary>
+    CardRentalCore<GameCardPreview, RectTransform> CardRental { get; }
+
+    /// <summary>One walk of the live run's cards (board, stash, shop), or null outside a run.</summary>
+    LiveCardWalk? WalkLiveCards();
+
+    /// <summary>
+    /// Registers a Main Overlay Panel with the host's Overlay Panel Host (ADR-0022), which opens,
+    /// ticks and closes it. Main thread.
+    /// </summary>
+    IOverlayPanelHandle RegisterOverlayPanel(OverlayPanelRegistration registration);
 }
 
 /// <summary>
