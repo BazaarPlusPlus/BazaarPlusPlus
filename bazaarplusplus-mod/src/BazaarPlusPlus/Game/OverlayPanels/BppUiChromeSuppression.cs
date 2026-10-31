@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Game.Settings;
-using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Infrastructure;
 using CombatStatusBarFeature = BazaarPlusPlus.Game.CombatStatusBar.CombatStatusBar;
 

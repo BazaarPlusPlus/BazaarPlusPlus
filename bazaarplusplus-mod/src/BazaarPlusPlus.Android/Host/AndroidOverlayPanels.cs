@@ -1,11 +1,9 @@
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Mobile;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Android.Host;
 
 /// <summary>
 /// The Android adapter of the Overlay Panel Host (GLOSSARY.md §Overlay panels): History, Collection
@@ -54,13 +52,6 @@ internal sealed class AndroidOverlayPanels
 
     /// <summary>The open Main Overlay Panel's id, or null.</summary>
     public string? OpenPanelId => _host.OpenPanelId;
-
-    /// <summary>
-    /// Registers a Main Overlay Panel. The registration is built against its handle, so its
-    /// callbacks can read the source of an open and the string reason of a close.
-    /// </summary>
-    public MobilePanelHandle Register(Func<MobilePanelHandle, OverlayPanelRegistration> build) =>
-        MobilePanelHandle.Register(build, Register, () => AndroidMainThread.Host.Enter());
 
     /// <summary>
     /// Registers a Main Overlay Panel with Core's host: the Mobile Platform Port's overlay

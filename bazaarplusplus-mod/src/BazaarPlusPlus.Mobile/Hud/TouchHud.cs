@@ -64,6 +64,8 @@ internal sealed class TouchHud : IDisposable
             ? new TouchCombatClock(clock, () => screenFill?.BoardTop)
             : null;
         _previews = data.Previews;
+        // Never RequestOpen this handle: the host would close the open panel as superseded, and
+        // then the HUD's open fails, so the player loses the panel for nothing (ADR-0022).
         _handle = MobilePanelHandle.Register(_ => new OverlayPanelRegistration(
             Id,
             onOpen: static () => false,

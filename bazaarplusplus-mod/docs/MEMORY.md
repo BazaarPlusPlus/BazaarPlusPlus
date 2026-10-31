@@ -36,7 +36,7 @@ One line each, to stop a settled question from being reopened; the ADR says why.
 - ADR-0015: Core speaks BPP card facets, never game card enums; each host maps by member name in one adapter, and a facet's integer is never persisted.
 - ADR-0016: `AndroidHost.Tests` loads the compiled host and runs only code that never calls into IL2CPP; both hosts' card enum values are one shared table.
 - ADR-0017: Item boards and live cards live in Core on facets, with sockets as indexes 0..9 and attributes keyed by game member name; an unmapped tier or size renders as Bronze or Small.
-- ADR-0018: Android touch surfaces lay out in Core's one `TouchChrome` frame (safe area, 48 dp/12 sp floors, one close button, shared inspect sheet); a touch grid picks its columns from its width.
+- ADR-0018: Mobile UI surfaces lay out in Core's one `TouchChrome` frame (safe area, 48 dp/12 sp floors, one close button, shared inspect sheet); a touch grid picks its columns from its width.
 - ADR-0019: The Combat Impact producer lives in Core on BPP combat facets that copy the game's names and values; the host only copies a `CombatSim` and reads templates.
 - ADR-0020: Saved Replay Playback lives once in Core behind `ISavedReplayHost`; hosts differ only in port behavior.
 - ADR-0021: The PvP Battle Capture Window lives once in Core behind `IPvpBattleReads`; persistence stays per host.

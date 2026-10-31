@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Game.OverlayPanels;
 
 /// <summary>
 /// The Mobile UI shortcuts' rule beyond the HUD's own on the Mono host (TouchHudMount): they hide

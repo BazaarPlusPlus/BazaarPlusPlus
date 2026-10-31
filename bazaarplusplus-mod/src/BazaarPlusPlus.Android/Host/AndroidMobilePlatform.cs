@@ -1,6 +1,5 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.LiveCards;
@@ -12,7 +11,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Android.Host;
 
 /// <summary>
 /// The Android host's Mobile Platform Port (ADR-0025): the main-thread scope is the host's own

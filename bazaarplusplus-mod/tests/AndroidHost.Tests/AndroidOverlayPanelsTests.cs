@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Mobile;
 using Xunit;
@@ -169,7 +169,7 @@ public sealed class AndroidOverlayPanelsTests
     {
         var rig = new Rig();
         var steps = new Queue<string>(new[] { "inspection", "inspection_animating", "picker" });
-        var handle = rig.Panels.Register(h => new OverlayPanelRegistration(
+        var handle = rig.Register(h => new OverlayPanelRegistration(
             "collection",
             onOpen: () => true,
             onClose: reason => rig.Events.Add($"close:collection:{h.Describe(reason)}"),
@@ -331,6 +331,16 @@ public sealed class AndroidOverlayPanelsTests
 
         public AndroidOverlayPanels Panels { get; }
 
+        // As the Mobile Platform Port registers a panel: through the adapter, in the pump's scope.
+        public MobilePanelHandle Register(
+            Func<MobilePanelHandle, OverlayPanelRegistration> build
+        ) =>
+            MobilePanelHandle.Register(
+                build,
+                Panels.Register,
+                () => AndroidMainThread.Host.Enter()
+            );
+
         public List<string> Events { get; } = new();
 
         public bool InCombat { get; set; }
@@ -354,7 +364,7 @@ public sealed class AndroidOverlayPanelsTests
     {
         public FakePanel(Rig rig, string id, SceneChangeClosePolicy policy)
         {
-            Handle = rig.Panels.Register(handle => new OverlayPanelRegistration(
+            Handle = rig.Register(handle => new OverlayPanelRegistration(
                 id,
                 onOpen: () =>
                 {

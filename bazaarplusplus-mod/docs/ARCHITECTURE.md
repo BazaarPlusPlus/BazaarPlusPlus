@@ -30,7 +30,7 @@ Each host ships five BPP assemblies. Dependencies run host → Core → {Storage
 
 | Assembly | Contents |
 |---|---|
-| `BazaarPlusPlus.dll` (desktop and iOS) / `BazaarPlusPlus.Android.dll` (Android) | host-specific game integration, patches, resources and `MonoHostComposition` / `AndroidComposition`; both compile the Mobile UI, `src/BazaarPlusPlus.Mobile/` (ADR-0025) |
+| `BazaarPlusPlus.dll` (desktop and iOS) / `BazaarPlusPlus.Android.dll` (Android) | game integration, patches, resources, `MonoHostComposition` / `AndroidComposition`; both compile the Mobile UI, `src/BazaarPlusPlus.Mobile/` (ADR-0025) |
 | `BazaarPlusPlus.Core.dll` | the shared core every host references (directories below) |
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |
@@ -112,5 +112,5 @@ Each feature doc ends with its own Gotchas.
 | Desktop native build freshness, local promotion, and signing | [architecture/native-artifacts.md](architecture/native-artifacts.md) |
 | Hotkey bindings and settings dock rows | [architecture/input-and-settings.md](architecture/input-and-settings.md) |
 | Fonts, localization, voice subtitles, supporter attribution | [architecture/text.md](architecture/text.md) |
-| Android Host; the Mobile UI | [architecture/android-host.md](architecture/android-host.md); [Mobile UI](architecture/android-mobile-ui.md) |
+| Android Host; the Mobile UI's tree and host adapters | [architecture/android-host.md](architecture/android-host.md); [Mobile UI](architecture/mobile-ui.md) |
 | The V6 bundle wire format | [contracts/run-payload-v6.md](contracts/run-payload-v6.md) |

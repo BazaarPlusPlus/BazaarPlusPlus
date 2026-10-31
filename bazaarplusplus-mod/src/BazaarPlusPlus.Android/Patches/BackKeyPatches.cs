@@ -1,4 +1,4 @@
-using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Android.Host;
 using HarmonyLib;
 using Il2CppTheBazaar;
 

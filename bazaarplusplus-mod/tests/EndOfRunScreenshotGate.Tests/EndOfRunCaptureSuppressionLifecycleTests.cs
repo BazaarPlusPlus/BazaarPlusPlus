@@ -1,6 +1,6 @@
 #nullable enable
+using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Screenshots;
-using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Tooltips;
 
 internal static class EndOfRunCaptureSuppressionLifecycleTests

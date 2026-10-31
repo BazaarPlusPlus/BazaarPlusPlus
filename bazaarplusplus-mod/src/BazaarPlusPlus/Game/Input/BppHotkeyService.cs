@@ -77,7 +77,7 @@ internal static class BppHotkeyService
     {
         if (actionId != BppHotkeyActionId.HoldUpgradePreview)
             return IsHeld(actionId, keyboard, mouse);
-        if (Touch.TouchUpgradePreview.Active is { } touchActive)
+        if (Tooltips.TouchUpgradePreview.Active is { } touchActive)
             return touchActive;
 
         keyboard ??= Keyboard.current;

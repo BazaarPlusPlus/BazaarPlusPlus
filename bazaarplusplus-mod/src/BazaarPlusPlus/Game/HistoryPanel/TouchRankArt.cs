@@ -1,13 +1,12 @@
 #nullable enable
 using BazaarGameShared.TempoNet.Enums;
-using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Game.HistoryPanel;
 
 /// <summary>
 /// The game's rank badges and run trophies, the art the desktop History shows, held in the

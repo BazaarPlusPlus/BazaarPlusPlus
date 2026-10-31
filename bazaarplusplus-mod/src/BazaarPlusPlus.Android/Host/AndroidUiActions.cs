@@ -1,7 +1,6 @@
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Patches;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Android.Host;
 
 /// <summary>
 /// The one way a host control reaches feature code, and the Mobile Platform Port's

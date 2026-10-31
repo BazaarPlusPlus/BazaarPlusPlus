@@ -1,7 +1,7 @@
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Android.Host;
 
 internal static class AndroidMotion
 {

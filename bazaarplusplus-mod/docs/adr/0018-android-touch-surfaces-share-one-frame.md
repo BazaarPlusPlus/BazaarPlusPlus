@@ -13,7 +13,7 @@ The Android host grew its touch surfaces one at a time: the touch menu, History,
 3. The host draws the shared parts through shared helpers: `UiKit.CloseButton` and `CloseGlyph`, `UiKit.VerticalScroll`, and `ScrollTracker` (all in the Mobile UI tree since ADR-0025). History keeps its own palette and button type.
 4. The back key closes a surface's top-most layer first (a dialog or inspection, then the panel). Amended 2026-10-25: the surfaces no longer keep their own back-key handlers. The Overlay Panel Host dismisses the open panel's modal layer, then closes the panel, and its Android adapter closes the touch menu last (ADR-0022).
 
-The conventions themselves are in [android-mobile-ui.md](../architecture/android-mobile-ui.md).
+The conventions themselves are in [mobile-ui.md](../architecture/mobile-ui.md).
 
 ## Relationship to ADR-0003
 

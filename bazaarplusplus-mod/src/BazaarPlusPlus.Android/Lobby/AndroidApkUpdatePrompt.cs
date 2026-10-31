@@ -1,6 +1,6 @@
 using System.Globalization;
 using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;

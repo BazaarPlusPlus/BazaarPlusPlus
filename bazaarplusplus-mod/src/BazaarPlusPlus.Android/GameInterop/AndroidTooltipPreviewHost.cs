@@ -1,11 +1,10 @@
-using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Mobile.Previews;
 using Il2CppTheBazaar;
 using Il2CppTheBazaar.Tooltips;
 using Il2CppTheBazaar.UI.Tooltips;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Android.GameInterop;
 
 /// <summary>
 /// The Android host's item tooltip for the Mobile UI's preview switches. <c>CardTooltipRenderPatch</c>

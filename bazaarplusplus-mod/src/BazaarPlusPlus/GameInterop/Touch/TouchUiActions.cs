@@ -3,7 +3,7 @@ using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.GameInterop.Touch;
 
 /// <summary>
 /// The one way a touch control reaches feature code: an exception is logged instead of escaping

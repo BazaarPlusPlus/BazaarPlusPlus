@@ -9,7 +9,7 @@ namespace AndroidHost.Tests;
 /// The compiled host's threading rules (ADR-0009: compiled artifacts, never source text). A
 /// game <c>Il2CppSystem</c> task awaited directly resumes outside the main-thread pump, a managed
 /// <c>Task.Run</c>, <c>WhenAll</c> or <c>WhenAny</c> in the replay or History code moves game calls
-/// onto the pool, and a History control wired without <c>AndroidUiActions</c> starts the
+/// onto the pool, and a History control wired without the Mobile UI's <c>UiActions</c> starts the
 /// coordinator's work outside the pump's scope; each is a native fault on a device, not an
 /// exception, so the IL is held to them here.
 /// </summary>
@@ -62,19 +62,35 @@ public sealed class AndroidHostThreadingRuleTests
         string[] namespaces =
         [
             "BazaarPlusPlus.Android.CombatReplay",
-            "BazaarPlusPlus.Android.Ui",
             "BazaarPlusPlus.Android.Patches",
             // The Mobile UI tree: Ten-Win Builds, Collection, History, the HUD, the previews and
             // Screen Fill (ADR-0025).
             "BazaarPlusPlus.Mobile",
         ];
+        // The host's side of the Mobile UI: its port, its Overlay Panel Host adapter, the entries
+        // that compose the Mobile UI, its control actions and its tooltip reads.
+        string[] adapters =
+        [
+            "BazaarPlusPlus.Android.Host.AndroidMobilePlatform",
+            "BazaarPlusPlus.Android.Host.AndroidOverlayPanels",
+            "BazaarPlusPlus.Android.Host.AndroidTouchUi",
+            "BazaarPlusPlus.Android.Host.AndroidUiActions",
+            "BazaarPlusPlus.Android.Host.AndroidMotion",
+            "BazaarPlusPlus.Android.GameInterop.AndroidTooltipPreviewHost",
+        ];
         static bool In(CompiledType type, string ns) =>
             type.Namespace == ns || type.Namespace.StartsWith(ns + ".", StringComparison.Ordinal);
-        var scope = Host.Value.Types.Where(type => namespaces.Any(ns => In(type, ns))).ToArray();
-        // A moved or renamed namespace would leave its rule inspecting nothing; the Mobile UI tree
-        // holds the port, the theme, the kit, the leaves #701 steps 2 and 3 moved, Ten-Win Builds,
-        // Collection, History, the HUD, the preview switches and enchant preview, and Screen Fill.
+        var scope = Host
+            .Value.Types.Where(type =>
+                namespaces.Any(ns => In(type, ns)) || adapters.Contains(type.FullName)
+            )
+            .ToArray();
+        // A moved or renamed namespace or type would leave its rule inspecting nothing; the Mobile
+        // UI tree holds the port, the theme, the kit, the leaves #701 steps 2 and 3 moved, Ten-Win
+        // Builds, Collection, History, the HUD, the preview switches and enchant preview, and
+        // Screen Fill.
         Assert.All(namespaces, ns => Assert.Contains(scope, type => In(type, ns)));
+        Assert.Equal(adapters.Length, scope.Count(type => adapters.Contains(type.FullName)));
         Assert.True(
             scope.Count(type => In(type, "BazaarPlusPlus.Mobile")) >= 62,
             "The Mobile UI tree left the Android host's threading rule."

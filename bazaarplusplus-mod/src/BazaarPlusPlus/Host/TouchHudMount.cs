@@ -2,8 +2,9 @@
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel;
+using BazaarPlusPlus.Game.OverlayPanels;
+using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.Touch;
-using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Mobile.Hud;
 using BazaarPlusPlus.Mobile.NativeAdjustment;
 using BazaarPlusPlus.Mobile.Previews;
@@ -11,7 +12,7 @@ using BazaarPlusPlus.Patches.ScreenFill;
 using UnityEngine;
 using CombatClock = BazaarPlusPlus.Game.CombatStatusBar.CombatStatusBar;
 
-namespace BazaarPlusPlus.Game.Touch;
+namespace BazaarPlusPlus.Host;
 
 /// <summary>
 /// The Mobile UI's HUD on a mobile platform (ADR-0025), in place of the desktop's dock buttons and

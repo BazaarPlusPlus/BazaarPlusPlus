@@ -124,7 +124,7 @@ internal static class AndroidSettingsDock
             Switch(
                 BppSettingsDockOrder.UpgradePreviewSwitch,
                 "UpgradePreview",
-                Ui.AndroidTouchText.UpgradePreview,
+                AndroidTouchText.UpgradePreview,
                 android.UpgradePreview,
                 enabled =>
                 {
@@ -196,7 +196,7 @@ internal static class AndroidSettingsDock
         private static LocalizedTextSet Label(AndroidGameUpdateStatus status) =>
             status switch
             {
-                AndroidGameUpdateStatus.GameUpdated => Ui.AndroidTouchText.GameUpdated,
+                AndroidGameUpdateStatus.GameUpdated => AndroidTouchText.GameUpdated,
                 AndroidGameUpdateStatus.RuntimeChanged => RuntimeUpdated,
                 AndroidGameUpdateStatus.Current => GameUpToDate,
                 AndroidGameUpdateStatus.CheckFailed => GameUpdateCheckFailed,
