@@ -5,10 +5,15 @@ namespace BazaarPlusPlus.Mobile.Hud;
 /// <summary>What a host hands the HUD.</summary>
 /// <param name="OpenCollection">Opens Collection with the open's source.</param>
 /// <param name="OpenLiveBuild">Opens Ten-Win Builds, or null when the host has none.</param>
+/// <param name="ShortcutsShown">
+/// The host's own rule for the shortcuts beyond the HUD's: nothing of the host's hides them (on
+/// the Mono host, an end-of-run screenshot; Android takes none).
+/// </param>
 /// <param name="Clock">The combat clock's state, or null for no clock.</param>
 internal sealed record TouchHudData(
     Func<string, OverlayRequestOutcome> OpenCollection,
     Func<string, OverlayRequestOutcome>? OpenLiveBuild,
+    Func<bool> ShortcutsShown,
     TouchCombatClockData? Clock
 );
 
@@ -32,7 +37,11 @@ internal sealed class TouchHud : IDisposable
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
-        Shortcuts = new TouchShortcuts(data.OpenCollection, data.OpenLiveBuild);
+        Shortcuts = new TouchShortcuts(
+            data.OpenCollection,
+            data.OpenLiveBuild,
+            data.ShortcutsShown
+        );
         _clock = data.Clock is { } clock ? new TouchCombatClock(clock) : null;
         _handle = MobilePanelHandle.Register(_ => new OverlayPanelRegistration(
             Id,

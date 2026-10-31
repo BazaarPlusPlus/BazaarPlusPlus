@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.Settings;
+using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.Infrastructure;
 using CombatStatusBarFeature = BazaarPlusPlus.Game.CombatStatusBar.CombatStatusBar;
 
@@ -13,6 +14,7 @@ internal static class BppUiChromeSuppression
         {
             BppUiChromeSuppressionMode.Screenshot => UiSuppressionScope.Begin(
                 BppPanelDockButtonsController.BeginScreenshotSuppression,
+                TouchShortcutSuppression.Begin,
                 CombatStatusBarFeature.BeginScreenshotSuppression
             ),
             BppUiChromeSuppressionMode.ReplayRecording => UiSuppressionScope.Begin(

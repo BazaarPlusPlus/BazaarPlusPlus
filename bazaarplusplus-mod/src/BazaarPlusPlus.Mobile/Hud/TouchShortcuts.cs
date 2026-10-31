@@ -13,8 +13,8 @@ namespace BazaarPlusPlus.Mobile.Hud;
 /// Collection in the lobby, hero select and a run, Ten-Win Builds in a run only. Core places them
 /// (<see cref="TouchHudLayout.Shortcut"/>): a corner around the gear, or a row left of it in a run
 /// on a screen that gathers the HUD above the board. They hide during a fight or a replay, under
-/// a native popup or card inspection, and under an open panel. History has no shortcut: its
-/// entries live in the game's own menus, which each host adds.
+/// a native popup or card inspection, under an open panel, and when the host's rule hides them.
+/// History has no shortcut: its entries live in the game's own menus, which each host adds.
 /// </summary>
 internal sealed class TouchShortcuts : IDisposable
 {
@@ -22,6 +22,7 @@ internal sealed class TouchShortcuts : IDisposable
 
     private readonly Func<string, OverlayRequestOutcome> _openCollection;
     private readonly Func<string, OverlayRequestOutcome>? _openLiveBuild;
+    private readonly Func<bool> _shown;
     private readonly List<(GameObject Root, bool InRunOnly)> _entries = new();
     private TouchHudIcons? _icons;
     private GameObject? _canvas;
@@ -36,13 +37,16 @@ internal sealed class TouchShortcuts : IDisposable
 
     /// <param name="openCollection">Opens Collection with the open's source.</param>
     /// <param name="openLiveBuild">Opens Ten-Win Builds, or null when the host has none.</param>
+    /// <param name="shown">The host's own rule beyond the HUD's (<see cref="TouchHudData"/>).</param>
     public TouchShortcuts(
         Func<string, OverlayRequestOutcome> openCollection,
-        Func<string, OverlayRequestOutcome>? openLiveBuild
+        Func<string, OverlayRequestOutcome>? openLiveBuild,
+        Func<bool> shown
     )
     {
         _openCollection = openCollection ?? throw new ArgumentNullException(nameof(openCollection));
         _openLiveBuild = openLiveBuild;
+        _shown = shown ?? throw new ArgumentNullException(nameof(shown));
     }
 
     /// <summary>How many times the shortcuts were laid out, for device validation.</summary>
@@ -76,7 +80,8 @@ internal sealed class TouchShortcuts : IDisposable
             && !playing
             && _anchor != null
             && _anchor.gameObject.activeInHierarchy
-            && !port.NativeHudBusy();
+            && !port.NativeHudBusy()
+            && _shown();
         SetActive(_shortcuts?.gameObject, visible);
         if (!visible)
             return;

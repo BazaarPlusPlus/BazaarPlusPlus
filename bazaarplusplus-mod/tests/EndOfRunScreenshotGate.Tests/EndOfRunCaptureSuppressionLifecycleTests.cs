@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.Screenshots;
+using BazaarPlusPlus.Game.Touch;
 using BazaarPlusPlus.GameInterop.Tooltips;
 
 internal static class EndOfRunCaptureSuppressionLifecycleTests
@@ -14,6 +15,7 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         Cancel_before_capture_restores_each_suppression_once();
         Frame_acquired_restore_is_exactly_once();
         Install_after_cancel_restores_new_resources_without_reopening_the_lifecycle();
+        Touch_shortcuts_hide_until_the_capture_restores_bpp_chrome();
     }
 
     private static void Unavailable_native_audit_short_circuits_a_throwing_visual_probe()
@@ -193,6 +195,31 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         Assert(!installed, "A canceled lifecycle must not accept late suppression resources.");
         Assert(native.DisposeCount == 1, "Late native suppression must be restored immediately.");
         Assert(bpp.DisposeCount == 1, "Late BPP suppression must be restored immediately.");
+    }
+
+    private static void Touch_shortcuts_hide_until_the_capture_restores_bpp_chrome()
+    {
+        Assert(TouchShortcutSuppression.Shown(), "The shortcuts show outside a capture.");
+        var lifecycle = new EndOfRunCaptureSuppressionLifecycle();
+        var native = new NativeLease(NativeTooltipCleanFrameState.Clean);
+        Assert(
+            lifecycle.TryInstall(TouchShortcutSuppression.Begin(), native),
+            "Suppression should install on an open lifecycle."
+        );
+        var nested = TouchShortcutSuppression.Begin();
+
+        Assert(!TouchShortcutSuppression.Shown(), "The capture must hide the shortcuts.");
+        lifecycle.ReleaseAll();
+        Assert(!TouchShortcutSuppression.Shown(), "A second lease must keep them hidden.");
+        nested.Dispose();
+        nested.Dispose();
+        Assert(TouchShortcutSuppression.Shown(), "The shortcuts show once every lease is gone.");
+        var late = TouchShortcutSuppression.Begin();
+        Assert(
+            !TouchShortcutSuppression.Shown(),
+            "A double dispose must not release a later lease."
+        );
+        late.Dispose();
     }
 
     private static EndOfRunCaptureSuppressionLifecycle Installed(

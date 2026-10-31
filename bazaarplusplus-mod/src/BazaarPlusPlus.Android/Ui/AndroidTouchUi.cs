@@ -72,6 +72,8 @@ internal sealed class AndroidTouchUi
             new TouchHudData(
                 _collection.RequestOpen,
                 liveBuild == null ? null : liveBuild.RequestOpen,
+                // Android takes no end-of-run screenshot, so nothing of its own hides them.
+                static () => true,
                 clock
             )
         );

@@ -25,6 +25,7 @@ internal sealed class TouchHudMount : IBppMountable
             new TouchHudData(
                 CollectionPanelMount.OpenTouchPanel,
                 LiveBuildPanelMount.OpenTouchPanel,
+                TouchShortcutSuppression.Shown,
                 new TouchCombatClockData(
                     CombatClock.State,
                     () => services.Config.EnableCombatStatusBarConfig.Value,
