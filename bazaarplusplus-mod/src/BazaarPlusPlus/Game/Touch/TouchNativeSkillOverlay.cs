@@ -3,6 +3,7 @@ using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile;
 using TheBazaar;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,7 +20,7 @@ namespace BazaarPlusPlus.Game.Touch;
 /// <paramref name="sortingOrder"/> so it stands over the BPP panel that opened it; its own order
 /// comes back on close, since the board opens the same overlay. Main thread only.
 /// </summary>
-internal sealed class TouchNativeSkillOverlay(int sortingOrder)
+internal sealed class TouchNativeSkillOverlay(int sortingOrder) : INativeSkillOverlay
 {
     private GameObject? _proxies;
     private global::MobileSkillOverlayController? _overlay;

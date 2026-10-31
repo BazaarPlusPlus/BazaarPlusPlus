@@ -5,16 +5,16 @@ using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
 /// The History panel's uGUI parts on the touch layout: its palette (the desktop History's), its
-/// labels, buttons wired through <see cref="AndroidUiActions.OnTap"/> so every handler runs in the
+/// labels, buttons wired through <see cref="UiActions.OnTap"/> so every handler runs in the
 /// main-thread scope, drag-scrolled lists with inertia, and the single-line or multi-line text
 /// input. Rects are <see cref="TouchRect"/>s from Core's <c>HistoryTouchLayout</c>, top-down from
 /// their parent's top-left corner.
 /// </summary>
-internal static class AndroidHistoryUi
+internal static class TouchHistoryUi
 {
     public static NativeSkin Skin { get; private set; } = null!;
 
@@ -110,7 +110,7 @@ internal static class AndroidHistoryUi
         Skin.Select(fill, false);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = fill;
-        AndroidUiActions.OnTap(button, "history." + control, onTap);
+        UiActions.OnTap(button, "history." + control, onTap);
         var labelRect = UiKit.Rect(
             "Label",
             rect,
@@ -140,7 +140,7 @@ internal static class AndroidHistoryUi
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;
         button.transition = Selectable.Transition.None;
-        AndroidUiActions.OnTap(button, "history." + control, onTap);
+        UiActions.OnTap(button, "history." + control, onTap);
         return button;
     }
 
@@ -157,7 +157,7 @@ internal static class AndroidHistoryUi
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = shade;
         button.transition = Selectable.Transition.None;
-        AndroidUiActions.OnTap(button, "history." + control, onOutsideTap);
+        UiActions.OnTap(button, "history." + control, onOutsideTap);
         return root;
     }
 
@@ -219,7 +219,7 @@ internal static class AndroidHistoryUi
     /// <summary>
     /// A text input: one line for a code, several for a note. Its value is read when the user
     /// submits; a caller that follows edits (the note's count) adds its listener through
-    /// <see cref="AndroidUiActions.OnChanged"/>.
+    /// <see cref="UiActions.OnChanged"/>.
     /// </summary>
     public static TMP_InputField Input(
         Transform parent,
@@ -388,9 +388,9 @@ internal sealed class HistoryButton(
         if (quietTab)
             Fill.color = Color.clear;
         Label.color =
-            muted || quietTab ? AndroidHistoryUi.Muted
-            : _style == HistoryButtonStyle.Danger ? AndroidHistoryUi.Loss
-            : AndroidHistoryUi.Ink;
+            muted || quietTab ? TouchHistoryUi.Muted
+            : _style == HistoryButtonStyle.Danger ? TouchHistoryUi.Loss
+            : TouchHistoryUi.Ink;
         if (_chevronStrokes != null)
             foreach (var stroke in _chevronStrokes)
                 stroke.color = Label.color;

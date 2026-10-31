@@ -1,9 +1,8 @@
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
 /// History's two BPP badge atlases, the desktop's own PNGs linked into this assembly: the
@@ -11,18 +10,18 @@ namespace BazaarPlusPlus.Android.Ui;
 /// decode through <c>ImageConversion.LoadImage</c> on the main thread; a failure is logged and
 /// the rows show their text fallback instead. Once its sprites exist an atlas keeps no CPU copy
 /// of its pixels (<c>Apply(false, true)</c>, not <c>LoadImage</c>'s <c>markNonReadable</c>,
-/// whose interop overload goes through a boxed <c>Il2CppSystem.ReadOnlySpan</c>). A
+/// whose Android interop overload goes through a boxed <c>Il2CppSystem.ReadOnlySpan</c>). A
 /// non-additive scene load unloads every asset no live object references, which would destroy
 /// whichever atlas no row showed at that moment (the run states while Ghost rows were bound,
 /// so runs fell back to "?" after a replay), so each texture and sprite is marked
 /// <c>DontUnloadUnusedAsset</c> and <see cref="Dispose"/> destroys it.
 /// </summary>
-internal sealed class AndroidHistoryBadges : IDisposable
+internal sealed class TouchHistoryBadges : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();
     private Sprite[] _runStates = [];
 
-    private AndroidHistoryBadges() { }
+    private TouchHistoryBadges() { }
 
     public Sprite? Win { get; private set; }
 
@@ -31,9 +30,9 @@ internal sealed class AndroidHistoryBadges : IDisposable
     public Sprite? RunState(int index) =>
         index >= 0 && index < _runStates.Length ? _runStates[index] : null;
 
-    public static AndroidHistoryBadges? TryLoad()
+    public static TouchHistoryBadges? TryLoad()
     {
-        var badges = new AndroidHistoryBadges();
+        var badges = new TouchHistoryBadges();
         try
         {
             var results = badges.LoadAtlas("battle-result-badges.png", 2);
@@ -47,8 +46,8 @@ internal sealed class AndroidHistoryBadges : IDisposable
             badges.Dispose();
             BppLog.WarnEvent(
                 new BppLogEvent(
-                    BppLogFeatureScope.Android,
-                    "android.history.badges_failed",
+                    BppLogFeatureScope.Touch,
+                    "touch.history.badges_failed",
                     storm: ["reason_code"]
                 ),
                 exception,
@@ -73,8 +72,8 @@ internal sealed class AndroidHistoryBadges : IDisposable
     private Sprite[] LoadAtlas(string name, int count)
     {
         using var stream =
-            typeof(AndroidHistoryBadges).Assembly.GetManifestResourceStream(
-                $"BazaarPlusPlus.Android.Resources.HistoryPanel.{name}"
+            typeof(TouchHistoryBadges).Assembly.GetManifestResourceStream(
+                $"BazaarPlusPlus.Resources.HistoryPanel.{name}"
             ) ?? throw new InvalidOperationException($"History artwork is missing: {name}");
         using var bytes = new MemoryStream();
         stream.CopyTo(bytes);
@@ -86,7 +85,7 @@ internal sealed class AndroidHistoryBadges : IDisposable
             hideFlags = HideFlags.DontUnloadUnusedAsset,
         };
         _owned.Add(texture);
-        if (!ImageConversion.LoadImage(texture, new Il2CppStructArray<byte>(bytes.ToArray())))
+        if (!ImageConversion.LoadImage(texture, bytes.ToArray()))
             throw new InvalidOperationException($"History artwork could not be decoded: {name}");
         var width = texture.width / (float)count;
         var sprites = new Sprite[count];

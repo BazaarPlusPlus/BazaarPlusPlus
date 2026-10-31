@@ -1,17 +1,19 @@
 #nullable enable
 using BazaarGameShared.TempoNet.Enums;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Game.HistoryPanel.Touch;
+namespace BazaarPlusPlus.Game.Touch;
 
 /// <summary>
 /// The game's rank badges and run trophies, the art the desktop History shows, held in the
-/// game's Global asset scope. Call under the Android main-thread context; the shared caches
-/// coalesce requests from reused rows.
+/// game's Global asset scope: the Mono host's reads behind the Mobile Platform Port's
+/// <c>RankBadge</c> and <c>RunTrophy</c>. Main thread; the shared caches coalesce requests from
+/// reused rows.
 /// </summary>
 internal static class TouchRankArt
 {

@@ -16,6 +16,7 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile;
+using BazaarPlusPlus.Mobile.History;
 using HarmonyLib;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -59,7 +60,7 @@ public sealed class AndroidMod : MelonMod
     private AndroidVersionCheck? _versionCheck;
     private AndroidApkUpdatePrompt? _apkPrompt;
     private AndroidCombatReplayRuntime? _replayRuntime;
-    private AndroidHistoryPanel? _historyPanel;
+    private TouchHistoryEntry? _historyPanel;
     private AndroidOverlayPanels? _overlayPanels;
     private readonly AndroidCardTemplateIndex _templates = new();
     private bool _mainThreadBound;
@@ -284,7 +285,7 @@ public sealed class AndroidMod : MelonMod
                     ),
                     ("manifest", devManifest)
                 );
-            StartHistory(panels);
+            StartHistory();
             _touchUi = new AndroidTouchUi(
                 panels,
                 _historyPanel == null ? null : source => _historyPanel?.Open(source),
@@ -323,7 +324,7 @@ public sealed class AndroidMod : MelonMod
 
     // History and its replay runtime need the record chain's database and payload gate; without
     // the chain the launcher offers no History.
-    private void StartHistory(AndroidOverlayPanels panels)
+    private void StartHistory()
     {
         var composition = _composition;
         if (composition == null)
@@ -338,16 +339,17 @@ public sealed class AndroidMod : MelonMod
             );
             runtime.Start();
             _replayRuntime = runtime;
-            _historyPanel = new AndroidHistoryPanel(
-                composition.CreateHistoryDependencies(
+            _historyPanel = new TouchHistoryEntry(
+                new TouchHistoryData(
+                    composition.CreateHistoryDependencies(
+                        () => _replayRuntime?.SavedReplays,
+                        _templates.Contains
+                    ),
                     () => _replayRuntime?.SavedReplays,
-                    _templates.Contains
-                ),
-                () => _replayRuntime?.SavedReplays,
-                _templates,
-                () => AndroidGameFont.Font,
-                panels,
-                composition.Supporters
+                    AndroidLobbyScene.IsActive,
+                    _templates,
+                    composition.Supporters
+                )
             );
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.history.composed"),

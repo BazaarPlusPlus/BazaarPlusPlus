@@ -21,6 +21,7 @@ public sealed class AndroidTouchViewBuildGuardTests
     private const string LiveBuildInspection =
         "BazaarPlusPlus.Mobile.LiveBuild.TouchLiveBuildInspection";
     private const string CollectionPanel = "BazaarPlusPlus.Mobile.Collection.TouchCollectionPanel";
+    private const string HistoryView = "BazaarPlusPlus.Mobile.History.TouchHistoryPanelView";
 
     private static readonly Lazy<CompiledAssembly> Host = new(() =>
         CompiledAssembly.Load(
@@ -54,9 +55,19 @@ public sealed class AndroidTouchViewBuildGuardTests
         );
     }
 
+    // History moved into the Mobile UI tree too: its sixteen types must still compile into the host.
+    [Fact]
+    public void The_history_panel_compiles_into_the_host()
+    {
+        Assert.True(
+            Host.Value.Types.Count(type => type.Namespace == "BazaarPlusPlus.Mobile.History") >= 16,
+            "History left the Android host's Mobile UI tree."
+        );
+    }
+
     [Theory]
     [InlineData(LiveBuildView, ".ctor")]
-    [InlineData("BazaarPlusPlus.Android.Ui.AndroidHistoryPanelView", ".ctor")]
+    [InlineData(HistoryView, ".ctor")]
     [InlineData(CollectionPanel, "Build")]
     public void A_build_that_throws_destroys_its_partial_tree(string type, string method)
     {

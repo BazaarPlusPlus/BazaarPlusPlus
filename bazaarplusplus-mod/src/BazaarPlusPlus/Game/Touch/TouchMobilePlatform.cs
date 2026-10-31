@@ -1,6 +1,7 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.LiveCards;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.GameInterop.LiveCards;
 using BazaarPlusPlus.GameInterop.Touch;
@@ -135,6 +136,13 @@ internal sealed class TouchMobilePlatform(Func<DesktopOverlayPanels?> overlayPan
         return (subject, enchantment) =>
             TouchCardText.EnchantmentEffect(template, subject, enchantment);
     }
+
+    public Task<Sprite?>? RankBadge(string? rank) => TouchRankArt.Rank(rank);
+
+    public Task<Sprite?>? RunTrophy(RunOutcomeTier tier) => TouchRankArt.Trophy(tier);
+
+    public INativeSkillOverlay NativeSkillOverlay(int sortingOrder) =>
+        new TouchNativeSkillOverlay(sortingOrder);
 
     private sealed class EmptyScope : IDisposable
     {

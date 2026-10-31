@@ -14,7 +14,7 @@ namespace AndroidHost.Tests;
 /// </summary>
 public sealed class AndroidHistoryBadgeArtworkTests
 {
-    private const string Badges = "BazaarPlusPlus.Android.Ui.AndroidHistoryBadges";
+    private const string Badges = "BazaarPlusPlus.Mobile.History.TouchHistoryBadges";
 
     private static readonly Lazy<CompiledAssembly> Host = new(() =>
         CompiledAssembly.Load(

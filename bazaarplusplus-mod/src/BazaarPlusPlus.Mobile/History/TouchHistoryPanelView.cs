@@ -1,13 +1,11 @@
-#nullable enable
 using System.Globalization;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
-using BazaarPlusPlus.Game.Touch;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
@@ -15,10 +13,10 @@ using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BazaarPlusPlus.Game.HistoryPanel.Touch;
+namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
-/// The Android twin of the desktop's <c>HistoryPanelView</c>, a full-screen sheet laid out from
+/// The touch twin of the desktop's <c>HistoryPanelView</c>, a full-screen sheet laid out from
 /// Core's <see cref="HistoryTouchLayout"/> for the screen it was built on and bound from
 /// Core's <see cref="HistoryPanelViewModel"/>. The header
 /// holds the section tabs, the supporter action, More, and Close; the archive list, the run's
@@ -27,8 +25,8 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Touch;
 /// <c>touch.history.scrolled</c>. A section without rows says so once, centred in the detail
 /// column, with no boards, titles or actions under it.
 /// Hero portraits share the Collection framing; rank badges and run trophies are the game's art
-/// from <see cref="TouchRankArt"/>, with text while it is missing; the two BPP badge atlases
-/// ship in the assembly. The panel rents the native boards into
+/// through the Mobile Platform Port (<see cref="IMobilePlatformPort.RankBadge"/>), with text
+/// while it is missing; the two BPP badge atlases ship in each host's assembly. The panel rents the native boards into
 /// <see cref="UpperBoard"/> and <see cref="LowerBoard"/> and lays its overlays over
 /// <see cref="Surface"/>; a new screen size builds a new view. A view that throws while it builds
 /// destroys its canvas, active and kept across scenes until its last lines, before the exception
@@ -62,6 +60,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         _favorite = null!,
         _skills = null!,
         _replay = null!;
+    private readonly ISupporterRotation? _supporters;
     private IReadOnlyList<BPPSupporterSample> _headerSupporters = Array.Empty<BPPSupporterSample>();
     private TextMeshProUGUI _supporterLabel = null!;
     private GameObject _cloudNote = null!;
@@ -85,8 +84,13 @@ internal sealed class TouchHistoryPanelView : IDisposable
         _lowerStatusBand = null!;
     private HistorySectionMode? _boundSection;
 
-    public TouchHistoryPanelView(TMP_FontAsset font, ViewActions actions)
+    public TouchHistoryPanelView(
+        TMP_FontAsset font,
+        ViewActions actions,
+        ISupporterRotation? supporters
+    )
     {
+        _supporters = supporters;
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
         var screen = TouchScreen.Key();
@@ -103,7 +107,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 Vector2.zero,
                 Vector2.zero
             );
-            TouchPanelUi.RefreshSkin();
+            TouchHistoryUi.RefreshSkin();
             Build();
             _root.SetActive(false);
         }
@@ -143,10 +147,11 @@ internal sealed class TouchHistoryPanelView : IDisposable
     public void SetVisible(bool visible)
     {
         _visible = visible;
-        TouchPanelUi.SetActive(_root, visible);
+        TouchHistoryUi.SetActive(_root, visible);
         if (visible)
         {
-            _headerSupporters = BPPSupporters.SampleMany(1);
+            _supporters?.Warm();
+            _headerSupporters = _supporters?.Next(1) ?? Array.Empty<BPPSupporterSample>();
             RefreshSupporter();
             UpdateContent();
         }
@@ -178,7 +183,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     private void ShowStatus(GameObject band, TextMeshProUGUI label, TouchRect board, string text)
     {
         label.text = text;
-        TouchPanelUi.SetActive(band, text.Length > 0);
+        TouchHistoryUi.SetActive(band, text.Length > 0);
         if (text.Length == 0)
             return;
         var lines = label.GetPreferredValues(text, board.Width * StatusTextShare, 0f).y;
@@ -191,7 +196,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
 
     /// <summary>The skills action, available while the selected battle's boards are loaded.</summary>
     public void SetSkillsAvailable(bool available) =>
-        _skills.Set(TouchPanelUi.T("Skills", "技能"), enabled: available, dimmed: !available);
+        _skills.Set(TouchHistoryUi.T("Skills", "技能"), enabled: available, dimmed: !available);
 
     /// <summary>Main thread, every frame while visible: logs each finished drag scroll.</summary>
     public void Tick()
@@ -200,7 +205,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             return;
         if (_headerSupporters.Count == 0)
         {
-            _headerSupporters = BPPSupporters.SampleMany(1);
+            _headerSupporters = _supporters?.Next(1) ?? Array.Empty<BPPSupporterSample>();
             if (_headerSupporters.Count > 0)
                 RefreshSupporter();
         }
@@ -258,20 +263,20 @@ internal sealed class TouchHistoryPanelView : IDisposable
         ) =>
             UiKit.Fill(
                 UiKit.Rect(name, Surface, anchorMin, anchorMax, offsetMin, offsetMax),
-                TouchPanelUi.Backdrop
+                TouchHistoryUi.Backdrop
             );
     }
 
     private void Build()
     {
         BuildBackdrop();
-        TouchPanelUi.Skin.Frame(
+        TouchHistoryUi.Skin.Frame(
             TouchScreen.Child("Sheet", Surface, _l.Sheet),
-            TouchPanelUi.PanelFill,
+            TouchHistoryUi.PanelFill,
             borderOnly: true
         );
         var tab = _l.ButtonFont;
-        _runsTab = TouchPanelUi
+        _runsTab = TouchHistoryUi
             .Button(
                 Surface,
                 _font,
@@ -281,7 +286,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 () => _actions.Section(HistorySectionMode.Runs)
             )
             .As(HistoryButtonStyle.Tab);
-        _ghostTab = TouchPanelUi
+        _ghostTab = TouchHistoryUi
             .Button(
                 Surface,
                 _font,
@@ -291,7 +296,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 () => _actions.Section(HistorySectionMode.Ghost)
             )
             .As(HistoryButtonStyle.Tab);
-        _favoritesTab = TouchPanelUi
+        _favoritesTab = TouchHistoryUi
             .Button(
                 Surface,
                 _font,
@@ -303,25 +308,25 @@ internal sealed class TouchHistoryPanelView : IDisposable
             .As(HistoryButtonStyle.Tab);
         BuildSupporter();
         BuildCloudNote();
-        _more = TouchPanelUi.Button(Surface, _font, "more", _l.More, tab, () => _actions.More());
-        _more.Set(TouchPanelUi.T("More", "更多"));
-        TouchPanelUi
+        _more = TouchHistoryUi.Button(Surface, _font, "more", _l.More, tab, () => _actions.More());
+        _more.Set(TouchHistoryUi.T("More", "更多"));
+        TouchHistoryUi
             .Button(Surface, _font, "close", _l.Close, _l.TitleFont, () => _actions.Close())
             .Set(UiKit.CloseGlyph);
 
         _archive = BuildArchive();
         _thumbs.Add(new ScrollThumb(_archive.Scroll, _l.Metrics));
-        _pageLabel = TouchPanelUi.Label(
+        _pageLabel = TouchHistoryUi.Label(
             Surface,
             _font,
             "PageLabel",
             _l.PageLabel,
             _l.BodyFont,
             TextAlignmentOptions.MidlineLeft,
-            TouchPanelUi.Muted,
+            TouchHistoryUi.Muted,
             wrap: true
         );
-        _newer = TouchPanelUi.Button(
+        _newer = TouchHistoryUi.Button(
             Surface,
             _font,
             "archive_newer",
@@ -329,9 +334,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => NavigateArchive(-1)
         );
-        _newer.Set(TouchPanelUi.T("Newer", "较新"));
+        _newer.Set(TouchHistoryUi.T("Newer", "较新"));
         _newer.UseChevron(180f, _l.Metrics.Dp(18f));
-        _older = TouchPanelUi.Button(
+        _older = TouchHistoryUi.Button(
             Surface,
             _font,
             "archive_older",
@@ -339,9 +344,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => NavigateArchive(1)
         );
-        _older.Set(TouchPanelUi.T("Older", "较早"));
+        _older.Set(TouchHistoryUi.T("Older", "较早"));
         _older.UseChevron(0f, _l.Metrics.Dp(18f));
-        _latest = TouchPanelUi.Button(
+        _latest = TouchHistoryUi.Button(
             Surface,
             _font,
             "archive_latest",
@@ -349,9 +354,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => NavigateArchive(0)
         );
-        _latest.Set(TouchPanelUi.T("Latest", "最新"));
+        _latest.Set(TouchHistoryUi.T("Latest", "最新"));
 
-        _railNewer = TouchPanelUi.Button(
+        _railNewer = TouchHistoryUi.Button(
             Surface,
             _font,
             "timeline_newer",
@@ -360,7 +365,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             () => _actions.PageBattles(-1)
         );
         _railNewer.UseChevron(90f, _l.Metrics.Dp(18f));
-        _railOlder = TouchPanelUi.Button(
+        _railOlder = TouchHistoryUi.Button(
             Surface,
             _font,
             "timeline_older",
@@ -372,31 +377,31 @@ internal sealed class TouchHistoryPanelView : IDisposable
         _rail = BuildRail();
         _thumbs.Add(new ScrollThumb(_rail.Scroll, _l.Metrics));
 
-        _upperTitle = TouchPanelUi.Label(
+        _upperTitle = TouchHistoryUi.Label(
             Surface,
             _font,
             "UpperTitle",
             _l.UpperBoardTitle,
             _l.BodyFont,
             TextAlignmentOptions.Center,
-            TouchPanelUi.Muted
+            TouchHistoryUi.Muted
         );
         UpperBoard = BoardRegion("UpperBoard", _l.UpperBoard);
         (_upperStatusBand, _upperStatus) = StatusBand("UpperStatus", _l.UpperBoard);
-        _lowerTitle = TouchPanelUi.Label(
+        _lowerTitle = TouchHistoryUi.Label(
             Surface,
             _font,
             "LowerTitle",
             _l.LowerBoardTitle,
             _l.BodyFont,
             TextAlignmentOptions.Center,
-            TouchPanelUi.Muted
+            TouchHistoryUi.Muted
         );
         _lowerTitleObject = _lowerTitle.gameObject;
         LowerBoard = BoardRegion("LowerBoard", _l.LowerBoard);
         _lowerBoardObject = LowerBoard.gameObject;
         (_lowerStatusBand, _lowerStatus) = StatusBand("LowerStatus", _l.LowerBoard);
-        _emptyDetail = TouchPanelUi.Label(
+        _emptyDetail = TouchHistoryUi.Label(
             Surface,
             _font,
             "EmptyDetail",
@@ -408,14 +413,14 @@ internal sealed class TouchHistoryPanelView : IDisposable
             ),
             _l.ButtonFont,
             TextAlignmentOptions.Center,
-            TouchPanelUi.Muted,
+            TouchHistoryUi.Muted,
             wrap: true
         );
 
-        _delete = TouchPanelUi
+        _delete = TouchHistoryUi
             .Button(Surface, _font, "delete", _l.Delete, _l.ButtonFont, () => _actions.Delete())
             .As(HistoryButtonStyle.Danger);
-        _favorite = TouchPanelUi.Button(
+        _favorite = TouchHistoryUi.Button(
             Surface,
             _font,
             "favorite",
@@ -423,7 +428,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => _actions.Favorite()
         );
-        _skills = TouchPanelUi.Button(
+        _skills = TouchHistoryUi.Button(
             Surface,
             _font,
             "skills",
@@ -432,7 +437,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             () => _actions.Skills()
         );
         SetSkillsAvailable(false);
-        _replay = TouchPanelUi.Button(
+        _replay = TouchHistoryUi.Button(
             Surface,
             _font,
             "replay",
@@ -440,27 +445,27 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.RowTitleFont,
             () => _actions.Replay()
         );
-        _status = TouchPanelUi.Label(
+        _status = TouchHistoryUi.Label(
             Surface,
             _font,
             "Status",
             _l.Status,
             _l.BodyFont,
-            color: TouchPanelUi.Muted
+            color: TouchHistoryUi.Muted
         );
         SetBoardStatus(string.Empty, string.Empty);
     }
 
     private void BuildSupporter()
     {
-        (_, _, _supporterLabel) = TouchPanelUi.Skin.Button(
+        (_, _, _supporterLabel) = TouchHistoryUi.Skin.Button(
             TouchScreen.Child("Supporter", Surface, _l.Sponsor),
             _font,
             BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode),
             _l.ButtonFont,
             _l.Metrics.Dp(TouchChrome.LabelInsetDp),
             () =>
-                TouchUiActions.Run(
+                UiActions.Run(
                     "history.sponsor",
                     () =>
                         Application.OpenURL(
@@ -468,7 +473,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                         )
                 )
         );
-        _supporterLabel.textWrappingMode = TextWrappingModes.NoWrap;
+        MobilePlatform.Port.SetWordWrapping(_supporterLabel, false);
         _supporterLabel.enableAutoSizing = true;
         _supporterLabel.fontSizeMin = _l.BodyFont;
         _supporterLabel.fontSizeMax = _l.ButtonFont;
@@ -484,23 +489,23 @@ internal sealed class TouchHistoryPanelView : IDisposable
         _supporterLabel.text = string.IsNullOrEmpty(credit)
             ? BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode)
             : credit;
-        TouchFonts.Cover(_supporterLabel);
+        MobilePlatform.Port.CoverText(_supporterLabel);
     }
 
     private void BuildCloudNote()
     {
-        var cloudNote = TouchPanelUi.Label(
+        var cloudNote = TouchHistoryUi.Label(
             Surface,
             _font,
             "CloudNote",
             _l.CloudNote,
             _l.BodyFont,
             TextAlignmentOptions.Top,
-            TouchPanelUi.Muted,
+            TouchHistoryUi.Muted,
             wrap: true
         );
         // Set in lines for the narrow column rather than left to wrap mid-phrase.
-        cloudNote.text = TouchPanelUi.T(
+        cloudNote.text = TouchHistoryUi.T(
             "Cloud keeps\nthe last 5 days,\nup to 200",
             "云端保留\n最近 5 天\n最多 200 场"
         );
@@ -509,7 +514,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
 
     private PageList BuildArchive()
     {
-        var (scroll, content) = TouchPanelUi.Scroll(
+        var (scroll, content) = TouchHistoryUi.Scroll(
             Surface,
             "Archive",
             _l.ArchiveList,
@@ -521,7 +526,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         {
             var index = i;
             var rect = TouchScreen.Child("Row", content, _l.ArchiveRow(i, runs: true));
-            var control = TouchPanelUi.Button(
+            var control = TouchHistoryUi.Button(
                 rect,
                 _font,
                 "archive_row",
@@ -535,13 +540,21 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 }
             );
             // Every row reads as name, meta and stamp lines, so the button's own label stays off.
-            TouchPanelUi.SetActive(control.Label.gameObject, false);
+            TouchHistoryUi.SetActive(control.Label.gameObject, false);
             var row = new Row
             {
                 Rect = rect,
                 Control = control,
-                Name = TouchPanelUi.Fraction(rect, _font, .26f, .03f, .33f, .36f, _l.RowTitleFont),
-                Meta = TouchPanelUi.Fraction(
+                Name = TouchHistoryUi.Fraction(
+                    rect,
+                    _font,
+                    .26f,
+                    .03f,
+                    .33f,
+                    .36f,
+                    _l.RowTitleFont
+                ),
+                Meta = TouchHistoryUi.Fraction(
                     rect,
                     _font,
                     .26f,
@@ -549,9 +562,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
                     .33f,
                     .3f,
                     _l.BodyFont,
-                    color: TouchPanelUi.Muted
+                    color: TouchHistoryUi.Muted
                 ),
-                Stamp = TouchPanelUi.Fraction(
+                Stamp = TouchHistoryUi.Fraction(
                     rect,
                     _font,
                     .04f,
@@ -559,9 +572,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
                     .68f,
                     .3f,
                     _l.BodyFont,
-                    color: TouchPanelUi.Muted
+                    color: TouchHistoryUi.Muted
                 ),
-                Rating = TouchPanelUi.Fraction(
+                Rating = TouchHistoryUi.Fraction(
                     rect,
                     _font,
                     0f,
@@ -573,7 +586,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 ),
             };
             var rankImage = ArtSlot(rect, "Rank");
-            row.Rank = TouchPanelUi.Fraction(
+            row.Rank = TouchHistoryUi.Fraction(
                 rankImage.transform,
                 _font,
                 -.2f,
@@ -585,7 +598,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             );
             row.RankArt = new ArtImage(
                 rankImage,
-                shown => TouchPanelUi.SetActive(row.Rank.gameObject, shown)
+                shown => TouchHistoryUi.SetActive(row.Rank.gameObject, shown)
             );
             var outcomeImage = ArtSlot(rect, "Outcome");
             var portrait = UiKit.Fixed(
@@ -596,9 +609,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 Vector2.one * _l.Metrics.Dp(36f)
             );
             row.PortraitRect = portrait;
-            row.Portrait = new PortraitView(portrait, TouchPanelUi.Skin, _l.Metrics);
+            row.Portrait = new PortraitView(portrait, TouchHistoryUi.Skin, _l.Metrics);
             row.Accent = Accent(rect);
-            row.Unknown = TouchPanelUi.Fraction(
+            row.Unknown = TouchHistoryUi.Fraction(
                 outcomeImage.transform,
                 _font,
                 0f,
@@ -607,11 +620,11 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 1f,
                 _l.BodyFont,
                 TextAlignmentOptions.Center,
-                TouchPanelUi.Muted
+                TouchHistoryUi.Muted
             );
             row.Badge = new ArtImage(
                 outcomeImage,
-                shown => TouchPanelUi.SetActive(row.Unknown.gameObject, shown)
+                shown => TouchHistoryUi.SetActive(row.Unknown.gameObject, shown)
             );
             rect.gameObject.SetActive(false);
             list.Rows[i] = row;
@@ -621,7 +634,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
 
     private Rail BuildRail()
     {
-        var (scroll, content) = TouchPanelUi.Scroll(
+        var (scroll, content) = TouchHistoryUi.Scroll(
             Surface,
             "Rail",
             _l.RailList,
@@ -633,7 +646,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         {
             var slot = i;
             var rect = TouchScreen.Child("Chip", content, _l.RailChip(i));
-            var control = TouchPanelUi.Button(
+            var control = TouchHistoryUi.Button(
                 rect,
                 _font,
                 "timeline_chip",
@@ -653,7 +666,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             {
                 Rect = rect,
                 Control = control,
-                Day = TouchPanelUi.Fraction(
+                Day = TouchHistoryUi.Fraction(
                     rect,
                     _font,
                     .37f,
@@ -664,7 +677,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                     TextAlignmentOptions.Center
                 ),
                 Rank = new ArtImage(ArtSlot(rect, "Rank", .74f, .06f, .23f, .38f)),
-                Name = TouchPanelUi.Fraction(
+                Name = TouchHistoryUi.Fraction(
                     rect,
                     _font,
                     .04f,
@@ -673,7 +686,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                     .42f,
                     _l.BodyFont,
                     TextAlignmentOptions.Center,
-                    TouchPanelUi.Muted
+                    TouchHistoryUi.Muted
                 ),
                 Outcome = UiKit.Fill(outcome, Color.clear, blocksTouches: false),
                 Accent = Accent(rect),
@@ -686,7 +699,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 new(_l.Metrics.Dp(5f), -_l.Metrics.Dp(3f)),
                 Vector2.one * _l.Metrics.Dp(22f)
             );
-            rail.Chips[i].Portrait = new PortraitView(portrait, TouchPanelUi.Skin, _l.Metrics);
+            rail.Chips[i].Portrait = new PortraitView(portrait, TouchHistoryUi.Skin, _l.Metrics);
             rect.gameObject.SetActive(false);
         }
         return rail;
@@ -703,7 +716,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             Vector2.zero,
             new Vector2(_l.Metrics.Dp(4f), 0f)
         );
-        UiKit.Fill(bar, TouchPanelUi.Accent, blocksTouches: false);
+        UiKit.Fill(bar, TouchHistoryUi.Accent, blocksTouches: false);
         bar.gameObject.SetActive(false);
         return bar.gameObject;
     }
@@ -711,7 +724,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     private RectTransform BoardRegion(string name, TouchRect area)
     {
         var region = TouchScreen.Child(name, Surface, area);
-        UiKit.Fill(region, TouchPanelUi.ButtonDimmed, blocksTouches: false);
+        UiKit.Fill(region, TouchHistoryUi.ButtonDimmed, blocksTouches: false);
         return region;
     }
 
@@ -727,8 +740,8 @@ internal sealed class TouchHistoryPanelView : IDisposable
             Surface,
             new TouchRect(board.Left, board.Bottom - height, board.Width, height)
         );
-        UiKit.Fill(band, TouchPanelUi.Shade, blocksTouches: false);
-        var label = TouchPanelUi.Fraction(
+        UiKit.Fill(band, TouchHistoryUi.Shade, blocksTouches: false);
+        var label = TouchHistoryUi.Fraction(
             band,
             _font,
             (1f - StatusTextShare) / 2f,
@@ -737,7 +750,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             1f,
             _l.BodyFont,
             TextAlignmentOptions.Center,
-            TouchPanelUi.Ink,
+            TouchHistoryUi.Ink,
             wrap: true
         );
         return (band.gameObject, label);
@@ -793,13 +806,13 @@ internal sealed class TouchHistoryPanelView : IDisposable
             : runs && !m.PageLoading ? HistoryPanelText.NoRuns()
             : string.Empty;
         _emptyDetail.text = emptyText;
-        TouchPanelUi.SetActive(_emptyDetail.gameObject, _empty && emptyText.Length > 0);
+        TouchHistoryUi.SetActive(_emptyDetail.gameObject, _empty && emptyText.Length > 0);
         _runsTab.Set(HistoryPanelText.RunsTab(), runs);
         _ghostTab.Set(HistoryPanelText.GhostTab(), ghost);
-        TouchPanelUi.SetActive(_favoritesTab.GameObject, m.FavoritesTabVisible);
+        TouchHistoryUi.SetActive(_favoritesTab.GameObject, m.FavoritesTabVisible);
         _favoritesTab.Set(HistoryPanelText.FavoritesTab(), favorites);
         // An empty Ghost already says what the cloud keeps.
-        TouchPanelUi.SetActive(_cloudNote, ghost && !_empty);
+        TouchHistoryUi.SetActive(_cloudNote, ghost && !_empty);
 
         // One page of battles needs no rail pager; the list then takes the whole rail.
         var railPaged = m.BattleHasNewer || m.BattleHasOlder;
@@ -811,14 +824,14 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 railPaged ? _l.RailList : _l.RailListFull
             );
         }
-        TouchPanelUi.SetActive(_rail.Scroll.gameObject, runs);
-        TouchPanelUi.SetActive(_railNewer.GameObject, runs && railPaged);
-        TouchPanelUi.SetActive(_railOlder.GameObject, runs && railPaged);
-        _railNewer.Set(TouchPanelUi.T("Newer", "较新"), enabled: m.BattleHasNewer);
-        _railOlder.Set(TouchPanelUi.T("Older", "较早"), enabled: m.BattleHasOlder);
-        _newer.Set(TouchPanelUi.T("Newer", "较新"), enabled: m.HasNewer && !m.PageLoading);
-        _older.Set(TouchPanelUi.T("Older", "较早"), enabled: m.HasOlder && !m.PageLoading);
-        _latest.Set(TouchPanelUi.T("Latest", "最新"), enabled: !m.PageLoading);
+        TouchHistoryUi.SetActive(_rail.Scroll.gameObject, runs);
+        TouchHistoryUi.SetActive(_railNewer.GameObject, runs && railPaged);
+        TouchHistoryUi.SetActive(_railOlder.GameObject, runs && railPaged);
+        _railNewer.Set(TouchHistoryUi.T("Newer", "较新"), enabled: m.BattleHasNewer);
+        _railOlder.Set(TouchHistoryUi.T("Older", "较早"), enabled: m.BattleHasOlder);
+        _newer.Set(TouchHistoryUi.T("Newer", "较新"), enabled: m.HasNewer && !m.PageLoading);
+        _older.Set(TouchHistoryUi.T("Older", "较早"), enabled: m.HasOlder && !m.PageLoading);
+        _latest.Set(TouchHistoryUi.T("Latest", "最新"), enabled: !m.PageLoading);
         _pageLabel.text = m.PageLabel.Split('\n')[0];
 
         if (runs)
@@ -864,30 +877,30 @@ internal sealed class TouchHistoryPanelView : IDisposable
             HistoryPanelText.BoardYou(),
             battle == null ? null
                 : HistoryPanelFormatter.IsBattleWin(battle)
-                    ? Tinted(HistoryPanelText.BattleWon(), TouchPanelUi.Win)
+                    ? Tinted(HistoryPanelText.BattleWon(), TouchHistoryUi.Win)
                 : HistoryPanelFormatter.IsBattleLoss(battle)
-                    ? Tinted(HistoryPanelText.BattleLost(), TouchPanelUi.Loss)
+                    ? Tinted(HistoryPanelText.BattleLost(), TouchHistoryUi.Loss)
                 : null
         );
-        TouchPanelUi.SetActive(_upperTitle.gameObject, !_empty);
-        TouchPanelUi.SetActive(_lowerTitleObject, both && !_empty);
-        TouchPanelUi.SetActive(_lowerBoardObject, both);
+        TouchHistoryUi.SetActive(_upperTitle.gameObject, !_empty);
+        TouchHistoryUi.SetActive(_lowerTitleObject, both && !_empty);
+        TouchHistoryUi.SetActive(_lowerBoardObject, both);
         if (!both)
-            TouchPanelUi.SetActive(_lowerStatusBand, false);
+            TouchHistoryUi.SetActive(_lowerStatusBand, false);
         ApplyBoardStatus();
 
         // An empty section offers no action: there is nothing to act on.
-        TouchPanelUi.SetActive(_delete.GameObject, m.DeleteButtonVisible && !noRows);
+        TouchHistoryUi.SetActive(_delete.GameObject, m.DeleteButtonVisible && !noRows);
         // Dimmed but tappable: the tap puts the reason on the status line.
         _delete.Set(
             m.DeleteButtonText,
             enabled: !m.PageLoading && !m.DeleteButtonBusy,
             dimmed: !m.DeleteButtonEnabled
         );
-        TouchPanelUi.SetActive(_favorite.GameObject, m.FavoriteButtonVisible && !_empty);
+        TouchHistoryUi.SetActive(_favorite.GameObject, m.FavoriteButtonVisible && !_empty);
         _favorite.Set(m.FavoriteButtonText, enabled: m.FavoriteButtonEnabled && !m.PageLoading);
-        TouchPanelUi.SetActive(_skills.GameObject, !_empty);
-        TouchPanelUi.SetActive(_replay.GameObject, !_empty);
+        TouchHistoryUi.SetActive(_skills.GameObject, !_empty);
+        TouchHistoryUi.SetActive(_replay.GameObject, !_empty);
         // The button keeps naming its action; unavailable reads as dimmed, and the tap explains.
         var replayText =
             !m.ReplayButtonEnabled && m.ReplayButtonText == HistoryPanelText.ReplayUnavailable()
@@ -900,7 +913,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             dimmed: !m.ReplayButtonEnabled
         );
         _status.text = m.StatusMessage ?? string.Empty;
-        _status.color = TouchPanelUi.StatusColor(m.StatusSeverity);
+        _status.color = TouchHistoryUi.StatusColor(m.StatusSeverity);
     }
 
     // Archive rows carry runs in Runs and battles in Ghost and Favorites.
@@ -935,7 +948,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         {
             var row = list.Rows[i];
             var shown = i < ids.Count;
-            TouchPanelUi.SetActive(row.Rect.gameObject, shown);
+            TouchHistoryUi.SetActive(row.Rect.gameObject, shown);
             if (!shown)
             {
                 row.Id = null;
@@ -953,21 +966,23 @@ internal sealed class TouchHistoryPanelView : IDisposable
             {
                 row.Hero = portraitHero;
                 row.Portrait.Bind(
-                    portraitHero is { } value ? () => TouchPortraits.Hero(value) : null,
+                    portraitHero is { } value
+                        ? () => MobilePlatform.Port.HeroPortrait(value)
+                        : null,
                     portraitHero
                 );
             }
             row.Name.text = fields.Name;
             row.Meta.text = fields.Meta;
             row.Stamp.text = fields.Stamp;
-            TouchPanelUi.SetActive(row.Accent, i == selected);
+            TouchHistoryUi.SetActive(row.Accent, i == selected);
             var outcome = badge(i);
             row.Unknown.text = outcome.Fallback;
             row.Badge.Bind(outcome.Sprite);
             row.Rank.text = string.IsNullOrWhiteSpace(rank(i))
                 ? "?"
                 : HistoryPanelText.RankName(rank(i)!);
-            row.RankArt.Bind(TouchRankArt.Rank(rank(i)));
+            row.RankArt.Bind(MobilePlatform.Port.RankBadge(rank(i)));
             row.Rating.text = RatingText(rank(i), rating(i), ratingDelta(i));
             if (runFields != null)
                 PlaceRunRow(row, row.Rating.text.Length > 0);
@@ -999,21 +1014,21 @@ internal sealed class TouchHistoryPanelView : IDisposable
         {
             var chip = rail.Chips[i];
             var shown = i < battles.Count;
-            TouchPanelUi.SetActive(chip.Rect.gameObject, shown);
+            TouchHistoryUi.SetActive(chip.Rect.gameObject, shown);
             if (!shown)
                 continue;
             // The page's newest-first order, matching the archive and the pager.
             var battle = battles[i];
             chip.Control.Set(string.Empty, i == selected, !loading);
-            TouchPanelUi.SetActive(chip.Accent, i == selected);
+            TouchHistoryUi.SetActive(chip.Accent, i == selected);
             chip.Day.text = HistoryPanelText.DayBadge(battle.Day);
-            chip.Rank.Bind(TouchRankArt.Rank(battle.OpponentRank));
+            chip.Rank.Bind(MobilePlatform.Port.RankBadge(battle.OpponentRank));
             var hero = ParseHero(battle.OpponentHero);
             if (chip.Hero != hero)
             {
                 chip.Hero = hero;
                 chip.Portrait.Bind(
-                    hero is { } value ? () => TouchPortraits.Hero(value) : null,
+                    hero is { } value ? () => MobilePlatform.Port.HeroPortrait(value) : null,
                     hero
                 );
             }
@@ -1021,8 +1036,8 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 ? HistoryPanelText.UnknownOpponent()
                 : battle.OpponentName;
             chip.Outcome.color =
-                HistoryPanelFormatter.IsBattleWin(battle) ? TouchPanelUi.Win
-                : HistoryPanelFormatter.IsBattleLoss(battle) ? TouchPanelUi.Loss
+                HistoryPanelFormatter.IsBattleWin(battle) ? TouchHistoryUi.Win
+                : HistoryPanelFormatter.IsBattleLoss(battle) ? TouchHistoryUi.Loss
                 : Color.clear;
         }
         rail.Scroll.content.sizeDelta = new Vector2(
@@ -1088,7 +1103,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     {
         var tier = HistoryPanelFormatter.GetRunOutcomeTier(run);
         if (tier is { } finished && finished != RunOutcomeTier.Misfortune)
-            return (TouchRankArt.Trophy(finished), finished.ToString());
+            return (MobilePlatform.Port.RunTrophy(finished), finished.ToString());
         var index =
             run.RawStatus == "active" ? 2
             : run.RawStatus == "abandoned" ? 1
@@ -1131,8 +1146,8 @@ internal sealed class TouchHistoryPanelView : IDisposable
     {
         var mode = run.GameMode.Trim().ToLowerInvariant() switch
         {
-            "ranked" => TouchPanelUi.T("Ranked", "排位"),
-            "unranked" => TouchPanelUi.T("Normal", "普通"),
+            "ranked" => TouchHistoryUi.T("Ranked", "排位"),
+            "unranked" => TouchHistoryUi.T("Normal", "普通"),
             _ => HistoryPanelText.Unknown(),
         };
         var title = $"{HistoryPanelText.DayBadge(run.FinalDay)} · {mode}";
@@ -1153,9 +1168,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
     public static string HeroLabel(string? hero)
     {
         if (TheDragonsHeroId.IsAlias(hero))
-            return TouchHeroNames.TheDragons();
+            return MobilePlatform.Port.HeroName(CardHero.TheDragons);
         if (!string.IsNullOrWhiteSpace(hero) && Enum.TryParse<CardHero>(hero, true, out var parsed))
-            return TouchHeroNames.Display(parsed);
+            return MobilePlatform.Port.HeroName(parsed);
         return hero ?? string.Empty;
     }
 
@@ -1241,7 +1256,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 Vector2.zero,
                 Vector2.zero
             );
-            var fill = UiKit.Fill(_bar, TouchPanelUi.Accent, blocksTouches: false);
+            var fill = UiKit.Fill(_bar, TouchHistoryUi.Accent, blocksTouches: false);
             fill.color = new Color(fill.color.r, fill.color.g, fill.color.b, .7f);
             _bar.gameObject.SetActive(false);
         }

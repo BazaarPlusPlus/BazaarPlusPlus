@@ -30,6 +30,7 @@ public sealed class NativeMonsterBoardArchitectureTests
                     .Concat(build.TypesIn("BazaarPlusPlus.Game.LiveBuildPanel"))
                     // The touch panel moved into the Mobile UI tree (ADR-0025).
                     .Concat(build.TypesIn("BazaarPlusPlus.Mobile.LiveBuild"))
+                    .Concat(build.TypesIn("BazaarPlusPlus.Mobile.History"))
                     .ToArray();
                 var constructions = features.SelectMany(type =>
                     type.Methods.SelectMany(method =>
@@ -72,6 +73,7 @@ public sealed class NativeMonsterBoardArchitectureTests
                     "BazaarPlusPlus.Game.LiveBuildPanel",
                     "BazaarPlusPlus.Mobile.LiveBuild",
                     "BazaarPlusPlus.Mobile.Collection",
+                    "BazaarPlusPlus.Mobile.History",
                 };
                 foreach (var panel in panels)
                     _ = build.TypesIn(panel);

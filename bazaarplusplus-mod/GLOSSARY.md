@@ -165,7 +165,7 @@ BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) that both h
 _Avoid_: Android UI, iOS UI, touch port
 
 **Mobile Platform Port**:
-What a host gives the Mobile UI to reach its runtime (`IMobilePlatformPort`), such as the main-thread scope and posting to the main thread, object liveness, casts, text wrapping, button listeners and control actions, the game sprites the native skin borrows, the game font, the card rental, game reads (card text and previews, the string table, hero and encounter names and portraits, the live cards) and overlay registration. A panel's frames come from its overlay registration's tick, so no separate frame-driving member exists (ADR-0025).
+What a host gives the Mobile UI to reach its runtime (`IMobilePlatformPort`), such as the main-thread scope and posting to the main thread, object liveness, casts, text wrapping, button listeners and control actions, the game sprites the native skin borrows, the game font, the card rental, game reads (card text and previews, the string table, hero and encounter names and portraits, rank badges and run trophies, the live cards), the game's mobile skill overlay and overlay registration. A panel's frames come from its overlay registration's tick, so no separate frame-driving member exists (ADR-0025).
 _Avoid_: shim, `#if` branch
 
 **Native Adjustment**:

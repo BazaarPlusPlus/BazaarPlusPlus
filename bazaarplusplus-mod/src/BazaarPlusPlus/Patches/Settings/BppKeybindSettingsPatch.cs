@@ -4,6 +4,7 @@ using System.Collections;
 using System.Reflection;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.Settings;
+using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
@@ -21,22 +22,26 @@ internal static class BppKeybindSettingsAwakePatch
     internal const string ToggleLiveBuildPanelObjectName = "BPP_Keybind_ToggleLiveBuildPanel";
     internal const string ToggleHistoryPanelObjectName = "BPP_Keybind_ToggleHistoryPanel";
 
-    private static readonly BppKeybindDefinition[] Definitions =
+    private static readonly BppKeybindDefinition[] PreviewDefinitions =
     [
         new(EnchantPreviewObjectName, BppHotkeyActionId.HoldEnchantPreview),
         new(UpgradePreviewObjectName, BppHotkeyActionId.HoldUpgradePreview),
+    ];
+    private static readonly BppKeybindDefinition[] AllDefinitions =
+    [
+        .. PreviewDefinitions,
         new(ToggleCollectionPanelObjectName, BppHotkeyActionId.ToggleCollectionPanel),
         new(ToggleLiveBuildPanelObjectName, BppHotkeyActionId.ToggleLiveBuildPanel),
         new(ToggleHistoryPanelObjectName, BppHotkeyActionId.ToggleHistoryPanel),
     ];
-    internal static readonly string[] DefinitionObjectNames =
-    [
-        EnchantPreviewObjectName,
-        UpgradePreviewObjectName,
-        ToggleCollectionPanelObjectName,
-        ToggleLiveBuildPanelObjectName,
-        ToggleHistoryPanelObjectName,
-    ];
+
+    // The rows the dialog shows. On a mobile platform the touch panels register no toggle
+    // hotkey (ADR-0024, ADR-0025), so their three rows would bind keys that open nothing.
+    private static BppKeybindDefinition[] Definitions =>
+        TouchPlatform.IsMobile ? PreviewDefinitions : AllDefinitions;
+
+    internal static IEnumerable<string> DefinitionObjectNames =>
+        Definitions.Select(definition => definition.ObjectName);
     private static readonly FieldInfo? KeybindObjectsField = AccessTools.Field(
         typeof(OptionsDialogController),
         "_keybindObjects"

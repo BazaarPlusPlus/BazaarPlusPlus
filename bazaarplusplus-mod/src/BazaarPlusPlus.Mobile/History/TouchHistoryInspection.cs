@@ -1,5 +1,3 @@
-using BazaarPlusPlus.Android.GameInterop;
-using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Ui;
@@ -7,10 +5,9 @@ using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Mobile.Ui;
-using Il2CppTheBazaar.UI;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Android.Ui;
+namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
 /// A History board card, tapped, enlarged over the panel with its name and authored
@@ -19,7 +16,7 @@ namespace BazaarPlusPlus.Android.Ui;
 /// enchantment. A tap outside, the close button, or the back key dismisses it, and the lease goes
 /// back to the rental.
 /// </summary>
-internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
+internal sealed class TouchHistoryInspection : IHistoryCardOverlay
 {
     public const string RentalOwner = "history.inspection";
 
@@ -28,16 +25,16 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
     private readonly TextMeshProUGUI _name;
     private readonly InspectionText _description;
     private readonly HistoryTouchLayout _layout;
-    private CardRentalLease<CardPreviewBase>? _lease;
+    private CardRentalLease<GameCardPreview>? _lease;
 
-    public AndroidHistoryInspection(
+    public TouchHistoryInspection(
         RectTransform parent,
         TMP_FontAsset font,
         HistoryTouchLayout layout
     )
     {
         _layout = layout;
-        var root = AndroidHistoryUi.Overlay(
+        var root = TouchHistoryUi.Overlay(
             parent,
             "Inspection",
             "inspection_outside",
@@ -53,9 +50,9 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
             Vector2.zero,
             Vector2.zero
         );
-        var info = AndroidHistoryUi.Panel(root, "Info", layout.InspectInfo);
+        var info = TouchHistoryUi.Panel(root, "Info", layout.InspectInfo);
         var origin = layout.InspectInfo;
-        _name = AndroidHistoryUi.Label(
+        _name = TouchHistoryUi.Label(
             info,
             font,
             "Name",
@@ -67,9 +64,9 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
             TouchScreen.Child("Description", info, Local(layout.InspectDetail, origin, layout.Gap)),
             font,
             layout.BodyFont,
-            AndroidHistoryUi.Ink
+            TouchHistoryUi.Ink
         );
-        AndroidHistoryUi.Button(
+        TouchHistoryUi.Button(
             info,
             font,
             "inspection_close",
@@ -89,15 +86,15 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
     {
         ReturnCards();
         var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
-        _name.text = AndroidCardTemplateText.Title(card.TemplateId) ?? string.Empty;
-        _description.Set(AndroidCardTemplateText.Description(subject) ?? string.Empty);
+        _name.text = MobilePlatform.Port.CardTitle(card.TemplateId) ?? string.Empty;
+        _description.Set(MobilePlatform.Port.CardDescription(subject) ?? string.Empty);
         var scale = _layout.InspectScale(card.DisplaySpan);
         _slot.localScale = new Vector3(scale, scale, 1f);
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
-        _lease = AndroidCardRental.Rent(subject, _slot, RentalOwner);
+        _lease = MobilePlatform.Port.CardRental.Rent(subject, _slot, RentalOwner);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.card_inspected"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.card_inspected"),
             ("source", source),
             ("size", card.Size),
             ("tier", card.Tier),
@@ -113,9 +110,9 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
         ReturnCards();
         _root.SetActive(false);
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.history.inspection_closed"),
+            new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.inspection_closed"),
             ("reason", reason),
-            ("rental_leases", AndroidCardRental.ActiveLeases)
+            ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
         );
         return true;
     }
@@ -123,7 +120,7 @@ internal sealed class AndroidHistoryInspection : IHistoryCardOverlay
     /// <summary>The lease goes back without a log line: the panel is closing or laid out again.</summary>
     public void ReturnCards()
     {
-        AndroidCardRental.Return(_lease);
+        MobilePlatform.Port.CardRental.Return(_lease);
         _lease = null;
     }
 

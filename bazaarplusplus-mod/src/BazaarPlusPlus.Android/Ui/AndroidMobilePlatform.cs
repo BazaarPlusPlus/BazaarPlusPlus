@@ -4,6 +4,7 @@ using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.LiveCards;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Mobile;
 using UnityEngine;
@@ -122,4 +123,11 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
         return (subject, enchantment) =>
             AndroidCardTemplateText.EnchantmentEffect(template, subject, enchantment);
     }
+
+    public Task<Sprite?>? RankBadge(string? rank) => AndroidRankArt.Rank(rank);
+
+    public Task<Sprite?>? RunTrophy(RunOutcomeTier tier) => AndroidRankArt.Trophy(tier);
+
+    public INativeSkillOverlay NativeSkillOverlay(int sortingOrder) =>
+        new AndroidNativeSkillOverlay(sortingOrder);
 }
