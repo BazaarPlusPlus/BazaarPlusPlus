@@ -13,3 +13,5 @@
 2026-10-22 修订：Android 成为第三个发布平台（[ADR 0010](0010-android-release-platform.md)），但不进入 `latest.json` 的集合。`latest.json` 只在 lockstep 平台（Windows 与 macOS）版本和提交相同时推进；Android 只有自己的 Platform Release Manifest，可以跳过版本。一个版本号只对应一个提交的规则覆盖 Android。
 
 2026-10-28 补充：[ADR 0011](0011-separate-mod-update-endpoint.md) 为 mod 增加独立更新入口，同一次提升发布同一份平台清单的两个入口；每个桌面版本仍发布完整安装器与 Managed Payload，lockstep 与版本规则不变。
+
+2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010。Android 仍不在 `latest.json` 的 lockstep 集合里，可以跳过版本，一个版本号只对应一个提交。

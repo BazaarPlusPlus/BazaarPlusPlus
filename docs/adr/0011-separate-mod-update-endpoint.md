@@ -21,3 +21,5 @@ Android 同样分开 mod 入口与官网 APK 入口；APK 的身份与复用规�
 本决定补充 [ADR 0003](0003-per-platform-release-promotion.md) 中各消费者共用平台入口的约定，保留 [ADR 0001](0001-product-release-promotion.md) 的完整产品发布与版本语义。安装器 [ADR 0009](../../bazaarplusplus-installer/docs/adr/0009-repair-keeps-self-updated-managed-payload.md) 的 Repair 行为不变：兼容且完整的较新 Managed Payload 可以保留。
 
 代价是每个平台多一个待发布对象。共用格式与发布事实避免了第二套协议、版本线和兼容性求解逻辑；保留完整桌面安装器则继续承担每个版本的打包、签名与镜像上传成本。
+
+2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010。Android 仍分开 mod 入口与官网入口；Android App APK 的形状与规则由 ADR 0012 定义。

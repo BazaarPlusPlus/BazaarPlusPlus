@@ -9,3 +9,5 @@ mod 是 installer 的 Payload，不是独立发布的产品。采用根目录单
 2026-10-04 注：[ADR 0004](0004-pinned-game-assembly-snapshots.md) 之后，"每个平台需要一台装了游戏的专用主机和它的凭据"这一前提消失，`prepare`、`build`、`upload` 在托管 runner 上运行；本记录的决定（单一产品版本、版本目录不可变、ETag 条件写、双平台同版本同提交、准备与打包共用锁）不变。
 
 2026-10-22 注：[ADR 0010](0010-android-release-platform.md) 之后，发布产物不再只含 BPP 自己的字节：Android Release APK 在与发行商的合作授权下含游戏二进制。本记录的决定不变；双平台同版本同提交的要求由 ADR 0003 与 ADR 0010 限定在 lockstep 平台。
+
+2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010。Android 发布产物不再含游戏二进制：Android App APK 只含 BPP 的运行时，用户自己安装官方游戏。interop 包是由游戏生成的派生物，在合作授权下放进公开桶。本记录的决定不变。

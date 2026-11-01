@@ -7,3 +7,5 @@
 否决的方案：保留拼接规则并只加核对，规则会被烧进每个已发布的 installer，换主机或换后缀就让所有旧客户端的兜底链接失效，而且 manifest 里始终缺少可读的事实；发布后允许追加或改写 `mainlandUrl`，会让 `latest.json` 出现第二个写入者和两种有效状态；让 installer 的自动更新走镜像，蓝奏云只有分享页没有可校验签名的直链，做不到。代价是发布多一步逐平台记录、一次对第三方页面格式的依赖，以及 5.4.0 及更早 installer 自行拼接的旧地址不再维护，它们升级到新版本后才读取清单。核对只证明文件名，不证明字节，也只在核对那一刻成立。
 
 2026-10-22 注：[ADR 0010](0010-android-release-platform.md) 让 Android 成为发布平台。Android 第一版没有大陆镜像（APK 超出蓝奏云单文件上限），`promote --platform android` 不读也不要求镜像记录，`mirror`、`verify-mirror` 拒绝 Android。这是平台表里的规则，不是逐次的跳过，所以不经过 `--without-mainland-mirror`；桌面平台"缺少记录时拒绝、没有静默绕过"的规则不变。
+
+2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010，并沿用"Android 没有大陆镜像、`promote --platform android` 不读镜像记录"这条平台规则。

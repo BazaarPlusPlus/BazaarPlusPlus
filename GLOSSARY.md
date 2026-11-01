@@ -8,13 +8,13 @@ Terms used by more than one project. A project glossary may narrow one of these 
 The mod, the installer, and the published release record for one product version. One product version names one git commit; each platform ships it at most once and may skip it. The product version says nothing about a database schema, a native ABI, or the version a user has installed.
 
 **Payload**:
-The files the mod loader host loads: on desktop, what the installer carries and installs into the game directory; on Android, what sits under the app's `MelonLoader/` files directory and inside the Android Release APK. Each file's ownership decides which paths install, repair, and uninstall may change.
+The files the mod loader host loads: on desktop, what the installer carries and installs into the game directory; on Android, what sits under the Android App's `MelonLoader/` files directory and inside the Android App APK. Each file's ownership decides which paths install, repair, and uninstall may change.
 
 **Payload Inventory**:
 The shared facts about Payload files (`release/payload.json`): current files, their host (`bepinex` or `melonloader`) and platform scope, ownership, producer, and retired files. Each release platform installs only its own host's entries. User data and third-party plugins are outside it.
 
 **Platform Release Manifest**:
-One platform's newest promoted release. The installer and website read `latest/<platformKey>.json`; the mod reads the same record at its separate endpoint `latest/mod/<platformKey>.json`. Both are published by the same Release Promotion. A desktop one carries its version, updater package, actual installer download URL, and recorded Mainland Mirror address; the Android one carries the Android Release APK and the game it was built for. Each carries its Managed Payload with the history database schema and the `nonManagedPayloadDigest` it needs. Platforms may be at different versions.
+One platform's newest promoted release. The installer and website read `latest/<platformKey>.json`; the mod reads the same record at its separate endpoint `latest/mod/<platformKey>.json`. Both are published by the same Release Promotion. A desktop one carries its version, updater package, actual installer download URL, and recorded Mainland Mirror address; the Android one carries the Android App APK, the Interop Package and the game it was adapted for. Each carries its Managed Payload with the history database schema and the `nonManagedPayloadDigest` it needs. Platforms may be at different versions.
 
 **Lockstep Platform** (lockstep 平台):
 A platform the Release Manifest waits for: Windows and macOS (`LOCKSTEP_PLATFORM_KEYS` in `release/release-platforms.mjs`). Android is a release platform but not a Lockstep Platform, so its game-driven cadence never holds back a desktop release.
@@ -25,22 +25,43 @@ The newest Product Release that every Lockstep Platform promoted at the same ver
 **Release Promotion**:
 Publishing both update endpoints of one platform's Platform Release Manifest once its complete artifacts are in place and, on desktop, its Mainland Mirror is recorded or explicitly waived; the Release Manifest advances when every Lockstep Platform names the same release. Repeating the promotion of the same release leaves the existing artifacts unchanged.
 
-**Android Release APK** (Android 发布 APK):
-The official game APK with the Loader Release, the Interop Snapshot and an Android Mod Payload injected, signed with BPP's Android release key (`docs/adr/0009-android-release-key.md`): what an Android user installs. Every product version injects its own, so a new install starts on that version's Mods: it is stored under `installer/android/apk/` in the public bucket, named by the product version and the game build. An installed copy takes a later version as a Managed Payload while the fragment's `nonManagedPayloadDigest` (the loader, the interop, the injected native libraries and the Updater) is unchanged. `docs/adr/0010-android-release-platform.md` records why BPP may distribute it.
-_Avoid_: patched APK, Android installer
+**Android App** (BPP Android App):
+BPP's own Android application, package `com.bazaarplusplus.android` (development builds add `.dev`), in `bazaarplusplus-android/`. It loads the user's installed official game in its own process, gives LemonLoader the Loader Release it carries and the Interop Package it downloads, stages the Managed Payload, writes the Launch Record, and also opens the official App unchanged ("native launch"). It has no account of its own. It carries the Loader Release, `libe_sqlite3.so` and the Updater, never the game, interop or Mods. It is not the mod's Android Host, which is the mod assembly it ends up loading. `docs/adr/0012-android-app.md` records the decision. The issues call it 宿主 App.
+_Avoid_: host app (clashes with Host), launcher, BPP APK
+
+**Android Release APK** (Android 发布 APK, retired):
+The official game APK with the loader, interop and Mods injected and signed by BPP, which Android users installed until ADR 0012 replaced it with the Android App. No release builds one; old copies under `installer/android/apk/` stay but are never updated.
+
+**Game Code Hash** (游戏代码哈希):
+The sha256 of the installed official game's `libil2cpp.so` and `global-metadata.dat`, taken from whichever of its APKs (base or split) holds each. The Android App compares the pair with the Platform Release Manifest's `game`; `versionName` and the APK's own sha256 play no part, so a content-only game update needs no new Game Adaptation.
+
+**Game Adaptation** (适配):
+The binding of one product version to one game's code: the Snapshot Lock's `android-online` entry, the Interop Snapshot generated from it, and the Mods compiled against it, published together as that version's Android release. Only the latest game is adapted.
+
+**Compatibility Mode** (兼容模式):
+The opt-in BPP launch of a game whose Game Code Hash differs from the adapted one and whose `versionCode` is not older: the Android App loads that game's Interop Package from a Pre-Adaptation and the current Mods, and the mod turns every upload off and shows the mode on the main menu. It never runs an older interop, which binds methods by metadata token and would silently bind the wrong ones.
+
+**Interop Package** (interop 包):
+One Interop Snapshot as a deterministic zip whose entries sit under `assets/LemonLoader/runtime/interop/`, stored content-addressed at `installer/android/interop/<sha256>.zip` in the public bucket. The Android App adds it to the game's resources so LemonLoader extracts it; a release and a Pre-Adaptation of the same snapshot share one object.
+
+**Pre-Adaptation** (预适配 interop 包):
+An Interop Package for a new game, published by `android-apk-watch.yml` with a record at `installer/android/adaptations/<il2cppSha256>_<metadataSha256>.json` as soon as the game's code changes, before any Product Release adapts it. It feeds Compatibility Mode only; it never bumps `VERSION` and never enters a Platform Release Manifest.
+
+**Launch Record** (启动记录):
+`MelonLoader/UserData/BazaarPlusPlus.launch.json`, which the Android App writes before every BPP launch: its own version and `nonManagedPayloadDigest`, the mode (`normal` or `compatibility`), the game's identity and Game Code Hash, and the interop it supplied. The mod reads it at start; no file means the mod is not running in the Android App, and an unreadable one means Compatibility Mode. ADR 0012 owns its format.
 
 **Managed Payload** (托管 Payload):
-One platform's `managed` and `history-contract` Payload entries for one product version, published as a zip signed with the Tauri updater key at `<version>/<platformKey>/managed/` and recorded as `managedPayload` in that platform's fragment: what the mod's self-update installs. A copy takes it only when its history database schema and `nonManagedPayloadDigest` (every other Payload file, the Updater included) match the release; otherwise the installer or a new APK updates it.
+One platform's `managed` and `history-contract` Payload entries for one product version, published as a zip signed with the Tauri updater key at `<version>/<platformKey>/managed/` and recorded as `managedPayload` in that platform's fragment: what the mod's self-update installs. A copy takes it only when its history database schema and `nonManagedPayloadDigest` (every other Payload file, the Updater included) match the release; otherwise the installer or a new Android App updates it.
 
 **Managed Payload Manifest** (托管 Payload 清单):
 The signed line-format list of one Managed Payload's files with their sha256 and size, its version, platform, history database schema and `nonManagedPayloadDigest` (`release/managed-payload.mjs`). It travels in the zip as `manifest.txt` and is installed beside the mod as `BazaarPlusPlus.managed-manifest.txt`, the record of what the running copy is.
 
 **Updater** (更新器):
-`BazaarPlusPlus.Updater.dll`, the BPP component that runs at the loader stage before the mod (a BepInEx preloader patcher on desktop, a MelonLoader plugin on Android) and swaps a staged Managed Payload into place. It is not part of the Managed Payload; the installer or the APK ships it. Not the installer's Tauri updater.
+`BazaarPlusPlus.Updater.dll`, the BPP component that runs at the loader stage before the mod (a BepInEx preloader patcher on desktop, a MelonLoader plugin on Android) and swaps a staged Managed Payload into place. It is not part of the Managed Payload; the installer or the Android App ships it. Not the installer's Tauri updater.
 _Avoid_: patcher, self-updater
 
 **Android Mod Payload** (Android Mods 包):
-The Payload files the Android host loads from `MelonLoader/Mods/` and `MelonLoader/UserLibs/`: baked into the Android Release APK for the first start, beside the Updater in `MelonLoader/Plugins/`, and published for every product version as Android's Managed Payload.
+The Payload files the Android Host loads from `MelonLoader/Mods/` and `MelonLoader/UserLibs/`, published for every product version as Android's Managed Payload. The Android App stages it, and the Updater in `MelonLoader/Plugins/` swaps it in, on the first start as on every later one.
 _Avoid_: Mods zip
 
 **Mainland Mirror**:
@@ -57,7 +78,7 @@ The Il2CppInterop proxy assemblies generated from one official Android APK, with
 _Avoid_: interop dump, IL2CPP managed folder
 
 **Loader Release** (加载器发行包):
-One tagged LemonLoader Android release zip (`LemonLoader-Android-arm64.zip`): the native bootstrap, the CoreCLR runtime and the managed loader assemblies (`MelonLoader.dll`, `0Harmony.dll`, `Il2CppInterop.Runtime.dll`) an Android host compiles against and an injected APK carries. The Snapshot Lock pins it by tag and sha256 inside the `android-online` entry; a copy lives in the private bucket so a deleted upstream tag does not break a rebuild, and `just mod::fetch android online` unpacks it under `bazaarplusplus-mod/game-libs/loader-<tag>/`.
+One tagged LemonLoader Android release zip (`LemonLoader-Android-arm64.zip`): the native bootstrap, the CoreCLR runtime and the managed loader assemblies (`MelonLoader.dll`, `0Harmony.dll`, `Il2CppInterop.Runtime.dll`) an Android Host compiles against and the Android App carries. The Snapshot Lock pins it by tag and sha256 inside the `android-online` entry; a copy lives in the private bucket so a deleted upstream tag does not break a rebuild, and `just mod::fetch android online` unpacks it under `bazaarplusplus-mod/game-libs/loader-<tag>/`.
 _Avoid_: MelonLoader install, loader runtime
 
 **Snapshot Lock** (快照锁):
@@ -67,7 +88,7 @@ _Avoid_: game-libs manifest, Steam buildid pin
 ## Mod hosts
 
 **Host** (宿主):
-One loader and runtime combination the mod runs under, with the assembly and composition root that adapt the shared core to it: the Desktop Host (BepInEx on Mono, `BazaarPlusPlus.dll` in `BepInEx/plugins/`, `DesktopComposition`) and the Android Host (LemonLoader on CoreCLR beside an IL2CPP game, `BazaarPlusPlus.Android.dll` in `MelonLoader/Mods/`, compiled against an Interop Snapshot and a Loader Release). Every host references `BazaarPlusPlus.Core`, which references no loader, engine, or game assembly; game adapters, Harmony patches and the host ports' implementations (settings, log exit, Data Root) stay per host. A host is not a release platform: `macos` and `windows` share the Desktop Host. `bazaarplusplus-mod/docs/adr/0012-shared-core-and-per-host-adapters.md` records the split.
+One loader and runtime combination the mod runs under, with the assembly and composition root that adapt the shared core to it: the Desktop Host (BepInEx on Mono, `BazaarPlusPlus.dll` in `BepInEx/plugins/`, `DesktopComposition`) and the Android Host (LemonLoader on CoreCLR beside an IL2CPP game, `BazaarPlusPlus.Android.dll` in `MelonLoader/Mods/`, compiled against an Interop Snapshot and a Loader Release). Every host references `BazaarPlusPlus.Core`, which references no loader, engine, or game assembly; game adapters, Harmony patches and the host ports' implementations (settings, log exit, Data Root) stay per host. A host is not a release platform, and the Android Host is not the Android App that loads it: `macos` and `windows` share the Desktop Host. `bazaarplusplus-mod/docs/adr/0012-shared-core-and-per-host-adapters.md` records the split.
 _Avoid_: platform (a release target such as `macos`), loader (one part of a host)
 
 ## Credentials
