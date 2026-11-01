@@ -145,7 +145,7 @@ export const SHARED_INPUTS = [
   ],
   [
     'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json',
-    ['installer', 'release']
+    ['installer', 'release', 'android']
   ],
   ['bazaarplusplus-mod/build/game-libs.lock.json', ['release']],
   // release/game-libs-interop.test.mjs pins GAME_VERSION_PATTERN to the first

@@ -31,7 +31,7 @@ public class LoaderDeploymentTest {
 
     @Test
     public void aNewInteropWithTheSameAppResetsOnlyTheInteropMarker() {
-        assertEquals(List.of(".lemonloader-interop-hash"), LoaderDeployment.stalePaths(
+        assertEquals(LoaderDeployment.INTEROP_MARKERS, LoaderDeployment.stalePaths(
                 new LoaderDeployment.Identity(6001000, INTEROP_A), new LoaderDeployment.Identity(6001000, INTEROP_B)));
     }
 
@@ -61,8 +61,10 @@ public class LoaderDeploymentTest {
         assertTrue("the Updater owns Mods/", new File(melon, "Mods/BazaarPlusPlus.Core.dll").isFile());
 
         Files.write(new File(melon, ".lemonloader-interop-hash").toPath(), "apk-1".getBytes());
+        assertTrue(new File(melon, "MelonLoader/Il2CppAssemblies").mkdirs());
+        Files.write(new File(melon, "MelonLoader/Il2CppAssemblies/Assembly-CSharp.dll").toPath(), new byte[] {4});
         assertEquals(List.of(), LoaderDeployment.apply(state, melon, new LoaderDeployment.Identity(6001000, INTEROP_A)));
-        assertEquals(List.of(".lemonloader-interop-hash"),
+        assertEquals(List.of(".lemonloader-interop-hash", "MelonLoader/Il2CppAssemblies"),
                 LoaderDeployment.apply(state, melon, new LoaderDeployment.Identity(6001000, INTEROP_B)));
     }
 

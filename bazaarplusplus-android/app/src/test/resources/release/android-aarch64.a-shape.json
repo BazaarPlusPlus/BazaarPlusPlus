@@ -1,0 +1,37 @@
+{
+  "version": "3.1.2",
+  "gitCommit": "cccccccccccccccccccccccccccccccccccccccc",
+  "notes": "Release 3.1.2",
+  "pub_date": "2026-09-21T00:00:00.000Z",
+  "downloads": {
+    "android-aarch64": {
+      "apk": {
+        "url": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_3.1.2_1.0.12825.apk",
+        "size": 33,
+        "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
+        "versionCode": 12825,
+        "signerSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "builtForProductVersion": "3.1.2"
+      },
+      "managedPayload": {
+        "url": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/managed/BazaarPlusPlus_3.1.2_android-aarch64-managed.zip",
+        "size": 30,
+        "sha256": "03e651b2e1f76ad4b9b4b63d729ce34870bc50ed1d20f5e70a620686631c5abc",
+        "signature": "android-managed-signature-3.1.2"
+      },
+      "selfUpdatable": true,
+      "historyDatabaseUserVersion": 1,
+      "nonManagedPayloadDigest": "6666666666666666666666666666666666666666666666666666666666666666",
+      "game": {
+        "gameVersion": "1.0.12825-production-android-d9601ded",
+        "versionCode": 12825,
+        "officialApkSha256": "7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "loader": {
+        "tag": "v0.7.4-android.4",
+        "sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "interopSha256": "3f9a1c2d99999999999999999999999999999999999999999999999999999999"
+    }
+  }
+}

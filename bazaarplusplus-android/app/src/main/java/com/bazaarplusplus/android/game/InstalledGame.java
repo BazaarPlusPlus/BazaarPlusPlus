@@ -29,9 +29,14 @@ public final class InstalledGame {
 
     /** The installed game, or null when it is not installed. */
     public static InstalledGame find(PackageManager pm) {
+        return find(pm, PACKAGE);
+    }
+
+    /** The package installed as {@code packageName}; a debug build may name another one (DevOverrides). */
+    public static InstalledGame find(PackageManager pm, String packageName) {
         PackageInfo game;
         try {
-            game = pm.getPackageInfo(PACKAGE, 0);
+            game = pm.getPackageInfo(packageName, 0);
         } catch (PackageManager.NameNotFoundException e) {
             return null;
         }

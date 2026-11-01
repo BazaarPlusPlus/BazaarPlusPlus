@@ -80,6 +80,19 @@ android {
     }
 }
 
+// Tests read shared contract files outside the test sources: the Launch Record golden under
+// contracts/, the release tooling's fixtures and release/manifest.mjs, and the mod's history
+// database contract (root AGENTS.md, Contracts).
+tasks.withType<Test>().configureEach {
+    inputs.files(rootProject.fileTree("contracts")).withPropertyName("contracts")
+    inputs.files(
+        rootProject.fileTree("../release/fixtures/latest"),
+        rootProject.fileTree("../release/fixtures/android-interop"),
+        rootProject.file("../release/manifest.mjs"),
+        rootProject.file("../bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json"),
+    ).withPropertyName("sharedContracts")
+}
+
 dependencies {
     testImplementation("junit:junit:${testDependencies["junit:junit"]}")
     // org.json is part of android.jar, which unit tests see only as stubs.

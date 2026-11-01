@@ -135,7 +135,7 @@ test('shared inputs select owners and every contract consumer', () => {
     ],
     [
       'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json',
-      ['mod', 'installer', 'release']
+      ['mod', 'installer', 'release', 'android']
     ],
     [
       'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/history-database-v6.schema.sql',

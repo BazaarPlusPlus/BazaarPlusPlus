@@ -1,13 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="app_name" translatable="false">BazaarPlusPlus</string>
+  <!-- The official game's store page and the publisher's APK (release/game-libs.mjs OFFICIAL_ANDROID_APK_URL). -->
+  <string name="url_play" translatable="false">https://play.google.com/store/apps/details?id=com.tempogames.thebazaar</string>
+  <string name="url_publisher" translatable="false">https://data.playthebazaar.com/game/android/TheBazaar.apk</string>
+  <string name="size_mb" translatable="false">%1$.1f MB</string>
+
   <string name="app_version">Version %1$s</string>
+  <string name="checking">Checking the game…</string>
+  <string name="check_failed">Couldn’t check the game: %1$s</string>
+  <string name="retry">Retry</string>
   <string name="bpp_launch">Launch with BPP</string>
   <string name="native_launch">Launch the official game</string>
-  <string name="install_game">Install The Bazaar</string>
-  <string name="game_missing">The Bazaar is not installed. Install the official game first.</string>
   <string name="game_found">The Bazaar %1$s</string>
-  <string name="runtime_missing">This build has no BPP runtime or interop yet.</string>
+  <string name="game_missing">The Bazaar is not installed. Install the official game first.</string>
+  <string name="install_from_play">Install from Google Play</string>
+  <string name="update_from_play">Update from Google Play</string>
+  <string name="download_from_publisher">Download from the publisher</string>
+  <string name="game_older">The Bazaar %1$s is older than the version BazaarPlusPlus supports (%2$s). Update the official game first.</string>
+  <string name="game_waiting">Waiting for adaptation · The Bazaar %1$s</string>
+  <string name="game_waiting_detail">BazaarPlusPlus does not support this game version yet. Until it does, launch the official game.</string>
+  <string name="game_not_adapted">BazaarPlusPlus does not fully support The Bazaar %1$s yet</string>
+  <string name="compat_explain">Compatibility mode turns uploads off. Local History is kept. Some features may not work.</string>
+  <string name="compat_opt_in">Turn on compatibility mode</string>
+  <string name="compat_on">Compatibility mode · The Bazaar %1$s</string>
+  <string name="release_unavailable">Couldn’t read the BazaarPlusPlus release. Connect to the internet and try again.</string>
+  <string name="release_from_cache">Offline: using the last release read.</string>
+  <string name="no_release">BazaarPlusPlus for Android has no release yet.</string>
+  <string name="app_update_required">This release needs a new BazaarPlusPlus App.</string>
+  <string name="install_app">Install the new App</string>
+  <string name="last_install_failed">The last plugin install failed. This launch installs it again; if it fails again, export diagnostics.</string>
+  <string name="runtime_missing">This build has no BPP runtime yet.</string>
+  <string name="dev_interop">Development interop · The Bazaar %1$s</string>
   <string name="preparing">Preparing the game…</string>
+  <string name="downloading_interop">Downloading interop… %1$s / %2$s</string>
+  <string name="downloading_plugin">Downloading the plugin… %1$s / %2$s</string>
   <string name="launch_failed">Couldn’t start the game: %1$s</string>
+  <string name="export_diagnostics">Export diagnostics</string>
+  <string name="exporting_diagnostics">Exporting diagnostics…</string>
+  <string name="diagnostics_exported">Diagnostics saved to Download: %1$s</string>
+  <string name="diagnostics_failed">Couldn’t export diagnostics: %1$s</string>
 </resources>
