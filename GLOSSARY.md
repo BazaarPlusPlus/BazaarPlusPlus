@@ -42,13 +42,13 @@ The binding of one product version to one game's code: the Snapshot Lock's `andr
 The opt-in BPP launch of a game whose Game Code Hash differs from the adapted one and whose `versionCode` is not older: the Android App loads that game's Interop Package from a Pre-Adaptation and the current Mods, and the mod turns every upload off and shows the mode on the main menu. It never runs an older interop, which binds methods by metadata token and would silently bind the wrong ones.
 
 **Interop Package** (interop 包):
-One Interop Snapshot as a deterministic zip whose entries sit under `assets/LemonLoader/runtime/interop/`, stored content-addressed at `installer/android/interop/<sha256>.zip` in the public bucket. The Android App adds it to the game's resources so LemonLoader extracts it; a release and a Pre-Adaptation of the same snapshot share one object.
+One Interop Snapshot as a deterministic zip, published content-addressed in the public bucket with an RSA signature that binds it to the Game Code Hash it was generated for. The Android App verifies it and adds it to the game's resources so LemonLoader extracts it; a release and a Pre-Adaptation of the same snapshot share one object. ADR 0012 records its layout and keys.
 
 **Pre-Adaptation** (预适配 interop 包):
-An Interop Package for a new game, published by `android-apk-watch.yml` with a record at `installer/android/adaptations/<il2cppSha256>_<metadataSha256>.json` as soon as the game's code changes, before any Product Release adapts it. It feeds Compatibility Mode only; it never bumps `VERSION` and never enters a Platform Release Manifest.
+An Interop Package for a new game, published by `android-apk-watch.yml` with a record keyed by the game's code and the Loader Release as soon as the game's code changes, before any Product Release adapts it. It feeds Compatibility Mode only; it never bumps `VERSION` and never enters a Platform Release Manifest.
 
 **Launch Record** (启动记录):
-`MelonLoader/UserData/BazaarPlusPlus.launch.json`, which the Android App writes before every BPP launch: its own version and `nonManagedPayloadDigest`, the mode (`normal` or `compatibility`), the game's identity and Game Code Hash, and the interop it supplied. The mod reads it at start; no file means the mod is not running in the Android App, and an unreadable one means Compatibility Mode. ADR 0012 owns its format.
+The file the Android App writes into LemonLoader's `UserData/` before every BPP launch, telling the mod which App, release, mode, game and interop this launch uses. The mod reads it at start; no file means the mod is not running in the Android App, and an unreadable or stale one means Compatibility Mode. ADR 0012 records the decision; the Contracts table in `AGENTS.md` names its owner.
 
 **Managed Payload** (托管 Payload):
 One platform's `managed` and `history-contract` Payload entries for one product version, published as a zip signed with the Tauri updater key at `<version>/<platformKey>/managed/` and recorded as `managedPayload` in that platform's fragment: what the mod's self-update installs. A copy takes it only when its history database schema and `nonManagedPayloadDigest` (every other Payload file, the Updater included) match the release; otherwise the installer or a new Android App updates it.
