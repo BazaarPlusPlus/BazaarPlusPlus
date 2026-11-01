@@ -100,8 +100,10 @@ async function describeAndroid(page: Page) {
       disabled: (await download.getAttribute('aria-disabled')) === 'true',
     },
     feedback: await text(card.getByRole('button', { name: /^QQ feedback group/ })),
-    stepsTitle: await text(card.getByRole('heading', { level: 3 })),
-    steps: await card.getByRole('listitem').locator('span:not([aria-hidden])').allTextContents(),
+    stepsTitle: await text(card.getByRole('heading', { level: 3 }).first()),
+    steps: await card.locator('ol > li').locator('span:not([aria-hidden])').allTextContents(),
+    limitsTitle: await text(card.getByRole('heading', { level: 3 }).nth(1)),
+    limits: await card.locator('ul > li').allTextContents(),
   };
 }
 
@@ -161,6 +163,8 @@ test('a missing or invalid Android manifest leaves the Android card unavailable'
     feedback: loaded.android?.feedback,
     stepsTitle: loaded.android?.stepsTitle,
     steps: loaded.android?.steps,
+    limitsTitle: loaded.android?.limitsTitle,
+    limits: loaded.android?.limits,
   });
 });
 

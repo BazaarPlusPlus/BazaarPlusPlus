@@ -168,9 +168,10 @@ function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
 }
 
 /**
- * The experimental Android App APK and the steps to install it. While Android's Platform
- * Release Manifest is missing or invalid, the card degrades like a desktop card: an unavailable
- * version and a disabled download, with its badge, notice, feedback group and steps kept.
+ * The experimental Android App APK, the steps to install it and what differs from the official
+ * app. While Android's Platform Release Manifest is missing or invalid, the card degrades like a
+ * desktop card: an unavailable version and a disabled download, with its badge, notice, feedback
+ * group, steps and limits kept.
  */
 function AndroidCard({
   copy,
@@ -259,6 +260,12 @@ function AndroidCard({
               </li>
             ))}
           </ol>
+          <h3 className="mt-3 text-[15px] font-semibold text-text-1">{androidCopy.limitsTitle}</h3>
+          <ul className="flex list-disc flex-col gap-2 pl-5 text-[15px] text-text-2">
+            {androidCopy.limits.map((limit, index) => (
+              <li key={index}>{limit}</li>
+            ))}
+          </ul>
         </div>
       </div>
     </article>

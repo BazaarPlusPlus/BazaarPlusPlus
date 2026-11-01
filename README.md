@@ -43,10 +43,12 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏�
 
 ### Android
 
-1. 在 [下载页](https://bazaarplusplus.com/download) 的 Android 卡片下载 `.apk`（arm64）。Android 版目前是实验版，问题可以在 QQ 群 1083470305 反馈。
-2. 先卸载官方版 The Bazaar：Android 不允许用签名不同的安装包覆盖安装。账号与进度保存在服务器上，卸载只会丢失登录状态。
-3. 安装下载的 APK，登录后即可使用；BazaarPlusPlus 的设置在游戏自带的「设置」里。
-4. 游戏更新后，回到下载页下载新的 APK 直接覆盖安装，不需要再卸载。只有模组更新时，模组会在游戏内自行更新。
+1. 先从 Google Play 或发行商官网安装官方版 The Bazaar。BazaarPlusPlus 运行你已安装的游戏，不修改它，也不需要卸载它。
+2. 在 [下载页](https://bazaarplusplus.com/download) 的 Android 卡片下载 BazaarPlusPlus 的 `.apk`（arm64，需要 Android 11 或更高版本）并安装。Android 版目前是实验版，问题可以在 QQ 群 1083470305 反馈。
+3. 从 BazaarPlusPlus 启动游戏。第一次启动时，在游戏自己的登录界面登录 The Bazaar 账号：登录状态由各个 App 分别保存，和官方 App 不共享。BazaarPlusPlus 本身没有账号，不需要登录。BazaarPlusPlus 的设置在游戏自带的「设置」里。
+4. 模组的更新由 BazaarPlusPlus 自己下载。BazaarPlusPlus 本身要更新时，它会提示你回到下载页下载新的 APK 覆盖安装。
+
+购买请在官方 App 里完成。游戏更新后、BazaarPlusPlus 还没有适配新版本时，可以选择兼容模式启动：模组照常加载，但不上传任何数据，对局只保存在本机的历史记录里。
 
 ## 功能矩阵
 
