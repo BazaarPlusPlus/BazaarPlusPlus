@@ -29,9 +29,15 @@ public final class LoaderDeployment {
             ".lemonloader-loader-net6-hash",
             ".lemonloader-loader-dependencies-hash",
             ".lemonloader-interop-hash",
+            ".lemonloader-backups",
+            // The interop LemonLoader extracted: a new one must not leave the old files behind.
+            "MelonLoader/Il2CppAssemblies",
             // The App's packaged deployment: LemonLoader keeps a file it once deployed.
             "Plugins/BazaarPlusPlus.Updater.dll"));
-    static final String INTEROP_MARKER = ".lemonloader-interop-hash";
+    /** What a new Interop Package with the same App build invalidates. */
+    static final List<String> INTEROP_MARKERS = Collections.unmodifiableList(List.of(
+            ".lemonloader-interop-hash",
+            "MelonLoader/Il2CppAssemblies"));
 
     /** What one launch gives LemonLoader. */
     public static final class Identity {
@@ -60,7 +66,7 @@ public final class LoaderDeployment {
      */
     public static List<String> stalePaths(Identity previous, Identity next) {
         if (previous == null || previous.appVersionCode != next.appVersionCode) return RUNTIME_MARKERS;
-        if (!previous.interopSha256.equals(next.interopSha256)) return List.of(INTEROP_MARKER);
+        if (!previous.interopSha256.equals(next.interopSha256)) return INTEROP_MARKERS;
         return List.of();
     }
 

@@ -82,6 +82,11 @@ public final class GameSession {
         prepared = true;
     }
 
+    /** Whether this process prepared the game; a system restore of the game Activity may find it unprepared. */
+    public static boolean isPrepared() {
+        return prepared;
+    }
+
     public static ClassLoader loader() {
         if (!prepared) throw new IllegalStateException("The game is not prepared");
         return gameLoader;

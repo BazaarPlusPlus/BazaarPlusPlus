@@ -32,6 +32,16 @@ public final class RuntimeFiles {
         }
     }
 
+    /** The carried runtime's facts (Loader Release tag, nonManagedPayloadDigest). */
+    public static RuntimeFacts facts(Context context) throws IOException {
+        try (InputStream in = context.getAssets().open(RUNTIME_FACTS_ASSET)) {
+            return RuntimeFacts.parse(new String(com.bazaarplusplus.android.io.AtomicFiles.readAtMost(in, 1 << 16),
+                    java.nio.charset.StandardCharsets.UTF_8));
+        } catch (org.json.JSONException e) {
+            throw new IOException("Unreadable " + RUNTIME_FACTS_ASSET, e);
+        }
+    }
+
     public static File bridgeDex(Context context, long appVersionCode) throws IOException {
         return extract(context, BRIDGE_ASSET, new File(context.getCodeCacheDir(), appVersionCode + "-" + BRIDGE_ASSET));
     }

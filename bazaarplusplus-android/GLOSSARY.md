@@ -16,4 +16,12 @@ Cross-project terms (Android App, Game Code Hash, Interop Package, Launch Record
 
 **Loader deployment state**: the `.lemonloader-*` markers and generated files under the App's `MelonLoader/` files directory. `LoaderDeployment` resets them when the App's `versionCode` or the interop changes, so LemonLoader deploys the new runtime instead of silently keeping the old one.
 
-**Development interop**: an Interop Package at `files/dev/interop.zip` in the debug App's internal storage, put there by `just android::push-interop`. It stands in for a downloaded one.
+**Launch tier**: the outcome of `launch/LaunchGate` for the installed game against the Platform Release Manifest's `game`: `NORMAL`, `NEWER_COMPAT_AVAILABLE`, `NEWER_WAITING`, `OLDER`, `NOT_INSTALLED`, plus `APP_UPDATE_REQUIRED`, `OFFLINE_NO_CACHE` and `NO_RELEASE`. ADR 0012's table ("三档启动规则") names the first five; the launcher shows one per tier.
+
+**Release cache**: `release/ReleaseCache`, the last Platform Release Manifest and Pre-Adaptation records that decoded, kept in internal storage (`files/release/`, `files/release-dev/` for a Development origin) for a launch without network.
+
+**Staged version**: the Managed Payload version the App last put in the Data Root's `Updates/` (`files/managed-staged.txt`). When the installed Mods are still older and that `Updates/<version>/` is gone, the Updater rejected it, and the launcher says the last plugin install failed.
+
+**Development origin**: a debug build's release source `http://127.0.0.1:<port>`, set by `files/dev/manifest-port` (`just android::dev-manifest-port`) and reached through `adb reverse`. It serves the public bucket's `installer/` layout; a debug build also trusts `files/dev/trusted-cert.der` (`just android::dev-signing-key`) for interop statements. Release builds have neither (`src/release/.../DevOverrides`).
+
+**Development interop**: an Interop Package at `files/dev/interop.zip` in the debug App's internal storage, put there by `just android::push-interop`. While it exists, BPP launch uses it and skips the manifest, the Managed Payload and the Launch Record (a stale record is deleted), whatever the Development origin says.
