@@ -42,6 +42,7 @@ jobs:
       mod-macos: ${{ steps.scope.outputs.mod-macos }}
       mod-windows: ${{ steps.scope.outputs.mod-windows }}
       mod-android: ${{ steps.scope.outputs.mod-android }}
+      android: ${{ steps.scope.outputs.android }}
       macos-icon: ${{ steps.scope.outputs.macos-icon }}
       plan: ${{ steps.scope.outputs.plan }}
       compatibility: ${{ steps.scope.outputs.compatibility }}
@@ -382,6 +383,48 @@ jobs:
             bazaarplusplus-mod/artifacts/tests/
           if-no-files-found: warn
 
+  # The Android App needs no game files or private store: lint, both APKs without a staged
+  # runtime, and the JVM unit tests. The SDK packages come from the toolchain lock.
+  android:
+    name: Android App (ubuntu-latest)
+    needs: classify
+    if: needs.classify.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: bazaarplusplus-android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: lock
+        run: echo "jdk=$(jq -r .jdk.major toolchain.lock.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: ${{ steps.lock.outputs.jdk }}
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+        with:
+          tool: just@1.58.0
+      - name: Install the locked Android SDK packages
+        run: |
+          lock=toolchain.lock.json
+          platform="platforms;android-$(jq -r .androidSdk.compileSdk "$lock")"
+          tools="build-tools;$(jq -r .androidSdk.buildTools "$lock")"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$platform" "$tools"
+      - run: just android::check android::test
+      - name: Preserve lint and test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-app-reports
+          path: |
+            bazaarplusplus-android/app/build/reports/
+            bazaarplusplus-android/app/build/test-results/
+          if-no-files-found: warn
+
   summary:
     name: ${{ github.event_name == 'workflow_dispatch' && format('Manual checks ({0}/{1})', inputs.scope, inputs.platform) || 'Checks summary' }}
     # A dispatch check on the same SHA must never satisfy PR protection.
@@ -399,6 +442,7 @@ jobs:
         mod-macos,
         mod-windows,
         mod-android,
+        android,
         macos-icon
       ]
     runs-on: ubuntu-latest

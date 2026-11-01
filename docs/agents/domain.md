@@ -5,7 +5,7 @@ How the engineering skills consume this repo's domain documentation. The layout 
 ## Before exploring, read these
 
 - **`GLOSSARY.md`** at the repo root: cross-project terms (Product Release, Payload, Release Manifest, Bundle).
-- **`<project>/GLOSSARY.md`** for each project the topic touches (`bazaarplusplus-mod`, `-installer`, `-server`, `-analyzer`, `-site`).
+- **`<project>/GLOSSARY.md`** for each project the topic touches (`bazaarplusplus-mod`, `-installer`, `-server`, `-analyzer`, `-site`, `-android`).
 - **`docs/adr/`** for repo-wide decisions, and **`<project>/docs/adr/`** for project-scoped ones. Read those touching the area you are about to work in.
 
 A missing file means nothing has been resolved there yet; proceed silently. `/domain-modeling` creates entries when a term or decision is actually settled.

@@ -88,7 +88,7 @@ export function pushCommands(plan) {
     ].some(selected)
   )
     commands.push(['installer::check', 'installer::test']);
-  for (const project of ['site', 'server', 'analyzer']) {
+  for (const project of ['site', 'server', 'analyzer', 'android']) {
     if (selected(project)) commands.push([`${project}::test`]);
   }
   return commands;

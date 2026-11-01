@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_version">版本 %1$s</string>
+  <string name="bpp_launch">用 BPP 啟動</string>
+  <string name="native_launch">開啟官方遊戲</string>
+  <string name="install_game">安裝 The Bazaar</string>
+  <string name="game_missing">尚未安裝 The Bazaar。請先安裝官方遊戲。</string>
+  <string name="game_found">The Bazaar %1$s</string>
+  <string name="runtime_missing">這個建置還沒有 BPP 執行環境或 interop。</string>
+  <string name="preparing">正在準備遊戲…</string>
+  <string name="launch_failed">未能啟動遊戲：%1$s</string>
+</resources>

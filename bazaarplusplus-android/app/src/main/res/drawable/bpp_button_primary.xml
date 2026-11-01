@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Primary: accent fill, accent-hover while pressed; disabled falls back to the secondary fill. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:state_enabled="false">
+    <shape><corners android:radius="@dimen/bpp_r_control" /><solid android:color="@color/bpp_bg_hover" /></shape>
+  </item>
+  <item android:state_pressed="true">
+    <shape><corners android:radius="@dimen/bpp_r_control" /><solid android:color="@color/bpp_accent_hover" /></shape>
+  </item>
+  <item>
+    <shape><corners android:radius="@dimen/bpp_r_control" /><solid android:color="@color/bpp_accent" /></shape>
+  </item>
+</selector>

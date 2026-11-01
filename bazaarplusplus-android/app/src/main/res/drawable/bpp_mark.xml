@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The BazaarPlusPlus brand mark, generated from design/assets/Logos/bpp-mark.svg
+     by `just design::build`. Do not edit. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+  <path android:fillColor="#FFEDEBE7" android:pathData="M16 3 L31 18 L23.5 18 L16 10.5 L8.5 18 L1 18 Z" />
+  <path android:fillColor="#FFEE8E1F" android:pathData="M16 13 L23.75 20.75 L16 28.5 L8.25 20.75 Z" />
+</vector>
