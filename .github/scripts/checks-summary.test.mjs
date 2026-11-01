@@ -156,9 +156,9 @@ test('workflow wiring summarizes every optional job and isolates every manual ru
     'site (full check and test)',
     'server (full check and test)',
     'Installer (frontend)',
-    'Installer (macos-14)',
+    'Installer (macos-26)',
     'Installer (windows-latest)',
-    'Mod (macos-14)',
+    'Mod (macos-26)',
     'Mod (windows-latest)'
   ])
     assert.ok(workflow.includes(`    name: ${name}\n`));
