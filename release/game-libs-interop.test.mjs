@@ -302,7 +302,7 @@ function firstCapture(ws, root, overrides = {}) {
   }).then((result) => ({ ...result, tools }));
 }
 
-test('android versions parse to android-online and match the MSBuild pattern', () => {
+test('android versions parse to android-online', () => {
   expect(parseGameVersion(ANDROID_VERSION)).toEqual({
     platform: 'android',
     channel: 'online'
@@ -325,7 +325,9 @@ test('android versions parse to android-online and match the MSBuild pattern', (
   expect(() => lockKey('android', 'staging')).toThrow(
     /Unknown android snapshot channel 'staging'; expected online/
   );
-  // build/ManagedPath.props mirrors the pattern; the two must stay equal.
+});
+
+test('build/ManagedPath.props mirrors the game version pattern', () => {
   expect(
     execFileSync(
       'dotnet',
@@ -338,7 +340,7 @@ test('android versions parse to android-online and match the MSBuild pattern', (
       { encoding: 'utf8' }
     ).trim()
   ).toBe(GAME_VERSION_PATTERN.source);
-});
+}, 30000);
 
 test('the APK readers take versionName, versionCode and the Unity version from their binary formats', () => {
   expect(
