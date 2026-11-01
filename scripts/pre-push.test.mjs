@@ -55,6 +55,14 @@ test('first push uses merge-base even after the default branch advances', (t) =>
   ]);
 });
 
+test('an Android App push runs only the Android App tests', (t) => {
+  const f = fixture(t);
+  const head = f.commit(
+    'bazaarplusplus-android/app/src/main/AndroidManifest.xml'
+  );
+  assert.deepEqual(f.plan(head), [['android::test']]);
+});
+
 test('later pushes use the remote tip and preserve shared contract consumers', (t) => {
   const f = fixture(t);
   const previous = f.commit('bazaarplusplus-site/src/page.ts');

@@ -1,0 +1,15 @@
+{
+  "jdk": { "major": 21 },
+  "androidGradlePlugin": "9.5.0",
+  "androidSdk": {
+    "compileSdk": 35,
+    "targetSdk": 35,
+    "minSdk": 30,
+    "buildTools": "37.0.0"
+  },
+  "abi": "arm64-v8a",
+  "testDependencies": {
+    "junit:junit": "4.13.2",
+    "org.json:json": "20250517"
+  }
+}

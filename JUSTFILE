@@ -10,6 +10,7 @@ mod site 'bazaarplusplus-site/site.just'
 mod server 'bazaarplusplus-server/server.just'
 mod analyzer 'bazaarplusplus-analyzer/analyzer.just'
 mod ios 'bazaarplusplus-ios/ios.just'
+mod android 'bazaarplusplus-android/android.just'
 mod release 'release/release.just'
 mod design 'design/design.just'
 
@@ -17,7 +18,7 @@ mod design 'design/design.just'
 root_js := "package.json package-lock.json .prettierrc.json release.mjs 'release/**/*.{mjs,ts,json}' 'scripts/**/*.mjs' 'design/**/*.mjs'"
 
 # `just --fmt` does not descend into modules, so format each file explicitly.
-just_files := "JUSTFILE bazaarplusplus-mod/mod.just bazaarplusplus-installer/installer.just bazaarplusplus-site/site.just bazaarplusplus-server/server.just bazaarplusplus-analyzer/analyzer.just bazaarplusplus-ios/ios.just release/release.just design/design.just"
+just_files := "JUSTFILE bazaarplusplus-mod/mod.just bazaarplusplus-installer/installer.just bazaarplusplus-site/site.just bazaarplusplus-server/server.just bazaarplusplus-analyzer/analyzer.just bazaarplusplus-ios/ios.just bazaarplusplus-android/android.just release/release.just design/design.just"
 
 # List commands without building or publishing anything.
 default:
@@ -25,11 +26,11 @@ default:
 
 # Check all projects without signing, publishing, or deploying to the game.
 [group('workspace')]
-check: commands-check design::check release::check mod::check installer::check site::check server::check analyzer::check
+check: commands-check design::check release::check mod::check installer::check site::check server::check analyzer::check android::check
 
 # Run all project tests without publishing data or deploying to the game.
 [group('workspace')]
-test: commands-check release::test mod::test installer::test site::test server::test analyzer::test
+test: commands-check release::test mod::test installer::test site::test server::test analyzer::test android::test
 
 # Format every project in place, then re-project release files.
 [group('workspace')]

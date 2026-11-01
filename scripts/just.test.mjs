@@ -10,7 +10,7 @@ import { runFixtureGit } from './test-support/git-fixture.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const just = process.env.JUST_BIN ?? 'just';
-const projects = ['mod', 'installer', 'site', 'server', 'analyzer'];
+const projects = ['mod', 'installer', 'site', 'server', 'analyzer', 'android'];
 // Module files as the root JUSTFILE declares them, so the fixture follows it.
 const moduleFiles = [
   ...fs
@@ -70,6 +70,11 @@ if (process.env.BPP_JUST_TEST_FAIL === tool) process.exit(37);
       stub(`mod-${script}`)
     );
   }
+  fs.writeFileSync(
+    path.join(dir, 'bazaarplusplus-android', 'gradlew'),
+    stub('gradlew'),
+    { mode: 0o755 }
+  );
 
   return {
     dir,
@@ -150,7 +155,7 @@ const releaseVerb = ({ tool, args }) => {
 const projectDir = (dir, project) =>
   path.join(dir, `bazaarplusplus-${project}`);
 
-function assertProjectGates(dir, calls) {
+function assertProjectGates(dir, calls, gated = projects) {
   const dirs = new Set([dir, ...projects.map((p) => projectDir(dir, p))]);
   for (const entry of calls) {
     assert.ok(
@@ -162,7 +167,7 @@ function assertProjectGates(dir, calls) {
       `publishing command: ${JSON.stringify(entry)}`
     );
   }
-  for (const project of projects)
+  for (const project of gated)
     assert.ok(
       calls.some((entry) => entry.cwd === projectDir(dir, project)),
       `${project} did not run in its directory`
@@ -197,7 +202,12 @@ test('fmt formats every project, then re-projects release files', (t) => {
   const f = fixture(t);
   succeeded(f.run(['fmt']));
   const calls = f.calls();
-  assertProjectGates(f.dir, calls);
+  // The Android App has no formatter.
+  assertProjectGates(
+    f.dir,
+    calls,
+    projects.filter((project) => project !== 'android')
+  );
   assert.deepEqual(calls[0], call(f.dir, null, ...rootPrettier('--write')));
   assert.deepEqual(
     calls.at(-1),

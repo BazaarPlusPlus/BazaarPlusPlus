@@ -31,6 +31,10 @@ pre-commit:
       glob: '{bazaarplusplus-analyzer/**,bazaarplusplus-server/contracts/**,JUSTFILE}'
       run: just analyzer::check
 
+    - name: android
+      glob: '{bazaarplusplus-android/**,design/**,JUSTFILE}'
+      run: just android::check
+
 pre-push:
   jobs:
     - name: affected-projects

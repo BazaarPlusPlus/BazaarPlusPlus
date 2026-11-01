@@ -1,6 +1,6 @@
 # AGENTS.md
 
-BazaarPlusPlus monorepo. The mod and the installer ship as one Product Release; the server, analyzer, site, and iOS App are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `GLOSSARY.md`. Work inside the project the change touches and follow its `AGENTS.md`; this file holds only what spans projects.
+BazaarPlusPlus monorepo. The mod, the installer and the Android App ship as one Product Release; the server, analyzer, site, and iOS App are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `GLOSSARY.md`. Work inside the project the change touches and follow its `AGENTS.md`; this file holds only what spans projects.
 
 | The change touches | Project |
 |---|---|
@@ -10,6 +10,7 @@ BazaarPlusPlus monorepo. The mod and the installer ship as one Product Release; 
 | Hero and build snapshots computed from Bundles | `bazaarplusplus-analyzer/` |
 | bazaarplusplus.com, Hero Analysis, the download page | `bazaarplusplus-site/` |
 | The iOS App: Mac build of the game on iOS, Steam sign-in and download, the runtime that loads the mod | `bazaarplusplus-ios/` |
+| The Android App: loads the installed official game, its launcher, the runtime it carries for LemonLoader | `bazaarplusplus-android/` |
 | Product version, Payload Inventory, release pipeline | root `VERSION`, `release.mjs`, `release/`; read `docs/release.md` |
 | Design tokens, shared `bpp-*` styles, brand mark, brand book and writing standard | `design/`; read `docs/design.md` |
 
@@ -30,7 +31,7 @@ A contract change lands in one pull request together with every consumer it brea
 | Local history database schema (`user_version`), Data Root name, and replay payload retention | `RunLogSchema.LocalDatabaseSchemaVersion`, `PathConstants.DataRootDirectoryName`, and `ReplayPayloadRetentionPolicy`, mirrored as `historyDatabaseUserVersion`, `dataRootDirectoryName`, and `replayPayloadRetained*` in `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json`; `release::check` gates the pair (`release/history-database.mjs`): same Data Root on both sides, mod schema newest the installer supports; shared schema file `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/history-database-v6.schema.sql` | installer History, Reset, cleanup, and overlay reads (`bazaarplusplus-installer/src-tauri/history-database-compatibility.json`, whose `dataRootDirectoryName` a test pins to `BAZAAR_DATA_DIRECTORY`); the V5 import reads the installed copy's retention |
 | Release Manifest and Platform Release Manifest | `release/manifest.mjs`, shared fixtures `release/fixtures/latest.json` and `release/fixtures/latest/` | site download page, installer updater, mod update check |
 | Managed Payload Manifest line format | `release/managed-payload.mjs`, shared golden `release/fixtures/managed-payload/manifest.txt` | mod Updater and Core staging (`bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/ManagedPayloadManifest.cs`), installer Repair (`bazaarplusplus-installer/src-tauri/src/services/bepinex/managed_payload.rs`) |
-| Design tokens and shared component styles | `design/tokens.json` and `design/components/bundle.css`; `just design::check` gates generated `tokens.css`, the brand-mark copies and the site hero colours | installer (generated `src/styles/tokens.css`, imports `bundle.css`), site (copies `tokens.css`, Tailwind `@theme` bridge, `src/shared/lib/heroes.ts`) |
+| Design tokens and shared component styles | `design/tokens.json` and `design/components/bundle.css`; `just design::check` gates generated `tokens.css`, the Android resources, the brand-mark copies and the site hero colours | installer (generated `src/styles/tokens.css`, imports `bundle.css`), site (copies `tokens.css`, Tailwind `@theme` bridge, `src/shared/lib/heroes.ts`), Android App (generated `res/values/bpp_tokens.xml` and `res/drawable/bpp_mark.xml`) |
 | Interpreter method redirect `mono_interp_redirect_method` | `bazaarplusplus-ios/runtime/mono/patches/0008-interp-method-redirect.patch` | mod iOS host Harmony backend (`InterpreterMethodPatcher` in `bazaarplusplus-mod/src/BazaarPlusPlus/Host/Ios/`) |
 | iOS host entry point | `IosEntry.Start` in `bazaarplusplus-mod/src/BazaarPlusPlus/Host/Ios/` | iOS App entry table (`bazaarplusplus-ios/runtime/helper/entrypoints.json`) |
 | Release signing public key | `plugins.updater.pubkey` in `bazaarplusplus-installer/src-tauri/tauri.conf.json` | mod self-update (`ReleaseSigningKey.PublicKeyLine` in `bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/`, pinned by `The_embedded_key_is_the_tauri_updater_public_key`) |

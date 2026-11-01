@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The App's views over the design system (design/README.md): colours and scales come from the
+     generated bpp_tokens.xml, type sizes from tokens.json's type styles. -->
+<resources>
+  <style name="Theme.Bpp" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+    <item name="android:windowBackground">@color/bpp_bg_canvas</item>
+    <item name="android:statusBarColor">@color/bpp_bg_canvas</item>
+    <item name="android:navigationBarColor">@color/bpp_bg_canvas</item>
+    <item name="android:textColor">@color/bpp_text_1</item>
+    <item name="android:textColorPrimary">@color/bpp_text_1</item>
+    <item name="android:textColorSecondary">@color/bpp_text_2</item>
+    <item name="android:colorAccent">@color/bpp_accent</item>
+  </style>
+
+  <!-- Type: display 24/600, body 15/400, caption 14/400 in text-2. -->
+  <style name="Bpp.Text.Display" parent="">
+    <item name="android:textSize">24sp</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textColor">@color/bpp_text_1</item>
+  </style>
+  <style name="Bpp.Text.Body" parent="">
+    <item name="android:textSize">15sp</item>
+    <item name="android:lineSpacingMultiplier">1.2</item>
+    <item name="android:textColor">@color/bpp_text_1</item>
+  </style>
+  <style name="Bpp.Text.Caption" parent="">
+    <item name="android:textSize">14sp</item>
+    <item name="android:textColor">@color/bpp_text_2</item>
+  </style>
+
+  <!-- Button (design/components/Button): md is control-md tall with 12px padding, body-medium. -->
+  <style name="Bpp.Button" parent="">
+    <item name="android:layout_height">@dimen/bpp_control_md</item>
+    <item name="android:minHeight">@dimen/bpp_control_md</item>
+    <item name="android:paddingStart">@dimen/bpp_space_12</item>
+    <item name="android:paddingEnd">@dimen/bpp_space_12</item>
+    <item name="android:textSize">15sp</item>
+    <item name="android:textAllCaps">false</item>
+    <item name="android:stateListAnimator">@null</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+  </style>
+  <style name="Bpp.Button.Primary">
+    <item name="android:background">@drawable/bpp_button_primary</item>
+    <item name="android:textColor">@color/bpp_button_primary_text</item>
+  </style>
+  <style name="Bpp.Button.Secondary">
+    <item name="android:background">@drawable/bpp_button_secondary</item>
+    <item name="android:textColor">@color/bpp_button_secondary_text</item>
+  </style>
+</resources>

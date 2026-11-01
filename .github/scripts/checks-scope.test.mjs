@@ -293,7 +293,7 @@ test('new cross-project reads cannot silently bypass consumers, including backsl
   );
 });
 
-test('design system inputs select the installer frontend, the site and the root gates', () => {
+test('design system inputs select the installer frontend, the site, the Android App and the root gates', () => {
   expectScopes(
     [
       'design/tokens.json',
@@ -301,13 +301,34 @@ test('design system inputs select the installer frontend, the site and the root 
       'design/build.mjs',
       'design/README.md'
     ],
-    ['installer-frontend', 'site', 'release']
+    ['installer-frontend', 'site', 'android', 'release']
   );
   assert.deepEqual(selected(classifyChanges(changed('design/design.just'))), [
+    'android',
     'installer-frontend',
     'release',
     'site'
   ]);
+});
+
+test('Android App inputs select only the android lane', () => {
+  expectScopes(
+    [
+      'bazaarplusplus-android/app/src/main/AndroidManifest.xml',
+      'bazaarplusplus-android/README.md'
+    ],
+    ['android']
+  );
+  expectScopes(['bazaarplusplus-android/android.just'], ['android', 'release']);
+  assert.deepEqual(
+    unregisteredReferences(
+      'bazaarplusplus-android/app/build.gradle.kts',
+      'file("../bazaarplusplus-mod/build/game-libs.lock.json")'
+    ),
+    [
+      'bazaarplusplus-android/app/build.gradle.kts -> bazaarplusplus-mod/build/game-libs.lock.json'
+    ]
+  );
 });
 
 test('Installer build inputs request Windows while ordinary source uses macOS', () => {
@@ -379,9 +400,11 @@ test('manual scopes select exactly the requested native platforms and their sour
       const native = (lane) =>
         lane === 'macos-icon'
           ? 'macos'
-          : ['macos', 'windows', 'android'].find((name) =>
-              lane.endsWith(`-${name}`)
-            );
+          : lane === 'android'
+            ? 'android'
+            : ['macos', 'windows', 'android'].find((name) =>
+                lane.endsWith(`-${name}`)
+              );
       const filtered = expected.filter(
         (lane) =>
           platform === 'all' || !native(lane) || native(lane) === platform

@@ -1,6 +1,6 @@
 # 视觉规范
 
-installer 与 bazaarplusplus.com 共用一套设计系统，放在仓库根目录的 `design/`：token、共享组件样式、品牌手册、文案规范和品牌标志都只在这里维护，取值不在本文重复。完成度以 Linear、Steam 与 Discord 客户端为参照。OBS 叠加层的直播画面暂时保持原有样式，不在本规范范围内。
+installer、bazaarplusplus.com 与 Android App 共用一套设计系统，放在仓库根目录的 `design/`：token、共享组件样式、品牌手册、文案规范和品牌标志都只在这里维护，取值不在本文重复。完成度以 Linear、Steam 与 Discord 客户端为参照。OBS 叠加层的直播画面暂时保持原有样式，不在本规范范围内。
 
 游戏内面板优先借用游戏原生美术（字体、按钮和边框贴图、奖杯、卡牌），BPP 自己画的颜色（底色、遮罩、文字、金线、状态色）统一来自 `design/tokens.json` 的 `ingame-*` token，`just design::build` 生成桌面 UI 和 Mobile UI（两个宿主共用）的 `InGameTheme.g.cs`。两个平台共用这一套视觉，只有布局分开：桌面按鼠标布局，安卓按 `TouchChrome` 的触屏布局。细则见 `design/README.md` 的 In game 一节。
 
@@ -8,19 +8,19 @@ installer 与 bazaarplusplus.com 共用一套设计系统，放在仓库根目�
 
 | 内容 | 唯一的编辑源 | 产品里怎么用 |
 |---|---|---|
-| 颜色、间距、圆角、尺寸、阴影、动效、字体栈 | `design/tokens.json` | `just design::build` 生成 `bazaarplusplus-installer/src/styles/tokens.css`；site 在 `dev` 和 `build` 前用 `npm run tokens` 把它复制到被 git 忽略的 `bazaarplusplus-site/src/styles/installer-tokens.css` |
+| 颜色、间距、圆角、尺寸、阴影、动效、字体栈 | `design/tokens.json` | `just design::build` 生成 `bazaarplusplus-installer/src/styles/tokens.css`；site 在 `dev` 和 `build` 前用 `npm run tokens` 把它复制到被 git 忽略的 `bazaarplusplus-site/src/styles/installer-tokens.css`；产品颜色、间距、圆角和尺寸另外生成 Android App 的 `res/values/bpp_tokens.xml` |
 | 共享 `bpp-*` 组件样式 | `design/components/bundle.css` | installer 的 `src/styles/index.css` 直接 `@import`；site 用 Tailwind 工具类实现同一套规格 |
 | 视觉、对齐、动效与组件规则 | `design/README.md` 与 `design/components/*/README.md` | 两个产品 |
 | 文案：语气、术语表、大小写与标点、句式 | `design/writing.md` | installer 的 `src/i18n/messages.ts` 与 site 的 `src/content/site-copy.ts` |
 | 游戏内颜色 | `design/tokens.json` 的 `ingame-*` | `just design::build` 生成 mod 桌面 UI 与 Mobile UI 的 `InGameTheme.g.cs` |
-| 品牌标志 | `design/assets/Logos/bpp-mark.svg` | `just design::build` 复制到 installer 的 `static/brand/`；site 页头使用现有的 `public/bazaarplusplus-icon.webp` 应用图标 |
+| 品牌标志 | `design/assets/Logos/bpp-mark.svg` | `just design::build` 复制到 installer 的 `static/brand/`；site 页头使用现有的 `public/bazaarplusplus-icon.webp` 应用图标；Android App 用生成的矢量图 `res/drawable/bpp_mark.xml` |
 
 `design/` 同时发布为 claude.ai 上的 [Design System artifact](https://claude.ai/artifact/4Xv54mp3y68YPc95PWNGVk)，用来浏览组件预览和品牌手册；仓库是源头，artifact 跟随仓库更新。维护流程见 `design/AGENTS.md`。
 
 ## 改动流程
 
-- 改 token、组件样式或标志：改 `design/` 里对应的文件，运行 `just design::build`，把重新生成的 `tokens.css` 和复制出的标志一起提交。`just design::check` 会拦下过期的生成文件、`bundle.css` 里没有对应 token 的 `var()`，以及与 `hero-*` token 不一致的 site 英雄颜色。
-- 同一个变更里跑 installer 与 site 的 check 和 test；installer 的外壳快照（`src/__shell_snapshots__/`）用 `BPP_UPDATE_GOLDENS=1` 重新生成并逐个核对。
+- 改 token、组件样式或标志：改 `design/` 里对应的文件，运行 `just design::build`，把重新生成的 `tokens.css`、Android 资源和复制出的标志一起提交。`just design::check` 会拦下过期的生成文件、`bundle.css` 里没有对应 token 的 `var()`，以及与 `hero-*` token 不一致的 site 英雄颜色。
+- 同一个变更里跑 installer、site 与 Android App 的 check 和 test；installer 的外壳快照（`src/__shell_snapshots__/`）用 `BPP_UPDATE_GOLDENS=1` 重新生成并逐个核对。
 - 组件里不写颜色、字号或尺寸字面量：installer 用 `var(--token)` 或 `bpp-*` 类，site 用 Tailwind `@theme` 桥映射出的工具类（`bg-panel`、`text-text-2`、`border-line`、`rounded-control`）。
 
 ## 约定

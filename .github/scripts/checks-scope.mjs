@@ -2,7 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runGit } from '../../scripts/git-command.mjs';
 
-export const PROJECTS = ['site', 'server', 'analyzer', 'installer', 'mod'];
+export const PROJECTS = [
+  'site',
+  'server',
+  'analyzer',
+  'installer',
+  'mod',
+  'android'
+];
 const PROJECT_SCOPES = {
   installer: ['installer-frontend', 'installer-macos', 'installer-windows'],
   mod: ['mod-macos', 'mod-windows', 'mod-android']
@@ -88,14 +95,15 @@ export function manualScope(inputs) {
         scope === 'full' ||
         lane.startsWith(`${scope}-`) ||
         (scope === 'installer' && lane === 'macos-icon');
-      const inPlatform =
-        platform === 'all' ||
-        (!lane.endsWith('-macos') &&
-          !lane.endsWith('-windows') &&
-          !lane.endsWith('-android') &&
-          lane !== 'macos-icon') ||
-        lane.endsWith(`-${platform}`) ||
-        (platform === 'macos' && lane === 'macos-icon');
+      const native =
+        lane === 'macos-icon'
+          ? 'macos'
+          : lane === 'android'
+            ? 'android'
+            : ['macos', 'windows', 'android'].find((name) =>
+                lane.endsWith(`-${name}`)
+              );
+      const inPlatform = platform === 'all' || !native || native === platform;
       return [
         lane,
         inScope && inPlatform ? [`Manual selection: ${scope}/${platform}`] : []
@@ -207,7 +215,7 @@ export function unregisteredReferences(file, source) {
     ...source
       .replaceAll('\\', '/')
       .matchAll(
-        /bazaarplusplus-(?:site|server|analyzer|installer|mod)\/[\w./*-]*/g
+        /bazaarplusplus-(?:site|server|analyzer|installer|mod|android)\/[\w./*-]*/g
       )
   ];
   return references.flatMap(([reference]) => {
@@ -307,9 +315,14 @@ export function classifyChanges(changes) {
       }
     } else if (file.startsWith('design/')) {
       // The design system (AGENTS.md: Design tokens and shared component
-      // styles) feeds the installer frontend and the site; the release lane
-      // runs `just design::check` beside the other root gates.
-      for (const consumer of ['installer-frontend', 'site', 'release'])
+      // styles) feeds the installer frontend, the site and the Android App;
+      // the release lane runs `just design::check` beside the other root gates.
+      for (const consumer of [
+        'installer-frontend',
+        'site',
+        'android',
+        'release'
+      ])
         select(consumer, `Design system: ${file}`);
     } else if (file.startsWith('docs/') || /^[^/]+\.md$/.test(file)) {
       // Project docs checks resolve links to root docs. Removing/moving their
