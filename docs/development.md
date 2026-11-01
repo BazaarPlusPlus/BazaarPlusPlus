@@ -50,6 +50,7 @@ just mod::fetch macos online      # Windows 用 windows
 | mod | `bazaarplusplus-mod/global.json`；快照锁指向的游戏程序集，见[游戏程序集](#游戏程序集) | .NET restore |
 | installer Rust | `bazaarplusplus-installer/rust-toolchain.toml`；[Tauri 系统依赖](https://tauri.app/start/prerequisites/) | locked Cargo |
 | analyzer | `bazaarplusplus-analyzer/.python-version`、uv | analyzer 目录 `uv sync --locked` |
+| Android App | `bazaarplusplus-android/toolchain.lock.json`（JDK、AGP、SDK）、Gradle wrapper | JDK 由 `JAVA_HOME` 指定；Android SDK 由 `ANDROID_HOME` 或 `local.properties` 指定，装好锁定的 platform 和 build-tools；Gradle 依赖由 wrapper 下载 |
 
 Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要在 PATH 上。`JUSTFILE` 的 shell 保持 Bash：参数转发依赖 Bash 的位置参数。Windows 原生构建另需 PowerShell 7.6.0 或更高版本；正式包的平台工具链和签名材料见[产品发布](release.md)。
 
@@ -81,7 +82,7 @@ staging/ptr 的 CompatCheck 编译只在 Snapshot Lock 更新、手动检查和�
 
 master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rust 缓存，其他事件只恢复缓存。Windows 因较少运行可能遇到冷构建，接受这一代价以避免每次共享源码修改都运行两个原生工具链。Installer 步骤耗时直接写入各 job 摘要，不再通过独立报告 job 阻塞合并。严格 Rust API 文档编译放到发布验证，普通源码检查保留编译、lint、测试和绑定检查。
 
-源码检查不替代实际运行和发布验收。Mod online 编译与测试不能验证 Unity/Mono 或设备加载；Android 检查仍须取得 Interop Snapshot 与 Loader Release。本地 `mod::check` 与 `mod::test` 不编译 Android Host，共享代码改动仍需另跑 Android 验证。正式发布在所选平台执行完整 Mod 验证，桌面还执行性能与 staging/ptr 检查，Installer 的发布构建执行完整原生验证；`dry_run` 仅准备 Payload。具体流程见 [产品发布](release.md)。运行时依赖升级仍要验证实际启动与受影响功能。
+源码检查不替代实际运行和发布验收。Mod online 编译与测试不能验证 Unity/Mono 或设备加载；Android 检查仍须取得 Interop Snapshot 与 Loader Release。本地 `mod::check` 与 `mod::test` 不编译 Android Host，共享代码改动仍需另跑 Android 验证。Android App 的 lane 只做 lint、两个 APK 的构建和 JVM 单元测试，不需要游戏文件或私有存储凭据；App 能否加载游戏，仍要在开发机的 arm64 AVD 上验证（`bazaarplusplus-android/AGENTS.md`）。正式发布在所选平台执行完整 Mod 验证，桌面还执行性能与 staging/ptr 检查，Installer 的发布构建执行完整原生验证；`dry_run` 仅准备 Payload。具体流程见 [产品发布](release.md)。运行时依赖升级仍要验证实际启动与受影响功能。
 
 游戏程序集快照只存在于私有存储，不进公开仓库或 Actions cache。Mod job 使用 `CLOUDFLARE_API_TOKEN` 和账号变量 `CLOUDFLARE_ACCOUNT_ID`；Dependabot 也要注册对应 secrets。被选中的仓库内 job 缺凭据会失败。fork PR 保留明确的跳过例外，汇总说明未验证游戏兼容性；合并前仍需本地验证证据，不能把跳过当作通过。
 

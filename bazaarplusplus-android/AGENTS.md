@@ -22,5 +22,6 @@ The BazaarPlusPlus Android App (`com.bazaarplusplus.android`) loads the installe
 
 - The debug App (`com.bazaarplusplus.android.dev`) is a separate sandbox: its game sign-in, Data Root and LemonLoader files are its own.
 - A file that `adb push` puts in the App's external files directory belongs to `shell`, and the App cannot read it. Use `push-interop`, which copies through `run-as` into internal storage.
+- Homebrew's `openjdk@21` is keg-only. Set `JAVA_HOME` to it, or Gradle and the commit hook run on another JDK and fail to resolve the locked toolchain.
 - Unity reads `libmain.so` from `nativeLibraryDir`, so `useLegacyPackaging` (extracted native libraries) must stay on.
 - Game logs can hold account data. Quote only the lines you need; never commit or share raw logs.
