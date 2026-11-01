@@ -18,7 +18,7 @@
 - 最低 Android 11（API 30）：`ResourcesLoader` 从 API 30 起才有。
 - Android App 本身没有账号，不需要登录。游戏在 Android App 的沙盒里运行，登录状态和官方 App 分开保存，所以第一次用 BPP 启动时，用户要在游戏自己的登录界面再登录一次。
 - 它携带的运行时是 Loader Release（Snapshot Lock 的 `loader` 条目）、`libe_sqlite3.so`（`nativeLibs` 条目）和 `BazaarPlusPlus.Updater.dll`（在运行时 zip 的 `assets/LemonLoader/deployment/Plugins/` 下，是 LemonLoader 唯一的打包部署）。它不携带 interop，也不携带 Mods。APK 约 65 MB。
-- 加载方式：用游戏的 `sourceDir` 加 `splitSourceDirs` 建 `PathClassLoader`；在 `instantiateActivity` 里从这个 loader 创建继承游戏 `UnityPlayerActivity` 的 Activity；它的 Context 对外报告游戏的包名、`ApplicationInfo` 和资源，所有可写目录留在 Android App 的沙盒里。Unity 按绝对路径从 `nativeLibraryDir` 加载 `libmain.so`，所以 Android App 构造一个符号链接 lib 目录：`libmain.so` 与 `libe_sqlite3.so` 指向自己的副本（Android App 设 `extractNativeLibs="true"`，它们在磁盘上），游戏已解压的库指向游戏的副本；游戏没有解压的库（Play 的 split 安装通常如此）不建链接，类加载器的库搜索路径里加上每个游戏 APK 的 `!/lib/arm64-v8a`，从 APK 内部加载。LemonLoader 通过游戏 `Resources` 的 `AssetManager` 读 `LemonLoader/**`，Android App 用 `ResourcesLoader` 把运行时 zip 和 interop 包加进去。
+- 加载方式：用游戏的 `sourceDir` 加 `splitSourceDirs` 建 `PathClassLoader`；在 `instantiateActivity` 里从这个 loader 创建继承游戏 `UnityPlayerActivity` 的 Activity；它的 Context 对外报告游戏的包名、`ApplicationInfo` 和资源，所有可写目录留在 Android App 的沙盒里。Unity 按绝对路径从 `nativeLibraryDir` 加载 `libmain.so`（其余库是否也按绝对路径加载，由 #749 第 3 项在 Play 的 split 安装上验证），所以 Android App 构造一个符号链接 lib 目录：`libmain.so` 与 `libe_sqlite3.so` 指向自己的副本（Android App 设 `extractNativeLibs="true"`，它们在磁盘上），游戏已解压的库指向游戏的副本；游戏没有解压的库（Play 的 split 安装通常如此）不建链接，类加载器的库搜索路径里加上每个游戏 APK 的 `!/lib/arm64-v8a`，从 APK 内部加载。LemonLoader 通过游戏 `Resources` 的 `AssetManager` 读 `LemonLoader/**`，Android App 用 `ResourcesLoader` 把运行时 zip 和 interop 包加进去。
 - 进程被系统杀掉后，系统可能直接恢复游戏的 Activity，绕过启动器。这时游戏还没有准备好，Android App 改为打开启动器，重新走一遍门禁，不在未准备的状态下启动游戏。
 - 身份冲突：`getPackageName` 返回游戏的包名，UID 却是 Android App 的。试验里由此出现 `MANAGE_GAME_MODE` 与 `DUMP` 两个 SecurityException，都不致命。Play 结算与 Play 游戏服务在 Android App 里的行为尚未验证（#749 第 9 项）；在验证之前，购买只在官方 App 里完成。
 
@@ -56,7 +56,7 @@ Android App 启动时找到官方游戏（`com.tempogames.thebazaar`），在它
 | Managed Payload | `<版本>/android-aarch64/managed/BazaarPlusPlus_<版本>_android-aarch64-managed.zip`（不变） | minisign 签名，由 Updater 验证 |
 
 - **interop 包**是一个确定性 zip：Interop Snapshot 目录的每个顶层文件放在 `assets/LemonLoader/runtime/interop/<文件名>`，没有别的条目。它不需要 `AndroidManifest.xml`、`resources.arsc` 或 APK 签名：Android App 用 `ResourcesProvider.loadFromApk` 把它作为第二个 `ResourcesLoader` 加进游戏的资源，LemonLoader 从 `LemonLoader/runtime/interop/` 列出并解压它，与运行时所在的第一个 loader 合并（2026-11-01 在 `bpp_host_spike` 上验证：一个只有 `assets/` 的普通 zip 被接受，174 个文件被解压，30 个补丁全部安装）。zip 的写法与 Managed Payload zip 相同（`release/payload-zip.mjs`），所以同一份快照总得到同一份字节。同一份快照只上传一次。
-- **interop 的签名。** interop 是 LemonLoader 在 mod 和 Updater 之前加载的托管代码，所以它必须签名，而不能只靠平台清单里的 sha256（平台清单本身没有签名）。签名的对象是一行**interop 声明** `bpp-interop-v1\n<zip 的 sha256>\n<il2cppSha256>\n<metadataSha256>\n`，算法是 SHA256withRSA，密钥是 Android 发布密钥（ADR 0009）。声明把 interop 和它适配的游戏代码绑在一起，所以被篡改的清单也不能把一份真的 interop 配给另一个游戏。Android App 内置发布证书（公开的 DER），用它验证；Android 11 原生支持这个算法，不需要新的库。开发构建内置同一份证书，所以也能用正式发布的 interop。Android App 在加载前还要检查 zip 里没有 `assets/LemonLoader/runtime/interop/` 以外的条目，因为后加的 `ResourcesLoader` 会遮盖运行时里的同名 asset。
+- **interop 的签名。** interop 是 LemonLoader 在 mod 和 Updater 之前加载的托管代码，所以它必须签名，而不能只靠平台清单里的 sha256（平台清单本身没有签名）。签名的对象是一段**interop 声明** `bpp-interop-v1\n<zip 的 sha256>\n<il2cppSha256>\n<metadataSha256>\n<用途>\n`，用途是 `release <产品版本>` 或 `pre-adaptation`；算法是 SHA256withRSA，密钥是 Android 发布密钥（ADR 0009）。声明把 interop 和它适配的游戏代码绑在一起，所以被篡改的清单也不能把一份真的 interop 配给另一个游戏。用途把它和产品版本绑在一起：正常模式只接受用途是 `release <平台清单的版本>` 的声明，而这个版本也是 Updater 验过 minisign 的 Managed Payload 的版本，所以改平台清单的人不能拿一份预适配的 interop 让未适配的游戏走正常模式、打开上传。Android App 内置发布证书（公开的 DER），用它验证；Android 11 原生支持这个算法，不需要新的库。开发构建内置同一份证书，所以也能用正式发布的 interop。Android App 在加载前还要检查 zip 里没有 `assets/LemonLoader/runtime/interop/` 以外的条目，因为后加的 `ResourcesLoader` 会遮盖运行时里的同名 asset。
 - Android App APK 的 `versionCode` 由产品版本算出（`major × 1000000 + minor × 1000 + patch`），由 `release/manifest.mjs` 定义，Gradle 构建接收它。
 - Payload Inventory（`release/payload.json`）的 `melonloader` 条目仍相对应用的外部文件目录。A 方案的生产者 `apk-injection` 退役，改为生产者 `android-app`：它的条目是 Android App APK 内部的路径（`lib/arm64-v8a/libmain.so`、`lib/arm64-v8a/libe_sqlite3.so` 与 LemonLoader 运行时），以及启动记录（见下文），都由 Android App 产生，不进 mod 构建。
 - 产品版本可以跳过 Android；Android 不在 `latest.json` 的 lockstep 集合里（`LOCKSTEP_PLATFORM_KEYS`）；"一个版本号只对应一个提交"对 Android 同样成立；Android 没有大陆镜像，`promote --platform android` 不读镜像记录。这几条沿用 ADR 0010，不变。
@@ -79,15 +79,15 @@ Android App 启动时找到官方游戏（`com.tempogames.thebazaar`），在它
 - `interop.snapshotSha256` 是锁条目的 `interopSha256`（目录摘要），`interop.sha256` 是 zip 文件本身的 sha256，`interop.signature` 是 interop 声明的签名（base64）。
 - `nonManagedPayloadDigest` 是 Android App 携带的运行时的摘要：锁条目的 loader（tag 与 zip 的 sha256）、`nativeLibs` 各库的 sha256 与 Updater 的 sha256。interop 改为单独下载，不再计入。它只有一种算法，由 `manifest.mjs` 的 `androidNonManagedPayloadDigest` 定义；`release::build` 把算出的值交给 Gradle 写进 Android App，构建后再从 APK 里读回核对，所以 fragment 与 APK 里的值不会各算各的。
 - Platform Release Manifest `latest/android-aarch64.json` 与 `latest/mod/android-aarch64.json` 保留共同的顶层字段（`version`、`gitCommit`、`notes`、`pub_date`），`downloads["android-aarch64"]` 放 `app`、`managedPayload`、`interop`、`game`、`loader`、`selfUpdatable`、`historyDatabaseUserVersion`、`nonManagedPayloadDigest`。平台清单没有 kind：有 `app` 的是本记录的形状，有 `apk` 没有 `app` 的是 A 方案的形状。浏览器、mod 与 Android App 都按本记录的形状读；浏览器与 mod 用 `release/downloads.ts` 的 `decodeAndroidDownload` 与它的 C# 对应。
-- `upload` 与 `promote --platform android` 校验三样产物在 R2 上存在，大小与 sha256 和 fragment 一致，以及 Android App APK 的签名证书（见 ADR 0009 的 2026-11-01 修订）。**读已提升的 Android 平台清单时，A 方案的形状按"还没有 Android App 发布"处理**：它的 `apk` 和旧证书不参与任何比较，版本不回退、ETag 条件写的规则照常。这是一条按形状写死的规则，不是可以打开的跳过开关；A 版清单只会在第一次提升时遇到一次。
+- `upload` 与 `promote --platform android` 校验三样产物在 R2 上存在，大小与 sha256 和 fragment 一致，以及 Android App APK 的签名证书（见 ADR 0009 的 2026-11-01 修订）。**读已提升的 Android 平台清单时，A 方案的形状按"还没有 Android App 发布"处理**：它的 `apk` 和旧证书不参与任何比较，版本不回退、ETag 条件写的规则照常。这是一条按形状写死的规则，不是可以打开的跳过开关；A 版清单只会在第一次提升时遇到一次。第一次提升 Android App 之后，这条规则和读 A 形状的代码一起删除，不作为长期兼容分支保留。
 
 ### 预适配 interop 包
 
 新游戏发布、代码哈希变了时，`android-apk-watch.yml` 生成新游戏的 interop，上传 interop 包（同一个内容寻址键），再写一份预适配记录：
 
 - 键：`installer/android/adaptations/<il2cppSha256>_<metadataSha256>/<loader tag>.json`。游戏代码的两个哈希和 Loader Release 的 tag 都在键里：一份记录只对应一份游戏代码和一个 Loader Release；换了 Loader Release，就为同一份游戏代码再写一份。
-- 形状：`{ schemaVersion: 1, kind: 'android-adaptation', game{gameVersion, versionCode, il2cppSha256, metadataSha256}, interop{url, size, sha256, snapshotSha256, signature}, loader{tag, sha256}, il2cppInteropVersion, publishedAt }`。`interop.signature` 与 fragment 里的是同一种 interop 声明的签名，所以记录本身不需要签名：改了记录的人拿不到与已装游戏代码匹配的有效签名。
-- 只有 `android-apk-watch.yml` 写它。正常运行时只创建（`If-None-Match: *`）；手动触发并选了 `force` 时可以覆盖，用来纠正一份错的记录。
+- 形状：`{ schemaVersion: 1, kind: 'android-adaptation', game{gameVersion, versionCode, il2cppSha256, metadataSha256}, interop{url, size, sha256, snapshotSha256, signature}, loader{tag, sha256}, il2cppInteropVersion, publishedAt }`。`interop.signature` 是用途为 `pre-adaptation` 的 interop 声明的签名，所以记录本身不需要签名：改了记录的人拿不到与已装游戏代码匹配的有效签名，预适配的声明也只能用于兼容模式。
+- 只有 `android-apk-watch.yml` 写它。签名在一个单独的 job 里做：这个 job 只下载生成好的 interop 包、计算 sha256、签 interop 声明，不运行 Patcher、Cpp2IL 或任何来自 APK 的代码；处理发行商 APK 的 job 拿不到 Android 发布密钥。正常运行时只创建（`If-None-Match: *`）；手动触发并选了 `force` 时可以覆盖，用来纠正一份错的记录。
 - Android App 只在记录的 `game` 两个哈希与已装游戏一致、`loader.tag` 与自己携带的 Loader Release 相同、签名验证通过时使用它；否则视为没有预适配包。
 - 它不提升 `VERSION`，不是 Product Release，也不进 Platform Release Manifest。正式适配是之后的一个产品版本：锁条目推进到新游戏，平台清单的 `game` 与已装游戏一致，Android App 回到正常模式。两者用同一份 Interop Snapshot 时，interop 包的键相同，不会重复上传；预适配记录留在原处，此后不再被读取。
 
@@ -107,18 +107,19 @@ mod 读它的规则：
 
 - 文件不存在：mod 不在 Android App 里运行（A 版副本，或 `just mod::android-deploy` 的开发部署），这些情况的 interop 由 APK 自带，与 Mods 匹配；在日志里记录，正常运行。
 - 文件存在，但读不了、`schemaVersion` 或 `mode` 不认识、`processId` 不是当前进程，或 `release` 与正在运行的 Mods 版本不同：按兼容模式处理，关闭上传。宁可少传，不可在错的 interop 上传数据。
+- 在 Android App 里运行时，Updater 拿暂存清单的 `nonManagedPayloadDigest` 和启动记录里 `app.nonManagedPayloadDigest` 比较，而不是和已安装清单比较：已安装的 Mods 是旧 Android App 时暂存的，它记的是旧运行时的摘要。history schema 与“版本必须更新”两条检查照旧和已安装清单比较。启动记录不存在、读不了或进程号不对时，Updater 退回现有规则（和已安装清单比较）。
 - 在 Android App 里运行时，mod 不再自己下载和暂存 Managed Payload（Core 的 `SelfUpdateStaging`）。暂存只由 Android App 做，这样换入的 Mods 总是 Android App 这次启动所用 interop 对应的版本。mod 只显示"有新版本，请从 BPP App 重新启动"。
 
-格式的 owner 是 Android App 里写它的代码和一份共享 golden，mod 的读取用同一份 golden 测试（#751、#752 新建，并登记进根 `AGENTS.md` 的 Contracts 表）。字段的增加要升 `schemaVersion`，并与 mod 的读取在同一个 PR 里改。
+格式的 owner 是 Android App 里写它的代码和一份共享 golden，mod 与 Updater 的读取用同一份 golden 测试（#751、#752 新建，并登记进根 `AGENTS.md` 的 Contracts 表）。interop 包布局、interop 声明和预适配记录的 owner 是 `release/` 里生成它们的模块和共享样例（#753、#754 新建），Android App 是它们与平台清单、Managed Payload Manifest 行格式的新消费者；这些也在同一批 PR 里登记进 Contracts 表。字段的增加要升 `schemaVersion`，并与 mod 的读取在同一个 PR 里改。
 
 ### Android App 管理 LemonLoader 的部署状态
 
 LemonLoader 用**游戏**的 `lastUpdateTime` 作为部署 revision 和 interop 标记（试验设备上 `.lemonloader-interop-hash` 的内容是 `apk-<lastUpdateTime>`），因为在 Android App 里 `getPackageName` 返回游戏的包名。所以 Android App 更新后，或者它换了 interop 而游戏没变时，LemonLoader 不会重新部署。Android App 自己记录上一次启动时的 Android App `versionCode` 与 interop 的 sha256，启动前比较。以下路径都相对外部文件目录：
 
-- `versionCode` 变了（包括第一次启动）：删除 `MelonLoader/` 下的 `.lemonloader-deployment-state*`、`.lemonloader-backups`、各 `.lemonloader-*-hash`、`MelonLoader/Il2CppAssemblies/`、`Plugins/BazaarPlusPlus.Updater.dll`，让 LemonLoader 重新解压运行时和 interop、重新部署 Updater。同时删除已安装的 Managed Payload（`MelonLoader/Mods/` 与 `MelonLoader/UserLibs/`）和 Data Root 的 `Updates/`，然后暂存当前版本的 Managed Payload。原因：Updater 拿暂存清单的 `nonManagedPayloadDigest` 和**已安装清单**的比，而新 Android App 的运行时摘要可能已经变了；删除已安装的 Managed Payload 以后，Updater 按全新安装处理（没有已安装清单就不比较），换入与新运行时匹配的版本。Data Root 里的用户数据不动。
-- interop 变了：删除 `MelonLoader/.lemonloader-interop-hash` 与 `MelonLoader/MelonLoader/Il2CppAssemblies/`，让 LemonLoader 只解压新的 interop，不留下旧文件。2026-11-01 在 `bpp_host_spike` 上验证，删除标记之后 LemonLoader 从 `ResourcesLoader` 重新解压 interop。
+- `versionCode` 变了（包括第一次启动）：删除 `MelonLoader/` 下的 `.lemonloader-deployment-state*`（`.revision` 在它里面）、`.lemonloader-backups`、各 `.lemonloader-*-hash`、`MelonLoader/MelonLoader/Il2CppAssemblies/`（相对外部文件目录）和 `Plugins/BazaarPlusPlus.Updater.dll`，让 LemonLoader 重新解压运行时和 interop、重新部署 Updater。`.lemonloader-runtime.lock` 是 LemonLoader 的进程锁，不删。已安装的 Managed Payload（`Mods/`、`UserLibs/`）和 Data Root 都不动：新运行时与已安装 Mods 摘要不同的问题由 Updater 按启动记录比较解决（见上文“启动记录”），Payload Inventory 以外的第三方文件也不会被删。
+- interop 变了：删除 `MelonLoader/.lemonloader-interop-hash` 与 `MelonLoader/MelonLoader/Il2CppAssemblies/`（都相对外部文件目录），让 LemonLoader 只解压新的 interop，不留下旧文件。2026-11-01 在 `bpp_host_spike` 上验证，删除标记之后 LemonLoader 从 `ResourcesLoader` 重新解压 interop。
 
-`versionCode` 变化时的这组删除，要在 #750 的 AVD 验收里逐项确认：删除后 LemonLoader 重新部署，Updater 换入暂存的 Managed Payload。换 Loader Release 时要重新确认，因为这些是 LemonLoader 的内部文件。
+`versionCode` 变化时的这组删除，要在 #750 的 AVD 验收里逐项确认：删除后 LemonLoader 重新部署运行时与 Updater。换 Loader Release 时要重新确认，因为这些是 LemonLoader 的内部文件。
 
 ### 下载与 Managed Payload 的安装
 
@@ -146,7 +147,7 @@ LemonLoader 用**游戏**的 `lastUpdateTime` 作为部署 revision 和 interop 
 - 游戏一更新，正式适配之前 BPP 用户只能用兼容模式（不上传），没有预适配包时只能原版启动。
 - 游戏的登录状态与下载的资源在 Android App 里另存一份，用户第一次要再登录一次。
 - Android App 依赖 LemonLoader 的部署细节（`lastUpdateTime` revision、`.lemonloader-*` 标记文件）。换 Loader Release 时要重新验证"Android App 管理部署状态"一节。
-- Android 发布密钥除了签 Android App，还签 interop 声明；`android-apk-watch.yml` 发布预适配包时也要用它，所以这个工作流的发布步骤要进入 `release` 环境。
+- Android 发布密钥除了签 Android App，还签 interop 声明；`android-apk-watch.yml` 发布预适配包时也要用它。它只进一个不运行第三方工具的签名 job，但这把密钥被使用的地方从一处变成两处。
 - Play 构建是 split APK（#749 第 1 项待验证），Android App 从第一天起就要处理 `splitSourceDirs`；Play 与发行商代码哈希的一致性（#749 第 2 项）决定 Play 用户能不能用正常模式。
 - A 版已安装的副本不再更新，也不会得到提示；它们的数据不迁移。
 
