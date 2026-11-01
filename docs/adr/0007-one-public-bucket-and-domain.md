@@ -17,3 +17,5 @@
 代价是 5.x 用户读到的支持者名单和台词会停在桥接时的版本；旧域名删除之后，5.x 不再有自动更新的路径。6.0.0 之前的安装包不进新桶，官网也不再提供下载。
 
 2026-10-22 注：[ADR 0010](0010-android-release-platform.md) 在合作授权下把 Android Release APK（含游戏二进制）放进公开桶的 `installer/android/apk/`，这是"游戏本体文件不能进公开桶"的唯一例外。游戏程序集快照、interop、官方 APK 与 Loader Release 仍只在 `bazaarplusplus-game-libs`。Android 是 6.0.0 新增的平台，它的地址只在 `RELEASE_BASE_URL` 下。
+
+2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010。公开桶的 `installer/android/apk/` 不再写入，已有对象保留。合作授权允许在公开桶里分发由游戏生成的 interop：interop 包与预适配记录放在 `installer/android/` 下，键由 ADR 0012 定义。游戏本体（官方 APK、`libil2cpp.so`、`global-metadata.dat`）仍不能进公开桶，游戏程序集快照、官方 APK、Loader Release 与工具链仍只在 `bazaarplusplus-game-libs`。

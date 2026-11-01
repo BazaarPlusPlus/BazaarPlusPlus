@@ -15,3 +15,7 @@ Android 不允许签名证书不同的覆盖安装：一个已安装的 APK 只�
 否决的方案：每个游戏版本或每年换一把新密钥，所有已安装用户都要卸载；用 Google Play App Signing 托管密钥，BPP 的 APK 不经 Play 分发；把密钥只放在 GitHub secret 里而不留本地副本，GitHub 的 secret 不能读回，等于没有备份；在设备上签名，见 ADR 0010 否决的设备端注入。
 
 代价：这把密钥是 Android 用户群的单点。备份与保密完全靠流程，没有技术手段能在丢失后补救；第一次从官方版切换必须卸载，下载页必须把它写成第一步。
+
+2026-11-01 修订：[ADR 0012](0012-android-app.md) 之后，这把密钥签两样东西：BPP 的 Android App（`com.bazaarplusplus.android`）的 APK，以及 interop 声明（SHA256withRSA，Android App 用内置的发布证书验证）。它不再签注入后的游戏 APK。密钥也换成 2026-11-01 生成的新密钥：PKCS12、RSA 4096、有效期 50 年，别名 `bpp-android-host`，证书 SHA-256 `0d53bd4d2011c3e3181eb291c2154a0162f5dd9f4c4330b7bbc3728840851ce9`。本地文件仍是 `keys/android-release.p12`，secret 的名字不变（`release/github-secrets.json`）。这次可以换，是因为 Android App 是新包名，还没有任何用户装过它：换密钥的代价（每个已安装用户都要卸载重装）这次是零。旧密钥只签过 A 方案的 APK，随 A 方案退役，不再用于任何发布。上文"永不轮换"和"首次发布 Android 之前必须有离线备份并用 `keytool -list` 验证"两条规则对新密钥同样适用，从 Android App 第一次 `release::upload android` 起生效。
+
+签名检查改为两层，都在 `upload` 与 `promote --platform android` 里执行。第一层：Android App APK 的签名证书必须等于发布代码钉住的证书摘要；Android App 内置的发布证书也由测试钉到同一个值。不是这把密钥签的 APK 一律拒绝。第二层：已提升的平台清单里有 `app` 时，新 APK 的证书必须与它的 `app.signerSha256` 相同。第一次提升 Android App 时，已提升的清单是 A 方案的形状（有 `apk`、没有 `app`），ADR 0012 规定它按"还没有 Android App 发布"读，第二层没有可比的对象，只有第一层起作用；A 版 APK 的旧证书不参与比较，因为它属于另一个包名。第一次提升没有可以打开的跳过开关：用户确认的是"对外发布"本身。

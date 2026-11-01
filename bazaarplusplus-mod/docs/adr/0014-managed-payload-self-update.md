@@ -34,3 +34,5 @@ Until now only the installer updated the mod on desktop, and only a new APK upda
 - Verification, signatures, and swap: `tests/Updater.Tests/`. The known-answer tests run against the release key and a published signature.
 - Stage, then swap, end to end: `tests/SelfUpdate.Tests/`
 - Release side: `release/managed-payload.test.mjs`, `release/product-release.test.mjs`
+
+2026-11-01 注：root [ADR 0012](../../../docs/adr/0012-android-app.md) 之后，Android 的 Managed Payload 不再由 APK 携带。BPP 的 Android App 在每次启动前按平台清单暂存它，Updater 照本记录换入，只是 `nonManagedPayloadDigest` 改为和 Android App 写的启动记录比较；mod 在 Android App 里运行时不自己暂存，只提示从 Android App 重新启动。桌面不变。

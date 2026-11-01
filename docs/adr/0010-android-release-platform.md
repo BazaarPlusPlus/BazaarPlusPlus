@@ -1,3 +1,7 @@
+---
+superseded-by: 0012-android-app.md
+---
+
 # Android 作为第三个发布平台，留在 lockstep 集合之外
 
 Android 用户拿到的是一个能直接安装的 APK：官方游戏 APK 注入 LemonLoader、interop 与 BPP 的 Mods 后由 BPP 签名。目标用户没有开发背景，安装只能是"下载一个 APK 装上"；BPP 是官方合作的 mod 开发商，合作授权允许分发含游戏二进制的注入版 APK。这是本记录的前提，也是它修订下文几条"不分发游戏字节"规则的理由。它要进同一套发布链路（不可变版本目录、fragment、`promote`、Platform Release Manifest），但它的产物、节奏和形状都和桌面不同：没有 Tauri installer 与 updater 包；APK 约 2.8 GB，身份是（游戏版本、loader、interop、注入的原生库、Updater），不是 BPP 版本；游戏每更新一次 APK 就要重新注入，BPP 的纯 mod 更新却只换几 MB 的 Mods。
@@ -17,3 +21,5 @@ Payload Inventory（`schemaVersion: 1`，6.0.0 发布前重置）的每个条目
 本记录修订以下记录，各自加了日期注记：[ADR 0001](0001-product-release-promotion.md) 隐含的"发布产物不含游戏字节"前提，Android Release APK 在合作授权下含游戏二进制；[ADR 0002](0002-mainland-mirror-check.md) 的"`promote` 缺少镜像记录时拒绝"对 Android 不适用，Android 的提升从不读镜像记录，这是平台规则而不是逐次的显式跳过；[ADR 0003](0003-per-platform-release-promotion.md) 中"`latest.json` 等每个平台"一条；[ADR 0007](0007-one-public-bucket-and-domain.md) 的"游戏本体文件不能进公开桶"，Android Release APK 放在公开桶的 `installer/android/apk/` 下，游戏程序集快照、interop 与官方 APK 仍只在私有桶；[ADR 0008](0008-interop-snapshots-in-snapshot-lock.md) 的"不进 Payload Inventory"，Payload Inventory 用 `apk-injection` 条目列出注入后 APK 内的路径以定义 APK 的布局，快照锁里的 Loader Release、interop 与官方 APK 这些构建输入本身仍不进清单。
 
 2026-10-29 修订：每个产品版本都注入并上传自己的 Android Release APK，新用户装上就是当版的 Mods；已安装的用户仍在 `nonManagedPayloadDigest` 不变时只下载 Managed Payload zip。上文"APK 放在版本目录下，每个 BPP 版本都要重传"被否决的理由是上传量，现在接受这份代价：每个版本在 R2 多存约 2.9 GB，没有清理。APK 的键改为 `android/apk/BazaarPlusPlus_<版本>_<游戏构建号>.apk`（`manifest.mjs` 的 `androidApkKey`），`builtForProductVersion` 总等于 fragment 的版本；身份已发布就跳过注入的分支、APK 旁边的 sidecar 与 `--rebuild-apk` 退役。清单校验只要求 APK 在 `android/apk/` 下，因为 6.0.0 到 6.0.2 的 APK 仍以旧键命名；精确的键由 `upload` 检查。Android 的 `selfUpdatable` 改为与桌面相同，比较已提升的平台清单。6.0.0 到 6.0.2 的复用分支从未生效：Updater 的 `InformationalVersion` 带着 git 提交号，每个提交的摘要都不同，#672 去掉了它。
+
+2026-11-01：被 [ADR 0012](0012-android-app.md) 取代。Android 不再分发注入的 APK，改由 BPP 的 Android App 在本进程里加载用户已装的官方游戏。本记录中仍有效的平台规则（平台键、不进 lockstep 集合、没有大陆镜像、Payload Inventory 的 `melonloader` 宿主）由 ADR 0012 重新承载。

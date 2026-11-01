@@ -15,3 +15,5 @@ interop 摘要覆盖目录里每一个顶层文件，不只是 DLL：生成器�
 代价：游戏每发一个 Android 版本就要有人下载 APK、重新生成 interop、推进锁，Android 发版节奏被这件事卡住；私有桶每个游戏版本多约 2.8 GB；首次采集的 interop 是在 macOS 上用 Cpp2IL 的 OSX ARM64 版生成的，锁里钉的是同版本的 Linux 二进制，Linux 上的生成路径尚未端到端跑过。
 
 2026-10-22 注：[ADR 0010](0010-android-release-platform.md) 让 Payload Inventory 用 `apk-injection` 条目列出注入后 APK 内的路径（`lib/arm64-v8a/libmain.so`、`assets/LemonLoader/` 等），以定义 Android Release APK 的布局。快照锁里的构建输入（Loader Release、interop、官方 APK）本身仍不进 Payload Inventory，也仍只在私有存储。
+
+2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010。Payload Inventory 不再有 `apk-injection` 条目，改由生产者 `android-app` 的条目列出 Android App APK 内的路径。发布不再运行 Patcher；Patcher 只作为锁定的 interop 生成工具（`generate-interop`）留在快照采集与 `android-apk-watch.yml` 里。Interop Snapshot 仍按本记录存进私有桶，它的 interop 包另在公开桶发布。
