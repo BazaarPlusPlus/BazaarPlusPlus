@@ -33,8 +33,8 @@
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
       "gameVersion": "1.0.12825",
-      "size": "18 byte",
-      "sha256": "d0dec9db5b6b38dc841be7c9c0b6c45e29d394544cead6c81e92cf19d90e1e71",
+      "size": "33 byte",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/app/BazaarPlusPlus_3.1.2_android-aarch64.apk",
         "disabled": false
@@ -42,9 +42,9 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Install the official The Bazaar first: BazaarPlusPlus runs the game you already have, does not change it, and does not need you to uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in again in the game; after that, BazaarPlusPlus downloads the Mods updates itself."
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
       ]
     },
     "fallback": null
@@ -83,8 +83,8 @@
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
       "gameVersion": "1.0.12825",
-      "size": "18 byte",
-      "sha256": "d0dec9db5b6b38dc841be7c9c0b6c45e29d394544cead6c81e92cf19d90e1e71",
+      "size": "33 byte",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/app/BazaarPlusPlus_3.1.2_android-aarch64.apk",
         "disabled": false
@@ -92,9 +92,9 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Install the official The Bazaar first: BazaarPlusPlus runs the game you already have, does not change it, and does not need you to uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in again in the game; after that, BazaarPlusPlus downloads the Mods updates itself."
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
       ]
     },
     "fallback": null
@@ -133,8 +133,8 @@
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
       "gameVersion": "1.0.12825",
-      "size": "18 byte",
-      "sha256": "d0dec9db5b6b38dc841be7c9c0b6c45e29d394544cead6c81e92cf19d90e1e71",
+      "size": "33 byte",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/app/BazaarPlusPlus_3.1.2_android-aarch64.apk",
         "disabled": false
@@ -142,9 +142,9 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Install the official The Bazaar first: BazaarPlusPlus runs the game you already have, does not change it, and does not need you to uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in again in the game; after that, BazaarPlusPlus downloads the Mods updates itself."
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
       ]
     },
     "fallback": null
@@ -183,8 +183,8 @@
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
       "gameVersion": "1.0.12825",
-      "size": "18 byte",
-      "sha256": "d0dec9db5b6b38dc841be7c9c0b6c45e29d394544cead6c81e92cf19d90e1e71",
+      "size": "33 byte",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/app/BazaarPlusPlus_3.1.2_android-aarch64.apk",
         "disabled": false
@@ -192,9 +192,9 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Install the official The Bazaar first: BazaarPlusPlus runs the game you already have, does not change it, and does not need you to uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in again in the game; after that, BazaarPlusPlus downloads the Mods updates itself."
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
       ]
     },
     "fallback": {
@@ -245,9 +245,9 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Install the official The Bazaar first: BazaarPlusPlus runs the game you already have, does not change it, and does not need you to uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in again in the game; after that, BazaarPlusPlus downloads the Mods updates itself."
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
       ]
     },
     "fallback": null
@@ -295,9 +295,9 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Install the official The Bazaar first: BazaarPlusPlus runs the game you already have, does not change it, and does not need you to uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in again in the game; after that, BazaarPlusPlus downloads the Mods updates itself."
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
       ]
     },
     "fallback": null
@@ -337,7 +337,7 @@
       "version": "v3.1.2",
       "gameVersion": "1.0.12825",
       "size": "2.8 GB",
-      "sha256": "d0dec9db5b6b38dc841be7c9c0b6c45e29d394544cead6c81e92cf19d90e1e71",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
         "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/app/BazaarPlusPlus_3.1.2_android-aarch64.apk",
         "disabled": false
@@ -345,9 +345,9 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Install the official The Bazaar first: BazaarPlusPlus runs the game you already have, does not change it, and does not need you to uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in again in the game; after that, BazaarPlusPlus downloads the Mods updates itself."
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
       ]
     },
     "fallback": null

@@ -7,8 +7,8 @@
     "android-aarch64": {
       "app": {
         "url": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/app/BazaarPlusPlus_3.1.2_android-aarch64.apk",
-        "size": 18,
-        "sha256": "d0dec9db5b6b38dc841be7c9c0b6c45e29d394544cead6c81e92cf19d90e1e71",
+        "size": 33,
+        "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
         "versionCode": 3001002,
         "signerSha256": "0d53bd4d2011c3e3181eb291c2154a0162f5dd9f4c4330b7bbc3728840851ce9"
       },

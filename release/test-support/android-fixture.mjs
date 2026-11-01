@@ -15,14 +15,16 @@ const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 // (ADR 0012): its Android App APK, the Interop Package (one content-addressed
 // object every version of the same snapshot shares), its Managed Payload zip,
 // and the fragment that names them. The bytes are literal; the interop
-// signature is a placeholder that no certificate verifies.
+// signature is a placeholder that no certificate verifies. The App bytes are
+// the earlier fixture's APK bytes, so the site's screenshot goldens keep the
+// size and SHA-256 they show.
 export async function uploadAndroid(
   store,
   {
     version,
     gitCommit,
     baseUrl,
-    app = `android app ${version}\n`,
+    app = `android apk 1.0.12825 with ${version}\n`,
     interop = 'android interop package 1.0.12825\n',
     managedPayload = `android managed payload ${version}\n`,
     signature = `android-managed-signature-${version}`,
