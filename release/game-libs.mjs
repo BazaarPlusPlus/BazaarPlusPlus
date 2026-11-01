@@ -57,7 +57,7 @@ const ENTRY_FIELDS = Object.freeze([
 // elsewhere (ADR 0008), so the toolchain pins are the regeneration inputs, not
 // proof of where interopSha256 came from. The official APK, the Loader
 // Release, the Patcher and the Cpp2IL Linux binary are stored by sha256 beside
-// the interop collection, so a release job can inject from the lock alone.
+// the interop collection, so a capture can be regenerated from the lock alone.
 // apkEtag is the strong ETag the publisher served the APK with, or null for an
 // APK captured from a file of unknown origin; android-apk-watch.yml compares it.
 const INTEROP_ENTRY_FIELDS = Object.freeze([

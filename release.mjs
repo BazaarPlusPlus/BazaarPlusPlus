@@ -33,9 +33,11 @@ import { r2StoreFromEnvironment } from './release/r2-store.mjs';
 import { gameLibsStoreFromEnvironment } from './release/game-libs.mjs';
 import {
   androidPaths,
+  androidSigningKey,
   buildAndroidRelease,
   prepareAndroidPayload
 } from './release/android-release.mjs';
+import { publishPreAdaptation } from './release/android-adaptation.mjs';
 import {
   RELEASE_PLATFORMS,
   defaultTargetBuildPlatforms,
@@ -68,6 +70,11 @@ const usage = `Product release commands (run from any directory):
   node release.mjs promote --platform android   Publish the Android Platform Release Manifest after checking
                                                 the three uploaded artifacts and the App's signer; Android
                                                 records no mainland mirror and never moves latest.json
+  node release.mjs pre-adapt --from <dir> [--force]
+                                                Sign the pre-adaptation statement of the Interop Package
+                                                that release/android-adaptation.mjs pack wrote into <dir>,
+                                                then store the zip and the Pre-Adaptation record; --force
+                                                replaces a record of another Pre-Adaptation
 
 Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>;
 android accepts -- -p:InteropPath=<dir> -p:LemonLoaderPath=<dir> instead, and its
@@ -78,7 +85,7 @@ mirror refuses a share page that does not serve the uploaded installer unless
 recorded mirror unless --without-mainland-mirror is passed. mirror-all requires
 both platforms uploaded at the same version and commit before recording either mirror.
 Only upload, mirror, mirror-all,
-promote and build --platform android access R2, and require CLOUDFLARE_API_TOKEN and
+promote, pre-adapt and build --platform android access R2, and require CLOUDFLARE_API_TOKEN and
 CLOUDFLARE_ACCOUNT_ID (the S3 pair is derived from the token); prepare --platform
 android reads the private snapshot store only when the Interop Snapshot is not
 under game-libs/. No command changes VERSION.
@@ -101,6 +108,7 @@ export function parseReleaseArgs(args) {
       'mirror-all',
       'verify-mirror',
       'promote',
+      'pre-adapt',
       'assert-build-owner'
     ].includes(command)
   )
@@ -117,7 +125,9 @@ export function parseReleaseArgs(args) {
       'macos-url': { type: 'string' },
       latest: { type: 'boolean' },
       'allow-unverified-mirror': { type: 'boolean' },
-      'without-mainland-mirror': { type: 'boolean' }
+      'without-mainland-mirror': { type: 'boolean' },
+      from: { type: 'string' },
+      force: { type: 'boolean' }
     }
   });
   const seen = new Set();
@@ -204,6 +214,11 @@ export function parseReleaseArgs(args) {
     releasePlatform(platform).kind !== 'tauri'
   )
     throw new Error(`${platform} has no mainland mirror to waive`);
+  if (command === 'pre-adapt') {
+    if (!values.from) throw new Error('pre-adapt requires --from <dir>');
+  } else if (values.from !== undefined || values.force) {
+    throw new Error('--from and --force are only valid for pre-adapt');
+  }
   assertReleaseBuildArgs(positionals, platform);
   if (command === 'assert-build-owner' && rest.length)
     throw new Error('assert-build-owner takes no arguments');
@@ -214,6 +229,8 @@ export function parseReleaseArgs(args) {
     urls,
     msbuildArgs: positionals,
     latest: values.latest ?? false,
+    from: values.from,
+    force: values.force,
     allowUnverifiedMirror: values['allow-unverified-mirror'] ?? false,
     withoutMainlandMirror: values['without-mainland-mirror'] ?? false
   };
@@ -255,6 +272,8 @@ export async function main(
     urls,
     msbuildArgs,
     latest,
+    from,
+    force,
     allowUnverifiedMirror,
     withoutMainlandMirror
   } = parseReleaseArgs(args);
@@ -292,6 +311,21 @@ export async function main(
       log
     });
     log(`Mainland mirror verified for ${verified.version}`);
+    return;
+  }
+  // A Pre-Adaptation belongs to no product version (ADR 0012), so it does not
+  // depend on source alignment; the signing job runs nothing else.
+  if (command === 'pre-adapt') {
+    const { zipKey, recordKey } = await publishPreAdaptation({
+      from: path.resolve(from),
+      store: createStore(),
+      signing: androidSigningKey(),
+      baseUrl: RELEASE_BASE_URL,
+      force,
+      log,
+      now
+    });
+    log(`Pre-Adaptation ${recordKey} names ${zipKey}`);
     return;
   }
   const version = checkProductProjections(workspaceRoot, {

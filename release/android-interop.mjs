@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { assertProductVersion } from './product.mjs';
@@ -134,6 +135,38 @@ export function exportReleaseKey({ signing, into, openssl = 'openssl' }) {
   run(['-nocerts', '-nodes', '-out', keyFile]);
   run(['-nokeys', '-clcerts', '-out', certificateFile]);
   return { keyFile, certificateFile };
+}
+
+// Signs `statement` with the Android release key and returns the base64
+// signature. The key is exported into a fresh temporary directory, which is
+// deleted before this returns; the keystore's certificate must be the pinned
+// `signerSha256`, and the signature must verify under it.
+export function signWithReleaseKey({
+  statement,
+  signing,
+  signerSha256,
+  releaseKey = exportReleaseKey
+}) {
+  const keyDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'bpp-android-key-')
+  );
+  try {
+    const { keyFile, certificateFile } = releaseKey({
+      signing,
+      into: path.join(keyDirectory, 'key')
+    });
+    const certificate = fs.readFileSync(certificateFile);
+    if (certificateSha256(certificate) !== signerSha256)
+      throw new Error(
+        `The keystore's certificate ${certificateSha256(certificate)} is not the ${signerSha256} that signed the Android App`
+      );
+    const signature = signInteropStatement({ statement, keyFile });
+    if (!verifyInteropStatement({ statement, signature, certificate }))
+      throw new Error('The interop statement signature does not verify');
+    return signature;
+  } finally {
+    fs.rmSync(keyDirectory, { recursive: true, force: true });
+  }
 }
 
 // Where `android-apk-watch.yml` records one Pre-Adaptation, below the release

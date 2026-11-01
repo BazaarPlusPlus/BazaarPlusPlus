@@ -2,10 +2,14 @@ name: Android APK watch
 
 # Watches the publisher's official Android APK. When it no longer matches the
 # android-online entry of the Snapshot Lock, captures it as the new entry
-# (ADR 0008), publishes the inputs to the private bucket, checks that the
-# Android Mod still builds against the new interop, and opens a pull request
-# with the lock and the next patch VERSION. Merging it and running release.yml
-# with platform: android ships the new APK (docs/release.md "Android 发布").
+# (ADR 0008) and publishes the inputs to the private bucket. When only the
+# game's content changed (same libil2cpp.so and global-metadata.dat), it opens
+# a pull request with the lock alone. When the game code changed, the
+# pre-adapt job publishes a Pre-Adaptation for Compatibility Mode (ADR 0012),
+# and the watch job checks that the Android Mod still builds against the new
+# interop and opens a pull request with the lock and the next patch VERSION;
+# merging it and running release.yml with platform: android adapts the
+# Android App to the new game (docs/release.md "Android 发布顺序").
 
 on:
   schedule:
@@ -13,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: Download and compare the official APK even when its size and ETag match the lock
+        description: Download and compare the official APK even when its size and ETag match the lock; for a code change, publish the Pre-Adaptation again and replace a record of another one
         type: boolean
         default: false
 
@@ -26,10 +30,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Runs the Patcher and Cpp2IL on the publisher's APK, so it reads only the
+  # repository-scope R2 token and never the release environment, which holds
+  # the Android release key.
   watch:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    environment: release
+    outputs:
+      # True once the Interop Package for the pre-adapt job is uploaded.
+      adapt: ${{ steps.handoff.outcome == 'success' }}
+      game: ${{ steps.capture.outputs.game }}
     defaults:
       run:
         shell: bash
@@ -125,35 +135,99 @@ jobs:
             '- N/A' > "$RUNNER_TEMP/body.md"
           gh pr create --base master --head "$BRANCH" --title "chore(mod): record the official Android APK's ETag" --body-file "$RUNNER_TEMP/body.md"
       # Captures on Linux x64, where the Patcher generates the interop, with the
-      # locked toolchain; the lock is written last.
+      # locked toolchain; the lock is written last. change is content when the
+      # game code is the locked one and code otherwise
+      # (release/android-adaptation.mjs captureKind).
       - if: steps.download.outputs.kind == 'capture'
         name: Capture the new android-online entry
         id: capture
         env:
           ETAG: ${{ steps.download.outputs.etag }}
+          FORCE: ${{ inputs.force == true }}
         run: |
+          cp bazaarplusplus-mod/build/game-libs.lock.json "$RUNNER_TEMP/previous-lock.json"
           just mod::snapshot-android "$RUNNER_TEMP/TheBazaar.apk" ${ETAG:+--apk-etag "$ETAG"}
+          change="$(node release/android-adaptation.mjs kind --previous "$RUNNER_TEMP/previous-lock.json")"
+          case "$change" in
+            content | code) ;;
+            *)
+              echo "::error::The capture is $change, not content or code"
+              exit 1
+              ;;
+          esac
           game="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].gameVersion")"
           code="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].versionCode")"
           echo "game=$game" >> "$GITHUB_OUTPUT"
+          echo "change=$change" >> "$GITHUB_OUTPUT"
           echo "branch=chore/android-online-$code" >> "$GITHUB_OUTPUT"
+          echo "Captured $game: $change change" >> "$GITHUB_STEP_SUMMARY"
           if git ls-remote --exit-code --heads origin "chore/android-online-$code" > /dev/null; then
-            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            fresh=false
             echo "A pull request for $game is already open" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "fresh=true" >> "$GITHUB_OUTPUT"
+            fresh=true
           fi
+          echo "fresh=$fresh" >> "$GITHUB_OUTPUT"
+          # A Pre-Adaptation is published once per pull request; force publishes
+          # it again, which also repairs a failed pre-adapt job.
+          if [[ "$change" == code && ( "$fresh" == true || "$FORCE" == true ) ]]; then
+            echo "adapt=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "adapt=false" >> "$GITHUB_OUTPUT"
+          fi
+      # Content-only too: the hourly comparison reads the locked APK's size from
+      # the private bucket, and the lock must stay fetchable from it alone.
       - if: steps.capture.outputs.fresh == 'true'
         name: Publish the captured inputs
         run: just mod::publish android online
+      # Packs the Interop Package of the new snapshot for the pre-adapt job,
+      # which signs it without running anything from the APK.
+      - if: steps.capture.outputs.adapt == 'true'
+        name: Pack the Interop Package for the Pre-Adaptation
+        run: node release/android-adaptation.mjs pack --out "$RUNNER_TEMP/pre-adaptation"
+      - if: steps.capture.outputs.adapt == 'true'
+        name: Hand the Interop Package to the pre-adapt job
+        id: handoff
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pre-adaptation
+          path: ${{ runner.temp }}/pre-adaptation/
+          if-no-files-found: error
+          retention-days: 7
       # The pull request below is opened with GITHUB_TOKEN, which starts no
       # checks, so the Android lane runs here and its result goes in the body.
-      - if: steps.capture.outputs.fresh == 'true'
+      # A content-only change keeps the locked interop (captureKind checks it),
+      # so the Android Mod builds from the same inputs as on master.
+      - if: steps.capture.outputs.fresh == 'true' && steps.capture.outputs.change == 'code'
         name: Check the Android Mod against the new interop
         id: verify
         continue-on-error: true
         run: just verify mod::android-build mod::test-core
-      - if: steps.capture.outputs.fresh == 'true'
+      - if: steps.capture.outputs.fresh == 'true' && steps.capture.outputs.change == 'content'
+        name: Open the content-only pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GAME: ${{ steps.capture.outputs.game }}
+          BRANCH: ${{ steps.capture.outputs.branch }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add bazaarplusplus-mod/build/game-libs.lock.json
+          git commit -m "chore(mod): record Android game $GAME"
+          git push origin "$BRANCH"
+          cat > "$RUNNER_TEMP/body.md" <<EOF
+          The publisher's official APK is now $GAME. Its game code (libil2cpp.so and global-metadata.dat) and its Interop Snapshot are the locked ones, so this records it as the android-online entry of the Snapshot Lock (inputs published to the private bucket) without a new adaptation and without a VERSION change. The released Android App stays in normal mode on it, because it compares the game code only (docs/adr/0012-android-app.md).
+
+          - The Android Mod builds from the same interop as on master, so this run did not build it again.
+          - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          Release Notes:
+
+          - N/A
+          EOF
+          gh pr create --base master --head "$BRANCH" --title "chore(mod): record Android game $GAME" --body-file "$RUNNER_TEMP/body.md"
+      - if: steps.capture.outputs.fresh == 'true' && steps.capture.outputs.change == 'code'
         name: Open the pull request
         env:
           GH_TOKEN: ${{ github.token }}
@@ -186,6 +260,7 @@ jobs:
           The publisher's official APK is now $GAME. This captures it as the android-online entry of the Snapshot Lock (inputs published to the private bucket) and bumps VERSION to $version.
 
           - $check
+          - The pre-adapt job of this run publishes the Pre-Adaptation of $GAME for Compatibility Mode; it changes no VERSION. If that job failed, run this workflow by hand with force.
           - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           - After merging, run release.yml with version $version and platform android, then \`just release::promote --platform android\`.
 
@@ -194,3 +269,60 @@ jobs:
           - Improved: Android supports game $GAME.
           EOF
           gh pr create --base master --head "$BRANCH" --title "chore(mod): capture Android game $GAME" --body-file "$RUNNER_TEMP/body.md"
+
+  # Signs the pre-adaptation interop statement with the Android release key and
+  # publishes the Interop Package and the Pre-Adaptation record
+  # (release/android-adaptation.mjs publishPreAdaptation). It reads only the
+  # zip and the lock entry the watch job packed; it runs no Patcher, no Cpp2IL
+  # and nothing from the APK. A failed Android Mod check or pull request in the
+  # watch job does not stop it.
+  pre-adapt:
+    needs: watch
+    if: ${{ !cancelled() && needs.watch.outputs.adapt == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pre-adaptation
+          path: ${{ runner.temp }}/pre-adaptation
+      # The layout release/android-release.mjs androidSigningKey reads;
+      # release-secrets.sh stages the updater key beside it for every android
+      # run, and this job does not use it.
+      - name: Stage the Android release key
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          bash .github/scripts/release-secrets.sh stage android "$RUNNER_TEMP/signing-secrets"
+          echo "BPP_SIGNING_SECRETS_DIR=$RUNNER_TEMP/signing-secrets" >> "$GITHUB_ENV"
+      # Creates the record only; force replaces a record of another
+      # Pre-Adaptation (docs/release.md "Android 发布顺序").
+      - name: Publish the Pre-Adaptation
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          FORCE: ${{ inputs.force == true }}
+          GAME: ${{ needs.watch.outputs.game }}
+        run: |
+          args=(--from "$RUNNER_TEMP/pre-adaptation")
+          if [[ "$FORCE" == true ]]; then args+=(--force); fi
+          node release.mjs pre-adapt "${args[@]}" | tee "$RUNNER_TEMP/pre-adapt.log"
+          { echo "Pre-Adaptation of $GAME:"; grep -E '^(Uploaded|Already|Recorded|Replaced) ' "$RUNNER_TEMP/pre-adapt.log"; } >> "$GITHUB_STEP_SUMMARY" || true
+      - if: always()
+        name: Remove the staged key
+        run: rm -rf "$RUNNER_TEMP/signing-secrets"
