@@ -8,10 +8,10 @@ The Android host grew its touch surfaces one at a time: the touch menu, History,
 
 ## Decision
 
-1. One Unity-free frame, `Core/Ui/TouchChrome`, owns what every touch surface shares: the sheet inside the safe area, its margin, padding and gap, the header row, the type scale, the close button's size and corner (`CloseAt`), and the tap-to-inspect sheet (`TouchInspectLayout`). Each panel's layout (`CollectionTouchLayout`, `HistoryTouchLayout`, `LiveBuildTouchLayout`, `TouchLauncherLayout`) starts from it and owns only its own content.
+1. One Unity-free frame, `Core/Ui/TouchChrome`, owns what every touch surface shares: the sheet inside the safe area, its margin, padding and gap, the header row, the type scale, the close button's size and corner (`CloseAt`), and the tap-to-inspect sheet (`TouchInspectLayout`). Each panel's layout (`CollectionTouchLayout`, `HistoryTouchLayout`, `LiveBuildTouchLayout`, and the since-removed `TouchLauncherLayout`) starts from it and owns only its own content.
 2. A card grid on touch chooses its column count from its width (`CollectionTouchLayout.GridColumns`) and passes it to Core's `CollectionGridLayout.Build`. The desktop keeps its fixed display case through the overload without a count, and its geometry is not derived from the touch layout.
 3. The host draws the shared parts through shared helpers: `UiKit.CloseButton` and `CloseGlyph`, `UiKit.VerticalScroll`, and `ScrollTracker` (all in the Mobile UI tree since ADR-0025). History keeps its own palette and button type.
-4. The back key closes a surface's top-most layer first (a dialog or inspection, then the panel). Amended 2026-10-25: the surfaces no longer keep their own back-key handlers. The Overlay Panel Host dismisses the open panel's modal layer, then closes the panel, and its Android adapter closes the touch menu last (ADR-0022).
+4. The back key closes a surface's top-most layer first (a dialog or inspection, then the panel). Amended 2026-10-25: the surfaces no longer keep their own back-key handlers. The Overlay Panel Host dismisses the open panel's modal layer, then closes the panel, and its Android adapter closes the touch menu last (ADR-0022). Amended 2026-11-01: the touch menu and its `TouchLauncherLayout` are gone; ADR-0022's 2026-10-31 amendment says what the Android adapter's back slot does now.
 
 The conventions themselves are in [mobile-ui.md](../architecture/mobile-ui.md).
 
@@ -22,7 +22,7 @@ ADR-0003 rejects a unification that only looks tidier. This one is not about app
 ## Consequences
 
 - A new touch surface starts from `TouchChrome` and is added to `tests/SettingsDockCore.Tests/TouchChromeTests.cs`. Those tests check that every close button has the same size and corner and that all text is at least 12 sp.
-- Changing a shared margin, size or font in `TouchChrome` moves every surface at once. History's, Ten-Win Builds' and the launcher's own layout tests must still pass.
+- Changing a shared margin, size or font in `TouchChrome` moves every surface at once. History's and Ten-Win Builds' own layout tests must still pass.
 
 ## Evidence
 

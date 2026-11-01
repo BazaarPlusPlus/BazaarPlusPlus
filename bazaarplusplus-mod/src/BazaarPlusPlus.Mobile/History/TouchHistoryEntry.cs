@@ -10,8 +10,9 @@ namespace BazaarPlusPlus.Mobile.History;
 /// for the host's lifetime, since the panel's coordinator returns from a replay while the panel
 /// is closed, and registers it with the host's Overlay Panel Host under <see cref="PanelId"/>
 /// through the Mobile Platform Port, with no toggle hotkey. The Overlay Panel Host ticks it every
-/// frame and closes it. The host opens it from its own entries (the touch menu and the settings
-/// row on Android, the game menu's row and the settings row on iOS) with <see cref="Open"/>.
+/// frame and closes it. The host opens it from its own entries (the lobby's MENU grid, the in-run
+/// menu and the settings row on Android, the game menu's row and the settings row on iOS) with
+/// <see cref="Open"/>.
 /// </summary>
 internal sealed class TouchHistoryEntry : IDisposable
 {

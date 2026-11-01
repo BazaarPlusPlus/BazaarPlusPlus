@@ -350,7 +350,7 @@ public sealed class AndroidMod : MelonMod
     }
 
     // History and its replay runtime need the record chain's database and payload gate; without
-    // the chain the launcher offers no History.
+    // the chain the game's menus offer no History.
     private void StartHistory()
     {
         var composition = _composition;

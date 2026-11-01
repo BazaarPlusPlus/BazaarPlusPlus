@@ -197,7 +197,7 @@ internal sealed class OverlayLifecycleCore
         return directives!;
     }
 
-    // Synchronous external open (dock entries, touch menu): enabled and combat gates, then
+    // Synchronous external open (dock entries, menu rows): enabled and combat gates, then
     // close-others and open, resolved at the call site so mutual exclusion stays same-frame.
     // The host reads isInCombat only after the unknown, already-open and disabled checks pass.
     public OverlayRequestOutcome ExecuteOpenRequest(
