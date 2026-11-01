@@ -103,6 +103,10 @@ internal static class AndroidReplayBootstrap
                 "SceneLoader.UnloadScene(GameplayLoading)",
                 SceneTimeout
             );
+        // GameScene becoming active starts the game's loading-screen snapshot, which holds the
+        // SFX bus at zero until the loading screen fades out. This bootstrap shows no loading
+        // screen, so it raises that fade-out itself; the game's sound listener is its only one.
+        Events.LoadingScreenFadeOut.Trigger();
         Stage(battleId, "lobby_bootstrap_ready");
         return true;
     }
