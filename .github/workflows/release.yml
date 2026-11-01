@@ -145,7 +145,8 @@ jobs:
           lock=bazaarplusplus-android/toolchain.lock.json
           platform="platforms;android-$(jq -r .androidSdk.compileSdk "$lock")"
           tools="build-tools;$(jq -r .androidSdk.buildTools "$lock")"
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          # This job runs with pipefail; yes ends on SIGPIPE once sdkmanager exits.
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$platform" "$tools"
       - run: just release::check
       # The product compiles against this platform's online Snapshot Lock entry;
