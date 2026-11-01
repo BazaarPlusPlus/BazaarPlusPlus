@@ -10,6 +10,7 @@ import {
 } from './downloads.ts';
 import fixture from './fixtures/latest.json' with { type: 'json' };
 import android from './fixtures/latest/android-aarch64.json' with { type: 'json' };
+import { retiredAndroidManifest } from './test-support/android-fixture.mjs';
 
 test('consumers read the mainland mirror address from the Release Manifest', () => {
   expect(decodeMainlandDownloadUrl(fixture, 'windows-x86_64')).toBe(
@@ -44,12 +45,13 @@ test.each([
   expect(decodeMainlandDownloadUrl(manifest, 'windows-x86_64')).toBeNull();
 });
 
-test('consumers read the Android APK, Managed Payload and game from the Android manifest', () => {
+test('consumers read the Android App, Managed Payload, Interop Package and game from the Android manifest', () => {
   const record = android.downloads['android-aarch64'];
   expect(decodeAndroidDownload(android)).toEqual({
     version: android.version,
-    apk: record.apk,
+    app: record.app,
     managedPayload: record.managedPayload,
+    interop: record.interop,
     game: record.game,
     mainlandUrl: null
   });
@@ -69,24 +71,45 @@ const brokenAndroid = (mutate) => {
 test.each([
   ['a desktop manifest', () => fixture],
   [
-    'an APK outside the release origin',
+    'the ADR 0010 shape (an injected APK, no Android App)',
+    () => retiredAndroidManifest('3.1.2')
+  ],
+  [
+    'an App outside the release origin',
     () =>
       brokenAndroid((record) => {
-        record.apk.url = 'https://untrusted.example/android/apk/a.apk';
+        record.app.url = record.app.url.replace(
+          'https://cdn.bazaarplusplus.com/',
+          'https://untrusted.example/'
+        );
       })
   ],
   [
-    'an APK below the cdn origin but outside the release path',
+    'an App below the cdn origin but outside the release path',
     () =>
       brokenAndroid((record) => {
-        record.apk.url = record.apk.url.replace('/installer/', '/');
+        record.app.url = record.app.url.replace('/installer/', '/');
       })
   ],
   [
-    'an APK outside android/apk/',
+    'an App of another version',
     () =>
       brokenAndroid((record) => {
-        record.apk.url = record.managedPayload.url;
+        record.app.url = record.app.url.replace('/3.1.2/', '/3.1.1/');
+      })
+  ],
+  [
+    'an Interop Package outside its content address',
+    () =>
+      brokenAndroid((record) => {
+        record.interop.sha256 = 'f'.repeat(64);
+      })
+  ],
+  [
+    'an unsigned Interop Package',
+    () =>
+      brokenAndroid((record) => {
+        record.interop.signature = '';
       })
   ],
   [
@@ -108,6 +131,13 @@ test.each([
     () =>
       brokenAndroid((record) => {
         delete record.game.versionCode;
+      })
+  ],
+  [
+    'a game without its Game Code Hash',
+    () =>
+      brokenAndroid((record) => {
+        delete record.game.metadataSha256;
       })
   ],
   ['a non-object manifest', () => null]

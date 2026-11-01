@@ -54,7 +54,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 | `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.ini` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
 | `CLOUDFLARE_API_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.ini` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload`；也给 `checks.yml` 的 mod lane、`analyzer.yml` 和 `deploy-site.yml` |
 | `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台；三个平台的 Managed Payload zip 及其清单也用它（minisign） |
-| `ANDROID_KEYSTORE` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` | `release` 环境 secret | `keys/android-release.p12`（推送时转 base64）与 `config.ini` `[signing]` 的同名两项 | Android Release APK 的签名密钥，永不轮换，见 [ADR 0009](adr/0009-android-release-key.md) |
+| `ANDROID_KEYSTORE` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` | `release` 环境 secret | `keys/android-release.p12`（推送时转 base64）与 `config.ini` `[signing]` 的同名两项 | Android 发布密钥，签 Android App APK 和 interop 声明，永不轮换，见 [ADR 0009](adr/0009-android-release-key.md) |
 | `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.ini` `[signing]` | macOS 签名与公证 |
 | `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
 | `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.ini` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
@@ -70,7 +70,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 `release/payload.json` 定义安装路径、宿主、平台、生产者、必需文件和归属；生成的 `release/generated/Payload.targets`、Node ZIP 校验以及 Rust 安装清理共同消费它，文件列表只在这里维护。
 
 - 每个条目的 `host` 是 `bepinex`（桌面，路径相对游戏目录）或 `melonloader`（Android，路径相对应用的外部文件目录，根是 `MelonLoader/`）。平台按 `release/release-platforms.mjs` 的 `payloadHost` 只取自己宿主的条目，`platforms` 只能写同一宿主的平台。`Payload.targets` 按宿主出两组条目，工程用 `BppPayloadHost` 选择，缺省是 `bepinex`；installer 只读 `bepinex` 条目。
-- 生产者 `apk-injection` 的条目是 Android Release APK 内部的路径（`lib/arm64-v8a/`、`assets/LemonLoader/`），由 APK 注入步骤产生，不进 mod 构建和 `Payload.targets`；APK 内部路径也只能由它产生。
+- 生产者 `android-app` 的条目由 Android App 产生，不进 mod 构建和 `Payload.targets`：`lib/arm64-v8a/` 与 `assets/` 下的条目是 Android App APK 内部的路径，APK 内部路径也只能由它产生；另一个是 Android App 每次启动前写的启动记录 `MelonLoader/UserData/BazaarPlusPlus.launch.json`。`release::build` 核对 APK 里有每一个 APK 内部条目。
 - `private` 是 BPP 私有文件；`dependency` 可能与其他插件共享；`bootstrap` 是加载器设施。
 - `runtime` 只参与运行时清理规则，不进入安装包；`retired` 保留清理归属，但禁止重新打包。
 - 目录归属包含其子树，文件归属只覆盖该文件。用户数据目录、BundleOutbox 和第三方插件不属于 Payload Inventory。
@@ -79,11 +79,11 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## Managed Payload 与 mod 自更新
 
-生产者 `managed` 与 `history-contract` 的条目组成 Managed Payload，mod 自己更新它；其余条目（加载器、native、`bootstrap`、`sqlite-*` 和生产者 `updater` 的 Updater）只由 installer 或新 APK 更新，它们的 sha256 汇成 fragment 的 `nonManagedPayloadDigest`。决策记录见 [mod ADR 0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)。
+生产者 `managed` 与 `history-contract` 的条目组成 Managed Payload，mod 自己更新它；其余条目（加载器、native、`bootstrap`、`sqlite-*` 和生产者 `updater` 的 Updater）只由 installer 或新的 Android App 更新，它们的 sha256 汇成 fragment 的 `nonManagedPayloadDigest`。决策记录见 [mod ADR 0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)。
 
 - `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.mjs`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
 - fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：`upload` 时与已提升的平台清单比较这两项。mod 只与正在运行的副本比较。
-- Updater 以固定版本 1.0.0 确定性构建，同一编译器构建不变的源码时文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新 APK。
+- Updater 以固定版本 1.0.0 确定性构建，同一编译器构建不变的源码时文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新的 Android App。
 
 ## 本地准备与恢复
 
@@ -133,13 +133,25 @@ lockstep 平台（Windows 与 macOS）的 Platform Release Manifest（`latest/<�
 
 ## Android 发布
 
-Android 是第三个发布平台（平台键 `android-aarch64`），不进 `latest.json` 的 lockstep 集合，决策记录见 [ADR 0010](adr/0010-android-release-platform.md)。每个产品版本发布两样东西：Android Release APK（对象键由 `release/manifest.mjs` 的 `androidApkKey` 根据产品版本和游戏版本生成，放在 `installer/android/apk/`）和 Android Mod Payload zip（`<版本>/android-aarch64/managed/`）。新用户装的 APK 带着当版的 Mods；已安装的用户在 `nonManagedPayloadDigest` 不变时只下载 zip。fragment 与平台清单的字段由 `release/manifest.mjs` 的 `buildAndroidFragment` 定义。
+Android 是第三个发布平台（平台键 `android-aarch64`），不进 `latest.json` 的 lockstep 集合，决策记录见 [ADR 0012](adr/0012-android-app.md)。每个产品版本发布三样东西，都在公开桶的 `installer/` 下：
+
+| 产物 | 对象键 | 完整性 |
+|---|---|---|
+| Android App APK | `<版本>/android-aarch64/app/BazaarPlusPlus_<版本>_android-aarch64.apk` | Android 发布密钥的 APK 签名 |
+| Interop Package | `android/interop/<zip 的 sha256>.zip`，按内容寻址 | interop 声明的 SHA256withRSA 签名 |
+| Managed Payload zip | `<版本>/android-aarch64/managed/` | minisign 签名，由 Updater 验证 |
+
+对象键、Android App 的 `versionCode`（`androidAppVersionCode`）、`nonManagedPayloadDigest` 的算法（`androidNonManagedPayloadDigest`）以及 fragment（`kind: 'android-app'`）与平台清单的字段都由 `release/manifest.mjs` 定义；平台清单 `downloads["android-aarch64"]` 的字段顺序是 `ANDROID_RELEASE_FIELDS`。interop 声明的字节、签名与验证，以及预适配记录的键和形状由 `release/android-interop.mjs` 定义，共享样例在 `release/fixtures/android-interop/`。同一份 Interop Snapshot 只有一个 Interop Package，正式发布与预适配共用同一个对象。
 
 ```bash
 just release::promote --platform android
 ```
 
-`promote --platform android` 校验 APK 与 Mods zip 在 R2 上存在且大小、sha256 与 fragment 一致，依次写入 `latest/android-aarch64.json` 与 `latest/mod/android-aarch64.json`，从不推进 `latest.json`。Android 第一版没有大陆镜像：不读镜像记录，`--without-mainland-mirror`、`mirror` 和 `verify-mirror` 对 Android 拒绝执行。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。
+`promote --platform android` 校验三样产物在 R2 上存在且大小、sha256 与 fragment 一致，依次写入 `latest/android-aarch64.json` 与 `latest/mod/android-aarch64.json`，从不推进 `latest.json`。Android 没有大陆镜像：不读镜像记录，`--without-mainland-mirror`、`mirror` 和 `verify-mirror` 对 Android 拒绝执行。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。
+
+签名证书分两层检查，`upload` 与 `promote` 都执行（[ADR 0009](adr/0009-android-release-key.md) 的 2026-11-01 修订）：Android App APK 的证书必须等于 `ANDROID_RELEASE_SIGNER_SHA256` 钉住的发布证书；已提升的平台清单有 `app` 时，还必须等于它的 `app.signerSha256`。
+
+已提升的平台清单如果是 ADR 0010 的形状（有 `apk`、没有 `app`），按"还没有 Android App 发布"处理（`isRetiredAndroidManifest`）：版本不回退、ETag 条件写照常，它的 APK 与证书不参与任何比较，`selfUpdatable` 为 `false`。这是按形状写死的规则，第一次提升 Android App 之后连同读这个形状的代码一起删除。
 
 ### Android 发布顺序
 
@@ -155,11 +167,18 @@ just release::promote --platform android
 
 1. 与桌面同一个提交（`VERSION` 相同）。本机发版在取包后先执行 `just verify mod::android-build mod::test-core`。`mod::fetch android online` 把锁条目 `android-online` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
 2. `prepare` 对照锁定的 interop 与 Loader Release 编译 Android 宿主，并核对宿主暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。`-p:InteropPath=`、`-p:LemonLoaderPath=` 可以覆盖目录，但覆盖的仍必须是锁条目钉住的那一份。
-3. `build` 重做 `prepare`，把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。然后注入、对齐并签名当版的 APK，步骤与工具要求见 `release/android-release.mjs` 的 `injectAndroidApk` 与 `resolveBuildTools`。注入只能在 Linux x64 上跑，因为 Patcher CLI 只有这一种发行包。原生库必须不压缩地放进 APK，系统才能就地映射。签名材料的来源见上面的 secret 表与 [ADR 0009](adr/0009-android-release-key.md)。所有输出都在工作区根的 `target/android/`。
-4. `upload` 在同一台机器上用流式条件写依次上传 APK、Managed Payload zip 与 `.sig`，最后写 fragment。新 APK 的签名证书必须与已提升的 APK 相同，`promote` 也做同样的检查。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同（Patcher 与 zip 的输出不可复现），会被已上传的对象拒绝，这时先从 R2 删掉这个 APK 再上传，或者升版本。
+3. `build` 重做 `prepare`，然后：
+   - 把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。
+   - 用 `release/android-app.mjs` 的 `stageAndroidAppRuntime` 暂存 Android App 携带的运行时，写进算好的 `nonManagedPayloadDigest`；Updater 取自 Payload 里的同一份文件。
+   - 在 `bazaarplusplus-android/` 跑 Gradle 的 `assembleRelease`，传入 `-Pbpp.version`、`-Pbpp.versionCode` 与 `-Pbpp.runtimeDir`。需要 Android App 工具链锁（`bazaarplusplus-android/toolchain.lock.json`）钉住的 JDK 与 SDK。
+   - 用 `zipalign` 对齐，用 `apksigner` 和 Android 发布密钥签名；keystore 密码只经文件传给 `apksigner`。`apksigner verify --print-certs` 报告的证书必须是钉住的发布证书。再从 APK 里读回 `assets/bpp-runtime.json`，它的 `nonManagedPayloadDigest` 必须等于 fragment 的值。
+   - 用 `buildInteropPackage` 打 Interop Package，用同一把密钥签它的 `release <版本>` interop 声明。私钥由 `openssl pkcs12` 经密码文件从 keystore 取出，只放在系统临时目录，签完即删；keystore 里的证书必须就是签 APK 的那张。
+
+   步骤与工具查找见 `release/android-release.mjs` 的 `buildAndroidRelease` 与 `resolveBuildTools`。签名材料的来源见上面的 secret 表。所有输出都在工作区根的 `target/android/`：APK、`<sha256>.zip` 与它的 `.statement` 和 `.statement.sig`、Managed Payload zip 与 `.sig`，以及构建回执 `android-aarch64.json`。
+4. `upload` 在同一台机器上用流式条件写依次上传 Android App APK、Interop Package、Managed Payload zip 与 `.sig`，最后写 fragment。Interop Package 的键已有相同字节时不再上传，字节不同时拒绝。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同，会被已上传的对象拒绝，这时升版本。
 5. `promote --platform android`。
 
-`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，标签推送只构建桌面两平台。输入 APK、中间产物和输出 APK 同时占约 9 GB，所以 job 先删掉用不到的预装工具链，结束后清理中间目录。`dry_run` 只跑到 `prepare`。`build_only` 构建后把 APK 与 Managed Payload zip 留作 Actions 产物、不上传 R2，用于在干净的 AVD 上验收。
+`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，先按工具链锁装 JDK 与 SDK 包，标签推送只构建桌面两平台。`dry_run` 只跑到 `prepare`。构建回执和三样产物（Android App APK、Interop Package 及其声明与签名、Managed Payload zip 及其签名）都留作 Actions 产物；`build_only` 不上传 R2，用于在干净的 AVD 上验收。
 
 ## 中国大陆镜像
 

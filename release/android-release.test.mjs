@@ -3,11 +3,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest';
 import {
   androidPaths,
   buildAndroidRelease,
-  injectAndroidApk,
   androidSigningKey,
   prepareAndroidPayload,
   resolveBuildTools,
@@ -15,6 +14,12 @@ import {
   signerCertificateSha256,
   verifyAndroidPayload
 } from './android-release.mjs';
+import { INTEROP_ASSET_ROOT, RUNTIME_FACTS } from './android-app.mjs';
+import {
+  certificateSha256,
+  interopStatement,
+  verifyInteropStatement
+} from './android-interop.mjs';
 import {
   GAME_LIBS_LOCK_PATH,
   INTEROP_KEY,
@@ -23,39 +28,42 @@ import {
   interopDirectoryDigest
 } from './game-libs.mjs';
 import {
-  androidApkKey,
+  androidAppKey,
+  androidAppVersionCode,
   androidNonManagedPayloadDigest,
   fragmentKey,
+  interopPackageKey,
   managedPayloadKey,
   platformManifestPath,
   validatePlatformFragment
 } from './manifest.mjs';
 import { platformInventory } from './payload-inventory.mjs';
-import { buildZipBuffer } from './payload-zip.mjs';
+import { buildZipBuffer, readZipEntries } from './payload-zip.mjs';
 import { RELEASE_BASE_URL, WORKSPACE_ROOT } from './product.mjs';
 import { promotePlatform, uploadAndroidPlatform } from './publish.mjs';
 import { MemoryStore } from './test-support/memory-store.mjs';
 
-// The Android release job (#358) end to end, without the Android SDK or R2:
-// prepare stages the Android Mod Payload from a stand-in host build, build
-// runs the real injection pipeline with a fake LemonLoader Patcher, zipalign
-// and apksigner, and upload and promote write to an in-memory store. Failure
+// The Android release job end to end, without the Android SDK, Gradle or R2:
+// prepare stages the Android Mod Payload from a stand-in host build; build
+// stages the Android App Runtime, runs a stand-in Gradle build, zipalign and
+// apksigner, packs the Interop Package and signs its statement with a
+// throwaway RSA key; upload and promote write to an in-memory store. Failure
 // modes: a host build that misses a required inventory file, an interop
 // directory that is not the locked one, a Payload changed after preparation,
-// and a release whose unchanged non-managed payload must stay self-updatable
-// although it ships its own APK.
+// an App signed by another key or packaging another runtime, a keystore
+// whose certificate did not sign the App, and an Interop Package key that
+// holds other bytes.
 
 const KEY = 'android-aarch64';
 const COMMIT = 'c'.repeat(40);
-const SIGNER = 'a'.repeat(64);
 const SIGNATURE = 'untrusted comment: signature from tauri secret key\nRUQ=';
 const sha = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
-// The stand-in host build's Updater plugin, part of the APK identity.
+// The stand-in host build's Updater plugin, part of the App's runtime.
 const UPDATER_SHA256 = sha(
   'bytes of MelonLoader/Plugins/BazaarPlusPlus.Updater.dll'
 );
 
-// Each pipeline test runs the fake Patcher, zip and unzip as processes; on a
+// Each pipeline test runs zipalign, apksigner and unzip as processes; on a
 // loaded machine that exceeds the 5 s default.
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -64,6 +72,43 @@ afterEach(() => {
   for (const root of roots.splice(0))
     fs.rmSync(root, { recursive: true, force: true });
 });
+
+// Two throwaway release keys: the one that signs, and a stranger.
+let keys;
+let keyRoot;
+function throwawayKey(name) {
+  const keyFile = path.join(keyRoot, `${name}.pem`);
+  const certificateFile = path.join(keyRoot, `${name}.crt`);
+  execFileSync(
+    'openssl',
+    [
+      'req',
+      '-x509',
+      '-newkey',
+      'rsa:2048',
+      '-nodes',
+      '-keyout',
+      keyFile,
+      '-out',
+      certificateFile,
+      '-subj',
+      `/CN=${name}`,
+      '-days',
+      '1'
+    ],
+    { stdio: 'ignore' }
+  );
+  return {
+    keyFile,
+    certificateFile,
+    sha256: certificateSha256(fs.readFileSync(certificateFile))
+  };
+}
+beforeAll(() => {
+  keyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-android-keys-'));
+  keys = { release: throwawayKey('release'), stranger: throwawayKey('other') };
+});
+afterAll(() => fs.rmSync(keyRoot, { recursive: true, force: true }));
 
 function write(file, bytes, mode) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -79,30 +124,6 @@ function script(file, body) {
     0o755
   );
 }
-
-// The Patcher's `inject` as far as the release depends on it: the output APK
-// is the input plus libmain.so and the deployment under assets/LemonLoader/.
-const FAKE_PATCHER = `
-[[ "$1" == inject ]] || { echo "unexpected verb $1" >&2; exit 2; }
-input="$2"; shift 2
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --output) output="$2" ;;
-    --interop) interop="$2" ;;
-    --release) release="$2" ;;
-    --deployment) deployment="$2" ;;
-    *) echo "unexpected option $1" >&2; exit 2 ;;
-  esac
-  shift 2
-done
-[[ -f "$interop/Assembly-CSharp.dll" && -f "$release" ]]
-tree="$(mktemp -d)"
-mkdir -p "$tree/lib/arm64-v8a" "$tree/assets/LemonLoader/deployment"
-printf 'libmain' > "$tree/lib/arm64-v8a/libmain.so"
-cp -R "$deployment"/. "$tree/assets/LemonLoader/deployment/"
-cp "$input" "$output"
-(cd "$tree" && zip -qr -X "$output" lib assets)
-echo "inject" >> "$(dirname "$0")/../../../calls.log"`;
 
 const FAKE_ZIPALIGN = `
 if [[ "$1" == -c ]]; then exit 0; fi
@@ -129,6 +150,46 @@ case "$1" in
     echo "${label} certificate SHA-256 digest: ${signer}" ;;
 esac`;
 
+// What Gradle's assembleRelease packages from -Pbpp.runtimeDir: assets/ as
+// is, jniLibs/<abi>/ as lib/<abi>/, beside the App's own code. `edit`
+// changes the staged files on their way into the APK.
+function fakeGradle(calls, edit = (entries) => entries) {
+  return ({ workspaceRoot, version, versionCode, runtimeDir }) => {
+    calls.push({ version, versionCode, runtimeDir });
+    const entries = [
+      { name: 'AndroidManifest.xml', data: Buffer.from('manifest') },
+      { name: 'classes.dex', data: Buffer.from(`dex ${version}`) }
+    ];
+    const walk = (directory, prefix) => {
+      for (const name of fs.readdirSync(directory).sort())
+        entries.push({
+          name: `${prefix}/${name}`,
+          data: fs.readFileSync(path.join(directory, name))
+        });
+    };
+    walk(path.join(runtimeDir, 'assets'), 'assets');
+    walk(path.join(runtimeDir, 'jniLibs', 'arm64-v8a'), 'lib/arm64-v8a');
+    return write(
+      path.join(workspaceRoot, 'target', 'gradle', 'app-release-unsigned.apk'),
+      buildZipBuffer(edit(entries).map((entry) => ({ ...entry, mode: 0o644 })))
+    );
+  };
+}
+
+// The stand-in for exportReleaseKey: the throwaway key and certificate
+// copied into `into`, which the build must remove.
+function releaseKeyFrom(key, exported) {
+  return ({ into }) => {
+    exported.push(into);
+    fs.mkdirSync(into, { recursive: true });
+    const keyFile = path.join(into, 'release-key.pem');
+    const certificateFile = path.join(into, 'release-certificate.pem');
+    fs.copyFileSync(key.keyFile, keyFile);
+    fs.copyFileSync(key.certificateFile, certificateFile);
+    return { keyFile, certificateFile };
+  };
+}
+
 function fixture() {
   const workspaceRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'bpp-android-release-')
@@ -153,6 +214,8 @@ function fixture() {
     path.join(loaderPath, LOADER_MANAGED_DIRECTORY, 'MelonLoader.dll'),
     'loader'
   );
+  write(path.join(loaderPath, 'assets/LemonLoader/payload.json'), '{}');
+  write(path.join(loaderPath, 'lib/arm64-v8a/libmain.so'), 'bootstrap');
   const nativeLib = write(path.join(tools, 'libe_sqlite3.so'), 'sqlite elf');
   const lock = JSON.parse(
     fs.readFileSync(path.join(WORKSPACE_ROOT, GAME_LIBS_LOCK_PATH), 'utf8')
@@ -168,42 +231,37 @@ function fixture() {
       }
     }
   };
-  write(
-    path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
-    `${JSON.stringify(lock, null, 2)}\n`
-  );
+  const writeLock = () =>
+    write(
+      path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
+      `${JSON.stringify(lock, null, 2)}\n`
+    );
+  writeLock();
   write(
     path.join(loaderPath, LOADER_MARKER),
     lock.entries[INTEROP_KEY].loader.sha256
   );
-  const officialApk = write(
-    path.join(tools, 'TheBazaar.apk'),
-    buildZipBuffer([
-      {
-        name: 'AndroidManifest.xml',
-        data: Buffer.from('manifest'),
-        mode: 0o644
-      },
-      {
-        name: 'lib/arm64-v8a/libil2cpp.so',
-        data: Buffer.from('il2cpp'),
-        mode: 0o644
-      }
-    ])
-  );
-  const loaderZip = write(path.join(tools, 'loader.zip'), 'loader release');
-  const patcherTree = path.join(tools, 'patcher-tree');
-  script(path.join(patcherTree, 'LemonLoader.Patcher.CLI'), FAKE_PATCHER);
-  const patcherArchive = path.join(tools, 'patcher.tar.gz');
-  execFileSync('tar', ['-czf', patcherArchive, '-C', patcherTree, '.']);
-  const keys = path.join(tools, 'keys');
-  write(path.join(keys, 'android-release.p12'), 'keystore');
-  write(path.join(keys, 'android-keystore-password'), 'password');
-  const calls = path.join(workspaceRoot, 'target', 'calls.log');
+  const secrets = path.join(tools, 'secrets');
+  write(path.join(secrets, 'android-release.p12'), 'keystore');
+  write(path.join(secrets, 'android-keystore-password'), 'password');
+  const gradleCalls = [];
+  const exportedKeys = [];
+  const buildTools =
+    (signer = keys.release.sha256) =>
+    () => ({
+      zipalign: script(path.join(tools, 'bin', 'zipalign'), FAKE_ZIPALIGN),
+      apksigner: script(
+        path.join(tools, 'bin', `apksigner-${signer.slice(0, 8)}`),
+        fakeApksigner(signer)
+      )
+    });
   return {
     workspaceRoot,
     interopPath,
     tools,
+    gradleCalls,
+    exportedKeys,
+    buildTools,
     entry: lock.entries[INTEROP_KEY],
     // Re-collecting the Snapshot Lock with another SourceGear.sqlite3: only
     // the native library pin changes, not the game, loader or interop.
@@ -214,44 +272,27 @@ function fixture() {
         version: '3.53.5',
         sha256: sha(Buffer.from(bytes))
       };
-      write(
-        path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
-        `${JSON.stringify(lock, null, 2)}\n`
-      );
+      writeLock();
       return lock.entries[INTEROP_KEY];
     },
-    calls: () =>
-      fs.existsSync(calls) ? fs.readFileSync(calls, 'utf8').split('\n') : [],
     options: {
       workspaceRoot,
       resolveSnapshot: async () => ({ interopPath, loaderPath }),
       produce: ({ payloadRoot }) => stageHostBuild(workspaceRoot, payloadRoot),
-      resolveInputs: async () => ({
-        officialApk,
-        loaderZip,
-        patcherArchive,
-        nativeLibs: { 'libe_sqlite3.so': nativeLib }
-      }),
-      // The work directory sits under target/, so the fake Patcher's call
-      // log lands in target/calls.log.
-      inject: (args) =>
-        injectAndroidApk({ ...args, hostPlatform: 'linux', hostArch: 'x64' }),
+      resolveNativeLibs: async () => ({ 'libe_sqlite3.so': nativeLib }),
+      assemble: fakeGradle(gradleCalls),
       sign: ({ file }) => {
         write(`${file}.sig`, SIGNATURE);
         return SIGNATURE;
       },
       signingKey: () => ({
-        keystore: path.join(keys, 'android-release.p12'),
-        passwordFile: path.join(keys, 'android-keystore-password'),
-        alias: 'bpp'
+        keystore: path.join(secrets, 'android-release.p12'),
+        passwordFile: path.join(secrets, 'android-keystore-password'),
+        alias: 'bpp-android-host'
       }),
-      buildTools: () => ({
-        zipalign: script(path.join(tools, 'bin', 'zipalign'), FAKE_ZIPALIGN),
-        apksigner: script(
-          path.join(tools, 'bin', 'apksigner'),
-          fakeApksigner(SIGNER)
-        )
-      }),
+      buildTools: buildTools(),
+      releaseKey: releaseKeyFrom(keys.release, exportedKeys),
+      releaseSignerSha256: keys.release.sha256,
       captureIdentity: () => ({ commit: COMMIT, dirty: false, digest: 'd' }),
       gameLibsStore: () => {
         throw new Error('this test must not reach the private store');
@@ -285,11 +326,28 @@ function stageHostBuild(workspaceRoot, payloadRoot, omit = []) {
   }
 }
 
-function apkEntries(apk) {
-  return execFileSync('unzip', ['-Z1', apk], { encoding: 'utf8' })
-    .split('\n')
-    .filter(Boolean);
+function zipNames(file) {
+  return readZipEntries(fs.readFileSync(file)).map(({ name }) => name);
 }
+
+const upload = (f, store, extra = {}) =>
+  uploadAndroidPlatform({
+    workspaceRoot: f.workspaceRoot,
+    baseUrl: RELEASE_BASE_URL,
+    store,
+    gitState: () => ({ commit: COMMIT, dirty: false }),
+    releaseSignerSha256: keys.release.sha256,
+    ...extra
+  });
+const promote = (f, store, extra = {}) =>
+  promotePlatform({
+    version: version(f.workspaceRoot),
+    platform: 'android',
+    baseUrl: RELEASE_BASE_URL,
+    store,
+    releaseSignerSha256: keys.release.sha256,
+    ...extra
+  });
 
 test('prepare stages exactly the mod-built MelonLoader entries and seals them', async () => {
   const f = fixture();
@@ -306,6 +364,8 @@ test('prepare stages exactly the mod-built MelonLoader entries and seals them', 
   expect(record.lockEntry).toMatchObject({
     key: INTEROP_KEY,
     gameVersion: f.entry.gameVersion,
+    il2cppSha256: f.entry.il2cppSha256,
+    metadataSha256: f.entry.metadataSha256,
     interopSha256: f.entry.interopSha256
   });
   expect(verifyAndroidPayload(f.workspaceRoot).inputDigest).toBe(
@@ -384,58 +444,110 @@ test('prepare refuses an interop directory that is not the locked snapshot and u
   ).rejects.toThrow(/Unsupported release build override/);
 });
 
-test('a release injects, aligns and signs its own APK, then streams it and promotes', async () => {
+test('a release builds and signs its Android App and Interop Package, then streams them and promotes', async () => {
   const f = fixture();
   const store = new MemoryStore();
   const manifest = await buildAndroidRelease(f.options);
   const paths = androidPaths(f.workspaceRoot);
-  const apkKey = androidApkKey({
-    version: version(f.workspaceRoot),
-    gameVersion: f.entry.gameVersion
+  const current = version(f.workspaceRoot);
+  const digest = androidNonManagedPayloadDigest({
+    ...f.entry,
+    updaterSha256: UPDATER_SHA256
   });
-  expect(f.calls().filter(Boolean)).toEqual(['inject']);
+  expect(f.gradleCalls).toEqual([
+    {
+      version: current,
+      versionCode: androidAppVersionCode(current),
+      runtimeDir: paths.runtime
+    }
+  ]);
   expect(manifest).toMatchObject({
     platform: KEY,
-    appVersion: version(f.workspaceRoot),
+    appVersion: current,
     gitCommit: COMMIT,
     dirty: false,
-    apk: {
-      key: apkKey,
-      versionCode: f.entry.versionCode,
-      signerSha256: SIGNER,
-      builtForProductVersion: version(f.workspaceRoot)
+    app: {
+      key: androidAppKey(current),
+      versionCode: androidAppVersionCode(current),
+      signerSha256: keys.release.sha256
     },
+    interop: { snapshotSha256: f.entry.interopSha256 },
     managedPayload: { signature: SIGNATURE },
-    nonManagedPayloadDigest: androidNonManagedPayloadDigest({
-      ...f.entry,
-      updaterSha256: UPDATER_SHA256
-    }),
-    interopSha256: f.entry.interopSha256
+    game: {
+      gameVersion: f.entry.gameVersion,
+      versionCode: f.entry.versionCode,
+      il2cppSha256: f.entry.il2cppSha256,
+      metadataSha256: f.entry.metadataSha256
+    },
+    loader: { tag: f.entry.loader.tag, sha256: f.entry.loader.sha256 },
+    nonManagedPayloadDigest: digest
   });
-  const apk = path.join(paths.root, manifest.apk.path);
-  const entries = apkEntries(apk);
-  expect(entries).toEqual(
+
+  // The App carries the runtime with the fragment's digest.
+  const apk = path.join(paths.root, manifest.app.path);
+  const entries = readZipEntries(fs.readFileSync(apk));
+  expect(entries.map(({ name }) => name)).toEqual(
     expect.arrayContaining([
-      'AndroidManifest.xml',
-      'lib/arm64-v8a/libil2cpp.so',
       'lib/arm64-v8a/libmain.so',
       'lib/arm64-v8a/libe_sqlite3.so',
-      'assets/LemonLoader/deployment/Mods/BazaarPlusPlus.Android.dll',
-      'assets/LemonLoader/deployment/UserLibs/Newtonsoft.Json.dll'
+      'assets/lemon-runtime.zip',
+      `assets/${RUNTIME_FACTS}`
     ])
   );
-  // The native library is stored, so the platform can map it in place.
+  const facts = JSON.parse(
+    entries.find(({ name }) => name === `assets/${RUNTIME_FACTS}`).data
+  );
+  expect(facts).toMatchObject({
+    nonManagedPayloadDigest: digest,
+    updaterSha256: UPDATER_SHA256
+  });
+
+  // The Interop Package is the locked snapshot at its content address, with
+  // a `release <version>` statement the release certificate verifies.
+  const interopZip = fs.readFileSync(
+    path.join(paths.root, manifest.interop.path)
+  );
+  expect(manifest.interop.sha256).toBe(sha(interopZip));
+  expect(manifest.interop.key).toBe(interopPackageKey(sha(interopZip)));
+  expect(zipNames(path.join(paths.root, manifest.interop.path))).toEqual([
+    `${INTEROP_ASSET_ROOT}/Assembly-CSharp.dll`,
+    `${INTEROP_ASSET_ROOT}/Il2Cppmscorlib.dll`
+  ]);
+  const statement = interopStatement({
+    zipSha256: manifest.interop.sha256,
+    il2cppSha256: f.entry.il2cppSha256,
+    metadataSha256: f.entry.metadataSha256,
+    purpose: `release ${current}`
+  });
   expect(
-    execFileSync('unzip', ['-v', apk], { encoding: 'utf8' })
-      .split('\n')
-      .find((line) => line.endsWith('lib/arm64-v8a/libe_sqlite3.so'))
-  ).toMatch(/\bStored\b/);
+    fs.readFileSync(path.join(paths.root, manifest.interop.statementPath))
+  ).toEqual(statement);
+  expect(
+    fs
+      .readFileSync(
+        path.join(paths.root, `${manifest.interop.statementPath}.sig`),
+        'utf8'
+      )
+      .trim()
+  ).toBe(manifest.interop.signature);
+  expect(
+    verifyInteropStatement({
+      statement,
+      signature: manifest.interop.signature,
+      certificate: fs.readFileSync(keys.release.certificateFile)
+    })
+  ).toBe(true);
+  // Key material sat outside the workspace and is gone.
+  expect(f.exportedKeys).toHaveLength(1);
+  expect(f.exportedKeys[0].startsWith(f.workspaceRoot)).toBe(false);
+  expect(fs.existsSync(path.dirname(f.exportedKeys[0]))).toBe(false);
   expect(fs.existsSync(paths.work)).toBe(false);
-  const zipEntries = apkEntries(
+
+  // The Managed Payload: the signed manifest and the Mods and UserLibs it
+  // names; the Updater plugin ships only inside the App.
+  const zipEntries = zipNames(
     path.join(paths.root, manifest.managedPayload.path)
   );
-  // The Managed Payload: the signed manifest and the Mods and UserLibs it
-  // names; the Updater plugin ships only inside the APK.
   expect(zipEntries).toEqual(
     expect.arrayContaining(['manifest.txt', 'manifest.txt.minisig'])
   );
@@ -444,49 +556,43 @@ test('a release injects, aligns and signs its own APK, then streams it and promo
       .filter((name) => !name.startsWith('manifest.txt'))
       .every((name) => /^files\/MelonLoader\/(Mods|UserLibs)\//.test(name))
   ).toBe(true);
-  expect(entries).toContain(
-    'assets/LemonLoader/deployment/Plugins/BazaarPlusPlus.Updater.dll'
-  );
-  expect(entries).toContain(
-    'assets/LemonLoader/deployment/Mods/BazaarPlusPlus.managed-manifest.txt'
-  );
 
-  const log = vi.fn();
-  const fragment = await uploadAndroidPlatform({
-    workspaceRoot: f.workspaceRoot,
-    baseUrl: RELEASE_BASE_URL,
-    store,
-    gitState: () => ({ commit: COMMIT, dirty: false }),
-    log
-  });
-  const current = version(f.workspaceRoot);
+  const fragment = await upload(f, store);
   expect(validatePlatformFragment(fragment, current, KEY)).toBe(fragment);
   expect(fragment.selfUpdatable).toBe(false);
-  expect(fragment.apk.url).toBe(`${RELEASE_BASE_URL}/${apkKey}`);
-  expect(store.objects.get(apkKey).bytes).toEqual(fs.readFileSync(apk));
-  expect(
-    store.objects.get(`${managedPayloadKey(current, KEY)}.sig`).bytes.toString()
-  ).toBe(`${SIGNATURE}\n`);
-  expect(store.writes.at(-1)).toBe(fragmentKey(current, KEY));
+  expect(fragment.app.url).toBe(
+    `${RELEASE_BASE_URL}/${androidAppKey(current)}`
+  );
+  expect(store.writes).toEqual([
+    androidAppKey(current),
+    manifest.interop.key,
+    managedPayloadKey(current, KEY),
+    `${managedPayloadKey(current, KEY)}.sig`,
+    fragmentKey(current, KEY)
+  ]);
+  expect(store.objects.get(androidAppKey(current)).bytes).toEqual(
+    fs.readFileSync(apk)
+  );
+  expect(store.objects.get(manifest.interop.key).bytes).toEqual(interopZip);
 
-  const promoted = await promotePlatform({
-    version: current,
-    platform: 'android',
-    baseUrl: RELEASE_BASE_URL,
-    store
-  });
+  const promoted = await promote(f, store);
   expect(promoted.advanced).toBe(false);
-  expect(
-    JSON.parse(store.objects.get(platformManifestPath(KEY)).bytes).version
-  ).toBe(current);
+  const published = JSON.parse(
+    store.objects.get(platformManifestPath(KEY)).bytes
+  );
+  expect(Object.keys(published.downloads[KEY])).toEqual([
+    'app',
+    'managedPayload',
+    'interop',
+    'game',
+    'loader',
+    'selfUpdatable',
+    'historyDatabaseUserVersion',
+    'nonManagedPayloadDigest'
+  ]);
   // A second upload of the same build is a no-op on every immutable key.
   const writes = store.writes.length;
-  await uploadAndroidPlatform({
-    workspaceRoot: f.workspaceRoot,
-    baseUrl: RELEASE_BASE_URL,
-    store,
-    gitState: () => ({ commit: COMMIT, dirty: false })
-  });
+  await upload(f, store);
   expect(store.writes.length).toBe(writes);
 });
 
@@ -497,106 +603,83 @@ const nextVersion = (workspaceRoot, step = 1) => {
   return next;
 };
 
-test('the next release ships its own APK, and an unchanged non-managed payload stays self-updatable', async () => {
+test('the next release ships its own App, keeps the stored Interop Package, and stays self-updatable', async () => {
   const f = fixture();
   const store = new MemoryStore();
-  const gitState = () => ({ commit: COMMIT, dirty: false });
-  const upload = () =>
-    uploadAndroidPlatform({
-      workspaceRoot: f.workspaceRoot,
-      baseUrl: RELEASE_BASE_URL,
-      store,
-      gitState
-    });
-  const first = version(f.workspaceRoot);
   await buildAndroidRelease(f.options);
-  const promotedFragment = await upload();
-  await promotePlatform({
-    version: first,
-    platform: 'android',
-    baseUrl: RELEASE_BASE_URL,
-    store
-  });
+  const promotedFragment = await upload(f, store);
+  await promote(f, store);
 
   const next = nextVersion(f.workspaceRoot);
   const manifest = await buildAndroidRelease(f.options);
-  expect(f.calls().filter(Boolean)).toEqual(['inject', 'inject']);
-  const apkKey = androidApkKey({
-    version: next,
-    gameVersion: f.entry.gameVersion
-  });
-  expect(manifest.apk).toMatchObject({
-    key: apkKey,
-    builtForProductVersion: next
-  });
+  expect(f.gradleCalls.map((call) => call.versionCode)).toEqual([
+    androidAppVersionCode(version(f.workspaceRoot)) - 1,
+    androidAppVersionCode(next)
+  ]);
+  expect(manifest.interop.key).toBe(objectKeyOf(promotedFragment.interop.url));
+  const log = vi.fn();
   const before = store.writes.length;
-  const fragment = await upload();
+  const streamed = [];
+  const putFile = store.putFile.bind(store);
+  store.putFile = async (key, ...rest) => {
+    streamed.push(key);
+    return putFile(key, ...rest);
+  };
+  const fragment = await upload(f, store, { log });
+  // The same snapshot is the same object: nothing to upload for it, not even
+  // a refused transfer.
   expect(store.writes.slice(before)).toEqual([
-    apkKey,
+    androidAppKey(next),
     managedPayloadKey(next, KEY),
     `${managedPayloadKey(next, KEY)}.sig`,
     fragmentKey(next, KEY)
   ]);
+  expect(streamed).toEqual([androidAppKey(next), managedPayloadKey(next, KEY)]);
+  expect(log).toHaveBeenCalledWith(`Already stored: ${manifest.interop.key}`);
   expect(fragment.nonManagedPayloadDigest).toBe(
     promotedFragment.nonManagedPayloadDigest
   );
-  // Installed copies take it as a Managed Payload; a new install gets its APK.
+  // Installed Apps take it as a Managed Payload; a new install gets its App.
   expect(fragment.selfUpdatable).toBe(true);
 });
+
+const objectKeyOf = (url) => url.slice(`${RELEASE_BASE_URL}/`.length);
 
 test('upload refuses a build from another commit or a dirty checkout', async () => {
   const f = fixture();
   const store = new MemoryStore();
   await buildAndroidRelease(f.options);
-  const upload = (gitState) =>
-    uploadAndroidPlatform({
-      workspaceRoot: f.workspaceRoot,
-      baseUrl: RELEASE_BASE_URL,
-      store,
-      gitState
-    });
   await expect(
-    upload(() => ({ commit: 'd'.repeat(40), dirty: false }))
+    upload(f, store, {
+      gitState: () => ({ commit: 'd'.repeat(40), dirty: false })
+    })
   ).rejects.toThrow(/commit mismatch/);
-  await expect(upload(() => ({ commit: COMMIT, dirty: true }))).rejects.toThrow(
-    /dirty/
-  );
+  await expect(
+    upload(f, store, { gitState: () => ({ commit: COMMIT, dirty: true }) })
+  ).rejects.toThrow(/dirty/);
   expect(store.writes).toEqual([]);
 });
 
-test('a native library change alone is a new non-managed payload, so installed copies need the new APK', async () => {
+test('a native library change alone is a new non-managed payload, so installed Apps need the new App', async () => {
   const f = fixture();
   const store = new MemoryStore();
-  const gitState = () => ({ commit: COMMIT, dirty: false });
-  const upload = () =>
-    uploadAndroidPlatform({
-      workspaceRoot: f.workspaceRoot,
-      baseUrl: RELEASE_BASE_URL,
-      store,
-      gitState
-    });
   await buildAndroidRelease(f.options);
-  const first = await upload();
-  await promotePlatform({
-    version: first.version,
-    platform: 'android',
-    baseUrl: RELEASE_BASE_URL,
-    store
-  });
+  const first = await upload(f, store);
+  await promote(f, store);
 
   nextVersion(f.workspaceRoot);
   const entry = f.upgradeNativeLib('sqlite elf 3.53.5');
   const manifest = await buildAndroidRelease(f.options);
-  const fragment = await upload();
+  const fragment = await upload(f, store);
   expect(fragment.nonManagedPayloadDigest).toBe(
     androidNonManagedPayloadDigest({ ...entry, updaterSha256: UPDATER_SHA256 })
   );
   expect(fragment.nonManagedPayloadDigest).not.toBe(
     first.nonManagedPayloadDigest
   );
-  // The new native library needs the new APK: no self-update onto it.
+  // The new native library needs the new App: no self-update onto it.
   expect(fragment.selfUpdatable).toBe(false);
-  const apk = path.join(androidPaths(f.workspaceRoot).root, manifest.apk.path);
+  const apk = path.join(androidPaths(f.workspaceRoot).root, manifest.app.path);
   expect(
     execFileSync('unzip', ['-p', apk, 'lib/arm64-v8a/libe_sqlite3.so'], {
       encoding: 'utf8'
@@ -608,78 +691,116 @@ test('an upload that stopped before its fragment completes by uploading the same
   const f = fixture();
   const store = new MemoryStore();
   const manifest = await buildAndroidRelease(f.options);
-  const apkKey = manifest.apk.key;
   const current = version(f.workspaceRoot);
-  const upload = (target = store) =>
-    uploadAndroidPlatform({
-      workspaceRoot: f.workspaceRoot,
-      baseUrl: RELEASE_BASE_URL,
-      store: target,
-      gitState: () => ({ commit: COMMIT, dirty: false })
-    });
   store.beforePut = async (key) => {
     if (key === fragmentKey(current, KEY)) throw new Error('the job timed out');
   };
-  await expect(upload()).rejects.toThrow(/timed out/);
-  expect(store.objects.has(apkKey)).toBe(true);
+  await expect(upload(f, store)).rejects.toThrow(/timed out/);
+  expect(store.objects.has(manifest.app.key)).toBe(true);
 
   store.beforePut = undefined;
-  await upload();
+  await upload(f, store);
   expect(store.writes.at(-1)).toBe(fragmentKey(current, KEY));
 
-  // A rebuilt APK has other bytes; the stored one is never replaced.
+  // A rebuilt App has other bytes; the stored one is never replaced.
   const other = new MemoryStore();
-  await other.put(apkKey, Buffer.from('another APK'), { ifNoneMatch: true });
-  await expect(upload(other)).rejects.toThrow(
-    `Immutable release object differs: ${apkKey}`
+  await other.put(manifest.app.key, Buffer.from('another APK'), {
+    ifNoneMatch: true
+  });
+  await expect(upload(f, other)).rejects.toThrow(
+    `Immutable release object differs: ${manifest.app.key}`
+  );
+  // Nor are other bytes at the Interop Package's content address.
+  const poisoned = new MemoryStore();
+  await poisoned.put(manifest.interop.key, Buffer.from('not the snapshot'), {
+    ifNoneMatch: true
+  });
+  await expect(upload(f, poisoned)).rejects.toThrow(
+    `Immutable release object differs: ${manifest.interop.key}`
+  );
+  expect(poisoned.writes).not.toContain(fragmentKey(current, KEY));
+});
+
+test('build refuses an App signed by another key than the pinned release key', async () => {
+  const f = fixture();
+  await expect(
+    buildAndroidRelease({
+      ...f.options,
+      buildTools: f.buildTools(keys.stranger.sha256)
+    })
+  ).rejects.toThrow(
+    `The Android App is signed by ${keys.stranger.sha256}, not the release key ${keys.release.sha256}`
+  );
+  expect(fs.existsSync(androidPaths(f.workspaceRoot).artifactManifest)).toBe(
+    false
   );
 });
 
-test('upload and promote refuse an APK signed by another key than the promoted one', async () => {
+test('upload refuses a build receipt that names another signer than the pinned release key', async () => {
   const f = fixture();
   const store = new MemoryStore();
-  const gitState = () => ({ commit: COMMIT, dirty: false });
   await buildAndroidRelease(f.options);
-  await uploadAndroidPlatform({
-    workspaceRoot: f.workspaceRoot,
-    baseUrl: RELEASE_BASE_URL,
-    store,
-    gitState
-  });
-  await promotePlatform({
-    version: version(f.workspaceRoot),
-    platform: 'android',
-    baseUrl: RELEASE_BASE_URL,
-    store
-  });
+  const receipt = androidPaths(f.workspaceRoot).artifactManifest;
+  const manifest = JSON.parse(fs.readFileSync(receipt, 'utf8'));
+  manifest.app.signerSha256 = keys.stranger.sha256;
+  fs.writeFileSync(receipt, JSON.stringify(manifest));
+  await expect(upload(f, store)).rejects.toThrow(
+    `signed by ${keys.stranger.sha256}, not the release key ${keys.release.sha256}`
+  );
+  expect(store.writes).toEqual([]);
+});
 
-  const next = nextVersion(f.workspaceRoot);
-  f.upgradeNativeLib('sqlite elf 3.53.5');
-  const otherSigner = 'b'.repeat(64);
-  const build = await buildAndroidRelease({
-    ...f.options,
-    buildTools: () => ({
-      ...f.options.buildTools(),
-      apksigner: script(
-        path.join(f.tools, 'bin', 'other-apksigner'),
-        fakeApksigner(otherSigner, 'Signer #1')
+test('build refuses an App whose packaged runtime facts differ from the staged ones', async () => {
+  const f = fixture();
+  await expect(
+    buildAndroidRelease({
+      ...f.options,
+      assemble: fakeGradle([], (entries) =>
+        entries.map((entry) =>
+          entry.name === `assets/${RUNTIME_FACTS}`
+            ? {
+                ...entry,
+                data: Buffer.from(
+                  JSON.stringify({
+                    ...JSON.parse(entry.data),
+                    nonManagedPayloadDigest: 'f'.repeat(64)
+                  })
+                )
+              }
+            : entry
+        )
       )
     })
-  });
-  expect(build.apk.signerSha256).toBe(otherSigner);
-  const writes = store.writes.length;
+  ).rejects.toThrow(
+    `names nonManagedPayloadDigest ${'f'.repeat(64)}, not the staged`
+  );
   await expect(
-    uploadAndroidPlatform({
-      workspaceRoot: f.workspaceRoot,
-      baseUrl: RELEASE_BASE_URL,
-      store,
-      gitState
+    buildAndroidRelease({
+      ...f.options,
+      assemble: fakeGradle([], (entries) =>
+        entries.filter((entry) => entry.name !== 'lib/arm64-v8a/libmain.so')
+      )
     })
   ).rejects.toThrow(
-    `signed by ${otherSigner}, not the release key ${SIGNER} the promoted APK carries`
+    'The Android App lacks lib/arm64-v8a/libmain.so that release/payload.json gives it'
   );
-  expect(store.writes.length).toBe(writes);
-  expect(store.objects.has(fragmentKey(next, KEY))).toBe(false);
+});
+
+test('build refuses to sign the interop statement with a keystore whose certificate did not sign the App', async () => {
+  const f = fixture();
+  const exported = [];
+  await expect(
+    buildAndroidRelease({
+      ...f.options,
+      releaseKey: releaseKeyFrom(keys.stranger, exported)
+    })
+  ).rejects.toThrow(
+    `The keystore's certificate ${keys.stranger.sha256} is not the ${keys.release.sha256} that signed the Android App`
+  );
+  expect(fs.existsSync(path.dirname(exported[0]))).toBe(false);
+  expect(fs.existsSync(androidPaths(f.workspaceRoot).artifactManifest)).toBe(
+    false
+  );
 });
 
 test('the signer digest is the one certificate apksigner reports under either label', () => {
@@ -703,12 +824,6 @@ test('the signer digest is the one certificate apksigner reports under either la
   expect(() => signerCertificateSha256('Verified', 'x.apk')).toThrow(
     'apksigner verify printed no signer certificate digest for x.apk'
   );
-});
-
-test('injection runs only where the Patcher CLI runs', () => {
-  expect(() =>
-    injectAndroidApk({ hostPlatform: 'darwin', hostArch: 'arm64' })
-  ).toThrow(/Linux x64 CLI, and this is darwin-arm64/);
 });
 
 test('a locked native library comes from the NuGet cache or nuget.org and must hash to its pin', async () => {
@@ -769,7 +884,7 @@ test('a locked native library comes from the NuGet cache or nuget.org and must h
   ).rejects.toThrow(/Invalid native library name/);
 });
 
-test('the signing key and the build-tools resolve from the staged secrets and the newest SDK build-tools', () => {
+test('the signing key and the build-tools resolve from the staged secrets and the locked or newest SDK build-tools', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-android-tools-'));
   roots.push(root);
   const secrets = path.join(root, 'secrets');
@@ -787,16 +902,22 @@ test('the signing key and the build-tools resolve from the staged secrets and th
   });
 
   const sdk = path.join(root, 'sdk');
-  for (const version of ['34.0.0', '35.0.1', '37.0.0'])
+  for (const version of ['34.0.0', '35.0.1', '36.1.0', '37.0.0'])
     for (const tool of ['zipalign', 'apksigner'])
       script(path.join(sdk, 'build-tools', version, tool), 'exit 0');
-  expect(resolveBuildTools({ PATH: '', ANDROID_HOME: sdk })).toEqual({
+  const env = { PATH: '', ANDROID_HOME: sdk };
+  expect(resolveBuildTools(env, { lockedVersion: null })).toEqual({
     zipalign: path.join(sdk, 'build-tools/37.0.0/zipalign'),
     apksigner: path.join(sdk, 'build-tools/37.0.0/apksigner')
   });
-  fs.rmSync(path.join(sdk, 'build-tools/37.0.0'), { recursive: true });
-  fs.rmSync(path.join(sdk, 'build-tools/35.0.1'), { recursive: true });
-  expect(() => resolveBuildTools({ PATH: '', ANDROID_HOME: sdk })).toThrow(
+  // The App's toolchain lock wins over a newer install.
+  expect(resolveBuildTools(env, { lockedVersion: '36.1.0' })).toEqual({
+    zipalign: path.join(sdk, 'build-tools/36.1.0/zipalign'),
+    apksigner: path.join(sdk, 'build-tools/36.1.0/apksigner')
+  });
+  for (const version of ['37.0.0', '36.1.0', '35.0.1'])
+    fs.rmSync(path.join(sdk, 'build-tools', version), { recursive: true });
+  expect(() => resolveBuildTools(env, { lockedVersion: '34.0.0' })).toThrow(
     /zipalign not found on PATH or in ANDROID_HOME\/build-tools\/<35\+>/
   );
 });

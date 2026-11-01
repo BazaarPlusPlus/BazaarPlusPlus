@@ -3,11 +3,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
+  ANDROID_RELEASE_SIGNER_SHA256,
+  androidAppVersionCode,
+  androidNonManagedPayloadDigest,
   buildAndroidFragment,
   buildPlatformFragment,
   buildLatestManifest,
   buildPlatformManifest,
   fragmentKey,
+  interopPackageKey,
   managedPayloadKey,
   modManifestPath,
   validatePlatformFragment,
@@ -23,7 +27,10 @@ import {
 import { putImmutable } from './r2-store.mjs';
 import { createArtifactManifest } from './artifact-manifest.mjs';
 import { MemoryStore } from './test-support/memory-store.mjs';
-import { uploadAndroid } from './test-support/android-fixture.mjs';
+import {
+  retiredAndroidManifest,
+  uploadAndroid
+} from './test-support/android-fixture.mjs';
 import {
   artifactPaths,
   writeArtifacts
@@ -31,6 +38,7 @@ import {
 import { runFixtureGit } from '../scripts/test-support/git-fixture.mjs';
 
 const baseUrl = 'https://cdn.bazaarplusplus.com/installer';
+const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const roots = [];
 
 afterEach(() => {
@@ -997,7 +1005,7 @@ test('the writer reproduces every shared platform fixture', () => {
   }
 });
 
-// Android (ADR 0010): its own Platform Release Manifest, outside latest.json,
+// Android (ADR 0012): its own Platform Release Manifest, outside latest.json,
 // without a mainland mirror, under the same one-commit-per-version rule.
 const ANDROID = 'android-aarch64';
 const promoteAndroid = (data, store, extra = {}) =>
@@ -1009,15 +1017,19 @@ const promoteAndroid = (data, store, extra = {}) =>
     ...extra
   });
 
-test('Android promotion checks both artifacts and publishes only its own manifest', async () => {
+test('Android promotion checks the three artifacts and publishes only its own manifest', async () => {
   const data = fixture();
   const store = new MemoryStore();
-  const { fragment, apkKey } = await uploadAndroid(store, {
+  const { fragment, appKey } = await uploadAndroid(store, {
     version: data.version,
     gitCommit: data.commits.a,
     baseUrl
   });
-  for (const key of [apkKey, managedPayloadKey(data.version, ANDROID)]) {
+  for (const key of [
+    appKey,
+    interopPackageKey(fragment.interop.sha256),
+    managedPayloadKey(data.version, ANDROID)
+  ]) {
     const object = store.objects.get(key);
     store.objects.delete(key);
     await expect(promoteAndroid(data, store)).rejects.toThrow(
@@ -1123,62 +1135,217 @@ test('an Android release refuses rollback and changed facts at a published versi
   );
 });
 
-test("an Android fragment names its own version's APK and Mods", () => {
-  const facts = {
+test('the first Android App promote reads a promoted ADR 0010 manifest as no Android App release yet', async () => {
+  const data = fixture('3.1.2');
+  const store = new MemoryStore();
+  // Both endpoints hold the injected APK's manifest, signed by another key.
+  const retired = jsonBytes(retiredAndroidManifest('3.1.1'));
+  for (const key of [`latest/${ANDROID}.json`, modManifestPath(ANDROID)])
+    await store.put(key, retired, { ifNoneMatch: true });
+  // Its version still blocks a rollback.
+  await uploadAndroid(store, {
+    version: '3.1.0',
+    gitCommit: data.commits.a,
+    baseUrl
+  });
+  await expect(
+    promoteAndroid({ ...data, version: '3.1.0' }, store)
+  ).rejects.toThrow(/rollback from 3.1.1 to 3.1.0/);
+  // A newer Android App replaces it: its APK and certificate are compared
+  // with nothing, only the pinned release key applies.
+  const { fragment } = await uploadAndroid(store, {
     version: '3.1.2',
-    gitCommit: 'a'.repeat(40),
+    gitCommit: data.commits.a,
+    baseUrl
+  });
+  const now = new Date('2026-11-01T00:00:00.000Z');
+  const { platform } = await promoteAndroid(data, store, { now });
+  expect(platform).toEqual(
+    buildPlatformManifest({ version: '3.1.2', fragment, now })
+  );
+  expect(JSON.parse(store.objects.get(modManifestPath(ANDROID)).bytes)).toEqual(
+    platform
+  );
+});
+
+test('the version of a promoted ADR 0010 manifest cannot be reused', async () => {
+  const data = fixture('3.1.1');
+  const store = new MemoryStore();
+  await store.put(
+    `latest/${ANDROID}.json`,
+    jsonBytes(retiredAndroidManifest('3.1.1')),
+    { ifNoneMatch: true }
+  );
+  await uploadAndroid(store, {
+    version: '3.1.1',
+    gitCommit: 'c'.repeat(40),
+    baseUrl
+  });
+  await expect(promoteAndroid(data, store)).rejects.toThrow(
+    /Published 3.1.1 android-aarch64 downloads differs/
+  );
+});
+
+test('upload and promote refuse an Android App another key signed, in both layers', async () => {
+  const data = fixture('3.1.2');
+  const store = new MemoryStore();
+  const other = 'b'.repeat(64);
+  await uploadAndroid(store, {
+    version: '3.1.2',
+    gitCommit: data.commits.a,
     baseUrl,
-    apk: {
-      size: 1,
-      sha256: 'b'.repeat(64),
-      versionCode: 12825,
-      signerSha256: 'c'.repeat(64),
-      builtForProductVersion: '3.1.2'
-    },
-    managedPayload: { size: 1, sha256: 'b'.repeat(64), signature: 'sig' },
-    selfUpdatable: true,
-    historyDatabaseUserVersion: 1,
-    nonManagedPayloadDigest: 'd'.repeat(64),
-    game: {
-      gameVersion: '1.0.12825-production-android-d9601ded',
-      versionCode: 12825,
-      officialApkSha256: 'e'.repeat(64)
-    },
-    loader: { tag: 'v0.7.4-android.4', sha256: 'f'.repeat(64) },
-    interopSha256: `0123abcd${'0'.repeat(56)}`
-  };
+    signerSha256: other
+  });
+  // Layer 1: the pinned release certificate.
+  await expect(promoteAndroid(data, store)).rejects.toThrow(
+    `signed by ${other}, not the release key ${ANDROID_RELEASE_SIGNER_SHA256}`
+  );
+  expect(await store.get(`latest/${ANDROID}.json`)).toBeNull();
+  // Layer 2: the certificate of the promoted Android App, here for a build
+  // whose release code pins another key than the one already promoted.
+  await promoteAndroid(data, store, { releaseSignerSha256: other });
+  await uploadAndroid(store, {
+    version: '3.1.3',
+    gitCommit: data.commits.a,
+    baseUrl
+  });
+  await expect(
+    promoteAndroid({ ...data, version: '3.1.3' }, store)
+  ).rejects.toThrow(
+    `signed by ${ANDROID_RELEASE_SIGNER_SHA256}, not the release key ${other} the promoted Android App carries`
+  );
+});
+
+const androidFacts = () => ({
+  version: '3.1.2',
+  gitCommit: 'a'.repeat(40),
+  baseUrl,
+  app: { size: 1, sha256: 'b'.repeat(64), signerSha256: 'c'.repeat(64) },
+  game: {
+    gameVersion: '1.0.12825-production-android-d9601ded',
+    versionCode: 12825,
+    il2cppSha256: 'e'.repeat(64),
+    metadataSha256: 'f'.repeat(64)
+  },
+  interop: {
+    size: 2,
+    sha256: '1'.repeat(64),
+    snapshotSha256: `0123abcd${'0'.repeat(56)}`,
+    signature: 'c2lnbmF0dXJl'
+  },
+  managedPayload: { size: 1, sha256: 'b'.repeat(64), signature: 'sig' },
+  loader: { tag: 'v0.7.4-android.4', sha256: 'f'.repeat(64) },
+  selfUpdatable: true,
+  historyDatabaseUserVersion: 1,
+  nonManagedPayloadDigest: 'd'.repeat(64)
+});
+
+test("an Android fragment names its own version's App, the content-addressed interop and its Mods", () => {
+  const facts = androidFacts();
   const fragment = buildAndroidFragment(facts);
-  expect(fragment.apk.url).toBe(
-    `${baseUrl}/android/apk/BazaarPlusPlus_3.1.2_1.0.12825.apk`
+  expect(Object.keys(fragment)).toEqual([
+    'schemaVersion',
+    'kind',
+    'version',
+    'platform',
+    'gitCommit',
+    'app',
+    'game',
+    'interop',
+    'managedPayload',
+    'loader',
+    'selfUpdatable',
+    'historyDatabaseUserVersion',
+    'nonManagedPayloadDigest'
+  ]);
+  expect(fragment).toMatchObject({
+    schemaVersion: 1,
+    kind: 'android-app',
+    platform: ANDROID,
+    app: {
+      url: `${baseUrl}/3.1.2/${ANDROID}/app/BazaarPlusPlus_3.1.2_${ANDROID}.apk`,
+      versionCode: 3_001_002
+    },
+    interop: { url: `${baseUrl}/android/interop/${'1'.repeat(64)}.zip` },
+    managedPayload: {
+      url: `${baseUrl}/3.1.2/${ANDROID}/managed/BazaarPlusPlus_3.1.2_${ANDROID}-managed.zip`
+    }
+  });
+  const invalid = (change) => () =>
+    validatePlatformFragment({ ...fragment, ...change }, '3.1.2', ANDROID);
+  expect(invalid({ app: { ...fragment.app, versionCode: 12825 } })).toThrow(
+    /Invalid android-aarch64 Android App/
   );
-  expect(fragment.managedPayload.url).toBe(
-    `${baseUrl}/3.1.2/${ANDROID}/managed/BazaarPlusPlus_3.1.2_${ANDROID}-managed.zip`
-  );
-  expect(() =>
-    buildAndroidFragment({
-      ...facts,
-      apk: { ...facts.apk, builtForProductVersion: '3.1.1' }
+  expect(
+    invalid({
+      app: { ...fragment.app, url: `${baseUrl}/android/apk/BazaarPlusPlus.apk` }
     })
-  ).toThrow(/Invalid android-aarch64 APK/);
+  ).toThrow(/Unexpected Android App URL/);
+  expect(
+    invalid({
+      interop: {
+        ...fragment.interop,
+        url: `${baseUrl}/3.1.2/${ANDROID}/interop/x.zip`
+      }
+    })
+  ).toThrow(/Unexpected Interop Package URL/);
+  expect(
+    invalid({ interop: { ...fragment.interop, signature: 'not base64!' } })
+  ).toThrow(/Invalid android-aarch64 3.1.2 Interop Package/);
+  expect(
+    invalid({ game: { ...fragment.game, il2cppSha256: undefined } })
+  ).toThrow(/Invalid android-aarch64 3.1.2 game/);
+  // ADR 0010's fragments are refused by their kind.
+  const { app, interop, ...rest } = fragment;
   expect(() =>
     validatePlatformFragment(
-      {
-        ...fragment,
-        apk: {
-          ...fragment.apk,
-          url: `${baseUrl}/3.1.2/${ANDROID}/apk/BazaarPlusPlus.apk`
-        }
-      },
+      { ...rest, kind: 'android', apk: app },
       '3.1.2',
       ANDROID
     )
-  ).toThrow(/APK URL is outside android\/apk\//);
-  expect(() =>
-    validatePlatformFragment({ ...fragment, kind: 'tauri' }, '3.1.2', ANDROID)
-  ).toThrow(/Invalid android-aarch64 platform fragment/);
+  ).toThrow(/is of kind "android", not android-app/);
   expect(() =>
     buildAndroidFragment({ ...facts, selfUpdatable: undefined })
   ).toThrow(/Invalid android-aarch64 release facts/);
+});
+
+test.each([
+  ['1.0.0', 1_000_000],
+  ['6.0.2', 6_000_002],
+  ['12.345.678', 12_345_678],
+  ['2100.0.0', 2_100_000_000]
+])('the Android App versionCode of %s is %i', (version, code) => {
+  expect(androidAppVersionCode(version)).toBe(code);
+});
+
+test.each(['1.1000.0', '1.0.1000', '0.0.0', '2100.0.1', 'v1.0.0'])(
+  '%s has no Android App versionCode',
+  (version) => {
+    expect(() => androidAppVersionCode(version)).toThrow();
+  }
+);
+
+test('the Android non-managed payload digest covers the loader, native libraries and Updater, not the interop', () => {
+  const runtime = {
+    loader: { tag: 'v0.7.4-android.4', sha256: 'a'.repeat(64) },
+    nativeLibs: { 'libe_sqlite3.so': { sha256: 'b'.repeat(64) } },
+    updaterSha256: 'c'.repeat(64)
+  };
+  const digest = androidNonManagedPayloadDigest(runtime);
+  expect(
+    androidNonManagedPayloadDigest({
+      ...runtime,
+      interopSha256: 'd'.repeat(64)
+    })
+  ).toBe(digest);
+  for (const change of [
+    { loader: { ...runtime.loader, tag: 'v0.7.5-android.1' } },
+    { nativeLibs: { 'libe_sqlite3.so': { sha256: 'e'.repeat(64) } } },
+    { updaterSha256: 'f'.repeat(64) }
+  ])
+    expect(androidNonManagedPayloadDigest({ ...runtime, ...change })).not.toBe(
+      digest
+    );
 });
 
 test('a desktop fragment carries its signed Managed Payload and the self-update facts', () => {

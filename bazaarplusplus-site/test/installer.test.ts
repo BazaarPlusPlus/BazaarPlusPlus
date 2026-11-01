@@ -182,7 +182,7 @@ describe('Android release interface', () => {
     vi.unstubAllGlobals();
   });
 
-  test('reads the APK, the game it carries and the Managed Payload from its own manifest', async () => {
+  test('reads the Android App, its game, Managed Payload and Interop Package from its own manifest', async () => {
     const fetchStub = stubManifests({
       [ANDROID_PATH]: structuredClone(androidFixture),
     });
@@ -191,8 +191,9 @@ describe('Android release interface', () => {
     const record = androidFixture.downloads['android-aarch64'];
     expect(release).toEqual({
       version: androidFixture.version,
-      apk: record.apk,
+      app: record.app,
       managedPayload: record.managedPayload,
+      interop: record.interop,
       game: record.game,
       mainlandUrl: null,
     });
@@ -218,11 +219,23 @@ describe('Android release interface', () => {
     ['a missing manifest', {}],
     ['a desktop manifest', { [ANDROID_PATH]: structuredClone(macFixture) }],
     [
-      'an APK outside the release origin',
+      'an App outside the release origin',
       {
         [ANDROID_PATH]: (() => {
           const manifest = structuredClone(androidFixture);
-          manifest.downloads['android-aarch64'].apk.url = 'https://untrusted.example/a.apk';
+          manifest.downloads['android-aarch64'].app.url = 'https://untrusted.example/a.apk';
+          return manifest;
+        })(),
+      },
+    ],
+    [
+      'the injected APK of ADR 0010',
+      {
+        [ANDROID_PATH]: (() => {
+          const manifest = structuredClone(androidFixture);
+          const record: Record<string, unknown> = manifest.downloads['android-aarch64'];
+          record.apk = record.app;
+          delete record.app;
           return manifest;
         })(),
       },

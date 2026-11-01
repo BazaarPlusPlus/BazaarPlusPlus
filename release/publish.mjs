@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { compareProductVersions, readProductVersion } from './product.mjs';
 import { putImmutable, putImmutableFile, putReplaceable } from './r2-store.mjs';
 import {
+  ANDROID_RELEASE_SIGNER_SHA256,
   RELEASE_MANIFEST_PATH,
   assertMirrorUrl,
   buildAndroidFragment,
@@ -15,6 +16,7 @@ import {
   fragmentArtifacts,
   fragmentKey,
   installerFileName,
+  isRetiredAndroidManifest,
   managedPayloadKey,
   mergeReleaseManifest,
   mirrorRecordKey,
@@ -191,6 +193,8 @@ function objectKey(url, baseUrl) {
 // `version` itself is promoted, uploading it again repeats the published hint.
 async function selfUpdatableFromPromoted(store, platform, version, facts) {
   const manifest = await readPlatformManifest(store, platform);
+  // No installed Android App can take a release over an injected APK.
+  if (isRetiredAndroidManifest(manifest, platform)) return false;
   const promoted = manifest?.downloads[platform];
   if (manifest?.version === version) return promoted.selfUpdatable;
   return (
@@ -260,28 +264,42 @@ export async function uploadPlatform({
   return fragment;
 }
 
-// The signer of every Android Release APK is the one BPP release key, which
-// never rotates (ADR 0009): Android refuses to install an APK over one signed
-// by another certificate. The promoted APK names that signer; only the first
-// APK, before any promotion, sets it.
-async function assertAndroidSigner(store, platform, signerSha256) {
-  const promoted = (await readPlatformManifest(store, platform))?.downloads[
-    platform
-  ].apk.signerSha256;
-  if (promoted && promoted !== signerSha256)
+// The signer of every Android App APK is the one BPP Android release key
+// (ADR 0009, 2026-11-01 note), checked in two layers: the APK's certificate
+// must be the one release code pins, and once an Android App is promoted it
+// must also be the one that App carries: Android refuses to install an APK
+// over one signed by another certificate. A promoted ADR 0010 manifest names
+// another package's APK, so only the first layer applies over it.
+async function assertAndroidSigner(
+  store,
+  platform,
+  signerSha256,
+  releaseSignerSha256
+) {
+  if (signerSha256 !== releaseSignerSha256)
     throw new Error(
-      `The Android Release APK is signed by ${signerSha256}, not the release key ${promoted} the promoted APK carries; installed users could not update over it (docs/adr/0009-android-release-key.md)`
+      `The Android App APK is signed by ${signerSha256}, not the release key ${releaseSignerSha256} (docs/adr/0009-android-release-key.md)`
+    );
+  const manifest = await readPlatformManifest(store, platform);
+  if (!manifest || isRetiredAndroidManifest(manifest, platform)) return;
+  const promoted = manifest.downloads[platform].app.signerSha256;
+  if (promoted !== signerSha256)
+    throw new Error(
+      `The Android App APK is signed by ${signerSha256}, not the release key ${promoted} the promoted Android App carries; installed users could not update over it (docs/adr/0009-android-release-key.md)`
     );
 }
 
-// Uploads the Android build of VERSION: its Android Release APK, the Managed
-// Payload zip and its signature, and last the fragment naming both. Large files
-// stream from disk.
+// Uploads the Android build of VERSION: the Android App APK, the Interop
+// Package (content-addressed: a release or Pre-Adaptation that already stored
+// the same bytes leaves it in place, other bytes are refused), the Managed
+// Payload zip and its signature, and last the fragment naming them. Large
+// files stream from disk.
 export async function uploadAndroidPlatform({
   workspaceRoot,
   baseUrl,
   store,
   gitState = gitStateForRoot,
+  releaseSignerSha256 = ANDROID_RELEASE_SIGNER_SHA256,
   log = () => {}
 }) {
   const version = readProductVersion(workspaceRoot);
@@ -295,52 +313,68 @@ export async function uploadAndroidPlatform({
     );
   if (checkout.dirty)
     throw new Error('Current checkout is dirty; refusing upload');
-  const { key: apkKey, ...apk } = manifest.apk;
   const { nonManagedPayloadDigest, historyDatabaseUserVersion } = manifest;
   const fragment = buildAndroidFragment({
     version,
     gitCommit: manifest.gitCommit,
     baseUrl,
-    apk,
-    managedPayload: {
-      size: manifest.managedPayload.size,
-      sha256: manifest.managedPayload.sha256,
-      signature: manifest.managedPayload.signature
-    },
+    app: manifest.app,
+    game: manifest.game,
+    interop: manifest.interop,
+    managedPayload: manifest.managedPayload,
+    loader: manifest.loader,
     selfUpdatable: await selfUpdatableFromPromoted(
       store,
       releasePlatform('android').key,
       version,
-      {
-        historyDatabaseUserVersion,
-        nonManagedPayloadDigest
-      }
+      { historyDatabaseUserVersion, nonManagedPayloadDigest }
     ),
     historyDatabaseUserVersion,
-    nonManagedPayloadDigest,
-    game: manifest.game,
-    loader: manifest.loader,
-    interopSha256: manifest.interopSha256
+    nonManagedPayloadDigest
   });
-  if (objectKey(fragment.apk.url, baseUrl) !== apkKey)
-    throw new Error(`Android build names ${apkKey}, not ${fragment.apk.url}`);
+  for (const name of ['app', 'interop'])
+    if (objectKey(fragment[name].url, baseUrl) !== manifest[name].key)
+      throw new Error(
+        `Android build names ${manifest[name].key}, not ${fragment[name].url}`
+      );
+  if (fragment.app.versionCode !== manifest.app.versionCode)
+    throw new Error(
+      `The Android App was built as versionCode ${manifest.app.versionCode}, not ${fragment.app.versionCode}`
+    );
   await assertSameCommitAcrossPlatforms(store, version, fragment);
-  await assertAndroidSigner(store, fragment.platform, apk.signerSha256);
-  log(`Uploading ${apkKey} (${apk.size} bytes)`);
-  await putImmutableFile(store, apkKey, files.apk, {
-    sha256: apk.sha256,
-    size: apk.size,
-    contentType: 'application/vnd.android.package-archive'
-  });
-  const zipKey = managedPayloadKey(version, fragment.platform);
-  await putImmutableFile(store, zipKey, files.managedPayload, {
-    sha256: manifest.managedPayload.sha256,
-    size: manifest.managedPayload.size,
-    contentType: 'application/zip'
-  });
+  await assertAndroidSigner(
+    store,
+    fragment.platform,
+    fragment.app.signerSha256,
+    releaseSignerSha256
+  );
+  const uploads = [
+    [fragment.app, files.app, 'application/vnd.android.package-archive'],
+    [fragment.interop, files.interop, 'application/zip'],
+    [fragment.managedPayload, files.managedPayload, 'application/zip']
+  ];
+  for (const [record, file, contentType] of uploads) {
+    const key = objectKey(record.url, baseUrl);
+    // Another release or a Pre-Adaptation usually stored the Interop Package
+    // already; a HEAD settles that without sending the zip again.
+    const stored = record === fragment.interop ? await store.head(key) : null;
+    const outcome =
+      stored?.size === record.size && stored.sha256 === record.sha256
+        ? 'present'
+        : await putImmutableFile(store, key, file, {
+            sha256: record.sha256,
+            size: record.size,
+            contentType
+          });
+    log(
+      outcome === 'present'
+        ? `Already stored: ${key}`
+        : `Uploaded ${key} (${record.size} bytes)`
+    );
+  }
   await putImmutable(
     store,
-    `${zipKey}.sig`,
+    `${managedPayloadKey(version, fragment.platform)}.sig`,
     Buffer.from(`${fragment.managedPayload.signature}\n`),
     'text/plain'
   );
@@ -587,7 +621,9 @@ async function writeLockstepManifest(store, log) {
 // Promote one platform without waiting for the others. The lockstep Release
 // Manifest advances only once every Lockstep Platform names the same release
 // (ADR 0003). Android writes only its Platform Release Manifest and records
-// no mainland mirror (ADR 0010).
+// no mainland mirror (ADR 0012). Over a promoted ADR 0010 manifest it is
+// the first Android App release: the version still cannot roll back and the
+// ETag still guards the write (isRetiredAndroidManifest in manifest.mjs).
 export async function promotePlatform({
   version,
   platform,
@@ -595,6 +631,7 @@ export async function promotePlatform({
   store,
   withoutMainlandMirror = false,
   log = () => {},
+  releaseSignerSha256 = ANDROID_RELEASE_SIGNER_SHA256,
   now = new Date()
 }) {
   const definition = releasePlatform(platform);
@@ -606,7 +643,12 @@ export async function promotePlatform({
   await assertArtifactsStored(store, fragment, baseUrl);
   await assertSameCommitAcrossPlatforms(store, version, fragment);
   if (definition.kind === 'android')
-    await assertAndroidSigner(store, key, fragment.apk.signerSha256);
+    await assertAndroidSigner(
+      store,
+      key,
+      fragment.app.signerSha256,
+      releaseSignerSha256
+    );
   const existing = await readPlatformManifest(store, key);
   const mirrors =
     definition.kind === 'tauri'

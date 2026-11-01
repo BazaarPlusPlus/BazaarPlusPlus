@@ -50,10 +50,11 @@ const usage = `Product release commands (run from any directory):
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
   node release.mjs prepare --platform android    Build the Android host and stage the Android Mod Payload
-  node release.mjs build --platform android      Zip and sign the Managed Payload; inject, align and sign
-                                                the Android Release APK
-  node release.mjs upload --platform android     Stream the APK, the Managed Payload zip and the fragment
-                                                to R2
+  node release.mjs build --platform android      Zip and sign the Managed Payload; build, align and sign
+                                                the Android App; pack the Interop Package and sign its
+                                                interop statement
+  node release.mjs upload --platform android     Stream the Android App, the Interop Package, the Managed
+                                                Payload zip and the fragment to R2
   node release.mjs mirror-all --windows-url <share-url> --macos-url <share-url>
                                                 Verify both uploaded platforms and record both mainland mirrors
   node release.mjs mirror --platform macos --url <share-url>
@@ -65,12 +66,13 @@ const usage = `Product release commands (run from any directory):
   node release.mjs promote --platform macos     Publish one platform's manifest; latest.json advances once
                                                 Windows and macOS are at the same version
   node release.mjs promote --platform android   Publish the Android Platform Release Manifest after checking
-                                                the uploaded APK and Managed Payload zip; Android records no
-                                                mainland mirror and never moves latest.json
+                                                the three uploaded artifacts and the App's signer; Android
+                                                records no mainland mirror and never moves latest.json
 
 Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>;
 android accepts -- -p:InteropPath=<dir> -p:LemonLoaderPath=<dir> instead, and its
-build injects on Linux x64 only (the LemonLoader Patcher CLI).
+build needs the Android App's JDK and SDK build-tools, openssl, and the Android
+release keystore in BPP_SIGNING_SECRETS_DIR.
 mirror refuses a share page that does not serve the uploaded installer unless
 --allow-unverified-mirror is passed; promote refuses a platform without a
 recorded mirror unless --without-mainland-mirror is passed. mirror-all requires
@@ -322,7 +324,7 @@ export async function main(
       log
     });
     log(
-      `Built android ${version} against lock entry ${manifest.lockEntry.key} (${manifest.game.gameVersion}): APK ${manifest.apk.path}, Managed Payload ${manifest.managedPayload.path} in ${androidPaths(workspaceRoot).root}`
+      `Built android ${version} against lock entry ${manifest.lockEntry.key} (${manifest.game.gameVersion}): Android App ${manifest.app.path}, Interop Package ${manifest.interop.path}, Managed Payload ${manifest.managedPayload.path} in ${androidPaths(workspaceRoot).root}`
     );
     return;
   }

@@ -12,6 +12,7 @@ import {
   buildRuntimeZip,
   stageAndroidAppRuntime
 } from './android-app.mjs';
+import { platformInventory } from './payload-inventory.mjs';
 import { readZipEntries } from './payload-zip.mjs';
 
 const sha256 = (bytes) =>
@@ -109,4 +110,32 @@ test('staging writes the runtime zip, its facts and the native libraries the App
   expect(
     JSON.parse(fs.readFileSync(path.join(outDir, 'assets', RUNTIME_FACTS)))
   ).toEqual(facts);
+});
+
+test('the Payload Inventory names the APK paths of what staging writes', () => {
+  const outDir = path.join(tempDir('inventory'), 'runtime');
+  stageAndroidAppRuntime({
+    loaderPath: loaderFixture(),
+    loader: { tag: 'v0.0.0-test', sha256: 'a'.repeat(64) },
+    updaterDll: write(tempDir('updater'), 'BazaarPlusPlus.Updater.dll', 'u'),
+    nativeLibs: {
+      'libe_sqlite3.so': write(tempDir('native'), 'libe_sqlite3.so', 's')
+    },
+    outDir
+  });
+  // Gradle packages assets/ as is and jniLibs/<abi>/ as lib/<abi>/.
+  const staged = [
+    ...fs.readdirSync(path.join(outDir, 'assets')).map((n) => `assets/${n}`),
+    ...fs
+      .readdirSync(path.join(outDir, 'jniLibs/arm64-v8a'))
+      .map((n) => `lib/arm64-v8a/${n}`)
+  ];
+  const inApk = platformInventory('android')
+    .filter(
+      (entry) =>
+        entry.producer === 'android-app' && /^(lib|assets)\//.test(entry.path)
+    )
+    .map((entry) => entry.path);
+  expect(inApk.length).toBeGreaterThan(0);
+  expect(staged).toEqual(expect.arrayContaining(inApk));
 });

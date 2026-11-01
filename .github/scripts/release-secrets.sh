@@ -76,8 +76,9 @@ write_secret_file() {
 # The names stage writes as files, in the layout load_updater_signing_env and
 # load_macos_developer_id_env in bundle.sh read; APPLE_API_KEY_PATH is inferred
 # from AuthKey_<APPLE_API_KEY>.p8. Android signs the Managed Payload zip with
-# the same updater key and the APK with the Android release keystore, in the
-# layout androidSigningKey in release/android-release.mjs reads.
+# the same updater key, and the Android App APK and interop statement with the
+# Android release keystore, in the layout androidSigningKey in
+# release/android-release.mjs reads.
 staged_names() {
     local platform="$1"
     local names="TAURI_SIGNING_PRIVATE_KEY"

@@ -353,23 +353,28 @@
       "producer": "managed"
     },
     {
+      "path": "MelonLoader/UserData/BazaarPlusPlus.launch.json",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "android-app"
+    },
+    {
       "path": "lib/arm64-v8a/libe_sqlite3.so",
       "host": "melonloader",
       "ownership": "dependency",
-      "producer": "apk-injection"
+      "producer": "android-app"
     },
     {
       "path": "lib/arm64-v8a/libmain.so",
       "host": "melonloader",
       "ownership": "bootstrap",
-      "producer": "apk-injection"
+      "producer": "android-app"
     },
     {
-      "path": "assets/LemonLoader",
+      "path": "assets/lemon-runtime.zip",
       "host": "melonloader",
       "ownership": "bootstrap",
-      "producer": "apk-injection",
-      "kind": "directory"
+      "producer": "android-app"
     },
     {
       "path": "MelonLoader/Latest.log",

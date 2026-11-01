@@ -419,7 +419,7 @@ export async function putImmutable(store, key, bytes, contentType) {
   );
 }
 
-// R2 accepts at most 5 GiB in one PUT; an Android Release APK is about 2.8 GB.
+// R2 accepts at most 5 GiB in one PUT; an official game APK is about 2.8 GB.
 export const R2_SINGLE_PUT_LIMIT = 5 * 1024 ** 3;
 
 // Streams a local file to an immutable key. A large transfer can fail or lose

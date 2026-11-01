@@ -18,16 +18,22 @@ public enum ReleaseManifestFailureKind
 }
 
 /// <summary>
-/// The Android Release APK a Platform Release Manifest names: the game version it was injected
-/// into, as the game reports it in <c>Application.version</c>, where to download it, and the size
-/// and SHA-256 a download is checked against.
+/// What an Android Platform Release Manifest names for the Android App (root ADR 0012): the game
+/// version this release was adapted for, as the game reports it in <c>Application.version</c>,
+/// and the Android App APK to install for it, with the size and SHA-256 a download is checked
+/// against.
 /// </summary>
-public sealed record AndroidApkRelease(string GameVersion, Uri Url, long Size, string Sha256);
+public sealed record AndroidAppRelease(
+    string GameVersion,
+    Uri AppUrl,
+    long AppSize,
+    string AppSha256
+);
 
 /// <summary>
 /// One read of a Release Manifest: the published product version and, from a Platform Release
 /// Manifest's <c>downloads[platform]</c>, that platform's Managed Payload when it is complete and
-/// its Android Release APK when the platform has one.
+/// its Android App release when the platform has one.
 /// </summary>
 public readonly record struct ReleaseManifestFetchResult(
     string? Version,
@@ -39,16 +45,16 @@ public readonly record struct ReleaseManifestFetchResult(
 {
     public bool Succeeded => FailureKind == ReleaseManifestFailureKind.None;
 
-    public AndroidApkRelease? AndroidApk { get; init; }
+    public AndroidAppRelease? AndroidApp { get; init; }
 
     public static ReleaseManifestFetchResult Success(
         string version,
         ManagedPayloadRelease? managedPayload = null,
-        AndroidApkRelease? androidApk = null
+        AndroidAppRelease? androidApp = null
     ) =>
         new(version, managedPayload, ReleaseManifestFailureKind.None, null, null)
         {
-            AndroidApk = androidApk,
+            AndroidApp = androidApp,
         };
 
     public static ReleaseManifestFetchResult Failure(
@@ -114,7 +120,7 @@ public sealed class ReleaseManifestClient
             var result = ReleaseManifestFetchResult.Success(
                 version!.Trim(),
                 ReadManagedPayload(document!, version!.Trim()),
-                ReadAndroidApk(document!)
+                ReadAndroidApp(document!)
             );
             Volatile.Write(
                 ref _remembered,
@@ -185,14 +191,14 @@ public sealed class ReleaseManifestClient
         );
     }
 
-    // An Android record names the game it was injected into (game.gameVersion, the string the
-    // running game reports) and the APK to install for it (apk.url, size, sha256);
-    // release/manifest.mjs owns them. Anything incomplete is no APK.
-    private AndroidApkRelease? ReadAndroidApk(JObject document)
+    // An Android record names the game it was adapted for (game.gameVersion, the string the
+    // running game reports) and the Android App APK (app.url, size, sha256); release/manifest.mjs
+    // owns them. Anything incomplete is no release, and so is the retired A shape (apk, no app).
+    private AndroidAppRelease? ReadAndroidApp(JObject document)
     {
         if (_platformKey == null || document["downloads"]?[_platformKey] is not JObject release)
             return null;
-        if (release["apk"] is not JObject apk || release["game"] is not JObject game)
+        if (release["app"] is not JObject apk || release["game"] is not JObject game)
             return null;
         if (game["gameVersion"]?.Type != JTokenType.String)
             return null;
@@ -208,7 +214,7 @@ public sealed class ReleaseManifestClient
             || !IsSha256(sha256)
         )
             return null;
-        return new AndroidApkRelease(gameVersion, uri, size, sha256);
+        return new AndroidAppRelease(gameVersion, uri, size, sha256);
     }
 
     private static bool IsSha256(string value) =>

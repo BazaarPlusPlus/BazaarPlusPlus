@@ -7,7 +7,7 @@ using BazaarPlusPlus.TestSupport;
 await TestSharedReleaseManifest();
 await TestSharedPlatformReleaseManifests();
 TestEndpointFollowsThePlatform();
-await TestAndroidApkIsReadOnlyWhenComplete();
+await TestAndroidAppIsReadOnlyWhenComplete();
 TestAndroidGameUpdateComparesVersionCodes();
 TestAndroidUpdateIsTheGameForANewerGameOrTheAppForAChangedRuntime();
 await TestIncompleteManagedPayloadIsAbsent();
@@ -114,7 +114,7 @@ static async Task TestSharedPlatformReleaseManifests()
     }
 }
 
-static async Task TestAndroidApkIsReadOnlyWhenComplete()
+static async Task TestAndroidAppIsReadOnlyWhenComplete()
 {
     var body = TestInputs.Scratch(
         Path.Combine(AppContext.BaseDirectory, "fixtures", "latest", "android-aarch64.json")
@@ -128,61 +128,70 @@ static async Task TestAndroidApkIsReadOnlyWhenComplete()
         platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
     );
 
-    True(result.AndroidApk != null, "The Android manifest should yield its Release APK.");
+    True(result.AndroidApp != null, "The Android manifest should yield its Android App release.");
     Equal(
         release.GetProperty("game").GetProperty("gameVersion").GetString(),
-        result.AndroidApk!.GameVersion,
-        "The APK is identified by the game version it was injected into."
+        result.AndroidApp!.GameVersion,
+        "The release is identified by the game version it was adapted for."
     );
     Equal(
-        release.GetProperty("apk").GetProperty("url").GetString(),
-        result.AndroidApk.Url.ToString(),
-        "The APK URL is the writer's."
+        release.GetProperty("app").GetProperty("url").GetString(),
+        result.AndroidApp.AppUrl.ToString(),
+        "The App URL is the writer's."
     );
     Equal(
-        release.GetProperty("apk").GetProperty("size").GetInt64(),
-        result.AndroidApk.Size,
-        "The APK size is the writer's."
+        release.GetProperty("app").GetProperty("size").GetInt64(),
+        result.AndroidApp.AppSize,
+        "The App size is the writer's."
     );
     Equal(
-        release.GetProperty("apk").GetProperty("sha256").GetString(),
-        result.AndroidApk.Sha256,
-        "The APK SHA-256 is the writer's."
+        release.GetProperty("app").GetProperty("sha256").GetString(),
+        result.AndroidApp.AppSha256,
+        "The App SHA-256 is the writer's."
     );
 
     var desktop = await Fetch(
         _ => Response(HttpStatusCode.OK, body),
         platformKey: ReleaseManifestEndpoints.MacPlatformKey
     );
-    True(desktop.AndroidApk == null, "Another platform's record names no APK.");
+    True(desktop.AndroidApp == null, "Another platform's record names no Android App.");
+
+    const string retired = """
+        {"version":"6.0.2","downloads":{"android-aarch64":{"apk":{"url":"https://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"game":{"gameVersion":"1.0.12825-production-android-d9601ded"}}}}
+        """;
+    var aShape = await Fetch(
+        _ => Response(HttpStatusCode.OK, retired),
+        platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
+    );
+    True(aShape.Succeeded, "The version is still published.");
+    True(aShape.AndroidApp == null, "The retired injected-APK shape names no Android App.");
 
     const string withoutGame = """
-        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"https://cdn.example/a.apk"}}}}
+        {"version":"3.4.5","downloads":{"android-aarch64":{"app":{"url":"https://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}}}}
         """;
     var incomplete = await Fetch(
         _ => Response(HttpStatusCode.OK, withoutGame),
         platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
     );
-    True(incomplete.Succeeded, "The version is still published.");
-    True(incomplete.AndroidApk == null, "An APK without its game version is no APK.");
+    True(incomplete.AndroidApp == null, "An App without its game version is no release.");
 
     const string plainHttp = """
-        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"http://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"game":{"gameVersion":"1.0.13000-production-android-0000000a"}}}}
+        {"version":"3.4.5","downloads":{"android-aarch64":{"app":{"url":"http://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"game":{"gameVersion":"1.0.13000-production-android-0000000a"}}}}
         """;
     var insecure = await Fetch(
         _ => Response(HttpStatusCode.OK, plainHttp),
         platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
     );
-    True(insecure.AndroidApk == null, "An APK link that is not HTTPS is never offered.");
+    True(insecure.AndroidApp == null, "An App link that is not HTTPS is never offered.");
 
     const string withoutDigest = """
-        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"https://cdn.example/a.apk","size":1},"game":{"gameVersion":"1.0.13000-production-android-0000000a"}}}}
+        {"version":"3.4.5","downloads":{"android-aarch64":{"app":{"url":"https://cdn.example/a.apk","size":1},"game":{"gameVersion":"1.0.13000-production-android-0000000a"}}}}
         """;
     var unverifiable = await Fetch(
         _ => Response(HttpStatusCode.OK, withoutDigest),
         platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
     );
-    True(unverifiable.AndroidApk == null, "An APK a download cannot check is no APK.");
+    True(unverifiable.AndroidApp == null, "An App a download cannot check is no release.");
 }
 
 static void TestAndroidGameUpdateComparesVersionCodes()
@@ -370,7 +379,7 @@ static async Task TestUnchangedManifestIsAnsweredFromTheLastRead()
     Equal(first.Version, unchanged.Version, "A 304 answers with the remembered version.");
     True(
         unchanged.ManagedPayload == first.ManagedPayload
-            && unchanged.AndroidApk == first.AndroidApk,
+            && unchanged.AndroidApp == first.AndroidApp,
         "A 304 answers with the remembered Managed Payload and APK."
     );
     Equal("9.9.9", changed.Version, "A changed manifest replaces the remembered answer.");

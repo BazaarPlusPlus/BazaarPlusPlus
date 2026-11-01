@@ -3,10 +3,11 @@ name: Delivery / Product release
 # One Product Release build per platform on hosted runners: release::prepare,
 # release::build and release::upload, in one job so build and upload share a
 # host and the Payload lock (docs/release.md, docs/adr/0004-pinned-game-assembly-snapshots.md).
-# Android runs on ubuntu-latest: it injects the official APK from the private
-# store with the pinned LemonLoader Patcher (Linux x64), signs it with the
-# Android release keystore (docs/adr/0009-android-release-key.md) and streams
-# the APK and the Managed Payload zip to R2 (ADR 0010).
+# Android runs on ubuntu-latest: it builds the Android App with Gradle around
+# the staged runtime, signs it and the Interop Package's interop statement with
+# the Android release keystore (docs/adr/0009-android-release-key.md) and
+# streams the App, the Interop Package and the Managed Payload zip to R2
+# (docs/adr/0012-android-app.md).
 # promote is not here: the Mainland Mirror is uploaded to Lanzou by hand and
 # recorded with mirror-all before promote, so promote stays a local command.
 # Signing secrets and variables live in the `release` GitHub Environment; the
@@ -32,7 +33,7 @@ on:
         options: [both, macos, windows, android]
         default: both
       build_only:
-        description: Build signed installers (android; a freshly injected APK) as Actions artifacts without uploading immutable release artifacts to R2
+        description: Build signed installers (android; the Android App, Interop Package and Managed Payload) as Actions artifacts without uploading immutable release artifacts to R2
         type: boolean
         default: false
   push:
@@ -50,8 +51,7 @@ jobs:
     name: Release ${{ matrix.platform }}
     # Icon Composer sources require the Xcode toolchain on the newer macOS image.
     runs-on: ${{ matrix.platform == 'macos' && 'macos-26' || matrix.platform == 'android' && 'ubuntu-latest' || 'windows-latest' }}
-    # The Android job injects and streams a 2.8 GB APK; desktop keeps its limit.
-    timeout-minutes: ${{ matrix.platform == 'android' && 180 || 120 }}
+    timeout-minutes: 120
     environment: release
     strategy:
       fail-fast: false
@@ -123,15 +123,30 @@ jobs:
           rustc --version
           rustup show active-toolchain
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
-      # The Managed Payload zip is signed with the installer's pinned Tauri CLI,
-      # and the input, intermediate and output APKs need about 9 GB at once
-      # (docs/release.md); free the toolchains this job does not use.
+      # The Managed Payload zip is signed with the installer's pinned Tauri CLI.
       - if: matrix.platform == 'android'
-        name: Install the Tauri CLI and free runner disk for the APK
+        name: Install the Tauri CLI
+        run: npm ci --prefix bazaarplusplus-installer
+      # The Android App builds with the JDK and the SDK packages its toolchain
+      # lock pins, as the android job of checks.yml does; apksigner and zipalign
+      # come from the same build-tools.
+      - if: matrix.platform == 'android' && env.STAGE == 'release'
+        id: android-lock
+        name: Read the Android App toolchain lock
+        run: echo "jdk=$(jq -r .jdk.major bazaarplusplus-android/toolchain.lock.json)" >> "$GITHUB_OUTPUT"
+      - if: matrix.platform == 'android' && env.STAGE == 'release'
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: ${{ steps.android-lock.outputs.jdk }}
+      - if: matrix.platform == 'android' && env.STAGE == 'release'
+        name: Install the locked Android SDK packages
         run: |
-          npm ci --prefix bazaarplusplus-installer
-          sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
-          df -h "$GITHUB_WORKSPACE"
+          lock=bazaarplusplus-android/toolchain.lock.json
+          platform="platforms;android-$(jq -r .androidSdk.compileSdk "$lock")"
+          tools="build-tools;$(jq -r .androidSdk.buildTools "$lock")"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$platform" "$tools"
       - run: just release::check
       # The product compiles against this platform's online Snapshot Lock entry;
       # a null entry fails here, naming the snapshot to capture. The operator
@@ -235,18 +250,14 @@ jobs:
       - if: env.STAGE == 'release' && matrix.platform != 'android'
         name: Build and sign the installer
         run: just release::build "$RELEASE_PLATFORM"
-      # Android build reads the private snapshot store (the official APK, Loader
-      # Release and Patcher).
+      # Android build reads the private snapshot store only when the fetched
+      # Interop Snapshot or Loader Release is missing under game-libs/.
       - if: env.STAGE == 'release' && matrix.platform == 'android'
-        name: Build the Managed Payload zip and the Android Release APK
+        name: Build the Managed Payload zip, the Android App and the Interop Package
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          just release::build android
-          # The official APK copy is no longer needed; upload streams the outputs.
-          rm -rf bazaarplusplus-mod/game-libs/inputs
-          df -h "$GITHUB_WORKSPACE"
+        run: just release::build android
       - if: env.STAGE == 'release' && inputs.build_only != true
         name: Upload the immutable platform artifacts
         env:
@@ -268,23 +279,27 @@ jobs:
             bazaarplusplus-installer/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.tar.gz*
           if-no-files-found: error
           retention-days: 14
-      # The build receipt and Managed Payload zip always; the APK only for
-      # build_only, to install on a clean AVD (an uploaded APK is on R2).
+      # The build receipt and the three artifacts (about 80 MB), for build_only
+      # acceptance on a clean AVD and for inspection: the Android App APK, the
+      # Interop Package with its interop statement and signature, and the
+      # Managed Payload zip with its signature. No key material is under
+      # target/android/.
       - if: env.STAGE == 'release' && matrix.platform == 'android'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-release
           path: |
             target/android/android-aarch64.json
+            target/android/*.apk
             target/android/*.zip
-            target/android/*.zip.sig
-            ${{ inputs.build_only == true && 'target/android/*.apk' || '' }}
+            target/android/*.sig
+            target/android/*.statement
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
       - if: always() && matrix.platform == 'android'
         name: Remove the Android intermediates
-        run: rm -rf target/android bazaarplusplus-mod/game-libs/inputs
+        run: rm -rf target/android
       - if: always()
         name: Remove the staged secrets and the temporary keychain
         run: |

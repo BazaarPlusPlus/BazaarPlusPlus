@@ -168,7 +168,7 @@ function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
 }
 
 /**
- * The experimental Android Release APK and the steps to install it. While Android's Platform
+ * The experimental Android App APK and the steps to install it. While Android's Platform
  * Release Manifest is missing or invalid, the card degrades like a desktop card: an unavailable
  * version and a disabled download, with its badge, notice, feedback group and steps kept.
  */
@@ -219,11 +219,11 @@ function AndroidCard({
                   </span>
                 </Fact>
                 <Fact label={androidCopy.sizeLabel}>
-                  <span className="tabular-nums">{formatFileSize(release.apk.size, locale)}</span>
+                  <span className="tabular-nums">{formatFileSize(release.app.size, locale)}</span>
                 </Fact>
                 <Fact label={androidCopy.sha256Label}>
                   <code className="font-(family-name:--font-mono) text-[13px] break-all text-text-2">
-                    {release.apk.sha256}
+                    {release.app.sha256}
                   </code>
                 </Fact>
               </>
@@ -233,7 +233,7 @@ function AndroidCard({
           <div className="mt-auto flex flex-wrap gap-2">
             <Button
               variant="primary"
-              href={release?.apk.url ?? '#'}
+              href={release?.app.url ?? '#'}
               disabled={release == null}
               icon={<DownloadIcon />}
             >
