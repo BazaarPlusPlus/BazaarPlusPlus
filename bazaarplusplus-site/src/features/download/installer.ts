@@ -93,8 +93,9 @@ async function loadPlatformDownload(
 }
 
 /**
- * Android's Platform Release Manifest: the APK to install, the game version it carries, and the
- * Managed Payload of the product version. Android is not part of the lockstep `latest.json`.
+ * Android's Platform Release Manifest: the Android App APK to install (`app.url`), the game the
+ * release is adapted to, and the Managed Payload and Interop Package the App downloads itself.
+ * Android is not part of the lockstep `latest.json`.
  */
 export async function loadAndroidRelease(signal: AbortSignal): Promise<AndroidDownload> {
   const platformKey = DOWNLOAD_PLATFORM_KEYS.android;

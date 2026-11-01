@@ -225,12 +225,11 @@ internal sealed class AndroidVersionCheck : IDisposable
             return;
         }
 
-        // #753 switches these to the manifest's game and app; the decoder still reads the apk shape.
-        var published = check.Result.AndroidApk;
+        var published = check.Result.AndroidApp;
         var update = AndroidGameUpdate.Needed(
             _gameVersion,
             published?.GameVersion,
-            published == null ? null : new AndroidAppDownload(published.Url, published.Size),
+            published == null ? null : new AndroidAppDownload(published.AppUrl, published.AppSize),
             check.Evaluation.Decision == SelfUpdateDecision.ManualUpdate
         );
         lock (_gate)

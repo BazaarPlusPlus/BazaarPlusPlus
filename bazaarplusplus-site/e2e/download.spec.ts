@@ -11,7 +11,7 @@ import {
 import { settle } from './page';
 
 type Manifest = { downloads: Record<string, { mainlandUrl?: string }> };
-type AndroidManifest = { downloads: Record<string, { apk: { url: string; size: number } }> };
+type AndroidManifest = { downloads: Record<string, { app: { url: string; size: number } }> };
 
 function androidFixture(): AndroidManifest {
   return readJson('../release/fixtures/latest/android-aarch64.json') as AndroidManifest;
@@ -23,9 +23,9 @@ function windowsWithoutMirror(): Manifest {
   return manifest;
 }
 
-function androidWithApk(apk: Partial<AndroidManifest['downloads'][string]['apk']>) {
+function androidWithApp(app: Partial<AndroidManifest['downloads'][string]['app']>) {
   const manifest = androidFixture();
-  Object.assign(manifest.downloads['android-aarch64'].apk, apk);
+  Object.assign(manifest.downloads['android-aarch64'].app, app);
   return manifest;
 }
 
@@ -36,10 +36,10 @@ const STATES: Record<string, () => Partial<GoldenSources>> = {
   'both manifests fail': () => ({ windows: { status: 503 }, mac: { status: 503 } }),
   'android manifest responds 404': () => ({ android: { status: 404 } }),
   'android apk is outside the release origin': () => ({
-    android: { json: androidWithApk({ url: 'https://untrusted.example/a.apk' }) },
+    android: { json: androidWithApp({ url: 'https://untrusted.example/a.apk' }) },
   }),
   'android apk has a real size': () => ({
-    android: { json: androidWithApk({ size: 2_834_563_072 }) },
+    android: { json: androidWithApp({ size: 2_834_563_072 }) },
   }),
 };
 

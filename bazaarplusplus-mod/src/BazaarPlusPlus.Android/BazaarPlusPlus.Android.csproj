@@ -27,7 +27,7 @@
   <!--
     The Android Mod Payload (release/payload.json, host melonloader): Payload.targets collects the
     MelonLoader entries; the Android `release.mjs prepare` stages them through
-    CopyToPayloadStaging below, which `release/android-release.mjs` then zips and bakes into the APK.
+    CopyToPayloadStaging below, which `release/android-release.mjs` then zips as the Managed Payload.
   -->
   <PropertyGroup>
     <BppPayloadHost>melonloader</BppPayloadHost>

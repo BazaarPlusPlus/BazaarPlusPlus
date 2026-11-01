@@ -11,8 +11,9 @@ import { platformInventory } from './payload-inventory.mjs';
 // `UPDATER_ENDPOINTS` in downloads.ts) that shipped installers, the site and
 // the mod request. NEVER rename a key; only append. `kind` says how the
 // platform ships: `tauri` platforms ship a Tauri installer and updater package
-// and carry the Tauri fields below; the `android` platform ships an injected
-// APK and a Managed Payload zip and has none of them (ADR 0010).
+// and carry the Tauri fields below; the `android` platform ships the Android
+// App, an Interop Package and a Managed Payload zip and has none of them
+// (ADR 0012).
 // `payloadHost` names the mod loader whose Payload Inventory entries the
 // platform installs. `rustTarget` is scalar-or-null by design. A future
 // platform requiring multiple Rust triples needs a schema migration, not a
@@ -68,7 +69,7 @@ export const RELEASE_PLATFORM_KEYS = Object.freeze(
 // The platforms the Release Manifest (`latest.json`) waits for: it advances
 // only when every one of them names the same release. Android ships on the
 // game's APK cadence and stays outside, so it never holds back a desktop
-// release (ADR 0010).
+// release (ADR 0012).
 export const LOCKSTEP_PLATFORM_KEYS = Object.freeze([
   DOWNLOAD_PLATFORM_KEYS.windows,
   DOWNLOAD_PLATFORM_KEYS.mac

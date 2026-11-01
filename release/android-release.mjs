@@ -26,7 +26,6 @@ import {
 import {
   INTEROP_KEY,
   fetchInteropSnapshot,
-  fetchLockedAndroidInput,
   gameLibsStoreFromEnvironment,
   interopDirectoryDigest,
   interopDirectoryRecords,
@@ -34,21 +33,40 @@ import {
   lockedInteropEntry
 } from './game-libs.mjs';
 import { sha256File } from './android-apk.mjs';
+import {
+  RUNTIME_FACTS,
+  buildInteropPackage,
+  stageAndroidAppRuntime
+} from './android-app.mjs';
+import {
+  certificateSha256,
+  exportReleaseKey,
+  interopStatement,
+  releasePurpose,
+  signInteropStatement,
+  verifyInteropStatement
+} from './android-interop.mjs';
 import { releaseSourceIdentity } from './artifact-manifest.mjs';
 import {
-  androidApkKey,
+  ANDROID_RELEASE_SIGNER_SHA256,
+  androidAppKey,
+  androidAppVersionCode,
   androidNonManagedPayloadDigest,
+  interopPackageKey,
   managedPayloadKey
 } from './manifest.mjs';
 import { releasePlatform } from './release-platforms.mjs';
 
-// The Android release (ADR 0010, docs/release.md "Android 发布"): prepare
-// compiles the Android host against the locked Interop Snapshot and stages the
-// Android Mod Payload; build zips and signs that Payload as the Managed Payload
-// zip, injects the official APK with it and signs that with the BPP Android
-// release key (ADR 0009); upload (publish.mjs) streams both to R2.
-// Every output lives under target/android/ at the workspace root, outside the
-// release inputs, and is replaced as a whole by the next run.
+// The Android release (docs/adr/0012-android-app.md, docs/release.md
+// "Android 发布"): prepare compiles the Android host against the locked
+// Interop Snapshot and stages the Android Mod Payload; build zips and signs
+// that Payload as the Managed Payload zip, stages the Android App Runtime,
+// builds the Android App with Gradle and signs it with the BPP Android release
+// key (ADR 0009), and packs the Interop Package and signs its interop
+// statement with the same key; upload (publish.mjs) streams the three
+// artifacts to R2. Every output lives under target/android/ at the workspace
+// root, outside the release inputs, and is replaced as a whole by the next
+// run; key material only ever sits in a temporary directory outside it.
 
 const PLATFORM = 'android';
 const sha256 = (bytes) =>
@@ -56,14 +74,16 @@ const sha256 = (bytes) =>
 const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 
-const ANDROID_BUILD_RECORD_SCHEMA_VERSION = 1;
-const ANDROID_ARTIFACT_SCHEMA_VERSION = 1;
+const ANDROID_BUILD_RECORD_SCHEMA_VERSION = 2;
+const ANDROID_ARTIFACT_SCHEMA_VERSION = 2;
 // The Android host project, relative to bazaarplusplus-mod/.
 const ANDROID_HOST_PROJECT =
   'src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj';
+// The Android App project, relative to the workspace root.
+const ANDROID_APP_ROOT = 'bazaarplusplus-android';
 // Inventory producers the mod build stages: the Managed Payload, the Updater
 // plugin, and the Managed Payload Manifest prepare writes beside them;
-// everything else on Android is produced by the APK injection or at runtime.
+// everything else on Android is the Android App's or written at runtime.
 const MOD_PRODUCERS = new Set([
   ...MANAGED_PRODUCERS,
   'updater',
@@ -71,17 +91,11 @@ const MOD_PRODUCERS = new Set([
 ]);
 // What MSBuild produces; prepare writes the manifest after it.
 const BUILD_PRODUCERS = new Set([...MANAGED_PRODUCERS, 'updater']);
-// The Patcher's `inject --deployment` takes a MelonLoader mirror; the Payload
-// stages it under this root.
-const DEPLOYMENT_ROOT = 'MelonLoader';
-// Where the Patcher bakes the deployment inside the APK
-// (LemonLoader.Patcher AndroidPayloadContract.DeploymentRoot).
-const APK_DEPLOYMENT_ROOT = 'assets/LemonLoader/deployment';
-const APK_LOADER_ENTRY = 'lib/arm64-v8a/libmain.so';
-const APK_NATIVE_ROOT = 'lib/arm64-v8a';
-// Stored native libraries must sit on 16 KiB page boundaries (zipalign -P).
+// The staged Payload mirrors the App's external files directory.
+const MOD_ROOT = 'MelonLoader';
+// zipalign -P (page-aligned stored native libraries) needs build-tools 35 or
+// newer.
 const PAGE_ALIGNMENT_KIB = '16';
-// zipalign -P needs build-tools 35 or newer.
 const MIN_BUILD_TOOLS_MAJOR = 35;
 
 export function androidPaths(workspaceRoot) {
@@ -92,30 +106,31 @@ export function androidPaths(workspaceRoot) {
     payload: path.join(root, 'payload'),
     buildRecord: path.join(root, 'payload-build.json'),
     artifactManifest: path.join(root, `${key}.json`),
+    runtime: path.join(root, 'runtime'),
     work: path.join(root, 'work')
   };
 }
 
 // The non-managed payload digest of a Snapshot Lock android-online entry and
-// the Updater plugin the APK carries (ADR 0010): the Updater ships only inside
-// the APK, so a changed Updater needs the new APK.
+// the Updater plugin the Android App carries (ADR 0012): the Updater ships
+// only inside the App, so a changed Updater needs the new App.
 export const androidEntryNonManagedPayloadDigest = (entry, updaterSha256) =>
   androidNonManagedPayloadDigest({
     loader: entry.loader,
-    interopSha256: entry.interopSha256,
     nativeLibs: entry.nativeLibs ?? {},
     updaterSha256
   });
 
-// The SHA-256 of the Updater plugin in a staged Android Payload.
-export function stagedUpdaterSha256(payloadRoot) {
+function stagedUpdater(payloadRoot) {
   const entry = platformInventory(PLATFORM).find(
     (candidate) => candidate.producer === 'updater'
   );
-  return crypto
-    .createHash('sha256')
-    .update(fs.readFileSync(path.join(payloadRoot, ...entry.path.split('/'))))
-    .digest('hex');
+  return path.join(payloadRoot, ...entry.path.split('/'));
+}
+
+// The SHA-256 of the Updater plugin in a staged Android Payload.
+export function stagedUpdaterSha256(payloadRoot) {
+  return sha256(fs.readFileSync(stagedUpdater(payloadRoot)));
 }
 
 function lockEntryRecord(entry) {
@@ -123,7 +138,8 @@ function lockEntryRecord(entry) {
     key: INTEROP_KEY,
     gameVersion: entry.gameVersion,
     versionCode: entry.versionCode,
-    apkSha256: entry.apkSha256,
+    il2cppSha256: entry.il2cppSha256,
+    metadataSha256: entry.metadataSha256,
     interopSha256: entry.interopSha256,
     loader: { tag: entry.loader.tag, sha256: entry.loader.sha256 },
     nativeLibs: entry.nativeLibs ?? {}
@@ -217,7 +233,7 @@ function validateAndroidPayload(
     );
   const versionFile = path.join(
     payloadRoot,
-    DEPLOYMENT_ROOT,
+    MOD_ROOT,
     'Mods',
     'BazaarPlusPlus.version'
   );
@@ -300,6 +316,7 @@ async function prepareUnlocked({
       productVersion,
       platform: PLATFORM,
       interopPath,
+      loaderPath,
       lockEntry: lockEntryRecord(entry),
       inputDigest: inputs.digest,
       inputs: inputs.files,
@@ -411,7 +428,7 @@ export function androidSigningKey(env = process.env) {
     : Object.values(files);
   if (missing.length)
     throw new Error(
-      `Signing the Android Release APK needs ${missing.join(', ')} in BPP_SIGNING_SECRETS_DIR: keys/android-release.p12 and config.ini [signing] ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS locally, the ANDROID_KEYSTORE* secrets in release.yml (docs/release.md)`
+      `Signing the Android App needs ${missing.join(', ')} in BPP_SIGNING_SECRETS_DIR: keys/android-release.p12 and config.ini [signing] ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS locally, the ANDROID_KEYSTORE* secrets in release.yml (docs/release.md)`
     );
   return {
     keystore: path.join(directory, files.keystore),
@@ -422,9 +439,27 @@ export function androidSigningKey(env = process.env) {
   };
 }
 
-// zipalign and apksigner: on PATH, else the newest build-tools of the Android
-// SDK that supports page alignment.
-export function resolveBuildTools(env = process.env) {
+// The build-tools version the Android App's toolchain lock pins.
+function lockedBuildToolsVersion(workspaceRoot) {
+  try {
+    return readJson(
+      path.join(workspaceRoot, ANDROID_APP_ROOT, 'toolchain.lock.json')
+    ).androidSdk.buildTools;
+  } catch {
+    return null;
+  }
+}
+
+// zipalign and apksigner: on PATH, else the Android SDK's build-tools the
+// App's toolchain lock pins, else its newest build-tools that page-aligns.
+export function resolveBuildTools(
+  env = process.env,
+  {
+    lockedVersion = lockedBuildToolsVersion(
+      path.resolve(import.meta.dirname, '..')
+    )
+  } = {}
+) {
   const onPath = (name) => {
     for (const directory of (env.PATH ?? '').split(path.delimiter)) {
       const candidate = path.join(directory, name);
@@ -443,6 +478,7 @@ export function resolveBuildTools(env = process.env) {
       )
       .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
       .reverse();
+    if (versions.includes(lockedVersion)) versions.unshift(lockedVersion);
     for (const version of versions) {
       const candidate = path.join(root, version, name);
       if (fs.existsSync(candidate)) return candidate;
@@ -510,108 +546,56 @@ export async function resolveNativeLib({
   return target;
 }
 
-// The pinned injection inputs of the lock entry as verified local files.
-async function resolveInjectionInputs({
-  workspaceRoot,
-  entry,
-  into,
-  gameLibsStore,
-  log
-}) {
-  const input = (kind) =>
-    fetchLockedAndroidInput({
-      workspaceRoot,
-      kind,
-      storeFactory: gameLibsStore,
-      log
-    });
+// Every native library of the lock entry as a verified file in `into`.
+async function resolveLockedNativeLibs({ entry, into }) {
   const nativeLibs = {};
   for (const [name, pin] of Object.entries(entry.nativeLibs ?? {}))
     nativeLibs[name] = await resolveNativeLib({ name, pin, into });
-  return {
-    officialApk: await input('apk'),
-    loaderZip: await input('loader'),
-    patcherArchive: await input('patcher'),
-    nativeLibs
-  };
+  return nativeLibs;
 }
 
-function apkEntries(apk) {
-  return new Set(
-    run('unzip', ['-Z1', apk], { quiet: true }).split('\n').filter(Boolean)
-  );
-}
-
-// Injects the official APK with the Patcher's `inject` (Loader Release,
-// interop, and the staged Payload as deployment), adds the locked native
-// libraries under lib/arm64-v8a/ (the Patcher packs only libmain.so there),
-// then page-aligns with zipalign and signs with apksigner. Each intermediate
-// APK is removed as soon as the next exists: one APK is about 2.8 GB.
-export function injectAndroidApk({
-  officialApk,
-  loaderZip,
-  patcherArchive,
-  interopPath,
-  deployment,
-  nativeLibs,
-  signing,
-  tools,
-  output,
-  work,
-  hostPlatform = process.platform,
-  hostArch = process.arch
+// The Android App's release build: Gradle's unsigned release APK of
+// bazaarplusplus-android/ with the product version, its versionCode and the
+// staged runtime (app/build.gradle.kts reads the three properties).
+export function assembleWithGradle({
+  workspaceRoot,
+  version,
+  versionCode,
+  runtimeDir
 }) {
-  if (hostPlatform !== 'linux' || hostArch !== 'x64')
-    throw new Error(
-      `APK injection runs the LemonLoader Patcher's Linux x64 CLI, and this is ${hostPlatform}-${hostArch}; build Android on Linux x64 (release.yml runs it on ubuntu-latest)`
-    );
-  fs.rmSync(work, { recursive: true, force: true });
-  fs.mkdirSync(work, { recursive: true });
-  const patcher = path.join(work, 'patcher');
-  fs.mkdirSync(patcher);
-  run('tar', ['-xzf', path.resolve(patcherArchive), '-C', patcher]);
-  const injected = path.join(work, 'injected.apk');
-  run(
-    path.join(patcher, 'LemonLoader.Patcher.CLI'),
+  const appRoot = path.join(workspaceRoot, ANDROID_APP_ROOT);
+  // AGP names an unsigned release app-release-unsigned.apk; the build takes
+  // whichever one APK the output directory holds.
+  const outputs = path.join(appRoot, 'app/build/outputs/apk/release');
+  fs.rmSync(outputs, { recursive: true, force: true });
+  execFileSync(
+    path.join(appRoot, 'gradlew'),
     [
-      'inject',
-      officialApk,
-      '--output',
-      injected,
-      '--interop',
-      interopPath,
-      '--release',
-      loaderZip,
-      '--deployment',
-      deployment
+      '--no-daemon',
+      ':app:assembleRelease',
+      `-Pbpp.version=${version}`,
+      `-Pbpp.versionCode=${versionCode}`,
+      `-Pbpp.runtimeDir=${runtimeDir}`
     ],
-    { env: { ...process.env, TMPDIR: work } }
+    { cwd: appRoot, stdio: 'inherit' }
   );
-  fs.rmSync(patcher, { recursive: true, force: true });
-  const nativeRoot = path.join(work, 'native');
-  const names = Object.keys(nativeLibs).sort();
-  if (names.length) {
-    fs.mkdirSync(path.join(nativeRoot, APK_NATIVE_ROOT), { recursive: true });
-    for (const name of names)
-      fs.copyFileSync(
-        nativeLibs[name],
-        path.join(nativeRoot, APK_NATIVE_ROOT, name)
-      );
-    // Stored, not deflated: the platform maps native libraries in place.
-    run(
-      'zip',
-      [
-        '-0',
-        '-X',
-        injected,
-        ...names.map((name) => `${APK_NATIVE_ROOT}/${name}`)
-      ],
-      { cwd: nativeRoot, quiet: true }
+  const apks = fs.existsSync(outputs)
+    ? fs.readdirSync(outputs).filter((name) => name.endsWith('.apk'))
+    : [];
+  if (apks.length !== 1)
+    throw new Error(
+      `Gradle's assembleRelease wrote ${apks.length} APKs to ${outputs}, not one: ${apks.join(', ')}`
     );
-  }
+  return path.join(outputs, apks[0]);
+}
+
+// Page-aligns the unsigned App with zipalign and signs it with apksigner and
+// the Android release key; the keystore password reaches apksigner only
+// through its file. Returns the signer certificate digest apksigner reports.
+export function signAndroidApp({ unsigned, signing, tools, output, work }) {
+  fs.mkdirSync(work, { recursive: true });
   const aligned = path.join(work, 'aligned.apk');
-  run(tools.zipalign, ['-P', PAGE_ALIGNMENT_KIB, '-f', '4', injected, aligned]);
-  fs.rmSync(injected);
+  run(tools.zipalign, ['-P', PAGE_ALIGNMENT_KIB, '-f', '4', unsigned, aligned]);
   run(tools.zipalign, ['-c', '-P', PAGE_ALIGNMENT_KIB, '4', aligned]);
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.rmSync(output, { force: true });
@@ -638,22 +622,7 @@ export function injectAndroidApk({
     '--print-certs',
     output
   ]);
-  const signerSha256 = signerCertificateSha256(certificates, output);
-  const entries = apkEntries(output);
-  const expected = [
-    APK_LOADER_ENTRY,
-    ...names.map((name) => `${APK_NATIVE_ROOT}/${name}`),
-    ...listPayloadFiles(deployment).map(
-      ({ path: name }) => `${APK_DEPLOYMENT_ROOT}/${name}`
-    )
-  ];
-  const missing = expected.filter((name) => !entries.has(name));
-  if (missing.length)
-    throw new Error(
-      `The injected APK lacks ${missing.join(', ')}; the Patcher or the native library step did not produce them`
-    );
-  fs.rmSync(work, { recursive: true, force: true });
-  return { signerSha256 };
+  return signerCertificateSha256(certificates, output);
 }
 
 // The one signer certificate digest `apksigner verify --print-certs` reports.
@@ -680,17 +649,113 @@ export function signerCertificateSha256(output, apk) {
   return [...digests][0];
 }
 
+function apkEntries(apk) {
+  return new Set(
+    run('unzip', ['-Z1', apk], { quiet: true }).split('\n').filter(Boolean)
+  );
+}
+
+// The signed App carries the runtime this release names: the Payload
+// Inventory's android-app entries inside the APK, and the runtime facts the
+// staging wrote, read back out of the APK, so the fragment and the App can
+// never compute their digests apart.
+function assertAppRuntime(apk, facts) {
+  const entries = apkEntries(apk);
+  const missing = platformInventory(PLATFORM)
+    .filter(
+      (entry) =>
+        entry.producer === 'android-app' && /^(lib|assets)\//.test(entry.path)
+    )
+    .map((entry) => entry.path)
+    .filter((name) => !entries.has(name));
+  if (missing.length)
+    throw new Error(
+      `The Android App lacks ${missing.join(', ')} that release/payload.json gives it`
+    );
+  const packaged = JSON.parse(
+    run('unzip', ['-p', apk, `assets/${RUNTIME_FACTS}`], { quiet: true })
+  );
+  for (const field of [
+    'nonManagedPayloadDigest',
+    'updaterSha256',
+    'runtimeZipSha256'
+  ])
+    if (packaged[field] !== facts[field])
+      throw new Error(
+        `The Android App's assets/${RUNTIME_FACTS} names ${field} ${packaged[field]}, not the staged ${facts[field]}`
+      );
+}
+
+// The Interop Package of the locked snapshot and its signed `release
+// <version>` statement, written beside the APK as <zip sha256>.zip,
+// .statement and .statement.sig. The signing certificate must be the
+// release certificate the App was signed with.
+function packInterop({
+  root,
+  interopPath,
+  entry,
+  version,
+  signing,
+  releaseKey,
+  signerSha256
+}) {
+  const zip = buildInteropPackage(interopPath);
+  const zipSha256 = sha256(zip);
+  const zipPath = path.join(root, `${zipSha256}.zip`);
+  fs.writeFileSync(zipPath, zip);
+  const statement = interopStatement({
+    zipSha256,
+    il2cppSha256: entry.il2cppSha256,
+    metadataSha256: entry.metadataSha256,
+    purpose: releasePurpose(version)
+  });
+  const statementPath = path.join(root, `${zipSha256}.statement`);
+  fs.writeFileSync(statementPath, statement);
+  const keyDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'bpp-android-key-')
+  );
+  let signature;
+  try {
+    const { keyFile, certificateFile } = releaseKey({
+      signing,
+      into: path.join(keyDirectory, 'key')
+    });
+    const certificate = fs.readFileSync(certificateFile);
+    if (certificateSha256(certificate) !== signerSha256)
+      throw new Error(
+        `The keystore's certificate ${certificateSha256(certificate)} is not the ${signerSha256} that signed the Android App`
+      );
+    signature = signInteropStatement({ statement, keyFile });
+    if (!verifyInteropStatement({ statement, signature, certificate }))
+      throw new Error('The interop statement signature does not verify');
+  } finally {
+    fs.rmSync(keyDirectory, { recursive: true, force: true });
+  }
+  fs.writeFileSync(`${statementPath}.sig`, `${signature}\n`);
+  return {
+    key: interopPackageKey(zipSha256),
+    path: path.relative(root, zipPath),
+    size: zip.length,
+    sha256: zipSha256,
+    snapshotSha256: entry.interopSha256,
+    signature,
+    statementPath: path.relative(root, statementPath)
+  };
+}
+
 async function buildUnlocked({
   workspaceRoot,
   msbuildArgs = [],
   resolveSnapshot,
   produce,
   gameLibsStore = gameLibsStoreFromEnvironment,
-  resolveInputs = resolveInjectionInputs,
-  inject = injectAndroidApk,
+  resolveNativeLibs = resolveLockedNativeLibs,
+  assemble = assembleWithGradle,
   sign = signWithUpdaterKey,
   signingKey = androidSigningKey,
   buildTools = resolveBuildTools,
+  releaseKey = exportReleaseKey,
+  releaseSignerSha256 = ANDROID_RELEASE_SIGNER_SHA256,
   captureIdentity = releaseSourceIdentity,
   log = () => {}
 }) {
@@ -715,13 +780,15 @@ async function buildUnlocked({
   const entry = lockedInteropEntry(workspaceRoot);
   const key = releasePlatform(PLATFORM).key;
 
+  for (const stale of fs.readdirSync(paths.root))
+    if (/\.(?:apk|zip|sig|statement)$/.test(stale))
+      fs.rmSync(path.join(paths.root, stale), { force: true });
+  fs.rmSync(paths.work, { recursive: true, force: true });
+
   const zipPath = path.join(
     paths.root,
     path.posix.basename(managedPayloadKey(version, key))
   );
-  for (const stale of fs.readdirSync(paths.root))
-    if (/\.(?:apk|zip|sig)$/.test(stale))
-      fs.rmSync(path.join(paths.root, stale), { force: true });
   const zip = writeManagedPayloadZip({
     sourceDir: paths.payload,
     platform: PLATFORM,
@@ -735,39 +802,51 @@ async function buildUnlocked({
     entry,
     stagedUpdaterSha256(paths.payload)
   );
-  const apkKey = androidApkKey({ version, gameVersion: entry.gameVersion });
-  const apkPath = path.join(paths.root, path.posix.basename(apkKey));
-  const signing = signingKey();
-  const tools = buildTools();
-  const inputs = await resolveInputs({
-    workspaceRoot,
-    entry,
-    into: path.join(paths.root, 'native'),
-    gameLibsStore,
-    log
+  const nativeDir = path.join(paths.work, 'native');
+  const facts = stageAndroidAppRuntime({
+    loaderPath: record.loaderPath,
+    loader: entry.loader,
+    updaterDll: stagedUpdater(paths.payload),
+    nativeLibs: await resolveNativeLibs({ entry, into: nativeDir }),
+    nonManagedPayloadDigest,
+    outDir: paths.runtime
   });
-  log(`Injecting ${entry.gameVersion} with ${entry.loader.tag}`);
-  const { signerSha256 } = inject({
-    ...inputs,
-    interopPath: record.interopPath,
-    deployment: path.join(paths.payload, DEPLOYMENT_ROOT),
+  const versionCode = androidAppVersionCode(version);
+  log(`Building the Android App ${version} (versionCode ${versionCode})`);
+  const unsigned = assemble({
+    workspaceRoot,
+    version,
+    versionCode,
+    runtimeDir: paths.runtime
+  });
+  const appKey = androidAppKey(version);
+  const appPath = path.join(paths.root, path.posix.basename(appKey));
+  const signing = signingKey();
+  const signerSha256 = signAndroidApp({
+    unsigned,
     signing,
-    tools,
-    output: apkPath,
+    tools: buildTools(),
+    output: appPath,
     work: paths.work
   });
-  fs.rmSync(path.join(paths.root, 'native'), {
-    recursive: true,
-    force: true
+  if (signerSha256 !== releaseSignerSha256)
+    throw new Error(
+      `The Android App is signed by ${signerSha256}, not the release key ${releaseSignerSha256} (docs/adr/0009-android-release-key.md); check the staged keystore`
+    );
+  assertAppRuntime(appPath, facts);
+  log(`Signed ${path.basename(appPath)}`);
+  const interop = packInterop({
+    root: paths.root,
+    interopPath: record.interopPath,
+    entry,
+    version,
+    signing,
+    releaseKey,
+    signerSha256
   });
-  const apk = {
-    path: path.relative(paths.root, apkPath),
-    size: fs.statSync(apkPath).size,
-    sha256: await sha256File(apkPath),
-    versionCode: entry.versionCode,
-    signerSha256,
-    builtForProductVersion: version
-  };
+  log(`Signed the interop statement of ${interop.key}`);
+  fs.rmSync(paths.work, { recursive: true, force: true });
+
   verifyAndroidPayload(workspaceRoot);
   if (JSON.stringify(captureIdentity(rootDir)) !== JSON.stringify(identity))
     throw new Error(
@@ -779,7 +858,7 @@ async function buildUnlocked({
   );
   if (managed.nonManagedPayloadDigest !== nonManagedPayloadDigest)
     throw new Error(
-      'The Managed Payload Manifest names another non-managed payload than the APK; run node release.mjs prepare --platform android'
+      'The Managed Payload Manifest names another non-managed payload than the Android App; run node release.mjs prepare --platform android'
     );
   const manifest = {
     schemaVersion: ANDROID_ARTIFACT_SCHEMA_VERSION,
@@ -788,22 +867,30 @@ async function buildUnlocked({
     appVersion: version,
     gitCommit: identity.commit,
     dirty: identity.dirty,
+    app: {
+      key: appKey,
+      path: path.relative(paths.root, appPath),
+      size: fs.statSync(appPath).size,
+      sha256: await sha256File(appPath),
+      versionCode,
+      signerSha256
+    },
+    interop,
     managedPayload: {
       path: path.relative(paths.root, zipPath),
       size: fs.statSync(zipPath).size,
       sha256: zip.sha256,
       signature
     },
-    apk: { key: apkKey, ...apk },
-    historyDatabaseUserVersion: managed.historyDatabaseUserVersion,
-    nonManagedPayloadDigest,
     game: {
       gameVersion: entry.gameVersion,
       versionCode: entry.versionCode,
-      officialApkSha256: entry.apkSha256
+      il2cppSha256: entry.il2cppSha256,
+      metadataSha256: entry.metadataSha256
     },
     loader: { tag: entry.loader.tag, sha256: entry.loader.sha256 },
-    interopSha256: entry.interopSha256,
+    historyDatabaseUserVersion: managed.historyDatabaseUserVersion,
+    nonManagedPayloadDigest,
     lockEntry: record.lockEntry
   };
   fs.writeFileSync(paths.artifactManifest, jsonBytes(manifest));
@@ -838,19 +925,16 @@ export async function readAndroidArtifacts(workspaceRoot) {
     throw new Error(
       'The Android build came from a dirty checkout; commit, then build again'
     );
-  const file = (relative, record, what) => {
-    const absolute = path.join(paths.root, relative);
+  const file = (record, what) => {
+    const absolute = path.join(paths.root, record.path);
     if (!fs.existsSync(absolute) || fs.statSync(absolute).size !== record.size)
       throw new Error(`${what} changed or is missing: ${absolute}`);
     return absolute;
   };
   const files = {
-    managedPayload: file(
-      manifest.managedPayload.path,
-      manifest.managedPayload,
-      'Managed Payload zip'
-    ),
-    apk: file(manifest.apk.path, manifest.apk, 'Android Release APK')
+    app: file(manifest.app, 'Android App APK'),
+    interop: file(manifest.interop, 'Interop Package'),
+    managedPayload: file(manifest.managedPayload, 'Managed Payload zip')
   };
   for (const [name, absolute] of Object.entries(files))
     if ((await sha256File(absolute)) !== manifest[name].sha256)

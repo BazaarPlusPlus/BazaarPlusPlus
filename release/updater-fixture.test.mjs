@@ -16,7 +16,11 @@ import {
   modManifestPath,
   platformManifestPath
 } from './downloads.ts';
-import { validatePlatformManifest } from './manifest.mjs';
+import {
+  ANDROID_RELEASE_SIGNER_SHA256,
+  androidAppVersionCode,
+  validatePlatformManifest
+} from './manifest.mjs';
 
 const fixture = JSON.parse(
   fs.readFileSync(new URL('./fixtures/latest.json', import.meta.url), 'utf8')
@@ -134,16 +138,25 @@ test('the shared Android fixture is a Platform Release Manifest outside latest.j
     androidFixture.pub_date
   );
   const download = decodeAndroidDownload(androidFixture);
+  const release = androidFixture.downloads[ANDROID];
   expect(download).toEqual({
     version: androidFixture.version,
-    apk: androidFixture.downloads[ANDROID].apk,
-    managedPayload: androidFixture.downloads[ANDROID].managedPayload,
-    game: androidFixture.downloads[ANDROID].game,
+    app: release.app,
+    managedPayload: release.managedPayload,
+    interop: release.interop,
+    game: release.game,
     mainlandUrl: null
   });
-  // The APK is named by its product version and game build.
-  expect(download.apk.url.startsWith(`${RELEASE_BASE_URL}/`)).toBe(true);
-  expect(download.apk.url.slice(RELEASE_BASE_URL.length)).toBe(
-    `/android/apk/BazaarPlusPlus_${androidFixture.version}_1.0.12825.apk`
+  // The App sits in its version's directory, the Interop Package at its
+  // content address, and the App is signed by the pinned release key.
+  expect(download.app.url).toBe(
+    `${RELEASE_BASE_URL}/${androidFixture.version}/${ANDROID}/app/BazaarPlusPlus_${androidFixture.version}_${ANDROID}.apk`
   );
+  expect(download.interop.url).toBe(
+    `${RELEASE_BASE_URL}/android/interop/${download.interop.sha256}.zip`
+  );
+  expect(download.app.versionCode).toBe(
+    androidAppVersionCode(androidFixture.version)
+  );
+  expect(download.app.signerSha256).toBe(ANDROID_RELEASE_SIGNER_SHA256);
 });

@@ -16,15 +16,17 @@ const producers = new Set([
   'bootstrap',
   'runtime',
   'retired',
-  'apk-injection'
+  'android-app'
 ]);
 const ownerships = new Set(['private', 'dependency', 'bootstrap']);
 
 // Each mod loader host has its own install roots. A BepInEx path is relative
 // to the game directory. A MelonLoader path is relative to the Android app's
 // external files directory (`Android/data/<package>/files/`), except the
-// `apk-injection` entries, which are paths inside the Android Release APK:
-// the APK injection step produces them, never the mod build (ADR 0010).
+// `android-app` entries under `lib/` and `assets/`, which are paths inside the
+// Android App APK. The Android App produces every `android-app` entry, those
+// and the Launch Record it writes before each launch, never the mod build
+// (ADR 0012).
 const hostRoots = {
   bepinex: (() => {
     const rootFiles = new Set([
@@ -43,7 +45,7 @@ const hostRoots = {
     return {
       rootFiles,
       allowedOwnership(entry) {
-        if (entry.producer === 'apk-injection') return false;
+        if (entry.producer === 'android-app') return false;
         if (entry.ownership === 'bootstrap')
           return bootstrapPaths.has(entry.path);
         if (/^BepInEx\/plugins\/[^/]+$/.test(entry.path)) return true;
@@ -65,13 +67,16 @@ const hostRoots = {
     const bootstrapPaths = new Set([
       'MelonLoader/Latest.log',
       'lib/arm64-v8a/libmain.so',
-      'assets/LemonLoader'
+      'assets/lemon-runtime.zip'
     ]);
+    const launchRecord = 'MelonLoader/UserData/BazaarPlusPlus.launch.json';
     return {
       rootFiles: new Set(),
       allowedOwnership(entry) {
-        const insideApk = /^(lib|assets)\//.test(entry.path);
-        if (insideApk !== (entry.producer === 'apk-injection')) return false;
+        const appProduced = entry.producer === 'android-app';
+        if (entry.path === launchRecord)
+          return appProduced && entry.ownership === 'private';
+        if (/^(lib|assets)\//.test(entry.path) !== appProduced) return false;
         if (entry.ownership === 'bootstrap')
           return bootstrapPaths.has(entry.path);
         if (/^MelonLoader\/(Mods|UserLibs)\/[^/]+$/.test(entry.path))

@@ -9,6 +9,7 @@ import {
   releasePlatformByKey
 } from './release-platforms.mjs';
 import {
+  DOWNLOAD_PLATFORM_KEYS,
   RELEASE_BASE_URL,
   RELEASE_MANIFEST_PATH,
   modManifestPath,
@@ -74,21 +75,28 @@ export function fragmentKey(version, platform) {
   return `${version}/${platform}/updater/platform-manifest.json`;
 }
 
-// What an installed Android Release APK carries besides the managed files and
-// the game: the Loader Release, the Interop Snapshot and the native libraries
-// the injection adds, as the Snapshot Lock's android-online entry pins them,
-// and the Updater plugin baked into its deployment. A fragment's
-// `nonManagedPayloadDigest` is this digest of the APK it names (ADR 0010); a
-// running copy that records another digest cannot take the release as a
-// Managed Payload.
+// The certificate of the BPP Android release key (ADR 0009, 2026-11-01 note):
+// the one signer of every Android App APK and of every interop statement.
+// upload and promote --platform android refuse an APK signed by any other
+// certificate; the Android App embeds this certificate, and a test there pins
+// it to the same digest.
+export const ANDROID_RELEASE_SIGNER_SHA256 =
+  '0d53bd4d2011c3e3181eb291c2154a0162f5dd9f4c4330b7bbc3728840851ce9';
+
+// What the Android App carries besides the Mods (ADR 0012): the Loader
+// Release and the native libraries of the Snapshot Lock's android-online
+// entry, and the Updater plugin. The Interop Package downloads on its own and
+// is not part of it. A fragment's `nonManagedPayloadDigest` is this digest of
+// the App it names: release::build writes the same value into the App
+// (assets/bpp-runtime.json) and reads it back, and an App that records
+// another digest cannot take the release as a Managed Payload.
 export function androidNonManagedPayloadDigest({
   loader,
-  interopSha256,
   nativeLibs = {},
   updaterSha256
 }) {
   if (!SHA256.test(updaterSha256 ?? ''))
-    throw new Error('An Android APK identity needs its Updater plugin digest');
+    throw new Error('An Android App runtime needs its Updater plugin digest');
   const libs = Object.keys(nativeLibs)
     .sort()
     .map((name) => ({ name, sha256: nativeLibs[name].sha256 }));
@@ -97,7 +105,6 @@ export function androidNonManagedPayloadDigest({
     .update(
       JSON.stringify({
         loader: { tag: loader.tag, sha256: loader.sha256 },
-        interopSha256,
         nativeLibs: libs,
         updaterSha256
       })
@@ -105,17 +112,85 @@ export function androidNonManagedPayloadDigest({
     .digest('hex');
 }
 
-// Every product version injects its own Android Release APK, so a new install
-// starts on that version's Mods (ADR 0010); the game build stays in the name
-// for the person downloading it. The key is immutable once used.
-export function androidApkKey({ version, gameVersion }) {
-  assertProductVersion(version);
-  const build = /^(\d+(?:\.\d+)+)-/.exec(gameVersion ?? '')?.[1];
-  if (!build)
+// The Android App's versionCode for a product version (ADR 0012): Android
+// installs an App only over a lower versionCode, so it follows the product
+// version. Gradle receives it as -Pbpp.versionCode.
+export function androidAppVersionCode(version) {
+  const [major, minor, patch] = assertProductVersion(version)
+    .split('.')
+    .map(Number);
+  const code = major * 1_000_000 + minor * 1_000 + patch;
+  // Google Play's ceiling; Android itself accepts up to 2^31 - 1.
+  if (minor > 999 || patch > 999 || code < 1 || code > 2_100_000_000)
     throw new Error(
-      'An Android APK is named by its product version and game version'
+      `${version} has no Android versionCode (major * 1000000 + minor * 1000 + patch, minor and patch below 1000)`
     );
-  return `android/apk/BazaarPlusPlus_${version}_${build}.apk`;
+  return code;
+}
+
+const ANDROID_PLATFORM = DOWNLOAD_PLATFORM_KEYS.android;
+
+// The Android App APK of one product version. The key is immutable once used.
+export function androidAppKey(version) {
+  assertProductVersion(version);
+  return `${version}/${ANDROID_PLATFORM}/app/BazaarPlusPlus_${version}_${ANDROID_PLATFORM}.apk`;
+}
+
+// The Interop Package, addressed by the sha256 of the zip itself: a release
+// and a Pre-Adaptation of the same Interop Snapshot share one object.
+export function interopPackageKey(zipSha256) {
+  if (!SHA256.test(zipSha256 ?? ''))
+    throw new Error(`Invalid Interop Package digest: ${zipSha256}`);
+  return `android/interop/${zipSha256}.zip`;
+}
+
+const BASE64 =
+  /^(?:[A-Za-z0-9+/]{4})+(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+// The `interop` record of an Android fragment, Platform Release Manifest or
+// Pre-Adaptation record: the content-addressed zip, the Interop Snapshot
+// digest it packs, and the base64 SHA256withRSA signature of its interop
+// statement (release/android-interop.mjs).
+export function assertInteropRecord(record, description) {
+  assertRecord(record, `${description} Interop Package`);
+  if (
+    !SHA256.test(record.snapshotSha256 ?? '') ||
+    typeof record.signature !== 'string' ||
+    !BASE64.test(record.signature)
+  )
+    throw new Error(`Invalid ${description} Interop Package`);
+  if (
+    new URL(record.url).pathname !==
+    `${RELEASE_BASE_PATH}/${interopPackageKey(record.sha256)}`
+  )
+    throw new Error(`Unexpected Interop Package URL: ${record.url}`);
+  return record;
+}
+
+// The game a release or a Pre-Adaptation is adapted to: the Snapshot Lock's
+// android-online identity and its Game Code Hash.
+export function assertAndroidGame(game, description) {
+  if (
+    typeof game?.gameVersion !== 'string' ||
+    !game.gameVersion ||
+    !positiveInteger(game.versionCode) ||
+    !SHA256.test(game.il2cppSha256 ?? '') ||
+    !SHA256.test(game.metadataSha256 ?? '')
+  )
+    throw new Error(`Invalid ${description} game`);
+  return game;
+}
+
+// A Loader Release as the Snapshot Lock pins it. The tag names an object key
+// of a Pre-Adaptation record, so it is a plain token.
+export function assertAndroidLoader(loader, description) {
+  if (
+    typeof loader?.tag !== 'string' ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(loader.tag) ||
+    !SHA256.test(loader.sha256 ?? '')
+  )
+    throw new Error(`Invalid ${description} loader`);
+  return loader;
 }
 
 // The Managed Payload zip of one product version on one platform.
@@ -251,76 +326,102 @@ export function buildPlatformFragment({ manifest, baseUrl, selfUpdatable }) {
   return fragment;
 }
 
-// The fragment `upload --platform android` writes beside the Android release:
-// the APK, the Managed Payload zip, and the facts the mod's self-update
-// compares against the copy it runs. The caller supplies the facts; the object
-// keys follow from them.
+// The fragment `upload --platform android` writes beside the Android release
+// (kind `android-app`, ADR 0012): the Android App APK, the Interop Package and
+// the Managed Payload zip, the game they are adapted to, and the facts the
+// mod's self-update compares against the copy it runs. The caller supplies
+// the facts; the object keys and the App's versionCode follow from them.
 export function buildAndroidFragment({
   version,
   gitCommit,
   baseUrl,
-  apk,
+  app,
+  game,
+  interop,
   managedPayload,
+  loader,
   selfUpdatable,
   historyDatabaseUserVersion,
-  nonManagedPayloadDigest,
-  game,
-  loader,
-  interopSha256
+  nonManagedPayloadDigest
 }) {
   assertProductVersion(version);
   if (!GIT_COMMIT.test(gitCommit ?? ''))
     throw new Error('Android fragment requires an identified product build');
   const origin = assertReleaseOrigin(baseUrl);
-  const platform = RELEASE_PLATFORMS.find(
-    (definition) => definition.kind === 'android'
-  ).key;
   const fragment = {
     schemaVersion: 1,
-    kind: 'android',
+    kind: 'android-app',
     version,
-    platform,
+    platform: ANDROID_PLATFORM,
     gitCommit,
-    apk: {
-      url: `${origin}/${androidApkKey({ version, gameVersion: game?.gameVersion })}`,
-      size: apk?.size,
-      sha256: apk?.sha256,
-      versionCode: apk?.versionCode,
-      signerSha256: apk?.signerSha256,
-      builtForProductVersion: apk?.builtForProductVersion
+    app: {
+      url: `${origin}/${androidAppKey(version)}`,
+      size: app?.size,
+      sha256: app?.sha256,
+      versionCode: androidAppVersionCode(version),
+      signerSha256: app?.signerSha256
+    },
+    game: {
+      gameVersion: game?.gameVersion,
+      versionCode: game?.versionCode,
+      il2cppSha256: game?.il2cppSha256,
+      metadataSha256: game?.metadataSha256
+    },
+    interop: {
+      url: SHA256.test(interop?.sha256 ?? '')
+        ? `${origin}/${interopPackageKey(interop.sha256)}`
+        : undefined,
+      size: interop?.size,
+      sha256: interop?.sha256,
+      snapshotSha256: interop?.snapshotSha256,
+      signature: interop?.signature
     },
     managedPayload: {
-      url: `${origin}/${managedPayloadKey(version, platform)}`,
+      url: `${origin}/${managedPayloadKey(version, ANDROID_PLATFORM)}`,
       size: managedPayload?.size,
       sha256: managedPayload?.sha256,
       signature: managedPayload?.signature?.trim()
     },
+    loader: { tag: loader?.tag, sha256: loader?.sha256 },
     selfUpdatable,
     historyDatabaseUserVersion,
-    nonManagedPayloadDigest,
-    game: {
-      gameVersion: game?.gameVersion,
-      versionCode: game?.versionCode,
-      officialApkSha256: game?.officialApkSha256
-    },
-    loader: { tag: loader?.tag, sha256: loader?.sha256 },
-    interopSha256
+    nonManagedPayloadDigest
   };
-  return validatePlatformFragment(fragment, version, platform);
+  return validatePlatformFragment(fragment, version, ANDROID_PLATFORM);
 }
 
 // What an Android Platform Release Manifest publishes from its fragment, in
-// this order.
+// this order: the three artifacts a new install downloads (App, then the
+// Managed Payload and Interop Package it stages), the game they are adapted
+// to and the Loader Release the App carries, then the self-update facts in
+// the desktop order.
 const ANDROID_RELEASE_FIELDS = Object.freeze([
-  'apk',
+  'app',
   'managedPayload',
-  'selfUpdatable',
-  'historyDatabaseUserVersion',
-  'nonManagedPayloadDigest',
+  'interop',
   'game',
   'loader',
-  'interopSha256'
+  'selfUpdatable',
+  'historyDatabaseUserVersion',
+  'nonManagedPayloadDigest'
 ]);
+
+// The promoted Android Platform Release Manifest of ADR 0010's injected APK
+// (`apk`, no `app`). It is read as "no Android App release yet": its version
+// still blocks a rollback and its ETag still guards the write, but its APK
+// and certificate take part in no comparison. A shape rule, not a switch:
+// delete it, and every caller's branch on it, after the first Android App
+// promote (ADR 0012, "fragment 与平台清单").
+export function isRetiredAndroidManifest(manifest, platform) {
+  const release = manifest?.downloads?.[platform];
+  return Boolean(
+    releasePlatformByKey(platform).kind === 'android' &&
+    release &&
+    typeof release === 'object' &&
+    release.apk !== undefined &&
+    release.app === undefined
+  );
+}
 
 function positiveInteger(value) {
   return Number.isSafeInteger(value) && value > 0;
@@ -341,32 +442,27 @@ function assertManagedPayload(record, version, platform) {
 // The release facts an Android fragment and its Platform Release Manifest
 // share, at product version `version`.
 function validateAndroidRelease(release, version, platform) {
-  const { apk, managedPayload, game, loader } = release;
+  const { app, managedPayload } = release;
   if (
-    typeof game?.gameVersion !== 'string' ||
-    !positiveInteger(game.versionCode) ||
-    !SHA256.test(game.officialApkSha256 ?? '') ||
-    typeof loader?.tag !== 'string' ||
-    !SHA256.test(loader.sha256 ?? '') ||
-    !SHA256.test(release.interopSha256 ?? '') ||
     typeof release.selfUpdatable !== 'boolean' ||
     !positiveInteger(release.historyDatabaseUserVersion) ||
     !SHA256.test(release.nonManagedPayloadDigest ?? '')
   )
     throw new Error(`Invalid ${platform} release facts for ${version}`);
-  assertRecord(apk, `${platform} APK`);
+  assertAndroidGame(release.game, `${platform} ${version}`);
+  assertAndroidLoader(release.loader, `${platform} ${version}`);
+  assertRecord(app, `${platform} Android App`);
   if (
-    !positiveInteger(apk.versionCode) ||
-    !SHA256.test(apk.signerSha256 ?? '') ||
-    apk.builtForProductVersion !== version
+    app.versionCode !== androidAppVersionCode(version) ||
+    !SHA256.test(app.signerSha256 ?? '')
   )
-    throw new Error(`Invalid ${platform} APK for ${version}`);
-  // Upload checks the exact key; the releases before 6.0.3 named theirs by
-  // the non-managed payload digest instead of the version.
+    throw new Error(`Invalid ${platform} Android App for ${version}`);
   if (
-    !new URL(apk.url).pathname.startsWith(`${RELEASE_BASE_PATH}/android/apk/`)
+    new URL(app.url).pathname !==
+    `${RELEASE_BASE_PATH}/${androidAppKey(version)}`
   )
-    throw new Error(`${platform} APK URL is outside android/apk/: ${apk.url}`);
+    throw new Error(`Unexpected Android App URL: ${app.url}`);
+  assertInteropRecord(release.interop, `${platform} ${version}`);
   assertManagedPayload(managedPayload, version, platform);
   if (
     new URL(managedPayload.url).pathname !==
@@ -375,10 +471,15 @@ function validateAndroidRelease(release, version, platform) {
     throw new Error(`Unexpected Managed Payload URL: ${managedPayload.url}`);
 }
 
+// ADR 0010's `kind: 'android'` fragments are refused by their kind, not by
+// the fields they lack.
 function validateAndroidFragment(fragment, version, platform) {
+  if (fragment?.kind !== 'android-app')
+    throw new Error(
+      `${platform} platform fragment for ${version} is of kind ${JSON.stringify(fragment?.kind)}, not android-app`
+    );
   if (
-    fragment?.schemaVersion !== 1 ||
-    fragment.kind !== 'android' ||
+    fragment.schemaVersion !== 1 ||
     fragment.version !== version ||
     fragment.platform !== platform ||
     !GIT_COMMIT.test(fragment.gitCommit ?? '')
@@ -391,7 +492,7 @@ function validateAndroidFragment(fragment, version, platform) {
 // Every remote object a fragment names; promotion checks each is in place.
 export function fragmentArtifacts(fragment) {
   return releasePlatformByKey(fragment.platform).kind === 'android'
-    ? [fragment.apk, fragment.managedPayload]
+    ? [fragment.app, fragment.interop, fragment.managedPayload]
     : [
         fragment.installer,
         fragment.updater,
@@ -456,6 +557,8 @@ function validateAndroidPlatformManifest(manifest, platform) {
   )
     throw new Error(`Invalid ${platform} platform manifest`);
   assertProductVersion(manifest.version);
+  // Only its top-level shape is read (isRetiredAndroidManifest).
+  if (isRetiredAndroidManifest(manifest, platform)) return manifest;
   const { mainlandUrl, ...release } = manifest.downloads[platform];
   validateAndroidRelease(release, manifest.version, platform);
   if (mainlandUrl !== undefined) assertMirrorUrl(mainlandUrl);
@@ -568,7 +671,7 @@ export function buildPlatformManifest({
   return manifest;
 }
 
-// Android has no Mainland Mirror yet (ADR 0010): promotion records none, and
+// Android has no Mainland Mirror yet (ADR 0012): promotion records none, and
 // an address already published for this version would be kept. `existing` is
 // the published manifest of this same version, or null.
 function buildAndroidPlatformManifest({
@@ -610,7 +713,7 @@ function buildAndroidPlatformManifest({
 // The Release Manifest: the newest release every Lockstep Platform promoted
 // at the same version and commit. Installers whose platform manifest fails to
 // load read only this file, so it never runs ahead of any Lockstep Platform
-// (ADR 0003). Android is not one (ADR 0010).
+// (ADR 0003). Android is not one (ADR 0012).
 export function mergeReleaseManifest({ platformManifests, existingLatest }) {
   const byPlatform = new Map(
     (platformManifests ?? []).map((manifest) => [

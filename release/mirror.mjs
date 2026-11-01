@@ -161,7 +161,7 @@ async function fetchJson(url, fetchImpl, description, { missing } = {}) {
 }
 
 // Only Lockstep Platforms record a mainland mirror; Android has none yet
-// (ADR 0010).
+// (ADR 0012).
 function platformKeysFor(platform) {
   if (!platform) return LOCKSTEP_PLATFORM_KEYS;
   const { key } = releasePlatform(platform);

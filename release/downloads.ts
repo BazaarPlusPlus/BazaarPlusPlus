@@ -61,16 +61,15 @@ export function decodeMainlandDownloadUrl(
   return value;
 }
 
-// The Android Release APK: the official game APK with the loader, interop and
-// the Mods of `builtForProductVersion` injected, signed by BPP. Every product
-// version has its own, under `android/apk/`.
-export type AndroidApkDownload = {
+// The Android App APK of one product version (docs/adr/0012-android-app.md),
+// signed by the BPP Android release key; `versionCode` follows the product
+// version.
+export type AndroidAppDownload = {
   url: string;
   size: number;
   sha256: string;
   versionCode: number;
   signerSha256: string;
-  builtForProductVersion: string;
 };
 
 // The Managed Payload zip of one product version, minisign-signed with the
@@ -82,16 +81,32 @@ export type ManagedPayloadDownload = {
   signature: string;
 };
 
+// The Interop Package the release is adapted with, content-addressed by the
+// zip's sha256 under `android/interop/`. `signature` is the base64
+// SHA256withRSA signature of its interop statement; the Android App verifies
+// it before loading the zip.
+export type InteropPackageDownload = {
+  url: string;
+  size: number;
+  sha256: string;
+  snapshotSha256: string;
+  signature: string;
+};
+
+// The official game the release is adapted to: its identity and its Game
+// Code Hash (`libil2cpp.so` and `global-metadata.dat`).
 export type AndroidGameRelease = {
   gameVersion: string;
   versionCode: number;
-  officialApkSha256: string;
+  il2cppSha256: string;
+  metadataSha256: string;
 };
 
 export type AndroidDownload = {
   version: string;
-  apk: AndroidApkDownload;
+  app: AndroidAppDownload;
   managedPayload: ManagedPayloadDownload;
+  interop: InteropPackageDownload;
   game: AndroidGameRelease;
   mainlandUrl: string | null;
 };
@@ -107,6 +122,10 @@ function object(value: unknown): Json | null {
 
 function positiveInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) > 0;
+}
+
+function sha256(value: unknown): value is string {
+  return typeof value === 'string' && SHA256.test(value);
 }
 
 // True when `value` is an https URL below RELEASE_BASE_URL and `prefix`.
@@ -136,16 +155,19 @@ function artifact(value: unknown, prefix: string): Json | null {
   return record &&
     releaseUrlUnder(record.url, prefix) &&
     positiveInteger(record.size) &&
-    typeof record.sha256 === 'string' &&
-    SHA256.test(record.sha256)
+    sha256(record.sha256)
     ? record
     : null;
 }
 
+const signed = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim() !== '';
+
 // Reads `downloads[platformKey]` of an Android Platform Release Manifest: the
-// APK, the Managed Payload zip and the game they were built for. Null when any
-// part is missing or points outside the release origin; the mainland mirror is
-// optional and decoded like the desktop one.
+// Android App APK, the Managed Payload zip, the Interop Package and the game
+// they are adapted to. Null when any part is missing or points outside the
+// release origin, and for the ADR 0010 shape (`apk`, no `app`); the mainland
+// mirror is optional and decoded like the desktop one.
 export function decodeAndroidDownload(
   manifest: unknown,
   platformKey: string = DOWNLOAD_PLATFORM_KEYS.android
@@ -154,38 +176,41 @@ export function decodeAndroidDownload(
   const version = root?.version;
   if (typeof version !== 'string' || !version) return null;
   const record = object(object(root?.downloads)?.[platformKey]);
-  const apk = artifact(record?.apk, '/android/apk/');
+  const app = artifact(record?.app, `/${version}/${platformKey}/app/`);
   const managedPayload = artifact(
     record?.managedPayload,
     `/${version}/${platformKey}/managed/`
   );
+  const interop = artifact(record?.interop, '/android/interop/');
   const game = object(record?.game);
   if (
-    !apk ||
-    !positiveInteger(apk.versionCode) ||
-    typeof apk.signerSha256 !== 'string' ||
-    !SHA256.test(apk.signerSha256) ||
-    typeof apk.builtForProductVersion !== 'string' ||
+    !app ||
+    !positiveInteger(app.versionCode) ||
+    !sha256(app.signerSha256) ||
     !managedPayload ||
-    typeof managedPayload.signature !== 'string' ||
-    !managedPayload.signature.trim() ||
+    !signed(managedPayload.signature) ||
+    !interop ||
+    !(interop.url as string).endsWith(
+      `/android/interop/${interop.sha256}.zip`
+    ) ||
+    !sha256(interop.snapshotSha256) ||
+    !signed(interop.signature) ||
     !game ||
     typeof game.gameVersion !== 'string' ||
     !game.gameVersion ||
     !positiveInteger(game.versionCode) ||
-    typeof game.officialApkSha256 !== 'string' ||
-    !SHA256.test(game.officialApkSha256)
+    !sha256(game.il2cppSha256) ||
+    !sha256(game.metadataSha256)
   )
     return null;
   return {
     version,
-    apk: {
-      url: apk.url as string,
-      size: apk.size as number,
-      sha256: apk.sha256 as string,
-      versionCode: apk.versionCode,
-      signerSha256: apk.signerSha256,
-      builtForProductVersion: apk.builtForProductVersion
+    app: {
+      url: app.url as string,
+      size: app.size as number,
+      sha256: app.sha256 as string,
+      versionCode: app.versionCode,
+      signerSha256: app.signerSha256
     },
     managedPayload: {
       url: managedPayload.url as string,
@@ -193,10 +218,18 @@ export function decodeAndroidDownload(
       sha256: managedPayload.sha256 as string,
       signature: managedPayload.signature
     },
+    interop: {
+      url: interop.url as string,
+      size: interop.size as number,
+      sha256: interop.sha256 as string,
+      snapshotSha256: interop.snapshotSha256,
+      signature: interop.signature
+    },
     game: {
       gameVersion: game.gameVersion,
       versionCode: game.versionCode,
-      officialApkSha256: game.officialApkSha256
+      il2cppSha256: game.il2cppSha256,
+      metadataSha256: game.metadataSha256
     },
     mainlandUrl: decodeMainlandDownloadUrl(manifest, platformKey)
   };

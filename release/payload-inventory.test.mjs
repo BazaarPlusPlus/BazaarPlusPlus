@@ -52,7 +52,7 @@ test('each platform installs only its own host entries', () => {
         'MelonLoader/Mods/BazaarPlusPlus.Android.dll',
         'MelonLoader/UserLibs/MessagePack.dll',
         'lib/arm64-v8a/libe_sqlite3.so',
-        'assets/LemonLoader/deployment/Mods/BazaarPlusPlus.Android.dll'
+        'assets/lemon-runtime.zip'
       ],
       'android'
     )
@@ -61,7 +61,9 @@ test('each platform installs only its own host entries', () => {
     ['BepInEx/plugins/BazaarPlusPlus.dll', 'android'],
     ['MelonLoader/Mods/BazaarPlusPlus.Android.dll', 'macos'],
     ['MelonLoader/UserData/BazaarPlusPlus.cfg', 'android'],
-    ['MelonLoader/Latest.log', 'android']
+    ['MelonLoader/Latest.log', 'android'],
+    // The injected APK's deployment is gone with ADR 0010.
+    ['assets/LemonLoader/deployment/Mods/BazaarPlusPlus.Android.dll', 'android']
   ])
     expect(() => assertShippedPayloadPaths([file], platform)).toThrow(
       /Undeclared or forbidden/
@@ -142,18 +144,32 @@ test.each([
     'managed'
   ],
   [
-    'an injected file outside the APK',
+    'an Android App file outside the APK',
     'melonloader',
     'MelonLoader/Mods/A.dll',
     'private',
-    'apk-injection'
+    'android-app'
   ],
   [
-    'injection on the BepInEx host',
+    'an Android App file on the BepInEx host',
     'bepinex',
     'BepInEx/plugins/A.dll',
     'private',
-    'apk-injection'
+    'android-app'
+  ],
+  [
+    'a Launch Record the mod build claims',
+    'melonloader',
+    'MelonLoader/UserData/BazaarPlusPlus.launch.json',
+    'private',
+    'managed'
+  ],
+  [
+    'a shared Launch Record',
+    'melonloader',
+    'MelonLoader/UserData/BazaarPlusPlus.launch.json',
+    'dependency',
+    'android-app'
   ],
   [
     'a foreign MelonLoader user data file',
@@ -167,7 +183,7 @@ test.each([
     'melonloader',
     'lib/arm64-v8a/libil2cpp.so',
     'private',
-    'apk-injection'
+    'android-app'
   ]
 ])(
   '%s is outside the approved install roots',

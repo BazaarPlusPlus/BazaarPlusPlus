@@ -19,7 +19,7 @@ test:
 prepare platform *args:
     node release.mjs prepare --platform "$1" -- "${@:2}"
 
-# Prepare, verify, sign, and bundle on the native host (android: inject and sign the APK on Linux x64, reading R2); never upload.
+# Prepare, verify, sign, and bundle on the native host (android: build and sign the Android App and the Interop Package, reading R2); never upload.
 [arg('platform', pattern='macos|windows|android')]
 build platform *args:
     {{ if platform == "android" { "node scripts/workspace.mjs run release --" } else { "" } }} node scripts/workspace.mjs run signing -- node release.mjs build --platform "$1" -- "${@:2}"

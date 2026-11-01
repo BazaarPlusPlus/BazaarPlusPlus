@@ -2,7 +2,7 @@
   <!-- Generated from release/payload.json by node release.mjs sync. -->
   <Target Name="ValidatePayloadInventoryProjection" BeforeTargets="PrepareForBuild;CollectPayloadFiles">
     <GetFileHash Files="$(MSBuildThisFileDirectory)../payload.json" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="_PayloadInventoryHash" /></GetFileHash>
-    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '932B7D9F764768B1C6A71B19477B191939E94F5CAA891CA0AED29A9DC535AEF3'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
+    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '0818DABB5930EABDF58609016F3B482FA9F5BC9B9126396183B42F951B3D2A4F'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
   </Target>
   <Target Name="CollectPayloadFiles" DependsOnTargets="ValidatePayloadInventoryProjection">
     <PropertyGroup>
