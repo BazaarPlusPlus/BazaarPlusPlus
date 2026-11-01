@@ -9,7 +9,7 @@ await TestSharedPlatformReleaseManifests();
 TestEndpointFollowsThePlatform();
 await TestAndroidApkIsReadOnlyWhenComplete();
 TestAndroidGameUpdateComparesVersionCodes();
-TestAndroidApkIsNeededForANewerGameOrAChangedRuntime();
+TestAndroidUpdateIsTheGameForANewerGameOrTheAppForAChangedRuntime();
 await TestIncompleteManagedPayloadIsAbsent();
 await TestSuccessfulManifestIsTrimmed();
 await TestUnchangedManifestIsAnsweredFromTheLastRead();
@@ -187,12 +187,7 @@ static async Task TestAndroidApkIsReadOnlyWhenComplete()
 
 static void TestAndroidGameUpdateComparesVersionCodes()
 {
-    var apk = new AndroidApkRelease(
-        "1.0.12900-production-android-0000000b",
-        new Uri("https://cdn.example/a.apk"),
-        1,
-        new string('0', 64)
-    );
+    const string published = "1.0.12900-production-android-0000000b";
     Equal(
         12825,
         AndroidGameUpdate.ParseVersionCode("1.0.12825-production-android-d9601ded"),
@@ -201,70 +196,72 @@ static void TestAndroidGameUpdateComparesVersionCodes()
     Equal<int?>(null, AndroidGameUpdate.ParseVersionCode("unknown"), "No code in junk.");
     Equal<int?>(null, AndroidGameUpdate.ParseVersionCode(""), "No code in an empty version.");
     True(
-        AndroidGameUpdate.Newer("1.0.12825-production-android-d9601ded", apk) == apk,
-        "A newer published game is offered."
+        AndroidGameUpdate.Newer("1.0.12825-production-android-d9601ded", published),
+        "A newer published game asks for a game update."
     );
     True(
-        AndroidGameUpdate.Newer("1.0.12900-production-android-0000000a", apk) == null,
+        !AndroidGameUpdate.Newer("1.0.12900-production-android-0000000a", published),
         "The same game is current."
     );
     True(
-        AndroidGameUpdate.Newer("1.0.13000-production-android-0000000a", apk) == null,
-        "An older published game is never offered."
+        !AndroidGameUpdate.Newer("1.0.13000-production-android-0000000a", published),
+        "An older published game asks for nothing."
     );
     True(
-        AndroidGameUpdate.Newer("garbled", apk) == null,
-        "An unreadable running version offers nothing."
+        !AndroidGameUpdate.Newer("garbled", published),
+        "An unreadable running version asks for nothing."
     );
     True(
-        AndroidGameUpdate.Newer("1.0.12825-production-android-d9601ded", null) == null,
-        "No APK, no offer."
+        !AndroidGameUpdate.Newer("1.0.12825-production-android-d9601ded", null),
+        "No published game, no update."
     );
     True(
-        AndroidGameUpdate.Newer(
-            "1.0.12825-production-android-d9601ded",
-            apk with
-            {
-                GameVersion = "garbled",
-            }
-        ) == null,
-        "An unreadable published version offers nothing."
+        !AndroidGameUpdate.Newer("1.0.12825-production-android-d9601ded", "garbled"),
+        "An unreadable published version asks for nothing."
     );
 }
 
-static void TestAndroidApkIsNeededForANewerGameOrAChangedRuntime()
+static void TestAndroidUpdateIsTheGameForANewerGameOrTheAppForAChangedRuntime()
 {
     const string game = "1.0.12825-production-android-d9601ded";
-    var same = new AndroidApkRelease(
-        game,
-        new Uri("https://cdn.example/a.apk"),
-        1,
-        new string('0', 64)
-    );
-    var newer = same with { GameVersion = "1.0.12900-production-android-0000000b" };
-    var older = same with { GameVersion = "1.0.12800-production-android-0000000c" };
+    const string newer = "1.0.12900-production-android-0000000b";
+    const string older = "1.0.12800-production-android-0000000c";
+    var app = new AndroidAppDownload(new Uri("https://cdn.example/app.apk"), 65_000_000);
 
+    var gameUpdate = AndroidGameUpdate.Needed(game, newer, app, manualUpdate: false);
     Equal(
-        AndroidApkUpdateReason.GameUpdated,
-        AndroidGameUpdate.Needed(game, newer, manualUpdate: false)?.Reason,
-        "A newer game needs the APK even when the Managed Payload could come."
+        AndroidUpdateReason.GameUpdated,
+        gameUpdate?.Reason,
+        "A newer game needs a game update even when the Managed Payload could come."
     );
+    True(gameUpdate?.App == null, "A game update offers no BPP download.");
     Equal(
-        AndroidApkUpdateReason.RuntimeChanged,
-        AndroidGameUpdate.Needed(game, same, manualUpdate: true)?.Reason,
-        "The same game with a release this copy cannot take needs the APK."
+        AndroidUpdateReason.GameUpdated,
+        AndroidGameUpdate.Needed(game, newer, app, manualUpdate: true)?.Reason,
+        "The game comes before a new App."
+    );
+    var appUpdate = AndroidGameUpdate.Needed(game, game, app, manualUpdate: true);
+    Equal(
+        AndroidUpdateReason.AppUpdated,
+        appUpdate?.Reason,
+        "The same game with a release this copy cannot take needs the new App."
+    );
+    True(appUpdate?.App == app, "The new App is offered with its download.");
+    True(
+        AndroidGameUpdate.Needed(game, game, app, manualUpdate: false) == null,
+        "A release the Managed Payload brings needs nothing more."
     );
     True(
-        AndroidGameUpdate.Needed(game, same, manualUpdate: false) == null,
-        "A release the Managed Payload brings needs no APK."
+        AndroidGameUpdate.Needed(game, game, null, manualUpdate: true) == null,
+        "No published App, nothing to offer."
     );
     True(
-        AndroidGameUpdate.Needed(game, older, manualUpdate: true) == null,
-        "An APK for an older game is never offered."
+        AndroidGameUpdate.Needed(game, older, app, manualUpdate: true) == null,
+        "A release for an older game asks for nothing."
     );
     True(
-        AndroidGameUpdate.Needed("garbled", same, manualUpdate: true) == null,
-        "An unreadable running version offers nothing."
+        AndroidGameUpdate.Needed("garbled", game, app, manualUpdate: true) == null,
+        "An unreadable running version asks for nothing."
     );
 }
 

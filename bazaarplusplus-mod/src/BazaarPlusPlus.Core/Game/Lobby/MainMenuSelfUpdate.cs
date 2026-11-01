@@ -17,7 +17,10 @@ public sealed record MainMenuSelfUpdateEvaluation(
 /// The main menu's side of self-update (ADR-0014), shared by every host: it turns a release
 /// check into a decision against the running copy, shows it on the version label, and starts
 /// the one staging run of the process when the published Managed Payload can be taken. The host
-/// supplies its roots, its platform key, and the transport the download owns.
+/// supplies its roots, its platform key, and the transport the download owns. A host with no
+/// download transport stages nothing itself: on Android the Android App stages the Managed
+/// Payload before it starts the game (root ADR 0012), so a payload this copy could take only
+/// asks the user to restart from the App.
 /// </summary>
 public sealed class MainMenuSelfUpdate
 {
@@ -25,15 +28,21 @@ public sealed class MainMenuSelfUpdate
     private readonly int _historyDatabaseUserVersion;
     private readonly string? _platformKey;
     private readonly ManagedPayloadStager? _stager;
-    private readonly Func<HttpClient> _downloadClient;
+    private readonly Func<HttpClient>? _downloadClient;
+    private readonly string? _runtimeDigest;
 
+    // downloadClient: the transport a staging run downloads with; null when the host stages
+    // nothing itself. runtimeDigest: the non-managed payload digest of the runtime this process
+    // runs, when a launcher names it (the Android App's Launch Record); null reads the installed
+    // manifest's.
     public MainMenuSelfUpdate(
         string installRoot,
         string dataRoot,
         string? platformKey,
         SelfUpdateHost host,
         int historyDatabaseUserVersion,
-        Func<HttpClient> downloadClient
+        Func<HttpClient>? downloadClient,
+        string? runtimeDigest = null
     )
     {
         _installedManifestPath = SelfUpdatePaths.InstalledManifest(installRoot, host);
@@ -43,8 +52,25 @@ public sealed class MainMenuSelfUpdate
             platformKey == null
                 ? null
                 : new ManagedPayloadStager(SelfUpdatePaths.Updates(dataRoot), platformKey, host);
-        _downloadClient = downloadClient ?? throw new ArgumentNullException(nameof(downloadClient));
+        _downloadClient = downloadClient;
+        _runtimeDigest = runtimeDigest;
     }
+
+    /// <summary>Whether this host downloads and stages a Managed Payload itself.</summary>
+    public bool StagesManagedPayload => _downloadClient != null;
+
+    /// <summary>
+    /// The label status a decision shows; null for <see cref="SelfUpdateDecision.Stage"/> on a
+    /// host that stages, where the status follows the staging run.
+    /// </summary>
+    public static MainMenuUpdateStatus? StatusFor(SelfUpdateDecision decision, bool hostStages) =>
+        decision switch
+        {
+            SelfUpdateDecision.UpToDate => MainMenuUpdateStatus.None,
+            SelfUpdateDecision.ManualUpdate => MainMenuUpdateStatus.ManualUpdate,
+            SelfUpdateDecision.Staged => MainMenuUpdateStatus.RestartToUpdate,
+            _ => hostStages ? null : MainMenuUpdateStatus.RestartFromApp,
+        };
 
     public MainMenuSelfUpdateEvaluation Evaluate(
         string runningVersion,
@@ -56,7 +82,8 @@ public sealed class MainMenuSelfUpdate
         var running = RunningManagedPayload.Read(
             _installedManifestPath,
             runningVersion,
-            _historyDatabaseUserVersion
+            _historyDatabaseUserVersion,
+            _runtimeDigest
         );
         var release = _stager == null ? null : result.ManagedPayload;
         var decision = SelfUpdatePolicy.Decide(
@@ -80,24 +107,18 @@ public sealed class MainMenuSelfUpdate
     {
         if (evaluation == null)
             throw new ArgumentNullException(nameof(evaluation));
-        switch (evaluation.Decision)
+        if (StatusFor(evaluation.Decision, StagesManagedPayload) is { } status)
         {
-            case SelfUpdateDecision.UpToDate:
-                MainMenuVersionUpdateState.SetStatus(MainMenuUpdateStatus.None);
-                return;
-            case SelfUpdateDecision.ManualUpdate:
-                MainMenuVersionUpdateState.SetStatus(MainMenuUpdateStatus.ManualUpdate);
-                return;
-            case SelfUpdateDecision.Staged:
-                MainMenuVersionUpdateState.SetStatus(MainMenuUpdateStatus.RestartToUpdate);
-                return;
+            MainMenuVersionUpdateState.SetStatus(status);
+            return;
         }
 
         MainMenuVersionUpdateState.SetStatus(MainMenuUpdateStatus.Updating);
         var stager = _stager!;
         var release = evaluation.Release!;
+        var downloadClient = _downloadClient!;
         SelfUpdateStaging
-            .Ensure(release.Version, () => StageAsync(stager, release))
+            .Ensure(release.Version, () => StageAsync(stager, release, downloadClient))
             .ContinueWith(
                 run =>
                     MainMenuVersionUpdateState.SetStatus(
@@ -109,15 +130,16 @@ public sealed class MainMenuSelfUpdate
             );
     }
 
-    private async Task<ManagedPayloadStageResult> StageAsync(
+    private static async Task<ManagedPayloadStageResult> StageAsync(
         ManagedPayloadStager stager,
-        ManagedPayloadRelease release
+        ManagedPayloadRelease release,
+        Func<HttpClient> downloadClient
     )
     {
         ManagedPayloadStageResult result;
         try
         {
-            using var httpClient = _downloadClient();
+            using var httpClient = downloadClient();
             result = await stager
                 .StageAsync(httpClient, release, CancellationToken.None)
                 .ConfigureAwait(false);

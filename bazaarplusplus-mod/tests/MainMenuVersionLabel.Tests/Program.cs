@@ -27,8 +27,42 @@ Assert(
         "3.2.9.prod",
         MainMenuUpdateStatus.ManualUpdate,
         MainMenuVersionLabelFormatter.AndroidManualUpdateText
-    ) == " Version: 1.0.0 | BPP 3.2.9.prod | download the new APK ",
-    "The Android manual update is a new APK."
+    ) == " Version: 1.0.0 | BPP 3.2.9.prod | install the new BPP App ",
+    "The Android manual update is a new Android App."
+);
+Assert(
+    MainMenuVersionLabelFormatter.Build("1.0.0", "3.2.9.prod", MainMenuUpdateStatus.RestartFromApp)
+        == " Version: 1.0.0 | BPP 3.2.9.prod | restart from the BPP App ",
+    "On Android the App stages a payload the copy can take; starting from it installs the payload."
+);
+Assert(
+    MainMenuVersionLabelFormatter.Build(
+        "1.0.0",
+        "3.2.9.prod",
+        MainMenuUpdateStatus.RestartFromApp,
+        MainMenuVersionLabelFormatter.AndroidManualUpdateText,
+        "请从 BPP App 重新启动"
+    ) == " Version: 1.0.0 | BPP 3.2.9.prod | 请从 BPP App 重新启动 ",
+    "The host localizes the restart-from-the-App text."
+);
+Assert(
+    MainMenuVersionLabelFormatter.Build(
+        "1.0.0",
+        "6.1.0",
+        MainMenuUpdateStatus.RestartToUpdate,
+        modeText: MainMenuVersionLabelFormatter.CompatibilityModeText
+    ) == " Version: 1.0.0 | BPP 6.1.0 | compatibility mode | restart to update ",
+    "Compatibility Mode follows the BPP version, before the update status."
+);
+Assert(
+    MainMenuVersionLabelFormatter.Build("1.0.0", "6.1.0", modeText: "兼容模式")
+        == " Version: 1.0.0 | BPP 6.1.0 | 兼容模式 ",
+    "Compatibility Mode shows with nothing to update."
+);
+Assert(
+    MainMenuVersionLabelFormatter.Build("1.0.0", "6.1.0", modeText: " ")
+        == " Version: 1.0.0 | BPP 6.1.0 ",
+    "A blank mode shows nothing."
 );
 Assert(
     MainMenuVersionLabelFormatter.Build(" ", "", MainMenuUpdateStatus.Updating)

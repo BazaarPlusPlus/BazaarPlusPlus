@@ -41,11 +41,20 @@ public sealed class MelonUpdaterPlugin : MelonPlugin
             );
             return;
         }
+        // The Android App writes its Launch Record beside the host's settings file before it starts
+        // this process; the Mods to swap in must match the runtime it started, not the one the
+        // installed Mods were staged for.
+        var runtimeDigest = UpdaterRun.RuntimeDigest(
+            LaunchRecord.PathIn(MelonEnvironment.UserDataDirectory),
+            Environment.ProcessId,
+            log
+        );
         UpdaterRun.Run(
             installRoot,
             ManagedPayloadHost.MelonLoader,
             UpdaterRun.AndroidPlatformKey,
-            log
+            log,
+            runtimeDigest
         );
     }
 }

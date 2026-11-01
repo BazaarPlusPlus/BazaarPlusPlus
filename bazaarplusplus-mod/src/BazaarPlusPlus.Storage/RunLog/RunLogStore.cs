@@ -7,20 +7,64 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Storage.RunLog;
 
+/// <summary>
+/// The upload policy of the Runs a <see cref="RunLogStore"/> creates: <see cref="Bundle"/> Runs
+/// may be sealed and uploaded; <see cref="HistoryOnly"/> Runs stay in local history (the
+/// History-Only Run, root <c>GLOSSARY.md</c>), as the Android Host records them in Compatibility
+/// Mode.
+/// </summary>
+public enum RunUploadPolicy
+{
+    Bundle,
+    HistoryOnly,
+}
+
 public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
 {
     private const string ActiveStatus = "active";
+    private const string BundlePolicy = "bundle";
+    private const string HistoryOnlyPolicy = "history_only";
 
     private static readonly JsonSerializerSettings SerializerSettings =
         SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: false);
 
-    public RunLogStore(IPathProvider paths, SqliteOpenOptions? options = null)
-        : base(PathConstants.RunLogDatabase(paths.RequireDataRoot()), options) { }
+    private readonly RunUploadPolicy _uploadPolicy;
+
+    // uploadPolicy: the policy of the Runs this store creates. A History-Only store resumes no
+    // Run and reopens no row: every Run it starts is a new History-Only Run.
+    public RunLogStore(
+        IPathProvider paths,
+        SqliteOpenOptions? options = null,
+        RunUploadPolicy uploadPolicy = RunUploadPolicy.Bundle
+    )
+        : base(PathConstants.RunLogDatabase(paths.RequireDataRoot()), options) =>
+        _uploadPolicy = uploadPolicy;
+
+    public RunUploadPolicy UploadPolicy => _uploadPolicy;
 
     public RunLogSessionState? TryResumeActiveRun()
     {
+        if (_uploadPolicy != RunUploadPolicy.Bundle)
+            return null;
         using var connection = OpenConnection();
         return TryReadActiveRun(connection);
+    }
+
+    /// <summary>
+    /// Turns every active <c>bundle</c> Run into a History-Only Run, so nothing recorded so far
+    /// or from now on in it is ever sealed; returns how many changed. The Android Host calls it
+    /// as a Compatibility Mode launch starts, before the record chain could resume such a Run.
+    /// </summary>
+    public int DemoteActiveRunsToHistoryOnly()
+    {
+        using var connection = OpenConnection();
+        using var command = CreateCommand(connection);
+        command.CommandText = $"""
+            UPDATE {RunLogSchema.RunsTableName}
+            SET upload_policy = '{HistoryOnlyPolicy}'
+            WHERE status = '{ActiveStatus}' AND upload_policy = '{BundlePolicy}';
+            """;
+        return command.ExecuteNonQuery();
     }
 
     public RunLogSessionState CreateRun(RunLogCreateRequest request)
@@ -31,6 +75,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         var effectiveRunId = IsClosedToResume(connection, transaction, request.RunId)
             ? RunLogRunIdentity.CreateCollisionId(request.RunId)
             : request.RunId;
+        var uploadPolicy =
+            _uploadPolicy == RunUploadPolicy.HistoryOnly ? HistoryOnlyPolicy : BundlePolicy;
 
         using var command = CreateCommand(connection, transaction);
         command.CommandText = $"""
@@ -49,7 +95,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 build_channel,
                 player_account_id,
                 bundle_screenshot_requested,
-                mod_version
+                mod_version,
+                upload_policy
             ) VALUES (
                 $runId,
                 $startedAtMs,
@@ -65,7 +112,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 $buildChannel,
                 $playerAccountId,
                 $bundleScreenshotRequested,
-                $modVersion
+                $modVersion,
+                $uploadPolicy
             )
             ON CONFLICT(run_id) DO UPDATE SET
                 hero = excluded.hero,
@@ -100,10 +148,11 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             request.BundleScreenshotRequested ? 1 : 0
         );
         AddNullableString(command, "$modVersion", request.ModVersion);
+        command.Parameters.AddWithValue("$uploadPolicy", uploadPolicy);
         command.ExecuteNonQuery();
 
         var session =
-            TryReadActiveRun(connection, transaction, effectiveRunId)
+            ReadCreatedRun(connection, transaction, effectiveRunId, uploadPolicy)
             ?? throw new InvalidOperationException(
                 $"Run {effectiveRunId} could not be loaded after create."
             );
@@ -353,59 +402,77 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
     }
 
     // A Run id this session cannot continue gets a collision id instead of reopening the row: a
-    // terminal Run, or a History-Only Run (imported history the mod never writes into).
-    private static bool IsClosedToResume(
+    // terminal Run, or a History-Only Run (imported history, or a Run recorded or demoted in
+    // Compatibility Mode). A History-Only store continues no row at all.
+    private bool IsClosedToResume(
         SqliteConnection connection,
         SqliteTransaction transaction,
         string runId
     )
     {
         using var command = CreateCommand(connection, transaction);
-        command.CommandText = $"""
-            SELECT 1
-            FROM {RunLogSchema.RunsTableName}
-            WHERE run_id = $runId
-              AND NOT ({ResumableRunCondition(RunLogSchema.RunsTableName)})
-            LIMIT 1;
-            """;
+        command.CommandText =
+            _uploadPolicy == RunUploadPolicy.Bundle
+                ? $"""
+                    SELECT 1
+                    FROM {RunLogSchema.RunsTableName}
+                    WHERE run_id = $runId
+                      AND NOT ({ResumableRunCondition(RunLogSchema.RunsTableName)})
+                    LIMIT 1;
+                    """
+                : $"""
+                    SELECT 1
+                    FROM {RunLogSchema.RunsTableName}
+                    WHERE run_id = $runId
+                    LIMIT 1;
+                    """;
         command.Parameters.AddWithValue("$runId", runId);
         return command.ExecuteScalar() != null;
     }
 
     /// <summary>
     /// The SQL condition for a Run the mod may resume or show as the current Run, over the runs
-    /// row aliased <paramref name="runAlias"/>: active and not History-Only. The mod never writes
-    /// <c>history_only</c>; this keeps an unfinished imported Run from being continued even if
-    /// the import left it active.
+    /// row aliased <paramref name="runAlias"/>: active and not History-Only. The mod writes
+    /// <c>history_only</c> only in the Android Host's Compatibility Mode, whose store resumes
+    /// nothing; this keeps an unfinished imported Run, or one recorded or demoted in
+    /// Compatibility Mode, from being continued as a Run that may be sealed.
     /// </summary>
     public static string ResumableRunCondition(string runAlias) =>
-        $"({runAlias}.status = '{ActiveStatus}' AND {runAlias}.upload_policy = 'bundle')";
+        $"({runAlias}.status = '{ActiveStatus}' AND {runAlias}.upload_policy = '{BundlePolicy}')";
 
-    private static RunLogSessionState? TryReadActiveRun(
+    // The row CreateRun just wrote, whatever its policy.
+    private static RunLogSessionState? ReadCreatedRun(
         SqliteConnection connection,
-        SqliteTransaction? transaction = null,
-        string? runId = null
+        SqliteTransaction transaction,
+        string runId,
+        string uploadPolicy
     )
     {
         using var command = CreateCommand(connection, transaction);
-        command.CommandText =
-            runId == null
-                ? $"""
-                    SELECT *
-                    FROM {RunLogSchema.RunsTableName}
-                    WHERE {ResumableRunCondition(RunLogSchema.RunsTableName)}
-                    ORDER BY last_seen_at_ms DESC
-                    LIMIT 1;
-                    """
-                : $"""
-                    SELECT *
-                    FROM {RunLogSchema.RunsTableName}
-                    WHERE {ResumableRunCondition(RunLogSchema.RunsTableName)}
-                      AND run_id = $runId
-                    LIMIT 1;
-                    """;
-        if (runId != null)
-            command.Parameters.AddWithValue("$runId", runId);
+        command.CommandText = $"""
+            SELECT *
+            FROM {RunLogSchema.RunsTableName}
+            WHERE run_id = $runId
+              AND status = '{ActiveStatus}'
+              AND upload_policy = $uploadPolicy
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$runId", runId);
+        command.Parameters.AddWithValue("$uploadPolicy", uploadPolicy);
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? ReadSessionState(reader) : null;
+    }
+
+    private static RunLogSessionState? TryReadActiveRun(SqliteConnection connection)
+    {
+        using var command = CreateCommand(connection);
+        command.CommandText = $"""
+            SELECT *
+            FROM {RunLogSchema.RunsTableName}
+            WHERE {ResumableRunCondition(RunLogSchema.RunsTableName)}
+            ORDER BY last_seen_at_ms DESC
+            LIMIT 1;
+            """;
 
         using var reader = command.ExecuteReader();
         if (!reader.Read())

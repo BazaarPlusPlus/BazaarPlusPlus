@@ -25,7 +25,9 @@ public static class BppSettingsDockOrder
     public const int GraphicsUpscalingSharpness = 19;
 
     // The Android host's own rows: the upgrade preview switch that stands in for the desktop's
-    // hotkey, and the prompt for a newer game APK.
+    // hotkey, the game-update row (a newer game, or a new Android App), and the Compatibility
+    // Mode notice.
     public const int UpgradePreviewSwitch = 20;
     public const int GameUpdate = 21;
+    public const int CompatibilityMode = 22;
 }

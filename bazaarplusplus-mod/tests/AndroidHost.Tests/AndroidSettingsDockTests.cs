@@ -149,7 +149,7 @@ public sealed class AndroidSettingsDockTests
     }
 
     [Fact]
-    public void The_new_apk_is_offered_only_while_this_copy_needs_it()
+    public void The_new_android_app_is_offered_only_while_the_release_needs_it()
     {
         var dock = new Dock { GameUpdateStatus = AndroidGameUpdateStatus.Current };
         var row = dock.Row("GameUpdate");
@@ -158,17 +158,42 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal("The game is up to date", row.ResolveLabel("en"));
         Assert.False(row.CollapseAfterActivate);
 
-        dock.GameUpdateStatus = AndroidGameUpdateStatus.GameUpdated;
+        // Same game, but the release needs another runtime: the row downloads the new App.
+        dock.GameUpdateStatus = AndroidGameUpdateStatus.AppUpdated;
         Assert.True(row.IsActive());
-        Assert.Equal("The game has updated: download the new APK", row.ResolveLabel("en"));
+        Assert.Equal("Install the new BazaarPlusPlus App", row.ResolveLabel("en"));
+        Assert.Equal("请安装新版 BazaarPlusPlus App", row.ResolveLabel("zh-Hans"));
         row.Activate!();
         Assert.Equal(new[] { "open_game_update" }, dock.Calls);
+    }
 
-        // Same game, but the BPP runtime inside the APK changed: the row never says current.
-        dock.GameUpdateStatus = AndroidGameUpdateStatus.RuntimeChanged;
-        Assert.True(row.IsActive());
-        Assert.Equal("BazaarPlusPlus needs a new APK: download it", row.ResolveLabel("en"));
-        Assert.Equal("BazaarPlusPlus 需要新版安装包，请下载", row.ResolveLabel("zh-Hans"));
+    // The game updates from its own store; BPP has nothing to download, so the row only says so.
+    [Fact]
+    public void A_newer_game_is_named_but_offers_no_download()
+    {
+        var dock = new Dock { GameUpdateStatus = AndroidGameUpdateStatus.GameUpdated };
+        var row = dock.Row("GameUpdate");
+
+        Assert.False(row.IsActive());
+        Assert.Equal("The Bazaar has an update: get it from its store", row.ResolveLabel("en"));
+        Assert.Equal("The Bazaar 有更新，请从它的商店更新", row.ResolveLabel("zh-Hans"));
+    }
+
+    [Fact]
+    public void Compatibility_mode_adds_a_dimmed_notice_after_the_game_update()
+    {
+        var dock = new Dock(compatibilityMode: true);
+        var row = dock.Row("CompatibilityMode");
+
+        Assert.Equal(
+            new[] { "GameUpdate", "CompatibilityMode" },
+            dock.Rows.Select(entry => entry.Key).TakeLast(2)
+        );
+        Assert.Equal(BppSettingsControlKind.Action, row.ControlKind);
+        Assert.False(row.IsActive());
+        Assert.Equal("Compatibility mode: uploads are off", row.ResolveLabel("en"));
+        Assert.Equal("兼容模式：上传已关闭", row.ResolveLabel("zh-Hans"));
+        Assert.DoesNotContain(new Dock().Rows, entry => entry.Key == "CompatibilityMode");
     }
 
     // The published manifest could not be read (a 404 while Android is unreleased, no network):
@@ -214,7 +239,7 @@ public sealed class AndroidSettingsDockTests
 
     private sealed class Dock
     {
-        public Dock()
+        public Dock(bool compatibilityMode = false)
         {
             var store = new MemoryStore();
             Shared = new BppSettings(store);
@@ -229,7 +254,8 @@ public sealed class AndroidSettingsDockTests
                     () => Calls.Add("open_history"),
                     () => GameUpdateStatus,
                     () => Calls.Add("open_game_update"),
-                    () => Calls.Add("refresh_previews")
+                    () => Calls.Add("refresh_previews"),
+                    compatibilityMode
                 )
             );
             Rows = registry

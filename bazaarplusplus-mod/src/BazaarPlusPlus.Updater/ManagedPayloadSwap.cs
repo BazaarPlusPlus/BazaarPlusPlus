@@ -18,7 +18,9 @@ internal enum SwapOutcome
 /// file aside and the staged one in under a write-ahead journal, removes the managed files the
 /// installed manifest lists and the new one does not, and installs the new manifest last. A
 /// failure, or a journal left by an interrupted run, rolls every step back. A staged version not
-/// newer than the installed one is deleted unapplied.
+/// newer than the installed one is deleted unapplied. Inside the Android App the non-managed
+/// payload digest is compared with the runtime the App started this process with, from its
+/// Launch Record, rather than with the installed manifest's (root ADR 0012).
 /// </summary>
 internal sealed class ManagedPayloadSwap
 {
@@ -32,14 +34,19 @@ internal sealed class ManagedPayloadSwap
     private readonly string _platformKey;
     private readonly MinisignPublicKey _publicKey;
     private readonly UpdaterLog _log;
+    private readonly string? _runtimeDigest;
 
+    // runtimeDigest: the non-managed payload digest of the runtime this process runs, when the
+    // Android App's Launch Record for this process names one; null compares with the installed
+    // manifest's.
     public ManagedPayloadSwap(
         string installRoot,
         string dataRoot,
         ManagedPayloadHost host,
         string platformKey,
         MinisignPublicKey publicKey,
-        UpdaterLog log
+        UpdaterLog log,
+        string? runtimeDigest = null
     )
     {
         _installRoot = installRoot ?? throw new ArgumentNullException(nameof(installRoot));
@@ -51,6 +58,7 @@ internal sealed class ManagedPayloadSwap
         _platformKey = platformKey ?? throw new ArgumentNullException(nameof(platformKey));
         _publicKey = publicKey ?? throw new ArgumentNullException(nameof(publicKey));
         _log = log ?? throw new ArgumentNullException(nameof(log));
+        _runtimeDigest = runtimeDigest;
     }
 
     private string SwapDirectory => Path.Combine(_updatesDirectory, SwapDirectoryName);
@@ -88,7 +96,7 @@ internal sealed class ManagedPayloadSwap
                     _publicKey,
                     out var manifest,
                     out var failure
-                ) || !Compatible(manifest!, name, installed, out failure)
+                ) || !Compatible(manifest!, name, installed, _runtimeDigest, out failure)
             )
             {
                 _log.Warn("updater.staged.rejected", ("version", name), ("reason_code", failure));
@@ -105,23 +113,28 @@ internal sealed class ManagedPayloadSwap
     }
 
     // Core's staging already refused these (SelfUpdatePolicy); the Updater holds the line again
-    // for anything staged by other means. A copy with no installed manifest file (a development
-    // build) has nothing to compare; one whose manifest file is unreadable cannot be checked, so
-    // nothing is applied over it.
+    // for anything staged by other means, and on Android for what the Android App staged. A copy
+    // with no installed manifest file (a development build) has nothing to compare; one whose
+    // manifest file is unreadable cannot be checked, so nothing is applied over it. The history
+    // schema is always the installed copy's. The non-managed digest is the running runtime's when
+    // the Launch Record names it: the installed Mods were staged by an earlier Android App and
+    // record that App's runtime, not this one.
     private static bool Compatible(
         ManagedPayloadManifest manifest,
         string directoryVersion,
         Installed installed,
+        string? runtimeDigest,
         out string failure
     )
     {
+        var digest = runtimeDigest ?? installed.Manifest?.NonManagedPayloadDigest;
         failure =
             manifest.Version != directoryVersion ? "version_mismatch"
             : installed.ManifestUnreadable ? "installed_manifest_invalid"
-            : installed.Manifest == null ? string.Empty
-            : manifest.HistoryDatabaseUserVersion != installed.Manifest.HistoryDatabaseUserVersion
+            : installed.Manifest != null
+            && manifest.HistoryDatabaseUserVersion != installed.Manifest.HistoryDatabaseUserVersion
                 ? "history_database_mismatch"
-            : manifest.NonManagedPayloadDigest != installed.Manifest.NonManagedPayloadDigest
+            : digest != null && manifest.NonManagedPayloadDigest != digest
                 ? "non_managed_payload_mismatch"
             : string.Empty;
         return failure.Length == 0;

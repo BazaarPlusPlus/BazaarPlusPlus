@@ -35,6 +35,7 @@ A contract change lands in one pull request together with every consumer it brea
 | Interpreter method redirect `mono_interp_redirect_method` | `bazaarplusplus-ios/runtime/mono/patches/0008-interp-method-redirect.patch` | mod iOS host Harmony backend (`InterpreterMethodPatcher` in `bazaarplusplus-mod/src/BazaarPlusPlus/Host/Ios/`) |
 | iOS host entry point | `IosEntry.Start` in `bazaarplusplus-mod/src/BazaarPlusPlus/Host/Ios/` | iOS App entry table (`bazaarplusplus-ios/runtime/helper/entrypoints.json`) |
 | Release signing public key | `plugins.updater.pubkey` in `bazaarplusplus-installer/src-tauri/tauri.conf.json` | mod self-update (`ReleaseSigningKey.PublicKeyLine` in `bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/`, pinned by `The_embedded_key_is_the_tauri_updater_public_key`) |
+| Launch Record | `bazaarplusplus-android/contracts/launch-record.v1.json` (the Android App's writer, #751, is tested against it) | mod Android Host and Updater (`LaunchRecord` in `bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/`) |
 
 Root `release/` owns Product Release modules and tests. Imports run one way: installer scripts may import release modules, never the reverse.
 

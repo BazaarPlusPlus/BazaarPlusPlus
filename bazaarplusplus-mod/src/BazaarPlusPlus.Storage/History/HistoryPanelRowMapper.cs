@@ -13,7 +13,8 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 public static class HistoryRunColumns
 {
     // Only a Run the mod could resume reads as active (the current Run): an active History-Only
-    // Run, which the V5 import should already have closed, reads as abandoned.
+    // Run reads as abandoned. That is an imported Run the V5 import did not close, or a Run the
+    // Android Host records in Compatibility Mode, whose store resumes nothing.
     private static readonly string RunStatusColumn =
         $"CASE WHEN status = 'active' AND NOT {RunLogStore.ResumableRunCondition(RunLogSchema.RunsTableName)} "
         + "THEN 'abandoned' ELSE status END AS run_status";
