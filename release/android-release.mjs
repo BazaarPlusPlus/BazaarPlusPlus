@@ -39,12 +39,10 @@ import {
   stageAndroidAppRuntime
 } from './android-app.mjs';
 import {
-  certificateSha256,
   exportReleaseKey,
   interopStatement,
   releasePurpose,
-  signInteropStatement,
-  verifyInteropStatement
+  signWithReleaseKey
 } from './android-interop.mjs';
 import { releaseSourceIdentity } from './artifact-manifest.mjs';
 import {
@@ -711,26 +709,12 @@ function packInterop({
   });
   const statementPath = path.join(root, `${zipSha256}.statement`);
   fs.writeFileSync(statementPath, statement);
-  const keyDirectory = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'bpp-android-key-')
-  );
-  let signature;
-  try {
-    const { keyFile, certificateFile } = releaseKey({
-      signing,
-      into: path.join(keyDirectory, 'key')
-    });
-    const certificate = fs.readFileSync(certificateFile);
-    if (certificateSha256(certificate) !== signerSha256)
-      throw new Error(
-        `The keystore's certificate ${certificateSha256(certificate)} is not the ${signerSha256} that signed the Android App`
-      );
-    signature = signInteropStatement({ statement, keyFile });
-    if (!verifyInteropStatement({ statement, signature, certificate }))
-      throw new Error('The interop statement signature does not verify');
-  } finally {
-    fs.rmSync(keyDirectory, { recursive: true, force: true });
-  }
+  const signature = signWithReleaseKey({
+    statement,
+    signing,
+    signerSha256,
+    releaseKey
+  });
   fs.writeFileSync(`${statementPath}.sig`, `${signature}\n`);
   return {
     key: interopPackageKey(zipSha256),

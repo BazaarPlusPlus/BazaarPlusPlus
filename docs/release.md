@@ -155,7 +155,22 @@ just release::promote --platform android
 
 ### Android 发布顺序
 
-官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`node release/game-libs.mjs official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。sha256 与锁相同而 ETag 变了，它只开一个记录新 ETag 的 PR，不升版本号，否则以后每次检查都会重新下载。sha256 变了，它采集新的 `android-online` 条目（记下下载时的 ETag），上传输入，跑 `mod::android-build` 和 `mod::test-core`，再开一个更新锁文件并把 `VERSION` 升一个补丁号的 PR。这个 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。合并后从下面第 1 步开始发布。仓库设置里要允许 GitHub Actions 创建 PR。
+官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`node release/game-libs.mjs official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。之后分三种情况：
+
+- **没变**：sha256 与锁相同。ETag 也相同就什么都不做。ETag 变了，它只开一个记录新 ETag 的 PR，不升版本号，否则以后每次检查都会重新下载。
+- **只改内容**：sha256 变了，它采集新的 `android-online` 条目（记下下载时的 ETag），再用 `node release/android-adaptation.mjs kind` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上仍是正常模式，不需要新的适配，也不需要发布。它照常执行 `mod::publish android online`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
+- **代码变了**：任一个哈希变了。上传输入之后，它用 `node release/android-adaptation.mjs pack` 把新快照打成 Interop Package，连同锁条目作为 Actions 产物交给 `pre-adapt` job，然后跑 `mod::android-build` 和 `mod::test-core`，再开一个更新锁文件并把 `VERSION` 升一个补丁号的 PR。
+
+`pre-adapt` job 发布预适配包（[ADR 0012](adr/0012-android-app.md) 的"预适配 interop 包"），它不提升 `VERSION`，也不写平台清单。处理 APK 的 `watch` job 运行 Patcher 和 Cpp2IL，所以它不进 `release` 环境，拿不到 Android 发布密钥；`pre-adapt` job 进 `release` 环境，只取产物，不运行任何来自 APK 的代码。它用 `release-secrets.sh stage android` 暂存 keystore，再执行 `node release.mjs pre-adapt --from <产物目录>`（`publishPreAdaptation`）：
+
+1. 核对 zip 里只有 `assets/LemonLoader/runtime/interop/` 下的顶层文件。
+2. 签用途为 `pre-adaptation` 的 interop 声明，密钥处理与 `build` 相同：私钥只放在系统临时目录，签完即删；keystore 的证书必须是 `ANDROID_RELEASE_SIGNER_SHA256`，签名要先验证通过。任一项不通过就不写入任何对象。
+3. 把 zip 写到 `android/interop/<zip 的 sha256>.zip`。键已有相同字节时不再上传，字节不同时拒绝。
+4. 最后写预适配记录（`adaptationRecordKey`），所以记录不会指向不存在的 zip。记录只创建。已有同一份预适配的记录（只有 `publishedAt` 不同）时保留原记录，所以重跑是安全的。已有另一份预适配的记录时拒绝；手动触发并选了 `force` 才替换它。
+
+`watch` job 的检查或 PR 失败，不影响 `pre-adapt`。`pre-adapt` 失败时，手动触发一次并选 `force`：PR 已经开着也会重新发布预适配包。Android App 只在记录的游戏代码哈希与已装游戏一致、`loader.tag` 与自己携带的 Loader Release 相同、签名验证通过时使用它。
+
+这些 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。升了 `VERSION` 的 PR 合并后，从下面第 1 步开始发布；正式发布与预适配用同一份 Interop Snapshot 时，Interop Package 是同一个对象，不会重复上传。仓库设置里要允许 GitHub Actions 创建 PR。
 
 ```bash
 just with-config release just mod::fetch android online

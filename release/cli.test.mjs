@@ -169,6 +169,12 @@ test.each([
   ['promote', '--without-mainland-mirror', '--without-mainland-mirror'],
   ['check', '--without-mainland-mirror'],
   ['assert-build-owner', '--'],
+  ['pre-adapt'],
+  ['pre-adapt', '--force'],
+  ['pre-adapt', '--from', '/handoff', '--platform', 'android'],
+  ['pre-adapt', '--from', '/handoff', '--', 'extra'],
+  ['promote', '--platform', 'android', '--force'],
+  ['upload', '--platform', 'android', '--from', '/handoff'],
   ['--help', 'build']
 ])(
   'invalid invocation %j rejects before filesystem or release effects',
@@ -184,6 +190,17 @@ test.each([
     expect(effect).not.toHaveBeenCalled();
   }
 );
+
+test('pre-adapt takes the handoff directory and an optional --force', () => {
+  expect(parseReleaseArgs(['pre-adapt', '--from', '/handoff'])).toMatchObject({
+    command: 'pre-adapt',
+    from: '/handoff',
+    force: undefined
+  });
+  expect(
+    parseReleaseArgs(['pre-adapt', '--from', '/handoff', '--force'])
+  ).toMatchObject({ command: 'pre-adapt', from: '/handoff', force: true });
+});
 
 test('android prepare and build take the Interop Snapshot overrides', () => {
   const interop = '-p:InteropPath=/game-libs/android-online/interop/';
