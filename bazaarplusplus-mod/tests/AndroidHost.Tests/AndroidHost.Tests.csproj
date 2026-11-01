@@ -77,6 +77,15 @@
     />
   </ItemGroup>
 
+  <!-- The Android App's Launch Record golden (root AGENTS.md, Contracts), which decides what the
+       host may send. -->
+  <ItemGroup>
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-android/contracts/launch-record.v1.json"
+      LogicalName="AndroidHost.Tests.launch-record.v1.json"
+    />
+  </ItemGroup>
+
   <!-- AndroidHostLogEventIdTests reads the host through Architecture.Tests' IL index and applies
        its event id rule, so both stay single-owner. -->
   <ItemGroup>

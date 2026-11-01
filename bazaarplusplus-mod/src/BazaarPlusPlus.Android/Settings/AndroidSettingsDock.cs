@@ -14,8 +14,9 @@ namespace BazaarPlusPlus.Android.Settings;
 
 /// <summary>
 /// What a settings row does beyond writing its setting: release the upgrade preview a switch
-/// turned off, open History or the newer game APK. The host supplies these;
+/// turned off, open History or the new Android App's download. The host supplies these;
 /// <see cref="AndroidSettingsDock"/> stays free of Unity, so a test registers the rows.
+/// <see cref="CompatibilityMode"/> is the Launch Record's answer for this launch.
 /// </summary>
 internal sealed record AndroidSettingsDockHooks(
     Action<string> ReleaseUpgradePreview,
@@ -23,7 +24,8 @@ internal sealed record AndroidSettingsDockHooks(
     Action OpenHistory,
     Func<AndroidGameUpdateStatus> GameUpdateStatus,
     Action OpenGameUpdate,
-    Action? RefreshPreviews = null
+    Action? RefreshPreviews = null,
+    bool CompatibilityMode = false
 );
 
 /// <summary>
@@ -34,15 +36,21 @@ internal sealed record AndroidSettingsDockHooks(
 /// gates only the account link, since the host takes no end-of-run screenshot), Combat Status,
 /// Enchant preview, with every mode the desktop offers, and Game History, which here has no
 /// hotkey. The rest are the host's Upgrade preview switch,
-/// which stands in for the desktop's hotkey, and, when the game is behind the published APK, the
-/// link to it.
+/// which stands in for the desktop's hotkey, the game-update row, which offers the new Android
+/// App's download when the release needs it and otherwise says, dimmed, where the game stands,
+/// and, in Compatibility Mode only, a dimmed row that says uploads are off.
 /// </summary>
 internal static class AndroidSettingsDock
 {
-    public static readonly LocalizedTextSet RuntimeUpdated = new(
-        "BazaarPlusPlus needs a new APK: download it",
-        "BazaarPlusPlus 需要新版安装包，请下载",
-        "BazaarPlusPlus 需要新版安裝包，請下載"
+    public static readonly LocalizedTextSet AppUpdated = new(
+        "Install the new BazaarPlusPlus App",
+        "请安装新版 BazaarPlusPlus App",
+        "請安裝新版 BazaarPlusPlus App"
+    );
+    public static readonly LocalizedTextSet CompatibilityMode = new(
+        "Compatibility mode: uploads are off",
+        "兼容模式：上传已关闭",
+        "相容模式：上傳已關閉"
     );
     public static readonly LocalizedTextSet GameUpToDate = new(
         "The game is up to date",
@@ -141,6 +149,8 @@ internal static class AndroidSettingsDock
             )
         );
         registry.Register(new GameUpdateEntry(hooks));
+        if (hooks.CompatibilityMode)
+            registry.Register(new CompatibilityModeEntry());
     }
 
     private static CyclingSettingsDockEntry<bool> Switch(
@@ -173,9 +183,10 @@ internal static class AndroidSettingsDock
             ("value", value)
         );
 
-    // Offered only while this copy needs the published APK (a newer game, or a BPP runtime it
-    // cannot take by itself); otherwise it says why not, dimmed: the APK is current, the check has
-    // not answered yet, or it failed. A failed check never reads as current.
+    // Offered only while the release needs a new Android App, which the row downloads; otherwise
+    // it says where the game stands, dimmed: a newer game to update from its store (nothing for
+    // BPP to download), current, the check has not answered yet, or it failed. A failed check
+    // never reads as current.
     private sealed class GameUpdateEntry(AndroidSettingsDockHooks hooks) : ISettingsDockEntry
     {
         public int Order => BppSettingsDockOrder.GameUpdate;
@@ -185,10 +196,7 @@ internal static class AndroidSettingsDock
                 "GameUpdate",
                 languageCode =>
                     Label(hooks.GameUpdateStatus()).Resolve(languageCode, L.CurrentMode),
-                () =>
-                    hooks.GameUpdateStatus()
-                        is AndroidGameUpdateStatus.GameUpdated
-                            or AndroidGameUpdateStatus.RuntimeChanged,
+                () => hooks.GameUpdateStatus() == AndroidGameUpdateStatus.AppUpdated,
                 hooks.OpenGameUpdate,
                 collapseAfterActivate: false
             );
@@ -197,10 +205,25 @@ internal static class AndroidSettingsDock
             status switch
             {
                 AndroidGameUpdateStatus.GameUpdated => AndroidTouchText.GameUpdated,
-                AndroidGameUpdateStatus.RuntimeChanged => RuntimeUpdated,
+                AndroidGameUpdateStatus.AppUpdated => AppUpdated,
                 AndroidGameUpdateStatus.Current => GameUpToDate,
                 AndroidGameUpdateStatus.CheckFailed => GameUpdateCheckFailed,
                 _ => GameUpdateChecking,
             };
+    }
+
+    // Information only: Compatibility Mode is the Android App's choice for this launch.
+    private sealed class CompatibilityModeEntry : ISettingsDockEntry
+    {
+        public int Order => BppSettingsDockOrder.CompatibilityMode;
+
+        public BppSettingsDockDefinition Build(BppSettings config) =>
+            new(
+                "CompatibilityMode",
+                languageCode => CompatibilityMode.Resolve(languageCode, L.CurrentMode),
+                static () => false,
+                static () => { },
+                collapseAfterActivate: false
+            );
     }
 }

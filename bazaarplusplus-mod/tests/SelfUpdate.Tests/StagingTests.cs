@@ -67,6 +67,31 @@ public sealed class StagingTests : IDisposable
         Assert.Equal(Digest, running.NonManagedPayloadDigest);
     }
 
+    // Inside the Android App the installed Mods record the runtime of the App that staged them;
+    // the runtime running is the one the App's Launch Record names (root ADR 0012).
+    [Fact]
+    public void The_running_runtime_is_the_launch_record_s_when_it_names_one()
+    {
+        Install("6.0.0", ("A.dll", "a-old"));
+        var manifest = SelfUpdatePaths.InstalledManifest(InstallRoot, SelfUpdateHost.Desktop);
+        var runtime = new string('f', 64);
+
+        Assert.Equal(
+            runtime,
+            RunningManagedPayload.Read(manifest, "6.0.0", 1, runtime).NonManagedPayloadDigest
+        );
+        Assert.Equal(
+            Digest,
+            RunningManagedPayload.Read(manifest, "6.0.0", 1).NonManagedPayloadDigest
+        );
+        Assert.Equal(
+            runtime,
+            RunningManagedPayload
+                .Read(Path.Combine(_root, "missing.txt"), "6.0.0", 1, runtime)
+                .NonManagedPayloadDigest
+        );
+    }
+
     [Fact]
     public async Task A_staged_version_is_not_downloaded_again()
     {

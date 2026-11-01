@@ -1,12 +1,11 @@
 #nullable enable
-using BazaarPlusPlus.Infrastructure.ReleaseManifest;
-
 namespace BazaarPlusPlus.Game.Lobby;
 
 /// <summary>
-/// Whether the game itself is behind the Android Release APK the Platform Release Manifest
-/// names. A game update arrives only as a new APK, which Android lets the user install and never
-/// the mod, so the answer is a prompt with the APK's link, not an update.
+/// What an Android copy needs beyond the Managed Payload, against the published release (root
+/// ADR 0012): a newer game, which the user installs from the game's own store and then starts
+/// again from the Android App, or a new Android App, whose runtime the release needs. Neither is
+/// something the mod can install, so the answer is a prompt, not an update.
 /// </summary>
 public static class AndroidGameUpdate
 {
@@ -25,55 +24,63 @@ public static class AndroidGameUpdate
     }
 
     /// <summary>
-    /// The APK to offer when the published one was injected into a newer game than the running
-    /// one; null when the game is current, or when either build number is unknown. Both sides
-    /// are game version strings in the same format, so neither relies on the APK's versionCode.
+    /// Whether the published release was adapted for a newer game than the running one; false
+    /// when either build number is unknown. Both sides are game version strings in the same
+    /// format.
     /// </summary>
-    public static AndroidApkRelease? Newer(string? runningGameVersion, AndroidApkRelease? published)
+    public static bool Newer(string? runningGameVersion, string? publishedGameVersion)
     {
-        if (published == null)
-            return null;
         var running = ParseVersionCode(runningGameVersion);
-        var offered = ParseVersionCode(published.GameVersion);
-        return running.HasValue && offered.HasValue && offered.Value > running.Value
-            ? published
-            : null;
+        var offered = ParseVersionCode(publishedGameVersion);
+        return running.HasValue && offered.HasValue && offered.Value > running.Value;
     }
 
     /// <summary>
-    /// The new APK this copy needs, and why; null when the Managed Payload or nothing at all
-    /// brings it up to date. A newer game always needs the APK. With the same game,
-    /// <paramref name="manualUpdate"/> (the self-update decision <c>ManualUpdate</c>) says the BPP
-    /// runtime the APK carries (loader, interop, native libraries, Updater) or the history schema
-    /// changed. An APK for an older game is never offered.
+    /// What this copy needs, and why; null when the Managed Payload or nothing at all brings it
+    /// up to date. A newer game always comes first. With the same game,
+    /// <paramref name="manualUpdate"/> (the self-update decision <c>ManualUpdate</c>) says the
+    /// release needs another runtime than the running Android App carries (loader, native
+    /// libraries, Updater) or another history schema, so the new App is offered when the release
+    /// names one. A release for an older game asks for nothing.
     /// </summary>
-    public static AndroidApkUpdate? Needed(
+    public static AndroidUpdate? Needed(
         string? runningGameVersion,
-        AndroidApkRelease? published,
+        string? publishedGameVersion,
+        AndroidAppDownload? app,
         bool manualUpdate
     )
     {
-        if (Newer(runningGameVersion, published) is { } newer)
-            return new AndroidApkUpdate(newer, AndroidApkUpdateReason.GameUpdated);
+        if (Newer(runningGameVersion, publishedGameVersion))
+            return new AndroidUpdate(AndroidUpdateReason.GameUpdated, publishedGameVersion!, null);
         var running = ParseVersionCode(runningGameVersion);
         return
             manualUpdate
-            && published != null
+            && app != null
             && running.HasValue
-            && ParseVersionCode(published.GameVersion) == running
-            ? new AndroidApkUpdate(published, AndroidApkUpdateReason.RuntimeChanged)
+            && ParseVersionCode(publishedGameVersion) == running
+            ? new AndroidUpdate(AndroidUpdateReason.AppUpdated, publishedGameVersion!, app)
             : null;
     }
 }
 
-public enum AndroidApkUpdateReason
+public enum AndroidUpdateReason
 {
-    /// <summary>The published APK carries a newer game.</summary>
+    /// <summary>The release was adapted for a newer game: update the game from its store.</summary>
     GameUpdated,
 
-    /// <summary>Same game, but the BPP runtime inside the APK changed.</summary>
-    RuntimeChanged,
+    /// <summary>Same game, but the release needs a new Android App.</summary>
+    AppUpdated,
 }
 
-/// <summary>An Android Release APK this copy needs, and why.</summary>
-public sealed record AndroidApkUpdate(AndroidApkRelease Apk, AndroidApkUpdateReason Reason);
+/// <summary>Where the published Android App APK downloads from, and its size.</summary>
+public sealed record AndroidAppDownload(Uri Url, long Size);
+
+/// <summary>
+/// What this copy needs, and why; <see cref="App"/> is the download for
+/// <see cref="AndroidUpdateReason.AppUpdated"/> and null for a game update.
+/// </summary>
+public sealed record AndroidUpdate(
+    AndroidUpdateReason Reason,
+    string PublishedGameVersion,
+    AndroidAppDownload? App
+);

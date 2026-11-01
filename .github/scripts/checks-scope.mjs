@@ -123,6 +123,9 @@ export const SHARED_INPUTS = [
     ['site', 'mod', 'installer']
   ],
   ['bazaarplusplus-mod/docs/contracts/', ['server', 'analyzer']],
+  // Launch Record (AGENTS.md): the mod's Android Host and Updater read the
+  // Android App's golden.
+  ['bazaarplusplus-android/contracts/', ['mod']],
   [
     'bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/',
     ['server', 'analyzer']

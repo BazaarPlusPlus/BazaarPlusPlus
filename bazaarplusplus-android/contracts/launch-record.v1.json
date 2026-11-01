@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "processId": 12345,
+  "app": {
+    "packageName": "com.bazaarplusplus.android",
+    "versionName": "6.1.0",
+    "versionCode": 6001000,
+    "nonManagedPayloadDigest": "b022c26b660889ad3a1026a358432a2857ae3f9f5e5495f04eb21afc14242c09"
+  },
+  "release": "6.1.0",
+  "mode": "normal",
+  "game": {
+    "packageName": "com.tempogames.thebazaar",
+    "versionName": "1.0.12825-production-android-d9601ded",
+    "versionCode": 12825,
+    "il2cppSha256": "a26c64a8504f3f50bfa3c870e05a2c1124765a49c409afe086f77a2352a93cf3",
+    "metadataSha256": "c15b415d5a1b040814cec2490195a2a32b2636210a17b1bf78b93d6bbb6cee39"
+  },
+  "interop": {
+    "sha256": "a6f5c1f3bb2f848d919ac33a04a0dcb0bd243c2c3b76225f544b0e10c8aed83f",
+    "snapshotSha256": "2093c6c0614a689851924f9c1346db4c397a7958c35d22b3b41677dcbb01caf2",
+    "source": "release"
+  }
+}

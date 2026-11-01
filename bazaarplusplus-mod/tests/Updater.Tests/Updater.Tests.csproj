@@ -52,6 +52,12 @@
       Link="fixtures/managed-payload-manifest.txt"
       CopyToOutputDirectory="PreserveNewest"
     />
+    <!-- The Android App's Launch Record golden (root AGENTS.md, Contracts): the App writes it,
+         the Updater and the Android Host read it. -->
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-android/contracts/launch-record.v1.json"
+      LogicalName="Updater.Tests.launch-record.v1.json"
+    />
     <Content
       Include="../../../bazaarplusplus-installer/src-tauri/tauri.conf.json"
       Link="fixtures/tauri.conf.json"

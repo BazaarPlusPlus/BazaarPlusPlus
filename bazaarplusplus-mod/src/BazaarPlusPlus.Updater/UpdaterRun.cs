@@ -31,11 +31,14 @@ internal static class UpdaterRun
         : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? WindowsPlatformKey
         : null;
 
+    // runtimeDigest: the running runtime's non-managed payload digest from the Android App's
+    // Launch Record (RuntimeDigest); null compares with the installed manifest's.
     public static SwapOutcome? Run(
         string installRoot,
         ManagedPayloadHost host,
         string? platformKey,
-        UpdaterLog log
+        UpdaterLog log,
+        string? runtimeDigest = null
     )
     {
         try
@@ -55,7 +58,8 @@ internal static class UpdaterRun
                 host,
                 platformKey,
                 ReleaseSigningKey.PublicKey,
-                log
+                log,
+                runtimeDigest
             ).Run();
         }
         catch (Exception exception)
@@ -64,4 +68,34 @@ internal static class UpdaterRun
             return null;
         }
     }
+
+#if NET
+    /// <summary>
+    /// The digest of the runtime the Android App started this process with: its Launch Record's
+    /// <c>app.nonManagedPayloadDigest</c>, when the record parses and this process wrote it (root
+    /// ADR 0012). No record, an unreadable one, another process's, or a development App's (no
+    /// digest) yields null, which keeps the installed manifest's rule. The record's release is
+    /// not checked: it is the version this launch may swap in.
+    /// </summary>
+    public static string? RuntimeDigest(string recordPath, int processId, UpdaterLog log)
+    {
+        try
+        {
+            var reading = LaunchRecordReading.Read(recordPath, processId, runningRelease: null);
+            var digest = reading.Record?.App.NonManagedPayloadDigest;
+            log.Info(
+                "updater.launch_record.read",
+                ("mode", reading.Mode),
+                ("reason", reading.Reason),
+                ("runtime_digest", digest == null ? "none" : "present")
+            );
+            return digest;
+        }
+        catch (Exception exception)
+        {
+            log.Error("updater.launch_record.failed", exception);
+            return null;
+        }
+    }
+#endif
 }

@@ -11,8 +11,8 @@ internal static class AndroidTouchText
         "升級預覽"
     );
     public static readonly LocalizedTextSet GameUpdated = new(
-        "The game has updated: download the new APK",
-        "游戏已更新，请下载新版安装包",
-        "遊戲已更新，請下載新版安裝包"
+        "The Bazaar has an update: get it from its store",
+        "The Bazaar 有更新，请从它的商店更新",
+        "The Bazaar 有更新，請從它的商店更新"
     );
 }

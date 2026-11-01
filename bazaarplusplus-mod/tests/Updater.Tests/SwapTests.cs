@@ -16,6 +16,7 @@ public sealed class SwapTests : IDisposable
 
     private readonly string _root = Directory.CreateTempSubdirectory("bpp-updater-").FullName;
     private string _stageDigest = Digest;
+    private int _stageHistoryVersion = 1;
     private readonly List<string> _log = new();
 
     private string InstallRoot => Path.Combine(_root, "game");
@@ -164,6 +165,65 @@ public sealed class SwapTests : IDisposable
         );
     }
 
+    // Inside the Android App the installed Mods record the runtime of the App that staged them;
+    // the one running is the Launch Record's (root ADR 0012).
+    [Fact]
+    public void A_launch_record_runtime_replaces_the_installed_digest()
+    {
+        Install("6.0.0", ("A.dll", "a-old"));
+        var runtime = new string('f', 64);
+        _stageDigest = runtime;
+        Stage("6.0.1", ("A.dll", "a-new"));
+
+        Assert.Equal(SwapOutcome.Applied, Run(runtime));
+
+        Assert.Equal("a-new", ReadInstall(Plugins + "A.dll"));
+    }
+
+    [Fact]
+    public void A_payload_for_another_runtime_than_the_launch_record_s_is_rejected()
+    {
+        Install("6.0.0", ("A.dll", "a-old"));
+        Stage("6.0.1", ("A.dll", "a-new"));
+
+        Assert.Equal(SwapOutcome.Rejected, Run(new string('e', 64)));
+
+        Assert.Equal("a-old", ReadInstall(Plugins + "A.dll"));
+        Assert.Contains(
+            _log,
+            line =>
+                line.Contains("reason_code=non_managed_payload_mismatch", StringComparison.Ordinal)
+        );
+    }
+
+    [Fact]
+    public void A_fresh_install_in_the_android_app_still_checks_the_runtime()
+    {
+        WriteInstall(Plugins + "BazaarPlusPlus.version", "6.0.0\n");
+        Stage("6.0.1", ("A.dll", "a-new"));
+
+        Assert.Equal(SwapOutcome.Rejected, Run(new string('e', 64)));
+    }
+
+    [Fact]
+    public void A_launch_record_runtime_keeps_the_history_and_version_checks_on_the_install()
+    {
+        Install("6.0.0", ("A.dll", "a-old"));
+        _stageHistoryVersion = 2;
+        Stage("6.0.1", ("A.dll", "a-new"));
+
+        Assert.Equal(SwapOutcome.Rejected, Run(Digest));
+        Assert.Contains(
+            _log,
+            line => line.Contains("reason_code=history_database_mismatch", StringComparison.Ordinal)
+        );
+
+        _stageHistoryVersion = 1;
+        Stage("6.0.0", ("A.dll", "a-same"));
+        Assert.Equal(SwapOutcome.NothingStaged, Run(Digest));
+        Assert.Equal("a-old", ReadInstall(Plugins + "A.dll"));
+    }
+
     [Fact]
     public void Rejects_any_payload_over_an_installed_manifest_that_does_not_parse()
     {
@@ -250,14 +310,15 @@ public sealed class SwapTests : IDisposable
         Assert.False(Directory.Exists(swap));
     }
 
-    private SwapOutcome Run() =>
+    private SwapOutcome Run(string? runtimeDigest = null) =>
         new ManagedPayloadSwap(
             InstallRoot,
             Path.Combine(InstallRoot, UpdaterRun.DataRootDirectoryName),
             ManagedPayloadHost.BepInEx,
             Platform,
             TestSigner.Default.MinisignKey,
-            new UpdaterLog(_log.Add, _log.Add, _log.Add)
+            new UpdaterLog(_log.Add, _log.Add, _log.Add),
+            runtimeDigest
         ).Run();
 
     private void Install(string version, params (string Name, string Content)[] files)
@@ -295,7 +356,7 @@ public sealed class SwapTests : IDisposable
             File.WriteAllText(path, content);
         }
         var manifest = Encoding.UTF8.GetBytes(
-            ManifestText(version, platform, directory, files, _stageDigest)
+            ManifestText(version, platform, directory, files, _stageDigest, _stageHistoryVersion)
         );
         File.WriteAllBytes(Path.Combine(staged, ManagedPayloadManifest.FileName), manifest);
         File.WriteAllText(
@@ -316,7 +377,8 @@ public sealed class SwapTests : IDisposable
         string platform,
         string directory,
         (string Name, string Content)[] files,
-        string? digest = null
+        string? digest = null,
+        int historyVersion = 1
     )
     {
         var builder = new StringBuilder()
@@ -327,7 +389,9 @@ public sealed class SwapTests : IDisposable
             .Append("platform ")
             .Append(platform)
             .Append('\n')
-            .Append("history-database-user-version 1\n")
+            .Append("history-database-user-version ")
+            .Append(historyVersion)
+            .Append('\n')
             .Append("non-managed-payload-digest ")
             .Append(digest ?? Digest)
             .Append('\n');

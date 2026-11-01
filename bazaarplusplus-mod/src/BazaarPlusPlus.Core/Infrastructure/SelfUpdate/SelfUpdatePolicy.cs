@@ -14,7 +14,7 @@ public enum SelfUpdateDecision
     /// <summary>The published version is staged; the next start swaps it in.</summary>
     Staged,
 
-    /// <summary>Only the installer (on Android, a new APK) can update this copy.</summary>
+    /// <summary>Only the installer (on Android, a new Android App) can update this copy.</summary>
     ManualUpdate,
 }
 

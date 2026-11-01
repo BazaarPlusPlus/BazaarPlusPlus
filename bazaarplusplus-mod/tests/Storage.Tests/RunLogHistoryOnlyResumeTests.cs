@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 
 internal static class RunLogHistoryOnlyResumeTests
 {
-    // The mod never writes history_only, and the V5 import closes unfinished Runs. If an
+    // A normal store never writes history_only, and the V5 import closes unfinished Runs. If an
     // imported Run is still active anyway, resume skips it and a game Run with the same id
     // gets a collision id instead of writing into the imported row.
     internal static void Run()
