@@ -43,10 +43,12 @@ After upgrading from 5.x, one click on the installer's Install page imports your
 
 ### Android
 
-1. Download the `.apk` (arm64) from the Android card on the [download page](https://bazaarplusplus.com/download?lang=en). The Android build is experimental; report problems in QQ group 1083470305.
-2. Uninstall the official _The Bazaar_ first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.
-3. Install the downloaded APK and sign in. BazaarPlusPlus settings live in the game's own Settings dialog.
-4. When the game updates, download the new APK and install it over this one; no uninstall needed. When only the mod changes, it updates itself in game.
+1. Install the official _The Bazaar_ from Google Play or the publisher's website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.
+2. Download the BazaarPlusPlus `.apk` (arm64, Android 11 or later) from the Android card on the [download page](https://bazaarplusplus.com/download?lang=en) and install it. The Android build is experimental; report problems in QQ group 1083470305.
+3. Start the game from BazaarPlusPlus. The first time, sign in to your _The Bazaar_ account on the game's own sign-in screen: each app keeps its own sign-in, and the official app does not share it. BazaarPlusPlus has no account of its own. BazaarPlusPlus settings live in the game's own Settings dialog.
+4. BazaarPlusPlus downloads the mod updates itself. When BazaarPlusPlus itself needs an update, it tells you to download the new APK from the download page and install it over this one.
+
+Make purchases in the official app. After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the mod loads, nothing is uploaded, and your runs stay only in your local history.
 
 ## Feature Matrix
 

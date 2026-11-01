@@ -143,6 +143,9 @@ export type DownloadPageCopy = {
     feedbackCopied: string;
     stepsTitle: string;
     steps: string[];
+    /** What differs from the official app: Android version, sign-in, purchases, Compatibility Mode. */
+    limitsTitle: string;
+    limits: string[];
   };
   /** The install notes cover only Windows and macOS; Android has its own steps on its card. */
   desktopNoteTitle: string;
@@ -494,9 +497,16 @@ const zh: LocalizedSiteCopy = {
       feedbackCopied: '已复制群号',
       stepsTitle: '安装前必读',
       steps: [
-        '先卸载官方版 The Bazaar：Android 不允许用签名不同的安装包覆盖安装。账号与进度保存在服务器上，卸载只会丢失登录状态，重新登录即可',
-        '打开下载好的 APK 安装；Android 询问时，允许浏览器或文件管理器安装应用',
-        '游戏更新后，回到这里下载新的 APK 直接覆盖安装，不需要再卸载',
+        '先从 Google Play 或发行商官网安装官方版 The Bazaar。BazaarPlusPlus 运行你已安装的游戏，不修改它，也不需要卸载它',
+        '打开下载好的 APK 安装 BazaarPlusPlus；Android 询问时，允许浏览器或文件管理器安装应用',
+        '从 BazaarPlusPlus 启动游戏。第一次启动时，在游戏自己的登录界面登录 The Bazaar 账号。BazaarPlusPlus 本身没有账号，不需要登录',
+      ],
+      limitsTitle: '须知',
+      limits: [
+        '需要 Android 11 或更高版本',
+        '登录状态由各个 App 分别保存：从 BazaarPlusPlus 启动的游戏和官方 App 互不共享，所以第一次从 BazaarPlusPlus 启动时要再登录一次',
+        '购买请在官方 App 里完成',
+        '游戏更新后、BazaarPlusPlus 还没有适配新版本时，可以选择兼容模式启动：Mods 照常加载，但不上传任何数据，对局只保存在本机的历史记录里',
       ],
     },
     desktopNoteTitle: 'Windows 与 macOS 安装提示',
@@ -817,9 +827,16 @@ const en: LocalizedSiteCopy = {
       feedbackCopied: 'Group number copied',
       stepsTitle: 'Before you install',
       steps: [
-        'Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.',
-        'Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.',
-        'When the game updates, download the new APK here and install it over this one; no uninstall needed.',
+        'Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.',
+        'Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.',
+        'Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own.',
+      ],
+      limitsTitle: 'Good to know',
+      limits: [
+        'Android 11 or later.',
+        'Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.',
+        'Make purchases in the official app.',
+        'After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history.',
       ],
     },
     desktopNoteTitle: 'Windows and macOS install notes',

@@ -42,9 +42,16 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
-        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
-        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
+        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
+        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+      ],
+      "limitsTitle": "Good to know",
+      "limits": [
+        "Android 11 or later.",
+        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
+        "Make purchases in the official app.",
+        "After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history."
       ]
     },
     "fallback": null
@@ -92,9 +99,16 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
-        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
-        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
+        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
+        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+      ],
+      "limitsTitle": "Good to know",
+      "limits": [
+        "Android 11 or later.",
+        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
+        "Make purchases in the official app.",
+        "After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history."
       ]
     },
     "fallback": null
@@ -142,9 +156,16 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
-        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
-        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
+        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
+        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+      ],
+      "limitsTitle": "Good to know",
+      "limits": [
+        "Android 11 or later.",
+        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
+        "Make purchases in the official app.",
+        "After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history."
       ]
     },
     "fallback": null
@@ -192,9 +213,16 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
-        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
-        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
+        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
+        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+      ],
+      "limitsTitle": "Good to know",
+      "limits": [
+        "Android 11 or later.",
+        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
+        "Make purchases in the official app.",
+        "After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history."
       ]
     },
     "fallback": {
@@ -245,9 +273,16 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
-        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
-        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
+        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
+        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+      ],
+      "limitsTitle": "Good to know",
+      "limits": [
+        "Android 11 or later.",
+        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
+        "Make purchases in the official app.",
+        "After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history."
       ]
     },
     "fallback": null
@@ -295,9 +330,16 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
-        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
-        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
+        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
+        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+      ],
+      "limitsTitle": "Good to know",
+      "limits": [
+        "Android 11 or later.",
+        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
+        "Make purchases in the official app.",
+        "After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history."
       ]
     },
     "fallback": null
@@ -345,9 +387,16 @@
       "feedback": "QQ feedback group 1083470305",
       "stepsTitle": "Before you install",
       "steps": [
-        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
-        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
-        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
+        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
+        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+      ],
+      "limitsTitle": "Good to know",
+      "limits": [
+        "Android 11 or later.",
+        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
+        "Make purchases in the official app.",
+        "After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history."
       ]
     },
     "fallback": null
