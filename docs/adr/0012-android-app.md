@@ -134,7 +134,7 @@ LemonLoader 用**游戏**的 `lastUpdateTime` 作为部署 revision 和 interop 
 - Managed Payload：Android App 按 Core 的 `ManagedPayloadStager` 定下的布局暂存到 Data Root 的 `Updates/<版本>/`（先解压到 `Updates/.download-<版本>-<随机>/`，再一次改名发布）。Android App 只解压 `manifest.txt`、`manifest.txt.minisig` 和 `files/MelonLoader/Mods/<文件名>`、`files/MelonLoader/UserLibs/<文件名>` 这几种条目，名字里不能有路径分隔符或 `..`；有任何别的条目就拒绝整个 zip。Updater 在 BPP 启动的装载阶段验证 minisign 签名和每个文件的哈希，然后换入（mod [ADR-0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)）。minisign 只由 Updater 验证：API 30 没有 Ed25519，而 Updater 已经带着验证实现和钉住的公钥。全新安装时 Updater 读不到已安装清单，按"无"处理，可以换入；刚换入的 UserLibs 当次启动就能加载（2026-11-01 在 `bpp_host_spike` 上验证：`updater.swap.applied from=none to=6.0.0`，Data Root 的数据库被创建）。
 - 启动前，Android App 删除 `Updates/` 下自己这次没有暂存的版本，这样 Updater 只会换入与这次 interop 对应的 Mods。
 - Updater 拒绝一份暂存时会删除它，游戏照常启动但没有新的 Mods。Android App 记住自己暂存的版本；下次启动时，如果已安装的 Managed Payload 版本仍低于它、暂存目录也不在了，就告诉用户"上次安装 Mods 失败"，并提供诊断导出，然后再暂存一次。
-- 平台清单的 `nonManagedPayloadDigest` 和 Android App 自己的不同时，这个版本的 Managed Payload 不能在这个 Android App 上运行：Android App 提示安装新的 Android App（`app.url`），BPP 启动要等更新完成，原版启动不受影响。
+- 有新版 Android App 时，启动器只提醒（`app.url`），不拦 BPP 启动，也不拦原版启动（#777）。平台清单的 `nonManagedPayloadDigest` 和 Android App 自己的不同时也是这样：启动照常暂存 Managed Payload，Updater 按上文的比较拒绝替换，这次启动继续用已安装的 Mods；没有已安装的 Mods 时，游戏不带 Mods 运行。启动失败时，用户自己安装新版 Android App；Android App 不保留上一版 Release 做回退。
 
 ## 否决的方案
 

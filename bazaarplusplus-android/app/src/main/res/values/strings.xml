@@ -18,7 +18,6 @@
   <string name="status_compatibility">Compatibility Mode</string>
   <string name="status_waiting">Waiting for adaptation</string>
   <string name="status_game_update">Game update required</string>
-  <string name="status_app_update">App update required</string>
   <string name="status_not_installed">Not installed</string>
   <string name="status_replace">Replacement required</string>
   <string name="status_offline">Offline</string>
@@ -42,7 +41,6 @@
   <string name="runtime_missing">This build has no BPP runtime yet.</string>
   <string name="dev_interop">Using the Development interop.</string>
   <string name="app_update_available">BazaarPlusPlus v%1$s is out.</string>
-  <string name="app_update_needed">BPP launch needs the new BazaarPlusPlus App v%1$s.</string>
   <string name="progress_interop">Interop · %1$s / %2$s</string>
   <string name="progress_plugin">Plugin · %1$s / %2$s</string>
   <string name="check_failed">Couldn’t check the game: %1$s</string>

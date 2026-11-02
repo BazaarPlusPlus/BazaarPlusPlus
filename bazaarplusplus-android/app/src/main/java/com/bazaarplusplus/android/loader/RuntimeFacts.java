@@ -23,12 +23,4 @@ public final class RuntimeFacts {
         String digest = json.isNull("nonManagedPayloadDigest") ? null : json.getString("nonManagedPayloadDigest");
         return new RuntimeFacts(json.getJSONObject("loader").getString("tag"), digest);
     }
-
-    /**
-     * ADR 0012: a release whose nonManagedPayloadDigest differs from this App's cannot run here. A
-     * development build has no digest and runs any release.
-     */
-    public boolean needsAppUpdateFor(String releaseDigest) {
-        return nonManagedPayloadDigest != null && !nonManagedPayloadDigest.equals(releaseDigest);
-    }
 }

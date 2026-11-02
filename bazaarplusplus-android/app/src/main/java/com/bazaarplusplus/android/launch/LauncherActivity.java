@@ -165,9 +165,8 @@ public final class LauncherActivity extends Activity implements LauncherSession.
             update.setVisibility(View.GONE);
         } else {
             LauncherScreen.AppUpdate app = screen.appUpdate;
-            banner(update, !app.required ? R.drawable.bpp_banner_info : R.drawable.bpp_banner_warning,
-                    !app.required ? R.drawable.bpp_icon_info : R.drawable.bpp_icon_warning,
-                    getString(app.required ? R.string.app_update_needed : R.string.app_update_available, app.version));
+            banner(update, R.drawable.bpp_banner_info, R.drawable.bpp_icon_info,
+                    getString(R.string.app_update_available, app.version));
             Button action = update.findViewById(R.id.banner_action);
             action.setVisibility(app.url == null ? View.GONE : View.VISIBLE);
             action.setText(R.string.download);
@@ -353,8 +352,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
                 return R.string.status_waiting;
             case GAME_UPDATE:
                 return R.string.status_game_update;
-            case APP_UPDATE:
-                return R.string.status_app_update;
             case NOT_INSTALLED:
                 return R.string.status_not_installed;
             case REPLACE:

@@ -19,8 +19,6 @@ public final class LaunchGate {
         OFFLINE_NO_CACHE,
         /** The manifest has no Android App release yet (the retired injected-APK shape): native launch only. */
         NO_RELEASE,
-        /** The release's Managed Payload needs another Android App runtime: install the new App first. */
-        APP_UPDATE_REQUIRED,
         /** The installed game is the adapted one. */
         NORMAL,
         /** Newer code with a usable Pre-Adaptation: BPP launch in Compatibility Mode after the user opts in. */
@@ -67,17 +65,14 @@ public final class LaunchGate {
         public final boolean preAdaptationUsable;
         /** The user opted in to Compatibility Mode for the installed Game Code Hash. */
         public final boolean compatibilityChosen;
-        /** The manifest's nonManagedPayloadDigest differs from this App's own (never for a dev build). */
-        public final boolean appUpdateRequired;
 
         public Inputs(Installed installed, Adapted adapted, boolean noRelease, boolean preAdaptationUsable,
-                boolean compatibilityChosen, boolean appUpdateRequired) {
+                boolean compatibilityChosen) {
             this.installed = installed;
             this.adapted = adapted;
             this.noRelease = noRelease;
             this.preAdaptationUsable = preAdaptationUsable;
             this.compatibilityChosen = compatibilityChosen;
-            this.appUpdateRequired = appUpdateRequired;
         }
     }
 
@@ -120,8 +115,6 @@ public final class LaunchGate {
         if (in.installed.androidReleaseApk) return new Decision(Tier.ANDROID_RELEASE_APK, false);
         if (in.noRelease) return new Decision(Tier.NO_RELEASE, false);
         if (in.adapted == null) return new Decision(Tier.OFFLINE_NO_CACHE, false);
-        // The release's Managed Payload cannot run on this App's runtime, whatever the game.
-        if (in.appUpdateRequired) return new Decision(Tier.APP_UPDATE_REQUIRED, false);
         if (in.installed.hash.equals(in.adapted.hash)) return new Decision(Tier.NORMAL, false);
         // Different code with the same versionCode counts as newer (ADR 0012).
         if (in.installed.versionCode < in.adapted.versionCode) return new Decision(Tier.OLDER, false);

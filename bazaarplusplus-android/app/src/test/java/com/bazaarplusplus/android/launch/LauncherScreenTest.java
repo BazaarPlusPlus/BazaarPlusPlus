@@ -17,8 +17,8 @@ import java.util.List;
 
 public class LauncherScreenTest {
     static LaunchGate.Decision decision(LaunchGate.Installed installed, LaunchGate.Adapted adapted, boolean noRelease,
-            boolean preAdaptation, boolean chosen, boolean appUpdate) {
-        return LaunchGate.decide(new LaunchGate.Inputs(installed, adapted, noRelease, preAdaptation, chosen, appUpdate));
+            boolean preAdaptation, boolean chosen) {
+        return LaunchGate.decide(new LaunchGate.Inputs(installed, adapted, noRelease, preAdaptation, chosen));
     }
 
     static LaunchGate.Installed installed(long versionCode, boolean adapted) {
@@ -32,7 +32,7 @@ public class LauncherScreenTest {
     @Test
     public void theAdaptedGamePlaysWithTheOfficialGameBesideIt() {
         LauncherScreen screen = LauncherScreen.ready(facts(decision(installed(12825, true), LaunchGateTest.RELEASE,
-                false, false, false, false)));
+                false, false, false)));
         assertEquals(Status.READY, screen.status);
         assertEquals(Action.PLAY, screen.primary);
         assertEquals(List.of(Action.OPEN_OFFICIAL), screen.secondary);
@@ -43,16 +43,15 @@ public class LauncherScreenTest {
     @Test
     public void everyTierHasAStatusAndAtMostTwoSecondaryActions() {
         LaunchGate.Decision[] decisions = {
-            decision(null, null, false, false, false, false),
-            decision(new LaunchGate.Installed(12825, LaunchGateTest.ADAPTED, true), LaunchGateTest.RELEASE, false, false, false, false),
-            decision(installed(12825, true), null, false, false, false, false),
-            decision(installed(12825, true), null, true, false, false, false),
-            decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false, true),
-            decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false, false),
-            decision(installed(12900, false), LaunchGateTest.RELEASE, false, true, false, false),
-            decision(installed(12900, false), LaunchGateTest.RELEASE, false, true, true, false),
-            decision(installed(12900, false), LaunchGateTest.RELEASE, false, false, false, false),
-            decision(installed(12000, false), LaunchGateTest.RELEASE, false, false, false, false),
+            decision(null, null, false, false, false),
+            decision(new LaunchGate.Installed(12825, LaunchGateTest.ADAPTED, true), LaunchGateTest.RELEASE, false, false, false),
+            decision(installed(12825, true), null, false, false, false),
+            decision(installed(12825, true), null, true, false, false),
+            decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false),
+            decision(installed(12900, false), LaunchGateTest.RELEASE, false, true, false),
+            decision(installed(12900, false), LaunchGateTest.RELEASE, false, true, true),
+            decision(installed(12900, false), LaunchGateTest.RELEASE, false, false, false),
+            decision(installed(12000, false), LaunchGateTest.RELEASE, false, false, false),
         };
         EnumSet<Tier> covered = EnumSet.noneOf(Tier.class);
         for (LaunchGate.Decision decision : decisions) {
@@ -72,47 +71,33 @@ public class LauncherScreenTest {
     @Test
     public void aNewerGameWaitsUntilCompatibilityModeIsChosen() {
         LauncherScreen offered = LauncherScreen.ready(facts(decision(installed(12900, false), LaunchGateTest.RELEASE,
-                false, true, false, false)));
+                false, true, false)));
         assertEquals(Status.WAITING, offered.status);
         assertEquals(Action.ENABLE_COMPATIBILITY, offered.primary);
         assertEquals(List.of(Note.COMPATIBILITY), offered.notes);
 
         LauncherScreen chosen = LauncherScreen.ready(facts(decision(installed(12900, false), LaunchGateTest.RELEASE,
-                false, true, true, false)));
+                false, true, true)));
         assertEquals(Status.COMPATIBILITY, chosen.status);
         assertEquals(Action.PLAY, chosen.primary);
 
         LauncherScreen waiting = LauncherScreen.ready(facts(decision(installed(12900, false), LaunchGateTest.RELEASE,
-                false, false, false, false)));
+                false, false, false)));
         assertEquals(Status.WAITING, waiting.status);
         assertNull(waiting.primary);
         assertEquals(List.of(Action.OPEN_OFFICIAL), waiting.secondary);
     }
 
     @Test
-    public void anAppUpdateTheRuntimeNeedsLeavesOnlyTheOfficialGameAndTheReminder() {
-        LaunchGate.Decision decision = decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false, true);
-        LauncherScreen.AppUpdate update = LauncherScreen.appUpdate(true, 6020000, 6020000, true, "6.2.1", "https://x/app.apk");
-        LauncherScreen screen = LauncherScreen.ready(new LauncherScreen.Facts(decision, "1.0.12825", "1.0.12825", false,
-                false, false, false, update));
-        assertEquals(Status.APP_UPDATE, screen.status);
-        assertNull(screen.primary);
-        assertEquals(List.of(Action.OPEN_OFFICIAL), screen.secondary);
-        assertEquals("6.2.1", screen.appUpdate.version);
-        assertTrue(screen.appUpdate.required);
-    }
-
-    @Test
     public void aNewerAppIsOnlyAReminderAndNeverForADevelopmentBuild() {
-        assertNull(LauncherScreen.appUpdate(true, 6020000, 6020000, false, "6.2.0", null));
-        assertNull(LauncherScreen.appUpdate(true, 6030000, 6020000, false, "6.2.0", null));
-        assertEquals("6.3.0", LauncherScreen.appUpdate(true, 6020000, 6030000, false, "6.3.0", null).version);
-        assertFalse(LauncherScreen.appUpdate(true, 6020000, 6030000, false, "6.3.0", null).required);
-        assertNull(LauncherScreen.appUpdate(false, 1, 6030000, false, "6.3.0", null));
+        assertNull(LauncherScreen.appUpdate(true, 6020000, 6020000, "6.2.0", null));
+        assertNull(LauncherScreen.appUpdate(true, 6030000, 6020000, "6.2.0", null));
+        assertEquals("6.3.0", LauncherScreen.appUpdate(true, 6020000, 6030000, "6.3.0", null).version);
+        assertNull(LauncherScreen.appUpdate(false, 1, 6030000, "6.3.0", null));
 
-        LauncherScreen.AppUpdate update = LauncherScreen.appUpdate(true, 6020000, 6030000, false, "6.3.0", "https://x");
+        LauncherScreen.AppUpdate update = LauncherScreen.appUpdate(true, 6020000, 6030000, "6.3.0", "https://x");
         LauncherScreen screen = LauncherScreen.ready(new LauncherScreen.Facts(decision(installed(12825, true),
-                LaunchGateTest.RELEASE, false, false, false, false), "1.0.12825", "1.0.12825", false, false, false, false,
+                LaunchGateTest.RELEASE, false, false, false), "1.0.12825", "1.0.12825", false, false, false, false,
                 update));
         assertEquals("the reminder takes nothing away", Action.PLAY, screen.primary);
         assertEquals("6.3.0", screen.appUpdate.version);
@@ -120,7 +105,7 @@ public class LauncherScreenTest {
 
     @Test
     public void aBuildWithoutRuntimeHidesPlayAndSaysWhy() {
-        LaunchGate.Decision decision = decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false, false);
+        LaunchGate.Decision decision = decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false);
         LauncherScreen screen = LauncherScreen.ready(new LauncherScreen.Facts(decision, "1.0.12825", "1.0.12825", true,
                 true, true, false, null));
         assertNull(screen.primary);
@@ -129,7 +114,7 @@ public class LauncherScreenTest {
 
     @Test
     public void aDevelopmentInteropPlaysWithoutTheStagingNote() {
-        LaunchGate.Decision decision = decision(installed(12900, false), null, false, false, false, false);
+        LaunchGate.Decision decision = decision(installed(12900, false), null, false, false, false);
         LauncherScreen screen = LauncherScreen.ready(new LauncherScreen.Facts(decision, "1.0.12900", null, false, true,
                 false, true, null));
         assertEquals(Status.READY, screen.status);
@@ -139,8 +124,7 @@ public class LauncherScreenTest {
 
     @Test
     public void busyScreensOfferNothingAndKeepTheInfoRows() {
-        LauncherScreen.Facts facts = facts(decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false,
-                false));
+        LauncherScreen.Facts facts = facts(decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false));
         LauncherScreen downloading = LauncherScreen.launching(facts, new LauncherScreen.Progress(false, 25, 100));
         assertEquals(Status.DOWNLOADING, downloading.status);
         assertTrue(downloading.busy);
@@ -165,8 +149,7 @@ public class LauncherScreenTest {
         assertFalse(check.failure.launch);
         assertTrue("no official game to open", LauncherScreen.checkFailed("disk", false).secondary.isEmpty());
 
-        LauncherScreen.Facts facts = facts(decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false,
-                false));
+        LauncherScreen.Facts facts = facts(decision(installed(12825, true), LaunchGateTest.RELEASE, false, false, false));
         LauncherScreen launch = LauncherScreen.launchFailed(facts, "network");
         assertEquals(Status.READY, launch.status);
         assertEquals(Action.RETRY, launch.primary);

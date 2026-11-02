@@ -15,7 +15,7 @@ final class LauncherScreen {
     enum Status {
         CHECKING(Tone.BUSY), PREPARING(Tone.BUSY), DOWNLOADING(Tone.BUSY),
         READY(Tone.OK), COMPATIBILITY(Tone.WARN), WAITING(Tone.WARN), GAME_UPDATE(Tone.WARN),
-        APP_UPDATE(Tone.WARN), NOT_INSTALLED(Tone.NEUTRAL), REPLACE(Tone.BAD), OFFLINE(Tone.NEUTRAL),
+        NOT_INSTALLED(Tone.NEUTRAL), REPLACE(Tone.BAD), OFFLINE(Tone.NEUTRAL),
         NOT_RELEASED(Tone.NEUTRAL);
 
         final Tone tone;
@@ -42,20 +42,15 @@ final class LauncherScreen {
         }
     }
 
-    /**
-     * A newer App: a reminder banner. {@link #required} marks ADR 0012's case where this App's
-     * runtime cannot run the release, so the banner says why Play is missing.
-     */
+    /** A newer App: a reminder banner that takes no action away. */
     static final class AppUpdate {
         final String version;
         /** Null when the release names no download. */
         final String url;
-        final boolean required;
 
-        AppUpdate(String version, String url, boolean required) {
+        AppUpdate(String version, String url) {
             this.version = version;
             this.url = url;
-            this.required = required;
         }
     }
 
@@ -191,11 +186,6 @@ final class LauncherScreen {
                     status = Status.NOT_RELEASED;
                     notes.add(Note.NO_RELEASE);
                     break;
-                case APP_UPDATE_REQUIRED:
-                    // ADR 0012: this App's runtime cannot run the release's Managed Payload. The
-                    // reminder banner carries the download; the status says why Play is missing.
-                    status = Status.APP_UPDATE;
-                    break;
                 case OLDER:
                     status = Status.GAME_UPDATE;
                     primary = Action.UPDATE_FROM_PLAY;
@@ -228,14 +218,13 @@ final class LauncherScreen {
 
     /**
      * The reminder for a newer App, or null. A release build is reminded when the release's App
-     * has a higher versionCode, and always when this App cannot run the release; a development
-     * build (no runtime digest) never is, since every release outnumbers its versionCode.
+     * has a higher versionCode; a development build (no runtime digest) never is, since every
+     * release outnumbers its versionCode.
      */
-    static AppUpdate appUpdate(boolean releaseBuild, long ownVersionCode, long releaseVersionCode, boolean required,
+    static AppUpdate appUpdate(boolean releaseBuild, long ownVersionCode, long releaseVersionCode,
             String releaseVersion, String url) {
-        if (!releaseBuild) return null;
-        if (!required && releaseVersionCode <= ownVersionCode) return null;
-        return new AppUpdate(releaseVersion, url, required);
+        if (!releaseBuild || releaseVersionCode <= ownVersionCode) return null;
+        return new AppUpdate(releaseVersion, url);
     }
 
     /** Play, or nothing when this build carries no runtime to play with. */
