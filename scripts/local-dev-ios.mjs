@@ -197,13 +197,13 @@ async function initialize(profile, { timeout, keepOpen }) {
         Infinity,
         () => {
           const next = snapshot();
-          if (!next) return false;
-          if (next.state === 'ready') return true;
-          if (/^(error|installed|outdated)$/.test(next.state))
+          if (next?.state === 'ready') return true;
+          if (next && /^(error|installed|outdated)$/.test(next.state))
             throw new Error(
               `${profile.name} download ended in ${next.state}${next.errorCode ? ` (${next.errorCode})` : ''}.`
             );
-          const current = `${next.state} ${next.downloadedBytes}`;
+          // An unreachable app counts as no progress, so a crash ends in the stall error.
+          const current = next ? `${next.state} ${next.downloadedBytes}` : mark;
           if (current !== mark) {
             mark = current;
             progressedAt = Date.now();
