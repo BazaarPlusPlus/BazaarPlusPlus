@@ -1,25 +1,32 @@
 ---
 name: local-dev
-description: Local development setup and the Android test matrix for BazaarPlusPlus. Use for machine setup, preparing Android emulators and their game sign-in, or choosing resolution and orientation checks.
+description: Local development setup and the Android and iOS test matrices for BazaarPlusPlus. Use for machine setup, preparing Android emulators or iOS simulators and their game sign-in, or choosing resolution and orientation checks.
 ---
 
 # Local development
 
-Read `docs/development.md` (its Android section owns the matrix, the verification
+Read `docs/development.md` (its 本机矩阵与登录准备 section owns both matrices, the verification
 layers and why), then the affected project's `AGENTS.md`. Run commands from the
 repository root.
 
 ## Prepare
 
 1. `just doctor`, then `just setup` for missing dependencies and config projections.
-2. `node scripts/local-dev.mjs --help` lists the AVD names, dimensions, density,
-   serials and options. `just local-dev-status` shows only an earlier result.
+2. `node scripts/local-dev.mjs --help` lists the AVD and simulator names,
+   models, dimensions, serials and options. `just local-dev-status` shows only
+   an earlier result.
 3. `just local-dev-init` for every AVD, or `just local-dev-init NAME` for one.
    When the game asks for sign-in, the user completes it in the emulator window;
    credentials stay in that window.
+4. On the Mac that holds the iOS simulators, `just local-dev-init ios` for all
+   three or `just local-dev-init ios NAME` for one. It needs the `--test-control`
+   simulator build. When it starts a QR sign-in, tell the user to scan it in
+   the Simulator window with the Steam mobile app and wait; they type any
+   password themselves. A first game download takes a long time; run init in
+   the background.
 
-Done when each selected AVD reports `READY` in this run. Init proves the installed
-game signs in; it does not build or deploy this checkout.
+Done when each selected device reports `READY` in this run. Init proves the
+installed game signs in; it does not build or deploy this checkout.
 
 ## Verify on devices
 

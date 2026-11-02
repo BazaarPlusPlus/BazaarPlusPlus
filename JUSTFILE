@@ -53,12 +53,12 @@ setup *args:
 doctor:
     node scripts/workspace.mjs doctor
 
-# Inventory the Android AVD matrix and its historical login checks.
+# Inventory the Android AVD and iOS simulator matrices and their historical login checks.
 [group('workspace')]
 local-dev-status:
     node scripts/local-dev.mjs status
 
-# Prepare each Android AVD and verify its saved game login; --help lists the matrix.
+# Prepare each Android AVD (or, after `ios`, each iOS simulator) and verify its game login; --help lists both.
 [group('workspace')]
 local-dev-init *args:
     node scripts/local-dev.mjs init "$@"

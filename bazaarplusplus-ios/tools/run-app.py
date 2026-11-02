@@ -9,7 +9,7 @@ import uuid
 import time
 ROOT = Path(__file__).resolve().parents[1]
 os.umask(0o077)
-device = os.environ.get('BPP_DEVICE', 'iPhone 18 Pro Max')
+device = os.environ.get('BPP_DEVICE', 'bpp_sim_phone')
 app = ROOT / 'build/steam-app/simulator/launcher-derived/Build/Products/Release-iphonesimulator/BazaarPlusPlus.app'
 bundle = plistlib.loads((app / 'Info.plist').read_bytes())['CFBundleIdentifier']
 output = ROOT / 'build/steam-app/verification'
