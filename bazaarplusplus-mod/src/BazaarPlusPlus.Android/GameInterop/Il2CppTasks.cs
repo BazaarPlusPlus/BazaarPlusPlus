@@ -26,11 +26,20 @@ internal static class Il2CppTasks
         if (task == null)
             throw new InvalidOperationException($"{operation} returned no task.");
         if (!task.IsCompleted)
-            await AndroidMainThread.Host.WhenAsync(
-                () => task.IsCompleted,
-                timeout ?? DefaultTimeout,
-                cancellationToken
-            );
+        {
+            try
+            {
+                await AndroidMainThread.Host.WhenAsync(
+                    () => task.IsCompleted,
+                    timeout ?? DefaultTimeout,
+                    cancellationToken
+                );
+            }
+            catch (TimeoutException exception)
+            {
+                throw new TimeoutException($"{operation}: {exception.Message}", exception);
+            }
+        }
         ThrowIfUnsuccessful(task, operation);
     }
 

@@ -1,5 +1,8 @@
+using System.Diagnostics;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using Il2Cpp;
 using Il2CppBazaarGameClient.Domain.Models.Cards;
 using Il2CppBazaarGameShared.Infra.Messages;
@@ -21,7 +24,12 @@ namespace BazaarPlusPlus.Android.CombatReplay.Bootstrap;
 /// </summary>
 internal static class AndroidReplayGameServices
 {
-    private static readonly TimeSpan PresentationReadyTimeout = TimeSpan.FromSeconds(5);
+    // A cold first replay on a slow device takes over 5 s here (#771). Nothing else can run on
+    // the board during this wait, so a long limit only delays a real failure.
+    private static readonly TimeSpan PresentationReadyTimeout = TimeSpan.FromSeconds(30);
+
+    // These two load the board's assets, which a cold first replay reads from the APK (#771).
+    private static readonly TimeSpan ManagerSetupTimeout = TimeSpan.FromSeconds(120);
 
     public static NetworkManager RequireNetworkManager() =>
         NetworkManager.GetInstance()
@@ -116,11 +124,13 @@ internal static class AndroidReplayGameServices
         runManager.BoardBuilder = boardBuilder;
         var boardManager = await Il2CppTasks.AwaitAsync(
             boardBuilder.SetUpBoard(boardReference),
-            "BoardBuilder.SetUpBoard"
+            "BoardBuilder.SetUpBoard",
+            ManagerSetupTimeout
         );
         await Il2CppTasks.AwaitAsync(
             gameServiceManager.Init(boardManager),
-            "GameServiceManager.Init"
+            "GameServiceManager.Init",
+            ManagerSetupTimeout
         );
     }
 
@@ -145,29 +155,67 @@ internal static class AndroidReplayGameServices
 
     public static async Task WaitForPresentationReadyAsync()
     {
-        await WaitUntilAsync(
-            () =>
-            {
-                var boardManager = BoardManager.Instance;
-                if (boardManager == null || !boardManager.IsInitialized)
-                    return false;
-                var player = Data.PlayerSkillPresentationManager;
-                var opponent = Data.OpponentSkillPresenationManager;
-                return !boardManager.StorageMoving
-                    && !boardManager.IsUpdatingBoard
-                    && !boardManager.IsUpdatingSkillBoard
-                    && (player == null || !player.IsUpdatingSkillBoard)
-                    && (opponent == null || !opponent.IsUpdatingSkillBoard)
-                    && !boardManager.isUpdatingPresentation
-                    && !boardManager.IsCarpetUnrolling
-                    && !boardManager.HasCardsToReveal();
-            },
-            PresentationReadyTimeout
+        var clock = Stopwatch.StartNew();
+        var blockers = new AndroidReplayPresentationBlockers();
+        try
+        {
+            await WaitUntilAsync(
+                () => blockers.Observe(BoardPresentationBlockers(), clock.ElapsedMilliseconds),
+                PresentationReadyTimeout
+            );
+            await AndroidReplayPresentation.Tasks.WaitAsync(
+                AndroidMainThread.Host,
+                PresentationReadyTimeout
+            );
+        }
+        catch (TimeoutException exception)
+        {
+            throw new TimeoutException(
+                $"Replay presentation was not ready after {clock.ElapsedMilliseconds} ms; "
+                    + $"blocked by {blockers.Current}, last blocked {blockers.LastBlocked}.",
+                exception
+            );
+        }
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.replay.presentation_ready"),
+            ("elapsed_ms", clock.ElapsedMilliseconds),
+            ("last_blocked_ms", blockers.LastBlocked)
         );
-        await AndroidReplayPresentation.Tasks.WaitAsync(
-            AndroidMainThread.Host,
-            PresentationReadyTimeout
-        );
+    }
+
+    private static List<string> BoardPresentationBlockers()
+    {
+        var blockers = new List<string>();
+        var boardManager = BoardManager.Instance;
+        if (boardManager == null)
+        {
+            blockers.Add("board_manager_missing");
+            return blockers;
+        }
+        if (!boardManager.IsInitialized)
+        {
+            blockers.Add("board_not_initialized");
+            return blockers;
+        }
+        if (boardManager.StorageMoving)
+            blockers.Add("storage_moving");
+        if (boardManager.IsUpdatingBoard)
+            blockers.Add("updating_board");
+        if (boardManager.IsUpdatingSkillBoard)
+            blockers.Add("updating_skill_board");
+        var player = Data.PlayerSkillPresentationManager;
+        if (player != null && player.IsUpdatingSkillBoard)
+            blockers.Add("updating_player_skills");
+        var opponent = Data.OpponentSkillPresenationManager;
+        if (opponent != null && opponent.IsUpdatingSkillBoard)
+            blockers.Add("updating_opponent_skills");
+        if (boardManager.isUpdatingPresentation)
+            blockers.Add("updating_presentation");
+        if (boardManager.IsCarpetUnrolling)
+            blockers.Add("carpet_unrolling");
+        if (boardManager.HasCardsToReveal())
+            blockers.Add("cards_to_reveal");
+        return blockers;
     }
 
     // The game's skill presentation takes an IL2CPP list of cards; a managed list is rejected.

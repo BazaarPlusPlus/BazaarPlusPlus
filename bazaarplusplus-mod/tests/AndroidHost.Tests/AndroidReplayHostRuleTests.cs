@@ -37,6 +37,23 @@ public sealed class AndroidReplayHostRuleTests : IDisposable
     }
 
     [Fact]
+    public void The_presentation_wait_names_what_blocks_it_now_and_what_blocked_it_last()
+    {
+        var blockers = new AndroidReplayPresentationBlockers();
+        Assert.Equal("none", blockers.Current);
+        Assert.Equal("none", blockers.LastBlocked);
+
+        Assert.False(blockers.Observe(["carpet_unrolling", "cards_to_reveal"], 100));
+        Assert.False(blockers.Observe(["cards_to_reveal"], 4200));
+        Assert.Equal("cards_to_reveal", blockers.Current);
+        Assert.Equal("cards_to_reveal=4200,carpet_unrolling=100", blockers.LastBlocked);
+
+        Assert.True(blockers.Observe([], 4300));
+        Assert.Equal("none", blockers.Current);
+        Assert.Equal("cards_to_reveal=4200,carpet_unrolling=100", blockers.LastBlocked);
+    }
+
+    [Fact]
     public void A_capture_under_a_held_playback_lease_returns_and_saves_the_battle_without_its_payload()
     {
         var (store, files) = Stores();
