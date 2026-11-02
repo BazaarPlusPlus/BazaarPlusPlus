@@ -109,6 +109,11 @@ public final class LauncherActivity extends Activity {
                 button(primary, R.string.install_from_play, v -> open(getString(R.string.url_play)));
                 button(secondary, R.string.download_from_publisher, v -> open(getString(R.string.url_publisher)));
                 return;
+            case ANDROID_RELEASE_APK:
+                show(getString(R.string.android_release_apk), List.of(getString(R.string.android_release_apk_detail)));
+                button(primary, R.string.install_from_play, v -> open(getString(R.string.url_play)));
+                button(secondary, R.string.download_from_publisher, v -> open(getString(R.string.url_publisher)));
+                return;
             case OFFLINE_NO_CACHE:
                 show(getString(R.string.release_unavailable), notes);
                 button(secondary, R.string.retry, v -> recheck());

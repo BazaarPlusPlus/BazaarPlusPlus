@@ -20,7 +20,18 @@ public class LaunchGateTest {
     }
 
     static LaunchGate.Installed installed(long versionCode, GameCodeHash hash) {
-        return new LaunchGate.Installed(versionCode, hash);
+        return new LaunchGate.Installed(versionCode, hash, false);
+    }
+
+    @Test
+    public void anAndroidReleaseApkGetsNoLaunchEvenWithTheAdaptedCode() {
+        LaunchGate.Installed copy = new LaunchGate.Installed(12825, ADAPTED, true);
+        LaunchGate.Decision decision = decide(copy, RELEASE, false, false, false);
+        assertEquals(Tier.ANDROID_RELEASE_APK, decision.tier);
+        assertFalse(decision.bppLaunch());
+        assertFalse(decision.nativeLaunch());
+        assertEquals(Tier.ANDROID_RELEASE_APK,
+                LaunchGate.decide(new LaunchGate.Inputs(copy, null, true, false, false, false)).tier);
     }
 
     @Test
