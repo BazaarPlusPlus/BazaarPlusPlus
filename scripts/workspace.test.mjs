@@ -69,7 +69,7 @@ test('the template built from the real analyzer .env.example parses and lists ev
   const config = readConfig(f.home);
   assert.deepEqual(
     [...config.sections.keys()],
-    ['server', 'analyzer', 'signing', 'machine', 'cloudflare']
+    ['server', 'analyzer', 'signing', 'machine', 'game', 'cloudflare']
   );
   assert.ok('BPP_DATA_ROOT' in config.sections.get('analyzer').values);
   assert.ok('BPP_METRICS_R2_BUCKET' in config.sections.get('analyzer').values);
@@ -256,7 +256,8 @@ test('scoped environment only injects its section allowlist; explicit environmen
     ini({
       cloudflare:
         'CLOUDFLARE_ACCOUNT_ID=account\nCLOUDFLARE_API_TOKEN="$(touch never); `exit 1`"\nNODE_OPTIONS=--bad\n',
-      machine: 'CLOUDFLARE_ACCOUNT_ID=wrong-section\n'
+      machine: 'CLOUDFLARE_ACCOUNT_ID=wrong-section\n',
+      game: 'BPP_GAME_EMAIL=test@example.invalid\nBPP_GAME_PASSWORD=secret\n'
     })
   );
   const env = (profile, given = {}) =>
@@ -266,9 +267,13 @@ test('scoped environment only injects its section allowlist; explicit environmen
     CLOUDFLARE_API_TOKEN: '$(touch never); `exit 1`'
   });
   assert.deepEqual(env('mod'), {});
+  assert.deepEqual(env('game'), {
+    BPP_GAME_EMAIL: 'test@example.invalid',
+    BPP_GAME_PASSWORD: 'secret'
+  });
   assert.throws(
     () => env('cloudflare'),
-    /Unknown profile; use server, analyzer, signing, mod or release/
+    /Unknown profile; use server, analyzer, signing, mod, game or release/
   );
 });
 
@@ -438,11 +443,18 @@ test('CLI help lists every section and profile from the section table', (t) => {
   const f = fixture(t);
   const result = cli(f, ['--help']);
   assert.equal(result.status, 0, result.stderr);
-  for (const name of ['server', 'analyzer', 'signing', 'machine', 'cloudflare'])
+  for (const name of [
+    'server',
+    'analyzer',
+    'signing',
+    'machine',
+    'game',
+    'cloudflare'
+  ])
     assert.match(result.stdout, new RegExp(`\\[${name}\\]`));
   assert.match(
     result.stdout,
-    /Profiles: server, analyzer, signing, mod, release\./
+    /Profiles: server, analyzer, signing, mod, game, release\./
   );
   assert.match(result.stdout, /secrets push \[--dependabot\]$/m);
 });
@@ -524,7 +536,7 @@ test('CLI refuses an unknown profile naming the profiles the table defines', (t)
   assert.equal(result.status, 1);
   assert.match(
     result.stderr,
-    /Unknown profile; use server, analyzer, signing, mod or release/
+    /Unknown profile; use server, analyzer, signing, mod, game or release/
   );
 });
 

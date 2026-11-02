@@ -49,3 +49,7 @@ dev-manifest-port port:
 # Remove every development override (manifest port, Development interop, trusted certificate, game package) from the debug App.
 dev-reset:
     adb shell run-as com.bazaarplusplus.android.dev rm -rf files/dev
+
+# Apply config.ini [game] to the debug App's saved login and open its launcher; pass --help for details.
+dev-login serial:
+    node ../scripts/android-login.mjs "$1"
