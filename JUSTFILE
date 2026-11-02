@@ -53,6 +53,16 @@ setup *args:
 doctor:
     node scripts/workspace.mjs doctor
 
+# Inventory the Android AVD matrix and its historical login checks.
+[group('workspace')]
+local-dev-status:
+    node scripts/local-dev.mjs status
+
+# Prepare each Android AVD and verify its saved game login; --help lists the matrix.
+[group('workspace')]
+local-dev-init *args:
+    node scripts/local-dev.mjs init "$@"
+
 # Run explicit verification recipes serially and retain their final exit status, SHA and logs.
 [group('workspace')]
 verify +recipes:

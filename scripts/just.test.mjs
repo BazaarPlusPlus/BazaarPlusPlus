@@ -315,6 +315,26 @@ test('setup and scoped commands preserve arguments without shell expansion', (t)
   ]);
 });
 
+test('local development routes matrix preparation and status without expanding arguments', (t) => {
+  const f = fixture(t);
+  const literal = 'seed $(touch BAD)';
+  succeeded(f.run(['local-dev-status']));
+  succeeded(f.run(['local-dev-init', 'bpp_emu_3_2', '--seed', literal]));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, null, 'node', 'scripts/local-dev.mjs', 'status'),
+    call(
+      f.dir,
+      null,
+      'node',
+      'scripts/local-dev.mjs',
+      'init',
+      'bpp_emu_3_2',
+      '--seed',
+      literal
+    )
+  ]);
+});
+
 // The GitHub secrets recipes only route to the workspace CLI, which owns the
 // gh calls; flags pass through unchanged and nothing else runs.
 test('secrets-check and secrets-sync delegate to the workspace secrets commands', (t) => {
