@@ -92,6 +92,15 @@ export const sections = {
     optional: true,
     notes: ['# Optional overrides for nonstandard game installations.']
   },
+  game: {
+    profile: 'game',
+    inject: ['BPP_GAME_EMAIL', 'BPP_GAME_PASSWORD'],
+    optional: true,
+    notes: [
+      '# Optional local test account for just android::dev-login.',
+      '# Stored outside the checkout; never synced to GitHub secrets.'
+    ]
+  },
   cloudflare: {
     profile: 'release',
     keys: cloudflareKeys,

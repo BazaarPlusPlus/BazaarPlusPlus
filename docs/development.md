@@ -94,6 +94,8 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ## Android 冒烟
 
+测试账号可以放在本机配置的 `[game]` 中，用 `just android::dev-login <serial>` 应用到指定设备的 debug App，再从启动器启动游戏。字段和依赖见该命令的 `--help`。它停止 App 后只替换游戏 PlayerPrefs 的账号密码，保留其他设置；写入完成不等于服务器登录成功。凭据保存在 checkout 外的私有配置与 debug App 的沙盒中，不同步到 GitHub，也不修改官方 App 的登录状态。
+
 Android 没有云端的设备 lane：托管 runner 跑不了 arm64 游戏的模拟器（macOS arm64 托管 runner 没有嵌套虚拟化，x86 runner 跑不了只有 arm64 的游戏），自托管一台常开、常登录的机器只为夜间冒烟不值。发版前的设备验证在开发机上做：一台跑着 LemonLoader 注入版游戏、已登录测试账号的设备或 AVD，`just mod::android-smoke enabled` 构建、推送、重启、抓取并断言；`just mod::android-smoke disabled` 不装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。同一时间只驱动一台设备。
 
 断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据写进 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（gitignored，含整机 logcat 和已登录账号的截图，不要提交，也不要原样贴进公开的 issue 或 PR）；`just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。版本标签在主菜单加载前就写入，所以三级不依赖主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。主菜单不产生记录，数据库行数只作证据。`observe` 只计数不写标签，必然在功能生效级失败。
