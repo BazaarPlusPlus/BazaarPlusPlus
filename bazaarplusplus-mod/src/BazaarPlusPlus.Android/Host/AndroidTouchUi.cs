@@ -64,7 +64,7 @@ internal sealed class AndroidTouchUi
                 new AndroidCollectionDayTierSource(run),
                 new AndroidCollectionHeroPreferenceStore(),
                 run,
-                AndroidComposition.NoEncounterState.Instance,
+                new AndroidEncounterState(),
                 supporters
             ),
             () => _root?.transform
