@@ -268,7 +268,8 @@ internal sealed class AndroidComposition
 
     public void Start(float nowSeconds)
     {
-        // Before the record chain could resume a Run that a normal launch left active.
+        // Before the record chain could resume a Run that a normal launch left active, and before
+        // History lists an active History-Only Run as this launch's own.
         PrepareRuns(_paths, _launch);
         _core.Start();
         _replayMaintenanceFlight = new ReplayMaintenanceFlight();
@@ -297,20 +298,23 @@ internal sealed class AndroidComposition
         new(paths, DatabaseOptions, launch.RunUploadPolicy);
 
     /// <summary>
-    /// In Compatibility Mode, demotes every active <c>bundle</c> Run to History-Only before the
-    /// record chain starts, so a Run a normal launch left active is never sealed with what this
-    /// launch adds; it is not resumed either, and its earlier part stays local. Returns how many
-    /// changed; a normal launch changes nothing.
+    /// Readies the history database before the record chain starts. In Compatibility Mode it
+    /// demotes every active <c>bundle</c> Run to History-Only, so a Run a normal launch left
+    /// active is never sealed with what this launch adds; it is not resumed either, and its
+    /// earlier part stays local. Every launch then closes the active History-Only Runs, which
+    /// nothing can continue. Returns how many Runs were demoted; a normal launch demotes none.
     /// </summary>
     internal static int PrepareRuns(IPathProvider paths, AndroidLaunch launch)
     {
-        if (!launch.CompatibilityMode)
-            return 0;
-        var demoted = new RunLogStore(paths, DatabaseOptions).DemoteActiveRunsToHistoryOnly();
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.Android, "android.launch_record.runs_demoted"),
-            ("runs", demoted)
-        );
+        var store = new RunLogStore(paths, DatabaseOptions);
+        var demoted = launch.CompatibilityMode ? store.DemoteActiveRunsToHistoryOnly() : 0;
+        var abandoned = store.AbandonActiveHistoryOnlyRuns();
+        if (launch.CompatibilityMode || abandoned > 0)
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.launch_record.runs_prepared"),
+                ("demoted", demoted),
+                ("abandoned", abandoned)
+            );
         return demoted;
     }
 
@@ -400,7 +404,7 @@ internal sealed class AndroidComposition
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(hasCardTemplate);
-        var repository = new HistoryPanelRepository(databasePath);
+        var repository = new HistoryPanelRepository(databasePath, historyOnlyRunCanBeCurrent: true);
         var ghostBattles =
             session == null || !ghostSync
                 ? null
