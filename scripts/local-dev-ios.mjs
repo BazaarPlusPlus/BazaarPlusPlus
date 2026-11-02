@@ -47,8 +47,8 @@ A missing simulator is created empty. To reuse one that already holds the game
 and sign-in, rename it first: xcrun simctl rename UDID NAME.
 Each simulator has its own sandbox and keychain. Init boots it, installs the
 build and waits for its saved Steam login; without one it starts a QR sign-in
-on the simulator screen: scan it with the Steam mobile app, or cancel and sign
-in with a password there. It then downloads the game (about 6 GB) and passes
+on the simulator screen, behind the first-run intro: skip the intro, then scan
+it with the Steam mobile app, or cancel and sign in with a password there. It then downloads the game (about 6 GB) and passes
 when tools/regress.sh reports RunTasks complete with Failed: 0.
 Success shuts down a simulator init booted; --keep-open needs a single NAME.
 Failure leaves the simulator open and returns nonzero. Rerun init after repair.
@@ -177,7 +177,7 @@ async function initialize(profile, { timeout, keepOpen }) {
           control('qr');
           qr = true;
           console.log(
-            `${profile.name}: scan the QR code on the simulator screen with the Steam mobile app, or sign in with a password there.`
+            `${profile.name}: on the simulator screen, skip the first-run intro, then scan the QR code with the Steam mobile app or sign in with a password.`
           );
         }
         return false;

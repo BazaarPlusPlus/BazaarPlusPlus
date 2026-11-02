@@ -110,7 +110,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 缺少的设备从关机的 seed AVD 复制游戏和账号磁盘；已有设备保留数据。新机器先在一台 AVD 上装好 LemonLoader 注入版游戏并登录，再用 `--seed` 指定它；安装包和账号数据不随 clone 分发。复制不等于登录有效，所以每台都冷启动游戏，要求本次日志出现主菜单和随后的 hook 统计，并核对截图的尺寸和密度。需要重新登录时，在模拟器窗口中完成。init 只验证已安装的游戏，不构建、不部署当前源码，之后仍要执行所需的构建、部署和冒烟。
 
-iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam、单独下载游戏（约 6 GB），不能从另一台复制。已经装好游戏的模拟器用 `xcrun simctl rename` 改成矩阵名字即可复用；缺少的模拟器由 init 新建。init 安装 `bazaarplusplus-ios` 的 `--test-control` 模拟器构建，等待保存的登录；没有登录时在模拟器屏幕上显示二维码，由使用者用 Steam 手机 App 扫码，或改用密码登录并在手机上确认。下载进行期间 init 一直等待，停滞 5 分钟才失败。之后执行 `tools/regress.sh`，以 `RunTasks complete … Failed: 0` 为就绪信号。`bpp_sim_duo` 先展开再执行 init：合上时 FoldGuard 暂停游戏，回归等不到 RunTasks；simctl 没有折叠命令。所有模拟器共用 `build/steam-app/verification/` 的测试通道，同一时间只驱动一台。签名与登录的注意事项见 `bazaarplusplus-ios/AGENTS.md`。
+iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam、单独下载游戏（约 6 GB），不能从另一台复制。已经装好游戏的模拟器用 `xcrun simctl rename` 改成矩阵名字即可复用；缺少的模拟器由 init 新建。init 安装 `bazaarplusplus-ios` 的 `--test-control` 模拟器构建，等待保存的登录；没有登录时在模拟器屏幕上显示二维码（新模拟器先跳过首次介绍页），由使用者用 Steam 手机 App 扫码，或改用密码登录并在手机上确认。下载进行期间 init 一直等待，停滞 5 分钟才失败。之后执行 `tools/regress.sh`，以 `RunTasks complete … Failed: 0` 为就绪信号。`bpp_sim_duo` 先展开再执行 init：合上时 FoldGuard 暂停游戏，回归等不到 RunTasks；simctl 没有折叠命令。所有模拟器共用 `build/steam-app/verification/` 的测试通道，同一时间只驱动一台。签名与登录的注意事项见 `bazaarplusplus-ios/AGENTS.md`。
 
 | 验证层 | 需要证明什么 |
 | --- | --- |
