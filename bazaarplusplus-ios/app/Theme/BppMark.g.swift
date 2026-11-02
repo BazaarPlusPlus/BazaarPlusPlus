@@ -20,7 +20,7 @@ struct BppMark: View {
     var body: some View {
         let scale = size / Self.grid
         ZStack {
-            ForEach(Self.polygons.indices, id: .self) { index in
+            ForEach(Self.polygons.indices, id: \.self) { index in
                 let polygon = Self.polygons[index]
                 Path { path in
                     path.addLines(polygon.points.map { CGPoint(x: $0.x * scale, y: $0.y * scale) })
