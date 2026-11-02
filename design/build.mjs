@@ -4,6 +4,7 @@
 //
 //   node design/build.mjs          write the generated tokens.css and copy the brand mark
 //   node design/build.mjs --check  fail if any output is stale or a consumer disagrees
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -51,6 +52,11 @@ const ANDROID_MARK = `${ANDROID_RES}/drawable/bpp_mark.xml`;
 const IOS_TOKENS = 'bazaarplusplus-ios/app/Theme/BppTokens.g.swift';
 const IOS_MARK = 'bazaarplusplus-ios/app/Theme/BppMark.g.swift';
 const markPath = path.join(designDir, 'assets', 'Logos', 'bpp-mark.svg');
+// The desktop app icon is also both Apps' launcher icon. iOS exports it at build
+// time; the Android adaptive icon is exported by a script and records the
+// icon's sha256, so a changed icon without a re-export fails the check.
+const APP_ICON = 'bazaarplusplus-installer/src-tauri/icons/app-icon.png';
+const ANDROID_LAUNCHER_ICON = `${ANDROID_RES}/mipmap-anydpi/ic_launcher.xml`;
 const heroesPath = path.join(
   repoRoot,
   'bazaarplusplus-site',
@@ -533,6 +539,22 @@ function heroMismatches(tokens) {
   return problems;
 }
 
+function staleLauncherIcon() {
+  const sha = crypto
+    .createHash('sha256')
+    .update(fs.readFileSync(path.join(repoRoot, APP_ICON)))
+    .digest('hex');
+  const xml = path.join(repoRoot, ANDROID_LAUNCHER_ICON);
+  const recorded = fs.existsSync(xml)
+    ? /sha256 ([0-9a-f]{64})/.exec(fs.readFileSync(xml, 'utf8'))?.[1]
+    : undefined;
+  return recorded === sha
+    ? []
+    : [
+        `${ANDROID_LAUNCHER_ICON} is stale for ${APP_ICON}; run \`just android::launcher-icon\``
+      ];
+}
+
 function main(argv) {
   const check = argv.includes('--check');
   const tokens = readTokens();
@@ -611,6 +633,7 @@ function main(argv) {
     );
   }
   problems.push(...heroMismatches(tokens));
+  problems.push(...staleLauncherIcon());
 
   if (problems.length > 0) {
     for (const problem of problems) console.error(problem);

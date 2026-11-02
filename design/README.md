@@ -116,7 +116,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
   - `bpp-mark-on-light.svg` swaps the chevron to `bg-selected` ink for light grounds such as documents and store pages.
   - `bpp-mark-mono-white.svg` is a single white ink for the menu bar and other one-colour places.
   - Give the mark clear space of at least a quarter of its width. Never add a radius, bevel, gradient, glow or outline, and never recolour the gem away from `accent`.
-- The **app icon** (`bazaarplusplus-icon.webp`, `app-icon.png`: silver chevron, amber "++" gem and a BAZAAR++ plate on a dark squircle) is the desktop app icon. `favicon.webp` is the site's browser-tab icon.
+- The **app icon** (`bazaarplusplus-icon.webp`, `app-icon.png`: silver chevron, amber "++" gem and a BAZAAR++ plate on a dark squircle) is the desktop app icon, and the iOS App's and the Android App's launcher icon too: `bazaarplusplus-installer/src-tauri/icons/app-icon.png` is the source, the iOS build exports it into the App's icon catalog and `bazaarplusplus-android/tools/launcher-icon.py` turns it into the Android adaptive icon. `favicon.webp` is the site's browser-tab icon.
 - If an image is unavailable, set "BazaarPlusPlus" in `body-strong`.
 
 ## Apps

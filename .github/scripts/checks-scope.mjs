@@ -175,6 +175,13 @@ export const SHARED_INPUTS = [
   ].map((file) => [`bazaarplusplus-installer/${file}`, ['release']]),
   // checkProductProjections refuses 6.2.0 while this module exists.
   ['bazaarplusplus-installer/src-tauri/src/v5_import/', ['release']],
+  // The desktop app icon is the Android App's launcher icon too
+  // (bazaarplusplus-android/tools/launcher-icon.py exports it, and the release
+  // lane's design::check fails a stale export).
+  [
+    'bazaarplusplus-installer/src-tauri/icons/app-icon.png',
+    ['android', 'release']
+  ],
   ['bazaarplusplus-installer/src-tauri/icons/source/', ['macos-icon']],
   [
     'bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs',
