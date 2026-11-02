@@ -18,18 +18,18 @@ One page, no navigation. In order:
 
 ## Layout
 
-The layout follows the window's width, never the device model.
+The launcher is portrait only on every device, the iPhone Duo's outer and inner screens included; the game it starts is landscape only. The layout follows the window's width, never the device model.
 
 | Window | Layout |
 |---|---|
 | narrower than `pane-breakpoint` (600) | **One column**: app bar, banners, game card, actions, info, footer. Page gutter 16. Phones, iPhone Duo folded, a foldable's cover screen. |
-| `pane-breakpoint` and wider | **Two equal panes** under the app bar and banners, 24 apart. The start pane holds the game card; the end pane holds the actions, info and footer. Page gutter 24, content at most `launcher-max` (960) and centred. iPhone Duo unfolded in either orientation, iPad, Android tablets, unfolded foldables, phones in landscape. |
+| `pane-breakpoint` and wider | **Two equal panes** under the app bar and banners, 24 apart. The start pane holds the game card; the end pane holds the actions, info and footer. Page gutter 24, content at most `launcher-max` (960) and centred. iPhone Duo unfolded, iPad, Android tablets, unfolded foldables. |
 
 - **Accessibility text sizes keep one column** whatever the width: iOS accessibility Dynamic Type sizes, and Android font scale 1.3 and above.
-- **The fold falls in the gutter.** The panes are equal and the content is centred, so on a book-style foldable the hinge falls in the 24 gutter and nothing straddles it.
+- **The fold falls in the gutter.** The panes are equal and the content is centred, so on a foldable whose inner screen is portrait, such as the iPhone Duo, the hinge falls in the 24 gutter and nothing straddles it.
 - **The panes line up.** Both start at the same top edge, so the end pane's first button aligns with the top of the cover.
 - **The page scrolls as one.** Nothing is pinned except the system bars. Content keeps clear of the safe areas (iOS) and the system bar and cutout insets (Android draws edge to edge).
-- **A fold, a rotation or a text-size change only re-lays the page out.** The App keeps its state and any running check or download.
+- **A fold or a text-size change only re-lays the page out.** The App keeps its state and any running check or download.
   - The iOS App runs full screen (`UIRequiresFullScreen`), because the game shares its window, so it offers no Split View or Slide Over.
   - The Android App keeps its check and launch state in the process, not in the Activity.
 
