@@ -127,7 +127,7 @@ The iOS App and the Android App are launchers: one screen that shows the game, i
 - **Layout follows the window width.** Below `pane-breakpoint` (600) the screen is one column; at or above it, two equal panes centred within `launcher-max`, so a book-style fold falls in the gutter. Accessibility text sizes keep one column. A fold (iPhone Duo, Android foldables) or a rotation only changes the width.
 - **Art without effects.** The game cover is the Steam store's art on iOS (fetched at runtime) and the official game's own icon on Android, shown as is: no gradient, scrim, logo overlay or shadow.
 - **One progress bar.** A download with a known size is the one place the system shows a progress bar (`progress-height`).
-- **A newer App is a reminder.** It is an `info` banner and never takes an action away; only the Android App's 需要新版 App, where the runtime cannot run the release, makes it `warning`.
+- **A newer App is a reminder.** It is an `info` banner and never takes an action away.
 
 ## In game
 

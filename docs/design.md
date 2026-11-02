@@ -6,7 +6,7 @@ installer、bazaarplusplus.com、Android App 与 iOS App 共用一套设计系�
 
 ## 两个 App 的启动器
 
-iOS App 和 Android App 都是启动器：一页里显示游戏、状态和下一步操作。两端都用原生 UI（SwiftUI、Android View）实现同一份规格 `design/components/Launcher/`，状态用词、按钮和布局一致，只是游戏来源不同：iOS 登录 Steam 下载 Mac 版，Android 加载已安装的官方游戏。布局只看窗口宽度：窄于 `pane-breakpoint`（600）是一栏，宽于它是居中的两栏等宽，所以 iPhone Duo 合上是一栏、展开是两栏，折痕落在两栏的间隙里；辅助功能字号保持一栏。新版 App 只是提醒，不拦启动；Android 的“需要新版 App”是 ADR 0012 规定的例外。
+iOS App 和 Android App 都是启动器：一页里显示游戏、状态和下一步操作。两端都用原生 UI（SwiftUI、Android View）实现同一份规格 `design/components/Launcher/`，状态用词、按钮和布局一致，只是游戏来源不同：iOS 登录 Steam 下载 Mac 版，Android 加载已安装的官方游戏。布局只看窗口宽度：窄于 `pane-breakpoint`（600）是一栏，宽于它是居中的两栏等宽，所以 iPhone Duo 合上是一栏、展开是两栏，折痕落在两栏的间隙里；辅助功能字号保持一栏。新版 App 只是提醒，不拦启动。
 
 ## 设计系统在哪里
 

@@ -194,7 +194,7 @@ final class LauncherSession {
             // Only a release build carries a runtime digest; a development build is never reminded.
             boolean releaseBuild = check.facts != null && check.facts.nonManagedPayloadDigest != null;
             update = LauncherScreen.appUpdate(releaseBuild, BuildConfigFacts.versionCode(app), manifest.app.versionCode,
-                    check.decision.tier == LaunchGate.Tier.APP_UPDATE_REQUIRED, manifest.version, manifest.app.file.url);
+                    manifest.version, manifest.app.file.url);
         }
         return new LauncherScreen.Facts(check.decision, check.game == null ? null : check.game.versionName,
                 manifest == null ? null : manifest.game.gameVersion, check.manifest != null && check.manifest.fromCache,

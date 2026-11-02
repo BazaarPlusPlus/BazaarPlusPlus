@@ -2,7 +2,7 @@
 
 在 Android 上加载 BazaarPlusPlus 模组的 App（`com.bazaarplusplus.android`）。App 不修改、不重新签名官方游戏：它在自己的进程里加载已安装的 The Bazaar（`com.tempogames.thebazaar`），再启动 LemonLoader 和模组。BPP App 本身没有账号；游戏账号由游戏自己登录。决策见 [ADR 0012](../docs/adr/0012-android-app.md)。
 
-当前状态：启动器按 ADR 0012 的三档规则比较已装游戏的游戏代码哈希和平台清单，给出正常模式、兼容模式（需要用户主动启用，上传关闭）、等待适配、请先更新官方游戏、未安装和需要新版 App 等状态。BPP 启动前，App 校验并下载 interop 包（RSA 签名的 interop 声明）和 Managed Payload，暂存到 Data Root 的 `Updates/`，再写启动记录。启动器还能导出去掉账号信息的诊断文件。发布流水线在后续 issue 中接入（#747）。
+当前状态：启动器按 ADR 0012 的三档规则比较已装游戏的游戏代码哈希和平台清单，给出正常模式、兼容模式（需要用户主动启用，上传关闭）、等待适配、请先更新官方游戏和未安装等状态；有新版 App 时只显示提醒。BPP 启动前，App 校验并下载 interop 包（RSA 签名的 interop 声明）和 Managed Payload，暂存到 Data Root 的 `Updates/`，再写启动记录。启动器还能导出去掉账号信息的诊断文件。发布流水线在后续 issue 中接入（#747）。
 
 ## 目录
 

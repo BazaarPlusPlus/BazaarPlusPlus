@@ -7,7 +7,6 @@
   <string name="status_compatibility">相容模式</string>
   <string name="status_waiting">等待適配</string>
   <string name="status_game_update">需要更新遊戲</string>
-  <string name="status_app_update">需要新版 App</string>
   <string name="status_not_installed">未安裝</string>
   <string name="status_replace">需要更換</string>
   <string name="status_offline">離線</string>
@@ -31,7 +30,6 @@
   <string name="runtime_missing">這個建置還沒有 BPP 執行環境。</string>
   <string name="dev_interop">正在使用開發 interop。</string>
   <string name="app_update_available">BazaarPlusPlus v%1$s 已發布。</string>
-  <string name="app_update_needed">需要新版 BazaarPlusPlus App v%1$s 才能用 BPP 啟動。</string>
   <string name="progress_interop">interop · %1$s / %2$s</string>
   <string name="progress_plugin">外掛 · %1$s / %2$s</string>
   <string name="check_failed">未能檢查遊戲：%1$s</string>

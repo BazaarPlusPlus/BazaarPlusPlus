@@ -43,7 +43,6 @@ The badge is the Badge component: dot + word, one tone. Both Apps use the same w
 | 兼容模式 | Compatibility Mode | warn | | Compatibility Mode chosen |
 | 等待适配 | Waiting for adaptation | warn | Steam's build is newer than the adapted one (`outdated`) | Newer game, with no Pre-Adaptation or one not yet opted in to |
 | 需要更新游戏 | Game update required | warn | | Installed game older than the adapted one |
-| 需要新版 App | App update required | warn | | The release needs another Android App runtime |
 | 未安装 | Not installed | neutral | Not downloaded | Official game not installed |
 | 已下载 | Downloaded | neutral | Downloaded but not verified, or signed out | |
 | 需要更换 | Replacement required | bad | | The package holds a retired Android Release APK |
@@ -65,7 +64,7 @@ The primary is the one thing to do next, written as verb + object. A primary tha
 |---|---|---|
 | 可以开始, 兼容模式 | 开始游戏 / Play | 打开官方游戏 / Open the official game (Android) |
 | 等待适配, Pre-Adaptation available (Android) | 启用兼容模式 / Turn on Compatibility Mode | 打开官方游戏 |
-| 等待适配 without one, 需要新版 App, 未发布 | none | 打开官方游戏 (Android) |
+| 等待适配 without one, 未发布 | none | 打开官方游戏 (Android) |
 | 离线 | 重试 / Retry | 打开官方游戏 |
 | 未安装, 已下载 (iOS, signed out) | 连接 Steam / Connect Steam | 继续以 {account} 登录 / Continue as {account}, when a session is remembered |
 | 未安装 (iOS, signed in) | 下载游戏 / Download the game | |
@@ -80,9 +79,7 @@ The primary is the one thing to do next, written as verb + object. A primary tha
 
 ## App update
 
-A newer BazaarPlusPlus App is a reminder, never a gate: an `info` banner reading "BazaarPlusPlus v{version} 已发布。" / "BazaarPlusPlus v{version} is out.", with a 下载 / Download action when the release links one. It never hides an action of its own accord.
-
-The Android App's 需要新版 App is the one case where the App cannot run the release. ADR 0012 requires the update before a BPP launch, and only 开始游戏 is missing because of it. There the banner turns `warning`, reading "需要新版 BazaarPlusPlus App v{version} 才能用 BPP 启动。", with the same 下载 action. Issue #777 decides whether that case can become a plain reminder too.
+A newer BazaarPlusPlus App, on either platform, is a reminder, never a gate: an `info` banner reading "BazaarPlusPlus v{version} 已发布。" / "BazaarPlusPlus v{version} is out.", with a 下载 / Download action when the release links one. It never hides an action of its own accord.
 
 ## Progress
 
