@@ -377,12 +377,12 @@ foreach (var name in BazaarPlusPlus.Core.GameState.PedestalEnchantCatalog.Enchan
         $"The pedestal catalog's enchantment '{name}' must be an EEnchantmentType member."
     );
 
-// iOS host: as on the Android host, a replay's card neither previews its upgrade nor offers the
-// switch, whatever [Touch] UpgradePreview says. BppHotkeyService.IsActive(HoldUpgradePreview), which
+// iOS host: as on the Android host, a fight's or a replay's card neither previews its upgrade nor
+// offers the switch, whatever [Touch] UpgradePreview says. BppHotkeyService.IsActive(HoldUpgradePreview), which
 // the tooltip patches read, returns TouchUpgradePreview.Active on a mobile platform.
 var touchSettings = new MemorySettingsStore();
-var showsReplay = false;
-TouchUpgradePreview.Bind(touchSettings, () => showsReplay);
+var previewBlocked = false;
+TouchUpgradePreview.Bind(touchSettings, () => previewBlocked);
 touchSettings.Bool("Touch", "UpgradePreview").Value = true;
 var shopCard = new object();
 TouchUpgradePreview.BeginTooltip(shopCard);
@@ -390,21 +390,24 @@ Assert(
     TouchUpgradePreview.Active == true
         && TouchUpgradePreview.Offered
         && TouchUpgradePreview.Holds(shopCard),
-    "Outside a replay a new tooltip starts with the upgrade preview the settings switch turns on."
+    "Outside a fight or a replay a new tooltip starts with the upgrade preview the settings switch turns on."
 );
-showsReplay = true;
+previewBlocked = true;
 var replayCard = new object();
 TouchUpgradePreview.BeginTooltip(replayCard);
 Assert(
     TouchUpgradePreview.Active == false && !TouchUpgradePreview.Holds(replayCard),
-    "A replay card's tooltip must not start with the upgrade preview."
+    "A fight or replay card's tooltip must not start with the upgrade preview."
 );
-Assert(!TouchUpgradePreview.Offered, "A replay card's tooltip must not offer the upgrade switch.");
-showsReplay = false;
+Assert(
+    !TouchUpgradePreview.Offered,
+    "A fight or replay card's tooltip must not offer the upgrade switch."
+);
+previewBlocked = false;
 TouchUpgradePreview.BeginTooltip(shopCard);
 Assert(
     TouchUpgradePreview.Active == true,
-    "After the replay a card's tooltip starts at the settings switch again."
+    "After the fight or replay a card's tooltip starts at the settings switch again."
 );
 TouchUpgradePreview.End();
 
