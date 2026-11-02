@@ -7,3 +7,4 @@
 0007-unbox-trampoline-option.patch
 0008-interp-method-redirect.patch
 0009-interp-skip-verification.patch
+0010-interp-return-value-size.patch

@@ -13,6 +13,7 @@
 | 0007 | 修正 `nunbox-arbitrary-trampolines` 参数的前缀长度 |
 | 0008 | 解释器方法重定向 `mono_interp_redirect_method`：调用被重定向的方法时，`method_entry` 把 frame 换成目标方法，目标代码读到的都是它自己的数据；被重定向的方法不再被内联，内联过它的根方法会重新转换。Harmony 补丁用它代替需要可写代码的原生 detour |
 | 0009 | 解释器沿用 JIT 的可见性规则：方法自带 `skip_visibility`，或程序集带 `SkipVerification`（`/unsafe` 编译器会生成）时，不检查调用目标和字段的可见性。桌面 JIT 上能跑的模组代码在解释器上也能跑 |
+| 0010 | 解释器经 native-to-interp 入口返回 struct 时，按 `sig->pinvoke` 取大小。原逻辑总是用 `mono_class_native_size`：struct 含引用字段时，这个大小把引用类型的字段也算进去，远大于实际大小，`memcpy` 会写穿栈上的 `CallContext`，盖掉上层跳板保存的 fp 和 lr。AOT 代码调用返回这种 struct 的解释器方法都会触发，例如 `Task.Run<struct>` |
 
 补丁编号不复用。`BPP_TRACE_LOAD=1` 打开 0001 加入的程序集加载诊断。
 
