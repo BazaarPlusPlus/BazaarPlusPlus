@@ -155,7 +155,7 @@ async function initialize(profile, { timeout, keepOpen }) {
     if (ownBoot) simctl('boot', udid);
     run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], { timeout: 300_000 });
     const env = { ...process.env, BPP_DEVICE: udid };
-    run(['python3', 'tools/run-app.py'], { cwd: ios, env });
+    run(['python3', 'tools/run-app.py'], { cwd: ios, env, timeout: 300_000 });
     console.log(`${profile.name}: waiting ${timeout}s for the Steam sign-in.`);
     let qr = false;
     await until(
