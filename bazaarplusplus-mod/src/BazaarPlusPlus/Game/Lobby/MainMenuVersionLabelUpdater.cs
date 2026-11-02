@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using UnityEngine;
 
@@ -14,8 +15,11 @@ internal static class MainMenuVersionLabelUpdater
             return;
 
         _lastLabel = versionLabel;
+        var gameVersion = Application.version;
+        if (HostPlatformKey.Current == HostPlatformKey.Ios)
+            gameVersion = MainMenuVersionLabelFormatter.IosGameVersion(gameVersion);
         var text = MainMenuVersionLabelFormatter.Build(
-            Application.version,
+            gameVersion,
             BppPluginVersion.Current,
             MainMenuVersionUpdateState.Current.Status
         );
