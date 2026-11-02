@@ -2,19 +2,12 @@ import Foundation
 import ImageIO
 import UIKit
 
-/// Store artwork and blurb for one Steam app, resolved at runtime from the public
-/// store API. Nothing here is bundled: Valve rotates hashed asset paths, and the
-/// app must not redistribute store art inside the IPA.
+/// Store art for one Steam app, resolved at runtime from the public store API: the library
+/// hero for the launcher's cover and the capsule for onboarding. Nothing here is bundled:
+/// Valve rotates hashed asset paths, and the app must not redistribute store art inside the IPA.
 struct StoreArtwork: Codable, Equatable {
-    var name: String?
-    var summary: String?
-    var developers: [String] = []
-    var publishers: [String] = []
     var capsule: URL?
     var hero: URL?
-    var logo: URL?
-    var header: URL?
-    var screenshots: [URL] = []
     var fetchedAt: Date
 }
 
@@ -109,7 +102,7 @@ final class ArtworkStore: ObservableObject {
         let request: [String: Any] = [
             "ids": [["appid": appId]],
             "context": ["language": "schinese", "country_code": "US"],
-            "data_request": ["include_assets": true, "include_screenshots": true, "include_basic_info": true],
+            "data_request": ["include_assets": true],
         ]
         guard let body = try? JSONSerialization.data(withJSONObject: request),
               var components = URLComponents(string: "https://api.steampowered.com/IStoreBrowseService/GetItems/v1") else { return nil }
@@ -128,21 +121,9 @@ final class ArtworkStore: ObservableObject {
             } }
             return nil
         }
-        let basic = item["basic_info"] as? [String: Any] ?? [:]
-        func names(_ key: String) -> [String] { (basic[key] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String } }
-        let shots = ((item["screenshots"] as? [String: Any])?["all_ages_screenshots"] as? [[String: Any]] ?? [])
-            .sorted { ($0["ordinal"] as? Int ?? 0) < ($1["ordinal"] as? Int ?? 0) }
-            .compactMap { ($0["filename"] as? String).flatMap { URL(string: Self.assetHost + $0) } }
         return StoreArtwork(
-            name: item["name"] as? String,
-            summary: basic["short_description"] as? String,
-            developers: names("developers"), publishers: names("publishers"),
             capsule: asset("library_capsule_2x", "library_capsule"),
-            hero: asset("library_hero", "library_hero_2x", "page_background"),
-            // The store API omits the library logo; it lives at an unhashed path.
-            logo: URL(string: Self.assetHost + "steam/apps/\(appId)/logo.png"),
-            header: asset("header_2x", "header"),
-            screenshots: shots,
+            hero: asset("library_hero", "library_hero_2x", "header_2x", "header"),
             fetchedAt: Date())
     }
 }

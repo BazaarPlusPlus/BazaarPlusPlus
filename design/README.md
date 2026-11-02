@@ -1,6 +1,6 @@
 The BazaarPlusPlus installer and bazaarplusplus.com share one visual language: a modern desktop tool finished to the standard of Linear, Steam and the Discord client. The brand keeps only the BazaarPlusPlus mark, a chevron over a gem; its single accent is the amber of that gem. Everything else is warm near-black, 1px lines and system type.
 
-Scope: the installer app and the website, plus the colours the mod draws in game (the **In game** section). The OBS stream overlay keeps its own older look and does not use this system.
+Scope: the installer app, the website, and the start screens of the iOS App and the Android App (the **Apps** section), plus the colours the mod draws in game (the **In game** section). The OBS stream overlay keeps its own older look and does not use this system.
 
 ## Principles
 
@@ -92,7 +92,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 
 - Use `--ease` (cubic-bezier(0.2, 0, 0, 1)) with `--t-fast` (100ms) for hover, press and colour changes, and `--t-base` (160ms) for anything entering: routes, dialogs, menus, toasts.
 - Route changes are instant, and new content fades in from 0.55 opacity over `--t-base`. Dialogs and menus enter with opacity plus a scale from 0.98, and toasts slide 4px.
-- Busy is always the Loader2 spinner (0.8s linear), and a busy badge dot pulses (1.2s). There are no progress bars.
+- Busy is always the Loader2 spinner (0.8s linear), and a busy badge dot pulses (1.2s). There are no progress bars, except the App launchers' download progress (see **Apps**).
 - Respect `prefers-reduced-motion`: every animation and transition collapses to 1ms.
 
 ## States and focus
@@ -116,8 +116,18 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
   - `bpp-mark-on-light.svg` swaps the chevron to `bg-selected` ink for light grounds such as documents and store pages.
   - `bpp-mark-mono-white.svg` is a single white ink for the menu bar and other one-colour places.
   - Give the mark clear space of at least a quarter of its width. Never add a radius, bevel, gradient, glow or outline, and never recolour the gem away from `accent`.
-- The **app icon** (`bazaarplusplus-icon.webp`, `app-icon.png`: silver chevron, amber "++" gem and a BAZAAR++ plate on a dark squircle) is the desktop app icon. `favicon.webp` is the site's browser-tab icon.
+- The **app icon** (`bazaarplusplus-icon.webp`, `app-icon.png`: silver chevron, amber "++" gem and a BAZAAR++ plate on a dark squircle) is the desktop app icon, and the iOS App's and the Android App's launcher icon too: `bazaarplusplus-installer/src-tauri/icons/app-icon.png` is the source, the iOS build exports it into the App's icon catalog and `bazaarplusplus-android/tools/launcher-icon.py` turns it into the Android adaptive icon. `favicon.webp` is the site's browser-tab icon.
 - If an image is unavailable, set "BazaarPlusPlus" in `body-strong`.
+
+## Apps
+
+The iOS App and the Android App are launchers: one screen that shows the game, its status and the next action. Both build it natively from `components/Launcher/` and the same tokens: `just design::build` generates `app/Theme/BppTokens.g.swift` for the iOS App and `res/values/bpp_tokens.xml` for the Android App.
+
+- **The same visual language, sized for touch.** Same colours, type scale, radii and status rules as the desktop. Every tappable thing has a `touch-target` (48) hit area, and type follows the system text size (Dynamic Type, `sp`).
+- **Layout follows the window width.** Below `pane-breakpoint` (600) the screen is one column; at or above it, two equal panes centred within `launcher-max`, so a book-style fold falls in the gutter. Accessibility text sizes keep one column. A fold (iPhone Duo, Android foldables) or a rotation only changes the width.
+- **Art without effects.** The game cover is the Steam store's art on iOS (fetched at runtime) and the official game's own icon on Android, shown as is: no gradient, scrim, logo overlay or shadow.
+- **One progress bar.** A download with a known size is the one place the system shows a progress bar (`progress-height`).
+- **A newer App is a reminder.** It is an `info` banner and never takes an action away; only the Android App's 需要新版 App, where the runtime cannot run the release, makes it `warning`.
 
 ## In game
 

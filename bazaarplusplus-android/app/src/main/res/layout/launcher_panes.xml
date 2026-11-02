@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher in two equal panes (design/components/Launcher): windows at least pane-breakpoint
+     wide. The panes are equal and centred, so a book-style fold falls in the gutter between them. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scroll"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+  <LinearLayout
+      android:id="@+id/page"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical">
+
+    <include layout="@layout/launcher_app_bar" />
+
+    <include android:id="@+id/update_banner" layout="@layout/launcher_banner" />
+
+    <include android:id="@+id/error_banner" layout="@layout/launcher_banner" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+      <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:orientation="vertical">
+
+        <include layout="@layout/launcher_card" />
+      </LinearLayout>
+
+      <Space
+          android:layout_width="@dimen/bpp_space_24"
+          android:layout_height="match_parent" />
+
+      <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:orientation="vertical">
+
+        <include layout="@layout/launcher_actions" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/bpp_space_16" />
+
+        <include layout="@layout/launcher_info" />
+
+        <include layout="@layout/launcher_footer" />
+      </LinearLayout>
+    </LinearLayout>
+  </LinearLayout>
+</ScrollView>

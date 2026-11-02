@@ -10,6 +10,13 @@
 	<string>56</string>
 	<key>objects</key>
 	<dict>
+		<key>01B97FF71EE99A00469D8304</key>
+		<dict>
+			<key>fileRef</key>
+			<string>CFF71527F1B672BD12A52063</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+		</dict>
 		<key>0224231FB6626F5EFA032880</key>
 		<dict>
 			<key>explicitFileType</key>
@@ -122,6 +129,17 @@
 			<string>sourcecode.swift</string>
 			<key>path</key>
 			<string>Account/AccountFlow.swift</string>
+			<key>sourceTree</key>
+			<string>SOURCE_ROOT</string>
+		</dict>
+		<key>3B88CF0EEE7E951800DFF1B4</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Theme/BppMark.g.swift</string>
 			<key>sourceTree</key>
 			<string>SOURCE_ROOT</string>
 		</dict>
@@ -251,6 +269,13 @@
 			<key>sourceTree</key>
 			<string>SOURCE_ROOT</string>
 		</dict>
+		<key>A46BF736EAC2F3C1E9FC40C4</key>
+		<dict>
+			<key>fileRef</key>
+			<string>DB9EEDC04863B19E3A9B2E9E</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+		</dict>
 		<key>C07B8E5D953939F1B3F54A4F</key>
 		<dict>
 			<key>buildConfigurations</key>
@@ -273,6 +298,17 @@
 			<string>sourcecode.swift</string>
 			<key>path</key>
 			<string>Artwork/Artwork.swift</string>
+			<key>sourceTree</key>
+			<string>SOURCE_ROOT</string>
+		</dict>
+		<key>CFF71527F1B672BD12A52063</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Theme/BppTokens.g.swift</string>
 			<key>sourceTree</key>
 			<string>SOURCE_ROOT</string>
 		</dict>
@@ -398,6 +434,9 @@
 				<string>CB01F469FB0F4735C9464FD0</string>
 				<string>62D9CBC7F6FB0954F254701B</string>
 				<string>F5A88F73950FB3969A9DAD8B</string>
+				<string>3B88CF0EEE7E951800DFF1B4</string>
+				<string>CFF71527F1B672BD12A52063</string>
+				<string>DB9EEDC04863B19E3A9B2E9E</string>
 				<string>35000C08F06D638432CD23FB</string>
 				<string>03BB1577514CC7151CA8B40D</string>
 				<string>8BC3B94E90713C3337684895</string>
@@ -435,6 +474,17 @@
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<integer>0</integer>
 		</dict>
+		<key>DB9EEDC04863B19E3A9B2E9E</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Theme/BppViews.swift</string>
+			<key>sourceTree</key>
+			<string>SOURCE_ROOT</string>
+		</dict>
 		<key>DC76D36D0A969C51A8E20B59</key>
 		<dict>
 			<key>alwaysOutOfDate</key>
@@ -465,6 +515,13 @@
 /usr/bin/python3 "$BPP_REPOSITORY_ROOT/tools/package-app.py" "$TARGET_BUILD_DIR/$WRAPPER_NAME" "$BPP_RUNTIME_PLATFORM" --xcode
 </string>
 		</dict>
+		<key>E23E125A5BB1E8C863BEDDB7</key>
+		<dict>
+			<key>fileRef</key>
+			<string>3B88CF0EEE7E951800DFF1B4</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+		</dict>
 		<key>E59E532974752CDEAB048F68</key>
 		<dict>
 			<key>isa</key>
@@ -487,6 +544,9 @@
 				<string>6128F36AE3D6E1BAAC1DA742</string>
 				<string>D80D904E9EE7671BF7CDBA63</string>
 				<string>412C02808DF31AEAAD9D4991</string>
+				<string>E23E125A5BB1E8C863BEDDB7</string>
+				<string>01B97FF71EE99A00469D8304</string>
+				<string>A46BF736EAC2F3C1E9FC40C4</string>
 			</array>
 			<key>isa</key>
 			<string>PBXSourcesBuildPhase</string>

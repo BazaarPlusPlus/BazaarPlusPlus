@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App bar: the brand mark at 24 and the product name in body-strong; the Android App has no account. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="@dimen/bpp_appbar_height"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    tools:ignore="UseCompoundDrawables">
+
+  <ImageView
+      android:layout_width="24dp"
+      android:layout_height="24dp"
+      android:importantForAccessibility="no"
+      android:src="@drawable/bpp_mark" />
+
+  <TextView
+      style="@style/Bpp.Text.BodyStrong"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/bpp_space_8"
+      android:accessibilityHeading="true"
+      android:text="@string/app_name" />
+</LinearLayout>

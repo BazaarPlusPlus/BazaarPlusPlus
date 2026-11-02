@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Badge pill; LauncherActivity tints it with the tone's -subtle fill. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+  <corners android:radius="@dimen/bpp_r_pill" />
+  <solid android:color="@android:color/white" />
+</shape>

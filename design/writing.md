@@ -51,6 +51,9 @@ Use exactly these words. A term not listed here gets added before it ships.
 | 更新 / 版本 | update / version | A version is written "v6.2.0" in UI chrome. |
 | 安装 / 重新安装 / 修复 / 卸载 | Install / Reinstall / Repair / Uninstall | Plugin actions. Uninstall removes the plugin and keeps local data. |
 | 删除 | delete | Removes files for good. Not 清除, 清理 or 移除. |
+| 官方游戏 | official game | The publisher's own The Bazaar App, as opposed to the game BazaarPlusPlus starts with its plugin. |
+| 适配 / 等待适配 | adapt / Waiting for adaptation | BazaarPlusPlus supporting a game version. A newer game "等待适配" until a release adapts it. |
+| 兼容模式 | Compatibility Mode | A launch of a not-yet-adapted Android game with uploads off. Title case in English, as a feature name. |
 
 ## Capitalisation and punctuation
 
@@ -76,6 +79,7 @@ Use exactly these words. A term not listed here gets added before it ships.
 | Page title: a noun | 战绩 | History |
 | Dialog title: the action, same words as its confirm button | 删除本地数据 | Delete local data |
 | Status: a short state | 已安装 · 需要重新安装 | Installed · Reinstall required |
+| App launcher status | 可以开始 · 等待适配 · 需要更新游戏 | Ready · Waiting for adaptation · Game update required |
 | Progress: 正在 + verb + … | 正在卸载… | Uninstalling… |
 | Success: object + 已 + verb | 本地数据已删除 | Local data deleted |
 | Failure: what failed, plus a step only if the button can't carry it | 未能读取战绩。请先关闭游戏。 + 重试 | Couldn't read History. Quit the game first. + Retry |

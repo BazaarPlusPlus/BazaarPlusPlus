@@ -16,7 +16,7 @@
 | `app/src/main/java/.../diag/` | App 日志、诊断导出、账号信息的去除 |
 | `app/src/debug/` | 只在 debug 构建里的开发入口（`DevOverrides`）；`app/src/release/` 是它的空实现 |
 | `app/src/bridge/` | 桥接 Activity，编译成单独的 `bridge.dex`，由游戏类加载器定义 |
-| `app/src/main/res/` | 界面资源；`bpp_tokens.xml` 和 `bpp_mark.xml` 由 `design/build.mjs` 生成 |
+| `app/src/main/res/` | 界面资源；`bpp_tokens.xml` 和 `bpp_mark.xml` 由 `design/build.mjs` 生成；启动图标 `mipmap-*/ic_launcher_*` 由 `tools/launcher-icon.py` 从桌面端的 `app-icon.png` 导出（`just android::launcher-icon`），`design::check` 会拦下过期的导出 |
 
 ## 环境
 

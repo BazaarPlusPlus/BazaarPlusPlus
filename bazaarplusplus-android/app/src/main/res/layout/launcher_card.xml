@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Game card: the cover at 2:1, then the game name over the status badge. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/card"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bpp_card"
+    android:orientation="vertical">
+
+  <!-- Android's cover is the installed official game's own icon, centred at 64. -->
+  <com.bazaarplusplus.android.launch.CoverView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:background="@color/bpp_bg_hover">
+
+    <ImageView
+        android:id="@+id/cover_icon"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:importantForAccessibility="no"
+        android:visibility="invisible" />
+  </com.bazaarplusplus.android.launch.CoverView>
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:padding="@dimen/bpp_space_16">
+
+    <TextView
+        style="@style/Bpp.Text.Title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/game_name" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/bpp_space_8"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+      <LinearLayout
+          android:id="@+id/status_badge"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:minHeight="@dimen/bpp_badge_height"
+          android:accessibilityLiveRegion="polite"
+          android:background="@drawable/bpp_badge"
+          android:gravity="center_vertical"
+          android:orientation="horizontal"
+          android:paddingStart="@dimen/bpp_space_8"
+          android:paddingEnd="@dimen/bpp_space_8">
+
+        <View
+            android:id="@+id/status_dot"
+            android:layout_width="@dimen/bpp_space_6"
+            android:layout_height="@dimen/bpp_space_6"
+            android:background="@drawable/bpp_dot" />
+
+        <TextView
+            android:id="@+id/status_text"
+            style="@style/Bpp.Text.Small"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/bpp_space_6" />
+      </LinearLayout>
+
+      <Space
+          android:layout_width="0dp"
+          android:layout_height="0dp"
+          android:layout_weight="1" />
+
+      <TextView
+          android:id="@+id/status_percent"
+          style="@style/Bpp.Text.Caption"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:fontFeatureSettings="tnum"
+          android:visibility="invisible" />
+    </LinearLayout>
+  </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- StatusBanner: tone icon, one-sentence message, an optional action. LauncherActivity sets the tone. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/bpp_space_16"
+    android:accessibilityLiveRegion="polite"
+    android:background="@drawable/bpp_banner_info"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="@dimen/bpp_space_12"
+    android:paddingTop="@dimen/bpp_space_4"
+    android:paddingEnd="@dimen/bpp_space_12"
+    android:paddingBottom="@dimen/bpp_space_4"
+    android:visibility="gone">
+
+  <ImageView
+      android:id="@+id/banner_icon"
+      android:layout_width="@dimen/bpp_icon_md"
+      android:layout_height="@dimen/bpp_icon_md"
+      android:importantForAccessibility="no"
+      android:src="@drawable/bpp_icon_info" />
+
+  <TextView
+      android:id="@+id/banner_message"
+      style="@style/Bpp.Text.Body"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/bpp_space_8"
+      android:layout_marginTop="@dimen/bpp_space_8"
+      android:layout_marginBottom="@dimen/bpp_space_8"
+      android:layout_weight="1"
+      android:textIsSelectable="true" />
+
+  <Button
+      android:id="@+id/banner_action"
+      style="@style/Bpp.Button.Secondary.Small"
+      android:layout_width="wrap_content"
+      android:layout_marginStart="@dimen/bpp_space_8"
+      android:visibility="gone" />
+</LinearLayout>

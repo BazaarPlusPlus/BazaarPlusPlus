@@ -5,6 +5,10 @@ set positional-arguments
 check:
     ./gradlew --no-daemon lint assembleDebug assembleRelease
 
+# Re-export the launcher icon from the desktop app icon (bazaarplusplus-installer/src-tauri/icons/app-icon.png; needs Pillow).
+launcher-icon:
+    python3 tools/launcher-icon.py
+
 # Run the App's JVM unit tests.
 test:
     ./gradlew --no-daemon testDebugUnitTest

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Actions: download progress, the one primary, up to two secondary actions, then notes. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+  <ProgressBar
+      android:id="@+id/progress"
+      style="@android:style/Widget.ProgressBar.Horizontal"
+      android:layout_width="match_parent"
+      android:layout_height="@dimen/bpp_progress_height"
+      android:max="100"
+      android:progressDrawable="@drawable/bpp_progress"
+      android:visibility="gone" />
+
+  <TextView
+      android:id="@+id/progress_meta"
+      style="@style/Bpp.Text.Caption"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="@dimen/bpp_space_8"
+      android:layout_marginBottom="@dimen/bpp_space_8"
+      android:fontFeatureSettings="tnum"
+      android:visibility="gone" />
+
+  <Button
+      android:id="@+id/primary"
+      style="@style/Bpp.Button.Primary"
+      android:layout_width="match_parent"
+      android:layout_marginBottom="@dimen/bpp_space_8"
+      android:visibility="gone" />
+
+  <Button
+      android:id="@+id/secondary_1"
+      style="@style/Bpp.Button.Secondary"
+      android:layout_width="match_parent"
+      android:layout_marginBottom="@dimen/bpp_space_8"
+      android:visibility="gone" />
+
+  <Button
+      android:id="@+id/secondary_2"
+      style="@style/Bpp.Button.Secondary"
+      android:layout_width="match_parent"
+      android:layout_marginBottom="@dimen/bpp_space_8"
+      android:visibility="gone" />
+
+  <TextView
+      android:id="@+id/notes"
+      style="@style/Bpp.Text.Caption"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:visibility="gone" />
+</LinearLayout>
