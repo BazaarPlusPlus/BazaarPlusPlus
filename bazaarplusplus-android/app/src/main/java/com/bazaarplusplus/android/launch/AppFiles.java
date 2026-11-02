@@ -2,12 +2,14 @@ package com.bazaarplusplus.android.launch;
 
 import android.content.Context;
 
+import com.bazaarplusplus.android.game.GameStorage;
+
 import java.io.File;
 import java.io.IOException;
 
 /**
  * Where the launcher keeps its records. Internal storage holds what only the App reads; the
- * external files directory is shared with LemonLoader and the mod (MelonLoader/, the Data Root).
+ * game storage is shared with LemonLoader and the mod (MelonLoader/, the Data Root).
  */
 final class AppFiles {
     /** The Data Root's name: the mod's PathConstants.DataRootDirectoryName (root AGENTS.md, Contracts). */
@@ -16,8 +18,8 @@ final class AppFiles {
     private AppFiles() {}
 
     static File external(Context context) throws IOException {
-        File dir = context.getExternalFilesDir(null);
-        if (dir == null) throw new IOException("The external files directory is not available");
+        File dir = GameStorage.root(context);
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
         return dir;
     }
 

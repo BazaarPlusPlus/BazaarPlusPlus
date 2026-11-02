@@ -10,8 +10,8 @@ import java.io.File;
 
 /**
  * The game's identity, code and resources over the App's Context: every writable path
- * (data, files, caches, external files) stays the App's own, so the game and LemonLoader write
- * only into the App's sandbox.
+ * (data, files, caches) stays the App's own and external files resolve to {@link GameStorage},
+ * so the game and LemonLoader write only into the App's sandbox.
  */
 final class GameContext extends ContextWrapper {
     private final InstalledGame game;
@@ -44,6 +44,18 @@ final class GameContext extends ContextWrapper {
     @Override public ApplicationInfo getApplicationInfo() { return info; }
     @Override public String getPackageCodePath() { return game.info.sourceDir; }
     @Override public String getPackageResourcePath() { return game.info.sourceDir; }
+
+    @Override
+    public File getExternalFilesDir(String type) {
+        File dir = type == null ? GameStorage.root(getBaseContext()) : new File(GameStorage.root(getBaseContext()), type);
+        dir.mkdirs();
+        return dir;
+    }
+
+    @Override
+    public File[] getExternalFilesDirs(String type) {
+        return new File[] { getExternalFilesDir(type) };
+    }
 
     @Override
     public Context getApplicationContext() {
