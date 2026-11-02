@@ -167,7 +167,10 @@ internal interface IMobilePlatformPort
     /// </summary>
     NativeRoundArt ReadRoundArt(Button gear, RectTransform rect, Canvas rootCanvas);
 
-    /// <summary>Whether a native popup (settings included) is open or the native card drawer shows an inspected card.</summary>
+    /// <summary>
+    /// Whether a native popup (settings included) is open, the native card drawer shows an
+    /// inspected card, or the end-of-run screens show, whose chest grid fills the shortcuts' corner.
+    /// </summary>
     bool NativeHudBusy();
 
     /// <summary>Whether a fight or a replay is playing.</summary>

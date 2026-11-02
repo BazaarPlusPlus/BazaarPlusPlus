@@ -165,7 +165,13 @@ internal sealed class TouchMobilePlatform(Func<DesktopOverlayPanels?> overlayPan
         );
     }
 
-    public bool NativeHudBusy() => TouchNativeHud.HasPopup || TouchNativeHud.IsInspectingCard;
+    public bool NativeHudBusy() =>
+        TouchNativeHud.HasPopup
+        || TouchNativeHud.IsInspectingCard
+        || (
+            TheBazaar.AppState.CurrentState is { } state
+            && TheBazaar.DataExtensions.IsEndOfRunState(state)
+        );
 
     public bool IsPlaying() =>
         TheBazaar.Data.IsInCombat || TheBazaar.AppState.CurrentState is TheBazaar.ReplayState;
