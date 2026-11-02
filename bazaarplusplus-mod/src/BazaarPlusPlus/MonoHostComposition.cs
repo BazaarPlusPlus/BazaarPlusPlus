@@ -227,7 +227,7 @@ internal sealed class MonoHostComposition : IDisposable
             // A touch screen has no keyboard: the History row drops its hotkey, the upgrade
             // switch sets where each tooltip's own toggle starts, and the enchant preview mode
             // lists the enchantments in each tooltip's main text, as on Android (ADR-0024).
-            TouchUpgradePreview.Bind(settingsStore, TouchTooltipPreviewHost.ShowsReplay);
+            TouchUpgradePreview.Bind(settingsStore, TouchTooltipPreviewHost.UpgradePreviewBlocked);
             TouchEnchantPreviewHost.Preview =
                 new TouchEnchantPreview<TheBazaar.Tooltips.CardTooltipData>(
                     new TouchEnchantPreviewHost(),
