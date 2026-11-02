@@ -48,8 +48,9 @@ and sign-in, rename it first: xcrun simctl rename UDID NAME.
 Each simulator has its own sandbox and keychain. Init boots it, installs the
 build and waits for its saved Steam login; without one it starts a QR sign-in
 on the simulator screen, behind the first-run intro: skip the intro, then scan
-it with the Steam mobile app, or cancel and sign in with a password there. It then downloads the game (about 6 GB) and passes
-when tools/regress.sh reports RunTasks complete with Failed: 0.
+it with the Steam mobile app, or cancel and sign in with a password there.
+It then downloads the game (about 6 GB) and passes when tools/regress.sh
+reports RunTasks complete with Failed: 0.
 Success shuts down a simulator init booted; --keep-open needs a single NAME.
 Failure leaves the simulator open and returns nonzero. Rerun init after repair.
 Init drives one simulator at a time through the shared test channel in
