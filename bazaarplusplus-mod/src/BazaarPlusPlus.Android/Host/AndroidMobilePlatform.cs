@@ -151,7 +151,13 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
         );
     }
 
-    public bool NativeHudBusy() => AndroidNativeHud.HasPopup || AndroidNativeHud.IsInspectingCard;
+    public bool NativeHudBusy() =>
+        AndroidNativeHud.HasPopup
+        || AndroidNativeHud.IsInspectingCard
+        || (
+            Il2CppTheBazaar.AppState.CurrentState is { } state
+            && Il2CppTheBazaar.DataExtensions.IsEndOfRunState(state)
+        );
 
     public bool IsPlaying() =>
         Il2CppTheBazaar.Data.IsInCombat
