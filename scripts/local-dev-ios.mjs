@@ -24,7 +24,9 @@ export const profiles = [
     name: 'bpp_sim_duo',
     model: 'iPhone Duo',
     deviceType: 'com.apple.CoreSimulator.SimDeviceType.iPhone-Duo',
-    runtime: 'com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4'
+    runtime: 'com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4',
+    // FoldGuard pauses a folded game before RunTasks completes; simctl cannot unfold.
+    note: 'unfold it before init; folded, the game pauses and the regression fails'
   },
   {
     name: 'bpp_sim_ipad',
@@ -136,6 +138,7 @@ async function initialize(profile, { timeout, keepOpen }) {
       `${profile.name}: ${state}; expected ${profile.model} on ${profile.runtime}. Existing data was preserved.`
     );
   const udid = device.udid;
+  if (profile.note) console.log(`${profile.name}: ${profile.note}.`);
   const out = evidence(profile);
   fs.mkdirSync(out, { recursive: true, mode: 0o700 });
   const receipt = {
