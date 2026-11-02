@@ -85,7 +85,13 @@ internal static class AndroidGameFont
         Handles.Clear();
         Waiting.Clear();
         if (Alive(_copy))
+        {
+            // TMP_FontAsset.OnDestroy destroys its material and atlas textures, and the copy
+            // shares both with the game's font.
+            _copy!.material = null;
+            _copy.atlasTextures = null;
             Object.Destroy(_copy);
+        }
         _copy = null;
         _source = null;
         _state = State.Idle;

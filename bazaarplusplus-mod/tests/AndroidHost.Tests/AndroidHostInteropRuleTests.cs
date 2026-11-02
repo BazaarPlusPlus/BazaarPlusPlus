@@ -21,6 +21,34 @@ public sealed class AndroidHostInteropRuleTests
 {
     private const string ArrayNamespace = "Il2CppInterop.Runtime.InteropTypes.Arrays";
 
+    // TMP_FontAsset.OnDestroy destroys its material and atlas textures, and the host's font copy
+    // shares both with the game's font.
+    [Fact]
+    public void The_font_copy_lets_go_of_the_shared_material_and_atlas_before_it_is_destroyed()
+    {
+        var path = typeof(AndroidHostInteropRuleTests)
+            .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(attribute => attribute.Key == "BppAndroidHostAssembly")
+            .Value!;
+        using var stream = File.OpenRead(path);
+        using var pe = new PEReader(stream);
+        var reader = pe.GetMetadataReader();
+        var names = new SignatureNames();
+
+        var setters = reader
+            .MemberReferences.Select(reader.GetMemberReference)
+            .Select(member =>
+                (
+                    Owner: OwnerName(reader, member.Parent, names),
+                    Name: reader.GetString(member.Name)
+                )
+            )
+            .ToHashSet();
+
+        Assert.Contains(("Il2CppTMPro.TMP_Asset", "set_material"), setters);
+        Assert.Contains(("Il2CppTMPro.TMP_FontAsset", "set_atlasTextures"), setters);
+    }
+
     [Fact]
     public void No_interop_array_is_constructed_over_a_raw_pointer()
     {
