@@ -24,6 +24,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
     private const string ActiveStatus = "active";
     private const string BundlePolicy = "bundle";
     private const string HistoryOnlyPolicy = "history_only";
+    private const string AbandonedStatus = "abandoned";
+    private const string HistoryOnlyLeftActiveReason = "history_only_left_active";
 
     private static readonly JsonSerializerSettings SerializerSettings =
         SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: false);
@@ -63,6 +65,25 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             UPDATE {RunLogSchema.RunsTableName}
             SET upload_policy = '{HistoryOnlyPolicy}'
             WHERE status = '{ActiveStatus}' AND upload_policy = '{BundlePolicy}';
+            """;
+        return command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Closes every active History-Only Run as abandoned; returns how many changed. Such a Run
+    /// can never continue, because no store resumes it, so the Android Host calls this as each
+    /// launch starts: an active History-Only Run it lists afterwards is this launch's own.
+    /// </summary>
+    public int AbandonActiveHistoryOnlyRuns()
+    {
+        using var connection = OpenConnection();
+        using var command = CreateCommand(connection);
+        command.CommandText = $"""
+            UPDATE {RunLogSchema.RunsTableName}
+            SET status = '{AbandonedStatus}',
+                ended_at_ms = COALESCE(ended_at_ms, last_seen_at_ms),
+                reason = '{HistoryOnlyLeftActiveReason}'
+            WHERE status = '{ActiveStatus}' AND upload_policy = '{HistoryOnlyPolicy}';
             """;
         return command.ExecuteNonQuery();
     }

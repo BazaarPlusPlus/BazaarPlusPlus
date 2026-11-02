@@ -45,6 +45,7 @@ Android App 启动时找到官方游戏（`com.tempogames.thebazaar`），在它
 
 - 兼容模式**绝不**使用旧 interop。interop 用 `GetIl2CppMethodByToken` 按元数据 token 绑定方法，游戏代码一变，token 就会移位，方法会被悄悄绑错。
 - interop 只有一个来源：CI 发布的**预适配 interop 包**（见下文）。设备端生成在当前 Loader Release（`v0.7.4-android.4`）里不可用：它的 `runtime/loader/Dependencies/` 只有 `SupportModules/`，没有 `Il2CppAssemblyGenerator/`，也没有 Cpp2IL；试验设备上部署出的 `MelonLoader/Dependencies/` 也一样。所以 #747 设想的"LemonLoader 在设备上生成"这条备用路径不存在。空窗是从游戏发布到 `android-apk-watch.yml` 发布预适配包的时间：它每小时检查一次，加上生成与上传约需一到两小时；可以接受。以后换成带生成器的 Loader Release 时，再修订本节。
+- 兼容模式的 Run 是 `history_only`，不能恢复。History 把当前进程的这个 Run 显示为进行中；每次启动（正常或兼容）都把遗留的 active `history_only` 行关闭为 `abandoned`（`RunLogStore.AbandonActiveHistoryOnlyRuns`，#760）。
 - 兼容模式加载当前产品版本的 Mods。每个 Harmony 补丁单独安装，一个失败只关闭它自己的功能（`AndroidPatchHost` 现有的行为，`android.patch.failed`），其余照常。mod 读到启动记录的 `mode: "compatibility"` 后关闭所有出站上传（Bundle 与 Ghost），本地记录照常进行，主菜单的版本标签与设置里显示"兼容模式"。上传已经关闭，所以绑错的补丁不会把错的数据传出去。
 
 ### 发布产物

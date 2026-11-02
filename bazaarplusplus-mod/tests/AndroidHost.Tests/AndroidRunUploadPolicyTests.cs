@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Android;
 using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
@@ -99,6 +100,41 @@ public sealed class AndroidRunUploadPolicyTests : IDisposable
         EnsureJobs();
         Assert.Equal(1L, SealJobs("run-normal"));
     }
+
+    [Fact]
+    public void A_history_only_run_a_compatibility_launch_left_active_is_closed_by_the_next_launch()
+    {
+        foreach (var next in new[] { Compatibility(), Normal() })
+        {
+            var runId = "run-left-" + next.CompatibilityMode;
+            AndroidComposition.CreateRunLogStore(Paths, Compatibility()).CreateRun(Request(runId));
+
+            AndroidComposition.PrepareRuns(Paths, next);
+
+            Assert.Equal("abandoned", Scalar($"SELECT status FROM runs WHERE run_id = '{runId}';"));
+            Assert.NotNull(Scalar($"SELECT ended_at_ms FROM runs WHERE run_id = '{runId}';"));
+        }
+    }
+
+    [Fact]
+    public void Android_history_shows_the_compatibility_launchs_run_as_current_until_the_next_launch()
+    {
+        AndroidComposition.PrepareRuns(Paths, Compatibility());
+        AndroidComposition.CreateRunLogStore(Paths, Compatibility()).CreateRun(Request("run-now"));
+
+        Assert.Equal("active", HistoryStatus("run-now", historyOnlyRunCanBeCurrent: true));
+        // A host that does not close them still reads such a Run as abandoned.
+        Assert.Equal("abandoned", HistoryStatus("run-now", historyOnlyRunCanBeCurrent: false));
+
+        AndroidComposition.PrepareRuns(Paths, Normal());
+        Assert.Equal("abandoned", HistoryStatus("run-now", historyOnlyRunCanBeCurrent: true));
+    }
+
+    private string HistoryStatus(string runId, bool historyOnlyRunCanBeCurrent) =>
+        new HistoryPanelRepository(Database, historyOnlyRunCanBeCurrent)
+            .ListRuns(new HistoryPageRequest())
+            .Rows.Single(run => run.RunId == runId)
+            .RawStatus;
 
     private static RunLogCreateRequest Request(string runId) =>
         new()
