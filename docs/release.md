@@ -69,7 +69,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 `release/payload.json` 定义安装路径、宿主、平台、生产者、必需文件和归属；生成的 `release/generated/Payload.targets`、Node ZIP 校验以及 Rust 安装清理共同消费它，文件列表只在这里维护。
 
-- 每个条目的 `host` 是 `bepinex`（桌面，路径相对游戏目录）或 `melonloader`（Android，路径相对应用的外部文件目录，根是 `MelonLoader/`）。平台按 `release/release-platforms.mjs` 的 `payloadHost` 只取自己宿主的条目，`platforms` 只能写同一宿主的平台。`Payload.targets` 按宿主出两组条目，工程用 `BppPayloadHost` 选择，缺省是 `bepinex`；installer 只读 `bepinex` 条目。
+- 每个条目的 `host` 是 `bepinex`（桌面，路径相对游戏目录）或 `melonloader`（Android，路径相对 Android App 的游戏存储，根是 `MelonLoader/`）。平台按 `release/release-platforms.mjs` 的 `payloadHost` 只取自己宿主的条目，`platforms` 只能写同一宿主的平台。`Payload.targets` 按宿主出两组条目，工程用 `BppPayloadHost` 选择，缺省是 `bepinex`；installer 只读 `bepinex` 条目。
 - 生产者 `android-app` 的条目由 Android App 产生，不进 mod 构建和 `Payload.targets`：`lib/arm64-v8a/` 与 `assets/` 下的条目是 Android App APK 内部的路径，APK 内部路径也只能由它产生；另一个是 Android App 每次启动前写的启动记录 `MelonLoader/UserData/BazaarPlusPlus.launch.json`。`release::build` 核对 APK 里有每一个 APK 内部条目。
 - `private` 是 BPP 私有文件；`dependency` 可能与其他插件共享；`bootstrap` 是加载器设施。
 - `runtime` 只参与运行时清理规则，不进入安装包；`retired` 保留清理归属，但禁止重新打包。
