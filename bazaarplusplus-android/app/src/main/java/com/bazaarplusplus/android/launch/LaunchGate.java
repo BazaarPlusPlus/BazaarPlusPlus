@@ -13,6 +13,8 @@ public final class LaunchGate {
     public enum Tier {
         /** The official game is not installed: guide the install; native launch is unavailable. */
         NOT_INSTALLED,
+        /** The package holds a retired Android Release APK: guide the replacement; no launch runs it. */
+        ANDROID_RELEASE_APK,
         /** No manifest from the network and none cached: native launch only. */
         OFFLINE_NO_CACHE,
         /** The manifest has no Android App release yet (the retired injected-APK shape): native launch only. */
@@ -33,10 +35,13 @@ public final class LaunchGate {
     public static final class Installed {
         public final long versionCode;
         public final GameCodeHash hash;
+        /** The game's APKs carry an injected loader: its seed files would replace the Mods the App stages. */
+        public final boolean androidReleaseApk;
 
-        public Installed(long versionCode, GameCodeHash hash) {
+        public Installed(long versionCode, GameCodeHash hash, boolean androidReleaseApk) {
             this.versionCode = versionCode;
             this.hash = Objects.requireNonNull(hash);
+            this.androidReleaseApk = androidReleaseApk;
         }
     }
 
@@ -98,7 +103,7 @@ public final class LaunchGate {
 
         /** Native launch opens the official App untouched; it needs only the game installed. */
         public boolean nativeLaunch() {
-            return tier != Tier.NOT_INSTALLED;
+            return tier != Tier.NOT_INSTALLED && tier != Tier.ANDROID_RELEASE_APK;
         }
 
         @Override
@@ -111,6 +116,8 @@ public final class LaunchGate {
 
     public static Decision decide(Inputs in) {
         if (in.installed == null) return new Decision(Tier.NOT_INSTALLED, false);
+        // Whatever the release says: the copy's code hash can match, and its seed files still win.
+        if (in.installed.androidReleaseApk) return new Decision(Tier.ANDROID_RELEASE_APK, false);
         if (in.noRelease) return new Decision(Tier.NO_RELEASE, false);
         if (in.adapted == null) return new Decision(Tier.OFFLINE_NO_CACHE, false);
         // The release's Managed Payload cannot run on this App's runtime, whatever the game.

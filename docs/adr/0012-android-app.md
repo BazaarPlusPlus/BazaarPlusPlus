@@ -32,10 +32,12 @@ Android App 启动时找到官方游戏（`com.tempogames.thebazaar`），在它
 | 哈希不同，且 `versionCode` ≥ 清单的 `versionCode` | 有可用的预适配包时，用户可以主动选择兼容模式，选择按游戏代码哈希记住；没有时显示"等待适配" | 可用 |
 | 哈希不同，且 `versionCode` < 清单的 `versionCode` | 提示"请先更新官方游戏"，附 Play 与发行商下载链接 | 可用 |
 | 未安装 | 引导安装官方游戏 | 不可用 |
+| 包名下是 A 方案的副本（任何一个 APK 含 `assets/LemonLoader/`） | 不可用，提示先卸载旧版，再安装官方游戏 | 不可用 |
 
 - 判断只看代码哈希，不看 `versionName`：发行商只改内容的更新不需要新的适配。
 - `versionCode` 相同而哈希不同，按"比清单新"处理。
 - **Play 构建与发行商 APK 的代码是否相同，尚未验证（#749 第 2 项）。** `android-apk-watch.yml` 只采集发行商的 APK。如果两者不同，Play 用户永远进不了正常模式，也拿不到预适配包，只能原版启动；这时要先让采集覆盖 Play 构建，才能把 Android App 发给 Play 用户。因此 #749 第 2 项是首次发布的阻塞条件。两个渠道的 `versionCode` 是否可以直接比大小，同样由这一项验证。
+- A 方案的副本和官方游戏的代码哈希可以相同，但它带的 `assets/LemonLoader/deployment/` 会被 LemonLoader 部署，把旧 Mods 放进游戏存储，所以这一档先于代码哈希判断。A 版的本地历史不迁移（见"前提"），卸载时随之删除。
 - "原版启动"直接打开官方 App，不经过 Android App 的任何代码。
 - 读不到平台清单（离线）时，用上一次校验过的清单与已下载的产物；没有缓存时只能原版启动。
 

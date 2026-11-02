@@ -14,6 +14,8 @@
   <string name="native_launch">Launch the official game</string>
   <string name="game_found">The Bazaar %1$s</string>
   <string name="game_missing">The Bazaar is not installed. Install the official game first.</string>
+  <string name="android_release_apk">This is the old BazaarPlusPlus build of The Bazaar. Replace it with the official game.</string>
+  <string name="android_release_apk_detail">Uninstall the old build first, then install the official game. Uninstalling removes the old build’s local History.</string>
   <string name="install_from_play">Install from Google Play</string>
   <string name="update_from_play">Update from Google Play</string>
   <string name="download_from_publisher">Download from the publisher</string>

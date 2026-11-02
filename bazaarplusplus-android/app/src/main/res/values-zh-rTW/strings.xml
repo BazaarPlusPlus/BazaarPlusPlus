@@ -8,6 +8,8 @@
   <string name="native_launch">開啟官方遊戲</string>
   <string name="game_found">The Bazaar %1$s</string>
   <string name="game_missing">尚未安裝 The Bazaar。請先安裝官方遊戲。</string>
+  <string name="android_release_apk">這是舊版 BazaarPlusPlus 打包的 The Bazaar。請換成官方遊戲。</string>
+  <string name="android_release_apk_detail">先解除安裝舊版，再安裝官方遊戲。解除安裝會刪除舊版的本機歷史紀錄。</string>
   <string name="install_from_play">從 Google Play 安裝</string>
   <string name="update_from_play">從 Google Play 更新</string>
   <string name="download_from_publisher">從發行商下載</string>

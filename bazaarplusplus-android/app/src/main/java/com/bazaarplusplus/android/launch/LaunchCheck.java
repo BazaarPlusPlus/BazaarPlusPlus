@@ -107,7 +107,7 @@ final class LaunchCheck {
                 && facts.needsAppUpdateFor(manifest.manifest.nonManagedPayloadDigest);
         boolean chosen = new CompatibilityChoices(AppFiles.compatibilityChoices(context)).chosen(hash);
         LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(
-                new LaunchGate.Installed(game.versionCode, hash), adapted, manifest.noRelease, usable != null, chosen,
+                new LaunchGate.Installed(game.versionCode, hash, game.carriesInjectedLoader()), adapted, manifest.noRelease, usable != null, chosen,
                 appUpdate));
         AppLog.i(BppApplication.TAG, "launch gate: " + decision + (modsFailed ? ", last plugin install failed" : ""));
         return new LaunchCheck(game, hash, facts, origin, manifest, usable, decision, trusted, installedMods, modsFailed,
