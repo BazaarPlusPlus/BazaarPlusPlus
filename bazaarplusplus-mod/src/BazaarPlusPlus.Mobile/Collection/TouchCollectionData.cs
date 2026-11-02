@@ -14,7 +14,7 @@ namespace BazaarPlusPlus.Mobile.Collection;
 /// <param name="DayTiers">The run day and, where the host reads it, the day's highest tier.</param>
 /// <param name="HeroPreference">The remembered out-of-run hero.</param>
 /// <param name="Run">The run, its day and its hero, when the panel opens.</param>
-/// <param name="Encounters">The encounter ids that pre-select a source; none where the host reads none.</param>
+/// <param name="Encounters">The encounter ids that pre-select a source.</param>
 /// <param name="Supporters">The supporter credit's rotation, or null where the host has none.</param>
 internal sealed record TouchCollectionData(
     ICollectionCardCatalog Catalog,
