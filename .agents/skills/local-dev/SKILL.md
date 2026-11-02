@@ -20,8 +20,8 @@ repository root.
    credentials stay in that window.
 4. On the Mac that holds the iOS simulators, `just local-dev-init ios` for all
    three or `just local-dev-init ios NAME` for one. It needs the `--test-control`
-   simulator build. When it starts a QR sign-in, tell the user to scan it in
-   the Simulator window with the Steam mobile app and wait; they type any
+   simulator build. When it starts a QR sign-in, tell the user to scan it on
+   the simulator screen with the Steam mobile app and wait; they type any
    password themselves. A first game download takes a long time; run init in
    the background.
 

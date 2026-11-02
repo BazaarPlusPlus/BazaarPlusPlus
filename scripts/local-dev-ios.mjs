@@ -45,7 +45,7 @@ A missing simulator is created empty. To reuse one that already holds the game
 and sign-in, rename it first: xcrun simctl rename UDID NAME.
 Each simulator has its own sandbox and keychain. Init boots it, installs the
 build and waits for its saved Steam login; without one it starts a QR sign-in
-in the Simulator window: scan it with the Steam mobile app, or cancel and sign
+on the simulator screen: scan it with the Steam mobile app, or cancel and sign
 in with a password there. It then downloads the game (about 6 GB) and passes
 when tools/regress.sh reports RunTasks complete with Failed: 0.
 Success shuts down a simulator init booted; --keep-open needs a single NAME.
@@ -154,7 +154,6 @@ async function initialize(profile, { timeout, keepOpen }) {
   try {
     if (ownBoot) simctl('boot', udid);
     run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], { timeout: 300_000 });
-    run(['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', udid]);
     const env = { ...process.env, BPP_DEVICE: udid };
     run(['python3', 'tools/run-app.py'], { cwd: ios, env });
     console.log(`${profile.name}: waiting ${timeout}s for the Steam sign-in.`);
@@ -175,12 +174,12 @@ async function initialize(profile, { timeout, keepOpen }) {
           control('qr');
           qr = true;
           console.log(
-            `${profile.name}: scan the QR code in the Simulator window with the Steam mobile app, or sign in with a password there.`
+            `${profile.name}: scan the QR code on the simulator screen with the Steam mobile app, or sign in with a password there.`
           );
         }
         return false;
       },
-      `${profile.name} is not signed in; finish sign-in in the open simulator, then rerun init.`
+      `${profile.name} is not signed in; finish sign-in on the open simulator, then rerun init.`
     );
     const s = snapshot();
     if (s?.state !== 'ready') {
