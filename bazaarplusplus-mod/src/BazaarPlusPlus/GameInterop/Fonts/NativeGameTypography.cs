@@ -472,9 +472,9 @@ internal static class NativeGameTypography
                 scope.DisposeFromReset();
             PanelScopes.Clear();
             if (_serifFontAsset != null)
-                Object.DestroyImmediate(_serifFontAsset);
+                DestroyCopy(_serifFontAsset);
             if (_sansFontAsset != null)
-                Object.DestroyImmediate(_sansFontAsset);
+                DestroyCopy(_sansFontAsset);
         }
         finally
         {
@@ -525,7 +525,7 @@ internal static class NativeGameTypography
             finally
             {
                 if (binding.Clone != null)
-                    Object.DestroyImmediate(binding.Clone);
+                    DestroyCopy(binding.Clone);
             }
         }
         Bindings.Clear();
@@ -563,9 +563,19 @@ internal static class NativeGameTypography
                 continue;
 
             if (binding.Clone != null)
-                Object.DestroyImmediate(binding.Clone);
+                DestroyCopy(binding.Clone);
             Bindings.RemoveAt(index);
         }
+    }
+
+    // TMP_FontAsset.OnDestroy destroys its material and atlas textures, and a copy from
+    // Object.Instantiate shares both with its source: a copy destroyed as it stands takes the
+    // game's own text with it, until the next launch.
+    private static void DestroyCopy(TMP_FontAsset copy)
+    {
+        copy.material = null;
+        copy.atlasTextures = null;
+        Object.DestroyImmediate(copy);
     }
 
     private static FontLoadAttempt ResolveFallbacks(bool preferSerif)
