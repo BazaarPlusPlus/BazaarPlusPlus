@@ -2,6 +2,8 @@ using BazaarPlusPlus.Mobile.Previews;
 using Il2CppTheBazaar;
 using Il2CppTheBazaar.Tooltips;
 using Il2CppTheBazaar.UI.Tooltips;
+using Il2CppTheBazaar.Utilities;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop;
@@ -73,7 +75,14 @@ internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
         // ApplyPreviewTooltip restores legends only for locked previews. A touch tooltip also
         // needs its normal tray restored after RenderLegend hides it during refresh.
         if (!_controller.isLocked)
+        {
             _controller._legendRenderer?.OnTooltipShown();
+            // Only a locked preview rebuilds its layout. A stale rect leaves the switch over the
+            // text and tells the game's deselection check that a touch on the tooltip is outside.
+            Canvas.ForceUpdateCanvases();
+            TempoUIUtility.ForceRebuildRecursive(_controller.PositioningRectTransform);
+            _controller.KeepTooltipWithinBounds();
+        }
     }
 
     public bool OffersEnchantments() => _candidates.Count > 0;

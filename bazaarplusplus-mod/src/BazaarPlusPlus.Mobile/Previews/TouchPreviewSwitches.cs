@@ -34,6 +34,8 @@ internal sealed class TouchPreviewSwitches : IDisposable
         "效果暫不可用"
     );
 
+    private const int NoUpgradeToggle = -1;
+
     private readonly ITooltipPreviewHost _host;
     private object? _card;
     private object? _render;
@@ -49,6 +51,7 @@ internal sealed class TouchPreviewSwitches : IDisposable
     private bool _expanded;
     private bool _dirty;
     private string? _screen;
+    private int _upgradeToggleFrame = NoUpgradeToggle;
 
     public TouchPreviewSwitches(ITooltipPreviewHost host) =>
         _host = host ?? throw new ArgumentNullException(nameof(host));
@@ -119,6 +122,7 @@ internal sealed class TouchPreviewSwitches : IDisposable
         _effects = null;
         _expanded = false;
         _offersEnchantments = false;
+        _upgradeToggleFrame = NoUpgradeToggle;
         _host.Release(reason);
         if (held)
             Log(reason);
@@ -143,7 +147,10 @@ internal sealed class TouchPreviewSwitches : IDisposable
             _render = null;
             _expanded = false;
             _effects = null;
+            _upgradeToggleFrame = NoUpgradeToggle;
         }
+        if (_upgradeToggleFrame != NoUpgradeToggle && _upgradeToggleFrame != Time.frameCount)
+            UiActions.Run("upgrade_preview", ApplyUpgradeToggle);
         if (!Equals(render, _render))
         {
             // The main text lists the enchantments under [EnchantPreview] Mode; only a tooltip
@@ -162,10 +169,18 @@ internal sealed class TouchPreviewSwitches : IDisposable
             Render();
     }
 
+    // The game's deselection check runs late in the frame of a press and asks whether the press
+    // is on the tooltip. A tap can press and release in one frame, and the toggle resizes the
+    // tooltip, so the toggle waits for the next frame.
     private void ToggleUpgrade()
     {
-        if (_card == null)
-            return;
+        if (_card != null)
+            _upgradeToggleFrame = Time.frameCount;
+    }
+
+    private void ApplyUpgradeToggle()
+    {
+        _upgradeToggleFrame = NoUpgradeToggle;
         _host.ToggleUpgrade();
         _dirty = true;
         Log("upgrade_toggled");
