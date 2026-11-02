@@ -39,6 +39,13 @@
 			<key>sourceTree</key>
 			<string>SOURCE_ROOT</string>
 		</dict>
+		<key>09A8D2FCE7D302B499CEC227</key>
+		<dict>
+			<key>fileRef</key>
+			<string>9F5E6DE3A1DD959001D195D3</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+		</dict>
 		<key>0B9876461F26768646C10055</key>
 		<dict>
 			<key>attributes</key>
@@ -269,6 +276,17 @@
 			<key>sourceTree</key>
 			<string>SOURCE_ROOT</string>
 		</dict>
+		<key>9F5E6DE3A1DD959001D195D3</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Host/FoldGuard.swift</string>
+			<key>sourceTree</key>
+			<string>SOURCE_ROOT</string>
+		</dict>
 		<key>A46BF736EAC2F3C1E9FC40C4</key>
 		<dict>
 			<key>fileRef</key>
@@ -432,6 +450,7 @@
 				<string>0C0EAD26D5D9FAA75B115C81</string>
 				<string>3A7CC9D662B3950D7228AD94</string>
 				<string>CB01F469FB0F4735C9464FD0</string>
+				<string>9F5E6DE3A1DD959001D195D3</string>
 				<string>62D9CBC7F6FB0954F254701B</string>
 				<string>F5A88F73950FB3969A9DAD8B</string>
 				<string>3B88CF0EEE7E951800DFF1B4</string>
@@ -542,6 +561,7 @@
 				<string>2AE1E0BA97DD30FFFE0FE7D1</string>
 				<string>329DDFD55090F2B1C3DECCAE</string>
 				<string>6128F36AE3D6E1BAAC1DA742</string>
+				<string>09A8D2FCE7D302B499CEC227</string>
 				<string>D80D904E9EE7671BF7CDBA63</string>
 				<string>412C02808DF31AEAAD9D4991</string>
 				<string>E23E125A5BB1E8C863BEDDB7</string>

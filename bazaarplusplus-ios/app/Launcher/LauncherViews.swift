@@ -3,8 +3,8 @@ import UIKit
 
 // The launcher (design/components/Launcher): one page with the app bar, banners, the game card,
 // actions and info. Below pane-breakpoint it is one column; at or above it, two equal panes,
-// so the iPhone Duo unfolded (and iPad, and landscape) gets the two-pane layout and the folded
-// phone gets one column. Accessibility text sizes keep one column.
+// so the iPhone Duo unfolded (and iPad) gets the two-pane layout and the folded phone gets one
+// column. Accessibility text sizes keep one column. The launcher is portrait only (app/Host/main.mm).
 
 // MARK: - Root
 

@@ -8,7 +8,7 @@ import java.util.List;
  * What the launcher shows, as plain data (design/components/Launcher): the status badge, the one
  * primary action, up to two secondary actions, notes, banners, download progress and the info
  * rows. {@link LauncherActivity} renders it into whichever layout the window width picks, so a
- * fold or a rotation re-renders the same screen without running anything again.
+ * fold re-renders the same screen without running anything again.
  */
 final class LauncherScreen {
     /** The badge word and its tone; the same words as the iOS App. */

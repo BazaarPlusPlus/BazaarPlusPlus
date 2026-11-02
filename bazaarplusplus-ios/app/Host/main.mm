@@ -16,6 +16,9 @@ static char *(*snapshotService)(void);
 static void (*freeService)(void *);
 static int savedArgc; static char **savedArgv;
 static NSString *gameRoot;
+// The launcher is portrait only, the game landscape only; Info.plist lists both as the App's ceiling.
+static BOOL gameStarted;
+static id foldGuard;
 static NSString *jsonString(NSDictionary *value) {
     return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:value options:0 error:nil] encoding:NSUTF8StringEncoding];
 }
@@ -36,6 +39,9 @@ static void exposeGameVersion(void) {
 - (void)update:(NSDictionary *)snapshot;
 - (void)fail:(NSString *)message;
 - (void)releaseForGame;
+@end
+@protocol BPPFoldGuarding <NSObject>
+- (instancetype)initWithScene:(UIWindowScene *)scene hingeView:(UIView *)view pause:(void (^)(BOOL))pause;
 @end
 @interface SteamController : UIViewController
 @property(nonatomic, strong) NSTimer *timer;
@@ -156,7 +162,14 @@ static void exposeGameVersion(void) {
     [self command:@{@"action":@"launch"}]; s=[self readSnapshot]; if(![s[@"launched"] boolValue]) return;
     self.launched=YES; [self.timer invalidate]; self.timer=nil; [self.view endEditing:YES]; [self.host releaseForGame]; UIApplication.sharedApplication.idleTimerDisabled=YES;
     setenv("BPP_GAME_ROOT",[s[@"runtimeRoot"] UTF8String],1); setenv("BPP_SELFTEST","1",1); setenv("BPP_FRAME_STATS","1",1);
+    gameStarted=YES; UIWindowScene *scene=self.view.window.windowScene;
+    if (@available(iOS 16.0, *)) {
+        [self setNeedsUpdateOfSupportedInterfaceOrientations];
+        [scene requestGeometryUpdateWithPreferences:[[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape] errorHandler:nil];
+    }
     exposeGameVersion(); fprintf(stderr,"STEAM_APP_LAUNCH_GAME independent-session=1\n"); [engine runEmbeddedWithArgc:savedArgc argv:savedArgv appLaunchOpts:nil];
+    // The launcher window stays in the scene under the engine's, so the hinge interaction lives on its view.
+    foldGuard=[(id<BPPFoldGuarding>)[(Class)NSClassFromString(@"BPPFoldGuard") alloc] initWithScene:scene hingeView:self.view pause:^(BOOL paused){ [engine pause:paused]; }];
     // The engine owns its own window now; drop the launcher UI so its decoded artwork is freed.
     UIViewController *ui=self.host.viewController; [ui willMoveToParentViewController:nil]; [ui.view removeFromSuperview]; [ui removeFromParentViewController]; self.host=nil;
 }
@@ -179,6 +192,9 @@ static void exposeGameVersion(void) {
 @end
 @implementation SteamAppDelegate
 - (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)options { return YES; }
+- (UIInterfaceOrientationMask)application:(UIApplication*)application supportedInterfaceOrientationsForWindow:(UIWindow*)window {
+    return gameStarted ? UIInterfaceOrientationMaskLandscape : UIInterfaceOrientationMaskPortrait;
+}
 @end
 int main(int argc,char **argv) {
     savedArgc = argc; savedArgv = argv;

@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 /**
  * The launcher's work and state for the whole process: the launch check, a BPP launch, the
  * diagnostics export and the {@link LauncherScreen} they produce. It outlives any one
- * {@link LauncherActivity}, so a fold, a rotation, a text-size change or a recreated Activity
+ * {@link LauncherActivity}, so a fold, a text-size change or a recreated Activity
  * re-renders the same screen and never starts a second check or launch while one runs
  * ({@code GameSession.prepare} runs once per process). State is read and written on the main
  * thread only; the work runs on one worker thread.

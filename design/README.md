@@ -124,7 +124,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 The iOS App and the Android App are launchers: one screen that shows the game, its status and the next action. Both build it natively from `components/Launcher/` and the same tokens: `just design::build` generates `app/Theme/BppTokens.g.swift` for the iOS App and `res/values/bpp_tokens.xml` for the Android App.
 
 - **The same visual language, sized for touch.** Same colours, type scale, radii and status rules as the desktop. Every tappable thing has a `touch-target` (48) hit area, and type follows the system text size (Dynamic Type, `sp`).
-- **Layout follows the window width.** Below `pane-breakpoint` (600) the screen is one column; at or above it, two equal panes centred within `launcher-max`, so a book-style fold falls in the gutter. Accessibility text sizes keep one column. A fold (iPhone Duo, Android foldables) or a rotation only changes the width.
+- **Layout follows the window width.** Below `pane-breakpoint` (600) the screen is one column; at or above it, two equal panes centred within `launcher-max`, so a book-style fold falls in the gutter. Accessibility text sizes keep one column. The launcher is portrait only and the game landscape only; a fold (iPhone Duo, Android foldables) only changes the width.
 - **Art without effects.** The game cover is the Steam store's art on iOS (fetched at runtime) and the official game's own icon on Android, shown as is: no gradient, scrim, logo overlay or shadow.
 - **One progress bar.** A download with a known size is the one place the system shows a progress bar (`progress-height`).
 - **A newer App is a reminder.** It is an `info` banner and never takes an action away.

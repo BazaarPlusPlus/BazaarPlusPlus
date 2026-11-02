@@ -32,7 +32,7 @@ import java.util.List;
  * The App's start screen (design/components/Launcher). It renders {@link LauncherSession}'s
  * {@link LauncherScreen} into one column, or two equal panes when the window is at least
  * {@code pane-breakpoint} wide, and hands taps back to the session. The Activity handles size and
- * text-scale changes itself (see the manifest), so a fold or a rotation re-renders the screen
+ * text-scale changes itself (see the manifest), so a fold re-renders the screen
  * without recreating it; the work and its state live in the session either way.
  */
 public final class LauncherActivity extends Activity implements LauncherSession.Listener {

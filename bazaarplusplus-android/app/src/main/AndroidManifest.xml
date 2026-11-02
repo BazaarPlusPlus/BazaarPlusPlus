@@ -32,11 +32,14 @@
     <meta-data android:name="unity.strip-engine-code" android:value="true" />
     <meta-data android:name="unity.auto-set-game-state" android:value="true" />
 
-    <!-- Size, density and text-scale changes (a fold, a rotation) re-render the launcher in place:
-         LauncherActivity picks its one- or two-pane layout again. -->
+    <!-- The launcher is portrait only; the game is landscape only (GameActivity). Size, density and
+         text-scale changes (a fold) re-render the launcher in place: LauncherActivity picks its one-
+         or two-pane layout again. targetSdk 36 would let Android 16 ignore the lock on large screens. -->
     <activity
         android:name=".launch.LauncherActivity"
         android:exported="true"
+        android:screenOrientation="portrait"
+        tools:ignore="DiscouragedApi,LockedOrientationActivity"
         android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode|fontScale|keyboard|keyboardHidden|navigation"
         android:theme="@style/Theme.Bpp">
       <intent-filter>

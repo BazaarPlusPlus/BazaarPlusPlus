@@ -98,7 +98,15 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 `just local-dev-init` 准备常驻 Android AVD，并验证每台的游戏测试账号仍能自动登录；设备名字、原生尺寸、DPI、端口和参数以 `node scripts/local-dev.mjs --help` 为准。`just local-dev-status` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/local-dev/SKILL.md`。
 
-矩阵按 Mobile UI 的三个布局分支取三台：宽屏手机保持游戏原布局，3:2 平板触发 Screen Fill 但 HUD 不上移，近方屏同时覆盖 HUD 上移和面板堆叠。近方屏只是固定的屏幕形状，不模拟折叠铰链。高密度、未知 DPI、16:9、16:10、4:3 和阈值两侧由布局单测覆盖，见 [Mobile UI](../bazaarplusplus-mod/docs/architecture/mobile-ui.md)。
+矩阵按 Mobile UI 的三个布局分支选设备，两个平台各一套：
+
+| 布局分支 | Android AVD | iOS 模拟器 |
+| --- | --- | --- |
+| 宽屏手机，游戏原布局 | `bpp_emu_20_9` | iPhone 18 Pro Max |
+| Screen Fill，HUD 留在侧边 | `bpp_emu_3_2` | iPhone Duo：内屏横屏约 1.42:1，外屏横屏约 1.455:1 |
+| HUD 上移，面板堆叠 | `bpp_emu_fold` | iPad Pro 13 英寸 (M5)，4:3 |
+
+近方屏 AVD 只是固定的屏幕形状，不模拟折叠铰链；iPhone Duo 才覆盖折叠。高密度、未知 DPI、16:9、16:10、4:3 和阈值两侧由布局单测覆盖，见 [Mobile UI](../bazaarplusplus-mod/docs/architecture/mobile-ui.md)。iOS 模拟器的登录和游戏下载按 `bazaarplusplus-ios/AGENTS.md` 的模拟器回归准备，每台模拟器各有沙盒和钥匙串。
 
 缺少的设备从关机的 seed AVD 复制游戏和账号磁盘；已有设备保留数据。新机器先在一台 AVD 上装好 LemonLoader 注入版游戏并登录，再用 `--seed` 指定它；安装包和账号数据不随 clone 分发。复制不等于登录有效，所以每台都冷启动游戏，要求本次日志出现主菜单和随后的 hook 统计，并核对截图的尺寸和密度。需要重新登录时，在模拟器窗口中完成。init 只验证已安装的游戏，不构建、不部署当前源码，之后仍要执行所需的构建、部署和冒烟。
 
@@ -107,10 +115,11 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 | 源码 | 桌面与 Android Host 各自构建、测试；Mobile UI 修改还须按 iOS 的项目说明验证 Mono Host |
 | 环境准备 | 三台 AVD 分别冷启动进入游戏主菜单；设备身份、原生显示配置和本次登录证据一致 |
 | 布局与交互 | 在受影响面板上检查关闭按钮、滚动、卡牌检视、设置和触控区域；主菜单截图不替代面板验收 |
-| 朝向与恢复 | 从竖屏启动、两个横屏方向、后台返回；记录实际方向和 Unity safe area，确认重新布局且内容不侧转、不裁切 |
+| 朝向与恢复 | 启动器在竖屏握持和横屏握持下都是竖屏；游戏从竖屏握持启动后转为横屏，两个横屏方向都可用，转到竖屏仍保持横屏；后台返回后重新布局。记录实际方向和 Unity safe area，内容不侧转、不裁切 |
+| 折叠（iPhone Duo） | 启动器在外屏和内屏都是竖屏；游戏中合上暂停并提示展开，展开后继续；合上时启动游戏，直接显示提示 |
 | 全新安装 | 另用一次性 AVD；常驻的已登录设备只用于更新和日常回归 |
 
-朝向是同一台设备上的场景，不为每个方向复制 AVD。改变朝向后等游戏稳定，再对该面板执行 `android-screen-check`；游戏锁定横屏时只记录横屏结果。尺寸和 DPI 固定在 AVD 配置中，不用 `wm size` 或 `wm density` 模拟另一台设备。init 的回执、截图和日志在 mod 的 `artifacts/android/local-dev-<AVD>/`，含账号信息，不提交。
+朝向是同一台设备上的场景，不为每个方向复制设备。改变朝向后等游戏稳定，再对该面板执行 `android-screen-check`。尺寸和 DPI 固定在 AVD 配置中，不用 `wm size` 或 `wm density` 模拟另一台设备。init 的回执、截图和日志在 mod 的 `artifacts/android/local-dev-<AVD>/`，含账号信息，不提交。
 
 测试账号可以放在本机配置的 `[game]` 中，用 `just android::dev-login <serial>` 应用到指定设备的 debug App，再从启动器启动游戏。字段和依赖见该命令的 `--help`。它停止 App 后只替换游戏 PlayerPrefs 的账号密码，保留其他设置；写入完成不等于服务器登录成功。凭据保存在 checkout 外的私有配置与 debug App 的沙盒中，不同步到 GitHub，也不修改官方 App 的登录状态。
 
