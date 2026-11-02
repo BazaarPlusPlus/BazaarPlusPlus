@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Footer: support actions as ghost buttons, and the last export's result. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="@dimen/bpp_space_8"
+    android:orientation="vertical">
+
+  <Button
+      android:id="@+id/diagnostics"
+      style="@style/Bpp.Button.Ghost"
+      android:layout_width="wrap_content"
+      android:layout_marginStart="@dimen/bpp_negative_space_12"
+      android:text="@string/export_diagnostics" />
+
+  <TextView
+      android:id="@+id/diagnostics_result"
+      style="@style/Bpp.Text.Caption"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:textIsSelectable="true"
+      android:visibility="gone" />
+</LinearLayout>

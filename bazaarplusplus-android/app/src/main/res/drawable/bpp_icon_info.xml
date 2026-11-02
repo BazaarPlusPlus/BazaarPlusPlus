@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lucide Info at icon-md, in text-2. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path android:strokeColor="@color/bpp_text_2" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round"
+      android:pathData="M22,12A10,10 0,1 1,2 12A10,10 0,1 1,22 12Z" />
+  <path android:strokeColor="@color/bpp_text_2" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round"
+      android:pathData="M12,16v-4M12,8h0.01" />
+</vector>

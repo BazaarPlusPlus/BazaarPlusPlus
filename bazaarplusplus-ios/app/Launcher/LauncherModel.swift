@@ -22,11 +22,6 @@ struct ServiceSnapshot: Decodable, Equatable {
     struct Game: Decodable, Equatable, Identifiable {
         var id: String
         var title: String
-        var subtitle: String
-        var genre: String
-        var description: String
-        var accent: String
-        var monogram: String
         var version: String
         var compatibility: Compatibility
         var downloaded: Bool
@@ -34,16 +29,14 @@ struct ServiceSnapshot: Decodable, Equatable {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             id = try c.decode(String.self, forKey: .id)
             title = try c.decodeIfPresent(String.self, forKey: .title) ?? id
-            subtitle = try c.decodeIfPresent(String.self, forKey: .subtitle) ?? ""
-            genre = try c.decodeIfPresent(String.self, forKey: .genre) ?? ""
-            description = try c.decodeIfPresent(String.self, forKey: .description) ?? ""
-            accent = try c.decodeIfPresent(String.self, forKey: .accent) ?? "D99147"
-            monogram = try c.decodeIfPresent(String.self, forKey: .monogram) ?? "G"
             version = try c.decodeIfPresent(String.self, forKey: .version) ?? ""
             compatibility = (try? c.decodeIfPresent(Compatibility.self, forKey: .compatibility)) ?? Compatibility()
             downloaded = try c.decodeIfPresent(Bool.self, forKey: .downloaded) ?? false
         }
-        enum CodingKeys: String, CodingKey { case id, title, subtitle, genre, description, accent, monogram, version, compatibility, downloaded }
+        enum CodingKeys: String, CodingKey { case id, title, version, compatibility, downloaded }
+
+        /// "1.0.12764" from "1.0.12764-prod-macos-arm64-013ff919": the adapted version as players know it.
+        var shortVersion: String { String(version.split(separator: "-").first ?? Substring(version)) }
     }
     var state = "starting"
     var message = "正在初始化…"
@@ -94,9 +87,37 @@ enum LoginStep: Equatable {
     case credentials, connecting(String), verify(String, viaApp: Bool), qr(String), signedIn
 }
 
-/// What the primary button on a game page does right now.
+/// What the primary button on the launcher does right now.
 enum GameAction: Equatable {
     case play, connect, download, prepare, working(String, Double?), blocked(String), unavailable(String)
+}
+
+/// The launcher's status badge (design/components/Launcher): the same words as the Android App.
+enum LauncherStatus: Equatable {
+    case checking, signingIn, downloading, preparing, ready, waiting, notInstalled, downloaded, notSupported
+
+    var word: String {
+        switch self {
+        case .checking: return "正在检查…"
+        case .signingIn: return "正在登录…"
+        case .downloading: return "正在下载…"
+        case .preparing: return "正在准备…"
+        case .ready: return "可以开始"
+        case .waiting: return "等待适配"
+        case .notInstalled: return "未安装"
+        case .downloaded: return "已下载"
+        case .notSupported: return "暂不支持"
+        }
+    }
+
+    var tone: BppBadge.Tone {
+        switch self {
+        case .checking, .signingIn, .downloading, .preparing: return .busy
+        case .ready: return .ok
+        case .waiting: return .warn
+        case .notInstalled, .downloaded, .notSupported: return .neutral
+        }
+    }
 }
 
 @MainActor
@@ -251,13 +272,28 @@ final class LauncherModel: ObservableObject {
         f.unitsStyle = .abbreviated; f.maximumUnitCount = 2; return f
     }()
 
-    /// One-line install state used on cards.
-    func installLabel(_ game: ServiceSnapshot.Game) -> String {
-        if snapshot.state == "outdated" { return "等待适配" }
-        if snapshot.state == "ready" && snapshot.canLaunch { return "可以开始" }
-        if snapshot.busy && !isSigningIn { return snapshot.state == "downloading" ? "下载中 \(Int(snapshot.progress * 100))%" : "准备中" }
-        return game.downloaded ? "已下载" : "未安装"
+    /// The status badge, or nil when the runtime could not start (the failure banner says why).
+    var status: LauncherStatus? {
+        if failure != nil { return nil }
+        let s = snapshot
+        guard let game = s.game else { return .checking }
+        if s.busy {
+            if isSigningIn { return .signingIn }
+            return s.state == "downloading" ? .downloading : .preparing
+        }
+        if s.state == "outdated" { return .waiting }
+        if s.state == "ready" && s.canLaunch && s.loggedIn { return .ready }
+        if s.state == "installed" || (game.downloaded && !game.compatibility.launch) { return .notSupported }
+        return game.downloaded ? .downloaded : .notInstalled
     }
+
+    /// The download's percentage while one with a known size runs.
+    var downloadPercent: Int? {
+        snapshot.busy && snapshot.state == "downloading" ? Int(snapshot.progress * 100) : nil
+    }
+
+    /// The App's own version, "v6.2.0".
+    let appVersion = "v" + (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
 
     // MARK: Commands
 
@@ -299,10 +335,10 @@ public final class LauncherHost: NSObject {
     @objc public init(command: @escaping (NSDictionary) -> Void, launch: @escaping () -> Void) {
         model = LauncherModel(send: command, launch: launch)
         let hosting = UIHostingController(rootView: LauncherRoot().environmentObject(model))
-        hosting.view.backgroundColor = UIColor(Theme.background)
+        hosting.view.backgroundColor = UIColor(BppColor.bgCanvas)
         viewController = hosting
         super.init()
-        Theme.configureAppearance()
+        BppAppearance.configure()
     }
 
     @MainActor @objc public func update(_ snapshot: NSDictionary) { model.apply(snapshot) }

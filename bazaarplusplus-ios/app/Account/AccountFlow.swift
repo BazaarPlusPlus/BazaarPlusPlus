@@ -39,41 +39,32 @@ struct OnboardingView: View {
         return ZStack {
             ForEach([-1.0, 1.0], id: \.self) { side in
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Theme.surface)
-                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.stroke))
-                    .overlay(Image(systemName: "sparkles").font(.title2).foregroundColor(Theme.secondary.opacity(0.5)))
+                    .fill(BppColor.bgPanel)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(BppColor.line))
+                    .overlay(Image(systemName: "sparkles").font(.title2).foregroundColor(BppColor.text2.opacity(0.5)))
                     .frame(width: 150, height: 225)
                     .rotationEffect(.degrees(side * 9))
                     .offset(x: side * 82, y: 14)
             }
             if let game {
-                ArtworkImage(url: model.store(game)?.capsule, appId: model.appId(game), maxPixel: 700) { MonogramArt(game: game) }
+                ArtworkImage(url: model.store(game)?.capsule, appId: model.appId(game), maxPixel: 700) { BppColor.bgHover }
                     .frame(width: 180, height: 270)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.white.opacity(0.15)))
-                    .shadow(color: Theme.brand.opacity(0.35), radius: 30, y: 12)
+                    .clipShape(RoundedRectangle(cornerRadius: BppRadius.rDialog, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: BppRadius.rDialog, style: .continuous).strokeBorder(BppColor.lineStrong))
             }
         }
         .frame(height: 300)
     }
 
     var body: some View {
-        let hero = model.snapshot.game
         ZStack {
-            Theme.background.ignoresSafeArea()
-            if let hero, let store = model.store(hero) {
-                ArtworkImage(url: store.hero ?? store.header, appId: model.appId(hero), maxPixel: 1800) { Color.clear }
-                    .ignoresSafeArea()
-                    .opacity(0.45)
-                    .overlay(LinearGradient(colors: [Theme.background.opacity(0.2), Theme.background.opacity(0.85), Theme.background],
-                                            startPoint: .top, endPoint: .bottom).ignoresSafeArea())
-            }
+            BppColor.bgCanvas.ignoresSafeArea()
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
                     if page < pages.count - 1 {
                         Button("跳过") { model.finishOnboarding(connect: false) }
-                            .font(.subheadline.weight(.semibold)).foregroundColor(Theme.secondary)
+                            .font(.subheadline.weight(.semibold)).foregroundColor(BppColor.text2)
                             .accessibilityIdentifier("onboarding-skip")
                     }
                 }
@@ -88,23 +79,23 @@ struct OnboardingView: View {
                 VStack(spacing: 18) {
                     HStack(spacing: 8) {
                         ForEach(pages.indices, id: \.self) { index in
-                            Capsule().fill(index == page ? Theme.brand : Color.white.opacity(0.25))
+                            Capsule().fill(index == page ? BppColor.accent : BppColor.lineStrong)
                                 .frame(width: index == page ? 22 : 8, height: 8)
                         }
                     }
                     .animation(.spring(response: 0.3), value: page)
                     if page < pages.count - 1 {
-                        PrimaryButton(title: "继续", icon: "arrow.right", color: Theme.brand, foreground: .black) {
+                        BppPrimaryButton(title: "继续", icon: "arrow.right") {
                             withAnimation { page += 1 }
                         }
                         .accessibilityIdentifier("onboarding-next")
                     } else {
-                        PrimaryButton(title: "连接 Steam", icon: "person.badge.key.fill", color: Theme.brand, foreground: .black) {
+                        BppPrimaryButton(title: "连接 Steam", icon: "person.badge.key.fill") {
                             model.finishOnboarding(connect: true)
                         }
                         .accessibilityIdentifier("onboarding-connect")
                         Button("稍后登录") { model.finishOnboarding(connect: false) }
-                            .font(.subheadline.weight(.semibold)).foregroundColor(.white.opacity(0.85))
+                            .font(.subheadline.weight(.semibold)).foregroundColor(BppColor.text1)
                     }
                 }
                 .padding(.horizontal, 24)
@@ -123,31 +114,31 @@ struct OnboardingView: View {
                     showcase.frame(maxWidth: .infinity)
                 } else {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.brand.opacity(0.16)).frame(width: 76, height: 76)
-                        Image(systemName: page.icon).font(.system(size: 34, weight: .semibold)).foregroundColor(Theme.brand)
+                        RoundedRectangle(cornerRadius: 22, style: .continuous).fill(BppColor.accent.opacity(0.16)).frame(width: 76, height: 76)
+                        Image(systemName: page.icon).font(.system(size: 34, weight: .semibold)).foregroundColor(BppColor.accent)
                     }
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     Text(page.title).font(.system(size: 30, weight: .bold)).fixedSize(horizontal: false, vertical: true)
-                    Text(page.body).font(.body).foregroundColor(.white.opacity(0.78)).fixedSize(horizontal: false, vertical: true)
+                    Text(page.body).font(.body).foregroundColor(BppColor.text2).fixedSize(horizontal: false, vertical: true)
                 }
                 if !page.rows.isEmpty {
                     VStack(spacing: 0) {
                         ForEach(Array(page.rows.enumerated()), id: \.offset) { index, row in
                             HStack(alignment: .top, spacing: 14) {
-                                Image(systemName: row.0).font(.system(size: 19)).foregroundColor(Theme.brand).frame(width: 28)
+                                Image(systemName: row.0).font(.system(size: 19)).foregroundColor(BppColor.accent).frame(width: 28)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(row.1).font(.subheadline.weight(.semibold))
-                                    Text(row.2).font(.footnote).foregroundColor(Theme.secondary).fixedSize(horizontal: false, vertical: true)
+                                    Text(row.2).font(.footnote).foregroundColor(BppColor.text2).fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer(minLength: 0)
                             }
                             .padding(16)
-                            if index < page.rows.count - 1 { Divider().background(Theme.stroke).padding(.leading, 58) }
+                            if index < page.rows.count - 1 { Divider().background(BppColor.line).padding(.leading, 58) }
                         }
                     }
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface.opacity(0.92)))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.stroke))
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(BppColor.bgPanel.opacity(0.92)))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BppColor.line))
                 }
             }
             .padding(.horizontal, 24)
@@ -188,12 +179,12 @@ struct AccountSheet: View {
                 .frame(maxWidth: .infinity)
                 .animation(.easeInOut(duration: 0.25), value: step)
             }
-            .background(Theme.surface.ignoresSafeArea())
+            .background(BppColor.bgPanel.ignoresSafeArea())
             .navigationTitle(step == .signedIn ? "Steam 账户" : "连接 Steam")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { dismiss() }.foregroundColor(Theme.secondary)
+                    Button("关闭") { dismiss() }.foregroundColor(BppColor.text2)
                 }
             }
         }
@@ -225,9 +216,9 @@ struct StepIndicator: View {
         HStack(spacing: 8) {
             ForEach(titles.indices, id: \.self) { i in
                 VStack(alignment: .leading, spacing: 6) {
-                    Capsule().fill(i <= index ? Theme.brand : Color.white.opacity(0.14)).frame(height: 4)
+                    Capsule().fill(i <= index ? BppColor.accent : BppColor.lineStrong).frame(height: 4)
                     Text(titles[i]).font(.caption.weight(i == index ? .bold : .regular))
-                        .foregroundColor(i <= index ? .white : Theme.secondary)
+                        .foregroundColor(i <= index ? BppColor.text1 : BppColor.text2)
                 }
             }
         }
@@ -241,7 +232,7 @@ private struct StepHeader: View {
     let icon: String
     let title: String
     let message: String
-    var tint = Theme.brand
+    var tint = BppColor.accent
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack {
@@ -250,7 +241,7 @@ private struct StepHeader: View {
             }
             Text(title).font(.title2.bold())
             if !message.isEmpty {
-                Text(message).font(.subheadline).foregroundColor(Theme.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(message).font(.subheadline).foregroundColor(BppColor.text2).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("account-status")
             }
         }
@@ -273,18 +264,18 @@ struct CredentialsStep: View {
             StepHeader(icon: "person.fill", title: "登录你的 Steam 账号",
                        message: "用于下载你已拥有的游戏，并在启动时完成游戏认证。")
             if let error = model.loginError() {
-                Notice(icon: "exclamationmark.triangle.fill", text: error, color: Theme.warn)
+                BppBanner(tone: .warning, message: error)
             }
             if !s.savedAccount.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    PrimaryButton(title: "继续以 \(s.savedAccount) 登录", icon: "arrow.clockwise", color: Theme.brand, foreground: .black) {
+                    BppPrimaryButton(title: "继续以 \(s.savedAccount) 登录", icon: "arrow.clockwise") {
                         model.restore()
                     }
                     .accessibilityIdentifier("restore")
                     HStack {
-                        Rectangle().fill(Theme.stroke).frame(height: 1)
-                        Text("或使用其他账号").font(.caption).foregroundColor(Theme.secondary).fixedSize()
-                        Rectangle().fill(Theme.stroke).frame(height: 1)
+                        Rectangle().fill(BppColor.line).frame(height: 1)
+                        Text("或使用其他账号").font(.caption).foregroundColor(BppColor.text2).fixedSize()
+                        Rectangle().fill(BppColor.line).frame(height: 1)
                     }
                 }
             }
@@ -312,14 +303,14 @@ struct CredentialsStep: View {
                     .submitLabel(.go)
                     .onSubmit(submit)
                 Text("账号名是登录 Steam 时用的名字，不是个人资料里的昵称。")
-                    .font(.caption).foregroundColor(Theme.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                    .font(.caption).foregroundColor(BppColor.text2).frame(maxWidth: .infinity, alignment: .leading)
             }
-            PrimaryButton(title: "登录", icon: "arrow.right.circle.fill", color: Theme.brand, foreground: .black, action: submit)
+            BppPrimaryButton(title: "登录", icon: "arrow.right.circle.fill", action: submit)
                 .disabled(!canSubmit)
                 .opacity(canSubmit ? 1 : 0.5)
                 .accessibilityIdentifier("login")
             Label("密码只发送给 Steam，不会保存。登录凭据保存在系统钥匙串，下次打开自动登录。", systemImage: "lock.fill")
-                .font(.caption).foregroundColor(Theme.secondary)
+                .font(.caption).foregroundColor(BppColor.text2)
         }
     }
 
@@ -339,12 +330,12 @@ struct QRStart: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             QRInstructions()
-            PrimaryButton(title: "显示二维码", icon: "qrcode", color: Theme.brand, foreground: .black) { model.qrLogin() }
+            BppPrimaryButton(title: "显示二维码", icon: "qrcode") { model.qrLogin() }
                 .disabled(model.snapshot.busy)
                 .accessibilityIdentifier("show-qr")
             if UIDevice.current.userInterfaceIdiom != .pad {
                 Text("需要另一台已登录 Steam 手机 App 的设备来扫描；本机上的 Steam App 无法扫描本机屏幕。")
-                    .font(.caption).foregroundColor(Theme.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.caption).foregroundColor(BppColor.text2).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -359,7 +350,7 @@ struct QRInstructions: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.raised))
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(BppColor.bgHover))
     }
 }
 
@@ -368,8 +359,8 @@ struct QRInstruction: View {
     let text: String
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Text("\(number)").font(.caption.weight(.bold)).foregroundColor(.black)
-                .frame(width: 22, height: 22).background(Circle().fill(Theme.brand))
+            Text("\(number)").font(.caption.weight(.bold)).foregroundColor(BppColor.onAccent)
+                .frame(width: 22, height: 22).background(Circle().fill(BppColor.accent))
             Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -384,7 +375,7 @@ struct QRStep: View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("扫码登录").font(.title2.bold())
-                Text("二维码会定期刷新，扫描批准后自动继续。").font(.subheadline).foregroundColor(Theme.secondary)
+                Text("二维码会定期刷新，扫描批准后自动继续。").font(.subheadline).foregroundColor(BppColor.text2)
                     .accessibilityIdentifier("account-status")
             }
             HStack {
@@ -398,14 +389,14 @@ struct QRStep: View {
                 Spacer()
             }
             QRInstructions()
-            HStack(spacing: 10) { ProgressView(); Text("等待扫描…").font(.footnote).foregroundColor(Theme.secondary) }
+            HStack(spacing: 10) { ProgressView(); Text("等待扫描…").font(.footnote).foregroundColor(BppColor.text2) }
             Button {
                 method = .password
                 model.cancel()
             } label: {
                 Text("改用账号密码").frame(maxWidth: .infinity, minHeight: 44)
             }
-            .foregroundColor(.white)
+            .foregroundColor(BppColor.text1)
             CancelLoginButton()
         }
     }
@@ -444,8 +435,8 @@ struct InputField: View {
         .autocorrectionDisabled()
         .padding(.horizontal, 16)
         .frame(height: 52)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.raised))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(focused ? Theme.brand.opacity(0.7) : Theme.stroke))
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(BppColor.bgHover))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(focused ? BppColor.accent.opacity(0.7) : BppColor.line))
         .accessibilityIdentifier(title)
     }
 }
@@ -458,7 +449,7 @@ struct WaitingStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             StepHeader(icon: icon, title: title, message: message)
-            HStack(spacing: 10) { ProgressView(); Text("请稍候…").font(.subheadline).foregroundColor(Theme.secondary) }
+            HStack(spacing: 10) { ProgressView(); Text("请稍候…").font(.subheadline).foregroundColor(BppColor.text2) }
             CancelLoginButton()
         }
     }
@@ -480,41 +471,40 @@ struct VerifyStep: View {
             ZStack {
                 if viaApp {
                     ForEach(0..<2) { ring in
-                        Circle().stroke(Theme.brand.opacity(0.35), lineWidth: 2)
+                        Circle().stroke(BppColor.accent.opacity(0.35), lineWidth: 2)
                             .frame(width: 64, height: 64)
                             .scaleEffect(pulse ? 1.9 : 1)
                             .opacity(pulse ? 0 : 1)
                             .animation(.easeOut(duration: 1.8).repeatForever(autoreverses: false).delay(Double(ring) * 0.9), value: pulse)
                     }
                 }
-                Circle().fill(Theme.brand.opacity(0.16)).frame(width: 64, height: 64)
+                Circle().fill(BppColor.accent.opacity(0.16)).frame(width: 64, height: 64)
                 Image(systemName: viaApp ? "iphone.radiowaves.left.and.right" : "envelope.fill")
-                    .font(.system(size: 27, weight: .semibold)).foregroundColor(Theme.brand)
+                    .font(.system(size: 27, weight: .semibold)).foregroundColor(BppColor.accent)
             }
             .frame(width: 120, height: 80, alignment: .leading)
             .onAppear { pulse = true }
             VStack(alignment: .leading, spacing: 8) {
                 Text(viaApp ? "确认是你本人" : "输入邮件验证码").font(.title2.bold())
-                Text(message).font(.subheadline).foregroundColor(Theme.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(message).font(.subheadline).foregroundColor(BppColor.text2).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("account-status")
             }
             if viaApp {
                 HStack(spacing: 10) {
                     ProgressView()
-                    Text("在手机上批准后会自动继续").font(.footnote).foregroundColor(Theme.secondary)
+                    Text("在手机上批准后会自动继续").font(.footnote).foregroundColor(BppColor.text2)
                 }
                 HStack {
-                    Rectangle().fill(Theme.stroke).frame(height: 1)
-                    Text("或输入验证码").font(.caption).foregroundColor(Theme.secondary).fixedSize()
-                    Rectangle().fill(Theme.stroke).frame(height: 1)
+                    Rectangle().fill(BppColor.line).frame(height: 1)
+                    Text("或输入验证码").font(.caption).foregroundColor(BppColor.text2).fixedSize()
+                    Rectangle().fill(BppColor.line).frame(height: 1)
                 }
             }
             codeBoxes
-            PrimaryButton(title: "提交验证码", icon: "checkmark.shield.fill", color: Theme.brand, foreground: .black, action: submit)
+            BppPrimaryButton(title: "提交验证码", icon: "checkmark.shield.fill", action: submit)
                 .disabled(code.count < length).opacity(code.count < length ? 0.5 : 1)
             if viaApp {
-                Notice(icon: "exclamationmark.shield.fill",
-                       text: "手机上会显示设备名和大致地点。如果提示地点可疑，或这不是你本人发起的登录，请拒绝。", color: Theme.secondary)
+                BppBanner(tone: .info, message: "手机上会显示设备名和大致地点。如果提示地点可疑，或这不是你本人发起的登录，请拒绝。")
             }
             CancelLoginButton()
         }
@@ -542,9 +532,9 @@ struct VerifyStep: View {
                     Text(i < chars.count ? String(chars[i]) : "")
                         .font(.system(size: 26, weight: .bold, design: .monospaced))
                         .frame(maxWidth: .infinity, minHeight: 60)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.raised))
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(BppColor.bgHover))
                         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(current ? Theme.brand : Theme.stroke, lineWidth: current ? 2 : 1))
+                            .stroke(current ? BppColor.accent : BppColor.line, lineWidth: current ? 2 : 1))
                 }
             }
             .allowsHitTesting(false)
@@ -566,7 +556,7 @@ struct CancelLoginButton: View {
         Button(role: .cancel) { model.cancel() } label: {
             Text("取消登录").frame(maxWidth: .infinity, minHeight: 44)
         }
-        .foregroundColor(Theme.secondary)
+        .foregroundColor(BppColor.text2)
         .accessibilityIdentifier("cancel-login")
     }
 }
@@ -581,23 +571,23 @@ struct SignedInStep: View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 16) {
                 ZStack {
-                    Circle().fill(LinearGradient(colors: [Theme.brand, Theme.brand.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    Circle().fill(BppColor.accent)
                         .frame(width: 64, height: 64)
-                    Text(String(account.prefix(1)).uppercased()).font(.title.bold()).foregroundColor(.black)
+                    Text(String(account.prefix(1)).uppercased()).font(.title.bold()).foregroundColor(BppColor.onAccent)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(account.isEmpty ? "Steam 账号" : account).font(.title3.bold())
-                    Label("已连接", systemImage: "checkmark.circle.fill").font(.subheadline).foregroundColor(Theme.ok)
+                    Label("已连接", systemImage: "checkmark.circle.fill").font(.subheadline).foregroundColor(BppColor.success)
                         .accessibilityIdentifier("account-status")
                 }
             }
             VStack(spacing: 0) {
-                InfoRow(label: "自动登录", value: "已开启")
-                InfoRow(label: "登录凭据", value: "系统钥匙串")
-                InfoRow(label: "游戏认证", value: "本机向 Steam 获取", last: true)
+                BppKeyValueRow(key: "自动登录", value: "已开启")
+                BppKeyValueRow(key: "登录凭据", value: "系统钥匙串")
+                BppKeyValueRow(key: "游戏认证", value: "本机向 Steam 获取", last: true)
             }
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.raised))
-            PrimaryButton(title: "完成", icon: "checkmark", color: Theme.brand, foreground: .black, action: done)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(BppColor.bgHover))
+            BppPrimaryButton(title: "完成", icon: "checkmark", action: done)
             Button(role: .destructive) { confirmingLogout = true } label: {
                 Text("退出登录").frame(maxWidth: .infinity, minHeight: 44)
             }

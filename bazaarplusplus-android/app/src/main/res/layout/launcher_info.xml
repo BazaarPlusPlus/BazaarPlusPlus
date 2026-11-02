@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Info: key-value rows at row-height; keys in text-3, values end-aligned in tabular figures. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bpp_panel"
+    android:divider="@drawable/bpp_divider"
+    android:orientation="vertical"
+    android:showDividers="middle">
+
+  <LinearLayout style="@style/Bpp.Row">
+    <TextView style="@style/Bpp.Text.Key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/info_game_version" />
+    <Space android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+    <TextView android:id="@+id/info_game" style="@style/Bpp.Text.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+  </LinearLayout>
+
+  <LinearLayout style="@style/Bpp.Row">
+    <TextView style="@style/Bpp.Text.Key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/info_adapted_version" />
+    <Space android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+    <TextView android:id="@+id/info_adapted" style="@style/Bpp.Text.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+  </LinearLayout>
+
+  <LinearLayout style="@style/Bpp.Row">
+    <TextView style="@style/Bpp.Text.Key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/app_name" />
+    <Space android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+    <TextView android:id="@+id/info_app" style="@style/Bpp.Text.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+  </LinearLayout>
+</LinearLayout>

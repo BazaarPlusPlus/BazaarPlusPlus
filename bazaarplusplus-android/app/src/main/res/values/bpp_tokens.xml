@@ -55,4 +55,19 @@
   <dimen name="bpp_titlebar_height">44dp</dimen>
   <dimen name="bpp_rail_width">72dp</dimen>
   <dimen name="bpp_content_max">1080dp</dimen>
+  <dimen name="bpp_touch_target">48dp</dimen>
+  <dimen name="bpp_appbar_height">56dp</dimen>
+  <dimen name="bpp_progress_height">4dp</dimen>
+  <dimen name="bpp_pane_breakpoint">600dp</dimen>
+  <dimen name="bpp_launcher_max">960dp</dimen>
+  <dimen name="bpp_type_display">24sp</dimen>
+  <dimen name="bpp_type_title">18sp</dimen>
+  <dimen name="bpp_type_body">15sp</dimen>
+  <dimen name="bpp_type_body_medium">15sp</dimen>
+  <dimen name="bpp_type_body_strong">15sp</dimen>
+  <dimen name="bpp_type_small">14sp</dimen>
+  <dimen name="bpp_type_caption">14sp</dimen>
+  <dimen name="bpp_type_micro">13sp</dimen>
+  <dimen name="bpp_type_code">14sp</dimen>
+  <dimen name="bpp_type_code_small">13sp</dimen>
 </resources>

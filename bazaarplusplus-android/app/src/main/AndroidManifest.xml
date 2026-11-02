@@ -32,9 +32,12 @@
     <meta-data android:name="unity.strip-engine-code" android:value="true" />
     <meta-data android:name="unity.auto-set-game-state" android:value="true" />
 
+    <!-- Size, density and text-scale changes (a fold, a rotation) re-render the launcher in place:
+         LauncherActivity picks its one- or two-pane layout again. -->
     <activity
         android:name=".launch.LauncherActivity"
         android:exported="true"
+        android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode|fontScale|keyboard|keyboardHidden|navigation"
         android:theme="@style/Theme.Bpp">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
