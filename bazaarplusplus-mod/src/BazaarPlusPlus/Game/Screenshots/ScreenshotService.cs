@@ -175,7 +175,7 @@ internal sealed class ScreenshotService
             {
                 try
                 {
-                    WriteRgba32PngAtomically(filePath, pixels, width, height);
+                    WriteOpaquePngAtomically(filePath, pixels, width, height);
                     completion.TrySetResult(true);
                 }
                 catch (Exception ex)
@@ -209,9 +209,12 @@ internal sealed class ScreenshotService
         }
     }
 
-    private static void WriteRgba32PngAtomically(
+    // The readback carries the framebuffer's alpha, which the screen ignores: UI blending
+    // leaves it below opaque over cards, so viewers would show those pixels translucent.
+    // Keep only the colours the player saw.
+    internal static void WriteOpaquePngAtomically(
         string filePath,
-        byte[] pixels,
+        byte[] rgbaPixels,
         int width,
         int height
     )
@@ -220,8 +223,9 @@ internal sealed class ScreenshotService
             filePath,
             tempPath =>
             {
-                using var image = Image.LoadPixelData<Rgba32>(pixels, width, height);
-                image.SaveAsPng(tempPath);
+                using var image = Image.LoadPixelData<Rgba32>(rgbaPixels, width, height);
+                using var opaque = image.CloneAs<Rgb24>();
+                opaque.SaveAsPng(tempPath);
             }
         );
     }

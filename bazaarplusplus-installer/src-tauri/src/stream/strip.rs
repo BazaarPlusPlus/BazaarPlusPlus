@@ -35,6 +35,9 @@ pub(super) const OBS_STRIP_CACHE: &str = "obs-strips";
 const STRIP_CACHES: [&str; 2] = [HISTORY_THUMBNAIL_CACHE, OBS_STRIP_CACHE];
 /// Suffix of a cached strip; older versions left OBS strips at the cache root.
 const STRIP_SUFFIX: &str = "-strip.png";
+/// Part of every cache name. Bump it when `crop_strip_image` renders the same
+/// source differently, so entries from the previous rendering miss and age out.
+const STRIP_RENDER_VERSION: u8 = 2;
 const CACHE_LIMITS: CacheLimits = CacheLimits {
     unused_for: Duration::from_secs(30 * 24 * 60 * 60),
     max_entries: 1000,
@@ -203,7 +206,7 @@ fn crop_cache_path(
         .map(|value| value.as_secs())
         .unwrap_or(0);
     let cache_name = format!(
-        "{}-{}-{}-{}-{}-{}-{}-strip.png",
+        "{}-{}-{}-{}-{}-{}-{}-r{STRIP_RENDER_VERSION}{STRIP_SUFFIX}",
         sanitized_cache_name(record_id),
         metadata.len(),
         modified,
@@ -407,7 +410,10 @@ fn sweep(cache_root: &Path, now: SystemTime, limits: &CacheLimits) {
 fn crop_strip_image(source_bytes: &[u8], crop: OverlayCropSettings) -> anyhow::Result<Vec<u8>> {
     let image =
         image::load_from_memory(source_bytes).context("Failed to decode overlay source image")?;
-    let cropped = crop_dynamic_image(image, crop)?;
+    // A screenshot's alpha is the game's framebuffer alpha, which the screen
+    // ignores; UI blending leaves it below opaque over cards. Earlier mods kept
+    // it, so drop it here: the strip shows the colours the player saw.
+    let cropped = DynamicImage::ImageRgb8(crop_dynamic_image(image, crop)?.to_rgb8());
     let mut output = Cursor::new(Vec::new());
     cropped
         .write_to(&mut output, ImageFormat::Png)
@@ -477,11 +483,13 @@ fn basis_points(fraction: f64) -> i64 {
 mod tests {
     use super::{
         basis_points, cache_namespace, cached_strip, crop_cache_path, crop_dynamic_image,
-        pixel_offset, sweep, CacheLimits, HISTORY_THUMBNAIL_CACHE, OBS_STRIP_CACHE, TEMP_SUFFIX,
+        crop_strip_image, pixel_offset, sweep, CacheLimits, HISTORY_THUMBNAIL_CACHE,
+        OBS_STRIP_CACHE, TEMP_SUFFIX,
     };
     use crate::stream::overlay_settings::OverlayCropSettings;
-    use image::{DynamicImage, GenericImageView, RgbaImage};
+    use image::{DynamicImage, GenericImageView, ImageFormat, RgbaImage};
     use std::{
+        io::Cursor,
         path::{Path, PathBuf},
         time::{Duration, SystemTime},
     };
@@ -629,6 +637,28 @@ mod tests {
         let cropped = crop_dynamic_image(image, crop).unwrap();
 
         assert_eq!(cropped.dimensions(), (500, 150));
+    }
+
+    #[test]
+    fn strip_drops_the_framebuffer_alpha_and_keeps_its_colours() {
+        let mut source = RgbaImage::from_pixel(4, 2, image::Rgba([200, 100, 50, 64]));
+        source.put_pixel(1, 0, image::Rgba([10, 20, 30, 0]));
+        let mut bytes = Cursor::new(Vec::new());
+        source.write_to(&mut bytes, ImageFormat::Png).unwrap();
+        let crop = OverlayCropSettings {
+            left: 0.0,
+            top: 0.0,
+            width: 1.0,
+            height: 1.0,
+        };
+
+        let strip =
+            image::load_from_memory(&crop_strip_image(bytes.get_ref(), crop).unwrap()).unwrap();
+
+        assert!(!strip.color().has_alpha());
+        let strip = strip.to_rgba8();
+        assert_eq!(*strip.get_pixel(0, 0), image::Rgba([200, 100, 50, 255]));
+        assert_eq!(*strip.get_pixel(1, 0), image::Rgba([10, 20, 30, 255]));
     }
 
     #[test]

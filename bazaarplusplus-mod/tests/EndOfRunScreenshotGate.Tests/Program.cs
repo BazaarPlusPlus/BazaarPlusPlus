@@ -10,6 +10,7 @@ VerifyReadinessAdapter();
 VerifyVisualStabilityTracker();
 VerifyArtifactMapping();
 VerifyPngFileSystemAdapter();
+VerifyScreenshotPngIsOpaque();
 
 Console.WriteLine("End-of-run capture workflow checks passed.");
 
@@ -251,6 +252,36 @@ static void VerifyPngFileSystemAdapter()
         );
         files.DeleteIfExists(valid);
         Assert(!File.Exists(valid), "Late-artifact cleanup should delete the exact file.");
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void VerifyScreenshotPngIsOpaque()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"bpp-end-run-alpha-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var path = Path.Combine(directory, "shot.png");
+        // A card pixel the framebuffer left translucent, and one it left fully transparent.
+        ScreenshotService.WriteOpaquePngAtomically(
+            path,
+            [200, 100, 50, 64, 10, 20, 30, 0],
+            width: 2,
+            height: 1
+        );
+
+        using var image = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(
+            path
+        );
+        Assert(
+            image[0, 0] == new SixLabors.ImageSharp.PixelFormats.Rgba32(200, 100, 50, 255)
+                && image[1, 0] == new SixLabors.ImageSharp.PixelFormats.Rgba32(10, 20, 30, 255),
+            "A screenshot must keep the framebuffer colours and drop its alpha."
+        );
     }
     finally
     {
