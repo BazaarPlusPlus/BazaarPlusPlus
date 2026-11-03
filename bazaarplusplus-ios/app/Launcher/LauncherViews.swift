@@ -105,15 +105,25 @@ private struct WideLayout: View {
 
 // MARK: - Cover and More
 
-/// The Steam store's library hero, cropped from the top centre; plain bg-hover until it loads.
+/// A wide cover (the strip over two panes, the iPhone Duo folded) shows the library hero cropped
+/// around the hunter's face; a portrait cover (phones, the iPad's cover pane) shows the
+/// promotional hero capsule from its top, logo in view. Plain bg-hover until the art loads.
 private struct Cover: View {
     @EnvironmentObject var model: LauncherModel
+    /// Width over height from which a cover counts as wide.
+    static let wide: CGFloat = 1.2
+    /// The hunter's face in the current library hero.
+    static let heroFocus = UnitPoint(x: 0.70, y: 0.30)
 
     var body: some View {
-        let store = model.snapshot.game.flatMap { model.store($0) }
-        ArtworkImage(url: store?.hero, appId: model.snapshot.game.flatMap { model.appId($0) },
-                     maxPixel: ArtworkStore.heroPixels, alignment: .top) {
-            BppColor.bgHover
+        GeometryReader { proxy in
+            let store = model.snapshot.game.flatMap { model.store($0) }
+            let wide = proxy.size.width >= proxy.size.height * Self.wide
+            let hero = wide ? store?.hero ?? store?.promo : nil
+            ArtworkImage(url: hero ?? store?.promo ?? store?.hero, appId: model.snapshot.game.flatMap { model.appId($0) },
+                         maxPixel: ArtworkStore.coverPixels, focus: hero != nil ? Self.heroFocus : .top) {
+                BppColor.bgHover
+            }
         }
         .background(BppColor.bgHover)
         .accessibilityHidden(true)
@@ -420,21 +430,27 @@ struct ArtworkImage<Placeholder: View>: View {
     let url: URL?
     let appId: UInt32?
     let maxPixel: CGFloat
-    /// Where the art anchors when the container crops it: the cover keeps the art's top.
-    var alignment: Alignment = .center
+    /// The point of the art kept nearest the centre when the container crops it.
+    var focus: UnitPoint = .center
     @ViewBuilder let placeholder: () -> Placeholder
     @State private var image: UIImage?
 
     var body: some View {
-        Color.clear
-            .overlay(alignment: alignment) {
-                if let image {
-                    Image(uiImage: image).resizable().aspectRatio(contentMode: .fill).transition(.opacity)
-                } else {
-                    placeholder()
-                }
+        GeometryReader { proxy in
+            if let image {
+                let size = proxy.size
+                let scale = max(size.width / image.size.width, size.height / image.size.height)
+                let width = image.size.width * scale, height = image.size.height * scale
+                Image(uiImage: image).resizable()
+                    .frame(width: width, height: height)
+                    .offset(x: min(0, max(size.width - width, size.width / 2 - focus.x * width)),
+                            y: min(0, max(size.height - height, size.height / 2 - focus.y * height)))
+                    .transition(.opacity)
+            } else {
+                placeholder()
             }
-            .clipped()
+        }
+        .clipped()
             .task(id: url) {
                 guard let url, let appId else { image = nil; return }
                 let loaded = await model.artwork.image(url, appId: appId, maxPixel: maxPixel)

@@ -127,7 +127,7 @@ The iOS App and the Android App are launchers: one screen that shows the game, i
 - **A native mobile page, not a web page.** The cover art runs full bleed under the status bar; a panel at `r-dialog` rises over its bottom edge with the status, the stats, one source row and the primary pinned at the bottom. One floating More button holds the support actions. No app bar, no footer.
 - **Each platform keeps its own shapes.** iOS buttons and rows are `r-touch` (12) with a pull-down menu; Android buttons are `r-pill` with a popup menu and Material dialogs.
 - **Layout follows the window width.** Below `pane-breakpoint` (600) the screen is one column; from it to `cover-pane-breakpoint` (840) the cover stays on top over two equal panes, so a book-style fold falls in the gutter; from 840 the cover fills the start half and the content the end half. Accessibility text sizes keep one column. The launcher is portrait only and the game landscape only; a fold (iPhone Duo, Android foldables) only changes the width.
-- **Art without effects.** The cover is the Steam store's library hero, fetched at runtime on both Apps and never bundled, shown as is: no gradient, scrim, logo overlay or shadow.
+- **Art without effects.** The cover is Steam store art, fetched at runtime on both Apps and never bundled: the library hero (the hunter) on a wide cover, the promotional hero capsule on a portrait one, each cropped around its subject and shown as is: no gradient, scrim, logo overlay or shadow.
 - **One progress bar.** A download with a known size is the one place the system shows a progress bar (`progress-height`).
 - **A newer App is a reminder.** A dialog once per version on Android, an `info` banner on iOS; it never takes an action away.
 

@@ -16,7 +16,7 @@
 
 ## 商店素材
 
-`app/Artwork/Artwork.swift::ArtworkStore` 在运行时从 Steam 商店公开接口 `IStoreBrowseService/GetItems` 获取两张图：库横幅（library hero，没有时用 header）做启动页的满幅封面，按顶部居中裁切，竖版封面（library capsule）给首次引导。图片缓存在 `Library/Caches/Artwork/<app-id>/`；库横幅很宽，竖屏封面只取中间一段，所以按原尺寸解码（`ArtworkStore.heroPixels`），竖版封面按显示尺寸降采样；开始游戏前清空内存缓存，因为游戏与启动器共用进程。素材不打包进 IPA：Valve 会轮换带哈希的素材路径，也不应随 App 再分发商店美术。离线或接口失败时使用缓存，没有缓存则封面是纯色 `bg-hover`。App ID 来自打包的 `game.json`。
+`app/Artwork/Artwork.swift::ArtworkStore` 在运行时从 Steam 商店公开接口 `IStoreBrowseService/GetItems` 获取三张图：启动页封面按形状选图，宽的封面（两栏上方的横条、iPhone Duo 合上）用库横幅（library hero，没有时用 header），以猎人的脸为焦点裁切；竖的封面（手机、iPad 左栏）用宣传图（hero capsule），从顶部居中裁切，保留标志；竖版封面（library capsule）给首次引导。图片缓存在 `Library/Caches/Artwork/<app-id>/`；封面图按原尺寸解码（`ArtworkStore.coverPixels`），首次引导的竖版封面按显示尺寸降采样；开始游戏前清空内存缓存，因为游戏与启动器共用进程。素材不打包进 IPA：Valve 会轮换带哈希的素材路径，也不应随 App 再分发商店美术。离线或接口失败时使用缓存，没有缓存则封面是纯色 `bg-hover`。App ID 来自打包的 `game.json`。
 
 ## 状态
 

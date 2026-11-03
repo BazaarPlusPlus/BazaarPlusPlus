@@ -3,7 +3,6 @@ package com.bazaarplusplus.android.launch;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -55,7 +54,7 @@ final class LauncherSession {
     private Export export;
     private boolean exporting;
     /** Null until the cover art loads, and after the game starts. */
-    private Bitmap cover;
+    private CoverArt.Images cover;
     private boolean coverRequested;
 
     /** A finished diagnostics export: the result line, and the zip to share when it was saved. */
@@ -86,7 +85,7 @@ final class LauncherSession {
         return taken;
     }
 
-    Bitmap cover() {
+    CoverArt.Images cover() {
         return cover;
     }
 
@@ -133,7 +132,7 @@ final class LauncherSession {
         coverRequested = true;
         File dir = new File(context.getApplicationContext().getCacheDir(), "cover");
         new Thread(() -> {
-            Bitmap art = CoverArt.load(dir, minHeight);
+            CoverArt.Images art = CoverArt.load(dir, minHeight);
             post(() -> {
                 cover = art;
                 notifyChanged();

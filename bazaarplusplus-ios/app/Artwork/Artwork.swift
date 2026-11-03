@@ -2,12 +2,14 @@ import Foundation
 import ImageIO
 import UIKit
 
-/// Store art for one Steam app, resolved at runtime from the public store API: the library
-/// hero for the launcher's cover and the capsule for onboarding. Nothing here is bundled:
+/// Store art for one Steam app, resolved at runtime from the public store API: the launcher's
+/// cover is the library hero (wide) or the hero capsule (the portrait promotional art) by its
+/// shape, and onboarding shows the library capsule. Nothing here is bundled:
 /// Valve rotates hashed asset paths, and the app must not redistribute store art inside the IPA.
 struct StoreArtwork: Codable, Equatable {
     var capsule: URL?
     var hero: URL?
+    var promo: URL?
     var fetchedAt: Date
 }
 
@@ -20,9 +22,9 @@ final class ArtworkStore: ObservableObject {
     private let session: URLSession
     private static let assetHost = "https://shared.akamai.steamstatic.com/store_item_assets/"
     private static let maxAge: TimeInterval = 3 * 24 * 3600
-    /// The library hero's full width: the launcher's cover crops a portrait slice from its middle,
-    /// so it decodes at full size and is released before the game starts (`releaseMemory`).
-    static let heroPixels: CGFloat = 3840
+    /// The cover's art decodes at full size (the library hero is 1920 wide, the hero capsule 896
+    /// tall): the cover crops a slice of it. Released before the game starts (`releaseMemory`).
+    static let coverPixels: CGFloat = 1920
 
     init() {
         root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -40,7 +42,8 @@ final class ArtworkStore: ObservableObject {
     /// Serves the on-disk copy immediately and refreshes it when stale.
     func load(_ appId: UInt32) async {
         if entries[appId] == nil, let cached = readMetadata(appId) { entries[appId] = cached }
-        if let current = entries[appId], Date().timeIntervalSince(current.fetchedAt) < Self.maxAge { return }
+        if let current = entries[appId], current.promo != nil,
+           Date().timeIntervalSince(current.fetchedAt) < Self.maxAge { return }
         guard inflight.insert(appId).inserted else { return }
         defer { inflight.remove(appId) }
         guard let fresh = await fetchMetadata(appId) else { return }
@@ -127,6 +130,7 @@ final class ArtworkStore: ObservableObject {
         return StoreArtwork(
             capsule: asset("library_capsule_2x", "library_capsule"),
             hero: asset("library_hero", "library_hero_2x", "header_2x", "header"),
+            promo: asset("hero_capsule_2x", "hero_capsule", "library_capsule_2x", "library_capsule"),
             fetchedAt: Date())
     }
 }

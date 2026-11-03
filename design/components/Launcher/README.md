@@ -39,7 +39,14 @@ The launcher is portrait only on every device, the iPhone Duo's outer and inner 
 
 ## Cover art
 
-Both Apps show the Steam store's library hero for The Bazaar, fetched at runtime from the public store API and cached on the device, centre-cropped from the top. Nothing is bundled: Valve rotates the hashed asset paths, and the Apps must not redistribute store art. The image is decoded no larger than the screen, because the game later shares the App's process.
+Two Steam store images of The Bazaar, fetched at runtime from the public store API and cached on the device. Nothing is bundled: Valve rotates the hashed asset paths, and the Apps must not redistribute store art. Each cover picks the image that suits its shape:
+
+| Cover | Image | Crop |
+|---|---|---|
+| Wide (width at least 1.2 × height): the strip over two panes, the iPhone Duo folded | The library hero (the hunter) | Around the hunter's face, at 70% across and 30% down the art, as near the cover's centre as the art's edges allow |
+| Portrait: phones, the cover pane from `cover-pane-breakpoint` | The hero capsule (the store's promotional art, with the logo) | From the top centre, so the logo stays in view |
+
+When one image is missing, the cover shows the other. The images are decoded no larger than the cover needs, because the game later shares the App's process, and released when the game starts. The focus point follows the current library hero; new store art may need a new one. The Android source row's tile for the publisher shows the promotional art.
 
 ## Status
 

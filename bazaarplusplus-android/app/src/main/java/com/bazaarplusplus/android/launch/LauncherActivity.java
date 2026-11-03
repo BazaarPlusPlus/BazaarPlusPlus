@@ -210,7 +210,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     }
 
     private void renderCover() {
-        ((ImageView) findViewById(R.id.cover)).setImageBitmap(session.cover());
+        ((CoverView) findViewById(R.id.cover)).setArt(session.cover());
     }
 
     private void renderFailure(LauncherScreen screen) {
@@ -229,7 +229,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
 
     /**
      * The source row: the official game with its own icon, or the publisher's APK beside a Google
-     * Play primary, shown with the cover art.
+     * Play primary, shown with the promotional art.
      */
     private void renderSource(LauncherScreen.Action source, LaunchCheck check) {
         View row = findViewById(R.id.source);
@@ -242,7 +242,8 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         if (source == LauncherScreen.Action.OPEN_OFFICIAL && check != null && check.game != null) {
             icon.setImageDrawable(check.game.info.loadIcon(getPackageManager()));
         } else {
-            icon.setImageBitmap(session.cover());
+            CoverArt.Images art = session.cover();
+            icon.setImageBitmap(art == null ? null : art.promo);
         }
         ((TextView) findViewById(R.id.source_label)).setText(actionText(source));
         row.setOnClickListener(v -> perform(source));

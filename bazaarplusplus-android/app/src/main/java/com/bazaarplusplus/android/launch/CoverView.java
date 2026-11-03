@@ -1,19 +1,31 @@
 package com.bazaarplusplus.android.launch;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Matrix;
-import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.widget.ImageView;
 
 import com.bazaarplusplus.android.R;
 
 /**
- * The launcher's cover (design/components/Launcher): the art cropped to fill it from the top
- * centre, plain bg-hover until the art loads. Laid out by weight, it takes whatever height the
- * layout gives it; measured freely (the page scrolls), it is half as tall as it is wide.
+ * The launcher's cover (design/components/Launcher, Cover art). A wide cover (the iPhone-Duo-like
+ * strip over two panes, a folded phone's outer screen) shows the library hero cropped around the
+ * hunter's face; a portrait cover (phones, the cover pane from cover-pane-breakpoint) shows the
+ * promotional hero capsule from its top, so the logo stays in view. Plain bg-hover until the art
+ * loads. Laid out by weight, it takes whatever height the layout gives it; measured freely (the
+ * page scrolls), it is half as tall as it is wide.
  */
 public final class CoverView extends ImageView {
+    /** Width over height from which a cover counts as wide. */
+    static final float WIDE = 1.2f;
+    /** The hunter's face in the current library hero, as fractions of its width and height. */
+    static final float HERO_FOCUS_X = 0.70f;
+    static final float HERO_FOCUS_Y = 0.30f;
+
+    private CoverArt.Images art;
+    private Bitmap shown;
+
     public CoverView(Context context) {
         this(context, null);
     }
@@ -23,6 +35,11 @@ public final class CoverView extends ImageView {
         setScaleType(ScaleType.MATRIX);
         setBackgroundColor(context.getColor(R.color.bpp_bg_hover));
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+    }
+
+    void setArt(CoverArt.Images art) {
+        this.art = art;
+        crop();
     }
 
     @Override
@@ -40,22 +57,43 @@ public final class CoverView extends ImageView {
         return changed;
     }
 
-    @Override
-    public void setImageDrawable(Drawable drawable) {
-        super.setImageDrawable(drawable);
-        crop();
-    }
-
-    /** Scales the art to cover the view, centred across and anchored at the top. */
+    /** Picks the image for the cover's shape and scales it to cover the view around its focus. */
     private void crop() {
-        Drawable art = getDrawable();
         int width = getWidth();
         int height = getHeight();
-        if (art == null || width == 0 || height == 0 || art.getIntrinsicWidth() <= 0) return;
-        float scale = Math.max((float) width / art.getIntrinsicWidth(), (float) height / art.getIntrinsicHeight());
+        if (art == null || width == 0 || height == 0) return;
+        boolean wide = (float) width / height >= WIDE;
+        Bitmap image = wide ? first(art.hero, art.promo) : first(art.promo, art.hero);
+        if (image != shown) {
+            shown = image;
+            setImageBitmap(image);
+        }
+        if (image == null) return;
+        boolean hero = image == art.hero;
+        setImageMatrix(focus(image.getWidth(), image.getHeight(), width, height,
+                hero ? HERO_FOCUS_X : 0.5f, hero ? HERO_FOCUS_Y : 0f));
+    }
+
+    private static Bitmap first(Bitmap preferred, Bitmap fallback) {
+        return preferred != null ? preferred : fallback;
+    }
+
+    /**
+     * Scales an image to cover the view and moves its focus as near the view's centre as the
+     * image's edges allow.
+     */
+    static Matrix focus(int imageWidth, int imageHeight, int width, int height, float focusX, float focusY) {
+        float scale = Math.max((float) width / imageWidth, (float) height / imageHeight);
+        float scaledWidth = imageWidth * scale;
+        float scaledHeight = imageHeight * scale;
         Matrix matrix = new Matrix();
         matrix.setScale(scale, scale);
-        matrix.postTranslate((width - art.getIntrinsicWidth() * scale) / 2f, 0);
-        setImageMatrix(matrix);
+        matrix.postTranslate(clamp(width / 2f - focusX * scaledWidth, width - scaledWidth),
+                clamp(height / 2f - focusY * scaledHeight, height - scaledHeight));
+        return matrix;
+    }
+
+    private static float clamp(float offset, float min) {
+        return Math.max(min, Math.min(0, offset));
     }
 }
