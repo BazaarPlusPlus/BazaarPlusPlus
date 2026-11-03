@@ -136,8 +136,8 @@ export function androidAppKey(version) {
   return `${version}/${ANDROID_PLATFORM}/app/BazaarPlusPlus_${version}_${ANDROID_PLATFORM}.apk`;
 }
 
-// The Interop Package, addressed by the sha256 of the zip itself: a release
-// and a Pre-Adaptation of the same Interop Snapshot share one object.
+// The Interop Package, addressed by the sha256 of the zip itself: releases
+// of one Interop Snapshot share one object.
 export function interopPackageKey(zipSha256) {
   if (!SHA256.test(zipSha256 ?? ''))
     throw new Error(`Invalid Interop Package digest: ${zipSha256}`);
@@ -147,11 +147,11 @@ export function interopPackageKey(zipSha256) {
 const BASE64 =
   /^(?:[A-Za-z0-9+/]{4})+(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
-// The `interop` record of an Android fragment, Platform Release Manifest or
-// Pre-Adaptation record: the content-addressed zip, the Interop Snapshot
-// digest it packs, and the base64 SHA256withRSA signature of its interop
-// statement (release/android-interop.mjs).
-export function assertInteropRecord(record, description) {
+// The `interop` record of an Android fragment or Platform Release Manifest:
+// the content-addressed zip, the Interop Snapshot digest it packs, and the
+// base64 SHA256withRSA signature of its interop statement
+// (release/android-interop.mjs).
+function assertInteropRecord(record, description) {
   assertRecord(record, `${description} Interop Package`);
   if (
     !SHA256.test(record.snapshotSha256 ?? '') ||
@@ -167,9 +167,9 @@ export function assertInteropRecord(record, description) {
   return record;
 }
 
-// The game a release or a Pre-Adaptation is adapted to: the Snapshot Lock's
-// android-online identity and its Game Code Hash.
-export function assertAndroidGame(game, description) {
+// The game a release is adapted to: the Snapshot Lock's android-online
+// identity and its Game Code Hash.
+function assertAndroidGame(game, description) {
   if (
     typeof game?.gameVersion !== 'string' ||
     !game.gameVersion ||
@@ -181,9 +181,10 @@ export function assertAndroidGame(game, description) {
   return game;
 }
 
-// A Loader Release as the Snapshot Lock pins it. The tag names an object key
-// of a Pre-Adaptation record, so it is a plain token.
-export function assertAndroidLoader(loader, description) {
+// A Loader Release as the Snapshot Lock pins it. The tag names a directory
+// under game-libs/ (loaderDirectory in release/game-libs.mjs), so it is a
+// plain token.
+function assertAndroidLoader(loader, description) {
   if (
     typeof loader?.tag !== 'string' ||
     !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(loader.tag) ||

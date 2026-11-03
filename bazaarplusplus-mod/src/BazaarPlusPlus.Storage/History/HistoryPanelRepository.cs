@@ -12,24 +12,17 @@ public sealed partial class HistoryPanelRepository
     private static readonly TimeSpan GhostRetentionWindow = TimeSpan.FromDays(5);
 
     private readonly string _databasePath;
-    private readonly string _runColumns;
 
     // Write paths may run on thread-pool continuations (ghost sync); the ensure
     // work is idempotent, so a duplicate first-time run is harmless.
     private volatile bool _schemaEnsured;
 
     public HistoryPanelRepository(string databasePath)
-        : this(databasePath, historyOnlyRunCanBeCurrent: false) { }
-
-    public HistoryPanelRepository(string databasePath, bool historyOnlyRunCanBeCurrent)
     {
         if (string.IsNullOrWhiteSpace(databasePath))
             throw new ArgumentException("Database path is required.", nameof(databasePath));
 
         _databasePath = databasePath;
-        _runColumns = historyOnlyRunCanBeCurrent
-            ? HistoryRunColumns.SelectWithCurrentHistoryOnlyRun
-            : HistoryRunColumns.Select;
     }
 
     public bool DatabaseExists => File.Exists(_databasePath);
@@ -41,7 +34,7 @@ public sealed partial class HistoryPanelRepository
     ) =>
         ReadCountedPage(
             HistoryPageQuery.Runs(heroKey),
-            _runColumns,
+            HistoryRunColumns.Select,
             request,
             HistoryPanelRowMapper.ReadRun
         );

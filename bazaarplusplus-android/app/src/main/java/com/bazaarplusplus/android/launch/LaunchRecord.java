@@ -12,15 +12,12 @@ import java.util.Objects;
  * before every BPP launch. Its format is this serializer plus the shared golden
  * {@code bazaarplusplus-android/contracts/launch-record.v1.json}: pretty-printed with two-space
  * indents, keys in the order below, and a final newline, as {@code JSON.stringify(x, null, 2)}.
- * A new field bumps {@link #SCHEMA_VERSION} together with the mod's reader.
+ * Version 1 was edited in place once, before the first release (root ADR 0013); a later field
+ * change bumps {@link #SCHEMA_VERSION} together with the mod's reader.
  */
 public final class LaunchRecord {
     public static final int SCHEMA_VERSION = 1;
     public static final String PATH = "MelonLoader/UserData/BazaarPlusPlus.launch.json";
-    public static final String MODE_NORMAL = "normal";
-    public static final String MODE_COMPATIBILITY = "compatibility";
-    public static final String SOURCE_RELEASE = "release";
-    public static final String SOURCE_PRE_ADAPTATION = "pre-adaptation";
 
     public static final class App {
         final String packageName;
@@ -56,31 +53,23 @@ public final class LaunchRecord {
     public static final class Interop {
         final String sha256;
         final String snapshotSha256;
-        final String source;
 
-        public Interop(String sha256, String snapshotSha256, String source) {
+        public Interop(String sha256, String snapshotSha256) {
             this.sha256 = Objects.requireNonNull(sha256);
             this.snapshotSha256 = Objects.requireNonNull(snapshotSha256);
-            if (!SOURCE_RELEASE.equals(source) && !SOURCE_PRE_ADAPTATION.equals(source)) {
-                throw new IllegalArgumentException("Unknown interop source " + source);
-            }
-            this.source = source;
         }
     }
 
     final long processId;
     final App app;
     final String release;
-    final String mode;
     final Game game;
     final Interop interop;
 
-    public LaunchRecord(long processId, App app, String release, String mode, Game game, Interop interop) {
+    public LaunchRecord(long processId, App app, String release, Game game, Interop interop) {
         this.processId = processId;
         this.app = Objects.requireNonNull(app);
         this.release = Objects.requireNonNull(release);
-        if (!MODE_NORMAL.equals(mode) && !MODE_COMPATIBILITY.equals(mode)) throw new IllegalArgumentException("Unknown mode " + mode);
-        this.mode = mode;
         this.game = Objects.requireNonNull(game);
         this.interop = Objects.requireNonNull(interop);
     }
@@ -96,7 +85,6 @@ public final class LaunchRecord {
                 .append("    \"nonManagedPayloadDigest\": ").append(quote(app.nonManagedPayloadDigest)).append("\n")
                 .append("  },\n")
                 .append("  \"release\": ").append(quote(release)).append(",\n")
-                .append("  \"mode\": ").append(quote(mode)).append(",\n")
                 .append("  \"game\": {\n")
                 .append("    \"packageName\": ").append(quote(game.packageName)).append(",\n")
                 .append("    \"versionName\": ").append(quote(game.versionName)).append(",\n")
@@ -106,8 +94,7 @@ public final class LaunchRecord {
                 .append("  },\n")
                 .append("  \"interop\": {\n")
                 .append("    \"sha256\": ").append(quote(interop.sha256)).append(",\n")
-                .append("    \"snapshotSha256\": ").append(quote(interop.snapshotSha256)).append(",\n")
-                .append("    \"source\": ").append(quote(interop.source)).append("\n")
+                .append("    \"snapshotSha256\": ").append(quote(interop.snapshotSha256)).append("\n")
                 .append("  }\n")
                 .append("}\n")
                 .toString();

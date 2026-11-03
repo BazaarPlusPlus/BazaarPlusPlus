@@ -36,9 +36,9 @@ namespace BazaarPlusPlus.Android.Host;
 /// installs the BppLog pipeline over MelonLogger, reads the settings file, logs what a device run
 /// must establish (the loaded DLL, the Data Root candidates, the build-channel probe), reads the
 /// Android App's Launch Record (<see cref="AndroidLaunch"/>), starts the record chain on the Data
-/// Root, with no uploads in Compatibility Mode, then applies the patches and, in the enabled mode, prepares the
-/// interaction features: the touch UI, History with its saved-replay runtime, the tooltip
-/// previews, and the main menu's release check. Every frame it first runs the main-thread pump
+/// Root, then applies the patches and, in the enabled mode, prepares the interaction features:
+/// the touch UI, History with its saved-replay runtime, the tooltip previews, and the main menu's
+/// release check. Every frame it first runs the main-thread pump
 /// (<see cref="AndroidMainThread"/>), where History's and the replay's continuations resume.
 /// Quitting tears History and the replay down before the chain stops, which settles a pending run
 /// completion and drains the queued writes.
@@ -92,9 +92,8 @@ public sealed class AndroidMod : MelonMod
         );
         LogPathProbe();
         var serverOption = LogBuildChannelProbe();
-        // Before the record chain: Compatibility Mode starts no upload pump.
         var launch = AndroidLaunch.Read(MelonEnvironment.UserDataDirectory, version);
-        _composition = StartRecordChain(serverOption, settings, launch);
+        _composition = StartRecordChain(serverOption, settings);
         // In every mode: a scene change releases the rented cards through it, open panels or not.
         _overlayPanels = new AndroidOverlayPanels(
             static () => Il2CppTheBazaar.Data.IsInCombat,
@@ -102,13 +101,7 @@ public sealed class AndroidMod : MelonMod
             static () => Time.frameCount
         );
         AndroidPatchHost.OverlayPanels = _overlayPanels;
-        AndroidPatchHost.Install(
-            HarmonyInstance,
-            mode,
-            version,
-            launch.CompatibilityMode,
-            _composition
-        );
+        AndroidPatchHost.Install(HarmonyInstance, mode, version, _composition);
         if (mode == AndroidPatchMode.Enabled)
             StartInteraction(settings, launch);
         _nextSummaryAt = Environment.TickCount64 + SummaryIntervalMs;
@@ -346,9 +339,7 @@ public sealed class AndroidMod : MelonMod
                         if (versionCheck.Update is { } update)
                             OpenAppDownload(update);
                     },
-                    RefreshPreviews: () =>
-                        Guarded("preview_settings_refresh", RefreshNativePreview),
-                    CompatibilityMode: launch.CompatibilityMode
+                    RefreshPreviews: () => Guarded("preview_settings_refresh", RefreshNativePreview)
                 )
             );
         }
@@ -391,8 +382,7 @@ public sealed class AndroidMod : MelonMod
                 )
             );
             BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.history.composed"),
-                ("ghost_sync", composition.GhostSync)
+                new BppLogEvent(BppLogFeatureScope.Android, "android.history.composed")
             );
         }
         catch (Exception exception)
@@ -445,8 +435,7 @@ public sealed class AndroidMod : MelonMod
     // chain behind them; it never stops the melon.
     private static AndroidComposition? StartRecordChain(
         bool? hasServerOption,
-        IniSettingsStore? settings,
-        AndroidLaunch launch
+        IniSettingsStore? settings
     )
     {
         try
@@ -464,7 +453,7 @@ public sealed class AndroidMod : MelonMod
                 hasServerOption
             );
             var dataRoot = AndroidPaths.DataRoot(MelonEnvironment.MelonBaseDirectory);
-            var composition = new AndroidComposition(dataRoot, gameBuild, settings, launch);
+            var composition = new AndroidComposition(dataRoot, gameBuild, settings);
             composition.Start(Time.unscaledTime);
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.record_chain.started"),
@@ -472,8 +461,7 @@ public sealed class AndroidMod : MelonMod
                 ("database_path", composition.DatabasePath),
                 ("journal_mode", AndroidComposition.DatabaseOptions.JournalMode),
                 ("build_channel", gameBuild.Channel),
-                ("mod_version", BppPluginVersion.Current),
-                ("uploads", composition.UploadPumpStarted)
+                ("mod_version", BppPluginVersion.Current)
             );
             return composition;
         }

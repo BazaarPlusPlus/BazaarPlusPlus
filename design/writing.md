@@ -53,7 +53,6 @@ Use exactly these words. A term not listed here gets added before it ships.
 | 删除 | delete | Removes files for good. Not 清除, 清理 or 移除. |
 | 官方游戏 | official game | The publisher's own The Bazaar App, as opposed to the game BazaarPlusPlus starts with its plugin. |
 | 适配 / 等待适配 | adapt / Waiting for adaptation | BazaarPlusPlus supporting a game version. A newer game "等待适配" until a release adapts it. |
-| 兼容模式 | Compatibility Mode | A launch of a not-yet-adapted Android game with uploads off. Title case in English, as a feature name. |
 
 ## Capitalisation and punctuation
 

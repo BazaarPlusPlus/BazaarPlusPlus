@@ -43,10 +43,6 @@ final class AppFiles {
         return new File(context.getNoBackupFilesDir(), "game-code-hash.json");
     }
 
-    static File compatibilityChoices(Context context) {
-        return new File(context.getFilesDir(), "compatibility-mode.json");
-    }
-
     static File stagedVersion(Context context) {
         return new File(context.getFilesDir(), "managed-staged.txt");
     }

@@ -5,26 +5,19 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { afterEach, expect, test } from 'vitest';
 import {
-  PRE_ADAPTATION_PURPOSE,
-  adaptationRecordKey,
-  buildAdaptationRecord,
   certificateSha256,
   exportReleaseKey,
   interopStatement,
   releasePurpose,
   signInteropStatement,
-  validateAdaptationRecord,
   verifyInteropStatement
 } from './android-interop.mjs';
-import { RELEASE_BASE_URL } from './product.mjs';
 
-// The interop statement and the Pre-Adaptation record against the shared
-// fixtures in release/fixtures/android-interop/, which the Android App's
-// verifier reads too: the statement bytes, a record whose signature verifies
-// under the committed test certificate, and failure modes (another game,
-// another purpose, another key, a malformed record). Keys are throwaway ones
-// generated in a temporary directory; BPP_UPDATE_GOLDENS=1 rewrites the
-// fixtures with a new one.
+// The interop statement against the shared fixture in
+// release/fixtures/android-interop/, which the Android App's verifier reads
+// too, and its signature's failure modes (another game, another purpose,
+// another key). Keys are throwaway ones generated in a temporary directory;
+// BPP_UPDATE_GOLDENS=1 rewrites the fixture.
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures', 'android-interop');
 const fixture = (name) => path.join(FIXTURES, name);
@@ -35,16 +28,6 @@ const INPUTS = Object.freeze({
   zipSha256: `1${'0'.repeat(63)}`,
   il2cppSha256: `2${'0'.repeat(63)}`,
   metadataSha256: `3${'0'.repeat(63)}`
-});
-const GAME = Object.freeze({
-  gameVersion: '1.0.12900-production-android-0badc0de',
-  versionCode: 12900,
-  il2cppSha256: INPUTS.il2cppSha256,
-  metadataSha256: INPUTS.metadataSha256
-});
-const LOADER = Object.freeze({
-  tag: 'v0.7.4-android.4',
-  sha256: `4${'0'.repeat(63)}`
 });
 
 const roots = [];
@@ -92,14 +75,10 @@ function golden(name, produced) {
   );
 }
 
-test('the interop statement is five LF-terminated lines, as in the shared fixtures', () => {
+test('the interop statement is five LF-terminated lines, as in the shared fixture', () => {
   golden(
     'statement-release.txt',
     interopStatement({ ...INPUTS, purpose: releasePurpose('6.1.0') })
-  );
-  golden(
-    'statement-pre-adaptation.txt',
-    interopStatement({ ...INPUTS, purpose: PRE_ADAPTATION_PURPOSE })
   );
   expect(
     interopStatement({ ...INPUTS, purpose: 'release 6.1.0' }).toString()
@@ -109,14 +88,18 @@ test('the interop statement is five LF-terminated lines, as in the shared fixtur
 });
 
 test.each([
-  ['an unknown purpose', { purpose: 'compatibility' }, /purpose/],
+  ['an unknown purpose', { purpose: 'pre-adaptation' }, /purpose/],
   ['a release purpose without a version', { purpose: 'release ' }, /./],
   ['a release purpose with a non-version', { purpose: 'release v6' }, /./],
   ['an uppercase digest', { zipSha256: 'A'.repeat(64) }, /zipSha256/],
   ['a missing game digest', { metadataSha256: undefined }, /metadataSha256/]
 ])('the statement refuses %s', (_, change, error) => {
   expect(() =>
-    interopStatement({ ...INPUTS, purpose: PRE_ADAPTATION_PURPOSE, ...change })
+    interopStatement({
+      ...INPUTS,
+      purpose: releasePurpose('6.1.0'),
+      ...change
+    })
   ).toThrow(error);
 });
 
@@ -132,7 +115,6 @@ test('a signed statement verifies under its certificate and binds the game, purp
     true
   );
   for (const other of [
-    { ...INPUTS, purpose: PRE_ADAPTATION_PURPOSE },
     { ...INPUTS, il2cppSha256: 'f'.repeat(64), purpose: 'release 6.1.0' },
     { ...INPUTS, purpose: 'release 6.1.1' }
   ])
@@ -201,7 +183,7 @@ test('the release key and certificate come out of the PKCS12 keystore through th
   );
   const statement = interopStatement({
     ...INPUTS,
-    purpose: PRE_ADAPTATION_PURPOSE
+    purpose: releasePurpose('6.1.0')
   });
   expect(
     verifyInteropStatement({
@@ -221,115 +203,4 @@ test('the release key and certificate come out of the PKCS12 keystore through th
       into: path.join(key.root, 'again')
     })
   ).toThrow(/openssl pkcs12 could not read the Android release keystore/);
-});
-
-test('the shared Pre-Adaptation record verifies under the test certificate', () => {
-  const statement = interopStatement({
-    ...INPUTS,
-    purpose: PRE_ADAPTATION_PURPOSE
-  });
-  if (updating) {
-    const key = throwawayKey();
-    fs.copyFileSync(key.certificateFile, fixture('test-certificate.pem'));
-    const record = buildAdaptationRecord({
-      baseUrl: RELEASE_BASE_URL,
-      game: GAME,
-      interop: {
-        size: 15_000_000,
-        sha256: INPUTS.zipSha256,
-        snapshotSha256: `5${'0'.repeat(63)}`,
-        signature: signInteropStatement({ statement, keyFile: key.keyFile })
-      },
-      loader: LOADER,
-      il2cppInteropVersion: '1.5.3.0',
-      publishedAt: new Date('2026-11-01T00:00:00.000Z')
-    });
-    fs.writeFileSync(
-      fixture('adaptation-record.json'),
-      `${JSON.stringify(record, null, 2)}\n`
-    );
-  }
-  const record = JSON.parse(
-    fs.readFileSync(fixture('adaptation-record.json'), 'utf8')
-  );
-  expect(validateAdaptationRecord(record)).toBe(record);
-  expect(
-    buildAdaptationRecord({
-      baseUrl: RELEASE_BASE_URL,
-      game: GAME,
-      interop: record.interop,
-      loader: LOADER,
-      il2cppInteropVersion: '1.5.3.0',
-      publishedAt: new Date('2026-11-01T00:00:00.000Z')
-    })
-  ).toEqual(record);
-  expect(record.interop.url).toBe(
-    `${RELEASE_BASE_URL}/android/interop/${INPUTS.zipSha256}.zip`
-  );
-  const certificate = fs.readFileSync(fixture('test-certificate.pem'));
-  expect(
-    verifyInteropStatement({
-      statement,
-      signature: record.interop.signature,
-      certificate
-    })
-  ).toBe(true);
-  // The record's signature is for Compatibility Mode only.
-  expect(
-    verifyInteropStatement({
-      statement: interopStatement({
-        ...INPUTS,
-        purpose: releasePurpose('6.1.0')
-      }),
-      signature: record.interop.signature,
-      certificate
-    })
-  ).toBe(false);
-  expect(
-    adaptationRecordKey({
-      il2cppSha256: record.game.il2cppSha256,
-      metadataSha256: record.game.metadataSha256,
-      loaderTag: record.loader.tag
-    })
-  ).toBe(
-    `android/adaptations/${INPUTS.il2cppSha256}_${INPUTS.metadataSha256}/v0.7.4-android.4.json`
-  );
-});
-
-const brokenRecord = (mutate) => {
-  const record = JSON.parse(
-    fs.readFileSync(fixture('adaptation-record.json'), 'utf8')
-  );
-  mutate(record);
-  return record;
-};
-
-test.each([
-  ['another kind', (r) => (r.kind = 'android-app'), /Pre-Adaptation record/],
-  ['a later schema', (r) => (r.schemaVersion = 2), /Pre-Adaptation record/],
-  ['a local time', (r) => (r.publishedAt = '2026-11-01'), /record/],
-  ['no Game Code Hash', (r) => delete r.game.metadataSha256, /game/],
-  [
-    'an interop outside its content address',
-    (r) =>
-      (r.interop.url = r.interop.url.replace(
-        '/android/interop/',
-        '/6.1.0/android-aarch64/interop/'
-      )),
-    /Unexpected Interop Package URL/
-  ],
-  [
-    'an unsigned interop',
-    (r) => (r.interop.signature = ''),
-    /Invalid Pre-Adaptation Interop Package/
-  ],
-  ['a loader tag with a path', (r) => (r.loader.tag = '../x'), /loader/]
-])('a Pre-Adaptation record with %s is refused', (_, mutate, error) => {
-  expect(() => validateAdaptationRecord(brokenRecord(mutate))).toThrow(error);
-});
-
-test('a Pre-Adaptation key refuses a loader tag that is not a plain token', () => {
-  expect(() =>
-    adaptationRecordKey({ ...INPUTS, loaderTag: 'v1/../../latest' })
-  ).toThrow(/loader/);
 });

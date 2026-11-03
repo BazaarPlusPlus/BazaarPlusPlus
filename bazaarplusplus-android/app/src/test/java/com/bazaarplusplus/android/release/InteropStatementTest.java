@@ -69,8 +69,6 @@ public class InteropStatementTest {
         assertTrue(InteropStatement.verify(ZIP, GAME, release, signature, trusted));
         assertFalse("another release", InteropStatement.verify(ZIP, GAME, InteropStatement.releasePurpose("6.1.1"),
                 signature, trusted));
-        assertFalse("a release statement is not a pre-adaptation", InteropStatement.verify(ZIP, GAME,
-                InteropStatement.PRE_ADAPTATION, signature, trusted));
         assertFalse("another zip", InteropStatement.verify("d".repeat(64), GAME, release, signature, trusted));
         assertFalse("another game", InteropStatement.verify(ZIP, new GameCodeHash("a".repeat(64), "e".repeat(64)),
                 release, signature, trusted));
@@ -82,8 +80,9 @@ public class InteropStatementTest {
 
     @Test
     public void anyTrustedKeyMayHaveSigned() throws Exception {
-        String signature = sign(OTHER_KEY, ZIP, GAME, InteropStatement.PRE_ADAPTATION);
-        assertTrue(InteropStatement.verify(ZIP, GAME, InteropStatement.PRE_ADAPTATION, signature,
+        String release = InteropStatement.releasePurpose("6.1.0");
+        String signature = sign(OTHER_KEY, ZIP, GAME, release);
+        assertTrue(InteropStatement.verify(ZIP, GAME, release, signature,
                 List.of(KEY.getPublic(), OTHER_KEY.getPublic())));
     }
 

@@ -48,7 +48,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏�
 3. 从 BazaarPlusPlus 启动游戏。第一次启动时，在游戏自己的登录界面登录 The Bazaar 账号：登录状态由各个 App 分别保存，和官方 App 不共享。BazaarPlusPlus 本身没有账号，不需要登录。BazaarPlusPlus 的设置在游戏自带的「设置」里。
 4. 模组的更新由 BazaarPlusPlus 自己下载。BazaarPlusPlus 本身要更新时，它会提示你回到下载页下载新的 APK 覆盖安装。
 
-购买请在官方 App 里完成。游戏更新后、BazaarPlusPlus 还没有适配新版本时，可以选择兼容模式启动：模组照常加载，但不上传任何数据，对局只保存在本机的历史记录里。
+购买请在官方 App 里完成。游戏更新后，请等待适配新版本的 BazaarPlusPlus 发布；在此期间可以打开官方游戏。
 
 ## 功能矩阵
 

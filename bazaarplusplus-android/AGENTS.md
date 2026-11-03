@@ -28,9 +28,9 @@ A change to the launcher is done when each affected tier shows its state on the 
 - The debug App (`com.bazaarplusplus.android.dev`) is a separate sandbox: its game sign-in, Data Root and LemonLoader files are its own.
 - A file that `adb push` puts in the App's external files directory belongs to `shell`, and the App cannot read it. Use `push-interop`, which copies through `run-as` into internal storage.
 - Homebrew's `openjdk@21` is keg-only. Set `JAVA_HOME` to it, or Gradle and the commit hook run on another JDK and fail to resolve the locked toolchain.
+- Gradle finds the SDK only through `ANDROID_HOME` (e.g. `~/Library/Android/sdk`) or `local.properties`. A new worktree has neither, so `just android::test` fails with "SDK location not found".
 - Unity reads `libmain.so` from `nativeLibraryDir`, so `useLegacyPackaging` (extracted native libraries) must stay on.
 - Game logs can hold account data. Quote only the lines you need; never commit or share raw logs. The diagnostics export runs them through `diag/Redactor` first.
 - A Development interop beats a Development origin. Run `just android::dev-reset` before testing tiers on a device that a B1 worktree used: the sandbox and its `files/dev/` survive reinstalls.
-- The Release cache answers when the network fails, a 404 included: once a Pre-Adaptation record was read, `NEWER_WAITING` stays unreachable until `files/release-dev/adaptations/` is deleted with run-as.
 - The game is prepared once per process (`GameSession.prepare`). A second BPP launch in the same process fails on purpose; kill the App between tier tests.
 - `InputStream.readAllBytes` needs API 33 and lint fails the build on it; use `AtomicFiles.readAtMost`.

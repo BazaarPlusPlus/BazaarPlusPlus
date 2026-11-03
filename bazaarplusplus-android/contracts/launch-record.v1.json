@@ -8,7 +8,6 @@
     "nonManagedPayloadDigest": "b022c26b660889ad3a1026a358432a2857ae3f9f5e5495f04eb21afc14242c09"
   },
   "release": "6.1.0",
-  "mode": "normal",
   "game": {
     "packageName": "com.tempogames.thebazaar",
     "versionName": "1.0.12825-production-android-d9601ded",
@@ -18,7 +17,6 @@
   },
   "interop": {
     "sha256": "a6f5c1f3bb2f848d919ac33a04a0dcb0bd243c2c3b76225f544b0e10c8aed83f",
-    "snapshotSha256": "2093c6c0614a689851924f9c1346db4c397a7958c35d22b3b41677dcbb01caf2",
-    "source": "release"
+    "snapshotSha256": "2093c6c0614a689851924f9c1346db4c397a7958c35d22b3b41677dcbb01caf2"
   }
 }
