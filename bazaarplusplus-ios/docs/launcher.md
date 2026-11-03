@@ -14,9 +14,9 @@
 
 模拟器构建必须保持 ad hoc 签名：一旦设置开发团队，Xcode 会注入自己的模拟 entitlements，覆盖 `app/Resources/simulator.entitlements`，钥匙串访问组随之改变，已保存的登录就读不到了。`tools/generate-xcodeproj.py` 因此只对真机使用 `Signing.local.xcconfig` 里的团队。
 
-## 商店素材
+## 封面素材
 
-`app/Artwork/Artwork.swift::ArtworkStore` 在运行时从 Steam 商店公开接口 `IStoreBrowseService/GetItems` 获取三张图：启动页封面按形状选图，宽的封面（两栏上方的横条、iPhone Duo 合上）用库横幅（library hero，没有时用 header），以猎人的脸为焦点裁切；竖的封面（手机、iPad 左栏）用宣传图（hero capsule），从顶部居中裁切，保留标志；竖版封面（library capsule）给首次引导。图片缓存在 `Library/Caches/Artwork/<app-id>/`；封面图按原尺寸解码（`ArtworkStore.coverPixels`），首次引导的竖版封面按显示尺寸降采样；开始游戏前清空内存缓存，因为游戏与启动器共用进程。素材不打包进 IPA：Valve 会轮换带哈希的素材路径，也不应随 App 再分发商店美术。离线或接口失败时使用缓存，没有缓存则封面是纯色 `bg-hover`。App ID 来自打包的 `game.json`。
+`app/Artwork/Artwork.swift::ArtworkStore` 读 App 打包的三张图（`app/Artwork/*.jpg`，由 `design/build.mjs` 从 `design/assets/Covers/` 复制，不要手改；原因见根目录 `docs/adr/0014-bundle-cover-art.md`）：启动页封面按形状选图，宽的封面（面板占去窗口大部分高度时）用库横幅（library hero），以猎人的脸为焦点裁切；其他封面（手机、iPhone Duo 合上和展开、iPad）用宣传图（hero capsule），从顶部裁切，以标志为中心，保留标志；竖版封面（library capsule）给首次引导。封面图按原尺寸解码（`ArtworkStore.coverPixels`），首次引导的竖版封面按显示尺寸降采样；开始游戏前清空内存缓存，因为游戏与启动器共用进程。
 
 ## 状态
 

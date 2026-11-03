@@ -9,12 +9,12 @@ import android.widget.ImageView;
 import com.bazaarplusplus.android.R;
 
 /**
- * The launcher's cover (design/components/Launcher, Cover art). A wide cover (the iPhone-Duo-like
- * strip over two panes, a folded phone's outer screen) shows the library hero cropped around the
- * hunter's face; a portrait cover (phones, the cover pane from cover-pane-breakpoint) shows the
- * promotional hero capsule from its top, so the logo stays in view. Plain bg-hover until the art
- * loads. Laid out by weight, it takes whatever height the layout gives it; measured freely (the
- * page scrolls), it is half as tall as it is wide.
+ * The launcher's cover (design/components/Launcher, Cover art). A wide cover (short, when the panel
+ * takes most of the window) shows the library hero cropped around the hunter's face; any other
+ * cover (phones, the cover pane from cover-pane-breakpoint) shows the promotional hero capsule
+ * from its top, so the logo stays in view. Plain bg-hover until the art decodes. Laid out by
+ * weight, it takes whatever height the layout gives it; measured freely (the page scrolls), it is
+ * half as tall as it is wide.
  */
 public final class CoverView extends ImageView {
     /** Width over height from which a cover counts as wide. */
@@ -22,6 +22,8 @@ public final class CoverView extends ImageView {
     /** The hunter's face in the current library hero, as fractions of its width and height. */
     static final float HERO_FOCUS_X = 0.70f;
     static final float HERO_FOCUS_Y = 0.30f;
+    /** The centre of the logo in the hero capsule, as a fraction of its width. */
+    static final float PROMO_FOCUS_X = 0.53f;
 
     private CoverArt.Images art;
     private Bitmap shown;
@@ -63,19 +65,13 @@ public final class CoverView extends ImageView {
         int height = getHeight();
         if (art == null || width == 0 || height == 0) return;
         boolean wide = (float) width / height >= WIDE;
-        Bitmap image = wide ? first(art.hero, art.promo) : first(art.promo, art.hero);
+        Bitmap image = wide ? art.hero : art.promo;
         if (image != shown) {
             shown = image;
             setImageBitmap(image);
         }
-        if (image == null) return;
-        boolean hero = image == art.hero;
         setImageMatrix(focus(image.getWidth(), image.getHeight(), width, height,
-                hero ? HERO_FOCUS_X : 0.5f, hero ? HERO_FOCUS_Y : 0f));
-    }
-
-    private static Bitmap first(Bitmap preferred, Bitmap fallback) {
-        return preferred != null ? preferred : fallback;
+                wide ? HERO_FOCUS_X : PROMO_FOCUS_X, wide ? HERO_FOCUS_Y : 0f));
     }
 
     /**

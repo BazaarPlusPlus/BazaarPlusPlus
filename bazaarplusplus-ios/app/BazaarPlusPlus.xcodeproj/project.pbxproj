@@ -28,6 +28,17 @@
 			<key>sourceTree</key>
 			<string>BUILT_PRODUCTS_DIR</string>
 		</dict>
+		<key>023EBFF34EC73FD1318E8383</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>image.jpeg</string>
+			<key>path</key>
+			<string>Artwork/hero_capsule_2x.jpg</string>
+			<key>sourceTree</key>
+			<string>SOURCE_ROOT</string>
+		</dict>
 		<key>03BB1577514CC7151CA8B40D</key>
 		<dict>
 			<key>isa</key>
@@ -104,6 +115,9 @@
 			<key>files</key>
 			<array>
 				<string>59F0F7DCB691617467F733B2</string>
+				<string>FF161E30A7A1BB76F57A7D45</string>
+				<string>4E5B2190E130BA085A71FA0C</string>
+				<string>46BFA615AACAEB1B3609E231</string>
 			</array>
 			<key>isa</key>
 			<string>PBXResourcesBuildPhase</string>
@@ -157,6 +171,13 @@
 			<key>isa</key>
 			<string>PBXBuildFile</string>
 		</dict>
+		<key>46BFA615AACAEB1B3609E231</key>
+		<dict>
+			<key>fileRef</key>
+			<string>70BC788B0AA7937AD532E494</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+		</dict>
 		<key>4BE39D29A96B9E5C7AAF7B33</key>
 		<dict>
 			<key>buildSettings</key>
@@ -165,6 +186,13 @@
 			<string>XCBuildConfiguration</string>
 			<key>name</key>
 			<string>Debug</string>
+		</dict>
+		<key>4E5B2190E130BA085A71FA0C</key>
+		<dict>
+			<key>fileRef</key>
+			<string>C5ECC348458F654FFDB842B8</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
 		</dict>
 		<key>56891FECC48CBCAFEEC5437E</key>
 		<dict>
@@ -242,6 +270,17 @@
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
+		<key>70BC788B0AA7937AD532E494</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>image.jpeg</string>
+			<key>path</key>
+			<string>Artwork/library_hero.jpg</string>
+			<key>sourceTree</key>
+			<string>SOURCE_ROOT</string>
+		</dict>
 		<key>7905AC1F4064472642E3D4D9</key>
 		<dict>
 			<key>buildSettings</key>
@@ -307,6 +346,17 @@
 			<string>Release</string>
 			<key>isa</key>
 			<string>XCConfigurationList</string>
+		</dict>
+		<key>C5ECC348458F654FFDB842B8</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>image.jpeg</string>
+			<key>path</key>
+			<string>Artwork/library_capsule_2x.jpg</string>
+			<key>sourceTree</key>
+			<string>SOURCE_ROOT</string>
 		</dict>
 		<key>CB01F469FB0F4735C9464FD0</key>
 		<dict>
@@ -460,6 +510,9 @@
 				<string>DB9EEDC04863B19E3A9B2E9E</string>
 				<string>35000C08F06D638432CD23FB</string>
 				<string>03BB1577514CC7151CA8B40D</string>
+				<string>023EBFF34EC73FD1318E8383</string>
+				<string>C5ECC348458F654FFDB842B8</string>
+				<string>70BC788B0AA7937AD532E494</string>
 				<string>8BC3B94E90713C3337684895</string>
 				<string>E59E532974752CDEAB048F68</string>
 				<string>654A91872D9173148450D813</string>
@@ -685,6 +738,13 @@
 			<string>Launcher/LauncherViews.swift</string>
 			<key>sourceTree</key>
 			<string>SOURCE_ROOT</string>
+		</dict>
+		<key>FF161E30A7A1BB76F57A7D45</key>
+		<dict>
+			<key>fileRef</key>
+			<string>023EBFF34EC73FD1318E8383</string>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
 		</dict>
 	</dict>
 	<key>rootObject</key>

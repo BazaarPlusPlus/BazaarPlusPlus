@@ -2,7 +2,7 @@
 // Builds the CSS custom properties the products read from design/tokens.json,
 // and checks that the design system and its consumers agree.
 //
-//   node design/build.mjs          write the generated tokens.css and copy the brand mark
+//   node design/build.mjs          write the generated tokens.css and copy the brand mark and the covers
 //   node design/build.mjs --check  fail if any output is stale or a consumer disagrees
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -21,12 +21,25 @@ const tokensCssPath = path.join(
   'styles',
   'tokens.css'
 );
+// The cover art both App launchers bundle (design/components/Launcher, Cover art).
+const COVERS = path.join(designDir, 'assets', 'Covers', 'the-bazaar');
 // The installer consumes the brand mark; the site header uses its existing app icon.
 const COPIES = [
   {
     from: path.join(designDir, 'assets', 'Logos', 'bpp-mark.svg'),
     to: 'bazaarplusplus-installer/static/brand/bpp-mark.svg'
-  }
+  },
+  // drawable-nodpi: Android must decode them at their own pixel size.
+  ...['library_hero.jpg', 'hero_capsule_2x.jpg'].map((name) => ({
+    from: path.join(COVERS, name),
+    to: `bazaarplusplus-android/app/src/main/res/drawable-nodpi/${name}`
+  })),
+  ...['library_hero.jpg', 'hero_capsule_2x.jpg', 'library_capsule_2x.jpg'].map(
+    (name) => ({
+      from: path.join(COVERS, name),
+      to: `bazaarplusplus-ios/app/Artwork/${name}`
+    })
+  )
 ];
 // The mod's in-game theme: every `ingame-*` colour token, generated as C# for
 // the Desktop UI (the Mono host) and the Mobile UI tree both hosts compile.
@@ -621,6 +634,7 @@ function main(argv) {
     if (check) {
       problems.push(`${copy.to} is stale; run \`just design::build\``);
     } else {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, source);
       console.log(`Wrote ${copy.to}`);
     }
