@@ -40,7 +40,7 @@ dev-signing-key:
     adb shell run-as com.bazaarplusplus.android.dev sh -c "'mkdir -p files/dev && cp /data/local/tmp/bpp-trusted-cert.der files/dev/trusted-cert.der'"
     adb shell rm /data/local/tmp/bpp-trusted-cert.der
 
-# Print the development key's base64 signature of the interop statement for <zip>; <purpose> is "release <version>" or "pre-adaptation".
+# Print the development key's base64 signature of the interop statement for <zip>; <purpose> is "release <version>".
 dev-sign-interop zip il2cpp metadata purpose:
     printf 'bpp-interop-v1\n%s\n%s\n%s\n%s\n' "$(shasum -a 256 "$1" | cut -d ' ' -f 1)" "$2" "$3" "$4" | openssl dgst -sha256 -sign build/dev-signing/key.pem | base64 | tr -d '\n'
     echo

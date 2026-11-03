@@ -60,37 +60,6 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         Assert.Equal("delete", JournalMode());
     }
 
-    // Compatibility Mode (root ADR 0012) sends nothing: History gets no Ghost sync, while its
-    // session still answers the server check and local runs still read.
-    [Theory]
-    [InlineData("normal", true)]
-    [InlineData("compatibility", false)]
-    public async Task Ghost_sync_follows_the_launch_record(string mode, bool syncs)
-    {
-        var launch = AndroidLaunchTests.Launch(
-            AndroidLaunchTests.Golden(record => record["mode"] = mode)
-        );
-        var requests = 0;
-        using var session = Session(_ =>
-        {
-            Interlocked.Increment(ref requests);
-            return Json(GhostSummaryContract());
-        });
-
-        var dependencies = Compose(session, new StandInRuntime(), ghostSync: launch.Uploads);
-
-        Assert.Equal(syncs, launch.Uploads);
-        Assert.Equal(syncs, dependencies.DataService.CanSyncGhostBattles);
-        Assert.Same(session, dependencies.ModApiSession);
-        Assert.Empty(dependencies.DataService.LoadRuns(new(), hero: null).Rows);
-        if (syncs)
-            return;
-        var attempt = await dependencies.DataService.SyncGhostBattlesAsync(CancellationToken.None);
-        Assert.False(attempt.Succeeded);
-        Assert.Equal(0, requests);
-        Assert.Equal(0L, Scalar("SELECT COUNT(*) FROM battles WHERE source = 'GHOST';"));
-    }
-
     [Fact]
     public void Favorites_and_the_account_link_compose_as_on_the_desktop()
     {
@@ -316,8 +285,7 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         ModApiSession? session,
         ISavedReplayRuntime runtime,
         BazaarDbLinkClient? accountLinkClient = null,
-        Func<AccountLinkGate>? accountLinkGate = null,
-        bool ghostSync = true
+        Func<AccountLinkGate>? accountLinkGate = null
     ) =>
         AndroidComposition.CreateHistoryDependencies(
             new RunContextStore(),
@@ -330,8 +298,7 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
             static () => 0f,
             new BazaarDbAccountLinkStore(static _ => false, static _ => { }),
             accountLinkClient,
-            accountLinkGate,
-            ghostSync
+            accountLinkGate
         );
 
     private static ModApiSession Session(Func<HttpRequestMessage, HttpResponseMessage> respond) =>

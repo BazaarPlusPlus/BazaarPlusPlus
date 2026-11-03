@@ -13,24 +13,15 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 public static class HistoryRunColumns
 {
     // Only a Run the mod could resume reads as active (the current Run): an active History-Only
-    // Run reads as abandoned, as an imported Run the V5 import did not close.
-    private static readonly string ResumableRunStatus =
+    // Run, which the V5 import should already have closed, reads as abandoned.
+    private static readonly string RunStatusColumn =
         $"CASE WHEN status = 'active' AND NOT {RunLogStore.ResumableRunCondition(RunLogSchema.RunsTableName)} "
-        + "THEN 'abandoned' ELSE status END";
+        + "THEN 'abandoned' ELSE status END AS run_status";
 
-    public static readonly string Select = SelectWith(ResumableRunStatus);
-
-    /// <summary>
-    /// For the Android Host, whose launch closes every active History-Only Run it finds
-    /// (<see cref="RunLogStore.AbandonActiveHistoryOnlyRuns"/>): one still active is the Run this
-    /// Compatibility Mode launch records, so it reads as the current Run.
-    /// </summary>
-    public static readonly string SelectWithCurrentHistoryOnlyRun = SelectWith("status");
-
-    private static string SelectWith(string runStatus) =>
+    public static readonly string Select =
         "run_id, hero, game_mode, started_at_ms, last_seen_at_ms, player_rank, player_rating, "
-        + runStatus
-        + " AS run_status, day, hour, final_day, final_hour, max_health AS final_max_health, "
+        + RunStatusColumn
+        + ", day, hour, final_day, final_hour, max_health AS final_max_health, "
         + "prestige AS final_prestige, level AS final_level, income AS final_income, gold AS final_gold, "
         + "victories, losses, ended_at_ms, "
         + "final_player_rank, final_player_rating, final_player_rating_delta, "

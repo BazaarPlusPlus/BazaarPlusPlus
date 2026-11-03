@@ -44,7 +44,7 @@ public final class PlatformManifest {
         }
     }
 
-    /** The game a release (or a Pre-Adaptation) adapts. */
+    /** The game a release adapts. */
     public static final class Game {
         public final String gameVersion;
         public final long versionCode;

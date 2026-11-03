@@ -390,9 +390,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
             case PLAY:
                 session.launch(this);
                 break;
-            case ENABLE_COMPATIBILITY:
-                session.chooseCompatibility(this);
-                break;
             case INSTALL_FROM_PLAY:
             case UPDATE_FROM_PLAY:
                 open(getString(R.string.url_play));
@@ -465,8 +462,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
                 return R.string.status_downloading;
             case READY:
                 return R.string.status_ready;
-            case COMPATIBILITY:
-                return R.string.status_compatibility;
             case WAITING:
                 return R.string.status_waiting;
             case GAME_UPDATE:
@@ -487,8 +482,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         switch (action) {
             case PLAY:
                 return R.string.play;
-            case ENABLE_COMPATIBILITY:
-                return R.string.compat_opt_in;
             case INSTALL_FROM_PLAY:
                 return R.string.install_from_play;
             case UPDATE_FROM_PLAY:
@@ -505,8 +498,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
 
     private static int noteText(LauncherScreen.Note note) {
         switch (note) {
-            case COMPATIBILITY:
-                return R.string.compat_explain;
             case FROM_CACHE:
                 return R.string.release_from_cache;
             case LAST_INSTALL_FAILED:

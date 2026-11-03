@@ -140,21 +140,6 @@ final class LauncherSession {
         }, "bpp-cover").start();
     }
 
-    void chooseCompatibility(Context context) {
-        LaunchCheck current = check;
-        if (current == null || busy()) return;
-        Context app = context.getApplicationContext();
-        worker.execute(() -> {
-            try {
-                new CompatibilityChoices(AppFiles.compatibilityChoices(app)).choose(current.hash);
-                AppLog.i(LauncherActivity.TAG, "Compatibility Mode chosen for " + current.hash);
-            } catch (Throwable t) {
-                AppLog.e(LauncherActivity.TAG, "cannot keep the Compatibility Mode choice", t);
-            }
-            post(() -> recheck(app));
-        });
-    }
-
     void launch(Context context) {
         LaunchCheck current = check;
         LauncherScreen.Facts currentFacts = facts;

@@ -16,7 +16,6 @@
   <string name="status_preparing">Preparing…</string>
   <string name="status_downloading">Downloading…</string>
   <string name="status_ready">Ready</string>
-  <string name="status_compatibility">Compatibility Mode</string>
   <string name="status_waiting">Waiting for adaptation</string>
   <string name="status_game_update">Game update required</string>
   <string name="status_not_installed">Not installed</string>
@@ -26,14 +25,12 @@
 
   <string name="play">Play</string>
   <string name="native_launch">Open the official game</string>
-  <string name="compat_opt_in">Turn on Compatibility Mode</string>
   <string name="install_from_play">Install from Google Play</string>
   <string name="update_from_play">Update from Google Play</string>
   <string name="download_from_publisher">Download from the publisher</string>
   <string name="retry">Retry</string>
   <string name="download">Download</string>
 
-  <string name="compat_explain">Compatibility Mode turns uploads off. Local History is kept. Some features may not work.</string>
   <string name="replace_game">This is the old BazaarPlusPlus build of The Bazaar. Uninstall it, then install the official game. Uninstalling removes the old build’s local History.</string>
   <string name="release_unavailable">Couldn’t read the BazaarPlusPlus release. Connect to the internet and try again.</string>
   <string name="release_from_cache">Offline: using the last release read.</string>

@@ -55,8 +55,7 @@ The badge is the Badge component: dot + word, one tone. Both Apps use the same w
 | Status | English | Tone | iOS App | Android App |
 |---|---|---|---|---|
 | 可以开始 | Ready | ok | Signed in, files verified | Game Code Hash matches the release, or a Development interop |
-| 兼容模式 | Compatibility Mode | warn | | Compatibility Mode chosen |
-| 等待适配 | Waiting for adaptation | warn | Steam's build is newer than the adapted one (`outdated`) | Newer game, with no Pre-Adaptation or one not yet opted in to |
+| 等待适配 | Waiting for adaptation | warn | Steam's build is newer than the adapted one (`outdated`) | Installed game code newer than the adapted one |
 | 需要更新游戏 | Game update required | warn | | Installed game older than the adapted one |
 | 未安装 | Not installed | neutral | Not downloaded | Official game not installed |
 | 已下载 | Downloaded | neutral | Downloaded but not verified, or signed out | |
@@ -89,9 +88,8 @@ The primary is the one thing to do next, written as verb + object. It is `touch-
 
 | Status | Primary |
 |---|---|
-| 可以开始, 兼容模式 | 开始游戏 / Play |
-| 等待适配, Pre-Adaptation available (Android) | 启用兼容模式 / Turn on Compatibility Mode |
-| 等待适配 without one, 未发布, 暂不支持 | none |
+| 可以开始 | 开始游戏 / Play |
+| 等待适配, 未发布, 暂不支持 | none |
 | 离线 | 重试 / Retry |
 | 未安装, 已下载 (iOS, signed out) | 连接 Steam / Connect Steam |
 | 未安装 (iOS, signed in) | 下载游戏 / Download the game |

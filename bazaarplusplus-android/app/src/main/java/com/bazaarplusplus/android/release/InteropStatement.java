@@ -16,13 +16,11 @@ import java.util.List;
 
 /**
  * The signed interop statement of ADR 0012 ("interop 的签名"): it binds an Interop Package's zip
- * sha256 to the Game Code Hash it was generated for and to its purpose, {@code release <version>}
- * or {@code pre-adaptation}. Signed with SHA256withRSA by the Android release key (ADR 0009);
+ * sha256 to the Game Code Hash it was generated for and to its purpose, {@code release <version>}.
+ * Signed with SHA256withRSA by the Android release key (ADR 0009);
  * the App verifies it against the release certificate it carries.
  */
 public final class InteropStatement {
-    public static final String PRE_ADAPTATION = "pre-adaptation";
-
     private InteropStatement() {}
 
     /** The purpose a normal launch of {@code version}'s release accepts. */

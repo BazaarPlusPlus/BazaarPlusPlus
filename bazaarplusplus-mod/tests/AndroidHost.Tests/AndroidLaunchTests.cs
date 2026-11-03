@@ -14,11 +14,10 @@ using Xunit;
 namespace AndroidHost.Tests;
 
 /// <summary>
-/// What the compiled host makes of the Android App's Launch Record (root ADR 0012), over the
-/// App's golden: whether anything leaves the device, and which runtime self-update compares a
-/// release with. The record chain itself calls into IL2CPP, so the composition reads its upload
-/// switch from <see cref="AndroidLaunch"/>; History's composition is checked in
-/// <see cref="AndroidHistoryCompositionTests"/>.
+/// What the compiled host makes of the Android App's Launch Record (root ADR 0012 and 0013), over
+/// the App's golden: how it classifies the record, and which runtime self-update compares a
+/// release with. Whatever the record says, the host runs normally: the composition takes no
+/// launch, so uploads and Ghost sync stay on.
 /// </summary>
 public sealed class AndroidLaunchTests : IDisposable
 {
@@ -53,23 +52,20 @@ public sealed class AndroidLaunchTests : IDisposable
         AndroidLaunch.From(LaunchRecordReading.Classify(text, GoldenProcessId, running));
 
     [Fact]
-    public void A_normal_record_uploads_and_names_the_running_runtime()
+    public void A_normal_record_names_the_running_runtime()
     {
         var launch = Launch(Golden());
 
-        Assert.False(launch.CompatibilityMode);
-        Assert.True(launch.Uploads);
+        Assert.Equal(LaunchRecordMode.Normal, launch.Reading.Mode);
         Assert.Equal(GoldenDigest, launch.RuntimeDigest);
     }
 
     [Fact]
-    public void No_record_is_a_development_deploy_that_uploads()
+    public void No_record_is_a_development_deploy()
     {
         var launch = AndroidLaunch.Read(_root, GoldenRelease);
 
         Assert.Equal(LaunchRecordMode.Absent, launch.Reading.Mode);
-        Assert.False(launch.CompatibilityMode);
-        Assert.True(launch.Uploads);
         Assert.Null(launch.RuntimeDigest);
     }
 
@@ -84,42 +80,48 @@ public sealed class AndroidLaunchTests : IDisposable
         var launch = AndroidLaunch.Read(_root, GoldenRelease);
 
         Assert.Equal(LaunchRecordMode.Normal, launch.Reading.Mode);
-        Assert.True(launch.Uploads);
         Assert.Equal(GoldenDigest, launch.RuntimeDigest);
     }
 
-    public static TheoryData<string, string, string> CompatibilityRecords =>
+    public static TheoryData<string, string, string, bool> UntrustedRecords =>
         new()
         {
             {
-                "mode_compatibility",
-                Golden(record => record["mode"] = "compatibility"),
-                GoldenRelease
+                "process_mismatch",
+                Golden(record => record["processId"] = 54321),
+                GoldenRelease,
+                false
             },
-            { "process_mismatch", Golden(record => record["processId"] = 54321), GoldenRelease },
-            { "release_mismatch", Golden(), "6.0.2" },
-            { "schema_unknown", Golden(record => record["schemaVersion"] = 2), GoldenRelease },
-            { "mode_unknown", Golden(record => record["mode"] = "fast"), GoldenRelease },
-            { "invalid_json", "{", GoldenRelease },
+            // Another release's record is still this process's: the runtime stays known.
+            { "release_mismatch", Golden(), "6.0.2", true },
+            {
+                "schema_unknown",
+                Golden(record => record["schemaVersion"] = 2),
+                GoldenRelease,
+                false
+            },
+            { "invalid", Golden(record => record["mode"] = "compatibility"), GoldenRelease, false },
+            { "invalid_json", "{", GoldenRelease, false },
         };
 
     [Theory]
-    [MemberData(nameof(CompatibilityRecords))]
-    public void Compatibility_mode_and_untrusted_records_upload_nothing(
+    [MemberData(nameof(UntrustedRecords))]
+    public void An_untrusted_record_is_only_classified(
         string reason,
         string text,
-        string running
+        string running,
+        bool keepsRuntime
     )
     {
         var launch = Launch(text, running);
 
+        Assert.Equal(LaunchRecordMode.Untrusted, launch.Reading.Mode);
         Assert.Equal(reason, launch.Reading.Reason);
-        Assert.True(launch.CompatibilityMode);
-        Assert.False(launch.Uploads);
+        Assert.Equal(keepsRuntime ? GoldenDigest : null, launch.RuntimeDigest);
     }
 
     [Fact]
-    public void A_record_file_the_app_did_not_write_uploads_nothing()
+    public void A_record_file_the_app_did_not_write_is_untrusted()
     {
         File.WriteAllText(
             Path.Combine(_root, "BazaarPlusPlus.launch.json"),
@@ -129,8 +131,7 @@ public sealed class AndroidLaunchTests : IDisposable
 
         var launch = AndroidLaunch.Read(_root, GoldenRelease);
 
-        Assert.True(launch.CompatibilityMode);
-        Assert.False(launch.Uploads);
+        Assert.Equal(LaunchRecordMode.Untrusted, launch.Reading.Mode);
         Assert.Null(launch.RuntimeDigest);
     }
 

@@ -14,9 +14,8 @@ public class LaunchGateTest {
     static final GameCodeHash OTHER = new GameCodeHash("c".repeat(64), "d".repeat(64));
     static final LaunchGate.Adapted RELEASE = new LaunchGate.Adapted(12825, ADAPTED);
 
-    static LaunchGate.Decision decide(LaunchGate.Installed installed, LaunchGate.Adapted adapted, boolean preAdaptation,
-            boolean chosen) {
-        return LaunchGate.decide(new LaunchGate.Inputs(installed, adapted, false, preAdaptation, chosen));
+    static LaunchGate.Decision decide(LaunchGate.Installed installed, LaunchGate.Adapted adapted) {
+        return LaunchGate.decide(new LaunchGate.Inputs(installed, adapted, false));
     }
 
     static LaunchGate.Installed installed(long versionCode, GameCodeHash hash) {
@@ -26,45 +25,31 @@ public class LaunchGateTest {
     @Test
     public void anAndroidReleaseApkGetsNoLaunchEvenWithTheAdaptedCode() {
         LaunchGate.Installed copy = new LaunchGate.Installed(12825, ADAPTED, true);
-        LaunchGate.Decision decision = decide(copy, RELEASE, false, false);
+        LaunchGate.Decision decision = decide(copy, RELEASE);
         assertEquals(Tier.ANDROID_RELEASE_APK, decision.tier);
         assertFalse(decision.bppLaunch());
         assertFalse(decision.nativeLaunch());
         assertEquals(Tier.ANDROID_RELEASE_APK,
-                LaunchGate.decide(new LaunchGate.Inputs(copy, null, true, false, false)).tier);
+                LaunchGate.decide(new LaunchGate.Inputs(copy, null, true)).tier);
     }
 
     @Test
     public void matchingCodeIsNormal() {
-        LaunchGate.Decision decision = decide(installed(12825, ADAPTED), RELEASE, false, false);
+        LaunchGate.Decision decision = decide(installed(12825, ADAPTED), RELEASE);
         assertEquals(Tier.NORMAL, decision.tier);
         assertTrue(decision.bppLaunch());
-        assertFalse(decision.compatibility());
         assertTrue(decision.nativeLaunch());
     }
 
     @Test
     public void aContentOnlyUpdateWithTheSameCodeStaysNormal() {
         // Only the Game Code Hash decides: a higher versionCode with the adapted code is normal.
-        assertEquals(Tier.NORMAL, decide(installed(12900, ADAPTED), RELEASE, false, false).tier);
+        assertEquals(Tier.NORMAL, decide(installed(12900, ADAPTED), RELEASE).tier);
     }
 
     @Test
-    public void newerCodeWithAPreAdaptationOffersCompatibilityModeUntilChosen() {
-        LaunchGate.Decision offered = decide(installed(12900, OTHER), RELEASE, true, false);
-        assertEquals(Tier.NEWER_COMPAT_AVAILABLE, offered.tier);
-        assertFalse("the user must opt in first", offered.bppLaunch());
-        assertTrue(offered.nativeLaunch());
-
-        LaunchGate.Decision chosen = decide(installed(12900, OTHER), RELEASE, true, true);
-        assertEquals(Tier.NEWER_COMPAT_AVAILABLE, chosen.tier);
-        assertTrue(chosen.bppLaunch());
-        assertTrue(chosen.compatibility());
-    }
-
-    @Test
-    public void newerCodeWithoutAPreAdaptationWaits() {
-        LaunchGate.Decision decision = decide(installed(12900, OTHER), RELEASE, false, true);
+    public void newerCodeWaits() {
+        LaunchGate.Decision decision = decide(installed(12900, OTHER), RELEASE);
         assertEquals(Tier.NEWER_WAITING, decision.tier);
         assertFalse(decision.bppLaunch());
         assertTrue(decision.nativeLaunch());
@@ -72,21 +57,20 @@ public class LaunchGateTest {
 
     @Test
     public void theSameVersionCodeWithOtherCodeCountsAsNewer() {
-        assertEquals(Tier.NEWER_COMPAT_AVAILABLE, decide(installed(12825, OTHER), RELEASE, true, false).tier);
-        assertEquals(Tier.NEWER_WAITING, decide(installed(12825, OTHER), RELEASE, false, false).tier);
+        assertEquals(Tier.NEWER_WAITING, decide(installed(12825, OTHER), RELEASE).tier);
     }
 
     @Test
     public void olderCodeAsksForAGameUpdate() {
-        LaunchGate.Decision decision = decide(installed(12800, OTHER), RELEASE, true, true);
+        LaunchGate.Decision decision = decide(installed(12800, OTHER), RELEASE);
         assertEquals(Tier.OLDER, decision.tier);
-        assertFalse("a Pre-Adaptation never serves an older game", decision.bppLaunch());
+        assertFalse(decision.bppLaunch());
         assertTrue(decision.nativeLaunch());
     }
 
     @Test
     public void notInstalledHasNoLaunchAtAll() {
-        LaunchGate.Decision decision = decide(null, RELEASE, true, true);
+        LaunchGate.Decision decision = decide(null, RELEASE);
         assertEquals(Tier.NOT_INSTALLED, decision.tier);
         assertFalse(decision.bppLaunch());
         assertFalse(decision.nativeLaunch());
@@ -94,7 +78,7 @@ public class LaunchGateTest {
 
     @Test
     public void noManifestAndNoCacheIsNativeOnly() {
-        LaunchGate.Decision decision = decide(installed(12825, ADAPTED), null, true, true);
+        LaunchGate.Decision decision = decide(installed(12825, ADAPTED), null);
         assertEquals(Tier.OFFLINE_NO_CACHE, decision.tier);
         assertFalse(decision.bppLaunch());
         assertTrue(decision.nativeLaunch());
@@ -103,7 +87,7 @@ public class LaunchGateTest {
     @Test
     public void theRetiredManifestShapeIsNoReleaseYet() {
         LaunchGate.Decision decision = LaunchGate.decide(
-                new LaunchGate.Inputs(installed(12825, ADAPTED), null, true, false, false));
+                new LaunchGate.Inputs(installed(12825, ADAPTED), null, true));
         assertEquals(Tier.NO_RELEASE, decision.tier);
         assertFalse(decision.bppLaunch());
         assertTrue(decision.nativeLaunch());

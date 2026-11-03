@@ -143,7 +143,7 @@ export type DownloadPageCopy = {
     feedbackCopied: string;
     stepsTitle: string;
     steps: string[];
-    /** What differs from the official app: Android version, sign-in, purchases, Compatibility Mode. */
+    /** What differs from the official app: Android version, sign-in, purchases, waiting for adaptation after a game update. */
     limitsTitle: string;
     limits: string[];
   };
@@ -506,7 +506,7 @@ const zh: LocalizedSiteCopy = {
         '需要 Android 11 或更高版本',
         '登录状态由各个 App 分别保存：从 BazaarPlusPlus 启动的游戏和官方 App 互不共享，所以第一次从 BazaarPlusPlus 启动时要再登录一次',
         '购买请在官方 App 里完成',
-        '游戏更新后、BazaarPlusPlus 还没有适配新版本时，可以选择兼容模式启动：Mods 照常加载，但不上传任何数据，对局只保存在本机的历史记录里',
+        '游戏更新后，请等待适配新版本的 BazaarPlusPlus 发布；在此期间可以打开官方游戏',
       ],
     },
     desktopNoteTitle: 'Windows 与 macOS 安装提示',
@@ -836,7 +836,7 @@ const en: LocalizedSiteCopy = {
         'Android 11 or later.',
         'Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.',
         'Make purchases in the official app.',
-        'After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the Mods load, nothing is uploaded, and your runs stay only in your local history.',
+        'After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game.',
       ],
     },
     desktopNoteTitle: 'Windows and macOS install notes',

@@ -21,9 +21,7 @@ public final class LaunchGate {
         NO_RELEASE,
         /** The installed game is the adapted one. */
         NORMAL,
-        /** Newer code with a usable Pre-Adaptation: BPP launch in Compatibility Mode after the user opts in. */
-        NEWER_COMPAT_AVAILABLE,
-        /** Newer code and no usable Pre-Adaptation yet: native launch only. */
+        /** Newer code than the adapted game: native launch only until a Product Release adapts it. */
         NEWER_WAITING,
         /** Older code than the adapted game: update the official game first. */
         OLDER
@@ -61,39 +59,24 @@ public final class LaunchGate {
         public final Adapted adapted;
         /** The manifest decoded as "no Android App release yet". */
         public final boolean noRelease;
-        /** A Pre-Adaptation whose hashes, Loader Release and signature all fit the installed game. */
-        public final boolean preAdaptationUsable;
-        /** The user opted in to Compatibility Mode for the installed Game Code Hash. */
-        public final boolean compatibilityChosen;
 
-        public Inputs(Installed installed, Adapted adapted, boolean noRelease, boolean preAdaptationUsable,
-                boolean compatibilityChosen) {
+        public Inputs(Installed installed, Adapted adapted, boolean noRelease) {
             this.installed = installed;
             this.adapted = adapted;
             this.noRelease = noRelease;
-            this.preAdaptationUsable = preAdaptationUsable;
-            this.compatibilityChosen = compatibilityChosen;
         }
     }
 
     public static final class Decision {
         public final Tier tier;
-        /** For {@link Tier#NEWER_COMPAT_AVAILABLE}: the user already opted in for this Game Code Hash. */
-        public final boolean compatibilityChosen;
 
-        Decision(Tier tier, boolean compatibilityChosen) {
+        Decision(Tier tier) {
             this.tier = tier;
-            this.compatibilityChosen = compatibilityChosen;
         }
 
         /** Whether the BPP launch button launches now. */
         public boolean bppLaunch() {
-            return tier == Tier.NORMAL || (tier == Tier.NEWER_COMPAT_AVAILABLE && compatibilityChosen);
-        }
-
-        /** Whether this launch would run in Compatibility Mode. */
-        public boolean compatibility() {
-            return tier == Tier.NEWER_COMPAT_AVAILABLE;
+            return tier == Tier.NORMAL;
         }
 
         /** Native launch opens the official App untouched; it needs only the game installed. */
@@ -103,22 +86,21 @@ public final class LaunchGate {
 
         @Override
         public String toString() {
-            return tier + (tier == Tier.NEWER_COMPAT_AVAILABLE ? " chosen=" + compatibilityChosen : "");
+            return tier.toString();
         }
     }
 
     private LaunchGate() {}
 
     public static Decision decide(Inputs in) {
-        if (in.installed == null) return new Decision(Tier.NOT_INSTALLED, false);
+        if (in.installed == null) return new Decision(Tier.NOT_INSTALLED);
         // Whatever the release says: the copy's code hash can match, and its seed files still win.
-        if (in.installed.androidReleaseApk) return new Decision(Tier.ANDROID_RELEASE_APK, false);
-        if (in.noRelease) return new Decision(Tier.NO_RELEASE, false);
-        if (in.adapted == null) return new Decision(Tier.OFFLINE_NO_CACHE, false);
-        if (in.installed.hash.equals(in.adapted.hash)) return new Decision(Tier.NORMAL, false);
+        if (in.installed.androidReleaseApk) return new Decision(Tier.ANDROID_RELEASE_APK);
+        if (in.noRelease) return new Decision(Tier.NO_RELEASE);
+        if (in.adapted == null) return new Decision(Tier.OFFLINE_NO_CACHE);
+        if (in.installed.hash.equals(in.adapted.hash)) return new Decision(Tier.NORMAL);
         // Different code with the same versionCode counts as newer (ADR 0012).
-        if (in.installed.versionCode < in.adapted.versionCode) return new Decision(Tier.OLDER, false);
-        if (!in.preAdaptationUsable) return new Decision(Tier.NEWER_WAITING, false);
-        return new Decision(Tier.NEWER_COMPAT_AVAILABLE, in.compatibilityChosen);
+        if (in.installed.versionCode < in.adapted.versionCode) return new Decision(Tier.OLDER);
+        return new Decision(Tier.NEWER_WAITING);
     }
 }

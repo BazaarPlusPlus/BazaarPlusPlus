@@ -20,10 +20,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * One BPP launch after the gate allowed it (ADR 0012): verify and fetch the Interop Package, stage
@@ -57,9 +54,8 @@ final class BppLaunch {
             return;
         }
         PlatformManifest manifest = check.manifest.manifest;
-        boolean compatibility = check.decision.compatibility();
-        PlatformManifest.Interop interop = compatibility ? check.preAdaptation.interop : manifest.interop;
-        String purpose = compatibility ? InteropStatement.PRE_ADAPTATION : InteropStatement.releasePurpose(manifest.version);
+        PlatformManifest.Interop interop = manifest.interop;
+        String purpose = InteropStatement.releasePurpose(manifest.version);
 
         // The signature binds the zip to the installed game's code and this launch's purpose;
         // check it before downloading anything.
@@ -76,7 +72,7 @@ final class BppLaunch {
             zip.delete();
             throw new IOException("The Interop Package holds " + stray);
         }
-        keepOnly(interopDir, zip.getName(), manifest.interop.file.sha256 + ".zip");
+        keepOnly(interopDir, zip.getName());
         progress.preparing();
 
         String release = manifest.version;
@@ -101,14 +97,12 @@ final class BppLaunch {
         startGame(context, check, appVersionCode, external, zip, interop.file.sha256);
         LaunchRecord record = new LaunchRecord(android.os.Process.myPid(),
                 new LaunchRecord.App(context.getPackageName(), BuildConfigFacts.versionName(context), appVersionCode,
-                        check.facts.nonManagedPayloadDigest),
-                release, compatibility ? LaunchRecord.MODE_COMPATIBILITY : LaunchRecord.MODE_NORMAL,
+                        check.facts.nonManagedPayloadDigest), release,
                 new LaunchRecord.Game(InstalledGame.PACKAGE, check.game.versionName, check.game.versionCode,
                         check.hash.il2cppSha256, check.hash.metadataSha256),
-                new LaunchRecord.Interop(interop.file.sha256, interop.snapshotSha256,
-                        compatibility ? LaunchRecord.SOURCE_PRE_ADAPTATION : LaunchRecord.SOURCE_RELEASE));
+                new LaunchRecord.Interop(interop.file.sha256, interop.snapshotSha256));
         File written = record.write(external);
-        AppLog.i(TAG, "wrote " + written + ": " + record.mode + " release " + release + " interop " + interop.file.sha256);
+        AppLog.i(TAG, "wrote " + written + ": release " + release + " interop " + interop.file.sha256);
     }
 
     /**
@@ -136,12 +130,11 @@ final class BppLaunch {
                 RuntimeFiles.runtimeZip(context, appVersionCode), interop));
     }
 
-    private static void keepOnly(File dir, String... keep) {
+    private static void keepOnly(File dir, String keep) {
         File[] files = dir.listFiles();
         if (files == null) return;
-        Set<String> names = new HashSet<>(Arrays.asList(keep));
         for (File file : files) {
-            if (names.contains(file.getName())) continue;
+            if (file.getName().equals(keep)) continue;
             file.setWritable(true);
             AtomicFiles.deleteTree(file);
         }

@@ -48,7 +48,7 @@ After upgrading from 5.x, one click on the installer's Install page imports your
 3. Start the game from BazaarPlusPlus. The first time, sign in to your _The Bazaar_ account on the game's own sign-in screen: each app keeps its own sign-in, and the official app does not share it. BazaarPlusPlus has no account of its own. BazaarPlusPlus settings live in the game's own Settings dialog.
 4. BazaarPlusPlus downloads the mod updates itself. When BazaarPlusPlus itself needs an update, it tells you to download the new APK from the download page and install it over this one.
 
-Make purchases in the official app. After a game update that BazaarPlusPlus does not support yet, you can start in compatibility mode: the mod loads, nothing is uploaded, and your runs stay only in your local history.
+Make purchases in the official app. After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game.
 
 ## Feature Matrix
 

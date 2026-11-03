@@ -179,23 +179,6 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal("The Bazaar 有更新，请从它的商店更新", row.ResolveLabel("zh-Hans"));
     }
 
-    [Fact]
-    public void Compatibility_mode_adds_a_dimmed_notice_after_the_game_update()
-    {
-        var dock = new Dock(compatibilityMode: true);
-        var row = dock.Row("CompatibilityMode");
-
-        Assert.Equal(
-            new[] { "GameUpdate", "CompatibilityMode" },
-            dock.Rows.Select(entry => entry.Key).TakeLast(2)
-        );
-        Assert.Equal(BppSettingsControlKind.Action, row.ControlKind);
-        Assert.False(row.IsActive());
-        Assert.Equal("Compatibility mode: uploads are off", row.ResolveLabel("en"));
-        Assert.Equal("兼容模式：上传已关闭", row.ResolveLabel("zh-Hans"));
-        Assert.DoesNotContain(new Dock().Rows, entry => entry.Key == "CompatibilityMode");
-    }
-
     // The published manifest could not be read (a 404 while Android is unreleased, no network):
     // the row says so and never claims the game is current.
     [Theory]
@@ -239,7 +222,7 @@ public sealed class AndroidSettingsDockTests
 
     private sealed class Dock
     {
-        public Dock(bool compatibilityMode = false)
+        public Dock()
         {
             var store = new MemoryStore();
             Shared = new BppSettings(store);
@@ -254,8 +237,7 @@ public sealed class AndroidSettingsDockTests
                     () => Calls.Add("open_history"),
                     () => GameUpdateStatus,
                     () => Calls.Add("open_game_update"),
-                    () => Calls.Add("refresh_previews"),
-                    compatibilityMode
+                    () => Calls.Add("refresh_previews")
                 )
             );
             Rows = registry
