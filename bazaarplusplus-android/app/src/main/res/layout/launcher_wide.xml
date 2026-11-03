@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher from cover-pane-breakpoint (design/components/Launcher): the cover fills the start
+<!-- The launcher in a window wider than tall from cover-pane-breakpoint (design/components/Launcher): the cover fills the start
      half at full height; the content fills the end half, vertically centred. More floats at the
      content pane's top end, without its circle. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"

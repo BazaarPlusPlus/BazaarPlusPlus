@@ -21,13 +21,13 @@ One page, no navigation, no app bar and no footer. In order:
 
 ## Layout
 
-The launcher is portrait only on every device, the iPhone Duo's outer and inner screens included; the game it starts is landscape only. The layout follows the window's width, never the device model.
+The launcher is portrait only on every device, the iPhone Duo's outer and inner screens included; the game it starts is landscape only. The layout follows the window's size, never the device model.
 
 | Window | Layout |
 |---|---|
 | narrower than `pane-breakpoint` (600) | **One column**: the cover on top, the panel below it. Phones, iPhone Duo folded (466 wide), a foldable's cover screen. |
-| `pane-breakpoint` to `cover-pane-breakpoint` (840) | **Cover on top, two panes below.** The panel splits into two equal panes 24 apart. The start pane holds the title line and the stats as key-value rows without dividers; the end pane holds the banners, notes, source row, progress and primary. iPhone Duo unfolded (669 × 951), portrait tablets. |
-| `cover-pane-breakpoint` and wider | **Cover pane and content pane.** The cover fills the start half at full height; the content fills the end half, vertically centred with a 24 inset: the title with the badge on the line below it, the stats as key-value rows with `line` dividers, then the banners, notes, primary and source row. More floats at the content pane's top end, without its circle. Unfolded foldables, landscape-wide tablets. |
+| `pane-breakpoint` and wider, unless the row below applies | **Cover on top, two panes below.** The panel splits into two equal panes 24 apart. The start pane holds the title line and the stats as key-value rows without dividers; the end pane holds the banners, notes, source row, progress and primary. iPhone Duo unfolded (669 × 951), unfolded foldables (884 × 1104), tablets. |
+| `cover-pane-breakpoint` (840) and wider, in a window wider than tall | **Cover pane and content pane.** The cover fills the start half at full height; the content fills the end half, vertically centred with a 24 inset: the title with the badge on the line below it, the stats as key-value rows with `line` dividers, then the banners, notes, primary and source row. More floats at the content pane's top end, without its circle. A window the system does not hold to portrait. A window as tall as it is wide keeps the cover on top: half of it would be too narrow to show the logo. |
 
 - **The panel takes the height it needs; the cover takes the rest**, at least half its width. When the panel needs more than the window, the page scrolls as one, and the primary follows the content instead of pinning.
 - **Accessibility text sizes keep one column** whatever the width: iOS accessibility Dynamic Type sizes, and Android font scale 1.3 and above.
@@ -44,7 +44,7 @@ Two store images of The Bazaar, bundled in both Apps from `design/assets/Covers/
 | Cover | Image | Crop |
 |---|---|---|
 | Wide (width at least 1.2 × height): a short cover, when the panel takes most of the window | The library hero (the hunter) | Around the hunter's face, at 70% across and 30% down the art, as near the cover's centre as the art's edges allow |
-| Otherwise: phones, the iPhone Duo folded and unfolded, the cover pane from `cover-pane-breakpoint` | The hero capsule (the store's promotional art, with the logo) | From the top, around the logo's centre at 53% across, so the logo stays in view |
+| Otherwise: phones, the iPhone Duo folded and unfolded, unfolded foldables, tablets, the cover pane | The hero capsule (the store's promotional art, with the logo) | From the top, around the logo's centre at 53% across, so the logo stays in view |
 
 The images are decoded no larger than the cover needs, because the game later shares the App's process, and released when the game starts. The focus points belong to the bundled images; a new image may need new ones. The Android source row's tile for the publisher shows the promotional art, and the iOS App's first-run onboarding shows a third bundled image, the library capsule.
 

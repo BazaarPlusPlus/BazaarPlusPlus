@@ -130,9 +130,9 @@ enum BppSize {
     static let sourceRowHeight: CGFloat = 56
     /// The download progress track in the App launchers, the one place the system shows a progress bar.
     static let progressHeight: CGFloat = 4
-    /// Window width at which the App launchers change from one column to the cover on top of two equal panes: iPhone Duo unfolded, portrait tablets. Android's compact/medium window-size boundary. Accessibility text sizes keep one column.
+    /// Window width at which the App launchers change from one column to the cover on top of two equal panes: iPhone Duo unfolded, unfolded foldables, tablets. Android's compact/medium window-size boundary. Accessibility text sizes keep one column.
     static let paneBreakpoint: CGFloat = 600
-    /// Window width at which the App launchers put the cover in the start half and the content in the end half: unfolded foldables and wide tablets. Android's medium/expanded window-size boundary.
+    /// Window width from which the App launchers put the cover in the start half and the content in the end half, if the window is wider than tall. Android's medium/expanded window-size boundary.
     static let coverPaneBreakpoint: CGFloat = 840
 }
 

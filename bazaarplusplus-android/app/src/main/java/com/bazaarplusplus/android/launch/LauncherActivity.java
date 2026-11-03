@@ -37,8 +37,8 @@ import java.util.List;
 /**
  * The App's start screen (design/components/Launcher). It renders {@link LauncherSession}'s
  * {@link LauncherScreen} into the layout the window width picks (one column; the cover over two
- * panes from {@code pane-breakpoint}; cover and content side by side from
- * {@code cover-pane-breakpoint}) and hands taps back to the session. The Activity handles size
+ * panes from {@code pane-breakpoint}; cover and content side by side in a window wider than
+ * tall from {@code cover-pane-breakpoint}) and hands taps back to the session. The Activity handles size
  * and text-scale changes itself (see the manifest), so a fold re-renders the screen without
  * recreating it; the work and its state live in the session either way.
  */
@@ -50,10 +50,8 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     /** The App version whose update reminder was shown; each version reminds once. */
     private static final String REMINDED_VERSION = "reminded_version";
 
-    private enum Layout { COLUMN, PANES, WIDE }
-
     private final LauncherSession session = LauncherSession.get();
-    private Layout layout;
+    private LauncherLayout layout;
     private boolean largeText;
     private Insets insets = Insets.NONE;
     private ObjectAnimator pulse;
@@ -109,12 +107,11 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     private void inflate(int scrollY) {
         Configuration config = getResources().getConfiguration();
         largeText = config.fontScale >= PANES_MAX_FONT_SCALE;
-        if (largeText || config.screenWidthDp < dp(R.dimen.bpp_pane_breakpoint)) layout = Layout.COLUMN;
-        else if (config.screenWidthDp < dp(R.dimen.bpp_cover_pane_breakpoint)) layout = Layout.PANES;
-        else layout = Layout.WIDE;
+        layout = LauncherLayout.of(config.screenWidthDp, config.screenHeightDp, largeText,
+                dp(R.dimen.bpp_pane_breakpoint), dp(R.dimen.bpp_cover_pane_breakpoint));
         stopPulse();
-        setContentView(layout == Layout.COLUMN ? R.layout.launcher
-                : layout == Layout.PANES ? R.layout.launcher_panes : R.layout.launcher_wide);
+        setContentView(layout == LauncherLayout.COLUMN ? R.layout.launcher
+                : layout == LauncherLayout.PANES ? R.layout.launcher_panes : R.layout.launcher_wide);
         View root = findViewById(R.id.root);
         root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
             insets = windowInsets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
@@ -123,7 +120,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         });
         root.requestApplyInsets();
 
-        if (layout == Layout.COLUMN && largeText) {
+        if (layout == LauncherLayout.COLUMN && largeText) {
             // Accessibility text sizes: the stats as rows, so long values never squeeze.
             View stats = findViewById(R.id.stats);
             ViewGroup parent = (ViewGroup) stats.getParent();
@@ -132,7 +129,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
             View rows = getLayoutInflater().inflate(R.layout.launcher_info, parent, false);
             rows.setId(R.id.rows);
             parent.addView(rows, index);
-        } else if (layout == Layout.PANES) {
+        } else if (layout == LauncherLayout.PANES) {
             // Rows sit beside the end pane's buttons without dividers; the wide content pane keeps them.
             ((LinearLayout) findViewById(R.id.rows)).setShowDividers(LinearLayout.SHOW_DIVIDER_NONE);
             // The end pane is at least as tall as the start pane, so its primary lines up with the
@@ -148,7 +145,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         findViewById(R.id.source_icon).setClipToOutline(true);
 
         View more = findViewById(R.id.more);
-        if (layout == Layout.WIDE) more.setBackgroundResource(R.drawable.bpp_more_bare);
+        if (layout == LauncherLayout.WIDE) more.setBackgroundResource(R.drawable.bpp_more_bare);
         more.setOnClickListener(this::showMenu);
         render();
         View scroll = findViewById(R.id.scroll);
@@ -158,10 +155,10 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     /** Keeps the panel's content and More clear of the system bars and the cutout; the cover runs under them. */
     private void pad() {
         View panel = findViewById(R.id.panel);
-        int gutter = getResources().getDimensionPixelSize(layout == Layout.COLUMN ? R.dimen.bpp_space_16 : R.dimen.bpp_space_24);
+        int gutter = getResources().getDimensionPixelSize(layout == LauncherLayout.COLUMN ? R.dimen.bpp_space_16 : R.dimen.bpp_space_24);
         int top = getResources().getDimensionPixelSize(R.dimen.bpp_space_24);
-        int bottom = getResources().getDimensionPixelSize(layout == Layout.WIDE ? R.dimen.bpp_space_24 : R.dimen.bpp_space_16);
-        if (layout == Layout.WIDE) {
+        int bottom = getResources().getDimensionPixelSize(layout == LauncherLayout.WIDE ? R.dimen.bpp_space_24 : R.dimen.bpp_space_16);
+        if (layout == LauncherLayout.WIDE) {
             panel.setPadding(gutter, insets.top + top, insets.right + gutter, insets.bottom + bottom);
         } else {
             panel.setPadding(insets.left + gutter, top, insets.right + gutter, insets.bottom + bottom);
