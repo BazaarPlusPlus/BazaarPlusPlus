@@ -1,11 +1,40 @@
+using System.Globalization;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
+
 namespace BazaarPlusPlus.Core.Cards.CardRental;
 
-/// <summary>What a lease shows: a card template at a tier, with an optional enchantment.</summary>
+/// <summary>
+/// What a lease shows: a card template at a tier, with an optional enchantment and, for a saved
+/// card, its attribute values keyed by the game's member name (ADR-0017). The values win over
+/// the template's; without them the card shows its template's own values.
+/// </summary>
 public readonly record struct CardRentalSubject(
     Guid TemplateId,
     CardTier Tier,
-    CardEnchantment? Enchantment = null
-);
+    CardEnchantment? Enchantment = null,
+    IReadOnlyDictionary<string, int>? Attributes = null
+)
+{
+    /// <summary>A board card as it was saved: its tier, enchantment and attribute values.</summary>
+    public static CardRentalSubject Of(BppItemBoardCard card) =>
+        new(card.TemplateId, card.Tier, card.EnchantmentType, card.Attributes);
+
+    /// <summary>
+    /// The values as one ordinal key, empty when there are none, so a panel that keeps a card
+    /// across renders re-rents it when only a value changed.
+    /// </summary>
+    public static string AttributesKey(IReadOnlyDictionary<string, int>? attributes) =>
+        attributes is not { Count: > 0 }
+            ? string.Empty
+            : string.Join(
+                ",",
+                attributes
+                    .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                    .Select(pair =>
+                        pair.Key + "=" + pair.Value.ToString(CultureInfo.InvariantCulture)
+                    )
+            );
+}
 
 public enum CardRentalLeaseState
 {

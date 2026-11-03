@@ -107,7 +107,7 @@ internal sealed class TouchLiveBuildInspection
     public void Open(BppItemBoardCard card, string source)
     {
         Return();
-        var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
+        var subject = CardRentalSubject.Of(card);
         _name.text = MobilePlatform.Port.CardTitle(card.TemplateId) ?? string.Empty;
         _description.Set(MobilePlatform.Port.CardDescription(subject) ?? string.Empty);
         var scale = _layout.InspectScale(card.DisplaySpan);
