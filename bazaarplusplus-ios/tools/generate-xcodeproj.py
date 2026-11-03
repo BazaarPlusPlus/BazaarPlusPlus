@@ -92,6 +92,8 @@ def generate():
         # sectcreate would be shadowed by its generated copy.
         'CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]': 'Resources/simulator.entitlements',
         'CODE_SIGN_INJECT_BASE_ENTITLEMENTS[sdk=iphonesimulator*]': 'NO',
+        # Without the larger memory limit iOS kills the game with signal 9 on entering it.
+        'CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]': 'Resources/device.entitlements',
         'BPP_STEAM_TEST_CONTROL': '0',
         'GCC_PREPROCESSOR_DEFINITIONS': ['$(inherited)', 'BPP_STEAM_TEST_CONTROL=0'],
         'GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]': ['$(inherited)', 'BPP_STEAM_TEST_CONTROL=$(BPP_STEAM_TEST_CONTROL)'],

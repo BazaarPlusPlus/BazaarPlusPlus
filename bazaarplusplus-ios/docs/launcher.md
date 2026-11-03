@@ -28,4 +28,4 @@
 
 ## 设备边界
 
-Steam 登录、下载、独立票据及启动调度都编入静态设备目标，实际设备交互未验证。设备构建不会混入 Mac 插件、Simulator 二进制补丁和测试控制 socket。SQLite、Alembic、BC 解码与完整 icall 注册已接入设备构建，App 启动服务前运行原生自检。The Bazaar 在设备上允许下载和启动；设备启动门禁为首次真机验证而打开，资源、音频和引擎适配尚未经过真机执行验证。测试入口和剩余依赖见 `docs/device-readiness.md`。
+Steam 登录、下载、独立票据及启动调度都编入静态设备目标。设备构建不会混入 Mac 插件、Simulator 二进制补丁和测试控制 socket。SQLite、Alembic、BC 解码与完整 icall 注册已接入设备构建，App 启动服务前运行原生自检。The Bazaar 在设备上允许下载和启动；设备启动门禁为首次真机验证而打开，iPhone Duo 上已进入对局；音频、后台恢复和其他机型尚未经过真机验证。测试入口和剩余依赖见 `docs/device-readiness.md`。

@@ -2,7 +2,7 @@
 """Build, sign and upload the device App to TestFlight under the given build number.
 
 Signing uses the Apple Distribution certificate and the App Store profile named below, with the team from
-app/Signing.local.xcconfig; the upload uses the Apple account signed in to Xcode. Over SSH the keychain that
+app/Signing.local.xcconfig. The profile must grant the capabilities in app/Resources/device.entitlements. The upload uses the Apple account signed in to Xcode. Over SSH the keychain that
 holds the certificate is locked: set BPP_SIGNING_KEYCHAIN and BPP_SIGNING_KEYCHAIN_PASSWORD_FILE to unlock it.
 """
 import argparse

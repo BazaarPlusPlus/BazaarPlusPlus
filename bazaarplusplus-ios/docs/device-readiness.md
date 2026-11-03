@@ -1,6 +1,6 @@
 # 设备适配与首次真机验证
 
-设备启动器已完成开发签名构建和物理设备安装，包含静态 Mono/AOT、Steam 登录与下载、独立票据服务、原生 SQLite/Alembic、FMOD/Resonance Audio 和引擎资源适配。**尚不能宣称 The Bazaar 在真机可玩。** 已在 iPhone 16 Pro Max 验证启动器的静态 Mono/AOT 初始化及原生自检，Steam 登录、Steam Guard 与 Keychain 会话恢复已通过；`game/game.json` 的设备启动门禁已打开，用于首次真机验证，游戏运行尚未验证。具体版本、哈希和能力值以 `game/game.json` 与 `toolchain.lock.json` 为准。
+设备启动器已完成开发签名构建和物理设备安装，包含静态 Mono/AOT、Steam 登录与下载、独立票据服务、原生 SQLite/Alembic、FMOD/Resonance Audio 和引擎资源适配。**尚不能宣称 The Bazaar 在真机可玩。** 已在 iPhone 16 Pro Max 验证启动器的静态 Mono/AOT 初始化及原生自检，Steam 登录、Steam Guard 与 Keychain 会话恢复已通过；`game/game.json` 的设备启动门禁已打开，用于首次真机验证。在 iPhone Duo（iOS 27.2）上已进入 Normal 对局、打过战斗，模组已加载，Collection、Ten-Win 和 History 可以打开；整局结束、音频、后台恢复、长期运行和其他机型尚未验证。具体版本、哈希和能力值以 `game/game.json` 与 `toolchain.lock.json` 为准。
 
 ## 已接入的路径
 
@@ -59,11 +59,13 @@ Simulator 回归使用 `tools/build.py simulator --test-control`、`tools/run-ap
 
 `service/Managed/ContentServers.cs` 保留目录的原始 TLS 能力字段，仅将声明 `mandatory` 或 `optional` 的节点转为 HTTPS 端点，并先检查代理、区域及应用限制。SteamKit 的默认转换会将 optional TLS 标成 HTTP，因此不能仅按转换后的协议筛选。登录连接返回的区域目录可能只有不支持 HTTPS 的节点；下载器在当前 cell 和默认 cell 均不可用时，回退到 Steam 官方 HTTPS Web API 目录，不降级传输安全。清单下载可轮换节点，所有文件仍按清单校验。
 
-## 下载阶段的内存回收
+## 内存
 
 `service/Managed/Downloader.cs::CollectDownloadBuffers` 在块写入结束、释放当前缓冲引用后，按托管已用内存触发回收。这个预算是回收触发条件，不是 iOS 进程内存上限；并发缓冲、原生库及网络栈还会占用内存。它只作用于下载路径，不在游戏帧循环强制回收。
 
 真机曾在下载中连续累积临时托管缓冲，自动 GC 已启用但未触发回收，进程占用超过 1.6 GB。显式设置自动模式没有改善，最终没有保留该尝试。分块回收后已观察到持续 GC 和内存回落；signal 9 没有对应系统报告，不能将其正式归类为 Jetsam。
+
+进入游戏时，默认内存上限不够：iPhone Duo 出现内存警告后被 signal 9 结束。因此设备签名声明 `app/Resources/device.entitlements` 里的更大内存上限和扩展虚拟寻址。App ID 要开启这两个 capability，签名用的 profile 要包含它们；`build.py device` 的产物没有签名，只有 Xcode 运行和 TestFlight archive 带这些 entitlements。这只在一台设备上观察过。
 
 通过启动环境变量 `BPP_DOWNLOAD_DIAGNOSTICS=1` 可采样进程物理占用、托管堆和下载进度；`BPP_GC_STATS=1` 记录 GC 暂停。默认不开启，不记录认证内容。
 
