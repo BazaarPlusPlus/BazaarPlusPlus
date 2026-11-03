@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lucide EllipsisVertical at 20, in text-1. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path android:fillColor="@color/bpp_text_1"
+      android:pathData="M12,3a2,2 0,1 1,0 4a2,2 0,1 1,0 -4ZM12,10a2,2 0,1 1,0 4a2,2 0,1 1,0 -4ZM12,17a2,2 0,1 1,0 4a2,2 0,1 1,0 -4Z" />
+</vector>

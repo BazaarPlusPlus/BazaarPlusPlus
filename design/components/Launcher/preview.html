@@ -6,39 +6,42 @@
 body{margin:0;padding:20px;background:var(--bg-sidebar);color:var(--text-1);font-family:var(--font-ui);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
 .ds-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:24px}
 .ds-cap{color:var(--text-3);font-size:14px;margin:0 0 6px}
-.frame{border:1px solid var(--line-strong);border-radius:var(--r-dialog);background:var(--bg-canvas);overflow:hidden;container-type:inline-size}
-.w-375{width:375px}.w-360{width:360px}.w-626{width:626px}
-.bar{display:flex;align-items:center;justify-content:space-between;min-height:var(--appbar-height);padding:0 16px}
-.brand{display:flex;align-items:center;gap:8px;font-weight:600}
-.mark .chevron{fill:var(--text-1)}.mark .gem{fill:var(--accent)}
-.chip{display:inline-flex;align-items:center;gap:8px;height:var(--control-md);padding:0 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--bg-panel);font-size:14px;font-weight:500}
-.chip .dot{width:8px;height:8px;border-radius:var(--r-pill);background:var(--success)}
-.page{display:flex;flex-direction:column;gap:16px;padding:0 16px 24px}
-.panes{display:flex;flex-direction:column;gap:16px}
+.frame{position:relative;display:flex;flex-direction:column;border:1px solid var(--line-strong);border-radius:var(--r-dialog);background:var(--bg-canvas);overflow:hidden;container-type:inline-size}
+.w-375{width:375px;height:812px}.w-360{width:360px;height:760px}.w-669{width:669px;height:951px}
+.cover{flex:1 1 auto;min-height:50%;background:var(--bg-hover)}
+.more{position:absolute;top:52px;right:6px;display:flex;align-items:center;justify-content:center;width:var(--touch-target);height:var(--touch-target)}
+.more span{display:flex;align-items:center;justify-content:center;gap:3px;width:var(--control-md);height:var(--control-md);border:1px solid var(--line-strong);border-radius:var(--r-pill);background:var(--bg-panel)}
+.more i{width:3px;height:3px;border-radius:var(--r-pill);background:var(--text-1)}
+.more.vertical span{flex-direction:column}
+.panel{display:flex;flex-direction:column;gap:16px;margin-top:-24px;padding:24px 16px 34px;border-radius:var(--r-dialog) var(--r-dialog) 0 0;background:var(--bg-canvas)}
 .pane{display:flex;flex-direction:column;gap:16px;min-width:0}
-.card{border:1px solid var(--line);border-radius:var(--r-dialog);background:var(--bg-panel);overflow:hidden}
-.cover{display:flex;align-items:center;justify-content:center;aspect-ratio:2/1;background:var(--bg-hover)}
-.cover .icon{width:64px;height:64px;border-radius:var(--r-dialog);background:var(--bg-selected)}
-.card-body{display:flex;flex-direction:column;gap:8px;padding:16px}
-.game{margin:0;font-size:18px;line-height:1.4;font-weight:600}
-.status-row{display:flex;align-items:center;justify-content:space-between}
-.pct{color:var(--text-2);font-size:14px;font-variant-numeric:tabular-nums}
-.actions{display:flex;flex-direction:column;gap:8px}
-.actions .bpp-btn{width:100%;height:var(--touch-target)}
-.actions .bpp-btn-primary{font-weight:600}
+.title{display:flex;align-items:center;gap:8px}
+.title h3{flex:1;margin:0;font-size:24px;line-height:1.3;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.stats div{display:flex;flex-direction:column}
+.stats dt,.rows dt{color:var(--text-3);font-size:14px;line-height:1.5}
+.stats dd,.rows dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.rows{display:none;flex-direction:column;margin:0}
+.rows div{display:flex;align-items:center;justify-content:space-between;min-height:var(--row-height);border-bottom:1px solid var(--line)}
+.rows div:last-child{border-bottom:0}
+.rows dt{font-size:15px;line-height:1.6}
+.source{display:flex;align-items:center;gap:12px;min-height:var(--source-row-height);padding:0 12px;border-radius:var(--r-touch);background:var(--bg-panel)}
+.source .tile{flex:none;width:32px;height:32px;border-radius:var(--r-pill);background:var(--bg-selected)}
+.source .tile.app{border-radius:var(--r-panel);background:var(--bg-hover)}
+.source .label{flex:1;font-weight:500}
+.source .meta,.source .glyph{color:var(--text-3);font-size:14px}
 .track{height:var(--progress-height);border-radius:var(--r-pill);background:var(--bg-hover);overflow:hidden}
-.track span{display:block;height:100%;width:42%;background:var(--accent)}
-.meta{margin:0;color:var(--text-2);font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
-.info{display:flex;flex-direction:column}
-.info div{display:flex;align-items:center;justify-content:space-between;min-height:var(--row-height);padding:0 16px;border-bottom:1px solid var(--line)}
-.info div:last-child{border-bottom:0}
-.info dt{color:var(--text-3)}.info dd{margin:0;font-variant-numeric:tabular-nums}
-.footer .bpp-btn{height:var(--touch-target)}
+.track span{display:block;height:100%;width:27%;background:var(--accent)}
+.progress{display:flex;flex-direction:column;gap:6px}
+.progress p{margin:0;color:var(--text-2);font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
+.primary{margin-top:auto;display:flex;flex-direction:column;gap:12px}
+.primary .bpp-btn{width:100%;height:var(--touch-target);border-radius:var(--r-touch)}
+.primary .bpp-btn-primary{font-weight:600}
+.android .primary .bpp-btn{border-radius:var(--r-pill)}
 @container (min-width: 600px){
-  .bar{padding:0 24px}
-  .page{padding:0 24px 24px;max-width:var(--launcher-max);margin:0 auto}
-  .panes{flex-direction:row;gap:24px}
-  .pane{flex:1 1 0}
+  .panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;padding:24px 24px 20px}
+  .stats{display:none}
+  .rows{display:flex}
 }
 </style>
 </head>
@@ -46,24 +49,20 @@ body{margin:0;padding:20px;background:var(--bg-sidebar);color:var(--text-1);font
 <div class="ds-row">
 
 <div>
-<p class="ds-cap">iPhone · 单栏 · 正在下载 · 封面为 Steam 商店图</p>
+<p class="ds-cap">iPhone · 正在下载</p>
 <div class="frame w-375">
-  <div class="bar">
-    <span class="brand"><svg class="mark" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><path class="chevron" d="M16 3 L31 18 L23.5 18 L16 10.5 L8.5 18 L1 18 Z"/><path class="gem" d="M16 13 L23.75 20.75 L16 28.5 L8.25 20.75 Z"/></svg>BazaarPlusPlus</span>
-    <span class="chip"><span class="dot"></span>steamplayer</span>
-  </div>
-  <div class="page">
-    <div class="panes">
-      <div class="pane">
-        <div class="card"><div class="cover"></div><div class="card-body"><p class="game">The Bazaar</p><div class="status-row"><span class="bpp-badge bpp-badge-busy">正在下载…</span><span class="pct">42%</span></div></div></div>
-      </div>
-      <div class="pane">
-        <div class="actions">
-          <div class="track"><span></span></div>
-          <p class="meta">1.9 GB / 4.5 GB · 12 MB/s · 3分36秒</p>
-          <button type="button" class="bpp-btn bpp-btn-secondary">取消</button>
-        </div>
-        <dl class="bpp-panel info" style="margin:0"><div><dt>适配版本</dt><dd>1.0.12651</dd></div><div><dt>BazaarPlusPlus</dt><dd>v6.2.0</dd></div></dl>
+  <div class="cover"></div>
+  <span class="more" aria-label="更多"><span><i></i><i></i><i></i></span></span>
+  <div class="panel">
+    <div class="pane">
+      <div class="title"><h3>The Bazaar</h3><span class="bpp-badge bpp-badge-busy">正在下载… 27%</span></div>
+      <dl class="stats" style="margin:0"><div><dt>游戏版本</dt><dd>—</dd></div><div><dt>适配版本</dt><dd>1.0.12900</dd></div><div><dt>BazaarPlusPlus</dt><dd>v6.0.2</dd></div></dl>
+    </div>
+    <div class="pane">
+      <div class="source"><span class="tile"></span><span class="label">player_name</span><span class="meta">Steam</span><span class="glyph">›</span></div>
+      <div class="primary">
+        <div class="progress"><div class="track"><span></span></div><p>1.2 GB / 4.5 GB · 12 MB/s · 5 分钟</p></div>
+        <button type="button" class="bpp-btn bpp-btn-secondary">取消</button>
       </div>
     </div>
   </div>
@@ -71,47 +70,37 @@ body{margin:0;padding:20px;background:var(--bg-sidebar);color:var(--text-1);font
 </div>
 
 <div>
-<p class="ds-cap">Android · 单栏 · 等待适配，有新版 App · 封面为官方游戏图标</p>
-<div class="frame w-360">
-  <div class="bar">
-    <span class="brand"><svg class="mark" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><path class="chevron" d="M16 3 L31 18 L23.5 18 L16 10.5 L8.5 18 L1 18 Z"/><path class="gem" d="M16 13 L23.75 20.75 L16 28.5 L8.25 20.75 Z"/></svg>BazaarPlusPlus</span>
-  </div>
-  <div class="page">
-    <div class="bpp-banner is-info" role="status"><span class="bpp-banner-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span><div class="bpp-banner-body"><div class="bpp-banner-message"><p style="margin:0">BazaarPlusPlus v6.3.0 已发布。</p></div></div><div class="bpp-banner-actions"><button type="button" class="bpp-btn bpp-btn-secondary bpp-btn-sm">下载</button></div></div>
-    <div class="panes">
-      <div class="pane">
-        <div class="card"><div class="cover"><span class="icon"></span></div><div class="card-body"><p class="game">The Bazaar</p><div class="status-row"><span class="bpp-badge bpp-badge-warn">等待适配</span></div></div></div>
-      </div>
-      <div class="pane">
-        <div class="actions">
-          <button type="button" class="bpp-btn bpp-btn-secondary">打开官方游戏</button>
-        </div>
-        <dl class="bpp-panel info" style="margin:0"><div><dt>游戏版本</dt><dd>1.0.12740</dd></div><div><dt>适配版本</dt><dd>1.0.12651</dd></div><div><dt>BazaarPlusPlus</dt><dd>v6.2.0</dd></div></dl>
-        <div class="footer"><button type="button" class="bpp-btn bpp-btn-ghost">导出诊断信息</button></div>
-      </div>
+<p class="ds-cap">Android · 未安装 · 有 Google Play</p>
+<div class="frame w-360 android">
+  <div class="cover"></div>
+  <span class="more vertical" aria-label="更多"><span><i></i><i></i><i></i></span></span>
+  <div class="panel">
+    <div class="pane">
+      <div class="title"><h3>The Bazaar</h3><span class="bpp-badge">未安装</span></div>
+      <dl class="stats" style="margin:0"><div><dt>游戏版本</dt><dd>—</dd></div><div><dt>适配版本</dt><dd>1.0.12900</dd></div><div><dt>BazaarPlusPlus</dt><dd>v6.0.2</dd></div></dl>
+    </div>
+    <div class="pane">
+      <div class="source"><span class="tile app"></span><span class="label">从发行商下载</span><span class="glyph">↗</span></div>
+      <div class="primary"><button type="button" class="bpp-btn bpp-btn-primary">从 Google Play 安装</button></div>
     </div>
   </div>
 </div>
 </div>
 
 <div>
-<p class="ds-cap">iPhone Duo 展开 · 两栏 · 可以开始</p>
-<div class="frame w-626">
-  <div class="bar">
-    <span class="brand"><svg class="mark" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><path class="chevron" d="M16 3 L31 18 L23.5 18 L16 10.5 L8.5 18 L1 18 Z"/><path class="gem" d="M16 13 L23.75 20.75 L16 28.5 L8.25 20.75 Z"/></svg>BazaarPlusPlus</span>
-    <span class="chip"><span class="dot"></span>steamplayer</span>
-  </div>
-  <div class="page">
-    <div class="panes">
-      <div class="pane">
-        <div class="card"><div class="cover"></div><div class="card-body"><p class="game">The Bazaar</p><div class="status-row"><span class="bpp-badge bpp-badge-ok">可以开始</span></div></div></div>
-      </div>
-      <div class="pane">
-        <div class="actions">
-          <button type="button" class="bpp-btn bpp-btn-primary">开始游戏</button>
-        </div>
-        <dl class="bpp-panel info" style="margin:0"><div><dt>适配版本</dt><dd>1.0.12651</dd></div><div><dt>BazaarPlusPlus</dt><dd>v6.2.0</dd></div></dl>
-      </div>
+<p class="ds-cap">iPhone Duo 展开 · 封面在上，两栏 · 可以开始</p>
+<div class="frame w-669">
+  <div class="cover"></div>
+  <span class="more" aria-label="更多"><span><i></i><i></i><i></i></span></span>
+  <div class="panel">
+    <div class="pane">
+      <div class="title"><h3>The Bazaar</h3><span class="bpp-badge bpp-badge-ok">可以开始</span></div>
+      <dl class="stats" style="margin:0"><div><dt>游戏版本</dt><dd>1.0.12900</dd></div><div><dt>适配版本</dt><dd>1.0.12900</dd></div><div><dt>BazaarPlusPlus</dt><dd>v6.0.2</dd></div></dl>
+      <dl class="rows"><div><dt>游戏版本</dt><dd>1.0.12900</dd></div><div><dt>适配版本</dt><dd>1.0.12900</dd></div><div><dt>BazaarPlusPlus</dt><dd>v6.0.2</dd></div></dl>
+    </div>
+    <div class="pane">
+      <div class="source"><span class="tile"></span><span class="label">player_name</span><span class="meta">Steam</span><span class="glyph">›</span></div>
+      <div class="primary"><button type="button" class="bpp-btn bpp-btn-primary">开始游戏</button></div>
     </div>
   </div>
 </div>

@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Info: key-value rows at row-height; keys in text-3, values end-aligned in tabular figures. -->
+<!-- Stats as key-value rows (panes, and accessibility text sizes): at least row-height, keys in text-3, values end-aligned in tabular figures. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bpp_panel"
     android:divider="@drawable/bpp_divider"
     android:orientation="vertical"
     android:showDividers="middle">

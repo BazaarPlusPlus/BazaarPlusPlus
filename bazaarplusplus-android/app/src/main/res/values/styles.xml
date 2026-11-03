@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The App's views over the design system (design/README.md, Apps; design/components/Launcher):
-     colours, scales and type sizes come from the generated bpp_tokens.xml. -->
+     colours, scales and type sizes come from the generated bpp_tokens.xml. The themes extend
+     Theme.Material, not DeviceDefault, which from Android 12 takes the wallpaper's dynamic colours:
+     the launcher keeps one dark theme. -->
 <resources>
-  <style name="Theme.Bpp" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+  <style name="Theme.Bpp" parent="@android:style/Theme.Material.NoActionBar">
     <item name="android:windowBackground">@color/bpp_bg_canvas</item>
     <item name="android:statusBarColor">@android:color/transparent</item>
     <item name="android:navigationBarColor">@android:color/transparent</item>
@@ -12,6 +14,27 @@
     <item name="android:textColorPrimary">@color/bpp_text_1</item>
     <item name="android:textColorSecondary">@color/bpp_text_2</item>
     <item name="android:colorAccent">@color/bpp_accent</item>
+    <item name="android:popupMenuStyle">@style/Bpp.PopupMenu</item>
+    <item name="android:textAppearanceLargePopupMenu">@style/Bpp.Text.Menu</item>
+    <item name="android:textAppearanceSmallPopupMenu">@style/Bpp.Text.Menu</item>
+  </style>
+
+  <!-- The update reminder and About: a dialog card on bg-panel at r-dialog over a dimmed launcher. -->
+  <style name="Theme.Bpp.Dialog" parent="@android:style/Theme.Material.Dialog.NoActionBar">
+    <item name="android:windowBackground">@drawable/bpp_dialog</item>
+    <item name="android:windowMinWidthMajor">@dimen/bpp_dialog_min_width</item>
+    <item name="android:windowMinWidthMinor">@dimen/bpp_dialog_min_width</item>
+    <item name="android:backgroundDimAmount">0.55</item>
+    <item name="android:textColor">@color/bpp_text_1</item>
+  </style>
+
+  <!-- More's popup menu: a floating layer on bg-selected. -->
+  <style name="Bpp.PopupMenu" parent="@android:style/Widget.Material.PopupMenu">
+    <item name="android:popupBackground">@drawable/bpp_menu</item>
+  </style>
+  <style name="Bpp.Text.Menu" parent="">
+    <item name="android:textSize">@dimen/bpp_type_body</item>
+    <item name="android:textColor">@color/bpp_text_1</item>
   </style>
 
   <!-- Type: tokens.json's styles; weight 600 is textFontWeight, 500 sans-serif-medium. -->
@@ -24,13 +47,18 @@
     <item name="android:textFontWeight">600</item>
     <item name="android:lineSpacingMultiplier">1.15</item>
   </style>
-  <style name="Bpp.Text.BodyStrong">
-    <item name="android:textSize">@dimen/bpp_type_body_strong</item>
+  <style name="Bpp.Text.Display">
+    <item name="android:textSize">@dimen/bpp_type_display</item>
     <item name="android:textFontWeight">600</item>
+    <item name="android:lineSpacingMultiplier">1.1</item>
   </style>
   <style name="Bpp.Text.Body">
     <item name="android:textSize">@dimen/bpp_type_body</item>
     <item name="android:lineSpacingMultiplier">1.2</item>
+  </style>
+  <style name="Bpp.Text.BodyMedium">
+    <item name="android:textSize">@dimen/bpp_type_body_medium</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
   </style>
   <style name="Bpp.Text.Small">
     <item name="android:textSize">@dimen/bpp_type_small</item>
@@ -48,10 +76,34 @@
   </style>
   <style name="Bpp.Text.Value">
     <item name="android:textSize">@dimen/bpp_type_body</item>
+    <item name="android:textFontWeight">600</item>
+    <item name="android:fontFeatureSettings">tnum</item>
+  </style>
+  <!-- A stat in one column: the key in caption / text-3 over the value in body-strong. -->
+  <style name="Bpp.Stat" parent="">
+    <item name="android:layout_width">0dp</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_weight">1</item>
+    <item name="android:orientation">vertical</item>
+    <!-- Keys line up by baseline: a Latin key and a CJK key have different line heights. -->
+    <item name="android:baselineAlignedChildIndex">0</item>
+  </style>
+  <style name="Bpp.Text.StatKey">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:textSize">@dimen/bpp_type_caption</item>
+    <item name="android:textColor">@color/bpp_text_3</item>
+  </style>
+  <style name="Bpp.Text.StatValue">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:textSize">@dimen/bpp_type_body_strong</item>
+    <item name="android:textFontWeight">600</item>
     <item name="android:fontFeatureSettings">tnum</item>
   </style>
 
-  <!-- Button (design/components/Button): full-width launcher actions are touch-target tall. -->
+  <!-- Button (design/components/Button) at Android's shape, a full pill: the launcher's primary is
+     touch-target tall; dialog buttons are control-md plus their hit area. -->
   <style name="Bpp.Button" parent="">
     <item name="android:layout_height">wrap_content</item>
     <item name="android:minHeight">@dimen/bpp_touch_target</item>
@@ -68,29 +120,24 @@
     <item name="android:fontFamily">@null</item>
     <item name="android:textFontWeight">600</item>
   </style>
-  <style name="Bpp.Button.Secondary">
-    <item name="android:background">@drawable/bpp_button_secondary</item>
-    <item name="android:textColor">@color/bpp_button_secondary_text</item>
-  </style>
-  <!-- sm: a control-sm box with small text inside a touch-target hit area, for banner actions. -->
-  <style name="Bpp.Button.Secondary.Small">
-    <item name="android:background">@drawable/bpp_button_secondary_inset</item>
-    <item name="android:paddingStart">@dimen/bpp_space_8</item>
-    <item name="android:paddingEnd">@dimen/bpp_space_8</item>
-    <item name="android:textSize">@dimen/bpp_type_small</item>
-  </style>
-  <!-- Key-value row: at least row-height, content centred, 16 inset. -->
+  <!-- Key-value row: at least row-height, content centred, flush with the pane's edges. -->
   <style name="Bpp.Row" parent="">
     <item name="android:layout_width">match_parent</item>
     <item name="android:layout_height">wrap_content</item>
     <item name="android:minHeight">@dimen/bpp_row_height</item>
     <item name="android:gravity">center_vertical</item>
     <item name="android:orientation">horizontal</item>
-    <item name="android:paddingStart">@dimen/bpp_space_16</item>
-    <item name="android:paddingEnd">@dimen/bpp_space_16</item>
   </style>
   <style name="Bpp.Button.Ghost">
     <item name="android:background">@drawable/bpp_button_ghost</item>
     <item name="android:textColor">@color/bpp_button_ghost_text</item>
+  </style>
+  <style name="Bpp.Button.Primary.Dialog">
+    <item name="android:paddingStart">@dimen/bpp_space_24</item>
+    <item name="android:paddingEnd">@dimen/bpp_space_24</item>
+  </style>
+  <style name="Bpp.Button.Ghost.Dialog">
+    <item name="android:paddingStart">@dimen/bpp_space_16</item>
+    <item name="android:paddingEnd">@dimen/bpp_space_16</item>
   </style>
 </resources>

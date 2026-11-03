@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's panel over the cover (design/components/Launcher): bg-canvas, top corners r-dialog. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+  <corners android:topLeftRadius="@dimen/bpp_r_dialog" android:topRightRadius="@dimen/bpp_r_dialog" />
+  <solid android:color="@color/bpp_bg_canvas" />
+</shape>

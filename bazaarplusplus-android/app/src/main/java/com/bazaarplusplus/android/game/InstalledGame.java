@@ -14,6 +14,8 @@ import java.util.zip.ZipFile;
 /** The official game as PackageManager reports it: identity and every APK it is installed from. */
 public final class InstalledGame {
     public static final String PACKAGE = "com.tempogames.thebazaar";
+    /** The Google Play Store, which installs and updates the official game where it exists. */
+    public static final String PLAY_STORE = "com.android.vending";
     /** Where an Android Release APK carries its loader and seed Mods; the official game has no such entry. */
     static final String INJECTED_LOADER_PREFIX = "assets/LemonLoader/";
 
@@ -47,6 +49,25 @@ public final class InstalledGame {
         }
         return new InstalledGame(game.versionName, game.getLongVersionCode(), game.lastUpdateTime,
                 game.applicationInfo, apkPaths(game.applicationInfo.sourceDir, game.applicationInfo.splitSourceDirs));
+    }
+
+    /** Whether the Google Play Store is on this device. */
+    public static boolean playStoreInstalled(PackageManager pm) {
+        try {
+            pm.getPackageInfo(PLAY_STORE, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    /** Whether Google Play installed this package; false for a sideloaded APK or an unknown installer. */
+    public boolean installedFromPlay(PackageManager pm) {
+        try {
+            return PLAY_STORE.equals(pm.getInstallSourceInfo(info.packageName).getInstallingPackageName());
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
     }
 
     /** Whether this is a retired Android Release APK rather than the official game. */

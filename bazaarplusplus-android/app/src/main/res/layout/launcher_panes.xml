@@ -1,59 +1,91 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher in two equal panes (design/components/Launcher): windows at least pane-breakpoint
-     wide. The panes are equal and centred, so a book-style fold falls in the gutter between them. -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/scroll"
+<!-- The launcher from pane-breakpoint to cover-pane-breakpoint (design/components/Launcher): the
+     cover on top, the panel below in two equal panes 24 apart, so a book-style fold falls in the
+     gutter. The end pane is at least as tall as the start pane (LauncherActivity) and pins the
+     primary to its bottom. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:layout_height="match_parent">
 
-  <LinearLayout
-      android:id="@+id/page"
+  <ScrollView
+      android:id="@+id/scroll"
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:orientation="vertical">
-
-    <include layout="@layout/launcher_app_bar" />
-
-    <include android:id="@+id/update_banner" layout="@layout/launcher_banner" />
-
-    <include android:id="@+id/error_banner" layout="@layout/launcher_banner" />
+      android:layout_height="match_parent"
+      android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:baselineAligned="false"
-        android:orientation="horizontal">
+        android:orientation="vertical">
+
+      <com.bazaarplusplus.android.launch.CoverView
+          android:id="@+id/cover"
+          android:layout_width="match_parent"
+          android:layout_height="0dp"
+          android:layout_weight="1" />
 
       <LinearLayout
-          android:layout_width="0dp"
+          android:id="@+id/panel"
+          android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          android:layout_weight="1"
-          android:orientation="vertical">
+          android:layout_marginTop="@dimen/bpp_negative_space_24"
+          android:background="@drawable/bpp_sheet"
+          android:baselineAligned="false"
+          android:orientation="horizontal"
+          android:paddingTop="@dimen/bpp_space_24">
 
-        <include layout="@layout/launcher_card" />
-      </LinearLayout>
+        <LinearLayout
+            android:id="@+id/start_pane"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:divider="@drawable/bpp_gap_16"
+            android:orientation="vertical"
+            android:showDividers="middle">
 
-      <Space
-          android:layout_width="@dimen/bpp_space_24"
-          android:layout_height="match_parent" />
+          <include layout="@layout/launcher_title" />
 
-      <LinearLayout
-          android:layout_width="0dp"
-          android:layout_height="wrap_content"
-          android:layout_weight="1"
-          android:orientation="vertical">
-
-        <include layout="@layout/launcher_actions" />
+          <include android:id="@+id/rows" layout="@layout/launcher_info" />
+        </LinearLayout>
 
         <Space
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/bpp_space_16" />
+            android:layout_width="@dimen/bpp_space_24"
+            android:layout_height="0dp" />
 
-        <include layout="@layout/launcher_info" />
+        <LinearLayout
+            android:id="@+id/end_pane"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:divider="@drawable/bpp_gap_16"
+            android:orientation="vertical"
+            android:showDividers="middle">
 
-        <include layout="@layout/launcher_footer" />
+          <include android:id="@+id/error_banner" layout="@layout/launcher_banner" />
+
+          <TextView
+              android:id="@+id/notes"
+              style="@style/Bpp.Text.Caption"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:visibility="gone" />
+
+          <include layout="@layout/launcher_source" />
+
+          <!-- Pins the primary to the pane's bottom; the panes are two views, so the cost is nil. -->
+          <Space
+              android:layout_width="match_parent"
+              android:layout_height="0dp"
+              android:layout_weight="1"
+              tools:ignore="NestedWeights" />
+
+          <include layout="@layout/launcher_action" />
+        </LinearLayout>
       </LinearLayout>
     </LinearLayout>
-  </LinearLayout>
-</ScrollView>
+  </ScrollView>
+
+  <include layout="@layout/launcher_more" />
+</FrameLayout>

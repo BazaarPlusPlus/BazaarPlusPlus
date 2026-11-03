@@ -26,7 +26,6 @@
   <string name="last_install_failed">上次安裝外掛失敗。這次啟動會重新安裝；如果再次失敗，請匯出診斷資訊。</string>
   <string name="runtime_missing">這個建置還沒有 BPP 執行環境。</string>
   <string name="dev_interop">正在使用開發 interop。</string>
-  <string name="app_update_available">BazaarPlusPlus v%1$s 已發布。</string>
   <string name="progress_interop">interop · %1$s / %2$s</string>
   <string name="progress_plugin">外掛 · %1$s / %2$s</string>
   <string name="check_failed">未能檢查遊戲：%1$s</string>
@@ -36,7 +35,15 @@
   <string name="info_adapted_version">適配版本</string>
 
   <string name="export_diagnostics">匯出診斷資訊</string>
-  <string name="exporting_diagnostics">正在匯出診斷資訊…</string>
   <string name="diagnostics_exported">診斷資訊已儲存到 Download：%1$s</string>
   <string name="diagnostics_failed">未能匯出診斷資訊：%1$s</string>
+
+  <string name="more">更多</string>
+  <string name="about">關於</string>
+  <string name="later">稍後</string>
+  <string name="close">關閉</string>
+  <string name="open_website">開啟網站</string>
+  <string name="app_update_title">BazaarPlusPlus v%1$s 已發布</string>
+  <string name="app_update_message">適配遊戲版本 %1$s。</string>
+  <string name="about_message">版本 %1$s · bazaarplusplus.com</string>
 </resources>

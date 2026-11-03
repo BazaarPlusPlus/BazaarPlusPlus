@@ -64,8 +64,19 @@ public final class Diagnostics {
         }
     }
 
-    /** Saves the export to Download/ and returns its file name. */
-    public static String export(Context context, Map<String, String> files) throws IOException {
+    /** A saved export: its file name in Download/ and its MediaStore URI, which the share sheet reads. */
+    public static final class Exported {
+        public final String name;
+        public final Uri uri;
+
+        Exported(String name, Uri uri) {
+            this.name = name;
+            this.uri = uri;
+        }
+    }
+
+    /** Saves the export to Download/. */
+    public static Exported export(Context context, Map<String, String> files) throws IOException {
         String name = "BazaarPlusPlus-diagnostics-"
                 + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date()) + ".zip";
         ContentResolver resolver = context.getContentResolver();
@@ -86,6 +97,6 @@ public final class Diagnostics {
         values.clear();
         values.put(MediaStore.MediaColumns.IS_PENDING, 0);
         resolver.update(uri, values, null, null);
-        return name;
+        return new Exported(name, uri);
     }
 }

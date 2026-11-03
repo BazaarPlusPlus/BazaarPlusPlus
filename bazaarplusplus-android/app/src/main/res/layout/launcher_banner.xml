@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- StatusBanner: tone icon, one-sentence message, an optional action. LauncherActivity sets the tone. -->
+<!-- StatusBanner: tone icon and a one-sentence message; the launcher's failure banner. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="@dimen/bpp_space_16"
     android:accessibilityLiveRegion="polite"
     android:background="@drawable/bpp_banner_info"
     android:gravity="center_vertical"
@@ -31,11 +30,4 @@
       android:layout_marginBottom="@dimen/bpp_space_8"
       android:layout_weight="1"
       android:textIsSelectable="true" />
-
-  <Button
-      android:id="@+id/banner_action"
-      style="@style/Bpp.Button.Secondary.Small"
-      android:layout_width="wrap_content"
-      android:layout_marginStart="@dimen/bpp_space_8"
-      android:visibility="gone" />
 </LinearLayout>

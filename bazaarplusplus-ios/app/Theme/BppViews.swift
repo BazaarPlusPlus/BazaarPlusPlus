@@ -59,7 +59,7 @@ extension View {
 
 // MARK: - Button
 
-/// Button (design/components/Button) at the Apps' touch size: full width, `touch-target` high.
+/// Button (design/components/Button) at the Apps' touch size: full width, `touch-target` high, `r-touch`.
 struct BppButtonStyle: ButtonStyle {
     enum Kind { case primary, secondary, ghost }
     var kind: Kind
@@ -78,7 +78,7 @@ private struct BppButtonBody: View {
 
     var body: some View {
         let pressed = configuration.isPressed
-        let shape = RoundedRectangle(cornerRadius: BppRadius.rControl, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: BppRadius.rTouch, style: .continuous)
         configuration.label
             .bppFont(kind == .primary ? BppType.bodyStrong : BppType.bodyMedium)
             .foregroundColor(foreground(pressed))
@@ -262,10 +262,12 @@ struct BppBanner: View {
 // MARK: - Key-value row
 
 /// One key-value row: at least `row-height`, the key in `text-3`, the value end-aligned in tabular figures.
+/// `inset` is the row's side padding inside a Panel; rows on the page ground sit flush.
 struct BppKeyValueRow: View {
     let key: String
     let value: String
     var last = false
+    var inset = BppSpace.space16
 
     var body: some View {
         VStack(spacing: 0) {
@@ -278,10 +280,23 @@ struct BppKeyValueRow: View {
                     .foregroundColor(BppColor.text1)
                     .multilineTextAlignment(.trailing)
             }
-            .padding(.horizontal, BppSpace.space16)
+            .padding(.horizontal, inset)
             .frame(minHeight: BppSize.rowHeight)
             if !last { Rectangle().fill(BppColor.line).frame(height: 1) }
         }
+    }
+}
+
+// MARK: - Shapes
+
+/// A rectangle with only its top corners rounded: the launcher's panel over the cover (iOS 15 has no
+/// UnevenRoundedRectangle).
+struct BppTopRoundedRectangle: Shape {
+    var radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        Path(UIBezierPath(roundedRect: rect, byRoundingCorners: [.topLeft, .topRight],
+                          cornerRadii: CGSize(width: radius, height: radius)).cgPath)
     }
 }
 

@@ -94,8 +94,10 @@ enum BppRadius {
     static let rControl: CGFloat = 6
     /// Containers: panels, banners, notes, toasts, popovers, rail items, dialog icon tiles.
     static let rPanel: CGFloat = 8
-    /// Dialog cards only.
+    /// Dialog cards, and in the App launchers the panel's top corners over the cover and the Android dialogs.
     static let rDialog: CGFloat = 12
+    /// The App launchers' touch surfaces: the source row, and the iOS App's full-width buttons. Android buttons are r-pill.
+    static let rTouch: CGFloat = 12
     /// Badges, hero chips and outcome pills: every 24px label is a full pill.
     static let rPill: CGFloat = 999
 }
@@ -122,16 +124,16 @@ enum BppSize {
     static let railWidth: CGFloat = 72
     /// Max width of the installer's main column.
     static let contentMax: CGFloat = 1080
-    /// Minimum hit area of everything tappable in the iOS App and the Android App, and the height of their full-width action buttons. Smaller boxes (banner actions, the account chip) extend their hit area to it. 48pt on iOS (above Apple's 44pt), 48dp on Android.
+    /// Minimum hit area of everything tappable in the iOS App and the Android App, and the height of their full-width action buttons. Smaller boxes (banner actions, the More button) extend their hit area to it. 48pt on iOS (above Apple's 44pt), 48dp on Android.
     static let touchTarget: CGFloat = 48
-    /// Minimum height of the iOS App's and the Android App's top bar: brand mark and product name, with the account chip on iOS. It grows with the system text size.
-    static let appbarHeight: CGFloat = 56
+    /// Minimum height of the App launchers' source row: the Steam account on iOS, the official game on Android. It grows with the system text size.
+    static let sourceRowHeight: CGFloat = 56
     /// The download progress track in the App launchers, the one place the system shows a progress bar.
     static let progressHeight: CGFloat = 4
-    /// Window width at which the App launchers change from one column to two equal panes: iPhone Duo unfolded, iPad, Android tablets and unfolded foldables. Android's compact/medium window-size boundary. Accessibility text sizes keep one column.
+    /// Window width at which the App launchers change from one column to the cover on top of two equal panes: iPhone Duo unfolded, portrait tablets. Android's compact/medium window-size boundary. Accessibility text sizes keep one column.
     static let paneBreakpoint: CGFloat = 600
-    /// Max width of the App launchers' content; it centres in wider windows.
-    static let launcherMax: CGFloat = 960
+    /// Window width at which the App launchers put the cover in the start half and the content in the end half: unfolded foldables and wide tablets. Android's medium/expanded window-size boundary.
+    static let coverPaneBreakpoint: CGFloat = 840
 }
 
 /// One text style: size in points, line height as a multiple, weight.

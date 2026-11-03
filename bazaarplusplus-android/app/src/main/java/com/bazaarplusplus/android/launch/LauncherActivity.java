@@ -3,21 +3,27 @@ package com.bazaarplusplus.android.launch;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
-import android.content.pm.PackageManager;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.bazaarplusplus.android.BuildConfigFacts;
 import com.bazaarplusplus.android.R;
@@ -30,20 +36,29 @@ import java.util.List;
 
 /**
  * The App's start screen (design/components/Launcher). It renders {@link LauncherSession}'s
- * {@link LauncherScreen} into one column, or two equal panes when the window is at least
- * {@code pane-breakpoint} wide, and hands taps back to the session. The Activity handles size and
- * text-scale changes itself (see the manifest), so a fold re-renders the screen
- * without recreating it; the work and its state live in the session either way.
+ * {@link LauncherScreen} into the layout the window width picks (one column; the cover over two
+ * panes from {@code pane-breakpoint}; cover and content side by side from
+ * {@code cover-pane-breakpoint}) and hands taps back to the session. The Activity handles size
+ * and text-scale changes itself (see the manifest), so a fold re-renders the screen without
+ * recreating it; the work and its state live in the session either way.
  */
 public final class LauncherActivity extends Activity implements LauncherSession.Listener {
     static final String TAG = "BppLauncher";
     /** Android font scale from which the panes would be too narrow for their text. */
     private static final float PANES_MAX_FONT_SCALE = 1.3f;
+    private static final String PREFERENCES = "launcher";
+    /** The App version whose update reminder was shown; each version reminds once. */
+    private static final String REMINDED_VERSION = "reminded_version";
+
+    private enum Layout { COLUMN, PANES, WIDE }
 
     private final LauncherSession session = LauncherSession.get();
-    private boolean panes;
+    private Layout layout;
+    private boolean largeText;
     private Insets insets = Insets.NONE;
     private ObjectAnimator pulse;
+    private PopupMenu menu;
+    private Dialog dialog;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -52,6 +67,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         getWindow().setDecorFitsSystemWindows(false);
         inflate(0);
         session.attach(this);
+        session.loadCover(this, getResources().getDisplayMetrics().heightPixels * 3 / 5);
     }
 
     @Override
@@ -65,12 +81,15 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     protected void onDestroy() {
         session.detach(this);
         stopPulse();
+        if (menu != null) menu.dismiss();
+        if (dialog != null) dialog.dismiss();
         super.onDestroy();
     }
 
     @Override
     public void onConfigurationChanged(Configuration config) {
         super.onConfigurationChanged(config);
+        if (menu != null) menu.dismiss();
         ScrollView scroll = findViewById(R.id.scroll);
         inflate(scroll == null ? 0 : scroll.getScrollY());
     }
@@ -89,40 +108,69 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     /** Picks the layout for the current window and text size, then renders the session into it. */
     private void inflate(int scrollY) {
         Configuration config = getResources().getConfiguration();
-        float breakpoint = getResources().getDimension(R.dimen.bpp_pane_breakpoint) / getResources().getDisplayMetrics().density;
-        panes = config.screenWidthDp >= breakpoint && config.fontScale < PANES_MAX_FONT_SCALE;
+        largeText = config.fontScale >= PANES_MAX_FONT_SCALE;
+        if (largeText || config.screenWidthDp < dp(R.dimen.bpp_pane_breakpoint)) layout = Layout.COLUMN;
+        else if (config.screenWidthDp < dp(R.dimen.bpp_cover_pane_breakpoint)) layout = Layout.PANES;
+        else layout = Layout.WIDE;
         stopPulse();
-        setContentView(panes ? R.layout.launcher_panes : R.layout.launcher);
-        View root = findViewById(R.id.scroll);
+        setContentView(layout == Layout.COLUMN ? R.layout.launcher
+                : layout == Layout.PANES ? R.layout.launcher_panes : R.layout.launcher_wide);
+        View root = findViewById(R.id.root);
         root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
             insets = windowInsets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
             pad();
             return WindowInsets.CONSUMED;
         });
-        root.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
-            if (right - left != oldRight - oldLeft) pad();
-        });
         root.requestApplyInsets();
-        // The cover's corners follow the card's (android:clipToOutline is API 31).
-        findViewById(R.id.card).setClipToOutline(true);
-        findViewById(R.id.diagnostics).setOnClickListener(v -> session.exportDiagnostics(this,
-                getString(R.string.diagnostics_exported), getString(R.string.diagnostics_failed)));
-        ((TextView) findViewById(R.id.info_app)).setText(getString(R.string.version_value,
-                BuildConfigFacts.versionName(this)));
+
+        if (layout == Layout.COLUMN && largeText) {
+            // Accessibility text sizes: the stats as rows, so long values never squeeze.
+            View stats = findViewById(R.id.stats);
+            ViewGroup parent = (ViewGroup) stats.getParent();
+            int index = parent.indexOfChild(stats);
+            parent.removeViewAt(index);
+            View rows = getLayoutInflater().inflate(R.layout.launcher_info, parent, false);
+            rows.setId(R.id.rows);
+            parent.addView(rows, index);
+        } else if (layout == Layout.PANES) {
+            // Rows sit beside the end pane's buttons without dividers; the wide content pane keeps them.
+            ((LinearLayout) findViewById(R.id.rows)).setShowDividers(LinearLayout.SHOW_DIVIDER_NONE);
+            // The end pane is at least as tall as the start pane, so its primary lines up with the
+            // last row (a match_parent pane would be cut to the start pane's height instead).
+            View end = findViewById(R.id.end_pane);
+            findViewById(R.id.start_pane).addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop,
+                    oldRight, oldBottom) -> {
+                if (end.getMinimumHeight() != bottom - top) end.setMinimumHeight(bottom - top);
+            });
+        }
+        String version = getString(R.string.version_value, BuildConfigFacts.versionName(this));
+        for (TextView app : views(R.id.info_app)) app.setText(version);
+        findViewById(R.id.source_icon).setClipToOutline(true);
+
+        View more = findViewById(R.id.more);
+        if (layout == Layout.WIDE) more.setBackgroundResource(R.drawable.bpp_more_bare);
+        more.setOnClickListener(this::showMenu);
         render();
-        root.post(() -> root.scrollTo(0, scrollY));
+        View scroll = findViewById(R.id.scroll);
+        scroll.post(() -> scroll.scrollTo(0, scrollY));
     }
 
-    /** The page gutter, plus whatever centres the content within launcher-max, inside the insets. */
+    /** Keeps the panel's content and More clear of the system bars and the cutout; the cover runs under them. */
     private void pad() {
-        View root = findViewById(R.id.scroll);
-        View page = findViewById(R.id.page);
-        int gutter = getResources().getDimensionPixelSize(panes ? R.dimen.bpp_space_24 : R.dimen.bpp_space_16);
-        int max = getResources().getDimensionPixelSize(R.dimen.bpp_launcher_max);
-        int width = root.getWidth() - insets.left - insets.right;
-        int centre = width <= 0 ? 0 : Math.max(0, (width - 2 * gutter - max) / 2);
-        int bottom = getResources().getDimensionPixelSize(R.dimen.bpp_space_24);
-        page.setPadding(insets.left + gutter + centre, insets.top, insets.right + gutter + centre, insets.bottom + bottom);
+        View panel = findViewById(R.id.panel);
+        int gutter = getResources().getDimensionPixelSize(layout == Layout.COLUMN ? R.dimen.bpp_space_16 : R.dimen.bpp_space_24);
+        int top = getResources().getDimensionPixelSize(R.dimen.bpp_space_24);
+        int bottom = getResources().getDimensionPixelSize(layout == Layout.WIDE ? R.dimen.bpp_space_24 : R.dimen.bpp_space_16);
+        if (layout == Layout.WIDE) {
+            panel.setPadding(gutter, insets.top + top, insets.right + gutter, insets.bottom + bottom);
+        } else {
+            panel.setPadding(insets.left + gutter, top, insets.right + gutter, insets.bottom + bottom);
+        }
+        ViewGroup.MarginLayoutParams more = (ViewGroup.MarginLayoutParams) findViewById(R.id.more).getLayoutParams();
+        int edge = getResources().getDimensionPixelSize(R.dimen.bpp_space_8);
+        more.topMargin = insets.top + edge;
+        more.setMarginEnd(insets.right + edge);
+        findViewById(R.id.more).setLayoutParams(more);
     }
 
     private void render() {
@@ -130,17 +178,12 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         if (screen == null) return;
         LaunchCheck check = session.check();
 
-        renderBanners(screen);
-        renderCover(check);
+        renderCover();
         renderStatus(screen);
+        renderFailure(screen);
+        renderSource(screen.source, check);
         renderProgress(screen.progress);
-
-        Button primary = findViewById(R.id.primary);
-        bind(primary, screen.primary);
-        Button[] secondary = {findViewById(R.id.secondary_1), findViewById(R.id.secondary_2)};
-        for (int i = 0; i < secondary.length; i++) {
-            bind(secondary[i], i < screen.secondary.size() ? screen.secondary.get(i) : null);
-        }
+        bind(findViewById(R.id.primary), screen.primary);
 
         List<String> notes = new ArrayList<>();
         for (LauncherScreen.Note note : screen.notes) notes.add(getString(noteText(note)));
@@ -148,66 +191,68 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         notesView.setText(String.join("\n", notes));
         notesView.setVisibility(notes.isEmpty() ? View.GONE : View.VISIBLE);
 
-        ((TextView) findViewById(R.id.info_game)).setText(valueOrEmpty(screen.gameVersion));
-        ((TextView) findViewById(R.id.info_adapted)).setText(valueOrEmpty(screen.adaptedVersion));
+        for (TextView game : views(R.id.info_game)) game.setText(valueOrEmpty(screen.gameVersion));
+        for (TextView adapted : views(R.id.info_adapted)) adapted.setText(valueOrEmpty(screen.adaptedVersion));
 
-        Button diagnostics = findViewById(R.id.diagnostics);
-        diagnostics.setEnabled(!session.exporting());
-        diagnostics.setText(session.exporting() ? R.string.exporting_diagnostics : R.string.export_diagnostics);
-        TextView result = findViewById(R.id.diagnostics_result);
-        result.setText(session.diagnostics());
-        result.setVisibility(session.diagnostics() == null ? View.GONE : View.VISIBLE);
+        remind(screen.appUpdate, screen.adaptedVersion);
+        LauncherSession.Export export = session.takeExport();
+        if (export != null) shareDiagnostics(export);
     }
 
-    private void renderBanners(LauncherScreen screen) {
-        View update = findViewById(R.id.update_banner);
-        if (screen.appUpdate == null) {
-            update.setVisibility(View.GONE);
-        } else {
-            LauncherScreen.AppUpdate app = screen.appUpdate;
-            banner(update, R.drawable.bpp_banner_info, R.drawable.bpp_icon_info,
-                    getString(R.string.app_update_available, app.version));
-            Button action = update.findViewById(R.id.banner_action);
-            action.setVisibility(app.url == null ? View.GONE : View.VISIBLE);
-            action.setText(R.string.download);
-            action.setOnClickListener(v -> open(app.url));
+    /** The stats as columns and as rows: the one-column layout carries both and shows one. */
+    private List<TextView> views(int id) {
+        List<TextView> found = new ArrayList<>();
+        for (int container : new int[] {R.id.stats, R.id.rows}) {
+            View parent = findViewById(container);
+            if (parent != null) found.add(parent.findViewById(id));
         }
+        return found;
+    }
+
+    private void renderCover() {
+        ((CoverView) findViewById(R.id.cover)).setArt(session.cover());
+    }
+
+    private void renderFailure(LauncherScreen screen) {
         View error = findViewById(R.id.error_banner);
         if (screen.failure == null) {
             error.setVisibility(View.GONE);
-        } else {
-            banner(error, R.drawable.bpp_banner_error, R.drawable.bpp_icon_error, getString(
-                    screen.failure.launch ? R.string.launch_failed : R.string.check_failed, screen.failure.message));
-            error.findViewById(R.id.banner_action).setVisibility(View.GONE);
-            error.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_ASSERTIVE);
-        }
-    }
-
-    private static void banner(View banner, int background, int icon, String message) {
-        banner.setVisibility(View.VISIBLE);
-        banner.setBackgroundResource(background);
-        ((ImageView) banner.findViewById(R.id.banner_icon)).setImageResource(icon);
-        ((TextView) banner.findViewById(R.id.banner_message)).setText(message);
-    }
-
-    /** The installed official game's own icon; nothing over the network. */
-    private void renderCover(LaunchCheck check) {
-        ImageView icon = findViewById(R.id.cover_icon);
-        if (check == null || check.game == null) {
-            icon.setVisibility(View.INVISIBLE);
             return;
         }
-        PackageManager pm = getPackageManager();
-        icon.setImageDrawable(check.game.info.loadIcon(pm));
-        icon.setVisibility(View.VISIBLE);
+        error.setVisibility(View.VISIBLE);
+        error.setBackgroundResource(R.drawable.bpp_banner_error);
+        ((ImageView) error.findViewById(R.id.banner_icon)).setImageResource(R.drawable.bpp_icon_error);
+        ((TextView) error.findViewById(R.id.banner_message)).setText(getString(
+                screen.failure.launch ? R.string.launch_failed : R.string.check_failed, screen.failure.message));
+        error.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_ASSERTIVE);
+    }
+
+    /**
+     * The source row: the official game with its own icon, or the publisher's APK beside a Google
+     * Play primary, shown with the promotional art.
+     */
+    private void renderSource(LauncherScreen.Action source, LaunchCheck check) {
+        View row = findViewById(R.id.source);
+        if (source == null) {
+            row.setVisibility(View.GONE);
+            return;
+        }
+        row.setVisibility(View.VISIBLE);
+        ImageView icon = findViewById(R.id.source_icon);
+        if (source == LauncherScreen.Action.OPEN_OFFICIAL && check != null && check.game != null) {
+            icon.setImageDrawable(check.game.info.loadIcon(getPackageManager()));
+        } else {
+            CoverArt.Images art = session.cover();
+            icon.setImageBitmap(art == null ? null : art.promo);
+        }
+        ((TextView) findViewById(R.id.source_label)).setText(actionText(source));
+        row.setOnClickListener(v -> perform(source));
     }
 
     private void renderStatus(LauncherScreen screen) {
         View badge = findViewById(R.id.status_badge);
-        TextView percent = findViewById(R.id.status_percent);
         if (screen.status == null) {
             badge.setVisibility(View.GONE);
-            percent.setVisibility(View.INVISIBLE);
             stopPulse();
             return;
         }
@@ -218,13 +263,9 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         dot.setBackgroundTintList(ColorStateList.valueOf(getColor(colors[0])));
         TextView text = findViewById(R.id.status_text);
         text.setTextColor(getColor(colors[0]));
-        text.setText(statusText(screen.status));
-        if (screen.progress != null) {
-            percent.setText(getString(R.string.percent, screen.progress.percent()));
-            percent.setVisibility(View.VISIBLE);
-        } else {
-            percent.setVisibility(View.INVISIBLE);
-        }
+        String word = getString(statusText(screen.status));
+        text.setText(screen.progress == null ? word
+                : getString(R.string.status_with_percent, word, screen.progress.percent()));
         if (screen.status.tone == LauncherScreen.Tone.BUSY) startPulse(dot);
         else stopPulse();
     }
@@ -242,6 +283,76 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         meta.setVisibility(View.VISIBLE);
         meta.setText(getString(progress.interop ? R.string.progress_interop : R.string.progress_plugin,
                 getString(R.string.size_mb, progress.received / 1e6), getString(R.string.size_mb, progress.total / 1e6)));
+    }
+
+    /** A newer App: a dialog once per version, never a gate. */
+    private void remind(LauncherScreen.AppUpdate update, String adaptedVersion) {
+        if (update == null || (dialog != null && dialog.isShowing())) return;
+        SharedPreferences preferences = getSharedPreferences(PREFERENCES, MODE_PRIVATE);
+        if (update.version.equals(preferences.getString(REMINDED_VERSION, null))) return;
+        preferences.edit().putString(REMINDED_VERSION, update.version).apply();
+        showDialog(getString(R.string.app_update_title, update.version),
+                adaptedVersion == null ? null : getString(R.string.app_update_message, adaptedVersion),
+                R.string.later, update.url == null ? 0 : R.string.download, () -> open(update.url));
+    }
+
+    private void showMenu(View anchor) {
+        menu = new PopupMenu(this, anchor);
+        menu.inflate(R.menu.launcher_more);
+        menu.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.menu_diagnostics) {
+                session.exportDiagnostics(this, getString(R.string.diagnostics_exported),
+                        getString(R.string.diagnostics_failed));
+            } else {
+                showDialog(getString(R.string.app_name),
+                        getString(R.string.about_message, BuildConfigFacts.versionName(this)),
+                        R.string.close, R.string.open_website, () -> open(getString(R.string.url_site)));
+            }
+            return true;
+        });
+        menu.setOnDismissListener(dismissed -> menu = null);
+        menu.show();
+    }
+
+    /** The launcher's dialog: a title, an optional sentence, a text button and an optional primary. */
+    private void showDialog(String title, String message, int dismiss, int confirm, Runnable action) {
+        if (dialog != null) dialog.dismiss();
+        dialog = new Dialog(this, R.style.Theme_Bpp_Dialog);
+        dialog.setContentView(R.layout.launcher_dialog);
+        ((TextView) dialog.findViewById(R.id.dialog_title)).setText(title);
+        TextView body = dialog.findViewById(R.id.dialog_message);
+        body.setText(message);
+        body.setVisibility(message == null ? View.GONE : View.VISIBLE);
+        Button no = dialog.findViewById(R.id.dialog_dismiss);
+        no.setText(dismiss);
+        no.setOnClickListener(v -> dialog.dismiss());
+        Button yes = dialog.findViewById(R.id.dialog_confirm);
+        if (confirm == 0) {
+            yes.setVisibility(View.GONE);
+        } else {
+            yes.setText(confirm);
+            yes.setOnClickListener(v -> {
+                dialog.dismiss();
+                action.run();
+            });
+        }
+        dialog.show();
+    }
+
+    /** The export's result as a toast, then the system share sheet on the saved zip. */
+    private void shareDiagnostics(LauncherSession.Export export) {
+        Toast.makeText(this, export.message, Toast.LENGTH_LONG).show();
+        if (export.saved == null) return;
+        Intent send = new Intent(Intent.ACTION_SEND).setType("application/zip")
+                .putExtra(Intent.EXTRA_STREAM, export.saved.uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        // The share sheet previews the clip by its label: the file name, not the MediaStore row id.
+        send.setClipData(ClipData.newUri(getContentResolver(), export.saved.name, export.saved.uri));
+        try {
+            startActivity(Intent.createChooser(send, getString(R.string.export_diagnostics)));
+        } catch (ActivityNotFoundException e) {
+            AppLog.e(TAG, "nothing shares " + export.saved.uri, e);
+        }
     }
 
     /** Busy dots pulse at 1.2s, unless the system turned animations off. */
@@ -312,8 +423,16 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         }
     }
 
+    /** A dimension token in dp, comparable with {@link Configuration#screenWidthDp}. */
+    private float dp(int dimen) {
+        return getResources().getDimension(dimen) / getResources().getDisplayMetrics().density;
+    }
+
+    /** A version as players know it: "1.0.12825" from "1.0.12825-production-android-d9601ded". */
     private String valueOrEmpty(String value) {
-        return value == null || value.isEmpty() ? getString(R.string.empty_value) : value;
+        if (value == null || value.isEmpty()) return getString(R.string.empty_value);
+        int build = value.indexOf('-');
+        return build > 0 ? value.substring(0, build) : value;
     }
 
     /** The tone's colour and its -subtle fill (design/components/Badge). */

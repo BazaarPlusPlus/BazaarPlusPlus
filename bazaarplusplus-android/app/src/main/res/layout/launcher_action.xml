@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Actions: download progress, the one primary, up to two secondary actions, then notes. -->
+<!-- The bottom of the panel: download progress, then the one primary action. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/action"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
+    android:divider="@drawable/bpp_gap_8"
+    android:orientation="vertical"
+    android:showDividers="middle">
 
   <ProgressBar
       android:id="@+id/progress"
@@ -19,8 +22,6 @@
       style="@style/Bpp.Text.Caption"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="@dimen/bpp_space_8"
-      android:layout_marginBottom="@dimen/bpp_space_8"
       android:fontFeatureSettings="tnum"
       android:visibility="gone" />
 
@@ -28,27 +29,5 @@
       android:id="@+id/primary"
       style="@style/Bpp.Button.Primary"
       android:layout_width="match_parent"
-      android:layout_marginBottom="@dimen/bpp_space_8"
-      android:visibility="gone" />
-
-  <Button
-      android:id="@+id/secondary_1"
-      style="@style/Bpp.Button.Secondary"
-      android:layout_width="match_parent"
-      android:layout_marginBottom="@dimen/bpp_space_8"
-      android:visibility="gone" />
-
-  <Button
-      android:id="@+id/secondary_2"
-      style="@style/Bpp.Button.Secondary"
-      android:layout_width="match_parent"
-      android:layout_marginBottom="@dimen/bpp_space_8"
-      android:visibility="gone" />
-
-  <TextView
-      android:id="@+id/notes"
-      style="@style/Bpp.Text.Caption"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
       android:visibility="gone" />
 </LinearLayout>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Source row: the official game (or the publisher's APK), opened outside the App. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/source"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="@dimen/bpp_source_row_height"
+    android:background="@drawable/bpp_source_row"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="@dimen/bpp_space_12"
+    android:paddingTop="@dimen/bpp_space_8"
+    android:paddingEnd="@dimen/bpp_space_16"
+    android:paddingBottom="@dimen/bpp_space_8"
+    android:visibility="gone">
+
+  <ImageView
+      android:id="@+id/source_icon"
+      android:layout_width="@dimen/bpp_tile"
+      android:layout_height="@dimen/bpp_tile"
+      android:background="@drawable/bpp_tile"
+      android:importantForAccessibility="no"
+      android:scaleType="centerCrop" />
+
+  <TextView
+      android:id="@+id/source_label"
+      style="@style/Bpp.Text.BodyMedium"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/bpp_space_12"
+      android:layout_marginEnd="@dimen/bpp_space_12"
+      android:layout_weight="1" />
+
+  <ImageView
+      android:layout_width="@dimen/bpp_icon_md"
+      android:layout_height="@dimen/bpp_icon_md"
+      android:importantForAccessibility="no"
+      android:src="@drawable/bpp_icon_open" />
+</LinearLayout>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status badge: dot + word in one tone; a running download adds its percentage to the word. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/status_badge"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:minHeight="@dimen/bpp_badge_height"
+    android:accessibilityLiveRegion="polite"
+    android:background="@drawable/bpp_badge"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="@dimen/bpp_space_8"
+    android:paddingEnd="@dimen/bpp_space_8">
+
+  <View
+      android:id="@+id/status_dot"
+      android:layout_width="@dimen/bpp_space_6"
+      android:layout_height="@dimen/bpp_space_6"
+      android:background="@drawable/bpp_dot" />
+
+  <TextView
+      android:id="@+id/status_text"
+      style="@style/Bpp.Text.Small"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/bpp_space_6"
+      android:fontFeatureSettings="tnum" />
+</LinearLayout>

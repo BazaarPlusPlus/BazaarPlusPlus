@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dialog card: bg-panel at r-dialog, inset from the window edges. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="@dimen/bpp_space_24"
+    android:insetRight="@dimen/bpp_space_24">
+  <shape>
+    <corners android:radius="@dimen/bpp_r_dialog" />
+    <solid android:color="@color/bpp_bg_panel" />
+  </shape>
+</inset>

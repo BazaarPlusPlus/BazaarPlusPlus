@@ -2,6 +2,7 @@ package com.bazaarplusplus.android.launch;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -12,13 +13,14 @@ import com.bazaarplusplus.android.game.GameSession;
 import com.bazaarplusplus.android.game.InstalledGame;
 import com.bazaarplusplus.android.release.PlatformManifest;
 
+import java.io.File;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * The launcher's work and state for the whole process: the launch check, a BPP launch, the
- * diagnostics export and the {@link LauncherScreen} they produce. It outlives any one
+ * diagnostics export, the cover art and the {@link LauncherScreen} they produce. It outlives any one
  * {@link LauncherActivity}, so a fold, a text-size change or a recreated Activity
  * re-renders the same screen and never starts a second check or launch while one runs
  * ({@code GameSession.prepare} runs once per process). State is read and written on the main
@@ -48,9 +50,23 @@ final class LauncherSession {
     private LauncherScreen screen;
     private LaunchCheck check;
     private LauncherScreen.Facts facts;
-    /** The last diagnostics export's result line, or null. */
-    private String diagnostics;
+    /** The finished diagnostics export the Activity has not shown yet, or null. */
+    private Export export;
     private boolean exporting;
+    /** Null until the cover art loads, and after the game starts. */
+    private CoverArt.Images cover;
+    private boolean coverRequested;
+
+    /** A finished diagnostics export: the result line, and the zip to share when it was saved. */
+    static final class Export {
+        final String message;
+        final Diagnostics.Exported saved;
+
+        Export(String message, Diagnostics.Exported saved) {
+            this.message = message;
+            this.saved = saved;
+        }
+    }
 
     private LauncherSession() {}
 
@@ -62,12 +78,15 @@ final class LauncherSession {
         return check;
     }
 
-    String diagnostics() {
-        return diagnostics;
+    /** The finished export, once: the Activity shows it and opens the share sheet. */
+    Export takeExport() {
+        Export taken = export;
+        export = null;
+        return taken;
     }
 
-    boolean exporting() {
-        return exporting;
+    CoverArt.Images cover() {
+        return cover;
     }
 
     boolean busy() {
@@ -104,6 +123,23 @@ final class LauncherSession {
         });
     }
 
+    /**
+     * Loads the cover art once per process, on its own thread so a slow store never holds up the
+     * check; {@code minHeight} is the tallest the cover can be in pixels.
+     */
+    void loadCover(Context context, int minHeight) {
+        if (coverRequested) return;
+        coverRequested = true;
+        File dir = new File(context.getApplicationContext().getCacheDir(), "cover");
+        new Thread(() -> {
+            CoverArt.Images art = CoverArt.load(dir, minHeight);
+            post(() -> {
+                cover = art;
+                notifyChanged();
+            });
+        }, "bpp-cover").start();
+    }
+
     void launch(Context context) {
         LaunchCheck current = check;
         LauncherScreen.Facts currentFacts = facts;
@@ -128,6 +164,8 @@ final class LauncherSession {
                     // Not busy any more: a launcher reopened in this process checks again (and a
                     // second launch then says the game already ran, as GameSession requires).
                     screen = LauncherScreen.ready(currentFacts);
+                    // The game shares this process; the launcher's art is not needed any more.
+                    cover = null;
                     if (listener != null) {
                         listener.startGame();
                     } else {
@@ -150,22 +188,23 @@ final class LauncherSession {
         notifyChanged();
         worker.execute(() -> {
             String message;
+            Diagnostics.Exported saved = null;
             try {
                 String state = "app: " + app.getPackageName() + " " + BuildConfigFacts.versionName(app) + " ("
                         + BuildConfigFacts.versionCode(app) + ")\n"
                         + (current == null ? "tier: not checked\n" : current.describe());
-                String name = Diagnostics.export(app, Diagnostics.collect(AppFiles.external(app), AppLog.file(),
+                saved = Diagnostics.export(app, Diagnostics.collect(AppFiles.external(app), AppLog.file(),
                         LaunchRecord.PATH, state));
-                AppLog.i(LauncherActivity.TAG, "exported diagnostics " + name);
-                message = String.format(Locale.ROOT, exportedFormat, name);
+                AppLog.i(LauncherActivity.TAG, "exported diagnostics " + saved.name);
+                message = String.format(Locale.ROOT, exportedFormat, saved.name);
             } catch (Throwable t) {
                 AppLog.e(LauncherActivity.TAG, "diagnostics export failed", t);
                 message = String.format(Locale.ROOT, failedFormat, String.valueOf(t.getMessage()));
             }
-            String shown = message;
+            Export done = new Export(message, saved);
             post(() -> {
                 exporting = false;
-                diagnostics = shown;
+                export = done;
                 notifyChanged();
             });
         });
@@ -181,9 +220,11 @@ final class LauncherSession {
             update = LauncherScreen.appUpdate(releaseBuild, BuildConfigFacts.versionCode(app), manifest.app.versionCode,
                     manifest.version, manifest.app.file.url);
         }
+        PackageManager pm = app.getPackageManager();
         return new LauncherScreen.Facts(check.decision, check.game == null ? null : check.game.versionName,
                 manifest == null ? null : manifest.game.gameVersion, check.manifest != null && check.manifest.fromCache,
-                check.lastModsInstallFailed, check.facts == null, check.devInterop != null, update);
+                check.lastModsInstallFailed, check.facts == null, check.devInterop != null, update,
+                InstalledGame.playStoreInstalled(pm), check.game != null && check.game.installedFromPlay(pm));
     }
 
     private void show(LauncherScreen next) {

@@ -1,38 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher in one column (design/components/Launcher): narrow windows and accessibility text
-     sizes. LauncherActivity sets the page padding from the system bar insets. -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/scroll"
+<!-- The launcher in one column (design/components/Launcher): the cover full bleed under the status
+     bar, the panel rising 24 over its bottom edge, the primary at the panel's bottom. The panel
+     takes the height it needs and the cover the rest; when the panel needs more, the page scrolls.
+     LauncherActivity pads the panel and places More by the system bar insets. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:layout_height="match_parent">
 
-  <LinearLayout
-      android:id="@+id/page"
+  <ScrollView
+      android:id="@+id/scroll"
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:orientation="vertical">
+      android:layout_height="match_parent"
+      android:fillViewport="true">
 
-    <include layout="@layout/launcher_app_bar" />
-
-    <include android:id="@+id/update_banner" layout="@layout/launcher_banner" />
-
-    <include android:id="@+id/error_banner" layout="@layout/launcher_banner" />
-
-    <include layout="@layout/launcher_card" />
-
-    <Space
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/bpp_space_16" />
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
 
-    <include layout="@layout/launcher_actions" />
+      <com.bazaarplusplus.android.launch.CoverView
+          android:id="@+id/cover"
+          android:layout_width="match_parent"
+          android:layout_height="0dp"
+          android:layout_weight="1" />
 
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/bpp_space_16" />
+      <LinearLayout
+          android:id="@+id/panel"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="@dimen/bpp_negative_space_24"
+          android:background="@drawable/bpp_sheet"
+          android:divider="@drawable/bpp_gap_16"
+          android:orientation="vertical"
+          android:paddingTop="@dimen/bpp_space_24"
+          android:showDividers="middle">
 
-    <include layout="@layout/launcher_info" />
+        <include layout="@layout/launcher_title" />
 
-    <include layout="@layout/launcher_footer" />
-  </LinearLayout>
-</ScrollView>
+        <!-- At accessibility text sizes LauncherActivity swaps in launcher_info's rows. -->
+        <include android:id="@+id/stats" layout="@layout/launcher_stats" />
+
+        <include android:id="@+id/error_banner" layout="@layout/launcher_banner" />
+
+        <TextView
+            android:id="@+id/notes"
+            style="@style/Bpp.Text.Caption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <include layout="@layout/launcher_source" />
+
+        <include layout="@layout/launcher_action" />
+      </LinearLayout>
+    </LinearLayout>
+  </ScrollView>
+
+  <include layout="@layout/launcher_more" />
+</FrameLayout>
