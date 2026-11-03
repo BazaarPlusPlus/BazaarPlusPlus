@@ -39,4 +39,11 @@ internal sealed class AndroidScreenFillHost : IScreenFillHost
         var view = UnityEngine.Object.FindObjectOfType<ClockViewController>();
         return view != null ? view.transform : null;
     }
+
+    public Transform? FindDayChangeOverlay()
+    {
+        var view = UnityEngine.Object.FindObjectOfType<Il2Cpp.NewDayTransition>(true);
+        var root = view != null ? view.rootGameObject : null;
+        return root != null ? root.transform : null;
+    }
 }

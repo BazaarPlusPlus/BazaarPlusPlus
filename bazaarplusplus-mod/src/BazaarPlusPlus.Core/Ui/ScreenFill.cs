@@ -102,6 +102,19 @@ public static class ScreenFill
     }
 
     /// <summary>
+    /// How many times smaller a camera widened from <paramref name="fieldOfView"/> to
+    /// <paramref name="widened"/> degrees draws the world: the scale across the view that gives a
+    /// world-space overlay made for the game's lens back its size. 1 when the lens is unchanged.
+    /// </summary>
+    public static float ViewStretch(float fieldOfView, float widened) =>
+        fieldOfView > 0f
+            ? (float)(
+                Math.Tan(widened * 0.5 * Math.PI / 180.0)
+                / Math.Tan(fieldOfView * 0.5 * Math.PI / 180.0)
+            )
+            : 1f;
+
+    /// <summary>
     /// How far, in screen pixels, the board must move down so that its bottom edge (the vault's,
     /// <paramref name="vaultBottomFromTop"/> pixels down from the top) sits a margin above the
     /// screen's safe bottom (<paramref name="safeAreaYMin"/>, up from the bottom). Zero or less

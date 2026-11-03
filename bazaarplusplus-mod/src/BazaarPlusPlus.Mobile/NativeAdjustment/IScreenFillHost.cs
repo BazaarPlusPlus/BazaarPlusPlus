@@ -25,4 +25,10 @@ internal interface IScreenFillHost
 
     /// <summary>The day clock, the encounter prefab <c>ClockViewController</c> sits on, or null.</summary>
     Transform? FindDayClock();
+
+    /// <summary>
+    /// The day-change overlay, the root <c>NewDayTransition</c> shows for the day change (active
+    /// only while it plays), or null.
+    /// </summary>
+    Transform? FindDayChangeOverlay();
 }

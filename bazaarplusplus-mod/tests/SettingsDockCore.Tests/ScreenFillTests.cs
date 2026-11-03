@@ -78,8 +78,14 @@ public sealed class ScreenFillTests
     {
         var aspect = 4f / 3f;
         var widened = ScreenFill.WidenedFieldOfView(30f, aspect);
-        var stretch = Math.Tan(widened * Math.PI / 360) / Math.Tan(30 * Math.PI / 360);
-        Assert.Equal(1.12, stretch, 4);
+        Assert.Equal(1.12, ScreenFill.ViewStretch(30f, widened), 4);
+    }
+
+    [Fact]
+    public void An_unchanged_lens_has_no_stretch()
+    {
+        Assert.Equal(1f, ScreenFill.ViewStretch(30f, 30f), 5);
+        Assert.Equal(1f, ScreenFill.ViewStretch(0f, 30f));
     }
 
     [Fact]

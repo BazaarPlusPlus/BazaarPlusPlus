@@ -38,4 +38,13 @@ internal sealed class TouchScreenFillHost : IScreenFillHost
         var view = UnityEngine.Object.FindFirstObjectByType<ClockViewController>();
         return view != null ? view.transform : null;
     }
+
+    public Transform? FindDayChangeOverlay()
+    {
+        var view = UnityEngine.Object.FindFirstObjectByType<global::NewDayTransition>(
+            FindObjectsInactive.Include
+        );
+        var root = view != null ? view.rootGameObject : null;
+        return root != null ? root.transform : null;
+    }
 }
