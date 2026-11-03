@@ -90,8 +90,9 @@ jobs:
             echo "BPP_METRICS_R2_PREFIX=metrics/v6"
             echo "CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID"
             echo "CLOUDFLARE_API_TOKEN=$CLOUDFLARE_API_TOKEN"
-            # The V6 Bundle Server went live on this Source Day.
-            echo "BPP_SOURCE_EPOCH=2026-10-11"
+            # The first full Source Day of 6.0.0 traffic; 6.0.0 shipped on 2026-10-29,
+            # and earlier days hold only pre-release Bundles.
+            echo "BPP_SOURCE_EPOCH=2026-10-30"
             echo "BPP_MAX_RUN_SECONDS=18000"
             echo "BPP_DUCKDB_THREADS=4"
           } > .env
