@@ -112,7 +112,7 @@ A download with a known size is the one progress bar in the system. It is a `pro
 
 | Key | English | Value |
 |---|---|---|
-| 游戏版本 | Game version | The installed game's version, or —: `versionName` on Android, the downloaded build's short version on iOS. |
+| 游戏版本 | Game version | The installed game's version, or —: the short form of `versionName` on Android ("1.0.12825"), the downloaded build's short version on iOS. |
 | 适配版本 | Adapted version | The game version this release adapts: the manifest's `game.gameVersion` on Android, the short form of `testedGameVersion` on iOS. |
 | BazaarPlusPlus | BazaarPlusPlus | The App's version, "v6.2.0". |
 

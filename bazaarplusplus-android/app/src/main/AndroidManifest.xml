@@ -20,7 +20,7 @@
       android:icon="@mipmap/ic_launcher"
       android:appComponentFactory="com.bazaarplusplus.android.GameComponentFactory"
       android:allowBackup="false"
-      android:supportsRtl="true"
+      android:supportsRtl="false"
       android:extractNativeLibs="true"
       android:hardwareAccelerated="true"
       tools:replace="android:appComponentFactory"
