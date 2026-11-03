@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher from pane-breakpoint to cover-pane-breakpoint (design/components/Launcher): the
+<!-- The launcher from pane-breakpoint, unless launcher_wide applies (design/components/Launcher): the
      cover on top, the panel below in two equal panes 24 apart, so a book-style fold falls in the
      gutter. The end pane is at least as tall as the start pane (LauncherActivity) and pins the
      primary to its bottom. -->

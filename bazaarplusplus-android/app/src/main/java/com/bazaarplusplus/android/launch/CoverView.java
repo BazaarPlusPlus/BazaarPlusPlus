@@ -11,7 +11,7 @@ import com.bazaarplusplus.android.R;
 /**
  * The launcher's cover (design/components/Launcher, Cover art). A wide cover (short, when the panel
  * takes most of the window) shows the library hero cropped around the hunter's face; any other
- * cover (phones, the cover pane from cover-pane-breakpoint) shows the promotional hero capsule
+ * cover (phones, tablets, the cover pane) shows the promotional hero capsule
  * from its top, so the logo stays in view. Plain bg-hover until the art decodes. Laid out by
  * weight, it takes whatever height the layout gives it; measured freely (the page scrolls), it is
  * half as tall as it is wide.

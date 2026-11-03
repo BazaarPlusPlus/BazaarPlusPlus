@@ -4,8 +4,9 @@ import UIKit
 // The launcher (design/components/Launcher): the cover full bleed under the status bar, a panel
 // rising over its bottom edge with the title line, the stats, the Steam account row and the
 // primary pinned at the bottom, and one floating More button. Below pane-breakpoint it is one
-// column; up to cover-pane-breakpoint the panel splits into two equal panes under the cover (the
-// iPhone Duo unfolded); wider, the cover and the content sit side by side (iPad). Accessibility
+// column; from it the panel splits into two equal panes under the cover (the iPhone Duo unfolded,
+// iPads); from cover-pane-breakpoint in a window wider than tall, the cover and the content sit
+// side by side, which the portrait-only launcher reaches only if the system ignores it. Accessibility
 // text sizes keep one column. The launcher is portrait only (app/Host/main.mm).
 
 // MARK: - Root
@@ -33,7 +34,9 @@ struct LauncherPage: View {
             // The window's width: the iPhone Duo folded keeps its status bar in a side inset.
             let width = proxy.size.width + proxy.safeAreaInsets.leading + proxy.safeAreaInsets.trailing
             let large = typeSize.isAccessibilitySize
-            let wide = !large && width >= BppSize.coverPaneBreakpoint
+            let windowHeight = proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
+            // A window as tall as it is wide keeps the cover on top: half of it would be too narrow to show the logo.
+            let wide = !large && width >= BppSize.coverPaneBreakpoint && width > windowHeight
             ZStack(alignment: .topTrailing) {
                 if wide {
                     WideLayout(insets: proxy.safeAreaInsets, height: proxy.size.height)
@@ -85,7 +88,7 @@ private struct StackedLayout: View {
     }
 }
 
-/// From cover-pane-breakpoint: the cover fills the start half at full height, the content the end
+/// From cover-pane-breakpoint in a window wider than tall: the cover fills the start half at full height, the content the end
 /// half, vertically centred.
 private struct WideLayout: View {
     let insets: EdgeInsets
@@ -193,7 +196,7 @@ private struct Panel: View {
     }
 }
 
-/// The content pane from cover-pane-breakpoint.
+/// The content pane beside the cover.
 private struct WidePanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: BppSpace.space16) {
