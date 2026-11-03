@@ -1,20 +1,23 @@
-The start screen of the iOS App and the Android App: one game, its status and the actions that status allows. Each App builds it in its own native UI (SwiftUI on iOS, Android Views on Android) from this spec and the generated tokens. They differ only in where the game comes from. The iOS App signs in to Steam and downloads the Mac build; the Android App loads the official game the player installed.
+The start screen of the iOS App and the Android App: one game, its status and the one action that status allows, laid out like a native mobile app rather than a web page. Each App builds it in its own native UI (SwiftUI on iOS, Android Views on Android) from this spec and the generated tokens. They differ only in where the game comes from. The iOS App signs in to Steam and downloads the Mac build; the Android App loads the official game the player installed.
 
 Source:
 - iOS: `bazaarplusplus-ios/app/Launcher/LauncherViews.swift` over `app/Theme/` (the generated `BppTokens.g.swift` and the hand-written `BppViews.swift`).
-- Android: `bazaarplusplus-android/app/src/main/res/layout/launcher.xml` and `launcher_panes.xml` (with their `launcher_*` parts), `launch/LauncherScreen.java` (what to show) and `launch/LauncherActivity.java` (rendering), over the generated `bpp_tokens.xml`.
+- Android: `bazaarplusplus-android/app/src/main/res/layout/launcher.xml`, `launcher_panes.xml` and `launcher_wide.xml` (with their `launcher_*` parts), `launch/LauncherScreen.java` (what to show) and `launch/LauncherActivity.java` (rendering), over the generated `bpp_tokens.xml`.
 
 ## Anatomy
 
-One page, no navigation. In order:
+One page, no navigation, no app bar and no footer. In order:
 
-1. **App bar.** At least `appbar-height` (56) on `bg-canvas`, no border. The brand mark at 24 and "BazaarPlusPlus" in `body-strong` sit on the page's start edge. The trailing slot holds the iOS account chip: a `control-md` pill on `bg-panel` with a `line` border, holding a status dot and the Steam account name, or 登录 Steam / Sign in to Steam. The Android App has no account, so its slot is empty.
-2. **Banners.** Full width, above everything else: first the App update, then a failure. Each is a StatusBanner whose action is an `sm` secondary button.
-3. **Game card.** A Panel at `r-dialog` (12) holding the cover, then a 16 inset with the game name ("The Bazaar", `title`) above the status badge. While a download runs, its percentage sits at the end of the badge's line.
-   - **Cover.** 2:1 on `bg-hover`, with no gradient, scrim, logo overlay or shadow. iOS shows the Steam store's library hero, fetched at runtime (never bundled) and centre-cropped. Android shows the installed official game's own icon at 64, centred, which is read from the package manager without network. Until art loads, or when there is none, the cover is plain `bg-hover`.
-4. **Actions.** One primary and up to two secondary buttons, each the full width of its column, `touch-target` high, `r-control`, 8 apart: `body-strong` on the primary, `body-medium` on the others. Above them while a download runs is the progress block. Below them are notes in `caption` / `text-2`, each one sentence.
-5. **Info.** A Panel of key-value rows at least `row-height` (52) tall: the key in `text-3`, the value in `text-1` with tabular figures, end-aligned.
-6. **Footer.** Ghost buttons for support actions: 导出诊断信息 / Export diagnostics on Android, with its result as a `caption` line below.
+1. **Cover.** The game's art, full bleed from the top edge of the screen: the status bar sits over the art, with no gradient, scrim, logo overlay or shadow. It runs 24 under the panel. Until art loads, or when there is none, the cover is plain `bg-hover`.
+2. **More.** One floating button at the top end, inside the status bar inset, its hit area `touch-target`. iOS shows ⋯ on a `control-md` circle on `bg-panel` with a `line-strong` border and opens a pull-down menu; Android shows ⋮ on a 40 `bg-panel` circle and opens a popup menu. The menu holds 导出诊断信息 / Export diagnostics (Android only) and 关于 / About.
+3. **Panel.** `bg-canvas`, top corners `r-dialog` (12), rising 24 over the cover's bottom edge. Inset 24 at the top and 16 at the sides (24 in panes), the safe area below. Its parts are 16 apart:
+   - **Title line.** "The Bazaar" in `display`, with the status badge at the line's end. While a download runs, the badge carries the percentage: "正在下载… 27%".
+   - **Stats.** Three equal columns, 游戏版本 / 适配版本 / BazaarPlusPlus: the key in `caption` / `text-3` above the value in `body-strong` with tabular figures. At accessibility text sizes they are key-value rows instead, so long values never squeeze.
+   - **Banners.** A failure, as an `error` StatusBanner; on iOS also the App update (see App update).
+   - **Notes.** `caption` / `text-2`, each one sentence.
+   - **Source row.** The one list row: where the game comes from (see Source row).
+   - **Progress.** While a download with a known size runs (see Progress).
+   - **Primary.** Pinned to the bottom of the panel (see Actions by status).
 
 ## Layout
 
@@ -22,16 +25,21 @@ The launcher is portrait only on every device, the iPhone Duo's outer and inner 
 
 | Window | Layout |
 |---|---|
-| narrower than `pane-breakpoint` (600) | **One column**: app bar, banners, game card, actions, info, footer. Page gutter 16. Phones, iPhone Duo folded, a foldable's cover screen. |
-| `pane-breakpoint` and wider | **Two equal panes** under the app bar and banners, 24 apart. The start pane holds the game card; the end pane holds the actions, info and footer. Page gutter 24, content at most `launcher-max` (960) and centred. iPhone Duo unfolded, iPad, Android tablets, unfolded foldables. |
+| narrower than `pane-breakpoint` (600) | **One column**: the cover on top, the panel below it. Phones, iPhone Duo folded (466 wide), a foldable's cover screen. |
+| `pane-breakpoint` to `cover-pane-breakpoint` (840) | **Cover on top, two panes below.** The panel splits into two equal panes 24 apart. The start pane holds the title line and the stats as key-value rows without dividers; the end pane holds the banners, notes, source row, progress and primary. iPhone Duo unfolded (669 × 951), portrait tablets. |
+| `cover-pane-breakpoint` and wider | **Cover pane and content pane.** The cover fills the start half at full height; the content fills the end half, vertically centred with a 24 inset: the title with the badge on the line below it, the stats as key-value rows with `line` dividers, then the banners, notes, primary and source row. More floats at the content pane's top end, without its circle. Unfolded foldables, landscape-wide tablets. |
 
+- **The panel takes the height it needs; the cover takes the rest**, at least half its width. When the panel needs more than the window, the page scrolls as one, and the primary follows the content instead of pinning.
 - **Accessibility text sizes keep one column** whatever the width: iOS accessibility Dynamic Type sizes, and Android font scale 1.3 and above.
-- **The fold falls in the gutter.** The panes are equal and the content is centred, so on a foldable whose inner screen is portrait, such as the iPhone Duo, the hinge falls in the 24 gutter and nothing straddles it.
-- **The panes line up.** Both start at the same top edge, so the end pane's first button aligns with the top of the cover.
-- **The page scrolls as one.** Nothing is pinned except the system bars. Content keeps clear of the safe areas (iOS) and the system bar and cutout insets (Android draws edge to edge).
+- **The fold falls in the gutter.** The two panes are equal, so on a foldable whose inner screen is portrait, such as the iPhone Duo, the hinge falls in the 24 gutter and nothing straddles it.
+- **Nothing is drawn into the system areas** except the cover. Content keeps clear of the safe areas (iOS) and the system bar and cutout insets (Android draws edge to edge).
 - **A fold or a text-size change only re-lays the page out.** The App keeps its state and any running check or download.
   - The iOS App runs full screen (`UIRequiresFullScreen`), because the game shares its window, so it offers no Split View or Slide Over.
   - The Android App keeps its check and launch state in the process, not in the Activity.
+
+## Cover art
+
+Both Apps show the Steam store's library hero for The Bazaar, fetched at runtime from the public store API and cached on the device, centre-cropped from the top. Nothing is bundled: Valve rotates the hashed asset paths, and the Apps must not redistribute store art. The image is decoded no larger than the screen, because the game later shares the App's process.
 
 ## Status
 
@@ -54,48 +62,69 @@ The badge is the Badge component: dot + word, one tone. Both Apps use the same w
 | 正在下载… | Downloading… | busy | Game download | Interop or plugin download |
 | 正在准备… | Preparing… | busy | Any other service work | Staging before the game starts |
 
-When the check itself fails, or the iOS runtime cannot start, there is no status: the card shows no badge and the failure is a banner.
+When the check itself fails, or the iOS runtime cannot start, there is no status: the title line shows no badge and the failure is a banner.
+
+## Source row
+
+The panel's one list row, in the same place on both Apps: at least `source-row-height` (56), `bg-panel`, `r-touch` (12), a 32 leading tile, the label in `body-medium`, a trailing glyph in `text-3`.
+
+| App | Row | Tap |
+|---|---|---|
+| iOS | A person glyph on a `bg-selected` circle, the Steam account name (or 登录 Steam / Sign in to Steam), "Steam" in `caption` and › | Opens the Steam sign-in sheet; signed in, it shows the account and 退出登录 |
+| Android | The official game's icon at `r-panel`, 打开官方游戏 / Open the official game, ↗ | Opens the official game untouched |
+| Android, game not installed or to be replaced, Google Play installed | The cover art, 从发行商下载 / Download from the publisher, ↗ | Opens the publisher's APK in the browser |
+
+Android shows no row when neither applies. A busy launcher keeps the row but ignores taps on Android.
 
 ## Actions by status
 
-The primary is the one thing to do next, written as verb + object. A primary that cannot run now is hidden, not disabled; the status and a note say why.
+The primary is the one thing to do next, written as verb + object. It is `touch-target` high and the full width of its column: `r-touch` (12) on iOS, `r-pill` on Android. A primary that cannot run now is hidden, not disabled; the status and a note say why.
 
-| Status | Primary | Secondary |
-|---|---|---|
-| 可以开始, 兼容模式 | 开始游戏 / Play | 打开官方游戏 / Open the official game (Android) |
-| 等待适配, Pre-Adaptation available (Android) | 启用兼容模式 / Turn on Compatibility Mode | 打开官方游戏 |
-| 等待适配 without one, 未发布 | none | 打开官方游戏 (Android) |
-| 离线 | 重试 / Retry | 打开官方游戏 |
-| 未安装, 已下载 (iOS, signed out) | 连接 Steam / Connect Steam | 继续以 {account} 登录 / Continue as {account}, when a session is remembered |
-| 未安装 (iOS, signed in) | 下载游戏 / Download the game | |
-| 已下载 (iOS, signed in) | 校验并准备游戏 / Verify and prepare the game | |
-| 未安装, 需要更换 (Android) | 从 Google Play 安装 / Install from Google Play | 从发行商下载 / Download from the publisher |
-| 需要更新游戏 | 从 Google Play 更新 / Update from Google Play | 从发行商下载, 打开官方游戏 |
-| busy | none | 取消 / Cancel (iOS, while signing in or downloading) |
-| failure (no status) | 重试 (Android) | 打开官方游戏 when the game is installed (Android) |
+| Status | Primary |
+|---|---|
+| 可以开始, 兼容模式 | 开始游戏 / Play |
+| 等待适配, Pre-Adaptation available (Android) | 启用兼容模式 / Turn on Compatibility Mode |
+| 等待适配 without one, 未发布, 暂不支持 | none |
+| 离线 | 重试 / Retry |
+| 未安装, 已下载 (iOS, signed out) | 连接 Steam / Connect Steam |
+| 未安装 (iOS, signed in) | 下载游戏 / Download the game |
+| 已下载 (iOS, signed in) | 校验并准备游戏 / Verify and prepare the game |
+| 未安装, 需要更换 (Android) | 从 Google Play 安装 / Install from Google Play when Google Play is installed; otherwise 从发行商下载 ↗ |
+| 需要更新游戏 (Android) | 从 Google Play 更新 / Update from Google Play when Google Play is installed and the game came from it; otherwise 从发行商下载 ↗ |
+| busy | 取消 / Cancel, as a secondary button (iOS, while signing in or downloading); otherwise none |
+| failure (no status) | 重试 (Android) |
 
-- **打开官方游戏 opens the official App untouched.** It becomes the iOS App's secondary as well once an official iOS game exists.
+- **The install source follows the device.** The Android App reads whether Google Play is installed and, for an update, which store installed the game (`PackageManager.getInstallSourceInfo`). A device without Google Play never sees a Google Play action.
 - **A failed launch or service step keeps its status and actions.** The failure shows as an `error` banner above them: "未能启动游戏：{reason}" on Android, the service's message on iOS. Android's primary becomes 重试.
 
 ## App update
 
-A newer BazaarPlusPlus App, on either platform, is a reminder, never a gate: an `info` banner reading "BazaarPlusPlus v{version} 已发布。" / "BazaarPlusPlus v{version} is out.", with a 下载 / Download action when the release links one. It never hides an action of its own accord.
+A newer BazaarPlusPlus App, on either platform, is a reminder, never a gate. It never hides an action of its own accord.
+
+- **Android: a dialog, once per version.** A Material dialog on `bg-panel` at `r-dialog`: the brand mark at 32, "BazaarPlusPlus v{version} 已发布" in `title`, "适配游戏版本 {gameVersion}。" in `text-2`, then 稍后 / Later (text) and 下载 / Download (`r-pill` primary, only when the release links a download). Either button closes it; it does not come back for that version.
+- **iOS: a banner.** An `info` StatusBanner in the panel reading "BazaarPlusPlus v{version} 已发布。" / "BazaarPlusPlus v{version} is out.", with a 下载 / Download action when the release links one.
 
 ## Progress
 
 A download with a known size is the one progress bar in the system. It is a `progress-height` (4) track on `bg-hover` with an `accent` fill and `r-pill` ends. Under it, one `caption` line in tabular figures says what and how much: "1.2 GB / 4.5 GB · 12 MB/s · 5 分钟" on iOS, "插件 · 12.3 MB / 40.0 MB" on Android. The busy badge carries the step and the percentage, so there is no second label. Work without a known size shows only the busy badge.
 
-## Info rows
+## Stats
 
 | Key | English | Value |
 |---|---|---|
-| 游戏版本 | Game version | The installed official game's `versionName`, or —. Android only: the iOS App always runs the adapted version. |
+| 游戏版本 | Game version | The installed game's version, or —: `versionName` on Android, the downloaded build's short version on iOS. |
 | 适配版本 | Adapted version | The game version this release adapts: the manifest's `game.gameVersion` on Android, the short form of `testedGameVersion` on iOS. |
 | BazaarPlusPlus | BazaarPlusPlus | The App's version, "v6.2.0". |
 
+## More menu
+
+- **导出诊断信息 / Export diagnostics** (Android): writes the redacted zip to Download, then opens the system share sheet on it; the result shows as a toast. The iOS App has no export yet: its logs need the same redaction first.
+- **关于 / About**: a dialog with "BazaarPlusPlus v{version}" and a link to bazaarplusplus.com.
+
 ## Platform notes
 
-- **Type follows the system text size.** Android uses `sp`; iOS uses Dynamic Type, scaling each style relative to body. Bars, badges, rows and buttons have minimum heights, never fixed ones, so they grow with their text.
-- **Hit areas are at least 48.** Every tappable thing has a hit area of at least `touch-target` (48) in both directions. The full-width action and footer buttons are 48 high. The account chip (`control-md`) and banner actions (`sm`) keep their box and extend their hit area past it.
+- **Type follows the system text size.** Android uses `sp`; iOS uses Dynamic Type, scaling each style relative to body. Rows, badges and buttons have minimum heights, never fixed ones, so they grow with their text.
+- **Hit areas are at least 48.** Every tappable thing has a hit area of at least `touch-target` (48) in both directions. More (`control-md`) and banner actions (`sm`) keep their box and extend their hit area past it.
 - **Almost nothing moves.** Busy dots pulse at 1.2s, and a pressed button takes `accent-hover` (primary) or `bg-hover` (the others) over `t-fast`. Reduce Motion stops the pulse.
-- **iOS-only flows** (the Steam sign-in sheet and first-run onboarding) open over this page and use the same tokens.
+- **One dark theme.** Neither App follows the system light mode or, on Android, Material You dynamic colour.
+- **iOS-only flows** (the Steam sign-in sheet and first-run onboarding) open over this page and use the same tokens; their buttons are `r-touch`.

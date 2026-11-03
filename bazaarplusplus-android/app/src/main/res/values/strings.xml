@@ -5,9 +5,10 @@
   <!-- The official game's store page and the publisher's APK (release/game-libs.mjs OFFICIAL_ANDROID_APK_URL). -->
   <string name="url_play" translatable="false">https://play.google.com/store/apps/details?id=com.tempogames.thebazaar</string>
   <string name="url_publisher" translatable="false">https://data.playthebazaar.com/game/android/TheBazaar.apk</string>
+  <string name="url_site" translatable="false">https://bazaarplusplus.com</string>
   <string name="size_mb" translatable="false">%1$.1f MB</string>
   <string name="version_value" translatable="false">v%1$s</string>
-  <string name="percent" translatable="false">%1$d%%</string>
+  <string name="status_with_percent" translatable="false">%1$s %2$d%%</string>
   <string name="empty_value" translatable="false">—</string>
 
   <!-- Status words: design/components/Launcher, the same words as the iOS App. -->
@@ -40,7 +41,6 @@
   <string name="last_install_failed">The last plugin install failed. This launch installs it again; if it fails again, export diagnostics.</string>
   <string name="runtime_missing">This build has no BPP runtime yet.</string>
   <string name="dev_interop">Using the Development interop.</string>
-  <string name="app_update_available">BazaarPlusPlus v%1$s is out.</string>
   <string name="progress_interop">Interop · %1$s / %2$s</string>
   <string name="progress_plugin">Plugin · %1$s / %2$s</string>
   <string name="check_failed">Couldn’t check the game: %1$s</string>
@@ -50,7 +50,15 @@
   <string name="info_adapted_version">Adapted version</string>
 
   <string name="export_diagnostics">Export diagnostics</string>
-  <string name="exporting_diagnostics">Exporting diagnostics…</string>
   <string name="diagnostics_exported">Diagnostics saved to Download: %1$s</string>
   <string name="diagnostics_failed">Couldn’t export diagnostics: %1$s</string>
+
+  <string name="more">More</string>
+  <string name="about">About</string>
+  <string name="later">Later</string>
+  <string name="close">Close</string>
+  <string name="open_website">Open website</string>
+  <string name="app_update_title">BazaarPlusPlus v%1$s is out</string>
+  <string name="app_update_message">It adapts game version %1$s.</string>
+  <string name="about_message">Version %1$s · bazaarplusplus.com</string>
 </resources>

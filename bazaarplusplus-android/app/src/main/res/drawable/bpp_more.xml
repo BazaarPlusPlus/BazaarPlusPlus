@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The floating More button over the cover: a 40 circle on bg-panel (bg-hover while pressed),
+     centred in its touch-target hit area. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="@dimen/bpp_space_4">
+  <selector>
+    <item android:state_pressed="true">
+      <shape android:shape="oval"><solid android:color="@color/bpp_bg_hover" /></shape>
+    </item>
+    <item>
+      <shape android:shape="oval"><solid android:color="@color/bpp_bg_panel" /></shape>
+    </item>
+  </selector>
+</inset>

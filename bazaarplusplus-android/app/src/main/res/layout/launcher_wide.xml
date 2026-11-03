@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher from cover-pane-breakpoint (design/components/Launcher): the cover fills the start
+     half at full height; the content fills the end half, vertically centred. More floats at the
+     content pane's top end, without its circle. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:baselineAligned="false"
+      android:orientation="horizontal">
+
+    <com.bazaarplusplus.android.launch.CoverView
+        android:id="@+id/cover"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1" />
+
+    <ScrollView
+        android:id="@+id/scroll"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+      <LinearLayout
+          android:id="@+id/panel"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:divider="@drawable/bpp_gap_16"
+          android:gravity="center_vertical"
+          android:orientation="vertical"
+          android:paddingTop="@dimen/bpp_space_24"
+          android:showDividers="middle">
+
+        <TextView
+            style="@style/Bpp.Text.Display"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityHeading="true"
+            android:text="@string/game_name" />
+
+        <include layout="@layout/launcher_badge" />
+
+        <include android:id="@+id/rows" layout="@layout/launcher_info" />
+
+        <include android:id="@+id/error_banner" layout="@layout/launcher_banner" />
+
+        <TextView
+            android:id="@+id/notes"
+            style="@style/Bpp.Text.Caption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <include layout="@layout/launcher_action" />
+
+        <include layout="@layout/launcher_source" />
+      </LinearLayout>
+    </ScrollView>
+  </LinearLayout>
+
+  <include layout="@layout/launcher_more" />
+</FrameLayout>

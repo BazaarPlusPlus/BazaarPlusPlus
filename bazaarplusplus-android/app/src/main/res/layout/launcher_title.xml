@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Title line: the game name, with the status badge at the line's end. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+  <TextView
+      style="@style/Bpp.Text.Display"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_marginEnd="@dimen/bpp_space_8"
+      android:layout_weight="1"
+      android:accessibilityHeading="true"
+      android:text="@string/game_name" />
+
+  <include layout="@layout/launcher_badge" />
+</LinearLayout>

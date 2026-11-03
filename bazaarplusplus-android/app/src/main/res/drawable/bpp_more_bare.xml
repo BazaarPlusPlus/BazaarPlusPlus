@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- More over the content pane: no circle until pressed, then bg-hover. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="@dimen/bpp_space_4">
+  <selector>
+    <item android:state_pressed="true">
+      <shape android:shape="oval"><solid android:color="@color/bpp_bg_hover" /></shape>
+    </item>
+    <item android:drawable="@android:color/transparent" />
+  </selector>
+</inset>

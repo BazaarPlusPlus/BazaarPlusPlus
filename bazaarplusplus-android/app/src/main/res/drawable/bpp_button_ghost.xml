@@ -2,9 +2,9 @@
 <!-- Ghost: no box until pressed, then bg-hover. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
   <item android:state_pressed="true">
-    <shape><corners android:radius="@dimen/bpp_r_control" /><solid android:color="@color/bpp_bg_hover" /></shape>
+    <shape><corners android:radius="@dimen/bpp_r_pill" /><solid android:color="@color/bpp_bg_hover" /></shape>
   </item>
   <item>
-    <shape><corners android:radius="@dimen/bpp_r_control" /><solid android:color="@android:color/transparent" /></shape>
+    <shape><corners android:radius="@dimen/bpp_r_pill" /><solid android:color="@android:color/transparent" /></shape>
   </item>
 </selector>

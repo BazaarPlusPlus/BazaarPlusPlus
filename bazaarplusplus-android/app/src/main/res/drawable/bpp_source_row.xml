@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The source row: bg-panel at r-touch, bg-hover while pressed. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:state_pressed="true">
+    <shape><corners android:radius="@dimen/bpp_r_touch" /><solid android:color="@color/bpp_bg_hover" /></shape>
+  </item>
+  <item>
+    <shape><corners android:radius="@dimen/bpp_r_touch" /><solid android:color="@color/bpp_bg_panel" /></shape>
+  </item>
+</selector>

@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- An sm (control-sm) secondary box inside a touch-target hit area: banner actions. -->
-<inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/bpp_button_secondary"
-    android:insetTop="9dp"
-    android:insetBottom="9dp" />

@@ -44,6 +44,7 @@
   <dimen name="bpp_r_control">6dp</dimen>
   <dimen name="bpp_r_panel">8dp</dimen>
   <dimen name="bpp_r_dialog">12dp</dimen>
+  <dimen name="bpp_r_touch">12dp</dimen>
   <dimen name="bpp_r_pill">999dp</dimen>
   <dimen name="bpp_control_md">36dp</dimen>
   <dimen name="bpp_control_sm">30dp</dimen>
@@ -56,10 +57,10 @@
   <dimen name="bpp_rail_width">72dp</dimen>
   <dimen name="bpp_content_max">1080dp</dimen>
   <dimen name="bpp_touch_target">48dp</dimen>
-  <dimen name="bpp_appbar_height">56dp</dimen>
+  <dimen name="bpp_source_row_height">56dp</dimen>
   <dimen name="bpp_progress_height">4dp</dimen>
   <dimen name="bpp_pane_breakpoint">600dp</dimen>
-  <dimen name="bpp_launcher_max">960dp</dimen>
+  <dimen name="bpp_cover_pane_breakpoint">840dp</dimen>
   <dimen name="bpp_type_display">24sp</dimen>
   <dimen name="bpp_type_title">18sp</dimen>
   <dimen name="bpp_type_body">15sp</dimen>

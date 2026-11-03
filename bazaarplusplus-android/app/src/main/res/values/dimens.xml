@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <!-- A ghost button at a column's start edge pulls out by its padding, so its label lines up
-       with the text above it (design/README.md, Alignment: optical edges). -->
-  <dimen name="bpp_negative_space_12">-12dp</dimen>
+  <!-- The launcher's panel rises this far over the cover's bottom edge (design/components/Launcher). -->
+  <dimen name="bpp_negative_space_24">-24dp</dimen>
+  <!-- The source row's leading tile, and the brand mark in the update dialog. -->
+  <dimen name="bpp_tile">32dp</dimen>
+  <!-- A dialog card is at least this wide on a phone, and no wider than its content needs. -->
+  <dimen name="bpp_dialog_min_width">320dp</dimen>
 </resources>

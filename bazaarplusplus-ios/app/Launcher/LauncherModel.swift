@@ -202,6 +202,7 @@ final class LauncherModel: ObservableObject {
         let url: URL?
     }
 
+    static let website = URL(string: "https://bazaarplusplus.com")!
     static let releaseManifest = URL(string: "https://cdn.bazaarplusplus.com/installer/latest/mod/ios-aarch64.json")!
 
     func checkForUpdate() async {

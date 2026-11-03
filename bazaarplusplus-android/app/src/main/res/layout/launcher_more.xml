@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- More: the one floating button, top end, holding the support actions (a popup menu). -->
+<ImageButton xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/more"
+    android:layout_width="@dimen/bpp_touch_target"
+    android:layout_height="@dimen/bpp_touch_target"
+    android:layout_gravity="top|end"
+    android:background="@drawable/bpp_more"
+    android:contentDescription="@string/more"
+    android:scaleType="center"
+    android:src="@drawable/bpp_icon_more" />

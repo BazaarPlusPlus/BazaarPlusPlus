@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stats in one column: three equal columns, the key in caption / text-3 over the value. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:divider="@drawable/bpp_gap_8"
+    android:orientation="horizontal"
+    android:showDividers="middle">
+
+  <LinearLayout style="@style/Bpp.Stat">
+    <TextView style="@style/Bpp.Text.StatKey" android:text="@string/info_game_version" />
+    <TextView android:id="@+id/info_game" style="@style/Bpp.Text.StatValue" />
+  </LinearLayout>
+
+  <LinearLayout style="@style/Bpp.Stat">
+    <TextView style="@style/Bpp.Text.StatKey" android:text="@string/info_adapted_version" />
+    <TextView android:id="@+id/info_adapted" style="@style/Bpp.Text.StatValue" />
+  </LinearLayout>
+
+  <LinearLayout style="@style/Bpp.Stat">
+    <TextView style="@style/Bpp.Text.StatKey" android:text="@string/app_name" />
+    <TextView android:id="@+id/info_app" style="@style/Bpp.Text.StatValue" />
+  </LinearLayout>
+</LinearLayout>

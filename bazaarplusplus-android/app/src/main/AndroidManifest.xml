@@ -7,9 +7,11 @@
   <uses-permission android:name="android.permission.WAKE_LOCK" />
   <uses-feature android:glEsVersion="0x00030000" />
 
-  <!-- The only other package the App looks up: the official game. -->
+  <!-- The other packages the App looks up: the official game, and the Play Store, which decides
+       where the game is installed and updated from. -->
   <queries>
     <package android:name="com.tempogames.thebazaar" />
+    <package android:name="com.android.vending" />
   </queries>
 
   <application
@@ -18,6 +20,7 @@
       android:icon="@mipmap/ic_launcher"
       android:appComponentFactory="com.bazaarplusplus.android.GameComponentFactory"
       android:allowBackup="false"
+      android:supportsRtl="true"
       android:extractNativeLibs="true"
       android:hardwareAccelerated="true"
       tools:replace="android:appComponentFactory"

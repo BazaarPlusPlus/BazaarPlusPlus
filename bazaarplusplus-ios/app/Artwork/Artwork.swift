@@ -20,6 +20,9 @@ final class ArtworkStore: ObservableObject {
     private let session: URLSession
     private static let assetHost = "https://shared.akamai.steamstatic.com/store_item_assets/"
     private static let maxAge: TimeInterval = 3 * 24 * 3600
+    /// The library hero's full width: the launcher's cover crops a portrait slice from its middle,
+    /// so it decodes at full size and is released before the game starts (`releaseMemory`).
+    static let heroPixels: CGFloat = 3840
 
     init() {
         root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]

@@ -6,8 +6,8 @@ import java.util.List;
 
 /**
  * What the launcher shows, as plain data (design/components/Launcher): the status badge, the one
- * primary action, up to two secondary actions, notes, banners, download progress and the info
- * rows. {@link LauncherActivity} renders it into whichever layout the window width picks, so a
+ * primary action, the source row, notes, the failure banner, the App update reminder, download
+ * progress and the stats. {@link LauncherActivity} renders it into whichever layout the window width picks, so a
  * fold re-renders the same screen without running anything again.
  */
 final class LauncherScreen {
@@ -84,9 +84,14 @@ final class LauncherScreen {
         final boolean devInterop;
         /** Null unless the release names a newer App than this one. */
         final AppUpdate appUpdate;
+        /** Whether the Google Play Store is installed: without it, installs and updates come from the publisher. */
+        final boolean playInstalled;
+        /** Whether Google Play installed the game now on the device; an update goes back to the same store. */
+        final boolean installedFromPlay;
 
         Facts(LaunchGate.Decision decision, String gameVersion, String adaptedVersion, boolean fromCache,
-                boolean lastInstallFailed, boolean runtimeMissing, boolean devInterop, AppUpdate appUpdate) {
+                boolean lastInstallFailed, boolean runtimeMissing, boolean devInterop, AppUpdate appUpdate,
+                boolean playInstalled, boolean installedFromPlay) {
             this.decision = decision;
             this.gameVersion = gameVersion;
             this.adaptedVersion = adaptedVersion;
@@ -95,6 +100,8 @@ final class LauncherScreen {
             this.runtimeMissing = runtimeMissing;
             this.devInterop = devInterop;
             this.appUpdate = appUpdate;
+            this.playInstalled = playInstalled;
+            this.installedFromPlay = installedFromPlay;
         }
     }
 
@@ -102,7 +109,8 @@ final class LauncherScreen {
     final Status status;
     /** Null when there is nothing to do next. */
     final Action primary;
-    final List<Action> secondary;
+    /** The source row: the official game, or the publisher beside a Google Play primary; null for none. */
+    final Action source;
     final List<Note> notes;
     final AppUpdate appUpdate;
     final Failure failure;
@@ -112,11 +120,11 @@ final class LauncherScreen {
     /** No action runs while a check or a launch is in progress. */
     final boolean busy;
 
-    private LauncherScreen(Status status, Action primary, List<Action> secondary, List<Note> notes, AppUpdate appUpdate,
+    private LauncherScreen(Status status, Action primary, Action source, List<Note> notes, AppUpdate appUpdate,
             Failure failure, Progress progress, String gameVersion, String adaptedVersion, boolean busy) {
         this.status = status;
         this.primary = primary;
-        this.secondary = Collections.unmodifiableList(secondary);
+        this.source = source;
         this.notes = Collections.unmodifiableList(notes);
         this.appUpdate = appUpdate;
         this.failure = failure;
@@ -126,35 +134,34 @@ final class LauncherScreen {
         this.busy = busy;
     }
 
-    /** A check is running; the last known facts keep the banner and the info rows in place. */
+    /** A check is running; the last known facts keep the source row and the stats in place. */
     static LauncherScreen checking(Facts last) {
-        return new LauncherScreen(Status.CHECKING, null, List.of(), List.of(), last == null ? null : last.appUpdate, null,
+        return new LauncherScreen(Status.CHECKING, null, last == null ? null : sourceRow(last), List.of(), last == null ? null : last.appUpdate, null,
                 null, last == null ? null : last.gameVersion, last == null ? null : last.adaptedVersion, true);
     }
 
     /** The check itself failed: no status to show, only Retry and, when it is installed, the official game. */
     static LauncherScreen checkFailed(String message, boolean officialInstalled) {
-        return new LauncherScreen(null, Action.RETRY, officialInstalled ? List.of(Action.OPEN_OFFICIAL) : List.of(),
+        return new LauncherScreen(null, Action.RETRY, officialInstalled ? Action.OPEN_OFFICIAL : null,
                 List.of(), null, new Failure(false, message), null, null, null, false);
     }
 
     /** A BPP launch is preparing the game; {@code progress} is null between downloads. */
     static LauncherScreen launching(Facts facts, Progress progress) {
-        return new LauncherScreen(progress == null ? Status.PREPARING : Status.DOWNLOADING, null, List.of(), List.of(),
+        return new LauncherScreen(progress == null ? Status.PREPARING : Status.DOWNLOADING, null, sourceRow(facts), List.of(),
                 facts.appUpdate, null, progress, facts.gameVersion, facts.adaptedVersion, true);
     }
 
     /** The BPP launch failed: the check's screen with an error banner and Retry. */
     static LauncherScreen launchFailed(Facts facts, String message) {
         LauncherScreen ready = ready(facts);
-        return new LauncherScreen(ready.status, Action.RETRY, ready.secondary, ready.notes, ready.appUpdate,
+        return new LauncherScreen(ready.status, Action.RETRY, ready.source, ready.notes, ready.appUpdate,
                 new Failure(true, message), null, ready.gameVersion, ready.adaptedVersion, false);
     }
 
     /** What the tier allows (ADR 0012, "三档启动规则"). */
     static LauncherScreen ready(Facts facts) {
         LaunchGate.Decision decision = facts.decision;
-        List<Action> secondary = new ArrayList<>();
         List<Note> notes = new ArrayList<>();
         Status status;
         Action primary = null;
@@ -168,14 +175,12 @@ final class LauncherScreen {
             switch (decision.tier) {
                 case NOT_INSTALLED:
                     status = Status.NOT_INSTALLED;
-                    primary = Action.INSTALL_FROM_PLAY;
-                    secondary.add(Action.DOWNLOAD_FROM_PUBLISHER);
+                    primary = facts.playInstalled ? Action.INSTALL_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
                     break;
                 case ANDROID_RELEASE_APK:
                     status = Status.REPLACE;
                     notes.add(Note.REPLACE_GAME);
-                    primary = Action.INSTALL_FROM_PLAY;
-                    secondary.add(Action.DOWNLOAD_FROM_PUBLISHER);
+                    primary = facts.playInstalled ? Action.INSTALL_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
                     break;
                 case OFFLINE_NO_CACHE:
                     status = Status.OFFLINE;
@@ -188,8 +193,8 @@ final class LauncherScreen {
                     break;
                 case OLDER:
                     status = Status.GAME_UPDATE;
-                    primary = Action.UPDATE_FROM_PLAY;
-                    secondary.add(Action.DOWNLOAD_FROM_PUBLISHER);
+                    primary = facts.playInstalled && facts.installedFromPlay
+                            ? Action.UPDATE_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
                     break;
                 case NEWER_WAITING:
                     status = Status.WAITING;
@@ -210,9 +215,8 @@ final class LauncherScreen {
                     primary = play(facts, notes);
             }
         }
-        if (decision.nativeLaunch()) secondary.add(Action.OPEN_OFFICIAL);
         if (facts.fromCache) notes.add(Note.FROM_CACHE);
-        return new LauncherScreen(status, primary, secondary, notes, update, null, null, facts.gameVersion,
+        return new LauncherScreen(status, primary, sourceRow(facts), notes, update, null, null, facts.gameVersion,
                 facts.adaptedVersion, false);
     }
 
@@ -225,6 +229,15 @@ final class LauncherScreen {
             String releaseVersion, String url) {
         if (!releaseBuild || releaseVersionCode <= ownVersionCode) return null;
         return new AppUpdate(releaseVersion, url);
+    }
+
+    /**
+     * The source row: the official game whenever it can open natively; otherwise, beside a Google
+     * Play install, the publisher's APK as the other source.
+     */
+    static Action sourceRow(Facts facts) {
+        if (facts.decision.nativeLaunch()) return Action.OPEN_OFFICIAL;
+        return facts.playInstalled ? Action.DOWNLOAD_FROM_PUBLISHER : null;
     }
 
     /** Play, or nothing when this build carries no runtime to play with. */
