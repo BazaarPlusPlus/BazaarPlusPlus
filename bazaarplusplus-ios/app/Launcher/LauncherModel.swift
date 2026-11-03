@@ -134,22 +134,10 @@ final class LauncherModel: ObservableObject {
     let artwork = ArtworkStore()
     private let send: (NSDictionary) -> Void
     private let launchGame: () -> Void
-    /// The Steam App ID comes from the packaged game definition; the snapshot carries only presentation fields.
-    private let gameAppId: UInt32?
-    private var forward: AnyCancellable?
 
     init(send: @escaping (NSDictionary) -> Void, launch: @escaping () -> Void) {
         self.send = send
         self.launchGame = launch
-        if let data = try? Data(contentsOf: Bundle.main.bundleURL.appendingPathComponent("game.json")),
-           let game = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let appId = (game["steam"] as? [String: Any])?["appId"] as? NSNumber {
-            gameAppId = appId.uint32Value
-        } else {
-            gameAppId = nil
-        }
-        // Artwork arrives after first render; views read it through this model.
-        forward = artwork.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
     }
 
     func apply(_ raw: NSDictionary) {
@@ -191,8 +179,6 @@ final class LauncherModel: ObservableObject {
 
     func fail(_ message: String) { failure = message }
 
-    func appId(_ game: ServiceSnapshot.Game) -> UInt32? { gameAppId }
-    func store(_ game: ServiceSnapshot.Game) -> StoreArtwork? { artwork.artwork(appId(game)) }
     /// A newer BazaarPlusPlus for iOS, from its Platform Release Manifest. Only a reminder: it never
     /// blocks the game, and a missing or unreadable manifest shows nothing.
     @Published private(set) var update: AppUpdate?
@@ -227,12 +213,6 @@ final class LauncherModel: ObservableObject {
             if x != y { return x > y }
         }
         return false
-    }
-
-    func loadArtwork() async {
-        await withTaskGroup(of: Void.self) { group in
-            if let id = gameAppId { group.addTask { await self.artwork.load(id) } }
-        }
     }
 
     var ready: Bool { failure == nil && snapshot.game != nil }

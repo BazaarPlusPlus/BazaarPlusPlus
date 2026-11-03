@@ -3,6 +3,7 @@ package com.bazaarplusplus.android.launch;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -13,7 +14,6 @@ import com.bazaarplusplus.android.game.GameSession;
 import com.bazaarplusplus.android.game.InstalledGame;
 import com.bazaarplusplus.android.release.PlatformManifest;
 
-import java.io.File;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -53,7 +53,7 @@ final class LauncherSession {
     /** The finished diagnostics export the Activity has not shown yet, or null. */
     private Export export;
     private boolean exporting;
-    /** Null until the cover art loads, and after the game starts. */
+    /** Null until the cover art decodes, and after the game starts. */
     private CoverArt.Images cover;
     private boolean coverRequested;
 
@@ -124,15 +124,15 @@ final class LauncherSession {
     }
 
     /**
-     * Loads the cover art once per process, on its own thread so a slow store never holds up the
-     * check; {@code minHeight} is the tallest the cover can be in pixels.
+     * Decodes the cover art once per process, on its own thread so it never holds up the check;
+     * {@code minHeight} is the tallest the cover can be in pixels.
      */
     void loadCover(Context context, int minHeight) {
         if (coverRequested) return;
         coverRequested = true;
-        File dir = new File(context.getApplicationContext().getCacheDir(), "cover");
+        Resources resources = context.getApplicationContext().getResources();
         new Thread(() -> {
-            CoverArt.Images art = CoverArt.load(dir, minHeight);
+            CoverArt.Images art = CoverArt.load(resources, minHeight);
             post(() -> {
                 cover = art;
                 notifyChanged();

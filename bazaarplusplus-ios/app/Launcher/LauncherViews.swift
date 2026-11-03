@@ -19,7 +19,6 @@ struct LauncherRoot: View {
             .tint(BppColor.accent)
             .sheet(isPresented: $model.showingAccount) { AccountSheet().environmentObject(model).pageSizedSheet() }
             .fullScreenCover(isPresented: $model.showingOnboarding) { OnboardingView().environmentObject(model) }
-            .task { await model.loadArtwork() }
             .task { await model.checkForUpdate() }
     }
 }
@@ -31,7 +30,8 @@ struct LauncherPage: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = proxy.size.width
+            // The window's width: the iPhone Duo folded keeps its status bar in a side inset.
+            let width = proxy.size.width + proxy.safeAreaInsets.leading + proxy.safeAreaInsets.trailing
             let large = typeSize.isAccessibilitySize
             let wide = !large && width >= BppSize.coverPaneBreakpoint
             ZStack(alignment: .topTrailing) {
@@ -64,13 +64,16 @@ private struct StackedLayout: View {
     let height: CGFloat
     let panes: Bool
 
+    private var gutter: CGFloat { panes ? BppSpace.space24 : BppSpace.space16 }
+
     var body: some View {
         ScrollView {
             VStack(spacing: -BppSpace.space24) {
                 Cover()
                     .frame(maxWidth: .infinity, minHeight: width / 2, maxHeight: .infinity)
                 Panel(panes: panes)
-                    .padding(.horizontal, panes ? BppSpace.space24 : BppSpace.space16)
+                    .padding(.leading, insets.leading + gutter)
+                    .padding(.trailing, insets.trailing + gutter)
                     .padding(.top, BppSpace.space24)
                     .padding(.bottom, insets.bottom + BppSpace.space16)
                     .frame(maxWidth: .infinity)
@@ -78,7 +81,7 @@ private struct StackedLayout: View {
             }
             .frame(minHeight: height + insets.top + insets.bottom)
         }
-        .ignoresSafeArea(.container, edges: .vertical)
+        .ignoresSafeArea(.container)
     }
 }
 
@@ -105,23 +108,22 @@ private struct WideLayout: View {
 
 // MARK: - Cover and More
 
-/// A wide cover (the strip over two panes, the iPhone Duo folded) shows the library hero cropped
-/// around the hunter's face; a portrait cover (phones, the iPad's cover pane) shows the
-/// promotional hero capsule from its top, logo in view. Plain bg-hover until the art loads.
+/// A wide cover (short, when the panel takes most of the window) shows the library hero cropped
+/// around the hunter's face; any other cover (phones, the iPhone Duo, the iPad) shows the
+/// promotional hero capsule from its top, logo in view. Plain bg-hover until the art decodes.
 private struct Cover: View {
-    @EnvironmentObject var model: LauncherModel
     /// Width over height from which a cover counts as wide.
     static let wide: CGFloat = 1.2
     /// The hunter's face in the current library hero.
     static let heroFocus = UnitPoint(x: 0.70, y: 0.30)
+    /// The top of the hero capsule, at the centre of its logo.
+    static let promoFocus = UnitPoint(x: 0.53, y: 0)
 
     var body: some View {
         GeometryReader { proxy in
-            let store = model.snapshot.game.flatMap { model.store($0) }
             let wide = proxy.size.width >= proxy.size.height * Self.wide
-            let hero = wide ? store?.hero ?? store?.promo : nil
-            ArtworkImage(url: hero ?? store?.promo ?? store?.hero, appId: model.snapshot.game.flatMap { model.appId($0) },
-                         maxPixel: ArtworkStore.coverPixels, focus: hero != nil ? Self.heroFocus : .top) {
+            ArtworkImage(artwork: wide ? .hero : .promo, maxPixel: ArtworkStore.coverPixels,
+                         focus: wide ? Self.heroFocus : Self.promoFocus) {
                 BppColor.bgHover
             }
         }
@@ -424,11 +426,10 @@ private struct PrimaryArea: View {
     }
 }
 
-/// Remote store art that never pushes the layout: the container decides the size.
+/// Bundled art that never pushes the layout: the container decides the size.
 struct ArtworkImage<Placeholder: View>: View {
     @EnvironmentObject var model: LauncherModel
-    let url: URL?
-    let appId: UInt32?
+    let artwork: Artwork
     let maxPixel: CGFloat
     /// The point of the art kept nearest the centre when the container crops it.
     var focus: UnitPoint = .center
@@ -451,9 +452,8 @@ struct ArtworkImage<Placeholder: View>: View {
             }
         }
         .clipped()
-            .task(id: url) {
-                guard let url, let appId else { image = nil; return }
-                let loaded = await model.artwork.image(url, appId: appId, maxPixel: maxPixel)
+            .task(id: artwork) {
+                let loaded = await model.artwork.image(artwork, maxPixel: maxPixel)
                 withAnimation(.easeOut(duration: 0.16)) { image = loaded }
             }
     }

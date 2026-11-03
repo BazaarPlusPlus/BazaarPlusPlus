@@ -53,8 +53,10 @@ def generate():
                      files=[], runOnlyForDeploymentPostprocessing=0)
     # Compile the full-resolution master through the standard iOS icon catalog.
     assets = file('../build/app-icon/Assets.xcassets', 'folder.assetcatalog')
+    # The launcher's cover art, copied here from design/assets/Covers/ by design/build.mjs.
+    covers = [file(p.relative_to(ROOT / 'app').as_posix(), 'image.jpeg') for p in sorted((ROOT / 'app/Artwork').glob('*.jpg'))]
     resources = add('resources', 'PBXResourcesBuildPhase', buildActionMask=2147483647,
-                    files=[add('resource:' + assets, 'PBXBuildFile', fileRef=assets)],
+                    files=[add('resource:' + f, 'PBXBuildFile', fileRef=f) for f in [assets, *covers]],
                     runOnlyForDeploymentPostprocessing=0)
     package = add('package', 'PBXShellScriptBuildPhase', buildActionMask=2147483647,
                   name='Package Runtime Resources', files=[], alwaysOutOfDate=1,
@@ -114,7 +116,7 @@ def generate():
                  buildConfigurationList=config_list, buildPhases=[sources, frameworks, resources, embed, package],
                  buildRules=[], dependencies=[])
     products = add('products', 'PBXGroup', name='Products', children=[product], sourceTree='<group>')
-    group = add('root', 'PBXGroup', children=[*source_files, file('Resources/Info.plist', 'text.plist.xml'), assets, configuration, framework, products], sourceTree='<group>')
+    group = add('root', 'PBXGroup', children=[*source_files, file('Resources/Info.plist', 'text.plist.xml'), assets, *covers, configuration, framework, products], sourceTree='<group>')
     project_configs = [add('project:' + name, 'XCBuildConfiguration', name=name, buildSettings={})
                        for name in ['Debug', 'Release']]
     project_list = add('project-configs', 'XCConfigurationList', buildConfigurations=project_configs,

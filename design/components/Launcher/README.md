@@ -8,7 +8,7 @@ Source:
 
 One page, no navigation, no app bar and no footer. In order:
 
-1. **Cover.** The game's art, full bleed from the top edge of the screen: the status bar sits over the art, with no gradient, scrim, logo overlay or shadow. It runs 24 under the panel. Until art loads, or when there is none, the cover is plain `bg-hover`.
+1. **Cover.** The game's art, full bleed from the top edge of the screen: the status bar sits over the art, with no gradient, scrim, logo overlay or shadow. It runs 24 under the panel. Until the art decodes, the cover is plain `bg-hover`.
 2. **More.** One floating button at the top end, inside the status bar inset, its hit area `touch-target`. iOS shows ⋯ on a `control-md` circle on `bg-panel` with a `line-strong` border and opens a pull-down menu; Android shows ⋮ on a 40 `bg-panel` circle and opens a popup menu. The menu holds 导出诊断信息 / Export diagnostics (Android only) and 关于 / About.
 3. **Panel.** `bg-canvas`, top corners `r-dialog` (12), rising 24 over the cover's bottom edge. Inset 24 at the top and 16 at the sides (24 in panes), the safe area below. Its parts are 16 apart:
    - **Title line.** "The Bazaar" in `display`, with the status badge at the line's end. While a download runs, the badge carries the percentage: "正在下载… 27%".
@@ -39,14 +39,14 @@ The launcher is portrait only on every device, the iPhone Duo's outer and inner 
 
 ## Cover art
 
-Two Steam store images of The Bazaar, fetched at runtime from the public store API and cached on the device. Nothing is bundled: Valve rotates the hashed asset paths, and the Apps must not redistribute store art. Each cover picks the image that suits its shape:
+Two store images of The Bazaar, bundled in both Apps from `design/assets/Covers/` (root `docs/adr/0014-bundle-cover-art.md`). Each cover picks the image that suits its shape:
 
 | Cover | Image | Crop |
 |---|---|---|
-| Wide (width at least 1.2 × height): the strip over two panes, the iPhone Duo folded | The library hero (the hunter) | Around the hunter's face, at 70% across and 30% down the art, as near the cover's centre as the art's edges allow |
-| Portrait: phones, the cover pane from `cover-pane-breakpoint` | The hero capsule (the store's promotional art, with the logo) | From the top centre, so the logo stays in view |
+| Wide (width at least 1.2 × height): a short cover, when the panel takes most of the window | The library hero (the hunter) | Around the hunter's face, at 70% across and 30% down the art, as near the cover's centre as the art's edges allow |
+| Otherwise: phones, the iPhone Duo folded and unfolded, the cover pane from `cover-pane-breakpoint` | The hero capsule (the store's promotional art, with the logo) | From the top, around the logo's centre at 53% across, so the logo stays in view |
 
-When one image is missing, the cover shows the other. The images are decoded no larger than the cover needs, because the game later shares the App's process, and released when the game starts. The focus point follows the current library hero; new store art may need a new one. The Android source row's tile for the publisher shows the promotional art.
+The images are decoded no larger than the cover needs, because the game later shares the App's process, and released when the game starts. The focus points belong to the bundled images; a new image may need new ones. The Android source row's tile for the publisher shows the promotional art, and the iOS App's first-run onboarding shows a third bundled image, the library capsule.
 
 ## Status
 

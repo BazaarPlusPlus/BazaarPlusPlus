@@ -4,7 +4,7 @@
 
 ## 决定
 
-- iOS App 与 Android App 打包三张图，来源是 `design/assets/Covers/the-bazaar/`：库横幅 `library_hero.jpg`（宽封面），宣传图 `hero_capsule_2x.jpg`（竖封面），竖版封面 `library_capsule_2x.jpg`（iOS 首次引导）。哪个封面用哪张图、怎样裁切，仍由 Launcher 规格决定。
+- iOS App 打包三张图，Android App 打包前两张，来源是 `design/assets/Covers/the-bazaar/`：库横幅 `library_hero.jpg`（宽封面），宣传图 `hero_capsule_2x.jpg`（竖封面），竖版封面 `library_capsule_2x.jpg`（iOS 首次引导）。哪个封面用哪张图、怎样裁切，仍由 Launcher 规格决定。
 - 两端删除运行时取图与缓存：iOS 的 `ArtworkStore` 里请求商店接口、写缓存的部分，Android 的 `CoverArt` 里同样的部分。启动器打开时不再为封面访问网络。
 - 换图是一次人工修改：更新 `design/assets/Covers/`，按需要调整焦点，两端在同一个 PR 里一起更新。
 
@@ -17,4 +17,4 @@
 
 - App 里带着发行商的商店美术，没有单独的授权。如果发行商或 Valve 提出异议，就回到运行时取图。
 - 商店换新图后，App 要等下一个版本才会跟上。
-- 安装包大约多 750 KB。
+- iOS 安装包大约多 750 KB，Android 安装包大约多 530 KB。

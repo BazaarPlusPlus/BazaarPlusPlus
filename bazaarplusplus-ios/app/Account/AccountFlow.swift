@@ -18,8 +18,8 @@ struct OnboardingView: View {
     private var pages: [Page] {
         let device = UIDevice.current.model
         return [
-            Page(icon: "gamecontroller.fill", title: "把 Steam 游戏带到 \(device)",
-                 body: "下载你在 Steam 上已拥有的游戏，直接在这台 \(device) 上运行，不需要电脑。", rows: []),
+            Page(icon: "gamecontroller.fill", title: "把 The Bazaar\n带到 \(device)",
+                 body: "下载你在 Steam 上已购买的 The Bazaar，直接在这台 \(device) 上运行，不需要电脑。", rows: []),
             Page(icon: "checklist", title: "开始前准备", body: "登录只需要一次，之后会自动保持。", rows: [
                 ("person.crop.circle.badge.checkmark", "拥有游戏的 Steam 账号", "只有已购买 The Bazaar 的账号可以下载游戏。"),
                 ("iphone", "Steam 手机 App", "登录时在手机上批准，或从 Steam 令牌查看验证码。"),
@@ -35,8 +35,7 @@ struct OnboardingView: View {
 
     /// The game in front, with blank cards behind it.
     private var showcase: some View {
-        let game = model.snapshot.game
-        return ZStack {
+        ZStack {
             ForEach([-1.0, 1.0], id: \.self) { side in
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(BppColor.bgPanel)
@@ -46,12 +45,10 @@ struct OnboardingView: View {
                     .rotationEffect(.degrees(side * 9))
                     .offset(x: side * 82, y: 14)
             }
-            if let game {
-                ArtworkImage(url: model.store(game)?.capsule, appId: model.appId(game), maxPixel: 700) { BppColor.bgHover }
-                    .frame(width: 180, height: 270)
-                    .clipShape(RoundedRectangle(cornerRadius: BppRadius.rDialog, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: BppRadius.rDialog, style: .continuous).strokeBorder(BppColor.lineStrong))
-            }
+            ArtworkImage(artwork: .capsule, maxPixel: 700) { BppColor.bgHover }
+                .frame(width: 180, height: 270)
+                .clipShape(RoundedRectangle(cornerRadius: BppRadius.rDialog, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: BppRadius.rDialog, style: .continuous).strokeBorder(BppColor.lineStrong))
         }
         .frame(height: 300)
     }

@@ -184,6 +184,8 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         renderSource(screen.source, check);
         renderProgress(screen.progress);
         bind(findViewById(R.id.primary), screen.primary);
+        // An empty action area would add its 16 gap under the row above it.
+        findViewById(R.id.action).setVisibility(screen.progress == null && screen.primary == null ? View.GONE : View.VISIBLE);
 
         List<String> notes = new ArrayList<>();
         for (LauncherScreen.Note note : screen.notes) notes.add(getString(noteText(note)));
