@@ -11,10 +11,10 @@ namespace BazaarPlusPlus.Mobile.History;
 /// <summary>
 /// One of History's native boards on a mobile platform, the counterpart of the desktop's owned
 /// <c>MonsterBoardTooltip</c> preview: each planned card of a stored battle
-/// (<see cref="HistoryBoardProjection.Items"/>) rents the game's own card prefab at its tier and
-/// enchantment, on its display socket (<see cref="HistoryTouchLayout.CardRect"/>). A re-render
-/// keeps the cards whose identity, socket, tier, and enchantment did not change and returns the
-/// rest, so stepping through a run's battles re-rents only what changed. A card's footprint takes
+/// (<see cref="HistoryBoardProjection.Items"/>) rents the game's own card prefab at its tier,
+/// enchantment, and saved values, on its display socket (<see cref="HistoryTouchLayout.CardRect"/>).
+/// A re-render keeps the cards whose identity, socket, tier, enchantment, and values did not
+/// change and returns the rest, so stepping through a run's battles re-rents only what changed. A card's footprint takes
 /// the tap (the rented card takes none) and hands the card to the panel's inspection.
 /// <see cref="Facts"/> reports what the rented cards show as Core's board facts.
 /// <see cref="ReturnAll"/> gives every card back.
@@ -80,7 +80,7 @@ internal sealed class TouchHistoryBoard
             _cells[key] = cell;
             Place(cell);
             cell.Lease = MobilePlatform.Port.CardRental.Rent(
-                new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType),
+                CardRentalSubject.Of(card),
                 cell.Slot,
                 _owner
             );
@@ -122,9 +122,9 @@ internal sealed class TouchHistoryBoard
         return returned;
     }
 
-    // Instance, template, socket, tier, and enchantment: what the rented card shows and where.
+    // Instance, template, socket, tier, enchantment, and values: what the rented card shows and where.
     private static string Key(BppItemBoardCard card) =>
-        $"{card.InstanceId}|{card.TemplateId:N}|{card.DisplaySocketId}|{card.DisplaySpan}|{card.Tier}|{card.EnchantmentType}";
+        $"{card.InstanceId}|{card.TemplateId:N}|{card.DisplaySocketId}|{card.DisplaySpan}|{card.Tier}|{card.EnchantmentType}|{CardRentalSubject.AttributesKey(card.Attributes)}";
 
     private void Place(Cell cell)
     {

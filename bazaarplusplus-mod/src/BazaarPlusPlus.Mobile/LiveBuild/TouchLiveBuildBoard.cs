@@ -10,12 +10,12 @@ namespace BazaarPlusPlus.Mobile.LiveBuild;
 /// <summary>
 /// One of the Live Build panel's four boards on a mobile platform: the native board mapper over
 /// the card rental, where the desktop renders an owned <c>MonsterBoardTooltip</c>. Each planned
-/// <see cref="BppItemBoardCard"/> rents the game's own card prefab at its tier and enchantment, on
-/// its display socket (<see cref="LiveBuildTouchLayout.CardRect"/>). A re-render keeps the cards
-/// whose identity, socket, tier, and enchantment did not change and returns the rest, so toggling
-/// a candidate or browsing re-rents only what moved. Each card's footprint takes the tap (the
-/// rented card takes none) and hands the card to the panel, which toggles it as a candidate or
-/// inspects it; a candidate or matched card gets its tag in the band under it.
+/// <see cref="BppItemBoardCard"/> rents the game's own card prefab at its tier, enchantment, and
+/// values, on its display socket (<see cref="LiveBuildTouchLayout.CardRect"/>). A re-render keeps
+/// the cards whose identity, socket, tier, enchantment, and values did not change and returns the
+/// rest, so toggling a candidate or browsing re-rents only what moved. Each card's footprint takes
+/// the tap (the rented card takes none) and hands the card to the panel, which toggles it as a
+/// candidate or inspects it; a candidate or matched card gets its tag in the band under it.
 /// <see cref="ReturnAll"/> gives every card back.
 /// </summary>
 internal sealed class TouchLiveBuildBoard
@@ -98,7 +98,7 @@ internal sealed class TouchLiveBuildBoard
             _cells[key] = cell;
             Place(cell);
             cell.Lease = MobilePlatform.Port.CardRental.Rent(
-                new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType),
+                CardRentalSubject.Of(card),
                 cell.Slot,
                 _owner
             );
@@ -138,9 +138,9 @@ internal sealed class TouchLiveBuildBoard
         return returned;
     }
 
-    // Instance, template, socket, tier, and enchantment: what the rented card shows and where.
+    // Instance, template, socket, tier, enchantment, and values: what the rented card shows and where.
     private static string Key(BppItemBoardCard card) =>
-        $"{card.InstanceId}|{card.TemplateId:N}|{card.DisplaySocketId}|{card.DisplaySpan}|{card.Tier}|{card.EnchantmentType}";
+        $"{card.InstanceId}|{card.TemplateId:N}|{card.DisplaySocketId}|{card.DisplaySpan}|{card.Tier}|{card.EnchantmentType}|{CardRentalSubject.AttributesKey(card.Attributes)}";
 
     private void Place(Cell cell)
     {

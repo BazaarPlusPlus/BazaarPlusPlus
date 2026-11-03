@@ -85,7 +85,7 @@ internal sealed class TouchHistoryInspection : IHistoryCardOverlay
     public void Open(BppItemBoardCard card, string source)
     {
         ReturnCards();
-        var subject = new CardRentalSubject(card.TemplateId, card.Tier, card.EnchantmentType);
+        var subject = CardRentalSubject.Of(card);
         _name.text = MobilePlatform.Port.CardTitle(card.TemplateId) ?? string.Empty;
         _description.Set(MobilePlatform.Port.CardDescription(subject) ?? string.Empty);
         var scale = _layout.InspectScale(card.DisplaySpan);

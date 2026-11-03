@@ -14,8 +14,8 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 /// card type, and a template the host's static data knows. Items keep the desktop's order (placed
 /// cards by socket, then the rest in capture order), a card with no size renders as one socket
 /// (ADR-0017), and the board is planned (<see cref="BppItemBoardSlotPlanner"/>) so every card has
-/// its display socket. Attributes and socket effects stay with the desktop, whose native board
-/// shows them; a rented card shows its template's own values.
+/// its display socket. Each card carries its saved attribute values, which the rented card shows
+/// over its template's; socket effects stay with the desktop, whose native board shows them.
 /// </summary>
 public static class HistoryBoardProjection
 {
@@ -57,6 +57,10 @@ public static class HistoryBoardProjection
                     SourceSocketId = snapshot.Socket is { } socket
                         ? CardFacetOrder.SocketRank(socket)
                         : null,
+                    Attributes =
+                        snapshot.Attributes != null
+                            ? new Dictionary<string, int>(snapshot.Attributes)
+                            : new Dictionary<string, int>(),
                 }
             );
         }

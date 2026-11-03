@@ -306,6 +306,74 @@ public sealed class CardRentalCoreTests
         Assert.True(rental.IsBalanced);
     }
 
+    [Fact]
+    public void A_saved_cards_values_reach_its_setup_and_a_retarget_to_new_values_sets_it_up_again()
+    {
+        var backend = new FakeBackend();
+        var rental = new CardRentalCore<FakeCard, string>(backend);
+        var saved = new Dictionary<string, int> { ["DamageAmount"] = 20, ["BurnApplyAmount"] = 20 };
+        var lease = RentReady(rental, backend, new(Small, CardTier.Gold, null, saved));
+        Assert.Same(saved, lease.Card!.SetUpAttributes);
+
+        var grown = new Dictionary<string, int> { ["DamageAmount"] = 20, ["BurnApplyAmount"] = 30 };
+        rental.Retarget(lease, new(Small, CardTier.Gold, null, grown));
+        Assert.Equal(CardRentalLeaseState.Pending, lease.State);
+        backend.CompleteAll();
+        rental.Tick();
+
+        Assert.Equal(CardRentalLeaseState.Ready, lease.State);
+        Assert.Same(grown, lease.Card!.SetUpAttributes);
+        Assert.Equal(2, lease.Revision);
+        Assert.True(rental.IsBalanced);
+    }
+
+    [Fact]
+    public void Two_copies_of_one_card_with_different_values_each_hold_their_own_instance()
+    {
+        var backend = new FakeBackend();
+        var rental = new CardRentalCore<FakeCard, string>(backend);
+        var low = new Dictionary<string, int> { ["PoisonApplyAmount"] = 3 };
+        var high = new Dictionary<string, int> { ["PoisonApplyAmount"] = 6 };
+
+        var first = RentReady(rental, backend, new(Small, CardTier.Silver, null, low));
+        var second = RentReady(rental, backend, new(Small, CardTier.Silver, null, high));
+
+        Assert.NotSame(first.Card, second.Card);
+        Assert.Same(low, first.Card!.SetUpAttributes);
+        Assert.Same(high, second.Card!.SetUpAttributes);
+
+        // A pooled instance a saved card set up is set up again for the next subject.
+        rental.Return(second);
+        var template = RentReady(rental, backend, new(Small, CardTier.Silver));
+        Assert.Null(template.Card!.SetUpAttributes);
+        Assert.Equal(1, rental.PoolHits);
+        Assert.True(rental.IsBalanced);
+    }
+
+    [Fact]
+    public void The_attributes_key_ignores_order_and_tells_values_apart()
+    {
+        var key = CardRentalSubject.AttributesKey(
+            new Dictionary<string, int> { ["HealAmount"] = 5, ["DamageAmount"] = -2 }
+        );
+
+        Assert.Equal("DamageAmount=-2,HealAmount=5", key);
+        Assert.Equal(
+            key,
+            CardRentalSubject.AttributesKey(
+                new Dictionary<string, int> { ["DamageAmount"] = -2, ["HealAmount"] = 5 }
+            )
+        );
+        Assert.NotEqual(
+            key,
+            CardRentalSubject.AttributesKey(
+                new Dictionary<string, int> { ["DamageAmount"] = -2, ["HealAmount"] = 6 }
+            )
+        );
+        Assert.Equal(string.Empty, CardRentalSubject.AttributesKey(null));
+        Assert.Equal(string.Empty, CardRentalSubject.AttributesKey(new Dictionary<string, int>()));
+    }
+
     private static CardRentalLease<FakeCard> RentReady(
         CardRentalCore<FakeCard, string> rental,
         FakeBackend backend,
@@ -328,6 +396,7 @@ public sealed class CardRentalCoreTests
         public bool Alive { get; set; } = true;
         public string? Parent { get; set; }
         public CardTier? SetUpTier { get; set; }
+        public IReadOnlyDictionary<string, int>? SetUpAttributes { get; set; }
         public int SetUpsInFlight { get; set; }
     }
 
@@ -422,6 +491,7 @@ public sealed class CardRentalCoreTests
                 return true;
             }
             card.SetUpTier = op.Subject.Tier;
+            card.SetUpAttributes = op.Subject.Attributes;
             return true;
         }
 

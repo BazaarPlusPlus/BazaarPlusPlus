@@ -142,18 +142,22 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         transform.localScale = Vector3.one;
         transform.localRotation = Quaternion.identity;
         card.gameObject.SetActive(true);
-        return card.SetUp(
-            template,
-            false,
-            BuildInstance(template, subject),
-            Il2CppSystem.Threading.CancellationToken.None
+        return new SetUpOperation(
+            card.SetUp(
+                template,
+                false,
+                BuildInstance(template, subject),
+                Il2CppSystem.Threading.CancellationToken.None
+            ),
+            subject.Attributes
         );
     }
 
     public bool TryCompleteSetUp(object operation, CardPreviewBase card, out string? failureReason)
     {
         failureReason = null;
-        var task = (Il2CppSystem.Threading.Tasks.Task)operation;
+        var setUp = (SetUpOperation)operation;
+        var task = setUp.Task;
         if (!task.IsCompleted)
             return false;
         if (task.IsFaulted || task.IsCanceled)
@@ -161,12 +165,37 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             failureReason = task.IsCanceled ? "setup_canceled" : "setup_faulted";
             return true;
         }
+        ApplySavedValues(card, setUp.Attributes);
         card.Show(true);
         card.Resize();
         Place(card);
         FitSkillMask(card);
         Group(card).alpha = 1f;
         return true;
+    }
+
+    private sealed record SetUpOperation(
+        Il2CppSystem.Threading.Tasks.Task Task,
+        IReadOnlyDictionary<string, int>? Attributes
+    );
+
+    // The preview's set-up writes the template's tier values over any instance value
+    // (CardPreviewBase.SetUp, CardExtensions.BuildAttributeDictionaryForTier), so a saved card's
+    // values go on after it, and its gems are drawn again from them.
+    private static void ApplySavedValues(
+        CardPreviewBase card,
+        IReadOnlyDictionary<string, int>? attributes
+    )
+    {
+        var client = card._clientCard;
+        if (attributes is not { Count: > 0 } || client?.Attributes == null)
+            return;
+        foreach (var pair in attributes)
+        {
+            if (Enum.TryParse<ECardAttributeType>(pair.Key, false, out var attribute))
+                client.Attributes[attribute] = pair.Value;
+        }
+        card.TryCast<CardPreviewItem>()?._gemGroupController?.Initialize(client, null, false);
     }
 
     public void Park(CardPreviewBase card)

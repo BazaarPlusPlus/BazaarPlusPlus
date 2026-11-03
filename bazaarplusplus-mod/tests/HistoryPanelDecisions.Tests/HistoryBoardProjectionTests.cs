@@ -21,7 +21,15 @@ internal static class HistoryBoardProjectionTests
             Items =
             {
                 Card(Loose, CardType.Item, null, null, "Gold", "None"),
-                Card(Large, CardType.Item, CardSocket.Socket_4, CardSize.Large, "Diamond", "Fiery"),
+                Card(
+                    Large,
+                    CardType.Item,
+                    CardSocket.Socket_4,
+                    CardSize.Large,
+                    "Diamond",
+                    "Fiery",
+                    new Dictionary<string, int> { ["DamageAmount"] = 40, ["PoisonApplyAmount"] = 6 }
+                ),
                 Card(Known, CardType.Item, CardSocket.Socket_1, CardSize.Medium, "Silver", null),
                 Card(Unknown, CardType.Item, CardSocket.Socket_0, CardSize.Small, "Gold", null),
                 Card(Known, CardType.Skill, CardSocket.Socket_7, CardSize.Small, "Gold", null),
@@ -51,9 +59,13 @@ internal static class HistoryBoardProjectionTests
             large.DisplaySocketId == 4
                 && large.DisplaySpan == 3
                 && large.Tier == CardTier.Diamond
-                && large.EnchantmentType == CardEnchantment.Fiery,
-            "A large item keeps its socket, tier, and enchantment."
+                && large.EnchantmentType == CardEnchantment.Fiery
+                && large.Attributes.Count == 2
+                && large.Attributes["DamageAmount"] == 40
+                && large.Attributes["PoisonApplyAmount"] == 6,
+            "A large item keeps its socket, tier, enchantment, and saved values."
         );
+        Require(medium.Attributes.Count == 0, "A card saved without values carries none.");
         var loose = board.Cards[2];
         Require(
             loose.Size == CardSize.Small
@@ -127,7 +139,8 @@ internal static class HistoryBoardProjectionTests
         CardSocket? socket,
         CardSize? size,
         string? tier,
-        string? enchant
+        string? enchant,
+        Dictionary<string, int>? attributes = null
     ) =>
         new()
         {
@@ -138,6 +151,7 @@ internal static class HistoryBoardProjectionTests
             Size = size,
             Tier = tier,
             Enchant = enchant,
+            Attributes = attributes ?? new Dictionary<string, int>(),
         };
 
     private static void Require(bool condition, string message)
