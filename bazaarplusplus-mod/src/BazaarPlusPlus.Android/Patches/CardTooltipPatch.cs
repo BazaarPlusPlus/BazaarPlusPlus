@@ -120,6 +120,7 @@ internal static class EnchantPreviewPassivePatch
             __instance._passiveText.SetText(
                 string.IsNullOrEmpty(text) ? section : $"{text}\n{section}"
             );
+            AndroidPatchHost.EnchantPreview?.Fit(__instance._passiveText.textObject);
         }
         catch (Exception exception)
         {

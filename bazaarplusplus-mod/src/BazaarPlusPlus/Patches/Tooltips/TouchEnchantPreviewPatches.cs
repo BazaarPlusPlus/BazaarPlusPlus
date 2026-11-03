@@ -58,6 +58,7 @@ internal static class TouchEnchantPreviewPatches
             __instance._passiveText!.SetText(
                 string.IsNullOrEmpty(text) ? section : $"{text}\n{section}"
             );
+            TouchEnchantPreviewHost.Preview?.Fit(__instance._passiveText.textObject);
         }
         catch (Exception exception)
         {
