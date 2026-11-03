@@ -14,7 +14,7 @@ final class LauncherScreen {
     /** The badge word and its tone; the same words as the iOS App. */
     enum Status {
         CHECKING(Tone.BUSY), PREPARING(Tone.BUSY), DOWNLOADING(Tone.BUSY),
-        READY(Tone.OK), COMPATIBILITY(Tone.WARN), WAITING(Tone.WARN), GAME_UPDATE(Tone.WARN),
+        READY(Tone.OK), WAITING(Tone.WARN), GAME_UPDATE(Tone.WARN),
         NOT_INSTALLED(Tone.NEUTRAL), REPLACE(Tone.BAD), OFFLINE(Tone.NEUTRAL),
         NOT_RELEASED(Tone.NEUTRAL);
 
@@ -27,9 +27,9 @@ final class LauncherScreen {
 
     enum Tone { OK, WARN, BAD, BUSY, NEUTRAL }
 
-    enum Action { PLAY, ENABLE_COMPATIBILITY, INSTALL_FROM_PLAY, UPDATE_FROM_PLAY, DOWNLOAD_FROM_PUBLISHER, OPEN_OFFICIAL, RETRY }
+    enum Action { PLAY, INSTALL_FROM_PLAY, UPDATE_FROM_PLAY, DOWNLOAD_FROM_PUBLISHER, OPEN_OFFICIAL, RETRY }
 
-    enum Note { COMPATIBILITY, FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, NO_RELEASE, DEV_INTEROP }
+    enum Note { FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, NO_RELEASE, DEV_INTEROP }
 
     /** A failure that stopped the check or the launch; shown as an error banner over a Retry. */
     static final class Failure {
@@ -193,16 +193,6 @@ final class LauncherScreen {
                     break;
                 case NEWER_WAITING:
                     status = Status.WAITING;
-                    break;
-                case NEWER_COMPAT_AVAILABLE:
-                    notes.add(Note.COMPATIBILITY);
-                    if (decision.compatibilityChosen) {
-                        status = Status.COMPATIBILITY;
-                        primary = play(facts, notes);
-                    } else {
-                        status = Status.WAITING;
-                        primary = Action.ENABLE_COMPATIBILITY;
-                    }
                     break;
                 case NORMAL:
                 default:

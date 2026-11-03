@@ -290,10 +290,10 @@ async function assertAndroidSigner(
 }
 
 // Uploads the Android build of VERSION: the Android App APK, the Interop
-// Package (content-addressed: a release or Pre-Adaptation that already stored
-// the same bytes leaves it in place, other bytes are refused), the Managed
-// Payload zip and its signature, and last the fragment naming them. Large
-// files stream from disk.
+// Package (content-addressed: a release that already stored the same bytes
+// leaves it in place, other bytes are refused), the Managed Payload zip and
+// its signature, and last the fragment naming them. Large files stream from
+// disk.
 export async function uploadAndroidPlatform({
   workspaceRoot,
   baseUrl,
@@ -355,8 +355,9 @@ export async function uploadAndroidPlatform({
   ];
   for (const [record, file, contentType] of uploads) {
     const key = objectKey(record.url, baseUrl);
-    // Another release or a Pre-Adaptation usually stored the Interop Package
-    // already; a HEAD settles that without sending the zip again.
+    // Another release of the same Interop Snapshot may have stored the
+    // Interop Package already; a HEAD settles that without sending the zip
+    // again.
     const stored = record === fragment.interop ? await store.head(key) : null;
     const outcome =
       stored?.size === record.size && stored.sha256 === record.sha256

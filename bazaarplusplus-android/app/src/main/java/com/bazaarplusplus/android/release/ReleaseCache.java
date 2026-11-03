@@ -1,6 +1,5 @@
 package com.bazaarplusplus.android.release;
 
-import com.bazaarplusplus.android.game.GameCodeHash;
 import com.bazaarplusplus.android.io.AtomicFiles;
 
 import java.io.File;
@@ -8,8 +7,7 @@ import java.io.IOException;
 import java.util.function.Function;
 
 /**
- * Reads the Platform Release Manifest and Pre-Adaptation records from the network and keeps the
- * last copy that decoded in the App's internal storage, so a launch without network uses the last
+ * Reads the Platform Release Manifest from the network and keeps the last copy that decoded in the App's internal storage, so a launch without network uses the last
  * verified release (ADR 0012: "读不到平台清单（离线）时，用上一次校验过的清单与已下载的产物").
  */
 public final class ReleaseCache {
@@ -73,28 +71,5 @@ public final class ReleaseCache {
             }
         }
         return new ManifestState(null, false, false, error);
-    }
-
-    /**
-     * The Pre-Adaptation record for this game code and Loader Release, from the network or the
-     * last copy that decoded; null when there is none. Whether it is usable is the caller's check.
-     */
-    public PreAdaptation preAdaptation(GameCodeHash game, String loaderTag) {
-        File cache = new File(dir, "adaptations/" + game + "_" + loaderTag + ".json");
-        try {
-            String text = Download.text(network.apply(origin.preAdaptationUrl(game, loaderTag)), MAX_DOCUMENT);
-            PreAdaptation record = PreAdaptation.decode(text, origin);
-            AtomicFiles.writeUtf8(cache, text);
-            return record;
-        } catch (IOException | MalformedReleaseException | IllegalArgumentException e) {
-            // Not published yet, offline, or malformed: fall back to the last copy.
-        }
-        String cached = AtomicFiles.readUtf8(cache);
-        if (cached == null) return null;
-        try {
-            return PreAdaptation.decode(cached, origin);
-        } catch (MalformedReleaseException e) {
-            return null;
-        }
     }
 }

@@ -4,33 +4,24 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { assertProductVersion } from './product.mjs';
-import {
-  assertAndroidGame,
-  assertAndroidLoader,
-  assertInteropRecord,
-  interopPackageKey
-} from './manifest.mjs';
 
-// The interop statement, its signature and the Pre-Adaptation record
-// (docs/adr/0012-android-app.md "发布产物" and "预适配 interop 包"). The
-// Android App loads an Interop Package only when the Android release key
-// signed a statement binding the zip to the installed game's code and to a
-// purpose: `release <product version>` for normal mode, `pre-adaptation` for
-// Compatibility Mode. Shared fixtures: release/fixtures/android-interop/.
+// The interop statement and its signature (docs/adr/0012-android-app.md
+// "发布产物"). The Android App loads an Interop Package only when the Android
+// release key signed a statement binding the zip to the installed game's code
+// and to the purpose `release <product version>`. Shared fixtures:
+// release/fixtures/android-interop/.
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const STATEMENT_HEADER = 'bpp-interop-v1';
-export const PRE_ADAPTATION_PURPOSE = 'pre-adaptation';
 
 export const releasePurpose = (version) =>
   `release ${assertProductVersion(version)}`;
 
 function assertPurpose(purpose) {
-  if (purpose === PRE_ADAPTATION_PURPOSE) return purpose;
   const match = /^release (.+)$/.exec(purpose ?? '');
   if (match && releasePurpose(match[1]) === purpose) return purpose;
   throw new Error(
-    `An interop statement's purpose is "release <version>" or "${PRE_ADAPTATION_PURPOSE}", not ${JSON.stringify(purpose)}`
+    `An interop statement's purpose is "release <version>", not ${JSON.stringify(purpose)}`
   );
 }
 
@@ -167,67 +158,4 @@ export function signWithReleaseKey({
   } finally {
     fs.rmSync(keyDirectory, { recursive: true, force: true });
   }
-}
-
-// Where `android-apk-watch.yml` records one Pre-Adaptation, below the release
-// origin: one record per game code and Loader Release.
-export function adaptationRecordKey({
-  il2cppSha256,
-  metadataSha256,
-  loaderTag
-}) {
-  assertAndroidLoader({ tag: loaderTag, sha256: '0'.repeat(64) }, 'adaptation');
-  if (!SHA256.test(il2cppSha256 ?? '') || !SHA256.test(metadataSha256 ?? ''))
-    throw new Error('A Pre-Adaptation record is keyed by the Game Code Hash');
-  return `android/adaptations/${il2cppSha256}_${metadataSha256}/${loaderTag}.json`;
-}
-
-export function validateAdaptationRecord(record) {
-  if (
-    record?.schemaVersion !== 1 ||
-    record.kind !== 'android-adaptation' ||
-    typeof record.il2cppInteropVersion !== 'string' ||
-    !record.il2cppInteropVersion ||
-    typeof record.publishedAt !== 'string' ||
-    new Date(record.publishedAt).toISOString() !== record.publishedAt
-  )
-    throw new Error('Invalid Pre-Adaptation record');
-  assertAndroidGame(record.game, 'Pre-Adaptation');
-  assertInteropRecord(record.interop, 'Pre-Adaptation');
-  assertAndroidLoader(record.loader, 'Pre-Adaptation');
-  return record;
-}
-
-// The record of one Pre-Adaptation. `interop.signature` signs the
-// `pre-adaptation` statement, so the record itself needs no signature.
-export function buildAdaptationRecord({
-  baseUrl,
-  game,
-  interop,
-  loader,
-  il2cppInteropVersion,
-  publishedAt = new Date()
-}) {
-  const origin = baseUrl.replace(/\/$/, '');
-  return validateAdaptationRecord({
-    schemaVersion: 1,
-    kind: 'android-adaptation',
-    game: {
-      gameVersion: game?.gameVersion,
-      versionCode: game?.versionCode,
-      il2cppSha256: game?.il2cppSha256,
-      metadataSha256: game?.metadataSha256
-    },
-    interop: {
-      url: `${origin}/${interopPackageKey(interop?.sha256)}`,
-      size: interop?.size,
-      sha256: interop?.sha256,
-      snapshotSha256: interop?.snapshotSha256,
-      signature: interop?.signature
-    },
-    loader: { tag: loader?.tag, sha256: loader?.sha256 },
-    il2cppInteropVersion,
-    publishedAt:
-      publishedAt instanceof Date ? publishedAt.toISOString() : publishedAt
-  });
 }

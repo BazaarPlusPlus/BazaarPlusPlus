@@ -4,7 +4,6 @@
   <string name="status_preparing">正在準備…</string>
   <string name="status_downloading">正在下載…</string>
   <string name="status_ready">可以開始</string>
-  <string name="status_compatibility">相容模式</string>
   <string name="status_waiting">等待適配</string>
   <string name="status_game_update">需要更新遊戲</string>
   <string name="status_not_installed">未安裝</string>
@@ -14,14 +13,12 @@
 
   <string name="play">開始遊戲</string>
   <string name="native_launch">開啟官方遊戲</string>
-  <string name="compat_opt_in">啟用相容模式</string>
   <string name="install_from_play">從 Google Play 安裝</string>
   <string name="update_from_play">從 Google Play 更新</string>
   <string name="download_from_publisher">從發行商下載</string>
   <string name="retry">重試</string>
   <string name="download">下載</string>
 
-  <string name="compat_explain">相容模式會關閉上傳。本機戰績照常記錄。個別功能可能無法使用。</string>
   <string name="replace_game">這是舊版 BazaarPlusPlus 打包的 The Bazaar。請先解除安裝舊版，再安裝官方遊戲。解除安裝會刪除舊版的本機戰績。</string>
   <string name="release_unavailable">未能讀取 BazaarPlusPlus 的發布資訊。請連上網路後重試。</string>
   <string name="release_from_cache">離線：使用上次讀取的發布資訊。</string>

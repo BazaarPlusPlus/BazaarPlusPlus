@@ -5,8 +5,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.bazaarplusplus.android.game.GameCodeHash;
-
 import org.json.JSONObject;
 import org.junit.Rule;
 import org.junit.Test;
@@ -68,16 +66,5 @@ public class ReleaseCacheTest {
         assertNull(state.manifest);
         served.clear();
         assertFalse(cache().manifest().noRelease);
-    }
-
-    @Test
-    public void aPreAdaptationIsKeptForOfflineUse() throws Exception {
-        GameCodeHash game = PreAdaptationTest.GAME;
-        String url = ReleaseOrigin.PUBLIC.preAdaptationUrl(game, PreAdaptationTest.TAG);
-        assertNull(cache().preAdaptation(game, PreAdaptationTest.TAG));
-        served.put(url, PreAdaptationTest.record(game, PreAdaptationTest.TAG, "c2ln"));
-        assertEquals(12900, cache().preAdaptation(game, PreAdaptationTest.TAG).game.versionCode);
-        served.clear();
-        assertEquals(12900, cache().preAdaptation(game, PreAdaptationTest.TAG).game.versionCode);
     }
 }

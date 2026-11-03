@@ -29,7 +29,6 @@ public static class MainMenuVersionLabelFormatter
     public const string RestartFromAppText = "restart from the BPP App";
     public const string DesktopManualUpdateText = "update via installer";
     public const string AndroidManualUpdateText = "install the new BPP App";
-    public const string CompatibilityModeText = "compatibility mode";
 
     /// <summary>The platform token of the game version string on the iOS port.</summary>
     public const string IosPlatformToken = "bppios";
@@ -54,15 +53,12 @@ public static class MainMenuVersionLabelFormatter
         return string.Join("-", tokens);
     }
 
-    // modeText: how this launch runs the mod when that is not the usual way, such as
-    // CompatibilityModeText; null shows nothing.
     public static string Build(
         string gameVersion,
         string pluginVersion,
         MainMenuUpdateStatus status = MainMenuUpdateStatus.None,
         string manualUpdateText = DesktopManualUpdateText,
-        string restartFromAppText = RestartFromAppText,
-        string? modeText = null
+        string restartFromAppText = RestartFromAppText
     )
     {
         var normalizedGameVersion = string.IsNullOrWhiteSpace(gameVersion)
@@ -79,8 +75,7 @@ public static class MainMenuVersionLabelFormatter
             MainMenuUpdateStatus.RestartFromApp => restartFromAppText,
             _ => null,
         };
-        var mode = string.IsNullOrWhiteSpace(modeText) ? string.Empty : $" | {modeText!.Trim()}";
         var suffix = statusText == null ? string.Empty : $" | {statusText}";
-        return $" Version: {normalizedGameVersion} | BPP {pluginVersion.Trim()}{mode}{suffix} ";
+        return $" Version: {normalizedGameVersion} | BPP {pluginVersion.Trim()}{suffix} ";
     }
 }

@@ -9,9 +9,8 @@ using UnityEngine;
 namespace BazaarPlusPlus.Android.Patches;
 
 /// <summary>
-/// Writes the BPP version, Compatibility Mode when the Launch Record says so, and the self-update
-/// status into the main-menu version label, the visible proof that the host loaded and its hooks
-/// fire. Observe mode counts the call and leaves
+/// Writes the BPP version and the self-update status into the main-menu version label, the
+/// visible proof that the host loaded and its hooks fire. Observe mode counts the call and leaves
 /// the label alone. The label is kept so that a status the release check publishes later
 /// rewrites it (<see cref="RefreshCurrent"/>).
 /// </summary>
@@ -41,11 +40,6 @@ internal static class VersionLabelPatch
         "请从 BPP App 重新启动",
         "請從 BPP App 重新啟動"
     );
-    private static readonly LocalizedTextSet CompatibilityModeText = new(
-        MainMenuVersionLabelFormatter.CompatibilityModeText,
-        "兼容模式",
-        "相容模式"
-    );
 
     private static string Build() =>
         MainMenuVersionLabelFormatter.Build(
@@ -53,8 +47,7 @@ internal static class VersionLabelPatch
             AndroidPatchHost.PluginVersion,
             MainMenuVersionUpdateState.Current.Status,
             L.Resolve(ManualUpdateText),
-            L.Resolve(RestartFromAppText),
-            AndroidPatchHost.CompatibilityMode ? L.Resolve(CompatibilityModeText) : null
+            L.Resolve(RestartFromAppText)
         );
 
     private static bool IsAlive(TextMeshProUGUI? label) => label != null && !label.WasCollected;

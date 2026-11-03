@@ -56,9 +56,6 @@ internal static class AndroidPatchHost
 
     public static string PluginVersion { get; private set; } = string.Empty;
 
-    /// <summary>Whether the Launch Record put this launch in Compatibility Mode.</summary>
-    public static bool CompatibilityMode { get; private set; }
-
     /// <summary>The record chain, or null when it failed to start; hooks then only count.</summary>
     public static AndroidComposition? Composition { get; private set; }
 
@@ -73,13 +70,11 @@ internal static class AndroidPatchHost
         HarmonyLib.Harmony harmony,
         AndroidPatchMode mode,
         string version,
-        bool compatibilityMode,
         AndroidComposition? composition
     )
     {
         Mode = mode;
         PluginVersion = version;
-        CompatibilityMode = compatibilityMode;
         Composition = composition;
         if (mode == AndroidPatchMode.Disabled)
             return;

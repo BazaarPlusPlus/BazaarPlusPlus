@@ -22,7 +22,6 @@ using BazaarPlusPlus.Game.RunLifecycle;
 using BazaarPlusPlus.Game.RunLogging;
 using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.ReleaseManifest;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.Mobile.LiveBuild;
@@ -41,11 +40,10 @@ namespace BazaarPlusPlus.Android;
 /// <summary>
 /// The Android composition root over Core's <see cref="CoreComposition"/> and the Android Data
 /// Root: the record chain (Run Lifecycle and Run Logging over the IL2CPP probes, the PvP battle
-/// capture with its board captures and Replay Payloads), Bundle sealing, the upload pump (not in
-/// Compatibility Mode, <see cref="AndroidLaunch"/>), and the Replay Payload maintenance sweep,
-/// all on one history database. Features start in registration order and stop in reverse; the
-/// pump is ticked from the melon's update and disposed first. The sweep runs once per start on a
-/// pool thread, as on the desktop. It also owns what History and
+/// capture with its board captures and Replay Payloads), Bundle sealing, the upload pump, and the
+/// Replay Payload maintenance sweep, all on one history database. Features start in registration
+/// order and stop in reverse; the pump is ticked from the melon's update and disposed first. The
+/// sweep runs once per start on a pool thread, as on the desktop. It also owns what History and
 /// the replay runtime share with the record chain: the battle store and catalog, the payload
 /// store and its operation gate, History's BazaarDB link client, and History's own Mod API
 /// session (ADR-0006), which outlives the upload pump's per-activation sessions and is disposed
@@ -70,27 +68,15 @@ internal sealed class AndroidComposition
     private readonly AndroidSupporterData _supporters;
     private readonly BazaarDbLinkClient _accountLink;
     private readonly BundleSealCoordinator _sealCoordinator;
-    private readonly AndroidLaunch _launch;
-    private readonly IPathProvider _paths;
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
 
-    // launch: what the Launch Record allows. In Compatibility Mode the upload pump never starts
-    // and History syncs no Ghost battles; everything else runs.
-    public AndroidComposition(
-        string dataRoot,
-        GameBuildInfo gameBuild,
-        IBppSettingsStore settings,
-        AndroidLaunch launch
-    )
+    public AndroidComposition(string dataRoot, GameBuildInfo gameBuild, IBppSettingsStore settings)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         ArgumentNullException.ThrowIfNull(gameBuild);
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(launch);
-        _launch = launch;
         var paths = AndroidPaths.Provider(dataRoot);
-        _paths = paths;
         DatabasePath = PathConstants.RunLogDatabase(dataRoot);
         RunLifecycleSource = new AndroidRunLifecycleSource();
         _core = new CoreComposition(
@@ -147,7 +133,7 @@ internal sealed class AndroidComposition
                 gameBuild.Channel.ToString(),
                 () =>
                     new QueuedRunLogStore(
-                        CreateRunLogStore(paths, launch),
+                        new RunLogStore(paths, DatabaseOptions),
                         new RunLogStoreLoggerBridge()
                     ),
                 battles.AttachToRun,
@@ -268,58 +254,18 @@ internal sealed class AndroidComposition
 
     public void Start(float nowSeconds)
     {
-        // Before the record chain could resume a Run that a normal launch left active, and before
-        // History lists an active History-Only Run as this launch's own.
-        PrepareRuns(_paths, _launch);
         _core.Start();
         _replayMaintenanceFlight = new ReplayMaintenanceFlight();
         _replayMaintenanceFlight.Start(token =>
             _replayMaintenance.RunAndReport(DateTimeOffset.UtcNow, token)
         );
-        // Compatibility Mode records only History-Only Runs, which are never sealed, and sends
-        // no Bundle a normal launch sealed either.
-        if (_launch.Uploads)
-            _uploads = UploadPump.Start(
-                _core.Services,
-                ReleaseManifestEndpoints.AndroidPlatformKey,
-                nowSeconds,
-                DatabaseOptions
-            );
+        _uploads = UploadPump.Start(
+            _core.Services,
+            ReleaseManifestEndpoints.AndroidPlatformKey,
+            nowSeconds,
+            DatabaseOptions
+        );
     }
-
-    /// <summary>Whether this composition's upload pump is running.</summary>
-    public bool UploadPumpStarted => _uploads != null;
-
-    /// <summary>
-    /// The record chain's Run store: in Compatibility Mode it writes History-Only Runs and
-    /// resumes none.
-    /// </summary>
-    internal static RunLogStore CreateRunLogStore(IPathProvider paths, AndroidLaunch launch) =>
-        new(paths, DatabaseOptions, launch.RunUploadPolicy);
-
-    /// <summary>
-    /// Readies the history database before the record chain starts. In Compatibility Mode it
-    /// demotes every active <c>bundle</c> Run to History-Only, so a Run a normal launch left
-    /// active is never sealed with what this launch adds; it is not resumed either, and its
-    /// earlier part stays local. Every launch then closes the active History-Only Runs, which
-    /// nothing can continue. Returns how many Runs were demoted; a normal launch demotes none.
-    /// </summary>
-    internal static int PrepareRuns(IPathProvider paths, AndroidLaunch launch)
-    {
-        var store = new RunLogStore(paths, DatabaseOptions);
-        var demoted = launch.CompatibilityMode ? store.DemoteActiveRunsToHistoryOnly() : 0;
-        var abandoned = store.AbandonActiveHistoryOnlyRuns();
-        if (launch.CompatibilityMode || abandoned > 0)
-            BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.Android, "android.launch_record.runs_prepared"),
-                ("demoted", demoted),
-                ("abandoned", abandoned)
-            );
-        return demoted;
-    }
-
-    /// <summary>Whether History syncs Ghost battles over its session.</summary>
-    public bool GhostSync => _launch.Uploads;
 
     /// <summary>
     /// The app left the foreground: the seal worker parks after its current pass. The upload
@@ -350,9 +296,8 @@ internal sealed class AndroidComposition
 
     /// <summary>
     /// History's dependencies over this composition: the repository on the history database,
-    /// Ghost sync over History's session unless the launch is in Compatibility Mode, and the
-    /// replay service over the runtime the accessor returns. The panel only receives them; the
-    /// composition stays their owner.
+    /// Ghost sync over History's session, and the replay service over the runtime the accessor
+    /// returns. The panel only receives them; the composition stays their owner.
     /// </summary>
     public HistoryPanelDependencies CreateHistoryDependencies(
         Func<ISavedReplayRuntime?> runtime,
@@ -373,17 +318,15 @@ internal sealed class AndroidComposition
                 HistoryPanelDecisions.ResolveAccountLinkGate(
                     Settings.BazaarDbUploadEnabled.Value,
                     _core.Services.GameBuild.Channel
-                ),
-            GhostSync
+                )
         );
 
     /// <summary>
     /// The managed half of <see cref="CreateHistoryDependencies(Func{ISavedReplayRuntime?}, Func{Guid, bool})"/>:
     /// every input is a path, a session, or a delegate, so a test composes History over a
-    /// temporary database without the game. A null session, or <paramref name="ghostSync"/>
-    /// false (Compatibility Mode), leaves Ghost sync unavailable; the session still answers the
-    /// server check. A null link client leaves out the account-link form. Favorites read and play
-    /// through the runtime the accessor returns, as on the desktop.
+    /// temporary database without the game. A null session leaves Ghost sync unavailable. A null
+    /// link client leaves out the account-link form. Favorites read and play through the runtime
+    /// the accessor returns, as on the desktop.
     /// </summary>
     internal static HistoryPanelDependencies CreateHistoryDependencies(
         IRunContext runContext,
@@ -396,17 +339,16 @@ internal sealed class AndroidComposition
         Func<float> unscaledTime,
         BazaarDbAccountLinkStore accountLinkStore,
         BazaarDbLinkClient? accountLinkClient,
-        Func<AccountLinkGate>? accountLinkGate,
-        bool ghostSync = true
+        Func<AccountLinkGate>? accountLinkGate
     )
     {
         ArgumentNullException.ThrowIfNull(runContext);
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(hasCardTemplate);
-        var repository = new HistoryPanelRepository(databasePath, historyOnlyRunCanBeCurrent: true);
+        var repository = new HistoryPanelRepository(databasePath);
         var ghostBattles =
-            session == null || !ghostSync
+            session == null
                 ? null
                 : new GhostBattleSyncService(
                     repository,

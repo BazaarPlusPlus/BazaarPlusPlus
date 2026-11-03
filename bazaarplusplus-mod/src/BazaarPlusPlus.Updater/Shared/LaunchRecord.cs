@@ -13,30 +13,33 @@ public enum LaunchRecordMode
     /// <summary>No record: the mod is not running in the Android App, and runs normally.</summary>
     Absent,
 
-    /// <summary>A record for this process and this release, in mode <c>normal</c>.</summary>
+    /// <summary>A record for this process and this release.</summary>
     Normal,
 
     /// <summary>
-    /// Mode <c>compatibility</c>, or a record that cannot be trusted: unreadable, invalid,
-    /// another process's, or another release's. Uploads stay off (root ADR 0012).
+    /// A record that cannot be trusted: unreadable, invalid, another process's, or another
+    /// release's. It is logged, and the mod runs normally (root ADR 0013).
     /// </summary>
-    Compatibility,
+    Untrusted,
 }
 
 /// <summary>
 /// The Launch Record the Android App writes into LemonLoader's <c>UserData/</c> before every
-/// BPP launch (root ADR 0012, "启动记录"): which App, release, mode, game and interop this launch
+/// BPP launch (root ADR 0012, "启动记录"): which App, release, game and interop this launch
 /// uses. The App's writer owns the format and a shared golden,
 /// <c>bazaarplusplus-android/contracts/launch-record.v1.json</c>, that this reader is tested
-/// against. Parsing is strict: a missing, mistyped or unknown field, an unknown
-/// <c>schemaVersion</c> or <c>mode</c>, is no record at all.
+/// against. Parsing is strict: a missing, mistyped or unknown field, or an unknown
+/// <c>schemaVersion</c>, is no record at all.
 /// </summary>
 public sealed class LaunchRecord
 {
     /// <summary>The record's file name in LemonLoader's <c>UserData/</c> directory.</summary>
     public const string FileName = "BazaarPlusPlus.launch.json";
 
-    /// <summary>The one schema this reader knows; a field change bumps it.</summary>
+    /// <summary>
+    /// The one schema this reader knows. Version 1 was edited in place once, before the App's
+    /// first release (root ADR 0013); every later field change bumps it.
+    /// </summary>
     public const int SchemaVersion = 1;
 
     // A record is a few hundred bytes; anything this large was not written by the App.
@@ -46,7 +49,6 @@ public sealed class LaunchRecord
         int processId,
         LaunchRecordApp app,
         string release,
-        string mode,
         LaunchRecordGame game,
         LaunchRecordInterop interop
     )
@@ -54,7 +56,6 @@ public sealed class LaunchRecord
         ProcessId = processId;
         App = app;
         Release = release;
-        Mode = mode;
         Game = game;
         Interop = interop;
     }
@@ -67,14 +68,9 @@ public sealed class LaunchRecord
     /// <summary>The product version this launch stages or has installed.</summary>
     public string Release { get; }
 
-    /// <summary><c>normal</c> or <c>compatibility</c>.</summary>
-    public string Mode { get; }
-
     public LaunchRecordGame Game { get; }
 
     public LaunchRecordInterop Interop { get; }
-
-    public bool IsCompatibilityMode => Mode == "compatibility";
 
     /// <summary>The record's path under LemonLoader's <c>UserData/</c> directory.</summary>
     public static string PathIn(string userDataDirectory) =>
@@ -115,14 +111,10 @@ public sealed class LaunchRecord
                 "processId",
                 "app",
                 "release",
-                "mode",
                 "game",
                 "interop"
             );
 
-            var mode = Text(root, "mode");
-            if (mode != "normal" && mode != "compatibility")
-                throw new LaunchRecordFormatException("mode_unknown", $"mode '{mode}'.");
             var release = Text(root, "release");
             if (!ManagedPayloadVersion.TryParse(release, out _) || release.Split('.').Length != 3)
                 throw new LaunchRecordFormatException("invalid", $"release '{release}'.");
@@ -155,10 +147,7 @@ public sealed class LaunchRecord
             );
 
             var interop = Child(root, "interop");
-            Fields(interop, "interop", "sha256", "snapshotSha256", "source");
-            var source = Text(interop, "source");
-            if (source != "release" && source != "pre-adaptation")
-                throw new LaunchRecordFormatException("invalid", $"interop.source '{source}'.");
+            Fields(interop, "interop", "sha256", "snapshotSha256");
 
             return new LaunchRecord(
                 processId,
@@ -169,7 +158,6 @@ public sealed class LaunchRecord
                     digest
                 ),
                 release,
-                mode,
                 new LaunchRecordGame(
                     Text(game, "packageName"),
                     Text(game, "versionName"),
@@ -179,8 +167,7 @@ public sealed class LaunchRecord
                 ),
                 new LaunchRecordInterop(
                     Sha256(interop, "sha256"),
-                    Sha256(interop, "snapshotSha256"),
-                    source
+                    Sha256(interop, "snapshotSha256")
                 )
             );
         }
@@ -290,8 +277,8 @@ public sealed record LaunchRecordGame(
     string MetadataSha256
 );
 
-/// <summary>The Interop Package this launch loads; <c>source</c> is <c>release</c> or <c>pre-adaptation</c>.</summary>
-public sealed record LaunchRecordInterop(string Sha256, string SnapshotSha256, string Source);
+/// <summary>The Interop Package this launch loads.</summary>
+public sealed record LaunchRecordInterop(string Sha256, string SnapshotSha256);
 
 /// <summary>A record that does not parse; <see cref="ReasonCode"/> names why for the log.</summary>
 public sealed class LaunchRecordFormatException : FormatException
@@ -303,12 +290,12 @@ public sealed class LaunchRecordFormatException : FormatException
 }
 
 /// <summary>
-/// One read of the Launch Record, classified (root ADR 0012): no file is
+/// One read of the Launch Record, classified (root ADR 0012 and 0013): no file is
 /// <see cref="LaunchRecordMode.Absent"/>; a record that is unreadable or invalid, has an unknown
-/// schema or mode, was written by another process, or names another release than the running
-/// Mods is <see cref="LaunchRecordMode.Compatibility"/>, as is mode <c>compatibility</c>.
-/// <see cref="Record"/> keeps a parsed record written for this process, whatever its mode, for
-/// the Updater and self-update, which compare against the runtime the App started.
+/// schema, was written by another process, or names another release than the running Mods is
+/// <see cref="LaunchRecordMode.Untrusted"/>. <see cref="Record"/> keeps a parsed record written
+/// for this process, another release's included, for the Updater and self-update, which compare
+/// against the runtime the App started.
 /// </summary>
 public sealed class LaunchRecordReading
 {
@@ -326,9 +313,8 @@ public sealed class LaunchRecordReading
     public LaunchRecordMode Mode { get; }
 
     /// <summary>
-    /// <c>absent</c>, <c>normal</c>, <c>mode_compatibility</c>, <c>unreadable</c>,
-    /// <c>invalid</c>, <c>invalid_json</c>, <c>schema_unknown</c>, <c>mode_unknown</c>,
-    /// <c>process_mismatch</c> or <c>release_mismatch</c>.
+    /// <c>absent</c>, <c>normal</c>, <c>unreadable</c>, <c>invalid</c>, <c>invalid_json</c>,
+    /// <c>schema_unknown</c>, <c>process_mismatch</c> or <c>release_mismatch</c>.
     /// </summary>
     public string Reason { get; }
 
@@ -373,15 +359,13 @@ public sealed class LaunchRecordReading
         if (record.ProcessId != processId)
             return Untrusted("process_mismatch");
         if (runningRelease != null && !SameRelease(record.Release, runningRelease))
-            return new(LaunchRecordMode.Compatibility, "release_mismatch", record);
-        return record.IsCompatibilityMode
-            ? new(LaunchRecordMode.Compatibility, "mode_compatibility", record)
-            : new(LaunchRecordMode.Normal, "normal", record);
+            return new(LaunchRecordMode.Untrusted, "release_mismatch", record);
+        return new(LaunchRecordMode.Normal, "normal", record);
     }
 
-    /// <summary>A record that cannot be trusted, for <paramref name="reason"/>: Compatibility Mode.</summary>
+    /// <summary>A record that cannot be trusted, for <paramref name="reason"/>.</summary>
     public static LaunchRecordReading Untrusted(string reason) =>
-        new(LaunchRecordMode.Compatibility, reason, null);
+        new(LaunchRecordMode.Untrusted, reason, null);
 
     private static bool SameRelease(string release, string running) =>
         ManagedPayloadVersion.TryParse(release, out var recorded)

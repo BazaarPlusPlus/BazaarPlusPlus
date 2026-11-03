@@ -47,7 +47,6 @@ public sealed class LaunchRecordTests : IDisposable
         var record = reading.Record!;
         Assert.Equal(GoldenProcessId, record.ProcessId);
         Assert.Equal(GoldenRelease, record.Release);
-        Assert.False(record.IsCompatibilityMode);
         Assert.Equal("com.bazaarplusplus.android", record.App.PackageName);
         Assert.Equal(6001000, record.App.VersionCode);
         Assert.Equal(
@@ -58,7 +57,6 @@ public sealed class LaunchRecordTests : IDisposable
         Assert.Equal(12825, record.Game.VersionCode);
         Assert.Equal(64, record.Game.Il2CppSha256.Length);
         Assert.Equal(64, record.Game.MetadataSha256.Length);
-        Assert.Equal("release", record.Interop.Source);
         Assert.Equal(64, record.Interop.SnapshotSha256.Length);
     }
 
@@ -92,7 +90,7 @@ public sealed class LaunchRecordTests : IDisposable
     }
 
     [Fact]
-    public void A_file_that_is_not_json_is_compatibility_mode()
+    public void A_file_that_is_not_json_is_untrusted()
     {
         File.WriteAllText(LaunchRecord.PathIn(_root), "{ \"schemaVersion\": 1, ");
 
@@ -102,17 +100,17 @@ public sealed class LaunchRecordTests : IDisposable
             GoldenRelease
         );
 
-        Assert.Equal(LaunchRecordMode.Compatibility, reading.Mode);
+        Assert.Equal(LaunchRecordMode.Untrusted, reading.Mode);
         Assert.Equal("invalid_json", reading.Reason);
         Assert.Null(reading.Record);
     }
 
     [Fact]
-    public void Another_process_s_record_is_compatibility_mode_and_names_no_runtime()
+    public void Another_process_s_record_is_untrusted_and_names_no_runtime()
     {
         var reading = LaunchRecordReading.Classify(Golden(), GoldenProcessId + 1, GoldenRelease);
 
-        Assert.Equal(LaunchRecordMode.Compatibility, reading.Mode);
+        Assert.Equal(LaunchRecordMode.Untrusted, reading.Mode);
         Assert.Equal("process_mismatch", reading.Reason);
         Assert.Null(reading.Record);
     }
@@ -121,11 +119,11 @@ public sealed class LaunchRecordTests : IDisposable
     [InlineData("6.0.2")]
     [InlineData("6.1.1")]
     [InlineData("not-a-version")]
-    public void Another_release_is_compatibility_mode_but_keeps_the_runtime(string running)
+    public void Another_release_is_untrusted_but_keeps_the_runtime(string running)
     {
         var reading = LaunchRecordReading.Classify(Golden(), GoldenProcessId, running);
 
-        Assert.Equal(LaunchRecordMode.Compatibility, reading.Mode);
+        Assert.Equal(LaunchRecordMode.Untrusted, reading.Mode);
         Assert.Equal("release_mismatch", reading.Reason);
         Assert.NotNull(reading.Record);
     }
@@ -136,20 +134,6 @@ public sealed class LaunchRecordTests : IDisposable
         var reading = LaunchRecordReading.Classify(Golden(), GoldenProcessId, runningRelease: null);
 
         Assert.Equal(LaunchRecordMode.Normal, reading.Mode);
-    }
-
-    [Fact]
-    public void Mode_compatibility_is_compatibility_mode_with_the_record()
-    {
-        var reading = LaunchRecordReading.Classify(
-            Mutated(record => record["mode"] = "compatibility"),
-            GoldenProcessId,
-            GoldenRelease
-        );
-
-        Assert.Equal(LaunchRecordMode.Compatibility, reading.Mode);
-        Assert.Equal("mode_compatibility", reading.Reason);
-        Assert.True(reading.Record!.IsCompatibilityMode);
     }
 
     [Fact]
@@ -170,8 +154,8 @@ public sealed class LaunchRecordTests : IDisposable
         {
             { "schema_unknown", Mutated(record => record["schemaVersion"] = 2) },
             { "invalid", Mutated(record => record.Remove("schemaVersion")) },
-            { "mode_unknown", Mutated(record => record["mode"] = "turbo") },
-            { "invalid", Mutated(record => record.Remove("mode")) },
+            // mode was removed from v1 before the App's first release (root ADR 0013).
+            { "invalid", Mutated(record => record["mode"] = "normal") },
             { "invalid", Mutated(record => record["processId"] = "12345") },
             { "invalid", Mutated(record => record["release"] = "6.1") },
             { "invalid", Mutated(record => record["extra"] = true) },
@@ -181,7 +165,7 @@ public sealed class LaunchRecordTests : IDisposable
                 Mutated(record => record["app"]!["nonManagedPayloadDigest"] = new string('A', 64))
             },
             { "invalid", Mutated(record => record["game"]!["il2cppSha256"] = "abc") },
-            { "invalid", Mutated(record => record["interop"]!["source"] = "device") },
+            { "invalid", Mutated(record => record["interop"]!["source"] = "release") },
             { "invalid", Mutated(record => record["interop"] = "release") },
             { "invalid_json", "[" },
             { "invalid", "[]" },
@@ -189,11 +173,11 @@ public sealed class LaunchRecordTests : IDisposable
 
     [Theory]
     [MemberData(nameof(Untrusted))]
-    public void A_record_that_does_not_parse_is_compatibility_mode(string reason, string text)
+    public void A_record_that_does_not_parse_is_untrusted(string reason, string text)
     {
         var reading = LaunchRecordReading.Classify(text, GoldenProcessId, GoldenRelease);
 
-        Assert.Equal(LaunchRecordMode.Compatibility, reading.Mode);
+        Assert.Equal(LaunchRecordMode.Untrusted, reading.Mode);
         Assert.Equal(reason, reading.Reason);
         Assert.Null(reading.Record);
     }

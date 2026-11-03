@@ -46,25 +46,6 @@ Assert(
     "The host localizes the restart-from-the-App text."
 );
 Assert(
-    MainMenuVersionLabelFormatter.Build(
-        "1.0.0",
-        "6.1.0",
-        MainMenuUpdateStatus.RestartToUpdate,
-        modeText: MainMenuVersionLabelFormatter.CompatibilityModeText
-    ) == " Version: 1.0.0 | BPP 6.1.0 | compatibility mode | restart to update ",
-    "Compatibility Mode follows the BPP version, before the update status."
-);
-Assert(
-    MainMenuVersionLabelFormatter.Build("1.0.0", "6.1.0", modeText: "兼容模式")
-        == " Version: 1.0.0 | BPP 6.1.0 | 兼容模式 ",
-    "Compatibility Mode shows with nothing to update."
-);
-Assert(
-    MainMenuVersionLabelFormatter.Build("1.0.0", "6.1.0", modeText: " ")
-        == " Version: 1.0.0 | BPP 6.1.0 ",
-    "A blank mode shows nothing."
-);
-Assert(
     MainMenuVersionLabelFormatter.Build(" ", "", MainMenuUpdateStatus.Updating)
         == " Version: unknown ",
     "Without a plugin version the label shows only the game version."

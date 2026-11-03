@@ -38,17 +38,11 @@ The sha256 of the installed official game's `libil2cpp.so` and `global-metadata.
 **Game Adaptation** (适配):
 The binding of one product version to one game's code: the Snapshot Lock's `android-online` entry, the Interop Snapshot generated from it, and the Mods compiled against it, published together as that version's Android release. Only the latest game is adapted.
 
-**Compatibility Mode** (兼容模式):
-The opt-in BPP launch of a game whose Game Code Hash differs from the adapted one and whose `versionCode` is not older: the Android App loads that game's Interop Package from a Pre-Adaptation and the current Mods, and the mod turns every upload off, records every run as a History-Only Run, and shows the mode on the main menu. It never runs an older interop, which binds methods by metadata token and would silently bind the wrong ones.
-
 **Interop Package** (interop 包):
-One Interop Snapshot as a deterministic zip, published content-addressed in the public bucket with an RSA signature that binds it to the Game Code Hash it was generated for. The Android App verifies it and adds it to the game's resources so LemonLoader extracts it; a release and a Pre-Adaptation of the same snapshot share one object. ADR 0012 records its layout and keys.
-
-**Pre-Adaptation** (预适配 interop 包):
-An Interop Package for a new game, published by `android-apk-watch.yml` with a record keyed by the game's code and the Loader Release as soon as the game's code changes, before any Product Release adapts it. It feeds Compatibility Mode only; it never bumps `VERSION` and never enters a Platform Release Manifest.
+One Interop Snapshot as a deterministic zip, published content-addressed in the public bucket with an RSA signature that binds it to the Game Code Hash it was generated for. The Android App verifies it and adds it to the game's resources so LemonLoader extracts it; releases of one snapshot share one object. ADR 0012 records its layout and keys.
 
 **Launch Record** (启动记录):
-The file the Android App writes into LemonLoader's `UserData/` before every BPP launch, telling the mod which App, release, mode, game and interop this launch uses. The mod reads it at start; no file means the mod is not running in the Android App, and an unreadable or stale one means Compatibility Mode. ADR 0012 records the decision; the Contracts table in `AGENTS.md` names its owner.
+The file the Android App writes into LemonLoader's `UserData/` before every BPP launch, telling the mod which App, release, game and interop this launch uses. The mod reads it at start; no file means the mod is not running in the Android App, and an unreadable or stale one is logged while the mod runs normally. ADR 0012 records the decision; the Contracts table in `AGENTS.md` names its owner.
 
 **Managed Payload** (托管 Payload):
 One platform's `managed` and `history-contract` Payload entries for one product version, published as a zip signed with the Tauri updater key at `<version>/<platformKey>/managed/` and recorded as `managedPayload` in that platform's fragment: what the mod's self-update installs. A copy takes it only when its history database schema and `nonManagedPayloadDigest` (every other Payload file, the Updater included) match the release; otherwise the installer or a new Android App updates it.
@@ -106,7 +100,7 @@ The folder in the game directory where the mod keeps its local database, screens
 A Data Root an earlier major version wrote (`BazaarPlusPlus/`, `BazaarPlusPlusV4/`, `BazaarPlusPlusV5/`), owned by the user. The mod never reads it; the installer measures it, imports V5 once, and deletes one only on the user's confirmation.
 
 **History-Only Run** (仅历史对局):
-A run in the current Data Root that the mod never seals: it appears only in local history, is never uploaded, and is never protected from cleanup as a seal candidate. Every run imported from a Legacy Root is one, and so is every run the Android Host records in Compatibility Mode, including a run a normal launch left active. Unlike a **Run**, it is never carried inside a Bundle.
+A run in the current Data Root that the mod never seals: it appears only in local history, is never uploaded, and is never protected from cleanup as a seal candidate. Only the installer's V5 import writes one: every run imported from a Legacy Root is one. Unlike a **Run**, it is never carried inside a Bundle.
 
 ## Data pipeline
 

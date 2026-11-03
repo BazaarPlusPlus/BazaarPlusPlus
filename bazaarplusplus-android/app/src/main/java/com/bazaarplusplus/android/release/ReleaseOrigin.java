@@ -1,7 +1,5 @@
 package com.bazaarplusplus.android.release;
 
-import com.bazaarplusplus.android.game.GameCodeHash;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Objects;
@@ -10,7 +8,7 @@ import java.util.regex.Pattern;
 /**
  * Where the App reads releases: the public bucket's {@code installer/} prefix (release/downloads.ts
  * {@code RELEASE_BASE_URL}). A debug build may point it at a local server instead (DevOverrides).
- * Every artifact URL a manifest or record names must lie below it.
+ * Every artifact URL a manifest names must lie below it.
  */
 public final class ReleaseOrigin {
     public static final String PLATFORM_KEY = "android-aarch64";
@@ -25,12 +23,6 @@ public final class ReleaseOrigin {
 
     public String manifestUrl() {
         return base + "/latest/mod/" + PLATFORM_KEY + ".json";
-    }
-
-    /** The Pre-Adaptation record of one game code for one Loader Release. */
-    public String preAdaptationUrl(GameCodeHash game, String loaderTag) {
-        if (!LOADER_TAG.matcher(loaderTag).matches()) throw new IllegalArgumentException("Bad loader tag " + loaderTag);
-        return base + "/android/adaptations/" + game.il2cppSha256 + "_" + game.metadataSha256 + "/" + loaderTag + ".json";
     }
 
     /** The content-addressed Interop Package of one zip sha256. */

@@ -16,7 +16,6 @@ namespace BazaarPlusPlus.Android.Settings;
 /// What a settings row does beyond writing its setting: release the upgrade preview a switch
 /// turned off, open History or the new Android App's download. The host supplies these;
 /// <see cref="AndroidSettingsDock"/> stays free of Unity, so a test registers the rows.
-/// <see cref="CompatibilityMode"/> is the Launch Record's answer for this launch.
 /// </summary>
 internal sealed record AndroidSettingsDockHooks(
     Action<string> ReleaseUpgradePreview,
@@ -24,8 +23,7 @@ internal sealed record AndroidSettingsDockHooks(
     Action OpenHistory,
     Func<AndroidGameUpdateStatus> GameUpdateStatus,
     Action OpenGameUpdate,
-    Action? RefreshPreviews = null,
-    bool CompatibilityMode = false
+    Action? RefreshPreviews = null
 );
 
 /// <summary>
@@ -37,8 +35,7 @@ internal sealed record AndroidSettingsDockHooks(
 /// Enchant preview, with every mode the desktop offers, and Game History, which here has no
 /// hotkey. The rest are the host's Upgrade preview switch,
 /// which stands in for the desktop's hotkey, the game-update row, which offers the new Android
-/// App's download when the release needs it and otherwise says, dimmed, where the game stands,
-/// and, in Compatibility Mode only, a dimmed row that says uploads are off.
+/// App's download when the release needs it and otherwise says, dimmed, where the game stands.
 /// </summary>
 internal static class AndroidSettingsDock
 {
@@ -46,11 +43,6 @@ internal static class AndroidSettingsDock
         "Install the new BazaarPlusPlus App",
         "请安装新版 BazaarPlusPlus App",
         "請安裝新版 BazaarPlusPlus App"
-    );
-    public static readonly LocalizedTextSet CompatibilityMode = new(
-        "Compatibility mode: uploads are off",
-        "兼容模式：上传已关闭",
-        "相容模式：上傳已關閉"
     );
     public static readonly LocalizedTextSet GameUpToDate = new(
         "The game is up to date",
@@ -149,8 +141,6 @@ internal static class AndroidSettingsDock
             )
         );
         registry.Register(new GameUpdateEntry(hooks));
-        if (hooks.CompatibilityMode)
-            registry.Register(new CompatibilityModeEntry());
     }
 
     private static CyclingSettingsDockEntry<bool> Switch(
@@ -210,20 +200,5 @@ internal static class AndroidSettingsDock
                 AndroidGameUpdateStatus.CheckFailed => GameUpdateCheckFailed,
                 _ => GameUpdateChecking,
             };
-    }
-
-    // Information only: Compatibility Mode is the Android App's choice for this launch.
-    private sealed class CompatibilityModeEntry : ISettingsDockEntry
-    {
-        public int Order => BppSettingsDockOrder.CompatibilityMode;
-
-        public BppSettingsDockDefinition Build(BppSettings config) =>
-            new(
-                "CompatibilityMode",
-                languageCode => CompatibilityMode.Resolve(languageCode, L.CurrentMode),
-                static () => false,
-                static () => { },
-                collapseAfterActivate: false
-            );
     }
 }
