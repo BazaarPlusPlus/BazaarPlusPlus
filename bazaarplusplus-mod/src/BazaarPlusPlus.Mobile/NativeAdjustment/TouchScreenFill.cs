@@ -15,7 +15,8 @@ namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 /// matches the game's canvases (<see cref="TouchScreenFillCanvases"/>), as canvases come with
 /// scenes and popups. After each camera update the board is drawn nearer
 /// (<see cref="ScreenFill.WidenedFieldOfView"/>), lowered where the HUD gathers above it, and the
-/// day clock moved into that band (<see cref="TouchDayClock"/>). The HUD ticks it
+/// day clock moved into that band (<see cref="TouchDayClock"/>); the day-change overlay follows
+/// the changed camera (<see cref="TouchDayChangeOverlay"/>). The HUD ticks it
 /// (<see cref="Hud.TouchHud"/>); each host's Cinemachine patch calls
 /// <see cref="AfterCameraUpdate"/>. Main thread only.
 /// </summary>
@@ -29,10 +30,14 @@ internal sealed class TouchScreenFill
     private readonly IScreenFillHost _host;
     private readonly TouchScreenFillCanvases _canvases;
     private readonly TouchDayClock _clock;
+    private readonly TouchDayChangeOverlay _dayChange;
 
-    // The field of view and the position last written to each camera, by instance.
+    // The field of view and the position last written to each camera, by instance, with the game's
+    // field of view each replaced and the offset each was raised by.
     private readonly Dictionary<int, float> _widened = new();
+    private readonly Dictionary<int, float> _gameFieldOfView = new();
     private readonly Dictionary<int, Vector3> _raised = new();
+    private readonly Dictionary<int, Vector3> _lift = new();
 
     private int _frame;
     private bool _logged;
@@ -44,6 +49,7 @@ internal sealed class TouchScreenFill
         _host = host ?? throw new ArgumentNullException(nameof(host));
         _canvases = new TouchScreenFillCanvases(host);
         _clock = new TouchDayClock(host);
+        _dayChange = new TouchDayChangeOverlay(host);
     }
 
     /// <summary>
@@ -82,9 +88,9 @@ internal sealed class TouchScreenFill
     /// Called after Cinemachine's brain updated <paramref name="camera"/> this frame: widens its
     /// field of view on a screen narrower than 16:10, then, where the HUD gathers above the board,
     /// lowers the board to the screen's bottom edge and places the day clock in the band left
-    /// above it. The brain writes the lens and the position again on most frames; a frame it
-    /// skipped still holds the value written here, which is left alone so the change never
-    /// compounds. Catches its own failure.
+    /// above it, and keeps the day-change overlay over the whole screen. The brain writes the lens
+    /// and the position again on most frames; a frame it skipped still holds the value written
+    /// here, which is left alone so the change never compounds. Catches its own failure.
     /// </summary>
     public void AfterCameraUpdate(Camera? camera)
     {
@@ -96,6 +102,7 @@ internal sealed class TouchScreenFill
                 Widen(camera!) && TryLowerBoard(camera!, out var topLeft) ? topLeft : null;
             BoardTop = corner?.y;
             _clock.Place(camera!, corner);
+            _dayChange.Place(camera!, Lift(camera!), Stretch(camera!));
         }
         catch (Exception exception)
         {
@@ -125,7 +132,34 @@ internal sealed class TouchScreenFill
         camera.fieldOfView = ScreenFill.WidenedFieldOfView(fieldOfView, aspect);
         // Read back: the camera clamps the value it stores.
         _widened[key] = camera.fieldOfView;
+        _gameFieldOfView[key] = fieldOfView;
         return above;
+    }
+
+    // How many times smaller the camera draws the world than the game's lens did; 1 unless it
+    // still holds the field of view written here.
+    private float Stretch(Camera camera)
+    {
+        var key = camera.GetInstanceID();
+        return
+            _widened.TryGetValue(key, out var written)
+            && written == camera.fieldOfView
+            && _gameFieldOfView.TryGetValue(key, out var game)
+            ? ScreenFill.ViewStretch(game, written)
+            : 1f;
+    }
+
+    // The world offset the camera was raised by; zero unless it still holds the position written
+    // here.
+    private Vector3 Lift(Camera camera)
+    {
+        var key = camera.GetInstanceID();
+        return
+            _raised.TryGetValue(key, out var written)
+            && written == camera.transform.position
+            && _lift.TryGetValue(key, out var lift)
+            ? lift
+            : Vector3.zero;
     }
 
     // Raises the camera by ScreenFill.BoardDrop, so the room left above and below the nearer board
@@ -146,18 +180,21 @@ internal sealed class TouchScreenFill
             if (depth <= 0f)
                 return false;
             var drop = ScreenFill.BoardDrop(Screen.height, Screen.safeArea.yMin, vault.Bottom);
+            var lift = Vector3.zero;
             if (drop > 0f)
             {
-                transform.position +=
+                lift =
                     transform.up
                     * (
                         drop
                         * ScreenFill.WorldUnitsPerPixel(depth, camera.fieldOfView, Screen.height)
                     );
-                if (!port.TryReadVault(Screen.height, out vault))
-                    return false;
+                transform.position += lift;
             }
             _raised[key] = transform.position;
+            _lift[key] = lift;
+            if (drop > 0f && !port.TryReadVault(Screen.height, out vault))
+                return false;
         }
         var middle = camera.WorldToScreenPoint(center!.position);
         if (middle.z <= 0f)

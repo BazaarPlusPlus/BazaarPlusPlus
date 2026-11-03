@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.CollectionPanel.Tooltips;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Previews;
 
@@ -41,6 +42,9 @@ internal sealed class TouchEnchantPreview<TTooltip>
     private readonly IEnchantPreviewHost<TTooltip> _host;
     private readonly Func<PreviewVisibilityMode> _mode;
     private readonly Func<ChoicePedestalSnapshot?> _pedestal;
+
+    // The prefab's minimum height of each passive block that Fit raised, by instance id.
+    private readonly Dictionary<int, float> _floors = new();
     private List<(string Name, string Label, string Effect)>? _pending;
     private long _inline;
     private int _failures;
@@ -129,6 +133,7 @@ internal sealed class TouchEnchantPreview<TTooltip>
     /// </summary>
     public string? TakePending(TMP_Text? label)
     {
+        RestoreFloor(label);
         var lines = _pending;
         _pending = null;
         if (lines == null)
@@ -158,8 +163,39 @@ internal sealed class TouchEnchantPreview<TTooltip>
         return section;
     }
 
+    /// <summary>
+    /// The passive block's <paramref name="label"/> now holds the section: its layout height
+    /// becomes at least the rendered text. The game sizes the block with <c>TMPTrueHeight</c>,
+    /// which adds up each line's glyph height and so leaves out the text's paragraph and line
+    /// spacing; every listed enchantment is a paragraph, so a long list renders taller than its
+    /// box, over the active effects above and under the keyword tip below. The next passive
+    /// render restores the floor (<see cref="TakePending"/>).
+    /// </summary>
+    public void Fit(TMP_Text? label)
+    {
+        if (!MobilePlatform.Port.IsAlive(label))
+            return;
+        var layout = label!.GetComponent<LayoutElement>();
+        if (layout == null)
+            return;
+        label.ForceMeshUpdate();
+        var id = layout.GetInstanceID();
+        if (!_floors.TryGetValue(id, out var floor))
+            _floors[id] = floor = layout.minHeight;
+        layout.minHeight = Math.Max(floor, label.renderedHeight);
+    }
+
     /// <summary>The render finished, whether or not the passive block consumed the section.</summary>
     public void Clear() => _pending = null;
+
+    private void RestoreFloor(TMP_Text? label)
+    {
+        if (_floors.Count == 0 || !MobilePlatform.Port.IsAlive(label))
+            return;
+        var layout = label!.GetComponent<LayoutElement>();
+        if (layout != null && _floors.Remove(layout.GetInstanceID(), out var floor))
+            layout.minHeight = floor;
+    }
 
     /// <summary>
     /// Each of <paramref name="candidates"/> with its effect on the tooltip's item from its tier

@@ -146,18 +146,22 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
         transform.localScale = Vector3.one;
         transform.localRotation = Quaternion.identity;
         card.gameObject.SetActive(true);
-        return card.SetUp(
-            template,
-            false,
-            BuildInstance(template, subject),
-            System.Threading.CancellationToken.None
+        return new SetUpOperation(
+            card.SetUp(
+                template,
+                false,
+                BuildInstance(template, subject),
+                System.Threading.CancellationToken.None
+            ),
+            subject.Attributes
         );
     }
 
     public bool TryCompleteSetUp(object operation, CardPreviewBase card, out string? failureReason)
     {
         failureReason = null;
-        var task = (System.Threading.Tasks.Task)operation;
+        var setUp = (SetUpOperation)operation;
+        var task = setUp.Task;
         if (!task.IsCompleted)
             return false;
         if (task.IsFaulted || task.IsCanceled)
@@ -166,12 +170,36 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
             ReportFault(failureReason, task.Exception);
             return true;
         }
+        ApplySavedValues(card, setUp.Attributes);
         card.Show(true);
         card.Resize();
         Place(card);
         FitSkillMask(card);
         Group(card).alpha = 1f;
         return true;
+    }
+
+    private sealed record SetUpOperation(
+        System.Threading.Tasks.Task Task,
+        IReadOnlyDictionary<string, int>? Attributes
+    );
+
+    // The preview's set-up writes the template's tier values over any instance value
+    // (CardPreviewBase.SetUp, CardExtensions.BuildAttributeDictionaryForTier), so a saved card's
+    // values go on after it, and its gems are drawn again from them.
+    private static void ApplySavedValues(
+        CardPreviewBase card,
+        IReadOnlyDictionary<string, int>? attributes
+    )
+    {
+        if (attributes is not { Count: > 0 } || card._clientCard?.Attributes is not { } target)
+            return;
+        foreach (var pair in attributes)
+        {
+            if (Enum.TryParse<ECardAttributeType>(pair.Key, false, out var attribute))
+                target[attribute] = pair.Value;
+        }
+        (card as CardPreviewItem)?._gemGroupController?.Initialize(card._clientCard);
     }
 
     // A faulted native task carries the cause the lease's reason code drops.
