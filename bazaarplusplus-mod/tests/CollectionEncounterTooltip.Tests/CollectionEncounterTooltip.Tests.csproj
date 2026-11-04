@@ -22,6 +22,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile
+      Include="../Shared/EventPreview/EncounterPreviewCardCases.cs"
+      Link="Shared/EventPreview/EncounterPreviewCardCases.cs"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\BazaarPlusPlus\BazaarPlusPlus.csproj" />
     <Reference Include="BazaarGameShared">
       <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
@@ -33,6 +40,12 @@
       <HintPath>$(ManagedPath)/UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <None Include="$(ManagedPath)/UnityEngine.CoreModule.dll" Link="UnityEngine.CoreModule.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- The game's serializer scans every loaded assembly's types once, so the assemblies those
+         types name must resolve in the test process too. -->
+    <None Include="$(ManagedPath)/UnityEngine.dll;$(ManagedPath)/UnityEngine.UIModule.dll;$(ManagedPath)/DOTween.dll">
+      <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

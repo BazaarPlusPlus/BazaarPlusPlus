@@ -9,7 +9,7 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 public sealed class EncounterPreviewCacheStore
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
     public const int MaxCacheFileBytes = 32 * 1024 * 1024;
 
     private static readonly UTF8Encoding Utf8NoBom = new(
@@ -283,7 +283,13 @@ public sealed class EncounterPreviewCacheStore
         {
             TemplateId = FormatGuid(plan.TemplateId),
             IsRandomSelectionEvent = plan.IsRandomSelectionEvent,
-            SuppressRandomOutcome = plan.SuppressRandomOutcome,
+            Merchant = plan.Merchant is { } merchant
+                ? new MerchantTierRuleWire
+                {
+                    FixedTier = merchant.FixedTier?.ToString(),
+                    UsesDayDistribution = merchant.UsesDayDistribution,
+                }
+                : null,
             ChoiceLimit = plan.ChoiceLimit,
             OutcomeGroups = plan.OutcomeGroups.Select(ToWire).ToList(),
             ChoiceGroups = plan.ChoiceGroups.Select(ToWire).ToList(),
@@ -297,7 +303,14 @@ public sealed class EncounterPreviewCacheStore
         return new EncounterPreviewEventPlan(
             ParseGuid(plan.TemplateId, "event template id"),
             plan.IsRandomSelectionEvent,
-            plan.SuppressRandomOutcome,
+            plan.Merchant is { } merchant
+                ? new EncounterMerchantTierRule(
+                    merchant.FixedTier is { } tier
+                        ? ReadFacet<CardTier>(tier, "merchant tier")
+                        : null,
+                    merchant.UsesDayDistribution
+                )
+                : null,
             plan.ChoiceLimit,
             plan.OutcomeGroups.Select(group => FromWire(Required(group, "outcome group")))
                 .ToArray(),
@@ -706,8 +719,8 @@ public sealed class EncounterPreviewCacheStore
         [JsonProperty("isRandomSelectionEvent", Order = 1)]
         public bool IsRandomSelectionEvent { get; set; }
 
-        [JsonProperty("suppressRandomOutcome", Order = 2)]
-        public bool SuppressRandomOutcome { get; set; }
+        [JsonProperty("merchant", Order = 2)]
+        public MerchantTierRuleWire? Merchant { get; set; }
 
         [JsonProperty("choiceLimit", Order = 3)]
         public int? ChoiceLimit { get; set; }
@@ -717,6 +730,15 @@ public sealed class EncounterPreviewCacheStore
 
         [JsonProperty("choiceGroups", Order = 5)]
         public List<ChoiceGroupWire>? ChoiceGroups { get; set; }
+    }
+
+    private sealed class MerchantTierRuleWire
+    {
+        [JsonProperty("fixedTier", Order = 0)]
+        public string? FixedTier { get; set; }
+
+        [JsonProperty("usesDayDistribution", Order = 1)]
+        public bool UsesDayDistribution { get; set; }
     }
 
     private sealed class LevelUpPlanWire

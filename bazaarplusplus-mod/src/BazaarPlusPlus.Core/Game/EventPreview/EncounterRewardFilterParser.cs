@@ -4,8 +4,7 @@ using Newtonsoft.Json.Linq;
 namespace BazaarPlusPlus.Game.EventPreview;
 
 /// <summary>
-/// A card's dealt reward read off its JSON, as static data stores it and as the desktop's
-/// <c>EncounterStructuredParser</c> reads the typed template: the first
+/// A card's dealt reward read off its JSON, as static data stores it: the first
 /// <c>TActionGameDealCards</c> whose spawn context constrains its reward. A context of groups
 /// takes its constraints from those groups' filters and behaviors alone, so a list of fixed ids is
 /// no filter even when a prerequisite beside it names a tag, and the branches of a

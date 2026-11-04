@@ -89,7 +89,7 @@ public sealed class EncounterPreviewEventPlan
     public EncounterPreviewEventPlan(
         Guid templateId,
         bool isRandomSelectionEvent,
-        bool suppressRandomOutcome,
+        EncounterMerchantTierRule? merchant,
         int? choiceLimit,
         IReadOnlyList<EncounterOutcomeGroupData>? outcomeGroups,
         IReadOnlyList<EncounterChoiceGroupData>? choiceGroups
@@ -97,7 +97,7 @@ public sealed class EncounterPreviewEventPlan
     {
         TemplateId = templateId;
         IsRandomSelectionEvent = isRandomSelectionEvent;
-        SuppressRandomOutcome = suppressRandomOutcome;
+        Merchant = merchant;
         ChoiceLimit = choiceLimit;
         OutcomeGroups = EncounterPreviewPlanCopies.CopyOutcomeGroups(outcomeGroups);
         ChoiceGroups = EncounterPreviewPlanCopies.CopyChoiceGroups(choiceGroups);
@@ -107,7 +107,11 @@ public sealed class EncounterPreviewEventPlan
 
     public bool IsRandomSelectionEvent { get; }
 
-    public bool SuppressRandomOutcome { get; }
+    /// <summary>The quality a merchant sells; null for any other event.</summary>
+    public EncounterMerchantTierRule? Merchant { get; }
+
+    /// <summary>A merchant's random selection draws its stock, not an outcome.</summary>
+    public bool SuppressRandomOutcome => Merchant != null;
 
     public int? ChoiceLimit { get; }
 

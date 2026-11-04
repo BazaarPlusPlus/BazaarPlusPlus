@@ -12,7 +12,6 @@ using BazaarGameShared.Domain.Spawning.SpawnFilters.Constraints;
 using BazaarGameShared.Domain.Spawning.SpawnGroups;
 using BazaarGameShared.Domain.Spawning.SpawningContexts;
 using BazaarGameShared.Domain.Values;
-using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace EncounterTooltip.Tests;
@@ -73,32 +72,7 @@ public sealed class EncounterPreviewCompilerTests
             [itemId] = item,
         };
 
-        var preparedIds = new List<Guid>();
-        var compiler = new EncounterPreviewPlanCompiler(source =>
-        {
-            var template = Assert.IsAssignableFrom<TCardBase>(source);
-            preparedIds.Add(template.Id);
-            if (template.Id != eventId)
-                return new JObject();
-            return JObject.Parse(
-                $$"""
-                {
-                  "SelectionContext": {
-                    "SpawnContext": {
-                      "Limit": { "Value": 1 },
-                      "Groups": [
-                        {
-                          "Filters": [
-                            { "Ids": ["{{stepId:D}}", "{{itemId:D}}"] }
-                          ]
-                        }
-                      ]
-                    }
-                  }
-                }
-                """
-            );
-        });
+        var compiler = new EncounterPreviewPlanCompiler();
 
         var result = compiler.Compile(map);
 
@@ -115,10 +89,8 @@ public sealed class EncounterPreviewCompilerTests
         Assert.True(result.Snapshot.TryGetTemplate(stepId, out var stepPlan));
         Assert.NotNull(stepPlan.RewardFilter);
         Assert.True(result.Snapshot.TryGetTemplate(itemId, out var itemPlan));
+        // An item's abilities are never scanned for rewards.
         Assert.Null(itemPlan.RewardFilter);
-        // The step's reward resolves through the runtime action route, so the compiler never
-        // materializes its JToken; the item template is still never scanned for rewards.
-        Assert.Equal(new[] { eventId }, preparedIds);
     }
 
     private static TCardLocalization Localization(string title, string description) =>

@@ -31,7 +31,7 @@ _Avoid_: RunLoggingController, run logger MonoBehaviour
 The shared switch for encounter and quest tooltip information supported by each host. Excludes upgrade and enchant previews.
 
 **Encounter Preview Module**:
-The event and hero reward query boundary: template id, level, and native text in; rendered preview out.
+The event and hero reward query boundary both hosts share in Core: template id and card type, or level and hero, and native text in; rendered preview out. Each host supplies its plans and game reads.
 
 **End-of-Run Capture Workflow**:
 The single run-scoped state machine owning the end-of-run screenshot, from readiness to a fail-open outcome. Patches only send Continue and reveal-start intents (`IEndOfRunCaptureWorkflow`).

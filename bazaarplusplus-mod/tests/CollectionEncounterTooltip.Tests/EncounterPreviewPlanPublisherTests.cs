@@ -13,16 +13,16 @@ using BazaarGameShared.Domain.Spawning.SpawningContexts;
 using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Domain.Values.ReferenceValues;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Localization;
-using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace EncounterTooltip.Tests;
 
-public sealed class EncounterPreviewModuleTests : IDisposable
+public sealed class EncounterPreviewPlanPublisherTests : IDisposable
 {
     private static readonly Guid EventId = Guid.Parse("91000000-0000-0000-0000-000000000001");
     private static readonly Guid StepId = Guid.Parse("91000000-0000-0000-0000-000000000002");
@@ -32,7 +32,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         Guid.NewGuid().ToString("N")
     );
 
-    public EncounterPreviewModuleTests()
+    public EncounterPreviewPlanPublisherTests()
     {
         L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
     }
@@ -47,10 +47,10 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         var registry = PublishedRegistry(source, Snapshot());
-        using var module = Module(runtime, registry);
+        using var plans = Publisher(runtime, registry);
 
-        var eventResult = module.ResolveEvent(new EventPreviewQuery(EventId, "native"));
-        var levelResult = module.ResolveLevelUp(new LevelUpPreviewQuery(2));
+        var eventResult = Event(plans, EventId);
+        var levelResult = Previews(plans).ResolveLevelUp(new LevelUpPreviewQuery(2));
 
         Assert.Equal(EventPreviewAvailability.Available, eventResult.Availability);
         Assert.Contains("Jules Step", eventResult.Content);
@@ -68,11 +68,11 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             CurrentHero = CardHero.Vanessa,
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
-        using var module = Module(runtime, PublishedRegistry(source, Snapshot()));
+        using var plans = Publisher(runtime, PublishedRegistry(source, Snapshot()));
 
-        var unavailable = module.ResolveEvent(new EventPreviewQuery(EventId, "native"));
+        var unavailable = Event(plans, EventId);
         runtime.CurrentHero = CardHero.Jules;
-        var available = module.ResolveEvent(new EventPreviewQuery(EventId, "native"));
+        var available = Event(plans, EventId);
 
         Assert.Equal(EventPreviewAvailability.Unsupported, unavailable.Availability);
         Assert.Equal(EventPreviewAvailability.Available, available.Availability);
@@ -89,9 +89,9 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         runtime.OnResolveDayTiers = () => runtime.Source = secondSource;
-        using var module = Module(runtime, PublishedRegistry(firstSource, Snapshot()));
+        using var plans = Publisher(runtime, PublishedRegistry(firstSource, Snapshot()));
 
-        var result = module.ResolveEvent(new EventPreviewQuery(EventId, "native"));
+        var result = Event(plans, EventId);
 
         Assert.Equal(EventPreviewAvailability.Available, result.Availability);
         Assert.Same(firstSource, runtime.LastDayTierSource);
@@ -106,9 +106,9 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         {
             DayTierResolution = GameDataDayTierResolution.Available(day: 7, table),
         };
-        using var module = Module(runtime, PublishedRegistry(source, DayTierStepSnapshot()));
+        using var plans = Publisher(runtime, PublishedRegistry(source, DayTierStepSnapshot()));
 
-        var result = module.ResolveStep(new EncounterStepPreviewQuery(StepId, "Get an item"));
+        var result = Step(plans, StepId, "Get an item");
 
         Assert.Equal(EventPreviewAvailability.Available, result.Availability);
         Assert.Equal(1, runtime.DayTierReadCount);
@@ -128,19 +128,13 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             CurrentHero = CardHero.Jules,
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
-        using var module = Module(runtime, PublishedRegistry(oldSource, Snapshot()));
-        Assert.Equal(
-            EventPreviewAvailability.Available,
-            module.ResolveEvent(new EventPreviewQuery(EventId, "native")).Availability
-        );
+        using var plans = Publisher(runtime, PublishedRegistry(oldSource, Snapshot()));
+        Assert.Equal(EventPreviewAvailability.Available, Event(plans, EventId).Availability);
 
         runtime.Source = newSource;
-        module.ObserveStaticData();
+        plans.ObserveStaticData();
 
-        Assert.Equal(
-            EventPreviewAvailability.Unavailable,
-            module.ResolveEvent(new EventPreviewQuery(EventId, "native")).Availability
-        );
+        Assert.Equal(EventPreviewAvailability.Unavailable, Event(plans, EventId).Availability);
     }
 
     [Fact]
@@ -153,29 +147,20 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         var registry = new EncounterPreviewPlanRegistry();
-        using var module = Module(runtime, registry);
+        using var plans = Publisher(runtime, registry);
 
-        Assert.Equal(
-            EventPreviewAvailability.Loading,
-            module.ResolveEvent(new EventPreviewQuery(EventId, "native")).Availability
-        );
+        Assert.Equal(EventPreviewAvailability.Loading, Event(plans, EventId).Availability);
 
         var generation = registry.BeginGeneration(source);
         Assert.True(registry.TryPublish(source, generation, Snapshot()));
-        Assert.Equal(
-            EventPreviewAvailability.Missing,
-            module.ResolveEvent(new EventPreviewQuery(Guid.NewGuid(), "native")).Availability
-        );
+        Assert.Equal(EventPreviewAvailability.Missing, Event(plans, Guid.NewGuid()).Availability);
         Assert.Equal(
             EventPreviewAvailability.Unsupported,
-            module.ResolveStep(new EncounterStepPreviewQuery(EventId, "native")).Availability
+            Step(plans, EventId, "native").Availability
         );
 
         runtime.ThrowOnDayTierRead = true;
-        Assert.Equal(
-            EventPreviewAvailability.Unavailable,
-            module.ResolveEvent(new EventPreviewQuery(EventId, "native")).Availability
-        );
+        Assert.Equal(EventPreviewAvailability.Unavailable, Event(plans, EventId).Availability);
     }
 
     [Fact]
@@ -195,7 +180,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             CardMap = new Dictionary<Guid, ITCard>(),
             LevelUps = new Dictionary<int, TLevelUp>(),
         };
-        using var module = new EncounterPreviewModule(
+        using var plans = new EncounterPreviewPlanPublisher(
             runtime,
             new EncounterPreviewPlanRegistry(),
             new EncounterPreviewCacheStore(_directory),
@@ -203,18 +188,15 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             "test-channel"
         );
 
-        module.ObserveStaticData();
+        plans.ObserveStaticData();
 
         Assert.True(
             SpinWait.SpinUntil(
-                () => module.Status == EncounterPreviewModuleStatus.Degraded,
+                () => plans.Status == EncounterPreviewPlanPublisherStatus.Degraded,
                 TimeSpan.FromSeconds(5)
             )
         );
-        Assert.Equal(
-            EventPreviewAvailability.Missing,
-            module.ResolveEvent(new EventPreviewQuery(Guid.NewGuid(), "native")).Availability
-        );
+        Assert.Equal(EventPreviewAvailability.Missing, Event(plans, Guid.NewGuid()).Availability);
     }
 
     [Fact]
@@ -240,7 +222,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             SourceInfo = sourceInfo,
             CardMapLoader = _ => throw new InvalidOperationException("cache hit loaded map"),
         };
-        using var module = new EncounterPreviewModule(
+        using var plans = new EncounterPreviewPlanPublisher(
             runtime,
             new EncounterPreviewPlanRegistry(),
             store,
@@ -248,14 +230,11 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             "test-channel"
         );
 
-        module.ObserveStaticData();
+        plans.ObserveStaticData();
 
-        Assert.True(WaitForStatus(module, EncounterPreviewModuleStatus.Ready));
+        Assert.True(WaitForStatus(plans, EncounterPreviewPlanPublisherStatus.Ready));
         Assert.Equal(0, runtime.CardMapLoadCount);
-        Assert.Equal(
-            EventPreviewAvailability.Available,
-            module.ResolveEvent(new EventPreviewQuery(EventId, "native")).Availability
-        );
+        Assert.Equal(EventPreviewAvailability.Available, Event(plans, EventId).Availability);
     }
 
     [Fact]
@@ -273,7 +252,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             LevelUps = new Dictionary<int, TLevelUp>(),
         };
         var store = new EncounterPreviewCacheStore(cachePath);
-        using var module = new EncounterPreviewModule(
+        using var plans = new EncounterPreviewPlanPublisher(
             runtime,
             new EncounterPreviewPlanRegistry(),
             store,
@@ -281,9 +260,9 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             "test-channel"
         );
 
-        module.ObserveStaticData();
+        plans.ObserveStaticData();
 
-        Assert.True(WaitForStatus(module, EncounterPreviewModuleStatus.Ready));
+        Assert.True(WaitForStatus(plans, EncounterPreviewPlanPublisherStatus.Ready));
         Assert.Equal(1, runtime.CardMapLoadCount);
         var identity = EncounterPreviewIdentityResolver.Resolve(
             sourceInfo.ManifestPath,
@@ -313,15 +292,12 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             CardMap = new Dictionary<Guid, ITCard> { [brokenId] = broken },
             LevelUps = new Dictionary<int, TLevelUp>(),
         };
-        using var module = Module(runtime, new EncounterPreviewPlanRegistry());
+        using var plans = Publisher(runtime, new EncounterPreviewPlanRegistry());
 
-        module.ObserveStaticData();
+        plans.ObserveStaticData();
 
-        Assert.True(WaitForStatus(module, EncounterPreviewModuleStatus.Degraded));
-        Assert.Equal(
-            EventPreviewAvailability.Missing,
-            module.ResolveEvent(new EventPreviewQuery(brokenId, "native")).Availability
-        );
+        Assert.True(WaitForStatus(plans, EncounterPreviewPlanPublisherStatus.Degraded));
+        Assert.Equal(EventPreviewAvailability.Missing, Event(plans, brokenId).Availability);
     }
 
     [Fact]
@@ -342,20 +318,20 @@ public sealed class EncounterPreviewModuleTests : IDisposable
                     : Task.FromResult<Dictionary<Guid, ITCard>?>(new()),
             LevelUps = new Dictionary<int, TLevelUp>(),
         };
-        using var module = Module(runtime, new EncounterPreviewPlanRegistry());
-        module.ObserveStaticData();
+        using var plans = Publisher(runtime, new EncounterPreviewPlanRegistry());
+        plans.ObserveStaticData();
         Assert.True(
             SpinWait.SpinUntil(() => runtime.CardMapLoadCount == 1, TimeSpan.FromSeconds(5))
         );
 
         runtime.Source = sourceB;
-        module.ObserveStaticData();
-        Assert.True(WaitForStatus(module, EncounterPreviewModuleStatus.Ready));
+        plans.ObserveStaticData();
+        Assert.True(WaitForStatus(plans, EncounterPreviewPlanPublisherStatus.Ready));
         pendingA.SetResult(new Dictionary<Guid, ITCard>());
 
         Assert.False(
             SpinWait.SpinUntil(
-                () => module.Status != EncounterPreviewModuleStatus.Ready,
+                () => plans.Status != EncounterPreviewPlanPublisherStatus.Ready,
                 TimeSpan.FromMilliseconds(250)
             )
         );
@@ -373,12 +349,12 @@ public sealed class EncounterPreviewModuleTests : IDisposable
                 effectId == "0" && !isAura ? (true, "6", null) : (false, string.Empty, null),
         };
         EventPreviewLocalization.AttributeUnitLocalizer = unit => unit == "Gold" ? "Coins" : null;
-        using var module = Module(
+        using var plans = Publisher(
             runtime,
             PublishedRegistry(source, CompiledLocalizationSnapshot())
         );
 
-        var result = module.ResolveEvent(new EventPreviewQuery(EventId, "native"));
+        var result = Event(plans, EventId);
 
         Assert.Equal(EventPreviewAvailability.Available, result.Availability);
         Assert.Contains("Gain 10 Coins.", result.Content);
@@ -399,13 +375,13 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             Directory.Delete(_directory, recursive: true);
     }
 
-    private EncounterPreviewModule Module(
+    private EncounterPreviewPlanPublisher Publisher(
         IEncounterPreviewGameRuntime runtime,
         EncounterPreviewPlanRegistry registry
     )
     {
         Directory.CreateDirectory(_directory);
-        return new EncounterPreviewModule(
+        return new EncounterPreviewPlanPublisher(
             runtime,
             registry,
             new EncounterPreviewCacheStore(Path.Combine(_directory, "preview.json")),
@@ -444,7 +420,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var eventPlan = new EncounterPreviewEventPlan(
             EventId,
             isRandomSelectionEvent: false,
-            suppressRandomOutcome: false,
+            merchant: null,
             choiceLimit: 1,
             outcomeGroups: Array.Empty<EncounterOutcomeGroupData>(),
             choiceGroups: new[]
@@ -512,9 +488,39 @@ public sealed class EncounterPreviewModuleTests : IDisposable
     }
 
     private static bool WaitForStatus(
-        EncounterPreviewModule module,
-        EncounterPreviewModuleStatus status
-    ) => SpinWait.SpinUntil(() => module.Status == status, TimeSpan.FromSeconds(5));
+        EncounterPreviewPlanPublisher plans,
+        EncounterPreviewPlanPublisherStatus status
+    ) => SpinWait.SpinUntil(() => plans.Status == status, TimeSpan.FromSeconds(5));
+
+    // Core's module over the publisher's reads, with the Detailed Preview switch on.
+    private static EncounterPreviewModule Previews(EncounterPreviewPlanPublisher plans) =>
+        new(new BppSettings(new MemorySettings()), plans.Reads);
+
+    private static EventPreviewResult Event(EncounterPreviewPlanPublisher plans, Guid id) =>
+        Previews(plans).ResolveCard(new(id, CardType.EventEncounter, "native"));
+
+    private static EventPreviewResult Step(
+        EncounterPreviewPlanPublisher plans,
+        Guid id,
+        string nativeText
+    ) => Previews(plans).ResolveCard(new(id, CardType.EncounterStep, nativeText));
+
+    private sealed class MemorySettings : IBppSettingsStore
+    {
+        public ISetting<T> Bind<T>(
+            string section,
+            string key,
+            T defaultValue,
+            string description,
+            SettingRange<T>? acceptableRange = null
+        )
+            where T : IComparable => new Setting<T> { Value = defaultValue };
+
+        private sealed class Setting<T> : ISetting<T>
+        {
+            public T Value { get; set; } = default!;
+        }
+    }
 
     private static EncounterPreviewSnapshot CompiledLocalizationSnapshot()
     {
@@ -614,30 +620,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             [fallbackId] = fallbackStep,
             [playerAttributeId] = playerAttributeStep,
         };
-        var compiler = new EncounterPreviewPlanCompiler(source =>
-        {
-            var template = Assert.IsAssignableFrom<TCardBase>(source);
-            return template.Id == EventId
-                ? JObject.Parse(
-                    $$"""
-                    {
-                      "SelectionContext": {
-                        "SpawnContext": {
-                          "Limit": { "Value": 4 },
-                          "Groups": [
-                            {
-                              "Filters": [
-                                { "Ids": ["{{fixedId:D}}", "{{modifierId:D}}", "{{fallbackId:D}}", "{{playerAttributeId:D}}"] }
-                              ]
-                            }
-                          ]
-                        }
-                      }
-                    }
-                    """
-                )
-                : new JObject();
-        });
+        var compiler = new EncounterPreviewPlanCompiler();
         var result = compiler.Compile(map);
         Assert.True(
             result.FailedTemplateIds.Count == 0,
@@ -731,8 +714,6 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         }
 
         public Dictionary<int, TLevelUp>? SnapshotLevelUps(object source) => LevelUps;
-
-        public TCardBase? GetCardTemplate(object source, Guid templateId) => null;
 
         public bool TryEvaluateAbilityValue(
             object source,

@@ -6,8 +6,9 @@ using Xunit;
 namespace EventPreview.Tests;
 
 /// <summary>
-/// A merchant's quality rule read off its card JSON, the Android host's input, held to the
-/// desktop's typed <c>EncounterMerchantTierResolver</c> cases.
+/// A merchant's quality rule off the JSON shapes the shared card table
+/// (<c>EncounterPreviewCardReaderTests</c>) does not hold: numeric and unmapped tiers, an
+/// assembly-qualified <c>$type</c>, and no query spawn context.
 /// </summary>
 public sealed class EncounterMerchantTierRuleTests
 {
@@ -39,33 +40,6 @@ public sealed class EncounterMerchantTierRuleTests
             )
         );
 
-    [Theory]
-    [InlineData("Bronze", CardTier.Bronze)]
-    [InlineData("Gold", CardTier.Gold)]
-    [InlineData("Diamond", CardTier.Diamond)]
-    public void Fixed_tier_merchants_do_not_use_the_daily_distribution(string name, CardTier tier)
-    {
-        var rule = Rule(
-            $$"""
-            { "$type": "TSpawnBehaviorTier", "Tiers": ["{{name}}"], "IsNot": false },
-            { "$type": "TSpawnBehaviorIgnoreTierTable", "IgnoreTierTable": true }
-            """
-        );
-
-        Assert.Equal(tier, rule.FixedTier);
-        Assert.False(rule.UsesDayDistribution);
-        Assert.True(rule.IsSupported);
-    }
-
-    [Fact]
-    public void Curio_style_fixed_tier_does_not_require_ignore_tier_table_behavior()
-    {
-        var rule = Rule("""{ "$type": "TSpawnBehaviorTier", "Tiers": ["Gold"] }""");
-
-        Assert.Equal(CardTier.Gold, rule.FixedTier);
-        Assert.False(rule.UsesDayDistribution);
-    }
-
     [Fact]
     public void A_numeric_tier_goes_through_the_host_normalization()
     {
@@ -85,28 +59,7 @@ public sealed class EncounterMerchantTierRuleTests
     }
 
     [Fact]
-    public void Exclusions_and_several_tiers_keep_the_daily_distribution()
-    {
-        Assert.Equal(
-            EncounterMerchantTierRule.DayDistribution,
-            Rule("""{ "$type": "TSpawnBehaviorTier", "Tiers": ["Bronze"], "IsNot": true }""")
-        );
-        Assert.Equal(
-            EncounterMerchantTierRule.DayDistribution,
-            Rule("""{ "$type": "TSpawnBehaviorTier", "Tiers": ["Gold", "Diamond"] }""")
-        );
-    }
-
-    [Fact]
-    public void Downshift_merchants_still_show_the_raw_daily_weights()
-    {
-        var rule = Rule("""{ "$type": "TSpawnBehaviorDownShiftTier" }""");
-
-        Assert.Equal(EncounterMerchantTierRule.DayDistribution, rule);
-    }
-
-    [Fact]
-    public void Ignore_tier_table_without_a_fixed_tier_suppresses_the_daily_line()
+    public void An_assembly_qualified_type_names_the_behavior()
     {
         var rule = Rule(
             """{ "$type": "BazaarGameShared.Domain.Spawning.SpawnBehaviors.TSpawnBehaviorIgnoreTierTable, BazaarGameShared", "IgnoreTierTable": true }"""

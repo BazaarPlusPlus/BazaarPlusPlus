@@ -125,7 +125,7 @@ public sealed class EncounterPreviewPlanRegistryTests
         var plan = new EncounterPreviewEventPlan(
             eventId,
             isRandomSelectionEvent: false,
-            suppressRandomOutcome: false,
+            merchant: null,
             choiceLimit: 1,
             Array.Empty<EncounterOutcomeGroupData>(),
             Array.Empty<EncounterChoiceGroupData>()
@@ -201,7 +201,7 @@ public sealed class EncounterPreviewPlanRegistryTests
         var plan = new EncounterPreviewEventPlan(
             eventId,
             isRandomSelectionEvent: false,
-            suppressRandomOutcome: false,
+            merchant: null,
             choiceLimit: 1,
             Array.Empty<EncounterOutcomeGroupData>(),
             new[]

@@ -1,0 +1,988 @@
+{
+  "cases": [
+    {
+      "name": "merchant-pinned-gold-ignoring-the-day-table",
+      "card": {
+        "$type": "TCardEncounterEvent",
+        "Id": "81000000-0000-0000-0000-000000000001",
+        "Type": "EventEncounter",
+        "Heroes": [
+          "Common"
+        ],
+        "Tags": [
+          "Merchant"
+        ],
+        "SelectionContext": {
+          "SpawnContext": {
+            "$type": "TSpawnContextQuery",
+            "Groups": [
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [
+                  {
+                    "$type": "TSpawnFilterQuery",
+                    "Constraints": {
+                      "$type": "ConstraintAnd",
+                      "Constraints": [
+                        {
+                          "$type": "ConstraintCardType",
+                          "Types": [
+                            "Item"
+                          ],
+                          "IsNot": false
+                        },
+                        {
+                          "$type": "ConstraintTier",
+                          "Tiers": [
+                            "Bronze",
+                            "Silver",
+                            "Gold"
+                          ],
+                          "IsNot": false
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "SelectionMethod": "Random",
+                "RandomWeight": 99
+              }
+            ],
+            "SelectionMethod": "Random",
+            "Limit": {
+              "$type": "TFixedValue",
+              "Value": 3.0
+            },
+            "Behaviors": [
+              {
+                "$type": "TSpawnBehaviorTier",
+                "Tiers": [
+                  "Gold"
+                ],
+                "IsNot": false
+              },
+              {
+                "$type": "TSpawnBehaviorIgnoreTierTable",
+                "IgnoreTierTable": true
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "kind": "Event",
+        "heroes": [
+          "Common"
+        ],
+        "reward": null,
+        "event": {
+          "merchant": {
+            "fixedTier": "Gold",
+            "usesDayDistribution": false
+          },
+          "random": true,
+          "choiceLimit": 3,
+          "choices": [],
+          "outcomes": [
+            {
+              "weight": 99,
+              "ids": [],
+              "pools": [
+                {
+                  "cardType": "Item",
+                  "summary": "Bronze-Gold Item",
+                  "quantity": null,
+                  "tiers": [
+                    "Gold",
+                    "Bronze",
+                    "Silver"
+                  ],
+                  "keywords": [],
+                  "usesDayTierTable": false,
+                  "usesDayTierDistribution": false
+                }
+              ],
+              "requirements": [],
+              "day": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "merchant-pinned-bronze-alone",
+      "card": {
+        "$type": "TCardEncounterEvent",
+        "Id": "81000000-0000-0000-0000-000000000002",
+        "Type": "EventEncounter",
+        "Tags": [
+          "Merchant"
+        ],
+        "SelectionContext": {
+          "SpawnContext": {
+            "$type": "TSpawnContextQuery",
+            "Behaviors": [
+              {
+                "$type": "TSpawnBehaviorTier",
+                "Tiers": [
+                  "Bronze"
+                ],
+                "IsNot": false
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "kind": "Event",
+        "heroes": [],
+        "reward": null,
+        "event": {
+          "merchant": {
+            "fixedTier": "Bronze",
+            "usesDayDistribution": false
+          },
+          "random": false,
+          "choiceLimit": null,
+          "choices": [],
+          "outcomes": []
+        }
+      }
+    },
+    {
+      "name": "merchant-downshift-sells-by-the-day",
+      "card": {
+        "$type": "TCardEncounterEvent",
+        "Id": "81000000-0000-0000-0000-000000000003",
+        "Type": "EventEncounter",
+        "Tags": [
+          "Merchant"
+        ],
+        "SelectionContext": {
+          "SpawnContext": {
+            "$type": "TSpawnContextQuery",
+            "Behaviors": [
+              {
+                "$type": "TSpawnBehaviorDownShiftTier"
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "kind": "Event",
+        "heroes": [],
+        "reward": null,
+        "event": {
+          "merchant": {
+            "fixedTier": null,
+            "usesDayDistribution": true
+          },
+          "random": false,
+          "choiceLimit": null,
+          "choices": [],
+          "outcomes": []
+        }
+      }
+    },
+    {
+      "name": "merchant-ignoring-the-day-table-without-a-pin",
+      "card": {
+        "$type": "TCardEncounterEvent",
+        "Id": "81000000-0000-0000-0000-000000000004",
+        "Type": "EventEncounter",
+        "Tags": [
+          "Merchant"
+        ],
+        "SelectionContext": {
+          "SpawnContext": {
+            "$type": "TSpawnContextQuery",
+            "Behaviors": [
+              {
+                "$type": "TSpawnBehaviorIgnoreTierTable",
+                "IgnoreTierTable": true
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "kind": "Event",
+        "heroes": [],
+        "reward": null,
+        "event": {
+          "merchant": {
+            "fixedTier": null,
+            "usesDayDistribution": false
+          },
+          "random": false,
+          "choiceLimit": null,
+          "choices": [],
+          "outcomes": []
+        }
+      }
+    },
+    {
+      "name": "merchant-exclusion-and-several-tiers-sell-by-the-day",
+      "card": {
+        "$type": "TCardEncounterEvent",
+        "Id": "81000000-0000-0000-0000-000000000005",
+        "Type": "EventEncounter",
+        "Tags": [
+          "Merchant"
+        ],
+        "SelectionContext": {
+          "SpawnContext": {
+            "$type": "TSpawnContextQuery",
+            "Behaviors": [
+              {
+                "$type": "TSpawnBehaviorTier",
+                "Tiers": [
+                  "Bronze"
+                ],
+                "IsNot": true
+              },
+              {
+                "$type": "TSpawnBehaviorTier",
+                "Tiers": [
+                  "Gold",
+                  "Diamond"
+                ],
+                "IsNot": false
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "kind": "Event",
+        "heroes": [],
+        "reward": null,
+        "event": {
+          "merchant": {
+            "fixedTier": null,
+            "usesDayDistribution": true
+          },
+          "random": false,
+          "choiceLimit": null,
+          "choices": [],
+          "outcomes": []
+        }
+      }
+    },
+    {
+      "name": "step-deal-cards-reads-its-constraints",
+      "card": {
+        "$type": "TCardEncounterStep",
+        "Id": "81000000-0000-0000-0000-000000000011",
+        "Type": "EncounterStep",
+        "Abilities": {
+          "0": {
+            "Id": "0",
+            "Action": {
+              "$type": "TActionGameDealCards",
+              "SpawnContext": {
+                "$type": "TSpawnContextQuery",
+                "Limit": {
+                  "$type": "TFixedValue",
+                  "Value": 1.0
+                },
+                "Groups": [
+                  {
+                    "$type": "TSpawnGroup",
+                    "Filters": [
+                      {
+                        "$type": "TSpawnFilterQuery",
+                        "Constraints": {
+                          "$type": "ConstraintAnd",
+                          "Constraints": [
+                            {
+                              "$type": "ConstraintCardType",
+                              "Types": [
+                                "Item"
+                              ],
+                              "IsNot": false
+                            },
+                            {
+                              "$type": "ConstraintSize",
+                              "Sizes": [
+                                "Medium"
+                              ],
+                              "IsNot": false
+                            },
+                            {
+                              "$type": "ConstraintTier",
+                              "Tiers": [
+                                "Bronze",
+                                "Silver",
+                                "Gold",
+                                "Diamond"
+                              ],
+                              "IsNot": false
+                            },
+                            {
+                              "$type": "ConstraintTag",
+                              "Tags": [
+                                "Loot"
+                              ],
+                              "IsNot": true
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "kind": "EncounterStep",
+        "heroes": [],
+        "reward": {
+          "cardType": "Item",
+          "summary": "Medium Bronze-Diamond Item, not Loot",
+          "quantity": 1,
+          "tiers": [
+            "Bronze",
+            "Silver",
+            "Gold",
+            "Diamond"
+          ],
+          "keywords": [],
+          "usesDayTierTable": true,
+          "usesDayTierDistribution": true
+        },
+        "event": null
+      }
+    },
+    {
+      "name": "step-deal-skill-by-hidden-tag",
+      "card": {
+        "$type": "TCardEncounterStep",
+        "Id": "81000000-0000-0000-0000-000000000012",
+        "Type": "EncounterStep",
+        "Abilities": {
+          "0": {
+            "Id": "0",
+            "Action": {
+              "$type": "TActionGameDealCards",
+              "SpawnContext": {
+                "$type": "TSpawnContextQuery",
+                "Limit": {
+                  "$type": "TFixedValue",
+                  "Value": 1.0
+                },
+                "Groups": [
+                  {
+                    "$type": "TSpawnGroup",
+                    "Filters": [
+                      {
+                        "$type": "TSpawnFilterQuery",
+                        "Constraints": {
+                          "$type": "ConstraintAnd",
+                          "Constraints": [
+                            {
+                              "$type": "ConstraintCardType",
+                              "Types": [
+                                "Skill"
+                              ],
+                              "IsNot": false
+                            },
+                            {
+                              "$type": "ConstraintHiddenTag",
+                              "HiddenTags": [
+                                "Freeze"
+                              ],
+                              "IsNot": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "kind": "EncounterStep",
+        "heroes": [],
+        "reward": {
+          "cardType": "Skill",
+          "summary": "Freeze",
+          "quantity": 1,
+          "tiers": [],
+          "keywords": [
+            "Freeze"
+          ],
+          "usesDayTierTable": true,
+          "usesDayTierDistribution": true
+        },
+        "event": null
+      }
+    },
+    {
+      "name": "step-pinned-tier-behavior",
+      "card": {
+        "$type": "TCardEncounterStep",
+        "Id": "81000000-0000-0000-0000-000000000013",
+        "Type": "EncounterStep",
+        "Abilities": {
+          "0": {
+            "Id": "0",
+            "Action": {
+              "$type": "TActionGameDealCards",
+              "SpawnContext": {
+                "$type": "TSpawnContextQuery",
+                "Limit": {
+                  "$type": "TFixedValue",
+                  "Value": 2.0
+                },
+                "Groups": [
+                  {
+                    "$type": "TSpawnGroup",
+                    "Filters": [
+                      {
+                        "$type": "TSpawnFilterQuery",
+                        "Constraints": {
+                          "$type": "ConstraintAnd",
+                          "Constraints": [
+                            {
+                              "$type": "ConstraintCardType",
+                              "Types": [
+                                "Item"
+                              ],
+                              "IsNot": false
+                            },
+                            {
+                              "$type": "ConstraintTag",
+                              "Tags": [
+                                "Food"
+                              ],
+                              "IsNot": false
+                            },
+                            {
+                              "$type": "ConstraintTier",
+                              "Tiers": [
+                                "Legendary"
+                              ],
+                              "IsNot": true
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "Behaviors": [
+                  {
+                    "$type": "TSpawnBehaviorTier",
+                    "Tiers": [
+                      "Diamond"
+                    ],
+                    "IsNot": false
+                  },
+                  {
+                    "$type": "TSpawnBehaviorIgnoreTierTable",
+                    "IgnoreTierTable": true
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "kind": "EncounterStep",
+        "heroes": [],
+        "reward": {
+          "cardType": "Item",
+          "summary": "Diamond Food",
+          "quantity": 2,
+          "tiers": [
+            "Diamond"
+          ],
+          "keywords": [],
+          "usesDayTierTable": false,
+          "usesDayTierDistribution": false
+        },
+        "event": null
+      }
+    },
+    {
+      "name": "step-exclusion-only-tier-behavior-keeps-the-day-table",
+      "card": {
+        "$type": "TCardEncounterStep",
+        "Id": "81000000-0000-0000-0000-000000000014",
+        "Type": "EncounterStep",
+        "Abilities": {
+          "0": {
+            "Id": "0",
+            "Action": {
+              "$type": "TActionGameDealCards",
+              "SpawnContext": {
+                "$type": "TSpawnContextQuery",
+                "Limit": {
+                  "$type": "TFixedValue",
+                  "Value": 1.0
+                },
+                "Groups": [
+                  {
+                    "$type": "TSpawnGroup",
+                    "Filters": [
+                      {
+                        "$type": "TSpawnFilterQuery",
+                        "Constraints": {
+                          "$type": "ConstraintCardType",
+                          "Types": [
+                            "Item"
+                          ],
+                          "IsNot": false
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "Behaviors": [
+                  {
+                    "$type": "TSpawnBehaviorTier",
+                    "Tiers": [
+                      "Bronze"
+                    ],
+                    "IsNot": true
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "kind": "EncounterStep",
+        "heroes": [],
+        "reward": {
+          "cardType": "Item",
+          "summary": "Silver-Legendary Item",
+          "quantity": 1,
+          "tiers": [
+            "Silver",
+            "Gold",
+            "Diamond",
+            "Legendary"
+          ],
+          "keywords": [],
+          "usesDayTierTable": true,
+          "usesDayTierDistribution": true
+        },
+        "event": null
+      }
+    },
+    {
+      "name": "step-inherited-tier",
+      "card": {
+        "$type": "TCardEncounterStep",
+        "Id": "81000000-0000-0000-0000-000000000015",
+        "Type": "EncounterStep",
+        "Abilities": {
+          "0": {
+            "Id": "0",
+            "Action": {
+              "$type": "TActionGameDealCards",
+              "SpawnContext": {
+                "$type": "TSpawnContextQuery",
+                "Limit": {
+                  "$type": "TFixedValue",
+                  "Value": 1.0
+                },
+                "Groups": [
+                  {
+                    "$type": "TSpawnGroup",
+                    "Filters": [
+                      {
+                        "$type": "TSpawnFilterQuery",
+                        "Constraints": {
+                          "$type": "ConstraintCardType",
+                          "Types": [
+                            "Skill"
+                          ],
+                          "IsNot": false
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "Behaviors": [
+                  {
+                    "$type": "TSpawnBehaviorInheritTier",
+                    "Inherits": true
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "kind": "EncounterStep",
+        "heroes": [],
+        "reward": {
+          "cardType": "Skill",
+          "summary": "Skill",
+          "quantity": 1,
+          "tiers": [],
+          "keywords": [],
+          "usesDayTierTable": false,
+          "usesDayTierDistribution": false
+        },
+        "event": null
+      }
+    },
+    {
+      "name": "event-choices-gated-on-cards-heroes-and-days",
+      "card": {
+        "$type": "TCardEncounterEvent",
+        "Id": "81000000-0000-0000-0000-000000000021",
+        "Type": "EventEncounter",
+        "Heroes": [
+          "Vanessa"
+        ],
+        "SelectionContext": {
+          "SpawnContext": {
+            "$type": "TSpawnContextQuery",
+            "SelectionMethod": "Sequential",
+            "Limit": {
+              "$type": "TFixedValue",
+              "Value": 2.0
+            },
+            "Groups": [
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [
+                  {
+                    "$type": "TSpawnFilterIdList",
+                    "Ids": [
+                      "81000000-0000-0000-0000-0000000000a1"
+                    ]
+                  }
+                ],
+                "SelectionMethod": "Sequential"
+              },
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [
+                  {
+                    "$type": "TSpawnFilterIdList",
+                    "Ids": [
+                      "81000000-0000-0000-0000-0000000000a2"
+                    ]
+                  }
+                ],
+                "SelectionMethod": "Sequential",
+                "Prerequisites": [
+                  {
+                    "$type": "TPrerequisiteCardCount",
+                    "Subject": {
+                      "$type": "TTargetCardSection",
+                      "TargetSection": "AbsolutePlayerHandAndStash",
+                      "Conditions": {
+                        "$type": "TCardConditionalId",
+                        "Id": "81000000-0000-0000-0000-0000000000b1",
+                        "IsNot": false
+                      }
+                    },
+                    "Comparison": "GreaterThanOrEqual",
+                    "Amount": 1
+                  }
+                ]
+              },
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [
+                  {
+                    "$type": "TSpawnFilterIdList",
+                    "Ids": [
+                      "81000000-0000-0000-0000-0000000000a3"
+                    ]
+                  }
+                ],
+                "SelectionMethod": "Random",
+                "Prerequisites": [
+                  {
+                    "$type": "TPrerequisiteCardCount",
+                    "Subject": {
+                      "$type": "TTargetCardSection",
+                      "TargetSection": "AbsolutePlayerHandAndStash",
+                      "Conditions": {
+                        "$type": "TCardConditionalTag",
+                        "Tags": [
+                          "Toy",
+                          "Drone"
+                        ],
+                        "Operator": "Any"
+                      }
+                    },
+                    "Comparison": "GreaterThanOrEqual",
+                    "Amount": 1
+                  },
+                  {
+                    "$type": "TPrerequisiteRun",
+                    "Conditions": {
+                      "$type": "TRunConditionalPlayerHero",
+                      "Heroes": [
+                        "Dooley"
+                      ],
+                      "Operator": "Any"
+                    }
+                  }
+                ]
+              },
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [
+                  {
+                    "$type": "TSpawnFilterIdList",
+                    "Ids": [
+                      "81000000-0000-0000-0000-0000000000a4"
+                    ]
+                  }
+                ],
+                "SelectionMethod": "Sequential",
+                "Prerequisites": [
+                  {
+                    "$type": "TPrerequisiteRun",
+                    "Conditions": {
+                      "$type": "TRunConditionalCurrentDay",
+                      "CurrentDay": 4,
+                      "ComparisonOperator": "GreaterThanOrEqual"
+                    }
+                  },
+                  {
+                    "$type": "TPrerequisiteRun",
+                    "Conditions": {
+                      "$type": "TRunConditionalCurrentDay",
+                      "CurrentDay": 7,
+                      "ComparisonOperator": "LessThan"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "kind": "Event",
+        "heroes": [
+          "Vanessa"
+        ],
+        "reward": null,
+        "event": {
+          "merchant": null,
+          "random": false,
+          "choiceLimit": 2,
+          "choices": [
+            {
+              "randomPool": false,
+              "day": null,
+              "members": [
+                {
+                  "id": "81000000-0000-0000-0000-0000000000a1",
+                  "requirements": []
+                }
+              ]
+            },
+            {
+              "randomPool": false,
+              "day": null,
+              "members": [
+                {
+                  "id": "81000000-0000-0000-0000-0000000000a2",
+                  "requirements": [
+                    {
+                      "ids": [
+                        "81000000-0000-0000-0000-0000000000b1"
+                      ],
+                      "tags": [],
+                      "comparison": "GreaterThanOrEqual",
+                      "amount": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "randomPool": true,
+              "day": null,
+              "members": [
+                {
+                  "id": "81000000-0000-0000-0000-0000000000a3",
+                  "requirements": [
+                    {
+                      "ids": [],
+                      "tags": [
+                        [
+                          "Toy"
+                        ],
+                        [
+                          "Drone"
+                        ]
+                      ],
+                      "comparison": "GreaterThanOrEqual",
+                      "amount": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "randomPool": false,
+              "day": [
+                "GreaterThanOrEqual 4",
+                "LessThan 7"
+              ],
+              "members": [
+                {
+                  "id": "81000000-0000-0000-0000-0000000000a4",
+                  "requirements": []
+                }
+              ]
+            }
+          ],
+          "outcomes": []
+        }
+      }
+    },
+    {
+      "name": "event-random-outcomes-with-a-query-pool",
+      "card": {
+        "$type": "TCardEncounterEvent",
+        "Id": "81000000-0000-0000-0000-000000000022",
+        "Type": "EventEncounter",
+        "SelectionContext": {
+          "SpawnContext": {
+            "$type": "TSpawnContextQuery",
+            "SelectionMethod": "Random",
+            "Limit": {
+              "$type": "TFixedValue",
+              "Value": 1.0
+            },
+            "Groups": [
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [
+                  {
+                    "$type": "TSpawnFilterIdList",
+                    "Ids": [
+                      "81000000-0000-0000-0000-0000000000c1"
+                    ]
+                  }
+                ],
+                "SelectionMethod": "Sequential",
+                "RandomWeight": 1
+              },
+              {
+                "$type": "TSpawnGroup",
+                "Filters": [
+                  {
+                    "$type": "TSpawnFilterQuery",
+                    "Constraints": {
+                      "$type": "ConstraintAnd",
+                      "Constraints": [
+                        {
+                          "$type": "ConstraintCardType",
+                          "Types": [
+                            "Item"
+                          ],
+                          "IsNot": false
+                        },
+                        {
+                          "$type": "ConstraintSize",
+                          "Sizes": [
+                            "Small",
+                            "Medium"
+                          ],
+                          "IsNot": false
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "SelectionMethod": "Random",
+                "RandomWeight": 9,
+                "Prerequisites": [
+                  {
+                    "$type": "TPrerequisiteCardCount",
+                    "Subject": {
+                      "$type": "TTargetCardSection",
+                      "TargetSection": "AbsolutePlayerHandAndStash",
+                      "Conditions": {
+                        "$type": "TCardConditionalId",
+                        "Id": "81000000-0000-0000-0000-0000000000b2",
+                        "IsNot": false
+                      }
+                    },
+                    "Comparison": "Equal",
+                    "Amount": 0
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "kind": "Event",
+        "heroes": [],
+        "reward": null,
+        "event": {
+          "merchant": null,
+          "random": true,
+          "choiceLimit": 1,
+          "choices": [],
+          "outcomes": [
+            {
+              "weight": 1,
+              "ids": [
+                "81000000-0000-0000-0000-0000000000c1"
+              ],
+              "pools": [],
+              "requirements": [],
+              "day": null
+            },
+            {
+              "weight": 9,
+              "ids": [],
+              "pools": [
+                {
+                  "cardType": "Item",
+                  "summary": "Small Medium Item",
+                  "quantity": null,
+                  "tiers": [],
+                  "keywords": [],
+                  "usesDayTierTable": true,
+                  "usesDayTierDistribution": true
+                }
+              ],
+              "requirements": [
+                {
+                  "ids": [
+                    "81000000-0000-0000-0000-0000000000b2"
+                  ],
+                  "tags": [],
+                  "comparison": "Equal",
+                  "amount": 0
+                }
+              ],
+              "day": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

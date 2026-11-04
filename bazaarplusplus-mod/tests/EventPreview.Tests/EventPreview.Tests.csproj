@@ -22,6 +22,13 @@
     <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile
+      Include="../Shared/EventPreview/EncounterPreviewCardCases.cs"
+      Link="Shared/EventPreview/EncounterPreviewCardCases.cs"
+    />
+  </ItemGroup>
+
   <!-- Named explicitly so the test tree's netstandard2.1 pin leaves Core and its references on
        net10.0; the Mono targets need the Managed snapshot `mod::test-core` does not fetch. -->
   <ItemGroup>

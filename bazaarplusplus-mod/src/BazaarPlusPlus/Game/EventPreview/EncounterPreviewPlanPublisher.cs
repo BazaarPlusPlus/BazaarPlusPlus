@@ -1,6 +1,5 @@
 #nullable enable
 using System.Diagnostics;
-using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
@@ -9,27 +8,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal readonly record struct EventPreviewQuery(Guid TemplateId, string NativeText);
-
-internal readonly record struct EncounterStepPreviewQuery(Guid TemplateId, string NativeText);
-
-internal readonly record struct LevelUpPreviewQuery(int CurrentLevel);
-
-internal enum EventPreviewAvailability
-{
-    Available,
-    Loading,
-    Missing,
-    Unsupported,
-    Unavailable,
-}
-
-internal readonly record struct EventPreviewResult(
-    EventPreviewAvailability Availability,
-    string? Content
-);
-
-internal enum EncounterPreviewModuleStatus
+internal enum EncounterPreviewPlanPublisherStatus
 {
     Loading,
     Ready,
@@ -38,7 +17,12 @@ internal enum EncounterPreviewModuleStatus
     Disposed,
 }
 
-internal sealed class EncounterPreviewModule : IDisposable
+/// <summary>
+/// The desktop's encounter plans: observes each new static-data source, loads its plans from the
+/// disk cache or compiles them, and publishes them for Core's <see cref="EncounterPreviewModule"/>
+/// through <see cref="Reads"/>.
+/// </summary>
+internal sealed class EncounterPreviewPlanPublisher : IDisposable
 {
     private readonly EncounterPreviewPlanRegistry _registry;
     private readonly CancellationTokenSource _shutdown = new();
@@ -49,10 +33,10 @@ internal sealed class EncounterPreviewModule : IDisposable
     private readonly string _buildChannel;
     private object? _observedSource;
     private int _healthDegraded;
-    private int _status = (int)EncounterPreviewModuleStatus.Loading;
+    private int _status = (int)EncounterPreviewPlanPublisherStatus.Loading;
     private int _disposed;
 
-    internal EncounterPreviewModule(
+    internal EncounterPreviewPlanPublisher(
         IBppServices services,
         BppStaticCardMapProvider cardMapProvider,
         GameDataDayTierResolver dayTierResolver,
@@ -66,7 +50,7 @@ internal sealed class EncounterPreviewModule : IDisposable
             services.GameBuild.Channel.ToString()
         ) { }
 
-    internal EncounterPreviewModule(
+    internal EncounterPreviewPlanPublisher(
         IEncounterPreviewGameRuntime runtime,
         EncounterPreviewPlanRegistry registry,
         EncounterPreviewCacheStore cacheStore,
@@ -82,10 +66,14 @@ internal sealed class EncounterPreviewModule : IDisposable
         _gameBuild = gameBuild ?? string.Empty;
         _buildChannel = buildChannel ?? string.Empty;
         _cacheStore.CleanupOrphanedTempFiles();
+        Reads = new DesktopEncounterPreviewReads(this, _runtime);
     }
 
-    internal EncounterPreviewModuleStatus Status =>
-        (EncounterPreviewModuleStatus)Volatile.Read(ref _status);
+    internal EncounterPreviewPlanPublisherStatus Status =>
+        (EncounterPreviewPlanPublisherStatus)Volatile.Read(ref _status);
+
+    /// <summary>The published plans and the game state a query reads beside them.</summary>
+    internal IEncounterPreviewReads Reads { get; }
 
     internal void ObserveStaticData()
     {
@@ -98,7 +86,7 @@ internal sealed class EncounterPreviewModule : IDisposable
 
         _observedSource = source;
         var generation = _registry.BeginGeneration(source);
-        Volatile.Write(ref _status, (int)EncounterPreviewModuleStatus.Loading);
+        Volatile.Write(ref _status, (int)EncounterPreviewPlanPublisherStatus.Loading);
         var sourceInfo = _runtime.TryCaptureSourceInfo(source);
         if (sourceInfo == null)
         {
@@ -251,181 +239,34 @@ internal sealed class EncounterPreviewModule : IDisposable
         }
     }
 
-    public EventPreviewResult ResolveEvent(EventPreviewQuery query)
-    {
-        try
-        {
-            if (!TryGetSnapshot(out var source, out var snapshot, out var unavailable))
-                return new EventPreviewResult(unavailable, null);
-            if (query.TemplateId == Guid.Empty)
-                return new EventPreviewResult(EventPreviewAvailability.Missing, null);
-
-            var dayTiers = _runtime.ResolveDayTiers(source);
-            var currentDay = dayTiers.Day;
-            var template = _runtime.GetCardTemplate(source, query.TemplateId);
-            if (template?.Tags?.Contains(ECardTag.Merchant) == true)
-            {
-                var policy = EncounterMerchantTierResolver.Resolve(template);
-                if (!policy.FixedTier.HasValue && !policy.UsesDayDistribution)
-                    return new EventPreviewResult(EventPreviewAvailability.Unsupported, null);
-
-                var merchantContent = EncounterPreviewTextFormatter.BuildQualityLine(
-                    policy.UsesDayDistribution ? dayTiers.Table : null,
-                    policy.FixedTier
-                );
-                return Presentation(merchantContent);
-            }
-
-            if (!snapshot.TryGetEvent(query.TemplateId, out var eventPlan))
-                return new EventPreviewResult(EventPreviewAvailability.Missing, null);
-
-            var option = EncounterEventDetailResolver.TryResolve(
-                eventPlan,
-                snapshot,
-                _runtime.ReadCurrentHero(),
-                _runtime.ReadInventory(),
-                currentDay,
-                ResolveLiveValue
-            );
-            if (option == null || (!option.HasChoiceDetails && !option.HasOutcomeGroups))
-                return new EventPreviewResult(EventPreviewAvailability.Unsupported, null);
-
-            return Presentation(
-                EncounterPreviewTextFormatter.Build(option, _runtime.ColorKeywords, dayTiers.Table)
-            );
-
-            bool ResolveLiveValue(
-                Guid templateId,
-                string effectId,
-                bool isAura,
-                out string valueText,
-                out string? unit
-            ) =>
-                _runtime.TryEvaluateAbilityValue(
-                    source,
-                    templateId,
-                    effectId,
-                    isAura,
-                    out valueText,
-                    out unit
-                );
-        }
-        catch (Exception)
-        {
-            return new EventPreviewResult(EventPreviewAvailability.Unavailable, null);
-        }
-    }
-
-    public EventPreviewResult ResolveStep(EncounterStepPreviewQuery query)
-    {
-        try
-        {
-            if (!TryGetSnapshot(out var source, out var snapshot, out var unavailable))
-                return new EventPreviewResult(unavailable, null);
-            if (
-                query.TemplateId == Guid.Empty
-                || !snapshot.TryGetTemplate(query.TemplateId, out var stepPlan)
-            )
-                return new EventPreviewResult(EventPreviewAvailability.Missing, null);
-            if (stepPlan.Kind != EncounterPreviewTemplateKind.EncounterStep)
-                return new EventPreviewResult(EventPreviewAvailability.Unsupported, null);
-
-            var dayTiers = _runtime.ResolveDayTiers(source);
-            var content = EncounterPreviewTextFormatter.BuildRewardQualityLine(
-                stepPlan.RewardFilter,
-                query.NativeText,
-                dayTiers.Table
-            );
-            return string.IsNullOrWhiteSpace(content)
-                ? new EventPreviewResult(EventPreviewAvailability.Unsupported, null)
-                : new EventPreviewResult(EventPreviewAvailability.Available, content);
-        }
-        catch (Exception)
-        {
-            return new EventPreviewResult(EventPreviewAvailability.Unavailable, null);
-        }
-    }
-
-    public EventPreviewResult ResolveLevelUp(LevelUpPreviewQuery query)
-    {
-        try
-        {
-            if (!TryGetSnapshot(out var source, out var snapshot, out var unavailable))
-                return new EventPreviewResult(unavailable, null);
-            if (!snapshot.TryGetLevelUp(query.CurrentLevel, out var levelUpPlan))
-                return new EventPreviewResult(EventPreviewAvailability.Missing, null);
-
-            var content = LevelUpPreviewTextFormatter.Build(
-                levelUpPlan,
-                id => snapshot.TryGetTemplate(id, out var template) ? template : null,
-                _runtime.ReadCurrentHero(),
-                _runtime.ColorKeywords,
-                query.CurrentLevel,
-                ResolveLiveValue
-            );
-            return string.IsNullOrWhiteSpace(content)
-                ? new EventPreviewResult(EventPreviewAvailability.Unsupported, null)
-                : new EventPreviewResult(EventPreviewAvailability.Available, content);
-
-            bool ResolveLiveValue(
-                Guid templateId,
-                string effectId,
-                bool isAura,
-                out string valueText,
-                out string? unit
-            ) =>
-                _runtime.TryEvaluateAbilityValue(
-                    source,
-                    templateId,
-                    effectId,
-                    isAura,
-                    out valueText,
-                    out unit
-                );
-        }
-        catch (Exception)
-        {
-            return new EventPreviewResult(EventPreviewAvailability.Unavailable, null);
-        }
-    }
-
-    private bool TryGetSnapshot(
+    // The source the plans were published for travels with them: a query must read that
+    // source's day tiers and live values, never a newer manager's.
+    internal EncounterPreviewSnapshot? TryGetSnapshot(
         out object source,
-        out EncounterPreviewSnapshot snapshot,
         out EventPreviewAvailability unavailable
     )
     {
         source = null!;
-        snapshot = null!;
         if (Volatile.Read(ref _disposed) != 0)
         {
             unavailable = EventPreviewAvailability.Unavailable;
-            return false;
-        }
-        if (_runtime.IsInCombat)
-        {
-            unavailable = EventPreviewAvailability.Unsupported;
-            return false;
+            return null;
         }
 
-        source = _runtime.TryGetReadyStaticData()!;
-        if (source != null && _registry.TryGet(source, out snapshot))
+        var current = _runtime.TryGetReadyStaticData();
+        if (current != null && _registry.TryGet(current, out var snapshot))
         {
+            source = current;
             unavailable = EventPreviewAvailability.Available;
-            return true;
+            return snapshot;
         }
 
         unavailable =
-            Status == EncounterPreviewModuleStatus.Unavailable
+            Status == EncounterPreviewPlanPublisherStatus.Unavailable
                 ? EventPreviewAvailability.Unavailable
                 : EventPreviewAvailability.Loading;
-        return false;
+        return null;
     }
-
-    private static EventPreviewResult Presentation(string? content) =>
-        string.IsNullOrWhiteSpace(content)
-            ? new EventPreviewResult(EventPreviewAvailability.Unsupported, null)
-            : new EventPreviewResult(EventPreviewAvailability.Available, content);
 
     private void ReportPublishedTerminal(
         EventPreviewPlanSource source,
@@ -442,7 +283,7 @@ internal sealed class EncounterPreviewModule : IDisposable
         if (persistError != null || hasPartialCoverage)
         {
             Interlocked.Exchange(ref _healthDegraded, 1);
-            Volatile.Write(ref _status, (int)EncounterPreviewModuleStatus.Degraded);
+            Volatile.Write(ref _status, (int)EncounterPreviewPlanPublisherStatus.Degraded);
             ReportTerminal(
                 new BppLogEvent(
                     BppLogFeatureScope.EventPreview,
@@ -464,7 +305,7 @@ internal sealed class EncounterPreviewModule : IDisposable
         }
 
         var recovered = Interlocked.Exchange(ref _healthDegraded, 0) != 0;
-        Volatile.Write(ref _status, (int)EncounterPreviewModuleStatus.Ready);
+        Volatile.Write(ref _status, (int)EncounterPreviewPlanPublisherStatus.Ready);
         if (recovered)
             BppLog.RecoverStorm(
                 new BppLogEvent(
@@ -516,8 +357,8 @@ internal sealed class EncounterPreviewModule : IDisposable
                 ref _status,
                 (int)(
                     logEvent.Id == "event_preview.plans.degraded"
-                        ? EncounterPreviewModuleStatus.Degraded
-                        : EncounterPreviewModuleStatus.Unavailable
+                        ? EncounterPreviewPlanPublisherStatus.Degraded
+                        : EncounterPreviewPlanPublisherStatus.Unavailable
                 )
             );
         }
@@ -588,6 +429,6 @@ internal sealed class EncounterPreviewModule : IDisposable
         _registry.Reset();
         _shutdown.Dispose();
         Interlocked.Exchange(ref _healthDegraded, 0);
-        Volatile.Write(ref _status, (int)EncounterPreviewModuleStatus.Disposed);
+        Volatile.Write(ref _status, (int)EncounterPreviewPlanPublisherStatus.Disposed);
     }
 }

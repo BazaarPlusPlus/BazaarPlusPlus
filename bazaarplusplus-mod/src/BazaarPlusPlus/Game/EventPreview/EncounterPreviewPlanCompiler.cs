@@ -34,16 +34,6 @@ internal sealed class EncounterPreviewCompileResult
 
 internal sealed class EncounterPreviewPlanCompiler
 {
-    private readonly Func<object, JToken?> _prepareToken;
-
-    public EncounterPreviewPlanCompiler()
-        : this(EncounterStructuredParser.TryPrepareToken) { }
-
-    internal EncounterPreviewPlanCompiler(Func<object, JToken?> prepareToken)
-    {
-        _prepareToken = prepareToken ?? throw new ArgumentNullException(nameof(prepareToken));
-    }
-
     public EncounterPreviewCompileResult Compile(IReadOnlyDictionary<Guid, ITCard> cardMap) =>
         Compile(cardMap, new Dictionary<int, TLevelUp>());
 
@@ -71,26 +61,16 @@ internal sealed class EncounterPreviewPlanCompiler
         {
             try
             {
-                var token = _prepareToken(eventTemplate);
-                if (token == null)
+                if (
+                    TryAddTemplate(eventTemplate, templates) is not { } token
+                    || EncounterStructuredParser.Reader.ReadEvent(token) is not { } eventPlan
+                )
                 {
                     failures.Add(eventTemplate.Id);
                     continue;
                 }
 
-                if (!TryAddTemplate(eventTemplate, () => token, templates, failures))
-                    continue;
-
-                var isRandomSelectionEvent = EncounterStructuredParser.TryParseEventOutcomeGroups(
-                    token,
-                    out var outcomeGroups
-                );
-                var choiceGroups = isRandomSelectionEvent
-                    ? Array.Empty<EncounterChoiceGroupData>()
-                    : EncounterStructuredParser.TryParseEventChoiceGroups(token);
-                var choiceLimit = EncounterStructuredParser.TryParseEventChoiceLimit(token);
-
-                foreach (var group in outcomeGroups)
+                foreach (var group in eventPlan.OutcomeGroups)
                 foreach (var id in group.Ids)
                     TryAddReferencedTemplate(
                         id,
@@ -99,7 +79,7 @@ internal sealed class EncounterPreviewPlanCompiler
                         failures,
                         missingReferencedTemplates
                     );
-                foreach (var group in choiceGroups)
+                foreach (var group in eventPlan.ChoiceGroups)
                 foreach (var member in group.Members)
                     TryAddReferencedTemplate(
                         member.TemplateId,
@@ -109,17 +89,7 @@ internal sealed class EncounterPreviewPlanCompiler
                         missingReferencedTemplates
                     );
 
-                events.Add(
-                    new EncounterPreviewEventPlan(
-                        eventTemplate.Id,
-                        isRandomSelectionEvent,
-                        suppressRandomOutcome: eventTemplate.Tags?.Contains(ECardTag.Merchant)
-                            == true,
-                        choiceLimit,
-                        outcomeGroups,
-                        choiceGroups
-                    )
-                );
+                events.Add(eventPlan);
             }
             catch (Exception)
             {
@@ -170,24 +140,8 @@ internal sealed class EncounterPreviewPlanCompiler
 
         try
         {
-            // Lazy: TryAddTemplate only needs the token when the runtime reward route fails, and
-            // _prepareToken is a reflection walk over the whole template.
-            JToken? preparedToken = null;
-            var preparedTokenComputed = false;
-            TryAddTemplate(
-                template,
-                () =>
-                {
-                    if (preparedTokenComputed)
-                        return preparedToken;
-
-                    preparedTokenComputed = true;
-                    preparedToken = _prepareToken(template);
-                    return preparedToken;
-                },
-                templates,
-                failures
-            );
+            if (TryAddTemplate(template, templates) == null)
+                failures.Add(templateId);
         }
         catch (Exception)
         {
@@ -332,57 +286,27 @@ internal sealed class EncounterPreviewPlanCompiler
         return plans;
     }
 
-    private static bool TryAddTemplate(
+    // Reads the template's plan off its game-serialized JSON, once, and returns that JSON; null
+    // when it does not serialize or read.
+    private static JObject? TryAddTemplate(
         TCardBase template,
-        Func<JToken?> preparedToken,
-        Dictionary<Guid, EncounterPreviewTemplatePlan> templates,
-        HashSet<Guid> failures
+        Dictionary<Guid, EncounterPreviewTemplatePlan> templates
     )
     {
+        if (EncounterStructuredParser.TryPrepareToken(template) is not JObject token)
+            return null;
         if (templates.ContainsKey(template.Id))
-            return true;
-
-        try
-        {
-            EncounterRewardFilter? rewardFilter = null;
-            if (
-                template.Type == ECardType.EventEncounter
-                || template.Type == ECardType.EncounterStep
+            return token;
+        if (
+            EncounterStructuredParser.Reader.ReadTemplate(
+                token,
+                EventPreviewGameText.CaptureAbilityValues(template)
             )
-            {
-                rewardFilter = EncounterStructuredParser.TryParseRewardFilterWithPreparedToken(
-                    template,
-                    preparedToken
-                );
-            }
-
-            var localization = template.Localization;
-            templates.Add(
-                template.Id,
-                new EncounterPreviewTemplatePlan(
-                    template.Id,
-                    Classify(template.Type),
-                    ToHeroFacets(template.Heroes),
-                    template.InternalName,
-                    new EncounterPreviewLocalizedText(
-                        localization?.Title?.Key,
-                        localization?.Title?.Text
-                    ),
-                    new EncounterPreviewLocalizedText(
-                        localization?.Description?.Key,
-                        localization?.Description?.Text
-                    ),
-                    EventPreviewGameText.CaptureAbilityValues(template),
-                    rewardFilter
-                )
-            );
-            return true;
-        }
-        catch (Exception)
-        {
-            failures.Add(template.Id);
-            return false;
-        }
+            is not { } plan
+        )
+            return null;
+        templates.Add(template.Id, plan);
+        return token;
     }
 
     // Game order, then by name onto the facet (ADR-0015): the legacy and current Dragons ids
@@ -399,15 +323,4 @@ internal sealed class EncounterPreviewPlanCompiler
         }
         return result;
     }
-
-    private static EncounterPreviewTemplateKind Classify(ECardType type) =>
-        type switch
-        {
-            ECardType.EventEncounter => EncounterPreviewTemplateKind.Event,
-            ECardType.EncounterStep => EncounterPreviewTemplateKind.EncounterStep,
-            ECardType.CombatEncounter => EncounterPreviewTemplateKind.CombatEncounter,
-            ECardType.Skill => EncounterPreviewTemplateKind.Skill,
-            ECardType.Item => EncounterPreviewTemplateKind.Item,
-            _ => EncounterPreviewTemplateKind.Other,
-        };
 }

@@ -57,12 +57,11 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
     }
 
     /// <summary>
-    /// A merchant event's quality rule, read off its JSON as the desktop's
-    /// <c>EncounterMerchantTierResolver</c> reads the typed template: no query spawn context or no
+    /// A merchant event's quality rule, read off its JSON: no query spawn context or no
     /// behaviours sells by the day's distribution; a <c>TSpawnBehaviorTier</c> that is not an
     /// exclusion and names one tier pins it; an enabled <c>TSpawnBehaviorIgnoreTierTable</c>
     /// without a pinned tier leaves no rule. The tier goes through the host's <c>"Tier"</c>
-    /// normalization, since runtime objects serialize enums numerically.
+    /// normalization.
     /// </summary>
     public EncounterMerchantTierRule TryParseMerchantTierRule(JToken? card)
     {
@@ -288,7 +287,7 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
         var spawnContext = token.SelectToken("SelectionContext.SpawnContext");
         if (spawnContext == null)
             return false;
-        // Runtime objects serialize enums numerically; raw JSON uses names.
+        // The host maps a numeric enum value to its name.
         if (Normalize("SelectionMethod", spawnContext["SelectionMethod"]?.ToString()) != "Random")
             return false;
 
@@ -426,7 +425,7 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
         var amountToken = obj["Amount"];
         if (comparisonToken == null || amountToken == null)
             return null;
-        // Runtime objects serialize enums numerically; raw JSON uses names.
+        // The host maps a numeric enum value to its name.
         var comparison = Normalize("Comparison", comparisonToken.ToString());
         if (comparison == null)
             return null;

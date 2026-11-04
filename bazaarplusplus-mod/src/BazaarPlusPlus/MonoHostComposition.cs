@@ -79,7 +79,7 @@ internal sealed class MonoHostComposition : IDisposable
     private readonly PostCombatImpactModule _postCombatImpactModule;
     private readonly RunLoggingModule _runLoggingModule;
     private readonly BundleSealCoordinator _bundleSealCoordinator;
-    private readonly EncounterPreviewModule _encounterPreviewModule;
+    private readonly EncounterPreviewPlanPublisher _encounterPreviewPlans;
     private readonly INativeCardPreviewHost _nativeCardPreviewHost;
     private readonly EndOfRunCaptureWorkflow _endOfRunCaptureWorkflow;
     private readonly BppPatchFeatures _patchFeatures;
@@ -163,7 +163,7 @@ internal sealed class MonoHostComposition : IDisposable
             "EncounterPreview",
             "preview-plans.json"
         );
-        _encounterPreviewModule = new EncounterPreviewModule(
+        _encounterPreviewPlans = new EncounterPreviewPlanPublisher(
             _services,
             _staticCardMapProvider,
             _dayTierResolver,
@@ -171,7 +171,7 @@ internal sealed class MonoHostComposition : IDisposable
         );
         _endOfRunCaptureWorkflow = new EndOfRunCaptureWorkflow(_services);
         _patchFeatures = new BppPatchFeatures(
-            _encounterPreviewModule,
+            new EncounterPreviewModule(_services.Config, _encounterPreviewPlans.Reads),
             _endOfRunCaptureWorkflow,
             _postCombatImpactModule
         );
@@ -284,7 +284,7 @@ internal sealed class MonoHostComposition : IDisposable
         }
         _mountables.Register(
             new ComponentMount<EventPreviewStaticDataObserver>(
-                (observer, _) => observer.Initialize(_encounterPreviewModule)
+                (observer, _) => observer.Initialize(_encounterPreviewPlans)
             )
         );
         // The overlay host must mount before every Main Overlay Panel mount below: panels
@@ -382,7 +382,7 @@ internal sealed class MonoHostComposition : IDisposable
     {
         _core.Stop();
         _endOfRunCaptureWorkflow.Dispose();
-        _encounterPreviewModule.Dispose();
+        _encounterPreviewPlans.Dispose();
         _buildRecommendationCatalog.Dispose();
     }
 }

@@ -1,3 +1,5 @@
+using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Game.EventPreview;
 using HarmonyLib;
 using Il2CppTheBazaar.UI.Tooltips;
 
@@ -19,7 +21,7 @@ internal static class EncounterPreviewPatch
         try
         {
             var content =
-                AndroidPatchHost.EncounterPreview?.Render(__instance, text)
+                Encounter(__instance, text)
                 ?? AndroidPatchHost.AggregateItemPreview?.Render(__instance.CurrentCard);
             if (!string.IsNullOrWhiteSpace(content))
                 text += "\n<size=75%>" + content + "</size>";
@@ -28,5 +30,19 @@ internal static class EncounterPreviewPatch
         {
             AndroidPatchHost.ReportProbeError("encounter_preview", exception);
         }
+    }
+
+    private static string? Encounter(CardTooltipController controller, string text)
+    {
+        var card = controller.CurrentCard;
+        if (
+            AndroidPatchHost.EncounterPreview is not { } preview
+            || card == null
+            || !Guid.TryParse(card.TemplateId.ToString(), out var id)
+            || !AndroidCardFacets.Type.TryToFacet(card.Type, out var type)
+        )
+            return null;
+        var result = preview.Module.ResolveCard(new EncounterCardPreviewQuery(id, type, text));
+        return result.Availability == EventPreviewAvailability.Available ? result.Content : null;
     }
 }

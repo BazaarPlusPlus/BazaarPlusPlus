@@ -25,10 +25,10 @@ public sealed class AndroidEncounterPreviewReadTests : IDisposable
         File.Delete(_path);
     }
 
-    // A step's dealt reward and a package's merchant are read as the desktop reads them, so the
-    // tooltip can show the day's odds and name the merchant.
+    // A step's dealt reward, a merchant's quality and a package's merchant are read as the desktop
+    // reads them, so the tooltip can show the day's odds, the merchant's tier and name the merchant.
     [Fact]
-    public void Reads_each_steps_reward_and_each_packages_merchant()
+    public void Reads_each_steps_reward_each_merchants_quality_and_each_packages_merchant()
     {
         var step = Guid.NewGuid();
         var fixedStep = Guid.NewGuid();
@@ -44,6 +44,7 @@ public sealed class AndroidEncounterPreviewReadTests : IDisposable
                 INSERT INTO cards VALUES ('a', CAST($step AS BLOB));
                 INSERT INTO cards VALUES ('b', CAST($fixed AS BLOB));
                 INSERT INTO cards VALUES ('c', CAST($package AS BLOB));
+                INSERT INTO cards VALUES ('d', CAST($merchant AS BLOB));
                 """;
             command.Parameters.AddWithValue(
                 "$step",
@@ -114,11 +115,29 @@ public sealed class AndroidEncounterPreviewReadTests : IDisposable
                 }
                 """
             );
+            command.Parameters.AddWithValue(
+                "$merchant",
+                $$"""
+                {
+                  "Id": "{{merchant}}",
+                  "Type": "EventEncounter",
+                  "Tags": ["Merchant"],
+                  "SelectionContext": {
+                    "SpawnContext": {
+                      "$type": "TSpawnContextQuery",
+                      "Behaviors": [{ "$type": "TSpawnBehaviorTier", "Tiers": ["Gold"], "IsNot": false }]
+                    }
+                  }
+                }
+                """
+            );
             command.ExecuteNonQuery();
         }
 
         var plans = AndroidEncounterPreview.Read(_path);
 
+        Assert.True(plans.Snapshot.TryGetEvent(merchant, out var merchantPlan));
+        Assert.Equal(new EncounterMerchantTierRule(CardTier.Gold, false), merchantPlan.Merchant);
         Assert.True(plans.Snapshot.TryGetTemplate(step, out var stepPlan));
         var reward = Assert.IsType<EncounterRewardFilter>(stepPlan.RewardFilter);
         Assert.Equal(CardType.Item, reward.CardType);

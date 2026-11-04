@@ -22,7 +22,6 @@ internal interface IEncounterPreviewGameRuntime
     BppGameDataSourceInfo? TryCaptureSourceInfo(object source);
     Task<Dictionary<Guid, ITCard>?> LoadCardMapAsync(object source);
     Dictionary<int, TLevelUp>? SnapshotLevelUps(object source);
-    TCardBase? GetCardTemplate(object source, Guid templateId);
     bool TryEvaluateAbilityValue(
         object source,
         Guid templateId,
@@ -60,9 +59,6 @@ internal sealed class EncounterPreviewGameRuntime(
     public Dictionary<int, TLevelUp>? SnapshotLevelUps(object source) =>
         BppStaticDataAccess.SnapshotLevelUps(source);
 
-    public TCardBase? GetCardTemplate(object source, Guid templateId) =>
-        BppStaticDataAccess.GetCardTemplate(source, templateId);
-
     public bool TryEvaluateAbilityValue(
         object source,
         Guid templateId,
@@ -74,7 +70,7 @@ internal sealed class EncounterPreviewGameRuntime(
     {
         valueText = string.Empty;
         unit = null;
-        var template = GetCardTemplate(source, templateId);
+        var template = BppStaticDataAccess.GetCardTemplate(source, templateId);
         var run = Data.Run;
         if (template == null || run == null)
             return false;
