@@ -86,7 +86,21 @@ internal static class CollectionItemLoadArtPatch
                 }
                 return;
             }
-            if (assetData == null || assetData.cardMaterial == null)
+            var cardMaterial =
+                assetData == null
+                    ? null
+                    : await cacheSession.MaterialCache.LoadSource(artKey, assetData);
+            // The load can yield long enough for a pooled card to rebind to another template.
+            if (instance == null || !ReferenceEquals(instance._cardData, card))
+            {
+                if (acquiredNewArtRef)
+                {
+                    cacheSession.ArtCache.Release(artKey);
+                    acquiredNewArtRef = false;
+                }
+                return;
+            }
+            if (cardMaterial == null)
             {
                 if (acquiredNewArtRef)
                 {
@@ -100,7 +114,7 @@ internal static class CollectionItemLoadArtPatch
 
             var material = cacheSession.MaterialCache.GetOrCreate(
                 artKey,
-                assetData,
+                cardMaterial,
                 instance._cardMaterialShader,
                 isPremium
             );
