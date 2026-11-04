@@ -30,7 +30,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
     private AndroidEncounterPlans? _plans;
     private readonly Dictionary<(Guid Package, string Language), string> _packageSummaries = new();
     private static readonly EncounterChoicePlanParser Parser = new(Normalize);
-    private static readonly EncounterRewardFilterParser RewardParser = new(Normalize);
+    private static readonly EncounterPreviewCardReader Reader = new(Normalize, Hero);
 
     /// <summary>The Detailed Preview switch.</summary>
     public bool Enabled => settings.EnableDetailedPreviewConfig.Value;
@@ -63,7 +63,6 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                 BppLog.InfoEvent(
                     new BppLogEvent(BppLogFeatureScope.Android, "android.encounter_preview.ready"),
                     ("events", _plans.Snapshot.EventCount),
-                    ("merchants", _plans.Merchants.Count),
                     ("packages", _plans.PackageMerchants.Count),
                     ("level_ups", _plans.Snapshot.LevelUpCount)
                 );
@@ -167,7 +166,10 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             return RenderStep(id, nativeText);
         if (card.Type != ECardType.EventEncounter)
             return null;
-        if (_plans.Merchants.TryGetValue(id, out var merchant))
+        var loaded = _plans.Snapshot;
+        if (!loaded.TryGetEvent(id, out var plan))
+            return null;
+        if (plan.Merchant is { } merchant)
         {
             if (!merchant.IsSupported)
                 return null;
@@ -177,9 +179,6 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             );
             return string.IsNullOrWhiteSpace(quality) ? null : quality;
         }
-        var loaded = _plans.Snapshot;
-        if (!loaded.TryGetEvent(id, out var plan))
-            return null;
         var ids = plan
             .ChoiceGroups.SelectMany(group => group.Members.Select(member => member.TemplateId))
             .Concat(plan.OutcomeGroups.SelectMany(group => group.Ids))
@@ -297,68 +296,20 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         using var reader = command.ExecuteReader();
         var events = new List<EncounterPreviewEventPlan>();
         var templates = new List<EncounterPreviewTemplatePlan>();
-        var merchants = new Dictionary<Guid, EncounterMerchantTierRule>();
         var packageMerchants = new Dictionary<Guid, Guid>();
         while (reader.Read())
         {
             var card = JObject.Parse(Encoding.UTF8.GetString((byte[])reader.GetValue(0)));
-            if (!Guid.TryParse(card["Id"]?.ToString(), out var id))
+            if (Reader.ReadTemplate(card) is not { } template)
                 continue;
-            var type = card["Type"]?.ToString();
-            var kind = type switch
-            {
-                "EventEncounter" => EncounterPreviewTemplateKind.Event,
-                "EncounterStep" => EncounterPreviewTemplateKind.EncounterStep,
-                "CombatEncounter" => EncounterPreviewTemplateKind.CombatEncounter,
-                "Skill" => EncounterPreviewTemplateKind.Skill,
-                "Item" => EncounterPreviewTemplateKind.Item,
-                _ => EncounterPreviewTemplateKind.Other,
-            };
-            var heroes = new List<CardHero>();
-            if (card["Heroes"] is JArray heroNames)
-                foreach (var name in heroNames)
-                    if (Hero(name.ToString()) is { } hero)
-                        heroes.Add(hero);
-            EncounterPreviewLocalizedText Text(string key) =>
-                new(
-                    card.SelectToken("Localization." + key + ".Key")?.ToString(),
-                    card.SelectToken("Localization." + key + ".Text")?.ToString()
-                );
-            templates.Add(
-                new(
-                    id,
-                    kind,
-                    heroes,
-                    card["InternalName"]?.ToString(),
-                    Text("Title"),
-                    Text("Description"),
-                    null,
-                    kind
-                        is EncounterPreviewTemplateKind.Event
-                            or EncounterPreviewTemplateKind.EncounterStep
-                        ? RewardParser.TryParse(card)
-                        : null
-                )
-            );
+            templates.Add(template);
             if (Parser.TryParsePackageMerchant(card) is { } packageMerchant)
-                packageMerchants[id] = packageMerchant;
-            if (kind != EncounterPreviewTemplateKind.Event)
-                continue;
-            var random = Parser.TryParseEventOutcomeGroups(card, out var outcomes);
-            var merchant =
-                card["Tags"] is JArray tags && tags.Any(tag => tag.ToString() == "Merchant");
-            if (merchant)
-                merchants[id] = Parser.TryParseMerchantTierRule(card);
-            events.Add(
-                new(
-                    id,
-                    random,
-                    merchant,
-                    Parser.TryParseEventChoiceLimit(card),
-                    outcomes,
-                    random ? [] : Parser.TryParseEventChoiceGroups(card)
-                )
-            );
+                packageMerchants[template.TemplateId] = packageMerchant;
+            if (
+                template.Kind == EncounterPreviewTemplateKind.Event
+                && Reader.ReadEvent(card) is { } plan
+            )
+                events.Add(plan);
         }
         reader.Close();
         command.CommandText = "SELECT Id, Data FROM level_ups";
@@ -374,11 +325,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                 { } levelUp
             )
                 levelUps.Add(levelUp);
-        return new(
-            new EncounterPreviewSnapshot(events, templates, levelUps),
-            merchants,
-            packageMerchants
-        );
+        return new(new EncounterPreviewSnapshot(events, templates, levelUps), packageMerchants);
     }
 
     private static CardHero? Hero(string name) =>
@@ -407,11 +354,10 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
 }
 
 /// <summary>
-/// The encounter plans read from one static-data source, its merchants' quality rules, and the
-/// merchant each package template names.
+/// The encounter plans read from one static-data source, and the merchant each package template
+/// names.
 /// </summary>
 internal sealed record AndroidEncounterPlans(
     EncounterPreviewSnapshot Snapshot,
-    IReadOnlyDictionary<Guid, EncounterMerchantTierRule> Merchants,
     IReadOnlyDictionary<Guid, Guid> PackageMerchants
 );

@@ -17,7 +17,6 @@ using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Localization;
-using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace EncounterTooltip.Tests;
@@ -444,7 +443,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var eventPlan = new EncounterPreviewEventPlan(
             EventId,
             isRandomSelectionEvent: false,
-            suppressRandomOutcome: false,
+            merchant: null,
             choiceLimit: 1,
             outcomeGroups: Array.Empty<EncounterOutcomeGroupData>(),
             choiceGroups: new[]
@@ -614,30 +613,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             [fallbackId] = fallbackStep,
             [playerAttributeId] = playerAttributeStep,
         };
-        var compiler = new EncounterPreviewPlanCompiler(source =>
-        {
-            var template = Assert.IsAssignableFrom<TCardBase>(source);
-            return template.Id == EventId
-                ? JObject.Parse(
-                    $$"""
-                    {
-                      "SelectionContext": {
-                        "SpawnContext": {
-                          "Limit": { "Value": 4 },
-                          "Groups": [
-                            {
-                              "Filters": [
-                                { "Ids": ["{{fixedId:D}}", "{{modifierId:D}}", "{{fallbackId:D}}", "{{playerAttributeId:D}}"] }
-                              ]
-                            }
-                          ]
-                        }
-                      }
-                    }
-                    """
-                )
-                : new JObject();
-        });
+        var compiler = new EncounterPreviewPlanCompiler();
         var result = compiler.Compile(map);
         Assert.True(
             result.FailedTemplateIds.Count == 0,
@@ -731,8 +707,6 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         }
 
         public Dictionary<int, TLevelUp>? SnapshotLevelUps(object source) => LevelUps;
-
-        public TCardBase? GetCardTemplate(object source, Guid templateId) => null;
 
         public bool TryEvaluateAbilityValue(
             object source,

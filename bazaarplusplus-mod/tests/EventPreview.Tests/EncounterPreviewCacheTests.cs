@@ -95,6 +95,37 @@ public sealed class EncounterPreviewCacheTests : IDisposable
     }
 
     [Fact]
+    public void A_merchants_quality_rule_persists_with_its_tier_by_member_name()
+    {
+        var store = Store();
+        var identity = Identity(etag: "etag-a");
+        var pinned = Guid.Parse("70000000-0000-0000-0000-000000000011");
+        var unsupported = Guid.Parse("70000000-0000-0000-0000-000000000012");
+        EncounterPreviewEventPlan Merchant(Guid id, EncounterMerchantTierRule rule) =>
+            new(id, isRandomSelectionEvent: true, rule, choiceLimit: 3, null, null);
+        store.Save(
+            identity,
+            new EncounterPreviewSnapshot(
+                new[]
+                {
+                    Merchant(pinned, new EncounterMerchantTierRule(CardTier.Gold, false)),
+                    Merchant(unsupported, new EncounterMerchantTierRule(null, false)),
+                },
+                templates: null
+            )
+        );
+
+        var document = JObject.Parse(TestInputs.Scratch(store.CachePath));
+        Assert.Equal("Gold", (string?)document["events"]![0]!["merchant"]!["fixedTier"]);
+        Assert.True(store.TryLoad(identity, out var loaded, out var missReason), missReason);
+        Assert.True(loaded!.TryGetEvent(pinned, out var pinnedPlan));
+        Assert.Equal(new EncounterMerchantTierRule(CardTier.Gold, false), pinnedPlan.Merchant);
+        Assert.True(pinnedPlan.SuppressRandomOutcome);
+        Assert.True(loaded.TryGetEvent(unsupported, out var unsupportedPlan));
+        Assert.False(unsupportedPlan.Merchant!.Value.IsSupported);
+    }
+
+    [Fact]
     public void GameData_or_game_build_mismatch_is_a_cache_miss()
     {
         var store = Store();
@@ -205,7 +236,7 @@ public sealed class EncounterPreviewCacheTests : IDisposable
         var eventPlan = new EncounterPreviewEventPlan(
             EventId,
             isRandomSelectionEvent: false,
-            suppressRandomOutcome: false,
+            merchant: null,
             choiceLimit: 1,
             outcomeGroups: Array.Empty<EncounterOutcomeGroupData>(),
             choiceGroups: new[]

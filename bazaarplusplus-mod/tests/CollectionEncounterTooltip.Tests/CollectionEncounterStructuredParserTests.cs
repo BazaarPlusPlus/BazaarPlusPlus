@@ -179,135 +179,6 @@ public sealed class EncounterStructuredParserTests
     }
 
     [Fact]
-    public void TryParseRewardFilter_reads_runtime_deal_card_action_without_json_type_metadata()
-    {
-        var step = new RuntimeEncounterStep
-        {
-            Abilities = new Dictionary<string, RuntimeAbility>
-            {
-                ["0"] = new()
-                {
-                    Action = new TActionGameDealCards
-                    {
-                        SpawnContext = new RuntimeSpawnContext
-                        {
-                            Limit = new RuntimeFixedValue { Value = 1.0 },
-                            Groups = new[]
-                            {
-                                new RuntimeSpawnGroup
-                                {
-                                    Filters = new[]
-                                    {
-                                        new RuntimeSpawnFilter
-                                        {
-                                            Constraints = new object[]
-                                            {
-                                                new ConstraintCardType
-                                                {
-                                                    Types = new[] { "Skill" },
-                                                },
-                                                new ConstraintHiddenTag
-                                                {
-                                                    Tags = new[] { "Freeze" },
-                                                },
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        };
-
-        var reward = ParseRewardFilter(step);
-
-        Assert.NotNull(reward);
-        Assert.Equal(CardType.Skill, reward.CardType);
-        Assert.Equal(1, reward.Quantity);
-        Assert.Equal(new[] { CardHiddenTag.Freeze }, reward.Keywords);
-    }
-
-    [Fact]
-    public void TryParseRewardFilter_reads_runtime_constraint_and_children()
-    {
-        var step = new RuntimeEncounterStep
-        {
-            Abilities = new Dictionary<string, RuntimeAbility>
-            {
-                ["0"] = new()
-                {
-                    Action = new TActionGameDealCards
-                    {
-                        SpawnContext = new RuntimeSpawnContext
-                        {
-                            Limit = new RuntimeFixedValue { Value = 1.0 },
-                            Groups = new[]
-                            {
-                                new RuntimeSpawnGroup
-                                {
-                                    Filters = new[]
-                                    {
-                                        new RuntimeSpawnFilter
-                                        {
-                                            Constraints = new object[]
-                                            {
-                                                new ConstraintAnd
-                                                {
-                                                    Constraints = new object[]
-                                                    {
-                                                        new ConstraintCardType
-                                                        {
-                                                            Types = new[] { "Item" },
-                                                        },
-                                                        new ConstraintSize
-                                                        {
-                                                            Sizes = new[] { "Medium" },
-                                                        },
-                                                        new ConstraintTier
-                                                        {
-                                                            Tiers = new[]
-                                                            {
-                                                                "Bronze",
-                                                                "Silver",
-                                                                "Gold",
-                                                                "Diamond",
-                                                            },
-                                                        },
-                                                        new ConstraintTag
-                                                        {
-                                                            Tags = new[] { "Loot" },
-                                                            IsNot = true,
-                                                        },
-                                                    },
-                                                },
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        };
-
-        var reward = ParseRewardFilter(step);
-
-        Assert.NotNull(reward);
-        Assert.Equal(CardType.Item, reward.CardType);
-        Assert.Equal(1, reward.Quantity);
-        Assert.Equal(new[] { CardSize.Medium }, reward.Sizes);
-        Assert.Equal(
-            new[] { CardTier.Bronze, CardTier.Silver, CardTier.Gold, CardTier.Diamond },
-            reward.Tiers
-        );
-        Assert.Equal(new[] { CardTag.Loot }, reward.ExcludedTags);
-        Assert.Equal("Medium Bronze-Diamond Item, not Loot", reward.FilterSummary);
-    }
-
-    [Fact]
     public void TryParseRewardFilter_maps_excluded_tier_and_size_to_included_complements()
     {
         var json = """
@@ -498,113 +369,6 @@ public sealed class EncounterStructuredParserTests
     }
 
     [Fact]
-    public void TryParseRewardFilter_reads_runtime_spawn_behavior_tier()
-    {
-        var step = new RuntimeEncounterStep
-        {
-            Abilities = new Dictionary<string, RuntimeAbility>
-            {
-                ["0"] = new()
-                {
-                    Action = new TActionGameDealCards
-                    {
-                        SpawnContext = new RuntimeSpawnContext
-                        {
-                            Limit = new RuntimeFixedValue { Value = 2.0 },
-                            Groups = new[]
-                            {
-                                new RuntimeSpawnGroup
-                                {
-                                    Filters = new[]
-                                    {
-                                        new RuntimeSpawnFilter
-                                        {
-                                            Constraints = new object[]
-                                            {
-                                                new ConstraintCardType { Types = new[] { "Item" } },
-                                                new ConstraintTag { Tags = new[] { "Food" } },
-                                                new ConstraintTier
-                                                {
-                                                    Tiers = new[] { "Legendary" },
-                                                    IsNot = true,
-                                                },
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            Behaviors = new object[]
-                            {
-                                new TSpawnBehaviorTier { Tiers = new[] { "Diamond" } },
-                                new TSpawnBehaviorIgnoreTierTable(),
-                            },
-                        },
-                    },
-                },
-            },
-        };
-
-        var reward = ParseRewardFilter(step);
-
-        Assert.NotNull(reward);
-        Assert.Equal(2, reward.Quantity);
-        Assert.Equal(new[] { CardTier.Diamond }, reward.Tiers);
-        Assert.Equal(new[] { CardTag.Food }, reward.Tags);
-        Assert.False(reward.UsesDayTierTable);
-        Assert.False(reward.UsesDayTierDistribution);
-    }
-
-    [Fact]
-    public void TryParseRewardFilter_keeps_day_tier_table_for_exclusion_only_runtime_behavior()
-    {
-        var step = new RuntimeEncounterStep
-        {
-            Abilities = new Dictionary<string, RuntimeAbility>
-            {
-                ["0"] = new()
-                {
-                    Action = new TActionGameDealCards
-                    {
-                        SpawnContext = new RuntimeSpawnContext
-                        {
-                            Limit = new RuntimeFixedValue { Value = 1.0 },
-                            Groups = new[]
-                            {
-                                new RuntimeSpawnGroup
-                                {
-                                    Filters = new[]
-                                    {
-                                        new RuntimeSpawnFilter
-                                        {
-                                            Constraints = new object[]
-                                            {
-                                                new ConstraintCardType { Types = new[] { "Item" } },
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            Behaviors = new object[]
-                            {
-                                new TSpawnBehaviorTier { Tiers = new[] { "Bronze" }, IsNot = true },
-                            },
-                        },
-                    },
-                },
-            },
-        };
-
-        var reward = ParseRewardFilter(step);
-
-        Assert.NotNull(reward);
-        Assert.Equal(
-            new[] { CardTier.Silver, CardTier.Gold, CardTier.Diamond, CardTier.Legendary },
-            reward.Tiers
-        );
-        Assert.True(reward.UsesDayTierTable);
-    }
-
-    [Fact]
     public void TryParseRewardFilter_marks_ignore_tier_table_rewards_as_not_day_tier_driven()
     {
         var json = """
@@ -693,62 +457,6 @@ public sealed class EncounterStructuredParserTests
         Assert.Equal(CardType.Item, reward.CardType);
         Assert.False(reward.UsesDayTierTable);
         Assert.True(reward.UsesDayTierDistribution);
-    }
-
-    [Fact]
-    public void TryParseRewardFilter_marks_runtime_inherit_tier_rewards_as_not_day_tier_driven()
-    {
-        var step = new RuntimeEncounterStep
-        {
-            Abilities = new Dictionary<string, RuntimeAbility>
-            {
-                ["0"] = new()
-                {
-                    Action = new TActionGameDealCards
-                    {
-                        SpawnContext = new RuntimeSpawnContext
-                        {
-                            Limit = new RuntimeFixedValue { Value = 1.0 },
-                            Groups = new[]
-                            {
-                                new RuntimeSpawnGroup
-                                {
-                                    Filters = new[]
-                                    {
-                                        new RuntimeSpawnFilter
-                                        {
-                                            Constraints = new object[]
-                                            {
-                                                new ConstraintCardType
-                                                {
-                                                    Types = new[] { "Skill" },
-                                                },
-                                                new ConstraintHiddenTag
-                                                {
-                                                    Tags = new[] { "Weapon" },
-                                                },
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            Behaviors = new object[]
-                            {
-                                new TSpawnBehaviorInheritTier { Inherits = true },
-                            },
-                        },
-                    },
-                },
-            },
-        };
-
-        var reward = ParseRewardFilter(step);
-
-        Assert.NotNull(reward);
-        Assert.Equal(CardType.Skill, reward.CardType);
-        Assert.Equal(1, reward.Quantity);
-        Assert.False(reward.UsesDayTierTable);
-        Assert.False(reward.UsesDayTierDistribution);
     }
 
     [Fact]
@@ -988,102 +696,6 @@ public sealed class EncounterStructuredParserTests
         Assert.Equal(new[] { CardHiddenTag.Freeze }, reward.Keywords);
     }
 
-    private sealed class RuntimeEncounterStep
-    {
-        public Dictionary<string, RuntimeAbility> Abilities { get; init; } = new();
-    }
-
-    private sealed class RuntimeAbility
-    {
-        public object? Action { get; init; }
-    }
-
-    private sealed class TActionGameDealCards
-    {
-        public RuntimeSpawnContext? SpawnContext { get; init; }
-    }
-
-    private sealed class RuntimeSpawnContext
-    {
-        public RuntimeFixedValue? Limit { get; init; }
-
-        public RuntimeSpawnGroup[] Groups { get; init; } = Array.Empty<RuntimeSpawnGroup>();
-
-        public object[] Behaviors { get; init; } = Array.Empty<object>();
-    }
-
-    private sealed class RuntimeFixedValue
-    {
-        public double Value { get; init; }
-    }
-
-    private sealed class RuntimeSpawnGroup
-    {
-        public RuntimeSpawnFilter[] Filters { get; init; } = Array.Empty<RuntimeSpawnFilter>();
-    }
-
-    private sealed class RuntimeSpawnFilter
-    {
-        public object[] Constraints { get; init; } = Array.Empty<object>();
-    }
-
-    private sealed class ConstraintCardType
-    {
-        public string[] Types { get; init; } = Array.Empty<string>();
-
-        public bool IsNot { get; init; }
-    }
-
-    private sealed class ConstraintHiddenTag
-    {
-        public string[] Tags { get; init; } = Array.Empty<string>();
-
-        public bool IsNot { get; init; }
-    }
-
-    private sealed class ConstraintAnd
-    {
-        public object[] Constraints { get; init; } = Array.Empty<object>();
-    }
-
-    private sealed class ConstraintSize
-    {
-        public string[] Sizes { get; init; } = Array.Empty<string>();
-
-        public bool IsNot { get; init; }
-    }
-
-    private sealed class ConstraintTier
-    {
-        public string[] Tiers { get; init; } = Array.Empty<string>();
-
-        public bool IsNot { get; init; }
-    }
-
-    private sealed class ConstraintTag
-    {
-        public string[] Tags { get; init; } = Array.Empty<string>();
-
-        public bool IsNot { get; init; }
-    }
-
-    private sealed class TSpawnBehaviorTier
-    {
-        public string[] Tiers { get; init; } = Array.Empty<string>();
-
-        public bool IsNot { get; init; }
-    }
-
-    private sealed class TSpawnBehaviorIgnoreTierTable
-    {
-        public bool IgnoreTierTable { get; init; } = true;
-    }
-
-    private sealed class TSpawnBehaviorInheritTier
-    {
-        public bool Inherits { get; init; } = true;
-    }
-
     [Fact]
     public void TryParseEventChoiceGroups_marks_random_selection_groups_as_pools()
     {
@@ -1122,7 +734,9 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var groups = EncounterStructuredParser.TryParseEventChoiceGroups(json);
+        var groups = Choices.TryParseEventChoiceGroups(
+            EncounterStructuredParser.TryPrepareToken(json)
+        );
 
         Assert.Equal(2, groups.Count);
         Assert.True(groups[0].IsRandomPool);
@@ -1175,20 +789,27 @@ public sealed class EncounterStructuredParserTests
         Assert.Equal("Any", requirement.TagOperator);
         Assert.Equal("GreaterThanOrEqual", requirement.Comparison);
         Assert.Equal(1, requirement.Amount);
-        Assert.Equal(3, EncounterStructuredParser.TryParseEventChoiceLimit(json));
+        Assert.Equal(
+            3,
+            Choices.TryParseEventChoiceLimit(EncounterStructuredParser.TryPrepareToken(json))
+        );
     }
 
-    // The production entries: the plan compiler parses rewards with a prepared token and reads
-    // choice groups (`EncounterPreviewPlanCompiler`).
-    private static EncounterRewardFilter? ParseRewardFilter(object source) =>
-        EncounterStructuredParser.TryParseRewardFilterWithPreparedToken(
-            source,
-            () => EncounterStructuredParser.TryPrepareToken(source)
-        );
+    // Core's parsers over the desktop's enum names, as its card reader runs them.
+    private static readonly EncounterChoicePlanParser Choices = new(
+        EncounterStructuredParser.NormalizeChoiceEnum
+    );
 
-    private static IReadOnlyList<EncounterStepReference> ParseStepReferences(object source) =>
-        EncounterStructuredParser
-            .TryParseEventChoiceGroups(source)
+    private static readonly EncounterRewardFilterParser Rewards = new(
+        EncounterStructuredParser.NormalizeChoiceEnum
+    );
+
+    private static EncounterRewardFilter? ParseRewardFilter(string json) =>
+        Rewards.TryParse(EncounterStructuredParser.TryPrepareToken(json));
+
+    private static IReadOnlyList<EncounterStepReference> ParseStepReferences(string json) =>
+        Choices
+            .TryParseEventChoiceGroups(EncounterStructuredParser.TryPrepareToken(json))
             .SelectMany(group => group.Members)
             .ToList();
 }

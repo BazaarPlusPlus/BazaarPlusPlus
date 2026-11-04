@@ -96,7 +96,7 @@ public sealed class EncounterPreviewPlanLoaderTests : IDisposable
                 new EncounterPreviewEventPlan(
                     id,
                     isRandomSelectionEvent: false,
-                    suppressRandomOutcome: false,
+                    merchant: null,
                     choiceLimit: 1,
                     Array.Empty<EncounterOutcomeGroupData>(),
                     Array.Empty<EncounterChoiceGroupData>()

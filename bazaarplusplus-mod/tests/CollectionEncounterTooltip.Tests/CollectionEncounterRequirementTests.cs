@@ -4,6 +4,10 @@ namespace EncounterTooltip.Tests;
 
 public class EncounterRequirementTests
 {
+    private static readonly EncounterChoicePlanParser Choices = new(
+        EncounterStructuredParser.NormalizeChoiceEnum
+    );
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -51,9 +55,9 @@ public class EncounterRequirementTests
             },
         };
 
-        // The compiler prepares runtime objects before parsing the event groups.
+        // The compiler serializes typed templates before parsing the event groups.
         var token = EncounterStructuredParser.TryPrepareToken(source);
-        Assert.True(EncounterStructuredParser.TryParseEventOutcomeGroups(token, out var groups));
+        Assert.True(Choices.TryParseEventOutcomeGroups(token, out var groups));
         var reward = Assert.Single(Assert.Single(groups).QueryPools).Filter;
         Assert.NotNull(reward);
         Assert.Equal(new[] { BazaarPlusPlus.Core.Cards.CardTier.Gold }, reward.Tiers);
@@ -113,7 +117,7 @@ public class EncounterRequirementTests
             );
         }
 
-        Assert.True(EncounterStructuredParser.TryParseEventOutcomeGroups(token, out var groups));
+        Assert.True(Choices.TryParseEventOutcomeGroups(token, out var groups));
         var active = Assert.Single(groups, group => group.DayCondition!.Value.Matches(day));
         Assert.Equal(1u, active.Weight);
     }
@@ -162,7 +166,12 @@ public class EncounterRequirementTests
             }
             """;
 
-        Assert.True(EncounterStructuredParser.TryParseEventOutcomeGroups(json, out var groups));
+        Assert.True(
+            Choices.TryParseEventOutcomeGroups(
+                EncounterStructuredParser.TryPrepareToken(json),
+                out var groups
+            )
+        );
 
         Assert.Equal(2, groups.Count);
         Assert.Equal(1u, groups[0].Weight);
@@ -191,9 +200,7 @@ public class EncounterRequirementTests
             ]
             """;
 
-        var requirements = EncounterStructuredParser.ReadCardRequirements(
-            Newtonsoft.Json.Linq.JToken.Parse(json)
-        );
+        var requirements = Choices.ReadCardRequirements(Newtonsoft.Json.Linq.JToken.Parse(json));
 
         var requirement = Assert.Single(requirements);
         Assert.Equal(new[] { PackageId }, requirement.Ids);
@@ -223,8 +230,6 @@ public class EncounterRequirementTests
             ]
             """;
 
-        Assert.Empty(
-            EncounterStructuredParser.ReadCardRequirements(Newtonsoft.Json.Linq.JToken.Parse(json))
-        );
+        Assert.Empty(Choices.ReadCardRequirements(Newtonsoft.Json.Linq.JToken.Parse(json)));
     }
 }

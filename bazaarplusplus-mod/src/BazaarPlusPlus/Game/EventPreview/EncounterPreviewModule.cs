@@ -1,6 +1,5 @@
 #nullable enable
 using System.Diagnostics;
-using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
@@ -260,24 +259,23 @@ internal sealed class EncounterPreviewModule : IDisposable
             if (query.TemplateId == Guid.Empty)
                 return new EventPreviewResult(EventPreviewAvailability.Missing, null);
 
-            var dayTiers = _runtime.ResolveDayTiers(source);
-            var currentDay = dayTiers.Day;
-            var template = _runtime.GetCardTemplate(source, query.TemplateId);
-            if (template?.Tags?.Contains(ECardTag.Merchant) == true)
-            {
-                var policy = EncounterMerchantTierResolver.Resolve(template);
-                if (!policy.FixedTier.HasValue && !policy.UsesDayDistribution)
-                    return new EventPreviewResult(EventPreviewAvailability.Unsupported, null);
-
-                var merchantContent = EncounterPreviewTextFormatter.BuildQualityLine(
-                    policy.UsesDayDistribution ? dayTiers.Table : null,
-                    policy.FixedTier
-                );
-                return Presentation(merchantContent);
-            }
-
             if (!snapshot.TryGetEvent(query.TemplateId, out var eventPlan))
                 return new EventPreviewResult(EventPreviewAvailability.Missing, null);
+
+            var dayTiers = _runtime.ResolveDayTiers(source);
+            var currentDay = dayTiers.Day;
+            if (eventPlan.Merchant is { } merchant)
+            {
+                if (!merchant.IsSupported)
+                    return new EventPreviewResult(EventPreviewAvailability.Unsupported, null);
+
+                return Presentation(
+                    EncounterPreviewTextFormatter.BuildQualityLine(
+                        merchant.UsesDayDistribution ? dayTiers.Table : null,
+                        merchant.FixedTier
+                    )
+                );
+            }
 
             var option = EncounterEventDetailResolver.TryResolve(
                 eventPlan,
