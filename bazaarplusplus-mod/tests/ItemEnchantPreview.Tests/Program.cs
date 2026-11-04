@@ -15,6 +15,7 @@ using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.ItemEnchantPreview.Preview;
 using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.Patches.Tooltips;
 using TheBazaar.Tooltips;
 
@@ -504,6 +505,67 @@ var savedToken = TooltipComponentAbility.Create(
 Assert(
     savedToken?.Resolve() == 25f,
     "The tooltip's own token must resolve the saved value, the number the inspection text shows."
+);
+
+var boardValues = new Dictionary<ECardAttributeType, int> { [ECardAttributeType.Custom_1] = 25 };
+var boardCard = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
+
+// The steps of CardPreviewBase.SetUp: the client card adopts the instance's dictionary, the
+// starting tier writes into it, and the card then takes a new dictionary with the tier's and
+// the enchantment's values on top.
+Task BoardSetUp(Dictionary<ECardAttributeType, int> instanceValues)
+{
+    boardCard.Attributes = instanceValues;
+    foreach (var pair in savedTemplate.Tiers[ETier.Bronze].Attributes)
+        boardCard.Attributes[pair.Key] = pair.Value;
+    var attributes = TheBazaar.CardExtensions.BuildAttributeDictionaryForTier(
+        boardCard,
+        savedTemplate,
+        ETier.Bronze
+    );
+    TheBazaar.CardExtensions.ApplyPreviewEnchantment(
+        savedTemplate,
+        boardCard,
+        attributes,
+        EEnchantmentType.Fiery
+    );
+    boardCard.Attributes = attributes;
+    return Task.CompletedTask;
+}
+var boardWrote = await SavedCardValues.KeepThroughSetUp(
+    boardValues,
+    () => BoardSetUp(boardValues),
+    () => boardCard.Attributes
+);
+Assert(boardWrote, "A card with saved values reports the write, so its gems are drawn again.");
+Assert(
+    boardCard.Attributes[ECardAttributeType.Custom_1] == 25,
+    "A board card's saved value wins over everything the set-up wrote."
+);
+Assert(
+    boardCard.Attributes[ECardAttributeType.Custom_2] == 6,
+    "A board card keeps the template's value for what it did not save."
+);
+Assert(
+    boardValues.Count == 1 && boardValues[ECardAttributeType.Custom_1] == 25,
+    "The instance keeps its saved values, so rendering the same instance again shows them."
+);
+var boardToken = TooltipComponentAbility.Create(
+    new TooltipContext(boardCard, savedTemplate, new ValueContext(null!, boardCard)),
+    savedAbility.Id,
+    null,
+    0
+);
+Assert(boardToken?.Resolve() == 25f, "The board card's tooltip must resolve the saved value.");
+var templateBoardValues = new Dictionary<ECardAttributeType, int>();
+var templateBoardWrote = await SavedCardValues.KeepThroughSetUp(
+    templateBoardValues,
+    () => BoardSetUp(templateBoardValues),
+    () => boardCard.Attributes
+);
+Assert(
+    !templateBoardWrote && boardCard.Attributes[ECardAttributeType.Custom_1] == 7,
+    "A board card with no saved values keeps what the set-up wrote."
 );
 
 Console.WriteLine("ItemEnchantPreview checks passed.");
