@@ -53,7 +53,8 @@ Walkthrough Control's command file into the device's Data Root and waits until
 the game consumes it; the game log line overlay_panels.walkthrough.command says
 which panel is open afterwards. capture saves RUN/DEVICE/SCENARIO.png (Android
 through mod::android-capture, which also rejects portrait or overridden
-displays; --portrait takes a plain screenshot, for the App's launcher);
+displays; --portrait takes a plain screenshot, for the App's launcher; desktop
+rejects a game window that is not 16:9);
 recapturing a cell replaces it. report writes index.html, scenarios
 in first-recorded order, devices in matrix order.
 
@@ -243,6 +244,15 @@ function checkIds(...values) {
       );
 }
 
+// The desktop grid is compared at one aspect ratio. Window bounds include a windowed game's
+// title bar and a full-screen game has none, so either reading may be the 16:9 picture.
+const desktopTitleBar = 28;
+export function desktopAspectProblem(width, height) {
+  const is16by9 = (h) => Math.abs(width / h / (16 / 9) - 1) <= 0.01;
+  if (is16by9(height) || is16by9(height - desktopTitleBar)) return null;
+  return `The game window is ${width}x${height} points, not 16:9. Quit the game, set its resolution as the walkthrough skill says, and launch it again.`;
+}
+
 // The game window's CGWindowID, for screencapture -l: the largest window the game owns, since
 // it also owns thin menu-bar strips, and a full-screen game sits in its own Space, off screen.
 function desktopWindow() {
@@ -250,13 +260,16 @@ function desktopWindow() {
 let windows = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
 let game = windows.filter { (($0["kCGWindowOwnerName"] as? String) ?? "") == "TheBazaar" && ($0["kCGWindowLayer"] as? Int) == 0 }
 func area(_ w: [String: Any]) -> Double { let b = w["kCGWindowBounds"] as? [String: Any] ?? [:]; return ((b["Width"] as? Double) ?? 0) * ((b["Height"] as? Double) ?? 0) }
-if let w = game.max(by: { area($0) < area($1) }) { print(w["kCGWindowNumber"] as! Int) }`;
+if let w = game.max(by: { area($0) < area($1) }), let b = w["kCGWindowBounds"] as? [String: Any] { print(w["kCGWindowNumber"] as! Int, b["Width"] as! Double, b["Height"] as! Double) }`;
   const window = run(['xcrun', 'swift', '-e', script]).trim();
   if (!window)
     throw new Error(
       'The Bazaar has no window on screen. Launch it through Steam first.'
     );
-  return window;
+  const [id, width, height] = window.split(' ');
+  const problem = desktopAspectProblem(Number(width), Number(height));
+  if (problem) throw new Error(problem);
+  return id;
 }
 
 export function capture(runName, name, scenario, note, portrait = false) {
