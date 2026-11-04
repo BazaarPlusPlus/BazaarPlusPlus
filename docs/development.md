@@ -96,7 +96,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 本机矩阵与登录准备
 
-`just local-dev-init` 准备常驻 Android AVD，`just local-dev-init ios` 准备常驻 iOS 模拟器，并验证每台设备的游戏账号仍能自动登录；设备名字、型号、尺寸、端口和参数以 `node scripts/local-dev.mjs --help` 为准。`just local-dev-status` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/local-dev/SKILL.md`。
+`just setup-device` 准备常驻 Android AVD，`just setup-device ios` 准备常驻 iOS 模拟器，并验证每台设备的游戏账号仍能自动登录；设备名字、型号、尺寸、端口和参数以 `node scripts/setup-device.mjs --help` 为准。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。
 
 矩阵按 Mobile UI 的三个布局分支选设备，两个平台各一套：
 
@@ -110,7 +110,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 缺少的设备从关机的 seed AVD 复制游戏和账号磁盘；已有设备保留数据。新机器先在一台 AVD 上装好 LemonLoader 注入版游戏并登录，再用 `--seed` 指定它；安装包和账号数据不随 clone 分发。复制不等于登录有效，所以每台都冷启动游戏，要求本次日志出现主菜单和随后的 hook 统计，并核对截图的尺寸和密度。需要重新登录时，在模拟器窗口中完成。init 只验证已安装的游戏，不构建、不部署当前源码，之后仍要执行所需的构建、部署和冒烟。
 
-iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam、单独下载游戏（约 6 GB），不能从另一台复制。已经装好游戏的模拟器用 `xcrun simctl rename` 改成矩阵名字即可复用；缺少的模拟器由 init 新建。init 安装 `bazaarplusplus-ios` 的 `--test-control` 模拟器构建，等待保存的登录；没有登录时在模拟器屏幕上显示二维码（新模拟器先跳过首次介绍页），由使用者用 Steam 手机 App 扫码，或改用密码登录并在手机上确认。下载进行期间 init 一直等待，停滞 5 分钟才失败。之后执行 `tools/regress.sh`，以 `RunTasks complete … Failed: 0` 为就绪信号。`bpp_sim_duo` 先展开再执行 init：合上时 FoldGuard 暂停游戏，回归等不到 RunTasks；simctl 没有折叠命令。所有模拟器共用 `build/steam-app/verification/` 的测试通道，同一时间只驱动一台。签名与登录的注意事项见 `bazaarplusplus-ios/AGENTS.md`。
+iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam、单独下载游戏（约 6 GB），不能从另一台复制。已经装好游戏的模拟器用 `xcrun simctl rename` 改成矩阵名字即可复用；缺少的模拟器由 init 新建。init 安装 `bazaarplusplus-ios` 的 `--test-control` 模拟器构建，等待保存的登录；没有登录时在模拟器屏幕上显示二维码（新模拟器先跳过首次介绍页），由使用者用 Steam 手机 App 扫码，或改用密码登录并在手机上确认。下载进行期间 init 一直等待，停滞 5 分钟才失败。之后执行 `tools/regress.sh`，以 `RunTasks complete … Failed: 0` 为就绪信号。`bpp_sim_duo` 先展开再执行 init：合上时 FoldGuard 暂停游戏，回归等不到 RunTasks；simctl 没有折叠命令。展开在 Device Hub 中进行（Xcode 27 用它取代了 `Simulator.app`，入口是 Xcode > Open Developer Tool > Device Hub）：启动模拟器，在侧栏选中它，点设备画面下方三个姿态按钮中最右边的全开按钮。所有模拟器共用 `build/steam-app/verification/` 的测试通道，同一时间只驱动一台。签名与登录的注意事项见 `bazaarplusplus-ios/AGENTS.md`。
 
 | 验证层 | 需要证明什么 |
 | --- | --- |
@@ -121,7 +121,7 @@ iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam�
 | 折叠（iPhone Duo） | 启动器在外屏和内屏都是竖屏；游戏中合上暂停并提示展开，展开后继续；合上时启动游戏，直接显示提示 |
 | 全新安装 | 另用一次性 AVD；常驻的已登录设备只用于更新和日常回归 |
 
-朝向是同一台设备上的场景，不为每个方向复制设备。改变朝向后等游戏稳定，再对该面板执行 `android-screen-check`。尺寸和 DPI 固定在 AVD 配置中，不用 `wm size` 或 `wm density` 模拟另一台设备。init 的回执、截图和日志在 mod 的 `artifacts/android/local-dev-<AVD>/` 和 `bazaarplusplus-ios/build/local-dev-<模拟器>/`，含账号信息，不提交。
+朝向是同一台设备上的场景，不为每个方向复制设备。改变朝向后等游戏稳定，再对该面板执行 `android-screen-check`。尺寸和 DPI 固定在 AVD 配置中，不用 `wm size` 或 `wm density` 模拟另一台设备。init 的回执、截图和日志在 mod 的 `artifacts/android/setup-device-<AVD>/` 和 `bazaarplusplus-ios/build/setup-device-<模拟器>/`，含账号信息，不提交。
 
 测试账号可以放在本机配置的 `[game]` 中，用 `just android::dev-login <serial>` 应用到指定设备的 debug App，再从启动器启动游戏。字段和依赖见该命令的 `--help`。它停止 App 后只替换游戏 PlayerPrefs 的账号密码，保留其他设置；写入完成不等于服务器登录成功。凭据保存在 checkout 外的私有配置与 debug App 的沙盒中，不同步到 GitHub，也不修改官方 App 的登录状态。
 

@@ -9,7 +9,7 @@ import {
   menuReady,
   parseIni,
   profiles
-} from './local-dev.mjs';
+} from './setup-device.mjs';
 
 test('login readiness requires a menu and a later hooks summary from the fresh log', () => {
   const menu =
