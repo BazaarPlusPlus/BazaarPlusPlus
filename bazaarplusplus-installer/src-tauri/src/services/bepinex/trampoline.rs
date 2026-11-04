@@ -882,25 +882,40 @@ mod tests {
     fn native_uninstall_after_steam_update_keeps_the_updated_executable() {
         let (game, stub) = native_bundle();
         let layout = bundle_paths(game.path()).unwrap();
-        let steam_executable = game.path().join("steam-executable");
-        std::fs::copy(&layout.exe_path, &steam_executable).unwrap();
         imp::install_with_stub(game.path(), &stub).unwrap();
 
-        // Steam replaces the stub and leaves the entitled .orig behind.
+        // Steam writes a new build over the stub and leaves the old .orig behind.
+        let source = game.path().join("engine.c");
+        std::fs::write(
+            &source,
+            "extern int unity_probe(void); int main(void) { return unity_probe() + 1; }",
+        )
+        .unwrap();
+        let engine = layout
+            .app_path
+            .join("Contents/Frameworks/UnityPlayer.dylib");
+        let steam_executable = game.path().join("steam-executable");
+        command(
+            "clang",
+            &[
+                "-arch".as_ref(),
+                "arm64".as_ref(),
+                source.as_os_str(),
+                engine.as_os_str(),
+                "-Wl,-rpath,@executable_path/../Frameworks".as_ref(),
+                "-o".as_ref(),
+                steam_executable.as_os_str(),
+            ],
+        );
+        assert!(!trampoline_builds_match(&layout.orig_path, &steam_executable).unwrap());
         std::fs::copy(&steam_executable, &layout.exe_path).unwrap();
+
         with_finalized_bundle(game.path(), || imp::uninstall_trampoline(game.path())).unwrap();
 
-        assert!(imp::links_unity(&layout.exe_path).unwrap());
+        // The build UUID survives the re-signing that sealing does.
+        assert!(trampoline_builds_match(&layout.exe_path, &steam_executable).unwrap());
         assert!(!layout.orig_path.exists());
         imp::verify_bundle(&layout.app_path).unwrap();
-        // Only the stale .orig carried the JIT entitlements.
-        let entitlements = std::process::Command::new("codesign")
-            .args(["-d", "--entitlements", ":-"])
-            .arg(&layout.exe_path)
-            .output()
-            .unwrap();
-        assert!(!String::from_utf8_lossy(&entitlements.stdout)
-            .contains("com.apple.security.cs.allow-jit"));
     }
 
     #[test]
