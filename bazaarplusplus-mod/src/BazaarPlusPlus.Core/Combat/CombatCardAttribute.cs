@@ -100,4 +100,5 @@ public enum CombatCardAttribute
     PercentTempoCostReduction = 103,
     TempoApplyAmount = 104,
     TempoRemoveAmount = 105,
+    Tiny = 106,
 }

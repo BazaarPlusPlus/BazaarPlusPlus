@@ -2803,7 +2803,8 @@ public static class CombatImpactProjector
                 or CombatActionType.CardAddTagsRandom
                 or CombatActionType.PlayerPortraitNext
                 or CombatActionType.PlayerPortraitReset
-                or CombatActionType.GameReroll;
+                or CombatActionType.GameReroll
+                or CombatActionType.CardTiny;
 
     private static bool IsOptionalGameStateAction(CombatActionType action) =>
         action.ToString()

@@ -12,8 +12,10 @@ namespace AndroidHost.Tests;
 /// Vocabulary pin (ADR-0019): Core's combat facets mirror the game's combat enums by member
 /// name and value, so an Android adapter maps them by name as the desktop's
 /// <c>DesktopCombatFacets</c> does. Every member the Interop Snapshot defines must be a Core
-/// member with the same value, and the other way round. Read from the interop assembly's
-/// metadata, never loaded: its types resolve only in the game.
+/// member with the same value. Core may hold members this snapshot lacks: the Android game
+/// updates on its own schedule, and <c>DesktopCombatFacetVocabularyTests</c> pins Core to the
+/// Managed snapshot in both directions. Read from the interop assembly's metadata, never loaded:
+/// its types resolve only in the game.
 /// </summary>
 public sealed class AndroidCombatFacetVocabularyTests
 {
@@ -57,9 +59,8 @@ public sealed class AndroidCombatFacetVocabularyTests
             .Select(name =>
                 $"{name}={Convert.ToInt64(Enum.Parse(facet, name), CultureInfo.InvariantCulture)}"
             )
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-        Assert.Equal(members, facetMembers);
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.All(members, member => Assert.Contains(member, facetMembers));
     }
 
     private static string[] InteropEnumMembers(string typeNamespace, string typeName)

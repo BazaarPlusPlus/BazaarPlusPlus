@@ -64,4 +64,5 @@ public enum CombatActionType
     GameAddToExclusionSet = 52,
     GameRemoveFromExclusionSet = 53,
     GameSetNextHourSpawnContext = 54,
+    CardTiny = 55,
 }
