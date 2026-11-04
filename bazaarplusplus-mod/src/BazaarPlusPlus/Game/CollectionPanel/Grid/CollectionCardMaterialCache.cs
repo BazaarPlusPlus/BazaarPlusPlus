@@ -41,14 +41,22 @@ internal sealed class CollectionCardMaterialCache
         _lru.Release(artKey);
     }
 
+    // CardAssetDataSO loads its Material through an Addressables reference; a cached copy needs no load.
+    public async Task<Material?> LoadSource(string artKey, CardAssetDataSO assetData)
+    {
+        if (_materials.TryGetValue(artKey, out var cached) && cached != null)
+            return cached;
+        return await assetData.LoadCollectionDetailsAssetAsync() as Material;
+    }
+
     public Material? GetOrCreate(
         string artKey,
-        CardAssetDataSO assetData,
+        Material? cardMaterial,
         Shader? shaderOverride,
         bool usePremiumVisuals
     )
     {
-        if (string.IsNullOrEmpty(artKey) || assetData == null || assetData.cardMaterial == null)
+        if (string.IsNullOrEmpty(artKey) || cardMaterial == null)
             return null;
 
         if (_materials.TryGetValue(artKey, out var cached) && cached != null)
@@ -57,7 +65,8 @@ internal sealed class CollectionCardMaterialCache
             return cached;
         }
 
-        var material = new Material(assetData.cardMaterial);
+        var material = new Material(cardMaterial);
+        material.DisableKeyword("_ISTINY_ON");
         if (shaderOverride != null)
             material.shader = shaderOverride;
         ApplyVisualMode(material, usePremiumVisuals);
