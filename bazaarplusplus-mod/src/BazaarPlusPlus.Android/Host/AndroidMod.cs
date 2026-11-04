@@ -11,7 +11,6 @@ using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
-using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -252,6 +251,7 @@ public sealed class AndroidMod : MelonMod
         {
             var shared = _composition?.Settings ?? new BppSettings(settings);
             var android = new AndroidSettings(settings);
+            var upgradePreview = TouchUpgradePreviewSetting.Bind(settings);
             // The Mobile UI's preview switches in the item tooltip, which the HUD ticks; Back
             // collapses their effects first.
             var tooltipPreviewHost = new AndroidTooltipPreviewHost();
@@ -269,7 +269,7 @@ public sealed class AndroidMod : MelonMod
                 ReadGameLanguageCode,
                 () => ChineseScriptConverter.NormalizeMode(shared.ChineseLocaleModeConfig.Value)
             );
-            AndroidUpgradePreview.IsEnabled = () => android.UpgradePreview.Value;
+            AndroidUpgradePreview.IsEnabled = () => upgradePreview.Value;
             AndroidPatchHost.EnchantPreview = new TouchEnchantPreview<CardTooltipData>(
                 new AndroidEnchantPreviewHost(),
                 () => shared.EnchantPreviewModeConfig.Value,
@@ -319,10 +319,9 @@ public sealed class AndroidMod : MelonMod
                 ),
                 new TouchCombatClockData(
                     combatStatus.State,
-                    () => android.CombatTimer.Value,
-                    // The desktop bar's rule. Data.HasActiveRun is no rule for this: it caches
-                    // the server profile, so a run can be on while it reads false.
-                    () => CombatStatusBarState.ShouldRenderForState(true, runContext, gameState),
+                    () => shared.EnableCombatStatusBarConfig.Value,
+                    runContext,
+                    gameState,
                     combatStatus.TogglePause
                 ),
                 previewSwitches,
@@ -331,7 +330,7 @@ public sealed class AndroidMod : MelonMod
             var versionCheck = _versionCheck;
             AndroidSettingsDock.Install(
                 shared,
-                android,
+                upgradePreview,
                 new AndroidSettingsDockHooks(
                     ReleaseUpgradePreview: AndroidUpgradePreview.Release,
                     HistoryAvailable: () =>

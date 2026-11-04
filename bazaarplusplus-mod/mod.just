@@ -43,7 +43,7 @@ android-deploy:
 android-mode mode:
     bash scripts/android.sh mode "$@"
 
-# Set one key of the device's BazaarPlusPlus.cfg, such as Android UpgradePreview true; it applies on the next launch.
+# Set one key of the device's BazaarPlusPlus.cfg, such as Touch UpgradePreview true; it applies on the next launch.
 android-setting section key value:
     bash scripts/android.sh setting "$@"
 

@@ -11,7 +11,7 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// <summary>
 /// The Android host's item tooltip for the Mobile UI's preview switches. <c>CardTooltipRenderPatch</c>
 /// hands it each primary tooltip that renders (<see cref="Observe"/>); it reports that tooltip as
-/// shown while the game still shows its card, outside a fight and the native settings section.
+/// shown while the game still shows its card, outside the native settings section.
 /// The upgrade preview is <see cref="AndroidUpgradePreview"/>'s, the enchantments the Mobile UI's
 /// enchant preview's (<see cref="Patches.AndroidPatchHost.EnchantPreview"/>).
 /// </summary>
@@ -50,8 +50,7 @@ internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
         if (_tooltip == null)
             return false;
         var shown = Data.TooltipParentComponent?.CardTooltipController;
-        return !Data.IsInCombat
-            && !Settings.AndroidNativeSettingsSection.AnyVisible
+        return !Settings.AndroidNativeSettingsSection.AnyVisible
             && shown != null
             && shown.Pointer == _controller?.Pointer
             && shown.CurrentCard?.Pointer == _tooltip.CardInstance.Pointer;

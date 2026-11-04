@@ -38,7 +38,8 @@ internal sealed class TouchHudMount : IBppMountable
                 new TouchCombatClockData(
                     CombatClock.State,
                     () => services.Config.EnableCombatStatusBarConfig.Value,
-                    CombatClock.ShowsTouchClock,
+                    services.RunContext,
+                    services.GameStateProbe,
                     static () =>
                     {
                         if (CombatClock.State.CanToggleCombatPause())

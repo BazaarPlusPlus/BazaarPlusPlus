@@ -59,7 +59,7 @@ internal sealed class TouchShortcuts : IDisposable
     public void Tick(bool panelOpen)
     {
         var port = MobilePlatform.Port;
-        var playing = port.IsPlaying();
+        var playing = port.PlayState().IsPlaying;
         // The gear anchors only the shortcuts, which show outside fights: no scene search
         // otherwise. A gear hidden during a fight is kept, so it needs no search, and its
         // shortcuts no new layout, when it shows again.

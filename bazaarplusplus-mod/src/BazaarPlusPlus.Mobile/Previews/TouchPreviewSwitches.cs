@@ -12,17 +12,13 @@ namespace BazaarPlusPlus.Mobile.Previews;
 /// The touch switches in the game's item tooltip, which replace the desktop's Shift and Ctrl hold
 /// keys: Upgrade preview, and Enchantments for an item whose main text lists none, with each other
 /// enchantment's effect expanded below it. They join the tooltip's description scroll, so they
-/// move and scroll with the card, and hide under an open panel. The HUD ticks them
-/// (<see cref="Hud.TouchHud"/>); the host reads and writes the tooltip
+/// move and scroll with the card, and hide under an open panel and during a fight; the upgrade
+/// switch also hides on a replay's or a recap's card (<see cref="TouchPlayState"/>). The HUD
+/// ticks them (<see cref="Hud.TouchHud"/>); the host reads and writes the tooltip
 /// (<see cref="ITooltipPreviewHost"/>). Owns no rented cards. Main thread.
 /// </summary>
 internal sealed class TouchPreviewSwitches : IDisposable
 {
-    private static readonly LocalizedTextSet UpgradeLabel = new(
-        "Upgrade preview",
-        "升级预览",
-        "升級預覽"
-    );
     private static readonly LocalizedTextSet EnchantmentsLabel = new(
         "Enchantments",
         "附魔效果",
@@ -132,8 +128,10 @@ internal sealed class TouchPreviewSwitches : IDisposable
 
     private void Follow()
     {
+        var port = MobilePlatform.Port;
         if (
-            MobilePlatform.Port.OpenPanelId != null
+            port.OpenPanelId != null
+            || !port.PlayState().ShowsPreviewSwitches
             || !_host.TryReadShown(out var card, out var render)
         )
         {
@@ -165,7 +163,7 @@ internal sealed class TouchPreviewSwitches : IDisposable
             _screen = screen;
             _dirty = true;
         }
-        if (_dirty && MobilePlatform.Port.GameFont() != null)
+        if (_dirty && port.GameFont() != null)
             Render();
     }
 
@@ -205,13 +203,13 @@ internal sealed class TouchPreviewSwitches : IDisposable
             return;
         _dirty = false;
         DestroyView();
-        var upgrade = _host.CanToggleUpgrade;
+        var platform = MobilePlatform.Port;
+        var upgrade = platform.PlayState().PreviewsUpgrade && _host.CanToggleUpgrade;
         if (!upgrade && !_offersEnchantments)
             return;
 
         // Join the native description column so the switches and effects move and scroll with
         // the card, including the game's transition between inspected cards.
-        var platform = MobilePlatform.Port;
         _nativeScroll = scroll;
         var canvas = parent.GetComponentInParent<Canvas>(true).rootCanvas;
         _eventCamera =
@@ -249,7 +247,7 @@ internal sealed class TouchPreviewSwitches : IDisposable
         var flow = new ChipFlow(area, platform.GameFont()!, chrome, 1, chrome.Target, _skin);
         if (upgrade)
             flow.Toggle(
-                L.Resolve(UpgradeLabel),
+                L.Resolve(TouchUpgradePreviewSetting.Label),
                 _host.UpgradeShown,
                 _ => UiActions.Run("upgrade_preview", ToggleUpgrade)
             );

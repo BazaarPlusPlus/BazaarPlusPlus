@@ -12,9 +12,8 @@ internal interface IEnchantPreviewHost<in TTooltip>
 {
     /// <summary>
     /// The enchantments the tooltip's item can take besides its own, in the game's order; none
-    /// during a fight or a replay, for a card that is no item, or for an item that is neither on a
-    /// board, in a stash nor unowned (a shop's), as the desktop's
-    /// <c>ItemEnchantPreviewEligibility</c>.
+    /// for a card that is no item, or for an item that is neither on a board, in a stash nor
+    /// unowned (a shop's), as the desktop's <c>ItemEnchantPreviewEligibility</c>.
     /// </summary>
     IReadOnlyList<string> Candidates(TTooltip tooltip);
 

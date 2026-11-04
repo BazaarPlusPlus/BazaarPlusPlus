@@ -10,8 +10,8 @@ namespace BazaarPlusPlus.Mobile.Previews;
 internal interface ITooltipPreviewHost
 {
     /// <summary>
-    /// Whether an item tooltip that can carry the switches shows this frame: not during a fight,
-    /// and not under a native dialog. <paramref name="card"/> changes with the inspected card, and
+    /// Whether an item tooltip that can carry the switches shows this frame, under no native
+    /// dialog. <paramref name="card"/> changes with the inspected card, and
     /// a new one starts the switches again; <paramref name="render"/> changes with each render of
     /// the tooltip, and a new one draws them again.
     /// </summary>
@@ -20,7 +20,10 @@ internal interface ITooltipPreviewHost
     /// <summary>The shown tooltip's description scroll, which the switches join; null until it exists.</summary>
     ScrollRect? DescriptionScroll();
 
-    /// <summary>Whether the shown tooltip's item can switch its upgrade preview.</summary>
+    /// <summary>
+    /// Whether the shown tooltip's item can switch its upgrade preview: the item can upgrade, and
+    /// the host may drive its preview. The Mobile UI decides when the game's play allows it.
+    /// </summary>
     bool CanToggleUpgrade { get; }
 
     /// <summary>Whether the shown tooltip shows its upgrade preview.</summary>

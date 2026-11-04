@@ -78,6 +78,41 @@ public sealed class CoreLayeringTests
     }
 
     [Fact]
+    public void Tooltip_preview_adapters_leave_the_play_rules_to_the_mobile_ui()
+    {
+        // The Mobile UI decides from the port's play state (Core's TouchPlayState) when the
+        // switches, the enchant preview and the upgrade preview apply; the Mono host's adapters
+        // only read the tooltip. The port itself reads all three facts, so the targets resolve.
+        Holds(
+            "Read the play state through the Mobile Platform Port.",
+            build =>
+            {
+                Assert.Equal(
+                    3,
+                    PlayReads(build.Type("BazaarPlusPlus.Host.TouchMobilePlatform"))
+                        .Select(read => read.Split(' ')[^1])
+                        .Distinct()
+                        .Count()
+                );
+                return new[]
+                {
+                    "BazaarPlusPlus.Game.Tooltips.TouchTooltipPreviewHost",
+                    "BazaarPlusPlus.Game.Tooltips.TouchUpgradePreview",
+                    "BazaarPlusPlus.Game.ItemEnchantPreview.TouchEnchantPreviewHost",
+                }.SelectMany(name => PlayReads(build.Type(name)));
+            }
+        );
+
+        static IEnumerable<string> PlayReads(CompiledType type) =>
+            Accesses(
+                    type,
+                    ("TheBazaar.Data", "get_IsInCombat"),
+                    ("BoardManager", "get_IsRecapViewOpen")
+                )
+                .Concat(References(type, Is("TheBazaar.ReplayState")));
+    }
+
+    [Fact]
     public void Mobile_ui_has_no_second_source_tree()
     {
         // ADR-0025: the Mobile UI is src/BazaarPlusPlus.Mobile/ alone. The hand-mirrored copies it

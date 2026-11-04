@@ -1,6 +1,6 @@
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
@@ -9,6 +9,7 @@ using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile.Previews;
 
 namespace BazaarPlusPlus.Android.Settings;
 
@@ -34,9 +35,9 @@ internal sealed record AndroidSettingsDockHooks(
 /// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
 /// gates only the account link, since the host takes no end-of-run screenshot), Combat Status,
 /// Enchant preview, with every mode the desktop offers, Chinese Locale, and Game History, which
-/// here has no hotkey. The rest are the host's Upgrade preview switch,
-/// which stands in for the desktop's hotkey, the game-update row, which offers the new Android
-/// App's download when the release needs it and otherwise says, dimmed, where the game stands.
+/// here has no hotkey. The Mobile UI's Upgrade preview switch stands in for the desktop's hotkey,
+/// as on iOS. The host's own is the game-update row, which offers the new Android App's download
+/// when the release needs it and otherwise says, dimmed, where the game stands.
 /// </summary>
 internal static class AndroidSettingsDock
 {
@@ -64,12 +65,12 @@ internal static class AndroidSettingsDock
     /// <summary>Registers every row and installs them as the catalog's definitions.</summary>
     public static void Install(
         BppSettings shared,
-        AndroidSettings android,
+        ISetting<bool> upgradePreview,
         AndroidSettingsDockHooks hooks
     )
     {
         var registry = new SettingsDockEntryRegistry();
-        Register(registry, android, hooks);
+        Register(registry, upgradePreview, hooks);
         BppSettingsDockCatalog.Install(shared, registry);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.settings.rows_registered"),
@@ -80,12 +81,12 @@ internal static class AndroidSettingsDock
 
     public static void Register(
         SettingsDockEntryRegistry registry,
-        AndroidSettings android,
+        ISetting<bool> upgradePreview,
         AndroidSettingsDockHooks hooks
     )
     {
         ArgumentNullException.ThrowIfNull(registry);
-        ArgumentNullException.ThrowIfNull(android);
+        ArgumentNullException.ThrowIfNull(upgradePreview);
         ArgumentNullException.ThrowIfNull(hooks);
 
         registry.Register(
@@ -105,13 +106,10 @@ internal static class AndroidSettingsDock
                 enabled => LogChanged("BazaarDB", "UploadScreenshots", enabled)
             )
         );
+        // The Mobile UI's combat clock resumes a paused fight itself once its setting is off.
         registry.Register(
-            Switch(
-                BppSettingsDockOrder.CombatStatusBar,
-                "CombatStatusBar",
-                new LocalizedTextSet("Combat timer", "战斗计时", "戰鬥計時"),
-                android.CombatTimer,
-                _ => { }
+            CombatStatusBarSettingsDockEntry.Create(enabled =>
+                LogChanged("CombatStatusBar", "Enabled", enabled)
             )
         );
         registry.Register(
@@ -122,13 +120,11 @@ internal static class AndroidSettingsDock
             })
         );
         registry.Register(
-            Switch(
-                BppSettingsDockOrder.UpgradePreviewSwitch,
-                "UpgradePreview",
-                AndroidTouchText.UpgradePreview,
-                android.UpgradePreview,
+            TouchUpgradePreviewSetting.DockEntry(
+                upgradePreview,
                 enabled =>
                 {
+                    LogChanged("Touch", "UpgradePreview", enabled);
                     if (!enabled)
                         hooks.ReleaseUpgradePreview("switched_off");
                 }
@@ -149,28 +145,6 @@ internal static class AndroidSettingsDock
             )
         );
         registry.Register(new GameUpdateEntry(hooks));
-    }
-
-    private static CyclingSettingsDockEntry<bool> Switch(
-        int order,
-        string key,
-        LocalizedTextSet label,
-        ISetting<bool> setting,
-        Action<bool> onChanged
-    ) =>
-        CyclingSettingsDockEntry<bool>.Toggle(
-            order,
-            key,
-            languageCode => label.Resolve(languageCode, L.CurrentMode),
-            _ => setting.Value,
-            (_, enabled) => WriteSwitch(key, setting, enabled),
-            onChanged
-        );
-
-    private static void WriteSwitch(string key, ISetting<bool> setting, bool enabled)
-    {
-        setting.Value = enabled;
-        LogChanged("Android", key, enabled);
     }
 
     private static void LogChanged(string section, string key, object value) =>

@@ -115,6 +115,56 @@ public sealed class AndroidHostAssemblyBoundaryTests
     }
 
     [Fact]
+    public void Tooltip_preview_adapters_leave_the_play_rules_to_the_mobile_ui()
+    {
+        // The Mobile UI decides from the port's play state (Core's TouchPlayState) when the
+        // switches, the enchant preview and the upgrade preview apply; the adapters only read the
+        // tooltip. The port itself reads all three facts, so the rule's targets resolve.
+        var host = CompiledAssembly.Load(HostPath());
+        CompiledType Type(string name) =>
+            host.Types.SingleOrDefault(type => type.FullName == name)
+            ?? throw new InvalidOperationException($"'{name}' is missing from the Android host.");
+        IEnumerable<string> PlayReads(CompiledType type) =>
+            type
+                .Instructions.Where(op =>
+                    op.IsMemberAccess
+                    && (
+                        op.Targets("Il2CppTheBazaar.Data", "get_IsInCombat")
+                        || op.Targets("Il2Cpp.BoardManager", "get_IsRecapViewOpen")
+                    )
+                )
+                .Select(op => $"{type} {op}")
+                .Concat(
+                    type.References.Where(target =>
+                            target.FullName == "Il2CppTheBazaar.ReplayState"
+                        )
+                        .Select(target => $"{type} references {target}")
+                );
+
+        Assert.Equal(
+            3,
+            PlayReads(Type("BazaarPlusPlus.Android.Host.AndroidMobilePlatform"))
+                .Select(read => read.Split(' ')[^1])
+                .Distinct()
+                .Count()
+        );
+        var adapters = new[]
+        {
+            "BazaarPlusPlus.Android.GameInterop.AndroidTooltipPreviewHost",
+            "BazaarPlusPlus.Android.GameInterop.AndroidEnchantPreviewHost",
+            "BazaarPlusPlus.Android.GameInterop.AndroidUpgradePreview",
+        }
+            .Select(Type)
+            .ToArray();
+        var violations = adapters.SelectMany(PlayReads).ToArray();
+        Assert.True(
+            violations.Length == 0,
+            "Read the play state through the Mobile Platform Port:\n  "
+                + string.Join("\n  ", violations)
+        );
+    }
+
+    [Fact]
     public void Android_updater_references_only_melonloader_and_the_bcl()
     {
         // ADR-0014: the Updater runs before the Mods it replaces load, and a changed Updater

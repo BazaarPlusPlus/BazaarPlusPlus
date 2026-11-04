@@ -159,9 +159,12 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
             && Il2CppTheBazaar.DataExtensions.IsEndOfRunState(state)
         );
 
-    public bool IsPlaying() =>
-        Il2CppTheBazaar.Data.IsInCombat
-        || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>() != null;
+    public TouchPlayState PlayState() =>
+        new(
+            Il2CppTheBazaar.Data.IsInCombat,
+            Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>() != null,
+            Il2Cpp.BoardManager.Instance?.IsRecapViewOpen == true
+        );
 
     public bool TryReadVault(float referenceHeight, out TouchRect vault) =>
         _vault.TryRead(referenceHeight, out vault);

@@ -220,7 +220,11 @@ internal sealed class MonoHostComposition : IDisposable
         );
         _settingsDockRegistry.Register(BilingualItemNamesSettingsDockEntry.Create());
         _settingsDockRegistry.Register(CosmeticNamesSettingsDockEntry.Create());
-        _settingsDockRegistry.Register(CombatStatusBarSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(
+            CombatStatusBarSettingsDockEntry.Create(
+                CombatStatusBar.State.OnVisibilitySettingChanged
+            )
+        );
         _settingsDockRegistry.Register(new EndOfRunScreenshotSettingsDockEntry());
         _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
         // The Mobile Platform Port registers touch panels with the host this mount adds.
@@ -232,7 +236,11 @@ internal sealed class MonoHostComposition : IDisposable
             // A touch screen has no keyboard: the History row drops its hotkey, the upgrade
             // switch sets where each tooltip's own toggle starts, and the enchant preview mode
             // lists the enchantments in each tooltip's main text, as on Android (ADR-0024).
-            TouchUpgradePreview.Bind(settingsStore, TouchTooltipPreviewHost.UpgradePreviewBlocked);
+            var upgradePreview = TouchUpgradePreviewSetting.Bind(settingsStore);
+            TouchUpgradePreview.Bind(
+                upgradePreview,
+                static () => !MobilePlatform.Port.PlayState().PreviewsUpgrade
+            );
             TouchEnchantPreviewHost.Preview =
                 new TouchEnchantPreview<TheBazaar.Tooltips.CardTooltipData>(
                     new TouchEnchantPreviewHost(),
@@ -242,7 +250,7 @@ internal sealed class MonoHostComposition : IDisposable
             _settingsDockRegistry.Register(
                 HistoryPanelHotkeyDockEntry.Create(resolveHotkeyDisplay: null)
             );
-            _settingsDockRegistry.Register(TouchUpgradePreview.CreateDockEntry());
+            _settingsDockRegistry.Register(TouchUpgradePreviewSetting.DockEntry(upgradePreview));
         }
         else
         {
