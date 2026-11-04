@@ -1,11 +1,11 @@
 {
   "unity": {
-    "version": "6000.3.11f1",
-    "revision": "3000ef702840"
+    "version": "6000.3.27f2",
+    "revision": "22188f149405"
   },
   "mono": {
     "url": "https://github.com/Unity-Technologies/mono.git",
-    "commit": "dc7ab1aa0dd66ca15d4ffc9776e058993d53dee5",
+    "commit": "7b6365aafc65d5e4af36ec4a7545c678afa42e17",
     "submodules": {
       "external/bdwgc": "1113fefc4ba0e895767ac780d84e9e456fd624db",
       "external/corefx": "5b4edb9b0a721aed60c9c8ddeed441bdd7451e42"
@@ -29,10 +29,10 @@
     "sha256": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3"
   },
   "deviceEngine": {
-    "sha256": "bbcc8824fcbd51a36da89b9331f6c40505d29f3aedfc996daf238a79b9e4948b",
+    "sha256": "d7a4b83de96561ddb0bdfe5608152d7134c24f3dca2ec4e0da3d288726c99d0f",
     "graphicsObject": "Runtime_Graphics_8_d4es8.o",
     "serializeObject": "Runtime_Serialize_1_d4es8.o",
-    "icallRegistrations": 10768
+    "icallRegistrations": 10818
   },
   "sqlite": {
     "version": "3.50.1",

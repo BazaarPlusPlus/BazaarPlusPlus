@@ -17,7 +17,7 @@
 
 模组的代码在 `../bazaarplusplus-mod/`，iOS host 在它的 `src/BazaarPlusPlus/Host/Ios/`。App 图标用安装器的 `AppIcon.icon`。
 
-各模块的边界和接缝见 [架构](docs/architecture.md)，启动器行为见 [启动器](docs/launcher.md)，运行时见 [静态运行时](docs/static-runtime.md)，真机进度见 [设备准备情况](docs/device-readiness.md)。
+各模块的边界和接缝见 [架构](docs/architecture.md)，启动器行为见 [启动器](docs/launcher.md)，运行时见 [静态运行时](docs/static-runtime.md)，真机进度见 [设备准备情况](docs/device-readiness.md)，游戏升级 Unity 版本时按 [升级游戏引擎](docs/engine-upgrade.md)。
 
 ## 环境
 
