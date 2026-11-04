@@ -36,6 +36,10 @@ on:
         description: Build signed installers (android; the Android App, Interop Package and Managed Payload) as Actions artifacts without uploading immutable release artifacts to R2
         type: boolean
         default: false
+      skip_preview_channels:
+        description: Skip the staging and ptr compatibility compile for this run; the online checks still run
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -164,9 +168,14 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          SKIP_PREVIEW_CHANNELS: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_preview_channels == true }}
         run: |
           just verify mod::check mod::test mod::test-performance
-          just mod::matrix staging ptr
+          if [[ "$SKIP_PREVIEW_CHANNELS" == true ]]; then
+            echo "::warning title=Preview channels skipped::This release did not compile against staging or ptr."
+          else
+            just mod::matrix staging ptr
+          fi
       - name: Verify the Android Mod before release
         if: env.STAGE == 'release' && matrix.platform == 'android'
         run: just verify mod::android-build mod::test-core
