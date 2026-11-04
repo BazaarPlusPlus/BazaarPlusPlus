@@ -37,7 +37,12 @@ each device, in the order `walkthrough.mjs devices` prints:
      launcher's Play, as a player does, then waits for the main menu.
    - iOS: `just setup-device ios NAME --keep-open`. Tell the user to unfold
      `bpp_sim_duo` before its init.
-   - Desktop: `open "steam://run/1617400"`, then look at the game window
+   - Desktop: the grid is 16:9, and `capture` rejects any other window. With
+     the game closed, set a size that fits the Mac's display (the game reads
+     pixels; a remote virtual display can be under 500 points high):
+     `defaults write com.TempoStorm.TheBazaar "Screenmanager Resolution Width" -int 1600`,
+     the same with `Height` and `900`, and `"Screenmanager Fullscreen mode" -int 3`.
+     Then `open "steam://run/1617400"` and look at the game window
      until the main menu shows; the log names no scene. Capture needs Screen
      Recording for this app, and macOS asks once: that grant is the user's.
    A sign-in prompt is the user's too: tell them, and wait.
