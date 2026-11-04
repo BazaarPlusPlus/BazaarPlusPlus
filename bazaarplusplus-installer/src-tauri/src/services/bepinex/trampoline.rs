@@ -165,7 +165,7 @@ mod imp {
         } else if orig_exists && orig_is_real {
             Ok(RealBinarySource::ExistingOrig)
         } else if orig_exists {
-            Err(anyhow!("The game binary backup (.orig) exists but is not the real Unity binary. Run Steam \"Verify integrity of game files\" and reinstall."))
+            Err(anyhow!("The game binary backup (.orig) exists but is not the real Unity binary. Run Steam \"Verify integrity of game files\" and try again."))
         } else {
             Err(anyhow!("The game's main executable is not the real Unity binary and no backup exists. Run Steam \"Verify integrity of game files\"."))
         }
@@ -187,20 +187,34 @@ mod imp {
         install_stub(stub_src, &layout.exe_path)
     }
 
-    /// Inverse of [`swap_in_stub`]: drop the stub and move the real binary back.
+    /// Inverse of [`swap_in_stub`]: leave only the real binary at `<exe>`. The
+    /// choice is [`classify_real_binary`]'s, as in Repair: a Steam update/Verify
+    /// that wrote a NEW real binary at `<exe>` keeps it and discards the STALE
+    /// `.orig`; otherwise the stub goes and `.orig` moves back. A backup that is
+    /// not the real binary is an error, and nothing changes.
     pub(super) fn restore_vanilla_layout(layout: &BundleLayout) -> anyhow::Result<()> {
-        if layout.exe_path.exists() && layout.orig_path.exists() {
-            // exe is the stub copy; remove it so the rename can take its place.
-            let _ = std::fs::remove_file(&layout.exe_path);
+        if !layout.orig_path.exists() {
+            return Ok(());
         }
-        if layout.orig_path.exists() {
-            std::fs::rename(&layout.orig_path, &layout.exe_path).with_context(|| {
-                format!(
-                    "Cannot restore {} from {}",
-                    layout.exe_path.display(),
-                    layout.orig_path.display()
-                )
-            })?;
+        let exe_is_real = links_unity(&layout.exe_path)?;
+        let orig_is_real = links_unity(&layout.orig_path)?;
+        match classify_real_binary(exe_is_real, true, orig_is_real)? {
+            RealBinarySource::CurrentExe => {
+                std::fs::remove_file(&layout.orig_path).with_context(|| {
+                    format!("Cannot remove stale {}", layout.orig_path.display())
+                })?;
+            }
+            RealBinarySource::ExistingOrig => {
+                // exe is the stub copy; remove it so the rename can take its place.
+                let _ = std::fs::remove_file(&layout.exe_path);
+                std::fs::rename(&layout.orig_path, &layout.exe_path).with_context(|| {
+                    format!(
+                        "Cannot restore {} from {}",
+                        layout.exe_path.display(),
+                        layout.orig_path.display()
+                    )
+                })?;
+            }
         }
         Ok(())
     }
@@ -714,6 +728,10 @@ mod tests {
     };
     use super::*;
 
+    const ARM64: u32 = 0x0100_000c;
+    const X86_64: u32 = 0x0100_0007;
+    const UNITY: &str = "@executable_path/../Frameworks/UnityPlayer.dylib";
+
     fn command(program: &str, args: &[&std::ffi::OsStr]) {
         let mut command = std::process::Command::new(program);
         if program == "clang" {
@@ -858,6 +876,31 @@ mod tests {
             std::fs::read(backups.join(".DS_Store")).unwrap(),
             b"Legacy Finder metadata"
         );
+    }
+
+    #[test]
+    fn native_uninstall_after_steam_update_keeps_the_updated_executable() {
+        let (game, stub) = native_bundle();
+        let layout = bundle_paths(game.path()).unwrap();
+        let steam_executable = game.path().join("steam-executable");
+        std::fs::copy(&layout.exe_path, &steam_executable).unwrap();
+        imp::install_with_stub(game.path(), &stub).unwrap();
+
+        // Steam replaces the stub and leaves the entitled .orig behind.
+        std::fs::copy(&steam_executable, &layout.exe_path).unwrap();
+        with_finalized_bundle(game.path(), || imp::uninstall_trampoline(game.path())).unwrap();
+
+        assert!(imp::links_unity(&layout.exe_path).unwrap());
+        assert!(!layout.orig_path.exists());
+        imp::verify_bundle(&layout.app_path).unwrap();
+        // Only the stale .orig carried the JIT entitlements.
+        let entitlements = std::process::Command::new("codesign")
+            .args(["-d", "--entitlements", ":-"])
+            .arg(&layout.exe_path)
+            .output()
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&entitlements.stdout)
+            .contains("com.apple.security.cs.allow-jit"));
     }
 
     #[test]
@@ -1159,9 +1202,6 @@ mod tests {
 
     #[test]
     fn unity_linkage_and_arm64_are_read_without_xcode_tools() {
-        const ARM64: u32 = 0x0100_000c;
-        const X86_64: u32 = 0x0100_0007;
-        const UNITY: &str = "@executable_path/../Frameworks/UnityPlayer.dylib";
         let tmp = tempfile::tempdir().unwrap();
         let probe = |name: &str, bytes: &[u8]| {
             let path = tmp.path().join(name);
@@ -1277,16 +1317,46 @@ mod tests {
 
     #[test]
     fn test_restore_vanilla_layout_moves_real_binary_back() {
-        let tmp = make_bundle(b"REAL-UNITY");
+        let real = macho_image(ARM64, Some(UNITY));
+        let tmp = make_bundle(&real);
         let layout = bundle_paths(tmp.path()).unwrap();
         let stub = tmp.path().join("stub");
-        std::fs::write(&stub, b"STUB").unwrap();
+        std::fs::write(&stub, macho_image(ARM64, None)).unwrap();
 
         swap_in_stub(&layout, &stub).unwrap();
         restore_vanilla_layout(&layout).unwrap();
 
-        assert_eq!(std::fs::read(&layout.exe_path).unwrap(), b"REAL-UNITY");
+        assert_eq!(std::fs::read(&layout.exe_path).unwrap(), real);
         assert!(!layout.orig_path.exists());
+    }
+
+    #[test]
+    fn test_uninstall_keeps_steam_updated_executable_over_stale_orig() {
+        let updated = macho_image(ARM64, Some(UNITY));
+        let tmp = make_bundle(&updated);
+        let layout = bundle_paths(tmp.path()).unwrap();
+        std::fs::write(&layout.orig_path, macho_image(X86_64, Some(UNITY))).unwrap();
+
+        imp::uninstall_trampoline(tmp.path()).unwrap();
+
+        assert_eq!(std::fs::read(&layout.exe_path).unwrap(), updated);
+        assert!(!layout.orig_path.exists());
+    }
+
+    #[test]
+    fn test_uninstall_refuses_a_backup_that_is_not_the_real_binary() {
+        let stub = macho_image(ARM64, None);
+        let tmp = make_bundle(&stub);
+        let layout = bundle_paths(tmp.path()).unwrap();
+        std::fs::write(&layout.orig_path, b"not a game binary").unwrap();
+
+        assert!(imp::uninstall_trampoline(tmp.path()).is_err());
+
+        assert_eq!(std::fs::read(&layout.exe_path).unwrap(), stub);
+        assert_eq!(
+            std::fs::read(&layout.orig_path).unwrap(),
+            b"not a game binary"
+        );
     }
 
     #[test]
