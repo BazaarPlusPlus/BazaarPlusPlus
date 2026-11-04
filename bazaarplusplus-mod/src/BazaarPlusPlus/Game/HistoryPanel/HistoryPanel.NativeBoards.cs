@@ -1,10 +1,10 @@
 #nullable enable
 using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
-using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop.CardPreview;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -31,13 +31,19 @@ internal sealed partial class HistoryPanel
         var battle = ActiveSelectedBattle;
         var snapshots =
             _state.DetailBattleId == battle?.BattleId ? _coordinator?.DetailSnapshots : null;
-        var player = HistoryBattlePreviewProjection.BuildPlayer(
-            snapshots,
+        var templates = DesktopHistoryCardTemplates.Instance;
+        var player = HistoryBoardProjection.Items(
+            snapshots?.PlayerHand,
+            templates.Contains,
+            templates.SocketEffectAttribute,
             $"player:{battle?.BattleId}"
         );
-        var playerSkills = snapshots?.PlayerSkills.Items;
+        var playerSkills = HistoryBoardProjection.Skills(
+            snapshots?.PlayerSkills,
+            templates.Contains
+        );
         _nativePlayerBoard.Render(
-            $"{player.Signature}:{player.Cards.Count}:{playerSkills?.Count}",
+            $"{player.Signature}:{player.Cards.Count}:{playerSkills.Count}",
             NativeMonsterBoardItemMapper.Map(player, "history-item"),
             NativeHistorySkills(playerSkills)
         );
@@ -46,13 +52,18 @@ internal sealed partial class HistoryPanel
             _nativeOpponentBoard ??= CreateNativeHistoryBoard(true);
             if (_opponentBounds.width > 1)
                 _nativeOpponentBoard.SetBounds(_opponentBounds);
-            var opponent = HistoryBattlePreviewProjection.BuildOpponent(
-                snapshots,
+            var opponent = HistoryBoardProjection.Items(
+                snapshots?.OpponentHand,
+                templates.Contains,
+                templates.SocketEffectAttribute,
                 $"opponent:{battle?.BattleId}"
             );
-            var skills = snapshots?.OpponentSkills.Items;
+            var skills = HistoryBoardProjection.Skills(
+                snapshots?.OpponentSkills,
+                templates.Contains
+            );
             _nativeOpponentBoard.Render(
-                $"{opponent.Signature}:{opponent.Cards.Count}:{skills?.Count}",
+                $"{opponent.Signature}:{opponent.Cards.Count}:{skills.Count}",
                 NativeMonsterBoardItemMapper.Map(opponent, "history-item"),
                 NativeHistorySkills(skills)
             );
@@ -116,35 +127,26 @@ internal sealed partial class HistoryPanel
             }
         );
 
+    // Core's skills as the game's instances: the tier through the facets, the saved values by
+    // member name.
     private static List<TCardInstanceSkill> NativeHistorySkills(
-        IList<PvpBattleCardSnapshot>? snapshots
-    )
-    {
-        var skills = new List<TCardInstanceSkill>();
-        foreach (var snapshot in snapshots ?? Array.Empty<PvpBattleCardSnapshot>())
-        {
-            if (
-                snapshot.Type != CardType.Skill
-                || !Guid.TryParse(snapshot.TemplateId, out var templateId)
+        IReadOnlyList<BppItemBoardCard> skills
+    ) =>
+        skills
+            .Select(
+                (skill, index) =>
+                    new TCardInstanceSkill
+                    {
+                        TemplateId = skill.TemplateId,
+                        TemplateVersion = string.Empty,
+                        InstanceId = $"history-skill-{index}",
+                        Tier = DesktopCardFacets.Tier.TryToSource(skill.Tier, out var tier)
+                            ? tier
+                            : ETier.Bronze,
+                        Attributes = NativeCardSetUp.Values(skill.Attributes),
+                    }
             )
-                continue;
-            var attributes = new Dictionary<ECardAttributeType, int>();
-            foreach (var pair in snapshot.Attributes)
-                if (Enum.TryParse<ECardAttributeType>(pair.Key, out var key))
-                    attributes[key] = pair.Value;
-            skills.Add(
-                new TCardInstanceSkill
-                {
-                    TemplateId = templateId,
-                    TemplateVersion = string.Empty,
-                    InstanceId = $"history-skill-{skills.Count}",
-                    Tier = Enum.TryParse<ETier>(snapshot.Tier, out var tier) ? tier : ETier.Bronze,
-                    Attributes = attributes,
-                }
-            );
-        }
-        return skills;
-    }
+            .ToList();
 
     private void DisposeNativeHistoryBoards()
     {

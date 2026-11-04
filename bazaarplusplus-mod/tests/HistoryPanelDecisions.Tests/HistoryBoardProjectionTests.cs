@@ -16,6 +16,7 @@ internal static class HistoryBoardProjectionTests
     public static void Run()
     {
         bool HasTemplate(Guid id) => id != Unknown;
+        string? NoSocketEffect(Guid id, CardTier tier) => null;
         var hand = new PvpBattleCardSetCapture
         {
             Items =
@@ -38,7 +39,12 @@ internal static class HistoryBoardProjectionTests
             },
         };
 
-        var board = HistoryBoardProjection.Items(hand, HasTemplate, "player:battle");
+        var board = HistoryBoardProjection.Items(
+            hand,
+            HasTemplate,
+            NoSocketEffect,
+            "player:battle"
+        );
         Require(board.Signature == "player:battle", "The board keeps its signature.");
         Require(
             board.Cards.Select(card => card.TemplateId).SequenceEqual([Known, Large, Loose, Known]),
@@ -87,7 +93,7 @@ internal static class HistoryBoardProjectionTests
         );
 
         Require(
-            HistoryBoardProjection.Items(null, HasTemplate, "x").Cards.Count == 0,
+            HistoryBoardProjection.Items(null, HasTemplate, NoSocketEffect, "x").Cards.Count == 0,
             "A battle without a capture has an empty board."
         );
 
@@ -96,7 +102,15 @@ internal static class HistoryBoardProjectionTests
             {
                 Items =
                 {
-                    Card(Skill, CardType.Skill, null, null, "Legendary", null),
+                    Card(
+                        Skill,
+                        CardType.Skill,
+                        null,
+                        null,
+                        "Legendary",
+                        null,
+                        new Dictionary<string, int> { ["DamageAmount"] = 55 }
+                    ),
                     Card(Known, CardType.Item, null, CardSize.Small, "Gold", null),
                     Card(Unknown, CardType.Skill, null, null, "Gold", null),
                 },
@@ -109,6 +123,32 @@ internal static class HistoryBoardProjectionTests
                 && skills[0].Tier == CardTier.Legendary,
             "Only known skills project from a skill set."
         );
+        Require(
+            skills[0].Attributes.Count == 1 && skills[0].Attributes["DamageAmount"] == 55,
+            "A skill keeps its saved values."
+        );
+        Require(
+            HistoryBoardProjection
+                .Skills(
+                    new PvpBattleCardSetCapture
+                    {
+                        Items =
+                        {
+                            new PvpBattleCardSnapshot
+                            {
+                                TemplateId = Skill.ToString(),
+                                Type = CardType.Skill,
+                                Attributes = null!,
+                            },
+                        },
+                    },
+                    HasTemplate
+                )[0]
+                .Attributes.Count == 0,
+            "A skill saved without a value bag carries none."
+        );
+
+        SocketEffects(HasTemplate);
 
         Require(
             HistoryBoardProjection.Facts(3, 1, 0).Status == NativeMonsterBoardStatus.Loading,
@@ -131,6 +171,91 @@ internal static class HistoryBoardProjectionTests
             HistoryBoardProjection.Facts(3, 0, 0).Status == NativeMonsterBoardStatus.Ready,
             "Every card rendered: the board is ready."
         );
+    }
+
+    // A socket effect raises its attribute to at least 1 on the placed items that cover its
+    // socket, and is no card on the board.
+    private static void SocketEffects(Func<Guid, bool> hasTemplate)
+    {
+        var heat = Guid.Parse("66666666-6666-6666-6666-666666666666");
+        var loose = Guid.Parse("77777777-7777-7777-7777-777777777777");
+        var lookups = new List<CardTier>();
+        string? Lookup(Guid id, CardTier tier)
+        {
+            lookups.Add(tier);
+            return id == heat ? "Heated" : null;
+        }
+        var hand = new PvpBattleCardSetCapture
+        {
+            Items =
+            {
+                Card(heat, CardType.SocketEffect, CardSocket.Socket_2, null, "Silver", null),
+                Card(loose, CardType.SocketEffect, CardSocket.Socket_6, null, "Gold", null),
+                new PvpBattleCardSnapshot
+                {
+                    TemplateId = heat.ToString(),
+                    Type = CardType.SocketEffect,
+                    Attributes = new Dictionary<string, int>(),
+                },
+                Card(Large, CardType.Item, CardSocket.Socket_1, CardSize.Large, "Gold", null),
+                Card(
+                    Known,
+                    CardType.Item,
+                    CardSocket.Socket_5,
+                    CardSize.Medium,
+                    "Gold",
+                    null,
+                    new Dictionary<string, int> { ["DamageAmount"] = 9 }
+                ),
+            },
+        };
+        var board = HistoryBoardProjection.Items(hand, hasTemplate, Lookup, "socket");
+        Require(
+            board.Cards.Select(card => card.TemplateId).SequenceEqual([Large, Known]),
+            "A socket effect is no card on the board."
+        );
+        Require(
+            board.Cards[0].Attributes.Count == 1 && board.Cards[0].Attributes["Heated"] == 1,
+            "A large item at socket 1 covers socket 2, so its effect's attribute is raised to 1."
+        );
+        Require(
+            board.Cards[1].Attributes.Count == 1 && board.Cards[1].Attributes["DamageAmount"] == 9,
+            "An item that does not cover the effect's socket, or one whose effect names no "
+                + "attribute, keeps its saved values."
+        );
+        Require(
+            lookups.SequenceEqual([CardTier.Silver, CardTier.Gold]),
+            "Each placed socket effect is looked up at its own tier; one with no socket is not."
+        );
+
+        foreach (var (saved, shown) in new[] { (3, 3), (0, 1) })
+        {
+            var raised = HistoryBoardProjection.Items(
+                new PvpBattleCardSetCapture
+                {
+                    Items =
+                    {
+                        Card(heat, CardType.SocketEffect, CardSocket.Socket_0, null, null, null),
+                        Card(
+                            Known,
+                            CardType.Item,
+                            CardSocket.Socket_0,
+                            CardSize.Small,
+                            "Gold",
+                            null,
+                            new Dictionary<string, int> { ["Heated"] = saved }
+                        ),
+                    },
+                },
+                hasTemplate,
+                Lookup,
+                "raised"
+            );
+            Require(
+                raised.Cards.Single().Attributes["Heated"] == shown,
+                "A saved value above 0 stays; 0 is raised to 1."
+            );
+        }
     }
 
     private static PvpBattleCardSnapshot Card(
