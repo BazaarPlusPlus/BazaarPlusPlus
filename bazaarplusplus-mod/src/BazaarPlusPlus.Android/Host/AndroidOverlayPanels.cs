@@ -26,6 +26,7 @@ internal sealed class AndroidOverlayPanels
 
     private readonly OverlayPanelHost _host;
     private readonly Func<int> _frameCount;
+    private readonly WalkthroughControl _walkthrough;
     private Func<string, bool>? _closeTooltipPreview;
     private long _sceneGeneration;
     private string _sceneToken = "0";
@@ -38,11 +39,13 @@ internal sealed class AndroidOverlayPanels
     public AndroidOverlayPanels(
         Func<bool> isInCombat,
         Action<string> releaseRentedCards,
-        Func<int> frameCount
+        Func<int> frameCount,
+        WalkthroughControl walkthrough
     )
     {
         ArgumentNullException.ThrowIfNull(releaseRentedCards);
         _frameCount = frameCount ?? throw new ArgumentNullException(nameof(frameCount));
+        _walkthrough = walkthrough ?? throw new ArgumentNullException(nameof(walkthrough));
         _host = new OverlayPanelHost(
             isInCombat,
             reason => releaseRentedCards(ReleaseReason(reason))
@@ -66,11 +69,16 @@ internal sealed class AndroidOverlayPanels
     /// <summary>The native tooltip's auxiliary drawer, dismissed before native Back handling.</summary>
     public void SetTooltipPreview(Func<string, bool>? close) => _closeTooltipPreview = close;
 
-    /// <summary>Main thread, every frame: the lifecycle rules, then every panel's tick.</summary>
+    /// <summary>
+    /// Main thread, every frame: the lifecycle rules, with the Walkthrough Control's toggle, then
+    /// every panel's tick.
+    /// </summary>
     public void Frame(float deltaTime)
     {
         using var scope = AndroidMainThread.Host.Enter();
-        _host.Frame(new OverlayPanelFrame(_sceneToken, deltaTime, false, null));
+        var toggle = _walkthrough.NextToggle(deltaTime, _host.OpenPanelId);
+        _host.Frame(new OverlayPanelFrame(_sceneToken, deltaTime, false, toggle));
+        _walkthrough.AfterFrame(_host.OpenPanelId);
     }
 
     /// <summary>

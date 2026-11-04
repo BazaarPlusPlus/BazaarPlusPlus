@@ -13,6 +13,7 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.Lobby;
+using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
@@ -100,7 +101,8 @@ public sealed class AndroidMod : MelonMod
         _overlayPanels = new AndroidOverlayPanels(
             static () => Il2CppTheBazaar.Data.IsInCombat,
             AndroidCardRental.ReleaseAll,
-            static () => Time.frameCount
+            static () => Time.frameCount,
+            new WalkthroughControl(AndroidPaths.DataRoot(MelonEnvironment.MelonBaseDirectory))
         );
         AndroidPatchHost.OverlayPanels = _overlayPanels;
         AndroidPatchHost.Install(HarmonyInstance, mode, version, _composition);
