@@ -299,7 +299,9 @@ export function capture(runName, name, scenario, note, portrait = false) {
       fs.readFileSync(path.join(out, 'environment.json'), 'utf8')
     ).problems;
   } else if (d.kind === 'ios') {
-    run(['xcrun', 'simctl', 'io', udid(d), 'screenshot', file]);
+    // iPhone Duo has two displays and simctl needs one named; 3 is the inner, the walkthrough runs unfolded.
+    const display = d.name === 'bpp_sim_duo' ? ['--display=3'] : [];
+    run(['xcrun', 'simctl', 'io', udid(d), 'screenshot', ...display, file]);
   } else {
     run(['screencapture', '-x', '-o', `-l${desktopWindow()}`, file]);
   }
