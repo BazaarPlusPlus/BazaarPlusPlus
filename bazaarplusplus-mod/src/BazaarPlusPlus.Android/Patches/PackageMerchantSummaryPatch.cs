@@ -13,7 +13,9 @@ namespace BazaarPlusPlus.Android.Patches;
 )]
 internal static class PackageMerchantSummaryPatch
 {
+    // First, so the summary sits in the passive text above any preview appended to it.
     [HarmonyPrefix]
+    [HarmonyPriority(Priority.High)]
     private static void Prefix(CardTooltipController __instance, ref string text)
     {
         if (string.IsNullOrEmpty(text))
