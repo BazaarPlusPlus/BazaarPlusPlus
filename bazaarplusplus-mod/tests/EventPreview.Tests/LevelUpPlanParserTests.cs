@@ -20,10 +20,7 @@ public sealed class LevelUpPlanParserTests
     private static readonly Guid Note = Guid.Parse("74d5ddf6-3654-45e7-8859-483bd8c84ff7");
 
     // Raw JSON carries enum names, so the host's normalization has nothing to add.
-    private static readonly EncounterChoicePlanParser Parser = new(
-        (_, _) => null,
-        (_, _, _, _) => null
-    );
+    private static readonly EncounterChoicePlanParser Parser = new((_, _) => null);
 
     public LevelUpPlanParserTests()
     {

@@ -454,7 +454,7 @@ public class SettingsDockRegistryTests
             registry.Register(BazaarDbBundleSettingsDockEntry.Create());
             registry.Register(FixedSupporterListSettingsDockEntry.Create());
             VoiceSubtitlesSettingsDockEntry.RegisterAll(registry);
-            registry.Register(ChineseLocaleModeSettingsDockEntry.Create(new InMemoryBppEventBus()));
+            registry.Register(ChineseLocaleModeSettingsDockEntry.Create(() => { }));
             registry.Register(BilingualItemNamesSettingsDockEntry.Create());
             registry.Register(CosmeticNamesSettingsDockEntry.Create());
             registry.Register(CombatStatusBarSettingsDockEntry.Create());
@@ -582,12 +582,10 @@ public class SettingsDockRegistryTests
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
             var config = new BppSettings(new BepInExSettingsStore(configFile));
-            var eventBus = new InMemoryBppEventBus();
             var changedCount = 0;
-            using var subscription = eventBus.Subscribe<ChineseLocaleModeChanged>(_ =>
-                changedCount++
-            );
-            var definition = ChineseLocaleModeSettingsDockEntry.Create(eventBus).Build(config);
+            var definition = ChineseLocaleModeSettingsDockEntry
+                .Create(() => changedCount++)
+                .Build(config);
 
             var state = definition.ResolveChoiceState!("en");
             Assert.Equal(new[] { "CN", "TW" }, state.Options);
@@ -1241,9 +1239,7 @@ public class SettingsDockRegistryTests
             "UpgradePreviewActivation" => UpgradePreviewActivationSettingsDockEntry.Create(),
             "DetailedPreview" => DetailedPreviewSettingsDockEntry.Create(),
             "BilingualItemNames" => BilingualItemNamesSettingsDockEntry.Create(),
-            "ChineseLocaleMode" => ChineseLocaleModeSettingsDockEntry.Create(
-                new InMemoryBppEventBus()
-            ),
+            "ChineseLocaleMode" => ChineseLocaleModeSettingsDockEntry.Create(() => { }),
             "StreamMode" => FixedSupporterListSettingsDockEntry.Create(),
             "VoiceSubtitles" => VoiceSubtitlesSettingsDockEntry.Create(),
             "VoiceSubtitlesPosition" => VoiceSubtitlesPositionSettingsDockEntry.Create(),
@@ -1265,7 +1261,7 @@ public class SettingsDockRegistryTests
         VoiceSubtitlesSettingsDockEntry.RegisterAll(registry);
         registry.Register(new EndOfRunScreenshotSettingsDockEntry());
         registry.Register(HistoryPanelHotkeyDockEntry.Create());
-        registry.Register(ChineseLocaleModeSettingsDockEntry.Create(new InMemoryBppEventBus()));
+        registry.Register(ChineseLocaleModeSettingsDockEntry.Create(() => { }));
 
         try
         {
