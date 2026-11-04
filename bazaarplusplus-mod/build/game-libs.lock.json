@@ -24,11 +24,11 @@
       "capturedAt": "2026-10-04T14:27:15.170Z"
     },
     "windows-online": {
-      "gameVersion": "1.0.12650-prod-windows-x64-d5cc730f",
-      "sha256": "58342142e6ebad879cdfc0b61c42d58b6f12575d81212bac3f5b53d6c2da44ba",
-      "buildid": "25778800",
+      "gameVersion": "1.0.13056-prod-windows-x64-891f830a",
+      "sha256": "05e8f73f73a69207767be0c5659e0db2aa96a7962fe7f1a69d59aec4a1f3fd1d",
+      "buildid": "26428865",
       "steamBranch": "public",
-      "capturedAt": "2026-10-08T00:53:20.908Z"
+      "capturedAt": "2026-11-04T17:47:47.965Z"
     },
     "windows-staging": {
       "gameVersion": "1.0.12646-staging-windows-x64-d5cc730f",
