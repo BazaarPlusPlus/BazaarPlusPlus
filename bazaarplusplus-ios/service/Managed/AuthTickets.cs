@@ -67,16 +67,21 @@ namespace BazaarPlusPlus.Ios.Service
                 { cancellation.ThrowIfCancellationRequested(); throw new TimeoutException("Steam did not acknowledge the Web API ticket"); }
                 await ack.Task;
                 cancellation.ThrowIfCancellationRequested();
-                int length = auth.Length + 4 + ownership.Ticket.Length;
-                if (length > 2560) throw new InvalidDataException("Web API ticket too large");
-                var result = new byte[2560];
-                Buffer.BlockCopy(auth, 0, result, 0, auth.Length);
-                Buffer.BlockCopy(BitConverter.GetBytes(ownership.Ticket.Length), 0, result, auth.Length, 4);
-                Buffer.BlockCopy(ownership.Ticket, 0, result, auth.Length + 4, ownership.Ticket.Length);
-                return result;
+                return ComposeWebApiTicket(auth, ownership.Ticket);
             }
             catch { Cancel(handle); throw; }
             finally { acknowledgements.TryRemove(crc, out _); }
+        }
+        // The ticket is exactly its parts, as the Steam client returns it; the game sends every byte to its login server.
+        public static byte[] ComposeWebApiTicket(byte[] auth, byte[] ownership)
+        {
+            int length = auth.Length + 4 + ownership.Length;
+            if (length > 2560) throw new InvalidDataException("Web API ticket too large");
+            var result = new byte[length];
+            Buffer.BlockCopy(auth, 0, result, 0, auth.Length);
+            Buffer.BlockCopy(BitConverter.GetBytes(ownership.Length), 0, result, auth.Length, 4);
+            Buffer.BlockCopy(ownership, 0, result, auth.Length + 4, ownership.Length);
+            return result;
         }
         public void Cancel(uint handle) { if (active.TryRemove(handle, out _)) SendTickets(); }
         void SendTickets()
