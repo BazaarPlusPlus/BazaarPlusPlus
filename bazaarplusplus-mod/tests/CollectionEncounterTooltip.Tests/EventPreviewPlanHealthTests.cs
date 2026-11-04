@@ -14,7 +14,9 @@ public sealed class EventPreviewPlanHealthTests
             missingReferencedTemplateCount: 28
         );
 
-        Assert.False(EncounterPreviewModule.EventPreviewPlanHealth.HasDegradedCoverage(coverage));
+        Assert.False(
+            EncounterPreviewPlanPublisher.EventPreviewPlanHealth.HasDegradedCoverage(coverage)
+        );
     }
 
     [Theory]
@@ -32,6 +34,8 @@ public sealed class EventPreviewPlanHealthTests
             missingReferencedTemplateCount: 0
         );
 
-        Assert.True(EncounterPreviewModule.EventPreviewPlanHealth.HasDegradedCoverage(coverage));
+        Assert.True(
+            EncounterPreviewPlanPublisher.EventPreviewPlanHealth.HasDegradedCoverage(coverage)
+        );
     }
 }

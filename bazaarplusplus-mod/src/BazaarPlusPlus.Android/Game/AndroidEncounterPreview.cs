@@ -10,7 +10,6 @@ using Il2CppBazaarGameClient.Domain.Models.Cards;
 using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppBazaarGameShared.Domain.Spawning;
 using Il2CppTheBazaar;
-using Il2CppTheBazaar.UI.Tooltips;
 using Microsoft.Data.Sqlite;
 using Newtonsoft.Json.Linq;
 
@@ -18,12 +17,11 @@ namespace BazaarPlusPlus.Android.Game;
 
 /// <summary>
 /// Reads encounter choices, their rewards, merchant quality rules and each package's merchant
-/// off-thread; resolves current native descriptions only on inspection. A merchant shows the
-/// quality it sells, as on the desktop: its pinned tier, or the day's tier odds
-/// (<see cref="AndroidDayTiers"/>). An encounter step shows the odds of a reward the day's table
-/// decides, and a package names its merchant, which no preview switch hides.
+/// off-thread, for Core's <see cref="EncounterPreviewModule"/> (<see cref="Module"/>) to resolve
+/// on inspection through <see cref="AndroidEncounterPreviewReads"/>. A package names its merchant,
+/// which no preview switch hides.
 /// </summary>
-internal sealed class AndroidEncounterPreview(BppSettings settings)
+internal sealed class AndroidEncounterPreview
 {
     private IntPtr _source;
     private Task<AndroidEncounterPlans>? _load;
@@ -32,8 +30,14 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
     private static readonly EncounterChoicePlanParser Parser = new(Normalize);
     private static readonly EncounterPreviewCardReader Reader = new(Normalize, Hero);
 
-    /// <summary>The Detailed Preview switch.</summary>
-    public bool Enabled => settings.EnableDetailedPreviewConfig.Value;
+    public AndroidEncounterPreview(BppSettings settings) =>
+        Module = new EncounterPreviewModule(settings, new AndroidEncounterPreviewReads(this));
+
+    /// <summary>The event, encounter-step and hero-level previews over these plans.</summary>
+    public EncounterPreviewModule Module { get; }
+
+    /// <summary>The plans of the current static-data source; null until they are read.</summary>
+    public AndroidEncounterPlans? Plans => _plans;
 
     public void Tick()
     {
@@ -78,51 +82,6 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
     }
 
     /// <summary>
-    /// What leveling up from <paramref name="currentLevel"/> gives <paramref name="hero"/>, the
-    /// desktop's level-up text over the same Core formatter: max health, board slots below level
-    /// four, and the rewards to choose from, with each reward's text as its Android tooltip
-    /// renders it. Null when the switch is off, in combat (as the desktop's
-    /// <c>EncounterPreviewModule</c> leaves the native strip alone in a fight), the plans are not
-    /// read yet, or the level has none.
-    /// </summary>
-    public string? RenderLevelUp(int currentLevel, CardHero? hero)
-    {
-        if (!settings.EnableDetailedPreviewConfig.Value || Data.IsInCombat || _plans == null)
-            return null;
-        var loaded = _plans.Snapshot;
-        if (!loaded.TryGetLevelUp(currentLevel, out var plan))
-            return null;
-        return LevelUpPreviewTextFormatter.Build(
-            plan,
-            id => loaded.TryGetTemplate(id, out var template) ? Localized(template) : null,
-            hero,
-            ColorKeywords,
-            currentLevel
-        );
-    }
-
-    // The desktop colors keywords in the plain lines it builds. A description the game's tooltip
-    // rendered already carries its colors and sprites, so it is left as it is.
-    private static string ColorKeywords(string text)
-    {
-        if (text.Contains('<'))
-            return text;
-        try
-        {
-            return Data.TooltipTypography?.ColorKeywords(
-                    text,
-                    false,
-                    false,
-                    new Il2CppSystem.Nullable<ECardAttributeType>()
-                ) ?? text;
-        }
-        catch (Exception)
-        {
-            return text;
-        }
-    }
-
-    /// <summary>
     /// The native passive text of <paramref name="card"/> with the merchant that accepts it, as
     /// the desktop's <c>PackageMerchantSummaryTooltipPatch</c> appends it; null for any other
     /// card, or while the plans are not read yet. Main thread only.
@@ -153,131 +112,6 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         var passive = new StringBuilder(text);
         PackageMerchantSummaryText.AppendToPassiveBlock(passive, summary);
         return passive.ToString();
-    }
-
-    public string? Render(CardTooltipController controller, string nativeText)
-    {
-        if (!settings.EnableDetailedPreviewConfig.Value || Data.IsInCombat || _plans == null)
-            return null;
-        var card = controller.CurrentCard;
-        if (card == null || !Guid.TryParse(card.TemplateId.ToString(), out var id))
-            return null;
-        if (card.Type == ECardType.EncounterStep)
-            return RenderStep(id, nativeText);
-        if (card.Type != ECardType.EventEncounter)
-            return null;
-        var loaded = _plans.Snapshot;
-        if (!loaded.TryGetEvent(id, out var plan))
-            return null;
-        if (plan.Merchant is { } merchant)
-        {
-            if (!merchant.IsSupported)
-                return null;
-            var quality = EncounterPreviewTextFormatter.BuildQualityLine(
-                merchant.UsesDayDistribution ? AndroidDayTiers.Current() : null,
-                merchant.FixedTier
-            );
-            return string.IsNullOrWhiteSpace(quality) ? null : quality;
-        }
-        var ids = plan
-            .ChoiceGroups.SelectMany(group => group.Members.Select(member => member.TemplateId))
-            .Concat(plan.OutcomeGroups.SelectMany(group => group.Ids))
-            .Append(id)
-            .Distinct();
-        var templates = new List<EncounterPreviewTemplatePlan>();
-        foreach (var templateId in ids)
-            if (loaded.TryGetTemplate(templateId, out var template))
-                templates.Add(Localized(template));
-        var snapshot = new EncounterPreviewSnapshot([plan], templates);
-        var run = Data.Run;
-        CardHero? hero =
-            run?.Player is { } player
-            && AndroidCardFacets.Hero.TryToFacet(player.Hero, out var facet)
-                ? facet
-                : null;
-        var option = EncounterEventDetailResolver.TryResolve(
-            plan,
-            snapshot,
-            hero,
-            Inventory(),
-            run == null ? null : (int)run.Day
-        );
-        return option == null
-            ? null
-            : EncounterPreviewTextFormatter.Build(option, dayTiers: AndroidDayTiers.Current());
-    }
-
-    private string? RenderStep(Guid id, string nativeText)
-    {
-        if (
-            !_plans!.Snapshot.TryGetTemplate(id, out var step)
-            || step.Kind != EncounterPreviewTemplateKind.EncounterStep
-        )
-            return null;
-        var quality = EncounterPreviewTextFormatter.BuildRewardQualityLine(
-            step.RewardFilter,
-            nativeText,
-            AndroidDayTiers.Current()
-        );
-        return string.IsNullOrWhiteSpace(quality) ? null : quality;
-    }
-
-    // A static template with the title and description the current language and the game's
-    // tooltip give it.
-    private static EncounterPreviewTemplatePlan Localized(EncounterPreviewTemplatePlan template)
-    {
-        var id = template.TemplateId;
-        var title = AndroidCardTemplateText.Title(id) ?? template.Title.FallbackText;
-        var description =
-            template.Kind == EncounterPreviewTemplateKind.CombatEncounter
-                ? template.Description.FallbackText
-                : AndroidCardTemplateText.Description(id) ?? template.Description.FallbackText;
-        return new(
-            id,
-            template.Kind,
-            template.Heroes,
-            template.InternalName,
-            new(null, title),
-            new(null, description),
-            null,
-            template.RewardFilter
-        );
-    }
-
-    private static EncounterInventory? Inventory()
-    {
-        var player = Data.Run?.Player;
-        if (player == null)
-            return null;
-        var cards = new List<EncounterInventoryCard>();
-        var seen = new HashSet<IntPtr>();
-        void Add(Card card)
-        {
-            if (!seen.Add(card.Pointer) || !Guid.TryParse(card.TemplateId.ToString(), out var id))
-                return;
-            var tags = new List<string>();
-            if (card.Tags != null)
-                foreach (var tag in card.Tags)
-                    tags.Add(tag.ToString());
-            if (card.HiddenTags != null)
-                foreach (var tag in card.HiddenTags)
-                    tags.Add(tag.ToString());
-            cards.Add(new(id, tags));
-        }
-        foreach (var card in Data.Entities.Values)
-            if (
-                card != null
-                && card.Owner?.Pointer == player.Pointer
-                && AndroidGameIds.Unboxed(() => card.Section)
-                    is EInventorySection.Hand
-                        or EInventorySection.Stash
-            )
-                Add(card);
-        if (player.Skills != null)
-            foreach (var skill in player.Skills)
-                if (skill != null)
-                    Add(skill);
-        return new(cards);
     }
 
     internal static AndroidEncounterPlans Read(string path)

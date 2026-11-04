@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
@@ -11,7 +12,7 @@ using UnityEngine;
 namespace BazaarPlusPlus.Android.Patches;
 
 /// <summary>
-/// Writes the level-up rewards (<see cref="Game.AndroidEncounterPreview.RenderLevelUp"/>) into
+/// Writes the level-up rewards (Core's <see cref="EncounterPreviewModule.ResolveLevelUp"/>) into
 /// the hero-level tooltip's passive block, below its "next level rewards" icon strip, as the
 /// desktop's <c>HeroLevelRewardsTooltipPatch</c> appends its section. The handler starts with
 /// <c>ResetValues</c>, which empties that block, so a switched-off preview leaves the native
@@ -35,7 +36,7 @@ internal static class HeroLevelRewardsTooltipPatch
     {
         try
         {
-            var preview = AndroidPatchHost.EncounterPreview;
+            var preview = AndroidPatchHost.EncounterPreview?.Module;
             if (preview?.Enabled != true)
                 return;
 
@@ -64,7 +65,9 @@ internal static class HeroLevelRewardsTooltipPatch
                 && facet != CardHero.Common
                     ? facet
                     : null;
-            var content = preview.RenderLevelUp(level, hero);
+            var result = preview.ResolveLevelUp(new LevelUpPreviewQuery(level, hero));
+            var content =
+                result.Availability == EventPreviewAvailability.Available ? result.Content : null;
             if (string.IsNullOrWhiteSpace(content))
             {
                 ReportObserved("skipped", "no_content", level, contentLength: 0);

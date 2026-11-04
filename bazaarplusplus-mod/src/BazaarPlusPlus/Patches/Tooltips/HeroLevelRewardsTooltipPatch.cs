@@ -1,6 +1,5 @@
 #nullable enable
 #pragma warning disable CS0436
-using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Infrastructure;
@@ -41,7 +40,8 @@ internal static class HeroLevelRewardsTooltipPatch
     {
         try
         {
-            if (!DetailedPreviewGate.IsEnabled())
+            var preview = BppPatchHost.Features.EncounterPreview;
+            if (!preview.Enabled)
                 return;
 
             if (tooltipData is not HeroLevelTooltipData heroLevelTooltipData)
@@ -62,9 +62,7 @@ internal static class HeroLevelRewardsTooltipPatch
             controller._questDisplayService?.BuildDisplay(null, null);
 
             var currentLevel = heroLevelTooltipData.GetCurrentAndNextLevel().currentLevel;
-            var result = BppPatchHost.Features.EncounterPreview.ResolveLevelUp(
-                new LevelUpPreviewQuery(currentLevel)
-            );
+            var result = preview.ResolveLevelUp(new LevelUpPreviewQuery(currentLevel));
             var content =
                 result.Availability == EventPreviewAvailability.Available ? result.Content : null;
             if (string.IsNullOrEmpty(content))

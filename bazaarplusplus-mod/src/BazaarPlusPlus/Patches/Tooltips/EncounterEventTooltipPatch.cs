@@ -1,9 +1,8 @@
 #nullable enable
 #pragma warning disable CS0436, Harmony003
-using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
@@ -30,10 +29,7 @@ internal static class EncounterEventTooltipPatch
     {
         try
         {
-            var content =
-                string.IsNullOrEmpty(text) || !DetailedPreviewGate.IsEnabled()
-                    ? null
-                    : ResolveContent(__instance, text);
+            var content = ResolveContent(__instance, text);
             if (string.IsNullOrEmpty(content))
             {
                 BppTooltipSections.Hide(__instance, SectionKey);
@@ -72,22 +68,12 @@ internal static class EncounterEventTooltipPatch
     private static string? ResolveContent(CardTooltipController controller, string nativeText)
     {
         var card = controller._currentCard;
-        if (card == null)
+        if (card == null || !DesktopCardFacets.Type.TryToFacet(card.Type, out var type))
             return null;
 
-        var module = BppPatchHost.Features.EncounterPreview;
-        return card.Type switch
-        {
-            ECardType.EventEncounter => Available(
-                module.ResolveEvent(new EventPreviewQuery(card.TemplateId, nativeText))
-            ),
-            ECardType.EncounterStep => Available(
-                module.ResolveStep(new EncounterStepPreviewQuery(card.TemplateId, nativeText))
-            ),
-            _ => null,
-        };
+        var preview = BppPatchHost.Features.EncounterPreview.ResolveCard(
+            new EncounterCardPreviewQuery(card.TemplateId, type, nativeText)
+        );
+        return preview.Availability == EventPreviewAvailability.Available ? preview.Content : null;
     }
-
-    private static string? Available(EventPreviewResult preview) =>
-        preview.Availability == EventPreviewAvailability.Available ? preview.Content : null;
 }
