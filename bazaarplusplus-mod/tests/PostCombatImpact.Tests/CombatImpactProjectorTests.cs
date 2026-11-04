@@ -688,6 +688,20 @@ public sealed partial class CombatImpactProjectorTests
         );
     }
 
+    [Fact]
+    public void Ignores_the_tiny_size_transition()
+    {
+        var simulation = new CombatTimeline();
+        simulation
+            .Frames[0]
+            .Events.Add(Executed("source", CombatActionType.CardTiny, CardTarget("target")));
+
+        var report = CombatImpactProjector.Project(simulation, Entities());
+
+        Assert.Empty(report.Sources);
+        Assert.Empty(report.Received);
+    }
+
     [Theory]
     [InlineData(CombatActionType.CardForceUse, "ForceUseTargets")]
     [InlineData(CombatActionType.CardEnchant, "EnchantTargets")]
