@@ -43,7 +43,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 `.github/workflows/release.yml` 在原生 macOS 与 Windows runner 上依次执行 `just release::check`、`just mod::fetch <platform> online`、所选平台的 Mod 验证（正式构建）、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求。正式构建在 Payload 准备、签名与上传之前补齐所选平台的 Mod 验证：桌面执行 online 检查、功能测试、墙钟性能测试及 staging/ptr 兼容编译，Android 执行宿主编译和 Core 测试。任一步失败即停止发布；Installer 的完整原生验证由 `release::build` 调用 `bazaarplusplus-installer/scripts/bundle.sh` 的 `run_release_prechecks` 执行。`build_only` 同样执行这些验证，`dry_run` 保留仅准备 Payload 的行为。macOS runner 必须支持 Icon Composer 源文件；工作流在准备 Payload 前运行 `bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs` 的 `compileMacOSIcon`，提前发现图标工具链不兼容，PR 检查也执行相同的真实图标编译。
 
-触发方式两种：`workflow_dispatch` 填 `version`（必须等于所选 ref 上的 `VERSION`，否则在装任何工具链之前失败），或推送 `v<VERSION>` 标签。手动触发时可选 `platform`，只重建需要验证的平台。`dry_run` 在 `prepare` 之后停止，只验证取包与 Payload 准备；需要验证完整签名和打包时用 `build_only`，它保留 Actions 安装包产物而不向 R2 上传。后者适合验证已暂存版本的修复，避免以新提交覆盖不可变版本目录。两者同时开启时，仍在 `prepare` 后停止。
+触发方式两种：`workflow_dispatch` 填 `version`（必须等于所选 ref 上的 `VERSION`，否则在装任何工具链之前失败），或推送 `v<VERSION>` 标签。手动触发时可选 `platform`，只重建需要验证的平台。`dry_run` 在 `prepare` 之后停止，只验证取包与 Payload 准备；需要验证完整签名和打包时用 `build_only`，它保留 Actions 安装包产物而不向 R2 上传。后者适合验证已暂存版本的修复，避免以新提交覆盖不可变版本目录。两者同时开启时，仍在 `prepare` 后停止。`skip_preview_channels` 只跳过本次运行的 staging/ptr 兼容编译并留下警告，online 的检查和测试照常执行；用于预览通道快照过旧、又不应阻塞 online 发布的情况。
 
 游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.mjs` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
 

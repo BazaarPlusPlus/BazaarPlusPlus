@@ -300,6 +300,10 @@ test('both desktop jobs consume classified extended checks, with release preflig
     preflight.includes('just verify mod::check mod::test mod::test-performance')
   );
   assert.ok(preflight.includes('just mod::matrix staging ptr'));
+  assert.match(
+    release,
+    /skip_preview_channels:\n(?:\s+(?:description|type):.*\n)+\s+default: false\n/
+  );
   assert.ok(
     preflight.includes(
       "if: env.STAGE == 'release' && matrix.platform == 'android'"
