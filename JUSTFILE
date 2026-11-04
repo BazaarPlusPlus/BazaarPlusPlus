@@ -55,13 +55,13 @@ doctor:
 
 # Inventory the Android AVD and iOS simulator matrices and their historical login checks.
 [group('workspace')]
-local-dev-status:
-    node scripts/local-dev.mjs status
+list-devices:
+    node scripts/setup-device.mjs status
 
 # Prepare each Android AVD (or, after `ios`, each iOS simulator) and verify its game login; --help lists both.
 [group('workspace')]
-local-dev-init *args:
-    node scripts/local-dev.mjs init "$@"
+setup-device *args:
+    node scripts/setup-device.mjs init "$@"
 
 # Run explicit verification recipes serially and retain their final exit status, SHA and logs.
 [group('workspace')]

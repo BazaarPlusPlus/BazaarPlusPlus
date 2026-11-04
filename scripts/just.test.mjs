@@ -315,18 +315,18 @@ test('setup and scoped commands preserve arguments without shell expansion', (t)
   ]);
 });
 
-test('local development routes matrix preparation and status without expanding arguments', (t) => {
+test('device setup routes matrix preparation and status without expanding arguments', (t) => {
   const f = fixture(t);
   const literal = 'seed $(touch BAD)';
-  succeeded(f.run(['local-dev-status']));
-  succeeded(f.run(['local-dev-init', 'bpp_emu_3_2', '--seed', literal]));
+  succeeded(f.run(['list-devices']));
+  succeeded(f.run(['setup-device', 'bpp_emu_3_2', '--seed', literal]));
   assert.deepEqual(f.calls(), [
-    call(f.dir, null, 'node', 'scripts/local-dev.mjs', 'status'),
+    call(f.dir, null, 'node', 'scripts/setup-device.mjs', 'status'),
     call(
       f.dir,
       null,
       'node',
-      'scripts/local-dev.mjs',
+      'scripts/setup-device.mjs',
       'init',
       'bpp_emu_3_2',
       '--seed',

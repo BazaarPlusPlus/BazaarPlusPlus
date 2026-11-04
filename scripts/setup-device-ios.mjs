@@ -10,7 +10,7 @@ const app = path.join(
   'build/steam-app/simulator/launcher-derived/Build/Products/Release-iphonesimulator/BazaarPlusPlus.app'
 );
 const evidence = (profile) =>
-  path.join(ios, 'build', `local-dev-${profile.name}`);
+  path.join(ios, 'build', `setup-device-${profile.name}`);
 // One simulator per Core/Ui/ScreenFill branch, matching the Android AVD matrix.
 // Runtimes are pinned to the ones that hold the downloaded game on the Mac mini.
 export const profiles = [
@@ -26,7 +26,7 @@ export const profiles = [
     deviceType: 'com.apple.CoreSimulator.SimDeviceType.iPhone-Duo',
     runtime: 'com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4',
     // FoldGuard pauses a folded game before RunTasks completes; simctl cannot unfold.
-    note: 'unfold it before init; folded, the game pauses and the regression fails'
+    note: 'unfold it in Device Hub before init; folded, the game pauses and the regression fails'
   },
   {
     name: 'bpp_sim_ipad',
@@ -36,7 +36,7 @@ export const profiles = [
     runtime: 'com.apple.CoreSimulator.SimRuntime.iOS-27-0'
   }
 ];
-export const help = `  just local-dev-init ios [NAME|all] [--timeout SECONDS] [--keep-open]
+export const help = `  just setup-device ios [NAME|all] [--timeout SECONDS] [--keep-open]
 
 ${profiles.map((p) => `  ${p.name.padEnd(17)} ${p.model}, ${p.runtime.split('.').pop()}`).join('\n')}
 
@@ -55,7 +55,7 @@ Success shuts down a simulator init booted; --keep-open needs a single NAME.
 Failure leaves the simulator open and returns nonzero. Rerun init after repair.
 Init drives one simulator at a time through the shared test channel in
 bazaarplusplus-ios/build/steam-app/verification/.
-Evidence: bazaarplusplus-ios/build/local-dev-NAME/ (private).`;
+Evidence: bazaarplusplus-ios/build/setup-device-NAME/ (private).`;
 
 function run(args, options = {}) {
   const result = spawnSync(args[0], args.slice(1), {

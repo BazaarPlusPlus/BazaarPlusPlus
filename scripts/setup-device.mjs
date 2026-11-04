@@ -4,7 +4,7 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { inspectScreen } from './android-screen.mjs';
-import * as ios from './local-dev-ios.mjs';
+import * as ios from './setup-device-ios.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const packageName = 'com.tempogames.thebazaar';
@@ -15,7 +15,7 @@ const evidence = (profile) =>
   path.join(
     root,
     'bazaarplusplus-mod/artifacts/android',
-    `local-dev-${profile.name}`
+    `setup-device-${profile.name}`
   );
 // These exercise the unchanged, screen-fill-only and gathered-HUD branches of
 // Core/Ui/ScreenFill. Dimensions are the game's landscape framebuffer, not wm overrides.
@@ -27,11 +27,11 @@ export const profiles = [
 const imagePath = 'system-images/android-35/google_apis_playstore/arm64-v8a/';
 const help = `Local development matrices: Android AVDs and iOS simulators
 
-  just local-dev-status
+  just list-devices
 
 Android (macOS arm64, Node, Android SDK)
 
-  just local-dev-init [NAME|all] [--seed AVD] [--timeout SECONDS] [--keep-open]
+  just setup-device [NAME|all] [--seed AVD] [--timeout SECONDS] [--keep-open]
 
 ${profiles.map((p) => `  ${p.name.padEnd(17)} ${p.width}x${p.height}@${p.dpi}  emulator-${p.port}`).join('\n')}
 
@@ -51,7 +51,7 @@ All profiles are static screen fixtures; fold does not simulate a hinge.
 
 ANDROID_HOME selects the SDK (default ~/Library/Android/sdk).
 ANDROID_AVD_HOME selects AVDs (default ~/.android/avd); ADB overrides adb.
-Evidence: bazaarplusplus-mod/artifacts/android/local-dev-NAME/ (private).
+Evidence: bazaarplusplus-mod/artifacts/android/setup-device-NAME/ (private).
 status inventories configuration and historical results, not current login.
 
 iOS (macOS, Xcode, Node)
@@ -161,7 +161,7 @@ export function cloneAvd(p, seed, profile) {
   const source = avdDirectory(p.avds, seed);
   if (!source)
     throw new Error(
-      `Seed AVD ${seed} is missing. See just local-dev-init --help.`
+      `Seed AVD ${seed} is missing. See just setup-device --help.`
     );
   const target = path.join(p.avds, `${profile.name}.avd`);
   if (fs.existsSync(target) || avdDirectory(p.avds, profile.name))
@@ -392,7 +392,7 @@ async function initialize(p, profile, { seed, timeout, keepOpen }) {
       },
       `Game login/main menu not ready on ${profile.name}; finish sign-in in the open emulator, close it, then rerun init.`
     );
-    run('just', ['mod::android-screen-check', `local-dev-${profile.name}`], {
+    run('just', ['mod::android-screen-check', `setup-device-${profile.name}`], {
       cwd: root,
       env: { ...process.env, ADB: p.adb, BPP_ANDROID_SERIAL: serial }
     });

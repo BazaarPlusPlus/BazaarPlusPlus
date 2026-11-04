@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { deviceState, profiles } from './local-dev-ios.mjs';
+import { deviceState, profiles } from './setup-device-ios.mjs';
 
 const [phone] = profiles;
 const device = (overrides = {}) => ({
