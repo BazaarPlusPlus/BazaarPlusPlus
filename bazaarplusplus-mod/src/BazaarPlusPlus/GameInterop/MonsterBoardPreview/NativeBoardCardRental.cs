@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarGameShared.Domain.Cards;
 using BazaarPlusPlus.GameInterop.AssetLoading;
+using BazaarPlusPlus.GameInterop.Cards;
 using TheBazaar.AppFramework;
 using TheBazaar.UI;
 using UnityEngine;
@@ -50,7 +51,11 @@ internal sealed class NativeBoardCardRental : IDisposable
         ResetVisuals();
         Card.gameObject.SetActive(true);
         Card.Resize();
-        await Card.SetUp(template, false, instance);
+        var wroteSavedValues = await SavedCardValues.KeepThroughSetUp(
+            instance.Attributes,
+            () => Card.SetUp(template, false, instance),
+            () => Card._clientCard?.Attributes
+        );
         if (
             Card._currentFrame == null
             || Card._currentFrame.transform.parent != Card._frameContainer
@@ -73,6 +78,9 @@ internal sealed class NativeBoardCardRental : IDisposable
         if (_framePrefabRect == null)
             throw new InvalidOperationException("Frame prefab layout is unavailable.");
         RestoreFrameLayout();
+        // The set-up drew the gems from the template's values.
+        if (wroteSavedValues)
+            (Card as CardPreviewItem)?._gemGroupController?.Initialize(Card._clientCard);
         Card.Resize();
         Ready = true;
     }
