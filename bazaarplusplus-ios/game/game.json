@@ -2,7 +2,7 @@
   "id": "the-bazaar",
   "displayName": "The Bazaar",
   "unityVersion": "6000.3.27f2",
-  "testedGameVersion": "1.0.13051-staging-macos-arm64-891f830a",
+  "testedGameVersion": "1.0.13055-prod-macos-arm64-891f830a",
   "installPath": "TheBazaar.app",
   "dataPath": "Contents/Resources/Data",
   "pluginPath": "Contents/PlugIns",
@@ -41,7 +41,7 @@
   "managedAdapters": [
     {
       "assembly": "FMODUnity.dll",
-      "sourceSha256": "bfe71614e556fbabc8e3a551f93bf765b6f0ff127d2e457a0865a383aaf86305",
+      "sourceSha256": "a3cc917c108243ec0529cda7fb5c1d7b772bc7bf9d16ccbadac48783a95a4ded",
       "adapter": "fmod-static-resonance"
     }
   ]

@@ -42,6 +42,9 @@ try {
     if (failures == 0 || failures > 3) throw new Exception("CDN pool drops a fast node on one failure or keeps a failing one first");
     Console.WriteLine("PASS: CDN pool favours measured fast nodes, keeps slow ones in use and backs off failing ones.");
     if (AuthTickets.Crc(Encoding.ASCII.GetBytes("123456789")) != 0xcbf43926) throw new Exception("Ticket CRC does not match IEEE CRC32");
+    var composedTicket = AuthTickets.ComposeWebApiTicket(new byte[] { 1, 2, 3 }, new byte[] { 4, 5 });
+    if (!composedTicket.SequenceEqual(new byte[] { 1, 2, 3, 2, 0, 0, 0, 4, 5 })) throw new Exception("Web API ticket must be exactly its parts, with no padding");
+    try { AuthTickets.ComposeWebApiTicket(new byte[2557], new byte[0]); throw new Exception("Oversized Web API ticket accepted"); } catch (InvalidDataException) { }
     if (DownloadPaths.Resolve(root,"game/Data/file") != Path.Combine(root,"game/Data/file")) throw new Exception("Nested path rejected");
     foreach(var bad in new[]{"../escape", "game/../../escape", "/absolute", "game/./file", "game//file", "game\\..\\file", "bad\0path"}) {
         try { DownloadPaths.Resolve(root,bad); throw new Exception("Accepted unsafe path: " + bad); }
