@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
@@ -46,7 +47,7 @@ internal static class AndroidCardTemplateText
 
     /// <summary>
     /// The card's description and its ability and aura lines as the game's tooltip shows them for
-    /// <paramref name="subject"/>'s tier and enchantment: the card the game's preview prefab builds
+    /// <paramref name="subject"/>'s tier, enchantment, and saved values: the card the game's preview prefab builds
     /// in its own set-up (<c>CardPreviewBase.SetUp</c>), rendered through its
     /// <see cref="CardTooltipData"/>. Falls back to <see cref="Authored"/> when that throws or
     /// renders nothing. Rich text: the game's colors and keyword sprites.
@@ -155,8 +156,8 @@ internal static class AndroidCardTemplateText
     }
 
     /// <summary>
-    /// A detached card for <paramref name="subject"/>'s template, tier and enchantment, built as
-    /// the game's preview prefab builds it; null when the template is unknown or the build fails.
+    /// A detached card for <paramref name="subject"/>'s template, tier, enchantment, and saved
+    /// values, built as the game's preview prefab builds it; null when the template is unknown or the build fails.
     /// </summary>
     public static Card? PreviewCard(CardRentalSubject subject)
     {
@@ -222,6 +223,9 @@ internal static class AndroidCardTemplateText
                     ? new Il2CppSystem.Nullable<EEnchantmentType>(native)
                     : new Il2CppSystem.Nullable<EEnchantmentType>()
             );
+        // Saved values go on last: the tier and enchantment steps write the template's over them,
+        // as the preview's own set-up does.
+        AndroidCardRentalBackend.WriteSavedValues(attributes, subject.Attributes);
         card.Attributes = attributes;
         card.Size = template.Size;
         card.Tags = template.Tags;
