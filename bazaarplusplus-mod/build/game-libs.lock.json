@@ -3,18 +3,18 @@
   "staleAfterDays": 30,
   "entries": {
     "macos-online": {
-      "gameVersion": "1.0.12651-prod-macos-arm64-d5cc730f",
-      "sha256": "270baaff5abe943c0d2b1bab4f306e9b3e7c276e50ed614768b34d9343dbc4d7",
-      "buildid": "25778800",
+      "gameVersion": "1.0.13055-prod-macos-arm64-891f830a",
+      "sha256": "fc495a15433c907b03aea78405933d392504822b61eebea1a0fff853190b7e90",
+      "buildid": "26428865",
       "steamBranch": "public",
-      "capturedAt": "2026-10-08T00:58:48.051Z"
+      "capturedAt": "2026-11-04T17:50:33.660Z"
     },
     "macos-staging": {
-      "gameVersion": "1.0.12645-staging-macos-arm64-d5cc730f",
-      "sha256": "543762c245353bbb05157e9e195aafc06d27b34ce62843a7f541e10e66b2b390",
-      "buildid": "25761508",
+      "gameVersion": "1.0.13051-staging-macos-arm64-891f830a",
+      "sha256": "7533ac70cec24265ae00e6cbdbdcb0a28cd750e561ad9f6777d5afb561f9d560",
+      "buildid": "26419399",
       "steamBranch": "staging",
-      "capturedAt": "2026-10-08T00:55:18.810Z"
+      "capturedAt": "2026-11-04T17:52:04.743Z"
     },
     "macos-ptr": {
       "gameVersion": "1.0.12254-ptr-macos-arm64-a2cd5c3b",
