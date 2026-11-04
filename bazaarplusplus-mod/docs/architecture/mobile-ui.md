@@ -30,6 +30,7 @@ What names a game type, differs between IL2CPP and Mono, or is the port itself s
 | Control actions (`RunUiAction`) | `Host/AndroidUiActions` | `GameInterop/Touch/TouchUiActions` |
 | The game font | `GameInterop/AndroidGameFont` | `TouchFonts` in `GameInterop/Touch/TouchUiActions.cs` |
 | Card text and previews | `GameInterop/AndroidCardTemplateText` | `Game/Tooltips/TouchCardText` |
+| Native card set-up | `GameInterop/AndroidNativeCardSetUp` | `GameInterop/Cards/NativeCardSetUp` |
 | Native art, the settings button, the vault | `GameInterop/AndroidNativeArt`, `AndroidNativeHud`, `AndroidVaultBounds` | `GameInterop/Touch/TouchNativeArt`, `TouchNativeHud`, `TouchVaultBounds` |
 | Rank art, the skill overlay | `GameInterop/AndroidRankArt`, `AndroidNativeSkillOverlay` | `Game/HistoryPanel/TouchRankArt`, `TouchNativeSkillOverlay` |
 | Tooltip reads and the upgrade state | `GameInterop/AndroidTooltipPreviewHost`, `AndroidUpgradePreview`, `AndroidEnchantPreviewHost` | `Game/Tooltips/TouchTooltipPreviewHost`, `TouchUpgradePreview`; `Game/ItemEnchantPreview/TouchEnchantPreviewHost` |

@@ -31,6 +31,10 @@
       Link="DesktopCardFacets.cs"
     />
     <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Cards/NativeCardSetUp.Values.cs"
+      Link="NativeCardSetUp.Values.cs"
+    />
+    <Compile
       Include="../../src/BazaarPlusPlus/GameInterop/Heroes/TheDragonsHeroIdentity.cs"
       Link="TheDragonsHeroIdentity.cs"
     />

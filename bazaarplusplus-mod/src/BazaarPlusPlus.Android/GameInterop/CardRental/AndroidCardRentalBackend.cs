@@ -2,8 +2,6 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using Il2Cpp;
 using Il2CppBazaarGameShared.Domain.Cards;
-using Il2CppBazaarGameShared.Domain.Cards.Item;
-using Il2CppBazaarGameShared.Domain.Cards.Skill;
 using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppTheBazaar.AppFramework;
 using Il2CppTheBazaar.UI;
@@ -142,14 +140,15 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         transform.localScale = Vector3.one;
         transform.localRotation = Quaternion.identity;
         card.gameObject.SetActive(true);
+        var instance = AndroidNativeCardSetUp.Instance(
+            template,
+            subject,
+            "bpp-rental-" + ++_instanceSerial
+        );
+        var kept = AndroidNativeCardSetUp.Keep(instance);
         return new SetUpOperation(
-            card.SetUp(
-                template,
-                false,
-                BuildInstance(template, subject),
-                Il2CppSystem.Threading.CancellationToken.None
-            ),
-            subject.Attributes
+            card.SetUp(template, false, instance, Il2CppSystem.Threading.CancellationToken.None),
+            kept
         );
     }
 
@@ -165,7 +164,7 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             failureReason = task.IsCanceled ? "setup_canceled" : "setup_faulted";
             return true;
         }
-        ApplySavedValues(card, setUp.Attributes);
+        setUp.Kept.ShowOn(card);
         card.Show(true);
         card.Resize();
         Place(card);
@@ -176,41 +175,8 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
 
     private sealed record SetUpOperation(
         Il2CppSystem.Threading.Tasks.Task Task,
-        IReadOnlyDictionary<string, int>? Attributes
+        AndroidNativeCardSetUp.Kept Kept
     );
-
-    // The preview's set-up writes the template's tier values over any instance value
-    // (CardPreviewBase.SetUp, CardExtensions.BuildAttributeDictionaryForTier), so a saved card's
-    // values go on after it, and its gems are drawn again from them.
-    private static void ApplySavedValues(
-        CardPreviewBase card,
-        IReadOnlyDictionary<string, int>? attributes
-    )
-    {
-        var client = card._clientCard;
-        if (attributes is not { Count: > 0 } || client?.Attributes == null)
-            return;
-        WriteSavedValues(client.Attributes, attributes);
-        card.TryCast<CardPreviewItem>()?._gemGroupController?.Initialize(client, null, false);
-    }
-
-    /// <summary>
-    /// A saved card's values over <paramref name="target"/>, keyed by the game's member name; a
-    /// name the game does not know is dropped (ADR-0017).
-    /// </summary>
-    internal static void WriteSavedValues(
-        Il2CppSystem.Collections.Generic.Dictionary<ECardAttributeType, int> target,
-        IReadOnlyDictionary<string, int>? saved
-    )
-    {
-        if (saved == null)
-            return;
-        foreach (var pair in saved)
-        {
-            if (Enum.TryParse<ECardAttributeType>(pair.Key, false, out var attribute))
-                target[attribute] = pair.Value;
-        }
-    }
 
     public void Park(CardPreviewBase card)
     {
@@ -280,40 +246,6 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         if (found != null)
             _templates[templateId] = found;
         return found;
-    }
-
-    private TCardInstance BuildInstance(TCardBase template, CardRentalSubject subject)
-    {
-        var tier = AndroidCardFacets.Tier.TryToSource(subject.Tier, out var nativeTier)
-            ? nativeTier
-            : template.StartingTier;
-        var instanceId = "bpp-rental-" + ++_instanceSerial;
-        var attributes = new Il2CppSystem.Collections.Generic.Dictionary<ECardAttributeType, int>();
-        if (template.Type == ECardType.Skill)
-        {
-            return new TCardInstanceSkill
-            {
-                TemplateId = template.Id,
-                TemplateVersion = string.Empty,
-                InstanceId = instanceId,
-                Tier = tier,
-                Attributes = attributes,
-            };
-        }
-        var item = new TCardInstanceItem
-        {
-            TemplateId = template.Id,
-            TemplateVersion = string.Empty,
-            InstanceId = instanceId,
-            Tier = tier,
-            Attributes = attributes,
-        };
-        if (
-            subject.Enchantment is { } enchantment
-            && AndroidCardFacets.Enchantment.TryToSource(enchantment, out var nativeEnchantment)
-        )
-            item.EnchantmentType = new Il2CppSystem.Nullable<EEnchantmentType>(nativeEnchantment);
-        return item;
     }
 
     private static void Place(CardPreviewBase card)
