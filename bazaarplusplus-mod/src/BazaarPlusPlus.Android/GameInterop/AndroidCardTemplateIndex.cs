@@ -1,8 +1,12 @@
 using System.Collections.Frozen;
 using System.Diagnostics;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using Il2CppBazaarGameShared.Domain.Cards.Socket;
+using Il2CppBazaarGameShared.Domain.Core.Types;
+using Il2CppBazaarGameShared.Domain.Effect.AuraActions;
 using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Android.GameInterop;
@@ -16,7 +20,9 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// the static data manager changes. The manager's own <c>GetCardMap</c> would deserialize every
 /// card on the main thread, which froze the game for 26 s on the emulator. Until the set exists
 /// <see cref="Contains"/> answers true: an unknown template is counted rather than dropped, and a
-/// lookup never builds the set.
+/// lookup never builds the set. A socket effect's attribute
+/// (<see cref="SocketEffectAttribute"/>) is read from the static data manager itself, so only on
+/// the main thread, where History renders its boards.
 /// </summary>
 internal sealed class AndroidCardTemplateIndex : IHistoryCardTemplates
 {
@@ -37,6 +43,33 @@ internal sealed class AndroidCardTemplateIndex : IHistoryCardTemplates
     {
         var templates = Volatile.Read(ref _templates);
         return templates == null || templates.Contains(templateId);
+    }
+
+    /// <summary>
+    /// Main thread: the attribute a socket-effect template sets at a tier, Heated or Chilled,
+    /// read from the template's auras in the game's static data; null for any other template.
+    /// </summary>
+    public string? SocketEffectAttribute(Guid templateId, CardTier tier)
+    {
+        var effect = AndroidCardTemplateText.Template(templateId)?.TryCast<TCardSocketEffect>();
+        if (effect == null || !AndroidCardFacets.Tier.TryToSource(tier, out var nativeTier))
+            return null;
+        var auras = effect.GetAuraTemplatesByTier(nativeTier);
+        if (auras == null)
+            return null;
+        foreach (var aura in auras)
+        {
+            var action = aura?.Action?.TryCast<TAuraActionCardModifyAttribute>();
+            if (
+                action != null
+                && (
+                    action.AttributeType == ECardAttributeType.Heated
+                    || action.AttributeType == ECardAttributeType.Chilled
+                )
+            )
+                return action.AttributeType.ToString();
+        }
+        return null;
     }
 
     /// <summary>Replaces the set; the managed half of <see cref="EnsureBuilt"/>.</summary>

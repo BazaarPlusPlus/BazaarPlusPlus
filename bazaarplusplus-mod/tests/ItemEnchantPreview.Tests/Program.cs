@@ -3,6 +3,7 @@ using BazaarGameClient.Domain.Tooltips;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Enchantments;
 using BazaarGameShared.Domain.Cards.Item;
+using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
@@ -465,7 +466,7 @@ var savedTemplate = new TCardItem
     },
 };
 var templateValues = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
-TouchCardText.FillPreviewCard(
+NativeCardSetUp.Fill(
     templateValues,
     savedTemplate,
     savedTemplate,
@@ -476,7 +477,7 @@ Assert(
     "A card with no saved values keeps its template's values."
 );
 var savedValues = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
-TouchCardText.FillPreviewCard(
+NativeCardSetUp.Fill(
     savedValues,
     savedTemplate,
     savedTemplate,
@@ -507,13 +508,46 @@ Assert(
     "The tooltip's own token must resolve the saved value, the number the inspection text shows."
 );
 
-var boardValues = new Dictionary<ECardAttributeType, int> { [ECardAttributeType.Custom_1] = 25 };
+var boardSubject = new CardRentalSubject(
+    savedTemplate.Id,
+    CardTier.Bronze,
+    CardEnchantment.Fiery,
+    new Dictionary<string, int> { ["Custom_1"] = 25, ["NotAGameAttribute"] = 99 }
+);
+var boardInstance = (TCardInstanceItem)
+    NativeCardSetUp.Instance(savedTemplate, boardSubject, "saved");
+Assert(
+    boardInstance.Tier == ETier.Bronze
+        && boardInstance.EnchantmentType == EEnchantmentType.Fiery
+        && boardInstance.InstanceId == "saved"
+        && boardInstance.Attributes?.Count == 1
+        && boardInstance.Attributes[ECardAttributeType.Custom_1] == 25,
+    "An item's instance carries the subject's tier, enchantment and known saved values."
+);
+var skillTemplate = new TCardSkill
+{
+    Id = Guid.NewGuid(),
+    Type = ECardType.Skill,
+    StartingTier = ETier.Silver,
+};
+var skillInstance = NativeCardSetUp.Instance(
+    skillTemplate,
+    new CardRentalSubject(skillTemplate.Id, (CardTier)99, CardEnchantment.Fiery),
+    "skill"
+);
+Assert(
+    skillInstance is TCardInstanceSkill
+        && skillInstance.Tier == ETier.Silver
+        && skillInstance.Attributes?.Count == 0,
+    "A skill's instance carries no enchantment, and a tier the game lacks is the template's own."
+);
+var boardValues = boardInstance.Attributes!;
 var boardCard = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
 
 // The steps of CardPreviewBase.SetUp: the client card adopts the instance's dictionary, the
 // starting tier writes into it, and the card then takes a new dictionary with the tier's and
 // the enchantment's values on top.
-Task BoardSetUp(Dictionary<ECardAttributeType, int> instanceValues)
+void BoardSetUp(Dictionary<ECardAttributeType, int> instanceValues)
 {
     boardCard.Attributes = instanceValues;
     foreach (var pair in savedTemplate.Tiers[ETier.Bronze].Attributes)
@@ -530,13 +564,10 @@ Task BoardSetUp(Dictionary<ECardAttributeType, int> instanceValues)
         EEnchantmentType.Fiery
     );
     boardCard.Attributes = attributes;
-    return Task.CompletedTask;
 }
-var boardWrote = await SavedCardValues.KeepThroughSetUp(
-    boardValues,
-    () => BoardSetUp(boardValues),
-    () => boardCard.Attributes
-);
+var boardKept = NativeCardSetUp.Keep(boardInstance);
+BoardSetUp(boardValues);
+var boardWrote = boardKept.WriteOver(boardCard.Attributes);
 Assert(boardWrote, "A card with saved values reports the write, so its gems are drawn again.");
 Assert(
     boardCard.Attributes[ECardAttributeType.Custom_1] == 25,
@@ -557,14 +588,16 @@ var boardToken = TooltipComponentAbility.Create(
     0
 );
 Assert(boardToken?.Resolve() == 25f, "The board card's tooltip must resolve the saved value.");
-var templateBoardValues = new Dictionary<ECardAttributeType, int>();
-var templateBoardWrote = await SavedCardValues.KeepThroughSetUp(
-    templateBoardValues,
-    () => BoardSetUp(templateBoardValues),
-    () => boardCard.Attributes
+var templateBoardInstance = NativeCardSetUp.Instance(
+    savedTemplate,
+    new CardRentalSubject(savedTemplate.Id, CardTier.Bronze, CardEnchantment.Fiery),
+    "template"
 );
+var templateBoardKept = NativeCardSetUp.Keep(templateBoardInstance);
+BoardSetUp(templateBoardInstance.Attributes!);
 Assert(
-    !templateBoardWrote && boardCard.Attributes[ECardAttributeType.Custom_1] == 7,
+    !templateBoardKept.WriteOver(boardCard.Attributes)
+        && boardCard.Attributes[ECardAttributeType.Custom_1] == 7,
     "A board card with no saved values keeps what the set-up wrote."
 );
 

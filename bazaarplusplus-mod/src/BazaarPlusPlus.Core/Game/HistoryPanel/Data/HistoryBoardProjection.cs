@@ -7,27 +7,36 @@ using BazaarPlusPlus.Game.PvpBattles;
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
 /// <summary>
-/// A battle's stored boards as cards a host renders from the game's own prefabs: the facet-only
-/// half of the desktop's <c>HistoryBattlePreviewProjection</c>, for a host that rents native cards
-/// by template, tier, and enchantment. A card is kept on the same terms
+/// A battle's stored boards as cards a host renders from the game's own prefabs, on every host:
+/// the desktop's native board and the touch boards. A card is kept on the same terms
 /// <see cref="HistoryBattleSnapshotCounter"/> counts it: a parseable template id, the capture's
 /// card type, and a template the host's static data knows. Items keep the desktop's order (placed
 /// cards by socket, then the rest in capture order), a card with no size renders as one socket
 /// (ADR-0017), and the board is planned (<see cref="BppItemBoardSlotPlanner"/>) so every card has
-/// its display socket. Each card carries its saved attribute values, which the rented card shows
-/// over its template's; socket effects stay with the desktop, whose native board shows them.
+/// its display socket. Each card carries its Saved Card Values, which the rendered card shows over
+/// its template's. A socket effect in the hand is no card on the board: it raises the attribute
+/// its template sets (Heated or Chilled, named by the host) to at least 1 on every placed item
+/// that covers its socket, as the game shows a recorded board (ADR-0017, amended 2026-11-04).
 /// </summary>
 public static class HistoryBoardProjection
 {
-    /// <summary>The planned item board of one hand.</summary>
+    /// <summary>
+    /// The planned item board of one hand. <paramref name="socketEffectAttribute"/> names the
+    /// attribute a socket-effect template sets at a tier, or null for none
+    /// (<see cref="IHistoryCardTemplates.SocketEffectAttribute"/>).
+    /// </summary>
     public static BppItemBoard Items(
         PvpBattleCardSetCapture? hand,
         Func<Guid, bool> hasCardTemplate,
+        Func<Guid, CardTier, string?> socketEffectAttribute,
         string signature
     )
     {
         if (hasCardTemplate == null)
             throw new ArgumentNullException(nameof(hasCardTemplate));
+        if (socketEffectAttribute == null)
+            throw new ArgumentNullException(nameof(socketEffectAttribute));
+        var socketEffects = SocketEffects(hand, socketEffectAttribute);
         var cards = new List<BppItemBoardCard>();
         var ordered = (hand?.Items ?? Array.Empty<PvpBattleCardSnapshot>())
             .Select((snapshot, index) => (Snapshot: snapshot, Index: index))
@@ -44,6 +53,20 @@ public static class HistoryBoardProjection
             if (!TryTemplate(snapshot, CardType.Item, hasCardTemplate, out var templateId))
                 continue;
             var size = snapshot!.Size ?? CardSize.Small;
+            var span = BppItemBoardSpan.Resolve(size);
+            int? sourceSocket = snapshot.Socket is { } socket
+                ? CardFacetOrder.SocketRank(socket)
+                : null;
+            var attributes = Attributes(snapshot);
+            if (sourceSocket is { } start)
+                for (var rank = start; rank < start + span; rank++)
+                {
+                    if (!socketEffects.TryGetValue(rank, out var names))
+                        continue;
+                    foreach (var name in names)
+                        if (!attributes.TryGetValue(name, out var value) || value <= 0)
+                            attributes[name] = 1;
+                }
             cards.Add(
                 new BppItemBoardCard
                 {
@@ -52,15 +75,10 @@ public static class HistoryBoardProjection
                     Order = cards.Count,
                     Tier = Tier(snapshot.Tier),
                     Size = size,
-                    Span = BppItemBoardSpan.Resolve(size),
+                    Span = span,
                     EnchantmentType = Enchantment(snapshot.Enchant),
-                    SourceSocketId = snapshot.Socket is { } socket
-                        ? CardFacetOrder.SocketRank(socket)
-                        : null,
-                    Attributes =
-                        snapshot.Attributes != null
-                            ? new Dictionary<string, int>(snapshot.Attributes)
-                            : new Dictionary<string, int>(),
+                    SourceSocketId = sourceSocket,
+                    Attributes = attributes,
                 }
             );
         }
@@ -96,6 +114,7 @@ public static class HistoryBoardProjection
                     Tier = Tier(snapshot.Tier),
                     Size = CardSize.Medium,
                     Span = 1,
+                    Attributes = Attributes(snapshot),
                 }
             );
         }
@@ -114,6 +133,36 @@ public static class HistoryBoardProjection
         : failed >= cards ? new HistoryBoardFacts(NativeMonsterBoardStatus.Failed, failed)
         : failed > 0 ? new HistoryBoardFacts(NativeMonsterBoardStatus.Partial, failed)
         : new HistoryBoardFacts(NativeMonsterBoardStatus.Ready, 0);
+
+    private static Dictionary<string, int> Attributes(PvpBattleCardSnapshot snapshot) =>
+        snapshot.Attributes != null
+            ? new Dictionary<string, int>(snapshot.Attributes)
+            : new Dictionary<string, int>();
+
+    // The attribute names the hand's socket effects set, by socket index.
+    private static Dictionary<int, HashSet<string>> SocketEffects(
+        PvpBattleCardSetCapture? hand,
+        Func<Guid, CardTier, string?> socketEffectAttribute
+    )
+    {
+        var effects = new Dictionary<int, HashSet<string>>();
+        foreach (var snapshot in hand?.Items ?? Array.Empty<PvpBattleCardSnapshot>())
+        {
+            if (
+                snapshot == null
+                || snapshot.Type != CardType.SocketEffect
+                || snapshot.Socket is not { } socket
+                || !Guid.TryParse(snapshot.TemplateId, out var templateId)
+                || socketEffectAttribute(templateId, Tier(snapshot.Tier)) is not { } name
+            )
+                continue;
+            var rank = CardFacetOrder.SocketRank(socket);
+            if (!effects.TryGetValue(rank, out var names))
+                effects[rank] = names = new HashSet<string>(StringComparer.Ordinal);
+            names.Add(name);
+        }
+        return effects;
+    }
 
     private static bool TryTemplate(
         PvpBattleCardSnapshot? snapshot,

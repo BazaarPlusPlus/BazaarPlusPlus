@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.RunContext;
@@ -535,13 +536,17 @@ internal sealed class TouchHistoryPanel : IDisposable
         else
         {
             var has = (Func<Guid, bool>)_templates.Contains;
+            var socketEffect = (Func<Guid, CardTier, string?>)_templates.SocketEffectAttribute;
             var upper = both ? snapshots.OpponentHand : snapshots.PlayerHand;
-            _upper.Render(HistoryBoardProjection.Items(upper, has, battle.BattleId + "|upper"));
+            _upper.Render(
+                HistoryBoardProjection.Items(upper, has, socketEffect, battle.BattleId + "|upper")
+            );
             if (both)
                 _lower.Render(
                     HistoryBoardProjection.Items(
                         snapshots.PlayerHand,
                         has,
+                        socketEffect,
                         battle.BattleId + "|lower"
                     )
                 );
@@ -590,9 +595,7 @@ internal sealed class TouchHistoryPanel : IDisposable
     {
         if (side < 0 || side >= _skillSides.Count)
             return;
-        var skills = _skillSides[side]
-            .Select(skill => new CardRentalSubject(skill.TemplateId, skill.Tier, null))
-            .ToArray();
+        var skills = _skillSides[side].Select(CardRentalSubject.Of).ToArray();
         _nativeSkills.Open(
             skills,
             !_shownBoth ? "challenger"

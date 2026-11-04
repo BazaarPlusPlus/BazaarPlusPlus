@@ -41,7 +41,7 @@ internal static class BppItemBoardPreviewMapper
                         && DesktopCardFacets.Enchantment.TryToSource(enchantment, out var source)
                             ? source
                             : null,
-                    Attributes = ToAttributes(card.Attributes),
+                    Attributes = NativeCardSetUp.Values(card.Attributes),
                     InstanceIdPrefix = $"bpp-{board.Id.ToString().ToLowerInvariant()}",
                 }
             );
@@ -52,21 +52,4 @@ internal static class BppItemBoardPreviewMapper
 
     private static EContainerSocketId? ToSocket(int index) =>
         index >= 0 && index < SocketCount ? (EContainerSocketId)index : null;
-
-    private static Dictionary<ECardAttributeType, int> ToAttributes(
-        IReadOnlyDictionary<string, int>? attributes
-    )
-    {
-        var result = new Dictionary<ECardAttributeType, int>();
-        if (attributes == null)
-            return result;
-
-        foreach (var pair in attributes)
-        {
-            if (Enum.TryParse<ECardAttributeType>(pair.Key, ignoreCase: false, out var type))
-                result[type] = pair.Value;
-        }
-
-        return result;
-    }
 }

@@ -1,7 +1,5 @@
 #nullable enable
 using BazaarGameShared.Domain.Cards;
-using BazaarGameShared.Domain.Cards.Item;
-using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
@@ -146,14 +144,15 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
         transform.localScale = Vector3.one;
         transform.localRotation = Quaternion.identity;
         card.gameObject.SetActive(true);
+        var instance = NativeCardSetUp.Instance(
+            template,
+            subject,
+            "bpp-rental-" + ++_instanceSerial
+        );
+        var kept = NativeCardSetUp.Keep(instance);
         return new SetUpOperation(
-            card.SetUp(
-                template,
-                false,
-                BuildInstance(template, subject),
-                System.Threading.CancellationToken.None
-            ),
-            subject.Attributes
+            card.SetUp(template, false, instance, System.Threading.CancellationToken.None),
+            kept
         );
     }
 
@@ -170,7 +169,7 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
             ReportFault(failureReason, task.Exception);
             return true;
         }
-        ApplySavedValues(card, setUp.Attributes);
+        setUp.Kept.ShowOn(card);
         card.Show(true);
         card.Resize();
         Place(card);
@@ -181,22 +180,8 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
 
     private sealed record SetUpOperation(
         System.Threading.Tasks.Task Task,
-        IReadOnlyDictionary<string, int>? Attributes
+        NativeCardSetUp.Kept Kept
     );
-
-    // The preview's set-up writes the template's tier values over any instance value
-    // (CardPreviewBase.SetUp, CardExtensions.BuildAttributeDictionaryForTier), so a saved card's
-    // values go on after it, and its gems are drawn again from them.
-    private static void ApplySavedValues(
-        CardPreviewBase card,
-        IReadOnlyDictionary<string, int>? attributes
-    )
-    {
-        if (attributes is not { Count: > 0 } || card._clientCard?.Attributes is not { } target)
-            return;
-        SavedCardValues.Write(target, attributes);
-        (card as CardPreviewItem)?._gemGroupController?.Initialize(card._clientCard);
-    }
 
     // A faulted native task carries the cause the lease's reason code drops.
     private static void ReportFault(string reason, Exception? exception) =>
@@ -270,39 +255,6 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
         if (found != null)
             _templates[templateId] = found;
         return found;
-    }
-
-    private TCardInstance BuildInstance(TCardBase template, CardRentalSubject subject)
-    {
-        var tier = DesktopCardFacets.Tier.TryToSource(subject.Tier, out var nativeTier)
-            ? nativeTier
-            : template.StartingTier;
-        var instanceId = "bpp-rental-" + ++_instanceSerial;
-        var attributes = new System.Collections.Generic.Dictionary<ECardAttributeType, int>();
-        if (template.Type == ECardType.Skill)
-        {
-            return new TCardInstanceSkill
-            {
-                TemplateId = template.Id,
-                TemplateVersion = string.Empty,
-                InstanceId = instanceId,
-                Tier = tier,
-                Attributes = attributes,
-            };
-        }
-        return new TCardInstanceItem
-        {
-            TemplateId = template.Id,
-            TemplateVersion = string.Empty,
-            InstanceId = instanceId,
-            Tier = tier,
-            Attributes = attributes,
-            EnchantmentType =
-                subject.Enchantment is { } enchantment
-                && DesktopCardFacets.Enchantment.TryToSource(enchantment, out var native)
-                    ? native
-                    : null,
-        };
     }
 
     private static void Place(CardPreviewBase card)

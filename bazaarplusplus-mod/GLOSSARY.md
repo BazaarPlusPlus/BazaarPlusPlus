@@ -158,6 +158,10 @@ _Avoid_: game enums in Core
 **Live Card Walk**:
 A Host's raw run read in Card Facets (`LiveCardWalk`); Core's `LiveCardSnapshotRead` fits, numbers and reports it.
 
+**Saved Card Values**:
+A card's attribute values as captured (battle snapshot, build, combat), keyed by the game's member name (ADR-0017); a card BPP sets up shows them over its template's (`NativeCardSetUp`, `AndroidNativeCardSetUp`).
+_Avoid_: instance values, template values
+
 ## Mobile UI
 
 **Mobile UI**:

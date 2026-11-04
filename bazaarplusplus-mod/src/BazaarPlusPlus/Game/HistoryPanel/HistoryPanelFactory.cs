@@ -3,7 +3,6 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
-using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
@@ -104,7 +103,7 @@ internal static class HistoryPanelFactory
             modApiSession,
             BppClientCacheBridge.TryGetProfileAccountId,
             DesktopPvpBattleEvidence.Instance,
-            HistoryBattlePreviewProjection.HasCardTemplate
+            DesktopHistoryCardTemplates.Instance.Contains
         );
     }
 }

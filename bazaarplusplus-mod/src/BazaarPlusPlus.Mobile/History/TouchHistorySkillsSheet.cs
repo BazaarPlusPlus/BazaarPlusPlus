@@ -180,7 +180,7 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
                     continue;
                 shown++;
                 cell.Lease = MobilePlatform.Port.CardRental.Rent(
-                    new CardRentalSubject(skill.TemplateId, skill.Tier, null),
+                    CardRentalSubject.Of(skill),
                     cell.Slot,
                     RentalOwner
                 );

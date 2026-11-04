@@ -3,7 +3,9 @@ using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
+using TheBazaar.UI;
 using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.CardPreview;
@@ -175,6 +177,7 @@ internal sealed class NativeCardPreviewFactory
             card.gameObject.SetActive(true);
             NativeCardPreviewReflection.ApplyLayerRecursive(card.gameObject, owner.Layer);
 
+            var kept = NativeCardSetUp.Keep(instance);
             var setUpFailure = await NativeCardPreviewRuntime.InvokeSetUpSafe(
                 card,
                 template,
@@ -186,6 +189,7 @@ internal sealed class NativeCardPreviewFactory
                 return Failed(setUpFailure);
 
             token.ThrowIfCancellationRequested();
+            kept.ShowOn((CardPreviewBase)card);
             var resizeFailure = NativeCardPreviewRuntime.Resize(card, template.Id);
             if (resizeFailure != null)
                 return Failed(resizeFailure);

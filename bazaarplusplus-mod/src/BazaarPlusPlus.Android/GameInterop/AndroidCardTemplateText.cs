@@ -1,4 +1,3 @@
-using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
@@ -6,8 +5,6 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Il2CppBazaarGameClient.Domain.Models.Cards;
 using Il2CppBazaarGameShared.Domain.Cards;
-using Il2CppBazaarGameShared.Domain.Cards.Interfaces;
-using Il2CppBazaarGameShared.Domain.Cards.Item;
 using Il2CppBazaarGameShared.Domain.Core;
 using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppTheBazaar.Tooltips;
@@ -185,50 +182,8 @@ internal static class AndroidCardTemplateText
         CardRentalSubject subject
     )
     {
-        var tier = AndroidCardFacets.Tier.TryToSource(subject.Tier, out var nativeTier)
-            ? nativeTier
-            : template.StartingTier;
         var card = Il2CppTheBazaar.DTOUtils.CreateCard(template.Id.ToString(), template.Type);
-        card.Attributes = new Il2CppSystem.Collections.Generic.Dictionary<
-            ECardAttributeType,
-            int
-        >();
-        // The template's tiers up to its starting tier, as the prefab's UpdateInstanceFromTierData.
-        var tierData = template.TryCast<IHasTierData>();
-        if (tierData?.Tiers != null)
-            foreach (var entry in tierData.Tiers)
-            {
-                if (entry.Key > template.StartingTier)
-                    continue;
-                if (entry.Value?.Attributes == null)
-                    continue;
-                foreach (var attribute in entry.Value.Attributes)
-                    card.Attributes[attribute.Key] = attribute.Value;
-            }
-        card.Tier = tier;
-        var attributes = Il2CppTheBazaar.CardExtensions.BuildAttributeDictionaryForTier(
-            card,
-            cardTemplate,
-            tier
-        );
-        var item = card.TryCast<ItemCard>();
-        var itemTemplate = template.TryCast<TCardItem>();
-        if (item != null && itemTemplate != null)
-            Il2CppTheBazaar.CardExtensions.ApplyPreviewEnchantment(
-                itemTemplate,
-                item,
-                attributes,
-                subject.Enchantment is { } enchantment
-                && AndroidCardFacets.Enchantment.TryToSource(enchantment, out var native)
-                    ? new Il2CppSystem.Nullable<EEnchantmentType>(native)
-                    : new Il2CppSystem.Nullable<EEnchantmentType>()
-            );
-        // Saved values go on last: the tier and enchantment steps write the template's over them,
-        // as the preview's own set-up does.
-        AndroidCardRentalBackend.WriteSavedValues(attributes, subject.Attributes);
-        card.Attributes = attributes;
-        card.Size = template.Size;
-        card.Tags = template.Tags;
+        AndroidNativeCardSetUp.Fill(card, template, cardTemplate, subject);
         return card;
     }
 

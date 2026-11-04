@@ -1,4 +1,6 @@
 #nullable enable
+using BazaarPlusPlus.Core.Cards;
+
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 /// <summary>
@@ -14,6 +16,17 @@ public interface IHistoryCardTemplates
     /// </summary>
     void EnsureBuilt();
 
-    /// <summary>Whether the game data holds the template.</summary>
+    /// <summary>
+    /// Any thread, as Ghost sync asks from a pool thread: whether the game data holds the
+    /// template.
+    /// </summary>
     bool Contains(Guid templateId);
+
+    /// <summary>
+    /// Main thread only, unlike <see cref="Contains"/>, as it reads the game's static data: the
+    /// attribute member name (Heated or Chilled) a socket-effect template sets at
+    /// <paramref name="tier"/>, or null when it sets neither or the template is unknown. History's
+    /// board projection raises it on the items that cover the effect's socket.
+    /// </summary>
+    string? SocketEffectAttribute(Guid templateId, CardTier tier);
 }

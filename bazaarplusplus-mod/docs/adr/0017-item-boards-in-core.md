@@ -15,10 +15,11 @@ History and LiveBuild render the same item board: a row of up to ten sockets hol
 
 ## Consequences
 
-- The desktop mappers (`BppItemBoardPreviewMapper` and `NativeMonsterBoardItemMapper`) and the readers (`HistoryBattlePreviewProjection` and `LiveCardSnapshotReader`) stay in the host. They convert through `DesktopCardFacets`.
+- The desktop mappers (`BppItemBoardPreviewMapper` and `NativeMonsterBoardItemMapper`) and the reader `LiveCardSnapshotReader` stay in the host. They convert through `DesktopCardFacets`. History's board reader is Core's `HistoryBoardProjection` (amended 2026-11-04, below).
 - The LiveBuild and History preview tests reference Core instead of compiling host board sources.
 - The Android host builds its own reader and native mapper over the same Core types.
 - Amended 2026-10-25: each host's reader keeps only its game walk, a `LiveCardWalk` in facet terms. Core's `LiveCardSnapshotRead` places the cards (the slot planner's fit rule), applies item 4's fallbacks, numbers them, and reports the cards it leaves out on the host's own event, so the fit rule, the fallbacks, and the degraded report are written once.
+- Amended 2026-11-04: History's board reader is Core's `HistoryBoardProjection` on every host, and it reads one attribute. A socket effect sets Heated or Chilled on the items that cover its socket, and the game shows a recorded board's state from that value, so the projection raises the attribute to at least 1 there and keeps a saved value above 0. Core interprets no attribute name: the host names the attribute a socket-effect template sets (`IHistoryCardTemplates.SocketEffectAttribute`, from the game's static data), so item 3's reason holds and no closed list or pin test follows. A separate socket-effect field on each card was rejected: it would change two Core types (`BppItemBoardCard`, `CardRentalSubject`) for one rule.
 
 ## Relationship to ADR-0015
 
@@ -28,5 +29,5 @@ This decision narrows ADR-0015 for boards. It adds no facet. It makes positional
 
 - Core types: `src/BazaarPlusPlus.Core/Cards/ItemBoards/`, `src/BazaarPlusPlus.Core/Cards/LiveCards/`, `src/BazaarPlusPlus.Core/Game/LiveBuildPanel/`
 - Live read outcome: `src/BazaarPlusPlus.Core/Cards/LiveCards/LiveCardSnapshotRead.cs`
-- Desktop boundary: `src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardPreviewMapper.cs`, `src/BazaarPlusPlus/GameInterop/LiveCards/LiveCardSnapshotReader.cs`, `src/BazaarPlusPlus/Game/HistoryPanel/Data/HistoryBattlePreviewProjection.cs`
+- Desktop boundary: `src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardPreviewMapper.cs`, `src/BazaarPlusPlus/GameInterop/LiveCards/LiveCardSnapshotReader.cs`, `src/BazaarPlusPlus/Game/HistoryPanel/DesktopHistoryCardTemplates.cs` (the socket-effect lookup); History's projection: `src/BazaarPlusPlus.Core/Game/HistoryPanel/Data/HistoryBoardProjection.cs`
 - Tests: `tests/LiveBuildPanel.Tests/`, `tests/LiveBuildRecommendationCore.Tests/` (Core only), `tests/HistoryPanelPreview.Tests/` (planner plus the desktop mappers)

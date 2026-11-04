@@ -1,7 +1,6 @@
 #nullable enable
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards;
-using BazaarGameShared.Domain.Cards.Interfaces;
 using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
@@ -187,57 +186,8 @@ internal static class TouchCardText
     )
     {
         var card = TheBazaar.DTOUtils.CreateCard(template.Id.ToString(), template.Type);
-        FillPreviewCard(card, template, cardTemplate, subject);
+        NativeCardSetUp.Fill(card, template, cardTemplate, subject);
         return card;
-    }
-
-    // Saved values go on last: the tier and enchantment steps write the template's over them, as
-    // the preview's own set-up does.
-    internal static void FillPreviewCard(
-        Card card,
-        TCardBase template,
-        ITCard cardTemplate,
-        CardRentalSubject subject
-    )
-    {
-        var tier = DesktopCardFacets.Tier.TryToSource(subject.Tier, out var nativeTier)
-            ? nativeTier
-            : template.StartingTier;
-        card.Attributes = new System.Collections.Generic.Dictionary<ECardAttributeType, int>();
-        // The template's tiers up to its starting tier, as the prefab's UpdateInstanceFromTierData.
-        var tierData = (template as IHasTierData);
-        if (tierData?.Tiers != null)
-            foreach (var entry in tierData.Tiers)
-            {
-                if (entry.Key > template.StartingTier)
-                    continue;
-                if (entry.Value?.Attributes == null)
-                    continue;
-                foreach (var attribute in entry.Value.Attributes)
-                    card.Attributes[attribute.Key] = attribute.Value;
-            }
-        card.Tier = tier;
-        var attributes = TheBazaar.CardExtensions.BuildAttributeDictionaryForTier(
-            card,
-            cardTemplate,
-            tier
-        );
-        var item = (card as ItemCard);
-        var itemTemplate = (template as TCardItem);
-        if (item != null && itemTemplate != null)
-            TheBazaar.CardExtensions.ApplyPreviewEnchantment(
-                itemTemplate,
-                item,
-                attributes,
-                subject.Enchantment is { } enchantment
-                && DesktopCardFacets.Enchantment.TryToSource(enchantment, out var native)
-                    ? new System.Nullable<EEnchantmentType>(native)
-                    : new System.Nullable<EEnchantmentType>()
-            );
-        SavedCardValues.Write(attributes, subject.Attributes);
-        card.Attributes = attributes;
-        card.Size = template.Size;
-        card.Tags = template.Tags;
     }
 
     // The game's lock-mode preview card: the item at its tier with this enchantment applied,
