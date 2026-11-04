@@ -234,8 +234,9 @@ pub fn uninstall_bpp(
         // BepInEx bootstrap state and removing them would disable that mod.
         if !keep_shared_bootstrap {
             // Call uninstall_trampoline UNCONDITIONALLY (not gated on is_trampolined):
-            // it self-classifies — a no-op when already vanilla, a restore when a
-            // `.orig` exists, and a hard error in the broken stub-without-backup state.
+            // it self-classifies — a no-op when already vanilla, a restore when a real
+            // `.orig` backs the stub, keeping a Steam-updated executable over a stale
+            // `.orig`, and a hard error when the stub has no real backup.
             // If this fails, abort so we never strand a stubbed bundle whose `.orig`
             // we then can't recover. No-op off macOS.
             trampoline::uninstall_trampoline(game_path)?;
