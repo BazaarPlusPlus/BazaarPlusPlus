@@ -86,7 +86,8 @@ case "$*" in
   'shell settings get system user_rotation') echo 1 ;;
   'shell settings get system accelerometer_rotation') echo 0 ;;
   'shell dumpsys display') echo 'rotation=1' ;;
-  'pull /sdcard/Android/data/com.tempogames.thebazaar/files/MelonLoader/MelonLoader/Latest.log '*) echo 'fixture log' > "$3" ;;
+  'shell run-as com.bazaarplusplus.android.dev true') ;;
+  'exec-out run-as com.bazaarplusplus.android.dev cat no_backup/game-external/MelonLoader/MelonLoader/Latest.log') echo 'fixture log' ;;
   *) echo "Unexpected/mutating adb command: $*" >&2; exit 92 ;;
 esac
 `,

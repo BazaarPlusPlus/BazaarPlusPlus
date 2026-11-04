@@ -96,7 +96,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 本机矩阵与登录准备
 
-`just setup-device` 准备常驻 Android AVD，`just setup-device ios` 准备常驻 iOS 模拟器，并验证每台设备的游戏账号仍能自动登录；设备名字、型号、尺寸、端口和参数以 `node scripts/setup-device.mjs --help` 为准。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。
+`just setup-device` 准备常驻 Android AVD，`just setup-device ios` 准备常驻 iOS 模拟器，并验证每台设备的游戏账号仍能自动登录；设备名字、型号、尺寸、端口和参数以 `node scripts/setup-device.mjs --help` 为准。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
 
 矩阵按 Mobile UI 的三个布局分支选设备，两个平台各一套：
 
@@ -108,7 +108,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 近方屏 AVD 只是固定的屏幕形状，不模拟折叠铰链；iPhone Duo 才覆盖折叠。高密度、未知 DPI、16:9、16:10、4:3 和阈值两侧由布局单测覆盖，见 [Mobile UI](../bazaarplusplus-mod/docs/architecture/mobile-ui.md)。
 
-缺少的设备从关机的 seed AVD 复制游戏和账号磁盘；已有设备保留数据。新机器先在一台 AVD 上装好 LemonLoader 注入版游戏并登录，再用 `--seed` 指定它；安装包和账号数据不随 clone 分发。复制不等于登录有效，所以每台都冷启动游戏，要求本次日志出现主菜单和随后的 hook 统计，并核对截图的尺寸和密度。需要重新登录时，在模拟器窗口中完成。init 只验证已安装的游戏，不构建、不部署当前源码，之后仍要执行所需的构建、部署和冒烟。
+每台 AVD 都按玩家的方式运行游戏：官方游戏加 debug Android App，从 App 的启动器点 Play 启动（[ADR 0012](adr/0012-android-app.md)）。退役的注入版 APK 不是玩家的流程；init 发现游戏的 `base.apk` 与锁里的 `apkSha256` 不一致时，卸载它，换装锁定版本的官方 APK。init 每次都重装 debug App、推送 Development interop、部署当前源码的 mod，配置里有 `[game]` 账号时写进 App 的沙盒，然后点 Play，要求本次日志出现主菜单和随后的 hook 统计，并核对截图的尺寸和密度。没有 `[game]` 账号时，在模拟器窗口中登录。缺少的设备从关机的 seed AVD 复制磁盘，省去重新安装；已有设备保留数据。官方 APK、App 的运行时（`build/runtime`）和 interop 包（`build/interop.zip`）第一次要从私有存储取，命令见 `--help`。Development interop 跳过平台清单、Managed Payload 暂存、启动记录和 Updater 换入；要测这一段，按 `bazaarplusplus-android/AGENTS.md` 用 `dev-manifest-port`。
 
 iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam、单独下载游戏（约 6 GB），不能从另一台复制。已经装好游戏的模拟器用 `xcrun simctl rename` 改成矩阵名字即可复用；缺少的模拟器由 init 新建。init 安装 `bazaarplusplus-ios` 的 `--test-control` 模拟器构建，等待保存的登录；没有登录时在模拟器屏幕上显示二维码（新模拟器先跳过首次介绍页），由使用者用 Steam 手机 App 扫码，或改用密码登录并在手机上确认。下载进行期间 init 一直等待，停滞 5 分钟才失败。之后执行 `tools/regress.sh`，以 `RunTasks complete … Failed: 0` 为就绪信号。`bpp_sim_duo` 先展开再执行 init：合上时 FoldGuard 暂停游戏，回归等不到 RunTasks；simctl 没有折叠命令。展开在 Device Hub 中进行（Xcode 27 用它取代了 `Simulator.app`，入口是 Xcode > Open Developer Tool > Device Hub）：启动模拟器，在侧栏选中它，点设备画面下方三个姿态按钮中最右边的全开按钮。所有模拟器共用 `build/steam-app/verification/` 的测试通道，同一时间只驱动一台。签名与登录的注意事项见 `bazaarplusplus-ios/AGENTS.md`。
 
@@ -127,7 +127,7 @@ iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam�
 
 ### 冒烟断言
 
-Android 没有云端的设备 lane：托管 runner 跑不了 arm64 游戏的模拟器（macOS arm64 托管 runner 没有嵌套虚拟化，x86 runner 跑不了只有 arm64 的游戏），自托管一台常开、常登录的机器只为夜间冒烟不值。发版前的设备验证在开发机上做：一台跑着 LemonLoader 注入版游戏、已登录测试账号的设备或 AVD，`just mod::android-smoke enabled` 构建、推送、重启、抓取并断言；`just mod::android-smoke disabled` 不装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。同一时间只驱动一台设备。
+Android 没有云端的设备 lane：托管 runner 跑不了 arm64 游戏的模拟器（macOS arm64 托管 runner 没有嵌套虚拟化，x86 runner 跑不了只有 arm64 的游戏），自托管一台常开、常登录的机器只为夜间冒烟不值。发版前的设备验证在开发机上做：一台经 `just setup-device` 准备好的 AVD，`just mod::android-smoke enabled` 构建、部署进 debug App、从启动器重新启动、抓取并断言；`just mod::android-smoke disabled` 不装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。同一时间只驱动一台设备。
 
 断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据写进 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（gitignored，含整机 logcat 和已登录账号的截图，不要提交，也不要原样贴进公开的 issue 或 PR）；`just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。版本标签在主菜单加载前就写入，所以三级不依赖主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。主菜单不产生记录，数据库行数只作证据。`observe` 只计数不写标签，必然在功能生效级失败。
 

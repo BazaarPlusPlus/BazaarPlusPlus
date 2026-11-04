@@ -63,6 +63,11 @@ list-devices:
 setup-device *args:
     node scripts/setup-device.mjs init "$@"
 
+# Open panels, capture each matrix device's screens and build the walkthrough HTML; --help lists the commands.
+[group('workspace')]
+walkthrough *args:
+    node scripts/walkthrough.mjs "$@"
+
 # Run explicit verification recipes serially and retain their final exit status, SHA and logs.
 [group('workspace')]
 verify +recipes:

@@ -47,9 +47,13 @@ android-mode mode:
 android-setting section key value:
     bash scripts/android.sh setting "$@"
 
-# Restart the game on the device with an empty logcat buffer.
+# Restart the debug Android App with an empty logcat buffer and tap Play on its launcher.
 android-launch:
     bash scripts/android.sh launch
+
+# Restart the debug Android App and stop at its launcher, without starting the game.
+android-launcher:
+    bash scripts/android.sh launcher
 
 # Save logs, a screenshot and display metadata under artifacts/android/<run>/.
 android-capture run:

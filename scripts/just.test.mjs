@@ -315,11 +315,14 @@ test('setup and scoped commands preserve arguments without shell expansion', (t)
   ]);
 });
 
-test('device setup routes matrix preparation and status without expanding arguments', (t) => {
+test('device setup routes matrix preparation, status and the walkthrough without expanding arguments', (t) => {
   const f = fixture(t);
   const literal = 'seed $(touch BAD)';
   succeeded(f.run(['list-devices']));
   succeeded(f.run(['setup-device', 'bpp_emu_3_2', '--seed', literal]));
+  succeeded(
+    f.run(['walkthrough', 'skip', 'r1', 'desktop', 's1', '--reason', literal])
+  );
   assert.deepEqual(f.calls(), [
     call(f.dir, null, 'node', 'scripts/setup-device.mjs', 'status'),
     call(
@@ -330,6 +333,18 @@ test('device setup routes matrix preparation and status without expanding argume
       'init',
       'bpp_emu_3_2',
       '--seed',
+      literal
+    ),
+    call(
+      f.dir,
+      null,
+      'node',
+      'scripts/walkthrough.mjs',
+      'skip',
+      'r1',
+      'desktop',
+      's1',
+      '--reason',
       literal
     )
   ]);
@@ -454,12 +469,14 @@ test('mod Android device recipes route to android.sh with a validated mode', (t)
   succeeded(f.run(['mod::android-deploy']));
   succeeded(f.run(['mod::android-mode', 'observe']));
   succeeded(f.run(['mod::android-launch']));
+  succeeded(f.run(['mod::android-launcher']));
   succeeded(f.run(['mod::android-capture', 'enabled-1']));
   succeeded(f.run(['mod::android-screen-check', 'baseline']));
   assert.deepEqual(f.calls(), [
     call(f.dir, 'mod', 'mod-android', 'deploy'),
     call(f.dir, 'mod', 'mod-android', 'mode', 'observe'),
     call(f.dir, 'mod', 'mod-android', 'launch'),
+    call(f.dir, 'mod', 'mod-android', 'launcher'),
     call(f.dir, 'mod', 'mod-android', 'capture', 'enabled-1'),
     call(f.dir, 'mod', 'mod-android', 'screen-check', 'baseline')
   ]);
