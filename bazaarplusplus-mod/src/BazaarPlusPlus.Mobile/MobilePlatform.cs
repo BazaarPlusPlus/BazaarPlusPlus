@@ -173,8 +173,8 @@ internal interface IMobilePlatformPort
     /// </summary>
     bool NativeHudBusy();
 
-    /// <summary>Whether a fight or a replay is playing.</summary>
-    bool IsPlaying();
+    /// <summary>Whether a fight or a replay plays and whether the recap of a fight is open.</summary>
+    TouchPlayState PlayState();
 
     /// <summary>
     /// The vault, the player's bank on the board, in canvas units scaled to

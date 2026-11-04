@@ -389,19 +389,20 @@ foreach (var name in BazaarPlusPlus.Core.GameState.PedestalEnchantCatalog.Enchan
         $"The pedestal catalog's enchantment '{name}' must be an EEnchantmentType member."
     );
 
-// iOS host: as on the Android host, a fight's or a replay's card neither previews its upgrade nor
-// offers the switch, whatever [Touch] UpgradePreview says. BppHotkeyService.IsActive(HoldUpgradePreview), which
+// iOS host: as on the Android host, a card the play blocks (a fight's, a replay's or a recap's)
+// never previews its upgrade, whatever [Touch] UpgradePreview says. BppHotkeyService.IsActive(HoldUpgradePreview), which
 // the tooltip patches read, returns TouchUpgradePreview.Active on a mobile platform.
 var touchSettings = new MemorySettingsStore();
 var previewBlocked = false;
-TouchUpgradePreview.Bind(touchSettings, () => previewBlocked);
+TouchUpgradePreview.Bind(
+    BazaarPlusPlus.Mobile.Previews.TouchUpgradePreviewSetting.Bind(touchSettings),
+    () => previewBlocked
+);
 touchSettings.Bool("Touch", "UpgradePreview").Value = true;
 var shopCard = new object();
 TouchUpgradePreview.BeginTooltip(shopCard);
 Assert(
-    TouchUpgradePreview.Active == true
-        && TouchUpgradePreview.Offered
-        && TouchUpgradePreview.Holds(shopCard),
+    TouchUpgradePreview.Active == true && TouchUpgradePreview.Holds(shopCard),
     "Outside a fight or a replay a new tooltip starts with the upgrade preview the settings switch turns on."
 );
 previewBlocked = true;
@@ -410,10 +411,6 @@ TouchUpgradePreview.BeginTooltip(replayCard);
 Assert(
     TouchUpgradePreview.Active == false && !TouchUpgradePreview.Holds(replayCard),
     "A fight or replay card's tooltip must not start with the upgrade preview."
-);
-Assert(
-    !TouchUpgradePreview.Offered,
-    "A fight or replay card's tooltip must not offer the upgrade switch."
 );
 previewBlocked = false;
 TouchUpgradePreview.BeginTooltip(shopCard);

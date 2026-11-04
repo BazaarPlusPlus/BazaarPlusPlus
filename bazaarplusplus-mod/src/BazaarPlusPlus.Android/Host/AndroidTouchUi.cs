@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.CollectionPanel.Sources;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile;
 using BazaarPlusPlus.Mobile.Collection;
 using BazaarPlusPlus.Mobile.Hud;
 using BazaarPlusPlus.Mobile.LiveBuild;
@@ -169,7 +170,7 @@ internal sealed class AndroidTouchUi
                 "History",
                 HistoryPanelText.Title,
                 offered,
-                () => !IsPlaying(),
+                () => !MobilePlatform.Port.PlayState().IsPlaying,
                 open
             );
         }
@@ -184,7 +185,7 @@ internal sealed class AndroidTouchUi
     {
         if (_root == null)
             return;
-        var playing = IsPlaying();
+        var playing = MobilePlatform.Port.PlayState().IsPlaying;
         if (_liveBuild != null && !_liveBuildData!.Warmed)
             _liveBuildData.Warm("touch_ui");
         // Built ahead of the first open, outside fights and replays; an open panel paces it.
@@ -200,9 +201,4 @@ internal sealed class AndroidTouchUi
         if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
             _panels.TryConsumeBack("keyboard");
     }
-
-    // A combat or a replay is on: no panel opens, as on the desktop.
-    private static bool IsPlaying() =>
-        Il2CppTheBazaar.Data.IsInCombat
-        || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>() != null;
 }

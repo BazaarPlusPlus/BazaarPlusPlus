@@ -173,8 +173,12 @@ internal sealed class TouchMobilePlatform(Func<DesktopOverlayPanels?> overlayPan
             && TheBazaar.DataExtensions.IsEndOfRunState(state)
         );
 
-    public bool IsPlaying() =>
-        TheBazaar.Data.IsInCombat || TheBazaar.AppState.CurrentState is TheBazaar.ReplayState;
+    public TouchPlayState PlayState() =>
+        new(
+            TheBazaar.Data.IsInCombat,
+            TheBazaar.AppState.CurrentState is TheBazaar.ReplayState,
+            Singleton<BoardManager>.Instance?.IsRecapViewOpen == true
+        );
 
     public bool TryReadVault(float referenceHeight, out TouchRect vault) =>
         _vault.TryRead(referenceHeight, out vault);

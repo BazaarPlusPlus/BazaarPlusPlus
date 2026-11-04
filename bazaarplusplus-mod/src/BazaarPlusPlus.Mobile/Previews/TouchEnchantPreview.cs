@@ -76,6 +76,8 @@ internal sealed class TouchEnchantPreview<TTooltip>
     /// </summary>
     public IReadOnlyList<string> InlineCandidates(TTooltip tooltip)
     {
+        if (!MobilePlatform.Port.PlayState().OffersEnchantments)
+            return [];
         var mode = _mode();
         var pedestal = EnchantPreviewVisibility.ReadsPedestal(mode) ? _pedestal() : null;
         if (!EnchantPreviewVisibility.Shows(mode, pedestal))
@@ -84,8 +86,13 @@ internal sealed class TouchEnchantPreview<TTooltip>
         return _host.Candidates(tooltip).Where(name => Allowed(name, restriction)).ToArray();
     }
 
-    /// <summary>The enchantments the tooltip's item can take besides its own (<see cref="IEnchantPreviewHost{TTooltip}.Candidates"/>).</summary>
-    public IReadOnlyList<string> Candidates(TTooltip tooltip) => _host.Candidates(tooltip);
+    /// <summary>
+    /// The enchantments the tooltip's item can take besides its own
+    /// (<see cref="IEnchantPreviewHost{TTooltip}.Candidates"/>), or none during a fight or a
+    /// replay (<see cref="TouchPlayState.OffersEnchantments"/>).
+    /// </summary>
+    public IReadOnlyList<string> Candidates(TTooltip tooltip) =>
+        MobilePlatform.Port.PlayState().OffersEnchantments ? _host.Candidates(tooltip) : [];
 
     /// <summary>The contents of a card tooltip start to render: build its main-text section.</summary>
     public void Prepare(TTooltip? tooltip)

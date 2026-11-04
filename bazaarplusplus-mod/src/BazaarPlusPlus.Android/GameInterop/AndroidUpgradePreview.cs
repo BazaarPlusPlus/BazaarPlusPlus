@@ -1,7 +1,7 @@
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile;
 using Il2CppBazaarGameClient.Domain.Models.Cards;
-using Il2CppTheBazaar;
 using Il2CppTheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Android.GameInterop;
@@ -132,9 +132,7 @@ internal static class AndroidUpgradePreview
 
     private static bool IsEligible(Il2Cpp.CardController controller)
     {
-        if (Data.IsInCombat || AppState.CurrentState?.TryCast<ReplayState>() != null)
-            return false;
-        if (Il2Cpp.BoardManager.Instance?.IsRecapViewOpen == true)
+        if (!MobilePlatform.Port.PlayState().PreviewsUpgrade)
             return false;
         var card = controller.CardData;
         return card?.TryCast<ItemCard>() != null

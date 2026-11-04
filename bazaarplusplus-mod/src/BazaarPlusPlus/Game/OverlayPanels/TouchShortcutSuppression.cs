@@ -3,9 +3,9 @@
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
 /// <summary>
-/// The Mobile UI shortcuts' rule beyond the HUD's own on the Mono host (TouchHudMount): they hide
-/// while an end-of-run screenshot suppresses BPP chrome (BppUiChromeSuppression), as the desktop
-/// dock buttons they replace did. Main thread.
+/// The Mobile UI HUD's chrome rule beyond its own on the Mono host (TouchHudMount): the shortcuts
+/// and the combat clock hide while an end-of-run screenshot suppresses BPP chrome
+/// (BppUiChromeSuppression), as the desktop dock buttons and bar they replace did. Main thread.
 /// </summary>
 internal static class TouchShortcutSuppression
 {
@@ -14,9 +14,8 @@ internal static class TouchShortcutSuppression
     /// <summary>
     /// Hides the HUD now, the shortcuts and the combat clock (TouchHudMount sets it). The HUD
     /// ticks in the next frame's Update, after a capture of this frame, so <see cref="Begin"/>
-    /// hides it itself. From that tick on, each part's own rule keeps it hidden: the shortcuts'
-    /// <see cref="Shown"/>, and the clock's CombatStatusBar.ShowsTouchClock, whose lease the
-    /// same screenshot scope holds (BppUiChromeSuppression).
+    /// hides it itself. From that tick on, <see cref="Shown"/>, the HUD's chrome rule, keeps both
+    /// hidden.
     /// </summary>
     internal static Action? Hide { get; set; }
 

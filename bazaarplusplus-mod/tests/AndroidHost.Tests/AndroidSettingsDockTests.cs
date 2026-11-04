@@ -5,6 +5,7 @@ using BazaarPlusPlus.Android.Settings;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile.Previews;
 using Xunit;
 
 namespace AndroidHost.Tests;
@@ -104,34 +105,38 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(new[] { "refresh_previews" }, dock.Calls);
     }
 
+    // The combat clock reads the desktop bar's [CombatStatusBar] Enabled, as on iOS; the row is
+    // Core's, labelled as the desktop's.
     [Fact]
-    public void Combat_timer_is_an_independent_default_on_touch_switch()
+    public void Combat_status_writes_the_shared_default_on_setting()
     {
         var dock = new Dock();
         var row = dock.Row("CombatStatusBar");
-        Assert.Equal("Combat timer", row.ResolveLabel("en"));
+        Assert.Equal("Combat Status", row.ResolveLabel("en"));
         Assert.True(row.ReadToggle!());
-        row.WriteToggle!(true);
-        Assert.True(dock.Android.CombatTimer.Value);
-        row.WriteToggle(false);
-        Assert.False(dock.Android.CombatTimer.Value);
+        row.WriteToggle!(false);
+        Assert.False(dock.Shared.EnableCombatStatusBarConfig.Value);
+        row.WriteToggle(true);
         Assert.True(dock.Shared.EnableCombatStatusBarConfig.Value);
+        Assert.Empty(dock.Calls);
     }
 
+    // [Touch] UpgradePreview, the Mobile UI's switch, as on iOS.
     [Fact]
     public void Switching_upgrade_preview_off_releases_its_tooltip()
     {
         var dock = new Dock();
         var row = dock.Row("UpgradePreview");
-        Assert.False(dock.Android.UpgradePreview.Value);
+        Assert.Equal("Upgrade preview", row.ResolveLabel("en"));
+        Assert.False(dock.Store.Bool("Touch", "UpgradePreview").Value);
         Assert.False(row.ReadToggle!());
 
         row.WriteToggle!(true);
-        Assert.True(dock.Android.UpgradePreview.Value);
+        Assert.True(dock.Store.Bool("Touch", "UpgradePreview").Value);
         Assert.Empty(dock.Calls);
 
         row.WriteToggle(false);
-        Assert.False(dock.Android.UpgradePreview.Value);
+        Assert.False(dock.Store.Bool("Touch", "UpgradePreview").Value);
         Assert.Equal(new[] { "release_upgrade_preview:switched_off" }, dock.Calls);
     }
 
@@ -243,13 +248,11 @@ public sealed class AndroidSettingsDockTests
     {
         public Dock()
         {
-            var store = new MemoryStore();
-            Shared = new BppSettings(store);
-            Android = new AndroidSettings(store);
+            Shared = new BppSettings(Store);
             var registry = new SettingsDockEntryRegistry();
             AndroidSettingsDock.Register(
                 registry,
-                Android,
+                TouchUpgradePreviewSetting.Bind(Store),
                 new AndroidSettingsDockHooks(
                     reason => Calls.Add($"release_upgrade_preview:{reason}"),
                     () => HistoryAvailable,
@@ -267,9 +270,9 @@ public sealed class AndroidSettingsDockTests
                 .ToArray();
         }
 
-        public BppSettings Shared { get; }
+        public MemoryStore Store { get; } = new();
 
-        public AndroidSettings Android { get; }
+        public BppSettings Shared { get; }
 
         public IReadOnlyList<BppSettingsDockDefinition> Rows { get; }
 
@@ -284,6 +287,8 @@ public sealed class AndroidSettingsDockTests
 
     private sealed class MemoryStore : IBppSettingsStore
     {
+        private readonly Dictionary<(string, string), object> _bound = new();
+
         public ISetting<T> Bind<T>(
             string section,
             string key,
@@ -291,7 +296,15 @@ public sealed class AndroidSettingsDockTests
             string description,
             SettingRange<T>? acceptableRange = null
         )
-            where T : IComparable => new Setting<T> { Value = defaultValue };
+            where T : IComparable
+        {
+            var setting = new Setting<T> { Value = defaultValue };
+            _bound[(section, key)] = setting;
+            return setting;
+        }
+
+        public ISetting<bool> Bool(string section, string key) =>
+            (ISetting<bool>)_bound[(section, key)];
 
         private sealed class Setting<T> : ISetting<T>
         {

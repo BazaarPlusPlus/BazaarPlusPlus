@@ -7,9 +7,9 @@ namespace BazaarPlusPlus.Mobile.Hud;
 /// <summary>What a host hands the HUD.</summary>
 /// <param name="OpenCollection">Opens Collection with the open's source.</param>
 /// <param name="OpenLiveBuild">Opens Ten-Win Builds, or null when the host has none.</param>
-/// <param name="ShortcutsShown">
-/// The host's own rule for the shortcuts beyond the HUD's: nothing of the host's hides them (on
-/// the Mono host, an end-of-run screenshot; Android takes none).
+/// <param name="ChromeShown">
+/// The host's own rule for the shortcuts and the clock beyond the HUD's: nothing of the host's
+/// hides them (on the Mono host, an end-of-run screenshot; Android takes none).
 /// </param>
 /// <param name="Clock">The combat clock's state, or null for no clock.</param>
 /// <param name="Previews">
@@ -22,7 +22,7 @@ namespace BazaarPlusPlus.Mobile.Hud;
 internal sealed record TouchHudData(
     Func<string, OverlayRequestOutcome> OpenCollection,
     Func<string, OverlayRequestOutcome>? OpenLiveBuild,
-    Func<bool> ShortcutsShown,
+    Func<bool> ChromeShown,
     TouchCombatClockData? Clock,
     TouchPreviewSwitches? Previews,
     TouchScreenFill? ScreenFill
@@ -53,15 +53,11 @@ internal sealed class TouchHud : IDisposable
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
-        Shortcuts = new TouchShortcuts(
-            data.OpenCollection,
-            data.OpenLiveBuild,
-            data.ShortcutsShown
-        );
+        Shortcuts = new TouchShortcuts(data.OpenCollection, data.OpenLiveBuild, data.ChromeShown);
         _screenFill = data.ScreenFill;
         var screenFill = _screenFill;
         _clock = data.Clock is { } clock
-            ? new TouchCombatClock(clock, () => screenFill?.BoardTop)
+            ? new TouchCombatClock(clock, () => screenFill?.BoardTop, data.ChromeShown)
             : null;
         _previews = data.Previews;
         // Never RequestOpen this handle: the host would close the open panel as superseded, and

@@ -11,7 +11,7 @@ namespace BazaarPlusPlus.Game.Tooltips;
 
 /// <summary>
 /// The Mono host's item tooltip for the Mobile UI's preview switches on a mobile platform
-/// (ADR-0025): it reads the shown tooltip each frame, outside a fight. The upgrade preview is
+/// (ADR-0025): it reads the shown tooltip each frame. The upgrade preview is
 /// <see cref="TouchUpgradePreview"/>'s, which the desktop's tooltip patches read through
 /// <c>BppHotkeyService</c>; the enchantments are the Mobile UI's enchant preview's
 /// (<see cref="TouchEnchantPreviewHost.Preview"/>).
@@ -33,7 +33,7 @@ internal sealed class TouchTooltipPreviewHost : ITooltipPreviewHost
             shown != null && shown.isActiveAndEnabled
                 ? shown.CurrentTooltipData as CardTooltipData
                 : null;
-        if (Data.IsInCombat || data?.CardInstance is not ItemCard)
+        if (data?.CardInstance is not ItemCard)
         {
             card = _card;
             render = _card;
@@ -57,16 +57,7 @@ internal sealed class TouchTooltipPreviewHost : ITooltipPreviewHost
 
     public ScrollRect? DescriptionScroll() => _controller?.MobileSecondaryTooltipScrollRect;
 
-    /// <summary>Whether the game shows a fight or a replay, whose cards preview no upgrade (<see cref="TouchUpgradePreview"/>).</summary>
-    internal static bool UpgradePreviewBlocked() =>
-        Data.IsInCombat || AppState.CurrentState is ReplayState;
-
-    // As on the Android host, BPP never previews the upgrade of a fight's, a replay's or a recap's card.
-    public bool CanToggleUpgrade =>
-        _cardInstance is ItemCard item
-        && item.CanCardUpgrade()
-        && TouchUpgradePreview.Offered
-        && Singleton<BoardManager>.Instance?.IsRecapViewOpen != true;
+    public bool CanToggleUpgrade => _cardInstance is ItemCard item && item.CanCardUpgrade();
 
     public bool UpgradeShown => TouchUpgradePreview.Active == true;
 

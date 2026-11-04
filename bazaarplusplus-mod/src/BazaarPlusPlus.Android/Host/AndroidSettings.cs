@@ -3,27 +3,14 @@ using BazaarPlusPlus.Core.Config;
 namespace BazaarPlusPlus.Android.Host;
 
 /// <summary>
-/// The settings only the Android host has, in the <c>[Android]</c> section of the same
-/// <c>BazaarPlusPlus.cfg</c> that holds the shared <see cref="BppSettings"/>. Touch replaces the
-/// desktop's hotkeys: the upgrade preview, held on Shift there, is a persisted switch here.
+/// The settings only the Android host has, in the same <c>BazaarPlusPlus.cfg</c> that holds the
+/// shared <see cref="BppSettings"/> and the Mobile UI's <c>[Touch]</c> switch.
 /// </summary>
 internal sealed class AndroidSettings
 {
     public AndroidSettings(IBppSettingsStore store)
     {
         ArgumentNullException.ThrowIfNull(store);
-        CombatTimer = store.Bind(
-            "Android",
-            "CombatTimer",
-            true,
-            "Show the touch combat timer and playback controls only during combat or replay."
-        );
-        UpgradePreview = store.Bind(
-            "Android",
-            "UpgradePreview",
-            false,
-            "Whether item tooltips automatically show the next tier's values. Each tooltip also offers a touch toggle."
-        );
         DevReleaseManifestPort = store.Bind(
             "Dev",
             "ReleaseManifestPort",
@@ -37,8 +24,4 @@ internal sealed class AndroidSettings
     /// (<see cref="Lobby.AndroidVersionCheck.DevManifest"/>).
     /// </summary>
     public ISetting<int> DevReleaseManifestPort { get; }
-
-    public ISetting<bool> UpgradePreview { get; }
-
-    public ISetting<bool> CombatTimer { get; }
 }

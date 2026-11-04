@@ -1,3 +1,5 @@
+using BazaarPlusPlus.Core.GameState;
+using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Infrastructure;
@@ -10,29 +12,31 @@ namespace BazaarPlusPlus.Mobile.Hud;
 
 /// <summary>What a host hands the combat clock.</summary>
 /// <param name="State">The playback state the host's combat hooks feed, as the desktop bar's.</param>
-/// <param name="Enabled">The clock's setting.</param>
-/// <param name="Shown">
-/// The host's own rule beyond the setting: a run or a replay is on, and nothing of the host's
-/// hides the clock (on the Mono host, an end-of-run screenshot).
-/// </param>
+/// <param name="Enabled">The clock's setting, the desktop bar's <c>[CombatStatusBar] Enabled</c>.</param>
+/// <param name="RunContext">The host's run, for the desktop bar's run-or-replay rule.</param>
+/// <param name="GameState">The host's live game-state read, for the same rule.</param>
 /// <param name="TogglePause">Pauses or resumes the playing fight.</param>
 internal sealed record TouchCombatClockData(
     CombatStatusBarState State,
     Func<bool> Enabled,
-    Func<bool> Shown,
+    IRunContext RunContext,
+    IGameStateProbe GameState,
     Action TogglePause
 );
 
 /// <summary>
 /// The combat clock on a mobile platform: a plaque by the vault with the logical time and touch
 /// speed and pause controls, over the desktop bar's <see cref="CombatStatusBarState"/>. It shows
-/// for the whole run or replay, as the desktop bar does, and hides under a panel, a native popup
-/// or card inspection.
+/// for the whole run or replay, by the desktop bar's rule
+/// (<see cref="CombatStatusBarState.ShouldRenderForState"/>), and hides under a panel, a native
+/// popup or card inspection, and while the host hides the HUD's chrome
+/// (<see cref="TouchHudData.ChromeShown"/>).
 /// </summary>
 internal sealed class TouchCombatClock : IDisposable
 {
     private readonly TouchCombatClockData _data;
     private readonly Func<float?> _readBoardTop;
+    private readonly Func<bool> _chromeShown;
     private GameObject? _root;
     private TextMeshProUGUI? _time;
     private Image? _pauseIcon;
@@ -81,10 +85,16 @@ internal sealed class TouchCombatClock : IDisposable
     /// Screen Fill's board top in screen pixels down from the top, where the HUD gathers in a band
     /// above the board; null elsewhere.
     /// </param>
-    public TouchCombatClock(TouchCombatClockData data, Func<float?> boardTop)
+    /// <param name="chromeShown">The host's rule for the HUD's chrome.</param>
+    public TouchCombatClock(
+        TouchCombatClockData data,
+        Func<float?> boardTop,
+        Func<bool> chromeShown
+    )
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         _readBoardTop = boardTop ?? throw new ArgumentNullException(nameof(boardTop));
+        _chromeShown = chromeShown ?? throw new ArgumentNullException(nameof(chromeShown));
     }
 
     /// <summary>Every frame, from the host's Overlay Panel Host.</summary>
@@ -99,7 +109,9 @@ internal sealed class TouchCombatClock : IDisposable
             state.IsCombatPlaybackActive,
             Time.unscaledDeltaTime
         );
-        var shown = enabled && _data.Shown();
+        var shown =
+            CombatStatusBarState.ShouldRenderForState(enabled, _data.RunContext, _data.GameState)
+            && _chromeShown();
         var visible = shown && !panelOpen && !MobilePlatform.Port.NativeHudBusy();
         if (!visible)
         {

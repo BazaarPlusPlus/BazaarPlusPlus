@@ -24,8 +24,6 @@ internal sealed class AndroidEnchantPreviewHost : IEnchantPreviewHost<CardToolti
 {
     public IReadOnlyList<string> Candidates(CardTooltipData tooltip)
     {
-        if (Data.IsInCombat || AppState.CurrentState?.TryCast<ReplayState>() != null)
-            return [];
         var item = tooltip.CardInstance?.TryCast<ItemCard>();
         var template = tooltip.CardTemplate?.TryCast<TCardItem>();
         if (item == null || template?.Enchantments == null || !IsEligibleSection(item))

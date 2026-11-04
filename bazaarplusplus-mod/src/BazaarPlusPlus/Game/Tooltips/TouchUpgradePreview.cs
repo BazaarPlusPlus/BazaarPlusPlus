@@ -1,7 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Core.Config;
-using BazaarPlusPlus.Game.Settings;
-using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.Tooltips;
 
@@ -9,15 +7,14 @@ namespace BazaarPlusPlus.Game.Tooltips;
 /// The upgrade preview on a mobile platform (ADR-0024): a touch screen has no Shift key, so, as
 /// on the Android host, each item tooltip has its own upgrade switch (the Mobile UI's
 /// <c>TouchPreviewSwitches</c>, through <see cref="TouchTooltipPreviewHost"/>) and the settings
-/// switch chooses where a new tooltip starts. <c>BppHotkeyService.IsActive(HoldUpgradePreview)</c>
-/// reads the current tooltip's switch. Host state the desktop's tooltip patches read, so it stays
-/// in the host, as Android's <c>AndroidUpgradePreview</c> does. As on the Android host, a card in a
-/// fight or a replay never previews its upgrade and offers no switch.
+/// switch, the Mobile UI's <c>[Touch] UpgradePreview</c>, chooses where a new tooltip starts.
+/// <c>BppHotkeyService.IsActive(HoldUpgradePreview)</c> reads the current tooltip's switch. Host
+/// state the desktop's tooltip patches read, so it stays in the host, as Android's
+/// <c>AndroidUpgradePreview</c> does. While the play blocks the upgrade preview, no card
+/// previews its upgrade.
 /// </summary>
 internal static class TouchUpgradePreview
 {
-    private static readonly LocalizedTextSet Label = new("Upgrade preview", "升级预览", "升級預覽");
-
     private static ISetting<bool>? _setting;
     private static Func<bool> _previewBlocked = static () => false;
 
@@ -26,9 +23,6 @@ internal static class TouchUpgradePreview
 
     /// <summary>The current tooltip's switch, or null when the host is not on a mobile platform.</summary>
     internal static bool? Active => _setting == null ? null : _selected && !_previewBlocked();
-
-    /// <summary>Whether the current tooltip may preview its upgrade: a mobile platform, not a fight or a replay.</summary>
-    internal static bool Offered => _setting != null && !_previewBlocked();
 
     /// <summary>Main thread, before a card shows its tooltip: a new card starts at the settings switch.</summary>
     internal static void BeginTooltip(object? card)
@@ -59,29 +53,11 @@ internal static class TouchUpgradePreview
         _selected = false;
     }
 
-    // previewBlocked: whether the game shows a fight or a replay, whose cards preview no upgrade.
-    internal static void Bind(IBppSettingsStore store, Func<bool> previewBlocked)
+    // setting: the settings switch. previewBlocked: whether the play blocks every card's upgrade
+    // preview (the Mobile UI's TouchPlayState.PreviewsUpgrade, read through its port).
+    internal static void Bind(ISetting<bool> setting, Func<bool> previewBlocked)
     {
+        _setting = setting;
         _previewBlocked = previewBlocked;
-        _setting = store.Bind(
-            "Touch",
-            "UpgradePreview",
-            false,
-            "Mobile platforms only: whether item tooltips start with the next tier's values. Each tooltip also offers a touch toggle."
-        );
     }
-
-    internal static CyclingSettingsDockEntry<bool> CreateDockEntry() =>
-        CyclingSettingsDockEntry<bool>.Toggle(
-            BppSettingsDockOrder.UpgradePreviewSwitch,
-            "UpgradePreview",
-            languageCode => Label.Resolve(languageCode, L.CurrentMode),
-            _ => _setting?.Value == true,
-            (_, enabled) =>
-            {
-                if (_setting != null)
-                    _setting.Value = enabled;
-            },
-            _ => { }
-        );
 }

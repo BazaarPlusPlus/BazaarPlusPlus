@@ -26,8 +26,6 @@ internal sealed class TouchEnchantPreviewHost : IEnchantPreviewHost<CardTooltipD
 
     public IReadOnlyList<string> Candidates(CardTooltipData tooltip)
     {
-        if (Data.IsInCombat || AppState.CurrentState is ReplayState)
-            return Array.Empty<string>();
         if (
             tooltip.CardInstance is not ItemCard item
             || tooltip.CardTemplate is not TCardItem template
