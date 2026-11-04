@@ -3,14 +3,25 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
+import {
+  fetchLockedAndroidInput,
+  lockedInteropEntry
+} from '../release/game-libs.mjs';
+import { applyLogin } from './android-login.mjs';
 import { inspectScreen } from './android-screen.mjs';
 import * as ios from './setup-device-ios.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
-const packageName = 'com.tempogames.thebazaar';
-const melon = `/sdcard/Android/data/${packageName}/files/MelonLoader`;
-const latestLog = `${melon}/MelonLoader/Latest.log`;
-const activity = `${packageName}/com.unity3d.player.UnityPlayerActivity`;
+const gamePackage = 'com.tempogames.thebazaar';
+// The debug Android App launches the game as a player does; the game runs in its process.
+const app = 'com.bazaarplusplus.android.dev';
+// Relative to run-as's working directory: the game's files in the App's sandbox (ADR 0012).
+const latestLog = 'no_backup/game-external/MelonLoader/MelonLoader/Latest.log';
+// The App's LemonLoader reset marker: the debug App's versionCode never changes, so a reinstall
+// alone would keep an older Loader Release's deployment.
+const loaderDeployment = 'no_backup/loader-deployment.json';
+const androidApp = path.join(root, 'bazaarplusplus-android');
+const androidScript = path.join(root, 'bazaarplusplus-mod/scripts/android.sh');
 const evidence = (profile) =>
   path.join(
     root,
@@ -36,17 +47,22 @@ Android (macOS arm64, Node, Android SDK)
 ${profiles.map((p) => `  ${p.name.padEnd(17)} ${p.width}x${p.height}@${p.dpi}  emulator-${p.port}`).join('\n')}
 
 init defaults to all, seed bpp_emu_20_9, and a 300-second login wait per AVD.
-Missing AVDs copy the stopped seed's installed game and local account data;
-existing AVDs keep their data. The seed must already have the injected game.
-On a new machine, first install the LemonLoader-injected game on one Android 35
-Google Play arm64 AVD and sign in, then use --seed NAME. No APK is downloaded.
-Each AVD cold-boots, launches the game afresh, waits for MainMenuScene and a
-following hooks summary, and captures the screen and native display metrics.
-If sign-in is needed, complete it in the emulator window while init waits.
-If the game exits during cold-start loading, init records it and retries once.
+Missing AVDs copy the stopped seed's installed apps and local data; existing
+AVDs keep their data. Any Android 35 Google Play arm64 AVD can be the seed.
+Each AVD runs the game as a player does: init installs the locked official
+game when another build is there (uninstalling it loses only that package's own
+data; the App's sandbox and its game login stay), installs the
+debug Android App with its runtime and the Development interop, deploys this
+checkout's mod into the App, applies config.ini [game] login when present, then
+taps Play on the launcher. It waits for MainMenuScene and a following hooks
+summary and captures the screen and native display metrics. Without a [game]
+login, sign in in the emulator window while init waits. If the game exits
+during cold-start loading, init records it and retries once.
 Success stops the AVD, preserving user data; --keep-open needs a single NAME.
 Failure leaves the device open and returns nonzero. Rerun init after repair.
-This prepares the installed build; it neither builds nor deploys this checkout.
+The official APK, build/runtime and build/interop.zip come from the private
+store once: just with-config release just setup-device NAME, and
+just with-config release just android::stage-runtime (and ::interop-package).
 All profiles are static screen fixtures; fold does not simulate a hinge.
 
 ANDROID_HOME selects the SDK (default ~/Library/Android/sdk).
@@ -259,6 +275,73 @@ async function until(seconds, check, message) {
   throw new Error(message);
 }
 
+// Brings the AVD to the player's setup with this checkout: the locked official game, the debug
+// Android App with its runtime and the Development interop, this checkout's mod in the App's game
+// files, and the game login from config.ini [game] when it holds one.
+async function provision(adb, env, profile) {
+  const locked = lockedInteropEntry(root).apkSha256;
+  let installed = '';
+  try {
+    const apk = adb('shell', 'pm', 'path', gamePackage)
+      .split(/\r?\n/)
+      .find((line) => line.endsWith('/base.apk'))
+      ?.slice('package:'.length);
+    // Hashing the 2.8 GB APK on the emulator takes far longer than an adb call.
+    if (apk)
+      installed = run(
+        env.ADB,
+        ['-s', env.ANDROID_SERIAL, 'shell', 'sha256sum', apk],
+        { timeout: 300_000 }
+      )
+        .trim()
+        .split(/\s+/)[0];
+  } catch {
+    /* pm path exits 1 when the game is not installed. */
+  }
+  if (installed !== locked) {
+    let file;
+    try {
+      file = await fetchLockedAndroidInput({ kind: 'apk', log: console.log });
+    } catch (error) {
+      throw new Error(
+        `The locked official game APK is not cached (${error.message}). Fetch it once with: just with-config release just setup-device ${profile.name}`
+      );
+    }
+    console.log(
+      `${profile.name}: installing the locked official game (${installed ? 'replacing another build' : 'not installed'}).`
+    );
+    if (installed) adb('uninstall', gamePackage);
+    run(env.ADB, ['-s', env.ANDROID_SERIAL, 'install', file], {
+      timeout: 900_000
+    });
+  }
+  for (const [file, recipe] of [
+    ['build/runtime', 'android::stage-runtime'],
+    ['build/interop.zip', 'android::interop-package']
+  ])
+    if (!fs.existsSync(path.join(androidApp, file)))
+      throw new Error(
+        `No ${file} in bazaarplusplus-android; run: just with-config release just ${recipe}`
+      );
+  const just = (...args) =>
+    run('just', args, { cwd: root, env, timeout: 900_000 });
+  console.log(
+    `${profile.name}: installing the debug App, the Development interop and this checkout's mod.`
+  );
+  just('android::install');
+  adb('shell', 'run-as', app, 'rm', '-f', loaderDeployment);
+  just('android::push-interop');
+  just('mod::android-build');
+  just('mod::android-deploy');
+  try {
+    applyLogin(env.ANDROID_SERIAL, { env });
+  } catch (error) {
+    console.log(
+      `${profile.name}: ${error.message} Sign in to the game in the emulator window when it asks.`
+    );
+  }
+}
+
 async function initialize(p, profile, { seed, timeout, keepOpen }) {
   const serial = `emulator-${profile.port}`;
   const active = devices(p);
@@ -292,10 +375,22 @@ async function initialize(p, profile, { seed, timeout, keepOpen }) {
     );
   save();
   const adb = (...args) => run(p.adb, ['-s', serial, ...args]);
-  const launch = () => {
-    adb('shell', 'rm', '-f', latestLog);
-    adb('shell', 'am', 'start', '-n', activity);
+  // Recipes and android-login call bare adb and Gradle: give them this SDK.
+  const env = {
+    ...process.env,
+    ADB: p.adb,
+    ANDROID_HOME: p.sdk,
+    ANDROID_SERIAL: serial,
+    BPP_ANDROID_SERIAL: serial,
+    PATH: `${path.dirname(p.adb)}${path.delimiter}${process.env.PATH}`
   };
+  // Restarts the App and taps Play on its launcher (android.sh launch).
+  const launch = () =>
+    run('bash', [androidScript, 'launch'], {
+      cwd: path.join(root, 'bazaarplusplus-mod'),
+      env,
+      timeout: 180_000
+    });
   const output = fs.openSync(path.join(out, 'emulator.log'), 'w', 0o600);
   const child = spawn(
     p.emulator,
@@ -340,15 +435,7 @@ async function initialize(p, profile, { seed, timeout, keepOpen }) {
       throw new Error(
         `${serial} is not ${profile.name}; refusing to touch its game.`
       );
-    try {
-      adb('shell', 'test', '-f', `${melon}/Mods/BazaarPlusPlus.Android.dll`);
-    } catch {
-      throw new Error(
-        `${profile.name} has no Android Mod Payload. Install the LemonLoader-injected game before rerunning init.`
-      );
-    }
-    adb('shell', 'am', 'force-stop', packageName);
-    adb('logcat', '-c');
+    await provision(adb, env, profile);
     launch();
     let launchedAt = Date.now();
     receipt.restarts = 0;
@@ -357,7 +444,7 @@ async function initialize(p, profile, { seed, timeout, keepOpen }) {
       () => {
         let log = '';
         try {
-          log = adb('shell', 'cat', latestLog);
+          log = adb('exec-out', 'run-as', app, 'cat', latestLog);
         } catch {
           /* The loader has not created its log yet. */
         }
@@ -367,7 +454,7 @@ async function initialize(p, profile, { seed, timeout, keepOpen }) {
         if (Date.now() - launchedAt > 10_000) {
           let running = false;
           try {
-            running = Boolean(adb('shell', 'pidof', packageName).trim());
+            running = Boolean(adb('shell', 'pidof', app).trim());
           } catch {
             /* pidof exits 1 when absent. */
           }
@@ -412,7 +499,7 @@ async function initialize(p, profile, { seed, timeout, keepOpen }) {
     receipt.screen = screen;
     save();
     if (!keepOpen) {
-      adb('shell', 'am', 'force-stop', packageName);
+      adb('shell', 'am', 'force-stop', app);
       adb('emu', 'kill');
       await until(
         60,

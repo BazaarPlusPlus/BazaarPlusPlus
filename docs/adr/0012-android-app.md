@@ -93,7 +93,7 @@ Android App 在每次 BPP 启动之前，在**游戏存储**（见“游戏存�
 
 mod 读它的规则：
 
-- 文件不存在：mod 不在 Android App 里运行（A 版副本，或 `just mod::android-deploy` 的开发部署），这些情况的 interop 由 APK 自带，与 Mods 匹配；在日志里记录，正常运行。
+- 文件不存在：mod 不是由 Android App 按平台清单启动的（A 版副本，或用 Development interop 启动的 `just mod::android-deploy` 开发部署），这些情况的 interop 由 APK 自带或与快照锁一致，与 Mods 匹配；在日志里记录，正常运行。
 - 文件存在，但读不了、`schemaVersion` 不认识、`processId` 不是当前进程，或 `release` 与正在运行的 Mods 版本不同：在日志里记录，正常运行，上传照常。
 - 在 Android App 里运行时，Updater 拿暂存清单的 `nonManagedPayloadDigest` 和启动记录里 `app.nonManagedPayloadDigest` 比较，而不是和已安装清单比较：已安装的 Mods 是旧 Android App 时暂存的，它记的是旧运行时的摘要。history schema 与“版本必须更新”两条检查照旧和已安装清单比较。启动记录不存在、读不了或进程号不对时，Updater 退回现有规则（和已安装清单比较）。
 - 在 Android App 里运行时，mod 不再自己下载和暂存 Managed Payload（Core 的 `SelfUpdateStaging`）。暂存只由 Android App 做，这样换入的 Mods 总是 Android App 这次启动所用 interop 对应的版本。mod 只显示"有新版本，请从 BPP App 重新启动"。

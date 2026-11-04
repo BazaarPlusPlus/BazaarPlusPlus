@@ -5,7 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const root = path.resolve(import.meta.dirname, '..');
 const ios = path.join(root, 'bazaarplusplus-ios');
-const app = path.join(
+export const app = path.join(
   ios,
   'build/steam-app/simulator/launcher-derived/Build/Products/Release-iphonesimulator/BazaarPlusPlus.app'
 );

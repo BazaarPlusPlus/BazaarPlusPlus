@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # The Android host's device loop. Entry points: `just mod::android-*`.
-# It drives one device or emulator that already runs the LemonLoader-injected game: it builds,
-# pushes the build's files to their MelonLoader Payload paths (release/payload.json), switches the
-# patch mode, relaunches the game, captures evidence, and runs the three-level smoke over all of it.
-# It never installs, uninstalls, or clears the game's data, so the device's signed-in account
-# survives every command.
+# It drives one device or emulator with the official game and the debug Android App, launching the
+# game from the App's launcher as a player does (ADR 0012): it builds, puts the build's files at
+# their MelonLoader Payload paths (release/payload.json) in the App's game files, switches the
+# patch mode, relaunches, captures evidence, and runs the three-level smoke over all of it. It
+# never installs, uninstalls, or clears data, so the App's signed-in game account survives every
+# command.
 # shellcheck disable=SC2119,SC2120 # smoke calls the argument-less device commands without arguments.
 # shellcheck source=scripts/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -13,12 +14,21 @@ ANDROID_PROJECT=src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj
 ANDROID_CONFIGURATION=Release
 ANDROID_OUTPUT="src/BazaarPlusPlus.Android/bin/$ANDROID_CONFIGURATION/net10.0"
 ANDROID_DLL="$ANDROID_OUTPUT/BazaarPlusPlus.Android.dll"
-GAME_PACKAGE=com.tempogames.thebazaar
-GAME_ACTIVITY="$GAME_PACKAGE/com.unity3d.player.UnityPlayerActivity"
-# The app's external files directory: melonloader Payload paths are relative to it.
-GAME_FILES="/sdcard/Android/data/$GAME_PACKAGE/files"
-# MelonEnvironment.MelonBaseDirectory on the device; the Data Root is its sibling.
+APP_PACKAGE=com.bazaarplusplus.android.dev
+LAUNCHER_ACTIVITY="$APP_PACKAGE/com.bazaarplusplus.android.launch.LauncherActivity"
+# The game's external files directory inside the App's sandbox (GameStorage.root), relative to
+# run-as's working directory: Payload paths are relative to it. Only run-as reaches it, and a file
+# adb push puts there belongs to shell, which the App cannot read.
+GAME_FILES=no_backup/game-external
+# MelonEnvironment.MelonBaseDirectory in the App; the Data Root is its sibling.
 MELON_BASE="$GAME_FILES/MelonLoader"
+# Where a file waits between adb push and the App's own copy of it.
+STAGING=/data/local/tmp/bpp-staging
+# The launcher's primary button when BPP launch is ready: the App's "play" string in each locale it
+# ships. Its other actions (install, update, retry) reuse the button, so the text decides.
+PLAY_LABELS=$'Play\n开始游戏\n開始遊戲'
+# How long launch waits for the launcher to offer Play: it checks the installed game first.
+LAUNCHER_TIMEOUT_SECONDS=90
 SETTINGS_FILE="$MELON_BASE/UserData/BazaarPlusPlus.cfg"
 DEVICE_LOG="$MELON_BASE/MelonLoader/Latest.log"
 DEVICE_SERIAL="${BPP_ANDROID_SERIAL:-emulator-5556}"
@@ -44,6 +54,31 @@ device() {
 require_device() {
     [[ "$(device get-state 2>/dev/null)" == "device" ]] ||
         die "Device '$DEVICE_SERIAL' is not online; start it or set BPP_ANDROID_SERIAL."
+    device shell run-as "$APP_PACKAGE" true </dev/null >/dev/null 2>&1 ||
+        die "No debug Android App on '$DEVICE_SERIAL'; run 'just setup-device' for its AVD."
+}
+
+# The App's files, as the App's own user: run one shell line, print one file, copy a host file in.
+app_sh() {
+    device shell "run-as $APP_PACKAGE sh -c '$1'" </dev/null
+}
+
+app_cat() {
+    device exec-out run-as "$APP_PACKAGE" cat "$1" </dev/null
+}
+
+app_put() {
+    local source="$1" target="$2"
+    device push "$source" "$STAGING" >/dev/null </dev/null
+    app_sh "mkdir -p $(dirname "$target") && cp $STAGING $target"
+    device shell rm -f "$STAGING" </dev/null
+}
+
+# put <file> <path>: copy a host file to <path> under the game's files directory in the App.
+cmd_put() {
+    [[ $# -eq 2 && -f "$1" ]] || die "Usage: android.sh put <file> <path under the game's files>"
+    require_device
+    app_put "$1" "$GAME_FILES/$2"
 }
 
 # build [-p:Name=Value ...]: compile the host against the fetched Interop Snapshot.
@@ -77,16 +112,15 @@ cmd_deploy() {
     [[ $# -eq 0 ]] || die "Usage: just mod::android-deploy"
     [[ -f "$ANDROID_DLL" ]] || die "No build at $ANDROID_DLL; run 'just mod::android-build' first."
     require_device
-    device shell test -d "$MELON_BASE/Mods" ||
-        die "$MELON_BASE/Mods is missing on '$DEVICE_SERIAL'; install the LemonLoader-injected game first."
     local files source payload_path
     files="$(payload_files)"
-    device shell "rm -f '$MELON_BASE/UserLibs/'BazaarPlusPlus.*.dll"
+    app_sh "rm -f $MELON_BASE/UserLibs/BazaarPlusPlus.*.dll"
     while IFS=$'\t' read -r source payload_path; do
         [[ -f "$source" ]] || die "Payload file $source is missing; run 'just mod::android-build' first."
-        # adb reads stdin; without </dev/null it would swallow the rest of the file list.
-        device shell mkdir -p "$(dirname "$GAME_FILES/$payload_path")" </dev/null
-        device push "$source" "$GAME_FILES/$payload_path" </dev/null
+        # The App's runtime owns the Updater: it deploys its own copy and deletes this path when it
+        # resets LemonLoader (ADR 0012).
+        [[ "$payload_path" == MelonLoader/Plugins/* ]] && continue
+        app_put "$source" "$GAME_FILES/$payload_path"
     done <<<"$files"
     ok "Deployed the MelonLoader Payload to $DEVICE_SERIAL; it loads on the next launch."
 }
@@ -119,11 +153,7 @@ write_setting() {
     work="$(mktemp -d)"
     # shellcheck disable=SC2064 # expand now: the trap must remove this run's directory.
     trap "rm -rf -- '$work'" EXIT
-    if device shell test -f "$SETTINGS_FILE"; then
-        device pull "$SETTINGS_FILE" "$work/current.cfg" >/dev/null
-    else
-        : >"$work/current.cfg"
-    fi
+    app_cat "$SETTINGS_FILE" >"$work/current.cfg" 2>/dev/null || : >"$work/current.cfg"
     awk -v section="$section" -v key="$key" -v value="$value" '
         /^[[:space:]]*\[/ {
             if (in_section && !done) { print key " = " value; print ""; done = 1 }
@@ -140,18 +170,52 @@ write_setting() {
             }
         }
     ' "$work/current.cfg" >"$work/next.cfg"
-    device shell mkdir -p "$(dirname "$SETTINGS_FILE")"
-    device push "$work/next.cfg" "$SETTINGS_FILE" >/dev/null
+    app_put "$work/next.cfg" "$SETTINGS_FILE"
     ok "[$section] $key = $value on $DEVICE_SERIAL; relaunch to apply."
 }
 
-# launch: restart the game with an empty logcat buffer, so a capture holds only this run.
+# launch: restart the App with an empty logcat buffer and no old Latest.log, so a capture holds only
+# this run, then tap Play on its launcher, as a player starts a BPP launch.
 cmd_launch() {
     [[ $# -eq 0 ]] || die "Usage: just mod::android-launch"
     require_device
-    device shell am force-stop "$GAME_PACKAGE"
+    open_launcher
+    tap_play
+}
+
+# launcher: the same restart, stopping at the launcher.
+cmd_launcher() {
+    [[ $# -eq 0 ]] || die "Usage: android.sh launcher"
+    require_device
+    open_launcher
+}
+
+open_launcher() {
+    device shell am force-stop "$APP_PACKAGE"
     device logcat -c
-    device shell am start -n "$GAME_ACTIVITY"
+    app_sh "rm -f $DEVICE_LOG"
+    device shell am start -n "$LAUNCHER_ACTIVITY" >/dev/null
+}
+
+# Waits until the launcher's primary button offers Play (any shipped locale) and taps its centre.
+# Another action there (install, update, retry) means the game or the App needs attention first.
+tap_play() {
+    local deadline=$(($(date +%s) + LAUNCHER_TIMEOUT_SECONDS)) node text bounds
+    while (($(date +%s) < deadline)); do
+        device shell uiautomator dump /data/local/tmp/bpp-ui.xml </dev/null >/dev/null 2>&1 || true
+        node="$(device exec-out cat /data/local/tmp/bpp-ui.xml </dev/null 2>/dev/null | tr '>' '\n' |
+            grep -F "resource-id=\"$APP_PACKAGE:id/primary\"" || true)"
+        text="$(sed -n 's/.* text="\([^"]*\)".*/\1/p' <<<"$node")"
+        if [[ -n "$text" ]] && grep -qxF "$text" <<<"$PLAY_LABELS"; then
+            bounds="$(sed -n 's/.* bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")"
+            read -r left top right bottom <<<"$bounds"
+            device shell input tap $(((left + right) / 2)) $(((top + bottom) / 2)) </dev/null
+            ok "Tapped Play on the launcher of $DEVICE_SERIAL."
+            return 0
+        fi
+        sleep 2
+    done
+    die "The launcher on $DEVICE_SERIAL did not offer Play within ${LAUNCHER_TIMEOUT_SECONDS}s (it shows \"${text:-no primary button}\"); look at its screen."
 }
 
 # capture <run>: save logs, a screenshot and display metadata under artifacts/android/<run>/.
@@ -164,7 +228,7 @@ cmd_capture() {
     device logcat -d -v threadtime >"$out/logcat.txt"
     device exec-out screencap -p >"$out/screen.png"
     # Without a Latest.log, MelonLoader never loaded; the capture still holds logcat and the screen.
-    device pull "$DEVICE_LOG" "$out/Latest.log" >/dev/null || err "No $DEVICE_LOG on $DEVICE_SERIAL."
+    app_cat "$DEVICE_LOG" >"$out/Latest.log" 2>/dev/null || err "No $DEVICE_LOG on $DEVICE_SERIAL."
     device shell wm size >"$out/wm-size.txt"
     device shell wm density >"$out/wm-density.txt"
     device shell settings get system user_rotation >"$out/user-rotation.txt"
@@ -198,8 +262,7 @@ cmd_smoke() {
     cmd_build
     cmd_deploy
     cmd_mode "$mode"
-    # The old log would satisfy the main-menu wait before the new process has written a line.
-    device shell rm -f "$DEVICE_LOG"
+    # Launch removes the old log, which would satisfy the main-menu wait before the new process writes.
     cmd_launch
     local menu=reached
     wait_for_main_menu || menu=missed
@@ -228,7 +291,7 @@ built_dll_sha256() {
 wait_for_main_menu() {
     local deadline=$(($(date +%s) + SMOKE_TIMEOUT_SECONDS)) log
     while (($(date +%s) < deadline)); do
-        log="$(device shell cat "$DEVICE_LOG" </dev/null 2>/dev/null || true)"
+        log="$(app_cat "$DEVICE_LOG" 2>/dev/null || true)"
         if awk '/event=android\.scene\.loaded .*name=MainMenuScene/ { menu = 1 }
             menu && /event=android\.hooks\.summary/ { found = 1; exit }
             END { exit !found }' <<<"$log"; then
@@ -253,8 +316,8 @@ pull_database() {
         echo "The record chain did not start; no database to pull." >"$out/database.txt"
         return 0
     fi
-    device pull "$path" "$out/bazaarplusplus.db" >/dev/null || {
-        echo "adb pull $path failed." >"$out/database.txt"
+    app_cat "$path" >"$out/bazaarplusplus.db" 2>/dev/null || {
+        echo "run-as cat $path failed." >"$out/database.txt"
         return 0
     }
     command -v sqlite3 >/dev/null 2>&1 || {

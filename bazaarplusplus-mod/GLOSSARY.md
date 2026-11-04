@@ -80,6 +80,10 @@ _Avoid_: popup, window
 Core's `OverlayPanelHost` plus a thin adapter per Host, owning Main Overlay Panel lifecycle (ADR-0022). It also ticks the Mobile UI's HUD, registered as `hud`, which never opens: nothing calls `RequestOpen` on it.
 _Avoid_: panel mutex
 
+**Walkthrough Control**:
+The Overlay Panel Host's file trigger for the device walkthrough: `open <panel id>` in `walkthrough-command.txt` in the Data Root opens that Main Overlay Panel as a hotkey toggle would, on every Host.
+_Avoid_: debug menu, test hook
+
 **Panel Switch-Off**:
 A panel's setting turned off: the host closes and notifies it, then releases Host resources.
 

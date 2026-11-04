@@ -325,7 +325,11 @@ public sealed class AndroidOverlayPanelsTests
             Panels = new AndroidOverlayPanels(
                 () => InCombat,
                 reason => Events.Add($"release:{reason}"),
-                () => Frame
+                () => Frame,
+                // A Data Root with no command file: the control never toggles.
+                new WalkthroughControl(
+                    Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+                )
             );
         }
 

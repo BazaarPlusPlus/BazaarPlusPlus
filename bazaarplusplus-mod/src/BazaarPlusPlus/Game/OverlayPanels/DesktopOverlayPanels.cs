@@ -9,10 +9,10 @@ using UnityEngine.SceneManagement;
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
 // The desktop adapter of the Overlay Panel Host (GLOSSARY.md §Overlay panels): it reads the
-// frame's scene, Escape and toggle hotkeys, and feeds them to the Core OverlayPanelHost, which
-// owns the lifecycle of the three Main Overlay Panels. On a mobile platform it also drives the
-// touch panels' one card rental, as the Android host does: it ticks it every frame and releases
-// its cards on a scene change, open panels or not.
+// frame's scene, Escape, the toggle hotkeys and the Walkthrough Control, and feeds them to the
+// Core OverlayPanelHost, which owns the lifecycle of the three Main Overlay Panels. On a mobile
+// platform it also drives the touch panels' one card rental, as the Android host does: it ticks it
+// every frame and releases its cards on a scene change, open panels or not.
 internal sealed class DesktopOverlayPanels : MonoBehaviour
 {
     private readonly OverlayPanelHost _host = new(
@@ -34,6 +34,9 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
     // The open Main Overlay Panel's id, or null.
     public string? OpenPanelId => _host.OpenPanelId;
 
+    // Set by the mount when the host has a Data Root; null leaves only the hotkeys.
+    public WalkthroughControl? Walkthrough { get; set; }
+
     // hotkeyGuard returning false swallows the whole toggle (open and close) for that frame,
     // e.g. while a text input inside the panel has focus. A null toggleHotkey registers a panel
     // that no key toggles, as the Mobile UI's panels (ADR-0024).
@@ -52,14 +55,19 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
     private void Update()
     {
         var keyboard = Keyboard.current;
+        var deltaTime = Time.unscaledDeltaTime;
+        var toggle =
+            ResolvePressedHotkeyPanelId(keyboard)
+            ?? Walkthrough?.NextToggle(deltaTime, _host.OpenPanelId);
         _host.Frame(
             new OverlayPanelFrame(
                 GetSceneToken(SceneManager.GetActiveScene()),
-                Time.unscaledDeltaTime,
+                deltaTime,
                 keyboard?.escapeKey.wasPressedThisFrame == true,
-                ResolvePressedHotkeyPanelId(keyboard)
+                toggle
             )
         );
+        Walkthrough?.AfterFrame(_host.OpenPanelId);
         if (TouchPlatform.IsMobile)
             TouchCardRental.Tick();
     }
