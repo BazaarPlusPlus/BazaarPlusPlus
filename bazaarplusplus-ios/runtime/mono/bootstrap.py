@@ -66,7 +66,7 @@ def main():
         if not (MONO / path / ".git").exists():
             if args.check:
                 parser.error(f"missing Mono submodule: {path}")
-            git("submodule", "update", "--init", "--depth", "1", "--", path)
+            git("submodule", "update", "--init", "--recursive", "--depth", "1", "--", path)
         if git("rev-parse", "HEAD", cwd=MONO / path).decode().strip() != commit:
             parser.error(f"wrong Mono submodule revision: {path}")
         if git("status", "--porcelain", cwd=MONO / path).strip():
@@ -75,10 +75,11 @@ def main():
     differs = [name for name, data in expected.items()
                if not (MONO / name).exists() or (MONO / name).read_bytes() != data]
     if differs and not args.check:
-        # Whole-series preflight prevents partially applying over an existing modified checkout.
-        patches = [str(PATCHES / name) for name in (PATCHES / "series").read_text().splitlines()]
-        subprocess.run(["git", "apply", "--check", *patches], cwd=MONO, check=True)
-        subprocess.run(["git", "apply", *patches], cwd=MONO, check=True)
+        # patched_files replayed the series on upstream; only pristine files can take it without a partial apply.
+        if git("status", "--porcelain", "--", *expected).strip():
+            parser.error("Mono has local changes in patched files; no automatic reset is performed")
+        for name in (PATCHES / "series").read_text().splitlines():
+            subprocess.run(["git", "apply", str(PATCHES / name)], cwd=MONO, check=True)
         differs = [name for name, data in expected.items() if (MONO / name).read_bytes() != data]
     if differs:
         parser.error("patch mismatch: " + ", ".join(differs))
