@@ -334,7 +334,8 @@ public sealed class AndroidMod : MelonMod
                 android,
                 new AndroidSettingsDockHooks(
                     ReleaseUpgradePreview: AndroidUpgradePreview.Release,
-                    HistoryAvailable: () => _historyPanel != null,
+                    HistoryAvailable: () =>
+                        _historyPanel != null && !Il2CppTheBazaar.Data.IsInCombat,
                     OpenHistory: () => _historyPanel?.Open("settings"),
                     GameUpdateStatus: () => versionCheck.GameUpdateStatus,
                     OpenGameUpdate: () =>
@@ -342,7 +343,13 @@ public sealed class AndroidMod : MelonMod
                         if (versionCheck.Update is { } update)
                             OpenAppDownload(update);
                     },
-                    RefreshPreviews: () => Guarded("preview_settings_refresh", RefreshNativePreview)
+                    RefreshPreviews: () =>
+                        Guarded("preview_settings_refresh", RefreshNativePreview),
+                    ChineseLocaleModeChanged: () =>
+                        Guarded(
+                            "locale_settings_refresh",
+                            () => _historyPanel?.RefreshLocalization()
+                        )
                 )
             );
         }

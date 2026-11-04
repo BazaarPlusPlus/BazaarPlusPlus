@@ -23,7 +23,8 @@ internal sealed record AndroidSettingsDockHooks(
     Action OpenHistory,
     Func<AndroidGameUpdateStatus> GameUpdateStatus,
     Action OpenGameUpdate,
-    Action? RefreshPreviews = null
+    Action? RefreshPreviews = null,
+    Action? ChineseLocaleModeChanged = null
 );
 
 /// <summary>
@@ -32,8 +33,8 @@ internal sealed record AndroidSettingsDockHooks(
 /// drawn by <see cref="AndroidNativeSettingsSection"/> in the game's own settings dialog. The
 /// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
 /// gates only the account link, since the host takes no end-of-run screenshot), Combat Status,
-/// Enchant preview, with every mode the desktop offers, and Game History, which here has no
-/// hotkey. The rest are the host's Upgrade preview switch,
+/// Enchant preview, with every mode the desktop offers, Chinese Locale, and Game History, which
+/// here has no hotkey. The rest are the host's Upgrade preview switch,
 /// which stands in for the desktop's hotkey, the game-update row, which offers the new Android
 /// App's download when the release needs it and otherwise says, dimmed, where the game stands.
 /// </summary>
@@ -132,6 +133,13 @@ internal static class AndroidSettingsDock
                         hooks.ReleaseUpgradePreview("switched_off");
                 }
             )
+        );
+        registry.Register(
+            ChineseLocaleModeSettingsDockEntry.Create(() =>
+            {
+                LogChanged("BazaarPlusPlus", "ChineseLocaleMode", L.CurrentMode);
+                hooks.ChineseLocaleModeChanged?.Invoke();
+            })
         );
         registry.Register(
             new HistoryPanelSettingsDockEntry(

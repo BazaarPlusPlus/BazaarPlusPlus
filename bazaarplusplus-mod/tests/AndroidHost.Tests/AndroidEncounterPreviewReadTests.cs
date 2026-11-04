@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Android.Game;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Game.EventPreview;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
@@ -22,6 +23,111 @@ public sealed class AndroidEncounterPreviewReadTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
         File.Delete(_path);
+    }
+
+    // A step's dealt reward and a package's merchant are read as the desktop reads them, so the
+    // tooltip can show the day's odds and name the merchant.
+    [Fact]
+    public void Reads_each_steps_reward_and_each_packages_merchant()
+    {
+        var step = Guid.NewGuid();
+        var fixedStep = Guid.NewGuid();
+        var package = Guid.NewGuid();
+        var merchant = Guid.NewGuid();
+        using (var connection = new SqliteConnection($"Data Source={_path}"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE cards (Id TEXT NOT NULL PRIMARY KEY, Data BLOB NOT NULL);
+                CREATE TABLE level_ups (Id INTEGER NOT NULL PRIMARY KEY, Data BLOB NOT NULL);
+                INSERT INTO cards VALUES ('a', CAST($step AS BLOB));
+                INSERT INTO cards VALUES ('b', CAST($fixed AS BLOB));
+                INSERT INTO cards VALUES ('c', CAST($package AS BLOB));
+                """;
+            command.Parameters.AddWithValue(
+                "$step",
+                $$"""
+                {
+                  "Id": "{{step}}",
+                  "Type": "EncounterStep",
+                  "Effect": {
+                    "$type": "TActionGameDealCards",
+                    "SpawnContext": {
+                      "$type": "TSpawnContextQuery",
+                      "Groups": [{
+                        "$type": "TSpawnGroup",
+                        "Filters": [{
+                          "$type": "TSpawnFilterQuery",
+                          "Constraints": {
+                            "$type": "ConstraintAnd",
+                            "Constraints": [
+                              { "$type": "ConstraintTag", "Tags": ["Tool"], "IsNot": false },
+                              { "$type": "ConstraintCardType", "Types": ["Item"], "IsNot": false }
+                            ]
+                          }
+                        }]
+                      }],
+                      "Limit": { "$type": "TFixedValue", "Value": 1.0 }
+                    }
+                  }
+                }
+                """
+            );
+            command.Parameters.AddWithValue(
+                "$fixed",
+                $$"""
+                {
+                  "Id": "{{fixedStep}}",
+                  "Type": "EncounterStep",
+                  "Effect": {
+                    "$type": "TActionGameDealCards",
+                    "SpawnContext": {
+                      "$type": "TSpawnContextQuery",
+                      "Groups": [{
+                        "$type": "TSpawnGroup",
+                        "Filters": [{ "$type": "TSpawnFilterIdList", "Ids": ["{{Reward}}"] }]
+                      }]
+                    }
+                  }
+                }
+                """
+            );
+            command.Parameters.AddWithValue(
+                "$package",
+                $$"""
+                {
+                  "Id": "{{package}}",
+                  "Type": "Item",
+                  "HiddenTags": ["Package"],
+                  "Abilities": {
+                    "0": {
+                      "Prerequisites": [{
+                        "$type": "TPrerequisiteRun",
+                        "Conditions": {
+                          "$type": "TRunConditionalCurrentEncounter",
+                          "Conditions": { "$type": "TCardConditionalId", "Id": "{{merchant}}", "IsNot": false }
+                        }
+                      }]
+                    }
+                  }
+                }
+                """
+            );
+            command.ExecuteNonQuery();
+        }
+
+        var plans = AndroidEncounterPreview.Read(_path);
+
+        Assert.True(plans.Snapshot.TryGetTemplate(step, out var stepPlan));
+        var reward = Assert.IsType<EncounterRewardFilter>(stepPlan.RewardFilter);
+        Assert.Equal(CardType.Item, reward.CardType);
+        Assert.Equal(new[] { CardTag.Tool }, reward.Tags);
+        Assert.True(reward.UsesDayTierDistribution);
+        Assert.True(plans.Snapshot.TryGetTemplate(fixedStep, out var fixedPlan));
+        Assert.Null(fixedPlan.RewardFilter);
+        Assert.Equal(merchant, plans.PackageMerchants[package]);
+        Assert.Single(plans.PackageMerchants);
     }
 
     [Fact]

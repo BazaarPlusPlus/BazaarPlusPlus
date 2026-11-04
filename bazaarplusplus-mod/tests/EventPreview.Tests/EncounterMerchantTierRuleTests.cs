@@ -18,8 +18,7 @@ public sealed class EncounterMerchantTierRuleTests
 
     // The host maps runtime enum numbers to names; raw JSON already carries names.
     private static readonly EncounterChoicePlanParser Parser = new(
-        (kind, raw) => kind == "Tier" && raw == "3" ? "Diamond" : null,
-        (_, _, _, _) => null
+        (kind, raw) => kind == "Tier" && raw == "3" ? "Diamond" : null
     );
 
     private static EncounterMerchantTierRule Rule(string behaviors) =>

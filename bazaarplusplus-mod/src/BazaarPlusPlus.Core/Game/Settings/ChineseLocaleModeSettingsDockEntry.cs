@@ -1,15 +1,15 @@
 #nullable enable
-using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.Settings;
 
-internal static class ChineseLocaleModeSettingsDockEntry
+public static class ChineseLocaleModeSettingsDockEntry
 {
-    internal static CyclingSettingsDockEntry<BppChineseLocaleMode> Create(IBppEventBus eventBus)
+    /// <param name="onChanged">Tells the host's surfaces to draw their text again.</param>
+    public static CyclingSettingsDockEntry<BppChineseLocaleMode> Create(Action onChanged)
     {
-        if (eventBus == null)
-            throw new ArgumentNullException(nameof(eventBus));
+        if (onChanged == null)
+            throw new ArgumentNullException(nameof(onChanged));
 
         return new CyclingSettingsDockEntry<BppChineseLocaleMode>(
             BppSettingsDockOrder.ChineseLocaleMode,
@@ -23,7 +23,7 @@ internal static class ChineseLocaleModeSettingsDockEntry
             },
             mode => mode != BppChineseLocaleMode.Mainland,
             (mode, _) => ChineseScriptConverter.ResolveModeStatus(mode),
-            onChanged: _ => eventBus.Publish(new ChineseLocaleModeChanged())
+            onChanged: _ => onChanged()
         );
     }
 

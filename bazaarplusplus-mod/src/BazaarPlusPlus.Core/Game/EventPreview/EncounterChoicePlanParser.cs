@@ -4,13 +4,57 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-/// <summary>Choice/outcome structure shared by hosts; native enum names and pool constraints are host adapters.</summary>
-public sealed class EncounterChoicePlanParser(
-    Func<string, string?, string?> normalize,
-    Func<JToken, JToken, JToken, int?, EncounterRewardFilter?> rewardPool
-)
+/// <summary>Choice/outcome structure shared by hosts; native enum names are host adapters.</summary>
+public sealed class EncounterChoicePlanParser(Func<string, string?, string?> normalize)
 {
+    private readonly EncounterRewardFilterParser _rewards = new(normalize);
+
     private string? Normalize(string kind, string? raw) => normalize(kind, raw);
+
+    /// <summary>
+    /// The merchant that accepts a package, read off its JSON as the desktop's
+    /// <c>PackageMerchantIdentity</c> reads the typed template: a <c>Package</c> whose ability
+    /// prerequisites gate on one current encounter's template id. Null for any other card, or
+    /// when its abilities name two encounters.
+    /// </summary>
+    public Guid? TryParsePackageMerchant(JToken? card)
+    {
+        if (
+            card?["HiddenTags"] is not JArray hiddenTags
+            || !hiddenTags.Any(tag =>
+                (Normalize("HiddenTag", tag.ToString()) ?? tag.ToString()) == "Package"
+            )
+            || card["Abilities"] is not JObject abilities
+        )
+            return null;
+
+        Guid? merchant = null;
+        foreach (var ability in abilities.Properties())
+        {
+            if (ability.Value["Prerequisites"] is not JArray prerequisites)
+                continue;
+            foreach (var prerequisite in prerequisites.OfType<JObject>())
+            {
+                if (
+                    !TypeIs(prerequisite, "TPrerequisiteRun", whenUntyped: false)
+                    || prerequisite["Conditions"] is not JObject encounter
+                    || !TypeIs(encounter, "TRunConditionalCurrentEncounter", whenUntyped: false)
+                    || encounter["Conditions"] is not JObject id
+                    || !TypeIs(id, "TCardConditionalId", whenUntyped: false)
+                    || ReadFlag(id["IsNot"])
+                    || !Guid.TryParse(id["Id"]?.ToString(), out var candidate)
+                    || candidate == Guid.Empty
+                )
+                    continue;
+
+                if (merchant != null && merchant != candidate)
+                    return null;
+                merchant = candidate;
+            }
+        }
+
+        return merchant;
+    }
 
     /// <summary>
     /// A merchant event's quality rule, read off its JSON as the desktop's
@@ -275,7 +319,7 @@ public sealed class EncounterChoicePlanParser(
                             var quantity = ReadQuantity(group);
                             queryPools.Add(
                                 new EncounterOutcomeQueryPool(
-                                    rewardPool(spawnContext, group, filter, quantity),
+                                    _rewards.ParsePool(spawnContext, group, filter, quantity),
                                     quantity
                                 )
                             );

@@ -5,6 +5,8 @@ using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Localization;
+using Il2CppBazaarGameClient.Domain.Models.Cards;
 using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppBazaarGameShared.Domain.Spawning;
 using Il2CppTheBazaar;
@@ -15,23 +17,28 @@ using Newtonsoft.Json.Linq;
 namespace BazaarPlusPlus.Android.Game;
 
 /// <summary>
-/// Reads encounter choices and merchant quality rules off-thread; resolves current native
-/// descriptions only on inspection. A merchant shows the quality it sells, as on the desktop: its
-/// pinned tier, or the day's tier odds (<see cref="AndroidDayTiers"/>).
+/// Reads encounter choices, their rewards, merchant quality rules and each package's merchant
+/// off-thread; resolves current native descriptions only on inspection. A merchant shows the
+/// quality it sells, as on the desktop: its pinned tier, or the day's tier odds
+/// (<see cref="AndroidDayTiers"/>). An encounter step shows the odds of a reward the day's table
+/// decides, and a package names its merchant, which no preview switch hides.
 /// </summary>
 internal sealed class AndroidEncounterPreview(BppSettings settings)
 {
     private IntPtr _source;
     private Task<AndroidEncounterPlans>? _load;
     private AndroidEncounterPlans? _plans;
-    private static readonly EncounterChoicePlanParser Parser = new(Normalize, (_, _, _, _) => null);
+    private readonly Dictionary<(Guid Package, string Language), string> _packageSummaries = new();
+    private static readonly EncounterChoicePlanParser Parser = new(Normalize);
+    private static readonly EncounterRewardFilterParser RewardParser = new(Normalize);
 
     /// <summary>The Detailed Preview switch.</summary>
     public bool Enabled => settings.EnableDetailedPreviewConfig.Value;
 
     public void Tick()
     {
-        if (!settings.EnableDetailedPreviewConfig.Value || !Data.IsManagerCreated())
+        // Not behind the Detailed Preview switch: a package's merchant summary has none.
+        if (!Data.IsManagerCreated())
             return;
         var manager = Data.GetStatic();
         if (manager == null)
@@ -45,6 +52,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                 return;
             _source = manager.Pointer;
             _plans = null;
+            _packageSummaries.Clear();
             _load = Task.Run(() => Read(path));
         }
         if (_load?.IsCompleted == true)
@@ -56,6 +64,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                     new BppLogEvent(BppLogFeatureScope.Android, "android.encounter_preview.ready"),
                     ("events", _plans.Snapshot.EventCount),
                     ("merchants", _plans.Merchants.Count),
+                    ("packages", _plans.PackageMerchants.Count),
                     ("level_ups", _plans.Snapshot.LevelUpCount)
                 );
             }
@@ -114,16 +123,49 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         }
     }
 
-    public string? Render(CardTooltipController controller)
+    /// <summary>
+    /// The native passive text of <paramref name="card"/> with the merchant that accepts it, as
+    /// the desktop's <c>PackageMerchantSummaryTooltipPatch</c> appends it; null for any other
+    /// card, or while the plans are not read yet. Main thread only.
+    /// </summary>
+    public string? RenderPackageMerchant(Card? card, string text)
+    {
+        if (
+            _plans == null
+            || card == null
+            || !Guid.TryParse(card.TemplateId.ToString(), out var id)
+            || !_plans.PackageMerchants.TryGetValue(id, out var merchant)
+        )
+            return null;
+
+        var key = (id, L.CurrentLanguageCode);
+        if (!_packageSummaries.TryGetValue(key, out var summary))
+        {
+            summary = PackageMerchantSummaryText.Format(
+                AndroidCardTemplateText.Title(merchant),
+                AndroidCardTemplateText.Description(merchant)
+            );
+            // A text that did not render yet may render later, so only a real one stays.
+            if (string.IsNullOrWhiteSpace(summary))
+                return null;
+            _packageSummaries[key] = summary;
+        }
+
+        var passive = new StringBuilder(text);
+        PackageMerchantSummaryText.AppendToPassiveBlock(passive, summary);
+        return passive.ToString();
+    }
+
+    public string? Render(CardTooltipController controller, string nativeText)
     {
         if (!settings.EnableDetailedPreviewConfig.Value || Data.IsInCombat || _plans == null)
             return null;
         var card = controller.CurrentCard;
-        if (
-            card == null
-            || card.Type != ECardType.EventEncounter
-            || !Guid.TryParse(card.TemplateId.ToString(), out var id)
-        )
+        if (card == null || !Guid.TryParse(card.TemplateId.ToString(), out var id))
+            return null;
+        if (card.Type == ECardType.EncounterStep)
+            return RenderStep(id, nativeText);
+        if (card.Type != ECardType.EventEncounter)
             return null;
         if (_plans.Merchants.TryGetValue(id, out var merchant))
         {
@@ -166,6 +208,21 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             : EncounterPreviewTextFormatter.Build(option, dayTiers: AndroidDayTiers.Current());
     }
 
+    private string? RenderStep(Guid id, string nativeText)
+    {
+        if (
+            !_plans!.Snapshot.TryGetTemplate(id, out var step)
+            || step.Kind != EncounterPreviewTemplateKind.EncounterStep
+        )
+            return null;
+        var quality = EncounterPreviewTextFormatter.BuildRewardQualityLine(
+            step.RewardFilter,
+            nativeText,
+            AndroidDayTiers.Current()
+        );
+        return string.IsNullOrWhiteSpace(quality) ? null : quality;
+    }
+
     // A static template with the title and description the current language and the game's
     // tooltip give it.
     private static EncounterPreviewTemplatePlan Localized(EncounterPreviewTemplatePlan template)
@@ -195,7 +252,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             return null;
         var cards = new List<EncounterInventoryCard>();
         var seen = new HashSet<IntPtr>();
-        void Add(Il2CppBazaarGameClient.Domain.Models.Cards.Card card)
+        void Add(Card card)
         {
             if (!seen.Add(card.Pointer) || !Guid.TryParse(card.TemplateId.ToString(), out var id))
                 return;
@@ -241,6 +298,7 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         var events = new List<EncounterPreviewEventPlan>();
         var templates = new List<EncounterPreviewTemplatePlan>();
         var merchants = new Dictionary<Guid, EncounterMerchantTierRule>();
+        var packageMerchants = new Dictionary<Guid, Guid>();
         while (reader.Read())
         {
             var card = JObject.Parse(Encoding.UTF8.GetString((byte[])reader.GetValue(0)));
@@ -275,9 +333,15 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                     Text("Title"),
                     Text("Description"),
                     null,
-                    null
+                    kind
+                        is EncounterPreviewTemplateKind.Event
+                            or EncounterPreviewTemplateKind.EncounterStep
+                        ? RewardParser.TryParse(card)
+                        : null
                 )
             );
+            if (Parser.TryParsePackageMerchant(card) is { } packageMerchant)
+                packageMerchants[id] = packageMerchant;
             if (kind != EncounterPreviewTemplateKind.Event)
                 continue;
             var random = Parser.TryParseEventOutcomeGroups(card, out var outcomes);
@@ -310,7 +374,11 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
                 { } levelUp
             )
                 levelUps.Add(levelUp);
-        return new(new EncounterPreviewSnapshot(events, templates, levelUps), merchants);
+        return new(
+            new EncounterPreviewSnapshot(events, templates, levelUps),
+            merchants,
+            packageMerchants
+        );
     }
 
     private static CardHero? Hero(string name) =>
@@ -328,6 +396,8 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
             "HiddenTag" => Name<EHiddenTag>(raw),
             "Tag" => Name<ECardTag>(raw),
             "Tier" => Name<ETier>(raw),
+            "Size" => Name<ECardSize>(raw),
+            "CardType" => Name<ECardType>(raw),
             _ => null,
         };
 
@@ -336,8 +406,12 @@ internal sealed class AndroidEncounterPreview(BppSettings settings)
         Enum.TryParse<T>(raw, true, out var value) ? value.ToString() : null;
 }
 
-/// <summary>The encounter plans read from one static-data source, and its merchants' quality rules.</summary>
+/// <summary>
+/// The encounter plans read from one static-data source, its merchants' quality rules, and the
+/// merchant each package template names.
+/// </summary>
 internal sealed record AndroidEncounterPlans(
     EncounterPreviewSnapshot Snapshot,
-    IReadOnlyDictionary<Guid, EncounterMerchantTierRule> Merchants
+    IReadOnlyDictionary<Guid, EncounterMerchantTierRule> Merchants,
+    IReadOnlyDictionary<Guid, Guid> PackageMerchants
 );

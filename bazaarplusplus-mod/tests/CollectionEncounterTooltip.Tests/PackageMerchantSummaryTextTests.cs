@@ -1,4 +1,5 @@
 using System.Text;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using Xunit;

@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BilingualItemNames;
@@ -212,7 +213,11 @@ internal sealed class MonoHostComposition : IDisposable
         _settingsDockRegistry.Register(BazaarDbBundleSettingsDockEntry.Create());
         _settingsDockRegistry.Register(FixedSupporterListSettingsDockEntry.Create());
         VoiceSubtitlesSettingsDockEntry.RegisterAll(_settingsDockRegistry);
-        _settingsDockRegistry.Register(ChineseLocaleModeSettingsDockEntry.Create(eventBus));
+        _settingsDockRegistry.Register(
+            ChineseLocaleModeSettingsDockEntry.Create(() =>
+                eventBus.Publish(new ChineseLocaleModeChanged())
+            )
+        );
         _settingsDockRegistry.Register(BilingualItemNamesSettingsDockEntry.Create());
         _settingsDockRegistry.Register(CosmeticNamesSettingsDockEntry.Create());
         _settingsDockRegistry.Register(CombatStatusBarSettingsDockEntry.Create());

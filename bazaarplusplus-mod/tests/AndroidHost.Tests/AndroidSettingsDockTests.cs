@@ -4,6 +4,7 @@ using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Settings;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.Settings;
+using BazaarPlusPlus.Localization;
 using Xunit;
 
 namespace AndroidHost.Tests;
@@ -28,6 +29,7 @@ public sealed class AndroidSettingsDockTests
                 "BazaarDbUpload",
                 "CombatStatusBar",
                 "EnchantPreview",
+                "ChineseLocaleMode",
                 "GameHistory",
                 "UpgradePreview",
                 "GameUpdate",
@@ -40,6 +42,7 @@ public sealed class AndroidSettingsDockTests
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Toggle,
+                BppSettingsControlKind.Choice,
                 BppSettingsControlKind.Choice,
                 BppSettingsControlKind.Action,
                 BppSettingsControlKind.Toggle,
@@ -130,6 +133,22 @@ public sealed class AndroidSettingsDockTests
         row.WriteToggle(false);
         Assert.False(dock.Android.UpgradePreview.Value);
         Assert.Equal(new[] { "release_upgrade_preview:switched_off" }, dock.Calls);
+    }
+
+    [Fact]
+    public void Chinese_locale_writes_the_shared_setting_and_tells_the_host()
+    {
+        var dock = new Dock();
+        var row = dock.Row("ChineseLocaleMode");
+
+        var state = row.ResolveChoiceState!("en");
+        Assert.Equal(new[] { "CN", "TW" }, state.Options);
+        Assert.Equal(0, state.SelectedIndex);
+
+        row.SelectStandardChoice!(1);
+
+        Assert.Equal(BppChineseLocaleMode.Taiwan, dock.Shared.ChineseLocaleModeConfig.Value);
+        Assert.Equal(new[] { "locale_changed" }, dock.Calls);
     }
 
     [Fact]
@@ -237,7 +256,8 @@ public sealed class AndroidSettingsDockTests
                     () => Calls.Add("open_history"),
                     () => GameUpdateStatus,
                     () => Calls.Add("open_game_update"),
-                    () => Calls.Add("refresh_previews")
+                    () => Calls.Add("refresh_previews"),
+                    () => Calls.Add("locale_changed")
                 )
             );
             Rows = registry

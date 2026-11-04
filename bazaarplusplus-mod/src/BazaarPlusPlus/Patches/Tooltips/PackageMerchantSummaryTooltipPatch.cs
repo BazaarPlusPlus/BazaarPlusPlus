@@ -2,6 +2,7 @@
 #pragma warning disable CS0436
 using System.Text;
 using BazaarGameShared.Domain.Cards;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
