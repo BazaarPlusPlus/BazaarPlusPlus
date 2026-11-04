@@ -50,7 +50,7 @@ internal static class TouchCardText
 
     /// <summary>
     /// The card's description and its ability and aura lines as the game's tooltip shows them for
-    /// <paramref name="subject"/>'s tier and enchantment: the card the game's preview prefab builds
+    /// <paramref name="subject"/>'s tier, enchantment, and saved values: the card the game's preview prefab builds
     /// in its own set-up (<c>CardPreviewBase.SetUp</c>), rendered through its
     /// <see cref="CardTooltipData"/>. Falls back to <see cref="Authored"/> when that throws or
     /// renders nothing. Rich text: the game's colors and keyword sprites.
@@ -157,8 +157,8 @@ internal static class TouchCardText
     }
 
     /// <summary>
-    /// A detached card for <paramref name="subject"/>'s template, tier and enchantment, built as
-    /// the game's preview prefab builds it; null when the template is unknown or the build fails.
+    /// A detached card for <paramref name="subject"/>'s template, tier, enchantment, and saved
+    /// values, built as the game's preview prefab builds it; null when the template is unknown or the build fails.
     /// </summary>
     public static Card? PreviewCard(CardRentalSubject subject)
     {
@@ -186,10 +186,23 @@ internal static class TouchCardText
         CardRentalSubject subject
     )
     {
+        var card = TheBazaar.DTOUtils.CreateCard(template.Id.ToString(), template.Type);
+        FillPreviewCard(card, template, cardTemplate, subject);
+        return card;
+    }
+
+    // Saved values go on last: the tier and enchantment steps write the template's over them, as
+    // the preview's own set-up does.
+    internal static void FillPreviewCard(
+        Card card,
+        TCardBase template,
+        ITCard cardTemplate,
+        CardRentalSubject subject
+    )
+    {
         var tier = DesktopCardFacets.Tier.TryToSource(subject.Tier, out var nativeTier)
             ? nativeTier
             : template.StartingTier;
-        var card = TheBazaar.DTOUtils.CreateCard(template.Id.ToString(), template.Type);
         card.Attributes = new System.Collections.Generic.Dictionary<ECardAttributeType, int>();
         // The template's tiers up to its starting tier, as the prefab's UpdateInstanceFromTierData.
         var tierData = (template as IHasTierData);
@@ -221,10 +234,10 @@ internal static class TouchCardText
                     ? new System.Nullable<EEnchantmentType>(native)
                     : new System.Nullable<EEnchantmentType>()
             );
+        SavedCardValues.Write(attributes, subject.Attributes);
         card.Attributes = attributes;
         card.Size = template.Size;
         card.Tags = template.Tags;
-        return card;
     }
 
     // The game's lock-mode preview card: the item at its tier with this enchantment applied,

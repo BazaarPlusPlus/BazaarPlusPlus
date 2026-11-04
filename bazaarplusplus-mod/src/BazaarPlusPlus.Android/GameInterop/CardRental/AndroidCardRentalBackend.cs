@@ -190,12 +190,26 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         var client = card._clientCard;
         if (attributes is not { Count: > 0 } || client?.Attributes == null)
             return;
-        foreach (var pair in attributes)
+        WriteSavedValues(client.Attributes, attributes);
+        card.TryCast<CardPreviewItem>()?._gemGroupController?.Initialize(client, null, false);
+    }
+
+    /// <summary>
+    /// A saved card's values over <paramref name="target"/>, keyed by the game's member name; a
+    /// name the game does not know is dropped (ADR-0017).
+    /// </summary>
+    internal static void WriteSavedValues(
+        Il2CppSystem.Collections.Generic.Dictionary<ECardAttributeType, int> target,
+        IReadOnlyDictionary<string, int>? saved
+    )
+    {
+        if (saved == null)
+            return;
+        foreach (var pair in saved)
         {
             if (Enum.TryParse<ECardAttributeType>(pair.Key, false, out var attribute))
-                client.Attributes[attribute] = pair.Value;
+                target[attribute] = pair.Value;
         }
-        card.TryCast<CardPreviewItem>()?._gemGroupController?.Initialize(client, null, false);
     }
 
     public void Park(CardPreviewBase card)

@@ -194,11 +194,7 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
     {
         if (attributes is not { Count: > 0 } || card._clientCard?.Attributes is not { } target)
             return;
-        foreach (var pair in attributes)
-        {
-            if (Enum.TryParse<ECardAttributeType>(pair.Key, false, out var attribute))
-                target[attribute] = pair.Value;
-        }
+        SavedCardValues.Write(target, attributes);
         (card as CardPreviewItem)?._gemGroupController?.Initialize(card._clientCard);
     }
 

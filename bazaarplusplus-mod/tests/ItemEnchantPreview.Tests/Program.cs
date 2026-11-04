@@ -1,6 +1,16 @@
 using BazaarGameClient.Domain.Models.Cards;
+using BazaarGameClient.Domain.Tooltips;
+using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Enchantments;
+using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarGameShared.Domain.Effect;
+using BazaarGameShared.Domain.Effect.Actions;
+using BazaarGameShared.Domain.Targeting;
+using BazaarGameShared.Domain.Values;
+using BazaarGameShared.Domain.Values.ReferenceValues;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.ItemEnchantPreview.Preview;
@@ -410,6 +420,91 @@ Assert(
     "After the fight or replay a card's tooltip starts at the settings switch again."
 );
 TouchUpgradePreview.End();
+
+var savedAbility = new TCardAbility
+{
+    Id = "saved",
+    Action = new TActionCardModifyAttribute
+    {
+        AttributeType = ECardAttributeType.BurnApplyAmount,
+        Target = new TTargetCardSelf(),
+        Value = new TReferenceValueCardAttribute
+        {
+            AttributeType = ECardAttributeType.Custom_1,
+            Target = new TTargetCardSelf(),
+        },
+    },
+};
+var savedTemplate = new TCardItem
+{
+    Id = Guid.NewGuid(),
+    Type = ECardType.Item,
+    StartingTier = ETier.Bronze,
+    Abilities = new Dictionary<string, TCardAbility> { [savedAbility.Id] = savedAbility },
+    Enchantments = new Dictionary<EEnchantmentType, TEnchantment>
+    {
+        [EEnchantmentType.Fiery] = new TEnchantment
+        {
+            Attributes = new Dictionary<ECardAttributeType, int>
+            {
+                [ECardAttributeType.Custom_1] = 7,
+            },
+        },
+    },
+    Tiers = new Dictionary<ETier, TCardTier>
+    {
+        [ETier.Bronze] = new TCardTier
+        {
+            Attributes = new Dictionary<ECardAttributeType, int>
+            {
+                [ECardAttributeType.Custom_1] = 5,
+                [ECardAttributeType.Custom_2] = 6,
+            },
+        },
+    },
+};
+var templateValues = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
+TouchCardText.FillPreviewCard(
+    templateValues,
+    savedTemplate,
+    savedTemplate,
+    new CardRentalSubject(savedTemplate.Id, CardTier.Bronze)
+);
+Assert(
+    templateValues.Attributes[ECardAttributeType.Custom_1] == 5,
+    "A card with no saved values keeps its template's values."
+);
+var savedValues = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
+TouchCardText.FillPreviewCard(
+    savedValues,
+    savedTemplate,
+    savedTemplate,
+    new CardRentalSubject(
+        savedTemplate.Id,
+        CardTier.Bronze,
+        CardEnchantment.Fiery,
+        new Dictionary<string, int> { ["Custom_1"] = 25, ["NotAGameAttribute"] = 99 }
+    )
+);
+Assert(
+    savedValues.Attributes[ECardAttributeType.Custom_1] == 25,
+    "A saved value wins over the template's tier and the enchantment's values."
+);
+Assert(
+    savedValues.Attributes[ECardAttributeType.Custom_2] == 6,
+    "A value the card did not save keeps its template's value."
+);
+Assert(savedValues.Attributes.Count == 2, "A saved name the game does not know is dropped.");
+var savedToken = TooltipComponentAbility.Create(
+    new TooltipContext(savedValues, savedTemplate, new ValueContext(null!, savedValues)),
+    savedAbility.Id,
+    null,
+    0
+);
+Assert(
+    savedToken?.Resolve() == 25f,
+    "The tooltip's own token must resolve the saved value, the number the inspection text shows."
+);
 
 Console.WriteLine("ItemEnchantPreview checks passed.");
 
