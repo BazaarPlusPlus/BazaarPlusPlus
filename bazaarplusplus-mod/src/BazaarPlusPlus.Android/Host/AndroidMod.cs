@@ -8,8 +8,10 @@ using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Settings;
 using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -305,6 +307,8 @@ public sealed class AndroidMod : MelonMod
                     ("manifest", devManifest)
                 );
             StartHistory();
+            var runContext = _composition?.RunContext ?? new RunContextStore();
+            var gameState = new AndroidGameStateProbe();
             _touchUi = new AndroidTouchUi(
                 panels,
                 _historyPanel == null ? null : source => _historyPanel?.Open(source),
@@ -316,10 +320,9 @@ public sealed class AndroidMod : MelonMod
                 new TouchCombatClockData(
                     combatStatus.State,
                     () => android.CombatTimer.Value,
-                    static () =>
-                        Il2CppTheBazaar.Data.HasActiveRun
-                        || Il2CppTheBazaar.AppState.CurrentState?.TryCast<Il2CppTheBazaar.ReplayState>()
-                            != null,
+                    // The desktop bar's rule. Data.HasActiveRun is no rule for this: it caches
+                    // the server profile, so a run can be on while it reads false.
+                    () => CombatStatusBarState.ShouldRenderForState(true, runContext, gameState),
                     combatStatus.TogglePause
                 ),
                 previewSwitches,
