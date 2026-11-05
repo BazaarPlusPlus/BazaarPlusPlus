@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CHANNEL: ${{ inputs.channel }}
+  STEAM_CHANNEL: ${{ inputs.channel }}
   LOCK: bazaarplusplus-mod/build/game-libs.lock.json
 
 jobs:
@@ -62,12 +62,12 @@ jobs:
           STEAM_SNAPSHOT_LOGIN: ${{ secrets.STEAM_SNAPSHOT_LOGIN }}
           STEAM_BETA_PASSWORDS: ${{ secrets.STEAM_BETA_PASSWORDS }}
         run: |
-          state="$(just mod::steam-stale "$CHANNEL" | tail -n 1)"
+          state="$(just mod::steam-stale "$STEAM_CHANNEL" | tail -n 1)"
           buildid="$(jq -r .buildid <<< "$state")"
           echo "buildid=$buildid" >> "$GITHUB_OUTPUT"
-          echo "branch=chore/steam-$CHANNEL-$buildid" >> "$GITHUB_OUTPUT"
+          echo "branch=chore/steam-$STEAM_CHANNEL-$buildid" >> "$GITHUB_OUTPUT"
           echo "platforms=$(jq -c .platforms <<< "$state")" >> "$GITHUB_OUTPUT"
-          echo "Steam $CHANNEL buildid $buildid; behind in the lock: $(jq -r '.platforms | join(", ")' <<< "$state")" >> "$GITHUB_STEP_SUMMARY"
+          echo "Steam $STEAM_CHANNEL buildid $buildid; behind in the lock: $(jq -r '.platforms | join(", ")' <<< "$state")" >> "$GITHUB_STEP_SUMMARY"
       # An open pull request, not a branch: a run that stopped before opening one
       # leaves a branch the next run can replace.
       - name: Find this build's pull request
@@ -91,13 +91,13 @@ jobs:
         run: |
           cp "$LOCK" "$RUNNER_TEMP/previous-lock.json"
           for platform in $(jq -r '.[]' <<< "$PLATFORMS"); do
-            just mod::steam-capture "$platform" "$CHANNEL"
+            just mod::steam-capture "$platform" "$STEAM_CHANNEL"
           done
       - if: steps.open.outputs.count == '0'
         name: Classify the capture
         id: change
         run: |
-          kind="$(node release/game-libs.mjs steam-change --previous "$RUNNER_TEMP/previous-lock.json" --channel "$CHANNEL")"
+          kind="$(node release/game-libs.mjs steam-change --previous "$RUNNER_TEMP/previous-lock.json" --channel "$STEAM_CHANNEL")"
           echo "kind=$kind" >> "$GITHUB_OUTPUT"
           echo "Capture: $kind change" >> "$GITHUB_STEP_SUMMARY"
       - if: steps.change.outputs.kind == 'content' || steps.change.outputs.kind == 'code'
@@ -108,7 +108,7 @@ jobs:
           PLATFORMS: ${{ steps.stale.outputs.platforms }}
         run: |
           for platform in $(jq -r '.[]' <<< "$PLATFORMS"); do
-            just mod::publish "$platform" "$CHANNEL"
+            just mod::publish "$platform" "$STEAM_CHANNEL"
           done
       - if: steps.change.outputs.kind == 'content' || steps.change.outputs.kind == 'code'
         name: Push the lock
@@ -120,7 +120,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$BRANCH"
           git add "$LOCK"
-          git commit -m "chore(mod): record Steam $CHANNEL build $BUILDID"
+          git commit -m "chore(mod): record Steam $STEAM_CHANNEL build $BUILDID"
           git push --force origin "$BRANCH"
 
   # A pull request from GITHUB_TOKEN starts no checks, so the Mod lanes of the
@@ -141,7 +141,9 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      PLATFORM: ${{ matrix.platform }}
+      # Not PLATFORM: MSBuild reads environment variables as properties, and
+      # Platform=macos is not a solution configuration.
+      BPP_CI_PLATFORM: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -158,13 +160,14 @@ jobs:
       - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: just@1.58.0
-      - run: just mod::fetch "$PLATFORM" "$CHANNEL"
+      # Every project resolves the online entry; mod::matrix fetches its own channel.
+      - run: just mod::fetch "$BPP_CI_PLATFORM" online
       # The product compiles and tests against online. A preview channel only has
       # to compile (ADR 0004).
-      - if: env.CHANNEL == 'online'
+      - if: env.STEAM_CHANNEL == 'online'
         run: just verify mod::check mod::test
-      - if: env.CHANNEL != 'online'
-        run: just mod::matrix "$CHANNEL"
+      - if: env.STEAM_CHANNEL != 'online'
+        run: just mod::matrix "$STEAM_CHANNEL"
       - name: Preserve verification and test diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -205,10 +208,10 @@ jobs:
             *) check='The Mod checks of this channel **failed or did not finish**; see the workflow run. The game may have changed what the Mod depends on, so an adaptation commit may belong on this branch.' ;;
           esac
           {
-            echo "Steam moved the $CHANNEL branch to build $BUILDID. This records the snapshots captured from its depots, already in the private bucket:"
+            echo "Steam moved the $STEAM_CHANNEL branch to build $BUILDID. This records the snapshots captured from its depots, already in the private bucket:"
             echo
             for platform in $(jq -r '.[]' <<< "$PLATFORMS"); do
-              echo "- \`$platform-$CHANNEL\`: \`$(jq -r --arg key "$platform-$CHANNEL" '.entries[$key].gameVersion' "$LOCK")\`"
+              echo "- \`$platform-$STEAM_CHANNEL\`: \`$(jq -r --arg key "$platform-$STEAM_CHANNEL" '.entries[$key].gameVersion' "$LOCK")\`"
             done
             echo
             echo "- $check"
@@ -218,11 +221,11 @@ jobs:
             echo
             echo "- N/A"
           } > "$RUNNER_TEMP/body.md"
-          url="$(gh pr create --base master --head "$BRANCH" --title "chore(mod): record Steam $CHANNEL build $BUILDID" --body-file "$RUNNER_TEMP/body.md")"
+          url="$(gh pr create --base master --head "$BRANCH" --title "chore(mod): record Steam $STEAM_CHANNEL build $BUILDID" --body-file "$RUNNER_TEMP/body.md")"
           # A newer build leaves an older bot pull request nothing to add. One with
           # a person's adaptation commit on it stays open.
           gh pr list --state open --json headRefName,number,commits \
-            --jq ".[] | select(.headRefName | startswith(\"chore/steam-$CHANNEL-\")) | select(.headRefName != \"$BRANCH\") | select(.commits | length == 1) | .number" |
+            --jq ".[] | select(.headRefName | startswith(\"chore/steam-$STEAM_CHANNEL-\")) | select(.headRefName != \"$BRANCH\") | select(.commits | length == 1) | .number" |
             while read -r older; do
               gh pr close "$older" --delete-branch --comment "Replaced by $url"
             done
