@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Linq;
 using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Ios.Service
@@ -36,6 +38,16 @@ namespace BazaarPlusPlus.Ios.Service
         public bool CanLaunch => (bool?)Game["library"]?["platforms"]?[Platform]?["launch"] == true;
         public static string RuntimeRoot(string root, JObject game) =>
             DownloadPaths.Resolve(Path.Combine(root, "runtimes"), (string)game["id"]!);
+        /// <summary>The downloaded build's full version string, or empty while none can be read.</summary>
+        public static string InstalledVersion(string root, JObject game)
+        {
+            string content = Downloader.ContentRoot(root, (uint)game["steam"]!["appId"]!);
+            string plist = Path.Combine(content, Path.GetFileName((string)game["installPath"]!), "Contents/Info.plist");
+            try { return XDocument.Load(plist).Descendants("key").First(x => x.Value == "CFBundleShortVersionString").ElementsAfterSelf().First().Value; }
+            catch (IOException) { return ""; }
+            catch (XmlException) { return ""; }
+            catch (InvalidOperationException) { return ""; }
+        }
         public static bool IsDownloaded(string root, JObject game)
         {
             string content = Downloader.ContentRoot(root, (uint)game["steam"]!["appId"]!);

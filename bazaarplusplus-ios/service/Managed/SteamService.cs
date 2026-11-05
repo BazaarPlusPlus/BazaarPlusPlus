@@ -50,6 +50,8 @@ namespace BazaarPlusPlus.Ios.Service
         static string state = "signedOut", message = "登录 Steam 以下载已拥有的游戏", root = "", assets = "";
         // savedAccount mirrors the Keychain entry so snapshots never touch the Keychain.
         static string savedAccount = "", errorCode = "", verification = "", qrUrl = "", deviceName = "iOS";
+        // Read when the content changes, so snapshots never parse the plist.
+        static string installedVersion = "";
         static double progress;
         static long downloadedBytes, totalBytes, bytesPerSecond;
         static JObject profile = new JObject();
@@ -89,6 +91,7 @@ namespace BazaarPlusPlus.Ios.Service
             Directory.CreateDirectory(root);
             deviceName = (string?)data["deviceName"] ?? deviceName;
             savedAccount = SavedAccount();
+            installedVersion = GameDefinition.InstalledVersion(root, profile);
             identity = new InstallationIdentity(root);
             configuration = SteamConfiguration.Create(c => c.WithProtocolTypes(ProtocolTypes.WebSocket).WithMachineInfoProvider(identity));
             Set("signedOut", "登录 Steam 以下载已拥有的游戏");
@@ -124,6 +127,7 @@ namespace BazaarPlusPlus.Ios.Service
                     accent = (string?)g["library"]?["accent"] ?? "D99147",
                     monogram = (string?)g["library"]?["monogram"] ?? "G",
                     version = (string)g["testedGameVersion"]!,
+                    installedVersion,
                     compatibility = g["library"]?["platforms"]?[definition.Platform],
                     downloaded = GameDefinition.IsDownloaded(root, g)
                 }).Single()
@@ -205,12 +209,12 @@ namespace BazaarPlusPlus.Ios.Service
                         bool qrExpired = error is QrExpiredException;
                         bool restoring = action == "restore" || action == "download";
                         if (qrExpired) safe = "QrExpired";
-                        if (error is GameVersionUnsupportedException unsupported)
+                        if (error is GameEngineChangedException changed)
                         {
-                            // Not an error: the download is kept, and the next App release adapts to it.
-                            Set("outdated", "Steam 上的游戏已更新到 " + ShortVersion(unsupported.Found) + "，这个版本的 App 还在适配。适配完成后更新 App 即可开始游戏。", 1);
-                            errorCode = "GameVersionUnsupported";
-                            Console.WriteLine("STEAM_APP_GAME_OUTDATED " + unsupported.Found);
+                            // Not an error: the download is kept, and the next App release carries the new engine.
+                            Set("outdated", "Steam 上的游戏 " + ShortVersion(changed.Found) + " 升级了引擎，这个版本的 App 不能运行它。更新 App 后即可开始游戏。", 1);
+                            errorCode = "GameEngineChanged";
+                            Console.WriteLine("STEAM_APP_GAME_OUTDATED " + changed.Found);
                             return;
                         }
                         Set("error", qrExpired ? "二维码已过期，请重新显示二维码"
@@ -367,7 +371,12 @@ namespace BazaarPlusPlus.Ios.Service
                             {
                                 await Downloader.Download(current.Client, profile, root, progress, run.Token);
                                 fetched = true;
-                                lock (gate) if (epoch == generation) WantDownload(false);
+                                string downloaded = GameDefinition.InstalledVersion(root, profile);
+                                lock (gate)
+                                {
+                                    installedVersion = downloaded;
+                                    if (epoch == generation) WantDownload(false);
+                                }
                             }
                             run.Token.ThrowIfCancellationRequested();
                             // The connection may have dropped during the transfer, and the game needs one to start.

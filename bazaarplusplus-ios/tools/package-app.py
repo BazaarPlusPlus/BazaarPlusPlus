@@ -20,11 +20,10 @@ app_info = plistlib.loads((app / 'Info.plist').read_bytes())
 # App Store Connect takes only numbers here: the App's version is the Product Release it ships (the
 # repository VERSION, the same as the mod inside it); BPP_BUILD_NUMBER overrides the game build for reuploads. The game
 # and the mod identify the game by the full Application.version string, which the host hands to Unity
-# from BPPGameVersion before the engine starts (app/Host/main.mm::exposeGameVersion).
+# from the downloaded game before the engine starts (app/Host/main.mm::exposeGameVersion).
 app_info['CFBundleShortVersionString'] = (ROOT.parent / 'VERSION').read_text().strip()
 app_info['CFBundleVersion'] = (os.environ.get('BPP_BUILD_NUMBER')
                                or profile['testedGameVersion'].split('-')[0].split('.')[-1])
-app_info['BPPGameVersion'] = profile['testedGameVersion']
 (app / 'Info.plist').write_bytes(plistlib.dumps(app_info))
 shutil.copy2(ROOT / 'game/game.json', app / 'game.json')
 shutil.copy2(ROOT / 'runtime/helper/entrypoints.json', app / 'entrypoints.json')

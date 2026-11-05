@@ -1,8 +1,8 @@
 # 升级游戏引擎
 
-The Bazaar 升级 Unity 版本时，按这份流程升级 iOS App。App 严格比对 `game/game.json` 和 `toolchain.lock.json` 里的版本与哈希。Steam 上的游戏更新后，App 保留下载并显示“等待适配”，升级完成并发布新版 App 后才能启动。所有值由这两个文件和 `ProjectVersion.txt` 拥有，这里不重复。
+The Bazaar 升级 Unity 版本时，按这份流程升级 iOS App。App 在运行时比对 `game/game.json` 的 Unity 版本和 App 自带的 `mscorlib.dll`。Steam 上的游戏换了引擎后，App 保留下载并显示“等待适配”，升级完成并发布新版 App 后才能启动。只换游戏内容的更新不阻止启动。所有值由这两个文件和 `ProjectVersion.txt` 拥有，这里不重复。
 
-只有游戏更新、引擎不变时，只做第 7 步和第 8 步。
+只有游戏更新、引擎不变时，只做第 7 步和第 8 步，用来更新"适配版本"和模组。
 
 ## 1. 确认新版本
 

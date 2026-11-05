@@ -24,10 +24,9 @@ static NSString *jsonString(NSDictionary *value) {
     return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:value options:0 error:nil] encoding:NSUTF8StringEncoding];
 }
 // Unity's Application.version reads CFBundleShortVersionString, which holds the numeric Product Release
-// App Store Connect requires; the game and the mod need the game's own version string there. The main
-// bundle's info dictionary is mutable storage shared by NSBundle and CFBundle readers.
-static void exposeGameVersion(void) {
-    NSString *game = [NSBundle.mainBundle objectForInfoDictionaryKey:@"BPPGameVersion"];
+// App Store Connect requires; the game and the mod need the downloaded game's own version string there.
+// The main bundle's info dictionary is mutable storage shared by NSBundle and CFBundle readers.
+static void exposeGameVersion(NSString *game) {
     @try { [(NSMutableDictionary *)NSBundle.mainBundle.infoDictionary setObject:game forKey:@"CFBundleShortVersionString"]; }
     @catch (NSException *error) { fprintf(stderr,"STEAM_APP_GAME_VERSION failed=%s\n",error.reason.UTF8String); return; }
     fprintf(stderr,"STEAM_APP_GAME_VERSION %s\n",[[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] UTF8String]);
@@ -169,7 +168,7 @@ static void exposeGameVersion(void) {
         [self setNeedsUpdateOfSupportedInterfaceOrientations];
         [scene requestGeometryUpdateWithPreferences:[[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape] errorHandler:nil];
     }
-    exposeGameVersion(); fprintf(stderr,"STEAM_APP_LAUNCH_GAME independent-session=1\n"); [engine runEmbeddedWithArgc:savedArgc argv:savedArgv appLaunchOpts:nil];
+    exposeGameVersion(s[@"game"][@"installedVersion"]); fprintf(stderr,"STEAM_APP_LAUNCH_GAME independent-session=1\n"); [engine runEmbeddedWithArgc:savedArgc argv:savedArgv appLaunchOpts:nil];
     // The launcher window stays in the scene under the engine's, so the hinge interaction lives on its view.
     foldGuard=[(id<BPPFoldGuarding>)[(Class)NSClassFromString(@"BPPFoldGuard") alloc] initWithScene:scene hingeView:self.view pause:^(BOOL paused){ [engine pause:paused]; }];
     // The engine owns its own window now; drop the launcher UI so its decoded artwork is freed.

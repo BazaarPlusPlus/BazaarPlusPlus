@@ -26,7 +26,7 @@ BazaarPlusPlus for iOS 在 iPhone 和 iPad 上运行 The Bazaar 的 Mac 版本�
 
 - 运行时不按游戏名或 Steam App ID 分支。引擎补丁只对锁定的 Unity 构建生效，补丁脚本先检查原始指令，版本不符就失败。
 - 中间件按插件 ABI 适配。
-- 修补作用于派生副本，绑定原始文件哈希；下载的原件不改。游戏版本和 `game/game.json` 的 `testedGameVersion` 不一致时，准备失败，不能默默套用补丁。
+- 修补作用于派生副本，下载的原件不改。游戏重新构建时原件的哈希会变，但代码不一定变，所以哈希不一致时 App 记录日志，继续使用派生副本。
 - 模组功能只写在 `bazaarplusplus-mod/`。iOS 不用的桌面能力（自更新、Mac 原生回放采集）由 host 选项或运行平台关闭，不在本项目里分支。
 - 构建脚本放在它构建的模块旁边；`tools/build.py` 是唯一入口，按顺序调用它们。
 
@@ -48,9 +48,11 @@ BazaarPlusPlus for iOS 在 iPhone 和 iPad 上运行 The Bazaar 的 Mac 版本�
 
 ## 游戏更新
 
-`game/game.json::testedGameVersion` 固定一个已验证的游戏版本。Steam 只提供最新版本，所以 Steam 上的游戏更新后，App 仍能登录和下载，但准备阶段抛出 `GameVersionUnsupportedException`，服务进入 `outdated` 状态（`errorCode` 为 `GameVersionUnsupported`），启动器的开始按钮显示"等待适配"。这不是错误，下载会保留。适配完成后发新版 App，更新 `testedGameVersion`、托管适配的哈希和模组。
+`game/game.json::testedGameVersion` 是发布时验证过的游戏版本，启动器显示为"适配版本"。Steam 只提供最新版本，所以 Steam 上的游戏更新后，App 下载新版本并照常启动：模组兼容游戏更新，打不上的补丁由模组自己报告，问题由玩家发现。`Application.version` 和启动器的"游戏版本"都用下载的版本（`GameDefinition.InstalledVersion`）。
 
-App Store Connect 只接受数字版本：App 的 `CFBundleShortVersionString` 是产品版本（根目录 `VERSION`，和其中的模组相同），`CFBundleVersion` 默认是游戏 build 号；同一游戏版本重新上传时，用 `just ios::testflight <build>` 指定更大的 build 号（`tools/testflight.py` 把它作为 `BPP_BUILD_NUMBER` 交给 `tools/package-app.py`）。Unity 的 `Application.version` 读 `CFBundleShortVersionString`，而游戏和模组靠完整的游戏版本字符串识别游戏，所以完整字符串写在 `BPPGameVersion`，`app/Host/main.mm::exposeGameVersion` 在引擎启动前把它写回主 bundle 的 info 字典。启动器打开时读 `https://cdn.bazaarplusplus.com/installer/latest/mod/ios-aarch64.json`，版本更新时在首页显示一条提醒，有 `downloads.ios-aarch64.url` 时可以点开下载。提醒不阻止游戏；清单不存在或读不到时什么也不显示。发布流水线还没有发布这个清单。
+只有游戏换了引擎才阻止启动，因为 Unity 引擎和 corlib AOT 编译进了 App。`Installer.Prepare` 比对 Unity 版本和 `mscorlib.dll`，不一致时抛出 `GameEngineChangedException`，服务进入 `outdated` 状态（`errorCode` 为 `GameEngineChanged`），启动器显示"等待适配"。这不是错误，下载会保留。按 `docs/engine-upgrade.md` 升级并发布新版 App 后才能启动。
+
+App Store Connect 只接受数字版本：App 的 `CFBundleShortVersionString` 是产品版本（根目录 `VERSION`，和其中的模组相同），`CFBundleVersion` 默认是游戏 build 号；同一游戏版本重新上传时，用 `just ios::testflight <build>` 指定更大的 build 号（`tools/testflight.py` 把它作为 `BPP_BUILD_NUMBER` 交给 `tools/package-app.py`）。Unity 的 `Application.version` 读 `CFBundleShortVersionString`，而游戏和模组靠完整的游戏版本字符串识别游戏，所以 `app/Host/main.mm::exposeGameVersion` 在引擎启动前把下载版本的完整字符串写回主 bundle 的 info 字典。启动器打开时读 `https://cdn.bazaarplusplus.com/installer/latest/mod/ios-aarch64.json`，版本更新时在首页显示一条提醒，有 `downloads.ios-aarch64.url` 时可以点开下载。提醒不阻止游戏；清单不存在或读不到时什么也不显示。发布流水线还没有发布这个清单。
 
 ## 将来：官方 iOS 版
 
