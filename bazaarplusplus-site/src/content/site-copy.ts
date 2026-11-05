@@ -107,6 +107,8 @@ export type DownloadPageCopy = {
   intro: string;
   versionLabel: string;
   versionUnavailable: string;
+  officialGameVersionLabel: string;
+  officialUpdatedAtLabel: string;
   versionFailed: string;
   releaseFallbackPrefix: string;
   releaseFallbackLink: string;
@@ -465,6 +467,8 @@ const zh: LocalizedSiteCopy = {
     intro: '获取 BazaarPlusPlus 最新版本。',
     versionLabel: '最新版本',
     versionUnavailable: '获取失败',
+    officialGameVersionLabel: '官方游戏版本',
+    officialUpdatedAtLabel: '官方更新时间',
     versionFailed: '暂时无法获取最新版本',
     releaseFallbackPrefix: '可以前往 ',
     releaseFallbackLink: 'GitHub 发布页',
@@ -793,6 +797,8 @@ const en: LocalizedSiteCopy = {
     intro: 'Get the latest version of BazaarPlusPlus.',
     versionLabel: 'Current version',
     versionUnavailable: 'Unavailable',
+    officialGameVersionLabel: 'Official game version',
+    officialUpdatedAtLabel: 'Official update',
     versionFailed: 'Cannot reach the latest version right now',
     releaseFallbackPrefix: 'Try ',
     releaseFallbackLink: 'GitHub Release',

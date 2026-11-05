@@ -68,6 +68,7 @@ public sealed class SteamSnapshotTests
         var state = BranchState.Read(Product()["depots"], "public", [1617401, 1617402]);
 
         Assert.Equal("26443971", state.Buildid);
+        Assert.Equal(1793832079, state.UpdatedAt);
         Assert.Equal(8272434544826088728UL, state.Manifests[1617401]);
         Assert.Equal(3065482850319556123UL, state.Manifests[1617402]);
     }
@@ -156,7 +157,7 @@ public sealed class SteamSnapshotTests
                 {
                     "branches"
                     {
-                        "public" { "buildid" "26443971" }
+                        "public" { "buildid" "26443971" "timeupdated" "1793832079" }
                     }
                     "1617401" { "manifests" { "public" { "gid" "8272434544826088728" } } }
                     "1617402" { "manifests" { "public" { "gid" "3065482850319556123" } } }

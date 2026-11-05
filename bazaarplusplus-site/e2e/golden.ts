@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { expect, type Page, type Route, type TestInfo } from '@playwright/test';
 import Ajv2020 from 'ajv/dist/2020.js';
 
-import { RELEASE_BASE_URL, platformManifestPath } from '../../release/downloads';
+import { GAME_STATUS_URL, RELEASE_BASE_URL, platformManifestPath } from '../../release/downloads';
 
 export const siteRoot = resolve(import.meta.dirname, '..');
 
@@ -56,6 +56,7 @@ export type GoldenSources = {
   windows: SourceReply;
   mac: SourceReply;
   android: SourceReply;
+  gameStatus: SourceReply;
 };
 
 export function goldenSources(overrides: Partial<GoldenSources> = {}): GoldenSources {
@@ -66,6 +67,8 @@ export function goldenSources(overrides: Partial<GoldenSources> = {}): GoldenSou
     windows: { json: readJson('../release/fixtures/latest/windows-x86_64.json') },
     mac: { json: readJson('../release/fixtures/latest/darwin-aarch64.json') },
     android: { json: readJson('../release/fixtures/latest/android-aarch64.json') },
+    // Answered only where a spec asks, so the shared page goldens stay free of Steam's clock.
+    gameStatus: { status: 404 },
     ...overrides,
   };
 }
@@ -100,7 +103,7 @@ export async function installGoldenRoutes(
 ): Promise<GoldenRoutes> {
   const state: GoldenRoutes = {
     unexpected: [],
-    hits: { metrics: 0, supporters: 0, windows: 0, mac: 0, android: 0 },
+    hits: { metrics: 0, supporters: 0, windows: 0, mac: 0, android: 0, gameStatus: 0 },
   };
   const byUrl: Record<string, keyof GoldenSources> = {
     [METRICS_URL]: 'metrics',
@@ -108,6 +111,7 @@ export async function installGoldenRoutes(
     [WINDOWS_MANIFEST_URL]: 'windows',
     [MAC_MANIFEST_URL]: 'mac',
     [ANDROID_MANIFEST_URL]: 'android',
+    [GAME_STATUS_URL]: 'gameStatus',
   };
 
   await page.route('**/*', async (route) => {

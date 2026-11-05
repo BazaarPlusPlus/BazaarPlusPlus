@@ -10,6 +10,7 @@ import {
   checkGameLibsLock,
   cliMain,
   fetchSnapshot,
+  gameStatus,
   lockEntryForManaged,
   lockKeys,
   lockWarnings,
@@ -17,6 +18,7 @@ import {
   managedDirectoryDigest,
   managedDirectoryRecords,
   parseGameVersion,
+  publishGameStatus,
   publishSnapshot,
   readGameLibsLock,
   readGameVersion,
@@ -772,7 +774,8 @@ test('the build record entry is the one the Managed digest matches, preferring t
 function steamTool({ buildid = '26443971', gameVersion, calls = [] }) {
   return (args) => {
     calls.push(args);
-    if (args[0] === 'state') return { buildid, manifests: {} };
+    if (args[0] === 'state')
+      return { buildid, updatedAt: 1793832079, manifests: {} };
     gameInstall(args[args.indexOf('--out') + 1], gameVersion);
     return { buildid, manifest: '1' };
   };
@@ -892,6 +895,7 @@ test('steam-stale reads both desktop depots of the branch', () => {
 
   expect(state).toEqual({
     buildid: '26443971',
+    updatedAt: 1793832079,
     platforms: ['macos', 'windows']
   });
   expect(calls[0]).toEqual(
@@ -925,4 +929,58 @@ test('a capture is code, content or none by what it changed', () => {
     steamChangeKind(previous, after({ sha256: 'b'.repeat(64) }), 'online')
   ).toBe('code');
   expect(steamChangeKind(emptyLock(), after({}), 'online')).toBe('code');
+});
+
+const STATUS_FIXTURE = JSON.parse(
+  fs.readFileSync(
+    path.join(WORKSPACE_ROOT, 'release/fixtures/game-status.json'),
+    'utf8'
+  )
+);
+const statusLock = () => {
+  const lock = emptyLock();
+  lock.entries['macos-online'] = onlineEntry(
+    STATUS_FIXTURE.platforms.macos.gameVersion,
+    STATUS_FIXTURE.buildid
+  );
+  lock.entries['windows-online'] = onlineEntry(
+    STATUS_FIXTURE.platforms.windows.gameVersion,
+    STATUS_FIXTURE.buildid
+  );
+  return lock;
+};
+const STATUS_STATE = { buildid: '26443971', updatedAt: 1793832079 };
+
+test('the Game Status of a recorded online build matches the shared fixture', () => {
+  expect(gameStatus(statusLock(), STATUS_STATE)).toEqual(STATUS_FIXTURE);
+});
+
+test('the Game Status waits for the lock and for a real time', () => {
+  const behind = statusLock();
+  behind.entries['windows-online'].buildid = '1';
+  expect(gameStatus(behind, STATUS_STATE)).toBeNull();
+  expect(
+    gameStatus(statusLock(), { ...STATUS_STATE, updatedAt: 0 })
+  ).toBeNull();
+});
+
+test('publishing the Game Status writes it once and leaves it alone when behind', async () => {
+  const { workspaceRoot } = workspace({ lock: statusLock() });
+  const store = memoryStore();
+  expect(
+    await publishGameStatus({ workspaceRoot, state: STATUS_STATE, store })
+  ).toEqual(STATUS_FIXTURE);
+  expect(JSON.parse(store.objects.get('latest.json').toString())).toEqual(
+    STATUS_FIXTURE
+  );
+  const { workspaceRoot: behind } = workspace({ lock: emptyLock() });
+  const untouched = memoryStore();
+  expect(
+    await publishGameStatus({
+      workspaceRoot: behind,
+      state: STATUS_STATE,
+      store: untouched
+    })
+  ).toBeNull();
+  expect(untouched.objects.size).toBe(0);
 });

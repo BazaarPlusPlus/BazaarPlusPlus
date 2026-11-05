@@ -183,3 +183,31 @@ test('the Android feedback button copies the QQ group number', async ({ page, co
   await expect(button).toHaveText('Group number copied');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('1083470305');
 });
+
+test.describe('Game Status', () => {
+  test('the desktop cards show the official game and its update time', async ({ page }) => {
+    const routes = await installGoldenRoutes(page, {
+      ...goldenSources(),
+      gameStatus: { json: readJson('../release/fixtures/game-status.json') },
+    });
+    await page.goto('/download?lang=en');
+
+    const mac = platformCard(page, 'macOS');
+    await expect(mac.locator('dt', { hasText: 'Official game version' })).toBeVisible();
+    expect(await fact(mac, 'Official game version')).toBe('1.0.13081');
+    expect(await fact(platformCard(page, 'Windows'), 'Official game version')).toBe('1.0.13082');
+    expect(await fact(mac, 'Official update')).toContain('2026');
+    expectNoUnexpectedRequests(routes);
+  });
+
+  test('a missing Game Status hides only its rows', async ({ page }) => {
+    const routes = await installGoldenRoutes(page);
+    await page.goto('/download?lang=en');
+
+    const mac = platformCard(page, 'macOS');
+    await expect(mac.getByRole('link', { name: /^Download \./ })).toBeVisible();
+    await expect.poll(() => routes.hits.gameStatus).toBeGreaterThan(0);
+    expect(await fact(mac, 'Official game version')).toBeNull();
+    expectNoUnexpectedRequests(routes);
+  });
+});

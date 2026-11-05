@@ -1,14 +1,17 @@
 import {
   RELEASE_BASE_URL,
   DOWNLOAD_PLATFORM_KEYS,
+  GAME_STATUS_URL,
   decodeAndroidDownload,
+  decodeGameStatus,
   decodeMainlandDownloadUrl,
   platformManifestPath,
   type AndroidDownload,
   type DownloadPlatform as ReleasePlatform,
+  type GameStatus,
 } from '../../../../release/downloads';
 
-export type { AndroidDownload } from '../../../../release/downloads';
+export type { AndroidDownload, GameStatus } from '../../../../release/downloads';
 /** The platforms that ship a desktop installer; Android ships an APK (`loadAndroidRelease`). */
 export type DownloadPlatform = Exclude<ReleasePlatform, 'android'>;
 export const GITHUB_RELEASE_URL =
@@ -105,6 +108,18 @@ export async function loadAndroidRelease(signal: AbortSignal): Promise<AndroidDo
   return release;
 }
 
+/** What Steam's public branch holds now. The page shows nothing for it when this fails. */
+export async function loadGameStatus(signal: AbortSignal): Promise<GameStatus> {
+  const response = await fetch(GAME_STATUS_URL, {
+    headers: { Accept: 'application/json' },
+    signal,
+  });
+  if (!response.ok) throw new Error(`Game Status responded with ${response.status}`);
+  const status = decodeGameStatus(await response.json());
+  if (!status) throw new Error('Game Status is invalid');
+  return status;
+}
+
 /** The release number at the front of the game's `Application.version`: `1.0.12825-production-android-d9601ded` → `1.0.12825`. */
 export function gameReleaseNumber(gameVersion: string): string {
   return /^\d+(?:\.\d+)+/.exec(gameVersion)?.[0] ?? gameVersion;
@@ -115,7 +130,10 @@ export async function loadLatestInstaller(signal: AbortSignal): Promise<LatestIn
   const settled = await Promise.allSettled(
     platforms.map((platform) => loadPlatformDownload(platform, signal))
   );
-  const downloads = { windows: null, mac: null } as LatestInstaller['downloads'];
+  const downloads = {
+    windows: null,
+    mac: null,
+  } as LatestInstaller['downloads'];
   const failures: unknown[] = [];
   settled.forEach((result, index) => {
     const platform = platforms[index];

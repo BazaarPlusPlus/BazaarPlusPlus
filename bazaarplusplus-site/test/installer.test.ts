@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import gameStatusFixture from '../../release/fixtures/game-status.json';
 import androidFixture from '../../release/fixtures/latest/android-aarch64.json';
 import macFixture from '../../release/fixtures/latest/darwin-aarch64.json';
 import windowsFixture from '../../release/fixtures/latest/windows-x86_64.json';
 
-import { RELEASE_BASE_URL } from '../../release/downloads';
+import { GAME_STATUS_URL, RELEASE_BASE_URL, decodeGameStatus } from '../../release/downloads';
 import {
   GITHUB_RELEASE_URL,
   loadAndroidRelease,
+  loadGameStatus,
   loadLatestInstaller,
 } from '../src/features/download/installer';
 
@@ -245,5 +247,33 @@ describe('Android release interface', () => {
     await expect(loadAndroidRelease(new AbortController().signal)).rejects.toThrow(
       /latest\/android-aarch64\.json/
     );
+  });
+});
+
+describe('Game Status', () => {
+  test('decodes the versions and the update time the watch writes', () => {
+    expect(decodeGameStatus(gameStatusFixture)).toEqual({
+      gameVersions: {
+        macos: '1.0.13081-prod-macos-arm64-dae65d53',
+        windows: '1.0.13082-prod-windows-x64-dae65d53',
+      },
+      updatedAt: new Date('2026-11-04T22:41:19.000Z'),
+    });
+  });
+
+  test.each([
+    ['null', null],
+    ['another schema', { ...gameStatusFixture, schemaVersion: 2 }],
+    ['a bad time', { ...gameStatusFixture, updatedAt: 'soon' }],
+    ['a missing platform', { ...gameStatusFixture, platforms: { macos: {} } }],
+  ])('refuses %s', (_name, payload) => {
+    expect(decodeGameStatus(payload)).toBeNull();
+  });
+
+  test('fails on a response it cannot use', async () => {
+    const fetchStub = vi.fn(async () => new Response('', { status: 404 }));
+    vi.stubGlobal('fetch', fetchStub);
+    await expect(loadGameStatus(new AbortController().signal)).rejects.toThrow(/404/);
+    expect(fetchStub).toHaveBeenCalledWith(GAME_STATUS_URL, expect.anything());
   });
 });
