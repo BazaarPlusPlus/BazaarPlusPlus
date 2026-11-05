@@ -2,12 +2,14 @@
 // Posts a published BazaarPlusPlus release to QQ groups through the QQ official Bot:
 // the Markdown notes, then one file message per installer (Win, Mac, Android).
 //
-//   node announce.mjs --version 6.2.0 --target test|release [--notes notes.md]
+//   node announce.mjs --target test|release [--notes notes.md]
 //                     [--platforms win,mac,android] [--groups "name,name"] [--send]
 //
 // --target test sends to the test group in ../groups.json; --target release to every release group.
 // Without --send it prints the plan and sends nothing.
 // Installers come from the published manifests on the CDN, so only promoted builds go out.
+// Each platform carries its own published version (desktop and Android can differ),
+// and the dry run prints it for the user to check.
 // Credentials: $BPP_CONFIG_HOME/qqbot.env (default ~/.config/bazaarplusplus/qqbot.env)
 // with QQ_BOT_APP_ID and QQ_BOT_APP_SECRET.
 import fs from 'node:fs';
@@ -42,7 +44,6 @@ const PLATFORMS = {
 
 const { values: args } = parseArgs({
   options: {
-    version: { type: 'string' },
     target: { type: 'string' },
     notes: { type: 'string' },
     platforms: { type: 'string', default: Object.keys(PLATFORMS).join(',') },
@@ -56,7 +57,6 @@ function fail(message) {
   process.exit(1);
 }
 
-if (!args.version) fail('--version is required, e.g. --version 6.2.0');
 if (!['test', 'release'].includes(args.target))
   fail('--target must be test or release');
 const wanted = args.platforms
@@ -85,25 +85,24 @@ async function getJson(url) {
   return res.json();
 }
 
-// Plan: every selected platform must be published at --version.
+// Plan: each selected platform's latest published installer, named with its version.
 const manifests = {};
 const files = [];
 for (const p of selected) {
   const spec = PLATFORMS[p];
   manifests[spec.manifest] ??= await getJson(spec.manifest);
   const manifest = manifests[spec.manifest];
-  if (manifest.version !== args.version)
-    fail(
-      `${p}: the published manifest is ${manifest.version}, not ${args.version}. Promote it first, or leave ${p} out with --platforms.`
-    );
   const entry = spec.pick(manifest);
   if (!entry?.url)
-    fail(`${p}: the published ${args.version} manifest has no installer entry`);
+    fail(
+      `${p}: the published ${manifest.version} manifest has no installer entry`
+    );
   if (entry.size > MAX_FILE_BYTES)
     fail(`${p}: ${entry.url} is ${entry.size} bytes, over the QQ 200 MB limit`);
   files.push({
     platform: p,
-    name: spec.name(args.version),
+    version: manifest.version,
+    name: spec.name(manifest.version),
     url: entry.url,
     size: entry.size,
     sha256: entry.sha256
@@ -112,9 +111,7 @@ for (const p of selected) {
 const notes = args.notes ? fs.readFileSync(args.notes, 'utf8').trim() : null;
 if (args.notes && !notes) fail(`${args.notes} is empty`);
 
-console.log(
-  `Plan for ${args.version} → ${args.target}: ${groups.map((g) => g.name).join('、')}`
-);
+console.log(`Plan → ${args.target}: ${groups.map((g) => g.name).join('、')}`);
 console.log('Each group gets, in order:');
 let n = 1;
 if (notes)
@@ -124,7 +121,7 @@ if (notes)
 else console.log('  -  no notes message (no --notes)');
 for (const f of files)
   console.log(
-    `  ${n++}. ${f.name}  ${(f.size / 1048576).toFixed(1)} MB  from ${f.url}`
+    `  ${n++}. ${f.name}  ${f.platform} ${f.version}  ${(f.size / 1048576).toFixed(1)} MB  from ${f.url}`
   );
 if (!args.send) {
   console.log('\nDry run: nothing sent. Rerun with --send to post.');
