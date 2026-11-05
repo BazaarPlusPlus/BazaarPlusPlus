@@ -99,17 +99,27 @@ try {
         ("globalgamemanagers", "6000.3.11f1\0game-assets"), ("Managed/0Harmony.dll", "harmony") })
         if (File.ReadAllText(Path.Combine(target, pair.Item1)) != pair.Item2) throw new Exception("Wrong runtime content: " + pair.Item1);
     Console.WriteLine("PASS: relocated game runtime includes iOS built-ins, boot settings, engine assemblies and mod libraries.");
+    if (GameDefinition.InstalledVersion(root, profile) != "1.0") throw new Exception("Installed version not read from the download");
     var newer = (Newtonsoft.Json.Linq.JObject)profile.DeepClone(); newer["testedGameVersion"] = "0.9";
-    try
+    void Prepare(Newtonsoft.Json.Linq.JObject game) => typeof(DownloadPaths).Assembly.GetType("BazaarPlusPlus.Ios.Service.Installer")!.GetMethod("Prepare")!
+        .Invoke(null, new object[] { game, root, assets, System.Threading.CancellationToken.None });
+    Prepare(newer);
+    Console.WriteLine("PASS: a game newer than the tested one on the same engine prepares.");
+    void ExpectEngineChanged(Newtonsoft.Json.Linq.JObject game)
     {
-        typeof(DownloadPaths).Assembly.GetType("BazaarPlusPlus.Ios.Service.Installer")!.GetMethod("Prepare")!
-            .Invoke(null, new object[] { newer, root, assets, System.Threading.CancellationToken.None });
-        throw new Exception("Untested game version prepared");
+        try { Prepare(game); throw new Exception("Changed engine prepared"); }
+        catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is GameEngineChangedException changed && changed.Found == "1.0") { }
     }
-    catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is GameVersionUnsupportedException unsupported
-        && unsupported.Found == "1.0" && unsupported.Tested == "0.9") { }
-    Console.WriteLine("PASS: a game version other than the tested one stops prepare with the version found.");
-    // A downloaded update or corrupted bundled patch must fail closed before replacement.
+    File.WriteAllText(Path.Combine(source,"Managed/mscorlib.dll"), "other-corlib");
+    ExpectEngineChanged(newer);
+    File.WriteAllText(Path.Combine(source,"Managed/mscorlib.dll"), "corlib");
+    var otherUnity = (Newtonsoft.Json.Linq.JObject)newer.DeepClone(); otherUnity["unityVersion"] = "6000.4.0f1";
+    ExpectEngineChanged(otherUnity);
+    var corrupt = (Newtonsoft.Json.Linq.JObject)profile.DeepClone(); corrupt["unityVersion"] = "6000.4.0f1";
+    try { Prepare(corrupt); throw new Exception("Wrong engine at the tested version prepared"); }
+    catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is InvalidDataException) { }
+    Console.WriteLine("PASS: a changed Unity version or corlib stops a newer game with the version found; at the tested version it is corruption.");
+    // A rebuilt game keeps the derived copy; a corrupted bundled patch must fail closed before replacement.
     string HashFile(string path) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
     string original = Path.Combine(source, "Managed/FMODUnity.dll");
     string adapterFolder = Path.Combine(assets, "GameAdapters");
@@ -130,19 +140,21 @@ try {
     if (File.ReadAllText(original) != "original-fmod" ||
         File.ReadAllText(Path.Combine(target,"Managed/FMODUnity.dll")) != "derived-static-fmod")
         throw new Exception("Adapter modified original or failed to replace derived copy");
-    foreach (bool changeOriginal in new[] { true, false }) {
-        string path = changeOriginal ? original : patch;
-        string previous = File.ReadAllText(path);
-        File.WriteAllText(path, "unvalidated-update");
-        try { ApplyAdapter(); throw new Exception("Accepted unvalidated adapter bytes"); }
-        catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is InvalidDataException) { }
-        File.WriteAllText(path,previous);
-    }
+    File.WriteAllText(original, "rebuilt-fmod");
+    File.Delete(Path.Combine(target,"Managed/FMODUnity.dll"));
+    ApplyAdapter();
+    if (File.ReadAllText(original) != "rebuilt-fmod" ||
+        File.ReadAllText(Path.Combine(target,"Managed/FMODUnity.dll")) != "derived-static-fmod")
+        throw new Exception("A rebuilt game did not keep the derived copy");
+    File.WriteAllText(patch, "corrupt-patch");
+    try { ApplyAdapter(); throw new Exception("Accepted a corrupt patch"); }
+    catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is InvalidDataException) { }
+    File.WriteAllText(patch, "derived-static-fmod");
     receipt["gameId"]="another-game";
     File.WriteAllText(Path.Combine(adapterFolder,"manifest.json"), receipt.ToString());
     try { ApplyAdapter(); throw new Exception("Accepted another game's adapter"); }
     catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is InvalidDataException) { }
-    Console.WriteLine("PASS: managed adapters preserve originals and reject changed games, corrupt patches and cross-game receipts.");
+    Console.WriteLine("PASS: managed adapters preserve originals, survive a rebuilt game and reject corrupt patches and cross-game receipts.");
     var game = Newtonsoft.Json.Linq.JObject.Parse("""{"id":"first","displayName":"First","steam":{"appId":1,"macDepots":[2]},"installPath":"Game.app","dataPath":"Contents/Resources/Data","unityVersion":"6000.3.11f1","testedGameVersion":"1.0","library":{"platforms":{"simulator":{"launch":true},"device":{"launch":false}}}}""");
     var definitionPath = Path.Combine(assets, "game.json");
     File.WriteAllText(definitionPath, game.ToString());

@@ -12,9 +12,10 @@ for i in $(seq 1 300); do S=$(snap); case "$S" in "ready "*|error*|"installed "*
 case "$S" in "ready "*) ;; *) exit 1;; esac
 LOG=$(ls -d build/steam-app/verification 2>/dev/null)/stdout.log
 START=$(( $(wc -l < "$LOG") ))
+# The downloaded game's version, which may be newer than game/game.json's tested one.
+GAME=$(python3 "$CTL" snapshot | python3 -c 'import json,sys; print(json.load(sys.stdin)["game"]["installedVersion"])')
 python3 "$CTL" launch >/dev/null
 for i in $(seq 1 120); do tail -n +$START "$LOG" | grep -qE 'RunTasks complete' && break; sleep 2; done
 tail -n +$START "$LOG" | grep -a -E 'RunTasks complete|STEAM_APP_WEB_TICKET|\[BppIos\]|\[BazaarPlusPlus\]' | head -40 | cut -c1-240
 tail -n +$START "$LOG" | grep -aq 'RunTasks complete.*Failed: 0' || { echo GAME_START_FAIL; exit 1; }
-GAME=$(python3 -c 'import json; print(json.load(open("game/game.json"))["testedGameVersion"])')
 tail -n +$START "$LOG" | grep -aqF "application.version=$GAME" || { echo GAME_VERSION_FAIL; exit 1; }

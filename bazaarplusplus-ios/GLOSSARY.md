@@ -16,7 +16,7 @@
 
 **Game runtime directory**: the derived copy the game runs from, under `Games/runtimes/<game-id>`, rebuilt on every prepare from content, managed adapters, the helper and the mod.
 
-**Managed adapter**: a hash-pinned patch to one of the game's assemblies, applied to the game runtime directory only.
+**Managed adapter**: a patch built from one hash-pinned game assembly, applied to the game runtime directory only. The pin holds at build time; a downloaded game with another hash still gets the derived copy.
 
 **Helper**: `BazaarPlusPlus.Ios.Helper.dll`, injected into the game runtime directory for self-tests and diagnostics.
 

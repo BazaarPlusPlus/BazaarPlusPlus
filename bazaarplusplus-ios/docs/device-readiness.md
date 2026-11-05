@@ -32,7 +32,7 @@
 
 `middleware/fmod/fmod_static.mm::bpp_fmod_register_resonance` 用真实描述符注册 Listener、Soundfield、Source，并通过插件名称查询避免重复注册。`bpp_fmod_selftest` 使用 NOSOUND 输出验证版本、重复注册和 DSP 创建/释放；这不替代实际扬声器输出验证。设备和 Simulator 都将 FMOD P/Invoke 映射到静态链接的 UnityFramework；嵌入式启动器已停止打包 Mac 音频插件。
 
-游戏原始 Mono `FMODUnity.dll` 的静态插件路径只输出警告。`middleware/fmod/adapter/Program.cs` 校验 profile 中的原始程序集哈希后，在派生副本中将动态/静态插件加载改为原生注册，保留 `CheckInitResult` 错误上报；同时桥接音频系统初始化、释放与 mixer 暂停请求。`service/Managed/ManagedAdapters.cs::Apply` 再核对游戏 ID、源文件和派生文件哈希，仅替换运行目录中的副本。Steam 下载原件不变；未知更新会拒绝启动。
+游戏原始 Mono `FMODUnity.dll` 的静态插件路径只输出警告。`middleware/fmod/adapter/Program.cs` 校验 profile 中的原始程序集哈希后，在派生副本中将动态/静态插件加载改为原生注册，保留 `CheckInitResult` 错误上报；同时桥接音频系统初始化、释放与 mixer 暂停请求。`service/Managed/ManagedAdapters.cs::Apply` 再核对游戏 ID、源文件和派生文件哈希，仅替换运行目录中的副本。Steam 下载原件不变；原始程序集的哈希变化时记录日志，继续使用派生副本。
 
 原生音频适配器观察前后台、音频中断和 media-services-reset；管理游戏自身的暂停原因，避免与 OS 通知互相覆盖。系统恢复失败时保留暂停状态，下一次相关通知重试，不阻塞主线程等待。Simulator 测试通道提供只读音频快照和合成前后台通知，设备构建不包含该通道。真实来电、蓝牙路由、锁屏和恢复仍需真机。
 

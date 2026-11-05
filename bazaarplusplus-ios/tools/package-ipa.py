@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Zip the signed device build into a sideloadable IPA named after the Product Release and game build."""
 from pathlib import Path
+import json
 import plistlib
 import shutil
 import tempfile
@@ -10,7 +11,7 @@ app = ROOT / 'build/steam-app/device/launcher-derived/Build/Products/Release-iph
 if not app.exists():
     raise SystemExit('Build the device App first: python3 tools/build.py device')
 info = plistlib.loads((app / 'Info.plist').read_bytes())
-game = info['BPPGameVersion'].split('-')[0]
+game = json.loads((app / 'game.json').read_text())['testedGameVersion'].split('-')[0]
 name = f"BazaarPlusPlus_{info['CFBundleShortVersionString']}_ios-aarch64_game{game}"
 with tempfile.TemporaryDirectory() as staging:
     payload = Path(staging) / 'Payload'

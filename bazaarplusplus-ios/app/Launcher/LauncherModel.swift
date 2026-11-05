@@ -23,6 +23,7 @@ struct ServiceSnapshot: Decodable, Equatable {
         var id: String
         var title: String
         var version: String
+        var installedVersion: String
         var compatibility: Compatibility
         var downloaded: Bool
         init(from decoder: Decoder) throws {
@@ -30,13 +31,16 @@ struct ServiceSnapshot: Decodable, Equatable {
             id = try c.decode(String.self, forKey: .id)
             title = try c.decodeIfPresent(String.self, forKey: .title) ?? id
             version = try c.decodeIfPresent(String.self, forKey: .version) ?? ""
+            installedVersion = try c.decodeIfPresent(String.self, forKey: .installedVersion) ?? ""
             compatibility = (try? c.decodeIfPresent(Compatibility.self, forKey: .compatibility)) ?? Compatibility()
             downloaded = try c.decodeIfPresent(Bool.self, forKey: .downloaded) ?? false
         }
-        enum CodingKeys: String, CodingKey { case id, title, version, compatibility, downloaded }
+        enum CodingKeys: String, CodingKey { case id, title, version, installedVersion, compatibility, downloaded }
 
-        /// "1.0.12764" from "1.0.12764-prod-macos-arm64-013ff919": the adapted version as players know it.
-        var shortVersion: String { String(version.split(separator: "-").first ?? Substring(version)) }
+        /// "1.0.12764" from "1.0.12764-prod-macos-arm64-013ff919": a version as players know it.
+        private static func short(_ version: String) -> String { String(version.split(separator: "-").first ?? Substring(version)) }
+        var shortVersion: String { Self.short(version) }
+        var shortInstalledVersion: String { Self.short(installedVersion) }
     }
     var state = "starting"
     var message = "正在初始化…"

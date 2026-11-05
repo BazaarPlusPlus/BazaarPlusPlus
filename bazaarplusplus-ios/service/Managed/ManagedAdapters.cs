@@ -27,9 +27,11 @@ namespace BazaarPlusPlus.Ios.Service
                     (string?)receipt["adapter"] != (string?)adapter["adapter"] ||
                     (string?)receipt["assembly"] != name ||
                     (string?)receipt["sourceSha256"] != (string?)adapter["sourceSha256"] ||
-                    Hash(original) != (string?)adapter["sourceSha256"] ||
                     Hash(patched) != (string?)receipt["patchedSha256"])
                     throw new InvalidDataException("Unvalidated managed game adapter: " + name);
+                // A game rebuild changes the hash with no code change, and the game's own copy cannot reach
+                // the static native plugins on iOS, so the App's derived copy still replaces it.
+                if (Hash(original) != (string?)adapter["sourceSha256"]) Console.WriteLine("STEAM_APP_ADAPTER_SOURCE_CHANGED " + name);
                 File.Copy(patched, DownloadPaths.Resolve(target, name), true);
             }
         }

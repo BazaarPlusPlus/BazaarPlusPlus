@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Xml.Linq;
 using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Ios.Service
@@ -15,17 +14,24 @@ namespace BazaarPlusPlus.Ios.Service
             uint app = (uint)profile["steam"]!["appId"]!;
             string bundle = Path.GetFileName((string)profile["installPath"]!);
             string content = Path.Combine(Downloader.ContentRoot(root, app), bundle);
-            var plist = XDocument.Load(Path.Combine(content, "Contents/Info.plist"));
-            string version = plist.Descendants("key").First(x => x.Value == "CFBundleShortVersionString").ElementsAfterSelf().First().Value;
-            if (version != (string)profile["testedGameVersion"]!) throw new GameVersionUnsupportedException(version, (string)profile["testedGameVersion"]!);
+            string version = GameDefinition.InstalledVersion(root, profile);
+            if (version.Length == 0) throw new InvalidDataException("Unreadable game version");
+            // A build other than the tested one still runs: the mod tolerates game updates and reports what
+            // it cannot patch. Only what the App's own binary fixes stops it: the engine and the AOT corlib.
+            void RequireEngine(bool matches, string what)
+            {
+                if (matches) return;
+                if (version == (string)profile["testedGameVersion"]!) throw new InvalidDataException(what);
+                throw new GameEngineChangedException(version);
+            }
             string source = Path.Combine(content, (string)profile["dataPath"]!);
             byte[] header = File.ReadAllBytes(Path.Combine(source, "globalgamemanagers")).Take(512).ToArray();
-            if (!System.Text.Encoding.ASCII.GetString(header).Contains((string)profile["unityVersion"]! + "\0")) throw new InvalidDataException("Unvalidated Unity version");
+            RequireEngine(System.Text.Encoding.ASCII.GetString(header).Contains((string)profile["unityVersion"]! + "\0"), "Unvalidated Unity version");
             using (var sha = SHA256.Create())
             {
                 byte[] installed = sha.ComputeHash(File.ReadAllBytes(Path.Combine(source, "Managed/mscorlib.dll")));
                 byte[] built = sha.ComputeHash(File.ReadAllBytes(Path.Combine(assets, "Data/Managed/mscorlib.dll")));
-                if (!installed.SequenceEqual(built)) throw new InvalidDataException("Runtime corlib differs");
+                RequireEngine(installed.SequenceEqual(built), "Runtime corlib differs");
             }
             cancellation.ThrowIfCancellationRequested();
             string target = Path.Combine(GameDefinition.RuntimeRoot(root, profile), "Data"); Directory.CreateDirectory(Path.Combine(target, "Managed"));
@@ -81,12 +87,10 @@ namespace BazaarPlusPlus.Ios.Service
         }
     }
 
-    // Steam serves the newest game build; the App runs only the build its adapters and mod were tested on.
-    public sealed class GameVersionUnsupportedException : IOException
+    // Steam serves the newest game build. One on another engine cannot run on the engine inside this App.
+    public sealed class GameEngineChangedException : IOException
     {
         public string Found { get; }
-        public string Tested { get; }
-        public GameVersionUnsupportedException(string found, string tested) : base("Unvalidated game version")
-        { Found = found; Tested = tested; }
+        public GameEngineChangedException(string found) : base("Game engine changed") { Found = found; }
     }
 }

@@ -250,7 +250,7 @@ private extension LauncherModel {
     var stats: [Stat] {
         let game = snapshot.game
         return [
-            Stat(key: "游戏版本", value: game?.downloaded == true ? game?.shortVersion ?? "" : ""),
+            Stat(key: "游戏版本", value: game?.downloaded == true ? game?.shortInstalledVersion ?? "" : ""),
             Stat(key: "适配版本", value: game?.shortVersion ?? ""),
             Stat(key: "BazaarPlusPlus", value: appVersion),
         ]

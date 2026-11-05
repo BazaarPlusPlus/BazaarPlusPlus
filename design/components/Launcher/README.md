@@ -55,7 +55,7 @@ The badge is the Badge component: dot + word, one tone. Both Apps use the same w
 | Status | English | Tone | iOS App | Android App |
 |---|---|---|---|---|
 | 可以开始 | Ready | ok | Signed in, files verified | Game Code Hash matches the release, or a Development interop |
-| 等待适配 | Waiting for adaptation | warn | Steam's build is newer than the adapted one (`outdated`) | Installed game code newer than the adapted one |
+| 等待适配 | Waiting for adaptation | warn | Steam's build moved to an engine this App does not carry (`outdated`) | Installed game code newer than the adapted one |
 | 需要更新游戏 | Game update required | warn | | Installed game older than the adapted one |
 | 未安装 | Not installed | neutral | Not downloaded | Official game not installed |
 | 已下载 | Downloaded | neutral | Downloaded but not verified, or signed out | |
