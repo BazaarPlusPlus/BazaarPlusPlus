@@ -21,6 +21,8 @@ namespace BazaarPlusPlus.GameInterop.Cards;
 /// </summary>
 internal static partial class NativeCardSetUp
 {
+    private const string TinyArtKeyword = "_ISTINY_ON";
+
     /// <summary>
     /// The synthetic instance a subject sets up: its tier (the template's starting tier when the
     /// facet has no game value), its enchantment on an item, and its saved values.
@@ -35,6 +37,8 @@ internal static partial class NativeCardSetUp
             ? nativeTier
             : template.StartingTier;
         var attributes = Values(subject.Attributes);
+        if (TinySize(template, subject) != null)
+            attributes[ECardAttributeType.Tiny] = 1;
         if (template.Type == ECardType.Skill)
         {
             return new TCardInstanceSkill
@@ -59,6 +63,38 @@ internal static partial class NativeCardSetUp
                     ? native
                     : null,
         };
+    }
+
+    /// <summary>
+    /// The size an item shows at: the subject's saved size, else its template's. A skill and a
+    /// size with no game value show the template's.
+    /// </summary>
+    public static ECardSize ShownSize(TCardBase template, CardRentalSubject subject) =>
+        template.Type == ECardType.Item
+        && DesktopCardFacets.Size.TryToFacet(template.Size, out var templateSize)
+        && DesktopCardFacets.Size.TryToSource(subject.ShownSize(templateSize), out var shown)
+            ? shown
+            : template.Size;
+
+    /// <summary>The size of an item saved below its template's size, else null.</summary>
+    public static ECardSize? TinySize(TCardBase template, CardRentalSubject subject) =>
+        template.Type == ECardType.Item
+        && DesktopCardFacets.Size.TryToFacet(template.Size, out var templateSize)
+        && subject.IsTinyOn(templateSize)
+            ? ShownSize(template, subject)
+            : null;
+
+    /// <summary>
+    /// After a successful set-up, on a Tiny item: the client card at its real size and the art at
+    /// the crop the game's board gives a Tiny item (<c>ItemVisualsController.SetIsTiny</c>). The
+    /// game's set-up uses the template's size and turns the keyword off on the fresh material.
+    /// </summary>
+    public static void ShowTiny(CardPreviewBase card, ECardSize size)
+    {
+        if (card._clientCard != null)
+            card._clientCard.Size = size;
+        if (card._cardMaterial != null)
+            card._cardMaterial.EnableKeyword(TinyArtKeyword);
     }
 
     /// <summary>Before the set-up: the instance's values, for after it.</summary>
@@ -111,8 +147,10 @@ internal static partial class NativeCardSetUp
             );
         foreach (var pair in Values(subject.Attributes))
             attributes[pair.Key] = pair.Value;
+        if (TinySize(template, subject) != null)
+            attributes[ECardAttributeType.Tiny] = 1;
         card.Attributes = attributes;
-        card.Size = template.Size;
+        card.Size = ShownSize(template, subject);
         card.Tags = template.Tags;
     }
 

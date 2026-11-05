@@ -20,6 +20,8 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// </summary>
 internal static class AndroidNativeCardSetUp
 {
+    private const string TinyArtKeyword = "_ISTINY_ON";
+
     /// <summary>
     /// Saved Card Values, keyed by the game's member name, as the game's attributes; a name the
     /// game does not know is dropped (ADR-0017). Empty when there are none.
@@ -55,6 +57,11 @@ internal static class AndroidNativeCardSetUp
         var attributes = new Il2CppSystem.Collections.Generic.Dictionary<ECardAttributeType, int>();
         foreach (var pair in Values(subject.Attributes))
             attributes[pair.Key] = pair.Value;
+        if (
+            TinySize(template, subject) != null
+            && Enum.TryParse<ECardAttributeType>("Tiny", false, out var tiny)
+        )
+            attributes[tiny] = 1;
         if (template.Type == ECardType.Skill)
         {
             return new TCardInstanceSkill
@@ -80,6 +87,41 @@ internal static class AndroidNativeCardSetUp
         )
             item.EnchantmentType = new Il2CppSystem.Nullable<EEnchantmentType>(nativeEnchantment);
         return item;
+    }
+
+    /// <summary>
+    /// The size an item shows at: the subject's saved size, else its template's. A skill and a
+    /// size with no game value show the template's.
+    /// </summary>
+    public static ECardSize ShownSize(TCardBase template, CardRentalSubject subject) =>
+        template.Type == ECardType.Item
+        && AndroidCardFacets.Size.TryToFacet(template.Size, out var templateSize)
+        && AndroidCardFacets.Size.TryToSource(subject.ShownSize(templateSize), out var shown)
+            ? shown
+            : template.Size;
+
+    /// <summary>
+    /// The size of an item saved below its template's size, else null. Its <c>Tiny</c> attribute
+    /// goes by name: the Interop Snapshot this host compiles against can predate the member.
+    /// </summary>
+    public static ECardSize? TinySize(TCardBase template, CardRentalSubject subject) =>
+        template.Type == ECardType.Item
+        && AndroidCardFacets.Size.TryToFacet(template.Size, out var templateSize)
+        && subject.IsTinyOn(templateSize)
+            ? ShownSize(template, subject)
+            : null;
+
+    /// <summary>
+    /// After a successful set-up, on a Tiny item: the client card at its real size and the art at
+    /// the crop the game's board gives a Tiny item (<c>ItemVisualsController.SetIsTiny</c>). The
+    /// game's set-up uses the template's size and turns the keyword off on the fresh material.
+    /// </summary>
+    public static void ShowTiny(CardPreviewBase card, ECardSize size)
+    {
+        if (card._clientCard != null)
+            card._clientCard.Size = size;
+        if (card._cardMaterial != null)
+            card._cardMaterial.EnableKeyword(TinyArtKeyword);
     }
 
     /// <summary>Before the set-up: the instance's values, for after it.</summary>
@@ -135,8 +177,13 @@ internal static class AndroidNativeCardSetUp
             );
         foreach (var pair in Values(subject.Attributes))
             attributes[pair.Key] = pair.Value;
+        if (
+            TinySize(template, subject) != null
+            && Enum.TryParse<ECardAttributeType>("Tiny", false, out var tiny)
+        )
+            attributes[tiny] = 1;
         card.Attributes = attributes;
-        card.Size = template.Size;
+        card.Size = ShownSize(template, subject);
         card.Tags = template.Tags;
     }
 

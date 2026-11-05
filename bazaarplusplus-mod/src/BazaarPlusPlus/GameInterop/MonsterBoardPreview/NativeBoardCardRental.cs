@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarGameShared.Domain.Cards;
+using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Cards;
 using TheBazaar.AppFramework;
@@ -44,16 +45,21 @@ internal sealed class NativeBoardCardRental : IDisposable
         }
     }
 
-    internal async Task Prepare(TCardBase template, TCardInstance instance)
+    // tinySize: the size of an item saved below its template's, else null.
+    internal async Task Prepare(TCardBase template, TCardInstance instance, ECardSize? tinySize)
     {
         RestoreLayout();
         // Native LoadFrame/LoadArt swallow exceptions. Clear their success signals first.
         ResetVisuals();
         Card.gameObject.SetActive(true);
         Card.Resize();
+        if (tinySize != null && instance.Attributes != null)
+            instance.Attributes[ECardAttributeType.Tiny] = 1;
         var kept = NativeCardSetUp.Keep(instance);
         await Card.SetUp(template, false, instance);
         kept.ShowOn(Card);
+        if (tinySize is { } size)
+            NativeCardSetUp.ShowTiny(Card, size);
         if (
             Card._currentFrame == null
             || Card._currentFrame.transform.parent != Card._frameContainer

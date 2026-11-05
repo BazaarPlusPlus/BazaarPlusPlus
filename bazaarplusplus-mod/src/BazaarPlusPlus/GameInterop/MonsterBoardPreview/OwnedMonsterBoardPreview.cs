@@ -2,6 +2,7 @@
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Cards.Skill;
+using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.StaticCards;
@@ -44,8 +45,8 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
     private bool _fitDirty = true;
     private int _fitFrames;
     internal int GeometryVersion { get; private set; }
-    private (int Generation, List<TCardInstanceItem> Items, List<TCardInstanceSkill> Skills)? _next;
-    private List<TCardInstanceItem>? _lastItems;
+    private (int Generation, List<NativeBoardItem> Items, List<TCardInstanceSkill> Skills)? _next;
+    private List<NativeBoardItem>? _lastItems;
     private List<TCardInstanceSkill>? _lastSkills;
     private string? _lastRequest;
     private bool _draining;
@@ -161,7 +162,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
 
     internal void Render(
         string signature,
-        List<TCardInstanceItem> items,
+        List<NativeBoardItem> items,
         List<TCardInstanceSkill> skills
     )
     {
@@ -177,7 +178,10 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
             _missingTemplates.Clear();
             _signature = null;
         }
-        signature += NativeBoardSignature.For(items.Cast<TCardInstance>().Concat(skills));
+        signature += NativeBoardSignature.For(
+            items.Select(item => (TCardInstance)item.Instance).Concat(skills)
+        );
+        signature += string.Concat(items.Select(item => $"|{item.Size}"));
         if (signature == _signature)
             return;
         _signature = signature;
@@ -212,7 +216,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
 
     private async Task Replace(
         int generation,
-        List<TCardInstanceItem> items,
+        List<NativeBoardItem> items,
         List<TCardInstanceSkill> skills
     )
     {
@@ -227,7 +231,11 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
                     return;
                 Exception? partialFailure = null;
                 var missingCount = 0;
-                foreach (var instance in items.Cast<TCardInstance>().Concat(skills))
+                foreach (
+                    var (instance, size) in items
+                        .Select(item => ((TCardInstance)item.Instance, item.Size))
+                        .Concat(skills.Select(skill => ((TCardInstance)skill, (ECardSize?)null)))
+                )
                 {
                     if (_disposed || generation != _generation)
                     {
@@ -236,7 +244,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
                     }
                     try
                     {
-                        await AddOwnedCard(instance);
+                        await AddOwnedCard(instance, size);
                     }
                     catch (Exception error)
                     {
@@ -362,7 +370,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         return view;
     }
 
-    private async Task AddOwnedCard(TCardInstance instance)
+    private async Task AddOwnedCard(TCardInstance instance, ECardSize? size)
     {
         if (_missingTemplates.Contains(instance.TemplateId))
             throw new InvalidOperationException($"Template unavailable: {instance.TemplateId}.");
@@ -380,10 +388,10 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
                 ? _view!._sockets[(int)item.SocketId.Value]
                 : _view!._carpetImage.transform
             : _view!._skillParent;
-        var prefab = await NativeCardPrefabLoader.LoadPrefabAsync(template);
+        var prefab = await NativeCardPrefabLoader.LoadPrefabAsync(template, size);
         if (prefab == null)
             throw new InvalidOperationException("Native card prefab is unavailable.");
-        var root = await NativeCardPrefabLoader.RentInactiveAsync(template, parent);
+        var root = await NativeCardPrefabLoader.RentInactiveAsync(template, parent, size: size);
         if (root == null)
             throw new InvalidOperationException("Native card rental failed.");
         if (!root.TryGetComponent<CardPreviewBase>(out var card))
@@ -395,7 +403,11 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         _rentals.Add(rental);
         try
         {
-            await rental.Prepare(template, instance);
+            await rental.Prepare(
+                template,
+                instance,
+                template.Type == ECardType.Item && size < template.Size ? size : null
+            );
             if (card is CardPreviewItem itemCard)
                 _view!._activeCards.Add(itemCard);
             else

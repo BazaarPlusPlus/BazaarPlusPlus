@@ -13,6 +13,12 @@ internal sealed class NativeCardPreviewSubject
 
     public int DisplaySpan { get; init; } = 1;
 
+    /// <summary>
+    /// A board item's saved size, below its template's when Tiny. Read by the native board's
+    /// <c>NativeMonsterBoardItemMapper</c>; the single-card factory shows the template's size.
+    /// </summary>
+    public ECardSize? Size { get; init; }
+
     public EEnchantmentType? EnchantmentType { get; init; }
 
     public IReadOnlyDictionary<ECardAttributeType, int>? Attributes { get; init; }

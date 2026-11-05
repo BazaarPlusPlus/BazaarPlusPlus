@@ -12,6 +12,7 @@ TestSlotPlanner_SelectableShopCentersByTotalSpan();
 TestSlotPlanner_SelectableShopSkipsOverflowRemainder();
 TestPreviewMapper_UsesDisplaySocketAndBoardPrefix();
 TestPreviewMapper_CarriesDisplaySpan();
+TestNativeItemMapperCarriesTheSizeTheSlotWasPlannedFor();
 TestNativeItemMapperPreservesPlannedCardsAndOwnsAttributes();
 TestPreviewMapper_MapsFacetsAndAttributeNamesBackToGameTypes();
 
@@ -195,7 +196,7 @@ static void TestNativeItemMapperPreservesPlannedCardsAndOwnsAttributes()
     );
     var mapped = NativeMonsterBoardItemMapper.Map(board, "preview");
     Assert(mapped.Count == 1, "Native projection must omit cards that exceed the ten sockets.");
-    var item = mapped[0];
+    var item = mapped[0].Instance;
     Assert(
         item.TemplateId == source.TemplateId,
         "Native projection must retain template identity."
@@ -225,8 +226,25 @@ static void TestNativeItemMapperPreservesPlannedCardsAndOwnsAttributes()
         "shop"
     );
     Assert(
-        shop[0].SocketId == EContainerSocketId.Socket_3,
+        shop[0].Instance.SocketId == EContainerSocketId.Socket_3,
         "Shop projection must use the centered planned socket, not the source socket."
+    );
+}
+
+static void TestNativeItemMapperCarriesTheSizeTheSlotWasPlannedFor()
+{
+    var mapped = NativeMonsterBoardItemMapper.Map(
+        Board(
+            BppItemBoardId.FinalBuild,
+            BppItemBoardType.Reference,
+            Card(0, CardSize.Small, source: 2)
+        ),
+        "preview"
+    );
+
+    Assert(
+        mapped.Single().Size == ECardSize.Small,
+        "A Tiny item's saved size must reach the renderer that picks its prefab."
     );
 }
 

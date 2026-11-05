@@ -36,6 +36,9 @@ internal static class BppItemBoardPreviewMapper
                         : ETier.Bronze,
                     SocketId = ToSocket(card.DisplaySocketId ?? card.SourceSocketId ?? 0),
                     DisplaySpan = card.DisplaySpan,
+                    Size = DesktopCardFacets.Size.TryToSource(card.Size, out var size)
+                        ? size
+                        : null,
                     EnchantmentType =
                         card.EnchantmentType is { } enchantment
                         && DesktopCardFacets.Enchantment.TryToSource(enchantment, out var source)
