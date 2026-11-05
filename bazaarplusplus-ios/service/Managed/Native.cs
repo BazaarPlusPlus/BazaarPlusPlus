@@ -12,7 +12,10 @@ namespace BazaarPlusPlus.Ios.Service
         [DllImport("__Internal")] internal static extern int bpp_steam_decrypt(byte[] input, int count, byte[] key, byte[] output);
         [DllImport("__Internal")] internal static extern int bpp_steam_file_sha1(string path, [Out] byte[] digest);
         [DllImport("__Internal")] internal static extern int bpp_steam_zstd(byte[] input, int count, byte[] output, int capacity);
+        [DllImport("__Internal")] internal static extern uint bpp_steam_adler(byte[] input, int count);
         [DllImport("__Internal")] internal static extern int bpp_steam_symlink(string target, string path);
+        /// SteamKit's chunk checksum (Adler-32 from a zero seed), in native code: the interpreter is too slow for gigabytes of it.
+        public static byte[] Adler(byte[] data) => BitConverter.GetBytes(bpp_steam_adler(data, data.Length));
         public static string LoadSession()
         {
             var pointer = bpp_steam_load_session();

@@ -20,6 +20,8 @@ API int bpp_steam_file_sha1(const char *path, uint8_t *digest) {
     CC_SHA1_Final(digest, &context);
     return 0;
 }
+// SteamKit's chunk checksum: Adler-32 started from zero, not from zlib's usual one.
+API uint32_t bpp_steam_adler(const uint8_t *input, int count) { return (uint32_t)adler32(0, input, (uInt)count); }
 API int bpp_steam_decrypt(const uint8_t *input, int count, const uint8_t *key, uint8_t *output) {
     if (count < 32 || count % 16) return -1;
     uint8_t iv[16]; size_t length = 0;

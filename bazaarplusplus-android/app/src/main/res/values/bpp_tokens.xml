@@ -58,7 +58,7 @@
   <dimen name="bpp_content_max">1080dp</dimen>
   <dimen name="bpp_touch_target">48dp</dimen>
   <dimen name="bpp_source_row_height">56dp</dimen>
-  <dimen name="bpp_progress_height">4dp</dimen>
+  <dimen name="bpp_progress_height">6dp</dimen>
   <dimen name="bpp_pane_breakpoint">600dp</dimen>
   <dimen name="bpp_cover_pane_breakpoint">840dp</dimen>
   <dimen name="bpp_type_display">24sp</dimen>
