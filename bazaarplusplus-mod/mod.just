@@ -6,6 +6,8 @@ export DOTNET_SYSTEM_NET_DISABLEIPV6 := env('DOTNET_SYSTEM_NET_DISABLEIPV6', '1'
 
 # The published assemblies; each keeps a committed NuGet lock file.
 published_projects := "src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj src/BazaarPlusPlus.Updater/BazaarPlusPlus.Updater.csproj src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj src/BazaarPlusPlus/BazaarPlusPlus.csproj"
+# Runs with the Steam login in its environment, so it keeps a lock file too.
+steam_tool := "tools/SteamSnapshot/SteamSnapshot.csproj"
 
 # Check formatting, compile without deploying, and validate the NuGet and snapshot lock files.
 check: fmt-check build locks-check lock-check
@@ -88,11 +90,11 @@ fmt-check:
 
 # Rewrite the committed NuGet lock files; review every changed packages.lock.json.
 locks:
-    for project in {{ published_projects }}; do dotnet restore "$project" --force-evaluate; done
+    for project in {{ published_projects }} {{ steam_tool }}; do dotnet restore "$project" --force-evaluate; done
 
 # Validate the committed NuGet lock files without rewriting them.
 locks-check:
-    for project in {{ published_projects }}; do dotnet restore "$project" --locked-mode; done
+    for project in {{ published_projects }} {{ steam_tool }}; do dotnet restore "$project" --locked-mode; done
 
 # Refresh the remote embedded seeds without building; [-p:Name=Value ...].
 fetch-data *args:
@@ -110,6 +112,21 @@ snapshot:
 # Capture an official Android APK's Interop Snapshot under game-libs/ and record it in build/game-libs.lock.json.
 snapshot-android apk *args:
     bash scripts/game.sh snapshot-android "$@"
+
+# Sign in to Steam at the terminal and save the login the Steam capture recipes use; the operator runs this.
+steam-login:
+    bash scripts/game.sh steam-login
+
+# Print the Steam buildid of a channel and the platforms whose lock entry is behind it, as JSON.
+[arg('channel', pattern='online|staging|ptr')]
+steam-stale channel:
+    bash scripts/game.sh steam-stale "$@"
+
+# Download one lock entry's Managed dir from its Steam depot and record it in build/game-libs.lock.json.
+[arg('channel', pattern='online|staging|ptr')]
+[arg('platform', pattern='macos|windows')]
+steam-capture platform channel:
+    bash scripts/game.sh steam-capture "$@"
 
 # Upload a captured snapshot (android: and its pinned inputs) to the private store; needs the release credentials.
 [arg('channel', pattern='online|staging|ptr')]

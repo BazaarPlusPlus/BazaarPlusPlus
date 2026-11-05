@@ -17,6 +17,7 @@
     <PackageVersion Include="SixLabors.ImageSharp" Version="2.1.11" />
     <PackageVersion Include="SourceGear.sqlite3" Version="3.53.4" />
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <PackageVersion Include="SteamKit2" Version="3.5.0" />
     <PackageVersion Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
     <PackageVersion Include="UnityEngine.Modules" Version="2022.3.40" />
     <PackageVersion Include="xunit" Version="2.9.3" />

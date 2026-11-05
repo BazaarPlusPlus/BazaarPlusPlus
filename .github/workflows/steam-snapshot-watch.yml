@@ -1,0 +1,26 @@
+name: Steam snapshot watch
+
+# Watches the Steam branch of every Snapshot Lock channel (root ADR 0015), each
+# on its own: a channel that fails does not stop the others.
+
+on:
+  schedule:
+    - cron: '43 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  channel:
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [online, staging, ptr]
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/steam-snapshot-channel.yml
+    with:
+      channel: ${{ matrix.channel }}
+    secrets: inherit
