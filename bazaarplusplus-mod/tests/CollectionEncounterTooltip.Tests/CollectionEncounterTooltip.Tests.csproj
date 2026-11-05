@@ -39,12 +39,10 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(ManagedPath)/UnityEngine.CoreModule.dll</HintPath>
     </Reference>
-    <None Include="$(ManagedPath)/UnityEngine.CoreModule.dll" Link="UnityEngine.CoreModule.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <!-- The game's serializer scans every loaded assembly's types once, so the assemblies those
-         types name must resolve in the test process too. -->
-    <None Include="$(ManagedPath)/UnityEngine.dll;$(ManagedPath)/UnityEngine.UIModule.dll;$(ManagedPath)/DOTween.dll">
+    <!-- The game's serializer scans the types of every loaded assembly once, and a class that
+         loads the game runtime can run before that scan, so every Unity module its types name
+         must resolve in the test process too. -->
+    <None Include="$(ManagedPath)/UnityEngine*.dll;$(ManagedPath)/DOTween.dll">
       <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
