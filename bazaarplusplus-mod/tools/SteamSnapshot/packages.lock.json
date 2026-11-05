@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "SteamKit2": {
+        "type": "Direct",
+        "requested": "[3.5.0, )",
+        "resolved": "3.5.0",
+        "contentHash": "QqTMwFxBNRTxx5RzLT+N0DkRPxHpkZIJFb2rUsDaXXDLL1uTRkt7g+6Zm6lwYAIu7YX3tw09Nd8+N6MOjNuQhg==",
+        "dependencies": {
+          "System.IO.Hashing": "10.0.12",
+          "ZstdSharp.Port": "0.8.8",
+          "protobuf-net": "3.4.30"
+        }
+      },
+      "protobuf-net": {
+        "type": "Transitive",
+        "resolved": "3.4.30",
+        "contentHash": "N49mhnY5fpWds085lO6ocppox9y4cTb1EmbHAAYVJMl/iYSYyNpz4Ohxnk80qtqv52dNZI+/6hQbaiz3+rTEwA==",
+        "dependencies": {
+          "protobuf-net.Core": "3.4.30"
+        }
+      },
+      "protobuf-net.Core": {
+        "type": "Transitive",
+        "resolved": "3.4.30",
+        "contentHash": "CZf8U6eON9OBtcPyOiXJ6Oq3Opi/lWtEiireyLCy43iof1A2oA0GEOrEHZISzmQ46s61iOC06Sa4Cs+D41t1DA=="
+      },
+      "System.IO.Hashing": {
+        "type": "Transitive",
+        "resolved": "10.0.12",
+        "contentHash": "jDix4bBMYnpZdSPcnY+KDV6ik3SRMzpMKby/bZl/XUwIiflwRNAFZ0oOl61R/pSaveIJ8t1gs2BUlrGsPs/bcg=="
+      },
+      "ZstdSharp.Port": {
+        "type": "Transitive",
+        "resolved": "0.8.8",
+        "contentHash": "UIDFkA5DC3en3tOJ3Mof11yBx9kUQLsaeo/oFdvN6Bbkr9E9+VCqfIadHci8cu+I51K2Sl7XYWVl2R/mA75NBQ=="
+      }
+    }
+  }
+}

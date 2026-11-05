@@ -44,6 +44,13 @@ export const STEAM_BRANCHES = Object.freeze({
   staging: 'staging',
   ptr: 'public_test_realm'
 });
+// Where a Steam capture reads each desktop platform (root ADR 0015). macOS is
+// the arm64 depot that lock entries and the iOS App already use.
+export const STEAM_APP_ID = 1617400;
+export const STEAM_DEPOTS = Object.freeze({
+  macos: 1617401,
+  windows: 1617402
+});
 const ENTRY_FIELDS = Object.freeze([
   'gameVersion',
   'sha256',
@@ -762,6 +769,130 @@ export async function fetchSnapshot({
     source: 'store',
     gameVersion: entry.gameVersion
   };
+}
+
+// ---------------------------------------------------------------------------
+// Steam captures (ADR 0015). bazaarplusplus-mod/tools/SteamSnapshot reads the
+// branch and downloads a depot's snapshot files; captureSnapshot then treats
+// them as it treats a mounted install.
+
+function steamToolRunner(modRoot) {
+  return (args) => {
+    const output = execFileSync(
+      'dotnet',
+      [
+        'run',
+        '--project',
+        'tools/SteamSnapshot/SteamSnapshot.csproj',
+        '-c',
+        'Release',
+        '--no-launch-profile',
+        '-v',
+        'q',
+        '--',
+        ...args
+      ],
+      { cwd: modRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }
+    );
+    return JSON.parse(output.trim().split(/\r?\n/).at(-1));
+  };
+}
+
+// Steam moves the buildid for any change to the branch, so it says when to look
+// and steamChangeKind says what the look found.
+export function staleSteamPlatforms(lock, channel, buildid) {
+  return MANAGED_PLATFORMS.filter(
+    (platform) =>
+      lock.entries[lockKey(platform, channel)]?.buildid !== String(buildid)
+  );
+}
+
+// What a capture changed against the lock before it: code when any Managed
+// directory differs, content when only a game version does, none when the build
+// changed neither, which the lock has no reason to record.
+export function steamChangeKind(previous, current, channel) {
+  const entries = MANAGED_PLATFORMS.map((platform) => {
+    const key = lockKey(platform, channel);
+    return [previous.entries[key], current.entries[key]];
+  });
+  if (entries.some(([before, after]) => before?.sha256 !== after?.sha256))
+    return 'code';
+  return entries.some(
+    ([before, after]) => before?.gameVersion !== after?.gameVersion
+  )
+    ? 'content'
+    : 'none';
+}
+
+export function steamStale({
+  workspaceRoot = WORKSPACE_ROOT,
+  modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  channel,
+  runTool = steamToolRunner(modRoot)
+}) {
+  lockKey(MANAGED_PLATFORMS[0], channel);
+  const { buildid } = runTool([
+    'state',
+    '--app',
+    String(STEAM_APP_ID),
+    '--branch',
+    STEAM_BRANCHES[channel],
+    '--depots',
+    MANAGED_PLATFORMS.map((platform) => STEAM_DEPOTS[platform]).join(',')
+  ]);
+  return {
+    buildid,
+    platforms: staleSteamPlatforms(
+      readGameLibsLock(workspaceRoot),
+      channel,
+      buildid
+    )
+  };
+}
+
+export function steamCapture({
+  workspaceRoot = WORKSPACE_ROOT,
+  modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  platform,
+  channel,
+  runTool = steamToolRunner(modRoot),
+  now = new Date()
+}) {
+  const key = lockKey(platform, channel);
+  const depot = STEAM_DEPOTS[platform];
+  if (!depot) throw new Error(`Lock entry ${key} has no Steam depot`);
+  const steamBranch = STEAM_BRANCHES[channel];
+  const download = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-steam-'));
+  try {
+    const { buildid } = runTool([
+      'download',
+      '--app',
+      String(STEAM_APP_ID),
+      '--branch',
+      steamBranch,
+      '--depot',
+      String(depot),
+      '--out',
+      download
+    ]);
+    const managedPath = path.join(download, 'Data', 'Managed');
+    const gameVersion = readGameVersion(managedPath);
+    const parsed = parseGameVersion(gameVersion);
+    if (parsed.platform !== platform || parsed.channel !== channel)
+      throw new Error(
+        `Depot ${depot} on branch ${steamBranch} holds ${gameVersion}, which is not a ${key} build`
+      );
+    return captureSnapshot({
+      workspaceRoot,
+      modRoot,
+      managedPath,
+      buildid,
+      steamBranch,
+      now
+    });
+  } finally {
+    fs.rmSync(download, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1797,6 +1928,16 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
   node release/game-libs.mjs game-version <managed-dir>
   node release/game-libs.mjs digest <managed-dir>
   node release/game-libs.mjs snapshot --managed <dir> --buildid <id> --steam-branch <branch>
+  node release/game-libs.mjs steam-stale --channel <online|staging|ptr>
+                                             Print {buildid, platforms}: the platforms whose lock
+                                             entry is behind Steam (needs STEAM_SNAPSHOT_LOGIN)
+  node release/game-libs.mjs steam-capture --platform <macos|windows> --channel <online|staging|ptr>
+                                             Capture a lock entry from its Steam depot (needs
+                                             STEAM_SNAPSHOT_LOGIN, and STEAM_BETA_PASSWORDS for
+                                             staging and ptr)
+  node release/game-libs.mjs steam-change --previous <lock.json> --channel <online|staging|ptr>
+                                             Print code, content or none: what the captures
+                                             changed against that earlier lock
   node release/game-libs.mjs snapshot-android --apk <TheBazaar.apk> [--apk-etag <etag>] [--interop <dir>]
       [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>]
       [--cpp2il <file>] [--native-package <id>@<version> ...]
@@ -1830,6 +1971,7 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
       allowPositionals: true,
       options: {
         managed: { type: 'string' },
+        previous: { type: 'string' },
         buildid: { type: 'string' },
         'steam-branch': { type: 'string' },
         platform: { type: 'string' },
@@ -1895,6 +2037,39 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
           `Captured ${result.key} ${result.manifest.gameVersion} (buildid ${result.manifest.buildid}) into ${result.directory} and recorded it in ${GAME_LIBS_LOCK_PATH}`
         );
         printLine(result.directory);
+        return 0;
+      }
+      case 'steam-stale': {
+        printLine(
+          JSON.stringify(
+            steamStale({ workspaceRoot, modRoot, channel: required('channel') })
+          )
+        );
+        return 0;
+      }
+      case 'steam-capture': {
+        const result = steamCapture({
+          workspaceRoot,
+          modRoot,
+          platform: required('platform'),
+          channel: required('channel')
+        });
+        log(
+          `Captured ${result.key} ${result.manifest.gameVersion} (buildid ${result.manifest.buildid}) into ${result.directory} and recorded it in ${GAME_LIBS_LOCK_PATH}`
+        );
+        printLine(result.directory);
+        return 0;
+      }
+      case 'steam-change': {
+        printLine(
+          steamChangeKind(
+            validateGameLibsLock(
+              JSON.parse(fs.readFileSync(required('previous'), 'utf8'))
+            ),
+            readGameLibsLock(workspaceRoot),
+            required('channel')
+          )
+        );
         return 0;
       }
       case 'snapshot-android': {

@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react';
 
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
-import { BAZAARDB_ICON_PATH, BAZAARDB_META_URL, getSiteCopy } from '../../content/site-copy';
+import { getSiteCopy } from '../../content/site-copy';
 import Badge from '../../shared/components/Badge';
-import Button from '../../shared/components/Button';
 import HeroBadge from '../../shared/components/HeroBadge';
-import { ExternalLinkIcon } from '../../shared/components/icons';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import { SegmentedButton, SegmentedControl } from '../../shared/components/ScopeFilterPanel';
 import StatsPageShell from '../../shared/components/StatsPageShell';
@@ -77,30 +75,7 @@ export default function HeroOverviewDashboard({
   const rankingHasRows = analysis.ranking.length > 0;
 
   return (
-    <StatsPageShell
-      location={location}
-      title={heroCopy.title}
-      generatedAt={analysis.generatedAt}
-      actions={
-        <Button
-          href={BAZAARDB_META_URL}
-          target="_blank"
-          rel="noreferrer"
-          icon={
-            <img
-              src={BAZAARDB_ICON_PATH}
-              alt=""
-              aria-hidden="true"
-              className="size-4 shrink-0 rounded-[3px] object-contain"
-              decoding="async"
-            />
-          }
-        >
-          {heroCopy.detailLinkLabel}
-          <ExternalLinkIcon className="text-text-3" />
-        </Button>
-      }
-    >
+    <StatsPageShell location={location} title={heroCopy.title} generatedAt={analysis.generatedAt}>
       {!hasAnyData ? (
         <StatusPanel
           kind="empty"

@@ -54,7 +54,6 @@ type CommonCopy = {
 
 type HeroStatsCopy = {
   title: string;
-  detailLinkLabel: string;
   trend: {
     winrateTrend: string;
     title: string;
@@ -286,7 +285,6 @@ const zh: LocalizedSiteCopy = {
   stats: {
     heroes: {
       title: '英雄统计',
-      detailLinkLabel: '在 BazaarDB 查看详细统计',
       trend: {
         winrateTrend: '胜率走势与对位',
         title: '近期表现',
@@ -603,7 +601,6 @@ const en: LocalizedSiteCopy = {
   stats: {
     heroes: {
       title: 'Hero stats',
-      detailLinkLabel: 'View detailed stats on BazaarDB',
       trend: {
         winrateTrend: 'win rate and matchups',
         title: 'Recent performance',
@@ -886,5 +883,3 @@ export function getPageTitle(page: PageTitleKey, locale: Locale): string {
 }
 
 export const KOFI_URL = 'https://ko-fi.com/cauyxy';
-export const BAZAARDB_META_URL = 'https://bazaardb.gg/run/meta?utm_source=bazaarplusplus';
-export const BAZAARDB_ICON_PATH = '/bazaardb-icon.ico';

@@ -22,6 +22,10 @@ import {
   readGameVersion,
   snapshotBlobKey,
   snapshotManifestKey,
+  staleSteamPlatforms,
+  steamCapture,
+  steamChangeKind,
+  steamStale,
   validateGameLibsLock
 } from './game-libs.mjs';
 import { computePayloadInputs } from './payload.mjs';
@@ -762,4 +766,163 @@ test('the build record entry is the one the Managed digest matches, preferring t
   ).toThrow(
     /locked entries: macos-online 1\.0\.12600-macos-arm64-0a1b2c3d, macos-staging 1\.0\.12575-staging-macos-arm64-fecb8f8e, windows-ptr/
   );
+});
+
+// Stands in for tools/SteamSnapshot: `download` lays out what the depot holds.
+function steamTool({ buildid = '26443971', gameVersion, calls = [] }) {
+  return (args) => {
+    calls.push(args);
+    if (args[0] === 'state') return { buildid, manifests: {} };
+    gameInstall(args[args.indexOf('--out') + 1], gameVersion);
+    return { buildid, manifest: '1' };
+  };
+}
+
+const WINDOWS_ONLINE = '1.0.13056-prod-windows-x64-891f830a';
+const onlineEntry = (gameVersion, buildid) => ({
+  gameVersion,
+  sha256: 'a'.repeat(64),
+  buildid,
+  steamBranch: 'public',
+  capturedAt: NOW.toISOString()
+});
+
+test('a Steam capture records a lock entry from the depot on any host', () => {
+  const { workspaceRoot, modRoot, lock } = workspace();
+  const calls = [];
+  const result = steamCapture({
+    workspaceRoot,
+    modRoot,
+    platform: 'windows',
+    channel: 'online',
+    runTool: steamTool({ gameVersion: WINDOWS_ONLINE, calls }),
+    now: NOW
+  });
+
+  expect(result.key).toBe('windows-online');
+  expect(lock().entries['windows-online']).toMatchObject({
+    gameVersion: WINDOWS_ONLINE,
+    buildid: '26443971',
+    steamBranch: 'public'
+  });
+  expect(fs.existsSync(path.join(result.directory, 'Managed'))).toBe(true);
+  expect(calls[0]).toEqual(
+    expect.arrayContaining(['--branch', 'public', '--depot', '1617402'])
+  );
+  const download = calls[0][calls[0].indexOf('--out') + 1];
+  expect(fs.existsSync(download)).toBe(false);
+});
+
+test('a Steam capture refuses a depot that holds another entry build', () => {
+  const { workspaceRoot, modRoot, lock } = workspace();
+  expect(() =>
+    steamCapture({
+      workspaceRoot,
+      modRoot,
+      platform: 'macos',
+      channel: 'online',
+      runTool: steamTool({ gameVersion: WINDOWS_ONLINE }),
+      now: NOW
+    })
+  ).toThrow(/not a macos-online build/);
+  expect(lock().entries['macos-online']).toBeNull();
+});
+
+test('a Steam capture reads a preview channel from its own branch', () => {
+  const { workspaceRoot, modRoot, lock } = workspace();
+  const calls = [];
+  steamCapture({
+    workspaceRoot,
+    modRoot,
+    platform: 'macos',
+    channel: 'staging',
+    runTool: steamTool({ gameVersion: STAGING_VERSION, calls }),
+    now: NOW
+  });
+
+  expect(calls[0]).toEqual(
+    expect.arrayContaining(['--branch', 'staging', '--depot', '1617401'])
+  );
+  expect(lock().entries['macos-staging'].steamBranch).toBe('staging');
+});
+
+test('a Steam capture needs a desktop entry', () => {
+  const { workspaceRoot, modRoot } = workspace();
+  expect(() =>
+    steamCapture({
+      workspaceRoot,
+      modRoot,
+      platform: 'android',
+      channel: 'online',
+      runTool: steamTool({ gameVersion: WINDOWS_ONLINE })
+    })
+  ).toThrow(/no Steam depot/);
+  expect(() =>
+    steamStale({
+      workspaceRoot,
+      modRoot,
+      channel: 'beta',
+      runTool: steamTool({})
+    })
+  ).toThrow(/Unknown macos snapshot channel/);
+});
+
+test('a lock entry is stale when its buildid differs from Steam', () => {
+  const lock = emptyLock();
+  lock.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '26443971');
+  lock.entries['windows-online'] = onlineEntry(WINDOWS_ONLINE, '26428865');
+
+  expect(staleSteamPlatforms(lock, 'online', '26443971')).toEqual(['windows']);
+  expect(staleSteamPlatforms(lock, 'online', 26428865)).toEqual(['macos']);
+  expect(staleSteamPlatforms(emptyLock(), 'online', '1')).toEqual([
+    'macos',
+    'windows'
+  ]);
+});
+
+test('steam-stale reads both desktop depots of the branch', () => {
+  const { workspaceRoot, modRoot } = workspace();
+  const calls = [];
+  const state = steamStale({
+    workspaceRoot,
+    modRoot,
+    channel: 'online',
+    runTool: steamTool({ calls })
+  });
+
+  expect(state).toEqual({
+    buildid: '26443971',
+    platforms: ['macos', 'windows']
+  });
+  expect(calls[0]).toEqual(
+    expect.arrayContaining(['--depots', '1617401,1617402'])
+  );
+});
+
+test('a capture is code, content or none by what it changed', () => {
+  const previous = emptyLock();
+  previous.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '1');
+  previous.entries['windows-online'] = onlineEntry(WINDOWS_ONLINE, '1');
+  const after = (changes) => {
+    const lock = structuredClone(previous);
+    lock.entries['windows-online'] = {
+      ...lock.entries['windows-online'],
+      buildid: '2',
+      ...changes
+    };
+    return lock;
+  };
+
+  expect(steamChangeKind(previous, after({}), 'online')).toBe('none');
+  expect(
+    steamChangeKind(
+      previous,
+      after({ gameVersion: '1.0.13057-prod-windows-x64-891f830a' }),
+      'online'
+    )
+  ).toBe('content');
+  expect(
+    steamChangeKind(previous, after({ sha256: 'b'.repeat(64) }), 'online')
+  ).toBe('code');
+  expect(steamChangeKind(emptyLock(), after({}), 'online')).toBe('code');
 });

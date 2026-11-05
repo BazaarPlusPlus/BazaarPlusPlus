@@ -220,18 +220,8 @@ test.describe('route states', () => {
 });
 
 test.describe('Hero Analysis dashboard', () => {
-  test('URL scope drives the window and segment controls and keeps the BazaarDB link', async ({
-    page,
-  }) => {
+  test('URL scope drives the window and segment controls', async ({ page }) => {
     await openHeroes(page, '/heroes?lang=en&w=3d&s=legend', 'threeDay');
-
-    const bazaarDb = page.getByRole('link', { name: 'View detailed stats on BazaarDB' });
-    await expect(bazaarDb).toHaveAttribute(
-      'href',
-      'https://bazaardb.gg/run/meta?utm_source=bazaarplusplus'
-    );
-    await expect(bazaarDb).toHaveAttribute('target', '_blank');
-    await expect(bazaarDb.locator('img')).toHaveAttribute('src', '/bazaardb-icon.ico');
 
     const filters = page.getByTestId('ranking-panel').getByRole('group', { name: 'Filters' });
     await expect(filters.getByRole('button', { name: '3D' })).toHaveAttribute(

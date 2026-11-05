@@ -15,3 +15,5 @@ mod 对游戏的全部构建期依赖是 `Managed/` 目录下的程序集，`Man
 2026-10-22 修订：[ADR 0008](0008-interop-snapshots-in-snapshot-lock.md) 给锁增加 `android-online` 键，渠道列表改为按平台给出（Android 只有 `online`），游戏版本串的模式放宽到没有架构段的 Android 版本串；该条目的快照是 Interop Snapshot 而不是 `Managed/` 目录，官方 APK 与生成它的工具链一并进私有存储。上文"六个键"及 `{platform: macos|windows}` 的描述只对桌面条目成立，本记录的其余决定不变。
 
 2026-10-26 修订：日常 PR 以一个桌面操作系统和 Android 覆盖两种 Host，Windows 验证提高到构建输入变化、手动检查及发布前；普通共享源码的 Windows 分支问题可能延迟到发布时发现。staging/ptr 的快照固定不变时，每个源码改动都做双平台兼容构建的成本高于当前收益，因此改为快照更新、手动检查及发布前执行，发布前失败仍阻止签名与上传。无法可靠确定改动范围时保留完整验证。分类实现由 `.github/scripts/checks-scope.mjs` 的 `classifyChanges` 和 `planRun` 维护，执行入口为 `.github/workflows/checks.yml` 与 `.github/workflows/release.yml`。
+
+2026-11-05 修订：[ADR 0015](0015-steam-snapshot-capture.md) 重开了上文否决的 CI 自动采集：桌面六个条目都可以从 Steam depot 自动采集。锁只通过 PR 更新的决定不变。
