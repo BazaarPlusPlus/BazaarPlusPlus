@@ -3,46 +3,46 @@
   "staleAfterDays": 30,
   "entries": {
     "macos-online": {
-      "gameVersion": "1.0.13055-prod-macos-arm64-891f830a",
-      "sha256": "fc495a15433c907b03aea78405933d392504822b61eebea1a0fff853190b7e90",
-      "buildid": "26428865",
+      "gameVersion": "1.0.13081-prod-macos-arm64-dae65d53",
+      "sha256": "d4e6f4fc18ee4e30bf0b358b865aae11406dbbf2b93368aaa4ae03071621928e",
+      "buildid": "26443971",
       "steamBranch": "public",
-      "capturedAt": "2026-11-04T17:50:33.660Z"
+      "capturedAt": "2026-11-05T09:08:51.126Z"
     },
     "macos-staging": {
-      "gameVersion": "1.0.13051-staging-macos-arm64-891f830a",
-      "sha256": "7533ac70cec24265ae00e6cbdbdcb0a28cd750e561ad9f6777d5afb561f9d560",
-      "buildid": "26419399",
+      "gameVersion": "1.0.13077-staging-macos-arm64-dae65d53",
+      "sha256": "3d10e4f6dc358cb389780664e5818dc322bff27a4c59f7482a0edfd4296ec844",
+      "buildid": "26442146",
       "steamBranch": "staging",
-      "capturedAt": "2026-11-04T17:52:04.743Z"
+      "capturedAt": "2026-11-05T09:24:33.889Z"
     },
     "macos-ptr": {
-      "gameVersion": "1.0.12254-ptr-macos-arm64-a2cd5c3b",
-      "sha256": "38a6da21c4e5dec66ad35ed6507a5f2ced9e1b04f9ecc8ef477d8b364e0d0cdb",
-      "buildid": "25141468",
+      "gameVersion": "1.0.12816-ptr-macos-arm64-71f52a39",
+      "sha256": "3a50c1d6f3716acc37afb352afc97f77e51e57c3dc9532ae46f25c3b829fef56",
+      "buildid": "25948342",
       "steamBranch": "public_test_realm",
-      "capturedAt": "2026-10-04T14:27:15.170Z"
+      "capturedAt": "2026-11-05T09:08:56.960Z"
     },
     "windows-online": {
-      "gameVersion": "1.0.13056-prod-windows-x64-891f830a",
-      "sha256": "05e8f73f73a69207767be0c5659e0db2aa96a7962fe7f1a69d59aec4a1f3fd1d",
-      "buildid": "26428865",
+      "gameVersion": "1.0.13082-prod-windows-x64-dae65d53",
+      "sha256": "6b7da835fbad093e2df54779fc0a246c2d4c0f078f130cf12052122130c27c17",
+      "buildid": "26443971",
       "steamBranch": "public",
-      "capturedAt": "2026-11-04T17:47:47.965Z"
+      "capturedAt": "2026-11-05T09:08:55.978Z"
     },
     "windows-staging": {
-      "gameVersion": "1.0.12646-staging-windows-x64-d5cc730f",
-      "sha256": "747e1cecf7eadef1d2d28f98a144601f62d53429c3e3e270b93ed3799077254f",
-      "buildid": "25761508",
+      "gameVersion": "1.0.13076-staging-windows-x64-dae65d53",
+      "sha256": "d439da6a5fc154c6ed1c0103eb701bbc21ec5e449b6052e4cd51a14422d784ef",
+      "buildid": "26442146",
       "steamBranch": "staging",
-      "capturedAt": "2026-10-08T02:22:12.464Z"
+      "capturedAt": "2026-11-05T09:24:38.429Z"
     },
     "windows-ptr": {
-      "gameVersion": "1.0.12253-ptr-windows-x64-a2cd5c3b",
-      "sha256": "34c3f6dee51421bd883f4a28e2e4fcfef0486fa8a700e2971a13342b952c370b",
-      "buildid": "25141468",
+      "gameVersion": "1.0.12817-ptr-windows-x64-71f52a39",
+      "sha256": "9b345372a54f5ab06e98c709b576b0180c5f4738a6472def352aef409e69f93e",
+      "buildid": "25948342",
       "steamBranch": "public_test_realm",
-      "capturedAt": "2026-10-06T02:57:52.955Z"
+      "capturedAt": "2026-11-05T09:09:04.045Z"
     },
     "android-online": {
       "gameVersion": "1.0.12825-production-android-d9601ded",
