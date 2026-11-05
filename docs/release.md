@@ -37,6 +37,8 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 一个平台先发、另一个平台稍后跟上时，第 5 步仍用 `mirror <platform> <分享页地址>` 记录该平台的镜像，第 6 步用 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
 
+各平台 `promote` 之后，用 `/qq-announce <版本>` 把更新公告和三个安装包发到 QQ 群，先发测试群确认，再发正式群。群列表、公告模板和步骤见 `.agents/skills/qq-announce/`；Bot 凭据在本机 `qqbot.env`，不进工作流。
+
 第 2 到第 4 步默认由 [GitHub Actions 发版工作流](#github-actions-发版)执行：两个托管 runner 各跑一遍 `prepare`、`build`、`upload`，输入与本机相同；本机执行是 runner 不可用或要调试打包时的备用路径。第 5、6 步只在本机执行。
 
 ## GitHub Actions 发版
