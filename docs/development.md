@@ -124,7 +124,7 @@ iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam�
 
 朝向是同一台设备上的场景，不为每个方向复制设备。改变朝向后等游戏稳定，再对该面板执行 `android-screen-check`。尺寸和 DPI 固定在 AVD 配置中，不用 `wm size` 或 `wm density` 模拟另一台设备。init 的回执、截图和日志在 mod 的 `artifacts/android/setup-device-<AVD>/` 和 `bazaarplusplus-ios/build/setup-device-<模拟器>/`，含账号信息，不提交。
 
-测试账号可以放在本机配置的 `[game]` 中，用 `just android::dev-login <serial>` 应用到指定设备的 debug App，再从启动器启动游戏。字段和依赖见该命令的 `--help`。它停止 App 后只替换游戏 PlayerPrefs 的账号密码，保留其他设置；写入完成不等于服务器登录成功。凭据保存在 checkout 外的私有配置与 debug App 的沙盒中，不同步到 GitHub，也不修改官方 App 的登录状态。
+测试账号可以放在本机配置的 `[game]` 中，用 `just android::dev-login <serial>` 在指定设备的 debug App 里登录；字段、依赖和无凭据恢复验证选项见该命令的 `--help`。脚本发出一次性私有请求，launcher 按原有 Play 门禁启动，Android Host 在 Unity 主线程调用游戏自己的登录表单。认证和令牌存储由游戏负责；命令等当前进程认证完成且玩家资料已加载才成功。`setup-device` 共用这条流程，没有配置时等待手动登录。请求、结果和临时文件在结束时清理，过期请求不能自动启动游戏，Release App 不提供该入口。凭据留在 checkout 外的私有配置中，不同步到 GitHub，也不修改官方 App 的登录状态。
 
 ### 冒烟断言
 

@@ -69,6 +69,7 @@ public sealed class AndroidMod : MelonMod
     private AndroidOverlayPanels? _overlayPanels;
     private readonly AndroidCardTemplateIndex _templates = new();
     private bool _mainThreadBound;
+    private AndroidDevLogin? _devLogin;
     private int _labelRevision;
 
     public AndroidMod()
@@ -80,6 +81,7 @@ public sealed class AndroidMod : MelonMod
     public override void OnInitializeMelon()
     {
         AndroidMainThread.Host.Capture();
+        _devLogin = AndroidDevLogin.Create(HarmonyInstance);
         MobilePlatform.Install(new AndroidMobilePlatform(() => _overlayPanels));
         BppLog.Install(new MelonLogSink(LoggerInstance));
         var version = Info.Version;
@@ -114,6 +116,7 @@ public sealed class AndroidMod : MelonMod
     {
         BindMainThread();
         AndroidMainThread.Host.Tick();
+        _devLogin?.Tick();
         _composition?.Tick(Time.unscaledTime);
         _replayRuntime?.Tick();
         _overlayPanels?.Frame(Time.unscaledDeltaTime);

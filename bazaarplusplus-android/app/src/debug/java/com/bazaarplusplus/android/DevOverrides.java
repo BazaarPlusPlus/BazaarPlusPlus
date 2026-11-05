@@ -6,6 +6,9 @@ import com.bazaarplusplus.android.io.AtomicFiles;
 import com.bazaarplusplus.android.release.ReleaseOrigin;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
 import java.util.List;
 
 /**
@@ -15,6 +18,54 @@ import java.util.List;
  */
 public final class DevOverrides {
     private DevOverrides() {}
+
+    /** Private development login mailbox; release builds never expose one to the game. */
+    public static File loginDirectory(Context context) {
+        return new File(context.getFilesDir(), "dev/login");
+    }
+
+    public static boolean loginRequested(Context context) {
+        File request = new File(loginDirectory(context), "request.json");
+        if (!request.isFile()) return false;
+        try {
+            JSONObject value = readLoginRequest(request);
+            long now = System.currentTimeMillis();
+            long expires = value.getLong("expiresAt");
+            if (value.getString("id").matches("[0-9a-f]{32}") && expires > now && expires <= now + 600_000)
+                return true;
+            rejectLogin(context, "expired_request");
+        } catch (Exception ignored) {
+            // A malformed request must never launch the game or leave credentials behind.
+            request.delete();
+        }
+        return false;
+    }
+
+    /** A settled non-Play launch gate fails the request without changing that gate. */
+    public static void rejectLogin(Context context, String phase) {
+        File directory = loginDirectory(context);
+        File request = new File(directory, "request.json");
+        try {
+            JSONObject value = readLoginRequest(request);
+            if (!request.delete()) return;
+            JSONObject result = new JSONObject()
+                    .put("id", value.optString("id"))
+                    .put("pid", android.os.Process.myPid())
+                    .put("status", "launch_blocked")
+                    .put("phase", phase)
+                    .put("submitted", false);
+            AtomicFiles.writeUtf8(new File(directory, "result.json"), result.toString());
+        } catch (Exception ignored) {
+            request.delete();
+        }
+    }
+
+    private static JSONObject readLoginRequest(File file) throws Exception {
+        try (FileInputStream input = new FileInputStream(file)) {
+            return new JSONObject(new String(AtomicFiles.readAtMost(input, 16_384), StandardCharsets.UTF_8));
+        }
+    }
+
 
     /** {@code files/dev/manifest-port}: read releases from {@code http://127.0.0.1:<port>} (adb reverse). */
     public static ReleaseOrigin origin(Context context) {

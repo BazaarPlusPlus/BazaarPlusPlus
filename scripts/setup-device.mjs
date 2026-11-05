@@ -7,7 +7,7 @@ import {
   fetchLockedAndroidInput,
   lockedInteropEntry
 } from '../release/game-libs.mjs';
-import { applyLogin } from './android-login.mjs';
+import { signIn, withLoginCancellation } from './android-login.mjs';
 import { inspectScreen } from './android-screen.mjs';
 import * as ios from './setup-device-ios.mjs';
 
@@ -21,7 +21,6 @@ const latestLog = 'no_backup/game-external/MelonLoader/MelonLoader/Latest.log';
 // alone would keep an older Loader Release's deployment.
 const loaderDeployment = 'no_backup/loader-deployment.json';
 const androidApp = path.join(root, 'bazaarplusplus-android');
-const androidScript = path.join(root, 'bazaarplusplus-mod/scripts/android.sh');
 const evidence = (profile) =>
   path.join(
     root,
@@ -53,11 +52,11 @@ Each AVD runs the game as a player does: init installs the locked official
 game when another build is there (uninstalling it loses only that package's own
 data; the App's sandbox and its game login stay), installs the
 debug Android App with its runtime and the Development interop, deploys this
-checkout's mod into the App, applies config.ini [game] login when present, then
-taps Play on the launcher. It waits for MainMenuScene and a following hooks
-summary and captures the screen and native display metrics. Without a [game]
-login, sign in in the emulator window while init waits. If the game exits
-during cold-start loading, init records it and retries once.
+checkout's mod into the App, then starts one development login request. With
+config.ini [game], the Mod submits the game's own login form; without it, sign
+in in the game window. It waits for authenticated login and profile data in that
+process, then MainMenuScene and a following hooks summary, and captures the
+screen and native display metrics. Device or game failures stop this attempt.
 Success stops the AVD, preserving user data; --keep-open needs a single NAME.
 Failure leaves the device open and returns nonzero. Rerun init after repair.
 The official APK, build/runtime and build/interop.zip come from the private
@@ -333,13 +332,6 @@ async function provision(adb, env, profile) {
   just('android::push-interop');
   just('mod::android-build');
   just('mod::android-deploy');
-  try {
-    applyLogin(env.ANDROID_SERIAL, { env });
-  } catch (error) {
-    console.log(
-      `${profile.name}: ${error.message} Sign in to the game in the emulator window when it asks.`
-    );
-  }
 }
 
 async function initialize(p, profile, { seed, timeout, keepOpen }) {
@@ -384,13 +376,6 @@ async function initialize(p, profile, { seed, timeout, keepOpen }) {
     BPP_ANDROID_SERIAL: serial,
     PATH: `${path.dirname(p.adb)}${path.delimiter}${process.env.PATH}`
   };
-  // Restarts the App and taps Play on its launcher (android.sh launch).
-  const launch = () =>
-    run('bash', [androidScript, 'launch'], {
-      cwd: path.join(root, 'bazaarplusplus-mod'),
-      env,
-      timeout: 180_000
-    });
   const output = fs.openSync(path.join(out, 'emulator.log'), 'w', 0o600);
   const child = spawn(
     p.emulator,
@@ -436,48 +421,29 @@ async function initialize(p, profile, { seed, timeout, keepOpen }) {
         `${serial} is not ${profile.name}; refusing to touch its game.`
       );
     await provision(adb, env, profile);
-    launch();
-    let launchedAt = Date.now();
-    receipt.restarts = 0;
+    receipt.login = await withLoginCancellation((signal) =>
+      signIn(serial, {
+        env,
+        timeout,
+        allowManual: true,
+        onProgress: console.log,
+        signal
+      })
+    );
+    save();
     await until(
-      timeout,
+      60,
       () => {
-        let log = '';
+        const pid = adb('shell', `pidof ${app} || true`).trim();
+        if (pid !== String(receipt.login.pid))
+          throw new Error('The authenticated game process exited.');
         try {
-          log = adb('exec-out', 'run-as', app, 'cat', latestLog);
+          return menuReady(adb('exec-out', 'run-as', app, 'cat', latestLog));
         } catch {
-          /* The loader has not created its log yet. */
+          return false;
         }
-        if (menuReady(log)) return true;
-        // Cold boot has killed the first game process before loading the mod on
-        // this matrix. Give am start time to spawn, retain evidence, retry once.
-        if (Date.now() - launchedAt > 10_000) {
-          let running = false;
-          try {
-            running = Boolean(adb('shell', 'pidof', app).trim());
-          } catch {
-            /* pidof exits 1 when absent. */
-          }
-          if (!running) {
-            if (receipt.restarts)
-              throw new Error(
-                `Game exited twice before the main menu on ${profile.name}; inspect ${out}.`
-              );
-            fs.writeFileSync(path.join(out, 'first-launch.log'), log, {
-              mode: 0o600
-            });
-            receipt.restarts = 1;
-            save();
-            console.log(
-              `${profile.name}: game exited before the main menu; retrying once (first-launch.log retained).`
-            );
-            launch();
-            launchedAt = Date.now();
-          }
-        }
-        return false;
       },
-      `Game login/main menu not ready on ${profile.name}; finish sign-in in the open emulator, close it, then rerun init.`
+      `The authenticated game has no fresh main-menu/hooks evidence; inspect ${out}.`
     );
     run('just', ['mod::android-screen-check', `setup-device-${profile.name}`], {
       cwd: root,
@@ -573,10 +539,11 @@ export async function main(args) {
     !seed ||
     !/^[A-Za-z0-9_.-]+$/.test(seed) ||
     !Number.isFinite(timeout) ||
-    timeout <= 0
+    timeout < 1 ||
+    timeout > 600
   )
     throw new Error(
-      'Provide a valid seed AVD name and positive --timeout seconds.'
+      'Provide a valid seed AVD name and --timeout between 1 and 600 seconds.'
     );
   const selected =
     name === 'all'
@@ -599,6 +566,6 @@ if (import.meta.main) {
     await main(process.argv.slice(2));
   } catch (error) {
     console.error(error.message);
-    process.exitCode = 1;
+    process.exitCode = error.code === 'LOGIN_CANCELLED' ? 130 : 1;
   }
 }
