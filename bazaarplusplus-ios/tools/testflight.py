@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Build, sign and upload the device App to TestFlight under the given build number.
 
-Signing uses the Apple Distribution certificate and the App Store profile named below, with the team from
-app/Signing.local.xcconfig. The profile must grant the capabilities in app/Resources/device.entitlements. The upload uses the Apple account signed in to Xcode. Over SSH the keychain that
-holds the certificate is locked: set BPP_SIGNING_KEYCHAIN and BPP_SIGNING_KEYCHAIN_PASSWORD_FILE to unlock it.
+Xcode manages signing for the team in app/Signing.local.xcconfig, so the profile always carries the capabilities in
+app/Resources/device.entitlements; the App ID must have them. The upload uses the Apple account signed in to Xcode. Over
+SSH the keychain that holds the certificate is locked: set BPP_SIGNING_KEYCHAIN and BPP_SIGNING_KEYCHAIN_PASSWORD_FILE to
+unlock it. Signing steps time out, because codesign waits without limit on a locked keychain.
 """
 import argparse
 import os
@@ -14,8 +15,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-BUNDLE_ID = 'com.bazaarplusplus.ios'
-PROFILE = 'BazaarPlusPlus iOS App Store'
+SIGNING_TIMEOUT_SECONDS = 45 * 60
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -37,22 +37,27 @@ def main():
                         '-configuration', 'Release', '-sdk', 'iphoneos', '-destination', 'generic/platform=iOS',
                         '-derivedDataPath', str(ROOT / 'build/steam-app/device/launcher-derived'),
                         '-archivePath', str(archive), 'ARCHS=arm64', 'BPP_BUILD_NUMBER=' + build,
-                        'CODE_SIGN_STYLE=Manual', 'CODE_SIGN_IDENTITY=Apple Distribution',
-                        'PROVISIONING_PROFILE_SPECIFIER=' + PROFILE, 'archive'],
-                       stdout=log, stderr=subprocess.STDOUT, check=True)
+                        'CODE_SIGN_STYLE=Automatic', 'DEVELOPMENT_TEAM=' + team, '-allowProvisioningUpdates', 'archive'],
+                       stdout=log, stderr=subprocess.STDOUT, check=True, timeout=SIGNING_TIMEOUT_SECONDS)
+    app = archive / 'Products/Applications/BazaarPlusPlus.app'
+    signed = plistlib.loads(subprocess.run(['codesign', '-d', '--entitlements', '-', '--xml', str(app)],
+                                           capture_output=True, check=True).stdout)
+    required = plistlib.loads((ROOT / 'app/Resources/device.entitlements').read_bytes())
+    missing = [name for name in required if name not in signed]
+    if missing:
+        raise SystemExit(f'The archive is signed without {missing}')
     # UnityFramework is built before the launcher and embedded prebuilt, so the archive does not collect its symbols.
     shutil.copytree(ROOT / 'build/steam-app/device/derived/Build/Products/Release-iphoneos/UnityFramework.framework.dSYM',
                     archive / 'dSYMs/UnityFramework.framework.dSYM')
     options = out / 'ExportOptions.plist'
     options.write_bytes(plistlib.dumps({
-        'method': 'app-store-connect', 'destination': 'upload', 'teamID': team, 'signingStyle': 'manual',
-        'signingCertificate': 'Apple Distribution', 'provisioningProfiles': {BUNDLE_ID: PROFILE},
+        'method': 'app-store-connect', 'destination': 'upload', 'teamID': team, 'signingStyle': 'automatic',
         'manageAppVersionAndBuildNumber': False, 'uploadSymbols': True}))
     with (out / 'upload.log').open('w') as log:
         subprocess.run(['xcodebuild', '-exportArchive', '-archivePath', str(archive), '-exportPath', str(out / 'export'),
                         '-exportOptionsPlist', str(options), '-allowProvisioningUpdates'],
-                       stdout=log, stderr=subprocess.STDOUT, check=True)
-    info = plistlib.loads((archive / 'Products/Applications/BazaarPlusPlus.app/Info.plist').read_bytes())
+                       stdout=log, stderr=subprocess.STDOUT, check=True, timeout=SIGNING_TIMEOUT_SECONDS)
+    info = plistlib.loads((app / 'Info.plist').read_bytes())
     print(f"Uploaded {info['CFBundleShortVersionString']} ({info['CFBundleVersion']})")
 
 if __name__ == '__main__':
