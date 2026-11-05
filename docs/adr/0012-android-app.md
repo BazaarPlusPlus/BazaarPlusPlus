@@ -2,6 +2,8 @@
 
 2026-11-03 注：[ADR 0013](0013-remove-compatibility-mode.md) 去掉了兼容模式与预适配 interop 包。本记录的相应部分已按它改写，理由与代价见 ADR 0013。
 
+2026-11-05 注：Android App APK 改为携带它所属版本的 Interop Package 与 Managed Payload zip（用户决定）。原来这两样只能下载，网络差的新用户装好 APK 后仍然进不了游戏，而 Android 没有大陆镜像。代价是 APK 约大 20 MB，首次启动时这些文件还要再复制一份到内部存储。interop 仍可以单独下载：新版本发布后，已安装的 App 不用重装。本记录的相应部分已按此改写。
+
 [ADR 0010](0010-android-release-platform.md) 让 Android 用户安装一个注入后由 BPP 签名的官方 APK（下称 A 方案）。它有三个固定代价：用户必须先卸载官方版；游戏每更新一次，用户都要等 BPP 重新注入，再下载约 2.8 GB；每个版本在 R2 多存约 2.9 GB，注入只能在 Linux x64 上跑。2026-11-01 的可行性试验（#747，模拟器 `bpp_host_spike`）证明：一个只用公开 API 的 App（`AppComponentFactory`、`PathClassLoader`、`ContextWrapper`、`ResourcesLoader`）能在自己的进程里加载用户已装、未修改的官方 APK，复用 LemonLoader 的运行时，跑通 master 的全部 Android Mods，并能和官方 App 共存。
 
 本记录取代 ADR 0010。下文用 **Android App**（BPP Android App）指包名为 `com.bazaarplusplus.android` 的 BPP 应用，以便和 mod 的 Android Host（`BazaarPlusPlus.Android`，LemonLoader 上的 mod 程序集）以及官方游戏的 App 区分开。父 issue 写作"宿主 App"的就是它。
@@ -19,7 +21,7 @@
 - 包名 `com.bazaarplusplus.android`，一经发布永不更改，与 iOS 的 `com.bazaarplusplus.ios` 对应。开发构建用 `applicationIdSuffix ".dev"`，可以和正式版并存；两者的沙盒和外部文件目录各自独立。
 - 最低 Android 11（API 30）：`ResourcesLoader` 从 API 30 起才有。
 - Android App 本身没有账号，不需要登录。游戏在 Android App 的沙盒里运行，登录状态和官方 App 分开保存，所以第一次用 BPP 启动时，用户要在游戏自己的登录界面再登录一次。
-- 它携带的运行时是 Loader Release（Snapshot Lock 的 `loader` 条目）、`libe_sqlite3.so`（`nativeLibs` 条目）和 `BazaarPlusPlus.Updater.dll`（在运行时 zip 的 `assets/LemonLoader/deployment/Plugins/` 下，是 LemonLoader 唯一的打包部署）。它不携带 interop，也不携带 Mods。APK 约 65 MB。
+- 它携带的运行时是 Loader Release（Snapshot Lock 的 `loader` 条目）、`libe_sqlite3.so`（`nativeLibs` 条目）和 `BazaarPlusPlus.Updater.dll`（在运行时 zip 的 `assets/LemonLoader/deployment/Plugins/` 下，是 LemonLoader 唯一的打包部署）。它还携带所属版本的 Interop Package 与 Managed Payload zip（`assets/bpp-release/<sha256>.zip`），以及指明它们的 `assets/bpp-release/release.json`，见"下载与 Managed Payload 的安装"。
 - 加载方式：用游戏的 `sourceDir` 加 `splitSourceDirs` 建 `PathClassLoader`；在 `instantiateActivity` 里从这个 loader 创建继承游戏 `UnityPlayerActivity` 的 Activity；它的 Context 对外报告游戏的包名、`ApplicationInfo` 和资源，所有可写目录留在 Android App 的沙盒里。Unity 按绝对路径从 `nativeLibraryDir` 加载 `libmain.so`（其余库是否也按绝对路径加载，由 #749 第 3 项在 Play 的 split 安装上验证），所以 Android App 构造一个符号链接 lib 目录：`libmain.so` 与 `libe_sqlite3.so` 指向自己的副本（Android App 设 `extractNativeLibs="true"`，它们在磁盘上），游戏已解压的库指向游戏的副本；游戏没有解压的库（Play 的 split 安装通常如此）不建链接，类加载器的库搜索路径里加上每个游戏 APK 的 `!/lib/arm64-v8a`，从 APK 内部加载。LemonLoader 通过游戏 `Resources` 的 `AssetManager` 读 `LemonLoader/**`，Android App 用 `ResourcesLoader` 把运行时 zip 和 interop 包加进去。
 - 进程被系统杀掉后，系统可能直接恢复游戏的 Activity，绕过启动器。这时游戏还没有准备好，Android App 改为打开启动器，重新走一遍门禁，不在未准备的状态下启动游戏。
 - 身份冲突：`getPackageName` 返回游戏的包名，UID 却是 Android App 的。试验里由此出现 `MANAGE_GAME_MODE` 与 `DUMP` 两个 SecurityException，都不致命。Play 结算与 Play 游戏服务在 Android App 里的行为尚未验证（#749 第 9 项）；在验证之前，购买只在官方 App 里完成。
@@ -41,7 +43,7 @@ Android App 启动时找到官方游戏（`com.tempogames.thebazaar`），在它
 - **Play 构建与发行商 APK 的代码是否相同，没有验证。** #749 已按用户决定关闭（2026-11-02），这一项不再是首次发布的阻塞条件。`android-apk-watch.yml` 只采集发行商的 APK。如果两者不同，Play 用户永远不能用 BPP 启动，只能原版启动；这时要先让采集覆盖 Play 构建。两个渠道的 `versionCode` 是否可以直接比大小，同样没有验证。
 - A 方案的副本和官方游戏的代码哈希可以相同，但它带的 `assets/LemonLoader/deployment/` 会被 LemonLoader 部署，把旧 Mods 放进游戏存储，所以这一档先于代码哈希判断。A 版的本地历史不迁移（见"前提"），卸载时随之删除。
 - "原版启动"直接打开官方 App，不经过 Android App 的任何代码。
-- 读不到平台清单（离线）时，用上一次校验过的清单与已下载的产物；没有缓存时只能原版启动。
+- 读不到平台清单（离线）时，用上一次校验过的清单和 APK 携带的版本中较新的一个；调试构建不携带版本，没有缓存时只能原版启动。
 - "等待适配"时**绝不**用旧 interop 启动。interop 用 `GetIl2CppMethodByToken` 按元数据 token 绑定方法，游戏代码一变，token 就会移位，方法会被悄悄绑错。interop 只有一个来源：产品版本发布的 interop 包（见下文）。
 
 ### 发布产物
@@ -116,6 +118,7 @@ LemonLoader 用**游戏**的 `lastUpdateTime` 作为部署 revision 和 interop 
 ### 下载与 Managed Payload 的安装
 
 - 所有下载（Android App APK、interop 包、Managed Payload zip）先写到临时文件，校验大小与 sha256 后再改名；interop 包还要验证签名。校验不通过的文件删除，不留下。
+- Android App 需要 interop 包或 Managed Payload zip 时，先看 APK 有没有同一 sha256 的文件（携带版本）。有就从 APK 复制，校验规则相同；没有才下载。清单指向更新的版本时，仍然要下载。
 - Managed Payload：Android App 按 Core 的 `ManagedPayloadStager` 定下的布局暂存到 Data Root 的 `Updates/<版本>/`（先解压到 `Updates/.download-<版本>-<随机>/`，再一次改名发布）。Android App 只解压 `manifest.txt`、`manifest.txt.minisig` 和 `files/MelonLoader/Mods/<文件名>`、`files/MelonLoader/UserLibs/<文件名>` 这几种条目，名字里不能有路径分隔符或 `..`；有任何别的条目就拒绝整个 zip。Updater 在 BPP 启动的装载阶段验证 minisign 签名和每个文件的哈希，然后换入（mod [ADR-0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)）。minisign 只由 Updater 验证：API 30 没有 Ed25519，而 Updater 已经带着验证实现和钉住的公钥。全新安装时 Updater 读不到已安装清单，按"无"处理，可以换入；刚换入的 UserLibs 当次启动就能加载（2026-11-01 在 `bpp_host_spike` 上验证：`updater.swap.applied from=none to=6.0.0`，Data Root 的数据库被创建）。
 - 启动前，Android App 删除 `Updates/` 下自己这次没有暂存的版本，这样 Updater 只会换入与这次 interop 对应的 Mods。
 - Updater 拒绝一份暂存时会删除它，游戏照常启动但没有新的 Mods。Android App 记住自己暂存的版本；下次启动时，如果已安装的 Managed Payload 版本仍低于它、暂存目录也不在了，就告诉用户"上次安装 Mods 失败"，并提供诊断导出，然后再暂存一次。

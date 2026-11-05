@@ -107,4 +107,16 @@ public class PlatformManifestTest {
         assertEquals(new JSONObject(local).getString("version"), PlatformManifest.decode(local, dev).version);
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(local, ReleaseOrigin.PUBLIC));
     }
+
+    @Test
+    public void aCarriedReleaseHasNoApp() throws Exception {
+        String carried = new String(java.nio.file.Files.readAllBytes(
+                new java.io.File("../../release/fixtures/android-carried-release.json").toPath()),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertNull(PlatformManifest.decodeCarried(carried, ReleaseOrigin.PUBLIC).app);
+        // A published manifest that lost its app is malformed, and an APK cannot name itself.
+        org.junit.Assert.assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(carried, ReleaseOrigin.PUBLIC));
+        org.junit.Assert.assertThrows(MalformedReleaseException.class,
+                () -> PlatformManifest.decodeCarried(fixture("android-aarch64.json"), ReleaseOrigin.PUBLIC));
+    }
 }

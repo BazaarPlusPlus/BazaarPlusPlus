@@ -14,6 +14,8 @@ Cross-project terms (Android App, Game Code Hash, Interop Package, Launch Record
 
 **Android App Runtime**: what the App APK carries for LemonLoader: `assets/lemon-runtime.zip` (the Loader Release's assets and the Updater as the packaged deployment), `assets/bpp-runtime.json`, and the native libraries under `jniLibs/`. `release/android-app.mjs stage-runtime` writes it.
 
+**Carried release**: the release a release APK runs without a download: `assets/bpp-release/<sha256>.zip` for its Interop Package and Managed Payload, and `assets/bpp-release/release.json`, its Platform Release Manifest without `app` (`release/CarriedRelease`). A launch takes a file from there when the sha256 matches, and uses the document when no manifest can be read.
+
 **Loader deployment state**: the `.lemonloader-*` markers and generated files under the App's `MelonLoader/` files directory. `LoaderDeployment` resets them when the App's `versionCode` or the interop changes, so LemonLoader deploys the new runtime instead of silently keeping the old one.
 
 **Launch tier**: the outcome of `launch/LaunchGate` for the installed game against the Platform Release Manifest's `game`: `NORMAL`, `NEWER_WAITING`, `OLDER`, `NOT_INSTALLED`, `ANDROID_RELEASE_APK`, plus `OFFLINE_NO_CACHE` and `NO_RELEASE`. ADR 0012's table ("三档启动规则") names the first five; the launcher shows one per tier.

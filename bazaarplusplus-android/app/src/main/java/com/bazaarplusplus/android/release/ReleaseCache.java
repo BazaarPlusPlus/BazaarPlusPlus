@@ -1,10 +1,12 @@
 package com.bazaarplusplus.android.release;
 
 import com.bazaarplusplus.android.io.AtomicFiles;
+import com.bazaarplusplus.android.payload.ManagedPayloadStaging;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Reads the Platform Release Manifest from the network and keeps the last copy that decoded in the App's internal storage, so a launch without network uses the last
@@ -42,11 +44,15 @@ public final class ReleaseCache {
     private final File dir;
     private final ReleaseOrigin origin;
     private final Function<String, Download.Source> network;
+    private final Supplier<PlatformManifest> carried;
 
-    public ReleaseCache(File dir, ReleaseOrigin origin, Function<String, Download.Source> network) {
+    /** {@code carried} supplies the release the APK carries, or null, for when nothing newer can be read. */
+    public ReleaseCache(File dir, ReleaseOrigin origin, Function<String, Download.Source> network,
+            Supplier<PlatformManifest> carried) {
         this.dir = dir;
         this.origin = origin;
         this.network = network;
+        this.carried = carried;
     }
 
     public ManifestState manifest() {
@@ -61,15 +67,20 @@ public final class ReleaseCache {
         } catch (IOException | MalformedReleaseException e) {
             error = e.getMessage();
         }
+        PlatformManifest last = null;
         String cached = AtomicFiles.readUtf8(cache);
         if (cached != null) {
             try {
-                PlatformManifest manifest = PlatformManifest.decode(cached, origin);
-                if (manifest != null) return new ManifestState(manifest, false, true, error);
+                last = PlatformManifest.decode(cached, origin);
             } catch (MalformedReleaseException e) {
                 // A cache from another origin or an older App: as if there were none.
             }
         }
-        return new ManifestState(null, false, false, error);
+        PlatformManifest carriedRelease = carried.get();
+        // An App updated offline carries a newer release than the one it last read.
+        PlatformManifest best = last == null ? carriedRelease
+                : carriedRelease == null || ManagedPayloadStaging.compareVersions(last.version, carriedRelease.version) >= 0
+                        ? last : carriedRelease;
+        return best != null ? new ManifestState(best, false, true, error) : new ManifestState(null, false, false, error);
     }
 }

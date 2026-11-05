@@ -11,6 +11,7 @@ import com.bazaarplusplus.android.io.AtomicFiles;
 import com.bazaarplusplus.android.loader.LoaderDeployment;
 import com.bazaarplusplus.android.loader.RuntimeFiles;
 import com.bazaarplusplus.android.payload.ManagedPayloadStaging;
+import com.bazaarplusplus.android.release.CarriedRelease;
 import com.bazaarplusplus.android.release.Download;
 import com.bazaarplusplus.android.release.InteropPackage;
 import com.bazaarplusplus.android.release.InteropStatement;
@@ -23,8 +24,8 @@ import java.io.InputStream;
 import java.util.List;
 
 /**
- * One BPP launch after the gate allowed it (ADR 0012): verify and fetch the Interop Package, stage
- * the release's Managed Payload, reset LemonLoader's stale deployment state, prepare the game in
+ * One BPP launch after the gate allowed it (ADR 0012): verify the Interop Package and take it from
+ * the APK or the network, stage the release's Managed Payload the same way, reset LemonLoader's stale deployment state, prepare the game in
  * this process and write the Launch Record last. Any failure stops the launch.
  */
 final class BppLaunch {
@@ -63,7 +64,7 @@ final class BppLaunch {
             throw new IOException("The interop statement for " + interop.file.sha256 + " (" + purpose + ") does not verify");
         }
         File interopDir = AppFiles.interopCache(context);
-        File zip = Download.cachedOrFetch(Download.http(interop.file.url), interop.file.size, interop.file.sha256,
+        File zip = Download.cachedOrFetch(CarriedRelease.source(context.getAssets(), interop.file), interop.file.size, interop.file.sha256,
                 new File(interopDir, interop.file.sha256 + ".zip"),
                 (received, total) -> progress.downloading(true, received, total));
         String stray = InteropPackage.strayEntry(zip);
@@ -81,7 +82,7 @@ final class BppLaunch {
         if (ManagedPayloadStaging.compareVersions(check.installedModsVersion, release) < 0) {
             File payloadDir = AppFiles.managedPayloadCache(context);
             PlatformManifest.Artifact payload = manifest.managedPayload.file;
-            File payloadZip = Download.cachedOrFetch(Download.http(payload.url), payload.size, payload.sha256,
+            File payloadZip = Download.cachedOrFetch(CarriedRelease.source(context.getAssets(), payload), payload.size, payload.sha256,
                     new File(payloadDir, payload.sha256 + ".zip"),
                     (received, total) -> progress.downloading(false, received, total));
             keepOnly(payloadDir, payloadZip.getName());

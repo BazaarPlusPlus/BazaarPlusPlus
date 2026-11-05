@@ -242,7 +242,7 @@ test.each([
 
 test('sync projects VERSION into both badges and toolchains, and check is read-only', async () => {
   const options = fixture();
-  fs.writeFileSync(path.join(options.workspaceRoot, 'VERSION'), '6.2.1\n');
+  fs.writeFileSync(path.join(options.workspaceRoot, 'VERSION'), '99.0.1\n');
   await expect(main(['check'], options)).rejects.toThrow(/Version mismatch/);
   await main(['sync'], options);
   const files = fs
@@ -260,7 +260,7 @@ test('sync projects VERSION into both badges and toolchains, and check is read-o
   for (const file of ['README.md', 'README_en.md'])
     expect(
       fs.readFileSync(path.join(options.workspaceRoot, file), 'utf8')
-    ).toContain('badge/version-6.2.1-');
+    ).toContain('badge/version-99.0.1-');
   expect(options.createStore).not.toHaveBeenCalled();
 });
 

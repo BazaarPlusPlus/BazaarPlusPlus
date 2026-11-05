@@ -139,7 +139,7 @@ Android 是第三个发布平台（平台键 `android-aarch64`），不进 `late
 
 | 产物 | 对象键 | 完整性 |
 |---|---|---|
-| Android App APK | `<版本>/android-aarch64/app/BazaarPlusPlus_<版本>_android-aarch64.apk` | Android 发布密钥的 APK 签名 |
+| Android App APK，携带下面两个 zip | `<版本>/android-aarch64/app/BazaarPlusPlus_<版本>_android-aarch64.apk` | Android 发布密钥的 APK 签名 |
 | Interop Package | `android/interop/<zip 的 sha256>.zip`，按内容寻址 | interop 声明的 SHA256withRSA 签名 |
 | Managed Payload zip | `<版本>/android-aarch64/managed/` | minisign 签名，由 Updater 验证 |
 
@@ -177,10 +177,10 @@ just release::promote --platform android
 2. `prepare` 对照锁定的 interop 与 Loader Release 编译 Android 宿主，并核对宿主暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。`-p:InteropPath=`、`-p:LemonLoaderPath=` 可以覆盖目录，但覆盖的仍必须是锁条目钉住的那一份。
 3. `build` 重做 `prepare`，然后：
    - 把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。
-   - 用 `release/android-app.mjs` 的 `stageAndroidAppRuntime` 暂存 Android App 携带的运行时，写进算好的 `nonManagedPayloadDigest`；Updater 取自 Payload 里的同一份文件。
+   - 用 `buildInteropPackage` 打 Interop Package，用 Android 发布密钥签它的 `release <版本>` interop 声明。私钥由 `openssl pkcs12` 经密码文件从 keystore 取出，只放在系统临时目录，签完即删；keystore 里的证书必须是钉住的发布证书。
+   - 用 `release/android-app.mjs` 的 `stageAndroidAppRuntime` 暂存 Android App 携带的运行时，写进算好的 `nonManagedPayloadDigest`；Updater 取自 Payload 里的同一份文件。再用 `stageCarriedRelease` 把上面两个 zip 和 `androidCarriedRelease` 写的文档放进 `assets/bpp-release/`，所以新装的 App 不用下载就能运行这个版本。
    - 在 `bazaarplusplus-android/` 跑 Gradle 的 `assembleRelease`，传入 `-Pbpp.version`、`-Pbpp.versionCode` 与 `-Pbpp.runtimeDir`。需要 Android App 工具链锁（`bazaarplusplus-android/toolchain.lock.json`）钉住的 JDK 与 SDK。
-   - 用 `zipalign` 对齐，用 `apksigner` 和 Android 发布密钥签名；keystore 密码只经文件传给 `apksigner`。`apksigner verify --print-certs` 报告的证书必须是钉住的发布证书。再从 APK 里读回 `assets/bpp-runtime.json`，它的 `nonManagedPayloadDigest` 必须等于 fragment 的值。
-   - 用 `buildInteropPackage` 打 Interop Package，用同一把密钥签它的 `release <版本>` interop 声明。私钥由 `openssl pkcs12` 经密码文件从 keystore 取出，只放在系统临时目录，签完即删；keystore 里的证书必须就是签 APK 的那张。
+   - 用 `zipalign` 对齐，用 `apksigner` 和 Android 发布密钥签名；keystore 密码只经文件传给 `apksigner`。`apksigner verify --print-certs` 报告的证书必须是钉住的发布证书。再从 APK 里读回 `assets/bpp-runtime.json`，它的 `nonManagedPayloadDigest` 必须等于 fragment 的值；`assets/bpp-release/` 必须是这次构建暂存的版本。
 
    步骤与工具查找见 `release/android-release.mjs` 的 `buildAndroidRelease` 与 `resolveBuildTools`。签名材料的来源见上面的 secret 表。所有输出都在工作区根的 `target/android/`：APK、`<sha256>.zip` 与它的 `.statement` 和 `.statement.sig`、Managed Payload zip 与 `.sig`，以及构建回执 `android-aarch64.json`。
 4. `upload` 在同一台机器上用流式条件写依次上传 Android App APK、Interop Package、Managed Payload zip 与 `.sig`，最后写 fragment。Interop Package 的键已有相同字节时不再上传，字节不同时拒绝。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同，会被已上传的对象拒绝，这时升版本。

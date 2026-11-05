@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { readProductVersion } from './product.mjs';
+import { RELEASE_BASE_URL, readProductVersion } from './product.mjs';
 import {
   platformInventory,
   payloadEntry,
@@ -34,9 +34,12 @@ import {
 } from './game-libs.mjs';
 import { sha256File } from './android-apk.mjs';
 import {
+  CARRIED_RELEASE_DIR,
+  CARRIED_RELEASE_FILE,
   RUNTIME_FACTS,
   buildInteropPackage,
-  stageAndroidAppRuntime
+  stageAndroidAppRuntime,
+  stageCarriedRelease
 } from './android-app.mjs';
 import {
   exportReleaseKey,
@@ -48,6 +51,7 @@ import { releaseSourceIdentity } from './artifact-manifest.mjs';
 import {
   ANDROID_RELEASE_SIGNER_SHA256,
   androidAppKey,
+  androidCarriedRelease,
   androidAppVersionCode,
   androidNonManagedPayloadDigest,
   interopPackageKey,
@@ -657,7 +661,7 @@ function apkEntries(apk) {
 // Inventory's android-app entries inside the APK, and the runtime facts the
 // staging wrote, read back out of the APK, so the fragment and the App can
 // never compute their digests apart.
-function assertAppRuntime(apk, facts) {
+function assertAppRuntime(apk, facts, carried) {
   const entries = apkEntries(apk);
   const missing = platformInventory(PLATFORM)
     .filter(
@@ -682,6 +686,20 @@ function assertAppRuntime(apk, facts) {
       throw new Error(
         `The Android App's assets/${RUNTIME_FACTS} names ${field} ${packaged[field]}, not the staged ${facts[field]}`
       );
+  const carriedAsset = `assets/${CARRIED_RELEASE_DIR}`;
+  const carriedDocument = run(
+    'unzip',
+    ['-p', apk, `${carriedAsset}/${CARRIED_RELEASE_FILE}`],
+    { quiet: true }
+  );
+  if (JSON.stringify(JSON.parse(carriedDocument)) !== JSON.stringify(carried))
+    throw new Error(
+      `The Android App's ${carriedAsset}/${CARRIED_RELEASE_FILE} is not the release this build staged`
+    );
+  const record = carried.downloads[releasePlatform(PLATFORM).key];
+  for (const { sha256: digest } of [record.interop, record.managedPayload])
+    if (!entries.has(`${carriedAsset}/${digest}.zip`))
+      throw new Error(`The Android App lacks ${carriedAsset}/${digest}.zip`);
 }
 
 // The Interop Package of the locked snapshot and its signed `release
@@ -786,6 +804,23 @@ async function buildUnlocked({
     entry,
     stagedUpdaterSha256(paths.payload)
   );
+  const signing = signingKey();
+  // Before the App, which carries both zips. The certificate is the pin: the
+  // App signed below must match it too.
+  const interop = packInterop({
+    root: paths.root,
+    interopPath: record.interopPath,
+    entry,
+    version,
+    signing,
+    releaseKey,
+    signerSha256: releaseSignerSha256
+  });
+  log(`Signed the interop statement of ${interop.key}`);
+  const { manifest: managed } = readStagedManagedPayload(
+    paths.payload,
+    PLATFORM
+  );
   const nativeDir = path.join(paths.work, 'native');
   const facts = stageAndroidAppRuntime({
     loaderPath: record.loaderPath,
@@ -794,6 +829,29 @@ async function buildUnlocked({
     nativeLibs: await resolveNativeLibs({ entry, into: nativeDir }),
     nonManagedPayloadDigest,
     outDir: paths.runtime
+  });
+  const carried = androidCarriedRelease({
+    version,
+    gitCommit: identity.commit,
+    baseUrl: RELEASE_BASE_URL,
+    game: entry,
+    interop,
+    managedPayload: {
+      size: fs.statSync(zipPath).size,
+      sha256: zip.sha256,
+      signature
+    },
+    loader: entry.loader,
+    historyDatabaseUserVersion: managed.historyDatabaseUserVersion,
+    nonManagedPayloadDigest
+  });
+  stageCarriedRelease({
+    outDir: paths.runtime,
+    release: carried,
+    zips: [
+      { sha256: interop.sha256, file: path.join(paths.root, interop.path) },
+      { sha256: zip.sha256, file: zipPath }
+    ]
   });
   const versionCode = androidAppVersionCode(version);
   log(`Building the Android App ${version} (versionCode ${versionCode})`);
@@ -805,7 +863,6 @@ async function buildUnlocked({
   });
   const appKey = androidAppKey(version);
   const appPath = path.join(paths.root, path.posix.basename(appKey));
-  const signing = signingKey();
   const signerSha256 = signAndroidApp({
     unsigned,
     signing,
@@ -817,18 +874,8 @@ async function buildUnlocked({
     throw new Error(
       `The Android App is signed by ${signerSha256}, not the release key ${releaseSignerSha256} (docs/adr/0009-android-release-key.md); check the staged keystore`
     );
-  assertAppRuntime(appPath, facts);
+  assertAppRuntime(appPath, facts, carried);
   log(`Signed ${path.basename(appPath)}`);
-  const interop = packInterop({
-    root: paths.root,
-    interopPath: record.interopPath,
-    entry,
-    version,
-    signing,
-    releaseKey,
-    signerSha256
-  });
-  log(`Signed the interop statement of ${interop.key}`);
   fs.rmSync(paths.work, { recursive: true, force: true });
 
   verifyAndroidPayload(workspaceRoot);
@@ -836,10 +883,6 @@ async function buildUnlocked({
     throw new Error(
       'Product source or Git identity changed during packaging; no artifact manifest was written'
     );
-  const { manifest: managed } = readStagedManagedPayload(
-    paths.payload,
-    PLATFORM
-  );
   if (managed.nonManagedPayloadDigest !== nonManagedPayloadDigest)
     throw new Error(
       'The Managed Payload Manifest names another non-managed payload than the Android App; run node release.mjs prepare --platform android'

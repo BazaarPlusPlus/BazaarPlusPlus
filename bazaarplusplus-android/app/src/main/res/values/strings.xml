@@ -33,7 +33,7 @@
 
   <string name="replace_game">This is the old BazaarPlusPlus build of The Bazaar. Uninstall it, then install the official game. Uninstalling removes the old build’s local History.</string>
   <string name="release_unavailable">Couldn’t read the BazaarPlusPlus release. Connect to the internet and try again.</string>
-  <string name="release_from_cache">Offline: using the last release read.</string>
+  <string name="release_from_cache">Offline: using the release saved on this device.</string>
   <string name="no_release">BazaarPlusPlus for Android has no release yet.</string>
   <string name="last_install_failed">The last plugin install failed. This launch installs it again; if it fails again, export diagnostics.</string>
   <string name="runtime_missing">This build has no BPP runtime yet.</string>

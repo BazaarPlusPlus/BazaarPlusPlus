@@ -12,6 +12,7 @@ import com.bazaarplusplus.android.game.InstalledGame;
 import com.bazaarplusplus.android.loader.RuntimeFacts;
 import com.bazaarplusplus.android.loader.RuntimeFiles;
 import com.bazaarplusplus.android.payload.ManagedPayloadStaging;
+import com.bazaarplusplus.android.release.CarriedRelease;
 import com.bazaarplusplus.android.release.Download;
 import com.bazaarplusplus.android.release.InteropStatement;
 import com.bazaarplusplus.android.release.ReleaseCache;
@@ -83,7 +84,8 @@ final class LaunchCheck {
         AppLog.i(BppApplication.TAG, "game " + game.versionName + " (" + game.versionCode + ") code " + hash + " in "
                 + (System.nanoTime() - started) / 1_000_000 + " ms");
 
-        ReleaseCache cache = new ReleaseCache(AppFiles.releaseCache(context, dev != null), origin, Download::http);
+        ReleaseCache cache = new ReleaseCache(AppFiles.releaseCache(context, dev != null), origin, Download::http,
+                () -> CarriedRelease.manifest(context.getAssets(), origin));
         ReleaseCache.ManifestState manifest = cache.manifest();
         AppLog.i(BppApplication.TAG, "manifest " + origin.manifestUrl() + ": " + manifest);
 

@@ -391,6 +391,34 @@ export function buildAndroidFragment({
   return validatePlatformFragment(fragment, version, ANDROID_PLATFORM);
 }
 
+// The release an Android App APK carries (assets/bpp-release/release.json, ADR
+// 0012): the shape of its Platform Release Manifest without `app`, because the
+// APK cannot name its own digest. The App reads it when no manifest can be
+// fetched, so a new install with a bad network still runs what it downloaded.
+export function androidCarriedRelease({ baseUrl, ...release }) {
+  const fragment = buildAndroidFragment({
+    ...release,
+    baseUrl,
+    app: {
+      size: 1,
+      sha256: '0'.repeat(64),
+      signerSha256: ANDROID_RELEASE_SIGNER_SHA256
+    },
+    selfUpdatable: false
+  });
+  return {
+    version: fragment.version,
+    gitCommit: fragment.gitCommit,
+    downloads: {
+      [ANDROID_PLATFORM]: Object.fromEntries(
+        ANDROID_RELEASE_FIELDS.filter((field) => field !== 'app').map(
+          (field) => [field, fragment[field]]
+        )
+      )
+    }
+  };
+}
+
 // What an Android Platform Release Manifest publishes from its fragment, in
 // this order: the three artifacts a new install downloads (App, then the
 // Managed Payload and Interop Package it stages), the game they are adapted
