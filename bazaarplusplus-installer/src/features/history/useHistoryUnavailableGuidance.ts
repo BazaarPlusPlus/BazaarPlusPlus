@@ -3,17 +3,16 @@ import { commandClient } from '../../api/commandClient';
 import type { LegacyDataPresence } from '../../types/backend';
 
 /**
- * Where History sends a user who has no current database: `import` when the
- * V5 import may run, `reinstall` when V5 history exists but the installed mod
- * still writes an old Data Root, otherwise `null` (the plain Install link).
+ * Where History sends a user who has no current database: `reinstall` when V5
+ * history exists but the installed mod still writes an old Data Root, otherwise
+ * `null` (the plain Install link).
  */
-export type HistoryUnavailableGuidance = 'import' | 'reinstall' | null;
+export type HistoryUnavailableGuidance = 'reinstall' | null;
 
 export function historyUnavailableGuidance(
   presence: LegacyDataPresence | null
 ): HistoryUnavailableGuidance {
   if (!presence?.game_path) return null;
-  if (presence.v5_import_eligible) return 'import';
   const hasV5 = presence.roots.includes('BazaarPlusPlusV5');
   if (hasV5 && presence.installed_mod_data_root === 'reinstall_required') {
     return 'reinstall';

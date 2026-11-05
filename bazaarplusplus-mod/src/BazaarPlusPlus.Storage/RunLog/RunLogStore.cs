@@ -374,9 +374,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
 
     /// <summary>
     /// The SQL condition for a Run the mod may resume or show as the current Run, over the runs
-    /// row aliased <paramref name="runAlias"/>: active and not History-Only. Only the V5 import
-    /// writes <c>history_only</c>; this keeps an unfinished imported Run from being continued
-    /// even if the import left it active.
+    /// row aliased <paramref name="runAlias"/>: active and not History-Only. Only the installer's V5
+    /// import, removed in 6.2.0, wrote <c>history_only</c>; this keeps an unfinished imported Run
+    /// from being continued even if the import left it active.
     /// </summary>
     public static string ResumableRunCondition(string runAlias) =>
         $"({runAlias}.status = '{ActiveStatus}' AND {runAlias}.upload_policy = 'bundle')";

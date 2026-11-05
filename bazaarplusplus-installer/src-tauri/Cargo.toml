@@ -1,6 +1,6 @@
 [package]
 name = "bppinstaller"
-version = "6.1.1"
+version = "6.2.0"
 description = "BazaarPlusPlus Desktop App"
 authors = ["cauyxy <cauyxy@gmail.com>"]
 edition = "2021"
@@ -51,9 +51,6 @@ tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 tempfile = "3"
 sha2 = "0.11.0"
 
-[target.'cfg(unix)'.dependencies]
-libc = "0.2.189"
-
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
 windows = { version = "0.62", features = [
@@ -96,6 +93,9 @@ allow_attributes_without_reason = "warn"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2.189"
 
 [profile.release]
 opt-level = "z"

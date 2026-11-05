@@ -206,11 +206,6 @@ const INFORMATIONAL_REFERENCES = [
   [
     'bazaarplusplus-mod/native/macos/build.sh',
     'bazaarplusplus-installer/scripts/bundle.sh'
-  ],
-  // Read from a pinned commit with `git show`, never from the working tree.
-  [
-    'bazaarplusplus-installer/src-tauri/tests/fixtures/v5-import/generate-schemas.py',
-    'bazaarplusplus-mod/tests/RunLoggingPipeline.Tests/fixtures/history-database-v3.schema.sql'
   ]
 ];
 

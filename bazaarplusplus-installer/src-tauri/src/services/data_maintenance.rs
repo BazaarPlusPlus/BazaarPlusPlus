@@ -19,8 +19,7 @@ use crate::stream::runtime::StreamRuntime;
 pub(crate) struct DataMaintenanceLock {
     gate: Arc<AsyncMutex<()>>,
     /// Counts the operations that may delete or replace the current Data
-    /// Root's database (Reset, the V5 import), so state derived from it
-    /// outside the lock, such as a cleanup preview's plan, can tell it is
+    /// Root's database (Reset), so state derived from it outside the lock, such as a cleanup preview's plan, can tell it is
     /// stale.
     database_generation: Arc<AtomicU64>,
 }

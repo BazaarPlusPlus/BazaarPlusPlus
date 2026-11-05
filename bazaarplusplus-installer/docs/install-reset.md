@@ -20,7 +20,7 @@ On macOS, `plan_install` keeps Steam running when detected launch options are em
 
 ## Running-Game Refusal
 
-`ensure_game_stopped` in `src-tauri/src/services/game_process.rs` is the fail-closed check every operation that rewrites or deletes game-directory files runs first: install, Reset, BepInEx reset, Legacy Root deletion, and the V5 import. It refuses when the game is running and when the process list cannot be inspected. Each `GameStoppedOperation` reports its own semantic problem code (`install_blocked_by_game`, `reset_blocked_by_game`, and so on); an inspection failure carries its cause as the diagnostic. `SystemGameProcessProbe` matches `TheBazaar.exe` on Windows and, on macOS, an executable under the selected installation's `TheBazaar.app/Contents/MacOS/`, including the trampoline's `.orig`. The game has no build for other platforms, where the probe reports it stopped. Tests inject a `GameProcessProbe` instead.
+`ensure_game_stopped` in `src-tauri/src/services/game_process.rs` is the fail-closed check every operation that rewrites or deletes game-directory files runs first: install, Reset, BepInEx reset, and Legacy Root deletion. It refuses when the game is running and when the process list cannot be inspected. Each `GameStoppedOperation` reports its own semantic problem code (`install_blocked_by_game`, `reset_blocked_by_game`, and so on); an inspection failure carries its cause as the diagnostic. `SystemGameProcessProbe` matches `TheBazaar.exe` on Windows and, on macOS, an executable under the selected installation's `TheBazaar.app/Contents/MacOS/`, including the trampoline's `.orig`. The game has no build for other platforms, where the probe reports it stopped. Tests inject a `GameProcessProbe` instead.
 
 ## Data Maintenance Lock
 
@@ -61,17 +61,6 @@ sorted relative path and SHA-256 records to the CLI and acceptance tests.
 Symlink records contain their targets without following them. Manifest output
 belongs outside the game directory so it cannot include itself.
 
-The import command runs the one-time V5 import (ADR-0008) through `import_v5`
-in `src-tauri/src/v5_import/run.rs`, the same entry the app calls, so it
-holds the data maintenance lock and refuses while the game runs. It is the
-only headless command that runs on every platform. A Windows release build
-has no console, so the result goes only to the required `--manifest` file:
-the outcome, the current Data Root's path and SHA-256 records without the
-database file, and every database row. `--now` pins the clock the replay
-retention window is measured from, which makes the file reproducible;
-`src-tauri/tests/v5_import_cli.rs` compares it with
-`src-tauri/tests/goldens/v5-import/`.
-
 ## Reset Local Data
 
 Reset is the only installer operation that deletes the current Data Root, the directory `BAZAAR_DATA_DIRECTORY` in `src-tauri/src/config.rs` names under the game directory. The name must equal the mod's `PathConstants.DataRootDirectoryName`: a test in `config.rs` pins it to `dataRootDirectoryName` in `src-tauri/history-database-compatibility.json`, and `just release::check` compares that field with the mod's history database contract. The confirmation copy in `src/i18n/messages.ts` names the folder literally and changes with it. `reset_bpp_data` in `src-tauri/src/services/bepinex/mod.rs` holds the data maintenance lock with the OBS overlay stopped, runs the running-game refusal on every platform, and only then delegates filesystem cleanup to `cleanup_bpp_data_directory` in `src-tauri/src/services/bepinex/payload.rs`. `reset_bepinex_folder` holds the same lock and runs the same refusal, but leaves the overlay running because it touches no database.
@@ -80,25 +69,16 @@ The Install workflow fixes the target path when confirmation opens. A successful
 
 ## Legacy Roots
 
-A Legacy Root (root `GLOSSARY.md`) is user-owned. `LegacyRoot::ALL` in `src-tauri/src/services/legacy_data.rs` is the installer's only list of their names and never includes `BAZAAR_DATA_DIRECTORY`. Reset and uninstall never touch one, and nothing deletes one without the user confirming that root, including a successful V5 import.
+A Legacy Root (root `GLOSSARY.md`) is user-owned. `LegacyRoot::ALL` in `src-tauri/src/services/legacy_data.rs` is the installer's only list of their names and never includes `BAZAAR_DATA_DIRECTORY`. Reset and uninstall never touch one, and nothing deletes one without the user confirming that root.
 
-The Install page lists them, not History: History resolves its game directory only where the current database exists, which a user with only V5 data does not have. `get_legacy_data_state` resolves the selected directory with `GamePathAcceptance::Any` and returns `LegacyDataState`:
+The Install page lists them, not History: History resolves its game directory only where the current database exists, which a user with only V5 data does not have. The `#legacy-data` anchor (`LEGACY_DATA_SECTION_ID` in `src/features/install/LegacyDataPanel.tsx`) is where History sends a user with V5 history whose installed mod still writes an old Data Root. `get_legacy_data_state` resolves the selected directory with `GamePathAcceptance::Any` and returns `LegacyDataState`:
 
 - The Legacy Roots that exist as real directories directly under the game directory. A file or symbolic link with a root's name is not one. Sizes are measured on the blocking pool without following symbolic links. Files with more than one hard link are counted separately, because deleting the root frees their space only when no other link remains; the page therefore shows the size without promising what deletion reclaims.
 - `installed_mod_data_root`: `current` only when `dataRootDirectoryName` in the installed mod's `BazaarPlusPlus.history-database.json` (under `BepInEx/plugins/`) equals `BAZAAR_DATA_DIRECTORY`. A missing file, a 5.x file without the field, corrupt JSON, or another name reads as `reinstall_required`, and the page asks an installed user to reinstall.
-- `v5_import_eligible` from `is_v5_import_eligible` in `src-tauri/src/v5_import/mod.rs`: the installed mod writes the current Data Root, `BazaarPlusPlusV5/` exists, and it holds no `V5_IMPORT_MARKER_FILE_NAME` marker.
 
 `get_legacy_data_presence` returns the facts of `LegacyDataState` as `LegacyDataPresence`, each root reduced to its name: it costs a few stats and a read of the installed mod's contract file, and never walks into a root. History's unavailable guidance needs no size, so it reads this ([History And Storage](history-storage.md#data-ownership)) instead of a measurement, which stats every file in every root.
 
 `delete_legacy_root` accepts only a name from `LegacyRoot::ALL`. It holds the data maintenance lock, runs the running-game refusal (`legacy_delete_blocked_by_game`), and removes the directory with `remove_dir_with_retry`, the removal Reset uses. `DeleteLegacyRootResult` distinguishes a removed root from one already gone and carries the remeasured state; undeleted paths return `install_partial_failure` with operation `delete_legacy_root`. `createLegacyDataWorkflow` in `src/features/install/legacyDataWorkflow.ts` fixes each deletion to one listed root through the confirmed-operation seam.
-
-## V5 Import
-
-The Install page's Legacy Root section carries the one-time V5 import (ADR-0008). Its card appears only while `v5_import_eligible` holds; when the installed mod still writes an old Data Root, the section shows only the reinstall hint, because a reinstall is what makes the import eligible. The `#legacy-data` anchor (`LEGACY_DATA_SECTION_ID` in `src/features/install/LegacyDataPanel.tsx`) is where History sends a user without a current database.
-
-`import_v5_history` calls `import_v5_history` in `src-tauri/src/v5_import/app.rs`, which runs `import_v5` with the current clock and returns `ImportV5HistoryResult`: imported, skipped, and unavailable-file counts plus the remeasured `LegacyDataState`. The import runs without a confirmation because it only adds to the current Data Root and leaves `BazaarPlusPlusV5/` as it was. It reports no intermediate progress: it is one operation that commits or rolls back as a whole, so the card shows it as running until it settles and blocks Legacy Root deletion meanwhile. `ImportError::into_problem` keeps a running game as `import_blocked_by_game` with the `stage` that found it; every other failure is `import_failed` with `reason` set to `ImportError::code`, which `src/features/install/installProblems.ts` turns into recovery copy. Only `marker_not_written` means the rows committed; a retry skips every Run and writes the marker.
-
-After a successful import, `createLegacyDataWorkflow` opens the ordinary Legacy Root confirmation for `BazaarPlusPlusV5` with the import's counts (`afterImport`). The copy does not promise reclaimed space: placement shares data by clone or hard link where it can, so deleting V5 frees only what nothing else references. Declining keeps the folder, which stays listed as a Legacy Root and can be deleted later through the same confirmation.
 
 ## Install and Repair Acceptance
 

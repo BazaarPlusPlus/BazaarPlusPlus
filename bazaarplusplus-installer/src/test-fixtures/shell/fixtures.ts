@@ -12,7 +12,6 @@ import type {
   HistoryRunList,
   HistoryRunRow,
   InstallState,
-  LegacyDataPresence,
   LegacyDataState,
   SemanticProblem,
   StreamServiceStatus
@@ -86,32 +85,7 @@ export const legacyRootsNeedingReinstall: LegacyDataState = {
       unreadable_entry_count: 1
     }
   ],
-  installed_mod_data_root: 'reinstall_required',
-  v5_import_eligible: false
-};
-
-/** A 6.x mod reinstalled over V5 data that has not been imported yet. */
-export const v5ImportEligible: LegacyDataState = {
-  game_path: '/Games/The Bazaar',
-  roots: [
-    {
-      name: 'BazaarPlusPlusV5',
-      size_bytes: 1_610_612_736,
-      file_count: 1200,
-      hard_linked_file_count: 0,
-      unreadable_entry_count: 0
-    }
-  ],
-  installed_mod_data_root: 'current',
-  v5_import_eligible: true
-};
-
-/** The same installation as History's unavailable guidance reads it. */
-export const v5ImportEligiblePresence: LegacyDataPresence = {
-  game_path: v5ImportEligible.game_path,
-  roots: v5ImportEligible.roots.map((root) => root.name),
-  installed_mod_data_root: v5ImportEligible.installed_mod_data_root,
-  v5_import_eligible: v5ImportEligible.v5_import_eligible
+  installed_mod_data_root: 'reinstall_required'
 };
 
 export const installDetectionFailed: SemanticProblem = {

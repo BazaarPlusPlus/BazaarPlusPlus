@@ -6,8 +6,6 @@ import path from 'node:path';
 // understand and which Data Root directory it reads, resets, and cleans. Both
 // files change in the same pull request, and a data repair changes neither
 // (bazaarplusplus-mod/docs/adr/0011-schema-version-names-column-shape.md).
-// The mod's contract also states its replay payload retention, which the
-// installer's one-time V5 import reads from the installed copy.
 export const MOD_HISTORY_DATABASE_CONTRACT_PATH =
   'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json';
 export const INSTALLER_HISTORY_DATABASE_COMPATIBILITY_PATH =
@@ -74,9 +72,7 @@ export function readHistoryDatabaseContract(contractPath) {
   if (
     contract.formatVersion !== 1 ||
     !isDirectoryName(contract.dataRootDirectoryName) ||
-    !isPositiveInteger(contract.historyDatabaseUserVersion) ||
-    !isPositiveInteger(contract.replayPayloadRetainedNewestCount) ||
-    !isPositiveInteger(contract.replayPayloadRetainedAgeDays)
+    !isPositiveInteger(contract.historyDatabaseUserVersion)
   ) {
     throw new Error(
       `Invalid BazaarPlusPlus history database contract: ${contractPath}`
@@ -84,9 +80,7 @@ export function readHistoryDatabaseContract(contractPath) {
   }
   return {
     dataRootDirectoryName: contract.dataRootDirectoryName,
-    historyDatabaseUserVersion: contract.historyDatabaseUserVersion,
-    replayPayloadRetainedNewestCount: contract.replayPayloadRetainedNewestCount,
-    replayPayloadRetainedAgeDays: contract.replayPayloadRetainedAgeDays
+    historyDatabaseUserVersion: contract.historyDatabaseUserVersion
   };
 }
 

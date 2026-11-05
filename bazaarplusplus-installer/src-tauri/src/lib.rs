@@ -14,7 +14,6 @@ mod stream;
 #[cfg(test)]
 mod test_support;
 mod tray;
-mod v5_import;
 
 // The unit-test harness links the same Tauri dialog code as the application,
 // but tauri-build only attaches its Common Controls v6 resource to binaries.
@@ -49,7 +48,7 @@ pub fn run() {
                 .build(),
         );
 
-    // Cleanup plans watch the same lock Reset and the V5 import hold.
+    // Cleanup plans watch the same lock Reset holds.
     let maintenance = crate::services::data_maintenance::DataMaintenanceLock::default();
     let app = builder
         .plugin(tauri_plugin_updater::Builder::new().build())

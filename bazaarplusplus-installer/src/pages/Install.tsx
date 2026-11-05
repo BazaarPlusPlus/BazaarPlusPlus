@@ -241,7 +241,6 @@ export default function Install() {
                 ? installFailurePaths(legacyConfirmationProblem)
                 : []
             }
-            afterImport={legacyConfirmation.target.afterImport}
             onAcknowledgedChange={setLegacyDeleteAcknowledged}
             onClose={() => legacy.workflow.dismissDelete()}
             onConfirm={() => void legacy.workflow.confirmDelete()}

@@ -4,6 +4,7 @@ pub(crate) mod files;
 pub(crate) mod hero;
 pub(crate) mod instant;
 pub(crate) mod mapper;
+#[cfg(test)]
 pub(crate) mod mod_schema;
 mod queries;
 mod repo;

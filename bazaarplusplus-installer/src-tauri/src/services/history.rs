@@ -75,8 +75,8 @@ struct StoredCleanupPlan {
 /// instead of scanning again. The plan stays a nomination: execution re-checks
 /// every candidate (`execute_*_cleanup_plan` in `history/cleanup.rs`), so a
 /// plan that aged while the user read the dialog only leaves later candidates
-/// for the next cleanup. One slot: a newer preview replaces it, a Reset or V5
-/// import invalidates it, a successful execution consumes it, and a failed
+/// for the next cleanup. One slot: a newer preview replaces it, a Reset
+/// invalidates it, a successful execution consumes it, and a failed
 /// one puts it back for the dialog's retry.
 #[derive(Clone, Default)]
 pub(crate) struct CleanupPlans {
@@ -92,7 +92,7 @@ struct CleanupPlanSlot {
 
 impl CleanupPlans {
     /// Plans whose database generation follows `maintenance`, the lock Reset
-    /// and the V5 import hold.
+    /// holds.
     pub(crate) fn new(maintenance: DataMaintenanceLock) -> Self {
         Self {
             slot: Arc::default(),
@@ -130,7 +130,7 @@ impl CleanupPlans {
     }
 
     /// The stored plan `id` names, when it was computed for this data root,
-    /// scope, and preset, and no Reset or V5 import ran since. `None` asks
+    /// scope, and preset, and no Reset ran since. `None` asks
     /// the caller to plan afresh. Call it while holding the data maintenance
     /// lock.
     fn take(
@@ -315,7 +315,7 @@ impl History {
         plans: &CleanupPlans,
     ) -> Result<StorageCleanupPreview, SemanticProblem> {
         as_action_problem("preview_storage_cleanup", || {
-            // Read before planning: a Reset or import that starts after this
+            // Read before planning: a Reset that starts after this
             // read invalidates the plan.
             let database_generation = plans.database_generation();
             let plan = self.plan_cleanup(scope, preset)?;
@@ -1124,7 +1124,7 @@ mod tests {
         assert!(take(id).is_none());
         assert!(take(newer).is_some());
 
-        // A Reset or V5 import between preview and confirmation invalidates it.
+        // A Reset between preview and confirmation invalidates it.
         let id = store(StorageCleanupScope::RunData);
         maintenance
             .run_blocking_with_overlay_stopped(

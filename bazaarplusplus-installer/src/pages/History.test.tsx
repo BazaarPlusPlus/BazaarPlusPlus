@@ -469,7 +469,6 @@ const v5Only = (
   game_path: '/Games/The Bazaar',
   roots: ['BazaarPlusPlusV5'],
   installed_mod_data_root: 'current',
-  v5_import_eligible: true,
   ...overrides
 });
 
@@ -490,27 +489,9 @@ describe('history without a current database', () => {
     });
   });
 
-  it('points at the Install page import card when V5 history can be imported', async () => {
-    vi.mocked(commandClient.getLegacyDataPresence).mockResolvedValue(
-      v5Only({})
-    );
-    await render('/history');
-
-    expect(commandClient.getLegacyDataPresence).toHaveBeenCalledWith(null);
-    expect(container.textContent).toContain(
-      formatMessage('zh', 'historyUnavailableImport')
-    );
-    const link = installLink();
-    expect(link?.getAttribute('href')).toBe('/#legacy-data');
-    expect(link?.textContent).toBe(formatMessage('zh', 'historyOpenImport'));
-  });
-
   it('points at the reinstall hint when the mod still writes an old folder', async () => {
     vi.mocked(commandClient.getLegacyDataPresence).mockResolvedValue(
-      v5Only({
-        installed_mod_data_root: 'reinstall_required',
-        v5_import_eligible: false
-      })
+      v5Only({ installed_mod_data_root: 'reinstall_required' })
     );
     await render('/history');
 
@@ -518,6 +499,19 @@ describe('history without a current database', () => {
       formatMessage('zh', 'historyUnavailableReinstall')
     );
     expect(installLink()?.getAttribute('href')).toBe('/#legacy-data');
+  });
+
+  it('keeps the plain Install link when the mod writes the current folder', async () => {
+    vi.mocked(commandClient.getLegacyDataPresence).mockResolvedValue(
+      v5Only({})
+    );
+    await render('/history');
+
+    expect(commandClient.getLegacyDataPresence).toHaveBeenCalledWith(null);
+    expect(container.textContent).toContain(
+      formatMessage('zh', 'historyProblemUnavailable')
+    );
+    expect(installLink()?.getAttribute('href')).toBe('/');
   });
 
   it('keeps the plain Install link without V5 history', async () => {

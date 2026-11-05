@@ -162,8 +162,6 @@ const zh = {
     '检测到未知的安装警告，请重新检测；若持续出现，请查看诊断信息。',
   installBlockedByGame:
     'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再安装 BazaarPlusPlus。',
-  importBlockedByGame:
-    'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再导入 V5 战绩。',
   legacyDeleteBlockedByGame:
     'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再删除旧数据文件夹。',
   installProblemDetectionFailed: '检测安装状态失败，请重试。',
@@ -208,37 +206,6 @@ const zh = {
   legacyDeleteDone: '{name} 已删除',
   legacyDeleteNothingToDelete: '{name} 已不存在',
   legacyDeletePartialFailure: '有 {count} 个项目未能删除。请关闭游戏后重试。',
-  legacyDeleteAfterImport:
-    '导入完成，BazaarPlusPlusV6 中新增 {imported} 局。导入的对局只保存在本地，不会上传。',
-  legacyDeleteAfterImportSkipped:
-    '有 {count} 局 BazaarPlusPlusV6 中已经存在，未重复导入。',
-  legacyDeleteAfterImportUnavailableFiles:
-    '有 {count} 个截图或视频文件不在 BazaarPlusPlusV5 中，未能导入。',
-  legacyDeleteAfterImportOffer:
-    '现在可以删除 BazaarPlusPlusV5，也可以保留它。保留的话，它会继续列在“旧版本数据”中，之后随时可以删除。',
-  legacyDeleteKeep: '保留',
-
-  // V5 import
-  legacyImportHeading: '导入 V5 战绩',
-  legacyImportHint:
-    '把 BazaarPlusPlusV5 中的对局、截图和回放导入 BazaarPlusPlusV6，只需一次。导入的对局只显示在本地战绩中，不会上传；BazaarPlusPlusV5 保持不变。',
-  legacyImportAction: '导入',
-  legacyImportRunning:
-    '正在导入 V5 战绩。请保持游戏关闭，完成前不要退出安装器。',
-  importFailedAlreadyImported: 'V5 战绩已经导入过，无需再次导入。',
-  importFailedNotEligible:
-    '现在无法导入。请确认已安装当前版本的 BazaarPlusPlus，且 BazaarPlusPlusV5 文件夹仍在游戏目录中。',
-  importFailedModContract:
-    '已安装的 BazaarPlusPlus 缺少导入所需的信息。请重新安装后再导入。',
-  importFailedV5Database:
-    'BazaarPlusPlusV5 中的战绩数据库缺失或无法识别，无法导入。BazaarPlusPlusV6 未被修改。',
-  importFailedInsufficientSpace:
-    '磁盘空间不足，无法复制 V5 的文件。导入已撤销，请释放空间后重试。',
-  importFailedFiles:
-    '复制 V5 的截图或回放文件失败，导入已撤销。请关闭占用这些文件的程序后重试。',
-  importFailedTarget: '写入 BazaarPlusPlusV6 失败，导入已撤销。请重试。',
-  importFailedMarker:
-    '战绩已导入，但未能在 BazaarPlusPlusV5 中写入导入标记。请重试以完成，已导入的对局不会重复。',
 
   // Install confirmation modal
   installModalTitle: '安装 BazaarPlusPlus',
@@ -343,11 +310,8 @@ const zh = {
     '战绩数据库版本不受支持（当前 {found}，支持 {supported}）。请更新 BazaarPlusPlus 插件或安装器。',
   historyProblemUnexpected: '加载本地战绩时发生意外错误。请重试。',
   historyOpenInstall: '前往安装页',
-  historyUnavailableImport:
-    '还没有 BazaarPlusPlusV6 战绩数据库，但游戏目录中有 BazaarPlusPlusV5 的战绩。可以在安装页导入它们。',
   historyUnavailableReinstall:
-    '游戏目录中有 BazaarPlusPlusV5 的战绩，但已安装的 BazaarPlusPlus 仍在写入旧文件夹。请在安装页重新安装，然后导入。',
-  historyOpenImport: '前往导入',
+    '游戏目录中有 BazaarPlusPlusV5 的战绩，但已安装的 BazaarPlusPlus 仍在写入旧文件夹。请在安装页重新安装。',
   historyPreviewFallback: '缩略图不可用；刷新页面可重试。',
   historyPreviewEmpty: '暂无截图',
   historyPreviewLoading: '正在加载截图…',
@@ -681,8 +645,6 @@ const en: Record<MessageKey, string> = {
     'An unknown installation warning was detected. Re-detect; if it persists, check the diagnostics.',
   installBlockedByGame:
     'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before installing BazaarPlusPlus.',
-  importBlockedByGame:
-    'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before importing V5 history.',
   legacyDeleteBlockedByGame:
     'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before deleting the legacy data folder.',
   installProblemDetectionFailed:
@@ -733,38 +695,6 @@ const en: Record<MessageKey, string> = {
   legacyDeleteNothingToDelete: '{name} no longer exists',
   legacyDeletePartialFailure:
     '{count} {count|item|items} could not be deleted. Close the game, then try again.',
-  legacyDeleteAfterImport:
-    'Import complete: {imported} {imported|run was|runs were} added to BazaarPlusPlusV6. Imported runs stay local and are never uploaded.',
-  legacyDeleteAfterImportSkipped:
-    '{count} {count|run was|runs were} already in BazaarPlusPlusV6 and {count|was|were} not imported again.',
-  legacyDeleteAfterImportUnavailableFiles:
-    '{count} {count|screenshot or video file was|screenshot or video files were} not in BazaarPlusPlusV5 and could not be imported.',
-  legacyDeleteAfterImportOffer:
-    'You can delete BazaarPlusPlusV5 now or keep it. If you keep it, it stays listed under Data from earlier versions, and you can delete it later.',
-  legacyDeleteKeep: 'Keep folder',
-
-  legacyImportHeading: 'Import V5 History',
-  legacyImportHint:
-    'Import the runs, screenshots, and replays in BazaarPlusPlusV5 into BazaarPlusPlusV6, once. Imported runs appear only in local History and are never uploaded; BazaarPlusPlusV5 is left as it is.',
-  legacyImportAction: 'Import',
-  legacyImportRunning:
-    'Importing V5 history. Keep the game closed and do not quit the installer until it finishes.',
-  importFailedAlreadyImported:
-    'V5 history was already imported; there is nothing to import again.',
-  importFailedNotEligible:
-    'The import cannot run now. Make sure the current BazaarPlusPlus is installed and the BazaarPlusPlusV5 folder is still in the game directory.',
-  importFailedModContract:
-    'The installed BazaarPlusPlus lacks what the import needs. Reinstall it, then import.',
-  importFailedV5Database:
-    'The History database in BazaarPlusPlusV5 is missing or not recognized, so it cannot be imported. BazaarPlusPlusV6 was not changed.',
-  importFailedInsufficientSpace:
-    'There is not enough disk space to copy the V5 files. The import was undone; free some space, then retry.',
-  importFailedFiles:
-    'V5 screenshots or replays could not be copied, so the import was undone. Close apps using those files, then retry.',
-  importFailedTarget:
-    'BazaarPlusPlusV6 could not be written, so the import was undone. Try again.',
-  importFailedMarker:
-    'History was imported, but the import marker could not be written to BazaarPlusPlusV5. Retry to finish; imported runs are not duplicated.',
 
   installModalTitle: 'Install BazaarPlusPlus',
   tutorialKicker: 'Tutorial',
@@ -874,11 +804,8 @@ const en: Record<MessageKey, string> = {
   historyProblemUnexpected:
     'Something unexpected happened while loading local History. Try again.',
   historyOpenInstall: 'Open Install',
-  historyUnavailableImport:
-    'There is no BazaarPlusPlusV6 History database yet, but the game directory holds BazaarPlusPlusV5 history. Import it on the Install page.',
   historyUnavailableReinstall:
-    'The game directory holds BazaarPlusPlusV5 history, but the installed BazaarPlusPlus still writes to an old folder. Reinstall it on the Install page, then import.',
-  historyOpenImport: 'Open import',
+    'The game directory holds BazaarPlusPlusV5 history, but the installed BazaarPlusPlus still writes to an old folder. Reinstall it on the Install page.',
   historyPreviewFallback: 'Thumbnail unavailable; refresh to retry.',
   historyPreviewEmpty: 'No screenshot',
   historyPreviewLoading: 'Loading screenshot…',
