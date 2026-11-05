@@ -63,10 +63,12 @@ jobs:
           STEAM_BETA_PASSWORDS: ${{ secrets.STEAM_BETA_PASSWORDS }}
         run: |
           state="$(just mod::steam-stale "$STEAM_CHANNEL" | tail -n 1)"
+          echo "$state" > "$RUNNER_TEMP/steam-state.json"
           buildid="$(jq -r .buildid <<< "$state")"
           echo "buildid=$buildid" >> "$GITHUB_OUTPUT"
           echo "branch=chore/steam-$STEAM_CHANNEL-$buildid" >> "$GITHUB_OUTPUT"
           echo "platforms=$(jq -c .platforms <<< "$state")" >> "$GITHUB_OUTPUT"
+          echo "Steam $STEAM_CHANNEL updated $(date -u -d "@$(jq -r .updatedAt <<< "$state")" '+%F %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
           echo "Steam $STEAM_CHANNEL buildid $buildid; behind in the lock: $(jq -r '.platforms | join(", ")' <<< "$state")" >> "$GITHUB_STEP_SUMMARY"
       # An open pull request, not a branch: a run that stopped before opening one
       # leaves a branch the next run can replace.
@@ -122,6 +124,22 @@ jobs:
           git add "$LOCK"
           git commit -m "chore(mod): record Steam $STEAM_CHANNEL build $BUILDID"
           git push --force origin "$BRANCH"
+      # Public, so only online. An open pull request records this build before the
+      # lock on master does. A failure here must not stop that pull request.
+      - if: env.STEAM_CHANNEL == 'online'
+        name: Publish the Game Status
+        continue-on-error: true
+        env:
+          BRANCH: ${{ steps.stale.outputs.branch }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          OPEN: ${{ steps.open.outputs.count }}
+        run: |
+          if [[ -n "$OPEN" && "$OPEN" != 0 ]]; then
+            git fetch origin "$BRANCH"
+            git show FETCH_HEAD:"$LOCK" > "$LOCK"
+          fi
+          node release/game-libs.mjs game-status --state "$RUNNER_TEMP/steam-state.json"
 
   # A pull request from GITHUB_TOKEN starts no checks, so the Mod lanes of the
   # platforms captured run here, and their result goes in its body. These jobs

@@ -18,9 +18,11 @@ import {
   GITHUB_RELEASE_URL,
   gameReleaseNumber,
   loadAndroidRelease,
+  loadGameStatus,
   loadLatestInstaller,
   type AndroidDownload,
   type DownloadPlatform,
+  type GameStatus,
   type LatestInstaller,
 } from './installer';
 import { formatFileSize } from './file-size';
@@ -61,16 +63,50 @@ function PlatformHeader({
   );
 }
 
-function DownloadCard({
+/** The official game on Steam for one desktop platform; nothing while the Game Status is missing. */
+function OfficialGame({
   platform,
   copy,
-  installer,
-  status,
+  locale,
+  gameStatus,
 }: {
   platform: DownloadPlatform;
   copy: DownloadPageCopy;
+  locale: Locale;
+  gameStatus: GameStatus | undefined;
+}) {
+  if (!gameStatus) return null;
+  const gameVersion = gameStatus.gameVersions[platform === 'mac' ? 'macos' : 'windows'];
+  const updatedAt = new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(gameStatus.updatedAt);
+  return (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-6 gap-y-2">
+      <Fact label={copy.officialGameVersionLabel}>
+        <span className="tabular-nums">{gameReleaseNumber(gameVersion)}</span>
+      </Fact>
+      <Fact label={copy.officialUpdatedAtLabel}>
+        <span className="tabular-nums">{updatedAt}</span>
+      </Fact>
+    </dl>
+  );
+}
+
+function DownloadCard({
+  platform,
+  copy,
+  locale,
+  installer,
+  status,
+  gameStatus,
+}: {
+  platform: DownloadPlatform;
+  copy: DownloadPageCopy;
+  locale: Locale;
   installer: LatestInstaller | undefined;
   status: DownloadStatus;
+  gameStatus: GameStatus | undefined;
 }) {
   const platformCopy = copy[platform];
   const download = installer?.downloads[platform];
@@ -98,6 +134,8 @@ function DownloadCard({
         )}
       </div>
 
+      <OfficialGame platform={platform} copy={copy} locale={locale} gameStatus={gameStatus} />
+
       <div className="mt-auto flex flex-wrap gap-2">
         <Button
           variant="primary"
@@ -122,7 +160,7 @@ function DownloadCard({
   );
 }
 
-/** One key-value row of the Android card's APK facts. */
+/** One key-value row of a card's facts. */
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
@@ -316,6 +354,11 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
     queryKey: ['android-release'],
     queryFn: ({ signal }) => loadAndroidRelease(signal),
   });
+  // Extra information: a missing Game Status costs only its rows.
+  const { data: gameStatus } = useQuery({
+    queryKey: ['game-status'],
+    queryFn: ({ signal }) => loadGameStatus(signal),
+  });
 
   return (
     <InfoPageShell location={location} title={copy.title} intro={copy.intro}>
@@ -327,8 +370,10 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
               key={platform}
               platform={platform}
               copy={copy}
+              locale={locale}
               installer={data}
               status={status}
+              gameStatus={gameStatus}
             />
           ))}
         </div>

@@ -6,7 +6,7 @@ const string Usage = """
     BazaarPlusPlus.SteamSnapshot, driven by bazaarplusplus-mod/scripts/game.sh:
       login --out <file>     Sign in at the terminal and save the login with owner-only access
       state --app <id> --branch <name> --depots <id,id>
-                             Print the branch's buildid and each depot's manifest
+                             Print the branch's buildid, update time and each depot's manifest
       download --app <id> --branch <name> --depot <id> --out <dir>
                              Write <dir>/Data/globalgamemanagers and <dir>/Data/Managed/
     state and download read the login from STEAM_SNAPSHOT_LOGIN, and the access code of a
@@ -57,7 +57,14 @@ static async Task<int> Run(string[] args)
                 Required("branch"),
                 depots
             );
-            Print(new { buildid = state.Buildid, manifests = ManifestStrings(state) });
+            Print(
+                new
+                {
+                    buildid = state.Buildid,
+                    updatedAt = state.UpdatedAt,
+                    manifests = ManifestStrings(state),
+                }
+            );
             return 0;
         }
         case "download":

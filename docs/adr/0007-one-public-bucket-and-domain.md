@@ -6,6 +6,7 @@
 
 - `installer/`：发版流程（`release/r2-store.mjs` 的默认前缀，`RELEASE_BASE_URL` 为 `https://cdn.bazaarplusplus.com/installer`）。目录内部结构不变。
 - `metrics/v6/`：analyzer（`BPP_METRICS_R2_PREFIX`）。契约换版本时并排加 `metrics/v7/`，不新建桶或域名。
+- `game-status/`：Steam 快照监视工作流（[ADR 0015](0015-steam-snapshot-capture.md)）。
 - `mod-data/`：维护者用 `just release::mod-data` 上传的 `supporters/supporter-list.json` 和 `voice-lines/voice-lines.json`。
 
 私有数据按“谁能读”分桶，而不是按用途分：`bazaarplusplus-bundle-v6` 放玩家 Bundle（`bundles/`，8 天生命周期规则只作用于这个前缀）和 analyzer 状态（`analyzer-state/`）；`bazaarplusplus-game-libs` 单独一个桶，因为 CI 和 Dependabot 用的只读 token 只能按桶授权，它不能读到玩家数据。游戏程序集是游戏本体文件，不能进公开桶。

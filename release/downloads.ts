@@ -234,3 +234,42 @@ export function decodeAndroidDownload(
     mainlandUrl: decodeMainlandDownloadUrl(manifest, platformKey)
   };
 }
+
+// The Game Status: what Steam's public branch holds now. The Steam snapshot watch
+// writes it; the download page reads it.
+export const GAME_STATUS_PREFIX = 'game-status';
+export const GAME_STATUS_KEY = 'latest.json';
+export const GAME_STATUS_URL = `https://cdn.bazaarplusplus.com/${GAME_STATUS_PREFIX}/${GAME_STATUS_KEY}`;
+
+export type GameStatus = {
+  /** The game version string of each desktop platform. */
+  gameVersions: { macos: string; windows: string };
+  /** When Steam's public branch last changed. */
+  updatedAt: Date;
+};
+
+export function decodeGameStatus(payload: unknown): GameStatus | null {
+  const status = payload as {
+    schemaVersion?: unknown;
+    updatedAt?: unknown;
+    platforms?: {
+      macos?: { gameVersion?: unknown };
+      windows?: { gameVersion?: unknown };
+    };
+  } | null;
+  const macos = status?.platforms?.macos?.gameVersion;
+  const windows = status?.platforms?.windows?.gameVersion;
+  const updatedAt =
+    typeof status?.updatedAt === 'string' ? new Date(status.updatedAt) : null;
+  if (
+    status?.schemaVersion !== 1 ||
+    typeof macos !== 'string' ||
+    !macos ||
+    typeof windows !== 'string' ||
+    !windows ||
+    updatedAt === null ||
+    Number.isNaN(updatedAt.getTime())
+  )
+    return null;
+  return { gameVersions: { macos, windows }, updatedAt };
+}

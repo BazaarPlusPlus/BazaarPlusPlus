@@ -1,7 +1,7 @@
 {
   "support": {
     "scripts": {
-      "index.js": 99292
+      "index.js": 99349
     },
     "external": [
       "https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json"
@@ -13,7 +13,7 @@
   },
   "tutorial": {
     "scripts": {
-      "index.js": 99292
+      "index.js": 99349
     },
     "external": [],
     "icons": {
@@ -23,9 +23,10 @@
   },
   "download": {
     "scripts": {
-      "index.js": 99292
+      "index.js": 99349
     },
     "external": [
+      "https://cdn.bazaarplusplus.com/game-status/latest.json",
       "https://cdn.bazaarplusplus.com/installer/latest/android-aarch64.json",
       "https://cdn.bazaarplusplus.com/installer/latest/darwin-aarch64.json",
       "https://cdn.bazaarplusplus.com/installer/latest/windows-x86_64.json"
@@ -37,8 +38,8 @@
   },
   "heroes": {
     "scripts": {
-      "index.js": 99292,
-      "route-pages.js": 8502
+      "index.js": 99349,
+      "route-pages.js": 8344
     },
     "external": [
       "https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json"
@@ -50,7 +51,7 @@
   },
   "not-found": {
     "scripts": {
-      "index.js": 99292
+      "index.js": 99349
     },
     "external": [],
     "icons": {

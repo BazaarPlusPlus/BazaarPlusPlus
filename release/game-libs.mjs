@@ -6,8 +6,13 @@ import zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { readApk, sha256File } from './android-apk.mjs';
+import { GAME_STATUS_KEY, GAME_STATUS_PREFIX } from './downloads.ts';
 import { WORKSPACE_ROOT } from './product.mjs';
-import { putReplaceable, r2StoreFromEnvironment } from './r2-store.mjs';
+import {
+  RELEASE_BUCKET,
+  putReplaceable,
+  r2StoreFromEnvironment
+} from './r2-store.mjs';
 
 // Game Assembly Snapshots, Interop Snapshots and the Snapshot Lock (root
 // GLOSSARY.md, ADR 0004 and ADR 0008). This module owns the lock schema, the
@@ -831,7 +836,7 @@ export function steamStale({
   runTool = steamToolRunner(modRoot)
 }) {
   lockKey(MANAGED_PLATFORMS[0], channel);
-  const { buildid } = runTool([
+  const { buildid, updatedAt } = runTool([
     'state',
     '--app',
     String(STEAM_APP_ID),
@@ -842,6 +847,7 @@ export function steamStale({
   ]);
   return {
     buildid,
+    updatedAt,
     platforms: staleSteamPlatforms(
       readGameLibsLock(workspaceRoot),
       channel,
@@ -893,6 +899,42 @@ export function steamCapture({
   } finally {
     fs.rmSync(download, { recursive: true, force: true });
   }
+}
+
+// The public Game Status (root GLOSSARY.md) from a Steam state and the lock that
+// records that build, or null while the lock holds another build of an entry:
+// staging and ptr stay private, so only online is ever written.
+export function gameStatus(lock, { buildid, updatedAt }) {
+  const platforms = {};
+  for (const platform of MANAGED_PLATFORMS) {
+    const entry = lock.entries[lockKey(platform, 'online')];
+    if (entry?.buildid !== String(buildid)) return null;
+    platforms[platform] = { gameVersion: entry.gameVersion };
+  }
+  if (!Number.isSafeInteger(updatedAt) || updatedAt <= 0) return null;
+  return {
+    schemaVersion: 1,
+    channel: 'online',
+    buildid: String(buildid),
+    updatedAt: new Date(updatedAt * 1000).toISOString(),
+    platforms
+  };
+}
+
+export async function publishGameStatus({
+  workspaceRoot = WORKSPACE_ROOT,
+  state,
+  store
+}) {
+  const status = gameStatus(readGameLibsLock(workspaceRoot), state);
+  if (!status) return null;
+  await putReplaceable(
+    store,
+    GAME_STATUS_KEY,
+    jsonBytes(status),
+    'application/json'
+  );
+  return status;
 }
 
 // ---------------------------------------------------------------------------
@@ -1929,7 +1971,7 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
   node release/game-libs.mjs digest <managed-dir>
   node release/game-libs.mjs snapshot --managed <dir> --buildid <id> --steam-branch <branch>
   node release/game-libs.mjs steam-stale --channel <online|staging|ptr>
-                                             Print {buildid, platforms}: the platforms whose lock
+                                             Print {buildid, updatedAt, platforms}: the platforms whose lock
                                              entry is behind Steam (needs STEAM_SNAPSHOT_LOGIN)
   node release/game-libs.mjs steam-capture --platform <macos|windows> --channel <online|staging|ptr>
                                              Capture a lock entry from its Steam depot (needs
@@ -1938,6 +1980,9 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
   node release/game-libs.mjs steam-change --previous <lock.json> --channel <online|staging|ptr>
                                              Print code, content or none: what the captures
                                              changed against that earlier lock
+  node release/game-libs.mjs game-status --state <steam-stale.json>
+                                             Write the public Game Status when the lock records
+                                             that online build
   node release/game-libs.mjs snapshot-android --apk <TheBazaar.apk> [--apk-etag <etag>] [--interop <dir>]
       [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>]
       [--cpp2il <file>] [--native-package <id>@<version> ...]
@@ -1972,6 +2017,7 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
       options: {
         managed: { type: 'string' },
         previous: { type: 'string' },
+        state: { type: 'string' },
         buildid: { type: 'string' },
         'steam-branch': { type: 'string' },
         platform: { type: 'string' },
@@ -2069,6 +2115,22 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
             readGameLibsLock(workspaceRoot),
             required('channel')
           )
+        );
+        return 0;
+      }
+      case 'game-status': {
+        const status = await publishGameStatus({
+          workspaceRoot,
+          state: JSON.parse(fs.readFileSync(required('state'), 'utf8')),
+          store: r2StoreFromEnvironment(process.env, {
+            bucket: RELEASE_BUCKET,
+            prefix: GAME_STATUS_PREFIX
+          })
+        });
+        log(
+          status
+            ? `Game Status: online build ${status.buildid}`
+            : 'The lock does not record this online build yet; the Game Status stays as it is'
         );
         return 0;
       }
