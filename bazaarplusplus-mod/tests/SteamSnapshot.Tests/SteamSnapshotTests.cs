@@ -104,6 +104,24 @@ public sealed class SteamSnapshotTests
         Assert.DoesNotContain("secret-value", error.Message);
     }
 
+    [Theory]
+    [InlineData(EResult.AccessDenied)]
+    [InlineData(EResult.Expired)]
+    [InlineData(EResult.InvalidPassword)]
+    public void A_rejected_login_names_the_step_that_renews_it(EResult result)
+    {
+        Assert.Contains("just mod::steam-login", SteamLogin.DescribeFailure(result));
+    }
+
+    [Theory]
+    [InlineData(EResult.AlreadyLoggedInElsewhere)]
+    [InlineData(EResult.ServiceUnavailable)]
+    [InlineData(EResult.TryAnotherCM)]
+    public void A_passing_failure_does_not_ask_for_a_new_login(EResult result)
+    {
+        Assert.DoesNotContain("just mod::steam-login", SteamLogin.DescribeFailure(result));
+    }
+
     [Fact]
     public void An_access_code_is_found_by_branch()
     {

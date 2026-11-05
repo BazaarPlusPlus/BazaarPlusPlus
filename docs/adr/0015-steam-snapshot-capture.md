@@ -10,7 +10,7 @@
 
 `staging` 和 `ptr` 是要访问代码的私有分支，Steam 不在应用信息里列出它们。工具用代码换取分支的 key，再读取这个分支的 depot 信息，`SteamKit2` 3.5.0 起有这个接口。之后的下载与 `online` 相同，所以 `just mod::snapshot` 不再是推进锁的必要步骤，只保留给没有 Steam 登录的机器。
 
-登录和访问代码放在 `steam` GitHub Environment 的 `STEAM_SNAPSHOT_LOGIN` 和 `STEAM_BETA_PASSWORDS` 里，只有读取 Steam 的两个步骤能拿到。工具的 NuGet 依赖图由提交的 `packages.lock.json` 锁定，因为它运行时环境里有这份登录。工具使用固定的 `LoginID`，不会顶掉同一账号的桌面客户端和 iOS App。
+登录和访问代码放在 `steam` GitHub Environment 的 `STEAM_SNAPSHOT_LOGIN` 和 `STEAM_BETA_PASSWORDS` 里，只有读取 Steam 的两个步骤能拿到。工具的 NuGet 依赖图由提交的 `packages.lock.json` 锁定，因为它运行时环境里有这份登录。Steam 会结束同一账号上 `LoginID` 相同的旧会话，所以工具每次运行都用随机的 `LoginID`，这样同时运行的渠道、桌面客户端和 iOS App 不会互相顶掉。
 
 否决的方案：共用 iOS 的 `Downloader`，它运行在 iOS 的 Mono 里，写死了 `public` 分支并下载全部文件，而且 iOS 这条路线以后可能整块删除。使用 DepotDownloader，它把登录保存在自己的本地存储里，无法直接从环境变量读取，也不能只读分支状态而不下载。用 `api.steamcmd.net` 判断版本变化，它是第三方服务，也看不到私有分支。
 

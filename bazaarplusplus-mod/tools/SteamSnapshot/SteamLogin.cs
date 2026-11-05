@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SteamKit2;
 
 namespace BazaarPlusPlus.SteamSnapshot;
 
@@ -14,6 +15,19 @@ public sealed record SteamLogin(string Account, string RefreshToken)
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
+
+    /// <summary>Only a rejected login needs the operator; anything else passes by the next run.</summary>
+    public static string DescribeFailure(EResult result) =>
+        result
+            is EResult.InvalidPassword
+                or EResult.AccessDenied
+                or EResult.Expired
+                or EResult.Revoked
+                or EResult.InvalidSignature
+                or EResult.IllegalPassword
+                or EResult.AccountNotFound
+            ? $"Steam rejected the saved login ({result}); run 'just mod::steam-login', then copy it to the steam Environment"
+            : $"Steam could not sign in this time ({result}); the saved login may still be good";
 
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
