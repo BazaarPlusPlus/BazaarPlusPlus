@@ -15,6 +15,7 @@ BazaarPlusPlus for iOS 在 iPhone 和 iPad 上运行 The Bazaar 的 Mac 版本�
 ## 接缝
 
 - **启动器 ↔ 服务**：`service/Native/bridge.m` 导出 `bpp_steam_start`、`bpp_steam_command`、`bpp_steam_snapshot`、`bpp_steam_free`。启动器发 JSON 命令，每 0.5 秒读一次 JSON 快照（`service/Managed/SteamService.cs::Snapshot`）；Swift 端的镜像是 `app/Launcher/LauncherModel.swift::ServiceSnapshot`。服务是状态的唯一拥有者。
+- **启动器 ↔ 系统后台**：`app/Launcher/BackgroundDownload.swift` 按快照申请后台运行时间，见下面的"登录与下载的恢复"。`app/Host/main.mm::sceneWillEnterForeground` 在启动时和每次回到前台时发 `foreground` 命令。
 - **服务 ↔ 原生能力**：`service/Managed/Native.cs` 以 `__Internal` P/Invoke 调用 Keychain、AES、zstd、SHA-1 和符号链接，实现在 `service/Native/`。
 - **游戏 ↔ Steam**：游戏调用的 Steamworks C API 由 `middleware/steamworks/` 实现。身份和 Web API 票据只来自进程内提供方：服务登录后调用 `bpp_steam_identity`，并通过 `bpp_steam_set_provider` 接收票据请求。
 - **启动器 ↔ 引擎**：`app/Host/main.mm::playTapped` 在服务确认 `launched` 后设置 `BPP_GAME_ROOT`，交出窗口，并释放启动器界面。`tools/build.py` 给导出的 `Filesystem.mm` 打补丁，让引擎从这个目录读取游戏数据。
@@ -32,6 +33,18 @@ BazaarPlusPlus for iOS 在 iPhone 和 iPad 上运行 The Bazaar 的 Mac 版本�
 ## 进程模型
 
 一个进程只有一个 Unity 引擎和一个 Mono domain。服务、游戏和模组共用这个 domain：服务先运行，游戏启动后服务冻结。游戏启动后不能回到启动器；"返回"只能靠重启 App 实现。
+
+## 登录与下载的恢复
+
+玩家只登录一次，只点一次下载。之后的断线、断网、切后台和被系统杀掉都由服务自己恢复（`service/Managed/SteamService.cs`），不需要玩家操作。
+
+- **登录**：Keychain 里有保存的登录时，服务在启动、回到前台、连接断开和操作结束时都会自动恢复（`Recover`）。连接问题按退避时间一直重试，回到前台时立刻重试。只有 Steam 明确拒绝这个登录时才删除它（`Failures.IsRejectedLogin`）；其他失败保留它，点一次"连接 Steam"就能再试。玩家取消登录后，自动登录停止，直到下一次登录。
+- **多台设备**：Steam 按登录 ID 区分会话，相同 ID 的新登录会踢掉旧的，所以每个安装有自己的登录 ID（`InstallationIdentity.LoginId`）。服务收到 `LoggedInElsewhere` 时不立刻抢回账号，否则两边可能互相踢；回到 App 或点一次"连接 Steam"才重新登录。
+- **Keychain**：下载可能在锁屏时重连，所以登录保存为 `AfterFirstUnlockThisDeviceOnly`。
+- **重连期间**：快照的 `reconnecting` 为真，`loggedIn` 保持为真，启动器不提示登录，状态也不变（`ready` 仍是 `ready`）。
+- **下载**：内容服务器不需要 Steam 连接，所以连接断开时下载继续，结束后再重连。下载有自己的取消令牌（`downloadRun`）：取消下载不退出登录。网络失败不会结束下载（`RunDownload`），进度也不回退（`DownloadProgress`）。只有重试无用的失败才停止并报错，例如存储空间不足或内容服务器拒绝。
+- **续传**：`Games/download-wanted` 表示玩家要的下载还没完成，App 被杀后下次启动自动继续。下载账本（`DownloadLedger`）记下已校验的文件，续传时不再计算哈希；下载完成后删除，所以"校验并准备游戏"仍然是完整校验。
+- **后台**：只有 App 进程能下载，所以需要的是运行时间。iOS 26 及以上用 `BGContinuedProcessingTask`，系统显示进度，App 不在屏幕上时也继续运行。它必须在 App 位于前台时申请，可能被系统拒绝或提前结束，而且结束时不说明原因，也分不清是系统结束还是玩家在系统界面上停止，所以结束后下载只是暂停，回到 App 继续；真正的停止是 App 里的"取消"。更早的 iOS 只有几十秒后台时间，启动器会提示下载在后台暂停。模拟器不运行这个任务，这部分只能在真机上验证。
 
 ## 游戏更新
 

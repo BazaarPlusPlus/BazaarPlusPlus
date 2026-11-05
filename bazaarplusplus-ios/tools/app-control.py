@@ -7,7 +7,7 @@ from pathlib import Path
 import socket
 ROOT = Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('action',choices=['snapshot','login','restore','qr','guard','download','launch','cancel','logout',
+parser.add_argument('action',choices=['snapshot','login','restore','qr','guard','download','launch','cancel','logout','foreground',
                                    'audio-snapshot','audio-background','audio-foreground'])
 args=parser.parse_args()
 request={'action':args.action}

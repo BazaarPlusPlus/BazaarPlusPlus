@@ -14,6 +14,8 @@
 
 **Content**: the game's downloaded original files, under `Games/content/<app-id>` in the sandbox. Never modified.
 
+**Download ledger**: the file next to the Content that lists the files already hashed against the current manifest, so a resumed download does not hash them again. Deleted when the download finishes.
+
 **Game runtime directory**: the derived copy the game runs from, under `Games/runtimes/<game-id>`, rebuilt on every prepare from content, managed adapters, the helper and the mod.
 
 **Managed adapter**: a hash-pinned patch to one of the game's assemblies, applied to the game runtime directory only.

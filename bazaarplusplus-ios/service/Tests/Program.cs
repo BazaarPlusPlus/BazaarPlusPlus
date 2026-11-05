@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Linq;
 using BazaarPlusPlus.Ios.Service;
+using SteamKit2.Authentication;
 var root = Path.Combine(Path.GetTempPath(), "steam-path-test-" + Guid.NewGuid());
 Directory.CreateDirectory(root);
 try {
@@ -66,10 +67,58 @@ try {
         Checksum = SteamKit2.CryptoHelper.AdlerHash(written.AsSpan(offset, length).ToArray()) };
     var partialChunks = new[] { Chunk(2000, 1000), Chunk(0, 1000), Chunk(1000, 1000) };
     var interrupted = (byte[])written.Clone(); Array.Clear(interrupted, 1000, 1000);
-    var refetch = PartialFile.Missing(new MemoryStream(interrupted), partialChunks);
+    var refetch = PartialFile.Missing(new MemoryStream(interrupted), partialChunks, SteamKit2.CryptoHelper.AdlerHash);
     if (refetch.Count != 1 || refetch[0].Offset != 1000) throw new Exception("Resume kept a missing chunk or dropped a written one");
-    if (PartialFile.Missing(new MemoryStream(written, 0, 2500), partialChunks).Count != 1) throw new Exception("Resume kept a truncated chunk");
+    if (PartialFile.Missing(new MemoryStream(written, 0, 2500), partialChunks, SteamKit2.CryptoHelper.AdlerHash).Count != 1) throw new Exception("Resume kept a truncated chunk");
     Console.WriteLine("PASS: resumed downloads keep written chunks and refetch missing or truncated ones.");
+
+    // A resumed download skips the files it already hashed, unless one has changed or the manifest moved on.
+    string ledgerRoot = Path.Combine(root, "ledger"); Directory.CreateDirectory(ledgerRoot);
+    string ledgerFile = Path.Combine(ledgerRoot, "game.bin"); File.WriteAllText(ledgerFile, "hashed");
+    var ledger = new DownloadLedger(ledgerRoot, 1, 10);
+    if (ledger.Holds("game.bin", ledgerFile)) throw new Exception("Ledger holds a file nobody hashed");
+    ledger.Add("game.bin", ledgerFile);
+    if (!new DownloadLedger(ledgerRoot, 1, 10).Holds("game.bin", ledgerFile)) throw new Exception("Ledger lost a file across a restart");
+    File.WriteAllText(ledgerFile, "hashed, then changed");
+    if (new DownloadLedger(ledgerRoot, 1, 10).Holds("game.bin", ledgerFile)) throw new Exception("Ledger trusts a changed file");
+    File.WriteAllText(ledgerFile, "hashed"); File.SetLastWriteTimeUtc(ledgerFile, new DateTime(2026, 1, 1));
+    new DownloadLedger(ledgerRoot, 1, 10).Add("game.bin", ledgerFile);
+    if (new DownloadLedger(ledgerRoot, 1, 11).Holds("game.bin", ledgerFile)) throw new Exception("Ledger crossed manifests");
+    if (new DownloadLedger(ledgerRoot, 1, 10).Holds("game.bin", ledgerFile)) throw new Exception("A new manifest kept the old ledger");
+    Console.WriteLine("PASS: the download ledger skips hashed files and drops changed ones and old manifests.");
+
+    // The bar never goes back across a retry; the speed is steady, and falls to zero when data stops.
+    var now = new DateTime(2026, 1, 1); var reports = new System.Collections.Generic.List<(string state, string message, long done, long speed)>();
+    var counter = new DownloadProgress((state, message, _, done, _, speed) => reports.Add((state, message, done, speed)), () => now);
+    counter.Begin(1000); counter.Verified(100); counter.Tick();
+    if (reports[^1].state != "verifying" || reports[^1].done != 100) throw new Exception("Verification not reported");
+    for (int second = 0; second < 5; ++second) { now = now.AddSeconds(1); counter.Downloaded(100); counter.Tick(); }
+    if (reports[^1].state != "downloading" || reports[^1].speed != 100 || reports[^1].done != 600) throw new Exception("Wrong speed or count: " + reports[^1]);
+    counter.Begin(1000); counter.Verified(200); counter.Tick();
+    if (reports[^1].done != 600) throw new Exception("The bar went back on a retry");
+    counter.Stage("网络中断，正在重试");
+    if (reports[^1].done != 600 || reports[^1].message != "网络中断，正在重试") throw new Exception("A stage lost the place");
+    now = now.AddSeconds(7); counter.Tick();
+    if (reports[^1].speed != 0 || reports[^1].message != "网络不稳定，正在等待恢复") throw new Exception("A stalled download still reports speed");
+    counter.Begin(2000); counter.Tick();
+    if (reports[^1].done != 0) throw new Exception("A new manifest kept the old place");
+    Console.WriteLine("PASS: download progress never goes back, keeps a steady speed and reports a stall.");
+
+    // Only Steam refusing a saved login forgets it; a bad connection or a full disk are told apart.
+    AuthenticationException Auth(SteamKit2.EResult result) => new AuthenticationException("test", result);
+    if (!Failures.IsTransient(Auth(SteamKit2.EResult.TryAnotherCM)) || Failures.IsRejectedLogin(SteamKit2.EResult.TryAnotherCM)) throw new Exception("A busy Steam server forgets the login");
+    if (Failures.IsTransient(Auth(SteamKit2.EResult.InvalidPassword)) || !Failures.IsRejectedLogin(SteamKit2.EResult.InvalidPassword)) throw new Exception("A rejected login retried forever");
+    if (Failures.IsRejectedLogin(SteamKit2.EResult.RateLimitExceeded) || Failures.IsTransient(Auth(SteamKit2.EResult.RateLimitExceeded))) throw new Exception("Rate limiting handled wrongly");
+    if (!Failures.IsTransient(new IOException("network")) || !Failures.IsTransient(new System.Net.Http.HttpRequestException()) || !Failures.IsTransient(new OperationCanceledException())) throw new Exception("A network failure not retried");
+    if (Failures.IsTransient(new InvalidDataException())) throw new Exception("Bad data retried");
+    var full = new IOException("Disk full"); full.HResult = unchecked((int)0x80070070);
+    if (Failures.IsTransient(full) || !Failures.IsDiskFull(full)) throw new Exception("A full disk retried forever");
+    Console.WriteLine("PASS: transient failures retry; rejected logins and full disks stop.");
+
+    // Each installation signs in with its own login ID, so a second device does not log out the first.
+    if (InstallationIdentity.LoginIdFor("a") != InstallationIdentity.LoginIdFor("a") || InstallationIdentity.LoginIdFor("a") == InstallationIdentity.LoginIdFor("b") || InstallationIdentity.LoginIdFor("a") == 0)
+        throw new Exception("Login ID must be stable, per installation and non-zero");
+    Console.WriteLine("PASS: login IDs are stable and differ per installation.");
 
     // A relocated runtime must include the iOS player's resources, not only game assets.
     string assets = Path.Combine(root, "app");

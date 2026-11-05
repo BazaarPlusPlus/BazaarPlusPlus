@@ -41,7 +41,7 @@ namespace BazaarPlusPlus.Ios.Service
     public static class PartialFile
     {
         // Chunks a cancelled or killed download already wrote pass their checksum and are kept.
-        public static List<DepotManifest.ChunkData> Missing(Stream partial, IEnumerable<DepotManifest.ChunkData> chunks)
+        public static List<DepotManifest.ChunkData> Missing(Stream partial, IEnumerable<DepotManifest.ChunkData> chunks, Func<byte[], byte[]> checksum)
         {
             var missing = new List<DepotManifest.ChunkData>();
             var data = Array.Empty<byte>();
@@ -52,34 +52,98 @@ namespace BazaarPlusPlus.Ios.Service
                 partial.Position = checked((long)chunk.Offset);
                 int read = 0, count;
                 while (read < data.Length && (count = partial.Read(data, read, data.Length - read)) > 0) read += count;
-                if (read != data.Length || !CryptoHelper.AdlerHash(data).SequenceEqual(chunk.Checksum!)) missing.Add(chunk);
+                if (read != data.Length || !checksum(data).SequenceEqual(chunk.Checksum!)) missing.Add(chunk);
             }
             return missing;
         }
     }
-    sealed class DownloadProgress
+    /// Files already hashed against one manifest, so resuming an interrupted download does not hash them
+    /// again. It lives only as long as the download: a finished one is deleted, so the next check is full.
+    public sealed class DownloadLedger
     {
-        readonly long total;
+        readonly string path;
+        readonly HashSet<string> entries;
         readonly object gate = new object();
-        long done, received, lastReceived, lastTicks = DateTime.UtcNow.Ticks;
-        double speed;
-        public DownloadProgress(long total) { this.total = total; }
-        public void Verified(long bytes) => Add(bytes, 0);
-        public void Downloaded(long bytes) => Add(bytes, bytes);
-        void Add(long bytes, long network)
+        public DownloadLedger(string directory, uint depot, ulong manifest)
+        {
+            path = Path.Combine(directory, "download-" + depot + "-" + manifest + ".ledger");
+            foreach (string stale in Directory.GetFiles(directory, "download-" + depot + "-*.ledger"))
+                if (stale != path) File.Delete(stale);
+            entries = new HashSet<string>(File.Exists(path) ? File.ReadAllLines(path) : Array.Empty<string>());
+        }
+        // A file changed since it was hashed no longer matches its entry.
+        static string Entry(string name, string file)
+        {
+            var info = new FileInfo(file);
+            return info.Length + "\t" + info.LastWriteTimeUtc.Ticks + "\t" + name;
+        }
+        public bool Holds(string name, string file)
+        {
+            if (!File.Exists(file)) return false;
+            lock (gate) return entries.Contains(Entry(name, file));
+        }
+        public void Add(string name, string file)
+        {
+            string entry = Entry(name, file);
+            lock (gate) { entries.Add(entry); File.AppendAllText(path, entry + "\n"); }
+        }
+        public void Delete() { lock (gate) { entries.Clear(); File.Delete(path); } }
+    }
+    /// What a download reports. Lives across its retries, so the numbers the player sees never go back.
+    public sealed class DownloadProgress
+    {
+        public delegate void Report(string state, string message, double fraction, long done, long total, long speed);
+        static readonly TimeSpan Window = TimeSpan.FromSeconds(10), Stalled = TimeSpan.FromSeconds(6);
+        readonly Report report;
+        readonly Func<DateTime> clock;
+        readonly object gate = new object();
+        readonly Queue<(DateTime at, long received)> samples = new Queue<(DateTime, long)>();
+        long total, done, shown, received;
+        DateTime lastData;
+        public DownloadProgress(Report report, Func<DateTime>? clock = null)
+        {
+            this.report = report; this.clock = clock ?? (() => DateTime.UtcNow);
+        }
+        public long Received { get { lock (gate) return received; } }
+        /// One attempt starts over counting what is on disk; the bar stays where it was until the count passes it.
+        public void Begin(long bytes)
         {
             lock (gate)
             {
-                done += bytes; received += network;
-                long now = DateTime.UtcNow.Ticks;
-                double seconds = (double)(now - lastTicks) / TimeSpan.TicksPerSecond;
-                if (seconds < 1) return;
-                double sample = (received - lastReceived) / seconds;
-                speed = speed == 0 ? sample : speed * 0.7 + sample * 0.3;
-                lastReceived = received; lastTicks = now;
-                SteamService.Set("downloading", received > 0 ? "正在下载" : "正在校验本地文件", total > 0 ? (double)done / total : 0, done, total, (long)speed);
+                if (total != bytes) shown = 0;
+                total = bytes; done = 0; lastData = clock(); samples.Clear();
             }
         }
+        public void Stage(string message)
+        {
+            lock (gate) Send("downloading", message, 0);
+        }
+        public void Verified(long bytes) { lock (gate) { done += bytes; shown = Math.Max(shown, done); lastData = clock(); } }
+        public void Downloaded(long bytes)
+        {
+            lock (gate) { done += bytes; shown = Math.Max(shown, done); received += bytes; lastData = clock(); }
+        }
+        /// Sent twice a second while a download runs. The speed is the average over the last seconds,
+        /// and it falls to zero when the data stops, so neither it nor the time left jumps around.
+        public void Tick()
+        {
+            lock (gate)
+            {
+                var now = clock();
+                samples.Enqueue((now, received));
+                while (now - samples.Peek().at > Window) samples.Dequeue();
+                var first = samples.Peek();
+                double seconds = (now - first.at).TotalSeconds;
+                // Hashing a large file can take a while: only a download that has received data can stall.
+                bool stalled = received > 0 && now - lastData > Stalled;
+                long speed = stalled || seconds < 1 ? 0 : (long)((received - first.received) / seconds);
+                if (received == 0) Send("verifying", "正在校验本地文件", 0);
+                else if (stalled) Send("downloading", "网络不稳定，正在等待恢复", 0);
+                else Send("downloading", "正在下载", speed);
+            }
+        }
+        void Send(string state, string message, long speed) =>
+            report(state, message, total > 0 ? (double)shown / total : 0, shown, total, speed);
     }
     internal static class Downloader
     {
@@ -97,12 +161,13 @@ namespace BazaarPlusPlus.Ios.Service
             }
         }
         public static string ContentRoot(string root, uint app) => Path.Combine(root, "content", app.ToString());
-        public static async Task Download(SteamClient client, JObject profile, string root, CancellationToken cancellation)
+        const int ChunkAttempts = 8;
+        public static async Task Download(SteamClient client, JObject profile, string root, DownloadProgress progress, CancellationToken cancellation)
         {
             uint app = (uint)profile["steam"]!["appId"]!;
             string destination = ContentRoot(root, app); Directory.CreateDirectory(destination);
             var apps = client.GetHandler<SteamApps>()!;
-            SteamService.Set("downloading", "正在获取游戏清单");
+            progress.Stage("正在获取游戏清单");
             var access = await apps.PICSGetAccessTokens(new[] { app }, Array.Empty<uint>());
             access.AppTokens.TryGetValue(app, out ulong token);
             var info = await apps.PICSGetProductInfo(new[] { new SteamApps.PICSRequest(app, token) }, Array.Empty<SteamApps.PICSRequest>());
@@ -140,13 +205,15 @@ namespace BazaarPlusPlus.Ios.Service
                     if (manifest == null) throw new InvalidDataException("Missing depot manifest");
                     if (manifest.FilenamesEncrypted || manifest.Files == null || manifest.DepotID != depot) throw new InvalidDataException("Invalid depot manifest");
                     long total = checked((long)manifest.TotalUncompressedSize);
-                    var progress = new DownloadProgress(total);
+                    progress.Begin(total);
+                    var ledger = new DownloadLedger(destination, depot, manifestId);
                     int resumed = 0;
                     var pool = new ContentServerPool(servers);
-                    SteamService.Set("downloading", "正在校验本地文件");
+                    using (var ticking = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
                     using (var files = new SemaphoreSlim(4))
                     using (var transfers = new SemaphoreSlim(16))
                     {
+                        var ticks = Tick(progress, ticking.Token);
                         var tasks = manifest.Files.Select(async file =>
                         {
                             await files.WaitAsync(cancellation);
@@ -156,8 +223,9 @@ namespace BazaarPlusPlus.Ios.Service
                                 if ((file.Flags & EDepotFileFlag.Directory) != 0) { Directory.CreateDirectory(path); return; }
                                 if (!string.IsNullOrEmpty(file.LinkTarget)) throw new InvalidDataException("Depot symlinks are not supported");
                                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                                if (ledger.Holds(file.FileName, path)) { progress.Verified((long)file.TotalSize); return; }
                                 if (File.Exists(path) && new FileInfo(path).Length == (long)file.TotalSize && HashMatches(path, file.FileHash))
-                                { progress.Verified((long)file.TotalSize); return; }
+                                { ledger.Add(file.FileName, path); progress.Verified((long)file.TotalSize); return; }
                                 foreach (var chunk in file.Chunks)
                                     if (chunk.UncompressedLength > 16 * 1024 * 1024 || chunk.CompressedLength > 32 * 1024 * 1024 ||
                                         chunk.Offset + chunk.UncompressedLength > file.TotalSize) throw new InvalidDataException("Invalid chunk bounds");
@@ -167,7 +235,7 @@ namespace BazaarPlusPlus.Ios.Service
                                     var missing = file.Chunks.ToList();
                                     if (output.Length == (long)file.TotalSize)
                                     {
-                                        missing = PartialFile.Missing(output, file.Chunks);
+                                        missing = PartialFile.Missing(output, file.Chunks, Native.Adler);
                                         long kept = (long)file.TotalSize - missing.Sum(c => (long)c.UncompressedLength);
                                         if (kept > 0) { progress.Verified(kept); Interlocked.Increment(ref resumed); }
                                     }
@@ -177,21 +245,24 @@ namespace BazaarPlusPlus.Ios.Service
                                         await transfers.WaitAsync(cancellation);
                                         try
                                         {
-                                            DepotChunk? downloaded = null;
-                                            for (int attempt = 0; attempt < 4; ++attempt)
+                                            byte[] data = null!;
+                                            for (int attempt = 0; ; ++attempt)
                                             {
+                                                cancellation.ThrowIfCancellationRequested();
                                                 int node = pool.Rent(); var clock = Stopwatch.StartNew();
                                                 try
                                                 {
-                                                    downloaded = await cdn.DownloadDepotChunkAsync(depot, chunk, pool[node]);
+                                                    var downloaded = await cdn.DownloadDepotChunkAsync(depot, chunk, pool[node]);
+                                                    data = Decode(downloaded, key.DepotKey);
                                                     pool.Served(node, clock.Elapsed, chunk.CompressedLength); break;
                                                 }
-                                                catch when (Fail(pool, node) && attempt < 3) { await Task.Delay(500 * (attempt + 1), cancellation); }
+                                                // A lost network comes back in seconds more often than not; only a long outage reaches the retry above this one.
+                                                catch when (Fail(pool, node) && attempt < ChunkAttempts - 1)
+                                                { await Task.Delay(Math.Min(8000, 500 << attempt), cancellation); }
                                             }
-                                            byte[] data = Decode(downloaded!, key.DepotKey);
                                             lock (output) { output.Position = checked((long)chunk.Offset); output.Write(data, 0, data.Length); }
                                             progress.Downloaded(data.Length);
-                                            data = null!; downloaded = null;
+                                            data = null!;
                                             CollectDownloadBuffers();
                                         }
                                         finally { transfers.Release(); }
@@ -201,11 +272,14 @@ namespace BazaarPlusPlus.Ios.Service
                                 { File.Delete(partial); throw new InvalidDataException("Downloaded file hash mismatch"); }
                                 if (File.Exists(path)) File.Delete(path);
                                 File.Move(partial, path);
+                                ledger.Add(file.FileName, path);
                             }
                             finally { files.Release(); }
                         }).ToArray();
-                        await Task.WhenAll(tasks);
+                        try { await Task.WhenAll(tasks); }
+                        finally { ticking.Cancel(); await ticks; }
                     }
+                    ledger.Delete();
                     Console.WriteLine($"STEAM_APP_DEPOT_RESUMED files={resumed}");
                     File.WriteAllText(Path.Combine(destination, "verified-" + depot + ".json"), new JObject {
                         ["appId"] = app, ["depotId"] = depot, ["manifestId"] = manifestId.ToString(),
@@ -213,6 +287,18 @@ namespace BazaarPlusPlus.Ios.Service
                     Console.WriteLine("STEAM_APP_DEPOT_VERIFIED " + depot);
                 }
             }
+        }
+        static async Task Tick(DownloadProgress progress, CancellationToken stop)
+        {
+            try
+            {
+                while (true)
+                {
+                    progress.Tick();
+                    await Task.Delay(500, stop);
+                }
+            }
+            catch (OperationCanceledException) { }
         }
         // Exception filter: every failed attempt counts against its node, including the last one that rethrows.
         static bool Fail(ContentServerPool pool, int node) { pool.Failed(node); return true; }
@@ -234,7 +320,7 @@ namespace BazaarPlusPlus.Ios.Service
                 if (Native.bpp_steam_zstd(decrypted, length, result, result.Length) != result.Length) throw new InvalidDataException("Zstd chunk failed");
             }
             else { chunk.Process(key); result = chunk.Data; }
-            if (result.Length != chunk.ChunkInfo.UncompressedLength || !CryptoHelper.AdlerHash(result).SequenceEqual(chunk.ChunkInfo.Checksum!))
+            if (result.Length != chunk.ChunkInfo.UncompressedLength || !Native.Adler(result).SequenceEqual(chunk.ChunkInfo.Checksum!))
                 throw new InvalidDataException("Chunk checksum mismatch");
             return result;
         }

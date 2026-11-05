@@ -129,7 +129,7 @@ enum BppSize {
     /// Minimum height of the App launchers' source row: the Steam account on iOS, the official game on Android. It grows with the system text size.
     static let sourceRowHeight: CGFloat = 56
     /// The download progress track in the App launchers, the one place the system shows a progress bar.
-    static let progressHeight: CGFloat = 4
+    static let progressHeight: CGFloat = 6
     /// Window width at which the App launchers change from one column to the cover on top of two equal panes: iPhone Duo unfolded, unfolded foldables, tablets. Android's compact/medium window-size boundary. Accessibility text sizes keep one column.
     static let paneBreakpoint: CGFloat = 600
     /// Window width from which the App launchers put the cover in the start half and the content in the end half, if the window is wider than tall. Android's medium/expanded window-size boundary.
