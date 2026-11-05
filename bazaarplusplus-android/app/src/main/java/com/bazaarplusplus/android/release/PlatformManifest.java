@@ -111,6 +111,7 @@ public final class PlatformManifest {
 
     public final String version;
     public final String gitCommit;
+    /** Null only in the release an APK carries. */
     public final App app;
     public final Game game;
     public final Interop interop;
@@ -141,6 +142,16 @@ public final class PlatformManifest {
      * ADR 0012's shape throws.
      */
     public static PlatformManifest decode(String text, ReleaseOrigin origin) throws MalformedReleaseException {
+        return decode(text, origin, false);
+    }
+
+    /** The release an APK carries: a manifest without {@code app}, which an APK cannot describe. */
+    static PlatformManifest decodeCarried(String text, ReleaseOrigin origin) throws MalformedReleaseException {
+        return decode(text, origin, true);
+    }
+
+    private static PlatformManifest decode(String text, ReleaseOrigin origin, boolean carried)
+            throws MalformedReleaseException {
         JSONObject root;
         try {
             root = new JSONObject(text);
@@ -150,12 +161,16 @@ public final class PlatformManifest {
         String version = StrictJson.version(root, "version");
         String gitCommit = StrictJson.string(root, "gitCommit");
         JSONObject record = StrictJson.object(StrictJson.object(root, "downloads"), ReleaseOrigin.PLATFORM_KEY);
-        if (!record.has("app") && record.has("apk")) return null;
+        if (!carried && !record.has("app") && record.has("apk")) return null;
+        if (carried && record.has("app")) throw new MalformedReleaseException("A carried release names an app");
 
-        JSONObject appJson = StrictJson.object(record, "app");
         String versioned = "/" + version + "/" + ReleaseOrigin.PLATFORM_KEY;
-        App app = new App(Artifact.decode(appJson, origin, versioned + "/app/"),
-                StrictJson.positive(appJson, "versionCode"), StrictJson.sha256(appJson, "signerSha256"));
+        App app = null;
+        if (!carried) {
+            JSONObject appJson = StrictJson.object(record, "app");
+            app = new App(Artifact.decode(appJson, origin, versioned + "/app/"),
+                    StrictJson.positive(appJson, "versionCode"), StrictJson.sha256(appJson, "signerSha256"));
+        }
         JSONObject payloadJson = StrictJson.object(record, "managedPayload");
         ManagedPayload payload = new ManagedPayload(Artifact.decode(payloadJson, origin, versioned + "/managed/"),
                 StrictJson.string(payloadJson, "signature"));

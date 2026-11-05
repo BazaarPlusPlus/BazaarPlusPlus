@@ -30,6 +30,8 @@ const sha256 = (bytes) =>
 export const RUNTIME_ZIP = 'lemon-runtime.zip';
 export const RUNTIME_FACTS = 'bpp-runtime.json';
 export const RUNTIME_SCHEMA_VERSION = 1;
+export const CARRIED_RELEASE_DIR = 'bpp-release';
+export const CARRIED_RELEASE_FILE = 'release.json';
 // LemonLoader's asset root inside the game's AssetManager.
 const ASSET_ROOT = 'assets/LemonLoader';
 export const INTEROP_ASSET_ROOT = `${ASSET_ROOT}/runtime/interop`;
@@ -121,6 +123,20 @@ export function stageAndroidAppRuntime({
     `${JSON.stringify(facts, null, 2)}\n`
   );
   return facts;
+}
+
+// Adds the release the APK carries to a staged runtime (ADR 0012): the Interop
+// Package and the Managed Payload zip under their sha256, and the document that
+// names them.
+export function stageCarriedRelease({ outDir, release, zips }) {
+  const dir = path.join(outDir, 'assets', CARRIED_RELEASE_DIR);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const { sha256: digest, file } of zips)
+    fs.copyFileSync(file, path.join(dir, `${digest}.zip`));
+  fs.writeFileSync(
+    path.join(dir, CARRIED_RELEASE_FILE),
+    `${JSON.stringify(release, null, 2)}\n`
+  );
 }
 
 // The Updater's Android form (net10.0, a MelonPlugin) against the locked

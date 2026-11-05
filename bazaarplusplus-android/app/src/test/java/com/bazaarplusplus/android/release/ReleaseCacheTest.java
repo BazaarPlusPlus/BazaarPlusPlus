@@ -2,6 +2,7 @@ package com.bazaarplusplus.android.release;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -27,8 +28,45 @@ public class ReleaseCacheTest {
         return new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8));
     };
 
+    PlatformManifest carried;
+
     ReleaseCache cache() {
-        return new ReleaseCache(tmp.getRoot(), ReleaseOrigin.PUBLIC, network);
+        return new ReleaseCache(tmp.getRoot(), ReleaseOrigin.PUBLIC, network, () -> carried);
+    }
+
+    static PlatformManifest carriedFixture() throws Exception {
+        return PlatformManifest.decodeCarried(new String(java.nio.file.Files.readAllBytes(
+                new java.io.File("../../release/fixtures/android-carried-release.json").toPath()), StandardCharsets.UTF_8),
+                ReleaseOrigin.PUBLIC);
+    }
+
+    @Test
+    public void aNewInstallWithNoNetworkUsesTheCarriedRelease() throws Exception {
+        carried = carriedFixture();
+        ReleaseCache.ManifestState state = cache().manifest();
+        assertEquals("3.1.2", state.manifest.version);
+        assertNull("a carried release cannot name its own APK", state.manifest.app);
+        assertTrue(state.fromCache);
+        assertFalse(state.noRelease);
+    }
+
+    @Test
+    public void theNewerOfTheCacheAndTheCarriedReleaseWinsOffline() throws Exception {
+        String fixture = PlatformManifestTest.fixture("android-aarch64.json");
+        served.put(ReleaseOrigin.PUBLIC.manifestUrl(), fixture);
+        cache().manifest();
+        served.clear();
+        carried = carriedFixture();
+        assertNotNull("the same version keeps the read manifest, which names the APK", cache().manifest().manifest.app);
+    }
+
+    @Test
+    public void aFetchedManifestWinsOverTheCarriedRelease() throws Exception {
+        carried = carriedFixture();
+        served.put(ReleaseOrigin.PUBLIC.manifestUrl(), PlatformManifestTest.fixture("android-aarch64.json"));
+        ReleaseCache.ManifestState state = cache().manifest();
+        assertFalse(state.fromCache);
+        assertNotNull(state.manifest.app);
     }
 
     @Test

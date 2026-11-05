@@ -29,6 +29,7 @@ import {
 } from './game-libs.mjs';
 import {
   androidAppKey,
+  androidCarriedRelease,
   androidAppVersionCode,
   androidNonManagedPayloadDigest,
   fragmentKey,
@@ -161,11 +162,15 @@ function fakeGradle(calls, edit = (entries) => entries) {
       { name: 'classes.dex', data: Buffer.from(`dex ${version}`) }
     ];
     const walk = (directory, prefix) => {
-      for (const name of fs.readdirSync(directory).sort())
-        entries.push({
-          name: `${prefix}/${name}`,
-          data: fs.readFileSync(path.join(directory, name))
-        });
+      for (const name of fs.readdirSync(directory).sort()) {
+        const file = path.join(directory, name);
+        if (fs.statSync(file).isDirectory()) walk(file, `${prefix}/${name}`);
+        else
+          entries.push({
+            name: `${prefix}/${name}`,
+            data: fs.readFileSync(file)
+          });
+      }
     };
     walk(path.join(runtimeDir, 'assets'), 'assets');
     walk(path.join(runtimeDir, 'jniLibs', 'arm64-v8a'), 'lib/arm64-v8a');
@@ -444,6 +449,32 @@ test('prepare refuses an interop directory that is not the locked snapshot and u
   ).rejects.toThrow(/Unsupported release build override/);
 });
 
+test('the carried release is the Platform Release Manifest without the App', () => {
+  const fixtures = path.join(WORKSPACE_ROOT, 'release', 'fixtures');
+  const published = JSON.parse(
+    fs.readFileSync(path.join(fixtures, 'latest', `${KEY}.json`), 'utf8')
+  );
+  const record = published.downloads[KEY];
+  const produced = androidCarriedRelease({
+    version: published.version,
+    gitCommit: published.gitCommit,
+    baseUrl: RELEASE_BASE_URL,
+    game: record.game,
+    interop: record.interop,
+    managedPayload: record.managedPayload,
+    loader: record.loader,
+    historyDatabaseUserVersion: record.historyDatabaseUserVersion,
+    nonManagedPayloadDigest: record.nonManagedPayloadDigest
+  });
+  const golden = path.join(fixtures, 'android-carried-release.json');
+  const text = `${JSON.stringify(produced, null, 2)}\n`;
+  if (process.env.BPP_UPDATE_GOLDENS === '1') fs.writeFileSync(golden, text);
+  expect(text).toBe(fs.readFileSync(golden, 'utf8'));
+  const { app: _app, selfUpdatable: _self, ...rest } = record;
+  expect(produced.downloads[KEY]).toMatchObject(rest);
+  expect(produced.downloads[KEY].app).toBeUndefined();
+});
+
 test('a release builds and signs its Android App and Interop Package, then streams them and promotes', async () => {
   const f = fixture();
   const store = new MemoryStore();
@@ -501,6 +532,33 @@ test('a release builds and signs its Android App and Interop Package, then strea
     nonManagedPayloadDigest: digest,
     updaterSha256: UPDATER_SHA256
   });
+
+  // The App runs its own release with no download: both zips and the document
+  // that names them, with no `app`, because an APK cannot describe itself.
+  const appPath = path.join(paths.root, manifest.app.path);
+  const carried = JSON.parse(
+    execFileSync('unzip', ['-p', appPath, 'assets/bpp-release/release.json'])
+  );
+  const carriedRecord = carried.downloads[KEY];
+  expect(carried.version).toBe(current);
+  expect(carried.gitCommit).toBe(COMMIT);
+  expect(carriedRecord.app).toBeUndefined();
+  expect(carriedRecord.interop.sha256).toBe(manifest.interop.sha256);
+  expect(carriedRecord.interop.signature).toBe(manifest.interop.signature);
+  expect(carriedRecord.managedPayload.sha256).toBe(
+    manifest.managedPayload.sha256
+  );
+  for (const [digest, file] of [
+    [manifest.interop.sha256, manifest.interop.path],
+    [manifest.managedPayload.sha256, manifest.managedPayload.path]
+  ])
+    expect(
+      execFileSync(
+        'unzip',
+        ['-p', appPath, `assets/bpp-release/${digest}.zip`],
+        { maxBuffer: 1 << 28 }
+      ).equals(fs.readFileSync(path.join(paths.root, file)))
+    ).toBe(true);
 
   // The Interop Package is the locked snapshot at its content address, with
   // a `release <version>` statement the release certificate verifies.
