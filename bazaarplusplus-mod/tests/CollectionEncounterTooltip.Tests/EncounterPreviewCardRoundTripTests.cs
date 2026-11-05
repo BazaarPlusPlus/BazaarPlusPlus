@@ -1,3 +1,4 @@
+using System.Reflection;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Infra.Serialization;
 using BazaarPlusPlus.TestSupport.EventPreview;
@@ -14,6 +15,17 @@ namespace EncounterTooltip.Tests;
 /// </summary>
 public sealed class EncounterPreviewCardRoundTripTests
 {
+    /// <summary>
+    /// The game's serializer scans the types of every assembly loaded when it is first used, and
+    /// xUnit picks the order of test classes. When a class that loads the game runtime runs first,
+    /// the scan reads this assembly's types, so they must always resolve.
+    /// </summary>
+    [Fact]
+    public void The_game_runtime_types_resolve_for_the_serializer_scan()
+    {
+        Assert.NotEmpty(Assembly.Load("TheBazaarRuntime").GetTypes());
+    }
+
     [Theory]
     [MemberData(
         nameof(EncounterPreviewCardCases.Names),
