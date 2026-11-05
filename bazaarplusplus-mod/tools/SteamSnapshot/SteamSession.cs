@@ -6,9 +6,6 @@ namespace BazaarPlusPlus.SteamSnapshot;
 /// <summary>One connection to Steam, and the login on it.</summary>
 public sealed class SteamSession : IDisposable
 {
-    // Steam ends an older session with the same login id. This one keeps the tool away from the
-    // desktop client and the iOS App ("BPPS").
-    private const uint LoginId = 0x42505053;
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
     private readonly CallbackManager callbacks;
@@ -76,15 +73,15 @@ public sealed class SteamSession : IDisposable
                     {
                         Username = login.Account,
                         AccessToken = login.RefreshToken,
-                        LoginID = LoginId,
+                        // Steam ends an older session with the same login id. Channels run at the
+                        // same time on one account, beside its desktop client and iOS App.
+                        LoginID = (uint)Random.Shared.Next(1, int.MaxValue),
                         ShouldRememberPassword = true,
                     }
                 );
             var result = await session.loggedOn.Task.WaitAsync(Timeout);
             if (result.Result != EResult.OK)
-                throw new InvalidOperationException(
-                    $"Steam rejected the saved login ({result.Result}); run 'just mod::steam-login', then 'just secrets-sync'"
-                );
+                throw new InvalidOperationException(SteamLogin.DescribeFailure(result.Result));
             return session;
         }
         catch
