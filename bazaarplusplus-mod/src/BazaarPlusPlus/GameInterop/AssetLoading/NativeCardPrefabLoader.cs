@@ -33,12 +33,15 @@ internal static class NativeCardPrefabLoader
         "SkillUIAssetRef"
     );
 
-    internal static async Task<GameObject?> LoadPrefabAsync(TCardBase template)
+    internal static async Task<GameObject?> LoadPrefabAsync(
+        TCardBase template,
+        ECardSize? size = null
+    )
     {
         if (
             !Services.TryGet<AssetLoader>(out var loader)
             || loader == null
-            || ResolveAssetField(template)?.GetValue(loader) is not AssetReference reference
+            || ResolveAssetField(template, size)?.GetValue(loader) is not AssetReference reference
         )
             return null;
         return await NativeGlobalAssetLoader.LoadByReferenceAsync<GameObject>(loader, reference);
@@ -47,12 +50,13 @@ internal static class NativeCardPrefabLoader
     internal static async Task<GameObject?> RentInactiveAsync(
         TCardBase template,
         Transform parent,
-        CancellationToken token = default
+        CancellationToken token = default,
+        ECardSize? size = null
     )
     {
         if (!Services.TryGet<AssetLoader>(out var loader) || loader == null)
             return null;
-        var reference = ResolveAssetField(template)?.GetValue(loader);
+        var reference = ResolveAssetField(template, size)?.GetValue(loader);
         if (
             reference == null
             || !NativeAssetLoaderInvocation.TryBuildArguments(
@@ -85,13 +89,13 @@ internal static class NativeCardPrefabLoader
         }
     }
 
-    private static FieldInfo? ResolveAssetField(TCardBase template) =>
-        template.Type switch
+    private static FieldInfo? ResolveAssetField(TCardBase template, ECardSize? size = null) =>
+        (template.Type, size ?? template.Size) switch
         {
-            ECardType.Skill => SkillAsset,
-            ECardType.Item when template.Size == ECardSize.Small => SmallItemAsset,
-            ECardType.Item when template.Size == ECardSize.Medium => MediumItemAsset,
-            ECardType.Item when template.Size == ECardSize.Large => LargeItemAsset,
+            (ECardType.Skill, _) => SkillAsset,
+            (ECardType.Item, ECardSize.Small) => SmallItemAsset,
+            (ECardType.Item, ECardSize.Medium) => MediumItemAsset,
+            (ECardType.Item, ECardSize.Large) => LargeItemAsset,
             _ => null,
         };
 }

@@ -61,6 +61,9 @@ normalization is a separate operation and does not copy nullable payload values 
 
 `BattleCardSnapshotsV6` contains the four captured card sets. `BattleCardV6` preserves stable
 template and instance identity, type/size/location, display metadata, tags, and integer attributes.
+`Size` is the size the card held on the board, not its template's: a Tiny item (`GLOSSARY.md`) keeps
+its `TemplateId`, records a `Size` one step below its template's, and carries `Tiny` = 1 in its
+attributes. A consumer takes the card's width from `Size`.
 
 `BattleReplayV6` uses keys `0..3` for replay version and the native Spawn, Combat, and Despawn
 MessagePack byte sequences.

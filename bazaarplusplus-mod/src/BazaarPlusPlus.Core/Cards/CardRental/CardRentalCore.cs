@@ -6,18 +6,27 @@ namespace BazaarPlusPlus.Core.Cards.CardRental;
 /// <summary>
 /// What a lease shows: a card template at a tier, with an optional enchantment and, for a saved
 /// card, its attribute values keyed by the game's member name (ADR-0017). The values win over
-/// the template's; without them the card shows its template's own values.
+/// the template's; without them the card shows its template's own values. A saved size is the
+/// size the card held on its board, one step below its template's when it was Tiny; without one
+/// the card shows at its template's size.
 /// </summary>
 public readonly record struct CardRentalSubject(
     Guid TemplateId,
     CardTier Tier,
     CardEnchantment? Enchantment = null,
-    IReadOnlyDictionary<string, int>? Attributes = null
+    IReadOnlyDictionary<string, int>? Attributes = null,
+    CardSize? Size = null
 )
 {
-    /// <summary>A board card as it was saved: its tier, enchantment and attribute values.</summary>
+    /// <summary>A board card as it was saved: its tier, enchantment, attribute values and size.</summary>
     public static CardRentalSubject Of(BppItemBoardCard card) =>
-        new(card.TemplateId, card.Tier, card.EnchantmentType, card.Attributes);
+        new(card.TemplateId, card.Tier, card.EnchantmentType, card.Attributes, card.Size);
+
+    /// <summary>The size an item shows at, which is the size the board gave it a slot for.</summary>
+    public CardSize ShownSize(CardSize templateSize) => Size ?? templateSize;
+
+    /// <summary>Whether an item was saved below its template's size: the game's Tiny.</summary>
+    public bool IsTinyOn(CardSize templateSize) => Size is { } size && size < templateSize;
 
     /// <summary>
     /// The values as one ordinal key, empty when there are none, so a panel that keeps a card

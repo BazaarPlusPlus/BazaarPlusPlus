@@ -166,6 +166,9 @@ A Host's raw run read in Card Facets (`LiveCardWalk`); Core's `LiveCardSnapshotR
 A card's attribute values as captured (battle snapshot, build, combat), keyed by the game's member name (ADR-0017); a card BPP sets up shows them over its template's (`NativeCardSetUp`, `AndroidNativeCardSetUp`).
 _Avoid_: instance values, template values
 
+**Tiny**:
+A Medium or Large item the game shrank one size for the rest of the Run (`TActionCardTiny`): the live card's `Size` drops and its `Tiny` attribute is set, and it keeps its template. A captured board card keeps that smaller size, so anything drawing it takes the size from the card, not the template (`CardRentalSubject.ShownSize`). `EEnchantmentType.Tiny` is not how an item gets it; only a shader keyword uses that name.
+
 ## Mobile UI
 
 **Mobile UI**:

@@ -44,7 +44,7 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         var kind = template.Type switch
         {
             ECardType.Skill => "skill",
-            ECardType.Item => template.Size switch
+            ECardType.Item => AndroidNativeCardSetUp.ShownSize(template, subject) switch
             {
                 ECardSize.Small => "small",
                 ECardSize.Medium => "medium",
@@ -148,7 +148,8 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         var kept = AndroidNativeCardSetUp.Keep(instance);
         return new SetUpOperation(
             card.SetUp(template, false, instance, Il2CppSystem.Threading.CancellationToken.None),
-            kept
+            kept,
+            AndroidNativeCardSetUp.TinySize(template, subject)
         );
     }
 
@@ -165,6 +166,8 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             return true;
         }
         setUp.Kept.ShowOn(card);
+        if (setUp.TinySize is { } tinySize)
+            AndroidNativeCardSetUp.ShowTiny(card, tinySize);
         card.Show(true);
         card.Resize();
         Place(card);
@@ -175,7 +178,8 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
 
     private sealed record SetUpOperation(
         Il2CppSystem.Threading.Tasks.Task Task,
-        AndroidNativeCardSetUp.Kept Kept
+        AndroidNativeCardSetUp.Kept Kept,
+        ECardSize? TinySize
     );
 
     public void Park(CardPreviewBase card)

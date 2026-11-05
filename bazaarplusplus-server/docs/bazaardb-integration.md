@@ -1,6 +1,6 @@
 # BazaarPlusPlus × BazaarDB Integration (V6)
 
-Last updated: 2026-10-30
+Last updated: 2026-11-05
 
 This document is the integration contract between BazaarPlusPlus V6 and BazaarDB. It replaces the V5 `claim`/`settle` integration. BazaarPlusPlus 6.0.0 shipped on 2026-10-29: Screenshot-bearing Bundles from 6.0 players reach BazaarDB only through the V6 API described here. A summary of changes from V5 is at the end of this document.
 
@@ -204,6 +204,7 @@ Ignore unknown manifest fields. Fields may be added without notice; breaking cha
 
 - The end-of-run image is the Screenshot segment. The manifest's `screenshot` entry gives its offset, length, type, dimensions, and digest.
 - The player identity and run summary are in the manifest: `run.player_account_id` and the per-battle `player` blocks. The battle with `is_final_battle: true` reflects the end-of-run state.
+- Take an item's board width from its card `size` in the Run segment, not from its template. A Tiny item keeps its `template_id` and records a `size` one step below the template's, with `Tiny` = 1 in its attributes.
 
 ## Data Handling
 

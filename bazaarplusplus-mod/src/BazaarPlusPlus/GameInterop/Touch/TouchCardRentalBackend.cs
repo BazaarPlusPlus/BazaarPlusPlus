@@ -47,7 +47,7 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
         var kind = template.Type switch
         {
             ECardType.Skill => "skill",
-            ECardType.Item => template.Size switch
+            ECardType.Item => NativeCardSetUp.ShownSize(template, subject) switch
             {
                 ECardSize.Small => "small",
                 ECardSize.Medium => "medium",
@@ -152,7 +152,8 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
         var kept = NativeCardSetUp.Keep(instance);
         return new SetUpOperation(
             card.SetUp(template, false, instance, System.Threading.CancellationToken.None),
-            kept
+            kept,
+            NativeCardSetUp.TinySize(template, subject)
         );
     }
 
@@ -170,6 +171,8 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
             return true;
         }
         setUp.Kept.ShowOn(card);
+        if (setUp.TinySize is { } tinySize)
+            NativeCardSetUp.ShowTiny(card, tinySize);
         card.Show(true);
         card.Resize();
         Place(card);
@@ -180,7 +183,8 @@ internal sealed class TouchCardRentalBackend : ICardRentalBackend<CardPreviewBas
 
     private sealed record SetUpOperation(
         System.Threading.Tasks.Task Task,
-        NativeCardSetUp.Kept Kept
+        NativeCardSetUp.Kept Kept,
+        ECardSize? TinySize
     );
 
     // A faulted native task carries the cause the lease's reason code drops.

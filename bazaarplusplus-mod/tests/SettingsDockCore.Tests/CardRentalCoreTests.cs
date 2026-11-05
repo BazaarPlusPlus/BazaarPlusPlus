@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.CardRental;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using Xunit;
 
 namespace SettingsDockCore.Tests;
@@ -14,6 +15,32 @@ public sealed class CardRentalCoreTests
     private static readonly Guid Small = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid Medium = Guid.Parse("00000000-0000-0000-0000-000000000002");
     private static readonly Guid Missing = Guid.Parse("00000000-0000-0000-0000-0000000000ff");
+
+    [Fact]
+    public void A_board_card_rents_at_its_recorded_size_and_a_smaller_one_is_tiny()
+    {
+        var subject = CardRentalSubject.Of(
+            new BppItemBoardCard
+            {
+                TemplateId = Medium,
+                Tier = CardTier.Gold,
+                Size = CardSize.Small,
+            }
+        );
+
+        Assert.Equal(CardSize.Small, subject.ShownSize(CardSize.Medium));
+        Assert.True(subject.IsTinyOn(CardSize.Medium));
+        Assert.False(subject.IsTinyOn(CardSize.Small));
+    }
+
+    [Fact]
+    public void A_subject_with_no_recorded_size_shows_its_template_at_full_size()
+    {
+        var subject = new CardRentalSubject(Medium, CardTier.Bronze);
+
+        Assert.Equal(CardSize.Medium, subject.ShownSize(CardSize.Medium));
+        Assert.False(subject.IsTinyOn(CardSize.Medium));
+    }
 
     [Fact]
     public void A_rent_becomes_ready_after_instantiate_and_setup_and_its_return_pools_the_card()
