@@ -25,7 +25,6 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     resetBepinex: (...args) => native.resetBepinex(...args),
     getLegacyDataState: async () => emptyLegacyDataState,
     getLegacyDataPresence: async () => emptyLegacyDataPresence,
-    importV5History: (...args) => native.importV5History(...args),
     deleteLegacyRoot: (...args) => native.deleteLegacyRoot(...args),
     uninstallMod: (...args) => native.uninstallMod(...args),
     launchGame: async () => null,

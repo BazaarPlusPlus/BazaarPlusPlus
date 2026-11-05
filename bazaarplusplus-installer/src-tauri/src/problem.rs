@@ -22,9 +22,6 @@ pub enum SemanticProblemCode {
     InstallBlockedByGame,
     ResetBlockedByGame,
     BepinexResetBlockedByGame,
-    ImportBlockedByGame,
-    // The V5 import stopped; its `reason` parameter is `ImportError::code`.
-    ImportFailed,
     LegacyDeleteBlockedByGame,
     StreamServiceFailed,
     StreamWindowFailed,

@@ -14,8 +14,6 @@ public readonly record struct ReplayPayloadRetentionSelection(
 /// </summary>
 public static class ReplayPayloadRetentionPolicy
 {
-    // BazaarPlusPlus.history-database.json restates both values for the installer's V5 import;
-    // ReplayPayloadRetentionPolicyTests keeps them equal.
     public const int RetainedNewestCount = 200;
     public static readonly TimeSpan RetainedAge = TimeSpan.FromDays(30);
 

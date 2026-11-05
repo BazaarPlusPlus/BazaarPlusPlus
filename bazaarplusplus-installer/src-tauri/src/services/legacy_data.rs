@@ -94,12 +94,10 @@ pub struct LegacyDataState {
     pub game_path: Option<String>,
     pub roots: Vec<LegacyDataRoot>,
     pub installed_mod_data_root: InstalledModDataRoot,
-    /// The one-time V5 import may run (`v5_import::is_v5_import_eligible`).
-    pub v5_import_eligible: bool,
 }
 
 /// What the History unavailable guidance needs to know about the Legacy
-/// Roots: which exist, never their size. Reading it stats the root and marker
+/// Roots: which exist, never their size. Reading it stats the root
 /// paths and reads the installed mod's contract file; it never walks into a
 /// root.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, specta::Type)]
@@ -109,8 +107,6 @@ pub struct LegacyDataPresence {
     /// order.
     pub roots: Vec<LegacyRoot>,
     pub installed_mod_data_root: InstalledModDataRoot,
-    /// The one-time V5 import may run (`v5_import::is_v5_import_eligible`).
-    pub v5_import_eligible: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, specta::Type)]
@@ -126,7 +122,6 @@ impl LegacyDataState {
             game_path: None,
             roots: Vec::new(),
             installed_mod_data_root: InstalledModDataRoot::ReinstallRequired,
-            v5_import_eligible: false,
         }
     }
 }
@@ -137,7 +132,6 @@ impl LegacyDataPresence {
             game_path: None,
             roots: Vec::new(),
             installed_mod_data_root: InstalledModDataRoot::ReinstallRequired,
-            v5_import_eligible: false,
         }
     }
 }
@@ -149,7 +143,6 @@ pub(crate) fn legacy_data_presence(game_path: &Path) -> LegacyDataPresence {
         game_path: Some(game_path.to_string_lossy().into_owned()),
         roots: present_legacy_roots(game_path),
         installed_mod_data_root: installed_mod_data_root(game_path),
-        v5_import_eligible: crate::v5_import::is_v5_import_eligible(game_path),
     }
 }
 
@@ -164,7 +157,6 @@ pub(crate) fn legacy_data_state(game_path: &Path) -> LegacyDataState {
             .map(|root| measure_root(root, &root.path_in(game_path)))
             .collect(),
         installed_mod_data_root: presence.installed_mod_data_root,
-        v5_import_eligible: presence.v5_import_eligible,
     }
 }
 
@@ -648,11 +640,6 @@ mod tests {
     fn listing_and_measuring_never_delete() {
         let game = valid_game_dir();
         seed_legacy_roots(game.path());
-        write(
-            &crate::v5_import::v5_import_marker_path(game.path()),
-            b"imported",
-        );
-
         for _ in 0..2 {
             let state = legacy_data_state(game.path());
             assert_eq!(state.roots.len(), 3);

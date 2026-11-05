@@ -42,15 +42,13 @@ export const emptyInstallState: InstallState = {
 export const emptyLegacyDataState: LegacyDataState = {
   game_path: null,
   roots: [],
-  installed_mod_data_root: 'reinstall_required',
-  v5_import_eligible: false
+  installed_mod_data_root: 'reinstall_required'
 };
 
 export const emptyLegacyDataPresence: LegacyDataPresence = {
   game_path: null,
   roots: [],
-  installed_mod_data_root: 'reinstall_required',
-  v5_import_eligible: false
+  installed_mod_data_root: 'reinstall_required'
 };
 
 export const idleStreamStatus: StreamServiceStatus = {

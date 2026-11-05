@@ -19,11 +19,6 @@ export const commands = {
 	 */
 	getLegacyDataPresence: (gamePath: string | null) => __TAURI_INVOKE<LegacyDataPresence>("get_legacy_data_presence", { gamePath }),
 	/**
-	 *  Imports `BazaarPlusPlusV5/` history into the current Data Root once
-	 *  (ADR-0008) and returns the remeasured Legacy Roots. It never deletes V5.
-	 */
-	importV5History: (gamePath: string) => __TAURI_INVOKE<ImportV5HistoryResult>("import_v5_history", { gamePath }),
-	/**
 	 *  Deletes one Legacy Root the user confirmed. `name` must be one of the
 	 *  directory names `get_legacy_data_state` lists.
 	 */
@@ -181,23 +176,6 @@ export type HistorySummary = {
 	win_rate: number | null,
 };
 
-/**
- *  A completed import. `BazaarPlusPlusV5/` stays in `state.roots`: deleting it
- *  is a separate confirmation.
- */
-export type ImportV5HistoryResult = {
-	imported_run_count: number,
-	/**  Runs the current database already held, left as they were. */
-	skipped_run_count: number,
-	/**
-	 *  Screenshot and video rows whose file could not be carried over: outside
-	 *  the V5 folder, or already gone from it.
-	 */
-	unavailable_file_count: number,
-	/**  The Legacy Roots remeasured after the import. */
-	state: LegacyDataState,
-};
-
 export type InstallActions = {
 	can_install: boolean,
 	can_reinstall: boolean,
@@ -252,7 +230,7 @@ export type InstalledModDataRoot =
 
 /**
  *  What the History unavailable guidance needs to know about the Legacy
- *  Roots: which exist, never their size. Reading it stats the root and marker
+ *  Roots: which exist, never their size. Reading it stats the root
  *  paths and reads the installed mod's contract file; it never walks into a
  *  root.
  */
@@ -264,8 +242,6 @@ export type LegacyDataPresence = {
 	 */
 	roots: LegacyRoot[],
 	installed_mod_data_root: InstalledModDataRoot,
-	/**  The one-time V5 import may run (`v5_import::is_v5_import_eligible`). */
-	v5_import_eligible: boolean,
 };
 
 /**
@@ -291,8 +267,6 @@ export type LegacyDataState = {
 	game_path: string | null,
 	roots: LegacyDataRoot[],
 	installed_mod_data_root: InstalledModDataRoot,
-	/**  The one-time V5 import may run (`v5_import::is_v5_import_eligible`). */
-	v5_import_eligible: boolean,
 };
 
 /**
@@ -346,7 +320,7 @@ export type SemanticProblem = {
 	diagnostic: string | null,
 };
 
-export type SemanticProblemCode = "history_unavailable" | "history_read_failed" | "history_read_blocked_by_game" | "history_database_unsupported_schema" | "history_action_failed" | "history_thumbnails_unavailable" | "install_detection_failed" | "install_action_failed" | "install_partial_failure" | "install_blocked_by_game" | "reset_blocked_by_game" | "bepinex_reset_blocked_by_game" | "import_blocked_by_game" | "import_failed" | "legacy_delete_blocked_by_game" | "stream_service_failed" | "stream_window_failed" | "stream_crop_failed";
+export type SemanticProblemCode = "history_unavailable" | "history_read_failed" | "history_read_blocked_by_game" | "history_database_unsupported_schema" | "history_action_failed" | "history_thumbnails_unavailable" | "install_detection_failed" | "install_action_failed" | "install_partial_failure" | "install_blocked_by_game" | "reset_blocked_by_game" | "bepinex_reset_blocked_by_game" | "legacy_delete_blocked_by_game" | "stream_service_failed" | "stream_window_failed" | "stream_crop_failed";
 
 export type StorageCleanupExecution = { scope: "screenshots"; result: ScreenshotCleanupResult } | { scope: "run_data"; result: RunDataCleanupResult };
 

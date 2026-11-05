@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-const HELP: &str = "Usage:\n  bppinstaller repair --game <directory> [--stub <file>] [--manifest <file>]\n  bppinstaller import --game <directory> --manifest <file> [--now <RFC 3339 time>]\n\nrepair: Repair the macOS launch trampoline of an existing BepInEx installation.\nKeeps the installed Payload and user data. With --manifest, writes a sorted\npath/sha256 manifest outside the game directory. Packaged apps use their bundled\nstub; source checkouts must supply --stub.\n\nimport: Import BazaarPlusPlusV5 history into the current Data Root once, as the\napp does. Writes the outcome, the Data Root's path/sha256 records, and its\ndatabase rows as JSON to --manifest, outside the game directory, and exits 1\nwhen the import failed. --now fixes the clock for the replay retention window.\n\nWithout arguments, starts the desktop app.";
+const HELP: &str = "Usage:\n  bppinstaller repair --game <directory> [--stub <file>] [--manifest <file>]\n\nrepair: Repair the macOS launch trampoline of an existing BepInEx installation.\nKeeps the installed Payload and user data. With --manifest, writes a sorted\npath/sha256 manifest outside the game directory. Packaged apps use their bundled\nstub; source checkouts must supply --stub.\n\nWithout arguments, starts the desktop app.";
 
 pub fn run(arguments: impl IntoIterator<Item = OsString>) -> Option<i32> {
     let mut args = arguments.into_iter();
@@ -16,8 +16,6 @@ pub fn run(arguments: impl IntoIterator<Item = OsString>) -> Option<i32> {
     }
     let result = if command == "repair" {
         repair(args)
-    } else if command == "import" {
-        import(args)
     } else {
         Err(anyhow!(
             "Unknown command: {}\n{HELP}",
@@ -124,32 +122,5 @@ fn repair(args: impl Iterator<Item = OsString>) -> anyhow::Result<()> {
             println!("Repaired {}", game.display());
             Ok(())
         }
-    }
-}
-
-fn import(args: impl Iterator<Item = OsString>) -> anyhow::Result<()> {
-    let [game, manifest, now] = options("import", ["--game", "--manifest", "--now"], args)?;
-    let game = canonical_game(game, "import")?;
-    let manifest = manifest.context("import requires --manifest <file>")?;
-    let now_ms = match now {
-        Some(text) => chrono::DateTime::parse_from_rfc3339(&text.to_string_lossy())
-            .context("--now is not an RFC 3339 time")?
-            .timestamp_millis(),
-        None => chrono::Utc::now().timestamp_millis(),
-    };
-    let staged = stage_manifest(PathBuf::from(manifest), &game)?;
-    let outcome = tauri::async_runtime::block_on(crate::v5_import::import_v5(
-        &crate::services::data_maintenance::DataMaintenanceLock::default(),
-        &crate::stream::runtime::StreamRuntime::default(),
-        game.clone(),
-        now_ms,
-    ));
-    publish_manifest(
-        staged,
-        &crate::v5_import::manifest::manifest_json(&game, &outcome)?,
-    )?;
-    match outcome {
-        Ok(_) | Err(crate::v5_import::ImportError::AlreadyImported) => Ok(()),
-        Err(error) => Err(anyhow!("Import failed ({}): {error}", error.code())),
     }
 }

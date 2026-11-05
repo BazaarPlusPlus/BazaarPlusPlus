@@ -343,8 +343,8 @@ function HistoryProblemBanner({
 }) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  // Only V5 data and no current database: point at the Install page's import
-  // or reinstall card instead of a bare Install link.
+  // Only V5 data and no current database: point at the Install page's reinstall
+  // hint instead of a bare Install link.
   const guidance = useHistoryUnavailableGuidance(
     problem.code === 'history_unavailable'
   );
@@ -360,11 +360,9 @@ function HistoryProblemBanner({
   return (
     <ProblemBanner
       message={
-        guidance === 'import'
-          ? t('historyUnavailableImport')
-          : guidance === 'reinstall'
-            ? t('historyUnavailableReinstall')
-            : presentHistoryProblem(problem, t)
+        guidance === 'reinstall'
+          ? t('historyUnavailableReinstall')
+          : presentHistoryProblem(problem, t)
       }
       problem={problem}
       onRetry={onRetry}
@@ -375,9 +373,7 @@ function HistoryProblemBanner({
               to={guidance ? `/#${LEGACY_DATA_SECTION_ID}` : '/'}
               className={buttonClassName({ size: 'sm' })}
             >
-              {guidance === 'import'
-                ? t('historyOpenImport')
-                : t('historyOpenInstall')}
+              {t('historyOpenInstall')}
             </Link>
           )}
           {problem.code === 'history_read_blocked_by_game' && (

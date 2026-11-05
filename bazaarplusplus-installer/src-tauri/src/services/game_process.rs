@@ -52,19 +52,16 @@ pub(crate) enum GameStoppedOperation {
     Install,
     Reset,
     BepinexReset,
-    /// The one-time V5 history import.
-    Import,
     /// Deletion of one confirmed Legacy Root.
     LegacyDelete,
 }
 
 impl GameStoppedOperation {
     #[cfg(test)]
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 4] = [
         Self::Install,
         Self::Reset,
         Self::BepinexReset,
-        Self::Import,
         Self::LegacyDelete,
     ];
 
@@ -73,7 +70,6 @@ impl GameStoppedOperation {
             Self::Install => SemanticProblemCode::InstallBlockedByGame,
             Self::Reset => SemanticProblemCode::ResetBlockedByGame,
             Self::BepinexReset => SemanticProblemCode::BepinexResetBlockedByGame,
-            Self::Import => SemanticProblemCode::ImportBlockedByGame,
             Self::LegacyDelete => SemanticProblemCode::LegacyDeleteBlockedByGame,
         }
     }
@@ -85,7 +81,6 @@ impl GameStoppedOperation {
             Self::Install => "install_blocked_by_game",
             Self::Reset => "reset_blocked_by_game",
             Self::BepinexReset => "bepinex_reset_blocked_by_game",
-            Self::Import => "import_blocked_by_game",
             Self::LegacyDelete => "legacy_delete_blocked_by_game",
         }
     }
@@ -262,10 +257,6 @@ mod tests {
             (
                 GameStoppedOperation::BepinexReset,
                 SemanticProblemCode::BepinexResetBlockedByGame,
-            ),
-            (
-                GameStoppedOperation::Import,
-                SemanticProblemCode::ImportBlockedByGame,
             ),
             (
                 GameStoppedOperation::LegacyDelete,
