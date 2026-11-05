@@ -8,10 +8,10 @@ Source:
 
 One page, no navigation, no app bar and no footer. In order:
 
-1. **Cover.** The game's art, full bleed from the top edge of the screen: the status bar sits over the art, with no gradient, scrim, logo overlay or shadow. It runs 24 under the panel. Until the art decodes, the cover is plain `bg-hover`.
+1. **Cover.** The game's art, full bleed from the top edge of the screen: the status bar sits over the art, with no gradient, scrim, logo overlay or shadow. The logo stays clear of the system's areas (see Cover art). It runs 24 under the panel. Until the art decodes, the cover is plain `bg-hover`.
 2. **More.** One floating button at the top end, inside the status bar inset, its hit area `touch-target`. iOS shows ⋯ on a `control-md` circle on `bg-panel` with a `line-strong` border and opens a pull-down menu; Android shows ⋮ on a 40 `bg-panel` circle and opens a popup menu. The menu holds 导出诊断信息 / Export diagnostics (Android only) and 关于 / About.
 3. **Panel.** `bg-canvas`, top corners `r-dialog` (12), rising 24 over the cover's bottom edge. Inset 24 at the top and 16 at the sides (24 in panes), the safe area below. Its parts are 16 apart:
-   - **Title line.** "The Bazaar" in `display`, with the status badge at the line's end. While a download runs, the badge carries the percentage: "正在下载… 27%".
+   - **Title line.** "The Bazaar" in `display`, with the status badge at the line's end. On Android, while a download runs, the badge carries the percentage: "正在下载… 27%". On iOS the progress carries it.
    - **Stats.** Three equal columns, 游戏版本 / 适配版本 / BazaarPlusPlus: the key in `caption` / `text-3` above the value in `body-strong` with tabular figures. At accessibility text sizes they are key-value rows instead, so long values never squeeze.
    - **Banners.** A failure, as an `error` StatusBanner; on iOS also the App update (see App update).
    - **Notes.** `caption` / `text-2`, each one sentence.
@@ -29,7 +29,7 @@ The launcher is portrait only on every device, the iPhone Duo's outer and inner 
 | `pane-breakpoint` and wider, unless the row below applies | **Cover on top, two panes below.** The panel splits into two equal panes 24 apart. The start pane holds the title line and the stats as key-value rows without dividers; the end pane holds the banners, notes, source row, progress and primary. iPhone Duo unfolded (669 × 951), unfolded foldables (884 × 1104), tablets. |
 | `cover-pane-breakpoint` (840) and wider, in a window wider than tall | **Cover pane and content pane.** The cover fills the start half at full height; the content fills the end half, vertically centred with a 24 inset: the title with the badge on the line below it, the stats as key-value rows with `line` dividers, then the banners, notes, primary and source row. More floats at the content pane's top end, without its circle. A window the system does not hold to portrait. A window as tall as it is wide keeps the cover on top: half of it would be too narrow to show the logo. |
 
-- **The panel takes the height it needs; the cover takes the rest**, at least half its width. When the panel needs more than the window, the page scrolls as one, and the primary follows the content instead of pinning.
+- **The panel takes the height it needs; the cover takes the rest**, at least half its width. When the panel needs more than the window, the page scrolls as one, and the primary follows the content instead of pinning. A page that fits its window does not move under a finger: no rubber band, which would show the canvas above the cover.
 - **Accessibility text sizes keep one column** whatever the width: iOS accessibility Dynamic Type sizes, and Android font scale 1.3 and above.
 - **The fold falls in the gutter.** The two panes are equal, so on a foldable whose inner screen is portrait, such as the iPhone Duo, the hinge falls in the 24 gutter and nothing straddles it.
 - **Nothing is drawn into the system areas** except the cover. Content keeps clear of the safe areas (iOS) and the system bar and cutout insets (Android draws edge to edge).
@@ -45,6 +45,8 @@ Two store images of The Bazaar, bundled in both Apps from `design/assets/Covers/
 |---|---|---|
 | Wide (width at least 1.2 × height): a short cover, when the panel takes most of the window | The library hero (the hunter) | Around the hunter's face, at 70% across and 30% down the art, as near the cover's centre as the art's edges allow |
 | Otherwise: phones, the iPhone Duo folded and unfolded, unfolded foldables, tablets, the cover pane | The hero capsule (the store's promotional art, with the logo) | From the top, around the logo's centre at 53% across, so the logo stays in view |
+
+The logo on the hero capsule stays clear of the system's areas, so the Dynamic Island, a camera cutout or a side status bar never covers it: below the top inset and before the side inset. Where that moves the art away from the cover's edge, the art's edge is reflected into the gap, which reads as more of the same art. Implemented on iOS.
 
 The images are decoded no larger than the cover needs, because the game later shares the App's process, and released when the game starts. The focus points belong to the bundled images; a new image may need new ones. The Android source row's tile for the publisher shows the promotional art, and the iOS App's first-run onboarding shows a third bundled image, the library capsule.
 
@@ -65,6 +67,7 @@ The badge is the Badge component: dot + word, one tone. Both Apps use the same w
 | 未发布 | Not released | neutral | | No Android App release yet |
 | 正在检查… | Checking… | busy | The runtime is starting | The launch check runs |
 | 正在登录… | Signing in… | busy | Steam sign-in | |
+| 正在校验… | Verifying… | busy | Checking the files on disk before downloading the rest | |
 | 正在下载… | Downloading… | busy | Game download | Interop or plugin download |
 | 正在准备… | Preparing… | busy | Any other service work | Staging before the game starts |
 
@@ -96,7 +99,7 @@ The primary is the one thing to do next, written as verb + object. It is `touch-
 | 已下载 (iOS, signed in) | 校验并准备游戏 / Verify and prepare the game |
 | 未安装, 需要更换 (Android) | 从 Google Play 安装 / Install from Google Play when Google Play is installed; otherwise 从发行商下载 ↗ |
 | 需要更新游戏 (Android) | 从 Google Play 更新 / Update from Google Play when Google Play is installed and the game came from it; otherwise 从发行商下载 ↗ |
-| busy | 取消 / Cancel, as a secondary button (iOS, while signing in or downloading); otherwise none |
+| busy | 取消 / Cancel, as a secondary button (iOS, while signing in or downloading: cancelling a download stays signed in); otherwise none |
 | failure (no status) | 重试 (Android) |
 
 - **The install source follows the device.** The Android App reads whether Google Play is installed and, for an update, which store installed the game (`PackageManager.getInstallSourceInfo`). A device without Google Play never sees a Google Play action.
@@ -111,7 +114,9 @@ A newer BazaarPlusPlus App, on either platform, is a reminder, never a gate. It 
 
 ## Progress
 
-A download with a known size is the one progress bar in the system. It is a `progress-height` (4) track on `bg-hover` with an `accent` fill and `r-pill` ends. Under it, one `caption` line in tabular figures says what and how much: "1.2 GB / 4.5 GB · 12 MB/s · 5 分钟" on iOS, "插件 · 12.3 MB / 40.0 MB" on Android. The busy badge carries the step and the percentage, so there is no second label. Work without a known size shows only the busy badge.
+A download with a known size is the one progress bar in the system. It is a `progress-height` (6) track on `bg-hover` with an `accent` fill and `r-pill` ends. Under it, one `caption` line in tabular figures says what and how much: "插件 · 12.3 MB / 40.0 MB" on Android, where the busy badge carries the step and the percentage, so there is no second label. Work without a known size shows only the busy badge.
+
+The iOS game download takes minutes, so it gets more room, in `space-8` steps: the percentage in `display` with tabular figures and one decimal, with the speed across from it in `caption` ("12 MB/s", or what the download is doing while no data arrives: "正在校验本地文件", "网络不稳定，正在等待恢复"); the bar, its fill moving steadily between reports; then the amount and the time left in `caption`: "1.2 GB / 4.5 GB", "约 5 分钟". The time left is whole minutes, so it does not tick while the speed moves a little. The numbers never go back: a retry keeps its place. Before the size is known, the bar is empty and the speed's place says what the download is doing. On an iOS that cannot keep the App running, one more `caption` / `text-3` line says the download pauses off screen and continues on return.
 
 ## Stats
 

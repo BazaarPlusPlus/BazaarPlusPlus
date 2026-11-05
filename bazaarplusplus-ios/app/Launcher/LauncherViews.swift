@@ -72,7 +72,7 @@ private struct StackedLayout: View {
     var body: some View {
         ScrollView {
             VStack(spacing: -BppSpace.space24) {
-                Cover()
+                Cover(insets: insets)
                     .frame(maxWidth: .infinity, minHeight: width / 2, maxHeight: .infinity)
                 Panel(panes: panes)
                     .padding(.leading, insets.leading + gutter)
@@ -84,6 +84,7 @@ private struct StackedLayout: View {
             }
             .frame(minHeight: height + insets.top + insets.bottom)
         }
+        .staysPutWhenItFits()
         .ignoresSafeArea(.container)
     }
 }
@@ -104,6 +105,7 @@ private struct WideLayout: View {
                     .padding(BppSpace.space24)
                     .frame(maxWidth: .infinity, minHeight: height)
             }
+            .staysPutWhenItFits()
             .frame(maxWidth: .infinity)
         }
     }
@@ -113,20 +115,28 @@ private struct WideLayout: View {
 
 /// A wide cover (short, when the panel takes most of the window) shows the library hero cropped
 /// around the hunter's face; any other cover (phones, the iPhone Duo, the iPad) shows the
-/// promotional hero capsule from its top, logo in view. Plain bg-hover until the art decodes.
+/// promotional hero capsule from its top, logo in view and clear of the system's areas: the Dynamic
+/// Island at the top, the side status bar on the iPhone Duo folded. Plain bg-hover until the art decodes.
 private struct Cover: View {
+    var insets = EdgeInsets()
     /// Width over height from which a cover counts as wide.
     static let wide: CGFloat = 1.2
     /// The hunter's face in the current library hero.
     static let heroFocus = UnitPoint(x: 0.70, y: 0.30)
     /// The top of the hero capsule, at the centre of its logo.
     static let promoFocus = UnitPoint(x: 0.53, y: 0)
+    /// The top and the end of the logo in the current hero capsule, as fractions of its height and width.
+    static let promoLogoTop: CGFloat = 56.0 / 896.0
+    static let promoLogoEnd: CGFloat = 672.0 / 748.0
 
     var body: some View {
         GeometryReader { proxy in
             let wide = proxy.size.width >= proxy.size.height * Self.wide
             ArtworkImage(artwork: wide ? .hero : .promo, maxPixel: ArtworkStore.coverPixels,
-                         focus: wide ? Self.heroFocus : Self.promoFocus) {
+                         focus: wide ? Self.heroFocus : Self.promoFocus,
+                         keep: wide ? nil : ArtworkKeep(top: Self.promoLogoTop, below: insets.top + BppSpace.space8,
+                                                        end: Self.promoLogoEnd,
+                                                        before: proxy.size.width - insets.trailing - BppSpace.space8)) {
                 BppColor.bgHover
             }
         }
@@ -232,8 +242,7 @@ private struct TitleLine: View {
 
     @ViewBuilder private var badge: some View {
         if let status = model.status {
-            let word = model.downloadPercent.map { "\(status.word) \($0)%" } ?? status.word
-            BppBadge(word: word, tone: status.tone).accessibilityIdentifier("launcher-status")
+            BppBadge(word: status.word, tone: status.tone).accessibilityIdentifier("launcher-status")
         }
     }
 }
@@ -389,26 +398,8 @@ private struct PrimaryArea: View {
         }
     }
 
-    /// The download's track and its numbers; other work shows only the busy badge.
     @ViewBuilder private var progress: some View {
-        if model.snapshot.state == "downloading" {
-            VStack(alignment: .leading, spacing: BppSpace.space6) {
-                GeometryReader { proxy in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(BppColor.bgHover)
-                        Capsule().fill(BppColor.accent)
-                            .frame(width: proxy.size.width * min(1, max(0, model.snapshot.progress)))
-                    }
-                }
-                .frame(height: BppSize.progressHeight)
-                .accessibilityElement()
-                .accessibilityLabel("下载进度")
-                .accessibilityValue("\(model.downloadPercent ?? 0)%")
-                if let detail = model.downloadDetail {
-                    Text(detail).bppFont(BppType.caption).monospacedDigit().foregroundColor(BppColor.text2)
-                }
-            }
-        }
+        if model.isDownloading { DownloadProgressView() }
     }
 
     private func primaryTitle(_ action: GameAction) -> String {
@@ -429,13 +420,78 @@ private struct PrimaryArea: View {
     }
 }
 
-/// Bundled art that never pushes the layout: the container decides the size.
+/// The download as the one thing happening on the page: how far in large figures with the speed
+/// across from them, the bar, then how much and how long. Without a size yet the bar is empty and
+/// the line says what the download is doing.
+private struct DownloadProgressView: View {
+    @EnvironmentObject var model: LauncherModel
+
+    private var fraction: Double { min(1, max(0, model.snapshot.progress)) }
+
+    var body: some View {
+        let known = model.snapshot.totalBytes > 0
+        VStack(alignment: .leading, spacing: BppSpace.space8) {
+            HStack(alignment: .firstTextBaseline, spacing: BppSpace.space12) {
+                if known {
+                    Text(String(format: "%.1f%%", fraction * 100))
+                        .bppFont(BppType.display).monospacedDigit().foregroundColor(BppColor.text1)
+                }
+                Text(model.downloadActivity)
+                    .bppFont(BppType.caption).monospacedDigit().foregroundColor(BppColor.text2).lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: known ? .trailing : .leading)
+            }
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(BppColor.bgHover)
+                    Capsule().fill(BppColor.accent)
+                        .frame(width: proxy.size.width * fraction)
+                        // Reports arrive twice a second; the fill moves steadily between them.
+                        .animation(.linear(duration: 0.5), value: fraction)
+                }
+            }
+            .frame(height: BppSize.progressHeight)
+            .accessibilityElement()
+            .accessibilityLabel("下载进度")
+            .accessibilityValue("\(Int(fraction * 100))%")
+            if let amount = model.downloadAmount {
+                HStack(spacing: BppSpace.space12) {
+                    Text(amount)
+                    Spacer(minLength: 0)
+                    if let left = model.downloadTimeLeft { Text(left) }
+                }
+                .bppFont(BppType.caption).monospacedDigit().foregroundColor(BppColor.text2)
+            }
+            if model.pausesInBackground {
+                Text("切到其他 App 后下载会暂停，回到这里自动继续。")
+                    .bppFont(BppType.caption).foregroundColor(BppColor.text3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+/// A part of the art to keep clear of the container's top and end.
+struct ArtworkKeep {
+    /// How far down the art its top is, as a fraction of the art's height.
+    let top: CGFloat
+    /// How far down the container it must stay.
+    let below: CGFloat
+    /// How far across the art its end is, as a fraction of the art's width.
+    let end: CGFloat
+    /// How far across the container it must stop.
+    let before: CGFloat
+}
+
+/// Bundled art that never pushes the layout: the container decides the size. When `keep` moves the
+/// art away from the container's top or end, the art's edge is reflected into the gap, which reads
+/// as more of the same art.
 struct ArtworkImage<Placeholder: View>: View {
     @EnvironmentObject var model: LauncherModel
     let artwork: Artwork
     let maxPixel: CGFloat
     /// The point of the art kept nearest the centre when the container crops it.
     var focus: UnitPoint = .center
+    var keep: ArtworkKeep?
     @ViewBuilder let placeholder: () -> Placeholder
     @State private var image: UIImage?
 
@@ -443,13 +499,25 @@ struct ArtworkImage<Placeholder: View>: View {
         GeometryReader { proxy in
             if let image {
                 let size = proxy.size
-                let scale = max(size.width / image.size.width, size.height / image.size.height)
+                // With a part to keep, the art from its top down fills what the container has below it.
+                let scale = max(size.width / image.size.width,
+                                (size.height - (keep?.below ?? 0)) / (image.size.height * (1 - (keep?.top ?? 0))))
                 let width = image.size.width * scale, height = image.size.height * scale
-                Image(uiImage: image).resizable()
-                    .frame(width: width, height: height)
-                    .offset(x: min(0, max(size.width - width, size.width / 2 - focus.x * width)),
-                            y: min(0, max(size.height - height, size.height / 2 - focus.y * height)))
-                    .transition(.opacity)
+                let topGap = keep.map { max(0, $0.below - height * $0.top) } ?? 0
+                let focused = min(0, max(size.width - width, size.width / 2 - focus.x * width))
+                let x = keep.map { min(focused, $0.before - width * $0.end) } ?? focused
+                let y = topGap > 0 ? topGap : min(0, max(size.height - height, size.height / 2 - focus.y * height))
+                ZStack(alignment: .topLeading) {
+                    ForEach(x + width < size.width ? [false, true] : [false], id: \.self) { acrossEnd in
+                        ForEach(topGap > 0 ? [false, true] : [false], id: \.self) { aboveTop in
+                            Image(uiImage: image).resizable()
+                                .frame(width: width, height: height)
+                                .scaleEffect(x: acrossEnd ? -1 : 1, y: aboveTop ? -1 : 1)
+                                .offset(x: acrossEnd ? x + width : x, y: aboveTop ? topGap - height : y)
+                        }
+                    }
+                }
+                .transition(.opacity)
             } else {
                 placeholder()
             }
@@ -463,6 +531,11 @@ struct ArtworkImage<Placeholder: View>: View {
 }
 
 extension View {
+    /// A page that fits its window does not move under a finger: pulling it would show the canvas above the cover.
+    @ViewBuilder func staysPutWhenItFits() -> some View {
+        if #available(iOS 16.4, *) { scrollBounceBehavior(.basedOnSize) } else { self }
+    }
+
     /// The default iPad form sheet is too short for the QR step; page size keeps its actions in view.
     @ViewBuilder func pageSizedSheet() -> some View {
         if #available(iOS 18.0, *) { presentationSizing(.page) } else { self }

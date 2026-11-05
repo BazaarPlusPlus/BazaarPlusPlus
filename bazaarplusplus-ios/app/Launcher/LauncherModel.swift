@@ -50,6 +50,7 @@ struct ServiceSnapshot: Decodable, Equatable {
     var bytesPerSecond: Int64 = 0
     var busy = false
     var launched = false
+    var reconnecting = false
     var loggedIn = false
     var canLaunch = false
     var platform = ""
@@ -70,6 +71,7 @@ struct ServiceSnapshot: Decodable, Equatable {
         bytesPerSecond = try c.decodeIfPresent(Int64.self, forKey: .bytesPerSecond) ?? 0
         busy = try c.decodeIfPresent(Bool.self, forKey: .busy) ?? false
         launched = try c.decodeIfPresent(Bool.self, forKey: .launched) ?? false
+        reconnecting = try c.decodeIfPresent(Bool.self, forKey: .reconnecting) ?? false
         loggedIn = try c.decodeIfPresent(Bool.self, forKey: .loggedIn) ?? false
         canLaunch = try c.decodeIfPresent(Bool.self, forKey: .canLaunch) ?? false
         platform = try c.decodeIfPresent(String.self, forKey: .platform) ?? ""
@@ -81,7 +83,7 @@ struct ServiceSnapshot: Decodable, Equatable {
         game = try c.decodeIfPresent(Game.self, forKey: .game)
     }
     enum CodingKeys: String, CodingKey {
-        case state, message, progress, downloadedBytes, totalBytes, bytesPerSecond, busy, launched, loggedIn, canLaunch, platform, account, savedAccount, errorCode, verification, qrUrl, game
+        case state, message, progress, downloadedBytes, totalBytes, bytesPerSecond, busy, launched, reconnecting, loggedIn, canLaunch, platform, account, savedAccount, errorCode, verification, qrUrl, game
     }
 }
 
@@ -98,12 +100,13 @@ enum GameAction: Equatable {
 
 /// The launcher's status badge (design/components/Launcher): the same words as the Android App.
 enum LauncherStatus: Equatable {
-    case checking, signingIn, downloading, preparing, ready, waiting, notInstalled, downloaded, notSupported
+    case checking, signingIn, verifying, downloading, preparing, ready, waiting, notInstalled, downloaded, notSupported
 
     var word: String {
         switch self {
         case .checking: return "正在检查…"
         case .signingIn: return "正在登录…"
+        case .verifying: return "正在校验…"
         case .downloading: return "正在下载…"
         case .preparing: return "正在准备…"
         case .ready: return "可以开始"
@@ -116,7 +119,7 @@ enum LauncherStatus: Equatable {
 
     var tone: BppBadge.Tone {
         switch self {
-        case .checking, .signingIn, .downloading, .preparing: return .busy
+        case .checking, .signingIn, .verifying, .downloading, .preparing: return .busy
         case .ready: return .ok
         case .waiting: return .warn
         case .notInstalled, .downloaded, .notSupported: return .neutral
@@ -133,9 +136,9 @@ final class LauncherModel: ObservableObject {
     /// Display name from Info.plist; the one place the product name lives.
     let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "BazaarPlusPlus"
     private var started = false
-    private var keepAwake = false
     private static let onboardingKey = "launcher.onboarding"
     let artwork = ArtworkStore()
+    private let background = BackgroundDownload()
     private let send: (NSDictionary) -> Void
     private let launchGame: () -> Void
 
@@ -148,13 +151,10 @@ final class LauncherModel: ObservableObject {
         guard let data = try? JSONSerialization.data(withJSONObject: raw),
               let next = try? JSONDecoder().decode(ServiceSnapshot.self, from: data) else { return }
         if next != snapshot { snapshot = next }
-        // Downloads run for minutes; iOS suspends the network when the screen locks.
-        let awake = next.busy && !isSigningIn
-        if awake != keepAwake { keepAwake = awake; UIApplication.shared.isIdleTimerDisabled = awake }
+        background.update(next, title: next.game?.title ?? appName, detail: downloadAmount(next) ?? next.message)
         if !started {
             started = true
-            // A remembered account signs itself back in; only brand-new players see the intro.
-            if !next.savedAccount.isEmpty && !next.loggedIn && !next.busy && next.state == "signedOut" { restore() }
+            // A remembered account signs itself back in (the service, at launch); only brand-new players see the intro.
             let firstRun = !next.loggedIn && next.savedAccount.isEmpty && !UserDefaults.standard.bool(forKey: Self.onboardingKey)
             // `-launcher.onboarding.force YES` previews the intro on an already signed-in device.
             if firstRun || UserDefaults.standard.bool(forKey: "launcher.onboarding.force") { showingOnboarding = true }
@@ -220,14 +220,19 @@ final class LauncherModel: ObservableObject {
     }
 
     var ready: Bool { failure == nil && snapshot.game != nil }
+    /// The download itself, not the sign-in or the prepare after it.
+    var isDownloading: Bool { snapshot.busy && ["downloading", "verifying"].contains(snapshot.state) }
+    /// The download pauses when the App leaves the screen, because iOS gives it no time there.
+    var pausesInBackground: Bool { !background.continuesInBackground }
     var isSigningIn: Bool { ["connecting", "code", "qr"].contains(snapshot.state) && snapshot.busy }
 
     func action(for game: ServiceSnapshot.Game) -> GameAction {
         let s = snapshot
         if s.busy {
             if isSigningIn { return .working(s.message, nil) }
-            return .working(s.message, s.state == "downloading" ? s.progress : nil)
+            return .working(s.message, isDownloading ? s.progress : nil)
         }
+        if s.reconnecting { return .working(s.message, nil) }
         if s.state == "outdated" { return .blocked(s.message) }
         if s.state == "ready" && s.canLaunch && s.loggedIn { return .play }
         if !s.loggedIn { return .connect }
@@ -237,24 +242,32 @@ final class LauncherModel: ObservableObject {
         return game.downloaded ? .prepare : .download
     }
 
-    /// "1.2 GB / 4.5 GB · 12 MB/s · 5分钟", or nil before the first byte count arrives.
-    var downloadDetail: String? {
-        let s = snapshot
-        guard s.state == "downloading", s.totalBytes > 0 else { return nil }
-        var parts = ["\(Self.bytes.string(fromByteCount: s.downloadedBytes)) / \(Self.bytes.string(fromByteCount: s.totalBytes))"]
-        if s.bytesPerSecond > 0 {
-            parts.append(Self.bytes.string(fromByteCount: s.bytesPerSecond) + "/s")
-            let left = Double(s.totalBytes - s.downloadedBytes) / Double(s.bytesPerSecond)
-            if let eta = Self.duration.string(from: max(left, 1)) { parts.append(eta) }
-        }
-        return parts.joined(separator: " · ")
+    private func downloadAmount(_ s: ServiceSnapshot) -> String? {
+        guard ["downloading", "verifying"].contains(s.state), s.totalBytes > 0 else { return nil }
+        return "\(Self.bytes.string(fromByteCount: s.downloadedBytes)) / \(Self.bytes.string(fromByteCount: s.totalBytes))"
     }
+
+    /// "1.2 GB / 4.5 GB", or nil before the size is known.
+    var downloadAmount: String? { downloadAmount(snapshot) }
+
+    /// "12 MB/s" while data arrives; otherwise what the download is doing instead.
+    var downloadActivity: String {
+        let s = snapshot
+        return s.bytesPerSecond > 0 ? Self.bytes.string(fromByteCount: s.bytesPerSecond) + "/s" : s.message
+    }
+
+    /// "约 5 分钟": whole minutes, so it does not tick while the speed moves a little.
+    var downloadTimeLeft: String? {
+        let s = snapshot
+        guard s.bytesPerSecond > 0, s.totalBytes > s.downloadedBytes else { return nil }
+        let minutes = Int((Double(s.totalBytes - s.downloadedBytes) / Double(s.bytesPerSecond) / 60).rounded(.up))
+        if minutes <= 1 { return "不到 1 分钟" }
+        if minutes < 60 { return "约 \(minutes) 分钟" }
+        return minutes % 60 == 0 ? "约 \(minutes / 60) 小时" : "约 \(minutes / 60) 小时 \(minutes % 60) 分钟"
+    }
+
     private static let bytes: ByteCountFormatter = {
         let f = ByteCountFormatter(); f.countStyle = .file; f.allowsNonnumericFormatting = false; return f
-    }()
-    private static let duration: DateComponentsFormatter = {
-        let f = DateComponentsFormatter(); f.allowedUnits = [.hour, .minute, .second]
-        f.unitsStyle = .abbreviated; f.maximumUnitCount = 2; return f
     }()
 
     /// The status badge, or nil when the runtime could not start (the failure banner says why).
@@ -264,17 +277,15 @@ final class LauncherModel: ObservableObject {
         guard let game = s.game else { return .checking }
         if s.busy {
             if isSigningIn { return .signingIn }
-            return s.state == "downloading" ? .downloading : .preparing
+            if s.state == "verifying" { return .verifying }
+            if s.state == "downloading" { return .downloading }
+            return s.reconnecting ? .signingIn : .preparing
         }
+        if s.reconnecting { return .signingIn }
         if s.state == "outdated" { return .waiting }
         if s.state == "ready" && s.canLaunch && s.loggedIn { return .ready }
         if s.state == "installed" || (game.downloaded && !game.compatibility.launch) { return .notSupported }
         return game.downloaded ? .downloaded : .notInstalled
-    }
-
-    /// The download's percentage while one with a known size runs.
-    var downloadPercent: Int? {
-        snapshot.busy && snapshot.state == "downloading" ? Int(snapshot.progress * 100) : nil
     }
 
     /// The App's own version, "v6.2.0".
@@ -285,7 +296,8 @@ final class LauncherModel: ObservableObject {
     func perform(_ game: ServiceSnapshot.Game) {
         switch action(for: game) {
         case .play: launchGame()
-        case .connect: showingAccount = true
+        // A saved login needs no sheet: one tap signs back in, and the sheet is only for a new account.
+        case .connect: if snapshot.savedAccount.isEmpty { showingAccount = true } else { restore() }
         case .download, .prepare: command(["action": "download"])
         default: break
         }
@@ -299,7 +311,7 @@ final class LauncherModel: ObservableObject {
     func qrLogin() { command(["action": "qr"]) }
     func loginError() -> String? { snapshot.state == "error" && !snapshot.loggedIn ? snapshot.message : nil }
     func submit(code: String) { command(["action": "guard", "code": code]) }
-    /// Stops the current login or download; the saved session stays available to restore.
+    /// Stops the current download and stays signed in, or stops the current login; the saved session stays available to restore.
     func cancel() { command(["action": "cancel"]) }
     func logout() { command(["action": "logout"]) }
 

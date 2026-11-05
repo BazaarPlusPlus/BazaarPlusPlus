@@ -34,6 +34,17 @@ class SteamChunkTests(unittest.TestCase):
         cls.lib.bpp_steam_zstd.argtypes = [ctypes.c_void_p,ctypes.c_int,ctypes.c_void_p,ctypes.c_int]
         cls.lib.bpp_steam_file_sha1.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
 
+    def test_adler_matches_steamkit_chunk_checksum(self):
+        # SteamKit's CryptoHelper.AdlerHash: a and b both start at zero.
+        self.lib.bpp_steam_adler.argtypes = [ctypes.c_char_p, ctypes.c_int]
+        self.lib.bpp_steam_adler.restype = ctypes.c_uint32
+        data = bytes(range(256)) * 300
+        a = b = 0
+        for byte in data:
+            a = (a + byte) % 65521
+            b = (b + a) % 65521
+        self.assertEqual(self.lib.bpp_steam_adler(data, len(data)), a | b << 16)
+
     def test_file_hash_matches_standard_digest_and_reports_read_errors(self):
         path = pathlib.Path(self.folder.name) / 'hash-input'
         digest = ctypes.create_string_buffer(20)

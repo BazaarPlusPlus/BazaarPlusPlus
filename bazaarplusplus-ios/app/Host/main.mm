@@ -18,6 +18,7 @@ static int savedArgc; static char **savedArgv;
 static NSString *gameRoot;
 // The launcher is portrait only, the game landscape only; Info.plist lists both as the App's ceiling.
 static BOOL gameStarted;
+static BOOL serviceStarted;
 static id foldGuard;
 static NSString *jsonString(NSDictionary *value) {
     return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:value options:0 error:nil] encoding:NSUTF8StringEncoding];
@@ -69,6 +70,7 @@ static void exposeGameVersion(NSString *game) {
     NSString *deviceName=[NSString stringWithFormat:@"%@ · %@%@",appName,UIDevice.currentDevice.model,TARGET_OS_SIMULATOR ? @"（模拟器）" : @""];
     NSString *config=jsonString(@{@"root":gameRoot,@"assets":NSBundle.mainBundle.bundlePath,@"platform":TARGET_OS_SIMULATOR ? @"simulator" : @"device",@"deviceName":deviceName});
     if(!startService || !sendCommand || !snapshotService || !freeService || !startService(config.UTF8String)) { [self.host fail:@"运行时初始化失败"]; return; }
+    serviceStarted=YES;
     self.timer=[NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(refresh) userInfo:nil repeats:YES]; [self refresh];
 #if BPP_STEAM_TEST_CONTROL && TARGET_OS_SIMULATOR
     [self startTestControl];
@@ -183,7 +185,11 @@ static void exposeGameVersion(NSString *game) {
     self.window.rootViewController = [SteamController new]; [self.window makeKeyAndVisible];
 }
 - (void)sceneDidEnterBackground:(UIScene*)scene { if (engine.appController) [(id)engine.appController applicationDidEnterBackground:UIApplication.sharedApplication]; }
-- (void)sceneWillEnterForeground:(UIScene*)scene { if (engine.appController) [(id)engine.appController applicationWillEnterForeground:UIApplication.sharedApplication]; }
+- (void)sceneWillEnterForeground:(UIScene*)scene {
+    if (engine.appController) [(id)engine.appController applicationWillEnterForeground:UIApplication.sharedApplication];
+    // Also runs at launch: the service signs in from the saved login and picks up a wanted download.
+    else if (serviceStarted) sendCommand(jsonString(@{@"action":@"foreground"}).UTF8String);
+}
 - (void)sceneDidBecomeActive:(UIScene*)scene { if (engine.appController) [(id)engine.appController applicationDidBecomeActive:UIApplication.sharedApplication]; }
 - (void)sceneWillResignActive:(UIScene*)scene { if (engine.appController) [(id)engine.appController applicationWillResignActive:UIApplication.sharedApplication]; }
 @end

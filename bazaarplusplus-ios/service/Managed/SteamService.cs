@@ -11,6 +11,39 @@ using SteamKit2.Authentication;
 
 namespace BazaarPlusPlus.Ios.Service
 {
+    internal sealed class QrExpiredException : Exception { }
+    /// Which failures an automatic retry can outlast.
+    public static class Failures
+    {
+        public static bool IsDiskFull(Exception error) =>
+            error is IOException && (error.HResult == unchecked((int)0x80070070) || error.HResult == 28 || error.HResult == unchecked((int)0x80070027));
+        /// Steam has refused this login for good; it will never work again.
+        public static bool IsRejectedLogin(EResult result) =>
+            result == EResult.InvalidPassword || result == EResult.AccessDenied || result == EResult.Expired ||
+            result == EResult.Revoked || result == EResult.FileNotFound;
+        public static bool IsTransient(Exception error)
+        {
+            switch (error)
+            {
+                case AggregateException many: return many.InnerExceptions.All(IsTransient);
+                case AuthenticationException auth:
+                    return auth.Result == EResult.TryAnotherCM || auth.Result == EResult.ServiceUnavailable || auth.Result == EResult.Busy ||
+                        auth.Result == EResult.Timeout || auth.Result == EResult.NoConnection || auth.Result == EResult.Fail;
+                // A content server that answers with a client error will answer the same way next time.
+                case SteamKitWebRequestException web:
+                    return (int)web.StatusCode >= 500 || web.StatusCode == System.Net.HttpStatusCode.RequestTimeout || (int)web.StatusCode == 429;
+                case IOException io: return !IsDiskFull(io);
+                case OperationCanceledException _:
+                case TimeoutException _:
+                case System.Net.Http.HttpRequestException _:
+                case System.Net.WebException _:
+                case System.Net.Sockets.SocketException _:
+                case AsyncJobFailedException _:
+                    return true;
+                default: return false;
+            }
+        }
+    }
     public static class SteamService
     {
         static readonly object gate = new object();
@@ -27,11 +60,22 @@ namespace BazaarPlusPlus.Ios.Service
         static Session? session;
         static bool busy;
         static long generation, busyOperation;
+        // A dropped Steam connection is being brought back from the saved login. The player stays
+        // signed in meanwhile; snapshots report it so the launcher never asks to sign in again.
+        static bool reconnecting;
+        // Cleared when the player cancels a sign-in or the saved login fails for good, until they sign in again.
+        static bool autoSignIn = true;
+        // The running download's own cancellation: stopping it keeps the session, and a dropped
+        // Steam connection leaves it running, because content servers need no Steam connection.
+        static CancellationTokenSource? downloadRun;
+        static TaskCompletionSource<bool> retryNow = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        static string DownloadWantedPath => Path.Combine(root, "download-wanted");
         static readonly AsyncLocal<long> operation = new AsyncLocal<long>();
         static readonly System.Collections.Generic.Dictionary<uint, CancellationTokenSource> pendingTickets = new System.Collections.Generic.Dictionary<uint, CancellationTokenSource>();
         // One configuration for every session, so the CM server list (and the servers it has
         // marked bad after a failed connection) carries over to the next attempt.
         static SteamConfiguration? configuration;
+        static InstallationIdentity identity = null!;
         public static void Initialize(string config)
         {
             RuntimeTypeModel.Default.AutoCompile = false;
@@ -48,7 +92,8 @@ namespace BazaarPlusPlus.Ios.Service
             deviceName = (string?)data["deviceName"] ?? deviceName;
             savedAccount = SavedAccount();
             installedVersion = GameDefinition.InstalledVersion(root, profile);
-            configuration = SteamConfiguration.Create(c => c.WithProtocolTypes(ProtocolTypes.WebSocket).WithMachineInfoProvider(new InstallationIdentity(root)));
+            identity = new InstallationIdentity(root);
+            configuration = SteamConfiguration.Create(c => c.WithProtocolTypes(ProtocolTypes.WebSocket).WithMachineInfoProvider(identity));
             Set("signedOut", "登录 Steam 以下载已拥有的游戏");
 
         }
@@ -69,8 +114,9 @@ namespace BazaarPlusPlus.Ios.Service
         public static string Snapshot()
         {
             lock (gate) return JsonConvert.SerializeObject(new {
-                state, message, progress, downloadedBytes, totalBytes, bytesPerSecond, busy, launched, loggedIn = session?.LoggedIn ?? false,
-                account = session?.LoggedIn == true ? session.Account : "", savedAccount, errorCode, verification, qrUrl,
+                state, message, progress, downloadedBytes, totalBytes, bytesPerSecond, busy, launched, reconnecting,
+                loggedIn = session?.LoggedIn == true || reconnecting,
+                account = session?.LoggedIn == true ? session.Account : reconnecting ? savedAccount : "", savedAccount, errorCode, verification, qrUrl,
                 runtimeRoot = GameDefinition.RuntimeRoot(root, profile),
                 canLaunch = definition.CanLaunch, platform = definition.Platform,
                 game = new[] { profile }.Select(g => new {
@@ -99,14 +145,29 @@ namespace BazaarPlusPlus.Ios.Service
             }
             if (launched) return;
             if (action == "guard") { session?.SubmitCode((string)data["code"]!); return; }
+            if (action == "foreground") { Recover(); return; }
             if (action == "cancel" || action == "logout")
             {
-                Session? previous;
-                lock (gate) { ++generation; previous = session; session = null; }
+                Session? previous = null;
+                bool downloadStopped;
+                lock (gate)
+                {
+                    downloadStopped = action == "cancel" && downloadRun != null;
+                    downloadRun?.Cancel();
+                    WantDownload(false);
+                    ++generation;
+                    WakeRetry();
+                    if (!downloadStopped)
+                    {
+                        previous = session; session = null; reconnecting = false;
+                        autoSignIn = false;
+                    }
+                }
+                if (downloadStopped) { Set("loggedIn", "已取消下载"); return; }
                 previous?.Dispose();
                 Native.bpp_steam_identity(AppId, 0);
                 if (action == "logout") { Native.bpp_steam_save_session(""); lock (gate) savedAccount = ""; }
-                Set("signedOut", "已退出登录"); return;
+                Set("signedOut", action == "logout" ? "已退出登录" : "已取消登录"); return;
             }
             if (action != "login" && action != "restore" && action != "qr" && action != "download") return;
             long epoch;
@@ -114,70 +175,20 @@ namespace BazaarPlusPlus.Ios.Service
             _ = Task.Run(async () =>
             {
                 operation.Value = epoch;
-                Session? current = null;
-                bool login = action == "login" || action == "restore" || action == "qr";
                 try
                 {
-                    if (login)
+                    if (action == "download")
                     {
-                        session?.Dispose();
-                        Native.bpp_steam_identity(AppId, 0);
-                        string user = (string?)data["username"] ?? "", password = (string?)data["password"] ?? "", refresh = "";
-                        data.Remove("password");
-                        if (action == "restore")
-                        {
-                            string saved = Native.LoadSession();
-                            if (saved.Length == 0) { Set("signedOut", "请登录 Steam"); return; }
-                            var credentials = JObject.Parse(saved);
-                            user = (string)credentials["username"]!; refresh = (string)credentials["refresh"]!;
-                        }
-                        var started = DateTime.UtcNow;
-                        int connectAttempts = 0;
-                        while (true)
-                        {
-                            current = new Session(user, password, refresh, action == "qr");
-                            lock (gate) { if (epoch != generation) { current.Dispose(); return; } session = current; }
-                            try { await current.Login(); break; }
-                            // Steam drops unauthenticated connections after a minute or two, which is
-                            // shorter than a QR scan can take; reconnect with a fresh code instead.
-                            catch (Exception) when (current.ScanInterrupted && DateTime.UtcNow - started < QrWait)
-                            {
-                                Console.WriteLine("STEAM_QR_RECONNECT");
-                                lock (gate) { if (epoch != generation) return; session = null; }
-                                current.Dispose();
-                            }
-                            // A CM server that refuses the connection is marked bad in the shared
-                            // list, so the next attempt picks a different server.
-                            catch (IOException) when (current.NeverConnected && ++connectAttempts < 4)
-                            {
-                                Console.WriteLine("STEAM_CONNECT_RETRY " + connectAttempts);
-                                lock (gate) { if (epoch != generation) return; session = null; }
-                                current.Dispose();
-                            }
-                        }
-                        lock (gate)
-                        {
-                            if (epoch != generation || session != current) return;
-                            bool remembered = current.Persist();
-                            if (remembered) savedAccount = current.Account;
-                            Native.bpp_steam_identity(AppId, current.Client.SteamID!.ConvertToUInt64());
-                            Set("loggedIn", "已登录，可以下载 " + (string)profile["displayName"]! + (remembered ? "" : "（未能记住登录，下次需重新验证）"));
-                        }
+                        await RunDownload(epoch);
                     }
                     else
                     {
-                        current = session;
-                        if (current == null || !current.LoggedIn) throw new InvalidOperationException("Not signed in");
-                        await Downloader.Download(current.Client, profile, root, current.Cancellation);
-                        current.Cancellation.ThrowIfCancellationRequested();
-                        string downloaded = GameDefinition.InstalledVersion(root, profile);
-                        lock (gate) installedVersion = downloaded;
-                        if (definition.CanLaunch)
-                        {
-                            Installer.Prepare(profile, root, assets, current.Cancellation);
-                            Set("ready", "准备就绪", 1);
-                        }
-                        else Set("installed", (string?)profile["library"]?["platforms"]?[definition.Platform]?["reason"] ?? "已下载，设备适配中", 1);
+                        lock (gate) autoSignIn = true;
+                        bool quiet;
+                        lock (gate) quiet = reconnecting;
+                        var signedIn = await SignIn(action, data, epoch, quiet);
+                        // A download the player started picks up again as soon as they are signed in.
+                        if (signedIn != null && File.Exists(DownloadWantedPath)) await RunDownload(epoch);
                     }
                 }
                 catch (Exception error)
@@ -185,13 +196,18 @@ namespace BazaarPlusPlus.Ios.Service
                     lock (gate)
                     {
                         if (epoch != generation) return;
-                        if (login && session == current) { session = null; current?.Dispose(); Native.bpp_steam_identity(AppId, 0); }
+                        if (session != null && !session.LoggedIn)
+                        {
+                            var dead = session; session = null; dead.Dispose();
+                            Native.bpp_steam_identity(AppId, 0);
+                        }
+                        // Without a session, automatic sign-in stops here: the next attempt is the player's.
+                        if (session?.LoggedIn != true) autoSignIn = false;
+                        reconnecting = false;
                         string safe = error is AuthenticationException auth ? auth.Result.ToString() : error.GetType().Name;
                         bool timeout = error is OperationCanceledException || error is TimeoutException;
-                        bool qrExpired = action == "qr" && current != null && (current.ScanInterrupted || error is TimeoutException);
-                        // A rejected refresh token will never succeed again; forget it.
-                        if (action == "restore" && error is AuthenticationException)
-                        { Native.bpp_steam_save_session(""); savedAccount = ""; }
+                        bool qrExpired = error is QrExpiredException;
+                        bool restoring = action == "restore" || action == "download";
                         if (qrExpired) safe = "QrExpired";
                         if (error is GameEngineChangedException changed)
                         {
@@ -203,15 +219,202 @@ namespace BazaarPlusPlus.Ios.Service
                         }
                         Set("error", qrExpired ? "二维码已过期，请重新显示二维码"
                             : error is NoHttpsContentServerException ? "当前网络没有可用的安全下载节点，请切换网络后重试"
+                            : Failures.IsDiskFull(error) ? "设备存储空间不足，请清理后重试"
                             : timeout ? "Steam 请求超时或连接中断，请重试"
-                            : error is AuthenticationException rejected ? Explain(rejected.Result, action == "restore")
+                            : error is AuthenticationException rejected ? Explain(rejected.Result, restoring)
                             : "操作失败（" + safe + "），请重试或重新登录");
                         errorCode = safe;
                         Console.WriteLine("STEAM_APP_ERROR " + safe + " " + error.StackTrace);
                     }
                 }
                 finally { lock (gate) { if (epoch == busyOperation) busy = false; } }
+                Recover();
             });
+        }
+        /// Sign in again from the saved login whenever nothing else is running and no live session exists:
+        /// at launch, on returning to the foreground, after a dropped connection, and after a download ends.
+        static void Recover()
+        {
+            lock (gate)
+            {
+                WakeRetry();
+                if (launched || busy || !autoSignIn || savedAccount.Length == 0 || session?.LoggedIn == true) return;
+            }
+            Command("{\"action\":\"restore\"}");
+        }
+        static void WakeRetry()
+        {
+            lock (gate)
+            {
+                retryNow.TrySetResult(true);
+                retryNow = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+        /// The backoff between automatic attempts; returning to the foreground ends it early.
+        static async Task WaitBeforeRetry(int failures, CancellationToken cancellation)
+        {
+            Task woken;
+            lock (gate) woken = retryNow.Task;
+            int seconds = Math.Min(30, 1 << Math.Min(failures, 5));
+            await Task.WhenAny(woken, Task.Delay(TimeSpan.FromSeconds(seconds), cancellation));
+            cancellation.ThrowIfCancellationRequested();
+        }
+        // Survives the App being killed in the background, so the next launch carries on without a tap.
+        static void WantDownload(bool wanted)
+        {
+            if (wanted) File.WriteAllText(DownloadWantedPath, "");
+            else File.Delete(DownloadWantedPath);
+        }
+        /// Null when a cancel overtook the sign-in, or no saved login exists to restore.
+        static async Task<Session?> SignIn(string action, JObject data, long epoch, bool quiet)
+        {
+            session?.Dispose();
+            Native.bpp_steam_identity(AppId, 0);
+            string user = (string?)data["username"] ?? "", password = (string?)data["password"] ?? "", refresh = "";
+            data.Remove("password");
+            var started = DateTime.UtcNow;
+            int connectAttempts = 0, failures = 0;
+            while (true)
+            {
+                Session? current = null;
+                try
+                {
+                    if (action == "restore")
+                    {
+                        string saved = Native.LoadSession();
+                        if (saved.Length == 0)
+                        {
+                            // The Keychain has nothing to give while the device is locked; only a saved account means that.
+                            lock (gate) if (savedAccount.Length != 0) throw new IOException("Keychain locked");
+                            Set("signedOut", "请登录 Steam");
+                            return null;
+                        }
+                        var credentials = JObject.Parse(saved);
+                        user = (string)credentials["username"]!; refresh = (string)credentials["refresh"]!;
+                    }
+                    current = new Session(user, password, refresh, action == "qr", quiet);
+                    lock (gate) { if (epoch != generation) { current.Dispose(); return null; } session = current; }
+                    try { await current.Login(); }
+                    // Steam drops unauthenticated connections after a minute or two, which is
+                    // shorter than a QR scan can take; reconnect with a fresh code instead.
+                    catch (Exception) when (current.ScanInterrupted && DateTime.UtcNow - started < QrWait)
+                    {
+                        Console.WriteLine("STEAM_QR_RECONNECT");
+                        lock (gate) { if (epoch != generation) return null; session = null; }
+                        current.Dispose();
+                        continue;
+                    }
+                    // A CM server that refuses the connection is marked bad in the shared
+                    // list, so the next attempt picks a different server.
+                    catch (IOException) when (current.NeverConnected && ++connectAttempts < 4)
+                    {
+                        Console.WriteLine("STEAM_CONNECT_RETRY " + connectAttempts);
+                        lock (gate) { if (epoch != generation) return null; session = null; }
+                        current.Dispose();
+                        continue;
+                    }
+                    catch (Exception error) when (action == "qr" && (current.ScanInterrupted || error is TimeoutException))
+                    { throw new QrExpiredException(); }
+                    lock (gate)
+                    {
+                        if (epoch != generation || session != current) return null;
+                        bool remembered = current.Persist();
+                        if (remembered) savedAccount = current.Account;
+                        Native.bpp_steam_identity(AppId, current.Client.SteamID!.ConvertToUInt64());
+                        reconnecting = false;
+                        if (!quiet) Set("loggedIn", "已登录，可以下载 " + (string)profile["displayName"]! + (remembered ? "" : "（未能记住登录，下次需重新验证）"));
+                    }
+                    return current;
+                }
+                // A saved login survives anything but Steam rejecting it, so a bad connection never asks for the password.
+                catch (Exception error) when (action == "restore" && Failures.IsTransient(error))
+                {
+                    Console.WriteLine("STEAM_RESTORE_RETRY " + error.GetType().Name);
+                    lock (gate) { if (epoch != generation) return null; session = null; }
+                    current?.Dispose();
+                    if (!quiet) Set("connecting", "暂时无法连接 Steam，正在重试");
+                    await WaitBeforeRetry(++failures, CancellationToken.None);
+                    lock (gate) if (epoch != generation) return null;
+                }
+                catch (AuthenticationException rejected) when (action == "restore" && Failures.IsRejectedLogin(rejected.Result))
+                {
+                    Native.bpp_steam_save_session("");
+                    lock (gate) savedAccount = "";
+                    throw;
+                }
+            }
+        }
+        /// Download and prepare the game, for as long as it takes: a lost network, a dropped Steam
+        /// connection or a suspended App only delay it, and it keeps its place through each of them.
+        static async Task RunDownload(long epoch)
+        {
+            using (var run = new CancellationTokenSource())
+            {
+                lock (gate)
+                {
+                    if (epoch != generation) return;
+                    downloadRun = run;
+                    WantDownload(true);
+                }
+                try
+                {
+                    var progress = new DownloadProgress((next, text, fraction, done, total, speed) => Set(next, text, fraction, done, total, speed));
+                    int failures = 0; long received = 0; bool fetched = false;
+                    while (true)
+                    {
+                        try
+                        {
+                            var current = await Connected(epoch, progress);
+                            run.Token.ThrowIfCancellationRequested();
+                            if (current == null) throw new InvalidOperationException("Not signed in");
+                            if (!fetched)
+                            {
+                                await Downloader.Download(current.Client, profile, root, progress, run.Token);
+                                fetched = true;
+                                string downloaded = GameDefinition.InstalledVersion(root, profile);
+                                lock (gate)
+                                {
+                                    installedVersion = downloaded;
+                                    if (epoch == generation) WantDownload(false);
+                                }
+                            }
+                            run.Token.ThrowIfCancellationRequested();
+                            // The connection may have dropped during the transfer, and the game needs one to start.
+                            lock (gate) if (session?.LoggedIn == true) break;
+                        }
+                        catch (Exception error) when (!run.IsCancellationRequested && Failures.IsTransient(error))
+                        {
+                            Console.WriteLine("STEAM_DOWNLOAD_RETRY " + error.GetType().Name);
+                            if (progress.Received != received) { received = progress.Received; failures = 0; }
+                            progress.Stage("网络中断，正在重试");
+                            await WaitBeforeRetry(++failures, run.Token);
+                        }
+                        catch (Exception error) when (!run.IsCancellationRequested && !(error is AuthenticationException))
+                        {
+                            // Retrying cannot help; the player decides. A rejected login stays wanted: signing in again carries on.
+                            lock (gate) if (epoch == generation) WantDownload(false);
+                            throw;
+                        }
+                    }
+                    if (definition.CanLaunch)
+                    {
+                        Installer.Prepare(profile, root, assets, run.Token);
+                        Set("ready", "准备就绪", 1);
+                    }
+                    else Set("installed", (string?)profile["library"]?["platforms"]?[definition.Platform]?["reason"] ?? "已下载，设备适配中", 1);
+                }
+                finally { lock (gate) if (downloadRun == run) downloadRun = null; }
+            }
+        }
+        static async Task<Session?> Connected(long epoch, DownloadProgress progress)
+        {
+            lock (gate)
+            {
+                if (session?.LoggedIn == true) return session;
+                reconnecting = true;
+            }
+            progress.Stage("正在重新连接 Steam");
+            return await SignIn("restore", new JObject(), epoch, true);
         }
         static readonly TimeSpan QrWait = TimeSpan.FromSeconds(600);
         // "1.0.12764-prod-macos-arm64-013ff919" -> "1.0.12764"
@@ -301,14 +504,15 @@ namespace BazaarPlusPlus.Ios.Service
             readonly TaskCompletionSource<bool> loggedOn = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             TaskCompletionSource<string>? code;
             string username, password, refresh;
-            readonly bool qr;
+            readonly bool qr, quiet;
             CancellationToken authCancellation;
             volatile bool waitingForCode;
+            volatile bool loggedInElsewhere;
             IOException? disconnectError;
             int disposed;
-            public Session(string user, string pass, string token, bool qr)
+            public Session(string user, string pass, string token, bool qr, bool quiet)
             {
-                username = user; password = pass; refresh = token; this.qr = qr;
+                username = user; password = pass; refresh = token; this.qr = qr; this.quiet = quiet;
                 Client = new SteamClient(configuration!);
                 Client.DebugNetworkListener = new PacketTrace();
                 Client.AddHandler(Tickets); callbacks = new CallbackManager(Client);
@@ -320,9 +524,28 @@ namespace BazaarPlusPlus.Ios.Service
                     loggedOn.TrySetException(new IOException("Steam disconnected"));
                     if (!Cancellation.IsCancellationRequested)
                     {
+                        bool signedIn = loggedOn.Task.Status == TaskStatus.RanToCompletion;
                         disconnectError = new IOException("Steam disconnected"); cancellation.Cancel();
-                        lock (gate) if (session == this) { Native.bpp_steam_identity(AppId, 0); state = "error"; message = "Steam 连接已断开，请重新登录"; }
+                        lock (gate)
+                        {
+                            if (session != this) return;
+                            Native.bpp_steam_identity(AppId, 0);
+                            if (launched) { state = "error"; message = "Steam 连接已断开，请重新登录"; return; }
+                            if (signedIn && savedAccount.Length != 0 && (!loggedInElsewhere || busy)) reconnecting = true;
+                            // Signing straight back in would log out the other session, which could do the same.
+                            // Returning to this App, or a tap, is what takes the account back.
+                            if (signedIn && loggedInElsewhere && !busy)
+                            {
+                                state = "error"; message = "账号已在别处登录，点“连接 Steam”继续"; errorCode = "LoggedInElsewhere";
+                            }
+                        }
+                        if (signedIn && !loggedInElsewhere) Recover();
                     }
+                });
+                callbacks.Subscribe<SteamUser.LoggedOffCallback>(r =>
+                {
+                    Console.WriteLine("STEAM_LOGGED_OFF " + r.Result);
+                    loggedInElsewhere = r.Result == EResult.LoggedInElsewhere;
                 });
                 callbacks.Subscribe<SteamUser.LoggedOnCallback>(r =>
                 {
@@ -333,7 +556,7 @@ namespace BazaarPlusPlus.Ios.Service
             }
             public async Task Login()
             {
-                Set("connecting", "正在连接 Steam");
+                if (!quiet) Set("connecting", "正在连接 Steam");
                 DebugLog.Enabled = true;
                 _ = Task.Run(() => {
                     try {
@@ -378,9 +601,9 @@ namespace BazaarPlusPlus.Ios.Service
                     var result = await poll;
                     username = result.AccountName; refresh = result.RefreshToken;
                 }
-                Set("connecting", "正在完成 Steam 登录");
+                if (!quiet) Set("connecting", "正在完成 Steam 登录");
                 Client.GetHandler<SteamUser>()!.LogOn(new SteamUser.LogOnDetails { Username = username, AccessToken = refresh,
-                    ShouldRememberPassword = true, LoginID = 19374212 });
+                    ShouldRememberPassword = true, LoginID = identity.LoginId });
                 await Await(loggedOn.Task, 40);
                 Cancellation.ThrowIfCancellationRequested();
             }

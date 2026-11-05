@@ -14,7 +14,7 @@ API int bpp_steam_save_session(const char *json) {
     }
     NSDictionary *attributes = @{
         (__bridge id)kSecValueData: [NSData dataWithBytes:json length:strlen(json)],
-        (__bridge id)kSecAttrAccessible: (__bridge id)kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        (__bridge id)kSecAttrAccessible: (__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
     };
     OSStatus result = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)attributes);
     if (result == errSecItemNotFound) {
