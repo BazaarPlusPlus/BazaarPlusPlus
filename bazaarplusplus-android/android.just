@@ -11,7 +11,7 @@ launcher-icon:
 
 # Run the App's JVM unit tests.
 test:
-    ./gradlew --no-daemon testDebugUnitTest
+    ./gradlew --no-daemon testDebugUnitTest testReleaseUnitTest
 
 # Stage the Android App Runtime under build/runtime/ from the locked Loader Release (fetches from the game-libs store).
 stage-runtime:
@@ -54,6 +54,6 @@ dev-manifest-port port:
 dev-reset:
     adb shell run-as com.bazaarplusplus.android.dev rm -rf files/dev
 
-# Apply config.ini [game] to the debug App's saved login and open its launcher; pass --help for details.
-dev-login serial:
-    node ../scripts/android-login.mjs "$1"
+# Sign the debug App's game in through its Log In form with config.ini [game]; pass --help for details.
+dev-login serial *args:
+    node ../scripts/android-login.mjs "$@"

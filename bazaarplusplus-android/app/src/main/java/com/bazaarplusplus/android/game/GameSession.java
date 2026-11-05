@@ -9,6 +9,7 @@ import android.content.res.loader.ResourcesLoader;
 import android.content.res.loader.ResourcesProvider;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
+import com.bazaarplusplus.android.DevOverrides;
 
 import java.io.File;
 import java.io.IOException;
@@ -57,6 +58,10 @@ public final class GameSession {
     public static synchronized void prepare(Context context, InstalledGame installed, Inputs inputs) throws Exception {
         if (prepared) return;
         Context app = context.getApplicationContext() != null ? context.getApplicationContext() : context;
+        // Set before CoreCLR starts. Only the debug source set exposes a private mailbox.
+        File login = DevOverrides.loginDirectory(app);
+        if (login == null) android.system.Os.unsetenv("BPP_DEV_LOGIN_DIR");
+        else android.system.Os.setenv("BPP_DEV_LOGIN_DIR", login.getAbsolutePath(), true);
         game = installed;
         ApplicationInfo info = game.info;
         Log.i(TAG, "game " + game.versionName + " (" + game.versionCode + ") apks=" + game.apks.size()

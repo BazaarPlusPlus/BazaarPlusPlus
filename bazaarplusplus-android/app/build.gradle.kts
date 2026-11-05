@@ -151,6 +151,10 @@ val dexBridge = tasks.register<DexBridge>("dexBridge") {
 }
 
 androidComponents {
+    // Exercise the release DevOverrides implementation as well as debug's private hooks.
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
+    }
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(dexBridge, DexBridge::outputDir)
     }

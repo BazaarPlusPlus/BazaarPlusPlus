@@ -11,6 +11,17 @@ import java.util.List;
 public final class DevOverrides {
     private DevOverrides() {}
 
+    public static File loginDirectory(Context context) {
+        return null;
+    }
+
+    public static boolean loginRequested(Context context) {
+        return false;
+    }
+
+    public static void rejectLogin(Context context, String phase) {}
+
+
     public static ReleaseOrigin origin(Context context) {
         return null;
     }

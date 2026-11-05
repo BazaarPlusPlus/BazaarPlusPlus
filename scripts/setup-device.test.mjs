@@ -7,6 +7,7 @@ import {
   cloneAvd,
   configuredProfile,
   menuReady,
+  main,
   parseIni,
   profiles
 } from './setup-device.mjs';
@@ -130,5 +131,13 @@ test('matrix check rejects a renamed AVD with the wrong actual geometry or image
     assert.equal(
       configuredProfile({ ...config, [key]: value }, profiles[0]),
       false
+    );
+});
+
+test('unsupported login timeouts fail before provisioning a device', async () => {
+  for (const timeout of ['0', '601', 'NaN'])
+    await assert.rejects(
+      main(['init', '--timeout', timeout]),
+      /between 1 and 600/
     );
 });

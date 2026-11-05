@@ -26,6 +26,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bazaarplusplus.android.BuildConfigFacts;
+import com.bazaarplusplus.android.DevOverrides;
 import com.bazaarplusplus.android.R;
 import com.bazaarplusplus.android.diag.AppLog;
 import com.bazaarplusplus.android.game.GameSession;
@@ -57,6 +58,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     private ObjectAnimator pulse;
     private PopupMenu menu;
     private Dialog dialog;
+    private boolean devLoginStarted;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -95,6 +97,15 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     @Override
     public void changed() {
         render();
+        LauncherScreen screen = session.screen();
+        if (devLoginStarted && screen != null && screen.failure != null && DevOverrides.loginRequested(this)) {
+            DevOverrides.rejectLogin(this, "launch_failed");
+        }
+        if (!devLoginStarted && screen != null && !screen.busy && DevOverrides.loginRequested(this)) {
+            devLoginStarted = true;
+            if (screen.primary == LauncherScreen.Action.PLAY) session.launch(this);
+            else DevOverrides.rejectLogin(this, screen.status == null ? "check_failed" : screen.status.name());
+        }
     }
 
     @Override
