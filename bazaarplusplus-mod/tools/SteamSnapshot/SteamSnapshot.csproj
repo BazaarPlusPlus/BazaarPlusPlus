@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Reads one Steam branch and downloads a Game Assembly Snapshot's files from a depot. It runs
+       with the Steam login in its environment, so its package graph stays locked. Root ADR 0015. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>BazaarPlusPlus.SteamSnapshot</RootNamespace>
+    <AssemblyName>BazaarPlusPlus.SteamSnapshot</AssemblyName>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SteamKit2" />
+  </ItemGroup>
+</Project>

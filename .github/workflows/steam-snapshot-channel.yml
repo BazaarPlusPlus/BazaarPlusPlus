@@ -1,0 +1,228 @@
+name: Steam snapshot channel
+
+# One channel of steam-snapshot-watch.yml. When its Steam branch moves past the
+# Snapshot Lock, it downloads the Game Assembly Snapshots of the entries behind
+# and publishes them to the private bucket. If the game version or the
+# assemblies changed, it opens one pull request with the lock alone. A person
+# merges it.
+
+on:
+  workflow_call:
+    inputs:
+      channel:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: steam-snapshot-${{ inputs.channel }}
+  cancel-in-progress: false
+
+env:
+  CHANNEL: ${{ inputs.channel }}
+  LOCK: bazaarplusplus-mod/build/game-libs.lock.json
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The environment limits the Steam login to the branches its protection rule names.
+    environment: steam
+    permissions:
+      contents: write
+      pull-requests: read
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      kind: ${{ steps.change.outputs.kind }}
+      branch: ${{ steps.stale.outputs.branch }}
+      buildid: ${{ steps.stale.outputs.buildid }}
+      platforms: ${{ steps.stale.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+        with:
+          tool: just@1.58.0
+      # Only the two Steam steps read the login and the access codes. A rejected
+      # login or code fails here, naming what to renew.
+      - name: Compare Steam with the lock
+        id: stale
+        env:
+          STEAM_SNAPSHOT_LOGIN: ${{ secrets.STEAM_SNAPSHOT_LOGIN }}
+          STEAM_BETA_PASSWORDS: ${{ secrets.STEAM_BETA_PASSWORDS }}
+        run: |
+          state="$(just mod::steam-stale "$CHANNEL" | tail -n 1)"
+          buildid="$(jq -r .buildid <<< "$state")"
+          echo "buildid=$buildid" >> "$GITHUB_OUTPUT"
+          echo "branch=chore/steam-$CHANNEL-$buildid" >> "$GITHUB_OUTPUT"
+          echo "platforms=$(jq -c .platforms <<< "$state")" >> "$GITHUB_OUTPUT"
+          echo "Steam $CHANNEL buildid $buildid; behind in the lock: $(jq -r '.platforms | join(", ")' <<< "$state")" >> "$GITHUB_STEP_SUMMARY"
+      # An open pull request, not a branch: a run that stopped before opening one
+      # leaves a branch the next run can replace.
+      - name: Find this build's pull request
+        id: open
+        if: steps.stale.outputs.platforms != '[]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.stale.outputs.branch }}
+        run: |
+          open="$(gh pr list --head "$BRANCH" --state open --json number --jq length)"
+          echo "count=$open" >> "$GITHUB_OUTPUT"
+          if [[ "$open" != 0 ]]; then
+            echo "A pull request for this build is already open" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.open.outputs.count == '0'
+        name: Capture the entries behind
+        env:
+          PLATFORMS: ${{ steps.stale.outputs.platforms }}
+          STEAM_SNAPSHOT_LOGIN: ${{ secrets.STEAM_SNAPSHOT_LOGIN }}
+          STEAM_BETA_PASSWORDS: ${{ secrets.STEAM_BETA_PASSWORDS }}
+        run: |
+          cp "$LOCK" "$RUNNER_TEMP/previous-lock.json"
+          for platform in $(jq -r '.[]' <<< "$PLATFORMS"); do
+            just mod::steam-capture "$platform" "$CHANNEL"
+          done
+      - if: steps.open.outputs.count == '0'
+        name: Classify the capture
+        id: change
+        run: |
+          kind="$(node release/game-libs.mjs steam-change --previous "$RUNNER_TEMP/previous-lock.json" --channel "$CHANNEL")"
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "Capture: $kind change" >> "$GITHUB_STEP_SUMMARY"
+      - if: steps.change.outputs.kind == 'content' || steps.change.outputs.kind == 'code'
+        name: Publish the captured snapshots
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          PLATFORMS: ${{ steps.stale.outputs.platforms }}
+        run: |
+          for platform in $(jq -r '.[]' <<< "$PLATFORMS"); do
+            just mod::publish "$platform" "$CHANNEL"
+          done
+      - if: steps.change.outputs.kind == 'content' || steps.change.outputs.kind == 'code'
+        name: Push the lock
+        env:
+          BRANCH: ${{ steps.stale.outputs.branch }}
+          BUILDID: ${{ steps.stale.outputs.buildid }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add "$LOCK"
+          git commit -m "chore(mod): record Steam $CHANNEL build $BUILDID"
+          git push --force origin "$BRANCH"
+
+  # A pull request from GITHUB_TOKEN starts no checks, so the Mod lanes of the
+  # platforms captured run here, and their result goes in its body. These jobs
+  # compile against the game's assemblies, and they never hold the Steam login.
+  verify:
+    needs: capture
+    if: needs.capture.outputs.kind == 'code'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.capture.outputs.platforms) }}
+    runs-on: ${{ matrix.platform == 'macos' && 'macos-26' || 'windows-latest' }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.capture.outputs.branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+          cache: true
+          cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
+      - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+        with:
+          tool: just@1.58.0
+      - run: just mod::fetch "$PLATFORM" "$CHANNEL"
+      # The product compiles and tests against online. A preview channel only has
+      # to compile (ADR 0004).
+      - if: env.CHANNEL == 'online'
+        run: just verify mod::check mod::test
+      - if: env.CHANNEL != 'online'
+        run: just mod::matrix "$CHANNEL"
+      - name: Preserve verification and test diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: steam-snapshot-diagnostics-${{ inputs.channel }}-${{ matrix.platform }}
+          path: |
+            artifacts/verification/
+            bazaarplusplus-mod/artifacts/tests/
+          if-no-files-found: warn
+
+  open:
+    needs: [capture, verify]
+    if: always() && (needs.capture.outputs.kind == 'content' || needs.capture.outputs.kind == 'code') && needs.capture.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.capture.outputs.branch }}
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.capture.outputs.branch }}
+          BUILDID: ${{ needs.capture.outputs.buildid }}
+          PLATFORMS: ${{ needs.capture.outputs.platforms }}
+          KIND: ${{ needs.capture.outputs.kind }}
+          VERIFY: ${{ needs.verify.result }}
+        run: |
+          case "$KIND:$VERIFY" in
+            content:*) check='The assemblies are the locked ones, so this run did not build the Mod again.' ;;
+            code:success) check='The Mod checks of this channel passed on each captured platform.' ;;
+            *) check='The Mod checks of this channel **failed or did not finish**; see the workflow run. The game may have changed what the Mod depends on, so an adaptation commit may belong on this branch.' ;;
+          esac
+          {
+            echo "Steam moved the $CHANNEL branch to build $BUILDID. This records the snapshots captured from its depots, already in the private bucket:"
+            echo
+            for platform in $(jq -r '.[]' <<< "$PLATFORMS"); do
+              echo "- \`$platform-$CHANNEL\`: \`$(jq -r --arg key "$platform-$CHANNEL" '.entries[$key].gameVersion' "$LOCK")\`"
+            done
+            echo
+            echo "- $check"
+            echo "- Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "Release Notes:"
+            echo
+            echo "- N/A"
+          } > "$RUNNER_TEMP/body.md"
+          url="$(gh pr create --base master --head "$BRANCH" --title "chore(mod): record Steam $CHANNEL build $BUILDID" --body-file "$RUNNER_TEMP/body.md")"
+          # A newer build leaves an older bot pull request nothing to add. One with
+          # a person's adaptation commit on it stays open.
+          gh pr list --state open --json headRefName,number,commits \
+            --jq ".[] | select(.headRefName | startswith(\"chore/steam-$CHANNEL-\")) | select(.headRefName != \"$BRANCH\") | select(.commits | length == 1) | .number" |
+            while read -r older; do
+              gh pr close "$older" --delete-branch --comment "Replaced by $url"
+            done

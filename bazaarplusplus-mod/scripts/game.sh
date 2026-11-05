@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Which Game Assembly or Interop Snapshot is in use: decompile, snapshot, publish,
 # fetch, lock check, release pin. Entry points: `just mod::decompile`, `mod::snapshot`,
+# `mod::steam-capture`, `mod::steam-stale`, `mod::steam-login`,
 # `mod::snapshot-android`, `mod::publish`, `mod::fetch`, `mod::lock-check`, and
 # release/payload.mjs (`managed-path`). The lock itself is build/game-libs.lock.json
 # (root ADR 0004 and ADR 0008).
@@ -63,6 +64,54 @@ cmd_snapshot_android() {
     local apk="$1"
     shift
     game_libs_cli snapshot-android --apk "$apk" "$@"
+}
+
+# The operator's saved Steam login and branch access codes (root ADR 0015). CI sets
+# STEAM_SNAPSHOT_LOGIN and STEAM_BETA_PASSWORDS itself.
+config_keys_dir() {
+    printf '%s/keys\n' "$(node --input-type=module -e "
+        import { configHome } from '$MOD_ROOT/../scripts/local-config.mjs';
+        console.log(configHome());
+    ")"
+}
+
+steam_login_file() { printf '%s/steam-snapshot-login.json\n' "$(config_keys_dir)"; }
+
+load_steam_login() {
+    local file
+    [[ -n "${STEAM_SNAPSHOT_LOGIN:-}" ]] && return
+    file="$(steam_login_file)"
+    [[ -f "$file" ]] || die "No Steam login: run 'just mod::steam-login', or set STEAM_SNAPSHOT_LOGIN."
+    STEAM_SNAPSHOT_LOGIN="$(cat "$file")"
+    export STEAM_SNAPSHOT_LOGIN
+    [[ -n "${STEAM_BETA_PASSWORDS:-}" ]] && return
+    file="$(config_keys_dir)/steam-beta-passwords.json"
+    if [[ -f "$file" ]]; then
+        STEAM_BETA_PASSWORDS="$(cat "$file")"
+        export STEAM_BETA_PASSWORDS
+    fi
+}
+
+# steam-login: sign in at the terminal and save the login under the workspace config's keys/.
+# `just secrets-sync` copies it to GitHub. The password stays with the operator.
+cmd_steam_login() {
+    dotnet run --project tools/SteamSnapshot/SteamSnapshot.csproj -c Release --no-launch-profile -v q -- \
+        login --out "$(steam_login_file)"
+}
+
+# steam-stale <channel>: print {buildid, platforms}, the platforms whose lock entry is behind Steam.
+cmd_steam_stale() {
+    [[ $# -eq 1 ]] || die "Usage: just mod::steam-stale <online|staging|ptr>"
+    load_steam_login
+    game_libs_cli steam-stale --channel "$1"
+}
+
+# steam-capture <macos|windows> <channel>: the same capture as snapshot, from the Steam depot rather
+# than a mounted install, so it runs on any host and needs no branch switch. Publish it next.
+cmd_steam_capture() {
+    [[ $# -eq 2 ]] || die "Usage: just mod::steam-capture <macos|windows> <online|staging|ptr>"
+    load_steam_login
+    game_libs_cli steam-capture --platform "$1" --channel "$2"
 }
 
 # publish <macos|windows|android> <channel>: upload the captured snapshot of that lock

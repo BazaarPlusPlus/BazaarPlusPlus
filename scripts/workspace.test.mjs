@@ -605,6 +605,8 @@ test('secrets check names what GitHub and the local configuration hold, never a 
     `CLOUDFLARE_ACCOUNT_ID       repository variable           GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_ACCOUNT_ID)
 CLOUDFLARE_API_TOKEN        repository secret             GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_API_TOKEN)
 BPP_BUNDLE_SYNC_TOKEN       analyzer environment secret   GitHub MISSING  local present (config.ini [server] BUNDLE_SYNC_TOKEN)
+STEAM_SNAPSHOT_LOGIN        steam environment secret      GitHub MISSING  local MISSING (contents of keys/steam-snapshot-login.json)
+STEAM_BETA_PASSWORDS        steam environment secret      GitHub MISSING  local MISSING (contents of keys/steam-beta-passwords.json)
 TAURI_SIGNING_PRIVATE_KEY   release environment secret    GitHub MISSING  local present (contents of keys/tauri-updater.key)
 ANDROID_KEYSTORE            release environment secret    GitHub MISSING  local MISSING (base64 of keys/android-release.p12)
 ANDROID_KEYSTORE_PASSWORD   release environment secret    GitHub MISSING  local MISSING (config.ini [signing] ANDROID_KEYSTORE_PASSWORD)
@@ -615,7 +617,7 @@ APPLE_API_KEY               release environment variable  GitHub MISSING  local 
 APPLE_API_KEY_P8            release environment secret    GitHub MISSING  local present (contents of keys/AuthKey_<APPLE_API_KEY>.p8)
 APPLE_CERTIFICATE           release environment secret    GitHub MISSING  local MISSING (base64 of keys/developer-id.p12)
 APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.ini [signing] APPLE_CERTIFICATE_PASSWORD)
-13 managed names: 13 missing on GitHub, 5 missing locally.
+15 managed names: 15 missing on GitHub, 7 missing locally.
 Dependabot secrets were not listed; pass --dependabot to include them.
 `
   );
@@ -645,13 +647,15 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   f.put(f.home, 'keys/AuthKey_K1.p8', 'P8-KEY');
   f.put(f.home, 'keys/developer-id.p12', Buffer.from([0x30, 0x82, 0x00, 0xff]));
   f.put(f.home, 'keys/android-release.p12', Buffer.from([0x30, 0x82, 0x0a]));
+  f.put(f.home, 'keys/steam-snapshot-login.json', 'STEAM-LOGIN');
+  f.put(f.home, 'keys/steam-beta-passwords.json', 'STEAM-CODES');
   const gh = ghStub(f);
   const env = { PATH: `${gh.bin}${path.delimiter}${process.env.PATH}` };
   let result = cli(f, ['secrets', 'push', '--dependabot'], env);
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.doesNotMatch(
     result.stdout + result.stderr,
-    /operator-token|UPDATER-KEY|P8-KEY|MIIA|issuer-id|ks-pass/
+    /operator-token|UPDATER-KEY|P8-KEY|MIIA|issuer-id|ks-pass|STEAM-LOGIN|STEAM-CODES/
   );
   assert.match(
     result.stdout,
@@ -667,7 +671,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   );
   assert.match(
     result.stdout,
-    /^Set 12 GitHub names; 1 without a local value\.$/m
+    /^Set 14 GitHub names; 1 without a local value\.$/m
   );
   const sets = gh.calls().filter(({ args }) => args[1] === 'set');
   const byName = Object.fromEntries(
@@ -681,6 +685,8 @@ test('secrets push copies each local value over stdin to its scope and skips abs
     'secret:CLOUDFLARE_API_TOKEN:': 'operator-token',
     'secret:CLOUDFLARE_API_TOKEN:--app dependabot': 'operator-token',
     'secret:BPP_BUNDLE_SYNC_TOKEN:--env analyzer': 'sync',
+    'secret:STEAM_SNAPSHOT_LOGIN:--env steam': 'STEAM-LOGIN',
+    'secret:STEAM_BETA_PASSWORDS:--env steam': 'STEAM-CODES',
     'secret:TAURI_SIGNING_PRIVATE_KEY:--env release': 'UPDATER-KEY\n',
     'secret:ANDROID_KEYSTORE:--env release': Buffer.from([
       0x30, 0x82, 0x0a
