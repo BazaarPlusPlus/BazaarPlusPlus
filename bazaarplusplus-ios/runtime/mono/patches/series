@@ -8,3 +8,4 @@
 0008-interp-method-redirect.patch
 0009-interp-skip-verification.patch
 0010-interp-return-value-size.patch
+0011-boehm-main-stack-bottom.patch
