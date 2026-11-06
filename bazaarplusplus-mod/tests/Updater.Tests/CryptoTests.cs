@@ -107,7 +107,7 @@ public sealed class CryptoTests
         Assert.False(Ed25519.Verify(publicKey, Array.Empty<byte>(), signature));
     }
 
-    // A file signed with the release key through release/android-release.mjs signWithUpdaterKey
+    // A file signed with the release key through release/android-release.ts signWithUpdaterKey
     // (the Tauri signer): the whole path, prehash included, under the key the Updater embeds.
     [Fact]
     public void Release_key_verifies_a_tauri_signer_signature()

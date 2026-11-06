@@ -29,7 +29,7 @@
       Condition="'$(BppSnapshotPlatform)' == '' and $([MSBuild]::IsOSPlatform('Linux'))"
       >macos</BppSnapshotPlatform>
     <BppSnapshotChannel Condition="'$(BppSnapshotChannel)' == ''">online</BppSnapshotChannel>
-    <!-- release/game-libs.mjs GAME_VERSION_PATTERN; a release test keeps the two equal. -->
+    <!-- release/game-libs.ts GAME_VERSION_PATTERN; a release test keeps the two equal. -->
     <BppGameVersionPattern>\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:(?:macos|windows)-[a-z0-9]+|android)-[0-9a-f]+</BppGameVersionPattern>
   </PropertyGroup>
   <!-- git ignores game-libs/, so a linked worktree has none until it fetches; it borrows the main

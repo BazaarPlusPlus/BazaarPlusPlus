@@ -3,7 +3,7 @@ set positional-arguments
 
 # Refresh shared configuration, then run an explicit analyzer CLI command.
 cli +args:
-    node ../scripts/workspace.mjs run analyzer -- uv run --locked bpp "$@"
+    node ../scripts/workspace.ts run analyzer -- uv run --locked bpp "$@"
 
 # Collect facts and publish snapshots; pass --no-publish for local validation.
 run *args:

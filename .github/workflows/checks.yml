@@ -61,7 +61,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - id: scope
-        run: node .github/scripts/checks-scope.mjs
+        run: node .github/scripts/checks-scope.ts
         env:
           HISTORY_FETCH_OUTCOME: ${{ steps.history.outcome }}
 
@@ -80,7 +80,7 @@ jobs:
           node-version-file: .nvmrc
       - run: |
           xcodebuild -version
-          node bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs
+          node bazaarplusplus-installer/scripts/release/compile-macos-icon.ts
 
   release:
     name: Release tooling
@@ -454,7 +454,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      - run: node .github/scripts/checks-summary.mjs
+      - run: node .github/scripts/checks-summary.ts
         env:
           CHECK_NEEDS: ${{ toJSON(needs) }}
           MOD_CREDENTIALS: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}

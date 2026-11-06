@@ -4,7 +4,7 @@ pre-commit:
   parallel: true
   jobs:
     - name: workspace
-      glob: '{JUSTFILE,**/*.just,package*.json,.nvmrc,.prettierrc.json,lefthook.yml,VERSION,release.mjs,release/**,scripts/**}'
+      glob: '{JUSTFILE,**/*.just,package*.json,.nvmrc,.prettierrc.json,.oxlintrc.json,tsconfig.json,vitest.config.ts,lefthook.yml,VERSION,release.ts,release/**,scripts/**,.github/scripts/**,.agents/skills/**,design/build.ts}'
       run: just commands-check release::check
 
     - name: design
@@ -16,7 +16,7 @@ pre-commit:
       run: just verify mod::check
 
     - name: installer
-      glob: '{bazaarplusplus-installer/**,design/**,release.mjs,release/**,VERSION,scripts/**,JUSTFILE}'
+      glob: '{bazaarplusplus-installer/**,design/**,tsconfig.json,release.ts,release/**,VERSION,scripts/**,JUSTFILE}'
       run: just installer::check-fast
 
     - name: site
@@ -39,4 +39,4 @@ pre-push:
   jobs:
     - name: affected-projects
       use_stdin: true
-      run: node scripts/pre-push.mjs "{1}"
+      run: node scripts/pre-push.ts "{1}"

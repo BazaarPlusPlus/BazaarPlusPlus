@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Signs and bundles the installer for the host platform. Internal to the product
-# coordinator: `just release::build <platform>` (node release.mjs build) holds the
+# coordinator: `just release::build <platform>` (node release.ts build) holds the
 # build lock, prepares the Payload, then runs this script with BPP_RELEASE_LOCK_TOKEN.
-# Functions are sourced directly by scripts/bundle.test.mjs. It lives outside
+# Functions are sourced directly by scripts/bundle.test.ts. It lives outside
 # scripts/release/ because signing is not a Payload input.
 
 INSTALLER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -13,7 +13,7 @@ MACOS_TRAMPOLINE_STUB="$INSTALLER_ROOT/src-tauri/resources/Trampoline/macos/bpp_
 # SIGNING_STAGE_COMMAND locally and by .github/scripts/release-secrets.sh in CI.
 # Without one, only exported values count.
 SIGNING_SECRETS_DIR="${BPP_SIGNING_SECRETS_DIR:-}"
-SIGNING_STAGE_COMMAND="node scripts/workspace.mjs run signing"
+SIGNING_STAGE_COMMAND="node scripts/workspace.ts run signing"
 OFFICIAL_APPLE_TEAM_ID="9Z44S3N293"
 MACOS_GAME_APP_OVERLAY="TheBazaar.app"
 
@@ -110,7 +110,7 @@ current_platform() {
 }
 
 release_platforms_cli() {
-    node "$INSTALLER_ROOT/../release/release-platforms.mjs" "$@"
+    node "$INSTALLER_ROOT/../release/release-platforms.ts" "$@"
 }
 
 install_dependencies() {
@@ -405,7 +405,7 @@ create_zip_from_directory() {
     local output_zip="$2"
     local output_manifest="$3"
 
-    node "$INSTALLER_ROOT/../release/payload-zip.mjs" pack \
+    node "$INSTALLER_ROOT/../release/payload-zip.ts" pack \
         --source "$source_dir" --output "$output_zip" \
         --manifest-output "$output_manifest" --platform macos
 }
@@ -454,7 +454,7 @@ prepare_signed_macos_resource_zip() {
 
 run_release_prechecks() {
     local platform="$1"
-    invoke_step "Checking product build ownership" node "$INSTALLER_ROOT/../release.mjs" assert-build-owner
+    invoke_step "Checking product build ownership" node "$INSTALLER_ROOT/../release.ts" assert-build-owner
     invoke_step "Running authoritative release verification" \
         npm run verify -- --release-platform "$platform"
 }
@@ -545,11 +545,11 @@ main() {
     fi
 
     cd "$INSTALLER_ROOT"
-    node "$INSTALLER_ROOT/../release.mjs" assert-build-owner
+    node "$INSTALLER_ROOT/../release.ts" assert-build-owner
 
     assert_command node "Install Node.js first."
     assert_command npm "Install Node.js/npm first."
-    node scripts/checks/check-toolchain.mjs "$(node --version)" "$(npm --version)"
+    node scripts/checks/check-toolchain.ts "$(node --version)" "$(npm --version)"
     assert_command cargo "Install Rust toolchain first."
 
     platform="$(current_platform)"

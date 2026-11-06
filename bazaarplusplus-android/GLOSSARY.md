@@ -12,7 +12,7 @@ Cross-project terms (Android App, Game Code Hash, Interop Package, Launch Record
 
 **Library links**: the directory under the App's `no_backup/` that links each of the game's native libraries, and the App's own `libmain.so` and `libe_sqlite3.so`, into one search path for the game class loader.
 
-**Android App Runtime**: what the App APK carries for LemonLoader: `assets/lemon-runtime.zip` (the Loader Release's assets and the Updater as the packaged deployment), `assets/bpp-runtime.json`, and the native libraries under `jniLibs/`. `release/android-app.mjs stage-runtime` writes it.
+**Android App Runtime**: what the App APK carries for LemonLoader: `assets/lemon-runtime.zip` (the Loader Release's assets and the Updater as the packaged deployment), `assets/bpp-runtime.json`, and the native libraries under `jniLibs/`. `release/android-app.ts stage-runtime` writes it.
 
 **Carried release**: the release a release APK runs without a download: `assets/bpp-release/<sha256>.zip` for its Interop Package and Managed Payload, and `assets/bpp-release/release.json`, its Platform Release Manifest without `app` (`release/CarriedRelease`). A launch takes a file from there when the sha256 matches, and uses the document when no manifest can be read.
 

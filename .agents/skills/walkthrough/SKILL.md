@@ -11,7 +11,7 @@ Build this checkout, bring each device up one at a time, reach every scenario in
 (scenario × device). The user finds the bugs; your job is complete, honest
 coverage.
 
-`node scripts/walkthrough.mjs --help` owns the command syntax, device names and
+`node scripts/walkthrough.ts --help` owns the command syntax, device names and
 paths. `docs/development.md` (本机矩阵与登录准备) owns the device matrix and its
 sign-in rules. Read both first.
 
@@ -26,7 +26,7 @@ Done when both build. A failed build ends the walkthrough: report it.
 
 ## 2. Walk each device
 
-Drive one device at a time. For each device, in the order `walkthrough.mjs devices` prints:
+Drive one device at a time. For each device, in the order `walkthrough.ts devices` prints:
 
 1. **Bring it up with this checkout's mod running at the main menu.**
    - Android: `just setup-device NAME --keep-open`. It deploys this
@@ -43,7 +43,7 @@ Drive one device at a time. For each device, in the order `walkthrough.mjs devic
    A sign-in prompt is the user's too: tell them, and wait.
 2. **Walk the scenarios in scenarios.md order.** For each one, reach the
    screen, let it settle, then
-   `node scripts/walkthrough.mjs capture RUN NAME SCENARIO`. Add `--note` only
+   `node scripts/walkthrough.ts capture RUN NAME SCENARIO`. Add `--note` only
    for a fact the screenshot cannot show (the panel took 20 s to open, a tap
    did nothing). When a screen cannot be reached after a real attempt, record
    `skip … --reason` with what blocked it.
@@ -54,7 +54,7 @@ on it. A skipped cell names its blocker.
 
 ### Reaching a screen
 
-- **Panels**: `node scripts/walkthrough.mjs panel NAME collection|history|live_build`.
+- **Panels**: `node scripts/walkthrough.ts panel NAME collection|history|live_build`.
   It returns once the game consumed the request. Then capture.
 - **Everything else** (History tabs, card inspection, settings, starting a
   run, shop tooltips, closing a panel): tap the game. Look first, then tap:
@@ -67,7 +67,7 @@ on it. A skipped cell names its blocker.
 
 ## 3. Report
 
-`node scripts/walkthrough.mjs report RUN`, then send
+`node scripts/walkthrough.ts report RUN`, then send
 `artifacts/walkthrough/RUN/index.html` with `SendUserFile`. The screenshots show
 the signed-in account: the report stays local, never published or committed.
 

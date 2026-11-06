@@ -1,4 +1,4 @@
-# ts-rs export directory for #[ts(export)] types (see scripts/generate-bindings.mjs).
+# ts-rs export directory for #[ts(export)] types (see scripts/generate-bindings.ts).
 [env]
 TS_RS_EXPORT_DIR = { value = "../src/types/generated/bindings", relative = true }
 TS_RS_LARGE_INT = "number"

@@ -3,7 +3,7 @@
 # fetch, lock check, release pin. Entry points: `just mod::decompile`, `mod::snapshot`,
 # `mod::steam-capture`, `mod::steam-stale`, `mod::steam-login`,
 # `mod::snapshot-android`, `mod::publish`, `mod::fetch`, `mod::lock-check`, and
-# release/payload.mjs (`managed-path`). The lock itself is build/game-libs.lock.json
+# release/payload.ts (`managed-path`). The lock itself is build/game-libs.lock.json
 # (root ADR 0004 and ADR 0008).
 # shellcheck source=scripts/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -58,7 +58,7 @@ cmd_snapshot() {
 # android-online entry: its identity, the Interop assemblies generated from it (or
 # --interop <dir> generated elsewhere from the same APK), and the pinned Loader
 # Release, Patcher and Cpp2IL. The options name a new toolchain; without them the
-# current entry's toolchain is reused. `node ../release/game-libs.mjs --help` lists them.
+# current entry's toolchain is reused. `node ../release/game-libs.ts --help` lists them.
 cmd_snapshot_android() {
     [[ $# -ge 1 ]] || die "Usage: just mod::snapshot-android <TheBazaar.apk> [--interop <dir>] [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>] [--cpp2il <file>] [--native-package <id>@<version>]"
     local apk="$1"
@@ -70,7 +70,7 @@ cmd_snapshot_android() {
 # STEAM_SNAPSHOT_LOGIN and STEAM_BETA_PASSWORDS itself.
 config_keys_dir() {
     printf '%s/keys\n' "$(node --input-type=module -e "
-        import { configHome } from '$MOD_ROOT/../scripts/local-config.mjs';
+        import { configHome } from '$MOD_ROOT/../scripts/local-config.ts';
         console.log(configHome());
     ")"
 }

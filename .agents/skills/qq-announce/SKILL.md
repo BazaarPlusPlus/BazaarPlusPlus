@@ -7,7 +7,7 @@ argument-hint: [release notes]
 
 # Announce a release in the QQ groups
 
-`scripts/announce.mjs` does the work; run it from the repository root. The bot's AppID and AppSecret are in `$BPP_CONFIG_HOME/qqbot.env` (default `~/.config/bazaarplusplus/qqbot.env`), not `config.ini`, whose parser rejects unknown sections. Every message it sends is public at once and cannot be recalled by this skill, so each send waits for the user's yes.
+`scripts/announce.ts` does the work; run it from the repository root. The bot's AppID and AppSecret are in `$BPP_CONFIG_HOME/qqbot.env` (default `~/.config/bazaarplusplus/qqbot.env`), not `config.ini`, whose parser rejects unknown sections. Every message it sends is public at once and cannot be recalled by this skill, so each send waits for the user's yes.
 
 ## Groups
 
@@ -29,7 +29,7 @@ Each group gets the same messages, in this order: notes, Win, Mac, Android.
 3. **Dry run.** Run without `--send` and show the user the notes and the printed plan:
 
    ```bash
-   node .agents/skills/qq-announce/scripts/announce.mjs --target test --notes <notes file> [--platforms ...]
+   node .agents/skills/qq-announce/scripts/announce.ts --target test --notes <notes file> [--platforms ...]
    ```
 
    Check that each file's version matches the title of the notes.

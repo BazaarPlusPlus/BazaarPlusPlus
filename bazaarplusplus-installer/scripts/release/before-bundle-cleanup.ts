@@ -1,0 +1,74 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {
+  RELEASE_PLATFORMS,
+  resolveBuildPlatform
+} from '../../../release/release-platforms.ts';
+import type { TauriReleasePlatform } from '../../../release/release-platforms.ts';
+
+// What cleanupBundleArtifacts did: the bundle path it checked (null when the
+// host builds no installer) and whether it removed anything there.
+export interface BundleCleanupResult {
+  cleanupPath: string | null;
+  removed: boolean;
+}
+
+export function resolveBundleCleanupPath(
+  rootDir: string,
+  platformEnv: string | undefined
+): string | null {
+  const buildPlatform = resolveBuildPlatform(platformEnv);
+  // resolveBuildPlatform names only Tauri platforms.
+  const platform = RELEASE_PLATFORMS.find(
+    (entry): entry is TauriReleasePlatform =>
+      entry.buildPlatform === buildPlatform
+  );
+  return platform
+    ? path.join(rootDir, ...platform.bundleCleanupDir.split('/'))
+    : null;
+}
+
+export function cleanupBundleArtifacts(
+  rootDir: string,
+  platformEnv: string | undefined
+): BundleCleanupResult {
+  const cleanupPath = resolveBundleCleanupPath(rootDir, platformEnv);
+  if (!cleanupPath) {
+    return { cleanupPath: null, removed: false };
+  }
+
+  if (!fs.existsSync(cleanupPath)) {
+    return { cleanupPath, removed: false };
+  }
+
+  fs.rmSync(cleanupPath, { force: true, recursive: true });
+  return { cleanupPath, removed: true };
+}
+
+function main() {
+  const rootDir = path.resolve(import.meta.dirname, '..', '..');
+  const platformEnv = process.env.TAURI_ENV_PLATFORM ?? process.platform;
+  const { cleanupPath, removed } = cleanupBundleArtifacts(rootDir, platformEnv);
+
+  if (!cleanupPath) {
+    console.log(
+      `before-bundle-cleanup: skipping unsupported platform ${platformEnv}`
+    );
+    return;
+  }
+
+  if (removed) {
+    console.log(
+      `before-bundle-cleanup: removed stale bundle artifacts at ${cleanupPath}`
+    );
+    return;
+  }
+
+  console.log(
+    `before-bundle-cleanup: no stale bundle artifacts at ${cleanupPath}`
+  );
+}
+
+if (import.meta.main) {
+  main();
+}

@@ -4,7 +4,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * {@code assets/bpp-runtime.json}, which release/android-app.mjs {@code stageAndroidAppRuntime}
+ * {@code assets/bpp-runtime.json}, which release/android-app.ts {@code stageAndroidAppRuntime}
  * writes: the Loader Release this App carries and its nonManagedPayloadDigest (null for a
  * development build).
  */

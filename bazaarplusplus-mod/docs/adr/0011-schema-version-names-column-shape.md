@@ -12,7 +12,7 @@ V6 moves the data root to `BazaarPlusPlusV6/` and starts a new database there in
 
 1. `user_version` names the column shape the installer reads. Bump it only for a column change. The bump lands in one pull request with its migration, `BazaarPlusPlus.history-database.json`, and the installer's compatibility list. Index and trigger DDL in `BootstrapSql` needs no bump.
 2. A one-time data repair never bumps it. The first repair that must run once adds a mod-private ledger table through `BootstrapSql`, with one row per repair name written in the repair's own transaction. The repair checks that ledger, not the version. No ledger exists yet because no repair needs one. V5's version 3 repair was keyed on leaving version 2; V6 has no repair and no migration.
-3. The mod's version is the newest one the installer supports. `assertHistoryDatabaseCompatibility` in root `release/history-database.mjs` checks the source files in `release::check` and the staged Payload in `release::prepare`.
+3. The mod's version is the newest one the installer supports. `assertHistoryDatabaseCompatibility` in root `release/history-database.ts` checks the source files in `release::check` and the staged Payload in `release::prepare`.
 
 A mod-private table is invisible to the installer. History, cleanup, and the overlay query named tables only, and Reset deletes the whole data root (installer ADR-0008).
 
@@ -27,4 +27,4 @@ A mod-private table is invisible to the installer. History, cleanup, and the ove
 
 - `LocalDatabaseSchemaVersion` and `EnsureInitialized` in `src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`
 - `tests/Storage.Tests/RunLogSchemaColumnShapeTests.cs`, `tests/Storage.Tests/RunLogSchemaReleaseContractTests.cs`, `tests/Storage.Tests/RunLogSchemaIndexTests.cs`
-- Root `release/history-database.test.mjs`
+- Root `release/history-database.test.ts`

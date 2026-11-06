@@ -8,7 +8,7 @@ Until now only the installer updated the mod on desktop, and only a new APK upda
 
 ## Decision
 
-1. **What self-updates.** The Managed Payload (root `GLOSSARY.md`): the `managed` and `history-contract` Payload entries of one platform. Every other entry stays under the installer or the APK: the loader, native libraries, `bootstrap`, `sqlite-*`, and the Updater itself. Their sha256 values fold into the fragment's `nonManagedPayloadDigest` (`release/managed-payload.mjs` `desktopNonManagedPayloadDigest`, `release/manifest.mjs` `androidNonManagedPayloadDigest`).
+1. **What self-updates.** The Managed Payload (root `GLOSSARY.md`): the `managed` and `history-contract` Payload entries of one platform. Every other entry stays under the installer or the APK: the loader, native libraries, `bootstrap`, `sqlite-*`, and the Updater itself. Their sha256 values fold into the fragment's `nonManagedPayloadDigest` (`release/managed-payload.ts` `desktopNonManagedPayloadDigest`, `release/manifest.ts` `androidNonManagedPayloadDigest`).
 2. **What is published.** Each platform's build writes a zip that holds the Managed Payload Manifest (`manifest.txt`), its minisign signature, and the files under `files/<install path>`. The zip is signed with the Tauri updater key. Its fragment records `managedPayload` with `historyDatabaseUserVersion` and `nonManagedPayloadDigest`. The installed copy keeps the manifest beside the mod as `BazaarPlusPlus.managed-manifest.txt`.
 3. **Core only stages.** On the main menu the host reads its own Platform Release Manifest. `SelfUpdatePolicy` stages a newer release only when two facts match the running copy: the history database schema it was compiled with, and the digest its installed manifest records. It compares against the running copy, not the previous release, so a copy that skipped versions still sees every change between. Any other newer release asks for the installer or a new APK. Staging checks the size, sha256, and signature of the zip, extracts only the paths the manifest names, and verifies every file hash. It then moves the result by rename into `<Data Root>/Updates/<version>/`. A copy without an installed manifest, which means a development build, never stages.
 4. **The Updater swaps.** `BazaarPlusPlus.Updater` is a BepInEx 5 preloader patcher on desktop (`netstandard2.1`, `BepInEx/patchers/`) and a MelonLoader plugin on Android (`net10.0`, `MelonLoader/Plugins/`). Both run before the mod loads. It references only its loader and the BCL, and carries its own Ed25519 and BLAKE2b verification, so it never loads a file it is about to replace. It verifies the staged directory again, and refuses one that is not newer or not compatible with the installed manifest. It moves each old file aside and the new one in under a write-ahead journal, removes the managed files the new manifest no longer lists, and installs the manifest last. On a failure, or after an interrupted run, it rolls back every step.
@@ -26,13 +26,13 @@ Until now only the installer updated the mod on desktop, and only a new APK upda
 ## Guardrails
 
 - Do not give the Updater a BPP reference, a NuGet package, or a version that follows the product. A changed Updater file forces every user through the installer.
-- The Managed Payload Manifest format is shared by `release/managed-payload.mjs` and `src/BazaarPlusPlus.Updater/Shared/ManagedPayloadManifest.cs`. The golden `release/fixtures/managed-payload/manifest.txt` binds both.
+- The Managed Payload Manifest format is shared by `release/managed-payload.ts` and `src/BazaarPlusPlus.Updater/Shared/ManagedPayloadManifest.cs`. The golden `release/fixtures/managed-payload/manifest.txt` binds both.
 - Core compiles the Updater's `Shared/` sources rather than referencing the Updater, so both verify with the same code.
 
 ## Evidence
 
 - Verification, signatures, and swap: `tests/Updater.Tests/`. The known-answer tests run against the release key and a published signature.
 - Stage, then swap, end to end: `tests/SelfUpdate.Tests/`
-- Release side: `release/managed-payload.test.mjs`, `release/product-release.test.mjs`
+- Release side: `release/managed-payload.test.ts`, `release/product-release.test.ts`
 
 2026-11-01 注：root [ADR 0012](../../../docs/adr/0012-android-app.md) 之后，Android 的 Managed Payload 不再由 APK 携带。BPP 的 Android App 在每次启动前按平台清单暂存它，Updater 照本记录换入，只是 `nonManagedPayloadDigest` 改为和 Android App 写的启动记录比较；mod 在 Android App 里运行时不自己暂存，只提示从 Android App 重新启动。桌面不变。

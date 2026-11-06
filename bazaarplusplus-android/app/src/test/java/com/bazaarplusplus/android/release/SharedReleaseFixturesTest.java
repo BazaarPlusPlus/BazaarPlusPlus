@@ -24,7 +24,7 @@ public class SharedReleaseFixturesTest {
     static final File RELEASE = new File("../../release");
     static final File INTEROP = new File(RELEASE, "fixtures/android-interop");
 
-    /** The inputs release/android-interop.test.mjs signs the shared fixtures with. */
+    /** The inputs release/android-interop.test.ts signs the shared fixtures with. */
     static final String ZIP = "1" + "0".repeat(63);
     static final GameCodeHash GAME = new GameCodeHash("2" + "0".repeat(63), "3" + "0".repeat(63));
 
@@ -40,9 +40,9 @@ public class SharedReleaseFixturesTest {
 
     @Test
     public void theEmbeddedCertificateIsTheOneReleaseToolingChecks() throws Exception {
-        String manifest = new String(bytes(new File(RELEASE, "manifest.mjs")), StandardCharsets.UTF_8);
+        String manifest = new String(bytes(new File(RELEASE, "manifest.ts")), StandardCharsets.UTF_8);
         Matcher signer = Pattern.compile("ANDROID_RELEASE_SIGNER_SHA256 =\\s*'([0-9a-f]{64})'").matcher(manifest);
-        assertTrue("release/manifest.mjs names ANDROID_RELEASE_SIGNER_SHA256", signer.find());
+        assertTrue("release/manifest.ts names ANDROID_RELEASE_SIGNER_SHA256", signer.find());
         assertEquals(signer.group(1), InteropStatementTest.RELEASE_CERT_SHA256);
     }
 }

@@ -14,7 +14,7 @@ val testDependencies = lock["testDependencies"] as Map<String, String>
 val lockedBuildTools = sdk["buildTools"] as String
 val abi = lock["abi"] as String
 
-// The release pipeline (release/android-app.mjs) passes the product version, the versionCode
+// The release pipeline (release/android-app.ts) passes the product version, the versionCode
 // it derives from it, and the staged Android App Runtime; a development build has none of them
 // and runs with native launch only until a runtime is staged (`just android::stage-runtime`).
 val productVersion = providers.gradleProperty("bpp.version").orElse("0.0.0")
@@ -81,14 +81,14 @@ android {
 }
 
 // Tests read shared contract files outside the test sources: the Launch Record golden under
-// contracts/, the release tooling's fixtures and release/manifest.mjs, and the mod's history
+// contracts/, the release tooling's fixtures and release/manifest.ts, and the mod's history
 // database contract (root AGENTS.md, Contracts).
 tasks.withType<Test>().configureEach {
     inputs.files(rootProject.fileTree("contracts")).withPropertyName("contracts")
     inputs.files(
         rootProject.fileTree("../release/fixtures/latest"),
         rootProject.fileTree("../release/fixtures/android-interop"),
-        rootProject.file("../release/manifest.mjs"),
+        rootProject.file("../release/manifest.ts"),
         rootProject.file("../bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json"),
     ).withPropertyName("sharedContracts")
 }

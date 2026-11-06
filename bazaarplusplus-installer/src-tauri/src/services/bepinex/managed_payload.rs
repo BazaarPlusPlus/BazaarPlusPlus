@@ -58,7 +58,7 @@ struct ManagedPayloadFile {
     sha256: String,
 }
 
-/// The Managed Payload Manifest line format (`release/managed-payload.mjs`,
+/// The Managed Payload Manifest line format (`release/managed-payload.ts`,
 /// golden `release/fixtures/managed-payload/manifest.txt`), parsed as strictly
 /// as the mod's `ManagedPayloadManifest.Parse`.
 #[derive(Debug)]

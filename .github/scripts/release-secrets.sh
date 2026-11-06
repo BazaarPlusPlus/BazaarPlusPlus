@@ -3,23 +3,23 @@
 # which ones a run needs and how the signing ones reach
 # bazaarplusplus-installer/scripts/bundle.sh. The names, scopes and local
 # sources live in release/github-secrets.json, read through
-# release/github-secrets.mjs; this script restates none of them. The workflow
+# release/github-secrets.ts; this script restates none of them. The workflow
 # maps every secret and variable into an environment variable of the same name
 # before calling this script, so a missing one is an empty variable here.
-# Values are never printed; release-secrets.test.mjs beside this file is the
+# Values are never printed; release-secrets.test.ts beside this file is the
 # executable specification.
 #
 #   release-secrets.sh check <macos|windows|android> <prepare|release>
 #       Exit 1 with one ::error per missing name, naming its local source.
 #   release-secrets.sh stage <macos|windows|android> <directory>
-#       Write the files bundle.sh (desktop) or release/android-release.mjs
+#       Write the files bundle.sh (desktop) or release/android-release.ts
 #       (android) reads from BPP_SIGNING_SECRETS_DIR.
 #   release-secrets.sh names
 #       List every name release.yml reads (for the test).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TABLE="$SCRIPT_DIR/../../release/github-secrets.mjs"
+TABLE="$SCRIPT_DIR/../../release/github-secrets.ts"
 
 table() {
     node "$TABLE" "$@"
@@ -78,7 +78,7 @@ write_secret_file() {
 # from AuthKey_<APPLE_API_KEY>.p8. Android signs the Managed Payload zip with
 # the same updater key, and the Android App APK and interop statement with the
 # Android release keystore, in the layout androidSigningKey in
-# release/android-release.mjs reads.
+# release/android-release.ts reads.
 staged_names() {
     local platform="$1"
     local names="TAURI_SIGNING_PRIVATE_KEY"

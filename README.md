@@ -80,7 +80,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏�
 | `bazaarplusplus-analyzer/`           | 把 Bundle 汇总成英雄与阵容快照                                     |
 | `bazaarplusplus-site/`               | bazaarplusplus.com                                                 |
 | `design/`                            | 设计 token、共享样式与品牌规范                                     |
-| `VERSION`、`release.mjs`、`release/` | 产品版本与三个平台的发布流程                                       |
+| `VERSION`、`release.ts`、`release/` | 产品版本与三个平台的发布流程                                       |
 
 每个项目保留自己的工具链，并有各自的 `README.md` 与 `AGENTS.md`；根目录 [`AGENTS.md`](AGENTS.md) 记录跨项目约定和契约归属。
 

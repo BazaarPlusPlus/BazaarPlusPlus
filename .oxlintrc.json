@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript"],
+  "categories": { "correctness": "off" },
+  "rules": {
+    "typescript/no-explicit-any": "error",
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-expect-error": true,
+        "ts-ignore": true,
+        "ts-nocheck": true,
+        "ts-check": false
+      }
+    ],
+    // Node strips only the inline `type` specifiers and keeps the import, so
+    // `import { type X } from 'pkg'` still loads the package at runtime.
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-non-null-assertion": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/test-support/**"],
+      "rules": { "typescript/no-non-null-assertion": "off" }
+    }
+  ]
+}

@@ -5,19 +5,19 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 ## Verification Gates
 
 - `npm run verify -- --source-only` is the clean-checkout source gate. `npm run verify -- --release-platform <macos|windows>` adds real Payload validation for one platform.
-- `tauriSourceEnvironment` in `scripts/tauri-source-env.mjs` clears Tauri bundle resources in child processes for source verification and binding export, so Clippy, Rust tests and documentation do not require a prepared release ZIP. Release verification's Clippy and Payload checks keep the original resource configuration.
-- `verificationSteps` in `scripts/checks/verify.mjs` owns one ordered list for complete verification and the source subsets. The frontend subset checks formatting, lint, TypeScript, frontend and script tests, documentation, source projections and the production frontend build using committed bindings. The native subset checks Rust formatting, the locked Cargo graph, Clippy, real binding generation with Rust tests, generated drift, strict rustdoc and source projections; Windows also runs the script tests. Shared steps run only once in the complete gate.
+- `tauriSourceEnvironment` in `scripts/tauri-source-env.ts` clears Tauri bundle resources in child processes for source verification and binding export, so Clippy, Rust tests and documentation do not require a prepared release ZIP. Release verification's Clippy and Payload checks keep the original resource configuration.
+- `verificationSteps` in `scripts/checks/verify.ts` owns one ordered list for complete verification and the source subsets. The frontend subset checks formatting, lint, TypeScript, frontend and script tests, documentation, source projections and the production frontend build using committed bindings. The native subset checks Rust formatting, the locked Cargo graph, Clippy, real binding generation with Rust tests, generated drift, strict rustdoc and source projections; Windows also runs the script tests. Shared steps run only once in the complete gate.
 - Pass `--source-only --subset frontend` or `--source-only --subset native` to `npm run verify --` for a source subset. Release verification rejects partial subsets. The frontend result does not establish binding freshness or replace complete validation; the decision is recorded in [ADR 0004](adr/0004-tauri-specta-command-bindings.md).
-- `npm run prebuild-check` uses the workspace `checkProductProjections` in `../release/projections.mjs` for source alignment and validates generated bindings, Payload build receipts, archives and native inputs. Missing receipts require preparation, not a bypass.
+- `npm run prebuild-check` uses the workspace `checkProductProjections` in `../release/projections.ts` for source alignment and validates generated bindings, Payload build receipts, archives and native inputs. Missing receipts require preparation, not a bypass.
 - `just release::build <platform>` runs the product coordinator. Its process lock spans preparation, release verification, compilation, signing, bundling and artifact recording. Product Release integration tests run separately with `just release::test` and require the mod's .NET SDK.
 
 ## Reproducible Inputs
 
-- Workspace `VERSION` is the authored product version. `synchronizeVersions` in `../release/version-sync.mjs` projects it into npm, Tauri and Cargo; `assertVersionsAreAligned` rejects drift.
-- `RELEASE_PLATFORMS` in `../release/release-platforms.mjs` owns target triples, bundle layout, Tauri overlays, resource ZIPs and updater keys.
+- Workspace `VERSION` is the authored product version. `synchronizeVersions` in `../release/version-sync.ts` projects it into npm, Tauri and Cargo; `assertVersionsAreAligned` rejects drift.
+- `RELEASE_PLATFORMS` in `../release/release-platforms.ts` owns target triples, bundle layout, Tauri overlays, resource ZIPs and updater keys.
 - The workspace Payload Inventory drives managed copying, ZIP admission and Rust file ownership. Runtime-only and retired entries cannot ship; dependency ownership does not authorize deleting user data or foreign plugins.
-- `ensureNativeRecorderInput` in `../release/native-recorder-input.mjs` reuses current native inputs or invokes the mod-owned producer in isolated staging. `verifyNativeRecorderInput` validates the final artifact inventory before the product coordinator promotes any Payload directories.
-- `listPayloadFiles`, `buildZipBuffer` and `writeDeterministicZip` in `../release/payload-zip.mjs` create deterministic unsigned ZIPs and checksum manifests. `validatePayloadZip` enforces staging/archive agreement. The coordinator additionally seals source, Managed, seed and output hashes in the Payload build receipt; regenerating a ZIP cannot make stale provenance current.
+- `ensureNativeRecorderInput` in `../release/native-recorder-input.ts` reuses current native inputs or invokes the mod-owned producer in isolated staging. `verifyNativeRecorderInput` validates the final artifact inventory before the product coordinator promotes any Payload directories.
+- `listPayloadFiles`, `buildZipBuffer` and `writeDeterministicZip` in `../release/payload-zip.ts` create deterministic unsigned ZIPs and checksum manifests. `validatePayloadZip` enforces staging/archive agreement. The coordinator additionally seals source, Managed, seed and output hashes in the Payload build receipt; regenerating a ZIP cannot make stale provenance current.
 
 ## Packaging And Signing
 
@@ -25,11 +25,11 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 
 On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-complete, loadable and ad-hoc signed. The installer verifies their inventory, signs nested Mach-O code and bundles inside-out with the official identity, repacks the signed copy, and packages/notarizes the outer installer. SourceForBuild remains unsigned provenance; final distribution hashes live in the artifact manifest. See [ADR-0006](adr/0006-native-replay-recorder-signing.md).
 
-`load_updater_signing_env` and `load_macos_developer_id_env` in `scripts/bundle.sh` read each signing value from the environment, else from the files staged in `BPP_SIGNING_SECRETS_DIR`; without that directory only exported values count. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.mjs` independently verifies the trampoline architecture and deployment target.
+`load_updater_signing_env` and `load_macos_developer_id_env` in `scripts/bundle.sh` read each signing value from the environment, else from the files staged in `BPP_SIGNING_SECRETS_DIR`; without that directory only exported values count. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.ts` independently verifies the trampoline architecture and deployment target.
 
 ## Artifact And Upload Contract
 
-`createArtifactManifest` in `../release/artifact-manifest.mjs` is called by the product coordinator only after packaging and source/Git revalidation. It records one complete installer/updater pair and the signed Managed Payload zip for every desktop release, the sealed Payload receipt, Git identity, sizes, hashes and signature content. Failed builds remove the previous receipt; there is no standalone command to create a receipt for leftover bundles.
+`createArtifactManifest` in `../release/artifact-manifest.ts` is called by the product coordinator only after packaging and source/Git revalidation. It records one complete installer/updater pair and the signed Managed Payload zip for every desktop release, the sealed Payload receipt, Git identity, sizes, hashes and signature content. Failed builds remove the previous receipt; there is no standalone command to create a receipt for leftover bundles.
 
 `validateArtifactManifest` rejects dirty or changed release inputs, mismatched versions/commits, and modified artifacts before upload. The uploader freezes every file before making any remote write. Platform uploads publish nothing; the workspace coordinator promotes either every platform or one platform (`promote --platform`), as specified in the [product release guide](../../docs/release.md).
 

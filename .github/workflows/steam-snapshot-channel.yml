@@ -99,7 +99,7 @@ jobs:
         name: Classify the capture
         id: change
         run: |
-          kind="$(node release/game-libs.mjs steam-change --previous "$RUNNER_TEMP/previous-lock.json" --channel "$STEAM_CHANNEL")"
+          kind="$(node release/game-libs.ts steam-change --previous "$RUNNER_TEMP/previous-lock.json" --channel "$STEAM_CHANNEL")"
           echo "kind=$kind" >> "$GITHUB_OUTPUT"
           echo "Capture: $kind change" >> "$GITHUB_STEP_SUMMARY"
       - if: steps.change.outputs.kind == 'content' || steps.change.outputs.kind == 'code'
@@ -139,7 +139,7 @@ jobs:
             git fetch origin "$BRANCH"
             git show FETCH_HEAD:"$LOCK" > "$LOCK"
           fi
-          node release/game-libs.mjs game-status --state "$RUNNER_TEMP/steam-state.json"
+          node release/game-libs.ts game-status --state "$RUNNER_TEMP/steam-state.json"
 
   # A pull request from GITHUB_TOKEN starts no checks, so the Mod lanes of the
   # platforms captured run here, and their result goes in its body. These jobs

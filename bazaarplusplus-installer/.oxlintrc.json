@@ -48,19 +48,34 @@
   },
   "overrides": [
     {
-      // Untyped release scripts sort string paths; the default code-unit order
-      // is the deterministic order the manifests and zips depend on.
-      "files": ["scripts/**/*.mjs"],
+      // Release scripts sort string paths; the default code-unit order is the
+      // deterministic order the manifests and zips depend on.
+      "files": ["scripts/**/*.ts"],
       "rules": {
-        "typescript/require-array-sort-compare": "off"
+        "typescript/require-array-sort-compare": "off",
+        // Node runs these files as the root tooling, under the same rules
+        // (../.oxlintrc.json).
+        "typescript/no-explicit-any": "error",
+        "typescript/ban-ts-comment": [
+          "error",
+          {
+            "ts-expect-error": true,
+            "ts-ignore": true,
+            "ts-nocheck": true,
+            "ts-check": false
+          }
+        ],
+        "typescript/no-import-type-side-effects": "error",
+        "typescript/no-non-null-assertion": "error"
       }
     },
     {
-      "files": ["**/*.test.{ts,tsx,js,mjs}"],
+      "files": ["**/*.test.{ts,tsx,js}"],
       "rules": {
         "vitest/require-mock-type-parameters": "off",
         "vitest/require-to-throw-message": "off",
-        "vitest/no-conditional-expect": "off"
+        "vitest/no-conditional-expect": "off",
+        "typescript/no-non-null-assertion": "off"
       }
     }
   ]

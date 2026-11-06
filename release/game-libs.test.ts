@@ -1,0 +1,1029 @@
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, expect, test } from 'vitest';
+import {
+  GAME_LIBS_BUCKET,
+  GAME_LIBS_LOCK_PATH,
+  captureSnapshot,
+  checkGameLibsLock,
+  cliMain,
+  fetchSnapshot,
+  gameStatus,
+  lockEntryForManaged,
+  lockKeys,
+  lockWarnings,
+  lockedEntries,
+  managedDirectoryDigest,
+  managedDirectoryRecords,
+  parseGameVersion,
+  publishGameStatus,
+  publishSnapshot,
+  readGameLibsLock,
+  readGameVersion,
+  snapshotBlobKey,
+  snapshotManifestKey,
+  staleSteamPlatforms,
+  steamCapture,
+  steamChangeKind,
+  steamStale,
+  validateGameLibsLock
+} from './game-libs.ts';
+import type {
+  FetchSnapshotOptions,
+  GameLibsLock,
+  GameLibsLockEntries,
+  GameStatusDocument,
+  ManagedLockEntry,
+  SnapshotChannel,
+  SteamBranch,
+  SteamToolRunner
+} from './game-libs.ts';
+import { computePayloadInputs } from './payload.ts';
+import {
+  readInventory,
+  synchronizePayloadProjection
+} from './payload-inventory.ts';
+import { WORKSPACE_ROOT } from './product.ts';
+import { createR2Store } from './r2-store.ts';
+import type { PutOptions } from './r2-store.ts';
+
+const roots: string[] = [];
+afterEach(() => {
+  for (const root of roots.splice(0))
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+const STAGING_VERSION = '1.0.12575-staging-macos-arm64-fecb8f8e';
+const ONLINE_VERSION = '1.0.12600-macos-arm64-0a1b2c3d';
+const NOW = new Date('2026-10-03T12:00:00.000Z');
+
+function write(file: string, bytes: string | Buffer): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, bytes);
+}
+
+function emptyLock(): GameLibsLock {
+  return {
+    schemaVersion: 1,
+    staleAfterDays: 30,
+    entries: Object.fromEntries(
+      lockKeys().map((key) => [key, null])
+    ) as GameLibsLockEntries
+  };
+}
+
+// A game install: Managed beside a globalgamemanagers that embeds the version
+// in binary noise, as Unity writes it.
+function gameInstall(
+  root: string,
+  gameVersion: string,
+  { dlls = {} }: { dlls?: Record<string, string> } = {}
+): string {
+  const managed = path.join(root, 'Data', 'Managed');
+  write(
+    path.join(root, 'Data', 'globalgamemanagers'),
+    Buffer.concat([
+      Buffer.from([0, 0, 0, 22, 0xff, 0xfe, 0x80]),
+      Buffer.from(gameVersion, 'latin1'),
+      Buffer.from([0, 0x80, 0xff, 7])
+    ])
+  );
+  write(path.join(managed, 'Assembly-CSharp.dll'), 'game');
+  write(path.join(managed, 'UnityEngine.dll'), 'unity');
+  write(path.join(managed, 'Unity.Addressables.dll'), 'addressables');
+  write(path.join(managed, 'notes.txt'), 'not a dll');
+  for (const [name, bytes] of Object.entries(dlls))
+    write(path.join(managed, name), bytes);
+  return managed;
+}
+
+function workspace({ lock = emptyLock() }: { lock?: GameLibsLock } = {}) {
+  const workspaceRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'bpp-game-libs-')
+  );
+  roots.push(workspaceRoot);
+  write(
+    path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
+    `${JSON.stringify(lock, null, 2)}\n`
+  );
+  return {
+    workspaceRoot,
+    modRoot: path.join(workspaceRoot, 'bazaarplusplus-mod'),
+    lock: () => readGameLibsLock(workspaceRoot)
+  };
+}
+
+function memoryStore() {
+  const objects = new Map<string, Buffer>();
+  return {
+    objects,
+    async head(key: string) {
+      return objects.has(key)
+        ? { size: objects.get(key)!.length, sha256: null, etag: null }
+        : null;
+    },
+    async get(key: string) {
+      return objects.has(key)
+        ? { bytes: objects.get(key)!, etag: `"${key}"` }
+        : null;
+    },
+    async put(
+      key: string,
+      bytes: Buffer,
+      { ifNoneMatch, ifMatch }: PutOptions = {}
+    ) {
+      if (ifNoneMatch && objects.has(key)) return false;
+      if (ifMatch && !objects.has(key)) return false;
+      objects.set(key, Buffer.from(bytes));
+      return true;
+    }
+  };
+}
+
+test('the committed lock validates and names every platform-channel key', () => {
+  const lock = readGameLibsLock(WORKSPACE_ROOT);
+  expect(Object.keys(lock.entries)).toEqual([
+    'macos-online',
+    'macos-staging',
+    'macos-ptr',
+    'windows-online',
+    'windows-staging',
+    'windows-ptr',
+    'android-online'
+  ]);
+  expect(lock.staleAfterDays).toBe(30);
+});
+
+test('game versions carry their platform and channel', () => {
+  expect(parseGameVersion(STAGING_VERSION)).toEqual({
+    platform: 'macos',
+    channel: 'staging'
+  });
+  expect(parseGameVersion('1.0.11358-ptr-windows-x64-947c079a')).toEqual({
+    platform: 'windows',
+    channel: 'ptr'
+  });
+  expect(parseGameVersion(ONLINE_VERSION).channel).toBe('online');
+  expect(() => parseGameVersion('25661913')).toThrow(/Application.version/);
+});
+
+test('the game version is read from globalgamemanagers above Managed, exactly once', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-game-'));
+  roots.push(root);
+  const managed = gameInstall(root, STAGING_VERSION);
+  expect(readGameVersion(managed)).toBe(STAGING_VERSION);
+  fs.rmSync(path.join(root, 'Data', 'globalgamemanagers'));
+  expect(() => readGameVersion(managed)).toThrow(/globalgamemanagers/);
+  write(
+    path.join(root, 'Data', 'globalgamemanagers'),
+    `${STAGING_VERSION} ${ONLINE_VERSION}`
+  );
+  expect(() => readGameVersion(managed)).toThrow(/found 2/);
+});
+
+test('the Managed digest hashes every DLL in ordinal order and feeds the payload inputs', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-game-'));
+  roots.push(root);
+  const managed = gameInstall(root, STAGING_VERSION);
+  const records = managedDirectoryRecords(managed);
+  expect(records.map((record) => record.path)).toEqual([
+    'managed/Assembly-CSharp.dll',
+    'managed/Unity.Addressables.dll',
+    'managed/UnityEngine.dll'
+  ]);
+  const digest = managedDirectoryDigest(managed);
+  expect(digest).toMatch(/^[0-9a-f]{64}$/);
+  write(path.join(managed, 'UnityEngine.dll'), 'patched');
+  expect(managedDirectoryDigest(managed)).not.toBe(digest);
+  fs.rmSync(path.join(managed, 'Assembly-CSharp.dll'));
+  expect(() => managedDirectoryDigest(managed)).toThrow(/Assembly-CSharp/);
+
+  const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-inputs-'));
+  roots.push(workspaceRoot);
+  write(path.join(workspaceRoot, 'VERSION'), '5.5.0\n');
+  write(
+    path.join(workspaceRoot, 'release/payload.json'),
+    JSON.stringify(readInventory())
+  );
+  synchronizePayloadProjection(workspaceRoot);
+  write(
+    path.join(workspaceRoot, 'bazaarplusplus-mod/src/Plugin.cs'),
+    'class Plugin {}'
+  );
+  write(path.join(managed, 'Assembly-CSharp.dll'), 'game');
+  const inputs = computePayloadInputs({ workspaceRoot, managedPath: managed });
+  expect(
+    inputs.files.filter((record) => record.path.startsWith('managed/'))
+  ).toEqual(managedDirectoryRecords(managed));
+});
+
+test('lock validation rejects every malformed shape it will meet', () => {
+  const entry = {
+    gameVersion: STAGING_VERSION,
+    sha256: 'a'.repeat(64),
+    buildid: '25661913',
+    steamBranch: 'staging',
+    capturedAt: '2026-10-03T00:00:00.000Z'
+  };
+  const withEntry = (key: string, value: object) => {
+    const lock = emptyLock();
+    (lock.entries as Record<string, unknown>)[key] = value;
+    return lock;
+  };
+  expect(validateGameLibsLock(withEntry('macos-staging', entry))).toBeTruthy();
+  const cases: [object, RegExp][] = [
+    [{ ...emptyLock(), schemaVersion: 2 }, /schemaVersion/],
+    [{ ...emptyLock(), staleAfterDays: 0 }, /staleAfterDays/],
+    [{ ...emptyLock(), extra: true }, /unknown top-level/],
+    [
+      { ...emptyLock(), entries: { 'macos-online': null } },
+      /exactly the keys macos-online, .*, android-online/
+    ],
+    [withEntry('macos-staging', { ...entry, note: 'x' }), /exactly the fields/],
+    [withEntry('macos-online', entry), /is a macos-staging build/],
+    [withEntry('windows-staging', entry), /is a macos-staging build/],
+    [withEntry('macos-staging', { ...entry, sha256: 'xyz' }), /sha256/],
+    [withEntry('macos-staging', { ...entry, buildid: 25661913 }), /buildid/],
+    [
+      withEntry('macos-staging', { ...entry, steamBranch: 'public' }),
+      /steamBranch must be staging/
+    ],
+    [
+      withEntry('macos-staging', { ...entry, capturedAt: '2026-10-03' }),
+      /capturedAt/
+    ]
+  ];
+  for (const [lock, message] of cases)
+    expect(() => validateGameLibsLock(lock), JSON.stringify(lock)).toThrow(
+      message
+    );
+});
+
+test('warnings name empty and stale entries without failing', () => {
+  const lock = emptyLock();
+  lock.entries['macos-staging'] = {
+    gameVersion: STAGING_VERSION,
+    sha256: 'a'.repeat(64),
+    buildid: '25661913',
+    steamBranch: 'staging',
+    capturedAt: '2026-08-01T00:00:00.000Z'
+  };
+  lock.entries['windows-online'] = {
+    gameVersion: '1.0.12600-windows-x64-0a1b2c3d',
+    sha256: 'b'.repeat(64),
+    buildid: '25661999',
+    steamBranch: 'public',
+    capturedAt: '2026-10-01T00:00:00.000Z'
+  };
+  const warnings = lockWarnings(lock, { now: NOW });
+  expect(warnings).toHaveLength(6);
+  expect(
+    warnings.filter((w) => w.includes('no snapshot captured'))
+  ).toHaveLength(4);
+  expect(warnings.find((w) => w.startsWith('android-online'))).toMatch(
+    /no Interop Snapshot captured; run 'just mod::snapshot-android <TheBazaar\.apk>'/
+  );
+  expect(warnings.find((w) => w.startsWith('macos-staging'))).toMatch(
+    /captured 63 days ago \(staleAfterDays 30\)/
+  );
+  expect(warnings.some((w) => w.startsWith('windows-online'))).toBe(false);
+  expect(lockedEntries(lock).map(({ key }) => key)).toEqual([
+    'macos-staging',
+    'windows-online'
+  ]);
+});
+
+test('snapshot captures the mounted game under its game version and records the lock entry', () => {
+  const { workspaceRoot, modRoot, lock } = workspace();
+  const managed = gameInstall(
+    path.join(workspaceRoot, 'steam'),
+    STAGING_VERSION
+  );
+  expect(() =>
+    captureSnapshot({
+      workspaceRoot,
+      managedPath: managed,
+      buildid: '25661913',
+      steamBranch: 'public',
+      now: NOW
+    })
+  ).toThrow(/Steam reports the public branch/);
+  const result = captureSnapshot({
+    workspaceRoot,
+    managedPath: managed,
+    buildid: 25661913,
+    steamBranch: 'staging',
+    now: NOW
+  });
+  expect(result.key).toBe('macos-staging');
+  expect(result.directory).toBe(
+    path.join(modRoot, 'game-libs', `macos-staging-${STAGING_VERSION}`)
+  );
+  expect(
+    fs.existsSync(path.join(result.directory, 'Managed', 'UnityEngine.dll'))
+  ).toBe(true);
+  const entry = lock().entries['macos-staging'];
+  expect(entry).toEqual({
+    gameVersion: STAGING_VERSION,
+    sha256: managedDirectoryDigest(managed),
+    buildid: '25661913',
+    steamBranch: 'staging',
+    capturedAt: NOW.toISOString()
+  });
+  expect(
+    JSON.parse(
+      fs.readFileSync(path.join(result.directory, 'manifest.json'), 'utf8')
+    )
+  ).toEqual({
+    schemaVersion: 1,
+    platform: 'macos',
+    channel: 'staging',
+    ...entry
+  });
+  // Recapturing the same game is idempotent; a different game under the same
+  // version is refused rather than silently replaced.
+  captureSnapshot({
+    workspaceRoot,
+    managedPath: managed,
+    buildid: '25661914',
+    steamBranch: 'staging',
+    now: NOW
+  });
+  expect(lock().entries['macos-staging']!.buildid).toBe('25661914');
+  write(path.join(managed, 'UnityEngine.dll'), 'patched');
+  expect(() =>
+    captureSnapshot({
+      workspaceRoot,
+      managedPath: managed,
+      buildid: '25661915',
+      steamBranch: 'staging',
+      now: NOW
+    })
+  ).toThrow(/already exists with sha256/);
+});
+
+async function capturedWorkspace() {
+  const ws = workspace();
+  const managed = gameInstall(
+    path.join(ws.workspaceRoot, 'steam'),
+    STAGING_VERSION
+  );
+  const { directory, manifest } = captureSnapshot({
+    workspaceRoot: ws.workspaceRoot,
+    managedPath: managed,
+    buildid: '25661913',
+    steamBranch: 'staging',
+    now: NOW
+  });
+  return { ...ws, managed, directory, manifest };
+}
+
+test('publish uploads the tarball by content and the manifest by identity, skipping stored blobs', async () => {
+  const { workspaceRoot, manifest } = await capturedWorkspace();
+  const store = memoryStore();
+  const log: string[] = [];
+  await expect(
+    publishSnapshot({
+      workspaceRoot,
+      platform: 'macos',
+      channel: 'online',
+      store
+    })
+  ).rejects.toThrow(/macos-online is empty/);
+  const keys = await publishSnapshot({
+    workspaceRoot,
+    platform: 'macos',
+    channel: 'staging',
+    store,
+    log: (line) => log.push(line)
+  });
+  expect(keys).toEqual({
+    blobKey: snapshotBlobKey(manifest.sha256),
+    manifestKey: snapshotManifestKey('macos', 'staging', STAGING_VERSION)
+  });
+  expect(keys.blobKey).toBe(`game-libs/${manifest.sha256}.tar.gz`);
+  expect(keys.manifestKey).toBe(
+    `game-libs/macos-staging-${STAGING_VERSION}.json`
+  );
+  expect(JSON.parse(store.objects.get(keys.manifestKey)!.toString())).toEqual(
+    manifest
+  );
+  expect(store.objects.get(keys.blobKey)!.length).toBeGreaterThan(0);
+  const uploaded = store.objects.get(keys.blobKey);
+  await publishSnapshot({
+    workspaceRoot,
+    platform: 'macos',
+    channel: 'staging',
+    store,
+    tar: () => {
+      throw new Error('must not re-tar a stored snapshot');
+    },
+    log: (line) => log.push(line)
+  });
+  expect(store.objects.get(keys.blobKey)).toBe(uploaded);
+  expect(log.some((line) => /already stored/.test(line))).toBe(true);
+});
+
+test('fetch prefers a verified snapshot, then a matching Steam install, then the store', async () => {
+  const { workspaceRoot, modRoot, managed, directory, manifest } =
+    await capturedWorkspace();
+  const store = memoryStore();
+  await publishSnapshot({
+    workspaceRoot,
+    platform: 'macos',
+    channel: 'staging',
+    store
+  });
+  const fetchOptions: FetchSnapshotOptions = {
+    workspaceRoot,
+    platform: 'macos',
+    channel: 'staging',
+    storeFactory: () => {
+      throw new Error('no credentials');
+    }
+  };
+
+  const fromSnapshot = await fetchSnapshot(fetchOptions);
+  expect(fromSnapshot).toEqual({
+    managedPath: path.join(directory, 'Managed'),
+    source: 'snapshot',
+    gameVersion: STAGING_VERSION
+  });
+
+  fs.rmSync(directory, { recursive: true });
+  const fromSteam = await fetchSnapshot({
+    ...fetchOptions,
+    steamManagedPath: managed
+  });
+  expect(fromSteam).toEqual({
+    managedPath: managed,
+    source: 'steam',
+    gameVersion: STAGING_VERSION
+  });
+
+  // Same version string, different bytes: the sha256 half of the check.
+  write(path.join(managed, 'UnityEngine.dll'), 'patched');
+  await expect(
+    fetchSnapshot({ ...fetchOptions, steamManagedPath: managed })
+  ).rejects.toThrow(/hashes to [0-9a-f]{64} instead of/);
+
+  // Another version mounted and no credentials: the two-version error.
+  const other = gameInstall(path.join(workspaceRoot, 'other'), ONLINE_VERSION);
+  await expect(
+    fetchSnapshot({ ...fetchOptions, steamManagedPath: other })
+  ).rejects.toThrow(
+    new RegExp(
+      `wants ${STAGING_VERSION}; the local Steam install is ${ONLINE_VERSION}.*no credentials`
+    )
+  );
+  await expect(fetchSnapshot(fetchOptions)).rejects.toThrow(/is not found/);
+
+  // With credentials the store serves it, and the download is verified.
+  const log: string[] = [];
+  const fromStore = await fetchSnapshot({
+    ...fetchOptions,
+    steamManagedPath: other,
+    storeFactory: () => store,
+    log: (line) => log.push(line)
+  });
+  expect(fromStore).toEqual({
+    managedPath: path.join(directory, 'Managed'),
+    source: 'store',
+    gameVersion: STAGING_VERSION
+  });
+  expect(managedDirectoryDigest(fromStore.managedPath)).toBe(manifest.sha256);
+  expect(
+    JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'))
+  ).toEqual(manifest);
+  expect(fs.readdirSync(path.join(modRoot, 'game-libs'))).toEqual([
+    `macos-staging-${STAGING_VERSION}`
+  ]);
+
+  // A stored blob that does not hash to the lock entry never lands.
+  fs.rmSync(directory, { recursive: true });
+  const poisoned = memoryStore();
+  poisoned.objects.set(
+    snapshotBlobKey(manifest.sha256),
+    store.objects.get(snapshotBlobKey('b'.repeat(64))) ?? Buffer.from('garbage')
+  );
+  await expect(
+    fetchSnapshot({ ...fetchOptions, storeFactory: () => poisoned })
+  ).rejects.toThrow();
+  expect(fs.existsSync(directory)).toBe(false);
+  expect(fs.readdirSync(path.join(modRoot, 'game-libs'))).toEqual([]);
+});
+
+test('a store fetch skips the AppleDouble members a macOS tar packed', async () => {
+  const { workspaceRoot, directory, manifest } = await capturedWorkspace();
+  // Pack the captured Managed with a `._<name>.dll` beside every DLL, as a
+  // macOS tar without COPYFILE_DISABLE does.
+  const packed = path.join(workspaceRoot, 'packed');
+  fs.cpSync(path.join(directory, 'Managed'), path.join(packed, 'Managed'), {
+    recursive: true
+  });
+  for (const name of fs.readdirSync(path.join(packed, 'Managed')))
+    write(path.join(packed, 'Managed', `._${name}`), 'appledouble');
+  execFileSync('tar', ['-czf', 'Managed.tar.gz', 'Managed'], { cwd: packed });
+  const store = memoryStore();
+  store.objects.set(
+    snapshotBlobKey(manifest.sha256),
+    fs.readFileSync(path.join(packed, 'Managed.tar.gz'))
+  );
+  fs.rmSync(directory, { recursive: true });
+
+  const fetched = await fetchSnapshot({
+    workspaceRoot,
+    platform: 'macos',
+    channel: 'staging',
+    storeFactory: () => store
+  });
+  expect(fetched.source).toBe('store');
+  expect(managedDirectoryDigest(fetched.managedPath)).toBe(manifest.sha256);
+  expect(
+    fs.readdirSync(fetched.managedPath).filter((name) => name.startsWith('._'))
+  ).toEqual([]);
+});
+
+test('a store fetch that fails in transport reports the cause chain, not the signature', async () => {
+  const { workspaceRoot } = await capturedWorkspace();
+  fs.rmSync(path.join(workspaceRoot, 'bazaarplusplus-mod', 'game-libs'), {
+    recursive: true
+  });
+  const accountId = 'c'.repeat(32);
+  const hostname = `${accountId}.r2.cloudflarestorage.com`;
+  const fetchImpl = async () => {
+    throw new TypeError('fetch failed', {
+      cause: Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), {
+        code: 'ENOTFOUND',
+        errno: -3008,
+        syscall: 'getaddrinfo',
+        hostname
+      })
+    });
+  };
+  const failure = fetchSnapshot({
+    workspaceRoot,
+    platform: 'macos',
+    channel: 'staging',
+    storeFactory: () =>
+      createR2Store({
+        accountId,
+        accessKeyId: 'test-access',
+        secretAccessKey: 'test-secret',
+        bucket: GAME_LIBS_BUCKET,
+        fetchImpl
+      })
+  });
+  await expect(failure).rejects.toThrow(
+    /R2 GET game-libs\/[0-9a-f]{64}\.tar\.gz failed: TypeError: fetch failed <- Error: getaddrinfo ENOTFOUND <account>\.r2\.cloudflarestorage\.com \(code=ENOTFOUND errno=-3008 syscall=getaddrinfo hostname=<account>\.r2\.cloudflarestorage\.com\)/
+  );
+  const message = await failure.catch((error) => error.message);
+  expect(message).not.toMatch(/Signature=|test-secret|test-access|c{32}/);
+});
+
+test('fetch refuses an empty entry unless decompiling the mounted channel', async () => {
+  const { workspaceRoot } = workspace();
+  const managed = gameInstall(
+    path.join(workspaceRoot, 'steam'),
+    STAGING_VERSION
+  );
+  const base = {
+    workspaceRoot,
+    platform: 'macos' as const,
+    steamManagedPath: managed
+  };
+  await expect(fetchSnapshot({ ...base, channel: 'staging' })).rejects.toThrow(
+    /macos-staging is empty and the mounted game is/
+  );
+  await expect(
+    fetchSnapshot({ ...base, channel: 'online', allowUnlocked: true })
+  ).rejects.toThrow(/macos-online is empty/);
+  expect(
+    await fetchSnapshot({ ...base, channel: 'staging', allowUnlocked: true })
+  ).toEqual({
+    managedPath: managed,
+    source: 'steam-unlocked',
+    gameVersion: STAGING_VERSION
+  });
+});
+
+test('lock-check verifies the resolved Managed directory against the entry that names it', async () => {
+  const { workspaceRoot, managed, directory, manifest } =
+    await capturedWorkspace();
+  const checked = checkGameLibsLock({
+    workspaceRoot,
+    managedPath: managed,
+    now: NOW
+  });
+  expect(checked.verified).toEqual({
+    gameVersion: STAGING_VERSION,
+    keys: ['macos-staging']
+  });
+  expect(checked.warnings).toHaveLength(6);
+  expect(
+    checkGameLibsLock({
+      workspaceRoot,
+      managedPath: path.join(directory, 'Managed'),
+      now: NOW
+    }).verified!.keys
+  ).toEqual(['macos-staging']);
+  const other = gameInstall(path.join(workspaceRoot, 'other'), ONLINE_VERSION);
+  expect(
+    checkGameLibsLock({ workspaceRoot, managedPath: other, now: NOW }).warnings
+  ).toContainEqual(expect.stringMatching(/matches no lock entry/));
+  write(path.join(managed, 'UnityEngine.dll'), 'patched');
+  expect(() =>
+    checkGameLibsLock({ workspaceRoot, managedPath: managed, now: NOW })
+  ).toThrow(
+    new RegExp(
+      `not the ${manifest.sha256} that lock entry macos-staging records`
+    )
+  );
+  write(
+    path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
+    JSON.stringify({ schemaVersion: 1 })
+  );
+  expect(() => checkGameLibsLock({ workspaceRoot, now: NOW })).toThrow(
+    /staleAfterDays/
+  );
+});
+
+test('the CLI prints only the result on stdout and reports failures on stderr', async () => {
+  const { workspaceRoot } = workspace();
+  const managed = gameInstall(
+    path.join(workspaceRoot, 'steam'),
+    STAGING_VERSION
+  );
+  const out: string[] = [];
+  const err: string[] = [];
+  const stdout = process.stdout.write.bind(process.stdout);
+  const stderr = process.stderr.write.bind(process.stderr);
+  process.stdout.write = (chunk) => (out.push(String(chunk)), true);
+  process.stderr.write = (chunk) => (err.push(String(chunk)), true);
+  try {
+    expect(await cliMain(['game-version', managed], { workspaceRoot })).toBe(0);
+    expect(await cliMain(['digest', managed], { workspaceRoot })).toBe(0);
+    expect(await cliMain(['entries'], { workspaceRoot })).toBe(0);
+    expect(
+      await cliMain(
+        [
+          'snapshot',
+          '--managed',
+          managed,
+          '--buildid',
+          '25661913',
+          '--steam-branch',
+          'staging'
+        ],
+        { workspaceRoot }
+      )
+    ).toBe(0);
+    expect(await cliMain(['entries'], { workspaceRoot })).toBe(0);
+    expect(
+      await cliMain(
+        [
+          'fetch',
+          '--platform',
+          'macos',
+          '--channel',
+          'staging',
+          '--steam-managed',
+          managed
+        ],
+        { workspaceRoot }
+      )
+    ).toBe(0);
+    expect(
+      await cliMain(['fetch', '--platform', 'macos', '--channel', 'ptr'], {
+        workspaceRoot
+      })
+    ).toBe(1);
+    expect(
+      await cliMain(['lock-check', '--managed', managed], { workspaceRoot })
+    ).toBe(0);
+    expect(await cliMain(['snapshot'], { workspaceRoot })).toBe(1);
+    expect(await cliMain(['bogus'], { workspaceRoot })).toBe(1);
+  } finally {
+    process.stdout.write = stdout;
+    process.stderr.write = stderr;
+  }
+  expect(out).toEqual([
+    `${STAGING_VERSION}\n`,
+    `${managedDirectoryDigest(managed)}\n`,
+    `${path.join(workspaceRoot, 'bazaarplusplus-mod', 'game-libs', `macos-staging-${STAGING_VERSION}`)}\n`,
+    'macos staging\n',
+    `${path.join(workspaceRoot, 'bazaarplusplus-mod', 'game-libs', `macos-staging-${STAGING_VERSION}`, 'Managed')}\n`
+  ]);
+  expect(err.join('')).toMatch(/macos-ptr is empty/);
+  expect(err.join('')).toMatch(/snapshot requires --managed/);
+  expect(err.join('')).toMatch(/Unknown game-libs verb/);
+  expect(err.join('')).toMatch(/WARNING: windows-online/);
+});
+
+// lockEntryForManaged, the provenance the sealed build record carries. Failure
+// modes: a Managed directory whose digest no entry records throws, naming its
+// game version and the locked entries (an entry the build did not use is one
+// such entry); an unknown build platform throws; identical bytes under several
+// entries resolve to the build platform's entry, then online, staging, ptr.
+test('the build record entry is the one the Managed digest matches, preferring the build platform', () => {
+  const { workspaceRoot } = workspace();
+  const managed = gameInstall(
+    path.join(workspaceRoot, 'steam'),
+    STAGING_VERSION
+  );
+  const digest = managedDirectoryDigest(managed);
+  expect(() =>
+    lockEntryForManaged({
+      workspaceRoot,
+      platform: 'macos',
+      managedPath: managed
+    })
+  ).toThrow(
+    new RegExp(
+      `hashes to ${digest}, which no Snapshot Lock entry records \\(it is ${STAGING_VERSION}\\); locked entries: none`
+    )
+  );
+  const entry = (
+    gameVersion: string,
+    steamBranch: SteamBranch,
+    sha256 = digest
+  ): ManagedLockEntry => ({
+    gameVersion,
+    sha256,
+    buildid: '25661913',
+    steamBranch,
+    capturedAt: NOW.toISOString()
+  });
+  const lock = emptyLock();
+  lock.entries['macos-online'] = entry(
+    ONLINE_VERSION,
+    'public',
+    'c'.repeat(64)
+  );
+  lock.entries['macos-staging'] = entry(STAGING_VERSION, 'staging');
+  lock.entries['windows-online'] = entry(
+    '1.0.12600-windows-x64-0a1b2c3d',
+    'public'
+  );
+  lock.entries['windows-ptr'] = entry(
+    '1.0.12600-ptr-windows-x64-0a1b2c3d',
+    'public_test_realm'
+  );
+  validateGameLibsLock(lock);
+  expect(
+    lockEntryForManaged({ lock, platform: 'macos', managedPath: managed })
+  ).toEqual({
+    key: 'macos-staging',
+    platform: 'macos',
+    channel: 'staging',
+    gameVersion: STAGING_VERSION,
+    sha256: digest,
+    buildid: '25661913'
+  });
+  expect(
+    lockEntryForManaged({ lock, platform: 'windows', managedPath: managed }).key
+  ).toBe('windows-online');
+  lock.entries['windows-online'] = null;
+  expect(
+    lockEntryForManaged({ lock, platform: 'windows', managedPath: managed }).key
+  ).toBe('windows-ptr');
+  expect(() =>
+    lockEntryForManaged({ lock, platform: 'linux', managedPath: managed })
+  ).toThrow(/Unknown snapshot platform/);
+  // The game moved on after capture: the entries exist, but none was used.
+  write(path.join(managed, 'UnityEngine.dll'), 'patched');
+  expect(() =>
+    lockEntryForManaged({ lock, platform: 'macos', managedPath: managed })
+  ).toThrow(
+    /locked entries: macos-online 1\.0\.12600-macos-arm64-0a1b2c3d, macos-staging 1\.0\.12575-staging-macos-arm64-fecb8f8e, windows-ptr/
+  );
+});
+
+// Stands in for tools/SteamSnapshot: `download` lays out what the depot holds.
+function steamTool({
+  buildid = '26443971',
+  gameVersion,
+  calls = []
+}: {
+  buildid?: string;
+  gameVersion?: string;
+  calls?: string[][];
+}): SteamToolRunner {
+  return (args) => {
+    calls.push(args);
+    if (args[0] === 'state')
+      return { buildid, updatedAt: 1793832079, manifests: {} };
+    gameInstall(args[args.indexOf('--out') + 1], gameVersion!);
+    return { buildid, manifest: '1' };
+  };
+}
+
+const WINDOWS_ONLINE = '1.0.13056-prod-windows-x64-891f830a';
+const onlineEntry = (
+  gameVersion: string,
+  buildid: string
+): ManagedLockEntry => ({
+  gameVersion,
+  sha256: 'a'.repeat(64),
+  buildid,
+  steamBranch: 'public',
+  capturedAt: NOW.toISOString()
+});
+
+test('a Steam capture records a lock entry from the depot on any host', () => {
+  const { workspaceRoot, modRoot, lock } = workspace();
+  const calls: string[][] = [];
+  const result = steamCapture({
+    workspaceRoot,
+    modRoot,
+    platform: 'windows',
+    channel: 'online',
+    runTool: steamTool({ gameVersion: WINDOWS_ONLINE, calls }),
+    now: NOW
+  });
+
+  expect(result.key).toBe('windows-online');
+  expect(lock().entries['windows-online']).toMatchObject({
+    gameVersion: WINDOWS_ONLINE,
+    buildid: '26443971',
+    steamBranch: 'public'
+  });
+  expect(fs.existsSync(path.join(result.directory, 'Managed'))).toBe(true);
+  expect(calls[0]).toEqual(
+    expect.arrayContaining(['--branch', 'public', '--depot', '1617402'])
+  );
+  const download = calls[0][calls[0].indexOf('--out') + 1];
+  expect(fs.existsSync(download)).toBe(false);
+});
+
+test('a Steam capture refuses a depot that holds another entry build', () => {
+  const { workspaceRoot, modRoot, lock } = workspace();
+  expect(() =>
+    steamCapture({
+      workspaceRoot,
+      modRoot,
+      platform: 'macos',
+      channel: 'online',
+      runTool: steamTool({ gameVersion: WINDOWS_ONLINE }),
+      now: NOW
+    })
+  ).toThrow(/not a macos-online build/);
+  expect(lock().entries['macos-online']).toBeNull();
+});
+
+test('a Steam capture reads a preview channel from its own branch', () => {
+  const { workspaceRoot, modRoot, lock } = workspace();
+  const calls: string[][] = [];
+  steamCapture({
+    workspaceRoot,
+    modRoot,
+    platform: 'macos',
+    channel: 'staging',
+    runTool: steamTool({ gameVersion: STAGING_VERSION, calls }),
+    now: NOW
+  });
+
+  expect(calls[0]).toEqual(
+    expect.arrayContaining(['--branch', 'staging', '--depot', '1617401'])
+  );
+  expect(lock().entries['macos-staging']!.steamBranch).toBe('staging');
+});
+
+test('a Steam capture needs a desktop entry', () => {
+  const { workspaceRoot, modRoot } = workspace();
+  expect(() =>
+    steamCapture({
+      workspaceRoot,
+      modRoot,
+      platform: 'android',
+      channel: 'online',
+      runTool: steamTool({ gameVersion: WINDOWS_ONLINE })
+    })
+  ).toThrow(/no Steam depot/);
+  expect(() =>
+    steamStale({
+      workspaceRoot,
+      modRoot,
+      // Deliberately not a snapshot channel.
+      channel: 'beta' as unknown as SnapshotChannel,
+      runTool: steamTool({})
+    })
+  ).toThrow(/Unknown macos snapshot channel/);
+});
+
+test('a lock entry is stale when its buildid differs from Steam', () => {
+  const lock = emptyLock();
+  lock.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '26443971');
+  lock.entries['windows-online'] = onlineEntry(WINDOWS_ONLINE, '26428865');
+
+  expect(staleSteamPlatforms(lock, 'online', '26443971')).toEqual(['windows']);
+  expect(staleSteamPlatforms(lock, 'online', 26428865)).toEqual(['macos']);
+  expect(staleSteamPlatforms(emptyLock(), 'online', '1')).toEqual([
+    'macos',
+    'windows'
+  ]);
+});
+
+test('steam-stale reads both desktop depots of the branch', () => {
+  const { workspaceRoot, modRoot } = workspace();
+  const calls: string[][] = [];
+  const state = steamStale({
+    workspaceRoot,
+    modRoot,
+    channel: 'online',
+    runTool: steamTool({ calls })
+  });
+
+  expect(state).toEqual({
+    buildid: '26443971',
+    updatedAt: 1793832079,
+    platforms: ['macos', 'windows']
+  });
+  expect(calls[0]).toEqual(
+    expect.arrayContaining(['--depots', '1617401,1617402'])
+  );
+});
+
+test('a capture is code, content or none by what it changed', () => {
+  const previous = emptyLock();
+  previous.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '1');
+  previous.entries['windows-online'] = onlineEntry(WINDOWS_ONLINE, '1');
+  const after = (changes: Partial<ManagedLockEntry>) => {
+    const lock = structuredClone(previous);
+    lock.entries['windows-online'] = {
+      ...lock.entries['windows-online']!,
+      buildid: '2',
+      ...changes
+    };
+    return lock;
+  };
+
+  expect(steamChangeKind(previous, after({}), 'online')).toBe('none');
+  expect(
+    steamChangeKind(
+      previous,
+      after({ gameVersion: '1.0.13057-prod-windows-x64-891f830a' }),
+      'online'
+    )
+  ).toBe('content');
+  expect(
+    steamChangeKind(previous, after({ sha256: 'b'.repeat(64) }), 'online')
+  ).toBe('code');
+  expect(steamChangeKind(emptyLock(), after({}), 'online')).toBe('code');
+});
+
+const STATUS_FIXTURE = JSON.parse(
+  fs.readFileSync(
+    path.join(WORKSPACE_ROOT, 'release/fixtures/game-status.json'),
+    'utf8'
+  )
+) as GameStatusDocument;
+const statusLock = () => {
+  const lock = emptyLock();
+  lock.entries['macos-online'] = onlineEntry(
+    STATUS_FIXTURE.platforms.macos!.gameVersion,
+    STATUS_FIXTURE.buildid
+  );
+  lock.entries['windows-online'] = onlineEntry(
+    STATUS_FIXTURE.platforms.windows!.gameVersion,
+    STATUS_FIXTURE.buildid
+  );
+  return lock;
+};
+const STATUS_STATE = { buildid: '26443971', updatedAt: 1793832079 };
+
+test('the Game Status of a recorded online build matches the shared fixture', () => {
+  expect(gameStatus(statusLock(), STATUS_STATE)).toEqual(STATUS_FIXTURE);
+});
+
+test('the Game Status waits for the lock and for a real time', () => {
+  const behind = statusLock();
+  behind.entries['windows-online']!.buildid = '1';
+  expect(gameStatus(behind, STATUS_STATE)).toBeNull();
+  expect(
+    gameStatus(statusLock(), { ...STATUS_STATE, updatedAt: 0 })
+  ).toBeNull();
+});
+
+test('publishing the Game Status writes it once and leaves it alone when behind', async () => {
+  const { workspaceRoot } = workspace({ lock: statusLock() });
+  const store = memoryStore();
+  expect(
+    await publishGameStatus({ workspaceRoot, state: STATUS_STATE, store })
+  ).toEqual(STATUS_FIXTURE);
+  expect(JSON.parse(store.objects.get('latest.json')!.toString())).toEqual(
+    STATUS_FIXTURE
+  );
+  const { workspaceRoot: behind } = workspace({ lock: emptyLock() });
+  const untouched = memoryStore();
+  expect(
+    await publishGameStatus({
+      workspaceRoot: behind,
+      state: STATUS_STATE,
+      store: untouched
+    })
+  ).toBeNull();
+  expect(untouched.objects.size).toBe(0);
+});

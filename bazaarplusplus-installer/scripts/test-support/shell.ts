@@ -1,0 +1,59 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { runGit } from '../../../scripts/git-command.ts';
+
+const projectDir = process.cwd();
+
+// Resolve a usable bash. On Windows, `bash` is frequently absent from the PATH
+// that npm spawns with (PowerShell/cmd), so fall back to the Git for Windows
+// install before giving up.
+export function resolveBashCommand(): string {
+  if (process.platform !== 'win32') {
+    return 'bash';
+  }
+  const candidates: string[] = [];
+  if (process.env.BPP_BASH) {
+    candidates.push(process.env.BPP_BASH);
+  }
+  try {
+    const execPath = runGit(['--exec-path']).trim();
+    const gitRoot = execPath.replace(/[/\\](mingw\d+|usr)[/\\].*$/i, '');
+    if (gitRoot && gitRoot !== execPath) {
+      candidates.push(`${gitRoot}/bin/bash.exe`);
+    }
+  } catch {
+    // git not on PATH; fall back to the well-known install locations below.
+  }
+  candidates.push(
+    'C:/Program Files/Git/bin/bash.exe',
+    'C:/Program Files (x86)/Git/bin/bash.exe'
+  );
+  return (
+    candidates.find((candidate) => candidate && existsSync(candidate)) ?? 'bash'
+  );
+}
+
+const bashCommand = resolveBashCommand();
+
+// Git Bash treats `E:\foo` as a relative path, so paths handed to bundle.sh
+// must be POSIX-style absolute (`/e/foo`) on Windows.
+export function toBashPath(p: string): string {
+  return p
+    .replace(/\\/g, '/')
+    .replace(
+      /^([A-Za-z]):/,
+      (_: string, drive: string) => `/${drive.toLowerCase()}`
+    );
+}
+
+// Read static script text from stdin and dynamic values from the environment.
+// Git Bash on Windows reinterprets quotes and globs in native process arguments.
+export function runShell(script: string, env: NodeJS.ProcessEnv = {}): string {
+  return execFileSync(bashCommand, ['-s'], {
+    cwd: projectDir,
+    env: { ...process.env, ...env },
+    input: script,
+    encoding: 'utf8',
+    timeout: 120000
+  });
+}

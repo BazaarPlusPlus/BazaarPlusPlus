@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compile, deploy, seed refresh, and Payload production. Entry points: `just mod::*`
-# and release/payload.mjs (`produce`).
+# and release/payload.ts (`produce`).
 # shellcheck source=scripts/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -47,7 +47,7 @@ repair_macos_trampoline() {
     local installer_source
     installer_source="$(prop_value BPPInstallerSourcePath "$@")"
     installer_source="${installer_source:-${BPP_INSTALLER_SOURCE_PATH:-$MOD_ROOT/../bazaarplusplus-installer/src-tauri/resources}}"
-    node "$MOD_ROOT/../bazaarplusplus-installer/scripts/headless.mjs" repair \
+    node "$MOD_ROOT/../bazaarplusplus-installer/scripts/headless.ts" repair \
         --game "$root" \
         --stub "${BPP_TRAMPOLINE_STUB:-$installer_source/Trampoline/macos/bpp_launcher}"
 }
@@ -138,9 +138,9 @@ run_seed_gates() {
 }
 
 # produce -p:ManagedPath=... -p:BPPInstallerSourcePath=... ...: internal to
-# release/payload.mjs, which resolves and pins ManagedPath (game.sh managed-path).
+# release/payload.ts, which resolves and pins ManagedPath (game.sh managed-path).
 cmd_produce() {
-    : "${BPP_RELEASE_ARTIFACTS:?Run node release.mjs prepare to build an isolated Payload}"
+    : "${BPP_RELEASE_ARTIFACTS:?Run node release.ts prepare to build an isolated Payload}"
     collect_props "$@"
     local installer_source
     installer_source="$(prop_value BPPInstallerSourcePath "$@")"

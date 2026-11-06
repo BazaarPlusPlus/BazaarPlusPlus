@@ -11,6 +11,13 @@ updates:
       default-days: 7
     commit-message:
       prefix: 'build(release)'
+    # Coupled toolchain majors need a deliberate compatibility upgrade; the Node
+    # types follow the runtime major that .nvmrc pins.
+    ignore:
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       tooling:
         patterns: ['*']

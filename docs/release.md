@@ -4,7 +4,7 @@ mod 与 installer 是同一个 Product Release 的两个产物。每个桌面发
 
 ## 入口
 
-`prepare`、`build`、`upload` 默认由 [GitHub Actions 发版工作流](#github-actions-发版)在两个托管 runner 上执行；在本机执行时每个平台仍要在自己的原生宿主上，游戏程序集由快照锁解析而不是本机 Steam 探测，所以装了游戏不再是发布机的条件。just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `node release.mjs --help` 为准。
+`prepare`、`build`、`upload` 默认由 [GitHub Actions 发版工作流](#github-actions-发版)在两个托管 runner 上执行；在本机执行时每个平台仍要在自己的原生宿主上，游戏程序集由快照锁解析而不是本机 Steam 探测，所以装了游戏不再是发布机的条件。just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `node release.ts --help` 为准。
 
 ```bash
 just release::sync
@@ -20,11 +20,11 @@ just release::promote --platform macos
 
 Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 默认对照本平台的 online 锁条目编译（`scripts/game.sh managed-path` 只解析这一个条目），可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 换一种取包方式，但该目录仍必须哈希到某个锁条目，否则 `prepare` 在落任何文件之前拒绝；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror-all` 在双平台上传齐备后统一核对并记录大陆镜像地址；`mirror` 用于单平台发布；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
 
-`release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置、updater endpoint 和快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 的格式（六个键齐全，条目为空或过期只告警，见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。V5 导入模块 `bazaarplusplus-installer/src-tauri/src/v5_import/` 已在 6.2.0 删除；版本不低于 6.2.0 而这个目录重新出现时它拒绝通过，所以 `release::check`、`release::prepare` 和 installer 预检查都会失败，见 [installer ADR 0008](../bazaarplusplus-installer/docs/adr/0008-legacy-data-roots-and-v5-import.md) 与 [#264](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/264)。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
+`release/projections.ts` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置、updater endpoint 和快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 的格式（六个键齐全，条目为空或过期只告警，见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。V5 导入模块 `bazaarplusplus-installer/src-tauri/src/v5_import/` 已在 6.2.0 删除；版本不低于 6.2.0 而这个目录重新出现时它拒绝通过，所以 `release::check`、`release::prepare` 和 installer 预检查都会失败，见 [installer ADR 0008](../bazaarplusplus-installer/docs/adr/0008-legacy-data-roots-and-v5-import.md) 与 [#264](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/264)。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
 
-同一入口用 `release/history-database.mjs` 的 `assertHistoryDatabaseCompatibility` 比较 mod 的 `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json` 与 installer 的 `bazaarplusplus-installer/src-tauri/history-database-compatibility.json`：两边必填的 `dataRootDirectoryName` 必须相同，mod 的 `historyDatabaseUserVersion` 必须是 installer `supportedUserVersions` 里最新的一项。两份 JSON 各自由项目测试钉住源码常量：mod 的 `RunLogSchemaReleaseContractTests` 对 `PathConstants.DataRootDirectoryName` 与 `RunLogSchema.LocalDatabaseSchemaVersion`，installer `src-tauri/src/config.rs` 的测试对 `BAZAAR_DATA_DIRECTORY`。所以只改一边的 Data Root 名称，会让该项目的测试或 `release::check` 失败。`release::prepare` 打包前对暂存 Payload 里的 mod 合约再做一次同样的比较（`release/payload-zip.mjs`）。
+同一入口用 `release/history-database.ts` 的 `assertHistoryDatabaseCompatibility` 比较 mod 的 `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json` 与 installer 的 `bazaarplusplus-installer/src-tauri/history-database-compatibility.json`：两边必填的 `dataRootDirectoryName` 必须相同，mod 的 `historyDatabaseUserVersion` 必须是 installer `supportedUserVersions` 里最新的一项。两份 JSON 各自由项目测试钉住源码常量：mod 的 `RunLogSchemaReleaseContractTests` 对 `PathConstants.DataRootDirectoryName` 与 `RunLogSchema.LocalDatabaseSchemaVersion`，installer `src-tauri/src/config.rs` 的测试对 `BAZAAR_DATA_DIRECTORY`。所以只改一边的 Data Root 名称，会让该项目的测试或 `release::check` 失败。`release::prepare` 打包前对暂存 Payload 里的 mod 合约再做一次同样的比较（`release/payload-zip.ts`）。
 
-just 只转发，不缓存或跳过任何发布检查。直接调用 `node release.mjs prepare|build` 时，MSBuild 参数要放在 `--` 之后；just 会自动补上。
+just 只转发，不缓存或跳过任何发布检查。直接调用 `node release.ts prepare|build` 时，MSBuild 参数要放在 `--` 之后；just 会自动补上。
 
 ## 发布顺序
 
@@ -43,13 +43,13 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## GitHub Actions 发版
 
-`.github/workflows/release.yml` 在原生 macOS 与 Windows runner 上依次执行 `just release::check`、`just mod::fetch <platform> online`、所选平台的 Mod 验证（正式构建）、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求。正式构建在 Payload 准备、签名与上传之前补齐所选平台的 Mod 验证：桌面执行 online 检查、功能测试、墙钟性能测试及 staging/ptr 兼容编译，Android 执行宿主编译和 Core 测试。任一步失败即停止发布；Installer 的完整原生验证由 `release::build` 调用 `bazaarplusplus-installer/scripts/bundle.sh` 的 `run_release_prechecks` 执行。`build_only` 同样执行这些验证，`dry_run` 保留仅准备 Payload 的行为。macOS runner 必须支持 Icon Composer 源文件；工作流在准备 Payload 前运行 `bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs` 的 `compileMacOSIcon`，提前发现图标工具链不兼容，PR 检查也执行相同的真实图标编译。
+`.github/workflows/release.yml` 在原生 macOS 与 Windows runner 上依次执行 `just release::check`、`just mod::fetch <platform> online`、所选平台的 Mod 验证（正式构建）、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求。正式构建在 Payload 准备、签名与上传之前补齐所选平台的 Mod 验证：桌面执行 online 检查、功能测试、墙钟性能测试及 staging/ptr 兼容编译，Android 执行宿主编译和 Core 测试。任一步失败即停止发布；Installer 的完整原生验证由 `release::build` 调用 `bazaarplusplus-installer/scripts/bundle.sh` 的 `run_release_prechecks` 执行。`build_only` 同样执行这些验证，`dry_run` 保留仅准备 Payload 的行为。macOS runner 必须支持 Icon Composer 源文件；工作流在准备 Payload 前运行 `bazaarplusplus-installer/scripts/release/compile-macos-icon.ts` 的 `compileMacOSIcon`，提前发现图标工具链不兼容，PR 检查也执行相同的真实图标编译。
 
 触发方式两种：`workflow_dispatch` 填 `version`（必须等于所选 ref 上的 `VERSION`，否则在装任何工具链之前失败），或推送 `v<VERSION>` 标签。手动触发时可选 `platform`，只重建需要验证的平台。`dry_run` 在 `prepare` 之后停止，只验证取包与 Payload 准备；需要验证完整签名和打包时用 `build_only`，它保留 Actions 安装包产物而不向 R2 上传。后者适合验证已暂存版本的修复，避免以新提交覆盖不可变版本目录。两者同时开启时，仍在 `prepare` 后停止。`skip_preview_channels` 只跳过本次运行的 staging/ptr 兼容编译并留下警告，online 的检查和测试照常执行；用于预览通道快照过旧、又不应阻塞 online 发布的情况。
 
-游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.mjs` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
+游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.ts` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
 
-每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有签名 secret 与 Apple 三个标识符变量；仓库级变量 `CLOUDFLARE_ACCOUNT_ID`、仓库级 secret `CLOUDFLARE_API_TOKEN`（操作员 token，`checks.yml`、`analyzer.yml`、`deploy-site.yml` 共用）放在仓库级。每个 job 的第一步 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `node scripts/workspace.mjs run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.mjs` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
+每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有签名 secret 与 Apple 三个标识符变量；仓库级变量 `CLOUDFLARE_ACCOUNT_ID`、仓库级 secret `CLOUDFLARE_API_TOKEN`（操作员 token，`checks.yml`、`analyzer.yml`、`deploy-site.yml` 共用）放在仓库级。每个 job 的第一步 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `node scripts/workspace.ts run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.ts` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
 
 | 名字 | GitHub 作用域 | 本地来源 | 用途 |
 |---|---|---|---|
@@ -61,7 +61,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 | `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
 | `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.ini` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
 
-发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时给 Dependabot 注册操作员 token）。只有三件事要人工做：在 Cloudflare dashboard 造操作员 token（`release/r2-store.mjs` 只接受 Account API Token）填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`。环境 secret 会覆盖同名的仓库 secret，所以不要在任何环境里再建仓库 secret 的副本。
+发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时给 Dependabot 注册操作员 token）。只有三件事要人工做：在 Cloudflare dashboard 造操作员 token（`release/r2-store.ts` 只接受 Account API Token）填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`。环境 secret 会覆盖同名的仓库 secret，所以不要在任何环境里再建仓库 secret 的副本。
 
 `promote` 不进工作流：它要求两个平台都有大陆镜像记录（或显式豁免），而蓝奏云上传是手动步骤，分享页地址只有上传后才存在，`mirror-all` 必须在 `promote` 之前拿到它们。所以两平台 job 成功后仍按[发布顺序](#发布顺序)第 5、6 步在本机执行 `mirror-all` 与 `promote`，这两步只需要 `[cloudflare]` 的操作员 token。
 
@@ -71,7 +71,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 `release/payload.json` 定义安装路径、宿主、平台、生产者、必需文件和归属；生成的 `release/generated/Payload.targets`、Node ZIP 校验以及 Rust 安装清理共同消费它，文件列表只在这里维护。
 
-- 每个条目的 `host` 是 `bepinex`（桌面，路径相对游戏目录）或 `melonloader`（Android，路径相对 Android App 的游戏存储，根是 `MelonLoader/`）。平台按 `release/release-platforms.mjs` 的 `payloadHost` 只取自己宿主的条目，`platforms` 只能写同一宿主的平台。`Payload.targets` 按宿主出两组条目，工程用 `BppPayloadHost` 选择，缺省是 `bepinex`；installer 只读 `bepinex` 条目。
+- 每个条目的 `host` 是 `bepinex`（桌面，路径相对游戏目录）或 `melonloader`（Android，路径相对 Android App 的游戏存储，根是 `MelonLoader/`）。平台按 `release/release-platforms.ts` 的 `payloadHost` 只取自己宿主的条目，`platforms` 只能写同一宿主的平台。`Payload.targets` 按宿主出两组条目，工程用 `BppPayloadHost` 选择，缺省是 `bepinex`；installer 只读 `bepinex` 条目。
 - 生产者 `android-app` 的条目由 Android App 产生，不进 mod 构建和 `Payload.targets`：`lib/arm64-v8a/` 与 `assets/` 下的条目是 Android App APK 内部的路径，APK 内部路径也只能由它产生；另一个是 Android App 每次启动前写的启动记录 `MelonLoader/UserData/BazaarPlusPlus.launch.json`。`release::build` 核对 APK 里有每一个 APK 内部条目。
 - `private` 是 BPP 私有文件；`dependency` 可能与其他插件共享；`bootstrap` 是加载器设施。
 - `runtime` 只参与运行时清理规则，不进入安装包；`retired` 保留清理归属，但禁止重新打包。
@@ -83,7 +83,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 生产者 `managed` 与 `history-contract` 的条目组成 Managed Payload，mod 自己更新它；其余条目（加载器、native、`bootstrap`、`sqlite-*` 和生产者 `updater` 的 Updater）只由 installer 或新的 Android App 更新，它们的 sha256 汇成 fragment 的 `nonManagedPayloadDigest`。决策记录见 [mod ADR 0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)。
 
-- `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.mjs`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
+- `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.ts`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
 - fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：`upload` 时与已提升的平台清单比较这两项。mod 只与正在运行的副本比较。
 - Updater 以固定版本 1.0.0 确定性构建，同一编译器构建不变的源码时文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新的 Android App。
 
@@ -93,7 +93,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 准备和整个 installer 构建共享一个进程锁，覆盖校验、签名、bundle 和最终 artifact manifest。打包结束重新检查 unsigned 来源、源码及 Git 身份；失败不会留下上一轮可上传的 artifact manifest。macOS 签名只变换 ZIP 中的副本，最终分发 hash 由 artifact manifest 记录。
 
-切换过程留下恢复 journal。异常退出后预检查拒绝继续打包；重新执行 `prepare` 会在持锁状态下恢复上一组目录，再开始准备。活进程的锁不能抢占；同一主机已退出进程的锁可以回收。极短的锁获取阶段若被中断，残留的 `payload.lock.claim` 会阻止并发抢锁，需要确认没有发布进程后再人工清理该空目录。`node release.mjs assert-build-owner` 是 installer 打包使用的内部只读协议：校验构建 token、主机和活进程，不获取锁、不准备资源。常规调用者使用 `release::build`。来源记录失效或文件被修改时重新准备，不手工补写记录。journal 无法验证时停止并检查备份，不删除它来绕过检查。
+切换过程留下恢复 journal。异常退出后预检查拒绝继续打包；重新执行 `prepare` 会在持锁状态下恢复上一组目录，再开始准备。活进程的锁不能抢占；同一主机已退出进程的锁可以回收。极短的锁获取阶段若被中断，残留的 `payload.lock.claim` 会阻止并发抢锁，需要确认没有发布进程后再人工清理该空目录。`node release.ts assert-build-owner` 是 installer 打包使用的内部只读协议：校验构建 token、主机和活进程，不获取锁、不准备资源。常规调用者使用 `release::build`。来源记录失效或文件被修改时重新准备，不手工补写记录。journal 无法验证时停止并检查备份，不删除它来绕过检查。
 
 ## 远端发布
 
@@ -104,15 +104,15 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 - `CLOUDFLARE_API_TOKEN`：必须是该账号的 Account API Token，User API Token 会被拒绝
 - `CLOUDFLARE_ACCOUNT_ID`
 
-S3 密钥对由 `release/r2-store.mjs` 从 token 推导（一次 `GET /accounts/{account_id}/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
+S3 密钥对由 `release/r2-store.ts` 从 token 推导（一次 `GET /accounts/{account_id}/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
 
-对应的 just 命令通过 `scripts/workspace.mjs` 的 `release` profile 从 `[cloudflare]` 接入这两个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `node release.mjs` 仍要求调用者提供环境。
+对应的 just 命令通过 `scripts/workspace.ts` 的 `release` profile 从 `[cloudflare]` 接入这两个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `node release.ts` 仍要求调用者提供环境。
 
 版本目录中的产物和 platform fragment 不可变：相同 bytes 的重试成功，不同 bytes 必须发布新版本。上传先固定所有本地文件内容并复查 hashes，避免并发本机构建污染远端版本路径。读取失败、权限错误和服务错误都不是“文件不存在”。
 
 `promote` 验证完整安装器及 Managed Payload 的完整性，然后以 ETag compare-and-swap 依次写入各平台的安装器入口 `latest/<平台键>.json`、mod 入口 `latest/mod/<平台键>.json`，最后写入 `latest.json`。两个平台入口使用同一份 Platform Release Manifest，包括版本、提交、发布时间与下载地址；没有单独推进 mod 版本的命令。有其他发布者抢先写入时重新检查版本，不能用旧版本覆盖新版本。重复发布同版本只能确认已有事实，不能替换它们。回退产品行为需要发布一个更高版本号的修复版本。多个清单的写入不是原子事务：中途失败时命令报错，重跑同一次 `promote` 补齐 mod 入口，即使 `latest.json` 已是该版本也会补齐；确认旧 lockstep 版本不会回退已经领先的平台。首次发布的新入口尚未写成时，mod 检查可能暂时失败，补齐后重新启动游戏再检查。
 
-`release/downloads.ts` 是浏览器可消费的发布事实入口，统一发布 origin、平台键、安装器与 mod 清单路径（`platformManifestPath`、`modManifestPath`）、updater endpoint 列表，读取大陆镜像地址的 `decodeMainlandDownloadUrl`，以及读取 Android 平台清单的 `decodeAndroidDownload`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，三个平台版本不全相同，由官网测试、mod 测试和 writer 测试消费。这四份样例是发布流水线的产物：`release/cli.test.mjs` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1、Windows 单平台 3.1.2 的 upload、mirror 与 promote，再把同一提交的 Android 3.1.2 产物与 fragment 放进内存 store 并执行 `promote --platform android`，最后把 manifest 与样例逐字节比对，并检查 mod 入口与对应安装器入口的字节相同，其中提交哈希换成样例里的合成值。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 npx vitest run --config release/vitest.config.mjs release/cli.test.mjs` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
+`release/downloads.ts` 是浏览器可消费的发布事实入口，统一发布 origin、平台键、安装器与 mod 清单路径（`platformManifestPath`、`modManifestPath`）、updater endpoint 列表，读取大陆镜像地址的 `decodeMainlandDownloadUrl`，以及读取 Android 平台清单的 `decodeAndroidDownload`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，三个平台版本不全相同，由官网测试、mod 测试和 writer 测试消费。这四份样例是发布流水线的产物：`release/cli.test.ts` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1、Windows 单平台 3.1.2 的 upload、mirror 与 promote，再把同一提交的 Android 3.1.2 产物与 fragment 放进内存 store 并执行 `promote --platform android`，最后把 manifest 与样例逐字节比对，并检查 mod 入口与对应安装器入口的字节相同，其中提交哈希换成样例里的合成值。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 npx vitest run release/cli.test.ts` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
 
 lockstep 平台（Windows 与 macOS）的 Platform Release Manifest（`latest/<平台键>.json`）和双平台的 Release Manifest（`latest.json`）形状相同：保留 Tauri updater 的 `platforms` 字段，并在 `downloads` 中提供该平台真实的安装器地址和大陆镜像地址 `mainlandUrl`。Android 的平台清单没有 `platforms` 字段，见 [Android 发布](#android-发布)。官网不再猜测主下载文件名，也不再拼接镜像地址；部署新版官网前先发布新 manifest，否则官网会使用已有的 GitHub 下载入口。
 
@@ -137,7 +137,7 @@ Android 是第三个发布平台（平台键 `android-aarch64`），不进 `late
 | Interop Package | `android/interop/<zip 的 sha256>.zip`，按内容寻址 | interop 声明的 SHA256withRSA 签名 |
 | Managed Payload zip | `<版本>/android-aarch64/managed/` | minisign 签名，由 Updater 验证 |
 
-对象键、Android App 的 `versionCode`（`androidAppVersionCode`）、`nonManagedPayloadDigest` 的算法（`androidNonManagedPayloadDigest`）以及 fragment（`kind: 'android-app'`）与平台清单的字段都由 `release/manifest.mjs` 定义；平台清单 `downloads["android-aarch64"]` 的字段顺序是 `ANDROID_RELEASE_FIELDS`。interop 声明的字节、签名与验证由 `release/android-interop.mjs` 定义，共享样例在 `release/fixtures/android-interop/`。同一份 Interop Snapshot 只有一个 Interop Package，用这份快照的各次发布共用同一个对象。
+对象键、Android App 的 `versionCode`（`androidAppVersionCode`）、`nonManagedPayloadDigest` 的算法（`androidNonManagedPayloadDigest`）以及 fragment（`kind: 'android-app'`）与平台清单的字段都由 `release/manifest.ts` 定义；平台清单 `downloads["android-aarch64"]` 的字段顺序是 `ANDROID_RELEASE_FIELDS`。interop 声明的字节、签名与验证由 `release/android-interop.ts` 定义，共享样例在 `release/fixtures/android-interop/`。同一份 Interop Snapshot 只有一个 Interop Package，用这份快照的各次发布共用同一个对象。
 
 ```bash
 just release::promote --platform android
@@ -151,10 +151,10 @@ just release::promote --platform android
 
 ### Android 发布顺序
 
-官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`node release/game-libs.mjs official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。之后分三种情况：
+官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`node release/game-libs.ts official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。之后分三种情况：
 
 - **没变**：sha256 与锁相同。ETag 也相同就什么都不做。ETag 变了，它只开一个记录新 ETag 的 PR，不升版本号，否则以后每次检查都会重新下载。
-- **只改内容**：sha256 变了，它采集新的 `android-online` 条目（记下下载时的 ETag），再用 `node release/android-adaptation.mjs kind` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android online`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
+- **只改内容**：sha256 变了，它采集新的 `android-online` 条目（记下下载时的 ETag），再用 `node release/android-adaptation.ts kind` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android online`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
 - **代码变了**：任一个哈希变了。上传输入之后，它跑 `mod::android-build` 和 `mod::test-core`，再开一个更新锁文件并把 `VERSION` 升一个补丁号的 PR。在这个版本发布之前，已发布的 Android App 在新游戏上显示等待适配。
 
 这些 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。升了 `VERSION` 的 PR 合并后，从下面第 1 步开始发布。仓库设置里要允许 GitHub Actions 创建 PR。
@@ -172,11 +172,11 @@ just release::promote --platform android
 3. `build` 重做 `prepare`，然后：
    - 把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。
    - 用 `buildInteropPackage` 打 Interop Package，用 Android 发布密钥签它的 `release <版本>` interop 声明。私钥由 `openssl pkcs12` 经密码文件从 keystore 取出，只放在系统临时目录，签完即删；keystore 里的证书必须是钉住的发布证书。
-   - 用 `release/android-app.mjs` 的 `stageAndroidAppRuntime` 暂存 Android App 携带的运行时，写进算好的 `nonManagedPayloadDigest`；Updater 取自 Payload 里的同一份文件。再用 `stageCarriedRelease` 把上面两个 zip 和 `androidCarriedRelease` 写的文档放进 `assets/bpp-release/`，所以新装的 App 不用下载就能运行这个版本。
+   - 用 `release/android-app.ts` 的 `stageAndroidAppRuntime` 暂存 Android App 携带的运行时，写进算好的 `nonManagedPayloadDigest`；Updater 取自 Payload 里的同一份文件。再用 `stageCarriedRelease` 把上面两个 zip 和 `androidCarriedRelease` 写的文档放进 `assets/bpp-release/`，所以新装的 App 不用下载就能运行这个版本。
    - 在 `bazaarplusplus-android/` 跑 Gradle 的 `assembleRelease`，传入 `-Pbpp.version`、`-Pbpp.versionCode` 与 `-Pbpp.runtimeDir`。需要 Android App 工具链锁（`bazaarplusplus-android/toolchain.lock.json`）钉住的 JDK 与 SDK。
    - 用 `zipalign` 对齐，用 `apksigner` 和 Android 发布密钥签名；keystore 密码只经文件传给 `apksigner`。`apksigner verify --print-certs` 报告的证书必须是钉住的发布证书。再从 APK 里读回 `assets/bpp-runtime.json`，它的 `nonManagedPayloadDigest` 必须等于 fragment 的值；`assets/bpp-release/` 必须是这次构建暂存的版本。
 
-   步骤与工具查找见 `release/android-release.mjs` 的 `buildAndroidRelease` 与 `resolveBuildTools`。签名材料的来源见上面的 secret 表。所有输出都在工作区根的 `target/android/`：APK、`<sha256>.zip` 与它的 `.statement` 和 `.statement.sig`、Managed Payload zip 与 `.sig`，以及构建回执 `android-aarch64.json`。
+   步骤与工具查找见 `release/android-release.ts` 的 `buildAndroidRelease` 与 `resolveBuildTools`。签名材料的来源见上面的 secret 表。所有输出都在工作区根的 `target/android/`：APK、`<sha256>.zip` 与它的 `.statement` 和 `.statement.sig`、Managed Payload zip 与 `.sig`，以及构建回执 `android-aarch64.json`。
 4. `upload` 在同一台机器上用流式条件写依次上传 Android App APK、Interop Package、Managed Payload zip 与 `.sig`，最后写 fragment。Interop Package 的键已有相同字节时不再上传，字节不同时拒绝。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同，会被已上传的对象拒绝，这时升版本。
 5. `promote --platform android`。
 

@@ -4,7 +4,7 @@
 
 决定如下。公开文件只放在 `bazaarplusplus-public` 一个桶，只挂 `cdn.bazaarplusplus.com` 一个域名。第一层目录按写入方划分，每条流水线只写自己的前缀：
 
-- `installer/`：发版流程（`release/r2-store.mjs` 的默认前缀，`RELEASE_BASE_URL` 为 `https://cdn.bazaarplusplus.com/installer`）。目录内部结构不变。
+- `installer/`：发版流程（`release/r2-store.ts` 的默认前缀，`RELEASE_BASE_URL` 为 `https://cdn.bazaarplusplus.com/installer`）。目录内部结构不变。
 - `metrics/v6/`：analyzer（`BPP_METRICS_R2_PREFIX`）。契约换版本时并排加 `metrics/v7/`，不新建桶或域名。
 - `game-status/`：Steam 快照监视工作流（[ADR 0015](0015-steam-snapshot-capture.md)）。
 - `mod-data/`：维护者用 `just release::mod-data` 上传的 `supporters/supporter-list.json` 和 `voice-lines/voice-lines.json`。
