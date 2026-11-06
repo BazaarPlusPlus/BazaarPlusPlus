@@ -4,7 +4,6 @@ using System.Collections;
 using System.Reflection;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.Settings;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
@@ -30,12 +29,6 @@ internal static class BppKeybindSettingsAwakePatch
         new(ToggleLiveBuildPanelObjectName, BppHotkeyActionId.ToggleLiveBuildPanel),
         new(ToggleHistoryPanelObjectName, BppHotkeyActionId.ToggleHistoryPanel),
     ];
-
-    // A mobile platform has no keyboard and adds no key rows, as on the Android host: the touch
-    // panels register no toggle hotkey, and the tooltip's touch switches replace the two hold
-    // keys (ADR-0024, ADR-0025). The OnEnable and gameplay-tab patches carry the same guard,
-    // because each of them also adds the rows.
-    private static bool Prepare() => !TouchPlatform.IsMobile;
 
     internal static IEnumerable<string> DefinitionObjectNames =>
         Definitions.Select(definition => definition.ObjectName);
@@ -195,8 +188,6 @@ internal static class BppKeybindSettingsAwakePatch
 [HarmonyPatch(typeof(OptionsDialogController), "OnEnable")]
 internal static class BppKeybindSettingsOnEnablePatch
 {
-    private static bool Prepare() => !TouchPlatform.IsMobile;
-
     [HarmonyPostfix]
     private static void Postfix(OptionsDialogController __instance)
     {
@@ -207,8 +198,6 @@ internal static class BppKeybindSettingsOnEnablePatch
 [HarmonyPatch(typeof(OptionsDialogController), "OnGameplayButtonClick")]
 internal static class BppKeybindSettingsGameplayOpenPatch
 {
-    private static bool Prepare() => !TouchPlatform.IsMobile;
-
     [HarmonyPostfix]
     private static void Postfix(OptionsDialogController __instance)
     {

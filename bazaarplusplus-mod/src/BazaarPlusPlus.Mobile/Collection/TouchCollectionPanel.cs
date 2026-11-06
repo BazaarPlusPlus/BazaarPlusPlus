@@ -15,7 +15,7 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Mobile.Collection;
 
 /// <summary>
-/// The Collection panel on a mobile platform (#396), on both hosts. Core's
+/// The Collection panel on a mobile platform (#396). Core's
 /// <see cref="CollectionViewState"/> owns every filter, the search, the sort and the render model,
 /// as it does on desktop; this class draws that model in uGUI over the host's touch canvas and
 /// forwards each tap back as a view-state command. The geometry is Core's

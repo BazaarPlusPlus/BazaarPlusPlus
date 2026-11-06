@@ -74,7 +74,7 @@ public sealed class SteamSession : IDisposable
                         Username = login.Account,
                         AccessToken = login.RefreshToken,
                         // Steam ends an older session with the same login id. Channels run at the
-                        // same time on one account, beside its desktop client and iOS App.
+                        // same time on one account, beside its desktop client.
                         LoginID = (uint)Random.Shared.Next(1, int.MaxValue),
                         ShouldRememberPassword = true,
                     }

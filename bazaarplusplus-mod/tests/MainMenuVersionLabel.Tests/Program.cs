@@ -51,37 +51,6 @@ Assert(
     "Without a plugin version the label shows only the game version."
 );
 
-Assert(
-    MainMenuVersionLabelFormatter.IosGameVersion("1.0.12651-prod-macos-arm64-d5cc730f")
-        == "1.0.12651-prod-bppios-arm64-d5cc730f",
-    "The iOS port names itself in place of the macOS platform token."
-);
-Assert(
-    MainMenuVersionLabelFormatter.IosGameVersion("1.0.11358-ptr-MacOS-arm64-947c079a")
-        == "1.0.11358-ptr-bppios-arm64-947c079a",
-    "The platform token is matched regardless of case."
-);
-Assert(
-    MainMenuVersionLabelFormatter.IosGameVersion("1.0.12651-prod-ios-arm64-d5cc730f")
-        == "1.0.12651-prod-ios-arm64-d5cc730f",
-    "A version without the macOS token is left as it is."
-);
-Assert(
-    MainMenuVersionLabelFormatter.IosGameVersion("macosx-1.0.0") == "macosx-1.0.0",
-    "Only a whole token is renamed, never part of one."
-);
-Assert(
-    MainMenuVersionLabelFormatter.IosGameVersion("") == "",
-    "An empty version stays empty so the label still shows unknown."
-);
-Assert(
-    MainMenuVersionLabelFormatter.Build(
-        MainMenuVersionLabelFormatter.IosGameVersion("1.0.12651-prod-macos-arm64-d5cc730f"),
-        "6.2.0"
-    ) == " Version: 1.0.12651-prod-bppios-arm64-d5cc730f | BPP 6.2.0 ",
-    "The iOS label shows the renamed version before the BPP version."
-);
-
 Console.WriteLine("Main menu version label tests passed.");
 
 return;

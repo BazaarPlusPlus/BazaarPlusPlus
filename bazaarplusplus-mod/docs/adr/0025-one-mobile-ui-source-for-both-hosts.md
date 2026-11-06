@@ -1,6 +1,6 @@
 # ADR-0025: One Mobile UI source tree compiled into both hosts
 
-Status: Accepted
+Status: Accepted. Amended 2026-11-06: the iOS port is removed, so the Android host is the only host that compiles the Mobile UI tree. Decisions 1 and 8 now apply to the Android host alone; the Mono host compiles no Mobile UI and draws only the Desktop UI. The tree, its port (decision 3) and the other decisions stand.
 
 ## Context
 
@@ -53,10 +53,8 @@ ADR-0012 forbids the Android host to compile linked sources, and `AndroidHostAss
 
 ## Consequences
 
-- A Mobile UI change lands once and reaches iOS and Android. ADR-0024's hand-mirroring consequence is void. Its other decisions stand: the Mono host draws touch surfaces on a mobile platform, restores mobile input through mobile-only patches, and mounts no hover- or key-only feature.
-- ADR-0023 stands: iOS keeps the desktop Mono host, its `GameInterop/` and its `Patches/`.
-- A Mobile UI change costs two game snapshots to build: the Mono managed snapshot and the Android interop snapshot.
-- iOS screen fill needs a Mono reference to `Unity.Cinemachine.dll`. It also needs a device check that a `CinemachineBrain.LateUpdate` postfix fires under `InterpreterMethodPatcher`.
+- A Mobile UI change lands once. ADR-0024's hand-mirroring consequence is void. Amended 2026-11-06: ADR-0023 and ADR-0024 are retired with the iOS port, and the Mono host's touch surfaces, mobile-only patches and adapters are deleted.
+- A Mobile UI change builds against the Android interop snapshot only. Until 2026-11-06 it also needed the Mono managed snapshot.
 - During the migration (#701, finished 2026-10-31) both the old twins and the tree existed, each pair in exactly one place at any time. Now only the tree and the hosts' thin adapters remain.
 
 ## Evidence

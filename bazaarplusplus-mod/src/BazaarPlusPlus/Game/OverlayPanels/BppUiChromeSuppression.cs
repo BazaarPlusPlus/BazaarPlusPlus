@@ -13,7 +13,6 @@ internal static class BppUiChromeSuppression
         {
             BppUiChromeSuppressionMode.Screenshot => UiSuppressionScope.Begin(
                 BppPanelDockButtonsController.BeginScreenshotSuppression,
-                TouchShortcutSuppression.Begin,
                 CombatStatusBarFeature.BeginScreenshotSuppression
             ),
             BppUiChromeSuppressionMode.ReplayRecording => UiSuppressionScope.Begin(

@@ -10,7 +10,7 @@ Source: `bazaarplusplus-installer/src/components/ui/Button.tsx` with `.bpp-btn*`
 - **danger**: destructive actions, as `danger-text` on `danger-subtle` with a `danger-line` border; on hover the fill deepens to `danger-line`. Put them in a confirmation dialog, never as a page's primary action.
 - Sizes: `md` is `control-md` (36px) with 12px padding, `body-medium` text and an `icon-md` (16px) icon. `sm` is `control-sm` (30px) with 8px padding, `small` text and an `icon-sm` (14px) icon, for rows, banners and toasts. `icon` is 36×36, and `icon-sm` is 30×30.
 - The title-bar icon controls and the toast close button are `icon-sm` ghost buttons. There is no other small square button.
-- **The Apps' touch size.** In the iOS App and the Android App, the launcher's full-width primary is `touch-target` (48) high with `body-strong` text, at `r-touch` on iOS and `r-pill` on Android. Every other size keeps its box and extends its hit area to `touch-target` (see Launcher).
+- **The App's touch size.** In the Android App, the launcher's full-width primary is `touch-target` (48) high with `body-strong` text, at `r-pill`. Every other size keeps its box and extends its hit area to `touch-target` (see Launcher).
 
 ## The consumer provides
 

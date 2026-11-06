@@ -40,13 +40,10 @@ using BazaarPlusPlus.GameInterop.RunLifecycle;
 using BazaarPlusPlus.GameInterop.RunSnapshot;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.GameInterop.Tooltips;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.GameInterop.VoiceSubtitles;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
-using BazaarPlusPlus.Mobile;
-using BazaarPlusPlus.Mobile.Previews;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Patches;
 using BazaarPlusPlus.Patches.PostCombatImpact;
@@ -59,7 +56,7 @@ using BazaarPlusPlus.Storage.Sqlite;
 namespace BazaarPlusPlus;
 
 /// <summary>
-/// The Mono host composition root (desktop BepInEx, iOS port): binds the host ports and Mono probes into
+/// The Mono host composition root (desktop BepInEx): binds the host ports and Mono probes into
 /// <see cref="CoreComposition"/>, then wires the feature modules, settings dock rows, and Unity
 /// mountables that still live in this host.
 /// </summary>
@@ -110,8 +107,7 @@ internal sealed class MonoHostComposition : IDisposable
     public MonoHostComposition(
         IBppSettingsStore settingsStore,
         IGameBuildInfo gameBuild,
-        IPathProvider paths,
-        bool selfUpdate
+        IPathProvider paths
     )
     {
         if (settingsStore == null)
@@ -227,36 +223,9 @@ internal sealed class MonoHostComposition : IDisposable
         );
         _settingsDockRegistry.Register(new EndOfRunScreenshotSettingsDockEntry());
         _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
-        // The Mobile Platform Port registers touch panels with the host this mount adds.
         var overlayPanelHostMount = new OverlayPanelHostMount();
-        if (TouchPlatform.IsMobile)
-        {
-            // Before any touch surface builds Mobile UI (ADR-0025).
-            MobilePlatform.Install(new TouchMobilePlatform(() => overlayPanelHostMount.Host));
-            // A touch screen has no keyboard: the History row drops its hotkey, the upgrade
-            // switch sets where each tooltip's own toggle starts, and the enchant preview mode
-            // lists the enchantments in each tooltip's main text, as on Android (ADR-0024).
-            var upgradePreview = TouchUpgradePreviewSetting.Bind(settingsStore);
-            TouchUpgradePreview.Bind(
-                upgradePreview,
-                static () => !MobilePlatform.Port.PlayState().PreviewsUpgrade
-            );
-            TouchEnchantPreviewHost.Preview =
-                new TouchEnchantPreview<TheBazaar.Tooltips.CardTooltipData>(
-                    new TouchEnchantPreviewHost(),
-                    () => _services.Config.EnchantPreviewModeConfig.Value,
-                    () => TooltipEncounterProbeReader.ReadChoice(_services.EncounterState)
-                );
-            _settingsDockRegistry.Register(
-                HistoryPanelHotkeyDockEntry.Create(resolveHotkeyDisplay: null)
-            );
-            _settingsDockRegistry.Register(TouchUpgradePreviewSetting.DockEntry(upgradePreview));
-        }
-        else
-        {
-            _settingsDockRegistry.Register(HistoryPanelHotkeyDockEntry.Create());
-            _settingsDockRegistry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
-        }
+        _settingsDockRegistry.Register(HistoryPanelHotkeyDockEntry.Create());
+        _settingsDockRegistry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
         _settingsDockRegistry.Register(
             DetailedPreviewSettingsDockEntry.Create(enabled =>
             {
@@ -311,39 +280,32 @@ internal sealed class MonoHostComposition : IDisposable
             new ComponentMount<CombatReplayVideoRecorder>((c, s) => c.Initialize(s))
         );
         _mountables.Register(new ComponentMount<CombatStatusBar>((c, s) => c.Initialize(s)));
-        // A mobile platform (ADR-0024) mounts only what the Android host has: the music note
-        // preview waits for a held key and the post-combat impact for a hover and Shift, so
-        // neither is reachable by touch; the HUD's tooltip switches take the held key's place.
-        if (!TouchPlatform.IsMobile)
-        {
-            _mountables.Register(new ComponentMount<NativeMusicNotePreviewController>());
-            // Plugin-lifetime, like _nativeCardPreviewHost: composition does not dispose
-            // GameInterop hosts, and the releasable unit is the session the view acquires from it.
-            var pairedTooltipHost = new NativePairedTooltipHost();
-            _mountables.Register(
-                new ComponentMount<PostCombatImpactController>(
-                    (c, _) =>
-                        c.Initialize(
-                            _postCombatImpactModule,
-                            new NativePostCombatImpactTooltipView(
-                                _nativeCardPreviewHost,
-                                pairedTooltipHost
-                            )
+        _mountables.Register(new ComponentMount<NativeMusicNotePreviewController>());
+        // Plugin-lifetime, like _nativeCardPreviewHost: composition does not dispose
+        // GameInterop hosts, and the releasable unit is the session the view acquires from it.
+        var pairedTooltipHost = new NativePairedTooltipHost();
+        _mountables.Register(
+            new ComponentMount<PostCombatImpactController>(
+                (c, _) =>
+                    c.Initialize(
+                        _postCombatImpactModule,
+                        new NativePostCombatImpactTooltipView(
+                            _nativeCardPreviewHost,
+                            pairedTooltipHost
                         )
-                )
-            );
-        }
+                    )
+            )
+        );
         _mountables.Register(
             new ComponentMount<EndOfRunCaptureDriver>(
                 (driver, services) => driver.Initialize(_endOfRunCaptureWorkflow, services)
             )
         );
-        if (selfUpdate)
-            _mountables.Register(
-                new ComponentMount<MainMenuVersionCheckController>(
-                    (c, services) => c.Initialize(services)
-                )
-            );
+        _mountables.Register(
+            new ComponentMount<MainMenuVersionCheckController>(
+                (c, services) => c.Initialize(services)
+            )
+        );
         _mountables.Register(
             new HistoryPanelMount(
                 combatReplayRuntime: () => _combatReplayModule.Runtime,
@@ -358,10 +320,6 @@ internal sealed class MonoHostComposition : IDisposable
                 _buildRecommendationRepository
             )
         );
-        // The Mobile UI's shortcuts and combat clock take the dock buttons' and the bar's place,
-        // and its Screen Fill fills a screen narrower than 16:10 instead of letterboxing it.
-        if (TouchPlatform.IsMobile)
-            _mountables.Register(new TouchHudMount());
         _mountables.Register(
             new ComponentMount<CosmeticNameOverlayObserver>(
                 (observer, services) => observer.Initialize(services.Config)

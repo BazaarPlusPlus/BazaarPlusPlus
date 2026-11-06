@@ -11,7 +11,7 @@
   <string name="status_with_percent" translatable="false">%1$s %2$d%%</string>
   <string name="empty_value" translatable="false">—</string>
 
-  <!-- Status words: design/components/Launcher, the same words as the iOS App. -->
+  <!-- Status words: design/components/Launcher, Status. -->
   <string name="status_checking">Checking…</string>
   <string name="status_preparing">Preparing…</string>
   <string name="status_downloading">Downloading…</string>

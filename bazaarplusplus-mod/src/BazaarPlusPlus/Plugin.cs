@@ -24,8 +24,7 @@ public class Plugin : BaseUnityPlugin
                         new ConfigFile(Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.cfg"), true)
                     ),
                 paths,
-                Info.Location,
-                selfUpdate: true
+                Info.Location
             )
         );
         _host.Start();

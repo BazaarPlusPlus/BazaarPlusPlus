@@ -1,7 +1,7 @@
 namespace BazaarPlusPlus.Core.Ui;
 
 /// <summary>
-/// A touch inspection's open and close timing, shared by both hosts: readiness and interruptible
+/// A touch inspection's open and close timing for the Mobile UI: readiness and interruptible
 /// easing. The view owns transforms and rental cleanup.
 /// </summary>
 public sealed class InspectionTransition

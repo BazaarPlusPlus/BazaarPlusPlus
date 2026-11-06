@@ -1,7 +1,6 @@
 #pragma warning disable CS0436
 #nullable enable
 using BazaarPlusPlus.Game.Settings;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
@@ -17,9 +16,6 @@ internal static class CollectionPanelDockButtonAwakePatch
 
     private static readonly System.Reflection.FieldInfo? HeroSelectSettingOptionButtonField =
         AccessTools.Field(typeof(SettingDialogsView), "HeroSelectSettingOptionButton");
-
-    // On a mobile platform the Mobile UI's HUD shortcuts take the dock buttons' place.
-    private static bool Prepare() => !TouchPlatform.IsMobile;
 
     [HarmonyPostfix]
     private static void Postfix(SettingDialogsView __instance)
@@ -71,8 +67,6 @@ internal static class CollectionPanelDockButtonFightMenuPatch
         typeof(FightMenuDialog),
         "SettingButton"
     );
-
-    private static bool Prepare() => !TouchPlatform.IsMobile;
 
     [HarmonyPostfix]
     private static void Postfix(FightMenuDialog __instance)

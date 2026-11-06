@@ -6,7 +6,7 @@ namespace BazaarPlusPlus.Game.CombatStatusBar;
 
 /// <summary>
 /// The Combat Status row, <c>[CombatStatusBar] Enabled</c>: the desktop's combat status bar and
-/// the Mobile UI's combat clock on both hosts read it.
+/// the Mobile UI's combat clock on Android read it.
 /// </summary>
 public static class CombatStatusBarSettingsDockEntry
 {

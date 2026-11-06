@@ -21,7 +21,7 @@ const tokensCssPath = path.join(
   'styles',
   'tokens.css'
 );
-// The cover art both App launchers bundle (design/components/Launcher, Cover art).
+// The cover art the Android App launcher bundles (design/components/Launcher, Cover art).
 const COVERS = path.join(designDir, 'assets', 'Covers', 'the-bazaar');
 // The installer consumes the brand mark; the site header uses its existing app icon.
 const COPIES = [
@@ -33,16 +33,10 @@ const COPIES = [
   ...['library_hero.jpg', 'hero_capsule_2x.jpg'].map((name) => ({
     from: path.join(COVERS, name),
     to: `bazaarplusplus-android/app/src/main/res/drawable-nodpi/${name}`
-  })),
-  ...['library_hero.jpg', 'hero_capsule_2x.jpg', 'library_capsule_2x.jpg'].map(
-    (name) => ({
-      from: path.join(COVERS, name),
-      to: `bazaarplusplus-ios/app/Artwork/${name}`
-    })
-  )
+  }))
 ];
 // The mod's in-game theme: every `ingame-*` colour token, generated as C# for
-// the Desktop UI (the Mono host) and the Mobile UI tree both hosts compile.
+// the Desktop UI (the Mono host) and the Mobile UI tree the Android host compiles.
 // Both read one palette; only their layouts differ.
 const INGAME_PREFIX = 'ingame-';
 const INGAME_TARGETS = [
@@ -60,14 +54,10 @@ const INGAME_TARGETS = [
 const ANDROID_RES = 'bazaarplusplus-android/app/src/main/res';
 const ANDROID_TOKENS = `${ANDROID_RES}/values/bpp_tokens.xml`;
 const ANDROID_MARK = `${ANDROID_RES}/drawable/bpp_mark.xml`;
-// The iOS App reads the same product palette, scales and type styles as Swift
-// constants; its hand-written view helpers live beside them in app/Theme/.
-const IOS_TOKENS = 'bazaarplusplus-ios/app/Theme/BppTokens.g.swift';
-const IOS_MARK = 'bazaarplusplus-ios/app/Theme/BppMark.g.swift';
 const markPath = path.join(designDir, 'assets', 'Logos', 'bpp-mark.svg');
-// The desktop app icon is also both Apps' launcher icon. iOS exports it at build
-// time; the Android adaptive icon is exported by a script and records the
-// icon's sha256, so a changed icon without a re-export fails the check.
+// The desktop app icon is also the Android App's launcher icon. The adaptive
+// icon is exported by a script and records the icon's sha256, so a changed icon
+// without a re-export fails the check.
 const APP_ICON = 'bazaarplusplus-installer/src-tauri/icons/app-icon.png';
 const ANDROID_LAUNCHER_ICON = `${ANDROID_RES}/mipmap-anydpi/ic_launcher.xml`;
 const heroesPath = path.join(
@@ -254,151 +244,6 @@ export function buildAndroidTokens(tokens) {
   return lines.join('\n');
 }
 
-// Swift keywords a token name could collide with once camel-cased.
-const SWIFT_RESERVED = new Set([
-  'default',
-  'import',
-  'init',
-  'self',
-  'static',
-  'struct',
-  'enum',
-  'case',
-  'let',
-  'var',
-  'func',
-  'in',
-  'is',
-  'as',
-  'do',
-  'if',
-  'else',
-  'for',
-  'while',
-  'return',
-  'true',
-  'false',
-  'nil',
-  'class',
-  'protocol',
-  'extension',
-  'switch',
-  'where',
-  'repeat',
-  'guard',
-  'throw',
-  'throws',
-  'try',
-  'catch',
-  'operator',
-  'private',
-  'public',
-  'internal',
-  'fileprivate',
-  'open',
-  'super',
-  'Type',
-  'Self'
-]);
-
-function camelCase(name) {
-  const swift = name.replace(/-([a-z0-9])/g, (_, next) => next.toUpperCase());
-  if (!/^[a-z][A-Za-z0-9]*$/.test(swift) || SWIFT_RESERVED.has(swift))
-    throw new Error(`token ${name} is not a usable Swift name (${swift})`);
-  return swift;
-}
-
-// A CSS colour as the four 0..1 channels SwiftUI's sRGB Color takes.
-function swiftColor(value) {
-  const hex = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(value);
-  let channels;
-  if (hex) {
-    channels = [0, 2, 4].map((i) => parseInt(hex[1].slice(i, i + 2), 16));
-    channels.push(hex[2] ? parseInt(hex[2], 16) / 255 : 1);
-  } else {
-    const rgba = /^rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\s*\)$/.exec(
-      value
-    );
-    if (!rgba)
-      throw new Error(`iOS colours must be hex or rgba(), got ${value}`);
-    channels = [
-      Number(rgba[1]),
-      Number(rgba[2]),
-      Number(rgba[3]),
-      Number(rgba[4])
-    ];
-  }
-  const [r, g, b, a] = channels;
-  const byte = (n) => `${n}.0 / 255`;
-  const alpha = Number(a.toFixed(4));
-  return `Color(.sRGB, red: ${byte(r)}, green: ${byte(g)}, blue: ${byte(b)}, opacity: ${alpha})`;
-}
-
-const SWIFT_WEIGHTS = { 400: '.regular', 500: '.medium', 600: '.semibold' };
-const swiftDoc = (text) => text.replace(/\s+/g, ' ').trim();
-
-// The product colours, the spacing, radius and size scales (CSS px as points)
-// and the type styles, as Swift constants for the iOS App.
-export function buildIosTokens(tokens) {
-  const theme = tokens.color.themes[0].id;
-  const lines = [
-    '// BazaarPlusPlus design tokens, generated from design/tokens.json by',
-    '// `just design::build`. Do not edit: change design/tokens.json and rebuild.',
-    'import SwiftUI',
-    '',
-    '/// The product colours (design/README.md, Colour).',
-    'enum BppColor {'
-  ];
-  for (const token of appColors(tokens)) {
-    lines.push(
-      `    /// ${swiftDoc(token.usage ?? token.name)}`,
-      `    static let ${camelCase(token.name)} = ${swiftColor(resolveColor(tokens, token.name))}`
-    );
-  }
-  lines.push('}');
-  const scales = [
-    ['spacing', 'BppSpace', 'The 4pt spacing scale.'],
-    ['radius', 'BppRadius', 'Corner radii by nesting level.'],
-    [
-      'size',
-      'BppSize',
-      'Fixed dimensions: control heights, touch targets and widths.'
-    ]
-  ];
-  for (const [family, type, doc] of scales) {
-    lines.push('', `/// ${doc}`, `enum ${type} {`);
-    for (const token of tokens[family].tokens) {
-      const px = /^(\d+)px$/.exec(cssValue(token, theme));
-      if (!px) continue;
-      if (token.usage) lines.push(`    /// ${swiftDoc(token.usage)}`);
-      lines.push(`    static let ${camelCase(token.name)}: CGFloat = ${px[1]}`);
-    }
-    lines.push('}');
-  }
-  lines.push(
-    '',
-    '/// One text style: size in points, line height as a multiple, weight.',
-    'struct BppTextStyle {',
-    '    let size: CGFloat',
-    '    let lineHeight: CGFloat',
-    '    let weight: Font.Weight',
-    '    let monospaced: Bool',
-    '}',
-    '',
-    '/// The type scale (design/README.md, Typography).',
-    'enum BppType {'
-  );
-  for (const style of typeStyles(tokens)) {
-    const weight = SWIFT_WEIGHTS[style.weight];
-    if (!weight) throw new Error(`no Swift weight for ${style.weight}`);
-    lines.push(
-      `    static let ${camelCase(style.name)} = BppTextStyle(size: ${style.size}, lineHeight: ${style.lineHeight}, weight: ${weight}, monospaced: ${style.family === 'mono'})`
-    );
-  }
-  lines.push('}', '');
-  return lines.join('\n');
-}
-
 // The brand mark's filled paths as an Android vector drawable.
 export function buildAndroidMark(svg) {
   const box = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
@@ -421,68 +266,6 @@ export function buildAndroidMark(svg) {
         `  <path android:fillColor="${androidColor(fill)}" android:pathData="${d}" />`
     ),
     '</vector>',
-    ''
-  ].join('\n');
-}
-
-// The brand mark's flat polygons as a SwiftUI view on its 32-unit grid. The
-// mark is straight edges only (M, L, Z), so anything else is an error.
-export function buildIosMark(svg) {
-  const box = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
-  const paths = [
-    ...svg.matchAll(/<path fill="(#[0-9a-f]{6})" d="([^"]+)"\/>/gi)
-  ];
-  if (!box || paths.length === 0)
-    throw new Error('bpp-mark.svg is not the flat viewBox-and-paths shape');
-  const shapes = paths.map(([, fill, d]) => {
-    const commands = [...d.matchAll(/([MLZ])\s*([-\d.]+)?\s*([-\d.]+)?/gi)];
-    if (
-      commands
-        .map((c) => c[0])
-        .join('')
-        .replace(/\s/g, '') !== d.replace(/\s/g, '')
-    )
-      throw new Error(`bpp-mark.svg path uses more than M, L and Z: ${d}`);
-    const points = commands
-      .filter(([, op]) => op.toUpperCase() !== 'Z')
-      .map(([, , x, y]) => `CGPoint(x: ${Number(x)}, y: ${Number(y)})`);
-    return `        Polygon(points: [${points.join(', ')}], fill: ${swiftColor(fill.toLowerCase())}),`;
-  });
-  return [
-    '// The BazaarPlusPlus brand mark, generated from design/assets/Logos/bpp-mark.svg',
-    '// by `just design::build`. Do not edit.',
-    'import SwiftUI',
-    '',
-    '/// The brand mark: a chevron over a gem, drawn at any size from its flat polygons.',
-    'struct BppMark: View {',
-    '    struct Polygon {',
-    '        let points: [CGPoint]',
-    '        let fill: Color',
-    '    }',
-    '',
-    `    static let grid: CGFloat = ${box[1]}`,
-    '    static let polygons = [',
-    ...shapes,
-    '    ]',
-    '',
-    '    var size: CGFloat',
-    '',
-    '    var body: some View {',
-    '        let scale = size / Self.grid',
-    '        ZStack {',
-    '            ForEach(Self.polygons.indices, id: \\.self) { index in',
-    '                let polygon = Self.polygons[index]',
-    '                Path { path in',
-    '                    path.addLines(polygon.points.map { CGPoint(x: $0.x * scale, y: $0.y * scale) })',
-    '                    path.closeSubpath()',
-    '                }',
-    '                .fill(polygon.fill)',
-    '            }',
-    '        }',
-    '        .frame(width: size, height: size)',
-    '        .accessibilityHidden(true)',
-    '    }',
-    '}',
     ''
   ].join('\n');
 }
@@ -603,11 +386,6 @@ function main(argv) {
 
   const generated = [
     { file: ANDROID_TOKENS, source: buildAndroidTokens(tokens) },
-    { file: IOS_TOKENS, source: buildIosTokens(tokens) },
-    {
-      file: IOS_MARK,
-      source: buildIosMark(fs.readFileSync(markPath, 'utf8'))
-    },
     {
       file: ANDROID_MARK,
       source: buildAndroidMark(fs.readFileSync(markPath, 'utf8'))

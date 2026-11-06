@@ -4,7 +4,7 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Mobile.Ui;
 
 /// <summary>
-/// uGUI building blocks for every touch surface on both hosts. Geometry is in the canvas's reference units
+/// uGUI building blocks for every touch surface. Geometry is in the canvas's reference units
 /// (<see cref="ReferenceResolution"/>, scaled by screen height); text uses the game's own font,
 /// borrowed from a live label, so BPP ships no font of its own.
 /// </summary>

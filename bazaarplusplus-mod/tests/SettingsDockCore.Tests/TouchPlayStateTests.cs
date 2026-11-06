@@ -4,7 +4,7 @@ using Xunit;
 namespace SettingsDockCore.Tests;
 
 /// <summary>
-/// The Mobile UI's rules over what the game plays, which both hosts' ports only read: the
+/// The Mobile UI's rules over what the game plays, which the host's port only reads: the
 /// shortcuts, the preview switches, the enchant preview and the upgrade preview, over every
 /// combination of a fight, a replay and an open recap.
 /// </summary>

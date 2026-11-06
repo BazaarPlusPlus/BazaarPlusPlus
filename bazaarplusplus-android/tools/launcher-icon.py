@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Export the desktop app icon as the Android App's adaptive launcher icon.
 
-The desktop icon (bazaarplusplus-installer/src-tauri/icons/app-icon.png, also the
-iOS App's icon) is artwork on a dark squircle whose fill is a vertical gradient.
+The desktop icon (bazaarplusplus-installer/src-tauri/icons/app-icon.png) is
+artwork on a dark squircle whose fill is a vertical gradient.
 An adaptive icon needs two layers that the launcher masks itself, so:
 
 - background: the squircle's gradient, extended over the whole 108dp layer;

@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 
 /// <summary>
 /// Screen Fill (ADR-0025 decision 5), a Native Adjustment: the game fills a landscape screen
-/// narrower than 16:10, such as an iPad's or a foldable's inner display, instead of letterboxing
+/// narrower than 16:10, such as a tablet's or a foldable's inner display, instead of letterboxing
 /// it. Core's <see cref="ScreenFill"/> decides; this runs it; the host reads and writes the game
 /// (<see cref="IScreenFillHost"/>). The game's letterbox clamps the aspect ratio it draws to 16:10
 /// through 21:9 and crops everything outside it; each frame lowers that floor to 1:1 (the game's
@@ -17,7 +17,7 @@ namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 /// (<see cref="ScreenFill.WidenedFieldOfView"/>), lowered where the HUD gathers above it, and the
 /// day clock moved into that band (<see cref="TouchDayClock"/>); the day-change overlay follows
 /// the changed camera (<see cref="TouchDayChangeOverlay"/>). The HUD ticks it
-/// (<see cref="Hud.TouchHud"/>); each host's Cinemachine patch calls
+/// (<see cref="Hud.TouchHud"/>); the host's Cinemachine patch calls
 /// <see cref="AfterCameraUpdate"/>. Main thread only.
 /// </summary>
 internal sealed class TouchScreenFill

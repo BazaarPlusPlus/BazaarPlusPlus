@@ -7,8 +7,8 @@ namespace BazaarPlusPlus.Mobile.Previews;
 /// <summary>
 /// <c>[Touch] UpgradePreview</c>, the settings switch that stands in for the desktop's Shift
 /// hotkey: where each item tooltip's own upgrade switch (<see cref="TouchPreviewSwitches"/>)
-/// starts. One key, label and row on both hosts; each host binds it only on a mobile platform, so
-/// the desktop's config never holds it. No Unity type, so a host test registers the row.
+/// starts. Only the Android host binds it, so the desktop's config never holds it. No Unity
+/// type, so a host test registers the row.
 /// </summary>
 internal static class TouchUpgradePreviewSetting
 {

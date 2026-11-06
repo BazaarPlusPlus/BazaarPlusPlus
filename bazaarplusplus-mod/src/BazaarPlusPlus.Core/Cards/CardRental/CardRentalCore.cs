@@ -138,9 +138,9 @@ public interface ICardRentalBackend<TCard, TParent>
 }
 
 /// <summary>
-/// The native card rental every touch panel shares, on Android and on the Mono host's touch
-/// surfaces: per-kind pooling of the game's card UI
-/// prefabs, leases polled to readiness, and the counts that prove every instance is accounted for.
+/// The native card rental every touch panel of the Android host shares: per-kind pooling of the
+/// game's card UI prefabs, leases polled to readiness, and the counts that prove every instance
+/// is accounted for.
 /// No game or engine call happens here, so tests drive it over a fake backend (ADR-0016).
 /// <para>
 /// Invariant (<see cref="IsBalanced"/>): every instance ever instantiated is destroyed, lost (the

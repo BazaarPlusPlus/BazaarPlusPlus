@@ -105,8 +105,8 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(new[] { "refresh_previews" }, dock.Calls);
     }
 
-    // The combat clock reads the desktop bar's [CombatStatusBar] Enabled, as on iOS; the row is
-    // Core's, labelled as the desktop's.
+    // The combat clock reads the desktop bar's [CombatStatusBar] Enabled; the row is Core's,
+    // labelled as the desktop's.
     [Fact]
     public void Combat_status_writes_the_shared_default_on_setting()
     {
@@ -121,7 +121,7 @@ public sealed class AndroidSettingsDockTests
         Assert.Empty(dock.Calls);
     }
 
-    // [Touch] UpgradePreview, the Mobile UI's switch, as on iOS.
+    // [Touch] UpgradePreview, the Mobile UI's switch.
     [Fact]
     public void Switching_upgrade_preview_off_releases_its_tooltip()
     {

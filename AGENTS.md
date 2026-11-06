@@ -1,6 +1,6 @@
 # AGENTS.md
 
-BazaarPlusPlus monorepo. The mod, the installer and the Android App ship as one Product Release; the server, analyzer, site, and iOS App are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `GLOSSARY.md`. Work inside the project the change touches and follow its `AGENTS.md`; this file holds only what spans projects.
+BazaarPlusPlus monorepo. The mod, the installer and the Android App ship as one Product Release; the server, analyzer, and site are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `GLOSSARY.md`. Work inside the project the change touches and follow its `AGENTS.md`; this file holds only what spans projects.
 
 | The change touches | Project |
 |---|---|
@@ -9,7 +9,6 @@ BazaarPlusPlus monorepo. The mod, the installer and the Android App ship as one 
 | Bundle ingest, Ghost discovery, BazaarDB delivery | `bazaarplusplus-server/` |
 | Hero and build snapshots computed from Bundles | `bazaarplusplus-analyzer/` |
 | bazaarplusplus.com, Hero Analysis, the download page | `bazaarplusplus-site/` |
-| The iOS App: Mac build of the game on iOS, Steam sign-in and download, the runtime that loads the mod | `bazaarplusplus-ios/` |
 | The Android App: loads the installed official game, its launcher, the runtime it carries for LemonLoader | `bazaarplusplus-android/` |
 | Product version, Payload Inventory, release pipeline | root `VERSION`, `release.mjs`, `release/`; read `docs/release.md` |
 | Design tokens, shared `bpp-*` styles, brand mark, brand book and writing standard | `design/`; read `docs/design.md` |
@@ -34,9 +33,7 @@ A contract change lands in one pull request together with every consumer it brea
 | Interop Package layout and interop statement | `buildInteropPackage` in `release/android-app.mjs`, `interopStatement` and `signInteropStatement` in `release/android-interop.mjs`, shared fixtures `release/fixtures/android-interop/` (statement bytes) | Android App (verifies and loads the zip) |
 | Android release certificate | `ANDROID_RELEASE_SIGNER_SHA256` in `release/manifest.mjs` | the Android App's embedded release certificate, which a test there pins to this digest |
 | Managed Payload Manifest line format | `release/managed-payload.mjs`, shared golden `release/fixtures/managed-payload/manifest.txt` | mod Updater and Core staging (`bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/ManagedPayloadManifest.cs`), installer Repair (`bazaarplusplus-installer/src-tauri/src/services/bepinex/managed_payload.rs`), Android App staging |
-| Design tokens and shared component styles | `design/tokens.json` and `design/components/bundle.css`; `just design::check` gates generated `tokens.css`, the Android and iOS resources, the brand-mark and cover art copies and the site hero colours | installer (generated `src/styles/tokens.css`, imports `bundle.css`), site (copies `tokens.css`, Tailwind `@theme` bridge, `src/shared/lib/heroes.ts`), Android App (generated `res/values/bpp_tokens.xml` and `res/drawable/bpp_mark.xml`), iOS App (generated `app/Theme/BppTokens.g.swift` and `app/Theme/BppMark.g.swift`); both Apps' launchers follow `design/components/Launcher/` |
-| Interpreter method redirect `mono_interp_redirect_method` | `bazaarplusplus-ios/runtime/mono/patches/0008-interp-method-redirect.patch` | mod iOS host Harmony backend (`InterpreterMethodPatcher` in `bazaarplusplus-mod/src/BazaarPlusPlus/Host/Ios/`) |
-| iOS host entry point | `IosEntry.Start` in `bazaarplusplus-mod/src/BazaarPlusPlus/Host/Ios/` | iOS App entry table (`bazaarplusplus-ios/runtime/helper/entrypoints.json`) |
+| Design tokens and shared component styles | `design/tokens.json` and `design/components/bundle.css`; `just design::check` gates generated `tokens.css`, the Android resources, the brand-mark and cover art copies and the site hero colours | installer (generated `src/styles/tokens.css`, imports `bundle.css`), site (copies `tokens.css`, Tailwind `@theme` bridge, `src/shared/lib/heroes.ts`), Android App (generated `res/values/bpp_tokens.xml` and `res/drawable/bpp_mark.xml`; its launcher follows `design/components/Launcher/`) |
 | Release signing public key | `plugins.updater.pubkey` in `bazaarplusplus-installer/src-tauri/tauri.conf.json` | mod self-update (`ReleaseSigningKey.PublicKeyLine` in `bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/`, pinned by `The_embedded_key_is_the_tauri_updater_public_key`) |
 | Launch Record | `LaunchRecord.toJson` in `bazaarplusplus-android/app/src/main/java/com/bazaarplusplus/android/launch/`, shared golden `bazaarplusplus-android/contracts/launch-record.v1.json` | mod Android Host and Updater (`LaunchRecord` in `bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/`) |
 
@@ -46,7 +43,7 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 
 ## Verification
 
-`just` lists every recipe. Gate one project with `just <project>::check` and `just <project>::test`; gate a contract change with the check and test recipes of the owner and every consumer. `just check` and `just test` cover every project except iOS, which needs its local Mono checkout and runs `just ios::check` and `just ios::test` on its own; `just release::test` gates the root release modules. `just fmt` formats everything. Goldens fail on any difference in every project; `BPP_UPDATE_GOLDENS=1` rewrites them (analyzer: `just analyzer::golden`), and every rewritten golden must be an intended diff in the PR. Scope and prerequisites: `docs/development.md`.
+`just` lists every recipe. Gate one project with `just <project>::check` and `just <project>::test`; gate a contract change with the check and test recipes of the owner and every consumer. `just check` and `just test` cover every project; `just release::test` gates the root release modules. `just fmt` formats everything. Goldens fail on any difference in every project; `BPP_UPDATE_GOLDENS=1` rewrites them (analyzer: `just analyzer::golden`), and every rewritten golden must be an intended diff in the PR. Scope and prerequisites: `docs/development.md`.
 
 ## Commits and pull requests
 

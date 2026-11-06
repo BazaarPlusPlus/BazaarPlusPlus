@@ -10,12 +10,12 @@ namespace BazaarPlusPlus.Mobile.LiveBuild;
 /// host's Overlay Panel Host under <see cref="PanelId"/> through the Mobile Platform Port, which
 /// ticks it every frame and closes it, and builds <see cref="TouchLiveBuildPanel"/> on the first
 /// open, under the host's touch canvas and in the game's font. A build that throws is the
-/// Overlay Panel Host's to log and roll back. The host opens it from its own entry (the touch icon
-/// on Android, the dock button on iOS) with <see cref="RequestOpen"/>.
+/// Overlay Panel Host's to log and roll back. The host opens it from its own entry (the touch icon)
+/// with <see cref="RequestOpen"/>.
 /// </summary>
 internal sealed class TouchLiveBuildEntry : IDisposable
 {
-    /// <summary>The panel's id on both hosts.</summary>
+    /// <summary>The panel's id on the Overlay Panel Host.</summary>
     public const string PanelId = "live_build";
 
     private readonly TouchLiveBuildData _data;

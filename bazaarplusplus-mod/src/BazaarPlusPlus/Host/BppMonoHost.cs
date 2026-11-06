@@ -30,7 +30,7 @@ using UnityEngine;
 namespace BazaarPlusPlus.Host;
 
 /// <summary>
-/// What a Mono host (the BepInEx desktop plugin, the iOS port) supplies to <see cref="BppMonoHost"/>.
+/// What the Mono host's adapter (the BepInEx desktop plugin) supplies to <see cref="BppMonoHost"/>.
 /// </summary>
 internal sealed class MonoHostOptions
 {
@@ -38,15 +38,13 @@ internal sealed class MonoHostOptions
         IBppLogSink logSink,
         Func<IBppSettingsStore> openSettings,
         IPathProvider paths,
-        string pluginAssemblyPath,
-        bool selfUpdate
+        string pluginAssemblyPath
     )
     {
         LogSink = logSink ?? throw new ArgumentNullException(nameof(logSink));
         OpenSettings = openSettings ?? throw new ArgumentNullException(nameof(openSettings));
         Paths = paths ?? throw new ArgumentNullException(nameof(paths));
         PluginAssemblyPath = pluginAssemblyPath ?? string.Empty;
-        SelfUpdate = selfUpdate;
     }
 
     public IBppLogSink LogSink { get; }
@@ -59,15 +57,12 @@ internal sealed class MonoHostOptions
 
     /// <summary>The mod assembly; its <c>.version</c> sidecar names the Product Release.</summary>
     public string PluginAssemblyPath { get; }
-
-    /// <summary>Whether the main menu checks for and stages updates; false where the mod ships inside the App.</summary>
-    public bool SelfUpdate { get; }
 }
 
 /// <summary>
-/// The Mono host lifecycle shared by every host that runs the game's managed code under Mono with
-/// Harmony: composition, patches, replay runtime, online services and mountables, and an
-/// ordered teardown. The owner component is the GameObject everything mounts on.
+/// The Mono host lifecycle for the game's managed code under Mono with Harmony: composition,
+/// patches, replay runtime, online services and mountables, and an ordered teardown. The owner
+/// component is the GameObject everything mounts on.
 /// </summary>
 internal sealed class BppMonoHost
 {
@@ -103,12 +98,7 @@ internal sealed class BppMonoHost
 
             phase = PluginInitializationPhase.Composition;
             var gameBuild = GameBuildProbe.Resolve();
-            _composition = new MonoHostComposition(
-                settingsStore,
-                gameBuild,
-                _options.Paths,
-                _options.SelfUpdate
-            );
+            _composition = new MonoHostComposition(settingsStore, gameBuild, _options.Paths);
 
             var services = _composition.Services;
             var dataRoot = services.Paths.DataRootDirectoryPath;
