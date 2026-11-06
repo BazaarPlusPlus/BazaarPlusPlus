@@ -3,16 +3,12 @@ using BazaarGameClient.Domain.Tooltips;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Enchantments;
 using BazaarGameShared.Domain.Cards.Item;
-using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
 using BazaarGameShared.Domain.Targeting;
 using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Domain.Values.ReferenceValues;
-using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Core.Cards.CardRental;
-using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.ItemEnchantPreview.Preview;
 using BazaarPlusPlus.Game.Tooltips;
@@ -389,37 +385,6 @@ foreach (var name in BazaarPlusPlus.Core.GameState.PedestalEnchantCatalog.Enchan
         $"The pedestal catalog's enchantment '{name}' must be an EEnchantmentType member."
     );
 
-// iOS host: as on the Android host, a card the play blocks (a fight's, a replay's or a recap's)
-// never previews its upgrade, whatever [Touch] UpgradePreview says. BppHotkeyService.IsActive(HoldUpgradePreview), which
-// the tooltip patches read, returns TouchUpgradePreview.Active on a mobile platform.
-var touchSettings = new MemorySettingsStore();
-var previewBlocked = false;
-TouchUpgradePreview.Bind(
-    BazaarPlusPlus.Mobile.Previews.TouchUpgradePreviewSetting.Bind(touchSettings),
-    () => previewBlocked
-);
-touchSettings.Bool("Touch", "UpgradePreview").Value = true;
-var shopCard = new object();
-TouchUpgradePreview.BeginTooltip(shopCard);
-Assert(
-    TouchUpgradePreview.Active == true && TouchUpgradePreview.Holds(shopCard),
-    "Outside a fight or a replay a new tooltip starts with the upgrade preview the settings switch turns on."
-);
-previewBlocked = true;
-var replayCard = new object();
-TouchUpgradePreview.BeginTooltip(replayCard);
-Assert(
-    TouchUpgradePreview.Active == false && !TouchUpgradePreview.Holds(replayCard),
-    "A fight or replay card's tooltip must not start with the upgrade preview."
-);
-previewBlocked = false;
-TouchUpgradePreview.BeginTooltip(shopCard);
-Assert(
-    TouchUpgradePreview.Active == true,
-    "After the fight or replay a card's tooltip starts at the settings switch again."
-);
-TouchUpgradePreview.End();
-
 var savedAbility = new TCardAbility
 {
     Id = "saved",
@@ -462,82 +427,15 @@ var savedTemplate = new TCardItem
         },
     },
 };
-var templateValues = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
-NativeCardSetUp.Fill(
-    templateValues,
-    savedTemplate,
-    savedTemplate,
-    new CardRentalSubject(savedTemplate.Id, CardTier.Bronze)
-);
-Assert(
-    templateValues.Attributes[ECardAttributeType.Custom_1] == 5,
-    "A card with no saved values keeps its template's values."
-);
-var savedValues = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
-NativeCardSetUp.Fill(
-    savedValues,
-    savedTemplate,
-    savedTemplate,
-    new CardRentalSubject(
-        savedTemplate.Id,
-        CardTier.Bronze,
-        CardEnchantment.Fiery,
-        new Dictionary<string, int> { ["Custom_1"] = 25, ["NotAGameAttribute"] = 99 }
-    )
-);
-Assert(
-    savedValues.Attributes[ECardAttributeType.Custom_1] == 25,
-    "A saved value wins over the template's tier and the enchantment's values."
-);
-Assert(
-    savedValues.Attributes[ECardAttributeType.Custom_2] == 6,
-    "A value the card did not save keeps its template's value."
-);
-Assert(savedValues.Attributes.Count == 2, "A saved name the game does not know is dropped.");
-var savedToken = TooltipComponentAbility.Create(
-    new TooltipContext(savedValues, savedTemplate, new ValueContext(null!, savedValues)),
-    savedAbility.Id,
-    null,
-    0
-);
-Assert(
-    savedToken?.Resolve() == 25f,
-    "The tooltip's own token must resolve the saved value, the number the inspection text shows."
-);
-
-var boardSubject = new CardRentalSubject(
-    savedTemplate.Id,
-    CardTier.Bronze,
-    CardEnchantment.Fiery,
-    new Dictionary<string, int> { ["Custom_1"] = 25, ["NotAGameAttribute"] = 99 }
-);
-var boardInstance = (TCardInstanceItem)
-    NativeCardSetUp.Instance(savedTemplate, boardSubject, "saved");
-Assert(
-    boardInstance.Tier == ETier.Bronze
-        && boardInstance.EnchantmentType == EEnchantmentType.Fiery
-        && boardInstance.InstanceId == "saved"
-        && boardInstance.Attributes?.Count == 1
-        && boardInstance.Attributes[ECardAttributeType.Custom_1] == 25,
-    "An item's instance carries the subject's tier, enchantment and known saved values."
-);
-var skillTemplate = new TCardSkill
+var boardInstance = new TCardInstanceItem
 {
-    Id = Guid.NewGuid(),
-    Type = ECardType.Skill,
-    StartingTier = ETier.Silver,
+    TemplateId = savedTemplate.Id,
+    TemplateVersion = string.Empty,
+    InstanceId = "saved",
+    Tier = ETier.Bronze,
+    EnchantmentType = EEnchantmentType.Fiery,
+    Attributes = new Dictionary<ECardAttributeType, int> { [ECardAttributeType.Custom_1] = 25 },
 };
-var skillInstance = NativeCardSetUp.Instance(
-    skillTemplate,
-    new CardRentalSubject(skillTemplate.Id, (CardTier)99, CardEnchantment.Fiery),
-    "skill"
-);
-Assert(
-    skillInstance is TCardInstanceSkill
-        && skillInstance.Tier == ETier.Silver
-        && skillInstance.Attributes?.Count == 0,
-    "A skill's instance carries no enchantment, and a tier the game lacks is the template's own."
-);
 var boardValues = boardInstance.Attributes!;
 var boardCard = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
 
@@ -585,11 +483,15 @@ var boardToken = TooltipComponentAbility.Create(
     0
 );
 Assert(boardToken?.Resolve() == 25f, "The board card's tooltip must resolve the saved value.");
-var templateBoardInstance = NativeCardSetUp.Instance(
-    savedTemplate,
-    new CardRentalSubject(savedTemplate.Id, CardTier.Bronze, CardEnchantment.Fiery),
-    "template"
-);
+var templateBoardInstance = new TCardInstanceItem
+{
+    TemplateId = savedTemplate.Id,
+    TemplateVersion = string.Empty,
+    InstanceId = "template",
+    Tier = ETier.Bronze,
+    EnchantmentType = EEnchantmentType.Fiery,
+    Attributes = new Dictionary<ECardAttributeType, int>(),
+};
 var templateBoardKept = NativeCardSetUp.Keep(templateBoardInstance);
 BoardSetUp(templateBoardInstance.Attributes!);
 Assert(
@@ -604,31 +506,4 @@ static void Assert(bool condition, string message)
 {
     if (!condition)
         throw new InvalidOperationException(message);
-}
-
-internal sealed class MemorySettingsStore : IBppSettingsStore
-{
-    private readonly Dictionary<string, object> _bound = new();
-
-    public ISetting<T> Bind<T>(
-        string section,
-        string key,
-        T defaultValue,
-        string description,
-        SettingRange<T>? acceptableRange = null
-    )
-        where T : IComparable
-    {
-        var setting = new Setting<T> { Value = defaultValue };
-        _bound[section + "/" + key] = setting;
-        return setting;
-    }
-
-    public ISetting<bool> Bool(string section, string key) =>
-        (ISetting<bool>)_bound[section + "/" + key];
-
-    private sealed class Setting<T> : ISetting<T>
-    {
-        public T Value { get; set; } = default!;
-    }
 }

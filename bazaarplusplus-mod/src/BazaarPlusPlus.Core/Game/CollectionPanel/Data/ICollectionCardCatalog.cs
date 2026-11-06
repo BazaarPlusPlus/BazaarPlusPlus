@@ -30,7 +30,7 @@ public interface ICollectionCardCatalog
     void RetryIfUnavailable();
 }
 
-/// <summary>The frame budget of a catalog step while the open panel waits, on both hosts.</summary>
+/// <summary>The frame budget of a catalog step while the open panel waits.</summary>
 public static class CollectionCardCatalogBudget
 {
     public const double WaitingFrameBudgetMs = 33;

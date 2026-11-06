@@ -1,39 +1,28 @@
 #nullable enable
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
-using BazaarPlusPlus.Game.CollectionPanel.Data;
-using BazaarPlusPlus.Game.CollectionPanel.Sources;
 using BazaarPlusPlus.Game.OverlayPanels;
-using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Mobile.Collection;
-using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
 // Custom mountable for CollectionPanel: ComponentMount<T> would attach the MonoBehaviour but
 // could not subscribe to ChineseLocaleModeChanged, which the catalog cache + UI labels need
-// in order to regenerate when the user cycles BPP's Chinese variant. On a mobile platform
-// (ADR-0024) it mounts the Mobile UI's TouchCollectionEntry (ADR-0025) instead, under a touch
-// canvas of its own, which the HUD's shortcut opens through OpenTouchPanel.
+// in order to regenerate when the user cycles BPP's Chinese variant.
 internal sealed class CollectionPanelMount : IBppMountable
 {
-    private static TouchCollectionEntry? _touch;
-
     private readonly Func<DesktopOverlayPanels?> _overlayHost;
     private readonly BppStaticCardMapProvider _cardMapProvider;
     private readonly INativeCardPreviewHost _nativeCardPreviewHost;
     private readonly GameDataDayTierResolver _dayTierResolver;
     private readonly CollectionInspectionModule _inspection;
     private IDisposable? _localeChangedSubscription;
-    private GameObject? _touchCanvas;
 
     public CollectionPanelMount(
         Func<DesktopOverlayPanels?> overlayHost,
@@ -52,10 +41,6 @@ internal sealed class CollectionPanelMount : IBppMountable
         _dayTierResolver =
             dayTierResolver ?? throw new ArgumentNullException(nameof(dayTierResolver));
     }
-
-    /// <summary>The HUD shortcut's open on a mobile platform (the Mono host's TouchHudMount).</summary>
-    internal static OverlayRequestOutcome OpenTouchPanel(string source) =>
-        _touch?.RequestOpen(source) ?? OverlayRequestOutcome.UnknownPanel;
 
     public void Mount(GameObject host, IBppServices services)
     {
@@ -91,29 +76,6 @@ internal sealed class CollectionPanelMount : IBppMountable
             return;
         }
 
-        if (TouchPlatform.IsMobile)
-        {
-            // ADR-0024: on a mobile platform Collection is the touch panel.
-            var catalog = new DesktopCollectionCardCatalog(new CollectionCatalog(_cardMapProvider));
-            _touch = new TouchCollectionEntry(
-                new TouchCollectionData(
-                    catalog,
-                    StaticCollectionSourceCatalog.Instance,
-                    new CollectionDayTierSource(_dayTierResolver),
-                    new CollectionPanelHeroPreferenceStore(),
-                    new DesktopCollectionRunReads(services),
-                    services.EncounterState,
-                    new DesktopSupporterRotation()
-                ),
-                TouchCanvas
-            );
-            host.AddComponent<CollectionTouchLifecycle>().Initialize(_touch, catalog);
-            _localeChangedSubscription = services.EventBus.Subscribe<ChineseLocaleModeChanged>(_ =>
-                catalog.InvalidateForLocale()
-            );
-            return;
-        }
-
         var panel = host.AddComponent<CollectionPanel>();
         panel.Initialize(
             services,
@@ -137,20 +99,5 @@ internal sealed class CollectionPanelMount : IBppMountable
         var panel = host.GetComponent<CollectionPanel>();
         if (panel != null)
             UnityEngine.Object.DestroyImmediate(panel);
-        var touch = host.GetComponent<CollectionTouchLifecycle>();
-        if (touch != null)
-            UnityEngine.Object.DestroyImmediate(touch);
-        _touch?.Dispose();
-        _touch = null;
-        if (_touchCanvas != null)
-            UnityEngine.Object.Destroy(_touchCanvas);
-        _touchCanvas = null;
-    }
-
-    private Transform TouchCanvas()
-    {
-        if (_touchCanvas == null)
-            _touchCanvas = UiKit.CreateOverlayCanvas("BPP.TouchCollection", UiKit.SortingOrder);
-        return _touchCanvas.transform;
     }
 }

@@ -50,7 +50,7 @@ export const STEAM_BRANCHES = Object.freeze({
   ptr: 'public_test_realm'
 });
 // Where a Steam capture reads each desktop platform (root ADR 0015). macOS is
-// the arm64 depot that lock entries and the iOS App already use.
+// the arm64 depot that lock entries already use.
 export const STEAM_APP_ID = 1617400;
 export const STEAM_DEPOTS = Object.freeze({
   macos: 1617401,

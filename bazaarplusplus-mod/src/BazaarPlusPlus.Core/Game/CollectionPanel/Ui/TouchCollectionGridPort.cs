@@ -4,11 +4,11 @@ using BazaarPlusPlus.Game.CollectionPanel.Grid;
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
 /// <summary>
-/// The grid side of <see cref="CollectionViewState"/> on a touch screen, shared by the Android
-/// host and the Mono host's touch Collection: it keeps the visible cards and
-/// their Core <see cref="CollectionGridLayout"/>, packed into the column count the touch layout
-/// chooses for the grid viewport's width (<see cref="CollectionTouchLayout.GridColumns"/>), and
-/// reports the count and content height the view state renders. A new width that changes the
+/// The grid side of <see cref="CollectionViewState"/> on a touch screen, in the Android host's
+/// Collection: it keeps the visible cards and their Core <see cref="CollectionGridLayout"/>,
+/// packed into the column count the touch layout chooses for the grid viewport's width
+/// (<see cref="CollectionTouchLayout.GridColumns"/>), and reports the count and content height
+/// the view state renders. A new width that changes the
 /// column count re-packs the same cards.
 /// </summary>
 public sealed class TouchCollectionGridPort : ICollectionGridPort

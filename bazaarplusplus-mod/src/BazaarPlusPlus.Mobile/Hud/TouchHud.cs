@@ -7,10 +7,6 @@ namespace BazaarPlusPlus.Mobile.Hud;
 /// <summary>What a host hands the HUD.</summary>
 /// <param name="OpenCollection">Opens Collection with the open's source.</param>
 /// <param name="OpenLiveBuild">Opens Ten-Win Builds, or null when the host has none.</param>
-/// <param name="ChromeShown">
-/// The host's own rule for the shortcuts and the clock beyond the HUD's: nothing of the host's
-/// hides them (on the Mono host, an end-of-run screenshot; Android takes none).
-/// </param>
 /// <param name="Clock">The combat clock's state, or null for no clock.</param>
 /// <param name="Previews">
 /// The item tooltip's preview switches, which the HUD ticks, clears on a scene change and
@@ -22,7 +18,6 @@ namespace BazaarPlusPlus.Mobile.Hud;
 internal sealed record TouchHudData(
     Func<string, OverlayRequestOutcome> OpenCollection,
     Func<string, OverlayRequestOutcome>? OpenLiveBuild,
-    Func<bool> ChromeShown,
     TouchCombatClockData? Clock,
     TouchPreviewSwitches? Previews,
     TouchScreenFill? ScreenFill
@@ -41,7 +36,7 @@ internal sealed record TouchHudData(
 /// </summary>
 internal sealed class TouchHud : IDisposable
 {
-    /// <summary>The HUD's registration id on both hosts.</summary>
+    /// <summary>The HUD's registration id on the Overlay Panel Host.</summary>
     public const string Id = "hud";
 
     private readonly TouchCombatClock? _clock;
@@ -53,11 +48,11 @@ internal sealed class TouchHud : IDisposable
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
-        Shortcuts = new TouchShortcuts(data.OpenCollection, data.OpenLiveBuild, data.ChromeShown);
+        Shortcuts = new TouchShortcuts(data.OpenCollection, data.OpenLiveBuild);
         _screenFill = data.ScreenFill;
         var screenFill = _screenFill;
         _clock = data.Clock is { } clock
-            ? new TouchCombatClock(clock, () => screenFill?.BoardTop, data.ChromeShown)
+            ? new TouchCombatClock(clock, () => screenFill?.BoardTop)
             : null;
         _previews = data.Previews;
         // Never RequestOpen this handle: the host would close the open panel as superseded, and
@@ -74,13 +69,6 @@ internal sealed class TouchHud : IDisposable
     }
 
     public TouchShortcuts Shortcuts { get; }
-
-    /// <summary>Hides the shortcuts and the clock until the next tick shows them again.</summary>
-    public void Hide()
-    {
-        Shortcuts.Hide();
-        _clock?.Hide();
-    }
 
     private void Tick()
     {

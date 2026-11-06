@@ -5,7 +5,7 @@ namespace BazaarPlusPlus.Core.Ui;
 /// <summary>
 /// What the game plays, as a host reads it for the Mobile UI (the Mobile Platform Port's
 /// <c>PlayState</c>): a fight, a replay, the recap of a past fight. The Mobile UI's rules over
-/// those facts live here, once for both hosts. Unity-free.
+/// those facts live here, apart from the host's reads. Unity-free.
 /// </summary>
 public readonly record struct TouchPlayState(bool InCombat, bool InReplay, bool RecapOpen)
 {

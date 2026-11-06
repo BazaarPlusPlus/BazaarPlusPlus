@@ -1,6 +1,6 @@
 The BazaarPlusPlus installer and bazaarplusplus.com share one visual language: a modern desktop tool finished to the standard of Linear, Steam and the Discord client. The brand keeps only the BazaarPlusPlus mark, a chevron over a gem; its single accent is the amber of that gem. Everything else is warm near-black, 1px lines and system type.
 
-Scope: the installer app, the website, and the start screens of the iOS App and the Android App (the **Apps** section), plus the colours the mod draws in game (the **In game** section). The OBS stream overlay keeps its own older look and does not use this system.
+Scope: the installer app, the website, and the start screen of the Android App (the **Android App** section), plus the colours the mod draws in game (the **In game** section). The OBS stream overlay keeps its own older look and does not use this system.
 
 ## Principles
 
@@ -92,7 +92,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 
 - Use `--ease` (cubic-bezier(0.2, 0, 0, 1)) with `--t-fast` (100ms) for hover, press and colour changes, and `--t-base` (160ms) for anything entering: routes, dialogs, menus, toasts.
 - Route changes are instant, and new content fades in from 0.55 opacity over `--t-base`. Dialogs and menus enter with opacity plus a scale from 0.98, and toasts slide 4px.
-- Busy is always the Loader2 spinner (0.8s linear), and a busy badge dot pulses (1.2s). There are no progress bars, except the App launchers' download progress (see **Apps**).
+- Busy is always the Loader2 spinner (0.8s linear), and a busy badge dot pulses (1.2s). There are no progress bars, except the Android App launcher's download progress (see **Android App**).
 - Respect `prefers-reduced-motion`: every animation and transition collapses to 1ms.
 
 ## States and focus
@@ -116,27 +116,27 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
   - `bpp-mark-on-light.svg` swaps the chevron to `bg-selected` ink for light grounds such as documents and store pages.
   - `bpp-mark-mono-white.svg` is a single white ink for the menu bar and other one-colour places.
   - Give the mark clear space of at least a quarter of its width. Never add a radius, bevel, gradient, glow or outline, and never recolour the gem away from `accent`.
-- The **app icon** (`bazaarplusplus-icon.webp`, `app-icon.png`: silver chevron, amber "++" gem and a BAZAAR++ plate on a dark squircle) is the desktop app icon, and the iOS App's and the Android App's launcher icon too: `bazaarplusplus-installer/src-tauri/icons/app-icon.png` is the source, the iOS build exports it into the App's icon catalog and `bazaarplusplus-android/tools/launcher-icon.py` turns it into the Android adaptive icon. `favicon.webp` is the site's browser-tab icon.
+- The **app icon** (`bazaarplusplus-icon.webp`, `app-icon.png`: silver chevron, amber "++" gem and a BAZAAR++ plate on a dark squircle) is the desktop app icon, and the Android App's launcher icon too: `bazaarplusplus-installer/src-tauri/icons/app-icon.png` is the source, and `bazaarplusplus-android/tools/launcher-icon.py` turns it into the Android adaptive icon. `favicon.webp` is the site's browser-tab icon.
 - If an image is unavailable, set "BazaarPlusPlus" in `body-strong`.
 
-## Apps
+## Android App
 
-The iOS App and the Android App are launchers: one screen that shows the game, its status and the next action. Both build it natively from `components/Launcher/` and the same tokens: `just design::build` generates `app/Theme/BppTokens.g.swift` for the iOS App and `res/values/bpp_tokens.xml` for the Android App.
+The Android App is a launcher: one screen that shows the game, its status and the next action. It builds it natively from `components/Launcher/` and the tokens: `just design::build` generates its `res/values/bpp_tokens.xml`.
 
-- **The same visual language, sized for touch.** Same colours, type scale and status rules as the desktop. Every tappable thing has a `touch-target` (48) hit area, and type follows the system text size (Dynamic Type, `sp`).
+- **The same visual language, sized for touch.** Same colours, type scale and status rules as the desktop. Every tappable thing has a `touch-target` (48) hit area, and type follows the system text size (`sp`).
 - **A native mobile page, not a web page.** The cover art runs full bleed under the status bar; a panel at `r-dialog` rises over its bottom edge with the status, the stats, one source row and the primary pinned at the bottom. One floating More button holds the support actions. No app bar, no footer.
-- **Each platform keeps its own shapes.** iOS buttons and rows are `r-touch` (12) with a pull-down menu; Android buttons are `r-pill` with a popup menu and Material dialogs.
-- **Layout follows the window size.** Below `pane-breakpoint` (600) the screen is one column; from it the cover stays on top over two equal panes, so a book-style fold falls in the gutter; only a window wider than tall from `cover-pane-breakpoint` (840) puts the cover in the start half and the content in the end half. Accessibility text sizes keep one column. The launcher is portrait only and the game landscape only; a fold (iPhone Duo, Android foldables) only changes the width.
-- **Art without effects.** The cover is Steam store art, bundled in both Apps from `assets/Covers/`: the library hero (the hunter) on a wide cover, the promotional hero capsule on a portrait one, each cropped around its subject and shown as is: no gradient, scrim, logo overlay or shadow. The logo stays clear of the system's areas, so the Dynamic Island never covers it.
+- **Android shapes.** Buttons are `r-pill` with a popup menu and Material dialogs; the source row is `r-touch` (12).
+- **Layout follows the window size.** Below `pane-breakpoint` (600) the screen is one column; from it the cover stays on top over two equal panes, so a book-style fold falls in the gutter; only a window wider than tall from `cover-pane-breakpoint` (840) puts the cover in the start half and the content in the end half. Accessibility text sizes keep one column. The launcher is portrait only and the game landscape only; a fold only changes the width.
+- **Art without effects.** The cover is Steam store art, bundled in the App from `assets/Covers/`: the library hero (the hunter) on a wide cover, the promotional hero capsule on a portrait one, each cropped around its subject and shown as is: no gradient, scrim, logo overlay or shadow. The logo stays clear of the system's areas, so a camera cutout never covers it.
 - **One progress bar.** A download with a known size is the one place the system shows a progress bar (`progress-height`).
-- **A newer App is a reminder.** A dialog once per version on Android, an `info` banner on iOS; it never takes an action away.
+- **A newer App is a reminder.** A dialog once per version; it never takes an action away.
 
 ## In game
 
 The mod's panels sit inside The Bazaar, so they speak the game's language rather than the installer's. One visual language serves the desktop and the Android host; only the layouts differ.
 
 - **Native art first.** Fonts, button and frame sprites (`Btn_Rct_*`), trophies, rank badges, cards, boards and portraits are the game's own, borrowed at runtime and never redrawn. BPP draws only what no native sprite covers: grounds, scrims, text colour, gold rules and status colour.
-- **Those colours are the `ingame-*` tokens**, generated into `InGameTheme.g.cs` for the Desktop UI (`bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/UiTokens/`) and for the Mobile UI both hosts compile (`bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/Ui/`) by `just design::build`. A panel never writes a colour literal; a fraction of a token goes through `InGameTheme.WithAlpha`.
+- **Those colours are the `ingame-*` tokens**, generated into `InGameTheme.g.cs` for the Desktop UI (`bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/UiTokens/`) and for the Mobile UI the Android host compiles (`bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/Ui/`) by `just design::build`. A panel never writes a colour literal; a fraction of a token goes through `InGameTheme.WithAlpha`.
 - **Warm brown ground, parchment ink, gold emphasis.** `ingame-backdrop` → `ingame-panel` → `ingame-dialog` are the grounds; `ingame-ink` and `ingame-ink-muted` the text; `ingame-accent` (the game's gold) is the one emphasis colour, as `accent` is in the installer. Status is `ingame-success`, `ingame-failure`, `ingame-warning` and `ingame-pending`, each one value on both hosts.
 - **Two layouts.** The desktop lays panels out for a mouse (`HistoryPanelLayout`, `LiveBuildPanelLayout`, `UiTokens/Sizes.cs`); Android lays them out for touch from `TouchChrome` and `TouchMetrics` (48dp targets, 12sp minimum text, ADR-0018 in the mod). A panel looks the same on both and is arranged for its input.
 - `components/InGamePanel/` previews the result.

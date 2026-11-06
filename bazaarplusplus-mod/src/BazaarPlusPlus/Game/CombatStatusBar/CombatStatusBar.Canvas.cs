@@ -2,7 +2,6 @@
 using System.Globalization;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.UiTokens;
@@ -43,10 +42,6 @@ internal sealed partial class CombatStatusBar
 
     private void EnsureUi()
     {
-        // On a mobile platform (ADR-0024) the Mobile UI's combat clock by the vault replaces this
-        // bar (TouchHudMount); this component still feeds the state.
-        if (TouchPlatform.IsMobile)
-            return;
         if (_canvasObject != null)
             return;
         // A switched-off bar prepares no fonts and builds no canvas. Gate on the setting alone:

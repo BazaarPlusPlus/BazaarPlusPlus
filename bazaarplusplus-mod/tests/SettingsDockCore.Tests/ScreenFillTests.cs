@@ -5,9 +5,9 @@ using Xunit;
 namespace SettingsDockCore.Tests;
 
 /// <summary>
-/// Screen Fill's decisions on the screen shapes both touch hosts meet: 20:9 and 16:9 phones, the
-/// 16:10 tablet, 3:2, a 4:3 iPad or tablet, and a foldable's nearly square inner display (OPPO
-/// Find N6, 2480×2248).
+/// Screen Fill's decisions on the screen shapes the touch host meets: 20:9 and 16:9 phones, the
+/// 16:10 tablet, 3:2, a 4:3 tablet, and a foldable's nearly square inner display (OPPO Find N6,
+/// 2480×2248).
 /// </summary>
 public sealed class ScreenFillTests
 {
@@ -27,9 +27,9 @@ public sealed class ScreenFillTests
     [Theory]
     [InlineData(2400, 1600, false)] // 3:2: the board keeps the 16:10 framing
     [InlineData(2560, 1920, true)] // 4:3
-    [InlineData(2266, 1488, false)] // iPad mini (A17 Pro), about 1.52:1
-    [InlineData(2420, 1668, false)] // iPad Pro 11-inch (M5), about 1.45:1
-    [InlineData(2752, 2064, true)] // iPad Pro 13-inch (M5), 4:3
+    [InlineData(2266, 1488, false)] // about 1.52:1
+    [InlineData(2420, 1668, false)] // about 1.45:1
+    [InlineData(2752, 2064, true)] // 4:3 at another size
     [InlineData(2480, 2248, true)] // the foldable's inner display
     public void Only_a_screen_near_4_3_or_squarer_gathers_the_hud_above_the_board(
         int width,

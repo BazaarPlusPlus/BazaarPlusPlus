@@ -3,7 +3,6 @@ using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
-using BazaarPlusPlus.GameInterop.Touch;
 
 namespace BazaarPlusPlus.Game.Tooltips;
 
@@ -62,11 +61,6 @@ internal static class TooltipPreviewModePolicy
             return TooltipPreviewMode.Upgrade;
         if (holdEnchant)
             return TooltipPreviewMode.Enchant;
-        // On a mobile platform the enchant preview is TouchEnchantPreview's section in the main
-        // text and each tooltip's touch toggle, not this desktop section (ADR-0024).
-        if (TouchPlatform.IsMobile)
-            return TooltipPreviewMode.Normal;
-
         return EnchantPreviewVisibility.Shows(
             config?.EnchantPreviewModeConfig.Value ?? DefaultMode,
             choicePedestal

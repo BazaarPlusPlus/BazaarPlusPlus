@@ -35,8 +35,8 @@ internal sealed record AndroidSettingsDockHooks(
 /// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
 /// gates only the account link, since the host takes no end-of-run screenshot), Combat Status,
 /// Enchant preview, with every mode the desktop offers, Chinese Locale, and Game History, which
-/// here has no hotkey. The Mobile UI's Upgrade preview switch stands in for the desktop's hotkey,
-/// as on iOS. The host's own is the game-update row, which offers the new Android App's download
+/// here has no hotkey. The Mobile UI's Upgrade preview switch stands in for the desktop's hotkey.
+/// The host's own is the game-update row, which offers the new Android App's download
 /// when the release needs it and otherwise says, dimmed, where the game stands.
 /// </summary>
 internal static class AndroidSettingsDock

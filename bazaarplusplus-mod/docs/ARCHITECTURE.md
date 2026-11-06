@@ -6,7 +6,7 @@ Terms are defined in [../GLOSSARY.md](../GLOSSARY.md); why a boundary is where i
 
 ## Runtime Shape
 
-`BppMonoHost.Start()` (`src/BazaarPlusPlus/Host/BppMonoHost.cs`; `Plugin`/`IosEntry` run it, ADR-0023) resolves the build channel (`GameBuildProbe`), creates `MonoHostComposition`, installs static facades such as `BppLog`, `BppPatchHost`, localization, settings dock entries, supporters, and hotkeys, applies Harmony patches per class, starts feature modules, builds the owner-scoped Mod API session and BazaarDB-link client, then mounts Unity components.
+`BppMonoHost.Start()` (`src/BazaarPlusPlus/Host/BppMonoHost.cs`; the BepInEx `Plugin` runs it) resolves the build channel (`GameBuildProbe`), creates `MonoHostComposition`, installs static facades such as `BppLog`, `BppPatchHost`, localization, settings dock entries, supporters, and hotkeys, applies Harmony patches per class, starts feature modules, builds the owner-scoped Mod API session and BazaarDB-link client, then mounts Unity components.
 
 Composition is manual; there is no DI container. `CoreComposition` owns the host-independent half: event bus, settings, run context, `IBppServices`, and feature start/stop through `BppFeatureRegistry` (`src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`). `MonoHostComposition` binds the host's paths, Mono probes, and resolved `IGameBuildInfo` into it, then wires feature modules, Unity components through `BppMountableRegistry`, and in-game settings rows through `SettingsDockEntryRegistry` (`src/BazaarPlusPlus/MonoHostComposition.cs`). Simple components mount through `ComponentMount<T>`; a bespoke mount exists only where a feature owns additional dependencies or object lifecycles, and `CombatReplayRuntime` is the bootstrap exception because other modules need it before mountables run.
 
@@ -30,7 +30,7 @@ Each host ships five BPP assemblies. Dependencies run host → Core → {Storage
 
 | Assembly | Contents |
 |---|---|
-| `BazaarPlusPlus.dll` (desktop and iOS) / `BazaarPlusPlus.Android.dll` (Android) | game integration, patches, resources, `MonoHostComposition` / `AndroidComposition`; both compile the Mobile UI, `src/BazaarPlusPlus.Mobile/` (ADR-0025) |
+| `BazaarPlusPlus.dll` (desktop) / `BazaarPlusPlus.Android.dll` (Android) | game integration, patches, resources, `MonoHostComposition` / `AndroidComposition`; both compile the Mobile UI, `src/BazaarPlusPlus.Mobile/` (ADR-0025) |
 | `BazaarPlusPlus.Core.dll` | the shared core every host references (directories below) |
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |

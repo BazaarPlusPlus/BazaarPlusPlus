@@ -20,23 +20,18 @@ Pick a RUN id once, such as `2026-11-04-a`, and use it for every command.
 ## 1. Build
 
 - Android: `just mod::android-build`.
-- iOS: `python3 tools/build.py simulator --test-control` in `bazaarplusplus-ios/`
-  (it stages this checkout's mod).
 - Desktop: `just mod::build --deploy`.
 
-Done when all three build. A failed build ends the walkthrough: report it.
+Done when both build. A failed build ends the walkthrough: report it.
 
 ## 2. Walk each device
 
-Drive one device at a time; the iOS simulators share one test channel. For
-each device, in the order `walkthrough.mjs devices` prints:
+Drive one device at a time. For each device, in the order `walkthrough.mjs devices` prints:
 
 1. **Bring it up with this checkout's mod running at the main menu.**
    - Android: `just setup-device NAME --keep-open`. It deploys this
      checkout's mod into the debug Android App and starts the game from the
      launcher's Play, as a player does, then waits for the main menu.
-   - iOS: `just setup-device ios NAME --keep-open`. Tell the user to unfold
-     `bpp_sim_duo` before its init.
    - Desktop: the grid is 16:9, and `capture` rejects any other window. With
      the game closed, set a size that fits the Mac's display (the game reads
      pixels; a remote virtual display can be under 500 points high):
@@ -52,8 +47,7 @@ each device, in the order `walkthrough.mjs devices` prints:
    for a fact the screenshot cannot show (the panel took 20 s to open, a tap
    did nothing). When a screen cannot be reached after a real attempt, record
    `skip … --reason` with what blocked it.
-3. **Shut it down**: Android `adb -s SERIAL emu kill`; iOS
-   `xcrun simctl shutdown UDID`; desktop quit the game.
+3. **Shut it down**: Android `adb -s SERIAL emu kill`; desktop quit the game.
 
 Done for a device when every scenario in scenarios.md is captured or skipped
 on it. A skipped cell names its blocker.
@@ -67,8 +61,6 @@ on it. A skipped cell names its blocker.
   - Android: `adb -s SERIAL exec-out screencap -p > SCRATCH.png`, read the
     image, `adb -s SERIAL shell input tap X Y` in screenshot pixels. Close with
     the back key: `adb -s SERIAL shell input keyevent KEYCODE_BACK`.
-  - iOS: `Claude_Code_iOS_Simulator:control` (`screenshot`, then `tap` in
-    device points).
   - Desktop: the computer-use tools on the game window; Escape closes a panel.
 - Verify each tap by a fresh look before you capture. A capture of the wrong
   screen is worse than a skip.

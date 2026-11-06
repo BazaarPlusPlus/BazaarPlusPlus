@@ -9,7 +9,6 @@ import {
 } from '../release/game-libs.mjs';
 import { signIn, withLoginCancellation } from './android-login.mjs';
 import { inspectScreen } from './android-screen.mjs';
-import * as ios from './setup-device-ios.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const gamePackage = 'com.tempogames.thebazaar';
@@ -35,7 +34,7 @@ export const profiles = [
   { name: 'bpp_emu_fold', width: 2480, height: 2248, dpi: 420, port: 5560 }
 ];
 const imagePath = 'system-images/android-35/google_apis_playstore/arm64-v8a/';
-const help = `Local development matrices: Android AVDs and iOS simulators
+const help = `Local development matrix: Android AVDs
 
   just list-devices
 
@@ -68,10 +67,6 @@ ANDROID_HOME selects the SDK (default ~/Library/Android/sdk).
 ANDROID_AVD_HOME selects AVDs (default ~/.android/avd); ADB overrides adb.
 Evidence: bazaarplusplus-mod/artifacts/android/setup-device-NAME/ (private).
 status inventories configuration and historical results, not current login.
-
-iOS (macOS, Xcode, Node)
-
-${ios.help}
 `;
 
 export function parseIni(text) {
@@ -502,7 +497,6 @@ export async function main(args) {
   }
   const [command, ...rest] = args;
   const p = paths();
-  if (command === 'init' && rest[0] === 'ios') return ios.init(rest.slice(1));
   if (command === 'status' && !rest.length) {
     for (const profile of profiles) {
       const directory = avdDirectory(p.avds, profile.name);
@@ -519,7 +513,6 @@ export async function main(args) {
         `${profile.name}: ${state}; last init ${previous?.status || 'not run'}${previous?.checkedAt ? ` at ${previous.checkedAt}` : ''} (current login unverified)`
       );
     }
-    ios.status();
     return;
   }
   if (command !== 'init') throw new Error(help);

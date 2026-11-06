@@ -4,11 +4,6 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { profiles as androidProfiles } from './setup-device.mjs';
-import {
-  app as iosApp,
-  findDevices,
-  profiles as iosProfiles
-} from './setup-device-ios.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const runs = path.join(root, 'artifacts/walkthrough');
@@ -22,7 +17,7 @@ const defaultGameRoot = path.join(
   os.homedir(),
   'Library/Application Support/Steam/steamapps/common/The Bazaar'
 );
-// The registered Overlay Panel Host ids: the Mobile UI's on Android and iOS, the desktop panels' own.
+// The registered Overlay Panel Host ids: the Mobile UI's on Android, the desktop panels' own.
 const panels = {
   mobile: {
     collection: 'collection',
@@ -47,7 +42,7 @@ export const help = `Device walkthrough: open panels, capture screens, build the
   node scripts/walkthrough.mjs skip RUN DEVICE SCENARIO --reason TEXT
   node scripts/walkthrough.mjs report RUN
 
-DEVICE is an Android AVD or iOS simulator name from the device matrix, or
+DEVICE is an Android AVD name from the device matrix, or
 desktop. RUN and SCENARIO use letters, digits, - and _. panel writes the
 Walkthrough Control's command file into the device's Data Root and waits until
 the game consumes it; the game log line overlay_panels.walkthrough.command says
@@ -70,7 +65,6 @@ export function devices() {
       kind: 'android',
       serial: `emulator-${p.port}`
     })),
-    ...iosProfiles.map((p) => ({ name: p.name, kind: 'ios' })),
     { name: 'desktop', kind: 'desktop' }
   ];
 }
@@ -114,37 +108,6 @@ const adbPath = () =>
 
 const adb = (d, ...args) => run([adbPath(), '-s', d.serial, ...args]);
 
-function udid(d) {
-  const found = findDevices(
-    JSON.parse(run(['xcrun', 'simctl', 'list', 'devices', '-j'])),
-    d.name
-  ).filter((s) => s.state === 'Booted');
-  if (found.length !== 1)
-    throw new Error(
-      `${d.name} is not booted (or the name is duplicated). Boot it with: just setup-device ios ${d.name} --keep-open`
-    );
-  return found[0].udid;
-}
-
-function iosDataRoot(d) {
-  const bundle = run([
-    'plutil',
-    '-extract',
-    'CFBundleIdentifier',
-    'raw',
-    path.join(iosApp, 'Info.plist')
-  ]).trim();
-  const container = run([
-    'xcrun',
-    'simctl',
-    'get_app_container',
-    udid(d),
-    bundle,
-    'data'
-  ]).trim();
-  return path.join(container, 'Documents', dataRootName);
-}
-
 const desktopDataRoot = () =>
   path.join(process.env.BPP_GAME_ROOT || defaultGameRoot, dataRootName);
 
@@ -174,7 +137,7 @@ export async function panel(name, logical) {
     remove = () =>
       adb(d, 'shell', 'run-as', androidApp, 'rm', '-f', androidCommand);
   } else {
-    const directory = d.kind === 'ios' ? iosDataRoot(d) : desktopDataRoot();
+    const directory = desktopDataRoot();
     if (!fs.existsSync(directory))
       throw new Error(
         `${directory} does not exist: the mod has not run on ${d.name} yet. Launch the game first.`
@@ -298,10 +261,6 @@ export function capture(runName, name, scenario, note, portrait = false) {
     problems = JSON.parse(
       fs.readFileSync(path.join(out, 'environment.json'), 'utf8')
     ).problems;
-  } else if (d.kind === 'ios') {
-    // iPhone Duo has two displays and simctl needs one named; 3 is the inner, the walkthrough runs unfolded.
-    const display = d.name === 'bpp_sim_duo' ? ['--display=3'] : [];
-    run(['xcrun', 'simctl', 'io', udid(d), 'screenshot', ...display, file]);
   } else {
     run(['screencapture', '-x', '-o', `-l${desktopWindow()}`, file]);
   }

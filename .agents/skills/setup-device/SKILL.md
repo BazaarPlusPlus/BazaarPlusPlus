@@ -1,19 +1,19 @@
 ---
 name: setup-device
-description: Local development setup and the Android and iOS test matrices for BazaarPlusPlus. Use for machine setup, preparing Android emulators or iOS simulators and their game sign-in, or choosing resolution and orientation checks.
+description: Local development setup and the Android test matrix for BazaarPlusPlus. Use for machine setup, preparing Android emulators and their game sign-in, or choosing resolution and orientation checks.
 ---
 
 # Set up devices
 
-Read `docs/development.md` (its 本机矩阵与登录准备 section owns both matrices, the verification
+Read `docs/development.md` (its 本机矩阵与登录准备 section owns the matrix, the verification
 layers and why), then the affected project's `AGENTS.md`. Run commands from the
 repository root.
 
 ## Prepare
 
 1. `just doctor`, then `just setup` for missing dependencies and config projections.
-2. `node scripts/setup-device.mjs --help` lists the AVD and simulator names,
-   models, dimensions, serials and options. `just list-devices` shows only
+2. `node scripts/setup-device.mjs --help` lists the AVD names, dimensions,
+   serials and options. `just list-devices` shows only
    an earlier result.
 3. `just setup-device` for every AVD, or `just setup-device NAME` for one.
    Each AVD runs the player's setup: the official game started from the debug
@@ -21,12 +21,6 @@ repository root.
    config.ini `[game]`; without it, the user signs in in the emulator window.
    A missing official APK, App runtime or interop package needs the release
    config once; init names the command. Run init in the background.
-4. On the Mac that holds the iOS simulators, `just setup-device ios` for all
-   three or `just setup-device ios NAME` for one. It needs the `--test-control`
-   simulator build. When it starts a QR sign-in, tell the user to scan it on
-   the simulator screen with the Steam mobile app and wait; they type any
-   password themselves. A first game download takes a long time; run init in
-   the background.
 
 Done when each selected device reports `READY` in this run: the launcher's Play
 reached the main menu with this checkout's mod loaded.

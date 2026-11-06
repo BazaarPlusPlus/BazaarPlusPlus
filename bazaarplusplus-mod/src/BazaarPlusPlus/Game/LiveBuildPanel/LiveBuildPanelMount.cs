@@ -3,30 +3,18 @@
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.OverlayPanels;
-using BazaarPlusPlus.Game.Supporters;
-using BazaarPlusPlus.GameInterop.Touch;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Mobile.LiveBuild;
-using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
-/// <summary>
-/// Mounts Ten-Win Builds: the desktop's <see cref="LiveBuildPanel"/>, or on a mobile platform
-/// (ADR-0024) the Mobile UI's <see cref="TouchLiveBuildEntry"/> (ADR-0025) under a touch canvas of
-/// its own, which the HUD's shortcut opens through <see cref="OpenTouchPanel"/>.
-/// </summary>
+/// <summary>Mounts Ten-Win Builds: the desktop's <see cref="LiveBuildPanel"/>.</summary>
 internal sealed class LiveBuildPanelMount : IBppMountable
 {
-    private static TouchLiveBuildEntry? _touch;
-
     private readonly Func<DesktopOverlayPanels?> _overlayHost;
     private readonly BuildRecommendationRepository _recommendations;
-    private TouchLiveBuildData? _touchData;
-    private GameObject? _touchCanvas;
 
     public LiveBuildPanelMount(
         Func<DesktopOverlayPanels?> overlayHost,
@@ -36,10 +24,6 @@ internal sealed class LiveBuildPanelMount : IBppMountable
         _overlayHost = overlayHost;
         _recommendations = recommendations;
     }
-
-    /// <summary>The HUD shortcut's open on a mobile platform (the Mono host's TouchHudMount).</summary>
-    internal static OverlayRequestOutcome OpenTouchPanel(string source) =>
-        _touch?.RequestOpen(source) ?? OverlayRequestOutcome.UnknownPanel;
 
     public void Mount(GameObject host, IBppServices services)
     {
@@ -53,15 +37,6 @@ internal sealed class LiveBuildPanelMount : IBppMountable
             return;
         }
 
-        if (TouchPlatform.IsMobile)
-        {
-            // ADR-0024: on a mobile platform Ten-Win Builds is the touch panel.
-            _touchData = new TouchLiveBuildData(_recommendations, new DesktopSupporterRotation());
-            _touch = new TouchLiveBuildEntry(_touchData, TouchCanvas);
-            _touchData.Warm("mounted");
-            return;
-        }
-
         var panel = host.AddComponent<LiveBuildPanel>();
         panel.Initialize(_recommendations, overlayHost);
     }
@@ -71,19 +46,5 @@ internal sealed class LiveBuildPanelMount : IBppMountable
         var panel = host.GetComponent<LiveBuildPanel>();
         if (panel != null)
             UnityEngine.Object.DestroyImmediate(panel);
-        _touch?.Dispose();
-        _touch = null;
-        _touchData?.Stop();
-        _touchData = null;
-        if (_touchCanvas != null)
-            UnityEngine.Object.Destroy(_touchCanvas);
-        _touchCanvas = null;
-    }
-
-    private Transform TouchCanvas()
-    {
-        if (_touchCanvas == null)
-            _touchCanvas = UiKit.CreateOverlayCanvas("BPP.TouchLiveBuild", UiKit.SortingOrder);
-        return _touchCanvas.transform;
     }
 }

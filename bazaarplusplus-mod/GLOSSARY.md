@@ -172,8 +172,8 @@ A Medium or Large item the game shrank one size for the rest of the Run (`TActio
 ## Mobile UI
 
 **Mobile UI**:
-BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) that both hosts compile: the Mono host on iOS and the Android host (ADR-0025). The Desktop UI is the Mono host's mouse-and-keyboard surfaces.
-_Avoid_: Android UI, iOS UI, touch port
+BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) that the Android host compiles (ADR-0025). The Desktop UI is the Mono host's mouse-and-keyboard surfaces.
+_Avoid_: Android UI, touch port
 
 **Mobile Platform Port**:
 What a host gives the Mobile UI to reach its runtime (`IMobilePlatformPort`), such as the main-thread scope and posting to the main thread, object liveness, casts, text wrapping, button listeners and control actions, the game sprites the native skin borrows, the game font, the card rental, game reads (card text and previews, the string table, hero and encounter names and portraits, rank badges and run trophies, the live cards, the settings button and its round art, the vault, popups and play state: in a fight, in a replay, the recap open), the game's mobile skill overlay and overlay registration. A panel's frames, and the HUD's, come from an overlay registration's tick, so no separate frame-driving member exists (ADR-0025).

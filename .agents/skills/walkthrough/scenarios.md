@@ -8,7 +8,7 @@ with the reason `desktop has no such screen`.
 
 | Scenario | Reach | Look at |
 |---|---|---|
-| `launcher` (mobile) | The App's own launcher, before the game starts. Android: `BPP_ANDROID_SERIAL=SERIAL just mod::android-launcher`, `capture … --portrait`, then `just mod::android-launch` and look until the main menu shows. iOS shows it on launch | Portrait, nothing clipped |
+| `launcher` (mobile) | The App's own launcher, before the game starts. Android: `BPP_ANDROID_SERIAL=SERIAL just mod::android-launcher`, `capture … --portrait`, then `just mod::android-launch` and look until the main menu shows | Portrait, nothing clipped |
 | `main-menu` | The game's main menu after load | The HUD shortcuts by the settings gear, History in the MENU grid |
 | `collection` | `panel collection` | Grid, filters, close button |
 | `collection-inspect` | In Collection, tap one card | The inspect sheet |
@@ -29,7 +29,7 @@ device instead of starting another.
 | `run-shop` | The shop screen | HUD shortcuts, Ten-Win Builds entry, Screen Fill and its day clock |
 | `tooltip` | Tap a shop item (desktop: hover it) | The tooltip's preview switches and upgrade or enchant preview |
 | `ten-win` | `panel live_build` | Recommendation, shop, stash and board sections |
-| `collection-run` | `panel collection` | Merchant preselection (iOS) and the day filter |
+| `collection-run` | `panel collection` | Merchant preselection and the day filter (desktop; Android preselects no merchant) |
 
 Dismiss an inspect sheet (back key, its X, or Escape) before the next `panel`
 command: an open modal swallows the request, and `panel` cannot tell.

@@ -57,7 +57,7 @@ Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要�
 
 ## 验证
 
-命令写作 `just <project>::<recipe>`（也可写 `just <project> <recipe>`）。recipe 在项目目录中执行，所以相对路径参数按项目目录解析。只改一个项目时用该项目的 `check` 和 `test`；`just check`、`just test` 覆盖除 iOS 外的全部项目，遇到首个失败即停止。iOS 需要本机的 Mono 源码和 Xcode，单独执行 `just ios::check` 和 `just ios::test`。
+命令写作 `just <project>::<recipe>`（也可写 `just <project> <recipe>`）。recipe 在项目目录中执行，所以相对路径参数按项目目录解析。只改一个项目时用该项目的 `check` 和 `test`；`just check`、`just test` 覆盖全部项目，遇到首个失败即停止。
 
 - 全仓库门禁需要所有项目的工具链，mod 还需要快照锁能解析的游戏程序集；缺依赖时的失败不能当作通过。
 - `installer::check` 已包含 installer 的测试，先跑 `check` 再跑 `test` 会把它们跑两遍。
@@ -97,32 +97,29 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 本机矩阵与登录准备
 
-`just setup-device` 准备常驻 Android AVD，`just setup-device ios` 准备常驻 iOS 模拟器，并验证每台设备的游戏账号仍能自动登录；设备名字、型号、尺寸、端口和参数以 `node scripts/setup-device.mjs --help` 为准。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
+`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；设备名字、尺寸、端口和参数以 `node scripts/setup-device.mjs --help` 为准。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
 
-矩阵按 Mobile UI 的三个布局分支选设备，两个平台各一套：
+矩阵按 Mobile UI 的三个布局分支选设备：
 
-| 布局分支 | Android AVD | iOS 模拟器 |
-| --- | --- | --- |
-| 宽屏手机，游戏原布局 | `bpp_emu_20_9` | `bpp_sim_phone`：iPhone 18 Pro Max |
-| Screen Fill，HUD 留在侧边 | `bpp_emu_3_2` | `bpp_sim_duo`：iPhone Duo，内屏横屏约 1.42:1，外屏横屏约 1.455:1 |
-| HUD 上移，面板堆叠 | `bpp_emu_fold` | `bpp_sim_ipad`：iPad Pro 13 英寸 (M5)，4:3 |
+| 布局分支 | Android AVD |
+| --- | --- |
+| 宽屏手机，游戏原布局 | `bpp_emu_20_9` |
+| Screen Fill，HUD 留在侧边 | `bpp_emu_3_2` |
+| HUD 上移，面板堆叠 | `bpp_emu_fold` |
 
-近方屏 AVD 只是固定的屏幕形状，不模拟折叠铰链；iPhone Duo 才覆盖折叠。高密度、未知 DPI、16:9、16:10、4:3 和阈值两侧由布局单测覆盖，见 [Mobile UI](../bazaarplusplus-mod/docs/architecture/mobile-ui.md)。
+近方屏 AVD 只是固定的屏幕形状，不模拟折叠铰链，矩阵不覆盖折叠。高密度、未知 DPI、16:9、16:10、4:3 和阈值两侧由布局单测覆盖，见 [Mobile UI](../bazaarplusplus-mod/docs/architecture/mobile-ui.md)。
 
 每台 AVD 都按玩家的方式运行游戏：官方游戏加 debug Android App，从 App 的启动器点 Play 启动（[ADR 0012](adr/0012-android-app.md)）。退役的注入版 APK 不是玩家的流程；init 发现游戏的 `base.apk` 与锁里的 `apkSha256` 不一致时，卸载它，换装锁定版本的官方 APK。init 每次都重装 debug App、推送 Development interop、部署当前源码的 mod，配置里有 `[game]` 账号时写进 App 的沙盒，然后点 Play，要求本次日志出现主菜单和随后的 hook 统计，并核对截图的尺寸和密度。没有 `[game]` 账号时，在模拟器窗口中登录。缺少的设备从关机的 seed AVD 复制磁盘，省去重新安装；已有设备保留数据。官方 APK、App 的运行时（`build/runtime`）和 interop 包（`build/interop.zip`）第一次要从私有存储取，命令见 `--help`。Development interop 跳过平台清单、Managed Payload 暂存、启动记录和 Updater 换入；要测这一段，按 `bazaarplusplus-android/AGENTS.md` 用 `dev-manifest-port`。
 
-iOS 模拟器各有自己的沙盒和钥匙串，所以每台单独登录 Steam、单独下载游戏（约 6 GB），不能从另一台复制。已经装好游戏的模拟器用 `xcrun simctl rename` 改成矩阵名字即可复用；缺少的模拟器由 init 新建。init 安装 `bazaarplusplus-ios` 的 `--test-control` 模拟器构建，等待保存的登录；没有登录时在模拟器屏幕上显示二维码（新模拟器先跳过首次介绍页），由使用者用 Steam 手机 App 扫码，或改用密码登录并在手机上确认。下载进行期间 init 一直等待，停滞 5 分钟才失败。之后执行 `tools/regress.sh`，以 `RunTasks complete … Failed: 0` 为就绪信号。`bpp_sim_duo` 先展开再执行 init：合上时 FoldGuard 暂停游戏，回归等不到 RunTasks；simctl 没有折叠命令。展开在 Device Hub 中进行（Xcode 27 用它取代了 `Simulator.app`，入口是 Xcode > Open Developer Tool > Device Hub）：启动模拟器，在侧栏选中它，点设备画面下方三个姿态按钮中最右边的全开按钮。所有模拟器共用 `build/steam-app/verification/` 的测试通道，同一时间只驱动一台。签名与登录的注意事项见 `bazaarplusplus-ios/AGENTS.md`。
-
 | 验证层 | 需要证明什么 |
 | --- | --- |
-| 源码 | 桌面与 Android Host 各自构建、测试；Mobile UI 修改还须按 iOS 的项目说明验证 Mono Host |
-| 环境准备 | 三台 AVD 分别冷启动进入游戏主菜单；三台 iOS 模拟器分别通过模拟器回归；设备身份、原生显示配置和本次登录证据一致 |
+| 源码 | 桌面与 Android Host 各自构建、测试 |
+| 环境准备 | 三台 AVD 分别冷启动进入游戏主菜单；设备身份、原生显示配置和本次登录证据一致 |
 | 布局与交互 | 在受影响面板上检查关闭按钮、滚动、卡牌检视、设置和触控区域；主菜单截图不替代面板验收 |
 | 朝向与恢复 | 启动器在竖屏握持和横屏握持下都是竖屏；游戏从竖屏握持启动后转为横屏，两个横屏方向都可用，转到竖屏仍保持横屏；后台返回后重新布局。记录实际方向和 Unity safe area，内容不侧转、不裁切 |
-| 折叠（iPhone Duo） | 启动器在外屏和内屏都是竖屏；游戏中合上暂停并提示展开，展开后继续；合上时启动游戏，直接显示提示 |
 | 全新安装 | 另用一次性 AVD；常驻的已登录设备只用于更新和日常回归 |
 
-朝向是同一台设备上的场景，不为每个方向复制设备。改变朝向后等游戏稳定，再对该面板执行 `android-screen-check`。尺寸和 DPI 固定在 AVD 配置中，不用 `wm size` 或 `wm density` 模拟另一台设备。init 的回执、截图和日志在 mod 的 `artifacts/android/setup-device-<AVD>/` 和 `bazaarplusplus-ios/build/setup-device-<模拟器>/`，含账号信息，不提交。
+朝向是同一台设备上的场景，不为每个方向复制设备。改变朝向后等游戏稳定，再对该面板执行 `android-screen-check`。尺寸和 DPI 固定在 AVD 配置中，不用 `wm size` 或 `wm density` 模拟另一台设备。init 的回执、截图和日志在 mod 的 `artifacts/android/setup-device-<AVD>/`，含账号信息，不提交。
 
 测试账号可以放在本机配置的 `[game]` 中，用 `just android::dev-login <serial>` 在指定设备的 debug App 里登录；字段、依赖和无凭据恢复验证选项见该命令的 `--help`。脚本发出一次性私有请求，launcher 按原有 Play 门禁启动，Android Host 在 Unity 主线程调用游戏自己的登录表单。认证和令牌存储由游戏负责；命令等当前进程认证完成且玩家资料已加载才成功。`setup-device` 共用这条流程，没有配置时等待手动登录。请求、结果和临时文件在结束时清理，过期请求不能自动启动游戏，Release App 不提供该入口。凭据留在 checkout 外的私有配置中，不同步到 GitHub，也不修改官方 App 的登录状态。
 

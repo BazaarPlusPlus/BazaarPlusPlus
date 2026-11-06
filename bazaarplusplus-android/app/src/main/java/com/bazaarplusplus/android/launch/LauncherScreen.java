@@ -11,7 +11,7 @@ import java.util.List;
  * fold re-renders the same screen without running anything again.
  */
 final class LauncherScreen {
-    /** The badge word and its tone; the same words as the iOS App. */
+    /** The badge word and its tone (design/components/Launcher, Status). */
     enum Status {
         CHECKING(Tone.BUSY), PREPARING(Tone.BUSY), DOWNLOADING(Tone.BUSY),
         READY(Tone.OK), WAITING(Tone.WARN), GAME_UPDATE(Tone.WARN),
