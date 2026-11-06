@@ -1,0 +1,6 @@
+{
+  // Node runs these scripts directly, as it runs the root tooling, so they
+  // share its compiler options. ../tsconfig.json is the Vite frontend's.
+  "extends": "../../tsconfig.json",
+  "include": ["**/*.ts"]
+}

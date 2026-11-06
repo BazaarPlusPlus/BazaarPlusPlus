@@ -15,7 +15,7 @@ name: Delivery / Product release
 # CLOUDFLARE_API_TOKEN (the operator token) are shared with other workflows;
 # release/github-secrets.json names every one, its scope and its local source,
 # and .github/scripts/release-secrets.sh checks them from that table. The R2
-# S3 pair is derived from CLOUDFLARE_API_TOKEN (release/r2-store.mjs).
+# S3 pair is derived from CLOUDFLARE_API_TOKEN (release/r2-store.ts).
 on:
   workflow_dispatch:
     inputs:
@@ -111,7 +111,7 @@ jobs:
         if: matrix.platform == 'macos' && env.STAGE == 'release'
         run: |
           xcodebuild -version
-          node bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs
+          node bazaarplusplus-installer/scripts/release/compile-macos-icon.ts
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
@@ -189,7 +189,7 @@ jobs:
             bazaarplusplus-mod/artifacts/tests/
           if-no-files-found: ignore
       # prepare reuses the committed native recorder inputs when
-      # release/native-recorder-input.mjs finds them fresh and rebuilds them on
+      # release/native-recorder-input.ts finds them fresh and rebuilds them on
       # this runner otherwise; a rebuild changes tracked files, which the next
       # step turns into a named failure instead of an unpublishable dirty build.
       - name: Prepare the Payload
@@ -215,7 +215,7 @@ jobs:
       - if: env.STAGE == 'prepare'
         run: echo "Dry run stopped after release::prepare for $RELEASE_PLATFORM; nothing was signed or uploaded." >> "$GITHUB_STEP_SUMMARY"
       # bundle.sh reads signing material as files from BPP_SIGNING_SECRETS_DIR,
-      # the same layout `node scripts/workspace.mjs run signing` stages locally.
+      # the same layout `node scripts/workspace.ts run signing` stages locally.
       - if: env.STAGE == 'release'
         name: Stage the signing secrets
         env:

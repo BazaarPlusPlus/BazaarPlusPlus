@@ -151,7 +151,7 @@ public sealed class ReleaseManifestClient
         }
     }
 
-    // release/manifest.mjs owns these fields; a record that is incomplete here is no Managed
+    // release/manifest.ts owns these fields; a record that is incomplete here is no Managed
     // Payload, so the caller falls back to the installer.
     private ManagedPayloadRelease? ReadManagedPayload(JObject document, string version)
     {
@@ -192,7 +192,7 @@ public sealed class ReleaseManifestClient
     }
 
     // An Android record names the game it was adapted for (game.gameVersion, the string the
-    // running game reports) and the Android App APK (app.url, size, sha256); release/manifest.mjs
+    // running game reports) and the Android App APK (app.url, size, sha256); release/manifest.ts
     // owns them. Anything incomplete is no release, and so is the retired A shape (apk, no app).
     private AndroidAppRelease? ReadAndroidApp(JObject document)
     {

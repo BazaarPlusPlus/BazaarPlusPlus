@@ -32,7 +32,7 @@ BazaarPlusPlus.Updater.dll
 /src-tauri/resources/BepInExSource/*/BepInEx.zip.tmp-*
 /src-tauri/resources/BepInExSource/*/BepInEx.zip.manifest.json.tmp-*
 
-# Throwaway fixtures from scripts/bundle.test.mjs; removed after each run and
+# Throwaway fixtures from scripts/bundle.test.ts; removed after each run and
 # left behind only when a run is interrupted.
 .bpp-signing-test-*/
 .bpp-deps-test-*/

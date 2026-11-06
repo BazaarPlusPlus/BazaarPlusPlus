@@ -27,7 +27,7 @@ acceptance:
 
 # Run the headless installer from source; use --help for commands.
 cli *args:
-    node scripts/headless.mjs "$@"
+    node scripts/headless.ts "$@"
 
 # Start the frontend development server (not the desktop app).
 dev:
@@ -35,7 +35,7 @@ dev:
 
 # Start the full Tauri desktop app; installs npm dependencies only when the tree is invalid.
 app:
-    node scripts/checks/check-toolchain.mjs "$(node --version)" "$(npm --version)"
+    node scripts/checks/check-toolchain.ts "$(node --version)" "$(npm --version)"
     npm ls --depth=0 >/dev/null 2>&1 || npm ci
     npm run tauri dev
 

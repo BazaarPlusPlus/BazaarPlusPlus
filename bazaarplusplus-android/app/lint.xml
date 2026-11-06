@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <lint>
-  <!-- bpp_tokens.xml is the whole generated palette and scale (design/build.mjs); views use a part. -->
+  <!-- bpp_tokens.xml is the whole generated palette and scale (design/build.ts); views use a part. -->
   <issue id="UnusedResources">
     <ignore path="src/main/res/values/bpp_tokens.xml" />
   </issue>

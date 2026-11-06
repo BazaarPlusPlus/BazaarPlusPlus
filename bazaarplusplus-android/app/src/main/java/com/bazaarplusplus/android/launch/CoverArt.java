@@ -8,7 +8,7 @@ import com.bazaarplusplus.android.R;
 
 /**
  * The launcher's cover art (design/components/Launcher, Cover art): two bundled images of The
- * Bazaar, which {@code design/build.mjs} copies from {@code design/assets/Covers/}. The library
+ * Bazaar, which {@code design/build.ts} copies from {@code design/assets/Covers/}. The library
  * hero (the hunter) is wide; the hero capsule (the store's promotional art, with the logo) is
  * portrait; {@link CoverView} picks one by the cover's shape.
  */

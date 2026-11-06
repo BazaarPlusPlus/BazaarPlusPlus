@@ -11,11 +11,11 @@ just setup
 just doctor
 ```
 
-配置文件、分节和取值写法都由 `node scripts/workspace.mjs --help` 说明。它说不出来的约定：
+配置文件、分节和取值写法都由 `node scripts/workspace.ts --help` 说明。它说不出来的约定：
 
 - 配置目录（默认 `~/.config/bazaarplusplus`）由同一台机器的所有 clone 共用，必须放在任何 checkout 之外。新机器要单独恢复这个私有目录，以及游戏、平台工具链和系统证书；Git clone 不带这些东西。
 - 只改 `config.ini`。server 的 `.dev.vars` 和 analyzer 的 `.env` 是它的受管理副本；改完配置运行 `just setup --skip-deps`，或者直接用会自动刷新副本的 `just server::dev`、`just analyzer::cli <command>`。直接跑 npm/uv 命令读到的是当前副本，不会刷新。
-- Cloudflare 只有一把 token：操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`），必须是 Account API Token（`release/r2-store.mjs` 和 analyzer 的 `object_store.py` 只在 `/accounts/{account_id}/tokens/verify` 校验），权限是 R2 读写所有桶，加 Wrangler 部署需要的权限。本机发版、部署都用它；GitHub 上它是一个仓库级 secret，`release.yml`、`checks.yml`、`analyzer.yml` 和 `deploy-site.yml` 共用，Dependabot 也注册同一份。Dependabot PR 会在 CI 里执行依赖更新带进来的代码，并能拿到这把可写 token；为了只维护一把 token，接受这个风险。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.mjs` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
+- Cloudflare 只有一把 token：操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`），必须是 Account API Token（`release/r2-store.ts` 和 analyzer 的 `object_store.py` 只在 `/accounts/{account_id}/tokens/verify` 校验），权限是 R2 读写所有桶，加 Wrangler 部署需要的权限。本机发版、部署都用它；GitHub 上它是一个仓库级 secret，`release.yml`、`checks.yml`、`analyzer.yml` 和 `deploy-site.yml` 共用，Dependabot 也注册同一份。Dependabot PR 会在 CI 里执行依赖更新带进来的代码，并能拿到这把可写 token；为了只维护一把 token，接受这个风险。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.ts` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
 - GitHub secrets 和变量按 `release/github-secrets.json` 同步：`just secrets-check` 只列名字，`just secrets-sync` 把本地有值的项通过 `gh` 写上去（值走 stdin，不打印）；人工步骤只剩造 token 和导出证书，见[产品发布](release.md#github-actions-发版)。
 - `doctor` 只是清单：退出成功不代表远端权限、签名密码或服务可用。
 
@@ -37,7 +37,7 @@ just mod::fetch macos online      # Windows 用 windows
 - installer 的 Rust 代码在 Linux 上也能编译并跑 `installer::check`、`installer::test`，前提是装好 [Tauri 的 Linux 系统依赖](https://tauri.app/start/prerequisites/)（云端由环境的 setup script 安装）。只在 macOS 或 Windows 上用到的代码要按平台加 `cfg`，否则 Linux 上的 Clippy 会报未使用；靠文件权限位制造失败的测试在 root 下用 `test_support::permission_bits_are_bypassed` 跳过。macOS 与 Windows 的实际行为仍由 CI 的对应 lane 验证。
 - 锁只通过 PR 推进。桌面条目由 `.github/workflows/steam-snapshot-watch.yml` 自动采集，它每小时按渠道比较 Steam buildid 和锁，有实际变化时开 PR 并把 Mod 检查结果写进正文，由人合并。手动采集用 `just mod::steam-capture <platform> <channel>`，不需要本机安装游戏（[ADR 0015](adr/0015-steam-snapshot-capture.md)）。没有 Steam 登录时，在挂了对应 Steam 分支的机器上 `just mod::snapshot`。两种方式都要再 `just mod::publish <platform> <channel>` 上传私有存储，然后提交锁文件。
 - Steam 凭据由操作员提供，存在配置目录的 `keys/`：`just mod::steam-login` 在终端登录并写入 `steam-snapshot-login.json`；`steam-beta-passwords.json` 是一个 JSON 对象，键是 Steam 分支名，值是访问代码。`just secrets-sync` 把它们写入 `steam` GitHub Environment，这个 Environment 只允许 `master` 部署。任务报告登录或访问代码被拒绝时，更新对应文件并重新同步。
-- Android 只有 `android-online` 一个键，快照是 Interop Snapshot（[ADR 0008](adr/0008-interop-snapshots-in-snapshot-lock.md)）。`just with-config release just mod::fetch android online` 打印 interop 目录，并把 Loader Release 解到 `game-libs/loader-<tag>/`；Android 工程导入 `bazaarplusplus-mod/build/InteropPath.props` 取 `InteropPath` 与 `LemonLoaderPath`。推进通常由 `android-apk-watch.yml` 自动完成（[发布文档](release.md#android-发布顺序)）；手动推进时 `just mod::snapshot-android <TheBazaar.apk>` 沿用锁里的工具链，只在 Linux x64 上生成 interop；在其他主机上要传 `--interop <dir>`，用对同一 APK 生成好的目录。换工具链的选项见 `node release/game-libs.mjs --help`；Cpp2IL 用发布页的 Linux 二进制，并对照 GitHub 资产摘要核对。之后 `just mod::publish android online` 上传 interop、官方 APK 与工具链（APK 约 2.8 GB，一次流式上传），再提交锁文件。interop 归档以目录摘要为键而非自身摘要，所以 publish 会把已存的归档读回核对，内容不符就替换；macOS tar 若不带 `COPYFILE_DISABLE=1` 会把扩展属性打成 `._` 成员，Linux 上解出来就是多余文件，摘要随之改变。
+- Android 只有 `android-online` 一个键，快照是 Interop Snapshot（[ADR 0008](adr/0008-interop-snapshots-in-snapshot-lock.md)）。`just with-config release just mod::fetch android online` 打印 interop 目录，并把 Loader Release 解到 `game-libs/loader-<tag>/`；Android 工程导入 `bazaarplusplus-mod/build/InteropPath.props` 取 `InteropPath` 与 `LemonLoaderPath`。推进通常由 `android-apk-watch.yml` 自动完成（[发布文档](release.md#android-发布顺序)）；手动推进时 `just mod::snapshot-android <TheBazaar.apk>` 沿用锁里的工具链，只在 Linux x64 上生成 interop；在其他主机上要传 `--interop <dir>`，用对同一 APK 生成好的目录。换工具链的选项见 `node release/game-libs.ts --help`；Cpp2IL 用发布页的 Linux 二进制，并对照 GitHub 资产摘要核对。之后 `just mod::publish android online` 上传 interop、官方 APK 与工具链（APK 约 2.8 GB，一次流式上传），再提交锁文件。interop 归档以目录摘要为键而非自身摘要，所以 publish 会把已存的归档读回核对，内容不符就替换；macOS tar 若不带 `COPYFILE_DISABLE=1` 会把扩展属性打成 `._` 成员，Linux 上解出来就是多余文件，摘要随之改变。
 
 ## 环境与依赖
 
@@ -55,6 +55,14 @@ just mod::fetch macos online      # Windows 用 windows
 
 Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要在 PATH 上。`JUSTFILE` 的 shell 保持 Bash：参数转发依赖 Bash 的位置参数。Windows 原生构建另需 PowerShell 7.6.0 或更高版本；正式包的平台工具链和签名材料见[产品发布](release.md)。
 
+### 根工具
+
+根工具是 `release.ts`、`release/`、`scripts/`、`.github/scripts/`、`design/build.ts` 和 `.agents/skills/*/scripts/` 里的 TypeScript。它们共用根目录的一套工具链：`tsconfig.json`（严格类型检查）、`.oxlintrc.json`（拦住绕过类型检查的写法）、`vitest.config.ts`（`release` 和 `tooling` 两个测试项目）和 Prettier。门禁是 `just commands-check` 和 `just release::test`。项目自己的脚本留在项目里，用项目的门禁，例如 installer 的 `scripts/`：Node 也直接运行它们，所以 `bazaarplusplus-installer/scripts/tsconfig.json` 继承根目录的编译选项。
+
+- Node 直接运行 `.ts` 文件（类型剥离），没有构建步骤。所以只能写可擦除的语法：`erasableSyntaxOnly` 拒绝 enum、namespace 和参数属性。相对 import 写 `.ts` 扩展名。类型 import 写成 `import type`：内联的 `import { type X }` 剥离后仍会加载那个模块。
+- 新脚本按用途放：发布模块放 `release/`，开发者工具和共享 helper 放 `scripts/`，只给 CI 用的放 `.github/scripts/`。测试和模块放在同一目录，命名为 `<模块>.test.ts`。
+- recipe、构建文件和 workflow 按路径启动脚本。`scripts/script-references.test.ts` 检查这些路径都存在，所以改名时要一起改。
+
 ## 验证
 
 命令写作 `just <project>::<recipe>`（也可写 `just <project> <recipe>`）。recipe 在项目目录中执行，所以相对路径参数按项目目录解析。只改一个项目时用该项目的 `check` 和 `test`；`just check`、`just test` 覆盖全部项目，遇到首个失败即停止。
@@ -69,11 +77,11 @@ just mod::build "-p:ManagedPath=/absolute/path/The Bazaar/Managed"
 
 ## 依赖更新与云端检查
 
-Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分组和节奏由配置维护，安全告警继续保留。自动合并由 `.github/scripts/dependabot-auto-merge.mjs` 登记，必需检查由 GitHub 分支规则维护。Dependabot PR 通过现有检查即可自动合并，接受兼容问题在后续使用中发现和修复；TypeScript 与类型感知 lint 工具、Tauri 的 npm 与 Cargo 依赖仍可能需要配套调整。
+Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分组和节奏由配置维护，安全告警继续保留。自动合并由 `.github/scripts/dependabot-auto-merge.ts` 登记，必需检查由 GitHub 分支规则维护。Dependabot PR 通过现有检查即可自动合并，接受兼容问题在后续使用中发现和修复；TypeScript 与类型感知 lint 工具、Tauri 的 npm 与 Cargo 依赖仍可能需要配套调整。
 
 Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
-云端 Actions 按用途命名为 `CI /`（代码验证）、`Security /`（安全扫描）、`Delivery /`（发布部署）和 `Operations /`（后台任务与依赖维护）。代码验证由 `.github/scripts/checks-scope.mjs` 的 `classifyChanges` 选择项目，`planRun` 决定是否附加快照兼容性和性能检查；`.github/workflows/checks.yml` 执行计划，汇总消费同一份范围清单并显示本次计划验证的内容。PR 比较 merge-base 到 head，master push 比较 before 到 after，删除与重命名的新旧路径都参与分类。项目自己的命令 recipe 只选择本项目及根工具；已识别的仓库元数据只选根工具。未知共享输入或无法取得可靠 diff 时仍全量验证。跨项目契约扩展到消费者；未登记的源码依赖走全量，并由根工具测试阻止规则漂移。
+云端 Actions 按用途命名为 `CI /`（代码验证）、`Security /`（安全扫描）、`Delivery /`（发布部署）和 `Operations /`（后台任务与依赖维护）。代码验证由 `.github/scripts/checks-scope.ts` 的 `classifyChanges` 选择项目，`planRun` 决定是否附加快照兼容性和性能检查；`.github/workflows/checks.yml` 执行计划，汇总消费同一份范围清单并显示本次计划验证的内容。PR 比较 merge-base 到 head，master push 比较 before 到 after，删除与重命名的新旧路径都参与分类。项目自己的命令 recipe 只选择本项目及根工具；已识别的仓库元数据只选根工具。未知共享输入或无法取得可靠 diff 时仍全量验证。跨项目契约扩展到消费者；未登记的源码依赖走全量，并由根工具测试阻止规则漂移。
 
 Site 的 `site::ci` 在同一次验证中复用构建产物：部署预检和浏览器测试检查的是同一份 `dist`，独立的本地 preview 和 e2e 仍先构建。部署工作流同样上传前置检查生成的产物，避免检查后再次构建。
 
@@ -97,7 +105,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 本机矩阵与登录准备
 
-`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；设备名字、尺寸、端口和参数以 `node scripts/setup-device.mjs --help` 为准。为了性能，同一时间只运行一台 Android 设备：init 在有设备运行时不启动；`just mod::android-*` 和 walkthrough 不指定设备，操作 adb 列出的唯一一台，没有设备或多于一台时报错，walkthrough 还核对它是不是所选的 AVD。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
+`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；设备名字、尺寸、端口和参数以 `node scripts/setup-device.ts --help` 为准。为了性能，同一时间只运行一台 Android 设备：init 在有设备运行时不启动；`just mod::android-*` 和 walkthrough 不指定设备，操作 adb 列出的唯一一台，没有设备或多于一台时报错，walkthrough 还核对它是不是所选的 AVD。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
 
 矩阵按 Mobile UI 的三个布局分支选设备：
 

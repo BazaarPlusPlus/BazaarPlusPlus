@@ -37,7 +37,7 @@ __pycache__/
 # Build and packaging output
 bin/
 obj/
-# The Android release outputs (release/android-release.mjs androidPaths)
+# The Android release outputs (release/android-release.ts androidPaths)
 /target/
 dist/
 *.egg-info/

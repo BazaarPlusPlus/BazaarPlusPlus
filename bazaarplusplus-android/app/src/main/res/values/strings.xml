@@ -2,7 +2,7 @@
 <resources>
   <string name="app_name" translatable="false">BazaarPlusPlus</string>
   <string name="game_name" translatable="false">The Bazaar</string>
-  <!-- The official game's store page and the publisher's APK (release/game-libs.mjs OFFICIAL_ANDROID_APK_URL). -->
+  <!-- The official game's store page and the publisher's APK (release/game-libs.ts OFFICIAL_ANDROID_APK_URL). -->
   <string name="url_play" translatable="false">https://play.google.com/store/apps/details?id=com.tempogames.thebazaar</string>
   <string name="url_publisher" translatable="false">https://data.playthebazaar.com/game/android/TheBazaar.apk</string>
   <string name="url_site" translatable="false">https://bazaarplusplus.com</string>

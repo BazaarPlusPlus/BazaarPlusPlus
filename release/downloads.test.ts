@@ -1,0 +1,170 @@
+import { expect, test } from 'vitest';
+import {
+  RELEASE_BASE_URL,
+  DOWNLOAD_PLATFORM_KEYS,
+  UPDATER_ENDPOINTS,
+  modManifestPath,
+  platformManifestPath,
+  decodeAndroidDownload,
+  decodeMainlandDownloadUrl
+} from './downloads.ts';
+import fixture from './fixtures/latest.json' with { type: 'json' };
+import android from './fixtures/latest/android-aarch64.json' with { type: 'json' };
+import { retiredAndroidManifest } from './test-support/android-fixture.ts';
+
+type AndroidManifest = typeof android;
+type AndroidRecord = AndroidManifest['downloads']['android-aarch64'];
+// A record a case breaks: it may drop the game fields the decoder requires.
+type BrokenAndroidRecord = Omit<AndroidRecord, 'game'> & {
+  game: Partial<AndroidRecord['game']>;
+};
+// The Android fixture with the optional mainland mirror its record omits.
+type MirroredAndroidManifest = AndroidManifest & {
+  downloads: { 'android-aarch64': { mainlandUrl?: string } };
+};
+
+test('consumers read the mainland mirror address from the Release Manifest', () => {
+  expect(decodeMainlandDownloadUrl(fixture, 'windows-x86_64')).toBe(
+    fixture.downloads['windows-x86_64'].mainlandUrl
+  );
+  expect(decodeMainlandDownloadUrl(fixture, 'darwin-aarch64')).toBe(
+    fixture.downloads['darwin-aarch64'].mainlandUrl
+  );
+});
+
+test.each([
+  ['a manifest without downloads', { version: '3.1.1' }],
+  ['a platform without a mirror', { downloads: { 'windows-x86_64': {} } }],
+  [
+    'an http address',
+    { downloads: { 'windows-x86_64': { mainlandUrl: 'http://m.example/a' } } }
+  ],
+  [
+    'an address carrying credentials',
+    {
+      downloads: {
+        'windows-x86_64': { mainlandUrl: 'https://u:p@m.example/a' }
+      }
+    }
+  ],
+  [
+    'a non-URL',
+    { downloads: { 'windows-x86_64': { mainlandUrl: 'bppwin311' } } }
+  ],
+  ['a non-object manifest', null]
+])('%s yields no mirror instead of a guess', (_, manifest) => {
+  expect(decodeMainlandDownloadUrl(manifest, 'windows-x86_64')).toBeNull();
+});
+
+test('consumers read the Android App, Managed Payload, Interop Package and game from the Android manifest', () => {
+  const record = android.downloads['android-aarch64'];
+  expect(decodeAndroidDownload(android)).toEqual({
+    version: android.version,
+    app: record.app,
+    managedPayload: record.managedPayload,
+    interop: record.interop,
+    game: record.game,
+    mainlandUrl: null
+  });
+  const mirrored: MirroredAndroidManifest = structuredClone(android);
+  mirrored.downloads['android-aarch64'].mainlandUrl = 'https://m.example/apk';
+  expect(decodeAndroidDownload(mirrored)?.mainlandUrl).toBe(
+    'https://m.example/apk'
+  );
+});
+
+const brokenAndroid = (
+  mutate: (record: BrokenAndroidRecord, manifest: AndroidManifest) => void
+) => {
+  const manifest = structuredClone(android);
+  mutate(manifest.downloads['android-aarch64'], manifest);
+  return manifest;
+};
+
+test.each([
+  ['a desktop manifest', () => fixture],
+  [
+    'the ADR 0010 shape (an injected APK, no Android App)',
+    () => retiredAndroidManifest('3.1.2')
+  ],
+  [
+    'an App outside the release origin',
+    () =>
+      brokenAndroid((record) => {
+        record.app.url = record.app.url.replace(
+          'https://cdn.bazaarplusplus.com/',
+          'https://untrusted.example/'
+        );
+      })
+  ],
+  [
+    'an App below the cdn origin but outside the release path',
+    () =>
+      brokenAndroid((record) => {
+        record.app.url = record.app.url.replace('/installer/', '/');
+      })
+  ],
+  [
+    'an App of another version',
+    () =>
+      brokenAndroid((record) => {
+        record.app.url = record.app.url.replace('/3.1.2/', '/3.1.1/');
+      })
+  ],
+  [
+    'an Interop Package outside its content address',
+    () =>
+      brokenAndroid((record) => {
+        record.interop.sha256 = 'f'.repeat(64);
+      })
+  ],
+  [
+    'an unsigned Interop Package',
+    () =>
+      brokenAndroid((record) => {
+        record.interop.signature = '';
+      })
+  ],
+  [
+    'a Managed Payload of another version',
+    () =>
+      brokenAndroid((_, manifest) => {
+        manifest.version = '9.9.9';
+      })
+  ],
+  [
+    'an unsigned Managed Payload',
+    () =>
+      brokenAndroid((record) => {
+        record.managedPayload.signature = ' ';
+      })
+  ],
+  [
+    'a missing game version code',
+    () =>
+      brokenAndroid((record) => {
+        delete record.game.versionCode;
+      })
+  ],
+  [
+    'a game without its Game Code Hash',
+    () =>
+      brokenAndroid((record) => {
+        delete record.game.metadataSha256;
+      })
+  ],
+  ['a non-object manifest', () => null]
+])('%s yields no Android download', (_, manifest) => {
+  expect(decodeAndroidDownload(manifest())).toBeNull();
+});
+
+test('mod endpoints are separate while installer and website endpoints stay compatible', () => {
+  for (const key of Object.values(DOWNLOAD_PLATFORM_KEYS)) {
+    expect(modManifestPath(key)).toBe(`latest/mod/${key}.json`);
+    expect(platformManifestPath(key)).toBe(`latest/${key}.json`);
+  }
+  expect(UPDATER_ENDPOINTS).toEqual([
+    `${RELEASE_BASE_URL}/latest/{{target}}-{{arch}}.json`,
+    `${RELEASE_BASE_URL}/latest.json`
+  ]);
+});

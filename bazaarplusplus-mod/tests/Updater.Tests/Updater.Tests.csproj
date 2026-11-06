@@ -45,7 +45,7 @@
       Include="../../src/BazaarPlusPlus.Core/Infrastructure/ReleaseManifest/ReleaseManifestEndpoints.cs"
       Link="Pinned/ReleaseManifestEndpoints.cs"
     />
-    <!-- The writer's golden (release/managed-payload.test.mjs): what the release renders, the
+    <!-- The writer's golden (release/managed-payload.test.ts): what the release renders, the
          Updater must read the same way. -->
     <Content
       Include="../../../release/fixtures/managed-payload/manifest.txt"

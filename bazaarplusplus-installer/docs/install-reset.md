@@ -45,7 +45,7 @@ The installer launches The Bazaar through `launch_game_via_steam` in `src-tauri/
 
 `run_headless` in `src-tauri/src/lib.rs` dispatches CLI arguments before the
 Tauri shell starts. `just installer::cli --help` documents the arguments;
-`scripts/headless.mjs` runs that binary from source without a prepared Payload.
+`scripts/headless.ts` runs that binary from source without a prepared Payload.
 
 The repair command calls `repair_deployed_game` in
 `src-tauri/src/services/bepinex/mod.rs`. It requires an installed macOS game

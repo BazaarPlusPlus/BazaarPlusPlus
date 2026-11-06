@@ -23,7 +23,7 @@ internal sealed class ManagedPayloadFile
 /// The Managed Payload Manifest (GLOSSARY.md): the release build's signed list of every managed
 /// and history-contract file one product version installs on one platform, with the two facts
 /// self-update compares against the running copy. The release coordinator writes it
-/// (release/managed-payload.mjs); the installed copy sits beside the mod as
+/// (release/managed-payload.ts); the installed copy sits beside the mod as
 /// <see cref="ManagedPayloadHost.InstalledManifestPath"/>, the Managed Payload zip carries it
 /// with its signature at the root. Every reader, the installer's Repair among them, is a
 /// consumer in the root AGENTS.md Contracts table. A line format, so the dependency-free

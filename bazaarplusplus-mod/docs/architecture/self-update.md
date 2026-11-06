@@ -17,7 +17,7 @@ The Updater builds both targets. Each host project references one of them with `
 
 To check a swap by hand:
 
-1. Build a newer Managed Payload zip with `release/managed-payload.mjs`.
+1. Build a newer Managed Payload zip with `release/managed-payload.ts`.
 2. Stage it with `ManagedPayloadStager` into the game's Data Root.
 3. Start the game. The loader log shows `updater.swap.applied`, or `updater.staged.rejected` with its `reason_code`.
 

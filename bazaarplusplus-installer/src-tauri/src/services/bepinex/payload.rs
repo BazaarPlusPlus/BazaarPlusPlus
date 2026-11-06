@@ -81,7 +81,7 @@ fn owned_paths(ownership: &str) -> impl Iterator<Item = &'static str> + '_ {
 
 /// Where the installed Managed Payload Manifest sits: the BepInEx host's one
 /// `managed-manifest` entry (`installedManifestPath` in
-/// `release/managed-payload.mjs`).
+/// `release/managed-payload.ts`).
 pub(super) fn installed_managed_manifest_path() -> &'static str {
     let mut entries = inventory()
         .files

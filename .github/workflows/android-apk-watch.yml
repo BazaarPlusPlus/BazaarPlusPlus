@@ -55,7 +55,7 @@ jobs:
         env:
           FORCE: ${{ inputs.force == true }}
         run: |
-          state="$(node release/game-libs.mjs official-apk)"
+          state="$(node release/game-libs.ts official-apk)"
           if [[ "$FORCE" == true ]]; then state=changed; fi
           echo "state=$state" >> "$GITHUB_OUTPUT"
           echo "Official APK: $state (force: $FORCE)" >> "$GITHUB_STEP_SUMMARY"
@@ -75,11 +75,11 @@ jobs:
         id: download
         run: |
           sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
-          url="$(node --input-type=module -e "import { OFFICIAL_ANDROID_APK_URL } from './release/game-libs.mjs'; console.log(OFFICIAL_ANDROID_APK_URL)")"
+          url="$(node --input-type=module -e "import { OFFICIAL_ANDROID_APK_URL } from './release/game-libs.ts'; console.log(OFFICIAL_ANDROID_APK_URL)")"
           curl --fail --location --retry 5 --retry-all-errors --dump-header "$RUNNER_TEMP/apk.headers" --output "$RUNNER_TEMP/TheBazaar.apk" "$url"
           etag="$(node --input-type=module -e "
             import fs from 'node:fs';
-            import { strongEtag } from './release/game-libs.mjs';
+            import { strongEtag } from './release/game-libs.ts';
             const lines = fs.readFileSync(process.argv[1], 'utf8').split(/\r?\n/);
             const header = lines.filter((line) => /^etag:/i.test(line)).at(-1);
             console.log(strongEtag(header?.slice(5)) ?? '');
@@ -113,7 +113,7 @@ jobs:
           ETAG: ${{ steps.download.outputs.etag }}
           BRANCH: ${{ steps.download.outputs.branch }}
         run: |
-          node release/game-libs.mjs record-apk-etag --apk "$RUNNER_TEMP/TheBazaar.apk" --apk-etag "$ETAG"
+          node release/game-libs.ts record-apk-etag --apk "$RUNNER_TEMP/TheBazaar.apk" --apk-etag "$ETAG"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$BRANCH"
@@ -132,7 +132,7 @@ jobs:
       # Captures on Linux x64, where the Patcher generates the interop, with the
       # locked toolchain; the lock is written last. change is content when the
       # game code is the locked one and code otherwise
-      # (release/android-adaptation.mjs captureKind).
+      # (release/android-adaptation.ts captureKind).
       - if: steps.download.outputs.kind == 'capture'
         name: Capture the new android-online entry
         id: capture
@@ -141,7 +141,7 @@ jobs:
         run: |
           cp bazaarplusplus-mod/build/game-libs.lock.json "$RUNNER_TEMP/previous-lock.json"
           just mod::snapshot-android "$RUNNER_TEMP/TheBazaar.apk" ${ETAG:+--apk-etag "$ETAG"}
-          change="$(node release/android-adaptation.mjs kind --previous "$RUNNER_TEMP/previous-lock.json")"
+          change="$(node release/android-adaptation.ts kind --previous "$RUNNER_TEMP/previous-lock.json")"
           case "$change" in
             content | code) ;;
             *)

@@ -4,8 +4,8 @@ set working-directory := '..'
 
 # Regenerate the installer's tokens.css, the mod's InGameTheme.g.cs, and the Android App resources from design/tokens.json and design/assets/.
 build:
-    node design/build.mjs
+    node design/build.ts
 
 # Check that generated tokens, the shared stylesheet and the site's hero colours agree with design/tokens.json.
 check:
-    node design/build.mjs --check
+    node design/build.ts --check
