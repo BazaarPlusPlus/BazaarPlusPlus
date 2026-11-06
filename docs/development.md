@@ -109,7 +109,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 近方屏 AVD 只是固定的屏幕形状，不模拟折叠铰链，矩阵不覆盖折叠。高密度、未知 DPI、16:9、16:10、4:3 和阈值两侧由布局单测覆盖，见 [Mobile UI](../bazaarplusplus-mod/docs/architecture/mobile-ui.md)。
 
-每台 AVD 都按玩家的方式运行游戏：官方游戏加 debug Android App，从 App 的启动器点 Play 启动（[ADR 0012](adr/0012-android-app.md)）。退役的注入版 APK 不是玩家的流程；init 发现游戏的 `base.apk` 与锁里的 `apkSha256` 不一致时，卸载它，换装锁定版本的官方 APK。init 每次都重装 debug App、推送 Development interop、部署当前源码的 mod，配置里有 `[game]` 账号时写进 App 的沙盒，然后点 Play，要求本次日志出现主菜单和随后的 hook 统计，并核对截图的尺寸和密度。没有 `[game]` 账号时，在模拟器窗口中登录。缺少的设备从关机的 seed AVD 复制磁盘，省去重新安装；已有设备保留数据。官方 APK、App 的运行时（`build/runtime`）和 interop 包（`build/interop.zip`）第一次要从私有存储取，命令见 `--help`。Development interop 跳过平台清单、Managed Payload 暂存、启动记录和 Updater 换入；要测这一段，按 `bazaarplusplus-android/AGENTS.md` 用 `dev-manifest-port`。
+每台 AVD 都按玩家的方式运行游戏：官方游戏加 debug Android App，从 App 的启动器点 Play 启动（[ADR 0012](adr/0012-android-app.md)）。退役的注入版 APK 不是玩家的流程；init 发现游戏的 `base.apk` 与锁里的 `apkSha256` 不一致时，卸载它，换装锁定版本的官方 APK。init 每次都重装 debug App、推送 Development interop、部署当前源码的 mod，配置里有 `[game]` 账号时写进 App 的沙盒，然后点 Play，要求本次日志出现主菜单和随后的 hook 统计，并核对截图的尺寸和密度。没有 `[game]` 账号时，在模拟器窗口中登录。缺少的设备从关机的 seed AVD 复制磁盘，省去重新安装。已有设备保留数据：init 就地改写它的屏幕配置，使之符合矩阵；系统镜像不同的设备不能就地改写，init 停止，用 `--recreate` 删除它并重新从 seed 复制，它的数据和登录随之丢失。名字不在矩阵里的 AVD，init 不改名也不删除；镜像相同的可以用 `--seed` 当 seed，`just list-devices` 会列出它们。官方 APK、App 的运行时（`build/runtime`）和 interop 包（`build/interop.zip`）第一次要从私有存储取，命令见 `--help`。Development interop 跳过平台清单、Managed Payload 暂存、启动记录和 Updater 换入；要测这一段，按 `bazaarplusplus-android/AGENTS.md` 用 `dev-manifest-port`。
 
 | 验证层 | 需要证明什么 |
 | --- | --- |
