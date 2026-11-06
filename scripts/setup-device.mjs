@@ -221,23 +221,38 @@ function missingSeed(p, seed, profile) {
     : `Seed AVD ${seed} is missing and no AVD here uses ${imagePath}. Create one (Android 35, Google Play, arm64) in Android Studio, then rerun with --seed NAME.`;
 }
 
-function devices(p) {
-  return run(p.adb, ['devices'])
-    .split(/\r?\n/)
-    .filter((line) => /^emulator-\d+\s/.test(line))
-    .map((line) => {
-      const [serial, state] = line.trim().split(/\s+/);
-      if (state !== 'device')
-        throw new Error(
-          `${serial} is ${state}; wait for it or close it first.`
-        );
-      return {
-        serial,
-        name: run(p.adb, ['-s', serial, 'emu', 'avd', 'name'])
-          .trim()
-          .split(/\r?\n/)[0]
-      };
-    });
+// Every device in `adb devices` output, whatever its state and whatever adb printed before the list.
+// One Android device runs at a time (docs/development.md); bazaarplusplus-mod/scripts/android.sh
+// applies the same rule in Bash (find_device).
+export function listedDevices(listing) {
+  const lines = listing.split(/\r?\n/);
+  return lines
+    .slice(lines.findIndex((line) => line.startsWith('List of devices')) + 1)
+    .map((line) => line.trim().split(/\s+/))
+    .filter((fields) => fields.length >= 2)
+    .map(([serial, state]) => ({ serial, state }));
+}
+
+const listedText = (listed) =>
+  listed.map((d) => `${d.serial} ${d.state}`).join(', ');
+
+// The serial of the one running device; none, several or one not yet online is refused.
+export function onlyDevice(listing) {
+  const listed = listedDevices(listing);
+  if (!listed.length)
+    throw new Error(
+      'No Android device is online; open one AVD with: just setup-device NAME --keep-open'
+    );
+  if (listed.length > 1)
+    throw new Error(
+      `More than one Android device is running (${listedText(listed)}); close all but one.`
+    );
+  const [{ serial, state }] = listed;
+  if (state !== 'device')
+    throw new Error(
+      `Device '${serial}' is ${state}; wait for it or close it (a stale entry with no emulator running clears with: adb kill-server).`
+    );
+  return serial;
 }
 
 // Flatten each active disk chain. The emulator may recreate a copied qcow2 overlay
@@ -395,10 +410,10 @@ async function provision(adb, env, profile) {
 
 async function initialize(p, profile, { seed, timeout, keepOpen, recreate }) {
   const serial = `emulator-${profile.port}`;
-  const active = devices(p);
+  const active = listedDevices(run(p.adb, ['devices']));
   if (active.length)
     throw new Error(
-      `Close running AVDs before init: ${active.map((d) => `${d.name} (${d.serial})`).join(', ')}. Init runs one device at a time.`
+      `Close every running Android device before init: ${listedText(active)}. One device runs at a time.`
     );
   if (recreate && avdDirectory(p.avds, profile.name)) {
     console.log(`Deleting ${profile.name} and its data (--recreate).`);
@@ -435,7 +450,6 @@ async function initialize(p, profile, { seed, timeout, keepOpen, recreate }) {
     ADB: p.adb,
     ANDROID_HOME: p.sdk,
     ANDROID_SERIAL: serial,
-    BPP_ANDROID_SERIAL: serial,
     PATH: `${path.dirname(p.adb)}${path.delimiter}${process.env.PATH}`
   };
   const output = fs.openSync(path.join(out, 'emulator.log'), 'w', 0o600);
@@ -509,7 +523,7 @@ async function initialize(p, profile, { seed, timeout, keepOpen, recreate }) {
     );
     run('just', ['mod::android-screen-check', `setup-device-${profile.name}`], {
       cwd: root,
-      env: { ...process.env, ADB: p.adb, BPP_ANDROID_SERIAL: serial }
+      env: { ...process.env, ADB: p.adb }
     });
     const screen = inspectScreen(out, serial);
     if (

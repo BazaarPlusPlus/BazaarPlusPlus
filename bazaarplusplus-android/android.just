@@ -21,7 +21,7 @@ stage-runtime:
 interop-package:
     node ../release/android-app.mjs interop-package
 
-# Build and install the debug App on the device that adb selects (ANDROID_SERIAL picks one of several).
+# Build and install the debug App on the one running Android device.
 install:
     ./gradlew --no-daemon installDebug
 

@@ -36,7 +36,7 @@ android-check:
 android-build *args:
     bash scripts/android.sh build "$@"
 
-# Push the Android build to its MelonLoader Payload paths on $BPP_ANDROID_SERIAL (default emulator-5556).
+# Push the Android build to its MelonLoader Payload paths on the one running Android device.
 android-deploy:
     bash scripts/android.sh deploy
 

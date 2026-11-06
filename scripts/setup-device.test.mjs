@@ -6,9 +6,11 @@ import { test } from 'node:test';
 import {
   cloneAvd,
   configuredProfile,
+  listedDevices,
   localAvds,
   menuReady,
   main,
+  onlyDevice,
   parseIni,
   profiles,
   reconcileAvd,
@@ -235,4 +237,73 @@ test('unsupported login timeouts fail before provisioning a device', async () =>
       main(['init', '--timeout', timeout]),
       /between 1 and 600/
     );
+});
+
+test('the one running Android device is found, whatever adb printed first', () => {
+  assert.equal(
+    onlyDevice(
+      '* daemon started successfully\nList of devices attached\nemulator-5556\tdevice\n\n'
+    ),
+    'emulator-5556'
+  );
+});
+
+test('no device, several devices or one not yet online is refused', () => {
+  assert.throws(
+    () => onlyDevice('List of devices attached\n\n'),
+    /No Android device is online/
+  );
+  assert.throws(
+    () =>
+      onlyDevice(
+        'List of devices attached\nemulator-5556\tdevice\nemulator-5558\toffline\n'
+      ),
+    /More than one Android device is running \(emulator-5556 device, emulator-5558 offline\)/
+  );
+  assert.throws(
+    () => onlyDevice('List of devices attached\nemulator-5556\tunauthorized\n'),
+    /'emulator-5556' is unauthorized.*adb kill-server/
+  );
+});
+
+test(
+  'init refuses while any device runs, a phone or a host as much as an emulator',
+  {
+    skip:
+      process.platform !== 'darwin' || process.arch !== 'arm64'
+        ? 'init runs only on an Apple Silicon Mac'
+        : false
+  },
+  async (t) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-adb-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const adb = path.join(directory, 'adb');
+    fs.writeFileSync(
+      adb,
+      '#!/bin/sh\n[ "$*" = devices ] || exit 91\nprintf \'List of devices attached\\n0123ABC\\tdevice\\n192.168.1.9:5555\\toffline\\n\'\n',
+      { mode: 0o755 }
+    );
+    const previous = process.env.ADB;
+    process.env.ADB = adb;
+    t.after(() => {
+      if (previous === undefined) delete process.env.ADB;
+      else process.env.ADB = previous;
+    });
+    await assert.rejects(
+      main(['init', profiles[1].name]),
+      /Close every running Android device before init: 0123ABC device, 192\.168\.1\.9:5555 offline/
+    );
+  }
+);
+
+test('listed devices keep each state', () => {
+  assert.deepEqual(
+    listedDevices(
+      'List of devices attached\nemulator-5556\tdevice\nR58M\tunauthorized\n'
+    ),
+    [
+      { serial: 'emulator-5556', state: 'device' },
+      { serial: 'R58M', state: 'unauthorized' }
+    ]
+  );
 });
