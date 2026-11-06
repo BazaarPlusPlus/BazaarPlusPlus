@@ -4,7 +4,7 @@ version = "0.3.0"
 description = "Single-process analyzer publishing two Analyzer consumer snapshots"
 requires-python = "==3.14.*"
 dependencies = [
-    "boto3==1.43.118",
+    "boto3==1.43.122",
     "click==8.5.0",
     "duckdb==2.0.0",
     "httpx==0.28.1",
@@ -21,14 +21,14 @@ required-version = ">=0.11.21"
 
 [dependency-groups]
 dev = [
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "ruff==0.17.2",
-    "ty==0.0.91",
+    "ruff==0.17.3",
+    "ty==0.0.95",
 ]
 
 [build-system]
-requires = ["hatchling==1.32.4"]
+requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
