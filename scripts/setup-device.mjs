@@ -41,12 +41,17 @@ const help = `Local development matrix: Android AVDs
 Android (macOS arm64, Node, Android SDK)
 
   just setup-device [NAME|all] [--seed AVD] [--timeout SECONDS] [--keep-open]
+  just setup-device NAME --recreate [--seed AVD]
 
 ${profiles.map((p) => `  ${p.name.padEnd(17)} ${p.width}x${p.height}@${p.dpi}  emulator-${p.port}`).join('\n')}
 
 init defaults to all, seed bpp_emu_20_9, and a 300-second login wait per AVD.
-Missing AVDs copy the stopped seed's installed apps and local data; existing
-AVDs keep their data. Any Android 35 Google Play arm64 AVD can be the seed.
+Missing AVDs copy the stopped seed's installed apps and local data. An existing
+AVD keeps its data: init rewrites its screen settings to the matrix. An AVD on
+another system image stops init; --recreate deletes it with its data and copies
+the seed again (not the seed itself). Any Android 35 Google Play arm64 AVD can
+be the seed, whatever its name; init never renames or deletes an AVD outside
+the matrix, and status lists them.
 Each AVD runs the game as a player does: init installs the locked official
 game when another build is there (uninstalling it loses only that package's own
 data; the App's sandbox and its game login stay), installs the
@@ -90,15 +95,57 @@ function writeIni(file, values) {
   );
 }
 
+const matrixImage = (config) =>
+  config['image.sysdir.1'] === imagePath && config['abi.type'] === 'arm64-v8a';
+
+// The matrix owns these screen keys on every AVD. None of them touches a disk, so init
+// rewrites them in place on an existing AVD and its game and login stay.
+const screenConfig = (profile) => ({
+  'hw.lcd.width': profile.height,
+  'hw.lcd.height': profile.width,
+  'hw.lcd.density': profile.dpi,
+  'hw.initialOrientation': 'landscape',
+  showDeviceFrame: 'no'
+});
+// A skin can set its own screen size.
+const skinKeys = ['skin.path', 'skin.name'];
+
 export function configuredProfile(config, profile) {
   return (
-    config['image.sysdir.1'] === imagePath &&
-    config['abi.type'] === 'arm64-v8a' &&
+    matrixImage(config) &&
     Number(config['hw.lcd.width']) === profile.height &&
     Number(config['hw.lcd.height']) === profile.width &&
     Number(config['hw.lcd.density']) === profile.dpi &&
     config['hw.initialOrientation'] === 'landscape'
   );
+}
+
+// Brings an existing AVD to the matrix. Another system image cannot be rewritten: the
+// userdata disk belongs to its image, so that AVD needs --recreate.
+export function reconcileAvd(p, profile) {
+  const directory = avdDirectory(p.avds, profile.name);
+  const config = readConfig(directory);
+  if (!matrixImage(config))
+    throw new Error(
+      `${profile.name} uses another system image than ${imagePath}. Rerun with: just setup-device ${profile.name} --recreate (it deletes the AVD and its data).`
+    );
+  if (configuredProfile(config, profile)) return false;
+  const values = { ...config, ...screenConfig(profile) };
+  for (const key of skinKeys) delete values[key];
+  writeIni(path.join(directory, 'config.ini'), values);
+  return true;
+}
+
+// Deletes only the layout cloneAvd writes, never a directory another .ini points to.
+export function removeAvd(p, name) {
+  const target = path.join(p.avds, `${name}.avd`);
+  const directory = avdDirectory(p.avds, name);
+  if (directory && path.resolve(directory) !== target)
+    throw new Error(
+      `${name}.ini points to ${directory}, not ${target}; delete that AVD by hand.`
+    );
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.rmSync(path.join(p.avds, `${name}.ini`), { force: true });
 }
 
 export function menuReady(log) {
@@ -146,6 +193,34 @@ function avdDirectory(avds, name) {
   return directory;
 }
 
+// Every AVD here, by its .ini name, and whether it is on the matrix image and so can be the seed.
+export function localAvds(p) {
+  if (!fs.existsSync(p.avds)) return [];
+  return fs
+    .readdirSync(p.avds)
+    .filter((file) => file.endsWith('.ini'))
+    .map((file) => {
+      const name = file.slice(0, -'.ini'.length);
+      let seedable = false;
+      try {
+        seedable = matrixImage(readConfig(avdDirectory(p.avds, name)));
+      } catch {
+        /* A broken AVD cannot be the seed. */
+      }
+      return { name, seedable };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function missingSeed(p, seed, profile) {
+  const candidates = localAvds(p)
+    .filter((avd) => avd.seedable && avd.name !== profile.name)
+    .map((avd) => avd.name);
+  return candidates.length
+    ? `Seed AVD ${seed} is missing. These AVDs can be the seed: ${candidates.join(', ')}. Rerun init with --seed ${candidates[0]}.`
+    : `Seed AVD ${seed} is missing and no AVD here uses ${imagePath}. Create one (Android 35, Google Play, arm64) in Android Studio, then rerun with --seed NAME.`;
+}
+
 function devices(p) {
   return run(p.adb, ['devices'])
     .split(/\r?\n/)
@@ -169,20 +244,14 @@ function devices(p) {
 // on a new AVD; a standalone base keeps the game and account data when that happens.
 export function cloneAvd(p, seed, profile) {
   const source = avdDirectory(p.avds, seed);
-  if (!source)
-    throw new Error(
-      `Seed AVD ${seed} is missing. See just setup-device --help.`
-    );
+  if (!source) throw new Error(missingSeed(p, seed, profile));
   const target = path.join(p.avds, `${profile.name}.avd`);
   if (fs.existsSync(target) || avdDirectory(p.avds, profile.name))
     throw new Error(
       `AVD ${profile.name} already exists; it will not be overwritten.`
     );
   const config = readConfig(source);
-  if (
-    config['image.sysdir.1'] !== imagePath ||
-    config['abi.type'] !== 'arm64-v8a'
-  )
+  if (!matrixImage(config))
     throw new Error(`Seed ${seed} must use ${imagePath}`);
   const disks = fs
     .readdirSync(source)
@@ -231,18 +300,13 @@ export function cloneAvd(p, seed, profile) {
       ...config,
       AvdId: profile.name,
       'avd.ini.displayname': profile.name,
-      'hw.lcd.width': profile.height,
-      'hw.lcd.height': profile.width,
-      'hw.lcd.density': profile.dpi,
-      'hw.initialOrientation': 'landscape',
-      showDeviceFrame: 'no',
+      ...screenConfig(profile),
       'fastboot.forceColdBoot': 'yes',
       'fastboot.forceFastBoot': 'no',
       'userdata.useQcow2': 'yes'
     };
     for (const key of [
-      'skin.path',
-      'skin.name',
+      ...skinKeys,
       'sdcard.path',
       'disk.dataPartition.path',
       'fastboot.chosenSnapshotFile'
@@ -329,23 +393,26 @@ async function provision(adb, env, profile) {
   just('mod::android-deploy');
 }
 
-async function initialize(p, profile, { seed, timeout, keepOpen }) {
+async function initialize(p, profile, { seed, timeout, keepOpen, recreate }) {
   const serial = `emulator-${profile.port}`;
   const active = devices(p);
   if (active.length)
     throw new Error(
       `Close running AVDs before init: ${active.map((d) => `${d.name} (${d.serial})`).join(', ')}. Init runs one device at a time.`
     );
+  if (recreate && avdDirectory(p.avds, profile.name)) {
+    console.log(`Deleting ${profile.name} and its data (--recreate).`);
+    removeAvd(p, profile.name);
+  }
   if (!avdDirectory(p.avds, profile.name)) {
     console.log(
       `Creating ${profile.name} from stopped seed ${seed} (local game/account data).`
     );
     cloneAvd(p, seed, profile);
   }
-  const directory = avdDirectory(p.avds, profile.name);
-  if (!configuredProfile(readConfig(directory), profile))
-    throw new Error(
-      `${profile.name} configuration differs from the matrix; inspect config.ini. Existing data was preserved.`
+  if (reconcileAvd(p, profile))
+    console.log(
+      `${profile.name}: rewrote its screen settings to the matrix; its data stays.`
     );
   const out = evidence(profile);
   fs.mkdirSync(out, { recursive: true });
@@ -500,11 +567,14 @@ export async function main(args) {
   if (command === 'status' && !rest.length) {
     for (const profile of profiles) {
       const directory = avdDirectory(p.avds, profile.name);
-      const state = !directory
-        ? 'missing'
-        : configuredProfile(readConfig(directory), profile)
-          ? 'configured'
-          : 'config mismatch';
+      const config = directory && readConfig(directory);
+      const state = !config
+        ? 'missing; init copies the seed'
+        : !matrixImage(config)
+          ? 'other system image; init needs --recreate'
+          : configuredProfile(config, profile)
+            ? 'configured'
+            : 'screen differs; init rewrites it';
       const receipt = path.join(evidence(profile), 'init.json');
       const previous = fs.existsSync(receipt)
         ? JSON.parse(fs.readFileSync(receipt, 'utf8'))
@@ -513,19 +583,27 @@ export async function main(args) {
         `${profile.name}: ${state}; last init ${previous?.status || 'not run'}${previous?.checkedAt ? ` at ${previous.checkedAt}` : ''} (current login unverified)`
       );
     }
+    for (const avd of localAvds(p).filter(
+      (avd) => !profiles.some((profile) => profile.name === avd.name)
+    ))
+      console.log(
+        `${avd.name}: not in the matrix; ${avd.seedable ? 'can be the --seed' : 'other system image, cannot be the seed'}`
+      );
     return;
   }
   if (command !== 'init') throw new Error(help);
   let name = 'all',
     seed = profiles[0].name,
     timeout = 300,
-    keepOpen = false;
+    keepOpen = false,
+    recreate = false;
   if (rest[0] && !rest[0].startsWith('--')) name = rest.shift();
   while (rest.length) {
     const flag = rest.shift();
     if (flag === '--seed') seed = rest.shift();
     else if (flag === '--timeout') timeout = Number(rest.shift());
     else if (flag === '--keep-open') keepOpen = true;
+    else if (flag === '--recreate') recreate = true;
     else throw new Error(`Unknown option ${flag}; see --help.`);
   }
   if (
@@ -542,16 +620,20 @@ export async function main(args) {
     name === 'all'
       ? profiles
       : profiles.filter((profile) => profile.name === name);
-  if (!selected.length || (keepOpen && selected.length !== 1))
+  if (!selected.length || ((keepOpen || recreate) && selected.length !== 1))
     throw new Error(
-      'Choose a matrix NAME; --keep-open requires a single NAME. See --help.'
+      'Choose a matrix NAME; --keep-open and --recreate require a single NAME. See --help.'
+    );
+  if (recreate && name === seed)
+    throw new Error(
+      `${name} is the seed; --recreate copies the seed, so choose another with --seed.`
     );
   if (process.platform !== 'darwin' || process.arch !== 'arm64')
     throw new Error(
       'This arm64 emulator matrix requires an Apple Silicon Mac.'
     );
   for (const profile of selected)
-    await initialize(p, profile, { seed, timeout, keepOpen });
+    await initialize(p, profile, { seed, timeout, keepOpen, recreate });
 }
 
 if (import.meta.main) {

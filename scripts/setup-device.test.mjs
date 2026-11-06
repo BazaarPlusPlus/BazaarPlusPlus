@@ -6,10 +6,13 @@ import { test } from 'node:test';
 import {
   cloneAvd,
   configuredProfile,
+  localAvds,
   menuReady,
   main,
   parseIni,
-  profiles
+  profiles,
+  reconcileAvd,
+  removeAvd
 } from './setup-device.mjs';
 
 test('login readiness requires a menu and a later hooks summary from the fresh log', () => {
@@ -132,6 +135,98 @@ test('matrix check rejects a renamed AVD with the wrong actual geometry or image
       configuredProfile({ ...config, [key]: value }, profiles[0]),
       false
     );
+});
+
+test('an existing AVD gets the matrix screen in place and keeps its disks', (t) => {
+  const p = seed(t);
+  const profile = profiles[1];
+  cloneAvd(p, 'seed', profile);
+  const copy = path.join(p.avds, `${profile.name}.avd`);
+  const file = path.join(copy, 'config.ini');
+  const config = parseIni(fs.readFileSync(file, 'utf8'));
+  fs.writeFileSync(
+    file,
+    Object.entries({
+      ...config,
+      'hw.lcd.density': '640',
+      'skin.name': '1080x2400',
+      'hw.keyboard': 'yes'
+    })
+      .map(([key, value]) => `${key}=${value}\n`)
+      .join('')
+  );
+  const disk = fs.readFileSync(path.join(copy, 'userdata-qemu.img'), 'utf8');
+  assert.equal(reconcileAvd(p, profile), true);
+  const rewritten = parseIni(fs.readFileSync(file, 'utf8'));
+  assert.equal(configuredProfile(rewritten, profile), true);
+  assert.equal(rewritten['skin.name'], undefined);
+  assert.equal(rewritten['hw.keyboard'], 'yes');
+  assert.equal(
+    fs.readFileSync(path.join(copy, 'userdata-qemu.img'), 'utf8'),
+    disk
+  );
+  assert.equal(reconcileAvd(p, profile), false);
+});
+
+test('an AVD on another system image needs --recreate and stays untouched', (t) => {
+  const p = seed(t);
+  const profile = profiles[1];
+  cloneAvd(p, 'seed', profile);
+  const file = path.join(p.avds, `${profile.name}.avd`, 'config.ini');
+  const other = fs
+    .readFileSync(file, 'utf8')
+    .replace('android-35', 'android-34');
+  fs.writeFileSync(file, other);
+  assert.throws(() => reconcileAvd(p, profile), /--recreate/);
+  assert.equal(fs.readFileSync(file, 'utf8'), other);
+});
+
+test('removing an AVD deletes only the layout cloning writes', (t) => {
+  const p = seed(t);
+  const profile = profiles[1];
+  cloneAvd(p, 'seed', profile);
+  removeAvd(p, profile.name);
+  assert.equal(fs.existsSync(path.join(p.avds, `${profile.name}.avd`)), false);
+  assert.equal(fs.existsSync(path.join(p.avds, `${profile.name}.ini`)), false);
+  cloneAvd(p, 'seed', profile);
+  fs.writeFileSync(
+    path.join(p.avds, `${profile.name}.ini`),
+    `path=${p.directory}\n`
+  );
+  assert.throws(() => removeAvd(p, profile.name), /delete that AVD by hand/);
+  assert.equal(fs.existsSync(p.directory), true);
+});
+
+test('a missing seed names the AVDs that can stand in for it', (t) => {
+  const p = seed(t);
+  const other = path.join(p.avds, 'old.avd');
+  fs.mkdirSync(other);
+  fs.writeFileSync(path.join(p.avds, 'old.ini'), `path=${other}\n`);
+  fs.writeFileSync(
+    path.join(other, 'config.ini'),
+    'image.sysdir.1=system-images/android-34/default/arm64-v8a/\nabi.type=arm64-v8a\n'
+  );
+  assert.deepEqual(localAvds(p), [
+    { name: 'old', seedable: false },
+    { name: 'seed', seedable: true }
+  ]);
+  assert.throws(
+    () => cloneAvd(p, profiles[0].name, profiles[1]),
+    /can be the seed: seed\. Rerun init with --seed seed\./
+  );
+  fs.rmSync(path.join(p.avds, 'seed.ini'));
+  assert.throws(
+    () => cloneAvd(p, profiles[0].name, profiles[1]),
+    /no AVD here uses/
+  );
+});
+
+test('--recreate takes one NAME that is not the seed', async () => {
+  await assert.rejects(main(['init', '--recreate']), /single NAME/);
+  await assert.rejects(
+    main(['init', profiles[0].name, '--recreate']),
+    /is the seed/
+  );
 });
 
 test('unsupported login timeouts fail before provisioning a device', async () => {

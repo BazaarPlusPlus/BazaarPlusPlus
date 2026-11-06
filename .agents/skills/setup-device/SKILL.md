@@ -21,6 +21,8 @@ repository root.
    config.ini `[game]`; without it, the user signs in in the emulator window.
    A missing official APK, App runtime or interop package needs the release
    config once; init names the command. Run init in the background.
+   An AVD on another system image stops init. `--recreate NAME` deletes it with
+   its sign-in and copies the seed again: ask the user first.
 
 Done when each selected device reports `READY` in this run: the launcher's Play
 reached the main menu with this checkout's mod loaded.
