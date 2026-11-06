@@ -99,12 +99,6 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 发布产物放在公开桶 `bazaarplusplus-public` 的 `installer/` 前缀下，对外地址是 `https://cdn.bazaarplusplus.com/installer`（`RELEASE_BASE_URL`）。同一个桶还放 analyzer 的 `metrics/v6/` 和 `just release::mod-data` 上传的 `mod-data/`，见 [ADR 0007](adr/0007-one-public-bucket-and-domain.md)。新桶从 6.0.0 开始，之前的版本不在里面；第一次 `upload` 读不到已提升的平台清单，`selfUpdatable` 记为 false。
 
-### 5.x 客户端桥接
-
-5.x 的安装器和 mod 只读旧桶 `bppinstaller`（`bppinstaller.bazaarplusplus.com`）的清单。6.0.0 两个平台都 `promote` 完、`verify-mirror --latest` 通过之后，手工执行一次：先把旧桶里的 `latest.json`、`latest/windows-x86_64.json`、`latest/darwin-aarch64.json` 下载下来备份，再把新桶 `installer/` 下的同名三份清单原样写进旧桶的根目录（`wrangler r2 object get/put --remote`，`--content-type application/json`）。清单里的安装包地址仍然指向 `cdn.`，5.x 的 updater 用相同的公钥验签。写完后用一台装着 5.7.0 的机器确认它能自动更新到 6.0.0。要回滚，就把备份写回去。
-
-只桥接 6.0.0。之后的版本不再写旧桶，满一个月后旧桶和旧域名一起删除（#664）。
-
 上传使用 R2 S3 条件写，凭据是操作员 token 与账号 ID：
 
 - `CLOUDFLARE_API_TOKEN`：必须是该账号的 Account API Token，User API Token 会被拒绝
