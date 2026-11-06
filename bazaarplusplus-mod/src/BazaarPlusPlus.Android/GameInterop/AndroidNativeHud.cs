@@ -31,6 +31,35 @@ internal static class AndroidNativeHud
     public static bool IsInspectingCard =>
         Il2CppTheBazaar.Data.TooltipParentComponent?.CardTooltipController?.CurrentCard != null;
 
+    /// <summary>
+    /// Whether the game is changing scenes: <c>SceneLoader</c> is transitioning, or the gameplay
+    /// loading screen (the cityscape a run's start shows) has not faded out. This is the game's
+    /// own test for hiding its focus indicator (<c>MenuNavigator.ShowArrow</c>). The loading screen
+    /// covers the run's settings button, which is already active underneath it:
+    /// <c>StartRunAppState.LoadScenes</c> loads <c>GameScene</c> together with
+    /// <c>GameplayLoading</c>, and the transition ends long before
+    /// <c>StartRunAppState.FinalizeRunInitialization</c> fades the loading screen out. A failed
+    /// read is no scene change, so the HUD keeps its other rules.
+    /// </summary>
+    public static bool IsChangingScene
+    {
+        get
+        {
+            try
+            {
+                if (Il2Cpp.SceneLoader.IsTransitioning)
+                    return true;
+                var loading =
+                    Il2CppTheBazaar.Data.LoadingScreenController?.TryCast<Il2CppTheBazaar.LoadingScreenController>();
+                return loading != null && loading.isActiveAndEnabled && loading.FadeAlpha < 1f;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
     /// <summary>The active settings button; <paramref name="inRun"/> when it is the run's.</summary>
     public static Button? FindSettingsButton(out bool inRun)
     {

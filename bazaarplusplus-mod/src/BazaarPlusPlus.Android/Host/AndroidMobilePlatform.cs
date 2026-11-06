@@ -157,7 +157,8 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
         || (
             Il2CppTheBazaar.AppState.CurrentState is { } state
             && Il2CppTheBazaar.DataExtensions.IsEndOfRunState(state)
-        );
+        )
+        || AndroidNativeHud.IsChangingScene;
 
     public TouchPlayState PlayState() =>
         new(
