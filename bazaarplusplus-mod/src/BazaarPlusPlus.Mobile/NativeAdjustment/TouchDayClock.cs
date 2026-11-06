@@ -26,6 +26,7 @@ internal sealed class TouchDayClock
     private Vector3 _writtenPosition;
     private Vector3 _writtenScale;
     private MeshRenderer[] _clock = [];
+    private bool _adjusted;
 
     public TouchDayClock(IScreenFillHost host) => _host = host;
 
@@ -35,6 +36,11 @@ internal sealed class TouchDayClock
     /// </summary>
     public void Place(Camera camera, Vector2? board)
     {
+        if (board == null)
+        {
+            Restore();
+            return;
+        }
         var anchor = Find();
         if (anchor == null)
             return;
@@ -45,13 +51,18 @@ internal sealed class TouchDayClock
             _originalScale = _writtenScale = anchor.localScale;
             _clock = anchor.GetComponentsInChildren<MeshRenderer>(false);
         }
-        else if (anchor.localPosition != _writtenPosition || anchor.localScale != _writtenScale)
+        else
         {
-            _originalPosition = anchor.localPosition;
-            _originalScale = anchor.localScale;
+            if (anchor.localPosition != _writtenPosition)
+                _originalPosition = anchor.localPosition;
+            if (anchor.localScale != _writtenScale)
+                _originalScale = anchor.localScale;
         }
-        anchor.localPosition = _originalPosition;
-        anchor.localScale = _originalScale;
+        if (anchor.localPosition != _originalPosition)
+            anchor.localPosition = _originalPosition;
+        if (anchor.localScale != _originalScale)
+            anchor.localScale = _originalScale;
+        _adjusted = false;
         _writtenPosition = _originalPosition;
         _writtenScale = _originalScale;
         if (
@@ -84,6 +95,22 @@ internal sealed class TouchDayClock
         anchor.localScale = _originalScale * (placement.Scale * ScreenFill.ClockNearer);
         _writtenPosition = anchor.localPosition;
         _writtenScale = anchor.localScale;
+        _adjusted = true;
+    }
+
+    private void Restore()
+    {
+        if (!_adjusted)
+            return;
+        if (MobilePlatform.Port.IsAlive(_anchor))
+        {
+            // An animation's newer value belongs to the game; restore only our own writes.
+            if (_anchor!.localPosition == _writtenPosition && _writtenPosition != _originalPosition)
+                _anchor.localPosition = _originalPosition;
+            if (_anchor.localScale == _writtenScale && _writtenScale != _originalScale)
+                _anchor.localScale = _originalScale;
+        }
+        _adjusted = false;
     }
 
     private Transform? Find()

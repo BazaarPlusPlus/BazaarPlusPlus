@@ -185,6 +185,53 @@ public sealed class AndroidHostThreadingRuleTests
     }
 
     [Fact]
+    public void Battle_persistence_worker_and_callbacks_do_not_enter_the_game_runtime()
+    {
+        var scope = Host
+            .Value.Types.Where(type =>
+                type.FullName.StartsWith(
+                    "BazaarPlusPlus.Android.Game.AndroidBattlePersistenceQueue",
+                    StringComparison.Ordinal
+                )
+            )
+            .SelectMany(type => type.Methods)
+            .Concat(
+                Host.Value.Types.Single(type =>
+                        type.FullName
+                        == "BazaarPlusPlus.Android.GameInterop.AndroidPvpBattleCapture"
+                    )
+                    .Methods.Where(method =>
+                        method.Name is "Persist" or "SaveReplay" or "OnPersisted"
+                    )
+            )
+            .ToArray();
+        Assert.NotEmpty(scope);
+        var calls = scope
+            .SelectMany(method => method.Instructions)
+            .Where(instruction => instruction.IsMemberAccess)
+            .ToArray();
+        Assert.Contains(
+            calls,
+            call =>
+                call.TargetMember == "Run"
+                && call.TargetType?.FullName == "System.Threading.Tasks.Task"
+        );
+        Assert.DoesNotContain(
+            calls,
+            call =>
+                call.TargetType is { } target
+                && (
+                    target.Namespace.StartsWith("Il2Cpp", StringComparison.Ordinal)
+                    || target.Namespace.StartsWith("UnityEngine", StringComparison.Ordinal)
+                    || target.Namespace.StartsWith(
+                        "BazaarPlusPlus.Mobile",
+                        StringComparison.Ordinal
+                    )
+                )
+        );
+    }
+
+    [Fact]
     public void History_controls_are_wired_only_through_the_main_thread_action_scope()
     {
         string[] historyTypes =

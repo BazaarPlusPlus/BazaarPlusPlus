@@ -47,12 +47,6 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
 {
     private const float SlowFrameSeconds = 0.02f;
 
-    // Any rebuild of the projection or the view model invalidates a cached catalog.
-    private static readonly string ModBuild =
-        typeof(AndroidCollectionCatalog).Assembly.ManifestModule.ModuleVersionId.ToString("N")
-        + "."
-        + typeof(CollectionCardVm).Assembly.ManifestModule.ModuleVersionId.ToString("N");
-
     private readonly CollectionCatalogCacheStore _cache;
     private readonly List<CollectionCardVm> _building = new();
     private readonly List<double> _cardMs = new();
@@ -245,7 +239,7 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
             request.TranslationsManifest,
             request.Language,
             request.GameVersion,
-            ModBuild
+            AndroidCollectionCardProjection.CacheVersion
         );
         var outcome = "no_identity";
         if (identity != null && _cache.TryLoad(identity, out var cards, out outcome))
@@ -425,7 +419,7 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
                     request.TranslationsManifest,
                     request.Language,
                     request.GameVersion,
-                    ModBuild
+                    AndroidCollectionCardProjection.CacheVersion
                 );
                 if (!identity.Equals(current))
                 {

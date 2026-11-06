@@ -18,13 +18,33 @@ internal sealed class TouchScreenFillCanvases
     private readonly IScreenFillHost _host;
 
     // The match each canvas had before it was moved, by instance.
-    private readonly Dictionary<int, float> _original = new();
+    private readonly Dictionary<int, (CanvasScaler Scaler, float Match)> _original = new();
+    private readonly List<int> _destroyed = new();
 
     public TouchScreenFillCanvases(IScreenFillHost host) => _host = host;
 
     /// <summary>Sets every game canvas's match for a screen of <paramref name="aspect"/>.</summary>
     public void Apply(float aspect)
     {
+        if (!ScreenFill.Fills(aspect))
+        {
+            // A popup can be hidden while the screen widens. Restore retained objects directly,
+            // including inactive canvases, before stopping scene searches on a wide screen.
+            foreach (var (scaler, match) in _original.Values)
+                if (
+                    MobilePlatform.Port.IsAlive(scaler)
+                    && Math.Abs(scaler.matchWidthOrHeight - match) > 0.001f
+                )
+                    scaler.matchWidthOrHeight = match;
+            _original.Clear();
+            return;
+        }
+        foreach (var (id, retained) in _original)
+            if (!MobilePlatform.Port.IsAlive(retained.Scaler))
+                _destroyed.Add(id);
+        foreach (var id in _destroyed)
+            _original.Remove(id);
+        _destroyed.Clear();
         foreach (var scaler in _host.CanvasScalers())
         {
             if (
@@ -33,10 +53,13 @@ internal sealed class TouchScreenFillCanvases
             )
                 continue;
             var id = scaler.GetInstanceID();
-            if (!_original.TryGetValue(id, out var original))
+            if (
+                !_original.TryGetValue(id, out var retained)
+                || !MobilePlatform.Port.IsAlive(retained.Scaler)
+            )
             {
                 var reference = scaler.referenceResolution;
-                original = scaler.matchWidthOrHeight;
+                var original = scaler.matchWidthOrHeight;
                 if (
                     !ScreenFill.TakesCanvas(
                         reference.x,
@@ -46,9 +69,10 @@ internal sealed class TouchScreenFillCanvases
                     )
                 )
                     continue;
-                _original[id] = original;
+                retained = (scaler, original);
+                _original[id] = retained;
             }
-            var match = ScreenFill.GameCanvasMatch(aspect, original);
+            var match = ScreenFill.GameCanvasMatch(aspect, retained.Match);
             if (Math.Abs(scaler.matchWidthOrHeight - match) > 0.001f)
                 scaler.matchWidthOrHeight = match;
         }
