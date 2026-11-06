@@ -95,14 +95,6 @@ internal sealed class AndroidComposition
         Battles = new PvpBattleCatalog(battles);
         Replays = replays;
         ReplayGate = replayGate;
-        // The capture saves each battle synchronously under the gate's persistence lease, so no
-        // battle is ever queued between its file and its row: there is nothing to protect.
-        _replayMaintenance = new ReplayPayloadMaintenanceService(
-            battles,
-            replays,
-            replayGate,
-            static () => Array.Empty<string>()
-        );
         // Android records PvP battles only; a monster fight opens no window.
         BattleCapture = new AndroidPvpBattleCapture(
             new PvpBattleCaptureWindow<INetMessage>(
@@ -116,6 +108,12 @@ internal sealed class AndroidComposition
             replays,
             replayGate,
             services.EventBus
+        );
+        _replayMaintenance = new ReplayPayloadMaintenanceService(
+            battles,
+            replays,
+            replayGate,
+            BattleCapture.ProtectedBattleIds
         );
 
         RunLifecycle = new RunLifecycleModule(
@@ -137,8 +135,7 @@ internal sealed class AndroidComposition
                         new RunLogStoreLoggerBridge()
                     ),
                 battles.AttachToRun,
-                // The capture saves each Replay Payload before announcing its battle.
-                static () => false,
+                () => BattleCapture.HasPendingPersistence,
                 static () => DateTimeOffset.UtcNow,
                 DatabasePath,
                 playerAccountIdResolver: AndroidClientCache.TryGetProfileAccountId,
@@ -278,7 +275,11 @@ internal sealed class AndroidComposition
     public void Resume() => _sealCoordinator.Resume();
 
     /// <summary>Main thread, every frame.</summary>
-    public void Tick(float nowSeconds) => _uploads?.Tick(nowSeconds);
+    public void Tick(float nowSeconds)
+    {
+        BattleCapture.Tick();
+        _uploads?.Tick(nowSeconds);
+    }
 
     public void Stop()
     {
@@ -286,6 +287,7 @@ internal sealed class AndroidComposition
         _uploads = null;
         _replayMaintenanceFlight?.Dispose();
         _replayMaintenanceFlight = null;
+        BattleCapture.Dispose();
         _core.Stop();
         _liveBuild.Stop();
         _supporters.Stop();

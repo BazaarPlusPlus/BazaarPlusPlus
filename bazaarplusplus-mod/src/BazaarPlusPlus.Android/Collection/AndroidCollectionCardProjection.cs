@@ -24,6 +24,10 @@ namespace BazaarPlusPlus.Android.Collection;
 /// </summary>
 internal static class AndroidCollectionCardProjection
 {
+    // Bump when eligibility, facets, derived keywords/mechanics, enchantments, localized text,
+    // search text or the projected VM changes. Unrelated host builds must retain the cache.
+    internal const string CacheVersion = "android-collection-1";
+
     private static readonly ETier[] LookupTiers =
     [
         ETier.Bronze,

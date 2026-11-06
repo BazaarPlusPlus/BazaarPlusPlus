@@ -25,6 +25,7 @@ internal sealed class TouchDayChangeOverlay
     private Vector3 _originalScale;
     private Vector3 _writtenPosition;
     private Vector3 _writtenScale;
+    private bool _adjusted;
 
     public TouchDayChangeOverlay(IScreenFillHost host) => _host = host;
 
@@ -35,6 +36,11 @@ internal sealed class TouchDayChangeOverlay
     /// </summary>
     public void Place(Camera camera, Vector3 lift, float stretch)
     {
+        if (lift == Vector3.zero && stretch == 1f)
+        {
+            Restore();
+            return;
+        }
         var overlay = Find();
         if (overlay == null)
             return;
@@ -44,16 +50,21 @@ internal sealed class TouchDayChangeOverlay
             _originalPosition = _writtenPosition = overlay.localPosition;
             _originalScale = _writtenScale = overlay.localScale;
         }
-        else if (overlay.localPosition != _writtenPosition || overlay.localScale != _writtenScale)
+        else
         {
-            _originalPosition = overlay.localPosition;
-            _originalScale = overlay.localScale;
+            if (overlay.localPosition != _writtenPosition)
+                _originalPosition = overlay.localPosition;
+            if (overlay.localScale != _writtenScale)
+                _originalScale = overlay.localScale;
         }
-        overlay.localPosition = _originalPosition;
-        overlay.localScale = _originalScale;
+        if (overlay.localPosition != _originalPosition)
+            overlay.localPosition = _originalPosition;
+        if (overlay.localScale != _originalScale)
+            overlay.localScale = _originalScale;
+        _adjusted = false;
         _writtenPosition = _originalPosition;
         _writtenScale = _originalScale;
-        if (!overlay.gameObject.activeInHierarchy || (lift == Vector3.zero && stretch == 1f))
+        if (!overlay.gameObject.activeInHierarchy)
             return;
         // Scaled about the camera's axis, not its eye: a uniform scale about the eye draws the
         // same picture.
@@ -65,6 +76,24 @@ internal sealed class TouchDayChangeOverlay
         overlay.localScale = _originalScale * stretch;
         _writtenPosition = overlay.localPosition;
         _writtenScale = overlay.localScale;
+        _adjusted = true;
+    }
+
+    private void Restore()
+    {
+        if (!_adjusted)
+            return;
+        if (MobilePlatform.Port.IsAlive(_overlay))
+        {
+            if (
+                _overlay!.localPosition == _writtenPosition
+                && _writtenPosition != _originalPosition
+            )
+                _overlay.localPosition = _originalPosition;
+            if (_overlay.localScale == _writtenScale && _writtenScale != _originalScale)
+                _overlay.localScale = _originalScale;
+        }
+        _adjusted = false;
     }
 
     private Transform? Find()

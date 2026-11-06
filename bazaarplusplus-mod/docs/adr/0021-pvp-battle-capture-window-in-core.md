@@ -26,7 +26,7 @@ The desktop had bugs of its own. A null `Data.Run` threw and lost the battle. A 
 2. A host supplies `IPvpBattleReads<TMessage>` (`IPvpBattleReads.cs`). A message is valid only during the `Observe` call that delivered it. The window keeps only the host's opaque `PvpReplayPart` per stage: the desktop defers serialization to the close (`DesktopPvpBattleReads`), and Android serializes each IL2CPP proxy as it arrives (`AndroidPvpBattleReads`).
 3. Every read is guarded on its own. A field that throws is null and logs `pvp_battles.participant.unreadable`; a board that throws is Missing and logs `pvp_battles.snapshot.degraded`. `Observe` never throws.
 4. Where the hosts differed, the desktop's timing is the shared rule, except where it was a desktop bug. Android passes `PvpOpeningKinds.PvpCombat` only, as it did before.
-5. Persistence stays per host (ADR-0003): the desktop's async queue and its rollback in `CombatReplayRuntime`; Android's synchronous saves under the persistence lease in `AndroidPvpBattleCapture`, now through `PvpBattleCatalog`. Both hosts map captured cards through their facet adapter's `Captured*` methods.
+5. Persistence stays per host (ADR-0003): the desktop's async queue and its rollback in `CombatReplayRuntime`; Android's bounded worker queue (`AndroidBattlePersistenceQueue`) around the persistence lease in `AndroidPvpBattleCapture`, through `PvpBattleCatalog`. Both hosts map captured cards through their facet adapter's `Captured*` methods.
 
 ## Consequences
 
@@ -61,3 +61,7 @@ ADR-0020 is the precedent: a Core module owns a protocol both hosts ran, and cal
 - Adapters: `src/BazaarPlusPlus/Game/PvpBattles/DesktopPvpBattleReads.cs`, `src/BazaarPlusPlus.Android/GameInterop/AndroidPvpBattleReads.cs`
 - Persistence: `src/BazaarPlusPlus/Game/CombatReplay/CombatReplayRuntime.cs`, `src/BazaarPlusPlus.Android/GameInterop/AndroidPvpBattleCapture.cs`
 - Tests: `tests/PvpBattleCaptureWindow.Tests/PvpBattleCaptureWindowTests.cs`, `tests/BundlePipeline.Tests/DesktopPvpBattleCaptureTests.cs`, `tests/AndroidHost.Tests/AndroidCardFacetsCapturedTests.cs`
+
+## Amendment: Android persistence off the frame thread
+
+Payload compression and SQLite saves blocked Android message intake at the PvP handoff. `AndroidBattlePersistenceQueue` now queues detached captures while IL2CPP serialization stays on the main thread. Results return in capture order; capacity overflow persists synchronously without dropping a capture. Shutdown stops game callbacks without cancelling accepted writes. Android keeps its save-with-missing-payload semantics, so the desktop rollback queue stays separate. Queue behavior and the compiled worker boundary are covered in `tests/AndroidHost.Tests/`.

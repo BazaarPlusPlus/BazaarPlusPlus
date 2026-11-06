@@ -14,8 +14,12 @@ internal static class CombatPlaybackFramePatch
 internal static class CombatPlaybackSpeedPatch
 {
     [HarmonyPrefix]
-    private static void Prefix(ref float __0)
+    private static void Prefix(ref CombatSimHandler? __instance, ref float __0)
     {
+        // Native calls on Android pass null for this instance method, which only changes static
+        // speed state. The interop wrapper rejects null before calling the original. Supply the
+        // game's existing handler so the native method (including its speed event) still runs.
+        __instance ??= AppState._combatSimHandler;
         var state = AndroidPatchHost.CombatStatus?.State;
         if (state?.ShouldOverrideCombatSpeed(__0) == true)
             __0 = state.CombatSpeedMultiplier;

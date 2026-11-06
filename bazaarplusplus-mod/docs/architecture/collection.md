@@ -32,6 +32,8 @@ Collection and EventPreview share `BppStaticCardMapProvider`, which normally use
 
 Other unknown derived types remain unsupported. If native bulk loading encounters one, `CompatibleCardMapReader` reads the same database in read-only mode with the same value compatibility adapter and omits only unsupported templates. This partial snapshot does not replace the game's cache; malformed data and wholly unsupported catalogs still fail. `static_cards.catalog.unsupported_templates` records accepted and unsupported counts.
 
+Android's disk catalog identity uses the projection version owned by `AndroidCollectionCardProjection.CacheVersion`, alongside the game version, language and manifest ETags. Unrelated mod builds reuse it. Changes to eligibility, facet mappings, derived keyword/mechanic rules, enchantment projection, localized/search text or persisted VM semantics must bump that version; a cache schema change still belongs to `CollectionCatalogCacheStore`. A true cold miss still projects native templates on the main thread.
+
 ## Gotchas
 
 Traps and rules that bite only this feature; most failed silently at least once.

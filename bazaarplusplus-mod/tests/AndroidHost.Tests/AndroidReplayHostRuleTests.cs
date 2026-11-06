@@ -106,6 +106,59 @@ public sealed class AndroidReplayHostRuleTests : IDisposable
     }
 
     [Fact]
+    public void A_missing_payload_still_saves_battle_facts_before_the_run_row_exists()
+    {
+        var (store, files) = Stores();
+        using var gate = new ReplayPayloadOperationGate();
+        var battle = Battle("no-payload");
+        battle.RunId = "run-at-capture";
+        var outcome = AndroidPvpBattleCapture.Persist(
+            gate,
+            new PvpBattleCatalog(store),
+            files,
+            battle,
+            null,
+            TimeSpan.Zero
+        );
+        Assert.False(outcome.ReplaySaved);
+        Assert.NotNull(store.TryLoad(battle.BattleId));
+        Assert.Null(store.TryLoad(battle.BattleId)!.RunId);
+        Assert.Equal("run-at-capture", PvpBattleCatalog.Recorded(battle).RunId);
+        Assert.Equal(
+            ReplayPayloadState.Missing,
+            Assert.Single(store.ListReplayMaintenanceInventory()).PayloadState
+        );
+    }
+
+    [Fact]
+    public void A_failed_payload_write_keeps_battle_facts_and_releases_the_lease()
+    {
+        var (store, _) = Stores();
+        var blockedPath = Path.Combine(_dataRoot, "blocked");
+        var files = new CombatReplayPayloadStore(blockedPath);
+        Directory.Delete(blockedPath);
+        File.WriteAllText(blockedPath, "occupies directory path");
+        using var gate = new ReplayPayloadOperationGate();
+        var battle = Battle("file-failed");
+        var outcome = AndroidPvpBattleCapture.Persist(
+            gate,
+            new PvpBattleCatalog(store),
+            files,
+            battle,
+            ReplayMessages.Payload(battle.BattleId),
+            TimeSpan.Zero
+        );
+        Assert.False(outcome.ReplaySaved);
+        Assert.NotNull(store.TryLoad(battle.BattleId));
+        Assert.Equal(
+            ReplayPayloadState.Missing,
+            Assert.Single(store.ListReplayMaintenanceInventory()).PayloadState
+        );
+        using var lease = gate.TryAcquirePlayback();
+        Assert.NotNull(lease);
+    }
+
+    [Fact]
     public void During_a_replay_the_intake_keeps_messages_out_of_the_battle_capture_only()
     {
         var live = AndroidReplayGuard.Decide(replayActive: false);
