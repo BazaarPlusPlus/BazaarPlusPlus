@@ -60,7 +60,7 @@ for (const [file, content, pattern] of [
   });
 }
 
-test('capture keeps failure evidence and screen-check uses only read-only adb commands', (t) => {
+test('android.sh finds the one running device; capture keeps failure evidence and screen-check uses only read-only adb commands', (t) => {
   const cwd = fixture(t);
   for (const file of [
     'scripts/android-screen.mjs',
@@ -75,6 +75,11 @@ test('capture keeps failure evidence and screen-check uses only read-only adb co
     adb,
     `#!/bin/bash
 set -eu
+if [[ "$*" == devices ]]; then
+  echo 'List of devices attached'
+  cat "$FIXTURE/devices.txt"
+  exit 0
+fi
 [[ "$1" == -s && "$2" == fixture-device ]] || exit 91
 shift 2
 case "$*" in
@@ -103,12 +108,27 @@ esac
         env: {
           ...process.env,
           ADB: adb.split(path.sep).join('/'),
-          BPP_ANDROID_SERIAL: 'fixture-device',
           FIXTURE: cwd.split(path.sep).join('/')
         },
         timeout: 10_000
       }
     );
+  const online = (text) =>
+    fs.writeFileSync(path.join(cwd, 'devices.txt'), text);
+  for (const [devices, pattern] of [
+    ['', /No Android device is online/],
+    [
+      'fixture-device\tdevice\nemulator-5558\tdevice\n',
+      /More than one Android device is running \(fixture-device device, emulator-5558 device\)/
+    ],
+    ['fixture-device\toffline\n', /'fixture-device' is offline/]
+  ]) {
+    online(devices);
+    const refused = invoke('capture', 'refused');
+    assert.equal(refused.status, 1, refused.stderr);
+    assert.match(refused.stderr, pattern);
+  }
+  online('fixture-device\tdevice\n');
   const good = invoke('screen-check', 'good');
   assert.equal(good.status, 0, good.stderr);
   fs.writeFileSync(path.join(cwd, 'screen.png'), png(1080, 2400));
@@ -125,4 +145,11 @@ esac
   );
   const capture = invoke('capture', 'diagnostic');
   assert.equal(capture.status, 0, capture.stderr);
+  // verify reads downloaded evidence: it needs no device.
+  online('');
+  fs.writeFileSync(path.join(out, 'version.txt'), '0.0.0');
+  const verify = invoke('verify', out);
+  assert.equal(verify.status, 1, verify.stderr);
+  assert.match(verify.stderr, /Smoke failed at "Injection"/);
+  assert.doesNotMatch(verify.stderr, /Android device/);
 });

@@ -97,7 +97,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 本机矩阵与登录准备
 
-`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；设备名字、尺寸、端口和参数以 `node scripts/setup-device.mjs --help` 为准。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
+`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；设备名字、尺寸、端口和参数以 `node scripts/setup-device.mjs --help` 为准。为了性能，同一时间只运行一台 Android 设备：init 在有设备运行时不启动；`just mod::android-*` 和 walkthrough 不指定设备，操作 adb 列出的唯一一台，没有设备或多于一台时报错，walkthrough 还核对它是不是所选的 AVD。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
 
 矩阵按 Mobile UI 的三个布局分支选设备：
 

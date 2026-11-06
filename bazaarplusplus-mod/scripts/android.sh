@@ -31,7 +31,10 @@ PLAY_LABELS=$'Play\n开始游戏\n開始遊戲'
 LAUNCHER_TIMEOUT_SECONDS=90
 SETTINGS_FILE="$MELON_BASE/UserData/BazaarPlusPlus.cfg"
 DEVICE_LOG="$MELON_BASE/MelonLoader/Latest.log"
-DEVICE_SERIAL="${BPP_ANDROID_SERIAL:-emulator-5556}"
+# The one device adb lists, found by require_device. One Android device runs at a time
+# (docs/development.md), so no command names it; keeping the serial for the whole run stops a
+# device that comes up later from taking over a step.
+DEVICE_SERIAL=
 # How long smoke waits for the main menu after launch.
 SMOKE_TIMEOUT_SECONDS="${BPP_ANDROID_SMOKE_TIMEOUT:-300}"
 
@@ -51,9 +54,28 @@ device() {
     "$(adb_bin)" -s "$DEVICE_SERIAL" "$@"
 }
 
+# The same rule as listedDevices and onlyDevice in scripts/setup-device.mjs.
+find_device() {
+    local listed serial state
+    # Every device adb knows, whatever its state: a booting or unauthorized one is running too.
+    listed="$("$(adb_bin)" devices | awk '/^List of devices attached/ { list = 1; next } list && NF >= 2 { print $1, $2 }')" ||
+        die "adb devices failed."
+    [[ -n "$listed" ]] ||
+        die "No Android device is online; open one AVD with 'just setup-device NAME --keep-open'."
+    [[ "$listed" != *$'\n'* ]] ||
+        die "More than one Android device is running ($(awk 'NR > 1 { printf ", " } { printf "%s", $0 }' <<<"$listed")); close all but one."
+    read -r serial state <<<"$listed"
+    [[ "$state" == device ]] ||
+        die "Device '$serial' is $state; wait for it or close it (a stale entry with no emulator running clears with: adb kill-server)."
+    DEVICE_SERIAL="$serial"
+}
+
 require_device() {
-    [[ "$(device get-state 2>/dev/null)" == "device" ]] ||
-        die "Device '$DEVICE_SERIAL' is not online; start it or set BPP_ANDROID_SERIAL."
+    if [[ -z "$DEVICE_SERIAL" ]]; then
+        find_device
+    elif [[ "$(device get-state 2>/dev/null)" != device ]]; then
+        die "Device '$DEVICE_SERIAL' went offline."
+    fi
     device shell run-as "$APP_PACKAGE" true </dev/null >/dev/null 2>&1 ||
         die "No debug Android App on '$DEVICE_SERIAL'; run 'just setup-device' for its AVD."
 }

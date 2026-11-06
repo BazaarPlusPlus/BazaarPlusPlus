@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { profiles as androidProfiles } from './setup-device.mjs';
+import { profiles as androidProfiles, onlyDevice } from './setup-device.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const runs = path.join(root, 'artifacts/walkthrough');
@@ -43,7 +43,8 @@ export const help = `Device walkthrough: open panels, capture screens, build the
   node scripts/walkthrough.mjs report RUN
 
 DEVICE is an Android AVD name from the device matrix, or
-desktop. RUN and SCENARIO use letters, digits, - and _. panel writes the
+desktop; an Android DEVICE must be the one device running. RUN and
+SCENARIO use letters, digits, - and _. panel writes the
 Walkthrough Control's command file into the device's Data Root and waits until
 the game consumes it; the game log line overlay_panels.walkthrough.command says
 which panel is open afterwards. capture saves RUN/DEVICE/SCENARIO.png (Android
@@ -60,11 +61,7 @@ Evidence: artifacts/walkthrough/RUN/ (private: it shows the signed-in account).
 
 export function devices() {
   return [
-    ...androidProfiles.map((p) => ({
-      name: p.name,
-      kind: 'android',
-      serial: `emulator-${p.port}`
-    })),
+    ...androidProfiles.map((p) => ({ name: p.name, kind: 'android' })),
     { name: 'desktop', kind: 'desktop' }
   ];
 }
@@ -80,6 +77,26 @@ function device(name) {
   return found;
 }
 
+// The running device, checked to be the AVD asked for, so no capture is filed under another one.
+function online(d) {
+  const serial = onlyDevice(run([adbPath(), 'devices']));
+  let avd;
+  try {
+    avd = run([adbPath(), '-s', serial, 'emu', 'avd', 'name'])
+      .trim()
+      .split(/\r?\n/)[0];
+  } catch {
+    avd = 'not an emulator';
+  }
+  if (avd !== d.name)
+    throw new Error(
+      `The running device ${serial} is ${avd}, not ${d.name}. Close it and open ${d.name}: just setup-device ${d.name} --keep-open`
+    );
+  return { ...d, serial };
+}
+
+const reach = (d) => (d.kind === 'android' ? online(d) : d);
+
 function run(args, options = {}) {
   const result = spawnSync(args[0], args.slice(1), {
     encoding: 'utf8',
@@ -93,10 +110,10 @@ function run(args, options = {}) {
   return result.stdout;
 }
 
-const androidScriptRun = (d, ...args) =>
+// android.sh finds the same one running device that online() checked.
+const androidScriptRun = (...args) =>
   run(['bash', androidScript, ...args], {
-    cwd: path.join(root, 'bazaarplusplus-mod'),
-    env: { ...process.env, BPP_ANDROID_SERIAL: d.serial }
+    cwd: path.join(root, 'bazaarplusplus-mod')
   });
 
 const adbPath = () =>
@@ -112,7 +129,7 @@ const desktopDataRoot = () =>
   path.join(process.env.BPP_GAME_ROOT || defaultGameRoot, dataRootName);
 
 export async function panel(name, logical) {
-  const d = device(name);
+  const d = reach(device(name));
   const target = panels[d.kind === 'desktop' ? 'desktop' : 'mobile'][logical];
   if (!target)
     throw new Error(
@@ -126,7 +143,7 @@ export async function panel(name, logical) {
       commandFile
     );
     fs.writeFileSync(local, text);
-    androidScriptRun(d, 'put', local, `${dataRootName}/${commandFile}`);
+    androidScriptRun('put', local, `${dataRootName}/${commandFile}`);
     fs.rmSync(path.dirname(local), { recursive: true, force: true });
     exists = () =>
       adb(
@@ -237,7 +254,7 @@ if let w = game.max(by: { area($0) < area($1) }), let b = w["kCGWindowBounds"] a
 
 export function capture(runName, name, scenario, note, portrait = false) {
   checkIds(runName, scenario);
-  const d = device(name);
+  const d = reach(device(name));
   const file = path.join(runs, runName, d.name, `${scenario}.png`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   let problems = [];
@@ -251,7 +268,7 @@ export function capture(runName, name, scenario, note, portrait = false) {
     );
   } else if (d.kind === 'android') {
     const capture = `walkthrough-${runName}-${d.name}-${scenario}`;
-    androidScriptRun(d, 'capture', capture);
+    androidScriptRun('capture', capture);
     const out = path.join(
       root,
       'bazaarplusplus-mod/artifacts/android',
@@ -371,10 +388,7 @@ export async function main(args) {
   };
   switch (command) {
     case 'devices':
-      for (const d of devices())
-        console.log(
-          `${d.name.padEnd(17)} ${d.kind}${d.serial ? ` ${d.serial}` : ''}`
-        );
+      for (const d of devices()) console.log(`${d.name.padEnd(17)} ${d.kind}`);
       return;
     case 'panel':
       return panel(rest[0], rest[1]);

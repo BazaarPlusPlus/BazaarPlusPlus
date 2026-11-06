@@ -29,11 +29,11 @@ reached the main menu with this checkout's mod loaded.
 
 ## Verify on devices
 
-1. Open one AVD with `just setup-device NAME --keep-open`, set
-   `BPP_ANDROID_SERIAL` to its serial from `--help`, then use the
+1. Open one AVD with `just setup-device NAME --keep-open`, then use the
    `just mod::android-*` deploy, launch, smoke and screen-check recipes; launch
-   taps Play on the launcher. Drive one device at a time.
-2. Check each affected panel on all three AVDs with
+   taps Play on the launcher. They act on the one running device and refuse
+   when none or several run, so close an AVD before you open the next.
+2. Check each affected panel on all three AVDs, one after another, with
    `just mod::android-screen-check RUN`, then read the image for clipping,
    alignment and sideways content. Add the orientation scenarios from the
    verification table when orientation or safe area changes.

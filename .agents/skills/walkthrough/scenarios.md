@@ -8,7 +8,7 @@ with the reason `desktop has no such screen`.
 
 | Scenario | Reach | Look at |
 |---|---|---|
-| `launcher` (mobile) | The App's own launcher, before the game starts. Android: `BPP_ANDROID_SERIAL=SERIAL just mod::android-launcher`, `capture … --portrait`, then `just mod::android-launch` and look until the main menu shows | Portrait, nothing clipped |
+| `launcher` (mobile) | The App's own launcher, before the game starts. Android: `just mod::android-launcher`, `capture … --portrait`, then `just mod::android-launch` and look until the main menu shows | Portrait, nothing clipped |
 | `main-menu` | The game's main menu after load | The HUD shortcuts by the settings gear, History in the MENU grid |
 | `collection` | `panel collection` | Grid, filters, close button |
 | `collection-inspect` | In Collection, tap one card | The inspect sheet |
