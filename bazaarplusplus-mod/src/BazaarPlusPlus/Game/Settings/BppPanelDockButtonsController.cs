@@ -3,6 +3,7 @@ using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.GameInterop.Scenes;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Patches;
 using UnityEngine;
 using UnityEngine.UI;
 using CollectionPanelFeature = BazaarPlusPlus.Game.CollectionPanel.CollectionPanel;
@@ -143,6 +144,7 @@ internal sealed class BppPanelDockButtonsController
         shouldSync |= _screenResizeSync.ShouldSync(Screen.width, Screen.height);
         if (shouldSync)
             SyncDockButtonPlacement();
+        ApplyScreenshotSuppressionVisibility();
     }
 
     private void OnRectTransformDimensionsChange() => SyncDockButtonPlacement();
@@ -278,10 +280,17 @@ internal sealed class BppPanelDockButtonsController
 
     private void ApplyScreenshotSuppressionVisibility()
     {
-        var shouldBeVisible = _screenshotSuppressionCount == 0 && _hasAvailableDockLayout;
+        var config = BppPatchHost.Services.Config;
+        var shouldBeVisible =
+            config.ShowCollectionButtonConfig.Value
+            && _screenshotSuppressionCount == 0
+            && _hasAvailableDockLayout;
         if (_dockButtonRect != null && _dockButtonRect.gameObject.activeSelf != shouldBeVisible)
             _dockButtonRect.gameObject.SetActive(shouldBeVisible);
-        var liveBuildVisible = _screenshotSuppressionCount == 0 && _hasAvailableLiveBuildLayout;
+        var liveBuildVisible =
+            config.ShowTenWinBuildsButtonConfig.Value
+            && _screenshotSuppressionCount == 0
+            && _hasAvailableLiveBuildLayout;
         if (
             _liveBuildButtonRect != null
             && _liveBuildButtonRect.gameObject.activeSelf != liveBuildVisible

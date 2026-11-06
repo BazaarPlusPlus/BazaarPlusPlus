@@ -28,4 +28,7 @@ public static class BppSettingsDockOrder
     // hotkey, and the game-update row (a newer game, or a new Android App).
     public const int UpgradePreviewSwitch = 20;
     public const int GameUpdate = 21;
+
+    public const int ShowCollectionButton = 22;
+    public const int ShowTenWinBuildsButton = 23;
 }
