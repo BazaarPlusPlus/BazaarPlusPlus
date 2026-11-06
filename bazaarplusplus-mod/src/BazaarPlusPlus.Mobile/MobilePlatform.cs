@@ -169,7 +169,9 @@ internal interface IMobilePlatformPort
 
     /// <summary>
     /// Whether a native popup (settings included) is open, the native card drawer shows an
-    /// inspected card, or the end-of-run screens show, whose chest grid fills the shortcuts' corner.
+    /// inspected card, the end-of-run screens show, whose chest grid fills the shortcuts' corner,
+    /// or the game is changing scenes, when its loading screen covers a settings button that is
+    /// still active underneath.
     /// </summary>
     bool NativeHudBusy();
 
