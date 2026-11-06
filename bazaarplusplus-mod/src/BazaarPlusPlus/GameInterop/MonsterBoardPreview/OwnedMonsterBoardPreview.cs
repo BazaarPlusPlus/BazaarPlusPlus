@@ -332,8 +332,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
             foreach (var nestedCanvas in view.GetComponentsInChildren<Canvas>(true))
                 nestedCanvas.overrideSorting = false;
             view.gameObject.SetActive(true);
-            view._healthText.gameObject.SetActive(false);
-            view.transform.Find("MainSize/Healthbar_Parent")?.gameObject.SetActive(false);
+            HideHealthBar(view);
             var rect = (RectTransform)view.transform;
             rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
             rect.localScale = Vector3.one;
@@ -368,6 +367,25 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         // reuses it, and DisposeAfterLoad destroys it once this drain completes.
         _view = view;
         return view;
+    }
+
+    // A preview shows a board, not a monster, so the clone keeps no health bar. The bar is
+    // found from the serialized health text: a path such as MainSize/Healthbar_Parent stops
+    // resolving when a game build regroups the prefab, and the bar then shows on every board.
+    // Runs before a render moves the skill parent out of the clone.
+    private static void HideHealthBar(MonsterBoardTooltip view)
+    {
+        if (view._healthText == null)
+            return;
+        var carpet = view._carpetImage.transform;
+        var skills = view._skillParent;
+        NativeMonsterBoardHealthBar
+            .Root<Transform>(
+                view._healthText.transform,
+                node => node.parent != null ? node.parent : null,
+                node => carpet.IsChildOf(node) || skills.IsChildOf(node)
+            )
+            .gameObject.SetActive(false);
     }
 
     private async Task AddOwnedCard(TCardInstance instance, ECardSize? size)
