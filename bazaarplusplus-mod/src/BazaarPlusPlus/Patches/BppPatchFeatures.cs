@@ -4,6 +4,7 @@ using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.PostCombatImpact;
 using BazaarPlusPlus.Game.Screenshots;
+using BazaarPlusPlus.Game.SkillDetails;
 
 namespace BazaarPlusPlus.Patches;
 
@@ -26,6 +27,7 @@ internal sealed class BppPatchFeatures
 
     internal HistoryPanelMenuEntry HistoryMenu { get; } = new();
     internal CollectionInspectionModule CollectionInspection { get; } = new();
+    internal DesktopSkillOverlayLayout SkillOverlayLayout { get; } = new();
 
     internal EncounterPreviewModule EncounterPreview { get; }
     internal IEndOfRunCaptureWorkflow EndOfRunCaptureWorkflow { get; }
