@@ -31,6 +31,10 @@ public sealed class BppSettings
 
     public ISetting<float> VoiceSubtitlesChineseFontScaleConfig { get; }
 
+    public ISetting<bool> ShowCollectionButtonConfig { get; }
+
+    public ISetting<bool> ShowTenWinBuildsButtonConfig { get; }
+
     public ISetting<bool> EnableCombatStatusBarConfig { get; }
 
     public ISetting<float> CombatStatusBarSpeedMultiplierConfig { get; }
@@ -127,6 +131,18 @@ public sealed class BppSettings
             1.0f,
             "Font scale for the Chinese subtitle line.",
             new SettingRange<float>(1.0f, 2.5f)
+        );
+        ShowCollectionButtonConfig = config.Bind(
+            "PanelButtons",
+            "ShowCollection",
+            true,
+            "Whether to show the Collection button beside the native settings button. Hotkeys remain available."
+        );
+        ShowTenWinBuildsButtonConfig = config.Bind(
+            "PanelButtons",
+            "ShowTenWinBuilds",
+            true,
+            "Whether to show the Ten-Win Builds button beside the in-run settings button. Hotkeys remain available."
         );
         EnableCombatStatusBarConfig = config.Bind(
             "CombatStatusBar",

@@ -216,6 +216,7 @@ internal sealed class MonoHostComposition : IDisposable
         );
         _settingsDockRegistry.Register(BilingualItemNamesSettingsDockEntry.Create());
         _settingsDockRegistry.Register(CosmeticNamesSettingsDockEntry.Create());
+        PanelButtonSettingsDockEntries.RegisterAll(_settingsDockRegistry);
         _settingsDockRegistry.Register(
             CombatStatusBarSettingsDockEntry.Create(
                 CombatStatusBar.State.OnVisibilitySettingChanged
