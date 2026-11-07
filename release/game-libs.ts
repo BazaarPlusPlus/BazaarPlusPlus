@@ -639,6 +639,25 @@ export function managedEntries(lock: GameLibsLock): ManagedLockedEntry[] {
   );
 }
 
+// Steam build ids only grow, so a preview channel below online carries no game
+// change online lacks; the CompatCheck matrix skips it. Returns the online entry
+// it is behind, or null.
+export function previewBehindOnline(
+  lock: GameLibsLock,
+  platform: ManagedPlatform,
+  channel: SnapshotChannel
+): ManagedLockEntry | null {
+  if (channel === 'online') return null;
+  const preview = lock.entries[
+    lockKey(platform, channel)
+  ] as ManagedLockEntry | null;
+  const online = lock.entries[
+    lockKey(platform, 'online')
+  ] as ManagedLockEntry | null;
+  if (preview === null || online === null) return null;
+  return Number(preview.buildid) < Number(online.buildid) ? online : null;
+}
+
 export function snapshotDirectory(
   modRoot: string,
   platform: string,
@@ -2636,6 +2655,9 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
   node release/game-libs.ts fetch-input --input <apk|loader|patcher|cpp2il>
   node release/game-libs.ts lock-check [--managed <dir>]
   node release/game-libs.ts entries
+  node release/game-libs.ts behind-online --platform <macos|windows> --channel <staging|ptr>
+                                             Print the online game version when this entry's
+                                             Steam build is older than online's, else nothing
   node release/game-libs.ts official-apk     Print changed or unchanged: the publisher's APK against
                                              the android-online entry's (size and ETag, no download)
   node release/game-libs.ts record-apk-etag --apk <TheBazaar.apk> --apk-etag <etag>
@@ -2907,6 +2929,15 @@ export async function cliMain(
           readGameLibsLock(workspaceRoot)
         ))
           printLine(`${platform} ${channel}`);
+        return 0;
+      }
+      case 'behind-online': {
+        const online = previewBehindOnline(
+          readGameLibsLock(workspaceRoot),
+          required('platform') as ManagedPlatform,
+          required('channel') as SnapshotChannel
+        );
+        if (online) printLine(online.gameVersion);
         return 0;
       }
       default:

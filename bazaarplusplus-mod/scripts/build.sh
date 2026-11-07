@@ -55,10 +55,11 @@ repair_macos_trampoline() {
 # matrix [channel ...]: compile against every captured lock entry, fetching each
 # snapshot the way a normal build would; with channels, against exactly those entries
 # of the host platform, so an empty one fails instead of being skipped (the CI lane
-# names staging and ptr). The CompatCheck configuration fires neither the Debug
-# deploy nor the Release installer copy.
+# names staging and ptr). A preview entry whose Steam build is older than online's
+# is skipped with a warning: it has no game change online lacks. The CompatCheck
+# configuration fires neither the Debug deploy nor the Release installer copy.
 cmd_matrix() {
-    local entries=() entry platform channel managed failed=()
+    local entries=() entry platform channel managed online failed=()
     if (($# > 0)); then
         for channel in "$@"; do
             case "$channel" in
@@ -73,6 +74,13 @@ cmd_matrix() {
     for entry in "${entries[@]}"; do
         platform="${entry% *}" channel="${entry#* }"
         step "Matrix build against ${GREEN}${platform} ${channel}${CYAN}"
+        online="$(game_libs_cli behind-online --platform "$platform" --channel "$channel")"
+        if [[ -n "$online" ]]; then
+            local message="Skipped ${platform} ${channel}: its snapshot is older than online ${online}."
+            err "$message"
+            [[ "${GITHUB_ACTIONS:-}" == true ]] && echo "::warning title=Preview channel skipped::$message"
+            continue
+        fi
         if ! managed="$(lock_managed_path "$platform" "$channel")"; then
             failed+=("$platform $channel (snapshot unavailable)")
             continue
