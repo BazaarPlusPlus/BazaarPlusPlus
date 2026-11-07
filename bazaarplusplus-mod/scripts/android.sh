@@ -31,9 +31,7 @@ PLAY_LABELS=$'Play\n开始游戏\n開始遊戲'
 LAUNCHER_TIMEOUT_SECONDS=90
 SETTINGS_FILE="$MELON_BASE/UserData/BazaarPlusPlus.cfg"
 DEVICE_LOG="$MELON_BASE/MelonLoader/Latest.log"
-# The one device adb lists, found by require_device. One Android device runs at a time
-# (docs/development.md), so no command names it; keeping the serial for the whole run stops a
-# device that comes up later from taking over a step.
+# The explicit ANDROID_SERIAL, or the only connected device. Keep it for the whole run.
 DEVICE_SERIAL=
 # How long smoke waits for the main menu after launch.
 SMOKE_TIMEOUT_SECONDS="${BPP_ANDROID_SMOKE_TIMEOUT:-300}"
@@ -45,21 +43,28 @@ adb_bin() {
         command -v adb
     elif [[ -x "${ANDROID_HOME:-$HOME/Library/Android/sdk}/platform-tools/adb" ]]; then
         printf '%s' "${ANDROID_HOME:-$HOME/Library/Android/sdk}/platform-tools/adb"
+    elif [[ -n "${LOCALAPPDATA:-}" && -x "$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" ]]; then
+        printf '%s' "$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe"
     else
         die "adb not found. Put it on PATH, set ADB=/path/to/adb, or set ANDROID_HOME."
     fi
 }
 
 device() {
-    "$(adb_bin)" -s "$DEVICE_SERIAL" "$@"
+    # Android paths must not become host paths in Git Bash. Host inputs are relative or native.
+    MSYS_NO_PATHCONV=1 "$(adb_bin)" -s "$DEVICE_SERIAL" "$@"
 }
 
 # The same rule as listedDevices and onlyDevice in scripts/setup-device.ts.
 find_device() {
     local listed serial state
     # Every device adb knows, whatever its state: a booting or unauthorized one is running too.
-    listed="$("$(adb_bin)" devices | awk '/^List of devices attached/ { list = 1; next } list && NF >= 2 { print $1, $2 }')" ||
+    listed="$("$(adb_bin)" devices | tr -d '\r' | awk '/^List of devices attached/ { list = 1; next } list && NF >= 2 { print $1, $2 }')" ||
         die "adb devices failed."
+    if [[ -n "${ANDROID_SERIAL:-}" ]]; then
+        listed="$(awk -v target="$ANDROID_SERIAL" '$1 == target' <<<"$listed")"
+        [[ -n "$listed" ]] || die "Selected Android device '$ANDROID_SERIAL' is not connected."
+    fi
     [[ -n "$listed" ]] ||
         die "No Android device is online; open one AVD with 'just setup-device NAME --keep-open'."
     [[ "$listed" != *$'\n'* ]] ||
@@ -73,7 +78,7 @@ find_device() {
 require_device() {
     if [[ -z "$DEVICE_SERIAL" ]]; then
         find_device
-    elif [[ "$(device get-state 2>/dev/null)" != device ]]; then
+    elif [[ "$(device get-state 2>/dev/null | tr -d '\r')" != device ]]; then
         die "Device '$DEVICE_SERIAL' went offline."
     fi
     device shell run-as "$APP_PACKAGE" true </dev/null >/dev/null 2>&1 ||
@@ -91,6 +96,10 @@ app_cat() {
 
 app_put() {
     local source="$1" target="$2"
+    # device disables MSYS conversion for Android paths; convert only this host input.
+    if command -v cygpath >/dev/null 2>&1; then
+        source="$(cygpath -m "$source")"
+    fi
     device push "$source" "$STAGING" >/dev/null </dev/null
     app_sh "mkdir -p $(dirname "$target") && cp $STAGING $target"
     device shell rm -f "$STAGING" </dev/null

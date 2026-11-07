@@ -9,13 +9,13 @@ public sealed class HistoryTimelineScrollTests
     [Theory]
     [InlineData(3)]
     [InlineData(6)]
-    [InlineData(10)]
+    [InlineData(13)]
     public void Clicking_a_visible_row_preserves_the_exact_scroll_offset(int slot)
     {
         var scroll = new HistoryTimelineScroll();
         scroll.Bind("previous", 7, Count, 237.5f, Viewport);
 
-        // Slots 3 and 10 are near opposite edges; 10 is only partly visible.
+        // Slots 3 and 13 are near opposite edges; 13 is only partly visible.
         Assert.Equal(237.5f, scroll.Bind("clicked", slot, Count, 237.5f, Viewport));
     }
 
@@ -24,7 +24,7 @@ public sealed class HistoryTimelineScrollTests
     {
         var scroll = new HistoryTimelineScroll();
 
-        Assert.Equal(270.25f, scroll.Bind("clicked", 3, Count, 270.25f, Viewport));
+        Assert.Equal(211.25f, scroll.Bind("clicked", 3, Count, 211.25f, Viewport));
     }
 
     [Fact]
@@ -38,10 +38,10 @@ public sealed class HistoryTimelineScrollTests
     }
 
     [Theory]
-    [InlineData(0, 300, 0)]
-    [InlineData(2, 300, 164)]
-    [InlineData(10, 0, 258)]
-    [InlineData(13, 0, 504)]
+    [InlineData(0, 200, 0)]
+    [InlineData(2, 200, 128)]
+    [InlineData(10, 0, 60)]
+    [InlineData(13, 0, 252)]
     public void A_new_selection_outside_the_viewport_moves_only_to_the_nearest_edge(
         int slot,
         float offset,
@@ -72,13 +72,13 @@ public sealed class HistoryTimelineScrollTests
         scroll.Bind("old-run", 4, Count, 150.5f, Viewport);
         scroll.Bind(null, -1, 0, 150.5f, Viewport);
 
-        Assert.Equal(504, scroll.Bind("new-run", 13, Count, 0, Viewport));
+        Assert.Equal(252, scroll.Bind("new-run", 13, Count, 0, Viewport));
         Assert.Equal(250.25f, scroll.Bind("new-run", 13, Count, 250.25f, Viewport));
     }
 
     [Theory]
     [InlineData(3, 0)]
-    [InlineData(10, 181)]
+    [InlineData(10, 1)]
     public void A_shorter_page_clamps_to_the_available_scroll_range(int count, float expected)
     {
         var scroll = new HistoryTimelineScroll();
@@ -93,7 +93,7 @@ public sealed class HistoryTimelineScrollTests
         var scroll = new HistoryTimelineScroll();
         Assert.Equal(0, scroll.Bind("selected", 13, Count, 0, 0));
 
-        Assert.Equal(504, scroll.Bind("selected", 13, Count, 0, Viewport));
+        Assert.Equal(252, scroll.Bind("selected", 13, Count, 0, Viewport));
     }
 
     // The Android rail passes its own chip pitch: reveal and clamp follow that pitch, not the
@@ -117,5 +117,18 @@ public sealed class HistoryTimelineScrollTests
         scroll.Bind("selected", 0, Count, 0, 300, step: 56);
 
         Assert.Equal(484, scroll.Bind("selected", 0, Count, 900, 300, step: 56));
+    }
+
+    [Theory]
+    [InlineData(64f)]
+    [InlineData(192f)]
+    public void Relayout_during_loading_preserves_the_fractional_slot(float newPitch)
+    {
+        var scroll = new HistoryTimelineScroll();
+        scroll.Bind("selected", 3, Count, 126f, 300f, step: 56f);
+        scroll.Bind(null, -1, 0, 126f, 300f, step: 56f);
+        scroll.Bind(null, -1, 0, 0f, 400f, step: newPitch);
+
+        Assert.Equal(2.25f * newPitch, scroll.Bind("selected", 3, Count, 0f, 400f, step: newPitch));
     }
 }

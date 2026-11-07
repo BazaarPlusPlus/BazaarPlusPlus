@@ -25,9 +25,17 @@ public static partial class HistoryPanelText
 
     public static string BoardChallenger() => FormatSimple("Challenger", "挑战者", "挑戰者");
 
-    public static string BattleWon() => FormatSimple("Won", "胜", "勝");
+    public static string BoardYouTitle() => FormatSimple("Your build", "我的阵容", "我的陣容");
 
-    public static string BattleLost() => FormatSimple("Lost", "负", "負");
+    public static string BoardOpponentTitle() =>
+        FormatSimple("Opponent's build", "对手阵容", "對手陣容");
+
+    public static string BoardChallengerTitle() =>
+        FormatSimple("Challenger's build", "挑战者阵容", "挑戰者陣容");
+
+    public static string BattleWon() => FormatSimple("Won", "胜利", "勝利");
+
+    public static string BattleLost() => FormatSimple("Lost", "失败", "失敗");
 
     public static string GhostSyncUnavailable()
     {

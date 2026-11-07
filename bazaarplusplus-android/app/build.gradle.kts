@@ -109,6 +109,7 @@ abstract class DexBridge : DefaultTask() {
     @get:InputFiles abstract val stubSources: ConfigurableFileCollection
     @get:InputFiles abstract val androidJar: ConfigurableFileCollection
     @get:InputFile abstract val d8: RegularFileProperty
+    @get:InputFile abstract val java: RegularFileProperty
     @get:InputFile abstract val javac: RegularFileProperty
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
     @get:Internal abstract val workDir: DirectoryProperty
@@ -131,7 +132,8 @@ abstract class DexBridge : DefaultTask() {
                 "-d", classes.path) + sources.files.map { it.path })
         }
         exec.exec {
-            commandLine(listOf(d8.get().asFile.path, "--min-api", "30") + libs + listOf("--classpath", stubs.path,
+            // Invoke D8's Java entry point on every host, without a platform-specific shell wrapper.
+            commandLine(listOf(java.get().asFile.path, "-cp", d8.get().asFile.path, "com.android.tools.r8.D8", "--min-api", "30") + libs + listOf("--classpath", stubs.path,
                 "--output", dex.path) + classes.walkTopDown().filter { it.extension == "class" }.map { it.path })
         }
         val out = outputDir.get().asFile.apply { deleteRecursively(); mkdirs() }
@@ -140,13 +142,15 @@ abstract class DexBridge : DefaultTask() {
 }
 
 val javaLauncher = javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of((lock["jdk"] as Map<*, *>)["major"] as Int)) }
+val javaCompiler = javaToolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of((lock["jdk"] as Map<*, *>)["major"] as Int)) }
 
 val dexBridge = tasks.register<DexBridge>("dexBridge") {
     sources.from(fileTree("src/bridge/java") { include("**/*.java") })
     stubSources.from(fileTree("src/unityStub/java") { include("**/*.java") })
     androidJar.from(androidComponents.sdkComponents.bootClasspath)
-    d8.set(androidComponents.sdkComponents.sdkDirectory.map { it.file("build-tools/$lockedBuildTools/d8") })
-    javac.set(javaLauncher.map { it.metadata.installationPath.file("bin/javac") })
+    d8.set(androidComponents.sdkComponents.sdkDirectory.map { it.file("build-tools/$lockedBuildTools/lib/d8.jar") })
+    java.set(javaLauncher.map { it.executablePath })
+    javac.set(javaCompiler.map { it.executablePath })
     workDir.set(layout.buildDirectory.dir("intermediates/bridge"))
 }
 

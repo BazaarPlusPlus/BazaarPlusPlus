@@ -14,7 +14,7 @@ namespace BazaarPlusPlus.Mobile.History;
 /// touch layout: the database status with the server health probe, the status line (the rows
 /// below rise into it while it is empty), and the BazaarDB account row with its link form. The
 /// dialog is as tall as its rows and drag-scrolls only when the form outgrows a short screen.
-/// Supporter attribution lives in the main header. The code is read from
+/// Supporter attribution stays on the main header. The code is read from
 /// the input when the user submits it, so the input needs no change listener.
 /// </summary>
 internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
@@ -39,7 +39,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
     private readonly TextMeshProUGUI _accountBanner;
     private readonly HistoryButton _accountLinked;
     private string? _inputAccount;
-    private (bool Form, bool Status)? _shownRows;
+    private (bool Form, bool Status, bool Linked)? _shownRows;
 
     public TouchHistoryMoreDialog(
         RectTransform parent,
@@ -67,15 +67,15 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             Local(layout.DialogTitle, origin),
             layout.TitleFont
         );
-        title.text = TouchHistoryUi.T("History options", "历史记录选项");
+        title.text = TouchHistoryUi.T("More", "更多");
         TouchHistoryUi.Button(
             dialog,
             font,
             "more_close",
             Local(layout.DialogClose, origin),
-            layout.TitleFont,
+            layout.ButtonFont,
             () => Close("close_button"),
-            UiKit.CloseGlyph
+            HistoryPanelText.Close()
         );
         var (scroll, content) = TouchHistoryUi.Scroll(
             dialog,
@@ -201,7 +201,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             wrap: true
         );
         _accountLinked = TouchHistoryUi.Button(
-            form,
+            below,
             font,
             "account_linked",
             layout.AccountLinked,
@@ -256,19 +256,34 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         _accountPersistence.text = m.AccountPersistenceText;
         TouchHistoryUi.SetActive(_accountToggle.GameObject, m.AccountRowActionVisible);
         _accountToggle.Set(
-            m.AccountLinkFormVisible ? m.AccountLinkCollapseText : m.AccountRowActionText
+            m.AccountLinkFormVisible ? m.AccountLinkCollapseText : m.AccountRowActionText,
+            enabled: m.AccountLinkInputEnabled
         );
         if (!m.AccountLinkFormVisible)
             _accountInput.DeactivateInputField(false);
         TouchHistoryUi.SetActive(_form, m.AccountLinkFormVisible);
-        if (_shownRows != (m.AccountLinkFormVisible, hasStatus))
+        if (
+            _shownRows != (m.AccountLinkFormVisible, hasStatus, m.AccountAlreadyLinkedButtonVisible)
+        )
         {
-            _shownRows = (m.AccountLinkFormVisible, hasStatus);
+            _shownRows = (m.AccountLinkFormVisible, hasStatus, m.AccountAlreadyLinkedButtonVisible);
             var rise = hasStatus ? 0f : _layout.AccountTitle.Top - _layout.MoreStatus.Top;
             _below.anchoredPosition = new Vector2(0f, rise);
+            var linked = _layout.AccountLinked;
+            if (!m.AccountLinkFormVisible)
+                linked = new TouchRect(
+                    linked.Left,
+                    _layout.AccountFormTop,
+                    linked.Width,
+                    linked.Height
+                );
+            TouchScreen.Place(_accountLinked.GameObject.GetComponent<RectTransform>(), linked);
             var content =
-                (m.AccountLinkFormVisible ? _layout.MoreContentHeight : _layout.AccountFormTop)
-                - rise;
+                (
+                    m.AccountLinkFormVisible ? _layout.MoreContentHeight
+                    : m.AccountAlreadyLinkedButtonVisible ? linked.Bottom
+                    : _layout.AccountFormTop
+                ) - rise;
             _scroll.content.sizeDelta = new Vector2(_layout.MoreScroll.Width, content);
             Fit(content);
         }

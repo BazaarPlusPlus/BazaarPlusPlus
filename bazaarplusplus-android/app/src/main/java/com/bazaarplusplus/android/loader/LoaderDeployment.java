@@ -1,5 +1,7 @@
 package com.bazaarplusplus.android.loader;
 
+import com.bazaarplusplus.android.io.AtomicFiles;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -96,13 +98,11 @@ public final class LoaderDeployment {
     }
 
     static void write(File stateFile, Identity identity) throws IOException {
-        File tmp = new File(stateFile.getPath() + ".tmp");
         try {
-            Files.write(tmp.toPath(), identity.toJson().toString().getBytes(StandardCharsets.UTF_8));
+            AtomicFiles.writeUtf8(stateFile, identity.toJson().toString());
         } catch (JSONException e) {
             throw new IOException(e);
         }
-        if (!tmp.renameTo(stateFile)) throw new IOException("Cannot replace " + stateFile);
     }
 
     private static void deleteTree(File file) {

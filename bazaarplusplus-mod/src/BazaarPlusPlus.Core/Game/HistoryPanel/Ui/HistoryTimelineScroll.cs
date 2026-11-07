@@ -4,7 +4,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 public sealed class HistoryTimelineScroll
 {
     private string? _selectedBattleId;
-    private float? _offsetBeforeLoading;
+    private double? _slotsBeforeLoading;
 
     // step: one chip's pitch; the desktop's HistoryPanelLayout.DayChipHeight when omitted.
     public float Bind(
@@ -16,17 +16,17 @@ public sealed class HistoryTimelineScroll
         float? step = null
     )
     {
+        var pitch = step ?? HistoryPanelLayout.DayChipHeight;
         // Empty pages also occur between asynchronous loads. Keep the last position and
         // selection so the returning page cannot turn a refresh into another navigation.
         if (rowCount == 0 || viewportHeight <= 0)
         {
-            _offsetBeforeLoading ??= offset;
+            _slotsBeforeLoading ??= (double)offset / pitch;
             return 0;
         }
 
-        offset = _offsetBeforeLoading ?? offset;
-        _offsetBeforeLoading = null;
-        var pitch = step ?? HistoryPanelLayout.DayChipHeight;
+        offset = _slotsBeforeLoading is { } slots ? (float)(slots * pitch) : offset;
+        _slotsBeforeLoading = null;
         var max = System.Math.Max(0, rowCount * pitch - viewportHeight);
         offset = System.Math.Clamp(offset, 0, max);
 

@@ -12,8 +12,8 @@ repository root.
 ## Prepare
 
 1. `just doctor`, then `just setup` for missing dependencies and config projections.
-2. `bun scripts/setup-device.ts --help` lists the AVD names, dimensions,
-   serials and options. `just list-devices` shows only
+2. `bun scripts/setup-device.ts --help` lists the supported hosts and seed images,
+   AVD names, dimensions, serials and options. `just list-devices` shows only
    an earlier result.
 3. `just setup-device` for every AVD, or `just setup-device NAME` for one.
    Each AVD runs the player's setup: the official game started from the debug
@@ -31,8 +31,10 @@ reached the main menu with this checkout's mod loaded.
 
 1. Open one AVD with `just setup-device NAME --keep-open`, then use the
    `just mod::android-*` deploy, launch, smoke and screen-check recipes; launch
-   taps Play on the launcher. They act on the one running device and refuse
-   when none or several run, so close an AVD before you open the next.
+   taps Play on the launcher. Set `ANDROID_SERIAL` to that AVD's serial for these
+   commands and walkthrough when other devices are connected; an absent or offline
+   target fails. Without it, the commands require exactly one device. Phones may
+   stay connected; close an AVD before you open the next.
 2. Check each affected panel on all three AVDs, one after another, with
    `just mod::android-screen-check RUN`, then read the image for clipping,
    alignment and sideways content. Add the orientation scenarios from the

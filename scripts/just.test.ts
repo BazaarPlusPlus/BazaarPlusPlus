@@ -20,6 +20,7 @@ interface RecordedCall {
 interface RunOptions {
   cwd?: string;
   fail?: string;
+  env?: NodeJS.ProcessEnv;
 }
 
 interface HooksFixtureOptions {
@@ -80,13 +81,14 @@ function fixture(t: TestContext) {
     recorder,
     `import fs from 'node:fs';
 const [tool, ...args] = process.argv.slice(2);
+if (tool === 'adb' && process.env.MSYS_NO_PATHCONV !== '1') process.exit(93);
 fs.appendFileSync(process.env.BPP_JUST_TEST_LOG, JSON.stringify({tool, args, cwd: process.cwd()}) + '\\n');
 if (process.env.BPP_JUST_TEST_FAIL === tool) process.exit(37);
 `
   );
   const stub = (tool: string): string =>
     `#!/usr/bin/env bash\nexec ${shellQuote(process.execPath)} ${shellQuote(recorder)} ${shellQuote(tool)} "$@"\n`;
-  for (const tool of ['bun', 'uv', 'dotnet', 'cargo']) {
+  for (const tool of ['bun', 'uv', 'dotnet', 'cargo', 'adb']) {
     fs.writeFileSync(path.join(bin, tool), stub(tool), { mode: 0o755 });
   }
   const modDir = path.join(dir, 'bazaarplusplus-mod');
@@ -107,7 +109,7 @@ if (process.env.BPP_JUST_TEST_FAIL === tool) process.exit(37);
     dir,
     run(
       args: string[] = [],
-      { cwd = dir, fail }: RunOptions = {}
+      { cwd = dir, fail, env }: RunOptions = {}
     ): SpawnSyncReturns<string> {
       return spawnSync(just, ['--color', 'never', ...args], {
         cwd,
@@ -117,7 +119,10 @@ if (process.env.BPP_JUST_TEST_FAIL === tool) process.exit(37);
           ...process.env,
           PATH: `${bin}${path.delimiter}${process.env.PATH}`,
           BPP_JUST_TEST_LOG: log,
-          BPP_JUST_TEST_FAIL: fail ?? ''
+          BPP_JUST_TEST_FAIL: fail ?? '',
+          ADB: path.join(bin, 'adb').split(path.sep).join('/'),
+          ANDROID_SERIAL: '',
+          ...env
         }
       });
     },
@@ -290,6 +295,59 @@ test('android::ci runs the standalone check and test tasks in one Gradle invocat
   const result = failing.run(['android::ci'], { fail: 'gradlew' });
   assert.equal(result.status, 37, result.stdout + result.stderr);
   assert.equal(failing.calls().length, 1);
+});
+
+test('Android install and interop push pin the target and preserve Android paths under Git Bash', (t) => {
+  const f = fixture(t);
+  const env = { ANDROID_SERIAL: 'emulator-5556' };
+  succeeded(f.run(['android::install'], { env }));
+  succeeded(f.run(['android::push-interop'], { env }));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, 'android', 'gradlew', '--no-daemon', 'assembleDebug'),
+    call(
+      f.dir,
+      'android',
+      'adb',
+      '-s',
+      'emulator-5556',
+      'install',
+      '-r',
+      'app/build/outputs/apk/debug/app-debug.apk'
+    ),
+    call(
+      f.dir,
+      'android',
+      'adb',
+      '-s',
+      'emulator-5556',
+      'push',
+      'build/interop.zip',
+      '/data/local/tmp/bpp-interop.zip'
+    ),
+    call(
+      f.dir,
+      'android',
+      'adb',
+      '-s',
+      'emulator-5556',
+      'shell',
+      'run-as',
+      'com.bazaarplusplus.android.dev',
+      'sh',
+      '-c',
+      "'mkdir -p files/dev && cp /data/local/tmp/bpp-interop.zip files/dev/interop.zip'"
+    ),
+    call(
+      f.dir,
+      'android',
+      'adb',
+      '-s',
+      'emulator-5556',
+      'shell',
+      'rm',
+      '/data/local/tmp/bpp-interop.zip'
+    )
+  ]);
 });
 
 test('fmt formats every project, then re-projects release files', (t) => {

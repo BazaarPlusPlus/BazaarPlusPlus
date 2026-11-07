@@ -6,6 +6,7 @@ import type { SpawnSyncOptions } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { profiles as androidProfiles, onlyDevice } from './setup-device.ts';
 import type { ScreenReport } from './android-screen.ts';
+import { androidSdkPaths } from './android-sdk.ts';
 
 /** A walkthrough device: an Android AVD of the matrix, or the desktop game. */
 export type Device =
@@ -119,7 +120,10 @@ function device(name: string): Device {
 
 // The running device, checked to be the AVD asked for, so no capture is filed under another one.
 function online(d: Device & { kind: 'android' }): ReachedDevice {
-  const serial = onlyDevice(run([adbPath(), 'devices']));
+  const serial = onlyDevice(
+    run([adbPath(), 'devices']),
+    process.env.ANDROID_SERIAL
+  );
   let avd: string;
   try {
     avd = run([adbPath(), '-s', serial, 'emu', 'avd', 'name'])
@@ -145,27 +149,24 @@ function run(
   const result = spawnSync(args[0], args.slice(1), {
     encoding: 'utf8',
     timeout: 120_000,
+    windowsHide: true,
     ...options
   });
   if (result.error || result.status !== 0)
     throw new Error(
       `${args.slice(0, 3).join(' ')} failed: ${result.error?.message || result.stderr?.trim() || `exit ${result.status}`}`
     );
-  return result.stdout;
+  return result.stdout.replace(/\r+\n/g, '\n');
 }
 
-// android.sh finds the same one running device that online() checked.
-const androidScriptRun = (...args: string[]): string =>
+// Keep the serial online() checked even if another device appears later.
+const androidScriptRun = (d: { serial: string }, ...args: string[]): string =>
   run(['bash', androidScript, ...args], {
-    cwd: path.join(root, 'bazaarplusplus-mod')
+    cwd: path.join(root, 'bazaarplusplus-mod'),
+    env: { ...process.env, ADB: adbPath(), ANDROID_SERIAL: d.serial }
   });
 
-const adbPath = (): string =>
-  process.env.ADB ||
-  path.join(
-    process.env.ANDROID_HOME || path.join(os.homedir(), 'Library/Android/sdk'),
-    'platform-tools/adb'
-  );
+const adbPath = (): string => androidSdkPaths().adb;
 
 const adb = (d: { serial: string }, ...args: string[]): string =>
   run([adbPath(), '-s', d.serial, ...args]);
@@ -188,7 +189,7 @@ export async function panel(name: string, logical: string): Promise<void> {
       commandFile
     );
     fs.writeFileSync(local, text);
-    androidScriptRun('put', local, `${dataRootName}/${commandFile}`);
+    androidScriptRun(d, 'put', local, `${dataRootName}/${commandFile}`);
     fs.rmSync(path.dirname(local), { recursive: true, force: true });
     exists = () =>
       adb(
@@ -325,7 +326,7 @@ export function capture(
     );
   } else if (d.kind === 'android') {
     const capture = `walkthrough-${runName}-${d.name}-${scenario}`;
-    androidScriptRun('capture', capture);
+    androidScriptRun(d, 'capture', capture);
     const out = path.join(
       root,
       'bazaarplusplus-mod/artifacts/android',

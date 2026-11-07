@@ -25,12 +25,19 @@ internal sealed partial class HistoryPanel
     {
         if (!IsVisible || _uiView == null)
             return;
-        _nativePlayerBoard ??= CreateNativeHistoryBoard(false);
-        if (_hasPreviewContainerBounds)
-            _nativePlayerBoard.SetBounds(_previewContainerBounds);
         var battle = ActiveSelectedBattle;
         var snapshots =
             _state.DetailBattleId == battle?.BattleId ? _coordinator?.DetailSnapshots : null;
+        _uiView.SetBoardsAvailable(snapshots != null);
+        if (snapshots == null)
+        {
+            DisposeNativeHistoryBoards();
+            RefreshNativeHistoryMessages();
+            return;
+        }
+        _nativePlayerBoard ??= CreateNativeHistoryBoard(false);
+        if (_hasPreviewContainerBounds)
+            _nativePlayerBoard.SetBounds(_previewContainerBounds);
         var templates = DesktopHistoryCardTemplates.Instance;
         var player = HistoryBoardProjection.Items(
             snapshots?.PlayerHand,

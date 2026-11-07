@@ -17,6 +17,16 @@ namespace BazaarPlusPlus.Mobile.History;
 internal static class TouchHistoryUi
 {
     public static NativeSkin Skin { get; private set; } = null!;
+    private static Sprite? _normalArt,
+        _selectedArt;
+    private static float _artPixelsPerUnit;
+
+    public static void UseArtwork(Sprite? normal, Sprite? selected, float pixelsPerUnit)
+    {
+        _normalArt = normal;
+        _selectedArt = selected;
+        _artPixelsPerUnit = pixelsPerUnit;
+    }
 
     public static void RefreshSkin() => Skin = new NativeSkin();
 
@@ -25,7 +35,6 @@ internal static class TouchHistoryUi
     public static readonly Color ButtonFill = InGameTheme.Button;
     public static readonly Color ButtonDimmed = InGameTheme.ButtonDimmed;
     public static readonly Color Backdrop = InGameTheme.Backdrop;
-    public static readonly Color PanelFill = InGameTheme.Panel;
     public static readonly Color Shade = InGameTheme.Scrim;
     public static readonly Color InputFill = InGameTheme.Input;
     public static readonly Color Win = InGameTheme.Success;
@@ -121,7 +130,13 @@ internal static class TouchHistoryUi
         );
         var label = UiKit.Text(labelRect, font, text, size, TextAlignmentOptions.Center, Ink);
         Shape(label, wrap: true);
-        return new HistoryButton(button, fill, label, Skin);
+        var controlButton = new HistoryButton(button, fill, label, Skin).WithHeaderArt(
+            _normalArt,
+            _selectedArt,
+            _artPixelsPerUnit
+        );
+        controlButton.Set(text);
+        return controlButton;
     }
 
     /// <summary>
@@ -165,7 +180,7 @@ internal static class TouchHistoryUi
     public static RectTransform Panel(Transform parent, string name, TouchRect area)
     {
         var rect = TouchScreen.Child(name, parent, area);
-        Skin.Frame(rect, PanelFill, borderOnly: true);
+        Skin.Frame(rect, InGameTheme.Dialog, borderOnly: true);
         var swallow = rect.gameObject.AddComponent<Button>();
         swallow.transition = Selectable.Transition.None;
         return rect;
@@ -325,6 +340,10 @@ internal sealed class HistoryButton(
     private (string Text, bool Selected, bool Enabled, bool Dimmed)? _shown;
     private Image[]? _chevronStrokes;
     private HistoryButtonStyle _style;
+    private Image? _selectionRule;
+    private Sprite? _headerNormal;
+    private Sprite? _headerSelected;
+    private float _headerPixelsPerUnit;
 
     public Button Button { get; } = button;
 
@@ -338,6 +357,27 @@ internal sealed class HistoryButton(
     public HistoryButton As(HistoryButtonStyle style)
     {
         _style = style;
+        if (style == HistoryButtonStyle.Tab && _selectionRule == null)
+        {
+            var line = UiKit.Rect(
+                "SelectionRule",
+                Button.transform,
+                Vector2.zero,
+                new Vector2(1f, 0f),
+                Vector2.zero,
+                new Vector2(0f, Label.fontSize / 7f)
+            );
+            _selectionRule = UiKit.Fill(line, InGameTheme.Accent, false);
+        }
+        _shown = null;
+        return this;
+    }
+
+    public HistoryButton WithHeaderArt(Sprite? normal, Sprite? selected, float pixelsPerUnit)
+    {
+        _headerNormal = normal;
+        _headerSelected = selected;
+        _headerPixelsPerUnit = pixelsPerUnit;
         _shown = null;
         return this;
     }
@@ -370,6 +410,15 @@ internal sealed class HistoryButton(
         }
     }
 
+    public void UseTrailingChevron(float size)
+    {
+        UseChevron(-90f, size);
+        Label.gameObject.SetActive(true);
+        var icon = (RectTransform)Button.transform.Find("Chevron");
+        icon.anchorMin = icon.anchorMax = new Vector2(.92f, .5f);
+        Label.margin = new Vector4(size, 0, 2f * size, 0);
+    }
+
     /// <param name="text">The label.</param>
     /// <param name="selected">True: it reads as the current choice.</param>
     /// <param name="enabled">False: the button takes no taps.</param>
@@ -382,13 +431,25 @@ internal sealed class HistoryButton(
         Label.text = text;
         Button.interactable = enabled;
         var muted = dimmed || !enabled;
-        skin.Select(Fill, selected, muted);
+        skin.Select(Fill, false, muted);
+        if (_headerNormal != null)
+        {
+            Fill.sprite = selected ? _headerSelected ?? _headerNormal : _headerNormal;
+            Fill.type = Image.Type.Sliced;
+            Fill.pixelsPerUnitMultiplier = _headerPixelsPerUnit;
+            Fill.color = muted ? new Color(1f, 1f, 1f, .5f) : Color.white;
+        }
         var quietTab = _style == HistoryButtonStyle.Tab && !selected;
-        // Transparent, not disabled: the fill still takes the tap.
-        if (quietTab)
-            Fill.color = Color.clear;
+        if (_style is HistoryButtonStyle.Tab or HistoryButtonStyle.Record)
+        {
+            Fill.sprite = null;
+            Fill.color = selected ? InGameTheme.ButtonSelected : Color.clear;
+        }
+        if (_selectionRule != null)
+            _selectionRule.gameObject.SetActive(selected);
         Label.color =
-            muted || quietTab ? TouchHistoryUi.Muted
+            muted ? TouchHistoryUi.Muted
+            : quietTab ? InGameTheme.InkSoft
             : _style == HistoryButtonStyle.Danger ? TouchHistoryUi.Loss
             : TouchHistoryUi.Ink;
         if (_chevronStrokes != null)
@@ -401,5 +462,6 @@ internal enum HistoryButtonStyle
 {
     Action,
     Tab,
+    Record,
     Danger,
 }

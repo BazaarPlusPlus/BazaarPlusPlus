@@ -57,15 +57,15 @@ internal static class AccountLinkCardTests
                     );
                     Require(status.Length > 0, "Every card state must have a visible explanation.");
                     Require(
-                        (persistence.Length > 0) == (canAct && linked),
-                        "Only an available linked row should add persistence guidance, regardless of expansion."
+                        (persistence.Length > 0) == canAct,
+                        "Available accounts explain that linking follows the game account, regardless of expansion."
                     );
                     Require(
                         rowAction
                             == (
                                 linked
                                     ? (chinese ? "重新绑定" : "Re-link")
-                                    : (chinese ? "绑定…" : "Link…")
+                                    : (chinese ? "输入绑定码" : "Enter code")
                             ),
                         "The row action offers re-linking exactly when the account is linked."
                     );
@@ -74,13 +74,13 @@ internal static class AccountLinkCardTests
                             == (
                                 inProgress
                                     ? (chinese ? "绑定中..." : "Linking...")
-                                    : (chinese ? "绑定账号" : "Link account")
+                                    : (chinese ? "确认绑定" : "Confirm link")
                             ),
                         "The link button shows progress while a link request is running."
                     );
                     Require(
-                        alreadyLinkedVisible == (formVisible && !linked && !inProgress),
-                        "The already-linked shortcut belongs to an open form of an unlinked, idle account."
+                        alreadyLinkedVisible == (canAct && !linked && !inProgress),
+                        "An unconfirmed idle account can confirm an existing link without opening the code form."
                     );
                     Require(
                         linkButtonEnabled == (canAct && !inProgress),
@@ -102,14 +102,14 @@ internal static class AccountLinkCardTests
                     else if (linked)
                     {
                         Contains(status, chinese ? "已绑定" : "Linked");
-                        Contains(persistence, chinese ? "BazaarDB 账号" : "BazaarDB account");
-                        Contains(
-                            persistence,
-                            chinese ? "更新插件无需重新绑定" : "Updating the mod keeps it"
-                        );
+                        Contains(persistence, chinese ? "游戏账号" : "game account");
+                        Contains(persistence, chinese ? "换设备无需重绑" : "another device");
                     }
                     else
-                        Contains(status, chinese ? "未绑定" : "not linked");
+                    {
+                        Contains(status, chinese ? "尚未确认绑定" : "not confirmed");
+                        Contains(persistence, chinese ? "已经绑定" : "Already linked");
+                    }
                 }
             }
         }

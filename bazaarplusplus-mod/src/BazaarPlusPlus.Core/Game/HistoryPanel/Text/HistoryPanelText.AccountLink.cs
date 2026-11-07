@@ -21,14 +21,21 @@ public static partial class HistoryPanelText
         );
 
         private static readonly LocalizedTextSet BindingPersistsText = new(
-            "Your link is saved in your BazaarDB account. Updating the mod keeps it.",
-            "绑定保存在 BazaarDB 账号上，更新插件无需重新绑定。"
+            "The link follows your game account. No need to re-link on another device.",
+            "绑定跟随游戏账号，换设备无需重绑。",
+            "綁定跟隨遊戲帳號，換裝置無需重綁。"
+        );
+
+        private static readonly LocalizedTextSet BindingOnceText = new(
+            "Link once per game account.\nAlready linked this account? Choose “Already linked”.",
+            "绑定跟随游戏账号，只需一次。\n已绑定过？点击「已经绑定」。",
+            "綁定跟隨遊戲帳號，只需一次。\n已綁定過？點選「已經綁定」。"
         );
 
         private static readonly LocalizedTextSet TitleText = new(
-            "Link BazaarDB account",
-            "绑定 BazaarDB 账号",
-            "綁定 BazaarDB 帳號"
+            "BazaarDB account",
+            "BazaarDB 账号",
+            "BazaarDB 帳號"
         );
 
         private static readonly LocalizedTextSet WhyText = new(
@@ -50,15 +57,15 @@ public static partial class HistoryPanelText
         );
 
         private static readonly LocalizedTextSet ButtonText = new(
-            "Link account",
-            "绑定账号",
-            "綁定帳號"
+            "Confirm link",
+            "确认绑定",
+            "確認綁定"
         );
 
         private static readonly LocalizedTextSet AlreadyLinkedElsewhereButtonText = new(
-            "I already linked",
-            "我已绑定",
-            "我已綁定"
+            "Already linked",
+            "已经绑定",
+            "已經綁定"
         );
 
         private static readonly LocalizedTextSet LinkingText = new(
@@ -67,16 +74,12 @@ public static partial class HistoryPanelText
             "綁定中..."
         );
 
-        private static readonly LocalizedTextSet LinkedText = new(
-            "Linked to BazaarDB",
-            "已绑定 BazaarDB",
-            "已綁定 BazaarDB"
-        );
+        private static readonly LocalizedTextSet LinkedText = new("Linked", "已绑定", "已綁定");
 
         private static readonly LocalizedTextSet NotLinkedText = new(
-            "BazaarDB not linked",
-            "BazaarDB 未绑定",
-            "BazaarDB 未綁定"
+            "Link not confirmed",
+            "尚未确认绑定",
+            "尚未確認綁定"
         );
 
         private static readonly LocalizedTextSet RelinkText = new(
@@ -85,7 +88,11 @@ public static partial class HistoryPanelText
             "重新綁定"
         );
 
-        private static readonly LocalizedTextSet RowBindText = new("Link…", "绑定…", "綁定…");
+        private static readonly LocalizedTextSet RowBindText = new(
+            "Enter code",
+            "输入绑定码",
+            "輸入綁定碼"
+        );
 
         private static readonly LocalizedTextSet CollapseText = new("Hide", "收起", "收起");
 
@@ -137,6 +144,8 @@ public static partial class HistoryPanelText
         public static string PtrUnavailable() => Resolve(PtrUnavailableText);
 
         public static string BindingPersists() => Resolve(BindingPersistsText);
+
+        public static string BindingOnce() => Resolve(BindingOnceText);
 
         public static string Why() => Resolve(WhyText);
 

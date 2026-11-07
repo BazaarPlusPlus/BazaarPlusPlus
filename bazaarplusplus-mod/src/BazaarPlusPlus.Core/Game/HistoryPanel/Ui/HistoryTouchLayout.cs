@@ -6,16 +6,17 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
 /// <summary>
 /// The History panel's geometry on a landscape touch screen, in canvas units, top-down from the
-/// canvas's top-left corner: a full sheet inside the safe area. The header carries the section
-/// tabs, the supporter action, More, and Close. Under it stand three columns: the
-/// archive (its list, page label, and pager), the run's battle rail with its two pagers, and the
+/// canvas's top-left corner: a full sheet inside the safe area. The header carries the title,
+/// supporter action, More and Close. Under it stand three columns: the
+/// archive (tabs, filters, list, page label and pager), the run's battle rail with its two pagers, and the
 /// detail column with the native boards over the action row (delete, set apart from favorite,
 /// skills and replay). The rail ends above the action row, so its pager never reads as part of
 /// it. The status line runs along the bottom of the sheet. Every target is at least
 /// <see cref="TouchMetrics.MinTargetDp"/> and every text at least
 /// <see cref="TouchMetrics.MinBodySp"/>. The boards keep the game's card prefab proportions: ten
 /// sockets span the detail column, which takes <see cref="DetailSocketDp"/> per socket before the
-/// archive takes the rest, so a card's footprint stays a full touch target on a 20:9 phone. The
+/// archive takes the rest. When two boards would shrink below a touch target, the compact
+/// detail step uses a single board beneath Back, battle navigation and side selection. The
 /// skills side picker (sized to the skills it shows), the card inspection, the More dialog, and
 /// the favorite note dialog sit over the sheet. List rows, rail chips and dialog rows are given from their content's
 /// top-left corner. The desktop's <c>HistoryPanelLayout</c> is a separate layout and is not
@@ -54,122 +55,174 @@ public sealed class HistoryTouchLayout
         Sheet = chrome.Sheet;
         var body = chrome.Body;
 
-        // Header: tabs from the left, Close and More from the right, the supporter action between them.
         Close = chrome.Close;
-        var moreWidth = metrics.Target(80f);
-        More = new TouchRect(Close.Left - Gap - moreWidth, body.Top, moreWidth, target);
-        var tabWidth = metrics.Target(80f);
-        RunsTab = new TouchRect(body.Left, body.Top, tabWidth, target);
-        GhostTab = new TouchRect(RunsTab.Right + Gap, body.Top, tabWidth, target);
-        FavoritesTab = new TouchRect(GhostTab.Right + Gap, body.Top, tabWidth, target);
-        Sponsor = new TouchRect(
-            FavoritesTab.Right + Gap,
+        More = new TouchRect(
+            Close.Left - Gap - chrome.CloseWidth,
             body.Top,
-            Math.Max(0f, More.Left - Gap - FavoritesTab.Right - Gap),
+            chrome.CloseWidth,
             target
         );
+        var titleWidth = metrics.Dp(144f);
+        var supportWidth = Math.Min(
+            metrics.Dp(340f),
+            More.Left - body.Left - titleWidth - 2f * Gap
+        );
+        Sponsor = new TouchRect(More.Left - Gap - supportWidth, body.Top, supportWidth, target);
+        Title = new TouchRect(body.Left + small, body.Top, titleWidth - small, target);
 
         StatusHeight = metrics.Dp(18f);
         Status = new TouchRect(body.Left, body.Bottom - StatusHeight, body.Width, StatusHeight);
-
         var top = Close.Bottom + Gap;
         var bottom = Status.Top - small;
         var columnHeight = Math.Max(0f, bottom - top);
-        var railWidth = metrics.Target(76f);
+        var railWidth = metrics.Target(64f);
         var archiveWidth = Math.Clamp(
             body.Width - railWidth - 2f * Gap - SocketCount * metrics.Dp(DetailSocketDp),
             metrics.Dp(200f),
             metrics.Dp(320f)
         );
-        Archive = new TouchRect(body.Left, top, archiveWidth, columnHeight);
-        // The rail stops above the action row; ArchivePager below fixes where that row starts.
-        Rail = new TouchRect(
-            Archive.Right + Gap,
-            top,
-            railWidth,
-            Math.Max(0f, columnHeight - target - small)
-        );
-        Detail = new TouchRect(
-            Rail.Right + Gap,
-            top,
-            Math.Max(0f, body.Right - Rail.Right - Gap),
-            columnHeight
-        );
-
-        // Archive: the list over one compact page label and the pager.
-        ArchivePager = new TouchRect(Archive.Left, Archive.Bottom - target, archiveWidth, target);
-        PagerButtonWidth = (archiveWidth - Gap * (PagerButtonCount - 1)) / PagerButtonCount;
-        // The touch view shows the page range without the secondary counts line.
-        var pageLabelHeight = metrics.Dp(22f);
-        PageLabel = new TouchRect(
-            Archive.Left,
-            ArchivePager.Top - small - pageLabelHeight,
-            archiveWidth,
-            pageLabelHeight
-        );
-        ArchiveList = new TouchRect(
-            Archive.Left,
-            top,
-            archiveWidth,
-            Math.Max(0f, PageLabel.Top - small - top)
-        );
-        // Three whole runs fill the viewport; each row includes its trailing half-gap.
-        RunRowHeight = Math.Max(target + Gap / 2f, ArchiveList.Height / 3f);
-        BattleRowHeight = metrics.Dp(64f);
-
-        // Rail: newer on top, older at the bottom, the battles between.
-        RailNewer = new TouchRect(Rail.Left, Rail.Top, railWidth, target);
-        RailOlder = new TouchRect(Rail.Left, Rail.Bottom - target, railWidth, target);
-        RailList = new TouchRect(
-            Rail.Left,
-            RailNewer.Bottom + small,
-            railWidth,
-            Math.Max(0f, RailOlder.Top - small - (RailNewer.Bottom + small))
-        );
-        // A run whose battles fit one page has no rail pager; the list takes the whole rail.
-        RailListFull = Rail;
-        ChipHeight = metrics.Dp(56f);
-        // Ghost has no rail: its cloud note wraps in the rail's column instead of the filter strip,
-        // where it ran past the screen's edge.
-        CloudNote = Rail;
-
-        // Detail: the action row at the bottom, the boards above it.
-        Footer = new TouchRect(Detail.Left, Detail.Bottom - target, Detail.Width, target);
-        Delete = new TouchRect(Detail.Left, Footer.Top, metrics.Target(104f), target);
-        // Three gaps set the destructive action apart from the rest of the row.
-        Favorite = new TouchRect(Delete.Right + 3f * Gap, Footer.Top, metrics.Target(120f), target);
-        Skills = new TouchRect(Favorite.Right + Gap, Footer.Top, metrics.Target(96f), target);
-        Replay = new TouchRect(
-            Skills.Right + Gap,
-            Footer.Top,
-            Math.Max(0f, Detail.Right - Skills.Right - Gap),
-            target
-        );
-
+        var detailWidth = body.Width - archiveWidth - railWidth - 2f * Gap;
         BoardTitleHeight = metrics.Dp(18f);
         var boardGap = metrics.Dp(2f);
-        var boardsHeight = Math.Max(0f, Footer.Top - Gap - Detail.Top);
-        var heightScale =
-            (boardsHeight - 2f * BoardTitleHeight - boardGap)
-            / 2f
-            / (NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket);
-        var widthScale = Detail.Width / (NativeCardPrefab.SocketWidth * SocketCount);
-        CardScale = Math.Max(0.01f, Math.Min(widthScale, heightScale));
-        SocketWidth = NativeCardPrefab.SocketWidth * CardScale;
-        CardHeight = NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket * CardScale;
-        CarpetWidth = SocketWidth * SocketCount;
-        // The carpet and its titles are centred in the column, so a short board's titles sit
-        // over its cards when the boards are height-bound.
-        var carpetLeft = Detail.Left + (Detail.Width - CarpetWidth) / 2f;
-        UpperBoardTitle = new TouchRect(carpetLeft, Detail.Top, CarpetWidth, BoardTitleHeight);
-        UpperBoard = new TouchRect(carpetLeft, UpperBoardTitle.Bottom, CarpetWidth, CardHeight);
-        LowerBoardTitle = new TouchRect(
-            carpetLeft,
-            UpperBoard.Bottom + boardGap,
-            CarpetWidth,
-            BoardTitleHeight
+        var nativeHeight = NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket;
+        var wideScale = Math.Min(
+            detailWidth / (NativeCardPrefab.SocketWidth * SocketCount),
+            (columnHeight - target - Gap - 2f * BoardTitleHeight - boardGap) / (2f * nativeHeight)
         );
-        LowerBoard = new TouchRect(carpetLeft, LowerBoardTitle.Bottom, CarpetWidth, CardHeight);
+        Compact = wideScale * NativeCardPrefab.SocketWidth < metrics.MinTarget;
+        if (Compact)
+            archiveWidth = body.Width;
+        Archive = new TouchRect(body.Left, top, archiveWidth, columnHeight);
+        TabsTray = new TouchRect(Archive.Left, Archive.Top, Archive.Width, target);
+        RunsTab = new TouchRect(TabsTray.Left, TabsTray.Top, TabsTray.Width / 3f, target);
+        GhostTab = new TouchRect(RunsTab.Right, TabsTray.Top, RunsTab.Width, target);
+        FavoritesTab = new TouchRect(GhostTab.Right, TabsTray.Top, RunsTab.Width, target);
+        ArchiveFilter = new TouchRect(
+            Archive.Left + small,
+            TabsTray.Bottom + small,
+            Archive.Width - 2f * small,
+            target
+        );
+        ArchivePager = new TouchRect(
+            Archive.Left + small,
+            Archive.Bottom - target,
+            Archive.Width - 2f * small,
+            target
+        );
+        PagerButtonWidth = (ArchivePager.Width - Gap * (PagerButtonCount - 1)) / PagerButtonCount;
+        PageLabel = new TouchRect(
+            ArchivePager.Left,
+            ArchivePager.Top - small - metrics.Dp(22f),
+            ArchivePager.Width,
+            metrics.Dp(22f)
+        );
+        ArchiveList = new TouchRect(
+            Archive.Left + small,
+            ArchiveFilter.Bottom + small,
+            Archive.Width - 2f * small,
+            Math.Max(0f, PageLabel.Top - 2f * small - ArchiveFilter.Bottom)
+        );
+        ArchiveListWithoutFilter = new TouchRect(
+            ArchiveList.Left,
+            TabsTray.Bottom + small,
+            ArchiveList.Width,
+            PageLabel.Top - 2f * small - TabsTray.Bottom
+        );
+        RunRowHeight = metrics.Dp(72f);
+        BattleRowHeight = metrics.Dp(72f);
+
+        // The compact detail replaces the archive header with Back and battle navigation,
+        // retaining Close. This leaves one full-size native board even on short safe areas.
+        Detail = Compact
+            ? new TouchRect(body.Left, body.Top, body.Width, bottom - body.Top)
+            : new TouchRect(Archive.Right + Gap + railWidth + Gap, top, detailWidth, columnHeight);
+        var navigationTop = Detail.Top;
+        var navigationRight = Compact ? Close.Left - Gap : Detail.Right;
+        Back = new TouchRect(Detail.Left, navigationTop, metrics.Target(72f), target);
+        PlayerToggle = new TouchRect(
+            navigationRight - metrics.Target(56f),
+            navigationTop,
+            metrics.Target(56f),
+            target
+        );
+        OpponentToggle = new TouchRect(
+            PlayerToggle.Left - small - PlayerToggle.Width,
+            navigationTop,
+            PlayerToggle.Width,
+            target
+        );
+        Rail = Compact
+            ? new TouchRect(
+                Back.Right + Gap,
+                navigationTop,
+                OpponentToggle.Left - Gap - Back.Right - Gap,
+                target
+            )
+            : new TouchRect(Archive.Right + Gap, top, railWidth, columnHeight - target - small);
+        RailNewer = new TouchRect(Rail.Left, Rail.Top, Compact ? target : railWidth, target);
+        RailOlder = Compact
+            ? new TouchRect(Rail.Right - target, Rail.Top, target, target)
+            : new TouchRect(Rail.Left, Rail.Bottom - target, railWidth, target);
+        RailList = Compact
+            ? new TouchRect(
+                RailNewer.Right + small,
+                navigationTop,
+                RailOlder.Left - small - RailNewer.Right - small,
+                target
+            )
+            : new TouchRect(
+                Rail.Left,
+                RailNewer.Bottom + small,
+                railWidth,
+                RailOlder.Top - small - RailNewer.Bottom - small
+            );
+        RailListFull = Rail;
+        ChipHeight = metrics.Dp(56f);
+        ChipWidth = metrics.Target(64f);
+        Footer = new TouchRect(Detail.Left, Detail.Bottom - target, Detail.Width, target);
+        Delete = new TouchRect(Footer.Left, Footer.Top, metrics.Target(64f), target);
+        Replay = new TouchRect(
+            Footer.Right - metrics.Target(120f),
+            Footer.Top,
+            metrics.Target(120f),
+            target
+        );
+        Skills = new TouchRect(
+            Replay.Left - Gap - metrics.Target(64f),
+            Footer.Top,
+            metrics.Target(64f),
+            target
+        );
+        Favorite = new TouchRect(
+            Skills.Left - Gap - metrics.Target(104f),
+            Footer.Top,
+            metrics.Target(104f),
+            target
+        );
+        var boardTop = Compact ? Back.Bottom + small : Detail.Top;
+        var boardsHeight = Math.Max(0f, Footer.Top - Gap - boardTop);
+        var heightScale = Compact
+            ? (boardsHeight - BoardTitleHeight) / nativeHeight
+            : (boardsHeight - 2f * BoardTitleHeight - boardGap) / (2f * nativeHeight);
+        var widthScale = Detail.Width / (NativeCardPrefab.SocketWidth * SocketCount);
+        CardScale = Math.Max(.01f, Math.Min(widthScale, heightScale));
+        SocketWidth = NativeCardPrefab.SocketWidth * CardScale;
+        CardHeight = nativeHeight * CardScale;
+        CarpetWidth = SocketWidth * SocketCount;
+        var carpetLeft = Detail.Left + (Detail.Width - CarpetWidth) / 2f;
+        UpperBoardTitle = new TouchRect(carpetLeft, boardTop, CarpetWidth, BoardTitleHeight);
+        UpperBoard = new TouchRect(carpetLeft, UpperBoardTitle.Bottom, CarpetWidth, CardHeight);
+        LowerBoardTitle = Compact
+            ? UpperBoardTitle
+            : new TouchRect(
+                carpetLeft,
+                UpperBoard.Bottom + boardGap,
+                CarpetWidth,
+                BoardTitleHeight
+            );
+        LowerBoard = Compact
+            ? UpperBoard
+            : new TouchRect(carpetLeft, LowerBoardTitle.Bottom, CarpetWidth, CardHeight);
 
         // The card inspection: the shared tap-to-inspect sheet.
         _inspect = chrome.Inspect();
@@ -310,17 +363,27 @@ public sealed class HistoryTouchLayout
     /// <summary>The whole panel: the safe area less a margin.</summary>
     public TouchRect Sheet { get; }
 
+    public TouchRect Title { get; }
+
+    public TouchRect TabsTray { get; }
+
+    /// <summary>Record selection opens a separate detail page when two readable boards cannot fit.</summary>
+    public bool Compact { get; }
+    public TouchRect ArchiveFilter { get; }
+    public TouchRect ArchiveListWithoutFilter { get; }
+    public TouchRect Back { get; }
+    public TouchRect OpponentToggle { get; }
+    public TouchRect PlayerToggle { get; }
+    public float ChipWidth { get; }
+
     public TouchRect RunsTab { get; }
 
     public TouchRect GhostTab { get; }
 
     public TouchRect FavoritesTab { get; }
 
-    /// <summary>The supporter credit and sponsor link between the tabs and More.</summary>
+    /// <summary>The single supporter-credit button opening the sponsor link directly.</summary>
     public TouchRect Sponsor { get; }
-
-    /// <summary>Ghost's cloud note, wrapped in the rail's column, which Ghost leaves empty.</summary>
-    public TouchRect CloudNote { get; }
 
     public TouchRect More { get; }
 
@@ -473,7 +536,9 @@ public sealed class HistoryTouchLayout
 
     /// <summary>A battle chip on the rail, from the rail content's top-left corner.</summary>
     public TouchRect RailChip(int index) =>
-        new(0f, Math.Max(0, index) * ChipHeight, RailList.Width, ChipHeight - Gap / 2f);
+        Compact
+            ? new(Math.Max(0, index) * ChipWidth, 0f, ChipWidth - Gap / 2f, _target)
+            : new(0f, Math.Max(0, index) * ChipHeight, RailList.Width, ChipHeight - Gap / 2f);
 
     /// <summary>
     /// A card's footprint on a board, from the board's top-left corner: <paramref name="span"/>

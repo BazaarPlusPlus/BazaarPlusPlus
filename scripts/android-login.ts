@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
+import { androidSdkPaths } from './android-sdk.ts';
 import {
   assertExternal,
   configHome,
@@ -183,11 +184,7 @@ export async function signIn(
   const childEnv = { ...env };
   delete childEnv.BPP_GAME_EMAIL;
   delete childEnv.BPP_GAME_PASSWORD;
-  const sdkAdb = path.join(
-    env.ANDROID_HOME ??
-      path.join(process.env.HOME ?? '', 'Library/Android/sdk'),
-    'platform-tools/adb'
-  );
+  const sdkAdb = androidSdkPaths(env).adb;
   const command = env.ADB || (fs.existsSync(sdkAdb) ? sdkAdb : 'adb');
   const adb = (args: string[], label: string, input?: string): string =>
     run(command, ['-s', serial, ...args], input, childEnv, label);

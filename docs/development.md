@@ -107,7 +107,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 本机矩阵与登录准备
 
-`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；设备名字、尺寸、端口和参数以 `bun scripts/setup-device.ts --help` 为准。为了性能，同一时间只运行一台 Android 设备：init 在有设备运行时不启动；`just mod::android-*` 和 walkthrough 不指定设备，操作 adb 列出的唯一一台，没有设备或多于一台时报错，walkthrough 还核对它是不是所选的 AVD。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
+`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；支持的宿主、seed 镜像、设备名字、尺寸、端口和参数以 `bun scripts/setup-device.ts --help` 为准。macOS Apple Silicon 使用原生 ARM64 镜像；Windows x64 使用带 ARM64 转译的 x86_64 镜像，先检查转译能力，再验证实际游戏和 BPP。为了性能，同一时间只运行一台模拟器：init 在有模拟器运行时不启动，手机可以保持连接。init 为部署指定目标 serial；后续 `just android::*` 设备命令、`just mod::android-*` 和 walkthrough 在多设备连接时要设置 `ANDROID_SERIAL`，目标不在线就报错，不回退到另一台。未指定时只接受唯一一台设备，walkthrough 还核对 AVD 名字。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
 
 矩阵按 Mobile UI 的三个布局分支选设备：
 
@@ -135,7 +135,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 冒烟断言
 
-Android 没有云端的设备 lane：托管 runner 跑不了 arm64 游戏的模拟器（macOS arm64 托管 runner 没有嵌套虚拟化，x86 runner 跑不了只有 arm64 的游戏），自托管一台常开、常登录的机器只为夜间冒烟不值。发版前的设备验证在开发机上做：一台经 `just setup-device` 准备好的 AVD，`just mod::android-smoke enabled` 构建、部署进 debug App、从启动器重新启动、抓取并断言；`just mod::android-smoke disabled` 不装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。同一时间只驱动一台设备。
+Android 没有云端的设备 lane：当前托管 runner 未配置经验证的 ARM64 游戏运行环境，自托管一台常开、常登录的机器只为夜间冒烟不值。x86_64 镜像可以提供 ARM64 转译，但转译能力不等于游戏、LemonLoader 和 mod 已验证通过；本机仍以主菜单和 hook 证据验收。发版前的设备验证在开发机上做：一台经 `just setup-device` 准备好的 AVD，`just mod::android-smoke enabled` 构建、部署进 debug App、从启动器重新启动、抓取并断言；`just mod::android-smoke disabled` 不装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。同一时间只驱动一台设备。
 
 断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据写进 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（gitignored，含整机 logcat 和已登录账号的截图，不要提交，也不要原样贴进公开的 issue 或 PR）；`just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。版本标签在主菜单加载前就写入，所以三级不依赖主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。主菜单不产生记录，数据库行数只作证据。`observe` 只计数不写标签，必然在功能生效级失败。
 

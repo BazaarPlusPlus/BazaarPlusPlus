@@ -41,7 +41,9 @@ public class LibraryLinksTest {
 
     @Test
     public void theSearchPathEndsWithEachApksLibraryDirectory() {
-        assertEquals("/l:/app:/game:/a/base.apk!/lib/arm64-v8a:/a/split.apk!/lib/arm64-v8a",
+        assertEquals(String.join(File.pathSeparator,
+                        new File("/l").getAbsolutePath(), new File("/app").getAbsolutePath(), new File("/game").getAbsolutePath(),
+                        "/a/base.apk!/lib/arm64-v8a", "/a/split.apk!/lib/arm64-v8a"),
                 LibraryLinks.librarySearchPath(new File("/l"), new File("/app"), new File("/game"),
                         List.of("/a/base.apk", "/a/split.apk")));
     }

@@ -88,7 +88,10 @@ public static class HistoryPanelDecisions
             facts.Section != HistorySectionMode.Ghost
             || facts.SelectedGhostReplay is not { } replay
         )
-            return facts.DetailFailed ? HistoryPanelText.PreviewRendererInitFailed() : null;
+            return facts.DetailFailed ? HistoryPanelText.PreviewRendererInitFailed()
+                : facts.Detail == HistoryDetailPhase.Missing
+                    ? HistoryPanelText.BattleSnapshotMissing()
+                : null;
         if (replay.ActionInProgress)
             return replay.Availability == ReplayAvailability.Saved
                 ? HistoryPanelText.StartingReplay()
@@ -251,12 +254,14 @@ public static class HistoryPanelDecisions
         var canSubmit = actionVisible && !inProgress;
         return new(
             statusText,
-            actionVisible && linked ? HistoryPanelText.AccountLink.BindingPersists() : "",
+            !actionVisible ? ""
+                : linked ? HistoryPanelText.AccountLink.BindingPersists()
+                : HistoryPanelText.AccountLink.BindingOnce(),
             actionVisible,
             formVisible,
             rowActionText,
             linkButtonText,
-            formVisible && !linked && !inProgress,
+            actionVisible && !linked && !inProgress,
             canSubmit,
             canSubmit
         );

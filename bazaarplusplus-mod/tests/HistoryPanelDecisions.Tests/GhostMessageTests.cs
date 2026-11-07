@@ -369,6 +369,16 @@ internal static class GhostMessageTests
             None,
             None
         ),
+        new(
+            "A local battle without a saved snapshot explains the empty detail.",
+            Runs with
+            {
+                Detail = HistoryDetailPhase.Missing,
+            },
+            None,
+            HistoryPanelText.BattleSnapshotMissing,
+            Opponent: HistoryPanelText.BattleSnapshotMissing
+        ),
         // Favorites: not account-scoped, never Ghost sync guidance. rows → read → empty.
         new(
             "An empty Favorites list explains how to add one, without an account.",

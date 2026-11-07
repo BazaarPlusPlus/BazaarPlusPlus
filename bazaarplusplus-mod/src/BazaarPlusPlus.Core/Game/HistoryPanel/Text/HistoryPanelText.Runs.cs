@@ -54,6 +54,9 @@ public static partial class HistoryPanelText
     public static string NoRuns() =>
         FormatSimple("No runs recorded yet.", "还没有对局记录。", "還沒有對局紀錄。");
 
+    public static string NoRunFilterMatches() =>
+        FormatSimple("No matching runs. Try All heroes.", "没有符合条件的对局，试试“全部英雄”。");
+
     public static string NoBattlesInRun() =>
         FormatSimple(
             "No battles were recorded in this run.",
