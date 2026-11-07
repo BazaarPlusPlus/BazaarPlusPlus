@@ -140,6 +140,12 @@
 
   <!-- Game assembly references -->
   <ItemGroup>
+    <Reference Include="spine-csharp" HintPath="$(ManagedPath)/spine-csharp.dll" />
+    <Reference Include="spine-unity" HintPath="$(ManagedPath)/spine-unity.dll" />
+    <Reference
+      Include="UnityEngine.SpriteMaskModule"
+      HintPath="$(ManagedPath)/UnityEngine.SpriteMaskModule.dll"
+    />
     <Reference Include="Assembly-CSharp">
       <HintPath>$(ManagedPath)\Assembly-CSharp.dll</HintPath>
     </Reference>
@@ -200,6 +206,7 @@
   <ItemGroup>
     <DoNotPublicize Include="BazaarPlusPlus.ModApi" />
     <DoNotPublicize Include="BazaarPlusPlus.Core" />
+    <DoNotPublicize Include="spine-csharp;spine-unity" />
   </ItemGroup>
   <!-- Debug build -->
   <Target

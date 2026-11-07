@@ -13,6 +13,7 @@ using BazaarPlusPlus.Game.CosmeticNames;
 using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.GraphicsUpscaling;
+using BazaarPlusPlus.Game.HeroPortraits;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
@@ -246,6 +247,7 @@ internal sealed class MonoHostComposition : IDisposable
                 or UnityEngine.RuntimePlatform.WindowsPlayer
         )
             GraphicsUpscalingSettingsDockEntry.RegisterAll(_settingsDockRegistry);
+        _settingsDockRegistry.Register(AnimatedHeroPortraitsSettingsDockEntry.Create());
 
         _mountables.Register(new UploadPumpMount());
         if (
@@ -282,6 +284,22 @@ internal sealed class MonoHostComposition : IDisposable
         );
         _mountables.Register(new ComponentMount<CombatStatusBar>((c, s) => c.Initialize(s)));
         _mountables.Register(new ComponentMount<NativeMusicNotePreviewController>());
+        _mountables.Register(
+            new ComponentMount<AnimatedHeroPortraitController>(
+                (controller, services) =>
+                {
+                    _patchFeatures.PortraitAnimation = controller;
+                    controller.Initialize(
+                        services.Config,
+                        _patchFeatures.HeroPortraits,
+                        System.IO.Path.Combine(
+                            services.Paths.RequireDataRoot(),
+                            "PortraitCompositions"
+                        )
+                    );
+                }
+            )
+        );
         // Plugin-lifetime, like _nativeCardPreviewHost: composition does not dispose
         // GameInterop hosts, and the releasable unit is the session the view acquires from it.
         var pairedTooltipHost = new NativePairedTooltipHost();
