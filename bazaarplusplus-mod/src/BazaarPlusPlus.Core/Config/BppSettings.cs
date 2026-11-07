@@ -33,6 +33,8 @@ public sealed class BppSettings
 
     public ISetting<bool> EnableCombatStatusBarConfig { get; }
 
+    public ISetting<bool> EnableAnimatedHeroPortraitsConfig { get; }
+
     public ISetting<float> CombatStatusBarSpeedMultiplierConfig { get; }
 
     public ISetting<bool> EndOfRunScreenshotEnabledConfig { get; }
@@ -127,6 +129,12 @@ public sealed class BppSettings
             1.0f,
             "Font scale for the Chinese subtitle line.",
             new SettingRange<float>(1.0f, 2.5f)
+        );
+        EnableAnimatedHeroPortraitsConfig = config.Bind(
+            "AnimatedHeroPortraits",
+            "Enabled",
+            true,
+            "Desktop: animate static hero portraits using each skin's character animation. Turn off to restore the original portraits."
         );
         EnableCombatStatusBarConfig = config.Bind(
             "CombatStatusBar",
