@@ -1,6 +1,6 @@
 {
   "name": "bppinstaller",
-  "version": "6.2.4",
+  "version": "6.2.5",
   "description": "BazaarPlusPlus Desktop App",
   "type": "module",
   "packageManager": "bun@1.4.4",
