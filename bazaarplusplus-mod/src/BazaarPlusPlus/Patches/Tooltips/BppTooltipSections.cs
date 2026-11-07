@@ -24,6 +24,7 @@ internal static class BppTooltipSections
         public GameObject Block = null!;
         public CardEffectTooltipController Text = null!;
         public GameObject? Divider;
+        public UnityEngine.UI.Image? DividerImage;
         public UnityEngine.UI.LayoutGroup? SourceLayout;
         public int SourceBottomPadding;
         public UnityEngine.UI.LayoutGroup? QuestGroupLayout;
@@ -74,6 +75,10 @@ internal static class BppTooltipSections
         var siblingIndex = anchor.transform.GetSiblingIndex() + 1;
         if (section.Divider != null)
         {
+            // The inset helper may replace the cloned image with a visible child.
+            // Refresh that image on every reuse, after native tier styling.
+            if (section.DividerImage != null && controller.dividerImage != null)
+                section.DividerImage.sprite = controller.dividerImage.sprite;
             section.Divider.transform.SetSiblingIndex(siblingIndex);
             section.Divider.SetActive(true);
             siblingIndex++;
@@ -175,6 +180,7 @@ internal static class BppTooltipSections
         var questGroupBottomPadding = questGroupLayout?.padding.bottom ?? 0;
 
         GameObject? dividerClone = null;
+        UnityEngine.UI.Image? dividerImage = null;
         if (style?.ShowNativeDivider == true && controller.dividerParent != null)
         {
             dividerClone = Object.Instantiate(controller.dividerParent, anchor.transform.parent);
@@ -183,6 +189,11 @@ internal static class BppTooltipSections
                 group.alpha = 1f;
             var dividerRect = dividerClone.GetComponent<RectTransform>();
             var dividerImages = dividerClone.GetComponentsInChildren<UnityEngine.UI.Image>(true);
+            var sourceImages =
+                controller.dividerParent.GetComponentsInChildren<UnityEngine.UI.Image>(true);
+            for (var i = 0; i < sourceImages.Length; i++)
+                if (sourceImages[i] == controller.dividerImage)
+                    dividerImage = dividerImages[i];
             foreach (var image in dividerImages)
             {
                 image.enabled = true;
@@ -191,7 +202,15 @@ internal static class BppTooltipSections
                 image.color = color;
                 image.canvasRenderer.SetAlpha(1f);
                 if (dividerRect != null && style.DividerHorizontalInset > 0f)
-                    InsetDividerImage(image, dividerRect, style.DividerHorizontalInset);
+                {
+                    var visibleImage = InsetDividerImage(
+                        image,
+                        dividerRect,
+                        style.DividerHorizontalInset
+                    );
+                    if (image == dividerImage)
+                        dividerImage = visibleImage;
+                }
             }
             var dividerLayout =
                 dividerClone.GetComponent<UnityEngine.UI.LayoutElement>()
@@ -275,6 +294,7 @@ internal static class BppTooltipSections
             Block = blockClone,
             Text = textController,
             Divider = dividerClone,
+            DividerImage = dividerImage,
             SourceLayout = sourceLayout,
             SourceBottomPadding = sourceBottomPadding,
             QuestGroupLayout = questGroupLayout,
@@ -331,7 +351,7 @@ internal static class BppTooltipSections
             section.QuestGroupLayout.padding.bottom = section.QuestGroupBottomPadding;
     }
 
-    private static void InsetDividerImage(
+    private static UnityEngine.UI.Image InsetDividerImage(
         UnityEngine.UI.Image image,
         RectTransform dividerRect,
         float inset
@@ -362,10 +382,11 @@ internal static class BppTooltipSections
             insetImage.fillCenter = image.fillCenter;
             insetImage.raycastTarget = false;
             image.enabled = false;
-            return;
+            return insetImage;
         }
 
         imageRect.offsetMin = new Vector2(imageRect.offsetMin.x + inset, imageRect.offsetMin.y);
         imageRect.offsetMax = new Vector2(imageRect.offsetMax.x - inset, imageRect.offsetMax.y);
+        return image;
     }
 }
