@@ -104,20 +104,28 @@ async function describeAndroid(page: Page) {
   const download = card.getByRole('link', { name: 'Download .apk' });
   return {
     badge: await text(card.getByText('Experimental', { exact: true })),
-    notice: await text(card.getByText(/^The Android build is experimental/)),
+    requirements: await text(card.getByText('Android 11+ · arm64', { exact: true })),
+    notice: await text(card.getByText(/^Features differ from desktop/)),
     version: await fact(card, 'Current version'),
     adaptedGame: await fact(card, 'Adapted game'),
     onlineGame: await onlineGame(card),
     size: await fact(card, 'Size'),
-    sha256: await fact(card, 'SHA-256'),
+    sha256: (await card.locator('details code').count())
+      ? await text(card.locator('details code').last())
+      : null,
     download: {
       href: await download.getAttribute('href'),
       disabled: (await download.getAttribute('aria-disabled')) === 'true',
     },
     feedback: await text(card.getByRole('button', { name: /^QQ feedback group/ })),
-    stepsTitle: await text(card.getByRole('heading', { level: 3 }).first()),
-    steps: await card.locator('ol > li').locator('span:not([aria-hidden])').allTextContents(),
-    limitsTitle: await text(card.getByRole('heading', { level: 3 }).nth(1)),
+    stepsTitle: await card.locator('ol').getAttribute('aria-label'),
+    steps: await card.locator('ol > li > div').evaluateAll((items) =>
+      items.map((item) => ({
+        title: item.children[0].textContent,
+        body: item.children[1].textContent,
+      }))
+    ),
+    limitsTitle: await text(card.locator('summary', { hasText: 'Good to know' })),
     limits: await card.locator('ul > li').allTextContents(),
   };
 }
@@ -198,6 +206,35 @@ test('the Android feedback button copies the QQ group number', async ({ page, co
   await button.click();
   await expect(button).toHaveText('Group number copied');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('1083470305');
+});
+
+test('Android keeps full checksums and usage notes behind expandable summaries', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await installGoldenRoutes(page, goldenSources());
+  await page.goto('/download?lang=en');
+  await settle(page);
+  const card = platformCard(page, 'Android');
+  const checksum = card
+    .locator('details')
+    .filter({ has: page.locator('summary', { hasText: 'SHA-256' }) });
+  const hash = checksum.locator('code').last();
+  const fullHash = (await hash.textContent())!;
+  await expect(hash).toBeHidden();
+  await expect(checksum.locator('summary')).not.toContainText(fullHash);
+  await checksum.locator('summary').click();
+  await expect(hash).toBeVisible();
+  await checksum.getByRole('button', { name: 'Copy full SHA-256' }).click();
+  await expect(checksum.getByRole('button')).toHaveText('SHA-256 copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fullHash);
+  const notes = card
+    .locator('details')
+    .filter({ has: page.locator('summary', { hasText: 'Good to know' }) });
+  await expect(notes.locator('ul')).toBeHidden();
+  await notes.locator('summary').click();
+  await expect(notes.locator('ul')).toBeVisible();
 });
 
 test.describe('Game Status', () => {

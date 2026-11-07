@@ -34,7 +34,8 @@
     },
     "android": {
       "badge": "Experimental",
-      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
+      "requirements": "Android 11+ · arm64",
+      "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGame": "1.0.12825",
       "onlineGame": null,
@@ -45,18 +46,26 @@
         "disabled": false
       },
       "feedback": "QQ feedback group 1083470305",
-      "stepsTitle": "Before you install",
+      "stepsTitle": "Installation steps",
       "steps": [
-        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+        {
+          "title": "Install the official game",
+          "body": "Get it from Google Play or the publisher’s website. Keep the official app."
+        },
+        {
+          "title": "Install BazaarPlusPlus",
+          "body": "Open the APK and allow app installation when prompted."
+        },
+        {
+          "title": "Start and sign in",
+          "body": "Launch from BazaarPlusPlus. Sign in to your game account the first time."
+        }
       ],
       "limitsTitle": "Good to know",
       "limits": [
-        "Android 11 or later.",
-        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
-        "Make purchases in the official app.",
-        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
+        "The official app stays unchanged. Make purchases there.",
+        "Sign-in is stored separately. No separate BazaarPlusPlus account is needed.",
+        "After game updates, wait for BazaarPlusPlus to adapt."
       ]
     },
     "fallback": null
@@ -96,7 +105,8 @@
     },
     "android": {
       "badge": "Experimental",
-      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
+      "requirements": "Android 11+ · arm64",
+      "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGame": "1.0.12825",
       "onlineGame": null,
@@ -107,18 +117,26 @@
         "disabled": false
       },
       "feedback": "QQ feedback group 1083470305",
-      "stepsTitle": "Before you install",
+      "stepsTitle": "Installation steps",
       "steps": [
-        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+        {
+          "title": "Install the official game",
+          "body": "Get it from Google Play or the publisher’s website. Keep the official app."
+        },
+        {
+          "title": "Install BazaarPlusPlus",
+          "body": "Open the APK and allow app installation when prompted."
+        },
+        {
+          "title": "Start and sign in",
+          "body": "Launch from BazaarPlusPlus. Sign in to your game account the first time."
+        }
       ],
       "limitsTitle": "Good to know",
       "limits": [
-        "Android 11 or later.",
-        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
-        "Make purchases in the official app.",
-        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
+        "The official app stays unchanged. Make purchases there.",
+        "Sign-in is stored separately. No separate BazaarPlusPlus account is needed.",
+        "After game updates, wait for BazaarPlusPlus to adapt."
       ]
     },
     "fallback": null
@@ -158,7 +176,8 @@
     },
     "android": {
       "badge": "Experimental",
-      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
+      "requirements": "Android 11+ · arm64",
+      "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGame": "1.0.12825",
       "onlineGame": null,
@@ -169,18 +188,26 @@
         "disabled": false
       },
       "feedback": "QQ feedback group 1083470305",
-      "stepsTitle": "Before you install",
+      "stepsTitle": "Installation steps",
       "steps": [
-        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+        {
+          "title": "Install the official game",
+          "body": "Get it from Google Play or the publisher’s website. Keep the official app."
+        },
+        {
+          "title": "Install BazaarPlusPlus",
+          "body": "Open the APK and allow app installation when prompted."
+        },
+        {
+          "title": "Start and sign in",
+          "body": "Launch from BazaarPlusPlus. Sign in to your game account the first time."
+        }
       ],
       "limitsTitle": "Good to know",
       "limits": [
-        "Android 11 or later.",
-        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
-        "Make purchases in the official app.",
-        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
+        "The official app stays unchanged. Make purchases there.",
+        "Sign-in is stored separately. No separate BazaarPlusPlus account is needed.",
+        "After game updates, wait for BazaarPlusPlus to adapt."
       ]
     },
     "fallback": null
@@ -220,7 +247,8 @@
     },
     "android": {
       "badge": "Experimental",
-      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
+      "requirements": "Android 11+ · arm64",
+      "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGame": "1.0.12825",
       "onlineGame": null,
@@ -231,18 +259,26 @@
         "disabled": false
       },
       "feedback": "QQ feedback group 1083470305",
-      "stepsTitle": "Before you install",
+      "stepsTitle": "Installation steps",
       "steps": [
-        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+        {
+          "title": "Install the official game",
+          "body": "Get it from Google Play or the publisher’s website. Keep the official app."
+        },
+        {
+          "title": "Install BazaarPlusPlus",
+          "body": "Open the APK and allow app installation when prompted."
+        },
+        {
+          "title": "Start and sign in",
+          "body": "Launch from BazaarPlusPlus. Sign in to your game account the first time."
+        }
       ],
       "limitsTitle": "Good to know",
       "limits": [
-        "Android 11 or later.",
-        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
-        "Make purchases in the official app.",
-        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
+        "The official app stays unchanged. Make purchases there.",
+        "Sign-in is stored separately. No separate BazaarPlusPlus account is needed.",
+        "After game updates, wait for BazaarPlusPlus to adapt."
       ]
     },
     "fallback": {
@@ -285,7 +321,8 @@
     },
     "android": {
       "badge": "Experimental",
-      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
+      "requirements": "Android 11+ · arm64",
+      "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "Unavailable",
       "adaptedGame": null,
       "onlineGame": null,
@@ -296,18 +333,26 @@
         "disabled": true
       },
       "feedback": "QQ feedback group 1083470305",
-      "stepsTitle": "Before you install",
+      "stepsTitle": "Installation steps",
       "steps": [
-        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+        {
+          "title": "Install the official game",
+          "body": "Get it from Google Play or the publisher’s website. Keep the official app."
+        },
+        {
+          "title": "Install BazaarPlusPlus",
+          "body": "Open the APK and allow app installation when prompted."
+        },
+        {
+          "title": "Start and sign in",
+          "body": "Launch from BazaarPlusPlus. Sign in to your game account the first time."
+        }
       ],
       "limitsTitle": "Good to know",
       "limits": [
-        "Android 11 or later.",
-        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
-        "Make purchases in the official app.",
-        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
+        "The official app stays unchanged. Make purchases there.",
+        "Sign-in is stored separately. No separate BazaarPlusPlus account is needed.",
+        "After game updates, wait for BazaarPlusPlus to adapt."
       ]
     },
     "fallback": null
@@ -347,7 +392,8 @@
     },
     "android": {
       "badge": "Experimental",
-      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
+      "requirements": "Android 11+ · arm64",
+      "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "Unavailable",
       "adaptedGame": null,
       "onlineGame": null,
@@ -358,18 +404,26 @@
         "disabled": true
       },
       "feedback": "QQ feedback group 1083470305",
-      "stepsTitle": "Before you install",
+      "stepsTitle": "Installation steps",
       "steps": [
-        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+        {
+          "title": "Install the official game",
+          "body": "Get it from Google Play or the publisher’s website. Keep the official app."
+        },
+        {
+          "title": "Install BazaarPlusPlus",
+          "body": "Open the APK and allow app installation when prompted."
+        },
+        {
+          "title": "Start and sign in",
+          "body": "Launch from BazaarPlusPlus. Sign in to your game account the first time."
+        }
       ],
       "limitsTitle": "Good to know",
       "limits": [
-        "Android 11 or later.",
-        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
-        "Make purchases in the official app.",
-        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
+        "The official app stays unchanged. Make purchases there.",
+        "Sign-in is stored separately. No separate BazaarPlusPlus account is needed.",
+        "After game updates, wait for BazaarPlusPlus to adapt."
       ]
     },
     "fallback": null
@@ -409,7 +463,8 @@
     },
     "android": {
       "badge": "Experimental",
-      "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
+      "requirements": "Android 11+ · arm64",
+      "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGame": "1.0.12825",
       "onlineGame": null,
@@ -420,18 +475,26 @@
         "disabled": false
       },
       "feedback": "QQ feedback group 1083470305",
-      "stepsTitle": "Before you install",
+      "stepsTitle": "Installation steps",
       "steps": [
-        "Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.",
-        "Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.",
-        "Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own."
+        {
+          "title": "Install the official game",
+          "body": "Get it from Google Play or the publisher’s website. Keep the official app."
+        },
+        {
+          "title": "Install BazaarPlusPlus",
+          "body": "Open the APK and allow app installation when prompted."
+        },
+        {
+          "title": "Start and sign in",
+          "body": "Launch from BazaarPlusPlus. Sign in to your game account the first time."
+        }
       ],
       "limitsTitle": "Good to know",
       "limits": [
-        "Android 11 or later.",
-        "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
-        "Make purchases in the official app.",
-        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
+        "The official app stays unchanged. Make purchases there.",
+        "Sign-in is stored separately. No separate BazaarPlusPlus account is needed.",
+        "After game updates, wait for BazaarPlusPlus to adapt."
       ]
     },
     "fallback": null

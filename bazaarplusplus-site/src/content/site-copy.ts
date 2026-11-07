@@ -133,10 +133,13 @@ export type DownloadPageCopy = {
     arch: string;
     /** The status badge beside the title. */
     badge: string;
-    /** What experimental means, in the banner under the header. */
+    /** What experimental means, beneath the platform header. */
     notice: string;
     sizeLabel: string;
     sha256Label: string;
+    checksumCopy: string;
+    checksumCopied: string;
+    checksumFailed: string;
     actionLabel: string;
     /** Followed by the QQ group number on the feedback button. */
     feedbackGroup: string;
@@ -145,8 +148,8 @@ export type DownloadPageCopy = {
     /** Replaces the feedback button's label for a moment after copying. */
     feedbackCopied: string;
     stepsTitle: string;
-    steps: string[];
-    /** What differs from the official app: Android version, sign-in, purchases, waiting for adaptation after a game update. */
+    steps: { title: string; body: string }[];
+    /** Differences from the official app, expanded on demand. */
     limitsTitle: string;
     limits: string[];
   };
@@ -491,27 +494,29 @@ const zh: LocalizedSiteCopy = {
     },
     android: {
       title: 'Android',
-      arch: 'arm64',
+      arch: 'Android 11+ · arm64',
       badge: '实验版',
-      notice: 'Android 版仍在实验阶段：部分功能与桌面版有差异，也可能有尚未发现的问题。',
+      notice: '功能与桌面版有差异，可能存在尚未发现的问题。',
       sizeLabel: '文件大小',
       sha256Label: 'SHA-256',
+      checksumCopy: '复制完整 SHA-256',
+      checksumCopied: '已复制 SHA-256',
+      checksumFailed: '未能复制，请手动选中校验码复制。',
       actionLabel: '下载 .apk',
       feedbackGroup: 'QQ 反馈群',
       feedbackCopy: '复制群号',
       feedbackCopied: '已复制群号',
-      stepsTitle: '安装前必读',
+      stepsTitle: '安装步骤',
       steps: [
-        '先从 Google Play 或发行商官网安装官方版 The Bazaar。BazaarPlusPlus 运行你已安装的游戏，不修改它，也不需要卸载它',
-        '打开下载好的 APK 安装 BazaarPlusPlus；Android 询问时，允许浏览器或文件管理器安装应用',
-        '从 BazaarPlusPlus 启动游戏。第一次启动时，在游戏自己的登录界面登录 The Bazaar 账号。BazaarPlusPlus 本身没有账号，不需要登录',
+        { title: '安装官方游戏', body: '从 Google Play 或发行商官网安装，保留原 App。' },
+        { title: '安装 BazaarPlusPlus', body: '打开 APK，按提示允许安装应用。' },
+        { title: '启动并登录游戏', body: '从 BazaarPlusPlus 启动，首次登录游戏账号。' },
       ],
-      limitsTitle: '须知',
+      limitsTitle: '使用须知',
       limits: [
-        '需要 Android 11 或更高版本',
-        '登录状态由各个 App 分别保存：从 BazaarPlusPlus 启动的游戏和官方 App 互不共享，所以第一次从 BazaarPlusPlus 启动时要再登录一次',
-        '购买请在官方 App 里完成',
-        '游戏更新后，BazaarPlusPlus 需要一段时间适配新版本',
+        '官方 App 不会被修改，购买仍在官方 App 内完成。',
+        '登录状态独立保存，BazaarPlusPlus 无需单独账号。',
+        '游戏更新后需等待适配。',
       ],
     },
     desktopNoteTitle: 'Windows 与 macOS 安装提示',
@@ -822,28 +827,38 @@ const en: LocalizedSiteCopy = {
     },
     android: {
       title: 'Android',
-      arch: 'arm64',
+      arch: 'Android 11+ · arm64',
       badge: 'Experimental',
-      notice:
-        'The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.',
+      notice: 'Features differ from desktop, and undiscovered issues may remain.',
       sizeLabel: 'Size',
       sha256Label: 'SHA-256',
+      checksumCopy: 'Copy full SHA-256',
+      checksumCopied: 'SHA-256 copied',
+      checksumFailed: 'Could not copy. Select and copy the checksum manually.',
       actionLabel: 'Download .apk',
       feedbackGroup: 'QQ feedback group',
       feedbackCopy: 'Copy the group number',
       feedbackCopied: 'Group number copied',
-      stepsTitle: 'Before you install',
+      stepsTitle: 'Installation steps',
       steps: [
-        'Install the official The Bazaar from Google Play or the publisher’s website first. BazaarPlusPlus runs the game you already have; it does not change the game, and you do not uninstall it.',
-        'Open the downloaded APK to install BazaarPlusPlus, and let your browser or file manager install apps when Android asks.',
-        'Start the game from BazaarPlusPlus. The first time, sign in to your The Bazaar account on the game’s own sign-in screen. BazaarPlusPlus has no account of its own.',
+        {
+          title: 'Install the official game',
+          body: 'Get it from Google Play or the publisher’s website. Keep the official app.',
+        },
+        {
+          title: 'Install BazaarPlusPlus',
+          body: 'Open the APK and allow app installation when prompted.',
+        },
+        {
+          title: 'Start and sign in',
+          body: 'Launch from BazaarPlusPlus. Sign in to your game account the first time.',
+        },
       ],
       limitsTitle: 'Good to know',
       limits: [
-        'Android 11 or later.',
-        'Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.',
-        'Make purchases in the official app.',
-        'After a game update, BazaarPlusPlus needs some time to adapt to the new version.',
+        'The official app stays unchanged. Make purchases there.',
+        'Sign-in is stored separately. No separate BazaarPlusPlus account is needed.',
+        'After game updates, wait for BazaarPlusPlus to adapt.',
       ],
     },
     desktopNoteTitle: 'Windows and macOS install notes',
