@@ -4,7 +4,13 @@
   "buildid": "26443971",
   "updatedAt": "2026-11-04T22:41:19.000Z",
   "platforms": {
-    "macos": { "gameVersion": "1.0.13081-prod-macos-arm64-dae65d53" },
-    "windows": { "gameVersion": "1.0.13082-prod-windows-x64-dae65d53" }
+    "macos": {
+      "gameVersion": "1.0.13081-prod-macos-arm64-dae65d53",
+      "managedSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "windows": {
+      "gameVersion": "1.0.13082-prod-windows-x64-dae65d53",
+      "managedSha256": "6b7da835fbad093e2df54779fc0a246c2d4c0f078f130cf12052122130c27c17"
+    }
   }
 }

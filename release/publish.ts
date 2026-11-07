@@ -372,6 +372,10 @@ export async function uploadPlatform({
   const fragment = buildPlatformFragment({
     manifest: validated.manifest,
     baseUrl,
+    game: {
+      gameVersion: validated.lockEntry.gameVersion,
+      managedSha256: validated.lockEntry.sha256
+    },
     selfUpdatable: await selfUpdatableFromPromoted(
       store,
       validated.manifest.releasePlatformKey,
