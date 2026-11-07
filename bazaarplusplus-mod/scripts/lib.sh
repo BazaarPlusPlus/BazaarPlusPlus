@@ -76,7 +76,7 @@ discovered_prop() {
 
 # release/game-libs.ts owns the Snapshot Lock, the Managed digest and the private store.
 game_libs_cli() {
-    node "$MOD_ROOT/../release/game-libs.ts" "$@"
+    bun "$MOD_ROOT/../release/game-libs.ts" "$@"
 }
 
 # The mounted Steam install's Managed dir, or empty; only snapshot and lock
@@ -170,7 +170,7 @@ dispatch() {
     case "$(basename "$0"):$command" in
         build.sh:build | build.sh:matrix | test.sh:test | test.sh:test-core | test.sh:test-performance | test.sh:test-corpus | android.sh:build | android.sh:deploy | android.sh:smoke)
             if [[ -z "${BPP_MOD_BUILD_LOCK:-}" || ! "$BPP_MOD_BUILD_LOCK" -ef "$MOD_ROOT/artifacts/build.lock" ]]; then
-                exec node "$MOD_ROOT/../scripts/mod-validation.ts" lock -- bash "$MOD_ROOT/scripts/$(basename "$0")" "$@"
+                exec bun "$MOD_ROOT/../scripts/mod-validation.ts" lock -- bash "$MOD_ROOT/scripts/$(basename "$0")" "$@"
             fi
             ;;
     esac

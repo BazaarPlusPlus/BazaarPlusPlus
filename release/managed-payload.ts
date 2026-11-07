@@ -300,7 +300,7 @@ export function readStagedManagedPayload(
   const current = managedPayloadFiles(sourceDir, platform, inventory);
   if (JSON.stringify(current) !== JSON.stringify(manifest.files))
     throw new Error(
-      `The staged ${platform} Managed Payload changed since preparation; run node release.ts prepare --platform ${platform}`
+      `The staged ${platform} Managed Payload changed since preparation; run bun release.ts prepare --platform ${platform}`
     );
   return { manifest, text };
 }
@@ -390,7 +390,7 @@ export function signWithUpdaterKey({
   );
   if (!fs.existsSync(tauri))
     throw new Error(
-      `Signing the Managed Payload needs the installer's Tauri CLI; run npm ci in bazaarplusplus-installer (missing ${tauri})`
+      `Signing the Managed Payload needs the installer's Tauri CLI; run bun install --frozen-lockfile in bazaarplusplus-installer (missing ${tauri})`
     );
   // The updater key has no password; the signer still needs the variable set.
   signing.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ??= '';

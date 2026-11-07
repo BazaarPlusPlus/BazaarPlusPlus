@@ -1,24 +1,15 @@
 import { expect, test } from 'vitest';
-
 import { assertSupportedVersion } from './check-toolchain.ts';
 
-test('toolchain guard accepts versions inside the declared range', () => {
-  expect(() =>
-    assertSupportedVersion('node', '24.16.0', '>=22.12.0 <25')
-  ).not.toThrow();
-  expect(() =>
-    assertSupportedVersion('npm', '11.17.0', '>=10 <12')
-  ).not.toThrow();
+test('toolchain guard accepts the pinned Bun version', () => {
+  expect(() => assertSupportedVersion('1.4.4', '1.4.4')).not.toThrow();
 });
 
-test('toolchain guard rejects versions below the declared minimum', () => {
-  expect(() =>
-    assertSupportedVersion('node', '22.11.0', '>=22.12.0 <25')
-  ).toThrow(/node 22\.11\.0 is unsupported/);
-});
-
-test('toolchain guard rejects versions at the exclusive upper bound', () => {
-  expect(() => assertSupportedVersion('npm', '12.0.0', '>=10 <12')).toThrow(
-    /npm 12\.0\.0 is unsupported/
-  );
-});
+test.each(['1.4.2', '1.4.5', '1.4.4-canary'])(
+  'toolchain guard rejects %s',
+  (version) => {
+    expect(() => assertSupportedVersion(version, '1.4.4')).toThrow(
+      /requires 1\.4\.4/
+    );
+  }
+);

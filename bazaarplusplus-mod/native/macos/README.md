@@ -23,7 +23,7 @@ uses the matching D3D11/Media Foundation native backend in `native/windows`.
 ./build.sh
 ```
 
-The script requires macOS, Apple Silicon, Xcode Command Line Tools, and Node.js for the shared
+The script requires macOS, Apple Silicon, Xcode Command Line Tools, and Bun for the shared
 native artifact catalog. It emits an ad-hoc signed and producer-verified bundle at:
 
 ```text

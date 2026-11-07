@@ -3,12 +3,12 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "tokens": "node -e \"require('node:fs').copyFileSync('../bazaarplusplus-installer/src/styles/tokens.css', 'src/styles/installer-tokens.css')\"",
-    "predev": "npm run tokens",
+    "tokens": "bun -e \"require('node:fs').copyFileSync('../bazaarplusplus-installer/src/styles/tokens.css', 'src/styles/installer-tokens.css')\"",
+    "predev": "bun run tokens",
     "dev": "vite --host 0.0.0.0 --port 3000 --strictPort",
-    "prebuild": "npm run tokens",
+    "prebuild": "bun run tokens",
     "build": "vite build",
-    "preview": "npm run build && npm run preview:built",
+    "preview": "bun run build && bun run preview:built",
     "preview:built": "vite preview --host 0.0.0.0 --port 3000 --strictPort",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -49,6 +49,7 @@
     "sharp": "0.35.5"
   },
   "engines": {
-    "node": ">=24.15.0 <25"
-  }
+    "bun": "1.4.4"
+  },
+  "packageManager": "bun@1.4.4"
 }

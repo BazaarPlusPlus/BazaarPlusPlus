@@ -3,21 +3,15 @@ import path from 'node:path';
 import { readProductVersion } from './product.ts';
 import type { ProductVersion } from './product.ts';
 
-// The fields of the installer's package.json, package-lock.json and
-// tauri.conf.json this module reads or projects.
+// The product version fields in package.json and tauri.conf.json.
 interface VersionedJson {
   version?: string;
-}
-interface PackageLock extends VersionedJson {
-  packages?: Record<string, VersionedJson | undefined>;
 }
 
 /** Every version the installer's toolchain files state, beside VERSION. */
 export interface VersionSnapshot {
   productVersion: ProductVersion;
   packageVersion: string | undefined;
-  packageLockVersion: string | null;
-  packageLockRootVersion: string | null;
   tauriVersion: string | undefined;
   cargoVersion: string;
   cargoLockVersion: string;
@@ -54,20 +48,6 @@ function matchRequired(
 
 function readPackageVersion(rootDir: string): string | undefined {
   return readJson<VersionedJson>(path.join(rootDir, 'package.json')).version;
-}
-
-function packageLockPath(rootDir: string): string {
-  return path.join(rootDir, 'package-lock.json');
-}
-
-function readPackageLockVersions(
-  rootDir: string
-): Pick<VersionSnapshot, 'packageLockVersion' | 'packageLockRootVersion'> {
-  const packageLock = readJson<PackageLock>(packageLockPath(rootDir));
-  return {
-    packageLockVersion: packageLock.version ?? null,
-    packageLockRootVersion: packageLock.packages?.['']?.version ?? null
-  };
 }
 
 function tauriConfigPath(rootDir: string): string {
@@ -151,20 +131,6 @@ function updateCargoVersion(rootDir: string, version: ProductVersion): void {
   fs.writeFileSync(filePath, updatedCargoToml);
 }
 
-function updatePackageLockVersion(
-  rootDir: string,
-  version: ProductVersion
-): void {
-  const filePath = packageLockPath(rootDir);
-  const packageLock = readJson<PackageLock>(filePath);
-  packageLock.version = version;
-  const rootEntry = packageLock.packages?.[''];
-  if (rootEntry) {
-    rootEntry.version = version;
-  }
-  writeJson(filePath, packageLock);
-}
-
 function updateCargoLockVersion(
   rootDir: string,
   packageName: string,
@@ -188,12 +154,10 @@ function updateCargoLockVersion(
 export function collectVersionSnapshot(rootDir: string): VersionSnapshot {
   const packageVersion = readPackageVersion(rootDir);
   const cargoPackage = readCargoPackage(rootDir);
-  const packageLockVersions = readPackageLockVersions(rootDir);
 
   return {
     productVersion: readProductVersion(path.dirname(rootDir)),
     packageVersion,
-    ...packageLockVersions,
     tauriVersion: readTauriVersion(rootDir),
     cargoVersion: cargoPackage.version,
     cargoLockVersion: readCargoLockVersion(rootDir, cargoPackage.name)
@@ -226,7 +190,6 @@ export function synchronizeVersions(rootDir: string): VersionSnapshot {
   packageJson.version = packageVersion;
   writeJson(packagePath, packageJson);
 
-  updatePackageLockVersion(rootDir, packageVersion);
   updateTauriVersion(rootDir, packageVersion);
   updateCargoVersion(rootDir, packageVersion);
   updateCargoLockVersion(rootDir, packageName, packageVersion);

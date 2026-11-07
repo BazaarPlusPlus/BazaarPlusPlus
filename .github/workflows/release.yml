@@ -102,16 +102,14 @@ jobs:
             exit 1
           fi
           echo "Building $RELEASE_PLATFORM $version from $GITHUB_SHA"
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: bazaarplusplus-installer/package-lock.json
+          bun-version-file: package.json
       - name: Compile the macOS Icon Composer asset
         if: matrix.platform == 'macos' && env.STAGE == 'release'
         run: |
           xcodebuild -version
-          node bazaarplusplus-installer/scripts/release/compile-macos-icon.ts
+          bun bazaarplusplus-installer/scripts/release/compile-macos-icon.ts
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
@@ -126,11 +124,11 @@ jobs:
         run: |
           rustc --version
           rustup show active-toolchain
-      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
+
       # The Managed Payload zip is signed with the installer's pinned Tauri CLI.
       - if: matrix.platform == 'android'
         name: Install the Tauri CLI
-        run: npm ci --prefix bazaarplusplus-installer
+        run: bun install --frozen-lockfile --cwd bazaarplusplus-installer
       # The Android App builds with the JDK and the SDK packages its toolchain
       # lock pins, as the android job of checks.yml does; apksigner and zipalign
       # come from the same build-tools.
@@ -215,7 +213,7 @@ jobs:
       - if: env.STAGE == 'prepare'
         run: echo "Dry run stopped after release::prepare for $RELEASE_PLATFORM; nothing was signed or uploaded." >> "$GITHUB_STEP_SUMMARY"
       # bundle.sh reads signing material as files from BPP_SIGNING_SECRETS_DIR,
-      # the same layout `node scripts/workspace.ts run signing` stages locally.
+      # the same layout `bun scripts/workspace.ts run signing` stages locally.
       - if: env.STAGE == 'release'
         name: Stage the signing secrets
         env:

@@ -82,7 +82,7 @@ export function assertBindingsUpToDate(rootDir: string): void {
   if (porcelain) {
     throw new Error(
       `Generated TypeScript bindings are out of date under ${generatedTypesDir}. ` +
-        'Run npm run generate:bindings and commit all files under that directory.\n' +
+        'Run bun run generate:bindings and commit all files under that directory.\n' +
         porcelain
     );
   }

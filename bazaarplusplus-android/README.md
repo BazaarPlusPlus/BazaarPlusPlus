@@ -20,7 +20,7 @@
 
 ## 环境
 
-JDK 21 和 Android SDK，版本由 `toolchain.lock.json` 固定；Gradle 由 wrapper 固定。`ANDROID_HOME` 或 `local.properties` 指向 SDK。准备运行时需要 Node 和 .NET SDK（构建 Updater），以及 game-libs 存储的访问权限。
+JDK 21 和 Android SDK，版本由 `toolchain.lock.json` 固定；Gradle 由 wrapper 固定。`ANDROID_HOME` 或 `local.properties` 指向 SDK。准备运行时需要 Bun 和 .NET SDK（构建 Updater），以及 game-libs 存储的访问权限。
 
 ## 构建与运行
 

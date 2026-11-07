@@ -13,8 +13,7 @@
         "ts-check": false
       }
     ],
-    // Node strips only the inline `type` specifiers and keeps the import, so
-    // `import { type X } from 'pkg'` still loads the package at runtime.
+    // Type-only imports must not introduce runtime module side effects.
     "typescript/no-import-type-side-effects": "error",
     "typescript/no-non-null-assertion": "error"
   },

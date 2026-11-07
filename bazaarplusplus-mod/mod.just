@@ -30,7 +30,7 @@ test-core *args:
 
 # Run Android build and functional/performance gates serially; save logs and a revision receipt.
 android-check:
-    node ../scripts/mod-validation.ts check
+    bun ../scripts/mod-validation.ts check
 
 # Compile the Android host against the fetched Interop Snapshot; [-p:Name=Value ...].
 android-build *args:
@@ -132,7 +132,7 @@ steam-capture platform channel:
 [arg('channel', pattern='online|staging|ptr')]
 [arg('platform', pattern='macos|windows|android')]
 publish platform channel:
-    node ../scripts/workspace.ts run release -- bash scripts/game.sh publish "$@"
+    bun ../scripts/workspace.ts run release -- bash scripts/game.sh publish "$@"
 
 # Make one lock entry's Managed dir (android: interop dir and Loader Release) available and print it.
 [arg('channel', pattern='online|staging|ptr')]

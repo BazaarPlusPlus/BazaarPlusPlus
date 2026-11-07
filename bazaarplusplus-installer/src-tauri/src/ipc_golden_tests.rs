@@ -8,7 +8,7 @@
 //!
 //! Every input is platform neutral, so macOS and Windows produce the same
 //! bytes. Writes `tests/goldens/ipc/<command>.<state>.json`; regenerate with
-//! `BPP_UPDATE_GOLDENS=1 npm run generate:bindings:test` (see the installer `AGENTS.md`).
+//! `BPP_UPDATE_GOLDENS=1 bun run generate:bindings:test` (see the installer `AGENTS.md`).
 
 use std::path::{Path, PathBuf};
 

@@ -459,7 +459,7 @@ function quoted(key: string, value: string): string {
 function templateConfig(repository: string): ParsedConfig {
   const lines = [
     '# BazaarPlusPlus local configuration. Parsed as data, never sourced.',
-    '# Sections, value rules and what each one supplies: node scripts/workspace.ts --help',
+    '# Sections, value rules and what each one supplies: bun scripts/workspace.ts --help',
     ''
   ];
   for (const [name, spec] of Object.entries(sections)) {
@@ -651,7 +651,7 @@ export function resolveSigning(
 const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
 
 // Signing values reach bundle.sh as files in a private staging directory, so
-// the environment of every earlier step (npm ci, payload builds) carries only
+// the environment of every earlier step (bun install --frozen-lockfile, payload builds) carries only
 // its path. The staging directory exists only while `use` runs.
 function withStaging<T>(
   home: string,

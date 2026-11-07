@@ -12,7 +12,7 @@ test('source verification omits private release payload validation', () => {
   expect(
     steps.some(
       ({ command, args }) =>
-        command === 'npm' &&
+        command === 'bun' &&
         args.includes('prebuild-check:source:after-bindings')
     )
   ).toBe(true);
@@ -79,26 +79,29 @@ test('source verification excludes bundle resources in child processes without c
   }
 });
 
-test('verification preserves the failing command status and stops', () => {
-  const observed: string[] = [];
-  const status = runVerification({
-    rootDir: process.cwd(),
-    summaryPath: null,
-    mode: 'source',
-    platform: 'linux',
-    log() {},
-    run(command, args) {
-      observed.push([command, ...args].join(' '));
-      return { status: args.includes('check:ts') ? 17 : 0 };
-    }
-  });
+test.each(['linux', 'darwin', 'win32'] as const)(
+  'verification on %s runs Bun directly and preserves failure status',
+  (platform) => {
+    const observed: string[] = [];
+    const status = runVerification({
+      rootDir: process.cwd(),
+      summaryPath: null,
+      mode: 'source',
+      platform,
+      log() {},
+      run(command, args) {
+        observed.push([command, ...args].join(' '));
+        return { status: args.includes('check:ts') ? 17 : 0 };
+      }
+    });
 
-  expect(status).toBe(17);
-  expect(observed.at(-1)).toBe('npm run check:ts');
-  expect(observed.some((command) => command.includes('build:frontend'))).toBe(
-    false
-  );
-});
+    expect(status).toBe(17);
+    expect(observed.at(-1)).toBe('bun run check:ts');
+    expect(observed.some((command) => command.includes('build:frontend'))).toBe(
+      false
+    );
+  }
+);
 
 test.each([
   [{ status: 0 }, 0, 'passed'],
@@ -241,7 +244,7 @@ test('frontend runner works without Rust and retains test and source contract fa
         log() {},
         run(command, args) {
           if (
-            command !== 'npm' ||
+            command !== 'bun' ||
             args.some((arg) => arg.startsWith('generate:bindings'))
           ) {
             throw new Error('Rust is unavailable');

@@ -9,7 +9,7 @@ catalog_path="$script_dir/../artifacts.json"
 
 catalog_values() {
     local property="$1"
-    node -e '
+    bun -e '
 const fs = require("node:fs");
 const [catalogPath, artifactId, property] = process.argv.slice(1);
 const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
@@ -21,7 +21,7 @@ process.stdout.write((artifact[property] ?? []).join("\n"));
 
 catalog_platform_value() {
     local property="$1"
-    node -e '
+    bun -e '
 const fs = require("node:fs");
 const [catalogPath, property] = process.argv.slice(1);
 const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8"));

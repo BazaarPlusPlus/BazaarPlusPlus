@@ -22,11 +22,11 @@ ci:
 
 # Stage the Android App Runtime under build/runtime/ from the locked Loader Release (fetches from the game-libs store).
 stage-runtime:
-    node ../release/android-app.ts stage-runtime
+    bun ../release/android-app.ts stage-runtime
 
 # Write the Interop Package for the locked game version to build/interop.zip (fetches from the game-libs store).
 interop-package:
-    node ../release/android-app.ts interop-package
+    bun ../release/android-app.ts interop-package
 
 # Build and install the debug App on the one running Android device.
 install:
@@ -63,4 +63,4 @@ dev-reset:
 
 # Sign the debug App's game in through its Log In form with config.ini [game]; pass --help for details.
 dev-login serial *args:
-    node ../scripts/android-login.ts "$@"
+    bun ../scripts/android-login.ts "$@"

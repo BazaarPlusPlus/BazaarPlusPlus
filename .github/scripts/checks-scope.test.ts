@@ -45,7 +45,7 @@ const expectScopes = (files: string[], scopes: string[]) =>
 
 test('root documents, each project and global inputs select their daily gates', () => {
   expectScopes(['README.md', 'AGENTS.md', 'docs/development.md'], ['release']);
-  expectScopes(['bazaarplusplus-server/package-lock.json'], ['server']);
+  expectScopes(['bazaarplusplus-server/bun.lock'], ['server']);
   expectScopes(
     ['bazaarplusplus-installer/src/App.tsx'],
     ['installer-frontend']
@@ -71,7 +71,7 @@ test('root documents, each project and global inputs select their daily gates', 
     ['installer', 'installer-windows']
   );
   expectScopes(
-    ['bazaarplusplus-installer/package-lock.json'],
+    ['bazaarplusplus-installer/bun.lock'],
     ['installer', 'installer-windows', 'release']
   );
   expectScopes(['bazaarplusplus-mod/docs/MEMORY.md'], ['mod-macos']);
@@ -86,9 +86,9 @@ test('root documents, each project and global inputs select their daily gates', 
     'VERSION',
     'release/payload.json',
     'release/manifest.ts',
-    'package-lock.json',
+    'bun.lock',
     'JUSTFILE',
-    '.nvmrc',
+    'bunfig.toml',
     '.github/workflows/checks.yml',
     'scripts/workspace.ts',
     'new-input'
@@ -366,7 +366,7 @@ test('Installer build inputs request Windows while ordinary source uses macOS', 
       ['installer', 'installer-windows']
     );
   }
-  for (const file of ['package.json', 'package-lock.json']) {
+  for (const file of ['package.json', 'bun.lock', 'bunfig.toml']) {
     expectScopes(
       [`bazaarplusplus-installer/${file}`],
       ['installer', 'installer-windows', 'release']

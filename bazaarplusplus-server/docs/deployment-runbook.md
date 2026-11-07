@@ -7,18 +7,18 @@ These commands create or mutate Cloudflare resources. Run them only with product
 ## 1. Validate the local artifact
 
 ```sh
-npm ci
-npm run check
-npm test
-npx wrangler deploy --dry-run
+bun install --frozen-lockfile
+bun run check
+bun run test
+bun run wrangler deploy --dry-run
 git diff --check
 ```
 
 ## 2. Create isolated storage
 
 ```sh
-npx wrangler d1 create bazaarplusplus-mod-api-v6-db --location apac
-npx wrangler r2 bucket create bazaarplusplus-bundle-v6 --location apac
+bun run wrangler d1 create bazaarplusplus-mod-api-v6-db --location apac
+bun run wrangler r2 bucket create bazaarplusplus-bundle-v6 --location apac
 ```
 
 `wrangler.toml` holds the `database_id` that `d1 create` printed; if the database is ever recreated, commit the new UUID before deploying. Never point this file at any other database.
@@ -26,8 +26,8 @@ npx wrangler r2 bucket create bazaarplusplus-bundle-v6 --location apac
 Set the bucket lifecycle:
 
 ```sh
-npx wrangler r2 bucket lifecycle add bazaarplusplus-bundle-v6 v6-bundle-retention bundles/ --expire-days 8
-npx wrangler r2 bucket lifecycle list bazaarplusplus-bundle-v6
+bun run wrangler r2 bucket lifecycle add bazaarplusplus-bundle-v6 v6-bundle-retention bundles/ --expire-days 8
+bun run wrangler r2 bucket lifecycle list bazaarplusplus-bundle-v6
 ```
 
 The listing must show the `bundles/` prefix expiring after 8 days, and no rule without a prefix: the analyzer keeps its Data Root under `analyzer-state/` in the same bucket ([ADR 0007](../../docs/adr/0007-one-public-bucket-and-domain.md)). The Worker never deletes R2 objects; this rule is the only R2 retention.
@@ -50,9 +50,9 @@ Each output must be 43 characters. The secrets are written in section 4 after th
 ## 4. Apply migrations, deploy, and set secrets
 
 ```sh
-npx wrangler d1 migrations apply bazaarplusplus-mod-api-v6-db --remote
-npx wrangler d1 migrations list bazaarplusplus-mod-api-v6-db --remote
-npx wrangler deploy
+bun run wrangler d1 migrations apply bazaarplusplus-mod-api-v6-db --remote
+bun run wrangler d1 migrations list bazaarplusplus-mod-api-v6-db --remote
+bun run wrangler deploy
 ```
 
 The list must show `0001_v6_baseline.sql` applied and nothing pending. From here `migrations-v6/0001_v6_baseline.sql` is frozen; every schema change is a new numbered file, and a recorded migration is never reapplied.
@@ -62,10 +62,10 @@ The list must show `0001_v6_baseline.sql` applied and nothing pending. From here
 Set the four secrets on the new Worker without putting them in shell history or repository files:
 
 ```sh
-npx wrangler secret put R2_PRESIGN_ACCESS_KEY_ID
-npx wrangler secret put R2_PRESIGN_SECRET_ACCESS_KEY
-npx wrangler secret put BUNDLE_SYNC_TOKEN
-npx wrangler secret put BAZAARDB_DELIVERY_TOKEN
+bun run wrangler secret put R2_PRESIGN_ACCESS_KEY_ID
+bun run wrangler secret put R2_PRESIGN_SECRET_ACCESS_KEY
+bun run wrangler secret put BUNDLE_SYNC_TOKEN
+bun run wrangler secret put BAZAARDB_DELIVERY_TOKEN
 ```
 
 Until they are set, signing and protected routes fail closed (`500 internal_error` or `503 storage_unavailable`). No released mod points at V6 before 6.0.0, so this window has no player traffic.
@@ -130,7 +130,7 @@ remaining backlog through `d1.retention` logs. Use a Cloudflare API token scoped
 read for this probe:
 
 ```sh
-npx wrangler d1 execute bazaarplusplus-mod-api-v6-db --remote --json --command "SELECT stored_at_ms AS oldest_stored_at_ms FROM bundles INDEXED BY idx_bundles_stored_retention ORDER BY stored_at_ms, bundle_id LIMIT 1"
+bun run wrangler d1 execute bazaarplusplus-mod-api-v6-db --remote --json --command "SELECT stored_at_ms AS oldest_stored_at_ms FROM bundles INDEXED BY idx_bundles_stored_retention ORDER BY stored_at_ms, bundle_id LIMIT 1"
 ```
 
 Alert when `oldest_stored_at_ms` remains older than 15 days plus one hour. The server
@@ -160,10 +160,10 @@ or service tokens, and makes no R2 calls. The R2 bucket keeps its separate 8-day
 Preview the first eligible page:
 
 ```sh
-npx wrangler d1 execute bazaarplusplus-mod-api-v6-db --remote --json --command "SELECT bundle_id, stored_at_ms FROM bundles INDEXED BY idx_bundles_stored_retention WHERE stored_at_ms < (unixepoch() - 15 * 86400) * 1000 ORDER BY stored_at_ms, bundle_id LIMIT 100"
+bun run wrangler d1 execute bazaarplusplus-mod-api-v6-db --remote --json --command "SELECT bundle_id, stored_at_ms FROM bundles INDEXED BY idx_bundles_stored_retention WHERE stored_at_ms < (unixepoch() - 15 * 86400) * 1000 ORDER BY stored_at_ms, bundle_id LIMIT 100"
 ```
 
-`npm test` covers the exact cutoff, cascades, interruption recovery, and bounded reads.
+`bun run test` covers the exact cutoff, cascades, interruption recovery, and bounded reads.
 A local scheduled invocation can be exercised through Wrangler's
 `/cdn-cgi/local/scheduled` endpoint; it is not a public application route.
 

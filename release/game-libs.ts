@@ -2683,39 +2683,39 @@ function printLine(value: string): void {
 const log = (message: string): boolean => process.stderr.write(`${message}\n`);
 
 const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplusplus-mod/scripts/game.sh):
-  node release/game-libs.ts game-version <managed-dir>
-  node release/game-libs.ts digest <managed-dir>
-  node release/game-libs.ts snapshot --managed <dir> --buildid <id> --steam-branch <branch>
-  node release/game-libs.ts steam-stale --channel <online|staging|ptr>
+  bun release/game-libs.ts game-version <managed-dir>
+  bun release/game-libs.ts digest <managed-dir>
+  bun release/game-libs.ts snapshot --managed <dir> --buildid <id> --steam-branch <branch>
+  bun release/game-libs.ts steam-stale --channel <online|staging|ptr>
                                              Print {buildid, updatedAt, platforms}: the platforms whose lock
                                              entry is behind Steam (needs STEAM_SNAPSHOT_LOGIN)
-  node release/game-libs.ts steam-capture --platform <macos|windows> --channel <online|staging|ptr>
+  bun release/game-libs.ts steam-capture --platform <macos|windows> --channel <online|staging|ptr>
                                              Capture a lock entry from its Steam depot (needs
                                              STEAM_SNAPSHOT_LOGIN, and STEAM_BETA_PASSWORDS for
                                              staging and ptr)
-  node release/game-libs.ts steam-change --previous <lock.json> --channel <online|staging|ptr>
+  bun release/game-libs.ts steam-change --previous <lock.json> --channel <online|staging|ptr>
                                              Print code, content or none: what the captures
                                              changed against that earlier lock
-  node release/game-libs.ts game-status --state <steam-stale.json>
+  bun release/game-libs.ts game-status --state <steam-stale.json>
                                              Write the public Game Status when the lock records
                                              that online build
-  node release/game-libs.ts android-game-status
+  bun release/game-libs.ts android-game-status
                                              Write the public Android Game Status from the lock's
                                              android-online entry
-  node release/game-libs.ts snapshot-android --apk <TheBazaar.apk> [--apk-etag <etag>] [--interop <dir>]
+  bun release/game-libs.ts snapshot-android --apk <TheBazaar.apk> [--apk-etag <etag>] [--interop <dir>]
       [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>]
       [--cpp2il <file>] [--native-package <id>@<version> ...]
-  node release/game-libs.ts publish --platform <macos|windows|android> --channel <online|staging|ptr>
-  node release/game-libs.ts fetch --platform <p> --channel <c> [--steam-managed <dir>] [--allow-unlocked]
-  node release/game-libs.ts fetch-input --input <apk|loader|patcher|cpp2il>
-  node release/game-libs.ts lock-check [--managed <dir>]
-  node release/game-libs.ts entries
-  node release/game-libs.ts behind-online --platform <macos|windows> --channel <staging|ptr>
+  bun release/game-libs.ts publish --platform <macos|windows|android> --channel <online|staging|ptr>
+  bun release/game-libs.ts fetch --platform <p> --channel <c> [--steam-managed <dir>] [--allow-unlocked]
+  bun release/game-libs.ts fetch-input --input <apk|loader|patcher|cpp2il>
+  bun release/game-libs.ts lock-check [--managed <dir>]
+  bun release/game-libs.ts entries
+  bun release/game-libs.ts behind-online --platform <macos|windows> --channel <staging|ptr>
                                              Print the online game version when this entry's
                                              Steam build is older than online's, else nothing
-  node release/game-libs.ts official-apk     Print changed or unchanged: the publisher's APK against
+  bun release/game-libs.ts official-apk     Print changed or unchanged: the publisher's APK against
                                              the android-online entry's (size and ETag, no download)
-  node release/game-libs.ts record-apk-etag --apk <TheBazaar.apk> --apk-etag <etag>
+  bun release/game-libs.ts record-apk-etag --apk <TheBazaar.apk> --apk-etag <etag>
                                              Record the ETag the locked APK is now served with
 snapshot-android reuses the android-online entry's toolchain unless files are
 given, and generates interop with the Patcher's Linux x64 CLI unless --interop

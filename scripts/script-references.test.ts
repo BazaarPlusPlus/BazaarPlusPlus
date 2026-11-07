@@ -11,7 +11,7 @@ import { runGit } from './git-command.ts';
 const root = path.resolve(import.meta.dirname, '..');
 const tracked = runGit(['ls-files', '-z'], { cwd: root })
   .split('\0')
-  .filter(Boolean);
+  .filter((file) => file && fs.existsSync(path.join(root, file)));
 const basenames = new Set(tracked.map((name) => path.posix.basename(name)));
 
 const LAUNCHERS = [
@@ -26,13 +26,13 @@ const LAUNCHERS = [
   /(^|\/)tauri\.conf\.json$/,
   /^lefthook\.yml$/
 ];
-// Prose names many files; only its `node <script>` commands are checked.
+// Prose names many files; only its `bun <script>` commands are checked.
 const PROSE = /\.md$/;
 
 // A path segment may hold a `${{ expression }}`, which contains spaces.
 const SCRIPT = String.raw`(?:\$\{\{[^}]*\}\}|[^\s"'\x60;|&])+?\.(?:[cm]?js|ts)`;
-const NODE_COMMAND = new RegExp(
-  String.raw`\bnode\s+(?:--[\w-]+(?:=\S+)?\s+)*["']?(${SCRIPT})(?=["'\s);|&\x60]|$)`,
+const BUN_COMMAND = new RegExp(
+  String.raw`\b(?:bun|node)\s+(?:--[\w-]+(?:=\S+)?\s+)*["']?(${SCRIPT})(?=["'\s);|&\x60]|$)`,
   'g'
 );
 // Import specifiers, shell variables and file arguments in build code.
@@ -55,7 +55,7 @@ function referencedScripts(): ScriptReference[] {
     const text = fs
       .readFileSync(path.join(root, file), 'utf8')
       .replaceAll('&quot;', '"');
-    for (const pattern of prose ? [NODE_COMMAND] : [NODE_COMMAND, QUOTED_PATH])
+    for (const pattern of prose ? [BUN_COMMAND] : [BUN_COMMAND, QUOTED_PATH])
       for (const [, script] of text.matchAll(pattern)) {
         if (/[*{}<>]/.test(script.replace(/\$\{\{[^}]*\}\}/g, ''))) continue;
         let target = script;

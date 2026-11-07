@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Reads release/github-secrets.json, the one owner of every GitHub secret and
-// variable the workflows consume, for `node scripts/workspace.ts secrets` and
+// variable the workflows consume, for `bun scripts/workspace.ts secrets` and
 // .github/scripts/release-secrets.sh (through the CLI at the bottom). Nothing
 // here reads a value; the table only names scopes and local sources.
 
@@ -156,11 +156,11 @@ export function requiredForRelease(
 }
 
 const usage = `GitHub secrets table (release/github-secrets.json):
-  node release/github-secrets.ts names                      names release.yml reads
-  node release/github-secrets.ts required <macos|windows|android> <prepare|release>
-  node release/github-secrets.ts source NAME                where the value comes from
-  node release/github-secrets.ts secrets                    names release.yml reads as secrets
-  node release/github-secrets.ts variables                  names release.yml reads as variables`;
+  bun release/github-secrets.ts names                      names release.yml reads
+  bun release/github-secrets.ts required <macos|windows|android> <prepare|release>
+  bun release/github-secrets.ts source NAME                where the value comes from
+  bun release/github-secrets.ts secrets                    names release.yml reads as secrets
+  bun release/github-secrets.ts variables                  names release.yml reads as variables`;
 
 export function cliMain(
   argv: readonly string[],

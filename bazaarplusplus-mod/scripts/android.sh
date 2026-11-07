@@ -118,7 +118,7 @@ payload_files() {
         -t:CollectPayloadFiles -getItem:BppPayloadFile)" ||
         die "Could not collect the MelonLoader Payload files: $evaluated"
     # shellcheck disable=SC2016 # the ${...} below is a JavaScript template, not shell.
-    printf '%s' "$evaluated" | node -e '
+    printf '%s' "$evaluated" | bun -e '
         const fs = require("fs");
         for (const item of JSON.parse(fs.readFileSync(0, "utf8")).Items.BppPayloadFile) {
             if (item.ProductAssembly === "true" || fs.existsSync(item.FullPath)) {
@@ -256,14 +256,14 @@ cmd_capture() {
     device shell settings get system user_rotation >"$out/user-rotation.txt"
     device shell settings get system accelerometer_rotation >"$out/accelerometer-rotation.txt"
     device shell dumpsys display >"$out/display.txt"
-    node "$MOD_ROOT/../scripts/android-screen.ts" "$out" "$DEVICE_SERIAL"
+    bun "$MOD_ROOT/../scripts/android-screen.ts" "$out" "$DEVICE_SERIAL"
     ok "Captured $run into $out"
 }
 
 # screen-check <run>: capture evidence, then reject a portrait or overridden display.
 cmd_screen_check() {
     cmd_capture "$@"
-    node "$MOD_ROOT/../scripts/android-screen.ts" "$MOD_ROOT/artifacts/android/$1" "$DEVICE_SERIAL" --check
+    bun "$MOD_ROOT/../scripts/android-screen.ts" "$MOD_ROOT/artifacts/android/$1" "$DEVICE_SERIAL" --check
 }
 
 # smoke <enabled|observe|disabled>: the device smoke. It builds, deploys, sets the mode, relaunches,

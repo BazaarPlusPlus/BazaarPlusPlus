@@ -47,16 +47,16 @@ jobs:
         with:
           ref: master
       # The release modules this job runs import only node built-ins.
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: package.json
       # Size and ETag only: the hourly check never downloads 2.8 GB.
       - name: Compare the official APK with the locked one
         id: compare
         env:
           FORCE: ${{ inputs.force == true }}
         run: |
-          state="$(node release/game-libs.ts official-apk)"
+          state="$(bun release/game-libs.ts official-apk)"
           if [[ "$FORCE" == true ]]; then state=changed; fi
           echo "state=$state" >> "$GITHUB_OUTPUT"
           echo "Official APK: $state (force: $FORCE)" >> "$GITHUB_STEP_SUMMARY"
@@ -76,9 +76,9 @@ jobs:
         id: download
         run: |
           sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
-          url="$(node --input-type=module -e "import { OFFICIAL_ANDROID_APK_URL } from './release/game-libs.ts'; console.log(OFFICIAL_ANDROID_APK_URL)")"
+          url="$(bun -e "import { OFFICIAL_ANDROID_APK_URL } from './release/game-libs.ts'; console.log(OFFICIAL_ANDROID_APK_URL)")"
           curl --fail --location --retry 5 --retry-all-errors --dump-header "$RUNNER_TEMP/apk.headers" --output "$RUNNER_TEMP/TheBazaar.apk" "$url"
-          etag="$(node --input-type=module -e "
+          etag="$(bun -e "
             import fs from 'node:fs';
             import { strongEtag } from './release/game-libs.ts';
             const lines = fs.readFileSync(process.argv[1], 'utf8').split(/\r?\n/);
@@ -86,9 +86,9 @@ jobs:
             console.log(strongEtag(header?.slice(5)) ?? '');
           " "$RUNNER_TEMP/apk.headers")"
           sha="$(sha256sum "$RUNNER_TEMP/TheBazaar.apk" | cut -d' ' -f1)"
-          locked="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].apkSha256")"
-          lockedEtag="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].apkEtag ?? ''")"
-          code="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].versionCode")"
+          locked="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].apkSha256")"
+          lockedEtag="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].apkEtag ?? ''")"
+          code="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].versionCode")"
           echo "etag=$etag" >> "$GITHUB_OUTPUT"
           echo "Downloaded $(stat -c %s "$RUNNER_TEMP/TheBazaar.apk") bytes, sha256 $sha, ETag ${etag:-none}; locked sha256 $locked, ETag ${lockedEtag:-none}" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$sha" != "$locked" ]]; then
@@ -114,7 +114,7 @@ jobs:
           ETAG: ${{ steps.download.outputs.etag }}
           BRANCH: ${{ steps.download.outputs.branch }}
         run: |
-          node release/game-libs.ts record-apk-etag --apk "$RUNNER_TEMP/TheBazaar.apk" --apk-etag "$ETAG"
+          bun release/game-libs.ts record-apk-etag --apk "$RUNNER_TEMP/TheBazaar.apk" --apk-etag "$ETAG"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$BRANCH"
@@ -142,7 +142,7 @@ jobs:
         run: |
           cp bazaarplusplus-mod/build/game-libs.lock.json "$RUNNER_TEMP/previous-lock.json"
           just mod::snapshot-android "$RUNNER_TEMP/TheBazaar.apk" ${ETAG:+--apk-etag "$ETAG"}
-          change="$(node release/android-adaptation.ts kind --previous "$RUNNER_TEMP/previous-lock.json")"
+          change="$(bun release/android-adaptation.ts kind --previous "$RUNNER_TEMP/previous-lock.json")"
           case "$change" in
             content | code) ;;
             *)
@@ -150,8 +150,8 @@ jobs:
               exit 1
               ;;
           esac
-          game="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].gameVersion")"
-          code="$(node -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].versionCode")"
+          game="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].gameVersion")"
+          code="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].versionCode")"
           echo "game=$game" >> "$GITHUB_OUTPUT"
           echo "change=$change" >> "$GITHUB_OUTPUT"
           echo "branch=chore/android-online-$code" >> "$GITHUB_OUTPUT"
@@ -242,4 +242,4 @@ jobs:
           steps.download.outputs.kind == 'etag' ||
           steps.capture.conclusion == 'success'
         name: Write the Android Game Status
-        run: node release/game-libs.ts android-game-status
+        run: bun release/game-libs.ts android-game-status

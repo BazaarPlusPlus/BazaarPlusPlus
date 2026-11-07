@@ -3,19 +3,19 @@ set positional-arguments
 
 # Run the source-only gate, including Rust/JS tests and the frontend build.
 check:
-    npm run verify -- --source-only
+    bun run verify --source-only
 
 # Pre-commit subset; full Rust checks, tests, binding generation and builds run in check.
 check-fast:
-    npm run format:check
-    npm run lint
-    npm run check:ts
+    bun run format:check
+    bun run lint
+    bun run check:ts
     cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-    npm run docs:check
+    bun run docs:check
 
 # Generate bindings and run the Rust and JavaScript tests.
 test:
-    npm test
+    bun run test
 
 # Run the macOS install and repair acceptance tests against a packaged resource directory and a copied game.
 acceptance:
@@ -27,18 +27,18 @@ acceptance:
 
 # Run the headless installer from source; use --help for commands.
 cli *args:
-    node scripts/headless.ts "$@"
+    bun scripts/headless.ts "$@"
 
 # Start the frontend development server (not the desktop app).
 dev:
-    npm run dev
+    bun run dev
 
-# Start the full Tauri desktop app; installs npm dependencies only when the tree is invalid.
+# Start the full Tauri desktop app; verifies the locked Bun dependencies before launch.
 app:
-    node scripts/checks/check-toolchain.ts "$(node --version)" "$(npm --version)"
-    npm ls --depth=0 >/dev/null 2>&1 || npm ci
-    npm run tauri dev
+    bun scripts/checks/check-toolchain.ts "$(bun --version)"
+    bun install --frozen-lockfile
+    bun run tauri dev
 
 # Format installer sources in place.
 fmt:
-    npm run format
+    bun run format

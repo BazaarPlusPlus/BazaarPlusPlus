@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TABLE="$SCRIPT_DIR/../../release/github-secrets.ts"
 
 table() {
-    node "$TABLE" "$@"
+    bun "$TABLE" "$@"
 }
 
 assert_platform() {

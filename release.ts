@@ -102,28 +102,28 @@ export interface ReleaseMainOptions {
 }
 
 const usage = `Product release commands (run from any directory):
-  node release.ts sync                         Project VERSION into toolchain files
-  node release.ts check                        Check product source projections, mod/installer Data Root and schema agreement, the Snapshot Lock, release configuration and V5 import removal
-  node release.ts prepare --platform macos      Build and validate one platform Payload
-  node release.ts build --platform macos        Build and sign the native installer
-  node release.ts upload --platform macos       Upload immutable platform artifacts
-  node release.ts prepare --platform android    Build the Android host and stage the Android Mod Payload
-  node release.ts build --platform android      Zip and sign the Managed Payload; build, align and sign
+  bun release.ts sync                         Project VERSION into toolchain files
+  bun release.ts check                        Check product source projections, mod/installer Data Root and schema agreement, the Snapshot Lock, release configuration and V5 import removal
+  bun release.ts prepare --platform macos      Build and validate one platform Payload
+  bun release.ts build --platform macos        Build and sign the native installer
+  bun release.ts upload --platform macos       Upload immutable platform artifacts
+  bun release.ts prepare --platform android    Build the Android host and stage the Android Mod Payload
+  bun release.ts build --platform android      Zip and sign the Managed Payload; build, align and sign
                                                 the Android App; pack the Interop Package and sign its
                                                 interop statement
-  node release.ts upload --platform android     Stream the Android App, the Interop Package, the Managed
+  bun release.ts upload --platform android     Stream the Android App, the Interop Package, the Managed
                                                 Payload zip and the fragment to R2
-  node release.ts mirror-all --windows-url <share-url> --macos-url <share-url>
+  bun release.ts mirror-all --windows-url <share-url> --macos-url <share-url>
                                                 Verify both uploaded platforms and record both mainland mirrors
-  node release.ts mirror --platform macos --url <share-url>
+  bun release.ts mirror --platform macos --url <share-url>
                                                 Verify and record the platform's mainland mirror page
-  node release.ts verify-mirror [--platform macos]
+  bun release.ts verify-mirror [--platform macos]
                                                 Re-check the recorded mainland mirrors of VERSION
-  node release.ts verify-mirror --latest       Re-check the mainland mirrors of the published platform manifests
-  node release.ts promote                      Publish Windows and macOS at VERSION and advance latest.json
-  node release.ts promote --platform macos     Publish one platform's manifest; latest.json advances once
+  bun release.ts verify-mirror --latest       Re-check the mainland mirrors of the published platform manifests
+  bun release.ts promote                      Publish Windows and macOS at VERSION and advance latest.json
+  bun release.ts promote --platform macos     Publish one platform's manifest; latest.json advances once
                                                 Windows and macOS are at the same version
-  node release.ts promote --platform android   Publish the Android Platform Release Manifest after checking
+  bun release.ts promote --platform android   Publish the Android Platform Release Manifest after checking
                                                 the three uploaded artifacts and the App's signer; Android
                                                 records no mainland mirror and never moves latest.json
 

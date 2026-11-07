@@ -73,13 +73,13 @@ function sectionHelp(): string {
     .join('\n');
 }
 
-const help = `Workspace setup (Node only; no npm dependency required)
+const help = `Workspace setup (Bun only; no package dependencies required)
 
-  node scripts/workspace.ts setup [--skip-deps]
-  node scripts/workspace.ts doctor
-  node scripts/workspace.ts run PROFILE -- COMMAND [ARG...]
-  node scripts/workspace.ts secrets check [--dependabot]
-  node scripts/workspace.ts secrets push [--dependabot]
+  bun scripts/workspace.ts setup [--skip-deps]
+  bun scripts/workspace.ts doctor
+  bun scripts/workspace.ts run PROFILE -- COMMAND [ARG...]
+  bun scripts/workspace.ts secrets check [--dependabot]
+  bun scripts/workspace.ts secrets push [--dependabot]
 
 just setup, just doctor, just secrets-check and just secrets-sync are equivalent
 shortcuts. just with-config PROFILE COMMAND [ARG...] runs a command from the
@@ -120,28 +120,19 @@ also sets CLOUDFLARE_API_TOKEN for Dependabot. The token is an Account API Token
 (Account > Manage API tokens) with Object Read & Write on every bucket plus Workers
 Scripts Edit.
 
-setup installs each Node project's locked dependencies, the analyzer environment,
+setup installs each JS/TS project's locked dependencies, the analyzer environment,
 the mod's local .NET tools and Git hooks. Install language/platform tools first.
 It never runs analysis, signs packages, deploys, publishes, or exports Keychain keys.
 doctor checks local prerequisites only; presence is not proof of remote permission.
 POSIX files use mode 600 and config directories 700; Windows ACLs remain user-managed.
 `;
 
-function invocation(command: string, args: string[]): [string, string[]] {
-  // Git Bash supplies npm as an executable script on Windows. Bash receives
-  // positional arguments, never a command interpolated with credential values.
-  return process.platform === 'win32' && command === 'npm'
-    ? ['bash', ['-c', 'exec npm "$@"', 'npm', ...args]]
-    : [command, args];
-}
-
 function execute(
   command: string,
   args: string[],
   { cwd = root, env = process.env }: ExecuteOptions = {}
 ): void {
-  const [binary, parameters] = invocation(command, args);
-  const result = spawnSync(binary, parameters, { cwd, env, stdio: 'inherit' });
+  const result = spawnSync(command, args, { cwd, env, stdio: 'inherit' });
   if (result.error)
     throw new Error(
       `Cannot start ${command}; check the toolchain installation`
@@ -160,8 +151,7 @@ function probe(
   args: string[],
   cwd = root
 ): SpawnSyncReturns<string> {
-  const [binary, parameters] = invocation(command, args);
-  return spawnSync(binary, parameters, {
+  return spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
     timeout: 15_000
@@ -178,8 +168,7 @@ export function doctor(
   const add = (scope: string, ok: boolean, detail: string) =>
     rows.push({ scope, ok, detail });
   for (const [command, args] of [
-    ['node', ['--version']],
-    ['npm', ['--version']],
+    ['bun', ['--version']],
     ['just', ['--version']],
     ['dotnet', ['--version']],
     ['rustup', ['--version']],
@@ -349,7 +338,7 @@ export function main(args: string[] = process.argv.slice(2)): void {
     refreshProjections(home);
     if (!skipDeps) {
       for (const project of ['', 'installer', 'site', 'server']) {
-        execute('npm', ['ci'], {
+        execute('bun', ['install', '--frozen-lockfile'], {
           cwd: project ? path.join(root, `bazaarplusplus-${project}`) : root
         });
       }

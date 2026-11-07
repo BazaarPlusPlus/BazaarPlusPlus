@@ -4,10 +4,10 @@
   "version": "6.2.4",
   "identifier": "com.bazaarplusplus.bppinstaller",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:14207",
-    "beforeBuildCommand": "npm run build",
-    "beforeBundleCommand": "node scripts/release/before-bundle-cleanup.ts && node scripts/release/compile-macos-icon.ts",
+    "beforeBuildCommand": "bun run build",
+    "beforeBundleCommand": "bun scripts/release/before-bundle-cleanup.ts && bun scripts/release/compile-macos-icon.ts",
     "frontendDist": "../build"
   },
   "app": {

@@ -19,7 +19,7 @@ The design is a small number of deep seams — the route table and its single HT
 ## Development
 
 ```sh
-npm ci
+bun install --frozen-lockfile
 just server::check
 just server::test
 just server::dev   # Refreshes .dev.vars from the shared configuration first

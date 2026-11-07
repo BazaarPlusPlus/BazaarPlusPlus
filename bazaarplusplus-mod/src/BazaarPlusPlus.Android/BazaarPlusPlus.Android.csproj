@@ -153,7 +153,7 @@
     />
     <Error
       Condition="'$(BppPayloadStagingRoot)' == ''"
-      Text="Production payloads require isolated staging. Run node release.ts prepare --platform android."
+      Text="Production payloads require isolated staging. Run bun release.ts prepare --platform android."
     />
   </Target>
 

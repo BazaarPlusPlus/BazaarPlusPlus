@@ -3,16 +3,16 @@ set positional-arguments
 
 # Run the Worker's type, lint, and formatting checks.
 check:
-    npm run check
+    bun run check
 
 # Run the Worker tests in the local Cloudflare test runtime.
 test:
-    npm test
+    bun run test
 
 # Start the local Worker; requires this project's .dev.vars.
 dev:
-    node ../scripts/workspace.ts run server -- npm run dev
+    bun ../scripts/workspace.ts run server -- bun run dev
 
 # Format Worker sources in place.
 fmt:
-    npm run format
+    bun run format

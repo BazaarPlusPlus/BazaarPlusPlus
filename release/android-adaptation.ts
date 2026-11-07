@@ -40,7 +40,7 @@ export function captureKind(
 }
 
 const usage = `Usage:
-  node release/android-adaptation.ts kind --previous <game-libs.lock.json>
+  bun release/android-adaptation.ts kind --previous <game-libs.lock.json>
       Print unchanged, content or code: how the locked android-online entry
       differs from the one in the previous lock file`;
 

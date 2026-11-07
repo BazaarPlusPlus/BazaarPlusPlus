@@ -100,7 +100,7 @@ test('a rebased force push selects the branch changes, not the default branch co
   assert.deepEqual(f.plan(next, rebased), [['site::test']]);
 });
 
-test('selected gates name their missing npm dependencies', (t) => {
+test('selected gates name their missing Bun dependencies', (t) => {
   const f = fixture(t);
   const commands = pushCommands({
     release: ['x'],

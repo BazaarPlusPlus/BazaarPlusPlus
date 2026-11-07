@@ -108,7 +108,7 @@ test('dependency install fails clearly instead of updating an absent lockfile', 
     `,
       { BPP_TEST_INSTALLER_ROOT: rootBash }
     );
-    expect(output).toContain('package-lock.json is required');
+    expect(output).toContain('bun.lock is required');
     expect(output).toContain('exit:1');
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -234,7 +234,7 @@ test('release prechecks require the product build lock before verification', () 
   `);
   expect(output).not.toContain('release.ts check');
   expect(output).toContain('release.ts assert-build-owner');
-  expect(output).toContain('npm run verify -- --release-platform windows');
+  expect(output).toContain('bun run verify --release-platform windows');
 });
 
 test('updater signing env requires the key and defaults the password to empty', () => {

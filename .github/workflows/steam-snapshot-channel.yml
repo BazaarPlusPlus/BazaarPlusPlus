@@ -45,9 +45,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: master
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: package.json
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
@@ -99,7 +99,7 @@ jobs:
         name: Classify the capture
         id: change
         run: |
-          kind="$(node release/game-libs.ts steam-change --previous "$RUNNER_TEMP/previous-lock.json" --channel "$STEAM_CHANNEL")"
+          kind="$(bun release/game-libs.ts steam-change --previous "$RUNNER_TEMP/previous-lock.json" --channel "$STEAM_CHANNEL")"
           echo "kind=$kind" >> "$GITHUB_OUTPUT"
           echo "Capture: $kind change" >> "$GITHUB_STEP_SUMMARY"
       - if: steps.change.outputs.kind == 'content' || steps.change.outputs.kind == 'code'
@@ -139,7 +139,7 @@ jobs:
             git fetch origin "$BRANCH"
             git show FETCH_HEAD:"$LOCK" > "$LOCK"
           fi
-          node release/game-libs.ts game-status --state "$RUNNER_TEMP/steam-state.json"
+          bun release/game-libs.ts game-status --state "$RUNNER_TEMP/steam-state.json"
 
   # A pull request from GITHUB_TOKEN starts no checks, so the Mod lanes of the
   # platforms captured run here, and their result goes in its body. These jobs
@@ -167,9 +167,9 @@ jobs:
         with:
           ref: ${{ needs.capture.outputs.branch }}
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: package.json
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
