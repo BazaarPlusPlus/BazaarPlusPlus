@@ -24,7 +24,7 @@
     "@biomejs/biome": "2.6.4",
     "@cfworker/json-schema": "4.1.4",
     "@cloudflare/vitest-pool-workers": "0.23.0",
-    "@cloudflare/workers-types": "5.20261030.1",
+    "@cloudflare/workers-types": "5.20261031.1",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
     "vitest": "^4.1.12",
