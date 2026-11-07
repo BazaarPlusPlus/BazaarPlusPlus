@@ -199,7 +199,9 @@ internal sealed class NativePortraitComposition
                 fit?.Inliers ?? 0,
                 watch.ElapsedMilliseconds
             );
-            if (!timedOut && sprite != null && source != null)
+            // A budget timeout is a failed composition for this loaded sprite too. Keep
+            // its static fallback across setups; caller cancellation above remains retryable.
+            if (sprite != null && source != null)
             {
                 _memory.Remove(sprite);
                 _memory.Add(sprite, new Cached(assetId, variant, SkinKey(skinInfo), fit));

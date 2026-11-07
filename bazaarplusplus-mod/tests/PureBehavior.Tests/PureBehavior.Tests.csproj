@@ -13,6 +13,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/BazaarPlusPlus/Infrastructure/HeroPortraits/Composition/PortraitCompositionMatcher.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Infrastructure/HeroPortraits/Composition/PortraitImageFeatures.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Infrastructure/HeroPortraits/Composition/PortraitPoseRasterizer.cs" />
     <Compile Include="../AsyncLoadCache.Tests/*.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionState.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayout.cs" />

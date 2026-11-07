@@ -61,6 +61,40 @@ internal static class PortraitCompositionMatcher
 
     private sealed record Pair(int Id, PortraitPoint Source, PortraitPoint Target);
 
+    private sealed class InlierSelection(int targetCount)
+    {
+        private readonly int[] _indices = new int[targetCount];
+        private readonly float[] _errors = new float[targetCount];
+        private readonly List<Pair> _pairs = new(targetCount);
+
+        internal List<Pair> Select(List<Pair> pairs, float scale, float x, float y)
+        {
+            Array.Fill(_indices, -1);
+            _pairs.Clear();
+            foreach (var pair in pairs)
+            {
+                var error = Residual(pair, scale, x, y);
+                if (error > InlierRadius * InlierRadius)
+                    continue;
+                var index = _indices[pair.Id];
+                if (index < 0)
+                {
+                    _indices[pair.Id] = _pairs.Count;
+                    _errors[pair.Id] = error;
+                    _pairs.Add(pair);
+                }
+                else if (error < _errors[pair.Id])
+                {
+                    // Keep the first observation's position, as the dictionary did: the
+                    // refinement's floating-point sums depend on this traversal order.
+                    _errors[pair.Id] = error;
+                    _pairs[index] = pair;
+                }
+            }
+            return _pairs;
+        }
+    }
+
     private const float InlierRadius = 0.018f;
 
     internal static PortraitComposition? Match(
@@ -292,6 +326,9 @@ internal static class PortraitCompositionMatcher
     {
         if (pairs.Count < 7)
             return null;
+        // MatchImages assigns dense target IDs. Reuse one selection across every trial
+        // and refinement instead of allocating a dictionary and list for each one.
+        var selection = new InlierSelection(pairs.Max(p => p.Id) + 1);
         var rng = new Random(731);
         PortraitComposition? best = null;
         var runnerUp = 0;
@@ -313,16 +350,29 @@ internal static class PortraitCompositionMatcher
                 continue;
             var x = (a.Target.X + b.Target.X - s * (a.Source.X + b.Source.X)) * 0.5f;
             var y = (a.Target.Y + b.Target.Y - s * (a.Source.Y + b.Source.Y)) * 0.5f;
-            var inliers = SelectInliers(pairs, s, x, y);
+            var inliers = selection.Select(pairs, s, x, y);
             if (inliers.Count < 7)
                 continue;
             // Refine against unique target corners; reused atlas regions cannot inflate support.
             for (var refinement = 0; refinement < 2; refinement++)
             {
-                var mx = inliers.Average(p => p.Source.X);
-                var my = inliers.Average(p => p.Source.Y);
-                var tx = inliers.Average(p => p.Target.X);
-                var ty = inliers.Average(p => p.Target.Y);
+                // Enumerable.Average over floats accumulates in double, then casts back.
+                // Keep that arithmetic while collecting all four means in one traversal.
+                double sourceX = 0,
+                    sourceY = 0,
+                    targetX = 0,
+                    targetY = 0;
+                foreach (var p in inliers)
+                {
+                    sourceX += p.Source.X;
+                    sourceY += p.Source.Y;
+                    targetX += p.Target.X;
+                    targetY += p.Target.Y;
+                }
+                var mx = (float)(sourceX / inliers.Count);
+                var my = (float)(sourceY / inliers.Count);
+                var tx = (float)(targetX / inliers.Count);
+                var ty = (float)(targetY / inliers.Count);
                 var numerator = 0f;
                 var denominator = 0f;
                 foreach (var p in inliers)
@@ -337,13 +387,26 @@ internal static class PortraitCompositionMatcher
                 s = numerator / denominator;
                 x = tx - s * mx;
                 y = ty - s * my;
-                inliers = SelectInliers(pairs, s, x, y);
+                inliers = selection.Select(pairs, s, x, y);
                 if (inliers.Count < 7)
                     break;
             }
             if (inliers.Count < 7)
                 continue;
-            var error = MathF.Sqrt(inliers.Average(p => Residual(p, s, x, y)));
+            var minX = float.PositiveInfinity;
+            var minY = float.PositiveInfinity;
+            var maxX = float.NegativeInfinity;
+            var maxY = float.NegativeInfinity;
+            double totalError = 0;
+            foreach (var p in inliers)
+            {
+                totalError += Residual(p, s, x, y);
+                minX = Math.Min(minX, p.Target.X);
+                minY = Math.Min(minY, p.Target.Y);
+                maxX = Math.Max(maxX, p.Target.X);
+                maxY = Math.Max(maxY, p.Target.Y);
+            }
+            var error = MathF.Sqrt((float)(totalError / inliers.Count));
             var candidate = new PortraitComposition(
                 s,
                 x,
@@ -351,8 +414,8 @@ internal static class PortraitCompositionMatcher
                 time,
                 inliers.Count,
                 error,
-                inliers.Max(p => p.Target.X) - inliers.Min(p => p.Target.X),
-                inliers.Max(p => p.Target.Y) - inliers.Min(p => p.Target.Y)
+                maxX - minX,
+                maxY - minY
             );
             if (!IsReliable(candidate))
                 continue;
@@ -371,20 +434,6 @@ internal static class PortraitCompositionMatcher
     private static bool Incompatible(PortraitComposition a, PortraitComposition b) =>
         MathF.Abs(MathF.Log(a.Scale / b.Scale)) > 0.15f
         || MathF.Abs(a.X - b.X) + MathF.Abs(a.Y - b.Y) > 0.2f;
-
-    private static List<Pair> SelectInliers(List<Pair> pairs, float s, float x, float y)
-    {
-        var selected = new Dictionary<int, (Pair Pair, float Error)>();
-        foreach (var pair in pairs)
-        {
-            var error = Residual(pair, s, x, y);
-            if (error > InlierRadius * InlierRadius)
-                continue;
-            if (!selected.TryGetValue(pair.Id, out var old) || error < old.Error)
-                selected[pair.Id] = (pair, error);
-        }
-        return selected.Values.Select(v => v.Pair).ToList();
-    }
 
     private static float Residual(Pair p, float s, float x, float y)
     {

@@ -26,6 +26,7 @@ internal static class LiveBuildPanelStateTests
         CloseClearsTheSelection();
         ToggleIsIgnoredWhileHidden();
         TogglePrunesUnselectableCandidatesAndResetsTheIndex();
+        TinyFilterKeepsCandidatesAndSurvivesRefreshAndReopen();
         BrowsingWrapsAndNeedsTwoMatches();
         MatchesReportEachState();
         LiveCardsProjectOntoPlannedBoards();
@@ -35,6 +36,66 @@ internal static class LiveBuildPanelStateTests
         FetchNeverThrowsAndSkipsTheNetworkForNoChange();
         TooltipNamesTheDragonsThroughThePort();
         RefreshLoggingKeepsItsEventsAndFields();
+    }
+
+    private static void TinyFilterKeepsCandidatesAndSurvivesRefreshAndReopen()
+    {
+        var catalog = new StubCatalog(Corpus());
+        var state = new LiveBuildPanelState(
+            new BuildRecommendationRepository(
+                catalog,
+                id => id == CardC ? CardSize.Medium : CardSize.Small
+            ),
+            () => DateTimeOffset.UtcNow,
+            () => DragonsName
+        );
+        Check.That(!state.ToggleIncludeTiny(), "A hidden panel ignores filter changes.");
+        state.Open(Live(CardHero.Vanessa, board: [CardA]), []);
+        state.ToggleCandidate(CardA);
+        Check.That(state.BuildSnapshot().IncludeTiny, "Tiny starts included.");
+        state.Next();
+        Check.Equal(1, state.BuildSnapshot().RecommendationIndex, "Browse to the Tiny build.");
+
+        Check.That(state.ToggleIncludeTiny(), "The visible filter changes.");
+        var filtered = state.BuildSnapshot();
+        Check.That(!filtered.IncludeTiny, "Snapshot exposes the filter.");
+        Check.That(
+            filtered.CandidateTemplateIds.SequenceEqual([CardA]),
+            "Candidates survive filtering."
+        );
+        Check.Equal(
+            1,
+            filtered.RecommendationCount,
+            "The build with an unselected Tiny card is removed."
+        );
+        Check.Equal(0, filtered.RecommendationIndex, "Filtering starts from the first result.");
+        Check.Equal(0, catalog.RefreshCount, "Filtering never downloads the corpus.");
+
+        state.BeginRefresh();
+        state.CompleteRefresh(BuildRecommendationRefreshResult.Updated(), Guid.NewGuid());
+        Check.Equal(
+            1,
+            state.BuildSnapshot().RecommendationCount,
+            "Refresh applies the current filter."
+        );
+        state.Close();
+        state.Open(Live(CardHero.Vanessa, board: [CardA, CardC]), []);
+        Check.That(
+            !state.BuildSnapshot().IncludeTiny,
+            "Reopening remembers the filter for this panel lifetime."
+        );
+        state.ToggleCandidate(CardC);
+        Check.Equal(
+            LiveBuildMatchesState.NoRecommendation,
+            state.BuildSnapshot().MatchesState,
+            "Only Tiny matches leaves an empty result."
+        );
+        state.ToggleIncludeTiny();
+        Check.Equal(
+            1,
+            state.BuildSnapshot().RecommendationCount,
+            "Including Tiny restores the selected card's build."
+        );
     }
 
     private static void SupporterAttributionFillsTheRail()

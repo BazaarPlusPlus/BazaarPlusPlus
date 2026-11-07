@@ -49,6 +49,7 @@ internal sealed class LiveBuildPanelView : IDisposable
     private readonly Action _previous;
     private readonly Action _next;
     private readonly Action _refresh;
+    private readonly Action _toggleIncludeTiny;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
     private readonly List<(Image Image, int Index)> _art = new();
     private NativeGameTypography.OwnedTextPreparation? _font;
@@ -84,6 +85,8 @@ internal sealed class LiveBuildPanelView : IDisposable
     private Button? _closeButton;
     private Button? _previousButton;
     private Button? _nextButton;
+    private Button? _includeTinyButton;
+    private Image? _includeTinySelected;
     private Image? _portrait;
     private CardHero? _portraitHero;
     private Task<HeroPortraitLoadOutcome?>? _portraitLoad;
@@ -100,7 +103,8 @@ internal sealed class LiveBuildPanelView : IDisposable
         Action close,
         Action previous,
         Action next,
-        Action refresh
+        Action refresh,
+        Action toggleIncludeTiny
     )
     {
         _parent = parent;
@@ -108,6 +112,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         _previous = previous;
         _next = next;
         _refresh = refresh;
+        _toggleIncludeTiny = toggleIncludeTiny;
     }
 
     internal event Action<BppItemBoardId, Rect>? RowBoundsChanged;
@@ -218,6 +223,9 @@ internal sealed class LiveBuildPanelView : IDisposable
         _portrait.raycastTarget = false;
         _portrait.color = Color.clear;
         _navigationLabel = Text(_layout, "", 0, 0, 0, 0, 17);
+        _includeTinyButton = Button(_layout, "", 0, 0, 0, 0, _toggleIncludeTiny);
+        _includeTinySelected = Layer(_includeTinyButton.transform, 2);
+        _includeTinySelected.transform.SetSiblingIndex(1);
         _previousButton = NavigationButton(_previous, forward: false);
         _pager = Text(_layout, "", 0, 0, 0, 0, 17, Ink, true);
         _nextButton = NavigationButton(_next, forward: true);
@@ -274,6 +282,8 @@ internal sealed class LiveBuildPanelView : IDisposable
         _title!.text = LiveBuildPanelText.Title();
         _corpusTitle!.text = LiveBuildPanelText.CorpusLibrary();
         _navigationLabel!.text = LiveBuildPanelText.BrowseBuilds();
+        SetButtonText(_includeTinyButton!, LiveBuildPanelText.IncludeTiny());
+        _includeTinySelected!.enabled = snapshot.IncludeTiny;
         _hint!.text = LiveBuildPanelText.SelectionHint();
         SetButtonText(_refreshButton!, snapshot.FinalBuildRefreshButtonText);
         _refreshButton!.interactable = snapshot.FinalBuildRefreshButtonEnabled;
@@ -575,6 +585,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         Place((RectTransform)_refreshButton!.transform, contentWidth - 94, 14, 94, 28);
         Place(_corpus!.rectTransform, 0, 56, contentWidth, 60);
         _corpus.alignment = TextAlignmentOptions.TopLeft;
+        Place((RectTransform)_includeTinyButton!.transform, contentLeft, 432, contentWidth, 44);
         Place(_navigationLabel!.rectTransform, contentLeft, 492, contentWidth - 116, 28);
         Place(_pager!.rectTransform, contentLeft + contentWidth - 104, 492, 104, 28);
         _pager.alignment = TextAlignmentOptions.MidlineRight;

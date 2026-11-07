@@ -4,6 +4,7 @@ using BazaarPlusPlus.GameInterop.Scenes;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Patches;
+using TheBazaar;
 using UnityEngine;
 using UnityEngine.UI;
 using CollectionPanelFeature = BazaarPlusPlus.Game.CollectionPanel.CollectionPanel;
@@ -36,7 +37,7 @@ internal sealed class BppPanelDockButtonsController
     internal void SetLayoutAvailable(bool available)
     {
         _hasAvailableDockLayout = available;
-        ApplyScreenshotSuppressionVisibility();
+        ApplyVisibility();
     }
 
     internal static void Attach(Button anchorButton, BppSettingsDockPlacement placement)
@@ -144,7 +145,7 @@ internal sealed class BppPanelDockButtonsController
         shouldSync |= _screenResizeSync.ShouldSync(Screen.width, Screen.height);
         if (shouldSync)
             SyncDockButtonPlacement();
-        ApplyScreenshotSuppressionVisibility();
+        ApplyVisibility();
     }
 
     private void OnRectTransformDimensionsChange() => SyncDockButtonPlacement();
@@ -266,7 +267,7 @@ internal sealed class BppPanelDockButtonsController
     private IDisposable BeginInstanceScreenshotSuppression()
     {
         _screenshotSuppressionCount++;
-        ApplyScreenshotSuppressionVisibility();
+        ApplyVisibility();
         return new ScreenshotSuppressionLease(this);
     }
 
@@ -275,22 +276,22 @@ internal sealed class BppPanelDockButtonsController
         if (_screenshotSuppressionCount > 0)
             _screenshotSuppressionCount--;
 
-        ApplyScreenshotSuppressionVisibility();
+        ApplyVisibility();
     }
 
-    private void ApplyScreenshotSuppressionVisibility()
+    private void ApplyVisibility()
     {
         var config = BppPatchHost.Services.Config;
+        // The end-of-run screens keep the run's settings button; the dock buttons hide there.
+        var hidden =
+            _screenshotSuppressionCount > 0
+            || AppState.CurrentState is { } appState && appState.IsEndOfRunState();
         var shouldBeVisible =
-            config.ShowCollectionButtonConfig.Value
-            && _screenshotSuppressionCount == 0
-            && _hasAvailableDockLayout;
+            config.ShowCollectionButtonConfig.Value && !hidden && _hasAvailableDockLayout;
         if (_dockButtonRect != null && _dockButtonRect.gameObject.activeSelf != shouldBeVisible)
             _dockButtonRect.gameObject.SetActive(shouldBeVisible);
         var liveBuildVisible =
-            config.ShowTenWinBuildsButtonConfig.Value
-            && _screenshotSuppressionCount == 0
-            && _hasAvailableLiveBuildLayout;
+            config.ShowTenWinBuildsButtonConfig.Value && !hidden && _hasAvailableLiveBuildLayout;
         if (
             _liveBuildButtonRect != null
             && _liveBuildButtonRect.gameObject.activeSelf != liveBuildVisible

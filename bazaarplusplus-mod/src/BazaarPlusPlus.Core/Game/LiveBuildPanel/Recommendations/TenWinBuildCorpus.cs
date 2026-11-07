@@ -259,7 +259,8 @@ public sealed class TenWinBuildCorpus
     public IReadOnlyList<TenWinBuildMatch> FindBuilds(
         string? hero,
         IReadOnlyCollection<Guid> selectedTemplateIds,
-        BuildLiveState liveState
+        BuildLiveState liveState,
+        Func<TenWinBuild, bool>? includeBuild = null
     )
     {
         if (
@@ -296,13 +297,23 @@ public sealed class TenWinBuildCorpus
         if (coveredSets.Count == 0)
             return Array.Empty<TenWinBuildMatch>();
 
-        var candidateIds = !anyUncovered ? IntersectAll(coveredSets) : UnionAll(coveredSets);
+        // Apply eligibility before deciding whether the intersection needs the union fallback.
+        List<int> Eligible(IEnumerable<int> ids) =>
+            ids.Where(id =>
+                    id >= 0
+                    && id < heroData.Builds.Count
+                    && (includeBuild == null || includeBuild(heroData.Builds[id]))
+                )
+                .ToList();
+
+        var candidateIds = Eligible(
+            !anyUncovered ? IntersectAll(coveredSets) : UnionAll(coveredSets)
+        );
         if (candidateIds.Count == 0)
-            candidateIds = UnionAll(coveredSets);
+            candidateIds = Eligible(UnionAll(coveredSets));
 
         var selectedSet = new HashSet<Guid>(distinctSelected);
         return candidateIds
-            .Where(id => id >= 0 && id < heroData.Builds.Count)
             .Select(id => heroData.Builds[id])
             .Select(build => new TenWinBuildMatch(
                 build,
