@@ -149,7 +149,8 @@ internal sealed class LiveBuildPanel : MonoBehaviour
             () => _overlayHandle?.RequestClose(),
             PreviousRecommendation,
             NextRecommendation,
-            TryRefreshFinalBuilds
+            TryRefreshFinalBuilds,
+            ToggleIncludeTiny
         );
         _view.RowBoundsChanged += OnRowBoundsChanged;
         _previewRenderer = new LiveBuildPreviewRenderer(
@@ -174,6 +175,12 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     private void PreviousRecommendation()
     {
         if (_state?.Previous() == true)
+            RefreshViewAndPreview();
+    }
+
+    private void ToggleIncludeTiny()
+    {
+        if (_state?.ToggleIncludeTiny() == true)
             RefreshViewAndPreview();
     }
 

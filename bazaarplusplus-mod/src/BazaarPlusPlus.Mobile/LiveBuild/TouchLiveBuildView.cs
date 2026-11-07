@@ -33,6 +33,8 @@ internal sealed class TouchLiveBuildView
     private readonly TextMeshProUGUI _pager;
     private readonly Button _previous;
     private readonly Button _next;
+    private readonly Image _includeTinyBackground;
+    private readonly TextMeshProUGUI _includeTinyLabel;
     private readonly TextMeshProUGUI _refreshLabel;
     private readonly Button _refresh;
     private readonly TextMeshProUGUI _corpus;
@@ -156,6 +158,14 @@ internal sealed class TouchLiveBuildView
                 ">",
                 "next",
                 commands.Next
+            );
+            (_, _includeTinyBackground, _includeTinyLabel) = _skin.Button(
+                TouchScreen.Child("IncludeTiny", root, layout.IncludeTiny),
+                font,
+                "",
+                layout.ButtonFont,
+                layout.LabelInset,
+                () => UiActions.Run("live_build.include_tiny", commands.ToggleIncludeTiny)
             );
             _pager = Label(
                 root,
@@ -376,6 +386,8 @@ internal sealed class TouchLiveBuildView
     /// <summary>Main thread: maps the snapshot onto the view, as the desktop's view does.</summary>
     public void Refresh(LiveBuildPanelSnapshot snapshot, bool boards, BppItemBoardId selectedBoard)
     {
+        _includeTinyLabel.text = LiveBuildPanelText.IncludeTiny();
+        _skin.Select(_includeTinyBackground, snapshot.IncludeTiny);
         _refreshLabel.text = snapshot.FinalBuildRefreshButtonEnabled
             ? T("Update", "更新")
             : T("Updating…", "更新中…");

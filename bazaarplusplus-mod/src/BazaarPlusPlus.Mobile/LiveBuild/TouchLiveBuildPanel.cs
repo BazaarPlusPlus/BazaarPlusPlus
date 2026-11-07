@@ -69,7 +69,8 @@ internal sealed class TouchLiveBuildPanel
             () => Browse(-1),
             () => Browse(+1),
             ToggleCandidate,
-            CycleBoard
+            CycleBoard,
+            ToggleIncludeTiny
         );
         _state.BeginCorpusLoad();
     }
@@ -81,7 +82,8 @@ internal sealed class TouchLiveBuildPanel
         Action Previous,
         Action Next,
         Action<Guid> Toggle,
-        Action CycleBoard
+        Action CycleBoard,
+        Action ToggleIncludeTiny
     );
 
     public bool IsOpen => _slot.View?.IsVisible == true;
@@ -313,6 +315,12 @@ internal sealed class TouchLiveBuildPanel
             ("index", snapshot.RecommendationIndex),
             ("count", snapshot.RecommendationCount)
         );
+    }
+
+    private void ToggleIncludeTiny()
+    {
+        if (_state.ToggleIncludeTiny())
+            _slot.View?.Refresh(_state.BuildSnapshot(), boards: true, _selectedBoard);
     }
 
     private void Refresh()

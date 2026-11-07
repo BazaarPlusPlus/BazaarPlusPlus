@@ -161,10 +161,17 @@ public sealed class LiveBuildTouchLayout
             ? new TouchRect(0f, _listTop, metrics.Target(160f), target)
             : new TouchRect(Sidebar.Left, Next.Bottom + Gap, Sidebar.Width, Next.Height);
 
+        var titleRight = Stacked ? Previous.Left - Gap : PinnedTitle.Right;
+        IncludeTiny = new TouchRect(
+            titleRight - metrics.Target(144f),
+            PinnedTitle.Top,
+            metrics.Target(144f),
+            target
+        );
         PinnedTitleText = new TouchRect(
             PinnedTitle.Left,
             PinnedTitle.Top,
-            Stacked ? Math.Max(0f, Previous.Left - Gap - PinnedTitle.Left) : PinnedTitle.Width,
+            Math.Max(0f, IncludeTiny.Left - Gap - PinnedTitle.Left),
             target
         );
 
@@ -350,6 +357,8 @@ public sealed class LiveBuildTouchLayout
     public TouchRect PinnedTitle { get; }
 
     public TouchRect PinnedTitleText { get; }
+
+    public TouchRect IncludeTiny { get; }
 
     public TouchRect Previous { get; }
 

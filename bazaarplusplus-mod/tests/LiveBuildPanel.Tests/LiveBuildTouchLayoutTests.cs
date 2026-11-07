@@ -173,6 +173,7 @@ internal static class LiveBuildTouchLayoutTests
         var header = new (string Name, TouchRect Rect)[]
         {
             ("pinned title", layout.PinnedTitleText),
+            ("include Tiny", layout.IncludeTiny),
             ("previous", layout.Previous),
             ("pager", layout.Pager),
             ("next", layout.Next),
@@ -222,6 +223,7 @@ internal static class LiveBuildTouchLayoutTests
         var targets = new (string Name, TouchRect Rect, TouchRect Space)[]
         {
             ("close", layout.Close, sheet),
+            ("include Tiny", layout.IncludeTiny, sheet),
             ("board selector", layout.BoardSelector, layout.Stacked ? content : sheet),
             ("previous", layout.Previous, sheet),
             ("next", layout.Next, sheet),
