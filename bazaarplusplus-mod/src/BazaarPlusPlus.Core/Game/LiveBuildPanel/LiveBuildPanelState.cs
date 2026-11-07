@@ -34,6 +34,7 @@ public sealed class LiveBuildPanelState
     private IReadOnlyList<BuildRecommendation> _matches = Array.Empty<BuildRecommendation>();
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
     private int _recommendationIndex;
+    private bool _includeTiny = true;
 
     /// <param name="recommendations">The shared repository, owned by the composition root.</param>
     /// <param name="utcNow">The clock the corpus freshness reads.</param>
@@ -94,6 +95,18 @@ public sealed class LiveBuildPanelState
 
         _candidates.Toggle(templateId);
         _candidates.PruneToSelectableRows(BuildSelectableBoards());
+        _recommendationIndex = 0;
+        RefreshRecommendations();
+        return true;
+    }
+
+    /// <summary>Changes build eligibility, keeping candidates and returning to the first match.</summary>
+    public bool ToggleIncludeTiny()
+    {
+        if (!_refresh.IsVisible)
+            return false;
+
+        _includeTiny = !_includeTiny;
         _recommendationIndex = 0;
         RefreshRecommendations();
         return true;
@@ -185,6 +198,7 @@ public sealed class LiveBuildPanelState
             Board = board,
             Stash = stash,
             CandidateTemplateIds = _candidates.TemplateIds,
+            IncludeTiny = _includeTiny,
             MatchesState = matches.State,
             MatchesGuidance = matches.Guidance,
             MatchTenWinRateBps = matches.Recommendation?.TenWinRateBps,
@@ -227,7 +241,8 @@ public sealed class LiveBuildPanelState
                 : _recommendations.FindRecommendations(
                     hero,
                     _candidates.TemplateIds,
-                    ResolveLiveState()
+                    ResolveLiveState(),
+                    _includeTiny
                 );
         _recommendationIndex = Math.Clamp(_recommendationIndex, 0, Math.Max(0, _matches.Count - 1));
     }

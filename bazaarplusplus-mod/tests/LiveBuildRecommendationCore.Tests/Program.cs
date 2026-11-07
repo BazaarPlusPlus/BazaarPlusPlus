@@ -46,6 +46,9 @@ internal static class TenWinBuildTests
         TestMultiCardSelectionPrefersIntersection();
         TestUnionFallbackWhenIntersectionEmptyButAllCovered();
         TestUnionFallbackKeepsResultsWhenOneSelectedCardUncovered();
+        TestTinyFilterExaminesEveryCardAndPreservesRanking();
+        TestTinyFilterFallsBackToEligiblePartialMatches();
+        TestTinyFilterRechecksUnavailableTemplates();
         TestSelectingOnlyUncoveredCardsReturnsEmpty();
         TestLiveStateRankingOutranksScore();
         TestBoardContractMapsTierEnchantSize();
@@ -265,8 +268,8 @@ internal static class TenWinBuildTests
         Assert(find != null, "Repository should expose FindRecommendations.");
         var parameters = find!.GetParameters();
         Assert(
-            parameters.Length == 3,
-            "FindRecommendations should take (hero, selectedTemplateIds, liveState)."
+            parameters.Length == 4,
+            "FindRecommendations should take (hero, selectedTemplateIds, liveState, includeTiny)."
         );
         Assert(
             parameters[0].ParameterType == typeof(string),
@@ -398,6 +401,129 @@ internal static class TenWinBuildTests
                     $"An uncovered selected card must not empty the result while A has coverage; got {scores.Count}."
                 );
             }
+        );
+    }
+
+    private static void TestTinyFilterExaminesEveryCardAndPreservesRanking()
+    {
+        using var catalog = new StubCatalog(RequireCorpus(TinyFilterPayload()));
+        var repository = new BuildRecommendationRepository(catalog, TinyTemplateSize);
+        var selected = new[] { Guid.Parse(GuidA) };
+        var all = repository.FindRecommendations("Vanessa", selected);
+        Assert(
+            ScoresOf(all).SequenceEqual([400L, 300L, 200L, 100L, 50L]),
+            "Tiny is included by default."
+        );
+        var filtered = repository.FindRecommendations("Vanessa", selected, includeTiny: false);
+        Assert(
+            ScoresOf(filtered).SequenceEqual([100L, 50L]),
+            "An unselected Medium-to-Small or Large-to-Medium card excludes its entire build."
+        );
+        Assert(
+            filtered.All(match =>
+                all.Any(original => ReferenceEquals(original.Board, match.Board))
+            ),
+            "Filtering preserves the original layouts and their cached projections."
+        );
+        Assert(
+            ScoresOf(repository.FindRecommendations("Vanessa", selected))
+                .SequenceEqual(ScoresOf(all)),
+            "Including Tiny again restores the original ranking."
+        );
+    }
+
+    private static void TestTinyFilterFallsBackToEligiblePartialMatches()
+    {
+        using var catalog = new StubCatalog(RequireCorpus(TinyFilterPayload()));
+        var repository = new BuildRecommendationRepository(catalog, TinyTemplateSize);
+        var selected = new[] { Guid.Parse(GuidB), Guid.Parse(GuidC) };
+        Assert(
+            ScoresOf(repository.FindRecommendations("Vanessa", selected)).SequenceEqual([400L]),
+            "The only complete match contains Tiny."
+        );
+        var filtered = repository.FindRecommendations("Vanessa", selected, includeTiny: false);
+        Assert(
+            ScoresOf(filtered).SequenceEqual([100L, 50L])
+                && filtered.All(match => match.MatchedCardCount == 1),
+            "Excluding the complete match must recall eligible partial matches."
+        );
+        Assert(
+            ScoresOf(
+                    repository.FindRecommendations(
+                        "Vanessa",
+                        [Guid.Parse(GuidB)],
+                        includeTiny: false
+                    )
+                )
+                .SequenceEqual([100L]),
+            "An eligible complete match still takes precedence over partial matches."
+        );
+
+        var allTiny = new BuildRecommendationRepository(catalog, _ => CardSize.Large);
+        Assert(
+            allTiny.FindRecommendations("Vanessa", selected, includeTiny: false).Count == 0,
+            "When every matching build contains Tiny, the result is empty."
+        );
+    }
+
+    private static void TestTinyFilterRechecksUnavailableTemplates()
+    {
+        using var catalog = new StubCatalog(RequireCorpus(TinyFilterPayload()));
+        var ready = false;
+        var repository = new BuildRecommendationRepository(
+            catalog,
+            id => ready ? TinyTemplateSize(id) : null
+        );
+        var selected = new[] { Guid.Parse(GuidA) };
+        Assert(
+            repository.FindRecommendations("Vanessa", selected, includeTiny: false).Count == 5,
+            "Unknown template sizes are not evidence of Tiny."
+        );
+        ready = true;
+        Assert(
+            repository.FindRecommendations("Vanessa", selected, includeTiny: false).Count == 2,
+            "A later query uses available templates even after boards have been cached."
+        );
+        var unavailable = new BuildRecommendationRepository(
+            catalog,
+            _ => throw new InvalidOperationException("not ready")
+        );
+        Assert(
+            unavailable.FindRecommendations("Vanessa", selected, includeTiny: false).Count == 5,
+            "A failed template lookup keeps the panel usable."
+        );
+    }
+
+    private static CardSize? TinyTemplateSize(Guid id) =>
+        id == Guid.Parse(GuidB) ? CardSize.Medium
+        : id == Guid.Parse(GuidC) ? CardSize.Large
+        : CardSize.Small;
+
+    private static string TinyFilterPayload()
+    {
+        string Row(long score, params (int Card, int Size)[] items)
+        {
+            var layout = new JArray();
+            var slot = 0;
+            foreach (var (card, size) in items)
+            {
+                layout.Add(new JArray(card, slot, 1, 0, size));
+                slot += size;
+            }
+            while (slot < 10)
+                layout.Add(new JArray(3, slot++, 1, 0, 1));
+            var refs = new JArray(
+                layout.Select(item => item[0]!.Value<int>()).OrderBy(value => value)
+            );
+            return Build(refs.ToString(), layout.ToString(), score);
+        }
+
+        return Payload(
+            cards: $"[\"{GuidA}\",\"{GuidB}\",\"{GuidC}\",\"{GuidD}\"]",
+            enchantments: "[null]",
+            hero: "Vanessa",
+            builds: $"[{Row(300, (0, 1), (1, 1))},{Row(200, (0, 1), (2, 2))},{Row(100, (0, 1), (1, 2))},{Row(50, (0, 1), (2, 3))},{Row(400, (0, 1), (1, 1), (2, 3))}]",
+            cardIndex: "[[0,[0,1,2,3,4]],[1,[0,2,4]],[2,[1,3,4]],[3,[0,1,2,3,4]]]"
         );
     }
 

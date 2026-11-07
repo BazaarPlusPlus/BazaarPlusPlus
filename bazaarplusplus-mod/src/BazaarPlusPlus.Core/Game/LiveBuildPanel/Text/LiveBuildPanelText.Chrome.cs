@@ -65,6 +65,9 @@ public static partial class LiveBuildPanelText
     public static string BrowseBuilds() =>
         L.Resolve(new LocalizedTextSet("Browse builds", "切换阵容", "切換陣容"));
 
+    public static string IncludeTiny() =>
+        L.Resolve(new LocalizedTextSet("Include Tiny", "包含 Tiny", "包含 Tiny"));
+
     public static string LoadingBoard() =>
         L.Resolve(new LocalizedTextSet("Loading items…", "正在加载物品…", "正在載入物品…"));
 

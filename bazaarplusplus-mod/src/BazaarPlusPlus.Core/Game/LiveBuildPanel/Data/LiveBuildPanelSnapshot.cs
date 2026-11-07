@@ -20,6 +20,8 @@ public sealed class LiveBuildPanelSnapshot
 
     public IReadOnlyCollection<Guid> CandidateTemplateIds { get; init; } = Array.Empty<Guid>();
 
+    public bool IncludeTiny { get; init; } = true;
+
     public LiveBuildMatchesState MatchesState { get; init; }
 
     public string MatchesGuidance { get; init; } = string.Empty;

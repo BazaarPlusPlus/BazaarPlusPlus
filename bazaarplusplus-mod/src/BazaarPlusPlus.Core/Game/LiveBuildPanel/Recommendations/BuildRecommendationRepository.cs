@@ -28,8 +28,8 @@ public sealed class BuildRecommendationRepository
 
     /// <param name="catalog">The plugin-lifetime build catalog, owned by the composition root.</param>
     /// <param name="templateSize">
-    /// The game's size for a template, used when a layout row carries no valid size; null when the
-    /// host cannot answer. A card it cannot size renders small.
+    /// The game's size for a template, used to recognize Tiny and when a layout row carries no
+    /// valid size; null when the host cannot answer. A card it cannot size renders small.
     /// </param>
     public BuildRecommendationRepository(
         IRemoteEmbeddedCatalog<TenWinBuildCorpus> catalog,
@@ -43,7 +43,8 @@ public sealed class BuildRecommendationRepository
     public IReadOnlyList<BuildRecommendation> FindRecommendations(
         string? hero,
         IReadOnlyCollection<Guid> selectedTemplateIds,
-        BuildLiveState? liveState = null
+        BuildLiveState? liveState = null,
+        bool includeTiny = true
     )
     {
         if (!LiveBuildPlayableHero.IsPlayable(hero))
@@ -64,7 +65,8 @@ public sealed class BuildRecommendationRepository
         var matches = corpus.FindBuilds(
             hero,
             selectedTemplateIds ?? Array.Empty<Guid>(),
-            liveState ?? BuildLiveState.Empty
+            liveState ?? BuildLiveState.Empty,
+            includeTiny ? null : build => !ContainsTiny(build)
         );
         if (matches.Count == 0)
             return Array.Empty<BuildRecommendation>();
@@ -95,6 +97,14 @@ public sealed class BuildRecommendationRepository
 
         return results;
     }
+
+    // Use the captured size, as the native board renderer does. Unknown templates remain
+    // eligible; a failed lookup is not evidence that a card was shrunk.
+    private bool ContainsTiny(TenWinBuild build) =>
+        build.Layout.Any(item =>
+            item.Size is { } size
+            && size < BppItemBoardSpan.Resolve(ResolveTemplateSize(item.TemplateId))
+        );
 
     private BppItemBoard ProjectBoard(TenWinBuild build)
     {
