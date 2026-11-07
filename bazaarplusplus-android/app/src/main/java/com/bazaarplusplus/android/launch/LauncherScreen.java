@@ -163,7 +163,7 @@ final class LauncherScreen {
                 new Failure(true, message), null, ready.gameVersion, ready.adaptedVersion, false);
     }
 
-    /** What the tier allows (ADR 0012, "三档启动规则", as ADR 0016 revised it). */
+    /** What the tier allows (ADR 0012, "三档启动规则"). */
     static LauncherScreen ready(Facts facts) {
         LaunchGate.Decision decision = facts.decision;
         List<Note> notes = new ArrayList<>();
@@ -198,12 +198,12 @@ final class LauncherScreen {
                 case OLDER:
                     status = Status.GAME_UPDATE;
                     notes.add(Note.UPDATE_GAME);
-                    primary = play(facts, notes);
+                    primary = facts.playInstalled && facts.installedFromPlay
+                            ? Action.UPDATE_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
                     break;
                 case NEWER_WAITING:
                     status = Status.WAITING;
                     notes.add(Note.GAME_NOT_ADAPTED);
-                    primary = play(facts, notes);
                     break;
                 case NORMAL:
                 default:
@@ -228,14 +228,10 @@ final class LauncherScreen {
     }
 
     /**
-     * The source row: for an older game, the store that updates it; otherwise the official game
-     * whenever it can open natively, or, beside a Google Play install, the publisher's APK as the
-     * other source.
+     * The source row: the official game whenever it can open natively; otherwise, beside a Google
+     * Play install, the publisher's APK as the other source.
      */
     static Action sourceRow(Facts facts) {
-        if (facts.decision.tier == LaunchGate.Tier.OLDER && !facts.devInterop) {
-            return facts.playInstalled && facts.installedFromPlay ? Action.UPDATE_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
-        }
         if (facts.decision.nativeLaunch()) return Action.OPEN_OFFICIAL;
         return facts.playInstalled ? Action.DOWNLOAD_FROM_PUBLISHER : null;
     }

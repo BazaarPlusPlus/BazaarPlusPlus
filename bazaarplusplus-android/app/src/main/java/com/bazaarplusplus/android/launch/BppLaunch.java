@@ -58,10 +58,9 @@ final class BppLaunch {
         PlatformManifest.Interop interop = manifest.interop;
         String purpose = InteropStatement.releasePurpose(manifest.version);
 
-        // The signature binds the zip to the adapted game's code and this launch's purpose; check
-        // it before downloading anything. The installed game may differ (ADR 0016): it still
-        // launches with the release's interop, and the Launch Record names its own code.
-        if (!InteropStatement.verify(interop.file.sha256, manifest.game.hash, purpose, interop.signature, check.trusted)) {
+        // The signature binds the zip to the installed game's code and this launch's purpose;
+        // check it before downloading anything.
+        if (!InteropStatement.verify(interop.file.sha256, check.hash, purpose, interop.signature, check.trusted)) {
             throw new IOException("The interop statement for " + interop.file.sha256 + " (" + purpose + ") does not verify");
         }
         File interopDir = AppFiles.interopCache(context);

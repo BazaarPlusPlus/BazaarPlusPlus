@@ -62,8 +62,8 @@ public class LauncherScreenTest {
                 LauncherScreen screen = LauncherScreen.ready(facts(decision, play, play));
                 assertTrue(decision + " has a status", screen.status != null);
                 assertFalse(decision + " repeats its primary", screen.source != null && screen.source == screen.primary);
-                assertEquals(decision + " offers the official game exactly when it can open and is current enough",
-                        decision.nativeLaunch() && decision.tier != Tier.OLDER, screen.source == Action.OPEN_OFFICIAL);
+                assertEquals(decision + " offers the official game exactly when it can open",
+                        decision.nativeLaunch(), screen.source == Action.OPEN_OFFICIAL);
                 assertEquals(decision + " offers Play exactly when the gate allows it",
                         decision.bppLaunch(), screen.primary == Action.PLAY);
                 if (!play) {
@@ -76,11 +76,11 @@ public class LauncherScreenTest {
     }
 
     @Test
-    public void aNewerGamePlaysWithAWarning() {
+    public void aNewerGameWaitsWithOnlyTheOfficialGame() {
         LauncherScreen waiting = LauncherScreen.ready(facts(decision(installed(12900, false), LaunchGateTest.RELEASE,
                 false)));
         assertEquals(Status.WAITING, waiting.status);
-        assertEquals(Action.PLAY, waiting.primary);
+        assertNull(waiting.primary);
         assertEquals(Action.OPEN_OFFICIAL, waiting.source);
         assertEquals(List.of(Note.GAME_NOT_ADAPTED), waiting.notes);
     }
@@ -108,13 +108,13 @@ public class LauncherScreenTest {
         LaunchGate.Decision older = decision(installed(12000, false), LaunchGateTest.RELEASE, false);
         LauncherScreen fromPlay = LauncherScreen.ready(facts(older, true, true));
         assertEquals(Status.GAME_UPDATE, fromPlay.status);
-        assertEquals("an older game still plays", Action.PLAY, fromPlay.primary);
-        assertEquals(Action.UPDATE_FROM_PLAY, fromPlay.source);
+        assertEquals(Action.UPDATE_FROM_PLAY, fromPlay.primary);
+        assertEquals(Action.OPEN_OFFICIAL, fromPlay.source);
         assertEquals(List.of(Note.UPDATE_GAME), fromPlay.notes);
 
         assertEquals("a sideloaded game updates from the publisher", Action.DOWNLOAD_FROM_PUBLISHER,
-                LauncherScreen.ready(facts(older, true, false)).source);
-        assertEquals(Action.DOWNLOAD_FROM_PUBLISHER, LauncherScreen.ready(facts(older, false, true)).source);
+                LauncherScreen.ready(facts(older, true, false)).primary);
+        assertEquals(Action.DOWNLOAD_FROM_PUBLISHER, LauncherScreen.ready(facts(older, false, true)).primary);
     }
 
     @Test

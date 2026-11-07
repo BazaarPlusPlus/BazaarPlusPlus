@@ -53,7 +53,7 @@ The badge is the Badge component: dot + word, one tone.
 | Status | English | Tone | When |
 |---|---|---|---|
 | 可以开始 | Ready | ok | Game Code Hash matches the release, or a Development interop |
-| 等待适配 | Waiting for adaptation | warn | Installed game code differs from the adapted one and is not older |
+| 等待适配 | Waiting for adaptation | warn | Installed game code newer than the adapted one |
 | 需要更新游戏 | Game update required | warn | Installed game older than the adapted one |
 | 未安装 | Not installed | neutral | Official game not installed |
 | 需要更换 | Replacement required | bad | The package holds a retired Android Release APK |
@@ -71,8 +71,7 @@ The panel's one list row: at least `source-row-height` (56), `bg-panel`, `r-touc
 
 | When | Row | Tap |
 |---|---|---|
-| 需要更新游戏 | The cover art, 从 Google Play 更新 / Update from Google Play when Google Play is installed and the game came from it; otherwise 从发行商下载 / Download from the publisher, ↗ | Opens the store or the publisher's APK |
-| Otherwise, the official game is installed | The official game's icon at `r-panel`, 打开官方游戏 / Open the official game, ↗ | Opens the official game untouched |
+| The official game is installed | The official game's icon at `r-panel`, 打开官方游戏 / Open the official game, ↗ | Opens the official game untouched |
 | Game not installed or to be replaced, Google Play installed | The cover art, 从发行商下载 / Download from the publisher, ↗ | Opens the publisher's APK in the browser |
 
 The launcher shows no row when neither applies. A busy launcher keeps the row but ignores taps.
@@ -83,14 +82,15 @@ The primary is the one thing to do next, written as verb + object. It is `touch-
 
 | Status | Primary |
 |---|---|
-| 可以开始, 等待适配, 需要更新游戏 | 开始游戏 / Play |
-| 未发布 | none |
+| 可以开始 | 开始游戏 / Play |
+| 等待适配, 未发布 | none |
 | 离线 | 重试 / Retry |
 | 未安装, 需要更换 | 从 Google Play 安装 / Install from Google Play when Google Play is installed; otherwise 从发行商下载 ↗ |
+| 需要更新游戏 | 从 Google Play 更新 / Update from Google Play when Google Play is installed and the game came from it; otherwise 从发行商下载 ↗ |
 | busy | none |
 | failure (no status) | 重试 / Retry |
 
-- **An unadapted or older game still plays** (root ADR 0016), with a note: 等待适配 says "BPP 尚未适配游戏 {gameVersion}，部分功能可能出错。", 需要更新游戏 says "请先把游戏更新到 {adaptedVersion}。" and its source row offers the update.
+- **等待适配 and 需要更新游戏 say why in a note**: "BPP 尚未适配游戏 {gameVersion}，适配版本发布前只能原版启动。" and "请先把游戏更新到 {adaptedVersion}。"
 - **The install source follows the device.** The Android App reads whether Google Play is installed and, for an update, which store installed the game (`PackageManager.getInstallSourceInfo`). A device without Google Play never sees a Google Play action.
 - **A failed launch or service step keeps its status and actions.** The failure shows as an `error` banner above them: "未能启动游戏：{reason}". The primary becomes 重试.
 

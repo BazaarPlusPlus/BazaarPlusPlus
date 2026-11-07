@@ -1,6 +1,6 @@
 # Android 去掉兼容模式与预适配 interop 包
 
-2026-11-07 注：[ADR 0016](0016-one-game-compatibility-rule.md) 取代了本记录的启动门禁：游戏代码与适配的不同时，Android App 显示提示，仍可用 BPP 启动，照常上传。本记录的其他决定不变。
+2026-11-07 注：[ADR 0016](0016-one-game-compatibility-rule.md) 曾决定让游戏代码不同的游戏也用 BPP 启动。模拟器实测每次都在启动时闪退（#891），本记录的启动门禁保持不变。
 
 [ADR 0012](0012-android-app.md) 为"游戏已更新、还没有产品版本适配它"的空窗设了兼容模式：游戏代码一变，`android-apk-watch.yml` 就发布这个游戏的预适配 interop 包和一份预适配记录；Android App 让用户主动选择用它启动；mod 读到启动记录的 `mode: "compatibility"` 后关闭全部上传，把对局记成 History-Only Run。到 2026-11-03，Android App 还没有发布过（6.0.x 是 greenfield）。
 

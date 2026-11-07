@@ -48,11 +48,10 @@ public class LaunchGateTest {
     }
 
     @Test
-    public void newerCodeWaitsAndStillLaunches() {
-        // ADR 0016: an unadapted game launches with the release's interop.
+    public void newerCodeWaits() {
         LaunchGate.Decision decision = decide(installed(12900, OTHER), RELEASE);
         assertEquals(Tier.NEWER_WAITING, decision.tier);
-        assertTrue(decision.bppLaunch());
+        assertFalse(decision.bppLaunch());
         assertTrue(decision.nativeLaunch());
     }
 
@@ -62,10 +61,10 @@ public class LaunchGateTest {
     }
 
     @Test
-    public void olderCodeAsksForAGameUpdateAndStillLaunches() {
+    public void olderCodeAsksForAGameUpdate() {
         LaunchGate.Decision decision = decide(installed(12800, OTHER), RELEASE);
         assertEquals(Tier.OLDER, decision.tier);
-        assertTrue(decision.bppLaunch());
+        assertFalse(decision.bppLaunch());
         assertTrue(decision.nativeLaunch());
     }
 

@@ -5,10 +5,9 @@ import com.bazaarplusplus.android.game.GameCodeHash;
 import java.util.Objects;
 
 /**
- * The launch rules of ADR 0012 ("三档启动规则") as ADR 0016 revised them: which launches the
- * installed game gets against the Platform Release Manifest's {@code game}. Only the Game Code
- * Hash and versionCode decide; a versionName change with the same code is the same game. The
- * three tiers all launch BPP with the release's Interop Package; they differ only in the prompt.
+ * The launch rules of ADR 0012 ("三档启动规则"): which launches the installed game gets against the
+ * Platform Release Manifest's {@code game}. Only the Game Code Hash and versionCode decide; a
+ * versionName change with the same code is the same game.
  */
 public final class LaunchGate {
     public enum Tier {
@@ -22,9 +21,9 @@ public final class LaunchGate {
         NO_RELEASE,
         /** The installed game is the adapted one. */
         NORMAL,
-        /** Other code than the adapted game, not older: BPP launches with a warning that it is not adapted. */
+        /** Newer code than the adapted game: native launch only until a Product Release adapts it. */
         NEWER_WAITING,
-        /** Older code than the adapted game: BPP launches, and the launcher asks to update the official game. */
+        /** Older code than the adapted game: update the official game first. */
         OLDER
     }
 
@@ -75,9 +74,9 @@ public final class LaunchGate {
             this.tier = tier;
         }
 
-        /** Whether the BPP launch button launches now: any of the three tiers (ADR 0016). */
+        /** Whether the BPP launch button launches now. */
         public boolean bppLaunch() {
-            return tier == Tier.NORMAL || tier == Tier.NEWER_WAITING || tier == Tier.OLDER;
+            return tier == Tier.NORMAL;
         }
 
         /** Native launch opens the official App untouched; it needs only the game installed. */
