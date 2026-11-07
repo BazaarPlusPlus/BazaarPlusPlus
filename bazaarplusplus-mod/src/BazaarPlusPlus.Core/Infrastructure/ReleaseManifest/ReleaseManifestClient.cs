@@ -18,13 +18,16 @@ public enum ReleaseManifestFailureKind
 }
 
 /// <summary>
-/// What an Android Platform Release Manifest names for the Android App (root ADR 0012): the game
-/// version this release was adapted for, as the game reports it in <c>Application.version</c>,
-/// and the Android App APK to install for it, with the size and SHA-256 a download is checked
-/// against.
+/// What an Android Platform Release Manifest names for the Android App (root ADR 0012 and 0016):
+/// the game this release was adapted for, as its version (as the game reports it in
+/// <c>Application.version</c>), versionCode and game code hashes, and the Android App APK to
+/// install for it, with the size and SHA-256 a download is checked against.
 /// </summary>
 public sealed record AndroidAppRelease(
     string GameVersion,
+    long GameVersionCode,
+    string GameIl2CppSha256,
+    string GameMetadataSha256,
     Uri AppUrl,
     long AppSize,
     string AppSha256
@@ -203,18 +206,31 @@ public sealed class ReleaseManifestClient
         if (game["gameVersion"]?.Type != JTokenType.String)
             return null;
         var gameVersion = game.Value<string>("gameVersion")!.Trim();
+        var versionCode =
+            game["versionCode"]?.Type == JTokenType.Integer ? game.Value<long>("versionCode") : 0;
+        var il2cpp =
+            game["il2cppSha256"]?.Type == JTokenType.String
+                ? game.Value<string>("il2cppSha256")!
+                : "";
+        var metadata =
+            game["metadataSha256"]?.Type == JTokenType.String
+                ? game.Value<string>("metadataSha256")!
+                : "";
         var url = apk.Value<string>("url");
         var size = apk["size"]?.Type == JTokenType.Integer ? apk.Value<long>("size") : 0;
         var sha256 = apk["sha256"]?.Type == JTokenType.String ? apk.Value<string>("sha256")! : "";
         if (
             gameVersion.Length == 0
+            || versionCode <= 0
+            || !IsSha256(il2cpp)
+            || !IsSha256(metadata)
             || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || uri.Scheme != Uri.UriSchemeHttps
             || size <= 0
             || !IsSha256(sha256)
         )
             return null;
-        return new AndroidAppRelease(gameVersion, uri, size, sha256);
+        return new AndroidAppRelease(gameVersion, versionCode, il2cpp, metadata, uri, size, sha256);
     }
 
     private static bool IsSha256(string value) =>

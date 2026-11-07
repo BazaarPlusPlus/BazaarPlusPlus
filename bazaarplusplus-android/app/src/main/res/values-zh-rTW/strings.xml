@@ -23,6 +23,8 @@
   <string name="release_unavailable">未能讀取 BazaarPlusPlus 的發布資訊。請連上網路後重試。</string>
   <string name="release_from_cache">離線：使用本機儲存的發布版本。</string>
   <string name="no_release">BazaarPlusPlus 還沒有發布 Android 版。</string>
+  <string name="game_not_adapted">BPP 尚未適配遊戲 %1$s，適配版本發布前只能原版啟動。</string>
+  <string name="update_game">請先把遊戲更新到 %1$s。</string>
   <string name="last_install_failed">上次安裝外掛失敗。這次啟動會重新安裝；如果再次失敗，請匯出診斷資訊。</string>
   <string name="runtime_missing">這個建置還沒有 BPP 執行環境。</string>
   <string name="dev_interop">正在使用開發 interop。</string>

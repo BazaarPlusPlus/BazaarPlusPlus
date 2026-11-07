@@ -82,6 +82,7 @@ public class LauncherScreenTest {
         assertEquals(Status.WAITING, waiting.status);
         assertNull(waiting.primary);
         assertEquals(Action.OPEN_OFFICIAL, waiting.source);
+        assertEquals(List.of(Note.GAME_NOT_ADAPTED), waiting.notes);
     }
 
     @Test
@@ -109,6 +110,7 @@ public class LauncherScreenTest {
         assertEquals(Status.GAME_UPDATE, fromPlay.status);
         assertEquals(Action.UPDATE_FROM_PLAY, fromPlay.primary);
         assertEquals(Action.OPEN_OFFICIAL, fromPlay.source);
+        assertEquals(List.of(Note.UPDATE_GAME), fromPlay.notes);
 
         assertEquals("a sideloaded game updates from the publisher", Action.DOWNLOAD_FROM_PUBLISHER,
                 LauncherScreen.ready(facts(older, true, false)).primary);

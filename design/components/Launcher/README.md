@@ -90,6 +90,7 @@ The primary is the one thing to do next, written as verb + object. It is `touch-
 | busy | none |
 | failure (no status) | 重试 / Retry |
 
+- **等待适配 and 需要更新游戏 say why in a note**: "BPP 尚未适配游戏 {gameVersion}，适配版本发布前只能原版启动。" and "请先把游戏更新到 {adaptedVersion}。"
 - **The install source follows the device.** The Android App reads whether Google Play is installed and, for an update, which store installed the game (`PackageManager.getInstallSourceInfo`). A device without Google Play never sees a Google Play action.
 - **A failed launch or service step keeps its status and actions.** The failure shows as an `error` banner above them: "未能启动游戏：{reason}". The primary becomes 重试.
 

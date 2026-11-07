@@ -46,6 +46,24 @@ Assert(
     "The host localizes the restart-from-the-App text."
 );
 Assert(
+    MainMenuVersionLabelFormatter.Build(
+        "1.0.0",
+        "3.2.9.prod",
+        MainMenuUpdateStatus.None,
+        adaptationText: MainMenuVersionLabelFormatter.GameNotAdaptedText
+    ) == " Version: 1.0.0 | BPP 3.2.9.prod | not adapted to this game version ",
+    "With nothing to update, the label says the release does not adapt the game."
+);
+Assert(
+    MainMenuVersionLabelFormatter.Build(
+        "1.0.0",
+        "3.2.9.prod",
+        MainMenuUpdateStatus.RestartToUpdate,
+        adaptationText: MainMenuVersionLabelFormatter.GameNotAdaptedText
+    ) == " Version: 1.0.0 | BPP 3.2.9.prod | restart to update ",
+    "The self-update status comes before the game's adaptation."
+);
+Assert(
     MainMenuVersionLabelFormatter.Build(" ", "", MainMenuUpdateStatus.Updating)
         == " Version: unknown ",
     "Without a plugin version the label shows only the game version."

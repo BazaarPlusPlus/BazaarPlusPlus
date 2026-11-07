@@ -196,7 +196,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         findViewById(R.id.action).setVisibility(screen.progress == null && screen.primary == null ? View.GONE : View.VISIBLE);
 
         List<String> notes = new ArrayList<>();
-        for (LauncherScreen.Note note : screen.notes) notes.add(getString(noteText(note)));
+        for (LauncherScreen.Note note : screen.notes) notes.add(noteLine(note, screen));
         TextView notesView = findViewById(R.id.notes);
         notesView.setText(String.join("\n", notes));
         notesView.setVisibility(notes.isEmpty() ? View.GONE : View.VISIBLE);
@@ -503,6 +503,17 @@ public final class LauncherActivity extends Activity implements LauncherSession.
             case RETRY:
             default:
                 return R.string.retry;
+        }
+    }
+
+    private String noteLine(LauncherScreen.Note note, LauncherScreen screen) {
+        switch (note) {
+            case GAME_NOT_ADAPTED:
+                return getString(R.string.game_not_adapted, valueOrEmpty(screen.gameVersion));
+            case UPDATE_GAME:
+                return getString(R.string.update_game, valueOrEmpty(screen.adaptedVersion));
+            default:
+                return getString(noteText(note));
         }
     }
 

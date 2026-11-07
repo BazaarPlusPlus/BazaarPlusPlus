@@ -59,6 +59,9 @@ internal static class AndroidPatchHost
     /// <summary>The record chain, or null when it failed to start; hooks then only count.</summary>
     public static AndroidComposition? Composition { get; private set; }
 
+    /// <summary>The main menu's release check, or null before the host composed it.</summary>
+    public static Lobby.AndroidVersionCheck? VersionCheck { get; set; }
+
     /// <summary>The main menu's update popup, or null before the host composed it.</summary>
     public static Lobby.AndroidUpdatePrompt? UpdatePrompt { get; set; }
 

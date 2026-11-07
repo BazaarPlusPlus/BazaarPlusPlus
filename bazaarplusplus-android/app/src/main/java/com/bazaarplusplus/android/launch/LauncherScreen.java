@@ -29,7 +29,11 @@ final class LauncherScreen {
 
     enum Action { PLAY, INSTALL_FROM_PLAY, UPDATE_FROM_PLAY, DOWNLOAD_FROM_PUBLISHER, OPEN_OFFICIAL, RETRY }
 
-    enum Note { FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, NO_RELEASE, DEV_INTEROP }
+    /** {@link #GAME_NOT_ADAPTED} names the installed game, {@link #UPDATE_GAME} the adapted one. */
+    enum Note {
+        FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, NO_RELEASE, DEV_INTEROP,
+        GAME_NOT_ADAPTED, UPDATE_GAME
+    }
 
     /** A failure that stopped the check or the launch; shown as an error banner over a Retry. */
     static final class Failure {
@@ -193,11 +197,13 @@ final class LauncherScreen {
                     break;
                 case OLDER:
                     status = Status.GAME_UPDATE;
+                    notes.add(Note.UPDATE_GAME);
                     primary = facts.playInstalled && facts.installedFromPlay
                             ? Action.UPDATE_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
                     break;
                 case NEWER_WAITING:
                     status = Status.WAITING;
+                    notes.add(Note.GAME_NOT_ADAPTED);
                     break;
                 case NORMAL:
                 default:
