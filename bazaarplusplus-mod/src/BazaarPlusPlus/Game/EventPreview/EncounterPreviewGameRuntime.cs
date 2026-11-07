@@ -1,6 +1,8 @@
 #nullable enable
 using System.Collections;
+using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards;
+using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Game;
 using BazaarGameShared.Domain.Values;
@@ -151,13 +153,36 @@ internal sealed class EncounterPreviewGameRuntime(
             return;
         foreach (var card in source)
         {
-            if (card is not BazaarGameClient.Domain.Models.Cards.Card typed)
+            if (card is not Card typed)
                 continue;
             var tags = new HashSet<string>(StringComparer.Ordinal);
             foreach (var tag in typed.Tags)
                 tags.Add(tag.ToString());
             foreach (var hiddenTag in typed.HiddenTags)
                 tags.Add(hiddenTag.ToString());
+            if (typed.Template is { } template)
+            {
+                if (template.Tags != null)
+                    foreach (var tag in template.Tags)
+                        tags.Add(tag.ToString());
+                if (template.HiddenTags != null)
+                    foreach (var hiddenTag in template.HiddenTags)
+                        tags.Add(hiddenTag.ToString());
+                if (
+                    typed is ItemCard { Enchantment: { } active }
+                    && template is TCardItem { Enchantments: not null } itemTemplate
+                    && itemTemplate.Enchantments.TryGetValue(active, out var enchantment)
+                    && enchantment != null
+                )
+                {
+                    if (enchantment.Tags != null)
+                        foreach (var tag in enchantment.Tags)
+                            tags.Add(tag.ToString());
+                    if (enchantment.HiddenTags != null)
+                        foreach (var hiddenTag in enchantment.HiddenTags)
+                            tags.Add(hiddenTag.ToString());
+                }
+            }
             cards.Add(new EncounterInventoryCard(typed.TemplateId, tags));
         }
     }
