@@ -28,12 +28,14 @@ Game Code Hash 推广为**游戏代码身份**：
 
 已装游戏与已适配游戏的代码身份：
 
-| 结果 | 条件 | 桌面 mod 主菜单 | Android App 启动页 | Android mod 主菜单 | 下载页卡片 |
-|---|---|---|---|---|---|
-| 已适配 | 相同 | 不加后缀 | 不提示 | 不加后缀 | 适配游戏、在线游戏、"已适配" |
-| 未适配 | 不同（Android 另需游戏不比已适配的旧） | `未适配此游戏版本` | "BPP 尚未适配游戏 X，部分功能可能出错"，BPP 启动可用 | `未适配此游戏版本` | 适配游戏、在线游戏、"未适配，适配中" |
-| 游戏较旧 | 仅 Android：不同，且已装游戏的 `versionCode` 小于已适配的 | 不出现 | "请先把游戏更新到 X"，附 Play 与发行商链接，BPP 启动可用 | `请更新游戏` | 不出现 |
-| 未知 | 读不到任一方；桌面的 Game Build Channel 不是 online | 不加后缀 | 不提示 | 不加后缀 | 只显示适配游戏 |
+| 结果 | 条件 | Android App 启动页 | Android mod 主菜单 | 下载页卡片 |
+|---|---|---|---|---|
+| 已适配 | 相同 | 不提示 | 不加后缀 | 适配游戏、在线游戏、"已适配" |
+| 未适配 | 不同（Android 另需游戏不比已适配的旧） | "BPP 尚未适配游戏 X，部分功能可能出错"，BPP 启动可用 | `未适配此游戏版本` | 适配游戏、在线游戏、"未适配，适配中" |
+| 游戏较旧 | 仅 Android：不同，且已装游戏的 `versionCode` 小于已适配的 | "请先把游戏更新到 X"，附 Play 与发行商链接，BPP 启动可用 | `请更新游戏` | 不出现 |
+| 未知 | 读不到任一方 | 不提示 | 不加后缀 | 只显示适配游戏 |
+
+桌面 mod 不比较，主菜单也不显示适配状态；桌面是否已适配只在下载页显示。
 
 主菜单上，自更新的提示（如 `restart to update`）先于适配状态显示。提示文案的中英繁三语在实现时定。
 
@@ -41,7 +43,7 @@ Game Code Hash 推广为**游戏代码身份**：
 
 ### 每个平台在哪里比较
 
-- **桌面 mod**：构建时把所用锁条目的 `gameVersion` 与 `sha256` 嵌入程序集（取自构建记录的 `lockEntry`）。启动后在后台线程按 `managedDirectoryDigest` 的算法算已装游戏的摘要，与嵌入的值比较。只在 online 渠道比较，因为同一个二进制对着 online 编译后运行在三个渠道上（[ADR 0004](0004-pinned-game-assembly-snapshots.md)）。不加缓存：macOS 本机测得 234 个文件、46 MB、约 0.2 秒 CPU。
+- **桌面**：只有下载页比较，用平台清单的 `game` 与 Game Status 的 `managedSha256`。mod 不比较。
 - **Android App**：`LaunchGate` 照旧算三档，但三档都能用 BPP 启动；只有未安装与 A 方案副本两档仍不能启动。未适配与游戏较旧时，App 用平台清单的 Interop Package 启动，即最新发布的那一份。
 - **Android mod**：读启动记录里 App 算好的游戏哈希与 `versionCode`，与平台清单的 `game` 比较。启动记录缺失或过期时是"未知"。删除 `AndroidGameUpdate.ParseVersionCode` 与 `Newer`。
 - **上传**：三档都照常上传，与桌面相同。
@@ -68,14 +70,14 @@ Game Code Hash 推广为**游戏代码身份**：
 - **按 `gameVersion` 或 build 号比较。** 只改内容的更新会被判为"未适配"，也就是要修的 Android mod 问题；桌面的 build 号在渠道之间不能比较。
 - **未适配时关闭上传。** 用户决定照常上传，与桌面相同。
 - **桌面也在未适配时阻止加载。** 没有人要求，它推翻 ADR 0004 的 Harmony 降级。
+- **桌面 mod 在主菜单显示"未适配此游戏版本"（本记录的初稿）。** 构建时把锁条目嵌入程序集，启动后在后台线程算已装游戏的 `Managed/` 摘要并比较（#886）。用户在 2026-11-07 实测后决定不显示：桌面 mod 未适配时照常运行，靠 Harmony 降级（[ADR 0004](0004-pinned-game-assembly-snapshots.md)），这个后缀只让人担心，换短的说法（如"兼容模式"）也一样；用户想知道时看下载页。不显示后缀，嵌入、后台哈希与 C# 版摘要算法都没有用处，一起不做。
 - **桌面 mod 读平台清单的 `game`。** mod 只关心自己编译时用的游戏；"新版本适配了新游戏"已经由自更新提示。清单的 `game` 只给下载页用。
 - **Android 并入 `game-status/latest.json`。** 见上文，两个写入方会互相覆盖。
 
 ## 代价
 
 - Android 未适配时，用户可能闪退，或把错的数据上传到服务器。
-- 新增 `Managed/` 摘要算法的跨语言契约：`release/game-libs.ts` 拥有，mod 消费，共享 golden 放在 `release/fixtures/` 下，与 Managed Payload Manifest 的做法相同。
-- 桌面 mod 每次启动多一次约 0.2 秒的后台哈希。
+- 桌面用户在游戏里看不到 BPP 是否已适配当前游戏，要看下载页。
 - 公开 bucket 多一个对象 `game-status/android.json`。
 
 ## 实施顺序
@@ -83,8 +85,7 @@ Game Code Hash 推广为**游戏代码身份**：
 每一步各一个 PR，可以独立合并：
 
 1. Android：`LaunchGate` 放开未适配与游戏较旧两档并显示提示；mod 改为比较哈希。`ReleaseManifestClient` 的 `AndroidAppRelease` 读 `versionCode`、`il2cppSha256`、`metadataSha256`；`AndroidMod` 把启动记录的 `game` 传给版本检查。
-2. 桌面 mod 嵌入构建所用锁条目，运行时比较摘要，主菜单标签显示"未适配此游戏版本"；新增摘要 golden 与 AGENTS.md 的契约行。
-3. 桌面 fragment 加 `game`；`android-apk-watch.yml` 不再升 `VERSION`；Game Status 加 `managedSha256`；`android-apk-watch.yml` 写 `game-status/android.json`；下载页按结果显示。
+2. 桌面 fragment 加 `game`；`android-apk-watch.yml` 不再升 `VERSION`；Game Status 加 `managedSha256`；`android-apk-watch.yml` 写 `game-status/android.json`；下载页按结果显示。
 
 ## `VERSION` 只在发版时升
 
