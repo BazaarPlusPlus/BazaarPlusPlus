@@ -15,6 +15,10 @@
       "size": 22,
       "sha256": "48b0957b4627aa54f76104f8b5a9060cf128e8f848bb8a4a76460217b2a7464e",
       "mainlandUrl": "https://cauyxy.lanzout.com/bppmac311",
+      "game": {
+        "gameVersion": "1.0.13081-prod-macos-arm64-dae65d53",
+        "managedSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
       "managedPayload": {
         "url": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/managed/BazaarPlusPlus_3.1.1_darwin-aarch64-managed.zip",
         "size": 28,

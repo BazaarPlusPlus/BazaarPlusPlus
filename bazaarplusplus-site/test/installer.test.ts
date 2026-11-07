@@ -1,15 +1,25 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import androidGameStatusFixture from '../../release/fixtures/android-game-status.json';
 import gameStatusFixture from '../../release/fixtures/game-status.json';
 import androidFixture from '../../release/fixtures/latest/android-aarch64.json';
 import macFixture from '../../release/fixtures/latest/darwin-aarch64.json';
 import windowsFixture from '../../release/fixtures/latest/windows-x86_64.json';
 
-import { GAME_STATUS_URL, RELEASE_BASE_URL, decodeGameStatus } from '../../release/downloads';
+import {
+  ANDROID_GAME_STATUS_URL,
+  GAME_STATUS_URL,
+  RELEASE_BASE_URL,
+  decodeAndroidGameStatus,
+  decodeGameStatus,
+} from '../../release/downloads';
 import {
   GITHUB_RELEASE_URL,
+  loadAndroidGameStatus,
   loadAndroidRelease,
   loadGameStatus,
   loadLatestInstaller,
+  sameAndroidGame,
+  sameDesktopGame,
 } from '../src/features/download/installer';
 
 const WINDOWS_PATH = 'latest/windows-x86_64.json';
@@ -73,11 +83,13 @@ describe('latest installer interface', () => {
           version: '3.1.2',
           downloadUrl: windowsFixture.downloads['windows-x86_64'].url,
           mainlandDownloadUrl: windowsFixture.downloads['windows-x86_64'].mainlandUrl,
+          game: windowsFixture.downloads['windows-x86_64'].game,
         },
         mac: {
           version: '3.1.1',
           downloadUrl: macFixture.downloads['darwin-aarch64'].url,
           mainlandDownloadUrl: macFixture.downloads['darwin-aarch64'].mainlandUrl,
+          game: macFixture.downloads['darwin-aarch64'].game,
         },
       },
     });
@@ -100,6 +112,7 @@ describe('latest installer interface', () => {
         version: '3.1.2',
         downloadUrl: windowsFixture.downloads['windows-x86_64'].url,
         mainlandDownloadUrl: null,
+        game: windowsFixture.downloads['windows-x86_64'].game,
       });
       expect(installer.downloads.mac?.mainlandDownloadUrl).toBe(
         macFixture.downloads['darwin-aarch64'].mainlandUrl
@@ -251,23 +264,60 @@ describe('Android release interface', () => {
 });
 
 describe('Game Status', () => {
-  test('decodes the versions and the update time the watch writes', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test('decodes the online game and its game code identity of each desktop platform', () => {
     expect(decodeGameStatus(gameStatusFixture)).toEqual({
-      gameVersions: {
-        macos: '1.0.13081-prod-macos-arm64-dae65d53',
-        windows: '1.0.13082-prod-windows-x64-dae65d53',
-      },
-      updatedAt: new Date('2026-11-04T22:41:19.000Z'),
+      macos: gameStatusFixture.platforms.macos,
+      windows: gameStatusFixture.platforms.windows,
     });
+  });
+
+  test('decodes the online Android game the APK watch writes', () => {
+    const { schemaVersion: _, ...game } = androidGameStatusFixture;
+    expect(decodeAndroidGameStatus(androidGameStatusFixture)).toEqual(game);
   });
 
   test.each([
     ['null', null],
     ['another schema', { ...gameStatusFixture, schemaVersion: 2 }],
-    ['a bad time', { ...gameStatusFixture, updatedAt: 'soon' }],
     ['a missing platform', { ...gameStatusFixture, platforms: { macos: {} } }],
+    [
+      'a platform without its Managed digest',
+      {
+        ...gameStatusFixture,
+        platforms: {
+          ...gameStatusFixture.platforms,
+          windows: { gameVersion: gameStatusFixture.platforms.windows.gameVersion },
+        },
+      },
+    ],
   ])('refuses %s', (_name, payload) => {
     expect(decodeGameStatus(payload)).toBeNull();
+  });
+
+  test.each([
+    ['another schema', { ...androidGameStatusFixture, schemaVersion: 2 }],
+    ['a missing hash', { ...androidGameStatusFixture, metadataSha256: undefined }],
+  ])('refuses an Android Game Status with %s', (_name, payload) => {
+    expect(decodeAndroidGameStatus(payload)).toBeNull();
+  });
+
+  // The shared fixtures: macOS runs its adapted game, Windows has a newer game, and Android has a
+  // content-only update of its adapted game.
+  test('compares game code identity, not the game version', () => {
+    const status = decodeGameStatus(gameStatusFixture)!;
+    expect(sameDesktopGame(macFixture.downloads['darwin-aarch64'].game, status.macos)).toBe(true);
+    expect(sameDesktopGame(windowsFixture.downloads['windows-x86_64'].game, status.windows)).toBe(
+      false
+    );
+    const android = androidFixture.downloads['android-aarch64'].game;
+    const online = decodeAndroidGameStatus(androidGameStatusFixture)!;
+    expect(online.gameVersion).not.toBe(android.gameVersion);
+    expect(sameAndroidGame(android, online)).toBe(true);
+    expect(sameAndroidGame(android, { ...online, il2cppSha256: 'a'.repeat(64) })).toBe(false);
   });
 
   test('fails on a response it cannot use', async () => {
@@ -275,5 +325,7 @@ describe('Game Status', () => {
     vi.stubGlobal('fetch', fetchStub);
     await expect(loadGameStatus(new AbortController().signal)).rejects.toThrow(/404/);
     expect(fetchStub).toHaveBeenCalledWith(GAME_STATUS_URL, expect.anything());
+    await expect(loadAndroidGameStatus(new AbortController().signal)).rejects.toThrow(/404/);
+    expect(fetchStub).toHaveBeenCalledWith(ANDROID_GAME_STATUS_URL, expect.anything());
   });
 });

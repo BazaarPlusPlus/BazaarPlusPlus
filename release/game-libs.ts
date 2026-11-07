@@ -6,7 +6,12 @@ import zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { readApk, sha256File } from './android-apk.ts';
-import { GAME_STATUS_KEY, GAME_STATUS_PREFIX } from './downloads.ts';
+import {
+  ANDROID_GAME_STATUS_KEY,
+  GAME_STATUS_KEY,
+  GAME_STATUS_PREFIX
+} from './downloads.ts';
+import type { AndroidGameStatus } from './downloads.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 import {
   RELEASE_BUCKET,
@@ -1259,9 +1264,10 @@ export function steamCapture({
 // The public Game Status (root GLOSSARY.md) from a Steam state and the lock that
 // records that build, or null while the lock holds another build of an entry:
 // staging and ptr stay private, so only online is ever written.
-/** One desktop platform of the Game Status. */
+/** One desktop platform of the Game Status: its game and `Managed/` digest. */
 export interface GameStatusPlatform {
   gameVersion: string;
+  managedSha256: string;
 }
 
 /** The public Game Status document; decodeGameStatus in downloads.ts reads it. */
@@ -1281,7 +1287,10 @@ export function gameStatus(
   for (const platform of MANAGED_PLATFORMS) {
     const entry = lock.entries[lockKey(platform, 'online')];
     if (entry?.buildid !== String(buildid)) return null;
-    platforms[platform] = { gameVersion: entry.gameVersion };
+    platforms[platform] = {
+      gameVersion: entry.gameVersion,
+      managedSha256: entry.sha256
+    };
   }
   if (!Number.isSafeInteger(updatedAt) || updatedAt <= 0) return null;
   return {
@@ -1309,6 +1318,49 @@ export async function publishGameStatus({
   await putReplaceable(
     store,
     GAME_STATUS_KEY,
+    jsonBytes(status),
+    'application/json'
+  );
+  return status;
+}
+
+// The Android Game Status (root GLOSSARY.md): the android-online entry's game
+// and its game code identity, or null while the lock has no such entry. The
+// Android APK watch writes it once the lock, or the lock pull request it
+// opens, records the official APK.
+/** The public Android Game Status document; decodeAndroidGameStatus reads it. */
+export interface AndroidGameStatusDocument extends AndroidGameStatus {
+  schemaVersion: 1;
+}
+
+export function androidGameStatus(
+  lock: GameLibsLock
+): AndroidGameStatusDocument | null {
+  const entry = lock.entries['android-online'];
+  if (!entry) return null;
+  return {
+    schemaVersion: 1,
+    gameVersion: entry.gameVersion,
+    versionCode: entry.versionCode,
+    il2cppSha256: entry.il2cppSha256,
+    metadataSha256: entry.metadataSha256
+  };
+}
+
+export interface PublishAndroidGameStatusOptions {
+  workspaceRoot?: string;
+  store: Pick<ObjectStore, 'get' | 'put'>;
+}
+
+export async function publishAndroidGameStatus({
+  workspaceRoot = WORKSPACE_ROOT,
+  store
+}: PublishAndroidGameStatusOptions): Promise<AndroidGameStatusDocument | null> {
+  const status = androidGameStatus(readGameLibsLock(workspaceRoot));
+  if (!status) return null;
+  await putReplaceable(
+    store,
+    ANDROID_GAME_STATUS_KEY,
     jsonBytes(status),
     'application/json'
   );
@@ -2647,6 +2699,9 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
   node release/game-libs.ts game-status --state <steam-stale.json>
                                              Write the public Game Status when the lock records
                                              that online build
+  node release/game-libs.ts android-game-status
+                                             Write the public Android Game Status from the lock's
+                                             android-online entry
   node release/game-libs.ts snapshot-android --apk <TheBazaar.apk> [--apk-etag <etag>] [--interop <dir>]
       [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>]
       [--cpp2il <file>] [--native-package <id>@<version> ...]
@@ -2821,6 +2876,21 @@ export async function cliMain(
           status
             ? `Game Status: online build ${status.buildid}`
             : 'The lock does not record this online build yet; the Game Status stays as it is'
+        );
+        return 0;
+      }
+      case 'android-game-status': {
+        const status = await publishAndroidGameStatus({
+          workspaceRoot,
+          store: r2StoreFromEnvironment(process.env, {
+            bucket: RELEASE_BUCKET,
+            prefix: GAME_STATUS_PREFIX
+          })
+        });
+        log(
+          status
+            ? `Android Game Status: ${status.gameVersion}`
+            : 'The lock has no android-online entry; the Android Game Status stays as it is'
         );
         return 0;
       }

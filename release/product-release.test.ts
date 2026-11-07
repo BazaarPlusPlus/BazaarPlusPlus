@@ -66,6 +66,10 @@ interface ReleaseFixture {
 }
 
 const baseUrl = 'https://cdn.bazaarplusplus.com/installer';
+const DESKTOP_GAME = {
+  gameVersion: '1.0.13081-prod-macos-arm64-dae65d53',
+  managedSha256: 'd'.repeat(64)
+};
 const jsonBytes = (value: unknown) =>
   Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const roots: string[] = [];
@@ -503,7 +507,8 @@ test('platform fragments preserve source identity and actual artifact names', ()
       historyDatabaseUserVersion: 1,
       nonManagedPayloadDigest: 'e'.repeat(64)
     },
-    selfUpdatable: false
+    selfUpdatable: false,
+    game: DESKTOP_GAME
   });
   expect(fragment.gitCommit).toBe('a'.repeat(40));
   expect(fragment.managedPayload).toEqual({
@@ -833,9 +838,10 @@ test('manifest writer and website share the same complete release fixture', () =
   ).toThrow(/recorded for other\.exe/);
 });
 
-// A desktop `downloads[platform]` record is the installer plus the
-// self-update facts its fragment carries beside it.
+// A desktop `downloads[platform]` record is the installer plus the game and
+// the self-update facts its fragment carries beside it.
 function splitDesktopRelease({
+  game,
   managedPayload,
   selfUpdatable,
   historyDatabaseUserVersion,
@@ -845,6 +851,7 @@ function splitDesktopRelease({
   return {
     installer,
     selfUpdate: {
+      game,
       managedPayload,
       selfUpdatable,
       historyDatabaseUserVersion,
@@ -1068,6 +1075,33 @@ test('the writer reproduces every shared platform fixture', () => {
         now: new Date(expected.pub_date)
       })
     ).toEqual(expected);
+    // A fragment uploaded before `game` existed promotes without it, and its
+    // published manifest still validates when the same version is confirmed.
+    const { game: _game, ...withoutGame } = expected.downloads[key];
+    const older = { ...expected, downloads: { [key]: withoutGame } };
+    expect(
+      buildPlatformManifest({
+        version: expected.version,
+        fragment: { ...fragment, game: undefined },
+        mirror,
+        existing: older,
+        now: new Date(expected.pub_date)
+      })
+    ).toEqual(older);
+    expect(() =>
+      validatePlatformManifest(
+        {
+          ...expected,
+          downloads: {
+            [key]: {
+              ...expected.downloads[key],
+              game: { gameVersion: '', managedSha256: 'd'.repeat(64) }
+            }
+          }
+        },
+        key
+      )
+    ).toThrow(`Invalid ${key} ${expected.version} game`);
   }
 });
 
@@ -1441,9 +1475,11 @@ test('a desktop fragment carries its signed Managed Payload and the self-update 
       nonManagedPayloadDigest: 'e'.repeat(64)
     },
     baseUrl,
-    selfUpdatable: true
+    selfUpdatable: true,
+    game: DESKTOP_GAME
   });
   expect(fragment).toMatchObject({
+    game: DESKTOP_GAME,
     managedPayload: {
       url: `${baseUrl}/${managedPayloadKey('3.1.1', 'windows-x86_64')}`,
       signature: 'msig'

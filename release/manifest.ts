@@ -20,6 +20,7 @@ import {
 import type {
   AndroidAppDownload,
   AndroidGameRelease,
+  DesktopGameRelease,
   InteropPackageDownload,
   ManagedPayloadDownload
 } from './downloads.ts';
@@ -65,7 +66,8 @@ export type AndroidReleaseFacts = {
 
 /**
  * The fragment `upload` writes beside a desktop release. The fields only an
- * Android fragment has are absent.
+ * Android fragment has are absent. `game` is the lock entry the build record
+ * names; fragments uploaded before it existed lack it.
  */
 export interface DesktopPlatformFragment extends DesktopSelfUpdateFacts {
   schemaVersion: 1;
@@ -78,7 +80,7 @@ export interface DesktopPlatformFragment extends DesktopSelfUpdateFacts {
   signatureFile: ReleaseArtifact;
   app?: undefined;
   interop?: undefined;
-  game?: undefined;
+  game?: DesktopGameRelease;
   loader?: undefined;
 }
 
@@ -121,6 +123,7 @@ export interface UpdaterEntry {
 export interface DesktopDownload
   extends ReleaseArtifact, DesktopSelfUpdateFacts {
   mainlandUrl?: string;
+  game?: DesktopGameRelease;
   apk?: undefined;
   app?: undefined;
 }
@@ -218,6 +221,8 @@ export interface BuildPlatformFragmentOptions {
   manifest: ArtifactManifestFacts;
   baseUrl: string;
   selfUpdatable: boolean;
+  /** The game the build compiled against: its build record's lock entry. */
+  game: DesktopGameRelease;
 }
 
 /** The inputs of buildAndroidFragment: the facts of one Android build. */
@@ -440,6 +445,21 @@ function assertAndroidGame(
   return game;
 }
 
+// The game a desktop release was built against: a Snapshot Lock entry's game
+// version and `Managed/` digest. Only the download page reads it.
+function assertDesktopGame(
+  game: DesktopGameRelease,
+  description: string
+): DesktopGameRelease {
+  if (
+    typeof game?.gameVersion !== 'string' ||
+    !game.gameVersion ||
+    !SHA256.test(game.managedSha256 ?? '')
+  )
+    throw new Error(`Invalid ${description} game`);
+  return game;
+}
+
 // A Loader Release as the Snapshot Lock pins it. The tag names a directory
 // under game-libs/ (loaderDirectory in release/game-libs.ts), so it is a
 // plain token.
@@ -558,7 +578,8 @@ function assertSelfUpdateFacts(
 export function buildPlatformFragment({
   manifest,
   baseUrl,
-  selfUpdatable
+  selfUpdatable,
+  game
 }: BuildPlatformFragmentOptions): DesktopPlatformFragment {
   const version = assertProductVersion(manifest.appVersion);
   const definition = RELEASE_PLATFORMS.find(
@@ -595,6 +616,10 @@ export function buildPlatformFragment({
       signature: manifest.signature.content.trim()
     },
     signatureFile: record(manifest.signature, 'updater'),
+    game: {
+      gameVersion: game?.gameVersion,
+      managedSha256: game?.managedSha256
+    },
     managedPayload: {
       url: `${origin}/${managedPayloadKey(version, definition.key)}`,
       size: manifest.managedPayload?.size,
@@ -857,6 +882,9 @@ export function validatePlatformFragment<F extends PlatformFragment>(
   )
     throw new Error(`Invalid ${platform} platform fragment for ${version}`);
   assertSelfUpdateFacts(fragment, version, platform);
+  // A desktop platform's fragment is a desktop fragment.
+  const { game } = fragment as DesktopPlatformFragment;
+  if (game !== undefined) assertDesktopGame(game, `${platform} ${version}`);
   assertRecord(fragment.installer, 'installer');
   assertRecord(fragment.updater, 'updater');
   assertRecord(fragment.signatureFile, 'signature');
@@ -943,7 +971,7 @@ export function validatePlatformManifest<M extends PlatformManifest>(
   )
     throw new Error(`Invalid ${platform} platform manifest updater entry`);
   assertSafeHttps(updater.url, `${platform} updater`);
-  const { mainlandUrl, ...release } = desktop.downloads[platform];
+  const { mainlandUrl, game, ...release } = desktop.downloads[platform];
   const installer: ReleaseArtifact & Partial<DesktopSelfUpdateFacts> = {
     ...release
   };
@@ -951,6 +979,8 @@ export function validatePlatformManifest<M extends PlatformManifest>(
   assertRecord(installer, `${platform} installer`);
   assertSelfUpdateFacts(release, manifest.version, platform);
   if (mainlandUrl !== undefined) assertMirrorUrl(mainlandUrl);
+  if (game !== undefined)
+    assertDesktopGame(game, `${platform} ${manifest.version}`);
   return manifest;
 }
 
@@ -1015,6 +1045,7 @@ export function buildPlatformManifest({
       [platform]: {
         ...desktop.installer,
         ...(mainlandUrl === undefined ? {} : { mainlandUrl }),
+        ...(desktop.game === undefined ? {} : { game: desktop.game }),
         // fromEntries keeps every field it is given but not their names.
         ...(Object.fromEntries(
           DESKTOP_SELF_UPDATE_FIELDS.map((field) => [field, desktop[field]])

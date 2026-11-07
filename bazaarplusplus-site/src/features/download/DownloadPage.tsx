@@ -17,10 +17,14 @@ import { SectionHeading } from '../../shared/components/PageLayout';
 import {
   GITHUB_RELEASE_URL,
   gameReleaseNumber,
+  loadAndroidGameStatus,
   loadAndroidRelease,
   loadGameStatus,
   loadLatestInstaller,
+  sameAndroidGame,
+  sameDesktopGame,
   type AndroidDownload,
+  type AndroidGameStatus,
   type DownloadPlatform,
   type GameStatus,
   type LatestInstaller,
@@ -63,47 +67,47 @@ function PlatformHeader({
   );
 }
 
-/** The official game on Steam for one desktop platform; nothing while the Game Status is missing. */
-function OfficialGame({
-  platform,
+/**
+ * The game a release is adapted to and, while the Game Status is readable, the online game with
+ * the conclusion (ADR 0016). `same` compares their game code identity.
+ */
+function GameFacts({
   copy,
-  locale,
-  gameStatus,
+  adapted,
+  online,
+  same,
 }: {
-  platform: DownloadPlatform;
   copy: DownloadPageCopy;
-  locale: Locale;
-  gameStatus: GameStatus | undefined;
+  adapted: { gameVersion: string };
+  online: { gameVersion: string } | undefined;
+  same: boolean;
 }) {
-  if (!gameStatus) return null;
-  const gameVersion = gameStatus.gameVersions[platform === 'mac' ? 'macos' : 'windows'];
-  const updatedAt = new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(gameStatus.updatedAt);
   return (
-    <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-6 gap-y-2">
-      <Fact label={copy.officialGameVersionLabel}>
-        <span className="tabular-nums">{gameReleaseNumber(gameVersion)}</span>
+    <>
+      <Fact label={copy.adaptedGameLabel}>
+        <span className="tabular-nums">{gameReleaseNumber(adapted.gameVersion)}</span>
       </Fact>
-      <Fact label={copy.officialUpdatedAtLabel}>
-        <span className="tabular-nums">{updatedAt}</span>
-      </Fact>
-    </dl>
+      {online ? (
+        <Fact label={copy.onlineGameLabel}>
+          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="tabular-nums">{gameReleaseNumber(online.gameVersion)}</span>
+            <Badge tone={same ? 'neutral' : 'warn'}>{same ? copy.adapted : copy.notAdapted}</Badge>
+          </span>
+        </Fact>
+      ) : null}
+    </>
   );
 }
 
 function DownloadCard({
   platform,
   copy,
-  locale,
   installer,
   status,
   gameStatus,
 }: {
   platform: DownloadPlatform;
   copy: DownloadPageCopy;
-  locale: Locale;
   installer: LatestInstaller | undefined;
   status: DownloadStatus;
   gameStatus: GameStatus | undefined;
@@ -112,6 +116,8 @@ function DownloadCard({
   const download = installer?.downloads[platform];
   const disabled = download == null;
   const mainlandDownloadUrl = download?.mainlandDownloadUrl ?? null;
+  const adapted = download?.game;
+  const online = gameStatus?.[platform === 'mac' ? 'macos' : 'windows'];
 
   return (
     <article className="panel flex flex-col gap-6 p-6">
@@ -134,7 +140,16 @@ function DownloadCard({
         )}
       </div>
 
-      <OfficialGame platform={platform} copy={copy} locale={locale} gameStatus={gameStatus} />
+      {adapted ? (
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-6 gap-y-2">
+          <GameFacts
+            copy={copy}
+            adapted={adapted}
+            online={online}
+            same={online ? sameDesktopGame(adapted, online) : false}
+          />
+        </dl>
+      ) : null}
 
       <div className="mt-auto flex flex-wrap gap-2">
         <Button
@@ -216,11 +231,13 @@ function AndroidCard({
   locale,
   release,
   loading,
+  online,
 }: {
   copy: DownloadPageCopy;
   locale: Locale;
   release: AndroidDownload | undefined;
   loading: boolean;
+  online: AndroidGameStatus | undefined;
 }) {
   const androidCopy = copy.android;
 
@@ -252,11 +269,12 @@ function AndroidCard({
             </Fact>
             {release ? (
               <>
-                <Fact label={androidCopy.gameVersionLabel}>
-                  <span className="tabular-nums">
-                    {gameReleaseNumber(release.game.gameVersion)}
-                  </span>
-                </Fact>
+                <GameFacts
+                  copy={copy}
+                  adapted={release.game}
+                  online={online}
+                  same={online ? sameAndroidGame(release.game, online) : false}
+                />
                 <Fact label={androidCopy.sizeLabel}>
                   <span className="tabular-nums">{formatFileSize(release.app.size, locale)}</span>
                 </Fact>
@@ -354,10 +372,14 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
     queryKey: ['android-release'],
     queryFn: ({ signal }) => loadAndroidRelease(signal),
   });
-  // Extra information: a missing Game Status costs only its rows.
+  // Extra information: a missing Game Status costs only the online game and the conclusion.
   const { data: gameStatus } = useQuery({
     queryKey: ['game-status'],
     queryFn: ({ signal }) => loadGameStatus(signal),
+  });
+  const { data: androidGameStatus } = useQuery({
+    queryKey: ['android-game-status'],
+    queryFn: ({ signal }) => loadAndroidGameStatus(signal),
   });
 
   return (
@@ -370,14 +392,19 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
               key={platform}
               platform={platform}
               copy={copy}
-              locale={locale}
               installer={data}
               status={status}
               gameStatus={gameStatus}
             />
           ))}
         </div>
-        <AndroidCard copy={copy} locale={locale} release={android} loading={androidLoading} />
+        <AndroidCard
+          copy={copy}
+          locale={locale}
+          release={android}
+          loading={androidLoading}
+          online={androidGameStatus}
+        />
       </section>
 
       <section className="panel flex flex-col gap-3 p-6">

@@ -6,9 +6,10 @@ name: Android APK watch
 # game's content changed (same libil2cpp.so and global-metadata.dat), it opens
 # a pull request with the lock alone. When the game code changed, it checks
 # that the Android Mod still builds against the new interop and opens a pull
-# request with the lock and the next patch VERSION; merging it and running
-# release.yml with platform: android adapts the Android App to the new game
-# (docs/release.md "Android 发布顺序").
+# request with the lock alone; a release that bumps VERSION in its own pull
+# request adapts the Android App to the new game (docs/release.md "Android
+# 发布顺序", ADR 0016). Once the lock or its open pull request records the
+# official APK, it writes the public Android Game Status.
 
 on:
   schedule:
@@ -208,20 +209,10 @@ jobs:
           BRANCH: ${{ steps.capture.outputs.branch }}
           VERIFY: ${{ steps.verify.outcome }}
         run: |
-          node --input-type=module -e "
-            import fs from 'node:fs';
-            const [major, minor, patch] = fs.readFileSync('VERSION', 'utf8').trim().split('.').map(Number);
-            fs.writeFileSync('VERSION', [major, minor, patch + 1].join('.') + '\n');
-          "
-          just release::sync
-          version="$(cat VERSION)"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$BRANCH"
-          git add VERSION README.md README_en.md bazaarplusplus-mod/build/game-libs.lock.json \
-            bazaarplusplus-installer/package.json bazaarplusplus-installer/package-lock.json \
-            bazaarplusplus-installer/src-tauri/Cargo.toml bazaarplusplus-installer/src-tauri/Cargo.lock \
-            bazaarplusplus-installer/src-tauri/tauri.conf.json
+          git add bazaarplusplus-mod/build/game-libs.lock.json
           git commit -m "chore(mod): capture Android game $GAME"
           git push origin "$BRANCH"
           if [[ "$VERIFY" == success ]]; then
@@ -230,14 +221,25 @@ jobs:
             check='`just verify mod::android-build mod::test-core` **failed** against the new interop; see the workflow run.'
           fi
           cat > "$RUNNER_TEMP/body.md" <<EOF
-          The publisher's official APK is now $GAME. This captures it as the android-online entry of the Snapshot Lock (inputs published to the private bucket) and bumps VERSION to $version.
+          The publisher's official APK is now $GAME. This captures it as the android-online entry of the Snapshot Lock (inputs published to the private bucket), without a VERSION change. Until a release adapts the Android App to it, the download page shows the Android game as not adapted.
 
           - $check
           - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-          - After merging, run release.yml with version $version and platform android, then \`just release::promote --platform android\`.
+          - To release it, bump VERSION in a separate pull request, then run release.yml with that version and \`just release::promote --platform android\` (docs/release.md "Android 发布顺序").
 
           Release Notes:
 
           - Improved: Android supports game $GAME.
           EOF
           gh pr create --base master --head "$BRANCH" --title "chore(mod): capture Android game $GAME" --body-file "$RUNNER_TEMP/body.md"
+      # The lock on master records the official APK (unchanged, or the same
+      # bytes under a new ETag), or the capture above recorded it for the lock
+      # pull request, open or just opened. The download page compares it with
+      # the Android Platform Release Manifest's game.
+      - if: >-
+          steps.compare.outputs.state == 'unchanged' ||
+          steps.download.outputs.kind == 'none' ||
+          steps.download.outputs.kind == 'etag' ||
+          steps.capture.conclusion == 'success'
+        name: Write the Android Game Status
+        run: node release/game-libs.ts android-game-status
