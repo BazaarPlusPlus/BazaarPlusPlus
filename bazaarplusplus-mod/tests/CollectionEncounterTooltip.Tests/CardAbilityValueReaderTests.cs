@@ -5,6 +5,7 @@ using BazaarGameShared.Domain.Cards.Encounter.Step;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
+using BazaarGameShared.Domain.Effect.AuraActions;
 using BazaarGameShared.Domain.Prerequisites.Conditionals;
 using BazaarGameShared.Domain.Targeting;
 using BazaarGameShared.Domain.Values;
@@ -109,6 +110,107 @@ public sealed class CardAbilityValueReaderTests
         );
         Assert.Equal("40", value.ValueText);
     }
+
+    [Theory]
+    [InlineData(1000f, "1")]
+    [InlineData(1500f, "1.5")]
+    [InlineData(500f, "0.5")]
+    public void A_cooldown_reduction_in_milliseconds_reads_in_seconds(
+        float milliseconds,
+        string expected
+    )
+    {
+        var template = StepWith(
+            new TActionCardModifyAttribute
+            {
+                AttributeType = ECardAttributeType.FlatCooldownReduction,
+                Value = new TFixedValue { Value = milliseconds },
+            }
+        );
+
+        Assert.True(CardAbilityValueReader.TryRead(template, "0", out var value));
+        Assert.Equal(expected, value.ValueText);
+    }
+
+    [Fact]
+    public void A_cooldown_reduction_is_captured_in_seconds_for_event_preview()
+    {
+        var template = StepWith(
+            new TActionCardModifyAttribute
+            {
+                AttributeType = ECardAttributeType.FlatCooldownReduction,
+                Value = new TFixedValue { Value = 1000f },
+            }
+        );
+
+        var values = EventPreviewGameText.CaptureAbilityValues(template);
+
+        Assert.Equal("1", values["0"].ValueText);
+    }
+
+    [Fact]
+    public void Live_evaluation_reads_a_millisecond_value_in_seconds()
+    {
+        var run = RunWithPlayerAttribute(EPlayerAttributeType.Gold, 0);
+        var template = StepWith(
+            new TActionCardModifyAttribute
+            {
+                AttributeType = ECardAttributeType.FlatCooldownReduction,
+                Value = new TFixedValue { Value = 2000f },
+            }
+        );
+
+        Assert.True(
+            CardAbilityValueReader.TryEvaluate(template, "0", new ValueContext(run), out var value)
+        );
+        Assert.Equal("2", value.ValueText);
+    }
+
+    [Fact]
+    public void A_value_the_game_renders_as_is_stays_unconverted()
+    {
+        var template = StepWith(
+            new TActionCardModifyAttribute
+            {
+                AttributeType = ECardAttributeType.DamageAmount,
+                Value = new TFixedValue { Value = 1000f },
+            }
+        );
+
+        Assert.True(CardAbilityValueReader.TryRead(template, "0", out var value));
+        Assert.Equal("1000", value.ValueText);
+    }
+
+    [Fact]
+    public void A_millisecond_aura_value_reads_in_seconds()
+    {
+        var template = new TCardEncounterStep
+        {
+            Auras = new Dictionary<string, TCardAura>
+            {
+                ["0"] = new TCardAura
+                {
+                    Action = new TAuraActionCardModifyAttribute
+                    {
+                        AttributeType = ECardAttributeType.FlatCooldownReduction,
+                        Value = new TFixedValue { Value = 1000f },
+                    },
+                },
+            },
+        };
+
+        Assert.True(CardAbilityValueReader.TryReadAura(template, "0", out var value));
+        Assert.Equal("1", value.ValueText);
+    }
+
+    private static TCardEncounterStep StepWith(ITAction action) =>
+        new()
+        {
+            Abilities = new Dictionary<string, TCardAbility>
+            {
+                ["0"] = new TCardAbility { Action = action },
+            },
+        };
 
     private static TCardEncounterStep Template(ITValue value, EPlayerAttributeType attributeType) =>
         new()
