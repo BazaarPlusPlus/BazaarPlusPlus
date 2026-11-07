@@ -1,4 +1,5 @@
 #nullable enable
+using System.Buffers;
 
 namespace BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
 
@@ -15,15 +16,19 @@ internal static class PortraitImageFeatures
         CancellationToken cancellation
     )
     {
-        var gray = new float[image.Width * image.Height];
-        var alpha = new float[gray.Length];
-        for (var i = 0; i < gray.Length; i++)
+        using var buffers = new ScratchBuffers(image.Width * image.Height);
+        var gray = buffers.Rent();
+        var alpha = buffers.Rent();
+        for (var i = 0; i < image.Width * image.Height; i++)
         {
             var a = image.Rgba[i * 4 + 3] / 255f;
             alpha[i] = a;
             // Ignore transparent padding and undo PMA for the semi-opaque artwork edges.
             if (a < 0.5f)
+            {
+                gray[i] = 0;
                 continue;
+            }
             gray[i] =
                 (
                     0.299f * Math.Min(255f, image.Rgba[i * 4] / a)
@@ -32,6 +37,15 @@ internal static class PortraitImageFeatures
                 ) / 255f;
         }
         var result = new List<PortraitFeature>();
+        var g = buffers.Rent();
+        var levelAlpha = buffers.Rent();
+        var gx = buffers.Rent();
+        var gy = buffers.Rent();
+        var xx = buffers.Rent();
+        var yy = buffers.Rent();
+        var xy = buffers.Rent();
+        var response = buffers.Rent();
+        var temporary = buffers.Rent();
         for (var level = 0; level < 8; level++)
         {
             cancellation.ThrowIfCancellationRequested();
@@ -40,13 +54,17 @@ internal static class PortraitImageFeatures
             var h = (int)MathF.Round(image.Height * scale);
             if (Math.Min(w, h) < 45)
                 break;
-            var g = Blur(Resize(gray, image.Width, image.Height, w, h), w, h, 1f);
-            var a = Resize(alpha, image.Width, image.Height, w, h);
-            var gx = new float[g.Length];
-            var gy = new float[g.Length];
-            var xx = new float[g.Length];
-            var yy = new float[g.Length];
-            var xy = new float[g.Length];
+            Resize(gray, image.Width, image.Height, w, h, g);
+            Blur(g, w, h, 1f, temporary);
+            Resize(alpha, image.Width, image.Height, w, h, levelAlpha);
+            // Borders were zero-initialized in the original per-level arrays. Clear the
+            // active image, not the rented capacity, before the partial gradient writes.
+            Array.Clear(gx, 0, w * h);
+            Array.Clear(gy, 0, w * h);
+            Array.Clear(xx, 0, w * h);
+            Array.Clear(yy, 0, w * h);
+            Array.Clear(xy, 0, w * h);
+            Array.Clear(response, 0, w * h);
             for (var y = 1; y < h - 1; y++)
             for (var x = 1; x < w - 1; x++)
             {
@@ -75,10 +93,9 @@ internal static class PortraitImageFeatures
                 yy[i] = dy * dy;
                 xy[i] = dx * dy;
             }
-            xx = Blur(xx, w, h, 1.2f);
-            yy = Blur(yy, w, h, 1.2f);
-            xy = Blur(xy, w, h, 1.2f);
-            var response = new float[g.Length];
+            Blur(xx, w, h, 1.2f, temporary);
+            Blur(yy, w, h, 1.2f, temporary);
+            Blur(xy, w, h, 1.2f, temporary);
             var maximum = 0f;
             for (var y = 12; y < h - 12; y++)
             for (var x = 12; x < w - 12; x++)
@@ -94,7 +111,7 @@ internal static class PortraitImageFeatures
             {
                 var i = y * w + x;
                 var score = response[i];
-                if (a[i] < 0.86f || score <= maximum * 0.007f || score <= 0f)
+                if (levelAlpha[i] < 0.86f || score <= maximum * 0.007f || score <= 0f)
                     continue;
                 var peak = true;
                 for (var dy = -2; dy <= 2 && peak; dy++)
@@ -183,9 +200,8 @@ internal static class PortraitImageFeatures
             values[i] /= norm;
     }
 
-    private static float[] Resize(float[] source, int width, int height, int w, int h)
+    private static void Resize(float[] source, int width, int height, int w, int h, float[] result)
     {
-        var result = new float[w * h];
         for (var y = 0; y < h; y++)
         for (var x = 0; x < w; x++)
         {
@@ -202,10 +218,9 @@ internal static class PortraitImageFeatures
                     + source[(iy + 1) * width + ix + 1] * dx
                 ) * dy;
         }
-        return result;
     }
 
-    private static float[] Blur(float[] source, int w, int h, float sigma)
+    private static void Blur(float[] source, int w, int h, float sigma, float[] temporary)
     {
         var radius = (int)MathF.Ceiling(sigma * 3);
         var kernel = new float[radius * 2 + 1];
@@ -217,18 +232,40 @@ internal static class PortraitImageFeatures
         }
         for (var i = 0; i < kernel.Length; i++)
             kernel[i] /= sum;
-        var temp = new float[source.Length];
-        var result = new float[source.Length];
         for (var y = 0; y < h; y++)
         for (var x = 0; x < w; x++)
-        for (var k = -radius; k <= radius; k++)
-            temp[y * w + x] +=
-                source[y * w + Math.Max(0, Math.Min(w - 1, x + k))] * kernel[k + radius];
+        {
+            var value = 0f;
+            for (var k = -radius; k <= radius; k++)
+                value += source[y * w + Math.Max(0, Math.Min(w - 1, x + k))] * kernel[k + radius];
+            temporary[y * w + x] = value;
+        }
         for (var y = 0; y < h; y++)
         for (var x = 0; x < w; x++)
-        for (var k = -radius; k <= radius; k++)
-            result[y * w + x] +=
-                temp[Math.Max(0, Math.Min(h - 1, y + k)) * w + x] * kernel[k + radius];
-        return result;
+        {
+            var value = 0f;
+            for (var k = -radius; k <= radius; k++)
+                value +=
+                    temporary[Math.Max(0, Math.Min(h - 1, y + k)) * w + x] * kernel[k + radius];
+            source[y * w + x] = value;
+        }
+    }
+
+    private sealed class ScratchBuffers(int length) : IDisposable
+    {
+        private readonly List<float[]> _rented = new(11);
+
+        internal float[] Rent()
+        {
+            var buffer = ArrayPool<float>.Shared.Rent(length);
+            _rented.Add(buffer);
+            return buffer;
+        }
+
+        public void Dispose()
+        {
+            foreach (var buffer in _rented)
+                ArrayPool<float>.Shared.Return(buffer);
+        }
     }
 }
