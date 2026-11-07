@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from bppanalyzer.config import ConfigurationError, load_config
+from bazaarlens.config import ConfigurationError, load_config
 
 
 def _write_env(root: Path, extra: str = "") -> None:

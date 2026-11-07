@@ -9,14 +9,14 @@ import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from typing import Any, Self, TypeVar
 
 import httpx
 
-from bppanalyzer.durable import canonical_json
+from bazaarlens.durable import canonical_json
 
 # The V6 Worker serves only Bundle V6.
 BUNDLE_MAGIC = b"BPPBNDL6"
@@ -43,11 +43,18 @@ class BundleSourceError(RuntimeError):
     """A safe, classified Bundle Server or Bundle contract failure."""
 
     def __init__(
-        self, reason: str, message: str, *, retry_after_seconds: float | None = None
+        self,
+        reason: str,
+        message: str,
+        *,
+        retry_after_seconds: float | None = None,
+        http_status: int | None = None,
     ) -> None:
         super().__init__(message)
         self.reason = reason
         self.retry_after_seconds = retry_after_seconds
+        self.http_status = http_status
+        self.retry_attempts: int | None = None
 
 
 class HourExpired(BundleSourceError):
@@ -83,6 +90,8 @@ class SourcePerformance:
     retry_sleep_seconds: float
     download_latency_ms_p50: float | None
     download_latency_ms_p95: float | None
+    request_failures: Mapping[str, int] = field(default_factory=dict)
+    retry_exhaustions: Mapping[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +175,8 @@ class BundleSource:
         self._download_wait_seconds = 0.0
         self._retry_sleep_seconds = 0.0
         self._download_latencies_ms: list[float] = []
+        self._request_failures: dict[str, int] = {}
+        self._retry_exhaustions: dict[str, int] = {}
 
     def close(self) -> None:
         if self._owns_client:
@@ -191,6 +202,8 @@ class BundleSource:
                 retry_sleep_seconds=round(self._retry_sleep_seconds, 6),
                 download_latency_ms_p50=_percentile(latencies, 0.50),
                 download_latency_ms_p95=_percentile(latencies, 0.95),
+                request_failures=dict(sorted(self._request_failures.items())),
+                retry_exhaustions=dict(sorted(self._retry_exhaustions.items())),
             )
             if reset:
                 self._listing_requests = 0
@@ -201,7 +214,15 @@ class BundleSource:
                 self._download_wait_seconds = 0.0
                 self._retry_sleep_seconds = 0.0
                 self._download_latencies_ms.clear()
+                self._request_failures.clear()
+                self._retry_exhaustions.clear()
             return value
+
+    def _record_request_failure(self, kind: str, status: int | None = None) -> None:
+        # Fixed endpoint names and numeric statuses only: never URLs or response bodies.
+        key = f"{kind}:http_{status}" if status is not None else f"{kind}:transport"
+        with self._performance_lock:
+            self._request_failures[key] = self._request_failures.get(key, 0) + 1
 
     def hour_index(self, source_hour: datetime | str) -> RawHourIndex:
         hour = parse_source_hour(source_hour)
@@ -283,9 +304,12 @@ class BundleSource:
                 headers={"Authorization": f"Bearer {self._sync_token}"},
             )
         except httpx.TransportError as error:
+            self._record_request_failure("listing")
             raise RetryableSourceError(
                 "source_transport_error", "Bundle collection transport failed"
             ) from error
+        if response.status_code >= 400:
+            self._record_request_failure("listing", response.status_code)
         self._raise_response_error(response)
         return response
 
@@ -295,6 +319,9 @@ class BundleSource:
                 return operation()
             except RetryableSourceError as error:
                 if attempt == len(RETRY_BACKOFF_SECONDS):
+                    error.retry_attempts = attempt + 1
+                    with self._performance_lock:
+                        self._retry_exhaustions[kind] = self._retry_exhaustions.get(kind, 0) + 1
                     raise
                 with self._performance_lock:
                     if kind == "listing":
@@ -368,7 +395,7 @@ class BundleSource:
                 raise _bundle_admission_failure(error) from error
             except DownloadUrlExpired:
                 raise RetryableSourceError(
-                    "download_url_expired", "Refreshed Bundle capability expired"
+                    "download_url_expired", "Refreshed Bundle capability expired", http_status=403
                 ) from None
         try:
             return admit_bundle(item, content)
@@ -385,20 +412,25 @@ class BundleSource:
         try:
             with self._client.stream("GET", item.download_url) as response:
                 if response.status_code >= 400:
-                    response.read()
+                    self._record_request_failure("download", response.status_code)
                 if response.status_code == 403:
                     raise DownloadUrlExpired(
-                        "download_url_expired", "Bundle download capability expired"
+                        "download_url_expired",
+                        "Bundle download capability expired",
+                        http_status=403,
                     )
                 if response.status_code in {408, 429} or response.status_code >= 500:
                     raise RetryableSourceError(
                         "bundle_download_retryable",
                         "Bundle download temporarily failed",
                         retry_after_seconds=_retry_after_seconds(response, self._clock()),
+                        http_status=response.status_code,
                     )
                 if response.status_code >= 400:
                     raise SourceContractError(
-                        "bundle_download_failed", "Bundle download was rejected"
+                        "bundle_download_failed",
+                        "Bundle download was rejected",
+                        http_status=response.status_code,
                     )
                 declared_length: int | None = None
                 if "Content-Length" in response.headers:
@@ -434,6 +466,7 @@ class BundleSource:
                     self._downloaded_bytes += len(content)
                 return content
         except httpx.TransportError as error:
+            self._record_request_failure("download")
             raise RetryableSourceError(
                 "source_transport_error", "Bundle download transport failed"
             ) from error
@@ -462,6 +495,7 @@ class BundleSource:
                 code,
                 "Bundle collection temporarily failed",
                 retry_after_seconds=_retry_after_seconds(response, self._clock()),
+                http_status=response.status_code,
             )
         raise SourceContractError(code, "Bundle collection request was rejected")
 

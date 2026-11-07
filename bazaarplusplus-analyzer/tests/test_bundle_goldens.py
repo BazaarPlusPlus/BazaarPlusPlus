@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from bppanalyzer.bundle_source import (
+from bazaarlens.bundle_source import (
     BundleRef,
     BundleSource,
     RawHourIndex,
@@ -15,7 +15,7 @@ from bppanalyzer.bundle_source import (
     admit_bundle,
     raw_commit_sha256,
 )
-from bppanalyzer.projection import project_hour
+from bazaarlens.facts.projection import project_hour
 from tests.fakes import collect_tables
 from tests.pipeline_fixtures import (
     PROJECTION_CASES,

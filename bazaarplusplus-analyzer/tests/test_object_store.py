@@ -21,8 +21,8 @@ import httpx
 import pytest
 from botocore.exceptions import BotoCoreError, ClientError
 
-import bppanalyzer.object_store as object_store_module
-from bppanalyzer.object_store import (
+import bazaarlens.object_store as object_store_module
+from bazaarlens.object_store import (
     CLOUDFLARE_API,
     ObjectStoreError,
     R2ObjectStore,

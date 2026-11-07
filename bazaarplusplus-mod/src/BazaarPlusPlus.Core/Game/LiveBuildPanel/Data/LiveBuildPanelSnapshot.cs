@@ -30,6 +30,8 @@ public sealed class LiveBuildPanelSnapshot
 
     public int MatchTenWinRunCount { get; init; }
 
+    public int MatchCompletedRunCount { get; init; }
+
     public int? MatchP75FinalDay { get; init; }
 
     public int MatchMatchedCardCount { get; init; }

@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from bppanalyzer.fact_store import FactConflict, FactCorrupt, FactMissing, FactStore
-from bppanalyzer.projection import HourProjection
+from bazaarlens.facts.projection import HourProjection
+from bazaarlens.facts.store import FactConflict, FactCorrupt, FactMissing, FactStore
 from tests.fakes import empty_projection
 
 HOUR = datetime(2026, 8, 10, 12, tzinfo=UTC)

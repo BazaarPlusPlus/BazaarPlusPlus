@@ -4,8 +4,8 @@ from pathlib import Path
 
 import httpx
 
-from bppanalyzer.bundle_source import BundleSource
-from bppanalyzer.driver import PipelineDriver
+from bazaarlens.bundle_source import BundleSource
+from bazaarlens.driver import PipelineDriver
 from tests.pipeline_fixtures import (
     API_BASE_URL,
     SYNC_TOKEN,
@@ -43,7 +43,9 @@ def test_seven_day_build_records_bounded_rss_and_local_contract_state(tmp_path: 
         for path in (tmp_path / "snapshots").rglob("*.json")
     ) == {
         "heroes/latest.json",
+        "heroes/latest.inputs.json",
         "builds/latest.json",
+        "builds/latest.inputs.json",
     }
     heroes = json.loads((tmp_path / "snapshots/heroes/latest.json").read_bytes())
     days = [item["day"] for item in heroes["days"]]

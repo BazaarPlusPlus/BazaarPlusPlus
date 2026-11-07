@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from bppanalyzer.locking import DirectoryLock, LockHeld, LockOwnershipLost
+from bazaarlens.locking import DirectoryLock, LockHeld, LockOwnershipLost
 
 
 def test_live_lock_rejects_a_concurrent_holder_within_one_second_without_writes(

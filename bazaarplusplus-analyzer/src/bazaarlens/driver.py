@@ -8,36 +8,36 @@ from datetime import UTC, date, datetime
 from functools import partial
 from pathlib import Path
 
-from bppanalyzer.bundle_source import (
+from bazaarlens.analysis import (
+    AnalysisResources,
+    AnalysisWindow,
+    fact_stats,
+    select_analysis_window,
+)
+from bazaarlens.bundle_source import (
     HourExpired,
     RetryableSourceError,
 )
-from bppanalyzer.config import MIN_FACT_RETENTION_DAYS
-from bppanalyzer.durable import atomic_replace, aware_utc
-from bppanalyzer.fact_store import FactStore, parse_source_day
-from bppanalyzer.hour_intake import (
+from bazaarlens.config import MIN_FACT_RETENTION_DAYS
+from bazaarlens.durable import aware_utc
+from bazaarlens.facts.store import FactStore, parse_source_day
+from bazaarlens.hour_intake import (
     Source,
     SourceHourIntake,
     healing_days,
     settled_missing_hours,
 )
-from bppanalyzer.locking import DirectoryLock, LockOwnershipLost, MaximumRunTimeExceeded
-from bppanalyzer.object_store import ObjectStore
-from bppanalyzer.operational_evidence import (
+from bazaarlens.locking import DirectoryLock, LockOwnershipLost, MaximumRunTimeExceeded
+from bazaarlens.object_store import ObjectStore
+from bazaarlens.operational_evidence import (
     CurrentRun,
     OperationalEvidence,
     RunEvidence,
     RunSummary,
 )
-from bppanalyzer.publication import (
-    PRODUCTS,
-    AnalysisWindow,
-    BuiltSnapshot,
-    ConsumerProduct,
-    LatestPublisher,
-    SnapshotBuilder,
-    select_analysis_window,
-)
+from bazaarlens.products import PRODUCTS
+from bazaarlens.products.base import SnapshotResult
+from bazaarlens.snapshots import SnapshotRunner
 
 
 class PipelineDriver:
@@ -254,16 +254,10 @@ class PipelineDriver:
         if window is None:
             report("publication skipped: no Complete Source Day available for Analysis Window")
             return
-        builder = SnapshotBuilder(
-            self.data_root,
-            store=store,
-            clock=self.clock,
-            memory_limit=self.duckdb_memory_limit,
-            threads=self.duckdb_threads,
-        )
+        resources = AnalysisResources(self.duckdb_memory_limit, self.duckdb_threads)
         fact_stats_started = time.monotonic()
         try:
-            facts = builder.fact_stats(window)
+            facts = fact_stats(store, window, resources)
         except Exception as error:
             report_error(f"fact report failed: {_error_reason(error)}")
         else:
@@ -272,48 +266,34 @@ class PipelineDriver:
             progress.product_timings["fact_stats_seconds"] = round(
                 max(time.monotonic() - fact_stats_started, 0.0), 6
             )
-        publisher = LatestPublisher(self.object_store) if self.object_store is not None else None
+        runner = SnapshotRunner(
+            store,
+            resources,
+            clock=self.clock,
+            object_store=self.object_store,
+            ownership_check=lock.assert_owned,
+        )
+
+        def observe(update: SnapshotResult) -> None:
+            progress.product_timings.update(update.timings)
+            result.record_product(update)
+            if update.phase in {"build", "publish"}:
+                checkpoint(update.phase, None, step=update.product)
+
         for consumer in PRODUCTS:
-            product = consumer.name
-            product_started: float | None = None
-            try:
-                checkpoint("build", None, step=product)
-                report(f"{product} snapshot build started")
-                product_started = time.monotonic()
-                built = consumer.build(builder, window)
-                progress.product_timings[f"{product}_build_seconds"] = round(
-                    max(time.monotonic() - product_started, 0.0), 6
-                )
-                lock.assert_owned()
-                save_started = time.monotonic()
-                _write_local_snapshot(self.data_root, consumer, built, lock.assert_owned)
-                progress.product_timings[f"{product}_local_save_seconds"] = round(
-                    max(time.monotonic() - save_started, 0.0), 6
-                )
-                result.record_product(consumer, built.stats)
-                report(f"{product} snapshot build done")
-                if publish and publisher is not None:
-                    checkpoint("publish", None, step=product)
-                    publish_started = time.monotonic()
-                    replaced = publisher.replace(built)
-                    progress.product_timings[f"{product}_publish_seconds"] = round(
-                        max(time.monotonic() - publish_started, 0.0), 6
-                    )
-                    result.mark_published(consumer)
-                    report(f"{product} snapshot publication done: replaced={str(replaced).lower()}")
-                elif not publish:
-                    report(f"{product} snapshot publication skipped: --no-publish")
-                else:
-                    report(f"{product} snapshot publication skipped: no object store")
-            except Exception as error:
-                if product_started is not None:
-                    progress.product_timings.setdefault(
-                        f"{product}_build_seconds",
-                        round(max(time.monotonic() - product_started, 0.0), 6),
-                    )
-                failure = {"scope": product, "reason": _error_reason(error)}
+            outcome = runner.ensure(
+                consumer,
+                window,
+                publish=publish,
+                on_progress=observe,
+                on_message=report,
+            )
+            progress.product_timings.update(outcome.timings)
+            result.record_product(outcome)
+            if outcome.error is not None:
+                failure = {"scope": consumer.name, "reason": _error_reason(outcome.error)}
                 progress.failures.append(failure)
-                report_error(f"{product} snapshot failed: {failure['reason']}")
+                report_error(f"{consumer.name} snapshot failed: {failure['reason']}")
 
     def _heal(
         self,
@@ -359,14 +339,22 @@ class PipelineDriver:
                     report_error(f"source hour expired: {hour_key} ({error.reason})")
                     break
                 if isinstance(error, RetryableSourceError):
-                    progress.failures.append(
-                        {
-                            "scope": "source_hour",
-                            "source_hour": hour_key,
-                            "reason": error.reason,
-                        }
+                    failure = {
+                        "scope": "source_hour",
+                        "source_hour": hour_key,
+                        "reason": error.reason,
+                    }
+                    if error.http_status is not None:
+                        failure["http_status"] = str(error.http_status)
+                    if error.retry_attempts is not None:
+                        failure["retry_attempts"] = str(error.retry_attempts)
+                    progress.failures.append(failure)
+                    detail = "".join(
+                        f" {key}={failure[key]}"
+                        for key in ("http_status", "retry_attempts")
+                        if key in failure
                     )
-                    report_error(f"source hour failed: {hour_key} ({error.reason})")
+                    report_error(f"source hour failed: {hour_key} ({error.reason}){detail}")
             if expired_reason is not None:
                 remaining = store.missing_hours(day)
                 store.abandon_day(day, remaining, expired_reason)
@@ -406,19 +394,6 @@ def _reset_source_performance(source: Source) -> None:
     snapshot = getattr(source, "performance_snapshot", None)
     if callable(snapshot):
         snapshot(reset=True)
-
-
-def _write_local_snapshot(
-    root: Path,
-    product: ConsumerProduct,
-    snapshot: BuiltSnapshot,
-    ownership_check: Callable[[], None],
-) -> None:
-    atomic_replace(
-        root / product.local_relpath,
-        snapshot.content,
-        ownership_check=ownership_check,
-    )
 
 
 def _error_reason(error: BaseException) -> str:

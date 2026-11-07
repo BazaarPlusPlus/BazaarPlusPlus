@@ -1,6 +1,6 @@
-# BazaarPlusPlus Analyzer
+# BazaarLens
 
-The analyzer converts verified Bundle V6 deliveries into local hourly facts and
+BazaarLens converts verified Bundle V6 deliveries into local hourly facts and
 two independent current snapshots:
 
 ```text
@@ -16,18 +16,19 @@ Both publish to `metrics/v6/` in the public bucket, served at
 
 Run workspace `just setup` and fill in the shared analyzer configuration described
 in the [development guide](../docs/development.md). `just analyzer::cli <command>`
-refreshes the managed repository `.env` before invoking the CLI. The analyzer itself
-still reads only that file; the direct run/status/verify recipes below require a current projection.
+refreshes the managed repository `.env` before invoking the CLI. Use this entry point
+for local operations; the analyzer itself reads only that file.
 
 ```bash
-just analyzer::run
-just analyzer::run --no-publish
-just analyzer::status --json
-just analyzer::verify --deep
+just analyzer::cli run
+just analyzer::cli run --no-publish
+just analyzer::cli status --json
+just analyzer::cli verify --deep
 ```
 
-Use `uv run --locked bpp --help` and `uv run --locked bpp <command> --help` for the complete
-operator interface.
+Use `just analyzer::cli --help` and `just analyzer::cli <command> --help` for the
+complete operator interface. Automation that prepares its own `.env` invokes
+`uv run --locked bazaarlens <command>` directly from this project directory.
 
 ## Documentation
 

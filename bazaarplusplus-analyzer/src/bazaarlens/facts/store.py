@@ -13,16 +13,19 @@ from contextlib import ExitStack, suppress
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from bppanalyzer.bundle_source import parse_source_hour
-from bppanalyzer.durable import canonical_json, fsync_directory
-from bppanalyzer.projection import HourProjection, table_schemas
+from bazaarlens.bundle_source import parse_source_hour
+from bazaarlens.durable import canonical_json, fsync_directory
+from bazaarlens.facts.schema import TABLES, table_schemas
 
-TABLES = ("runs", "battles", "battle_cards", "quality", "quarantine")
+if TYPE_CHECKING:
+    from bazaarlens.facts.projection import HourProjection
+
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _HOUR_DIR = re.compile(r"^source_hour=(\d{4}-\d{2}-\d{2}T\d{2})$")
 _SEAL_FILE = re.compile(r"^source_day=(\d{4}-\d{2}-\d{2})\.json$")
@@ -45,6 +48,15 @@ class FactConflict(FactStoreError):
     """An immutable identity already has different canonical bytes."""
 
 
+@dataclass(slots=True)
+class FactWriteTimings:
+    """Transient measurements for one commit attempt, including failed attempts."""
+
+    batch_generation_seconds: float = 0.0
+    parquet_write_seconds: float = 0.0
+    fact_finalize_seconds: float = 0.0
+
+
 @dataclass(frozen=True, slots=True)
 class HourCommit:
     source_hour: str
@@ -57,9 +69,6 @@ class HourCommit:
     file_sha256s: Mapping[str, str]
     file_bytes: Mapping[str, int]
     reused: bool
-    batch_generation_seconds: float = 0.0
-    parquet_write_seconds: float = 0.0
-    fact_finalize_seconds: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,26 +121,29 @@ class FactStore:
         self._clock = clock
         self._ownership_check = ownership_check
 
-    def commit_hour(self, projected: HourProjection) -> HourCommit:
+    def commit_hour(
+        self, projected: HourProjection, *, timings: FactWriteTimings | None = None
+    ) -> HourCommit:
         commit_started = time.perf_counter()
-        self._ownership_check()
-        hour = parse_source_hour(projected.source_hour)
-        hour_key = hour.strftime("%Y-%m-%dT%H")
-        day_key = hour.strftime("%Y-%m-%d")
-        schemas = table_schemas()
-
-        self._hourly.mkdir(parents=True, exist_ok=True)
-        final = self._hourly / f"source_hour={hour_key}"
-        for stale in self._hourly.glob(f".{final.name}.tmp-*"):
-            if stale.is_dir():
-                shutil.rmtree(stale, ignore_errors=True)
-        stage = Path(tempfile.mkdtemp(prefix=f".{final.name}.tmp-", dir=self._hourly))
+        generation_seconds = 0.0
+        parquet_seconds = 0.0
+        stage: Path | None = None
         try:
+            self._ownership_check()
+            hour = parse_source_hour(projected.source_hour)
+            hour_key = hour.strftime("%Y-%m-%dT%H")
+            day_key = hour.strftime("%Y-%m-%d")
+            schemas = table_schemas()
+
+            self._hourly.mkdir(parents=True, exist_ok=True)
+            final = self._hourly / f"source_hour={hour_key}"
+            for stale in self._hourly.glob(f".{final.name}.tmp-*"):
+                if stale.is_dir():
+                    shutil.rmtree(stale, ignore_errors=True)
+            stage = Path(tempfile.mkdtemp(prefix=f".{final.name}.tmp-", dir=self._hourly))
             file_hashes: dict[str, str] = {}
             file_bytes: dict[str, int] = {}
             row_counts = {name: 0 for name in TABLES}
-            generation_seconds = 0.0
-            parquet_seconds = 0.0
             with ExitStack() as writer_stack:
                 writers = {
                     name: writer_stack.enter_context(
@@ -154,7 +166,8 @@ class FactStore:
                         name, batch = next(batches)
                     except StopIteration:
                         break
-                    generation_seconds += time.perf_counter() - generation_started
+                    finally:
+                        generation_seconds += time.perf_counter() - generation_started
                     self._ownership_check()
                     if name not in writers:
                         raise FactCorrupt(f"Hourly projection emitted unknown table {name}")
@@ -162,8 +175,10 @@ class FactStore:
                         raise FactCorrupt(f"Hourly {name} schema differs from the owned schema")
                     self._require_partition_columns(batch, name, hour_key, day_key)
                     write_started = time.perf_counter()
-                    writers[name].write_batch(batch, row_group_size=batch.num_rows)
-                    parquet_seconds += time.perf_counter() - write_started
+                    try:
+                        writers[name].write_batch(batch, row_group_size=batch.num_rows)
+                    finally:
+                        parquet_seconds += time.perf_counter() - write_started
                     row_counts[name] += batch.num_rows
 
             for name in TABLES:
@@ -199,41 +214,20 @@ class FactStore:
                 if existing != commit_bytes:
                     raise FactConflict(f"Hourly Fact Partition commit conflict: {hour_key}")
                 committed = self._read_hour(hour, deep=True)
-                return replace(
-                    committed,
-                    reused=True,
-                    batch_generation_seconds=round(generation_seconds, 6),
-                    parquet_write_seconds=round(parquet_seconds, 6),
-                    fact_finalize_seconds=round(
-                        max(
-                            time.perf_counter()
-                            - commit_started
-                            - generation_seconds
-                            - parquet_seconds,
-                            0.0,
-                        ),
-                        6,
-                    ),
-                )
+                return replace(committed, reused=True)
 
             os.rename(stage, final)
             fsync_directory(self._hourly)
-            return replace(
-                self._read_hour(hour, deep=True),
-                reused=False,
-                batch_generation_seconds=round(generation_seconds, 6),
-                parquet_write_seconds=round(parquet_seconds, 6),
-                fact_finalize_seconds=round(
-                    max(
-                        time.perf_counter() - commit_started - generation_seconds - parquet_seconds,
-                        0.0,
-                    ),
-                    6,
-                ),
-            )
+            return replace(self._read_hour(hour, deep=True), reused=False)
         finally:
-            if stage.exists():
+            if stage is not None and stage.exists():
                 shutil.rmtree(stage, ignore_errors=True)
+            if timings is not None:
+                timings.batch_generation_seconds = generation_seconds
+                timings.parquet_write_seconds = parquet_seconds
+                timings.fact_finalize_seconds = (
+                    time.perf_counter() - commit_started - generation_seconds - parquet_seconds
+                )
 
     def seal_day(self, source_day: date | str) -> DaySeal:
         day = parse_source_day(source_day)

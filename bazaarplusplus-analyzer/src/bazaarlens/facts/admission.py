@@ -2,7 +2,8 @@
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
+
+from bazaarlens.resources import contract_bytes
 
 CANONICAL_HEROES = (
     "Dooley",
@@ -22,8 +23,7 @@ LEGEND_RANK = "Legendary"
 
 def _load_hero_aliases() -> dict[str, str]:
     """Read the analyzer-owned alias table shared with the mod and installer."""
-    path = Path(__file__).resolve().parents[2] / "contracts" / "v6" / "hero-aliases.json"
-    return dict(json.loads(path.read_bytes())["aliases"])
+    return dict(json.loads(contract_bytes("hero-aliases.json"))["aliases"])
 
 
 _HERO_ALIASES = _load_hero_aliases()

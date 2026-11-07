@@ -6,24 +6,19 @@ import os
 import resource
 import shutil
 import sys
-from collections.abc import Callable
-from dataclasses import asdict, dataclass, field, fields
+from collections.abc import Callable, Mapping
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, TypedDict, cast
 
-from bppanalyzer.bundle_source import SourcePerformance
-from bppanalyzer.durable import atomic_replace, aware_utc, canonical_json, utc_timestamp
-from bppanalyzer.fact_store import FactPruneReport, FactStore, parse_source_day
-from bppanalyzer.hour_intake import HourIntakeProgress, is_hour_settled
-from bppanalyzer.publication import (
-    PRODUCTS,
-    AnalysisWindow,
-    BuildStats,
-    ConsumerProduct,
-    FactStats,
-    HeroStats,
-)
+from bazaarlens.analysis import AnalysisWindow, FactStats
+from bazaarlens.bundle_source import SourcePerformance
+from bazaarlens.durable import atomic_replace, aware_utc, canonical_json, utc_timestamp
+from bazaarlens.facts.store import FactPruneReport, FactStore, parse_source_day
+from bazaarlens.hour_intake import HourIntakeProgress, is_hour_settled
+from bazaarlens.products import PRODUCTS
+from bazaarlens.products.base import SnapshotResult
 
 
 class WindowReport(TypedDict):
@@ -34,8 +29,9 @@ class WindowReport(TypedDict):
 
 class DownloadReport(TypedDict):
     expected_bundles: int
-    succeeded_bundles: int
-    failed_bundles: int
+    admitted_bundles: int
+    unprocessed_bundles: int
+    committed_bundles: int
     listing_pages: int
     listing_requests: int
     listing_retries: int
@@ -44,6 +40,8 @@ class DownloadReport(TypedDict):
     downloaded_bytes: int
     download_latency_ms_p50: float | None
     download_latency_ms_p95: float | None
+    request_failures: dict[str, int]
+    retry_exhaustions: dict[str, int]
 
 
 class FactReport(TypedDict):
@@ -58,6 +56,9 @@ class HeroReport(TypedDict):
     participating_runs: int
     participating_matchup_battles: int
     published: bool
+    local_saved: bool
+    reused: bool
+    uploaded: bool
 
 
 class BuildReport(TypedDict):
@@ -65,6 +66,9 @@ class BuildReport(TypedDict):
     candidate_builds: int
     published_builds: int
     published: bool
+    local_saved: bool
+    reused: bool
+    uploaded: bool
 
 
 class RetentionReport(TypedDict):
@@ -93,8 +97,11 @@ class RunReport:
             "window": None,
             "downloads": {
                 "expected_bundles": 0,
-                "succeeded_bundles": 0,
-                "failed_bundles": 0,
+                "admitted_bundles": 0,
+                "unprocessed_bundles": 0,
+                "committed_bundles": 0,
+                "request_failures": {},
+                "retry_exhaustions": {},
                 "listing_pages": 0,
                 "listing_requests": 0,
                 "listing_retries": 0,
@@ -113,8 +120,11 @@ class RunReport:
             },
             **{
                 product.name: {
-                    **{stat.name: 0 for stat in fields(product.stats_type)},
+                    **product.empty_counts(),
                     "published": False,
+                    "local_saved": False,
+                    "reused": False,
+                    "uploaded": False,
                 }
                 for product in PRODUCTS
             },
@@ -158,6 +168,8 @@ class RunReport:
         downloaded_bytes: int,
         download_latency_ms_p50: float | None,
         download_latency_ms_p95: float | None,
+        request_failures: Mapping[str, int],
+        retry_exhaustions: Mapping[str, int],
     ) -> None:
         self.value["downloads"].update(
             listing_pages=listing_pages,
@@ -168,23 +180,26 @@ class RunReport:
             downloaded_bytes=downloaded_bytes,
             download_latency_ms_p50=download_latency_ms_p50,
             download_latency_ms_p95=download_latency_ms_p95,
+            request_failures=dict(request_failures),
+            retry_exhaustions=dict(retry_exhaustions),
         )
 
-    def record_product(self, product: ConsumerProduct, stats: HeroStats | BuildStats) -> None:
-        if not isinstance(stats, product.stats_type):
-            raise ValueError(f"Stats do not belong to consumer product: {product.name}")
-        self._product_report(product).update(asdict(stats))
-
-    def mark_published(self, product: ConsumerProduct) -> None:
-        self._product_report(product)["published"] = True
+    def record_product(self, result: SnapshotResult) -> None:
+        product = next((item for item in PRODUCTS if item.name == result.product), None)
+        if product is None or set(result.counts) != set(product.counter_names):
+            raise ValueError(f"Counters do not belong to consumer product: {result.product}")
+        report = cast(dict[str, dict[str, object]], self.value)[result.product]
+        if result.local_saved:
+            report.update(result.counts)
+            report["local_saved"] = True
+        report["reused"] = result.reused
+        report["uploaded"] = result.uploaded
+        if result.remote_confirmed:
+            report["published"] = True
 
     def all_published(self) -> bool:
-        return all(self._product_report(product)["published"] for product in PRODUCTS)
-
-    def _product_report(self, product: ConsumerProduct) -> dict[str, object]:
-        if product not in PRODUCTS:
-            raise ValueError(f"Unknown consumer product: {product.name}")
-        return cast(dict[str, dict[str, object]], self.value)[product.name]
+        reports = cast(dict[str, dict[str, object]], self.value)
+        return all(reports[product.name]["published"] for product in PRODUCTS)
 
     def record_retention(self, report: FactPruneReport) -> None:
         self.value["retention"] = {
@@ -228,8 +243,9 @@ class RunEvidence:
     days_sealed: int = 0
     days_abandoned: int = 0
     expected_bundles: int = 0
-    succeeded_bundles: int = 0
-    failed_bundles: int = 0
+    admitted_bundles: int = 0
+    unprocessed_bundles: int = 0
+    committed_bundles: int = 0
     failures: list[dict[str, str]] = field(default_factory=list)
     changed: bool = False
     heal_started_monotonic: float | None = None
@@ -237,6 +253,8 @@ class RunEvidence:
     source_index_seconds: float = 0.0
     source_ingest_seconds: float = 0.0
     batch_generation_seconds: float = 0.0
+    source_iteration_seconds: float = 0.0
+    projection_seconds: float = 0.0
     parquet_write_seconds: float = 0.0
     fact_finalize_seconds: float = 0.0
     product_timings: dict[str, float] = field(default_factory=dict)
@@ -261,20 +279,23 @@ class RunEvidence:
         """Translate intake facts into live evidence and aggregate each terminal once."""
         if update.error is not None or update.commit is not None:
             self.expected_bundles += update.expected_bundles or 0
-            self.succeeded_bundles += update.succeeded_bundles
-            self.failed_bundles += update.failed_bundles
+            self.admitted_bundles += update.admitted_bundles
+            self.unprocessed_bundles += update.unprocessed_bundles
             self.listing_pages += update.listing_pages
             self.source_index_seconds += update.source_index_seconds
             self.source_ingest_seconds += update.source_ingest_seconds
+            self.batch_generation_seconds += update.timings.get("batch_generation_seconds", 0.0)
+            self.source_iteration_seconds += update.timings.get("source_iteration_seconds", 0.0)
+            self.projection_seconds += update.timings.get("projection_seconds", 0.0)
+            self.parquet_write_seconds += update.timings.get("parquet_write_seconds", 0.0)
+            self.fact_finalize_seconds += update.timings.get("fact_finalize_seconds", 0.0)
         if update.error is not None:
             # This may be a lost lock or a runtime limit. Only record in memory;
             # the driver owns whether any further durable evidence is permitted.
             return
         hour = update.source_hour
         if (commit := update.commit) is not None:
-            self.batch_generation_seconds += commit.batch_generation_seconds
-            self.parquet_write_seconds += commit.parquet_write_seconds
-            self.fact_finalize_seconds += commit.fact_finalize_seconds
+            self.committed_bundles += commit.bundle_count
             self.hours_ingested += 1
             self.changed = True
             checkpoint(
@@ -295,7 +316,7 @@ class RunEvidence:
         elif update.step == "index":
             checkpoint("heal", hour, step="index")
         else:
-            if update.succeeded_bundles == 0:
+            if update.admitted_bundles == 0:
                 report(
                     f"hour indexed: source_hour={hour} bundles={update.expected_bundles} "
                     f"pages={update.listing_pages} "
@@ -304,14 +325,14 @@ class RunEvidence:
             else:
                 report(
                     f"hour ingest progress: source_hour={hour} "
-                    f"bundles={update.succeeded_bundles}/{update.expected_bundles} "
+                    f"bundles={update.admitted_bundles}/{update.expected_bundles} "
                     f"elapsed={max(round(update.source_ingest_seconds), 0)}s"
                 )
             checkpoint(
                 "heal",
                 hour,
                 step="ingest",
-                bundles_done=update.succeeded_bundles,
+                bundles_done=update.admitted_bundles,
                 bundles_total=update.expected_bundles,
             )
 
@@ -324,8 +345,9 @@ class RunEvidence:
         downloads = self.report.value["downloads"]
         downloads.update(
             expected_bundles=self.expected_bundles,
-            succeeded_bundles=self.succeeded_bundles,
-            failed_bundles=self.failed_bundles,
+            admitted_bundles=self.admitted_bundles,
+            unprocessed_bundles=self.unprocessed_bundles,
+            committed_bundles=self.committed_bundles,
             listing_pages=self.listing_pages,
         )
         download_wait = source_performance.download_wait_seconds if source_performance else 0.0
@@ -340,6 +362,8 @@ class RunEvidence:
                 downloaded_bytes=source_performance.downloaded_bytes,
                 download_latency_ms_p50=source_performance.download_latency_ms_p50,
                 download_latency_ms_p95=source_performance.download_latency_ms_p95,
+                request_failures=source_performance.request_failures,
+                retry_exhaustions=source_performance.retry_exhaustions,
             )
         heal_seconds = self.heal_seconds
         if heal_seconds is None:
@@ -354,7 +378,8 @@ class RunEvidence:
             "source_index_seconds": self.source_index_seconds,
             "source_ingest_seconds": self.source_ingest_seconds,
             "batch_generation_seconds": self.batch_generation_seconds,
-            "projection_seconds": self.batch_generation_seconds - download_wait,
+            "source_iteration_seconds": self.source_iteration_seconds,
+            "projection_seconds": self.projection_seconds,
             "parquet_write_seconds": self.parquet_write_seconds,
             "fact_finalize_seconds": self.fact_finalize_seconds,
             "download_wait_seconds": download_wait,
