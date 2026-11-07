@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { test } from 'vitest';
+import * as childProcess from 'node:child_process';
+import { test, vi } from 'vitest';
 import type { TestContext } from 'vitest';
 import {
   cloneAvd,
@@ -15,8 +16,17 @@ import {
   parseIni,
   profiles,
   reconcileAvd,
-  removeAvd
+  removeAvd,
+  hostImage,
+  assertArm64Runtime,
+  assertEmulatorsStopped
 } from './setup-device.ts';
+import { androidSdkPaths } from './android-sdk.ts';
+
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof childProcess>();
+  return { ...actual, spawnSync: vi.fn(actual.spawnSync) };
+});
 
 test('login readiness requires a menu and a later hooks summary from the fresh log', () => {
   const menu =
@@ -29,7 +39,11 @@ test('login readiness requires a menu and a later hooks summary from the fresh l
   assert.equal(menuReady(menu + summary), true);
 });
 
-function seed(t: TestContext, backing = 'userdata-qemu.img') {
+function seed(
+  t: TestContext,
+  backing = 'userdata-qemu.img',
+  image = hostImage('darwin', 'arm64')
+) {
   const avds = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp avds '));
   t.onTestFinished(() => fs.rmSync(avds, { recursive: true, force: true }));
   const directory = path.join(avds, 'seed.avd');
@@ -38,8 +52,8 @@ function seed(t: TestContext, backing = 'userdata-qemu.img') {
   fs.writeFileSync(
     path.join(directory, 'config.ini'),
     [
-      'image.sysdir.1=system-images/android-35/google_apis_playstore/arm64-v8a/',
-      'abi.type=arm64-v8a',
+      `image.sysdir.1=${image.path.replaceAll('/', '\\')}`,
+      `abi.type=${image.abi}`,
       'hw.lcd.width=1080',
       'hw.lcd.height=2400',
       'hw.lcd.density=420',
@@ -67,12 +81,35 @@ function seed(t: TestContext, backing = 'userdata-qemu.img') {
   fs.mkdirSync(path.join(directory, 'snapshots'));
   fs.writeFileSync(path.join(directory, 'snapshots/stale'), 'stale');
   const qemuImg = path.join(avds, 'qemu-img');
-  fs.writeFileSync(
-    qemuImg,
-    `#!/usr/bin/env node\nconst fs = require('node:fs');\nif (process.argv[2] === 'convert') fs.copyFileSync(process.argv.at(-2), process.argv.at(-1));\nelse console.log(JSON.stringify(process.argv.at(-1).endsWith('userdata-qemu.img.qcow2') ? {'backing-filename': ${JSON.stringify(backing)}} : {}));\n`,
-    { mode: 0o755 }
-  );
-  return { avds, qemuImg, directory, files };
+  const mock = vi
+    .mocked(childProcess.spawnSync)
+    .mockImplementation((binary, args) => {
+      assert.equal(binary, qemuImg);
+      assert.ok(Array.isArray(args));
+      let stdout = '';
+      if (args[0] === 'convert') {
+        assert.deepEqual(args.slice(0, 4), ['convert', '-n', '-O', 'raw']);
+        assert.equal(fs.statSync(args.at(-1)!).size, 4096);
+        fs.copyFileSync(args.at(-2)!, args.at(-1)!);
+      } else {
+        assert.deepEqual(args.slice(0, 2), ['info', '--output=json']);
+        stdout = JSON.stringify(
+          args.at(-1)!.endsWith('userdata-qemu.img.qcow2')
+            ? { 'backing-filename': backing, 'virtual-size': 4096 }
+            : { 'virtual-size': 4096 }
+        );
+      }
+      return {
+        pid: 1,
+        output: [null, stdout, ''],
+        stdout,
+        stderr: '',
+        status: 0,
+        signal: null
+      };
+    });
+  t.onTestFinished(() => mock.mockRestore());
+  return { avds, qemuImg, directory, files, image };
 }
 
 test('cloning preserves independent account disks and sets native geometry without stale snapshots', (t) => {
@@ -96,7 +133,7 @@ test('cloning preserves independent account disks and sets native geometry witho
   const config = parseIni(
     fs.readFileSync(path.join(copy, 'config.ini'), 'utf8')
   );
-  assert.equal(configuredProfile(config, profile), true);
+  assert.equal(configuredProfile(config, profile, p.image), true);
   assert.equal(config['sdcard.path'], undefined);
   assert.equal(config['skin.path'], undefined);
   fs.writeFileSync(path.join(copy, 'userdata-qemu.img'), 'new session');
@@ -128,14 +165,14 @@ test('matrix check rejects a renamed AVD with the wrong actual geometry or image
   const config = parseIni(
     fs.readFileSync(path.join(p.directory, 'config.ini'), 'utf8')
   );
-  assert.equal(configuredProfile(config, profiles[0]), true);
+  assert.equal(configuredProfile(config, profiles[0], p.image), true);
   for (const [key, value] of [
     ['hw.lcd.density', '640'],
     ['hw.initialOrientation', 'portrait'],
     ['abi.type', 'x86_64']
   ])
     assert.equal(
-      configuredProfile({ ...config, [key]: value }, profiles[0]),
+      configuredProfile({ ...config, [key]: value }, profiles[0], p.image),
       false
     );
 });
@@ -161,7 +198,7 @@ test('an existing AVD gets the matrix screen in place and keeps its disks', (t) 
   const disk = fs.readFileSync(path.join(copy, 'userdata-qemu.img'), 'utf8');
   assert.equal(reconcileAvd(p, profile), true);
   const rewritten = parseIni(fs.readFileSync(file, 'utf8'));
-  assert.equal(configuredProfile(rewritten, profile), true);
+  assert.equal(configuredProfile(rewritten, profile, p.image), true);
   assert.equal(rewritten['skin.name'], undefined);
   assert.equal(rewritten['hw.keyboard'], 'yes');
   assert.equal(
@@ -267,33 +304,112 @@ test('no device, several devices or one not yet online is refused', () => {
   );
 });
 
-test(
-  'init refuses while any device runs, a phone or a host as much as an emulator',
-  // init runs only on an Apple Silicon Mac.
-  { skip: process.platform !== 'darwin' || process.arch !== 'arm64' },
-  async (t) => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-adb-'));
-    t.onTestFinished(() =>
-      fs.rmSync(directory, { recursive: true, force: true })
+test('init permits phones but refuses running or offline emulators', () => {
+  assertEmulatorsStopped(
+    'List of devices attached\n0123ABC\tdevice\n192.168.1.9:5555\toffline\n'
+  );
+  for (const state of ['device', 'offline'])
+    assert.throws(
+      () =>
+        assertEmulatorsStopped(
+          `List of devices attached\n0123ABC\tdevice\nemulator-5556\t${state}\n`
+        ),
+      /Close every running Android emulator/
     );
-    const adb = path.join(directory, 'adb');
-    fs.writeFileSync(
-      adb,
-      '#!/bin/sh\n[ "$*" = devices ] || exit 91\nprintf \'List of devices attached\\n0123ABC\\tdevice\\n192.168.1.9:5555\\toffline\\n\'\n',
-      { mode: 0o755 }
+});
+
+test('explicit device selection never falls back to the connected phone', () => {
+  const listing =
+    'List of devices attached\nphone\tdevice\nemulator-5556\tdevice\nemulator-5558\toffline\n';
+  assert.equal(onlyDevice(listing, 'emulator-5556'), 'emulator-5556');
+  assert.throws(() => onlyDevice(listing, 'emulator-5558'), /is offline/);
+  assert.throws(() => onlyDevice(listing, 'emulator-5560'), /is not connected/);
+});
+
+test('Windows SDK resolution handles spaces, overrides and executable suffixes', () => {
+  const p = androidSdkPaths(
+    { LOCALAPPDATA: 'C:\\Users\\Test User\\AppData\\Local' },
+    'win32',
+    'C:\\Users\\Test User'
+  );
+  assert.equal(
+    p.adb,
+    'C:\\Users\\Test User\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe'
+  );
+  assert.equal(p.avds, 'C:\\Users\\Test User\\.android\\avd');
+  assert.ok(p.emulator.endsWith('emulator.exe'));
+  assert.ok(p.qemuImg.endsWith('qemu-img.exe'));
+  const custom = androidSdkPaths(
+    {
+      ANDROID_HOME: 'D:\\SDK',
+      ADB: 'D:\\adb.exe',
+      ANDROID_AVD_HOME: 'D:\\AVDs'
+    },
+    'win32',
+    'C:\\User'
+  );
+  assert.equal(custom.adb, 'D:\\adb.exe');
+  assert.equal(custom.avds, 'D:\\AVDs');
+  assert.equal(custom.emulator, 'D:\\SDK\\emulator\\emulator.exe');
+  assert.equal(
+    androidSdkPaths({}, 'darwin', '/Users/test').adb,
+    '/Users/test/Library/Android/sdk/platform-tools/adb'
+  );
+  assert.throws(
+    () => hostImage('win32', 'arm64'),
+    /supports macOS arm64 and Windows x64/
+  );
+});
+
+test('Windows clones retain the translation image and its Android target', (t) => {
+  const p = seed(t, 'userdata-qemu.img', hostImage('win32', 'x64'));
+  assert.equal(localAvds(p)[0].seedable, true);
+  cloneAvd(p, 'seed', profiles[0]);
+  const config = parseIni(
+    fs.readFileSync(
+      path.join(p.avds, `${profiles[0].name}.avd/config.ini`),
+      'utf8'
+    )
+  );
+  const entry = parseIni(
+    fs.readFileSync(path.join(p.avds, `${profiles[0].name}.ini`), 'utf8')
+  );
+  assert.equal(entry.target, 'android-35');
+  assert.equal(configuredProfile(config, profiles[0], p.image), true);
+  assert.equal(
+    configuredProfile(config, profiles[0], hostImage('darwin', 'arm64')),
+    false
+  );
+  assert.equal(reconcileAvd(p, profiles[0]), false);
+});
+
+test('ARM64 translation is required before provisioning an x86 device', () => {
+  const runtime = {
+    abiList: 'x86_64,x86,arm64-v8a',
+    nativeBridge: 'libndk_translation.so',
+    arm64Isa: 'x86_64'
+  };
+  const image = hostImage('win32', 'x64');
+  assertArm64Runtime(image, runtime);
+  assert.throws(
+    () => assertArm64Runtime(image, { ...runtime, abiList: 'x86_64,x86' }),
+    /arm64-v8a ABI/
+  );
+  for (const nativeBridge of ['', '0'])
+    assert.throws(
+      () => assertArm64Runtime(image, { ...runtime, nativeBridge }),
+      /no active ARM64/
     );
-    const previous = process.env.ADB;
-    process.env.ADB = adb;
-    t.onTestFinished(() => {
-      if (previous === undefined) delete process.env.ADB;
-      else process.env.ADB = previous;
-    });
-    await assert.rejects(
-      main(['init', profiles[1].name]),
-      /Close every running Android device before init: 0123ABC device, 192\.168\.1\.9:5555 offline/
-    );
-  }
-);
+  assert.throws(
+    () => assertArm64Runtime(image, { ...runtime, arm64Isa: '' }),
+    /no active ARM64/
+  );
+  assertArm64Runtime(hostImage('darwin', 'arm64'), {
+    abiList: 'arm64-v8a',
+    nativeBridge: '',
+    arm64Isa: ''
+  });
+});
 
 test('listed devices keep each state', () => {
   assert.deepEqual(

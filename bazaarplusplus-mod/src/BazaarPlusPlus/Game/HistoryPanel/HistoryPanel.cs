@@ -248,6 +248,8 @@ internal sealed partial class HistoryPanel : MonoBehaviour
                 // Historical behavior: the panel stays open across non-combat scene changes.
                 SceneChangeClose = SceneChangeClosePolicy.OnlyWhenInCombat,
                 OnSceneChanged = OnOverlaySceneChanged,
+                IsModalInputActive = () => _uiView?.HasOpenModal == true,
+                DismissModal = () => _uiView?.DismissModal(),
             },
             BppHotkeyActionId.ToggleHistoryPanel,
             // Swallow the toggle entirely (open AND close) while the search box has focus.

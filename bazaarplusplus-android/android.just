@@ -4,6 +4,10 @@ set positional-arguments
 check_tasks := "lint assembleDebug assembleRelease"
 test_tasks := "testDebugUnitTest testReleaseUnitTest"
 
+# Pin adb to the requested device; without a serial adb refuses an ambiguous target.
+# Git Bash must pass Android absolute paths through to adb.exe unchanged.
+adb := 'MSYS_NO_PATHCONV=1 "${ADB:-adb}" ${ANDROID_SERIAL:+-s "$ANDROID_SERIAL"}'
+
 # Lint the App and build the debug and release APKs; a build without a staged runtime launches the game without BPP.
 check:
     ./gradlew --no-daemon {{ check_tasks }}
@@ -28,24 +32,25 @@ stage-runtime:
 interop-package:
     bun ../release/android-app.ts interop-package
 
-# Build and install the debug App on the one running Android device.
+# Build and install the debug App on ANDROID_SERIAL, or the only connected device.
 install:
-    ./gradlew --no-daemon installDebug
+    ./gradlew --no-daemon assembleDebug
+    {{ adb }} install -r app/build/outputs/apk/debug/app-debug.apk
 
 # Copy build/interop.zip into the debug App's private files as a Development interop: BPP launch then skips the manifest.
 push-interop:
-    adb push build/interop.zip /data/local/tmp/bpp-interop.zip
-    adb shell run-as com.bazaarplusplus.android.dev sh -c "'mkdir -p files/dev && cp /data/local/tmp/bpp-interop.zip files/dev/interop.zip'"
-    adb shell rm /data/local/tmp/bpp-interop.zip
+    {{ adb }} push build/interop.zip /data/local/tmp/bpp-interop.zip
+    {{ adb }} shell run-as com.bazaarplusplus.android.dev sh -c "'mkdir -p files/dev && cp /data/local/tmp/bpp-interop.zip files/dev/interop.zip'"
+    {{ adb }} shell rm /data/local/tmp/bpp-interop.zip
 
 # Make a throwaway key and certificate in build/dev-signing/ and have the debug App trust the certificate for interop statements.
 dev-signing-key:
     mkdir -p build/dev-signing
     [ -f build/dev-signing/key.pem ] || openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=BazaarPlusPlus development" -keyout build/dev-signing/key.pem -out build/dev-signing/cert.pem
     openssl x509 -in build/dev-signing/cert.pem -outform DER -out build/dev-signing/cert.der
-    adb push build/dev-signing/cert.der /data/local/tmp/bpp-trusted-cert.der
-    adb shell run-as com.bazaarplusplus.android.dev sh -c "'mkdir -p files/dev && cp /data/local/tmp/bpp-trusted-cert.der files/dev/trusted-cert.der'"
-    adb shell rm /data/local/tmp/bpp-trusted-cert.der
+    {{ adb }} push build/dev-signing/cert.der /data/local/tmp/bpp-trusted-cert.der
+    {{ adb }} shell run-as com.bazaarplusplus.android.dev sh -c "'mkdir -p files/dev && cp /data/local/tmp/bpp-trusted-cert.der files/dev/trusted-cert.der'"
+    {{ adb }} shell rm /data/local/tmp/bpp-trusted-cert.der
 
 # Print the development key's base64 signature of the interop statement for <zip>; <purpose> is "release <version>".
 dev-sign-interop zip il2cpp metadata purpose:
@@ -54,12 +59,12 @@ dev-sign-interop zip il2cpp metadata purpose:
 
 # Have the debug App read releases from http://127.0.0.1:<port> through adb reverse; serve the public installer/ layout there, from latest/mod/android-aarch64.json down.
 dev-manifest-port port:
-    adb reverse "tcp:$1" "tcp:$1"
-    adb shell run-as com.bazaarplusplus.android.dev sh -c "'mkdir -p files/dev && echo $1 > files/dev/manifest-port'"
+    {{ adb }} reverse "tcp:$1" "tcp:$1"
+    {{ adb }} shell run-as com.bazaarplusplus.android.dev sh -c "'mkdir -p files/dev && echo $1 > files/dev/manifest-port'"
 
 # Remove every development override (manifest port, Development interop, trusted certificate, game package) from the debug App.
 dev-reset:
-    adb shell run-as com.bazaarplusplus.android.dev rm -rf files/dev
+    {{ adb }} shell run-as com.bazaarplusplus.android.dev rm -rf files/dev
 
 # Sign the debug App's game in through its Log In form with config.ini [game]; pass --help for details.
 dev-login serial *args:

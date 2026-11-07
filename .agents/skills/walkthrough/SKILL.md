@@ -32,6 +32,8 @@ Drive one device at a time. For each device, in the order `walkthrough.ts device
    - Android: `just setup-device NAME --keep-open`. It deploys this
      checkout's mod into the debug Android App and starts the game from the
      launcher's Play, as a player does, then waits for the main menu.
+     When a phone is also connected, set `ANDROID_SERIAL` to the AVD's serial
+     for the walkthrough commands; each command checks the AVD name too.
    - Desktop: the grid is 16:9, and `capture` rejects any other window. With
      the game closed, set a size that fits the Mac's display (the game reads
      pixels; a remote virtual display can be under 500 points high):

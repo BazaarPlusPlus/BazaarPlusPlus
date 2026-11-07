@@ -25,6 +25,10 @@
 
   <ItemGroup>
     <EmbeddedResource
+      Include="Resources\HistoryPanel\control-*.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.%(Filename)%(Extension)"
+    />
+    <EmbeddedResource
       Include="Resources\HistoryPanel\run-state-badges.png"
       LogicalName="BazaarPlusPlus.Resources.HistoryPanel.run-state-badges.png"
     />

@@ -84,6 +84,11 @@
        the Mono host's resource names, which the Mobile UI's TouchHistoryBadges reads. -->
   <ItemGroup>
     <EmbeddedResource
+      Include="../BazaarPlusPlus/Resources/HistoryPanel/control-*.png"
+      Link="Resources/HistoryPanel/%(Filename)%(Extension)"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.%(Filename)%(Extension)"
+    />
+    <EmbeddedResource
       Include="../BazaarPlusPlus/Resources/HistoryPanel/battle-result-badges.png"
       Link="Resources/HistoryPanel/battle-result-badges.png"
       LogicalName="BazaarPlusPlus.Resources.HistoryPanel.battle-result-badges.png"

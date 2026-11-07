@@ -76,6 +76,7 @@ test('android.sh finds the one running device; capture keeps failure evidence an
     adb,
     `#!/bin/bash
 set -eu
+[[ "\${MSYS_NO_PATHCONV:-}" == 1 || "$*" == devices ]] || exit 93
 if [[ "$*" == devices ]]; then
   echo 'List of devices attached'
   cat "$FIXTURE/devices.txt"
@@ -94,21 +95,35 @@ case "$*" in
   'shell dumpsys display') echo 'rotation=1' ;;
   'shell run-as com.bazaarplusplus.android.dev true') ;;
   'exec-out run-as com.bazaarplusplus.android.dev cat no_backup/game-external/MelonLoader/MelonLoader/Latest.log') echo 'fixture log' ;;
+  'push '*) [[ -f "$2" && "$3" == /data/local/tmp/bpp-staging ]] || exit 94 ;;
+  'shell run-as com.bazaarplusplus.android.dev sh -c '*) [[ "$*" == *'cp /data/local/tmp/bpp-staging no_backup/game-external/test/payload.dll'* ]] || exit 95 ;;
+  'shell rm -f /data/local/tmp/bpp-staging') ;;
   *) echo "Unexpected/mutating adb command: $*" >&2; exit 92 ;;
 esac
 `,
     { mode: 0o755 }
   );
-  const invoke = (command: string, name: string) =>
+  const invoke = (
+    command: string,
+    name: string,
+    serial = '',
+    target?: string
+  ) =>
     spawnSync(
       'bash',
-      ['bazaarplusplus-mod/scripts/android.sh', command, name],
+      [
+        'bazaarplusplus-mod/scripts/android.sh',
+        command,
+        name,
+        ...(target ? [target] : [])
+      ],
       {
         cwd,
         encoding: 'utf8',
         env: {
           ...process.env,
           ADB: adb.split(path.sep).join('/'),
+          ANDROID_SERIAL: serial,
           FIXTURE: cwd.split(path.sep).join('/')
         },
         timeout: 10_000
@@ -129,9 +144,32 @@ esac
     assert.equal(refused.status, 1, refused.stderr);
     assert.match(refused.stderr, pattern);
   }
+  online('phone\tdevice\r\r\nfixture-device\tdevice\r\r\n');
+  const selected = invoke('screen-check', 'selected', 'fixture-device');
+  assert.equal(selected.status, 0, selected.stderr);
+  const missing = invoke('capture', 'missing', 'absent');
+  assert.equal(missing.status, 1, missing.stderr);
+  assert.match(
+    missing.stderr,
+    /Selected Android device 'absent' is not connected/
+  );
+  online('phone\tdevice\nfixture-device\toffline\n');
+  const offline = invoke('capture', 'offline', 'fixture-device');
+  assert.equal(offline.status, 1, offline.stderr);
+  assert.match(offline.stderr, /'fixture-device' is offline/);
   online('fixture-device\tdevice\n');
   const good = invoke('screen-check', 'good');
   assert.equal(good.status, 0, good.stderr);
+  const input = path.join(cwd, 'input payload.dll');
+  fs.writeFileSync(input, 'payload');
+  const hostInput =
+    process.platform === 'win32'
+      ? spawnSync('bash', ['-c', 'cygpath -u "$1"', 'bash', input], {
+          encoding: 'utf8'
+        }).stdout.trim()
+      : input;
+  const put = invoke('put', hostInput, 'fixture-device', 'test/payload.dll');
+  assert.equal(put.status, 0, put.stderr);
   fs.writeFileSync(path.join(cwd, 'screen.png'), png(1080, 2400));
   const bad = invoke('screen-check', 'bad');
   assert.equal(bad.status, 1, bad.stderr);

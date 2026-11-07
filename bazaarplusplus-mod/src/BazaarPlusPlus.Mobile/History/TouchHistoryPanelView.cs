@@ -8,7 +8,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,8 +18,9 @@ namespace BazaarPlusPlus.Mobile.History;
 /// The touch twin of the desktop's <c>HistoryPanelView</c>, a full-screen sheet laid out from
 /// Core's <see cref="HistoryTouchLayout"/> for the screen it was built on and bound from
 /// Core's <see cref="HistoryPanelViewModel"/>. The header
-/// holds the section tabs, the supporter action, More, and Close; the archive list, the run's
-/// battle rail (in Ghost, the cloud note in its place), and the detail column with the two board regions and the action row (delete, favorite, skills, replay) stand under it.
+/// holds the title, supporter action, More and Close. The archive groups its tabs, filters,
+/// records and pager. Beside it are the battle rail and native boards; compact screens switch
+/// from archive to one board with a horizontal battle rail and opponent/you selection.
 /// Lists drag-scroll with inertia and show a thumb while they overflow; each finished gesture logs
 /// <c>touch.history.scrolled</c>. A section without rows says so once, centred in the detail
 /// column, with no boards, titles or actions under it.
@@ -32,7 +32,7 @@ namespace BazaarPlusPlus.Mobile.History;
 /// destroys its canvas, active and kept across scenes until its last lines, before the exception
 /// leaves.
 /// </summary>
-internal sealed class TouchHistoryPanelView : IDisposable
+internal sealed partial class TouchHistoryPanelView : IDisposable
 {
     public const int SortingOrder = 29000;
     private const int Rows = 40;
@@ -62,8 +62,8 @@ internal sealed class TouchHistoryPanelView : IDisposable
         _replay = null!;
     private readonly ISupporterRotation? _supporters;
     private IReadOnlyList<BPPSupporterSample> _headerSupporters = Array.Empty<BPPSupporterSample>();
-    private TextMeshProUGUI _supporterLabel = null!;
-    private GameObject _cloudNote = null!;
+    private TouchHistoryFilterDialog _filters = null!;
+    private readonly HistoryTouchNavigation _navigation;
     private PageList _archive = null!;
     private TextMeshProUGUI _emptyDetail = null!;
     private Rail _rail = null!;
@@ -87,10 +87,12 @@ internal sealed class TouchHistoryPanelView : IDisposable
     public TouchHistoryPanelView(
         TMP_FontAsset font,
         ViewActions actions,
-        ISupporterRotation? supporters
+        ISupporterRotation? supporters,
+        HistoryTouchNavigation navigation
     )
     {
         _supporters = supporters;
+        _navigation = navigation;
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
         var screen = TouchScreen.Key();
@@ -108,6 +110,11 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 Vector2.zero
             );
             TouchHistoryUi.RefreshSkin();
+            TouchHistoryUi.UseArtwork(
+                _badges?.HeaderNormal,
+                _badges?.HeaderSelected,
+                HeaderPixelsPerUnit
+            );
             Build();
             _root.SetActive(false);
         }
@@ -133,6 +140,8 @@ internal sealed class TouchHistoryPanelView : IDisposable
     }
 
     public HistoryTouchLayout Layout => _l;
+
+    public IHistoryOverlay FilterOverlay => _filters;
 
     /// <summary>The canvas-wide parent the panel's overlays are laid over.</summary>
     public RectTransform Surface { get; }
@@ -177,6 +186,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     {
         ShowStatus(_upperStatusBand, _upperStatus, _l.UpperBoard, _empty ? "" : _upperMessage);
         ShowStatus(_lowerStatusBand, _lowerStatus, _l.LowerBoard, _empty ? "" : _lowerMessage);
+        ApplyNavigation();
     }
 
     // A board message's band grows to the wrapped text, so a long message is never cut.
@@ -195,8 +205,12 @@ internal sealed class TouchHistoryPanelView : IDisposable
     }
 
     /// <summary>The skills action, available while the selected battle's boards are loaded.</summary>
-    public void SetSkillsAvailable(bool available) =>
+    public void SetSkillsAvailable(bool available)
+    {
+        _snapshotsAvailable = available;
         _skills.Set(TouchHistoryUi.T("Skills", "技能"), enabled: available, dimmed: !available);
+        ApplyNavigation();
+    }
 
     /// <summary>Main thread, every frame while visible: logs each finished drag scroll.</summary>
     public void Tick()
@@ -220,6 +234,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
     {
         if (_disposed)
             return;
+        KeepScroll();
         _disposed = true;
         UnityEngine.Object.Destroy(_root);
         _badges?.Dispose();
@@ -272,9 +287,36 @@ internal sealed class TouchHistoryPanelView : IDisposable
         BuildBackdrop();
         TouchHistoryUi.Skin.Frame(
             TouchScreen.Child("Sheet", Surface, _l.Sheet),
-            TouchHistoryUi.PanelFill,
+            TouchHistoryUi.Backdrop,
             borderOnly: true
         );
+        var title = TouchHistoryUi.Label(Surface, _font, "Title", _l.Title, _l.TitleFont);
+        _titleObject = title.gameObject;
+        title.text = HistoryPanelText.Title();
+        var archiveFill = UiKit.Fill(
+            TouchScreen.Child("ArchivePanel", Surface, _l.Archive),
+            InGameTheme.Panel,
+            false
+        );
+        var tray = UiKit.Fill(
+            TouchScreen.Child("SectionTabs", Surface, _l.TabsTray),
+            InGameTheme.Button,
+            false
+        );
+        for (var index = 1; index < 3; index++)
+        {
+            var divider = new TouchRect(
+                _l.RunsTab.Left + index * _l.RunsTab.Width,
+                _l.RunsTab.Top + _l.Metrics.Dp(12f),
+                _l.Metrics.Dp(.5f),
+                _l.RunsTab.Height - _l.Metrics.Dp(24f)
+            );
+            UiKit.Fill(
+                TouchScreen.Child("SectionDivider", Surface, divider),
+                InGameTheme.RuleFaint,
+                false
+            );
+        }
         var tab = _l.ButtonFont;
         _runsTab = TouchHistoryUi
             .Button(
@@ -283,8 +325,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 "tab_runs",
                 _l.RunsTab,
                 tab,
-                () => _actions.Section(HistorySectionMode.Runs)
+                () => SelectSection(HistorySectionMode.Runs)
             )
+            .WithHeaderArt(_badges?.HeaderNormal, _badges?.HeaderSelected, HeaderPixelsPerUnit)
             .As(HistoryButtonStyle.Tab);
         _ghostTab = TouchHistoryUi
             .Button(
@@ -293,8 +336,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 "tab_ghost",
                 _l.GhostTab,
                 tab,
-                () => _actions.Section(HistorySectionMode.Ghost)
+                () => SelectSection(HistorySectionMode.Ghost)
             )
+            .WithHeaderArt(_badges?.HeaderNormal, _badges?.HeaderSelected, HeaderPixelsPerUnit)
             .As(HistoryButtonStyle.Tab);
         _favoritesTab = TouchHistoryUi
             .Button(
@@ -303,16 +347,16 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 "tab_favorites",
                 _l.FavoritesTab,
                 tab,
-                () => _actions.Section(HistorySectionMode.Favorites)
+                () => SelectSection(HistorySectionMode.Favorites)
             )
+            .WithHeaderArt(_badges?.HeaderNormal, _badges?.HeaderSelected, HeaderPixelsPerUnit)
             .As(HistoryButtonStyle.Tab);
         BuildSupporter();
-        BuildCloudNote();
-        _more = TouchHistoryUi.Button(Surface, _font, "more", _l.More, tab, () => _actions.More());
+        _filter = HeaderButton("filters", _l.ArchiveFilter, () => _filters.Open());
+        _filter.UseTrailingChevron(_l.Metrics.Dp(10f));
+        _more = HeaderButton("more", _l.More, () => _actions.More());
         _more.Set(TouchHistoryUi.T("More", "更多"));
-        TouchHistoryUi
-            .Button(Surface, _font, "close", _l.Close, _l.TitleFont, () => _actions.Close())
-            .Set(UiKit.CloseGlyph);
+        HeaderButton("close", _l.Close, () => _actions.Close()).Set(HistoryPanelText.Close());
 
         _archive = BuildArchive();
         _thumbs.Add(new ScrollThumb(_archive.Scroll, _l.Metrics));
@@ -364,7 +408,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => _actions.PageBattles(-1)
         );
-        _railNewer.UseChevron(90f, _l.Metrics.Dp(18f));
+        _railNewer.UseChevron(_l.Compact ? 180f : 90f, _l.Metrics.Dp(18f));
         _railOlder = TouchHistoryUi.Button(
             Surface,
             _font,
@@ -373,9 +417,10 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => _actions.PageBattles(1)
         );
-        _railOlder.UseChevron(-90f, _l.Metrics.Dp(18f));
+        _railOlder.UseChevron(_l.Compact ? 0f : -90f, _l.Metrics.Dp(18f));
         _rail = BuildRail();
-        _thumbs.Add(new ScrollThumb(_rail.Scroll, _l.Metrics));
+        if (!_l.Compact)
+            _thumbs.Add(new ScrollThumb(_rail.Scroll, _l.Metrics));
 
         _upperTitle = TouchHistoryUi.Label(
             Surface,
@@ -453,64 +498,18 @@ internal sealed class TouchHistoryPanelView : IDisposable
             _l.BodyFont,
             color: TouchHistoryUi.Muted
         );
+        BuildNavigation(archiveFill.gameObject, tray.gameObject);
         SetBoardStatus(string.Empty, string.Empty);
+        _filters = new TouchHistoryFilterDialog(Surface, _font, _l, _actions);
     }
 
-    private void BuildSupporter()
-    {
-        (_, _, _supporterLabel) = TouchHistoryUi.Skin.Button(
-            TouchScreen.Child("Supporter", Surface, _l.Sponsor),
-            _font,
-            BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode),
-            _l.ButtonFont,
-            _l.Metrics.Dp(TouchChrome.LabelInsetDp),
-            () =>
-                UiActions.Run(
-                    "history.sponsor",
-                    () =>
-                        Application.OpenURL(
-                            BPPSupporterLinks.ResolveSponsorUrl(L.CurrentLanguageCode)
-                        )
-                )
-        );
-        MobilePlatform.Port.SetWordWrapping(_supporterLabel, false);
-        _supporterLabel.enableAutoSizing = true;
-        _supporterLabel.fontSizeMin = _l.BodyFont;
-        _supporterLabel.fontSizeMax = _l.ButtonFont;
-        _supporterLabel.overflowMode = TextOverflowModes.Ellipsis;
-    }
+    private float HeaderPixelsPerUnit =>
+        HistoryHeaderArtwork.BorderPixels / _l.Metrics.Dp(HistoryHeaderArtwork.ButtonBorder);
 
-    private void RefreshSupporter()
-    {
-        var credit = BPPSupporterAttribution.FormatRichLine(
-            _headerSupporters,
-            L.CurrentLanguageCode
-        );
-        _supporterLabel.text = string.IsNullOrEmpty(credit)
-            ? BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode)
-            : credit;
-        MobilePlatform.Port.CoverText(_supporterLabel);
-    }
-
-    private void BuildCloudNote()
-    {
-        var cloudNote = TouchHistoryUi.Label(
-            Surface,
-            _font,
-            "CloudNote",
-            _l.CloudNote,
-            _l.BodyFont,
-            TextAlignmentOptions.Top,
-            TouchHistoryUi.Muted,
-            wrap: true
-        );
-        // Set in lines for the narrow column rather than left to wrap mid-phrase.
-        cloudNote.text = TouchHistoryUi.T(
-            "Cloud keeps\nthe last 5 days,\nup to 200",
-            "云端保留\n最近 5 天\n最多 200 场"
-        );
-        _cloudNote = cloudNote.gameObject;
-    }
+    private HistoryButton HeaderButton(string name, TouchRect area, Action action) =>
+        TouchHistoryUi
+            .Button(Surface, _font, name, area, _l.ButtonFont, action)
+            .WithHeaderArt(_badges?.HeaderNormal, _badges?.HeaderSelected, HeaderPixelsPerUnit);
 
     private PageList BuildArchive()
     {
@@ -526,19 +525,23 @@ internal sealed class TouchHistoryPanelView : IDisposable
         {
             var index = i;
             var rect = TouchScreen.Child("Row", content, _l.ArchiveRow(i, runs: true));
-            var control = TouchHistoryUi.Button(
-                rect,
-                _font,
-                "archive_row",
-                _l.BodyFont,
-                () =>
-                {
-                    if (_model?.SectionMode == HistorySectionMode.Runs)
-                        _actions.SelectRun(index);
-                    else
-                        _actions.SelectBattle(index);
-                }
-            );
+            var control = TouchHistoryUi
+                .Button(
+                    rect,
+                    _font,
+                    "archive_row",
+                    _l.BodyFont,
+                    () =>
+                    {
+                        if (_model?.SectionMode == HistorySectionMode.Runs)
+                            _actions.SelectRun(index);
+                        else
+                            _actions.SelectBattle(index);
+                        _navigation.OpenDetail();
+                        UpdateContent();
+                    }
+                )
+                .As(HistoryButtonStyle.Record);
             // Every row reads as name, meta and stamp lines, so the button's own label stays off.
             TouchHistoryUi.SetActive(control.Label.gameObject, false);
             var row = new Row
@@ -638,7 +641,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
             Surface,
             "Rail",
             _l.RailList,
-            horizontal: false
+            horizontal: _l.Compact
         );
         _trackers.Add(new ScrollTracker(Scrolled(), "rail", scroll));
         var rail = new Rail { Scroll = scroll };
@@ -646,13 +649,15 @@ internal sealed class TouchHistoryPanelView : IDisposable
         {
             var slot = i;
             var rect = TouchScreen.Child("Chip", content, _l.RailChip(i));
-            var control = TouchHistoryUi.Button(
-                rect,
-                _font,
-                "timeline_chip",
-                _l.BodyFont,
-                () => _actions.SelectBattle(slot)
-            );
+            var control = TouchHistoryUi
+                .Button(
+                    rect,
+                    _font,
+                    "timeline_chip",
+                    _l.BodyFont,
+                    () => _actions.SelectBattle(slot)
+                )
+                .As(HistoryButtonStyle.Record);
             control.Label.gameObject.SetActive(false);
             var outcome = UiKit.Rect(
                 "Outcome",
@@ -700,6 +705,13 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 Vector2.one * _l.Metrics.Dp(22f)
             );
             rail.Chips[i].Portrait = new PortraitView(portrait, TouchHistoryUi.Skin, _l.Metrics);
+            if (_l.Compact)
+            {
+                portrait.gameObject.SetActive(false);
+                rail.Chips[i].Rank.Image.gameObject.SetActive(false);
+                rail.Chips[i].Name.gameObject.SetActive(false);
+                Frac(rail.Chips[i].Day.rectTransform, .04f, .05f, .92f, .8f);
+            }
             rect.gameObject.SetActive(false);
         }
         return rail;
@@ -791,8 +803,10 @@ internal sealed class TouchHistoryPanelView : IDisposable
         var both = m.ShowsBothBoards;
         if (_boundSection != m.SectionMode)
         {
+            KeepScroll();
             _boundSection = m.SectionMode;
-            _archive.ResetScroll = true;
+            _restoreArchiveScroll = true;
+            _archive.ResetScroll = false;
             ApplyRowMode(runs);
             SyncTrackers();
         }
@@ -803,7 +817,10 @@ internal sealed class TouchHistoryPanelView : IDisposable
         var emptyText =
             noBattles ? HistoryPanelText.NoBattlesInRun()
             : m.ArchiveEmptyMessage.Length > 0 ? m.ArchiveEmptyMessage
-            : runs && !m.PageLoading ? HistoryPanelText.NoRuns()
+            : m.PageLoading ? HistoryPanelText.LoadingPreview()
+            : runs && !string.IsNullOrEmpty(m.SelectedRunHero)
+                ? HistoryPanelText.NoRunFilterMatches()
+            : runs ? HistoryPanelText.NoRuns()
             : string.Empty;
         _emptyDetail.text = emptyText;
         TouchHistoryUi.SetActive(_emptyDetail.gameObject, _empty && emptyText.Length > 0);
@@ -811,8 +828,20 @@ internal sealed class TouchHistoryPanelView : IDisposable
         _ghostTab.Set(HistoryPanelText.GhostTab(), ghost);
         TouchHistoryUi.SetActive(_favoritesTab.GameObject, m.FavoritesTabVisible);
         _favoritesTab.Set(HistoryPanelText.FavoritesTab(), favorites);
-        // An empty Ghost already says what the cloud keeps.
-        TouchHistoryUi.SetActive(_cloudNote, ghost && !_empty);
+        _filters.Bind(m);
+        _filter.Set(
+            (
+                runs
+                    ? string.IsNullOrEmpty(m.SelectedRunHero)
+                        ? TouchHistoryUi.T("All heroes", "全部英雄")
+                        : HeroLabel(m.SelectedRunHero)
+                    : TouchHistoryUi.T("Battle filters", "胜负与天数")
+            )
+        );
+        TouchScreen.Place(
+            _archive.Scroll.GetComponent<RectTransform>(),
+            favorites ? _l.ArchiveListWithoutFilter : _l.ArchiveList
+        );
 
         // One page of battles needs no rail pager; the list then takes the whole rail.
         var railPaged = m.BattleHasNewer || m.BattleHasOlder;
@@ -870,11 +899,11 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 ? m.VisibleBattles[m.SelectedBattleIndex]
                 : null;
         _upperTitle.text = Titled(
-            both ? HistoryPanelText.BoardOpponent() : HistoryPanelText.BoardChallenger(),
+            both ? HistoryPanelText.BoardOpponentTitle() : HistoryPanelText.BoardChallengerTitle(),
             battle?.OpponentName
         );
         _lowerTitle.text = Titled(
-            HistoryPanelText.BoardYou(),
+            HistoryPanelText.BoardYouTitle(),
             battle == null ? null
                 : HistoryPanelFormatter.IsBattleWin(battle)
                     ? Tinted(HistoryPanelText.BattleWon(), TouchHistoryUi.Win)
@@ -914,6 +943,7 @@ internal sealed class TouchHistoryPanelView : IDisposable
         );
         _status.text = m.StatusMessage ?? string.Empty;
         _status.color = TouchHistoryUi.StatusColor(m.StatusSeverity);
+        ApplyNavigation();
     }
 
     // Archive rows carry runs in Runs and battles in Ghost and Favorites.
@@ -991,7 +1021,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
         }
         list.Scroll.content.sizeDelta = new Vector2(_l.ArchiveList.Width, ids.Count * list.Height);
         var nextOffset =
-            list.ResetScroll ? 0
+            _restoreArchiveScroll
+                ? _navigation.ArchiveScrollDp[(int)_model!.SectionMode] * _l.Metrics.UnitsPerDp
+            : list.ResetScroll ? 0
             : newTop >= 0 ? newTop * list.Height + offset % list.Height
             : Math.Max(0, selected) * list.Height;
         list.Scroll.StopMovement();
@@ -1000,10 +1032,11 @@ internal sealed class TouchHistoryPanelView : IDisposable
             Mathf.Clamp(
                 nextOffset,
                 0,
-                Mathf.Max(0, ids.Count * list.Height - _l.ArchiveList.Height)
+                Mathf.Max(0, ids.Count * list.Height - list.Scroll.viewport.rect.height)
             )
         );
         list.ResetScroll = false;
+        _restoreArchiveScroll = false;
         SyncTrackers();
     }
 
@@ -1040,24 +1073,31 @@ internal sealed class TouchHistoryPanelView : IDisposable
                 : HistoryPanelFormatter.IsBattleLoss(battle) ? TouchHistoryUi.Loss
                 : Color.clear;
         }
-        rail.Scroll.content.sizeDelta = new Vector2(
-            _l.RailList.Width,
-            battles.Count * _l.ChipHeight
-        );
+        var horizontal = _l.Compact;
+        var step = horizontal ? _l.ChipWidth : _l.ChipHeight;
+        rail.Scroll.content.sizeDelta = horizontal
+            ? new Vector2(battles.Count * step, _l.Rail.Height)
+            : new Vector2(_l.RailList.Width, battles.Count * step);
         var hasSelection = selected >= 0 && selected < battles.Count;
         var position = rail.Scroll.content.anchoredPosition;
-        var offset = rail.Position.Bind(
+        var viewport = _railPaged == false ? _l.RailListFull : _l.RailList;
+        var savedOffset = _navigation.BattleScrollSlots;
+        var offset = _navigation.BattlePosition.Bind(
             hasSelection ? battles[selected].BattleId : null,
             hasSelection ? selected : -1,
             battles.Count,
-            position.y,
-            _railPaged == false ? _l.RailListFull.Height : _l.RailList.Height,
-            _l.ChipHeight
+            savedOffset is { } slots ? slots * step
+                : horizontal ? -position.x
+                : position.y,
+            horizontal ? viewport.Width : viewport.Height,
+            step
         );
-        if (position.y != offset)
+        _navigation.BattleScrollSlots = null;
+        var next = horizontal ? new Vector2(-offset, 0) : new Vector2(0, offset);
+        if (position != next)
         {
             rail.Scroll.StopMovement();
-            rail.Scroll.content.anchoredPosition = new Vector2(position.x, offset);
+            rail.Scroll.content.anchoredPosition = next;
         }
         SyncTrackers();
     }
@@ -1292,7 +1332,6 @@ internal sealed class TouchHistoryPanelView : IDisposable
     {
         internal ScrollRect Scroll = null!;
         internal readonly Chip[] Chips = new Chip[Rows];
-        internal readonly HistoryTimelineScroll Position = new();
     }
 
     /// <summary>What the view's controls call; each runs inside the main-thread scope.</summary>
@@ -1307,6 +1346,9 @@ internal sealed class TouchHistoryPanelView : IDisposable
         Action More,
         Action Delete,
         Action Favorite,
-        Action Skills
+        Action Skills,
+        Action<string> HeroFilter,
+        Action<GhostBattleFilter> OutcomeFilter,
+        Action ToggleDayFilter
     );
 }

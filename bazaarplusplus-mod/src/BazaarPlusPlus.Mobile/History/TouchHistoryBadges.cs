@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
@@ -5,8 +6,8 @@ using UnityEngine;
 namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
-/// History's two BPP badge atlases, the desktop's own PNGs linked into this assembly: the
-/// battle win and loss badges, and the run state badges (completed, abandoned, active). They
+/// History's BPP badge atlases and header art, linked from the desktop's own PNGs: the
+/// battle result and run state badges, and the normal and selected header controls. They
 /// decode through <c>ImageConversion.LoadImage</c> on the main thread; a failure is logged and
 /// the rows show their text fallback instead. Once its sprites exist an atlas keeps no CPU copy
 /// of its pixels (<c>Apply(false, true)</c>, not <c>LoadImage</c>'s <c>markNonReadable</c>,
@@ -27,6 +28,10 @@ internal sealed class TouchHistoryBadges : IDisposable
 
     public Sprite? Loss { get; private set; }
 
+    public Sprite? HeaderNormal { get; private set; }
+
+    public Sprite? HeaderSelected { get; private set; }
+
     public Sprite? RunState(int index) =>
         index >= 0 && index < _runStates.Length ? _runStates[index] : null;
 
@@ -39,6 +44,12 @@ internal sealed class TouchHistoryBadges : IDisposable
             badges.Win = results[0];
             badges.Loss = results[1];
             badges._runStates = badges.LoadAtlas("run-state-badges.png", 3);
+            badges.HeaderNormal = badges.LoadAtlas(HistoryHeaderArtwork.Normal, 1, sliced: true)[0];
+            badges.HeaderSelected = badges.LoadAtlas(
+                HistoryHeaderArtwork.Selected,
+                1,
+                sliced: true
+            )[0];
             return badges;
         }
         catch (Exception exception)
@@ -67,9 +78,10 @@ internal sealed class TouchHistoryBadges : IDisposable
         _owned.Clear();
         _runStates = [];
         Win = Loss = null;
+        HeaderNormal = HeaderSelected = null;
     }
 
-    private Sprite[] LoadAtlas(string name, int count)
+    private Sprite[] LoadAtlas(string name, int count, bool sliced = false)
     {
         using var stream =
             typeof(TouchHistoryBadges).Assembly.GetManifestResourceStream(
@@ -91,11 +103,21 @@ internal sealed class TouchHistoryBadges : IDisposable
         var sprites = new Sprite[count];
         for (var index = 0; index < count; index++)
         {
-            sprites[index] = Sprite.Create(
-                texture,
-                new Rect(index * width, 0, width, texture.height),
-                new Vector2(.5f, .5f)
-            );
+            sprites[index] = sliced
+                ? Sprite.Create(
+                    texture,
+                    new Rect(index * width, 0, width, texture.height),
+                    new Vector2(.5f, .5f),
+                    HistoryHeaderArtwork.PixelsPerUnit,
+                    0,
+                    SpriteMeshType.FullRect,
+                    Vector4.one * HistoryHeaderArtwork.BorderPixels
+                )
+                : Sprite.Create(
+                    texture,
+                    new Rect(index * width, 0, width, texture.height),
+                    new Vector2(.5f, .5f)
+                );
             sprites[index].hideFlags = HideFlags.DontUnloadUnusedAsset;
             _owned.Add(sprites[index]);
         }

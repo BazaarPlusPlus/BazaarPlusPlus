@@ -41,25 +41,27 @@ public readonly record struct HistoryPanelLayout(float ScreenWidth, float Screen
     // The boards are WIDTH-constrained: the carpet wants 2600:550, so the detail region
     // scales by width and leaves vertical slack. Every unit this rail takes therefore comes
     // straight out of card size; widening it is not free.
-    public const float ArchiveLeft = .035f;
-    public const float ArchiveWidth = .255f;
-    public const float TimelineLeft = .30f;
-    public const float TimelineWidth = .09f;
-    public const float TimelineTop = .17f;
-    public const float TimelineHeight = .65f;
-    public const float DetailLeft = .40f;
-    public const float DetailWidth = .565f;
+    public const float ArchiveLeft = .025f;
+    public const float ArchiveWidth = .22f;
+    public const float ArchiveContentLeft = .033f;
+    public const float ArchiveContentWidth = .204f;
+    public const float TimelineLeft = .255f;
+    public const float TimelineWidth = .075f;
+    public const float TimelineTop = .115f;
+    public const float ListBottom = .86f;
+    public const float TimelineHeight = ListBottom - TimelineTop;
+    public const float DetailLeft = .345f;
+    public const float DetailWidth = .63f;
 
     public const float RunRowHeight = 92;
     public const float GhostRowHeight = 116;
 
-    // The chip has a portrait, day and rank across the top, then a name and outcome bar.
-    public const float DayChipHeight = 82;
-    public const float DayChipOutcomeBar = 3;
+    // Two lines: result/day, then portrait/name/rank. No independent middle metadata row.
+    public const float DayChipHeight = 64;
 
-    // Both lists end at .82 and share one pager baseline and height.
-    public const float PagerTop = .835f;
-    public const float PagerHeight = .033f;
+    // Paging and detail actions share one footer baseline and visible control height.
+    public const float PagerTop = .90f;
+    public const float PagerHeight = .05f;
     public const float TimelinePagerWidth = (TimelineWidth - .004f) / 2;
     public const float TimelinePagerRightLeft = TimelineLeft + TimelinePagerWidth + .004f;
 
@@ -67,7 +69,7 @@ public readonly record struct HistoryPanelLayout(float ScreenWidth, float Screen
 
     // The detail rail's top-down span: from the first row under the filter strip down to
     // the bottom of the lower board. Everything between is budgeted in canvas units.
-    public const float DetailTop = .17f;
+    public const float DetailTop = .115f;
     public const float DetailBottom = .849f;
 
     // Board rects, top-down. Runs shows both; Ghost drops the opponent rect and lets the
@@ -75,37 +77,74 @@ public readonly record struct HistoryPanelLayout(float ScreenWidth, float Screen
     // local player's — ghost payloads stay in recorder perspective (ADR-0002), and
     // HistoryPanel.NativeBoards renders BuildPlayer, which reads Snapshots.PlayerHand.
     // The two boards are peers, so they are the SAME height — an unequal pair reads as a
-    // hierarchy that does not exist. Both titles sit tight against their board, and the
-    // slack that used to idle between the day strip and the upper title goes to the cards.
+    // hierarchy that does not exist. Ownership titles frame the pair from outside, leaving
+    // only a compact gap between the boards. The lower title follows its skills as well.
     public const float BoardTitleHeight = .042f;
     public const float BoardHeight = .29f;
-    public const float OpponentTitleTop = .17f;
-    public const float OpponentBoardTop = .217f;
+    public const float OpponentTitleTop = .115f;
+    public const float OpponentBoardTop = .162f;
     public const float OpponentBoardHeight = BoardHeight;
-    public const float PlayerTitleTop = .512f;
-    public const float PlayerBoardTop = .559f;
+    public const float PlayerBoardTop = OpponentBoardTop + BoardHeight + .045f;
     public const float PlayerBoardHeight = BoardHeight;
-    public const float GhostTitleTop = .17f;
-    public const float GhostBoardTop = .217f;
-    public const float GhostBoardHeight = .632f;
+    public const float PlayerTitleTop = PlayerBoardTop + PlayerBoardHeight + .008f;
+    public const float GhostTitleTop = .115f;
+    public const float GhostBoardTop = .162f;
+    public const float GhostBoardHeight = .687f;
 
-    // The panel chrome both hosts lay out, top-down. Header: title, the More and Close
-    // actions, the section tabs and the filter strip beside them.
-    public static readonly HistoryRect Title = new(.04f, .03f, .37f, .06f);
-    public static readonly HistoryRect MoreButton = new(.76f, .04f, .09f, .045f);
-    public static readonly HistoryRect CloseButton = new(.87f, .04f, .09f, .045f);
-    public static readonly HistoryRect RunsTab = new(.04f, .105f, .068f, .038f);
-    public static readonly HistoryRect GhostTab = new(.112f, .105f, .068f, .038f);
-    public static readonly HistoryRect FavoritesTab = new(.184f, .105f, .068f, .038f);
-    public static readonly HistoryRect FilterStrip = new(.255f, .105f, .695f, .038f);
+    // The header owns only the title, one sponsor link and the two utility actions.
+    // Tabs, filters, records and paging share the archive's visible boundary below it.
+    public static readonly HistoryRect Title = new(.033f, .04f, .22f, .045f);
+    public static readonly HistoryRect SupportButton = new(.455f, .04f, .36f, .045f);
+    public static readonly HistoryRect MoreButton = new(.83f, .04f, .06f, .045f);
+    public static readonly HistoryRect CloseButton = new(.905f, .04f, .06f, .045f);
+    public static readonly HistoryRect TabsTray = new(
+        ArchiveContentLeft,
+        .115f,
+        ArchiveContentWidth,
+        .05f
+    );
+    public static readonly HistoryRect RunsTab = new(
+        ArchiveContentLeft,
+        .115f,
+        ArchiveContentWidth / 3f,
+        .05f
+    );
+    public static readonly HistoryRect GhostTab = new(
+        ArchiveContentLeft + ArchiveContentWidth / 3f,
+        .115f,
+        ArchiveContentWidth / 3f,
+        .05f
+    );
+    public static readonly HistoryRect FavoritesTab = new(
+        ArchiveContentLeft + 2f * ArchiveContentWidth / 3f,
+        .115f,
+        ArchiveContentWidth / 3f,
+        .05f
+    );
+    public static readonly HistoryRect FilterStrip = new(
+        ArchiveContentLeft,
+        .175f,
+        ArchiveContentWidth,
+        .045f
+    );
 
     // The archive column: its page label, list and pager; the timeline's two pagers.
-    public static readonly HistoryRect PageLabel = new(ArchiveLeft, .17f, ArchiveWidth, .043f);
-    public static readonly HistoryRect ArchiveList = new(ArchiveLeft, .225f, ArchiveWidth, .595f);
+    public static readonly HistoryRect PageLabel = new(
+        ArchiveContentLeft,
+        .866f,
+        ArchiveContentWidth,
+        .027f
+    );
+    public static readonly HistoryRect ArchiveList = new(
+        ArchiveContentLeft,
+        .23f,
+        ArchiveContentWidth,
+        ListBottom - .23f
+    );
     public static readonly HistoryRect ArchivePager = new(
-        ArchiveLeft,
+        ArchiveContentLeft,
         PagerTop,
-        ArchiveWidth,
+        ArchiveContentWidth,
         PagerHeight
     );
     public static readonly HistoryRect TimelineNewer = new(
@@ -122,10 +161,11 @@ public readonly record struct HistoryPanelLayout(float ScreenWidth, float Screen
     );
 
     // Footer: the delete, record and replay actions, then the status line.
-    public static readonly HistoryRect DeleteButton = new(.04f, .90f, .16f, .044f);
-    public static readonly HistoryRect RecordButton = new(.58f, .90f, .13f, .055f);
-    public static readonly HistoryRect ReplayButton = new(.72f, .90f, .23f, .055f);
-    public static readonly HistoryRect StatusLabel = new(.04f, .953f, .91f, .03f);
+    public static readonly HistoryRect DeleteButton = new(DetailLeft, PagerTop, .09f, PagerHeight);
+    public static readonly HistoryRect FavoriteButton = new(.55f, PagerTop, .15f, PagerHeight);
+    public static readonly HistoryRect RecordButton = new(.71f, PagerTop, .10f, PagerHeight);
+    public static readonly HistoryRect ReplayButton = new(.82f, PagerTop, .155f, PagerHeight);
+    public static readonly HistoryRect StatusLabel = new(.033f, .958f, .942f, .025f);
 
     public float CanvasScale =>
         (float)

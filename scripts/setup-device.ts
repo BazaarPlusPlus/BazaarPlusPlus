@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import type { SpawnSyncOptions, SpawnSyncReturns } from 'node:child_process';
@@ -12,6 +11,7 @@ import { signIn, withLoginCancellation } from './android-login.ts';
 import { inspectScreen } from './android-screen.ts';
 import type { LoginReceipt } from './android-login.ts';
 import type { ScreenReport } from './android-screen.ts';
+import { androidSdkPaths } from './android-sdk.ts';
 
 /** One AVD of the device matrix: its landscape screen and emulator port. */
 export interface DeviceProfile {
@@ -29,6 +29,54 @@ export interface SdkPaths {
   adb: string;
   emulator: string;
   qemuImg: string;
+  image: SystemImage;
+}
+
+export interface SystemImage {
+  path: string;
+  abi: 'arm64-v8a' | 'x86_64';
+}
+
+const macImage: SystemImage = {
+  path: 'system-images/android-35/google_apis_playstore/arm64-v8a/',
+  abi: 'arm64-v8a'
+};
+const windowsImage: SystemImage = {
+  path: 'system-images/android-35/google_apis/x86_64/',
+  abi: 'x86_64'
+};
+
+export function hostImage(
+  platform: NodeJS.Platform = process.platform,
+  arch = process.arch
+): SystemImage {
+  if (platform === 'darwin' && arch === 'arm64') return macImage;
+  if (platform === 'win32' && arch === 'x64') return windowsImage;
+  throw new Error('The device matrix supports macOS arm64 and Windows x64.');
+}
+
+export interface AndroidRuntime {
+  abiList: string;
+  nativeBridge: string;
+  arm64Isa: string;
+}
+
+// ARM translation is a prerequisite, not proof that the game and Loader work.
+export function assertArm64Runtime(
+  image: SystemImage,
+  runtime: AndroidRuntime
+): void {
+  if (!runtime.abiList.split(',').includes('arm64-v8a'))
+    throw new Error('This system image does not expose the arm64-v8a ABI.');
+  if (
+    image.abi === 'x86_64' &&
+    (!runtime.nativeBridge ||
+      runtime.nativeBridge === '0' ||
+      runtime.arm64Isa !== 'x86_64')
+  )
+    throw new Error(
+      'This x86_64 image has no active ARM64 native translation.'
+    );
 }
 
 /** One `adb devices` row. */
@@ -47,6 +95,7 @@ export interface InitReceipt {
   checkedAt?: string;
   screen?: ScreenReport;
   error?: string;
+  runtime?: AndroidRuntime;
 }
 
 // The environment provisioning gives recipes: this SDK's adb and the device.
@@ -90,12 +139,17 @@ export const profiles: DeviceProfile[] = [
   { name: 'bpp_emu_3_2', width: 2400, height: 1600, dpi: 420, port: 5558 },
   { name: 'bpp_emu_fold', width: 2480, height: 2248, dpi: 420, port: 5560 }
 ];
-const imagePath = 'system-images/android-35/google_apis_playstore/arm64-v8a/';
 const help = `Local development matrix: Android AVDs
 
   just list-devices
 
-Android (macOS arm64, Node, Android SDK)
+Android (macOS arm64 or Windows x64, Bun, Android SDK)
+
+  macOS arm64: ${macImage.path}
+  Windows x64: ${windowsImage.path} (ARM64 native translation, WHPX)
+
+Windows runtime validation is experimental: translation can run the official
+game but may fail in CoreCLR. Only a fresh READY result verifies BPP itself.
 
   just setup-device [NAME|all] [--seed AVD] [--timeout SECONDS] [--keep-open]
   just setup-device NAME --recreate [--seed AVD]
@@ -106,7 +160,7 @@ init defaults to all, seed bpp_emu_20_9, and a 300-second login wait per AVD.
 Missing AVDs copy the stopped seed's installed apps and local data. An existing
 AVD keeps its data: init rewrites its screen settings to the matrix. An AVD on
 another system image stops init; --recreate deletes it with its data and copies
-the seed again (not the seed itself). Any Android 35 Google Play arm64 AVD can
+the seed again (not the seed itself). Any AVD on this host's image above can
 be the seed, whatever its name; init never renames or deletes an AVD outside
 the matrix, and status lists them.
 Each AVD runs the game as a player does: init installs the locked official
@@ -125,8 +179,12 @@ store once: just with-config release just setup-device NAME, and
 just with-config release just android::stage-runtime (and ::interop-package).
 All profiles are static screen fixtures; fold does not simulate a hinge.
 
-ANDROID_HOME selects the SDK (default ~/Library/Android/sdk).
+ANDROID_HOME selects the SDK (macOS: ~/Library/Android/sdk;
+Windows: %LOCALAPPDATA%/Android/Sdk). Windows needs hardware virtualization.
 ANDROID_AVD_HOME selects AVDs (default ~/.android/avd); ADB overrides adb.
+Init allows connected phones but requires every emulator stopped. It pins all
+deployment commands to the selected emulator. For later device commands, set
+ANDROID_SERIAL when more than one device is connected; no target is guessed.
 Evidence: bazaarplusplus-mod/artifacts/android/setup-device-NAME/ (private).
 status inventories configuration and historical results, not current login.
 `;
@@ -152,8 +210,12 @@ function writeIni(file: string, values: Record<string, string | number>): void {
   );
 }
 
-const matrixImage = (config: Record<string, string>): boolean =>
-  config['image.sysdir.1'] === imagePath && config['abi.type'] === 'arm64-v8a';
+const matrixImage = (
+  config: Record<string, string>,
+  image: SystemImage
+): boolean =>
+  config['image.sysdir.1']?.replaceAll('\\', '/').replace(/\/?$/, '/') ===
+    image.path && config['abi.type'] === image.abi;
 
 // The matrix owns these screen keys on every AVD. None of them touches a disk, so init
 // rewrites them in place on an existing AVD and its game and login stay.
@@ -169,10 +231,11 @@ const skinKeys = ['skin.path', 'skin.name'];
 
 export function configuredProfile(
   config: Record<string, string>,
-  profile: DeviceProfile
+  profile: DeviceProfile,
+  image: SystemImage
 ): boolean {
   return (
-    matrixImage(config) &&
+    matrixImage(config, image) &&
     Number(config['hw.lcd.width']) === profile.height &&
     Number(config['hw.lcd.height']) === profile.width &&
     Number(config['hw.lcd.density']) === profile.dpi &&
@@ -183,18 +246,18 @@ export function configuredProfile(
 // Brings an existing AVD to the matrix. Another system image cannot be rewritten: the
 // userdata disk belongs to its image, so that AVD needs --recreate.
 export function reconcileAvd(
-  p: Pick<SdkPaths, 'avds'>,
+  p: Pick<SdkPaths, 'avds' | 'image'>,
   profile: DeviceProfile
 ): boolean {
   const directory = avdDirectory(p.avds, profile.name);
   // Every caller creates the AVD first.
   if (!directory) throw new Error(`AVD ${profile.name} does not exist`);
   const config = readConfig(directory);
-  if (!matrixImage(config))
+  if (!matrixImage(config, p.image))
     throw new Error(
-      `${profile.name} uses another system image than ${imagePath}. Rerun with: just setup-device ${profile.name} --recreate (it deletes the AVD and its data).`
+      `${profile.name} uses another system image than ${p.image.path}. Rerun with: just setup-device ${profile.name} --recreate (it deletes the AVD and its data).`
     );
-  if (configuredProfile(config, profile)) return false;
+  if (configuredProfile(config, profile, p.image)) return false;
   const values: Record<string, string | number> = {
     ...config,
     ...screenConfig(profile)
@@ -239,25 +302,22 @@ function run(
   const result = spawnSync(binary, args, {
     encoding: 'utf8',
     timeout: 30_000,
+    windowsHide: true,
     ...options
   }) as SpawnSyncReturns<string>;
   if (result.error || result.status !== 0)
     throw new Error(
       `${path.basename(binary)} ${args[0]} failed: ${result.error?.message || result.stderr?.trim() || `exit ${result.status}`}`
     );
-  return result.stdout;
+  return typeof result.stdout === 'string'
+    ? result.stdout.replace(/\r+\n/g, '\n')
+    : result.stdout;
 }
 
 function paths(): SdkPaths {
-  const sdk =
-    process.env.ANDROID_HOME || path.join(os.homedir(), 'Library/Android/sdk');
   return {
-    sdk,
-    avds:
-      process.env.ANDROID_AVD_HOME || path.join(os.homedir(), '.android/avd'),
-    adb: process.env.ADB || path.join(sdk, 'platform-tools/adb'),
-    emulator: path.join(sdk, 'emulator/emulator'),
-    qemuImg: path.join(sdk, 'emulator/qemu-img')
+    ...androidSdkPaths(),
+    image: hostImage()
   };
 }
 
@@ -275,7 +335,7 @@ function avdDirectory(avds: string, name: string): string | null {
 
 // Every AVD here, by its .ini name, and whether it is on the matrix image and so can be the seed.
 export function localAvds(
-  p: Pick<SdkPaths, 'avds'>
+  p: Pick<SdkPaths, 'avds' | 'image'>
 ): { name: string; seedable: boolean }[] {
   if (!fs.existsSync(p.avds)) return [];
   return fs
@@ -288,7 +348,7 @@ export function localAvds(
         // The .ini exists, so avdDirectory returns its path or throws.
         const directory = avdDirectory(p.avds, name);
         if (!directory) throw new Error(`No ${name}.ini`);
-        seedable = matrixImage(readConfig(directory));
+        seedable = matrixImage(readConfig(directory), p.image);
       } catch {
         /* A broken AVD cannot be the seed. */
       }
@@ -298,7 +358,7 @@ export function localAvds(
 }
 
 function missingSeed(
-  p: Pick<SdkPaths, 'avds'>,
+  p: Pick<SdkPaths, 'avds' | 'image'>,
   seed: string,
   profile: DeviceProfile
 ): string {
@@ -307,12 +367,11 @@ function missingSeed(
     .map((avd) => avd.name);
   return candidates.length
     ? `Seed AVD ${seed} is missing. These AVDs can be the seed: ${candidates.join(', ')}. Rerun init with --seed ${candidates[0]}.`
-    : `Seed AVD ${seed} is missing and no AVD here uses ${imagePath}. Create one (Android 35, Google Play, arm64) in Android Studio, then rerun with --seed NAME.`;
+    : `Seed AVD ${seed} is missing and no AVD here uses ${p.image.path}. Create one with that image in Android Studio, then rerun with --seed NAME.`;
 }
 
 // Every device in `adb devices` output, whatever its state and whatever adb printed before the list.
-// One Android device runs at a time (docs/development.md); bazaarplusplus-mod/scripts/android.sh
-// applies the same rule in Bash (find_device).
+// bazaarplusplus-mod/scripts/android.sh applies the same selection rule in Bash (find_device).
 export function listedDevices(listing: string): AdbDevice[] {
   const lines = listing.split(/\r?\n/);
   return lines
@@ -326,8 +385,13 @@ const listedText = (listed: AdbDevice[]): string =>
   listed.map((d) => `${d.serial} ${d.state}`).join(', ');
 
 // The serial of the one running device; none, several or one not yet online is refused.
-export function onlyDevice(listing: string): string {
-  const listed = listedDevices(listing);
+export function onlyDevice(listing: string, selected?: string): string {
+  const all = listedDevices(listing);
+  const listed = selected
+    ? all.filter((device) => device.serial === selected)
+    : all;
+  if (selected && !listed.length)
+    throw new Error(`Selected Android device '${selected}' is not connected.`);
   if (!listed.length)
     throw new Error(
       'No Android device is online; open one AVD with: just setup-device NAME --keep-open'
@@ -344,10 +408,20 @@ export function onlyDevice(listing: string): string {
   return serial;
 }
 
+export function assertEmulatorsStopped(listing: string): void {
+  const active = listedDevices(listing).filter((device) =>
+    device.serial.startsWith('emulator-')
+  );
+  if (active.length)
+    throw new Error(
+      `Close every running Android emulator before init: ${listedText(active)}. One emulator runs at a time; phones may stay connected.`
+    );
+}
+
 // Flatten each active disk chain. The emulator may recreate a copied qcow2 overlay
 // on a new AVD; a standalone base keeps the game and account data when that happens.
 export function cloneAvd(
-  p: Pick<SdkPaths, 'avds' | 'qemuImg'>,
+  p: Pick<SdkPaths, 'avds' | 'qemuImg' | 'image'>,
   seed: string,
   profile: DeviceProfile
 ): void {
@@ -359,8 +433,8 @@ export function cloneAvd(
       `AVD ${profile.name} already exists; it will not be overwritten.`
     );
   const config = readConfig(source);
-  if (!matrixImage(config))
-    throw new Error(`Seed ${seed} must use ${imagePath}`);
+  if (!matrixImage(config, p.image))
+    throw new Error(`Seed ${seed} must use ${p.image.path}`);
   const disks = fs
     .readdirSync(source)
     .filter((name) =>
@@ -374,10 +448,17 @@ export function cloneAvd(
       `Seed ${seed} is missing its userdata or encryption key disk.`
     );
   // Keep the seed self-contained so provisioning cannot follow an unrelated disk.
+  const sizes = new Map<string, number>();
   for (const disk of disks) {
     const info = JSON.parse(
       run(p.qemuImg, ['info', '--output=json', path.join(source, disk)])
-    ) as { 'backing-filename'?: string };
+    ) as { 'backing-filename'?: string; 'virtual-size': number };
+    if (
+      !Number.isSafeInteger(info['virtual-size']) ||
+      info['virtual-size'] <= 0
+    )
+      throw new Error(`${disk} has an invalid virtual size.`);
+    sizes.set(disk, info['virtual-size']);
     const backing = info['backing-filename'];
     if (
       backing &&
@@ -391,15 +472,20 @@ export function cloneAvd(
   try {
     for (const disk of disks.filter((name) => name.endsWith('.img'))) {
       const active = disks.includes(`${disk}.qcow2`) ? `${disk}.qcow2` : disk;
+      // The SDK's Windows qemu-img can create a zero-length raw file for a large disk.
+      // Allocate its full virtual size ourselves, then convert into that new file.
+      const destination = path.join(target, disk);
+      const descriptor = fs.openSync(destination, 'wx', 0o600);
+      try {
+        const size = sizes.get(active);
+        if (size === undefined) throw new Error(`No size for ${active}`);
+        fs.ftruncateSync(descriptor, size);
+      } finally {
+        fs.closeSync(descriptor);
+      }
       run(
         p.qemuImg,
-        [
-          'convert',
-          '-O',
-          'raw',
-          path.join(source, active),
-          path.join(target, disk)
-        ],
+        ['convert', '-n', '-O', 'raw', path.join(source, active), destination],
         { timeout: 180_000 }
       );
       fs.chmodSync(path.join(target, disk), 0o600);
@@ -424,7 +510,7 @@ export function cloneAvd(
     writeIni(path.join(p.avds, `${profile.name}.ini`), {
       'avd.ini.encoding': 'UTF-8',
       path: target,
-      target: 'android-35'
+      target: p.image.path.split('/')[1]
     });
   } catch (error) {
     fs.rmSync(target, { recursive: true, force: true });
@@ -453,6 +539,14 @@ async function provision(
   env: DeviceEnv,
   profile: DeviceProfile
 ): Promise<void> {
+  for (const [file, recipe] of [
+    ['build/runtime', 'android::stage-runtime'],
+    ['build/interop.zip', 'android::interop-package']
+  ])
+    if (!fs.existsSync(path.join(androidApp, file)))
+      throw new Error(
+        `No ${file} in bazaarplusplus-android; run: just with-config release just ${recipe}`
+      );
   const locked = lockedInteropEntry(root).apkSha256;
   let installed = '';
   try {
@@ -489,14 +583,6 @@ async function provision(
       timeout: 900_000
     });
   }
-  for (const [file, recipe] of [
-    ['build/runtime', 'android::stage-runtime'],
-    ['build/interop.zip', 'android::interop-package']
-  ])
-    if (!fs.existsSync(path.join(androidApp, file)))
-      throw new Error(
-        `No ${file} in bazaarplusplus-android; run: just with-config release just ${recipe}`
-      );
   const just = (...args: string[]) =>
     run('just', args, { cwd: root, env, timeout: 900_000 });
   console.log(
@@ -515,11 +601,7 @@ async function initialize(
   { seed, timeout, keepOpen, recreate }: InitOptions
 ): Promise<void> {
   const serial = `emulator-${profile.port}`;
-  const active = listedDevices(run(p.adb, ['devices']));
-  if (active.length)
-    throw new Error(
-      `Close every running Android device before init: ${listedText(active)}. One device runs at a time.`
-    );
+  assertEmulatorsStopped(run(p.adb, ['devices']));
   if (recreate && avdDirectory(p.avds, profile.name)) {
     console.log(`Deleting ${profile.name} and its data (--recreate).`);
     removeAvd(p, profile.name);
@@ -570,6 +652,7 @@ async function initialize(
     ],
     {
       detached: true,
+      windowsHide: true,
       stdio: ['ignore', output, output]
     }
   );
@@ -601,6 +684,17 @@ async function initialize(
       throw new Error(
         `${serial} is not ${profile.name}; refusing to touch its game.`
       );
+    receipt.runtime = {
+      abiList: adb('shell', 'getprop', 'ro.product.cpu.abilist').trim(),
+      nativeBridge: adb(
+        'shell',
+        'getprop',
+        'ro.dalvik.vm.native.bridge'
+      ).trim(),
+      arm64Isa: adb('shell', 'getprop', 'ro.dalvik.vm.isa.arm64').trim()
+    };
+    save();
+    assertArm64Runtime(p.image, receipt.runtime);
     await provision(adb, env, profile);
     const login = await withLoginCancellation((signal) =>
       signIn(serial, {
@@ -629,7 +723,7 @@ async function initialize(
     );
     run('just', ['mod::android-screen-check', `setup-device-${profile.name}`], {
       cwd: root,
-      env: { ...process.env, ADB: p.adb }
+      env
     });
     const screen = inspectScreen(out, serial);
     if (
@@ -683,16 +777,16 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
   const [command, ...rest] = args;
-  const p = paths();
   if (command === 'status' && !rest.length) {
+    const p = paths();
     for (const profile of profiles) {
       const directory = avdDirectory(p.avds, profile.name);
       const config = directory && readConfig(directory);
       const state = !config
         ? 'missing; init copies the seed'
-        : !matrixImage(config)
+        : !matrixImage(config, p.image)
           ? 'other system image; init needs --recreate'
-          : configuredProfile(config, profile)
+          : configuredProfile(config, profile, p.image)
             ? 'configured'
             : 'screen differs; init rewrites it';
       const receipt = path.join(evidence(profile), 'init.json');
@@ -748,10 +842,7 @@ export async function main(args: string[]): Promise<void> {
     throw new Error(
       `${name} is the seed; --recreate copies the seed, so choose another with --seed.`
     );
-  if (process.platform !== 'darwin' || process.arch !== 'arm64')
-    throw new Error(
-      'This arm64 emulator matrix requires an Apple Silicon Mac.'
-    );
+  const p = paths();
   for (const profile of selected)
     await initialize(p, profile, { seed, timeout, keepOpen, recreate });
 }

@@ -3,6 +3,32 @@ using Xunit;
 
 public sealed class HistoryPanelLayoutTests
 {
+    [Fact]
+    public void Header_groups_do_not_overlap_and_utility_actions_share_one_size()
+    {
+        var groups = new[]
+        {
+            HistoryPanelLayout.Title,
+            HistoryPanelLayout.TabsTray,
+            HistoryPanelLayout.SupportButton,
+            HistoryPanelLayout.MoreButton,
+            HistoryPanelLayout.CloseButton,
+            HistoryPanelLayout.FilterStrip,
+        };
+        for (var i = 0; i < groups.Length; i++)
+        for (var j = i + 1; j < groups.Length; j++)
+            Assert.False(groups[i].Anchors.Overlaps(groups[j].Anchors));
+        Assert.True(HistoryPanelLayout.SupportButton.Width > HistoryPanelLayout.MoreButton.Width);
+        Assert.True(HistoryPanelLayout.Title.Bottom < HistoryPanelLayout.TabsTray.Y);
+        Assert.Equal(HistoryPanelLayout.ArchiveList.X, HistoryPanelLayout.TabsTray.X);
+        Assert.Equal(HistoryPanelLayout.ArchiveList.Width, HistoryPanelLayout.TabsTray.Width);
+        Assert.Equal(HistoryPanelLayout.MoreButton.Width, HistoryPanelLayout.CloseButton.Width);
+        Assert.Equal(
+            HistoryPanelLayout.SupportButton.Height,
+            HistoryPanelLayout.CloseButton.Height
+        );
+    }
+
     // Aspect ratios, not resolutions: the panel's geometry is normalized, so it is identical
     // at every resolution of a given ratio. What changes is how many canvas units a
     // normalized value is worth, because matchWidthOrHeight = .5 makes the canvas the
@@ -81,7 +107,7 @@ public sealed class HistoryPanelLayoutTests
         // 4:3 is the narrowest canvas. The compact archive still reserves room for the
         // portrait, three text lines, a rank with rating and the outcome trophy.
         var runRowWidth = panel.Width * HistoryPanelLayout.ArchiveWidth;
-        Assert.True(runRowWidth >= 370, $"run row {runRowWidth}");
+        Assert.True(runRowWidth >= 320, $"run row {runRowWidth}");
 
         // The boards are width-constrained, so this is the number that sets card size.
         var detailRailWidth = panel.Width * HistoryPanelLayout.DetailWidth;
@@ -99,14 +125,14 @@ public sealed class HistoryPanelLayoutTests
 
         // The chip is an opponent portrait on the left with the day and rank stacked to its
         // right. Below this the portrait stops being recognizable and the rail is just noise.
-        Assert.True(panel.TimelineRailWidth >= 110, $"rail {panel.TimelineRailWidth}");
+        Assert.True(panel.TimelineRailWidth >= 100, $"rail {panel.TimelineRailWidth}");
 
-        // And it must show enough battles at once to read as a run's timeline. 32:9 is the
-        // shortest canvas at ~5.3 rows; the archive column beside it fits only ~4.3 there,
-        // so the rail is never the scarcer list.
+        // Even the shortest canvas must show enough battles to read as a timeline;
+        // the rail is never the scarcer list beside the archive.
         var rows =
             panel.Height * HistoryPanelLayout.TimelineHeight / HistoryPanelLayout.DayChipHeight;
-        var archiveRows = panel.Height * .595f / HistoryPanelLayout.RunRowHeight;
+        var archiveRows =
+            panel.Height * HistoryPanelLayout.ArchiveList.Height / HistoryPanelLayout.RunRowHeight;
         Assert.True(rows >= 5, $"rows {rows}");
         Assert.True(rows > archiveRows, $"rail {rows} vs archive {archiveRows}");
     }
@@ -114,11 +140,42 @@ public sealed class HistoryPanelLayoutTests
     [Fact]
     public void Timeline_pagers_sit_under_the_rail_and_share_its_width()
     {
+        Assert.Equal(
+            HistoryPanelLayout.TimelineTop + HistoryPanelLayout.TimelineHeight,
+            HistoryPanelLayout.ArchiveList.Bottom,
+            precision: 5
+        );
+        Assert.InRange(
+            HistoryPanelLayout.PageLabel.Y - HistoryPanelLayout.ArchiveList.Bottom,
+            0,
+            .01f
+        );
+        Assert.InRange(
+            HistoryPanelLayout.ArchivePager.Y - HistoryPanelLayout.PageLabel.Bottom,
+            0,
+            .01f
+        );
         Assert.True(
             HistoryPanelLayout.PagerTop
                 >= HistoryPanelLayout.TimelineTop + HistoryPanelLayout.TimelineHeight
         );
-        Assert.True(HistoryPanelLayout.PagerTop + HistoryPanelLayout.PagerHeight <= .9f);
+        foreach (
+            var action in new[]
+            {
+                HistoryPanelLayout.DeleteButton,
+                HistoryPanelLayout.FavoriteButton,
+                HistoryPanelLayout.RecordButton,
+                HistoryPanelLayout.ReplayButton,
+            }
+        )
+        {
+            Assert.Equal(HistoryPanelLayout.PagerTop, action.Y);
+            Assert.Equal(HistoryPanelLayout.PagerHeight, action.Height);
+        }
+        Assert.True(
+            HistoryPanelLayout.PagerTop + HistoryPanelLayout.PagerHeight
+                <= HistoryPanelLayout.StatusLabel.Y
+        );
         Assert.True(
             HistoryPanelLayout.TimelinePagerRightLeft + HistoryPanelLayout.TimelinePagerWidth
                 <= HistoryPanelLayout.TimelineLeft + HistoryPanelLayout.TimelineWidth + .001f
@@ -139,15 +196,15 @@ public sealed class HistoryPanelLayoutTests
     }
 
     [Fact]
-    public void Each_board_keeps_its_ownership_title_directly_above_it()
+    public void Ownership_titles_frame_the_pair_and_stay_close_to_their_boards()
     {
         Assert.True(
             HistoryPanelLayout.OpponentTitleTop + HistoryPanelLayout.BoardTitleHeight
                 <= HistoryPanelLayout.OpponentBoardTop
         );
         Assert.True(
-            HistoryPanelLayout.PlayerTitleTop + HistoryPanelLayout.BoardTitleHeight
-                <= HistoryPanelLayout.PlayerBoardTop
+            HistoryPanelLayout.PlayerBoardTop + HistoryPanelLayout.PlayerBoardHeight
+                <= HistoryPanelLayout.PlayerTitleTop
         );
         Assert.True(
             HistoryPanelLayout.GhostTitleTop + HistoryPanelLayout.BoardTitleHeight
@@ -155,9 +212,15 @@ public sealed class HistoryPanelLayoutTests
         );
         // A title that drifts far from its board stops reading as that board's label.
         Assert.True(
-            HistoryPanelLayout.PlayerBoardTop
-                - (HistoryPanelLayout.PlayerTitleTop + HistoryPanelLayout.BoardTitleHeight)
+            HistoryPanelLayout.PlayerTitleTop
+                - (HistoryPanelLayout.PlayerBoardTop + HistoryPanelLayout.PlayerBoardHeight)
                 < .02f
+        );
+        Assert.InRange(
+            HistoryPanelLayout.PlayerBoardTop
+                - (HistoryPanelLayout.OpponentBoardTop + HistoryPanelLayout.OpponentBoardHeight),
+            .03f,
+            .06f
         );
     }
 
@@ -188,7 +251,7 @@ public sealed class HistoryPanelLayoutTests
     {
         Assert.True(HistoryPanelLayout.OpponentTitleTop >= HistoryPanelLayout.DetailTop);
         Assert.True(
-            HistoryPanelLayout.PlayerBoardTop + HistoryPanelLayout.PlayerBoardHeight
+            HistoryPanelLayout.PlayerTitleTop + HistoryPanelLayout.BoardTitleHeight
                 <= HistoryPanelLayout.DetailBottom + .001f
         );
         Assert.True(

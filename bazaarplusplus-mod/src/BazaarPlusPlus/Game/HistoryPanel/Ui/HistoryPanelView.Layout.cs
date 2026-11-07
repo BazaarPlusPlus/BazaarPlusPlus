@@ -33,6 +33,7 @@ internal sealed partial class HistoryPanelView
         internal Image RankBadge = null!;
         internal TextMeshProUGUI Rating = null!;
         internal TextMeshProUGUI UnknownResult = null!;
+        internal TextMeshProUGUI OutcomeLabel = null!;
         internal TextMeshProUGUI UnknownRank = null!;
         internal TextMeshProUGUI Label = null!;
         internal RunFields Run = null!;
@@ -49,7 +50,7 @@ internal sealed partial class HistoryPanelView
         internal TextMeshProUGUI Day = null!;
         internal TextMeshProUGUI Name = null!;
         internal TextMeshProUGUI Rating = null!;
-        internal Image Outcome = null!;
+        internal TextMeshProUGUI Outcome = null!;
         internal Image Portrait = null!;
         internal string? Hero;
     }
@@ -89,6 +90,8 @@ internal sealed partial class HistoryPanelView
         _dayFilter = null!;
     private readonly Dictionary<string, Button> _heroes = new();
     private readonly Dictionary<GhostBattleFilter, Button> _outcomes = new();
+    private Button _heroFilterButton = null!;
+    private GameObject? _filterRoot;
     private GameObject _heroFilters = null!,
         _ghostFilters = null!;
 
@@ -104,47 +107,56 @@ internal sealed partial class HistoryPanelView
         _layout = CreateRect("Layout", _root!.transform, 0, 0, 1, 1);
         _layout.gameObject.AddComponent<Image>().color = InGameTheme.Backdrop;
         Panel(_layout, .014f, .018f, .972f, .962f);
-        _title = Text(_layout, "", HistoryPanelLayout.Title, 34);
-        Button(_layout, HistoryPanelText.Close(), HistoryPanelLayout.CloseButton, _close);
+        _title = Text(_layout, "", HistoryPanelLayout.Title, 28);
+        Button(
+            _layout,
+            HistoryPanelText.Close(),
+            HistoryPanelLayout.CloseButton,
+            _close,
+            style: ButtonStyle.Standard
+        );
         BuildSupporterHeader();
+        var tabsTray = CreateRect("SectionTabs", _layout, HistoryPanelLayout.TabsTray);
+        ControlSurface(tabsTray);
         _runsTab = Button(
             _layout,
             "",
             HistoryPanelLayout.RunsTab,
-            () => _section(HistorySectionMode.Runs)
+            () => _section(HistorySectionMode.Runs),
+            style: ButtonStyle.GroupedOption
         );
         _ghostTab = Button(
             _layout,
             "",
             HistoryPanelLayout.GhostTab,
-            () => _section(HistorySectionMode.Ghost)
+            () => _section(HistorySectionMode.Ghost),
+            style: ButtonStyle.GroupedOption
         );
         _favoritesTab = Button(
             _layout,
             "",
             HistoryPanelLayout.FavoritesTab,
-            () => _section(HistorySectionMode.Favorites)
+            () => _section(HistorySectionMode.Favorites),
+            style: ButtonStyle.GroupedOption
         );
         _heroFilters = CreateRect(
             "HeroFilters",
             _layout,
             HistoryPanelLayout.FilterStrip
         ).gameObject;
-        var heroes = HistoryPanelHeroPresentation.RunFilterHeroIds;
-        for (var i = 0; i < heroes.Count; i++)
-        {
-            var hero = heroes[i];
-            _heroes[hero] = Button(
-                _heroFilters.transform,
-                HistoryPanelHeroNames.DisplayName(hero),
-                i / (float)heroes.Count,
-                0,
-                .97f / heroes.Count,
-                1,
-                () => _heroFilter(hero),
-                size: 14
-            );
-        }
+        _heroFilterButton = Button(
+            _heroFilters.transform,
+            "",
+            0,
+            0,
+            1,
+            1,
+            () => _filterRoot?.SetActive(true),
+            size: 15
+        );
+        CreateFilterChevron(_heroFilterButton.transform);
+        var filterLabel = ButtonLabel(_heroFilterButton);
+        filterLabel.alignment = TextAlignmentOptions.MidlineLeft;
         _ghostFilters = CreateRect(
             "GhostFilters",
             _layout,
@@ -161,30 +173,20 @@ internal sealed partial class HistoryPanelView
             _outcomes[filter] = Button(
                 _ghostFilters.transform,
                 "",
-                (int)filter * .17f,
+                (int)filter / 3f,
                 0,
-                .16f,
-                1,
+                .32f,
+                .48f,
                 () => _ghostFilter(filter)
             );
         _dayFilter = Button(
             _ghostFilters.transform,
             HistoryPanelText.FilterDayMin10(),
-            .53f,
             0,
-            .19f,
+            .52f,
             1,
+            .48f,
             _ghostDay
-        );
-        Text(
-            _ghostFilters.transform,
-            T("Cloud: latest 5 days, up to 200", "云端：最近5天，最多200条"),
-            .73f,
-            0,
-            .27f,
-            1,
-            11,
-            Muted
         );
         _archiveList = CreatePageList(
             "Archive",
@@ -192,18 +194,19 @@ internal sealed partial class HistoryPanelView
             HistoryPanelLayout.RunRowHeight
         );
         _archiveEmptyLabel = Text(
-            _archiveList.Scroll.viewport,
+            _layout,
             "",
-            .04f,
-            .04f,
-            .92f,
-            .8f,
-            14,
-            Muted
+            HistoryPanelLayout.DetailLeft,
+            HistoryPanelLayout.DetailTop,
+            HistoryPanelLayout.DetailWidth,
+            HistoryPanelLayout.DetailBottom - HistoryPanelLayout.DetailTop,
+            18,
+            Muted,
+            true
         );
         _archiveEmptyLabel.textWrappingMode = TextWrappingModes.Normal;
         _archiveEmptyLabel.overflowMode = TextOverflowModes.Overflow;
-        _archiveEmptyLabel.alignment = TextAlignmentOptions.TopLeft;
+        _archiveEmptyLabel.alignment = TextAlignmentOptions.Center;
         _dayStrip = CreateDayStrip();
         var archivePager = CreateRect("ArchivePager", _layout, HistoryPanelLayout.ArchivePager);
         _newer = Button(
@@ -259,7 +262,7 @@ internal sealed partial class HistoryPanelView
             HistoryPanelLayout.DetailWidth,
             HistoryPanelLayout.BoardTitleHeight
         );
-        _opponentOwner = Text(_opponentTitle, "", 0, 0, .11f, 1, 14, Muted);
+        _opponentOwner = Text(_opponentTitle, "", 0, 0, 1, 1, 16, InGameTheme.InkSoft, true);
         _opponentPreview = CreateRect(
             "OpponentBoardBounds",
             _layout,
@@ -292,9 +295,10 @@ internal sealed partial class HistoryPanelView
             HistoryPanelLayout.DetailWidth,
             HistoryPanelLayout.BoardTitleHeight
         );
-        _playerOwner = Text(_playerTitle, "", 0, 0, .3f, 1, 14, Muted);
+        _playerOwner = Text(_playerTitle, "", 0, 0, 1, 1, 16, InGameTheme.InkSoft, true);
         _statusLabel = Text(_layout, "", HistoryPanelLayout.StatusLabel, 12, Muted);
         CreateActions();
+        CreateHeroFilterMenu();
     }
 
     private void NavigateArchive(int direction)
@@ -303,10 +307,33 @@ internal sealed partial class HistoryPanelView
         _pageArchive?.Invoke(direction);
     }
 
+    private const int ListEdgeSoftness = 24;
+
+    private static void AddScrollMask(ScrollRect scroll)
+    {
+        var mask = scroll.viewport.gameObject.AddComponent<RectMask2D>();
+        mask.softness = new Vector2Int(0, ListEdgeSoftness);
+        scroll.onValueChanged.AddListener(_ => UpdateScrollMask(scroll));
+        UpdateScrollMask(scroll);
+    }
+
+    private static void UpdateScrollMask(ScrollRect scroll)
+    {
+        var offset = scroll.content.anchoredPosition.y;
+        var end = Mathf.Max(0, scroll.content.rect.height - scroll.viewport.rect.height);
+        // Fade only where more rows continue. Extending an exhausted edge keeps the
+        // first/last card's frame intact without painting a strip over the list.
+        scroll.viewport.GetComponent<RectMask2D>().padding = new Vector4(
+            0,
+            offset >= end - .5f ? -ListEdgeSoftness : 0,
+            0,
+            offset <= .5f ? -ListEdgeSoftness : 0
+        );
+    }
+
     private PageList CreatePageList(string name, HistoryRect bounds, float rowHeight)
     {
         var viewport = CreateRect(name, _layout!, bounds);
-        viewport.gameObject.AddComponent<RectMask2D>();
         viewport.gameObject.AddComponent<Image>().color = Color.clear;
         var scroll = viewport.gameObject.AddComponent<ScrollRect>();
         scroll.viewport = viewport;
@@ -318,6 +345,7 @@ internal sealed partial class HistoryPanelView
         content.anchorMax = Vector2.one;
         content.pivot = new Vector2(.5f, 1);
         scroll.content = content;
+        AddScrollMask(scroll);
         var list = new PageList { Scroll = scroll, Height = rowHeight };
         for (var i = 0; i < list.Rows.Length; i++)
         {
@@ -336,7 +364,8 @@ internal sealed partial class HistoryPanelView
                     else
                         _selectBattle(index);
                 },
-                size: 14
+                size: 14,
+                style: ButtonStyle.Record
             );
             var rect = (RectTransform)button.transform;
             rect.anchorMin = new Vector2(0, 1);
@@ -357,6 +386,7 @@ internal sealed partial class HistoryPanelView
             var badge = Badge(rect, "Outcome", .82f, .71f, .14f, .25f);
             var rank = Badge(rect, "Rank", .80f, .05f, .18f, .45f);
             var unknownResult = Text(badge.transform, "?", 0, 0, 1, 1, 14, Muted, true);
+            var outcomeLabel = Text(rect, "", .845f, .69f, .135f, .29f, 14, Ink, true);
             var unknownRank = Text(rank.transform, "?", 0, 0, 1, 1, 14, Muted, true);
             var rating = Text(rect, "", .77f, .49f, .22f, .18f, 10, Ink, true);
             // Identity leads; mode, duration and timestamp stay in the text column.
@@ -374,6 +404,7 @@ internal sealed partial class HistoryPanelView
                 RankBadge = rank,
                 Rating = rating,
                 UnknownResult = unknownResult,
+                OutcomeLabel = outcomeLabel,
                 UnknownRank = unknownRank,
                 Label = label,
                 Run = run,
@@ -393,7 +424,6 @@ internal sealed partial class HistoryPanelView
             HistoryPanelLayout.TimelineWidth,
             HistoryPanelLayout.TimelineHeight
         );
-        viewport.gameObject.AddComponent<RectMask2D>();
         viewport.gameObject.AddComponent<Image>().color = Color.clear;
         var scroll = viewport.gameObject.AddComponent<ScrollRect>();
         scroll.viewport = viewport;
@@ -407,11 +437,22 @@ internal sealed partial class HistoryPanelView
         content.anchorMax = Vector2.one;
         content.pivot = new Vector2(.5f, 1);
         scroll.content = content;
+        AddScrollMask(scroll);
         var strip = new DayStrip { Scroll = scroll };
         for (var i = 0; i < strip.Chips.Length; i++)
         {
             var slot = i;
-            var button = Button(content, "", 0, 0, 1, 1, () => _selectBattle(slot), size: 11);
+            var button = Button(
+                content,
+                "",
+                0,
+                0,
+                1,
+                1,
+                () => _selectBattle(slot),
+                size: 11,
+                style: ButtonStyle.Record
+            );
             var rect = (RectTransform)button.transform;
             rect.anchorMin = new Vector2(0, 1);
             rect.anchorMax = Vector2.one;
@@ -420,24 +461,25 @@ internal sealed partial class HistoryPanelView
             rect.anchoredPosition = new Vector2(0, -i * HistoryPanelLayout.DayChipHeight);
             // The button's own label is unused; each field has its own slot.
             ButtonLabel(button).gameObject.SetActive(false);
-            var portrait = CreateRect("OpponentHero", rect, .06f, .10f, .28f, .49f)
+            var portrait = CreateRect("OpponentHero", rect, .055f, .48f, .19f, .40f)
                 .gameObject.AddComponent<Image>();
             portrait.raycastTarget = false;
             portrait.preserveAspect = true;
             portrait.color = Color.clear;
-            var day = Wrapped(Text(rect, "", .35f, .18f, .30f, .28f, 11, Ink, true));
-            var rank = Badge(rect, "OpponentRank", .70f, .08f, .24f, .36f);
-            var unknown = Text(rank.transform, "?", 0, 0, 1, 1, 11, Muted, true);
-            var rating = Wrapped(Text(rect, "", .66f, .41f, .32f, .24f, 10, Ink, true));
+            // The result and day share the first baseline; identity occupies the second.
+            var outcome = Text(rect, "", .08f, .08f, .50f, .35f, 15, Ink);
+            // The native font's line box is taller than its visible glyphs. Keep the
+            // compact row without TMP's vertical ellipsis suppressing the result.
+            outcome.overflowMode = TextOverflowModes.Overflow;
+            var day = Wrapped(Text(rect, "", .64f, .08f, .28f, .35f, 10, Muted));
+            day.alignment = TextAlignmentOptions.MidlineRight;
+            var rank = Badge(rect, "OpponentRank", .77f, .46f, .175f, .36f);
+            var unknown = Text(rank.transform, "?", 0, 0, 1, 1, 9, Muted, true);
+            var rating = Wrapped(Text(rect, "", .72f, .80f, .26f, .16f, 8, Ink, true));
             // TMP's vertical ellipsis path clears the entire number when the native
             // font's line metrics exceed the slot, even if every digit fits horizontally.
             rating.overflowMode = TextOverflowModes.Overflow;
-            var name = Wrapped(Text(rect, "", .08f, .66f, .84f, .20f, 10, Ink, true));
-            var outcome = CreateRect("Outcome", rect, .08f, .90f, .84f, 0)
-                .gameObject.AddComponent<Image>();
-            outcome.rectTransform.sizeDelta = new Vector2(0, HistoryPanelLayout.DayChipOutcomeBar);
-            outcome.raycastTarget = false;
-            outcome.color = Color.clear;
+            var name = Wrapped(Text(rect, "", .285f, .51f, .43f, .34f, 9, Ink));
             strip.Chips[i] = new DayChip
             {
                 Button = button,
@@ -476,16 +518,13 @@ internal sealed partial class HistoryPanelView
             );
             Anchor(
                 chip.Rank.rectTransform,
-                HistoryPanelLayout.Anchors(.70f, hasRating ? .08f : .185f, .24f, .36f)
+                HistoryPanelLayout.Anchors(.77f, hasRating ? .46f : .52f, .175f, .36f)
             );
             chip.Day.text = HistoryPanelText.DayBadge(battle.Day);
             chip.Name.text = string.IsNullOrWhiteSpace(battle.OpponentName)
                 ? HistoryPanelText.UnknownOpponent()
                 : battle.OpponentName;
-            chip.Outcome.color =
-                HistoryPanelFormatter.IsBattleWin(battle) ? InGameTheme.Success
-                : HistoryPanelFormatter.IsBattleLoss(battle) ? InGameTheme.Failure
-                : Color.clear;
+            BindBattleResult(chip.Outcome, battle);
             var hero = battle.OpponentHero;
             if (chip.Hero != hero)
             {
@@ -517,6 +556,7 @@ internal sealed partial class HistoryPanelView
             strip.Scroll.StopMovement();
             strip.Scroll.content.anchoredPosition = new Vector2(position.x, offset);
         }
+        UpdateScrollMask(strip.Scroll);
     }
 
     // MEMORY gotcha: NoWrap + Ellipsis at a scaled font can hit TMP's m_characterCount == 0
@@ -543,6 +583,7 @@ internal sealed partial class HistoryPanelView
             rect.anchoredPosition = new Vector2(0, -i * _archiveList.Height);
             row.Run.SetActive(runs);
             row.Label.gameObject.SetActive(!runs);
+            row.OutcomeLabel.gameObject.SetActive(!runs);
             Anchor(
                 row.Portrait.rectTransform,
                 runs
@@ -553,7 +594,7 @@ internal sealed partial class HistoryPanelView
                 (RectTransform)row.Badge.transform,
                 runs
                     ? HistoryPanelLayout.Anchors(.84f, .25f, .13f, .48f)
-                    : HistoryPanelLayout.Anchors(.82f, .71f, .14f, .25f)
+                    : HistoryPanelLayout.Anchors(.775f, .73f, .065f, .21f)
             );
             Anchor(
                 row.Rating.rectTransform,
@@ -609,7 +650,7 @@ internal sealed partial class HistoryPanelView
             }
             row.Badge.sprite = badge(i);
             row.Badge.color = row.Badge.sprite != null ? Color.white : Color.clear;
-            row.UnknownResult.gameObject.SetActive(row.Badge.sprite == null);
+            row.UnknownResult.gameObject.SetActive(runFields != null && row.Badge.sprite == null);
             var hasRating = BindRank(
                 row.RankBadge,
                 row.Rating,
@@ -654,6 +695,7 @@ internal sealed partial class HistoryPanelView
             )
         );
         list.ResetScroll = false;
+        UpdateScrollMask(list.Scroll);
     }
 
     private List<string> ArchiveIds<T>(IReadOnlyList<T> rows, Func<T, string> id)
@@ -667,10 +709,10 @@ internal sealed partial class HistoryPanelView
     private Sprite? RunBadge(HistoryRunRecord run) =>
         HistoryPanelFormatter.GetRunOutcomeTier(run) switch
         {
-            RunOutcomeTier.Bronze => _skin?[4],
-            RunOutcomeTier.Silver => _skin?[5],
-            RunOutcomeTier.Gold => _skin?[6],
-            RunOutcomeTier.Diamond => _skin?[7],
+            RunOutcomeTier.Bronze => _skin?[1],
+            RunOutcomeTier.Silver => _skin?[2],
+            RunOutcomeTier.Gold => _skin?[3],
+            RunOutcomeTier.Diamond => _skin?[4],
             _ => _stateBadges.Length == 0
                 ? null
                 : _stateBadges[
@@ -733,11 +775,40 @@ internal sealed partial class HistoryPanelView
         );
         _heroFilters.SetActive(runs);
         _ghostFilters.SetActive(ghost);
+        Anchor(
+            (RectTransform)_ghostFilters.transform,
+            HistoryPanelLayout.Anchors(.033f, .175f, .204f, .09f)
+        );
+        var archiveTop =
+            ghost ? .275f
+            : runs ? HistoryPanelLayout.ArchiveList.Y
+            : .175f;
+        Anchor(
+            _archiveList.Scroll.GetComponent<RectTransform>(),
+            HistoryPanelLayout.Anchors(
+                HistoryPanelLayout.ArchiveContentLeft,
+                archiveTop,
+                HistoryPanelLayout.ArchiveContentWidth,
+                HistoryPanelLayout.ListBottom - archiveTop
+            )
+        );
+        SetButton(
+            _heroFilterButton,
+            (
+                string.IsNullOrEmpty(m.SelectedRunHero)
+                    ? T("All heroes", "全部英雄")
+                    : HistoryPanelHeroNames.DisplayName(m.SelectedRunHero)
+            )
+        );
         foreach (var pair in _heroes)
             SetButton(
                 pair.Value,
-                HistoryPanelHeroNames.DisplayName(pair.Key),
-                HistoryPanelHeroPresentation.IsSelected(m.SelectedRunHero, pair.Key)
+                string.IsNullOrEmpty(pair.Key)
+                    ? T("All heroes", "全部英雄")
+                    : HistoryPanelHeroNames.DisplayName(pair.Key),
+                string.IsNullOrEmpty(pair.Key)
+                    ? string.IsNullOrEmpty(m.SelectedRunHero)
+                    : HistoryPanelHeroPresentation.IsSelected(m.SelectedRunHero, pair.Key)
             );
         foreach (var pair in _outcomes)
             SetButton(
@@ -748,22 +819,31 @@ internal sealed partial class HistoryPanelView
                 pair.Key == m.GhostBattleFilter
             );
         SetButton(_dayFilter, HistoryPanelText.FilterDayMin10(), m.GhostDayMin10);
-        _dayStrip.Scroll.gameObject.SetActive(runs);
-        _opponentPreview!.gameObject.SetActive(both);
-        _opponentTitle.gameObject.SetActive(both);
-        _opponentOwner.text = HistoryPanelText.BoardOpponent();
+        var hasRows = runs ? m.Runs.Count > 0 : m.VisibleBattles.Count > 0;
+        var hasBattle = hasRows && m.VisibleBattles.Count > 0;
+        _dayStrip.Scroll.gameObject.SetActive(runs && hasBattle);
+        _opponentPreview!.gameObject.SetActive(both && hasBattle && _boardsAvailable);
+        _opponentTitle.gameObject.SetActive(both && hasBattle && _boardsAvailable);
+        _playerTitle.gameObject.SetActive(hasBattle && _boardsAvailable);
+        _preview!.gameObject.SetActive(hasBattle && _boardsAvailable);
+        _opponentOwner.text = HistoryPanelText.BoardOpponentTitle();
         // Two boards show yours below the opponent's; one board is the challenger's.
-        _playerOwner.text = both ? HistoryPanelText.BoardYou() : HistoryPanelText.BoardChallenger();
-        _battleNewer.gameObject.SetActive(runs);
-        _battleOlder.gameObject.SetActive(runs);
-        _newer.interactable = m.HasNewer && !m.PageLoading;
-        _older.interactable = m.HasOlder && !m.PageLoading;
-        _latest.interactable = !m.PageLoading;
-        _battleNewer.interactable = m.BattleHasNewer;
-        _battleOlder.interactable = m.BattleHasOlder;
-        _pageLabel.text = m.PageLabel;
-        _archiveEmptyLabel.text = m.ArchiveEmptyMessage;
-        _archiveEmptyLabel.gameObject.SetActive(m.ArchiveEmptyMessage.Length > 0);
+        _playerOwner.text = both
+            ? HistoryPanelText.BoardYouTitle()
+            : HistoryPanelText.BoardChallengerTitle();
+        _battleNewer.gameObject.SetActive(runs && hasBattle);
+        _battleOlder.gameObject.SetActive(runs && hasBattle);
+        SetButtonEnabled(_newer, m.HasNewer && !m.PageLoading);
+        SetButtonEnabled(_older, m.HasOlder && !m.PageLoading);
+        SetButtonEnabled(_latest, !m.PageLoading);
+        SetButtonEnabled(_battleNewer, m.BattleHasNewer);
+        SetButtonEnabled(_battleOlder, m.BattleHasOlder);
+        _newer.gameObject.SetActive(hasRows);
+        _older.gameObject.SetActive(hasRows);
+        _latest.gameObject.SetActive(hasRows);
+        _pageLabel.gameObject.SetActive(hasRows);
+        _pageLabel.text = m.PageLabel.Split('\n')[0];
+        UpdateEmptyDetail();
         if (runs)
             BindRows(
                 _archiveList,
@@ -782,6 +862,7 @@ internal sealed partial class HistoryPanelView
                     )
             );
         else
+        {
             BindRows(
                 _archiveList,
                 ArchiveIds(m.VisibleBattles, b => b.BattleId),
@@ -796,12 +877,36 @@ internal sealed partial class HistoryPanelView
                 _ => null,
                 m.SelectedBattleIndex
             );
+            for (var i = 0; i < m.VisibleBattles.Count; i++)
+                BindBattleResult(_archiveList.Rows[i].OutcomeLabel, m.VisibleBattles[i]);
+        }
         if (runs)
             BindDayStrip(m.VisibleBattles, m.SelectedBattleIndex);
         _statusLabel.text = m.StatusMessage ?? "";
         _statusLabel.color = StatusColor(m.StatusSeverity);
-        _supporterAttribution?.Bind(m.Supporters, HistoryPanelText.Subtitle());
+        BindSupporters(m.Supporters);
         RefreshActions();
+    }
+
+    private void UpdateEmptyDetail()
+    {
+        if (_model is not { } model || _archiveEmptyLabel == null)
+            return;
+        var runs = model.SectionMode == HistorySectionMode.Runs;
+        var noRows = runs ? model.Runs.Count == 0 : model.VisibleBattles.Count == 0;
+        var noBattles = runs && !noRows && model.VisibleBattles.Count == 0 && !model.PageLoading;
+        _archiveEmptyLabel.text =
+            noBattles ? HistoryPanelText.NoBattlesInRun()
+            : noRows
+                ? model.ArchiveEmptyMessage.Length > 0 ? model.ArchiveEmptyMessage
+                    : model.PageLoading ? HistoryPanelText.LoadingPreview()
+                    : !string.IsNullOrEmpty(model.SelectedRunHero)
+                        ? HistoryPanelText.NoRunFilterMatches()
+                    : HistoryPanelText.NoRuns()
+            : _detailMessage;
+        _archiveEmptyLabel.gameObject.SetActive(
+            (noRows || noBattles || !_boardsAvailable) && _archiveEmptyLabel.text.Length > 0
+        );
     }
 
     private static Image Badge(
@@ -825,6 +930,20 @@ internal sealed partial class HistoryPanelView
         : HistoryPanelFormatter.IsBattleWin(battle) ? _winBadge
         : HistoryPanelFormatter.IsBattleLoss(battle) ? _lossBadge
         : null;
+
+    private static void BindBattleResult(TextMeshProUGUI label, HistoryBattleRecord battle)
+    {
+        var won = HistoryPanelFormatter.IsBattleWin(battle);
+        var lost = HistoryPanelFormatter.IsBattleLoss(battle);
+        label.text =
+            won ? HistoryPanelText.BattleWon()
+            : lost ? HistoryPanelText.BattleLost()
+            : HistoryPanelText.Unknown();
+        label.color =
+            won ? InGameTheme.Success
+            : lost ? InGameTheme.Failure
+            : Muted;
+    }
 
     private bool BindRank(
         Image badge,

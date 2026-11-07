@@ -8,8 +8,8 @@ public static partial class HistoryPanelText
 {
     private static readonly LocalizedTextSet CheckServerHealthText = new(
         "Check Server",
-        "检测连通",
-        "檢測連通"
+        "检查服务器",
+        "檢查伺服器"
     );
 
     private static readonly LocalizedTextSet CheckingServerHealthText = new(
@@ -36,7 +36,11 @@ public static partial class HistoryPanelText
         "連通性檢測進行中。"
     );
 
-    private static readonly LocalizedTextSet DatabasePrefixText = new("DB", "数据库", "資料庫");
+    private static readonly LocalizedTextSet DatabasePrefixText = new(
+        "Local DB",
+        "本地数据库",
+        "本機資料庫"
+    );
 
     private static readonly LocalizedTextSet DatabaseUnavailableText = new("Unavailable", "不可用");
 

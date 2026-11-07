@@ -29,7 +29,7 @@ internal sealed partial class HistoryPanelView
 
     private void CreateFavoriteControls()
     {
-        _favoriteButton = Button(_layout!, "", .38f, .90f, .19f, .055f, OnFavoriteButton);
+        _favoriteButton = Button(_layout!, "", HistoryPanelLayout.FavoriteButton, OnFavoriteButton);
         var shade = CreateRect("HistoryFavoriteNoteDialog", _layout!, 0, 0, 1, 1);
         var canvas = shade.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true;
@@ -145,7 +145,7 @@ internal sealed partial class HistoryPanelView
             _noteInput.text.Length,
             RunLogSchema.FavoriteNoteMaxLength
         );
-        _noteSave.interactable = !_noteSaving;
+        SetButtonEnabled(_noteSave, !_noteSaving);
     }
 
     private void RefreshFavoriteControls()

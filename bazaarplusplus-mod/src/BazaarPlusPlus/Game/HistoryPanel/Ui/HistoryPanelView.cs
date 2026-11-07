@@ -18,9 +18,6 @@ internal sealed partial class HistoryPanelView : IDisposable
     private static readonly string[] Addresses =
     [
         Art + "Btn_Rectangle/Btn_Rct_Frame_S_TUI.png",
-        Art + "Btn_Rectangle/Btn_Rct_Brown_S_Center_Active_TUI.png",
-        Art + "Btn_Rectangle/Btn_Rct_Blue_S_Center_Active_TUI.png",
-        Art + "Btn_MatchHistory/Btn_MatchHistory_Run_Gold_Active_TUI.png",
         "Trophy_Bronze_TUI",
         "Trophy_Silver_TUI",
         "Trophy_Gold_TUI",
@@ -52,6 +49,8 @@ internal sealed partial class HistoryPanelView : IDisposable
     private NativeGameTypography.OwnedTextPreparation? _font;
     private Task<Sprite?[]>? _skinLoad;
     private Sprite?[]? _skin;
+    private Sprite? _headerNormal;
+    private Sprite? _headerSelected;
     private Texture2D? _resultAtlas;
     private Sprite? _winBadge;
     private Sprite? _lossBadge;
@@ -59,6 +58,8 @@ internal sealed partial class HistoryPanelView : IDisposable
     private Sprite[] _stateBadges = Array.Empty<Sprite>();
     private readonly NativeRankBadgeProvider _rankBadges = new();
     private HistoryPanelViewModel? _model;
+    private bool _boardsAvailable;
+    private string _detailMessage = string.Empty;
     private bool _visible;
     private bool _disposed;
     private int _generation;
@@ -163,6 +164,7 @@ internal sealed partial class HistoryPanelView : IDisposable
             _accountInput?.DeactivateInputField();
             _moreVisible = false;
             _moreRoot?.SetActive(false);
+            _filterRoot?.SetActive(false);
             CloseNoteDialog();
         }
         else
@@ -188,11 +190,21 @@ internal sealed partial class HistoryPanelView : IDisposable
 
     public void SetPreviewStatus(string? message, bool visible)
     {
+        _detailMessage = message ?? string.Empty;
         if (_previewStatus != null)
         {
             _previewStatus.text = message ?? string.Empty;
-            _previewStatus.gameObject.SetActive(visible);
+            _previewStatus.gameObject.SetActive(visible && _boardsAvailable);
         }
+        UpdateEmptyDetail();
+    }
+
+    internal void SetBoardsAvailable(bool available)
+    {
+        if (_boardsAvailable == available)
+            return;
+        _boardsAvailable = available;
+        UpdateContent();
     }
 
     public void Tick()
@@ -264,6 +276,9 @@ internal sealed partial class HistoryPanelView : IDisposable
             return;
         _layoutFrames--;
         Canvas.ForceUpdateCanvases();
+        LayoutMoreDialog();
+        UpdateScrollMask(_archiveList.Scroll);
+        UpdateScrollMask(_dayStrip.Scroll);
         _preview.GetWorldCorners(_corners);
         var bounds = Rect.MinMaxRect(_corners[0].x, _corners[0].y, _corners[2].x, _corners[2].y);
         if (bounds.width > 1 && bounds.height > 1 && bounds != _lastBounds)
@@ -292,18 +307,42 @@ internal sealed partial class HistoryPanelView : IDisposable
         }
         foreach (var entry in _buttons)
             ApplyButtonSkin(entry.Key, entry.Value.Selected);
-        _supporterAttribution?.SetSkin(_skin?[0], _skin?[1]);
         UpdateContent();
     }
 
     private void ApplyButtonSkin(Button button, bool selected)
     {
         var image = (Image)button.targetGraphic;
-        image.sprite = _skin?[selected ? 2 : 1];
+        var binding = _buttons[button];
+        var groupedOption = !selected && binding.Style == ButtonStyle.GroupedOption;
+        var restingRecord = !selected && binding.Style == ButtonStyle.Record;
+        image.sprite =
+            selected || binding.Style == ButtonStyle.Primary ? _headerSelected : _headerNormal;
+        image.fillCenter = true;
+        image.pixelsPerUnitMultiplier =
+            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
         image.color =
             image.sprite != null ? Color.white
             : selected ? InGameTheme.ButtonSelected
             : InGameTheme.Button;
+        var colors = button.colors;
+        colors.normalColor =
+            groupedOption ? Color.clear
+            : restingRecord ? new Color(.8f, .76f, .68f, .7f)
+            : Color.white;
+        colors.highlightedColor =
+            groupedOption ? new Color(1f, 1f, 1f, .45f)
+            : restingRecord ? new Color(.98f, .95f, .88f, .95f)
+            : new Color(1.12f, 1.12f, 1.12f, 1f);
+        colors.pressedColor = new Color(.7f, .7f, .7f, 1f);
+        colors.selectedColor = colors.normalColor;
+        colors.disabledColor = groupedOption ? Color.clear : new Color(.65f, .65f, .65f, .55f);
+        button.colors = colors;
+        binding.Text.color =
+            !button.interactable ? Muted
+            : binding.Style == ButtonStyle.Danger ? InGameTheme.Failure
+            : groupedOption || restingRecord ? InGameTheme.InkSoft
+            : Ink;
     }
 
     // Every refresh rebinds every button, so an unchanged one is left alone: no label write, no
@@ -320,19 +359,43 @@ internal sealed partial class HistoryPanelView : IDisposable
         _buttons[button] = binding with { Label = label, Selected = selected, Enabled = enabled };
     }
 
+    private void SetButtonEnabled(Button button, bool enabled)
+    {
+        var binding = _buttons[button];
+        SetButton(button, binding.Label ?? binding.Text.text, binding.Selected, enabled);
+    }
+
     // A button's own label, found once at construction, and what SetButton last bound. Label
     // starts null so the first SetButton always binds.
     private readonly record struct ButtonBinding(
         TextMeshProUGUI Text,
         string? Label,
         bool Selected,
-        bool Enabled
+        bool Enabled,
+        ButtonStyle Style
     );
+
+    private enum ButtonStyle
+    {
+        Standard,
+        Primary,
+        Danger,
+        GroupedOption,
+        Record,
+    }
 
     private TextMeshProUGUI ButtonLabel(Button button) => _buttons[button].Text;
 
     private void LoadResultBadges()
     {
+        if (_headerNormal == null)
+            _headerNormal = LoadBadgeAtlas(HistoryHeaderArtwork.Normal, 1, sliced: true).Sprites[0];
+        if (_headerSelected == null)
+            _headerSelected = LoadBadgeAtlas(
+                HistoryHeaderArtwork.Selected,
+                1,
+                sliced: true
+            ).Sprites[0];
         if (_resultAtlas == null)
         {
             var result = LoadBadgeAtlas("battle-result-badges.png", 2);
@@ -348,7 +411,11 @@ internal sealed partial class HistoryPanelView : IDisposable
         }
     }
 
-    private static (Texture2D Texture, Sprite[] Sprites) LoadBadgeAtlas(string name, int count)
+    private static (Texture2D Texture, Sprite[] Sprites) LoadBadgeAtlas(
+        string name,
+        int count,
+        bool sliced = false
+    )
     {
         using var stream = typeof(HistoryPanelView).Assembly.GetManifestResourceStream(
             $"BazaarPlusPlus.Resources.HistoryPanel.{name}"
@@ -372,13 +439,30 @@ internal sealed partial class HistoryPanelView : IDisposable
         var sprites = Enumerable
             .Range(0, count)
             .Select(index =>
-                Sprite.Create(
-                    texture,
-                    new Rect(index * width, 0, width, texture.height),
-                    new Vector2(.5f, .5f)
-                )
+                sliced
+                    ? Sprite.Create(
+                        texture,
+                        new Rect(index * width, 0, width, texture.height),
+                        new Vector2(.5f, .5f),
+                        HistoryHeaderArtwork.PixelsPerUnit,
+                        0,
+                        SpriteMeshType.FullRect,
+                        Vector4.one * HistoryHeaderArtwork.BorderPixels
+                    )
+                    : Sprite.Create(
+                        texture,
+                        new Rect(index * width, 0, width, texture.height),
+                        new Vector2(.5f, .5f)
+                    )
             )
             .ToArray();
+        if (sliced)
+        {
+            texture.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            foreach (var sprite in sprites)
+                sprite.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            texture.Apply(false, true);
+        }
         return (texture, sprites);
     }
 
@@ -426,8 +510,18 @@ internal sealed partial class HistoryPanelView : IDisposable
     private void Panel(Transform parent, float x, float y, float width, float height)
     {
         var rect = CreateRect("NativePanel", parent, x, y, width, height);
-        Layer(rect, 1, InGameTheme.ArtPanelTint);
-        Layer(rect, 0, InGameTheme.ArtFrameTint);
+        Layer(rect, 0, InGameTheme.ArtFrameTint).fillCenter = false;
+    }
+
+    private void ControlSurface(Transform parent)
+    {
+        var image = CreateRect("ControlSurface", parent, 0, 0, 1, 1)
+            .gameObject.AddComponent<Image>();
+        image.sprite = _headerNormal;
+        image.type = Image.Type.Sliced;
+        image.pixelsPerUnitMultiplier =
+            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
+        image.raycastTarget = false;
     }
 
     private Button Button(
@@ -439,21 +533,22 @@ internal sealed partial class HistoryPanelView : IDisposable
         float height,
         Action click,
         bool selected = false,
-        int size = 17
+        int size = 17,
+        ButtonStyle style = ButtonStyle.Standard
     )
     {
         var rect = CreateRect("HistoryAction", parent, x, y, width, height);
         var image = rect.gameObject.AddComponent<Image>();
-        image.sprite = _skin?[selected ? 2 : 1];
         image.type = Image.Type.Sliced;
         image.pixelsPerUnitMultiplier = 2.5f;
         image.color = image.sprite == null ? InGameTheme.ArtFallback : Color.white;
-        Layer(rect, 0, selected ? Ink : InGameTheme.ArtButtonTint);
+
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = image;
         button.onClick.AddListener(() => click());
         var text = Text(rect, label, .04f, .06f, .92f, .88f, size, Ink, true);
-        _buttons[button] = new ButtonBinding(text, null, selected, true);
+        _buttons[button] = new ButtonBinding(text, null, selected, true, style);
+        ApplyButtonSkin(button, selected);
         return button;
     }
 
@@ -463,8 +558,21 @@ internal sealed partial class HistoryPanelView : IDisposable
         HistoryRect rect,
         Action click,
         bool selected = false,
-        int size = 17
-    ) => Button(parent, label, rect.X, rect.Y, rect.Width, rect.Height, click, selected, size);
+        int size = 17,
+        ButtonStyle style = ButtonStyle.Standard
+    ) =>
+        Button(
+            parent,
+            label,
+            rect.X,
+            rect.Y,
+            rect.Width,
+            rect.Height,
+            click,
+            selected,
+            size,
+            style
+        );
 
     private TextMeshProUGUI Text(
         Transform parent,
@@ -523,6 +631,13 @@ internal sealed partial class HistoryPanelView : IDisposable
         _stateBadges = Array.Empty<Sprite>();
         _winBadge = _lossBadge = null;
         _resultAtlas = null;
+        foreach (var sprite in new[] { _headerNormal, _headerSelected })
+            if (sprite != null)
+            {
+                UnityEngine.Object.Destroy(sprite.texture);
+                UnityEngine.Object.Destroy(sprite);
+            }
+        _headerNormal = _headerSelected = null;
         // Sprites and font assets belong to the shared native loaders.
     }
 }

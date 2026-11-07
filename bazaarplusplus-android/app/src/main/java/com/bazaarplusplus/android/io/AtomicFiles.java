@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 /** Small file operations the App's records share: whole-file reads and temp-file-then-rename writes. */
 public final class AtomicFiles {
@@ -16,7 +17,7 @@ public final class AtomicFiles {
         File tmp = new File(target.getPath() + ".tmp");
         try {
             Files.write(tmp.toPath(), bytes);
-            if (!tmp.renameTo(target)) throw new IOException("Cannot replace " + target);
+            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } finally {
             if (tmp.exists()) tmp.delete();
         }

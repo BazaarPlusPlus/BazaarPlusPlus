@@ -141,9 +141,9 @@ void TestCanDeleteRunDecisionArms()
 
 void TestDatabaseChipTextAndSeverity()
 {
-    AssertChip(false, false, "DB Unavailable", "Failure");
-    AssertChip(true, false, "DB Missing", "Neutral");
-    AssertChip(true, true, "DB Connected", "Success");
+    AssertChip(false, false, "Local DB Unavailable", "Failure");
+    AssertChip(true, false, "Local DB Missing", "Neutral");
+    AssertChip(true, true, "Local DB Connected", "Success");
 }
 
 void TestAccountLinkAvailabilityGate()

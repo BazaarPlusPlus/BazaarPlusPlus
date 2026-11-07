@@ -5,6 +5,7 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.Supporters;
@@ -42,6 +43,7 @@ internal sealed class TouchHistoryPanel : IDisposable
     private const string ReplayStarted = "replay_started";
 
     private readonly HistoryPanelState _state = new();
+    private readonly HistoryTouchNavigation _navigation = new();
     private readonly HistoryPanelCoordinator _coordinator;
     private readonly HistoryPanelDependencies _dependencies;
     private readonly IRunContext _runContext;
@@ -110,7 +112,7 @@ internal sealed class TouchHistoryPanel : IDisposable
     public bool IsVisible { get; private set; }
 
     /// <summary>An open dialog, inspection or skills layer takes the back key before the panel.</summary>
-    public bool HasModalBackStep => _overlays?.AnyOpen == true;
+    public bool HasModalBackStep => _overlays?.AnyOpen == true || View?.HasDetailBackStep == true;
 
     /// <summary>Panel sessions opened and not yet closed: 0 or 1, for the hooks summary.</summary>
     public long OpenSessions => IsVisible ? 1 : 0;
@@ -134,7 +136,13 @@ internal sealed class TouchHistoryPanel : IDisposable
         ];
 
     /// <summary>The back key closes the top-most open dialog or layer.</summary>
-    public void DismissModalBackStep() => _overlays?.DismissTop("back_key");
+    public void DismissModalBackStep()
+    {
+        if (_overlays?.AnyOpen == true)
+            _overlays.DismissTop("back_key");
+        else
+            View?.BackToArchive();
+    }
 
     /// <summary>A new locale: an open panel renders its text again.</summary>
     public void RefreshLocalization()
@@ -363,9 +371,13 @@ internal sealed class TouchHistoryPanel : IDisposable
                 OpenMore,
                 _uiRefresh.Guard(Delete),
                 _uiRefresh.Guard(Favorite),
-                _uiRefresh.Guard(OpenSkills)
+                _uiRefresh.Guard(OpenSkills),
+                _uiRefresh.Guard<string>(_coordinator.SetRunHeroFilter),
+                _uiRefresh.Guard<GhostBattleFilter>(_coordinator.SetGhostBattleFilter),
+                _uiRefresh.Guard(_coordinator.ToggleGhostDayMin10)
             ),
-            _supporters
+            _supporters,
+            _navigation
         );
         TouchHistoryNoteDialog? note = null;
         try
@@ -404,7 +416,7 @@ internal sealed class TouchHistoryPanel : IDisposable
             _more = more;
             _note = note;
             _overlays = new TouchHistoryOverlays(
-                [note, more],
+                [note, more, view.FilterOverlay],
                 [new NativeSkillsLayer(_nativeSkills), inspection, skills]
             );
         }
