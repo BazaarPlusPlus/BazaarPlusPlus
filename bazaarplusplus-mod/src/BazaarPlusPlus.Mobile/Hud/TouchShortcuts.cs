@@ -71,12 +71,15 @@ internal sealed class TouchShortcuts : IDisposable
             _anchorCanvas = _anchorRect?.GetComponentInParent<Canvas>()?.rootCanvas;
             _laidOutAnchor = null;
         }
-        var visible =
-            !panelOpen
-            && !playing
-            && _anchor != null
-            && _anchor.gameObject.activeInHierarchy
-            && !port.NativeHudBusy();
+        var anchorAvailable = _anchor != null && _anchor.gameObject.activeInHierarchy;
+        var visible = HudVisibility.TouchShortcuts(default, panelOpen, playing, anchorAvailable);
+        if (visible)
+            visible = HudVisibility.TouchShortcuts(
+                port.ReadNativeHud(),
+                panelOpen,
+                playing,
+                anchorAvailable
+            );
         SetActive(_shortcuts?.gameObject, visible);
         if (!visible)
             return;

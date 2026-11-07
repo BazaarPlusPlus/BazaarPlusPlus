@@ -24,7 +24,7 @@ internal static class PackageMerchantSummaryPatch
         try
         {
             if (
-                AndroidPatchHost.EncounterPreview?.RenderPackageMerchant(
+                AndroidPatchHost.Features?.EncounterPreview?.RenderPackageMerchant(
                     __instance.CurrentCard,
                     text
                 ) is

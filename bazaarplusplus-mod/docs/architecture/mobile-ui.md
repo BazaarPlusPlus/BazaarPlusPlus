@@ -26,7 +26,7 @@ What names a game type or is the port itself stays in the host, as a thin adapte
 |---|---|
 | The port | `Host/AndroidMobilePlatform` |
 | Overlay Panel Host adapter | `Host/AndroidOverlayPanels` |
-| Entries and composition | `Host/AndroidTouchUi` (HUD, Collection, Ten-Win Builds, History's menu entries), `Host/AndroidMod` (History) |
+| Entries and composition | `Host/AndroidTouchUi` (HUD, Collection, Ten-Win Builds, History's menu entries), `Host/AndroidHostRuntime` (History) |
 | Control actions (`RunUiAction`) | `Host/AndroidUiActions` |
 | The game font | `GameInterop/AndroidGameFont` |
 | Card text and previews | `GameInterop/AndroidCardTemplateText` |
@@ -41,7 +41,7 @@ What names a game type or is the port itself stays in the host, as a thin adapte
 
 The Mobile UI has no frame driver of its own: the host ticks it through Core's Overlay Panel Host ([panels.md](panels.md), ADR-0022), which the host feeds a frame and its scene. Each panel registers through the port's overlay registration (`MobilePanelHandle`) under one id, `live_build`, `collection` or `history`, with no toggle hotkey: a touch screen has no keyboard. The host keeps one panel open, closes it for combat, a scene change by its policy and the back key, and ticks it every frame. History is built when the host starts, since its coordinator returns from a replay while it is closed; Collection and Ten-Win Builds build their views on the first open.
 
-The HUD (`Hud/TouchHud`) is no panel, but it registers the same way under the id `hud` with a registration that never opens, so the host ticks it every frame and tells it of a scene change; `overlay_panels.*` log lines can name `panel_id=hud`. Nothing may call `RequestOpen` on it: the host would close the open panel as superseded and then fail the HUD's open. Each tick runs Screen Fill and the preview switches first, each catching its own failure, then the shortcuts and the combat clock. On a scene change the clock drops its plaque and the switches clear.
+The HUD (`Hud/TouchHud`) is no panel, but it registers the same way under the id `hud` with a registration that never opens, so the host ticks it every frame and tells it of a scene change; `overlay_panels.*` log lines can name `panel_id=hud`. Nothing may call `RequestOpen` on it: the host would close the open panel as superseded and then fail the HUD's open. Each tick runs Screen Fill and the preview switches first, each catching its own failure, then the shortcuts and the combat clock. Core's `Ui/HudVisibility` owns their display rules and the desktop dock's rules; `IMobilePlatformPort.ReadNativeHud` supplies separate popup, inspection, end-of-run and scene-change facts. Shortcut anchor discovery, clock pause release and hidden build-ahead remain with their views. On a scene change the clock drops its plaque and the switches clear.
 
 ## Screen Fill and Native Adjustments
 
@@ -95,7 +95,7 @@ Use `just mod::android-check` for the serial build/test gate. The build and test
 
 ## Gotchas
 
-- An active settings button is not a visible one. A run's start loads `GameScene` together with `GameplayLoading`, so the run's gear is active under the cityscape loading screen until that screen fades out, while the HUD's canvas (`UiKit.SortingOrder`, above every game canvas) draws over it. A screen the game puts over its HUD hides the shortcuts through `NativeHudBusy`, not through canvas order.
+- An active settings button is not a visible one. A run's start loads `GameScene` together with `GameplayLoading`, so the run's gear is active under the cityscape loading screen until that screen fades out, while the HUD's canvas (`UiKit.SortingOrder`, above every game canvas) draws over it. `HudVisibility` hides the shortcuts from the scene-change fact returned by `ReadNativeHud`.
 - The overlay canvas scales with height, so a 16:10 tablet has fewer canvas units across than a 20:9 phone of the same height: a layout that fits the phone by canvas units can overflow the tablet. Lay out in dp from `TouchMetrics`, and test both ratios.
 - A rented card carries its own `Canvas`, so a `RectMask2D` does not clip it: a scrolled card list draws first and opaque bands above and below it hide the cards past its edges, and the inspect sheet is opaque under its info column.
 - `RectTransform.rect` of a stretched child is valid as soon as its parent has a size, so a flow that measures wrapped text (`ChipFlow.Note`) needs its parent placed first.

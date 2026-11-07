@@ -17,6 +17,6 @@ internal static class UpdateRequiredPatch
     private static void Postfix(bool __result)
     {
         if (__result && AndroidPatchHost.Mode == AndroidPatchMode.Enabled)
-            AndroidPatchHost.UpdatePrompt?.GameRequiresUpdate();
+            AndroidPatchHost.Features?.UpdatePrompt?.GameRequiresUpdate();
     }
 }

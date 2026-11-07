@@ -22,7 +22,7 @@ internal static class EncounterPreviewPatch
         {
             var content =
                 Encounter(__instance, text)
-                ?? AndroidPatchHost.AggregateItemPreview?.Render(__instance.CurrentCard);
+                ?? AndroidPatchHost.Features?.AggregateItemPreview?.Render(__instance.CurrentCard);
             if (!string.IsNullOrWhiteSpace(content))
                 text += "\n<size=75%>" + content + "</size>";
         }
@@ -36,7 +36,7 @@ internal static class EncounterPreviewPatch
     {
         var card = controller.CurrentCard;
         if (
-            AndroidPatchHost.EncounterPreview is not { } preview
+            AndroidPatchHost.Features?.EncounterPreview is not { } preview
             || card == null
             || !Guid.TryParse(card.TemplateId.ToString(), out var id)
             || !AndroidCardFacets.Type.TryToFacet(card.Type, out var type)

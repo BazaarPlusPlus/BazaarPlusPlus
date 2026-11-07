@@ -5,7 +5,7 @@ namespace BazaarPlusPlus.Android.Patches;
 
 /// <summary>
 /// Cinemachine's brain writes its lens to the output camera in <c>LateUpdate</c>; once it has,
-/// the Mobile UI's <c>TouchScreenFill.AfterCameraUpdate</c> (<see cref="AndroidPatchHost.ScreenFill"/>)
+/// the Mobile UI's <c>TouchScreenFill.AfterCameraUpdate</c>
 /// widens it for a screen narrower than 16:10.
 /// <c>PushStateToUnityCamera</c> itself is not hooked: its <c>ref CameraState</c> argument crashes
 /// the native trampoline as the Gameplay scene loads.
@@ -18,7 +18,7 @@ internal static class ScreenFillFieldOfViewPatch
     {
         try
         {
-            AndroidPatchHost.ScreenFill?.AfterCameraUpdate(__instance.OutputCamera);
+            AndroidPatchHost.Features?.ScreenFill?.AfterCameraUpdate(__instance.OutputCamera);
         }
         catch (Exception exception)
         {

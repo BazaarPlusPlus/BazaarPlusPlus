@@ -26,6 +26,7 @@
     <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutPlan.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutRasterizer.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutSelection.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitPreparationSequence.cs" />
     <Compile Include="../AsyncLoadCache.Tests/*.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionState.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayout.cs" />

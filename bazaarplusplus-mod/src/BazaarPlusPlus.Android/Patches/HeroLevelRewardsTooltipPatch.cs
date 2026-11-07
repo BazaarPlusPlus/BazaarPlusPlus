@@ -36,7 +36,7 @@ internal static class HeroLevelRewardsTooltipPatch
     {
         try
         {
-            var preview = AndroidPatchHost.EncounterPreview?.Module;
+            var preview = AndroidPatchHost.Features?.EncounterPreview?.Module;
             if (preview?.Enabled != true)
                 return;
 

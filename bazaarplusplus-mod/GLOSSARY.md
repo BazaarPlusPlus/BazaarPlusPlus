@@ -155,6 +155,9 @@ _Avoid_: per-feed upload controller
 
 ## Cards
 
+**Effective Card Tags**:
+The union of a card's runtime, template and active-enchantment public and hidden tags; repeated tags count once per card.
+
 **Card Facet**:
 A Core enum for one card or combat property (`CardSize`, `CardSocket`), named member for member after the game enum it replaces (ADR-0015, ADR-0019).
 _Avoid_: game enums in Core

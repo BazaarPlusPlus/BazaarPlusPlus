@@ -20,7 +20,7 @@ Every displayed number carries dimension, basis, coverage, and provenance in the
 
 ## Producer boundary
 
-Attribution follows the native ability graph, never card identity. [`CombatImpactAttributionRuleReader`](../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/CombatImpactAttributionRuleReader.cs) reads structural rules, [`CombatImpactProjector`](../../src/BazaarPlusPlus.Core/Game/PostCombatImpact/Data/CombatImpactProjector.cs) reconciles explicit executions with native metrics, and [`CombatImpactEntityTags`](../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/CombatImpactEntityTags.cs) merges runtime, template, and enchantment tags needed after replay rehydration. Metrics stay attached to the instance that produced them.
+Attribution follows the native ability graph, never card identity. [`CombatImpactAttributionRuleReader`](../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/CombatImpactAttributionRuleReader.cs) reads structural rules, [`CombatImpactProjector`](../../src/BazaarPlusPlus.Core/Game/PostCombatImpact/Data/CombatImpactProjector.cs) reconciles explicit executions with native metrics, and Core's [`EffectiveCardTags`](../../src/BazaarPlusPlus.Core/Cards/EffectiveCardTags.cs) merges runtime, template, and active-enchantment tags needed after replay rehydration, supplied by `GameInterop/Cards/DesktopEffectiveCardTags.Read`. Metrics stay attached to the instance that produced them.
 
 The ledger, its aggregation, and its tooltip copy are host-free and live in Core (ADR-0012). The ledger knows an entity only as `CombatImpactLedgerEntity` (identity, name, kind, order); the producer reads the facts attribution needs from `CombatImpactEntity`, and the native preview reads them back only from the entities it produced.
 

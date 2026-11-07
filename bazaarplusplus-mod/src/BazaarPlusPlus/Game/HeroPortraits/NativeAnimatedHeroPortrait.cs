@@ -1,7 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
-using SkinEdit;
 using Spine.Unity;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -56,60 +55,29 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         _sortingGroup = _root.AddComponent<SortingGroup>();
     }
 
-    internal static async Task<NativeAnimatedHeroPortrait?> CreateAsync(
+    internal static NativeAnimatedHeroPortrait Create(
         SpriteRenderer portrait,
         NativeHeroPortraitSkin skin,
-        GameObject prefab,
-        NativePortraitComposition compositions,
-        PortraitBreakoutPreparation breakouts,
-        CancellationToken cancellation,
+        PortraitPreparation.Prepared prepared,
         bool? originalForceOff = null,
-        Func<bool>? keepStaticHidden = null,
-        Action? cacheMiss = null
+        Func<bool>? keepStaticHidden = null
     )
     {
-        var sprite = portrait.sprite;
-        var source = FindSource(prefab);
-        var animationName = skin.IdleAnimation;
-        PortraitCapturedImages? images = null;
-        var composition = await compositions.MatchAsync(
-            sprite,
-            source,
-            skin,
-            animationName,
-            cancellation,
-            cacheMiss,
-            captured => images = captured
-        );
-        cancellation.ThrowIfCancellationRequested();
-        if (portrait == null || portrait.sprite != sprite || prefab == null)
-            throw new OperationCanceledException();
-        if (composition == null)
-            return null;
-        var opening = NativePortraitFrameMask.ReadOpening(portrait);
-        var frame = NativePortraitFrameMask.Normalize(opening, sprite);
-        var plan = await breakouts.PrepareAsync(
-            sprite,
-            source,
-            animationName,
-            composition,
-            frame,
-            images,
-            cacheMiss,
-            cancellation
-        );
-        cancellation.ThrowIfCancellationRequested();
-        if (portrait == null || portrait.sprite != sprite || prefab == null)
-            throw new OperationCanceledException();
         var view = new NativeAnimatedHeroPortrait(
             portrait,
-            composition,
+            prepared.Composition,
             originalForceOff,
             keepStaticHidden?.Invoke() == true
         );
         try
         {
-            view.Build(skin, source, composition, opening, plan);
+            view.Build(
+                skin,
+                prepared.Source,
+                prepared.Composition,
+                prepared.Opening,
+                prepared.Breakout
+            );
             return view;
         }
         catch
@@ -117,19 +85,6 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
             view.Dispose();
             throw;
         }
-    }
-
-    private static SkeletonAnimation FindSource(GameObject prefab)
-    {
-        var placement = prefab.transform.Find(ESkinPlacement.CollectionsScreen.ToString());
-        if (placement == null && prefab.GetComponent<SkinEditComponent>() != null)
-            throw new InvalidOperationException("The skin has no CollectionsScreen placement.");
-        var source = (placement ?? prefab.transform).GetComponentInChildren<SkeletonAnimation>(
-            true
-        );
-        if (source == null)
-            throw new InvalidOperationException("The skin has no character SkeletonAnimation.");
-        return source;
     }
 
     private void Build(

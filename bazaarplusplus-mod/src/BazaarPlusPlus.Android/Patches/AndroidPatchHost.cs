@@ -32,25 +32,11 @@ internal static class AndroidPatchHost
     private static long _runInitializedHits;
     private static int _probeErrors;
 
-    /// <summary>The item tooltip the preview switches read; the render patch hands it each tooltip.</summary>
-    public static AndroidTooltipPreviewHost? TooltipPreviewHost { get; set; }
+    public static AndroidInteractionFeatures? Features { get; private set; }
 
-    /// <summary>The Mobile UI's preview switches, which the hide patch asks about the pointer.</summary>
-    public static Mobile.Previews.TouchPreviewSwitches? PreviewSwitches { get; set; }
+    public static void Publish(AndroidInteractionFeatures features) => Features = features;
 
-    /// <summary>The Mobile UI's enchant preview, which the tooltip render patches drive.</summary>
-    public static Mobile.Previews.TouchEnchantPreview<Il2CppTheBazaar.Tooltips.CardTooltipData>? EnchantPreview { get; set; }
-
-    /// <summary>The Mobile UI's Screen Fill, which the camera patch drives after each camera update.</summary>
-    public static Mobile.NativeAdjustment.TouchScreenFill? ScreenFill { get; set; }
-
-    public static Game.AndroidEncounterPreview? EncounterPreview { get; set; }
-
-    public static Game.AndroidAggregateItemPreview? AggregateItemPreview { get; set; }
-
-    public static Game.AndroidQuestPreview? QuestPreview { get; set; }
-
-    public static Game.AndroidCombatStatus? CombatStatus { get; set; }
+    public static void Retire() => Features = null;
 
     public static AndroidPatchMode Mode { get; private set; } = AndroidPatchMode.Disabled;
 
@@ -58,12 +44,6 @@ internal static class AndroidPatchHost
 
     /// <summary>The record chain, or null when it failed to start; hooks then only count.</summary>
     public static AndroidComposition? Composition { get; private set; }
-
-    /// <summary>The main menu's release check, or null before the host composed it.</summary>
-    public static Lobby.AndroidVersionCheck? VersionCheck { get; set; }
-
-    /// <summary>The main menu's update popup, or null before the host composed it.</summary>
-    public static Lobby.AndroidUpdatePrompt? UpdatePrompt { get; set; }
 
     /// <summary>The Main Overlay Panels' adapter the host composed, or null before it did.</summary>
     public static AndroidOverlayPanels? OverlayPanels { get; set; }
@@ -166,8 +146,8 @@ internal static class AndroidPatchHost
             ("upgrade_values_leased", AndroidUpgradePreviewValues.Leased),
             ("upgrade_values_returned", AndroidUpgradePreviewValues.Returned),
             ("upgrade_values_projected", AndroidUpgradePreviewValues.Projected),
-            ("enchant_preview_rendered", EnchantPreview?.Rendered ?? 0),
-            ("enchant_preview_inline", EnchantPreview?.Inline ?? 0),
+            ("enchant_preview_rendered", Features?.EnchantPreview.Rendered ?? 0),
+            ("enchant_preview_inline", Features?.EnchantPreview.Inline ?? 0),
             ("pedestal_reads", AndroidChoicePedestals.Reads),
             ("pedestal_read_failures", AndroidChoicePedestals.Failures),
             .. AndroidCardRental.Summary(),

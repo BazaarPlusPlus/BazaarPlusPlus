@@ -173,7 +173,7 @@ internal interface IMobilePlatformPort
     /// or the game is changing scenes, when its loading screen covers a settings button that is
     /// still active underneath.
     /// </summary>
-    bool NativeHudBusy();
+    NativeHudState ReadNativeHud();
 
     /// <summary>Whether a fight or a replay plays and whether the recap of a fight is open.</summary>
     TouchPlayState PlayState();

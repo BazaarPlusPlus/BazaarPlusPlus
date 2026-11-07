@@ -43,40 +43,33 @@ internal sealed class AndroidEncounterPreviewReads(AndroidEncounterPreview previ
         {
             if (!seen.Add(card.Pointer) || !Guid.TryParse(card.TemplateId.ToString(), out var id))
                 return;
-            var tags = new HashSet<string>(StringComparer.Ordinal);
-            if (card.Tags != null)
-                foreach (var tag in card.Tags)
-                    tags.Add(tag.ToString());
-            if (card.HiddenTags != null)
-                foreach (var tag in card.HiddenTags)
-                    tags.Add(tag.ToString());
-            if (card.Template is { } template)
+            var template = card.Template;
+            var item = card.TryCast<ItemCard>();
+            var itemTemplate = template?.TryCast<TCardItem>();
+            var active = item == null ? null : AndroidGameIds.Unboxed(() => item.Enchantment);
+            var enchantmentTags = new HashSet<CardTag>();
+            var enchantmentHiddenTags = new HashSet<CardHiddenTag>();
+            if (
+                active is { } type
+                && itemTemplate != null
+                && itemTemplate.TryGetEnchantmentTemplate(type, out var enchantment)
+                && enchantment != null
+            )
             {
-                if (template.Tags != null)
-                    foreach (var tag in template.Tags)
-                        tags.Add(tag.ToString());
-                if (template.HiddenTags != null)
-                    foreach (var hiddenTag in template.HiddenTags)
-                        tags.Add(hiddenTag.ToString());
-                var item = card.TryCast<ItemCard>();
-                var itemTemplate = template.TryCast<TCardItem>();
-                var active = item == null ? null : AndroidGameIds.Unboxed(() => item.Enchantment);
-                if (
-                    active is { } enchantmentType
-                    && itemTemplate != null
-                    && itemTemplate.TryGetEnchantmentTemplate(enchantmentType, out var enchantment)
-                    && enchantment != null
-                )
-                {
-                    if (enchantment.Tags != null)
-                        foreach (var tag in enchantment.Tags)
-                            tags.Add(tag.ToString());
-                    if (enchantment.HiddenTags != null)
-                        foreach (var hiddenTag in enchantment.HiddenTags)
-                            tags.Add(hiddenTag.ToString());
-                }
+                enchantmentTags = AndroidCardFacets.Tag.ToFacetSet(Materialize(enchantment.Tags));
+                enchantmentHiddenTags = AndroidCardFacets.HiddenTag.ToFacetSet(
+                    Materialize(enchantment.HiddenTags)
+                );
             }
-            cards.Add(new(id, tags));
+            var effectiveTags = new EffectiveCardTags(
+                AndroidCardFacets.Tag.ToFacetSet(Materialize(card.Tags)),
+                AndroidCardFacets.Tag.ToFacetSet(Materialize(template?.Tags)),
+                enchantmentTags,
+                AndroidCardFacets.HiddenTag.ToFacetSet(Materialize(card.HiddenTags)),
+                AndroidCardFacets.HiddenTag.ToFacetSet(Materialize(template?.HiddenTags)),
+                enchantmentHiddenTags
+            );
+            cards.Add(new EncounterInventoryCard(id, effectiveTags));
         }
         foreach (var card in Data.Entities.Values)
             if (
@@ -92,6 +85,16 @@ internal sealed class AndroidEncounterPreviewReads(AndroidEncounterPreview previ
                 if (skill != null)
                     Add(skill);
         return new(cards);
+    }
+
+    private static HashSet<T> Materialize<T>(Il2CppSystem.Collections.Generic.HashSet<T>? source)
+        where T : unmanaged
+    {
+        var values = new HashSet<T>();
+        if (source != null)
+            foreach (var value in source)
+                values.Add(value);
+        return values;
     }
 
     // The desktop colors keywords in the plain lines it builds. A description the game's tooltip

@@ -170,7 +170,8 @@ internal static class CombatImpactEntitySnapshotReader
         var item = card as ItemCard;
         var effectAttributes = ReadEffectAttributeTypes(card, item);
         var activeEffects = ReadActiveEffects(card);
-        var hiddenTags = CombatImpactEntityTags.ResolveHiddenTags(card);
+        var effectiveTags = DesktopEffectiveCardTags.Read(card);
+        var hiddenTags = effectiveTags.HiddenTags;
         var activeAbilities = CombatImpactActiveAbilityReader.Read(item, activeEffects.Abilities);
         var abilityAttributeModifiers = CombatImpactAbilityAttributeModifierReader.Read(
             activeAbilities
@@ -197,7 +198,7 @@ internal static class CombatImpactEntitySnapshotReader
             DesktopCardFacets.CapturedSocket(card.LeftSocketId),
             hiddenTags,
             DesktopCardFacets.CapturedSection(card.Section),
-            CombatImpactEntityTags.ResolveTags(card),
+            effectiveTags.Tags,
             CombatImpactAttributionRuleReader.ReadSourceRules(activeAbilities, activeEffects.Auras),
             card.Type == ECardType.SocketEffect
                 ? CombatImpactAttributionRuleReader.ReadUseRules(activeAbilities)

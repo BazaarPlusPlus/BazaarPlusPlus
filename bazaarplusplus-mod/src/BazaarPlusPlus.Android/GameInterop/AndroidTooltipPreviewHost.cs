@@ -13,7 +13,7 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// hands it each primary tooltip that renders (<see cref="Observe"/>); it reports that tooltip as
 /// shown while the game still shows its card, outside the native settings section.
 /// The upgrade preview is <see cref="AndroidUpgradePreview"/>'s, the enchantments the Mobile UI's
-/// enchant preview's (<see cref="Patches.AndroidPatchHost.EnchantPreview"/>).
+/// enchant preview's section.
 /// </summary>
 internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
 {
@@ -36,7 +36,7 @@ internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
         _tooltip = tooltip;
         // The main text lists the enchantments under [EnchantPreview] Mode; only a tooltip whose
         // main text lists none offers them behind the switch.
-        var preview = Patches.AndroidPatchHost.EnchantPreview;
+        var preview = Patches.AndroidPatchHost.Features?.EnchantPreview;
         _candidates =
             preview == null || preview.InlineCandidates(tooltip).Count > 0
                 ? []
@@ -87,7 +87,7 @@ internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
     public bool OffersEnchantments() => _candidates.Count > 0;
 
     public IReadOnlyList<(string Label, string Text)> EnchantmentEffects() =>
-        _tooltip == null || Patches.AndroidPatchHost.EnchantPreview is not { } preview
+        _tooltip == null || Patches.AndroidPatchHost.Features?.EnchantPreview is not { } preview
             ? []
             : preview.Build(_tooltip, _candidates);
 
