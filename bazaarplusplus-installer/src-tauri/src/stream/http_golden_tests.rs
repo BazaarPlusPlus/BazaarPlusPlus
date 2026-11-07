@@ -5,7 +5,7 @@
 //!
 //! Writes `tests/goldens/http/records.json`, `records-latest.json` and
 //! `strip-hashes.json` (the sha256 of every rendered strip PNG). Regenerate with
-//! `BPP_UPDATE_GOLDENS=1 npm run generate:bindings:test` (see the installer `AGENTS.md`);
+//! `BPP_UPDATE_GOLDENS=1 bun run generate:bindings:test` (see the installer `AGENTS.md`);
 //! an `image` crate upgrade can change the PNG bytes, which needs a regenerate
 //! and a note in the pull request.
 

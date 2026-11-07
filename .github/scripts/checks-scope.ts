@@ -212,7 +212,8 @@ export const SHARED_INPUTS: [string, string[]][] = [
   ['bazaarplusplus-installer/src-tauri/tauri.conf.json', ['mod']],
   ...[
     'package.json',
-    'package-lock.json',
+    'bun.lock',
+    'bunfig.toml',
     'src-tauri/Cargo.toml',
     'src-tauri/Cargo.lock',
     'src-tauri/tauri.conf.json',
@@ -315,7 +316,7 @@ const git = (args: readonly string[], cwd: string) =>
 export function scanDependencies(cwd: string = process.cwd()): string[] {
   return git(['ls-files', '-z'], cwd)
     .split('\0')
-    .filter(Boolean)
+    .filter((file) => file && fs.existsSync(path.join(cwd, file)))
     .flatMap((file) => {
       if (!PROJECTS.some((p) => file.startsWith(`bazaarplusplus-${p}/`)))
         return [];

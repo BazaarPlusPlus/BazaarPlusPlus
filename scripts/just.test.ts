@@ -44,15 +44,13 @@ const modScripts = ['build', 'test', 'game', 'android'];
 const shellQuote = (value: string): string =>
   `'${value.replaceAll("'", "'\\''")}'`;
 const rootPrettier = (mode: string): [string, ...string[]] => [
-  'npm',
-  'exec',
-  '--',
+  'bun',
+  'run',
   'prettier',
   '--config',
   '.prettierrc.json',
   mode,
   'package.json',
-  'package-lock.json',
   '.prettierrc.json',
   '.oxlintrc.json',
   'tsconfig.json',
@@ -88,7 +86,7 @@ if (process.env.BPP_JUST_TEST_FAIL === tool) process.exit(37);
   );
   const stub = (tool: string): string =>
     `#!/usr/bin/env bash\nexec ${shellQuote(process.execPath)} ${shellQuote(recorder)} ${shellQuote(tool)} "$@"\n`;
-  for (const tool of ['node', 'npm', 'uv', 'dotnet', 'cargo']) {
+  for (const tool of ['bun', 'uv', 'dotnet', 'cargo']) {
     fs.writeFileSync(path.join(bin, tool), stub(tool), { mode: 0o755 });
   }
   const modDir = path.join(dir, 'bazaarplusplus-mod');
@@ -148,7 +146,7 @@ const releaseArgs = (command: string, ...args: string[]): string[] => {
         ? 'release'
         : null;
   return [
-    ...(profile ? ['scripts/workspace.ts', 'run', profile, '--', 'node'] : []),
+    ...(profile ? ['scripts/workspace.ts', 'run', profile, '--', 'bun'] : []),
     'release.ts',
     command,
     ...args
@@ -190,7 +188,8 @@ const publishingVerbs = new Set<string | null>([
   'promote'
 ]);
 const releaseVerb = ({ tool, args }: RecordedCall): string | null => {
-  const index = tool === 'node' ? args.indexOf('release.ts') : -1;
+  const index =
+    tool === 'bun' && args[0] !== 'run' ? args.indexOf('release.ts') : -1;
   return index === -1 ? null : args[index + 1];
 };
 const projectDir = (dir: string, project: string): string =>
@@ -227,19 +226,18 @@ test('check delegates source-only gates in their project directories', (t) => {
   succeeded(f.run(['check']));
   const calls = f.calls();
   assertProjectGates(f.dir, calls);
-  assert.ok(hasCall(calls, call(f.dir, null, 'node', 'release.ts', 'check')));
+  assert.ok(hasCall(calls, call(f.dir, null, 'bun', 'release.ts', 'check')));
   assert.ok(
-    hasCall(calls, call(f.dir, null, 'node', 'design/build.ts', '--check'))
+    hasCall(calls, call(f.dir, null, 'bun', 'design/build.ts', '--check'))
   );
   assert.ok(hasCall(calls, call(f.dir, null, ...rootPrettier('--check'))));
-  // `npm run` uses the root's own TypeScript; `npm exec -- tsc` would fetch
-  // the unrelated registry package `tsc` when node_modules is stale.
-  assert.ok(hasCall(calls, call(f.dir, null, 'npm', 'run', 'typecheck')));
-  assert.ok(hasCall(calls, call(f.dir, null, 'npm', 'run', 'lint')));
+  // Named scripts use the project's installed toolchain.
+  assert.ok(hasCall(calls, call(f.dir, null, 'bun', 'run', 'typecheck')));
+  assert.ok(hasCall(calls, call(f.dir, null, 'bun', 'run', 'lint')));
   assert.ok(
     hasCall(
       calls,
-      call(f.dir, null, 'npm', 'test', '--', '--project', 'tooling')
+      call(f.dir, null, 'bun', 'run', 'test', '--project', 'tooling')
     )
   );
 });
@@ -253,7 +251,7 @@ test('test runs each suite without a release or publication command', (t) => {
   assert.ok(
     hasCall(
       calls,
-      call(f.dir, null, 'npm', 'test', '--', '--project', 'release')
+      call(f.dir, null, 'bun', 'run', 'test', '--project', 'release')
     )
   );
 });
@@ -307,7 +305,7 @@ test('fmt formats every project, then re-projects release files', (t) => {
   assert.deepEqual(calls[0], call(f.dir, null, ...rootPrettier('--write')));
   assert.deepEqual(
     calls.at(-1),
-    call(f.dir, null, 'node', 'release.ts', 'sync')
+    call(f.dir, null, 'bun', 'release.ts', 'sync')
   );
 });
 
@@ -317,17 +315,7 @@ test('a failing project stops the aggregate and preserves its exit code', (t) =>
   assert.equal(result.status, 37, result.stdout + result.stderr);
   assert.deepEqual(
     f.calls().map(({ tool }) => tool),
-    [
-      'npm',
-      'npm',
-      'npm',
-      'npm',
-      'node',
-      'node',
-      'dotnet',
-      'dotnet',
-      'mod-build'
-    ]
+    ['bun', 'bun', 'bun', 'bun', 'bun', 'bun', 'dotnet', 'dotnet', 'mod-build']
   );
 });
 
@@ -336,10 +324,10 @@ for (const [recipe, project, script] of [
   ['site::dev', 'site', 'dev'],
   ['site::build', 'site', 'build']
 ]) {
-  test(`${recipe} delegates only to its local npm script`, (t) => {
+  test(`${recipe} delegates only to its local Bun script`, (t) => {
     const f = fixture(t);
     succeeded(f.run([recipe]));
-    assert.deepEqual(f.calls(), [call(f.dir, project, 'npm', 'run', script)]);
+    assert.deepEqual(f.calls(), [call(f.dir, project, 'bun', 'run', script)]);
   });
 }
 
@@ -349,23 +337,22 @@ test('site::e2e passes its mode as the Playwright project, then extra arguments'
   succeeded(f.run(['site::e2e', 'golden', '--update-snapshots']));
   succeeded(f.run(['site::e2e', 'live']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'site', 'npm', 'run', 'e2e', '--', '--project=golden'),
+    call(f.dir, 'site', 'bun', 'run', 'e2e', '--project=golden'),
     call(
       f.dir,
       'site',
-      'npm',
+      'bun',
       'run',
       'e2e',
-      '--',
       '--project=golden',
       '--update-snapshots'
     ),
-    call(f.dir, 'site', 'npm', 'run', 'e2e', '--', '--project=live')
+    call(f.dir, 'site', 'bun', 'run', 'e2e', '--project=live')
   ]);
 });
 
 for (const [recipe, project, ...args] of [
-  ['server::dev', 'server', 'npm', 'run', 'dev'],
+  ['server::dev', 'server', 'bun', 'run', 'dev'],
   [
     'analyzer::cli',
     'analyzer',
@@ -386,7 +373,7 @@ for (const [recipe, project, ...args] of [
       call(
         f.dir,
         project,
-        'node',
+        'bun',
         '../scripts/workspace.ts',
         'run',
         project,
@@ -404,12 +391,12 @@ test('setup and scoped commands preserve arguments without shell expansion', (t)
   succeeded(f.run(['doctor']));
   succeeded(f.run(['with-config', 'mod', 'just', 'mod::build', literal]));
   assert.deepEqual(f.calls(), [
-    call(f.dir, null, 'node', 'scripts/workspace.ts', 'setup', '--skip-deps'),
-    call(f.dir, null, 'node', 'scripts/workspace.ts', 'doctor'),
+    call(f.dir, null, 'bun', 'scripts/workspace.ts', 'setup', '--skip-deps'),
+    call(f.dir, null, 'bun', 'scripts/workspace.ts', 'doctor'),
     call(
       f.dir,
       null,
-      'node',
+      'bun',
       'scripts/workspace.ts',
       'run',
       'mod',
@@ -430,11 +417,11 @@ test('device setup routes matrix preparation, status and the walkthrough without
     f.run(['walkthrough', 'skip', 'r1', 'desktop', 's1', '--reason', literal])
   );
   assert.deepEqual(f.calls(), [
-    call(f.dir, null, 'node', 'scripts/setup-device.ts', 'status'),
+    call(f.dir, null, 'bun', 'scripts/setup-device.ts', 'status'),
     call(
       f.dir,
       null,
-      'node',
+      'bun',
       'scripts/setup-device.ts',
       'init',
       'bpp_emu_3_2',
@@ -444,7 +431,7 @@ test('device setup routes matrix preparation, status and the walkthrough without
     call(
       f.dir,
       null,
-      'node',
+      'bun',
       'scripts/walkthrough.ts',
       'skip',
       'r1',
@@ -465,21 +452,21 @@ test('secrets-check and secrets-sync delegate to the workspace secrets commands'
   succeeded(f.run(['secrets-sync']));
   succeeded(f.run(['secrets-sync', '--dependabot']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, null, 'node', 'scripts/workspace.ts', 'secrets', 'check'),
+    call(f.dir, null, 'bun', 'scripts/workspace.ts', 'secrets', 'check'),
     call(
       f.dir,
       null,
-      'node',
+      'bun',
       'scripts/workspace.ts',
       'secrets',
       'check',
       '--dependabot'
     ),
-    call(f.dir, null, 'node', 'scripts/workspace.ts', 'secrets', 'push'),
+    call(f.dir, null, 'bun', 'scripts/workspace.ts', 'secrets', 'push'),
     call(
       f.dir,
       null,
-      'node',
+      'bun',
       'scripts/workspace.ts',
       'secrets',
       'push',
@@ -554,7 +541,7 @@ test('mod snapshot recipes route to game.sh with validated platform and channel'
     call(
       f.dir,
       'mod',
-      'node',
+      'bun',
       '../scripts/workspace.ts',
       'run',
       'release',
@@ -616,7 +603,7 @@ for (const command of ['sync', 'check', 'verify-mirror', 'promote']) {
       })
     );
     assert.deepEqual(f.calls(), [
-      call(f.dir, null, 'node', ...releaseArgs(command))
+      call(f.dir, null, 'bun', ...releaseArgs(command))
     ]);
   });
 }
@@ -632,7 +619,7 @@ for (const [command, ...flags] of [
     const f = fixture(t);
     succeeded(f.run([`release::${command}`, ...flags]));
     assert.deepEqual(f.calls(), [
-      call(f.dir, null, 'node', ...releaseArgs(command, ...flags))
+      call(f.dir, null, 'bun', ...releaseArgs(command, ...flags))
     ]);
   });
 }
@@ -654,7 +641,7 @@ test('release::mirror-all forwards both share URLs and optional flags', (t) => {
     call(
       f.dir,
       null,
-      'node',
+      'bun',
       ...releaseArgs(
         'mirror-all',
         '--windows-url',
@@ -689,12 +676,12 @@ test('release::mirror forwards the platform, the share URL and optional flags', 
     call(
       f.dir,
       null,
-      'node',
+      'bun',
       'scripts/workspace.ts',
       'run',
       'release',
       '--',
-      'node',
+      'bun',
       'release.ts',
       'mirror',
       '--platform',
@@ -705,12 +692,12 @@ test('release::mirror forwards the platform, the share URL and optional flags', 
     call(
       f.dir,
       null,
-      'node',
+      'bun',
       'scripts/workspace.ts',
       'run',
       'release',
       '--',
-      'node',
+      'bun',
       'release.ts',
       'mirror',
       '--platform',
@@ -739,8 +726,8 @@ for (const command of ['prepare', 'build', 'upload']) {
       // An Android build also reads R2, so it runs under the release profile
       // around the signing one.
       if (command === 'build' && platform === 'android')
-        args.unshift('scripts/workspace.ts', 'run', 'release', '--', 'node');
-      assert.deepEqual(f.calls(), [call(f.dir, null, 'node', ...args)]);
+        args.unshift('scripts/workspace.ts', 'run', 'release', '--', 'bun');
+      assert.deepEqual(f.calls(), [call(f.dir, null, 'bun', ...args)]);
     });
   }
 
@@ -752,7 +739,7 @@ for (const command of ['prepare', 'build', 'upload']) {
         call(
           f.dir,
           null,
-          'node',
+          'bun',
           ...releaseArgs(command, '--platform', 'windows', '--', managedPath)
         )
       ]);
@@ -761,8 +748,8 @@ for (const command of ['prepare', 'build', 'upload']) {
 }
 
 for (const [recipe, tool, ...args] of [
-  ['release::test', 'npm', 'test', '--', '--project', 'release'],
-  ['hooks-install', 'node', 'scripts/install-hooks.ts']
+  ['release::test', 'bun', 'run', 'test', '--project', 'release'],
+  ['hooks-install', 'bun', 'scripts/install-hooks.ts']
 ]) {
   test(`${recipe} uses root tooling without installer dependencies`, (t) => {
     const f = fixture(t);
@@ -786,7 +773,7 @@ test('installer::check-fast covers the commit subset without a Rust build', (t) 
     JSON.stringify(calls)
   );
   for (const script of ['format:check', 'lint', 'check:ts'])
-    assert.ok(hasCall(calls, call(f.dir, 'installer', 'npm', 'run', script)));
+    assert.ok(hasCall(calls, call(f.dir, 'installer', 'bun', 'run', script)));
   const cargo = calls.filter((entry) => entry.tool === 'cargo');
   assert.ok(cargo.length > 0);
   assert.ok(
@@ -809,7 +796,7 @@ function hooksFixture(
   }
   // Run the installer script itself while git and lefthook can remain stubbed.
   fs.writeFileSync(
-    path.join(f.dir, 'bin/node'),
+    path.join(f.dir, 'bin/bun'),
     `#!/usr/bin/env bash\nexec ${shellQuote(process.execPath)} "$@"\n`
   );
   const globalDir = path.join(f.dir, 'global hooks');
@@ -1117,6 +1104,6 @@ test('Android validation routes through the serial coordinator', (t) => {
   const f = fixture(t);
   succeeded(f.run(['mod::android-check']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'mod', 'node', '../scripts/mod-validation.ts', 'check')
+    call(f.dir, 'mod', 'bun', '../scripts/mod-validation.ts', 'check')
   ]);
 });

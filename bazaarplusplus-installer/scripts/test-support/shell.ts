@@ -5,7 +5,7 @@ import { runGit } from '../../../scripts/git-command.ts';
 const projectDir = process.cwd();
 
 // Resolve a usable bash. On Windows, `bash` is frequently absent from the PATH
-// that npm spawns with (PowerShell/cmd), so fall back to the Git for Windows
+// used by the process (PowerShell/cmd), so fall back to the Git for Windows
 // install before giving up.
 export function resolveBashCommand(): string {
   if (process.platform !== 'win32') {

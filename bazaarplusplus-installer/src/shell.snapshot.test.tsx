@@ -4,7 +4,7 @@
 // the routed page) rendered per route x state from Browser Preview commands
 // seeded with src/test-fixtures/shell/. Each case writes
 // src/__shell_snapshots__/<route>.<state>.html; review those diffs in the PR.
-// Regenerate: BPP_UPDATE_GOLDENS=1 npx vitest run src/shell.snapshot.test.tsx
+// Regenerate: BPP_UPDATE_GOLDENS=1 bun run vitest run src/shell.snapshot.test.tsx
 
 import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';

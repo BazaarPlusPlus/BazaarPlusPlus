@@ -46,7 +46,6 @@ export type StepRunner = (
 
 export interface RunVerificationOptions extends VerificationStepsOptions {
   rootDir: string;
-  commandShell?: string;
   run?: StepRunner;
   log?: (message: string) => void;
   now?: () => number;
@@ -61,7 +60,7 @@ export interface VerifyCliOptions {
 
 const manifestPath = 'src-tauri/Cargo.toml';
 
-function npmStep(
+function bunStep(
   subset: VerificationStepSubset,
   label: string,
   script: string,
@@ -70,7 +69,7 @@ function npmStep(
   return {
     subset,
     label,
-    command: 'npm',
+    command: 'bun',
     args: ['run', script, ...extraArgs]
   };
 }
@@ -94,16 +93,16 @@ export function verificationSteps({
 
   const prebuildStep =
     mode === 'source'
-      ? npmStep(
+      ? bunStep(
           'shared',
           'Source version and resource contract checks',
           'prebuild-check:source:after-bindings'
         )
-      : npmStep(
+      : bunStep(
           'shared',
           'Release version and payload checks',
           'prebuild-check:after-bindings',
-          releasePlatform ? ['--', '--platform', releasePlatform] : []
+          releasePlatform ? ['--platform', releasePlatform] : []
         );
 
   return (
@@ -111,8 +110,8 @@ export function verificationSteps({
       // Cheap static gates run first so the most common failures (formatting,
       // lint, a stale Cargo lock) are reported before the Rust test build starts.
       // Clippy only type-checks, so it also runs ahead of the test build.
-      npmStep('frontend', 'Check formatting', 'format:check'),
-      npmStep('frontend', 'Lint TypeScript and scripts', 'lint'),
+      bunStep('frontend', 'Check formatting', 'format:check'),
+      bunStep('frontend', 'Lint TypeScript and scripts', 'lint'),
       {
         subset: 'native',
         label: 'Check Rust formatting',
@@ -150,18 +149,18 @@ export function verificationSteps({
           'warnings'
         ]
       },
-      npmStep(
+      bunStep(
         'native',
         'Generate bindings and run Rust tests',
         'generate:bindings:test'
       ),
-      npmStep('native', 'Check generated binding freshness', 'check:bindings'),
-      npmStep('frontend', 'Type-check TypeScript', 'check:ts'),
-      npmStep('frontend', 'Run frontend tests', 'test:unit', ['--', 'src']),
+      bunStep('native', 'Check generated binding freshness', 'check:bindings'),
+      bunStep('frontend', 'Type-check TypeScript', 'check:ts'),
+      bunStep('frontend', 'Run frontend tests', 'test:unit', ['src']),
       // Linux covers script behavior too; Windows repeats this boundary because
       // process shims, paths and packaging scripts have Windows-specific code.
-      npmStep('scripts', 'Run script tests', 'test:unit', ['--', 'scripts']),
-      npmStep('frontend', 'Check documentation', 'docs:check'),
+      bunStep('scripts', 'Run script tests', 'test:unit', ['scripts']),
+      bunStep('frontend', 'Check documentation', 'docs:check'),
       {
         subset: 'release',
         label: 'Build strict Rust documentation',
@@ -178,7 +177,7 @@ export function verificationSteps({
         env: { RUSTDOCFLAGS: '-D warnings' }
       },
       prebuildStep,
-      npmStep('frontend', 'Build production frontend', 'build:frontend')
+      bunStep('frontend', 'Build production frontend', 'build:frontend')
     ] satisfies VerificationStep[]
   ).filter(
     (step) =>
@@ -197,7 +196,6 @@ export function runVerification({
   releasePlatform,
   subset = 'all',
   platform = process.platform,
-  commandShell = process.env.ComSpec ?? 'cmd.exe',
   run = spawnSync,
   log = console.log,
   now = () => performance.now(),
@@ -228,13 +226,8 @@ export function runVerification({
     platform
   })) {
     log(`==> ${step.label}`);
-    const usesWindowsNpmShim = platform === 'win32' && step.command === 'npm';
-    const command = usesWindowsNpmShim ? commandShell : step.command;
-    const args = usesWindowsNpmShim
-      ? ['/d', '/s', '/c', 'npm.cmd', ...step.args]
-      : step.args;
     const started = now();
-    const result = run(command, args, {
+    const result = run(step.command, step.args, {
       cwd: rootDir,
       stdio: step.stdio ?? 'inherit',
       env: { ...environment, ...step.env }

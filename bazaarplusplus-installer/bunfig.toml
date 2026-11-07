@@ -1,0 +1,6 @@
+# Configuration is loaded explicitly by workspace profiles and each framework.
+env = false
+
+[run]
+# Run dependency CLIs with Bun even when their shebang names Node.
+bun = true

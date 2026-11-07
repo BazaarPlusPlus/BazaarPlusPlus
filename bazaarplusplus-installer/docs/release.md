@@ -4,16 +4,16 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 
 ## Verification Gates
 
-- `npm run verify -- --source-only` is the clean-checkout source gate. `npm run verify -- --release-platform <macos|windows>` adds real Payload validation for one platform.
+- `bun run verify --source-only` is the clean-checkout source gate. `bun run verify --release-platform <macos|windows>` adds real Payload validation for one platform.
 - `tauriSourceEnvironment` in `scripts/tauri-source-env.ts` clears Tauri bundle resources in child processes for source verification and binding export, so Clippy, Rust tests and documentation do not require a prepared release ZIP. Release verification's Clippy and Payload checks keep the original resource configuration.
 - `verificationSteps` in `scripts/checks/verify.ts` owns one ordered list for complete verification and the source subsets. The frontend subset checks formatting, lint, TypeScript, frontend and script tests, documentation, source projections and the production frontend build using committed bindings. The native subset checks Rust formatting, the locked Cargo graph, Clippy, real binding generation with Rust tests, generated drift, strict rustdoc and source projections; Windows also runs the script tests. Shared steps run only once in the complete gate.
-- Pass `--source-only --subset frontend` or `--source-only --subset native` to `npm run verify --` for a source subset. Release verification rejects partial subsets. The frontend result does not establish binding freshness or replace complete validation; the decision is recorded in [ADR 0004](adr/0004-tauri-specta-command-bindings.md).
-- `npm run prebuild-check` uses the workspace `checkProductProjections` in `../release/projections.ts` for source alignment and validates generated bindings, Payload build receipts, archives and native inputs. Missing receipts require preparation, not a bypass.
+- Pass `--source-only --subset frontend` or `--source-only --subset native` to `bun run verify` for a source subset. Release verification rejects partial subsets. The frontend result does not establish binding freshness or replace complete validation; the decision is recorded in [ADR 0004](adr/0004-tauri-specta-command-bindings.md).
+- `bun run prebuild-check` uses the workspace `checkProductProjections` in `../release/projections.ts` for source alignment and validates generated bindings, Payload build receipts, archives and native inputs. Missing receipts require preparation, not a bypass.
 - `just release::build <platform>` runs the product coordinator. Its process lock spans preparation, release verification, compilation, signing, bundling and artifact recording. Product Release integration tests run separately with `just release::test` and require the mod's .NET SDK.
 
 ## Reproducible Inputs
 
-- Workspace `VERSION` is the authored product version. `synchronizeVersions` in `../release/version-sync.ts` projects it into npm, Tauri and Cargo; `assertVersionsAreAligned` rejects drift.
+- Workspace `VERSION` is the authored product version. `synchronizeVersions` in `../release/version-sync.ts` projects it into package.json, Tauri and Cargo; `assertVersionsAreAligned` rejects drift.
 - `RELEASE_PLATFORMS` in `../release/release-platforms.ts` owns target triples, bundle layout, Tauri overlays, resource ZIPs and updater keys.
 - The workspace Payload Inventory drives managed copying, ZIP admission and Rust file ownership. Runtime-only and retired entries cannot ship; dependency ownership does not authorize deleting user data or foreign plugins.
 - `ensureNativeRecorderInput` in `../release/native-recorder-input.ts` reuses current native inputs or invokes the mod-owned producer in isolated staging. `verifyNativeRecorderInput` validates the final artifact inventory before the product coordinator promotes any Payload directories.

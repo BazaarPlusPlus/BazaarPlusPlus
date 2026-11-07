@@ -7,7 +7,7 @@ import type { GithubSecretItem } from '../release/github-secrets.ts';
 import { readConfig, resolveSigning, root } from './local-config.ts';
 import type { ParsedConfig } from './local-config.ts';
 
-// `node scripts/workspace.ts secrets check|push`: the GitHub side of
+// `bun scripts/workspace.ts secrets check|push`: the GitHub side of
 // release/github-secrets.json. check lists, by name only, what each scope
 // holds on GitHub and what config.ini and keys/ hold locally; push copies
 // every locally present item through `gh secret set` / `gh variable set`

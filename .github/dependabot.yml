@@ -2,7 +2,7 @@
 # Mod runtime compatibility is governed by ADR-0010, not package SemVer.
 version: 2
 updates:
-  - package-ecosystem: 'npm'
+  - package-ecosystem: 'bun'
     directory: '/'
     schedule:
       interval: 'weekly'
@@ -11,8 +11,7 @@ updates:
       default-days: 7
     commit-message:
       prefix: 'build(release)'
-    # Coupled toolchain majors need a deliberate compatibility upgrade; the Node
-    # types follow the runtime major that .nvmrc pins.
+    # Coupled toolchain majors and Node compatibility types need deliberate upgrades.
     ignore:
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
@@ -25,7 +24,7 @@ updates:
       minor-updates:
         patterns: ['*']
         update-types: ['minor']
-  - package-ecosystem: 'npm'
+  - package-ecosystem: 'bun'
     directory: '/bazaarplusplus-site'
     schedule:
       interval: 'weekly'
@@ -56,7 +55,7 @@ updates:
       minor-updates:
         patterns: ['*']
         update-types: ['minor']
-  - package-ecosystem: 'npm'
+  - package-ecosystem: 'bun'
     directory: '/bazaarplusplus-server'
     schedule:
       interval: 'weekly'
@@ -85,7 +84,7 @@ updates:
       cloudflare-security:
         applies-to: security-updates
         patterns: ['wrangler', 'miniflare', 'undici', '@cloudflare/*']
-  - package-ecosystem: 'npm'
+  - package-ecosystem: 'bun'
     directory: '/bazaarplusplus-installer'
     schedule:
       interval: 'weekly'

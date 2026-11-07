@@ -76,11 +76,11 @@ const id = /^[A-Za-z0-9_-]+$/;
 
 export const help = `Device walkthrough: open panels, capture screens, build the HTML grid
 
-  node scripts/walkthrough.ts devices
-  node scripts/walkthrough.ts panel DEVICE collection|history|live_build
-  node scripts/walkthrough.ts capture RUN DEVICE SCENARIO [--note TEXT] [--portrait]
-  node scripts/walkthrough.ts skip RUN DEVICE SCENARIO --reason TEXT
-  node scripts/walkthrough.ts report RUN
+  bun scripts/walkthrough.ts devices
+  bun scripts/walkthrough.ts panel DEVICE collection|history|live_build
+  bun scripts/walkthrough.ts capture RUN DEVICE SCENARIO [--note TEXT] [--portrait]
+  bun scripts/walkthrough.ts skip RUN DEVICE SCENARIO --reason TEXT
+  bun scripts/walkthrough.ts report RUN
 
 DEVICE is an Android AVD name from the device matrix, or
 desktop; an Android DEVICE must be the one device running. RUN and

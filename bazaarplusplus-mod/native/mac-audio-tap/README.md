@@ -26,7 +26,7 @@ so the dylib still loads and degrades cleanly on older systems.
 ./build.sh
 ```
 
-Requirements: macOS + Xcode / Command Line Tools SDK, Apple Silicon (arm64), and Node.js for
+Requirements: macOS + Xcode / Command Line Tools SDK, Apple Silicon (arm64), and Bun for
 reading the shared native artifact catalog. The script builds into `build/` by default and runs
 the architecture, deployment-target, weak-import, dependency, ABI export, load, and ad-hoc-signing
 checks without writing the installer project.

@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    // The tests drive git, just, bash, MSBuild and Node children; under a full
+    // The tests drive git, just, bash, MSBuild and Bun children; under a full
     // parallel run a cold start exceeds the 5 s default.
     testTimeout: 60_000,
     projects: [

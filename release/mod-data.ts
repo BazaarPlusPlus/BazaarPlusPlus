@@ -65,7 +65,7 @@ if (import.meta.main) {
   try {
     if (!name || !file)
       throw new Error(
-        'usage: node release/mod-data.ts <supporters|voice-lines> <file>'
+        'usage: bun release/mod-data.ts <supporters|voice-lines> <file>'
       );
     process.stdout.write(`${await uploadModData(name, file)}\n`);
   } catch (error) {

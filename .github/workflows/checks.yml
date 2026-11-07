@@ -57,11 +57,11 @@ jobs:
         name: Fetch complete history for change detection
         continue-on-error: true
         run: git fetch --no-tags --unshallow origin
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: package.json
       - id: scope
-        run: node .github/scripts/checks-scope.ts
+        run: bun .github/scripts/checks-scope.ts
         env:
           HISTORY_FETCH_OUTCOME: ${{ steps.history.outcome }}
 
@@ -75,12 +75,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: package.json
       - run: |
           xcodebuild -version
-          node bazaarplusplus-installer/scripts/release/compile-macos-icon.ts
+          bun bazaarplusplus-installer/scripts/release/compile-macos-icon.ts
 
   release:
     name: Release tooling
@@ -92,17 +92,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: package.json
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
       - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
         with:
           tool: just@1.58.0
-      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
-      - run: npm ci
+      - run: bun install --frozen-lockfile
       - run: just commands-check design::check release::check release::test
       - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
@@ -115,24 +114,21 @@ jobs:
     env:
       PROJECT: site
       WRANGLER_SEND_METRICS: 'false'
-    steps: &node-steps
+    steps: &bun-steps
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: bazaarplusplus-${{ env.PROJECT }}/package-lock.json
+          bun-version-file: package.json
       - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
         with:
           tool: just@1.58.0
-      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
-      - run: npm ci
+      - run: bun install --frozen-lockfile
         working-directory: bazaarplusplus-${{ env.PROJECT }}
       - if: env.PROJECT == 'site'
         working-directory: bazaarplusplus-site
-        run: npx playwright install --with-deps chromium
+        run: bun run playwright install --with-deps chromium
       - if: env.PROJECT == 'site'
         run: just site::ci
       - if: failure() && env.PROJECT == 'site'
@@ -155,7 +151,7 @@ jobs:
     env:
       PROJECT: server
       WRANGLER_SEND_METRICS: 'false'
-    steps: *node-steps
+    steps: *bun-steps
 
   installer-frontend:
     name: Installer (frontend)
@@ -167,19 +163,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: bazaarplusplus-installer/package-lock.json
-      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
-        working-directory: bazaarplusplus-installer
-      - name: Install Installer npm dependencies
-        run: npm ci
+          bun-version-file: package.json
+      - name: Install Installer Bun dependencies
+        run: bun install --frozen-lockfile
         working-directory: bazaarplusplus-installer
       # Consume committed bindings; native inputs also select real generation.
       - name: Verify Installer
-        run: npm run verify -- --source-only --subset frontend
+        run: bun run verify --source-only --subset frontend
         working-directory: bazaarplusplus-installer
 
   installer-macos:
@@ -199,11 +191,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: bazaarplusplus-installer/package-lock.json
+          bun-version-file: package.json
       - name: Install the repository Rust toolchain and components
         working-directory: bazaarplusplus-installer
         run: |
@@ -220,15 +210,13 @@ jobs:
           shared-key: installer-${{ runner.os == 'macOS' && 'macos-26' || 'windows-latest' }}-${{ runner.arch }}-${{ hashFiles('bazaarplusplus-installer/rust-toolchain.toml', 'bazaarplusplus-installer/src-tauri/Cargo.lock', 'bazaarplusplus-installer/src-tauri/.cargo/config.toml') }}-installer
           cache-bin: false
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
-        working-directory: bazaarplusplus-installer
-      - name: Install Installer npm dependencies
-        run: npm ci
+      - name: Install Installer Bun dependencies
+        run: bun install --frozen-lockfile
         working-directory: bazaarplusplus-installer
       # Real binding generation precedes the diff check. Windows also repeats
       # script tests; both platforms use an empty source resource bundle.
       - name: Verify Installer
-        run: npm run verify -- --source-only --subset native
+        run: bun run verify --source-only --subset native
         working-directory: bazaarplusplus-installer
 
   installer-windows:
@@ -287,9 +275,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: package.json
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
@@ -360,9 +348,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: package.json
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
@@ -451,10 +439,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          node-version-file: .nvmrc
-      - run: node .github/scripts/checks-summary.ts
+          bun-version-file: package.json
+      - run: bun .github/scripts/checks-summary.ts
         env:
           CHECK_NEEDS: ${{ toJSON(needs) }}
           MOD_CREDENTIALS: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}

@@ -2,8 +2,8 @@
 // Builds the CSS custom properties the products read from design/tokens.json,
 // and checks that the design system and its consumers agree.
 //
-//   node design/build.ts          write the generated tokens.css and copy the brand mark and the covers
-//   node design/build.ts --check  fail if any output is stale or a consumer disagrees
+//   bun design/build.ts          write the generated tokens.css and copy the brand mark and the covers
+//   bun design/build.ts --check  fail if any output is stale or a consumer disagrees
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';

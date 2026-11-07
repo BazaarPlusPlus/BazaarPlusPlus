@@ -58,7 +58,7 @@ cmd_snapshot() {
 # android-online entry: its identity, the Interop assemblies generated from it (or
 # --interop <dir> generated elsewhere from the same APK), and the pinned Loader
 # Release, Patcher and Cpp2IL. The options name a new toolchain; without them the
-# current entry's toolchain is reused. `node ../release/game-libs.ts --help` lists them.
+# current entry's toolchain is reused. `bun ../release/game-libs.ts --help` lists them.
 cmd_snapshot_android() {
     [[ $# -ge 1 ]] || die "Usage: just mod::snapshot-android <TheBazaar.apk> [--interop <dir>] [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>] [--cpp2il <file>] [--native-package <id>@<version>]"
     local apk="$1"
@@ -69,7 +69,7 @@ cmd_snapshot_android() {
 # The operator's saved Steam login and branch access codes (root ADR 0015). CI sets
 # STEAM_SNAPSHOT_LOGIN and STEAM_BETA_PASSWORDS itself.
 config_keys_dir() {
-    printf '%s/keys\n' "$(node --input-type=module -e "
+    printf '%s/keys\n' "$(bun -e "
         import { configHome } from '$MOD_ROOT/../scripts/local-config.ts';
         console.log(configHome());
     ")"

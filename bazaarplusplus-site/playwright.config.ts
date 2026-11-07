@@ -29,7 +29,7 @@ export default defineConfig({
     { name: 'live', testMatch: /live\.spec\.ts$/ },
   ],
   webServer: {
-    command: prebuilt ? 'npm run preview:built' : 'npm run preview',
+    command: prebuilt ? 'bun run preview:built' : 'bun run preview',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI && !prebuilt,
     timeout: 120_000,

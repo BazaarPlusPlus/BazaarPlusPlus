@@ -104,9 +104,9 @@ export function pushCommands(plan: ChecksPlan): string[][] {
   return commands;
 }
 
-// npm dependencies each gate needs; without them the gate fails on a missing
+// Bun dependencies each gate needs; without them the gate fails on a missing
 // module, so name the install step instead.
-const NPM_DIRECTORIES: Record<string, string> = {
+const BUN_DIRECTORIES: Record<string, string> = {
   'commands-check': '.',
   'release::test': '.',
   'installer::check': 'bazaarplusplus-installer',
@@ -119,7 +119,7 @@ export function missingDependencies(
   cwd: string
 ): string[] {
   const directories = new Set(
-    commands.flat().flatMap((gate) => NPM_DIRECTORIES[gate] ?? [])
+    commands.flat().flatMap((gate) => BUN_DIRECTORIES[gate] ?? [])
   );
   return [...directories].filter(
     (directory) => !fs.existsSync(path.join(cwd, directory, 'node_modules'))
@@ -141,7 +141,7 @@ if (import.meta.main) {
     const missing = missingDependencies(commands, cwd);
     if (missing.length)
       throw new Error(
-        `Push checks need npm dependencies in: ${missing.join(', ')}. Run \`just setup\`, or \`npm ci\` in each directory.`
+        `Push checks need Bun dependencies in: ${missing.join(', ')}. Run \`just setup\`, or \`bun install --frozen-lockfile\` in each directory.`
       );
     for (const args of commands) {
       const result = spawnSync('just', args, { cwd, stdio: 'inherit' });

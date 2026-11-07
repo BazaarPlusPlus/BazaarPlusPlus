@@ -491,7 +491,7 @@ function validateAndroidPayload(
   const stagedVersion = fs.readFileSync(versionFile, 'utf8').trim();
   if (stagedVersion !== `${productVersion}.prod`)
     throw new Error(
-      `Android Payload version mismatch: expected ${productVersion}.prod, found ${stagedVersion}. Run node release.ts prepare --platform android.`
+      `Android Payload version mismatch: expected ${productVersion}.prod, found ${stagedVersion}. Run bun release.ts prepare --platform android.`
     );
   return files;
 }
@@ -621,7 +621,7 @@ export function verifyAndroidPayload(
   const paths = androidPaths(workspaceRoot);
   if (!fs.existsSync(paths.buildRecord))
     throw new Error(
-      'No Android Payload prepared. Run node release.ts prepare --platform android.'
+      'No Android Payload prepared. Run bun release.ts prepare --platform android.'
     );
   const record = readJson(paths.buildRecord) as AndroidBuildRecord;
   const productVersion = readProductVersion(workspaceRoot);
@@ -631,28 +631,28 @@ export function verifyAndroidPayload(
     record.productVersion !== productVersion
   )
     throw new Error(
-      'Android Payload build identity is stale. Run node release.ts prepare --platform android.'
+      'Android Payload build identity is stale. Run bun release.ts prepare --platform android.'
     );
   const entry = lockedInteropEntry(workspaceRoot);
   if (
     JSON.stringify(record.lockEntry) !== JSON.stringify(lockEntryRecord(entry))
   )
     throw new Error(
-      `Lock entry ${INTEROP_KEY} changed since preparation. Run node release.ts prepare --platform android.`
+      `Lock entry ${INTEROP_KEY} changed since preparation. Run bun release.ts prepare --platform android.`
     );
   if (
     androidInputs({ workspaceRoot, interopPath: record.interopPath }).digest !==
     record.inputDigest
   )
     throw new Error(
-      'Android Payload build inputs changed. Run node release.ts prepare --platform android.'
+      'Android Payload build inputs changed. Run bun release.ts prepare --platform android.'
     );
   if (
     JSON.stringify(payloadOutput(paths.payload)) !==
     JSON.stringify(record.output)
   )
     throw new Error(
-      'Android Payload output changed since preparation. Run node release.ts prepare --platform android.'
+      'Android Payload output changed since preparation. Run bun release.ts prepare --platform android.'
     );
   validateAndroidPayload(paths.payload, productVersion);
   return record;
@@ -680,7 +680,7 @@ function run(
 }
 
 // The BPP Android release keystore (ADR 0009) staged in BPP_SIGNING_SECRETS_DIR
-// by `node scripts/workspace.ts run signing` or release-secrets.sh stage.
+// by `bun scripts/workspace.ts run signing` or release-secrets.sh stage.
 export function androidSigningKey(
   env: NodeJS.ProcessEnv = process.env
 ): AndroidSigningKey {
@@ -1170,7 +1170,7 @@ async function buildUnlocked({
     );
   if (managed.nonManagedPayloadDigest !== nonManagedPayloadDigest)
     throw new Error(
-      'The Managed Payload Manifest names another non-managed payload than the Android App; run node release.ts prepare --platform android'
+      'The Managed Payload Manifest names another non-managed payload than the Android App; run bun release.ts prepare --platform android'
     );
   const manifest: AndroidArtifactManifest = {
     schemaVersion: ANDROID_ARTIFACT_SCHEMA_VERSION,
@@ -1225,7 +1225,7 @@ export async function readAndroidArtifacts(
   const paths = androidPaths(workspaceRoot);
   if (!fs.existsSync(paths.artifactManifest))
     throw new Error(
-      'No Android build to upload. Run node release.ts build --platform android.'
+      'No Android build to upload. Run bun release.ts build --platform android.'
     );
   const manifest = readJson(paths.artifactManifest) as AndroidArtifactManifest;
   const version = readProductVersion(workspaceRoot);
@@ -1235,7 +1235,7 @@ export async function readAndroidArtifacts(
     manifest.appVersion !== version
   )
     throw new Error(
-      `The Android build is not ${version}. Run node release.ts build --platform android.`
+      `The Android build is not ${version}. Run bun release.ts build --platform android.`
     );
   if (manifest.dirty)
     throw new Error(

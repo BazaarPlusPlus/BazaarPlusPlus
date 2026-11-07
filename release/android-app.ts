@@ -230,7 +230,7 @@ async function main(argv: string[]): Promise<void> {
   });
   if (command !== 'stage-runtime' && command !== 'interop-package')
     throw new Error(
-      'Usage: node release/android-app.ts stage-runtime|interop-package [--out <path>]'
+      'Usage: bun release/android-app.ts stage-runtime|interop-package [--out <path>]'
     );
   const workspaceRoot = WORKSPACE_ROOT;
   const entry = lockedInteropEntry(workspaceRoot);

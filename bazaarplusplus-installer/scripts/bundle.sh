@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Signs and bundles the installer for the host platform. Internal to the product
-# coordinator: `just release::build <platform>` (node release.ts build) holds the
+# coordinator: `just release::build <platform>` (bun release.ts build) holds the
 # build lock, prepares the Payload, then runs this script with BPP_RELEASE_LOCK_TOKEN.
 # Functions are sourced directly by scripts/bundle.test.ts. It lives outside
 # scripts/release/ because signing is not a Payload input.
@@ -13,7 +13,7 @@ MACOS_TRAMPOLINE_STUB="$INSTALLER_ROOT/src-tauri/resources/Trampoline/macos/bpp_
 # SIGNING_STAGE_COMMAND locally and by .github/scripts/release-secrets.sh in CI.
 # Without one, only exported values count.
 SIGNING_SECRETS_DIR="${BPP_SIGNING_SECRETS_DIR:-}"
-SIGNING_STAGE_COMMAND="node scripts/workspace.ts run signing"
+SIGNING_STAGE_COMMAND="bun scripts/workspace.ts run signing"
 OFFICIAL_APPLE_TEAM_ID="9Z44S3N293"
 MACOS_GAME_APP_OVERLAY="TheBazaar.app"
 
@@ -110,16 +110,16 @@ current_platform() {
 }
 
 release_platforms_cli() {
-    node "$INSTALLER_ROOT/../release/release-platforms.ts" "$@"
+    bun "$INSTALLER_ROOT/../release/release-platforms.ts" "$@"
 }
 
 install_dependencies() {
-    if [ ! -f "$INSTALLER_ROOT/package-lock.json" ]; then
-        echo "Error: package-lock.json is required for a reproducible dependency install; refusing to run npm install." >&2
+    if [ ! -f "$INSTALLER_ROOT/bun.lock" ]; then
+        echo "Error: bun.lock is required for a reproducible dependency install; refusing an unlocked install." >&2
         return 1
     fi
 
-    invoke_step "Installing npm dependencies" npm ci
+    invoke_step "Installing Bun dependencies" bun install --frozen-lockfile
 }
 
 ensure_required_rust_targets() {
@@ -405,7 +405,7 @@ create_zip_from_directory() {
     local output_zip="$2"
     local output_manifest="$3"
 
-    node "$INSTALLER_ROOT/../release/payload-zip.ts" pack \
+    bun "$INSTALLER_ROOT/../release/payload-zip.ts" pack \
         --source "$source_dir" --output "$output_zip" \
         --manifest-output "$output_manifest" --platform macos
 }
@@ -454,9 +454,9 @@ prepare_signed_macos_resource_zip() {
 
 run_release_prechecks() {
     local platform="$1"
-    invoke_step "Checking product build ownership" node "$INSTALLER_ROOT/../release.ts" assert-build-owner
+    invoke_step "Checking product build ownership" bun "$INSTALLER_ROOT/../release.ts" assert-build-owner
     invoke_step "Running authoritative release verification" \
-        npm run verify -- --release-platform "$platform"
+        bun run verify --release-platform "$platform"
 }
 
 build_prod() {
@@ -506,10 +506,10 @@ build_prod() {
     fi
 
     build_command=(
-        npm run tauri build -- --no-bundle --config "$config" --config "$release_config"
+        bun run tauri build --no-bundle --config "$config" --config "$release_config"
     )
     bundle_command=(
-        npm run tauri bundle -- --bundles "$bundle_target" --config "$config" --config "$release_config"
+        bun run tauri bundle --bundles "$bundle_target" --config "$config" --config "$release_config"
     )
 
     if [ -n "$tauri_target" ]; then
@@ -545,11 +545,10 @@ main() {
     fi
 
     cd "$INSTALLER_ROOT"
-    node "$INSTALLER_ROOT/../release.ts" assert-build-owner
+    bun "$INSTALLER_ROOT/../release.ts" assert-build-owner
 
-    assert_command node "Install Node.js first."
-    assert_command npm "Install Node.js/npm first."
-    node scripts/checks/check-toolchain.ts "$(node --version)" "$(npm --version)"
+    assert_command bun "Install the Bun version in package.json first."
+    bun scripts/checks/check-toolchain.ts "$(bun --version)"
     assert_command cargo "Install Rust toolchain first."
 
     platform="$(current_platform)"

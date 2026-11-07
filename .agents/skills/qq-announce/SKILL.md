@@ -29,7 +29,7 @@ Each group gets the same messages, in this order: notes, Win, Mac, Android.
 3. **Dry run.** Run without `--send` and show the user the notes and the printed plan:
 
    ```bash
-   node .agents/skills/qq-announce/scripts/announce.ts --target test --notes <notes file> [--platforms ...]
+   bun .agents/skills/qq-announce/scripts/announce.ts --target test --notes <notes file> [--platforms ...]
    ```
 
    Check that each file's version matches the title of the notes.

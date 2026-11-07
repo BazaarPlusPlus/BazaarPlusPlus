@@ -53,7 +53,7 @@
       "files": ["scripts/**/*.ts"],
       "rules": {
         "typescript/require-array-sort-compare": "off",
-        // Node runs these files as the root tooling, under the same rules
+        // Bun runs these files as the root tooling, under the same rules
         // (../.oxlintrc.json).
         "typescript/no-explicit-any": "error",
         "typescript/ban-ts-comment": [

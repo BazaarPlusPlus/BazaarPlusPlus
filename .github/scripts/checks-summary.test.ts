@@ -69,9 +69,7 @@ test('all selected jobs must succeed, including each selected native platform', 
 test('unaffected jobs show why they are skipped', () => {
   const result = summarize(
     fixture(
-      classifyChanges([
-        { status: 'M', file: 'bazaarplusplus-server/package-lock.json' }
-      ])
+      classifyChanges([{ status: 'M', file: 'bazaarplusplus-server/bun.lock' }])
     )
   );
   assert.equal(result.ok, true);
@@ -81,7 +79,7 @@ test('unaffected jobs show why they are skipped', () => {
   );
   assert.match(
     result.rows.find(({ job }) => job === 'server')!.reasons[0],
-    /package-lock/
+    /bun\.lock/
   );
 });
 

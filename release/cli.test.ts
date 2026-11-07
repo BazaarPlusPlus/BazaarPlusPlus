@@ -41,7 +41,6 @@ function fixture() {
     'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json',
     ...[
       'package.json',
-      'package-lock.json',
       'src-tauri/Cargo.toml',
       'src-tauri/Cargo.lock',
       'src-tauri/history-database-compatibility.json',
@@ -425,16 +424,6 @@ test('verify-mirror is read-only: no store, no source alignment, VERSION only wi
 });
 
 test.each([
-  [
-    'package-lock root entry',
-    'bazaarplusplus-installer/package-lock.json',
-    (text: string) => {
-      const lock = JSON.parse(text);
-      lock.packages[''].version = '0.0.1';
-      return `${JSON.stringify(lock, null, 2)}\n`;
-    },
-    /packageLockRootVersion=0\.0\.1/
-  ],
   [
     'Cargo.lock root package',
     'bazaarplusplus-installer/src-tauri/Cargo.lock',

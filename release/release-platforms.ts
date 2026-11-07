@@ -5,7 +5,7 @@ import type { DownloadPlatform } from './downloads.ts';
 import { platformInventory } from './payload-inventory.ts';
 import type { PayloadHost, PayloadInventory } from './payload-inventory.ts';
 
-// Release platform facts live here so bundle.sh and the Node release scripts
+// Release platform facts live here so bundle.sh and the Bun release scripts
 // cannot drift independently. Browser-safe keys come from downloads.ts.
 // `key` values are an external wire contract: they are the Tauri updater
 // {{target}}-{{arch}} lookup keys inside every manifest, and the file name of

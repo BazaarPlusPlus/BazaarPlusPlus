@@ -80,7 +80,7 @@ class ModDependencyUpdateTests(unittest.TestCase):
 
     def test_other_projects_are_not_subject_to_mod_policy(self):
         self.assertEqual(
-            validate_changes({"bazaarplusplus-server/package-lock.json": ("old", "new")}), []
+            validate_changes({"bazaarplusplus-server/bun.lock": ("old", "new")}), []
         )
 
     def test_cli_ignores_base_branch_drift_but_rejects_bot_lock_changes(self):
