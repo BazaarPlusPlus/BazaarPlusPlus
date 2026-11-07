@@ -220,11 +220,54 @@ function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
   );
 }
 
+/** The complete checksum stays selectable and copyable without dominating the download card. */
+function AndroidChecksum({ hash, copy }: { hash: string; copy: DownloadPageCopy['android'] }) {
+  const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  useEffect(() => {
+    if (status === 'idle') return;
+    const timer = window.setTimeout(() => setStatus('idle'), COPIED_RESET_MS);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
+  return (
+    <details className="min-w-0 text-sm text-text-2">
+      <summary className="min-h-(--touch-target) cursor-pointer py-2 hover:text-text-1 md:min-h-(--control-md)">
+        {copy.sha256Label}{' '}
+        <code className="ml-2 font-(family-name:--font-mono)">
+          {hash.slice(0, 8)}…{hash.slice(-8)}
+        </code>
+      </summary>
+      <div className="flex min-w-0 flex-col items-start gap-2 pb-2">
+        <code className="max-w-full font-(family-name:--font-mono) break-all select-all">
+          {hash}
+        </code>
+        <Button
+          size="sm"
+          className="max-md:min-h-(--touch-target)"
+          onClick={() => {
+            void (async () => {
+              try {
+                await navigator.clipboard.writeText(hash);
+                setStatus('copied');
+              } catch {
+                setStatus('failed');
+              }
+            })();
+          }}
+        >
+          <span aria-live="polite">
+            {status === 'copied' ? copy.checksumCopied : copy.checksumCopy}
+          </span>
+        </Button>
+        {status === 'failed' && <p role="status">{copy.checksumFailed}</p>}
+      </div>
+    </details>
+  );
+}
+
 /**
- * The experimental Android App APK, the steps to install it and what differs from the official
- * app. While Android's Platform Release Manifest is missing or invalid, the card degrades like a
- * desktop card: an unavailable version and a disabled download, with its badge, notice, feedback
- * group, steps and limits kept.
+ * Android's own release may be unavailable independently of desktop. Keep installation guidance
+ * and feedback available in that state, while disabling the APK download.
  */
 function AndroidCard({
   copy,
@@ -242,20 +285,20 @@ function AndroidCard({
   const androidCopy = copy.android;
 
   return (
-    <article className="panel flex flex-col gap-6 p-6">
-      <div className="flex flex-col gap-4">
-        <PlatformHeader
-          icon={androidIconDataUri}
-          title={androidCopy.title}
-          arch={androidCopy.arch}
-          badge={<Badge tone="warn">{androidCopy.badge}</Badge>}
-        />
-        <Banner>{androidCopy.notice}</Banner>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2 md:gap-8">
-        <div className="flex min-w-0 flex-col gap-6">
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-6 gap-y-2">
+    <article className="panel flex flex-col gap-4 p-6">
+      <PlatformHeader
+        icon={androidIconDataUri}
+        title={androidCopy.title}
+        arch={androidCopy.arch}
+        badge={<Badge tone="warn">{androidCopy.badge}</Badge>}
+      />
+      <p className="flex items-start gap-2 text-sm text-text-2">
+        <AlertIcon className="mt-1 size-4 shrink-0 text-warning" />
+        <span>{androidCopy.notice}</span>
+      </p>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="flex min-w-0 flex-col items-start gap-4">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2">
             <Fact label={copy.versionLabel}>
               {loading ? (
                 <span className="inline-block h-5 w-20 rounded-control bg-hover align-middle motion-safe:animate-pulse" />
@@ -267,7 +310,7 @@ function AndroidCard({
                 <span className="text-text-2">{copy.versionUnavailable}</span>
               )}
             </Fact>
-            {release ? (
+            {release && (
               <>
                 <GameFacts
                   copy={copy}
@@ -278,16 +321,10 @@ function AndroidCard({
                 <Fact label={androidCopy.sizeLabel}>
                   <span className="tabular-nums">{formatFileSize(release.app.size, locale)}</span>
                 </Fact>
-                <Fact label={androidCopy.sha256Label}>
-                  <code className="font-(family-name:--font-mono) text-[13px] break-all text-text-2">
-                    {release.app.sha256}
-                  </code>
-                </Fact>
               </>
-            ) : null}
+            )}
           </dl>
-
-          <div className="mt-auto flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 max-md:[&>*]:min-h-(--touch-target)">
             <Button
               variant="primary"
               href={release?.app.url ?? '#'}
@@ -298,30 +335,35 @@ function AndroidCard({
             </Button>
             <FeedbackGroupButton copy={androidCopy} />
           </div>
+          {release && <AndroidChecksum hash={release.app.sha256} copy={androidCopy} />}
         </div>
-
-        <div className="flex flex-col gap-3 border-t border-line pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8">
-          <h3 className="text-[15px] font-semibold text-text-1">{androidCopy.stepsTitle}</h3>
-          <ol className="flex flex-col gap-2.5 text-[15px] text-text-2">
+        <div className="min-w-0 border-t border-line pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-6">
+          <ol aria-label={androidCopy.stepsTitle} className="flex flex-col gap-3">
             {androidCopy.steps.map((step, index) => (
-              <li key={index} className="flex items-start gap-3">
-                {/* 20px mark centred on the 24px first line. */}
+              <li key={step.title} className="flex min-w-0 items-start gap-3">
                 <span
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full bg-hover text-sm text-text-2 tabular-nums"
                   aria-hidden="true"
-                  className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-hover text-[13px] font-semibold text-text-1 tabular-nums"
                 >
                   {index + 1}
                 </span>
-                <span>{step}</span>
+                <div className="min-w-0">
+                  <p className="font-medium text-text-1">{step.title}</p>
+                  <p className="mt-1 text-sm text-text-2">{step.body}</p>
+                </div>
               </li>
             ))}
           </ol>
-          <h3 className="mt-3 text-[15px] font-semibold text-text-1">{androidCopy.limitsTitle}</h3>
-          <ul className="flex list-disc flex-col gap-2 pl-5 text-[15px] text-text-2">
-            {androidCopy.limits.map((limit, index) => (
-              <li key={index}>{limit}</li>
-            ))}
-          </ul>
+          <details className="mt-3 text-sm">
+            <summary className="min-h-(--touch-target) cursor-pointer py-2 text-text-2 hover:text-text-1 md:min-h-(--control-md)">
+              {androidCopy.limitsTitle}
+            </summary>
+            <ul className="flex list-disc flex-col gap-2 pt-2 pl-5 text-text-2">
+              {androidCopy.limits.map((limit) => (
+                <li key={limit}>{limit}</li>
+              ))}
+            </ul>
+          </details>
         </div>
       </div>
     </article>
