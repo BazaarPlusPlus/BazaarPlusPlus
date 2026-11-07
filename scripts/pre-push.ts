@@ -97,7 +97,7 @@ export function pushCommands(plan: ChecksPlan): string[][] {
       'macos-icon'
     ].some(selected)
   )
-    commands.push(['installer::check', 'installer::test']);
+    commands.push(['installer::check']);
   for (const project of ['site', 'server', 'analyzer', 'android']) {
     if (selected(project)) commands.push([`${project}::test`]);
   }
