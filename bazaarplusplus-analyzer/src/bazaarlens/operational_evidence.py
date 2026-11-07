@@ -7,23 +7,18 @@ import resource
 import shutil
 import sys
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, TypedDict, cast
 
-from bppanalyzer.bundle_source import SourcePerformance
-from bppanalyzer.durable import atomic_replace, aware_utc, canonical_json, utc_timestamp
-from bppanalyzer.fact_store import FactPruneReport, FactStore, parse_source_day
-from bppanalyzer.hour_intake import HourIntakeProgress, is_hour_settled
-from bppanalyzer.publication import (
-    PRODUCTS,
-    AnalysisWindow,
-    BuildStats,
-    ConsumerProduct,
-    FactStats,
-    HeroStats,
-)
+from bazaarlens.analysis import AnalysisWindow, FactStats
+from bazaarlens.bundle_source import SourcePerformance
+from bazaarlens.durable import atomic_replace, aware_utc, canonical_json, utc_timestamp
+from bazaarlens.facts.store import FactPruneReport, FactStore, parse_source_day
+from bazaarlens.hour_intake import HourIntakeProgress, is_hour_settled
+from bazaarlens.products import PRODUCTS
+from bazaarlens.products.base import SnapshotResult
 
 
 class WindowReport(TypedDict):
@@ -113,7 +108,7 @@ class RunReport:
             },
             **{
                 product.name: {
-                    **{stat.name: 0 for stat in fields(product.stats_type)},
+                    **product.empty_counts(),
                     "published": False,
                 }
                 for product in PRODUCTS
@@ -170,21 +165,19 @@ class RunReport:
             download_latency_ms_p95=download_latency_ms_p95,
         )
 
-    def record_product(self, product: ConsumerProduct, stats: HeroStats | BuildStats) -> None:
-        if not isinstance(stats, product.stats_type):
-            raise ValueError(f"Stats do not belong to consumer product: {product.name}")
-        self._product_report(product).update(asdict(stats))
-
-    def mark_published(self, product: ConsumerProduct) -> None:
-        self._product_report(product)["published"] = True
+    def record_product(self, result: SnapshotResult) -> None:
+        product = next((item for item in PRODUCTS if item.name == result.product), None)
+        if product is None or set(result.counts) != set(product.counter_names):
+            raise ValueError(f"Counters do not belong to consumer product: {result.product}")
+        report = cast(dict[str, dict[str, object]], self.value)[result.product]
+        if result.local_saved:
+            report.update(result.counts)
+        if result.remote_confirmed:
+            report["published"] = True
 
     def all_published(self) -> bool:
-        return all(self._product_report(product)["published"] for product in PRODUCTS)
-
-    def _product_report(self, product: ConsumerProduct) -> dict[str, object]:
-        if product not in PRODUCTS:
-            raise ValueError(f"Unknown consumer product: {product.name}")
-        return cast(dict[str, dict[str, object]], self.value)[product.name]
+        reports = cast(dict[str, dict[str, object]], self.value)
+        return all(reports[product.name]["published"] for product in PRODUCTS)
 
     def record_retention(self, report: FactPruneReport) -> None:
         self.value["retention"] = {

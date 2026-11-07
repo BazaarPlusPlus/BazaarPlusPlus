@@ -70,7 +70,7 @@ class DirectoryLock:
                 if age is None:
                     continue
                 if age <= self._stale_after:
-                    raise LockHeld("Another bpp run holds the lock") from None
+                    raise LockHeld("Another bazaarlens run holds the lock") from None
                 try:
                     takeover_guard.mkdir()
                 except FileExistsError:
@@ -86,7 +86,7 @@ class DirectoryLock:
                         # may create a fresh directory before the rename below.
                         continue
                     if age <= self._stale_after:
-                        raise LockHeld("Another bpp run holds the lock")
+                        raise LockHeld("Another bazaarlens run holds the lock")
                     self.stale_run_id = self._read_run_id(self._heartbeat)
                     try:
                         os.rename(self._path, stale_path)
@@ -123,7 +123,7 @@ class DirectoryLock:
         self._started_monotonic = time.monotonic()
         self._thread = threading.Thread(
             target=self._heartbeat_loop,
-            name=f"bpp-heartbeat-{self.run_id}",
+            name=f"bazaarlens-heartbeat-{self.run_id}",
             daemon=True,
         )
         self._thread.start()

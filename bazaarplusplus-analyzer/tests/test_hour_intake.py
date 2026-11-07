@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from bppanalyzer.bundle_source import (
+from bazaarlens.bundle_source import (
     BundleRef,
     HourExpired,
     RawHourIndex,
@@ -11,9 +11,9 @@ from bppanalyzer.bundle_source import (
     admit_bundle,
     raw_commit_sha256,
 )
-from bppanalyzer.fact_store import FactStore
-from bppanalyzer.hour_intake import HourIntakeProgress, SourceHourIntake
-from bppanalyzer.locking import LockOwnershipLost, MaximumRunTimeExceeded
+from bazaarlens.facts.store import FactStore
+from bazaarlens.hour_intake import HourIntakeProgress, SourceHourIntake
+from bazaarlens.locking import LockOwnershipLost, MaximumRunTimeExceeded
 from tests.bundle_fixtures import bundle_bytes
 
 SOURCE_HOUR = datetime(2026, 8, 10, 12, tzinfo=UTC)
@@ -173,7 +173,7 @@ def test_commit_failure_preserves_download_success_without_claiming_a_commit(
         raise error
 
     if failure_at == "finalize":
-        monkeypatch.setattr("bppanalyzer.fact_store.os.rename", fail_rename)
+        monkeypatch.setattr("bazaarlens.facts.store.os.rename", fail_rename)
 
     store = FactStore(tmp_path, ownership_check=ownership_check)
     with pytest.raises(type(error)) as raised:

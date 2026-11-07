@@ -80,7 +80,7 @@ jobs:
           BPP_BUNDLE_SYNC_TOKEN: ${{ secrets.BPP_BUNDLE_SYNC_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          # bppanalyzer.config reads only this file, never the environment.
+          # bazaarlens.config reads only this file, never the environment.
           umask 077
           {
             echo "BPP_DATA_ROOT=$BPP_DATA_ROOT"
@@ -104,7 +104,7 @@ jobs:
         run: |
           uv run --locked --no-dev python - <<'PY'
           import os
-          from bppanalyzer.object_store import derive_s3_credentials
+          from bazaarlens.object_store import derive_s3_credentials
 
           key_id, secret = derive_s3_credentials(
               os.environ["CLOUDFLARE_API_TOKEN"], account_id=os.environ["CLOUDFLARE_ACCOUNT_ID"]
@@ -121,7 +121,7 @@ jobs:
       - if: steps.pull.outcome == 'success'
         name: Verify restored facts
         working-directory: bazaarplusplus-analyzer
-        run: uv run --locked --no-dev bpp verify --deep
+        run: uv run --locked --no-dev bazaarlens verify --deep
 
       - id: analyze
         if: steps.pull.outcome == 'success'
@@ -132,7 +132,7 @@ jobs:
         run: |
           args=(run --quiet)
           [ "$PUBLISH" = true ] || args+=(--no-publish)
-          uv run --locked --no-dev bpp "${args[@]}"
+          uv run --locked --no-dev bazaarlens "${args[@]}"
 
       # Retention deletions are mirrored only after a fully successful run; a
       # failed one uploads the hours it committed and deletes nothing.

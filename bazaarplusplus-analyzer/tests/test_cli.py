@@ -5,11 +5,11 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-import bppanalyzer.cli as cli
-from bppanalyzer.bundle_source import RetryableSourceError
-from bppanalyzer.config import Config
-from bppanalyzer.driver import PipelineDriver
-from bppanalyzer.locking import DirectoryLock
+import bazaarlens.cli as cli
+from bazaarlens.bundle_source import RetryableSourceError
+from bazaarlens.config import Config
+from bazaarlens.driver import PipelineDriver
+from bazaarlens.locking import DirectoryLock
 from tests.fakes import MemoryObjectStore
 
 

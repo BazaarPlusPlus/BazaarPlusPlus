@@ -1,11 +1,12 @@
 import json
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 import httpx
 import pytest
 
-from bppanalyzer.bundle_source import (
+from bazaarlens.bundle_source import (
     BundleRef,
     BundleSource,
     HourExpired,
@@ -14,11 +15,11 @@ from bppanalyzer.bundle_source import (
     admit_bundle,
     raw_commit_sha256,
 )
-from bppanalyzer.driver import PipelineDriver
-from bppanalyzer.fact_store import FactStore
-from bppanalyzer.locking import DirectoryLock, LockOwnershipLost, MaximumRunTimeExceeded
-from bppanalyzer.operational_evidence import OperationalEvidence, read_status
-from bppanalyzer.publication import BUILDS_KEY, HEROES_KEY, SnapshotBuilder
+from bazaarlens.driver import PipelineDriver
+from bazaarlens.facts.store import FactStore
+from bazaarlens.locking import DirectoryLock, LockOwnershipLost, MaximumRunTimeExceeded
+from bazaarlens.operational_evidence import OperationalEvidence, read_status
+from bazaarlens.products import BUILDS, HEROES
 from tests.bundle_fixtures import bundle_bytes
 from tests.fakes import MemoryObjectStore
 from tests.pipeline_fixtures import heal_from_bundles
@@ -28,7 +29,7 @@ def _driver(data_root: Path, **kwargs) -> PipelineDriver:
     return PipelineDriver(data_root, duckdb_memory_limit="1GB", duckdb_threads=1, **kwargs)
 
 
-def _fail_heroes(_builder: SnapshotBuilder, _window) -> None:
+def _fail_heroes(_connection, _window, _generated_at) -> None:
     raise RuntimeError("fixture heroes failure")
 
 
@@ -103,8 +104,8 @@ def test_one_complete_day_publishes_a_one_day_window(tmp_path: Path) -> None:
         "days": 1,
     }
     assert objects.put_keys() == [
-        HEROES_KEY,
-        BUILDS_KEY,
+        HEROES.public_key,
+        BUILDS.public_key,
     ]
 
 
@@ -197,8 +198,8 @@ def test_driver_publishes_exactly_two_objects_and_records_the_structured_run_rep
 
     assert summary.exit_code == 0
     assert objects.put_keys() == [
-        HEROES_KEY,
-        BUILDS_KEY,
+        HEROES.public_key,
+        BUILDS.public_key,
     ]
     status = json.loads((root / "status.json").read_bytes())
     assert status["last_run"]["report"] == summary.report
@@ -218,13 +219,13 @@ def test_one_product_failure_preserves_it_but_the_other_product_still_updates(
     objects = MemoryObjectStore()
     old_heroes = b'{"old":"heroes"}\n'
     objects.put(
-        HEROES_KEY,
+        HEROES.public_key,
         old_heroes,
         cache_control="public,max-age=60,must-revalidate",
         content_type="application/json",
     )
 
-    monkeypatch.setattr(SnapshotBuilder, "build_heroes", _fail_heroes)
+    monkeypatch.setattr("bazaarlens.driver.PRODUCTS", (replace(HEROES, build=_fail_heroes), BUILDS))
     summary = _driver(
         root,
         source=NeverSource(),
@@ -236,8 +237,8 @@ def test_one_product_failure_preserves_it_but_the_other_product_still_updates(
     assert summary.exit_code == 4
     assert summary.report["heroes"]["published"] is False
     assert summary.report["builds"]["published"] is True
-    assert objects.get(HEROES_KEY).body == old_heroes
-    assert objects.get(BUILDS_KEY) is not None
+    assert objects.get(HEROES.public_key).body == old_heroes
+    assert objects.get(BUILDS.public_key) is not None
 
 
 def test_one_product_failure_does_not_prune_old_facts(
@@ -245,7 +246,7 @@ def test_one_product_failure_does_not_prune_old_facts(
 ) -> None:
     root = nine_sealed_days
 
-    monkeypatch.setattr(SnapshotBuilder, "build_heroes", _fail_heroes)
+    monkeypatch.setattr("bazaarlens.driver.PRODUCTS", (replace(HEROES, build=_fail_heroes), BUILDS))
     summary = _driver(
         root,
         source=NeverSource(),
@@ -457,8 +458,8 @@ def test_retention_failure_preserves_published_facts_in_terminal_evidence(
     assert summary["failures"][-1] == {"scope": "run", "reason": str(failure)}
     assert json.loads((root / "runs.jsonl").read_text().splitlines()[-1]) == summary
     assert objects.put_keys() == [
-        HEROES_KEY,
-        BUILDS_KEY,
+        HEROES.public_key,
+        BUILDS.public_key,
     ]
 
 

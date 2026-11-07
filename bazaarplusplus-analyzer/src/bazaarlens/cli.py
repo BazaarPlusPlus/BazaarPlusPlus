@@ -4,24 +4,22 @@ import json
 
 import click
 
-from bppanalyzer.bundle_source import BundleSource
-from bppanalyzer.config import ConfigurationError, load_config
-from bppanalyzer.driver import PipelineDriver
-from bppanalyzer.fact_store import FactStore, FactStoreError, parse_source_day
-from bppanalyzer.locking import LockHeld, LockOwnershipLost
-from bppanalyzer.object_store import ObjectStoreError, R2ObjectStore
-from bppanalyzer.operational_evidence import read_status
-from bppanalyzer.publication import (
-    PRODUCTS,
-    ContractViolation,
-    PublicationError,
-    validate_snapshot,
-)
+from bazaarlens.analysis import AnalysisWindowError
+from bazaarlens.bundle_source import BundleSource
+from bazaarlens.config import ConfigurationError, load_config
+from bazaarlens.driver import PipelineDriver
+from bazaarlens.facts.store import FactStore, FactStoreError, parse_source_day
+from bazaarlens.locking import LockHeld, LockOwnershipLost
+from bazaarlens.object_store import ObjectStoreError, R2ObjectStore
+from bazaarlens.operational_evidence import read_status
+from bazaarlens.products import PRODUCTS
+from bazaarlens.products.base import ContractViolation
+from bazaarlens.snapshots import PublicationError, validate_snapshot
 
 
 @click.group()
 def main() -> None:
-    """bpp — Analyzer pipeline."""
+    """bazaarlens — Analyzer pipeline."""
 
 
 @main.command("run")
@@ -78,7 +76,7 @@ def run_command(
         raise click.UsageError(str(error)) from None
     except LockOwnershipLost as error:
         raise click.ClickException(str(error)) from None
-    except (PublicationError, ObjectStoreError) as error:
+    except (PublicationError, AnalysisWindowError, ContractViolation, ObjectStoreError) as error:
         raise click.ClickException(str(error)) from None
 
 
@@ -141,7 +139,7 @@ def _validate_local_snapshots(data_root) -> int:
         value = json.loads(path.read_bytes())
         if not isinstance(value, dict):
             raise ContractViolation(f"Local {product.name} snapshot root must be an object")
-        validate_snapshot(product.name, value)
+        validate_snapshot(product, value)
         count += 1
     return count
 

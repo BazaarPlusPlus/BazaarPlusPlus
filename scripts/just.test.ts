@@ -359,7 +359,7 @@ for (const [recipe, project, ...args] of [
     'uv',
     'run',
     '--locked',
-    'bpp',
+    'bazaarlens',
     'status',
     '--json'
   ]

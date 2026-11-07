@@ -17,9 +17,9 @@ from pathlib import Path
 
 import httpx
 
-from bppanalyzer.bundle_source import BundleSource
-from bppanalyzer.driver import PipelineDriver
-from bppanalyzer.fact_store import FactStore
+from bazaarlens.bundle_source import BundleSource
+from bazaarlens.driver import PipelineDriver
+from bazaarlens.facts.store import FactStore
 from tests.bundle_fixtures import Card, bundle_bytes, envelope, payload
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

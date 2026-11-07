@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from bppanalyzer.bundle_source import (
+from bazaarlens.bundle_source import (
     BundleSource,
     HourExpired,
     RetryableSourceError,

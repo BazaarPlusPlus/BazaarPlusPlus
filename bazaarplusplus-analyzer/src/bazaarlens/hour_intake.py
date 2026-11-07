@@ -6,10 +6,10 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from typing import Literal, Protocol
 
-from bppanalyzer.bundle_source import Bundle, HourExpired, RawHourIndex, RetryableSourceError
-from bppanalyzer.durable import aware_utc
-from bppanalyzer.fact_store import FactStore, HourCommit, parse_source_day
-from bppanalyzer.projection import project_hour
+from bazaarlens.bundle_source import Bundle, HourExpired, RawHourIndex, RetryableSourceError
+from bazaarlens.durable import aware_utc
+from bazaarlens.facts.projection import project_hour
+from bazaarlens.facts.store import FactStore, HourCommit, parse_source_day
 
 DEFAULT_SETTLE_LAG = timedelta(seconds=60)
 

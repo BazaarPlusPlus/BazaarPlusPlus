@@ -2,7 +2,7 @@
 # Mirrors the analyzer Data Root (BPP_DATA_ROOT) to and from a prefix of a
 # private R2 bucket (BPP_ANALYZER_STATE_BUCKET/BPP_ANALYZER_STATE_PREFIX/) for .github/workflows/analyzer.yml, which runs on a fresh runner
 # every time. Hourly commits and day seals are immutable and carry their own
-# sha256 (bazaarplusplus-analyzer/docs/architecture.md), so `bpp verify --deep`
+# sha256 (bazaarplusplus-analyzer/docs/architecture.md), so `bazaarlens verify --deep`
 # after a pull proves the restore. Lock and staging entries are never mirrored.
 #
 #   analyzer-state.sh pull       copy the bucket into an empty Data Root

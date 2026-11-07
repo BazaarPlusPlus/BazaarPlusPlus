@@ -6,16 +6,16 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-from bppanalyzer.bundle_source import (
+from bazaarlens.bundle_source import (
     BundleRef,
     RawHourIndex,
     admit_bundle,
     raw_commit_sha256,
 )
-from bppanalyzer.driver import PipelineDriver
-from bppanalyzer.fact_store import FactStore
-from bppanalyzer.operational_evidence import peak_rss_bytes
-from bppanalyzer.projection import project_hour
+from bazaarlens.driver import PipelineDriver
+from bazaarlens.facts.projection import project_hour
+from bazaarlens.facts.store import FactStore
+from bazaarlens.operational_evidence import peak_rss_bytes
 from tests.bundle_fixtures import Card, bundle_bytes, payload
 
 

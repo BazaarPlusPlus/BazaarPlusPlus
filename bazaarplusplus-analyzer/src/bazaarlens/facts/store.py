@@ -13,16 +13,19 @@ from contextlib import ExitStack, suppress
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from bppanalyzer.bundle_source import parse_source_hour
-from bppanalyzer.durable import canonical_json, fsync_directory
-from bppanalyzer.projection import HourProjection, table_schemas
+from bazaarlens.bundle_source import parse_source_hour
+from bazaarlens.durable import canonical_json, fsync_directory
+from bazaarlens.facts.schema import TABLES, table_schemas
 
-TABLES = ("runs", "battles", "battle_cards", "quality", "quarantine")
+if TYPE_CHECKING:
+    from bazaarlens.facts.projection import HourProjection
+
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _HOUR_DIR = re.compile(r"^source_hour=(\d{4}-\d{2}-\d{2}T\d{2})$")
 _SEAL_FILE = re.compile(r"^source_day=(\d{4}-\d{2}-\d{2})\.json$")

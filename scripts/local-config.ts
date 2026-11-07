@@ -98,7 +98,7 @@ export const sections: SectionTable = {
   analyzer: {
     profile: 'analyzer',
     projection: 'bazaarplusplus-analyzer/.env',
-    // The analyzer owns its keys; bppanalyzer.config load_config reads them.
+    // The analyzer owns its keys; bazaarlens.config load_config reads them.
     template: 'bazaarplusplus-analyzer/.env.example',
     // Every clone receives the same text, so a relative path would move.
     absolute: ['BPP_DATA_ROOT'],

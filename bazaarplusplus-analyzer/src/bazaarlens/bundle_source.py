@@ -16,7 +16,7 @@ from typing import Any, Self, TypeVar
 
 import httpx
 
-from bppanalyzer.durable import canonical_json
+from bazaarlens.durable import canonical_json
 
 # The V6 Worker serves only Bundle V6.
 BUNDLE_MAGIC = b"BPPBNDL6"

@@ -12,9 +12,9 @@ from pathlib import Path
 
 import httpx
 
-from bppanalyzer.bundle_source import BundleSource
-from bppanalyzer.driver import PipelineDriver
-from bppanalyzer.durable import canonical_json
+from bazaarlens.bundle_source import BundleSource
+from bazaarlens.driver import PipelineDriver
+from bazaarlens.durable import canonical_json
 from tests.pipeline_fixtures import (
     API_BASE_URL,
     CONTRACT_FIXTURES,

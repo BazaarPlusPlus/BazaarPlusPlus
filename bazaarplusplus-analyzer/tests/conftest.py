@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from bppanalyzer.fact_store import FactStore
+from bazaarlens.facts.store import FactStore
 from tests.pipeline_fixtures import heal_from_bundles
 
 # Healing runs the production driver once per Source Day, so each sealed

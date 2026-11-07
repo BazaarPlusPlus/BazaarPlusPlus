@@ -4,8 +4,8 @@ from pathlib import Path
 
 import httpx
 
-from bppanalyzer.bundle_source import BundleSource
-from bppanalyzer.driver import PipelineDriver
+from bazaarlens.bundle_source import BundleSource
+from bazaarlens.driver import PipelineDriver
 from tests.pipeline_fixtures import (
     API_BASE_URL,
     SYNC_TOKEN,

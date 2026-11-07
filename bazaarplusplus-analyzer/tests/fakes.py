@@ -4,8 +4,9 @@ from datetime import UTC, datetime
 
 import pyarrow as pa
 
-from bppanalyzer.object_store import ObjectStat, StoredObject
-from bppanalyzer.projection import HourProjection, table_schemas
+from bazaarlens.facts.projection import HourProjection
+from bazaarlens.facts.schema import table_schemas
+from bazaarlens.object_store import ObjectStat, StoredObject
 
 
 class MemoryObjectStore:

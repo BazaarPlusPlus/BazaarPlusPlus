@@ -3,19 +3,7 @@ set positional-arguments
 
 # Refresh shared configuration, then run an explicit analyzer CLI command.
 cli +args:
-    bun ../scripts/workspace.ts run analyzer -- uv run --locked bpp "$@"
-
-# Collect facts and publish snapshots; pass --no-publish for local validation.
-run *args:
-    uv run --locked bpp run "$@"
-
-# Show local pipeline health.
-status *args:
-    uv run --locked bpp status "$@"
-
-# Verify committed facts; pass --deep to validate local snapshots too.
-verify *args:
-    uv run --locked bpp verify "$@"
+    bun ../scripts/workspace.ts run analyzer -- uv run --locked bazaarlens "$@"
 
 # Check Python formatting, lint, and types using the locked environment.
 check:
