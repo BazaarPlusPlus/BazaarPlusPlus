@@ -10,6 +10,8 @@ public sealed class BuildRecommendation
 
     public int TenWinRunCount { get; set; }
 
+    public int CompletedRunCount { get; set; }
+
     /// <summary>Ten-win rate in basis points (2667 == 26.67%), or null when unavailable.</summary>
     public int? TenWinRateBps { get; set; }
 

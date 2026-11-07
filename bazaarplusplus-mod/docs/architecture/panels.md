@@ -2,6 +2,8 @@
 
 Main-overlay-panel lifecycle, the native HistoryPanel surface, and the board adapters used by HistoryPanel and LiveBuildPanel.
 
+Ten-Win Builds shows the observed Ten-Win Runs and completed Run denominator together through `LiveBuildPanelText.MatchSampleValue` on both hosts. The shared repository and panel snapshot carry both counts from the Build Corpus.
+
 Ten-Win Builds exposes an **Include Tiny** filter on desktop and Android. `LiveBuildPanelState.ToggleIncludeTiny` keeps the candidates, returns to the first recommendation, and remembers the selection across opens for the panel's lifetime. With Tiny excluded, `BuildRecommendationRepository.ContainsTiny` rejects a whole build if any layout item's captured size is smaller than its template's size; unknown template sizes leave the build eligible and are read again on the next query. `TenWinBuildCorpus.FindBuilds` applies this eligibility before deciding whether to fall back from all selected cards to partial matches. Filtering reads the current corpus locally (`src/BazaarPlusPlus.Core/Game/LiveBuildPanel/`).
 
 `LiveBuildRefreshState` owns Live Build Refresh acceptance, panel visibility, pending feedback, and the successful-pull allowance. The panel executes its download and view decisions; a status-only completion preserves the current recommendation and native boards. Reopening preserves a pending pull and clears completed feedback. Destroy prevents further view effects without cancelling the composition-owned Remote Embedded Catalog (`src/BazaarPlusPlus.Core/Game/LiveBuildPanel/LiveBuildRefreshState.cs`, `LiveBuildPanel.RefreshFinalBuildsAsync`).

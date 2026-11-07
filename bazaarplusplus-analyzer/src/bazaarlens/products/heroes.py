@@ -144,6 +144,7 @@ def _validate_heroes(payload: Mapping[str, Any], start: date, end: date, window_
 
 HEROES = ConsumerProduct(
     name="heroes",
+    calculation_version="1",
     public_key="heroes/latest.json",
     schema_file="heroes.schema.json",
     local_relpath=Path("snapshots", "heroes", "latest.json"),

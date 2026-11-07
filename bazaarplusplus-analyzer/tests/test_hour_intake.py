@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -105,7 +106,7 @@ def test_index_failure_reports_unknown_total_and_preserves_original_error(
         assert raised.value is error
     assert len(updates) == 2
     assert updates[0] == HourIntakeProgress("2026-08-10T12")
-    assert updates[-1] == HourIntakeProgress(
+    assert replace(updates[-1], timings={}) == HourIntakeProgress(
         "2026-08-10T12", source_index_seconds=2, elapsed_seconds=2, error=error
     )
     assert store.committed_hours() == ()
@@ -129,18 +130,18 @@ def test_partial_stream_reports_admission_counts_and_never_commits(
         with pytest.raises(type(error)) as raised:
             intake.commit(SOURCE_HOUR, on_progress=updates.append)
         assert raised.value is error
-    assert [(u.step, u.succeeded_bundles) for u in updates] == [
+    assert [(u.step, u.admitted_bundles) for u in updates] == [
         ("index", 0),
         ("ingest", 0),
         ("ingest", 1),
         ("ingest", 1),
     ]
-    assert updates[-1] == HourIntakeProgress(
+    assert replace(updates[-1], timings={}) == HourIntakeProgress(
         "2026-08-10T12",
         step="ingest",
         expected_bundles=2,
-        succeeded_bundles=1,
-        failed_bundles=1 if kind == "retryable" else 0,
+        admitted_bundles=1,
+        unprocessed_bundles=1,
         listing_pages=1,
         source_index_seconds=2,
         source_ingest_seconds=6,
@@ -183,11 +184,11 @@ def test_commit_failure_preserves_download_success_without_claiming_a_commit(
 
     assert raised.value is error
     assert source.exhausted
-    assert updates[-1] == HourIntakeProgress(
+    assert replace(updates[-1], timings={}) == HourIntakeProgress(
         "2026-08-10T12",
         step="ingest",
         expected_bundles=2,
-        succeeded_bundles=2,
+        admitted_bundles=2,
         listing_pages=1,
         source_index_seconds=2,
         source_ingest_seconds=11,
@@ -221,17 +222,17 @@ def test_live_progress_is_bounded_and_precedes_commit(tmp_path: Path, count: int
     assert commit is not None
 
     progress_counts = [1, 250, 500, 501] if count == 501 else ([1] if count else [])
-    assert [(u.step, u.succeeded_bundles) for u in updates] == [
+    assert [(u.step, u.admitted_bundles) for u in updates] == [
         ("index", 0),
         ("ingest", 0),
         *[("ingest", completed) for completed in progress_counts],
         ("complete", count),
     ]
-    assert updates[-1] == HourIntakeProgress(
+    assert replace(updates[-1], timings={}) == HourIntakeProgress(
         "2026-08-10T12",
         step="complete",
         expected_bundles=count,
-        succeeded_bundles=count,
+        admitted_bundles=count,
         listing_pages=1,
         source_index_seconds=2,
         source_ingest_seconds=3 * count,
@@ -255,7 +256,7 @@ def test_reused_commit_and_each_attempt_keep_their_own_counts(tmp_path: Path) ->
     assert second.commit.reused
     results = [u for u in updates if u.commit is not None]
     assert [u.expected_bundles for u in results] == [2, 2]
-    assert [u.succeeded_bundles for u in results] == [2, 2]
+    assert [u.admitted_bundles for u in results] == [2, 2]
     assert [u.source_index_seconds for u in results] == [2, 2]
     assert [u.source_ingest_seconds for u in results] == [6, 6]
 
@@ -271,7 +272,7 @@ def test_progress_observer_failure_aborts_without_inventing_download_failures(
 
     def observe(update: HourIntakeProgress) -> None:
         updates.append(update)
-        if update.succeeded_bundles == 1 and update.error is None:
+        if update.admitted_bundles == 1 and update.error is None:
             raise error
 
     with pytest.raises(type(error)) as raised:
@@ -281,8 +282,8 @@ def test_progress_observer_failure_aborts_without_inventing_download_failures(
 
     assert raised.value is error
     assert updates[-1].error is error
-    assert updates[-1].succeeded_bundles == 1
-    assert updates[-1].failed_bundles == 0
+    assert updates[-1].admitted_bundles == 1
+    assert updates[-1].unprocessed_bundles == 1
     assert updates[-1].source_ingest_seconds == 3
     assert store.committed_hours() == ()
 
@@ -326,3 +327,70 @@ def test_success_observer_failure_cannot_turn_a_committed_hour_into_failure(tmp_
     assert updates[-1].commit is not None
     assert all(u.error is None for u in updates)
     assert store.has_hour(SOURCE_HOUR)
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_attempt_timings_separate_projection_from_source_even_on_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fails: bool
+) -> None:
+    from bazaarlens.facts import projection
+    from bazaarlens.operational_evidence import RunEvidence
+
+    clock = Clock()
+    original_project = projection._project_bundle_rows
+
+    def measured_project(*args, **kwargs):
+        clock.advance(4)
+        yield from original_project(*args, **kwargs)
+
+    monkeypatch.setattr("time.perf_counter", clock)
+    monkeypatch.setattr(projection, "_project_bundle_rows", measured_project)
+    source = FixtureSource(
+        clock, stream_error=RetryableSourceError("fixture_failed", "fixture") if fails else None
+    )
+    evidence = RunEvidence("fixture", SOURCE_HOUR, 0)
+    result = SourceHourIntake(source, FactStore(tmp_path), monotonic=clock).commit(
+        SOURCE_HOUR,
+        on_progress=lambda update: evidence.observe_intake(
+            update, report=lambda _: None, checkpoint=lambda *_args, **_kwargs: None
+        ),
+    )
+    projected_seconds = 4 if fails else 8
+    assert result.timings["source_iteration_seconds"] == 6
+    assert result.timings["projection_seconds"] == projected_seconds
+    assert result.timings["batch_generation_seconds"] == 6 + projected_seconds
+    evidence.prepare_completion(finished_monotonic=clock(), source_performance=None)
+    assert evidence.timings["projection_seconds"] == projected_seconds
+    assert evidence.timings["batch_generation_seconds"] == 6 + projected_seconds
+    assert evidence.report.value["downloads"]["committed_bundles"] == (0 if fails else 2)
+
+
+@pytest.mark.parametrize("stage", ["setup", "parquet", "finalize"])
+def test_failed_persistence_keeps_attempt_time_without_claiming_committed_bundles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    clock = Clock()
+    monkeypatch.setattr("time.perf_counter", clock)
+    updates: list[HourIntakeProgress] = []
+
+    def fail(*_args, **_kwargs):
+        clock.advance(5)
+        raise OSError("fixture persistence failed")
+
+    if stage == "setup":
+        monkeypatch.setattr("bazaarlens.facts.store.tempfile.mkdtemp", fail)
+    elif stage == "parquet":
+        monkeypatch.setattr("bazaarlens.facts.store.pq.ParquetWriter.write_batch", fail)
+    else:
+        monkeypatch.setattr("bazaarlens.facts.store.os.rename", fail)
+    store = FactStore(tmp_path)
+    with pytest.raises(OSError, match="fixture persistence failed"):
+        SourceHourIntake(FixtureSource(clock), store, monotonic=clock).commit(
+            SOURCE_HOUR, on_progress=updates.append
+        )
+    failed = updates[-1]
+    key = "parquet_write_seconds" if stage == "parquet" else "fact_finalize_seconds"
+    assert failed.timings[key] == 5
+    assert failed.admitted_bundles == (0 if stage == "setup" else 2)
+    assert failed.unprocessed_bundles == (2 if stage == "setup" else 0)
+    assert failed.commit is None and store.committed_hours() == ()

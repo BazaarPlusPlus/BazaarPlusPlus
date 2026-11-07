@@ -225,7 +225,10 @@ def test_one_product_failure_preserves_it_but_the_other_product_still_updates(
         content_type="application/json",
     )
 
-    monkeypatch.setattr("bazaarlens.driver.PRODUCTS", (replace(HEROES, build=_fail_heroes), BUILDS))
+    monkeypatch.setattr(
+        "bazaarlens.driver.PRODUCTS",
+        (replace(HEROES, build=_fail_heroes, calculation_version="failed-calculation"), BUILDS),
+    )
     summary = _driver(
         root,
         source=NeverSource(),
@@ -246,7 +249,10 @@ def test_one_product_failure_does_not_prune_old_facts(
 ) -> None:
     root = nine_sealed_days
 
-    monkeypatch.setattr("bazaarlens.driver.PRODUCTS", (replace(HEROES, build=_fail_heroes), BUILDS))
+    monkeypatch.setattr(
+        "bazaarlens.driver.PRODUCTS",
+        (replace(HEROES, build=_fail_heroes, calculation_version="failed-calculation"), BUILDS),
+    )
     summary = _driver(
         root,
         source=NeverSource(),
@@ -274,8 +280,11 @@ def test_failed_bundle_is_reported_and_its_source_hour_remains_incomplete(
     assert summary.exit_code == 4
     assert summary.report["downloads"] == {
         "expected_bundles": 1,
-        "succeeded_bundles": 0,
-        "failed_bundles": 1,
+        "admitted_bundles": 0,
+        "unprocessed_bundles": 1,
+        "committed_bundles": 0,
+        "request_failures": {},
+        "retry_exhaustions": {},
         "listing_pages": 1,
         "listing_requests": 0,
         "listing_retries": 0,
@@ -340,8 +349,8 @@ def test_run_summary_records_low_cardinality_source_performance(tmp_path: Path) 
         key: downloads[key]
         for key in (
             "expected_bundles",
-            "succeeded_bundles",
-            "failed_bundles",
+            "admitted_bundles",
+            "unprocessed_bundles",
             "listing_pages",
             "listing_requests",
             "listing_retries",
@@ -351,8 +360,8 @@ def test_run_summary_records_low_cardinality_source_performance(tmp_path: Path) 
         )
     } == {
         "expected_bundles": 1,
-        "succeeded_bundles": 1,
-        "failed_bundles": 0,
+        "admitted_bundles": 1,
+        "unprocessed_bundles": 0,
         "listing_pages": 1,
         "listing_requests": 1,
         "listing_retries": 0,
@@ -363,6 +372,9 @@ def test_run_summary_records_low_cardinality_source_performance(tmp_path: Path) 
     assert isinstance(downloads["download_latency_ms_p50"], float)
     assert isinstance(downloads["download_latency_ms_p95"], float)
     assert 0 <= downloads["download_latency_ms_p50"] <= downloads["download_latency_ms_p95"]
+    assert downloads["request_failures"] == {"download:http_503": 1}
+    assert downloads["retry_exhaustions"] == {}
+    assert downloads["committed_bundles"] == 1
     assert sleeps == [1.0]
     assert summary.timings["retry_sleep_seconds"] == 1.0
     for name in (
@@ -646,8 +658,8 @@ def test_hour_intake_keeps_live_checkpoints_and_terminal_counts(
         "retryable_then_complete": (4, 3, 1, 1),
     }[outcome]
     assert downloads["expected_bundles"] == expected
-    assert downloads["succeeded_bundles"] == succeeded
-    assert downloads["failed_bundles"] == failed
+    assert downloads["admitted_bundles"] == succeeded
+    assert downloads["unprocessed_bundles"] == failed
     assert downloads["listing_pages"] == (2 if outcome == "retryable_then_complete" else 1)
     assert summary.hours_ingested == hours
     assert len(summary.failures) == failed
@@ -685,10 +697,80 @@ def test_observer_failure_is_fatal_even_when_its_type_matches_a_source_error(
     assert summary["failures"] == [{"scope": "run", "reason": "fixture_observer"}]
     assert summary["days_abandoned"] == 0
     assert summary["report"]["downloads"]["expected_bundles"] == 1
-    assert summary["report"]["downloads"]["succeeded_bundles"] == (
+    assert summary["report"]["downloads"]["admitted_bundles"] == (
         0 if message_prefix == "hour indexed:" else 1
     )
-    assert summary["report"]["downloads"]["failed_bundles"] == 0
+    assert summary["report"]["downloads"]["unprocessed_bundles"] == (
+        1 if message_prefix == "hour indexed:" else 0
+    )
     committed = message_prefix == "healed "
     assert summary["hours_ingested"] == int(committed)
     assert FactStore(tmp_path).has_hour("2026-08-07T00") is committed
+
+
+def test_partial_hour_reports_unprocessed_separately_from_failed_requests(tmp_path: Path) -> None:
+    now = datetime(2026, 8, 7, 1, 1, tzinfo=UTC)
+    timestamp = int(datetime(2026, 8, 7, tzinfo=UTC).timestamp() * 1000)
+    content = bundle_bytes("bundle-0")
+
+    def server(request):
+        if request.url.host == "api.invalid":
+            return httpx.Response(
+                200,
+                json={
+                    "window": {
+                        "available_from_ms": timestamp,
+                        "available_before_ms": timestamp + 3_600_000,
+                    },
+                    "items": [
+                        {
+                            "bundle_id": f"bundle-{n}",
+                            "available_at_ms": timestamp + n,
+                            "download_url": f"https://download.invalid/bundle-{n}?signature=private-capability",
+                            "download_expires_at_ms": timestamp + 3_600_000,
+                        }
+                        for n in range(3)
+                    ],
+                    "next_after": None,
+                },
+            )
+        if request.url.path == "/bundle-0":
+            return httpx.Response(200, content=content)
+        assert request.url.path == "/bundle-1", "The untouched Bundle is not a failed request"
+        return httpx.Response(503)
+
+    source = BundleSource(
+        api_base_url="https://api.invalid",
+        sync_token="test-token",
+        client=httpx.Client(transport=httpx.MockTransport(server)),
+        clock=lambda: now,
+        download_concurrency=1,
+        lookahead=1,
+        sleep=lambda _: None,
+    )
+    summary = _driver(tmp_path, source=source, clock=lambda: now).run(heal_days=1)
+    downloads = summary.report["downloads"]
+    assert downloads["expected_bundles"] == 3
+    assert downloads["admitted_bundles"] == 1
+    assert downloads["unprocessed_bundles"] == 2
+    assert downloads["committed_bundles"] == 0
+    assert downloads["download_attempts"] == 5
+    assert downloads["request_failures"] == {"download:http_503": 4}
+    assert downloads["retry_exhaustions"] == {"download": 1}
+    assert summary.failures == (
+        {
+            "scope": "source_hour",
+            "source_hour": "2026-08-07T00",
+            "reason": "bundle_download_retryable",
+            "http_status": "503",
+            "retry_attempts": "4",
+        },
+    )
+    assert summary.timings["projection_seconds"] > 0
+    assert (
+        summary.timings["batch_generation_seconds"] >= summary.timings["source_iteration_seconds"]
+    )
+    assert not FactStore(tmp_path).has_hour("2026-08-07T00")
+    logs = "".join(path.read_text() for path in (tmp_path / "logs").glob("*.log"))
+    assert "http_status=503" in logs and "retry_attempts=4" in logs
+    assert "private-capability" not in logs + json.dumps(summary.to_dict())

@@ -87,6 +87,7 @@ public sealed class BuildRecommendationRepository
                 {
                     MatchedCardCount = match.MatchedSelectedCount,
                     TenWinRunCount = match.Build.Stats.TenWinRunCount,
+                    CompletedRunCount = match.Build.Stats.CompletedRunCount,
                     TenWinRateBps = match.Build.Stats.TenWinRateBps,
                     P75TenWinFinalDay = match.Build.Stats.P75TenWinFinalDay,
                     Score = match.Build.Stats.Score,

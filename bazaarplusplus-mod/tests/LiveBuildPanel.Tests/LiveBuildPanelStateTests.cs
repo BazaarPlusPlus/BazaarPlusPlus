@@ -219,6 +219,15 @@ internal static class LiveBuildPanelStateTests
         Check.Equal(LiveBuildMatchesState.HasRecommendation, match.MatchesState, "A match.");
         Check.Equal(string.Empty, match.MatchesGuidance, "A match has no guidance line.");
         Check.Equal(80, match.MatchTenWinRunCount, "The match carries its run count.");
+        Check.Equal(300, match.MatchCompletedRunCount, "The match carries its denominator.");
+        Check.Equal(
+            "80 / 300",
+            LiveBuildPanelText.MatchSampleValue(
+                match.MatchTenWinRunCount,
+                match.MatchCompletedRunCount
+            ),
+            "Both hosts show the observed ten-win and total run counts."
+        );
         Check.Equal(1, match.MatchMatchedCardCount, "The match counts the candidate it holds.");
         Check.That(match.FinalBuild.Cards.Count > 0, "The match renders its final build.");
     }

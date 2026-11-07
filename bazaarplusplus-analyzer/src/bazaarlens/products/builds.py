@@ -344,6 +344,7 @@ def _tier_value(value: object) -> int | None:
 
 BUILDS = ConsumerProduct(
     name="builds",
+    calculation_version="1",
     public_key="builds/latest.json",
     schema_file="builds.schema.json",
     local_relpath=Path("snapshots", "builds", "latest.json"),

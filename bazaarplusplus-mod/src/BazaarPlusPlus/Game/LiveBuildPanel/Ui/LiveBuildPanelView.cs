@@ -327,7 +327,10 @@ internal sealed class LiveBuildPanelView : IDisposable
             SetMetric(
                 1,
                 LiveBuildPanelText.MatchSampleLabel(),
-                LiveBuildPanelText.MatchSampleValue(snapshot.MatchTenWinRunCount)
+                LiveBuildPanelText.MatchSampleValue(
+                    snapshot.MatchTenWinRunCount,
+                    snapshot.MatchCompletedRunCount
+                )
             );
             SetMetric(
                 2,

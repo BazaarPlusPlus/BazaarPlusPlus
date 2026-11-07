@@ -23,7 +23,7 @@ Paths in the table are relative to `src/bazaarlens/`. `SourceHourIntake` in
 facts modules. Facts do not depend on consumer products or publication.
 
 `ConsumerProduct` in `products/base.py` declares each product's fact tables,
-builder, semantic validator, contract, destinations, and report counters.
+builder, calculation version, semantic validator, contract, destinations, and report counters.
 `PRODUCTS` in `products/__init__.py` is the explicit registry. A new product
 supplies that definition and its owned contract; the driver and snapshot
 execution sequence do not contain product-specific branches.
@@ -50,15 +50,15 @@ One directory-locked invocation:
    atomically commit the complete hour;
 2. seals a Complete Source Day only after all 24 hourly commits verify;
 3. selects the latest consecutive one-to-seven-day Analysis Window;
-4. builds, validates, saves, and optionally publishes each consumer snapshot
-   independently;
+4. reuses each validated snapshot when its inputs match, otherwise builds and
+   saves it, then optionally confirms or publishes it independently;
 5. after both consumer snapshots publish successfully, removes local facts older
    than the configured number of latest Complete Source Days.
 
 Raw Bundle envelopes are validated once at admission; only the manifest and Run
 segment cross into projection. Raw bytes are then discarded. Durable local
 state consists of hourly facts and commits, day seals or abandonment records,
-current snapshots, status, run history, and logs.
+current snapshots with their input evidence, status, run history, and logs.
 
 ## Recovery invariants
 
@@ -128,10 +128,24 @@ mirrors it around each run:
   machine runs a publishing analyzer against that bucket.
 
 The Analysis Window advances when another Complete Source Day becomes
-available. Each invocation still rebuilds snapshots with its generation time;
-unchanged windows can therefore publish new bytes. The hourly schedule keeps
-each run's intake small and leaves room for skipped schedules within the
-eight-day Bundle retention. `BPP_MAX_RUN_SECONDS` is set below the six-hour job
+available. `SnapshotRunner` reuses a local snapshot only when its input
+fingerprint and content digest match. The fingerprint covers the selected day-seal identities,
+window, product calculation version, schema and hero-alias bytes, fact tables,
+report counters, and public destination. Day seals identify their hourly fact
+commits. A cache hit still validates the snapshot and verifies its referenced
+hours; it skips product queries and preserves the original generation time.
+The Run Report still queries the selected facts for its population counts.
+
+The adjacent `latest.inputs.json` stores the fingerprint, content digest, and
+product counters. The runner atomically saves the snapshot before this evidence;
+an absent, invalid, or mismatched pair triggers a rebuild. Neither file changes
+the consumer contract. A local cache hit still checks the remote object when
+publication is enabled, so a failed or skipped upload can recover on the next
+run. Bump the product's `calculation_version` whenever its builder or calculation
+semantics change, including changes in shared calculation helpers.
+
+The hourly schedule keeps each run's intake small and leaves room for skipped
+schedules within the eight-day Bundle retention. `BPP_MAX_RUN_SECONDS` is set below the six-hour job
 limit so a long heal stops itself and its committed hours are mirrored before
 the runner is reclaimed. The workflow's secrets live in the `analyzer` GitHub
 Environment, listed in `release/github-secrets.json`; its R2 token reaches only
@@ -156,8 +170,13 @@ facts. The driver retains pipeline ordering and lock-ownership decisions.
 index and ingest stages, cumulative admission counts, timings, and terminal
 result. Its synchronous progress observations reach Operational Evidence during streaming, before the next
 Bundle is projected; the driver does not reconstruct these facts from callbacks
-or Run-level counter differences. Successful admission counts describe downloads,
-not durable commits. A failure observation only updates in-memory evidence, so a
+or Run-level counter differences. `admitted_bundles` counts the ordered Bundles
+delivered by the source;
+`unprocessed_bundles` counts indexed Bundles not yet delivered, including a
+failing Bundle and any cancelled or untouched remainder. Their sum equals the
+known index population. `committed_bundles` counts only complete committed
+hours. An admitted Bundle can therefore belong to an uncommitted hour. A failure
+observation only updates in-memory evidence, so a
 lost lock cannot trigger another status or log write. `FactStore` in
 `src/bazaarlens/facts/store.py` retains atomic commit and write-time ownership
 checks; the driver retains Source Day scheduling, abandonment, and sealing. Recoverable source failures return a terminal result
@@ -167,4 +186,23 @@ when their exception type happens to match a recoverable source error.
 Run evidence aggregates collection and processing performance at Run scope:
 listing pages and retries, download attempts, retries, bytes and latency
 percentiles, plus bounded stage timings for projection, Parquet persistence,
-snapshot construction, and publication. It never stores per-Bundle metrics.
+snapshot construction, and publication. `request_failures` groups failed HTTP
+responses by fixed endpoint name and numeric status, with a separate transport
+category. It counts attempts even when a later retry succeeds; `retry_exhaustions`
+counts operations that use their full retry allowance. Source-hour failures also
+retain the terminal HTTP status and attempt count when available. These
+measurements contain no download URLs or response bodies.
+
+`FactWriteTimings` in `facts/store.py` measures every commit attempt, including
+failed generation and writes. Intake subtracts the time spent advancing its
+source iterator (including admission, progress reporting, exhaustion, and
+failure cleanup) from batch generation to measure projection. Both terms cover
+the same successful and failed attempts. `download_wait_seconds` separately
+measures blocking on download futures; `retry_sleep_seconds` sums requested
+retry delays across concurrent workers, so neither is added to projection to
+reconstruct elapsed Run time.
+
+Product evidence distinguishes a durable local snapshot (`local_saved`), input
+reuse (`reused`), remote confirmation (`published`), and an actual object upload
+(`uploaded`). A later save, publication, or retention failure preserves earlier
+completed stages. The report never stores per-Bundle metrics.

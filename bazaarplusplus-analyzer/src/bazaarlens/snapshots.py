@@ -26,6 +26,30 @@ LATEST_CACHE_CONTROL = "public,max-age=60,must-revalidate"
 JSON_CONTENT_TYPE = "application/json"
 
 
+def _validate_counts(product: ConsumerProduct, counts: Mapping[str, Any]) -> None:
+    if set(counts) != set(product.counter_names) or any(
+        not isinstance(value, int) or isinstance(value, bool) or value < 0
+        for value in counts.values()
+    ):
+        raise ContractViolation(f"Counters do not belong to consumer product: {product.name}")
+
+
+def _input_fingerprint(product: ConsumerProduct, window: AnalysisWindow) -> str:
+    identity = {
+        "format": 1,
+        "product": product.name,
+        "public_key": product.public_key,
+        "calculation_version": product.calculation_version,
+        "contract_sha256": hashlib.sha256(contract_bytes(product.schema_file)).hexdigest(),
+        "hero_aliases_sha256": hashlib.sha256(contract_bytes("hero-aliases.json")).hexdigest(),
+        "tables": product.tables,
+        "counters": product.counter_names,
+        "window": window.value,
+        "seals": [(seal.source_day, seal.day_seal_sha256) for seal in window.seals],
+    }
+    return hashlib.sha256(canonical_json(identity)).hexdigest()
+
+
 class PublicationError(RuntimeError):
     """A consumer snapshot could not be published and confirmed."""
 
@@ -102,14 +126,35 @@ class SnapshotRunner:
         with open_analysis(self.store, window, product.tables, self.resources) as connection:
             data = product.build(connection, window, self.clock())
         validate_snapshot(product, data.payload)
-        if set(data.counts) != set(product.counter_names) or any(
-            not isinstance(value, int) or isinstance(value, bool) or value < 0
-            for value in data.counts.values()
-        ):
-            raise ContractViolation(f"Counters do not belong to consumer product: {product.name}")
+        _validate_counts(product, data.counts)
         return BuiltSnapshot(
             product.name, product.public_key, canonical_json(data.payload), data.counts
         )
+
+    def _reuse(
+        self, product: ConsumerProduct, window: AnalysisWindow, fingerprint: str
+    ) -> BuiltSnapshot | None:
+        path = self.store.root / product.local_relpath
+        try:
+            evidence = json.loads(path.with_suffix(".inputs.json").read_bytes())
+            if evidence["input_fingerprint"] != fingerprint:
+                return None
+            content = path.read_bytes()
+            if evidence["content_sha256"] != hashlib.sha256(content).hexdigest():
+                return None
+            payload = json.loads(content)
+            validate_snapshot(product, payload)
+            if payload["window"] != window.value:
+                return None
+            counts = evidence["counts"]
+            if not isinstance(counts, dict):
+                return None
+            _validate_counts(product, counts)
+        except OSError, ValueError, TypeError, KeyError:
+            return None
+        # A hit skips DuckDB, but keeps the same fact-integrity checks as a build.
+        self.store.hour_paths(seal.source_day for seal in window.seals)
+        return BuiltSnapshot(product.name, product.public_key, content, counts)
 
     def ensure(
         self,
@@ -141,7 +186,11 @@ class SnapshotRunner:
             observe(f"{product.name} snapshot build started")
             started = time.monotonic()
             try:
-                built = self.build(product, window)
+                fingerprint = _input_fingerprint(product, window)
+                built = self._reuse(product, window, fingerprint)
+                result.reused = built is not None
+                if built is None:
+                    built = self.build(product, window)
             finally:
                 result.timings[f"{product.name}_build_seconds"] = round(
                     time.monotonic() - started, 6
@@ -150,18 +199,29 @@ class SnapshotRunner:
             result.phase = "save"
             started = time.monotonic()
             try:
-                atomic_replace(
-                    self.store.root / product.local_relpath,
-                    built.content,
-                    ownership_check=self.ownership_check,
-                )
+                path = self.store.root / product.local_relpath
+                if not result.reused:
+                    atomic_replace(path, built.content, ownership_check=self.ownership_check)
+                result.local_saved = True
+                result.counts = built.counts
+                if not result.reused:
+                    # Snapshot first: an interrupted pair is a digest-checked cache miss.
+                    atomic_replace(
+                        path.with_suffix(".inputs.json"),
+                        canonical_json(
+                            {
+                                "input_fingerprint": fingerprint,
+                                "content_sha256": hashlib.sha256(built.content).hexdigest(),
+                                "counts": dict(built.counts),
+                            }
+                        ),
+                        ownership_check=self.ownership_check,
+                    )
             finally:
                 result.timings[f"{product.name}_local_save_seconds"] = round(
                     time.monotonic() - started, 6
                 )
-            result.local_saved = True
-            result.counts = built.counts
-            observe(f"{product.name} snapshot build done")
+            observe(f"{product.name} snapshot build done: reused={str(result.reused).lower()}")
             if publish and self.object_store is not None:
                 result.phase = "publish"
                 observe(f"{product.name} snapshot publication started")

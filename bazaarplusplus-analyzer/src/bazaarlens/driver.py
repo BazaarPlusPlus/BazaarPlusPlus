@@ -339,14 +339,22 @@ class PipelineDriver:
                     report_error(f"source hour expired: {hour_key} ({error.reason})")
                     break
                 if isinstance(error, RetryableSourceError):
-                    progress.failures.append(
-                        {
-                            "scope": "source_hour",
-                            "source_hour": hour_key,
-                            "reason": error.reason,
-                        }
+                    failure = {
+                        "scope": "source_hour",
+                        "source_hour": hour_key,
+                        "reason": error.reason,
+                    }
+                    if error.http_status is not None:
+                        failure["http_status"] = str(error.http_status)
+                    if error.retry_attempts is not None:
+                        failure["retry_attempts"] = str(error.retry_attempts)
+                    progress.failures.append(failure)
+                    detail = "".join(
+                        f" {key}={failure[key]}"
+                        for key in ("http_status", "retry_attempts")
+                        if key in failure
                     )
-                    report_error(f"source hour failed: {hour_key} ({error.reason})")
+                    report_error(f"source hour failed: {hour_key} ({error.reason}){detail}")
             if expired_reason is not None:
                 remaining = store.missing_hours(day)
                 store.abandon_day(day, remaining, expired_reason)

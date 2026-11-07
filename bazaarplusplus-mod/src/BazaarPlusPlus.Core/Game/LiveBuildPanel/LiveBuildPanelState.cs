@@ -203,6 +203,7 @@ public sealed class LiveBuildPanelState
             MatchesGuidance = matches.Guidance,
             MatchTenWinRateBps = matches.Recommendation?.TenWinRateBps,
             MatchTenWinRunCount = matches.Recommendation?.TenWinRunCount ?? 0,
+            MatchCompletedRunCount = matches.Recommendation?.CompletedRunCount ?? 0,
             MatchP75FinalDay = matches.Recommendation?.P75TenWinFinalDay,
             MatchMatchedCardCount = matches.Recommendation?.MatchedCardCount ?? 0,
             RecommendationIndex = _recommendationIndex,

@@ -650,3 +650,37 @@ def test_stream_stops_starting_downloads_after_a_fatal_bundle_failure() -> None:
     assert not worker.is_alive()
     assert len(errors) == 1 and isinstance(errors[0], SourceContractError)
     assert started <= 2
+
+
+@pytest.mark.parametrize("failure", [429, 503, "transport", "broken-error-body"])
+def test_download_diagnostics_count_attempts_and_exhaustion_without_urls(failure) -> None:
+    secret_url = "https://download.invalid/bundle-a?signature=private-capability"
+
+    class BrokenErrorBody(httpx.SyncByteStream):
+        def __iter__(self):
+            raise httpx.ReadError("private error body failure")
+            yield b""  # pragma: no cover
+
+    def server(request):
+        if request.url.host == "api.invalid":
+            return httpx.Response(200, json=_one_bundle_page(download_url=secret_url))
+        if failure == "transport":
+            raise httpx.ReadTimeout(secret_url)
+        if failure == "broken-error-body":
+            return httpx.Response(503, stream=BrokenErrorBody())
+        return httpx.Response(failure, content=b"private response body")
+
+    source = _retrying_source(httpx.MockTransport(server), [])
+    with pytest.raises(RetryableSourceError) as raised:
+        list(source.stream(source.hour_index(HOUR)))
+    assert raised.value.retry_attempts == 4
+    status = 503 if failure == "broken-error-body" else failure
+    assert raised.value.http_status == (None if status == "transport" else status)
+    measured = source.performance_snapshot(reset=True)
+    key = "download:transport" if status == "transport" else f"download:http_{status}"
+    assert measured.request_failures == {key: 4}
+    assert measured.retry_exhaustions == {"download": 1}
+    assert measured.download_attempts == 4 and measured.download_retries == 3
+    assert "private" not in str(measured) and "private" not in str(raised.value)
+    assert source.performance_snapshot().request_failures == {}
+    assert source.performance_snapshot().retry_exhaustions == {}

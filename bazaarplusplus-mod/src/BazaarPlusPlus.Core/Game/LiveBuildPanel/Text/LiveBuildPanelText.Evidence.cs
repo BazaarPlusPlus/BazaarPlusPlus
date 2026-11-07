@@ -13,9 +13,9 @@ public static partial class LiveBuildPanelText
         "十勝率"
     );
     private static readonly LocalizedTextSet MatchSampleLabelText = new(
-        "10-win runs",
-        "十胜场次",
-        "十勝場次"
+        "10-win / total runs",
+        "十胜 / 总局数",
+        "十勝 / 總局數"
     );
     private static readonly LocalizedTextSet MatchFinalDayLabelText = new(
         "Final day · p75",
@@ -43,8 +43,8 @@ public static partial class LiveBuildPanelText
             ? $"{(tenWinRateBps.Value / 100.0).ToString("0.##", CultureInfo.InvariantCulture)}%"
             : L.Resolve(MissingValueText);
 
-    public static string MatchSampleValue(int tenWinRunCount) =>
-        tenWinRunCount.ToString("N0", CultureInfo.CurrentCulture);
+    public static string MatchSampleValue(int tenWinRunCount, int completedRunCount) =>
+        $"{tenWinRunCount.ToString("N0", CultureInfo.CurrentCulture)} / {completedRunCount.ToString("N0", CultureInfo.CurrentCulture)}";
 
     public static string MatchFinalDayValue(int? p75FinalDay) =>
         p75FinalDay.HasValue ? $"D{p75FinalDay.Value}" : L.Resolve(MissingValueText);

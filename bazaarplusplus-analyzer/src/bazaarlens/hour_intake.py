@@ -1,15 +1,15 @@
 """Commit one complete Source Hour behind one transaction interface."""
 
 import time
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Iterator, Mapping
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Literal, Protocol
 
 from bazaarlens.bundle_source import Bundle, HourExpired, RawHourIndex, RetryableSourceError
 from bazaarlens.durable import aware_utc
 from bazaarlens.facts.projection import project_hour
-from bazaarlens.facts.store import FactStore, HourCommit, parse_source_day
+from bazaarlens.facts.store import FactStore, FactWriteTimings, HourCommit, parse_source_day
 
 DEFAULT_SETTLE_LAG = timedelta(seconds=60)
 
@@ -24,19 +24,20 @@ class Source(Protocol):
 class HourIntakeProgress:
     """Cumulative facts for one attempt; commit or error marks its terminal observation.
 
-    Unknown index size is None, distinct from an empty hour. Succeeded Bundles
+    Unknown index size is None, distinct from an empty hour. Admitted Bundles
     passed source admission, not necessarily projection or durable commit.
     """
 
     source_hour: str
     step: Literal["index", "ingest", "complete"] = "index"
     expected_bundles: int | None = None
-    succeeded_bundles: int = 0
-    failed_bundles: int = 0
+    admitted_bundles: int = 0
+    unprocessed_bundles: int = 0
     listing_pages: int = 0
     source_index_seconds: float = 0.0
     source_ingest_seconds: float = 0.0
     elapsed_seconds: float = 0.0
+    timings: Mapping[str, float] = field(default_factory=dict)
     commit: HourCommit | None = None
     error: BaseException | None = None
 
@@ -79,6 +80,17 @@ class SourceHourIntake:
         ingest_started: float | None = None
         progress = HourIntakeProgress(aware_utc(source_hour).strftime("%Y-%m-%dT%H"))
         completed = 0
+        write_timings = FactWriteTimings()
+        source_iteration_seconds = 0.0
+
+        def attempt_timings() -> dict[str, float]:
+            return {
+                **asdict(write_timings),
+                "source_iteration_seconds": source_iteration_seconds,
+                "projection_seconds": write_timings.batch_generation_seconds
+                - source_iteration_seconds,
+            }
+
         observer_error: BaseException | None = None
 
         def observe(update: HourIntakeProgress) -> None:
@@ -118,24 +130,36 @@ class SourceHourIntake:
                         observe(
                             replace(
                                 progress,
-                                succeeded_bundles=completed,
+                                admitted_bundles=completed,
                                 source_ingest_seconds=observed_at - ingest_started,
                                 elapsed_seconds=observed_at - started,
                             )
                         )
                     yield bundle
 
-            commit = self._store.commit_hour(project_hour(index, admitted_bundles()))
+            def timed_bundles() -> Iterator[Bundle]:
+                nonlocal source_iteration_seconds
+                bundles = admitted_bundles()
+                while True:
+                    iteration_started = time.perf_counter()
+                    try:
+                        bundle = next(bundles)
+                    except StopIteration:
+                        return
+                    finally:
+                        source_iteration_seconds += time.perf_counter() - iteration_started
+                    yield bundle
+
+            commit = self._store.commit_hour(
+                project_hour(index, timed_bundles()), timings=write_timings
+            )
         except BaseException as error:
             failed_at = self._monotonic()
             failed = replace(
                 progress,
-                succeeded_bundles=completed,
-                failed_bundles=(
-                    max((progress.expected_bundles or 0) - completed, 0)
-                    if isinstance(error, RetryableSourceError) and error is not observer_error
-                    else 0
-                ),
+                admitted_bundles=completed,
+                unprocessed_bundles=max((progress.expected_bundles or 0) - completed, 0),
+                timings=attempt_timings() if ingest_started is not None else {},
                 source_index_seconds=(
                     failed_at - index_started
                     if progress.expected_bundles is None
@@ -161,9 +185,10 @@ class SourceHourIntake:
         result = replace(
             progress,
             step="complete",
-            succeeded_bundles=completed,
+            admitted_bundles=completed,
             source_ingest_seconds=finished_at - ingest_started,
             elapsed_seconds=finished_at - started,
+            timings=attempt_timings(),
             commit=commit,
         )
         on_progress(result)
