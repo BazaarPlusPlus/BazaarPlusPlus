@@ -4,6 +4,8 @@
 
 2026-11-05 注：Android App APK 改为携带它所属版本的 Interop Package 与 Managed Payload zip（用户决定）。原来这两样只能下载，网络差的新用户装好 APK 后仍然进不了游戏，而 Android 没有大陆镜像。代价是 APK 约大 20 MB，首次启动时这些文件还要再复制一份到内部存储。interop 仍可以单独下载：新版本发布后，已安装的 App 不用重装。本记录的相应部分已按此改写。
 
+2026-11-07 注：[ADR 0016](0016-one-game-compatibility-rule.md) 让三档都能用 BPP 启动，提示不变；mod 改为按游戏代码哈希提示。
+
 [ADR 0010](0010-android-release-platform.md) 让 Android 用户安装一个注入后由 BPP 签名的官方 APK（下称 A 方案）。它有三个固定代价：用户必须先卸载官方版；游戏每更新一次，用户都要等 BPP 重新注入，再下载约 2.8 GB；每个版本在 R2 多存约 2.9 GB，注入只能在 Linux x64 上跑。2026-11-01 的可行性试验（#747，模拟器 `bpp_host_spike`）证明：一个只用公开 API 的 App（`AppComponentFactory`、`PathClassLoader`、`ContextWrapper`、`ResourcesLoader`）能在自己的进程里加载用户已装、未修改的官方 APK，复用 LemonLoader 的运行时，跑通 master 的全部 Android Mods，并能和官方 App 共存。
 
 本记录取代 ADR 0010。下文用 **Android App**（BPP Android App）指包名为 `com.bazaarplusplus.android` 的 BPP 应用，以便和 mod 的 Android Host（`BazaarPlusPlus.Android`，LemonLoader 上的 mod 程序集）以及官方游戏的 App 区分开。父 issue 写作"宿主 App"的就是它。
