@@ -803,7 +803,7 @@ const en: LocalizedSiteCopy = {
     adaptedGameLabel: 'Adapted game',
     onlineGameLabel: 'Online game',
     adapted: 'Adapted',
-    notAdapted: 'Not adapted yet, in progress',
+    notAdapted: 'Not adapted yet',
     versionFailed: 'Cannot reach the latest version right now',
     releaseFallbackPrefix: 'Try ',
     releaseFallbackLink: 'GitHub Release',

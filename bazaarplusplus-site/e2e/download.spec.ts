@@ -225,7 +225,7 @@ test.describe('Game Status', () => {
     });
     expect(await games('Windows')).toEqual({
       adapted: '1.0.13057',
-      online: { version: '1.0.13082', conclusion: 'Not adapted yet, in progress' },
+      online: { version: '1.0.13082', conclusion: 'Not adapted yet' },
     });
     expect(await games('Android')).toEqual({
       adapted: '1.0.12825',
