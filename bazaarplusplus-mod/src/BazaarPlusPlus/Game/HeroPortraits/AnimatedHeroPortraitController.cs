@@ -77,10 +77,9 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
                 continue;
             var slot = new Slot(this, portrait, portrait.sprite, _preparation);
             _slots.Add(portrait, slot);
-            BppLog.InfoEvent(
+            BppLog.DebugEvent(
                 new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.hero_portrait.load_started"),
-                ("skin", skin.Name),
-                ("sprite", portrait.sprite.name)
+                () => [("skin", skin.Name), ("sprite", portrait.sprite.name)]
             );
             _ = slot.LoadAsync(loader, skin);
         }
@@ -136,10 +135,9 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
         var slot = new Slot(this, portrait, sprite, _preparation, state, encounter, data);
         _slots.Add(portrait, slot);
         _ = slot.LoadAsync(loader, skin);
-        BppLog.InfoEvent(
+        BppLog.DebugEvent(
             new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.hero_portrait.cached_setup"),
-            ("skin", skin.Name),
-            ("sprite", sprite.name)
+            () => [("skin", skin.Name), ("sprite", sprite.name)]
         );
         return generation;
     }
@@ -313,35 +311,35 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
                 if (view != null && _cachedSetup?.ReleaseStatic() == true)
                     view.AdoptStaticSuppression();
                 _view = view;
-                BppLog.InfoEvent(
+                BppLog.DebugEvent(
                     new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.hero_portrait.composition"),
-                    new BppLogField[]
-                    {
-                        ("skin", skinName),
-                        ("sprite", Sprite.name),
-                        ("matched", view != null),
-                        ("inliers", view?.Composition.Inliers ?? 0),
-                        ("fit_error", view?.Composition.Error ?? 0f),
-                        ("layered", view?.Layered ?? false),
-                        ("render_parts", view?.RenderParts ?? 0),
-                    }
+                    () =>
+                        [
+                            ("skin", skinName),
+                            ("sprite", Sprite.name),
+                            ("matched", view != null),
+                            ("inliers", view?.Composition.Inliers ?? 0),
+                            ("fit_error", view?.Composition.Error ?? 0f),
+                            ("layered", view?.Layered ?? false),
+                            ("render_parts", view?.RenderParts ?? 0),
+                        ]
                 );
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 // Keep a failed slot until the sprite changes or the user toggles the setting;
-                // a broken skin must not retry or emit a warning every discovery tick.
+                // a broken skin must not retry every discovery tick.
                 if (!_disposed)
                 {
-                    BppLog.WarnEvent(
+                    BppLog.DebugEvent(
                         new BppLogEvent(
                             BppLogFeatureScope.Plugin,
                             "plugin.hero_portrait.unavailable",
                             storm: ["skin"]
                         ),
                         ex,
-                        ("skin", skinName)
+                        () => [("skin", skinName)]
                     );
                 }
             }

@@ -52,7 +52,8 @@ internal static class PortraitBreakoutRasterizer
         PortraitBreakoutPlan plan,
         Dictionary<string, int> ids,
         CancellationToken cancellation,
-        bool captureCoverage = false
+        bool captureCoverage = false,
+        byte coverageAlphaCutoff = 8
     )
     {
         if (
@@ -135,7 +136,11 @@ internal static class PortraitBreakoutRasterizer
                 // Preserve each surface independently, including translucent fringes
                 // and surfaces hidden by another attachment. Only verified groups may
                 // use this coverage; it never supplies reference-image evidence.
-                if (silhouette?.Add(index) == true && ++coveragePixels > 250_000)
+                if (
+                    alpha >= coverageAlphaCutoff
+                    && silhouette?.Add(index) == true
+                    && ++coveragePixels > 250_000
+                )
                     return null;
                 var output = index * 4;
                 var inverse = 1 - alpha / 255f;

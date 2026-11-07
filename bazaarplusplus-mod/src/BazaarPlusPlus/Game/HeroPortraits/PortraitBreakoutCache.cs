@@ -9,7 +9,7 @@ namespace BazaarPlusPlus.Game.HeroPortraits;
 
 internal sealed class PortraitBreakoutCache
 {
-    private const int Version = 12;
+    private const int Version = 15;
     private readonly string _directory;
 
     internal PortraitBreakoutCache(string directory) =>

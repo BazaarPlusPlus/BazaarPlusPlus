@@ -72,12 +72,15 @@ internal static class PortraitBreakoutAnalyzer
         if (reference == null)
             return PortraitBreakoutPlan.Empty(frame);
         var contacts = new HashSet<int>();
+        var exteriorContacts = new HashSet<int>();
         PortraitBreakoutGroups.AddContacts(
             reference.Owners,
             width,
             height,
             contacts,
-            reference: true
+            reference: true,
+            interior,
+            exteriorContacts
         );
         for (var i = 0; i < interior.Length; i++)
         {
@@ -130,7 +133,9 @@ internal static class PortraitBreakoutAnalyzer
                     width,
                     height,
                     contacts,
-                    reference: false
+                    reference: false,
+                    interior,
+                    exteriorContacts
                 );
             drawOrders[poseIndex] = DrawOrder(pose, ids);
             coverage[poseIndex] = rendered.Coverage;
@@ -150,6 +155,8 @@ internal static class PortraitBreakoutAnalyzer
                     part.Areas[poseIndex]++;
                 }
             }
+            if (!RejectBottomCuts(input.Pages, pose, fit, plan, ids, parts, cancellation))
+                return PortraitBreakoutPlan.Empty(frame);
         }
         foreach (var part in parts)
         {
@@ -170,7 +177,8 @@ internal static class PortraitBreakoutAnalyzer
                     && Broad(part.Exterior, width, height, frame, bounds)
                 );
         }
-        var groups = PortraitBreakoutGroups.Build(parts, contacts, framePixels);
+        RejectCanvasCuts(input.Reference, reference, plan, parts);
+        var groups = PortraitBreakoutGroups.Build(parts, contacts, exteriorContacts, framePixels);
         return PortraitBreakoutSelection.Select(
             plan,
             parts,
@@ -179,6 +187,225 @@ internal static class PortraitBreakoutAnalyzer
             drawOrders,
             cancellation
         );
+    }
+
+    private static bool RejectBottomCuts(
+        PortraitImage[] pages,
+        PortraitPose pose,
+        PortraitComposition fit,
+        PortraitBreakoutPlan plan,
+        Dictionary<string, int> ids,
+        PortraitBreakoutPart[] parts,
+        CancellationToken cancellation
+    )
+    {
+        var frame = plan.Frame;
+        var reach = frame.Height * 0.08f;
+        // Look below the native crop without adding those pixels to display coverage,
+        // its exterior budget, or the renderer's mask.
+        var grid = plan with
+        {
+            Bounds = plan.Bounds with { Bottom = frame.Bottom - reach, Top = frame.Bottom + reach },
+            Height = Math.Max(8, (int)MathF.Ceiling(2 * reach * plan.Height / plan.Bounds.Height)),
+        };
+        var rendered = PortraitBreakoutRasterizer.Render(
+            pages,
+            pose,
+            fit,
+            grid,
+            ids,
+            cancellation,
+            captureCoverage: true,
+            coverageAlphaCutoff: 220
+        );
+        if (rendered == null)
+            return false;
+        var pixelWidth = grid.Bounds.Width / grid.Width;
+        var pixelHeight = grid.Bounds.Height / grid.Height;
+        var depth = Math.Max(frame.Height * 0.02f, 2 * pixelHeight);
+        var minimumWidth = Math.Max(3, (int)MathF.Ceiling(frame.Width * 0.04f / pixelWidth));
+        var cutRow = (int)MathF.Ceiling((frame.Bottom - grid.Bounds.Bottom) / pixelHeight - 0.5f);
+        foreach (var surface in rendered.Coverage)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (parts[surface.Part].Rejected || surface.Pixels.Length < minimumWidth)
+                continue;
+            var pixels = new bool[grid.Width * grid.Height];
+            foreach (var pixel in surface.Pixels)
+                pixels[pixel] = true;
+            var crossing = new bool[grid.Width];
+            for (var x = 0; x < grid.Width; x++)
+                crossing[x] =
+                    pixels[cutRow * grid.Width + x] && pixels[(cutRow - 1) * grid.Width + x];
+            var queue = new int[surface.Pixels.Length];
+            foreach (var start in surface.Pixels)
+            {
+                if (!pixels[start])
+                    continue;
+                var count = 1;
+                queue[0] = start;
+                pixels[start] = false;
+                var below = false;
+                var above = false;
+                var side = false;
+                var columns = new List<int>();
+                for (var cursor = 0; cursor < count; cursor++)
+                {
+                    var pixel = queue[cursor];
+                    var column = pixel % grid.Width;
+                    var row = pixel / grid.Width;
+                    var x = grid.Bounds.Left + (column + 0.5f) * pixelWidth;
+                    var y = grid.Bounds.Bottom + (row + 0.5f) * pixelHeight;
+                    below |= y <= frame.Bottom - depth;
+                    above |= y >= frame.Bottom + depth;
+                    side |=
+                        y > frame.Bottom + pixelHeight
+                        && (x < frame.Left - pixelWidth || x > frame.Right + pixelWidth);
+                    if (row == cutRow && crossing[column])
+                        columns.Add(column);
+                    if (column > 0)
+                        Visit(pixel - 1);
+                    if (column + 1 < grid.Width)
+                        Visit(pixel + 1);
+                    if (row > 0)
+                        Visit(pixel - grid.Width);
+                    if (row + 1 < grid.Height)
+                        Visit(pixel + grid.Width);
+                }
+                if (!below || !above || !side)
+                    continue;
+                columns.Sort();
+                var run = 0;
+                var previous = -2;
+                foreach (var column in columns)
+                {
+                    run = column == previous + 1 ? run + 1 : 1;
+                    previous = column;
+                    if (run >= minimumWidth)
+                    {
+                        // Preserve the native bottom crop even when shrinking could lift
+                        // it. This part loses breakout; unrelated parts remain eligible.
+                        parts[surface.Part].Rejected = true;
+                        break;
+                    }
+                }
+                if (parts[surface.Part].Rejected)
+                    break;
+
+                void Visit(int pixel)
+                {
+                    if (!pixels[pixel])
+                        return;
+                    pixels[pixel] = false;
+                    queue[count++] = pixel;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static void RejectCanvasCuts(
+        PortraitImage image,
+        PortraitBreakoutRaster raster,
+        PortraitBreakoutPlan grid,
+        PortraitBreakoutPart[] parts
+    )
+    {
+        var left = image.Width;
+        var right = -1;
+        var top = -1;
+        for (var y = 0; y < image.Height; y++)
+        for (var x = 0; x < image.Width; x++)
+            if (Opaque(x, y))
+            {
+                left = Math.Min(left, x);
+                right = Math.Max(right, x);
+                top = Math.Max(top, y);
+            }
+        if (right < left)
+            return;
+        // Exported artwork can have transparent padding after its authored cut.
+        // Alpha bounds nominate planes only; keep the original canvas coordinates.
+        Scan(true, left, -1);
+        Scan(true, right, 1);
+        Scan(false, top, 1);
+
+        bool Opaque(int x, int y) =>
+            x >= 0
+            && x < image.Width
+            && y >= 0
+            && y < image.Height
+            && image.Rgba[(y * image.Width + x) * 4 + 3] >= 220;
+
+        void Scan(bool vertical, int edge, int outward)
+        {
+            var extent = (vertical ? grid.Frame.Height : grid.Frame.Width) * image.Height;
+            var minimumBand = Math.Max(6, (int)MathF.Ceiling(extent * 0.1f));
+            var minimumPart = Math.Max(3, (int)MathF.Ceiling(extent * 0.03f));
+            var depth = Math.Max(
+                3f / image.Height,
+                2 * (vertical ? grid.Bounds.Width / grid.Width : grid.Bounds.Height / grid.Height)
+            );
+            var inward = (int)MathF.Ceiling(depth * image.Height);
+            var candidates = new HashSet<int>();
+            var band = 0;
+            var previous = -1;
+            var run = 0;
+            var length = vertical ? image.Height : image.Width;
+            for (var along = 0; along <= length; along++)
+            {
+                var opaque = along < length;
+                for (var d = 0; opaque && d <= inward; d++)
+                    opaque = vertical
+                        ? Opaque(edge - outward * d, along)
+                        : Opaque(along, edge - outward * d);
+                if (!opaque)
+                {
+                    if (band >= minimumBand)
+                        foreach (var candidate in candidates)
+                            parts[candidate].Rejected = true;
+                    candidates.Clear();
+                    band = run = 0;
+                    previous = -1;
+                    continue;
+                }
+                band++;
+                var id = ContinuingPart(vertical, edge, along, outward, depth);
+                run = id >= 0 ? (id == previous ? run + 1 : 1) : 0;
+                previous = id;
+                if (run >= minimumPart)
+                    candidates.Add(id);
+            }
+        }
+
+        int ContinuingPart(bool vertical, int edge, int along, int outward, float depth)
+        {
+            var id = -1;
+            for (var step = -2; step <= 2; step++)
+            {
+                var across = (edge + 0.5f) / image.Height + outward * depth * step / 2;
+                var parallel = (along + 0.5f) / image.Height;
+                var x = vertical ? across : parallel;
+                var y = vertical ? parallel : across;
+                var column = (int)
+                    MathF.Floor((x - grid.Bounds.Left) * grid.Width / grid.Bounds.Width);
+                var row = (int)
+                    MathF.Floor((y - grid.Bounds.Bottom) * grid.Height / grid.Bounds.Height);
+                if (column < 0 || column >= grid.Width || row < 0 || row >= grid.Height)
+                    return -1;
+                var pixel = row * grid.Width + column;
+                var owner = raster.Owners[pixel];
+                // A complete silhouette can touch the same plane. Require opaque
+                // continuation by the same part well beyond raster/fit tolerance,
+                // and matching static artwork on the inward side of the cut.
+                if (owner < 0 || (step > -2 && owner != id))
+                    return -1;
+                if (step == -2 && Compare(image, raster.Pixels, pixel, x, y) <= 0)
+                    return -1;
+                id = owner;
+            }
+            return id;
+        }
     }
 
     private static int[] DrawOrder(PortraitPose pose, Dictionary<string, int> ids)

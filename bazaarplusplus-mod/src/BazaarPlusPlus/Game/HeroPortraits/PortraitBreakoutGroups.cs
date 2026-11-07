@@ -79,7 +79,9 @@ internal static class PortraitBreakoutGroups
         int width,
         int height,
         HashSet<int> contacts,
-        bool reference
+        bool reference,
+        bool[] interior,
+        HashSet<int> exteriorContacts
     )
     {
         for (var y = 0; y < height; y++)
@@ -103,7 +105,12 @@ internal static class PortraitBreakoutGroups
                     return;
                 var b = owners[ny * width + nx];
                 if (b >= 0 && a != b)
-                    contacts.Add(Math.Min(a, b) * 512 + Math.Max(a, b));
+                {
+                    var pair = Math.Min(a, b) * 512 + Math.Max(a, b);
+                    contacts.Add(pair);
+                    if (!interior[y * width + x] && !interior[ny * width + nx])
+                        exteriorContacts.Add(pair);
+                }
             }
         }
     }
@@ -111,6 +118,7 @@ internal static class PortraitBreakoutGroups
     internal static int[][] Build(
         PortraitBreakoutPart[] parts,
         HashSet<int> contacts,
+        HashSet<int> exteriorContacts,
         int framePixels
     )
     {
@@ -250,10 +258,62 @@ internal static class PortraitBreakoutGroups
             foreach (var id in family)
                 groupIds[GroupRoot(membership[id])] = GroupRoot(first);
         }
-        return Enumerable
+        var assemblies = Enumerable
             .Range(0, result.Length)
             .GroupBy(GroupRoot)
             .Select(g => g.SelectMany(i => result[i]).ToArray())
+            .ToArray();
+        return PreserveExteriorContinuity(parts, assemblies, exteriorContacts);
+    }
+
+    private static int[][] PreserveExteriorContinuity(
+        PortraitBreakoutPart[] parts,
+        int[][] groups,
+        HashSet<int> contacts
+    )
+    {
+        var components = Enumerable.Range(0, parts.Length).ToArray();
+        var admitted = new bool[parts.Length];
+        int Root(int id)
+        {
+            while (components[id] != id)
+            {
+                components[id] = components[components[id]];
+                id = components[id];
+            }
+            return id;
+        }
+        foreach (var group in groups)
+        foreach (var id in group)
+        {
+            admitted[id] = true;
+            components[Root(id)] = Root(group[0]);
+        }
+        // Only a seam visible beyond the frame needs an all-or-nothing decision.
+        // Local ancestry follows articulated ends without coupling unrelated objects
+        // that overlap, or siblings that merely share a torso/root control.
+        foreach (var pair in contacts)
+        {
+            var a = pair / 512;
+            var b = pair % 512;
+            if (
+                parts[a].Rig is { Bone: > 0 } ar
+                && parts[b].Rig is { Bone: > 0 } br
+                && (ar.Ancestors.Contains(br.Bone) || br.Ancestors.Contains(ar.Bone))
+            )
+                components[Root(a)] = Root(b);
+        }
+        // Unknown or rejected ends constrain an assembly; they never gain admission
+        // from this closure. Selection still rejects whole assemblies on size/truncation.
+        var blocked = Enumerable
+            .Range(0, parts.Length)
+            .Where(i => !admitted[i])
+            .Select(Root)
+            .ToHashSet();
+        return groups
+            .GroupBy(g => Root(g[0]))
+            .Where(g => !blocked.Contains(g.Key))
+            .Select(g => g.SelectMany(p => p).ToArray())
             .ToArray();
     }
 }
