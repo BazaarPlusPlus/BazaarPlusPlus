@@ -29,13 +29,16 @@ public static class MainMenuVersionLabelFormatter
     public const string RestartFromAppText = "restart from the BPP App";
     public const string DesktopManualUpdateText = "update via installer";
     public const string AndroidManualUpdateText = "install the new BPP App";
+    public const string GameNotAdaptedText = "not adapted to this game version";
+    public const string GameOlderText = "update the game";
 
     public static string Build(
         string gameVersion,
         string pluginVersion,
         MainMenuUpdateStatus status = MainMenuUpdateStatus.None,
         string manualUpdateText = DesktopManualUpdateText,
-        string restartFromAppText = RestartFromAppText
+        string restartFromAppText = RestartFromAppText,
+        string? adaptationText = null
     )
     {
         var normalizedGameVersion = string.IsNullOrWhiteSpace(gameVersion)
@@ -50,7 +53,8 @@ public static class MainMenuVersionLabelFormatter
             MainMenuUpdateStatus.RestartToUpdate => RestartToUpdateText,
             MainMenuUpdateStatus.ManualUpdate => manualUpdateText,
             MainMenuUpdateStatus.RestartFromApp => restartFromAppText,
-            _ => null,
+            // The self-update status comes first; the game's adaptation only fills an empty suffix.
+            _ => string.IsNullOrWhiteSpace(adaptationText) ? null : adaptationText,
         };
         var suffix = statusText == null ? string.Empty : $" | {statusText}";
         return $" Version: {normalizedGameVersion} | BPP {pluginVersion.Trim()}{suffix} ";

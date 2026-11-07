@@ -29,7 +29,11 @@ final class LauncherScreen {
 
     enum Action { PLAY, INSTALL_FROM_PLAY, UPDATE_FROM_PLAY, DOWNLOAD_FROM_PUBLISHER, OPEN_OFFICIAL, RETRY }
 
-    enum Note { FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, NO_RELEASE, DEV_INTEROP }
+    /** {@link #GAME_NOT_ADAPTED} names the installed game, {@link #UPDATE_GAME} the adapted one. */
+    enum Note {
+        FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, NO_RELEASE, DEV_INTEROP,
+        GAME_NOT_ADAPTED, UPDATE_GAME
+    }
 
     /** A failure that stopped the check or the launch; shown as an error banner over a Retry. */
     static final class Failure {
@@ -159,7 +163,7 @@ final class LauncherScreen {
                 new Failure(true, message), null, ready.gameVersion, ready.adaptedVersion, false);
     }
 
-    /** What the tier allows (ADR 0012, "三档启动规则"). */
+    /** What the tier allows (ADR 0012, "三档启动规则", as ADR 0016 revised it). */
     static LauncherScreen ready(Facts facts) {
         LaunchGate.Decision decision = facts.decision;
         List<Note> notes = new ArrayList<>();
@@ -193,11 +197,13 @@ final class LauncherScreen {
                     break;
                 case OLDER:
                     status = Status.GAME_UPDATE;
-                    primary = facts.playInstalled && facts.installedFromPlay
-                            ? Action.UPDATE_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
+                    notes.add(Note.UPDATE_GAME);
+                    primary = play(facts, notes);
                     break;
                 case NEWER_WAITING:
                     status = Status.WAITING;
+                    notes.add(Note.GAME_NOT_ADAPTED);
+                    primary = play(facts, notes);
                     break;
                 case NORMAL:
                 default:
@@ -222,10 +228,14 @@ final class LauncherScreen {
     }
 
     /**
-     * The source row: the official game whenever it can open natively; otherwise, beside a Google
-     * Play install, the publisher's APK as the other source.
+     * The source row: for an older game, the store that updates it; otherwise the official game
+     * whenever it can open natively, or, beside a Google Play install, the publisher's APK as the
+     * other source.
      */
     static Action sourceRow(Facts facts) {
+        if (facts.decision.tier == LaunchGate.Tier.OLDER && !facts.devInterop) {
+            return facts.playInstalled && facts.installedFromPlay ? Action.UPDATE_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
+        }
         if (facts.decision.nativeLaunch()) return Action.OPEN_OFFICIAL;
         return facts.playInstalled ? Action.DOWNLOAD_FROM_PUBLISHER : null;
     }

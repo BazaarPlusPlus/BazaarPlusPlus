@@ -71,6 +71,7 @@ public sealed class AndroidMod : MelonMod
     private bool _mainThreadBound;
     private AndroidDevLogin? _devLogin;
     private int _labelRevision;
+    private AndroidGameAdaptation _labelAdaptation;
 
     public AndroidMod()
     {
@@ -130,9 +131,11 @@ public sealed class AndroidMod : MelonMod
         _versionCheck?.Tick();
         Guarded("update_prompt", () => _updatePrompt?.Tick());
         var revision = MainMenuVersionUpdateState.Current.Revision;
-        if (revision != _labelRevision)
+        var adaptation = _versionCheck?.Adaptation ?? AndroidGameAdaptation.Unknown;
+        if (revision != _labelRevision || adaptation != _labelAdaptation)
         {
             _labelRevision = revision;
+            _labelAdaptation = adaptation;
             VersionLabelPatch.RefreshCurrent();
         }
         if (Environment.TickCount64 < _nextSummaryAt)
@@ -292,7 +295,7 @@ public sealed class AndroidMod : MelonMod
             _versionCheck = new AndroidVersionCheck(
                 AndroidPaths.InstallRoot(melonBase),
                 AndroidPaths.DataRoot(melonBase),
-                Application.version ?? "",
+                launch.Game,
                 launch.RuntimeDigest,
                 devManifest
             );
@@ -303,6 +306,7 @@ public sealed class AndroidMod : MelonMod
                 () => panels.OpenPanelId != null
             );
             AndroidPatchHost.UpdatePrompt = _updatePrompt;
+            AndroidPatchHost.VersionCheck = _versionCheck;
             if (devManifest != null)
                 BppLog.WarnEvent(
                     new BppLogEvent(

@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ManagedPayload;
@@ -25,6 +26,15 @@ internal sealed class AndroidLaunch
     /// outside the App, for a record of another process, or for a development App.
     /// </summary>
     public string? RuntimeDigest => Reading.Record?.App.NonManagedPayloadDigest;
+
+    /// <summary>
+    /// The running game's code as the App measured it before this launch; null outside the App
+    /// or for a record of another process.
+    /// </summary>
+    public AndroidGameCode? Game =>
+        Reading.Record?.Game is { } game
+            ? new AndroidGameCode(game.VersionCode, game.Il2CppSha256, game.MetadataSha256)
+            : null;
 
     public static AndroidLaunch From(LaunchRecordReading reading) =>
         new(reading ?? throw new ArgumentNullException(nameof(reading)));

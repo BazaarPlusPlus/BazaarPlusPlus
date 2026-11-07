@@ -51,6 +51,11 @@ internal static class AndroidSettingsDock
         "游戏已是最新版本",
         "遊戲已是最新版本"
     );
+    public static readonly LocalizedTextSet GameNotAdapted = new(
+        "BazaarPlusPlus is not adapted to this game version",
+        "BazaarPlusPlus 未适配此游戏版本",
+        "BazaarPlusPlus 未適配此遊戲版本"
+    );
     public static readonly LocalizedTextSet GameUpdateChecking = new(
         "Checking for a game update",
         "正在检查游戏更新",
@@ -157,8 +162,8 @@ internal static class AndroidSettingsDock
 
     // Offered only while the release needs a new Android App, which the row downloads; otherwise
     // it says where the game stands, dimmed: a newer game to update from its store (nothing for
-    // BPP to download), current, the check has not answered yet, or it failed. A failed check
-    // never reads as current.
+    // BPP to download), current, current but not adapted, the check has not answered yet, or it
+    // failed. A failed check never reads as current.
     private sealed class GameUpdateEntry(AndroidSettingsDockHooks hooks) : ISettingsDockEntry
     {
         public int Order => BppSettingsDockOrder.GameUpdate;
@@ -179,6 +184,7 @@ internal static class AndroidSettingsDock
                 AndroidGameUpdateStatus.GameUpdated => AndroidTouchText.GameUpdated,
                 AndroidGameUpdateStatus.AppUpdated => AppUpdated,
                 AndroidGameUpdateStatus.Current => GameUpToDate,
+                AndroidGameUpdateStatus.NotAdapted => GameNotAdapted,
                 AndroidGameUpdateStatus.CheckFailed => GameUpdateCheckFailed,
                 _ => GameUpdateChecking,
             };

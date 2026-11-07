@@ -21,6 +21,12 @@ internal enum AndroidGameUpdateStatus
     Current,
 
     /// <summary>
+    /// This copy needs nothing beyond the Managed Payload, but the release was not adapted for
+    /// the running game's code (root ADR 0016): BPP runs, and some features may fail.
+    /// </summary>
+    NotAdapted,
+
+    /// <summary>
     /// The release was adapted for a newer game: the user updates the game from its store
     /// (<see cref="AndroidVersionCheck.Update"/>).
     /// </summary>
@@ -40,7 +46,9 @@ internal enum AndroidGameUpdateStatus
 /// which stages nothing here (the Android App stages the Managed Payload, root ADR 0012) and
 /// compares the release with the runtime the App started this process with, and keeps what this
 /// copy needs beyond the Managed Payload (<see cref="AndroidGameUpdate.Needed"/>): a newer game
-/// or a new Android App. Results land off the main thread; <see cref="Tick"/> observes them on it.
+/// or a new Android App. The game is compared by its code (<see cref="AndroidGameUpdate.Compare"/>,
+/// root ADR 0016), the running side from the Launch Record. Results land off the main thread;
+/// <see cref="Tick"/> observes them on it.
 /// </summary>
 internal sealed class AndroidVersionCheck : IDisposable
 {
@@ -50,17 +58,21 @@ internal sealed class AndroidVersionCheck : IDisposable
     private readonly HttpClient _httpClient;
     private readonly ReleaseManifestClient _client;
     private readonly MainMenuSelfUpdate _selfUpdate;
-    private readonly string _gameVersion;
+    private readonly AndroidGameCode? _runningGame;
     private readonly Uri _manifest;
     private readonly object _gate = new();
     private AndroidUpdate? _update;
     private string? _latestVersion;
     private AndroidGameUpdateStatus _status = AndroidGameUpdateStatus.Checking;
+    private AndroidGameAdaptation _adaptation = AndroidGameAdaptation.Unknown;
     private Task? _check;
 
     /// <param name="installRoot">The MelonLoader install root.</param>
     /// <param name="dataRoot">The Data Root.</param>
-    /// <param name="gameVersion">The running game's <c>Application.version</c>.</param>
+    /// <param name="runningGame">
+    /// The running game's code from this process's Launch Record; null without one, which reads
+    /// as <see cref="AndroidGameAdaptation.Unknown"/>.
+    /// </param>
     /// <param name="runtimeDigest">
     /// The runtime digest from the Launch Record (<see cref="Host.AndroidLaunch.RuntimeDigest"/>);
     /// null compares with the installed manifest's.
@@ -71,12 +83,12 @@ internal sealed class AndroidVersionCheck : IDisposable
     public AndroidVersionCheck(
         string installRoot,
         string dataRoot,
-        string gameVersion,
+        AndroidGameCode? runningGame,
         string? runtimeDigest,
         Uri? manifestOverride = null
     )
     {
-        _gameVersion = gameVersion ?? string.Empty;
+        _runningGame = runningGame;
         _manifest =
             manifestOverride
             ?? ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.AndroidPlatformKey);
@@ -161,6 +173,19 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
     }
 
+    /// <summary>
+    /// How the running game stands against the release's game; <see cref="AndroidGameAdaptation.Unknown"/>
+    /// before a successful check and after a failed one.
+    /// </summary>
+    public AndroidGameAdaptation Adaptation
+    {
+        get
+        {
+            lock (_gate)
+                return _adaptation;
+        }
+    }
+
     /// <summary>Starts this main-menu visit's check, replacing one still in flight.</summary>
     public void Begin()
     {
@@ -226,8 +251,18 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
 
         var published = check.Result.AndroidApp;
+        var adaptation = AndroidGameUpdate.Compare(
+            _runningGame,
+            published == null
+                ? null
+                : new AndroidGameCode(
+                    published.GameVersionCode,
+                    published.GameIl2CppSha256,
+                    published.GameMetadataSha256
+                )
+        );
         var update = AndroidGameUpdate.Needed(
-            _gameVersion,
+            adaptation,
             published?.GameVersion,
             published == null ? null : new AndroidAppDownload(published.AppUrl, published.AppSize),
             check.Evaluation.Decision == SelfUpdateDecision.ManualUpdate
@@ -236,8 +271,11 @@ internal sealed class AndroidVersionCheck : IDisposable
         {
             _update = update;
             _latestVersion = check.Evaluation.LatestVersion;
+            _adaptation = adaptation;
             _status = update?.Reason switch
             {
+                null when adaptation == AndroidGameAdaptation.NotAdapted =>
+                    AndroidGameUpdateStatus.NotAdapted,
                 null => AndroidGameUpdateStatus.Current,
                 AndroidUpdateReason.GameUpdated => AndroidGameUpdateStatus.GameUpdated,
                 _ => AndroidGameUpdateStatus.AppUpdated,
@@ -245,8 +283,10 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Lobby, "lobby.game_update.checked"),
-            ("game_version", _gameVersion),
+            ("game_version_code", _runningGame?.VersionCode),
             ("published_game_version", published?.GameVersion),
+            ("published_game_version_code", published?.GameVersionCode),
+            ("adaptation", adaptation.ToString()),
             (
                 "decision",
                 update?.Reason switch
@@ -266,6 +306,7 @@ internal sealed class AndroidVersionCheck : IDisposable
         lock (_gate)
         {
             _update = null;
+            _adaptation = AndroidGameAdaptation.Unknown;
             _status = AndroidGameUpdateStatus.CheckFailed;
         }
     }

@@ -203,6 +203,17 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal("The Bazaar 有更新，请从它的商店更新", row.ResolveLabel("zh-Hans"));
     }
 
+    [Fact]
+    public void A_game_the_release_does_not_adapt_is_named_but_offers_no_download()
+    {
+        var dock = new Dock { GameUpdateStatus = AndroidGameUpdateStatus.NotAdapted };
+        var row = dock.Row("GameUpdate");
+
+        Assert.False(row.IsActive());
+        Assert.Equal("BazaarPlusPlus is not adapted to this game version", row.ResolveLabel("en"));
+        Assert.Equal("BazaarPlusPlus 未适配此游戏版本", row.ResolveLabel("zh-Hans"));
+    }
+
     // The published manifest could not be read (a 404 while Android is unreleased, no network):
     // the row says so and never claims the game is current.
     [Theory]

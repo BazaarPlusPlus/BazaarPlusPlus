@@ -52,7 +52,7 @@ Use exactly these words. A term not listed here gets added before it ships.
 | 安装 / 重新安装 / 修复 / 卸载 | Install / Reinstall / Repair / Uninstall | Plugin actions. Uninstall removes the plugin and keeps local data. |
 | 删除 | delete | Removes files for good. Not 清除, 清理 or 移除. |
 | 官方游戏 | official game | The publisher's own The Bazaar App, as opposed to the game BazaarPlusPlus starts with its plugin. |
-| 适配 / 等待适配 | adapt / Waiting for adaptation | BazaarPlusPlus supporting a game version. A newer game "等待适配" until a release adapts it. |
+| 适配 / 等待适配 | adapt / Waiting for adaptation | BazaarPlusPlus supporting a game version. A newer game "等待适配" until a release adapts it; BazaarPlusPlus still starts it. |
 
 ## Capitalisation and punctuation
 

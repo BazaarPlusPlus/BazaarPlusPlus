@@ -9,7 +9,8 @@ using UnityEngine;
 namespace BazaarPlusPlus.Android.Patches;
 
 /// <summary>
-/// Writes the BPP version and the self-update status into the main-menu version label, the
+/// Writes the BPP version and the self-update status, or else whether the release adapts the
+/// running game (root ADR 0016), into the main-menu version label, the
 /// visible proof that the host loaded and its hooks fire. Observe mode counts the call and leaves
 /// the label alone. The label is kept so that a status the release check publishes later
 /// rewrites it (<see cref="RefreshCurrent"/>).
@@ -41,14 +42,34 @@ internal static class VersionLabelPatch
         "請從 BPP App 重新啟動"
     );
 
+    private static readonly LocalizedTextSet GameNotAdaptedText = new(
+        MainMenuVersionLabelFormatter.GameNotAdaptedText,
+        "未适配此游戏版本",
+        "未適配此遊戲版本"
+    );
+    private static readonly LocalizedTextSet GameOlderText = new(
+        MainMenuVersionLabelFormatter.GameOlderText,
+        "请更新游戏",
+        "請更新遊戲"
+    );
+
     private static string Build() =>
         MainMenuVersionLabelFormatter.Build(
             Application.version,
             AndroidPatchHost.PluginVersion,
             MainMenuVersionUpdateState.Current.Status,
             L.Resolve(ManualUpdateText),
-            L.Resolve(RestartFromAppText)
+            L.Resolve(RestartFromAppText),
+            AdaptationText(AndroidPatchHost.VersionCheck?.Adaptation)
         );
+
+    private static string? AdaptationText(AndroidGameAdaptation? adaptation) =>
+        adaptation switch
+        {
+            AndroidGameAdaptation.NotAdapted => L.Resolve(GameNotAdaptedText),
+            AndroidGameAdaptation.GameOlder => L.Resolve(GameOlderText),
+            _ => null,
+        };
 
     private static bool IsAlive(TextMeshProUGUI? label) => label != null && !label.WasCollected;
 

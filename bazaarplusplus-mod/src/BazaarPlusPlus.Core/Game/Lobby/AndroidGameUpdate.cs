@@ -2,65 +2,86 @@
 namespace BazaarPlusPlus.Game.Lobby;
 
 /// <summary>
+/// An Android game's code identity (root ADR 0016): its versionCode and the sha256 of
+/// <c>libil2cpp.so</c> and <c>global-metadata.dat</c>.
+/// </summary>
+public sealed record AndroidGameCode(long VersionCode, string Il2CppSha256, string MetadataSha256);
+
+/// <summary>How the running game stands against the game the release adapts (root ADR 0016).</summary>
+public enum AndroidGameAdaptation
+{
+    /// <summary>Either side is unknown: no Launch Record for this process, or no game in the release.</summary>
+    Unknown,
+
+    /// <summary>The same game code.</summary>
+    Adapted,
+
+    /// <summary>Other game code, not older than the adapted game.</summary>
+    NotAdapted,
+
+    /// <summary>Other game code with a smaller versionCode than the adapted game.</summary>
+    GameOlder,
+}
+
+/// <summary>
 /// What an Android copy needs beyond the Managed Payload, against the published release (root
-/// ADR 0012): a newer game, which the user installs from the game's own store and then starts
-/// again from the Android App, or a new Android App, whose runtime the release needs. Neither is
-/// something the mod can install, so the answer is a prompt, not an update.
+/// ADR 0012 and 0016): a newer game, which the user installs from the game's own store and then
+/// starts again from the Android App, or a new Android App, whose runtime the release needs.
+/// Neither is something the mod can install, so the answer is a prompt, not an update.
 /// </summary>
 public static class AndroidGameUpdate
 {
     /// <summary>
-    /// The build number inside an Android game version such as
-    /// <c>1.0.12825-production-android-d9601ded</c>: the third dotted number, 12825.
+    /// Compares the running game's code (the Launch Record's <c>game</c>) with the release's
+    /// <c>game</c>. Only the code decides, never versionName: a content-only game update keeps
+    /// the same code.
     /// </summary>
-    public static int? ParseVersionCode(string? gameVersion)
+    public static AndroidGameAdaptation Compare(AndroidGameCode? running, AndroidGameCode? adapted)
     {
-        if (string.IsNullOrWhiteSpace(gameVersion))
-            return null;
-        var numbers = gameVersion!.Trim().Split('-')[0].Split('.');
-        return numbers.Length == 3 && int.TryParse(numbers[2], out var code) && code > 0
-            ? code
-            : null;
-    }
-
-    /// <summary>
-    /// Whether the published release was adapted for a newer game than the running one; false
-    /// when either build number is unknown. Both sides are game version strings in the same
-    /// format.
-    /// </summary>
-    public static bool Newer(string? runningGameVersion, string? publishedGameVersion)
-    {
-        var running = ParseVersionCode(runningGameVersion);
-        var offered = ParseVersionCode(publishedGameVersion);
-        return running.HasValue && offered.HasValue && offered.Value > running.Value;
+        if (running == null || adapted == null)
+            return AndroidGameAdaptation.Unknown;
+        if (
+            string.Equals(running.Il2CppSha256, adapted.Il2CppSha256, StringComparison.Ordinal)
+            && string.Equals(
+                running.MetadataSha256,
+                adapted.MetadataSha256,
+                StringComparison.Ordinal
+            )
+        )
+            return AndroidGameAdaptation.Adapted;
+        return adapted.VersionCode > running.VersionCode
+            ? AndroidGameAdaptation.GameOlder
+            : AndroidGameAdaptation.NotAdapted;
     }
 
     /// <summary>
     /// What this copy needs, and why; null when the Managed Payload or nothing at all brings it
-    /// up to date. A newer game always comes first. With the same game,
+    /// up to date. An older game always comes first. With the adapted game,
     /// <paramref name="manualUpdate"/> (the self-update decision <c>ManualUpdate</c>) says the
     /// release needs another runtime than the running Android App carries (loader, native
     /// libraries, Updater) or another history schema, so the new App is offered when the release
-    /// names one. A release for an older game asks for nothing.
+    /// names one.
     /// </summary>
     public static AndroidUpdate? Needed(
-        string? runningGameVersion,
+        AndroidGameAdaptation adaptation,
         string? publishedGameVersion,
         AndroidAppDownload? app,
         bool manualUpdate
-    )
-    {
-        if (Newer(runningGameVersion, publishedGameVersion))
-            return new AndroidUpdate(AndroidUpdateReason.GameUpdated, publishedGameVersion!, null);
-        var running = ParseVersionCode(runningGameVersion);
-        return
-            manualUpdate
-            && app != null
-            && running.HasValue
-            && ParseVersionCode(publishedGameVersion) == running
-            ? new AndroidUpdate(AndroidUpdateReason.AppUpdated, publishedGameVersion!, app)
-            : null;
-    }
+    ) =>
+        adaptation switch
+        {
+            AndroidGameAdaptation.GameOlder => new AndroidUpdate(
+                AndroidUpdateReason.GameUpdated,
+                publishedGameVersion ?? string.Empty,
+                null
+            ),
+            AndroidGameAdaptation.Adapted when manualUpdate && app != null => new AndroidUpdate(
+                AndroidUpdateReason.AppUpdated,
+                publishedGameVersion ?? string.Empty,
+                app
+            ),
+            _ => null,
+        };
 }
 
 public enum AndroidUpdateReason
