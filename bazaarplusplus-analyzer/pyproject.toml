@@ -4,7 +4,7 @@ version = "0.3.0"
 description = "Single-process analyzer publishing two Analyzer consumer snapshots"
 requires-python = "==3.14.*"
 dependencies = [
-    "boto3==1.43.122",
+    "boto3==1.43.123",
     "click==8.5.0",
     "duckdb==2.0.0",
     "httpx==0.28.1",
