@@ -32,11 +32,14 @@ _Avoid_: host app (clashes with Host), launcher, BPP APK
 **Android Release APK** (Android 发布 APK, retired):
 The official game APK with the loader, interop and Mods injected and signed by BPP, which Android users installed until ADR 0012 replaced it with the Android App. No release builds one; old copies under `installer/android/apk/` stay but are never updated.
 
+**Game Code Identity** (游戏代码身份):
+What decides whether an installed game is the adapted one, on every platform (ADR 0016): on Windows and macOS the digest of the `Managed/` directory (`managedDirectoryDigest`, a Snapshot Lock entry's `sha256`); on Android the Game Code Hash. A content-only game update leaves it unchanged, so the game version and build number play no part. Adapted means the installed and the adapted game have the same identity; not adapted means they differ.
+
 **Game Code Hash** (游戏代码哈希):
-The sha256 of the installed official game's `libil2cpp.so` and `global-metadata.dat`, taken from whichever of its APKs (base or split) holds each. The Android App compares the pair with the Platform Release Manifest's `game`; `versionName` and the APK's own sha256 play no part, so a content-only game update needs no new Game Adaptation.
+Android's Game Code Identity: the sha256 of the installed official game's `libil2cpp.so` and `global-metadata.dat`, taken from whichever of its APKs (base or split) holds each. The Android App compares the pair with the Platform Release Manifest's `game`; `versionName` and the APK's own sha256 play no part, so a content-only game update needs no new Game Adaptation.
 
 **Game Adaptation** (适配):
-The binding of one product version to one game's code: the Snapshot Lock's `android-online` entry, the Interop Snapshot generated from it, and the Mods compiled against it, published together as that version's Android release. Only the latest game is adapted.
+The binding of one product version to one game's code. On Windows and macOS it is the Snapshot Lock entry the build compiled against, which the build record names and the desktop Platform Release Manifest records as `game`. On Android it is the Snapshot Lock's `android-online` entry, the Interop Snapshot generated from it, and the Mods compiled against it, published together as that version's Android release. Only the latest game is adapted.
 
 **Interop Package** (interop 包):
 One Interop Snapshot as a deterministic zip, published content-addressed in the public bucket with an RSA signature that binds it to the Game Code Hash it was generated for. The Android App verifies it and adds it to the game's resources so LemonLoader extracts it; releases of one snapshot share one object. ADR 0012 records its layout and keys.
@@ -76,7 +79,7 @@ One tagged LemonLoader Android release zip (`LemonLoader-Android-arm64.zip`): th
 _Avoid_: MelonLoader install, loader runtime
 
 **Game Status** (游戏状态):
-`game-status/latest.json` in the public bucket: the game versions and update time of Steam's public branch, written hourly by the Steam snapshot watch when the Snapshot Lock or an open lock pull request records that build, and read by the site's download page. Only `online` is public; staging and ptr are password-protected branches and stay in the watch's run summary. `release/fixtures/game-status.json` is its shared golden.
+The online game of each platform and its Game Code Identity, as two objects in the public bucket that the site's download page compares with each Platform Release Manifest's `game`. `game-status/latest.json` holds both desktop platforms of Steam's public branch, written by the Steam snapshot watch when the Snapshot Lock or an open lock pull request records that build; only `online` is public, because staging and ptr are password-protected branches and stay in the watch's run summary. `game-status/android.json` holds the official APK's game, written by the Android APK watch when the lock or an open lock pull request records that APK. They are separate because each watch replaces its own object whole. Shared goldens: `release/fixtures/game-status.json` and `release/fixtures/android-game-status.json`.
 
 **Snapshot Lock** (快照锁):
 `bazaarplusplus-mod/build/game-libs.lock.json`: the committed binding of the mod source to one snapshot per platform and channel, keys that stay `null` until captured: a Game Assembly Snapshot for each of `macos` and `windows` × `online`, `staging`, `ptr`, and an Interop Snapshot with its Loader Release and official APK for `android-online` alone. After an explicit override, `ManagedPath` resolves only from it: the fetched snapshot, or the local Steam install whose game version and sha256 match the entry; `InteropPath` and `LemonLoaderPath` resolve only from the fetched `android-online` entry. Each platform's product compiles against its `online` entry; `staging` and `ptr` entries feed compatibility builds and tests. It changes only through a pull request; `release/game-libs.ts` owns its schema and the mod recipes capture, publish, fetch, and check it.

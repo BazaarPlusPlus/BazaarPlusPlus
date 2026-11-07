@@ -10,6 +10,7 @@ import {
   checkGameLibsLock,
   cliMain,
   fetchSnapshot,
+  androidGameStatus,
   gameStatus,
   lockEntryForManaged,
   lockKeys,
@@ -18,6 +19,7 @@ import {
   managedDirectoryDigest,
   managedDirectoryRecords,
   parseGameVersion,
+  publishAndroidGameStatus,
   publishGameStatus,
   publishSnapshot,
   readGameLibsLock,
@@ -31,10 +33,12 @@ import {
   validateGameLibsLock
 } from './game-libs.ts';
 import type {
+  AndroidGameStatusDocument,
   FetchSnapshotOptions,
   GameLibsLock,
   GameLibsLockEntries,
   GameStatusDocument,
+  InteropLockEntry,
   ManagedLockEntry,
   SnapshotChannel,
   SteamBranch,
@@ -982,14 +986,13 @@ const STATUS_FIXTURE = JSON.parse(
 ) as GameStatusDocument;
 const statusLock = () => {
   const lock = emptyLock();
-  lock.entries['macos-online'] = onlineEntry(
-    STATUS_FIXTURE.platforms.macos!.gameVersion,
-    STATUS_FIXTURE.buildid
-  );
-  lock.entries['windows-online'] = onlineEntry(
-    STATUS_FIXTURE.platforms.windows!.gameVersion,
-    STATUS_FIXTURE.buildid
-  );
+  for (const platform of ['macos', 'windows'] as const) {
+    const { gameVersion, managedSha256 } = STATUS_FIXTURE.platforms[platform]!;
+    lock.entries[`${platform}-online`] = {
+      ...onlineEntry(gameVersion, STATUS_FIXTURE.buildid),
+      sha256: managedSha256
+    };
+  }
   return lock;
 };
 const STATUS_STATE = { buildid: '26443971', updatedAt: 1793832079 };
@@ -1024,6 +1027,44 @@ test('publishing the Game Status writes it once and leaves it alone when behind'
       state: STATUS_STATE,
       store: untouched
     })
+  ).toBeNull();
+  expect(untouched.objects.size).toBe(0);
+});
+
+const ANDROID_STATUS_FIXTURE = JSON.parse(
+  fs.readFileSync(
+    path.join(WORKSPACE_ROOT, 'release/fixtures/android-game-status.json'),
+    'utf8'
+  )
+) as AndroidGameStatusDocument;
+const androidStatusLock = () => {
+  const lock = emptyLock();
+  const { schemaVersion: _, ...game } = ANDROID_STATUS_FIXTURE;
+  lock.entries['android-online'] = {
+    ...(readGameLibsLock(WORKSPACE_ROOT).entries[
+      'android-online'
+    ] as InteropLockEntry),
+    ...game
+  };
+  return lock;
+};
+
+test('the Android Game Status of the android-online entry matches the shared fixture', async () => {
+  expect(androidGameStatus(androidStatusLock())).toEqual(
+    ANDROID_STATUS_FIXTURE
+  );
+  const { workspaceRoot } = workspace({ lock: androidStatusLock() });
+  const store = memoryStore();
+  expect(await publishAndroidGameStatus({ workspaceRoot, store })).toEqual(
+    ANDROID_STATUS_FIXTURE
+  );
+  expect(JSON.parse(store.objects.get('android.json')!.toString())).toEqual(
+    ANDROID_STATUS_FIXTURE
+  );
+  const { workspaceRoot: empty } = workspace({ lock: emptyLock() });
+  const untouched = memoryStore();
+  expect(
+    await publishAndroidGameStatus({ workspaceRoot: empty, store: untouched })
   ).toBeNull();
   expect(untouched.objects.size).toBe(0);
 });
