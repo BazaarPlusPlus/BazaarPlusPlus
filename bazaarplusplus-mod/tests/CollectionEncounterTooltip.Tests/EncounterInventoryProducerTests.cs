@@ -15,7 +15,7 @@ public sealed class EncounterInventoryProducerTests
         var card = Item();
         card.Tags = [ECardTag.Toy];
 
-        AssertHasTag(InventoryFrom(card), ECardTag.Toy.ToString());
+        AssertTagCount(InventoryFrom(card), ECardTag.Toy.ToString(), 1);
     }
 
     [Theory]
@@ -31,7 +31,7 @@ public sealed class EncounterInventoryProducerTests
             HiddenTags = [EHiddenTag.Freeze],
         };
 
-        AssertHasTag(InventoryFrom(card), tag);
+        AssertTagCount(InventoryFrom(card), tag, 1);
     }
 
     [Theory]
@@ -54,7 +54,7 @@ public sealed class EncounterInventoryProducerTests
             },
         };
 
-        AssertHasTag(InventoryFrom(card), tag);
+        AssertTagCount(InventoryFrom(card), tag, 1);
     }
 
     [Fact]
@@ -71,16 +71,7 @@ public sealed class EncounterInventoryProducerTests
             },
         };
 
-        Assert.Equal(
-            0,
-            InventoryFrom(card)
-                .CountMatchingTags(
-                    [
-                        ["Toy"],
-                    ],
-                    "Any"
-                )
-        );
+        AssertTagCount(InventoryFrom(card), "Toy", 0);
     }
 
     [Fact]
@@ -99,16 +90,7 @@ public sealed class EncounterInventoryProducerTests
             },
         };
 
-        Assert.Equal(
-            1,
-            InventoryFrom(card)
-                .CountMatchingTags(
-                    [
-                        ["Toy"],
-                    ],
-                    "Any"
-                )
-        );
+        AssertTagCount(InventoryFrom(card), "Toy", 1);
     }
 
     private static ItemCard Item() =>
@@ -132,17 +114,8 @@ public sealed class EncounterInventoryProducerTests
         return new EncounterInventory(cards);
     }
 
-    private static void AssertHasTag(EncounterInventory inventory, string tag)
+    private static void AssertTagCount(EncounterInventory inventory, string tag, int expectedCount)
     {
-        Assert.Equal(
-            1,
-            inventory.CountMatchingTags(
-                [
-                    [tag],
-                ],
-                "Any"
-            )
-        );
         Assert.True(
             new EncounterCardRequirement(
                 [],
@@ -150,8 +123,8 @@ public sealed class EncounterInventoryProducerTests
                     [tag],
                 ],
                 "Any",
-                "GreaterThanOrEqual",
-                1
+                "Equal",
+                expectedCount
             ).Matches(inventory)
         );
     }
