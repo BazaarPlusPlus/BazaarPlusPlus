@@ -3,8 +3,11 @@ using System.Collections;
 using System.Globalization;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarGameShared.Domain.Effect.Actions;
+using BazaarGameShared.Domain.Effect.AuraActions;
 using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Domain.Values.ReferenceValues;
+using TheBazaar.Tooltips;
 
 namespace BazaarPlusPlus.GameInterop.Cards;
 
@@ -92,7 +95,13 @@ internal static class CardAbilityValueReader
             var action = effect?.GetType().GetProperty("Action")?.GetValue(effect);
             if (action?.GetType().GetProperty("Value")?.GetValue(action) is not ITValue value)
                 return false;
-            if (!TryFormatScalar(value.GetValue(context), out var valueText))
+            if (
+                !TryFormatScalar(
+                    value.GetValue(context),
+                    RendersInSeconds(action),
+                    out var valueText
+                )
+            )
                 return false;
 
             result = new CardAbilityValue(valueText, ResolveAttributeUnit(action));
@@ -134,20 +143,21 @@ internal static class CardAbilityValueReader
                     ?.GetType()
                     .GetProperty("Value")
                     ?.GetValue(modifierValue);
-                if (!TryFormatScalar(modifierScalar, out var modifierText))
+                if (!TryFormatScalar(modifierScalar, inSeconds: false, out var modifierText))
                     return false;
                 result = new CardAbilityValue(modifierText, null);
                 return true;
             }
 
+            var inSeconds = RendersInSeconds(action);
             var scalar = value?.GetType().GetProperty("Value")?.GetValue(value);
-            if (TryFormatScalar(scalar, out var scalarText))
+            if (TryFormatScalar(scalar, inSeconds, out var scalarText))
             {
                 result = new CardAbilityValue(scalarText, ResolveAttributeUnit(action));
                 return true;
             }
 
-            if (TryReadCardAttributeReference(template, value, out var attributeText))
+            if (TryReadCardAttributeReference(template, value, inSeconds, out var attributeText))
             {
                 result = new CardAbilityValue(attributeText, ResolveAttributeUnit(action));
                 return true;
@@ -156,7 +166,7 @@ internal static class CardAbilityValueReader
             var spawnContext = action?.GetType().GetProperty("SpawnContext")?.GetValue(action);
             var limit = spawnContext?.GetType().GetProperty("Limit")?.GetValue(spawnContext);
             var limitScalar = limit?.GetType().GetProperty("Value")?.GetValue(limit);
-            if (TryFormatScalar(limitScalar, out var limitText))
+            if (TryFormatScalar(limitScalar, inSeconds: false, out var limitText))
             {
                 result = new CardAbilityValue(limitText, null);
                 return true;
@@ -171,6 +181,7 @@ internal static class CardAbilityValueReader
     private static bool TryReadCardAttributeReference(
         TCardBase template,
         object? value,
+        bool inSeconds,
         out string valueText
     )
     {
@@ -202,7 +213,7 @@ internal static class CardAbilityValueReader
             return false;
 
         var modified = modifier?.GetModifiedValue(original, default) ?? original;
-        valueText = FormatNumber(modified);
+        valueText = FormatNumber(inSeconds ? ToSeconds(modified) : modified);
         return true;
     }
 
@@ -238,7 +249,7 @@ internal static class CardAbilityValueReader
                 continue;
             if (!string.Equals(key?.ToString(), attributeKey, StringComparison.Ordinal))
                 continue;
-            if (!TryFormatScalar(attributeValue, out var valueText))
+            if (!TryFormatScalar(attributeValue, RendersInSeconds(action), out var valueText))
                 return false;
             result = new CardAbilityValue(valueText, NormalizeAttributeUnit(attributeKey));
             return true;
@@ -278,7 +289,30 @@ internal static class CardAbilityValueReader
         return key != null;
     }
 
-    private static bool TryFormatScalar(object? scalar, out string valueText)
+    // The game renders an effect's number in seconds when the attribute its tooltip styles the
+    // value as is a millisecond one (TooltipComponentExtensions.GetStyleAttribute, then
+    // TooltipExtensions.RequiresConversionToSeconds in CardTooltipData.RenderStylizedAttributeValue):
+    // the Charge, Freeze, Haste and Slow actions style as their *Amount attribute, a modify-attribute
+    // action as its own. The stored value stays in milliseconds, so a description token has to be
+    // converted here or "reduce its cooldown by {ability.1} second" reads 1000.
+    private static bool RendersInSeconds(object? action)
+    {
+        var attribute = action switch
+        {
+            TActionCardCharge => ECardAttributeType.ChargeAmount,
+            TActionCardFreeze => ECardAttributeType.FreezeAmount,
+            TActionCardHaste => ECardAttributeType.HasteAmount,
+            TActionCardSlow => ECardAttributeType.SlowAmount,
+            TActionCardModifyAttribute modify => modify.AttributeType,
+            TAuraActionCardModifyAttribute modify => modify.AttributeType,
+            _ => (ECardAttributeType?)null,
+        };
+        return attribute?.RequiresConversionToSeconds() == true;
+    }
+
+    private static double ToSeconds(double milliseconds) => milliseconds / 1000d;
+
+    private static bool TryFormatScalar(object? scalar, bool inSeconds, out string valueText)
     {
         valueText = string.Empty;
         switch (scalar)
@@ -286,19 +320,23 @@ internal static class CardAbilityValueReader
             case null:
                 return false;
             case float value:
-                valueText = FormatNumber(value);
+                valueText = FormatNumber(inSeconds ? ToSeconds(value) : value);
                 return true;
             case double value:
-                valueText = FormatNumber(value);
+                valueText = FormatNumber(inSeconds ? ToSeconds(value) : value);
                 return true;
             case decimal value:
-                valueText = FormatNumber((double)value);
+                valueText = FormatNumber(inSeconds ? ToSeconds((double)value) : (double)value);
                 return true;
             case int value:
-                valueText = value.ToString(CultureInfo.InvariantCulture);
+                valueText = inSeconds
+                    ? FormatNumber(ToSeconds(value))
+                    : value.ToString(CultureInfo.InvariantCulture);
                 return true;
             case long value:
-                valueText = value.ToString(CultureInfo.InvariantCulture);
+                valueText = inSeconds
+                    ? FormatNumber(ToSeconds(value))
+                    : value.ToString(CultureInfo.InvariantCulture);
                 return true;
             default:
                 valueText = scalar.ToString() ?? string.Empty;
