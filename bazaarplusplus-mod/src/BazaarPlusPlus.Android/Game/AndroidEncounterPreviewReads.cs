@@ -3,6 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.EventPreview;
 using Il2CppBazaarGameClient.Domain.Models.Cards;
+using Il2CppBazaarGameShared.Domain.Cards.Item;
 using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppTheBazaar;
 
@@ -42,13 +43,39 @@ internal sealed class AndroidEncounterPreviewReads(AndroidEncounterPreview previ
         {
             if (!seen.Add(card.Pointer) || !Guid.TryParse(card.TemplateId.ToString(), out var id))
                 return;
-            var tags = new List<string>();
+            var tags = new HashSet<string>(StringComparer.Ordinal);
             if (card.Tags != null)
                 foreach (var tag in card.Tags)
                     tags.Add(tag.ToString());
             if (card.HiddenTags != null)
                 foreach (var tag in card.HiddenTags)
                     tags.Add(tag.ToString());
+            if (card.Template is { } template)
+            {
+                if (template.Tags != null)
+                    foreach (var tag in template.Tags)
+                        tags.Add(tag.ToString());
+                if (template.HiddenTags != null)
+                    foreach (var hiddenTag in template.HiddenTags)
+                        tags.Add(hiddenTag.ToString());
+                var item = card.TryCast<ItemCard>();
+                var itemTemplate = template.TryCast<TCardItem>();
+                var active = item == null ? null : AndroidGameIds.Unboxed(() => item.Enchantment);
+                if (
+                    active is { } enchantmentType
+                    && itemTemplate != null
+                    && itemTemplate.TryGetEnchantmentTemplate(enchantmentType, out var enchantment)
+                    && enchantment != null
+                )
+                {
+                    if (enchantment.Tags != null)
+                        foreach (var tag in enchantment.Tags)
+                            tags.Add(tag.ToString());
+                    if (enchantment.HiddenTags != null)
+                        foreach (var hiddenTag in enchantment.HiddenTags)
+                            tags.Add(hiddenTag.ToString());
+                }
+            }
             cards.Add(new(id, tags));
         }
         foreach (var card in Data.Entities.Values)

@@ -1,9 +1,12 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
+check_tasks := "lint assembleDebug assembleRelease"
+test_tasks := "testDebugUnitTest testReleaseUnitTest"
+
 # Lint the App and build the debug and release APKs; a build without a staged runtime launches the game without BPP.
 check:
-    ./gradlew --no-daemon lint assembleDebug assembleRelease
+    ./gradlew --no-daemon {{ check_tasks }}
 
 # Re-export the launcher icon from the desktop app icon (bazaarplusplus-installer/src-tauri/icons/app-icon.png; needs Pillow).
 launcher-icon:
@@ -11,7 +14,11 @@ launcher-icon:
 
 # Run the App's JVM unit tests.
 test:
-    ./gradlew --no-daemon testDebugUnitTest testReleaseUnitTest
+    ./gradlew --no-daemon {{ test_tasks }}
+
+# Run the check and test task sets in one Gradle invocation for CI.
+ci:
+    ./gradlew --no-daemon {{ check_tasks }} {{ test_tasks }}
 
 # Stage the Android App Runtime under build/runtime/ from the locked Loader Release (fetches from the game-libs store).
 stage-runtime:

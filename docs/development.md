@@ -85,7 +85,9 @@ Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能�
 
 Site 的 `site::ci` 在同一次验证中复用构建产物：部署预检和浏览器测试检查的是同一份 `dist`，独立的本地 preview 和 e2e 仍先构建。部署工作流同样上传前置检查生成的产物，避免检查后再次构建。
 
-`Checks summary` 要求分类成功，且所有选中的 job 真正成功；未选中的不阻塞，选中后失败、取消或意外跳过会阻塞。普通 Mod 源码验证 macOS Desktop Host 和 Android Host，Mod 文档只在 macOS 执行包含文档约束的测试。Installer 前端只消费已提交绑定，原生输入在 macOS 重新生成绑定并检查 diff，依据见 [Installer ADR 0004](../bazaarplusplus-installer/docs/adr/0004-tauri-specta-command-bindings.md)。Windows 的触发提高到构建、依赖、工具链和显式 Windows 路径等输入变化；具体路径由分类器维护。普通共享源码中仅 Windows 生效的问题，允许推迟到发布验证发现。
+Android App 的 `android::ci` 在同一次 Gradle 调用中完成 `check` 和 `test` 的任务，省去第二次启动与配置；本地仍可独立执行这两个门禁。
+
+`Checks summary` 要求分类成功，且所有选中的 job 真正成功；未选中的不阻塞，选中后失败、取消或意外跳过会阻塞。Mod 的共享源码、测试与构建输入仍验证 Desktop Host 和 Android Host；只有桌面 Host 的 C# 源码改动不选择 Android，桌面目录中的共享图片和 JSON 仍选择两种 Host。Mod 文档只在 macOS 执行包含文档约束的测试。Installer 前端只消费已提交绑定，原生输入在 macOS 重新生成绑定并检查 diff，依据见 [Installer ADR 0004](../bazaarplusplus-installer/docs/adr/0004-tauri-specta-command-bindings.md)。Windows 的触发提高到构建、依赖、工具链和显式 Windows 路径等输入变化；具体路径由分类器维护。普通共享源码中仅 Windows 生效的问题，允许推迟到发布验证发现。
 
 staging/ptr 的 CompatCheck 编译只在 Snapshot Lock 更新、手动检查和桌面发布前执行；墙钟性能测试只在手动检查和桌面发布前执行，退出日常云端门禁。手动入口可按 scope/platform 显式选择平台并执行扩展检查，生成 `Manual checks (<scope>/<platform>)`，不能替代 PR 的 `Checks summary`。不可靠 diff 的自动运行保守补齐双平台及兼容检查。安全与依赖检查独立运行，不参与此处范围裁剪。
 

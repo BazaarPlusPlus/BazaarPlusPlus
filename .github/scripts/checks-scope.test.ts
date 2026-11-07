@@ -482,6 +482,48 @@ test('ordinary Mod source skips Windows; build and snapshot inputs retain it', (
   );
 });
 
+test('desktop host C# selects macOS while shared and Android inputs retain both hosts', () => {
+  const mod = 'bazaarplusplus-mod/';
+  expectScopes([`${mod}src/BazaarPlusPlus/Game/Panel.cs`], ['mod-macos']);
+  expectScopes(
+    [`${mod}src/BazaarPlusPlus/Game/WindowsPanel.cs`],
+    ['mod-macos', 'mod-windows']
+  );
+  for (const file of [
+    'src/BazaarPlusPlus.Core/Game/Shared.cs',
+    'src/BazaarPlusPlus.Mobile/Ui/Panel.cs',
+    'src/BazaarPlusPlus.Android/Host/AndroidMod.cs',
+    'tests/Architecture.Tests/LogEventIdRule.cs',
+    'tests/AndroidHost.Tests/AndroidLaunchTests.cs',
+    'src/BazaarPlusPlus/Resources/HistoryPanel/history-menu.png',
+    'src/BazaarPlusPlus/Data/BuildRecommendations/builds.json'
+  ])
+    expectScopes([`${mod}${file}`], ['mod']);
+  expectScopes(
+    [
+      `${mod}src/BazaarPlusPlus/Game/Panel.cs`,
+      `${mod}src/BazaarPlusPlus.Core/Game/Shared.cs`
+    ],
+    ['mod']
+  );
+  expectScopes(
+    [
+      `${mod}src/BazaarPlusPlus/Game/Panel.cs`,
+      `${mod}tests/Architecture.Tests/LogEventIdRule.cs`
+    ],
+    ['mod']
+  );
+  assert.deepEqual(
+    selected(
+      classifyChanges([
+        { status: 'D', file: `${mod}src/BazaarPlusPlus/Game/Panel.cs` },
+        { status: 'A', file: `${mod}src/BazaarPlusPlus.Core/Game/Panel.cs` }
+      ])
+    ),
+    ['mod-android', 'mod-macos']
+  );
+});
+
 test('repository metadata and project recipes do not fan out to all platforms', () => {
   for (const file of [
     '.gitignore',

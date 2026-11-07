@@ -65,6 +65,12 @@ test('an Android App push runs only the Android App tests', (t) => {
   assert.deepEqual(f.plan(head), [['android::test']]);
 });
 
+test('an Installer push runs its full check once without repeating tests', (t) => {
+  const f = fixture(t);
+  const head = f.commit('bazaarplusplus-installer/src/App.tsx');
+  assert.deepEqual(f.plan(head), [['installer::check']]);
+});
+
 test('later pushes use the remote tip and preserve shared contract consumers', (t) => {
   const f = fixture(t);
   const previous = f.commit('bazaarplusplus-site/src/page.ts');
@@ -116,7 +122,9 @@ test('unknown bases run all gates and deletions run none', (t) => {
   const head = f.commit('bazaarplusplus-mod/src/panel.cs');
   assert.deepEqual(f.plan(zero, head), []);
   f.git('symbolic-ref', '--delete', 'refs/remotes/upstream/HEAD');
-  assert.ok(f.plan(head).flat().includes('installer::test'));
+  const fallbackGates = f.plan(head).flat();
+  assert.ok(fallbackGates.includes('installer::check'));
+  assert.ok(!fallbackGates.includes('installer::test'));
   assert.ok(
     pushCommands(pushPlan('', 'upstream', f.cwd))
       .flat()

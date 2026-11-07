@@ -17,3 +17,5 @@ mod 对游戏的全部构建期依赖是 `Managed/` 目录下的程序集，`Man
 2026-10-26 修订：日常 PR 以一个桌面操作系统和 Android 覆盖两种 Host，Windows 验证提高到构建输入变化、手动检查及发布前；普通共享源码的 Windows 分支问题可能延迟到发布时发现。staging/ptr 的快照固定不变时，每个源码改动都做双平台兼容构建的成本高于当前收益，因此改为快照更新、手动检查及发布前执行，发布前失败仍阻止签名与上传。无法可靠确定改动范围时保留完整验证。分类实现由 `.github/scripts/checks-scope.ts` 的 `classifyChanges` 和 `planRun` 维护，执行入口为 `.github/workflows/checks.yml` 与 `.github/workflows/release.yml`。
 
 2026-11-05 修订：[ADR 0015](0015-steam-snapshot-capture.md) 重开了上文否决的 CI 自动采集：桌面六个条目都可以从 Steam depot 自动采集。锁只通过 PR 更新的决定不变。
+
+2026-11-07 细化：按 mod ADR 0012 已有的 Host 边界，只有桌面 Host C# 的改动不再选择 Android 检查。Android 项目的源码依赖来自 Core 与 Mobile，不编译桌面 Host C#；桌面目录里被 Android 链接的资源和 JSON、共享源码、测试与构建输入仍按原规则选择。Windows 触发、手动完整验证、发布验证和不可靠 diff 的全量回退不变。路径判定仍由 `classifyChanges` 维护。
