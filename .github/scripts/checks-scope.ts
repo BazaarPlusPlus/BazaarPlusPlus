@@ -356,7 +356,10 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
       select(
         project === 'installer' && installerFrontendOnly(file)
           ? 'installer-frontend'
-          : project === 'mod' && file.endsWith('.md')
+          : project === 'mod' &&
+              (file.endsWith('.md') ||
+                (file.startsWith('bazaarplusplus-mod/src/BazaarPlusPlus/') &&
+                  file.endsWith('.cs')))
             ? 'mod-macos'
             : project,
         `Project input: ${file}`
