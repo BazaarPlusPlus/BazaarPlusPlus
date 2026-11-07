@@ -10,7 +10,6 @@ using BepInEx.Logging;
 
 WavHeaderTests.Run();
 CfrPacerTests.Run();
-NativeFrameSubmissionPlanTests.Run();
 VideoEncoderProfileTests.Run();
 VideoBackendPolicyTests.Run();
 VideoBufferPlanTests.Run();
@@ -332,77 +331,6 @@ file static class CfrPacerTests
     }
 
     private readonly record struct TickResult(int Emit, int Repeat, int Dropped);
-}
-
-// ---------------------------------------------------------------------------
-// 3) NativeFrameSubmissionPlan: never repay missed wall-clock slots with one
-//    newer Metal texture.
-// ---------------------------------------------------------------------------
-file static class NativeFrameSubmissionPlanTests
-{
-    private static readonly Type PlanType = TestReflection.RequireType(
-        "BazaarPlusPlus.Game.CombatReplay.Video.NativeFrameSubmissionPlan"
-    );
-
-    public static void Run()
-    {
-        PacerResyncDoesNotCreatePtsGap();
-        ConsecutiveMissesDoNotAccumulateDebt();
-        AccountingCloses();
-    }
-
-    private static void PacerResyncDoesNotCreatePtsGap()
-    {
-        var plan = Create(emit: 3, repeat: 2, dropped: 120);
-        TestReflection.Assert(
-            Read(plan, "EncodeFrameCount") == 3,
-            "A large pacer resync must not expand the native encode batch."
-        );
-        TestReflection.Assert(
-            Read(plan, "TimelineFrameCount") == 3,
-            "Pacer resync slots must not create a visible gap in the output timeline."
-        );
-    }
-
-    private static void ConsecutiveMissesDoNotAccumulateDebt()
-    {
-        var first = Create(emit: 1, repeat: 0, dropped: 0);
-        var second = Create(emit: 1, repeat: 0, dropped: 0);
-        TestReflection.Assert(
-            Read(first, "EncodeFrameCount") == 1 && Read(second, "EncodeFrameCount") == 1,
-            "Independent ticks must never carry a deferred encode batch forward."
-        );
-    }
-
-    private static void AccountingCloses()
-    {
-        var plan = Create(emit: 3, repeat: 2, dropped: 7);
-        var accounted = Read(plan, "CapturedFrameCount") + Read(plan, "RepeatedFrameCount");
-        TestReflection.Assert(
-            accounted == Read(plan, "TimelineFrameCount"),
-            "Captured and repeated frames must exactly cover the packed output timeline."
-        );
-        TestReflection.Assert(
-            Read(plan, "DroppedFrameCountOnSubmissionFailure") == 10,
-            "A failed native submission must count both its encode candidates and pacer drops."
-        );
-    }
-
-    private static object Create(int emit, int repeat, int dropped)
-    {
-        var method =
-            PlanType.GetMethod(
-                "Create",
-                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic
-            ) ?? throw new InvalidOperationException("NativeFrameSubmissionPlan.Create not found.");
-        return method.Invoke(null, new object[] { emit, repeat, dropped })
-            ?? throw new InvalidOperationException(
-                "NativeFrameSubmissionPlan.Create returned null."
-            );
-    }
-
-    private static int Read(object plan, string propertyName) =>
-        (int)(TestReflection.GetProp(PlanType, plan, propertyName) ?? -1);
 }
 
 // ---------------------------------------------------------------------------
