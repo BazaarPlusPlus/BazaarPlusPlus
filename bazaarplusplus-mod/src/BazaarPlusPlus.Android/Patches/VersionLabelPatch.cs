@@ -60,7 +60,7 @@ internal static class VersionLabelPatch
             MainMenuVersionUpdateState.Current.Status,
             L.Resolve(ManualUpdateText),
             L.Resolve(RestartFromAppText),
-            AdaptationText(AndroidPatchHost.VersionCheck?.Adaptation)
+            AdaptationText(AndroidPatchHost.Features?.VersionCheck?.Adaptation)
         );
 
     private static string? AdaptationText(AndroidGameAdaptation? adaptation) =>

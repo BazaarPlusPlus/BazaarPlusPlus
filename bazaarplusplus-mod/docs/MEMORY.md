@@ -49,7 +49,7 @@ Each of these failed silently, or reported something misleading, at least once.
 
 ### Game runtime
 
-- Runtime `Card` tags lack the static template tags, hidden *and* public (`DTOUtils.CreateCard` never copies them; snapshot updates overwrite): merge runtime, template and enchantment tags as `CombatImpactEntityTags` does. [`decompiled/TheBazaarRuntime/TheBazaar/DTOUtils.cs` | `src/BazaarPlusPlus/Game/PostCombatImpact/Data/CombatImpactEntityTags.cs`]
+- Runtime `Card` tags lack static template tags, hidden *and* public (`DTOUtils.CreateCard` never copies them; snapshot updates overwrite): Core's `EffectiveCardTags` merges runtime, template and active-enchantment facets. [`decompiled/TheBazaarRuntime/TheBazaar/DTOUtils.cs` | `src/BazaarPlusPlus.Core/Cards/EffectiveCardTags.cs`]
 - Static-data lookup is fallible on degraded and test paths: catch and return a safe default, as the current resolvers do. [`src/BazaarPlusPlus/GameInterop/GameBuildProbe.cs`]
 - A Harmony postfix on an `async Task` game method runs at the first await suspension, not at completion — bind pre-state in a **prefix**.
 - A programmatic native `Button.onClick` invoke can return silently through interaction gates such as `AllowInteraction` without throwing — verify the expected game-state transition before treating the action as successful.

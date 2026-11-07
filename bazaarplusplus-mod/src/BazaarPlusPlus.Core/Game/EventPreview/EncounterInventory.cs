@@ -1,10 +1,15 @@
 #nullable enable
+using BazaarPlusPlus.Core.Cards;
+
 namespace BazaarPlusPlus.Game.EventPreview;
 
 // One owned card in the inventory snapshot: template id plus the names of its tags
 // (ECardTag + EHiddenTag, compared by name).
 public sealed class EncounterInventoryCard
 {
+    public EncounterInventoryCard(Guid templateId, EffectiveCardTags tags)
+        : this(templateId, tags.EncounterTagNames()) { }
+
     public EncounterInventoryCard(Guid templateId, IReadOnlyCollection<string> tagNames)
     {
         TemplateId = templateId;

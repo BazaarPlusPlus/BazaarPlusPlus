@@ -106,7 +106,13 @@ internal sealed class TouchCombatClock : IDisposable
             _data.RunContext,
             _data.GameState
         );
-        var visible = shown && !panelOpen && !MobilePlatform.Port.NativeHudBusy();
+        var visible = HudVisibility.TouchCombatClock(default, panelOpen, shown);
+        if (visible)
+            visible = HudVisibility.TouchCombatClock(
+                MobilePlatform.Port.ReadNativeHud(),
+                panelOpen,
+                shown
+            );
         if (!visible)
         {
             Hide();

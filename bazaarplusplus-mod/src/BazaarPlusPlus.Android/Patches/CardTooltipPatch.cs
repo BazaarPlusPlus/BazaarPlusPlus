@@ -43,7 +43,7 @@ internal static class CardTooltipHidePatch
     [HarmonyPrefix]
     private static bool Prefix() =>
         Il2CppTheBazaar.Data.IsInCombat
-        || AndroidPatchHost.PreviewSwitches?.ContainsPointer() != true;
+        || AndroidPatchHost.Features?.PreviewSwitches?.ContainsPointer() != true;
 
     [HarmonyPostfix]
     private static void Postfix(TooltipParentComponent __instance)
@@ -82,21 +82,21 @@ internal static class CardTooltipRenderPatch
                     tooltipData.CardInstance
                 );
                 AndroidUpgradePreview.OnShowTooltips(cardController);
-                AndroidPatchHost.TooltipPreviewHost?.Observe(controller, tooltipData);
+                AndroidPatchHost.Features?.TooltipPreviewHost?.Observe(controller, tooltipData);
             }
         }
         catch (Exception exception)
         {
             AndroidPatchHost.ReportProbeError("preview_switches", exception);
         }
-        AndroidPatchHost.EnchantPreview?.Prepare(tooltipData);
+        AndroidPatchHost.Features?.EnchantPreview?.Prepare(tooltipData);
         AndroidUpgradePreviewValues.Prepare(tooltipData);
     }
 
     [HarmonyFinalizer]
     private static void Finalizer()
     {
-        AndroidPatchHost.EnchantPreview?.Clear();
+        AndroidPatchHost.Features?.EnchantPreview?.Clear();
         AndroidUpgradePreviewValues.Return();
     }
 }
@@ -110,7 +110,7 @@ internal static class EnchantPreviewPassivePatch
     {
         try
         {
-            var section = AndroidPatchHost.EnchantPreview?.TakePending(
+            var section = AndroidPatchHost.Features?.EnchantPreview?.TakePending(
                 __instance._passiveText.textObject
             );
             if (section == null)
@@ -120,7 +120,7 @@ internal static class EnchantPreviewPassivePatch
             __instance._passiveText.SetText(
                 string.IsNullOrEmpty(text) ? section : $"{text}\n{section}"
             );
-            AndroidPatchHost.EnchantPreview?.Fit(__instance._passiveText.textObject);
+            AndroidPatchHost.Features?.EnchantPreview?.Fit(__instance._passiveText.textObject);
         }
         catch (Exception exception)
         {

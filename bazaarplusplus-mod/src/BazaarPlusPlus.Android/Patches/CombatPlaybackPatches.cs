@@ -7,7 +7,8 @@ namespace BazaarPlusPlus.Android.Patches;
 internal static class CombatPlaybackFramePatch
 {
     [HarmonyPostfix]
-    private static void Postfix() => AndroidPatchHost.CombatStatus?.State.AdvanceCombatFrame();
+    private static void Postfix() =>
+        AndroidPatchHost.Features?.CombatStatus?.State.AdvanceCombatFrame();
 }
 
 [HarmonyPatch(typeof(CombatSimHandler), nameof(CombatSimHandler.SetSpeed))]
@@ -20,7 +21,7 @@ internal static class CombatPlaybackSpeedPatch
         // speed state. The interop wrapper rejects null before calling the original. Supply the
         // game's existing handler so the native method (including its speed event) still runs.
         __instance ??= AppState._combatSimHandler;
-        var state = AndroidPatchHost.CombatStatus?.State;
+        var state = AndroidPatchHost.Features?.CombatStatus?.State;
         if (state?.ShouldOverrideCombatSpeed(__0) == true)
             __0 = state.CombatSpeedMultiplier;
     }

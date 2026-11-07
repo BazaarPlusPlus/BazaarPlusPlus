@@ -17,7 +17,7 @@ internal static class QuestPreviewEntryPatch
     {
         try
         {
-            AndroidPatchHost.QuestPreview?.Render(__instance, entry, currentTooltipData);
+            AndroidPatchHost.Features?.QuestPreview?.Render(__instance, entry, currentTooltipData);
         }
         catch (Exception exception)
         {
@@ -35,7 +35,7 @@ internal static class QuestPreviewLayoutPatch
     {
         try
         {
-            if (AndroidPatchHost.QuestPreview?.ConsumeLayoutDirty() == true)
+            if (AndroidPatchHost.Features?.QuestPreview?.ConsumeLayoutDirty() == true)
                 __instance.ForceRebuildLayout();
         }
         catch (Exception exception)

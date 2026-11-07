@@ -15,6 +15,7 @@ using BazaarGameShared.Infra.Messages.Shared;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.CombatSimulation;
 using Xunit;
 
@@ -27,7 +28,7 @@ public sealed class CombatImpactEntitySnapshotReaderTests
     {
         var card = RehydratedItem(templateTags: [], templateHiddenTags: [EHiddenTag.Haste]);
 
-        Assert.Contains(CardHiddenTag.Haste, CombatImpactEntityTags.ResolveHiddenTags(card)!);
+        Assert.Contains(CardHiddenTag.Haste, DesktopEffectiveCardTags.Read(card).HiddenTags!);
     }
 
     [Fact]
@@ -35,7 +36,27 @@ public sealed class CombatImpactEntitySnapshotReaderTests
     {
         var card = RehydratedItem(templateTags: [ECardTag.Weapon], templateHiddenTags: []);
 
-        Assert.Contains(CardTag.Weapon, CombatImpactEntityTags.ResolveTags(card)!);
+        Assert.Contains(CardTag.Weapon, DesktopEffectiveCardTags.Read(card).Tags!);
+    }
+
+    [Fact]
+    public void Only_the_selected_enchantment_contributes_tags()
+    {
+        var card = RehydratedItem([], []);
+        card.Enchantment = EEnchantmentType.Fiery;
+        card.Template = new TCardItem
+        {
+            Enchantments = new Dictionary<EEnchantmentType, TEnchantment>
+            {
+                [EEnchantmentType.Fiery] = new() { Tags = [ECardTag.Toy] },
+                [EEnchantmentType.Heavy] = new() { HiddenTags = [EHiddenTag.Freeze] },
+            },
+        };
+
+        var tags = DesktopEffectiveCardTags.Read(card);
+
+        Assert.Contains(CardTag.Toy, tags.Tags!);
+        Assert.Null(tags.HiddenTags);
     }
 
     [Fact]

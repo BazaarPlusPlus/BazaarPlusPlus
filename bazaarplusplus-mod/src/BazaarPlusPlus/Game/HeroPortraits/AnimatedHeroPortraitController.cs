@@ -18,8 +18,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
     private BppSettings? _config;
     private NativeHeroPortraitCatalog? _catalog;
     private float _nextRefresh;
-    private NativePortraitComposition? _compositions;
-    private PortraitBreakoutPreparation? _breakouts;
+    private PortraitPreparation? _preparation;
     private long _setupGeneration;
 
     internal void Initialize(
@@ -30,8 +29,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
     {
         _config = config;
         _catalog = catalog;
-        _compositions = new NativePortraitComposition(cacheDirectory);
-        _breakouts = new PortraitBreakoutPreparation(cacheDirectory);
+        _preparation = new PortraitPreparation(cacheDirectory);
     }
 
     private void Update()
@@ -75,9 +73,9 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
                 continue;
             if (!Services.TryGet<AssetLoader>(out var loader) || loader == null)
                 continue;
-            if (_compositions == null)
+            if (_preparation == null)
                 continue;
-            var slot = new Slot(this, portrait, portrait.sprite, _compositions);
+            var slot = new Slot(this, portrait, portrait.sprite, _preparation);
             _slots.Add(portrait, slot);
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.hero_portrait.load_started"),
@@ -122,20 +120,20 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
             _config == null
             || !_config.EnableAnimatedHeroPortraitsConfig.Value
             || _catalog == null
-            || _compositions == null
+            || _preparation == null
         )
             return generation;
         var sprite = data.portraitTextureReference;
         if (
             sprite == null
             || !_catalog.TryResolve(sprite, out var skin, out _)
-            || !_compositions.HasPreparedCandidate(sprite, skin)
+            || !_preparation.HasPreparedCandidate(sprite, skin)
             || !Services.TryGet<AssetLoader>(out var loader)
             || loader == null
         )
             return generation;
         var state = new PortraitCachedSetupState(generation);
-        var slot = new Slot(this, portrait, sprite, _compositions, state, encounter, data);
+        var slot = new Slot(this, portrait, sprite, _preparation, state, encounter, data);
         _slots.Add(portrait, slot);
         _ = slot.LoadAsync(loader, skin);
         BppLog.InfoEvent(
@@ -189,7 +187,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
         private NativeAnimatedHeroPortrait? _view;
         private bool _disposed;
         private readonly CancellationTokenSource _cancellation = new();
-        private readonly NativePortraitComposition _compositions;
+        private readonly PortraitPreparation _preparation;
         private bool _loadCompleted;
         internal Sprite Sprite { get; }
         internal long Generation => _cachedSetup?.Generation ?? 0;
@@ -202,7 +200,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
             AnimatedHeroPortraitController owner,
             SpriteRenderer portrait,
             Sprite sprite,
-            NativePortraitComposition compositions,
+            PortraitPreparation preparation,
             PortraitCachedSetupState? cachedSetup = null,
             EncounterController? encounter = null,
             EncounterAssetDataSO? expectedData = null
@@ -211,7 +209,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
             _owner = owner;
             _portrait = portrait;
             Sprite = sprite;
-            _compositions = compositions;
+            _preparation = preparation;
             _cachedSetup = cachedSetup;
             _encounter = encounter;
             _expectedData = expectedData;
@@ -274,17 +272,33 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
                     || !_owner.IsCurrent(this, _portrait)
                 )
                     return;
-                var view = await NativeAnimatedHeroPortrait.CreateAsync(
+                var prepared = await _preparation.PrepareAsync(
                     _portrait,
                     skin,
                     prefab,
-                    _compositions,
-                    _owner._breakouts!,
                     _cancellation.Token,
-                    _cachedSetup == null ? null : _originalForceOff,
-                    () => _cachedSetup?.HoldsStatic == true,
                     ReleaseStatic
                 );
+                if (
+                    _disposed
+                    || _portrait == null
+                    || _portrait.sprite != Sprite
+                    || SetupSuperseded
+                    || !_owner.IsCurrent(this, _portrait)
+                )
+                {
+                    return;
+                }
+                var view =
+                    prepared == null
+                        ? null
+                        : NativeAnimatedHeroPortrait.Create(
+                            _portrait,
+                            skin,
+                            prepared,
+                            _cachedSetup == null ? null : _originalForceOff,
+                            () => _cachedSetup?.HoldsStatic == true
+                        );
                 if (
                     _disposed
                     || _portrait == null

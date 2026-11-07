@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.GameInterop.Scenes;
 using BazaarPlusPlus.Infrastructure;
@@ -282,16 +283,21 @@ internal sealed class BppPanelDockButtonsController
     private void ApplyVisibility()
     {
         var config = BppPatchHost.Services.Config;
-        // The end-of-run screens keep the run's settings button; the dock buttons hide there.
-        var hidden =
-            _screenshotSuppressionCount > 0
-            || AppState.CurrentState is { } appState && appState.IsEndOfRunState();
-        var shouldBeVisible =
-            config.ShowCollectionButtonConfig.Value && !hidden && _hasAvailableDockLayout;
+        var endOfRun = AppState.CurrentState is { } appState && appState.IsEndOfRunState();
+        var shouldBeVisible = HudVisibility.DesktopDockButton(
+            endOfRun,
+            _screenshotSuppressionCount > 0,
+            config.ShowCollectionButtonConfig.Value,
+            _hasAvailableDockLayout
+        );
         if (_dockButtonRect != null && _dockButtonRect.gameObject.activeSelf != shouldBeVisible)
             _dockButtonRect.gameObject.SetActive(shouldBeVisible);
-        var liveBuildVisible =
-            config.ShowTenWinBuildsButtonConfig.Value && !hidden && _hasAvailableLiveBuildLayout;
+        var liveBuildVisible = HudVisibility.DesktopDockButton(
+            endOfRun,
+            _screenshotSuppressionCount > 0,
+            config.ShowTenWinBuildsButtonConfig.Value,
+            _hasAvailableLiveBuildLayout
+        );
         if (
             _liveBuildButtonRect != null
             && _liveBuildButtonRect.gameObject.activeSelf != liveBuildVisible
