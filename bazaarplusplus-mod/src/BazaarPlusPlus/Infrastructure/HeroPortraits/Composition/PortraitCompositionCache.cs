@@ -94,7 +94,7 @@ internal sealed class PortraitCompositionCache
         return null;
     }
 
-    private static string Fingerprint(
+    internal static string Fingerprint(
         PortraitCompositionInput input,
         CancellationToken cancellation,
         int algorithmVersion = AlgorithmVersion

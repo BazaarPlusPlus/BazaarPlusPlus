@@ -19,6 +19,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
     private NativeHeroPortraitCatalog? _catalog;
     private float _nextRefresh;
     private NativePortraitComposition? _compositions;
+    private PortraitBreakoutPreparation? _breakouts;
     private long _setupGeneration;
 
     internal void Initialize(
@@ -30,6 +31,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
         _config = config;
         _catalog = catalog;
         _compositions = new NativePortraitComposition(cacheDirectory);
+        _breakouts = new PortraitBreakoutPreparation(cacheDirectory);
     }
 
     private void Update()
@@ -277,6 +279,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
                     skin,
                     prefab,
                     _compositions,
+                    _owner._breakouts!,
                     _cancellation.Token,
                     _cachedSetup == null ? null : _originalForceOff,
                     () => _cachedSetup?.HoldsStatic == true,

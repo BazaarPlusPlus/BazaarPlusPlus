@@ -23,6 +23,8 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
     private MeshRenderer? _renderer;
     private SpriteMask? _mask;
     private Sprite? _maskSprite;
+    private Sprite? _breakoutSprite;
+    private Texture2D? _breakoutTexture;
     private NativePortraitLayeredRenderer? _layers;
     private bool _disposed;
     private bool _published;
@@ -59,6 +61,7 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         NativeHeroPortraitSkin skin,
         GameObject prefab,
         NativePortraitComposition compositions,
+        PortraitBreakoutPreparation breakouts,
         CancellationToken cancellation,
         bool? originalForceOff = null,
         Func<bool>? keepStaticHidden = null,
@@ -68,19 +71,36 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         var sprite = portrait.sprite;
         var source = FindSource(prefab);
         var animationName = skin.IdleAnimation;
+        PortraitCapturedImages? images = null;
         var composition = await compositions.MatchAsync(
             sprite,
             source,
             skin,
             animationName,
             cancellation,
-            cacheMiss
+            cacheMiss,
+            captured => images = captured
         );
         cancellation.ThrowIfCancellationRequested();
         if (portrait == null || portrait.sprite != sprite || prefab == null)
             throw new OperationCanceledException();
         if (composition == null)
             return null;
+        var opening = NativePortraitFrameMask.ReadOpening(portrait);
+        var frame = NativePortraitFrameMask.Normalize(opening, sprite);
+        var plan = await breakouts.PrepareAsync(
+            sprite,
+            source,
+            animationName,
+            composition,
+            frame,
+            images,
+            cacheMiss,
+            cancellation
+        );
+        cancellation.ThrowIfCancellationRequested();
+        if (portrait == null || portrait.sprite != sprite || prefab == null)
+            throw new OperationCanceledException();
         var view = new NativeAnimatedHeroPortrait(
             portrait,
             composition,
@@ -89,7 +109,7 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         );
         try
         {
-            view.Build(skin, source, composition);
+            view.Build(skin, source, composition, opening, plan);
             return view;
         }
         catch
@@ -115,7 +135,9 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
     private void Build(
         NativeHeroPortraitSkin skin,
         SkeletonAnimation source,
-        PortraitComposition composition
+        PortraitComposition composition,
+        Rect opening,
+        PortraitBreakoutPlan plan
     )
     {
         var character = Object.Instantiate(source.gameObject, _root.transform, false);
@@ -153,18 +175,18 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         if (mesh == null)
             throw new InvalidOperationException("The skin has no character mesh.");
         var target = _sprite.bounds;
-        var opening = NativePortraitFrameMask.ReadOpening(_portrait);
         if (mesh.bounds.size.y <= 0f || target.size.y <= 0f)
             throw new InvalidOperationException("The skin has no usable character bounds.");
         // The fit is in reference-image-height units. Convert once into the Sprite's own
         // coordinates; its parent already carries the game's authored skin offsets/scale.
         var height = _sprite.rect.height / _sprite.pixelsPerUnit;
-        var scale = composition.Scale * height;
+        var applied = plan.Apply(composition);
+        var scale = applied.Scale * height;
         character.transform.localRotation = Quaternion.identity;
         character.transform.localScale = Vector3.one * scale;
         character.transform.localPosition = new Vector3(
-            composition.X * height - _sprite.pivot.x / _sprite.pixelsPerUnit,
-            composition.Y * height - _sprite.pivot.y / _sprite.pixelsPerUnit,
+            applied.X * height - _sprite.pivot.x / _sprite.pixelsPerUnit,
+            applied.Y * height - _sprite.pivot.y / _sprite.pixelsPerUnit,
             0f
         );
         _skeleton.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
@@ -172,23 +194,43 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         var maskObject = new GameObject("BPP_HeroPortraitMask");
         maskObject.layer = _portrait.gameObject.layer;
         maskObject.transform.SetParent(_root.transform, false);
-        _maskSprite = NativePortraitFrameMask.Create(
-            opening,
-            target.max.y + opening.height * 0.04f,
-            out var maskBounds
-        );
+        _maskSprite = NativePortraitFrameMask.Create(opening, out var maskBounds);
         maskObject.transform.localPosition = maskBounds.center;
         maskObject.transform.localScale = new Vector3(maskBounds.width, maskBounds.height, 1f);
         _mask = maskObject.AddComponent<SpriteMask>();
+        _mask.alphaCutoff = 0.5f;
         _mask.sprite = _maskSprite;
         _mask.isCustomRangeActive = true;
-        _layers = NativePortraitLayeredRenderer.TryCreate(
-            _skeleton,
-            _root.transform,
-            opening,
-            _maskSprite,
-            maskBounds
-        );
+        if (plan.Parts.Length != 0)
+        {
+            var interior = plan.Interior();
+            var pixels = new byte[plan.Width * plan.Height * 4];
+            for (var i = 0; i < interior.Length; i++)
+                if (interior[i])
+                    pixels[i * 4 + 3] = 255;
+            for (var i = 0; i < plan.Runs.Length; i += 2)
+            for (var j = plan.Runs[i]; j < plan.Runs[i] + plan.Runs[i + 1]; j++)
+                pixels[j * 4 + 3] = 255;
+            _breakoutSprite = NativePortraitFrameMask.Create(
+                new PortraitImage(plan.Width, plan.Height, pixels),
+                out _breakoutTexture
+            );
+            var extendedBounds = Rect.MinMaxRect(
+                plan.Bounds.Left * height - _sprite.pivot.x / _sprite.pixelsPerUnit,
+                plan.Bounds.Bottom * height - _sprite.pivot.y / _sprite.pixelsPerUnit,
+                plan.Bounds.Right * height - _sprite.pivot.x / _sprite.pixelsPerUnit,
+                plan.Bounds.Top * height - _sprite.pivot.y / _sprite.pixelsPerUnit
+            );
+            _layers = NativePortraitLayeredRenderer.TryCreate(
+                _skeleton,
+                _root.transform,
+                _maskSprite,
+                maskBounds,
+                _breakoutSprite,
+                extendedBounds,
+                plan.Parts
+            );
+        }
         if (_layers != null)
             _mask.gameObject.SetActive(false);
         // Build the masked materials/parts while hidden, not on the first visible frame.
@@ -318,5 +360,9 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         }
         if (_maskSprite != null)
             Object.Destroy(_maskSprite);
+        if (_breakoutSprite != null)
+            Object.Destroy(_breakoutSprite);
+        if (_breakoutTexture != null)
+            Object.Destroy(_breakoutTexture);
     }
 }

@@ -8,15 +8,15 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.HeroPortraits;
 
-// Native parts share one animated skeleton. Only role transitions split meshes, preserving
+// Native parts share one animated skeleton. Only admission transitions split meshes, preserving
 // authored draw order without turning every attachment into a separate draw call.
 internal sealed class NativePortraitLayeredRenderer : IDisposable
 {
-    private const int MaxParts = 24;
+    private const int MaxParts = PortraitBreakoutPlan.MaxParts;
     private readonly SkeletonAnimation _skeleton;
     private readonly Transform _parent;
-    private readonly PortraitBoneRoles _roles;
-    private readonly Dictionary<(Attachment Attachment, int Bone), bool> _attachments = new();
+    private readonly HashSet<string> _allowed;
+    private readonly Dictionary<(Attachment Attachment, int Slot), bool> _attachments = new();
     private readonly Dictionary<Material, Material> _materials = new();
     private readonly HashSet<Material> _ownedMaterials = new();
     private readonly List<SpriteMask> _masks = new();
@@ -44,18 +44,20 @@ internal sealed class NativePortraitLayeredRenderer : IDisposable
     private NativePortraitLayeredRenderer(
         SkeletonAnimation skeleton,
         Transform parent,
-        PortraitBoneRoles roles,
-        Rect opening,
+        Sprite strict,
+        Rect strictBounds,
         Sprite extended,
-        Rect extendedBounds
+        Rect extendedBounds,
+        string[] allowed
     )
     {
         _skeleton = skeleton;
         _parent = parent;
-        _roles = roles;
+        _allowed = new HashSet<string>(allowed, StringComparer.Ordinal);
         _extended = extended;
         _extendedBounds = extendedBounds;
-        _strict = NativePortraitFrameMask.Create(opening, opening.yMax, out _strictBounds);
+        _strict = strict;
+        _strictBounds = strictBounds;
         _separator = skeleton.gameObject.AddComponent<SkeletonRenderSeparator>();
         _separator.copyMeshRendererFlags = false;
         _separator.SkeletonRenderer = skeleton;
@@ -64,25 +66,23 @@ internal sealed class NativePortraitLayeredRenderer : IDisposable
     internal static NativePortraitLayeredRenderer? TryCreate(
         SkeletonAnimation skeleton,
         Transform parent,
-        Rect opening,
+        Sprite strict,
+        Rect strictBounds,
         Sprite extended,
-        Rect extendedBounds
+        Rect extendedBounds,
+        string[] allowed
     )
     {
-        var bones = skeleton.Skeleton.Data.Bones;
-        var roles = new PortraitBoneRoles(
-            bones.Select(b => b.Name).ToArray(),
-            bones.Select(b => b.Parent?.Index ?? -1).ToArray()
-        );
-        if (!NeedsLayers(skeleton, roles, opening))
+        if (allowed.Length == 0)
             return null;
         var view = new NativePortraitLayeredRenderer(
             skeleton,
             parent,
-            roles,
-            opening,
+            strict,
+            strictBounds,
             extended,
-            extendedBounds
+            extendedBounds,
+            allowed
         );
         try
         {
@@ -106,78 +106,22 @@ internal sealed class NativePortraitLayeredRenderer : IDisposable
         }
     }
 
-    private static bool NeedsLayers(
-        SkeletonAnimation animation,
-        PortraitBoneRoles roles,
-        Rect opening
-    )
-    {
-        var foreground = false;
-        var scenery = false;
-        var transform = animation.transform;
-        foreach (var slot in animation.Skeleton.DrawOrder)
-        {
-            if (!Drawable(slot))
-                continue;
-            if (Foreground(roles, slot))
-            {
-                foreground = true;
-                continue;
-            }
-            float[] vertices;
-            if (slot.Attachment is MeshAttachment mesh)
-            {
-                vertices = new float[mesh.WorldVerticesLength];
-                mesh.ComputeWorldVertices(slot, 0, vertices.Length, vertices, 0, 2);
-            }
-            else if (slot.Attachment is RegionAttachment region)
-            {
-                vertices = new float[8];
-                region.ComputeWorldVertices(slot, vertices, 0);
-            }
-            else
-                continue;
-            var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
-            var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-            for (var i = 0; i < vertices.Length; i += 2)
-            {
-                var point = new Vector2(
-                    vertices[i] * transform.localScale.x + transform.localPosition.x,
-                    vertices[i + 1] * transform.localScale.y + transform.localPosition.y
-                );
-                min = Vector2.Min(min, point);
-                max = Vector2.Max(max, point);
-            }
-            var size = max - min;
-            if (
-                size.x >= opening.width * 0.4f
-                && size.x * size.y >= opening.width * opening.height * 0.2f
-                && max.y > opening.yMax - opening.height * 0.15f
-                && min.x < opening.xMax
-                && max.x > opening.xMin
-            )
-                scenery = true;
-        }
-        return foreground && scenery;
-    }
-
     private static bool Drawable(Slot slot) =>
-        slot.Bone.Active && slot.A > 0 && slot.Attachment is RegionAttachment or MeshAttachment;
+        slot.Bone.Active
+        && slot.A > 0
+        && (slot.Attachment is RegionAttachment { A: > 0 } or MeshAttachment { A: > 0 });
 
-    private static bool Foreground(PortraitBoneRoles roles, Slot slot) =>
-        slot.Attachment is VertexAttachment mesh
-            ? roles.IsForeground(slot.Bone.Data.Index, mesh.Bones, mesh.Vertices)
-            : roles.IsForeground(slot.Bone.Data.Index, null, null);
-
-    private bool IsForeground(Slot slot)
+    private bool AllowsBreakout(Slot slot)
     {
-        var key = (slot.Attachment, slot.Bone.Data.Index);
-        if (!_attachments.TryGetValue(key, out var foreground))
+        var key = (slot.Attachment, slot.Data.Index);
+        if (!_attachments.TryGetValue(key, out var allowed))
         {
-            foreground = Foreground(_roles, slot);
-            _attachments.Add(key, foreground);
+            allowed = _allowed.Contains(
+                NativePortraitPoseCapture.PartKey(slot.Data.Index, slot.Attachment.Name)
+            );
+            _attachments.Add(key, allowed);
         }
-        return foreground;
+        return allowed;
     }
 
     private void UpdateRoles(ISkeletonAnimation animation)
@@ -191,10 +135,10 @@ internal sealed class NativePortraitLayeredRenderer : IDisposable
         {
             if (!Drawable(slot))
                 continue;
-            var foreground = IsForeground(slot);
-            if (previous.HasValue && previous.Value != foreground)
+            var allowed = AllowsBreakout(slot);
+            if (previous.HasValue && previous.Value != allowed)
                 _skeleton.separatorSlots.Add(slot);
-            previous = foreground;
+            previous = allowed;
             if (_skeleton.separatorSlots.Count >= MaxParts)
             {
                 // Keep the complete pose, strictly clipped, rather than dropping the tail
@@ -224,23 +168,32 @@ internal sealed class NativePortraitLayeredRenderer : IDisposable
             if (!item.forceSeparate && i != instructions.Count - 1)
                 continue;
             EnsurePart(part);
-            var foreground = false;
+            var allowed = false;
             if (!_overflow)
             {
                 var slots = item.skeleton.DrawOrder;
                 for (var s = instructions.Items[start].startSlot; s < item.endSlot; s++)
                     if (Drawable(slots.Items[s]))
                     {
-                        foreground = IsForeground(slots.Items[s]);
+                        allowed = AllowsBreakout(slots.Items[s]);
                         break;
                     }
             }
             var mask = _masks[part];
-            var bounds = foreground ? _extendedBounds : _strictBounds;
-            mask.sprite = foreground ? _extended : _strict;
-            mask.transform.localPosition = bounds.center;
-            mask.transform.localScale = new Vector3(bounds.width, bounds.height, 1);
-            mask.gameObject.SetActive(true);
+            var bounds = allowed ? _extendedBounds : _strictBounds;
+            var sprite = allowed ? _extended : _strict;
+            if (mask.sprite != sprite)
+            {
+                mask.sprite = sprite;
+                mask.transform.localPosition = bounds.center;
+                mask.transform.localScale = new Vector3(
+                    bounds.width / sprite.bounds.size.x,
+                    bounds.height / sprite.bounds.size.y,
+                    1
+                );
+            }
+            if (!mask.gameObject.activeSelf)
+                mask.gameObject.SetActive(true);
             part++;
             start = i + 1;
         }
@@ -264,6 +217,7 @@ internal sealed class NativePortraitLayeredRenderer : IDisposable
             maskObject.layer = _parent.gameObject.layer;
             maskObject.transform.SetParent(_parent, false);
             var mask = maskObject.AddComponent<SpriteMask>();
+            mask.alphaCutoff = 0.5f;
             mask.isCustomRangeActive = true;
             mask.frontSortingLayerID = mask.backSortingLayerID = 0;
             mask.frontSortingOrder = number * 3 + 1;
@@ -306,7 +260,5 @@ internal sealed class NativePortraitLayeredRenderer : IDisposable
                 Object.Destroy(material);
         _ownedMaterials.Clear();
         _materials.Clear();
-        if (_strict != null)
-            Object.Destroy(_strict);
     }
 }

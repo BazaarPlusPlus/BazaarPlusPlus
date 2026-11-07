@@ -4,6 +4,10 @@ namespace BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
 
 internal readonly record struct PortraitPoint(float X, float Y);
 
+internal sealed record PortraitBoneInfluence(float Weight, int[] Ancestors);
+
+internal sealed record PortraitRigBinding(PortraitBoneInfluence[] Influences);
+
 internal sealed record PortraitTriangle(
     int Page,
     PortraitPoint A,
@@ -11,10 +15,21 @@ internal sealed record PortraitTriangle(
     PortraitPoint C,
     PortraitPoint UvA,
     PortraitPoint UvB,
-    PortraitPoint UvC
+    PortraitPoint UvC,
+    string? Part = null,
+    float Opacity = 1f,
+    bool BreakoutEligible = false,
+    PortraitRigBinding? Rig = null
 );
 
-internal sealed record PortraitPose(float Time, PortraitTriangle[] Triangles);
+internal sealed record PortraitPose(
+    float Time,
+    PortraitTriangle[] Triangles,
+    bool BreakoutSupported = true,
+    string[]? DrawOrder = null
+);
+
+internal sealed record PortraitCapturedImages(PortraitImage Reference, PortraitImage[] Pages);
 
 internal sealed record PortraitCompositionInput(
     PortraitImage Reference,

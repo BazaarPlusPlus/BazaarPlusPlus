@@ -58,7 +58,8 @@ internal sealed class NativePortraitComposition
         NativeHeroPortraitSkin skinInfo,
         string animationName,
         CancellationToken cancellation,
-        Action? cacheMiss = null
+        Action? cacheMiss = null,
+        Action<PortraitCapturedImages>? capturedImages = null
     )
     {
         var assetId = source.skeletonDataAsset.GetInstanceID();
@@ -124,68 +125,26 @@ internal sealed class NativePortraitComposition
                 Report(spriteName, "missing_animation");
                 return null;
             }
-            var pages = new List<AtlasPage>();
-            var textures = new List<Texture>();
-            foreach (var atlasAsset in asset.atlasAssets)
-            foreach (var page in atlasAsset.GetAtlas().Pages)
-            {
-                if (pages.Contains(page))
-                    continue;
-                if (
-                    page.rendererObject is not Material material
-                    || material == null
-                    || material.mainTexture == null
-                )
-                {
-                    Report(spriteName, "missing_atlas_texture");
-                    return null;
-                }
-                pages.Add(page);
-                textures.Add(material.mainTexture);
-            }
-            if (pages.Count == 0 || pages.Count > 4)
-            {
-                Report(spriteName, "unsupported_atlas_pages");
-                return null;
-            }
-            Report(spriteName, "capture_started");
-            var reference = await NativePortraitTexture.CaptureAsync(
-                sprite.texture,
-                sprite.rect,
-                256
+            var images = await NativePortraitPoseCapture.CaptureImagesAsync(
+                sprite,
+                source,
+                cancellation
             );
-            cancellation.ThrowIfCancellationRequested();
-            var images = new PortraitImage[textures.Count];
-            for (var i = 0; i < textures.Count; i++)
-            {
-                if (textures[i] == null)
-                    throw new OperationCanceledException();
-                images[i] = await NativePortraitTexture.CaptureAsync(
-                    textures[i],
-                    new Rect(0, 0, textures[i].width, textures[i].height),
-                    512
-                );
-                cancellation.ThrowIfCancellationRequested();
-            }
-            var skeleton = CreateSkeleton(data, source);
-            var poses = new PortraitPose[16];
-            for (var i = 0; i < poses.Length; i++)
-            {
-                cancellation.ThrowIfCancellationRequested();
-                skeleton.SetToSetupPose();
-                var state = new Spine.AnimationState(new AnimationStateData(data));
-                var track = state.SetAnimation(0, animation, true);
-                track.TrackTime = animation.Duration * i / poses.Length;
-                state.Apply(skeleton);
-                skeleton.UpdateWorldTransform(Skeleton.Physics.None);
-                poses[i] = new PortraitPose(track.TrackTime, CaptureTriangles(skeleton, pages));
-                // Bound main-thread work per frame; image matching itself never runs here.
-                await Task.Yield();
-            }
-            var input = new PortraitCompositionInput(reference, images, poses);
+            capturedImages?.Invoke(images);
+            var poses = await NativePortraitPoseCapture.CaptureAsync(
+                source,
+                animation,
+                Enumerable.Range(0, 16).Select(i => animation.Duration * i / 16).ToArray(),
+                cancellation,
+                breakout: false
+            );
+            var input = new PortraitCompositionInput(images.Reference, images.Pages, poses);
             Report(spriteName, "capture_completed", poses.Sum(p => p.Triangles.Length));
             using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
-            budget.CancelAfter(TimeSpan.FromSeconds(3));
+            // Cold searches on the game's Mono runtime can take longer than a typical
+            // portrait. Work stays on the single background worker; native art remains
+            // visible, and the caller still cancels when the portrait goes away.
+            budget.CancelAfter(TimeSpan.FromSeconds(12));
             PortraitComposition? fit;
             var timedOut = false;
             var watch = Stopwatch.StartNew();
@@ -253,21 +212,6 @@ internal sealed class NativePortraitComposition
         }
     }
 
-    private static Skeleton CreateSkeleton(SkeletonData data, SkeletonAnimation source)
-    {
-        var skeleton = new Skeleton(data)
-        {
-            ScaleX = source.initialFlipX ? -1f : 1f,
-            ScaleY = source.initialFlipY ? -1f : 1f,
-        };
-        if (
-            !string.IsNullOrEmpty(source.initialSkinName)
-            && data.FindSkin(source.initialSkinName) is Skin skin
-        )
-            skeleton.SetSkin(skin);
-        return skeleton;
-    }
-
     private static bool ValidateReady(
         Sprite sprite,
         SkeletonAnimation source,
@@ -288,7 +232,7 @@ internal sealed class NativePortraitComposition
             || MathF.Abs(fit.PoseTime - animation.Duration * sample / 16) > .0001f
         )
             return false;
-        var skeleton = CreateSkeleton(data, source);
+        var skeleton = NativePortraitPoseCapture.CreateSkeleton(data, source);
         var state = new Spine.AnimationState(new AnimationStateData(data));
         state.SetAnimation(0, animation, true).TrackTime = fit.PoseTime;
         state.Apply(skeleton);
@@ -307,7 +251,12 @@ internal sealed class NativePortraitComposition
             new PortraitCompositionInput(
                 reference,
                 [],
-                [new(fit.PoseTime, CaptureTriangles(skeleton, pages))]
+                [
+                    new(
+                        fit.PoseTime,
+                        NativePortraitPoseCapture.CaptureTriangles(skeleton, pages, breakout: false)
+                    ),
+                ]
             ),
             fit
         );
@@ -321,59 +270,4 @@ internal sealed class NativePortraitComposition
             ("count", count),
             ("elapsed_ms", elapsedMs)
         );
-
-    private static PortraitTriangle[] CaptureTriangles(Skeleton skeleton, List<AtlasPage> pages)
-    {
-        var triangles = new List<PortraitTriangle>();
-        foreach (var slot in skeleton.DrawOrder)
-        {
-            if (!slot.Bone.Active || slot.A < 0.5f)
-                continue;
-            float[] vertices;
-            float[] uv;
-            int[] indices;
-            TextureRegion region;
-            if (slot.Attachment is RegionAttachment attachment && attachment.A >= 0.5f)
-            {
-                vertices = new float[8];
-                attachment.ComputeWorldVertices(slot, vertices, 0);
-                uv = attachment.UVs;
-                region = attachment.Region;
-                indices = [0, 1, 2, 2, 3, 0];
-            }
-            else if (slot.Attachment is MeshAttachment mesh && mesh.A >= 0.5f)
-            {
-                vertices = new float[mesh.WorldVerticesLength];
-                mesh.ComputeWorldVertices(slot, 0, vertices.Length, vertices, 0, 2);
-                uv = mesh.UVs;
-                region = mesh.Region;
-                indices = mesh.Triangles;
-            }
-            else
-                continue;
-            if (region is not AtlasRegion atlasRegion)
-                continue;
-            var page = pages.IndexOf(atlasRegion.page);
-            if (page < 0)
-                continue;
-            for (var i = 0; i < indices.Length; i += 3)
-            {
-                var a = indices[i] * 2;
-                var b = indices[i + 1] * 2;
-                var c = indices[i + 2] * 2;
-                triangles.Add(
-                    new PortraitTriangle(
-                        page,
-                        new PortraitPoint(vertices[a], vertices[a + 1]),
-                        new PortraitPoint(vertices[b], vertices[b + 1]),
-                        new PortraitPoint(vertices[c], vertices[c + 1]),
-                        new PortraitPoint(uv[a], uv[a + 1]),
-                        new PortraitPoint(uv[b], uv[b + 1]),
-                        new PortraitPoint(uv[c], uv[c + 1])
-                    )
-                );
-            }
-        }
-        return triangles.ToArray();
-    }
 }

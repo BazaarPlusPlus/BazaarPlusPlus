@@ -149,7 +149,7 @@ public sealed class BppSettings
         EnableAnimatedHeroPortraitsConfig = config.Bind(
             "AnimatedHeroPortraits",
             "Enabled",
-            true,
+            false,
             "Desktop: animate static hero portraits using each skin's character animation. Turn off to restore the original portraits."
         );
         EnableCombatStatusBarConfig = config.Bind(

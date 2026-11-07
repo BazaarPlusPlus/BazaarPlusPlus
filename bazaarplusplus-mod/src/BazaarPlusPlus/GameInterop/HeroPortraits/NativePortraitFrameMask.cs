@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
 using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.HeroPortraits;
@@ -43,15 +44,57 @@ internal static class NativePortraitFrameMask
         return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
     }
 
-    internal static Sprite Create(Rect opening, float top, out Rect maskBounds)
+    internal static PortraitFrameGeometry Normalize(Rect opening, Sprite sprite)
     {
-        // Keep the exact opening sides and floor, with a tiny cut at the lower corners.
-        // The crown rises above the opening to preserve the game's out-of-frame composition.
-        top = Mathf.Max(top, opening.yMax);
-        maskBounds = Rect.MinMaxRect(opening.xMin, opening.yMin, opening.xMax, top);
-        var archRise = opening.height * 0.15f;
-        var bevel = Mathf.Min(opening.width, opening.height) * 0.007f;
-        const int archSegments = 24;
+        var height = sprite.rect.height / sprite.pixelsPerUnit;
+        var pivot = sprite.pivot / sprite.pixelsPerUnit;
+        return new PortraitFrameGeometry(
+            (opening.xMin + pivot.x) / height,
+            (opening.yMin + pivot.y) / height,
+            (opening.xMax + pivot.x) / height,
+            (opening.yMax + pivot.y) / height
+        );
+    }
+
+    internal static Sprite Create(PortraitImage image, out Texture2D texture)
+    {
+        texture = new Texture2D(image.Width, image.Height, TextureFormat.RGBA32, false, true)
+        {
+            name = "BPP_PortraitAdmissionMask",
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp,
+        };
+        try
+        {
+            texture.LoadRawTextureData(image.Rgba);
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0, 0, image.Width, image.Height),
+                new Vector2(0.5f, 0.5f),
+                image.Width,
+                0,
+                SpriteMeshType.FullRect
+            );
+        }
+        catch
+        {
+            UnityEngine.Object.Destroy(texture);
+            throw;
+        }
+    }
+
+    internal static Sprite Create(Rect opening, out Rect maskBounds)
+    {
+        maskBounds = opening;
+        var frame = new PortraitFrameGeometry(
+            opening.xMin,
+            opening.yMin,
+            opening.xMax,
+            opening.yMax
+        );
+        var bevel = frame.Bevel;
+        const int archSegments = PortraitFrameGeometry.ArchSegments;
         var points = new List<Vector2>
         {
             maskBounds.center,
@@ -61,10 +104,8 @@ internal static class NativePortraitFrameMask
         for (var i = 0; i <= archSegments; i++)
         {
             var t = i / (float)archSegments;
-            var x = t * 2f - 1f;
-            points.Add(
-                new Vector2(Mathf.Lerp(opening.xMin, opening.xMax, t), top - archRise * x * x)
-            );
+            var x = Mathf.Lerp(opening.xMin, opening.xMax, t);
+            points.Add(new Vector2(x, frame.Roof(x)));
         }
         points.Add(new Vector2(opening.xMax, opening.yMin + bevel));
         points.Add(new Vector2(opening.xMax - bevel, opening.yMin));
