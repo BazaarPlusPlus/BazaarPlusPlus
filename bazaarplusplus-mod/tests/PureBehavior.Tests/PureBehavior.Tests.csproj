@@ -10,12 +10,22 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="../../src/BazaarPlusPlus/Infrastructure/HeroPortraits/Composition/PortraitCompositionMatcher.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Infrastructure/HeroPortraits/Composition/PortraitImageFeatures.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Infrastructure/HeroPortraits/Composition/PortraitPoseRasterizer.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Infrastructure/HeroPortraits/Composition/PortraitCompositionCache.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Infrastructure/HeroPortraits/Composition/PortraitFrameGeometry.cs" />
+    <Compile Include="../../src/BazaarPlusPlus.Core/Infrastructure/AtomicFileWriter.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutAnalyzer.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutCache.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutGroups.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutPlan.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutRasterizer.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutSelection.cs" />
     <Compile Include="../AsyncLoadCache.Tests/*.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionState.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayout.cs" />
