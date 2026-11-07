@@ -298,25 +298,9 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             InGameTheme.Panel,
             false
         );
-        var tray = UiKit.Fill(
-            TouchScreen.Child("SectionTabs", Surface, _l.TabsTray),
-            InGameTheme.Button,
-            false
+        var tray = TouchHistoryUi.ControlSurface(
+            TouchScreen.Child("SectionTabs", Surface, _l.TabsTray)
         );
-        for (var index = 1; index < 3; index++)
-        {
-            var divider = new TouchRect(
-                _l.RunsTab.Left + index * _l.RunsTab.Width,
-                _l.RunsTab.Top + _l.Metrics.Dp(12f),
-                _l.Metrics.Dp(.5f),
-                _l.RunsTab.Height - _l.Metrics.Dp(24f)
-            );
-            UiKit.Fill(
-                TouchScreen.Child("SectionDivider", Surface, divider),
-                InGameTheme.RuleFaint,
-                false
-            );
-        }
         var tab = _l.ButtonFont;
         _runsTab = TouchHistoryUi
             .Button(
@@ -613,7 +597,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             );
             row.PortraitRect = portrait;
             row.Portrait = new PortraitView(portrait, TouchHistoryUi.Skin, _l.Metrics);
-            row.Accent = Accent(rect);
             row.Unknown = TouchHistoryUi.Fraction(
                 outcomeImage.transform,
                 _font,
@@ -694,7 +677,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                     TouchHistoryUi.Muted
                 ),
                 Outcome = UiKit.Fill(outcome, Color.clear, blocksTouches: false),
-                Accent = Accent(rect),
             };
             // The top line reads portrait, day and rank badge, as the desktop chip does.
             var portrait = UiKit.Fixed(
@@ -715,22 +697,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             rect.gameObject.SetActive(false);
         }
         return rail;
-    }
-
-    // A gold bar down the selected row's left edge: the selected fill alone reads too faintly.
-    private GameObject Accent(RectTransform row)
-    {
-        var bar = UiKit.Rect(
-            "Accent",
-            row,
-            new Vector2(0f, .14f),
-            new Vector2(0f, .86f),
-            Vector2.zero,
-            new Vector2(_l.Metrics.Dp(4f), 0f)
-        );
-        UiKit.Fill(bar, TouchHistoryUi.Accent, blocksTouches: false);
-        bar.gameObject.SetActive(false);
-        return bar.gameObject;
     }
 
     private RectTransform BoardRegion(string name, TouchRect area)
@@ -1005,7 +971,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             row.Name.text = fields.Name;
             row.Meta.text = fields.Meta;
             row.Stamp.text = fields.Stamp;
-            TouchHistoryUi.SetActive(row.Accent, i == selected);
             var outcome = badge(i);
             row.Unknown.text = outcome.Fallback;
             row.Badge.Bind(outcome.Sprite);
@@ -1053,7 +1018,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             // The page's newest-first order, matching the archive and the pager.
             var battle = battles[i];
             chip.Control.Set(string.Empty, i == selected, !loading);
-            TouchHistoryUi.SetActive(chip.Accent, i == selected);
             chip.Day.text = HistoryPanelText.DayBadge(battle.Day);
             chip.Rank.Bind(MobilePlatform.Port.RankBadge(battle.OpponentRank));
             var hero = ParseHero(battle.OpponentHero);
@@ -1246,7 +1210,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         internal TextMeshProUGUI Name = null!;
         internal TextMeshProUGUI Meta = null!;
         internal TextMeshProUGUI Stamp = null!;
-        internal GameObject Accent = null!;
         internal string? Id;
     }
 
@@ -1269,7 +1232,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         internal ArtImage Rank = null!;
         internal TextMeshProUGUI Name = null!;
         internal Image Outcome = null!;
-        internal GameObject Accent = null!;
     }
 
     // A thin bar in the gutter right of a list while its rows overflow, so a list that scrolls
