@@ -31,4 +31,5 @@ public static class BppSettingsDockOrder
 
     public const int ShowCollectionButton = 22;
     public const int ShowTenWinBuildsButton = 23;
+    public const int AnimatedHeroPortraits = 24;
 }

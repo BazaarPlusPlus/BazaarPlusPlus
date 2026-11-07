@@ -37,6 +37,8 @@ public sealed class BppSettings
 
     public ISetting<bool> EnableCombatStatusBarConfig { get; }
 
+    public ISetting<bool> EnableAnimatedHeroPortraitsConfig { get; }
+
     public ISetting<float> CombatStatusBarSpeedMultiplierConfig { get; }
 
     public ISetting<bool> EndOfRunScreenshotEnabledConfig { get; }
@@ -143,6 +145,12 @@ public sealed class BppSettings
             "ShowTenWinBuilds",
             true,
             "Whether to show the Ten-Win Builds button beside the in-run settings button. Hotkeys remain available."
+        );
+        EnableAnimatedHeroPortraitsConfig = config.Bind(
+            "AnimatedHeroPortraits",
+            "Enabled",
+            true,
+            "Desktop: animate static hero portraits using each skin's character animation. Turn off to restore the original portraits."
         );
         EnableCombatStatusBarConfig = config.Bind(
             "CombatStatusBar",

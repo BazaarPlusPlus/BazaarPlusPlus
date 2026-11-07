@@ -28,6 +28,8 @@ internal sealed class BppPatchFeatures
     internal HistoryPanelMenuEntry HistoryMenu { get; } = new();
     internal CollectionInspectionModule CollectionInspection { get; } = new();
     internal DesktopSkillOverlayLayout SkillOverlayLayout { get; } = new();
+    internal GameInterop.HeroPortraits.NativeHeroPortraitCatalog HeroPortraits { get; } = new();
+    internal Game.HeroPortraits.AnimatedHeroPortraitController? PortraitAnimation { get; set; }
 
     internal EncounterPreviewModule EncounterPreview { get; }
     internal IEndOfRunCaptureWorkflow EndOfRunCaptureWorkflow { get; }
