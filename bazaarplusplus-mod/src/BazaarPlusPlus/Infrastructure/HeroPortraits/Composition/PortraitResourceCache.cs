@@ -4,11 +4,7 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
 
-internal sealed record PortraitResourceEntry(
-    string Source,
-    string NumericKey,
-    PortraitComposition Fit
-);
+internal sealed record PortraitResourceEntry(string Source, PortraitComposition Fit);
 
 // This index contains references to the existing numeric cache, never game artwork.
 // Load once off-thread; setup hooks only consult the resulting in-memory dictionary.
@@ -33,8 +29,6 @@ internal sealed class PortraitResourceCache
         _loading = Task.Run(Load);
     }
 
-    internal Task Loading => _loading;
-
     internal bool TryGet(string key, out PortraitResourceEntry entry) =>
         _ready.TryGetValue(key, out entry!);
 
@@ -55,7 +49,7 @@ internal sealed class PortraitResourceCache
     {
         if (!ValidKey(key) || !ValidKey(numericKey) || !PortraitCompositionMatcher.IsReliable(fit))
             return;
-        _ready[key] = new PortraitResourceEntry(source, numericKey, fit);
+        _ready[key] = new PortraitResourceEntry(source, fit);
         _unmapped.TryRemove(numericKey, out _);
         _misses.TryRemove(key, out _);
         if (!File.Exists(Path.Combine(_directory, numericKey + ".json")))
@@ -123,10 +117,7 @@ internal sealed class PortraitResourceCache
                     if (fit == null || !PortraitCompositionMatcher.IsReliable(fit))
                         continue;
                     // A new live result wins if loading overlapped the first encounter.
-                    _ready.TryAdd(
-                        key,
-                        new PortraitResourceEntry(link.Source, link.NumericKey, fit)
-                    );
+                    _ready.TryAdd(key, new PortraitResourceEntry(link.Source, fit));
                     _unmapped.TryRemove(link.NumericKey, out _);
                 }
                 catch (Exception ex)

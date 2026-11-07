@@ -14,11 +14,6 @@ internal sealed class PortraitCompositionCache
 
     internal PortraitCompositionCache(string directory) => _directory = directory;
 
-    internal PortraitComposition? FindOrCompute(
-        PortraitCompositionInput input,
-        CancellationToken cancellation
-    ) => FindCached(input, cancellation, out var key) ?? Compute(input, key, cancellation);
-
     internal PortraitComposition? FindCached(
         PortraitCompositionInput input,
         CancellationToken cancellation,
