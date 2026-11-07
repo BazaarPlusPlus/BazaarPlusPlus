@@ -116,7 +116,20 @@ public sealed class SettingsDockRowTests
 
     private static BppSettings Settings() => new(new MemoryStore());
 
-    private sealed class MemoryStore : IBppSettingsStore
+    [Fact]
+    public void Animated_portraits_start_disabled_in_a_new_configuration() =>
+        Assert.False(Settings().EnableAnimatedHeroPortraitsConfig.Value);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Animated_portraits_preserve_the_saved_preference(bool enabled) =>
+        Assert.Equal(
+            enabled,
+            new BppSettings(new MemoryStore(enabled)).EnableAnimatedHeroPortraitsConfig.Value
+        );
+
+    private sealed class MemoryStore(bool? savedPortrait = null) : IBppSettingsStore
     {
         public ISetting<T> Bind<T>(
             string section,
@@ -125,7 +138,14 @@ public sealed class SettingsDockRowTests
             string description,
             SettingRange<T>? acceptableRange = null
         )
-            where T : IComparable => new Setting<T> { Value = defaultValue };
+            where T : IComparable =>
+            new Setting<T>
+            {
+                Value =
+                    section == "AnimatedHeroPortraits" && key == "Enabled" && savedPortrait.HasValue
+                        ? (T)(object)savedPortrait.Value
+                        : defaultValue,
+            };
 
         private sealed class Setting<T> : ISetting<T>
         {
