@@ -107,8 +107,11 @@ export type DownloadPageCopy = {
   intro: string;
   versionLabel: string;
   versionUnavailable: string;
-  officialGameVersionLabel: string;
-  officialUpdatedAtLabel: string;
+  adaptedGameLabel: string;
+  onlineGameLabel: string;
+  /** The conclusion beside the online game when it is the adapted one. */
+  adapted: string;
+  notAdapted: string;
   versionFailed: string;
   releaseFallbackPrefix: string;
   releaseFallbackLink: string;
@@ -132,7 +135,6 @@ export type DownloadPageCopy = {
     badge: string;
     /** What experimental means, in the banner under the header. */
     notice: string;
-    gameVersionLabel: string;
     sizeLabel: string;
     sha256Label: string;
     actionLabel: string;
@@ -467,8 +469,10 @@ const zh: LocalizedSiteCopy = {
     intro: '获取 BazaarPlusPlus 最新版本。',
     versionLabel: '最新版本',
     versionUnavailable: '获取失败',
-    officialGameVersionLabel: '官方游戏版本',
-    officialUpdatedAtLabel: '官方更新时间',
+    adaptedGameLabel: '适配游戏',
+    onlineGameLabel: '在线游戏',
+    adapted: '已适配',
+    notAdapted: '未适配，适配中',
     versionFailed: '暂时无法获取最新版本',
     releaseFallbackPrefix: '可以前往 ',
     releaseFallbackLink: 'GitHub 发布页',
@@ -490,7 +494,6 @@ const zh: LocalizedSiteCopy = {
       arch: 'arm64',
       badge: '实验版',
       notice: 'Android 版仍在实验阶段：部分功能与桌面版有差异，也可能有尚未发现的问题。',
-      gameVersionLabel: '游戏版本',
       sizeLabel: '文件大小',
       sha256Label: 'SHA-256',
       actionLabel: '下载 .apk',
@@ -508,7 +511,7 @@ const zh: LocalizedSiteCopy = {
         '需要 Android 11 或更高版本',
         '登录状态由各个 App 分别保存：从 BazaarPlusPlus 启动的游戏和官方 App 互不共享，所以第一次从 BazaarPlusPlus 启动时要再登录一次',
         '购买请在官方 App 里完成',
-        '游戏更新后，请等待适配新版本的 BazaarPlusPlus 发布；在此期间可以打开官方游戏',
+        '游戏更新后，BazaarPlusPlus 需要一段时间适配新版本',
       ],
     },
     desktopNoteTitle: 'Windows 与 macOS 安装提示',
@@ -797,8 +800,10 @@ const en: LocalizedSiteCopy = {
     intro: 'Get the latest version of BazaarPlusPlus.',
     versionLabel: 'Current version',
     versionUnavailable: 'Unavailable',
-    officialGameVersionLabel: 'Official game version',
-    officialUpdatedAtLabel: 'Official update',
+    adaptedGameLabel: 'Adapted game',
+    onlineGameLabel: 'Online game',
+    adapted: 'Adapted',
+    notAdapted: 'Not adapted yet, in progress',
     versionFailed: 'Cannot reach the latest version right now',
     releaseFallbackPrefix: 'Try ',
     releaseFallbackLink: 'GitHub Release',
@@ -821,7 +826,6 @@ const en: LocalizedSiteCopy = {
       badge: 'Experimental',
       notice:
         'The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.',
-      gameVersionLabel: 'Game version',
       sizeLabel: 'Size',
       sha256Label: 'SHA-256',
       actionLabel: 'Download .apk',
@@ -839,7 +843,7 @@ const en: LocalizedSiteCopy = {
         'Android 11 or later.',
         'Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.',
         'Make purchases in the official app.',
-        'After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game.',
+        'After a game update, BazaarPlusPlus needs some time to adapt to the new version.',
       ],
     },
     desktopNoteTitle: 'Windows and macOS install notes',

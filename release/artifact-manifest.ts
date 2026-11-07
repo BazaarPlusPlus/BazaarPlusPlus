@@ -83,6 +83,8 @@ export interface ValidateArtifactManifestOptions {
 /** A validated artifact manifest and the absolute paths of its artifacts. */
 export interface ValidatedArtifactManifest {
   manifest: ArtifactManifest;
+  /** The Snapshot Lock entry the sealed Payload build record names. */
+  lockEntry: PayloadBuildRecord['lockEntry'];
   installer: string;
   updater: string;
   signature: string;
@@ -457,5 +459,12 @@ export function validateArtifactManifest({
     manifest.managedPayload
   );
   assertFileNameContainsVersion(managedPayload, version);
-  return { manifest, installer, updater, signature, managedPayload };
+  return {
+    manifest,
+    lockEntry: payloadIdentity.lockEntry,
+    installer,
+    updater,
+    signature,
+    managedPayload
+  };
 }

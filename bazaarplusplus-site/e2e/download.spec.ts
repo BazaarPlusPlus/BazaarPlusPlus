@@ -61,12 +61,15 @@ function platformCard(page: Page, title: string) {
 }
 
 async function describeCard(page: Page, title: string) {
-  const version = await platformCard(page, title)
+  const card = platformCard(page, title);
+  const version = await card
     .getByText('Current version', { exact: true })
     .locator('xpath=following-sibling::*[1]')
     .textContent();
   return {
     version: version?.trim(),
+    adaptedGame: await fact(card, 'Adapted game'),
+    onlineGame: await onlineGame(card),
     primary: await describeLink(page, title, /^Download \./),
     mirror: await describeLink(page, title, `${title} mainland mirror`),
   };
@@ -76,11 +79,22 @@ async function text(locator: Locator) {
   return (await locator.textContent())?.trim();
 }
 
-/** The value beside a key in the Android card's facts list, or null when the row is absent. */
+/** The value beside a key in a card's facts list, or null when the row is absent. */
 async function fact(card: Locator, label: string) {
   const key = card.locator('dt', { hasText: label });
   if ((await key.count()) === 0) return null;
   return text(key.locator('xpath=following-sibling::dd[1]'));
+}
+
+/** The online game and the conclusion beside it, or null while the Game Status is missing. */
+async function onlineGame(card: Locator) {
+  const key = card.locator('dt', { hasText: 'Online game' });
+  if ((await key.count()) === 0) return null;
+  const value = key.locator('xpath=following-sibling::dd[1]');
+  return {
+    version: await text(value.locator('.tabular-nums')),
+    conclusion: await text(value.locator('.rounded-full').first()),
+  };
 }
 
 /** The Android entry as a visitor reads it; an unavailable card has no APK facts. */
@@ -92,7 +106,8 @@ async function describeAndroid(page: Page) {
     badge: await text(card.getByText('Experimental', { exact: true })),
     notice: await text(card.getByText(/^The Android build is experimental/)),
     version: await fact(card, 'Current version'),
-    gameVersion: await fact(card, 'Game version'),
+    adaptedGame: await fact(card, 'Adapted game'),
+    onlineGame: await onlineGame(card),
     size: await fact(card, 'Size'),
     sha256: await fact(card, 'SHA-256'),
     download: {
@@ -156,7 +171,8 @@ test('a missing or invalid Android manifest leaves the Android card unavailable'
     badge: loaded.android?.badge,
     notice: loaded.android?.notice,
     version: 'Unavailable',
-    gameVersion: null,
+    adaptedGame: null,
+    onlineGame: null,
     size: null,
     sha256: null,
     download: { href: '#', disabled: true },
@@ -185,29 +201,49 @@ test('the Android feedback button copies the QQ group number', async ({ page, co
 });
 
 test.describe('Game Status', () => {
-  test('the desktop cards show the official game and its update time', async ({ page }) => {
+  test('each card shows the adapted game, the online game and the conclusion', async ({ page }) => {
     const routes = await installGoldenRoutes(page, {
       ...goldenSources(),
       gameStatus: { json: readJson('../release/fixtures/game-status.json') },
+      androidGameStatus: { json: readJson('../release/fixtures/android-game-status.json') },
     });
     await page.goto('/download?lang=en');
 
     const mac = platformCard(page, 'macOS');
-    await expect(mac.locator('dt', { hasText: 'Official game version' })).toBeVisible();
-    expect(await fact(mac, 'Official game version')).toBe('1.0.13081');
-    expect(await fact(platformCard(page, 'Windows'), 'Official game version')).toBe('1.0.13082');
-    expect(await fact(mac, 'Official update')).toContain('2026');
+    await expect(mac.locator('dt', { hasText: 'Online game' })).toBeVisible();
+    await expect(
+      platformCard(page, 'Android').locator('dt', { hasText: 'Online game' })
+    ).toBeVisible();
+    const games = async (title: string) => {
+      const card = platformCard(page, title);
+      return { adapted: await fact(card, 'Adapted game'), online: await onlineGame(card) };
+    };
+    // The same game code; a newer game; a content-only update of the adapted game.
+    expect(await games('macOS')).toEqual({
+      adapted: '1.0.13081',
+      online: { version: '1.0.13081', conclusion: 'Adapted' },
+    });
+    expect(await games('Windows')).toEqual({
+      adapted: '1.0.13057',
+      online: { version: '1.0.13082', conclusion: 'Not adapted yet, in progress' },
+    });
+    expect(await games('Android')).toEqual({
+      adapted: '1.0.12825',
+      online: { version: '1.0.12830', conclusion: 'Adapted' },
+    });
     expectNoUnexpectedRequests(routes);
   });
 
-  test('a missing Game Status hides only its rows', async ({ page }) => {
+  test('a missing Game Status leaves only the adapted game', async ({ page }) => {
     const routes = await installGoldenRoutes(page);
     await page.goto('/download?lang=en');
 
     const mac = platformCard(page, 'macOS');
-    await expect(mac.getByRole('link', { name: /^Download \./ })).toBeVisible();
+    await expect(mac.locator('dt', { hasText: 'Adapted game' })).toBeVisible();
     await expect.poll(() => routes.hits.gameStatus).toBeGreaterThan(0);
-    expect(await fact(mac, 'Official game version')).toBeNull();
+    await expect.poll(() => routes.hits.androidGameStatus).toBeGreaterThan(0);
+    expect(await onlineGame(mac)).toBeNull();
+    expect(await onlineGame(platformCard(page, 'Android'))).toBeNull();
     expectNoUnexpectedRequests(routes);
   });
 });

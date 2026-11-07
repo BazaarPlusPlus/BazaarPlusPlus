@@ -82,6 +82,27 @@ export const MANAGED_PAYLOAD_FACTS = Object.freeze({
   nonManagedPayloadDigest: 'e'.repeat(64)
 });
 
+// The Snapshot Lock entry each platform's sealed build record names; the
+// shared fixtures record it as `game`.
+export const LOCK_ENTRIES = Object.freeze({
+  macos: {
+    key: 'macos-online',
+    platform: 'macos',
+    channel: 'online',
+    gameVersion: '1.0.13081-prod-macos-arm64-dae65d53',
+    sha256: 'd'.repeat(64),
+    buildid: '26443971'
+  },
+  windows: {
+    key: 'windows-online',
+    platform: 'windows',
+    channel: 'online',
+    gameVersion: '1.0.13057-prod-windows-x64-891f830a',
+    sha256: 'f'.repeat(64),
+    buildid: '26400000'
+  }
+} as const);
+
 // Replaces the platform's bundle with literal bytes, plus the sealed Payload
 // receipt and the signed Managed Payload createArtifactManifest records.
 // `signature` is written verbatim. The result's `managed` is the
@@ -123,7 +144,8 @@ export function writeArtifacts(
     JSON.stringify({
       schemaVersion: PAYLOAD_BUILD_RECORD_SCHEMA_VERSION,
       productVersion: version,
-      platform
+      platform,
+      lockEntry: LOCK_ENTRIES[platform]
     })
   );
   return {

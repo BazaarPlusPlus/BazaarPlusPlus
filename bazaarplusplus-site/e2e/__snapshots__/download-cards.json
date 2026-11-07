@@ -3,6 +3,8 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
+        "adaptedGame": "1.0.13057",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
           "disabled": false,
@@ -16,6 +18,8 @@
       },
       "macOS": {
         "version": "v3.1.1",
+        "adaptedGame": "1.0.13081",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
           "disabled": false,
@@ -32,7 +36,8 @@
       "badge": "Experimental",
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "gameVersion": "1.0.12825",
+      "adaptedGame": "1.0.12825",
+      "onlineGame": null,
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -51,7 +56,7 @@
         "Android 11 or later.",
         "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
         "Make purchases in the official app.",
-        "After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game."
+        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
       ]
     },
     "fallback": null
@@ -60,6 +65,8 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
+        "adaptedGame": "1.0.13057",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
           "disabled": false,
@@ -73,6 +80,8 @@
       },
       "macOS": {
         "version": "Unavailable",
+        "adaptedGame": null,
+        "onlineGame": null,
         "primary": {
           "href": "#",
           "disabled": true,
@@ -89,7 +98,8 @@
       "badge": "Experimental",
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "gameVersion": "1.0.12825",
+      "adaptedGame": "1.0.12825",
+      "onlineGame": null,
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -108,7 +118,7 @@
         "Android 11 or later.",
         "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
         "Make purchases in the official app.",
-        "After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game."
+        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
       ]
     },
     "fallback": null
@@ -117,6 +127,8 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
+        "adaptedGame": "1.0.13057",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
           "disabled": false,
@@ -130,6 +142,8 @@
       },
       "macOS": {
         "version": "v3.1.1",
+        "adaptedGame": "1.0.13081",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
           "disabled": false,
@@ -146,7 +160,8 @@
       "badge": "Experimental",
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "gameVersion": "1.0.12825",
+      "adaptedGame": "1.0.12825",
+      "onlineGame": null,
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -165,7 +180,7 @@
         "Android 11 or later.",
         "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
         "Make purchases in the official app.",
-        "After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game."
+        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
       ]
     },
     "fallback": null
@@ -174,6 +189,8 @@
     "cards": {
       "Windows": {
         "version": "Unavailable",
+        "adaptedGame": null,
+        "onlineGame": null,
         "primary": {
           "href": "#",
           "disabled": true,
@@ -187,6 +204,8 @@
       },
       "macOS": {
         "version": "Unavailable",
+        "adaptedGame": null,
+        "onlineGame": null,
         "primary": {
           "href": "#",
           "disabled": true,
@@ -203,7 +222,8 @@
       "badge": "Experimental",
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "gameVersion": "1.0.12825",
+      "adaptedGame": "1.0.12825",
+      "onlineGame": null,
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -222,7 +242,7 @@
         "Android 11 or later.",
         "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
         "Make purchases in the official app.",
-        "After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game."
+        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
       ]
     },
     "fallback": {
@@ -234,6 +254,8 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
+        "adaptedGame": "1.0.13057",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
           "disabled": false,
@@ -247,6 +269,8 @@
       },
       "macOS": {
         "version": "v3.1.1",
+        "adaptedGame": "1.0.13081",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
           "disabled": false,
@@ -263,7 +287,8 @@
       "badge": "Experimental",
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "Unavailable",
-      "gameVersion": null,
+      "adaptedGame": null,
+      "onlineGame": null,
       "size": null,
       "sha256": null,
       "download": {
@@ -282,7 +307,7 @@
         "Android 11 or later.",
         "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
         "Make purchases in the official app.",
-        "After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game."
+        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
       ]
     },
     "fallback": null
@@ -291,6 +316,8 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
+        "adaptedGame": "1.0.13057",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
           "disabled": false,
@@ -304,6 +331,8 @@
       },
       "macOS": {
         "version": "v3.1.1",
+        "adaptedGame": "1.0.13081",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
           "disabled": false,
@@ -320,7 +349,8 @@
       "badge": "Experimental",
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "Unavailable",
-      "gameVersion": null,
+      "adaptedGame": null,
+      "onlineGame": null,
       "size": null,
       "sha256": null,
       "download": {
@@ -339,7 +369,7 @@
         "Android 11 or later.",
         "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
         "Make purchases in the official app.",
-        "After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game."
+        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
       ]
     },
     "fallback": null
@@ -348,6 +378,8 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
+        "adaptedGame": "1.0.13057",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
           "disabled": false,
@@ -361,6 +393,8 @@
       },
       "macOS": {
         "version": "v3.1.1",
+        "adaptedGame": "1.0.13081",
+        "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
           "disabled": false,
@@ -377,7 +411,8 @@
       "badge": "Experimental",
       "notice": "The Android build is experimental: some features differ from the desktop build, and it may have problems we have not found yet.",
       "version": "v3.1.2",
-      "gameVersion": "1.0.12825",
+      "adaptedGame": "1.0.12825",
+      "onlineGame": null,
       "size": "2.8 GB",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -396,7 +431,7 @@
         "Android 11 or later.",
         "Each app keeps its own sign-in: the game you start from BazaarPlusPlus does not share it with the official app, so you sign in again the first time.",
         "Make purchases in the official app.",
-        "After a game update, wait for a BazaarPlusPlus release that adapts it; until then you can open the official game."
+        "After a game update, BazaarPlusPlus needs some time to adapt to the new version."
       ]
     },
     "fallback": null

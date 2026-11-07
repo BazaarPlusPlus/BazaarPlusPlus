@@ -93,13 +93,20 @@ export type InteropPackageDownload = {
   signature: string;
 };
 
-// The official game the release is adapted to: its identity and its Game
-// Code Hash (`libil2cpp.so` and `global-metadata.dat`).
+// The official game the release is adapted to: its identity and its game
+// code identity (`libil2cpp.so` and `global-metadata.dat`).
 export type AndroidGameRelease = {
   gameVersion: string;
   versionCode: number;
   il2cppSha256: string;
   metadataSha256: string;
+};
+
+// The desktop game a release was built against: the Snapshot Lock entry the
+// build record names, and its game code identity (the `Managed/` digest).
+export type DesktopGameRelease = {
+  gameVersion: string;
+  managedSha256: string;
 };
 
 export type AndroidDownload = {
@@ -163,6 +170,42 @@ function artifact(value: unknown, prefix: string): Json | null {
 const signed = (value: unknown): value is string =>
   typeof value === 'string' && value.trim() !== '';
 
+const nonEmpty = (value: unknown): value is string =>
+  typeof value === 'string' && value !== '';
+
+function decodeAndroidGame(value: unknown): AndroidGameRelease | null {
+  const game = object(value);
+  return game &&
+    nonEmpty(game.gameVersion) &&
+    positiveInteger(game.versionCode) &&
+    sha256(game.il2cppSha256) &&
+    sha256(game.metadataSha256)
+    ? {
+        gameVersion: game.gameVersion,
+        versionCode: game.versionCode,
+        il2cppSha256: game.il2cppSha256,
+        metadataSha256: game.metadataSha256
+      }
+    : null;
+}
+
+function decodeDesktopGame(value: unknown): DesktopGameRelease | null {
+  const game = object(value);
+  return game && nonEmpty(game.gameVersion) && sha256(game.managedSha256)
+    ? { gameVersion: game.gameVersion, managedSha256: game.managedSha256 }
+    : null;
+}
+
+// Reads `downloads[platformKey].game` of a desktop Platform Release Manifest:
+// the game the release was built against. Null for a release without one.
+export function decodeDesktopGameRelease(
+  manifest: unknown,
+  platformKey: string
+): DesktopGameRelease | null {
+  const downloads = object(object(manifest)?.downloads);
+  return decodeDesktopGame(object(downloads?.[platformKey])?.game);
+}
+
 // Reads `downloads[platformKey]` of an Android Platform Release Manifest: the
 // Android App APK, the Managed Payload zip, the Interop Package and the game
 // they are adapted to. Null when any part is missing or points outside the
@@ -182,7 +225,7 @@ export function decodeAndroidDownload(
     `/${version}/${platformKey}/managed/`
   );
   const interop = artifact(record?.interop, '/android/interop/');
-  const game = object(record?.game);
+  const game = decodeAndroidGame(record?.game);
   if (
     !app ||
     !positiveInteger(app.versionCode) ||
@@ -195,12 +238,7 @@ export function decodeAndroidDownload(
     ) ||
     !sha256(interop.snapshotSha256) ||
     !signed(interop.signature) ||
-    !game ||
-    typeof game.gameVersion !== 'string' ||
-    !game.gameVersion ||
-    !positiveInteger(game.versionCode) ||
-    !sha256(game.il2cppSha256) ||
-    !sha256(game.metadataSha256)
+    !game
   )
     return null;
   return {
@@ -225,51 +263,40 @@ export function decodeAndroidDownload(
       snapshotSha256: interop.snapshotSha256,
       signature: interop.signature
     },
-    game: {
-      gameVersion: game.gameVersion,
-      versionCode: game.versionCode,
-      il2cppSha256: game.il2cppSha256,
-      metadataSha256: game.metadataSha256
-    },
+    game,
     mainlandUrl: decodeMainlandDownloadUrl(manifest, platformKey)
   };
 }
 
-// The Game Status: what Steam's public branch holds now. The Steam snapshot watch
-// writes it; the download page reads it.
+// The Game Status: the game each platform's store serves now, with its game
+// code identity. The Steam snapshot watch writes the desktop object, the
+// Android APK watch the Android one; the download page reads both. They are
+// two objects because each watch replaces its own whole.
 export const GAME_STATUS_PREFIX = 'game-status';
 export const GAME_STATUS_KEY = 'latest.json';
-export const GAME_STATUS_URL = `https://cdn.bazaarplusplus.com/${GAME_STATUS_PREFIX}/${GAME_STATUS_KEY}`;
+export const ANDROID_GAME_STATUS_KEY = 'android.json';
+const GAME_STATUS_BASE_URL = `https://cdn.bazaarplusplus.com/${GAME_STATUS_PREFIX}`;
+export const GAME_STATUS_URL = `${GAME_STATUS_BASE_URL}/${GAME_STATUS_KEY}`;
+export const ANDROID_GAME_STATUS_URL = `${GAME_STATUS_BASE_URL}/${ANDROID_GAME_STATUS_KEY}`;
 
-export type GameStatus = {
-  /** The game version string of each desktop platform. */
-  gameVersions: { macos: string; windows: string };
-  /** When Steam's public branch last changed. */
-  updatedAt: Date;
-};
+/** The online game of each desktop platform on Steam's public branch. */
+export type GameStatus = Record<'macos' | 'windows', DesktopGameRelease>;
 
 export function decodeGameStatus(payload: unknown): GameStatus | null {
-  const status = payload as {
-    schemaVersion?: unknown;
-    updatedAt?: unknown;
-    platforms?: {
-      macos?: { gameVersion?: unknown };
-      windows?: { gameVersion?: unknown };
-    };
-  } | null;
-  const macos = status?.platforms?.macos?.gameVersion;
-  const windows = status?.platforms?.windows?.gameVersion;
-  const updatedAt =
-    typeof status?.updatedAt === 'string' ? new Date(status.updatedAt) : null;
-  if (
-    status?.schemaVersion !== 1 ||
-    typeof macos !== 'string' ||
-    !macos ||
-    typeof windows !== 'string' ||
-    !windows ||
-    updatedAt === null ||
-    Number.isNaN(updatedAt.getTime())
-  )
-    return null;
-  return { gameVersions: { macos, windows }, updatedAt };
+  const status = object(payload);
+  const platforms = object(status?.platforms);
+  const macos = decodeDesktopGame(platforms?.macos);
+  const windows = decodeDesktopGame(platforms?.windows);
+  if (status?.schemaVersion !== 1 || !macos || !windows) return null;
+  return { macos, windows };
+}
+
+/** The game the publisher's official Android APK holds now. */
+export type AndroidGameStatus = AndroidGameRelease;
+
+export function decodeAndroidGameStatus(
+  payload: unknown
+): AndroidGameStatus | null {
+  const status = object(payload);
+  return status?.schemaVersion === 1 ? decodeAndroidGame(status) : null;
 }

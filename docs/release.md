@@ -85,6 +85,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 - `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.ts`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
 - fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：`upload` 时与已提升的平台清单比较这两项。mod 只与正在运行的副本比较。
+- 桌面 fragment 与平台清单还记录 `game`（`gameVersion`、`managedSha256`），取自构建记录的锁条目，所以对着 staging 构建时它如实记下 staging 条目。只有下载页读它，与 Game Status 比较 `managedSha256`。在它出现之前上传的 fragment 没有这一项，平台清单也就没有。
 - Updater 以固定版本 1.0.0 确定性构建，同一编译器构建不变的源码时文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新的 Android App。
 
 ## 本地准备与恢复
@@ -155,9 +156,11 @@ just release::promote --platform android
 
 - **没变**：sha256 与锁相同。ETag 也相同就什么都不做。ETag 变了，它只开一个记录新 ETag 的 PR，不升版本号，否则以后每次检查都会重新下载。
 - **只改内容**：sha256 变了，它采集新的 `android-online` 条目（记下下载时的 ETag），再用 `node release/android-adaptation.ts kind` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android online`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
-- **代码变了**：任一个哈希变了。上传输入之后，它跑 `mod::android-build` 和 `mod::test-core`，再开一个更新锁文件并把 `VERSION` 升一个补丁号的 PR。在这个版本发布之前，已发布的 Android App 在新游戏上显示等待适配。
+- **代码变了**：任一个哈希变了。上传输入之后，它跑 `mod::android-build` 和 `mod::test-core`，再开一个只改锁文件的 PR，不升 `VERSION`。在适配它的版本发布之前，下载页的 Android 卡片显示"未适配，适配中"。
 
-这些 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。升了 `VERSION` 的 PR 合并后，从下面第 1 步开始发布。仓库设置里要允许 GitHub Actions 创建 PR。
+这些 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。仓库设置里要允许 GitHub Actions 创建 PR。锁或打开的锁 PR 记录了官方 APK 之后，工作流把它的游戏写进公开的 `game-status/android.json`（`node release/game-libs.ts android-game-status`），下载页用它判断 Android 是否已适配。
+
+`VERSION` 只在发版时升（[ADR 0016](adr/0016-one-game-compatibility-rule.md)）：代码变了的锁 PR 合并后，由人另开一个升 `VERSION` 的 PR，合并后从下面第 1 步开始发布。
 
 ```bash
 just with-config release just mod::fetch android online
