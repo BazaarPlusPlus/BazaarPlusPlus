@@ -258,6 +258,42 @@ test('test runs each suite without a release or publication command', (t) => {
   );
 });
 
+test('android::ci runs the standalone check and test tasks in one Gradle invocation', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['android::check']));
+  succeeded(f.run(['android::test']));
+  const [check, unitTests] = f.calls();
+  assert.deepEqual(
+    [check, unitTests].map(({ tool, cwd, args }) => ({
+      tool,
+      cwd,
+      args: args.slice(0, 1)
+    })),
+    Array.from({ length: 2 }, () => ({
+      tool: 'gradlew',
+      cwd: projectDir(f.dir, 'android'),
+      args: ['--no-daemon']
+    }))
+  );
+
+  succeeded(f.run(['android::ci']));
+  assert.deepEqual(f.calls().slice(2), [
+    call(
+      f.dir,
+      'android',
+      'gradlew',
+      '--no-daemon',
+      ...check.args.slice(1),
+      ...unitTests.args.slice(1)
+    )
+  ]);
+
+  const failing = fixture(t);
+  const result = failing.run(['android::ci'], { fail: 'gradlew' });
+  assert.equal(result.status, 37, result.stdout + result.stderr);
+  assert.equal(failing.calls().length, 1);
+});
+
 test('fmt formats every project, then re-projects release files', (t) => {
   const f = fixture(t);
   succeeded(f.run(['fmt']));

@@ -414,7 +414,7 @@ jobs:
           tools="build-tools;$(jq -r .androidSdk.buildTools "$lock")"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$platform" "$tools"
-      - run: just android::check android::test
+      - run: just android::ci
       - name: Preserve lint and test reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
