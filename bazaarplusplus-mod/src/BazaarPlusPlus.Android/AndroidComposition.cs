@@ -96,13 +96,20 @@ internal sealed class AndroidComposition
         Replays = replays;
         ReplayGate = replayGate;
         // Android records PvP battles only; a monster fight opens no window.
+        var reads = new AndroidPvpBattleReads();
         BattleCapture = new AndroidPvpBattleCapture(
             new PvpBattleCaptureWindow<INetMessage>(
-                new AndroidPvpBattleReads(),
+                reads,
                 services.RunContext,
                 services.RunSnapshot,
                 static () => DateTimeOffset.UtcNow,
                 PvpOpeningKinds.PvpCombat
+            ),
+            new PvpBattleReadsRehearsal<INetMessage>(
+                reads,
+                AndroidPvpBattleReads.PlayerReadable,
+                static () => UnityEngine.Time.frameCount,
+                AndroidPvpBattleReads.SerializeGameSim
             ),
             Battles,
             replays,

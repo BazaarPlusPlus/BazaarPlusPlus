@@ -127,6 +127,29 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
         return PvpReplayPart.Serialized(bytes);
     }
 
+    /// <summary>
+    /// The live player can be read: in a run and outside a fight. The game throws for the fight
+    /// flag before a run has started.
+    /// </summary>
+    public static bool PlayerReadable()
+    {
+        try
+        {
+            // The run's data is set before its scene loads; read it in the run scene only.
+            return Il2Cpp.SceneLoader.ActiveScene == Il2CppTheBazaar.SceneID.GameScene
+                && Data.Run?.Player != null
+                && !Data.IsInCombat;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>A game sim through the replay serializer, its bytes discarded.</summary>
+    public static void SerializeGameSim(INetMessage message) =>
+        AndroidReplayMessages.Serialize(AsGameSim(message));
+
     private static NetMessageGameSim AsGameSim(INetMessage message) =>
         message.TryCast<NetMessageGameSim>()
         ?? throw new InvalidCastException("The message is not a game sim.");

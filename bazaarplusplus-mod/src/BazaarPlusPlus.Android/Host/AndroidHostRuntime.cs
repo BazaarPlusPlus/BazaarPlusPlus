@@ -70,6 +70,7 @@ internal sealed class AndroidHostRuntime
     private TouchHistoryEntry? _historyPanel;
     private AndroidOverlayPanels? _overlayPanels;
     private readonly AndroidCardTemplateIndex _templates = new();
+    private readonly AndroidJitWarmup _warmup = new(AndroidJitWarmup.Paths);
     private bool _mainThreadBound;
     private AndroidDevLogin? _devLogin;
     private int _labelRevision;
@@ -99,6 +100,7 @@ internal sealed class AndroidHostRuntime
                 Version = () => _versionCheck?.Tick(),
                 Prompt = () => _updatePrompt?.Tick(),
                 RefreshLabel = RefreshVersionLabel,
+                Warmup = () => _warmup.Tick(),
                 ReleaseUpgrade = () => AndroidUpgradePreview.Release("scene_changed"),
                 ResetCombat = () =>
                 {

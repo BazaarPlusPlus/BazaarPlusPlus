@@ -27,6 +27,7 @@ internal sealed class AndroidPvpBattleCapture : IDisposable
     // gate until the main thread exits it.
     internal static readonly TimeSpan LeaseWait = TimeSpan.FromMilliseconds(200);
     private readonly PvpBattleCaptureWindow<INetMessage> _window;
+    private readonly PvpBattleReadsRehearsal<INetMessage>? _rehearsal;
     private readonly PvpBattleCatalog _battles;
     private readonly CombatReplayPayloadStore _replays;
     private readonly ReplayPayloadOperationGate _replayGate;
@@ -37,6 +38,7 @@ internal sealed class AndroidPvpBattleCapture : IDisposable
 
     public AndroidPvpBattleCapture(
         PvpBattleCaptureWindow<INetMessage> window,
+        PvpBattleReadsRehearsal<INetMessage>? rehearsal,
         PvpBattleCatalog battles,
         CombatReplayPayloadStore replays,
         ReplayPayloadOperationGate replayGate,
@@ -44,6 +46,7 @@ internal sealed class AndroidPvpBattleCapture : IDisposable
     )
     {
         _window = window ?? throw new ArgumentNullException(nameof(window));
+        _rehearsal = rehearsal;
         _battles = battles ?? throw new ArgumentNullException(nameof(battles));
         _replays = replays ?? throw new ArgumentNullException(nameof(replays));
         _replayGate = replayGate ?? throw new ArgumentNullException(nameof(replayGate));
@@ -71,13 +74,23 @@ internal sealed class AndroidPvpBattleCapture : IDisposable
 
     public IReadOnlyCollection<string> ProtectedBattleIds() => _persistence.ProtectedBattleIds();
 
-    public void Tick() => _persistence.Drain();
+    public void Tick()
+    {
+        _rehearsal?.Tick();
+        _persistence.Drain();
+    }
 
     public void Dispose() => _persistence.Dispose();
 
     public void Accept(INetMessage message)
     {
-        if (_window.Observe(message) is { } capture)
+        var capture = _window.Observe(message);
+        // The rehearsal reads only a message no battle is using, never in a battle's frame.
+        if (capture == null && !_window.IsOpen)
+            _rehearsal?.Offer(message);
+        else
+            _rehearsal?.Defer();
+        if (capture != null)
         {
             if (!_persistence.Enqueue(capture))
                 BppLog.WarnEvent(

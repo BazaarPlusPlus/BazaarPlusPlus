@@ -43,6 +43,7 @@ internal sealed class AndroidInteractionLifecycle
         _operations.Version();
         _operations.Guarded("update_prompt", _operations.Prompt);
         _operations.RefreshLabel();
+        _operations.Guarded("jit_warmup", _operations.Warmup);
     }
 
     public void SceneLoaded(bool mainMenu)
@@ -104,6 +105,7 @@ internal sealed record AndroidInteractionOperations
     public required Action Version { get; init; }
     public required Action Prompt { get; init; }
     public required Action RefreshLabel { get; init; }
+    public required Action Warmup { get; init; }
     public required Action ReleaseUpgrade { get; init; }
     public required Action ResetCombat { get; init; }
     public required Action ScenePanels { get; init; }
