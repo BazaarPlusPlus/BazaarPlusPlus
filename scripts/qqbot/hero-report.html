@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      {{tokens}}
+      {{styles}}
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="banner" style="background-image: url({{cover}})">
+        <span class="brand">{{mark}}BazaarPlusPlus 日报</span>
+        <div class="title">
+          <h1>今日概览</h1>
+          <span class="date">{{date}}</span>
+        </div>
+      </header>
+
+      <section>
+        <div class="tiles">{{tiles}}</div>
+      </section>
+
+      <section>
+        <h2>近 7 天对局</h2>
+        <div class="panel chart">{{chart}}</div>
+      </section>
+
+      {{hours}}
+
+      <section>
+        <h2>英雄看点</h2>
+        <div class="callouts">{{callouts}}</div>
+      </section>
+
+      <footer>
+        <span>bazaarplusplus.com/heroes</span>
+        <span>1/{{pages}}</span>
+      </footer>
+    </main>
+  </body>
+</html>

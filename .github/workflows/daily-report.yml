@@ -1,0 +1,91 @@
+name: Operations / Daily report
+
+# Sends the QQ daily report for the previous UTC day at about 10:00 Beijing
+# time (02:00 UTC). It first runs analyzer.yml, so the day is sealed and its
+# hero snapshot published even when the hourly analyzer runs were dropped,
+# then renders three images from the public heroes/latest.json and the Daily
+# Highlights that run returns, and sends them to the QQ groups `heroReport`
+# names in scripts/qqbot/groups.json. A manual dispatch renders the same images
+# and sends them nowhere, to the test group, or to every report group. The QQ
+# Bot credentials live in the `qqbot` GitHub Environment
+# (release/github-secrets.json).
+#
+# GitHub may start a scheduled run late or drop it; a dropped day is not sent.
+on:
+  schedule:
+    # 09:50 Beijing time, so the analyzer run ends near 10:00.
+    - cron: '50 1 * * *'
+  workflow_dispatch:
+    inputs:
+      send:
+        description: Where to send the images
+        type: choice
+        default: none
+        options: [none, test, report]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-report
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    uses: ./.github/workflows/analyzer.yml
+    secrets: inherit
+
+  report:
+    name: Daily report
+    needs: analyze
+    if: always() && needs.analyze.outputs.day != ''
+    runs-on: ubuntu-latest
+    environment: qqbot
+    timeout-minutes: 20
+    steps:
+      - name: Require the previous UTC day
+        env:
+          DAY: ${{ needs.analyze.outputs.day }}
+        run: |
+          expected=$(date -u -d yesterday +%F)
+          if [ "$DAY" != "$expected" ]; then
+            echo "::error::The analyzer ended on $DAY, not $expected; nothing was sent."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      # The runner has no CJK font; without one the Chinese labels render as boxes.
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk
+          bunx playwright install --with-deps chromium
+
+      - name: Render and send
+        env:
+          DAY: ${{ needs.analyze.outputs.day }}
+          HIGHLIGHTS: ${{ needs.analyze.outputs.highlights }}
+          SEND: ${{ github.event_name == 'schedule' && 'report' || inputs.send }}
+          QQ_BOT_APP_ID: ${{ secrets.QQ_BOT_APP_ID }}
+          QQ_BOT_APP_SECRET: ${{ secrets.QQ_BOT_APP_SECRET }}
+        run: |
+          args=(--day "$DAY" --out-dir "$RUNNER_TEMP/daily-report")
+          if [ -n "$HIGHLIGHTS" ]; then
+            printf '%s' "$HIGHLIGHTS" > "$RUNNER_TEMP/highlights.json"
+            args+=(--highlights "$RUNNER_TEMP/highlights.json")
+          fi
+          [ "$SEND" = none ] || args+=(--send "$SEND")
+          bun scripts/qqbot/hero-report.ts "${args[@]}"
+
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: daily-report-${{ github.run_id }}
+          path: ${{ runner.temp }}/daily-report/
+          retention-days: 14
+          if-no-files-found: ignore

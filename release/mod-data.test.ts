@@ -24,7 +24,7 @@ test('mod data names map to fixed keys and are checked before upload', () => {
     'supporters/supporter-list.json'
   );
   expect(() => modDataObject('builds', Buffer.from('[]'))).toThrow(
-    'mod data must be one of supporters, voice-lines'
+    'mod data must be one of supporters, voice-lines, zh-names'
   );
   expect(() => modDataObject('voice-lines', Buffer.from('[]'))).toThrow(
     'smaller than 102400 bytes'

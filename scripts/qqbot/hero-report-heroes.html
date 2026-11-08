@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      {{tokens}}
+      {{styles}}
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="banner" style="background-image: url({{cover}})">
+        <span class="brand">{{mark}}BazaarPlusPlus 日报</span>
+        <div class="title">
+          <h1>英雄与阵容</h1>
+          <span class="date">{{date}}</span>
+        </div>
+      </header>
+
+      <section>
+        <h2>英雄胜率榜</h2>
+        <div class="panel">
+          <table>
+            <thead>
+              <tr>
+                <th>英雄</th>
+                <th class="num">10胜率</th>
+                <th class="num">较前日</th>
+                <th class="num">局数占比</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{heroes}}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {{builds}}
+
+      <footer>
+        <span>卡牌名称取自游戏简体中文版</span>
+        <span>2/{{pages}}</span>
+      </footer>
+    </main>
+  </body>
+</html>

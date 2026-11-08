@@ -7,7 +7,7 @@ import {
 import type { ObjectStore } from './r2-store.ts';
 
 /** A name `just release::mod-data` accepts. */
-export type ModDataName = 'supporters' | 'voice-lines';
+export type ModDataName = 'supporters' | 'voice-lines' | 'zh-names';
 
 /** Where one mod data file lives under mod-data/, and its smallest size. */
 export interface ModDataEntry {
@@ -20,15 +20,18 @@ export interface UploadModDataOptions {
   store?: Pick<ObjectStore, 'get' | 'put'>;
 }
 
-// Data the mod refreshes at runtime from mod-data/ in the public bucket,
-// https://cdn.bazaarplusplus.com/mod-data/<key>. The mod embeds a copy at build
-// time (bazaarplusplus-mod/src/BazaarPlusPlus/RemoteEmbeddedData.targets), so
-// the minimum sizes match what that build accepts.
+// Maintainer-uploaded data in mod-data/ of the public bucket,
+// https://cdn.bazaarplusplus.com/mod-data/<key>. The mod refreshes supporters
+// and voice-lines at runtime and embeds a copy at build time
+// (bazaarplusplus-mod/src/BazaarPlusPlus/RemoteEmbeddedData.targets), so their
+// minimum sizes match what that build accepts. zh-names is the game's
+// Simplified Chinese names the QQ daily report reads (scripts/qqbot/zh-names.ts).
 export const MOD_DATA_PREFIX = 'mod-data';
 export const MOD_DATA: Readonly<Record<ModDataName, ModDataEntry>> =
   Object.freeze({
     supporters: { key: 'supporters/supporter-list.json', minBytes: 2 },
-    'voice-lines': { key: 'voice-lines/voice-lines.json', minBytes: 102400 }
+    'voice-lines': { key: 'voice-lines/voice-lines.json', minBytes: 102400 },
+    'zh-names': { key: 'zh-names/zh-names.json', minBytes: 10240 }
   });
 
 export function modDataObject(name: string, bytes: Buffer): string {
@@ -65,7 +68,7 @@ if (import.meta.main) {
   try {
     if (!name || !file)
       throw new Error(
-        'usage: bun release/mod-data.ts <supporters|voice-lines> <file>'
+        'usage: bun release/mod-data.ts <supporters|voice-lines|zh-names> <file>'
       );
     process.stdout.write(`${await uploadModData(name, file)}\n`);
   } catch (error) {

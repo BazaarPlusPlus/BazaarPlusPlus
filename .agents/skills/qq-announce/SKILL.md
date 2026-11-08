@@ -7,18 +7,18 @@ argument-hint: [release notes]
 
 # Announce a release in the QQ groups
 
-`scripts/announce.ts` does the work; run it from the repository root. The bot's AppID and AppSecret are in `$BPP_CONFIG_HOME/qqbot.env` (default `~/.config/bazaarplusplus/qqbot.env`), not `config.ini`, whose parser rejects unknown sections. Every message it sends is public at once and cannot be recalled by this skill, so each send waits for the user's yes.
+`scripts/announce.ts` does the work; run it from the repository root. It sends through the shared client `scripts/qqbot/client.ts`, which reads the bot's AppID and AppSecret from `config.ini` `[qqbot]`; the `qqbot` profile injects them, so a `--send` run starts with `bun scripts/workspace.ts run qqbot --`. Every message it sends is public at once and cannot be recalled by this skill, so each send waits for the user's yes.
 
 ## Groups
 
-`groups.json` lists the groups by name and `group_openid`:
+`scripts/qqbot/groups.json` lists the groups by name and `group_openid`:
 
-| Role | Group |
-|---|---|
-| test | BPP Bot 开发测试 (2 members) |
+| Role    | Group                                                               |
+| ------- | ------------------------------------------------------------------- |
+| test    | BPP Bot 开发测试 (2 members)                                        |
 | release | Bazaar++内测, 巴扎加加 2 群, 巴扎加加 3 群, BazaarPlusPlus 安卓测试 |
 
-Each group gets the same messages, in this order: notes, Win, Mac, Android.
+Each group gets the same messages, in this order: notes, Win, Mac, Android. `heroReport` in the same file names the groups that get the daily report (`.github/workflows/daily-report.yml`).
 
 ## Steps
 
@@ -34,9 +34,9 @@ Each group gets the same messages, in this order: notes, Win, Mac, Android.
 
    Check that each file's version matches the title of the notes.
 
-4. **Preview in the test group.** After the user's yes, add `--send`. Ask the user to check the test group: the notes render as Markdown and the file names are right.
+4. **Preview in the test group.** After the user's yes, prefix `bun scripts/workspace.ts run qqbot --` and add `--send`. Ask the user to check the test group: the notes render as Markdown and the file names are right.
 
-5. **Release.** After the user says the preview is good, run the dry run with `--target release`, show the plan, and on their yes add `--send`. The script sends to the release groups one after another.
+5. **Release.** After the user says the preview is good, run the dry run with `--target release`, show the plan, and on their yes run it again through `bun scripts/workspace.ts run qqbot --` with `--send`. The script sends to the release groups one after another.
 
 6. **Report** what the script printed: the groups done, or the error and the resume commands.
 
@@ -48,4 +48,4 @@ Each group gets the same messages, in this order: notes, Win, Mac, Android.
 
 ## Adding a group
 
-The QQ API has no call that lists the bot's groups, and a QQ group number is not a `group_openid`. A new group's openid only arrives in an event: add the bot to the group (with 「接收所有消息」 and 「设置主动推送消息能力」 on) while a gateway listener runs, then add `{ "name", "openid" }` to `groups.json`. `GET /v2/groups/{openid}/info` returns the group name and member count.
+The QQ API has no call that lists the bot's groups, and a QQ group number is not a `group_openid`. A new group's openid only arrives in an event: add the bot to the group (with 「接收所有消息」 and 「设置主动推送消息能力」 on) while a gateway listener runs, then add `{ "name", "openid" }` to `scripts/qqbot/groups.json`. `GET /v2/groups/{openid}/info` returns the group name and member count.

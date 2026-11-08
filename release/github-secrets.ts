@@ -13,7 +13,8 @@ export type GithubSecretScope =
   | 'release-secret'
   | 'release-variable'
   | 'analyzer-secret'
-  | 'steam-secret';
+  | 'steam-secret'
+  | 'qqbot-secret';
 /** The first release.yml stage that needs an item. */
 export type GithubSecretReleaseStage = 'prepare' | 'release';
 /** The release.yml platform whose signing needs an item. */
@@ -60,7 +61,8 @@ export const SCOPES = Object.freeze([
   'release-secret',
   'release-variable',
   'analyzer-secret',
-  'steam-secret'
+  'steam-secret',
+  'qqbot-secret'
 ]);
 export const RELEASE_STAGES = Object.freeze(['prepare', 'release']);
 export const RELEASE_PLATFORMS = Object.freeze(['macos', 'windows', 'android']);

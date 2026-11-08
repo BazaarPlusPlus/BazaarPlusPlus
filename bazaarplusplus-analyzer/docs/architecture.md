@@ -151,6 +151,19 @@ the runner is reclaimed. The workflow's secrets live in the `analyzer` GitHub
 Environment, listed in `release/github-secrets.json`; its R2 token reaches only
 the V6 metrics and state buckets.
 
+`.github/workflows/daily-report.yml` calls `analyzer.yml` once a day at
+about 10:00 Beijing time (02:00 UTC), so the previous UTC day is sealed and
+published even when hourly runs were dropped. That run also returns the
+`window.end` it analyzed and the Daily Highlights `bazaarlens highlights`
+prints for it from the restored facts; the report job renders three images
+from the public `heroes/latest.json` and the Daily Highlights and sends them to
+the QQ groups. Daily Highlights name players, so they travel only as a job
+output, never to a bucket. The report runs in its own job, so a QQ failure never
+fails the analyzer, and the analyzer has no QQ dependency; a failed Daily
+Highlights step only drops their parts of the report. The `analyzer-v6`
+concurrency group is on the job rather than the workflow, so a called run still
+waits for an hourly one.
+
 ## Modes and evidence
 
 `run --no-publish` performs collection and local snapshot
