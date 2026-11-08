@@ -8,7 +8,7 @@ type SiteHeaderProps = {
 
 const LOCALE_OPTIONS: Array<{ code: Locale; label: string }> = [
   { code: 'en', label: 'EN' },
-  { code: 'zh', label: '中' },
+  { code: 'zh', label: '中' }
 ];
 
 export default function SiteHeader({ location }: SiteHeaderProps) {
@@ -38,7 +38,9 @@ export default function SiteHeader({ location }: SiteHeaderProps) {
             decoding="sync"
             fetchPriority="high"
           />
-          <span className="text-[15px] font-semibold">{commonCopy.brand.name}</span>
+          <span className="text-[15px] font-semibold">
+            {commonCopy.brand.name}
+          </span>
         </a>
 
         <nav
@@ -50,7 +52,9 @@ export default function SiteHeader({ location }: SiteHeaderProps) {
             const label =
               item.group === 'primary'
                 ? copy.primaryNav[item.page as 'heroes']
-                : copy.secondaryNav[item.page as 'tutorial' | 'download' | 'support'];
+                : copy.secondaryNav[
+                    item.page as 'tutorial' | 'download' | 'support'
+                  ];
             return (
               <a
                 key={item.page}

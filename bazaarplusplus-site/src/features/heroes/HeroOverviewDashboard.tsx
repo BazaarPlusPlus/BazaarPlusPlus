@@ -5,23 +5,29 @@ import { getSiteCopy } from '../../content/site-copy';
 import Badge from '../../shared/components/Badge';
 import HeroBadge from '../../shared/components/HeroBadge';
 import { SectionHeading } from '../../shared/components/PageLayout';
-import { SegmentedButton, SegmentedControl } from '../../shared/components/ScopeFilterPanel';
+import {
+  SegmentedButton,
+  SegmentedControl
+} from '../../shared/components/ScopeFilterPanel';
 import StatsPageShell from '../../shared/components/StatsPageShell';
 import StatusPanel from '../../shared/components/StatusPanel';
 import {
   WINDOW_LABELS,
   formatInteger,
   formatNullablePercent,
-  formatShortDate,
+  formatShortDate
 } from '../../shared/lib/dashboard';
 import { getHeroShortLabel } from '../../shared/lib/heroes';
 import {
   analyzeHeroes,
   type AnalysisScope,
   type HeroMatchup,
-  type MetricWindow,
+  type MetricWindow
 } from './hero-analysis';
-import type { HeroMetricsDataset, HeroMetricsSegment } from './hero-metrics-dataset';
+import type {
+  HeroMetricsDataset,
+  HeroMetricsSegment
+} from './hero-metrics-dataset';
 import HeroRankingTable from './HeroRankingTable';
 import HeroTrendPanel from './HeroTrendPanel';
 
@@ -34,7 +40,7 @@ type HeroOverviewDashboardProps = {
 export default function HeroOverviewDashboard({
   location,
   dataset,
-  onScopeChange,
+  onScopeChange
 }: HeroOverviewDashboardProps) {
   const { locale, scope: requestedScope } = location;
   const copy = getSiteCopy(locale);
@@ -47,7 +53,12 @@ export default function HeroOverviewDashboard({
   const [focusedHero, setFocusedHero] = useState<string | null>(null);
 
   const analysis = useMemo(
-    () => analyzeHeroes(dataset, { window: selectedWindow, segment: selectedSegment }, focusedHero),
+    () =>
+      analyzeHeroes(
+        dataset,
+        { window: selectedWindow, segment: selectedSegment },
+        focusedHero
+      ),
     [dataset, focusedHero, selectedSegment, selectedWindow]
   );
 
@@ -75,7 +86,11 @@ export default function HeroOverviewDashboard({
   const rankingHasRows = analysis.ranking.length > 0;
 
   return (
-    <StatsPageShell location={location} title={heroCopy.title} generatedAt={analysis.generatedAt}>
+    <StatsPageShell
+      location={location}
+      title={heroCopy.title}
+      generatedAt={analysis.generatedAt}
+    >
       {!hasAnyData ? (
         <StatusPanel
           kind="empty"
@@ -111,7 +126,11 @@ export default function HeroOverviewDashboard({
                       aria-label={`${heroCopy.matchups.selectedHeroLabel}: ${focusedTrendSeries.hero}`}
                       className="min-w-0"
                     >
-                      <HeroBadge hero={focusedTrendSeries.hero} label="full" selected>
+                      <HeroBadge
+                        hero={focusedTrendSeries.hero}
+                        label="full"
+                        selected
+                      >
                         {getHeroShortLabel(focusedTrendSeries.hero)} ·{' '}
                         {WINDOW_LABELS[selectedWindow]}
                       </HeroBadge>
@@ -128,7 +147,10 @@ export default function HeroOverviewDashboard({
             </div>
           </section>
 
-          <section data-testid="ranking-panel" className="panel overflow-hidden">
+          <section
+            data-testid="ranking-panel"
+            className="panel overflow-hidden"
+          >
             <div className="flex flex-col gap-4 border-b border-line px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="flex flex-wrap items-center gap-3">
                 <SectionHeading>{heroCopy.snapshot.title}</SectionHeading>
@@ -146,7 +168,9 @@ export default function HeroOverviewDashboard({
                     aria-label={scopeCopy.window}
                     className="flex min-w-0 flex-col gap-1.5"
                   >
-                    <p className="text-sm font-medium text-text-2">{scopeCopy.window}</p>
+                    <p className="text-sm font-medium text-text-2">
+                      {scopeCopy.window}
+                    </p>
                     <SegmentedControl>
                       {availableWindows.map((option) => (
                         <SegmentedButton
@@ -164,7 +188,9 @@ export default function HeroOverviewDashboard({
                     aria-label={scopeCopy.segment}
                     className="flex min-w-0 flex-col gap-1.5"
                   >
-                    <p className="text-sm font-medium text-text-2">{scopeCopy.segment}</p>
+                    <p className="text-sm font-medium text-text-2">
+                      {scopeCopy.segment}
+                    </p>
                     <SegmentedControl>
                       {availableSegments.map((option) => (
                         <SegmentedButton
@@ -183,7 +209,10 @@ export default function HeroOverviewDashboard({
 
             {failedWindowDays.length > 0 && rankingHasRows ? (
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-5 py-2.5 text-[15px] text-text-2">
-                <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-warning" />
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 shrink-0 rounded-full bg-warning"
+                />
                 {coverageCopy.someDaysUnavailable}{' '}
                 <span className="text-text-3 tabular-nums">
                   {loadedWindowDays.length > 0
@@ -227,13 +256,15 @@ export default function HeroOverviewDashboard({
   );
 }
 
-type MatchupsCopy = ReturnType<typeof getSiteCopy>['stats']['heroes']['matchups'];
+type MatchupsCopy = ReturnType<
+  typeof getSiteCopy
+>['stats']['heroes']['matchups'];
 
 function MatchupList({
   rows,
   matchupCopy,
   locale,
-  noValueLabel,
+  noValueLabel
 }: {
   rows: HeroMatchup[];
   matchupCopy: MatchupsCopy;
@@ -245,7 +276,10 @@ function MatchupList({
   }
 
   return (
-    <ul data-testid="matchup-list" className="grid gap-x-6 gap-y-2.5 md:grid-cols-2 xl:grid-cols-1">
+    <ul
+      data-testid="matchup-list"
+      className="grid gap-x-6 gap-y-2.5 md:grid-cols-2 xl:grid-cols-1"
+    >
       {rows.map((row) => {
         const noValue = row.isLowSample || row.winRate == null;
         return (

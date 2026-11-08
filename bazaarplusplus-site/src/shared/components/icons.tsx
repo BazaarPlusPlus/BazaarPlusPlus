@@ -1,7 +1,13 @@
 import type { ReactNode } from 'react';
 
 // Stroke icons drawn on a 24px grid (paths from Lucide, ISC license). Size comes from the parent.
-function Icon({ children, className = '' }: { children: ReactNode; className?: string }) {
+function Icon({
+  children,
+  className = ''
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <svg
       aria-hidden="true"

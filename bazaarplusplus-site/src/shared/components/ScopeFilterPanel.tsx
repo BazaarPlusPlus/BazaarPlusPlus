@@ -11,7 +11,7 @@ export function SegmentedControl({ children }: { children: ReactNode }) {
 export function SegmentedButton({
   active,
   onClick,
-  children,
+  children
 }: {
   active: boolean;
   onClick: () => void;

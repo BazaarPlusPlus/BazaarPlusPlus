@@ -16,11 +16,21 @@ type StatusPanelProps = {
   actions?: ReactNode;
 };
 
-function StatusMark({ kind, progressLabel }: { kind: StatusKind; progressLabel?: string }) {
+function StatusMark({
+  kind,
+  progressLabel
+}: {
+  kind: StatusKind;
+  progressLabel?: string;
+}) {
   if (kind === 'loading') {
     // Busy is always the spinner (design/README.md, Motion); it carries the progressbar role.
     return (
-      <span role="progressbar" aria-label={progressLabel} className="flex text-text-2">
+      <span
+        role="progressbar"
+        aria-label={progressLabel}
+        className="flex text-text-2"
+      >
         <SpinnerIcon className="size-[22px]" />
       </span>
     );
@@ -42,7 +52,7 @@ export default function StatusPanel({
   progressLabel,
   headingLevel = 2,
   framed = true,
-  actions,
+  actions
 }: StatusPanelProps) {
   const Heading = `h${headingLevel}` as const;
 
@@ -56,14 +66,18 @@ export default function StatusPanel({
       <StatusMark kind={kind} progressLabel={progressLabel} />
       <Heading
         className={`mt-1 font-semibold text-balance text-text-1 ${
-          headingLevel === 1 ? 'text-[24px] leading-[1.3]' : 'text-lg leading-[1.4]'
+          headingLevel === 1
+            ? 'text-[24px] leading-[1.3]'
+            : 'text-lg leading-[1.4]'
         }`}
       >
         {title}
       </Heading>
       {body ? <p className="max-w-[44ch] text-[15px]">{body}</p> : null}
       {actions ? (
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">{actions}</div>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          {actions}
+        </div>
       ) : null}
     </section>
   );

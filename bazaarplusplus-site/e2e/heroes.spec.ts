@@ -7,7 +7,7 @@ import {
   installGoldenRoutes,
   type GoldenRoutes,
   type HeroFixture,
-  type SourceReply,
+  type SourceReply
 } from './golden';
 import { historyActions, recordHistory, relativeUrl, settle } from './page';
 
@@ -16,7 +16,11 @@ const SEGMENTS = ['all', 'legend', 'non_legend'] as const;
 
 let routes: GoldenRoutes;
 
-async function openHeroes(page: Page, href: string, fixture: HeroFixture = 'latest') {
+async function openHeroes(
+  page: Page,
+  href: string,
+  fixture: HeroFixture = 'latest'
+) {
   routes = await installGoldenRoutes(
     page,
     goldenSources({ metrics: { json: heroSnapshot(fixture) } })
@@ -42,8 +46,9 @@ async function rankingLines(page: Page): Promise<string[]> {
       Array.from(
         row.querySelectorAll('td'),
         (cell) =>
-          cell.querySelector('[data-hero-badge]')?.getAttribute('data-hero-badge') ??
-          (cell.textContent ?? '').trim()
+          cell
+            .querySelector('[data-hero-badge]')
+            ?.getAttribute('data-hero-badge') ?? (cell.textContent ?? '').trim()
       ).join('\t')
     );
     return [header.join('\t'), ...rows];
@@ -53,7 +58,9 @@ async function rankingLines(page: Page): Promise<string[]> {
 async function rankingHeroes(page: Page): Promise<string[]> {
   return rankingTable(page)
     .locator('tbody [data-hero-badge]')
-    .evaluateAll((badges) => badges.map((badge) => badge.getAttribute('data-hero-badge') ?? ''));
+    .evaluateAll((badges) =>
+      badges.map((badge) => badge.getAttribute('data-hero-badge') ?? '')
+    );
 }
 
 /**
@@ -61,10 +68,15 @@ async function rankingHeroes(page: Page): Promise<string[]> {
  * other than the active one sorts in its first-click direction, so every column's direction and
  * null handling lands in the golden.
  */
-async function sortOrderLines(page: Page, headers?: string[]): Promise<string[]> {
+async function sortOrderLines(
+  page: Page,
+  headers?: string[]
+): Promise<string[]> {
   const pending =
     headers ??
-    (await rankingTable(page).locator('thead th button > span:first-child').allTextContents());
+    (await rankingTable(page)
+      .locator('thead th button > span:first-child')
+      .allTextContents());
   if (pending.length === 0) {
     return [];
   }
@@ -81,18 +93,26 @@ async function sortOrderLines(page: Page, headers?: string[]): Promise<string[]>
 async function matchupLines(page: Page): Promise<string[]> {
   const selected = page.getByTestId('selected-matchup-hero');
   const focus =
-    (await selected.count()) === 0 ? '(none)' : await selected.getAttribute('aria-label');
+    (await selected.count()) === 0
+      ? '(none)'
+      : await selected.getAttribute('aria-label');
   const list = page.getByTestId('matchup-list');
   const rows =
     (await list.count()) === 0
-      ? [(await page.getByText('No matchup data yet').count()) > 0 ? '(no matchup data yet)' : '?']
+      ? [
+          (await page.getByText('No matchup data yet').count()) > 0
+            ? '(no matchup data yet)'
+            : '?'
+        ]
       : await list.locator('li').evaluateAll((items) =>
           items.map((item) =>
             [
-              item.querySelector('[data-hero-badge]')?.getAttribute('data-hero-badge'),
+              item
+                .querySelector('[data-hero-badge]')
+                ?.getAttribute('data-hero-badge'),
               ...Array.from(item.children)
                 .slice(1)
-                .map((child) => (child.textContent ?? '').trim()),
+                .map((child) => (child.textContent ?? '').trim())
             ].join('\t')
           )
         );
@@ -108,23 +128,28 @@ test.describe('Analysis Scope ranking goldens over the analyzer snapshot', () =>
     for (const segment of SEGMENTS) {
       test(`${window} ${segment}`, async ({ page }) => {
         await openHeroes(page, `/heroes?lang=en&w=${window}&s=${segment}`);
-        const filters = page.getByTestId('ranking-panel').getByRole('group', { name: 'Filters' });
-        await expect(filters.getByRole('button', { name: window.toUpperCase() })).toHaveAttribute(
-          'aria-pressed',
-          'true'
-        );
+        const filters = page
+          .getByTestId('ranking-panel')
+          .getByRole('group', { name: 'Filters' });
+        await expect(
+          filters.getByRole('button', { name: window.toUpperCase() })
+        ).toHaveAttribute('aria-pressed', 'true');
 
         const body = [
           `# /heroes?lang=en&w=${window}&s=${segment}`,
           '## ranking',
           ...((await rankingTable(page).count()) === 0
-            ? [`(no table) ${await page.getByTestId('ranking-panel').locator('h3').textContent()}`]
+            ? [
+                `(no table) ${await page.getByTestId('ranking-panel').locator('h3').textContent()}`
+              ]
             : await rankingLines(page)),
           '## matchups',
           ...(await matchupLines(page)),
           '## first click on each column',
-          ...((await rankingTable(page).count()) === 0 ? [] : await sortOrderLines(page)),
-          '',
+          ...((await rankingTable(page).count()) === 0
+            ? []
+            : await sortOrderLines(page)),
+          ''
         ].join('\n');
         expect(body).toMatchSnapshot(`heroes-${window}-${segment}.txt`);
       });
@@ -139,24 +164,31 @@ test.describe('route states', () => {
       '/heroes?lang=en',
       'Stats are temporarily unavailable',
       "The hero stats couldn't be loaded.",
-      'Try again',
+      'Try again'
     ],
-    ['zh', '/heroes', '数据暂时不可用', '暂时无法读取英雄统计数据。', '重试'],
+    ['zh', '/heroes', '数据暂时不可用', '暂时无法读取英雄统计数据。', '重试']
   ] as const) {
     test(`a failing snapshot shows the error state in the page chrome and retries (${locale})`, async ({
-      page,
+      page
     }) => {
       let metrics: SourceReply = { status: 503 };
-      routes = await installGoldenRoutes(page, goldenSources({ metrics: () => metrics }));
+      routes = await installGoldenRoutes(
+        page,
+        goldenSources({ metrics: () => metrics })
+      );
       await page.goto(href);
 
-      await expect(page.getByRole('heading', { level: 2, name: errorTitle })).toBeVisible({
-        timeout: 15_000,
+      await expect(
+        page.getByRole('heading', { level: 2, name: errorTitle })
+      ).toBeVisible({
+        timeout: 15_000
       });
       await expect(page.getByText(errorBody)).toBeVisible();
       await expect(page.getByText(/503/)).toHaveCount(0);
       await expect(page.getByRole('navigation').first()).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Xinyu YANG' })).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'Xinyu YANG' })
+      ).toBeVisible();
       // React Query retries a 5xx twice before it shows the error state.
       expect(routes.hits.metrics).toBe(3);
 
@@ -176,8 +208,8 @@ test.describe('route states', () => {
         title: '正在准备英雄统计',
         body: '正在读取最新数据快照，请稍候。',
         progress: '正在加载英雄统计',
-        canonical: '/heroes?keep=yes',
-      },
+        canonical: '/heroes?keep=yes'
+      }
     ],
     [
       'en',
@@ -187,19 +219,26 @@ test.describe('route states', () => {
         title: 'Preparing hero stats',
         body: 'Reading the latest data snapshot. This should only take a moment.',
         progress: 'Loading hero stats',
-        canonical: '/heroes?lang=en&w=3d',
-      },
-    ],
+        canonical: '/heroes?lang=en&w=3d'
+      }
+    ]
   ] as const) {
     test(`a pending snapshot shows the stable loading state and canonical scope (${locale})`, async ({
-      page,
+      page
     }) => {
-      routes = await installGoldenRoutes(page, goldenSources({ metrics: 'hang' }));
+      routes = await installGoldenRoutes(
+        page,
+        goldenSources({ metrics: 'hang' })
+      );
       await recordHistory(page);
       await page.goto(href);
 
-      await expect(page.getByRole('heading', { level: 1, name: copy.h1 })).toBeVisible();
-      await expect(page.getByRole('heading', { level: 2, name: copy.title })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: copy.h1 })
+      ).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 2, name: copy.title })
+      ).toBeVisible();
       await expect(page.getByText(copy.body)).toBeVisible();
       const progress = page.getByRole('progressbar', { name: copy.progress });
       await expect(progress).toBeVisible();
@@ -210,7 +249,9 @@ test.describe('route states', () => {
       // Hero scope canonicalizes at the location boundary, before any data arrives.
       expect(relativeUrl(page)).toBe(copy.canonical);
       await expect.poll(() => routes.hits.metrics).toBe(1);
-      await expect(page.getByRole('heading', { level: 2, name: copy.title })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 2, name: copy.title })
+      ).toBeVisible();
       const canonicalizes = copy.canonical !== href;
       expect(await historyActions(page)).toEqual(
         canonicalizes ? [{ mode: 'replace', href: copy.canonical }] : []
@@ -223,24 +264,27 @@ test.describe('Hero Analysis dashboard', () => {
   test('URL scope drives the window and segment controls', async ({ page }) => {
     await openHeroes(page, '/heroes?lang=en&w=3d&s=legend', 'threeDay');
 
-    const filters = page.getByTestId('ranking-panel').getByRole('group', { name: 'Filters' });
+    const filters = page
+      .getByTestId('ranking-panel')
+      .getByRole('group', { name: 'Filters' });
     await expect(filters.getByRole('button', { name: '3D' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
-    await expect(filters.getByRole('button', { name: 'Legend', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    await expect(
+      filters.getByRole('button', { name: 'Legend', exact: true })
+    ).toHaveAttribute('aria-pressed', 'true');
     await expect(filters.getByRole('button', { name: 'All' })).toHaveAttribute(
       'aria-pressed',
       'false'
     );
-    await expect(filters.getByRole('button', { name: 'Non-Legend' })).toBeVisible();
+    await expect(
+      filters.getByRole('button', { name: 'Non-Legend' })
+    ).toBeVisible();
   });
 
   test('one segment control drives ranking, trend, and matchups through a replace', async ({
-    page,
+    page
   }) => {
     await recordHistory(page);
     await openHeroes(page, '/heroes?lang=en&w=3d', 'threeDay');
@@ -248,63 +292,76 @@ test.describe('Hero Analysis dashboard', () => {
     await page.getByRole('button', { name: 'Non-Legend' }).click();
     await expect(page).toHaveURL(/\/heroes\?lang=en&w=3d&s=non_legend$/);
     expect(await historyActions(page)).toEqual([
-      { mode: 'replace', href: '/heroes?lang=en&w=3d&s=non_legend' },
+      { mode: 'replace', href: '/heroes?lang=en&w=3d&s=non_legend' }
     ]);
 
     // Only Non-Legend rows rank with data; Legend-only heroes trail with zero runs.
     expect((await rankingHeroes(page)).slice(0, 3).toSorted()).toEqual([
       'Dooley',
       'Mak',
-      'Vanessa',
+      'Vanessa'
     ]);
     await expect(
       rankingTable(page)
         .locator('tbody tr')
         .filter({ has: page.locator('[data-hero-badge="Jules"]') })
     ).toContainText('—');
-    await expect(page.locator('[data-testid="daily-winrate-line"][data-hero="Mak"]')).toHaveCount(
-      1
-    );
+    await expect(
+      page.locator('[data-testid="daily-winrate-line"][data-hero="Mak"]')
+    ).toHaveCount(1);
 
     await rankingTable(page).getByRole('button', { name: 'Mak' }).click();
-    await expect(page.getByTestId('selected-matchup-hero')).toContainText('Mak');
+    await expect(page.getByTestId('selected-matchup-hero')).toContainText(
+      'Mak'
+    );
     await expect(page.getByTestId('matchup-list')).toContainText('Stelle');
   });
 
   test('back and forward restore both scope controls while keeping hero focus', async ({
-    page,
+    page
   }) => {
     await openHeroes(page, '/heroes?lang=en&w=3d&s=legend', 'threeDay');
     await rankingTable(page).getByRole('button', { name: 'Vanessa' }).click();
 
-    await page.locator('header [role="group"]').getByRole('link', { name: '中' }).click();
+    await page
+      .locator('header [role="group"]')
+      .getByRole('link', { name: '中' })
+      .click();
     await page.getByRole('button', { name: '非传奇', exact: true }).click();
     await page.getByRole('button', { name: '1D' }).click();
     await expect(page).toHaveURL(/\/heroes\?s=non_legend$/);
 
     await page.goBack();
     await expect(page).toHaveURL(/\/heroes\?lang=en&w=3d&s=legend$/);
-    await expect(page.getByRole('button', { name: '3D' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('button', { name: 'Legend', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
-    await expect(page.getByTestId('selected-matchup-hero')).toContainText('Vanessa');
-
-    await page.goForward();
-    await expect(page).toHaveURL(/\/heroes\?s=non_legend$/);
-    await expect(page.getByRole('button', { name: '1D' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('button', { name: '非传奇', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('button', { name: '3D' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
     await expect(
-      page.getByTestId('selected-matchup-hero').locator('[data-hero-badge="Vanessa"]')
+      page.getByRole('button', { name: 'Legend', exact: true })
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('selected-matchup-hero')).toContainText(
+      'Vanessa'
+    );
+
+    await page.goForward();
+    await expect(page).toHaveURL(/\/heroes\?s=non_legend$/);
+    await expect(page.getByRole('button', { name: '1D' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(
+      page.getByRole('button', { name: '非传奇', exact: true })
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      page
+        .getByTestId('selected-matchup-hero')
+        .locator('[data-hero-badge="Vanessa"]')
     ).toBeVisible();
   });
 
   test('a three-day snapshot fills 7D with its real days instead of inventing four', async ({
-    page,
+    page
   }) => {
     await openHeroes(page, '/heroes?lang=en&w=3d', 'threeDay');
     const chart = page.getByTestId('daily-winrate-chart');
@@ -321,67 +378,93 @@ test.describe('Hero Analysis dashboard', () => {
     await expect(chart.getByText(/^Jun [1-3]$/)).toHaveCount(0);
   });
 
-  test('trend gaps stay gaps and points keep their tooltip', async ({ page }) => {
+  test('trend gaps stay gaps and points keep their tooltip', async ({
+    page
+  }) => {
     await openHeroes(page, '/heroes?lang=en&w=3d&s=legend', 'threeDay');
-    const vanessa = page.locator('[data-testid="daily-winrate-line"][data-hero="Vanessa"]');
+    const vanessa = page.locator(
+      '[data-testid="daily-winrate-line"][data-hero="Vanessa"]'
+    );
 
     await expect(vanessa.locator('circle')).toHaveCount(2);
-    await expect(vanessa.locator('polyline:not([stroke="transparent"])')).toHaveCount(2);
+    await expect(
+      vanessa.locator('polyline:not([stroke="transparent"])')
+    ).toHaveCount(2);
 
     await rankingTable(page).getByRole('button', { name: 'Vanessa' }).click();
-    await expect(page.getByText('Some days have no calculable trend point.')).toBeVisible();
+    await expect(
+      page.getByText('Some days have no calculable trend point.')
+    ).toBeVisible();
     await vanessa.locator('circle').first().focus();
     await expect(page.getByTestId('trend-point-tooltip')).toBeVisible();
   });
 
-  test('matchups are ordered, follow the focused hero, and tag low samples', async ({ page }) => {
+  test('matchups are ordered, follow the focused hero, and tag low samples', async ({
+    page
+  }) => {
     await openHeroes(page, '/heroes?lang=en&w=3d&s=legend', 'threeDay');
     const list = page.getByTestId('matchup-list');
 
-    await expect(page.getByTestId('selected-matchup-hero')).toContainText('Jules');
+    await expect(page.getByTestId('selected-matchup-hero')).toContainText(
+      'Jules'
+    );
     expect(
       await list
         .locator('[data-hero-badge]')
-        .evaluateAll((badges) => badges.map((badge) => badge.getAttribute('data-hero-badge')))
+        .evaluateAll((badges) =>
+          badges.map((badge) => badge.getAttribute('data-hero-badge'))
+        )
     ).toEqual(['Stelle', 'Jules', 'Vanessa', 'Dooley']);
     await expect(list.getByText('70.0%')).toBeVisible();
     await expect(list.getByText('low sample')).toBeVisible();
     await expect(list.getByText(/15 battles/)).toBeVisible();
 
     await rankingTable(page).getByRole('button', { name: 'Stelle' }).click();
-    await expect(page.getByTestId('selected-matchup-hero')).toContainText('Stelle');
+    await expect(page.getByTestId('selected-matchup-hero')).toContainText(
+      'Stelle'
+    );
     await expect(list).toContainText('Mak');
   });
 
   test('every outcome bucket shows, including derived Misfortune, with no battle-day UI', async ({
-    page,
+    page
   }) => {
     await openHeroes(page, '/heroes?lang=en&w=3d', 'threeDay');
     const table = rankingTable(page);
 
-    await expect(table.getByRole('button', { name: 'Misfortune' })).toBeVisible();
+    await expect(
+      table.getByRole('button', { name: 'Misfortune' })
+    ).toBeVisible();
     await expect(table.getByText('10.0%').first()).toBeVisible();
     await expect(page.getByText('Battle win rate')).toHaveCount(0);
     await expect(page.getByText('Day 1', { exact: true })).toHaveCount(0);
   });
 
   test('a failed day stays explicit while usable days and canonical heroes render', async ({
-    page,
+    page
   }) => {
     await openHeroes(page, '/heroes?lang=en&w=3d', 'failedDay');
 
     await expect(
-      page.getByText('Some days are unavailable; this view includes loaded days only.')
+      page.getByText(
+        'Some days are unavailable; this view includes loaded days only.'
+      )
     ).toBeVisible();
     await expect(rankingTable(page)).toBeVisible();
     // The usable days carry a non-canonical hero; analysis leaves it out everywhere.
-    await expect(page.locator('[data-hero="Common"], [data-hero-badge="Common"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-hero="Common"], [data-hero-badge="Common"]')
+    ).toHaveCount(0);
   });
 
-  test('a snapshot without usable days renders snapshot unavailable', async ({ page }) => {
+  test('a snapshot without usable days renders snapshot unavailable', async ({
+    page
+  }) => {
     await openHeroes(page, '/heroes?lang=en', 'empty');
 
-    await expect(page.getByRole('heading', { name: 'Snapshot unavailable' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Snapshot unavailable' })
+    ).toBeVisible();
     await expect(page.getByRole('table')).toHaveCount(0);
   });
 });
@@ -390,32 +473,41 @@ test.describe('Hero Analysis dashboard', () => {
 async function column(page: Page, index: number): Promise<string[]> {
   return rankingTable(page)
     .locator(`tbody tr td:nth-child(${index + 1})`)
-    .evaluateAll((cells) => cells.map((cell) => (cell.textContent ?? '').trim()));
+    .evaluateAll((cells) =>
+      cells.map((cell) => (cell.textContent ?? '').trim())
+    );
 }
 
 function expectNullsLast(values: string[], direction: 'asc' | 'desc') {
   const firstNull = values.indexOf('—');
   const present = firstNull === -1 ? values : values.slice(0, firstNull);
-  expect(values.slice(present.length).every((value) => value === '—')).toBe(true);
+  expect(values.slice(present.length).every((value) => value === '—')).toBe(
+    true
+  );
   const numbers = present.map(Number.parseFloat);
-  const sorted = [...numbers].sort((a, b) => (direction === 'asc' ? a - b : b - a));
+  const sorted = [...numbers].sort((a, b) =>
+    direction === 'asc' ? a - b : b - a
+  );
   expect(numbers).toEqual(sorted);
 }
 
 test.describe('ranking table', () => {
-  test('header clicks sort with nulls last, and a row click moves the focus', async ({ page }) => {
+  test('header clicks sort with nulls last, and a row click moves the focus', async ({
+    page
+  }) => {
     await openHeroes(page, '/heroes?lang=en&s=legend');
     const table = rankingTable(page);
 
-    await expect(table.getByRole('columnheader', { name: /10W rate/ })).toHaveAttribute(
-      'aria-sort',
-      'descending'
-    );
+    await expect(
+      table.getByRole('columnheader', { name: /10W rate/ })
+    ).toHaveAttribute('aria-sort', 'descending');
     expectNullsLast(await column(page, 1), 'desc');
 
     await table.getByRole('button', { name: 'Hero' }).click();
     const ascending = await rankingHeroes(page);
-    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b)));
+    expect(ascending).toEqual(
+      [...ascending].sort((a, b) => a.localeCompare(b))
+    );
     await table.getByRole('button', { name: 'Hero' }).click();
     expect(await rankingHeroes(page)).toEqual([...ascending].reverse());
 
@@ -424,7 +516,9 @@ test.describe('ranking table', () => {
     await table.getByRole('button', { name: /Avg days/ }).click();
     expectNullsLast(await column(page, 5), 'desc');
 
-    const before = await page.getByTestId('selected-matchup-hero').getAttribute('aria-label');
+    const before = await page
+      .getByTestId('selected-matchup-hero')
+      .getAttribute('aria-label');
     const target = (await rankingHeroes(page))[0];
     expect(before).not.toMatch(new RegExp(`: ${target}$`));
     await table.getByRole('button', { name: target }).click();

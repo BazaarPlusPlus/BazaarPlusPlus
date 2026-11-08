@@ -1,24 +1,30 @@
-export function jsonResponse(body: unknown, init: ResponseInit & { requestId: string }): Response {
+export function jsonResponse(
+  body: unknown,
+  init: ResponseInit & { requestId: string }
+): Response {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json; charset=utf-8");
-  headers.set("Cache-Control", "no-store");
-  headers.set("X-Request-Id", init.requestId);
+  headers.set('Content-Type', 'application/json; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
+  headers.set('X-Request-Id', init.requestId);
 
   return new Response(JSON.stringify(body), {
     ...init,
-    headers,
+    headers
   });
 }
 
-export function htmlResponse(html: string, init: ResponseInit & { requestId: string }): Response {
+export function htmlResponse(
+  html: string,
+  init: ResponseInit & { requestId: string }
+): Response {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "text/html; charset=utf-8");
-  headers.set("Cache-Control", "no-store");
-  headers.set("X-Request-Id", init.requestId);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
+  headers.set('X-Request-Id', init.requestId);
 
   return new Response(html, {
     ...init,
-    headers,
+    headers
   });
 }
 
@@ -31,19 +37,19 @@ export function jsonError(
   },
   status: number,
   requestId: string,
-  headers?: HeadersInit,
+  headers?: HeadersInit
 ): Response {
   return jsonResponse(
     {
       error: {
         ...error,
-        request_id: requestId,
-      },
+        request_id: requestId
+      }
     },
     {
       status,
       requestId,
-      headers,
-    },
+      headers
+    }
   );
 }

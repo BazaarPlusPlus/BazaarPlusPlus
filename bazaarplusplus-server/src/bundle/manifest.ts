@@ -46,7 +46,9 @@ export interface ValidatedBundleDescriptor {
 }
 
 export function validObjectKey(key: string): boolean {
-  return /^bundles\/\d{4}-\d{2}-\d{2}\/[0-7][0-9A-HJKMNP-TV-Z]{25}\.bundle$/.test(key);
+  return /^bundles\/\d{4}-\d{2}-\d{2}\/[0-7][0-9A-HJKMNP-TV-Z]{25}\.bundle$/.test(
+    key
+  );
 }
 
 export function validBundleId(value: string): boolean {

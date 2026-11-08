@@ -1,12 +1,19 @@
-import { toHex } from "../bundle/hex";
-import { validIdentifier } from "../bundle/manifest";
-import type { Env } from "../env";
-import { apiError } from "../errors";
-import { oneQueryValue } from "../http/request";
-import type { GhostBattleSummary, GhostDiscoveryResponse } from "../http/schemas";
-import { GHOST_DEFAULT_LIMIT, GHOST_LOOKBACK_MS, GHOST_MAX_LIMIT } from "../limits";
-import { logEvent } from "../observability";
-import { createBundleDownloadSigner, signDownloadPage } from "../presigner";
+import { toHex } from '../bundle/hex';
+import { validIdentifier } from '../bundle/manifest';
+import type { Env } from '../env';
+import { apiError } from '../errors';
+import { oneQueryValue } from '../http/request';
+import type {
+  GhostBattleSummary,
+  GhostDiscoveryResponse
+} from '../http/schemas';
+import {
+  GHOST_DEFAULT_LIMIT,
+  GHOST_LOOKBACK_MS,
+  GHOST_MAX_LIMIT
+} from '../limits';
+import { logEvent } from '../observability';
+import { createBundleDownloadSigner, signDownloadPage } from '../presigner';
 
 interface GhostRow {
   uploader_account_id: string;
@@ -29,7 +36,7 @@ interface GhostRow {
 
 async function accountHash(accountId: string): Promise<string> {
   const bytes = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(accountId)),
+    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(accountId))
   );
   return toHex(bytes.subarray(0, 8));
 }
@@ -37,58 +44,60 @@ async function accountHash(accountId: string): Promise<string> {
 export async function discoverGhostBattles(
   request: Request,
   env: Env,
-  requestId: string,
+  requestId: string
 ): Promise<GhostDiscoveryResponse> {
-  const rateLimitKey = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const rateLimitKey = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   let rateLimit: RateLimitOutcome;
   try {
-    rateLimit = await env.GHOST_BATTLE_RATE_LIMITER.limit({ key: rateLimitKey });
+    rateLimit = await env.GHOST_BATTLE_RATE_LIMITER.limit({
+      key: rateLimitKey
+    });
   } catch {
-    throw apiError("storage_unavailable", "Ghost rate limiter is unavailable");
+    throw apiError('storage_unavailable', 'Ghost rate limiter is unavailable');
   }
   if (!rateLimit.success) {
-    logEvent("ghost.discovery", { request_id: requestId, limited: true });
-    throw apiError("rate_limited", "Ghost Battle request rate exceeded", {
-      headers: { "Retry-After": "60" },
+    logEvent('ghost.discovery', { request_id: requestId, limited: true });
+    throw apiError('rate_limited', 'Ghost Battle request rate exceeded', {
+      headers: { 'Retry-After': '60' }
     });
   }
 
   const url = new URL(request.url);
-  const allowed = new Set(["player_account_id", "limit"]);
+  const allowed = new Set(['player_account_id', 'limit']);
   for (const key of url.searchParams.keys()) {
     if (!allowed.has(key)) {
-      throw apiError("invalid_query", `Unknown query parameter: ${key}`, {
+      throw apiError('invalid_query', `Unknown query parameter: ${key}`, {
         details: {
-          field: key,
-        },
+          field: key
+        }
       });
     }
   }
-  const accountId = oneQueryValue(url.searchParams, "player_account_id", true);
+  const accountId = oneQueryValue(url.searchParams, 'player_account_id', true);
   if (accountId === null || !validIdentifier(accountId)) {
-    throw apiError("invalid_query", "player_account_id is invalid", {
+    throw apiError('invalid_query', 'player_account_id is invalid', {
       details: {
-        field: "player_account_id",
-      },
+        field: 'player_account_id'
+      }
     });
   }
-  const limitValue = oneQueryValue(url.searchParams, "limit", false);
+  const limitValue = oneQueryValue(url.searchParams, 'limit', false);
   let limit = GHOST_DEFAULT_LIMIT;
   if (limitValue !== null) {
     if (!/^[1-9][0-9]*$/.test(limitValue)) {
-      throw apiError("invalid_query", "limit must be an integer", {
+      throw apiError('invalid_query', 'limit must be an integer', {
         details: {
-          field: "limit",
-        },
+          field: 'limit'
+        }
       });
     }
     limit = Number(limitValue);
   }
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > GHOST_MAX_LIMIT) {
-    throw apiError("invalid_query", "limit must be between 1 and 200", {
+    throw apiError('invalid_query', 'limit must be between 1 and 200', {
       details: {
-        field: "limit",
-      },
+        field: 'limit'
+      }
     });
   }
 
@@ -111,20 +120,20 @@ export async function discoverGhostBattles(
        WHERE g.opponent_account_id = ?1
          AND g.recorded_at_ms >= ?2
        ORDER BY g.recorded_at_ms DESC, g.battle_id DESC
-       LIMIT ?3`,
+       LIMIT ?3`
     )
       .bind(accountId, issuedAt - GHOST_LOOKBACK_MS, limit)
       .all<GhostRow>();
     rows = result.results;
   } catch {
-    throw apiError("storage_unavailable", "Ghost Battle query failed");
+    throw apiError('storage_unavailable', 'Ghost Battle query failed');
   }
 
   const downloads = await signDownloadPage(
     createBundleDownloadSigner(env),
     rows.map((row) => row.object_key),
     issuedAt,
-    "Ghost Battle URL signing failed",
+    'Ghost Battle URL signing failed'
   );
   const battles = rows.map((row, index): GhostBattleSummary => {
     return {
@@ -141,21 +150,21 @@ export async function discoverGhostBattles(
         display_name: row.player_display_name,
         hero_name: row.player_hero_name,
         rank: row.player_rank,
-        rating: row.player_rating,
+        rating: row.player_rating
       },
       opponent: {
         account_id: row.opponent_account_id,
-        hero_name: row.opponent_hero_name,
+        hero_name: row.opponent_hero_name
       },
       download_url: downloads[index].url,
-      download_expires_at_ms: downloads[index].expiresAtMs,
+      download_expires_at_ms: downloads[index].expiresAtMs
     };
   });
-  logEvent("ghost.discovery", {
+  logEvent('ghost.discovery', {
     request_id: requestId,
     account_hash: await accountHash(accountId),
     row_count: rows.length,
-    limited: false,
+    limited: false
   });
   return { battles };
 }

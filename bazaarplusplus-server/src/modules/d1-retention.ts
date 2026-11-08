@@ -1,9 +1,13 @@
-import { D1_RETENTION_BATCH_SIZE, D1_RETENTION_MAX_BATCHES, D1_RETENTION_MS } from "../limits";
-import { logError, logEvent } from "../observability";
+import {
+  D1_RETENTION_BATCH_SIZE,
+  D1_RETENTION_MAX_BATCHES,
+  D1_RETENTION_MS
+} from '../limits';
+import { logError, logEvent } from '../observability';
 
 export async function pruneExpiredBundles(
   db: D1Database,
-  scheduledAtMs: number,
+  scheduledAtMs: number
 ): Promise<{ deleted: number; hasMore: boolean }> {
   const cutoff = scheduledAtMs - D1_RETENTION_MS;
   let deleted = 0;
@@ -21,7 +25,7 @@ export async function pruneExpiredBundles(
            ORDER BY stored_at_ms ASC, bundle_id ASC
            LIMIT ?2
          )
-         RETURNING bundle_id`,
+         RETURNING bundle_id`
         )
         .bind(cutoff, D1_RETENTION_BATCH_SIZE)
         .all<{ bundle_id: string }>();
@@ -31,7 +35,7 @@ export async function pruneExpiredBundles(
         const remaining = await db
           .prepare(
             `SELECT bundle_id FROM bundles INDEXED BY idx_bundles_stored_retention
-           WHERE stored_at_ms < ?1 LIMIT 1`,
+           WHERE stored_at_ms < ?1 LIMIT 1`
           )
           .bind(cutoff)
           .first();
@@ -39,18 +43,18 @@ export async function pruneExpiredBundles(
       }
     }
   } catch (error) {
-    logError("d1.retention.failed", {
+    logError('d1.retention.failed', {
       scheduled_at_ms: scheduledAtMs,
       cutoff_ms: cutoff,
-      deleted_bundles: deleted,
+      deleted_bundles: deleted
     });
     throw error;
   }
-  logEvent("d1.retention", {
+  logEvent('d1.retention', {
     scheduled_at_ms: scheduledAtMs,
     cutoff_ms: cutoff,
     deleted_bundles: deleted,
-    has_more: hasMore,
+    has_more: hasMore
   });
   return { deleted, hasMore };
 }

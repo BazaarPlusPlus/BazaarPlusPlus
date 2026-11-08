@@ -6,7 +6,7 @@ import {
   type HeroMetricsDataset,
   type HeroMetricsDay,
   type HeroMetricsRow,
-  type HeroMetricsSegment,
+  type HeroMetricsSegment
 } from './hero-metrics-dataset';
 
 export type MetricWindow = '1d' | '3d' | '7d';
@@ -90,7 +90,7 @@ type MergedHeroRow = {
 const WINDOW_DAY_COUNT: Record<MetricWindow, number> = {
   '1d': 1,
   '3d': 3,
-  '7d': 7,
+  '7d': 7
 };
 const METRIC_WINDOW_OPTIONS: MetricWindow[] = ['1d', '3d', '7d'];
 const MATCHUP_MIN_SAMPLE = 20;
@@ -103,7 +103,11 @@ function rateOrNull(successes: number, attempts: number): number | null {
   return attempts > 0 ? successes / attempts : null;
 }
 
-function selectDates(dates: string[], window: MetricWindow, windowEnd: string): string[] {
+function selectDates(
+  dates: string[],
+  window: MetricWindow,
+  windowEnd: string
+): string[] {
   return [...dates]
     .filter((day) => day <= windowEnd)
     .sort((left, right) => left.localeCompare(right))
@@ -120,7 +124,9 @@ function collectRows(
     .filter((payload) => wantedDates.has(payload.day))
     .flatMap((payload) =>
       payload.rows.filter(
-        (row) => (segment === 'all' || row.segment === segment) && isCanonicalHero(row.hero)
+        (row) =>
+          (segment === 'all' || row.segment === segment) &&
+          isCanonicalHero(row.hero)
       )
     );
 }
@@ -146,7 +152,7 @@ function mergeRows(rows: HeroMetricsRow[]): Map<string, MergedHeroRow> {
         bronze: 0,
         tenWinDaysKnownCount: 0,
         tenWinDaysSumDays: 0,
-        matchups: new Map(),
+        matchups: new Map()
       };
       merged.set(row.hero, entry);
     }
@@ -175,7 +181,7 @@ function mergeRows(rows: HeroMetricsRow[]): Map<string, MergedHeroRow> {
         entry.matchups.set(matchup.opponent_hero, {
           decided: matchup.decided,
           wins: matchup.wins,
-          losses: matchup.losses,
+          losses: matchup.losses
         });
       }
     }
@@ -184,7 +190,10 @@ function mergeRows(rows: HeroMetricsRow[]): Map<string, MergedHeroRow> {
   return merged;
 }
 
-function compareNullableDescending(left: number | null, right: number | null): number {
+function compareNullableDescending(
+  left: number | null,
+  right: number | null
+): number {
   if (left == null || right == null) {
     if (left == null && right == null) {
       return 0;
@@ -196,11 +205,15 @@ function compareNullableDescending(left: number | null, right: number | null): n
 
 function deriveRanking(merged: Map<string, MergedHeroRow>): HeroRanking[] {
   const rows = Array.from(merged.values());
-  const completedInScope = rows.reduce((sum, row) => sum + row.runsCompleted, 0);
+  const completedInScope = rows.reduce(
+    (sum, row) => sum + row.runsCompleted,
+    0
+  );
 
   return rows
     .map((row) => {
-      const misfortune = row.scoredRuns - (row.perfect + row.gold + row.silver + row.bronze);
+      const misfortune =
+        row.scoredRuns - (row.perfect + row.gold + row.silver + row.bronze);
       return {
         hero: row.hero,
         runsCompleted: row.runsCompleted,
@@ -208,12 +221,15 @@ function deriveRanking(merged: Map<string, MergedHeroRow>): HeroRanking[] {
         runShare: rateOrNull(row.runsCompleted, completedInScope),
         tenWinCount: row.tenWinCount,
         tenWinRate: rateOrNull(row.tenWinCount, row.runsCompleted),
-        avgRunDays10w: rateOrNull(row.tenWinDaysSumDays, row.tenWinDaysKnownCount),
+        avgRunDays10w: rateOrNull(
+          row.tenWinDaysSumDays,
+          row.tenWinDaysKnownCount
+        ),
         perfectRate: rateOrNull(row.perfect, row.scoredRuns),
         goldRate: rateOrNull(row.gold, row.scoredRuns),
         silverRate: rateOrNull(row.silver, row.scoredRuns),
         bronzeRate: rateOrNull(row.bronze, row.scoredRuns),
-        misfortuneRate: rateOrNull(misfortune, row.scoredRuns),
+        misfortuneRate: rateOrNull(misfortune, row.scoredRuns)
       };
     })
     .sort(
@@ -224,7 +240,10 @@ function deriveRanking(merged: Map<string, MergedHeroRow>): HeroRanking[] {
     );
 }
 
-function segmentTrendPoints(points: HeroTrendPoint[], dayAxis: string[]): HeroTrendPoint[][] {
+function segmentTrendPoints(
+  points: HeroTrendPoint[],
+  dayAxis: string[]
+): HeroTrendPoint[][] {
   const indexByDay = new Map(dayAxis.map((day, index) => [day, index]));
   const segments: HeroTrendPoint[][] = [];
   let current: HeroTrendPoint[] = [];
@@ -235,7 +254,11 @@ function segmentTrendPoints(points: HeroTrendPoint[], dayAxis: string[]): HeroTr
     if (index == null) {
       continue;
     }
-    if (previousIndex != null && index !== previousIndex + 1 && current.length > 0) {
+    if (
+      previousIndex != null &&
+      index !== previousIndex + 1 &&
+      current.length > 0
+    ) {
       segments.push(current);
       current = [];
     }
@@ -253,8 +276,12 @@ function deriveTrend(
   selectedDates: string[],
   segment: HeroMetricsSegment
 ): HeroTrend[] {
-  const payloadByDay = new Map(payloads.map((payload) => [payload.day, payload]));
-  const orderedDates = [...selectedDates].sort((left, right) => left.localeCompare(right));
+  const payloadByDay = new Map(
+    payloads.map((payload) => [payload.day, payload])
+  );
+  const orderedDates = [...selectedDates].sort((left, right) =>
+    left.localeCompare(right)
+  );
   const pointsByHero = new Map<string, HeroTrendPoint[]>();
   const nullCountByHero = new Map<string, number>();
 
@@ -264,7 +291,9 @@ function deriveTrend(
       continue;
     }
     const dailyRows = payload.rows.filter(
-      (row) => (segment === 'all' || row.segment === segment) && isCanonicalHero(row.hero)
+      (row) =>
+        (segment === 'all' || row.segment === segment) &&
+        isCanonicalHero(row.hero)
     );
     for (const row of mergeRows(dailyRows).values()) {
       const winRate = rateOrNull(row.tenWinCount, row.runsCompleted);
@@ -285,7 +314,7 @@ function deriveTrend(
       points,
       segments: segmentTrendPoints(points, orderedDates),
       latestWinRate: points.at(-1)?.winRate ?? null,
-      nullPointCount: nullCountByHero.get(hero) ?? 0,
+      nullPointCount: nullCountByHero.get(hero) ?? 0
     }))
     .sort(
       (left, right) =>
@@ -316,7 +345,7 @@ function deriveMatchups(merged: MergedHeroRow | undefined): HeroMatchup[] {
       wins: counts.wins,
       losses: counts.losses,
       winRate: rateOrNull(counts.wins, counts.decided),
-      isLowSample: counts.decided < MATCHUP_MIN_SAMPLE,
+      isLowSample: counts.decided < MATCHUP_MIN_SAMPLE
     }))
     .sort(compareMatchups);
 }
@@ -332,12 +361,26 @@ export function analyzeHeroes(
     dataset.window.end
   );
   const selectedDateSet = new Set(selectedDates);
-  const usableDates = dataset.coverage.usableDates.filter((day) => selectedDateSet.has(day));
-  const failedDates = dataset.coverage.failedDates.filter((day) => selectedDateSet.has(day));
-  const merged = mergeRows(collectRows(dataset.days, selectedDates, requestedScope.segment));
+  const usableDates = dataset.coverage.usableDates.filter((day) =>
+    selectedDateSet.has(day)
+  );
+  const failedDates = dataset.coverage.failedDates.filter((day) =>
+    selectedDateSet.has(day)
+  );
+  const merged = mergeRows(
+    collectRows(dataset.days, selectedDates, requestedScope.segment)
+  );
   const ranking = deriveRanking(merged);
-  const trendDates = selectDates(dataset.coverage.requestedDates, '7d', dataset.window.end);
-  const trendSeries = deriveTrend(dataset.days, trendDates, requestedScope.segment);
+  const trendDates = selectDates(
+    dataset.coverage.requestedDates,
+    '7d',
+    dataset.window.end
+  );
+  const trendSeries = deriveTrend(
+    dataset.days,
+    trendDates,
+    requestedScope.segment
+  );
   const focusHero = ranking.some((row) => row.hero === requestedFocus)
     ? requestedFocus
     : (ranking[0]?.hero ?? null);
@@ -345,22 +388,28 @@ export function analyzeHeroes(
   return {
     generatedAt: dataset.generatedAt,
     scope: {
-      availableWindows: dataset.coverage.usableDates.length > 0 ? [...METRIC_WINDOW_OPTIONS] : [],
-      availableSegments: dataset.coverage.usableDates.length > 0 ? [...HERO_METRICS_SEGMENTS] : [],
+      availableWindows:
+        dataset.coverage.usableDates.length > 0
+          ? [...METRIC_WINDOW_OPTIONS]
+          : [],
+      availableSegments:
+        dataset.coverage.usableDates.length > 0
+          ? [...HERO_METRICS_SEGMENTS]
+          : []
     },
     coverage: {
       usableDates,
-      failedDates,
+      failedDates
     },
     ranking,
     trend: {
       dayAxis: trendDates,
-      series: trendSeries,
+      series: trendSeries
     },
     focus: {
       hero: focusHero,
       trend: trendSeries.find((series) => series.hero === focusHero) ?? null,
-      matchups: deriveMatchups(focusHero ? merged.get(focusHero) : undefined),
-    },
+      matchups: deriveMatchups(focusHero ? merged.get(focusHero) : undefined)
+    }
   };
 }

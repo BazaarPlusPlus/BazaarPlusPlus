@@ -8,12 +8,16 @@ import { createSpaLocation, type ResolvedSpaLocation } from './router';
 import { LoadingScreen, NotFoundScreen } from './screens';
 
 const HeroOverviewPage = lazy(() =>
-  import('./route-pages').then((module) => ({ default: module.HeroOverviewPage }))
+  import('./route-pages').then((module) => ({
+    default: module.HeroOverviewPage
+  }))
 );
 
 export default function App() {
   const spaLocation = useMemo(() => createSpaLocation(), []);
-  const [location, setLocation] = useState<ResolvedSpaLocation>(() => spaLocation.current());
+  const [location, setLocation] = useState<ResolvedSpaLocation>(() =>
+    spaLocation.current()
+  );
 
   useEffect(() => spaLocation.subscribe(setLocation), [spaLocation]);
 
@@ -30,7 +34,10 @@ export default function App() {
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
-      const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      const target =
+        event.target instanceof Element
+          ? event.target.closest('a[href]')
+          : null;
       if (!(target instanceof HTMLAnchorElement)) {
         return;
       }
@@ -44,7 +51,7 @@ export default function App() {
         shiftKey: event.shiftKey,
         altKey: event.altKey,
         target: target.target,
-        download: target.hasAttribute('download'),
+        download: target.hasAttribute('download')
       });
       if (handled) {
         event.preventDefault();
@@ -58,7 +65,10 @@ export default function App() {
   if (location.route.page === 'heroes') {
     return (
       <Suspense fallback={<LoadingScreen location={location} />}>
-        <HeroOverviewPage location={location} onScopeChange={spaLocation.replaceScope} />
+        <HeroOverviewPage
+          location={location}
+          onScopeChange={spaLocation.replaceScope}
+        />
       </Suspense>
     );
   }

@@ -1,283 +1,325 @@
-import { env } from "cloudflare:test";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { env } from 'cloudflare:test';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import worker from "../src/index";
-import { makeBundleFixture, uploadRequest } from "./fixtures/bundle";
+import worker from '../src/index';
+import { makeBundleFixture, uploadRequest } from './fixtures/bundle';
 
-const ORIGIN = "https://mod-api-v6.bazaarplusplus.com";
+const ORIGIN = 'https://mod-api-v6.bazaarplusplus.com';
 
 afterEach(() => vi.restoreAllMocks());
 
-function collection(query: string, bindings: Cloudflare.Env = env): Promise<Response> {
+function collection(
+  query: string,
+  bindings: Cloudflare.Env = env
+): Promise<Response> {
   return worker.fetch(
     new Request(`${ORIGIN}/bundles${query}`, {
-      headers: { Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}`, "CF-Ray": "shell-ray" },
+      headers: {
+        Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}`,
+        'CF-Ray': 'shell-ray'
+      }
     }),
-    bindings,
+    bindings
   );
 }
 
-test("GET /health reports liveness without dependency access", async () => {
-  const response = await worker.fetch(new Request(`${ORIGIN}/health`), {} as Cloudflare.Env);
+test('GET /health reports liveness without dependency access', async () => {
+  const response = await worker.fetch(
+    new Request(`${ORIGIN}/health`),
+    {} as Cloudflare.Env
+  );
 
   expect(response.status).toBe(200);
-  expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
-  expect(response.headers.get("cache-control")).toBe("no-store");
-  expect(response.headers.get("x-request-id")).toBeTruthy();
+  expect(response.headers.get('content-type')).toBe(
+    'application/json; charset=utf-8'
+  );
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(response.headers.get('x-request-id')).toBeTruthy();
 
   const body = (await response.json()) as {
     status: string;
     server_time_ms: number;
   };
-  expect(body).toMatchObject({ status: "ok" });
+  expect(body).toMatchObject({ status: 'ok' });
   expect(Number.isSafeInteger(body.server_time_ms)).toBe(true);
 });
 
-test("an unknown route returns the canonical not_found error", async () => {
+test('an unknown route returns the canonical not_found error', async () => {
   const response = await worker.fetch(
-    new Request("https://mod-api-v6.bazaarplusplus.com/unknown"),
-    {} as Cloudflare.Env,
+    new Request('https://mod-api-v6.bazaarplusplus.com/unknown'),
+    {} as Cloudflare.Env
   );
 
   expect(response.status).toBe(404);
-  expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
-  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(response.headers.get('content-type')).toBe(
+    'application/json; charset=utf-8'
+  );
+  expect(response.headers.get('cache-control')).toBe('no-store');
 
   const body = await response.json();
   expect(body).toEqual({
     error: {
-      code: "not_found",
-      message: "Route not found",
+      code: 'not_found',
+      message: 'Route not found',
       retryable: false,
-      request_id: response.headers.get("x-request-id"),
-    },
+      request_id: response.headers.get('x-request-id')
+    }
   });
 });
 
-test("a known route with the wrong method returns method_not_allowed", async () => {
+test('a known route with the wrong method returns method_not_allowed', async () => {
   const response = await worker.fetch(
-    new Request("https://mod-api-v6.bazaarplusplus.com/health", {
-      method: "POST",
+    new Request('https://mod-api-v6.bazaarplusplus.com/health', {
+      method: 'POST'
     }),
-    {} as Cloudflare.Env,
+    {} as Cloudflare.Env
   );
 
   expect(response.status).toBe(405);
-  expect(response.headers.get("allow")).toBe("GET");
+  expect(response.headers.get('allow')).toBe('GET');
   expect(await response.json()).toEqual({
     error: {
-      code: "method_not_allowed",
-      message: "Method not allowed",
+      code: 'method_not_allowed',
+      message: 'Method not allowed',
       retryable: false,
-      request_id: response.headers.get("x-request-id"),
-    },
+      request_id: response.headers.get('x-request-id')
+    }
   });
 });
 
-describe("the public route table", () => {
+describe('the public route table', () => {
   test.each([
-    ["/health", "GET"],
-    ["/bundles", "GET, POST"],
-    ["/ghost-battles", "GET"],
-    ["/bazaardb/bundles", "GET"],
-    ["/openapi.json", "GET"],
-    ["/docs", "GET"],
-  ])("OPTIONS %s is not a route and advertises the real methods", async (path, allow) => {
-    const response = await worker.fetch(
-      new Request(`https://mod-api-v6.bazaarplusplus.com${path}`, {
-        method: "OPTIONS",
-      }),
-      env,
-    );
+    ['/health', 'GET'],
+    ['/bundles', 'GET, POST'],
+    ['/ghost-battles', 'GET'],
+    ['/bazaardb/bundles', 'GET'],
+    ['/openapi.json', 'GET'],
+    ['/docs', 'GET']
+  ])(
+    'OPTIONS %s is not a route and advertises the real methods',
+    async (path, allow) => {
+      const response = await worker.fetch(
+        new Request(`https://mod-api-v6.bazaarplusplus.com${path}`, {
+          method: 'OPTIONS'
+        }),
+        env
+      );
 
-    expect(response.status).toBe(405);
-    expect(response.headers.get("allow")).toBe(allow);
-    expect(response.headers.has("access-control-allow-origin")).toBe(false);
-  });
+      expect(response.status).toBe(405);
+      expect(response.headers.get('allow')).toBe(allow);
+      expect(response.headers.has('access-control-allow-origin')).toBe(false);
+    }
+  );
 
-  test("OPTIONS does not make an unknown route appear available", async () => {
+  test('OPTIONS does not make an unknown route appear available', async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v6.bazaarplusplus.com/not-a-route", {
-        method: "OPTIONS",
+      new Request('https://mod-api-v6.bazaarplusplus.com/not-a-route', {
+        method: 'OPTIONS'
       }),
-      env,
+      env
     );
 
     expect(response.status).toBe(404);
   });
 });
 
-describe("service-token scopes", () => {
-  test("Bundle collection rejects a missing token before query parsing", async () => {
+describe('service-token scopes', () => {
+  test('Bundle collection rejects a missing token before query parsing', async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v6.bazaarplusplus.com/bundles"),
-      env,
+      new Request('https://mod-api-v6.bazaarplusplus.com/bundles'),
+      env
     );
 
     expect(response.status).toBe(401);
     expect((await response.json()) as object).toMatchObject({
-      error: { code: "unauthorized", retryable: false },
+      error: { code: 'unauthorized', retryable: false }
     });
   });
 
-  test("Bundle collection rejects a valid BazaarDB token with insufficient_scope", async () => {
+  test('Bundle collection rejects a valid BazaarDB token with insufficient_scope', async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v6.bazaarplusplus.com/bundles", {
+      new Request('https://mod-api-v6.bazaarplusplus.com/bundles', {
         headers: {
-          Authorization: `Bearer ${env.BAZAARDB_DELIVERY_TOKEN}`,
-        },
+          Authorization: `Bearer ${env.BAZAARDB_DELIVERY_TOKEN}`
+        }
       }),
-      env,
+      env
     );
 
     expect(response.status).toBe(403);
     expect((await response.json()) as object).toMatchObject({
-      error: { code: "insufficient_scope", retryable: false },
+      error: { code: 'insufficient_scope', retryable: false }
     });
   });
 
-  test("BazaarDB routes reject a valid Bundle Sync token with insufficient_scope", async () => {
+  test('BazaarDB routes reject a valid Bundle Sync token with insufficient_scope', async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v6.bazaarplusplus.com/bazaardb/bundles", {
+      new Request('https://mod-api-v6.bazaarplusplus.com/bazaardb/bundles', {
         headers: {
-          Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}`,
-        },
+          Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}`
+        }
       }),
-      env,
+      env
     );
 
     expect(response.status).toBe(403);
     expect((await response.json()) as object).toMatchObject({
-      error: { code: "insufficient_scope", retryable: false },
+      error: { code: 'insufficient_scope', retryable: false }
     });
   });
 });
 
-describe("route shell outcomes", () => {
-  test("forwards route error headers and uses the CF-Ray request ID in the envelope", async () => {
+describe('route shell outcomes', () => {
+  test('forwards route error headers and uses the CF-Ray request ID in the envelope', async () => {
     const response = await worker.fetch(
       new Request(`${ORIGIN}/ghost-battles?player_account_id=account-local`, {
-        headers: { "CF-Ray": "limited-ray" },
+        headers: { 'CF-Ray': 'limited-ray' }
       }),
-      { ...env, GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: false }) } },
+      {
+        ...env,
+        GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: false }) }
+      }
     );
 
     expect(response.status).toBe(429);
-    expect(response.headers.get("retry-after")).toBe("60");
-    expect(response.headers.get("x-request-id")).toBe("limited-ray");
+    expect(response.headers.get('retry-after')).toBe('60');
+    expect(response.headers.get('x-request-id')).toBe('limited-ray');
     expect(await response.json()).toEqual({
       error: {
-        code: "rate_limited",
-        message: "Ghost Battle request rate exceeded",
+        code: 'rate_limited',
+        message: 'Ghost Battle request rate exceeded',
         retryable: true,
-        request_id: "limited-ray",
-      },
+        request_id: 'limited-ray'
+      }
     });
   });
 
-  test("logs classified 5xx errors for alerting but stays silent on 4xx", async () => {
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  test('logs classified 5xx errors for alerting but stays silent on 4xx', async () => {
+    const errorLog = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     const failingDb = {
       ...env,
       DB: {
         prepare() {
-          throw new Error("injected D1 query failure");
-        },
-      },
+          throw new Error('injected D1 query failure');
+        }
+      }
     } as unknown as Cloudflare.Env;
 
-    expect((await collection(`?available_from_ms=${Date.now() - 120_000}`, failingDb)).status).toBe(
-      503,
-    );
+    expect(
+      (
+        await collection(
+          `?available_from_ms=${Date.now() - 120_000}`,
+          failingDb
+        )
+      ).status
+    ).toBe(503);
     expect(errorLog).toHaveBeenCalledWith(
       JSON.stringify({
-        event: "worker.http_error",
-        request_id: "shell-ray",
-        route: "/bundles",
+        event: 'worker.http_error',
+        request_id: 'shell-ray',
+        route: '/bundles',
         status: 503,
-        code: "storage_unavailable",
-      }),
+        code: 'storage_unavailable'
+      })
     );
 
     errorLog.mockClear();
-    expect((await collection("?unknown=1")).status).toBe(400);
+    expect((await collection('?unknown=1')).status).toBe(400);
     expect(errorLog).not.toHaveBeenCalled();
   });
 
   test.each([
-    { name: "malformed token", overrides: { BUNDLE_SYNC_TOKEN: "too-short" } },
-    { name: "missing Bundle Sync token", overrides: { BUNDLE_SYNC_TOKEN: undefined } },
-    { name: "missing BazaarDB token", overrides: { BAZAARDB_DELIVERY_TOKEN: undefined } },
+    { name: 'malformed token', overrides: { BUNDLE_SYNC_TOKEN: 'too-short' } },
     {
-      name: "both tokens missing",
-      overrides: { BUNDLE_SYNC_TOKEN: undefined, BAZAARDB_DELIVERY_TOKEN: undefined },
+      name: 'missing Bundle Sync token',
+      overrides: { BUNDLE_SYNC_TOKEN: undefined }
     },
-  ])("rejects and logs invalid service configuration: $name", async ({ overrides }) => {
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const response = await collection("?available_from_ms=0", {
-      ...env,
-      ...overrides,
-    } as Cloudflare.Env);
+    {
+      name: 'missing BazaarDB token',
+      overrides: { BAZAARDB_DELIVERY_TOKEN: undefined }
+    },
+    {
+      name: 'both tokens missing',
+      overrides: {
+        BUNDLE_SYNC_TOKEN: undefined,
+        BAZAARDB_DELIVERY_TOKEN: undefined
+      }
+    }
+  ])(
+    'rejects and logs invalid service configuration: $name',
+    async ({ overrides }) => {
+      const errorLog = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const response = await collection('?available_from_ms=0', {
+        ...env,
+        ...overrides
+      } as Cloudflare.Env);
 
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({
-      error: {
-        code: "internal_error",
-        message: "Service token configuration is invalid",
-        retryable: true,
-        request_id: "shell-ray",
-      },
-    });
-    expect(errorLog).toHaveBeenCalledOnce();
-    expect(errorLog).toHaveBeenCalledWith(
-      JSON.stringify({
-        event: "worker.http_error",
-        request_id: "shell-ray",
-        route: "/bundles",
-        status: 500,
-        code: "invalid_configuration",
-      }),
-    );
-  });
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({
+        error: {
+          code: 'internal_error',
+          message: 'Service token configuration is invalid',
+          retryable: true,
+          request_id: 'shell-ray'
+        }
+      });
+      expect(errorLog).toHaveBeenCalledOnce();
+      expect(errorLog).toHaveBeenCalledWith(
+        JSON.stringify({
+          event: 'worker.http_error',
+          request_id: 'shell-ray',
+          route: '/bundles',
+          status: 500,
+          code: 'invalid_configuration'
+        })
+      );
+    }
+  );
 
-  test("logs and maps an unclassified exception to the canonical 500 envelope", async () => {
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  test('logs and maps an unclassified exception to the canonical 500 envelope', async () => {
+    const errorLog = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     const fixture = await makeBundleFixture({
-      bundleId: "01J00000000000000000000901",
-      runId: "shell-unclassified-run",
-      battles: [],
+      bundleId: '01J00000000000000000000901',
+      runId: 'shell-unclassified-run',
+      battles: []
     });
     const headers = new Headers(fixture.headers);
-    headers.set("CF-Ray", "error-ray");
+    headers.set('CF-Ray', 'error-ray');
     // A conditional PUT conflict whose read-back throws is not an HttpError.
     const response = await worker.fetch(uploadRequest(fixture.body, headers), {
       ...env,
       BUNDLE_BUCKET: {
         put: async () => null,
         get: async () => {
-          throw new TypeError("secret implementation detail");
-        },
-      },
+          throw new TypeError('secret implementation detail');
+        }
+      }
     } as unknown as Cloudflare.Env);
 
     expect(response.status).toBe(500);
-    expect(response.headers.get("x-request-id")).toBe("error-ray");
+    expect(response.headers.get('x-request-id')).toBe('error-ray');
     expect(await response.json()).toEqual({
       error: {
-        code: "internal_error",
-        message: "An internal error occurred",
+        code: 'internal_error',
+        message: 'An internal error occurred',
         retryable: true,
-        request_id: "error-ray",
-      },
+        request_id: 'error-ray'
+      }
     });
     expect(errorLog).toHaveBeenCalledWith(
       JSON.stringify({
-        event: "worker.internal_error",
-        request_id: "error-ray",
-        route: "/bundles",
-        error_name: "TypeError",
-        reason: "unclassified_exception",
-      }),
+        event: 'worker.internal_error',
+        request_id: 'error-ray',
+        route: '/bundles',
+        error_name: 'TypeError',
+        reason: 'unclassified_exception'
+      })
     );
   });
 });

@@ -1,21 +1,25 @@
-import { validBundleId } from "../bundle/manifest";
-import { BUNDLE_CONTENT_TYPE } from "../bundle/prefix";
-import type { Env } from "../env";
-import { apiError } from "../errors";
-import { oneQueryValue } from "../http/request";
-import type { BazaarDbBundleItem, BundleCollectionItem, CollectionPage } from "../http/schemas";
+import { validBundleId } from '../bundle/manifest';
+import { BUNDLE_CONTENT_TYPE } from '../bundle/prefix';
+import type { Env } from '../env';
+import { apiError } from '../errors';
+import { oneQueryValue } from '../http/request';
+import type {
+  BazaarDbBundleItem,
+  BundleCollectionItem,
+  CollectionPage
+} from '../http/schemas';
 import {
   SYNC_DEFAULT_LIMIT,
   SYNC_MAX_LIMIT,
   SYNC_MAX_LOOKBACK_MS,
-  SYNC_SETTLE_LAG_MS,
-} from "../limits";
-import { logEvent } from "../observability";
+  SYNC_SETTLE_LAG_MS
+} from '../limits';
+import { logEvent } from '../observability';
 import {
   createBundleDownloadSigner,
   type SignedBundleDownload,
-  signDownloadPage,
-} from "../presigner";
+  signDownloadPage
+} from '../presigner';
 
 interface CollectionRow {
   bundle_id: string;
@@ -38,51 +42,62 @@ interface CollectionFeed<Row extends CollectionRow, Item> {
   item(row: Row, download: SignedBundleDownload): Item;
 }
 
-function baseItem(row: CollectionRow, download: SignedBundleDownload): BundleCollectionItem {
+function baseItem(
+  row: CollectionRow,
+  download: SignedBundleDownload
+): BundleCollectionItem {
   return {
     bundle_id: row.bundle_id,
     available_at_ms: row.available_at_ms,
     download_url: download.url,
-    download_expires_at_ms: download.expiresAtMs,
+    download_expires_at_ms: download.expiresAtMs
   };
 }
 
 const ALL_BUNDLES: CollectionFeed<CollectionRow, BundleCollectionItem> = {
-  event: "bundle.collection",
-  columns: "bundle_id, available_at_ms, object_key",
-  index: "idx_bundles_available",
-  filter: "",
-  item: baseItem,
+  event: 'bundle.collection',
+  columns: 'bundle_id, available_at_ms, object_key',
+  index: 'idx_bundles_available',
+  filter: '',
+  item: baseItem
 };
 
 const SCREENSHOT_BUNDLES: CollectionFeed<BazaarDbRow, BazaarDbBundleItem> = {
-  event: "bazaardb.collection",
-  columns: "bundle_id, available_at_ms, object_key, run_id, bundle_sha256",
-  index: "idx_bundles_screenshot_available",
-  filter: " AND has_screenshot = 1",
+  event: 'bazaardb.collection',
+  columns: 'bundle_id, available_at_ms, object_key, run_id, bundle_sha256',
+  index: 'idx_bundles_screenshot_available',
+  filter: ' AND has_screenshot = 1',
   item: (row, download) => ({
     ...baseItem(row, download),
     run_id: row.run_id,
     content_type: BUNDLE_CONTENT_TYPE,
-    sha256: row.bundle_sha256,
-  }),
+    sha256: row.bundle_sha256
+  })
 };
 
 function integer(value: string | null, field: string): number {
   if (value === null || !/^(0|[1-9][0-9]*)$/.test(value)) {
-    throw apiError("invalid_query", `${field} must be a non-negative safe integer`, {
-      details: {
-        field,
-      },
-    });
+    throw apiError(
+      'invalid_query',
+      `${field} must be a non-negative safe integer`,
+      {
+        details: {
+          field
+        }
+      }
+    );
   }
   const result = Number(value);
   if (!Number.isSafeInteger(result)) {
-    throw apiError("invalid_query", `${field} must be a non-negative safe integer`, {
-      details: {
-        field,
-      },
-    });
+    throw apiError(
+      'invalid_query',
+      `${field} must be a non-negative safe integer`,
+      {
+        details: {
+          field
+        }
+      }
+    );
   }
   return result;
 }
@@ -90,7 +105,7 @@ function integer(value: string | null, field: string): number {
 export function collectBundles(
   request: Request,
   env: Env,
-  requestId: string,
+  requestId: string
 ): Promise<CollectionPage<BundleCollectionItem>> {
   return collectPage(request, env, requestId, ALL_BUNDLES);
 }
@@ -98,7 +113,7 @@ export function collectBundles(
 export function collectBazaarDbBundles(
   request: Request,
   env: Env,
-  requestId: string,
+  requestId: string
 ): Promise<CollectionPage<BazaarDbBundleItem>> {
   return collectPage(request, env, requestId, SCREENSHOT_BUNDLES);
 }
@@ -107,22 +122,22 @@ async function collectPage<Row extends CollectionRow, Item>(
   request: Request,
   env: Env,
   requestId: string,
-  feed: CollectionFeed<Row, Item>,
+  feed: CollectionFeed<Row, Item>
 ): Promise<CollectionPage<Item>> {
   const url = new URL(request.url);
   const allowed = new Set([
-    "available_from_ms",
-    "available_before_ms",
-    "limit",
-    "after_available_at_ms",
-    "after_bundle_id",
+    'available_from_ms',
+    'available_before_ms',
+    'limit',
+    'after_available_at_ms',
+    'after_bundle_id'
   ]);
   for (const key of url.searchParams.keys()) {
     if (!allowed.has(key)) {
-      throw apiError("invalid_query", `Unknown query parameter: ${key}`, {
+      throw apiError('invalid_query', `Unknown query parameter: ${key}`, {
         details: {
-          field: key,
-        },
+          field: key
+        }
       });
     }
   }
@@ -130,54 +145,79 @@ async function collectPage<Row extends CollectionRow, Item>(
   const now = Date.now();
   const settlePoint = now - SYNC_SETTLE_LAG_MS;
   const from = integer(
-    oneQueryValue(url.searchParams, "available_from_ms", true),
-    "available_from_ms",
+    oneQueryValue(url.searchParams, 'available_from_ms', true),
+    'available_from_ms'
   );
   if (from < now - SYNC_MAX_LOOKBACK_MS) {
-    throw apiError("window_expired", "Bundle window is outside R2 retention");
+    throw apiError('window_expired', 'Bundle window is outside R2 retention');
   }
-  const beforeValue = oneQueryValue(url.searchParams, "available_before_ms", false);
-  const before = beforeValue === null ? settlePoint : integer(beforeValue, "available_before_ms");
+  const beforeValue = oneQueryValue(
+    url.searchParams,
+    'available_before_ms',
+    false
+  );
+  const before =
+    beforeValue === null
+      ? settlePoint
+      : integer(beforeValue, 'available_before_ms');
   if (before > settlePoint) {
-    throw apiError("window_not_settled", "Bundle window end is not settled");
+    throw apiError('window_not_settled', 'Bundle window end is not settled');
   }
   if (from >= before) {
-    throw apiError("invalid_query", "available_from_ms must be before available_before_ms");
+    throw apiError(
+      'invalid_query',
+      'available_from_ms must be before available_before_ms'
+    );
   }
 
-  const limitValue = oneQueryValue(url.searchParams, "limit", false);
-  const limit = limitValue === null ? SYNC_DEFAULT_LIMIT : integer(limitValue, "limit");
+  const limitValue = oneQueryValue(url.searchParams, 'limit', false);
+  const limit =
+    limitValue === null ? SYNC_DEFAULT_LIMIT : integer(limitValue, 'limit');
   if (limit < 1 || limit > SYNC_MAX_LIMIT) {
-    throw apiError("invalid_query", "limit must be between 1 and 500", {
+    throw apiError('invalid_query', 'limit must be between 1 and 500', {
       details: {
-        field: "limit",
-      },
+        field: 'limit'
+      }
     });
   }
-  const afterTimeValue = oneQueryValue(url.searchParams, "after_available_at_ms", false);
-  const afterId = oneQueryValue(url.searchParams, "after_bundle_id", false);
+  const afterTimeValue = oneQueryValue(
+    url.searchParams,
+    'after_available_at_ms',
+    false
+  );
+  const afterId = oneQueryValue(url.searchParams, 'after_bundle_id', false);
   if ((afterTimeValue === null) !== (afterId === null)) {
-    throw apiError("invalid_query", "Both keyset position fields are required");
+    throw apiError('invalid_query', 'Both keyset position fields are required');
   }
   const afterTime =
-    afterTimeValue === null ? null : integer(afterTimeValue, "after_available_at_ms");
+    afterTimeValue === null
+      ? null
+      : integer(afterTimeValue, 'after_available_at_ms');
   if (
     afterTime !== null &&
-    (afterTime < from || afterTime >= before || afterId === null || !validBundleId(afterId))
+    (afterTime < from ||
+      afterTime >= before ||
+      afterId === null ||
+      !validBundleId(afterId))
   ) {
-    throw apiError("invalid_query", "Keyset position is outside the fixed window");
+    throw apiError(
+      'invalid_query',
+      'Keyset position is outside the fixed window'
+    );
   }
 
   let rows: Row[];
   try {
     const lowerBound =
-      afterTime === null ? "available_at_ms >= ?1" : "(available_at_ms, bundle_id) > (?1, ?4)";
-    const result = await env.DB.prepare(
+      afterTime === null
+        ? 'available_at_ms >= ?1'
+        : '(available_at_ms, bundle_id) > (?1, ?4)';
+    const result = env.DB.prepare(
       `SELECT ${feed.columns}
        FROM bundles INDEXED BY ${feed.index}
        WHERE ${lowerBound} AND available_at_ms < ?2${feed.filter}
        ORDER BY available_at_ms ASC, bundle_id ASC
-       LIMIT ?3`,
+       LIMIT ?3`
     );
     const page =
       afterTime === null
@@ -186,7 +226,7 @@ async function collectPage<Row extends CollectionRow, Item>(
     const found = await page.all<Row>();
     rows = found.results;
   } catch {
-    throw apiError("storage_unavailable", "Bundle index query failed");
+    throw apiError('storage_unavailable', 'Bundle index query failed');
   }
 
   const hasNext = rows.length > limit;
@@ -195,7 +235,7 @@ async function collectPage<Row extends CollectionRow, Item>(
     createBundleDownloadSigner(env),
     returned.map((row) => row.object_key),
     now,
-    "Bundle URL signing failed",
+    'Bundle URL signing failed'
   );
   const items = returned.map((row, index) => feed.item(row, downloads[index]));
   const last = returned.at(-1);
@@ -204,7 +244,7 @@ async function collectPage<Row extends CollectionRow, Item>(
     available_from_ms: from,
     available_before_ms: before,
     row_count: returned.length,
-    has_next: hasNext,
+    has_next: hasNext
   });
   return {
     window: { available_from_ms: from, available_before_ms: before },
@@ -212,6 +252,6 @@ async function collectPage<Row extends CollectionRow, Item>(
     next_after:
       hasNext && last !== undefined
         ? { available_at_ms: last.available_at_ms, bundle_id: last.bundle_id }
-        : null,
+        : null
   };
 }

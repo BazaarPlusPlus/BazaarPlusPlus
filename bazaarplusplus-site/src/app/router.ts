@@ -1,11 +1,19 @@
-import type { AnalysisScope, MetricWindow } from '../features/heroes/hero-analysis';
+import type {
+  AnalysisScope,
+  MetricWindow
+} from '../features/heroes/hero-analysis';
 import type { HeroMetricsSegment } from '../features/heroes/hero-metrics-dataset';
 
 export type Locale = 'en' | 'zh';
 
 const DEFAULT_LOCALE: Locale = 'zh';
 
-export type SpaPage = 'heroes' | 'tutorial' | 'download' | 'support' | 'not-found';
+export type SpaPage =
+  | 'heroes'
+  | 'tutorial'
+  | 'download'
+  | 'support'
+  | 'not-found';
 
 type NavigationGroup = 'primary' | 'secondary';
 
@@ -19,10 +27,13 @@ const ROUTES = [
   { page: 'heroes', path: '/heroes', group: 'primary' },
   { page: 'tutorial', path: '/tutorial', group: 'secondary' },
   { page: 'download', path: '/download', group: 'secondary' },
-  { page: 'support', path: '/support', group: 'secondary' },
+  { page: 'support', path: '/support', group: 'secondary' }
 ] as const satisfies readonly RouteDefinition[];
 
-export type PrimaryNavigationPage = Extract<(typeof ROUTES)[number], { group: 'primary' }>['page'];
+export type PrimaryNavigationPage = Extract<
+  (typeof ROUTES)[number],
+  { group: 'primary' }
+>['page'];
 export type SecondaryNavigationPage = Extract<
   (typeof ROUTES)[number],
   { group: 'secondary' }
@@ -76,7 +87,7 @@ export type SpaLocation = {
 };
 
 const ALIASES: Record<string, string> = {
-  '/supporters': '/support',
+  '/supporters': '/support'
 };
 
 function normalizePathname(pathname: string): string {
@@ -105,7 +116,7 @@ function resolveRoute(pathname: string): ResolvedSpaLocation['route'] {
     ROUTES.find((route) => route.path === resolvedPath) ?? {
       page: 'not-found',
       path: resolvedPath,
-      group: null,
+      group: null
     }
   );
 }
@@ -130,7 +141,11 @@ function buildLocaleHref(raw: RawSpaLocation, locale: Locale): string {
   return `${raw.pathname}${query ? `?${query}` : ''}${raw.hash}`;
 }
 
-function buildScopeSearch(currentSearch: string, locale: Locale, scope: AnalysisScope): string {
+function buildScopeSearch(
+  currentSearch: string,
+  locale: Locale,
+  scope: AnalysisScope
+): string {
   const search = new URLSearchParams(currentSearch);
   if (scope.window === '1d') {
     search.delete('w');
@@ -160,9 +175,15 @@ function scopeSearchNeedsCanonicalization(
     search.getAll(key).length === 1 && search.get(key) === value;
 
   return (
-    (scope.window === '1d' ? search.has('w') : !hasCanonicalValue('w', scope.window)) ||
-    (scope.segment === 'all' ? search.has('s') : !hasCanonicalValue('s', scope.segment)) ||
-    (locale === DEFAULT_LOCALE ? search.has('lang') : !hasCanonicalValue('lang', locale))
+    (scope.window === '1d'
+      ? search.has('w')
+      : !hasCanonicalValue('w', scope.window)) ||
+    (scope.segment === 'all'
+      ? search.has('s')
+      : !hasCanonicalValue('s', scope.segment)) ||
+    (locale === DEFAULT_LOCALE
+      ? search.has('lang')
+      : !hasCanonicalValue('lang', locale))
   );
 }
 
@@ -171,20 +192,21 @@ function resolveLocation(raw: RawSpaLocation): ResolvedSpaLocation {
   const locale = parseLocale(search.get('lang'));
   const scope: AnalysisScope = {
     window: parseMetricWindow(search.get('w')),
-    segment: parseHeroMetricsSegment(search.get('s')),
+    segment: parseHeroMetricsSegment(search.get('s'))
   };
   const normalized = normalizePathname(raw.pathname);
   const canonicalPath = ALIASES[normalized] ?? null;
   const route = resolveRoute(raw.pathname);
   const canonicalSearch =
-    route.page === 'heroes' && scopeSearchNeedsCanonicalization(search, locale, scope)
+    route.page === 'heroes' &&
+    scopeSearchNeedsCanonicalization(search, locale, scope)
       ? buildScopeSearch(raw.search, locale, scope)
       : raw.search;
   const canonicalHref = `${canonicalPath ?? raw.pathname}${canonicalSearch}`;
   const items = ROUTES.map((candidate) => ({
     page: candidate.page,
     group: candidate.group,
-    href: buildRouteHref(candidate.path, locale),
+    href: buildRouteHref(candidate.path, locale)
   }));
 
   return {
@@ -194,16 +216,19 @@ function resolveLocation(raw: RawSpaLocation): ResolvedSpaLocation {
     route,
     locale,
     scope,
-    canonicalHref: canonicalPath != null || canonicalSearch !== raw.search ? canonicalHref : null,
+    canonicalHref:
+      canonicalPath != null || canonicalSearch !== raw.search
+        ? canonicalHref
+        : null,
     navigation: {
       homeHref: buildRouteHref('/', locale),
       heroesHref: buildRouteHref('/heroes', locale),
       items,
       localeHrefs: {
         zh: buildLocaleHref(raw, 'zh'),
-        en: buildLocaleHref(raw, 'en'),
-      },
-    },
+        en: buildLocaleHref(raw, 'en')
+      }
+    }
   };
 }
 
@@ -211,7 +236,10 @@ function toRelativeHref(url: URL): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-function buildScopeHref(location: ResolvedSpaLocation, scope: AnalysisScope): string {
+function buildScopeHref(
+  location: ResolvedSpaLocation,
+  scope: AnalysisScope
+): string {
   return `${location.pathname}${buildScopeSearch(location.search, location.locale, scope)}`;
 }
 
@@ -220,7 +248,7 @@ function readWindowLocation(): RawSpaLocation {
     pathname: window.location.pathname,
     search: window.location.search,
     hash: window.location.hash,
-    origin: window.location.origin,
+    origin: window.location.origin
   };
 }
 
@@ -285,17 +313,27 @@ export function createSpaLocation(): SpaLocation {
       }
 
       const raw = readWindowLocation();
-      const next = new URL(click.href, `${raw.origin}${raw.pathname}${raw.search}${raw.hash}`);
-      if (next.origin !== raw.origin || resolveRoute(next.pathname).page === 'not-found') {
+      const next = new URL(
+        click.href,
+        `${raw.origin}${raw.pathname}${raw.search}${raw.hash}`
+      );
+      if (
+        next.origin !== raw.origin ||
+        resolveRoute(next.pathname).page === 'not-found'
+      ) {
         return false;
       }
-      if (next.pathname === raw.pathname && next.search === raw.search && next.hash.length > 0) {
+      if (
+        next.pathname === raw.pathname &&
+        next.search === raw.search &&
+        next.hash.length > 0
+      ) {
         return false;
       }
 
       window.history.pushState({}, '', toRelativeHref(next));
       notify();
       return true;
-    },
+    }
   };
 }

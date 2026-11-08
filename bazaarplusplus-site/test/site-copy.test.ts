@@ -21,7 +21,9 @@ function collectStrings(value: unknown): string[] {
 describe('site copy', () => {
   test('uses Chinese punctuation in Chinese copy', () => {
     const strings = collectStrings(getSiteCopy('zh'));
-    const stringsWithAsciiCommas = strings.filter((value) => value.includes(','));
+    const stringsWithAsciiCommas = strings.filter((value) =>
+      value.includes(',')
+    );
 
     expect(stringsWithAsciiCommas).toEqual([]);
   });

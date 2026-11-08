@@ -9,14 +9,14 @@ import {
   goldenJson,
   installGoldenRoutes,
   readOrWriteGolden,
-  siteRoot,
+  siteRoot
 } from './golden';
 import { settle } from './page';
 
 // Public icon byte budgets. Raise one only with the reason in the pull request.
 const ICON_BUDGETS: Record<string, number> = {
   'bazaarplusplus-icon.webp': 10_000,
-  'favicon.webp': 5_000,
+  'favicon.webp': 5_000
 };
 
 const ROUTES: Record<string, string> = {
@@ -24,7 +24,7 @@ const ROUTES: Record<string, string> = {
   tutorial: '/tutorial',
   download: '/download',
   heroes: '/heroes',
-  'not-found': '/unknown',
+  'not-found': '/unknown'
 };
 
 type RouteReport = {
@@ -38,7 +38,8 @@ function chunkName(pathname: string): string {
   return pathname.replace(/^.*\//, '').replace(/-[\w-]{8}\.js$/, '.js');
 }
 
-const byKey = ([a]: [string, number], [b]: [string, number]) => a.localeCompare(b);
+const byKey = ([a]: [string, number], [b]: [string, number]) =>
+  a.localeCompare(b);
 
 const report: Record<string, RouteReport> = {};
 
@@ -59,7 +60,9 @@ for (const [route, href] of Object.entries(ROUTES)) {
       if (request.resourceType() === 'script') {
         pending.push(
           (async () => {
-            entry.scripts[chunkName(url.pathname)] = (await request.sizes()).responseBodySize;
+            entry.scripts[chunkName(url.pathname)] = (
+              await request.sizes()
+            ).responseBodySize;
           })()
         );
       } else if (name in ICON_BUDGETS) {
@@ -75,23 +78,32 @@ for (const [route, href] of Object.entries(ROUTES)) {
     await settle(page);
     // Headless Chromium never requests <link rel="icon">, so fetch the declared favicon href.
     const favicon = await page.locator('link[rel="icon"]').getAttribute('href');
-    entry.icons['favicon.webp'] = (await (await page.request.get(favicon!)).body()).byteLength;
+    entry.icons['favicon.webp'] = (
+      await (await page.request.get(favicon!)).body()
+    ).byteLength;
     await Promise.all(pending);
 
     entry.external.sort((a, b) => a.localeCompare(b));
-    entry.scripts = Object.fromEntries(Object.entries(entry.scripts).sort(byKey));
+    entry.scripts = Object.fromEntries(
+      Object.entries(entry.scripts).sort(byKey)
+    );
     entry.icons = Object.fromEntries(Object.entries(entry.icons).sort(byKey));
     report[route] = entry;
 
     // Which icons a route loads is pinned by the committed report; each one stays within budget.
     for (const [icon, bytes] of Object.entries(entry.icons)) {
-      expect(bytes, `${icon} transfer bytes on ${href}`).toBeLessThanOrEqual(ICON_BUDGETS[icon]);
+      expect(bytes, `${icon} transfer bytes on ${href}`).toBeLessThanOrEqual(
+        ICON_BUDGETS[icon]
+      );
     }
     if (route !== 'heroes') {
-      expect(Object.keys(entry.scripts), `${href} must not load the /heroes chunk`).not.toContain(
-        'route-pages.js'
+      expect(
+        Object.keys(entry.scripts),
+        `${href} must not load the /heroes chunk`
+      ).not.toContain('route-pages.js');
+      expect(entry.external, `${href} must not request metrics`).not.toContain(
+        METRICS_URL
       );
-      expect(entry.external, `${href} must not request metrics`).not.toContain(METRICS_URL);
     }
     expectNoUnexpectedRequests(routes);
   });
@@ -111,8 +123,8 @@ test('chunk names and external sources match the committed report', () => {
         {
           scripts: Object.keys(entry.scripts),
           external: entry.external,
-          icons: Object.keys(entry.icons),
-        },
+          icons: Object.keys(entry.icons)
+        }
       ])
     );
   expect(shape(report)).toEqual(shape(committed));
@@ -126,8 +138,9 @@ test('the main bundle leaves Hero metrics ingestion to the lazy /heroes chunk', 
     );
     expect(files, `one ${prefix} chunk in dist/assets`).toHaveLength(1);
     return (
-      readFileSync(resolve(assets, files[0]), 'utf8').split('cdn.bazaarplusplus.com/metrics/v6')
-        .length - 1
+      readFileSync(resolve(assets, files[0]), 'utf8').split(
+        'cdn.bazaarplusplus.com/metrics/v6'
+      ).length - 1
     );
   };
 

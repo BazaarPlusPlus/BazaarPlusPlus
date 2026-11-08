@@ -15,7 +15,7 @@ function formatStepNumber(index: number): string {
 
 function FeatureCard({
   feature,
-  index,
+  index
 }: {
   feature: TutorialPageCopy['features'][number];
   index: number;
@@ -23,17 +23,24 @@ function FeatureCard({
   return (
     <article className="panel flex flex-col gap-3 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
-        <h3 className="text-lg leading-snug font-semibold text-text-1">{feature.title}</h3>
+        <h3 className="text-lg leading-snug font-semibold text-text-1">
+          {feature.title}
+        </h3>
         <span className="shrink-0 text-sm font-medium text-text-3 tabular-nums">
           {formatStepNumber(index)}
         </span>
       </div>
-      <p className="text-[15px] whitespace-pre-line text-text-2">{feature.description}</p>
+      <p className="text-[15px] whitespace-pre-line text-text-2">
+        {feature.description}
+      </p>
       {feature.details.length > 0 ? (
         <ul className="mt-auto flex flex-col gap-2 border-t border-line pt-3 text-[15px] text-text-2">
           {feature.details.map((detail) => (
             <li key={detail} className="flex gap-3">
-              <span aria-hidden="true" className="mt-2.5 size-1 shrink-0 rounded-full bg-text-3" />
+              <span
+                aria-hidden="true"
+                className="mt-2.5 size-1 shrink-0 rounded-full bg-text-3"
+              />
               <span>{detail}</span>
             </li>
           ))}
@@ -43,7 +50,11 @@ function FeatureCard({
   );
 }
 
-function InstallationGuide({ copy }: { copy: TutorialPageCopy['installation'] }) {
+function InstallationGuide({
+  copy
+}: {
+  copy: TutorialPageCopy['installation'];
+}) {
   return (
     <section id="installation" className="grid scroll-mt-24 gap-5">
       <SectionHeading>{copy.heading}</SectionHeading>
@@ -62,7 +73,9 @@ function InstallationGuide({ copy }: { copy: TutorialPageCopy['installation'] })
             </span>
             <span className="grid gap-1">
               <span className="font-semibold text-text-1">{step.title}</span>
-              <span className="text-[15px] text-text-2">{step.description}</span>
+              <span className="text-[15px] text-text-2">
+                {step.description}
+              </span>
             </span>
           </li>
         ))}
@@ -71,7 +84,8 @@ function InstallationGuide({ copy }: { copy: TutorialPageCopy['installation'] })
   );
 }
 
-type HotkeyItem = TutorialPageCopy['quickStart']['groups'][number]['items'][number];
+type HotkeyItem =
+  TutorialPageCopy['quickStart']['groups'][number]['items'][number];
 
 type HotkeyBinding = HotkeyItem['bindings'][number];
 
@@ -101,20 +115,29 @@ function HotkeyCard({ item }: { item: HotkeyItem }) {
             ) : null}
           </>
         ) : (
-          item.bindings.map((binding) => <Keycap key={binding.key} binding={binding} />)
+          item.bindings.map((binding) => (
+            <Keycap key={binding.key} binding={binding} />
+          ))
         )}
       </div>
       <div className="grid min-w-0 gap-1">
-        <h3 className="text-[15px] leading-snug font-semibold text-text-1">{item.title}</h3>
+        <h3 className="text-[15px] leading-snug font-semibold text-text-1">
+          {item.title}
+        </h3>
         <p className="text-[15px] break-words whitespace-pre-line text-text-2">
           {item.description}
         </p>
         {secondaryBindings.length > 0 ? (
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-3">
             {secondaryBindings.map((binding, index) => (
-              <span key={binding.key} className="inline-flex min-w-0 items-center gap-1.5">
+              <span
+                key={binding.key}
+                className="inline-flex min-w-0 items-center gap-1.5"
+              >
                 {index > 0 ? <span aria-hidden="true">·</span> : null}
-                <span className="font-semibold text-text-1 tabular-nums">{binding.key}</span>
+                <span className="font-semibold text-text-1 tabular-nums">
+                  {binding.key}
+                </span>
                 <span className="whitespace-nowrap">{binding.action}</span>
               </span>
             ))}
@@ -131,9 +154,14 @@ function QuickStart({ copy }: { copy: TutorialPageCopy['quickStart'] }) {
       <SectionHeading>{copy.heading}</SectionHeading>
       <div className="grid gap-8">
         {copy.groups.map((group) => (
-          <section key={group.title} className="grid min-w-0 content-start gap-4">
+          <section
+            key={group.title}
+            className="grid min-w-0 content-start gap-4"
+          >
             <header className="grid gap-1">
-              <h3 className="text-[15px] font-semibold text-text-1">{group.title}</h3>
+              <h3 className="text-[15px] font-semibold text-text-1">
+                {group.title}
+              </h3>
               <p className="text-[15px] text-text-2">{group.description}</p>
               {group.note ? (
                 <p className="mt-2 w-fit max-w-full rounded-panel border border-line bg-sidebar px-3 py-2 text-sm break-words text-text-2">
@@ -156,8 +184,12 @@ function QuickStart({ copy }: { copy: TutorialPageCopy['quickStart'] }) {
 export default function TutorialPage({ location }: TutorialPageProps) {
   const { locale } = location;
   const copy = getSiteCopy(locale).tutorial;
-  const downloadHref = location.navigation.items.find((item) => item.page === 'download')!.href;
-  const supportHref = location.navigation.items.find((item) => item.page === 'support')!.href;
+  const downloadHref = location.navigation.items.find(
+    (item) => item.page === 'download'
+  )!.href;
+  const supportHref = location.navigation.items.find(
+    (item) => item.page === 'support'
+  )!.href;
 
   return (
     <InfoPageShell location={location} title={copy.title} intro={copy.intro}>

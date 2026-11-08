@@ -14,14 +14,14 @@ import {
   type AndroidGameStatus,
   type DesktopGameRelease,
   type DownloadPlatform as ReleasePlatform,
-  type GameStatus,
+  type GameStatus
 } from '../../../../release/downloads';
 
 export type {
   AndroidDownload,
   AndroidGameStatus,
   DesktopGameRelease,
-  GameStatus,
+  GameStatus
 } from '../../../../release/downloads';
 /** The platforms that ship a desktop installer; Android ships an APK (`loadAndroidRelease`). */
 export type DownloadPlatform = Exclude<ReleasePlatform, 'android'>;
@@ -66,8 +66,11 @@ function decodeDownloadUrl(
       ? (downloads as Record<string, unknown>)[platformKey]
       : undefined;
   const value =
-    record && typeof record === 'object' ? (record as { url?: unknown }).url : undefined;
-  if (typeof value !== 'string') throw new Error(`${path} missing ${platformKey} download`);
+    record && typeof record === 'object'
+      ? (record as { url?: unknown }).url
+      : undefined;
+  if (typeof value !== 'string')
+    throw new Error(`${path} missing ${platformKey} download`);
   const url = new URL(value);
   const release = `/${version}/${platformKey}/installer/`;
   if (
@@ -82,10 +85,13 @@ function decodeDownloadUrl(
   return value;
 }
 
-async function fetchPlatformManifest(path: string, signal: AbortSignal): Promise<unknown> {
+async function fetchPlatformManifest(
+  path: string,
+  signal: AbortSignal
+): Promise<unknown> {
   const response = await fetch(`${RELEASE_BASE_URL}/${path}`, {
     headers: { Accept: 'application/json' },
-    signal,
+    signal
   });
   if (!response.ok) {
     throw new Error(`${path} responded with ${response.status}`);
@@ -105,7 +111,7 @@ async function loadPlatformDownload(
     version,
     downloadUrl: decodeDownloadUrl(payload, path, platformKey, version),
     mainlandDownloadUrl: decodeMainlandDownloadUrl(payload, platformKey),
-    game: decodeDesktopGameRelease(payload, platformKey),
+    game: decodeDesktopGameRelease(payload, platformKey)
   };
 }
 
@@ -114,11 +120,17 @@ async function loadPlatformDownload(
  * release is adapted to, and the Managed Payload and Interop Package the App downloads itself.
  * Android is not part of the lockstep `latest.json`.
  */
-export async function loadAndroidRelease(signal: AbortSignal): Promise<AndroidDownload> {
+export async function loadAndroidRelease(
+  signal: AbortSignal
+): Promise<AndroidDownload> {
   const platformKey = DOWNLOAD_PLATFORM_KEYS.android;
   const path = platformManifestPath(platformKey);
-  const release = decodeAndroidDownload(await fetchPlatformManifest(path, signal), platformKey);
-  if (!release) throw new Error(`${path} has an invalid ${platformKey} release`);
+  const release = decodeAndroidDownload(
+    await fetchPlatformManifest(path, signal),
+    platformKey
+  );
+  if (!release)
+    throw new Error(`${path} has an invalid ${platformKey} release`);
   return release;
 }
 
@@ -127,8 +139,12 @@ async function fetchGameStatus<T>(
   decode: (payload: unknown) => T | null,
   signal: AbortSignal
 ): Promise<T> {
-  const response = await fetch(url, { headers: { Accept: 'application/json' }, signal });
-  if (!response.ok) throw new Error(`Game Status responded with ${response.status}`);
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+    signal
+  });
+  if (!response.ok)
+    throw new Error(`Game Status responded with ${response.status}`);
   const status = decode(await response.json());
   if (!status) throw new Error('Game Status is invalid');
   return status;
@@ -140,21 +156,34 @@ export function loadGameStatus(signal: AbortSignal): Promise<GameStatus> {
 }
 
 /** The online game of the publisher's official APK. */
-export function loadAndroidGameStatus(signal: AbortSignal): Promise<AndroidGameStatus> {
-  return fetchGameStatus(ANDROID_GAME_STATUS_URL, decodeAndroidGameStatus, signal);
+export function loadAndroidGameStatus(
+  signal: AbortSignal
+): Promise<AndroidGameStatus> {
+  return fetchGameStatus(
+    ANDROID_GAME_STATUS_URL,
+    decodeAndroidGameStatus,
+    signal
+  );
 }
 
 /**
  * Whether the online game is the adapted one: the same game code identity (ADR 0016), so a
  * content-only game update stays adapted.
  */
-export function sameDesktopGame(adapted: DesktopGameRelease, online: DesktopGameRelease): boolean {
+export function sameDesktopGame(
+  adapted: DesktopGameRelease,
+  online: DesktopGameRelease
+): boolean {
   return adapted.managedSha256 === online.managedSha256;
 }
 
-export function sameAndroidGame(adapted: AndroidGameRelease, online: AndroidGameRelease): boolean {
+export function sameAndroidGame(
+  adapted: AndroidGameRelease,
+  online: AndroidGameRelease
+): boolean {
   return (
-    adapted.il2cppSha256 === online.il2cppSha256 && adapted.metadataSha256 === online.metadataSha256
+    adapted.il2cppSha256 === online.il2cppSha256 &&
+    adapted.metadataSha256 === online.metadataSha256
   );
 }
 
@@ -163,14 +192,16 @@ export function gameReleaseNumber(gameVersion: string): string {
   return /^\d+(?:\.\d+)+/.exec(gameVersion)?.[0] ?? gameVersion;
 }
 
-export async function loadLatestInstaller(signal: AbortSignal): Promise<LatestInstaller> {
+export async function loadLatestInstaller(
+  signal: AbortSignal
+): Promise<LatestInstaller> {
   const platforms: DownloadPlatform[] = ['windows', 'mac'];
   const settled = await Promise.allSettled(
     platforms.map((platform) => loadPlatformDownload(platform, signal))
   );
   const downloads = {
     windows: null,
-    mac: null,
+    mac: null
   } as LatestInstaller['downloads'];
   const failures: unknown[] = [];
   settled.forEach((result, index) => {
@@ -179,7 +210,9 @@ export async function loadLatestInstaller(signal: AbortSignal): Promise<LatestIn
     else failures.push(result.reason);
   });
   if (failures.length === platforms.length) {
-    throw failures[0] instanceof Error ? failures[0] : new Error(String(failures[0]));
+    throw failures[0] instanceof Error
+      ? failures[0]
+      : new Error(String(failures[0]));
   }
   return { downloads };
 }

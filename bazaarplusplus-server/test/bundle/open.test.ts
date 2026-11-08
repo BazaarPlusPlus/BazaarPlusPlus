@@ -1,34 +1,39 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from 'vitest';
 
-import checksums from "../../contracts/v6/fixtures/checksums.json";
-import corruptMagicBase64 from "../../contracts/v6/fixtures/corrupt-magic.bundle.b64?raw";
-import runOnlyBase64 from "../../contracts/v6/fixtures/run-only.bundle.b64?raw";
-import manifest from "../../contracts/v6/fixtures/run-only.manifest.json";
-import segmentMismatchBase64 from "../../contracts/v6/fixtures/segment-digest-mismatch.bundle.b64?raw";
-import { openBundle } from "../../src/bundle/open";
-import { decodeBase64, makeBundleFixture, sealBundle, stream } from "../fixtures/bundle";
+import checksums from '../../contracts/v6/fixtures/checksums.json';
+import corruptMagicBase64 from '../../contracts/v6/fixtures/corrupt-magic.bundle.b64?raw';
+import runOnlyBase64 from '../../contracts/v6/fixtures/run-only.bundle.b64?raw';
+import manifest from '../../contracts/v6/fixtures/run-only.manifest.json';
+import segmentMismatchBase64 from '../../contracts/v6/fixtures/segment-digest-mismatch.bundle.b64?raw';
+import { openBundle } from '../../src/bundle/open';
+import {
+  decodeBase64,
+  makeBundleFixture,
+  sealBundle,
+  stream
+} from '../fixtures/bundle';
 
 async function rejection(promise: Promise<unknown>): Promise<unknown> {
   return promise.then(
     () => undefined,
-    (error: unknown) => error,
+    (error: unknown) => error
   );
 }
 
-describe("openBundle", () => {
+describe('openBundle', () => {
   test("cancels the source and rejects the digest with the caller's reason", async () => {
     const bytes = decodeBase64(runOnlyBase64);
     const manifestEnd = 16 + new DataView(bytes.buffer).getUint32(12, false);
     const cancel = vi.fn();
     const source = new ReadableStream({
-      type: "bytes",
+      type: 'bytes',
       start(controller) {
         controller.enqueue(bytes.slice(0, manifestEnd + 1));
       },
-      cancel,
+      cancel
     });
     const opened = await openBundle(source, bytes.byteLength, null);
-    const reason = new Error("upload no longer needed");
+    const reason = new Error('upload no longer needed');
 
     await opened.body.cancel(reason);
 
@@ -36,23 +41,23 @@ describe("openBundle", () => {
     expect(cancel).toHaveBeenCalledExactlyOnceWith(reason);
   });
 
-  test("rejects body and digest with the original source failure", async () => {
+  test('rejects body and digest with the original source failure', async () => {
     const bytes = decodeBase64(runOnlyBase64);
     const manifestEnd = 16 + new DataView(bytes.buffer).getUint32(12, false);
-    const reason = new Error("upload disconnected");
+    const reason = new Error('upload disconnected');
     const source = new ReadableStream({
-      type: "bytes",
+      type: 'bytes',
       start(controller) {
         controller.enqueue(bytes.slice(0, manifestEnd + 1));
       },
       pull(controller) {
         controller.error(reason);
-      },
+      }
     });
     const opened = await openBundle(source, bytes.byteLength, null);
     const [bodyError, digestError] = await Promise.all([
       rejection(opened.body.pipeTo(new WritableStream<Uint8Array>())),
-      rejection(opened.digest),
+      rejection(opened.digest)
     ]);
 
     expect(bodyError).toBe(reason);
@@ -60,69 +65,77 @@ describe("openBundle", () => {
   });
 
   test.each([
-    [1_048_576, "undeclared_trailing_bytes"],
-    [-1, "segment_out_of_bounds"],
+    [1_048_576, 'undeclared_trailing_bytes'],
+    [-1, 'segment_out_of_bounds']
   ])(
-    "rejects a declared length difference of %i before reading payload bytes",
+    'rejects a declared length difference of %i before reading payload bytes',
     async (difference, reason) => {
       const bytes = decodeBase64(runOnlyBase64);
       const manifestEnd = 16 + new DataView(bytes.buffer).getUint32(12, false);
       const pull = vi.fn(() => {
-        throw new Error("payload must not be read");
+        throw new Error('payload must not be read');
       });
       const cancel = vi.fn();
       const source = new ReadableStream(
         {
-          type: "bytes",
+          type: 'bytes',
           start(controller) {
             controller.enqueue(bytes.slice(0, manifestEnd));
           },
           pull,
-          cancel,
+          cancel
         },
-        { highWaterMark: 0 },
+        { highWaterMark: 0 }
       );
-      await expect(openBundle(source, bytes.byteLength + difference, null)).rejects.toMatchObject({
+      await expect(
+        openBundle(source, bytes.byteLength + difference, null)
+      ).rejects.toMatchObject({
         status: 422,
-        details: { reason },
+        details: { reason }
       });
       expect(pull).not.toHaveBeenCalled();
       expect(cancel).toHaveBeenCalledOnce();
-    },
+    }
   );
-  test("rejects corrupt magic before exposing a body", async () => {
+  test('rejects corrupt magic before exposing a body', async () => {
     const bytes = decodeBase64(corruptMagicBase64);
-    await expect(openBundle(stream(bytes), bytes.byteLength, null)).rejects.toMatchObject({
+    await expect(
+      openBundle(stream(bytes), bytes.byteLength, null)
+    ).rejects.toMatchObject({
       status: 422,
-      code: "invalid_bundle",
-      message: "Bundle magic is invalid",
+      code: 'invalid_bundle',
+      message: 'Bundle magic is invalid',
       retryable: false,
-      details: { reason: "invalid_prefix" },
+      details: { reason: 'invalid_prefix' }
     });
   });
 
-  test("rejects body and digest with the same segment mismatch error", async () => {
+  test('rejects body and digest with the same segment mismatch error', async () => {
     const bytes = decodeBase64(segmentMismatchBase64);
     const opened = await openBundle(stream(bytes), bytes.byteLength, null);
     const [bodyError, digestError] = await Promise.all([
       rejection(opened.body.pipeTo(new WritableStream<Uint8Array>())),
-      rejection(opened.digest),
+      rejection(opened.digest)
     ]);
 
     expect(bodyError).toBe(digestError);
     expect(bodyError).toMatchObject({
       status: 422,
-      code: "segment_digest_mismatch",
-      message: "A Bundle segment digest does not match its manifest",
+      code: 'segment_digest_mismatch',
+      message: 'A Bundle segment digest does not match its manifest',
       retryable: false,
-      details: undefined,
+      details: undefined
     });
   });
 
-  test("opens and validates the canonical Run-only Bundle", async () => {
+  test('opens and validates the canonical Run-only Bundle', async () => {
     const bytes = decodeBase64(runOnlyBase64);
-    const golden = checksums["run-only.bundle.b64"];
-    const opened = await openBundle(stream(bytes), bytes.byteLength, golden.sha256);
+    const golden = checksums['run-only.bundle.b64'];
+    const opened = await openBundle(
+      stream(bytes),
+      bytes.byteLength,
+      golden.sha256
+    );
 
     expect(opened.descriptor).toMatchObject({
       bundleId: manifest.bundle_id,
@@ -135,58 +148,67 @@ describe("openBundle", () => {
       run: {
         offset: manifest.run.payload.offset,
         length: manifest.run.payload.length,
-        sha256: manifest.run.payload.sha256,
+        sha256: manifest.run.payload.sha256
       },
       screenshot: null,
-      battles: [],
+      battles: []
     });
-    await expect(opened.body.pipeTo(new WritableStream<Uint8Array>())).resolves.toBeUndefined();
+    await expect(
+      opened.body.pipeTo(new WritableStream<Uint8Array>())
+    ).resolves.toBeUndefined();
     await expect(opened.digest).resolves.toBe(golden.sha256);
   });
 
-  test.each(["winner_combatant_id", "loser_combatant_id"])(
-    "rejects a Battle whose %s is null or missing",
+  test.each(['winner_combatant_id', 'loser_combatant_id'])(
+    'rejects a Battle whose %s is null or missing',
     async (field) => {
       const { manifest } = await makeBundleFixture();
       const run = new Uint8Array([0x1f, 0x8b, 0x08, 0, 5, 4, 3, 2, 1]);
-      const projection = (manifest.run as { projection: { battles: Record<string, unknown>[] } })
-        .projection;
+      const projection = (
+        manifest.run as { projection: { battles: Record<string, unknown>[] } }
+      ).projection;
       for (const mutate of [
         (battle: Record<string, unknown>) => {
           battle[field] = null;
         },
         (battle: Record<string, unknown>) => {
           delete battle[field];
-        },
+        }
       ]) {
         const battle = structuredClone(projection.battles[0]);
         mutate(battle);
         projection.battles = [battle];
         const { body } = await sealBundle(manifest, run);
-        await expect(openBundle(stream(body), body.byteLength, null)).rejects.toMatchObject({
+        await expect(
+          openBundle(stream(body), body.byteLength, null)
+        ).rejects.toMatchObject({
           status: 422,
-          code: "invalid_bundle",
-          details: { reason: "manifest_schema_invalid" },
+          code: 'invalid_bundle',
+          details: { reason: 'manifest_schema_invalid' }
         });
       }
-    },
+    }
   );
 
-  test("maps an expected whole-Bundle digest mismatch without changing its text", async () => {
+  test('maps an expected whole-Bundle digest mismatch without changing its text', async () => {
     const bytes = decodeBase64(runOnlyBase64);
-    const opened = await openBundle(stream(bytes), bytes.byteLength, "0".repeat(64));
+    const opened = await openBundle(
+      stream(bytes),
+      bytes.byteLength,
+      '0'.repeat(64)
+    );
     const [bodyError, digestError] = await Promise.all([
       rejection(opened.body.pipeTo(new WritableStream<Uint8Array>())),
-      rejection(opened.digest),
+      rejection(opened.digest)
     ]);
 
     expect(bodyError).toBe(digestError);
     expect(bodyError).toMatchObject({
       status: 422,
-      code: "bundle_digest_mismatch",
-      message: "Bundle digest does not match Content-Digest",
+      code: 'bundle_digest_mismatch',
+      message: 'Bundle digest does not match Content-Digest',
       retryable: false,
-      details: undefined,
+      details: undefined
     });
   });
 });

@@ -2,7 +2,10 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react';
 
 import type { Locale } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
-import { formatInteger, formatNullablePercent } from '../../shared/lib/dashboard';
+import {
+  formatInteger,
+  formatNullablePercent
+} from '../../shared/lib/dashboard';
 import HeroBadge from '../../shared/components/HeroBadge';
 import type { HeroRanking } from './hero-analysis';
 
@@ -21,7 +24,9 @@ type RankingSortKey =
 
 type SortDirection = 'asc' | 'desc';
 type SortValue = string | number | null;
-type TableHeaders = ReturnType<typeof getSiteCopy>['stats']['heroes']['tableHeaders'];
+type TableHeaders = ReturnType<
+  typeof getSiteCopy
+>['stats']['heroes']['tableHeaders'];
 
 type ColumnContext = {
   locale: Locale;
@@ -62,7 +67,8 @@ const RANKING_COLUMNS: RankingColumn[] = [
     label: 'hero',
     width: '104px',
     initialDirection: 'asc',
-    headerClassName: 'sticky left-0 z-20 border-r border-line bg-panel px-4 py-2.5 text-left',
+    headerClassName:
+      'sticky left-0 z-20 border-r border-line bg-panel px-4 py-2.5 text-left',
     value: (row) => row.hero,
     renderCell: (row, context) => {
       const selected = row.hero === context.focusedHero;
@@ -77,7 +83,7 @@ const RANKING_COLUMNS: RankingColumn[] = [
           </button>
         </td>
       );
-    },
+    }
   },
   {
     key: 'tenWinRate',
@@ -109,7 +115,7 @@ const RANKING_COLUMNS: RankingColumn[] = [
           </span>
         </td>
       );
-    },
+    }
   },
   {
     key: 'runsCompleted',
@@ -119,8 +125,10 @@ const RANKING_COLUMNS: RankingColumn[] = [
     headerClassName: HEADER_CELL,
     value: (row) => row.runsCompleted,
     renderCell: (row, context) => (
-      <td className={`${CELL} text-text-2`}>{formatInteger(row.runsCompleted, context.locale)}</td>
-    ),
+      <td className={`${CELL} text-text-2`}>
+        {formatInteger(row.runsCompleted, context.locale)}
+      </td>
+    )
   },
   {
     key: 'runShare',
@@ -130,8 +138,10 @@ const RANKING_COLUMNS: RankingColumn[] = [
     headerClassName: HEADER_CELL,
     value: (row) => row.runShare,
     renderCell: (row, context) => (
-      <td className={`${CELL} text-text-2`}>{renderRate(row.runShare, context.noValueLabel)}</td>
-    ),
+      <td className={`${CELL} text-text-2`}>
+        {renderRate(row.runShare, context.noValueLabel)}
+      </td>
+    )
   },
   {
     key: 'tenWinCount',
@@ -141,8 +151,10 @@ const RANKING_COLUMNS: RankingColumn[] = [
     headerClassName: HEADER_CELL,
     value: (row) => row.tenWinCount,
     renderCell: (row, context) => (
-      <td className={`${CELL} text-text-1`}>{formatInteger(row.tenWinCount, context.locale)}</td>
-    ),
+      <td className={`${CELL} text-text-1`}>
+        {formatInteger(row.tenWinCount, context.locale)}
+      </td>
+    )
   },
   {
     key: 'avgRunDays10w',
@@ -154,11 +166,13 @@ const RANKING_COLUMNS: RankingColumn[] = [
     renderCell: (row, context) => (
       <td
         className={`${CELL} text-text-2`}
-        aria-label={row.avgRunDays10w == null ? context.noValueLabel : undefined}
+        aria-label={
+          row.avgRunDays10w == null ? context.noValueLabel : undefined
+        }
       >
         {formatDays(row.avgRunDays10w)}
       </td>
-    ),
+    )
   },
   ...(
     [
@@ -166,7 +180,7 @@ const RANKING_COLUMNS: RankingColumn[] = [
       ['goldRate', 'gold', '8.7%'],
       ['silverRate', 'silver', '8.7%'],
       ['bronzeRate', 'bronze', '8.7%'],
-      ['misfortuneRate', 'misfortune', '9.7%'],
+      ['misfortuneRate', 'misfortune', '9.7%']
     ] as const
   ).map(([key, label, width]): RankingColumn => ({
     key,
@@ -176,9 +190,11 @@ const RANKING_COLUMNS: RankingColumn[] = [
     headerClassName: HEADER_CELL,
     value: (row) => row[key],
     renderCell: (row, context) => (
-      <td className={`${CELL} text-text-2`}>{renderRate(row[key], context.noValueLabel)}</td>
-    ),
-  })),
+      <td className={`${CELL} text-text-2`}>
+        {renderRate(row[key], context.noValueLabel)}
+      </td>
+    )
+  }))
 ];
 
 function sortRanking(
@@ -202,7 +218,7 @@ function sortRanking(
         ? leftValue - rightValue
         : String(leftValue).localeCompare(String(rightValue), undefined, {
             numeric: true,
-            sensitivity: 'base',
+            sensitivity: 'base'
           });
     return direction === 'asc' ? result : -result;
   });
@@ -213,7 +229,7 @@ function SortableHeader({
   label,
   activeKey,
   direction,
-  onSort,
+  onSort
 }: {
   column: RankingColumn;
   label: string;
@@ -240,7 +256,10 @@ function SortableHeader({
         }`}
       >
         <span className="whitespace-nowrap">{label}</span>
-        <span aria-hidden="true" className="flex flex-col text-[0.55rem] leading-[0.7]">
+        <span
+          aria-hidden="true"
+          className="flex flex-col text-[0.55rem] leading-[0.7]"
+        >
           <span className={isAsc ? 'text-accent' : 'opacity-40'}>▲</span>
           <span className={isDesc ? 'text-accent' : 'opacity-40'}>▼</span>
         </span>
@@ -253,7 +272,7 @@ export default function HeroRankingTable({
   locale,
   rows,
   focusedHero,
-  onFocusHero,
+  onFocusHero
 }: {
   locale: Locale;
   rows: HeroRanking[];
@@ -270,7 +289,8 @@ export default function HeroRankingTable({
     [rows, sort.direction, sort.key]
   );
   const maxTenWinRate = rows.reduce(
-    (max, row) => (row.tenWinRate != null && row.tenWinRate > max ? row.tenWinRate : max),
+    (max, row) =>
+      row.tenWinRate != null && row.tenWinRate > max ? row.tenWinRate : max,
     0
   );
   const context: ColumnContext = {
@@ -278,7 +298,7 @@ export default function HeroRankingTable({
     focusedHero,
     maxTenWinRate,
     noValueLabel: copy.common.noValueLabel,
-    onFocusHero,
+    onFocusHero
   };
 
   const changeSort = (column: RankingColumn) => {
@@ -286,7 +306,7 @@ export default function HeroRankingTable({
       current.key === column.key
         ? {
             key: current.key,
-            direction: current.direction === 'desc' ? 'asc' : 'desc',
+            direction: current.direction === 'desc' ? 'asc' : 'desc'
           }
         : { key: column.key, direction: column.initialDirection }
     );
@@ -324,7 +344,9 @@ export default function HeroRankingTable({
               className="group border-t border-line text-[15px] text-text-1 transition-colors duration-(--t-fast) hover:bg-hover"
             >
               {RANKING_COLUMNS.map((column) => (
-                <Fragment key={column.key}>{column.renderCell(row, context)}</Fragment>
+                <Fragment key={column.key}>
+                  {column.renderCell(row, context)}
+                </Fragment>
               ))}
             </tr>
           ))}

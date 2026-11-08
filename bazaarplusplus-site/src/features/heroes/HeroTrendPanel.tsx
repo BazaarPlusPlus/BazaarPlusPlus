@@ -1,12 +1,16 @@
 import {
   useState,
   type MouseEvent as ReactMouseEvent,
-  type TouchEvent as ReactTouchEvent,
+  type TouchEvent as ReactTouchEvent
 } from 'react';
 
 import type { Locale } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
-import { formatNullablePercent, formatPercent, formatShortDate } from '../../shared/lib/dashboard';
+import {
+  formatNullablePercent,
+  formatPercent,
+  formatShortDate
+} from '../../shared/lib/dashboard';
 import HeroBadge from '../../shared/components/HeroBadge';
 import type { HeroAnalysis } from './hero-analysis';
 
@@ -42,7 +46,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function getChartX(dayIndex: number, dayCount: number) {
-  const chartInnerWidth = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
+  const chartInnerWidth =
+    CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
   if (dayCount <= 1) {
     return CHART_PADDING.left + chartInnerWidth / 2;
   }
@@ -51,7 +56,8 @@ function getChartX(dayIndex: number, dayCount: number) {
 }
 
 function getChartY(value: number, min: number, max: number) {
-  const chartInnerHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+  const chartInnerHeight =
+    CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
   if (max - min <= 0.0001) {
     return CHART_PADDING.top + chartInnerHeight / 2;
   }
@@ -68,7 +74,9 @@ function getNearestChartPoint(
     return undefined;
   }
 
-  const svg = event.currentTarget.ownerSVGElement || (event.currentTarget as SVGSVGElement);
+  const svg =
+    event.currentTarget.ownerSVGElement ||
+    (event.currentTarget as SVGSVGElement);
   const rect = svg?.getBoundingClientRect();
   if (rect == null || rect.width <= 0) {
     return points.at(-1);
@@ -77,7 +85,9 @@ function getNearestChartPoint(
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
   const pointerX = ((clientX - rect.left) / rect.width) * CHART_WIDTH;
   return points.reduce((nearest, point) =>
-    Math.abs(point.x - pointerX) < Math.abs(nearest.x - pointerX) ? point : nearest
+    Math.abs(point.x - pointerX) < Math.abs(nearest.x - pointerX)
+      ? point
+      : nearest
   );
 }
 
@@ -85,20 +95,34 @@ export default function HeroTrendPanel({
   locale,
   trend,
   focusedHero,
-  onFocusHero,
+  onFocusHero
 }: HeroTrendPanelProps) {
   const heroCopy = getSiteCopy(locale).stats.heroes;
   const { dayAxis, series } = trend;
-  const focusedSeries = series.find((heroSeries) => heroSeries.hero === focusedHero);
-  const [hoveredPoint, setHoveredPoint] = useState<HoveredTrendPoint | null>(null);
+  const focusedSeries = series.find(
+    (heroSeries) => heroSeries.hero === focusedHero
+  );
+  const [hoveredPoint, setHoveredPoint] = useState<HoveredTrendPoint | null>(
+    null
+  );
   const clearPoint = () => setHoveredPoint(null);
 
-  const winRates = series.flatMap((heroSeries) => heroSeries.points.map((point) => point.winRate));
+  const winRates = series.flatMap((heroSeries) =>
+    heroSeries.points.map((point) => point.winRate)
+  );
   const minWinRate = winRates.length > 0 ? Math.min(...winRates) : 0;
   const maxWinRate = winRates.length > 0 ? Math.max(...winRates) : 1;
   const spread = Math.max(maxWinRate - minWinRate, 0.04);
-  const paddedMin = clamp((Math.floor(((minWinRate - spread * 0.2) * 100) / 5) * 5) / 100, 0, 0.95);
-  const paddedMax = clamp((Math.ceil(((maxWinRate + spread * 0.2) * 100) / 5) * 5) / 100, 0.05, 1);
+  const paddedMin = clamp(
+    (Math.floor(((minWinRate - spread * 0.2) * 100) / 5) * 5) / 100,
+    0,
+    0.95
+  );
+  const paddedMax = clamp(
+    (Math.ceil(((maxWinRate + spread * 0.2) * 100) / 5) * 5) / 100,
+    0.05,
+    1
+  );
   const yMin = Math.min(paddedMin, maxWinRate);
   const yMax = Math.max(paddedMax, minWinRate + 0.01);
   const tickStep = (yMax - yMin) / GRIDLINE_COUNT;
@@ -123,11 +147,14 @@ export default function HeroTrendPanel({
           CHART_HEIGHT - CHART_PADDING.bottom - POINT_TOOLTIP_HEIGHT
         );
 
-  const toChartPoint = (point: { day: string; winRate: number }): ChartPoint => ({
+  const toChartPoint = (point: {
+    day: string;
+    winRate: number;
+  }): ChartPoint => ({
     day: point.day,
     winRate: point.winRate,
     x: getChartX(dayAxis.indexOf(point.day), dayAxis.length),
-    y: getChartY(point.winRate, yMin, yMax),
+    y: getChartY(point.winRate, yMin, yMax)
   });
 
   return (
@@ -222,13 +249,19 @@ export default function HeroTrendPanel({
               {series.map((heroSeries) => {
                 const isFocused = heroSeries.hero === focusedSeries?.hero;
                 const allPoints = heroSeries.points.map(toChartPoint);
-                const segments = heroSeries.segments.map((segment) => segment.map(toChartPoint));
+                const segments = heroSeries.segments.map((segment) =>
+                  segment.map(toChartPoint)
+                );
                 const showPoint = (point: ChartPoint | undefined) => {
                   if (point == null) {
                     return;
                   }
                   onFocusHero(heroSeries.hero);
-                  setHoveredPoint({ ...point, hero: heroSeries.hero, color: heroSeries.color });
+                  setHoveredPoint({
+                    ...point,
+                    hero: heroSeries.hero,
+                    color: heroSeries.color
+                  });
                 };
 
                 return (
@@ -247,7 +280,9 @@ export default function HeroTrendPanel({
                         strokeWidth={isFocused ? '3' : '2'}
                         strokeLinejoin="round"
                         strokeLinecap="round"
-                        points={segmentPoints.map((point) => `${point.x},${point.y}`).join(' ')}
+                        points={segmentPoints
+                          .map((point) => `${point.x},${point.y}`)
+                          .join(' ')}
                       />
                     ))}
                     {segments.map((segmentPoints, segmentIndex) => (
@@ -258,13 +293,23 @@ export default function HeroTrendPanel({
                         strokeWidth="22"
                         strokeLinejoin="round"
                         strokeLinecap="round"
-                        points={segmentPoints.map((point) => `${point.x},${point.y}`).join(' ')}
+                        points={segmentPoints
+                          .map((point) => `${point.x},${point.y}`)
+                          .join(' ')}
                         style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                         aria-hidden="true"
-                        onMouseEnter={(event) => showPoint(getNearestChartPoint(event, allPoints))}
-                        onMouseMove={(event) => showPoint(getNearestChartPoint(event, allPoints))}
-                        onTouchStart={(event) => showPoint(getNearestChartPoint(event, allPoints))}
-                        onTouchMove={(event) => showPoint(getNearestChartPoint(event, allPoints))}
+                        onMouseEnter={(event) =>
+                          showPoint(getNearestChartPoint(event, allPoints))
+                        }
+                        onMouseMove={(event) =>
+                          showPoint(getNearestChartPoint(event, allPoints))
+                        }
+                        onTouchStart={(event) =>
+                          showPoint(getNearestChartPoint(event, allPoints))
+                        }
+                        onTouchMove={(event) =>
+                          showPoint(getNearestChartPoint(event, allPoints))
+                        }
                         onMouseLeave={clearPoint}
                         onTouchEnd={clearPoint}
                         onTouchCancel={clearPoint}

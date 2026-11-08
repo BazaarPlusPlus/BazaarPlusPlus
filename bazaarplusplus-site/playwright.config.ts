@@ -14,7 +14,9 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? [['list'], ['github']] : 'list',
   expect: {
-    toHaveScreenshot: { pathTemplate: '{testDir}/__snapshots__/{arg}-{platform}{ext}' },
+    toHaveScreenshot: {
+      pathTemplate: '{testDir}/__snapshots__/{arg}-{platform}{ext}'
+    }
   },
   use: {
     ...devices['Desktop Chrome'],
@@ -22,16 +24,16 @@ export default defineConfig({
     // Dates and numbers in the goldens are formatted by the browser, so pin both.
     locale: 'en-US',
     timezoneId: 'UTC',
-    trace: 'retain-on-failure',
+    trace: 'retain-on-failure'
   },
   projects: [
     { name: 'golden', testIgnore: /live\.spec\.ts$/ },
-    { name: 'live', testMatch: /live\.spec\.ts$/ },
+    { name: 'live', testMatch: /live\.spec\.ts$/ }
   ],
   webServer: {
     command: prebuilt ? 'bun run preview:built' : 'bun run preview',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI && !prebuilt,
-    timeout: 120_000,
-  },
+    timeout: 120_000
+  }
 });
