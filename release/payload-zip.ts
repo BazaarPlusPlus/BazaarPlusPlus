@@ -215,7 +215,7 @@ function assertRequiredStagingInputs(
   const publishGuidance = missing.includes(
     'BepInEx/plugins/BazaarPlusPlus.version'
   )
-    ? '\nRun bun release.ts prepare --platform <macos|windows> from the workspace root to prepare the selected platform.'
+    ? '\nRun bun release/cli.ts prepare --platform <macos|windows> from the workspace root to prepare the selected platform.'
     : '';
   throw new Error(
     `Missing release staging inputs under SourceForBuild; provide every external/private file before preparing resources:\n${details}${publishGuidance}`
@@ -238,7 +238,7 @@ function assertStagedModVersion(
   const content = fs.readFileSync(versionPath, 'utf8');
   if (content.trim() !== `${productVersion}.prod`) {
     throw new Error(
-      `Payload product version mismatch: expected ${productVersion}.prod, found ${content.trim()}. Run bun release.ts prepare for this platform.`
+      `Payload product version mismatch: expected ${productVersion}.prod, found ${content.trim()}. Run bun release/cli.ts prepare for this platform.`
     );
   }
 }
@@ -658,7 +658,7 @@ export function validatePayloadZip({
 }
 
 // `pack` is internal to the locked product build (bazaarplusplus-installer
-// scripts/bundle.sh); Payloads are prepared with bun release.ts prepare.
+// scripts/bundle.sh); Payloads are prepared with bun release/cli.ts prepare.
 const PACK_USAGE =
   'Usage: payload-zip.ts pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]';
 

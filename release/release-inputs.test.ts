@@ -37,7 +37,6 @@ const SCANNED = ['release/', 'bazaarplusplus-installer/scripts/release/'];
 
 test('release modules load no workspace file outside the Payload inputs', () => {
   const pending = [
-    'release.ts',
     ...fs
       .readdirSync(path.join(workspaceRoot, 'release'), { recursive: true })
       .map((name) => `release/${String(name).split(path.sep).join('/')}`)

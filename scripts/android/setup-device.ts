@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import {
   fetchLockedAndroidInput,
   lockedInteropEntry
-} from '../release/game-libs.ts';
+} from '../../release/game-libs.ts';
 import { signIn, withLoginCancellation } from './android-login.ts';
 import { inspectScreen } from './android-screen.ts';
 import type { LoginReceipt } from './android-login.ts';
@@ -116,7 +116,7 @@ interface RunOptions extends Omit<SpawnSyncOptions, 'encoding'> {
   encoding?: BufferEncoding;
 }
 
-const root = path.resolve(import.meta.dirname, '..');
+const root = path.resolve(import.meta.dirname, '../..');
 const gamePackage = 'com.tempogames.thebazaar';
 // The debug Android App launches the game as a player does; the game runs in its process.
 const app = 'com.bazaarplusplus.android.dev';

@@ -7,7 +7,7 @@ import { test } from 'vitest';
 import type { TestContext } from 'vitest';
 import { inspectScreen } from './android-screen.ts';
 
-const root = path.resolve(import.meta.dirname, '..');
+const root = path.resolve(import.meta.dirname, '../..');
 function png(width: number, height: number): Buffer {
   const buffer = Buffer.alloc(24);
   Buffer.from('89504e470d0a1a0a', 'hex').copy(buffer);
@@ -64,7 +64,7 @@ for (const [file, content, pattern] of [
 test('android.sh finds the one running device; capture keeps failure evidence and screen-check uses only read-only adb commands', (t) => {
   const cwd = fixture(t);
   for (const file of [
-    'scripts/android-screen.ts',
+    'scripts/android/android-screen.ts',
     'bazaarplusplus-mod/scripts/android.sh',
     'bazaarplusplus-mod/scripts/lib.sh'
   ]) {

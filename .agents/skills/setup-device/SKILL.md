@@ -12,7 +12,7 @@ repository root.
 ## Prepare
 
 1. `just doctor`, then `just setup` for missing dependencies and config projections.
-2. `bun scripts/setup-device.ts --help` lists the supported hosts and seed images,
+2. `bun scripts/android/setup-device.ts --help` lists the supported hosts and seed images,
    AVD names, dimensions, serials and options. `just list-devices` shows only
    an earlier result.
 3. `just setup-device` for every AVD, or `just setup-device NAME` for one.

@@ -103,7 +103,6 @@ interface DiscoveredArtifacts {
 export const RELEASE_SOURCE_PATHS = [
   '.',
   '../VERSION',
-  '../release.ts',
   '../release',
   '../scripts/git-command.ts',
   '../bazaarplusplus-mod'

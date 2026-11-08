@@ -300,7 +300,7 @@ export function readStagedManagedPayload(
   const current = managedPayloadFiles(sourceDir, platform, inventory);
   if (JSON.stringify(current) !== JSON.stringify(manifest.files))
     throw new Error(
-      `The staged ${platform} Managed Payload changed since preparation; run bun release.ts prepare --platform ${platform}`
+      `The staged ${platform} Managed Payload changed since preparation; run bun release/cli.ts prepare --platform ${platform}`
     );
   return { manifest, text };
 }

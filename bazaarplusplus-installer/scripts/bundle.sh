@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Signs and bundles the installer for the host platform. Internal to the product
-# coordinator: `just release::build <platform>` (bun release.ts build) holds the
+# coordinator: `just release::build <platform>` (bun release/cli.ts build) holds the
 # build lock, prepares the Payload, then runs this script with BPP_RELEASE_LOCK_TOKEN.
 # Functions are sourced directly by scripts/bundle.test.ts. It lives outside
 # scripts/release/ because signing is not a Payload input.
@@ -454,7 +454,7 @@ prepare_signed_macos_resource_zip() {
 
 run_release_prechecks() {
     local platform="$1"
-    invoke_step "Checking product build ownership" bun "$INSTALLER_ROOT/../release.ts" assert-build-owner
+    invoke_step "Checking product build ownership" bun "$INSTALLER_ROOT/../release/cli.ts" assert-build-owner
     invoke_step "Running authoritative release verification" \
         bun run verify --release-platform "$platform"
 }
@@ -545,7 +545,7 @@ main() {
     fi
 
     cd "$INSTALLER_ROOT"
-    bun "$INSTALLER_ROOT/../release.ts" assert-build-owner
+    bun "$INSTALLER_ROOT/../release/cli.ts" assert-build-owner
 
     assert_command bun "Install the Bun version in package.json first."
     bun scripts/checks/check-toolchain.ts "$(bun --version)"

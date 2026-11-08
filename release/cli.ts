@@ -7,18 +7,18 @@ import {
   RELEASE_BASE_URL,
   WORKSPACE_ROOT,
   readProductVersion
-} from './release/product.ts';
+} from './product.ts';
 import {
   synchronizeProductProjections,
   checkProductProjections
-} from './release/projections.ts';
+} from './projections.ts';
 import {
   preparePayload,
   buildProduct,
   payloadPaths,
   assertBuildOwner,
   assertReleaseBuildArgs
-} from './release/payload.ts';
+} from './payload.ts';
 import {
   uploadPlatform,
   uploadAndroidPlatform,
@@ -26,29 +26,26 @@ import {
   recordMainlandMirrors,
   promotePlatform,
   promoteRelease
-} from './release/publish.ts';
-import { fetchMirrorPage, verifyMainlandMirrors } from './release/mirror.ts';
-import { assertMirrorUrl } from './release/manifest.ts';
-import { r2StoreFromEnvironment } from './release/r2-store.ts';
-import { gameLibsStoreFromEnvironment } from './release/game-libs.ts';
-import type { ManagedLockProvenance } from './release/game-libs.ts';
+} from './publish.ts';
+import { fetchMirrorPage, verifyMainlandMirrors } from './mirror.ts';
+import { assertMirrorUrl } from './manifest.ts';
+import { r2StoreFromEnvironment } from './r2-store.ts';
+import { gameLibsStoreFromEnvironment } from './game-libs.ts';
+import type { ManagedLockProvenance } from './game-libs.ts';
 import {
   androidPaths,
   buildAndroidRelease,
   prepareAndroidPayload
-} from './release/android-release.ts';
+} from './android-release.ts';
 import {
   RELEASE_PLATFORMS,
   defaultTargetBuildPlatforms,
   releasePlatform,
   resolveBuildPlatform
-} from './release/release-platforms.ts';
-import type {
-  BuildPlatform,
-  TauriBuildPlatform
-} from './release/release-platforms.ts';
-import type { ObjectStore } from './release/r2-store.ts';
-import type { PayloadBuildRecord } from './release/payload.ts';
+} from './release-platforms.ts';
+import type { BuildPlatform, TauriBuildPlatform } from './release-platforms.ts';
+import type { ObjectStore } from './r2-store.ts';
+import type { PayloadBuildRecord } from './payload.ts';
 
 /** A release command; `help` prints the usage. */
 export type ReleaseCommand =
@@ -102,30 +99,30 @@ export interface ReleaseMainOptions {
 }
 
 const usage = `Product release commands (run from any directory):
-  bun release.ts sync                         Project VERSION into toolchain files
-  bun release.ts check                        Check product source projections, mod/installer Data Root and schema agreement, the Snapshot Lock, release configuration and V5 import removal
-  bun release.ts prepare --platform macos      Build and validate one platform Payload
-  bun release.ts build --platform macos        Build and sign the native installer
-  bun release.ts upload --platform macos       Upload immutable platform artifacts
-  bun release.ts prepare --platform android    Build the Android host and stage the Android Mod Payload
-  bun release.ts build --platform android      Zip and sign the Managed Payload; build, align and sign
-                                                the Android App; pack the Interop Package and sign its
-                                                interop statement
-  bun release.ts upload --platform android     Stream the Android App, the Interop Package, the Managed
-                                                Payload zip and the fragment to R2
-  bun release.ts mirror-all --windows-url <share-url> --macos-url <share-url>
-                                                Verify both uploaded platforms and record both mainland mirrors
-  bun release.ts mirror --platform macos --url <share-url>
-                                                Verify and record the platform's mainland mirror page
-  bun release.ts verify-mirror [--platform macos]
-                                                Re-check the recorded mainland mirrors of VERSION
-  bun release.ts verify-mirror --latest       Re-check the mainland mirrors of the published platform manifests
-  bun release.ts promote                      Publish Windows and macOS at VERSION and advance latest.json
-  bun release.ts promote --platform macos     Publish one platform's manifest; latest.json advances once
-                                                Windows and macOS are at the same version
-  bun release.ts promote --platform android   Publish the Android Platform Release Manifest after checking
-                                                the three uploaded artifacts and the App's signer; Android
-                                                records no mainland mirror and never moves latest.json
+  bun release/cli.ts sync                         Project VERSION into toolchain files
+  bun release/cli.ts check                        Check product source projections, mod/installer Data Root and schema agreement, the Snapshot Lock, release configuration and V5 import removal
+  bun release/cli.ts prepare --platform macos      Build and validate one platform Payload
+  bun release/cli.ts build --platform macos        Build and sign the native installer
+  bun release/cli.ts upload --platform macos       Upload immutable platform artifacts
+  bun release/cli.ts prepare --platform android    Build the Android host and stage the Android Mod Payload
+  bun release/cli.ts build --platform android      Zip and sign the Managed Payload; build, align and sign
+                                                    the Android App; pack the Interop Package and sign its
+                                                    interop statement
+  bun release/cli.ts upload --platform android     Stream the Android App, the Interop Package, the Managed
+                                                    Payload zip and the fragment to R2
+  bun release/cli.ts mirror-all --windows-url <share-url> --macos-url <share-url>
+                                                    Verify both uploaded platforms and record both mainland mirrors
+  bun release/cli.ts mirror --platform macos --url <share-url>
+                                                    Verify and record the platform's mainland mirror page
+  bun release/cli.ts verify-mirror [--platform macos]
+                                                    Re-check the recorded mainland mirrors of VERSION
+  bun release/cli.ts verify-mirror --latest       Re-check the mainland mirrors of the published platform manifests
+  bun release/cli.ts promote                      Publish Windows and macOS at VERSION and advance latest.json
+  bun release/cli.ts promote --platform macos     Publish one platform's manifest; latest.json advances once
+                                                    Windows and macOS are at the same version
+  bun release/cli.ts promote --platform android   Publish the Android Platform Release Manifest after checking
+                                                    the three uploaded artifacts and the App's signer; Android
+                                                    records no mainland mirror and never moves latest.json
 
 Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>;
 android accepts -- -p:InteropPath=<dir> -p:LemonLoaderPath=<dir> instead, and its

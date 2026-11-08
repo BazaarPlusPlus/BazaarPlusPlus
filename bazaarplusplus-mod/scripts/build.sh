@@ -148,7 +148,7 @@ run_seed_gates() {
 # produce -p:ManagedPath=... -p:BPPInstallerSourcePath=... ...: internal to
 # release/payload.ts, which resolves and pins ManagedPath (game.sh managed-path).
 cmd_produce() {
-    : "${BPP_RELEASE_ARTIFACTS:?Run bun release.ts prepare to build an isolated Payload}"
+    : "${BPP_RELEASE_ARTIFACTS:?Run bun release/cli.ts prepare to build an isolated Payload}"
     collect_props "$@"
     local installer_source
     installer_source="$(prop_value BPPInstallerSourcePath "$@")"

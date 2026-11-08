@@ -1,8 +1,8 @@
 <Project>
-  <!-- Generated from release/payload.json by bun release.ts sync. -->
+  <!-- Generated from release/payload.json by bun release/cli.ts sync. -->
   <Target Name="ValidatePayloadInventoryProjection" BeforeTargets="PrepareForBuild;CollectPayloadFiles">
     <GetFileHash Files="$(MSBuildThisFileDirectory)../payload.json" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="_PayloadInventoryHash" /></GetFileHash>
-    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '0818DABB5930EABDF58609016F3B482FA9F5BC9B9126396183B42F951B3D2A4F'" Text="Payload Inventory projection is stale. Run bun release.ts sync." />
+    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '0818DABB5930EABDF58609016F3B482FA9F5BC9B9126396183B42F951B3D2A4F'" Text="Payload Inventory projection is stale. Run bun release/cli.ts sync." />
   </Target>
   <Target Name="CollectPayloadFiles" DependsOnTargets="ValidatePayloadInventoryProjection">
     <PropertyGroup>

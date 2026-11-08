@@ -10,7 +10,7 @@ import {
   configHome,
   readConfig,
   resolveValues
-} from './local-config.ts';
+} from '../local-config.ts';
 
 const app = 'com.bazaarplusplus.android.dev';
 const directory = 'files/dev/login';

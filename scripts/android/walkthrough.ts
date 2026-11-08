@@ -46,7 +46,7 @@ export interface WalkthroughManifest {
   cells: WalkthroughCell[];
 }
 
-const root = path.resolve(import.meta.dirname, '..');
+const root = path.resolve(import.meta.dirname, '../..');
 const runs = path.join(root, 'artifacts/walkthrough');
 const commandFile = 'walkthrough-command.txt';
 const dataRootName = 'BazaarPlusPlusV6';
@@ -77,11 +77,11 @@ const id = /^[A-Za-z0-9_-]+$/;
 
 export const help = `Device walkthrough: open panels, capture screens, build the HTML grid
 
-  bun scripts/walkthrough.ts devices
-  bun scripts/walkthrough.ts panel DEVICE collection|history|live_build
-  bun scripts/walkthrough.ts capture RUN DEVICE SCENARIO [--note TEXT] [--portrait]
-  bun scripts/walkthrough.ts skip RUN DEVICE SCENARIO --reason TEXT
-  bun scripts/walkthrough.ts report RUN
+  bun scripts/android/walkthrough.ts devices
+  bun scripts/android/walkthrough.ts panel DEVICE collection|history|live_build
+  bun scripts/android/walkthrough.ts capture RUN DEVICE SCENARIO [--note TEXT] [--portrait]
+  bun scripts/android/walkthrough.ts skip RUN DEVICE SCENARIO --reason TEXT
+  bun scripts/android/walkthrough.ts report RUN
 
 DEVICE is an Android AVD name from the device matrix, or
 desktop; an Android DEVICE must be the one device running. RUN and

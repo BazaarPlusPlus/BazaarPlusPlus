@@ -14,7 +14,7 @@ mod release 'release/release.just'
 mod design 'design/design.just'
 
 # Root tooling owns its dependencies and its TypeScript, lint, test and formatting configuration.
-root_tooling := "package.json .prettierrc.json .oxlintrc.json tsconfig.json vitest.config.ts release.ts 'release/**/*.{ts,json}' 'scripts/**/*.ts' '.github/scripts/*.ts' 'design/*.ts' '.agents/skills/*/scripts/*.ts'"
+root_tooling := "package.json .oxlintrc.json tsconfig.json vitest.config.ts 'release/**/*.{ts,json}' 'scripts/**/*.ts' '.github/scripts/*.ts' 'design/*.ts' '.agents/skills/*/scripts/*.ts'"
 
 # `just --fmt` does not descend into modules, so format each file explicitly.
 just_files := "JUSTFILE bazaarplusplus-mod/mod.just bazaarplusplus-installer/installer.just bazaarplusplus-site/site.just bazaarplusplus-server/server.just bazaarplusplus-analyzer/analyzer.just bazaarplusplus-android/android.just release/release.just design/design.just"
@@ -35,7 +35,7 @@ test: commands-check release::test mod::test installer::test site::test server::
 [group('workspace')]
 fmt: && mod::fmt installer::fmt site::fmt server::fmt analyzer::fmt release::sync
     for file in {{ just_files }}; do {{ quote(just_executable()) }} --justfile "$file" --fmt; done
-    bun run prettier --config .prettierrc.json --write {{ root_tooling }}
+    bun run prettier --write {{ root_tooling }}
 
 # Install the workspace Git hooks (requires root Bun dependencies).
 [group('workspace')]
@@ -55,17 +55,17 @@ doctor:
 # Inventory the Android AVD matrix and its historical login checks.
 [group('workspace')]
 list-devices:
-    bun scripts/setup-device.ts status
+    bun scripts/android/setup-device.ts status
 
 # Prepare each Android AVD and verify its game login; --help lists the options.
 [group('workspace')]
 setup-device *args:
-    bun scripts/setup-device.ts init "$@"
+    bun scripts/android/setup-device.ts init "$@"
 
 # Open panels, capture each matrix device's screens and build the walkthrough HTML; --help lists the commands.
 [group('workspace')]
 walkthrough *args:
-    bun scripts/walkthrough.ts "$@"
+    bun scripts/android/walkthrough.ts "$@"
 
 # Run explicit verification recipes serially and retain their final exit status, SHA and logs.
 [group('workspace')]
@@ -91,7 +91,7 @@ secrets-sync *args:
 [group('workspace')]
 commands-check:
     for file in {{ just_files }}; do {{ quote(just_executable()) }} --justfile "$file" --fmt --check; done
-    bun run prettier --config .prettierrc.json --check {{ root_tooling }}
+    bun run prettier --check {{ root_tooling }}
     bun run typecheck
     bun run lint
     bun run test --project tooling

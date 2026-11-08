@@ -20,7 +20,7 @@
     />
     <Error
       Condition="'$(BppVersion)' != '$(BppProductVersion)'"
-      Text="BppVersion cannot override the product VERSION. Update VERSION and run bun release.ts sync."
+      Text="BppVersion cannot override the product VERSION. Update VERSION and run bun release/cli.ts sync."
     />
   </Target>
 

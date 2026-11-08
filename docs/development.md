@@ -57,7 +57,7 @@ Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要�
 
 ### 根工具
 
-根工具是 `release.ts`、`release/`、`scripts/`、`.github/scripts/`、`design/build.ts` 和 `.agents/skills/*/scripts/` 里的 TypeScript。它们共用根目录的一套工具链：`tsconfig.json`（严格类型检查）、`.oxlintrc.json`（拦住绕过类型检查的写法）、`vitest.config.ts`（`release` 和 `tooling` 两个测试项目）和 Prettier。门禁是 `just commands-check` 和 `just release::test`。项目自己的脚本留在项目里，用项目的门禁，例如 installer 的 `scripts/`：Bun 也直接运行它们，所以 `bazaarplusplus-installer/scripts/tsconfig.json` 继承根目录的编译选项。
+根工具是 `release/`、`scripts/`、`.github/scripts/`、`design/build.ts` 和 `.agents/skills/*/scripts/` 里的 TypeScript。它们共用根目录的一套工具链：`tsconfig.json`（严格类型检查）、`.oxlintrc.json`（拦住绕过类型检查的写法）、`vitest.config.ts`（`release` 和 `tooling` 两个测试项目）和 Prettier（配置在 `package.json` 的 `prettier` 字段）。门禁是 `just commands-check` 和 `just release::test`。项目自己的脚本留在项目里，用项目的门禁，例如 installer 的 `scripts/`：Bun 也直接运行它们，所以 `bazaarplusplus-installer/scripts/tsconfig.json` 继承根目录的编译选项。
 
 - Bun 直接运行 `.ts` 文件，没有单独的构建步骤。继续限制为可擦除的语法：`erasableSyntaxOnly` 拒绝 enum、namespace 和参数属性。相对 import 写 `.ts` 扩展名。类型 import 写成 `import type`，避免隐式运行时依赖。
 - 新脚本按用途放：发布模块放 `release/`，开发者工具和共享 helper 放 `scripts/`，只给 CI 用的放 `.github/scripts/`。测试和模块放在同一目录，命名为 `<模块>.test.ts`。
@@ -107,7 +107,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 本机矩阵与登录准备
 
-`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；支持的宿主、seed 镜像、设备名字、尺寸、端口和参数以 `bun scripts/setup-device.ts --help` 为准。macOS Apple Silicon 使用原生 ARM64 镜像；Windows x64 使用带 ARM64 转译的 x86_64 镜像，先检查转译能力，再验证实际游戏和 BPP。为了性能，同一时间只运行一台模拟器：init 在有模拟器运行时不启动，手机可以保持连接。init 为部署指定目标 serial；后续 `just android::*` 设备命令、`just mod::android-*` 和 walkthrough 在多设备连接时要设置 `ANDROID_SERIAL`，目标不在线就报错，不回退到另一台。未指定时只接受唯一一台设备，walkthrough 还核对 AVD 名字。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
+`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；支持的宿主、seed 镜像、设备名字、尺寸、端口和参数以 `bun scripts/android/setup-device.ts --help` 为准。macOS Apple Silicon 使用原生 ARM64 镜像；Windows x64 使用带 ARM64 转译的 x86_64 镜像，先检查转译能力，再验证实际游戏和 BPP。为了性能，同一时间只运行一台模拟器：init 在有模拟器运行时不启动，手机可以保持连接。init 为部署指定目标 serial；后续 `just android::*` 设备命令、`just mod::android-*` 和 walkthrough 在多设备连接时要设置 `ANDROID_SERIAL`，目标不在线就报错，不回退到另一台。未指定时只接受唯一一台设备，walkthrough 还核对 AVD 名字。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
 
 矩阵按 Mobile UI 的三个布局分支选设备：
 
