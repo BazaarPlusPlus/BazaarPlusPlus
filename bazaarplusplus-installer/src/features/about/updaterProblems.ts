@@ -8,7 +8,10 @@ import {
 } from '../shared/problems';
 
 export type UpdaterProblemOperation =
-  'check' | 'download' | 'install' | 'restart';
+  | 'check'
+  | 'download'
+  | 'install'
+  | 'restart';
 
 export type UpdaterProblemCode =
   | 'updater_check_failed'

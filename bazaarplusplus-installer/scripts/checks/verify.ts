@@ -13,7 +13,11 @@ export type VerificationSubset = 'all' | 'frontend' | 'native';
 // The subset a step belongs to: shared steps run in every subset, scripts in
 // frontend (and native on Windows), release only in release mode.
 export type VerificationStepSubset =
-  'frontend' | 'native' | 'shared' | 'scripts' | 'release';
+  | 'frontend'
+  | 'native'
+  | 'shared'
+  | 'scripts'
+  | 'release';
 
 export interface VerificationStep {
   subset: VerificationStepSubset;

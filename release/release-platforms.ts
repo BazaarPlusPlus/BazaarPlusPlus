@@ -26,7 +26,8 @@ export type ReleasePlatformKey =
   (typeof DOWNLOAD_PLATFORM_KEYS)[DownloadPlatform];
 /** The wire key of a Lockstep Platform: one the Release Manifest waits for. */
 export type LockstepPlatformKey =
-  typeof DOWNLOAD_PLATFORM_KEYS.windows | typeof DOWNLOAD_PLATFORM_KEYS.mac;
+  | typeof DOWNLOAD_PLATFORM_KEYS.windows
+  | typeof DOWNLOAD_PLATFORM_KEYS.mac;
 /** The build platform name of a platform that ships a Tauri installer. */
 export type TauriBuildPlatform = 'windows' | 'macos';
 /** The build platform name of every release platform. */

@@ -11,15 +11,11 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "oxlint -c .oxlintrc.json release scripts .github/scripts design/build.ts .agents/skills"
   },
-  "prettier": {
-    "singleQuote": true,
-    "trailingComma": "none"
-  },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "lefthook": "^2.2.2",
+    "oxfmt": "^0.75.0",
     "oxlint": "^1.92.0",
-    "prettier": "^3.9.10",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }

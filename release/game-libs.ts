@@ -2769,7 +2769,8 @@ export async function cliMain(
     // The options that take one string value.
     type StringOption = {
       [Name in keyof typeof values]-?: (typeof values)[Name] extends
-        string | undefined
+        | string
+        | undefined
         ? Name
         : never;
     }[keyof typeof values];

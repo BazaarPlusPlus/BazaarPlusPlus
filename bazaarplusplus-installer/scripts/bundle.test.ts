@@ -17,7 +17,8 @@ type SigningSecretFiles = Record<string, string>;
 // { dir, dirBash }.
 function withSigningSecretFiles(
   files:
-    SigningSecretFiles | ((ctx: SigningSecretsContext) => SigningSecretFiles),
+    | SigningSecretFiles
+    | ((ctx: SigningSecretsContext) => SigningSecretFiles),
   fn: (ctx: SigningSecretsContext) => void
 ) {
   const dir = mkdtempSync(

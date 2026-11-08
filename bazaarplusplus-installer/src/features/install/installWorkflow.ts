@@ -20,7 +20,10 @@ export type InstallOperation =
   | 'launch';
 
 export type InstallPrimaryActionMode =
-  'choose-directory' | 'install' | 'repair' | 'launch';
+  | 'choose-directory'
+  | 'install'
+  | 'repair'
+  | 'launch';
 
 export type InstallPrimaryAction = {
   mode: InstallPrimaryActionMode;

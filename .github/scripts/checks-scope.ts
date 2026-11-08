@@ -3,7 +3,12 @@ import path from 'node:path';
 import { runGit } from '../../scripts/git-command.ts';
 
 export type Project =
-  'site' | 'server' | 'analyzer' | 'installer' | 'mod' | 'android';
+  | 'site'
+  | 'server'
+  | 'analyzer'
+  | 'installer'
+  | 'mod'
+  | 'android';
 
 // Each check lane names its reasons; a lane with no reason does not run.
 export type ChecksPlan = Record<string, string[]>;
@@ -81,8 +86,7 @@ export function installerFrontendOnly(file: string): boolean {
       'vitest.config.ts',
       'tsconfig.json',
       '.oxlintrc.json',
-      '.prettierrc.json',
-      '.prettierignore',
+      '.oxfmtrc.json',
       'LICENSE'
     ].includes(relative)
   );

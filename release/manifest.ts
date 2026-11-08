@@ -101,7 +101,8 @@ export interface AndroidPlatformFragment extends AndroidReleaseFacts {
 
 /** A platform fragment; its platform decides which of the two it is. */
 export type PlatformFragment =
-  DesktopPlatformFragment | AndroidPlatformFragment;
+  | DesktopPlatformFragment
+  | AndroidPlatformFragment;
 
 /** The Mainland Mirror record stored beside an uploaded desktop release. */
 export interface MirrorRecord {

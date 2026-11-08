@@ -1,5 +1,8 @@
 export type ModalPriority =
-  'critical' | 'confirmation' | 'system' | 'informational';
+  | 'critical'
+  | 'confirmation'
+  | 'system'
+  | 'informational';
 
 export type ModalDismissalPolicy = 'dismissible' | 'blocked';
 
