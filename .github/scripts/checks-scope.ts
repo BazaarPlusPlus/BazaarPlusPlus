@@ -398,6 +398,7 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
       ['.gitignore', '.gitattributes', '.github/dependabot.yml'].includes(
         file
       ) ||
+      file.startsWith('.github/codeql/') ||
       (file.startsWith('.github/workflows/') &&
         !['checks.yml', 'release.yml'].includes(path.posix.basename(file)))
     ) {
