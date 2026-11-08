@@ -133,13 +133,6 @@ internal sealed partial class TouchHistoryPanelView
             _latest.GameObject,
             _archiveEmpty.gameObject
         );
-        // The tab dividers share the archive's lifetime, not the header's.
-        var dividers = new List<Transform>();
-        foreach (Transform child in Surface)
-            if (child.name == "SectionDivider")
-                dividers.Add(child);
-        foreach (var divider in dividers)
-            divider.SetParent(_archiveGroup.transform, false);
         _detailGroup = Group(
             "DetailGroup",
             UpperBoard.gameObject,

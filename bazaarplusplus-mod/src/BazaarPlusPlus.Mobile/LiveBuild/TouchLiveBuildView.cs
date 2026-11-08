@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Ui;
+using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
@@ -25,6 +26,7 @@ namespace BazaarPlusPlus.Mobile.LiveBuild;
 internal sealed class TouchLiveBuildView
 {
     private readonly NativeSkin _skin = new();
+    private readonly TouchLiveBuildArtwork? _artwork;
     private readonly GameObject _root;
     private readonly LiveBuildTouchLayout _layout;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
@@ -56,6 +58,7 @@ internal sealed class TouchLiveBuildView
     )
     {
         _layout = layout;
+        _artwork = TouchLiveBuildArtwork.TryLoad();
         var root = UiKit.Rect(
             "LiveBuild",
             parent,
@@ -73,6 +76,11 @@ internal sealed class TouchLiveBuildView
             background.a = 1f;
             UiKit.Fill(root, background);
             _root = root.gameObject;
+            _skin.Frame(
+                TouchScreen.Child("Sheet", root, layout.Sheet),
+                InGameTheme.Backdrop,
+                borderOnly: true
+            );
             var metrics = layout.Metrics;
 
             // The list first, then the bands over its edges, then everything else.
@@ -124,7 +132,7 @@ internal sealed class TouchLiveBuildView
 
             // Side by side the overview and the final build's cards are fixed; stacked, they scroll.
             var scrolled = layout.Stacked ? _content : root;
-            (_, _, _boardSelector) = _skin.Button(
+            var boardSelector = _skin.Button(
                 TouchScreen.Child("BoardSelector", scrolled, layout.BoardSelector),
                 font,
                 "",
@@ -132,6 +140,8 @@ internal sealed class TouchLiveBuildView
                 layout.LabelInset,
                 () => UiActions.Run("live_build.switch_board", commands.CycleBoard)
             );
+            ApplyHeaderArt(boardSelector.Background);
+            _boardSelector = boardSelector.Label;
             _rows[BppItemBoardId.FinalBuild] = CreateRow(
                 root,
                 scrolled,
@@ -159,7 +169,7 @@ internal sealed class TouchLiveBuildView
                 "next",
                 commands.Next
             );
-            (_, _includeTinyBackground, _includeTinyLabel) = _skin.Button(
+            var includeTiny = _skin.Button(
                 TouchScreen.Child("IncludeTiny", root, layout.IncludeTiny),
                 font,
                 "",
@@ -167,6 +177,9 @@ internal sealed class TouchLiveBuildView
                 layout.LabelInset,
                 () => UiActions.Run("live_build.include_tiny", commands.ToggleIncludeTiny)
             );
+            _includeTinyBackground = includeTiny.Background;
+            _includeTinyLabel = includeTiny.Label;
+            ApplyHeaderArt(_includeTinyBackground);
             _pager = Label(
                 root,
                 font,
@@ -176,18 +189,19 @@ internal sealed class TouchLiveBuildView
                 TextAlignmentOptions.Center
             );
 
-            var close = TouchScreen.Child("Close", root, layout.Close);
-            _skin.Button(
-                close,
+            var closeRect = TouchScreen.Child("Close", root, layout.Close);
+            var closeButton = _skin.Button(
+                closeRect,
                 font,
                 UiKit.CloseGlyph,
                 layout.TitleFont,
                 layout.LabelInset,
                 () => UiActions.Run("live_build.close", () => commands.Close("close_button"))
             );
+            ApplyHeaderArt(closeButton.Background);
 
             var refresh = TouchScreen.Child("Refresh", scrolled, layout.Refresh);
-            (_refresh, _, _refreshLabel) = _skin.Button(
+            var refreshButton = _skin.Button(
                 refresh,
                 font,
                 "",
@@ -195,6 +209,9 @@ internal sealed class TouchLiveBuildView
                 layout.LabelInset,
                 () => UiActions.Run("live_build.refresh", commands.Refresh)
             );
+            _refresh = refreshButton.Button;
+            _refreshLabel = refreshButton.Label;
+            ApplyHeaderArt(refreshButton.Background);
 
             var corpus = TouchScreen.Child("CorpusStatus", scrolled, layout.Corpus);
             var statusHit = UiKit.Fill(corpus, new Color(0f, 0f, 0f, 0.001f));
@@ -307,7 +324,7 @@ internal sealed class TouchLiveBuildView
             _corpusDetailRoot = detail.gameObject;
 
             var sponsor = TouchScreen.Child("Sponsor", scrolled, layout.Sponsor);
-            (_, _, _sponsorLabel) = _skin.Button(
+            var sponsorButton = _skin.Button(
                 sponsor,
                 font,
                 "",
@@ -322,6 +339,8 @@ internal sealed class TouchLiveBuildView
                             )
                     )
             );
+            _sponsorLabel = sponsorButton.Label;
+            ApplyHeaderArt(sponsorButton.Background);
 
             MobilePlatform.Port.SetWordWrapping(_sponsorLabel, false);
             _sponsorLabel.enableAutoSizing = true;
@@ -334,6 +353,7 @@ internal sealed class TouchLiveBuildView
         }
         catch
         {
+            _artwork?.Dispose();
             UnityEngine.Object.Destroy(root.gameObject);
             throw;
         }
@@ -387,7 +407,7 @@ internal sealed class TouchLiveBuildView
     public void Refresh(LiveBuildPanelSnapshot snapshot, bool boards, BppItemBoardId selectedBoard)
     {
         _includeTinyLabel.text = LiveBuildPanelText.IncludeTiny();
-        _skin.Select(_includeTinyBackground, snapshot.IncludeTiny);
+        ApplyHeaderArt(_includeTinyBackground, snapshot.IncludeTiny);
         _refreshLabel.text = snapshot.FinalBuildRefreshButtonEnabled
             ? T("Update", "更新")
             : T("Updating…", "更新中…");
@@ -512,6 +532,7 @@ internal sealed class TouchLiveBuildView
     public void Destroy()
     {
         ReturnAll("rebuilt");
+        _artwork?.Dispose();
         UnityEngine.Object.Destroy(_root);
     }
 
@@ -628,7 +649,7 @@ internal sealed class TouchLiveBuildView
     )
     {
         var rect = TouchScreen.Child(control, root, area);
-        var (button, _, _) = _skin.Button(
+        var result = _skin.Button(
             rect,
             font,
             text,
@@ -636,7 +657,23 @@ internal sealed class TouchLiveBuildView
             labelInset,
             () => UiActions.Run($"live_build.{control}", onTap)
         );
-        return button;
+        ApplyHeaderArt(result.Background);
+        return result.Button;
+    }
+
+    private void ApplyHeaderArt(Image background, bool selected = false)
+    {
+        var sprite = selected
+            ? _artwork?.HeaderSelected ?? _artwork?.HeaderNormal
+            : _artwork?.HeaderNormal;
+        background.sprite = sprite;
+        background.type = Image.Type.Sliced;
+        background.pixelsPerUnitMultiplier =
+            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
+        background.color =
+            sprite != null ? Color.white
+            : selected ? UiKit.ActiveColor
+            : UiKit.ButtonColor;
     }
 
     private static TextMeshProUGUI Label(

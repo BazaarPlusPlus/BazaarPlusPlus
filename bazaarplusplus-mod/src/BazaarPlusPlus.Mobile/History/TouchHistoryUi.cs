@@ -41,6 +41,15 @@ internal static class TouchHistoryUi
     public static readonly Color Loss = InGameTheme.Failure;
     public static readonly Color Accent = InGameTheme.Accent;
 
+    public static Image ControlSurface(RectTransform rect)
+    {
+        var image = UiKit.Fill(rect, _normalArt != null ? Color.white : ButtonFill, false);
+        image.sprite = _normalArt;
+        image.type = Image.Type.Sliced;
+        image.pixelsPerUnitMultiplier = _artPixelsPerUnit;
+        return image;
+    }
+
     /// <summary>A label; it takes no touches.</summary>
     public static TextMeshProUGUI Label(
         Transform parent,
@@ -327,7 +336,7 @@ internal static class TouchHistoryUi
 /// <summary>
 /// A History button and its parts. A dimmed button stays tappable: the model says why it cannot
 /// act, and the tap puts that reason on the status line (tap-to-explain), as hover does on the
-/// desktop. A tab draws only its selected state, so the tabs read apart from the actions; a
+/// desktop. Tabs share a textured surface; records keep a subdued frame until selected. A
 /// danger button's label carries the loss colour.
 /// </summary>
 internal sealed class HistoryButton(
@@ -340,7 +349,6 @@ internal sealed class HistoryButton(
     private (string Text, bool Selected, bool Enabled, bool Dimmed)? _shown;
     private Image[]? _chevronStrokes;
     private HistoryButtonStyle _style;
-    private Image? _selectionRule;
     private Sprite? _headerNormal;
     private Sprite? _headerSelected;
     private float _headerPixelsPerUnit;
@@ -357,18 +365,6 @@ internal sealed class HistoryButton(
     public HistoryButton As(HistoryButtonStyle style)
     {
         _style = style;
-        if (style == HistoryButtonStyle.Tab && _selectionRule == null)
-        {
-            var line = UiKit.Rect(
-                "SelectionRule",
-                Button.transform,
-                Vector2.zero,
-                new Vector2(1f, 0f),
-                Vector2.zero,
-                new Vector2(0f, Label.fontSize / 7f)
-            );
-            _selectionRule = UiKit.Fill(line, InGameTheme.Accent, false);
-        }
         _shown = null;
         return this;
     }
@@ -431,7 +427,7 @@ internal sealed class HistoryButton(
         Label.text = text;
         Button.interactable = enabled;
         var muted = dimmed || !enabled;
-        skin.Select(Fill, false, muted);
+        skin.Select(Fill, selected, muted);
         if (_headerNormal != null)
         {
             Fill.sprite = selected ? _headerSelected ?? _headerNormal : _headerNormal;
@@ -440,16 +436,23 @@ internal sealed class HistoryButton(
             Fill.color = muted ? new Color(1f, 1f, 1f, .5f) : Color.white;
         }
         var quietTab = _style == HistoryButtonStyle.Tab && !selected;
-        if (_style is HistoryButtonStyle.Tab or HistoryButtonStyle.Record)
-        {
-            Fill.sprite = null;
-            Fill.color = selected ? InGameTheme.ButtonSelected : Color.clear;
-        }
-        if (_selectionRule != null)
-            _selectionRule.gameObject.SetActive(selected);
+        var restingRecord = _style == HistoryButtonStyle.Record && !selected;
+        var colors = Button.colors;
+        colors.normalColor =
+            quietTab ? Color.clear
+            : restingRecord ? new Color(.8f, .76f, .68f, .7f)
+            : Color.white;
+        colors.highlightedColor =
+            quietTab ? new Color(1f, 1f, 1f, .45f)
+            : restingRecord ? new Color(.98f, .95f, .88f, .95f)
+            : Color.white;
+        colors.pressedColor = new Color(.7f, .7f, .7f, 1f);
+        colors.selectedColor = colors.normalColor;
+        colors.disabledColor = quietTab ? Color.clear : new Color(.65f, .65f, .65f, .55f);
+        Button.colors = colors;
         Label.color =
             muted ? TouchHistoryUi.Muted
-            : quietTab ? InGameTheme.InkSoft
+            : quietTab || restingRecord ? InGameTheme.InkSoft
             : _style == HistoryButtonStyle.Danger ? TouchHistoryUi.Loss
             : TouchHistoryUi.Ink;
         if (_chevronStrokes != null)
