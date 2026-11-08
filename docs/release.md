@@ -49,7 +49,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 
 游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.ts` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
 
-每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有签名 secret 与 Apple 三个标识符变量；仓库级变量 `CLOUDFLARE_ACCOUNT_ID`、仓库级 secret `CLOUDFLARE_API_TOKEN`（操作员 token，`checks.yml`、`analyzer.yml`、`deploy-site.yml` 共用）放在仓库级。每个 job 的第一步 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `bun scripts/workspace.ts run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.ts` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
+每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有签名 secret 与 Apple 三个标识符变量；仓库级变量 `CLOUDFLARE_ACCOUNT_ID`、仓库级 secret `CLOUDFLARE_API_TOKEN`（操作员 token，`checks.yml`、`analyzer.yml`、`deploy-site.yml` 共用）放在仓库级。每个 job 的 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `bun scripts/workspace.ts run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.ts` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
 
 | 名字 | GitHub 作用域 | 本地来源 | 用途 |
 |---|---|---|---|
