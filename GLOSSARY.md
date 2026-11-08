@@ -106,7 +106,7 @@ The folder in the game directory where the mod keeps its local database, screens
 A Data Root an earlier major version wrote (`BazaarPlusPlus/`, `BazaarPlusPlusV4/`, `BazaarPlusPlusV5/`), owned by the user. The mod never reads it; the installer measures it and deletes one only on the user's confirmation.
 
 **History-Only Run** (仅历史对局):
-A run in the current Data Root that the mod never seals: it appears only in local history, is never uploaded, and is never protected from cleanup as a seal candidate. Only the installer's V5 import wrote one, and that import was removed in 6.2.0: every run imported from a Legacy Root is one, and existing databases keep them. Unlike a **Run**, it is never carried inside a Bundle.
+A run in the current Data Root that the mod never seals: it appears only in local history, is never uploaded, and is never protected from cleanup as a seal candidate. The installer's V5 import wrote them until 6.2.0 removed it, so every run imported from a Legacy Root is one and existing databases keep them. The development-only History Sampler (`just history-sample`) writes them too: a cloud Bundle's run under the local player's account, told apart by its `sample-` run id and `sample:` mod version. Unlike a **Run**, it is never carried inside a Bundle.
 
 ## Data pipeline
 

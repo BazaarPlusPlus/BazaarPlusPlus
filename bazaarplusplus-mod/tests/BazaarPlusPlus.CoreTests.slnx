@@ -9,6 +9,7 @@
         <Project Path="SavedReplayPlayback.Tests/SavedReplayPlayback.Tests.csproj" />
         <Project Path="SelfUpdate.Tests/SelfUpdate.Tests.csproj" />
         <Project Path="SettingsDockCore.Tests/SettingsDockCore.Tests.csproj" />
+        <Project Path="HistorySampler.Tests/HistorySampler.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />
