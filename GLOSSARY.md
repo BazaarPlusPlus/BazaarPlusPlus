@@ -116,6 +116,10 @@ The immutable unit of upload, storage, and delivery: exactly one Run and zero or
 **Run**:
 The immutable facts, battles, card state, and replay inputs of one completed game run, carried inside a Bundle. It excludes the Screenshot.
 
+**Empty Run**:
+A completed Run with zero wins and zero losses: the player left it before the first fight. The mod does not seal it, and the server rejects a Bundle with no Battle projection (`run_without_battles`).
+_Avoid_: bot run
+
 **Ghost Battle**:
 A PvP battle in which a player's uploaded build fought inside another player's run. The server serves it as a query projection of Bundle manifests; the mod imports it into local history.
 
