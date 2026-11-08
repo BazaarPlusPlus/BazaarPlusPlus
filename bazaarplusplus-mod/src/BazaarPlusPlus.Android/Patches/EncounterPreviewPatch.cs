@@ -1,5 +1,7 @@
 using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Mobile.Previews;
 using HarmonyLib;
 using Il2CppTheBazaar.UI.Tooltips;
 
@@ -20,17 +22,21 @@ internal static class EncounterPreviewPatch
 
         try
         {
+            var features = AndroidPatchHost.Features;
             var content =
                 Encounter(__instance, text)
-                ?? AndroidPatchHost.Features?.AggregateItemPreview?.Render(__instance.CurrentCard);
+                ?? features?.AggregateItemPreview?.Render(__instance.CurrentCard);
             if (!string.IsNullOrWhiteSpace(content))
-                text += "\n<size=75%>" + content + "</size>";
+                text += "\n" + TouchPreviewTextSize.Wrap(content, PreviewTextPercent(features));
         }
         catch (Exception exception)
         {
             AndroidPatchHost.ReportProbeError("encounter_preview", exception);
         }
     }
+
+    internal static int PreviewTextPercent(AndroidInteractionFeatures? features) =>
+        features?.PreviewTextSize.Value ?? TouchPreviewTextSize.DefaultPercent;
 
     private static string? Encounter(CardTooltipController controller, string text)
     {

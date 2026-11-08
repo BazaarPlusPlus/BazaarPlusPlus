@@ -36,6 +36,7 @@ internal sealed class AndroidInteractionLifecycle
         _operations.Guarded("touch_ui", _operations.Touch);
         _operations.Guarded("quest_preview", _operations.Quest);
         _operations.Guarded("encounter_preview", _operations.Encounter);
+        _operations.Guarded("frame_rate", _operations.FrameRate);
         _operations.Font();
         _operations.Settings();
         _operations.Rental();
@@ -96,6 +97,7 @@ internal sealed record AndroidInteractionOperations
     public required Action Touch { get; init; }
     public required Action Quest { get; init; }
     public required Action Encounter { get; init; }
+    public required Action FrameRate { get; init; }
     public required Action Font { get; init; }
     public required Action Settings { get; init; }
     public required Action Rental { get; init; }

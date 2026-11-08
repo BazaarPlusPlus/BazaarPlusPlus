@@ -66,6 +66,7 @@ internal sealed class AndroidHostRuntime
     private AndroidVersionCheck? _versionCheck;
     private AndroidUpdatePrompt? _updatePrompt;
     private AndroidCombatReplayRuntime? _replayRuntime;
+    private Game.AndroidFrameRatePriority? _frameRate;
     private TouchHistoryEntry? _historyPanel;
     private AndroidOverlayPanels? _overlayPanels;
     private readonly AndroidCardTemplateIndex _templates = new();
@@ -91,6 +92,7 @@ internal sealed class AndroidHostRuntime
                 Touch = _tickTouchUi,
                 Quest = () => AndroidPatchHost.Features?.QuestPreview.Tick(),
                 Encounter = () => AndroidPatchHost.Features?.EncounterPreview.Tick(),
+                FrameRate = () => _frameRate?.Tick(Time.unscaledTime),
                 Font = AndroidGameFont.Tick,
                 Settings = () => AndroidNativeSettingsSection.Tick(Time.unscaledTime),
                 Rental = AndroidCardRental.Tick,
@@ -247,6 +249,7 @@ internal sealed class AndroidHostRuntime
         _updatePrompt = null;
         _versionCheck?.Dispose();
         _versionCheck = null;
+        _frameRate = null;
     }
 
     private void StopTouch()
@@ -286,6 +289,10 @@ internal sealed class AndroidHostRuntime
                 var shared = _composition?.Settings ?? new BppSettings(settings);
                 var android = new AndroidSettings(settings);
                 var upgradePreview = TouchUpgradePreviewSetting.Bind(settings);
+                var previewTextSize = TouchPreviewTextSize.Bind(settings);
+                _frameRate = new Game.AndroidFrameRatePriority(() =>
+                    android.FrameRatePriority.Value
+                );
                 // The Mobile UI's preview switches in the item tooltip, which the HUD ticks; Back
                 // collapses their effects first.
                 var tooltipPreviewHost = new AndroidTooltipPreviewHost();
@@ -360,7 +367,11 @@ internal sealed class AndroidHostRuntime
                 );
                 AndroidSettingsDock.Install(
                     shared,
-                    upgradePreview,
+                    new AndroidSettingsDockSettings(
+                        upgradePreview,
+                        previewTextSize,
+                        android.FrameRatePriority
+                    ),
                     new AndroidSettingsDockHooks(
                         ReleaseUpgradePreview: AndroidUpgradePreview.Release,
                         HistoryAvailable: () =>
@@ -389,6 +400,7 @@ internal sealed class AndroidHostRuntime
                         enchantPreview,
                         screenFill,
                         encounterPreview,
+                        previewTextSize,
                         aggregateItemPreview,
                         questPreview,
                         combatStatus,
@@ -412,6 +424,7 @@ internal sealed class AndroidHostRuntime
                 _versionCheck?.Dispose();
                 _versionCheck = null;
                 _updatePrompt = null;
+                _frameRate = null;
             },
             exception =>
             {

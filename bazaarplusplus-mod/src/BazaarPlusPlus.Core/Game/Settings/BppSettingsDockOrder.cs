@@ -8,6 +8,9 @@ public static class BppSettingsDockOrder
     public const int FixedSupporterList = 1;
     public const int BilingualItemNames = 2;
     public const int DetailedPreview = 3;
+
+    // The Android host's text size for the Detailed Preview, right under its switch.
+    public const int PreviewTextSize = 4;
     public const int EndOfRunScreenshot = 5;
     public const int BazaarDbUpload = 6;
     public const int CosmeticNames = 7;
@@ -32,4 +35,7 @@ public static class BppSettingsDockOrder
     public const int ShowCollectionButton = 22;
     public const int ShowTenWinBuildsButton = 23;
     public const int AnimatedHeroPortraits = 24;
+
+    // The Android host's switch that keeps the game's frame-rate setting under load.
+    public const int FrameRatePriority = 25;
 }

@@ -3,6 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Previews;
 using HarmonyLib;
 using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppTheBazaar.Tooltips;
@@ -96,7 +97,12 @@ internal static class HeroLevelRewardsTooltipPatch
                 strip.SetSiblingIndex(block.GetSiblingIndex());
             visibility.SetVisible(true);
             controller.dividerParent?.SetActive(true);
-            text.SetText("<size=75%>" + content + "</size>");
+            text.SetText(
+                TouchPreviewTextSize.Wrap(
+                    content,
+                    EncounterPreviewPatch.PreviewTextPercent(AndroidPatchHost.Features)
+                )
+            );
             ReportObserved("rendered", "rendered", level, content.Length);
 
             // The handler positioned the tooltip before the text made it taller.
