@@ -9,19 +9,12 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
 internal sealed partial class HistoryPanelView
 {
-    // Hidden in Ghost and Favorites, where the same archive rows carry battles.
-    private sealed class RunFields
+    // A row's three text lines, filled from Core's HistoryArchiveRow in every section.
+    private sealed class RowFields
     {
         internal TextMeshProUGUI Name = null!;
         internal TextMeshProUGUI Meta = null!;
         internal TextMeshProUGUI Stamp = null!;
-
-        internal void SetActive(bool active)
-        {
-            Name.gameObject.SetActive(active);
-            Meta.gameObject.SetActive(active);
-            Stamp.gameObject.SetActive(active);
-        }
     }
 
     private sealed class Row
@@ -35,7 +28,7 @@ internal sealed partial class HistoryPanelView
         internal TextMeshProUGUI OutcomeLabel = null!;
         internal TextMeshProUGUI UnknownRank = null!;
         internal TextMeshProUGUI Label = null!;
-        internal RunFields Run = null!;
+        internal RowFields Fields = null!;
         internal string? Hero;
         internal string? Id;
     }
@@ -388,11 +381,11 @@ internal sealed partial class HistoryPanelView
             var unknownRank = Text(rank.transform, "?", 0, 0, 1, 1, 14, Muted, true);
             var rating = Text(rect, "", .77f, .49f, .22f, .18f, 10, Ink, true);
             // Identity leads; mode, duration and timestamp stay in the text column.
-            var run = new RunFields
+            var fields = new RowFields
             {
-                Name = Wrapped(Text(rect, "", .245f, .07f, .425f, .28f, 15)),
-                Meta = Wrapped(Text(rect, "", .245f, .39f, .425f, .22f, 11, Muted)),
-                Stamp = Wrapped(Text(rect, "", .245f, .68f, .425f, .22f, 11, Muted)),
+                Name = OneLine(Text(rect, "", .245f, .07f, .425f, .28f, 15)),
+                Meta = OneLine(Text(rect, "", .245f, .39f, .425f, .22f, 11, Muted)),
+                Stamp = OneLine(Text(rect, "", .245f, .68f, .425f, .22f, 11, Muted)),
             };
             list.Rows[i] = new Row
             {
@@ -405,7 +398,7 @@ internal sealed partial class HistoryPanelView
                 OutcomeLabel = outcomeLabel,
                 UnknownRank = unknownRank,
                 Label = label,
-                Run = run,
+                Fields = fields,
             };
             button.gameObject.SetActive(false);
         }
@@ -558,15 +551,22 @@ internal sealed partial class HistoryPanelView
 
     // MEMORY gotcha: NoWrap + Ellipsis at a scaled font can hit TMP's m_characterCount == 0
     // branch and drop the whole block. Every row label opts out, as the existing ones do.
+    // A row field: one line, cut with an ellipsis rather than spilling onto the next field.
+    private static TextMeshProUGUI OneLine(TextMeshProUGUI text)
+    {
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        return text;
+    }
+
     private static TextMeshProUGUI Wrapped(TextMeshProUGUI text)
     {
         text.textWrappingMode = TextWrappingModes.Normal;
         return text;
     }
 
-    // Archive rows carry runs in Runs and battles in Ghost and Favorites. Runs get the
-    // laid-out fields; battles keep the single wrapped label, and the shared badges move
-    // to the slots that suit whichever is showing.
+    // Archive rows carry runs in Runs and battles in Ghost and Favorites. Both fill the same
+    // fields; the fields and the shared badges move to the slots that suit whichever is showing.
     private void ApplyArchiveRowMode(bool runs)
     {
         _archiveList.Height = runs
@@ -578,9 +578,23 @@ internal sealed partial class HistoryPanelView
             var rect = (RectTransform)row.Button.transform;
             rect.sizeDelta = new Vector2(0, _archiveList.Height - 5);
             rect.anchoredPosition = new Vector2(0, -i * _archiveList.Height);
-            row.Run.SetActive(runs);
-            row.Label.gameObject.SetActive(!runs);
+            row.Label.gameObject.SetActive(false);
             row.OutcomeLabel.gameObject.SetActive(!runs);
+            // The same three single-line fields as a touch row: the text column ends at the
+            // rank badge, so a battle row's is wider than a run row's.
+            var width = runs ? .425f : .52f;
+            Anchor(
+                row.Fields.Name.rectTransform,
+                HistoryPanelLayout.Anchors(.245f, runs ? .07f : .1f, width, runs ? .28f : .26f)
+            );
+            Anchor(
+                row.Fields.Meta.rectTransform,
+                HistoryPanelLayout.Anchors(.245f, runs ? .39f : .41f, width, .22f)
+            );
+            Anchor(
+                row.Fields.Stamp.rectTransform,
+                HistoryPanelLayout.Anchors(.245f, runs ? .68f : .67f, width, .22f)
+            );
             Anchor(
                 row.Portrait.rectTransform,
                 runs
@@ -603,8 +617,7 @@ internal sealed partial class HistoryPanelView
         }
     }
 
-    // Run rows fill the name, meta and stamp fields; battle rows put the same three lines in the
-    // button label beside the outcome word.
+    // Every row fills the name, meta and stamp fields; a battle row adds its outcome word.
     private void BindRows(
         PageList list,
         IReadOnlyList<HistoryArchiveRow> rows,
@@ -629,19 +642,11 @@ internal sealed partial class HistoryPanelView
             row.Id = fields.Id;
             if (row.Id == topId)
                 newTop = i;
-            SetButton(
-                row.Button,
-                runs ? string.Empty : $"{fields.Name}\n{fields.Meta}\n{fields.Stamp}",
-                i == selected,
-                !_model!.PageLoading
-            );
-            if (runs)
-            {
-                row.Run.Name.text = fields.Name;
-                row.Run.Meta.text = fields.Meta;
-                row.Run.Stamp.text = fields.Stamp;
-            }
-            else
+            SetButton(row.Button, string.Empty, i == selected, !_model!.PageLoading);
+            row.Fields.Name.text = fields.Name;
+            row.Fields.Meta.text = fields.Meta;
+            row.Fields.Stamp.text = fields.Stamp;
+            if (!runs)
                 BindOutcome(row.OutcomeLabel, fields.Outcome, fields.OutcomeText);
             row.Badge.sprite = BadgeSprite(fields.Badge);
             row.Badge.color = row.Badge.sprite != null ? Color.white : Color.clear;
