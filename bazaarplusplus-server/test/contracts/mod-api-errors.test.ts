@@ -131,6 +131,12 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
     new Uint8Array([0x1f, 0x8b, 0x08, 0, 5, 4, 3, 2, 1])
   );
   await record(uploadRequest(unsupportedRun.body, unsupportedRun.headers));
+  const withoutBattles = await makeBundleFixture({
+    bundleId: '01J00000000000000000000003',
+    runId: 'run-without-battles',
+    battles: []
+  });
+  await record(uploadRequest(withoutBattles.body, withoutBattles.headers));
 
   const stored = await worker.fetch(
     uploadRequest(fixture.body, fixture.headers),

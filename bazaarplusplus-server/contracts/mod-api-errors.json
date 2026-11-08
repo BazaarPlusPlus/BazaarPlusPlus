@@ -115,6 +115,12 @@
       "meaning": "Run or Screenshot digest mismatch"
     },
     {
+      "code": "run_without_battles",
+      "status": 422,
+      "retryable": false,
+      "meaning": "Bundle has no Battle projection"
+    },
+    {
       "code": "rate_limited",
       "status": 429,
       "retryable": true,

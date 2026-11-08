@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "cases": [
     {
       "name": "no_outbox",
@@ -8,6 +8,62 @@
         "gameMode": "Ranked",
         "buildChannel": "Online",
         "uploadPolicy": "bundle"
+      },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": true, "protectedFromCleanup": true }
+    },
+    {
+      "name": "empty_run",
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle",
+        "victories": 0,
+        "losses": 0
+      },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "empty_run_with_waiting_job",
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle",
+        "victories": 0,
+        "losses": 0
+      },
+      "outbox": [],
+      "sealJob": { "state": "waiting", "lastErrorCode": null },
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "one_loss",
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle",
+        "victories": 0,
+        "losses": 1
+      },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": true, "protectedFromCleanup": true }
+    },
+    {
+      "name": "unknown_losses",
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle",
+        "victories": 0,
+        "losses": null
       },
       "outbox": [],
       "sealJob": null,
@@ -118,7 +174,10 @@
         "uploadPolicy": "bundle"
       },
       "outbox": [],
-      "sealJob": { "state": "waiting", "lastErrorCode": "seal_environment_blocked" },
+      "sealJob": {
+        "state": "waiting",
+        "lastErrorCode": "seal_environment_blocked"
+      },
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
     },
     {
@@ -130,7 +189,10 @@
         "uploadPolicy": "bundle"
       },
       "outbox": [],
-      "sealJob": { "state": "terminal_failure", "lastErrorCode": "seal_retry_exhausted" },
+      "sealJob": {
+        "state": "terminal_failure",
+        "lastErrorCode": "seal_retry_exhausted"
+      },
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
     },
     {

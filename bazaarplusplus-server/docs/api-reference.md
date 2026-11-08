@@ -75,6 +75,7 @@ The machine-readable owner is [`contracts/mod-api-errors.json`](../contracts/mod
 | 422 | `unsupported_run_format` | `false` | Run format not accepted |
 | 422 | `bundle_digest_mismatch` | `false` | Complete digest mismatch |
 | 422 | `segment_digest_mismatch` | `false` | Run or Screenshot digest mismatch |
+| 422 | `run_without_battles` | `false` | Bundle has no Battle projection |
 | 429 | `rate_limited` | `true` | Ghost request rate exceeded |
 | 500 | `internal_error` | `true` | Unclassified server error or invalid service configuration |
 | 503 | `storage_unavailable` | `true` | Storage, signing, or rate limiter unavailable |
@@ -226,6 +227,8 @@ First logical commit returns `201`:
 ```
 
 An identical stored Bundle returns `200` with `outcome: "duplicate"`.
+
+A Bundle whose `run.projection.battles` is empty returns `422 run_without_battles` before any storage access. The Bundle V6 format allows an empty list, but such a Run gives Ghost discovery nothing, and almost all are Runs the player left before the first fight, which would count as zero-win Runs in hero outcome rates.
 
 Conflicts preserve the first immutable identity:
 

@@ -1,8 +1,11 @@
 {
-  "status": 201,
+  "status": 422,
   "body": {
-    "bundle_id": "01J00000000000000000000901",
-    "run_id": "golden-run-001",
-    "outcome": "stored"
+    "error": {
+      "code": "run_without_battles",
+      "message": "Bundle has no Battle projection",
+      "retryable": false,
+      "request_id": "golden-vector"
+    }
   }
 }

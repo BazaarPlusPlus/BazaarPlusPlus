@@ -4,7 +4,8 @@ using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
 
 // Reads the shared seal-eligibility fixture and seeds one case into a mod database.
-// formatVersion 2 made run.uploadPolicy required, so a reader that predates it fails here.
+// formatVersion 2 made run.uploadPolicy required and 3 added optional run.victories and
+// run.losses (absent is null), so a reader that predates either fails here.
 // ReplayPayloadMaintenance.Tests Compile-Includes this file to evaluate replay maintenance.
 internal sealed record BundleSealEligibilityCase(
     string Name,
@@ -27,7 +28,7 @@ internal sealed record BundleSealEligibilityCase(
 
         using var document = JsonDocument.Parse(TestInputs.Scratch(path));
         var root = document.RootElement;
-        if (root.GetProperty("formatVersion").GetInt32() != 2)
+        if (root.GetProperty("formatVersion").GetInt32() != 3)
             throw new InvalidOperationException("Unsupported seal eligibility fixture format.");
 
         var cases = new List<BundleSealEligibilityCase>();
@@ -61,6 +62,11 @@ internal sealed record BundleSealEligibilityCase(
         return cases;
     }
 
+    private int? OptionalInt(string name) =>
+        Run.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null
+            ? value.GetInt32()
+            : null;
+
     // Uses the case name as run id, so every case can share one database.
     internal void Seed(SqliteConnection connection)
     {
@@ -69,17 +75,19 @@ internal sealed record BundleSealEligibilityCase(
             """
             INSERT INTO runs (
                 run_id, started_at_ms, last_seen_at_ms, ended_at_ms, status,
-                hero, game_mode, build_channel, upload_policy
+                hero, game_mode, build_channel, upload_policy, victories, losses
             ) VALUES (
                 $runId, 1767225600000, 1767226200000, 1767226200000,
-                $status, 'Vanessa', $gameMode, $buildChannel, $uploadPolicy
+                $status, 'Vanessa', $gameMode, $buildChannel, $uploadPolicy, $victories, $losses
             );
             """,
             ("$runId", Name),
             ("$status", Run.GetProperty("status").GetString()),
             ("$gameMode", Run.GetProperty("gameMode").GetString()),
             ("$buildChannel", Run.GetProperty("buildChannel").GetString()),
-            ("$uploadPolicy", UploadPolicy)
+            ("$uploadPolicy", UploadPolicy),
+            ("$victories", OptionalInt("victories")),
+            ("$losses", OptionalInt("losses"))
         );
         for (var index = 0; index < OutboxStatuses.Count; index++)
         {

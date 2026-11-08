@@ -21,8 +21,8 @@ public sealed class BundleQueueStore : SqliteStoreBase
 
     /// <summary>
     /// The one rule for a Seal-Eligible Run, as a SQL condition over the runs row aliased
-    /// <paramref name="runAlias"/>: not a History-Only Run, completed, Ranked, not PTR, and with
-    /// neither a seal job nor any outbox row. The upload policy is checked first: imported history
+    /// <paramref name="runAlias"/>: not a History-Only Run, completed, Ranked, not PTR, not an
+    /// Empty Run (zero wins and zero losses), and with neither a seal job nor any outbox row. The upload policy is checked first: imported history
     /// is never sealed, whatever its other columns say. Any outbox row ends eligibility: a reseal
     /// after an invalid file is scheduled explicitly, and a server rejection or retention expiry is
     /// final. <see cref="EnsureEligibleJobs"/>
@@ -82,6 +82,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
                 AND {runAlias}.status = 'completed'
                 AND lower({runAlias}.game_mode) = 'ranked'
                 AND lower(COALESCE({runAlias}.build_channel, 'unknown')) <> 'ptr'
+                AND NOT ({runAlias}.victories IS 0 AND {runAlias}.losses IS 0)
             """;
 
     public void EnsureEligibleJobs(TimeSpan inputConvergenceWindow)

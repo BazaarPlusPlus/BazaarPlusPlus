@@ -87,6 +87,7 @@ pub(crate) const PROTECTED_RUN_PREDICATE: &str = "
     and r.status = 'completed'
     and lower(r.game_mode) = 'ranked'
     and lower(coalesce(r.build_channel, 'unknown')) <> 'ptr'
+    and not (r.victories is 0 and r.losses is 0)
     and not exists (
         select 1
         from bundle_outbox o
@@ -2523,7 +2524,7 @@ mod tests {
     #[test]
     fn run_plan_protects_exactly_the_shared_seal_eligibility_cases() {
         let shared: serde_json::Value = serde_json::from_str(SEAL_ELIGIBILITY_FIXTURE).unwrap();
-        assert_eq!(shared["formatVersion"], 2);
+        assert_eq!(shared["formatVersion"], 3);
         let cases = shared["cases"].as_array().unwrap();
         assert!(!cases.is_empty());
 
@@ -2535,8 +2536,8 @@ mod tests {
             conn.execute(
                 "insert into runs (
                     run_id, started_at_ms, last_seen_at_ms, status, hero,
-                    game_mode, ended_at_ms, build_channel, upload_policy
-                 ) values (?1, ?2, ?2, ?3, 'Vanessa', ?4, ?2, ?5, ?6)",
+                    game_mode, ended_at_ms, build_channel, upload_policy, victories, losses
+                 ) values (?1, ?2, ?2, ?3, 'Vanessa', ?4, ?2, ?5, ?6, ?7, ?8)",
                 rusqlite::params![
                     run_id,
                     ms("2026-06-10T10:00:00Z"),
@@ -2544,6 +2545,8 @@ mod tests {
                     run["gameMode"].as_str().unwrap(),
                     run["buildChannel"].as_str(),
                     run["uploadPolicy"].as_str().unwrap(),
+                    run["victories"].as_i64(),
+                    run["losses"].as_i64(),
                 ],
             )
             .unwrap();

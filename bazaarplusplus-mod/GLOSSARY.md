@@ -136,7 +136,7 @@ assembly binding failure) rather than its data; it is retried once per launch.
 _Avoid_: JSON failure
 
 **Seal-Eligible Run**:
-A completed, non-PTR Ranked Run, not History-Only, with neither a seal job nor any outbox row;
+A completed, non-PTR Ranked Run, not History-Only and not an Empty Run, with neither a seal job nor any outbox row;
 job discovery gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule
 (root `AGENTS.md` Contracts).
 _Avoid_: sealable run

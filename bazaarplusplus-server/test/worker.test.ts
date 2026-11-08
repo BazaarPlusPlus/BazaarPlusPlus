@@ -286,8 +286,7 @@ describe('route shell outcomes', () => {
       .mockImplementation(() => undefined);
     const fixture = await makeBundleFixture({
       bundleId: '01J00000000000000000000901',
-      runId: 'shell-unclassified-run',
-      battles: []
+      runId: 'shell-unclassified-run'
     });
     const headers = new Headers(fixture.headers);
     headers.set('CF-Ray', 'error-ray');
