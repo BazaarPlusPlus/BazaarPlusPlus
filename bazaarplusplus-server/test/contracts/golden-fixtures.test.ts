@@ -58,7 +58,7 @@ describe('checked-in Bundle V6 golden vectors', () => {
         );
         expect(declared, expectation.expected_error).toBeDefined();
         expect(response.status).toBe(declared?.status);
-        expect((await response.json()) as object).toMatchObject({
+        expect(await response.json()).toMatchObject({
           error: {
             code: expectation.expected_error,
             ...(expectation.expected_reason === undefined

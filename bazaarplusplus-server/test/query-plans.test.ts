@@ -126,9 +126,9 @@ test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog',
       GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: true }) }
     }
   );
-  expect(
-    ((await ghosts.json()) as { battles: unknown[] }).battles
-  ).toHaveLength(20);
+  expect((await ghosts.json<{ battles: unknown[] }>()).battles).toHaveLength(
+    20
+  );
   const ghost = query(
     queries,
     /^SELECT .* FROM ghost_battle_summaries /

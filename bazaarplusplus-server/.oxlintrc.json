@@ -29,10 +29,7 @@
         "eslint/no-shadow": "off",
         "unicorn/consistent-function-scoping": "off",
         // The D1 fixture mirrors D1's generic signatures.
-        "typescript/no-unnecessary-type-parameters": "off",
-        // tsgolint reads tsconfig.json, which does not include test/, so it
-        // misjudges the Cloudflare.Env casts that tsconfig.test.json needs.
-        "typescript/no-unnecessary-type-assertion": "off"
+        "typescript/no-unnecessary-type-parameters": "off"
       }
     }
   ]

@@ -7,7 +7,7 @@
     "bun": "1.4.4"
   },
   "scripts": {
-    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json && oxlint --type-aware && oxfmt --check .",
+    "check": "tsc --noEmit -p tsconfig.src.json && tsc --noEmit -p tsconfig.json && oxlint --type-aware && oxfmt --check .",
     "lint": "oxlint --type-aware",
     "format": "oxfmt .",
     "test": "vitest run",
