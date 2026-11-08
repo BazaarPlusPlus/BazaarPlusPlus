@@ -169,6 +169,12 @@ export async function ingestBundle(
   }
   const opened = await openBundle(request.body, contentLength, digest);
   const { descriptor } = opened;
+  if (descriptor.battles.length === 0) {
+    // Validate the rest of the Bundle first, so a corrupt upload still gets its format error.
+    await opened.body.pipeTo(new WritableStream<Uint8Array>());
+    await opened.digest;
+    throw apiError('run_without_battles', 'Bundle has no Battle projection');
+  }
   let existing: CommitOutcome | null;
   try {
     existing = await inspectExistingBundle(env.DB, descriptor, digest);

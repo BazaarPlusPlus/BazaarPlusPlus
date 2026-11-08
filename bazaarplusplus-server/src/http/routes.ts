@@ -137,6 +137,7 @@ export const ROUTES = [
         'unsupported_run_format',
         'bundle_digest_mismatch',
         'segment_digest_mismatch',
+        'run_without_battles',
         'storage_unavailable'
       ]
     }

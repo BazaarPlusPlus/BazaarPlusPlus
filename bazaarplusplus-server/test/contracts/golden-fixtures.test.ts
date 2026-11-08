@@ -38,7 +38,9 @@ async function upload(bytes: Uint8Array): Promise<Response> {
   const headers = new Headers({
     'Content-Type': 'application/x-bpp-bundle-v6',
     'Content-Length': String(bytes.byteLength),
-    'Content-Digest': await contentDigest(bytes)
+    'Content-Digest': await contentDigest(bytes),
+    // A fixed request id keeps error goldens stable.
+    'CF-Ray': 'golden-vector'
   });
   return worker.fetch(uploadRequest(bytes, headers), env);
 }
@@ -69,6 +71,7 @@ describe('checked-in Bundle V6 golden vectors', () => {
         return;
       }
       expect(body.byteLength).toBe(expectation.decoded_bytes);
+      // "valid" is the codec's verdict; ingest policy still rejects a Bundle without a Battle.
       await expectGolden(response, `ingest-${name.replace('.bundle.b64', '')}`);
     }
   );

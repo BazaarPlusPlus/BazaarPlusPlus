@@ -37,6 +37,7 @@ export const API_ERROR_CODES = [
   'unsupported_run_format',
   'bundle_digest_mismatch',
   'segment_digest_mismatch',
+  'run_without_battles',
   'rate_limited',
   'internal_error',
   'storage_unavailable'

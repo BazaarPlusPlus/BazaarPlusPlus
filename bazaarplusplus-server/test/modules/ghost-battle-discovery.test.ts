@@ -293,13 +293,13 @@ describe('GET /ghost-battles', () => {
         bundleId: '01J00000000000000000000231',
         runId: 'ghost-direction-seed-a',
         uploaderAccountId: accountA,
-        battles: []
+        battleId: 'ghost-direction-seed-a'
       }),
       await makeBundleFixture({
         bundleId: '01J00000000000000000000232',
         runId: 'ghost-direction-seed-b',
         uploaderAccountId: accountB,
-        battles: []
+        battleId: 'ghost-direction-seed-b'
       }),
       await makeBundleFixture({
         bundleId: '01J00000000000000000000233',

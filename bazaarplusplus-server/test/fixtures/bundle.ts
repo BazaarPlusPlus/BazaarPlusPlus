@@ -8,6 +8,7 @@ export interface BundleFixtureOptions {
   runId?: string;
   uploaderAccountId?: string;
   opponentAccountId?: string;
+  battleId?: string;
   createdAtMs?: number;
   runBytes?: Uint8Array;
   screenshotBytes?: Uint8Array | null;
@@ -73,7 +74,7 @@ export async function makeBundleFixture(
     options.screenshotBytes === undefined ? null : options.screenshotBytes;
   const battles = options.battles ?? [
     {
-      battle_id: 'battle-001',
+      battle_id: options.battleId ?? 'battle-001',
       recorded_at_ms: createdAtMs - 1_000,
       day: 10,
       hour: 18,

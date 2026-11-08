@@ -17,12 +17,7 @@ describe('POST /bundles', () => {
       env
     );
 
-    expect(response.status).toBe(201);
-    expect(await response.json()).toEqual({
-      bundle_id: '01J00000000000000000000001',
-      run_id: 'run-001',
-      outcome: 'stored'
-    });
+    await expectGolden(response, 'ingest-stored');
 
     const object = await env.BUNDLE_BUCKET.get(
       'bundles/2026-08-02/01J00000000000000000000001.bundle'
@@ -99,6 +94,36 @@ describe('POST /bundles', () => {
     ).toBeNull();
   });
 
+  test('rejects a Bundle without a Battle before storage', async () => {
+    const fixture = await makeBundleFixture({
+      bundleId: '01J00000000000000000000007',
+      runId: 'run-007',
+      uploaderAccountId: 'account-no-battles',
+      battles: []
+    });
+    const response = await worker.fetch(
+      uploadRequest(fixture.body, fixture.headers),
+      env
+    );
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'run_without_battles', retryable: false }
+    });
+    expect(
+      await env.BUNDLE_BUCKET.head(
+        'bundles/2026-08-02/01J00000000000000000000007.bundle'
+      )
+    ).toBeNull();
+    expect(
+      await env.DB.prepare(
+        `SELECT
+           (SELECT count(*) FROM bundles WHERE bundle_id = '01J00000000000000000000007') AS bundles,
+           (SELECT count(*) FROM bundle_uploaders WHERE player_account_id = 'account-no-battles') AS uploaders`
+      ).first()
+    ).toEqual({ bundles: 0, uploaders: 0 });
+  });
+
   test('does not use a whole-request buffering helper', async () => {
     const fixture = await makeBundleFixture({
       bundleId: '01J00000000000000000000004',
@@ -135,8 +160,7 @@ describe('POST /bundles', () => {
     const fixture = await makeBundleFixture({
       bundleId: '01J00000000000000000000006',
       runId: 'run-006',
-      screenshotBytes: new Uint8Array([0xff, 0xd8, 6, 0xff, 0xd9]),
-      battles: []
+      screenshotBytes: new Uint8Array([0xff, 0xd8, 6, 0xff, 0xd9])
     });
     const first = await worker.fetch(
       uploadRequest(fixture.body, fixture.headers),

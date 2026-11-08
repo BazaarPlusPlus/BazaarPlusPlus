@@ -1,0 +1,8 @@
+{
+  "status": 201,
+  "body": {
+    "bundle_id": "01J00000000000000000000001",
+    "run_id": "run-001",
+    "outcome": "stored"
+  }
+}

@@ -8,8 +8,8 @@ import { ROUTES } from '../../src/http/routes';
 import worker from '../../src/index';
 import bazaarDbPage from '../goldens/bazaardb-page.json';
 import collectionPage from '../goldens/collection-page.json';
-import ingestRunOnly from '../goldens/ingest-run-only.json';
 import ingestDuplicate from '../goldens/ingest-screenshot-duplicate.json';
+import ingestStored from '../goldens/ingest-stored.json';
 
 const ORIGIN = 'https://mod-api-v6.bazaarplusplus.com';
 
@@ -102,7 +102,7 @@ describe('the OpenAPI document', () => {
 test.each([
   ['/bundles', 'GET', collectionPage],
   ['/bazaardb/bundles', 'GET', bazaarDbPage],
-  ['/bundles', 'POST', ingestRunOnly],
+  ['/bundles', 'POST', ingestStored],
   ['/bundles', 'POST', ingestDuplicate],
   ['/ghost-battles', 'GET', { status: 200, body: ghostSummary }]
 ])('%s %s responses match the documented schema', (path, method, golden) => {

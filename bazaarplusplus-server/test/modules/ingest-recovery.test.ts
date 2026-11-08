@@ -27,8 +27,7 @@ describe('Bundle ingest fault recovery', () => {
       const original = await makeBundleFixture({
         bundleId,
         runId: `recovery-unread-${outcome}`,
-        uploaderAccountId: `recovery-unread-${outcome}`,
-        battles: []
+        uploaderAccountId: `recovery-unread-${outcome}`
       });
       if (outcome !== 'index_failure') {
         expect(
@@ -49,8 +48,7 @@ describe('Bundle ingest fault recovery', () => {
                   : '01J00000000000000000000714',
               runId: `recovery-unread-${outcome}`,
               uploaderAccountId: `recovery-unread-${outcome}`,
-              runBytes: new Uint8Array([1, 2, 3]),
-              battles: []
+              runBytes: new Uint8Array([1, 2, 3])
             })
           : original;
       const manifestEnd =
@@ -91,8 +89,7 @@ describe('Bundle ingest fault recovery', () => {
   test('keeps an R2-only object after D1 failure and recovers it on retry', async () => {
     const fixture = await makeBundleFixture({
       bundleId: '01J00000000000000000000701',
-      runId: 'recovery-orphan-run',
-      battles: []
+      runId: 'recovery-orphan-run'
     });
     const failingEnv = {
       ...env,
@@ -148,13 +145,11 @@ describe('Bundle ingest fault recovery', () => {
   test('a Run conflict never creates a second object', async () => {
     const first = await makeBundleFixture({
       bundleId: '01J00000000000000000000702',
-      runId: 'recovery-shared-run',
-      battles: []
+      runId: 'recovery-shared-run'
     });
     const second = await makeBundleFixture({
       bundleId: '01J00000000000000000000703',
-      runId: 'recovery-shared-run',
-      battles: []
+      runId: 'recovery-shared-run'
     });
     expect(
       (await worker.fetch(uploadRequest(first.body, first.headers), env)).status
@@ -182,8 +177,7 @@ describe('Bundle ingest fault recovery', () => {
   test('a Bundle ID conflict never overwrites the first object', async () => {
     const first = await makeBundleFixture({
       bundleId: '01J00000000000000000000704',
-      runId: 'recovery-first-run',
-      battles: []
+      runId: 'recovery-first-run'
     });
     expect(
       (await worker.fetch(uploadRequest(first.body, first.headers), env)).status
@@ -208,8 +202,7 @@ describe('Bundle ingest fault recovery', () => {
   test('an R2 PUT failure leaves no D1 logical commit', async () => {
     const fixture = await makeBundleFixture({
       bundleId: '01J00000000000000000000705',
-      runId: 'recovery-r2-failure-run',
-      battles: []
+      runId: 'recovery-r2-failure-run'
     });
     const failingEnv = {
       ...env,
@@ -237,8 +230,7 @@ describe('Bundle ingest fault recovery', () => {
   test('an invalid pre-existing R2 object is preserved as evidence', async () => {
     const fixture = await makeBundleFixture({
       bundleId: '01J00000000000000000000706',
-      runId: 'recovery-invalid-object-run',
-      battles: []
+      runId: 'recovery-invalid-object-run'
     });
     const key = 'bundles/2026-08-02/01J00000000000000000000706.bundle';
     const evidence = new Uint8Array([1, 2, 3, 4]);
@@ -263,8 +255,7 @@ describe('Bundle ingest fault recovery', () => {
   test('a midstream disconnect is retryable and commits nothing', async () => {
     const fixture = await makeBundleFixture({
       bundleId: '01J00000000000000000000707',
-      runId: 'recovery-disconnect-run',
-      battles: []
+      runId: 'recovery-disconnect-run'
     });
     let emitted = false;
     const stream = new ReadableStream({
