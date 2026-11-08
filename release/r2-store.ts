@@ -138,7 +138,7 @@ interface TokenVerification {
 // Content and signing digests; also the R2 Secret Access Key, which Cloudflare
 // defines as the SHA-256 of the API token value (not password storage).
 const digest = (bytes: string | NodeJS.ArrayBufferView): string =>
-  crypto.createHash('sha256').update(bytes).digest('hex'); // lgtm[js/insufficient-password-hash]
+  crypto.createHash('sha256').update(bytes).digest('hex');
 const hmac = (key: crypto.BinaryLike, value: string): Buffer =>
   crypto.createHmac('sha256', key).update(value).digest();
 const encode = (value: string): string =>
