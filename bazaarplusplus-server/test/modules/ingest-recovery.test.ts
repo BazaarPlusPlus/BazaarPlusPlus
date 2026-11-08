@@ -131,7 +131,7 @@ describe('Bundle ingest fault recovery', () => {
     );
     now.mockRestore();
     expect(recovered.status).toBe(201);
-    expect((await recovered.json()) as object).toMatchObject({
+    expect(await recovered.json()).toMatchObject({
       outcome: 'stored'
     });
     expect(
@@ -164,7 +164,7 @@ describe('Bundle ingest fault recovery', () => {
       env
     );
     expect(conflict.status).toBe(409);
-    expect((await conflict.json()) as object).toMatchObject({
+    expect(await conflict.json()).toMatchObject({
       error: { code: 'run_already_bundled' }
     });
     expect(
@@ -194,7 +194,7 @@ describe('Bundle ingest fault recovery', () => {
     headers.set('Content-Digest', await contentDigest(changed));
     const conflict = await worker.fetch(uploadRequest(changed, headers), env);
     expect(conflict.status).toBe(409);
-    expect((await conflict.json()) as object).toMatchObject({
+    expect(await conflict.json()).toMatchObject({
       error: { code: 'bundle_id_conflict' }
     });
     const object = await env.BUNDLE_BUCKET.get(
@@ -307,7 +307,7 @@ describe('Bundle ingest fault recovery', () => {
 
     const response = await worker.fetch(request, consumingEnv);
     expect(response.status).toBe(503);
-    expect((await response.json()) as object).toMatchObject({
+    expect(await response.json()).toMatchObject({
       error: { code: 'storage_unavailable', retryable: true }
     });
     expect(

@@ -331,9 +331,9 @@ describe('GET /ghost-battles', () => {
           ),
           env
         );
-        return (await response.json()) as {
+        return response.json<{
           battles: Array<{ battle_id: string; player: { account_id: string } }>;
-        };
+        }>();
       })
     );
     expect(forA.battles).toMatchObject([

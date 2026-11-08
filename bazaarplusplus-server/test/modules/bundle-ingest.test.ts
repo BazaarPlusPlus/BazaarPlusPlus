@@ -72,7 +72,7 @@ describe('POST /bundles', () => {
     );
 
     expect(response.status).toBe(411);
-    expect((await response.json()) as object).toMatchObject({
+    expect(await response.json()).toMatchObject({
       error: { code: 'content_length_required', retryable: false }
     });
   });
@@ -89,7 +89,7 @@ describe('POST /bundles', () => {
     const response = await worker.fetch(uploadRequest(body, headers), env);
 
     expect(response.status).toBe(422);
-    expect((await response.json()) as object).toMatchObject({
+    expect(await response.json()).toMatchObject({
       error: { code: 'segment_digest_mismatch', retryable: false }
     });
     expect(
@@ -126,7 +126,9 @@ describe('POST /bundles', () => {
       worker.fetch(uploadRequest(fixture.body, fixture.headers), env)
     ]);
 
-    expect(responses.map(({ status }) => status).sort()).toEqual([200, 201]);
+    expect(responses.map(({ status }) => status).sort((a, b) => a - b)).toEqual(
+      [200, 201]
+    );
   });
 
   test('reports created then existing for one Screenshot Bundle', async () => {

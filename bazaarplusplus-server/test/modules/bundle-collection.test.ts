@@ -146,7 +146,7 @@ describe('GET /bundles', () => {
       env
     );
     expect(response.status).toBe(410);
-    expect((await response.json()) as object).toMatchObject({
+    expect(await response.json()).toMatchObject({
       error: { code: 'window_expired', retryable: false }
     });
   });
@@ -160,7 +160,7 @@ describe('GET /bundles', () => {
       env
     );
     expect(response.status).toBe(400);
-    expect((await response.json()) as object).toMatchObject({
+    expect(await response.json()).toMatchObject({
       error: { code: 'invalid_query', retryable: false }
     });
   });
@@ -276,7 +276,7 @@ describe('GET /bazaardb/bundles', () => {
       env
     );
     expect(expired.status).toBe(410);
-    expect((await expired.json()) as object).toMatchObject({
+    expect(await expired.json()).toMatchObject({
       error: { code: 'window_expired', retryable: false }
     });
 
@@ -288,7 +288,7 @@ describe('GET /bazaardb/bundles', () => {
       env
     );
     expect(unsettled.status).toBe(400);
-    expect((await unsettled.json()) as object).toMatchObject({
+    expect(await unsettled.json()).toMatchObject({
       error: { code: 'window_not_settled', retryable: false }
     });
   });

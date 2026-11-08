@@ -131,7 +131,7 @@ describe('service-token scopes', () => {
     );
 
     expect(response.status).toBe(401);
-    expect((await response.json()) as object).toMatchObject({
+    expect(await response.json()).toMatchObject({
       error: { code: 'unauthorized', retryable: false }
     });
   });
@@ -147,7 +147,7 @@ describe('service-token scopes', () => {
     );
 
     expect(response.status).toBe(403);
-    expect((await response.json()) as object).toMatchObject({
+    expect(await response.json()).toMatchObject({
       error: { code: 'insufficient_scope', retryable: false }
     });
   });
@@ -163,7 +163,7 @@ describe('service-token scopes', () => {
     );
 
     expect(response.status).toBe(403);
-    expect((await response.json()) as object).toMatchObject({
+    expect(await response.json()).toMatchObject({
       error: { code: 'insufficient_scope', retryable: false }
     });
   });
