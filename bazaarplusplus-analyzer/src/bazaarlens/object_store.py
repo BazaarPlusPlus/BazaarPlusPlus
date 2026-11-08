@@ -79,7 +79,7 @@ def derive_s3_credentials(
         raise ValueError("CLOUDFLARE_ACCOUNT_ID must be the 32-character hexadecimal account id")
     account = account_id.lower()
     # Cloudflare defines the secret as this digest; it is not password storage.
-    secret = hashlib.sha256(token.encode()).hexdigest()  # lgtm[py/weak-sensitive-data-hashing]
+    secret = hashlib.sha256(token.encode()).hexdigest()
     cache_key = f"{account}:{secret}"
     access_key_id = _verified_token_ids.get(cache_key)
     if access_key_id is None:

@@ -1,0 +1,11 @@
+name: BazaarPlusPlus CodeQL
+
+# Both rules flag the R2 Secret Access Key, which Cloudflare defines as the
+# SHA-256 of the API token value (issue #211); it is not password storage.
+# Nothing in the repo stores passwords. A dismissed alert does not survive a
+# file move, so the rules are filtered here instead of dismissed each time.
+query-filters:
+  - exclude:
+      id: py/weak-sensitive-data-hashing
+  - exclude:
+      id: js/insufficient-password-hash
