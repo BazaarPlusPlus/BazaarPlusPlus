@@ -4,9 +4,9 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal static class ScreenshotCaptureDiagnostics
+public static class ScreenshotCaptureDiagnostics
 {
-    internal static void ReportCleanupFailed(
+    public static void ReportCleanupFailed(
         ScreenshotCaptureCleanupStage stage,
         string? screenshotId,
         string? filePath,

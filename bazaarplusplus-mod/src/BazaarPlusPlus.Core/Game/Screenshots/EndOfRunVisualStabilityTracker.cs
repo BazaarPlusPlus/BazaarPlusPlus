@@ -2,9 +2,9 @@
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal sealed class EndOfRunVisualStabilityTracker
+public sealed class EndOfRunVisualStabilityTracker
 {
-    internal const float RequiredStableSeconds = 0.5f;
+    public const float RequiredStableSeconds = 0.5f;
 
     private bool _hasBaseline;
     private bool _motionObserved;

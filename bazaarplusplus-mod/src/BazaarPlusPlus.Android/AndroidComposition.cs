@@ -26,7 +26,6 @@ using BazaarPlusPlus.Infrastructure.ReleaseManifest;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.Mobile.LiveBuild;
 using BazaarPlusPlus.ModApi;
-using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.Storage.Paths;
@@ -71,7 +70,15 @@ internal sealed class AndroidComposition
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
 
-    public AndroidComposition(string dataRoot, GameBuildInfo gameBuild, IBppSettingsStore settings)
+    // endOfRunCapture: whether the host takes the end-of-run screenshot (the enabled patch
+    // mode). A Run then asks for one only while BazaarDB upload is on, as on the desktop;
+    // otherwise its Bundle is Run-only and sealing never waits for an image.
+    public AndroidComposition(
+        string dataRoot,
+        GameBuildInfo gameBuild,
+        IBppSettingsStore settings,
+        bool endOfRunCapture
+    )
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         ArgumentNullException.ThrowIfNull(gameBuild);
@@ -146,8 +153,8 @@ internal sealed class AndroidComposition
                 static () => DateTimeOffset.UtcNow,
                 DatabasePath,
                 playerAccountIdResolver: AndroidClientCache.TryGetProfileAccountId,
-                // The Android host takes no end-of-run screenshot, so its Bundles are Run-only.
-                bundleScreenshotRequestedResolver: static () => false,
+                bundleScreenshotRequestedResolver: () =>
+                    endOfRunCapture && services.Config.BazaarDbUploadEnabled.Value,
                 modVersionResolver: static () => BppPluginVersion.Current,
                 subscribeRankRefreshed: static onRefreshed =>
                     AndroidClientCache.SubscribeRankRefreshed(
@@ -164,7 +171,7 @@ internal sealed class AndroidComposition
                 AndroidPvpBattleEvidence.Instance,
                 DatabaseOptions
             ),
-            NoScreenshots.Instance,
+            new BundleScreenshotEncoder(),
             faultProbe: null,
             DatabaseOptions
         );
@@ -416,16 +423,5 @@ internal sealed class AndroidComposition
                 EncounterProbeFailureReason.ChoiceResolutionException,
                 new NotSupportedException("The Android host reads no offered pedestals.")
             );
-    }
-
-    private sealed class NoScreenshots : IBundleScreenshotEncoder
-    {
-        public static NoScreenshots Instance { get; } = new();
-
-        public Task<BundleScreenshotBuildInputV6?> EncodeAsync(
-            string absolutePath,
-            long capturedAtMs,
-            CancellationToken cancellationToken
-        ) => Task.FromResult<BundleScreenshotBuildInputV6?>(null);
     }
 }

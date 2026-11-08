@@ -4,7 +4,7 @@ using System.Text;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal static class ScreenshotPathBuilder
+public static class ScreenshotPathBuilder
 {
     public static string BuildRelativePath(string? runId, DateTimeOffset capturedAtLocal)
     {

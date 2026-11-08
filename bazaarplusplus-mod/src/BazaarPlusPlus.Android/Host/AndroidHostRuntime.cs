@@ -67,6 +67,7 @@ internal sealed class AndroidHostRuntime
     private AndroidUpdatePrompt? _updatePrompt;
     private AndroidCombatReplayRuntime? _replayRuntime;
     private Game.AndroidFrameRatePriority? _frameRate;
+    private Game.Screenshots.AndroidEndOfRunCapture? _endOfRunCapture;
     private TouchHistoryEntry? _historyPanel;
     private AndroidOverlayPanels? _overlayPanels;
     private readonly AndroidCardTemplateIndex _templates = new();
@@ -93,6 +94,7 @@ internal sealed class AndroidHostRuntime
                 Touch = _tickTouchUi,
                 Quest = () => AndroidPatchHost.Features?.QuestPreview.Tick(),
                 Encounter = () => AndroidPatchHost.Features?.EncounterPreview.Tick(),
+                EndOfRun = () => AndroidPatchHost.Features?.EndOfRunCapture?.Tick(),
                 FrameRate = () => _frameRate?.Tick(Time.unscaledTime),
                 Font = AndroidGameFont.Tick,
                 Settings = () => AndroidNativeSettingsSection.Tick(Time.unscaledTime),
@@ -143,7 +145,11 @@ internal sealed class AndroidHostRuntime
         LogPathProbe();
         var serverOption = LogBuildChannelProbe();
         var launch = AndroidLaunch.Read(MelonEnvironment.UserDataDirectory, version);
-        _composition = StartRecordChain(serverOption, settings);
+        _composition = StartRecordChain(
+            serverOption,
+            settings,
+            endOfRunCapture: mode == AndroidPatchMode.Enabled
+        );
         // In every mode: a scene change releases the rented cards through it, open panels or not.
         _overlayPanels = new AndroidOverlayPanels(
             static () => Il2CppTheBazaar.Data.IsInCombat,
@@ -217,6 +223,7 @@ internal sealed class AndroidHostRuntime
             ("main_thread_failures", AndroidMainThread.Host.CallbackFailures),
             .. _touchUi?.Summary() ?? [],
             .. AndroidNativeSettingsSection.Summary(),
+            .. _endOfRunCapture?.Summary() ?? [],
         ];
 
     // OnInitializeMelon bound the pump; the first frame confirms Unity's main thread is that one.
@@ -246,6 +253,8 @@ internal sealed class AndroidHostRuntime
         AndroidPatchHost.Retire();
         _overlayPanels?.SetTooltipPreview(null);
         features?.QuestPreview.Dispose();
+        _endOfRunCapture?.Dispose();
+        _endOfRunCapture = null;
         _combatStatus?.Dispose();
         _combatStatus = null;
         _updatePrompt = null;
@@ -395,6 +404,14 @@ internal sealed class AndroidHostRuntime
                     )
                 );
                 panels.SetTooltipPreview(previewSwitches.Collapse);
+                // The end-of-run screenshot exists for the BazaarDB Bundle, so it needs the
+                // record chain that seals it.
+                if (_composition is { } record)
+                    _endOfRunCapture = new Game.Screenshots.AndroidEndOfRunCapture(
+                        record.Services,
+                        () => shared.BazaarDbUploadEnabled.Value,
+                        AndroidComposition.DatabaseOptions
+                    );
                 AndroidPatchHost.Publish(
                     new AndroidInteractionFeatures(
                         tooltipPreviewHost,
@@ -407,7 +424,8 @@ internal sealed class AndroidHostRuntime
                         questPreview,
                         combatStatus,
                         versionCheck,
-                        _updatePrompt
+                        _updatePrompt,
+                        _endOfRunCapture
                     )
                 );
             },
@@ -421,6 +439,8 @@ internal sealed class AndroidHostRuntime
                 _replayRuntime?.Dispose();
                 _replayRuntime = null;
                 questPreview?.Dispose();
+                _endOfRunCapture?.Dispose();
+                _endOfRunCapture = null;
                 _combatStatus?.Dispose();
                 _combatStatus = null;
                 _versionCheck?.Dispose();
@@ -524,7 +544,8 @@ internal sealed class AndroidHostRuntime
     // chain behind them; it never stops the melon.
     private static AndroidComposition? StartRecordChain(
         bool? hasServerOption,
-        IniSettingsStore? settings
+        IniSettingsStore? settings,
+        bool endOfRunCapture
     )
     {
         try
@@ -542,7 +563,12 @@ internal sealed class AndroidHostRuntime
                 hasServerOption
             );
             var dataRoot = AndroidPaths.DataRoot(MelonEnvironment.MelonBaseDirectory);
-            var composition = new AndroidComposition(dataRoot, gameBuild, settings);
+            var composition = new AndroidComposition(
+                dataRoot,
+                gameBuild,
+                settings,
+                endOfRunCapture
+            );
             composition.Start(Time.unscaledTime);
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.record_chain.started"),

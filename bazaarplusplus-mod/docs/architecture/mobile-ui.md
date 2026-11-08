@@ -61,7 +61,7 @@ The Android host's own choices and constraints:
 - **Card rental release.** `AndroidOverlayPanels` releases the rented cards through the melon's delegate on a scene change, never on a plain close.
 - **Back key.** The host answers the back key inside the game's escape hook and its own keyboard read, and collapses an expanded tooltip section before the game handles another Back.
 - **Tooltip.** The switches follow the tooltip the render patch hands over, and the host keeps a tap on a switch from dismissing the tooltip (`CardTooltipHidePatch`).
-- **End-of-run screenshot.** The host takes none.
+- **End-of-run screenshot.** The host takes it while BazaarDB upload is on ([android-host.md](android-host.md)). The HUD is already hidden on end-of-run screens, so the capture needs no suppression rule.
 - **Animations.** The host follows the system's Remove animations switch.
 
 ## The shared frame

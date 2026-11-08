@@ -267,7 +267,7 @@ static void VerifyScreenshotPngIsOpaque()
     {
         var path = Path.Combine(directory, "shot.png");
         // A card pixel the framebuffer left translucent, and one it left fully transparent.
-        ScreenshotService.WriteOpaquePngAtomically(
+        ScreenshotPngWriter.WriteOpaquePngAtomically(
             path,
             [200, 100, 50, 64, 10, 20, 30, 0],
             width: 2,

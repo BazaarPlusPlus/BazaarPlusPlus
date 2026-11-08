@@ -18,5 +18,6 @@ internal sealed record AndroidInteractionFeatures(
     Game.AndroidQuestPreview QuestPreview,
     Game.AndroidCombatStatus CombatStatus,
     AndroidVersionCheck VersionCheck,
-    AndroidUpdatePrompt UpdatePrompt
+    AndroidUpdatePrompt UpdatePrompt,
+    Game.Screenshots.AndroidEndOfRunCapture? EndOfRunCapture
 );

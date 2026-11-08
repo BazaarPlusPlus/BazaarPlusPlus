@@ -43,7 +43,7 @@ internal sealed record AndroidSettingsDockSettings(
 /// (Core's <see cref="SettingsDockEntryRegistry"/> and <see cref="BppSettingsDockCatalog"/>) and
 /// drawn by <see cref="AndroidNativeSettingsSection"/> in the game's own settings dialog. The
 /// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
-/// gates only the account link, since the host takes no end-of-run screenshot), Combat Status,
+/// gates the end-of-run screenshot and the account link), Combat Status,
 /// Enchant preview, with every mode the desktop offers, Chinese Locale, and Game History, which
 /// here has no hotkey. The Mobile UI's Upgrade preview switch stands in for the desktop's hotkey,
 /// and its Preview text size sets the Detailed Preview's size inside the native tooltip. The

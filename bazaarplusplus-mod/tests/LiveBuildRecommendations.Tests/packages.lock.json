@@ -92,9 +92,9 @@
       "bazaarplusplus": {
         "type": "Project",
         "dependencies": {
-          "BazaarPlusPlus.Core": "[6.0.0, )",
-          "BazaarPlusPlus.ModApi": "[6.0.0, )",
-          "BazaarPlusPlus.Storage": "[6.0.0, )",
+          "BazaarPlusPlus.Core": "[6.2.5, )",
+          "BazaarPlusPlus.ModApi": "[6.2.5, )",
+          "BazaarPlusPlus.Storage": "[6.2.5, )",
           "BepInEx.Core": "[5.4.21, )",
           "BepInEx.PluginInfoProps": "[2.1.0, )",
           "Microsoft.Data.Sqlite": "[10.0.12, )",
@@ -108,8 +108,9 @@
       "bazaarplusplus.core": {
         "type": "Project",
         "dependencies": {
-          "BazaarPlusPlus.ModApi": "[6.0.0, )",
-          "BazaarPlusPlus.Storage": "[6.0.0, )"
+          "BazaarPlusPlus.ModApi": "[6.2.5, )",
+          "BazaarPlusPlus.Storage": "[6.2.5, )",
+          "SixLabors.ImageSharp": "[2.1.11, )"
         }
       },
       "bazaarplusplus.modapi": {

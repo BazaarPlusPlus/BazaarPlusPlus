@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal sealed class ScreenshotCaptureSession
+public sealed class ScreenshotCaptureSession
 {
     public ScreenshotCaptureSession(Task frameAcquired, Task<ScreenshotCaptureResult?> completion)
     {

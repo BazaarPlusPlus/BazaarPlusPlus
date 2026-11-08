@@ -5,13 +5,9 @@ using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal readonly record struct EndOfRunCaptureContext(
-    bool Enabled,
-    string? RunId,
-    string? HeroName
-);
+public readonly record struct EndOfRunCaptureContext(bool Enabled, string? RunId, string? HeroName);
 
-internal readonly record struct EndOfRunCapturePolicy(
+public readonly record struct EndOfRunCapturePolicy(
     float RetryCooldownSeconds,
     float CaptureTimeoutSeconds,
     float MetadataTimeoutSeconds,
@@ -19,17 +15,17 @@ internal readonly record struct EndOfRunCapturePolicy(
     int MaxAttempts
 )
 {
-    internal static EndOfRunCapturePolicy Default => new(1f, 15f, 5f, 20f, 2);
+    public static EndOfRunCapturePolicy Default => new(1f, 15f, 5f, 20f, 2);
 }
 
-internal readonly record struct EndOfRunCaptureAttemptOutcome(
+public readonly record struct EndOfRunCaptureAttemptOutcome(
     ScreenshotCaptureResult? Capture,
     ScreenshotCaptureReasonCode? FailureReason,
     ScreenshotCaptureReasonCode? DegradationReason,
     Exception? Exception
 )
 {
-    internal static EndOfRunCaptureAttemptOutcome Succeeded(
+    public static EndOfRunCaptureAttemptOutcome Succeeded(
         ScreenshotCaptureResult capture,
         ScreenshotCaptureReasonCode? degradationReason = null
     ) =>
@@ -40,13 +36,13 @@ internal readonly record struct EndOfRunCaptureAttemptOutcome(
             null
         );
 
-    internal static EndOfRunCaptureAttemptOutcome Failed(
+    public static EndOfRunCaptureAttemptOutcome Failed(
         ScreenshotCaptureReasonCode reason,
         Exception? exception = null
     ) => new(null, reason, null, exception);
 }
 
-internal interface IEndOfRunCaptureAttempt
+public interface IEndOfRunCaptureAttempt
 {
     bool HasCaptureStarted { get; }
     Task FrameAcquired { get; }
@@ -55,7 +51,7 @@ internal interface IEndOfRunCaptureAttempt
     void Cancel();
 }
 
-internal interface IEndOfRunCaptureSurface<TScreen>
+public interface IEndOfRunCaptureSurface<TScreen>
     where TScreen : class
 {
     bool IsAvailable { get; }
@@ -67,7 +63,7 @@ internal interface IEndOfRunCaptureSurface<TScreen>
     void SetContinueBlocked(TScreen? screen, bool blocked);
 }
 
-internal interface IEndOfRunArtifactPersistence
+public interface IEndOfRunArtifactPersistence
 {
     Task<ScreenshotMetadataPersistenceOutcome> PersistAsync(
         ScreenshotCaptureResult capture,
@@ -75,20 +71,20 @@ internal interface IEndOfRunArtifactPersistence
     );
 }
 
-internal interface IEndOfRunCaptureClock
+public interface IEndOfRunCaptureClock
 {
     float UnscaledSeconds { get; }
     float RealtimeSeconds { get; }
     long Milliseconds { get; }
 }
 
-internal interface IEndOfRunCaptureFileSystem
+public interface IEndOfRunCaptureFileSystem
 {
     bool IsUsablePng(string? filePath);
     void DeleteIfExists(string? filePath);
 }
 
-internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
+public sealed class EndOfRunCaptureWorkflowCore<TScreen>
     where TScreen : class
 {
     private readonly IEndOfRunArtifactPersistence _persistence;
@@ -100,7 +96,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
     private IEndOfRunCaptureSurface<TScreen>? _surface;
     private bool _surfaceMayBlock;
 
-    internal EndOfRunCaptureWorkflowCore(
+    public EndOfRunCaptureWorkflowCore(
         IEndOfRunArtifactPersistence persistence,
         IEndOfRunCaptureClock clock,
         IEndOfRunCaptureFileSystem files,
@@ -115,7 +111,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         _terminalObserver = terminalObserver;
     }
 
-    internal void AttachSurface(IEndOfRunCaptureSurface<TScreen> surface)
+    public void AttachSurface(IEndOfRunCaptureSurface<TScreen> surface)
     {
         if (surface == null)
             throw new ArgumentNullException(nameof(surface));
@@ -124,7 +120,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         _surface = surface;
     }
 
-    internal void DetachSurface(IEndOfRunCaptureSurface<TScreen> surface)
+    public void DetachSurface(IEndOfRunCaptureSurface<TScreen> surface)
     {
         if (!ReferenceEquals(_surface, surface))
             return;
@@ -134,7 +130,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         _surface = null;
     }
 
-    internal void OnRunStarted()
+    public void OnRunStarted()
     {
         if (!_state.Terminal && _state.Operation != null)
             CompleteContextExpired();
@@ -144,7 +140,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         _state = new RunState(_state.Generation + 1);
     }
 
-    internal void OnEndOfRunInitializing()
+    public void OnEndOfRunInitializing()
     {
         if (_state.Terminal)
             return;
@@ -162,7 +158,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         _state.RetryAvailableAt = 0f;
     }
 
-    internal void ObserveRevealStarted(TScreen screen)
+    public void ObserveRevealStarted(TScreen screen)
     {
         var surface = _surface;
         if (surface == null || screen == null || !surface.IsScreenActive(screen) || _state.Terminal)
@@ -177,7 +173,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
             _state.Stage = WorkflowStage.WaitingForReadiness;
     }
 
-    internal void OnFrame(EndOfRunCaptureContext context)
+    public void OnFrame(EndOfRunCaptureContext context)
     {
         if (
             _state.HasFrameAcquired
@@ -217,7 +213,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         ProcessScreen(surface, screen, context, canStartCapture: true);
     }
 
-    internal bool ShouldBlockContinue(TScreen screen, EndOfRunCaptureContext context)
+    public bool ShouldBlockContinue(TScreen screen, EndOfRunCaptureContext context)
     {
         var surface = _surface;
         if (
@@ -236,7 +232,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         return _state.ContinueBlocked;
     }
 
-    internal void FailOpenUnexpected(Exception exception)
+    public void FailOpenUnexpected(Exception exception)
     {
         if (_state.Terminal)
             return;
@@ -1001,47 +997,43 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
 
     private sealed class RunState
     {
-        internal RunState(int generation) => Generation = generation;
+        public RunState(int generation) => Generation = generation;
 
-        internal int Generation { get; }
-        internal bool Armed { get; set; }
-        internal bool Terminal { get; set; }
-        internal bool SummaryObserved { get; set; }
-        internal bool RevealStarted { get; set; }
-        internal bool ContinueBlocked { get; set; }
-        internal bool HasFrameAcquired { get; set; }
-        internal int ScreenId { get; set; }
-        internal TScreen? Screen { get; set; }
-        internal WorkflowStage Stage { get; set; }
-        internal float? RevealDeadline { get; set; }
-        internal float RetryAvailableAt { get; set; }
-        internal float? CaptureDeadline { get; set; }
-        internal float MetadataDeadline { get; set; }
-        internal IEndOfRunCaptureAttempt? ActiveAttempt { get; set; }
-        internal Task<ScreenshotMetadataPersistenceOutcome>? PersistenceTask { get; set; }
-        internal CaptureOperationState? Operation { get; set; }
-        internal ScreenshotCaptureReasonCode? DegradationReason { get; set; }
-        internal Exception? DegradationException { get; set; }
+        public int Generation { get; }
+        public bool Armed { get; set; }
+        public bool Terminal { get; set; }
+        public bool SummaryObserved { get; set; }
+        public bool RevealStarted { get; set; }
+        public bool ContinueBlocked { get; set; }
+        public bool HasFrameAcquired { get; set; }
+        public int ScreenId { get; set; }
+        public TScreen? Screen { get; set; }
+        public WorkflowStage Stage { get; set; }
+        public float? RevealDeadline { get; set; }
+        public float RetryAvailableAt { get; set; }
+        public float? CaptureDeadline { get; set; }
+        public float MetadataDeadline { get; set; }
+        public IEndOfRunCaptureAttempt? ActiveAttempt { get; set; }
+        public Task<ScreenshotMetadataPersistenceOutcome>? PersistenceTask { get; set; }
+        public CaptureOperationState? Operation { get; set; }
+        public ScreenshotCaptureReasonCode? DegradationReason { get; set; }
+        public Exception? DegradationException { get; set; }
     }
 
     private sealed class CaptureOperationState
     {
-        internal CaptureOperationState(
-            string screenshotId,
-            string? runId,
-            long startedAtMilliseconds
-        )
+        public CaptureOperationState(string screenshotId, string? runId, long startedAtMilliseconds)
         {
             ScreenshotId = screenshotId;
             RunId = runId;
             StartedAtMilliseconds = startedAtMilliseconds;
         }
 
-        internal string ScreenshotId { get; }
-        internal string? RunId { get; }
-        internal long StartedAtMilliseconds { get; }
-        internal int AttemptCount { get; set; }
-        internal string? VerifiedArtifactPath { get; set; }
+        public string ScreenshotId { get; }
+        public string? RunId { get; }
+        public long StartedAtMilliseconds { get; }
+        public int AttemptCount { get; set; }
+        public string? VerifiedArtifactPath { get; set; }
     }
 
     private enum WorkflowStage
