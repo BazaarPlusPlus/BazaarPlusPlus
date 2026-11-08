@@ -1067,7 +1067,7 @@ test('hooks-install in a real temporary repo overrides fake global hooks and is 
   );
   const hooks = directoryContents(f.hooksDir);
   assert.match(hooks['pre-commit'], /lefthook/);
-  assert.match(hooks['pre-push'], /lefthook/);
+  assert.equal(hooks['pre-push'], undefined);
   const localBefore = fs.readFileSync(f.localConfig, 'utf8');
   const configMtime = fs.statSync(f.localConfig).mtimeMs;
   succeeded(f.install());

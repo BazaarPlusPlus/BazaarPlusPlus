@@ -1,5 +1,5 @@
 # Workspace Git hooks. Install with `just hooks-install`.
-# Recipes own the gates; only installer defers its expensive source gate to push.
+# Recipes own the gates. Commits run checks only; tests run in CI.
 pre-commit:
   parallel: true
   jobs:
@@ -34,9 +34,3 @@ pre-commit:
     - name: android
       glob: '{bazaarplusplus-android/**,design/**,JUSTFILE}'
       run: just android::check
-
-pre-push:
-  jobs:
-    - name: affected-projects
-      use_stdin: true
-      run: bun scripts/pre-push.ts "{1}"
