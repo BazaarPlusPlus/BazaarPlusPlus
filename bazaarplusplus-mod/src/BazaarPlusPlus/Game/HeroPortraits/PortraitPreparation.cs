@@ -458,21 +458,24 @@ internal sealed class PortraitPreparation
                 throw new OperationCanceledException();
             _breakoutMemory.Remove(sprite);
             _breakoutMemory.Add(sprite, new CachedBreakout(assetId, variant, fit, frame, plan));
-            BppLog.InfoEvent(
+            BppLog.DebugEvent(
                 new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.hero_portrait.breakout"),
-                ("sprite", spriteName),
-                ("attachments", plan.Parts.Length),
-                ("content_scale", plan.ContentScale),
-                ("content_offset_y", plan.ContentY),
-                (
-                    "exterior_pixels",
-                    Enumerable.Range(0, plan.Runs.Length / 2).Sum(i => plan.Runs[i * 2 + 1])
-                ),
-                ("disk_cached", diskHit),
-                ("sample_count", sampling?.Times.Length ?? 0),
-                ("strict_slots", sampling?.StrictSlots.Count ?? 0),
-                ("reason", reason),
-                ("elapsed_ms", watch.ElapsedMilliseconds)
+                () =>
+                    [
+                        ("sprite", spriteName),
+                        ("attachments", plan.Parts.Length),
+                        ("content_scale", plan.ContentScale),
+                        ("content_offset_y", plan.ContentY),
+                        (
+                            "exterior_pixels",
+                            Enumerable.Range(0, plan.Runs.Length / 2).Sum(i => plan.Runs[i * 2 + 1])
+                        ),
+                        ("disk_cached", diskHit),
+                        ("sample_count", sampling?.Times.Length ?? 0),
+                        ("strict_slots", sampling?.StrictSlots.Count ?? 0),
+                        ("reason", reason),
+                        ("elapsed_ms", watch.ElapsedMilliseconds),
+                    ]
             );
             return plan;
         }
@@ -486,14 +489,14 @@ internal sealed class PortraitPreparation
                 _breakoutMemory.Remove(sprite);
                 _breakoutMemory.Add(sprite, new CachedBreakout(assetId, variant, fit, frame, plan));
             }
-            BppLog.WarnEvent(
+            BppLog.DebugEvent(
                 new BppLogEvent(
                     BppLogFeatureScope.Plugin,
                     "plugin.hero_portrait.breakout_failed",
                     storm: ["sprite"]
                 ),
                 ex,
-                ("sprite", spriteName)
+                () => [("sprite", spriteName)]
             );
             return plan;
         }
@@ -504,11 +507,14 @@ internal sealed class PortraitPreparation
     }
 
     private static void Report(string sprite, string reason, int count = 0, long elapsedMs = 0) =>
-        BppLog.InfoEvent(
+        BppLog.DebugEvent(
             new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.hero_portrait.match_state"),
-            ("sprite", sprite),
-            ("reason", reason),
-            ("count", count),
-            ("elapsed_ms", elapsedMs)
+            () =>
+                [
+                    ("sprite", sprite),
+                    ("reason", reason),
+                    ("count", count),
+                    ("elapsed_ms", elapsedMs),
+                ]
         );
 }

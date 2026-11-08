@@ -84,13 +84,14 @@ internal static class HeroPortraitControllerObservedPatch
         }
         catch (Exception ex)
         {
-            BppLog.WarnEvent(
+            BppLog.DebugEvent(
                 new BppLogEvent(
                     BppLogFeatureScope.Plugin,
                     "plugin.hero_portrait.cached_setup_failed",
                     storm: []
                 ),
-                ex
+                ex,
+                static () => []
             );
         }
     }
@@ -126,13 +127,14 @@ internal static class HeroPortraitControllerObservedPatch
             }
             catch (Exception ex)
             {
-                BppLog.WarnEvent(
+                BppLog.DebugEvent(
                     new BppLogEvent(
                         BppLogFeatureScope.Plugin,
                         "plugin.hero_portrait.cached_cleanup_failed",
                         storm: []
                     ),
-                    ex
+                    ex,
+                    static () => []
                 );
             }
         }

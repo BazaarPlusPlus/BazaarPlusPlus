@@ -16,14 +16,10 @@ internal sealed record PortraitBreakoutPlan(
     float ContentY = 0f
 )
 {
-    internal const int MaxParts = 24;
     internal const int Resolution = 192;
-
-    // A thin moving object sweeps a larger envelope than it displays in any one pose.
-    internal const float AreaBudget = 0.36f;
-    internal const float PoseAreaBudget = 0.10f;
     internal const float SideLimit = 0.4f;
     internal const float TopLimit = 0.65f;
+    public PortraitBreakoutRegion[] Regions { get; init; } = [];
 
     internal static bool WithinEnvelope(PortraitFrameGeometry frame, float x, float y) =>
         x >= frame.Left - frame.Width * SideLimit
@@ -69,7 +65,11 @@ internal sealed record PortraitBreakoutPlan(
         if (Frame != frame || !frame.IsValid || Parts == null || Runs == null)
             return false;
         if (Parts.Length == 0)
-            return Width == 0 && Height == 0 && Runs.Length == 0 && Bounds == frame;
+            return Width == 0
+                && Height == 0
+                && Runs.Length == 0
+                && Bounds == frame
+                && Regions is { Length: 0 };
         if (
             Parts.Length > 512
             || Parts.Any(p => string.IsNullOrEmpty(p) || p.Length > 256)
@@ -89,9 +89,7 @@ internal sealed record PortraitBreakoutPlan(
         )
             return false;
         var interior = Interior();
-        var budget = (int)(interior.Count(p => p) * AreaBudget);
         var end = 0;
-        var count = 0;
         for (var i = 0; i < Runs.Length; i += 2)
         {
             var start = Runs[i];
@@ -99,9 +97,6 @@ internal sealed record PortraitBreakoutPlan(
             if (start < end || length <= 0 || start > interior.Length - length)
                 return false;
             end = start + length;
-            count += length;
-            if (count > budget)
-                return false;
             for (var j = start; j < end; j++)
                 if (
                     interior[j]
@@ -113,6 +108,132 @@ internal sealed record PortraitBreakoutPlan(
                 )
                     return false;
         }
+        return Regions != null
+            && Regions.Length is > 0 and <= 512
+            && Regions.All(r => r != null && Parts.Contains(r.Part) && r.IsValid())
+            && Regions.Select(r => (r.Part, r.Page)).Distinct().Count() == Regions.Length
+            && Regions.Sum(r => r.Width * r.Height) <= 2_000_000;
+    }
+}
+
+// Disjoint UV runs describe material, so clipping follows Spine deformation rather than
+// opening a shared screen-space hole for every attachment at that location.
+internal sealed record PortraitBreakoutRegion(
+    string Part,
+    int Page,
+    PortraitFrameGeometry Uv,
+    int Width,
+    int Height,
+    int[] Runs
+)
+{
+    public bool BottomCrop { get; init; }
+
+    internal bool Contains(PortraitPoint uv)
+    {
+        var x = (int)MathF.Floor((uv.X - Uv.Left) * Width / Uv.Width);
+        var y = (int)MathF.Floor((uv.Y - Uv.Bottom) * Height / Uv.Height);
+        if (x < 0 || x >= Width || y < 0 || y >= Height)
+            return false;
+        var pixel = y * Width + x;
+        var low = 0;
+        var high = Runs.Length / 2 - 1;
+        while (low <= high)
+        {
+            var middle = (low + high) / 2;
+            var start = Runs[middle * 2];
+            if (pixel < start)
+                high = middle - 1;
+            else if (pixel >= start + Runs[middle * 2 + 1])
+                low = middle + 1;
+            else
+                return true;
+        }
+        return false;
+    }
+
+    internal bool IsValid()
+    {
+        if (
+            Page is < 0 or > 3
+            || Width is < 2 or > 128
+            || Height is < 2 or > 128
+            || (float.IsNaN(Uv.Left) || float.IsInfinity(Uv.Left))
+            || (float.IsNaN(Uv.Right) || float.IsInfinity(Uv.Right))
+            || (float.IsNaN(Uv.Bottom) || float.IsInfinity(Uv.Bottom))
+            || (float.IsNaN(Uv.Top) || float.IsInfinity(Uv.Top))
+            || Uv.Left < 0
+            || Uv.Bottom < 0
+            || Uv.Right > 1
+            || Uv.Top > 1
+            || Uv.Width <= 0
+            || Uv.Height <= 0
+            || Runs == null
+            || Runs.Length is 0 or > 8192
+            || Runs.Length % 2 != 0
+        )
+            return false;
+        var end = 0;
+        for (var i = 0; i < Runs.Length; i += 2)
+        {
+            if (Runs[i] < end || Runs[i + 1] <= 0 || Runs[i] > Width * Height - Runs[i + 1])
+                return false;
+            end = Runs[i] + Runs[i + 1];
+        }
         return true;
+    }
+
+    internal PortraitFrameGeometry[] Rectangles()
+    {
+        var rectangles = new List<(int Left, int Bottom, int Right, int Top)>();
+        var previous = new Dictionary<(int, int), int>();
+        for (var y = 0; y < Height; y++)
+        {
+            var current = new Dictionary<(int, int), int>();
+            for (var x = 0; x < Width; x++)
+            {
+                if (
+                    !Contains(
+                        new PortraitPoint(
+                            Uv.Left + (x + 0.5f) * Uv.Width / Width,
+                            Uv.Bottom + (y + 0.5f) * Uv.Height / Height
+                        )
+                    )
+                )
+                    continue;
+                var left = x;
+                while (
+                    x + 1 < Width
+                    && Contains(
+                        new PortraitPoint(
+                            Uv.Left + (x + 1.5f) * Uv.Width / Width,
+                            Uv.Bottom + (y + 0.5f) * Uv.Height / Height
+                        )
+                    )
+                )
+                    x++;
+                var key = (left, x + 1);
+                if (previous.TryGetValue(key, out var index))
+                {
+                    var r = rectangles[index];
+                    rectangles[index] = (r.Left, r.Bottom, r.Right, y + 1);
+                }
+                else
+                {
+                    index = rectangles.Count;
+                    rectangles.Add((left, y, x + 1, y + 1));
+                }
+                current[key] = index;
+            }
+            previous = current;
+        }
+        return rectangles
+            .Select(r => new PortraitFrameGeometry(
+                Uv.Left + r.Left * Uv.Width / Width,
+                Uv.Bottom + r.Bottom * Uv.Height / Height,
+                Uv.Left + r.Right * Uv.Width / Width,
+                Uv.Bottom + r.Top * Uv.Height / Height
+            ))
+            .ToArray();
     }
 }

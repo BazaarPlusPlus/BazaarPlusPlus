@@ -168,6 +168,11 @@ internal static class NativePortraitPoseCapture
                     continue;
                 var eligible =
                     slot.Data.BlendMode == Spine.BlendMode.Normal
+                    && (
+                        slot.Attachment
+                        is RegionAttachment { Sequence: null }
+                            or MeshAttachment { Sequence: null }
+                    )
                     && slot.A * alpha >= 0.98f
                     && Math.Abs(slot.R * r - 1) < 0.01f
                     && Math.Abs(slot.G * g - 1) < 0.01f

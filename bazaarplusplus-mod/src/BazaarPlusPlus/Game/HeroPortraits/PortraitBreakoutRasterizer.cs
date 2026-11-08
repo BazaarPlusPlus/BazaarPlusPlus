@@ -3,56 +3,17 @@ using BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
 
 namespace BazaarPlusPlus.Game.HeroPortraits;
 
-internal sealed record PortraitBreakoutCoverage(int Part, int[] Pixels, bool Truncated);
-
-internal sealed record PortraitBreakoutRaster(
-    byte[] Pixels,
-    int[] Owners,
-    PortraitBreakoutCoverage[] Coverage
-);
+internal sealed record PortraitBreakoutRaster(byte[] Pixels, int[] Owners, PortraitPoint[] Uvs);
 
 internal static class PortraitBreakoutRasterizer
 {
-    private sealed class Coverage(int pixels)
-    {
-        private readonly uint[] _bits = new uint[(pixels + 31) / 32];
-        private int _count;
-        internal bool Truncated;
-
-        internal bool Add(int pixel)
-        {
-            var word = pixel >> 5;
-            var bit = 1u << (pixel & 31);
-            if ((_bits[word] & bit) != 0)
-                return false;
-            _bits[word] |= bit;
-            _count++;
-            return true;
-        }
-
-        internal PortraitBreakoutCoverage Finish(int part)
-        {
-            var pixels = new int[_count];
-            var count = 0;
-            for (var word = 0; word < _bits.Length; word++)
-            {
-                var bits = _bits[word];
-                for (var bit = 0; bits != 0; bit++, bits >>= 1)
-                    if ((bits & 1) != 0)
-                        pixels[count++] = word * 32 + bit;
-            }
-            return new PortraitBreakoutCoverage(part, pixels, Truncated);
-        }
-    }
-
     internal static PortraitBreakoutRaster? Render(
         PortraitImage[] pages,
         PortraitPose pose,
         PortraitComposition fit,
         PortraitBreakoutPlan plan,
         Dictionary<string, int> ids,
-        CancellationToken cancellation,
-        bool captureCoverage = false
+        CancellationToken cancellation
     )
     {
         if (
@@ -65,8 +26,7 @@ internal static class PortraitBreakoutRasterizer
         var height = plan.Height;
         var pixels = new byte[width * height * 4];
         var owners = Enumerable.Repeat(-1, width * height).ToArray();
-        var coverage = new Dictionary<int, Coverage>();
-        var coveragePixels = 0;
+        var uvs = new PortraitPoint[width * height];
         var visits = 0L;
         foreach (var triangle in pose.Triangles)
         {
@@ -83,20 +43,6 @@ internal static class PortraitBreakoutRasterizer
                 continue;
             var partId =
                 triangle.Part != null && ids.TryGetValue(triangle.Part, out var found) ? found : -1;
-            Coverage? silhouette = null;
-            if (captureCoverage && partId >= 0)
-            {
-                if (!coverage.TryGetValue(partId, out silhouette))
-                    coverage[partId] = silhouette = new Coverage(width * height);
-                // Geometry outside the discovery window may contain unseen islands of
-                // artwork. Shrinking an incomplete raster cannot recover those islands.
-                if (
-                    Math.Min(a.X, Math.Min(b.X, c.X)) < 0
-                    || Math.Max(a.X, Math.Max(b.X, c.X)) > width
-                    || Math.Max(a.Y, Math.Max(b.Y, c.Y)) > height
-                )
-                    silhouette.Truncated = true;
-            }
             var left = (int)
                 Math.Max(0, Math.Min(width - 1, Math.Floor(Math.Min(a.X, Math.Min(b.X, c.X)))));
             var right = (int)
@@ -132,11 +78,6 @@ internal static class PortraitBreakoutRasterizer
                 if (alpha < 8)
                     continue;
                 var index = y * width + x;
-                // Preserve each surface independently, including translucent fringes
-                // and surfaces hidden by another attachment. Only verified groups may
-                // use this coverage; it never supplies reference-image evidence.
-                if (silhouette?.Add(index) == true && ++coveragePixels > 250_000)
-                    return null;
                 var output = index * 4;
                 var inverse = 1 - alpha / 255f;
                 for (var channel = 0; channel < 3; channel++)
@@ -150,13 +91,10 @@ internal static class PortraitBreakoutRasterizer
                 // A translucent or specially blended overlay invalidates evidence for the
                 // surface underneath. Last nonzero-alpha is not reliable ownership.
                 owners[index] = alpha >= 240 ? owner : -2;
+                uvs[index] = new PortraitPoint(u, v);
             }
         }
-        return new PortraitBreakoutRaster(
-            pixels,
-            owners,
-            coverage.Select(p => p.Value.Finish(p.Key)).ToArray()
-        );
+        return new PortraitBreakoutRaster(pixels, owners, uvs);
     }
 
     private static PortraitPoint Project(

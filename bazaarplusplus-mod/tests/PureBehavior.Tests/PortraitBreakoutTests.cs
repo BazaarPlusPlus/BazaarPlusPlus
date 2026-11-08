@@ -6,15 +6,13 @@ namespace PureBehavior.Tests;
 
 public sealed class PortraitBreakoutTests
 {
-    private static readonly PortraitFrameGeometry Frame = new(0, 0, 1, 1);
+    private static readonly PortraitFrameGeometry Frame = new(0, 0, 1, 0.7f);
     private static readonly PortraitComposition Fit = new(1, 0, 0, 0, 20, 0, 0.5f, 0.5f);
 
     [Theory]
     [InlineData(1f)]
     [InlineData(0.35f)]
-    public void A_verified_prop_keeps_its_canvas_cropped_tip_through_motion_and_fading(
-        float opacity
-    )
+    public void A_verified_material_region_follows_motion_and_fading(float opacity)
     {
         var input = Prop(opacity);
         var plan = Analyze(input);
@@ -22,10 +20,8 @@ public sealed class PortraitBreakoutTests
         Assert.Equal(new[] { "0:handle", "1:tip" }, plan.Parts);
         Assert.True(plan.IsValid(Frame));
         Assert.Equal(1f, plan.ContentScale);
-        Assert.True(Admits(plan, 0.5f, 1.08f));
-        Assert.True(Admits(plan, 0.5f, 1.18f));
-        Assert.True(Admits(plan, 0.6f, 1.18f));
-        Assert.False(Admits(plan, 0.9f, 1.4f));
+        var tip = Assert.Single(plan.Regions, r => r.Part == "1:tip");
+        Assert.True(tip.Contains(new PortraitPoint(0.5f, 0.5f)));
     }
 
     [Fact]
@@ -44,20 +40,20 @@ public sealed class PortraitBreakoutTests
     }
 
     [Fact]
-    public void An_oversized_later_pose_rejects_the_whole_prop()
+    public void An_oversized_later_pose_cannot_remove_verified_reference_material()
     {
         var input = Prop();
         input.Poses[1] = new PortraitPose(
             1,
             [
-                .. Quad("0:handle", 0.46f, 0.65f, 0.54f, 1.12f),
+                .. Quad("0:handle", 0.46f, 0.45f, 0.54f, 0.82f),
                 .. Quad("1:tip", 0.2f, 1.05f, 0.8f, 1.55f),
             ]
         );
 
         var plan = Analyze(input);
 
-        Assert.Empty(plan.Parts);
+        Assert.NotEmpty(plan.Parts);
         Assert.True(plan.IsValid(Frame));
     }
 
@@ -77,7 +73,7 @@ public sealed class PortraitBreakoutTests
     [Theory]
     [InlineData(0.35f)]
     [InlineData(1f)]
-    public void Coverage_preserves_surfaces_under_translucent_or_opaque_overlays(float opacity)
+    public void Overlays_cannot_supply_evidence_for_the_surface_underneath(float opacity)
     {
         var grid = new PortraitBreakoutPlan(Frame, Frame, 32, 32, [], []);
         var pose = new PortraitPose(
@@ -93,61 +89,12 @@ public sealed class PortraitBreakoutTests
             Fit,
             grid,
             new() { ["base"] = 0, ["overlay"] = 1 },
-            CancellationToken.None,
-            captureCoverage: true
+            CancellationToken.None
         );
 
         Assert.NotNull(raster);
         const int center = 16 * 32 + 16;
-        Assert.Contains(center, Assert.Single(raster.Coverage, p => p.Part == 0).Pixels);
-        Assert.Contains(center, Assert.Single(raster.Coverage, p => p.Part == 1).Pixels);
         Assert.True(raster.Owners[center] < 0);
-    }
-
-    [Fact]
-    public void Renderer_limits_remove_complete_props_without_reordering_surfaces()
-    {
-        var grid = new PortraitBreakoutPlan(Frame, new(-0.4f, 0, 1.4f, 1.6f), 128, 128, [], []);
-        var pixels = Enumerable
-            .Range(94, 3)
-            .SelectMany(y => Enumerable.Range(63, 3).Select(x => y * grid.Width + x))
-            .ToArray();
-        var parts = Enumerable
-            .Range(0, 28)
-            .Select(i => new PortraitBreakoutPart($"part:{i}", null, 1)
-            {
-                ReferenceMatches = 30,
-                Exterior = new bool[grid.Width * grid.Height],
-            })
-            .ToArray();
-        var groups = Enumerable.Range(0, 14).Select(i => new[] { i * 2, i * 2 + 1 }).ToArray();
-        var coverage = parts
-            .Select((_, i) => new PortraitBreakoutCoverage(i, pixels, false))
-            .ToArray();
-        var order = Enumerable.Range(0, parts.Length).SelectMany(i => new[] { i, -1 }).ToArray();
-        var originalOrder = order.ToArray();
-
-        var plan = PortraitBreakoutSelection.Select(
-            grid,
-            parts,
-            groups,
-            [coverage],
-            [order],
-            CancellationToken.None
-        );
-
-        Assert.NotEmpty(plan.Parts);
-        Assert.True(plan.Parts.Length < parts.Length);
-        Assert.True(plan.IsValid(Frame));
-        foreach (var group in groups)
-            Assert.Equal(
-                plan.Parts.Contains(parts[group[0]].Name),
-                plan.Parts.Contains(parts[group[1]].Name)
-            );
-        var allowed = order.Select(i => i >= 0 && plan.Parts.Contains(parts[i].Name)).ToArray();
-        var segments = 1 + allowed.Zip(allowed.Skip(1)).Count(pair => pair.First != pair.Second);
-        Assert.InRange(segments, 1, PortraitBreakoutPlan.MaxParts);
-        Assert.Equal(originalOrder, order);
     }
 
     [Fact]
@@ -261,7 +208,16 @@ public sealed class PortraitBreakoutTests
         var pixels = new byte[size * size * 4];
         for (var y = 0; y < size; y++)
         for (var x = 0; x < size; x++)
-            if ((x + 0.5f) / size is >= 0.46f and <= 0.54f && (y + 0.5f) / size >= 0.65f)
+            if (
+                (
+                    (x + 0.5f) / size is >= 0.46f and <= 0.54f
+                    && (y + 0.5f) / size is >= 0.45f and <= 0.82f
+                )
+                || (
+                    (x + 0.5f) / size is >= 0.43f and <= 0.57f
+                    && (y + 0.5f) / size is >= 0.82f and <= 0.93f
+                )
+            )
             {
                 var index = (y * size + x) * 4;
                 pixels[index] = 70;
@@ -276,8 +232,8 @@ public sealed class PortraitBreakoutTests
                 new(
                     0,
                     [
-                        .. Quad("0:handle", 0.46f, 0.65f, 0.54f, 1.12f),
-                        .. Quad("1:tip", 0.43f, 1.12f, 0.57f, 1.23f),
+                        .. Quad("0:handle", 0.46f, 0.45f, 0.54f, 0.82f),
+                        .. Quad("1:tip", 0.43f, 0.82f, 0.57f, 0.93f),
                     ],
                     DrawOrder: ["0:handle", "1:tip"]
                 ),
@@ -287,18 +243,18 @@ public sealed class PortraitBreakoutTests
                         .. Quad(
                             "0:handle",
                             0.56f,
-                            0.65f,
+                            0.45f,
                             0.64f,
-                            1.12f,
+                            0.82f,
                             laterOpacity,
                             laterOpacity == 1
                         ),
                         .. Quad(
                             "1:tip",
                             0.53f,
-                            1.12f,
+                            0.82f,
                             0.67f,
-                            1.23f,
+                            0.93f,
                             laterOpacity,
                             laterOpacity == 1
                         ),
@@ -332,16 +288,6 @@ public sealed class PortraitBreakoutTests
             new(0, a, b, c, new(0, 0), new(1, 0), new(1, 1), part, opacity, eligible, rig),
             new(0, c, d, a, new(1, 1), new(0, 1), new(0, 0), part, opacity, eligible, rig),
         ];
-    }
-
-    private static bool Admits(PortraitBreakoutPlan plan, float x, float y)
-    {
-        var column = (int)((x - plan.Bounds.Left) * plan.Width / plan.Bounds.Width);
-        var row = (int)((y - plan.Bounds.Bottom) * plan.Height / plan.Bounds.Height);
-        var pixel = row * plan.Width + column;
-        return Enumerable
-            .Range(0, plan.Runs.Length / 2)
-            .Any(i => pixel >= plan.Runs[i * 2] && pixel < plan.Runs[i * 2] + plan.Runs[i * 2 + 1]);
     }
 
     private sealed class CacheDirectory : IDisposable

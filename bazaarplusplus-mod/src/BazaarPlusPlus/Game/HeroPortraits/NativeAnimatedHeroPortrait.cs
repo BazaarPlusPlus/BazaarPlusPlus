@@ -22,8 +22,6 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
     private MeshRenderer? _renderer;
     private SpriteMask? _mask;
     private Sprite? _maskSprite;
-    private Sprite? _breakoutSprite;
-    private Texture2D? _breakoutTexture;
     private NativePortraitLayeredRenderer? _layers;
     private bool _disposed;
     private bool _published;
@@ -99,8 +97,8 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         character.layer = _portrait.gameObject.layer;
         character.SetActive(true);
         _skeleton = character.GetComponent<SkeletonAnimation>();
-        // Reset editor-specific effects and splits. Optional portrait role groups are
-        // generated later with their own frame masks.
+        // Reset editor-specific effects and splits before rendering the portrait's
+        // strict frame and verified breakout geometry.
         foreach (var behaviour in character.GetComponents<Behaviour>())
             if (behaviour != _skeleton)
                 behaviour.enabled = false;
@@ -124,6 +122,8 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         _skeleton.Update(0f);
         _skeleton.LateUpdate();
         _renderer = character.GetComponent<MeshRenderer>();
+        _renderer.shadowCastingMode = ShadowCastingMode.Off;
+        _renderer.receiveShadows = false;
         _renderer.enabled = true;
         _renderer.forceRenderingOff = true;
         var mesh = character.GetComponent<MeshFilter>().sharedMesh;
@@ -144,7 +144,6 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
             applied.Y * height - _sprite.pivot.y / _sprite.pixelsPerUnit,
             0f
         );
-        _skeleton.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
 
         var maskObject = new GameObject("BPP_HeroPortraitMask");
         maskObject.layer = _portrait.gameObject.layer;
@@ -156,38 +155,8 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         _mask.alphaCutoff = 0.5f;
         _mask.sprite = _maskSprite;
         _mask.isCustomRangeActive = true;
-        if (plan.Parts.Length != 0)
-        {
-            var interior = plan.Interior();
-            var pixels = new byte[plan.Width * plan.Height * 4];
-            for (var i = 0; i < interior.Length; i++)
-                if (interior[i])
-                    pixels[i * 4 + 3] = 255;
-            for (var i = 0; i < plan.Runs.Length; i += 2)
-            for (var j = plan.Runs[i]; j < plan.Runs[i] + plan.Runs[i + 1]; j++)
-                pixels[j * 4 + 3] = 255;
-            _breakoutSprite = NativePortraitFrameMask.Create(
-                new PortraitImage(plan.Width, plan.Height, pixels),
-                out _breakoutTexture
-            );
-            var extendedBounds = Rect.MinMaxRect(
-                plan.Bounds.Left * height - _sprite.pivot.x / _sprite.pixelsPerUnit,
-                plan.Bounds.Bottom * height - _sprite.pivot.y / _sprite.pixelsPerUnit,
-                plan.Bounds.Right * height - _sprite.pivot.x / _sprite.pixelsPerUnit,
-                plan.Bounds.Top * height - _sprite.pivot.y / _sprite.pixelsPerUnit
-            );
-            _layers = NativePortraitLayeredRenderer.TryCreate(
-                _skeleton,
-                _root.transform,
-                _maskSprite,
-                maskBounds,
-                _breakoutSprite,
-                extendedBounds,
-                plan.Parts
-            );
-        }
-        if (_layers != null)
-            _mask.gameObject.SetActive(false);
+        _skeleton.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
+        _layers = NativePortraitLayeredRenderer.TryCreate(_skeleton, plan, applied);
         // Build the masked materials/parts while hidden, not on the first visible frame.
         SuppressRendering(true);
         _skeleton.LateUpdateMesh();
@@ -203,6 +172,13 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
             RestoreSprite();
             if (_root != null)
                 _root.SetActive(false);
+            return;
+        }
+        if (_layers?.Failed == true)
+        {
+            SuppressRendering(true);
+            RestoreSprite();
+            _root.SetActive(false);
             return;
         }
         var visible =
@@ -226,14 +202,11 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         // A local sorting group prevents one hero's mask from revealing the other's mesh.
         _sortingGroup.sortingLayerID = _portrait.sortingLayerID;
         _sortingGroup.sortingOrder = _portrait.sortingOrder;
-        if (_layers == null)
-        {
-            _renderer.sortingLayerID = 0;
-            _renderer.sortingOrder = 0;
-            _mask.frontSortingLayerID = _mask.backSortingLayerID = 0;
-            _mask.frontSortingOrder = 1;
-            _mask.backSortingOrder = -1;
-        }
+        _renderer.sortingLayerID = 0;
+        _renderer.sortingOrder = 0;
+        _mask.frontSortingLayerID = _mask.backSortingLayerID = 0;
+        _mask.frontSortingOrder = 1;
+        _mask.backSortingOrder = -1;
         var color = _portrait.color;
         _skeleton.Skeleton.R = color.r;
         _skeleton.Skeleton.G = color.g;
@@ -276,7 +249,7 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
             return;
         _renderSuppressed = suppress;
         if (_renderer != null)
-            _renderer.forceRenderingOff = suppress || _layers != null;
+            _renderer.forceRenderingOff = suppress;
         _layers?.SuppressRendering(suppress);
     }
 
@@ -315,9 +288,5 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         }
         if (_maskSprite != null)
             Object.Destroy(_maskSprite);
-        if (_breakoutSprite != null)
-            Object.Destroy(_breakoutSprite);
-        if (_breakoutTexture != null)
-            Object.Destroy(_breakoutTexture);
     }
 }

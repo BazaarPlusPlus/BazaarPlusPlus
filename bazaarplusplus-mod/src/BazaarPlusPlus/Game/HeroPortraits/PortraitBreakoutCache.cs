@@ -9,7 +9,7 @@ namespace BazaarPlusPlus.Game.HeroPortraits;
 
 internal sealed class PortraitBreakoutCache
 {
-    private const int Version = 12;
+    private const int Version = 20;
     private readonly string _directory;
 
     internal PortraitBreakoutCache(string directory) =>
@@ -27,7 +27,7 @@ internal sealed class PortraitBreakoutCache
         var path = Path.Combine(_directory, key + ".json");
         try
         {
-            if (File.Exists(path) && new FileInfo(path).Length <= 131072)
+            if (File.Exists(path) && new FileInfo(path).Length <= 2_097_152)
             {
                 var cached = JsonConvert.DeserializeObject<PortraitBreakoutPlan>(
                     File.ReadAllText(path)

@@ -22,10 +22,9 @@
     <Compile Include="../../src/BazaarPlusPlus.Core/Infrastructure/AtomicFileWriter.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutAnalyzer.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutCache.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutGroups.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitRigFamily.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutPlan.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutRasterizer.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitBreakoutSelection.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HeroPortraits/PortraitPreparationSequence.cs" />
     <Compile Include="../AsyncLoadCache.Tests/*.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionState.cs" />
