@@ -1,6 +1,6 @@
 # BazaarPlusPlus × BazaarDB Integration (V6)
 
-Last updated: 2026-11-05
+Last updated: 2026-11-09
 
 This document is the integration contract between BazaarPlusPlus V6 and BazaarDB. It replaces the V5 `claim`/`settle` integration. BazaarPlusPlus 6.0.0 shipped on 2026-10-29: Screenshot-bearing Bundles from 6.0 players reach BazaarDB only through the V6 API described here. A summary of changes from V5 is at the end of this document.
 
@@ -216,6 +216,7 @@ Ignore unknown manifest fields. Fields may be added without notice; breaking cha
 ## Changes from the V5 Integration
 
 - **Base URL and token**: `mod-api-v5.bazaarplusplus.com` → `mod-api-v6.bazaarplusplus.com`, with a new token. The V5 server receives no Bundles from 6.0 players.
+- **V5 shutdown**: the V5 server and `mod-api-v5.bazaarplusplus.com` were shut down on 2026-11-09. The V5 endpoints and token no longer work.
 - **Endpoints**: `POST /bazaardb/deliveries/claim` and `POST /bazaardb/deliveries/settle` → one `GET /bazaardb/bundles`. Nothing is sent back to BazaarPlusPlus.
 - **State**: the lease, 3-attempt cap, retry backoff, `permanent_failure`, and the terminal `failed` state are gone. BazaarDB owns its cursor, retries, and deduplication. A Bundle stays available for the full 8 days whatever happens on your side.
 - **Batching**: `limit` default 50 → 200, maximum 50 → 500. Items keep `bundle_id`, `run_id`, `download_url`, `download_expires_at_ms`, `content_type`, and `sha256`, and add `available_at_ms`. There is no settle deadline.
