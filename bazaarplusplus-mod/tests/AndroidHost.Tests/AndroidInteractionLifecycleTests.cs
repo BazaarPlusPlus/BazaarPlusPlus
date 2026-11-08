@@ -45,6 +45,8 @@ public sealed class AndroidInteractionLifecycleTests
                 "guard:update_prompt",
                 "prompt",
                 "label",
+                "guard:jit_warmup",
+                "warmup",
             },
             events
         );
@@ -235,6 +237,7 @@ public sealed class AndroidInteractionLifecycleTests
             Version = Named("version"),
             Prompt = Named("prompt"),
             RefreshLabel = Named("label"),
+            Warmup = Named("warmup"),
             ReleaseUpgrade = Named("release"),
             ResetCombat = Named("reset"),
             ScenePanels = Named("scene_panels"),

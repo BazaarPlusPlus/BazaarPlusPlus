@@ -51,6 +51,9 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         _openingKinds = openingKinds;
     }
 
+    /// <summary>A battle has opened and not yet closed or been abandoned.</summary>
+    public bool IsOpen => _open != null;
+
     /// <summary>
     /// Feeds one net message the host captured. Returns the capture when this message closed a
     /// window. Never throws: a read that fails degrades its own field.

@@ -64,6 +64,12 @@ internal sealed class TouchCombatClock : IDisposable
 
     private int _hiddenFrames;
 
+    // The layout a plaque built ahead takes, read on the check before the build.
+    private string? _aheadKey;
+
+    // The native skin was scanned on a frame of its own; the next build uses that scan.
+    private bool _skinScanned;
+
     // Built ahead while the native art was not yet found: build again when first shown.
     private bool _builtWithoutArt;
 
@@ -143,6 +149,9 @@ internal sealed class TouchCombatClock : IDisposable
             var font = MobilePlatform.Port.GameFont();
             if (font == null)
                 return;
+            // A first build scans for the native skin on this frame and builds on the next.
+            if (_root == null && ScannedThisFrame())
+                return;
             Build(font, key, ahead: false);
         }
         if (!_shown)
@@ -199,13 +208,39 @@ internal sealed class TouchCombatClock : IDisposable
     {
         if (_root != null)
             return;
-        if (_hiddenFrames++ % BuildAheadCheckFrames != 0)
+        // One step a hidden frame, so no frame pays for all of them: the vault read on a check,
+        // then the native skin's scan, then the build.
+        if (_aheadKey == null)
+        {
+            if (_hiddenFrames++ % BuildAheadCheckFrames != 0)
+                return;
+            if (MobilePlatform.Port.GameFont() == null)
+                return;
+            _aheadKey = LayoutKey();
+            return;
+        }
+        if (ScannedThisFrame())
             return;
         var font = MobilePlatform.Port.GameFont();
-        if (font == null || LayoutKey() is not { } key)
+        var key = _aheadKey;
+        _aheadKey = null;
+        if (font == null)
             return;
         Build(font, key, ahead: true);
         _root!.SetActive(false);
+    }
+
+    /// <summary>
+    /// Scans for the native skin when it has none or lost its art and no scan waits for a build;
+    /// true when it scanned.
+    /// </summary>
+    private bool ScannedThisFrame()
+    {
+        if (_skinScanned || (_skin != null && !_skin.NeedsRefresh))
+            return false;
+        _skin = new NativeSkin();
+        _skinScanned = true;
+        return true;
     }
 
     /// <summary>
@@ -260,9 +295,10 @@ internal sealed class TouchCombatClock : IDisposable
         var layout = TouchHudLayout.Playback(chrome.Metrics, _vault, _boardTop);
         var plaque = TouchScreen.Child("ClockPlaque", _root.transform, layout.Panel);
         var background = UiKit.Fill(plaque, UiKit.ButtonColor, false);
-        if (_skin == null || _skin.NeedsRefresh)
+        if (!_skinScanned && (_skin == null || _skin.NeedsRefresh))
             _skin = new NativeSkin();
-        _skin.Select(background, false);
+        _skinScanned = false;
+        _skin!.Select(background, false);
         // Only the button sprite is read here; a plaque built ahead without it tries again.
         _builtWithoutArt = ahead && background.sprite == null;
         var rule = chrome.Metrics.Dp(.5f);
@@ -384,6 +420,8 @@ internal sealed class TouchCombatClock : IDisposable
         if (_root != null)
             UnityEngine.Object.Destroy(_root);
         _root = null;
+        _aheadKey = null;
+        _skinScanned = false;
         _builtWithoutArt = false;
         _shown = false;
         _shownTime = null;
