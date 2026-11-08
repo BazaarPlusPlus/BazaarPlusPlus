@@ -158,6 +158,73 @@ function probe(
   });
 }
 
+// The tool versions the checkout pins: Bun in the root package.json engines,
+// uv in the analyzer's required-version. A missing file pins nothing.
+export function pinnedToolVersions(
+  repository: string
+): Partial<Record<'bun' | 'uv', string>> {
+  const read = (file: string): string => {
+    try {
+      return fs.readFileSync(path.join(repository, file), 'utf8');
+    } catch {
+      return '';
+    }
+  };
+  const pins: Partial<Record<'bun' | 'uv', string>> = {};
+  try {
+    const bun = JSON.parse(read('package.json') || '{}').engines?.bun;
+    if (typeof bun === 'string') pins.bun = bun;
+  } catch {
+    // An unreadable package.json fails the commands that need it.
+  }
+  const uv = /^required-version\s*=\s*"==([^"]+)"/m.exec(
+    read('bazaarplusplus-analyzer/pyproject.toml')
+  );
+  if (uv) pins.uv = uv[1];
+  return pins;
+}
+
+const escapeRegExp = (text: string): string =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Direct dependencies whose node_modules copy is missing or differs from the
+// version bun.lock resolves. A dependency bun.lock does not list is skipped.
+export function staleDependencies(directory: string): string[] {
+  let manifest: Record<string, Record<string, string> | undefined>;
+  let lock: string;
+  try {
+    manifest = JSON.parse(
+      fs.readFileSync(path.join(directory, 'package.json'), 'utf8')
+    );
+    lock = fs.readFileSync(path.join(directory, 'bun.lock'), 'utf8');
+  } catch {
+    return [];
+  }
+  const names = Object.keys({
+    ...manifest.dependencies,
+    ...manifest.devDependencies
+  });
+  return names.filter((name) => {
+    const quoted = escapeRegExp(name);
+    const locked = new RegExp(
+      `^ {4}"${quoted}": \\["${quoted}@([^"]+)"`,
+      'm'
+    ).exec(lock)?.[1];
+    if (locked === undefined) return false;
+    try {
+      const installed = JSON.parse(
+        fs.readFileSync(
+          path.join(directory, 'node_modules', name, 'package.json'),
+          'utf8'
+        )
+      ).version;
+      return installed !== locked;
+    } catch {
+      return true;
+    }
+  });
+}
+
 export function doctor(
   home = configHome(),
   repository = root,
@@ -167,6 +234,7 @@ export function doctor(
   const rows: DoctorRow[] = [];
   const add = (scope: string, ok: boolean, detail: string) =>
     rows.push({ scope, ok, detail });
+  const pins = pinnedToolVersions(repository);
   for (const [command, args] of [
     ['bun', ['--version']],
     ['just', ['--version']],
@@ -179,7 +247,15 @@ export function doctor(
       result.status === 0
         ? result.stdout.trim().split('\n')[0]
         : 'missing or unavailable';
-    add('tools', result.status === 0, `${command}: ${version}`);
+    const pin = pins[command as keyof typeof pins];
+    const matches = pin === undefined || version.split(/\s+/).includes(pin);
+    add(
+      'tools',
+      result.status === 0 && matches,
+      matches
+        ? `${command}: ${version}`
+        : `${command}: ${version}; the checkout pins ${pin}`
+    );
   }
   for (const project of ['', 'installer', 'site', 'server', 'analyzer']) {
     const directory = project
@@ -188,10 +264,20 @@ export function doctor(
     const installed = fs.existsSync(
       path.join(directory, project === 'analyzer' ? '.venv' : 'node_modules')
     );
+    const stale =
+      installed && project !== 'analyzer' ? staleDependencies(directory) : [];
     add(
       'dependencies',
-      installed,
-      `${project || 'root'}: ${installed ? 'installed (not validated)' : 'run just setup'}`
+      installed && stale.length === 0,
+      `${project || 'root'}: ${
+        !installed
+          ? 'run just setup'
+          : stale.length
+            ? `differs from bun.lock (${stale.join(', ')}); run just setup`
+            : project === 'analyzer'
+              ? 'installed (not validated)'
+              : 'direct dependencies match bun.lock'
+      }`
     );
   }
   let config;

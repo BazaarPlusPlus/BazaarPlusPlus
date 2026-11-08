@@ -15,7 +15,7 @@ import {
   projectionChanges,
   assertExternal
 } from './local-config.ts';
-import { doctor } from './workspace.ts';
+import { doctor, pinnedToolVersions, staleDependencies } from './workspace.ts';
 
 function fixture(t: TestContext) {
   const directory = fs.realpathSync(
@@ -431,6 +431,53 @@ test('doctor derives required keys from config sections and resolves signing as 
   assert.equal(row('updater signing')[0].ok, true);
   if (process.platform === 'darwin')
     assert.equal(row('Apple notarization')[0].ok, true);
+});
+
+test('doctor names direct dependencies that drift from bun.lock and reads the pinned tool versions', (t) => {
+  const f = fixture(t);
+  const project = path.join(f.repository, 'bazaarplusplus-server');
+  f.put(
+    project,
+    'package.json',
+    JSON.stringify({
+      dependencies: { current: '^1.0.0', '@scope/old': '^2.0.0' },
+      devDependencies: { absent: '^3.0.0', unlocked: '^4.0.0' }
+    })
+  );
+  f.put(
+    project,
+    'bun.lock',
+    [
+      '{',
+      '  "packages": {',
+      '    "current": ["current@1.2.0", "", {}, "sha512-a"],',
+      '    "@scope/old": ["@scope/old@2.1.0", "", {}, "sha512-b"],',
+      '    "absent": ["absent@3.0.0", "", {}, "sha512-c"],',
+      '    "current/nested": ["nested@9.0.0", "", {}, "sha512-d"],',
+      '  }',
+      '}'
+    ].join('\n')
+  );
+  f.put(project, 'node_modules/current/package.json', '{"version":"1.2.0"}');
+  f.put(project, 'node_modules/@scope/old/package.json', '{"version":"2.0.0"}');
+  assert.deepEqual(staleDependencies(project), ['@scope/old', 'absent']);
+  const server = doctor(f.home, f.repository, {}).find((row) =>
+    row.detail.startsWith('server:')
+  );
+  assert.equal(server?.ok, false);
+  assert.match(server?.detail ?? '', /@scope\/old, absent.*just setup/);
+
+  assert.deepEqual(pinnedToolVersions(f.repository), {});
+  f.put(f.repository, 'package.json', '{"engines":{"bun":"1.4.4"}}');
+  f.put(
+    f.repository,
+    'bazaarplusplus-analyzer/pyproject.toml',
+    '[tool.uv]\nrequired-version = "==0.13.7"\n'
+  );
+  assert.deepEqual(pinnedToolVersions(f.repository), {
+    bun: '1.4.4',
+    uv: '0.13.7'
+  });
 });
 
 const cli = (f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}) =>

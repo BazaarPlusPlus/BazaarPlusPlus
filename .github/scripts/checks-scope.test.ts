@@ -529,7 +529,8 @@ test('repository metadata and project recipes do not fan out to all platforms', 
     '.gitignore',
     '.gitattributes',
     '.github/dependabot.yml',
-    '.github/workflows/codeql.yml'
+    '.github/workflows/codeql.yml',
+    '.github/codeql/codeql-config.yml'
   ])
     expectScopes([file], ['release']);
   expectScopes(['bazaarplusplus-site/site.just'], ['site', 'release']);
