@@ -28,7 +28,10 @@ export type MirrorPage =
 
 /** How a mirror check ended; `waived` marks a release without a mirror. */
 export type MirrorOutcome =
-  'verified' | 'missing-or-misnamed' | 'unverifiable' | 'waived';
+  | 'verified'
+  | 'missing-or-misnamed'
+  | 'unverifiable'
+  | 'waived';
 
 /** What classifyMirrorPage concludes from one page. */
 export interface MirrorClassification {

@@ -34,7 +34,8 @@ type PageState =
     };
 
 type Action =
-  { kind: 'screenshot' } | { kind: 'reveal' | 'delete'; battleId: string };
+  | { kind: 'screenshot' }
+  | { kind: 'reveal' | 'delete'; battleId: string };
 type BattleFailure = { action: 'reveal' | 'delete'; problem: RunDetailProblem };
 type Availability = { disabled: boolean; running: boolean };
 type BattleActions = {

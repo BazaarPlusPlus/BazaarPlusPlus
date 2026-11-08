@@ -2,7 +2,12 @@ import clsx from 'clsx';
 import type { ReactNode } from 'react';
 
 export type StatusBadgeTone =
-  'ok' | 'warn' | 'bad' | 'busy' | 'neutral' | 'accent';
+  | 'ok'
+  | 'warn'
+  | 'bad'
+  | 'busy'
+  | 'neutral'
+  | 'accent';
 
 /** A status reads as dot + word; the tone colour is the third signal. */
 export function StatusBadge({

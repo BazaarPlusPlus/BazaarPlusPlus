@@ -44,13 +44,14 @@ const moduleFiles = [
 const modScripts = ['build', 'test', 'game', 'android'];
 const shellQuote = (value: string): string =>
   `'${value.replaceAll("'", "'\\''")}'`;
-const rootPrettier = (mode: string): [string, ...string[]] => [
+const rootOxfmt = (mode: string): [string, ...string[]] => [
   'bun',
   'run',
-  'prettier',
+  'oxfmt',
   mode,
   'package.json',
   '.oxlintrc.json',
+  '.oxfmtrc.json',
   'tsconfig.json',
   'vitest.config.ts',
   'release/**/*.{ts,json}',
@@ -233,7 +234,7 @@ test('check delegates source-only gates in their project directories', (t) => {
   assert.ok(
     hasCall(calls, call(f.dir, null, 'bun', 'design/build.ts', '--check'))
   );
-  assert.ok(hasCall(calls, call(f.dir, null, ...rootPrettier('--check'))));
+  assert.ok(hasCall(calls, call(f.dir, null, ...rootOxfmt('--check'))));
   // Named scripts use the project's installed toolchain.
   assert.ok(hasCall(calls, call(f.dir, null, 'bun', 'run', 'typecheck')));
   assert.ok(hasCall(calls, call(f.dir, null, 'bun', 'run', 'lint')));
@@ -358,7 +359,7 @@ test('fmt formats every project, then re-projects release files', (t) => {
     calls,
     projects.filter((project) => project !== 'android')
   );
-  assert.deepEqual(calls[0], call(f.dir, null, ...rootPrettier('--write')));
+  assert.deepEqual(calls[0], call(f.dir, null, ...rootOxfmt('--write')));
   assert.deepEqual(
     calls.at(-1),
     call(f.dir, null, 'bun', 'release/cli.ts', 'sync')

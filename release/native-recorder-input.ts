@@ -60,7 +60,8 @@ export interface NativePlatformRequirement {
 
 /** One entry of a snapshotted artifact tree. */
 export type NativeTreeEntry =
-  { kind: 'directory' } | { kind: 'file'; size: number; sha256: string };
+  | { kind: 'directory' }
+  | { kind: 'file'; size: number; sha256: string };
 
 /** The exact content of an artifact: one file, or every entry of its tree. */
 export type NativeArtifactSnapshot =

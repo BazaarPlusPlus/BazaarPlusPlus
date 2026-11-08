@@ -1,7 +1,8 @@
 import { useMemo, useSyncExternalStore } from 'react';
 
 export type ConfirmedOperationOutcome<TProblem> =
-  { ok: true } | { ok: false; problem: TProblem };
+  | { ok: true }
+  | { ok: false; problem: TProblem };
 
 export type ConfirmedOperationState<TTarget, TProblem> =
   | {

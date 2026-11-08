@@ -119,7 +119,9 @@ type FailedUpdaterSnapshot = {
 };
 
 export type UpdaterSnapshot =
-  EmptyUpdaterSnapshot | KnownUpdateSnapshot | FailedUpdaterSnapshot;
+  | EmptyUpdaterSnapshot
+  | KnownUpdateSnapshot
+  | FailedUpdaterSnapshot;
 
 export const initialUpdaterSnapshot: UpdaterSnapshot = {
   phase: 'idle',

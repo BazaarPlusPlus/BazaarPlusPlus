@@ -65,7 +65,12 @@ export interface DesignTokens {
 
 /** A token family emitted as custom properties. */
 type TokenFamily =
-  'color' | 'spacing' | 'radius' | 'size' | 'shadow' | 'motion';
+  | 'color'
+  | 'spacing'
+  | 'radius'
+  | 'size'
+  | 'shadow'
+  | 'motion';
 
 /** A text style as the Android resources read it. */
 interface AppTypeStyle {

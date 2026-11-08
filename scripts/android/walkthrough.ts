@@ -10,7 +10,8 @@ import { androidSdkPaths } from './android-sdk.ts';
 
 /** A walkthrough device: an Android AVD of the matrix, or the desktop game. */
 export type Device =
-  { name: string; kind: 'android' } | { name: string; kind: 'desktop' };
+  | { name: string; kind: 'android' }
+  | { name: string; kind: 'desktop' };
 
 // A device a command reached: an Android one carries the running serial.
 type ReachedDevice =
@@ -373,7 +374,7 @@ const escape = (text: string): string =>
     /[&<>"]/g,
     (c) =>
       (
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }) as Record<
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<
           string,
           string
         >
