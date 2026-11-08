@@ -20,12 +20,13 @@ public readonly struct HistoryPanelDatabaseChip
 
 public static class HistoryPanelDecisions
 {
-    // List precedence: account → rows → read → running sync → filters → failed sync → empty. A
-    // failed sync sits after filters so a filter-emptied page still points at its filters.
+    // Ghost precedence: account → rows → read → running sync → filters → failed sync → empty. A
+    // failed sync sits after filters so a filter-emptied page still points at its filters. An
+    // empty message also stands on both boards.
     public static HistoryArchiveStatus ArchiveStatus(HistoryArchiveFacts facts)
     {
-        var list = ListMessage(facts);
-        var preview = PreviewOverride(facts, list);
+        var list = EmptyMessage(facts);
+        var preview = list.Length > 0 ? list : PreviewOverride(facts);
         return new HistoryArchiveStatus(
             list,
             preview ?? BoardMessage(facts.PlayerBoard),
@@ -37,12 +38,12 @@ public static class HistoryPanelDecisions
         );
     }
 
-    private static string ListMessage(HistoryArchiveFacts facts)
+    private static string EmptyMessage(HistoryArchiveFacts facts)
     {
         if (facts.Section == HistorySectionMode.Favorites)
-            return FavoritesListMessage(facts);
-        if (facts.Section != HistorySectionMode.Ghost)
-            return string.Empty;
+            return FavoritesEmptyMessage(facts);
+        if (facts.Section == HistorySectionMode.Runs)
+            return RunsEmptyMessage(facts);
         if (!facts.AccountKnown)
             return HistoryPanelText.GhostAccountUnavailable();
         if (facts.RowCount > 0)
@@ -60,23 +61,29 @@ public static class HistoryPanelDecisions
             : HistoryPanelText.NoSavedGhostBattles();
     }
 
+    // Runs are not account-scoped: rows → read → filters → empty. A run that recorded no battle
+    // has nothing for the boards either, once its page has loaded.
+    private static string RunsEmptyMessage(HistoryArchiveFacts facts) =>
+        facts.RowCount > 0
+            ? facts.BattleCount == 0 && !facts.PageLoading
+                ? HistoryPanelText.NoBattlesInRun()
+                : string.Empty
+            : facts.PageLoading
+                ? HistoryPanelText.LoadingPreview()
+                : facts.FiltersActive
+                    ? HistoryPanelText.NoRunFilterMatches()
+                    : HistoryPanelText.NoRuns();
+
     // Favorites are not account-scoped, so no account precedence: rows → read → empty.
-    private static string FavoritesListMessage(HistoryArchiveFacts facts) =>
+    private static string FavoritesEmptyMessage(HistoryArchiveFacts facts) =>
         facts.RowCount > 0 ? string.Empty
         : facts.PageLoading ? HistoryPanelText.LoadingPreview()
         : facts.PageLoadFailed ? HistoryPanelText.FavoritesReadFailed()
         : HistoryPanelText.NoFavorites();
 
     // Null leaves each native board's own ready/empty/partial/failure message intact.
-    private static string? PreviewOverride(HistoryArchiveFacts facts, string list)
+    private static string? PreviewOverride(HistoryArchiveFacts facts)
     {
-        if (facts.Section == HistorySectionMode.Ghost)
-        {
-            if (!facts.AccountKnown || facts.RowCount == 0)
-                return list;
-        }
-        if (facts.Section == HistorySectionMode.Favorites && facts.RowCount == 0)
-            return list;
         if (facts.Detail == HistoryDetailPhase.Loading)
             return HistoryPanelText.LoadingPreview();
         if (facts.Section == HistorySectionMode.Favorites)

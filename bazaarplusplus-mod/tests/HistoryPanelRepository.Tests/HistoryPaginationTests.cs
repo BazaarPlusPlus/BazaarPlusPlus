@@ -261,7 +261,7 @@ internal static class HistoryPaginationTests
             "Winner precedence and day filtering must precede the page limit."
         );
         Check(
-            filtered.Rows.All(HistoryPanelFormatter.IsBattleWin),
+            filtered.Rows.All(b => HistoryPanelRows.Outcome(b) == HistoryOutcomeTone.Won),
             "SQL filtering and local-perspective outcome display must agree."
         );
         Check(
@@ -402,8 +402,8 @@ internal static class HistoryPaginationTests
                     Check(
                         rows.All(b =>
                             filter == GhostBattleFilter.IWon
-                                ? HistoryPanelFormatter.IsBattleWin(b)
-                                : HistoryPanelFormatter.IsBattleLoss(b)
+                                ? HistoryPanelRows.Outcome(b) == HistoryOutcomeTone.Won
+                                : HistoryPanelRows.Outcome(b) == HistoryOutcomeTone.Lost
                         ),
                         "Ghost outcome filtering and display must agree in local perspective."
                     );

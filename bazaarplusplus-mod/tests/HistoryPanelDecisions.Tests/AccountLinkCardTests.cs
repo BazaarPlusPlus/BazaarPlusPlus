@@ -95,7 +95,10 @@ internal static class AccountLinkCardTests
                     else if (!uploads)
                     {
                         Contains(status, label);
-                        Contains(status, chinese ? "设置栏" : "settings dock");
+                        Contains(
+                            status,
+                            chinese ? "BazaarPlusPlus 设置" : "BazaarPlusPlus settings"
+                        );
                     }
                     else if (!hasAccount)
                         Contains(status, chinese ? "登录" : "Sign in");

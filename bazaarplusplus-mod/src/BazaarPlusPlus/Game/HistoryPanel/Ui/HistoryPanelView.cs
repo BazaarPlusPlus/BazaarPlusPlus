@@ -4,7 +4,6 @@ using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.Ranks;
 using BazaarPlusPlus.Infrastructure.UiTokens;
-using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -326,20 +325,23 @@ internal sealed partial class HistoryPanelView : IDisposable
             : selected ? InGameTheme.ButtonSelected
             : InGameTheme.Button;
         var colors = button.colors;
+        var dimmed = binding.Dimmed && button.interactable;
+        colors.disabledColor = groupedOption ? Color.clear : new Color(.65f, .65f, .65f, .55f);
         colors.normalColor =
             groupedOption ? Color.clear
+            : dimmed ? colors.disabledColor
             : restingRecord ? new Color(.8f, .76f, .68f, .7f)
             : Color.white;
         colors.highlightedColor =
             groupedOption ? new Color(1f, 1f, 1f, .45f)
             : restingRecord ? new Color(.98f, .95f, .88f, .95f)
+            : dimmed ? new Color(.72f, .72f, .72f, .65f)
             : new Color(1.12f, 1.12f, 1.12f, 1f);
         colors.pressedColor = new Color(.7f, .7f, .7f, 1f);
         colors.selectedColor = colors.normalColor;
-        colors.disabledColor = groupedOption ? Color.clear : new Color(.65f, .65f, .65f, .55f);
         button.colors = colors;
         binding.Text.color =
-            !button.interactable ? Muted
+            !button.interactable || dimmed ? Muted
             : binding.Style == ButtonStyle.Danger ? InGameTheme.Failure
             : groupedOption || restingRecord ? InGameTheme.InkSoft
             : Ink;
@@ -347,22 +349,46 @@ internal sealed partial class HistoryPanelView : IDisposable
 
     // Every refresh rebinds every button, so an unchanged one is left alone: no label write, no
     // interactable toggle, no skin. RefreshSkin reapplies the skin itself when the art arrives.
-    private void SetButton(Button button, string label, bool selected = false, bool enabled = true)
+    // A dimmed button looks disabled but still takes presses, so it can explain why it cannot act.
+    private void SetButton(
+        Button button,
+        string label,
+        bool selected = false,
+        bool enabled = true,
+        bool dimmed = false
+    )
     {
         var binding = _buttons[button];
-        if (binding.Label == label && binding.Selected == selected && binding.Enabled == enabled)
+        if (
+            binding.Label == label
+            && binding.Selected == selected
+            && binding.Enabled == enabled
+            && binding.Dimmed == dimmed
+        )
             return;
         if (binding.Label != label)
             binding.Text.text = label;
         button.interactable = enabled;
+        _buttons[button] = binding with
+        {
+            Label = label,
+            Selected = selected,
+            Enabled = enabled,
+            Dimmed = dimmed,
+        };
         ApplyButtonSkin(button, selected);
-        _buttons[button] = binding with { Label = label, Selected = selected, Enabled = enabled };
     }
 
     private void SetButtonEnabled(Button button, bool enabled)
     {
         var binding = _buttons[button];
-        SetButton(button, binding.Label ?? binding.Text.text, binding.Selected, enabled);
+        SetButton(
+            button,
+            binding.Label ?? binding.Text.text,
+            binding.Selected,
+            enabled,
+            binding.Dimmed
+        );
     }
 
     // A button's own label, found once at construction, and what SetButton last bound. Label
@@ -372,7 +398,8 @@ internal sealed partial class HistoryPanelView : IDisposable
         string? Label,
         bool Selected,
         bool Enabled,
-        ButtonStyle Style
+        ButtonStyle Style,
+        bool Dimmed = false
     );
 
     private enum ButtonStyle
@@ -465,9 +492,6 @@ internal sealed partial class HistoryPanelView : IDisposable
         }
         return (texture, sprites);
     }
-
-    private static string T(string english, string chinese) =>
-        L.Resolve(new LocalizedTextSet(english, chinese));
 
     private static RectTransform CreateRect(
         string name,

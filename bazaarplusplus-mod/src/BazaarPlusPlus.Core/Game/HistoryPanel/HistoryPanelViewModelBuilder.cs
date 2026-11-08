@@ -8,8 +8,9 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 /// <summary>
 /// Builds the <see cref="HistoryPanelViewModel"/> both hosts render from the panel's state and
 /// coordinator, so the desktop and Android panels show the same lists, labels and buttons. The
-/// host supplies only what it alone knows: the frame clock, the supporter samples it shows, and
-/// each native board's status (a host without native boards passes the default).
+/// host supplies only what it alone knows: the frame clock, the supporter samples it shows,
+/// each native board's status (a host without native boards passes the default), the game's
+/// hero names and the wall clock the row stamps compare years against.
 /// </summary>
 public static class HistoryPanelViewModelBuilder
 {
@@ -66,29 +67,28 @@ public static class HistoryPanelViewModelBuilder
         float now,
         IReadOnlyList<BPPSupporterSample> supporters,
         HistoryBoardFacts playerBoard,
-        HistoryBoardFacts opponentBoard
+        HistoryBoardFacts opponentBoard,
+        Func<string?, string> heroName,
+        DateTimeOffset today
     )
     {
         if (state == null)
             throw new ArgumentNullException(nameof(state));
+        if (heroName == null)
+            throw new ArgumentNullException(nameof(heroName));
 
         var selectedBattle = ActiveSelectedBattle(state, coordinator);
         var selectedRun = SelectedRun(state, coordinator);
-        string replayUnavailableReason;
         bool canReplaySelectedBattle;
         bool canRecordSelectedBattle;
         bool canDeleteSelectedRun;
         if (coordinator == null)
         {
-            replayUnavailableReason = HistoryPanelText.PanelUnavailable();
             canReplaySelectedBattle = canRecordSelectedBattle = canDeleteSelectedRun = false;
         }
         else
         {
-            canReplaySelectedBattle = coordinator.CanReplaySelectedBattle(
-                selectedBattle,
-                out replayUnavailableReason
-            );
+            canReplaySelectedBattle = coordinator.CanReplaySelectedBattle(selectedBattle, out _);
             // Record needs the replay to be possible; reuse that answer rather than asking the
             // saved-replay catalog again on every refresh.
             canRecordSelectedBattle =
@@ -116,7 +116,6 @@ public static class HistoryPanelViewModelBuilder
         var buttons = HistoryPanelButtonModel.Build(
             state.ReplayActionInProgress,
             canReplaySelectedBattle,
-            replayUnavailableReason,
             coordinator?.GetReplayActionLabel(selectedBattle) ?? HistoryPanelText.Replay(),
             runContext?.IsInGameRun == true,
             canRecordSelectedBattle,
@@ -138,6 +137,7 @@ public static class HistoryPanelViewModelBuilder
         );
 
         var archiveStatus = ArchiveStatus(state, coordinator, playerBoard, opponentBoard);
+        var showsBothBoards = ShowsBothBoards(state);
         var favoriteButton = FavoriteButton(state, coordinator, selectedBattle, selectedFavorite);
         var deleteButtonText = buttons.DeleteButtonText;
         var deleteButtonEnabled = buttons.DeleteButtonEnabled;
@@ -160,7 +160,7 @@ public static class HistoryPanelViewModelBuilder
         return new HistoryPanelViewModel
         {
             PageLoading = state.PageLoading,
-            ArchiveEmptyMessage = archiveStatus.ListMessage,
+            ArchiveEmptyMessage = archiveStatus.EmptyMessage,
             HasNewer = section switch
             {
                 HistorySectionMode.Ghost => state.GhostPage.HasNewer,
@@ -231,10 +231,22 @@ public static class HistoryPanelViewModelBuilder
                 HistorySectionMode.Favorites => state.SelectedFavoriteIndex,
                 _ => state.SelectedBattleIndex,
             },
-            FavoriteRowLabels = state
-                .Favorites.Select(HistoryPanelFormatter.FavoriteListText)
-                .ToList(),
-            ShowsBothBoards = ShowsBothBoards(state),
+            ArchiveRows = section switch
+            {
+                HistorySectionMode.Ghost => visibleBattles
+                    .Select(b => HistoryPanelRows.Ghost(b, heroName, today))
+                    .ToList(),
+                HistorySectionMode.Favorites => state
+                    .Favorites.Select(f => HistoryPanelRows.Favorite(f, heroName, today))
+                    .ToList(),
+                _ => visibleRuns.Select(r => HistoryPanelRows.Run(r, heroName, today)).ToList(),
+            },
+            Timeline =
+                section == HistorySectionMode.Runs
+                    ? visibleBattles.Select(HistoryPanelRows.Timeline).ToList()
+                    : new List<HistoryTimelineItem>(),
+            BoardTitles = HistoryPanelRows.Titles(showsBothBoards, selectedBattle),
+            ShowsBothBoards = showsBothBoards,
             FavoritesTabVisible = coordinator?.FavoritesAvailable == true,
             FavoriteButtonVisible = favoriteButton.Visible,
             FavoriteButtonText = favoriteButton.Text,

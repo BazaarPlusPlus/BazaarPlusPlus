@@ -47,7 +47,7 @@ internal sealed partial class HistoryPanelView
     private void BindSupporters(IReadOnlyList<BPPSupporterSample> samples)
     {
         var language = SupportLanguage();
-        _supporterPrefix.text = T("Thanks", "感谢");
+        _supporterPrefix.text = HistoryPanelText.Thanks();
         _supporterAction.text = BPPSupporterAttributionText.FormatSponsorAction(language) + " ›";
         var names = samples.Where(sample => sample.HasValue).Take(4).ToArray();
         for (var i = 0; i < _supporterNames.Length; i++)
@@ -55,7 +55,7 @@ internal sealed partial class HistoryPanelView
             var name = _supporterNames[i];
             name.text =
                 i < names.Length ? names[i].Name
-                : i == 0 ? T("Community", "玩家社区")
+                : i == 0 ? HistoryPanelText.Community()
                 : "";
             name.color =
                 i < names.Length

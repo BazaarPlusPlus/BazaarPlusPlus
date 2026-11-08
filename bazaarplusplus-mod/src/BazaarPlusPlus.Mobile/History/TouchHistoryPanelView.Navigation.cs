@@ -77,7 +77,7 @@ internal sealed partial class TouchHistoryPanelView
             L.CurrentLanguageCode
         );
         _supporterCredit.text = string.IsNullOrEmpty(credit)
-            ? TouchHistoryUi.T("Community support", "玩家社区支持")
+            ? HistoryPanelText.CommunitySupport()
             : credit;
         _supporterAction.text =
             BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode) + " ›";
@@ -87,7 +87,7 @@ internal sealed partial class TouchHistoryPanelView
     private void BuildNavigation(GameObject archiveFill, GameObject tray)
     {
         _back = HeaderButton("back_to_records", _l.Back, BackToArchive);
-        _back.Set(TouchHistoryUi.T("‹ Records", "‹ 记录"));
+        _back.Set(HistoryPanelText.BackToRecords());
         _opponentToggle = HeaderButton(
                 "show_opponent",
                 _l.OpponentToggle,

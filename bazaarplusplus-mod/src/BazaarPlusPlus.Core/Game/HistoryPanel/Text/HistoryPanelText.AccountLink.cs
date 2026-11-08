@@ -11,8 +11,9 @@ public static partial class HistoryPanelText
     public static class AccountLink
     {
         private static readonly LocalizedTextSet UploadsDisabledText = new(
-            "Enable “{0}” in the settings dock to link.",
-            "请先在设置栏打开『{0}』，再绑定账号。"
+            "Turn on “{0}” in the BazaarPlusPlus settings to link.",
+            "请先在 BazaarPlusPlus 设置中打开『{0}』，再绑定账号。",
+            "請先在 BazaarPlusPlus 設定中開啟『{0}』，再綁定帳號。"
         );
 
         private static readonly LocalizedTextSet PtrUnavailableText = new(

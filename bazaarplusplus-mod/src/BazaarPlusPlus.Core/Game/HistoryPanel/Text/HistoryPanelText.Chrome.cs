@@ -28,8 +28,6 @@ public static partial class HistoryPanelText
 
     private static readonly LocalizedTextSet RecordAndReplayText = new("Record", "录制", "錄製");
 
-    private static readonly LocalizedTextSet ReplayUnavailableText = new("Unavailable", "不可用");
-
     private static readonly LocalizedTextSet ReplayDisabledInRunText = new("In Run", "对局中禁用");
 
     private static readonly LocalizedTextSet DownloadReplayText = new(
@@ -57,8 +55,6 @@ public static partial class HistoryPanelText
     public static string Replay() => Resolve(ReplayText);
 
     public static string RecordAndReplay() => Resolve(RecordAndReplayText);
-
-    public static string ReplayUnavailable() => Resolve(ReplayUnavailableText);
 
     public static string ReplayDisabledInRun() => Resolve(ReplayDisabledInRunText);
 

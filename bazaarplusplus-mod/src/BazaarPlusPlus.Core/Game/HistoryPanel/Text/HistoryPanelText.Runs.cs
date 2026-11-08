@@ -8,6 +8,8 @@ public static partial class HistoryPanelText
 {
     private static readonly LocalizedTextSet FilterDayMin10Text = new("≥10d", "≥10天", "≥10天");
 
+    private static readonly LocalizedTextSet RankedText = new("Ranked", "排位", "排位");
+
     private static readonly LocalizedTextSet UnrankedText = new("Normal", "普通对局", "普通對局");
 
     private static readonly LocalizedTextSet UnknownRunText = new("Unknown Run", "未知 Run");
@@ -15,6 +17,8 @@ public static partial class HistoryPanelText
     private static readonly LocalizedTextSet UnknownText = new("Unknown", "未知");
 
     public static string FilterDayMin10() => Resolve(FilterDayMin10Text);
+
+    public static string Ranked() => Resolve(RankedText);
 
     public static string Unranked() => Resolve(UnrankedText);
 
@@ -55,7 +59,11 @@ public static partial class HistoryPanelText
         FormatSimple("No runs recorded yet.", "还没有对局记录。", "還沒有對局紀錄。");
 
     public static string NoRunFilterMatches() =>
-        FormatSimple("No matching runs. Try All heroes.", "没有符合条件的对局，试试“全部英雄”。");
+        FormatSimple(
+            "No matching runs. Try All heroes.",
+            "没有符合条件的对局，试试“全部英雄”。",
+            "沒有符合條件的對局，試試「全部英雄」。"
+        );
 
     public static string NoBattlesInRun() =>
         FormatSimple(
@@ -75,6 +83,11 @@ public static partial class HistoryPanelText
             "legendary" or "legend" => FormatSimple("Legendary", "传奇", "傳奇"),
             _ => rank.Trim(),
         };
+
+    // The word a row shows where its badge art is missing.
+    public static string RunActive() => FormatSimple("Active", "进行中", "進行中");
+
+    public static string RunAbandoned() => FormatSimple("Abandoned", "已放弃", "已放棄");
 
     public static string DayBadge(int? day) =>
         FormatSimple(

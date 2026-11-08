@@ -34,6 +34,8 @@ public readonly record struct HistorySelectedGhostReplay(
 
 // What HistoryPanelDecisions.ArchiveStatus reads. PageLoading/PageLoadFailed stay two bools
 // because LoadArchive, their only writer, sets them together; Loading wins when both are set.
+// FiltersActive is the section's own filter: the hero in Runs, outcome or day in Ghost.
+// BattleCount is the selected run's battles, read only in Runs.
 public sealed record HistoryArchiveFacts(
     HistorySectionMode Section,
     bool AccountKnown,
@@ -42,6 +44,7 @@ public sealed record HistoryArchiveFacts(
     GhostSyncPhase GhostSync,
     bool FiltersActive,
     int RowCount,
+    int BattleCount,
     HistorySelectedGhostReplay? SelectedGhostReplay,
     HistoryDetailPhase Detail,
     bool DetailFailed,
@@ -64,13 +67,20 @@ public sealed record HistoryArchiveFacts(
             state.PageLoading,
             state.PageLoadFailed,
             state.GhostSync,
-            state.GhostBattleFilter != GhostBattleFilter.All || state.GhostDayMin10,
+            state.SectionMode switch
+            {
+                HistorySectionMode.Ghost => state.GhostBattleFilter != GhostBattleFilter.All
+                    || state.GhostDayMin10,
+                HistorySectionMode.Runs => !string.IsNullOrEmpty(state.SelectedRunHero),
+                _ => false,
+            },
             state.SectionMode switch
             {
                 HistorySectionMode.Ghost => state.GhostBattles.Count,
                 HistorySectionMode.Favorites => state.Favorites.Count,
                 _ => state.Runs.Count,
             },
+            state.Battles.Count,
             // A Ghost-origin favorite replays from its own copy, not from the Ghost row.
             ghost && selected is { Source: HistoryBattleSource.Ghost }
                 ? new HistorySelectedGhostReplay(
@@ -91,8 +101,10 @@ public sealed record HistoryArchiveFacts(
     }
 }
 
+// EmptyMessage stands in for the detail when the section has nothing to show there: no rows,
+// or (in Runs) a run without battles. Empty when there is a detail.
 public readonly record struct HistoryArchiveStatus(
-    string ListMessage,
+    string EmptyMessage,
     string PlayerBoardMessage,
     string OpponentBoardMessage,
     HistoryPageLabelMode PageLabel

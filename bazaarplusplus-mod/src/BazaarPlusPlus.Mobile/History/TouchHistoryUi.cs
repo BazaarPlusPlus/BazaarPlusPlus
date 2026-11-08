@@ -1,6 +1,5 @@
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
-using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
 using UnityEngine.UI;
@@ -314,9 +313,6 @@ internal static class TouchHistoryUi
             StatusSeverity.Confirm => Ink,
             _ => Muted,
         };
-
-    public static string T(string english, string chinese) =>
-        L.Resolve(new LocalizedTextSet(english, chinese));
 
     public static void SetActive(GameObject? target, bool active)
     {

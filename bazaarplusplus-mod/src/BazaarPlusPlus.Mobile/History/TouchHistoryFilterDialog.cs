@@ -40,7 +40,7 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             layout.DialogTitle,
             layout.TitleFont
         );
-        title.text = TouchHistoryUi.T("Filter records", "筛选记录");
+        title.text = HistoryPanelText.Filters();
         TouchHistoryUi.Button(
             shade,
             font,
@@ -126,10 +126,7 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             color: TouchHistoryUi.Muted,
             wrap: true
         );
-        note.text = TouchHistoryUi.T(
-            "Cloud: latest 5 days, up to 200 battles",
-            "云端保留最近 5 天，最多 200 场"
-        );
+        note.text = HistoryPanelText.CloudWindow();
         _root.SetActive(false);
     }
 
@@ -156,7 +153,7 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
         foreach (var (hero, button) in _heroButtons)
             button.Set(
                 string.IsNullOrEmpty(hero)
-                    ? TouchHistoryUi.T("All heroes", "全部英雄")
+                    ? HistoryPanelText.AllHeroes()
                     : TouchHistoryPanelView.HeroLabel(hero),
                 string.IsNullOrEmpty(hero)
                     ? string.IsNullOrEmpty(model.SelectedRunHero)
@@ -165,9 +162,7 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             );
         foreach (var (filter, button) in _outcomes)
             button.Set(
-                filter == GhostBattleFilter.All ? TouchHistoryUi.T("All", "全部")
-                    : filter == GhostBattleFilter.IWon ? TouchHistoryUi.T("Won", "胜利")
-                    : TouchHistoryUi.T("Lost", "失败"),
+                HistoryPanelText.OutcomeFilter(filter),
                 model.GhostBattleFilter == filter,
                 !model.PageLoading
             );

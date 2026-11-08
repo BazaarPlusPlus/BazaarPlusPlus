@@ -197,7 +197,9 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
                 0f,
                 [],
                 default,
-                default
+                default,
+                hero => hero ?? string.Empty,
+                DateTimeOffset.Now
             );
 
         var model = Model();

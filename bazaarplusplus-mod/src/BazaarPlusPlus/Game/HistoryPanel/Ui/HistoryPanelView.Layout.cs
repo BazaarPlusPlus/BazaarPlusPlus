@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.Infrastructure.UiTokens;
@@ -73,7 +72,6 @@ internal sealed partial class HistoryPanelView
     private PageList _archiveList = null!;
 
     // The archive's record ids, refilled on every refresh instead of a new array each time.
-    private readonly List<string> _archiveIds = new(40);
     private TextMeshProUGUI _archiveEmptyLabel = null!;
     private DayStrip _dayStrip = null!;
     private TextMeshProUGUI _title = null!,
@@ -211,7 +209,7 @@ internal sealed partial class HistoryPanelView
         var archivePager = CreateRect("ArchivePager", _layout, HistoryPanelLayout.ArchivePager);
         _newer = Button(
             archivePager,
-            T("Newer", "较新"),
+            HistoryPanelText.Newer(),
             0,
             0,
             .32f,
@@ -221,7 +219,7 @@ internal sealed partial class HistoryPanelView
         );
         _older = Button(
             archivePager,
-            T("Older", "较早"),
+            HistoryPanelText.Older(),
             .34f,
             0,
             .32f,
@@ -231,7 +229,7 @@ internal sealed partial class HistoryPanelView
         );
         _latest = Button(
             archivePager,
-            T("Latest", "最新"),
+            HistoryPanelText.Latest(),
             .68f,
             0,
             .32f,
@@ -496,7 +494,7 @@ internal sealed partial class HistoryPanelView
         return strip;
     }
 
-    private void BindDayStrip(IReadOnlyList<HistoryBattleRecord> battles, int selected)
+    private void BindDayStrip(IReadOnlyList<HistoryTimelineItem> battles, int selected)
     {
         var strip = _dayStrip;
         var step = HistoryPanelLayout.DayChipHeight;
@@ -513,19 +511,18 @@ internal sealed partial class HistoryPanelView
                 chip.Rank,
                 chip.Rating,
                 chip.Unknown,
-                battle.OpponentRank,
-                battle.OpponentRating
+                battle.Rank,
+                "?",
+                battle.Rating
             );
             Anchor(
                 chip.Rank.rectTransform,
                 HistoryPanelLayout.Anchors(.77f, hasRating ? .46f : .52f, .175f, .36f)
             );
-            chip.Day.text = HistoryPanelText.DayBadge(battle.Day);
-            chip.Name.text = string.IsNullOrWhiteSpace(battle.OpponentName)
-                ? HistoryPanelText.UnknownOpponent()
-                : battle.OpponentName;
-            BindBattleResult(chip.Outcome, battle);
-            var hero = battle.OpponentHero;
+            chip.Day.text = battle.DayText;
+            chip.Name.text = battle.OpponentName;
+            BindOutcome(chip.Outcome, battle.Outcome, battle.OutcomeText);
+            var hero = battle.HeroId;
             if (chip.Hero != hero)
             {
                 chip.Hero = hero;
@@ -545,7 +542,7 @@ internal sealed partial class HistoryPanelView
         var hasSelection = selected >= 0 && selected < battles.Count;
         var position = strip.Scroll.content.anchoredPosition;
         var offset = strip.Position.Bind(
-            hasSelection ? battles[selected].BattleId : null,
+            hasSelection ? battles[selected].Id : null,
             hasSelection ? selected : -1,
             battles.Count,
             position.y,
@@ -606,17 +603,13 @@ internal sealed partial class HistoryPanelView
         }
     }
 
+    // Run rows fill the name, meta and stamp fields; battle rows put the same three lines in the
+    // button label beside the outcome word.
     private void BindRows(
         PageList list,
-        IReadOnlyList<string> ids,
-        Func<int, string> label,
-        Func<int, string?> hero,
-        Func<int, Sprite?> badge,
-        Func<int, string?> rank,
-        Func<int, int?> rating,
-        Func<int, int?> ratingDelta,
+        IReadOnlyList<HistoryArchiveRow> rows,
         int selected,
-        Func<int, HistoryRunRowFields>? runFields = null
+        bool runs
     )
     {
         var offset = Mathf.Max(0, list.Scroll.content.anchoredPosition.y);
@@ -626,46 +619,51 @@ internal sealed partial class HistoryPanelView
         for (var i = 0; i < list.Rows.Length; i++)
         {
             var row = list.Rows[i];
-            row.Button.gameObject.SetActive(i < ids.Count);
-            if (i >= ids.Count)
+            row.Button.gameObject.SetActive(i < rows.Count);
+            if (i >= rows.Count)
             {
                 row.Id = null;
                 continue;
             }
-            row.Id = ids[i];
+            var fields = rows[i];
+            row.Id = fields.Id;
             if (row.Id == topId)
                 newTop = i;
             SetButton(
                 row.Button,
-                runFields == null ? label(i) : string.Empty,
+                runs ? string.Empty : $"{fields.Name}\n{fields.Meta}\n{fields.Stamp}",
                 i == selected,
                 !_model!.PageLoading
             );
-            if (runFields != null)
+            if (runs)
             {
-                var fields = runFields(i);
                 row.Run.Name.text = fields.Name;
                 row.Run.Meta.text = fields.Meta;
                 row.Run.Stamp.text = fields.Stamp;
             }
-            row.Badge.sprite = badge(i);
+            else
+                BindOutcome(row.OutcomeLabel, fields.Outcome, fields.OutcomeText);
+            row.Badge.sprite = BadgeSprite(fields.Badge);
             row.Badge.color = row.Badge.sprite != null ? Color.white : Color.clear;
-            row.UnknownResult.gameObject.SetActive(runFields != null && row.Badge.sprite == null);
+            row.UnknownResult.text = fields.BadgeText;
+            row.UnknownResult.gameObject.SetActive(runs && row.Badge.sprite == null);
             var hasRating = BindRank(
                 row.RankBadge,
                 row.Rating,
                 row.UnknownRank,
-                rank(i),
-                rating(i),
-                ratingDelta(i)
+                fields.Rank,
+                fields.RankText,
+                fields.Rating,
+                fields.RatingDelta,
+                fields.RatingTone
             );
             Anchor(
                 row.RankBadge.rectTransform,
-                runFields != null
+                runs
                     ? HistoryPanelLayout.Anchors(.68f, hasRating ? .14f : .265f, .13f, .47f)
                     : HistoryPanelLayout.Anchors(.80f, .05f, .18f, .45f)
             );
-            var name = hero(i);
+            var name = fields.HeroId;
             if (row.Hero != name)
             {
                 row.Hero = name;
@@ -681,7 +679,7 @@ internal sealed partial class HistoryPanelView
                     );
             }
         }
-        list.Scroll.content.sizeDelta = new Vector2(0, ids.Count * list.Height);
+        list.Scroll.content.sizeDelta = new Vector2(0, rows.Count * list.Height);
         var nextOffset =
             list.ResetScroll ? 0
             : newTop >= 0 ? newTop * list.Height + offset % list.Height
@@ -698,26 +696,21 @@ internal sealed partial class HistoryPanelView
         UpdateScrollMask(list.Scroll);
     }
 
-    private List<string> ArchiveIds<T>(IReadOnlyList<T> rows, Func<T, string> id)
-    {
-        _archiveIds.Clear();
-        for (var i = 0; i < rows.Count; i++)
-            _archiveIds.Add(id(rows[i]));
-        return _archiveIds;
-    }
-
-    private Sprite? RunBadge(HistoryRunRecord run) =>
-        HistoryPanelFormatter.GetRunOutcomeTier(run) switch
+    private Sprite? BadgeSprite(HistoryRowBadge badge) =>
+        badge switch
         {
-            RunOutcomeTier.Bronze => _skin?[1],
-            RunOutcomeTier.Silver => _skin?[2],
-            RunOutcomeTier.Gold => _skin?[3],
-            RunOutcomeTier.Diamond => _skin?[4],
+            HistoryRowBadge.Bronze => _skin?[1],
+            HistoryRowBadge.Silver => _skin?[2],
+            HistoryRowBadge.Gold => _skin?[3],
+            HistoryRowBadge.Diamond => _skin?[4],
+            HistoryRowBadge.BattleWon => _winBadge,
+            HistoryRowBadge.BattleLost => _lossBadge,
+            HistoryRowBadge.None => null,
             _ => _stateBadges.Length == 0
                 ? null
                 : _stateBadges[
-                    run.RawStatus == "active" ? 2
-                    : run.RawStatus == "abandoned" ? 1
+                    badge == HistoryRowBadge.StateActive ? 2
+                    : badge == HistoryRowBadge.StateAbandoned ? 1
                     : 0
                 ],
         };
@@ -796,7 +789,7 @@ internal sealed partial class HistoryPanelView
             _heroFilterButton,
             (
                 string.IsNullOrEmpty(m.SelectedRunHero)
-                    ? T("All heroes", "全部英雄")
+                    ? HistoryPanelText.AllHeroes()
                     : HistoryPanelHeroNames.DisplayName(m.SelectedRunHero)
             )
         );
@@ -804,7 +797,7 @@ internal sealed partial class HistoryPanelView
             SetButton(
                 pair.Value,
                 string.IsNullOrEmpty(pair.Key)
-                    ? T("All heroes", "全部英雄")
+                    ? HistoryPanelText.AllHeroes()
                     : HistoryPanelHeroNames.DisplayName(pair.Key),
                 string.IsNullOrEmpty(pair.Key)
                     ? string.IsNullOrEmpty(m.SelectedRunHero)
@@ -813,9 +806,7 @@ internal sealed partial class HistoryPanelView
         foreach (var pair in _outcomes)
             SetButton(
                 pair.Value,
-                pair.Key == GhostBattleFilter.All ? T("All", "全部")
-                    : pair.Key == GhostBattleFilter.IWon ? T("Won", "我赢了")
-                    : T("Lost", "我输了"),
+                HistoryPanelText.OutcomeFilter(pair.Key),
                 pair.Key == m.GhostBattleFilter
             );
         SetButton(_dayFilter, HistoryPanelText.FilterDayMin10(), m.GhostDayMin10);
@@ -826,11 +817,15 @@ internal sealed partial class HistoryPanelView
         _opponentTitle.gameObject.SetActive(both && hasBattle && _boardsAvailable);
         _playerTitle.gameObject.SetActive(hasBattle && _boardsAvailable);
         _preview!.gameObject.SetActive(hasBattle && _boardsAvailable);
-        _opponentOwner.text = HistoryPanelText.BoardOpponentTitle();
-        // Two boards show yours below the opponent's; one board is the challenger's.
+        // Two boards show yours below the opponent's, with the outcome; one board is the
+        // challenger's, titled by the upper title.
+        var titles = m.BoardTitles;
+        _opponentOwner.text = titles.Upper;
         _playerOwner.text = both
-            ? HistoryPanelText.BoardYouTitle()
-            : HistoryPanelText.BoardChallengerTitle();
+            ? titles.OutcomeText.Length == 0
+                ? titles.Lower
+                : $"{titles.Lower} · {Tinted(titles.OutcomeText, OutcomeColor(titles.Outcome))}"
+            : titles.Upper;
         _battleNewer.gameObject.SetActive(runs && hasBattle);
         _battleOlder.gameObject.SetActive(runs && hasBattle);
         SetButtonEnabled(_newer, m.HasNewer && !m.PageLoading);
@@ -844,44 +839,14 @@ internal sealed partial class HistoryPanelView
         _pageLabel.gameObject.SetActive(hasRows);
         _pageLabel.text = m.PageLabel.Split('\n')[0];
         UpdateEmptyDetail();
+        BindRows(
+            _archiveList,
+            m.ArchiveRows,
+            runs ? m.SelectedRunIndex : m.SelectedBattleIndex,
+            runs
+        );
         if (runs)
-            BindRows(
-                _archiveList,
-                ArchiveIds(m.Runs, r => r.RunId),
-                _ => string.Empty,
-                i => m.Runs[i].Hero,
-                i => RunBadge(m.Runs[i]),
-                i => m.Runs[i].PlayerRank,
-                i => m.Runs[i].PlayerRating,
-                i => m.Runs[i].PlayerRatingDelta,
-                m.SelectedRunIndex,
-                i =>
-                    HistoryPanelFormatter.RunRowFields(
-                        m.Runs[i],
-                        HistoryPanelHeroNames.DisplayName(m.Runs[i].Hero)
-                    )
-            );
-        else
-        {
-            BindRows(
-                _archiveList,
-                ArchiveIds(m.VisibleBattles, b => b.BattleId),
-                i =>
-                    ghost
-                        ? HistoryPanelFormatter.GhostListText(m.VisibleBattles[i])
-                        : m.FavoriteRowLabels[i],
-                i => m.VisibleBattles[i].OpponentHero,
-                i => BattleBadge(m.VisibleBattles[i]),
-                i => m.VisibleBattles[i].OpponentRank,
-                i => m.VisibleBattles[i].OpponentRating,
-                _ => null,
-                m.SelectedBattleIndex
-            );
-            for (var i = 0; i < m.VisibleBattles.Count; i++)
-                BindBattleResult(_archiveList.Rows[i].OutcomeLabel, m.VisibleBattles[i]);
-        }
-        if (runs)
-            BindDayStrip(m.VisibleBattles, m.SelectedBattleIndex);
+            BindDayStrip(m.Timeline, m.SelectedBattleIndex);
         _statusLabel.text = m.StatusMessage ?? "";
         _statusLabel.color = StatusColor(m.StatusSeverity);
         BindSupporters(m.Supporters);
@@ -892,20 +857,10 @@ internal sealed partial class HistoryPanelView
     {
         if (_model is not { } model || _archiveEmptyLabel == null)
             return;
-        var runs = model.SectionMode == HistorySectionMode.Runs;
-        var noRows = runs ? model.Runs.Count == 0 : model.VisibleBattles.Count == 0;
-        var noBattles = runs && !noRows && model.VisibleBattles.Count == 0 && !model.PageLoading;
-        _archiveEmptyLabel.text =
-            noBattles ? HistoryPanelText.NoBattlesInRun()
-            : noRows
-                ? model.ArchiveEmptyMessage.Length > 0 ? model.ArchiveEmptyMessage
-                    : model.PageLoading ? HistoryPanelText.LoadingPreview()
-                    : !string.IsNullOrEmpty(model.SelectedRunHero)
-                        ? HistoryPanelText.NoRunFilterMatches()
-                    : HistoryPanelText.NoRuns()
-            : _detailMessage;
+        var empty = model.ArchiveEmptyMessage.Length > 0;
+        _archiveEmptyLabel.text = empty ? model.ArchiveEmptyMessage : _detailMessage;
         _archiveEmptyLabel.gameObject.SetActive(
-            (noRows || noBattles || !_boardsAvailable) && _archiveEmptyLabel.text.Length > 0
+            (empty || !_boardsAvailable) && _archiveEmptyLabel.text.Length > 0
         );
     }
 
@@ -925,44 +880,43 @@ internal sealed partial class HistoryPanelView
         return image;
     }
 
-    private Sprite? BattleBadge(HistoryBattleRecord? battle) =>
-        battle == null ? null
-        : HistoryPanelFormatter.IsBattleWin(battle) ? _winBadge
-        : HistoryPanelFormatter.IsBattleLoss(battle) ? _lossBadge
-        : null;
+    private static Color OutcomeColor(HistoryOutcomeTone tone) =>
+        tone switch
+        {
+            HistoryOutcomeTone.Won => InGameTheme.Success,
+            HistoryOutcomeTone.Lost => InGameTheme.Failure,
+            _ => Muted,
+        };
 
-    private static void BindBattleResult(TextMeshProUGUI label, HistoryBattleRecord battle)
+    private static string Tinted(string text, Color color) =>
+        $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{text}</color>";
+
+    private static void BindOutcome(TextMeshProUGUI label, HistoryOutcomeTone tone, string text)
     {
-        var won = HistoryPanelFormatter.IsBattleWin(battle);
-        var lost = HistoryPanelFormatter.IsBattleLoss(battle);
-        label.text =
-            won ? HistoryPanelText.BattleWon()
-            : lost ? HistoryPanelText.BattleLost()
-            : HistoryPanelText.Unknown();
-        label.color =
-            won ? InGameTheme.Success
-            : lost ? InGameTheme.Failure
-            : Muted;
+        label.text = text;
+        label.color = OutcomeColor(tone);
     }
 
+    // The rank's art, else its name; a Legendary rank also carries its rating and change.
     private bool BindRank(
         Image badge,
         TextMeshProUGUI ratingLabel,
         TextMeshProUGUI unknown,
         string? rank,
-        int? rating,
-        int? ratingDelta = null
+        string rankText,
+        string rating,
+        string ratingDelta = "",
+        HistoryOutcomeTone ratingTone = HistoryOutcomeTone.None
     )
     {
         badge.sprite = _rankBadges.Get(rank);
         badge.color = badge.sprite != null ? Color.white : Color.clear;
+        unknown.text = rankText;
         unknown.gameObject.SetActive(badge.sprite == null);
-        var hasRating =
-            string.Equals(rank?.Trim(), "Legendary", StringComparison.OrdinalIgnoreCase)
-            && rating.HasValue;
-        ratingLabel.text = hasRating
-            ? HistoryPanelFormatter.RatingWithDelta(rating.GetValueOrDefault(), ratingDelta)
-            : string.Empty;
-        return hasRating;
+        ratingLabel.text =
+            ratingDelta.Length == 0 ? rating
+            : ratingTone == HistoryOutcomeTone.None ? $"{rating} {ratingDelta}"
+            : $"{rating} {Tinted(ratingDelta, OutcomeColor(ratingTone))}";
+        return rating.Length > 0;
     }
 }

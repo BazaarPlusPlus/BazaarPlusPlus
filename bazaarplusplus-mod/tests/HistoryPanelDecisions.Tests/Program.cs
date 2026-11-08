@@ -161,7 +161,7 @@ void TestButtonModelReplayRecordDeleteParity()
     var label = "Replay Label";
 
     AssertButtons(
-        BuildButtons(false, true, "", label, false, true, false, true),
+        BuildButtons(false, true, label, false, true, false, true),
         replayText: label,
         replayEnabled: true,
         recordText: "Record",
@@ -170,7 +170,7 @@ void TestButtonModelReplayRecordDeleteParity()
         deleteEnabled: true
     );
     AssertButtons(
-        BuildButtons(false, false, "", label, true, true, false, true),
+        BuildButtons(false, false, label, true, true, false, true),
         replayText: "In Run",
         replayEnabled: false,
         recordText: "Record",
@@ -179,7 +179,7 @@ void TestButtonModelReplayRecordDeleteParity()
         deleteEnabled: true
     );
     AssertButtons(
-        BuildButtons(false, false, "", label, false, false, true, true),
+        BuildButtons(false, false, label, false, false, true, true),
         replayText: label,
         replayEnabled: false,
         recordText: "Record",
@@ -188,8 +188,9 @@ void TestButtonModelReplayRecordDeleteParity()
         deleteEnabled: true
     );
     AssertButtons(
-        BuildButtons(false, false, "missing replay", label, false, true, false, false),
-        replayText: "Unavailable",
+        BuildButtons(false, false, label, false, true, false, false),
+        // An unavailable replay keeps naming its action; the press explains why.
+        replayText: label,
         replayEnabled: false,
         recordText: "Record",
         recordEnabled: true,
@@ -197,7 +198,7 @@ void TestButtonModelReplayRecordDeleteParity()
         deleteEnabled: false
     );
     AssertButtons(
-        BuildButtons(true, true, "", label, false, true, false, true),
+        BuildButtons(true, true, label, false, true, false, true),
         replayText: "Working...",
         replayEnabled: false,
         recordText: "Record",
@@ -293,7 +294,6 @@ void AssertAccountLinkGate(bool uploadsEnabled, string channel, string expectedG
 object BuildButtons(
     bool replayActionInProgress,
     bool canReplaySelectedBattle,
-    string replayUnavailableReason,
     string replayActionLabel,
     bool isInGameRun,
     bool canRecordSelectedBattle,
@@ -306,7 +306,6 @@ object BuildButtons(
         "Build",
         replayActionInProgress,
         canReplaySelectedBattle,
-        replayUnavailableReason,
         replayActionLabel,
         isInGameRun,
         canRecordSelectedBattle,
