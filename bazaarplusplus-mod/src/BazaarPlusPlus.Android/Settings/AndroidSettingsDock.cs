@@ -29,15 +29,27 @@ internal sealed record AndroidSettingsDockHooks(
 );
 
 /// <summary>
+/// The settings behind the Android host's own rows: the Mobile UI's <c>[Touch]</c> upgrade switch
+/// and preview text size, and the host's <c>[Graphics] FrameRatePriority</c>.
+/// </summary>
+internal sealed record AndroidSettingsDockSettings(
+    ISetting<bool> UpgradePreview,
+    ISetting<int> PreviewTextSize,
+    ISetting<bool> FrameRatePriority
+);
+
+/// <summary>
 /// The Android host's rows of the BazaarPlusPlus settings section, registered the desktop's way
 /// (Core's <see cref="SettingsDockEntryRegistry"/> and <see cref="BppSettingsDockCatalog"/>) and
 /// drawn by <see cref="AndroidNativeSettingsSection"/> in the game's own settings dialog. The
 /// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
 /// gates only the account link, since the host takes no end-of-run screenshot), Combat Status,
 /// Enchant preview, with every mode the desktop offers, Chinese Locale, and Game History, which
-/// here has no hotkey. The Mobile UI's Upgrade preview switch stands in for the desktop's hotkey.
-/// The host's own is the game-update row, which offers the new Android App's download
-/// when the release needs it and otherwise says, dimmed, where the game stands.
+/// here has no hotkey. The Mobile UI's Upgrade preview switch stands in for the desktop's hotkey,
+/// and its Preview text size sets the Detailed Preview's size inside the native tooltip. The
+/// host's own are the game-update row, which offers the new Android App's download when the
+/// release needs it and otherwise says, dimmed, where the game stands, and Frame rate priority
+/// (<see cref="Game.AndroidFrameRatePriority"/>).
 /// </summary>
 internal static class AndroidSettingsDock
 {
@@ -67,15 +79,21 @@ internal static class AndroidSettingsDock
         "無法檢查遊戲更新"
     );
 
+    public static readonly LocalizedTextSet FrameRatePriorityLabel = new(
+        "Frame rate priority",
+        "帧率优先",
+        "幀率優先"
+    );
+
     /// <summary>Registers every row and installs them as the catalog's definitions.</summary>
     public static void Install(
         BppSettings shared,
-        ISetting<bool> upgradePreview,
+        AndroidSettingsDockSettings settings,
         AndroidSettingsDockHooks hooks
     )
     {
         var registry = new SettingsDockEntryRegistry();
-        Register(registry, upgradePreview, hooks);
+        Register(registry, settings, hooks);
         BppSettingsDockCatalog.Install(shared, registry);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.settings.rows_registered"),
@@ -86,12 +104,12 @@ internal static class AndroidSettingsDock
 
     public static void Register(
         SettingsDockEntryRegistry registry,
-        ISetting<bool> upgradePreview,
+        AndroidSettingsDockSettings settings,
         AndroidSettingsDockHooks hooks
     )
     {
         ArgumentNullException.ThrowIfNull(registry);
-        ArgumentNullException.ThrowIfNull(upgradePreview);
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(hooks);
 
         registry.Register(
@@ -100,6 +118,16 @@ internal static class AndroidSettingsDock
                 LogChanged("DetailedPreview", "Enabled", enabled);
                 hooks.RefreshPreviews?.Invoke();
             })
+        );
+        registry.Register(
+            TouchPreviewTextSize.DockEntry(
+                settings.PreviewTextSize,
+                percent =>
+                {
+                    LogChanged("Touch", "PreviewTextSize", percent);
+                    hooks.RefreshPreviews?.Invoke();
+                }
+            )
         );
         registry.Register(
             CyclingSettingsDockEntry<bool>.Toggle(
@@ -126,7 +154,7 @@ internal static class AndroidSettingsDock
         );
         registry.Register(
             TouchUpgradePreviewSetting.DockEntry(
-                upgradePreview,
+                settings.UpgradePreview,
                 enabled =>
                 {
                     LogChanged("Touch", "UpgradePreview", enabled);
@@ -150,6 +178,17 @@ internal static class AndroidSettingsDock
             )
         );
         registry.Register(new GameUpdateEntry(hooks));
+        // Read once a second by Game.AndroidFrameRatePriority, which applies a change itself.
+        registry.Register(
+            CyclingSettingsDockEntry<bool>.Toggle(
+                BppSettingsDockOrder.FrameRatePriority,
+                "FrameRatePriority",
+                languageCode => FrameRatePriorityLabel.Resolve(languageCode, L.CurrentMode),
+                _ => settings.FrameRatePriority.Value,
+                (_, enabled) => settings.FrameRatePriority.Value = enabled,
+                enabled => LogChanged("Graphics", "FrameRatePriority", enabled)
+            )
+        );
     }
 
     private static void LogChanged(string section, string key, object value) =>

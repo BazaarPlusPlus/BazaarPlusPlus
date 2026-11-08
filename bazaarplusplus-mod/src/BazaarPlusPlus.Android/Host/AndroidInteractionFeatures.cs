@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Lobby;
+using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Mobile.NativeAdjustment;
 using BazaarPlusPlus.Mobile.Previews;
 using Il2CppTheBazaar.Tooltips;
@@ -12,6 +13,7 @@ internal sealed record AndroidInteractionFeatures(
     TouchEnchantPreview<CardTooltipData> EnchantPreview,
     TouchScreenFill ScreenFill,
     Game.AndroidEncounterPreview EncounterPreview,
+    ISetting<int> PreviewTextSize,
     Game.AndroidAggregateItemPreview AggregateItemPreview,
     Game.AndroidQuestPreview QuestPreview,
     Game.AndroidCombatStatus CombatStatus,

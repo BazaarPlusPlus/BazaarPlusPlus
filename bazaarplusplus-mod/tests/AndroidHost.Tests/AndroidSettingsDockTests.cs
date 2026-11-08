@@ -27,6 +27,7 @@ public sealed class AndroidSettingsDockTests
             new[]
             {
                 "DetailedPreview",
+                "PreviewTextSize",
                 "BazaarDbUpload",
                 "CombatStatusBar",
                 "EnchantPreview",
@@ -34,6 +35,7 @@ public sealed class AndroidSettingsDockTests
                 "GameHistory",
                 "UpgradePreview",
                 "GameUpdate",
+                "FrameRatePriority",
             },
             dock.Rows.Select(row => row.Key)
         );
@@ -41,6 +43,7 @@ public sealed class AndroidSettingsDockTests
             new[]
             {
                 BppSettingsControlKind.Toggle,
+                BppSettingsControlKind.Choice,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Choice,
@@ -48,6 +51,7 @@ public sealed class AndroidSettingsDockTests
                 BppSettingsControlKind.Action,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Action,
+                BppSettingsControlKind.Toggle,
             },
             dock.Rows.Select(row => row.ControlKind)
         );
@@ -138,6 +142,52 @@ public sealed class AndroidSettingsDockTests
         row.WriteToggle(false);
         Assert.False(dock.Store.Bool("Touch", "UpgradePreview").Value);
         Assert.Equal(new[] { "release_upgrade_preview:switched_off" }, dock.Calls);
+    }
+
+    // [Touch] PreviewTextSize: 75% of the tooltip's text, as before the row, up to the desktop's
+    // 100%; a change re-renders the open preview.
+    [Fact]
+    public void Preview_text_size_starts_at_the_old_size_and_refreshes_the_preview()
+    {
+        var dock = new Dock();
+        var row = dock.Row("PreviewTextSize");
+        Assert.Equal("Preview text size", row.ResolveLabel("en"));
+        Assert.Equal("预览字号", row.ResolveLabel("zh-Hans"));
+
+        var state = row.ResolveChoiceState!("en");
+        Assert.Equal(new[] { "75%", "90%", "100%" }, state.Options);
+        Assert.Equal(0, state.SelectedIndex);
+
+        row.SelectStandardChoice!(2);
+
+        Assert.Equal(100, dock.Store.Int("Touch", "PreviewTextSize").Value);
+        Assert.Equal(2, row.ResolveChoiceState("en").SelectedIndex);
+        Assert.Equal(new[] { "refresh_previews" }, dock.Calls);
+    }
+
+    [Theory]
+    [InlineData(75, "<size=75%>x</size>")]
+    [InlineData(100, "<size=100%>x</size>")]
+    [InlineData(0, "<size=50%>x</size>")]
+    [InlineData(400, "<size=150%>x</size>")]
+    public void Preview_text_size_wraps_within_a_readable_range(int percent, string expected) =>
+        Assert.Equal(expected, TouchPreviewTextSize.Wrap("x", percent));
+
+    // [Graphics] FrameRatePriority, off by default: the game keeps its own frame-rate scaling.
+    [Fact]
+    public void Frame_rate_priority_starts_off_and_writes_the_android_setting()
+    {
+        var dock = new Dock();
+        var row = dock.Row("FrameRatePriority");
+        Assert.Equal("Frame rate priority", row.ResolveLabel("en"));
+        Assert.Equal("帧率优先", row.ResolveLabel("zh-Hans"));
+        Assert.False(row.ReadToggle!());
+
+        row.WriteToggle!(true);
+        Assert.True(dock.Android.FrameRatePriority.Value);
+        row.WriteToggle(false);
+        Assert.False(dock.Android.FrameRatePriority.Value);
+        Assert.Empty(dock.Calls);
     }
 
     [Fact]
@@ -260,10 +310,15 @@ public sealed class AndroidSettingsDockTests
         public Dock()
         {
             Shared = new BppSettings(Store);
+            Android = new AndroidSettings(Store);
             var registry = new SettingsDockEntryRegistry();
             AndroidSettingsDock.Register(
                 registry,
-                TouchUpgradePreviewSetting.Bind(Store),
+                new AndroidSettingsDockSettings(
+                    TouchUpgradePreviewSetting.Bind(Store),
+                    TouchPreviewTextSize.Bind(Store),
+                    Android.FrameRatePriority
+                ),
                 new AndroidSettingsDockHooks(
                     reason => Calls.Add($"release_upgrade_preview:{reason}"),
                     () => HistoryAvailable,
@@ -284,6 +339,8 @@ public sealed class AndroidSettingsDockTests
         public MemoryStore Store { get; } = new();
 
         public BppSettings Shared { get; }
+
+        public AndroidSettings Android { get; }
 
         public IReadOnlyList<BppSettingsDockDefinition> Rows { get; }
 
@@ -316,6 +373,9 @@ public sealed class AndroidSettingsDockTests
 
         public ISetting<bool> Bool(string section, string key) =>
             (ISetting<bool>)_bound[(section, key)];
+
+        public ISetting<int> Int(string section, string key) =>
+            (ISetting<int>)_bound[(section, key)];
 
         private sealed class Setting<T> : ISetting<T>
         {
