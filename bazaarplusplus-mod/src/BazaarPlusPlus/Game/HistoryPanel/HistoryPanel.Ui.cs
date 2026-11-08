@@ -106,6 +106,8 @@ internal sealed partial class HistoryPanel
             Time.unscaledTime,
             _supporters,
             _nativePlayerStatus,
-            _nativeOpponentStatus
+            _nativeOpponentStatus,
+            HistoryPanelHeroNames.DisplayName,
+            DateTimeOffset.Now
         );
 }

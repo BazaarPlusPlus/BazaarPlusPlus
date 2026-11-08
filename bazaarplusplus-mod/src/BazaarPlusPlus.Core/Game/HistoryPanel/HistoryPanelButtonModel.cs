@@ -36,7 +36,6 @@ public readonly struct HistoryPanelButtonModel
     public static HistoryPanelButtonModel Build(
         bool replayActionInProgress,
         bool canReplaySelectedBattle,
-        string replayUnavailableReason,
         string replayActionLabel,
         bool isInGameRun,
         bool canRecordSelectedBattle,
@@ -48,7 +47,6 @@ public readonly struct HistoryPanelButtonModel
             ResolveReplayButtonText(
                 replayActionInProgress,
                 canReplaySelectedBattle,
-                replayUnavailableReason,
                 replayActionLabel,
                 isInGameRun
             ),
@@ -62,10 +60,11 @@ public readonly struct HistoryPanelButtonModel
         );
     }
 
+    // The label always names the action. An unavailable action reads as dimmed, and pressing it
+    // puts the reason on the status line (HistoryPanelCoordinator.TryReplaySelectedBattleAsync).
     private static string ResolveReplayButtonText(
         bool replayActionInProgress,
         bool canReplaySelectedBattle,
-        string replayUnavailableReason,
         string replayActionLabel,
         bool isInGameRun
     )
@@ -73,14 +72,9 @@ public readonly struct HistoryPanelButtonModel
         if (replayActionInProgress)
             return HistoryPanelText.Working();
 
-        if (canReplaySelectedBattle)
-            return replayActionLabel;
-
-        if (isInGameRun)
+        if (!canReplaySelectedBattle && isInGameRun)
             return HistoryPanelText.ReplayDisabledInRun();
 
-        return string.IsNullOrWhiteSpace(replayUnavailableReason)
-            ? replayActionLabel
-            : HistoryPanelText.ReplayUnavailable();
+        return replayActionLabel;
     }
 }

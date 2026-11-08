@@ -504,7 +504,9 @@ internal sealed class TouchHistoryPanel : IDisposable
             _dependencies.UnscaledTime(),
             Array.Empty<BPPSupporterSample>(),
             PlayerStatus,
-            OpponentStatus
+            OpponentStatus,
+            TouchHistoryPanelView.HeroLabel,
+            DateTimeOffset.Now
         );
         _model = model;
         view.Refresh(model);

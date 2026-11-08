@@ -19,6 +19,7 @@ internal static class GhostMessageTests
         GhostSync: GhostSyncPhase.Completed,
         FiltersActive: false,
         RowCount: 0,
+        BattleCount: 0,
         SelectedGhostReplay: null,
         Detail: HistoryDetailPhase.NotSelectedBattle,
         DetailFailed: false,
@@ -36,6 +37,7 @@ internal static class GhostMessageTests
     {
         Section = HistorySectionMode.Runs,
         RowCount = 1,
+        BattleCount = 1,
     };
 
     private static readonly HistoryArchiveFacts Favorites = Ghost with
@@ -306,6 +308,7 @@ internal static class GhostMessageTests
             None
         ),
         // Runs.
+        // Runs precedence: rows → read → filters → empty; a run without battles says so.
         new(
             "Run lists never receive Ghost guidance or hide totals without an account.",
             Runs with
@@ -314,8 +317,51 @@ internal static class GhostMessageTests
                 RowCount = 0,
                 GhostSync = GhostSyncPhase.Failed,
             },
+            HistoryPanelText.NoRuns,
+            HistoryPanelText.NoRuns
+        ),
+        new(
+            "A pending empty Runs page shows loading.",
+            Runs with
+            {
+                RowCount = 0,
+                PageLoading = true,
+                FiltersActive = true,
+            },
+            HistoryPanelText.LoadingPreview,
+            HistoryPanelText.LoadingPreview,
+            HistoryPageLabelMode.Loading
+        ),
+        new(
+            "A hero filter that matches no run points at the filter.",
+            Runs with
+            {
+                RowCount = 0,
+                FiltersActive = true,
+            },
+            HistoryPanelText.NoRunFilterMatches,
+            HistoryPanelText.NoRunFilterMatches
+        ),
+        new(
+            "A run without battles says so instead of its detail.",
+            Runs with
+            {
+                BattleCount = 0,
+                Detail = HistoryDetailPhase.Missing,
+            },
+            HistoryPanelText.NoBattlesInRun,
+            HistoryPanelText.NoBattlesInRun
+        ),
+        new(
+            "A run's battles still loading leave the detail to the boards.",
+            Runs with
+            {
+                BattleCount = 0,
+                PageLoading = true,
+            },
             None,
-            None
+            None,
+            HistoryPageLabelMode.Loading
         ),
         new(
             "A pending Runs page shows loading in its label.",
@@ -454,7 +500,7 @@ internal static class GhostMessageTests
                 {
                     var status = HistoryPanelDecisions.ArchiveStatus(row.Facts);
                     var where = $"[{language}/{mode}] {row.Name}";
-                    Equal(status.ListMessage, row.List(), where + " (list)");
+                    Equal(status.EmptyMessage, row.List(), where + " (empty)");
                     Equal(status.PlayerBoardMessage, row.Board(), where + " (player board)");
                     Equal(
                         status.OpponentBoardMessage,

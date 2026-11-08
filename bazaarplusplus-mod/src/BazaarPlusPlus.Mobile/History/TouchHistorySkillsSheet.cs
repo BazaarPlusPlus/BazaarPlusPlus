@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -149,7 +150,7 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
     public void Open(IReadOnlyList<(string Title, IReadOnlyList<BppItemBoardCard> Skills)> rows)
     {
         ReturnAll();
-        _title.text = TouchHistoryUi.T("Skills", "技能");
+        _title.text = HistoryPanelText.Skills();
         var fit = _layout.SkillsSheet(rows.Select(row => row.Skills.Count).ToArray());
         Place(fit);
         var shown = 0;
@@ -163,7 +164,7 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
             {
                 _rowTitles[row].text =
                     skills.Count == 0
-                        ? $"{rows[row].Title} · {TouchHistoryUi.T("No skills", "无技能")}"
+                        ? $"{rows[row].Title} · {HistoryPanelText.NoSkills()}"
                         : $"{rows[row].Title} · {skills.Count}";
                 _rowTitles[row].color =
                     skills.Count == 0 ? TouchHistoryUi.Muted : TouchHistoryUi.Ink;
@@ -190,11 +191,7 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
             Math.Max(0, row.Skills.Count - HistoryTouchLayout.SkillsPerRow)
         );
         _hint.text =
-            (
-                hidden > 0
-                    ? TouchHistoryUi.T($"{hidden} more not shown. ", $"另有 {hidden} 个未显示。")
-                    : ""
-            ) + TouchHistoryUi.T("Pick a side to see its skills.", "选择一方查看技能详情。");
+            (hidden > 0 ? HistoryPanelText.SkillsHidden(hidden) : "") + HistoryPanelText.PickSide();
         _root.SetActive(true);
         _root.transform.SetAsLastSibling();
         BppLog.InfoEvent(

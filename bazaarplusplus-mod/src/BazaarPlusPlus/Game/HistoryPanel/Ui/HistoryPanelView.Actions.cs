@@ -44,7 +44,7 @@ internal sealed partial class HistoryPanelView
     {
         Button(
             _layout!,
-            T("More", "更多"),
+            HistoryPanelText.More(),
             HistoryPanelLayout.MoreButton,
             () => SetMoreVisible(!_moreVisible),
             style: ButtonStyle.Standard
@@ -78,7 +78,7 @@ internal sealed partial class HistoryPanelView
         var frame = CreateRect("DialogFrame", dialog, 0, 0, 1, 1);
         frame.gameObject.AddComponent<Image>().color = InGameTheme.Dialog;
         Panel(frame, 0, 0, 1, 1);
-        _moreTitle = Text(dialog, T("More", "更多"), 0, 0, 1, 1, 26);
+        _moreTitle = Text(dialog, HistoryPanelText.More(), 0, 0, 1, 1, 26);
         _moreClose = Button(
             dialog,
             HistoryPanelText.Close(),
@@ -195,7 +195,15 @@ internal sealed partial class HistoryPanelView
             m.RecordAndReplayButtonText,
             enabled: m.RecordAndReplayButtonEnabled && !m.PageLoading
         );
-        SetButton(_replayButton, m.ReplayButtonText, true, m.ReplayButtonEnabled && !m.PageLoading);
+        // Unavailable reads as dimmed but stays pressable: the press puts the reason on the status
+        // line. A busy replay or a loading page does not take presses.
+        SetButton(
+            _replayButton,
+            m.ReplayButtonText,
+            true,
+            !m.ReplayButtonBusy && !m.PageLoading,
+            dimmed: !m.ReplayButtonEnabled
+        );
         RefreshFavoriteControls();
         var hasRows =
             m.SectionMode == HistorySectionMode.Runs

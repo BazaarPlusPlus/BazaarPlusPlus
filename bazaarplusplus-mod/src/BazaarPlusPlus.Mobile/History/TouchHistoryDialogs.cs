@@ -67,7 +67,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             Local(layout.DialogTitle, origin),
             layout.TitleFont
         );
-        title.text = TouchHistoryUi.T("More", "更多");
+        title.text = HistoryPanelText.More();
         TouchHistoryUi.Button(
             dialog,
             font,

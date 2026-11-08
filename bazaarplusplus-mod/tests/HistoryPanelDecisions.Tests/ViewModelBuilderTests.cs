@@ -66,7 +66,9 @@ internal static class ViewModelBuilderTests
                         0f,
                         supporters,
                         default,
-                        default
+                        default,
+                        hero => hero ?? string.Empty,
+                        DateTimeOffset.Now
                     )
                     .Supporters,
                 supporters
@@ -84,7 +86,9 @@ internal static class ViewModelBuilderTests
             now: 0f,
             supporters: Array.Empty<BPPSupporterSample>(),
             playerBoard: default,
-            opponentBoard: default
+            opponentBoard: default,
+            heroName: hero => hero ?? string.Empty,
+            today: DateTimeOffset.Now
         );
 
     private static void Require(bool condition, string message)

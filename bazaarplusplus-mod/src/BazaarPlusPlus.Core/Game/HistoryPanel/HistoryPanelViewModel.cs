@@ -10,6 +10,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 /// </summary>
 public sealed class HistoryPanelViewModel
 {
+    // Stands in for the detail when the section has nothing to show there (HistoryArchiveStatus).
     public string ArchiveEmptyMessage { get; set; } = string.Empty;
     public string? AccountId { get; set; }
 
@@ -81,6 +82,14 @@ public sealed class HistoryPanelViewModel
 
     public List<HistoryBattleRecord> VisibleBattles { get; set; } = new();
 
+    // One per row of Runs (runs) or of Ghost and Favorites (VisibleBattles), in the same order.
+    public List<HistoryArchiveRow> ArchiveRows { get; set; } = new();
+
+    // The selected run's battles, in VisibleBattles order; empty outside Runs.
+    public List<HistoryTimelineItem> Timeline { get; set; } = new();
+
+    public HistoryBoardTitles BoardTitles { get; set; }
+
     public int SelectedRunIndex { get; set; }
 
     public int SelectedBattleIndex { get; set; }
@@ -89,7 +98,7 @@ public sealed class HistoryPanelViewModel
 
     public bool ReplayButtonEnabled { get; set; }
 
-    // Android keeps ordinary unavailable actions tappable to explain their reason, but not busy ones.
+    // An unavailable replay stays pressable to explain its reason; a busy one does not.
     public bool ReplayButtonBusy { get; set; }
 
     public string RecordAndReplayButtonText { get; set; } = string.Empty;
@@ -106,9 +115,6 @@ public sealed class HistoryPanelViewModel
     public bool DeleteButtonEnabled { get; set; }
 
     public bool DeleteButtonBusy { get; set; }
-
-    // Favorites rows reuse VisibleBattles for portraits and badges; their text comes from here.
-    public List<string> FavoriteRowLabels { get; set; } = new();
 
     public bool ShowsBothBoards { get; set; }
 

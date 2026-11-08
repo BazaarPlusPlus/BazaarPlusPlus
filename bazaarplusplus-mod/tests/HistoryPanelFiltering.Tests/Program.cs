@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections;
+using System.Globalization;
 using System.Reflection;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.BundlePipeline;
@@ -46,8 +47,9 @@ TestDeleteAndFavoriteDispatchBySection();
 TestOffThreadDeleteAndRemovalPublishInTheirSection();
 TestDeleteLeaseFailurePaths();
 TestDeletePromptMentionsMp4OnlyWhereTheHostRecords();
-TestGhostListTextMarksOnlyTheFinalBattle();
+TestGhostRowMarksOnlyTheFinalBattle();
 TestRunRatingShowsItsChangeOnlyWhenKnown();
+TestRunRowReadsTheSameOnEveryHost();
 TestAccountArrivalSyncsOnlyTheOpenGhostSection();
 TestAccountLinkActionHandsAccountChangeToTheObserver();
 TestFailedSyncMarksTheEmptyGhostListIncomplete();
@@ -63,7 +65,18 @@ void TestUiRefreshConsumesLatestStateOnce()
     var models = new List<HistoryPanelViewModel>();
     void Render() =>
         models.Add(
-            HistoryPanelViewModelBuilder.Build(state, null, null, null, 0f, [], default, default)
+            HistoryPanelViewModelBuilder.Build(
+                state,
+                null,
+                null,
+                null,
+                0f,
+                [],
+                default,
+                default,
+                hero => hero ?? string.Empty,
+                DateTimeOffset.Now
+            )
         );
     var selected = 0;
     var select = refresh.Guard<int>(index => selected = index);
@@ -739,7 +752,9 @@ void TestOffThreadDeleteAndRemovalPublishInTheirSection()
             0f,
             Array.Empty<BazaarPlusPlus.Game.Supporters.BPPSupporterSample>(),
             default,
-            default
+            default,
+            hero => hero ?? string.Empty,
+            DateTimeOffset.Now
         );
     void Frame(string stage)
     {
@@ -1219,7 +1234,7 @@ string ArchiveListMessage(object state)
         "ArchiveStatus",
         facts
     );
-    return GetString(status, "ListMessage")!;
+    return GetString(status, "EmptyMessage")!;
 }
 
 // A History capsule whose game profile is a settable fake and whose Ghost sync service counts
@@ -1358,43 +1373,128 @@ object CreateRun(string runId, string hero)
         ) ?? throw new InvalidOperationException("HistoryRunRecord should construct.");
 }
 
-void TestGhostListTextMarksOnlyTheFinalBattle()
+// Rows come from Core, so the desktop and Android rows read the same.
+void TestGhostRowMarksOnlyTheFinalBattle()
 {
-    var formatterType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelFormatter");
-    var final = (string)
-        InvokeStatic(
-            formatterType,
-            "GhostListText",
-            CreateBattle("final", 12, "Win", isFinalBattle: true)
-        )!;
-    var ongoing = (string)
-        InvokeStatic(formatterType, "GhostListText", CreateBattle("ongoing", 12, "Win"))!;
-    Assert(
-        final.Split('\n')[1] == "D12 · Final",
-        $"A run-ending Ghost must mark its day line; got {final}."
+    var now = DateTimeOffset.Parse("2026-06-20T00:00:00Z");
+    var final = HistoryPanelRows.Ghost(
+        (HistoryBattleRecord)CreateBattle("final", 12, "Win", isFinalBattle: true),
+        _ => "Mak",
+        now
+    );
+    var ongoing = HistoryPanelRows.Ghost(
+        (HistoryBattleRecord)CreateBattle("ongoing", 12, "Win"),
+        _ => "Mak",
+        now
     );
     Assert(
-        ongoing.Split('\n')[1] == "D12",
-        $"An ordinary Ghost must keep the bare day line; got {ongoing}."
+        final.Meta == "Mak · D12 · Final",
+        $"A run-ending Ghost must mark its day line; got {final.Meta}."
     );
+    Assert(
+        ongoing.Meta == "Mak · D12",
+        $"An ordinary Ghost must keep the bare day line; got {ongoing.Meta}."
+    );
+    Assert(final.Name == "Opponent", $"A Ghost row is named by its opponent; got {final.Name}.");
 }
 
 void TestRunRatingShowsItsChangeOnlyWhenKnown()
 {
-    var formatterType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelFormatter");
-    string Rating(int rating, int? delta) =>
-        (string)InvokeStatic(formatterType, "RatingWithDelta", rating, delta)!;
-    Assert(Rating(1520, null) == "1520", "An unknown change must show the rating alone.");
+    HistoryArchiveRow Row(string rank, int? delta) =>
+        HistoryPanelRows.Run(Run(rank: rank, rating: 1520, delta: delta), _ => "Vanessa", default);
+    var unknown = Row("Legendary", null);
     Assert(
-        Rating(1520, 16) == "1520 <color=#9ECC8A>+16</color>",
-        $"A gain must read as +N; got {Rating(1520, 16)}."
+        unknown.Rating == "1520" && unknown.RatingDelta.Length == 0,
+        "An unknown change must show the rating alone."
+    );
+    var gain = Row("Legendary", 16);
+    Assert(
+        gain.RatingDelta == "+16" && gain.RatingTone == HistoryOutcomeTone.Won,
+        $"A gain must read as +N in the win colour; got {gain.RatingDelta} {gain.RatingTone}."
+    );
+    var loss = Row("Legendary", -12);
+    Assert(
+        loss.RatingDelta == "-12" && loss.RatingTone == HistoryOutcomeTone.Lost,
+        $"A loss must read as -N in the loss colour; got {loss.RatingDelta} {loss.RatingTone}."
+    );
+    var even = Row("Legendary", 0);
+    Assert(
+        even.RatingDelta == "±0" && even.RatingTone == HistoryOutcomeTone.None,
+        "A known zero change must read as ±0, not vanish."
     );
     Assert(
-        Rating(1520, -12) == "1520 <color=#E5664F>-12</color>",
-        $"A loss must read as -N; got {Rating(1520, -12)}."
+        Row("Gold", 16).Rating.Length == 0,
+        "Only a Legendary rank shows a rating; got one for Gold."
     );
-    Assert(Rating(1520, 0) == "1520 ±0", "A known zero change must read as ±0, not vanish.");
 }
+
+void TestRunRowReadsTheSameOnEveryHost()
+{
+    var ended = DateTimeOffset.Parse("2026-06-19T00:34:00Z");
+    var row = HistoryPanelRows.Run(
+        Run(ended: ended, victories: 7, losses: 3),
+        hero => $"<{hero}>",
+        ended
+    );
+    Assert(row.Name == "<Vanessa>", $"A run row is named by the host's hero name; got {row.Name}.");
+    Assert(
+        row.Meta == "Ranked · D10 · 34 min",
+        $"Run meta is mode, day and duration; got {row.Meta}."
+    );
+    Assert(row.Badge == HistoryRowBadge.Silver, $"Seven wins earn silver; got {row.Badge}.");
+    Assert(
+        row.BadgeText == "7-3",
+        $"A trophy's missing art reads as the record; got {row.BadgeText}."
+    );
+    Assert(row.RankText == "Bronze", $"The rank reads by its name; got {row.RankText}.");
+    var year = ended.ToLocalTime().Year.ToString(CultureInfo.InvariantCulture);
+    Assert(!row.Stamp.Contains(year), $"This year's stamp leaves the year out; got {row.Stamp}.");
+    var lastYear = HistoryPanelRows.Run(Run(ended: ended), hero => hero ?? "", ended.AddYears(1));
+    Assert(
+        lastYear.Stamp.Contains(year),
+        $"An older year's stamp shows the year; got {lastYear.Stamp}."
+    );
+    var active = HistoryPanelRows.Run(
+        Run(ended: null, status: "active"),
+        hero => hero ?? "",
+        ended
+    );
+    Assert(
+        active.Badge == HistoryRowBadge.StateActive && active.Meta == "Ranked · D10",
+        $"An unfinished run shows its state and no duration; got {active.Badge} {active.Meta}."
+    );
+}
+
+HistoryRunRecord Run(
+    string rank = "Bronze",
+    int? rating = 100,
+    int? delta = null,
+    DateTimeOffset? ended = null,
+    int victories = 1,
+    int losses = 0,
+    string status = "completed"
+) =>
+    new(
+        "run-1",
+        "Vanessa",
+        "Ranked",
+        DateTimeOffset.Parse("2026-06-19T00:00:00Z"),
+        ended,
+        ended ?? DateTimeOffset.Parse("2026-06-19T00:10:00Z"),
+        10,
+        1,
+        40,
+        0,
+        5,
+        1,
+        10,
+        rank,
+        rating,
+        delta,
+        victories,
+        losses,
+        status
+    );
 
 object CreateBattle(string battleId, int? day, string result, bool isFinalBattle = false)
 {

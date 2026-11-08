@@ -1,9 +1,7 @@
-using System.Globalization;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel;
-using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
@@ -208,7 +206,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
     public void SetSkillsAvailable(bool available)
     {
         _snapshotsAvailable = available;
-        _skills.Set(TouchHistoryUi.T("Skills", "技能"), enabled: available, dimmed: !available);
+        _skills.Set(HistoryPanelText.Skills(), enabled: available, dimmed: !available);
         ApplyNavigation();
     }
 
@@ -339,7 +337,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         _filter = HeaderButton("filters", _l.ArchiveFilter, () => _filters.Open());
         _filter.UseTrailingChevron(_l.Metrics.Dp(10f));
         _more = HeaderButton("more", _l.More, () => _actions.More());
-        _more.Set(TouchHistoryUi.T("More", "更多"));
+        _more.Set(HistoryPanelText.More());
         HeaderButton("close", _l.Close, () => _actions.Close()).Set(HistoryPanelText.Close());
 
         _archive = BuildArchive();
@@ -362,7 +360,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => NavigateArchive(-1)
         );
-        _newer.Set(TouchHistoryUi.T("Newer", "较新"));
+        _newer.Set(HistoryPanelText.Newer());
         _newer.UseChevron(180f, _l.Metrics.Dp(18f));
         _older = TouchHistoryUi.Button(
             Surface,
@@ -372,7 +370,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => NavigateArchive(1)
         );
-        _older.Set(TouchHistoryUi.T("Older", "较早"));
+        _older.Set(HistoryPanelText.Older());
         _older.UseChevron(0f, _l.Metrics.Dp(18f));
         _latest = TouchHistoryUi.Button(
             Surface,
@@ -382,7 +380,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             _l.ButtonFont,
             () => NavigateArchive(0)
         );
-        _latest.Set(TouchHistoryUi.T("Latest", "最新"));
+        _latest.Set(HistoryPanelText.Latest());
 
         _railNewer = TouchHistoryUi.Button(
             Surface,
@@ -776,20 +774,11 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             ApplyRowMode(runs);
             SyncTrackers();
         }
-        var noRows = (runs ? m.Runs.Count : m.VisibleBattles.Count) == 0;
+        var noRows = m.ArchiveRows.Count == 0;
         // A run that recorded no battle has nothing for the boards either; it can still be deleted.
-        var noBattles = runs && !noRows && m.VisibleBattles.Count == 0 && !m.PageLoading;
-        _empty = noRows || noBattles;
-        var emptyText =
-            noBattles ? HistoryPanelText.NoBattlesInRun()
-            : m.ArchiveEmptyMessage.Length > 0 ? m.ArchiveEmptyMessage
-            : m.PageLoading ? HistoryPanelText.LoadingPreview()
-            : runs && !string.IsNullOrEmpty(m.SelectedRunHero)
-                ? HistoryPanelText.NoRunFilterMatches()
-            : runs ? HistoryPanelText.NoRuns()
-            : string.Empty;
-        _emptyDetail.text = emptyText;
-        TouchHistoryUi.SetActive(_emptyDetail.gameObject, _empty && emptyText.Length > 0);
+        _empty = m.ArchiveEmptyMessage.Length > 0;
+        _emptyDetail.text = m.ArchiveEmptyMessage;
+        TouchHistoryUi.SetActive(_emptyDetail.gameObject, _empty);
         _runsTab.Set(HistoryPanelText.RunsTab(), runs);
         _ghostTab.Set(HistoryPanelText.GhostTab(), ghost);
         TouchHistoryUi.SetActive(_favoritesTab.GameObject, m.FavoritesTabVisible);
@@ -799,9 +788,9 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             (
                 runs
                     ? string.IsNullOrEmpty(m.SelectedRunHero)
-                        ? TouchHistoryUi.T("All heroes", "全部英雄")
+                        ? HistoryPanelText.AllHeroes()
                         : HeroLabel(m.SelectedRunHero)
-                    : TouchHistoryUi.T("Battle filters", "胜负与天数")
+                    : HistoryPanelText.Filters()
             )
         );
         TouchScreen.Place(
@@ -822,61 +811,25 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         TouchHistoryUi.SetActive(_rail.Scroll.gameObject, runs);
         TouchHistoryUi.SetActive(_railNewer.GameObject, runs && railPaged);
         TouchHistoryUi.SetActive(_railOlder.GameObject, runs && railPaged);
-        _railNewer.Set(TouchHistoryUi.T("Newer", "较新"), enabled: m.BattleHasNewer);
-        _railOlder.Set(TouchHistoryUi.T("Older", "较早"), enabled: m.BattleHasOlder);
-        _newer.Set(TouchHistoryUi.T("Newer", "较新"), enabled: m.HasNewer && !m.PageLoading);
-        _older.Set(TouchHistoryUi.T("Older", "较早"), enabled: m.HasOlder && !m.PageLoading);
-        _latest.Set(TouchHistoryUi.T("Latest", "最新"), enabled: !m.PageLoading);
+        _railNewer.Set(HistoryPanelText.Newer(), enabled: m.BattleHasNewer);
+        _railOlder.Set(HistoryPanelText.Older(), enabled: m.BattleHasOlder);
+        _newer.Set(HistoryPanelText.Newer(), enabled: m.HasNewer && !m.PageLoading);
+        _older.Set(HistoryPanelText.Older(), enabled: m.HasOlder && !m.PageLoading);
+        _latest.Set(HistoryPanelText.Latest(), enabled: !m.PageLoading);
         _pageLabel.text = m.PageLabel.Split('\n')[0];
 
+        BindRows(m.ArchiveRows, runs ? m.SelectedRunIndex : m.SelectedBattleIndex, runs);
         if (runs)
-            BindRows(
-                m.Runs.Select(r => r.RunId).ToArray(),
-                _ => string.Empty,
-                i => m.Runs[i].Hero,
-                i => RunBadge(m.Runs[i]),
-                i => m.Runs[i].PlayerRank,
-                i => m.Runs[i].PlayerRating,
-                i => m.Runs[i].PlayerRatingDelta,
-                m.SelectedRunIndex,
-                i => CompactRunFields(m.Runs[i])
-            );
-        else
-            BindRows(
-                m.VisibleBattles.Select(b => b.BattleId).ToArray(),
-                i =>
-                    ghost ? HistoryPanelFormatter.GhostListText(m.VisibleBattles[i])
-                    : i < m.FavoriteRowLabels.Count ? m.FavoriteRowLabels[i]
-                    : string.Empty,
-                i => m.VisibleBattles[i].OpponentHero,
-                i => BattleBadge(m.VisibleBattles[i]),
-                i => m.VisibleBattles[i].OpponentRank,
-                i => m.VisibleBattles[i].OpponentRating,
-                _ => null,
-                m.SelectedBattleIndex
-            );
-        if (runs)
-            BindRail(m.VisibleBattles, m.SelectedBattleIndex, m.PageLoading);
+            BindRail(m.Timeline, m.SelectedBattleIndex, m.PageLoading);
 
         // Two boards show yours below the opponent's; one board is the challenger's (ADR-0002).
         // Each title names its side: the opponent by name, yours with the battle's outcome.
-        var battle =
-            m.SelectedBattleIndex >= 0 && m.SelectedBattleIndex < m.VisibleBattles.Count
-                ? m.VisibleBattles[m.SelectedBattleIndex]
-                : null;
-        _upperTitle.text = Titled(
-            both ? HistoryPanelText.BoardOpponentTitle() : HistoryPanelText.BoardChallengerTitle(),
-            battle?.OpponentName
-        );
-        _lowerTitle.text = Titled(
-            HistoryPanelText.BoardYouTitle(),
-            battle == null ? null
-                : HistoryPanelFormatter.IsBattleWin(battle)
-                    ? Tinted(HistoryPanelText.BattleWon(), TouchHistoryUi.Win)
-                : HistoryPanelFormatter.IsBattleLoss(battle)
-                    ? Tinted(HistoryPanelText.BattleLost(), TouchHistoryUi.Loss)
-                : null
-        );
+        var titles = m.BoardTitles;
+        _upperTitle.text = titles.Upper;
+        _lowerTitle.text =
+            titles.OutcomeText.Length == 0
+                ? titles.Lower
+                : $"{titles.Lower} · {Tinted(titles.OutcomeText, OutcomeColor(titles.Outcome))}";
         TouchHistoryUi.SetActive(_upperTitle.gameObject, !_empty);
         TouchHistoryUi.SetActive(_lowerTitleObject, both && !_empty);
         TouchHistoryUi.SetActive(_lowerBoardObject, both);
@@ -896,13 +849,9 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         _favorite.Set(m.FavoriteButtonText, enabled: m.FavoriteButtonEnabled && !m.PageLoading);
         TouchHistoryUi.SetActive(_skills.GameObject, !_empty);
         TouchHistoryUi.SetActive(_replay.GameObject, !_empty);
-        // The button keeps naming its action; unavailable reads as dimmed, and the tap explains.
-        var replayText =
-            !m.ReplayButtonEnabled && m.ReplayButtonText == HistoryPanelText.ReplayUnavailable()
-                ? HistoryPanelText.Replay()
-                : m.ReplayButtonText;
+        // The button names its action; unavailable reads as dimmed, and the tap explains.
         _replay.Set(
-            replayText,
+            m.ReplayButtonText,
             true,
             enabled: !m.PageLoading && !m.ReplayButtonBusy,
             dimmed: !m.ReplayButtonEnabled
@@ -923,17 +872,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         }
     }
 
-    private void BindRows(
-        IReadOnlyList<string> ids,
-        Func<int, string> label,
-        Func<int, string?> hero,
-        Func<int, (Task<Sprite?>? Sprite, string Fallback)> badge,
-        Func<int, string?> rank,
-        Func<int, int?> rating,
-        Func<int, int?> ratingDelta,
-        int selected,
-        Func<int, HistoryRunRowFields>? runFields = null
-    )
+    private void BindRows(IReadOnlyList<HistoryArchiveRow> rows, int selected, bool runs)
     {
         var list = _archive;
         var offset = Mathf.Max(0, list.Scroll.content.anchoredPosition.y);
@@ -943,21 +882,19 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         for (var i = 0; i < Rows; i++)
         {
             var row = list.Rows[i];
-            var shown = i < ids.Count;
+            var shown = i < rows.Count;
             TouchHistoryUi.SetActive(row.Rect.gameObject, shown);
             if (!shown)
             {
                 row.Id = null;
                 continue;
             }
-            row.Id = ids[i];
+            var fields = rows[i];
+            row.Id = fields.Id;
             if (row.Id == topId)
                 newTop = i;
             row.Control.Set(string.Empty, i == selected, !_model!.PageLoading);
-            // A battle row's three label lines become name, hero with day, and stamp: a separate
-            // hero column left the name too narrow on a phone.
-            var fields = runFields?.Invoke(i) ?? BattleRowFields(label(i), HeroLabel(hero(i)));
-            var portraitHero = ParseHero(hero(i));
+            var portraitHero = ParseHero(fields.HeroId);
             if (row.Hero != portraitHero)
             {
                 row.Hero = portraitHero;
@@ -971,20 +908,17 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             row.Name.text = fields.Name;
             row.Meta.text = fields.Meta;
             row.Stamp.text = fields.Stamp;
-            var outcome = badge(i);
-            row.Unknown.text = outcome.Fallback;
-            row.Badge.Bind(outcome.Sprite);
-            row.Rank.text = string.IsNullOrWhiteSpace(rank(i))
-                ? "?"
-                : HistoryPanelText.RankName(rank(i)!);
-            row.RankArt.Bind(MobilePlatform.Port.RankBadge(rank(i)));
-            row.Rating.text = RatingText(rank(i), rating(i), ratingDelta(i));
-            if (runFields != null)
+            row.Unknown.text = fields.BadgeText;
+            row.Badge.Bind(BadgeSprite(fields.Badge));
+            row.Rank.text = fields.RankText;
+            row.RankArt.Bind(MobilePlatform.Port.RankBadge(fields.Rank));
+            row.Rating.text = RatingText(fields);
+            if (runs)
                 PlaceRunRow(row, row.Rating.text.Length > 0);
             else
                 PlaceBattleRow(row, fields.Meta.Length > 0, row.Rating.text.Length > 0);
         }
-        list.Scroll.content.sizeDelta = new Vector2(_l.ArchiveList.Width, ids.Count * list.Height);
+        list.Scroll.content.sizeDelta = new Vector2(_l.ArchiveList.Width, rows.Count * list.Height);
         var nextOffset =
             _restoreArchiveScroll
                 ? _navigation.ArchiveScrollDp[(int)_model!.SectionMode] * _l.Metrics.UnitsPerDp
@@ -997,7 +931,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             Mathf.Clamp(
                 nextOffset,
                 0,
-                Mathf.Max(0, ids.Count * list.Height - list.Scroll.viewport.rect.height)
+                Mathf.Max(0, rows.Count * list.Height - list.Scroll.viewport.rect.height)
             )
         );
         list.ResetScroll = false;
@@ -1005,7 +939,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         SyncTrackers();
     }
 
-    private void BindRail(IReadOnlyList<HistoryBattleRecord> battles, int selected, bool loading)
+    private void BindRail(IReadOnlyList<HistoryTimelineItem> battles, int selected, bool loading)
     {
         var rail = _rail;
         for (var i = 0; i < Rows; i++)
@@ -1018,9 +952,11 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             // The page's newest-first order, matching the archive and the pager.
             var battle = battles[i];
             chip.Control.Set(string.Empty, i == selected, !loading);
-            chip.Day.text = HistoryPanelText.DayBadge(battle.Day);
-            chip.Rank.Bind(MobilePlatform.Port.RankBadge(battle.OpponentRank));
-            var hero = ParseHero(battle.OpponentHero);
+            // The chip is too narrow for the outcome word; the bar carries it, and the selected
+            // battle's board title says it.
+            chip.Day.text = battle.DayText;
+            chip.Rank.Bind(MobilePlatform.Port.RankBadge(battle.Rank));
+            var hero = ParseHero(battle.HeroId);
             if (chip.Hero != hero)
             {
                 chip.Hero = hero;
@@ -1029,13 +965,11 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                     hero
                 );
             }
-            chip.Name.text = string.IsNullOrWhiteSpace(battle.OpponentName)
-                ? HistoryPanelText.UnknownOpponent()
-                : battle.OpponentName;
+            chip.Name.text = battle.OpponentName;
             chip.Outcome.color =
-                HistoryPanelFormatter.IsBattleWin(battle) ? TouchHistoryUi.Win
-                : HistoryPanelFormatter.IsBattleLoss(battle) ? TouchHistoryUi.Loss
-                : Color.clear;
+                battle.Outcome == HistoryOutcomeTone.None
+                    ? Color.clear
+                    : OutcomeColor(battle.Outcome);
         }
         var horizontal = _l.Compact;
         var step = horizontal ? _l.ChipWidth : _l.ChipHeight;
@@ -1047,7 +981,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         var viewport = _railPaged == false ? _l.RailListFull : _l.RailList;
         var savedOffset = _navigation.BattleScrollSlots;
         var offset = _navigation.BattlePosition.Bind(
-            hasSelection ? battles[selected].BattleId : null,
+            hasSelection ? battles[selected].Id : null,
             hasSelection ? selected : -1,
             battles.Count,
             savedOffset is { } slots ? slots * step
@@ -1067,14 +1001,14 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
     }
 
     // The rank badge stands left of the outcome, as on the desktop, with a Legendary rating under
-    // it. A run row is four columns: the portrait, the title over its stamp, then the rank badge
-    // and the trophy at the row's full height.
+    // it. A run row is four columns: the portrait, the hero over its mode and day over its stamp,
+    // then the rank badge and the trophy at the row's full height.
     private void PlaceRunRow(Row row, bool rated)
     {
         PlacePortrait(row, new Vector2(0f, .5f), 0f);
-        Frac(row.Name.rectTransform, .26f, .14f, .34f, .36f);
-        Frac(row.Meta.rectTransform, 0f, 0f, 0f, 0f);
-        Frac(row.Stamp.rectTransform, .26f, .52f, .34f, .3f);
+        Frac(row.Name.rectTransform, .26f, .03f, .34f, .36f);
+        Frac(row.Meta.rectTransform, .26f, .38f, .34f, .3f);
+        Frac(row.Stamp.rectTransform, .26f, .66f, .34f, .3f);
         Frac(row.RankArt.Image.rectTransform, .61f, rated ? .06f : .18f, .16f, .64f);
         Frac(row.Rating.rectTransform, .55f, .66f, .28f, .3f);
         Frac(row.Badge.Image.rectTransform, .79f, .12f, .18f, .76f);
@@ -1103,68 +1037,40 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
     }
 
     // A finished run shows the trophy its tier earned; unfinished runs keep the BPP state badges.
-    private (Task<Sprite?>? Sprite, string Fallback) RunBadge(HistoryRunRecord run)
-    {
-        var tier = HistoryPanelFormatter.GetRunOutcomeTier(run);
-        if (tier is { } finished && finished != RunOutcomeTier.Misfortune)
-            return (MobilePlatform.Port.RunTrophy(finished), finished.ToString());
-        var index =
-            run.RawStatus == "active" ? 2
-            : run.RawStatus == "abandoned" ? 1
-            : 0;
-        return (Task.FromResult(_badges?.RunState(index)), "?");
-    }
+    private Task<Sprite?>? BadgeSprite(HistoryRowBadge badge) =>
+        badge switch
+        {
+            HistoryRowBadge.Bronze => MobilePlatform.Port.RunTrophy(RunOutcomeTier.Bronze),
+            HistoryRowBadge.Silver => MobilePlatform.Port.RunTrophy(RunOutcomeTier.Silver),
+            HistoryRowBadge.Gold => MobilePlatform.Port.RunTrophy(RunOutcomeTier.Gold),
+            HistoryRowBadge.Diamond => MobilePlatform.Port.RunTrophy(RunOutcomeTier.Diamond),
+            HistoryRowBadge.BattleWon => Task.FromResult(_badges?.Win),
+            HistoryRowBadge.BattleLost => Task.FromResult(_badges?.Loss),
+            HistoryRowBadge.StateActive => Task.FromResult(_badges?.RunState(2)),
+            HistoryRowBadge.StateAbandoned => Task.FromResult(_badges?.RunState(1)),
+            HistoryRowBadge.StateCompleted => Task.FromResult(_badges?.RunState(0)),
+            _ => null,
+        };
 
-    private (Task<Sprite?>? Sprite, string Fallback) BattleBadge(HistoryBattleRecord battle) =>
-        HistoryPanelFormatter.IsBattleWin(battle) ? (Task.FromResult(_badges?.Win), "W")
-        : HistoryPanelFormatter.IsBattleLoss(battle) ? (Task.FromResult(_badges?.Loss), "L")
-        : (null, "?");
+    // A Legendary rank carries its rating, and a run its change in the outcome colours.
+    private static string RatingText(HistoryArchiveRow row) =>
+        row.RatingDelta.Length == 0 ? row.Rating
+        : row.RatingTone == HistoryOutcomeTone.None ? $"{row.Rating} {row.RatingDelta}"
+        : $"{row.Rating} {Tinted(row.RatingDelta, OutcomeColor(row.RatingTone))}";
 
-    // A Legendary rank carries its rating.
-    private static HistoryRunRowFields BattleRowFields(string label, string hero)
-    {
-        var lines = label.Split(new[] { '\n' }, 3);
-        var day = lines.Length > 1 ? lines[1] : string.Empty;
-        return new HistoryRunRowFields(
-            lines[0],
-            hero.Length == 0 ? day
-                : day.Length == 0 ? hero
-                : $"{hero} · {day}",
-            lines.Length > 2 ? lines[2] : string.Empty
-        );
-    }
-
-    private static string RatingText(string? rank, int? rating, int? ratingDelta) =>
-        string.Equals(rank?.Trim(), "Legendary", StringComparison.OrdinalIgnoreCase)
-        && rating.HasValue
-            ? HistoryPanelFormatter.RatingWithDelta(rating.GetValueOrDefault(), ratingDelta)
-            : string.Empty;
+    private static Color OutcomeColor(HistoryOutcomeTone tone) =>
+        tone switch
+        {
+            HistoryOutcomeTone.Won => TouchHistoryUi.Win,
+            HistoryOutcomeTone.Lost => TouchHistoryUi.Loss,
+            _ => TouchHistoryUi.Muted,
+        };
 
     /// <summary>A stored hero id under the game's own hero name.</summary>
     private static CardHero? ParseHero(string? hero) =>
         TheDragonsHeroId.IsAlias(hero) ? CardHero.TheDragons
         : Enum.TryParse<CardHero>(hero, true, out var parsed) ? parsed
         : null;
-
-    private static HistoryRunRowFields CompactRunFields(HistoryRunRecord run)
-    {
-        var mode = run.GameMode.Trim().ToLowerInvariant() switch
-        {
-            "ranked" => TouchHistoryUi.T("Ranked", "排位"),
-            "unranked" => TouchHistoryUi.T("Normal", "普通"),
-            _ => HistoryPanelText.Unknown(),
-        };
-        var title = $"{HistoryPanelText.DayBadge(run.FinalDay)} · {mode}";
-        var date = (run.EndedAtUtc ?? run.LastSeenAtUtc).ToLocalTime();
-        var stamp = date.ToString(
-            date.Year == DateTimeOffset.Now.Year ? "MM/dd HH:mm" : "yyyy/MM/dd HH:mm",
-            CultureInfo.CurrentCulture
-        );
-        return new(title, string.Empty, stamp);
-    }
-
-    private static string Titled(string side, string? detail) =>
-        string.IsNullOrWhiteSpace(detail) ? side : $"{side} · {detail}";
 
     private static string Tinted(string text, Color color) =>
         $"<color=#{(int)(color.r * 255f):X2}{(int)(color.g * 255f):X2}{(int)(color.b * 255f):X2}>{text}</color>";

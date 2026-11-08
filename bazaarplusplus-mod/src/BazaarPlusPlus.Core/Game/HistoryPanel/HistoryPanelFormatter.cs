@@ -15,70 +15,8 @@ public enum RunOutcomeTier
     Diamond,
 }
 
-public readonly record struct HistoryRunRowFields(string Name, string Meta, string Stamp);
-
 public static class HistoryPanelFormatter
 {
-    // The status word is deliberately absent: RunBadge already encodes
-    // completed/abandoned/active, and repeating it cost the row its strongest line.
-    public static HistoryRunRowFields RunRowFields(HistoryRunRecord run, string heroName) =>
-        new(heroName, Meta(run), FormatTimestamp(run.EndedAtUtc ?? run.LastSeenAtUtc));
-
-    // A finished run's duration is a real play session. An unfinished one has no EndedAtUtc,
-    // so the same subtraction measures start-to-last-seen instead — "85:09" for a run left
-    // open overnight. Show it only where it means something.
-    private static string Meta(HistoryRunRecord run)
-    {
-        var head = $"{Mode(run)} · {HistoryPanelText.DayBadge(run.FinalDay)}";
-        if (run.EndedAtUtc is not { } ended)
-            return head;
-        return $"{head} · {HistoryPanelText.Duration(ended - run.StartedAtUtc)}";
-    }
-
-    // "1520 +16": the Run's rating change rides on its rating, tinted like battle outcomes.
-    // An unknown change shows the rating alone rather than a misleading +0.
-    public static string RatingWithDelta(int rating, int? delta)
-    {
-        var text = rating.ToString(CultureInfo.CurrentCulture);
-        if (delta is not { } change)
-            return text;
-        var signed = change.ToString("+0;-0;±0", CultureInfo.InvariantCulture);
-        return change switch
-        {
-            > 0 => $"{text} <color=#9ECC8A>{signed}</color>",
-            < 0 => $"{text} <color=#E5664F>{signed}</color>",
-            _ => $"{text} {signed}",
-        };
-    }
-
-    public static string GhostListText(HistoryBattleRecord battle) =>
-        $"{battle.OpponentName ?? HistoryPanelText.UnknownOpponent()}\n{GhostDayLine(battle)}\n{FormatTimestamp(battle.RecordedAtUtc)}";
-
-    // Opponent and day as a Ghost row reads, then the note's first line or the favorite time.
-    public static string FavoriteListText(HistoryFavoriteRecord favorite)
-    {
-        var note = favorite.Note.Split('\n')[0].Trim();
-        return $"{favorite.Battle.OpponentName ?? HistoryPanelText.UnknownOpponent()}\n{GhostDayLine(favorite.Battle)}\n"
-            + (
-                note.Length > 0
-                    ? note
-                    : HistoryPanelText.FavoritedOn(FormatTimestamp(favorite.FavoritedAtUtc))
-            );
-    }
-
-    private static string GhostDayLine(HistoryBattleRecord battle) =>
-        battle.IsFinalBattle
-            ? $"{HistoryPanelText.DayBadge(battle.Day)} · {HistoryPanelText.FinalBattle()}"
-            : HistoryPanelText.DayBadge(battle.Day);
-
-    private static string Mode(HistoryRunRecord run) =>
-        run.GameMode.Trim().ToLowerInvariant() switch
-        {
-            "ranked" => L.Resolve(new LocalizedTextSet("Ranked", "排位")),
-            "unranked" => HistoryPanelText.Unranked(),
-            _ => HistoryPanelText.Unknown(),
-        };
-
     public static string PageRange<T>(HistoryCountedPage<T> page, bool ghost = false)
     {
         var counts =
@@ -140,15 +78,19 @@ public static class HistoryPanelFormatter
         return RunOutcomeTier.Misfortune;
     }
 
-    public static bool IsBattleWin(HistoryBattleRecord battle) =>
-        HistoryPanelGhostBattleFilter.ResolveOutcome(battle) == HistoryPanelGhostBattleOutcome.Won;
-
-    public static bool IsBattleLoss(HistoryBattleRecord battle) =>
-        HistoryPanelGhostBattleFilter.ResolveOutcome(battle) == HistoryPanelGhostBattleOutcome.Lost;
-
     public static string FormatTimestamp(DateTimeOffset value)
     {
         return value.ToLocalTime().ToString("g", ResolveTimestampCulture());
+    }
+
+    // A row's stamp: month, day and time, with the year only when it is not this year's.
+    public static string RowStamp(DateTimeOffset value, DateTimeOffset now)
+    {
+        var local = value.ToLocalTime();
+        return local.ToString(
+            local.Year == now.ToLocalTime().Year ? "MM/dd HH:mm" : "yyyy/MM/dd HH:mm",
+            ResolveTimestampCulture()
+        );
     }
 
     private static CultureInfo ResolveTimestampCulture()
