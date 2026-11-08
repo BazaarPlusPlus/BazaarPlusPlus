@@ -338,7 +338,10 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         _filter.UseTrailingChevron(_l.Metrics.Dp(10f));
         _more = HeaderButton("more", _l.More, () => _actions.More());
         _more.Set(HistoryPanelText.More());
-        HeaderButton("close", _l.Close, () => _actions.Close()).Set(HistoryPanelText.Close());
+        TouchHistoryUi
+            .Button(Surface, _font, "close", _l.Close, _l.TitleFont, () => _actions.Close())
+            .WithHeaderArt(_badges?.HeaderNormal, _badges?.HeaderSelected, HeaderPixelsPerUnit)
+            .Set(UiKit.CloseGlyph);
 
         _archive = BuildArchive();
         _thumbs.Add(new ScrollThumb(_archive.Scroll, _l.Metrics));
@@ -485,8 +488,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         _filters = new TouchHistoryFilterDialog(Surface, _font, _l, _actions);
     }
 
-    private float HeaderPixelsPerUnit =>
-        HistoryHeaderArtwork.BorderPixels / _l.Metrics.Dp(HistoryHeaderArtwork.ButtonBorder);
+    private float HeaderPixelsPerUnit => HistoryHeaderArtwork.TouchMultiplier(_l.Metrics);
 
     private HistoryButton HeaderButton(string name, TouchRect area, Action action) =>
         TouchHistoryUi
@@ -656,27 +658,38 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                     rect,
                     _font,
                     .37f,
-                    .04f,
+                    .03f,
                     .37f,
-                    .42f,
+                    .33f,
                     _l.BodyFont,
                     TextAlignmentOptions.Center
                 ),
-                Rank = new ArtImage(ArtSlot(rect, "Rank", .74f, .06f, .23f, .38f)),
+                Rank = new ArtImage(ArtSlot(rect, "Rank", .74f, .05f, .23f, .3f)),
                 Name = TouchHistoryUi.Fraction(
                     rect,
                     _font,
                     .04f,
-                    .44f,
+                    .35f,
                     .92f,
-                    .42f,
+                    .31f,
                     _l.BodyFont,
                     TextAlignmentOptions.Center,
                     TouchHistoryUi.Muted
                 ),
+                Result = TouchHistoryUi.Fraction(
+                    rect,
+                    _font,
+                    .04f,
+                    .65f,
+                    .92f,
+                    .31f,
+                    _l.BodyFont,
+                    TextAlignmentOptions.Center
+                ),
                 Outcome = UiKit.Fill(outcome, Color.clear, blocksTouches: false),
             };
-            // The top line reads portrait, day and rank badge, as the desktop chip does.
+            // The top line reads portrait, day and rank badge, as the desktop chip does; the
+            // opponent and the outcome word follow.
             var portrait = UiKit.Fixed(
                 "HeroPortrait",
                 rect,
@@ -690,7 +703,8 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                 portrait.gameObject.SetActive(false);
                 rail.Chips[i].Rank.Image.gameObject.SetActive(false);
                 rail.Chips[i].Name.gameObject.SetActive(false);
-                Frac(rail.Chips[i].Day.rectTransform, .04f, .05f, .92f, .8f);
+                Frac(rail.Chips[i].Day.rectTransform, .04f, .1f, .92f, .42f);
+                Frac(rail.Chips[i].Result.rectTransform, .04f, .52f, .92f, .42f);
             }
             rect.gameObject.SetActive(false);
         }
@@ -952,9 +966,9 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             // The page's newest-first order, matching the archive and the pager.
             var battle = battles[i];
             chip.Control.Set(string.Empty, i == selected, !loading);
-            // The chip is too narrow for the outcome word; the bar carries it, and the selected
-            // battle's board title says it.
             chip.Day.text = battle.DayText;
+            chip.Result.text = battle.OutcomeText;
+            chip.Result.color = OutcomeColor(battle.Outcome);
             chip.Rank.Bind(MobilePlatform.Port.RankBadge(battle.Rank));
             var hero = ParseHero(battle.HeroId);
             if (chip.Hero != hero)
@@ -1000,30 +1014,27 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         SyncTrackers();
     }
 
-    // The rank badge stands left of the outcome, as on the desktop, with a Legendary rating under
-    // it. A run row is four columns: the portrait, the hero over its mode and day over its stamp,
-    // then the rank badge and the trophy at the row's full height.
-    private void PlaceRunRow(Row row, bool rated)
-    {
-        PlacePortrait(row, new Vector2(0f, .5f), 0f);
-        Frac(row.Name.rectTransform, .26f, .03f, .34f, .36f);
-        Frac(row.Meta.rectTransform, .26f, .38f, .34f, .3f);
-        Frac(row.Stamp.rectTransform, .26f, .66f, .34f, .3f);
-        Frac(row.RankArt.Image.rectTransform, .61f, rated ? .06f : .18f, .16f, .64f);
-        Frac(row.Rating.rectTransform, .55f, .66f, .28f, .3f);
-        Frac(row.Badge.Image.rectTransform, .79f, .12f, .18f, .76f);
-    }
+    // Every row has the desktop's three lines. The portrait, the name and the short line share
+    // the top two thirds with the rank badge and the outcome badge; the long line runs under both
+    // badges, short of a Legendary rating, so it stays whole on a phone. So a run puts its end
+    // time second and its mode, day and duration last; a battle keeps hero and day second and
+    // its stamp or "Favorited <date>" last.
+    private void PlaceRunRow(Row row, bool rated) => PlaceRow(row, row.Stamp, row.Meta, rated);
 
-    // A battle row keeps name, hero with day, and stamp lines; both badges sit at its top, and
-    // the stamp runs under them whenever the rating is empty, which keeps
-    // "Favorited <date> <time>" whole on a phone. Without a meta line the name drops to sit
-    // between the row's top and its stamp.
+    // Without a hero and day line the name drops to sit between the row's top and its stamp.
     private void PlaceBattleRow(Row row, bool hasMeta, bool rated)
     {
+        PlaceRow(row, row.Meta, row.Stamp, rated);
+        if (!hasMeta)
+            Frac(row.Name.rectTransform, .26f, .17f, .33f, .36f);
+    }
+
+    private void PlaceRow(Row row, TextMeshProUGUI middle, TextMeshProUGUI bottom, bool rated)
+    {
         PlacePortrait(row, new Vector2(0f, 1f), -_l.Metrics.Dp(6f));
-        Frac(row.Name.rectTransform, .26f, hasMeta ? .03f : .17f, .33f, .36f);
-        Frac(row.Meta.rectTransform, .26f, .38f, .33f, .3f);
-        Frac(row.Stamp.rectTransform, .04f, .66f, rated ? .54f : .92f, .3f);
+        Frac(row.Name.rectTransform, .26f, .03f, .33f, .36f);
+        Frac(middle.rectTransform, .26f, .38f, .33f, .3f);
+        Frac(bottom.rectTransform, .04f, .66f, rated ? .54f : .92f, .3f);
         Frac(row.RankArt.Image.rectTransform, .61f, .05f, .16f, .52f);
         Frac(row.Rating.rectTransform, .55f, .58f, .28f, .34f);
         Frac(row.Badge.Image.rectTransform, .79f, .05f, .18f, .52f);
@@ -1133,6 +1144,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         internal RectTransform Rect = null!;
         internal HistoryButton Control = null!;
         internal TextMeshProUGUI Day = null!;
+        internal TextMeshProUGUI Result = null!;
         internal PortraitView Portrait = null!;
         internal CardHero? Hero;
         internal ArtImage Rank = null!;
