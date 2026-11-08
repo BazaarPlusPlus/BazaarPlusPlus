@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Development only, never in a Payload: copies cloud Bundles into a local history database as
+       History-Only Runs of the local player, so History can be checked without playing. It reuses
+       the mod's Bundle decoder and battle store on net10.0, as the Core-lane tests do, and reads
+       the bundle_sync token from its environment. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>BazaarPlusPlus.HistorySampler</RootNamespace>
+    <AssemblyName>BazaarPlusPlus.HistorySampler</AssemblyName>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+
+  <!-- The card enum table both hosts are held to (CardEnumTableTests) stands in for the game's
+       enums, as the Core-lane Ghost tests do. -->
+  <ItemGroup>
+    <EmbeddedResource
+      Include="../../tests/Shared/fixtures/pvp-card-enums.json"
+      LogicalName="HistorySampler.pvp-card-enums.json"
+    />
+  </ItemGroup>
+</Project>

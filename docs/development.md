@@ -109,7 +109,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 ### 本机矩阵与登录准备
 
-`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；支持的宿主、seed 镜像、设备名字、尺寸、端口和参数以 `bun scripts/android/setup-device.ts --help` 为准。macOS Apple Silicon 使用原生 ARM64 镜像；Windows x64 使用带 ARM64 转译的 x86_64 镜像，先检查转译能力，再验证实际游戏和 BPP。为了性能，同一时间只运行一台模拟器：init 在有模拟器运行时不启动，手机可以保持连接。init 为部署指定目标 serial；后续 `just android::*` 设备命令、`just mod::android-*` 和 walkthrough 在多设备连接时要设置 `ANDROID_SERIAL`，目标不在线就报错，不回退到另一台。未指定时只接受唯一一台设备，walkthrough 还核对 AVD 名字。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。
+`just setup-device` 准备常驻 Android AVD，并验证每台设备的游戏账号仍能自动登录；支持的宿主、seed 镜像、设备名字、尺寸、端口和参数以 `bun scripts/android/setup-device.ts --help` 为准。macOS Apple Silicon 使用原生 ARM64 镜像；Windows x64 使用带 ARM64 转译的 x86_64 镜像，先检查转译能力，再验证实际游戏和 BPP。为了性能，同一时间只运行一台模拟器：init 在有模拟器运行时不启动，手机可以保持连接。init 为部署指定目标 serial；后续 `just android::*` 设备命令、`just mod::android-*` 和 walkthrough 在多设备连接时要设置 `ANDROID_SERIAL`，目标不在线就报错，不回退到另一台。未指定时只接受唯一一台设备，walkthrough 还核对 AVD 名字。`just list-devices` 只显示配置和上次结果，不证明当前登录仍有效。Agent 入口是 `.agents/skills/setup-device/SKILL.md`。跨设备的界面走查是用户调用的 `/walkthrough`（`.agents/skills/walkthrough/`）：逐台到达各个界面并截图，生成本地 HTML 网格，命令见 `just walkthrough --help`。History 需要对局数据时，用 `just history-sample <desktop|android>` 从云端取最近的几局，作为本机账号的仅历史对局写入；`clear` 把它们删除。命令先停止游戏，用法见 `--help`。
 
 矩阵按 Mobile UI 的三个布局分支选设备：
 

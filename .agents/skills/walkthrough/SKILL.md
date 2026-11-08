@@ -43,6 +43,9 @@ Drive one device at a time. For each device, in the order `walkthrough.ts device
      until the main menu shows; the log names no scene. Capture needs Screen
      Recording for this app, and macOS asks once: that grant is the user's.
    A sign-in prompt is the user's too: tell them, and wait.
+   History scenarios need runs with battles. If the account has none, quit the game and run
+   `just history-sample <desktop|android>` before you start it
+   again; `clear` removes the samples when the walkthrough is done.
 2. **Walk the scenarios in scenarios.md order.** For each one, reach the
    screen, let it settle, then
    `bun scripts/android/walkthrough.ts capture RUN NAME SCENARIO`. Add `--note` only

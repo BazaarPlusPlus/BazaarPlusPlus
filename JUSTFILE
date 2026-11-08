@@ -67,6 +67,11 @@ setup-device *args:
 walkthrough *args:
     bun scripts/android/walkthrough.ts "$@"
 
+# Development only: copy recent cloud runs into desktop or Android history, or clear them; just mod::history-sample has the usage.
+[group('workspace')]
+history-sample *args:
+    bun scripts/workspace.ts run analyzer -- bun scripts/history-sample.ts "$@"
+
 # Run explicit verification recipes serially and retain their final exit status, SHA and logs.
 [group('workspace')]
 verify +recipes:

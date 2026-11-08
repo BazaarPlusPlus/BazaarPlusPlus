@@ -16,10 +16,22 @@ public static class GhostManifestProjection
         string runId,
         RunBattleV6 battle,
         IPvpBattleEvidenceBinding evidence
+    ) => BuildUploaderManifest(reference.LocalBattleId, runId, battle, evidence);
+
+    /// <summary>
+    /// One Bundle battle as its uploader saw it, under <paramref name="battleId"/>: the Ghost import
+    /// and the History Sampler both read a Bundle from the uploader's side. A card set the battle
+    /// lacks reads as missing.
+    /// </summary>
+    public static PvpBattleManifest BuildUploaderManifest(
+        string battleId,
+        string runId,
+        RunBattleV6 battle,
+        IPvpBattleEvidenceBinding evidence
     ) =>
         new()
         {
-            BattleId = reference.LocalBattleId,
+            BattleId = battleId,
             RunId = runId,
             RecordedAtUtc = DateTimeOffset.FromUnixTimeMilliseconds(battle.Facts.RecordedAtMs),
             CombatKind = battle.Facts.CombatKind,
@@ -55,22 +67,24 @@ public static class GhostManifestProjection
             },
             Snapshots = new PvpBattleSnapshots
             {
-                PlayerHand = BuildCapture(battle.Snapshots!, "player_hand", evidence),
-                PlayerSkills = BuildCapture(battle.Snapshots!, "player_skills", evidence),
-                OpponentHand = BuildCapture(battle.Snapshots!, "opponent_hand", evidence),
-                OpponentSkills = BuildCapture(battle.Snapshots!, "opponent_skills", evidence),
+                PlayerHand = BuildCapture(battle.Snapshots, "player_hand", evidence),
+                PlayerSkills = BuildCapture(battle.Snapshots, "player_skills", evidence),
+                OpponentHand = BuildCapture(battle.Snapshots, "opponent_hand", evidence),
+                OpponentSkills = BuildCapture(battle.Snapshots, "opponent_skills", evidence),
             },
         };
 
     private static PvpBattleCardSetCapture BuildCapture(
-        BattleCardSnapshotsV6 snapshots,
+        BattleCardSnapshotsV6? snapshots,
         string label,
         IPvpBattleEvidenceBinding evidence
     )
     {
-        var source = snapshots.CardSets.First(set =>
+        var source = snapshots?.CardSets?.FirstOrDefault(set =>
             string.Equals(set.Label, label, StringComparison.Ordinal)
         );
+        if (source == null)
+            return new PvpBattleCardSetCapture { Status = PvpBattleCaptureStatus.Missing };
         return new PvpBattleCardSetCapture
         {
             Status = ParseEnum(source.Status, PvpBattleCaptureStatus.Missing),

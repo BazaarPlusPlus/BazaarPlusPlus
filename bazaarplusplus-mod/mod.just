@@ -8,6 +8,8 @@ export DOTNET_SYSTEM_NET_DISABLEIPV6 := env('DOTNET_SYSTEM_NET_DISABLEIPV6', '1'
 published_projects := "src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj src/BazaarPlusPlus.Updater/BazaarPlusPlus.Updater.csproj src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj src/BazaarPlusPlus/BazaarPlusPlus.csproj"
 # Runs with the Steam login in its environment, so it keeps a lock file too.
 steam_tool := "tools/SteamSnapshot/SteamSnapshot.csproj"
+# Development only; it holds the bundle_sync token, so its package graph stays locked too.
+sampler_tool := "tools/HistorySampler/HistorySampler.csproj"
 
 # Check formatting, compile without deploying, and validate the NuGet and snapshot lock files.
 check: fmt-check build locks-check lock-check
@@ -57,6 +59,10 @@ android-launch:
 android-launcher:
     bash scripts/android.sh launcher
 
+# Development only: copy recent cloud runs into desktop or Android history as History-Only Runs, or clear them; see --help.
+history-sample *args:
+    bash scripts/history-sample.sh "$@"
+
 # Save logs, a screenshot and display metadata under artifacts/android/<run>/.
 android-capture run:
     bash scripts/android.sh capture "$@"
@@ -90,11 +96,11 @@ fmt-check:
 
 # Rewrite the committed NuGet lock files; review every changed packages.lock.json.
 locks:
-    for project in {{ published_projects }} {{ steam_tool }}; do dotnet restore "$project" --force-evaluate; done
+    for project in {{ published_projects }} {{ steam_tool }} {{ sampler_tool }}; do dotnet restore "$project" --force-evaluate; done
 
 # Validate the committed NuGet lock files without rewriting them.
 locks-check:
-    for project in {{ published_projects }} {{ steam_tool }}; do dotnet restore "$project" --locked-mode; done
+    for project in {{ published_projects }} {{ steam_tool }} {{ sampler_tool }}; do dotnet restore "$project" --locked-mode; done
 
 # Refresh the remote embedded seeds without building; [-p:Name=Value ...].
 fetch-data *args:

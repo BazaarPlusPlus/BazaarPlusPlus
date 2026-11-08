@@ -422,4 +422,7 @@ cmd_verify() {
     ok "Smoke passed all three levels; see $dir/smoke.md"
 }
 
-dispatch "$@"
+# history-sample.sh sources this file for its device helpers.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    dispatch "$@"
+fi
