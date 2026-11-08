@@ -20,7 +20,7 @@ async function headerPositions(page: Page) {
 
 for (const width of [390, 1143, 1600]) {
   test(`navigation stays in place across page widths and lengths at ${width}px`, async ({
-    page,
+    page
   }) => {
     await page.setViewportSize({ width, height: 884 });
     const routes = await installGoldenRoutes(page);
@@ -29,9 +29,15 @@ for (const width of [390, 1143, 1600]) {
     const initial = await headerPositions(page);
 
     const navigate = async (name: string) => {
-      await page.getByRole('navigation').getByRole('link', { name, exact: true }).click();
+      await page
+        .getByRole('navigation')
+        .getByRole('link', { name, exact: true })
+        .click();
       await settle(page);
-      expect(await headerPositions(page), `header after navigating to ${name}`).toEqual(initial);
+      expect(
+        await headerPositions(page),
+        `header after navigating to ${name}`
+      ).toEqual(initial);
     };
     await navigate('统计');
     await navigate('教程');

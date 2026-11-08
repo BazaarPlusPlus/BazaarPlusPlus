@@ -1,8 +1,8 @@
-import { AwsClient } from "aws4fetch";
-import { validObjectKey } from "./bundle/manifest";
-import type { Env } from "./env";
-import { apiError } from "./errors";
-import { BUNDLE_BUCKET_NAME, PRESIGNED_GET_TTL_SECONDS } from "./limits";
+import { AwsClient } from 'aws4fetch';
+import { validObjectKey } from './bundle/manifest';
+import type { Env } from './env';
+import { apiError } from './errors';
+import { BUNDLE_BUCKET_NAME, PRESIGNED_GET_TTL_SECONDS } from './limits';
 
 export interface SignedBundleDownload {
   url: string;
@@ -15,7 +15,7 @@ export async function signDownloadPage(
   signer: BundleDownloadSigner,
   objectKeys: readonly string[],
   issuedAtMs: number,
-  failureMessage: string,
+  failureMessage: string
 ): Promise<SignedBundleDownload[]> {
   const signedByKey = new Map<string, Promise<SignedBundleDownload>>();
   try {
@@ -23,7 +23,10 @@ export async function signDownloadPage(
     // signing-key cache is populated instead of derived once per distinct key.
     const firstKey = objectKeys[0];
     if (firstKey !== undefined) {
-      signedByKey.set(firstKey, Promise.resolve(await signer.sign(firstKey, issuedAtMs)));
+      signedByKey.set(
+        firstKey,
+        Promise.resolve(await signer.sign(firstKey, issuedAtMs))
+      );
     }
     return await Promise.all(
       objectKeys.map((objectKey) => {
@@ -33,15 +36,15 @@ export async function signDownloadPage(
           signedByKey.set(objectKey, signed);
         }
         return signed;
-      }),
+      })
     );
   } catch {
-    throw apiError("storage_unavailable", failureMessage);
+    throw apiError('storage_unavailable', failureMessage);
   }
 }
 
 function sigV4Date(timestamp: number): string {
-  return new Date(timestamp).toISOString().replace(/[:-]|\.\d{3}/g, "");
+  return new Date(timestamp).toISOString().replace(/[:-]|\.\d{3}/g, '');
 }
 
 export function createBundleDownloadSigner(env: Env) {
@@ -50,38 +53,45 @@ export function createBundleDownloadSigner(env: Env) {
     env.R2_PRESIGN_ACCESS_KEY_ID.length === 0 ||
     env.R2_PRESIGN_SECRET_ACCESS_KEY.length === 0
   ) {
-    throw new Error("R2 presigner configuration is invalid");
+    throw new Error('R2 presigner configuration is invalid');
   }
   const client = new AwsClient({
     accessKeyId: env.R2_PRESIGN_ACCESS_KEY_ID,
     secretAccessKey: env.R2_PRESIGN_SECRET_ACCESS_KEY,
-    service: "s3",
-    region: "auto",
-    retries: 0,
+    service: 's3',
+    region: 'auto',
+    retries: 0
   });
 
   return {
-    async sign(objectKey: string, issuedAtMs: number): Promise<SignedBundleDownload> {
-      if (!validObjectKey(objectKey) || !Number.isSafeInteger(issuedAtMs) || issuedAtMs < 0) {
-        throw new Error("R2 object key or signing time is invalid");
+    async sign(
+      objectKey: string,
+      issuedAtMs: number
+    ): Promise<SignedBundleDownload> {
+      if (
+        !validObjectKey(objectKey) ||
+        !Number.isSafeInteger(issuedAtMs) ||
+        issuedAtMs < 0
+      ) {
+        throw new Error('R2 object key or signing time is invalid');
       }
       const url = new URL(
-        `https://${BUNDLE_BUCKET_NAME}.${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${objectKey}`,
+        `https://${BUNDLE_BUCKET_NAME}.${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${objectKey}`
       );
-      url.searchParams.set("X-Amz-Expires", String(PRESIGNED_GET_TTL_SECONDS));
+      url.searchParams.set('X-Amz-Expires', String(PRESIGNED_GET_TTL_SECONDS));
       const request = await client.sign(url, {
-        method: "GET",
+        method: 'GET',
         aws: {
           signQuery: true,
           datetime: sigV4Date(issuedAtMs),
-          service: "s3",
-          region: "auto",
-        },
+          service: 's3',
+          region: 'auto'
+        }
       });
       return {
         url: request.url,
-        expiresAtMs: issuedAtMs + PRESIGNED_GET_TTL_SECONDS * 1_000,
+        expiresAtMs: issuedAtMs + PRESIGNED_GET_TTL_SECONDS * 1_000
       };
-    },
+    }
   };
 }

@@ -4,7 +4,11 @@ export type HeroMetricsStoredSegment = 'legend' | 'non_legend';
 
 export type HeroMetricsSegment = 'all' | HeroMetricsStoredSegment;
 
-export const HERO_METRICS_SEGMENTS: HeroMetricsSegment[] = ['all', 'legend', 'non_legend'];
+export const HERO_METRICS_SEGMENTS: HeroMetricsSegment[] = [
+  'all',
+  'legend',
+  'non_legend'
+];
 
 export type HeroBattleCounts = {
   decided: number;
@@ -101,13 +105,16 @@ function asIsoDate(value: unknown): string | null {
     return null;
   }
   const timestamp = Date.parse(`${value}T00:00:00Z`);
-  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value
+  return Number.isFinite(timestamp) &&
+    new Date(timestamp).toISOString().slice(0, 10) === value
     ? value
     : null;
 }
 
 function asUtcTimestamp(value: unknown): string | null {
-  return typeof value === 'string' && value.endsWith('Z') && Number.isFinite(Date.parse(value))
+  return typeof value === 'string' &&
+    value.endsWith('Z') &&
+    Number.isFinite(Date.parse(value))
     ? value
     : null;
 }
@@ -121,7 +128,8 @@ function enumerateDates(start: string, end: string): string[] | null {
 
   return Array.from(
     { length: Math.floor((endTimestamp - startTimestamp) / UTC_DAY_MS) + 1 },
-    (_, index) => new Date(startTimestamp + index * UTC_DAY_MS).toISOString().slice(0, 10)
+    (_, index) =>
+      new Date(startTimestamp + index * UTC_DAY_MS).toISOString().slice(0, 10)
   );
 }
 
@@ -130,7 +138,10 @@ function decodeBattleCounts(value: unknown): HeroBattleCounts | null {
   const decided = asCounter(counts?.decided);
   const wins = asCounter(counts?.wins);
   const losses = asCounter(counts?.losses);
-  return decided == null || wins == null || losses == null || decided !== wins + losses
+  return decided == null ||
+    wins == null ||
+    losses == null ||
+    decided !== wins + losses
     ? null
     : { decided, wins, losses };
 }
@@ -199,7 +210,7 @@ function decodeRow(value: unknown): HeroMetricsRow | null {
     runs: { completed, scored, ten_win: tenWin },
     outcomes: { perfect, gold, silver, bronze },
     ten_win_days: { known_count: knownCount, sum_days: sumDays },
-    matchups,
+    matchups
   };
 }
 
@@ -293,15 +304,20 @@ function decodeSnapshot(value: unknown): HeroMetricsDataset | null {
     coverage: {
       requestedDates,
       usableDates: days.map((day) => day.day),
-      failedDates,
-    },
+      failedDates
+    }
   };
 }
 
-export async function loadHeroMetricsDataset(signal: AbortSignal): Promise<HeroMetricsDataset> {
-  const response = await fetch(`${DEFAULT_METRICS_BASE_URL}/${HERO_METRICS_PATH}`, {
-    signal: AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
-  });
+export async function loadHeroMetricsDataset(
+  signal: AbortSignal
+): Promise<HeroMetricsDataset> {
+  const response = await fetch(
+    `${DEFAULT_METRICS_BASE_URL}/${HERO_METRICS_PATH}`,
+    {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+    }
+  );
   if (!response.ok) {
     throw new HeroMetricsHttpError(response.status);
   }

@@ -14,7 +14,7 @@ const DATES = [
   '2026-06-04',
   '2026-06-05',
   '2026-06-06',
-  '2026-06-07',
+  '2026-06-07'
 ];
 
 function makeRow(overrides: Record<string, unknown> = {}) {
@@ -25,15 +25,18 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     outcomes: { perfect: 1, gold: 1, silver: 2, bronze: 2 },
     ten_win_days: { known_count: 2, sum_days: 22 },
     matchups: [{ opponent_hero: 'Mak', decided: 10, wins: 6, losses: 4 }],
-    ...overrides,
+    ...overrides
   };
 }
 
 function makeDay(day: string, overrides = [makeRow()]) {
-  const overrideByKey = new Map(overrides.map((row) => [`${row.hero}\0${row.segment}`, row]));
+  const overrideByKey = new Map(
+    overrides.map((row) => [`${row.hero}\0${row.segment}`, row])
+  );
   const rows = HEROES.flatMap((hero) =>
     (['legend', 'non_legend'] as const).map(
-      (segment) => overrideByKey.get(`${hero}\0${segment}`) ?? makeRow({ hero, segment })
+      (segment) =>
+        overrideByKey.get(`${hero}\0${segment}`) ?? makeRow({ hero, segment })
     )
   );
   rows.push(
@@ -57,21 +60,22 @@ function makeSnapshot(
     window: {
       start: windowDates[0],
       end: windowDates.at(-1),
-      days: windowDates.length,
+      days: windowDates.length
     },
-    days,
+    days
   };
 }
 
 /** Stubs global `fetch` to answer 200 with the handler's JSON payload. */
 function stubSnapshot(
-  handler: (url: string, signal: AbortSignal) => Promise<unknown> = async () => makeSnapshot()
+  handler: (url: string, signal: AbortSignal) => Promise<unknown> = async () =>
+    makeSnapshot()
 ) {
   const fetchStub = vi.fn(async (url: string, init?: RequestInit) => {
     const payload = await handler(url, init!.signal!);
     return new Response(JSON.stringify(payload), {
       status: 200,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' }
     });
   });
   vi.stubGlobal('fetch', fetchStub);
@@ -93,7 +97,10 @@ describe('loadHeroMetricsDataset', () => {
     async (dayCount) => {
       const schema = JSON.parse(
         readFileSync(
-          new URL('../../bazaarplusplus-analyzer/contracts/v6/heroes.schema.json', import.meta.url),
+          new URL(
+            '../../bazaarplusplus-analyzer/contracts/v6/heroes.schema.json',
+            import.meta.url
+          ),
           'utf8'
         )
       );
@@ -106,7 +113,7 @@ describe('loadHeroMetricsDataset', () => {
 
       expect({ valid: validate(snapshot), errors: validate.errors }).toEqual({
         valid: true,
-        errors: null,
+        errors: null
       });
       const dataset = await loadFrom(async () => snapshot);
       expect(dataset.coverage.usableDates).toEqual(windowDates);
@@ -130,8 +137,8 @@ describe('loadHeroMetricsDataset', () => {
       coverage: {
         requestedDates: DATES,
         usableDates: DATES,
-        failedDates: [],
-      },
+        failedDates: []
+      }
     });
     expect(dataset.days.map((day) => day.day)).toEqual(DATES);
   });
@@ -140,19 +147,23 @@ describe('loadHeroMetricsDataset', () => {
     'accepts a %i-day newest-first snapshot and preserves its actual window',
     async (dayCount) => {
       const windowDates = DATES.slice(-dayCount);
-      const snapshotDays = [...windowDates].reverse().map((day) => makeDay(day));
+      const snapshotDays = [...windowDates]
+        .reverse()
+        .map((day) => makeDay(day));
 
-      const dataset = await loadFrom(async () => makeSnapshot(snapshotDays, windowDates));
+      const dataset = await loadFrom(async () =>
+        makeSnapshot(snapshotDays, windowDates)
+      );
 
       expect(dataset.window).toEqual({
         start: windowDates[0],
         end: windowDates.at(-1),
-        days: dayCount,
+        days: dayCount
       });
       expect(dataset.coverage).toEqual({
         requestedDates: windowDates,
         usableDates: windowDates,
-        failedDates: [],
+        failedDates: []
       });
       expect(dataset.days.map((day) => day.day)).toEqual(windowDates);
     }
@@ -170,26 +181,30 @@ describe('loadHeroMetricsDataset', () => {
               decided: 3,
               wins: 2,
               losses: 1,
-              additive_matchup_field: true,
-            },
+              additive_matchup_field: true
+            }
           ],
-          additive_row_field: true,
-        }),
+          additive_row_field: true
+        })
       ]),
       ...DATES.slice(0, -1)
         .reverse()
-        .map((day) => makeDay(day)),
+        .map((day) => makeDay(day))
     ]);
     Object.assign(snapshot, { additive_snapshot_field: true });
     stubSnapshot(async () => snapshot);
 
     const dataset = await loadHeroMetricsDataset(new AbortController().signal);
-    const row = dataset.days.at(-1)?.rows.find((candidate) => candidate.hero === 'Common');
+    const row = dataset.days
+      .at(-1)
+      ?.rows.find((candidate) => candidate.hero === 'Common');
 
     expect(row).toMatchObject({
       hero: 'Common',
       segment: 'non_legend',
-      matchups: [{ opponent_hero: 'FutureHero', decided: 3, wins: 2, losses: 1 }],
+      matchups: [
+        { opponent_hero: 'FutureHero', decided: 3, wins: 2, losses: 1 }
+      ]
     });
     expect(row).not.toHaveProperty('additive_row_field');
   });
@@ -199,16 +214,25 @@ describe('loadHeroMetricsDataset', () => {
     ['kind', { kind: 'hero_web_daily' }],
     ['generated timestamp', { generated_at: 'not-a-timestamp' }],
     ['window start', { window: { start: 'bad', end: '2026-06-07', days: 7 } }],
-    ['window day count', { window: { start: '2026-06-01', end: '2026-06-07', days: 6 } }],
-    ['zero-day window', { window: { start: '2026-06-07', end: '2026-06-07', days: 0 } }],
-    ['eight-day window', { window: { start: '2026-05-31', end: '2026-06-07', days: 8 } }],
-    ['days array', { days: null }],
+    [
+      'window day count',
+      { window: { start: '2026-06-01', end: '2026-06-07', days: 6 } }
+    ],
+    [
+      'zero-day window',
+      { window: { start: '2026-06-07', end: '2026-06-07', days: 0 } }
+    ],
+    [
+      'eight-day window',
+      { window: { start: '2026-05-31', end: '2026-06-07', days: 8 } }
+    ],
+    ['days array', { days: null }]
   ])('fails the page for an invalid snapshot %s', async (_label, override) => {
     stubSnapshot(async () => ({ ...makeSnapshot(), ...override }));
 
-    await expect(loadHeroMetricsDataset(new AbortController().signal)).rejects.toThrow(
-      'Unexpected hero metrics snapshot format'
-    );
+    await expect(
+      loadHeroMetricsDataset(new AbortController().signal)
+    ).rejects.toThrow('Unexpected hero metrics snapshot format');
   });
 
   test('requires the days array length to equal window.days', async () => {
@@ -223,9 +247,9 @@ describe('loadHeroMetricsDataset', () => {
       )
     );
 
-    await expect(loadHeroMetricsDataset(new AbortController().signal)).rejects.toThrow(
-      'Unexpected hero metrics snapshot format'
-    );
+    await expect(
+      loadHeroMetricsDataset(new AbortController().signal)
+    ).rejects.toThrow('Unexpected hero metrics snapshot format');
   });
 
   test('requires snapshot entries in newest-first order', async () => {
@@ -237,18 +261,20 @@ describe('loadHeroMetricsDataset', () => {
       )
     );
 
-    await expect(loadHeroMetricsDataset(new AbortController().signal)).rejects.toThrow(
-      'Unexpected hero metrics snapshot format'
-    );
+    await expect(
+      loadHeroMetricsDataset(new AbortController().signal)
+    ).rejects.toThrow('Unexpected hero metrics snapshot format');
   });
 
   test('surfaces an invalid date in Dataset Coverage without zero-filling it', async () => {
     stubSnapshot(async () =>
       makeSnapshot([
-        makeDay('2026-06-07', [makeRow({ runs: { completed: -1, scored: 0, ten_win: 0 } })]),
+        makeDay('2026-06-07', [
+          makeRow({ runs: { completed: -1, scored: 0, ten_win: 0 } })
+        ]),
         ...DATES.slice(0, -1)
           .reverse()
-          .map((day) => makeDay(day)),
+          .map((day) => makeDay(day))
       ])
     );
 
@@ -258,34 +284,45 @@ describe('loadHeroMetricsDataset', () => {
     expect(dataset.coverage).toEqual({
       requestedDates: DATES,
       usableDates: DATES.slice(0, -1),
-      failedDates: ['2026-06-07'],
+      failedDates: ['2026-06-07']
     });
   });
 
   test.each([
     ['stored segment', { segment: 'all' }],
-    ['required counter', { runs: { completed: 8, scored: 8, ten_win: Number.NaN } }],
+    [
+      'required counter',
+      { runs: { completed: 8, scored: 8, ten_win: Number.NaN } }
+    ],
     ['ten-win invariant', { runs: { completed: 8, scored: 8, ten_win: 3 } }],
-    ['outcome invariant', { outcomes: { perfect: 1, gold: 1, silver: 4, bronze: 3 } }],
+    [
+      'outcome invariant',
+      { outcomes: { perfect: 1, gold: 1, silver: 4, bronze: 3 } }
+    ],
     [
       'matchup invariant',
-      { matchups: [{ opponent_hero: 'Mak', decided: 10, wins: 6, losses: 3 }] },
-    ],
-  ])('marks a date failed for an invalid row %s', async (_label, rowOverride) => {
-    stubSnapshot(async () =>
-      makeSnapshot([
-        makeDay('2026-06-07', [makeRow(rowOverride)]),
-        ...DATES.slice(0, -1)
-          .reverse()
-          .map((day) => makeDay(day)),
-      ])
-    );
+      { matchups: [{ opponent_hero: 'Mak', decided: 10, wins: 6, losses: 3 }] }
+    ]
+  ])(
+    'marks a date failed for an invalid row %s',
+    async (_label, rowOverride) => {
+      stubSnapshot(async () =>
+        makeSnapshot([
+          makeDay('2026-06-07', [makeRow(rowOverride)]),
+          ...DATES.slice(0, -1)
+            .reverse()
+            .map((day) => makeDay(day))
+        ])
+      );
 
-    const dataset = await loadHeroMetricsDataset(new AbortController().signal);
+      const dataset = await loadHeroMetricsDataset(
+        new AbortController().signal
+      );
 
-    expect(dataset.coverage.failedDates).toEqual(['2026-06-07']);
-    expect(dataset.days).toHaveLength(6);
-  });
+      expect(dataset.coverage.failedDates).toEqual(['2026-06-07']);
+      expect(dataset.days).toHaveLength(6);
+    }
+  );
 
   test('marks a date failed when its canonical hero-by-segment matrix is incomplete', async () => {
     const incompleteDay = makeDay('2026-06-07');
@@ -297,7 +334,7 @@ describe('loadHeroMetricsDataset', () => {
         incompleteDay,
         ...DATES.slice(0, -1)
           .reverse()
-          .map((day) => makeDay(day)),
+          .map((day) => makeDay(day))
       ])
     );
 
@@ -321,6 +358,8 @@ describe('loadHeroMetricsDataset', () => {
       throw signal.reason;
     });
 
-    await expect(loadHeroMetricsDataset(controller.signal)).rejects.toThrow(/caller aborted/i);
+    await expect(loadHeroMetricsDataset(controller.signal)).rejects.toThrow(
+      /caller aborted/i
+    );
   });
 });

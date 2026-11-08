@@ -8,12 +8,13 @@ import {
   ANDROID_GAME_STATUS_URL,
   GAME_STATUS_URL,
   RELEASE_BASE_URL,
-  platformManifestPath,
+  platformManifestPath
 } from '../../release/downloads';
 
 export const siteRoot = resolve(import.meta.dirname, '..');
 
-export const METRICS_URL = 'https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json';
+export const METRICS_URL =
+  'https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json';
 export const SUPPORTERS_URL =
   'https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json';
 export const WINDOWS_MANIFEST_URL = `${RELEASE_BASE_URL}/${platformManifestPath('windows-x86_64')}`;
@@ -30,13 +31,18 @@ const HERO_FIXTURES = {
   threeDay: 'e2e/fixtures/heroes-3day.json',
   // Carries a non-canonical hero and one invalid day, so it is not schema-valid on purpose.
   failedDay: 'e2e/fixtures/heroes-failed-day.json',
-  empty: 'e2e/fixtures/heroes-empty.json',
+  empty: 'e2e/fixtures/heroes-empty.json'
 } as const;
 
 export type HeroFixture = keyof typeof HERO_FIXTURES;
 
-const validateHeroSnapshot = new Ajv2020({ allErrors: true, strictTypes: false }).compile(
-  readJson('../bazaarplusplus-analyzer/contracts/v6/heroes.schema.json') as object
+const validateHeroSnapshot = new Ajv2020({
+  allErrors: true,
+  strictTypes: false
+}).compile(
+  readJson(
+    '../bazaarplusplus-analyzer/contracts/v6/heroes.schema.json'
+  ) as object
 );
 
 /** Validates against the analyzer-owned schema; returns the Ajv errors, or null when valid. */
@@ -47,7 +53,10 @@ export function heroSchemaErrors(snapshot: unknown): unknown {
 export function heroSnapshot(fixture: HeroFixture): unknown {
   const snapshot = readJson(HERO_FIXTURES[fixture]);
   if (fixture !== 'failedDay') {
-    expect(heroSchemaErrors(snapshot), `${fixture} must satisfy heroes.schema.json`).toBeNull();
+    expect(
+      heroSchemaErrors(snapshot),
+      `${fixture} must satisfy heroes.schema.json`
+    ).toBeNull();
   }
   return snapshot;
 }
@@ -65,18 +74,24 @@ export type GoldenSources = {
   androidGameStatus: SourceReply;
 };
 
-export function goldenSources(overrides: Partial<GoldenSources> = {}): GoldenSources {
+export function goldenSources(
+  overrides: Partial<GoldenSources> = {}
+): GoldenSources {
   return {
     metrics: { json: heroSnapshot('latest') },
     supporters: { json: readJson('e2e/fixtures/supporters.json') },
     // The workspace release fixtures are read in place, never copied.
-    windows: { json: readJson('../release/fixtures/latest/windows-x86_64.json') },
+    windows: {
+      json: readJson('../release/fixtures/latest/windows-x86_64.json')
+    },
     mac: { json: readJson('../release/fixtures/latest/darwin-aarch64.json') },
-    android: { json: readJson('../release/fixtures/latest/android-aarch64.json') },
+    android: {
+      json: readJson('../release/fixtures/latest/android-aarch64.json')
+    },
     // Answered only where a spec asks, so the shared page goldens stay free of Steam's clock.
     gameStatus: { status: 404 },
     androidGameStatus: { status: 404 },
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -85,12 +100,19 @@ async function reply(route: Route, source: SourceReply): Promise<void> {
     return;
   }
   // Every source is cross-origin: without the CORS header the browser rejects the response.
-  const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'application/json'
+  };
   if ('status' in source) {
     await route.fulfill({ status: source.status, headers, body: '{}' });
     return;
   }
-  await route.fulfill({ status: 200, headers, body: JSON.stringify(source.json) });
+  await route.fulfill({
+    status: 200,
+    headers,
+    body: JSON.stringify(source.json)
+  });
 }
 
 export type GoldenRoutes = {
@@ -117,8 +139,8 @@ export async function installGoldenRoutes(
       mac: 0,
       android: 0,
       gameStatus: 0,
-      androidGameStatus: 0,
-    },
+      androidGameStatus: 0
+    }
   };
   const byUrl: Record<string, keyof GoldenSources> = {
     [METRICS_URL]: 'metrics',
@@ -127,7 +149,7 @@ export async function installGoldenRoutes(
     [MAC_MANIFEST_URL]: 'mac',
     [ANDROID_MANIFEST_URL]: 'android',
     [GAME_STATUS_URL]: 'gameStatus',
-    [ANDROID_GAME_STATUS_URL]: 'androidGameStatus',
+    [ANDROID_GAME_STATUS_URL]: 'androidGameStatus'
   };
 
   await page.route('**/*', async (route) => {
@@ -151,7 +173,10 @@ export async function installGoldenRoutes(
 
 /** Ends a golden spec: nothing may have tried to leave localhost unintercepted. */
 export function expectNoUnexpectedRequests(routes: GoldenRoutes): void {
-  expect(routes.unexpected, 'requests outside localhost that no golden source served').toEqual([]);
+  expect(
+    routes.unexpected,
+    'requests outside localhost that no golden source served'
+  ).toEqual([]);
 }
 
 /** Pretty JSON with a trailing newline, the format every JSON golden is committed in. */
@@ -160,7 +185,11 @@ export function goldenJson(value: unknown): string {
 }
 
 /** Writes a golden when updating (or when it is missing), and returns the committed value. */
-export function readOrWriteGolden(testInfo: TestInfo, name: string, actual: string): string {
+export function readOrWriteGolden(
+  testInfo: TestInfo,
+  name: string,
+  actual: string
+): string {
   const path = testInfo.snapshotPath(name);
   const update = testInfo.config.updateSnapshots;
   let committed: string | null = null;
@@ -170,7 +199,9 @@ export function readOrWriteGolden(testInfo: TestInfo, name: string, actual: stri
     committed = null;
   }
   if (committed == null && update === 'none') {
-    throw new Error(`${name} golden is missing; regenerate it with BPP_UPDATE_GOLDENS=1`);
+    throw new Error(
+      `${name} golden is missing; regenerate it with BPP_UPDATE_GOLDENS=1`
+    );
   }
   if (committed == null || update === 'all' || update === 'changed') {
     writeFileSync(path, actual);

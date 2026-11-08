@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc", "unicorn", "import", "promise", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "ignorePatterns": ["contracts/**", "test/goldens/**", ".wrangler/**"],
+  "rules": {
+    // Same opt-outs as the site.
+    "unicorn/no-array-sort": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/consistent-return": "off",
+    "typescript/unbound-method": "off",
+    // D1 writes and ingest steps run one at a time on purpose.
+    "no-await-in-loop": "off"
+  },
+  "overrides": [
+    {
+      "files": ["test/**/*.ts"],
+      "rules": {
+        "vitest/require-mock-type-parameters": "off",
+        // Parameterized tests branch on the case and label expects with a message.
+        "vitest/no-conditional-expect": "off",
+        "vitest/valid-expect": "off",
+        "vitest/expect-expect": "off",
+        "vitest/require-to-throw-message": "off",
+        "eslint/no-shadow": "off",
+        "unicorn/consistent-function-scoping": "off",
+        // The D1 fixture mirrors D1's generic signatures.
+        "typescript/no-unnecessary-type-parameters": "off",
+        // tsgolint reads tsconfig.json, which does not include test/, so it
+        // misjudges the Cloudflare.Env casts that tsconfig.test.json needs.
+        "typescript/no-unnecessary-type-assertion": "off"
+      }
+    }
+  ]
+}

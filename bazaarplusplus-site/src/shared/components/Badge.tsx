@@ -4,7 +4,7 @@ type BadgeTone = 'neutral' | 'warn';
 
 const TONES: Record<BadgeTone, string> = {
   neutral: 'bg-hover text-text-2',
-  warn: 'bg-warning-subtle text-warning',
+  warn: 'bg-warning-subtle text-warning'
 };
 
 /**
@@ -13,7 +13,7 @@ const TONES: Record<BadgeTone, string> = {
  */
 export default function Badge({
   tone = 'neutral',
-  children,
+  children
 }: {
   tone?: BadgeTone;
   children: ReactNode;
@@ -23,7 +23,10 @@ export default function Badge({
       className={`inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 text-sm font-medium whitespace-nowrap ${TONES[tone]}`}
     >
       {tone === 'neutral' ? null : (
-        <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />
+        <span
+          aria-hidden="true"
+          className="size-1.5 shrink-0 rounded-full bg-current"
+        />
       )}
       {children}
     </span>

@@ -1,48 +1,50 @@
-import { toHex } from "../bundle/hex";
-import { type OpenedBundle, openBundle } from "../bundle/open";
-import { BUNDLE_CONTENT_TYPE, BUNDLE_VERSION } from "../bundle/prefix";
-import type { Env } from "../env";
-import { apiError, HttpError } from "../errors";
-import type { BundleReceipt } from "../http/schemas";
-import { MAX_BUNDLE_BYTES } from "../limits";
-import { logError, logEvent } from "../observability";
+import { toHex } from '../bundle/hex';
+import { type OpenedBundle, openBundle } from '../bundle/open';
+import { BUNDLE_CONTENT_TYPE, BUNDLE_VERSION } from '../bundle/prefix';
+import type { Env } from '../env';
+import { apiError, HttpError } from '../errors';
+import type { BundleReceipt } from '../http/schemas';
+import { MAX_BUNDLE_BYTES } from '../limits';
+import { logError, logEvent } from '../observability';
 import {
   type CommitOutcome,
   commitBundle,
   conflictError,
-  inspectExistingBundle,
-} from "./bundle-commit";
+  inspectExistingBundle
+} from './bundle-commit';
 
 function parseContentDigest(value: string | null): string {
-  const match = /^sha-256=:([A-Za-z0-9+/]{43}=):$/.exec(value ?? "");
+  const match = /^sha-256=:([A-Za-z0-9+/]{43}=):$/.exec(value ?? '');
   if (match === null) {
     throw apiError(
-      "invalid_content_digest",
-      "Content-Digest must contain exactly one sha-256 value",
+      'invalid_content_digest',
+      'Content-Digest must contain exactly one sha-256 value'
     );
   }
   try {
     const binary = atob(match[1]);
-    if (binary.length !== 32) throw new Error("wrong digest length");
-    return toHex(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+    if (binary.length !== 32) throw new Error('wrong digest length');
+    return toHex(
+      Uint8Array.from(binary, (character) => character.charCodeAt(0))
+    );
   } catch {
-    throw apiError("invalid_content_digest", "Content-Digest is invalid");
+    throw apiError('invalid_content_digest', 'Content-Digest is invalid');
   }
 }
 
 function parseContentLength(value: string | null): number {
   if (value === null) {
-    throw apiError("content_length_required", "Content-Length is required");
+    throw apiError('content_length_required', 'Content-Length is required');
   }
   if (!/^[1-9][0-9]*$/.test(value)) {
-    throw apiError("invalid_content_length", "Content-Length is invalid");
+    throw apiError('invalid_content_length', 'Content-Length is invalid');
   }
   const length = Number(value);
   if (!Number.isSafeInteger(length)) {
-    throw apiError("invalid_content_length", "Content-Length is invalid");
+    throw apiError('invalid_content_length', 'Content-Length is invalid');
   }
   if (length >= MAX_BUNDLE_BYTES + 1) {
-    throw apiError("bundle_too_large", "Bundle reaches the 8 MiB limit");
+    throw apiError('bundle_too_large', 'Bundle reaches the 8 MiB limit');
   }
   return length;
 }
@@ -51,31 +53,41 @@ async function validateExistingObject(
   env: Env,
   key: string,
   incomingDigest: string,
-  incomingBundleId: string,
+  incomingBundleId: string
 ): Promise<number> {
   const object = await env.BUNDLE_BUCKET.get(key);
   if (object === null) {
-    throw apiError("storage_unavailable", "Conditional R2 conflict object disappeared");
+    throw apiError(
+      'storage_unavailable',
+      'Conditional R2 conflict object disappeared'
+    );
   }
   try {
     const opened = await openBundle(object.body, object.size, null);
     await opened.body.pipeTo(new WritableStream<Uint8Array>());
     const digest = await opened.digest;
-    if (opened.descriptor.bundleId !== incomingBundleId || digest !== incomingDigest) {
-      throw conflictError("bundle_id_conflict");
+    if (
+      opened.descriptor.bundleId !== incomingBundleId ||
+      digest !== incomingDigest
+    ) {
+      throw conflictError('bundle_id_conflict');
     }
     return object.uploaded.getTime();
   } catch (error) {
-    if (error instanceof HttpError && error.code === "bundle_id_conflict") throw error;
-    logError("bundle.orphan.invalid", { object_key: key, reason: "existing_object_invalid" });
-    throw apiError("storage_unavailable", "Existing Bundle object is invalid");
+    if (error instanceof HttpError && error.code === 'bundle_id_conflict')
+      throw error;
+    logError('bundle.orphan.invalid', {
+      object_key: key,
+      reason: 'existing_object_invalid'
+    });
+    throw apiError('storage_unavailable', 'Existing Bundle object is invalid');
   }
 }
 
 async function putConditionally(
   env: Env,
   opened: OpenedBundle,
-  digest: string,
+  digest: string
 ): Promise<{ created: boolean; storedAtMs: number }> {
   const descriptor = opened.descriptor;
   const fixed = new FixedLengthStream(descriptor.objectBytes);
@@ -84,38 +96,44 @@ async function putConditionally(
   let object: R2Object | null;
   try {
     object = await env.BUNDLE_BUCKET.put(descriptor.objectKey, fixed.readable, {
-      onlyIf: { etagDoesNotMatch: "*" },
+      onlyIf: { etagDoesNotMatch: '*' },
       httpMetadata: { contentType: BUNDLE_CONTENT_TYPE },
       customMetadata: {
         bundle_version: String(BUNDLE_VERSION),
         manifest_length: String(descriptor.manifestBytes),
-        bundle_sha256: digest,
-      },
+        bundle_sha256: digest
+      }
     });
   } catch (putError) {
     await fixed.readable.cancel(putError).catch(() => undefined);
     const pumpError = await pump.then(
       () => null,
-      (error: unknown) => error,
+      (error: unknown) => error
     );
     if (pumpError instanceof HttpError) {
-      const candidate = await env.BUNDLE_BUCKET.head(descriptor.objectKey).catch(() => null);
+      const candidate = await env.BUNDLE_BUCKET.head(
+        descriptor.objectKey
+      ).catch(() => null);
       if (candidate?.customMetadata?.bundle_sha256 === digest) {
-        await env.BUNDLE_BUCKET.delete(descriptor.objectKey).catch(() => undefined);
+        await env.BUNDLE_BUCKET.delete(descriptor.objectKey).catch(
+          () => undefined
+        );
       }
       throw pumpError;
     }
-    throw apiError("storage_unavailable", "R2 Bundle write failed");
+    throw apiError('storage_unavailable', 'R2 Bundle write failed');
   }
 
   if (object === null) {
-    await fixed.readable.cancel("conditional R2 conflict").catch(() => undefined);
+    await fixed.readable
+      .cancel('conditional R2 conflict')
+      .catch(() => undefined);
     await pump.catch(() => undefined);
     const storedAtMs = await validateExistingObject(
       env,
       descriptor.objectKey,
       digest,
-      descriptor.bundleId,
+      descriptor.bundleId
     );
     return { created: false, storedAtMs };
   }
@@ -127,22 +145,27 @@ async function putConditionally(
   } catch (error) {
     await env.BUNDLE_BUCKET.delete(descriptor.objectKey).catch(() => undefined);
     if (error instanceof HttpError) throw error;
-    throw apiError("storage_unavailable", "R2 Bundle streaming failed");
+    throw apiError('storage_unavailable', 'R2 Bundle streaming failed');
   }
 }
 
 export async function ingestBundle(
   request: Request,
   env: Env,
-  requestId: string,
+  requestId: string
 ): Promise<{ status: 200 | 201; receipt: BundleReceipt }> {
-  if (request.headers.get("Content-Type") !== BUNDLE_CONTENT_TYPE) {
-    throw apiError("unsupported_content_type", "Bundle content type is unsupported");
+  if (request.headers.get('Content-Type') !== BUNDLE_CONTENT_TYPE) {
+    throw apiError(
+      'unsupported_content_type',
+      'Bundle content type is unsupported'
+    );
   }
-  const contentLength = parseContentLength(request.headers.get("Content-Length"));
-  const digest = parseContentDigest(request.headers.get("Content-Digest"));
+  const contentLength = parseContentLength(
+    request.headers.get('Content-Length')
+  );
+  const digest = parseContentDigest(request.headers.get('Content-Digest'));
   if (request.body === null) {
-    throw apiError("invalid_content_length", "Bundle body is missing");
+    throw apiError('invalid_content_length', 'Bundle body is missing');
   }
   const opened = await openBundle(request.body, contentLength, digest);
   const { descriptor } = opened;
@@ -151,13 +174,13 @@ export async function ingestBundle(
     existing = await inspectExistingBundle(env.DB, descriptor, digest);
   } catch (error) {
     await opened.body.cancel(error).catch(() => undefined);
-    throw apiError("storage_unavailable", "Bundle index is unavailable");
+    throw apiError('storage_unavailable', 'Bundle index is unavailable');
   }
-  if (existing?.kind === "duplicate") {
-    await opened.body.cancel("duplicate Bundle").catch(() => undefined);
+  if (existing?.kind === 'duplicate') {
+    await opened.body.cancel('duplicate Bundle').catch(() => undefined);
     return { status: 200, receipt: existing.receipt };
   }
-  if (existing?.kind === "conflict") {
+  if (existing?.kind === 'conflict') {
     const error = conflictError(existing.reason);
     await opened.body.cancel(error).catch(() => undefined);
     throw error;
@@ -169,35 +192,37 @@ export async function ingestBundle(
   try {
     outcome = await commitBundle(env.DB, descriptor, digest, {
       availableAtMs: now,
-      storedAtMs: objectWrite.storedAtMs,
+      storedAtMs: objectWrite.storedAtMs
     });
   } catch (error) {
     if (error instanceof HttpError && error.status === 503) {
-      logError("bundle.ingest.orphan", {
+      logError('bundle.ingest.orphan', {
         request_id: requestId,
         bundle_id: descriptor.bundleId,
-        object_key: descriptor.objectKey,
+        object_key: descriptor.objectKey
       });
     }
     throw error;
   }
-  if (outcome.kind === "duplicate") {
+  if (outcome.kind === 'duplicate') {
     return { status: 200, receipt: outcome.receipt };
   }
-  if (outcome.kind === "conflict") {
-    if (outcome.reason === "run_already_bundled" && objectWrite.created) {
-      await env.BUNDLE_BUCKET.delete(descriptor.objectKey).catch(() => undefined);
+  if (outcome.kind === 'conflict') {
+    if (outcome.reason === 'run_already_bundled' && objectWrite.created) {
+      await env.BUNDLE_BUCKET.delete(descriptor.objectKey).catch(
+        () => undefined
+      );
     }
     throw conflictError(outcome.reason);
   }
 
-  logEvent("bundle.ingest", {
+  logEvent('bundle.ingest', {
     request_id: requestId,
     bundle_id: descriptor.bundleId,
     run_id: descriptor.runId,
     bytes: descriptor.objectBytes,
     has_screenshot: descriptor.screenshot !== null,
-    outcome: "stored",
+    outcome: 'stored'
   });
   return { status: 201, receipt: outcome.receipt };
 }

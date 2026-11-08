@@ -5,7 +5,7 @@ import { getIntlLocale } from './intl-locale';
 export const WINDOW_LABELS: Record<MetricWindow, string> = {
   '1d': '1D',
   '3d': '3D',
-  '7d': '7D',
+  '7d': '7D'
 };
 
 export function formatPercent(value: number): string {
@@ -28,13 +28,13 @@ export function formatDateTime(value: string, locale: Locale): string {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-    timeZoneName: 'short',
+    timeZoneName: 'short'
   }).format(new Date(value));
 }
 
 export function formatShortDate(value: string, locale: Locale): string {
   return new Intl.DateTimeFormat(getIntlLocale(locale), {
     month: 'short',
-    day: 'numeric',
+    day: 'numeric'
   }).format(new Date(value));
 }

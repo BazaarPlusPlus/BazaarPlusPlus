@@ -16,7 +16,7 @@ export default function DialogShell({
   onClose,
   labelledBy,
   closeLabel,
-  children,
+  children
 }: DialogShellProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -27,7 +27,9 @@ export default function DialogShell({
     }
 
     previousFocusRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     cardRef.current?.focus();
 
     function handleKey(event: KeyboardEvent) {

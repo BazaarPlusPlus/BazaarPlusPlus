@@ -10,7 +10,12 @@ type InfoPageShellProps = {
   children: ReactNode;
 };
 
-export default function InfoPageShell({ location, title, intro, children }: InfoPageShellProps) {
+export default function InfoPageShell({
+  location,
+  title,
+  intro,
+  children
+}: InfoPageShellProps) {
   return (
     <PageLayout location={location}>
       <PageHeading title={title} intro={intro} />

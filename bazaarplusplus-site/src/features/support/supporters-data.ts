@@ -3,20 +3,25 @@ export type Supporter = {
   tier: number;
 };
 
-const SUPPORTER_LIST_URL = 'https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json';
+const SUPPORTER_LIST_URL =
+  'https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json';
 
 function isSupporter(value: unknown): value is Supporter {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
   const candidate = value as Record<string, unknown>;
-  return typeof candidate.name === 'string' && typeof candidate.tier === 'number';
+  return (
+    typeof candidate.name === 'string' && typeof candidate.tier === 'number'
+  );
 }
 
-export async function loadSupporters(signal?: AbortSignal): Promise<Supporter[]> {
+export async function loadSupporters(
+  signal?: AbortSignal
+): Promise<Supporter[]> {
   const response = await fetch(SUPPORTER_LIST_URL, {
     headers: { Accept: 'application/json' },
-    signal,
+    signal
   });
 
   if (!response.ok) {
@@ -47,7 +52,9 @@ function fisherYatesShuffle<T>(items: T[]): T[] {
   return shuffled;
 }
 
-export function orderSupportersForDisplay(supportersInput: Supporter[]): Supporter[] {
+export function orderSupportersForDisplay(
+  supportersInput: Supporter[]
+): Supporter[] {
   const supportersByTier = new Map<number, Supporter[]>();
 
   for (const supporter of supportersInput) {

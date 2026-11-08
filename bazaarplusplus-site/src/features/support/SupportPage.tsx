@@ -8,15 +8,32 @@ import { ExternalLinkIcon } from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import type { ResolvedSpaLocation } from '../../app/router';
-import { getSiteCopy, KOFI_URL, type SupportPageCopy } from '../../content/site-copy';
-import { loadSupporters, orderSupportersForDisplay, type Supporter } from './supporters-data';
+import {
+  getSiteCopy,
+  KOFI_URL,
+  type SupportPageCopy
+} from '../../content/site-copy';
+import {
+  loadSupporters,
+  orderSupportersForDisplay,
+  type Supporter
+} from './supporters-data';
 import wechatPayQrSvg from '../../../../bazaarplusplus-installer/static/support/wechat-pay.svg?raw';
 
 type SupportPageProps = {
   location: ResolvedSpaLocation;
 };
 
-const SUPPORTER_SKELETON_WIDTHS = ['w-20', 'w-24', 'w-28', 'w-16', 'w-32', 'w-24', 'w-20', 'w-28'];
+const SUPPORTER_SKELETON_WIDTHS = [
+  'w-20',
+  'w-24',
+  'w-28',
+  'w-16',
+  'w-32',
+  'w-24',
+  'w-20',
+  'w-28'
+];
 
 function tierClassName(tier: number): string {
   if (tier >= 4) {
@@ -38,10 +55,19 @@ type SupportersBodyProps = {
   ordered: Supporter[];
 };
 
-function SupportersBody({ copy, isLoading, isError, ordered }: SupportersBodyProps) {
+function SupportersBody({
+  copy,
+  isLoading,
+  isError,
+  ordered
+}: SupportersBodyProps) {
   if (isLoading) {
     return (
-      <ul className="flex flex-wrap gap-2" aria-busy="true" aria-label={copy.heading}>
+      <ul
+        className="flex flex-wrap gap-2"
+        aria-busy="true"
+        aria-label={copy.heading}
+      >
         {SUPPORTER_SKELETON_WIDTHS.map((width, index) => (
           <li
             key={index}
@@ -78,7 +104,7 @@ function SupportOption({
   title,
   regionLabel,
   description,
-  action,
+  action
 }: {
   title: string;
   regionLabel: string;
@@ -106,10 +132,13 @@ export default function SupportPage({ location }: SupportPageProps) {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['supporters'],
-    queryFn: ({ signal }) => loadSupporters(signal),
+    queryFn: ({ signal }) => loadSupporters(signal)
   });
 
-  const orderedSupporters = useMemo(() => (data ? orderSupportersForDisplay(data) : []), [data]);
+  const orderedSupporters = useMemo(
+    () => (data ? orderSupportersForDisplay(data) : []),
+    [data]
+  );
 
   return (
     <InfoPageShell location={location} title={copy.title} intro={copy.intro}>
@@ -129,17 +158,29 @@ export default function SupportPage({ location }: SupportPageProps) {
           regionLabel={copy.kofi.regionLabel}
           description={copy.kofi.description}
           action={
-            <Button href={KOFI_URL} target="_blank" rel="noreferrer" icon={<ExternalLinkIcon />}>
+            <Button
+              href={KOFI_URL}
+              target="_blank"
+              rel="noreferrer"
+              icon={<ExternalLinkIcon />}
+            >
               {copy.kofi.actionLabel}
             </Button>
           }
         />
       </section>
 
-      <section aria-labelledby={supportersHeadingId} className="flex flex-col gap-5">
+      <section
+        aria-labelledby={supportersHeadingId}
+        className="flex flex-col gap-5"
+      >
         <header className="flex flex-col gap-2">
-          <SectionHeading id={supportersHeadingId}>{copy.supporters.heading}</SectionHeading>
-          <p className="max-w-2xl text-[15px] text-text-2">{copy.supporters.intro}</p>
+          <SectionHeading id={supportersHeadingId}>
+            {copy.supporters.heading}
+          </SectionHeading>
+          <p className="max-w-2xl text-[15px] text-text-2">
+            {copy.supporters.intro}
+          </p>
         </header>
 
         <SupportersBody
@@ -158,10 +199,15 @@ export default function SupportPage({ location }: SupportPageProps) {
         labelledBy={wechatTitleId}
         closeLabel={copy.closeLabel}
       >
-        <h2 id={wechatTitleId} className="pr-10 text-lg font-semibold text-text-1">
+        <h2
+          id={wechatTitleId}
+          className="pr-10 text-lg font-semibold text-text-1"
+        >
           {copy.wechat.modalTitle}
         </h2>
-        <p className="mt-0.5 text-[15px] text-text-3">{copy.wechat.modalSubtitle}</p>
+        <p className="mt-0.5 text-[15px] text-text-3">
+          {copy.wechat.modalSubtitle}
+        </p>
         <div className="mt-5 flex justify-center">
           <div
             className="flex size-56 items-center justify-center rounded-panel bg-white p-3"

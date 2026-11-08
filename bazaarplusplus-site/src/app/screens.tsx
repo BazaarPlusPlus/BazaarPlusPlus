@@ -25,7 +25,7 @@ export function LoadingScreen({ location }: { location: ResolvedSpaLocation }) {
 export function ErrorScreen({
   location,
   onRetry,
-  retrying = false,
+  retrying = false
 }: {
   location: ResolvedSpaLocation;
   onRetry: () => void;
@@ -42,7 +42,12 @@ export function ErrorScreen({
         title={errorCopy.title}
         body={errorCopy.body}
         actions={
-          <Button variant="primary" icon={<RefreshIcon />} busy={retrying} onClick={onRetry}>
+          <Button
+            variant="primary"
+            icon={<RefreshIcon />}
+            busy={retrying}
+            onClick={onRetry}
+          >
             {errorCopy.retry}
           </Button>
         }
@@ -51,7 +56,11 @@ export function ErrorScreen({
   );
 }
 
-export function NotFoundScreen({ location }: { location: ResolvedSpaLocation }) {
+export function NotFoundScreen({
+  location
+}: {
+  location: ResolvedSpaLocation;
+}) {
   const copy = getSiteCopy(location.locale).common.notFound;
 
   return (
@@ -60,7 +69,11 @@ export function NotFoundScreen({ location }: { location: ResolvedSpaLocation }) 
         kind="not-found"
         headingLevel={1}
         title={copy.title}
-        actions={<Button href={location.navigation.heroesHref}>{copy.backToHeroes}</Button>}
+        actions={
+          <Button href={location.navigation.heroesHref}>
+            {copy.backToHeroes}
+          </Button>
+        }
       />
     </PageLayout>
   );

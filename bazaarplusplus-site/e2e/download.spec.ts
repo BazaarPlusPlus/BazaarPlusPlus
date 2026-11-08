@@ -6,24 +6,32 @@ import {
   goldenSources,
   installGoldenRoutes,
   readJson,
-  type GoldenSources,
+  type GoldenSources
 } from './golden';
 import { settle } from './page';
 
 type Manifest = { downloads: Record<string, { mainlandUrl?: string }> };
-type AndroidManifest = { downloads: Record<string, { app: { url: string; size: number } }> };
+type AndroidManifest = {
+  downloads: Record<string, { app: { url: string; size: number } }>;
+};
 
 function androidFixture(): AndroidManifest {
-  return readJson('../release/fixtures/latest/android-aarch64.json') as AndroidManifest;
+  return readJson(
+    '../release/fixtures/latest/android-aarch64.json'
+  ) as AndroidManifest;
 }
 
 function windowsWithoutMirror(): Manifest {
-  const manifest = readJson('../release/fixtures/latest/windows-x86_64.json') as Manifest;
+  const manifest = readJson(
+    '../release/fixtures/latest/windows-x86_64.json'
+  ) as Manifest;
   delete manifest.downloads['windows-x86_64'].mainlandUrl;
   return manifest;
 }
 
-function androidWithApp(app: Partial<AndroidManifest['downloads'][string]['app']>) {
+function androidWithApp(
+  app: Partial<AndroidManifest['downloads'][string]['app']>
+) {
   const manifest = androidFixture();
   Object.assign(manifest.downloads['android-aarch64'].app, app);
   return manifest;
@@ -32,15 +40,22 @@ function androidWithApp(app: Partial<AndroidManifest['downloads'][string]['app']
 const STATES: Record<string, () => Partial<GoldenSources>> = {
   'both platforms load': () => ({}),
   'mac manifest responds 503': () => ({ mac: { status: 503 } }),
-  'windows manifest has no mainlandUrl': () => ({ windows: { json: windowsWithoutMirror() } }),
-  'both manifests fail': () => ({ windows: { status: 503 }, mac: { status: 503 } }),
+  'windows manifest has no mainlandUrl': () => ({
+    windows: { json: windowsWithoutMirror() }
+  }),
+  'both manifests fail': () => ({
+    windows: { status: 503 },
+    mac: { status: 503 }
+  }),
   'android manifest responds 404': () => ({ android: { status: 404 } }),
   'android apk is outside the release origin': () => ({
-    android: { json: androidWithApp({ url: 'https://untrusted.example/a.apk' }) },
+    android: {
+      json: androidWithApp({ url: 'https://untrusted.example/a.apk' })
+    }
   }),
   'android apk has a real size': () => ({
-    android: { json: androidWithApp({ size: 2_834_563_072 }) },
-  }),
+    android: { json: androidWithApp({ size: 2_834_563_072 }) }
+  })
 };
 
 const PLATFORM_TITLES = ['Windows', 'macOS'] as const;
@@ -50,14 +65,14 @@ async function describeLink(page: Page, title: string, name: RegExp | string) {
   return {
     href: await target.getAttribute('href'),
     disabled: (await target.getAttribute('aria-disabled')) === 'true',
-    target: await target.getAttribute('target'),
+    target: await target.getAttribute('target')
   };
 }
 
 function platformCard(page: Page, title: string) {
-  return page
-    .locator('article')
-    .filter({ has: page.getByRole('heading', { level: 2, name: title, exact: true }) });
+  return page.locator('article').filter({
+    has: page.getByRole('heading', { level: 2, name: title, exact: true })
+  });
 }
 
 async function describeCard(page: Page, title: string) {
@@ -71,7 +86,7 @@ async function describeCard(page: Page, title: string) {
     adaptedGame: await fact(card, 'Adapted game'),
     onlineGame: await onlineGame(card),
     primary: await describeLink(page, title, /^Download \./),
-    mirror: await describeLink(page, title, `${title} mainland mirror`),
+    mirror: await describeLink(page, title, `${title} mainland mirror`)
   };
 }
 
@@ -93,7 +108,7 @@ async function onlineGame(card: Locator) {
   const value = key.locator('xpath=following-sibling::dd[1]');
   return {
     version: await text(value.locator('.tabular-nums')),
-    conclusion: await text(value.locator('.rounded-full').first()),
+    conclusion: await text(value.locator('.rounded-full').first())
   };
 }
 
@@ -104,7 +119,9 @@ async function describeAndroid(page: Page) {
   const download = card.getByRole('link', { name: 'Download .apk' });
   return {
     badge: await text(card.getByText('Experimental', { exact: true })),
-    requirements: await text(card.getByText('Android 11+ · arm64', { exact: true })),
+    requirements: await text(
+      card.getByText('Android 11+ · arm64', { exact: true })
+    ),
     notice: await text(card.getByText(/^Features differ from desktop/)),
     version: await fact(card, 'Current version'),
     adaptedGame: await fact(card, 'Adapted game'),
@@ -115,39 +132,49 @@ async function describeAndroid(page: Page) {
       : null,
     download: {
       href: await download.getAttribute('href'),
-      disabled: (await download.getAttribute('aria-disabled')) === 'true',
+      disabled: (await download.getAttribute('aria-disabled')) === 'true'
     },
-    feedback: await text(card.getByRole('button', { name: /^QQ feedback group/ })),
+    feedback: await text(
+      card.getByRole('button', { name: /^QQ feedback group/ })
+    ),
     stepsTitle: await card.locator('ol').getAttribute('aria-label'),
     steps: await card.locator('ol > li > div').evaluateAll((items) =>
       items.map((item) => ({
         title: item.children[0].textContent,
-        body: item.children[1].textContent,
+        body: item.children[1].textContent
       }))
     ),
-    limitsTitle: await text(card.locator('summary', { hasText: 'Good to know' })),
-    limits: await card.locator('ul > li').allTextContents(),
+    limitsTitle: await text(
+      card.locator('summary', { hasText: 'Good to know' })
+    ),
+    limits: await card.locator('ul > li').allTextContents()
   };
 }
 
 /** What a visitor can act on in each card, plus whether the GitHub fallback appears. */
 async function describeDownloads(page: Page) {
-  const cards = await Promise.all(PLATFORM_TITLES.map((title) => describeCard(page, title)));
+  const cards = await Promise.all(
+    PLATFORM_TITLES.map((title) => describeCard(page, title))
+  );
   const fallback = page
     .locator('p', { hasText: 'Cannot reach the latest version right now' })
     .getByRole('link', { name: 'GitHub Release' });
   return {
-    cards: Object.fromEntries(PLATFORM_TITLES.map((title, index) => [title, cards[index]])),
+    cards: Object.fromEntries(
+      PLATFORM_TITLES.map((title, index) => [title, cards[index]])
+    ),
     android: await describeAndroid(page),
     fallback:
       (await fallback.count()) === 0
         ? null
         : {
             text: (
-              await page.getByText(/Cannot reach the latest version right now/).textContent()
+              await page
+                .getByText(/Cannot reach the latest version right now/)
+                .textContent()
             )?.trim(),
-            href: await fallback.getAttribute('href'),
-          },
+            href: await fallback.getAttribute('href')
+          }
   };
 }
 
@@ -161,19 +188,26 @@ for (const [state, overrides] of Object.entries(STATES)) {
     await page.goto('/download?lang=en');
     await settle(page);
     result[state] = await describeDownloads(page);
-    expect(routes.hits.android, 'the page requests the Android manifest').toBeGreaterThan(0);
+    expect(
+      routes.hits.android,
+      'the page requests the Android manifest'
+    ).toBeGreaterThan(0);
     expectNoUnexpectedRequests(routes);
   });
 }
 
 test('a missing or invalid Android manifest leaves the Android card unavailable', () => {
-  type Downloads = { cards: unknown; fallback: unknown; android: Record<string, unknown> | null };
+  type Downloads = {
+    cards: unknown;
+    fallback: unknown;
+    android: Record<string, unknown> | null;
+  };
   const loaded = result['both platforms load'] as Downloads;
   const missing = result['android manifest responds 404'] as Downloads;
   expect(result['android apk is outside the release origin']).toEqual(missing);
   expect({ cards: missing.cards, fallback: missing.fallback }).toEqual({
     cards: loaded.cards,
-    fallback: loaded.fallback,
+    fallback: loaded.fallback
   });
   expect(missing.android).toMatchObject({
     badge: loaded.android?.badge,
@@ -188,7 +222,7 @@ test('a missing or invalid Android manifest leaves the Android card unavailable'
     stepsTitle: loaded.android?.stepsTitle,
     steps: loaded.android?.steps,
     limitsTitle: loaded.android?.limitsTitle,
-    limits: loaded.android?.limits,
+    limits: loaded.android?.limits
   });
 });
 
@@ -197,20 +231,27 @@ test('each Platform Release Manifest degrades only its own card (download-cards.
   expect(goldenJson(result)).toMatchSnapshot('download-cards.json');
 });
 
-test('the Android feedback button copies the QQ group number', async ({ page, context }) => {
+test('the Android feedback button copies the QQ group number', async ({
+  page,
+  context
+}) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await installGoldenRoutes(page, goldenSources());
   await page.goto('/download?lang=en');
   await settle(page);
-  const button = platformCard(page, 'Android').getByTitle('Copy the group number');
+  const button = platformCard(page, 'Android').getByTitle(
+    'Copy the group number'
+  );
   await button.click();
   await expect(button).toHaveText('Group number copied');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('1083470305');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    '1083470305'
+  );
 });
 
 test('Android keeps full checksums and usage notes behind expandable summaries', async ({
   page,
-  context,
+  context
 }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await installGoldenRoutes(page, goldenSources());
@@ -228,7 +269,9 @@ test('Android keeps full checksums and usage notes behind expandable summaries',
   await expect(hash).toBeVisible();
   await checksum.getByRole('button', { name: 'Copy full SHA-256' }).click();
   await expect(checksum.getByRole('button')).toHaveText('SHA-256 copied');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fullHash);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    fullHash
+  );
   const notes = card
     .locator('details')
     .filter({ has: page.locator('summary', { hasText: 'Good to know' }) });
@@ -238,11 +281,15 @@ test('Android keeps full checksums and usage notes behind expandable summaries',
 });
 
 test.describe('Game Status', () => {
-  test('each card shows the adapted game, the online game and the conclusion', async ({ page }) => {
+  test('each card shows the adapted game, the online game and the conclusion', async ({
+    page
+  }) => {
     const routes = await installGoldenRoutes(page, {
       ...goldenSources(),
       gameStatus: { json: readJson('../release/fixtures/game-status.json') },
-      androidGameStatus: { json: readJson('../release/fixtures/android-game-status.json') },
+      androidGameStatus: {
+        json: readJson('../release/fixtures/android-game-status.json')
+      }
     });
     await page.goto('/download?lang=en');
 
@@ -253,25 +300,30 @@ test.describe('Game Status', () => {
     ).toBeVisible();
     const games = async (title: string) => {
       const card = platformCard(page, title);
-      return { adapted: await fact(card, 'Adapted game'), online: await onlineGame(card) };
+      return {
+        adapted: await fact(card, 'Adapted game'),
+        online: await onlineGame(card)
+      };
     };
     // The same game code; a newer game; a content-only update of the adapted game.
     expect(await games('macOS')).toEqual({
       adapted: '1.0.13081',
-      online: { version: '1.0.13081', conclusion: 'Adapted' },
+      online: { version: '1.0.13081', conclusion: 'Adapted' }
     });
     expect(await games('Windows')).toEqual({
       adapted: '1.0.13057',
-      online: { version: '1.0.13082', conclusion: 'Not adapted yet' },
+      online: { version: '1.0.13082', conclusion: 'Not adapted yet' }
     });
     expect(await games('Android')).toEqual({
       adapted: '1.0.12825',
-      online: { version: '1.0.12830', conclusion: 'Adapted' },
+      online: { version: '1.0.12830', conclusion: 'Adapted' }
     });
     expectNoUnexpectedRequests(routes);
   });
 
-  test('a missing Game Status leaves only the adapted game', async ({ page }) => {
+  test('a missing Game Status leaves only the adapted game', async ({
+    page
+  }) => {
     const routes = await installGoldenRoutes(page);
     await page.goto('/download?lang=en');
 

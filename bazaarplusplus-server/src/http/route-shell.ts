@@ -1,10 +1,10 @@
-import type { Env } from "../env";
-import { apiError, HttpError } from "../errors";
-import { logError } from "../observability";
-import { authenticateServiceToken, type ServiceScope } from "./auth";
-import { htmlResponse, jsonError, jsonResponse } from "./json";
-import type { RouteDocs } from "./openapi";
-import { ROUTES } from "./routes";
+import type { Env } from '../env';
+import { apiError, HttpError } from '../errors';
+import { logError } from '../observability';
+import { authenticateServiceToken, type ServiceScope } from './auth';
+import { htmlResponse, jsonError, jsonResponse } from './json';
+import type { RouteDocs } from './openapi';
+import { ROUTES } from './routes';
 
 export interface HandlerContext {
   readonly request: Request;
@@ -20,7 +20,7 @@ export type RouteHandler = (context: HandlerContext) => Promise<HandlerResult>;
 
 export interface RouteDefinition {
   readonly path: string;
-  readonly method: "GET" | "POST";
+  readonly method: 'GET' | 'POST';
   readonly auth?: ServiceScope;
   readonly handler: RouteHandler;
   readonly docs: RouteDocs;
@@ -31,7 +31,9 @@ interface IndexedPath {
   readonly byMethod: Map<string, RouteDefinition>;
 }
 
-function indexRoutes(routes: readonly RouteDefinition[]): Map<string, IndexedPath> {
+function indexRoutes(
+  routes: readonly RouteDefinition[]
+): Map<string, IndexedPath> {
   const paths = new Map<string, IndexedPath>();
   for (const route of routes) {
     let indexed = paths.get(route.path);
@@ -45,55 +47,68 @@ function indexRoutes(routes: readonly RouteDefinition[]): Map<string, IndexedPat
   return paths;
 }
 
-function errorResponse(error: HttpError, requestId: string, headers?: HeadersInit): Response {
+function errorResponse(
+  error: HttpError,
+  requestId: string,
+  headers?: HeadersInit
+): Response {
   return jsonError(
     {
       code: error.code,
       message: error.message,
       retryable: error.retryable,
-      details: error.details,
+      details: error.details
     },
     error.status,
     requestId,
-    headers,
+    headers
   );
 }
 
-function authDenial(outcome: ReturnType<typeof authenticateServiceToken>): HttpError {
-  if (outcome === "insufficient_scope") {
-    return apiError("insufficient_scope", "The service token does not grant access to this route");
+function authDenial(
+  outcome: ReturnType<typeof authenticateServiceToken>
+): HttpError {
+  if (outcome === 'insufficient_scope') {
+    return apiError(
+      'insufficient_scope',
+      'The service token does not grant access to this route'
+    );
   }
-  if (outcome === "invalid_configuration") {
-    return apiError("internal_error", "Service token configuration is invalid");
+  if (outcome === 'invalid_configuration') {
+    return apiError('internal_error', 'Service token configuration is invalid');
   }
-  return apiError("unauthorized", "A valid service token is required");
+  return apiError('unauthorized', 'A valid service token is required');
 }
 
 const paths = indexRoutes(ROUTES);
 
 export async function fetch(request: Request, env: Env): Promise<Response> {
-  const requestId = request.headers.get("CF-Ray") ?? crypto.randomUUID();
+  const requestId = request.headers.get('CF-Ray') ?? crypto.randomUUID();
   const path = new URL(request.url).pathname;
   const indexed = paths.get(path);
   if (indexed === undefined) {
-    return errorResponse(apiError("not_found", "Route not found"), requestId);
+    return errorResponse(apiError('not_found', 'Route not found'), requestId);
   }
   const route = indexed.byMethod.get(request.method);
   if (route === undefined) {
-    return errorResponse(apiError("method_not_allowed", "Method not allowed"), requestId, {
-      Allow: indexed.methods.join(", "),
-    });
+    return errorResponse(
+      apiError('method_not_allowed', 'Method not allowed'),
+      requestId,
+      {
+        Allow: indexed.methods.join(', ')
+      }
+    );
   }
 
   if (route.auth !== undefined) {
     const outcome = authenticateServiceToken(request, env, route.auth);
-    if (outcome !== "authorized") {
-      if (outcome === "invalid_configuration") {
-        logError("worker.http_error", {
+    if (outcome !== 'authorized') {
+      if (outcome === 'invalid_configuration') {
+        logError('worker.http_error', {
           request_id: requestId,
           route: path,
           status: 500,
-          code: "invalid_configuration",
+          code: 'invalid_configuration'
         });
       }
       return errorResponse(authDenial(outcome), requestId);
@@ -102,31 +117,34 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
 
   try {
     const result = await route.handler({ request, env, requestId });
-    if ("html" in result) {
+    if ('html' in result) {
       return htmlResponse(result.html, { status: result.status, requestId });
     }
     return jsonResponse(result.body, {
       status: result.status,
-      requestId,
+      requestId
     });
   } catch (error) {
     if (error instanceof HttpError) {
       if (error.status >= 500) {
-        logError("worker.http_error", {
+        logError('worker.http_error', {
           request_id: requestId,
           route: path,
           status: error.status,
-          code: error.code,
+          code: error.code
         });
       }
       return errorResponse(error, requestId, error.headers);
     }
-    logError("worker.internal_error", {
+    logError('worker.internal_error', {
       request_id: requestId,
       route: path,
-      error_name: error instanceof Error ? error.name : "unknown",
-      reason: "unclassified_exception",
+      error_name: error instanceof Error ? error.name : 'unknown',
+      reason: 'unclassified_exception'
     });
-    return errorResponse(apiError("internal_error", "An internal error occurred"), requestId);
+    return errorResponse(
+      apiError('internal_error', 'An internal error occurred'),
+      requestId
+    );
   }
 }

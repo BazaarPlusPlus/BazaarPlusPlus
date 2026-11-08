@@ -10,7 +10,7 @@ import {
   CheckIcon,
   DownloadIcon,
   ExternalLinkIcon,
-  UsersIcon,
+  UsersIcon
 } from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
@@ -27,15 +27,19 @@ import {
   type AndroidGameStatus,
   type DownloadPlatform,
   type GameStatus,
-  type LatestInstaller,
+  type LatestInstaller
 } from './installer';
 import { formatFileSize } from './file-size';
-import { androidIconDataUri, macIconDataUri, windowsIconDataUri } from './platform-icons';
+import {
+  androidIconDataUri,
+  macIconDataUri,
+  windowsIconDataUri
+} from './platform-icons';
 
 const DOWNLOAD_PLATFORMS: DownloadPlatform[] = ['windows', 'mac'];
 const PLATFORM_ICONS: Record<DownloadPlatform, string> = {
   windows: windowsIconDataUri,
-  mac: macIconDataUri,
+  mac: macIconDataUri
 };
 
 type DownloadStatus = 'loading' | 'error' | 'ready';
@@ -44,7 +48,7 @@ function PlatformHeader({
   icon,
   title,
   arch,
-  badge,
+  badge
 }: {
   icon: string;
   title: string;
@@ -75,7 +79,7 @@ function GameFacts({
   copy,
   adapted,
   online,
-  same,
+  same
 }: {
   copy: DownloadPageCopy;
   adapted: { gameVersion: string };
@@ -85,13 +89,19 @@ function GameFacts({
   return (
     <>
       <Fact label={copy.adaptedGameLabel}>
-        <span className="tabular-nums">{gameReleaseNumber(adapted.gameVersion)}</span>
+        <span className="tabular-nums">
+          {gameReleaseNumber(adapted.gameVersion)}
+        </span>
       </Fact>
       {online ? (
         <Fact label={copy.onlineGameLabel}>
           <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="tabular-nums">{gameReleaseNumber(online.gameVersion)}</span>
-            <Badge tone={same ? 'neutral' : 'warn'}>{same ? copy.adapted : copy.notAdapted}</Badge>
+            <span className="tabular-nums">
+              {gameReleaseNumber(online.gameVersion)}
+            </span>
+            <Badge tone={same ? 'neutral' : 'warn'}>
+              {same ? copy.adapted : copy.notAdapted}
+            </Badge>
           </span>
         </Fact>
       ) : null}
@@ -104,7 +114,7 @@ function DownloadCard({
   copy,
   installer,
   status,
-  gameStatus,
+  gameStatus
 }: {
   platform: DownloadPlatform;
   copy: DownloadPageCopy;
@@ -136,7 +146,9 @@ function DownloadCard({
             v{download.version}
           </span>
         ) : (
-          <span className="text-[15px] text-text-2">{copy.versionUnavailable}</span>
+          <span className="text-[15px] text-text-2">
+            {copy.versionUnavailable}
+          </span>
         )}
       </div>
 
@@ -204,7 +216,9 @@ function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
       title={copy.feedbackCopy}
       icon={copied ? <CheckIcon className="text-success" /> : <UsersIcon />}
       onClick={() => {
-        void navigator.clipboard?.writeText(ANDROID_FEEDBACK_QQ_GROUP).then(() => setCopied(true));
+        void navigator.clipboard
+          ?.writeText(ANDROID_FEEDBACK_QQ_GROUP)
+          .then(() => setCopied(true));
       }}
     >
       <span aria-live="polite">
@@ -212,7 +226,8 @@ function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
           copy.feedbackCopied
         ) : (
           <>
-            {copy.feedbackGroup} <span className="tabular-nums">{ANDROID_FEEDBACK_QQ_GROUP}</span>
+            {copy.feedbackGroup}{' '}
+            <span className="tabular-nums">{ANDROID_FEEDBACK_QQ_GROUP}</span>
           </>
         )}
       </span>
@@ -221,7 +236,13 @@ function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
 }
 
 /** The complete checksum stays selectable and copyable without dominating the download card. */
-function AndroidChecksum({ hash, copy }: { hash: string; copy: DownloadPageCopy['android'] }) {
+function AndroidChecksum({
+  hash,
+  copy
+}: {
+  hash: string;
+  copy: DownloadPageCopy['android'];
+}) {
   const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   useEffect(() => {
     if (status === 'idle') return;
@@ -274,7 +295,7 @@ function AndroidCard({
   locale,
   release,
   loading,
-  online,
+  online
 }: {
   copy: DownloadPageCopy;
   locale: Locale;
@@ -319,7 +340,9 @@ function AndroidCard({
                   same={online ? sameAndroidGame(release.game, online) : false}
                 />
                 <Fact label={androidCopy.sizeLabel}>
-                  <span className="tabular-nums">{formatFileSize(release.app.size, locale)}</span>
+                  <span className="tabular-nums">
+                    {formatFileSize(release.app.size, locale)}
+                  </span>
                 </Fact>
               </>
             )}
@@ -335,10 +358,15 @@ function AndroidCard({
             </Button>
             <FeedbackGroupButton copy={androidCopy} />
           </div>
-          {release && <AndroidChecksum hash={release.app.sha256} copy={androidCopy} />}
+          {release && (
+            <AndroidChecksum hash={release.app.sha256} copy={androidCopy} />
+          )}
         </div>
         <div className="min-w-0 border-t border-line pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-6">
-          <ol aria-label={androidCopy.stepsTitle} className="flex flex-col gap-3">
+          <ol
+            aria-label={androidCopy.stepsTitle}
+            className="flex flex-col gap-3"
+          >
             {androidCopy.steps.map((step, index) => (
               <li key={step.title} className="flex min-w-0 items-start gap-3">
                 <span
@@ -400,28 +428,36 @@ function FailureFallback({ copy }: { copy: DownloadPageCopy }) {
   );
 }
 
-export default function DownloadPage({ location }: { location: ResolvedSpaLocation }) {
+export default function DownloadPage({
+  location
+}: {
+  location: ResolvedSpaLocation;
+}) {
   const { locale } = location;
   const copy = getSiteCopy(locale).download;
   const { data, isLoading, isError } = useQuery({
     queryKey: ['latest-installer'],
-    queryFn: ({ signal }) => loadLatestInstaller(signal),
+    queryFn: ({ signal }) => loadLatestInstaller(signal)
   });
-  const status: DownloadStatus = isLoading ? 'loading' : isError ? 'error' : 'ready';
+  const status: DownloadStatus = isLoading
+    ? 'loading'
+    : isError
+      ? 'error'
+      : 'ready';
   // Android is not in the lockstep release: its card reads its own manifest, and a missing or
   // invalid one degrades only that card, never the page-level GitHub fallback.
   const { data: android, isLoading: androidLoading } = useQuery({
     queryKey: ['android-release'],
-    queryFn: ({ signal }) => loadAndroidRelease(signal),
+    queryFn: ({ signal }) => loadAndroidRelease(signal)
   });
   // Extra information: a missing Game Status costs only the online game and the conclusion.
   const { data: gameStatus } = useQuery({
     queryKey: ['game-status'],
-    queryFn: ({ signal }) => loadGameStatus(signal),
+    queryFn: ({ signal }) => loadGameStatus(signal)
   });
   const { data: androidGameStatus } = useQuery({
     queryKey: ['android-game-status'],
-    queryFn: ({ signal }) => loadAndroidGameStatus(signal),
+    queryFn: ({ signal }) => loadAndroidGameStatus(signal)
   });
 
   return (
@@ -450,11 +486,16 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
       </section>
 
       <section className="panel flex flex-col gap-3 p-6">
-        <h2 className="text-[15px] font-semibold text-text-1">{copy.desktopNoteTitle}</h2>
+        <h2 className="text-[15px] font-semibold text-text-1">
+          {copy.desktopNoteTitle}
+        </h2>
         <ul className="flex flex-col gap-2 text-[15px] text-text-2">
           {copy.noteParagraphs.map((paragraph, index) => (
             <li key={index} className="flex items-start gap-3">
-              <span aria-hidden="true" className="mt-2.5 size-1 shrink-0 rounded-full bg-text-3" />
+              <span
+                aria-hidden="true"
+                className="mt-2.5 size-1 shrink-0 rounded-full bg-text-3"
+              />
               <span>{paragraph}</span>
             </li>
           ))}

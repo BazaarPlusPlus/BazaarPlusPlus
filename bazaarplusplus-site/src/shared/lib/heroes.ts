@@ -6,7 +6,7 @@ export const HEROES = [
   'Karnok',
   'Pygmalien',
   'Vanessa',
-  'TheDragons',
+  'TheDragons'
 ] as const;
 
 type HeroName = (typeof HEROES)[number];
@@ -19,7 +19,7 @@ const HERO_MAPPING: Record<HeroName, { shortLabel: string; color: string }> = {
   Karnok: { shortLabel: 'KAR', color: '#3b889c' },
   Pygmalien: { shortLabel: 'PYG', color: '#2767c0' },
   Vanessa: { shortLabel: 'VAN', color: '#c02121' },
-  TheDragons: { shortLabel: 'DRA', color: '#2dd2d0' },
+  TheDragons: { shortLabel: 'DRA', color: '#2dd2d0' }
 };
 
 const FALLBACK_HERO_COLOR = '#95908a';
@@ -33,5 +33,7 @@ export function getHeroColor(hero: string): string {
 }
 
 export function getHeroShortLabel(hero: string): string {
-  return isHeroName(hero) ? HERO_MAPPING[hero].shortLabel : hero.slice(0, 3).toUpperCase();
+  return isHeroName(hero)
+    ? HERO_MAPPING[hero].shortLabel
+    : hero.slice(0, 3).toUpperCase();
 }

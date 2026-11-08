@@ -18,7 +18,7 @@ export default function StatsPageShell({
   title,
   generatedAt,
   actions,
-  children,
+  children
 }: StatsPageShellProps) {
   const { locale } = location;
   const commonCopy = getSiteCopy(locale).common;

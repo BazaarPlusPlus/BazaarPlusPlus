@@ -1,12 +1,26 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "oxc", "unicorn", "react", "jsx-a11y", "import", "promise", "vitest"],
+  "plugins": [
+    "typescript",
+    "oxc",
+    "unicorn",
+    "react",
+    "jsx-a11y",
+    "import",
+    "promise",
+    "vitest"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
     "perf": "error"
   },
-  "ignorePatterns": ["dist/**", ".wrangler/**", "test-results/**", "playwright-report/**"],
+  "ignorePatterns": [
+    "dist/**",
+    ".wrangler/**",
+    "test-results/**",
+    "playwright-report/**"
+  ],
   "rules": {
     "react/react-in-jsx-scope": "off",
     "unicorn/no-array-sort": "off",

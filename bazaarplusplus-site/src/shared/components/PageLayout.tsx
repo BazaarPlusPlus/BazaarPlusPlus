@@ -20,7 +20,7 @@ export default function PageLayout({
   width = 'info',
   footerMeta,
   busy,
-  children,
+  children
 }: PageLayoutProps) {
   const container = pageContainerClassName(width);
 
@@ -61,18 +61,33 @@ export function PageHeading({ title, intro, actions }: PageHeadingProps) {
           {title}
         </h1>
         {intro ? (
-          <p className="min-h-[2lh] max-w-[62ch] text-[15px] text-text-2 sm:min-h-lh">{intro}</p>
+          <p className="min-h-[2lh] max-w-[62ch] text-[15px] text-text-2 sm:min-h-lh">
+            {intro}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {actions}
+        </div>
+      ) : null}
     </section>
   );
 }
 
 /** Section title (h2, the design system's `title`: 18/600) used below the page heading. */
-export function SectionHeading({ id, children }: { id?: string; children: ReactNode }) {
+export function SectionHeading({
+  id,
+  children
+}: {
+  id?: string;
+  children: ReactNode;
+}) {
   return (
-    <h2 id={id} className="text-lg leading-[1.4] font-semibold text-balance text-text-1">
+    <h2
+      id={id}
+      className="text-lg leading-[1.4] font-semibold text-balance text-text-1"
+    >
       {children}
     </h2>
   );

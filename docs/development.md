@@ -59,6 +59,8 @@ Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要�
 
 根工具是 `release/`、`scripts/`、`.github/scripts/`、`design/build.ts` 和 `.agents/skills/*/scripts/` 里的 TypeScript。它们共用根目录的一套工具链：`tsconfig.json`（严格类型检查）、`.oxlintrc.json`（拦住绕过类型检查的写法）、`vitest.config.ts`（`release` 和 `tooling` 两个测试项目）和 oxfmt（`.oxfmtrc.json`）。门禁是 `just commands-check` 和 `just release::test`。项目自己的脚本留在项目里，用项目的门禁，例如 installer 的 `scripts/`：Bun 也直接运行它们，所以 `bazaarplusplus-installer/scripts/tsconfig.json` 继承根目录的编译选项。
 
+所有 TypeScript 项目（根工具、installer、site、server）都用 oxlint 做 lint、oxfmt 做格式化，各自的 `.oxfmtrc.json` 使用同一组格式选项，只有忽略路径不同。改格式选项时四份一起改。
+
 - Bun 直接运行 `.ts` 文件，没有单独的构建步骤。继续限制为可擦除的语法：`erasableSyntaxOnly` 拒绝 enum、namespace 和参数属性。相对 import 写 `.ts` 扩展名。类型 import 写成 `import type`，避免隐式运行时依赖。
 - 新脚本按用途放：发布模块放 `release/`，开发者工具和共享 helper 放 `scripts/`，只给 CI 用的放 `.github/scripts/`。测试和模块放在同一目录，命名为 `<模块>.test.ts`。
 - recipe、构建文件和 workflow 按路径启动脚本。`scripts/script-references.test.ts` 检查这些路径都存在，所以改名时要一起改。

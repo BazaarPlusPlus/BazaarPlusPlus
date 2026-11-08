@@ -3,7 +3,7 @@
 export async function seedBundleBacklog(
   db: D1Database,
   count: number,
-  storedAtMs: number,
+  storedAtMs: number
 ): Promise<void> {
   await db
     .prepare(`

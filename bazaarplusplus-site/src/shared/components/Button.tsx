@@ -1,4 +1,9 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, MouseEvent, ReactNode } from 'react';
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  MouseEvent,
+  ReactNode
+} from 'react';
 
 import { SpinnerIcon } from './icons';
 
@@ -18,10 +23,14 @@ type SharedProps = {
 };
 
 type ButtonElementProps = SharedProps &
-  Omit<ButtonHTMLAttributes<HTMLButtonElement>, keyof SharedProps> & { href?: undefined };
+  Omit<ButtonHTMLAttributes<HTMLButtonElement>, keyof SharedProps> & {
+    href?: undefined;
+  };
 
 type LinkElementProps = SharedProps &
-  Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof SharedProps> & { href: string };
+  Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof SharedProps> & {
+    href: string;
+  };
 
 export type ButtonProps = ButtonElementProps | LinkElementProps;
 
@@ -32,14 +41,16 @@ const SIZES: Record<ButtonSize, string> = {
   md: 'h-9 px-3 text-[15px] [&_svg]:size-4',
   sm: 'h-[30px] px-2 text-sm [&_svg]:size-3.5',
   icon: 'size-9 p-0 [&_svg]:size-4',
-  'icon-sm': 'size-[30px] p-0 [&_svg]:size-3.5',
+  'icon-sm': 'size-[30px] p-0 [&_svg]:size-3.5'
 };
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'border-transparent bg-accent font-semibold text-on-accent hover:bg-accent-hover',
+  primary:
+    'border-transparent bg-accent font-semibold text-on-accent hover:bg-accent-hover',
   secondary: 'border-line-strong bg-panel text-text-1 hover:bg-hover',
   ghost: 'border-transparent text-text-2 hover:bg-hover hover:text-text-1',
-  danger: 'border-danger-line bg-danger-subtle text-danger-text hover:bg-danger-line',
+  danger:
+    'border-danger-line bg-danger-subtle text-danger-text hover:bg-danger-line'
 };
 
 export default function Button({

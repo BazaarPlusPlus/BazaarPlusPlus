@@ -3,7 +3,7 @@ import type {
   Locale,
   PrimaryNavigationPage,
   SecondaryNavigationPage,
-  SpaPage,
+  SpaPage
 } from '../app/router';
 
 type PrimaryNavCopy = Record<PrimaryNavigationPage, string>;
@@ -237,7 +237,7 @@ type LocalizedSiteCopy = {
 const zh: LocalizedSiteCopy = {
   common: {
     brand: {
-      name: 'BazaarPlusPlus',
+      name: 'BazaarPlusPlus'
     },
     filters: '筛选',
     primaryNavAriaLabel: '主导航',
@@ -247,21 +247,21 @@ const zh: LocalizedSiteCopy = {
     footer: {
       madeWith: 'Made with',
       love: 'love',
-      by: 'by',
+      by: 'by'
     },
     loading: {
       title: '正在准备英雄统计',
       body: '正在读取最新数据快照，请稍候。',
-      progressAriaLabel: '正在加载英雄统计',
+      progressAriaLabel: '正在加载英雄统计'
     },
     error: {
       title: '数据暂时不可用',
       body: '暂时无法读取英雄统计数据。',
-      retry: '重试',
+      retry: '重试'
     },
     notFound: {
       title: '页面不存在',
-      backToHeroes: '← 返回英雄概览',
+      backToHeroes: '← 返回英雄概览'
     },
     scope: {
       window: '时间窗口',
@@ -269,25 +269,25 @@ const zh: LocalizedSiteCopy = {
       segmentLabels: {
         all: '全部',
         legend: '传奇',
-        non_legend: '非传奇',
-      },
+        non_legend: '非传奇'
+      }
     },
-    noValueLabel: '暂无数值',
+    noValueLabel: '暂无数值'
   },
   primaryNav: {
-    heroes: '统计',
+    heroes: '统计'
   },
   secondaryNav: {
     tutorial: '教程',
     download: '下载',
-    support: '支持',
+    support: '支持'
   },
   pageTitles: {
     heroes: '统计',
     tutorial: '教程',
     download: '下载',
     support: '支持',
-    'not-found': '页面不存在',
+    'not-found': '页面不存在'
   },
   stats: {
     heroes: {
@@ -295,12 +295,12 @@ const zh: LocalizedSiteCopy = {
       trend: {
         winrateTrend: '胜率走势与对位',
         title: '近期表现',
-        chartAriaLabel: '英雄10胜率趋势图',
+        chartAriaLabel: '英雄10胜率趋势图'
       },
       snapshot: {
         label: '当前快照',
         noData: '暂无数据',
-        title: '胜率榜单',
+        title: '胜率榜单'
       },
       tableHeaders: {
         hero: '英雄',
@@ -313,28 +313,28 @@ const zh: LocalizedSiteCopy = {
         bronze: '青铜',
         misfortune: '惨淡',
         runShare: '局数占比',
-        avgDays: '平均天数',
+        avgDays: '平均天数'
       },
       matchups: {
         title: '对位胜率',
         selectedHeroLabel: '当前英雄',
         lowSampleTag: '样本不足',
         sample: '场',
-        empty: '暂无对位数据',
+        empty: '暂无对位数据'
       },
       coverage: {
         someDaysUnavailable: '部分日期暂不可用，当前结果只包含已加载日期。',
-        noTrendValue: '部分日期没有可计算的趋势点。',
+        noTrendValue: '部分日期没有可计算的趋势点。'
       },
       unavailable: {
         title: '快照暂不可用',
-        body: '英雄指标快照暂不可用，请稍后刷新重试。',
+        body: '英雄指标快照暂不可用，请稍后刷新重试。'
       },
       segmentEmpty: {
         title: '该分段暂无数据',
-        body: '当前窗口内此分段没有记录，试试其他分段。',
-      },
-    },
+        body: '当前窗口内此分段没有记录，试试其他分段。'
+      }
+    }
   },
   tutorial: {
     title: '使用 BazaarPlusPlus',
@@ -348,80 +348,85 @@ const zh: LocalizedSiteCopy = {
         description: '在游戏中随时查阅所有物品与技能，支持多维度的深度检索',
         details: [
           '按英雄、品质、体型，甚至售卖商人进行精细筛选',
-          '支持跟随当前游戏天数，显示当前阶段可获取的物品',
-        ],
+          '支持跟随当前游戏天数，显示当前阶段可获取的物品'
+        ]
       },
       {
         title: 'BazaarDB 自动上传',
         description: '参与社区数据共建，在结算时自动上传通关截图与阵容数据',
         details: [
           '上传完全在后台进行，且仅在非战斗状态执行，确保游戏流畅',
-          '此功能默认关闭，可在设置中手动开启，贡献你的构筑数据',
-        ],
+          '此功能默认关闭，可在设置中手动开启，贡献你的构筑数据'
+        ]
       },
       {
         title: '对局历史',
         description: '打开对局历史，回看对局记录、战斗回放和幽灵对战',
         details: [
           '快速找回刚结束的对局和关键战斗',
-          '可查看本地保存的战斗，也能继续打开已下载的回放',
-        ],
+          '可查看本地保存的战斗，也能继续打开已下载的回放'
+        ]
       },
       {
         title: '战斗状态栏',
         description: '在战斗中查看时间、暂停状态和速度控制',
         details: [
           '适合复盘战斗节奏，或在录制时控制播放',
-          '速度按钮会在 0.50、0.67 和 1.00 倍之间切换',
-        ],
+          '速度按钮会在 0.50、0.67 和 1.00 倍之间切换'
+        ]
       },
       {
         title: '匿名模式',
         description: '在本地隐藏真实玩家昵称，保护隐私',
-        details: ['截图和录制时隐藏本地名称', '直播或分享画面时保持匿名展示'],
+        details: ['截图和录制时隐藏本地名称', '直播或分享画面时保持匿名展示']
       },
       {
         title: '传奇名次显示',
         description: '支持默认、无人知晓、战力爆表和双显模式',
         details: [
           '可按需要隐藏名次、夸张展示战力，或同时显示名次与分数',
-          '切换后会刷新当前可见的传说段位排名文本',
-        ],
+          '切换后会刷新当前可见的传说段位排名文本'
+        ]
       },
       {
         title: '附魔与升级预览',
         description: '查看物品时提前看见附魔或升级后的变化，减少临场判断成本',
         details: [
           '将附魔后的效果直接整合进物品提示，方便横向对比不同选择',
-          '升级预览适合在选择遭遇，调整构筑时，确认升级后的收益',
-        ],
+          '升级预览适合在选择遭遇，调整构筑时，确认升级后的收益'
+        ]
       },
       {
         title: '中文模式',
         description: '按你的常用地区术语显示 BazaarPlusPlus 中文界面',
-        details: ['支持简体中文和台湾繁体的术语习惯', '对局历史、设置和提示文案会一起使用对应风格'],
-      },
+        details: [
+          '支持简体中文和台湾繁体的术语习惯',
+          '对局历史、设置和提示文案会一起使用对应风格'
+        ]
+      }
     ],
     installation: {
       heading: '下载与安装指南',
       steps: [
         {
           title: '下载最新安装器',
-          description: '进入下载页，按系统选择 Windows .exe 或 macOS .dmg',
+          description: '进入下载页，按系统选择 Windows .exe 或 macOS .dmg'
         },
         {
           title: '运行安装器',
-          description: '请在关闭游戏后运行安装程序。如需更新，建议先卸载旧版本。',
+          description:
+            '请在关闭游戏后运行安装程序。如需更新，建议先卸载旧版本。'
         },
         {
           title: '启动游戏完成初始化',
-          description: '安装完成后启动游戏一次，让 BazaarPlusPlus 完成初始化',
+          description: '安装完成后启动游戏一次，让 BazaarPlusPlus 完成初始化'
         },
         {
           title: '确认插件生效',
-          description: '主菜单设置按钮上方会出现图鉴按钮；下方游戏版本信息会显示 BPP version',
-        },
-      ],
+          description:
+            '主菜单设置按钮上方会出现图鉴按钮；下方游戏版本信息会显示 BPP version'
+        }
+      ]
     },
     quickStart: {
       heading: '实战快捷键',
@@ -433,19 +438,19 @@ const zh: LocalizedSiteCopy = {
             {
               bindings: [{ key: 'F8' }],
               title: '历史记录',
-              description: '打开对局历史，回看对局记录、战斗回放和幽灵对战',
+              description: '打开对局历史，回看对局记录、战斗回放和幽灵对战'
             },
             {
               bindings: [{ key: 'Tab', action: '打开' }],
               title: '图鉴',
-              description: '打开图鉴',
+              description: '打开图鉴'
             },
             {
               bindings: [{ key: 'Caps Lock', action: '打开' }],
               title: '十胜阵容',
-              description: '对比当前卡组与十胜阵容',
-            },
-          ],
+              description: '对比当前卡组与十胜阵容'
+            }
+          ]
         },
         {
           title: '按住预览',
@@ -455,17 +460,17 @@ const zh: LocalizedSiteCopy = {
             {
               bindings: [{ key: 'Ctrl' }],
               title: '附魔预览',
-              description: '查看物品附魔后的效果\n未始终显示时按住',
+              description: '查看物品附魔后的效果\n未始终显示时按住'
             },
             {
               bindings: [{ key: 'Shift' }],
               title: '升级预览',
-              description: '查看升级后的数值变化\n悬停物品时按住',
-            },
-          ],
-        },
-      ],
-    },
+              description: '查看升级后的数值变化\n悬停物品时按住'
+            }
+          ]
+        }
+      ]
+    }
   },
   download: {
     title: '下载 BazaarPlusPlus',
@@ -484,13 +489,13 @@ const zh: LocalizedSiteCopy = {
       title: 'Windows',
       arch: 'x64 · Intel / AMD',
       actionLabel: '下载 .exe',
-      mainlandActionLabel: 'Windows 大陆渠道',
+      mainlandActionLabel: 'Windows 大陆渠道'
     },
     mac: {
       title: 'macOS',
       arch: 'Apple Silicon · arm64',
       actionLabel: '下载 .dmg',
-      mainlandActionLabel: 'macOS 大陆渠道',
+      mainlandActionLabel: 'macOS 大陆渠道'
     },
     android: {
       title: 'Android',
@@ -508,22 +513,31 @@ const zh: LocalizedSiteCopy = {
       feedbackCopied: '已复制群号',
       stepsTitle: '安装步骤',
       steps: [
-        { title: '安装官方游戏', body: '从 Google Play 或发行商官网安装，保留原 App。' },
-        { title: '安装 BazaarPlusPlus', body: '打开 APK，按提示允许安装应用。' },
-        { title: '启动并登录游戏', body: '从 BazaarPlusPlus 启动，首次登录游戏账号。' },
+        {
+          title: '安装官方游戏',
+          body: '从 Google Play 或发行商官网安装，保留原 App。'
+        },
+        {
+          title: '安装 BazaarPlusPlus',
+          body: '打开 APK，按提示允许安装应用。'
+        },
+        {
+          title: '启动并登录游戏',
+          body: '从 BazaarPlusPlus 启动，首次登录游戏账号。'
+        }
       ],
       limitsTitle: '使用须知',
       limits: [
         '官方 App 不会被修改，购买仍在官方 App 内完成。',
         '登录状态独立保存，BazaarPlusPlus 无需单独账号。',
-        '游戏更新后需等待适配。',
-      ],
+        '游戏更新后需等待适配。'
+      ]
     },
     desktopNoteTitle: 'Windows 与 macOS 安装提示',
     noteParagraphs: [
       '建议先退出游戏再安装。更新时建议先卸载旧版本，再安装新版本',
-      '如果安装后未生效，或被安全软件拦截，可以参考故障排查说明，或重新安装游戏与 BazaarPlusPlus',
-    ],
+      '如果安装后未生效，或被安全软件拦截，可以参考故障排查说明，或重新安装游戏与 BazaarPlusPlus'
+    ]
   },
   support: {
     title: '支持 BazaarPlusPlus',
@@ -537,28 +551,28 @@ const zh: LocalizedSiteCopy = {
       modalTitle: '请喝一杯',
       modalSubtitle: '微信赞赏',
       modalHint: '如果希望出现在支持者名单中，可以在备注里留下你的 ID。',
-      qrAriaLabel: '微信赞赏二维码',
+      qrAriaLabel: '微信赞赏二维码'
     },
     kofi: {
       title: 'Ko-fi',
       description: 'Buy BazaarPlusPlus a drink on Ko-fi.',
       actionLabel: 'Open Ko-fi',
-      regionLabel: 'Global',
+      regionLabel: 'Global'
     },
     supporters: {
       heading: '支持者名单',
       intro: '感谢每一位支持 BazaarPlusPlus 的朋友。',
       unnamedNote: '也感谢所有未署名的支持者。',
       emptyNote: '支持者名单还在整理中，请稍后再来看看。',
-      errorNote: '暂时无法加载支持者名单，请稍后再试。',
-    },
-  },
+      errorNote: '暂时无法加载支持者名单，请稍后再试。'
+    }
+  }
 };
 
 const en: LocalizedSiteCopy = {
   common: {
     brand: {
-      name: 'BazaarPlusPlus',
+      name: 'BazaarPlusPlus'
     },
     filters: 'Filters',
     primaryNavAriaLabel: 'Primary',
@@ -568,21 +582,21 @@ const en: LocalizedSiteCopy = {
     footer: {
       madeWith: 'Made with',
       love: 'love',
-      by: 'by',
+      by: 'by'
     },
     loading: {
       title: 'Preparing hero stats',
       body: 'Reading the latest data snapshot. This should only take a moment.',
-      progressAriaLabel: 'Loading hero stats',
+      progressAriaLabel: 'Loading hero stats'
     },
     error: {
       title: 'Stats are temporarily unavailable',
       body: "The hero stats couldn't be loaded.",
-      retry: 'Try again',
+      retry: 'Try again'
     },
     notFound: {
       title: 'Page not found',
-      backToHeroes: '← Back to hero overview',
+      backToHeroes: '← Back to hero overview'
     },
     scope: {
       window: 'Window',
@@ -590,25 +604,25 @@ const en: LocalizedSiteCopy = {
       segmentLabels: {
         all: 'All',
         legend: 'Legend',
-        non_legend: 'Non-Legend',
-      },
+        non_legend: 'Non-Legend'
+      }
     },
-    noValueLabel: 'No value',
+    noValueLabel: 'No value'
   },
   primaryNav: {
-    heroes: 'Stats',
+    heroes: 'Stats'
   },
   secondaryNav: {
     tutorial: 'Tutorial',
     download: 'Download',
-    support: 'Support',
+    support: 'Support'
   },
   pageTitles: {
     heroes: 'Hero stats',
     tutorial: 'Tutorial',
     download: 'Download',
     support: 'Support',
-    'not-found': 'Page Not Found',
+    'not-found': 'Page Not Found'
   },
   stats: {
     heroes: {
@@ -616,12 +630,12 @@ const en: LocalizedSiteCopy = {
       trend: {
         winrateTrend: 'win rate and matchups',
         title: 'Recent performance',
-        chartAriaLabel: 'Hero 10-win rate chart',
+        chartAriaLabel: 'Hero 10-win rate chart'
       },
       snapshot: {
         label: 'Snapshot',
         noData: 'No data',
-        title: 'Win-rate ledger',
+        title: 'Win-rate ledger'
       },
       tableHeaders: {
         hero: 'Hero',
@@ -634,28 +648,29 @@ const en: LocalizedSiteCopy = {
         bronze: 'Bronze',
         misfortune: 'Misfortune',
         runShare: 'Run share',
-        avgDays: 'Avg days',
+        avgDays: 'Avg days'
       },
       matchups: {
         title: 'Matchups',
         selectedHeroLabel: 'Selected hero',
         lowSampleTag: 'low sample',
         sample: 'battles',
-        empty: 'No matchup data yet',
+        empty: 'No matchup data yet'
       },
       coverage: {
-        someDaysUnavailable: 'Some days are unavailable; this view includes loaded days only.',
-        noTrendValue: 'Some days have no calculable trend point.',
+        someDaysUnavailable:
+          'Some days are unavailable; this view includes loaded days only.',
+        noTrendValue: 'Some days have no calculable trend point.'
       },
       unavailable: {
         title: 'Snapshot unavailable',
-        body: 'The hero metrics snapshot is unavailable. Refresh to try again.',
+        body: 'The hero metrics snapshot is unavailable. Refresh to try again.'
       },
       segmentEmpty: {
         title: 'No data in this segment',
-        body: 'No runs were recorded for this segment in the window. Try another segment.',
-      },
-    },
+        body: 'No runs were recorded for this segment in the window. Try another segment.'
+      }
+    }
   },
   tutorial: {
     title: 'Use BazaarPlusPlus',
@@ -670,8 +685,8 @@ const en: LocalizedSiteCopy = {
           'Browse all items and skills in-game with powerful, multi-dimensional filters.',
         details: [
           'Filter precisely by Hero, Tier, Size, or even the specific Merchant.',
-          'Sync with your current run day to see exactly what is available to you.',
-        ],
+          'Sync with your current run day to see exactly what is available to you.'
+        ]
       },
       {
         title: 'BazaarDB auto upload',
@@ -679,40 +694,43 @@ const en: LocalizedSiteCopy = {
           'Contribute to community data by automatically uploading your end-of-run boards and stats.',
         details: [
           'Uploads run silently in the background only when out of combat to ensure zero lag.',
-          'This feature is opt-in and disabled by default. Turn it on in settings to help build the database.',
-        ],
+          'This feature is opt-in and disabled by default. Turn it on in settings to help build the database.'
+        ]
       },
       {
         title: 'Run History',
-        description: 'Open run history to review saved runs, combat replays, and ghost battles.',
+        description:
+          'Open run history to review saved runs, combat replays, and ghost battles.',
         details: [
           'Return to recent runs and key fights without leaving the game flow.',
-          'Saved local battles and downloaded replays can open from history.',
-        ],
+          'Saved local battles and downloaded replays can open from history.'
+        ]
       },
       {
         title: 'Combat controls',
-        description: 'Show combat time, pause state, and speed controls during fights.',
+        description:
+          'Show combat time, pause state, and speed controls during fights.',
         details: [
           'Useful for reviewing combat pacing or controlling playback while recording.',
-          'Speed buttons cycle between 0.50x, 0.67x, and 1.00x.',
-        ],
+          'Speed buttons cycle between 0.50x, 0.67x, and 1.00x.'
+        ]
       },
       {
         title: 'Anonymous mode',
         description: 'Show the local player name as Anonymous.',
         details: [
           'Hide your local name in screenshots and recordings.',
-          'Stay anonymous while streaming or sharing footage.',
-        ],
+          'Stay anonymous while streaming or sharing footage.'
+        ]
       },
       {
         title: 'Legendary rank display',
-        description: 'Supports normal, privacy-friendly, high-power, and rank-plus-rating views.',
+        description:
+          'Supports normal, privacy-friendly, high-power, and rank-plus-rating views.',
         details: [
           'Hide the rank, use a high-power display, or show rank and rating together.',
-          'Your rank display updates immediately after switching modes.',
-        ],
+          'Your rank display updates immediately after switching modes.'
+        ]
       },
       {
         title: 'Enchant and upgrade previews',
@@ -720,17 +738,18 @@ const en: LocalizedSiteCopy = {
           'Preview how an item changes after enchantment or upgrade before committing to the choice.',
         details: [
           'Enchant previews add post-enchant values and effects to item tooltips for easier comparison.',
-          'Upgrade previews help evaluate shop buys, rewards, and build changes before spending resources.',
-        ],
+          'Upgrade previews help evaluate shop buys, rewards, and build changes before spending resources.'
+        ]
       },
       {
         title: 'Chinese terminology',
-        description: 'Display BazaarPlusPlus Chinese UI with the regional terminology you prefer.',
+        description:
+          'Display BazaarPlusPlus Chinese UI with the regional terminology you prefer.',
         details: [
           'Supports Mainland and Taiwan terminology styles.',
-          'History, settings, and item tips follow the selected style.',
-        ],
-      },
+          'History, settings, and item tips follow the selected style.'
+        ]
+      }
     ],
     installation: {
       heading: 'Installation guide',
@@ -738,23 +757,24 @@ const en: LocalizedSiteCopy = {
         {
           title: 'Download latest installer',
           description:
-            'Open the downloads page and choose the Windows .exe or macOS .dmg for your system.',
+            'Open the downloads page and choose the Windows .exe or macOS .dmg for your system.'
         },
         {
           title: 'Run the installer',
           description:
-            'Close the game first. For updates, uninstall the old build before installing the new one.',
+            'Close the game first. For updates, uninstall the old build before installing the new one.'
         },
         {
           title: 'Start the game once',
-          description: 'Launch the game once so BazaarPlusPlus can finish setup.',
+          description:
+            'Launch the game once so BazaarPlusPlus can finish setup.'
         },
         {
           title: 'Confirm the mod loaded',
           description:
-            'On the main menu, a Codex button appears above the Settings button, and the game version text below shows BPP version.',
-        },
-      ],
+            'On the main menu, a Codex button appears above the Settings button, and the game version text below shows BPP version.'
+        }
+      ]
     },
     quickStart: {
       heading: 'Combat hotkeys',
@@ -766,39 +786,43 @@ const en: LocalizedSiteCopy = {
             {
               bindings: [{ key: 'F8' }],
               title: 'History',
-              description: 'Open recent runs, battles, and board snapshots from the lobby.',
+              description:
+                'Open recent runs, battles, and board snapshots from the lobby.'
             },
             {
               bindings: [{ key: 'Tab', action: 'Open' }],
               title: 'Codex',
-              description: 'Open the codex.',
+              description: 'Open the codex.'
             },
             {
               bindings: [{ key: 'Caps Lock', action: 'Open' }],
               title: 'Ten-win build',
-              description: 'Compare current set with ten-win builds.',
-            },
-          ],
+              description: 'Compare current set with ten-win builds.'
+            }
+          ]
         },
         {
           title: 'Preview holds',
-          description: 'Temporarily expand item tooltip details while inspecting items.',
+          description:
+            'Temporarily expand item tooltip details while inspecting items.',
           note: 'Rebind Ctrl / Shift preview hotkeys in Settings -> Gameplay Settings.',
           items: [
             {
               bindings: [{ key: 'Ctrl' }],
               title: 'Enchant preview',
-              description: 'Hold when always-show is off to reveal enchant changes on items.',
+              description:
+                'Hold when always-show is off to reveal enchant changes on items.'
             },
             {
               bindings: [{ key: 'Shift' }],
               title: 'Upgrade preview',
-              description: 'Hold while checking an item to preview upgraded stats and effects.',
-            },
-          ],
-        },
-      ],
-    },
+              description:
+                'Hold while checking an item to preview upgraded stats and effects.'
+            }
+          ]
+        }
+      ]
+    }
   },
   download: {
     title: 'Download BazaarPlusPlus',
@@ -817,19 +841,20 @@ const en: LocalizedSiteCopy = {
       title: 'Windows',
       arch: 'x64 · Intel / AMD',
       actionLabel: 'Download .exe',
-      mainlandActionLabel: 'Windows mainland mirror',
+      mainlandActionLabel: 'Windows mainland mirror'
     },
     mac: {
       title: 'macOS',
       arch: 'Apple Silicon · arm64',
       actionLabel: 'Download .dmg',
-      mainlandActionLabel: 'macOS mainland mirror',
+      mainlandActionLabel: 'macOS mainland mirror'
     },
     android: {
       title: 'Android',
       arch: 'Android 11+ · arm64',
       badge: 'Experimental',
-      notice: 'Features differ from desktop, and undiscovered issues may remain.',
+      notice:
+        'Features differ from desktop, and undiscovered issues may remain.',
       sizeLabel: 'Size',
       sha256Label: 'SHA-256',
       checksumCopy: 'Copy full SHA-256',
@@ -843,29 +868,29 @@ const en: LocalizedSiteCopy = {
       steps: [
         {
           title: 'Install the official game',
-          body: 'Get it from Google Play or the publisher’s website. Keep the official app.',
+          body: 'Get it from Google Play or the publisher’s website. Keep the official app.'
         },
         {
           title: 'Install BazaarPlusPlus',
-          body: 'Open the APK and allow app installation when prompted.',
+          body: 'Open the APK and allow app installation when prompted.'
         },
         {
           title: 'Start and sign in',
-          body: 'Launch from BazaarPlusPlus. Sign in to your game account the first time.',
-        },
+          body: 'Launch from BazaarPlusPlus. Sign in to your game account the first time.'
+        }
       ],
       limitsTitle: 'Good to know',
       limits: [
         'The official app stays unchanged. Make purchases there.',
         'Sign-in is stored separately. No separate BazaarPlusPlus account is needed.',
-        'After game updates, wait for BazaarPlusPlus to adapt.',
-      ],
+        'After game updates, wait for BazaarPlusPlus to adapt.'
+      ]
     },
     desktopNoteTitle: 'Windows and macOS install notes',
     noteParagraphs: [
       'Quit the game before installing. To update, uninstall the previous build first, then run the new installer.',
-      'If the install does not take effect or gets blocked by security software, check the troubleshooting notes or reinstall the game and BazaarPlusPlus.',
-    ],
+      'If the install does not take effect or gets blocked by security software, check the troubleshooting notes or reinstall the game and BazaarPlusPlus.'
+    ]
   },
   support: {
     title: 'Support BazaarPlusPlus',
@@ -878,23 +903,27 @@ const en: LocalizedSiteCopy = {
       regionLabel: 'CN',
       modalTitle: 'Buy BazaarPlusPlus a drink',
       modalSubtitle: 'WeChat Pay',
-      modalHint: 'Leave your ID in the payment note if you want to appear in the Supporters list.',
-      qrAriaLabel: 'WeChat Pay QR code',
+      modalHint:
+        'Leave your ID in the payment note if you want to appear in the Supporters list.',
+      qrAriaLabel: 'WeChat Pay QR code'
     },
     kofi: {
       title: 'Ko-fi',
       description: 'Buy BazaarPlusPlus a drink on Ko-fi.',
       actionLabel: 'Open Ko-fi',
-      regionLabel: 'Global',
+      regionLabel: 'Global'
     },
     supporters: {
       heading: 'Roll call',
-      intro: 'Thanks for backing BazaarPlusPlus. Your support keeps the project moving further',
-      unnamedNote: 'And thanks to everyone who supported BazaarPlusPlus without leaving a name',
+      intro:
+        'Thanks for backing BazaarPlusPlus. Your support keeps the project moving further',
+      unnamedNote:
+        'And thanks to everyone who supported BazaarPlusPlus without leaving a name',
       emptyNote: 'The roll call is still being gathered — check back soon',
-      errorNote: 'Could not load the roll call right now — try again in a moment',
-    },
-  },
+      errorNote:
+        'Could not load the roll call right now — try again in a moment'
+    }
+  }
 };
 
 const messages: Record<Locale, LocalizedSiteCopy> = { zh, en };

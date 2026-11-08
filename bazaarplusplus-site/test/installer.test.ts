@@ -10,7 +10,7 @@ import {
   GAME_STATUS_URL,
   RELEASE_BASE_URL,
   decodeAndroidGameStatus,
-  decodeGameStatus,
+  decodeGameStatus
 } from '../../release/downloads';
 import {
   GITHUB_RELEASE_URL,
@@ -19,7 +19,7 @@ import {
   loadGameStatus,
   loadLatestInstaller,
   sameAndroidGame,
-  sameDesktopGame,
+  sameDesktopGame
 } from '../src/features/download/installer';
 
 const WINDOWS_PATH = 'latest/windows-x86_64.json';
@@ -42,7 +42,7 @@ function stubManifests(manifests: Record<string, unknown>) {
     if (!(path in manifests)) return new Response('missing', { status: 404 });
     return new Response(JSON.stringify(payload), {
       status: 200,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' }
     });
   });
   vi.stubGlobal('fetch', fetchStub);
@@ -56,7 +56,7 @@ function load(manifests: Manifests) {
 
 const bothPlatforms = (): Manifests => ({
   [WINDOWS_PATH]: structuredClone(windowsFixture),
-  [MAC_PATH]: structuredClone(macFixture),
+  [MAC_PATH]: structuredClone(macFixture)
 });
 
 type MirrorRecord = { mainlandUrl?: unknown };
@@ -82,18 +82,22 @@ describe('latest installer interface', () => {
         windows: {
           version: '3.1.2',
           downloadUrl: windowsFixture.downloads['windows-x86_64'].url,
-          mainlandDownloadUrl: windowsFixture.downloads['windows-x86_64'].mainlandUrl,
-          game: windowsFixture.downloads['windows-x86_64'].game,
+          mainlandDownloadUrl:
+            windowsFixture.downloads['windows-x86_64'].mainlandUrl,
+          game: windowsFixture.downloads['windows-x86_64'].game
         },
         mac: {
           version: '3.1.1',
           downloadUrl: macFixture.downloads['darwin-aarch64'].url,
-          mainlandDownloadUrl: macFixture.downloads['darwin-aarch64'].mainlandUrl,
-          game: macFixture.downloads['darwin-aarch64'].game,
-        },
-      },
+          mainlandDownloadUrl:
+            macFixture.downloads['darwin-aarch64'].mainlandUrl,
+          game: macFixture.downloads['darwin-aarch64'].game
+        }
+      }
     });
-    expect(installer.downloads.windows?.version).not.toBe(installer.downloads.mac?.version);
+    expect(installer.downloads.windows?.version).not.toBe(
+      installer.downloads.mac?.version
+    );
     expect(GITHUB_RELEASE_URL).toBe(
       'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest'
     );
@@ -102,8 +106,11 @@ describe('latest installer interface', () => {
   test.each([
     ['absent', undefined],
     ['not https', 'http://cauyxy.lanzout.com/bppwin312'],
-    ['carrying credentials', 'https://user:secret@cauyxy.lanzout.com/bppwin312'],
-    ['not a URL', 'bppwin312'],
+    [
+      'carrying credentials',
+      'https://user:secret@cauyxy.lanzout.com/bppwin312'
+    ],
+    ['not a URL', 'bppwin312']
   ])(
     'a release whose mirror address is %s keeps its primary download and no mirror',
     async (_, mainlandUrl) => {
@@ -112,7 +119,7 @@ describe('latest installer interface', () => {
         version: '3.1.2',
         downloadUrl: windowsFixture.downloads['windows-x86_64'].url,
         mainlandDownloadUrl: null,
-        game: windowsFixture.downloads['windows-x86_64'].game,
+        game: windowsFixture.downloads['windows-x86_64'].game
       });
       expect(installer.downloads.mac?.mainlandDownloadUrl).toBe(
         macFixture.downloads['darwin-aarch64'].mainlandUrl
@@ -124,13 +131,18 @@ describe('latest installer interface', () => {
     ['a failing manifest request', new Error('unavailable')],
     ['a manifest without a version', { ver: '3.1.2' }],
     ['a manifest with an empty version', { version: '' }],
-    ['a manifest without its own download', { version: '3.1.2', downloads: {} }],
+    [
+      'a manifest without its own download',
+      { version: '3.1.2', downloads: {} }
+    ],
     [
       'a download outside the release origin',
       {
         version: '3.1.2',
-        downloads: { 'windows-x86_64': { url: 'https://untrusted.example/setup.exe' } },
-      },
+        downloads: {
+          'windows-x86_64': { url: 'https://untrusted.example/setup.exe' }
+        }
+      }
     ],
     [
       'a download outside the installer/ prefix of the release origin',
@@ -138,10 +150,10 @@ describe('latest installer interface', () => {
         version: '3.1.2',
         downloads: {
           'windows-x86_64': {
-            url: 'https://cdn.bazaarplusplus.com/3.1.2/windows-x86_64/installer/setup.exe',
-          },
-        },
-      },
+            url: 'https://cdn.bazaarplusplus.com/3.1.2/windows-x86_64/installer/setup.exe'
+          }
+        }
+      }
     ],
     [
       'a download from another version',
@@ -149,20 +161,26 @@ describe('latest installer interface', () => {
         version: '3.1.2',
         downloads: {
           'windows-x86_64': {
-            url: `${RELEASE_BASE_URL}/3.1.1/windows-x86_64/installer/BazaarPlusPlus_3.1.1_x64-setup.exe`,
-          },
-        },
-      },
-    ],
+            url: `${RELEASE_BASE_URL}/3.1.1/windows-x86_64/installer/BazaarPlusPlus_3.1.1_x64-setup.exe`
+          }
+        }
+      }
+    ]
   ])('%s degrades only that platform', async (_, windowsPayload) => {
-    const installer = await load({ ...bothPlatforms(), [WINDOWS_PATH]: windowsPayload });
+    const installer = await load({
+      ...bothPlatforms(),
+      [WINDOWS_PATH]: windowsPayload
+    });
     expect(installer.downloads.windows).toBeNull();
     expect(installer.downloads.mac).toMatchObject({ version: '3.1.1' });
   });
 
   test('fails as a whole only when every platform fails', async () => {
     await expect(
-      load({ [WINDOWS_PATH]: new Error('windows down'), [MAC_PATH]: { version: '' } })
+      load({
+        [WINDOWS_PATH]: new Error('windows down'),
+        [MAC_PATH]: { version: '' }
+      })
     ).rejects.toThrow(/windows down/);
     await expect(load({})).rejects.toThrow(/404/);
   });
@@ -173,7 +191,9 @@ describe('latest installer interface', () => {
     windows.downloads['windows-x86_64'].url =
       `${RELEASE_BASE_URL}/3.1.2/windows-x86_64/installer/actual-build.exe`;
     const installer = await load(manifests);
-    expect(installer.downloads.windows?.downloadUrl).toBe(windows.downloads['windows-x86_64'].url);
+    expect(installer.downloads.windows?.downloadUrl).toBe(
+      windows.downloads['windows-x86_64'].url
+    );
   });
 
   test('requests every platform manifest from the release origin and passes cancellation through', async () => {
@@ -186,7 +206,7 @@ describe('latest installer interface', () => {
     for (const path of [WINDOWS_PATH, MAC_PATH]) {
       expect(fetchStub).toHaveBeenCalledWith(`${RELEASE_BASE_URL}/${path}`, {
         headers: { Accept: 'application/json' },
-        signal: controller.signal,
+        signal: controller.signal
       });
     }
   });
@@ -199,7 +219,7 @@ describe('Android release interface', () => {
 
   test('reads the Android App, its game, Managed Payload and Interop Package from its own manifest', async () => {
     const fetchStub = stubManifests({
-      [ANDROID_PATH]: structuredClone(androidFixture),
+      [ANDROID_PATH]: structuredClone(androidFixture)
     });
     const controller = new AbortController();
     const release = await loadAndroidRelease(controller.signal);
@@ -210,20 +230,25 @@ describe('Android release interface', () => {
       managedPayload: record.managedPayload,
       interop: record.interop,
       game: record.game,
-      mainlandUrl: null,
+      mainlandUrl: null
     });
     expect(fetchStub).toHaveBeenCalledTimes(1);
-    expect(fetchStub).toHaveBeenCalledWith(`${RELEASE_BASE_URL}/${ANDROID_PATH}`, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-    });
+    expect(fetchStub).toHaveBeenCalledWith(
+      `${RELEASE_BASE_URL}/${ANDROID_PATH}`,
+      {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
+      }
+    );
   });
 
   test('the desktop installer load never requests the Android manifest', async () => {
     const fetchStub = stubManifests({
-      [ANDROID_PATH]: structuredClone(androidFixture),
+      [ANDROID_PATH]: structuredClone(androidFixture)
     });
-    await expect(loadLatestInstaller(new AbortController().signal)).rejects.toThrow(/404/);
+    await expect(
+      loadLatestInstaller(new AbortController().signal)
+    ).rejects.toThrow(/404/);
     expect(fetchStub).not.toHaveBeenCalledWith(
       `${RELEASE_BASE_URL}/${ANDROID_PATH}`,
       expect.anything()
@@ -238,28 +263,30 @@ describe('Android release interface', () => {
       {
         [ANDROID_PATH]: (() => {
           const manifest = structuredClone(androidFixture);
-          manifest.downloads['android-aarch64'].app.url = 'https://untrusted.example/a.apk';
+          manifest.downloads['android-aarch64'].app.url =
+            'https://untrusted.example/a.apk';
           return manifest;
-        })(),
-      },
+        })()
+      }
     ],
     [
       'the injected APK of ADR 0010',
       {
         [ANDROID_PATH]: (() => {
           const manifest = structuredClone(androidFixture);
-          const record: Record<string, unknown> = manifest.downloads['android-aarch64'];
+          const record: Record<string, unknown> =
+            manifest.downloads['android-aarch64'];
           record.apk = record.app;
           delete record.app;
           return manifest;
-        })(),
-      },
-    ],
+        })()
+      }
+    ]
   ])('%s fails the Android release', async (_, manifests) => {
     stubManifests(manifests);
-    await expect(loadAndroidRelease(new AbortController().signal)).rejects.toThrow(
-      /latest\/android-aarch64\.json/
-    );
+    await expect(
+      loadAndroidRelease(new AbortController().signal)
+    ).rejects.toThrow(/latest\/android-aarch64\.json/);
   });
 });
 
@@ -271,7 +298,7 @@ describe('Game Status', () => {
   test('decodes the online game and its game code identity of each desktop platform', () => {
     expect(decodeGameStatus(gameStatusFixture)).toEqual({
       macos: gameStatusFixture.platforms.macos,
-      windows: gameStatusFixture.platforms.windows,
+      windows: gameStatusFixture.platforms.windows
     });
   });
 
@@ -290,17 +317,22 @@ describe('Game Status', () => {
         ...gameStatusFixture,
         platforms: {
           ...gameStatusFixture.platforms,
-          windows: { gameVersion: gameStatusFixture.platforms.windows.gameVersion },
-        },
-      },
-    ],
+          windows: {
+            gameVersion: gameStatusFixture.platforms.windows.gameVersion
+          }
+        }
+      }
+    ]
   ])('refuses %s', (_name, payload) => {
     expect(decodeGameStatus(payload)).toBeNull();
   });
 
   test.each([
     ['another schema', { ...androidGameStatusFixture, schemaVersion: 2 }],
-    ['a missing hash', { ...androidGameStatusFixture, metadataSha256: undefined }],
+    [
+      'a missing hash',
+      { ...androidGameStatusFixture, metadataSha256: undefined }
+    ]
   ])('refuses an Android Game Status with %s', (_name, payload) => {
     expect(decodeAndroidGameStatus(payload)).toBeNull();
   });
@@ -309,23 +341,37 @@ describe('Game Status', () => {
   // content-only update of its adapted game.
   test('compares game code identity, not the game version', () => {
     const status = decodeGameStatus(gameStatusFixture)!;
-    expect(sameDesktopGame(macFixture.downloads['darwin-aarch64'].game, status.macos)).toBe(true);
-    expect(sameDesktopGame(windowsFixture.downloads['windows-x86_64'].game, status.windows)).toBe(
-      false
-    );
+    expect(
+      sameDesktopGame(macFixture.downloads['darwin-aarch64'].game, status.macos)
+    ).toBe(true);
+    expect(
+      sameDesktopGame(
+        windowsFixture.downloads['windows-x86_64'].game,
+        status.windows
+      )
+    ).toBe(false);
     const android = androidFixture.downloads['android-aarch64'].game;
     const online = decodeAndroidGameStatus(androidGameStatusFixture)!;
     expect(online.gameVersion).not.toBe(android.gameVersion);
     expect(sameAndroidGame(android, online)).toBe(true);
-    expect(sameAndroidGame(android, { ...online, il2cppSha256: 'a'.repeat(64) })).toBe(false);
+    expect(
+      sameAndroidGame(android, { ...online, il2cppSha256: 'a'.repeat(64) })
+    ).toBe(false);
   });
 
   test('fails on a response it cannot use', async () => {
     const fetchStub = vi.fn(async () => new Response('', { status: 404 }));
     vi.stubGlobal('fetch', fetchStub);
-    await expect(loadGameStatus(new AbortController().signal)).rejects.toThrow(/404/);
+    await expect(loadGameStatus(new AbortController().signal)).rejects.toThrow(
+      /404/
+    );
     expect(fetchStub).toHaveBeenCalledWith(GAME_STATUS_URL, expect.anything());
-    await expect(loadAndroidGameStatus(new AbortController().signal)).rejects.toThrow(/404/);
-    expect(fetchStub).toHaveBeenCalledWith(ANDROID_GAME_STATUS_URL, expect.anything());
+    await expect(
+      loadAndroidGameStatus(new AbortController().signal)
+    ).rejects.toThrow(/404/);
+    expect(fetchStub).toHaveBeenCalledWith(
+      ANDROID_GAME_STATUS_URL,
+      expect.anything()
+    );
   });
 });

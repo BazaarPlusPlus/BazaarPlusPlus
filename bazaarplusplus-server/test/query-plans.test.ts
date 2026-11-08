@@ -1,63 +1,72 @@
-import { env } from "cloudflare:test";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { env } from 'cloudflare:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import worker from "../src/index";
-import { seedBundleBacklog } from "./fixtures/backlog";
-import { type RecordedD1Query, recordD1 } from "./fixtures/d1";
+import worker from '../src/index';
+import { seedBundleBacklog } from './fixtures/backlog';
+import { type RecordedD1Query, recordD1 } from './fixtures/d1';
 
 const NOW = 1_785_628_800_000;
 const AVAILABLE = NOW - 120_000;
-const BUNDLE_ID = "01J00000000000000000000001";
+const BUNDLE_ID = '01J00000000000000000000001';
 
 function query(queries: RecordedD1Query[], pattern: RegExp): RecordedD1Query {
-  const found = queries.filter(({ sql }) => pattern.test(sql.replace(/\s+/g, " ").trim()));
+  const found = queries.filter(({ sql }) =>
+    pattern.test(sql.replace(/\s+/g, ' ').trim())
+  );
   expect(found, `Executed D1 query matching ${pattern}`).toHaveLength(1);
   return found[0];
 }
 
-async function plan({ sql, bindings }: Pick<RecordedD1Query, "sql" | "bindings">): Promise<string> {
+async function plan({
+  sql,
+  bindings
+}: Pick<RecordedD1Query, 'sql' | 'bindings'>): Promise<string> {
   const result = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`)
     .bind(...bindings)
     .all<{ detail: string }>();
-  return result.results.map(({ detail }) => detail).join("\n");
+  return result.results.map(({ detail }) => detail).join('\n');
 }
 
-function collectionRequest(afterId?: string, path = "/bundles", token?: string): Request {
+function collectionRequest(
+  afterId?: string,
+  path = '/bundles',
+  token?: string
+): Request {
   const url = new URL(`https://worker.test${path}`);
-  url.searchParams.set("available_from_ms", String(AVAILABLE));
-  url.searchParams.set("limit", "50");
+  url.searchParams.set('available_from_ms', String(AVAILABLE));
+  url.searchParams.set('limit', '50');
   if (afterId !== undefined) {
-    url.searchParams.set("after_available_at_ms", String(AVAILABLE));
-    url.searchParams.set("after_bundle_id", afterId);
+    url.searchParams.set('after_available_at_ms', String(AVAILABLE));
+    url.searchParams.set('after_bundle_id', afterId);
   }
   return new Request(url, {
-    headers: { Authorization: `Bearer ${token ?? env.BUNDLE_SYNC_TOKEN}` },
+    headers: { Authorization: `Bearer ${token ?? env.BUNDLE_SYNC_TOKEN}` }
   });
 }
 
 beforeEach(() => {
-  vi.spyOn(Date, "now").mockReturnValue(NOW);
+  vi.spyOn(Date, 'now').mockReturnValue(NOW);
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe("schema query plans", () => {
-  test("Bundle deletion looks up Ghost children through their foreign-key index", async () => {
+describe('schema query plans', () => {
+  test('Bundle deletion looks up Ghost children through their foreign-key index', async () => {
     const detail = await plan({
-      sql: "DELETE FROM bundles WHERE bundle_id = ?1",
-      bindings: [BUNDLE_ID],
+      sql: 'DELETE FROM bundles WHERE bundle_id = ?1',
+      bindings: [BUNDLE_ID]
     });
-    expect(detail).toContain("idx_ghost_summaries_bundle");
-    expect(detail).not.toContain("SCAN ghost_battle_summaries");
+    expect(detail).toContain('idx_ghost_summaries_bundle');
+    expect(detail).not.toContain('SCAN ghost_battle_summaries');
   });
 });
 
-test("keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog", async () => {
+test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog', async () => {
   await seedBundleBacklog(env.DB, 2000, AVAILABLE);
 
   const queries = recordD1(env.DB);
   const response = await worker.fetch(
-    collectionRequest(`01J9${String(1948).padStart(22, "0")}`),
-    env,
+    collectionRequest(`01J9${String(1948).padStart(22, '0')}`),
+    env
   );
   const page = (await response.json()) as {
     items: unknown[];
@@ -66,7 +75,7 @@ test("keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog",
   expect(page.items).toHaveLength(50);
   expect(page.next_after).toEqual({
     available_at_ms: AVAILABLE,
-    bundle_id: `01J9${String(1998).padStart(22, "0")}`,
+    bundle_id: `01J9${String(1998).padStart(22, '0')}`
   });
   const collection = query(queries, /^SELECT .* FROM bundles /).result;
   expect(collection.results).toHaveLength(51);
@@ -75,21 +84,23 @@ test("keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog",
   // Odd-numbered Bundles have no Screenshot; the partial index never visits them.
   const feedResponse = await worker.fetch(
     collectionRequest(
-      `01J9${String(1798).padStart(22, "0")}`,
-      "/bazaardb/bundles",
-      env.BAZAARDB_DELIVERY_TOKEN,
+      `01J9${String(1798).padStart(22, '0')}`,
+      '/bazaardb/bundles',
+      env.BAZAARDB_DELIVERY_TOKEN
     ),
-    env,
+    env
   );
   const feedPage = (await feedResponse.json()) as {
     items: Array<{ bundle_id: string }>;
     next_after: { available_at_ms: number; bundle_id: string } | null;
   };
   expect(feedPage.items).toHaveLength(50);
-  expect(feedPage.items[0].bundle_id).toBe(`01J9${String(1800).padStart(22, "0")}`);
+  expect(feedPage.items[0].bundle_id).toBe(
+    `01J9${String(1800).padStart(22, '0')}`
+  );
   expect(feedPage.next_after).toEqual({
     available_at_ms: AVAILABLE,
-    bundle_id: `01J9${String(1898).padStart(22, "0")}`,
+    bundle_id: `01J9${String(1898).padStart(22, '0')}`
   });
   const feed = query(queries, /^SELECT .* AND has_screenshot = 1 /).result;
   expect(feed.results).toHaveLength(51);
@@ -107,10 +118,20 @@ test("keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog",
     FROM bundles WHERE uploader_account_id = 'backlog-uploader'
   `).run();
   const ghosts = await worker.fetch(
-    new Request("https://worker.test/ghost-battles?player_account_id=plan-opponent"),
-    { ...env, GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: true }) } },
+    new Request(
+      'https://worker.test/ghost-battles?player_account_id=plan-opponent'
+    ),
+    {
+      ...env,
+      GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: true }) }
+    }
   );
-  expect(((await ghosts.json()) as { battles: unknown[] }).battles).toHaveLength(20);
-  const ghost = query(queries, /^SELECT .* FROM ghost_battle_summaries /).result;
+  expect(
+    ((await ghosts.json()) as { battles: unknown[] }).battles
+  ).toHaveLength(20);
+  const ghost = query(
+    queries,
+    /^SELECT .* FROM ghost_battle_summaries /
+  ).result;
   expect(ghost.meta.rows_read).toBeLessThan(20 * 3 + 10);
 });

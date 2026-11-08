@@ -16,7 +16,7 @@ export default function HeroBadge({
   hero,
   selected = false,
   label = 'short',
-  children,
+  children
 }: HeroBadgeProps) {
   const color = getHeroColor(hero);
   const shortLabel = getHeroShortLabel(hero);
@@ -26,7 +26,9 @@ export default function HeroBadge({
       data-hero-badge={hero}
       title={hero}
       className={`inline-flex h-6 min-w-0 items-center gap-1.5 rounded-full border px-2 text-sm font-medium whitespace-nowrap text-text-1 transition-colors duration-(--t-fast) ${
-        selected ? 'border-accent-line bg-accent-subtle' : 'border-transparent bg-hover'
+        selected
+          ? 'border-accent-line bg-accent-subtle'
+          : 'border-transparent bg-hover'
       }`}
     >
       <span
@@ -43,7 +45,9 @@ export default function HeroBadge({
         <span className="min-w-0 truncate">{hero}</span>
       )}
       {children != null ? (
-        <span className={`font-medium tabular-nums ${selected ? 'text-accent' : 'text-text-2'}`}>
+        <span
+          className={`font-medium tabular-nums ${selected ? 'text-accent' : 'text-text-2'}`}
+        >
           {children}
         </span>
       ) : null}

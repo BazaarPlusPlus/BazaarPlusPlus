@@ -4,7 +4,7 @@ import HeroOverviewDashboard from '../features/heroes/HeroOverviewDashboard';
 import type { AnalysisScope } from '../features/heroes/hero-analysis';
 import {
   HeroMetricsHttpError,
-  loadHeroMetricsDataset,
+  loadHeroMetricsDataset
 } from '../features/heroes/hero-metrics-dataset';
 import { ErrorScreen, LoadingScreen } from './screens';
 import type { ResolvedSpaLocation } from './router';
@@ -15,14 +15,18 @@ type RoutePageProps = {
 };
 
 function isClientError(error: Error): boolean {
-  return error instanceof HeroMetricsHttpError && error.status >= 400 && error.status < 500;
+  return (
+    error instanceof HeroMetricsHttpError &&
+    error.status >= 400 &&
+    error.status < 500
+  );
 }
 
 export function HeroOverviewPage({ location, onScopeChange }: RoutePageProps) {
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['hero-overview'],
     queryFn: ({ signal }) => loadHeroMetricsDataset(signal),
-    retry: (failureCount, error) => failureCount < 2 && !isClientError(error),
+    retry: (failureCount, error) => failureCount < 2 && !isClientError(error)
   });
 
   if (isLoading) {
@@ -30,8 +34,20 @@ export function HeroOverviewPage({ location, onScopeChange }: RoutePageProps) {
   }
 
   if (!data) {
-    return <ErrorScreen location={location} retrying={isFetching} onRetry={() => void refetch()} />;
+    return (
+      <ErrorScreen
+        location={location}
+        retrying={isFetching}
+        onRetry={() => void refetch()}
+      />
+    );
   }
 
-  return <HeroOverviewDashboard location={location} dataset={data} onScopeChange={onScopeChange} />;
+  return (
+    <HeroOverviewDashboard
+      location={location}
+      dataset={data}
+      onScopeChange={onScopeChange}
+    />
+  );
 }
