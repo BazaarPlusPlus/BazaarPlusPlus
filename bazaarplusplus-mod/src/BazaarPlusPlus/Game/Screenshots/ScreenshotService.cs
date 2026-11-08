@@ -1,8 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Core.GameState;
-using BazaarPlusPlus.Infrastructure;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -166,7 +163,7 @@ internal sealed class ScreenshotService
             var pixels = new byte[width * height * 4];
             request.GetData<byte>().CopyTo(pixels);
             if (!SystemInfo.graphicsUVStartsAtTop)
-                FlipRowsVertically(pixels, width * 4, height);
+                ScreenshotPngWriter.FlipRowsVertically(pixels, width * 4, height);
 
             // The settled frame is now detached from Unity. Navigation cannot change these
             // pixels, so the caller may release input while PNG encoding continues off-thread.
@@ -175,7 +172,7 @@ internal sealed class ScreenshotService
             {
                 try
                 {
-                    WriteOpaquePngAtomically(filePath, pixels, width, height);
+                    ScreenshotPngWriter.WriteOpaquePngAtomically(filePath, pixels, width, height);
                     completion.TrySetResult(true);
                 }
                 catch (Exception ex)
@@ -193,41 +190,6 @@ internal sealed class ScreenshotService
         {
             ReleaseRenderTexture(renderTexture, screenshotId, filePath);
         }
-    }
-
-    // GPU readback rows arrive bottom-up when UVs start at the bottom; PNG rows are top-down.
-    private static void FlipRowsVertically(byte[] pixels, int stride, int height)
-    {
-        var rowBuffer = new byte[stride];
-        for (var row = 0; row < height / 2; row++)
-        {
-            var topOffset = row * stride;
-            var bottomOffset = (height - 1 - row) * stride;
-            Buffer.BlockCopy(pixels, topOffset, rowBuffer, 0, stride);
-            Buffer.BlockCopy(pixels, bottomOffset, pixels, topOffset, stride);
-            Buffer.BlockCopy(rowBuffer, 0, pixels, bottomOffset, stride);
-        }
-    }
-
-    // The readback carries the framebuffer's alpha, which the screen ignores: UI blending
-    // leaves it below opaque over cards, so viewers would show those pixels translucent.
-    // Keep only the colours the player saw.
-    internal static void WriteOpaquePngAtomically(
-        string filePath,
-        byte[] rgbaPixels,
-        int width,
-        int height
-    )
-    {
-        AtomicFileWriter.Write(
-            filePath,
-            tempPath =>
-            {
-                using var image = Image.LoadPixelData<Rgba32>(rgbaPixels, width, height);
-                using var opaque = image.CloneAs<Rgb24>();
-                opaque.SaveAsPng(tempPath);
-            }
-        );
     }
 
     private static void ReleaseRenderTexture(

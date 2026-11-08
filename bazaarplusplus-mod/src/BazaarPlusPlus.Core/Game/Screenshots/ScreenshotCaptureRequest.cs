@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal sealed class ScreenshotCaptureRequest
+public sealed class ScreenshotCaptureRequest
 {
     public string ScreenshotId { get; set; } = string.Empty;
 

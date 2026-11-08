@@ -3,15 +3,15 @@
 namespace BazaarPlusPlus.Game.Screenshots;
 
 /// <summary>Caps expensive end-of-run visual work without slowing the workflow poll.</summary>
-internal sealed class EndOfRunHeavySampleCadence
+public sealed class EndOfRunHeavySampleCadence
 {
-    internal const float IntervalSeconds = 0.075f;
+    public const float IntervalSeconds = 0.075f;
 
     private float _nextSampleAtSeconds;
     private float _lastObservedAtSeconds;
     private int _generation = int.MinValue;
 
-    internal bool ShouldSample(float nowSeconds, int generation)
+    public bool ShouldSample(float nowSeconds, int generation)
     {
         if (float.IsNaN(nowSeconds) || float.IsInfinity(nowSeconds))
             return true;
@@ -30,7 +30,7 @@ internal sealed class EndOfRunHeavySampleCadence
         return true;
     }
 
-    internal void Reset()
+    public void Reset()
     {
         _generation = int.MinValue;
         _nextSampleAtSeconds = 0f;
@@ -38,7 +38,7 @@ internal sealed class EndOfRunHeavySampleCadence
     }
 }
 
-internal readonly record struct EndOfRunHierarchySentinelState(
+public readonly record struct EndOfRunHierarchySentinelState(
     int InstanceId,
     int ParentInstanceId,
     int SiblingIndex,
@@ -46,9 +46,9 @@ internal readonly record struct EndOfRunHierarchySentinelState(
     bool IsExcluded
 );
 
-internal static class EndOfRunHierarchySentinelCore
+public static class EndOfRunHierarchySentinelCore
 {
-    internal static bool Matches(
+    public static bool Matches(
         EndOfRunHierarchySentinelState expected,
         EndOfRunHierarchySentinelState current
     ) => expected == current;
@@ -58,15 +58,15 @@ internal static class EndOfRunHierarchySentinelCore
 /// Reuses a structural sampling plan only while its source generation and native objects remain
 /// valid. Callers still read every live pose value on each sample.
 /// </summary>
-internal sealed class EndOfRunReusablePlanCache<TKey, TPlan>
+public sealed class EndOfRunReusablePlanCache<TKey, TPlan>
     where TKey : notnull
 {
     private readonly Dictionary<TKey, Entry> _entries = new();
     private readonly List<TKey> _pruneKeys = new();
 
-    internal int Count => _entries.Count;
+    public int Count => _entries.Count;
 
-    internal bool TryGet(TKey key, int generation, out TPlan plan)
+    public bool TryGet(TKey key, int generation, out TPlan plan)
     {
         if (_entries.TryGetValue(key, out var entry) && entry.Generation == generation)
         {
@@ -77,10 +77,10 @@ internal sealed class EndOfRunReusablePlanCache<TKey, TPlan>
         return false;
     }
 
-    internal void Set(TKey key, int generation, TPlan plan) =>
+    public void Set(TKey key, int generation, TPlan plan) =>
         _entries[key] = new Entry(generation, plan);
 
-    internal void Prune(int generation, ISet<TKey> activeKeys, Func<TPlan, bool> isAlive)
+    public void Prune(int generation, ISet<TKey> activeKeys, Func<TPlan, bool> isAlive)
     {
         if (activeKeys == null)
             throw new ArgumentNullException(nameof(activeKeys));
@@ -101,7 +101,7 @@ internal sealed class EndOfRunReusablePlanCache<TKey, TPlan>
             _entries.Remove(key);
     }
 
-    internal void Clear() => _entries.Clear();
+    public void Clear() => _entries.Clear();
 
     private readonly record struct Entry(int Generation, TPlan Plan);
 }

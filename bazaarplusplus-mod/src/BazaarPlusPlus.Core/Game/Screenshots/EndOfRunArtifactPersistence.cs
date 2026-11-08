@@ -2,19 +2,23 @@
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunScreenshot;
+using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal sealed class EndOfRunArtifactPersistence : IEndOfRunArtifactPersistence
+public sealed class EndOfRunArtifactPersistence : IEndOfRunArtifactPersistence
 {
     private readonly RunScreenshotSqliteStore? _store;
 
-    internal EndOfRunArtifactPersistence(IBppServices services)
+    // Required, as for every Core store user: the Android host must pass its DELETE mode, and
+    // null keeps the store's default (the desktop's WAL).
+    public EndOfRunArtifactPersistence(IBppServices services, SqliteOpenOptions? databaseOptions)
     {
         if (services == null)
             throw new ArgumentNullException(nameof(services));
         _store = new RunScreenshotSqliteStore(
-            PathConstants.RunLogDatabase(services.Paths.RequireDataRoot())
+            PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
+            databaseOptions
         );
     }
 

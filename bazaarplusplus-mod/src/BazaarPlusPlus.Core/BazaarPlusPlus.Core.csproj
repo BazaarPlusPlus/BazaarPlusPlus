@@ -22,8 +22,15 @@
     <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
+  <!-- ImageSharp asks for Unsafe 5.0; the game ships 6.0, which compiles against here and is the
+       copy that loads, as in the desktop host. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <PackageReference Include="NETStandard.Library" />
+    <PackageReference
+      Include="System.Runtime.CompilerServices.Unsafe"
+      PrivateAssets="all"
+      ExcludeAssets="runtime"
+    />
   </ItemGroup>
 
   <!-- The CoreCLR host has no game copy to bind; the central version is pinned to the game's.
@@ -51,6 +58,11 @@
   <!-- The Collection source catalog every host filters with (EmbeddedCollectionSourceCatalog). -->
   <ItemGroup>
     <EmbeddedResource Include="Data/CollectionSources/collection-sources.json" />
+  </ItemGroup>
+
+  <!-- The end-of-run screenshot's PNG and its Bundle JPEG, on every host. -->
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" />
   </ItemGroup>
 
   <ItemGroup>

@@ -67,7 +67,8 @@
         "type": "Project",
         "dependencies": {
           "BazaarPlusPlus.ModApi": "[6.2.5, )",
-          "BazaarPlusPlus.Storage": "[6.2.5, )"
+          "BazaarPlusPlus.Storage": "[6.2.5, )",
+          "SixLabors.ImageSharp": "[2.1.11, )"
         }
       },
       "bazaarplusplus.modapi": {
@@ -97,6 +98,12 @@
           "SQLitePCLRaw.bundle_e_sqlite3": "2.1.12",
           "SQLitePCLRaw.core": "2.1.12"
         }
+      },
+      "SixLabors.ImageSharp": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.11, )",
+        "resolved": "2.1.11",
+        "contentHash": "tUvsejgzUmEbES114yLseRxmFiYlQbH5RyaYXUQsEL7ksDo1/kW+ZL1EfD6iSUfxj7LHU8p110oFvSrRfsaWSQ=="
       },
       "SourceGear.sqlite3": {
         "type": "CentralTransitive",

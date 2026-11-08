@@ -353,6 +353,12 @@
       "producer": "managed"
     },
     {
+      "path": "MelonLoader/UserLibs/SixLabors.ImageSharp.dll",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
       "path": "MelonLoader/UserData/BazaarPlusPlus.launch.json",
       "host": "melonloader",
       "ownership": "private",

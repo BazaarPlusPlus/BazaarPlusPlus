@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal enum ScreenshotMetadataPersistenceStatus
+public enum ScreenshotMetadataPersistenceStatus
 {
     Saved,
     Unavailable,
@@ -9,20 +9,20 @@ internal enum ScreenshotMetadataPersistenceStatus
     TimedOut,
 }
 
-internal readonly record struct ScreenshotMetadataPersistenceOutcome(
+public readonly record struct ScreenshotMetadataPersistenceOutcome(
     ScreenshotMetadataPersistenceStatus Status,
     Exception? Exception
 )
 {
-    internal static ScreenshotMetadataPersistenceOutcome Saved() =>
+    public static ScreenshotMetadataPersistenceOutcome Saved() =>
         new(ScreenshotMetadataPersistenceStatus.Saved, null);
 
-    internal static ScreenshotMetadataPersistenceOutcome Unavailable() =>
+    public static ScreenshotMetadataPersistenceOutcome Unavailable() =>
         new(ScreenshotMetadataPersistenceStatus.Unavailable, null);
 
-    internal static ScreenshotMetadataPersistenceOutcome Failed(Exception exception) =>
+    public static ScreenshotMetadataPersistenceOutcome Failed(Exception exception) =>
         new(ScreenshotMetadataPersistenceStatus.Failed, exception);
 
-    internal static ScreenshotMetadataPersistenceOutcome TimedOut() =>
+    public static ScreenshotMetadataPersistenceOutcome TimedOut() =>
         new(ScreenshotMetadataPersistenceStatus.TimedOut, null);
 }

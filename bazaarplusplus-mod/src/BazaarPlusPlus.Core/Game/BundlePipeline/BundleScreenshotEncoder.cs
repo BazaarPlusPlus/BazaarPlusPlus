@@ -6,7 +6,7 @@ using SixLabors.ImageSharp.Processing;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-internal sealed class BundleScreenshotEncoder : IBundleScreenshotEncoder
+public sealed class BundleScreenshotEncoder : IBundleScreenshotEncoder
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
     private static readonly int[] LongestEdges = [1920, 1600, 1280, 1024, 768];

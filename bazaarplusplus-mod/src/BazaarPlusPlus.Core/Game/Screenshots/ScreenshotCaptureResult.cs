@@ -3,7 +3,7 @@ using BazaarPlusPlus.Core.GameState;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal sealed class ScreenshotCaptureResult
+public sealed class ScreenshotCaptureResult
 {
     public ScreenshotCaptureMetadata Metadata { get; init; }
 
@@ -24,7 +24,7 @@ internal sealed class ScreenshotCaptureResult
 
 // Copy scalar values before frame acquisition releases Continue. Never retain the mutable
 // probe DTOs or re-read the live run while the image is being encoded and persisted.
-internal readonly record struct ScreenshotCaptureMetadata(
+public readonly record struct ScreenshotCaptureMetadata(
     int? Day,
     int? Victories,
     string? Hero,
@@ -33,7 +33,7 @@ internal readonly record struct ScreenshotCaptureMetadata(
     int? Position
 )
 {
-    internal static ScreenshotCaptureMetadata Capture(IRunSnapshotProbe probe)
+    public static ScreenshotCaptureMetadata Capture(IRunSnapshotProbe probe)
     {
         var basics = probe.TryGetRunBasics(out var run) ? run : null;
         var rank = probe.TryGetRankSnapshot(out var ranking) ? ranking : null;

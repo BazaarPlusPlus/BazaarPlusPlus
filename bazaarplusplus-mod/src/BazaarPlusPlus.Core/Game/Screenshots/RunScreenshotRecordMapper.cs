@@ -3,7 +3,7 @@ using BazaarPlusPlus.Storage.RunScreenshot;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-internal static class RunScreenshotRecordMapper
+public static class RunScreenshotRecordMapper
 {
     public static RunScreenshotRecord CreateRecord(ScreenshotCaptureResult capture, bool isPrimary)
     {

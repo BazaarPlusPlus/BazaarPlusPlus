@@ -14,23 +14,6 @@ internal interface IEndOfRunCaptureWorkflow
     void ObserveRevealStarted(EndOfRunSummaryController summary);
 }
 
-internal enum EndOfRunCaptureReadinessState
-{
-    UnknownTarget,
-    NotSummary,
-    TransitionInProgress,
-    RevealNotStarted,
-    RevealInProgress,
-    Ready,
-    DetectionFailed,
-}
-
-internal readonly record struct EndOfRunCaptureReadinessOutcome(
-    EndOfRunCaptureReadinessState State,
-    ScreenshotCaptureReasonCode? ReasonCode,
-    Exception? Exception
-);
-
 internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDisposable
 {
     private const string TransitionCountFieldName = "_transitionCount";
@@ -47,7 +30,7 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _core = new EndOfRunCaptureWorkflowCore<EndOfRunScreenController>(
-            new EndOfRunArtifactPersistence(services),
+            new EndOfRunArtifactPersistence(services, databaseOptions: null),
             new UnityEndOfRunCaptureClock(),
             new SystemEndOfRunCaptureFileSystem(),
             EndOfRunCapturePolicy.Default,
