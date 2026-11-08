@@ -15,6 +15,10 @@ name: Operations / Analyzer
 # ingests every settled Source Hour since the last one, so collection only
 # arrives in larger batches, and snapshots still advance once per Complete
 # Source Day.
+#
+# daily-report.yml calls this workflow before its report and reads two
+# outputs: `day`, the window.end this run analyzed, and `highlights`, that
+# day's Daily Highlights.
 on:
   schedule:
     - cron: '23 * * * *'
@@ -24,16 +28,19 @@ on:
         description: Publish snapshots to metrics/v6 in the public bucket
         type: boolean
         default: true
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        default: true
+    outputs:
+      day:
+        value: ${{ jobs.run.outputs.day }}
+      highlights:
+        value: ${{ jobs.run.outputs.highlights }}
 
 permissions:
   contents: read
-
-# The R2 state bucket has one writer; a run never cancels another mid-sync.
-# A run still going when the next trigger arrives leaves one pending run, and
-# later triggers replace that pending run rather than stacking up.
-concurrency:
-  group: analyzer-v6
-  cancel-in-progress: false
 
 jobs:
   run:
@@ -41,6 +48,16 @@ jobs:
     if: github.repository == 'BazaarPlusPlus/BazaarPlusPlus'
     runs-on: ubuntu-latest
     environment: analyzer
+    # The R2 state bucket has one writer; a run never cancels another mid-sync.
+    # A run still going when the next trigger arrives leaves one pending run,
+    # and later triggers replace that pending run rather than stacking up. The
+    # group is on the job so that a run daily-report.yml calls joins it too.
+    concurrency:
+      group: analyzer-v6
+      cancel-in-progress: false
+    outputs:
+      day: ${{ steps.window.outputs.day }}
+      highlights: ${{ steps.highlights.outputs.json }}
     # BPP_MAX_RUN_SECONDS stops the pipeline at five hours, leaving time to
     # mirror committed hours back before the six-hour job limit.
     timeout-minutes: 340
@@ -123,6 +140,13 @@ jobs:
         working-directory: bazaarplusplus-analyzer
         run: uv run --locked --no-dev bazaarlens verify --deep
 
+      # status.json keeps the previous run's last_run until this run ends; its
+      # run_id tells a report of this run from a restored one.
+      - id: before
+        if: steps.pull.outcome == 'success'
+        name: Note the restored run
+        run: echo "run_id=$(jq -r '.last_run.run_id // ""' "$BPP_DATA_ROOT/status.json" 2>/dev/null)" >> "$GITHUB_OUTPUT"
+
       - id: analyze
         if: steps.pull.outcome == 'success'
         name: Run the analyzer
@@ -133,6 +157,32 @@ jobs:
           args=(run --quiet)
           [ "$PUBLISH" = true ] || args+=(--no-publish)
           uv run --locked --no-dev bazaarlens "${args[@]}"
+
+      # The window.end this run analyzed, even when a later stage such as
+      # retention failed.
+      - id: window
+        if: always() && steps.analyze.outcome != 'skipped'
+        name: Name the analyzed day
+        env:
+          BEFORE: ${{ steps.before.outputs.run_id }}
+        run: |
+          [ -f "$BPP_DATA_ROOT/status.json" ] || exit 0
+          jq -r --arg before "$BEFORE" '
+            .last_run | select(. != null and .run_id != $before and .report.window != null)
+            | "day=\(.report.window.end)"' "$BPP_DATA_ROOT/status.json" >> "$GITHUB_OUTPUT"
+
+      # Daily Highlights name players, so they leave the job only as an output
+      # for daily-report.yml, never to a bucket.
+      - id: highlights
+        if: always() && steps.window.outputs.day != ''
+        name: Build the Daily Highlights
+        continue-on-error: true
+        working-directory: bazaarplusplus-analyzer
+        env:
+          DAY: ${{ steps.window.outputs.day }}
+        run: |
+          json=$(uv run --locked --no-dev bazaarlens highlights --day "$DAY")
+          echo "json=$json" >> "$GITHUB_OUTPUT"
 
       # Retention deletions are mirrored only after a fully successful run; a
       # failed one uploads the hours it committed and deletes nothing.

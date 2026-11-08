@@ -74,7 +74,7 @@ test('the template built from the real analyzer .env.example parses and lists ev
   const config = readConfig(f.home);
   assert.deepEqual(
     [...config.sections.keys()],
-    ['server', 'analyzer', 'signing', 'machine', 'game', 'cloudflare']
+    ['server', 'analyzer', 'signing', 'machine', 'game', 'cloudflare', 'qqbot']
   );
   assert.ok('BPP_DATA_ROOT' in config.sections.get('analyzer')!.values);
   assert.ok('BPP_METRICS_R2_BUCKET' in config.sections.get('analyzer')!.values);
@@ -278,7 +278,7 @@ test('scoped environment only injects its section allowlist; explicit environmen
   });
   assert.throws(
     () => env('cloudflare'),
-    /Unknown profile; use server, analyzer, signing, mod, game or release/
+    /Unknown profile; use server, analyzer, signing, mod, game, release or qqbot/
   );
 });
 
@@ -501,12 +501,13 @@ test('CLI help lists every section and profile from the section table', (t) => {
     'signing',
     'machine',
     'game',
-    'cloudflare'
+    'cloudflare',
+    'qqbot'
   ])
     assert.match(result.stdout, new RegExp(`\\[${name}\\]`));
   assert.match(
     result.stdout,
-    /Profiles: server, analyzer, signing, mod, game, release\./
+    /Profiles: server, analyzer, signing, mod, game, release, qqbot\./
   );
   assert.match(result.stdout, /secrets push \[--dependabot\]$/m);
 });
@@ -588,7 +589,7 @@ test('CLI refuses an unknown profile naming the profiles the table defines', (t)
   assert.equal(result.status, 1);
   assert.match(
     result.stderr,
-    /Unknown profile; use server, analyzer, signing, mod, game or release/
+    /Unknown profile; use server, analyzer, signing, mod, game, release or qqbot/
   );
 });
 
@@ -669,6 +670,8 @@ CLOUDFLARE_API_TOKEN        repository secret             GitHub MISSING  local 
 BPP_BUNDLE_SYNC_TOKEN       analyzer environment secret   GitHub MISSING  local present (config.ini [server] BUNDLE_SYNC_TOKEN)
 STEAM_SNAPSHOT_LOGIN        steam environment secret      GitHub MISSING  local MISSING (contents of keys/steam-snapshot-login.json)
 STEAM_BETA_PASSWORDS        steam environment secret      GitHub MISSING  local MISSING (contents of keys/steam-beta-passwords.json)
+QQ_BOT_APP_ID               qqbot environment secret      GitHub MISSING  local MISSING (config.ini [qqbot] QQ_BOT_APP_ID)
+QQ_BOT_APP_SECRET           qqbot environment secret      GitHub MISSING  local MISSING (config.ini [qqbot] QQ_BOT_APP_SECRET)
 TAURI_SIGNING_PRIVATE_KEY   release environment secret    GitHub MISSING  local present (contents of keys/tauri-updater.key)
 ANDROID_KEYSTORE            release environment secret    GitHub MISSING  local MISSING (base64 of keys/android-release.p12)
 ANDROID_KEYSTORE_PASSWORD   release environment secret    GitHub MISSING  local MISSING (config.ini [signing] ANDROID_KEYSTORE_PASSWORD)
@@ -679,7 +682,7 @@ APPLE_API_KEY               release environment variable  GitHub MISSING  local 
 APPLE_API_KEY_P8            release environment secret    GitHub MISSING  local present (contents of keys/AuthKey_<APPLE_API_KEY>.p8)
 APPLE_CERTIFICATE           release environment secret    GitHub MISSING  local MISSING (base64 of keys/developer-id.p12)
 APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.ini [signing] APPLE_CERTIFICATE_PASSWORD)
-15 managed names: 15 missing on GitHub, 7 missing locally.
+17 managed names: 17 missing on GitHub, 9 missing locally.
 Dependabot secrets were not listed; pass --dependabot to include them.
 `
   );
@@ -703,7 +706,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
     secretsConfig.replace(
       'APPLE_CERTIFICATE_PASSWORD=\n',
       'APPLE_CERTIFICATE_PASSWORD=\nANDROID_KEYSTORE_PASSWORD=ks-pass\nANDROID_KEY_ALIAS=bpp\n'
-    )
+    ) + '[qqbot]\nQQ_BOT_APP_ID=app-id\nQQ_BOT_APP_SECRET=APP-SECRET\n'
   );
   f.put(f.home, 'keys/tauri-updater.key', 'UPDATER-KEY\n');
   f.put(f.home, 'keys/AuthKey_K1.p8', 'P8-KEY');
@@ -717,7 +720,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.doesNotMatch(
     result.stdout + result.stderr,
-    /operator-token|UPDATER-KEY|P8-KEY|MIIA|issuer-id|ks-pass|STEAM-LOGIN|STEAM-CODES/
+    /operator-token|UPDATER-KEY|P8-KEY|MIIA|issuer-id|ks-pass|STEAM-LOGIN|STEAM-CODES|APP-SECRET/
   );
   assert.match(
     result.stdout,
@@ -733,7 +736,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   );
   assert.match(
     result.stdout,
-    /^Set 14 GitHub names; 1 without a local value\.$/m
+    /^Set 16 GitHub names; 1 without a local value\.$/m
   );
   const sets = gh.calls().filter(({ args }) => args[1] === 'set');
   const byName = Object.fromEntries(
@@ -749,6 +752,8 @@ test('secrets push copies each local value over stdin to its scope and skips abs
     'secret:BPP_BUNDLE_SYNC_TOKEN:--env analyzer': 'sync',
     'secret:STEAM_SNAPSHOT_LOGIN:--env steam': 'STEAM-LOGIN',
     'secret:STEAM_BETA_PASSWORDS:--env steam': 'STEAM-CODES',
+    'secret:QQ_BOT_APP_ID:--env qqbot': 'app-id',
+    'secret:QQ_BOT_APP_SECRET:--env qqbot': 'APP-SECRET',
     'secret:TAURI_SIGNING_PRIVATE_KEY:--env release': 'UPDATER-KEY\n',
     'secret:ANDROID_KEYSTORE:--env release': Buffer.from([
       0x30, 0x82, 0x0a

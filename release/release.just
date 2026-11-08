@@ -46,7 +46,7 @@ verify-mirror *args:
 promote *args:
     bun scripts/workspace.ts run release -- bun release/cli.ts promote "$@"
 
-# Upload mod runtime data (supporters or voice-lines) to mod-data/ in the public bucket.
-[arg('name', pattern='supporters|voice-lines')]
+# Upload maintainer data (supporters, voice-lines or zh-names) to mod-data/ in the public bucket.
+[arg('name', pattern='supporters|voice-lines|zh-names')]
 mod-data name file:
     bun scripts/workspace.ts run release -- bun release/mod-data.ts "$1" "$2"

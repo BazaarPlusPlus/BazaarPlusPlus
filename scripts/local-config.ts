@@ -172,6 +172,15 @@ export const sections: SectionTable = {
       '# CLOUDFLARE_API_TOKEN is the one Account API Token: R2 read and write on every bucket, plus',
       '# what Wrangler needs. GitHub holds it as one repository secret, also given to Dependabot.'
     ]
+  },
+  qqbot: {
+    profile: 'qqbot',
+    inject: ['QQ_BOT_APP_ID', 'QQ_BOT_APP_SECRET'],
+    optional: true,
+    notes: [
+      '# The QQ official Bot: the qq-announce skill and the hero daily report.',
+      '# GitHub holds both keys in the qqbot environment.'
+    ]
   }
 };
 for (const [name, spec] of Object.entries(sections)) {

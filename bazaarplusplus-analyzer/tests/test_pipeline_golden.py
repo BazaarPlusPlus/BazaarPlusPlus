@@ -1,6 +1,6 @@
 """Bundle Server → facts → seal → heroes/builds snapshots, compared byte for byte.
 
-``just analyzer::golden`` rewrites the three goldens; ``just analyzer::test`` only
+``just analyzer::golden`` rewrites the four goldens; ``just analyzer::test`` only
 compares. The snapshot goldens are shared consumer fixtures under
 ``contracts/v6/fixtures/``; the run report is run evidence and stays in
 ``tests/fixtures/``.
@@ -11,10 +11,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+import pytest
 
+from bazaarlens.analysis import AnalysisResources
 from bazaarlens.bundle_source import BundleSource
 from bazaarlens.driver import PipelineDriver
 from bazaarlens.durable import canonical_json
+from bazaarlens.facts.store import FactStore
+from bazaarlens.highlights import HighlightsError, build_highlights
 from tests.pipeline_fixtures import (
     API_BASE_URL,
     CONTRACT_FIXTURES,
@@ -86,3 +90,13 @@ def test_one_bundle_day_reproduces_the_committed_snapshots_and_run_report(
     assert_golden(CONTRACT_FIXTURES / "heroes.latest.json", heroes)
     assert_golden(CONTRACT_FIXTURES / "builds.latest.json", builds)
     assert_golden(TEST_FIXTURES / "pipeline-golden.run-report.json", canonical_json(report))
+
+    # Daily Highlights read the same sealed day; the golden day has a Ten-Win Run.
+    store = FactStore(tmp_path)
+    resources = AnalysisResources("1GB", 1)
+    highlights = build_highlights(store, "2026-08-10", resources)
+    assert highlights["ten_win_runs"] >= 1
+    assert highlights["ten_win_leaders"]
+    assert_golden(TEST_FIXTURES / "pipeline-golden.highlights.json", canonical_json(highlights))
+    with pytest.raises(HighlightsError):
+        build_highlights(store, "2026-08-11", resources)

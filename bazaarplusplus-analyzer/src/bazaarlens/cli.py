@@ -1,14 +1,15 @@
-"""Operator CLI for healing, two-product publication, status, and verification."""
+"""Operator CLI for healing, two-product publication, status, verification, and Daily Highlights."""
 
 import json
 
 import click
 
-from bazaarlens.analysis import AnalysisWindowError
+from bazaarlens.analysis import AnalysisResources, AnalysisWindowError
 from bazaarlens.bundle_source import BundleSource
 from bazaarlens.config import ConfigurationError, load_config
 from bazaarlens.driver import PipelineDriver
 from bazaarlens.facts.store import FactStore, FactStoreError, parse_source_day
+from bazaarlens.highlights import HighlightsError, build_highlights
 from bazaarlens.locking import LockHeld, LockOwnershipLost
 from bazaarlens.object_store import ObjectStoreError, R2ObjectStore
 from bazaarlens.operational_evidence import read_status
@@ -128,6 +129,24 @@ def verify_command(day: str | None, deep: bool) -> None:
     click.echo(
         f"verified {report.hours_verified} hours and {report.files_verified} Parquet files{suffix}"
     )
+
+
+@main.command("highlights")
+@click.option("--day", required=True, type=str, help="Complete Source Day (YYYY-MM-DD).")
+def highlights_command(day: str) -> None:
+    """Print one Complete Source Day's Daily Highlights as JSON; they name players."""
+    try:
+        config = load_config(require_source=False)
+        value = build_highlights(
+            FactStore(config.data_root),
+            day,
+            AnalysisResources(config.duckdb_memory_limit, config.duckdb_threads),
+        )
+    except (ConfigurationError, ValueError) as error:
+        raise click.UsageError(str(error)) from None
+    except (HighlightsError, FactStoreError) as error:
+        raise click.ClickException(str(error)) from None
+    click.echo(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
 
 
 def _validate_local_snapshots(data_root) -> int:

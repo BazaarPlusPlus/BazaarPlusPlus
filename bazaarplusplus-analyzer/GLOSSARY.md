@@ -82,3 +82,10 @@ used by the Mod for recommendation recall and ranking.
 Local records of pipeline progress and outcomes used by operators to understand
 the current Run, the last completed Run, and recent Run history. It is not
 consumer data.
+
+**Daily Highlights**:
+One Complete Source Day's player count and runs by hour, the players with
+the most Ten-Win Runs and Perfect Runs, the most frequent items, skills and
+enchantments on Ten-Win final boards, and the day's records, printed by
+`bazaarlens highlights` for the QQ daily report. They name players,
+so they are never published as consumer data.

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      {{tokens}}
+      {{styles}}
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="banner" style="background-image: url({{cover}})">
+        <span class="brand">{{mark}}BazaarPlusPlus 日报</span>
+        <div class="title">
+          <h1>玩家榜</h1>
+          <span class="date">{{date}}</span>
+        </div>
+      </header>
+
+      <section>
+        <div class="head">
+          <h2>十胜榜</h2>
+          <span class="note">{{players}} 名玩家参与</span>
+        </div>
+        <div class="panel">
+          <table>
+            <thead>
+              <tr>
+                <th>名次</th>
+                <th>玩家</th>
+                <th>常用英雄</th>
+                <th class="num">十胜</th>
+                <th class="num">对局</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{leaders}}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="head">
+          <h2>完美十胜</h2>
+          <span class="note">10 胜 0 负，共 {{perfectRuns}} 局</span>
+        </div>
+        <div class="panel">
+          <table>
+            <tbody>
+              {{perfect}}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>今日纪录</h2>
+        <div class="records">{{records}}</div>
+      </section>
+
+      <footer>
+        <span>数据来自安装 BazaarPlusPlus 的玩家</span>
+        <span>3/3</span>
+      </footer>
+    </main>
+  </body>
+</html>
