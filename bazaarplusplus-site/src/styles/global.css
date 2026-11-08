@@ -7,10 +7,14 @@
     background: var(--bg-canvas);
     scrollbar-color: var(--line-strong) transparent;
     scrollbar-gutter: stable;
+    /* Disable the macOS/iOS rubber-band bounce: pulling past the top would
+       otherwise drag the sticky header down and expose the canvas above it. */
+    overscroll-behavior-y: none;
   }
 
   body {
     min-height: 100vh;
+    overscroll-behavior-y: none;
     background: var(--bg-canvas);
     color: var(--text-1);
     font-family: var(--font-ui);
