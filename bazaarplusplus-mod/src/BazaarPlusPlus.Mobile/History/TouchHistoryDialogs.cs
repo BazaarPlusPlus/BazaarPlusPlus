@@ -73,9 +73,9 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             font,
             "more_close",
             Local(layout.DialogClose, origin),
-            layout.ButtonFont,
+            layout.TitleFont,
             () => Close("close_button"),
-            HistoryPanelText.Close()
+            UiKit.CloseGlyph
         );
         var (scroll, content) = TouchHistoryUi.Scroll(
             dialog,

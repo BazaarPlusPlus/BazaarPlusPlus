@@ -21,6 +21,12 @@ public static partial class HistoryPanelText
 
     private static readonly LocalizedTextSet FiltersText = new("Filters", "筛选", "篩選");
 
+    private static readonly LocalizedTextSet FilterHeroText = new("Hero", "英雄", "英雄");
+
+    private static readonly LocalizedTextSet FilterOutcomeText = new("Result", "胜负", "勝負");
+
+    private static readonly LocalizedTextSet FilterDayText = new("Day", "天数", "天數");
+
     private static readonly LocalizedTextSet OutcomeAllText = new("All", "全部", "全部");
 
     // Ghost battles are read from the local player's side, so the filter says whose win it is.
@@ -75,6 +81,12 @@ public static partial class HistoryPanelText
     public static string AllHeroes() => Resolve(AllHeroesText);
 
     public static string Filters() => Resolve(FiltersText);
+
+    public static string FilterHero() => Resolve(FilterHeroText);
+
+    public static string FilterOutcome() => Resolve(FilterOutcomeText);
+
+    public static string FilterDay() => Resolve(FilterDayText);
 
     public static string OutcomeFilter(GhostBattleFilter filter) =>
         filter switch

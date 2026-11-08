@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Mobile.Ui;
@@ -5,7 +6,10 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>The coordinator's existing filters, exposed as touch targets in one scrollable sheet.</summary>
+/// <summary>
+/// The coordinator's existing filters as touch targets, one headed group per filter. The dialog is
+/// as tall as the open section's groups and scrolls only when the sheet is shorter.
+/// </summary>
 internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
 {
     private readonly GameObject _root,
@@ -17,6 +21,9 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
     private readonly UnityEngine.UI.ScrollRect _scroll;
     private readonly float _heroHeight,
         _ghostHeight;
+    private readonly HistoryTouchLayout _layout;
+    private readonly RectTransform _panel;
+    private bool? _boundRuns;
 
     public TouchHistoryFilterDialog(
         RectTransform parent,
@@ -32,7 +39,8 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             () => Close("outside_tap")
         );
         _root = shade.gameObject;
-        TouchHistoryUi.Panel(shade, "FilterDialog", layout.Dialog);
+        _layout = layout;
+        _panel = TouchHistoryUi.Panel(shade, "FilterDialog", layout.Dialog);
         var title = TouchHistoryUi.Label(
             shade,
             font,
@@ -46,9 +54,9 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             font,
             "filters_close",
             layout.DialogClose,
-            layout.ButtonFont,
+            layout.TitleFont,
             () => Close("close_button"),
-            HistoryPanelText.Close()
+            UiKit.CloseGlyph
         );
         var (scroll, content) = TouchHistoryUi.Scroll(
             shade,
@@ -61,13 +69,26 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
         var gap = layout.Gap;
         var width = layout.MoreScroll.Width;
         var columns = 2;
+        var heading = layout.Metrics.Dp(28f);
         var choices = new[] { string.Empty }
             .Concat(HistoryPanelHeroPresentation.RunFilterHeroIds)
             .ToArray();
-        _heroHeight = (int)Math.Ceiling(choices.Length / (float)columns) * (target + gap);
-        _ghostHeight = 4f * (target + gap);
+        var heroRows = (int)Math.Ceiling(choices.Length / (float)columns);
+        _heroHeight = heading + heroRows * (target + gap) - gap;
+        // Result: heading and three choices. Day: heading, the toggle, and the cloud note.
+        _ghostHeight = 2f * heading + 3f * (target + gap) - gap;
         _heroes = TouchScreen.Child("Heroes", content, new(0, 0, width, _heroHeight)).gameObject;
         _ghost = TouchScreen.Child("Battles", content, new(0, 0, width, _ghostHeight)).gameObject;
+        Heading(_heroes.transform, font, layout, new(0, 0, width, heading)).text =
+            HistoryPanelText.FilterHero();
+        Heading(_ghost.transform, font, layout, new(0, 0, width, heading)).text =
+            HistoryPanelText.FilterOutcome();
+        Heading(
+            _ghost.transform,
+            font,
+            layout,
+            new(0, heading + target + gap, width, heading)
+        ).text = HistoryPanelText.FilterDay();
         for (var i = 0; i < choices.Length; i++)
         {
             var hero = choices[i];
@@ -78,7 +99,7 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
                 "filter_hero",
                 new(
                     (i % columns) * (cellWidth + gap),
-                    (i / columns) * (target + gap),
+                    heading + (i / columns) * (target + gap),
                     cellWidth,
                     target
                 ),
@@ -104,7 +125,7 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
                 _ghost.transform,
                 font,
                 "filter_outcome",
-                new((int)filter * (cell + gap), 0, cell, target),
+                new((int)filter * (cell + gap), heading, cell, target),
                 layout.ButtonFont,
                 () => actions.OutcomeFilter(filter)
             );
@@ -113,7 +134,7 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             _ghost.transform,
             font,
             "filter_day",
-            new(0, target + gap, width, target),
+            new(0, 2f * heading + target + gap, width, target),
             layout.ButtonFont,
             actions.ToggleDayFilter
         );
@@ -121,13 +142,46 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             _ghost.transform,
             font,
             "CloudRetention",
-            new(0, 2f * (target + gap), width, target),
+            new(0, 2f * heading + 2f * (target + gap), width, target),
             layout.BodyFont,
             color: TouchHistoryUi.Muted,
             wrap: true
         );
         note.text = HistoryPanelText.CloudWindow();
         _root.SetActive(false);
+    }
+
+    private static TextMeshProUGUI Heading(
+        Transform parent,
+        TMP_FontAsset font,
+        HistoryTouchLayout layout,
+        TouchRect area
+    ) =>
+        TouchHistoryUi.Label(
+            parent,
+            font,
+            "Heading",
+            area,
+            layout.BodyFont,
+            color: TouchHistoryUi.Muted
+        );
+
+    // Shrinks the full-height dialog to its content; it keeps its top, title and close.
+    private void Fit(float content)
+    {
+        var dialog = _layout.Dialog;
+        var scroll = _layout.MoreScroll;
+        var bottom = dialog.Top + dialog.Height - (scroll.Top + scroll.Height);
+        var height = Math.Min(scroll.Height, content);
+        TouchScreen.Place(
+            _panel,
+            dialog with
+            {
+                Height = scroll.Top - dialog.Top + height + bottom,
+            }
+        );
+        // A cast of an IL2CPP Transform fails at run time; the component lookup does not.
+        TouchScreen.Place(_scroll.GetComponent<RectTransform>(), scroll with { Height = height });
     }
 
     public bool IsOpen => _root.activeSelf;
@@ -146,10 +200,13 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
         var runs = model.SectionMode == HistorySectionMode.Runs;
         _heroes.SetActive(runs);
         _ghost.SetActive(!runs);
-        _scroll.content.sizeDelta = new Vector2(
-            _scroll.content.sizeDelta.x,
-            runs ? _heroHeight : _ghostHeight
-        );
+        var height = runs ? _heroHeight : _ghostHeight;
+        _scroll.content.sizeDelta = new Vector2(_scroll.content.sizeDelta.x, height);
+        if (_boundRuns != runs)
+        {
+            _boundRuns = runs;
+            Fit(height);
+        }
         foreach (var (hero, button) in _heroButtons)
             button.Set(
                 string.IsNullOrEmpty(hero)

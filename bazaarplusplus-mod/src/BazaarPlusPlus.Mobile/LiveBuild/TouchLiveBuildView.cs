@@ -668,8 +668,7 @@ internal sealed class TouchLiveBuildView
             : _artwork?.HeaderNormal;
         background.sprite = sprite;
         background.type = Image.Type.Sliced;
-        background.pixelsPerUnitMultiplier =
-            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
+        background.pixelsPerUnitMultiplier = HistoryHeaderArtwork.TouchMultiplier(_layout.Metrics);
         background.color =
             sprite != null ? Color.white
             : selected ? UiKit.ActiveColor

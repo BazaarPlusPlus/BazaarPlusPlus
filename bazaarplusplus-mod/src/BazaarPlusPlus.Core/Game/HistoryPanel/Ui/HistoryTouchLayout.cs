@@ -177,7 +177,8 @@ public sealed class HistoryTouchLayout
                 RailOlder.Top - small - RailNewer.Bottom - small
             );
         RailListFull = Rail;
-        ChipHeight = metrics.Dp(56f);
+        // Three lines: day with rank, opponent, outcome word.
+        ChipHeight = metrics.Dp(72f);
         ChipWidth = metrics.Target(64f);
         Footer = new TouchRect(Detail.Left, Detail.Bottom - target, Detail.Width, target);
         Delete = new TouchRect(Footer.Left, Footer.Top, metrics.Target(64f), target);
