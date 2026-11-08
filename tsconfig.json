@@ -20,7 +20,6 @@
     "noEmit": true
   },
   "include": [
-    "release.ts",
     "release/**/*.ts",
     "scripts/**/*.ts",
     ".github/scripts/*.ts",

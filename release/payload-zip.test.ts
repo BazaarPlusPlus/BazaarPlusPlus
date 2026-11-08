@@ -400,7 +400,7 @@ test('BazaarPlusPlus.version is a required release invariant', () => {
           'BepInEx/plugins/BazaarPlusPlus.version'
         ]
       })
-    ).toThrow(/BazaarPlusPlus\.version[\s\S]*release\.ts prepare/);
+    ).toThrow(/BazaarPlusPlus\.version[\s\S]*release\/cli\.ts prepare/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }

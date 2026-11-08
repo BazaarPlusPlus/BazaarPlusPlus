@@ -68,4 +68,4 @@ dev-reset:
 
 # Sign the debug App's game in through its Log In form with config.ini [game]; pass --help for details.
 dev-login serial *args:
-    bun ../scripts/android-login.ts "$@"
+    bun ../scripts/android/android-login.ts "$@"

@@ -232,8 +232,8 @@ test('release prechecks require the product build lock before verification', () 
     }
     run_release_prechecks windows
   `);
-  expect(output).not.toContain('release.ts check');
-  expect(output).toContain('release.ts assert-build-owner');
+  expect(output).not.toContain('release/cli.ts check');
+  expect(output).toContain('release/cli.ts assert-build-owner');
   expect(output).toContain('bun run verify --release-platform windows');
 });
 

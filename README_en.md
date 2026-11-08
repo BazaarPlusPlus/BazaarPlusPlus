@@ -80,7 +80,7 @@ See the [tutorial](https://bazaarplusplus.com/tutorial?lang=en) for the full fea
 | `bazaarplusplus-analyzer/`           | Turns Bundles into hero and build snapshots                                  |
 | `bazaarplusplus-site/`               | bazaarplusplus.com                                                           |
 | `design/`                            | Design tokens, shared styles, and the brand book                             |
-| `VERSION`, `release.ts`, `release/` | Product version and the release pipeline for all three platforms             |
+| `VERSION`, `release/`                | Product version and the release pipeline for all three platforms             |
 
 Each project keeps its own toolchain, `README.md`, and `AGENTS.md`; the root [`AGENTS.md`](AGENTS.md) records cross-project conventions and contract owners.
 

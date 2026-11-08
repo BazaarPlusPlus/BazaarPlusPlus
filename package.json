@@ -9,7 +9,11 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "oxlint -c .oxlintrc.json release.ts release scripts .github/scripts design/build.ts .agents/skills"
+    "lint": "oxlint -c .oxlintrc.json release scripts .github/scripts design/build.ts .agents/skills"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "trailingComma": "none"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

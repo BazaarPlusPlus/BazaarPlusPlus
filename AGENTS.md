@@ -10,7 +10,7 @@ BazaarPlusPlus monorepo. The mod, the installer and the Android App ship as one 
 | Hero and build snapshots computed from Bundles | `bazaarplusplus-analyzer/` |
 | bazaarplusplus.com, Hero Analysis, the download page | `bazaarplusplus-site/` |
 | The Android App: loads the installed official game, its launcher, the runtime it carries for LemonLoader | `bazaarplusplus-android/` |
-| Product version, Payload Inventory, release pipeline | root `VERSION`, `release.ts`, `release/`; read `docs/release.md` |
+| Product version, Payload Inventory, release pipeline | root `VERSION`, `release/` (CLI `release/cli.ts`); read `docs/release.md` |
 | Design tokens, shared `bpp-*` styles, brand mark, brand book and writing standard | `design/`; read `docs/design.md` |
 
 Cross-project terms (Product Release, Payload, Release Manifest, Bundle) are defined in `GLOSSARY.md`.

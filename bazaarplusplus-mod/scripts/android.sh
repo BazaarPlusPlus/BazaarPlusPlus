@@ -55,7 +55,7 @@ device() {
     MSYS_NO_PATHCONV=1 "$(adb_bin)" -s "$DEVICE_SERIAL" "$@"
 }
 
-# The same rule as listedDevices and onlyDevice in scripts/setup-device.ts.
+# The same rule as listedDevices and onlyDevice in scripts/android/setup-device.ts.
 find_device() {
     local listed serial state
     # Every device adb knows, whatever its state: a booting or unauthorized one is running too.
@@ -265,14 +265,14 @@ cmd_capture() {
     device shell settings get system user_rotation >"$out/user-rotation.txt"
     device shell settings get system accelerometer_rotation >"$out/accelerometer-rotation.txt"
     device shell dumpsys display >"$out/display.txt"
-    bun "$MOD_ROOT/../scripts/android-screen.ts" "$out" "$DEVICE_SERIAL"
+    bun "$MOD_ROOT/../scripts/android/android-screen.ts" "$out" "$DEVICE_SERIAL"
     ok "Captured $run into $out"
 }
 
 # screen-check <run>: capture evidence, then reject a portrait or overridden display.
 cmd_screen_check() {
     cmd_capture "$@"
-    bun "$MOD_ROOT/../scripts/android-screen.ts" "$MOD_ROOT/artifacts/android/$1" "$DEVICE_SERIAL" --check
+    bun "$MOD_ROOT/../scripts/android/android-screen.ts" "$MOD_ROOT/artifacts/android/$1" "$DEVICE_SERIAL" --check
 }
 
 # smoke <enabled|observe|disabled>: the device smoke. It builds, deploys, sets the mode, relaunches,

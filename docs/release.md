@@ -4,7 +4,7 @@ mod 与 installer 是同一个 Product Release 的两个产物。每个桌面发
 
 ## 入口
 
-`prepare`、`build`、`upload` 默认由 [GitHub Actions 发版工作流](#github-actions-发版)在两个托管 runner 上执行；在本机执行时每个平台仍要在自己的原生宿主上，游戏程序集由快照锁解析而不是本机 Steam 探测，所以装了游戏不再是发布机的条件。just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `bun release.ts --help` 为准。
+`prepare`、`build`、`upload` 默认由 [GitHub Actions 发版工作流](#github-actions-发版)在两个托管 runner 上执行；在本机执行时每个平台仍要在自己的原生宿主上，游戏程序集由快照锁解析而不是本机 Steam 探测，所以装了游戏不再是发布机的条件。just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `bun release/cli.ts --help` 为准。
 
 ```bash
 just release::sync
@@ -24,7 +24,7 @@ Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` �
 
 同一入口用 `release/history-database.ts` 的 `assertHistoryDatabaseCompatibility` 比较 mod 的 `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json` 与 installer 的 `bazaarplusplus-installer/src-tauri/history-database-compatibility.json`：两边必填的 `dataRootDirectoryName` 必须相同，mod 的 `historyDatabaseUserVersion` 必须是 installer `supportedUserVersions` 里最新的一项。两份 JSON 各自由项目测试钉住源码常量：mod 的 `RunLogSchemaReleaseContractTests` 对 `PathConstants.DataRootDirectoryName` 与 `RunLogSchema.LocalDatabaseSchemaVersion`，installer `src-tauri/src/config.rs` 的测试对 `BAZAAR_DATA_DIRECTORY`。所以只改一边的 Data Root 名称，会让该项目的测试或 `release::check` 失败。`release::prepare` 打包前对暂存 Payload 里的 mod 合约再做一次同样的比较（`release/payload-zip.ts`）。
 
-just 只转发，不缓存或跳过任何发布检查。直接调用 `bun release.ts prepare|build` 时，MSBuild 参数要放在 `--` 之后；just 会自动补上。
+just 只转发，不缓存或跳过任何发布检查。直接调用 `bun release/cli.ts prepare|build` 时，MSBuild 参数要放在 `--` 之后；just 会自动补上。
 
 ## 发布顺序
 
@@ -94,7 +94,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 
 准备和整个 installer 构建共享一个进程锁，覆盖校验、签名、bundle 和最终 artifact manifest。打包结束重新检查 unsigned 来源、源码及 Git 身份；失败不会留下上一轮可上传的 artifact manifest。macOS 签名只变换 ZIP 中的副本，最终分发 hash 由 artifact manifest 记录。
 
-切换过程留下恢复 journal。异常退出后预检查拒绝继续打包；重新执行 `prepare` 会在持锁状态下恢复上一组目录，再开始准备。活进程的锁不能抢占；同一主机已退出进程的锁可以回收。极短的锁获取阶段若被中断，残留的 `payload.lock.claim` 会阻止并发抢锁，需要确认没有发布进程后再人工清理该空目录。`bun release.ts assert-build-owner` 是 installer 打包使用的内部只读协议：校验构建 token、主机和活进程，不获取锁、不准备资源。常规调用者使用 `release::build`。来源记录失效或文件被修改时重新准备，不手工补写记录。journal 无法验证时停止并检查备份，不删除它来绕过检查。
+切换过程留下恢复 journal。异常退出后预检查拒绝继续打包；重新执行 `prepare` 会在持锁状态下恢复上一组目录，再开始准备。活进程的锁不能抢占；同一主机已退出进程的锁可以回收。极短的锁获取阶段若被中断，残留的 `payload.lock.claim` 会阻止并发抢锁，需要确认没有发布进程后再人工清理该空目录。`bun release/cli.ts assert-build-owner` 是 installer 打包使用的内部只读协议：校验构建 token、主机和活进程，不获取锁、不准备资源。常规调用者使用 `release::build`。来源记录失效或文件被修改时重新准备，不手工补写记录。journal 无法验证时停止并检查备份，不删除它来绕过检查。
 
 ## 远端发布
 
@@ -107,7 +107,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 
 S3 密钥对由 `release/r2-store.ts` 从 token 推导（一次 `GET /accounts/{account_id}/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
 
-对应的 just 命令通过 `scripts/workspace.ts` 的 `release` profile 从 `[cloudflare]` 接入这两个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `bun release.ts` 仍要求调用者提供环境。
+对应的 just 命令通过 `scripts/workspace.ts` 的 `release` profile 从 `[cloudflare]` 接入这两个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `bun release/cli.ts` 仍要求调用者提供环境。
 
 版本目录中的产物和 platform fragment 不可变：相同 bytes 的重试成功，不同 bytes 必须发布新版本。上传先固定所有本地文件内容并复查 hashes，避免并发本机构建污染远端版本路径。读取失败、权限错误和服务错误都不是“文件不存在”。
 

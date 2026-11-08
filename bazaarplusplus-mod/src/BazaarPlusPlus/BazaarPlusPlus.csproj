@@ -290,7 +290,7 @@
     />
     <Error
       Condition="'$(BppPayloadStagingRoot)' == '' or '$(BPPInstallerSourcePath)' != '$(BppPayloadStagingRoot)'"
-      Text="Production payloads require isolated staging. Run bun release.ts prepare."
+      Text="Production payloads require isolated staging. Run bun release/cli.ts prepare."
     />
   </Target>
 

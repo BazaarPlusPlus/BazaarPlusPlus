@@ -80,13 +80,9 @@ export function pushPlan(
 export function pushCommands(plan: ChecksPlan): string[][] {
   const selected = (name: string): boolean => plan[name]?.length > 0;
   const commands: string[][] = [];
-  if (selected('release'))
-    commands.push([
-      'commands-check',
-      'design::check',
-      'release::check',
-      'release::test'
-    ]);
+  // pre-commit already ran commands-check, design::check and release::check
+  // on the same files; the push adds only the release tests.
+  if (selected('release')) commands.push(['release::test']);
   if (['mod-macos', 'mod-windows', 'mod-android'].some(selected))
     commands.push(['verify', 'mod::test', 'mod::test-performance']);
   if (
@@ -107,7 +103,6 @@ export function pushCommands(plan: ChecksPlan): string[][] {
 // Bun dependencies each gate needs; without them the gate fails on a missing
 // module, so name the install step instead.
 const BUN_DIRECTORIES: Record<string, string> = {
-  'commands-check': '.',
   'release::test': '.',
   'installer::check': 'bazaarplusplus-installer',
   'site::test': 'bazaarplusplus-site',

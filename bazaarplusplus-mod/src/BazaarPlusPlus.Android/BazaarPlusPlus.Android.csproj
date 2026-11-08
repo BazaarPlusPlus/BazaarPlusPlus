@@ -26,7 +26,7 @@
 
   <!--
     The Android Mod Payload (release/payload.json, host melonloader): Payload.targets collects the
-    MelonLoader entries; the Android `release.ts prepare` stages them through
+    MelonLoader entries; the Android `release/cli.ts prepare` stages them through
     CopyToPayloadStaging below, which `release/android-release.ts` then zips as the Managed Payload.
   -->
   <PropertyGroup>
@@ -158,7 +158,7 @@
     />
     <Error
       Condition="'$(BppPayloadStagingRoot)' == ''"
-      Text="Production payloads require isolated staging. Run bun release.ts prepare --platform android."
+      Text="Production payloads require isolated staging. Run bun release/cli.ts prepare --platform android."
     />
   </Target>
 

@@ -48,15 +48,11 @@ const rootPrettier = (mode: string): [string, ...string[]] => [
   'bun',
   'run',
   'prettier',
-  '--config',
-  '.prettierrc.json',
   mode,
   'package.json',
-  '.prettierrc.json',
   '.oxlintrc.json',
   'tsconfig.json',
   'vitest.config.ts',
-  'release.ts',
   'release/**/*.{ts,json}',
   'scripts/**/*.ts',
   '.github/scripts/*.ts',
@@ -152,7 +148,7 @@ const releaseArgs = (command: string, ...args: string[]): string[] => {
         : null;
   return [
     ...(profile ? ['scripts/workspace.ts', 'run', profile, '--', 'bun'] : []),
-    'release.ts',
+    'release/cli.ts',
     command,
     ...args
   ];
@@ -194,7 +190,7 @@ const publishingVerbs = new Set<string | null>([
 ]);
 const releaseVerb = ({ tool, args }: RecordedCall): string | null => {
   const index =
-    tool === 'bun' && args[0] !== 'run' ? args.indexOf('release.ts') : -1;
+    tool === 'bun' && args[0] !== 'run' ? args.indexOf('release/cli.ts') : -1;
   return index === -1 ? null : args[index + 1];
 };
 const projectDir = (dir: string, project: string): string =>
@@ -231,7 +227,9 @@ test('check delegates source-only gates in their project directories', (t) => {
   succeeded(f.run(['check']));
   const calls = f.calls();
   assertProjectGates(f.dir, calls);
-  assert.ok(hasCall(calls, call(f.dir, null, 'bun', 'release.ts', 'check')));
+  assert.ok(
+    hasCall(calls, call(f.dir, null, 'bun', 'release/cli.ts', 'check'))
+  );
   assert.ok(
     hasCall(calls, call(f.dir, null, 'bun', 'design/build.ts', '--check'))
   );
@@ -363,7 +361,7 @@ test('fmt formats every project, then re-projects release files', (t) => {
   assert.deepEqual(calls[0], call(f.dir, null, ...rootPrettier('--write')));
   assert.deepEqual(
     calls.at(-1),
-    call(f.dir, null, 'bun', 'release.ts', 'sync')
+    call(f.dir, null, 'bun', 'release/cli.ts', 'sync')
   );
 });
 
@@ -475,12 +473,12 @@ test('device setup routes matrix preparation, status and the walkthrough without
     f.run(['walkthrough', 'skip', 'r1', 'desktop', 's1', '--reason', literal])
   );
   assert.deepEqual(f.calls(), [
-    call(f.dir, null, 'bun', 'scripts/setup-device.ts', 'status'),
+    call(f.dir, null, 'bun', 'scripts/android/setup-device.ts', 'status'),
     call(
       f.dir,
       null,
       'bun',
-      'scripts/setup-device.ts',
+      'scripts/android/setup-device.ts',
       'init',
       'bpp_emu_3_2',
       '--seed',
@@ -490,7 +488,7 @@ test('device setup routes matrix preparation, status and the walkthrough without
       f.dir,
       null,
       'bun',
-      'scripts/walkthrough.ts',
+      'scripts/android/walkthrough.ts',
       'skip',
       'r1',
       'desktop',
@@ -740,7 +738,7 @@ test('release::mirror forwards the platform, the share URL and optional flags', 
       'release',
       '--',
       'bun',
-      'release.ts',
+      'release/cli.ts',
       'mirror',
       '--platform',
       'macos',
@@ -756,7 +754,7 @@ test('release::mirror forwards the platform, the share URL and optional flags', 
       'release',
       '--',
       'bun',
-      'release.ts',
+      'release/cli.ts',
       'mirror',
       '--platform',
       'windows',

@@ -222,7 +222,6 @@ export function payloadPaths(
 // computePayloadInputs skips a missing one, so release-inputs.test.ts keeps
 // every entry real.
 export const PAYLOAD_TOOLING_INPUTS = [
-  'release.ts',
   'scripts/git-command.ts',
   'bazaarplusplus-installer/src-tauri/history-database-compatibility.json'
 ];
@@ -302,7 +301,7 @@ export function computePayloadInputs({
 function assertNoPendingPromotion(rootDir: string): void {
   if (fs.existsSync(payloadPaths(rootDir, 'macos').journal))
     throw new Error(
-      'Interrupted Payload promotion. Run bun release.ts prepare to recover before packaging.'
+      'Interrupted Payload promotion. Run bun release/cli.ts prepare to recover before packaging.'
     );
 }
 
@@ -335,7 +334,7 @@ function verifyPayloadSource({
     record.productVersion !== readProductVersion(workspaceRoot)
   )
     throw new Error(
-      'Payload build identity is stale. Run bun release.ts prepare.'
+      'Payload build identity is stale. Run bun release/cli.ts prepare.'
     );
   const current = computePayloadInputs({
     workspaceRoot,
@@ -343,14 +342,14 @@ function verifyPayloadSource({
   });
   if (current.digest !== record.inputDigest)
     throw new Error(
-      'Payload build inputs changed. Run bun release.ts prepare.'
+      'Payload build inputs changed. Run bun release/cli.ts prepare.'
     );
   if (
     JSON.stringify(payloadOutput(rootDir, platform)) !==
     JSON.stringify(record.output)
   )
     throw new Error(
-      'Payload output changed since preparation. Run bun release.ts prepare.'
+      'Payload output changed since preparation. Run bun release/cli.ts prepare.'
     );
   verifyNative({ rootDir, platforms: [platform] });
   return record;

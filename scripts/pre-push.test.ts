@@ -128,7 +128,7 @@ test('unknown bases run all gates and deletions run none', (t) => {
   assert.ok(
     pushCommands(pushPlan('', 'upstream', f.cwd))
       .flat()
-      .includes('commands-check')
+      .includes('release::test')
   );
 });
 
