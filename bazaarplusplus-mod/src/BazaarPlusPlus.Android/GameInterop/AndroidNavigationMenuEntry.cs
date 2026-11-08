@@ -39,6 +39,10 @@ internal sealed class AndroidNavigationMenuEntry(
             if (Time.unscaledTime < _nextLookup)
                 return;
             _nextLookup = Time.unscaledTime + 1f;
+            // A run has no navigation menu, and the scene-wide search cost 2-11 ms per call on the
+            // emulator: a once-a-second frame spike for the whole run.
+            if (InRunScene())
+                return;
             _menu = UnityEngine.Object.FindFirstObjectByType<NavigationMenuController>();
             if (_menu == null)
                 return;
@@ -68,6 +72,18 @@ internal sealed class AndroidNavigationMenuEntry(
                 _menu._menuOpen ? 1f : 0f,
                 Time.unscaledDeltaTime / FadeSeconds
             );
+    }
+
+    private static bool InRunScene()
+    {
+        try
+        {
+            return Il2Cpp.SceneLoader.ActiveScene == Il2CppTheBazaar.SceneID.GameScene;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool TryMount(Il2CppTheBazaar.UI.PooledScrollRectBase pooler)
