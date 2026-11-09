@@ -11,7 +11,7 @@ Hero Metrics Dataset 的数据托管在一个公开的 R2 origin，地址只写�
 
 该插件同时挂在 `configureServer` 和 `configurePreviewServer` 上，转发 `/metrics/*` 到上游并复制 `content-type` 与 `cache-control`。它还引入了第二套配置入口（`BPP_REMOTE_METRICS_BASE`、`PUBLIC_METRICS_BASE`）。
 
-代价是 dev 与 preview 的取数路径不一致，而生产环境走的是直连：preview 反而是三者中唯一不代表线上行为的一环。插件是自定义中间件，`npm test` / `npm run typecheck` / `npm run build` 都覆盖不到它，只有真起服务才能验证。
+代价是 dev 与 preview 的取数路径不一致，而生产环境走的是直连：preview 反而是三者中唯一不代表线上行为的一环。插件是自定义中间件，`bun run test` / `bun run typecheck` / `bun run build` 都覆盖不到它，只有真起服务才能验证。
 
 ## Decision
 

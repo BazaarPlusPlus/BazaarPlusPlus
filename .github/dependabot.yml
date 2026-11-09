@@ -17,7 +17,12 @@ updates:
         update-types: ['version-update:semver-major']
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
+      - dependency-name: 'vite-plus'
+        update-types: ['version-update:semver-major']
     groups:
+      # vite-plus pins vite (an alias of its core), oxlint and oxfmt; move them together.
+      vite-plus:
+        patterns: ['vite-plus', 'vite']
       tooling:
         patterns: ['*']
         update-types: ['patch']
@@ -37,11 +42,14 @@ updates:
     ignore:
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
-      - dependency-name: 'oxlint-tsgolint'
+      - dependency-name: 'vite-plus'
         update-types: ['version-update:semver-major']
     groups:
+      # vite-plus pins vite (an alias of its core), oxlint and oxfmt; move them together.
+      vite-plus:
+        patterns: ['vite-plus', 'vite']
       typescript:
-        patterns: ['typescript', 'oxlint*']
+        patterns: ['typescript']
         update-types: ['patch']
       react:
         patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
@@ -97,11 +105,14 @@ updates:
     ignore:
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
-      - dependency-name: 'oxlint-tsgolint'
+      - dependency-name: 'vite-plus'
         update-types: ['version-update:semver-major']
     groups:
+      # vite-plus pins vite (an alias of its core), oxlint and oxfmt; move them together.
+      vite-plus:
+        patterns: ['vite-plus', 'vite']
       typescript:
-        patterns: ['typescript', 'oxlint*']
+        patterns: ['typescript']
         update-types: ['patch']
       react:
         patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
