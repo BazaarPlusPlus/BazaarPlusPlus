@@ -3,7 +3,14 @@
 import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from 'vite-plus/test';
 import { ModalCoordinatorProvider } from '../components/ui/ModalCoordinator';
 import { commandClient } from '../api/commandClient';
 import { LocaleProvider } from '../i18n/LocaleProvider';

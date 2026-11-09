@@ -57,3 +57,4 @@ coverage/
 .dev.vars.*
 signing-secrets/
 .bpp-local.json
+.vitest/

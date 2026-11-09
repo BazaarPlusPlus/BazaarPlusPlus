@@ -25,6 +25,7 @@
     ".github/scripts/*.ts",
     "design/*.ts",
     ".agents/skills/*/scripts/*.ts",
+    "vite.config.ts",
     "vitest.config.ts"
   ]
 }

@@ -1,4 +1,4 @@
-import { test, expect } from 'vitest';
+import { test, expect } from 'vite-plus/test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { runShell, toBashPath } from './test-support/shell.ts';
 

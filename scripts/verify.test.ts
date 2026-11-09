@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { test } from 'vitest';
-import type { TestContext } from 'vitest';
+import { test } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 import { runGit } from './git-command.ts';
 import type { VerificationResult } from './verify.ts';
 

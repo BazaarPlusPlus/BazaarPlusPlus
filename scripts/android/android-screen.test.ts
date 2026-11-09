@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { test } from 'vitest';
-import type { TestContext } from 'vitest';
+import { test } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 import { inspectScreen } from './android-screen.ts';
 
 const root = path.resolve(import.meta.dirname, '../..');

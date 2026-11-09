@@ -14,7 +14,7 @@
 //   action problem.
 // - A notice repeats or needs a timer to clear, or a completion that settles
 //   after dispose updates the page.
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import type { InstallState } from '../../types/backend';
 import {
   createInstallWorkflow,

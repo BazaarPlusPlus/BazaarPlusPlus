@@ -4,7 +4,7 @@ import { act } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { UpdaterProvider } from '../features/about/UpdaterProvider';
 import { LocaleProvider } from '../i18n/LocaleProvider';

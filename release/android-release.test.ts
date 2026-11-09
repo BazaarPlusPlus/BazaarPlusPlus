@@ -3,7 +3,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  expect,
+  test,
+  vi
+} from 'vite-plus/test';
 import {
   androidPaths,
   buildAndroidRelease,

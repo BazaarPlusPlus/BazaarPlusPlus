@@ -8,7 +8,7 @@ bazaarplusplus.com. Repo-wide rules are in `../AGENTS.md`.
 | Change how Hero metrics are fetched locally, or reach for a metrics proxy or credentials | `docs/adr/0001-direct-metrics-origin.md` (dev and preview read the production origin over CORS; no credentials) |
 | Change visual styling, tokens, shared UI components, or user-facing copy | `../docs/design.md` (values live in `../design/`) |
 | Name or change Hero Analysis, its scope, or dataset coverage semantics | `GLOSSARY.md` |
-| Upgrade `typescript` or the oxc toolchain (`typescript` and `oxlint-tsgolint` majors move together) | `docs/adr/0002-oxc-toolchain.md` |
+| Upgrade `typescript` or `vite-plus`, which pins the oxc toolchain (`typescript` and `oxlint-tsgolint` majors move together) | `docs/adr/0002-oxc-toolchain.md`, `../docs/adr/0017-vite-plus.md` |
 
 ## Verification
 

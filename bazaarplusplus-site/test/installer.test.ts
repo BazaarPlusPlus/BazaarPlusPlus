@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vite-plus/test';
 import androidGameStatusFixture from '../../release/fixtures/android-game-status.json';
 import gameStatusFixture from '../../release/fixtures/game-status.json';
 import androidFixture from '../../release/fixtures/latest/android-aarch64.json';

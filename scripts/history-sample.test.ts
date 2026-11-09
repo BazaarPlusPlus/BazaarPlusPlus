@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'vitest';
+import { test } from 'vite-plus/test';
 import { dotenvValue } from './history-sample.ts';
 
 test('the token comes from its own line, unquoted, and an empty value is absent', () => {

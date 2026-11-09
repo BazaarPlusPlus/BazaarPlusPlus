@@ -15,7 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Event as TauriEvent } from '@tauri-apps/api/event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { hasTauriRuntime } from '../../api/runtime';
 import {
   MAIN_WINDOW_HIDDEN_EVENT,

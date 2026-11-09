@@ -5,8 +5,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { SpawnSyncReturns } from 'node:child_process';
 import util from 'node:util';
-import { test } from 'vitest';
-import type { TestContext } from 'vitest';
+import { test } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 import { gitEnvironment } from './git-command.ts';
 import { runFixtureGit } from './test-support/git-fixture.ts';
 
@@ -47,18 +47,9 @@ const shellQuote = (value: string): string =>
 const rootOxfmt = (mode: string): [string, ...string[]] => [
   'bun',
   'run',
-  'oxfmt',
-  mode,
-  'package.json',
-  '.oxlintrc.json',
-  '.oxfmtrc.json',
-  'tsconfig.json',
-  'vitest.config.ts',
-  'release/**/*.{ts,json}',
-  'scripts/**/*.ts',
-  '.github/scripts/*.ts',
-  'design/*.ts',
-  '.agents/skills/*/scripts/*.ts'
+  'vp',
+  'fmt',
+  mode
 ];
 
 function fixture(t: TestContext) {

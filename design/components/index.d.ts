@@ -15,7 +15,11 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   busyLabel?: string;
 }
 /** Class list for anything that should look like a Button (router Link, <a>). */
-export declare function buttonClassName(opts?: { variant?: ButtonVariant; size?: ButtonSize; className?: string }): string;
+export declare function buttonClassName(opts?: {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  className?: string;
+}): string;
 
 export type BadgeTone = 'ok' | 'warn' | 'bad' | 'busy' | 'neutral' | 'accent';
 /** The one 22px label pill. A status reads as dot + word; tiers and neutral facts have no dot. */
@@ -78,7 +82,11 @@ export interface DialogProps {
   className?: string;
   children: ReactNode;
 }
-export interface DialogCardProps { size?: 'sm' | 'md' | 'lg'; className?: string; children: ReactNode }
+export interface DialogCardProps {
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+  children: ReactNode;
+}
 export interface DialogHeaderProps {
   titleId: string;
   title: ReactNode;
@@ -99,7 +107,11 @@ export interface ConfirmDialogProps {
   subtitle?: string;
   tone: 'primary' | 'danger';
   children: ReactNode;
-  acknowledge?: { label: string; checked: boolean; onChange: (checked: boolean) => void };
+  acknowledge?: {
+    label: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+  };
   confirmLabel: string;
   busyLabel?: string;
   busy: boolean;

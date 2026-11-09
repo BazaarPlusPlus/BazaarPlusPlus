@@ -85,8 +85,6 @@ export function installerFrontendOnly(file: string): boolean {
       'vite.config.ts',
       'vitest.config.ts',
       'tsconfig.json',
-      '.oxlintrc.json',
-      '.oxfmtrc.json',
       'LICENSE'
     ].includes(relative)
   );

@@ -54,7 +54,8 @@ function buildStats(record) {
         ? record.wins
         : null,
     battles:
-      typeof record?.battle_count === 'number' && Number.isFinite(record.battle_count)
+      typeof record?.battle_count === 'number' &&
+      Number.isFinite(record.battle_count)
         ? record.battle_count
         : null
   };
@@ -71,15 +72,55 @@ function getHeroBadgeStyle(heroName) {
     };
   }
 
-  const theDragonsStyle = { shortCode: 'DRA', background: 'rgb(45, 210, 208)', text: 'rgb(26, 31, 38)', assetKey: 'dra' };
+  const theDragonsStyle = {
+    shortCode: 'DRA',
+    background: 'rgb(45, 210, 208)',
+    text: 'rgb(26, 31, 38)',
+    assetKey: 'dra'
+  };
   const map = {
-    Vanessa: { shortCode: 'VAN', background: 'rgb(192, 33, 33)', text: '#ffffff', assetKey: 'van' },
-    Pygmalien: { shortCode: 'PYG', background: 'rgb(39, 103, 192)', text: '#ffffff', assetKey: 'pyg' },
-    Dooley: { shortCode: 'DOO', background: 'rgb(225, 154, 8)', text: '#ffffff', assetKey: 'doo' },
-    Mak: { shortCode: 'MAK', background: 'rgb(190, 230, 91)', text: 'rgb(26, 31, 38)', assetKey: 'mak' },
-    Jules: { shortCode: 'JUL', background: 'rgb(180, 52, 236)', text: '#ffffff', assetKey: 'jul' },
-    Karnok: { shortCode: 'KAR', background: 'rgb(59, 136, 156)', text: '#ffffff', assetKey: 'kar' },
-    Stelle: { shortCode: 'STE', background: 'rgb(255, 235, 24)', text: 'rgb(26, 31, 38)', assetKey: 'ste' },
+    Vanessa: {
+      shortCode: 'VAN',
+      background: 'rgb(192, 33, 33)',
+      text: '#ffffff',
+      assetKey: 'van'
+    },
+    Pygmalien: {
+      shortCode: 'PYG',
+      background: 'rgb(39, 103, 192)',
+      text: '#ffffff',
+      assetKey: 'pyg'
+    },
+    Dooley: {
+      shortCode: 'DOO',
+      background: 'rgb(225, 154, 8)',
+      text: '#ffffff',
+      assetKey: 'doo'
+    },
+    Mak: {
+      shortCode: 'MAK',
+      background: 'rgb(190, 230, 91)',
+      text: 'rgb(26, 31, 38)',
+      assetKey: 'mak'
+    },
+    Jules: {
+      shortCode: 'JUL',
+      background: 'rgb(180, 52, 236)',
+      text: '#ffffff',
+      assetKey: 'jul'
+    },
+    Karnok: {
+      shortCode: 'KAR',
+      background: 'rgb(59, 136, 156)',
+      text: '#ffffff',
+      assetKey: 'kar'
+    },
+    Stelle: {
+      shortCode: 'STE',
+      background: 'rgb(255, 235, 24)',
+      text: 'rgb(26, 31, 38)',
+      assetKey: 'ste'
+    },
     TheDragons: theDragonsStyle,
     Hero8: theDragonsStyle
   };
@@ -89,7 +130,10 @@ function getHeroBadgeStyle(heroName) {
   }
 
   return {
-    shortCode: normalized.length <= 3 ? normalized.toUpperCase() : normalized.slice(0, 3).toUpperCase(),
+    shortCode:
+      normalized.length <= 3
+        ? normalized.toUpperCase()
+        : normalized.slice(0, 3).toUpperCase(),
     background: 'rgba(57, 73, 97, 0.98)',
     text: '#ffffff',
     assetKey: 'unk'
@@ -111,7 +155,11 @@ function getWinsBadgeAsset(wins, battles) {
 
   const safeWins = Math.max(0, Math.min(10, Math.trunc(wins)));
   if (safeWins === 10) {
-    if (typeof battles === 'number' && Number.isFinite(battles) && Math.trunc(battles) === 10) {
+    if (
+      typeof battles === 'number' &&
+      Number.isFinite(battles) &&
+      Math.trunc(battles) === 10
+    ) {
       return '/assets/badges/wins/wins-10-dia.svg';
     }
     return '/assets/badges/wins/wins-10-gld.svg';
@@ -299,7 +347,9 @@ function syncRowHeights() {
       if (image.complete) {
         applyRowHeight(row);
       } else {
-        image.addEventListener('load', () => applyRowHeight(row), { once: true });
+        image.addEventListener('load', () => applyRowHeight(row), {
+          once: true
+        });
       }
     }
   });
@@ -316,7 +366,9 @@ function getRecordKey(record) {
 }
 
 async function loadOverlaySettings() {
-  const response = await fetch('/api/overlay/crop-config', { cache: 'no-store' });
+  const response = await fetch('/api/overlay/crop-config', {
+    cache: 'no-store'
+  });
   if (!response.ok) {
     const message = (await response.text()).trim();
     throw new Error(message || `unexpected status ${response.status}`);
@@ -328,7 +380,9 @@ async function loadOverlaySettings() {
 
 async function refresh() {
   try {
-    const settingsPromise = loadOverlaySettings().catch(() => currentDisplayMode);
+    const settingsPromise = loadOverlaySettings().catch(
+      () => currentDisplayMode
+    );
     const endpoint = new URL('/api/stream/records', window.location.origin);
     const response = await fetch(endpoint, { cache: 'no-store' });
     if (!response.ok) {
@@ -344,7 +398,9 @@ async function refresh() {
       throw new Error(message || `unexpected status ${response.status}`);
     }
     const payload = await response.json();
-    const records = Array.isArray(payload) ? payload.filter((r) => r && r.strip_url) : [];
+    const records = Array.isArray(payload)
+      ? payload.filter((r) => r && r.strip_url)
+      : [];
 
     const nextDisplayMode = await settingsPromise;
     const modeChanged = nextDisplayMode !== currentDisplayMode;

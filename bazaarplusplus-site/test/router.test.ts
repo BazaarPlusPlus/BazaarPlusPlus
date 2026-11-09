@@ -1,6 +1,6 @@
 // @vitest-environment-options {"url":"https://example.test/"}
 
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vite-plus/test';
 
 import { createSpaLocation } from '../src/app/router';
 

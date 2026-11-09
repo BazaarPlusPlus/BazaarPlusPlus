@@ -8,7 +8,14 @@ import {
   useNavigate,
   type NavigateFunction
 } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from 'vite-plus/test';
 import { useRouteScroll } from './useRouteScroll';
 
 let navigate: NavigateFunction;

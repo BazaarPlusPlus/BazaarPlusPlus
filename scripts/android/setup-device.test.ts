@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as childProcess from 'node:child_process';
-import { test, vi } from 'vitest';
-import type { TestContext } from 'vitest';
+import { test, vi } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 import {
   cloneAvd,
   configuredProfile,

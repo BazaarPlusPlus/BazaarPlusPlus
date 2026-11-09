@@ -5,8 +5,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseEnv } from 'node:util';
 import { stringify } from 'smol-toml';
-import { test } from 'vitest';
-import type { TestContext } from 'vitest';
+import { test } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 import {
   root,
   initializeConfig,

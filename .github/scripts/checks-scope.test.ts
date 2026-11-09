@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { test } from 'vitest';
+import { test } from 'vite-plus/test';
 import { runFixtureGit } from '../../scripts/test-support/git-fixture.ts';
 import {
   classifyChanges,
@@ -344,7 +344,6 @@ test('Installer build inputs request Windows while ordinary source uses macOS', 
     'vitest.config.ts',
     'tsconfig.json',
     'index.html',
-    '.oxlintrc.json',
     'static/image.png'
   ]) {
     expectScopes([`bazaarplusplus-installer/${file}`], ['installer-frontend']);

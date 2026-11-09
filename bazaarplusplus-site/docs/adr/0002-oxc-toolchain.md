@@ -22,9 +22,9 @@ typescript-eslint does not support TS 7.0.
 
 `oxlint-tsgolint` 基于 tsgolint，不依赖 TS 的 JS 编译器 API，因此类型感知 lint 与 TypeScript 7 可以共存，ESLint 路线做不到这一点。
 
-`npm run lint` 固定带 `--type-aware`；不带该 flag 只跑语法级规则，会漏掉一整类检查。
+`vite.config.ts` 的 `lint.options.typeAware` 固定开启类型感知；不带该 flag 只跑语法级规则，会漏掉一整类检查。
 
-`.oxlintrc.json` 启用 `correctness` / `suspicious` / `perf` 三个 category 为 error。`pedantic` 不启用：在本仓库产出 238 条几乎全为噪音的告警（`require-unicode-regexp`、`max-lines-per-function` 等）。以下规则单独关闭，因为它们对本仓库的既有写法系统性误报：
+`vite.config.ts` 的 `lint` 块启用 `correctness` / `suspicious` / `perf` 三个 category 为 error。`pedantic` 不启用：在本仓库产出 238 条几乎全为噪音的告警（`require-unicode-regexp`、`max-lines-per-function` 等）。以下规则单独关闭，因为它们对本仓库的既有写法系统性误报：
 
 | 规则 | 关闭原因 |
 | --- | --- |
@@ -40,7 +40,7 @@ typescript-eslint does not support TS 7.0.
 
 ## Consequences
 
-- `typescript` 与 `oxlint-tsgolint` 的主版本必须同步升级。`oxlint-tsgolint` 的版本号对齐 TypeScript 主版本（`7.0.2001` 对应 TS 7），单独升 `typescript` 会让类型感知 lint 失配。
+- `typescript` 与 `oxlint-tsgolint` 的主版本必须同步升级。`oxlint-tsgolint` 的版本号对齐 TypeScript 主版本（`7.0.2001` 对应 TS 7），单独升 `typescript` 会让类型感知 lint 失配。oxlint、oxfmt 和 `oxlint-tsgolint` 现在由 `vite-plus` 固定版本（根目录 [ADR 0017](../../../docs/adr/0017-vite-plus.md)），升 TypeScript 主版本时要换成带对应 `oxlint-tsgolint` 的 `vite-plus`。
 - 放弃 typescript-eslint 的规则广度。若后续需要它独有的规则，需回退到 TypeScript 6，届时应新开 ADR 推翻本决策。
-- 首次接入 `oxfmt` 产生了一次性全量重排。此后靠 `npm run format:check` 本地把关，仓库没有 CI 门禁。
+- 首次接入 `oxfmt` 产生了一次性全量重排。此后由 `just site::check` 把关，本地 pre-commit 和 CI 都跑它。
 - 关闭的规则清单是对本仓库既有写法的判断，不是通用建议；写法变化时应重新评估。

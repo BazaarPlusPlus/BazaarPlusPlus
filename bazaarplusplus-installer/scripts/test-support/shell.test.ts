@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { runShell } from './shell.ts';
 
 test('shell environment preserves empty values, boundaries and shell syntax', () => {

@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vite-plus/test';
 
 import { analyzeHeroes } from '../src/features/heroes/hero-analysis';
 import type {

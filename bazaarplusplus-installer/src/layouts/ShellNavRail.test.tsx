@@ -2,7 +2,7 @@
 
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../i18n/messages';

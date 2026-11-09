@@ -10,7 +10,7 @@
 //   the old initialization.
 // - Polling keeps running while the window is hidden, or a resume waits a
 //   full interval before the first fresh status.
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   defaultCropSettings,
   idleStreamStatus
