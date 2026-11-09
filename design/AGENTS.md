@@ -1,18 +1,30 @@
 # AGENTS.md
 
-The BazaarPlusPlus design system: the one source for design tokens, the shared `bpp-*` component stylesheet, the brand book and writing standard, and the brand mark. Repo-wide rules are in `../AGENTS.md`; the Chinese summary for contributors is `../docs/design.md`.
+The BazaarPlusPlus design system: the one source for design tokens, the shared `bpp-*` component stylesheet, the Web component library, the brand book and writing standard, and the brand mark. Repo-wide rules are in `../AGENTS.md`; the Chinese summary for contributors is `../docs/design.md`.
 
 | File | Owns | Consumers |
 |---|---|---|
 | `tokens.json` | Every colour, spacing, radius, size, shadow, motion and font-stack value | `bazaarplusplus-installer/src/styles/tokens.css` (generated), which the site copies; the `ingame-*` colours generate the mod's two `InGameTheme.g.cs` files instead; the product colours, spacing, radii, sizes and type sizes also generate the Android App's `res/values/bpp_tokens.xml` |
-| `components/bundle.css` | The shared `bpp-*` classes | Imported by `bazaarplusplus-installer/src/styles/index.css`; the site mirrors the same values in Tailwind utilities |
+| `components/bundle.css` | The shared `bpp-*` classes | Imported by `bazaarplusplus-installer/src/styles/index.css` and `bazaarplusplus-site/src/styles/global.css` |
+| `ui/` | The Web component library: one React implementation of each shared component, drawn only with `bundle.css` classes | The installer and the site, as `@bpp/ui` (a Vite alias and a tsconfig path in each) |
+| `ui-classes.ts` | The check that a component's classes exist in a stylesheet | Each product's `bundle-classes` test |
 | `README.md`, `writing.md`, `components/*/README.md` | Visual rules, alignment, voice, glossary and component guidelines | Both products |
 | `assets/Logos/bpp-mark*.svg` | The brand mark | Installer title bar, About and Install pages; the Android App's generated `res/drawable/bpp_mark.xml` |
 | `assets/Covers/the-bazaar/*.jpg` | The launcher's cover art | The Android App's copies in `res/drawable-nodpi/` |
 
+## The Web component library
+
+`ui/` has no `package.json` and no build; each product compiles it as its own source ([ADR-0018](../docs/adr/0018-one-web-component-library.md)).
+
+- A component goes here when both products render it, or when its spec lives in `components/` and nothing in it is product-specific. A component that reads a product's data, router, i18n or modal stack stays in that product and composes these.
+- Draw only with `bundle.css` classes. Tailwind does not scan `../design`, so a utility class here renders unstyled; the `bundle-classes` tests fail on any class `bundle.css` does not define.
+- Copy comes in through props; the library has no strings of its own beyond what a prop overrides.
+- Import only `react` and files in `ui/`. Files here resolve React from the importing product (`resolve.dedupe`, the tsconfig `react` path), so a second runtime dependency would have nowhere to resolve from.
+- Tests live in the products, which have jsdom: the installer's `src/components/ui/library.test.tsx` covers behaviour. `ui/tsconfig.json` and `ui/vite.config.ts` give it its own type check and lint, which the root `typecheck` and `lint` scripts run.
+
 ## Changing the system
 
 - Edit the file that owns the value, run `just design::build`, and commit the regenerated `tokens.css` and Android resources with it. `just design::check` fails on a stale `tokens.css`, a stale cover art copy, a `var()` in `bundle.css` with no token, a site hero colour that disagrees with its `hero-*` token, a supporter colour in the mod's `BPPSupporterAttribution` that disagrees with its `ingame-*` token, or an Android launcher icon exported from an older desktop app icon.
-- A change to tokens or `bundle.css` also passes the installer's, the site's and the Android App's check and test recipes, and regenerates the installer shell goldens (`BPP_UPDATE_GOLDENS=1`).
-- The design system is also published as a Design System artifact on claude.ai (https://claude.ai/artifact/4Xv54mp3y68YPc95PWNGVk); `design-system.json` is its index (title, asset records). After a change lands, republish this folder to the artifact under its `project/` paths (everything except `AGENTS.md`, `build.ts` and `design.just`; images under `assets/` are asset uploads the index names), so the artifact and the repo stay identical. Edits made on the artifact page come back here as a pull request, never the other way round.
+- A change to tokens, `bundle.css` or `ui/` also passes the installer's, the site's and the Android App's check and test recipes, and regenerates the installer shell goldens (`BPP_UPDATE_GOLDENS=1`) and, for a visible site change, the site's Linux screenshot goldens (`bazaarplusplus-site/AGENTS.md`).
+- The design system is also published as a Design System artifact on claude.ai (https://claude.ai/artifact/4Xv54mp3y68YPc95PWNGVk); `design-system.json` is its index (title, asset records). After a change lands, republish this folder to the artifact under its `project/` paths (everything except `AGENTS.md`, `build.ts`, `design.just`, `ui/` and `ui-classes.ts`; images under `assets/` are asset uploads the index names), so the artifact and the repo stay identical. Edits made on the artifact page come back here as a pull request, never the other way round.
 - `components/*/preview.html` and `components/Cover/preview.html` are the artifact's live previews; they load `bundle.css` and the tokens, and must stay single-language and free of literal colours.

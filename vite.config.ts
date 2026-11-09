@@ -20,8 +20,9 @@ export default defineConfig({
   lint: {
     ignorePatterns: [
       ...ignorePatterns,
-      // Documentation-only props; root tooling has no React types.
-      'design/components/index.d.ts'
+      // The Web component library lints itself under the React rules
+      // (design/ui/vite.config.ts).
+      'design/ui/**'
     ],
     plugins: ['typescript'],
     categories: {

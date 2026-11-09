@@ -1,6 +1,6 @@
 The one button: primary, secondary, ghost or danger, in md, sm and two icon-only sizes, with a busy state that keeps its width.
 
-Source: `bazaarplusplus-installer/src/components/ui/Button.tsx` with `.bpp-btn*` in `bundle.css`. The site's `bazaarplusplus-site/src/shared/components/Button.tsx` follows the same spec: all four variants and all four sizes. It also renders as an `<a>` when given `href`.
+Source: `Button` and `buttonClassName` in `design/ui/Button.tsx` with `.bpp-btn*` in `bundle.css`, rendered by the installer and the site. It renders as an `<a>` when given `href`.
 
 ## Use
 

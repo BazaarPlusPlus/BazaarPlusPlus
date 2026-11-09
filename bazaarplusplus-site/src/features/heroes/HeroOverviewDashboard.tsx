@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
-import Badge from '../../shared/components/Badge';
+import { Badge, StatusPanel } from '@bpp/ui';
 import HeroBadge from '../../shared/components/HeroBadge';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import {
@@ -10,7 +10,6 @@ import {
   SegmentedControl
 } from '../../shared/components/ScopeFilterPanel';
 import StatsPageShell from '../../shared/components/StatsPageShell';
-import StatusPanel from '../../shared/components/StatusPanel';
 import {
   WINDOW_LABELS,
   formatInteger,
@@ -154,7 +153,7 @@ export default function HeroOverviewDashboard({
             <div className="flex flex-col gap-4 border-b border-line px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="flex flex-wrap items-center gap-3">
                 <SectionHeading>{heroCopy.snapshot.title}</SectionHeading>
-                <Badge>{heroCopy.snapshot.label}</Badge>
+                <Badge dot={false}>{heroCopy.snapshot.label}</Badge>
               </div>
 
               {availableWindows.length > 0 ? (
@@ -296,7 +295,7 @@ function MatchupList({
                 {row.isLowSample ? '—' : formatNullablePercent(row.winRate)}
               </span>
               {row.isLowSample ? (
-                <Badge>{matchupCopy.lowSampleTag}</Badge>
+                <Badge dot={false}>{matchupCopy.lowSampleTag}</Badge>
               ) : (
                 <span
                   aria-hidden="true"

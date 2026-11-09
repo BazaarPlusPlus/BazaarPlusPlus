@@ -16,7 +16,12 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node", "vite/client", "react", "react-dom"]
+    "types": ["node", "vite/client", "react", "react-dom"],
+    "paths": {
+      "@bpp/ui": ["../design/ui/index.ts"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"]
+    }
   },
   "include": [
     "src/**/*.ts",

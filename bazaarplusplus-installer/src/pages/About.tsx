@@ -1,5 +1,5 @@
 import { ChevronDown, ExternalLink } from 'lucide-react';
-import { buttonClassName } from '../components/ui/Button';
+import { buttonClassName } from '@bpp/ui';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import { useAppBootstrap } from '../features/about/AppBootstrapProvider';

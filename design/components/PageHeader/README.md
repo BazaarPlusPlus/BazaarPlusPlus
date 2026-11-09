@@ -1,6 +1,6 @@
 A page's title row: optional leading control, the page title, short meta and right-aligned actions.
 
-Source: `bazaarplusplus-installer/src/components/ui/PageHeader.tsx` and `bazaarplusplus-installer/src/components/ui/PageShell.tsx` (the page column, with 16px gaps between sections), with `.bpp-page*` and `.bpp-section-title`.
+Source: `PageHeader` in `design/ui/PageHeader.tsx` and `bazaarplusplus-installer/src/components/ui/PageShell.tsx` (the page column, with 16px gaps between sections), with `.bpp-page*` and `.bpp-section-title`.
 
 ## Use
 

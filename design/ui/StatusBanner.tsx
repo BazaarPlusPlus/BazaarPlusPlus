@@ -1,14 +1,14 @@
-import clsx from 'clsx';
-import { CheckCircle2, CircleX, Info, TriangleAlert } from 'lucide-react';
 import type { HTMLAttributes, ReactNode } from 'react';
+import { cx } from './cx';
+import { ErrorIcon, InfoIcon, SuccessIcon, WarningIcon } from './icons';
 
 export type StatusBannerTone = 'info' | 'warning' | 'error' | 'success';
 
 const TONE_ICON = {
-  info: Info,
-  warning: TriangleAlert,
-  error: CircleX,
-  success: CheckCircle2
+  info: InfoIcon,
+  warning: WarningIcon,
+  error: ErrorIcon,
+  success: SuccessIcon
 } as const;
 
 export interface StatusBannerProps extends HTMLAttributes<HTMLDivElement> {
@@ -21,6 +21,8 @@ export interface StatusBannerProps extends HTMLAttributes<HTMLDivElement> {
   diagnosticLabel?: string;
 }
 
+/** An inline notice above the content it is about. Errors interrupt as alerts;
+ *  every other tone is announced politely. */
 export function StatusBanner({
   tone = 'info',
   icon,
@@ -42,7 +44,7 @@ export function StatusBanner({
       {...bannerProps}
       role={role ?? (error ? 'alert' : 'status')}
       aria-live={ariaLive ?? (error ? 'assertive' : 'polite')}
-      className={clsx('bpp-banner selectable', `is-${tone}`, className)}
+      className={cx('bpp-banner selectable', `is-${tone}`, className)}
     >
       {leading && (
         <span className="bpp-banner-icon" aria-hidden="true">
@@ -50,7 +52,7 @@ export function StatusBanner({
         </span>
       )}
       <div className="bpp-banner-body">
-        <div className="bpp-banner-message">{message}</div>
+        <div>{message}</div>
         {diagnostic != null && diagnosticLabel && (
           <details className="bpp-banner-diagnostic">
             <summary>{diagnosticLabel}</summary>

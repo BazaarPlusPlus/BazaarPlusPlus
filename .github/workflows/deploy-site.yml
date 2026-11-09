@@ -17,6 +17,9 @@ on:
     branches: [master]
     paths:
       - bazaarplusplus-site/**
+      - design/components/bundle.css
+      - design/ui/**
+      - design/ui-classes.ts
       - bazaarplusplus-installer/src/styles/tokens.css
       - release/**
       - .github/workflows/deploy-site.yml

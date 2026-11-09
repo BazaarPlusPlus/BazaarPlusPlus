@@ -1,6 +1,6 @@
 The one modal frame: card, header with a tone icon, body and footer. ConfirmDialog builds every destructive confirmation on it.
 
-Source: `bazaarplusplus-installer/src/components/ui/Dialog.tsx` (Dialog, DialogCard, DialogHeader, DialogBody, DialogFooter), `bazaarplusplus-installer/src/components/ui/ConfirmDialog.tsx` (ConfirmDialog, ConfirmNote, ConfirmTarget) and `.bpp-dialog*` / `.bpp-confirm*`. The site's `bazaarplusplus-site/src/shared/components/DialogShell.tsx` is the same card in Tailwind utilities.
+Source: `design/ui/Dialog.tsx` (Dialog, DialogCard, DialogHeader, DialogBody, DialogFooter), which the installer and the site render, the installer's `bazaarplusplus-installer/src/components/ui/ConfirmDialog.tsx` (ConfirmDialog, ConfirmNote, ConfirmTarget), and `.bpp-dialog*` / `.bpp-confirm*`.
 
 ## Use
 

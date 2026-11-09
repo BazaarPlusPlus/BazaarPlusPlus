@@ -3,7 +3,7 @@ import { Loader2, Star } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useLocation } from 'react-router-dom';
 import { PageShell } from '../components/ui/PageShell';
-import { StatusPanel } from '../components/ui/StatusPanel';
+import { StatusPanel } from '@bpp/ui';
 import { useAppBootstrap } from '../features/about/AppBootstrapProvider';
 import { InstallActionsPanel } from '../features/install/InstallActionsPanel';
 import { InstallConfirmModal } from '../features/install/InstallConfirmModal';
@@ -143,7 +143,11 @@ export default function Install() {
   return (
     <PageShell title={t('installTitle')}>
       {snapshot.phase === 'initial-loading' ? (
-        <StatusPanel kind="loading" title={t('installDetecting')} />
+        <StatusPanel
+          headingLevel={3}
+          kind="loading"
+          title={t('installDetecting')}
+        />
       ) : snapshot.phase === 'blocking-failure' ? (
         <InstallProblemBanner
           problem={snapshot.problem}

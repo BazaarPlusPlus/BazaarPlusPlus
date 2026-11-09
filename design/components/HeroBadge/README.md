@@ -1,6 +1,6 @@
 The one hero chip on bazaarplusplus.com: a hero-coloured dot, the hero's short code or name, and an optional trailing value such as a win rate.
 
-Source: `bazaarplusplus-site/src/shared/components/HeroBadge.tsx` (Tailwind utilities). The CSS here (`.bpp-hero-badge*`) is hand-written from those utilities.
+Source: `bazaarplusplus-site/src/shared/components/HeroBadge.tsx`, styled by `.bpp-hero-badge*` in `bundle.css`. It stays in the site because it reads the site's hero colours and short labels.
 
 ## Use
 

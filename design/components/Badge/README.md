@@ -1,6 +1,6 @@
 The one 24px label pill. It shows a status as dot + word, and an outcome tier or a neutral fact without a dot.
 
-Source: the installer's `bazaarplusplus-installer/src/components/ui/StatusBadge.tsx` (`.bpp-badge*`) and its `.bpp-outcome` pill, plus the site's `bazaarplusplus-site/src/shared/components/Badge.tsx`. All three converge here on one geometry: `badge-height`, `r-pill`, 8px padding, `small` text (14px, 500).
+Source: `Badge` in `design/ui/Badge.tsx` (`.bpp-badge*`), which the installer and the site both render, and the installer's `.bpp-outcome` pill. Both share one geometry: `badge-height`, `r-pill`, 8px padding, `small` text (14px, 500).
 
 ## Status: dot + word
 

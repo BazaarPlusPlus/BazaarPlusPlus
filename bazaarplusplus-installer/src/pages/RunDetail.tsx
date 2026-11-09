@@ -9,9 +9,8 @@ import {
   Video
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Button, buttonClassName } from '../components/ui/Button';
+import { Button, buttonClassName, StatusPanel } from '@bpp/ui';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { StatusPanel } from '../components/ui/StatusPanel';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import type { HistoryBattleRow } from '../types/backend';
@@ -112,9 +111,14 @@ export default function RunDetail() {
       }
     >
       {page.state.phase === 'initial-loading' ? (
-        <StatusPanel kind="loading" title={t('runDetailLoading')} />
+        <StatusPanel
+          headingLevel={3}
+          kind="loading"
+          title={t('runDetailLoading')}
+        />
       ) : page.state.phase === 'not-found' ? (
         <StatusPanel
+          headingLevel={3}
           kind="not-found"
           icon={<FileQuestion />}
           title={t('runDetailNotFound')}
@@ -252,6 +256,7 @@ export default function RunDetail() {
                     <tr>
                       <td colSpan={7}>
                         <StatusPanel
+                          headingLevel={3}
                           kind="empty"
                           framed={false}
                           icon={<Video />}

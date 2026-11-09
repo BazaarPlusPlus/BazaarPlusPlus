@@ -1,8 +1,7 @@
 import { getSiteCopy } from '../content/site-copy';
-import Button from '../shared/components/Button';
+import { Button, StatusPanel } from '@bpp/ui';
 import { RefreshIcon } from '../shared/components/icons';
 import PageLayout, { PageHeading } from '../shared/components/PageLayout';
-import StatusPanel from '../shared/components/StatusPanel';
 import type { ResolvedSpaLocation } from './router';
 
 export function LoadingScreen({ location }: { location: ResolvedSpaLocation }) {

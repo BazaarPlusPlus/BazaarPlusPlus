@@ -1,9 +1,14 @@
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import Badge from '../../shared/components/Badge';
-import Button from '../../shared/components/Button';
-import DialogShell from '../../shared/components/DialogShell';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogBody,
+  DialogCard,
+  DialogHeader
+} from '@bpp/ui';
 import { ExternalLinkIcon } from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
@@ -115,7 +120,7 @@ function SupportOption({
     <article className="panel flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between gap-3">
         <SectionHeading>{title}</SectionHeading>
-        <Badge>{regionLabel}</Badge>
+        <Badge dot={false}>{regionLabel}</Badge>
       </div>
       <p className="text-[15px] text-text-2">{description}</p>
       <div className="mt-auto pt-2">{action}</div>
@@ -193,31 +198,30 @@ export default function SupportPage({ location }: SupportPageProps) {
         <p className="text-sm text-text-3">{copy.supporters.unnamedNote}</p>
       </section>
 
-      <DialogShell
-        open={wechatOpen}
-        onClose={() => setWechatOpen(false)}
-        labelledBy={wechatTitleId}
-        closeLabel={copy.closeLabel}
-      >
-        <h2
-          id={wechatTitleId}
-          className="pr-10 text-lg font-semibold text-text-1"
-        >
-          {copy.wechat.modalTitle}
-        </h2>
-        <p className="mt-0.5 text-[15px] text-text-3">
-          {copy.wechat.modalSubtitle}
-        </p>
-        <div className="mt-5 flex justify-center">
-          <div
-            className="flex size-56 items-center justify-center rounded-panel bg-white p-3"
-            dangerouslySetInnerHTML={{ __html: wechatPayQrSvg }}
-            aria-label={copy.wechat.qrAriaLabel}
-            role="img"
-          />
-        </div>
-        <p className="mt-5 text-[15px] text-text-2">{copy.wechat.modalHint}</p>
-      </DialogShell>
+      {wechatOpen ? (
+        <Dialog onClose={() => setWechatOpen(false)} labelledBy={wechatTitleId}>
+          <DialogCard>
+            <DialogHeader
+              titleId={wechatTitleId}
+              title={copy.wechat.modalTitle}
+              subtitle={copy.wechat.modalSubtitle}
+              onClose={() => setWechatOpen(false)}
+              closeLabel={copy.closeLabel}
+            />
+            <DialogBody>
+              <div className="flex justify-center">
+                <div
+                  className="flex size-56 items-center justify-center rounded-panel bg-white p-3"
+                  dangerouslySetInnerHTML={{ __html: wechatPayQrSvg }}
+                  aria-label={copy.wechat.qrAriaLabel}
+                  role="img"
+                />
+              </div>
+              <p>{copy.wechat.modalHint}</p>
+            </DialogBody>
+          </DialogCard>
+        </Dialog>
+      ) : null}
     </InfoPageShell>
   );
 }

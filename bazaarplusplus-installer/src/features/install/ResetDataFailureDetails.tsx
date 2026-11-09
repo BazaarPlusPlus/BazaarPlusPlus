@@ -1,6 +1,6 @@
 import { ChevronRight, Clipboard, ListX } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '../../components/ui/Button';
+import { Button } from '@bpp/ui';
 import { useI18n } from '../../i18n/LocaleProvider';
 
 export function ResetDataFailureDetails({ paths }: { paths: string[] }) {

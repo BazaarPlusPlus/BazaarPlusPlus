@@ -57,51 +57,6 @@ export function RefreshIcon({ className }: IconProps) {
   );
 }
 
-export function CloseIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </Icon>
-  );
-}
-
-export function SpinnerIcon({ className = '' }: IconProps) {
-  return (
-    <Icon className={`animate-spin ${className}`}>
-      <path d="M21 12a9 9 0 1 1-6.22-8.56" />
-    </Icon>
-  );
-}
-
-export function AlertIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 8v4" />
-      <path d="M12 16h.01" />
-    </Icon>
-  );
-}
-
-export function InboxIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-    </Icon>
-  );
-}
-
-export function CompassIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="m16.24 7.76-1.8 5.41a2 2 0 0 1-1.27 1.27l-5.41 1.8 1.8-5.41a2 2 0 0 1 1.27-1.27z" />
-    </Icon>
-  );
-}
-
 export function UsersIcon({ className }: IconProps) {
   return (
     <Icon className={className}>

@@ -103,7 +103,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 
 ## Iconography
 
-- Icons are **Lucide**: `lucide-react` in the installer, and a hand-copied set of Lucide paths in the site's `icons.tsx` (see the Icons group). They are drawn as strokes on a 24px grid at stroke 2, with round caps and joins, in `currentColor`.
+- Icons are **Lucide**: `lucide-react` in the installer's pages, and hand-copied Lucide paths in the component library's `design/ui/icons.tsx` (the glyphs its components draw) and the site's `icons.tsx` (the rest; see the Icons group). They are drawn as strokes on a 24px grid at stroke 2, with round caps and joins, in `currentColor`.
 - Sizes are `icon-sm`, `icon-md` and `icon-lg` (14, 16 and 22px). Nothing else.
 - Idle icons are `text-2`. The active rail icon is `accent`, and status icons take their status colour.
 - Status icons are Info, TriangleAlert, CircleX and CheckCircle2 in banners; Loader2 for busy; and Inbox / Compass / Alert for empty, not-found and error StatusPanels.
@@ -146,6 +146,6 @@ The mod's panels sit inside The Bazaar, so they speak the game's language rather
 
 ## Exceptions
 
-- **Previews are static.** Each component preview is the `bpp-*` markup styled by `components/bundle.css`, the same stylesheet the installer imports; the React components themselves live in `bazaarplusplus-installer/src/components/ui/` and `bazaarplusplus-site/src/shared/components/`.
+- **Previews are static.** Each component preview is the `bpp-*` markup styled by `components/bundle.css`, the same stylesheet the installer and the site import. The React components live in `ui/` (the Web component library); a component only one product needs stays in that product.
 - **Page-specific styles** (Install status, History run cards and stats, Run detail, Stream) stay in the installer's `src/styles/index.css`, on the same tokens.
 - **Outside this system:** the OBS stream overlay (`src-tauri/resources/stream/`, with its Cinzel font and hero badge SVGs), the mod's native art (it is the game's), and the third-party WeChat Pay and Xiaohongshu marks under `static/support/`.

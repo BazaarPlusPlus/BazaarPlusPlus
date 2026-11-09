@@ -1,16 +1,17 @@
 import wechatPaySvg from '../../static/support/wechat-pay.svg';
-import {
-  Dialog,
-  DialogBody,
-  DialogCard,
-  DialogHeader
-} from '../components/ui/Dialog';
+import { Dialog, DialogBody, DialogCard, DialogHeader } from '@bpp/ui';
+import { useActiveModalDismissalPolicy } from '../components/ui/ModalCoordinator';
 import { useI18n } from '../i18n/LocaleProvider';
 
 export function ShellPaymentModal({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
+  const dismissible = useActiveModalDismissalPolicy() !== 'blocked';
   return (
-    <Dialog onClose={onClose} labelledBy="payment-modal-title">
+    <Dialog
+      dismissible={dismissible}
+      onClose={onClose}
+      labelledBy="payment-modal-title"
+    >
       <DialogCard size="sm">
         <DialogHeader
           titleId="payment-modal-title"

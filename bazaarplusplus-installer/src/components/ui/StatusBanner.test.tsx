@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vite-plus/test';
-import { StatusBanner } from './StatusBanner';
+import { StatusBanner } from '@bpp/ui';
 
 describe('StatusBanner', () => {
   it('announces errors assertively as alerts', () => {

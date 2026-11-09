@@ -1,4 +1,4 @@
-import clsx from 'clsx';
+import { cx } from './cx';
 import { useId, type ReactNode } from 'react';
 
 export interface SegmentedControlOption<Value extends string> {
@@ -32,7 +32,7 @@ export function SegmentedControl<Value extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={clsx('bpp-segmented-control', className)}
+      className={cx('bpp-segmented-control', className)}
     >
       {options.map((option) => {
         const optionDisabled = disabled || option.disabled;
