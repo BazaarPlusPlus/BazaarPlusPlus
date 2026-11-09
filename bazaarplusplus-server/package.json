@@ -31,7 +31,7 @@
     "oxlint-tsgolint": "^7.0.2005",
     "typescript": "^7.0.2",
     "vitest": "^4.1.12",
-    "wrangler": "4.156.0"
+    "wrangler": "4.156.1"
   },
   "overrides": {
     "sharp": "0.35.5",
