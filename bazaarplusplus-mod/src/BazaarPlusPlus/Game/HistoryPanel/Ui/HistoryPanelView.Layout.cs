@@ -704,10 +704,10 @@ internal sealed partial class HistoryPanelView
     private Sprite? BadgeSprite(HistoryRowBadge badge) =>
         badge switch
         {
-            HistoryRowBadge.Bronze => _skin?[1],
-            HistoryRowBadge.Silver => _skin?[2],
-            HistoryRowBadge.Gold => _skin?[3],
-            HistoryRowBadge.Diamond => _skin?[4],
+            HistoryRowBadge.Bronze => _trophies?[0],
+            HistoryRowBadge.Silver => _trophies?[1],
+            HistoryRowBadge.Gold => _trophies?[2],
+            HistoryRowBadge.Diamond => _trophies?[3],
             HistoryRowBadge.BattleWon => _winBadge,
             HistoryRowBadge.BattleLost => _lossBadge,
             HistoryRowBadge.None => null,

@@ -2,6 +2,7 @@
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
+using BazaarPlusPlus.GameInterop.NativeSkin;
 using BazaarPlusPlus.GameInterop.Ranks;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using TheBazaar.AppFramework;
@@ -13,20 +14,15 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 // Owned native-art archive layout using the existing history selection state.
 internal sealed partial class HistoryPanelView : IDisposable
 {
-    private const string Art = "Assets/TheBazaar/Art/UI/Buttons/";
-    private static readonly string[] Addresses =
+    // The rank trophies; the native button art is the Desktop UI's NativeSkin.
+    private static readonly string[] TrophyAddresses =
     [
-        Art + "Btn_Rectangle/Btn_Rct_Frame_S_TUI.png",
         "Trophy_Bronze_TUI",
         "Trophy_Silver_TUI",
         "Trophy_Gold_TUI",
         "Trophy_Diamond_TUI",
     ];
     private static readonly Color Ink = InGameTheme.Ink;
-
-    // The desktop's hover lifts a native button sprite above its own colours; a token holds
-    // channels in 0..1, so this is the one colour the panel writes itself.
-    private static Color OverBrightHover => new(1.12f, 1.12f, 1.12f, 1f);
     private static readonly Color Muted = InGameTheme.InkMuted;
     private readonly Transform _parent;
     private readonly Action _close;
@@ -50,10 +46,9 @@ internal sealed partial class HistoryPanelView : IDisposable
     private TextMeshProUGUI? _opponentStatus;
     private TextMeshProUGUI? _previewStatus;
     private NativeGameTypography.OwnedTextPreparation? _font;
-    private Task<Sprite?[]>? _skinLoad;
-    private Sprite?[]? _skin;
-    private Sprite? _headerNormal;
-    private Sprite? _headerSelected;
+    private Task<Sprite?[]>? _trophyLoad;
+    private Sprite?[]? _trophies;
+    private int _skinGeneration;
     private Texture2D? _resultAtlas;
     private Sprite? _winBadge;
     private Sprite? _lossBadge;
@@ -71,7 +66,7 @@ internal sealed partial class HistoryPanelView : IDisposable
     private int _layoutFrames = 2;
     private Vector2 _screenSize;
     private readonly Vector3[] _corners = new Vector3[4];
-    private readonly List<(Image Image, int Index, Color Tint)> _art = new();
+    private readonly List<(Image Image, DesktopSkinPart Part, Color Tint)> _art = new();
     private readonly Dictionary<Button, ButtonBinding> _buttons = new();
     private Action<int>? _pageArchive;
     private Action<int>? _pageBattles;
@@ -218,36 +213,41 @@ internal sealed partial class HistoryPanelView : IDisposable
         if (_rankBadges.Tick())
             UpdateContent();
         if (
-            _skinLoad == null
+            _trophyLoad == null
             && Time.unscaledTime >= _retryAt
             && Services.TryGet<AssetLoader>(out var loader)
             && loader != null
         )
         {
             _retryAt = Time.unscaledTime + 5;
-            if (_skin == null || _skin.Any(sprite => sprite == null))
-                _skinLoad = Task.WhenAll(
-                    Addresses.Select(address =>
+            DesktopNativeSkin.Request();
+            if (_trophies == null || _trophies.Any(sprite => sprite == null))
+                _trophyLoad = Task.WhenAll(
+                    TrophyAddresses.Select(address =>
                         NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, address)
                     )
                 );
         }
-        if (_skinLoad?.IsCompleted == true)
+        DesktopNativeSkin.Poll();
+        var changed = _skinGeneration != DesktopNativeSkin.Generation;
+        if (_trophyLoad?.IsCompleted == true)
         {
-            var changed = false;
-            if (_skinLoad.Status == TaskStatus.RanToCompletion)
+            if (_trophyLoad.Status == TaskStatus.RanToCompletion)
             {
-                var loaded = _skinLoad.Result;
-                changed =
-                    _skin == null
-                    || Enumerable.Range(0, loaded.Length).Any(i => loaded[i] != _skin[i]);
-                _skin = loaded;
+                var loaded = _trophyLoad.Result;
+                changed |=
+                    _trophies == null
+                    || Enumerable.Range(0, loaded.Length).Any(i => loaded[i] != _trophies[i]);
+                _trophies = loaded;
             }
             else
-                _ = _skinLoad.Exception;
-            _skinLoad = null;
-            if (changed)
-                RefreshSkin();
+                _ = _trophyLoad.Exception;
+            _trophyLoad = null;
+        }
+        if (changed)
+        {
+            _skinGeneration = DesktopNativeSkin.Generation;
+            RefreshSkin();
         }
         for (var i = _portraits.Count - 1; i >= 0; i--)
         {
@@ -304,10 +304,7 @@ internal sealed partial class HistoryPanelView : IDisposable
     private void RefreshSkin()
     {
         foreach (var art in _art)
-        {
-            art.Image.sprite = _skin?[art.Index];
-            art.Image.color = art.Image.sprite != null ? art.Tint : Color.clear;
-        }
+            DesktopNativeSkin.Paint(art.Image, art.Part, art.Tint);
         foreach (var entry in _buttons)
             ApplyButtonSkin(entry.Key, entry.Value.Selected);
         UpdateContent();
@@ -320,10 +317,11 @@ internal sealed partial class HistoryPanelView : IDisposable
         var groupedOption = !selected && binding.Style == ButtonStyle.GroupedOption;
         var restingRecord = !selected && binding.Style == ButtonStyle.Record;
         image.sprite =
-            selected || binding.Style == ButtonStyle.Primary ? _headerSelected : _headerNormal;
+            selected || binding.Style == ButtonStyle.Primary
+                ? DesktopNativeSkin.HeaderSelected
+                : DesktopNativeSkin.HeaderNormal;
         image.fillCenter = true;
-        image.pixelsPerUnitMultiplier =
-            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
+        image.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
         image.color =
             image.sprite != null ? Color.white
             : selected ? InGameTheme.ButtonSelected
@@ -340,7 +338,7 @@ internal sealed partial class HistoryPanelView : IDisposable
             groupedOption ? InGameTheme.TintQuietHover
             : restingRecord ? InGameTheme.TintRestHover
             : dimmed ? InGameTheme.TintDimmedHover
-            : OverBrightHover;
+            : DesktopNativeSkin.OverBrightHover;
         colors.pressedColor = InGameTheme.TintPressed;
         colors.selectedColor = colors.normalColor;
         button.colors = colors;
@@ -419,14 +417,6 @@ internal sealed partial class HistoryPanelView : IDisposable
 
     private void LoadResultBadges()
     {
-        if (_headerNormal == null)
-            _headerNormal = LoadBadgeAtlas(HistoryHeaderArtwork.Normal, 1, sliced: true).Sprites[0];
-        if (_headerSelected == null)
-            _headerSelected = LoadBadgeAtlas(
-                HistoryHeaderArtwork.Selected,
-                1,
-                sliced: true
-            ).Sprites[0];
         if (_resultAtlas == null)
         {
             var result = LoadBadgeAtlas("battle-result-badges.png", 2);
@@ -442,11 +432,7 @@ internal sealed partial class HistoryPanelView : IDisposable
         }
     }
 
-    private static (Texture2D Texture, Sprite[] Sprites) LoadBadgeAtlas(
-        string name,
-        int count,
-        bool sliced = false
-    )
+    private static (Texture2D Texture, Sprite[] Sprites) LoadBadgeAtlas(string name, int count)
     {
         using var stream = typeof(HistoryPanelView).Assembly.GetManifestResourceStream(
             $"BazaarPlusPlus.Resources.HistoryPanel.{name}"
@@ -470,30 +456,13 @@ internal sealed partial class HistoryPanelView : IDisposable
         var sprites = Enumerable
             .Range(0, count)
             .Select(index =>
-                sliced
-                    ? Sprite.Create(
-                        texture,
-                        new Rect(index * width, 0, width, texture.height),
-                        new Vector2(.5f, .5f),
-                        HistoryHeaderArtwork.PixelsPerUnit,
-                        0,
-                        SpriteMeshType.FullRect,
-                        Vector4.one * HistoryHeaderArtwork.BorderPixels
-                    )
-                    : Sprite.Create(
-                        texture,
-                        new Rect(index * width, 0, width, texture.height),
-                        new Vector2(.5f, .5f)
-                    )
+                Sprite.Create(
+                    texture,
+                    new Rect(index * width, 0, width, texture.height),
+                    new Vector2(.5f, .5f)
+                )
             )
             .ToArray();
-        if (sliced)
-        {
-            texture.hideFlags = HideFlags.DontUnloadUnusedAsset;
-            foreach (var sprite in sprites)
-                sprite.hideFlags = HideFlags.DontUnloadUnusedAsset;
-            texture.Apply(false, true);
-        }
         return (texture, sprites);
     }
 
@@ -523,32 +492,28 @@ internal sealed partial class HistoryPanelView : IDisposable
         rect.anchorMax = new Vector2(anchors.MaxX, anchors.MaxY);
     }
 
-    private Image Layer(Transform parent, int spriteIndex, Color color)
-    {
-        var image = CreateRect("NativeArt", parent, 0, 0, 1, 1).gameObject.AddComponent<Image>();
-        image.sprite = _skin?[spriteIndex];
-        image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier = 2.5f;
-        image.color = image.sprite == null ? Color.clear : color;
-        image.raycastTarget = false;
-        _art.Add((image, spriteIndex, color));
-        return image;
-    }
-
     private void Panel(Transform parent, float x, float y, float width, float height)
     {
         var rect = CreateRect("NativePanel", parent, x, y, width, height);
-        Layer(rect, 0, InGameTheme.ArtFrameTint).fillCenter = false;
+        var tint = InGameTheme.ArtFrameTint;
+        var frame = DesktopNativeSkin.Layer(
+            rect,
+            "NativeArt",
+            DesktopSkinPart.Frame,
+            tint,
+            DesktopNativeSkin.PanelPixelsPerUnit
+        );
+        frame.fillCenter = false;
+        _art.Add((frame, DesktopSkinPart.Frame, tint));
     }
 
     private void ControlSurface(Transform parent)
     {
         var image = CreateRect("ControlSurface", parent, 0, 0, 1, 1)
             .gameObject.AddComponent<Image>();
-        image.sprite = _headerNormal;
+        image.sprite = DesktopNativeSkin.HeaderNormal;
         image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier =
-            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
+        image.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
         image.raycastTarget = false;
     }
 
@@ -659,13 +624,6 @@ internal sealed partial class HistoryPanelView : IDisposable
         _stateBadges = Array.Empty<Sprite>();
         _winBadge = _lossBadge = null;
         _resultAtlas = null;
-        foreach (var sprite in new[] { _headerNormal, _headerSelected })
-            if (sprite != null)
-            {
-                UnityEngine.Object.Destroy(sprite.texture);
-                UnityEngine.Object.Destroy(sprite);
-            }
-        _headerNormal = _headerSelected = null;
         // Sprites and font assets belong to the shared native loaders.
     }
 }
