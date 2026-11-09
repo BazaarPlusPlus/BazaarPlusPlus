@@ -36,7 +36,7 @@ internal sealed class CollectionGridSlotLayer
         _layerRoot.localScale = Vector3.one;
         _layerRoot.SetAsFirstSibling();
 
-        _hover = CreateImage("CollectionGridHover", Colors.CollectionSlotHover);
+        _hover = CreateImage("CollectionGridHover", Color.clear);
     }
 
     // Position one slot per visible cell rect (board-local, top-left origin, y down). Extra
@@ -100,7 +100,10 @@ internal sealed class CollectionGridSlotLayer
     {
         while (_slots.Count < count)
             _slots.Add(
-                CreateImage($"CollectionGridSlot{_slots.Count}", Colors.CollectionSlotBackground)
+                CreateImage(
+                    $"CollectionGridSlot{_slots.Count}",
+                    InGameTheme.WithAlpha(InGameTheme.Ink, .02f)
+                )
             );
     }
 
@@ -146,7 +149,7 @@ internal sealed class CollectionGridSlotLayer
         for (var x = 0; x < size; x++)
         {
             var alpha = IsInsideRoundedRect(x, y, size, radius) ? 1f : 0f;
-            texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+            texture.SetPixel(x, y, InGameTheme.WithAlpha(Color.white, alpha));
         }
         texture.Apply();
 

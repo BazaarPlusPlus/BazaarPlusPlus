@@ -5,16 +5,17 @@ namespace Architecture.Tests;
 
 public sealed class InGameUiColourTests
 {
-    // The Desktop UI the in-game kit covers so far (ADR-0026). The Collection panel and the old
-    // UiTokens palette join when they move to the tokens.
+    // The Desktop UI the in-game kit covers (ADR-0026).
     private static readonly string[] Scope =
     {
+        "BazaarPlusPlus.Game.CollectionPanel",
         "BazaarPlusPlus.Game.HistoryPanel",
         "BazaarPlusPlus.Game.LiveBuildPanel",
         "BazaarPlusPlus.Game.CombatStatusBar",
         "BazaarPlusPlus.Game.Supporters",
         "BazaarPlusPlus.GameInterop.Heroes",
         "BazaarPlusPlus.GameInterop.NativeSkin",
+        "BazaarPlusPlus.Infrastructure.UiTokens",
     };
 
     private const string NativeSkin = "BazaarPlusPlus.GameInterop.NativeSkin.DesktopNativeSkin";

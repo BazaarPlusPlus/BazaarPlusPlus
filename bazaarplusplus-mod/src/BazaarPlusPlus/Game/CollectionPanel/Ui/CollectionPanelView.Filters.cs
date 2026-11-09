@@ -67,7 +67,7 @@ internal sealed partial class CollectionPanelView
                 contentWidth: true
             );
             UiStyle.HorizontalPadding(chip.style, CurrentTierChipHorizontalPadding());
-            StyleCollectionGroupChip(chip, Colors.CollectionChipBackground, TierTextColor(tier));
+            StyleCollectionGroupChip(chip, InGameTheme.Chip, TierTextColor(tier));
             _tierChips[tier] = chip;
             _tierChipRow.Add(chip);
             index++;
@@ -126,11 +126,7 @@ internal sealed partial class CollectionPanelView
                 _sizeChipRow.Add(CreateChipGroupDivider());
 
             var chip = CreateSizeChipButton(size, () => _commands.ToggleSize(size));
-            StyleCollectionGroupChip(
-                chip,
-                Colors.CollectionChipBackground,
-                Colors.CollectionChipText
-            );
+            StyleCollectionGroupChip(chip, InGameTheme.Chip, InGameTheme.Ink);
             _sizeChips[size] = chip;
             _sizeChipRow.Add(chip);
             index++;
@@ -210,7 +206,7 @@ internal sealed partial class CollectionPanelView
         label.style.fontSize = Sizes.CollectionTagFontSize;
         label.style.whiteSpace = WhiteSpace.NoWrap;
         label.style.flexShrink = 0f;
-        label.style.color = Colors.CollectionChipText;
+        label.style.color = InGameTheme.Ink;
         chip.Add(icon);
         chip.Add(label);
         return chip;
@@ -229,7 +225,7 @@ internal sealed partial class CollectionPanelView
         glyph.style.left = (18f - width) / 2f;
         glyph.style.top = (14f - height) / 2f + 1f;
         UiStyle.FixedSize(glyph.style, width, height);
-        glyph.style.backgroundColor = Colors.HistorySubtitleText;
+        glyph.style.backgroundColor = InGameTheme.InkMuted;
         UiStyle.Radius(glyph.style, 1.5f);
         return glyph;
     }
@@ -530,7 +526,7 @@ internal sealed partial class CollectionPanelView
         var textElement = chip.Q<TextElement>();
         if (textElement != null)
             textElement.style.fontSize = Sizes.CollectionTagFontSize;
-        StyleCollectionChip(chip, Colors.CollectionChipBackground, Colors.CollectionChipText);
+        StyleCollectionChip(chip, InGameTheme.Chip, InGameTheme.Ink);
         return chip;
     }
 
@@ -571,7 +567,7 @@ internal sealed partial class CollectionPanelView
         label.style.overflow = Overflow.Hidden;
         chip.Add(label);
 
-        StyleCollectionChip(chip, Colors.CollectionChipBackground, Colors.CollectionChipText);
+        StyleCollectionChip(chip, InGameTheme.Chip, InGameTheme.Ink);
         return chip;
     }
 
@@ -736,7 +732,7 @@ internal sealed partial class CollectionPanelView
         chip.style.alignItems = Align.Center;
         chip.style.marginRight = UiSpacing.Sm;
         chip.style.marginBottom = UiSpacing.Xs;
-        StyleCollectionChip(chip, Colors.CollectionChipBackground, Colors.CollectionChipText);
+        StyleCollectionChip(chip, InGameTheme.Chip, InGameTheme.Ink);
         UiStyle.Radius(chip.style, Radii.CollectionPortraitChip);
 
         var icon = CreateSourceChipIcon(source.DisplayName);
@@ -779,7 +775,7 @@ internal sealed partial class CollectionPanelView
             pickingMode = PickingMode.Ignore,
         };
         StretchPortraitToParent(ring);
-        UiStyle.Border(ring.style, Borders.Accent, Colors.CollectionChipBorder);
+        UiStyle.Border(ring.style, Borders.Accent, ChipBorder);
         UiStyle.Radius(ring.style, Radii.CollectionPortraitChip);
         ring.style.display = DisplayStyle.None;
         return ring;
@@ -792,7 +788,7 @@ internal sealed partial class CollectionPanelView
         icon.Add(CreateSourceEncounterGradient());
         icon.Add(CreatePortraitLayer(SourceChipPortraitName));
 
-        var initials = CreateLabel(Sizes.FontSmall, FontStyle.Bold, Colors.HistoryChipText);
+        var initials = CreateLabel(Sizes.FontSmall, FontStyle.Bold, InGameTheme.Ink);
         initials.name = SourceChipInitialsName;
         initials.text = GetInitials(displayName);
         initials.pickingMode = PickingMode.Ignore;
@@ -814,7 +810,7 @@ internal sealed partial class CollectionPanelView
             pickingMode = PickingMode.Ignore,
         };
         StretchPortraitToParent(ring);
-        UiStyle.Border(ring.style, Borders.Accent, Colors.CollectionChipSelectedBorder);
+        UiStyle.Border(ring.style, Borders.Accent, InGameTheme.RuleStrong);
         UiStyle.Radius(ring.style, Radii.CollectionPortraitChip);
         ring.style.display = DisplayStyle.None;
         return ring;
@@ -827,7 +823,7 @@ internal sealed partial class CollectionPanelView
             return;
 
         ring.style.display = selected ? DisplayStyle.Flex : DisplayStyle.None;
-        UiStyle.BorderColor(ring.style, Colors.CollectionChipSelectedBorder);
+        UiStyle.BorderColor(ring.style, InGameTheme.RuleStrong);
     }
 
     private float CurrentSourceChipBox() =>
@@ -914,12 +910,12 @@ internal sealed partial class CollectionPanelView
     private static void AddCommonHeroGlyph(VisualElement icon, float iconSize)
     {
         icon.Clear();
-        icon.style.backgroundColor = Colors.HistoryStatusBackground;
-        AddCommonHeroDot(icon, 0.5f, 0.5f, 0.125f, iconSize, Colors.HistoryChipText);
-        AddCommonHeroDot(icon, 0.24f, 0.24f, 0.104f, iconSize, Colors.HistorySubtitleText);
-        AddCommonHeroDot(icon, 0.76f, 0.24f, 0.104f, iconSize, Colors.HistorySubtitleText);
-        AddCommonHeroDot(icon, 0.24f, 0.76f, 0.104f, iconSize, Colors.HistorySubtitleText);
-        AddCommonHeroDot(icon, 0.76f, 0.76f, 0.104f, iconSize, Colors.HistorySubtitleText);
+        icon.style.backgroundColor = InGameTheme.Input;
+        AddCommonHeroDot(icon, 0.5f, 0.5f, 0.125f, iconSize, InGameTheme.Ink);
+        AddCommonHeroDot(icon, 0.24f, 0.24f, 0.104f, iconSize, InGameTheme.InkMuted);
+        AddCommonHeroDot(icon, 0.76f, 0.24f, 0.104f, iconSize, InGameTheme.InkMuted);
+        AddCommonHeroDot(icon, 0.24f, 0.76f, 0.104f, iconSize, InGameTheme.InkMuted);
+        AddCommonHeroDot(icon, 0.76f, 0.76f, 0.104f, iconSize, InGameTheme.InkMuted);
     }
 
     private static void AddCommonHeroDot(
@@ -983,7 +979,7 @@ internal sealed partial class CollectionPanelView
         };
         StretchPortraitToParent(gradient);
         gradient.style.display = DisplayStyle.None;
-        var themeColor = Colors.CollectionChipSelectedBorder;
+        var themeColor = InGameTheme.RuleStrong;
         var state = new HeroGradientVisualState(gradient, themeColor);
         state.SetAppearance(1.08f, 0.98f);
         gradient.userData = state;
@@ -1013,8 +1009,8 @@ internal sealed partial class CollectionPanelView
             return;
 
         var themeColor = state.CurrentColor;
-        var topColor = new Color(themeColor.r, themeColor.g, themeColor.b, 0f);
-        var bottomColor = new Color(themeColor.r, themeColor.g, themeColor.b, state.BottomAlpha);
+        var topColor = InGameTheme.WithAlpha(themeColor, 0f);
+        var bottomColor = InGameTheme.WithAlpha(themeColor, state.BottomAlpha);
         var mesh = context.Allocate(4, 6);
         mesh.SetNextVertex(
             new Vertex
@@ -1053,7 +1049,7 @@ internal sealed partial class CollectionPanelView
     }
 
     private static Color DarkenPortraitThemeColor(Color color) =>
-        new(color.r * 0.42f, color.g * 0.42f, color.b * 0.42f, 1f);
+        InGameTheme.WithAlpha(color * 0.42f, 1f);
 
     private static void BindHeroChipInteraction(Button chip, VisualElement icon)
     {
@@ -1136,13 +1132,8 @@ internal sealed partial class CollectionPanelView
 
         internal float BottomAlpha { get; private set; } = 0.84f;
 
-        internal Color CurrentColor =>
-            new(
-                Mathf.Clamp01(_themeColor.r * _colorScale),
-                Mathf.Clamp01(_themeColor.g * _colorScale),
-                Mathf.Clamp01(_themeColor.b * _colorScale),
-                1f
-            );
+        // A vertex tint is a Color32, which clamps each channel, so a lift above 1 saturates.
+        internal Color CurrentColor => InGameTheme.WithAlpha(_themeColor * _colorScale, 1f);
 
         internal void SetAppearance(float colorScale, float bottomAlpha)
         {
@@ -1397,10 +1388,8 @@ internal sealed partial class CollectionPanelView
     {
         StyleCollectionChip(
             chip,
-            selected ? Colors.CollectionChipSelectedBackground : Colors.CollectionChipBackground,
-            selected
-                ? Colors.CollectionChipSelectedText
-                : unselectedTextColor ?? Colors.CollectionChipText,
+            selected ? InGameTheme.ChipActive : InGameTheme.Chip,
+            selected ? InGameTheme.Ink : unselectedTextColor ?? InGameTheme.Ink,
             selected
         );
     }
@@ -1410,7 +1399,7 @@ internal sealed partial class CollectionPanelView
         var textColor = TierTextColor(tier);
         StyleCollectionGroupChip(
             chip,
-            selected ? Colors.CollectionChipSelectedBackground : Colors.CollectionChipBackground,
+            selected ? InGameTheme.ChipActive : InGameTheme.Chip,
             textColor,
             selected
         );
@@ -1419,8 +1408,8 @@ internal sealed partial class CollectionPanelView
     private static void RefreshSizeChip(Button chip, bool selected) =>
         StyleCollectionGroupChip(
             chip,
-            selected ? Colors.CollectionChipSelectedBackground : Colors.CollectionChipBackground,
-            selected ? Colors.CollectionChipSelectedText : Colors.CollectionChipText,
+            selected ? InGameTheme.ChipActive : InGameTheme.Chip,
+            selected ? InGameTheme.Ink : InGameTheme.Ink,
             selected
         );
 
@@ -1430,7 +1419,7 @@ internal sealed partial class CollectionPanelView
         UiStyle.Border(
             chip.style,
             selected ? Borders.None : Borders.Thin,
-            selected ? Colors.Clear : Colors.CollectionChipBorder
+            selected ? Color.clear : ChipBorder
         );
     }
 
@@ -1442,8 +1431,8 @@ internal sealed partial class CollectionPanelView
         );
         StyleCollectionGroupChip(
             chip,
-            selected ? Colors.CollectionChipSelectedBackground : Colors.CollectionChipBackground,
-            selected ? Colors.CollectionChipSelectedText : Colors.CollectionChipText,
+            selected ? InGameTheme.ChipActive : InGameTheme.Chip,
+            selected ? InGameTheme.Ink : InGameTheme.Ink,
             selected
         );
         var icon = chip.Q<VisualElement>(SortButtonIconName);
@@ -1506,12 +1495,12 @@ internal sealed partial class CollectionPanelView
     private static Color TierTextColor(CardTier tier) =>
         tier switch
         {
-            CardTier.Bronze => Colors.FromRgb(222, 150, 110, 1f),
-            CardTier.Silver => Colors.FromRgb(192, 192, 192, 1f),
-            CardTier.Gold => Colors.FromRgb(255, 215, 0, 1f),
-            CardTier.Diamond => Colors.FromRgb(0, 255, 255, 1f),
-            CardTier.Legendary => Colors.FromRgb(255, 69, 0, 1f),
-            _ => Colors.HistoryChipText,
+            CardTier.Bronze => InGameTheme.TierBronze,
+            CardTier.Silver => InGameTheme.TierSilver,
+            CardTier.Gold => InGameTheme.TierGold,
+            CardTier.Diamond => InGameTheme.TierDiamond,
+            CardTier.Legendary => InGameTheme.TierLegendary,
+            _ => InGameTheme.Ink,
         };
 
     private static void RefreshTextMatchModeControl(
@@ -1538,8 +1527,8 @@ internal sealed partial class CollectionPanelView
         button.style.backgroundColor = Color.clear;
         UiStyle.BorderWidth(button.style, Borders.None);
         button.style.color = selected
-            ? Colors.CollectionFilterTitleText
-            : Colors.WithAlpha(Colors.CollectionFilterTitleText, 0.48f);
+            ? InGameTheme.Ink
+            : InGameTheme.WithAlpha(InGameTheme.Ink, 0.48f);
     }
 
     private void RefreshAllHeroesButton(bool selected)
@@ -1609,8 +1598,8 @@ internal sealed partial class CollectionPanelView
         ApplyDayToggleLayout(CollectionPanelText.IsChineseLanguage());
         StyleCollectionChip(
             _dayToggleButton,
-            active ? Colors.CollectionChipSelectedBackground : Colors.CollectionChipBackground,
-            active ? Colors.CollectionChipSelectedText : Colors.CollectionChipText,
+            active ? InGameTheme.ChipActive : InGameTheme.Chip,
+            active ? InGameTheme.Ink : InGameTheme.Ink,
             active
         );
     }
@@ -1654,12 +1643,12 @@ internal sealed partial class CollectionPanelView
     {
         UiHover.ApplyButtonPalette(
             chip,
-            Colors.CollectionChipBackground,
-            Colors.CollectionChipText,
-            Colors.CollectionChipBorder,
-            Colors.CollectionChipBorder,
-            Colors.CollectionChipBackground,
-            Colors.CollectionChipBackground
+            InGameTheme.Chip,
+            InGameTheme.Ink,
+            ChipBorder,
+            ChipBorder,
+            InGameTheme.Chip,
+            InGameTheme.Chip
         );
         UiStyle.BorderWidth(chip.style, Borders.Thin);
         UiStyle.Radius(chip.style, Radii.CollectionPortraitChip);
@@ -1695,9 +1684,9 @@ internal sealed partial class CollectionPanelView
         button.style.overflow = Overflow.Hidden;
         button.style.whiteSpace = WhiteSpace.NoWrap;
         UiStyle.Padding(button.style, UiSpacing.None);
-        button.style.backgroundColor = Colors.HistoryButtonBackground;
-        button.style.color = Colors.White;
-        UiStyle.Border(button.style, Borders.Thin, Colors.HistoryButtonBorder);
+        button.style.backgroundColor = InGameTheme.Button;
+        button.style.color = InGameTheme.Ink;
+        UiStyle.Border(button.style, Borders.Thin, InGameTheme.WithAlpha(InGameTheme.Rule, .55f));
         UiStyle.Radius(button.style, Radii.Md);
 
         var textElement = button.Q<TextElement>();
@@ -1711,7 +1700,7 @@ internal sealed partial class CollectionPanelView
             textElement.style.overflow = Overflow.Hidden;
         }
         button.tooltip = text;
-        UiHover.ApplyButtonPalette(button, Colors.HistoryButtonBackground, Colors.White);
+        UiHover.ApplyButtonPalette(button, InGameTheme.Button, InGameTheme.Ink);
         return button;
     }
 
@@ -1732,14 +1721,10 @@ internal sealed partial class CollectionPanelView
             button,
             background,
             textColor,
-            selected ? Colors.CollectionChipSelectedBorder : Colors.CollectionChipBorder,
-            selected ? Colors.CollectionChipSelectedHoverBorder : Colors.CollectionChipHoverBorder,
-            selected
-                ? Colors.CollectionChipSelectedHoverBackground
-                : Colors.CollectionChipHoverBackground,
-            selected
-                ? Colors.CollectionChipSelectedPressedBackground
-                : Colors.CollectionChipPressedBackground
+            selected ? InGameTheme.RuleStrong : ChipBorder,
+            selected ? InGameTheme.Accent : ChipHoverBorder,
+            selected ? ChipActiveHover : ChipHover,
+            selected ? ChipActivePressed : ChipPressed
         );
         UiStyle.Radius(button.style, Radii.CollectionChip);
     }
@@ -1753,7 +1738,7 @@ internal sealed partial class CollectionPanelView
     )
     {
         button.style.fontSize = fontSize;
-        button.style.backgroundColor = slanted ? Color.clear : Colors.CollectionChipBackground;
+        button.style.backgroundColor = slanted ? Color.clear : InGameTheme.Chip;
         UiStyle.BorderWidth(button.style, Borders.None);
         UiStyle.Radius(button.style, 0f);
 
@@ -1874,36 +1859,26 @@ internal sealed partial class CollectionPanelView
             {
                 if (Pressed)
                 {
-                    return Selected
-                        ? Colors.CollectionChipSelectedPressedBackground
-                        : Colors.CollectionChipPressedBackground;
+                    return Selected ? ChipActivePressed : ChipPressed;
                 }
 
                 if (Hovered)
                 {
-                    return Selected
-                        ? Colors.CollectionChipSelectedHoverBackground
-                        : Colors.CollectionChipHoverBackground;
+                    return Selected ? ChipActiveHover : ChipHover;
                 }
 
-                return Selected
-                    ? Colors.CollectionChipSelectedBackground
-                    : Colors.CollectionChipBackground;
+                return Selected ? InGameTheme.ChipActive : InGameTheme.Chip;
             }
         }
 
         internal void Refresh()
         {
             Button.style.backgroundColor = Slanted ? Color.clear : BackgroundColor;
-            Button.style.color = Selected
-                ? Colors.CollectionChipSelectedText
-                : Colors.CollectionChipText;
+            Button.style.color = Selected ? InGameTheme.Ink : InGameTheme.Ink;
             if (TextLabel != null)
             {
                 TextLabel.style.fontSize = FontSize;
-                TextLabel.style.color = Selected
-                    ? Colors.CollectionChipSelectedText
-                    : Colors.CollectionChipText;
+                TextLabel.style.color = Selected ? InGameTheme.Ink : InGameTheme.Ink;
             }
             Button.MarkDirtyRepaint();
         }

@@ -577,7 +577,7 @@ internal sealed class CollectionGridVirtualizer
         if (hit == null)
         {
             hit = host.AddComponent<Image>();
-            hit.color = new Color(0f, 0f, 0f, 0f);
+            hit.color = Color.clear;
             hit.raycastTarget = true;
             // Push the hit image to the back of the sibling list so it does not paint over
             // the card frame/art; raycastTarget is unaffected by sibling order.

@@ -15,6 +15,42 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
 internal sealed partial class CollectionPanelView : IDisposable
 {
+    // The panel's colours on the ingame-* tokens (ADR-0026). A chip rests on ingame-chip and a
+    // selected one on ingame-chip-active, as on Android; hover lifts a chip toward the selected
+    // fill and a press sinks it toward the ground. Filter cards are framed by a gold hairline
+    // whose strength sets their place in the rail.
+    private static readonly Color ChipBorder = InGameTheme.WithAlpha(InGameTheme.Rule, .45f);
+    private static readonly Color ChipHoverBorder = InGameTheme.WithAlpha(InGameTheme.Rule, .8f);
+    private static readonly Color ChipHover = Color.Lerp(
+        InGameTheme.Chip,
+        InGameTheme.ChipActive,
+        .25f
+    );
+    private static readonly Color ChipPressed = Color.Lerp(
+        InGameTheme.Chip,
+        InGameTheme.Backdrop,
+        .3f
+    );
+    private static readonly Color ChipActiveHover = Color.Lerp(
+        InGameTheme.ChipActive,
+        InGameTheme.Accent,
+        .25f
+    );
+    private static readonly Color ChipActivePressed = Color.Lerp(
+        InGameTheme.ChipActive,
+        InGameTheme.Backdrop,
+        .25f
+    );
+    private static readonly Color FilterCardBorder = InGameTheme.WithAlpha(InGameTheme.Rule, .5f);
+    private static readonly Color GridFilterCardBorder = InGameTheme.WithAlpha(
+        InGameTheme.Rule,
+        .35f
+    );
+    private static readonly Color QuietFilterCardBorder = InGameTheme.WithAlpha(
+        InGameTheme.Rule,
+        .2f
+    );
+
     private const string StagingIdCopyHint = "STAGING · 悬停卡牌后按 Ctrl+C 复制 template ID";
     private const string SourceChipInitialsName = "bpp-source-chip-initials";
     private const string TagChipIconName = "bpp-tag-chip-icon";
@@ -176,7 +212,7 @@ internal sealed partial class CollectionPanelView : IDisposable
                 _parent,
                 BppOverlaySorting.NativeCardPreview,
                 Sizes.FontTitle,
-                Colors.White,
+                InGameTheme.Ink,
                 UnicodeFontCoverage.ContainsCjk(CollectionPanelText.Title())
                     ? NativeGameTypography.OwnedTextRole.Body
                     : NativeGameTypography.OwnedTextRole.Heading,

@@ -142,6 +142,21 @@ internal static class InGameTheme
     /// <summary>Supporter name colour, tier 4, and the sponsor action.</summary>
     public static readonly Color Supporter4 = new(1f, 199f / 255f, 51f / 255f, 1f);
 
+    /// <summary>Bronze card quality as text on a chip, as the game colours its tiers; lighter than the game's own bronze so it reads on ingame-chip.</summary>
+    public static readonly Color TierBronze = new(222f / 255f, 150f / 255f, 110f / 255f, 1f);
+
+    /// <summary>Silver card quality as text.</summary>
+    public static readonly Color TierSilver = new(192f / 255f, 192f / 255f, 192f / 255f, 1f);
+
+    /// <summary>Gold card quality as text.</summary>
+    public static readonly Color TierGold = new(1f, 215f / 255f, 0f, 1f);
+
+    /// <summary>Diamond card quality as text.</summary>
+    public static readonly Color TierDiamond = new(0f, 1f, 1f, 1f);
+
+    /// <summary>Legendary card quality as text.</summary>
+    public static readonly Color TierLegendary = new(1f, 69f / 255f, 0f, 1f);
+
     /// <summary>Hero chip and badge colour in game; the same value as hero-vanessa.</summary>
     public static readonly Color HeroVanessa = new(192f / 255f, 33f / 255f, 33f / 255f, 1f);
 
