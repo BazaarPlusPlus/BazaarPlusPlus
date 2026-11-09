@@ -33,10 +33,6 @@
       Link="CombatReplayHeroIdentity.cs"
     />
     <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/Colors.cs"
-      Link="Colors.cs"
-    />
-    <Compile
       Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/InGameTheme.g.cs"
       Link="InGameTheme.g.cs"
     />

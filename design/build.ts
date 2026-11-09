@@ -139,6 +139,17 @@ const heroesPath = path.join(
   'lib',
   'heroes.ts'
 );
+// Core's supporter attribution writes the in-game supporter colours into rich
+// text as hex, for the touch host's single label; it cannot read InGameTheme.
+const supporterAttributionPath = path.join(
+  repoRoot,
+  'bazaarplusplus-mod',
+  'src',
+  'BazaarPlusPlus.Core',
+  'Game',
+  'Supporters',
+  'BPPSupporterAttribution.cs'
+);
 
 // Families emitted as custom properties, in output order. `type` contributes
 // its font stacks; its styles are documentation for the design system page.
@@ -423,6 +434,40 @@ function heroMismatches(tokens: DesignTokens): string[] {
   return problems;
 }
 
+// BPPSupporterAttribution's MutedHex and TierHex repeat ingame-ink-muted and
+// ingame-supporter-1..4 as RRGGBB; each must match its token.
+function supporterMismatches(tokens: DesignTokens): string[] {
+  const source = fs.readFileSync(supporterAttributionPath, 'utf8');
+  const file = 'BPPSupporterAttribution.cs';
+  const found = new Map<string, string | undefined>([
+    ['ingame-ink-muted', /MutedHex = "([0-9A-Fa-f]{6})"/.exec(source)?.[1]]
+  ]);
+  const tiers = /TierHex\(int tier\) =>([\s\S]*?)\};/.exec(source)?.[1] ?? '';
+  for (const [, arm, hex] of tiers.matchAll(
+    /(>= 4|\d|_) => "([0-9A-Fa-f]{6})"/g
+  )) {
+    const tier = arm === '>= 4' ? '4' : arm === '_' ? '1' : arm;
+    found.set(`ingame-supporter-${tier}`, hex);
+  }
+  const problems: string[] = [];
+  for (const name of [
+    'ingame-ink-muted',
+    'ingame-supporter-1',
+    'ingame-supporter-2',
+    'ingame-supporter-3',
+    'ingame-supporter-4'
+  ]) {
+    const expected = resolveColor(tokens, name)?.slice(1);
+    const actual = found.get(name)?.toLowerCase();
+    if (actual !== expected) {
+      problems.push(
+        `${name} is #${expected} but ${file} has ${actual ?? 'none'}`
+      );
+    }
+  }
+  return problems;
+}
+
 function staleLauncherIcon(): string[] {
   const sha = crypto
     .createHash('sha256')
@@ -513,6 +558,7 @@ function main(argv: readonly string[]): void {
     );
   }
   problems.push(...heroMismatches(tokens));
+  problems.push(...supporterMismatches(tokens));
   problems.push(...staleLauncherIcon());
 
   if (problems.length > 0) {

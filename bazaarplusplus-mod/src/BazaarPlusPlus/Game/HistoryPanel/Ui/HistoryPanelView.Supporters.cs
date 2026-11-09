@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.Game.Supporters.Ui;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 
@@ -57,14 +58,7 @@ internal sealed partial class HistoryPanelView
                 i < names.Length ? names[i].Name
                 : i == 0 ? HistoryPanelText.Community()
                 : "";
-            name.color =
-                i < names.Length
-                && ColorUtility.TryParseHtmlString(
-                    "#" + BPPSupporterAttribution.TierHex(names[i].Tier),
-                    out var color
-                )
-                    ? color
-                    : Muted;
+            name.color = i < names.Length ? BPPSupporterTierColors.For(names[i].Tier) : Muted;
         }
     }
 

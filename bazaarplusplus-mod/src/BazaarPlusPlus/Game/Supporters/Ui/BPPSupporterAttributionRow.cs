@@ -170,19 +170,8 @@ internal static class BPPSupporterAttributionRow
         label.style.overflow = Overflow.Hidden;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
         label.style.marginBottom = UiSpacing.None;
-        label.style.color = ResolveTierText(sample.Tier);
+        label.style.color = BPPSupporterTierColors.ForRow(sample.Tier);
         return label;
-    }
-
-    private static Color ResolveTierText(int tier)
-    {
-        return tier switch
-        {
-            >= 4 => Colors.SupporterTier4Text,
-            3 => Colors.SupporterTier3Text,
-            2 => Colors.SupporterTier2Text,
-            _ => Colors.SupporterTier1Text,
-        };
     }
 
     private static Button CreateSponsorButton(
@@ -211,14 +200,14 @@ internal static class BPPSupporterAttributionRow
         button.style.justifyContent = Justify.Center;
         button.style.alignItems = Align.Center;
         button.style.backgroundColor = background;
-        button.style.color = Colors.SupporterTier4Text;
+        button.style.color = InGameTheme.Supporter4;
         UiStyle.HorizontalPadding(button.style, UiSpacing.Sm);
         UiStyle.Radius(button.style, Radii.Status);
         UiStyle.Border(button.style, Borders.Thin, border);
         UiHover.ApplyButtonPalette(
             button,
             background,
-            Colors.SupporterTier4Text,
+            InGameTheme.Supporter4,
             border,
             hoverBorder,
             hoverBackground,

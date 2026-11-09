@@ -397,7 +397,7 @@ internal sealed class TouchCombatClock : IDisposable
     /// <summary>A transparent hit area that tints the visible label or glyph it drives.</summary>
     private static Button Control(RectTransform rect, Graphic visual, string control, Action action)
     {
-        UiKit.Fill(rect, new Color(0, 0, 0, .001f));
+        UiKit.HitArea(rect);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = visual;
         button.navigation = new Navigation { mode = Navigation.Mode.None };

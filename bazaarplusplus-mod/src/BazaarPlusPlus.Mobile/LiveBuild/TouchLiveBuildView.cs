@@ -214,7 +214,7 @@ internal sealed class TouchLiveBuildView
             ApplyHeaderArt(refreshButton.Background);
 
             var corpus = TouchScreen.Child("CorpusStatus", scrolled, layout.Corpus);
-            var statusHit = UiKit.Fill(corpus, new Color(0f, 0f, 0f, 0.001f));
+            var statusHit = UiKit.HitArea(corpus);
             var statusButton = corpus.gameObject.AddComponent<Button>();
             statusButton.targetGraphic = statusHit;
             statusButton.transition = Selectable.Transition.None;

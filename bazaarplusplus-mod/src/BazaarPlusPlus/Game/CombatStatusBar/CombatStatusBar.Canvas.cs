@@ -246,9 +246,8 @@ internal sealed partial class CombatStatusBar
             _renderedPause = State.IsCombatPaused;
             _pauseIcon.ShowPlay = State.IsCombatPaused;
             _pauseIcon.SetVerticesDirty();
-            _pauseIcon.color = State.IsCombatPaused ? InGameTheme.AccentBright : Ink;
-            if (!interactable)
-                _pauseIcon.color *= new Color(1f, 1f, 1f, 0.4f);
+            var icon = State.IsCombatPaused ? InGameTheme.AccentBright : Ink;
+            _pauseIcon.color = interactable ? icon : InGameTheme.WithAlpha(icon, icon.a * .4f);
         }
     }
 

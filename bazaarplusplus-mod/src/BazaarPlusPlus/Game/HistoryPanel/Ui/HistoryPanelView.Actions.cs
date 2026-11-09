@@ -106,7 +106,7 @@ internal sealed partial class HistoryPanelView
         background.type = Image.Type.Sliced;
         background.pixelsPerUnitMultiplier =
             HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
-        background.color = new Color(.65f, .65f, .65f, 1);
+        background.color = InGameTheme.ArtInputTint;
         var viewport = CreateRect("TextViewport", inputRect, .035f, .03f, .93f, .94f);
         viewport.gameObject.AddComponent<RectMask2D>();
         var inputText = Text(viewport, "", 0, 0, 1, 1, 20);

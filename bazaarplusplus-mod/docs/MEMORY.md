@@ -42,6 +42,7 @@ One line each, to stop a settled question from being reopened; the ADR says why.
 - ADR-0021: The PvP Battle Capture Window lives once in Core behind `IPvpBattleReads`; persistence stays per host.
 - ADR-0022: Main Overlay Panel lifecycle runs through Core's one `OverlayPanelHost` on both hosts; each host keeps a thin adapter.
 - ADR-0025: one Mobile UI source tree, `src/BazaarPlusPlus.Mobile/`, reaches its host through the Mobile Platform Port; since the iOS port's removal only the Android host compiles it. Native Adjustments keep their decision in Core and their game reads in the host.
+- ADR-0026: in-game panels draw only `ingame-*` tokens (values shared, state rules per host); one kit per UI system owns native skin and hit areas; IL rules ban colour literals.
 
 ## Gotchas
 

@@ -86,13 +86,17 @@
     />
   </ItemGroup>
 
-  <!-- AndroidHostLogEventIdTests reads the host through Architecture.Tests' IL index and applies
-       its event id rule, so both stay single-owner. -->
+  <!-- AndroidHostLogEventIdTests and MobileUiColourTests read the host through Architecture.Tests'
+       IL index and apply its event id and in-game colour rules, so each stays single-owner. -->
   <ItemGroup>
     <Compile
       Include="../Architecture.Tests/CompiledArtifacts.cs"
       Link="Linked/CompiledArtifacts.cs"
     />
     <Compile Include="../Architecture.Tests/LogEventIdRule.cs" Link="Linked/LogEventIdRule.cs" />
+    <Compile
+      Include="../Architecture.Tests/InGameColourRule.cs"
+      Link="Linked/InGameColourRule.cs"
+    />
   </ItemGroup>
 </Project>

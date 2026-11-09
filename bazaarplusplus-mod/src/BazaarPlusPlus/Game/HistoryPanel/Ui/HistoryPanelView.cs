@@ -23,6 +23,10 @@ internal sealed partial class HistoryPanelView : IDisposable
         "Trophy_Diamond_TUI",
     ];
     private static readonly Color Ink = InGameTheme.Ink;
+
+    // The desktop's hover lifts a native button sprite above its own colours; a token holds
+    // channels in 0..1, so this is the one colour the panel writes itself.
+    private static Color OverBrightHover => new(1.12f, 1.12f, 1.12f, 1f);
     private static readonly Color Muted = InGameTheme.InkMuted;
     private readonly Transform _parent;
     private readonly Action _close;
@@ -326,18 +330,18 @@ internal sealed partial class HistoryPanelView : IDisposable
             : InGameTheme.Button;
         var colors = button.colors;
         var dimmed = binding.Dimmed && button.interactable;
-        colors.disabledColor = groupedOption ? Color.clear : new Color(.65f, .65f, .65f, .55f);
+        colors.disabledColor = groupedOption ? Color.clear : InGameTheme.TintDisabled;
         colors.normalColor =
             groupedOption ? Color.clear
             : dimmed ? colors.disabledColor
-            : restingRecord ? new Color(.8f, .76f, .68f, .7f)
+            : restingRecord ? InGameTheme.TintRest
             : Color.white;
         colors.highlightedColor =
-            groupedOption ? new Color(1f, 1f, 1f, .45f)
-            : restingRecord ? new Color(.98f, .95f, .88f, .95f)
-            : dimmed ? new Color(.72f, .72f, .72f, .65f)
-            : new Color(1.12f, 1.12f, 1.12f, 1f);
-        colors.pressedColor = new Color(.7f, .7f, .7f, 1f);
+            groupedOption ? InGameTheme.TintQuietHover
+            : restingRecord ? InGameTheme.TintRestHover
+            : dimmed ? InGameTheme.TintDimmedHover
+            : OverBrightHover;
+        colors.pressedColor = InGameTheme.TintPressed;
         colors.selectedColor = colors.normalColor;
         button.colors = colors;
         binding.Text.color =

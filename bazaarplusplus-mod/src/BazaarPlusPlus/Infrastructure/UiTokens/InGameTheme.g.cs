@@ -109,6 +109,39 @@ internal static class InGameTheme
     /// <summary>Work in progress, such as a refresh or a download.</summary>
     public static readonly Color Pending = new(150f / 255f, 194f / 255f, 227f / 255f, 1f);
 
+    /// <summary>Tint over the native button sprite used as a text field (the account link code).</summary>
+    public static readonly Color ArtInputTint = new(166f / 255f, 166f / 255f, 166f / 255f, 1f);
+
+    /// <summary>Button state tint over a native-art button: a resting History record row.</summary>
+    public static readonly Color TintRest = new(204f / 255f, 194f / 255f, 173f / 255f, 179f / 255f);
+
+    /// <summary>Button state tint: a resting record row under the pointer or finger.</summary>
+    public static readonly Color TintRestHover = new(250f / 255f, 242f / 255f, 224f / 255f, 242f / 255f);
+
+    /// <summary>Button state tint: an unselected tab or grouped option under the pointer or finger; at rest it is clear.</summary>
+    public static readonly Color TintQuietHover = new(1f, 1f, 1f, 115f / 255f);
+
+    /// <summary>Button state tint: a dimmed but actionable desktop button under the pointer.</summary>
+    public static readonly Color TintDimmedHover = new(184f / 255f, 184f / 255f, 184f / 255f, 166f / 255f);
+
+    /// <summary>Button state tint while pressed.</summary>
+    public static readonly Color TintPressed = new(179f / 255f, 179f / 255f, 179f / 255f, 1f);
+
+    /// <summary>Button state tint of a button that takes no input; a dimmed desktop button also rests on it.</summary>
+    public static readonly Color TintDisabled = new(166f / 255f, 166f / 255f, 166f / 255f, 140f / 255f);
+
+    /// <summary>Supporter name colour, tier 1. Core's BPPSupporterAttribution.TierHex repeats the four tier values for rich text; design::check compares them.</summary>
+    public static readonly Color Supporter1 = new(199f / 255f, 212f / 255f, 230f / 255f, 1f);
+
+    /// <summary>Supporter name colour, tier 2.</summary>
+    public static readonly Color Supporter2 = new(1f, 168f / 255f, 87f / 255f, 1f);
+
+    /// <summary>Supporter name colour, tier 3.</summary>
+    public static readonly Color Supporter3 = new(199f / 255f, 219f / 255f, 1f, 1f);
+
+    /// <summary>Supporter name colour, tier 4, and the sponsor action.</summary>
+    public static readonly Color Supporter4 = new(1f, 199f / 255f, 51f / 255f, 1f);
+
     /// <summary>Hero chip and badge colour in game; the same value as hero-vanessa.</summary>
     public static readonly Color HeroVanessa = new(192f / 255f, 33f / 255f, 33f / 255f, 1f);
 
@@ -132,6 +165,15 @@ internal static class InGameTheme
 
     /// <summary>Hero chip and badge colour in game; the same value as hero-dragons.</summary>
     public static readonly Color HeroDragons = new(45f / 255f, 210f / 255f, 208f / 255f, 1f);
+
+    /// <summary>Hero badge when a run names no hero (UNK). Not hero-unknown, which is a dot colour.</summary>
+    public static readonly Color HeroNone = new(51f / 255f, 74f / 255f, 97f / 255f, 242f / 255f);
+
+    /// <summary>Hero badge for a hero outside the in-game hero table.</summary>
+    public static readonly Color HeroUnlisted = new(57f / 255f, 73f / 255f, 97f / 255f, 250f / 255f);
+
+    /// <summary>Hero badge text on a light hero colour; a dark one takes white text.</summary>
+    public static readonly Color HeroInkDark = new(26f / 255f, 31f / 255f, 38f / 255f, 1f);
 
     /// <summary>The same colour at another opacity, for rules and tints drawn at a fraction.</summary>
     public static Color WithAlpha(Color color, float alpha) =>
