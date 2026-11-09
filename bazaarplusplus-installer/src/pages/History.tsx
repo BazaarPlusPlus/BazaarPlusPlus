@@ -7,11 +7,9 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Button, buttonClassName } from '../components/ui/Button';
-import { StatusPanel } from '../components/ui/StatusPanel';
+import { Button, buttonClassName, StatusPanel, StatusBanner } from '@bpp/ui';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
-import { StatusBanner } from '../components/ui/StatusBanner';
 import {
   formatDateTime,
   formatGameMode,
@@ -60,7 +58,11 @@ export default function History() {
       }
     >
       {page.state.phase === 'initial-loading' ? (
-        <StatusPanel kind="loading" title={t('historyLoading')} />
+        <StatusPanel
+          headingLevel={3}
+          kind="loading"
+          title={t('historyLoading')}
+        />
       ) : page.state.phase === 'blocking-failure' ? (
         <HistoryProblemBanner
           problem={page.state.problem}
@@ -100,6 +102,7 @@ export default function History() {
           <div className="bpp-history-run-list">
             {page.state.phase === 'ready-empty' ? (
               <StatusPanel
+                headingLevel={3}
                 kind="empty"
                 icon={<HistoryIcon />}
                 title={t('noLocalRuns')}

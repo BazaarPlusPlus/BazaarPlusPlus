@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import './installer-tokens.css';
 @import './tokens.css';
+/* The shared bpp-* components; design/components/bundle.css owns them. */
+@import '../../../design/components/bundle.css';
 
 @layer base {
   html {
@@ -21,11 +23,6 @@
     font-size: 15px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
-  }
-
-  ::selection {
-    background: var(--accent-line);
-    color: var(--text-1);
   }
 
   :focus-visible {
@@ -49,19 +46,4 @@
   }
 }
 
-@utility panel {
-  min-width: 0;
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
-  border-radius: var(--r-panel);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-  }
-}
+/* `.panel` and the reduced-motion rule come from bundle.css. */

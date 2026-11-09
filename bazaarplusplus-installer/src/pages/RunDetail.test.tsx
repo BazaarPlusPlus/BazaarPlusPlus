@@ -154,14 +154,14 @@ describe('Run Detail workflow binding', () => {
     expect(container.querySelector('dialog')?.textContent).toContain(
       'Pygmalien'
     );
-    await click('dialog button.bpp-confirm-submit');
+    await click('dialog button[data-confirm-submit]');
     expect(container.querySelector('dialog')?.textContent).toContain(
       'disk busy'
     );
     expect(
-      container.querySelector('dialog button.bpp-confirm-submit')?.textContent
+      container.querySelector('dialog button[data-confirm-submit]')?.textContent
     ).toContain('Retry');
-    await click('dialog button.bpp-confirm-submit');
+    await click('dialog button[data-confirm-submit]');
     expect(
       container.querySelector<HTMLButtonElement>(
         'dialog button[aria-label="Close"]'

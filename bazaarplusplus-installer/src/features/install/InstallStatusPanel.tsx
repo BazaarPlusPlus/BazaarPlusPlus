@@ -1,8 +1,6 @@
 import { Copy, Check, Folder } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '../../components/ui/Button';
-import { StatusBadge } from '../../components/ui/StatusBadge';
-import { StatusBanner } from '../../components/ui/StatusBanner';
+import { Button, Badge, StatusBanner } from '@bpp/ui';
 import { useI18n } from '../../i18n/LocaleProvider';
 import brandMark from '../../../static/brand/bpp-mark.svg';
 import { PrimaryInstallActionButton } from './PrimaryInstallActionButton';
@@ -59,7 +57,7 @@ export function InstallStatusPanel({
           <div className="bpp-install-status-name">
             <p className="bpp-install-status-title">
               BazaarPlusPlus
-              <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+              <Badge tone={status.tone}>{status.label}</Badge>
             </p>
             <p
               id="install-hero-description"
@@ -114,9 +112,9 @@ export function InstallStatusPanel({
           <span className="bpp-kv-key">{t('applicationVersionHeading')}</span>
           <span className="bpp-kv-value tnum">
             {appVersion}
-            <StatusBadge tone="neutral" dot={false} className="ml-2">
+            <Badge tone="neutral" dot={false} className="ml-2">
               {import.meta.env.DEV ? t('developmentBuild') : t('stableBuild')}
-            </StatusBadge>
+            </Badge>
           </span>
           <span />
         </div>

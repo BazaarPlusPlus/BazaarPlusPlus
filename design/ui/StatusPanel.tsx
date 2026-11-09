@@ -1,6 +1,6 @@
-import clsx from 'clsx';
-import { CircleAlert, Compass, Inbox, Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { cx } from './cx';
+import { AlertIcon, CompassIcon, InboxIcon, SpinnerIcon } from './icons';
 
 export type StatusPanelKind = 'loading' | 'empty' | 'error' | 'not-found';
 
@@ -16,13 +16,18 @@ export interface StatusPanelProps {
   compact?: boolean;
   /** Draw the panel frame; off when the status sits inside another panel. */
   framed?: boolean;
+  /** The title's heading level in the page outline. Level 1 is a page-sized
+   *  title, for a status that replaces the whole page. */
+  headingLevel?: 1 | 2 | 3;
+  /** Accessible name of the loading mark, which then reads as a progress bar. */
+  progressLabel?: string;
   className?: string;
 }
 
 const DEFAULT_MARK = {
-  empty: <Inbox />,
-  error: <CircleAlert />,
-  'not-found': <Compass />
+  empty: <InboxIcon />,
+  error: <AlertIcon />,
+  'not-found': <CompassIcon />
 } as const;
 
 /** The one layout for loading, empty, error and not-found states. */
@@ -34,32 +39,33 @@ export function StatusPanel({
   actions,
   compact = false,
   framed = true,
+  headingLevel = 2,
+  progressLabel,
   className
 }: StatusPanelProps) {
   const loading = kind === 'loading';
-  const mark = loading ? (
-    <Loader2 className="bpp-spin" />
-  ) : (
-    (icon ?? DEFAULT_MARK[kind])
-  );
-  const classes = clsx(
+  const error = kind === 'error';
+  const classes = cx(
     'bpp-status-panel',
     compact && 'is-compact',
     framed && 'bpp-panel',
     className
   );
-  const markNode = (
-    <span
-      className={clsx(
-        'bpp-status-panel-mark',
-        loading && 'is-loading',
-        kind === 'error' && 'is-error'
-      )}
-      aria-hidden="true"
-    >
-      {mark}
-    </span>
+  const markClass = cx(
+    'bpp-status-panel-mark',
+    loading && 'is-loading',
+    error && 'is-error'
   );
+  const mark =
+    loading && progressLabel ? (
+      <span role="progressbar" aria-label={progressLabel} className={markClass}>
+        <SpinnerIcon />
+      </span>
+    ) : (
+      <span className={markClass} aria-hidden="true">
+        {loading ? <SpinnerIcon /> : (icon ?? DEFAULT_MARK[kind])}
+      </span>
+    );
 
   if (compact) {
     return (
@@ -69,12 +75,14 @@ export function StatusPanel({
         aria-busy={loading || undefined}
         className={classes}
       >
-        {markNode}
+        {mark}
         <span>{title}</span>
       </div>
     );
   }
 
+  const Heading = `h${headingLevel}` as const;
+  const pageTitle = headingLevel === 1;
   return (
     <section
       role={kind === 'empty' ? undefined : 'status'}
@@ -82,8 +90,10 @@ export function StatusPanel({
       aria-busy={loading || undefined}
       className={classes}
     >
-      {markNode}
-      <h3 className="bpp-status-panel-title">{title}</h3>
+      {mark}
+      <Heading className={cx('bpp-status-panel-title', pageTitle && 'is-page')}>
+        {title}
+      </Heading>
       {body && <p className="bpp-status-panel-body">{body}</p>}
       {actions && <div className="bpp-status-panel-actions">{actions}</div>}
     </section>

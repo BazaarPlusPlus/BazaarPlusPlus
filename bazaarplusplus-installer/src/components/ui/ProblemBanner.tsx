@@ -4,8 +4,7 @@ import {
   type UiProblem
 } from '../../features/shared/problems';
 import { useI18n } from '../../i18n/LocaleProvider';
-import { Button } from './Button';
-import { StatusBanner } from './StatusBanner';
+import { Button, StatusBanner } from '@bpp/ui';
 
 /**
  * The one way a page shows a semantic problem: localized message, optional

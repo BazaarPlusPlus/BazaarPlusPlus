@@ -3,10 +3,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy, type DownloadPageCopy } from '../../content/site-copy';
-import Badge from '../../shared/components/Badge';
-import Button from '../../shared/components/Button';
+import { AlertIcon, Badge, Button } from '@bpp/ui';
 import {
-  AlertIcon,
   CheckIcon,
   DownloadIcon,
   ExternalLinkIcon,
@@ -99,7 +97,7 @@ function GameFacts({
             <span className="tabular-nums">
               {gameReleaseNumber(online.gameVersion)}
             </span>
-            <Badge tone={same ? 'neutral' : 'warn'}>
+            <Badge tone={same ? 'neutral' : 'warn'} dot={!same}>
               {same ? copy.adapted : copy.notAdapted}
             </Badge>
           </span>
@@ -403,7 +401,7 @@ function Banner({ children }: { children: ReactNode }) {
   return (
     <p className="flex items-start gap-2 rounded-panel border border-warning-line bg-warning-subtle px-3 py-2.5 text-[15px] leading-6 text-text-1">
       <span aria-hidden="true" className="flex h-6 shrink-0 items-center">
-        <AlertIcon className="size-4 text-warning" />
+        <AlertIcon className="size-4 shrink-0 text-warning" />
       </span>
       <span>{children}</span>
     </p>

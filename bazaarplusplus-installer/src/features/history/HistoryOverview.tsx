@@ -1,6 +1,6 @@
 import { ChevronDown, CloudUpload, HardDrive } from 'lucide-react';
 import { useState } from 'react';
-import { Button, buttonClassName } from '../../components/ui/Button';
+import { Button, buttonClassName } from '@bpp/ui';
 import {
   ConfirmDialog,
   ConfirmNote,

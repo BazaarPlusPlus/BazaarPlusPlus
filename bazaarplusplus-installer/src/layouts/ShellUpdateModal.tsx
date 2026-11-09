@@ -7,15 +7,16 @@ import {
 } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { hasTauriRuntime } from '../api/runtime';
-import { Button } from '../components/ui/Button';
-import { ConfirmNote } from '../components/ui/ConfirmDialog';
 import {
+  Button,
   Dialog,
   DialogBody,
   DialogCard,
   DialogFooter,
   DialogHeader
-} from '../components/ui/Dialog';
+} from '@bpp/ui';
+import { useActiveModalDismissalPolicy } from '../components/ui/ModalCoordinator';
+import { ConfirmNote } from '../components/ui/ConfirmDialog';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import type { UpdaterController } from '../features/about/useUpdater';
 import type { UpdaterUiContract } from '../features/about/updaterPresentation';
@@ -38,6 +39,7 @@ export function ShellUpdateModal({
 }: ShellUpdateModalProps) {
   const { locale, t } = useI18n();
   const dismissible = presentation.dismissalPolicy === 'dismissible';
+  const modalDismissible = useActiveModalDismissalPolicy() !== 'blocked';
   const action = presentation.action;
   const actionHandler =
     action === 'install' || action === 'retry-install'
@@ -53,6 +55,7 @@ export function ShellUpdateModal({
 
   return (
     <Dialog
+      dismissible={modalDismissible}
       onClose={updater.dismiss}
       labelledBy="update-modal-title"
       focusContainerOnOpen

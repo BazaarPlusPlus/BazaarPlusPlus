@@ -1,43 +1,63 @@
-import clsx from 'clsx';
-import { X } from 'lucide-react';
-import { useEffect, useRef, type ReactNode } from 'react';
-import { useActiveModalDismissalPolicy } from './ModalCoordinator';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from './Button';
+import { cx } from './cx';
+import { CloseIcon } from './icons';
+
+export interface DialogProps {
+  onClose: () => void;
+  labelledBy?: string;
+  /** Whether Escape and a click on the backdrop close the dialog. Turn it off
+   *  while the dialog guards work that must finish. */
+  dismissible?: boolean;
+  /** Focus the dialog itself instead of its first control. */
+  focusContainerOnOpen?: boolean;
+  className?: string;
+  children: ReactNode;
+}
 
 /**
- * Modal dialog backed by the native <dialog> element. showModal() gives us the
- * platform behaviours the installer was missing — implicit role="dialog" +
- * aria-modal, Escape-to-close, a focus trap, initial focus, and a real
- * top-layer backdrop — instead of reimplementing them by hand.
+ * Modal dialog backed by the native <dialog> element. showModal() gives the
+ * platform's role="dialog" + aria-modal, the focus trap, initial focus and a
+ * top-layer backdrop. The page behind it does not scroll, and focus returns to
+ * the control that opened it.
  *
- * Mount it when open and unmount to close; Escape and backdrop clicks call
- * onClose so the parent can drive the open state.
+ * Mount it to open and unmount it to close; Escape and backdrop clicks call
+ * onClose so the parent drives the open state.
  */
 export function Dialog({
   onClose,
   labelledBy,
+  dismissible = true,
   focusContainerOnOpen = false,
-  className = '',
+  className,
   children
-}: {
-  onClose: () => void;
-  labelledBy?: string;
-  focusContainerOnOpen?: boolean;
-  className?: string;
-  children: ReactNode;
-}) {
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
-  const dismissalPolicy = useActiveModalDismissalPolicy();
-  const dismissalBlocked = dismissalPolicy === 'blocked';
+  // The control that opened the dialog, read once before the first effect: in
+  // StrictMode the effect runs twice, and the second run would see focus
+  // already inside the dialog.
+  const [opener] = useState(() =>
+    typeof document !== 'undefined' &&
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+  );
 
-  useEffect(() => {
+  // A layout effect, so the cleanup runs while the dialog is still in the
+  // document: close() and the focus return both need it attached.
+  useLayoutEffect(() => {
     const el = ref.current;
-    if (el && !el.open) {
+    if (!el) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    if (!el.open) {
       el.showModal();
       if (focusContainerOnOpen) el.focus({ preventScroll: true });
     }
     return () => {
-      if (el?.open) el.close();
+      if (el.open) el.close();
+      document.body.style.overflow = previousOverflow;
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
     // Opening is a mount-time side effect; the dialog must not reopen or steal
     // focus again when props change.
@@ -50,19 +70,17 @@ export function Dialog({
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <dialog
       ref={ref}
-      className={`bpp-dialog ${className}`.trim()}
+      className={cx('bpp-dialog', className)}
       tabIndex={focusContainerOnOpen ? -1 : undefined}
       aria-labelledby={labelledBy}
       onCancel={(event) => {
-        // Escape fires `cancel`; we own the close so the parent state stays in sync.
+        // Escape fires `cancel`; the parent owns the close so its state stays in sync.
         event.preventDefault();
-        if (!dismissalBlocked) onClose();
+        if (dismissible) onClose();
       }}
       onClick={(event) => {
         // A click on the dialog itself (the backdrop area around the card) closes it.
-        if (!dismissalBlocked && event.target === event.currentTarget) {
-          onClose();
-        }
+        if (dismissible && event.target === event.currentTarget) onClose();
       }}
     >
       {children}
@@ -81,7 +99,7 @@ export function DialogCard({
   children: ReactNode;
 }) {
   return (
-    <div className={clsx('bpp-dialog-card', `is-${size}`, className)}>
+    <div className={cx('bpp-dialog-card', `is-${size}`, className)}>
       {children}
     </div>
   );
@@ -126,7 +144,7 @@ export function DialogHeader({
           onClick={onClose}
           disabled={closeDisabled}
           aria-label={closeLabel}
-          icon={<X aria-hidden="true" />}
+          icon={<CloseIcon />}
         />
       )}
     </div>
@@ -140,7 +158,7 @@ export function DialogBody({
   className?: string;
   children: ReactNode;
 }) {
-  return <div className={clsx('bpp-dialog-body', className)}>{children}</div>;
+  return <div className={cx('bpp-dialog-body', className)}>{children}</div>;
 }
 
 export function DialogFooter({ children }: { children: ReactNode }) {

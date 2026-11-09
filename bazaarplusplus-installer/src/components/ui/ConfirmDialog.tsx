@@ -1,14 +1,15 @@
 import clsx from 'clsx';
 import { DownloadCloud, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Button } from './Button';
 import {
+  Button,
   Dialog,
   DialogBody,
   DialogCard,
   DialogFooter,
   DialogHeader
-} from './Dialog';
+} from '@bpp/ui';
+import { useActiveModalDismissalPolicy } from './ModalCoordinator';
 import { useI18n } from '../../i18n/LocaleProvider';
 
 /** primary => install-style affirmative action; danger => destructive. */
@@ -71,6 +72,8 @@ export function ConfirmDialog({
   onClose
 }: ConfirmDialogProps) {
   const { t } = useI18n();
+  // The modal stack can block dismissal while another modal guards work.
+  const dismissible = useActiveModalDismissalPolicy() !== 'blocked';
   const dismissAllowed = !busy || activeDismissalPolicy.kind !== 'blocked';
   const activeDismissLabel =
     activeDismissalPolicy.kind === 'blocked'
@@ -89,6 +92,7 @@ export function ConfirmDialog({
 
   return (
     <Dialog
+      dismissible={dismissible}
       onClose={requestDismiss}
       labelledBy={titleId}
       focusContainerOnOpen={tone === 'primary'}
@@ -136,7 +140,7 @@ export function ConfirmDialog({
           )}
           <Button
             variant={tone === 'danger' ? 'danger' : 'primary'}
-            className="bpp-confirm-submit"
+            data-confirm-submit
             data-tone={tone}
             disabled={
               (acknowledge ? !acknowledge.checked : false) ||

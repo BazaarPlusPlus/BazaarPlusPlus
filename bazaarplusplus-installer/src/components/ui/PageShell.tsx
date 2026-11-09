@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
-import { PageHeader } from './PageHeader';
+import { PageHeader } from '@bpp/ui';
 
 export function PageShell({
   title,

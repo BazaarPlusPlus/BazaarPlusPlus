@@ -11,45 +11,35 @@ type HeroBadgeProps = {
   children?: ReactNode;
 };
 
-/** The one hero chip: a hero-colored dot, the hero's name, and an optional trailing value. */
+/** The one hero chip: a hero-colored dot, the hero's name, and an optional
+ *  trailing value. Its look is `.bpp-hero-badge` in design/components/bundle.css. */
 export default function HeroBadge({
   hero,
   selected = false,
   label = 'short',
   children
 }: HeroBadgeProps) {
-  const color = getHeroColor(hero);
-  const shortLabel = getHeroShortLabel(hero);
-
   return (
     <span
       data-hero-badge={hero}
       title={hero}
-      className={`inline-flex h-6 min-w-0 items-center gap-1.5 rounded-full border px-2 text-sm font-medium whitespace-nowrap text-text-1 transition-colors duration-(--t-fast) ${
-        selected
-          ? 'border-accent-line bg-accent-subtle'
-          : 'border-transparent bg-hover'
-      }`}
+      className={selected ? 'bpp-hero-badge is-selected' : 'bpp-hero-badge'}
     >
       <span
-        className="size-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: color }}
+        className="bpp-hero-badge-dot"
+        style={{ backgroundColor: getHeroColor(hero) }}
         aria-hidden="true"
       />
       {label === 'short' ? (
         <>
-          <span aria-hidden="true">{shortLabel}</span>
+          <span aria-hidden="true">{getHeroShortLabel(hero)}</span>
           <span className="sr-only">{hero}</span>
         </>
       ) : (
         <span className="min-w-0 truncate">{hero}</span>
       )}
       {children != null ? (
-        <span
-          className={`font-medium tabular-nums ${selected ? 'text-accent' : 'text-text-2'}`}
-        >
-          {children}
-        </span>
+        <span className="bpp-hero-badge-value">{children}</span>
       ) : null}
     </span>
   );

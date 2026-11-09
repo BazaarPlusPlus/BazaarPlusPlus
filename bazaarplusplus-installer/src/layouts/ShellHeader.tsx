@@ -11,7 +11,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import { useMatch } from 'react-router-dom';
 import { hasTauriRuntime } from '../api/runtime';
-import { Button } from '../components/ui/Button';
+import { Button } from '@bpp/ui';
 import { useUpdater } from '../features/about/UpdaterProvider';
 import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { isWindowsPlatform } from '../features/shared/platform';

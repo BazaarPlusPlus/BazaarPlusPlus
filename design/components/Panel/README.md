@@ -1,6 +1,6 @@
 Panels and what goes in them: rows of label, value and control, and key-value grids.
 
-Source: `.bpp-panel`, `.bpp-panel-pad`, `.bpp-row*`, `.bpp-kv*` and `.bpp-disclosure*` in `bundle.css`. The site's `panel` utility is the same frame.
+Source: `.bpp-panel`, `.bpp-panel-pad`, `.bpp-row*`, `.bpp-kv*` and `.bpp-disclosure*` in `bundle.css`. The site's `.panel` class, also in `bundle.css`, is the same frame.
 
 ## Use
 

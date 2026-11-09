@@ -1,4 +1,4 @@
-import Button from '../../shared/components/Button';
+import { Button } from '@bpp/ui';
 import { DownloadIcon } from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';

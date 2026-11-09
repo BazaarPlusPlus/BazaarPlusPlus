@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig, lazyPlugins } from 'vite-plus';
+import { defineConfig, lazyPlugins, searchForWorkspaceRoot } from 'vite-plus';
 
 const host = process.env.TAURI_DEV_HOST;
 const pkg = JSON.parse(readFileSync('package.json', 'utf-8')) as {
@@ -121,6 +122,16 @@ export default defineConfig({
     ]
   },
   plugins: lazyPlugins(() => [tailwindcss(), react()]),
+  // The Web component library lives in ../design/ui (docs/adr/0018). Its files
+  // resolve React from this project: they have no node_modules of their own.
+  resolve: {
+    alias: {
+      '@bpp/ui': fileURLToPath(
+        new URL('../design/ui/index.ts', import.meta.url)
+      )
+    },
+    dedupe: ['react', 'react-dom']
+  },
   define: {
     __FRONTEND_VERSION__: JSON.stringify(pkg.version)
   },
@@ -142,6 +153,9 @@ export default defineConfig({
       : undefined,
     watch: {
       ignored: ['**/src-tauri/**']
+    },
+    fs: {
+      allow: [searchForWorkspaceRoot(process.cwd()), '../design']
     }
   }
 });

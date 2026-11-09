@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig, lazyPlugins } from 'vite-plus';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, lazyPlugins, searchForWorkspaceRoot } from 'vite-plus';
 
 export default defineConfig({
   fmt: {
@@ -71,5 +72,20 @@ export default defineConfig({
       }
     ]
   },
-  plugins: lazyPlugins(() => [react(), tailwindcss()])
+  plugins: lazyPlugins(() => [react(), tailwindcss()]),
+  // The Web component library lives in ../design/ui (docs/adr/0018). Its files
+  // resolve React from this project: they have no node_modules of their own.
+  resolve: {
+    alias: {
+      '@bpp/ui': fileURLToPath(
+        new URL('../design/ui/index.ts', import.meta.url)
+      )
+    },
+    dedupe: ['react', 'react-dom']
+  },
+  server: {
+    fs: {
+      allow: [searchForWorkspaceRoot(process.cwd()), '../design']
+    }
+  }
 });

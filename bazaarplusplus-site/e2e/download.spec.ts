@@ -108,7 +108,7 @@ async function onlineGame(card: Locator) {
   const value = key.locator('xpath=following-sibling::dd[1]');
   return {
     version: await text(value.locator('.tabular-nums')),
-    conclusion: await text(value.locator('.rounded-full').first())
+    conclusion: await text(value.locator('.bpp-badge'))
   };
 }
 

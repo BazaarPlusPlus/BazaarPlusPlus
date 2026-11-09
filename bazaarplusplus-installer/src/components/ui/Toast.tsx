@@ -16,7 +16,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import { Button } from './Button';
+import { Button } from '@bpp/ui';
 import { useI18n } from '../../i18n/LocaleProvider';
 
 export type ToastTone = 'success' | 'info' | 'warning' | 'error';

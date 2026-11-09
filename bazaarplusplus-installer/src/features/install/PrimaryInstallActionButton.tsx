@@ -1,5 +1,5 @@
 import { DownloadCloud, Folder, Play, RefreshCw } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
+import { Button } from '@bpp/ui';
 import { useI18n } from '../../i18n/LocaleProvider';
 import type {
   InstallPageSnapshot,

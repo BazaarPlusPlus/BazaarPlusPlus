@@ -1,6 +1,5 @@
 import { FolderClock } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { StatusBanner } from '../../components/ui/StatusBanner';
+import { Button, StatusBanner } from '@bpp/ui';
 import { useI18n } from '../../i18n/LocaleProvider';
 import { formatBytes } from '../history/format';
 import { InstallProblemBanner } from './InstallProblemBanner';
