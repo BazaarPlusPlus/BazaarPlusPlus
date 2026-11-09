@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Context
 
-The mod draws two UI systems inside the game: the Desktop UI in the Mono host's `Game/` panels and the Mobile UI in `src/BazaarPlusPlus.Mobile/`, which only the Android host compiles (ADR-0025). Both read the `ingame-*` colour tokens through a generated `InGameTheme` (`design/README.md`, In game). Before this record the same primitives were written more than once:
+The mod draws two UI systems inside the game: the Desktop UI in the Mono host's `Game/` panels and the Mobile UI in `src/BazaarPlusPlus.Mobile/`, which only the Android host compiles (ADR-0025). Both read the `ingame-*` colour tokens through a generated `InGameTheme` (`../design/README.md`, In game). Before this record the same primitives were written more than once:
 
 - The native `Btn_Rectangle` sprite addresses were listed by History, Ten-Win Builds and the combat status bar, each with its own load, retry and sliced-layer helper. History and Ten-Win Builds each decoded BPP's header art.
 - The button state tints (rest, hover, pressed, disabled) were the same colour literals in the desktop and Mobile History buttons. The supporter tier colours were literals on the desktop, hex strings in Core's `BPPSupporterAttribution`, and parsed back from that hex by desktop History.
@@ -31,13 +31,13 @@ ADR-0003 rejects a unification that only looks tidier. The shared part here is a
 
 ## Consequences
 
-- A colour changes in `design/tokens.json` and reaches both UI systems through `just design::build`; a literal in a covered panel fails `just mod::test` or `just mod::test-core`.
+- A colour changes in `../design/tokens.json` and reaches both UI systems through `just design::build`; a literal in a covered panel fails `just mod::test` or `just mod::test-core`.
 - A value that a token cannot hold, such as the desktop's over-bright hover (channels above 1), is a named member the rule test lists.
 - Token bytes round a float literal to the nearest 1/255, so a migrated colour may move by up to half a step.
 
 ## Evidence
 
-- Tokens: `design/tokens.json` (`ingame-*`), `design/build.ts` (`buildInGameTheme`, `supporterMismatches`)
+- Tokens: `../design/tokens.json` (`ingame-*`), `../design/build.ts` (`buildInGameTheme`, `supporterMismatches`)
 - Desktop: `src/BazaarPlusPlus/Infrastructure/UiTokens/InGameTheme.g.cs`, `Game/Supporters/Ui/BPPSupporterTierColors.cs`, `GameInterop/Heroes/HeroVisual.cs`
-- Mobile: `src/BazaarPlusPlus.Mobile/Ui/InGameTheme.g.cs`, `Ui/UiKit.cs` (`HitArea`)
+- Mobile: `src/BazaarPlusPlus.Mobile/Ui/InGameTheme.g.cs`, `src/BazaarPlusPlus.Mobile/Ui/UiKit.cs` (`HitArea`)
 - Rules: `tests/Architecture.Tests/InGameColourRule.cs`, `InGameUiColourTests.cs`, `tests/AndroidHost.Tests/MobileUiColourTests.cs`
