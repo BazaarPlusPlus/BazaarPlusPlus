@@ -79,6 +79,15 @@ internal sealed class AndroidOverlayPanels
         var toggle = _walkthrough.NextToggle(deltaTime, _host.OpenPanelId);
         _host.Frame(new OverlayPanelFrame(_sceneToken, deltaTime, false, toggle));
         _walkthrough.AfterFrame(_host.OpenPanelId);
+        // The Android host has no in-game capture; `just mod::android-capture` covers it.
+        if (_walkthrough.TakeShot() is { } shot)
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.OverlayPanels,
+                    "overlay_panels.walkthrough.shot_unsupported"
+                ),
+                ("name", shot)
+            );
     }
 
     /// <summary>

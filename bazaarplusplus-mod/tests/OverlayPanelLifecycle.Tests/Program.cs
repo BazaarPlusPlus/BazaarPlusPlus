@@ -3,7 +3,8 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 
 // Exe-runner checks for the Overlay Panel Host. Every test drives only the public
-// OverlayPanelHost through fake registrations and reads what the panels were told.
+// OverlayPanelHost through fake registrations and reads what the panels were told; the last
+// drives the Walkthrough Control through its command file.
 
 var logLines = new List<string>();
 BppLog.Install(new ListLogSink(logLines));
@@ -41,8 +42,45 @@ Run(TestRequestsFromTicksExecute);
 Run(TestCombatIsReadOnlyWhenARuleCanUseIt);
 Run(TestATickSeesARequestMadeByAnEarlierTick);
 Run(() => TestAFailingCallbackDoesNotStopTheNextPanel(logLines));
+Run(() => TestTheWalkthroughControlTakesOneShotWithASafeName(logLines));
 
 Console.WriteLine("OverlayPanelLifecycle checks passed.");
+
+static void TestTheWalkthroughControlTakesOneShotWithASafeName(List<string> logLines)
+{
+    var dataRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(dataRoot);
+    try
+    {
+        var control = new WalkthroughControl(dataRoot);
+        string? Send(string command)
+        {
+            File.WriteAllText(Path.Combine(dataRoot, WalkthroughControl.CommandFileName), command);
+            return control.NextToggle(1f, null);
+        }
+
+        Check.That(Send("shot kit-gallery-2") == null, "A shot toggles no panel.");
+        Check.That(control.TakeShot() == "kit-gallery-2", "The host takes the shot's name.");
+        Check.That(control.TakeShot() == null, "A shot is taken once.");
+        Check.That(Send("open history") == "history", "Open still toggles its panel.");
+        Check.That(control.TakeShot() == null, "An open asks for no shot.");
+
+        foreach (var unsafeName in new[] { "../escape", "Kit", "a b", "", new string('a', 65) })
+        {
+            logLines.Clear();
+            Send($"shot {unsafeName}");
+            Check.That(control.TakeShot() == null, $"'{unsafeName}' is not a shot name.");
+            Check.That(
+                logLines.Any(line => line.Contains("overlay_panels.walkthrough.rejected")),
+                $"'{unsafeName}' is logged as rejected."
+            );
+        }
+    }
+    finally
+    {
+        Directory.Delete(dataRoot, true);
+    }
+}
 
 void Run(Action test)
 {

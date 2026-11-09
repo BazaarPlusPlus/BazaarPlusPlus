@@ -34,10 +34,22 @@ internal static class DesktopNativeSkin
         ButtonRoot + "Btn_Rct_Blue_S_Center_Active_TUI.png",
     ];
     private static readonly Sprite?[] Sprites = new Sprite?[Addresses.Length];
+
+    // The Desktop UI kit's one plate shape (ADR-0027). It loads on its own, so a game build
+    // without it leaves the frame and centre sprites above untouched.
+    private const string ShapeAddress = ButtonRoot + "Btn_Rct_Frame_Fill_Solid_TUI.png";
+    private static Sprite? _shape;
+    private static Task<Sprite?>? _shapeLoad;
     private static Task<Sprite?[]>? _load;
     private static Sprite? _headerNormal;
     private static Sprite? _headerSelected;
     private static bool _headerFailed;
+
+    /// <summary>
+    /// The pixels-per-unit multiplier of the kit's plate shape: its 30 px slice draws 8 canvas
+    /// units deep, the chamfer the kit's spec shows on a 36 tall button.
+    /// </summary>
+    internal const float ShapePixelsPerUnit = 3.75f;
 
     /// <summary>Moves whenever a sprite changes, so a view repaints the images it drew.</summary>
     internal static int Generation { get; private set; }
@@ -77,6 +89,55 @@ internal static class DesktopNativeSkin
                 )
             );
         return true;
+    }
+
+    /// <summary>The kit's plate shape, or null while it is loading or missing.</summary>
+    internal static Sprite? Shape => _shape != null ? _shape : null;
+
+    /// <summary>Why the shape is missing: null while it loads or once it is in.</summary>
+    internal static string? ShapeProblem { get; private set; }
+
+    /// <summary>
+    /// Starts one load of the plate shape when it is missing and none is running; true while
+    /// one runs. A build that has no such address is remembered and never asked again.
+    /// </summary>
+    internal static bool RequestShape()
+    {
+        PollShape();
+        if (_shapeLoad != null)
+            return true;
+        if (Shape != null || ShapeProblem == "missing-address")
+            return false;
+        if (!Services.TryGet<AssetLoader>(out var loader) || loader == null)
+        {
+            ShapeProblem = "loader-not-ready";
+            return false;
+        }
+        if (!loader.DoesAddressExist(ShapeAddress))
+        {
+            ShapeProblem = "missing-address";
+            return false;
+        }
+        ShapeProblem = null;
+        _shapeLoad = NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, ShapeAddress);
+        return true;
+    }
+
+    private static void PollShape()
+    {
+        if (_shapeLoad is not { IsCompleted: true } load)
+            return;
+        _shapeLoad = null;
+        if (load.Status != TaskStatus.RanToCompletion || load.Result == null)
+        {
+            ShapeProblem = "load-failed";
+            return;
+        }
+        if (load.Result != _shape)
+        {
+            _shape = load.Result;
+            Generation++;
+        }
     }
 
     /// <summary>Takes a finished load's sprites; true when one changed.</summary>

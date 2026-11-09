@@ -81,7 +81,7 @@ Core's `OverlayPanelHost` plus a thin adapter per Host, owning Main Overlay Pane
 _Avoid_: panel mutex
 
 **Walkthrough Control**:
-The Overlay Panel Host's file trigger for the device walkthrough: `open <panel id>` in `walkthrough-command.txt` in the Data Root opens that Main Overlay Panel as a hotkey toggle would, on every Host.
+The Overlay Panel Host's file trigger for the device walkthrough: `open <panel id>` in `walkthrough-command.txt` in the Data Root opens that Main Overlay Panel as a hotkey toggle would, on every Host. `shot <name>` captures the desktop window to `ui-shots/` (ADR-0027).
 _Avoid_: debug menu, test hook
 
 **Panel Switch-Off**:
