@@ -18,7 +18,7 @@ repository root.
 3. `just setup-device` for every AVD, or `just setup-device NAME` for one.
    Each AVD runs the player's setup: the official game started from the debug
    Android App's launcher, with this checkout's mod deployed. Init signs in from
-   config.ini `[game]`; without it, the user signs in in the emulator window.
+   config.toml `[game]`; without it, the user signs in in the emulator window.
    A missing official APK, App runtime or interop package needs the release
    config once; init names the command. Run init in the background.
    An AVD on another system image stops init. `--recreate NAME` deletes it with

@@ -699,7 +699,7 @@ export function androidSigningKey(
     : Object.values(files);
   if (!directory || missing.length)
     throw new Error(
-      `Signing the Android App needs ${missing.join(', ')} in BPP_SIGNING_SECRETS_DIR: keys/android-release.p12 and config.ini [signing] ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS locally, the ANDROID_KEYSTORE* secrets in release.yml (docs/release.md)`
+      `Signing the Android App needs ${missing.join(', ')} in BPP_SIGNING_SECRETS_DIR: keys/android-release.p12 and config.toml [signing] ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS locally, the ANDROID_KEYSTORE* secrets in release.yml (docs/release.md)`
     );
   return {
     keystore: path.join(directory, files.keystore),

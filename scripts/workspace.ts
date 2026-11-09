@@ -38,7 +38,7 @@ interface ExecuteOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-// One line per config.ini section, derived from the section table.
+// One line per config.toml section, derived from the section table.
 function sectionHelp(): string {
   return Object.entries(sections)
     .map(([name, spec]) => {
@@ -73,7 +73,7 @@ function sectionHelp(): string {
     .join('\n');
 }
 
-const help = `Workspace setup (Bun only; no package dependencies required)
+const help = `Workspace setup (Bun; setup installs its TOML parser before loading configuration)
 
   bun scripts/workspace.ts setup [--skip-deps]
   bun scripts/workspace.ts doctor
@@ -86,7 +86,7 @@ shortcuts. just with-config PROFILE COMMAND [ARG...] runs a command from the
 repository root with scoped configuration.
 
 Configuration: BPP_CONFIG_HOME or ~/.config/bazaarplusplus (outside checkouts).
-  config.ini     every value, one section per purpose:
+  config.toml     every value, one section per purpose:
 ${sectionHelp()}
   keys/          tauri-updater.key, tauri-updater.key.pub, AuthKey_<APPLE_API_KEY>.p8,
                  developer-id.p12, android-release.p12
@@ -94,26 +94,21 @@ A relative APPLE_API_KEY_PATH resolves against the configuration directory.
 Any other file in the directory is yours; tooling neither reads nor writes it.
 
 Profiles: ${profiles.join(', ')}.
-Exported variables take precedence. config.ini is parsed as data, never sourced.
-Each section holds KEY=value lines (optionally export KEY=value) and # comments.
-Values keep to the form dotenv readers of the managed copies agree on:
-  KEY=value      unquoted, trimmed; whitespace then # starts a comment
-  KEY='value'    literal; no ', no \\\\ and no trailing \\
-  KEY="value"    literal; no " and no backslash (use single quotes or leave it
-                 unquoted, as for Windows paths)
-Errors name the line, never the value: unknown or malformed section headers,
-KEY=value outside a section, duplicate sections or keys, ; comments, backtick
-quotes, a value starting with #, an unquoted # without a space before it, text
-after a closing quote, unterminated or multi-line quotes, and a CR or NUL
-inside a line.
+Exported variables take precedence. config.toml is parsed as data, never sourced.
+Each section is a TOML table ([server], [signing], etc.) with KEY = "value" entries.
+All values must be single-line strings.
+Quote every value, including numeric identifiers, booleans and empty strings.
+Duplicate keys, unknown sections and nested values are rejected without echoing
+credential values. The analyzer section is optional; only state location and
+resource overrides belong there. Fixed source and publication settings live in code.
 server/analyzer profiles refresh managed projections before running the command.
 release exports [cloudflare] CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; the R2
 S3 pair every store needs is derived from the token (release/r2-store.ts).
 signing stages [signing] and keys/ into a private temporary BPP_SIGNING_SECRETS_DIR
 removed after the command; an exported BPP_SIGNING_SECRETS_DIR is used as given.
-Edit config.ini, then rerun setup --skip-deps. Local projection edits conflict.
+Edit config.toml, then rerun setup --skip-deps. Local projection edits conflict.
 
-secrets check lists, by name only, what each GitHub scope holds and what config.ini
+secrets check lists, by name only, what each GitHub scope holds and what config.toml
 and keys/ hold, following release/github-secrets.json; secrets push copies every
 item with a local value through gh (values over stdin, never printed). --dependabot
 also sets CLOUDFLARE_API_TOKEN for Dependabot. The token is an Account API Token
@@ -291,8 +286,8 @@ export function doctor(
     'config',
     config.sections.size > 0,
     config.sections.size > 0
-      ? `config.ini sections: ${[...config.sections.keys()].join(', ')}`
-      : 'config.ini missing; run just setup'
+      ? `config.toml sections: ${[...config.sections.keys()].join(', ')}`
+      : 'config.toml missing; run just setup'
   );
   try {
     for (const change of projectionChanges(home, repository)) {
@@ -420,10 +415,12 @@ export function main(args: string[] = process.argv.slice(2)): void {
       if (arg === '--skip-deps') skipDeps = true;
       else throw new Error('Usage: setup [--skip-deps]');
     }
+    if (!skipDeps)
+      execute('bun', ['install', '--frozen-lockfile'], { cwd: root });
     initializeConfig(home);
     refreshProjections(home);
     if (!skipDeps) {
-      for (const project of ['', 'installer', 'site', 'server']) {
+      for (const project of ['installer', 'site', 'server']) {
         execute('bun', ['install', '--frozen-lockfile'], {
           cwd: project ? path.join(root, `bazaarplusplus-${project}`) : root
         });

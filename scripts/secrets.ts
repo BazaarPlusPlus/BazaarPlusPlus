@@ -9,7 +9,7 @@ import type { ParsedConfig } from './local-config.ts';
 
 // `bun scripts/workspace.ts secrets check|push`: the GitHub side of
 // release/github-secrets.json. check lists, by name only, what each scope
-// holds on GitHub and what config.ini and keys/ hold locally; push copies
+// holds on GitHub and what config.toml and keys/ hold locally; push copies
 // every locally present item through `gh secret set` / `gh variable set`
 // over stdin. Values never reach a command line, a file or the output.
 

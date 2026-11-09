@@ -7,7 +7,7 @@ argument-hint: [release notes]
 
 # Announce a release in the QQ groups
 
-`scripts/announce.ts` does the work; run it from the repository root. It sends through the shared client `scripts/qqbot/client.ts`, which reads the bot's AppID and AppSecret from `config.ini` `[qqbot]`; the `qqbot` profile injects them, so a `--send` run starts with `bun scripts/workspace.ts run qqbot --`. Every message it sends is public at once and cannot be recalled by this skill, so each send waits for the user's yes.
+`scripts/announce.ts` does the work; run it from the repository root. It sends through the shared client `scripts/qqbot/client.ts`, which reads the bot's AppID and AppSecret from `config.toml` `[qqbot]`; the `qqbot` profile injects them, so a `--send` run starts with `bun scripts/workspace.ts run qqbot --`. Every message it sends is public at once and cannot be recalled by this skill, so each send waits for the user's yes.
 
 ## Groups
 

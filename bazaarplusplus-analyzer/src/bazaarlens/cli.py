@@ -34,7 +34,7 @@ def run_command(
     no_publish: bool,
     quiet: bool,
 ) -> None:
-    """Heal Source Hours, seal complete days, and update current snapshots."""
+    """Heal Source Hours and publish production snapshots unless --no-publish is set."""
     try:
         if anchor_day is not None:
             parse_source_day(anchor_day)

@@ -12,6 +12,9 @@ import httpx
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
 
+METRICS_BUCKET = "bazaarplusplus-public"
+METRICS_PREFIX = "metrics/v6"
+
 CLOUDFLARE_API = "https://api.cloudflare.com/client/v4"
 _ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
 _TOKEN_ID = re.compile(r"[0-9a-f]{32}")

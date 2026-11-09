@@ -13,8 +13,10 @@ just doctor
 
 配置文件、分节和取值写法都由 `bun scripts/workspace.ts --help` 说明。它说不出来的约定：
 
+- 旧机器升级时，将原 `config.ini` 的分区转为 `config.toml` 的 table，逐项核对字符串值并运行 `just setup --skip-deps` 后再移除旧文件；程序只读取 TOML。
 - 配置目录（默认 `~/.config/bazaarplusplus`）由同一台机器的所有 clone 共用，必须放在任何 checkout 之外。新机器要单独恢复这个私有目录，以及游戏、平台工具链和系统证书；Git clone 不带这些东西。
-- 只改 `config.ini`。server 的 `.dev.vars` 和 analyzer 的 `.env` 是它的受管理副本；改完配置运行 `just setup --skip-deps`，或者直接用会自动刷新副本的 `just server::dev`、`just analyzer::cli <command>`。直接跑 bun/uv 命令读到的是当前副本，不会刷新。
+- `config.toml` 按用途组织为 TOML table（如 `[server]`，字段写作 `KEY = "value"`），所有值都是单行字符串，数字标识符和空值也要加引号。`analyzer` 分区可以省略：程序提供默认状态目录和运行参数，只在需要覆盖机器路径、运行预算、内存或线程数时填写。已有状态目录要保留 `BPP_DATA_ROOT` 覆盖或先迁移数据；仅恢复配置不会恢复分析数据。
+- 只改 `config.toml`。server 的 `.dev.vars` 和 analyzer 的 `.env` 是它的受管理副本；改完配置运行 `just setup --skip-deps`，或者直接用会自动刷新副本的 `just server::dev`、`just analyzer::cli <command>`。直接跑 bun/uv 命令读到的是当前副本，不会刷新。
 - Cloudflare 只有一把 token：操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`），必须是 Account API Token（`release/r2-store.ts` 和 analyzer 的 `object_store.py` 只在 `/accounts/{account_id}/tokens/verify` 校验），权限是 R2 读写所有桶，加 Wrangler 部署需要的权限。本机发版、部署都用它；GitHub 上它是一个仓库级 secret，`release.yml`、`checks.yml`、`analyzer.yml` 和 `deploy-site.yml` 共用，Dependabot 也注册同一份。Dependabot PR 会在 CI 里执行依赖更新带进来的代码，并能拿到这把可写 token；为了只维护一把 token，接受这个风险。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.ts` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
 - GitHub secrets 和变量按 `release/github-secrets.json` 同步：`just secrets-check` 只列名字，`just secrets-sync` 把本地有值的项通过 `gh` 写上去（值走 stdin，不打印）；人工步骤只剩造 token 和导出证书，见[产品发布](release.md#github-actions-发版)。
 - `doctor` 只是清单：退出成功不代表远端权限、签名密码或服务可用。
@@ -31,7 +33,7 @@ just mod::fetch macos online      # Windows 用 windows
 
 它说不出来的约定：
 
-- 显式 `-p:ManagedPath`（或 `config.ini` `[machine]` 的 `BPP_MANAGED_PATH`）绕过锁解析，但只是换一种取包方式，不是换一套程序集：`mod::check` 里的 `lock-check` 对它解析到的目录核对，版本串被某个锁条目记录而 sha256 不一致即失败，不被任何条目记录只告警；`release::prepare` 则直接拒绝不对应任何锁条目的目录。
+- 显式 `-p:ManagedPath`（或 `config.toml` `[machine]` 的 `BPP_MANAGED_PATH`）绕过锁解析，但只是换一种取包方式，不是换一套程序集：`mod::check` 里的 `lock-check` 对它解析到的目录核对，版本串被某个锁条目记录而 sha256 不一致即失败，不被任何条目记录只告警；`release::prepare` 则直接拒绝不对应任何锁条目的目录。
 - 锁条目为空时 `mod::lock-check` 和 `release::check` 只告警；构建仍须解析所选渠道的锁条目，不会借用其他渠道的条目。
 - Linux 没有本机 Steam 安装，`ManagedPath.props` 默认取 macos 锁条目。云端 Claude session 由 `.claude/hooks/session-start.sh` 在启动时执行 `just mod::fetch macos online`，凭据来自云端环境变量 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`；只编译 macOS 这一份程序集，Windows 程序集上的差异仍由 CI 的 Windows lane 发现。
 - installer 的 Rust 代码在 Linux 上也能编译并跑 `installer::check`、`installer::test`，前提是装好 [Tauri 的 Linux 系统依赖](https://tauri.app/start/prerequisites/)（云端由环境的 setup script 安装）。只在 macOS 或 Windows 上用到的代码要按平台加 `cfg`，否则 Linux 上的 Clippy 会报未使用；靠文件权限位制造失败的测试在 root 下用 `test_support::permission_bits_are_bypassed` 跳过。macOS 与 Windows 的实际行为仍由 CI 的对应 lane 验证。

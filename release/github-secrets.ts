@@ -20,7 +20,7 @@ export type GithubSecretReleaseStage = 'prepare' | 'release';
 /** The release.yml platform whose signing needs an item. */
 export type GithubSecretReleasePlatform = 'macos' | 'windows' | 'android';
 
-/** Where `secrets push` reads an item's value: a config.ini key or a keys/ file. */
+/** Where `secrets push` reads an item's value: a config.toml key or a keys/ file. */
 export interface GithubSecretLocal {
   section?: string;
   key?: string;
@@ -80,7 +80,7 @@ function assertItem(item: GithubSecretItem): void {
   const file = typeof local.file === 'string' && local.file.startsWith('keys/');
   if (config === file)
     throw new Error(
-      `${item.name}: local must name a config.ini section and key, or a keys/ file`
+      `${item.name}: local must name a config.toml section and key, or a keys/ file`
     );
   if (local.encoded !== undefined && local.encoded !== 'base64')
     throw new Error(`${item.name}: encoded must be base64 when set`);
@@ -126,7 +126,7 @@ export function localSource(item: GithubSecretItem): string {
     return local.encoded === 'base64'
       ? `base64 of ${local.file}`
       : `contents of ${local.file}`;
-  return `config.ini [${local.section}] ${local.key}`;
+  return `config.toml [${local.section}] ${local.key}`;
 }
 
 // Names release.yml reads, in table order.

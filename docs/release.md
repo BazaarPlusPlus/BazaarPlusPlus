@@ -37,7 +37,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 
 一个平台先发、另一个平台稍后跟上时，第 5 步仍用 `mirror <platform> <分享页地址>` 记录该平台的镜像，第 6 步用 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
 
-各平台 `promote` 之后，用 `/qq-announce <版本>` 把更新公告和三个安装包发到 QQ 群，先发测试群确认，再发正式群。群列表、公告模板和步骤见 `.agents/skills/qq-announce/`；Bot 凭据在本机 `qqbot.env`，不进工作流。
+各平台 `promote` 之后，用 `/qq-announce <版本>` 把更新公告和三个安装包发到 QQ 群，先发测试群确认，再发正式群。群列表、公告模板和步骤见 `.agents/skills/qq-announce/`；Bot 凭据在 `config.toml` 的 `[qqbot]`；GitHub 的 `qqbot` 环境另存一份，供 `daily-report.yml` 使用。
 
 第 2 到第 4 步默认由 [GitHub Actions 发版工作流](#github-actions-发版)执行：两个托管 runner 各跑一遍 `prepare`、`build`、`upload`，输入与本机相同；本机执行是 runner 不可用或要调试打包时的备用路径。第 5、6 步只在本机执行。
 
@@ -53,13 +53,13 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 
 | 名字 | GitHub 作用域 | 本地来源 | 用途 |
 |---|---|---|---|
-| `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.ini` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
-| `CLOUDFLARE_API_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.ini` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload`；也给 `checks.yml` 的 mod lane、`analyzer.yml` 和 `deploy-site.yml` |
+| `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.toml` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
+| `CLOUDFLARE_API_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.toml` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload`；也给 `checks.yml` 的 mod lane、`analyzer.yml` 和 `deploy-site.yml` |
 | `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台；三个平台的 Managed Payload zip 及其清单也用它（minisign） |
-| `ANDROID_KEYSTORE` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` | `release` 环境 secret | `keys/android-release.p12`（推送时转 base64）与 `config.ini` `[signing]` 的同名两项 | Android 发布密钥，签 Android App APK 和 interop 声明，永不轮换，见 [ADR 0009](adr/0009-android-release-key.md) |
-| `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.ini` `[signing]` | macOS 签名与公证 |
+| `ANDROID_KEYSTORE` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` | `release` 环境 secret | `keys/android-release.p12`（推送时转 base64）与 `config.toml` `[signing]` 的同名两项 | Android 发布密钥，签 Android App APK 和 interop 声明，永不轮换，见 [ADR 0009](adr/0009-android-release-key.md) |
+| `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.toml` `[signing]` | macOS 签名与公证 |
 | `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
-| `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.ini` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
+| `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.toml` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
 
 发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时给 Dependabot 注册操作员 token）。只有三件事要人工做：在 Cloudflare dashboard 造操作员 token（`release/r2-store.ts` 只接受 Account API Token）填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`。环境 secret 会覆盖同名的仓库 secret，所以不要在任何环境里再建仓库 secret 的副本。
 

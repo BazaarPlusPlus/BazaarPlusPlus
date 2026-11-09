@@ -13,11 +13,11 @@ const id = '1234567890abcdef1234567890abcdef';
 const serial = 'emulator-5570';
 function fixture(
   t: TestContext,
-  config = `[game]\nBPP_GAME_EMAIL=${email}\nBPP_GAME_PASSWORD=from-config\n`
+  config = `[game]\nBPP_GAME_EMAIL = "${email}"\nBPP_GAME_PASSWORD = "from-config"\n`
 ): NodeJS.ProcessEnv {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-login-'));
   t.onTestFinished(() => fs.rmSync(home, { recursive: true, force: true }));
-  fs.writeFileSync(path.join(home, 'config.ini'), config);
+  fs.writeFileSync(path.join(home, 'config.toml'), config);
   return {
     ...process.env,
     BPP_CONFIG_HOME: home,
@@ -144,7 +144,7 @@ test('setup can wait for manual login only when both credential fields are absen
   const d = device();
   await signIn(serial, { env, ...d.options, allowManual: true });
   assert.equal(d.request.mode, 'manual');
-  const partial = fixture(t, `[game]\nBPP_GAME_EMAIL=${email}\n`);
+  const partial = fixture(t, `[game]\nBPP_GAME_EMAIL = "${email}"\n`);
   await assert.rejects(
     signIn(serial, {
       env: partial,
