@@ -68,10 +68,13 @@ public sealed class BPPSupporterAttribution
         return line.ToString();
     }
 
-    /// <summary>The attribution's muted label color.</summary>
+    /// <summary>The attribution's muted label color, the <c>ingame-ink-muted</c> token.</summary>
     public const string MutedHex = "B0A187";
 
-    /// <summary>A supporter tier's name color, the desktop's <c>Colors.SupporterTier*Text</c>.</summary>
+    /// <summary>
+    /// A supporter tier's name color, the <c>ingame-supporter-*</c> tokens. Core cannot read the
+    /// generated theme, so <c>just design::check</c> compares these values with the tokens.
+    /// </summary>
     public static string TierHex(int tier) =>
         tier switch
         {

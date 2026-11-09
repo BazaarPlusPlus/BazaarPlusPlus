@@ -30,25 +30,25 @@ internal static class HeroVisual
     internal static HeroBadgeStyle Resolve(string? heroName)
     {
         if (string.IsNullOrWhiteSpace(heroName))
-            return new HeroBadgeStyle("UNK", Colors.HeroUnknownBackground, Colors.White);
+            return new HeroBadgeStyle("UNK", InGameTheme.HeroNone, Color.white);
 
         if (TheDragonsHeroIdentity.IsAlias(heroName))
-            return Build("DRA", Colors.HeroTheDragonsBackground);
+            return Build("DRA", InGameTheme.HeroDragons);
 
         return heroName.Trim() switch
         {
-            "Vanessa" => Build("VAN", Colors.HeroVanessaBackground),
-            "Pygmalien" => Build("PYG", Colors.HeroPygmalienBackground),
-            "Dooley" => Build("DOO", Colors.HeroDooleyBackground),
-            "Mak" => Build("MAK", Colors.HeroMakBackground),
-            "Jules" => Build("JUL", Colors.HeroJulesBackground),
-            "Karnok" => Build("KAR", Colors.HeroKarnokBackground),
-            "Stelle" => Build("STE", Colors.HeroStelleBackground),
+            "Vanessa" => Build("VAN", InGameTheme.HeroVanessa),
+            "Pygmalien" => Build("PYG", InGameTheme.HeroPygmalien),
+            "Dooley" => Build("DOO", InGameTheme.HeroDooley),
+            "Mak" => Build("MAK", InGameTheme.HeroMak),
+            "Jules" => Build("JUL", InGameTheme.HeroJules),
+            "Karnok" => Build("KAR", InGameTheme.HeroKarnok),
+            "Stelle" => Build("STE", InGameTheme.HeroStelle),
             _ => Build(
                 heroName.Length <= 3
                     ? heroName.ToUpperInvariant()
                     : heroName[..3].ToUpperInvariant(),
-                Colors.HeroDefaultBackground
+                InGameTheme.HeroUnlisted
             ),
         };
     }
@@ -58,7 +58,7 @@ internal static class HeroVisual
     private static HeroBadgeStyle Build(string shortCode, Color background)
     {
         var luminance = (0.299f * background.r) + (0.587f * background.g) + (0.114f * background.b);
-        var text = luminance > 0.62f ? Colors.HeroDarkText : Colors.White;
+        var text = luminance > 0.62f ? InGameTheme.HeroInkDark : Color.white;
         return new HeroBadgeStyle(shortCode, background, text);
     }
 }

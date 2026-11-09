@@ -1176,8 +1176,11 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                 Vector2.zero,
                 Vector2.zero
             );
-            var fill = UiKit.Fill(_bar, TouchHistoryUi.Accent, blocksTouches: false);
-            fill.color = new Color(fill.color.r, fill.color.g, fill.color.b, .7f);
+            UiKit.Fill(
+                _bar,
+                InGameTheme.WithAlpha(TouchHistoryUi.Accent, .7f),
+                blocksTouches: false
+            );
             _bar.gameObject.SetActive(false);
         }
 

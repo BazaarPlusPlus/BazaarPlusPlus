@@ -71,7 +71,7 @@ internal sealed class NativeSkin
         Action<bool> onChanged
     )
     {
-        var hitArea = UiKit.Fill(rect, new Color(0f, 0f, 0f, 0.001f));
+        var hitArea = UiKit.HitArea(rect);
         var height = trackHeight;
         var width = height * 1.75f;
         var track = UiKit.Fixed(

@@ -22,7 +22,7 @@ internal static class TouchRoundControl
         Action action
     )
     {
-        var hit = UiKit.Fill(target, new Color(0, 0, 0, .001f));
+        var hit = UiKit.HitArea(target);
         var visual = UiKit.Fixed("NativeFrame", target, new(.5f, .5f), Vector2.zero, size);
         Image? surface = null;
         foreach (var layer in art.Layers)

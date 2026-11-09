@@ -21,6 +21,9 @@ internal static class UiKit
     public static readonly Color TextColor = InGameTheme.Ink;
     public static readonly Color MutedTextColor = InGameTheme.InkMuted;
 
+    /// <summary>The colour of <see cref="HitArea"/>: black at an alpha no display shows.</summary>
+    public static readonly Color Invisible = InGameTheme.WithAlpha(Color.black, 0.001f);
+
     public static GameObject CreateOverlayCanvas(string name, int sortingOrder)
     {
         var root = new GameObject(name);
@@ -79,6 +82,12 @@ internal static class UiKit
         image.raycastTarget = blocksTouches;
         return image;
     }
+
+    /// <summary>
+    /// A transparent Image that still takes raycasts: the tap target of a control whose visible
+    /// parts sit elsewhere, or the surface a list scrolls from.
+    /// </summary>
+    public static Image HitArea(RectTransform rect) => Fill(rect, Invisible);
 
     public static TextMeshProUGUI Text(
         RectTransform rect,
@@ -162,7 +171,7 @@ internal static class UiKit
             Vector2.zero
         );
         // Transparent but raycast: a drag anywhere in the list scrolls it.
-        Fill(viewport, new Color(0f, 0f, 0f, 0.001f));
+        HitArea(viewport);
         viewport.gameObject.AddComponent<RectMask2D>();
         var content = Rect(
             "Content",

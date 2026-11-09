@@ -303,7 +303,7 @@ internal sealed class TouchCollectionGrid
         root.SetParent(_content, false);
         root.anchorMin = root.anchorMax = new Vector2(0f, 1f);
         root.pivot = new Vector2(0f, 1f);
-        var hit = UiKit.Fill(root, new Color(0f, 0f, 0f, 0f));
+        var hit = UiKit.HitArea(root);
         var slot = UiKit.Rect("Slot", root, new(0f, 1f), new(0f, 1f), Vector2.zero, Vector2.zero);
         var caption = UiKit.Text(
             UiKit.Rect(

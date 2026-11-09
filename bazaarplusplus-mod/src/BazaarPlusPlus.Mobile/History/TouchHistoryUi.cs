@@ -159,7 +159,7 @@ internal static class TouchHistoryUi
         Color? fill = null
     )
     {
-        var hit = UiKit.Fill(rect, fill ?? new Color(0f, 0f, 0f, 0f));
+        var hit = fill is { } color ? UiKit.Fill(rect, color) : UiKit.HitArea(rect);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;
         button.transition = Selectable.Transition.None;
@@ -215,7 +215,7 @@ internal static class TouchHistoryUi
             Vector2.zero
         );
         // Transparent but raycast: a drag anywhere in the list scrolls it.
-        UiKit.Fill(viewport, new Color(0f, 0f, 0f, 0.001f));
+        UiKit.HitArea(viewport);
         viewport.gameObject.AddComponent<RectMask2D>();
         var content = UiKit.Rect(
             "Content",
@@ -429,22 +429,22 @@ internal sealed class HistoryButton(
             Fill.sprite = selected ? _headerSelected ?? _headerNormal : _headerNormal;
             Fill.type = Image.Type.Sliced;
             Fill.pixelsPerUnitMultiplier = _headerPixelsPerUnit;
-            Fill.color = muted ? new Color(1f, 1f, 1f, .5f) : Color.white;
+            Fill.color = muted ? InGameTheme.WithAlpha(Color.white, .5f) : Color.white;
         }
         var quietTab = _style == HistoryButtonStyle.Tab && !selected;
         var restingRecord = _style == HistoryButtonStyle.Record && !selected;
         var colors = Button.colors;
         colors.normalColor =
             quietTab ? Color.clear
-            : restingRecord ? new Color(.8f, .76f, .68f, .7f)
+            : restingRecord ? InGameTheme.TintRest
             : Color.white;
         colors.highlightedColor =
-            quietTab ? new Color(1f, 1f, 1f, .45f)
-            : restingRecord ? new Color(.98f, .95f, .88f, .95f)
+            quietTab ? InGameTheme.TintQuietHover
+            : restingRecord ? InGameTheme.TintRestHover
             : Color.white;
-        colors.pressedColor = new Color(.7f, .7f, .7f, 1f);
+        colors.pressedColor = InGameTheme.TintPressed;
         colors.selectedColor = colors.normalColor;
-        colors.disabledColor = quietTab ? Color.clear : new Color(.65f, .65f, .65f, .55f);
+        colors.disabledColor = quietTab ? Color.clear : InGameTheme.TintDisabled;
         Button.colors = colors;
         Label.color =
             muted ? TouchHistoryUi.Muted

@@ -53,7 +53,7 @@ internal sealed class BPPSupporterNativeAttributionRow
         button.onClick.AddListener(() =>
             Application.OpenURL(BPPSupporterLinks.ResolveSponsorUrl(Language()))
         );
-        _actionLabel = Label(action, string.Empty, Colors.SupporterTier4Text);
+        _actionLabel = Label(action, string.Empty, InGameTheme.Supporter4);
         _actionLabel.alignment = TextAlignmentOptions.Center;
         SetSkin(null, null);
     }
@@ -89,15 +89,9 @@ internal sealed class BPPSupporterNativeAttributionRow
         for (var i = 0; i < supporters.Length; i++)
         {
             if (i > 0 && !_stacked)
-                Name("·", new Color(Muted.r, Muted.g, Muted.b, .55f));
+                Name("·", InGameTheme.WithAlpha(Muted, .55f));
             var supporter = supporters[i];
-            var color = supporter.Tier switch
-            {
-                >= 4 => Colors.SupporterTier4Text,
-                3 => Colors.SupporterTier3Text,
-                2 => Colors.SupporterTier2Text,
-                _ => Colors.SupporterTier1Text,
-            };
+            var color = BPPSupporterTierColors.ForRow(supporter.Tier);
             var text = Name(supporter.Name, color, shrink: true);
             if (supporter.Tier >= 2)
             {

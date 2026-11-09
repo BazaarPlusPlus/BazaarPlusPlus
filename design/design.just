@@ -6,6 +6,6 @@ set working-directory := '..'
 build:
     bun design/build.ts
 
-# Check that generated tokens, the shared stylesheet and the site's hero colours agree with design/tokens.json.
+# Check that generated tokens, the shared stylesheet, the site's hero colours and the mod's supporter colours agree with design/tokens.json.
 check:
     bun design/build.ts --check
