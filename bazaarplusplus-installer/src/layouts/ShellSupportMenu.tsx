@@ -1,10 +1,11 @@
-import { Coffee, Heart, QrCode, Users } from 'lucide-react';
+import { Coffee, Heart, QrCode, Star, Users } from 'lucide-react';
 import type { RefObject } from 'react';
 import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { useI18n } from '../i18n/LocaleProvider';
 
-/** The rail's support entry: WeChat Pay, Ko-fi and the supporter list. The
- *  menu opens beside the rail, growing upward from its trigger. */
+/** The rail's support entry: WeChat Pay, Ko-fi, the supporter list and a
+ *  GitHub star. The menu opens beside the rail, growing upward from its
+ *  trigger. */
 export function ShellSupportMenu({
   bootstrap,
   triggerRef,
@@ -77,6 +78,18 @@ export function ShellSupportMenu({
           >
             <Users aria-hidden="true" />
             <span className="bpp-menu-title">{t('supporterList')}</span>
+          </a>
+
+          <a
+            role="menuitem"
+            href={bootstrap.links.github}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bpp-menu-item"
+            onClick={onCloseSupport}
+          >
+            <Star aria-hidden="true" />
+            <span className="bpp-menu-title">{t('githubStar')}</span>
           </a>
         </div>
       )}

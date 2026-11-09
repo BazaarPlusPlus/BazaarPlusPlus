@@ -48,6 +48,7 @@ Use exactly these words. A term not listed here gets added before it ships.
 | 排位 / 匹配 / 普通 | Ranked / Unranked / Normal | Run modes. |
 | 十胜 | 10 wins | A run that reached 10 wins. |
 | 直播 | Stream | The OBS overlay page and service. |
+| 标星 | Star | Starring the BazaarPlusPlus repository on GitHub. Support copy only. |
 | 更新 / 版本 | update / version | A version is written "v6.2.0" in UI chrome. |
 | 安装 / 重新安装 / 修复 / 卸载 | Install / Reinstall / Repair / Uninstall | Plugin actions. Uninstall removes the plugin and keeps local data. |
 | 删除 | delete | Removes files for good. Not 清除, 清理 or 移除. |

@@ -849,6 +849,38 @@ html[data-bpp-platform='windows'] .bpp-header {
   color: var(--text-1);
   background: var(--bg-hover);
 }
+/* A prompt: an amber icon, a title, one muted line and a footer with a
+   dismiss and an accept button. */
+.bpp-toast.is-prompt {
+  grid-template-columns: auto minmax(0, 1fr);
+  width: 340px;
+  row-gap: 12px;
+  padding: 12px 16px;
+}
+.bpp-toast.is-prompt .bpp-toast-icon {
+  height: 24px;
+  color: var(--accent);
+}
+.bpp-toast.is-prompt .bpp-toast-copy {
+  padding: 0;
+}
+.bpp-toast-title {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 24px;
+}
+.bpp-toast.is-prompt .bpp-toast-message {
+  color: var(--text-2);
+  font-size: 14px;
+}
+.bpp-toast-footer {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 8px;
+}
 
 /* ── Dialogs ───────────────────────────────────────────────────────── */
 /* Native modal via <dialog>: top-layer, Escape-to-close, focus trap and a

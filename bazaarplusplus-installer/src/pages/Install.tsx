@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Star } from 'lucide-react';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useLocation } from 'react-router-dom';
 import { PageShell } from '../components/ui/PageShell';
 import { StatusPanel } from '../components/ui/StatusPanel';
@@ -26,6 +27,9 @@ import {
 } from '../features/install/installProblems';
 import { ModalSource } from '../components/ui/ModalCoordinator';
 import { useToast } from '../components/ui/Toast';
+import { commandClient } from '../api/commandClient';
+import { hasTauriRuntime } from '../api/runtime';
+import { takeGithubStarOffer } from '../features/install/githubStarPrompt';
 
 export default function Install() {
   const { t } = useI18n();
@@ -91,6 +95,7 @@ export default function Install() {
     legacy.workflow.acknowledgeNotice(notice.id);
   }, [legacy.snapshot.notice, legacy.workflow, showToast, t]);
 
+  const githubUrl = app.bootstrap.links.github;
   useEffect(() => {
     if (!snapshot.notice) return;
     const notice = snapshot.notice;
@@ -100,7 +105,28 @@ export default function Install() {
       message: presentInstallNotice(notice.code, t)
     });
     intents.acknowledgeNotice(notice.id);
-  }, [intents, showToast, snapshot.notice, t]);
+    if (notice.code !== 'install_done') return;
+    void takeGithubStarOffer({
+      storage: window.localStorage,
+      countRuns: async () =>
+        (await commandClient.listHistoryRuns(1, 0)).summary.runs
+    }).then((offered) => {
+      if (!offered) return;
+      showToast({
+        id: 'install:github-star',
+        tone: 'info',
+        icon: Star,
+        title: t('githubStarPromptTitle'),
+        message: t('githubStarPrompt'),
+        durationMs: 12000,
+        dismissLabel: t('githubStarLater'),
+        action: {
+          label: t('githubStar'),
+          onClick: () => openExternal(githubUrl)
+        }
+      });
+    });
+  }, [githubUrl, intents, showToast, snapshot.notice, t]);
 
   useEffect(() => {
     if (!snapshot.actionProblem) {
@@ -249,4 +275,14 @@ export default function Install() {
       </ModalSource>
     </PageShell>
   );
+}
+
+function openExternal(url: string) {
+  if (!hasTauriRuntime()) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  void openUrl(url).catch((error: unknown) => {
+    console.error('Failed to open the GitHub page.', error);
+  });
 }

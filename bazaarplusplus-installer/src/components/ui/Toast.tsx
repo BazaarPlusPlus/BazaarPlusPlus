@@ -3,7 +3,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Info,
-  X
+  X,
+  type LucideIcon
 } from 'lucide-react';
 import {
   createContext,
@@ -15,6 +16,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
+import { Button } from './Button';
 import { useI18n } from '../../i18n/LocaleProvider';
 
 export type ToastTone = 'success' | 'info' | 'warning' | 'error';
@@ -24,16 +26,25 @@ type ToastAction = {
   onClick: () => void;
 };
 
+/** A prompt is an offer the player may take or leave: a title, one line,
+ *  and a dismiss button beside the action. */
+type ToastPrompt = {
+  title: string;
+  icon: LucideIcon;
+  dismissLabel: string;
+};
+
 type ToastInput = {
   id?: string;
   tone: ToastTone;
   message: string;
   durationMs?: number;
   action?: ToastAction;
-};
+} & (ToastPrompt | { title?: never; icon?: never; dismissLabel?: never });
 
 type ToastRecord = Required<Pick<ToastInput, 'id' | 'tone' | 'message'>> & {
   action?: ToastAction;
+  prompt?: ToastPrompt;
   present: boolean;
   closing: boolean;
 };
@@ -84,13 +95,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       tone,
       message,
       durationMs = tone === 'error' ? 0 : 4000,
-      action
+      action,
+      title,
+      icon,
+      dismissLabel
     }: ToastInput) => {
+      const prompt =
+        title !== undefined ? { title, icon, dismissLabel } : undefined;
       clearTimer(`auto:${id}`);
       clearTimer(`exit:${id}`);
       setToasts((current) => [
         ...current.filter((toast) => toast.id !== id),
-        { id, tone, message, action, present: false, closing: false }
+        { id, tone, message, action, prompt, present: false, closing: false }
       ]);
       requestAnimationFrame(() => {
         setToasts((current) =>
@@ -171,6 +187,9 @@ function ToastItem({
   onDismiss: () => void;
   closeLabel: string;
 }) {
+  if (toast.prompt) {
+    return <PromptToastItem toast={toast} onDismiss={onDismiss} />;
+  }
   const Icon =
     toast.tone === 'success'
       ? CheckCircle2
@@ -210,6 +229,47 @@ function ToastItem({
       >
         <X size={16} />
       </button>
+    </div>
+  );
+}
+
+function PromptToastItem({
+  toast,
+  onDismiss
+}: {
+  toast: ToastRecord;
+  onDismiss: () => void;
+}) {
+  const prompt = toast.prompt!;
+  const Icon = prompt.icon;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`bpp-toast is-prompt${toast.present ? ' is-present' : ''}${toast.closing ? ' is-closing' : ''}`}
+    >
+      <Icon size={16} className="bpp-toast-icon" aria-hidden="true" />
+      <div className="bpp-toast-copy">
+        <p className="bpp-toast-title">{prompt.title}</p>
+        <p className="bpp-toast-message">{toast.message}</p>
+      </div>
+      <div className="bpp-toast-footer">
+        <Button variant="ghost" size="sm" onClick={onDismiss}>
+          {prompt.dismissLabel}
+        </Button>
+        {toast.action && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              toast.action?.onClick();
+              onDismiss();
+            }}
+          >
+            {toast.action.label}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
