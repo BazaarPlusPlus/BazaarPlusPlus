@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { createModalCoordinator } from '../shared/modalCoordinator';
 import { createUiProblem } from '../shared/problems';
 import type { UpdaterSnapshot } from './updater';

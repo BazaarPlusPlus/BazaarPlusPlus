@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { assertSupportedVersion } from './check-toolchain.ts';
 
 test('toolchain guard accepts the pinned Bun version', () => {

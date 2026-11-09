@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'vitest';
+import { test } from 'vite-plus/test';
 import { desktopAspectProblem } from './walkthrough.ts';
 
 test('a 16:9 desktop window passes, with or without its title bar', () => {

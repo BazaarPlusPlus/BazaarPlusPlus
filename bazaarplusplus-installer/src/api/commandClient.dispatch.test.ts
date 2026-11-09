@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { invoke } from '@tauri-apps/api/core';
 import type { CommandAdapter } from './commandAdapter';
 

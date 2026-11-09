@@ -189,7 +189,11 @@ body {
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(15, 11, 7, 0.95), rgba(7, 5, 3, 0.95)),
-    radial-gradient(circle at top right, rgba(217, 170, 88, 0.05), transparent 42%);
+    radial-gradient(
+      circle at top right,
+      rgba(217, 170, 88, 0.05),
+      transparent 42%
+    );
 }
 
 .run-meta {
@@ -315,27 +319,51 @@ body {
 }
 
 .tier-misfortune {
-  background: linear-gradient(180deg, rgba(84, 73, 73, 0.98), rgba(58, 49, 49, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(84, 73, 73, 0.98),
+    rgba(58, 49, 49, 0.98)
+  );
 }
 
 .tier-silver {
-  background: linear-gradient(180deg, rgba(99, 106, 117, 0.98), rgba(67, 73, 84, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(99, 106, 117, 0.98),
+    rgba(67, 73, 84, 0.98)
+  );
 }
 
 .tier-bronze {
-  background: linear-gradient(180deg, rgba(106, 80, 70, 0.98), rgba(71, 53, 46, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(106, 80, 70, 0.98),
+    rgba(71, 53, 46, 0.98)
+  );
 }
 
 .tier-gold {
-  background: linear-gradient(180deg, rgba(124, 106, 71, 0.98), rgba(88, 74, 48, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(124, 106, 71, 0.98),
+    rgba(88, 74, 48, 0.98)
+  );
 }
 
 .tier-diamond {
-  background: linear-gradient(180deg, rgba(116, 84, 148, 0.98), rgba(78, 55, 108, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(116, 84, 148, 0.98),
+    rgba(78, 55, 108, 0.98)
+  );
 }
 
 .tier-unknown {
-  background: linear-gradient(180deg, rgba(93, 88, 80, 0.98), rgba(66, 61, 55, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(93, 88, 80, 0.98),
+    rgba(66, 61, 55, 0.98)
+  );
 }
 
 @keyframes reveal-up {

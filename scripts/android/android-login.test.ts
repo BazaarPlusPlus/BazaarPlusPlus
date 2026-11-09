@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { test } from 'vitest';
-import type { TestContext } from 'vitest';
+import { test } from 'vite-plus/test';
+import type { TestContext } from 'vite-plus/test';
 import { signIn, withLoginCancellation } from './android-login.ts';
 import type { LoginRequest, SignInOptions } from './android-login.ts';
 

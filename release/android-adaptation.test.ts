@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vite-plus/test';
 import { captureKind, cliMain } from './android-adaptation.ts';
 import { GAME_LIBS_LOCK_PATH, INTEROP_KEY } from './game-libs.ts';
 import type { GameLibsLock, InteropLockEntry } from './game-libs.ts';

@@ -4,7 +4,14 @@
 // mod writes an old Data Root, and each listed root with its delete action.
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from 'vite-plus/test';
 import { LocaleProvider } from '../../i18n/LocaleProvider';
 import { formatMessage, LOCALE_STORAGE_KEY } from '../../i18n/messages';
 import type { LegacyDataState } from '../../types/backend';

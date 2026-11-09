@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 
 import { RELEASE_SOURCE_PATHS } from './artifact-manifest.ts';
 import { PAYLOAD_TOOLING_INPUTS } from './payload.ts';

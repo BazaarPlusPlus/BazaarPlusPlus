@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vite-plus/test';
 import { main, parseReleaseArgs } from './cli.ts';
 import type { ReleaseMainOptions } from './cli.ts';
 import {

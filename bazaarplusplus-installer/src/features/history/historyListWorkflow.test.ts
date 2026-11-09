@@ -13,7 +13,7 @@
 //   or a non-service failure raises that notice.
 // - A restarted lifecycle accepts completions from the old one, or a stopped or
 //   duplicate lifecycle starts effects.
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { emptyHistoryRunList } from '../../api/previewDefaults';
 import type { HistoryRunList } from '../../types/backend';
 import { createHistoryListWorkflow } from './historyListWorkflow';

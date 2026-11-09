@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import {
   assertShippedPayloadPaths,
   platformInventory,

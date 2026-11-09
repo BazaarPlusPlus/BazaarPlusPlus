@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { test, expect } from 'vitest';
+import { test, expect } from 'vite-plus/test';
 
 import {
   cleanupBundleArtifacts,

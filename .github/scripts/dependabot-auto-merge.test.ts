@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { test } from 'vitest';
+import { test } from 'vite-plus/test';
 import { run } from './dependabot-auto-merge.ts';
 import type {
   GithubScriptArgs,

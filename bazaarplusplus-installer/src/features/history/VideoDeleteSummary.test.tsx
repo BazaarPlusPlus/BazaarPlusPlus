@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { LocaleProvider } from '../../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../../i18n/messages';
 import { VideoDeleteSummary } from './VideoDeleteSummary';

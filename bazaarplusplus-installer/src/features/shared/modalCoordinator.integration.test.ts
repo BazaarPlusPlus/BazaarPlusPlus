@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { createModalCoordinator } from './modalCoordinator';
 
 describe('shell and routed modal integration', () => {

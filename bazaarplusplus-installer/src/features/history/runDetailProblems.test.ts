@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { formatMessage } from '../../i18n/messages';
 import { createUiProblem } from '../shared/problems';
 import { presentRunDetailProblem } from './runDetailProblems';

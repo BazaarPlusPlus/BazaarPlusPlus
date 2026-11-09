@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { UpdaterController } from '../features/about/useUpdater';
 import type { UpdaterSnapshot } from '../features/about/updater';
 import { getUpdaterUiContract } from '../features/about/updaterPresentation';

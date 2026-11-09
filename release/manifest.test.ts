@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 
 import { ANDROID_RELEASE_SIGNER_SHA256 } from './manifest.ts';
 

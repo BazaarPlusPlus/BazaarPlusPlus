@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { formatMessage, type Locale } from '../../i18n/messages';
 import { formatProblemDiagnostic } from '../shared/problems';
 import {

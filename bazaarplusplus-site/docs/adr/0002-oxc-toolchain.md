@@ -24,7 +24,7 @@ typescript-eslint does not support TS 7.0.
 
 `npm run lint` 固定带 `--type-aware`；不带该 flag 只跑语法级规则，会漏掉一整类检查。
 
-`.oxlintrc.json` 启用 `correctness` / `suspicious` / `perf` 三个 category 为 error。`pedantic` 不启用：在本仓库产出 238 条几乎全为噪音的告警（`require-unicode-regexp`、`max-lines-per-function` 等）。以下规则单独关闭，因为它们对本仓库的既有写法系统性误报：
+`vite.config.ts` 的 `lint` 块启用 `correctness` / `suspicious` / `perf` 三个 category 为 error。`pedantic` 不启用：在本仓库产出 238 条几乎全为噪音的告警（`require-unicode-regexp`、`max-lines-per-function` 等）。以下规则单独关闭，因为它们对本仓库的既有写法系统性误报：
 
 | 规则 | 关闭原因 |
 | --- | --- |

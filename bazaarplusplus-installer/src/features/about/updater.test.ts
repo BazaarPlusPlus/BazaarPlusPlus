@@ -1,5 +1,5 @@
 import type { DownloadEvent } from '@tauri-apps/plugin-updater';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   createUpdaterMachine,
   initialUpdaterSnapshot,

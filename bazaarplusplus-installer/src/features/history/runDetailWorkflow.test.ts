@@ -11,7 +11,7 @@
 // - A retried action clears the failures of other targets.
 // - A load or deletion that settles after dispose updates the page, or blocks
 //   the next lifecycle.
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import type { HistoryRunDetail } from '../../types/backend';
 import {
   createRunDetailWorkflow,

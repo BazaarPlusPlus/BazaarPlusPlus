@@ -5,19 +5,19 @@
   "scripts": {
     "tokens": "bun -e \"require('node:fs').copyFileSync('../bazaarplusplus-installer/src/styles/tokens.css', 'src/styles/installer-tokens.css')\"",
     "predev": "bun run tokens",
-    "dev": "vite --host 0.0.0.0 --port 3000 --strictPort",
+    "dev": "vp dev --host 0.0.0.0 --port 3000 --strictPort",
     "prebuild": "bun run tokens",
-    "build": "vite build",
+    "build": "vp build",
     "preview": "bun run build && bun run preview:built",
-    "preview:built": "vite preview --host 0.0.0.0 --port 3000 --strictPort",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "preview:built": "vp preview --host 0.0.0.0 --port 3000 --strictPort",
+    "test": "vp test run",
+    "test:watch": "vp test",
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --type-aware",
-    "lint:fix": "oxlint --type-aware --fix",
-    "format": "oxfmt .",
-    "format:check": "oxfmt --check ."
+    "lint": "vp lint --type-aware",
+    "lint:fix": "vp lint --type-aware --fix",
+    "format": "vp fmt .",
+    "format:check": "vp fmt --check ."
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -33,20 +33,18 @@
     "@vitejs/plugin-react": "^6.1.2",
     "ajv": "^8.20.0",
     "jsdom": "^30.1.3",
-    "oxfmt": "^0.75.0",
-    "oxlint": "^1.90.0",
-    "oxlint-tsgolint": "^7.0.2005",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5",
-    "vitest": "^5.0.5",
-    "wrangler": "^4.156.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0",
+    "wrangler": "^4.156.0",
+    "vite-plus": "1.5.0"
   },
   "overrides": {
     "miniflare": {
       "undici": "7.30.1"
     },
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0"
   },
   "engines": {
     "bun": "1.4.4"

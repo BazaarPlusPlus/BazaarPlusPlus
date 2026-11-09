@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import Ajv2020 from 'ajv/dist/2020';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vite-plus/test';
 
 import { loadHeroMetricsDataset } from '../src/features/heroes/hero-metrics-dataset';
 import { HEROES } from '../src/shared/lib/heroes';

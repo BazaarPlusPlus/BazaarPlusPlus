@@ -4,12 +4,19 @@
 // the routed page) rendered per route x state from Browser Preview commands
 // seeded with src/test-fixtures/shell/. Each case writes
 // src/__shell_snapshots__/<route>.<state>.html; review those diffs in the PR.
-// Regenerate: BPP_UPDATE_GOLDENS=1 bun run vitest run src/shell.snapshot.test.tsx
+// Regenerate: BPP_UPDATE_GOLDENS=1 bun run vp test run src/shell.snapshot.test.tsx
 
 import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from 'vite-plus/test';
 import { AppRoutes } from './App';
 import { commandClient } from './api/commandClient';
 import { SemanticProblemError } from './api/problems';

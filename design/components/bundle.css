@@ -1319,7 +1319,6 @@ html[data-bpp-platform='windows'] .bpp-header {
   rotate: 180deg;
 }
 
-
 /* ── Site (hand-written from bazaarplusplus-site/src/shared/components) ── */
 /* globals.css @utility panel */
 .panel {
@@ -1344,7 +1343,9 @@ html[data-bpp-platform='windows'] .bpp-header {
   font-weight: 500;
   line-height: 1.33;
   white-space: nowrap;
-  transition: background-color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast);
 }
 .bpp-hero-badge.is-selected {
   border-color: var(--accent-line);
