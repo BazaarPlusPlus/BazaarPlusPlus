@@ -14,11 +14,13 @@ public sealed class InGameUiColourTests
         "BazaarPlusPlus.Game.CombatStatusBar",
         "BazaarPlusPlus.Game.Supporters",
         "BazaarPlusPlus.GameInterop.Heroes",
+        "BazaarPlusPlus.GameInterop.NativeSkin",
     };
 
+    private const string NativeSkin = "BazaarPlusPlus.GameInterop.NativeSkin.DesktopNativeSkin";
+
     // A token holds channels in 0..1; this desktop hover lifts a native sprite above them.
-    private const string OverBrightHover =
-        "BazaarPlusPlus.Game.HistoryPanel.Ui.HistoryPanelView::get_OverBrightHover";
+    private const string OverBrightHover = NativeSkin + "::get_OverBrightHover";
 
     [Fact]
     public void Desktop_panels_draw_only_in_game_tokens()
@@ -32,10 +34,31 @@ public sealed class InGameUiColourTests
                     build.Type("BazaarPlusPlus.Infrastructure.UiTokens.InGameTheme")
                 );
                 var exempt = build
-                    .Type("BazaarPlusPlus.Game.HistoryPanel.Ui.HistoryPanelView")
+                    .Type(NativeSkin)
                     .Methods.Single(method => method.ToString() == OverBrightHover)
                     .ToString();
                 return InGameColourRule.Violations(Scope.SelectMany(build.TypesIn), exempt);
+            }
+        );
+    }
+
+    [Fact]
+    public void Only_the_desktop_native_skin_names_the_native_button_sprites()
+    {
+        Holds(
+            "The game's Btn_Rectangle sprites are loaded and addressed only by DesktopNativeSkin.",
+            build =>
+            {
+                var kit = build.Type(NativeSkin);
+                if (!Literals(new[] { kit }, StringComparison.Ordinal, "Btn_Rectangle").Any())
+                    throw new InvalidOperationException(
+                        $"{build.Configuration}: {NativeSkin} no longer names Btn_Rectangle."
+                    );
+                return Literals(
+                    build.Types.Where(type => type.FullName != NativeSkin),
+                    StringComparison.Ordinal,
+                    "Btn_Rectangle"
+                );
             }
         );
     }

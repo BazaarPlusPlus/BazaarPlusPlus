@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.GameInterop.NativeSkin;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UI;
@@ -102,10 +103,9 @@ internal sealed partial class HistoryPanelView
         _accountWhy = Wrapped(Text(_accountForm, "", 0, 0, 1, 1, 14, Muted));
         var inputRect = CreateRect("AccountLinkCode", _accountForm, 0, 0, 1, 1);
         var background = inputRect.gameObject.AddComponent<Image>();
-        background.sprite = _headerNormal;
+        background.sprite = DesktopNativeSkin.HeaderNormal;
         background.type = Image.Type.Sliced;
-        background.pixelsPerUnitMultiplier =
-            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
+        background.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
         background.color = InGameTheme.ArtInputTint;
         var viewport = CreateRect("TextViewport", inputRect, .035f, .03f, .93f, .94f);
         viewport.gameObject.AddComponent<RectMask2D>();

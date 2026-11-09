@@ -2,13 +2,13 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.GameState;
-using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.Supporters.Ui;
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
+using BazaarPlusPlus.GameInterop.NativeSkin;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;
@@ -20,13 +20,6 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 
 internal sealed class LiveBuildPanelView : IDisposable
 {
-    private const string Art = "Assets/TheBazaar/Art/UI/Buttons/Btn_Rectangle/";
-    private static readonly string[] Addresses =
-    [
-        Art + "Btn_Rct_Frame_S_TUI.png",
-        Art + "Btn_Rct_Brown_S_Center_Active_TUI.png",
-        Art + "Btn_Rct_Blue_S_Center_Active_TUI.png",
-    ];
     private static readonly Color Ink = InGameTheme.Ink;
     private static readonly Color Muted = InGameTheme.InkMuted;
 
@@ -52,7 +45,7 @@ internal sealed class LiveBuildPanelView : IDisposable
     private readonly Action _refresh;
     private readonly Action _toggleIncludeTiny;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
-    private readonly List<(Image Image, int Index, Color Tint)> _art = new();
+    private readonly List<(Image Image, DesktopSkinPart Part, Color Tint)> _art = new();
     private readonly List<Image> _headerArt = new();
     private NativeGameTypography.OwnedTextPreparation? _font;
     private GameObject? _root;
@@ -91,11 +84,7 @@ internal sealed class LiveBuildPanelView : IDisposable
     private Image? _portrait;
     private CardHero? _portraitHero;
     private Task<HeroPortraitLoadOutcome?>? _portraitLoad;
-    private Task<Sprite?[]>? _skinLoad;
-    private Sprite?[]? _skin;
-    private Sprite? _headerNormal;
-    private Sprite? _headerSelected;
-    private readonly List<UnityEngine.Object> _headerAssets = new();
+    private int _skinGeneration;
     private float _retryAt;
     private LiveBuildPanelSnapshot? _snapshot;
     private readonly Vector3[] _corners = new Vector3[4];
@@ -131,7 +120,6 @@ internal sealed class LiveBuildPanelView : IDisposable
             return;
         if (NativeGameTypography.PrepareOwnedText(out _font) != NativeGameTypography.Outcome.Ready)
             return;
-        LoadHeaderArt();
         _root = new GameObject(
             "LiveBuildPanelView",
             typeof(RectTransform),
@@ -163,7 +151,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         var frame = Rect("PanelFrame", _layout, 0, 0, 1, 1);
         frame.offsetMin = new Vector2(7, 7);
         frame.offsetMax = new Vector2(-7, -7);
-        var frameArt = Layer(frame, 0, InGameTheme.ArtFrameTint);
+        var frameArt = Layer(frame, DesktopSkinPart.Frame, InGameTheme.ArtFrameTint);
         frameArt.fillCenter = false;
         _sidebar = Rect("Overview", _layout, 0, 0, 0, 0);
         var sidebarRule = Rect("SidebarRule", _sidebar, 0, 0, 0, 1);
@@ -189,7 +177,11 @@ internal sealed class LiveBuildPanelView : IDisposable
             TextAnchor.UpperLeft,
             stacked: true
         );
-        _supporters.SetSkin(null, _headerNormal);
+        _supporters.SetSkin(
+            DesktopNativeSkin.Get(DesktopSkinPart.Frame),
+            DesktopNativeSkin.HeaderNormal
+        );
+        _skinGeneration = DesktopNativeSkin.Generation;
         _corpusGroup = Rect("BuildLibrary", _layout, 0, 0, 0, 0);
         _corpusTitle = Text(_corpusGroup, "", 0, 0, 0, 0, 15);
         _corpus = Text(_corpusGroup, "", 0, 0, 0, 0, 14, Muted);
@@ -389,12 +381,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         )
         {
             _retryAt = Time.unscaledTime + 5;
-            if ((_skin == null || _skin.Any(sprite => sprite == null)) && _skinLoad == null)
-                _skinLoad = Task.WhenAll(
-                    Addresses.Select(address =>
-                        NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, address)
-                    )
-                );
+            DesktopNativeSkin.Request();
             if (_backdrop!.texture == null && _backdropLoad == null)
                 _backdropLoad = NativeGlobalAssetLoader.LoadByAddressAsync<Texture2D>(
                     loader,
@@ -417,18 +404,16 @@ internal sealed class LiveBuildPanelView : IDisposable
                 _ = _backdropLoad.Exception;
             _backdropLoad = null;
         }
-        if (_skinLoad?.IsCompleted == true)
+        DesktopNativeSkin.Poll();
+        if (_skinGeneration != DesktopNativeSkin.Generation)
         {
-            if (_skinLoad.Status == TaskStatus.RanToCompletion)
-            {
-                _skin = _skinLoad.Result;
-                foreach (var art in _art)
-                    ApplyArt(art.Image, art.Index);
-                _supporters!.SetSkin(_skin?[0], _headerNormal);
-            }
-            else
-                _ = _skinLoad.Exception;
-            _skinLoad = null;
+            _skinGeneration = DesktopNativeSkin.Generation;
+            foreach (var art in _art)
+                DesktopNativeSkin.Paint(art.Image, art.Part, art.Tint);
+            _supporters!.SetSkin(
+                DesktopNativeSkin.Get(DesktopSkinPart.Frame),
+                DesktopNativeSkin.HeaderNormal
+            );
         }
         if (_portraitLoad?.IsCompleted == true)
         {
@@ -645,8 +630,8 @@ internal sealed class LiveBuildPanelView : IDisposable
             var marker = Rect("CandidateTag", _markerRoot, 0, 0, 0, 0);
             marker.anchorMin = marker.anchorMax = new Vector2(.5f, .5f);
             marker.pivot = new Vector2(.5f, 1);
-            Layer(marker, selectable ? 2 : 1);
-            Layer(marker, 0);
+            Layer(marker, selectable ? DesktopSkinPart.BlueCenter : DesktopSkinPart.BrownCenter);
+            Layer(marker, DesktopSkinPart.Frame);
             Text(marker, string.Empty, .04f, .02f, .92f, .96f, 12, Ink, true);
             row.Markers.Add(marker);
         }
@@ -716,30 +701,25 @@ internal sealed class LiveBuildPanelView : IDisposable
         return rect;
     }
 
-    private Image Layer(Transform parent, int index, Color? tint = null)
+    private Image Layer(Transform parent, DesktopSkinPart part, Color? tint = null)
     {
-        var image = Rect("NativeArt", parent, 0, 0, 1, 1).gameObject.AddComponent<Image>();
-        image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier = 2.5f;
-        image.raycastTarget = false;
-        _art.Add((image, index, tint ?? Color.white));
-        ApplyArt(image, index);
+        var color = tint ?? Color.white;
+        var image = DesktopNativeSkin.Layer(
+            parent,
+            "NativeArt",
+            part,
+            color,
+            DesktopNativeSkin.PanelPixelsPerUnit
+        );
+        _art.Add((image, part, color));
         return image;
-    }
-
-    private void ApplyArt(Image image, int index)
-    {
-        image.sprite = _skin?[index];
-        var tint = _art.FirstOrDefault(entry => ReferenceEquals(entry.Image, image)).Tint;
-        image.color = image.sprite != null ? tint : Color.clear;
     }
 
     private Image HeaderLayer(Transform parent, bool selected = false)
     {
         var image = Rect("HeaderArt", parent, 0, 0, 1, 1).gameObject.AddComponent<Image>();
         image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier =
-            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
+        image.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
         image.raycastTarget = false;
         _headerArt.Add(image);
         ApplyHeaderArt(image, selected);
@@ -748,10 +728,10 @@ internal sealed class LiveBuildPanelView : IDisposable
 
     private void ApplyHeaderArt(Image image, bool selected)
     {
-        image.sprite = selected ? _headerSelected ?? _headerNormal : _headerNormal;
+        var normal = DesktopNativeSkin.HeaderNormal;
+        image.sprite = selected ? DesktopNativeSkin.HeaderSelected ?? normal : normal;
         image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier =
-            HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
+        image.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
         image.color = image.sprite != null ? Color.white : InGameTheme.Button;
     }
 
@@ -763,55 +743,6 @@ internal sealed class LiveBuildPanelView : IDisposable
                 ApplyHeaderArt(image, selected);
                 return;
             }
-    }
-
-    private void LoadHeaderArt()
-    {
-        _headerNormal = LoadHeaderSprite(HistoryHeaderArtwork.Normal);
-        _headerSelected = LoadHeaderSprite(HistoryHeaderArtwork.Selected);
-    }
-
-    private Sprite? LoadHeaderSprite(string name)
-    {
-        try
-        {
-            using var stream = GetType()
-                .Assembly.GetManifestResourceStream(
-                    $"BazaarPlusPlus.Resources.HistoryPanel.{name}"
-                );
-            if (stream == null)
-                return null;
-            using var bytes = new MemoryStream();
-            stream.CopyTo(bytes);
-            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false)
-            {
-                name = name,
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-            if (!texture.LoadImage(bytes.ToArray()))
-            {
-                UnityEngine.Object.Destroy(texture);
-                return null;
-            }
-            var sprite = Sprite.Create(
-                texture,
-                new Rect(0, 0, texture.width, texture.height),
-                new Vector2(.5f, .5f),
-                HistoryHeaderArtwork.PixelsPerUnit,
-                0,
-                SpriteMeshType.FullRect,
-                Vector4.one * HistoryHeaderArtwork.BorderPixels
-            );
-            _headerAssets.Add(texture);
-            _headerAssets.Add(sprite);
-            texture.Apply(false, true);
-            return sprite;
-        }
-        catch
-        {
-            return null;
-        }
     }
 
     private Button Button(
@@ -827,10 +758,10 @@ internal sealed class LiveBuildPanelView : IDisposable
     )
     {
         var rect = Rect("Action", parent, x, y, width, height);
-        var background = headerArt ? HeaderLayer(rect) : Layer(rect, 1);
+        var background = headerArt ? HeaderLayer(rect) : Layer(rect, DesktopSkinPart.BrownCenter);
         background.raycastTarget = true;
         if (!headerArt)
-            Layer(rect, 0);
+            Layer(rect, DesktopSkinPart.Frame);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = background;
         button.onClick.AddListener(() => click());
@@ -893,10 +824,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         _headerArt.Clear();
         if (_root != null)
             UnityEngine.Object.Destroy(_root);
-        foreach (var asset in _headerAssets)
-            UnityEngine.Object.Destroy(asset);
-        _headerAssets.Clear();
-        _headerNormal = _headerSelected = null;
         _root = null;
     }
 }

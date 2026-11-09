@@ -2,6 +2,7 @@
 using System.Globalization;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
+using BazaarPlusPlus.GameInterop.NativeSkin;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.UiTokens;
@@ -17,8 +18,7 @@ internal sealed partial class CombatStatusBar
     private static readonly Color MutedInk = InGameTheme.InkSoft;
     private NativeGameTypography.OwnedTextPreparation? _uiTypography;
     private NativeGameTypography.OwnedTextPreparation? _counterTypography;
-    private CombatStatusBarNativeSkin? _nativeSkin;
-    private Task<CombatStatusBarNativeSkin?>? _nativeSkinLoad;
+    private bool _nativeSkinRequested;
     private float _nativeSkinRetryAt;
     private bool _nativeSkinFailureReported;
     private GameObject? _canvasObject;
@@ -92,7 +92,7 @@ internal sealed partial class CombatStatusBar
 
     private void CreatePlaque(RectTransform root)
     {
-        _nativeSkin!.ApplyPlaque(root);
+        ApplyPlaque(root);
         CreateDivider(root, 0.24f);
         CreateDivider(root, 0.76f);
         _timeValue = CreateText("Elapsed", root, 0f, 0f, 104f, 36f, 22, counter: true);
@@ -118,28 +118,31 @@ internal sealed partial class CombatStatusBar
 
     private bool EnsureNativeSkin()
     {
-        if (_nativeSkin?.IsValid == true)
-            return true;
-        if (_nativeSkinLoad == null)
+        DesktopNativeSkin.Poll();
+        if (
+            DesktopNativeSkin.Has(DesktopSkinPart.Frame)
+            && DesktopNativeSkin.Has(DesktopSkinPart.BrownCenter)
+        )
         {
-            if (Time.realtimeSinceStartup < _nativeSkinRetryAt)
-                return false;
-            if (!CombatStatusBarNativeSkin.TryBeginLoad(out _nativeSkinLoad))
-                return false;
-        }
-        if (_nativeSkinLoad == null || !_nativeSkinLoad.IsCompleted)
-            return false;
-
-        var error = _nativeSkinLoad.Exception;
-        _nativeSkin =
-            _nativeSkinLoad.Status == TaskStatus.RanToCompletion ? _nativeSkinLoad.Result : null;
-        _nativeSkinLoad = null;
-        if (_nativeSkin?.IsValid == true)
-        {
+            _nativeSkinRequested = false;
             _nativeSkinFailureReported = false;
             return true;
         }
+        if (DesktopNativeSkin.IsLoading)
+        {
+            _nativeSkinRequested = true;
+            return false;
+        }
+        if (!_nativeSkinRequested)
+        {
+            if (Time.realtimeSinceStartup >= _nativeSkinRetryAt)
+                _nativeSkinRequested = DesktopNativeSkin.Request();
+            return false;
+        }
 
+        // The load this bar waited for finished without the sprites.
+        _nativeSkinRequested = false;
+        var error = DesktopNativeSkin.LastLoadError;
         _nativeSkinRetryAt = Time.realtimeSinceStartup + 30f;
         if (!_nativeSkinFailureReported)
         {
@@ -161,6 +164,26 @@ internal sealed partial class CombatStatusBar
                 );
         }
         return false;
+    }
+
+    // The native plaque: the brown centre inset two pixels under the frame.
+    private static void ApplyPlaque(RectTransform root)
+    {
+        PlaqueLayer(root, "Backing", DesktopSkinPart.BrownCenter, new Vector2(2f, 2f));
+        PlaqueLayer(root, "Frame", DesktopSkinPart.Frame, Vector2.zero);
+    }
+
+    private static void PlaqueLayer(
+        RectTransform root,
+        string name,
+        DesktopSkinPart part,
+        Vector2 inset
+    )
+    {
+        var sprite = DesktopNativeSkin.Get(part)!;
+        // Keep the bevel thin at every dock size; stretch only the nine-slice center.
+        var thinBevel = sprite.rect.height / 38f * 100f / sprite.pixelsPerUnit;
+        DesktopNativeSkin.Layer(root, name, part, Color.white, thinBevel, inset);
     }
 
     private static void CreateDivider(Transform parent, float x)
