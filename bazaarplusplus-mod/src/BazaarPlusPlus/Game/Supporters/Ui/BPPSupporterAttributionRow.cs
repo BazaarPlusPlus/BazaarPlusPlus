@@ -110,7 +110,7 @@ internal static class BPPSupporterAttributionRow
         typography.Apply(label);
         label.style.fontSize = Sizes.FontSmall;
         label.style.unityFontStyleAndWeight = FontStyle.Normal;
-        label.style.color = Colors.HistorySubtitleText;
+        label.style.color = InGameTheme.InkMuted;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
         label.style.whiteSpace = WhiteSpace.NoWrap;
         label.style.marginRight = UiSpacing.Xs;
@@ -148,7 +148,7 @@ internal static class BPPSupporterAttributionRow
     private static Label CreateSeparatorLabel(NativeGameTypography.PanelScope typography)
     {
         var label = CreatePlainLabel("·", typography);
-        label.style.color = Colors.WithAlpha(Colors.HistorySubtitleText, 0.56f);
+        label.style.color = InGameTheme.WithAlpha(InGameTheme.InkMuted, 0.56f);
         label.style.marginLeft = UiSpacing.Xs;
         label.style.marginRight = UiSpacing.Xs;
         return label;
@@ -179,11 +179,11 @@ internal static class BPPSupporterAttributionRow
         NativeGameTypography.PanelScope typography
     )
     {
-        var background = Colors.WithAlpha(Colors.ButtonSelectedBackground, 0.16f);
-        var hoverBackground = Colors.WithAlpha(Colors.ButtonSelectedBackground, 0.3f);
-        var pressedBackground = Colors.WithAlpha(Colors.ButtonSelectedBackground, 0.24f);
-        var border = Colors.WithAlpha(Colors.OutcomeGoldBorder, 0.58f);
-        var hoverBorder = Colors.WithAlpha(Colors.OutcomeGoldBorder, 0.9f);
+        var background = InGameTheme.WithAlpha(InGameTheme.Accent, 0.16f);
+        var hoverBackground = InGameTheme.WithAlpha(InGameTheme.Accent, 0.3f);
+        var pressedBackground = InGameTheme.WithAlpha(InGameTheme.Accent, 0.24f);
+        var border = InGameTheme.WithAlpha(InGameTheme.Accent, 0.58f);
+        var hoverBorder = InGameTheme.WithAlpha(InGameTheme.Accent, 0.9f);
         var button = new Button(OpenSupportPage) { text = $"{SponsorIcon} {text}" };
         typography.Apply(button);
         button.tooltip = BPPSupporterLinks.ResolveSponsorUrl(GetLanguageCode());

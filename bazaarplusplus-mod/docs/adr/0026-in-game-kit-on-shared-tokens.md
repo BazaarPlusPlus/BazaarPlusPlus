@@ -9,7 +9,7 @@ The mod draws two UI systems inside the game: the Desktop UI in the Mono host's 
 - The native `Btn_Rectangle` sprite addresses were listed by History, Ten-Win Builds and the combat status bar, each with its own load, retry and sliced-layer helper. History and Ten-Win Builds each decoded BPP's header art.
 - The button state tints (rest, hover, pressed, disabled) were the same colour literals in the desktop and Mobile History buttons. The supporter tier colours were literals on the desktop, hex strings in Core's `BPPSupporterAttribution`, and parsed back from that hex by desktop History.
 - The Mobile UI made its invisible tap and scroll surfaces from a literal near-zero alpha black at each site.
-- The desktop Collection panel and its UI Toolkit supporter row draw a cool palette of their own from `Infrastructure/UiTokens/Colors.cs`.
+- The desktop Collection panel and its UI Toolkit supporter row drew a cool palette of their own from `Colors.cs` in `Infrastructure/UiTokens/`, with glows, a dot field and a four-colour gradient frame on its filter cards.
 
 Nothing kept a new literal out, so each panel drifted a little from the tokens.
 
@@ -23,7 +23,7 @@ Nothing kept a new literal out, so each panel drifted a little from the tokens.
 4. **Rules over compiled IL (ADR-0009).**
    - (a) The literal `Btn_Rectangle` appears only in `DesktopNativeSkin`, and it must appear there (`InGameUiColourTests`).
    - (b) In the covered namespaces, no method constructs a `Color` or `Color32` or calls `ColorUtility.TryParseHtmlString`, except the generated `InGameTheme` and a short list of named members. A `static readonly` colour counts, since it is a construction in the static constructor. `Architecture.Tests/InGameColourRule` owns the rule; `InGameUiColourTests` applies it to the Desktop UI and `AndroidHost.Tests/MobileUiColourTests` to the whole Mobile UI.
-5. **The scope grows with the migration.** The rule covers History, Ten-Win Builds, the combat status bar, supporters, hero badges and `GameInterop/NativeSkin` first; the desktop Collection panel and `Infrastructure/UiTokens` join when `Colors.cs` is deleted. Native Adjustments in `Patches/`, Settings, Combat Replay and Screenshots draw their own colours and are outside the kit until a change moves them in.
+5. **Scope.** The rule covers History, Ten-Win Builds, Collection, the combat status bar, supporters, hero badges, `GameInterop/NativeSkin` and `Infrastructure/UiTokens`. Collection moved from its cool palette to the warm tokens and lost its decorative glows; `Colors.cs` is deleted. Native Adjustments in `Patches/`, Settings, Combat Replay and Screenshots draw their own colours and are outside the kit until a change moves them in.
 
 ## Relationship to ADR-0003 and ADR-0025
 
@@ -38,6 +38,6 @@ ADR-0003 rejects a unification that only looks tidier. The shared part here is a
 ## Evidence
 
 - Tokens: `../design/tokens.json` (`ingame-*`), `../design/build.ts` (`buildInGameTheme`, `supporterMismatches`)
-- Desktop: `src/BazaarPlusPlus/Infrastructure/UiTokens/InGameTheme.g.cs`, `GameInterop/NativeSkin/DesktopNativeSkin.cs`, `Game/Supporters/Ui/BPPSupporterTierColors.cs`, `GameInterop/Heroes/HeroVisual.cs`
+- Desktop: `src/BazaarPlusPlus/Infrastructure/UiTokens/InGameTheme.g.cs`, `GameInterop/NativeSkin/DesktopNativeSkin.cs`, `Game/Supporters/Ui/BPPSupporterTierColors.cs`, `GameInterop/Heroes/HeroVisual.cs`, `Game/CollectionPanel/Ui/CollectionPanelView.cs`, `Infrastructure/UiTokens/UiHover.cs`
 - Mobile: `src/BazaarPlusPlus.Mobile/Ui/InGameTheme.g.cs`, `src/BazaarPlusPlus.Mobile/Ui/UiKit.cs` (`HitArea`)
 - Rules: `tests/Architecture.Tests/InGameColourRule.cs`, `InGameUiColourTests.cs`, `tests/AndroidHost.Tests/MobileUiColourTests.cs`

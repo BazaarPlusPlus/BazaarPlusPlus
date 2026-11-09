@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -135,7 +136,7 @@ internal sealed class CollectionCardHoverScaleController : MonoBehaviour
         if (_shadowImage == null)
             return;
 
-        _shadowImage.color = new Color(0f, 0f, 0f, _currentShadowAlpha);
+        _shadowImage.color = InGameTheme.WithAlpha(Color.black, _currentShadowAlpha);
         _shadowImage.gameObject.SetActive(
             _currentShadowAlpha > 0.001f || _targetShadowAlpha > 0.001f
         );
@@ -168,7 +169,7 @@ internal sealed class CollectionCardHoverScaleController : MonoBehaviour
             var distance = outside.magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - radius;
             var normalized = Mathf.InverseLerp(-blur, blur, distance);
             var alpha = 1f - Mathf.SmoothStep(0f, 1f, normalized);
-            texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+            texture.SetPixel(x, y, InGameTheme.WithAlpha(Color.white, alpha));
         }
         texture.Apply();
         _shadowSprite = Sprite.Create(

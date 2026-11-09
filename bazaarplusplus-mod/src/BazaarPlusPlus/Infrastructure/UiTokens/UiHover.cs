@@ -48,11 +48,19 @@ internal static class UiHover
 
         state.Background = background;
         state.TextColor = textColor;
-        state.Border = border ?? Colors.ButtonBorderFor(background);
-        state.HoverBackground = hoverBackground ?? Colors.ButtonHoverBackgroundFor(background);
+        // Unless the caller names them: a gold hairline that strengthens on hover, and a fill
+        // that lifts toward white on hover and sinks toward black on press (ADR-0026).
+        state.Border = border ?? InGameTheme.WithAlpha(InGameTheme.Rule, .58f);
+        state.HoverBackground =
+            hoverBackground
+            ?? InGameTheme.WithAlpha(
+                Color.Lerp(background, Color.white, .12f),
+                Mathf.Clamp01(background.a + .02f)
+            );
         state.PressedBackground =
-            pressedBackground ?? Colors.ButtonPressedBackgroundFor(background);
-        state.HoverBorder = hoverBorder ?? Colors.ButtonHoverBorderFor(background);
+            pressedBackground
+            ?? InGameTheme.WithAlpha(Color.Lerp(background, Color.black, .1f), background.a);
+        state.HoverBorder = hoverBorder ?? InGameTheme.WithAlpha(InGameTheme.RuleStrong, .78f);
         RefreshButton(button, state);
     }
 

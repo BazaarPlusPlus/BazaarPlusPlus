@@ -15,7 +15,7 @@ internal sealed partial class CollectionPanelView
     {
         var panel = new VisualElement();
         panel.style.flexGrow = 1f;
-        panel.style.backgroundColor = Colors.CollectionPanelBackground;
+        panel.style.backgroundColor = InGameTheme.Backdrop;
         panel.style.paddingLeft = UiSpacing.PanelPadding;
         panel.style.paddingRight = UiSpacing.PanelPadding;
         panel.style.paddingTop = UiSpacing.PanelPadding;
@@ -47,7 +47,7 @@ internal sealed partial class CollectionPanelView
         controlDeck.style.flexDirection = FlexDirection.Column;
         controlDeck.style.flexShrink = 0f;
         UiStyle.Padding(controlDeck.style, UiSpacing.Lg);
-        ApplyCollectionFilterCardTreatment(controlDeck, Colors.CollectionFilterCardMutedPalette);
+        ApplyCollectionFilterCardTreatment(controlDeck, QuietFilterCardBorder);
         rail.Add(controlDeck);
 
         // Title + Close (Close lives here in the operation area, not a top bar).
@@ -57,7 +57,7 @@ internal sealed partial class CollectionPanelView
         titleRow.style.minHeight = Sizes.CollectionTabToggleHeight;
         controlDeck.Add(titleRow);
 
-        _title = CreateLabel(Sizes.FontTitle, FontStyle.Normal, Colors.White);
+        _title = CreateLabel(Sizes.FontTitle, FontStyle.Normal, InGameTheme.Ink);
         _title.style.flexGrow = 1f;
         _title.style.flexShrink = 1f;
         _title.style.minWidth = 0f;
@@ -80,7 +80,7 @@ internal sealed partial class CollectionPanelView
             _stagingIdCopyLabel = CreateLabel(
                 Sizes.FontCorner,
                 FontStyle.Normal,
-                Colors.HistoryStatusText
+                InGameTheme.InkMuted
             );
             _stagingIdCopyLabel.text = StagingIdCopyHint;
             _stagingIdCopyLabel.style.marginTop = UiSpacing.Xs;
@@ -149,7 +149,7 @@ internal sealed partial class CollectionPanelView
             out _heroChipRow,
             out _heroFilterLabel,
             out var heroHeaderRow,
-            palette: Colors.CollectionFilterCardMutedPalette
+            border: QuietFilterCardBorder
         );
         _allHeroesButton = CreateTextMatchModeButton(
             "bpp-collection-all-heroes",
@@ -217,7 +217,7 @@ internal sealed partial class CollectionPanelView
             out _keywordChipRow,
             out _keywordFilterLabel,
             out var keywordHeaderRow,
-            palette: Colors.CollectionFilterCardMutedPalette
+            border: QuietFilterCardBorder
         );
         _keywordMatchModeButton = CreateTextMatchModeControl(mode =>
             _commands.SetKeywordMatchMode(mode)
@@ -233,7 +233,7 @@ internal sealed partial class CollectionPanelView
             UiSpacing.Lg,
             out _tagChipRow,
             out var tagHeaderRow,
-            Colors.CollectionFilterCardMutedPalette
+            QuietFilterCardBorder
         );
         _tagMatchModeButton = CreateTextMatchModeControl(mode => _commands.SetTagMatchMode(mode));
         tagHeaderRow.Add(_tagMatchModeButton);
@@ -247,18 +247,14 @@ internal sealed partial class CollectionPanelView
             UiSpacing.Lg,
             out _sourceChipRow,
             out _sourceFilterLabel,
-            palette: Colors.CollectionFilterCardMutedPalette
+            border: QuietFilterCardBorder
         );
         _sourceChipRow.style.flexDirection = FlexDirection.Column;
         _sourceChipRow.style.flexWrap = Wrap.NoWrap;
         _sourceChipRow.style.justifyContent = Justify.FlexStart;
         _sourceChipRow.RegisterCallback<GeometryChangedEvent>(OnSourceChipRowGeometryChanged);
 
-        _disclaimerLabel = CreateLabel(
-            Sizes.FontCorner,
-            FontStyle.Normal,
-            Colors.HistoryFooterSecondaryText
-        );
+        _disclaimerLabel = CreateLabel(Sizes.FontCorner, FontStyle.Normal, InGameTheme.InkMuted);
         _disclaimerLabel.text = CollectionPanelText.SourceDisclaimer();
         _disclaimerLabel.tooltip = _disclaimerLabel.text;
         _disclaimerLabel.style.marginTop = UiSpacing.Md;
@@ -269,7 +265,7 @@ internal sealed partial class CollectionPanelView
         _disclaimerLabel.style.overflow = Overflow.Hidden;
         controlsScroll.Add(_disclaimerLabel);
 
-        _statusLabel = CreateLabel(Sizes.FontSmall, FontStyle.Normal, Colors.HistoryStatusText);
+        _statusLabel = CreateLabel(Sizes.FontSmall, FontStyle.Normal, InGameTheme.InkMuted);
         _statusLabel.style.marginTop = UiSpacing.Md;
         _statusLabel.style.flexShrink = 0f;
         _statusLabel.style.minHeight = Sizes.StatusHeight;
@@ -314,8 +310,8 @@ internal sealed partial class CollectionPanelView
         if (rect.width <= 0f || rect.height <= 0f)
             return;
 
-        var top = Colors.WithAlpha(Colors.CollectionPanelBackground, 0.92f);
-        var bottom = Colors.Clear;
+        var top = InGameTheme.WithAlpha(InGameTheme.Backdrop, 0.92f);
+        var bottom = Color.clear;
         var mesh = context.Allocate(4, 6);
         mesh.SetNextVertex(
             new Vertex { position = new Vector3(rect.xMin, rect.yMin, Vertex.nearZ), tint = top }
@@ -337,268 +333,14 @@ internal sealed partial class CollectionPanelView
         mesh.SetNextIndex(3);
     }
 
-    // The treatment is painted on the card itself, so hierarchy can be expressed through a
-    // stronger control deck and quiet secondary filters without changing their contents.
-    private static void ApplyCollectionFilterCardTreatment(
-        VisualElement card,
-        CollectionFilterCardPalette? palette = null
-    )
+    // A filter card is a section of the operation rail: the panel's section fill framed by a
+    // gold hairline. Its strength sets the card's place in the hierarchy (ADR-0026).
+    private static void ApplyCollectionFilterCardTreatment(VisualElement card, Color? border = null)
     {
-        var resolvedPalette = palette ?? Colors.CollectionFilterCardReferencePalette;
-        card.style.backgroundColor = resolvedPalette.Background;
-        UiStyle.BorderWidth(card.style, Borders.None);
+        card.style.backgroundColor = InGameTheme.Panel;
+        UiStyle.Border(card.style, Borders.Thin, border ?? FilterCardBorder);
         UiStyle.Radius(card.style, Radii.Panel);
         card.style.overflow = Overflow.Hidden;
-        card.generateVisualContent += context =>
-            DrawCollectionFilterCardBackground(context, card, resolvedPalette);
-    }
-
-    private static void DrawCollectionFilterCardBackground(
-        MeshGenerationContext context,
-        VisualElement card,
-        CollectionFilterCardPalette palette
-    )
-    {
-        // contentRect excludes the card's padding. These cards deliberately have 16–24px of
-        // padding, so a border based on it becomes the inset frame shown in the screenshot.
-        // paddingRect is the card's full local paint box here: we own the border and set its
-        // USS border width to zero in ApplyCollectionFilterCardTreatment.
-        var rect = card.paddingRect;
-        if (rect.width <= 0f || rect.height <= 0f)
-            return;
-
-        DrawCollectionFilterCardGlow(
-            context,
-            rect,
-            new Vector2(rect.xMin + rect.width * 0.13f, rect.yMin + rect.height * 0.08f),
-            rect.width * 0.68f,
-            rect.height * 1.05f,
-            palette.TopGlow
-        );
-        DrawCollectionFilterCardGlow(
-            context,
-            rect,
-            new Vector2(rect.xMax - rect.width * 0.05f, rect.yMax - rect.height * 0.05f),
-            rect.width * 0.62f,
-            rect.height * 0.92f,
-            palette.BottomGlow
-        );
-        if (palette.Decoration.a > 0f)
-            DrawCollectionFilterCardDotField(context, rect, palette.Decoration);
-        DrawCollectionFilterCardGradientBorder(context, rect, palette);
-    }
-
-    private static void DrawCollectionFilterCardGradientBorder(
-        MeshGenerationContext context,
-        Rect rect,
-        CollectionFilterCardPalette palette
-    )
-    {
-        // The reference's outline is a quiet, single-pixel highlight. A filled mesh ring makes
-        // its full width visible and reads as a neon frame, so draw a stroked path instead.
-        const float strokeWidth = 1f;
-        const int edgeSegments = 12;
-        const int cornerSegments = 7;
-        var inset = strokeWidth * 0.5f;
-        var bounds = new Rect(
-            rect.xMin + inset,
-            rect.yMin + inset,
-            rect.width - strokeWidth,
-            rect.height - strokeWidth
-        );
-        if (bounds.width <= strokeWidth * 2f || bounds.height <= strokeWidth * 2f)
-            return;
-
-        var radius = Mathf.Min(Radii.Panel - inset, Mathf.Min(bounds.width, bounds.height) * 0.5f);
-        var painter = context.painter2D;
-        painter.lineWidth = strokeWidth;
-        painter.lineCap = LineCap.Round;
-        painter.lineJoin = LineJoin.Round;
-
-        var first = new Vector2(bounds.xMin + radius, bounds.yMin);
-        var previous = first;
-
-        void StrokeTo(Vector2 next)
-        {
-            painter.strokeColor = CollectionFilterCardBorderColor(
-                (previous + next) * 0.5f,
-                bounds,
-                palette
-            );
-            painter.BeginPath();
-            painter.MoveTo(previous);
-            painter.LineTo(next);
-            painter.Stroke();
-            previous = next;
-        }
-
-        void StrokeStraightTo(Vector2 destination)
-        {
-            var start = previous;
-            for (var step = 1; step <= edgeSegments; step++)
-                StrokeTo(Vector2.Lerp(start, destination, step / (float)edgeSegments));
-        }
-
-        void StrokeCorner(int corner, float startDegrees)
-        {
-            var center = CollectionFilterCardCornerCenter(bounds, radius, corner);
-            for (var step = 1; step <= cornerSegments; step++)
-            {
-                var radians = (startDegrees + 90f * step / cornerSegments) * Mathf.Deg2Rad;
-                StrokeTo(center + new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)) * radius);
-            }
-        }
-
-        // Walk the entire perimeter clockwise. Each short stroke gets a colour sampled from the
-        // four-corner gradient, which keeps the transition smooth without ever creating a band.
-        StrokeStraightTo(new Vector2(bounds.xMax - radius, bounds.yMin));
-        StrokeCorner(0, -90f);
-        StrokeStraightTo(new Vector2(bounds.xMax, bounds.yMax - radius));
-        StrokeCorner(1, 0f);
-        StrokeStraightTo(new Vector2(bounds.xMin + radius, bounds.yMax));
-        StrokeCorner(2, 90f);
-        StrokeStraightTo(new Vector2(bounds.xMin, bounds.yMin + radius));
-        StrokeCorner(3, 180f);
-    }
-
-    private static Vector2 CollectionFilterCardCornerCenter(Rect rect, float radius, int corner) =>
-        corner switch
-        {
-            0 => new Vector2(rect.xMax - radius, rect.yMin + radius),
-            1 => new Vector2(rect.xMax - radius, rect.yMax - radius),
-            2 => new Vector2(rect.xMin + radius, rect.yMax - radius),
-            _ => new Vector2(rect.xMin + radius, rect.yMin + radius),
-        };
-
-    private static Color CollectionFilterCardBorderColor(
-        Vector2 point,
-        Rect bounds,
-        CollectionFilterCardPalette palette
-    )
-    {
-        var horizontal = Mathf.InverseLerp(bounds.xMin, bounds.xMax, point.x);
-        var vertical = Mathf.InverseLerp(bounds.yMin, bounds.yMax, point.y);
-        var top = Color.Lerp(palette.BorderTopLeft, palette.BorderTopRight, horizontal);
-        var bottom = Color.Lerp(palette.BorderBottomLeft, palette.BorderBottomRight, horizontal);
-        return Color.Lerp(top, bottom, vertical);
-    }
-
-    private static void DrawCollectionFilterCardGlow(
-        MeshGenerationContext context,
-        Rect rect,
-        Vector2 center,
-        float radiusX,
-        float radiusY,
-        Color color
-    )
-    {
-        radiusX = Mathf.Min(radiusX, rect.width);
-        radiusY = Mathf.Min(radiusY, rect.height);
-        var edge = Colors.WithAlpha(color, 0f);
-        var mesh = context.Allocate(5, 12);
-        mesh.SetNextVertex(
-            new Vertex { position = new Vector3(center.x, center.y, Vertex.nearZ), tint = color }
-        );
-        mesh.SetNextVertex(
-            new Vertex
-            {
-                position = new Vector3(center.x, center.y - radiusY, Vertex.nearZ),
-                tint = edge,
-            }
-        );
-        mesh.SetNextVertex(
-            new Vertex
-            {
-                position = new Vector3(center.x + radiusX, center.y, Vertex.nearZ),
-                tint = edge,
-            }
-        );
-        mesh.SetNextVertex(
-            new Vertex
-            {
-                position = new Vector3(center.x, center.y + radiusY, Vertex.nearZ),
-                tint = edge,
-            }
-        );
-        mesh.SetNextVertex(
-            new Vertex
-            {
-                position = new Vector3(center.x - radiusX, center.y, Vertex.nearZ),
-                tint = edge,
-            }
-        );
-        mesh.SetNextIndex(0);
-        mesh.SetNextIndex(1);
-        mesh.SetNextIndex(2);
-        mesh.SetNextIndex(0);
-        mesh.SetNextIndex(2);
-        mesh.SetNextIndex(3);
-        mesh.SetNextIndex(0);
-        mesh.SetNextIndex(3);
-        mesh.SetNextIndex(4);
-        mesh.SetNextIndex(0);
-        mesh.SetNextIndex(4);
-        mesh.SetNextIndex(1);
-    }
-
-    private static void DrawCollectionFilterCardDotField(
-        MeshGenerationContext context,
-        Rect rect,
-        Color decoration
-    )
-    {
-        const int columns = 10;
-        const int rows = 6;
-        var spacing = Mathf.Clamp(Mathf.Min(rect.width, rect.height) * 0.055f, 4f, 8f);
-        var dotSize = Mathf.Clamp(spacing * 0.19f, 1.1f, 1.7f);
-        var left = rect.xMax - spacing * (columns + 1.5f);
-        var top = rect.yMax - spacing * (rows + 1.2f);
-        var mesh = context.Allocate(columns * rows * 4, columns * rows * 6);
-        for (var row = 0; row < rows; row++)
-        {
-            for (var column = 0; column < columns; column++)
-            {
-                var strength = ((column + 1f) / columns) * ((row + 1f) / rows);
-                var color = Colors.WithAlpha(decoration, decoration.a * (0.2f + strength * 0.8f));
-                var x = left + column * spacing;
-                var y = top + row * spacing;
-                mesh.SetNextVertex(
-                    new Vertex { position = new Vector3(x, y, Vertex.nearZ), tint = color }
-                );
-                mesh.SetNextVertex(
-                    new Vertex
-                    {
-                        position = new Vector3(x + dotSize, y, Vertex.nearZ),
-                        tint = color,
-                    }
-                );
-                mesh.SetNextVertex(
-                    new Vertex
-                    {
-                        position = new Vector3(x + dotSize, y + dotSize, Vertex.nearZ),
-                        tint = color,
-                    }
-                );
-                mesh.SetNextVertex(
-                    new Vertex
-                    {
-                        position = new Vector3(x, y + dotSize, Vertex.nearZ),
-                        tint = color,
-                    }
-                );
-            }
-        }
-
-        for (var dot = 0; dot < columns * rows; dot++)
-        {
-            var vertex = dot * 4;
-            mesh.SetNextIndex((ushort)vertex);
-            mesh.SetNextIndex((ushort)(vertex + 1));
-            mesh.SetNextIndex((ushort)(vertex + 2));
-            mesh.SetNextIndex((ushort)vertex);
-            mesh.SetNextIndex((ushort)(vertex + 2));
-            mesh.SetNextIndex((ushort)(vertex + 3));
-        }
     }
 
     private static Button CreateCloseButton(Action onClick)
@@ -610,12 +352,12 @@ internal sealed partial class CollectionPanelView
             Sizes.CollectionCloseButtonSize
         );
         button.tooltip = CollectionPanelText.Close();
-        StyleCollectionChip(button, Colors.CollectionChipBackground, Colors.CollectionChipText);
+        StyleCollectionChip(button, InGameTheme.Chip, InGameTheme.Ink);
         UiStyle.Radius(button.style, Sizes.CollectionCloseButtonSize / 2f);
 
         var icon = new VisualElement { pickingMode = PickingMode.Ignore };
         UiStyle.FixedSize(icon.style, Sizes.CollectionCloseIconSize, Sizes.CollectionCloseIconSize);
-        icon.style.color = Colors.CollectionChipText;
+        icon.style.color = InGameTheme.Ink;
         icon.generateVisualContent += context => DrawCloseIcon(context, icon);
         button.Add(icon);
         return button;
@@ -630,14 +372,14 @@ internal sealed partial class CollectionPanelView
             Sizes.CollectionSearchRowHeight
         );
         button.tooltip = CollectionPanelText.ResetFilters();
-        StyleButton(button, Colors.CollectionChipBackground, Colors.CollectionChipText);
+        StyleButton(button, InGameTheme.Chip, InGameTheme.Ink);
         UiStyle.Radius(button.style, Radii.CollectionChip);
-        UiStyle.Border(button.style, Borders.Thin, Colors.CollectionChipBorder);
+        UiStyle.Border(button.style, Borders.Thin, ChipBorder);
 
         var icon = new VisualElement { pickingMode = PickingMode.Ignore };
         UiStyle.FixedSize(icon.style, 18f, 18f);
         icon.style.marginTop = -0.5f;
-        icon.style.color = Colors.WithAlpha(Colors.CollectionChipText, 0.84f);
+        icon.style.color = InGameTheme.WithAlpha(InGameTheme.Ink, 0.84f);
         icon.generateVisualContent += context => DrawResetIcon(context, icon);
         button.Add(icon);
         return button;
@@ -745,8 +487,8 @@ internal sealed partial class CollectionPanelView
         frame.style.flexShrink = 1f;
         frame.style.minWidth = 0f;
         frame.style.height = Sizes.CollectionSearchRowHeight;
-        frame.style.backgroundColor = Colors.CollectionChipBackground;
-        UiStyle.Border(frame.style, Borders.Thin, Colors.CollectionChipBorder);
+        frame.style.backgroundColor = InGameTheme.Chip;
+        UiStyle.Border(frame.style, Borders.Thin, ChipBorder);
         UiStyle.Radius(frame.style, Radii.CollectionChip);
         UiStyle.HorizontalPadding(frame.style, UiSpacing.Md);
         _searchFrame = frame;
@@ -762,7 +504,7 @@ internal sealed partial class CollectionPanelView
         field.style.minWidth = 0f;
         field.style.height = Length.Percent(100f);
         field.style.backgroundColor = Color.clear;
-        field.style.color = Colors.CollectionChipText;
+        field.style.color = InGameTheme.Ink;
         _typography!.Apply(field);
         field.style.fontSize = Sizes.CollectionTagFontSize;
         field.style.borderLeftWidth = 0f;
@@ -775,7 +517,7 @@ internal sealed partial class CollectionPanelView
         _searchPlaceholderLabel = CreateLabel(
             Sizes.CollectionTagFontSize,
             FontStyle.Normal,
-            Colors.WithAlpha(Colors.CollectionChipText, 0.58f)
+            InGameTheme.WithAlpha(InGameTheme.Ink, 0.58f)
         );
         _searchPlaceholderLabel.pickingMode = PickingMode.Ignore;
         _searchPlaceholderLabel.style.position = Position.Absolute;
@@ -797,8 +539,8 @@ internal sealed partial class CollectionPanelView
         var focused = false;
         void RefreshFrame()
         {
-            var background = Colors.CollectionChipBackground;
-            var border = Colors.CollectionChipBorder;
+            var background = InGameTheme.Chip;
+            var border = ChipBorder;
             if (focused)
             {
                 ApplySearchFocusPulse();
@@ -806,8 +548,8 @@ internal sealed partial class CollectionPanelView
             }
             else if (hovered)
             {
-                background = Colors.CollectionChipHoverBackground;
-                border = Colors.CollectionChipHoverBorder;
+                background = ChipHover;
+                border = ChipHoverBorder;
             }
 
             frame.style.backgroundColor = background;
@@ -874,17 +616,13 @@ internal sealed partial class CollectionPanelView
         var phase = elapsed * (Mathf.PI * 2f / SearchFocusPulseSeconds) - Mathf.PI * 0.5f;
         var pulse = Mathf.SmoothStep(0f, 1f, (Mathf.Sin(phase) + 1f) * 0.5f);
         _searchFrame.style.backgroundColor = Color.Lerp(
-            Colors.CollectionChipSelectedBackground,
-            Colors.CollectionChipSelectedHoverBackground,
+            InGameTheme.ChipActive,
+            ChipActiveHover,
             pulse
         );
         UiStyle.BorderColor(
             _searchFrame.style,
-            Color.Lerp(
-                Colors.CollectionChipSelectedBorder,
-                Colors.CollectionChipSelectedHoverBorder,
-                pulse
-            )
+            Color.Lerp(InGameTheme.RuleStrong, InGameTheme.Accent, pulse)
         );
     }
 
@@ -898,7 +636,7 @@ internal sealed partial class CollectionPanelView
         group.style.overflow = Overflow.Hidden;
         UiStyle.FixedWidth(group.style, CurrentSortActiveWidth() + CurrentSortInactiveWidth());
         UiStyle.Radius(group.style, Radii.CollectionChip);
-        UiStyle.Border(group.style, Borders.Thin, Colors.CollectionChipBorder);
+        UiStyle.Border(group.style, Borders.Thin, ChipBorder);
         group.style.marginLeft = UiSpacing.Sm;
         group.style.marginTop = UiSpacing.Md;
 
@@ -933,7 +671,7 @@ internal sealed partial class CollectionPanelView
             input.style.height = Length.Percent(100f);
             input.style.alignSelf = Align.Stretch;
             input.style.backgroundColor = Color.clear;
-            input.style.color = Colors.CollectionChipText;
+            input.style.color = InGameTheme.Ink;
             _typography!.Apply(input);
             input.style.fontSize = Sizes.CollectionTagFontSize;
             input.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -954,7 +692,7 @@ internal sealed partial class CollectionPanelView
             text.style.flexGrow = 1f;
             text.style.height = Length.Percent(100f);
             text.style.alignSelf = Align.Stretch;
-            text.style.color = Colors.CollectionChipText;
+            text.style.color = InGameTheme.Ink;
             _typography!.Apply(text);
             text.style.fontSize = Sizes.CollectionTagFontSize;
             text.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -986,7 +724,7 @@ internal sealed partial class CollectionPanelView
         icon.style.display = DisplayStyle.None;
         icon.style.flexShrink = 0f;
         icon.style.marginRight = UiSpacing.Xxs;
-        icon.style.color = Colors.CollectionChipSelectedText;
+        icon.style.color = InGameTheme.Ink;
         icon.generateVisualContent += context => DrawSortIcon(context, icon);
         button.Add(icon);
 
@@ -1001,14 +739,10 @@ internal sealed partial class CollectionPanelView
         label.style.whiteSpace = WhiteSpace.NoWrap;
         label.style.overflow = Overflow.Hidden;
         label.style.unityTextAlign = TextAnchor.MiddleCenter;
-        label.style.color = Colors.CollectionChipText;
+        label.style.color = InGameTheme.Ink;
         button.Add(label);
 
-        StyleCollectionGroupChip(
-            button,
-            Colors.CollectionChipBackground,
-            Colors.CollectionChipText
-        );
+        StyleCollectionGroupChip(button, InGameTheme.Chip, InGameTheme.Ink);
         return button;
     }
 
@@ -1026,9 +760,8 @@ internal sealed partial class CollectionPanelView
         out VisualElement chipRow,
         out Label label,
         bool card = true,
-        CollectionFilterCardPalette? palette = null
-    ) =>
-        CreateFilterSection(parent, title, marginTop, out chipRow, out label, out _, card, palette);
+        Color? border = null
+    ) => CreateFilterSection(parent, title, marginTop, out chipRow, out label, out _, card, border);
 
     private static VisualElement CreateFilterSection(
         VisualElement parent,
@@ -1038,7 +771,7 @@ internal sealed partial class CollectionPanelView
         out Label label,
         out VisualElement headerRow,
         bool card = true,
-        CollectionFilterCardPalette? palette = null
+        Color? border = null
     )
     {
         var section = new VisualElement();
@@ -1048,7 +781,7 @@ internal sealed partial class CollectionPanelView
         if (card)
         {
             UiStyle.Padding(section.style, UiSpacing.Md);
-            ApplyCollectionFilterCardTreatment(section, palette);
+            ApplyCollectionFilterCardTreatment(section, border);
         }
         parent.Add(section);
 
@@ -1061,11 +794,7 @@ internal sealed partial class CollectionPanelView
             headerRow.style.display = DisplayStyle.None;
         section.Add(headerRow);
 
-        label = CreateLabel(
-            Sizes.CollectionFilterTitleFontSize,
-            FontStyle.Bold,
-            Colors.CollectionFilterTitleText
-        );
+        label = CreateLabel(Sizes.CollectionFilterTitleFontSize, FontStyle.Bold, InGameTheme.Ink);
         label.text = title;
         label.style.flexGrow = 1f;
         label.style.flexShrink = 1f;
@@ -1142,7 +871,7 @@ internal sealed partial class CollectionPanelView
         control.style.overflow = Overflow.Hidden;
         UiStyle.Radius(control.style, Radii.CollectionChip);
         if (!slanted)
-            UiStyle.Border(control.style, Borders.Thin, Colors.CollectionChipBorder);
+            UiStyle.Border(control.style, Borders.Thin, ChipBorder);
 
         var any = CreateFacetMatchModeSegment(
             FacetMatchAnyName,
@@ -1224,7 +953,7 @@ internal sealed partial class CollectionPanelView
         divider.style.top = 0f;
         divider.style.bottom = 0f;
         divider.style.width = Borders.Thin;
-        divider.style.backgroundColor = Colors.CollectionChipBorder;
+        divider.style.backgroundColor = ChipBorder;
         return divider;
     }
 
@@ -1239,7 +968,7 @@ internal sealed partial class CollectionPanelView
         segment.style.minWidth = 0f;
         segment.style.overflow = Overflow.Hidden;
         UiStyle.Radius(segment.style, Radii.CollectionChip);
-        UiStyle.Border(segment.style, Borders.Thin, Colors.CollectionChipBorder);
+        UiStyle.Border(segment.style, Borders.Thin, ChipBorder);
         return segment;
     }
 
@@ -1249,7 +978,7 @@ internal sealed partial class CollectionPanelView
         divider.style.width = Borders.Thin;
         divider.style.height = Sizes.CollectionTagChipHeight;
         divider.style.flexShrink = 0f;
-        divider.style.backgroundColor = Colors.CollectionChipBorder;
+        divider.style.backgroundColor = ChipBorder;
         return divider;
     }
 
@@ -1259,7 +988,7 @@ internal sealed partial class CollectionPanelView
         float marginTop,
         out VisualElement chipRow,
         out VisualElement header,
-        CollectionFilterCardPalette? palette = null
+        Color? border = null
     )
     {
         var section = new VisualElement();
@@ -1267,7 +996,7 @@ internal sealed partial class CollectionPanelView
         section.style.flexShrink = 0f;
         section.style.marginTop = marginTop;
         UiStyle.Padding(section.style, UiSpacing.Md);
-        ApplyCollectionFilterCardTreatment(section, palette);
+        ApplyCollectionFilterCardTreatment(section, border);
         parent.Add(section);
 
         header = new VisualElement();
@@ -1279,7 +1008,7 @@ internal sealed partial class CollectionPanelView
         var label = CreateLabel(
             Sizes.CollectionFilterTitleFontSize,
             FontStyle.Bold,
-            Colors.CollectionFilterTitleText
+            InGameTheme.Ink
         );
         label.text = title;
         label.style.flexGrow = 1f;
@@ -1328,17 +1057,17 @@ internal sealed partial class CollectionPanelView
         caption.style.fontSize = Sizes.FontTiny;
         caption.style.marginBottom = -2f;
         caption.style.unityTextAlign = TextAnchor.MiddleCenter;
-        caption.style.color = Colors.CollectionChipText;
+        caption.style.color = InGameTheme.Ink;
         var value = new Label { pickingMode = PickingMode.Ignore };
         value.style.fontSize = Sizes.FontButton;
         value.style.unityTextAlign = TextAnchor.MiddleCenter;
-        value.style.color = Colors.CollectionChipText;
+        value.style.color = InGameTheme.Ink;
         _dayToggleCaption = caption;
         _dayToggleValue = value;
         content.Add(caption);
         content.Add(value);
         button.Add(content);
-        StyleCollectionChip(button, Colors.CollectionChipBackground, Colors.CollectionChipText);
+        StyleCollectionChip(button, InGameTheme.Chip, InGameTheme.Ink);
         return button;
     }
 
@@ -1351,7 +1080,7 @@ internal sealed partial class CollectionPanelView
         _gridViewport.style.minWidth = 0f;
         // The catalog uses the same cool treatment at a middle strength: more dimensional than
         // secondary filters, quieter than the control deck.
-        ApplyCollectionFilterCardTreatment(_gridViewport, Colors.CollectionFilterCardGridPalette);
+        ApplyCollectionFilterCardTreatment(_gridViewport, GridFilterCardBorder);
         parent.Add(_gridViewport);
 
         _gridScrollView = new ScrollView(ScrollViewMode.Vertical);
@@ -1376,11 +1105,7 @@ internal sealed partial class CollectionPanelView
         _gridContentSpacer.style.width = Length.Percent(100f);
         _gridScrollView.contentContainer.Add(_gridContentSpacer);
 
-        _emptyLabel = CreateLabel(
-            Sizes.FontBody,
-            FontStyle.Normal,
-            Colors.HistoryFooterSecondaryText
-        );
+        _emptyLabel = CreateLabel(Sizes.FontBody, FontStyle.Normal, InGameTheme.InkMuted);
         _emptyLabel.text = CollectionPanelText.NoMatches();
         _emptyLabel.pickingMode = PickingMode.Ignore;
         _emptyLabel.style.position = Position.Absolute;
@@ -1394,11 +1119,7 @@ internal sealed partial class CollectionPanelView
         _emptyLabel.style.display = DisplayStyle.None;
         _gridViewport.Add(_emptyLabel);
 
-        _loadingLabel = CreateLabel(
-            Sizes.FontBody,
-            FontStyle.Bold,
-            Colors.HistoryFooterSecondaryText
-        );
+        _loadingLabel = CreateLabel(Sizes.FontBody, FontStyle.Bold, InGameTheme.InkMuted);
         _loadingLabel.pickingMode = PickingMode.Ignore;
         _loadingLabel.style.position = Position.Absolute;
         _loadingLabel.style.left = 0f;
