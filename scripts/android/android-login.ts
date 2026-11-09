@@ -17,14 +17,14 @@ const directory = 'files/dev/login';
 const activity = `${app}/com.bazaarplusplus.android.launch.LauncherActivity`;
 const help = `Usage: just android::dev-login <serial> [--resume-only]
 
-Read config.ini [game] BPP_GAME_EMAIL and BPP_GAME_PASSWORD, restart the debug
+Read config.toml [game] BPP_GAME_EMAIL and BPP_GAME_PASSWORD, restart the debug
 Android App and ask its Mod to submit the game's own login form once. The App
 uses its normal Play gate. Success requires this process's authenticated login
 and loaded player profile. --resume-only sends no credentials and verifies that
 the game restores its saved session after restart.
 
 Requires adb, the updated debug App and this checkout's Android Mod. The serial
-is mandatory. Exported BPP_GAME_EMAIL/BPP_GAME_PASSWORD override config.ini.
+is mandatory. Exported BPP_GAME_EMAIL/BPP_GAME_PASSWORD override config.toml.
 Credentials travel over stdin to a private, expiring one-use request. They never
 appear in arguments, output or host temporary files. The game owns token storage.
 The command does not install APKs, reset game data or change the official App.
@@ -122,7 +122,7 @@ function credentials(
   if (resumeOnly) return { mode: 'resume' };
   const home = configHome(env);
   assertExternal(home);
-  const file = path.join(home, 'config.ini');
+  const file = path.join(home, 'config.toml');
   if (process.platform !== 'win32' && fs.existsSync(file))
     fs.chmodSync(file, 0o600);
   const values = resolveValues(readConfig(home), 'game', env);
@@ -131,7 +131,7 @@ function credentials(
   if (email?.trim() && password) return { mode: 'login', email, password };
   if (allowManual && !email?.trim() && !password) return { mode: 'manual' };
   throw new Error(
-    'Set both BPP_GAME_EMAIL and BPP_GAME_PASSWORD in config.ini [game].'
+    'Set both BPP_GAME_EMAIL and BPP_GAME_PASSWORD in config.toml [game].'
   );
 }
 

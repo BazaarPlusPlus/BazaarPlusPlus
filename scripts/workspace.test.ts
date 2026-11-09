@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { parseEnv } from 'node:util';
+import { stringify } from 'smol-toml';
 import { test } from 'vitest';
 import type { TestContext } from 'vitest';
 import {
@@ -13,7 +15,8 @@ import {
   readConfig,
   parseConfig,
   projectionChanges,
-  assertExternal
+  assertExternal,
+  renderConfig
 } from './local-config.ts';
 import { doctor, pinnedToolVersions, staleDependencies } from './workspace.ts';
 
@@ -53,45 +56,31 @@ function fixture(t: TestContext) {
 
 type Fixture = ReturnType<typeof fixture>;
 
-const ini = (sections: Record<string, string>): string =>
-  Object.entries(sections)
-    .map(([name, body]) => `[${name}]\n${body}`)
-    .join('\n');
+const tomlConfig = (sections: Record<string, string>): string =>
+  stringify(
+    Object.fromEntries(
+      Object.entries(sections).map(([name, body]) => [name, parseEnv(body)])
+    )
+  );
 
 const projectedMarker =
-  '# Projected from config.ini [server] and [cloudflare]; edit there.';
+  '# Projected from config.toml [server] and [cloudflare]; edit there.';
 
-const noEcho = (pattern: RegExp) => (error: Error) => {
-  assert.match(error.message, pattern);
-  assert.doesNotMatch(error.message, /SECRET/);
-  return true;
-};
-
-test('the template built from the real analyzer .env.example parses and lists every section key once', (t) => {
+test('new setup needs no analyzer fields and quotes empty credentials', (t) => {
   const f = fixture(t);
   initializeConfig(f.home, root);
-  const text = fs.readFileSync(path.join(f.home, 'config.ini'), 'utf8');
   const config = readConfig(f.home);
-  assert.deepEqual(
-    [...config.sections.keys()],
-    ['server', 'analyzer', 'signing', 'machine', 'game', 'cloudflare', 'qqbot']
+  assert.equal(config.sections.has('analyzer'), false);
+  assert.equal(
+    config.sections.get('cloudflare')!.values.CLOUDFLARE_API_TOKEN,
+    ''
   );
-  assert.ok('BPP_DATA_ROOT' in config.sections.get('analyzer')!.values);
-  assert.ok('BPP_METRICS_R2_BUCKET' in config.sections.get('analyzer')!.values);
-  for (const key of [
-    'BAZAARDB_DELIVERY_TOKEN',
-    'APPLE_CERTIFICATE_PASSWORD',
-    'BPP_GAME_ROOT',
-    'CLOUDFLARE_API_TOKEN',
-    'CLOUDFLARE_ACCOUNT_ID'
-  ])
-    assert.equal(text.match(new RegExp(`^${key}=$`, 'gm'))?.length, 1, key);
 });
 
-test('setup preserves config.ini, tightens POSIX permissions and removes only stale signing staging', (t) => {
+test('setup preserves config.toml, tightens POSIX permissions and removes only stale signing staging', (t) => {
   const f = fixture(t);
-  const text = ini({ cloudflare: 'CLOUDFLARE_API_TOKEN=KEEP\n' });
-  const file = f.put(f.home, 'config.ini', text);
+  const text = tomlConfig({ cloudflare: 'CLOUDFLARE_API_TOKEN=KEEP\n' });
+  const file = f.put(f.home, 'config.toml', text);
   fs.chmodSync(file, 0o644);
   f.put(f.home, '.signing-stale/apple-api-key', 'OLD');
   f.put(f.home, '.signing-running/apple-api-key', 'LIVE');
@@ -105,83 +94,37 @@ test('setup preserves config.ini, tightens POSIX permissions and removes only st
     assert.equal(fs.statSync(file).mode & 0o777, 0o600);
 });
 
-test('config.ini rejects ambiguous text by line without echoing values', () => {
-  for (const [text, pattern] of [
-    [
-      '[server] # note\nA=SECRET\n',
-      /Malformed section header on config.ini line 1/
-    ],
-    ['[Server]\nA=SECRET\n', /Unknown section header on config.ini line 1/],
-    ['[server]\nA=1\n[server]\n', /Duplicate \[server\] on config.ini line 3/],
-    [
-      '[server]\nSECRET-TEXT\n',
-      /Expected KEY=value inside a section on config.ini line 2/
-    ],
-    [
-      'A=SECRET\n[server]\n',
-      /Expected KEY=value inside a section on config.ini line 1/
-    ],
-    [
-      '[server]\nA="SECRET\n[analyzer]\nB"\n',
-      /Unterminated quote for A on config.ini line 2/
-    ],
-    [
-      '[server]\nA="abc" xSECRET"\n',
-      /Unexpected text after the closing quote for A on config.ini line 2/
-    ],
-    ['[server]\nexport A=1\nA=SECRET\n', /Duplicate A on config.ini line 3/],
-    ['[server]\n; SECRET\n', /Use # for comments on config.ini line 2/],
-    ['[server]\nA=`SECRET`\n', /Backtick quotes .* A on config.ini line 2/],
-    [
-      '[server]\nA=SECRET#x\n',
-      /Unquoted # in the value for A on config.ini line 2/
-    ],
-    ['[server]\nA= #SECRET\n', /Value for A on config.ini line 2 starts/],
-    ['[server]\nA=\t#SECRET\n', /Value for A on config.ini line 2 starts/],
-    [
-      '[machine]\nBPP_GAME_ROOT="D:\\new SECRET\\x"\n',
-      /Backslash in a double-quoted value for BPP_GAME_ROOT on config.ini line 2; use single quotes or leave it unquoted/
-    ],
-    [
-      "[machine]\nBPP_GAME_ROOT='\\\\host\\SECRET'\n",
-      /Escaped backslash in a single-quoted value for BPP_GAME_ROOT on config.ini line 2/
-    ],
-    ['[server]\nA=SEC\rRET\n', /Carriage return or NUL on config.ini line 2/]
-  ] satisfies [string, RegExp][]) {
-    assert.throws(() => parseConfig(text), noEcho(pattern), text);
-  }
+test('TOML rejects ambiguous credentials and unsupported settings without echoing values', () => {
+  for (const text of [
+    '[server]\nA = "SECRET"\nA = "other"\n',
+    'server = "SECRET"\n',
+    '[server]\nA = ["SECRET"]\n',
+    '[server]\nA = 123\n',
+    '[server]\nA = true\n',
+    '[server]\nA = 2026-11-09\n',
+    '[server]\nA = "SECRET\n',
+    '[server]\nA = """SECRET\nsecond line"""\n',
+    '[unknown]\nA = "SECRET"\n',
+    '[analyzer]\nBPP_API_BASE_URL = "SECRET"\n'
+  ])
+    assert.throws(
+      () => parseConfig(text),
+      (error: Error) => {
+        assert.doesNotMatch(error.message, /SECRET/);
+        return true;
+      }
+    );
 });
 
-test('config.ini accepts indentation, BOM, CRLF, export, comments and literal Windows paths', () => {
-  const config = parseConfig(
-    '\uFEFF# head\r\n\r\n  [server]  \r\nexport A = "x # y"\r\n# kept\r\n\r\n[analyzer]\r\n'
-  );
-  assert.equal(config.preamble, '# head\n');
-  assert.equal(
-    config.sections.get('server')!.body,
-    'export A = "x # y"\n# kept\n'
-  );
-  assert.deepEqual(config.sections.get('server')!.values, { A: 'x # y' });
-  assert.equal(config.sections.get('analyzer')!.body, '');
-  const machine = parseConfig(
-    [
-      '[machine]',
-      'BPP_GAME_ROOT = D:\\new games\\The Bazaar  # note',
-      "BPP_MANAGED_PATH='D:\\new games\\Managed' # note",
-      'B=v\t# tab comment',
-      'C=',
-      'D="a`b\'c"#tight',
-      '  E  =  spaced value  '
-    ].join('\n')
-  ).sections.get('machine')!.values;
-  assert.deepEqual(machine, {
-    BPP_GAME_ROOT: 'D:\\new games\\The Bazaar',
-    BPP_MANAGED_PATH: 'D:\\new games\\Managed',
-    B: 'v',
-    C: '',
-    D: "a`b'c",
-    E: 'spaced value'
-  });
+test('TOML round trips quoted identifiers, special credentials and Windows paths', () => {
+  const values = {
+    BPP_GAME_EMAIL: '00123',
+    BPP_GAME_PASSWORD: 'true # \" unicode 密码',
+    BPP_GAME_ROOT: String.raw`D:\new games\The Bazaar`
+  };
+  const config = parseConfig(stringify({ game: values, analyzer: {} }));
+  assert.deepEqual(config.sections.get('game')!.values, values);
+  assert.deepEqual(parseConfig(renderConfig(config)), config);
 });
 
 test('central edits refresh before use; local edits cause conflict before any projection is replaced', (t) => {
@@ -193,8 +136,8 @@ test('central edits refresh before use; local edits cause conflict before any pr
     `${projectedMarker}\nBPP_BUNDLE_SYNC_TOKEN="${sync}"\nCLOUDFLARE_API_TOKEN="${token}"\nCLOUDFLARE_ACCOUNT_ID="${account}"\n`;
   f.put(
     f.home,
-    'config.ini',
-    ini({
+    'config.toml',
+    tomlConfig({
       server: 'BUNDLE_SYNC_TOKEN=shared\n',
       analyzer: 'BPP_DATA_ROOT=/changed\n',
       cloudflare: 'CLOUDFLARE_API_TOKEN=cf-token\n'
@@ -210,12 +153,12 @@ test('central edits refresh before use; local edits cause conflict before any pr
   assert.deepEqual(env, { PATH: 'p' });
   assert.equal(
     fs.readFileSync(analyzerEnv, 'utf8'),
-    `BPP_DATA_ROOT=/changed\n${projected('shared', 'cf-token', '')}`
+    `BPP_DATA_ROOT="/changed"\n${projected('shared', 'cf-token', '')}`
   );
   f.put(
     f.home,
-    'config.ini',
-    ini({ server: '', analyzer: 'BPP_DATA_ROOT=/next\n' })
+    'config.toml',
+    tomlConfig({ server: '', analyzer: 'BPP_DATA_ROOT=/next\n' })
   );
   f.put(
     f.repository,
@@ -228,7 +171,7 @@ test('central edits refresh before use; local edits cause conflict before any pr
   );
   assert.equal(
     fs.readFileSync(analyzerEnv, 'utf8'),
-    `BPP_DATA_ROOT=/changed\n${projected('shared', 'cf-token', '')}`
+    `BPP_DATA_ROOT="/changed"\n${projected('shared', 'cf-token', '')}`
   );
   assert.equal(
     fs.readFileSync(
@@ -257,8 +200,8 @@ test('scoped environment only injects its section allowlist; explicit environmen
   const f = fixture(t);
   f.put(
     f.home,
-    'config.ini',
-    ini({
+    'config.toml',
+    tomlConfig({
       cloudflare:
         'CLOUDFLARE_ACCOUNT_ID=account\nCLOUDFLARE_API_TOKEN="$(touch never); `exit 1`"\nNODE_OPTIONS=--bad\n',
       machine: 'CLOUDFLARE_ACCOUNT_ID=wrong-section\n',
@@ -282,13 +225,34 @@ test('scoped environment only injects its section allowlist; explicit environmen
   );
 });
 
-test('missing canonical section cannot silently run with a stale checkout file', (t) => {
+test('omitting analyzer settings still refreshes shared credentials before use', (t) => {
+  const f = fixture(t);
+  f.put(
+    f.home,
+    'config.toml',
+    tomlConfig({
+      server: 'BUNDLE_SYNC_TOKEN=shared\n',
+      cloudflare: 'CLOUDFLARE_API_TOKEN=cloud\nCLOUDFLARE_ACCOUNT_ID=account\n'
+    })
+  );
+  withProfileEnvironment('analyzer', f.home, () => {}, {}, f.repository);
+  const projection = fs.readFileSync(
+    path.join(f.repository, 'bazaarplusplus-analyzer/.env'),
+    'utf8'
+  );
+  assert.equal(parseEnv(projection).BPP_BUNDLE_SYNC_TOKEN, 'shared');
+  assert.equal(parseEnv(projection).CLOUDFLARE_API_TOKEN, 'cloud');
+  assert.equal('BPP_DATA_ROOT' in parseEnv(projection), false);
+  assert.equal('BPP_METRICS_R2_BUCKET' in parseEnv(projection), false);
+});
+
+test('omitted analyzer section cannot silently run with a stale checkout file', (t) => {
   const f = fixture(t);
   f.put(f.repository, 'bazaarplusplus-analyzer/.env', 'BPP_DATA_ROOT=/old\n');
   assert.throws(
     () =>
       withProfileEnvironment('analyzer', f.home, () => {}, {}, f.repository),
-    /Missing \[analyzer\] in config.ini/
+    /Local configuration conflict/
   );
 });
 
@@ -296,8 +260,8 @@ test('signing staging holds bundle.sh files only, never injects values, and is r
   const f = fixture(t);
   f.put(
     f.home,
-    'config.ini',
-    ini({
+    'config.toml',
+    tomlConfig({
       signing:
         "APPLE_API_KEY=K1\nAPPLE_API_ISSUER=issuer\nAPPLE_API_KEY_PATH=keys/Other.p8\nAPPLE_CERTIFICATE_PASSWORD='p\\w'\nANDROID_KEYSTORE_PASSWORD=ks-pass\nANDROID_KEY_ALIAS=bpp\n"
     })
@@ -390,8 +354,8 @@ test('doctor derives required keys from config sections and resolves signing as 
   const f = fixture(t);
   f.put(
     f.home,
-    'config.ini',
-    ini({
+    'config.toml',
+    tomlConfig({
       server: 'BUNDLE_SYNC_TOKEN=present\n',
       analyzer: 'BPP_DATA_ROOT=relative/data\n',
       cloudflare: 'CLOUDFLARE_ACCOUNT_ID=present\n'
@@ -516,8 +480,8 @@ test('CLI preserves cwd, literal arguments, child status and keeps config values
   const f = fixture(t);
   f.put(
     f.home,
-    'config.ini',
-    ini({ cloudflare: 'CLOUDFLARE_API_TOKEN=DO-NOT-PRINT\n' })
+    'config.toml',
+    tomlConfig({ cloudflare: 'CLOUDFLARE_API_TOKEN=DO-NOT-PRINT\n' })
   );
   const script = f.put(
     f.scratch,
@@ -550,8 +514,8 @@ test('CLI signing run exposes only a staging path and removes it even when the c
   const f = fixture(t);
   f.put(
     f.home,
-    'config.ini',
-    ini({
+    'config.toml',
+    tomlConfig({
       signing:
         'APPLE_API_ISSUER=DO-NOT-PRINT\nAPPLE_CERTIFICATE_PASSWORD=DO-NOT-PRINT\n'
     })
@@ -645,7 +609,7 @@ if (args[1] === 'list') {
   };
 }
 
-const secretsConfig = ini({
+const secretsConfig = tomlConfig({
   server: 'BUNDLE_SYNC_TOKEN=sync\n',
   signing:
     'APPLE_SIGNING_IDENTITY=Developer ID Application: X\nAPPLE_API_ISSUER=issuer-id\nAPPLE_API_KEY=K1\nAPPLE_CERTIFICATE_PASSWORD=\n',
@@ -655,7 +619,7 @@ const secretsConfig = ini({
 
 test('secrets check names what GitHub and the local configuration hold, never a value', (t) => {
   const f = fixture(t);
-  f.put(f.home, 'config.ini', secretsConfig);
+  f.put(f.home, 'config.toml', secretsConfig);
   f.put(f.home, 'keys/tauri-updater.key', 'UPDATER-KEY');
   f.put(f.home, 'keys/AuthKey_K1.p8', 'P8-KEY');
   const gh = ghStub(f);
@@ -665,23 +629,23 @@ test('secrets check names what GitHub and the local configuration hold, never a 
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.equal(
     result.stdout,
-    `CLOUDFLARE_ACCOUNT_ID       repository variable           GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_ACCOUNT_ID)
-CLOUDFLARE_API_TOKEN        repository secret             GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_API_TOKEN)
-BPP_BUNDLE_SYNC_TOKEN       analyzer environment secret   GitHub MISSING  local present (config.ini [server] BUNDLE_SYNC_TOKEN)
+    `CLOUDFLARE_ACCOUNT_ID       repository variable           GitHub MISSING  local present (config.toml [cloudflare] CLOUDFLARE_ACCOUNT_ID)
+CLOUDFLARE_API_TOKEN        repository secret             GitHub MISSING  local present (config.toml [cloudflare] CLOUDFLARE_API_TOKEN)
+BPP_BUNDLE_SYNC_TOKEN       analyzer environment secret   GitHub MISSING  local present (config.toml [server] BUNDLE_SYNC_TOKEN)
 STEAM_SNAPSHOT_LOGIN        steam environment secret      GitHub MISSING  local MISSING (contents of keys/steam-snapshot-login.json)
 STEAM_BETA_PASSWORDS        steam environment secret      GitHub MISSING  local MISSING (contents of keys/steam-beta-passwords.json)
-QQ_BOT_APP_ID               qqbot environment secret      GitHub MISSING  local MISSING (config.ini [qqbot] QQ_BOT_APP_ID)
-QQ_BOT_APP_SECRET           qqbot environment secret      GitHub MISSING  local MISSING (config.ini [qqbot] QQ_BOT_APP_SECRET)
+QQ_BOT_APP_ID               qqbot environment secret      GitHub MISSING  local MISSING (config.toml [qqbot] QQ_BOT_APP_ID)
+QQ_BOT_APP_SECRET           qqbot environment secret      GitHub MISSING  local MISSING (config.toml [qqbot] QQ_BOT_APP_SECRET)
 TAURI_SIGNING_PRIVATE_KEY   release environment secret    GitHub MISSING  local present (contents of keys/tauri-updater.key)
 ANDROID_KEYSTORE            release environment secret    GitHub MISSING  local MISSING (base64 of keys/android-release.p12)
-ANDROID_KEYSTORE_PASSWORD   release environment secret    GitHub MISSING  local MISSING (config.ini [signing] ANDROID_KEYSTORE_PASSWORD)
-ANDROID_KEY_ALIAS           release environment secret    GitHub MISSING  local MISSING (config.ini [signing] ANDROID_KEY_ALIAS)
-APPLE_SIGNING_IDENTITY      release environment variable  GitHub MISSING  local present (config.ini [signing] APPLE_SIGNING_IDENTITY)
-APPLE_API_ISSUER            release environment variable  GitHub MISSING  local present (config.ini [signing] APPLE_API_ISSUER)
-APPLE_API_KEY               release environment variable  GitHub MISSING  local present (config.ini [signing] APPLE_API_KEY)
+ANDROID_KEYSTORE_PASSWORD   release environment secret    GitHub MISSING  local MISSING (config.toml [signing] ANDROID_KEYSTORE_PASSWORD)
+ANDROID_KEY_ALIAS           release environment secret    GitHub MISSING  local MISSING (config.toml [signing] ANDROID_KEY_ALIAS)
+APPLE_SIGNING_IDENTITY      release environment variable  GitHub MISSING  local present (config.toml [signing] APPLE_SIGNING_IDENTITY)
+APPLE_API_ISSUER            release environment variable  GitHub MISSING  local present (config.toml [signing] APPLE_API_ISSUER)
+APPLE_API_KEY               release environment variable  GitHub MISSING  local present (config.toml [signing] APPLE_API_KEY)
 APPLE_API_KEY_P8            release environment secret    GitHub MISSING  local present (contents of keys/AuthKey_<APPLE_API_KEY>.p8)
 APPLE_CERTIFICATE           release environment secret    GitHub MISSING  local MISSING (base64 of keys/developer-id.p12)
-APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.ini [signing] APPLE_CERTIFICATE_PASSWORD)
+APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.toml [signing] APPLE_CERTIFICATE_PASSWORD)
 17 managed names: 17 missing on GitHub, 9 missing locally.
 Dependabot secrets were not listed; pass --dependabot to include them.
 `
@@ -700,14 +664,15 @@ Dependabot secrets were not listed; pass --dependabot to include them.
 
 test('secrets push copies each local value over stdin to its scope and skips absent ones', (t) => {
   const f = fixture(t);
-  f.put(
-    f.home,
-    'config.ini',
-    secretsConfig.replace(
-      'APPLE_CERTIFICATE_PASSWORD=\n',
-      'APPLE_CERTIFICATE_PASSWORD=\nANDROID_KEYSTORE_PASSWORD=ks-pass\nANDROID_KEY_ALIAS=bpp\n'
-    ) + '[qqbot]\nQQ_BOT_APP_ID=app-id\nQQ_BOT_APP_SECRET=APP-SECRET\n'
-  );
+  const config = parseConfig(secretsConfig);
+  Object.assign(config.sections.get('signing')!.values, {
+    ANDROID_KEYSTORE_PASSWORD: 'ks-pass',
+    ANDROID_KEY_ALIAS: 'bpp'
+  });
+  config.sections.set('qqbot', {
+    values: { QQ_BOT_APP_ID: 'app-id', QQ_BOT_APP_SECRET: 'APP-SECRET' }
+  });
+  f.put(f.home, 'config.toml', renderConfig(config));
   f.put(f.home, 'keys/tauri-updater.key', 'UPDATER-KEY\n');
   f.put(f.home, 'keys/AuthKey_K1.p8', 'P8-KEY');
   f.put(f.home, 'keys/developer-id.p12', Buffer.from([0x30, 0x82, 0x00, 0xff]));
@@ -773,7 +738,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
 
 test('secrets refuses unknown arguments before calling gh', (t) => {
   const f = fixture(t);
-  f.put(f.home, 'config.ini', secretsConfig);
+  f.put(f.home, 'config.toml', secretsConfig);
   const gh = ghStub(f);
   for (const args of [
     ['secrets'],

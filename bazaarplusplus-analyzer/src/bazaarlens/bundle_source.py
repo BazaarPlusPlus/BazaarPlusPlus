@@ -10,13 +10,21 @@ import time
 from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from typing import Any, Self, TypeVar
 
 import httpx
 
 from bazaarlens.durable import canonical_json
+
+# Production source and measured collection limits.
+API_BASE_URL = "https://mod-api-v6.bazaarplusplus.com"
+# The first complete Source Day after the V6 release.
+SOURCE_EPOCH = date(2026, 10, 30)
+BUNDLE_RETENTION_DAYS = 8
+DOWNLOAD_CONCURRENCY = 64
+DOWNLOAD_LOOKAHEAD = 2 * DOWNLOAD_CONCURRENCY
 
 # The V6 Worker serves only Bundle V6.
 BUNDLE_MAGIC = b"BPPBNDL6"
@@ -138,9 +146,9 @@ class BundleSource:
         sync_token: str,
         client: httpx.Client | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-        retention_days: int = 8,
-        download_concurrency: int = 64,
-        lookahead: int = 128,
+        retention_days: int = BUNDLE_RETENTION_DAYS,
+        download_concurrency: int = DOWNLOAD_CONCURRENCY,
+        lookahead: int = DOWNLOAD_LOOKAHEAD,
         sleep: Callable[[float], None] = time.sleep,
         jitter: Callable[[float], float] = _jittered_delay,
     ) -> None:

@@ -11,7 +11,7 @@
 // Installers come from the published manifests on the CDN, so only promoted builds go out.
 // Each platform carries its own published version (desktop and Android can differ),
 // and the dry run prints it for the user to check.
-// Credentials: QQ_BOT_APP_ID and QQ_BOT_APP_SECRET from config.ini [qqbot].
+// Credentials: QQ_BOT_APP_ID and QQ_BOT_APP_SECRET from config.toml [qqbot].
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { parseArgs } from 'node:util';

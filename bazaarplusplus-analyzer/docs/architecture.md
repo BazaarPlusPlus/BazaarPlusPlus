@@ -53,7 +53,7 @@ One directory-locked invocation:
 4. reuses each validated snapshot when its inputs match, otherwise builds and
    saves it, then optionally confirms or publishes it independently;
 5. after both consumer snapshots publish successfully, removes local facts older
-   than the configured number of latest Complete Source Days.
+   than the fixed retention of latest Complete Source Days.
 
 Raw Bundle envelopes are validated once at admission; only the manifest and Run
 segment cross into projection. Raw bytes are then discarded. Durable local
@@ -88,8 +88,8 @@ current snapshots with their input evidence, status, run history, and logs.
 
 ## Publication target
 
-The consumer snapshots publish to the R2 bucket `BPP_METRICS_R2_BUCKET` names,
-under the key prefix `BPP_METRICS_R2_PREFIX`: `metrics/v6/` in the public
+The consumer snapshots publish to the destination defined by `METRICS_BUCKET`
+and `METRICS_PREFIX` in `src/bazaarlens/object_store.py`: `metrics/v6/` in the public
 bucket `bazaarplusplus-public`, served read-only at
 `https://cdn.bazaarplusplus.com/metrics/v6`. The prefix names the version; a
 later contract publishes beside it, in the same bucket and domain.
@@ -143,6 +143,12 @@ the consumer contract. A local cache hit still checks the remote object when
 publication is enabled, so a failed or skipped upload can recover on the next
 run. Bump the product's `calculation_version` whenever its builder or calculation
 semantics change, including changes in shared calculation helpers.
+
+The production source and inclusive Source Epoch are defined by `API_BASE_URL`
+and `SOURCE_EPOCH` in `src/bazaarlens/bundle_source.py`. Local and CI runs use
+the same source, epoch and publication target; they are not environment settings.
+`default_data_root` in `src/bazaarlens/config.py` places local state outside all
+checkouts. `BPP_DATA_ROOT` can override it for a runner or an existing data directory.
 
 The hourly schedule keeps each run's intake small and leaves room for skipped
 schedules within the eight-day Bundle retention. `BPP_MAX_RUN_SECONDS` is set below the six-hour job

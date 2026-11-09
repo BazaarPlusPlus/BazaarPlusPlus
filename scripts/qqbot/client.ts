@@ -1,7 +1,7 @@
 // The QQ official Bot client that the qq-announce skill and the hero daily
 // report share: credentials, access token, group messages and group uploads.
 // Credentials come from QQ_BOT_APP_ID and QQ_BOT_APP_SECRET in the
-// environment: config.ini [qqbot] through `bun scripts/workspace.ts run qqbot --`
+// environment: config.toml [qqbot] through `bun scripts/workspace.ts run qqbot --`
 // locally, the `qqbot` GitHub Environment in workflows.
 import fs from 'node:fs';
 import crypto from 'node:crypto';
@@ -84,7 +84,7 @@ export function createClient(env: NodeJS.ProcessEnv = process.env) {
   const appSecret = env.QQ_BOT_APP_SECRET;
   if (!appId || !appSecret)
     throw new Error(
-      'QQ_BOT_APP_ID and QQ_BOT_APP_SECRET are not set; run through `bun scripts/workspace.ts run qqbot --` (config.ini [qqbot])'
+      'QQ_BOT_APP_ID and QQ_BOT_APP_SECRET are not set; run through `bun scripts/workspace.ts run qqbot --` (config.toml [qqbot])'
     );
 
   // Tokens last 7200 s; a long multi-group send refreshes it.

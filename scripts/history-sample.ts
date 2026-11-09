@@ -1,5 +1,5 @@
 // Development only: runs `just mod::history-sample` with the bundle_sync token. The token is
-// config.ini's [server] BUNDLE_SYNC_TOKEN, which reaches this checkout only inside the analyzer
+// config.toml's [server] BUNDLE_SYNC_TOKEN, which reaches this checkout only inside the analyzer
 // projection (`just with-config analyzer` refreshes it), so the root reads it there and the mod
 // never reads another project's file. An environment value wins.
 import fs from 'node:fs';

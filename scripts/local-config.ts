@@ -2,9 +2,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+
+// Load after setup installs root dependencies; --help works on a fresh clone.
+const require = createRequire(import.meta.url);
+const toml = (): typeof import('smol-toml') => require('smol-toml');
 
 export const root = path.resolve(import.meta.dirname, '..');
-const CONFIG = 'config.ini';
+export const CONFIG = 'config.toml';
 const KEYS = 'keys';
 const STAGING = '.signing-';
 const serverKeys = [
@@ -14,11 +19,11 @@ const serverKeys = [
   'BAZAARDB_DELIVERY_TOKEN'
 ];
 const cloudflareKeys = ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'];
-// The one owner of each config.ini section, in file order: its profile, how
+// The one owner of each config.toml section, in file order: its profile, how
 // that profile delivers it, its keys and which of them doctor requires. Each
 // section has exactly one delivery:
 //   projection  copied to a project file, refreshed before the command; the
-//               section's own text, then `projected` keys from other sections
+//               section's values, then `projected` keys from other sections
 //               so one credential lives in one place
 //   inject      allowlisted keys enter the command environment
 //   stage       values become files in a private BPP_SIGNING_SECRETS_DIR for
@@ -33,11 +38,10 @@ export interface ProjectedKey {
   as?: string;
 }
 
-/** One config.ini section's profile, delivery and keys; see the table below. */
+/** One config.toml section's profile, delivery and keys; see the table below. */
 export interface SectionSpec {
   profile: string;
   projection?: string;
-  template?: string;
   absolute?: string[];
   projected?: ProjectedKey[];
   keys?: string[];
@@ -48,18 +52,15 @@ export interface SectionSpec {
   optional?: true | string[];
   /** Doctor scope to the keys it requires. */
   required?: Record<string, string[]>;
-  notes?: string[];
 }
 
-/** One parsed config.ini section: its normalized text and its values. */
+/** One parsed config.toml section: its string values. */
 export interface ConfigSection {
-  body: string;
   values: Record<string, string>;
 }
 
-/** A parsed config.ini: the text before the first section, then each section. */
+/** A parsed config.toml: one mapping per purpose. */
 export interface ParsedConfig {
-  preamble: string;
   sections: Map<string, ConfigSection>;
 }
 
@@ -99,7 +100,13 @@ export const sections: SectionTable = {
     profile: 'analyzer',
     projection: 'bazaarplusplus-analyzer/.env',
     // The analyzer owns its keys; bazaarlens.config load_config reads them.
-    template: 'bazaarplusplus-analyzer/.env.example',
+    keys: [
+      'BPP_DATA_ROOT',
+      'BPP_MAX_RUN_SECONDS',
+      'BPP_DUCKDB_MEMORY_LIMIT',
+      'BPP_DUCKDB_THREADS'
+    ],
+    optional: true,
     // Every clone receives the same text, so a relative path would move.
     absolute: ['BPP_DATA_ROOT'],
     // Appended to the projection from their owning sections.
@@ -107,11 +114,7 @@ export const sections: SectionTable = {
       { from: 'server', key: 'BUNDLE_SYNC_TOKEN', as: 'BPP_BUNDLE_SYNC_TOKEN' },
       { from: 'cloudflare', key: 'CLOUDFLARE_API_TOKEN' },
       { from: 'cloudflare', key: 'CLOUDFLARE_ACCOUNT_ID' }
-    ],
-    required: {
-      analyzer: ['BPP_DATA_ROOT', 'BPP_API_BASE_URL'],
-      'analyzer publish': ['BPP_METRICS_R2_BUCKET']
-    }
+    ]
   },
   signing: {
     profile: 'signing',
@@ -140,47 +143,28 @@ export const sections: SectionTable = {
       'APPLE_API_KEY_PATH',
       'ANDROID_KEYSTORE_PASSWORD',
       'ANDROID_KEY_ALIAS'
-    ],
-    notes: [
-      '# Key files live in keys/: tauri-updater.key, AuthKey_<APPLE_API_KEY>.p8,',
-      '# developer-id.p12 (the Developer ID certificate export APPLE_CERTIFICATE_PASSWORD opens)',
-      '# and android-release.p12 (the Android release keystore ANDROID_KEYSTORE_PASSWORD opens).',
-      '# APPLE_API_KEY_PATH is optional; a relative path resolves against this directory.'
     ]
   },
   machine: {
     profile: 'mod',
     inject: ['BPP_MANAGED_PATH', 'BPP_GAME_ROOT'],
-    optional: true,
-    notes: ['# Optional overrides for nonstandard game installations.']
+    optional: true
   },
   game: {
     profile: 'game',
     inject: ['BPP_GAME_EMAIL', 'BPP_GAME_PASSWORD'],
-    optional: true,
-    notes: [
-      '# Optional local test account for just android::dev-login.',
-      '# Stored outside the checkout; never synced to GitHub secrets.'
-    ]
+    optional: true
   },
   cloudflare: {
     profile: 'release',
     keys: cloudflareKeys,
     inject: cloudflareKeys,
-    required: { release: cloudflareKeys },
-    notes: [
-      '# CLOUDFLARE_API_TOKEN is the one Account API Token: R2 read and write on every bucket, plus',
-      '# what Wrangler needs. GitHub holds it as one repository secret, also given to Dependabot.'
-    ]
+    required: { release: cloudflareKeys }
   },
   qqbot: {
     profile: 'qqbot',
     inject: ['QQ_BOT_APP_ID', 'QQ_BOT_APP_SECRET'],
-    optional: true,
-    notes: [
-      '# The QQ official Bot: the qq-announce skill and the hero daily report.',
-      '# GitHub holds both keys in the qqbot environment.'
-    ]
+    optional: true
   }
 };
 for (const [name, spec] of Object.entries(sections)) {
@@ -191,7 +175,7 @@ for (const [name, spec] of Object.entries(sections)) {
       throw new Error(`[${name}] projects an unknown key ${from} ${key}`);
 }
 export const profiles = Object.values(sections).map((spec) => spec.profile);
-// A section with a template file lists no keys of its own.
+// Keys owned by a section; projected credentials stay with their source.
 export function sectionKeys(spec: SectionSpec): string[] {
   return spec.keys || spec.inject || Object.values(spec.stage || {});
 }
@@ -287,168 +271,85 @@ function ownedPath(directory: string, relative: string): string {
   return file;
 }
 
-// Projected sections are read again by Wrangler's dotenv and python-dotenv,
-// which disagree on escapes and on # inside unquoted values. A value is
-// accepted only in the form all of them, and this parser, read the same way.
-// Errors name the line and key, never the value: values are credentials.
-function parseValue(raw: string, key: string, where: string): string {
-  const value = raw.trimStart();
-  const quote = value[0];
-  if (quote === "'" || quote === '"') {
-    const end = value.indexOf(quote, 1);
-    if (end < 0)
-      throw new Error(
-        `Unterminated quote for ${key} on ${where}; values are single-line`
-      );
-    const inner = value.slice(1, end);
-    if (!/^\s*(#.*)?$/.test(value.slice(end + 1)))
-      throw new Error(
-        `Unexpected text after the closing quote for ${key} on ${where}`
-      );
-    if (quote === '"' && inner.includes('\\'))
-      throw new Error(
-        `Backslash in a double-quoted value for ${key} on ${where}; use single quotes or leave it unquoted`
-      );
-    if (quote === "'" && (inner.includes('\\\\') || inner.endsWith('\\')))
-      throw new Error(
-        `Escaped backslash in a single-quoted value for ${key} on ${where}; dotenv readers disagree on it`
-      );
-    return inner;
-  }
-  if (quote === '`')
-    throw new Error(
-      `Backtick quotes are unsupported for ${key} on ${where}; use single quotes`
-    );
-  if (quote === '#')
-    throw new Error(
-      `Value for ${key} on ${where} starts with #; quote it or leave it empty`
-    );
-  const hash = value.indexOf('#');
-  if (hash < 0) return value.trimEnd();
-  if (!/\s/.test(value[hash - 1]))
-    throw new Error(
-      `Unquoted # in the value for ${key} on ${where}; quote the value`
-    );
-  return value.slice(0, hash).trimEnd();
-}
-
-// A section while it is read: its raw lines and its values.
-interface OpenSection {
-  lines: string[];
-  values: Record<string, string>;
-}
-
-function parse(text: string, label: string, start?: string): ParsedConfig {
-  const preamble: string[] = [];
-  const found = new Map<string, OpenSection>();
-  const open = (name: string): OpenSection => {
-    const section: OpenSection = { lines: [], values: {} };
-    found.set(name, section);
-    return section;
-  };
-  let current = start ? open(start) : undefined;
-  text
-    .replace(/^\uFEFF/, '')
-    .split(/\r?\n/)
-    .forEach((line, index) => {
-      const where = `${label} line ${index + 1}`;
-      if (/[\r\0]/.test(line))
-        throw new Error(`Carriage return or NUL on ${where}`);
-      if (/^\s*\[/.test(line)) {
-        const name = /^\s*\[([^\]]*)\]\s*$/.exec(line)?.[1];
-        if (name === undefined)
-          throw new Error(
-            `Malformed section header on ${where}; put [name] alone on its line`
-          );
-        if (!Object.hasOwn(sections, name))
-          throw new Error(
-            `Unknown section header on ${where}; sections are ${Object.keys(sections).join(', ')}`
-          );
-        if (found.has(name)) throw new Error(`Duplicate [${name}] on ${where}`);
-        current = open(name);
-        return;
-      }
-      if (/^\s*(#.*)?$/.test(line)) {
-        (current?.lines || preamble).push(line);
-        return;
-      }
-      if (/^\s*;/.test(line)) throw new Error(`Use # for comments on ${where}`);
-      const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/.exec(
-        line
-      );
-      if (!match || !current)
-        throw new Error(`Expected KEY=value inside a section on ${where}`);
-      const [, key, raw] = match;
-      if (Object.hasOwn(current.values, key))
-        throw new Error(`Duplicate ${key} on ${where}`);
-      current.values[key] = parseValue(raw, key, where);
-      current.lines.push(line);
-    });
-  const trim = (lines: string[]): string => {
-    const text = lines
-      .join('\n')
-      .replace(/^\s*\n/, '')
-      .trimEnd();
-    return text ? `${text}\n` : '';
-  };
-  return {
-    preamble: trim(preamble),
-    sections: new Map(
-      [...found].map(([name, { lines, values }]) => [
-        name,
-        { body: trim(lines), values }
-      ])
-    )
-  };
-}
-
-// Returns the preamble and, per section, its normalized body and values.
+// Parser diagnostics include source text, so never expose the original error.
+// String scalars preserve credentials exactly; quote numbers, booleans and dates.
 export function parseConfig(text: string, label = CONFIG): ParsedConfig {
-  return parse(text, label);
-}
-
-// One section's body, such as the analyzer's .env.example.
-function parseSection(
-  name: string,
-  text: string,
-  label: string
-): ConfigSection | undefined {
-  return parse(text, label, name).sections.get(name);
-}
-
-function renderConfig({ preamble, sections: found }: ParsedConfig): string {
-  const parts = preamble ? [preamble] : [];
-  for (const name of Object.keys(sections)) {
-    const section = found.get(name);
-    if (section) parts.push(`[${name}]\n${section.body}`);
+  let data: unknown;
+  try {
+    data = toml().parse(text);
+  } catch {
+    throw new Error(`Invalid TOML in ${label}`);
   }
-  return parts.join('\n');
+  if (!isMapping(data))
+    throw new Error(`${label} must contain a section mapping`);
+  const found = new Map<string, ConfigSection>();
+  for (const [name, raw] of Object.entries(data)) {
+    if (!Object.hasOwn(sections, name))
+      throw new Error(
+        `Unknown section in ${label}; use ${Object.keys(sections).join(', ')}`
+      );
+    if (!isMapping(raw))
+      throw new Error(`${label} ${name} must contain a key mapping`);
+    const values: Record<string, string> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
+        throw new Error(`Invalid key in ${label} ${name}`);
+      if (name === 'analyzer' && !sectionKeys(sections.analyzer).includes(key))
+        throw new Error(`Unsupported analyzer setting: ${key}`);
+      if (typeof value !== 'string' || /[\r\n\0]/.test(value))
+        throw new Error(
+          `${label} ${name}.${key} must be a single-line string; quote scalar values`
+        );
+      values[key] = value;
+    }
+    found.set(name, { values });
+  }
+  return { sections: found };
 }
 
-const PROJECTED_MARKER = '# Projected from config.ini';
+function isMapping(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    (Object.getPrototypeOf(value) === Object.prototype ||
+      Object.getPrototypeOf(value) === null)
+  );
+}
 
-// The bytes a projection receives: the section's own text, then the keys it
+export function renderConfig({ sections: found }: ParsedConfig): string {
+  return toml().stringify(
+    Object.fromEntries(
+      [...found].map(([name, section]) => [name, section.values])
+    )
+  );
+}
+
+const PROJECTED_MARKER = '# Projected from config.toml';
+
+// The bytes a projection receives: the section's values, then the keys it
 // takes from other sections under a marker line, so a reader of the project
 // file sees where to edit.
 function projectionBody(config: ParsedConfig, name: string): string {
   const spec = sections[name];
   const section = config.sections.get(name);
-  // projectionChanges calls this only for a section the config holds.
-  if (!section) throw new Error(`Missing [${name}] in ${CONFIG}`);
-  let body = section.body;
+  if (!section && !spec.optional)
+    throw new Error(`Missing [${name}] in ${CONFIG}`);
+  let body = Object.entries(section?.values || {})
+    .map(([key, value]) => quoted(key, value))
+    .join('\n');
+  if (body) body += '\n';
   const projected = spec.projected || [];
   if (projected.length === 0) return body;
   const owners = [...new Set(projected.map(({ from }) => `[${from}]`))];
   const lines = projected.map(({ from, key, as = key }) =>
     quoted(as, config.sections.get(from)?.values[key] ?? '')
   );
-  if (body && !body.endsWith('\n')) body += '\n';
   return `${body}${PROJECTED_MARKER} ${owners.join(' and ')}; edit there.\n${lines.join('\n')}\n`;
 }
 
 export function readConfig(home: string): ParsedConfig {
   const file = ownedPath(home, CONFIG);
-  if (!regularFile(file)) return { preamble: '', sections: new Map() };
+  if (!regularFile(file)) return { sections: new Map() };
   return parseConfig(fs.readFileSync(file, 'utf8'));
 }
 
@@ -465,25 +366,21 @@ function quoted(key: string, value: string): string {
   throw new Error(`Unsupported characters for ${key}`);
 }
 
-function templateConfig(repository: string): ParsedConfig {
-  const lines = [
-    '# BazaarPlusPlus local configuration. Parsed as data, never sourced.',
-    '# Sections, value rules and what each one supplies: bun scripts/workspace.ts --help',
-    ''
-  ];
-  for (const [name, spec] of Object.entries(sections)) {
-    lines.push(`[${name}]`, ...(spec.notes || []));
-    if (spec.template) {
-      const text = fs.readFileSync(
-        path.join(repository, spec.template),
-        'utf8'
-      );
-      parseSection(name, text, spec.template);
-      lines.push(text.trimEnd());
-    } else lines.push(...sectionKeys(spec).map((key) => `${key}=`));
-    lines.push('');
-  }
-  return parse(lines.join('\n'), `${CONFIG} template`);
+function templateConfig(): ParsedConfig {
+  return {
+    sections: new Map(
+      Object.entries(sections)
+        .filter(([, spec]) => !(spec.projection && spec.optional))
+        .map(([name, spec]) => [
+          name,
+          {
+            values: Object.fromEntries(
+              sectionKeys(spec).map((key) => [key, ''])
+            )
+          }
+        ])
+    )
+  };
 }
 
 export function initializeConfig(home: string, repository = root): void {
@@ -492,7 +389,7 @@ export function initializeConfig(home: string, repository = root): void {
   privateDirectory(path.join(home, KEYS));
   const file = ownedPath(home, CONFIG);
   if (!regularFile(file))
-    privateWrite(file, renderConfig(templateConfig(repository)), true);
+    privateWrite(file, renderConfig(templateConfig()), true);
   else if (process.platform !== 'win32') fs.chmodSync(file, 0o600);
   readConfig(home);
   // Staging left behind by an interrupted signing command. A day's margin
@@ -529,9 +426,9 @@ export function projectionChanges(
   for (const [name, spec] of Object.entries(sections)) {
     const relative = spec.projection;
     const section = config.sections.get(name);
-    if (!relative || !section) continue;
+    if (!relative || (!section && !spec.optional)) continue;
     for (const key of spec.absolute || []) {
-      const value = section.values[key];
+      const value = section?.values[key];
       if (value && !path.isAbsolute(value))
         throw new Error(`${key} must be absolute in [${name}]`);
     }
@@ -716,7 +613,7 @@ export function withProfileEnvironment<T>(
   const [name, spec] = found;
   const config = readConfig(home);
   if (spec.projection) {
-    if (!config.sections.has(name))
+    if (!config.sections.has(name) && !spec.optional)
       throw new Error(`Missing [${name}] in ${CONFIG}; run just setup`);
     refreshProjections(home, repository);
     return use({ ...env });

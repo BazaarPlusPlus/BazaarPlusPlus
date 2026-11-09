@@ -101,7 +101,7 @@ test('check names each missing name and its local source, then fails', () => {
   );
   assert.match(
     result.stdout,
-    /::error title=Missing secret::CLOUDFLARE_ACCOUNT_ID is not set for this run; its value is: config\.ini \[cloudflare\] CLOUDFLARE_ACCOUNT_ID/
+    /::error title=Missing secret::CLOUDFLARE_ACCOUNT_ID is not set for this run; its value is: config\.toml \[cloudflare\] CLOUDFLARE_ACCOUNT_ID/
   );
   assert.match(result.stderr, /2 required secret\(s\) missing/);
   assertNoValueLeak(result);
@@ -226,7 +226,7 @@ test('stage refuses to write a partial directory', (t) => {
   assert.equal(result.status, 1);
   assert.match(
     result.stdout,
-    /Missing secret::APPLE_API_ISSUER is not set for this run; its value is: config\.ini \[signing\] APPLE_API_ISSUER/
+    /Missing secret::APPLE_API_ISSUER is not set for this run; its value is: config\.toml \[signing\] APPLE_API_ISSUER/
   );
   assert.ok(!fs.existsSync(directory));
 });

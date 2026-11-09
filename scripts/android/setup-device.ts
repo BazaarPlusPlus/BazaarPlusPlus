@@ -168,7 +168,7 @@ game when another build is there (uninstalling it loses only that package's own
 data; the App's sandbox and its game login stay), installs the
 debug Android App with its runtime and the Development interop, deploys this
 checkout's mod into the App, then starts one development login request. With
-config.ini [game], the Mod submits the game's own login form; without it, sign
+config.toml [game], the Mod submits the game's own login form; without it, sign
 in in the game window. It waits for authenticated login and profile data in that
 process, then MainMenuScene and a following hooks summary, and captures the
 screen and native display metrics. Device or game failures stop this attempt.
@@ -533,7 +533,7 @@ async function until(
 
 // Brings the AVD to the player's setup with this checkout: the locked official game, the debug
 // Android App with its runtime and the Development interop, this checkout's mod in the App's game
-// files, and the game login from config.ini [game] when it holds one.
+// files, and the game login from config.toml [game] when it holds one.
 async function provision(
   adb: (...args: string[]) => string,
   env: DeviceEnv,

@@ -66,6 +66,6 @@ dev-manifest-port port:
 dev-reset:
     {{ adb }} shell run-as com.bazaarplusplus.android.dev rm -rf files/dev
 
-# Sign the debug App's game in through its Log In form with config.ini [game]; pass --help for details.
+# Sign the debug App's game in through its Log In form with config.toml [game]; pass --help for details.
 dev-login serial *args:
     bun ../scripts/android/android-login.ts "$@"
