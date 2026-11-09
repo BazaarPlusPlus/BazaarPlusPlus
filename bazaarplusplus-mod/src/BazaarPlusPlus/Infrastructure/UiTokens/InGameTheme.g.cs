@@ -130,6 +130,9 @@ internal static class InGameTheme
     /// <summary>Button state tint of a button that takes no input; a dimmed desktop button also rests on it.</summary>
     public static readonly Color TintDisabled = new(166f / 255f, 166f / 255f, 166f / 255f, 140f / 255f);
 
+    /// <summary>The Desktop UI kit's plate under the pointer for a control with no plate at rest: a quiet button, a list row, an unselected segment or day.</summary>
+    public static readonly Color PlateHover = new(245f / 255f, 227f / 255f, 186f / 255f, 23f / 255f);
+
     /// <summary>Supporter name colour, tier 1. Core's BPPSupporterAttribution.TierHex repeats the four tier values for rich text; design::check compares them.</summary>
     public static readonly Color Supporter1 = new(199f / 255f, 212f / 255f, 230f / 255f, 1f);
 

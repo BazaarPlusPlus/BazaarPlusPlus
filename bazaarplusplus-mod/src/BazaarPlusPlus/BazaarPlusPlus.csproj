@@ -23,6 +23,11 @@
   <Import Project="RemoteEmbeddedData.targets" />
   <Import Project="$(MSBuildThisFileDirectory)../../../release/generated/Payload.targets" />
 
+  <!-- The Kit Gallery is a Debug-build panel (ADR-0027): a Release build does not compile it. -->
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="Game\KitGallery\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <EmbeddedResource
       Include="Resources\HistoryPanel\control-*.png"

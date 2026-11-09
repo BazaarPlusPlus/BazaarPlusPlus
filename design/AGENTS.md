@@ -4,7 +4,7 @@ The BazaarPlusPlus design system: the one source for design tokens, the shared `
 
 | File | Owns | Consumers |
 |---|---|---|
-| `tokens.json` | Every colour, spacing, radius, size, shadow, motion and font-stack value | `bazaarplusplus-installer/src/styles/tokens.css` (generated), which the site copies; the `ingame-*` colours generate the mod's two `InGameTheme.g.cs` files instead; the product colours, spacing, radii, sizes and type sizes also generate the Android App's `res/values/bpp_tokens.xml` |
+| `tokens.json` | Every colour, spacing, radius, size, shadow, motion and font-stack value | `bazaarplusplus-installer/src/styles/tokens.css` (generated), which the site copies; the `ingame-*` colours generate the mod's two `InGameTheme.g.cs` files instead, and `control-*`, `badge-height`, `space-*` and the `ingame-text-*` sizes the Desktop UI's `InGameSizes.g.cs`; the product colours, spacing, radii, sizes and type sizes also generate the Android App's `res/values/bpp_tokens.xml` |
 | `components/bundle.css` | The shared `bpp-*` classes | Imported by `bazaarplusplus-installer/src/styles/index.css` and `bazaarplusplus-site/src/styles/global.css` |
 | `ui/` | The Web component library: one React implementation of each shared component, drawn only with `bundle.css` classes | The installer and the site, as `@bpp/ui` (a Vite alias and a tsconfig path in each) |
 | `ui-classes.ts` | The check that a component's classes exist in a stylesheet | Each product's `bundle-classes` test |

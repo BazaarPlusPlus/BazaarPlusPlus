@@ -6,9 +6,11 @@ namespace BazaarPlusPlus.Game.OverlayPanels;
 
 // The Walkthrough Control (GLOSSARY.md §Overlay panels): the device walkthrough
 // (`.agents/skills/walkthrough/`) opens a Main Overlay Panel by writing `open <panel id>` to
-// walkthrough-command.txt in the Data Root. Each host adapter asks it for a toggle every frame and
-// feeds that to OverlayPanelHost as a hotkey toggle, so the lifecycle rules still apply: combat
-// refuses the open and an open modal swallows it. The file is deleted before the command runs; a
+// walkthrough-command.txt in the Data Root, and `shot <name>` asks the host for a capture of the
+// game window (`just mod::ui-shots`; a host that cannot capture logs it as unsupported). Each
+// host adapter asks it for a toggle every frame and feeds that to OverlayPanelHost as a hotkey
+// toggle, so the lifecycle rules still apply: combat refuses the open and an open modal swallows
+// it. The file is deleted before the command runs; a
 // file the host cannot read or delete stops the control for the session, so no command repeats.
 public sealed class WalkthroughControl
 {
@@ -18,11 +20,13 @@ public sealed class WalkthroughControl
     // file check per poll.
     private const float PollIntervalSeconds = 0.5f;
     private const string OpenVerb = "open ";
+    private const string ShotVerb = "shot ";
 
     private readonly string _path;
     private float _sincePoll;
     private bool _stopped;
     private string? _requested;
+    private string? _shot;
 
     public WalkthroughControl(string dataRoot) => _path = Path.Combine(dataRoot, CommandFileName);
 
@@ -58,6 +62,22 @@ public sealed class WalkthroughControl
             return null;
         }
 
+        if (command.StartsWith(ShotVerb, StringComparison.Ordinal))
+        {
+            var name = command.Substring(ShotVerb.Length).Trim();
+            if (IsShotName(name))
+                _shot = name;
+            else
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.OverlayPanels,
+                        "overlay_panels.walkthrough.rejected"
+                    ),
+                    ("command", command)
+                );
+            return null;
+        }
+
         var panelId = command.StartsWith(OpenVerb, StringComparison.Ordinal)
             ? command.Substring(OpenVerb.Length).Trim()
             : "";
@@ -76,6 +96,19 @@ public sealed class WalkthroughControl
         _requested = panelId;
         return panelId == openPanelId ? null : panelId;
     }
+
+    // The capture `shot <name>` asked for, once: the host writes it as <name>.png. The name is
+    // lowercase letters, digits and dashes, so it cannot leave the capture folder.
+    public string? TakeShot()
+    {
+        var shot = _shot;
+        _shot = null;
+        return shot;
+    }
+
+    public static bool IsShotName(string name) =>
+        name.Length is > 0 and <= 64
+        && name.All(character => character is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-');
 
     // After the host's frame: one line with the request and the panel open now, since combat or a
     // modal can refuse the toggle.

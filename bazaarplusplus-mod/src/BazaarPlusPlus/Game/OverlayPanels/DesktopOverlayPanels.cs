@@ -25,6 +25,13 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
     // Set by the mount when the host has a Data Root; null leaves only the hotkeys.
     public WalkthroughControl? Walkthrough { get; set; }
 
+    // Where a Walkthrough Control `shot` writes its capture; set with Walkthrough.
+    public string? ShotDirectory { get; set; }
+
+    // A panel the Walkthrough Control alone opens, such as the Debug-build Kit Gallery.
+    public IOverlayPanelHandle Register(OverlayPanelRegistration registration) =>
+        _host.Register(registration);
+
     // hotkeyGuard returning false swallows the whole toggle (open and close) for that frame,
     // e.g. while a text input inside the panel has focus.
     public IOverlayPanelHandle Register(
@@ -54,6 +61,8 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
             )
         );
         Walkthrough?.AfterFrame(_host.OpenPanelId);
+        if (Walkthrough?.TakeShot() is { } shot && ShotDirectory != null)
+            StartCoroutine(DesktopUiShot.Capture(ShotDirectory, shot));
     }
 
     private string? ResolvePressedHotkeyPanelId(Keyboard? keyboard)

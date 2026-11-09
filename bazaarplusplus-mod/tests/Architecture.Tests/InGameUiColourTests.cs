@@ -5,7 +5,7 @@ namespace Architecture.Tests;
 
 public sealed class InGameUiColourTests
 {
-    // The Desktop UI the in-game kit covers (ADR-0026).
+    // The Desktop UI the in-game kit covers (ADR-0026, ADR-0027).
     private static readonly string[] Scope =
     {
         "BazaarPlusPlus.Game.CollectionPanel",
@@ -16,6 +16,8 @@ public sealed class InGameUiColourTests
         "BazaarPlusPlus.GameInterop.Heroes",
         "BazaarPlusPlus.GameInterop.NativeSkin",
         "BazaarPlusPlus.Infrastructure.UiTokens",
+        "BazaarPlusPlus.Infrastructure.DesktopKit",
+        "BazaarPlusPlus.Game.KitGallery",
     };
 
     private const string NativeSkin = "BazaarPlusPlus.GameInterop.NativeSkin.DesktopNativeSkin";

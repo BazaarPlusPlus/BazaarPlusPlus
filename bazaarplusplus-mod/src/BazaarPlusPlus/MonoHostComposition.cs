@@ -335,6 +335,9 @@ internal sealed class MonoHostComposition : IDisposable
                 overlayHost: () => overlayPanelHostMount.Host
             )
         );
+#if DEBUG
+        _mountables.Register(new Game.KitGallery.KitGalleryMount(() => overlayPanelHostMount.Host));
+#endif
         _mountables.Register(
             new LiveBuildPanelMount(
                 () => overlayPanelHostMount.Host,

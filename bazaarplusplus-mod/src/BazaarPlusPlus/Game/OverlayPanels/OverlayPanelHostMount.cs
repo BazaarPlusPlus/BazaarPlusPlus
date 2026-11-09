@@ -16,7 +16,10 @@ internal sealed class OverlayPanelHostMount : IBppMountable
     {
         Host = host.AddComponent<DesktopOverlayPanels>();
         if (services.Paths.DataRootDirectoryPath is { } dataRoot)
+        {
             Host.Walkthrough = new WalkthroughControl(dataRoot);
+            Host.ShotDirectory = Path.Combine(dataRoot, DesktopUiShot.DirectoryName);
+        }
     }
 
     public void Unmount(GameObject host)

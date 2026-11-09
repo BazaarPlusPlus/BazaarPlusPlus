@@ -141,7 +141,8 @@ The mod's panels sit inside The Bazaar, so they speak the game's language rather
 - **Shared values, per-host states.** A native-art button's state tints are `ingame-tint-*`: `ingame-tint-rest` and `ingame-tint-rest-hover` for a resting record row, `ingame-tint-quiet-hover` for an unselected tab, `ingame-tint-pressed` and `ingame-tint-disabled`. Supporter names are `ingame-supporter-1` to `-4`, card qualities on a chip `ingame-tier-bronze` to `ingame-tier-legendary`, and a hero badge outside the hero table is `ingame-hero-none` (no hero) or `ingame-hero-unlisted`, with `ingame-hero-ink-dark` text on a light hero colour. Each host decides which state takes which tint; the desktop alone dims a button that still takes input (`ingame-tint-dimmed-hover`).
 - **No literals, checked.** The mod's `InGameUiColourTests` and `MobileUiColourTests` fail on a colour constructed or parsed in a covered panel (ADR-0026 in the mod); Core's supporter rich text repeats its tokens as hex, and `just design::check` compares them.
 - **Two layouts.** The desktop lays panels out for a mouse (`HistoryPanelLayout`, `LiveBuildPanelLayout`, `UiTokens/Sizes.cs`); Android lays them out for touch from `TouchChrome` and `TouchMetrics` (48dp targets, 12sp minimum text, ADR-0018 in the mod). A panel looks the same on both and is arranged for its input.
-- `components/InGamePanel/` previews the result.
+- **One kit for desktop controls.** The Desktop UI's buttons, segmented controls, chips, fields, list rows and the day strip come from the Desktop Kit, flat plates on the game's `Btn_Rct_Frame_Fill_Solid_TUI` tinted by token. Its sizes are `control-*`, `badge-height`, `space-*` and the `ingame-text-*` type sizes, generated into `InGameSizes.g.cs`. `components/InGameKit/` is its spec; panels move to it one at a time.
+- `components/InGamePanel/` previews the panels that have not moved yet.
 
 ## Exceptions
 

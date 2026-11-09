@@ -63,6 +63,10 @@ android-launcher:
 history-sample *args:
     bash scripts/history-sample.sh "$@"
 
+# Development only: open panels in the running desktop game and capture each inside the game; see --help.
+ui-shots *args:
+    bash scripts/ui-shots.sh "$@"
+
 # Save logs, a screenshot and display metadata under artifacts/android/<run>/.
 android-capture run:
     bash scripts/android.sh capture "$@"
