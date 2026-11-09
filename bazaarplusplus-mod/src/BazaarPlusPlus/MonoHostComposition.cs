@@ -5,6 +5,7 @@ using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BilingualItemNames;
 using BazaarPlusPlus.Game.BundlePipeline;
+using BazaarPlusPlus.Game.ChineseTranslations;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.CombatReplay.Video;
@@ -215,6 +216,7 @@ internal sealed class MonoHostComposition : IDisposable
                 eventBus.Publish(new ChineseLocaleModeChanged())
             )
         );
+        _settingsDockRegistry.Register(ChineseTranslationSettingsDockEntry.Create());
         _settingsDockRegistry.Register(BilingualItemNamesSettingsDockEntry.Create());
         _settingsDockRegistry.Register(CosmeticNamesSettingsDockEntry.Create());
         PanelButtonSettingsDockEntries.RegisterAll(_settingsDockRegistry);

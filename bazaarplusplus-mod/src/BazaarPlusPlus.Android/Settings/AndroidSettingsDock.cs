@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Game.ChineseTranslations;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.DetailedPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
@@ -177,6 +178,7 @@ internal static class AndroidSettingsDock
                 hooks.OpenHistory
             )
         );
+        registry.Register(ChineseTranslationSettingsDockEntry.Create());
         registry.Register(new GameUpdateEntry(hooks));
         // Read once a second by Game.AndroidFrameRatePriority, which applies a change itself.
         registry.Register(

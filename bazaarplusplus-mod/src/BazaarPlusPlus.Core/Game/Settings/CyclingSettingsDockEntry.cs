@@ -24,6 +24,7 @@ public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
     private readonly Func<T, string, string> _resolveStatus;
     private readonly Action<T>? _onChanged;
     private readonly bool _renderAsToggle;
+    private readonly Func<string, bool> _isVisible;
 
     public CyclingSettingsDockEntry(
         int order,
@@ -35,7 +36,8 @@ public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
         Func<T, bool> highlightWhen,
         Func<T, string, string> resolveStatus,
         Action<T>? onChanged = null,
-        bool renderAsToggle = false
+        bool renderAsToggle = false,
+        Func<string, bool>? isVisible = null
     )
     {
         Order = order;
@@ -53,6 +55,7 @@ public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
         _resolveStatus = resolveStatus ?? throw new ArgumentNullException(nameof(resolveStatus));
         _onChanged = onChanged;
         _renderAsToggle = renderAsToggle;
+        _isVisible = isVisible ?? (_ => true);
     }
 
     public int Order { get; }
@@ -68,7 +71,8 @@ public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
                 _key,
                 _resolveLabel,
                 () => (bool)(object)_read(config)!,
-                enabled => Write(config, (T)(object)enabled)
+                enabled => Write(config, (T)(object)enabled),
+                isVisible: _isVisible
             );
         }
 
@@ -77,7 +81,8 @@ public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
             _resolveLabel,
             () => _highlightWhen(_read(config)),
             languageCode => ResolveChoiceState(config, languageCode),
-            standardIndex => SelectStandardChoice(config, standardIndex)
+            standardIndex => SelectStandardChoice(config, standardIndex),
+            isVisible: _isVisible
         );
     }
 
@@ -87,7 +92,8 @@ public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
         Func<string, string> resolveLabel,
         Func<BppSettings, bool> read,
         Action<BppSettings, bool> write,
-        Action<bool>? onChanged = null
+        Action<bool>? onChanged = null,
+        Func<string, bool>? isVisible = null
     ) =>
         new(
             order,
@@ -99,7 +105,8 @@ public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
             value => value,
             (value, _) => value ? "ON" : "OFF",
             onChanged: onChanged,
-            renderAsToggle: true
+            renderAsToggle: true,
+            isVisible: isVisible
         );
 
     private BppSettingsChoiceState ResolveChoiceState(BppSettings config, string languageCode)

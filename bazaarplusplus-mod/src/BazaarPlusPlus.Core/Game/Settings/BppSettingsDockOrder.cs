@@ -38,4 +38,5 @@ public static class BppSettingsDockOrder
 
     // The Android host's switch that keeps the game's frame-rate setting under load.
     public const int FrameRatePriority = 25;
+    public const int ChineseTranslationImprovements = 26;
 }

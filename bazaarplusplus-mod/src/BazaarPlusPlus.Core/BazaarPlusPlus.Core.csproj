@@ -60,6 +60,10 @@
     <EmbeddedResource Include="Data/CollectionSources/collection-sources.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Game/ChineseTranslations/zh-CN.overrides.json" />
+  </ItemGroup>
+
   <!-- The end-of-run screenshot's PNG and its Bundle JPEG, on every host. -->
   <ItemGroup>
     <PackageReference Include="SixLabors.ImageSharp" />

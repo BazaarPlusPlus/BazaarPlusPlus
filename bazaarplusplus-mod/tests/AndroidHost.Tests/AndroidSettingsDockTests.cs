@@ -36,6 +36,7 @@ public sealed class AndroidSettingsDockTests
                 "UpgradePreview",
                 "GameUpdate",
                 "FrameRatePriority",
+                "ChineseTranslationImprovements",
             },
             dock.Rows.Select(row => row.Key)
         );
@@ -51,6 +52,7 @@ public sealed class AndroidSettingsDockTests
                 BppSettingsControlKind.Action,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Action,
+                BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Toggle,
             },
             dock.Rows.Select(row => row.ControlKind)

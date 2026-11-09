@@ -512,6 +512,7 @@ internal sealed class AndroidNativeSettingsSection
         foreach (var row in _rows)
         {
             var definition = row.Definition;
+            hash = (hash * 31) ^ definition.IsVisible(languageCode).GetHashCode();
             hash = (hash * 31) ^ definition.Key.GetHashCode();
             hash = (hash * 31) ^ definition.IsActive().GetHashCode();
             hash = (hash * 31) ^ definition.ResolveLabel(languageCode).GetHashCode();
@@ -539,7 +540,13 @@ internal sealed class AndroidNativeSettingsSection
         _lastPresentationHash = hash;
         _refreshes++;
         foreach (var row in _rows)
-            ApplyRow(row, languageCode);
+        {
+            var visible = row.Definition.IsVisible(languageCode);
+            row.Root.gameObject.SetActive(visible);
+            if (visible)
+                ApplyRow(row, languageCode);
+        }
+        RebuildLayout();
     }
 
     private static void ApplyRow(RowView row, string languageCode)
@@ -598,7 +605,8 @@ internal sealed class AndroidNativeSettingsSection
             _nativeSpacing ??= group.spacing;
             var shortest = float.MaxValue;
             foreach (var row in _rows)
-                shortest = Math.Min(shortest, row.Root.rect.height);
+                if (row.Root.gameObject.activeSelf)
+                    shortest = Math.Min(shortest, row.Root.rect.height);
             var missing = TouchMetrics.MissingTargetPixels(
                 (shortest + _nativeSpacing.Value) * scale,
                 Screen.dpi
@@ -618,6 +626,8 @@ internal sealed class AndroidNativeSettingsSection
         RectTransform? previous = null;
         foreach (var row in _rows)
         {
+            if (!row.Root.gameObject.activeSelf)
+                continue;
             if (row.Choice != null)
                 minOptionPx = Math.Min(minOptionPx, FitOptions(row, scale));
             var control = (row.Toggle as Selectable) ?? (row.Choice as Selectable) ?? row.Action;
