@@ -1,4 +1,3 @@
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Game.ChineseTranslations;
 using BazaarPlusPlus.Localization;
 using HarmonyLib;
