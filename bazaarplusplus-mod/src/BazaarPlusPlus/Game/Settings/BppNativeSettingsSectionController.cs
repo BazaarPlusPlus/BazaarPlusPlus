@@ -368,6 +368,8 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         var presentationHash = 17;
         foreach (var row in _rows)
         {
+            presentationHash =
+                (presentationHash * 31) ^ row.Definition.IsVisible(languageCode).GetHashCode();
             presentationHash = (presentationHash * 31) ^ row.Definition.Key.GetHashCode();
             presentationHash = (presentationHash * 31) ^ row.Definition.IsActive().GetHashCode();
             presentationHash =
@@ -401,8 +403,10 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         _lastPresentationHash = presentationHash;
         foreach (var row in _rows)
         {
-            row.Root.gameObject.SetActive(true);
-            ApplyRow(row, languageCode);
+            var visible = row.Definition.IsVisible(languageCode);
+            row.Root.gameObject.SetActive(visible);
+            if (visible)
+                ApplyRow(row, languageCode);
         }
     }
 

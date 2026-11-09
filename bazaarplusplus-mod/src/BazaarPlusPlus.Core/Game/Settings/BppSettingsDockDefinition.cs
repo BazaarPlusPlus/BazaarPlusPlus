@@ -84,6 +84,8 @@ public sealed class BppSettingsDockDefinition
 
     public Func<bool> IsActive { get; }
 
+    public Func<string, bool> IsVisible { get; init; } = _ => true;
+
     public Action? Activate { get; }
 
     public bool CollapseAfterActivate { get; }
@@ -105,7 +107,8 @@ public sealed class BppSettingsDockDefinition
         Func<string, string> resolveLabel,
         Func<bool> read,
         Action<bool> write,
-        Func<bool>? isInteractable = null
+        Func<bool>? isInteractable = null,
+        Func<string, bool>? isVisible = null
     ) =>
         new(
             key,
@@ -117,14 +120,18 @@ public sealed class BppSettingsDockDefinition
             isInteractable ?? (() => true),
             resolveChoiceState: null,
             selectStandardChoice: null
-        );
+        )
+        {
+            IsVisible = isVisible ?? (_ => true),
+        };
 
     public static BppSettingsDockDefinition Choice(
         string key,
         Func<string, string> resolveLabel,
         Func<bool> isActive,
         Func<string, BppSettingsChoiceState> resolveChoiceState,
-        Action<int> selectStandardChoice
+        Action<int> selectStandardChoice,
+        Func<string, bool>? isVisible = null
     ) =>
         new(
             key,
@@ -136,5 +143,8 @@ public sealed class BppSettingsDockDefinition
             isInteractable: () => true,
             resolveChoiceState,
             selectStandardChoice
-        );
+        )
+        {
+            IsVisible = isVisible ?? (_ => true),
+        };
 }

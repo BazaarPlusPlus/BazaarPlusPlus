@@ -19,6 +19,8 @@ public sealed class BppSettings
 
     public ISetting<bool> EnableBilingualItemNamesConfig { get; }
 
+    public ISetting<bool> EnableChineseTranslationImprovementsConfig { get; }
+
     public ISetting<bool> EnableCosmeticNamesConfig { get; }
 
     public ISetting<bool> EnableVoiceSubtitlesConfig { get; }
@@ -95,6 +97,12 @@ public sealed class BppSettings
             "Enabled",
             false,
             "Whether item, skill, monster, pedestal, reward, and event tooltips show the other English/Chinese name below the current-language name."
+        );
+        EnableChineseTranslationImprovementsConfig = config.Bind(
+            "ChineseTranslations",
+            "Enabled",
+            true,
+            "Whether to improve selected official Simplified Chinese descriptions. Only applies when the game language is zh-CN."
         );
         EnableCosmeticNamesConfig = config.Bind(
             "CosmeticNames",
