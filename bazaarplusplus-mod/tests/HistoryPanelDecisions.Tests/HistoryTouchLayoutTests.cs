@@ -83,6 +83,7 @@ internal static class HistoryTouchLayoutTests
             layout.Sheet,
             [
                 ("title", layout.Title),
+                ("filter", layout.ArchiveFilter),
                 ("support", layout.Sponsor),
                 ("more", layout.More),
                 ("close", layout.Close),
@@ -101,7 +102,6 @@ internal static class HistoryTouchLayoutTests
             layout.Archive,
             [
                 ("tabs", layout.TabsTray),
-                ("filter", layout.ArchiveFilter),
                 ("list", layout.ArchiveList),
                 ("page", layout.PageLabel),
                 ("pager", layout.ArchivePager),
@@ -338,6 +338,7 @@ internal static class HistoryTouchLayoutTests
             layout.Sheet,
             [
                 ("title", layout.Title),
+                ("filter", layout.ArchiveFilter),
                 ("tabs", layout.TabsTray),
                 ("support", layout.Sponsor),
                 ("more", layout.More),
@@ -351,6 +352,7 @@ internal static class HistoryTouchLayoutTests
                 layout.GhostTab,
                 layout.FavoritesTab,
                 layout.Sponsor,
+                layout.ArchiveFilter,
                 layout.More,
                 layout.Close,
             }

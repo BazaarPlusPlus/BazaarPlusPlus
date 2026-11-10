@@ -7,8 +7,8 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 /// <summary>
 /// The History panel's geometry on a landscape touch screen, in canvas units, top-down from the
 /// canvas's top-left corner: a full sheet inside the safe area. The header carries the title,
-/// supporter action, More and Close. Under it stand three columns: the
-/// archive (tabs, filters, list, page label and pager), the run's battle rail with its two pagers, and the
+/// the open section's filter, the supporter action, More and Close. Under it stand three columns: the
+/// archive (tabs, list, page label and pager), the run's battle rail with its two pagers, and the
 /// detail column with the native boards over the action row (delete, set apart from favorite,
 /// skills and replay). The rail ends above the action row, so its pager never reads as part of
 /// it. The status line runs along the bottom of the sheet. Every target is at least
@@ -63,12 +63,15 @@ public sealed class HistoryTouchLayout
             target
         );
         var titleWidth = metrics.Dp(144f);
+        // The archive's filter stands beside the title, so the list keeps the archive's height.
+        var filterWidth = metrics.Target(124f);
         var supportWidth = Math.Min(
             metrics.Dp(340f),
-            More.Left - body.Left - titleWidth - 2f * Gap
+            More.Left - body.Left - titleWidth - filterWidth - 3f * Gap
         );
         Sponsor = new TouchRect(More.Left - Gap - supportWidth, body.Top, supportWidth, target);
         Title = new TouchRect(body.Left + small, body.Top, titleWidth - small, target);
+        ArchiveFilter = new TouchRect(Title.Right + Gap, body.Top, filterWidth, target);
 
         StatusHeight = metrics.Dp(18f);
         Status = new TouchRect(body.Left, body.Bottom - StatusHeight, body.Width, StatusHeight);
@@ -103,12 +106,6 @@ public sealed class HistoryTouchLayout
         RunsTab = new TouchRect(TabsTray.Left, TabsTray.Top, TabsTray.Width / 3f, target);
         GhostTab = new TouchRect(RunsTab.Right, TabsTray.Top, RunsTab.Width, target);
         FavoritesTab = new TouchRect(GhostTab.Right, TabsTray.Top, RunsTab.Width, target);
-        ArchiveFilter = new TouchRect(
-            Archive.Left + small,
-            TabsTray.Bottom + small,
-            Archive.Width - 2f * small,
-            target
-        );
         ArchivePager = new TouchRect(
             Archive.Left + small,
             Archive.Bottom - target,
@@ -124,15 +121,9 @@ public sealed class HistoryTouchLayout
         );
         ArchiveList = new TouchRect(
             Archive.Left + small,
-            ArchiveFilter.Bottom + small,
-            Archive.Width - 2f * small,
-            Math.Max(0f, PageLabel.Top - 2f * small - ArchiveFilter.Bottom)
-        );
-        ArchiveListWithoutFilter = new TouchRect(
-            ArchiveList.Left,
             TabsTray.Bottom + small,
-            ArchiveList.Width,
-            PageLabel.Top - 2f * small - TabsTray.Bottom
+            Archive.Width - 2f * small,
+            Math.Max(0f, PageLabel.Top - 2f * small - TabsTray.Bottom)
         );
         RunRowHeight = metrics.Dp(72f);
         BattleRowHeight = metrics.Dp(72f);
@@ -373,8 +364,9 @@ public sealed class HistoryTouchLayout
 
     /// <summary>Record selection opens a separate detail page when two readable boards cannot fit.</summary>
     public bool Compact { get; }
+
+    /// <summary>The open section's filter, in the header beside the title.</summary>
     public TouchRect ArchiveFilter { get; }
-    public TouchRect ArchiveListWithoutFilter { get; }
     public TouchRect Back { get; }
     public TouchRect OpponentToggle { get; }
     public TouchRect PlayerToggle { get; }

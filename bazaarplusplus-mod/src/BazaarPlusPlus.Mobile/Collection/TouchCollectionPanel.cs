@@ -376,13 +376,14 @@ internal sealed class TouchCollectionPanel
             UiKit.Rect("RailFrame", rail, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero)
         );
         var inset = metrics.Dp(16f);
+        var edge = metrics.Dp(12f);
         var railInner = UiKit.Rect(
             "RailInner",
             rail,
             Vector2.zero,
             Vector2.one,
-            new(inset, inset),
-            new(-inset, -inset)
+            new(inset, edge),
+            new(-inset, -edge)
         );
         (_railScroll, _railContent) = UiKit.VerticalScroll(railInner);
 
@@ -701,6 +702,8 @@ internal sealed class TouchCollectionPanel
             flow.Note(CollectionPanelText.SourceDisclaimer(), UiKit.MutedTextColor);
         }
         flow.Divider();
+        // Sizes and tiers are one block of chips: a rule between them would push the last
+        // chip of the closed rail under its frame on a phone.
         if (profile.ShowSizeFilter)
         {
             foreach (var size in model.AvailableSizes)
@@ -713,7 +716,7 @@ internal sealed class TouchCollectionPanel
                     span: 2
                 );
             }
-            flow.Divider();
+            flow.Break();
         }
         if (profile.ShowTierFilter)
         {

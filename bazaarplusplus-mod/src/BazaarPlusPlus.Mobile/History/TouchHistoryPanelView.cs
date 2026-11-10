@@ -842,10 +842,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                     : HistoryPanelText.Filters()
             )
         );
-        TouchScreen.Place(
-            _archive.Scroll.GetComponent<RectTransform>(),
-            favorites ? _l.ArchiveListWithoutFilter : _l.ArchiveList
-        );
 
         // One page of battles needs no rail pager; the list then takes the whole rail.
         var railPaged = m.BattleHasNewer || m.BattleHasOlder;
