@@ -1,3 +1,4 @@
+using System.Globalization;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Ui;
@@ -16,8 +17,8 @@ namespace BazaarPlusPlus.Mobile.History;
 /// The touch twin of the desktop's <c>HistoryPanelView</c>, a full-screen sheet laid out from
 /// Core's <see cref="HistoryTouchLayout"/> for the screen it was built on and bound from
 /// Core's <see cref="HistoryPanelViewModel"/>. The header
-/// holds the title, supporter action, More and Close. The archive groups its tabs, filters,
-/// records and pager. Beside it are the battle rail and native boards; compact screens switch
+/// holds the section tabs, the section's filter, the supporter action, More and Close. The
+/// archive groups its records and pager. Beside it are the battle rail and native boards; compact screens switch
 /// from archive to one board with a horizontal battle rail and opponent/you selection.
 /// Lists drag-scroll with inertia and show a thumb while they overflow; each finished gesture logs
 /// <c>touch.history.scrolled</c>. A section without rows says so once, centred in the detail
@@ -288,9 +289,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             TouchHistoryUi.Backdrop,
             borderOnly: true
         );
-        var title = TouchHistoryUi.Label(Surface, _font, "Title", _l.Title, _l.TitleFont);
-        _titleObject = title.gameObject;
-        title.text = HistoryPanelText.Title();
         var archiveFill = UiKit.Fill(
             TouchScreen.Child("ArchivePanel", Surface, _l.Archive),
             InGameTheme.Panel,
@@ -351,7 +349,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             "PageLabel",
             _l.PageLabel,
             _l.BodyFont,
-            TextAlignmentOptions.MidlineLeft,
+            _l.PageLabelInline ? TextAlignmentOptions.Center : TextAlignmentOptions.MidlineLeft,
             TouchHistoryUi.Muted,
             wrap: true
         );
@@ -950,18 +948,35 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                     portraitHero
                 );
             }
-            row.Name.text = fields.Name;
-            row.Meta.text = fields.Meta;
-            row.Stamp.text = fields.Stamp;
             row.Unknown.text = fields.BadgeText;
             row.Badge.Bind(BadgeSprite(fields.Badge));
             row.Rank.text = fields.RankText;
             row.RankArt.Bind(MobilePlatform.Port.RankBadge(fields.Rank));
             row.Rating.text = RatingText(fields);
+            var rated = row.Rating.text.Length > 0;
+            if (_l.RowTwoLine)
+            {
+                // A run's end time follows its hero on the first line; a battle's stamp follows
+                // its hero and day on the second.
+                row.Name.text =
+                    runs && fields.Stamp.Length > 0
+                        ? $"{fields.Name}  <size={_l.BodyFont.ToString("0.#", CultureInfo.InvariantCulture)}>{Tinted(fields.Stamp, TouchHistoryUi.Muted)}</size>"
+                        : fields.Name;
+                row.Meta.text =
+                    runs || fields.Stamp.Length == 0 ? fields.Meta
+                    : fields.Meta.Length == 0 ? fields.Stamp
+                    : $"{fields.Meta} · {fields.Stamp}";
+                row.Stamp.text = string.Empty;
+                PlaceTwoLineRow(row, rated);
+                continue;
+            }
+            row.Name.text = fields.Name;
+            row.Meta.text = fields.Meta;
+            row.Stamp.text = fields.Stamp;
             if (runs)
-                PlaceRunRow(row, row.Rating.text.Length > 0);
+                PlaceRunRow(row, rated);
             else
-                PlaceBattleRow(row, fields.Meta.Length > 0, row.Rating.text.Length > 0);
+                PlaceBattleRow(row, fields.Meta.Length > 0, rated);
         }
         list.Scroll.content.sizeDelta = new Vector2(_l.ArchiveList.Width, rows.Count * list.Height);
         var nextOffset =
@@ -1053,7 +1068,39 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         SyncTrackers();
     }
 
-    // Every row has the desktop's three lines. The portrait, the name and the short line share
+    // A row of an archive with room: the portrait, then the name line over the meta line, then
+    // the rank badge and the outcome badge. A Legendary rating stands under the badges.
+    private void PlaceTwoLineRow(Row row, bool rated)
+    {
+        var dp = _l.Metrics.UnitsPerDp;
+        PlacePortrait(row, new Vector2(0f, 1f), -8f * dp);
+        var badge = 28f * dp;
+        var badgeTop = rated ? 3f * dp : (_l.ArchiveRow(0, true).Height - badge) / 2f;
+        Pin(row.Badge.Image.rectTransform, 8f * dp, badgeTop, badge, badge);
+        Pin(row.RankArt.Image.rectTransform, 40f * dp, badgeTop, badge, badge);
+        Pin(row.Rating.rectTransform, 8f * dp, 31f * dp, 84f * dp, 18f * dp);
+        row.Rating.alignment = TextAlignmentOptions.MidlineRight;
+        Span(row.Name.rectTransform, 52f * dp, 76f * dp, .08f, .44f);
+        Span(row.Meta.rectTransform, 52f * dp, (rated ? 94f : 76f) * dp, .52f, .4f);
+        Span(row.Stamp.rectTransform, 52f * dp, 76f * dp, .52f, 0f);
+    }
+
+    private static void Pin(RectTransform rect, float right, float top, float width, float height)
+    {
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = new Vector2(-right, -top);
+        rect.sizeDelta = new Vector2(width, height);
+    }
+
+    private static void Span(RectTransform rect, float left, float right, float y, float height)
+    {
+        rect.anchorMin = new Vector2(0f, 1f - y - height);
+        rect.anchorMax = new Vector2(1f, 1f - y);
+        rect.offsetMin = new Vector2(left, 0f);
+        rect.offsetMax = new Vector2(-right, 0f);
+    }
+
+    // A narrow archive's row has the desktop's three lines. The portrait, the name and the short line share
     // the top two thirds with the rank badge and the outcome badge; the long line runs under both
     // badges, short of a Legendary rating, so it stays whole on a phone. So a run puts its end
     // time second and its mode, day and duration last; a battle keeps hero and day second and

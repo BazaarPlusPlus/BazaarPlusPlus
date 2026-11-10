@@ -6,12 +6,13 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
 /// <summary>
 /// The History panel's geometry on a landscape touch screen, in canvas units, top-down from the
-/// canvas's top-left corner: a full sheet inside the safe area. The header carries the title,
-/// the open section's filter, the supporter action, More and Close. Under it stand three columns: the
-/// archive (tabs, list, page label and pager), the run's battle rail with its two pagers, and the
+/// canvas's top-left corner: a full sheet inside the safe area. The header carries the section
+/// tabs, the open section's filter, the supporter action, More and Close; the tabs name the
+/// panel, so it has no title. Under it stand three columns: the
+/// archive (list, page label and pager), the run's battle rail with its two pagers, and the
 /// detail column with the native boards over the action row (delete, set apart from favorite,
 /// skills and replay). The rail ends above the action row, so its pager never reads as part of
-/// it. The status line runs along the bottom of the sheet. Every target is at least
+/// it. The status line runs along the bottom of the sheet, under the rail and the detail. Every target is at least
 /// <see cref="TouchMetrics.MinTargetDp"/> and every text at least
 /// <see cref="TouchMetrics.MinBodySp"/>. The boards keep the game's card prefab proportions: ten
 /// sockets span the detail column, which takes <see cref="DetailSocketDp"/> per socket before the
@@ -33,6 +34,21 @@ public sealed class HistoryTouchLayout
     public const float DetailSocketDp = 52f;
 
     public const int PagerButtonCount = 3;
+
+    /// <summary>The widest archive: past it a run row gains nothing.</summary>
+    public const float ArchiveMaxDp = 360f;
+
+    /// <summary>An archive row: a name line over a meta line, beside the portrait and badges.</summary>
+    public const float RowDp = 52f;
+
+    /// <summary>A row of a narrow archive: three lines, the last under the badges.</summary>
+    public const float NarrowRowDp = 64f;
+
+    /// <summary>The narrowest archive whose rows read as two lines.</summary>
+    public const float TwoLineRowMinDp = 280f;
+
+    /// <summary>The narrowest page label that still reads beside the pager.</summary>
+    public const float PageLabelMinDp = 120f;
 
     private HistoryTouchLayout(TouchMetrics metrics)
     {
@@ -62,71 +78,142 @@ public sealed class HistoryTouchLayout
             chrome.CloseWidth,
             target
         );
-        var titleWidth = metrics.Dp(144f);
-        // The archive's filter stands beside the title, so the list keeps the archive's height.
-        var filterWidth = metrics.Target(124f);
-        var supportWidth = Math.Min(
-            metrics.Dp(340f),
-            More.Left - body.Left - titleWidth - filterWidth - 3f * Gap
-        );
-        Sponsor = new TouchRect(More.Left - Gap - supportWidth, body.Top, supportWidth, target);
-        Title = new TouchRect(body.Left + small, body.Top, titleWidth - small, target);
-        ArchiveFilter = new TouchRect(Title.Right + Gap, body.Top, filterWidth, target);
-
         StatusHeight = metrics.Dp(18f);
         Status = new TouchRect(body.Left, body.Bottom - StatusHeight, body.Width, StatusHeight);
         var top = Close.Bottom + Gap;
         var bottom = Status.Top - small;
         var columnHeight = Math.Max(0f, bottom - top);
         var railWidth = metrics.Target(64f);
-        var archiveWidth = Math.Clamp(
-            body.Width - railWidth - 2f * Gap - SocketCount * metrics.Dp(DetailSocketDp),
-            metrics.Dp(200f),
-            metrics.Dp(320f)
-        );
-        var detailWidth = body.Width - archiveWidth - railWidth - 2f * Gap;
         BoardTitleHeight = metrics.Dp(18f);
         var boardGap = metrics.Dp(2f);
         var nativeHeight = NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket;
+        var tallScale =
+            (columnHeight - target - Gap - 2f * BoardTitleHeight - boardGap) / (2f * nativeHeight);
+        // The detail column takes what its boards can use at this height, and no less than its
+        // action row; the archive takes the rest, so a short wide phone gets a wider run list
+        // in place of empty board margins.
+        var actionsWidth =
+            2f * metrics.Target(64f) + metrics.Target(104f) + metrics.Target(120f) + 4f * Gap;
+        var detailNeed = Math.Max(
+            SocketCount
+                * Math.Min(metrics.Dp(DetailSocketDp), tallScale * NativeCardPrefab.SocketWidth),
+            actionsWidth
+        );
+        var archiveWidth = Math.Clamp(
+            body.Width - railWidth - 2f * Gap - detailNeed,
+            metrics.Dp(200f),
+            metrics.Dp(ArchiveMaxDp)
+        );
+        var detailWidth = body.Width - archiveWidth - railWidth - 2f * Gap;
         var wideScale = Math.Min(
             detailWidth / (NativeCardPrefab.SocketWidth * SocketCount),
-            (columnHeight - target - Gap - 2f * BoardTitleHeight - boardGap) / (2f * nativeHeight)
+            tallScale
         );
         Compact = wideScale * NativeCardPrefab.SocketWidth < metrics.MinTarget;
         if (Compact)
             archiveWidth = body.Width;
-        Archive = new TouchRect(body.Left, top, archiveWidth, columnHeight);
-        // Every control of the archive has the same inset from its panel, so their edges align.
-        TabsTray = new TouchRect(
-            Archive.Left + small,
-            Archive.Top + small,
-            Archive.Width - 2f * small,
-            target
+        // Beside the detail the archive runs to the sheet's bottom; the status line stands under
+        // the rail and the detail alone.
+        Archive = new TouchRect(
+            body.Left,
+            top,
+            archiveWidth,
+            Compact ? columnHeight : body.Bottom - top
         );
+        if (!Compact)
+            Status = new TouchRect(
+                Archive.Right + Gap,
+                Status.Top,
+                body.Right - Archive.Right - Gap,
+                StatusHeight
+            );
+        // The section tabs head the archive column from the header row, and the section's filter
+        // follows them, so the list keeps the archive's whole height. Every control of the
+        // archive has the same inset from its panel, so their edges align.
+        // A narrow header gives up tab width, then filter width, so the supporter action stays
+        // a target.
+        var tabsWidth = Compact
+            ? Math.Clamp(
+                More.Left - body.Left - metrics.Dp(124f + 120f) - 3f * Gap - 2f * small,
+                3f * metrics.Target(64f),
+                metrics.Dp(288f)
+            )
+            : Archive.Width - 2f * small;
+        var filterWidth = Math.Clamp(
+            More.Left - body.Left - tabsWidth - metrics.MinTarget - 3f * Gap - 2f * small,
+            metrics.Target(80f),
+            metrics.Dp(124f)
+        );
+        TabsTray = new TouchRect(body.Left + small, body.Top, tabsWidth, target);
         RunsTab = new TouchRect(TabsTray.Left, TabsTray.Top, TabsTray.Width / 3f, target);
         GhostTab = new TouchRect(RunsTab.Right, TabsTray.Top, RunsTab.Width, target);
         FavoritesTab = new TouchRect(GhostTab.Right, TabsTray.Top, RunsTab.Width, target);
+        ArchiveFilter = new TouchRect(TabsTray.Right + small + Gap, body.Top, filterWidth, target);
+        var supportWidth = Math.Min(metrics.Dp(340f), More.Left - Gap - ArchiveFilter.Right - Gap);
+        Sponsor = new TouchRect(More.Left - Gap - supportWidth, body.Top, supportWidth, target);
         ArchivePager = new TouchRect(
             Archive.Left + small,
             Archive.Bottom - target,
             Archive.Width - 2f * small,
             target
         );
-        PagerButtonWidth = (ArchivePager.Width - Gap * (PagerButtonCount - 1)) / PagerButtonCount;
-        PageLabel = new TouchRect(
-            ArchivePager.Left,
-            ArchivePager.Top - small - metrics.Dp(22f),
-            ArchivePager.Width,
-            metrics.Dp(22f)
-        );
+        // One row carries the pager and the page label when the label has room between them;
+        // a narrow archive keeps the label on its own line above three equal buttons.
+        var arrowWidth = metrics.Target(48f);
+        var latestWidth = metrics.Target(64f);
+        var inlineLabel = ArchivePager.Width - 2f * arrowWidth - latestWidth - 3f * Gap;
+        PageLabelInline = inlineLabel >= metrics.Dp(PageLabelMinDp);
+        if (PageLabelInline)
+        {
+            _pagerButtons =
+            [
+                new(ArchivePager.Left, ArchivePager.Top, arrowWidth, target),
+                new(ArchivePager.Right - latestWidth, ArchivePager.Top, latestWidth, target),
+                new(
+                    ArchivePager.Right - latestWidth - Gap - arrowWidth,
+                    ArchivePager.Top,
+                    arrowWidth,
+                    target
+                ),
+            ];
+            PageLabel = new TouchRect(
+                _pagerButtons[0].Right + Gap,
+                ArchivePager.Top,
+                inlineLabel,
+                target
+            );
+        }
+        else
+        {
+            var width = (ArchivePager.Width - Gap * (PagerButtonCount - 1)) / PagerButtonCount;
+            _pagerButtons =
+            [
+                .. Enumerable
+                    .Range(0, PagerButtonCount)
+                    .Select(index => new TouchRect(
+                        ArchivePager.Left + index * (width + Gap),
+                        ArchivePager.Top,
+                        width,
+                        target
+                    )),
+            ];
+            PageLabel = new TouchRect(
+                ArchivePager.Left,
+                ArchivePager.Top - small - metrics.Dp(22f),
+                ArchivePager.Width,
+                metrics.Dp(22f)
+            );
+        }
+        var listBottom = PageLabelInline ? ArchivePager.Top : PageLabel.Top;
         ArchiveList = new TouchRect(
             Archive.Left + small,
-            TabsTray.Bottom + small,
+            Archive.Top + small,
             Archive.Width - 2f * small,
-            Math.Max(0f, PageLabel.Top - 2f * small - TabsTray.Bottom)
+            Math.Max(0f, listBottom - 2f * small - Archive.Top)
         );
-        RunRowHeight = metrics.Dp(72f);
-        BattleRowHeight = metrics.Dp(72f);
+        RowTwoLine = Archive.Width >= metrics.Dp(TwoLineRowMinDp);
+        RunRowHeight = metrics.Dp(RowTwoLine ? RowDp : NarrowRowDp);
+        BattleRowHeight = RunRowHeight;
 
         // The compact detail replaces the archive header with Back and battle navigation,
         // retaining Close. This leaves one full-size native board even on short safe areas.
@@ -337,6 +424,7 @@ public sealed class HistoryTouchLayout
     private readonly TouchChrome _chrome;
     private readonly float _padding;
     private readonly float _target;
+    private readonly TouchRect[] _pagerButtons;
 
     public static HistoryTouchLayout For(TouchMetrics metrics) => new(metrics);
 
@@ -357,8 +445,6 @@ public sealed class HistoryTouchLayout
 
     /// <summary>The whole panel: the safe area less a margin.</summary>
     public TouchRect Sheet { get; }
-
-    public TouchRect Title { get; }
 
     public TouchRect TabsTray { get; }
 
@@ -387,7 +473,7 @@ public sealed class HistoryTouchLayout
 
     public float StatusHeight { get; }
 
-    public TouchRect Status { get; }
+    public TouchRect Status { get; private init; }
 
     public TouchRect Archive { get; }
 
@@ -395,9 +481,13 @@ public sealed class HistoryTouchLayout
 
     public TouchRect PageLabel { get; }
 
+    /// <summary>The page label stands in the pager row, between the arrows.</summary>
+    public bool PageLabelInline { get; }
+
     public TouchRect ArchivePager { get; }
 
-    public float PagerButtonWidth { get; }
+    /// <summary>A row is a name line over a meta line; a narrow archive's row has three lines.</summary>
+    public bool RowTwoLine { get; }
 
     public float RunRowHeight { get; }
 
@@ -513,15 +603,9 @@ public sealed class HistoryTouchLayout
 
     public TouchRect NoteSave { get; }
 
-    /// <summary>One archive pager button (newer, older, latest).</summary>
+    /// <summary>One archive pager button: 0 newer, 1 latest, 2 older.</summary>
     public TouchRect PagerButton(int index) =>
-        new(
-            ArchivePager.Left
-                + Math.Clamp(index, 0, PagerButtonCount - 1) * (PagerButtonWidth + Gap),
-            ArchivePager.Top,
-            PagerButtonWidth,
-            ArchivePager.Height
-        );
+        _pagerButtons[Math.Clamp(index, 0, PagerButtonCount - 1)];
 
     /// <summary>An archive row, from the list content's top-left corner.</summary>
     public TouchRect ArchiveRow(int index, bool runs)

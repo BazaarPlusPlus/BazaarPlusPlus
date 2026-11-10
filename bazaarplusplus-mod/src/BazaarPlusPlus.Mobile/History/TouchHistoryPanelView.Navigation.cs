@@ -11,8 +11,7 @@ internal sealed partial class TouchHistoryPanelView
 {
     private GameObject _archiveGroup = null!,
         _detailGroup = null!;
-    private GameObject _titleObject = null!,
-        _supportObject = null!;
+    private GameObject _supportObject = null!;
     private HistoryButton _filter = null!,
         _back = null!,
         _opponentToggle = null!,
@@ -206,7 +205,6 @@ internal sealed partial class TouchHistoryPanelView
         var runs = model.SectionMode == HistorySectionMode.Runs;
         var rows = runs ? model.Runs.Count : model.VisibleBattles.Count;
         var detail = !_l.Compact || _navigation.DetailOpen;
-        TouchHistoryUi.SetActive(_titleObject, !_l.Compact || !detail);
         TouchHistoryUi.SetActive(_supportObject, !_l.Compact || !detail);
         TouchHistoryUi.SetActive(_more.GameObject, !_l.Compact || !detail);
         var boards = detail && !_empty && _snapshotsAvailable;
