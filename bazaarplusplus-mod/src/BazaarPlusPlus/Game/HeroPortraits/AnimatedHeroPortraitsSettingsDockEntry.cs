@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.Game.HeroPortraits;
 internal static class AnimatedHeroPortraitsSettingsDockEntry
 {
     private static readonly LocalizedTextSet Labels = new(
-        "Animated Hero Portraits",
+        "Animated Portraits",
         "动态英雄头像",
         "動態英雄頭像"
     );
