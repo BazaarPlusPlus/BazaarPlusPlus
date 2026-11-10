@@ -20,7 +20,6 @@ internal sealed class NativeGameTitleOverlay : IDisposable
     private readonly CanvasGroup _canvasGroup;
     private readonly TextMeshProUGUI _title;
     private readonly float _fontSizePoints;
-    private NativeGameTypography.OwnedTextRole _role;
     private VisualElement? _layoutAnchor;
     private float _requestedAlpha = 1f;
     private bool _hasValidBounds;
@@ -37,7 +36,6 @@ internal sealed class NativeGameTitleOverlay : IDisposable
     )
     {
         _fontSizePoints = fontSizePoints;
-        _role = role;
         _root = new GameObject(
             rootName,
             typeof(RectTransform),
@@ -157,19 +155,6 @@ internal sealed class NativeGameTitleOverlay : IDisposable
             return;
 
         _title.text = text ?? string.Empty;
-        var desiredRole = UnicodeFontCoverage.ContainsCjk(_title.text)
-            ? NativeGameTypography.OwnedTextRole.Body
-            : NativeGameTypography.OwnedTextRole.Heading;
-        if (
-            desiredRole != _role
-            && NativeGameTypography.PrepareOwnedText(desiredRole, out var typography)
-                == NativeGameTypography.Outcome.Ready
-            && typography != null
-        )
-        {
-            if (typography.Apply(_title) == NativeGameTypography.Outcome.Applied)
-                _role = desiredRole;
-        }
         if (!string.IsNullOrEmpty(_title.text))
         {
             // The native locale fallbacks populate glyphs lazily. Resolve coverage and preferred

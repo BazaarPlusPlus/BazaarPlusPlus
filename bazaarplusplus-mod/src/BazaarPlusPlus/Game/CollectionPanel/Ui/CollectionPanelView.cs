@@ -213,9 +213,8 @@ internal sealed partial class CollectionPanelView : IDisposable
                 BppOverlaySorting.NativeCardPreview,
                 Sizes.FontTitle,
                 InGameTheme.Ink,
-                UnicodeFontCoverage.ContainsCjk(CollectionPanelText.Title())
-                    ? NativeGameTypography.OwnedTextRole.Body
-                    : NativeGameTypography.OwnedTextRole.Heading,
+                // The same face as every Desktop panel's title (the kit's Title level).
+                NativeGameTypography.OwnedTextRole.Body,
                 out _titleOverlay
             )
             || _titleOverlay == null
