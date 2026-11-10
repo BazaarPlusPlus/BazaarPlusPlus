@@ -1,6 +1,6 @@
 The Desktop UI's controls, drawn on BPP's own plate art: one soft rounded silhouette in a painted material, with the game's own rule and glyphs. The plates stay dark and low in contrast, so the game's art for content (cards, boards, portraits, trophies, rank badges) leads the screen.
 
-Source: `bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/DesktopKit/` (`DesktopKit`, `KitButton`, `KitPalette`), sizes from `InGameSizes.g.cs` and colours from `InGameTheme.g.cs`, both generated from `design/tokens.json`. The sprites are owned by `GameInterop/NativeSkin/DesktopNativeSkin.cs` (`DesktopKitArt`); the plate PNGs are in `bazaarplusplus-mod/src/BazaarPlusPlus/Resources/DesktopKit/` and are made by `art/make_kit_art.py` here. Debug builds show every control in every state in the Kit Gallery (`just mod::ui-shots kit-gallery`). Panels move to the kit one at a time; until then they keep the look `InGamePanel/` describes.
+Source: `bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/DesktopKit/` (`DesktopKit`, `KitButton`, `KitPalette`), sizes from `InGameSizes.g.cs` and colours from `InGameTheme.g.cs`, both generated from `design/tokens.json`. The sprites are owned by `GameInterop/NativeSkin/DesktopNativeSkin.cs` (`DesktopKitArt`); the plate PNGs are in `bazaarplusplus-mod/src/BazaarPlusPlus/Resources/DesktopKit/` and are drawn by `design/kit-art.ts` (`just design::kit-art`). Debug builds show every control in every state in the Kit Gallery (`just mod::ui-shots kit-gallery`). Panels move to the kit one at a time; until then they keep the look `InGamePanel/` describes.
 
 ## Hierarchy
 
@@ -39,10 +39,10 @@ Each `DesktopKitArt` slot has one source. A plate slot is a PNG of BPP's own, em
 
 ### The plate art
 
-`art/make_kit_art.py <swatch> <out dir> [radius]` derives every plate PNG from one material swatch, `art/swatch.jpg` (a generated image of worn dark leather; it needs Python with NumPy and Pillow). The script owns what must agree across plates:
+`just design::kit-art` draws every plate PNG from one material image, `art/material.png` (the grain of a generated image of worn dark leather, in greyscale). `just design::check` fails when a committed plate differs from what `design/kit-art.ts` draws. The script owns what must agree across plates:
 
-- **One silhouette.** A rounded rectangle, radius 6 canvas units, with a soft painted rim inside the edge and no hard line. A plate is one `control-md` tall at 3 pixels per unit (`KitPixelsPerUnit`); the sliced border is the radius plus 4 units (`KitBorderPixels`). Change the radius and that constant together.
-- **States by grading.** Each state is the same material graded toward a colour near its token (`ingame-button`, `ingame-chip`, `ingame-chip-active`, `ingame-failure`, `ingame-panel`), so a centre can stretch without showing a seam.
+- **One silhouette.** A rounded rectangle, radius 6 canvas units, with a soft painted rim inside the edge and no hard line. A plate is one `control-md` tall at 3 pixels per unit (`KitPixelsPerUnit` in `DesktopNativeSkin`); the sliced border is the radius plus 4 units (`KitBorderPixels`). Change `RADIUS` in the script and that constant together.
+- **States by grading.** Each state is the same grain over a fill colour near its token (`ingame-button`, `ingame-chip`, `ingame-chip-active`, `ingame-failure`, `ingame-panel`), so a centre can stretch without showing a seam.
 - **Clean edges.** Sprites are drawn at 4× and reduced, and colour is bled under the transparent pixels, so bilinear filtering leaves no dark fringe.
 
 If a plate PNG cannot be decoded, the plate draws a plain rectangle in the token colour given below. Until a game sprite loads, or if the game build lacks its address, a rule draws a 1 px `ingame-rule` line and the close and arrow icons draw from strokes; the search glyph has no stroke form, so the field then shows none. The Kit Gallery's diagnostics line lists every missing sprite with the reason. The check mark has no sprite and always draws from strokes.
