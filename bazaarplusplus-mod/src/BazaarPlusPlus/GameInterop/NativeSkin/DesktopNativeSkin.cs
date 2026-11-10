@@ -15,6 +15,36 @@ internal enum DesktopSkinPart
     BlueCenter,
 }
 
+/// <summary>A game sprite the Desktop UI kit draws with (ADR-0027).</summary>
+internal enum DesktopKitArt
+{
+    /// <summary>The solid chamfered shape, tinted: the fallback of every plate, and hover washes.</summary>
+    Shape,
+
+    /// <summary>The game's brown button centre, at rest, under the pointer and pressed.</summary>
+    Plate,
+    PlateHover,
+    PlatePressed,
+
+    /// <summary>The game's red button centre in the same three states.</summary>
+    DangerPlate,
+    DangerPlateHover,
+    DangerPlatePressed,
+
+    /// <summary>The game's thin gold button frame, and its highlighted form.</summary>
+    Edge,
+    EdgeBright,
+
+    /// <summary>The ground of the game's own match-history run card.</summary>
+    Ground,
+
+    /// <summary>The fading rule the game draws between match-history runs.</summary>
+    Divider,
+    IconClose,
+    IconSearch,
+    IconArrow,
+}
+
 /// <summary>
 /// The Desktop UI's native skin (ADR-0026): the game's <c>Btn_Rectangle</c> sprites, loaded once
 /// per process in Global scope so they outlive the lobby and run scopes, and BPP's own sliced
@@ -35,11 +65,35 @@ internal static class DesktopNativeSkin
     ];
     private static readonly Sprite?[] Sprites = new Sprite?[Addresses.Length];
 
-    // The Desktop UI kit's one plate shape (ADR-0027). It loads on its own, so a game build
-    // without it leaves the frame and centre sprites above untouched.
-    private const string ShapeAddress = ButtonRoot + "Btn_Rct_Frame_Fill_Solid_TUI.png";
-    private static Sprite? _shape;
-    private static Task<Sprite?>? _shapeLoad;
+    // The Desktop UI kit's art (ADR-0027), in DesktopKitArt order. Each sprite loads on its own,
+    // so a game build without one leaves the others and the frame and centre sprites above
+    // untouched.
+    private const string HistoryRoot = "Assets/TheBazaar/Art/UI/Buttons/Btn_MatchHistory/";
+    private const string IconRoot = "Assets/TheBazaar/Art/UI/Icons/";
+    private static readonly string[] KitAddresses =
+    [
+        ButtonRoot + "Btn_Rct_Frame_Fill_Solid_TUI.png",
+        ButtonRoot + "Btn_Rct_Brown_L_Center_Active_TUI.png",
+        ButtonRoot + "Btn_Rct_Brown_L_Center_Highlighted_TUI.png",
+        ButtonRoot + "Btn_Rct_Brown_L_Center_Pressed_TUI.png",
+        ButtonRoot + "Btn_Rct_Red_L_Center_Active_TUI.png",
+        ButtonRoot + "Btn_Rct_Red_L_Center_Highlighted_TUI.png",
+        ButtonRoot + "Btn_Rct_Red_L_Center_Pressed_TUI.png",
+        ButtonRoot + "Btn_Rct_Frame_L_TUI.png",
+        ButtonRoot + "Btn_Rct_Frame_L_Highlighted_TUI.png",
+        HistoryRoot + "Btn_MatchHistory_Run_Common_Background_TUI.png",
+        HistoryRoot + "Btn_MatchHistory_Run_Common_Divider_TUI.png",
+        IconRoot + "Icon_RingBtn_X_TUI.png",
+        IconRoot + "Icon_RingBtn_Search_TUI.png",
+        IconRoot + "Menus/Icon_Menu_Dropdown_02_TUI.png",
+    ];
+    private static readonly Sprite?[] KitSprites = new Sprite?[KitAddresses.Length];
+
+    // The game's sprite behind each kit sprite. They differ only where the skin slices its own
+    // copy, and the game's one says whether a scope release destroyed the art.
+    private static readonly Sprite?[] KitSources = new Sprite?[KitAddresses.Length];
+    private static readonly Task<Sprite?>?[] KitLoads = new Task<Sprite?>?[KitAddresses.Length];
+    private static readonly string?[] KitProblems = new string?[KitAddresses.Length];
     private static Task<Sprite?[]>? _load;
     private static Sprite? _headerNormal;
     private static Sprite? _headerSelected;
@@ -50,6 +104,12 @@ internal static class DesktopNativeSkin
     /// units deep, the chamfer the kit's spec shows on a 36 tall button.
     /// </summary>
     internal const float ShapePixelsPerUnit = 3.75f;
+
+    /// <summary>
+    /// The pixels-per-unit multiplier of the kit's ground: the run card's notched corner draws
+    /// about 14 canvas units deep, the kit's largest radius.
+    /// </summary>
+    internal const float GroundPixelsPerUnit = 4f;
 
     /// <summary>Moves whenever a sprite changes, so a view repaints the images it drew.</summary>
     internal static int Generation { get; private set; }
@@ -91,53 +151,105 @@ internal static class DesktopNativeSkin
         return true;
     }
 
-    /// <summary>The kit's plate shape, or null while it is loading or missing.</summary>
-    internal static Sprite? Shape => _shape != null ? _shape : null;
+    /// <summary>A sprite of the kit's art, or null while it is loading or missing.</summary>
+    internal static Sprite? KitArt(DesktopKitArt art) =>
+        KitSources[(int)art] is { } source
+        && source != null
+        && KitSprites[(int)art] is { } sprite
+        && sprite != null
+            ? sprite
+            : null;
 
-    /// <summary>Why the shape is missing: null while it loads or once it is in.</summary>
-    internal static string? ShapeProblem { get; private set; }
+    /// <summary>Why a kit sprite is missing: null while it loads or once it is in.</summary>
+    internal static string? KitArtProblem(DesktopKitArt art) => KitProblems[(int)art];
+
+    /// <summary>The file name of a kit sprite's address, for the Kit Gallery's diagnostics.</summary>
+    internal static string KitArtName(DesktopKitArt art) =>
+        Path.GetFileNameWithoutExtension(KitAddresses[(int)art]);
 
     /// <summary>
-    /// Starts one load of the plate shape when it is missing and none is running; true while
-    /// one runs. A build that has no such address is remembered and never asked again.
+    /// Starts a load of every kit sprite that is missing and not loading; true while one runs.
+    /// A sprite whose address the build lacks, or whose load failed, is remembered with the
+    /// reason and never asked again.
     /// </summary>
-    internal static bool RequestShape()
+    internal static bool RequestKitArt()
     {
-        PollShape();
-        if (_shapeLoad != null)
-            return true;
-        if (Shape != null || ShapeProblem == "missing-address")
-            return false;
-        if (!Services.TryGet<AssetLoader>(out var loader) || loader == null)
+        var loading = false;
+        AssetLoader? loader = null;
+        for (var index = 0; index < KitAddresses.Length; index++)
         {
-            ShapeProblem = "loader-not-ready";
-            return false;
+            PollKitArt(index);
+            if (KitLoads[index] != null)
+            {
+                loading = true;
+                continue;
+            }
+            if (
+                KitArt((DesktopKitArt)index) != null
+                || KitProblems[index] is "missing-address" or "load-failed"
+            )
+                continue;
+            if (loader == null && (!Services.TryGet(out loader) || loader == null))
+            {
+                KitProblems[index] = "loader-not-ready";
+                continue;
+            }
+            if (!loader.DoesAddressExist(KitAddresses[index]))
+            {
+                KitProblems[index] = "missing-address";
+                continue;
+            }
+            KitProblems[index] = null;
+            KitLoads[index] = NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(
+                loader,
+                KitAddresses[index]
+            );
+            loading = true;
         }
-        if (!loader.DoesAddressExist(ShapeAddress))
-        {
-            ShapeProblem = "missing-address";
-            return false;
-        }
-        ShapeProblem = null;
-        _shapeLoad = NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, ShapeAddress);
-        return true;
+        return loading;
     }
 
-    private static void PollShape()
+    private static void PollKitArt(int index)
     {
-        if (_shapeLoad is not { IsCompleted: true } load)
+        if (KitLoads[index] is not { IsCompleted: true } load)
             return;
-        _shapeLoad = null;
+        KitLoads[index] = null;
         if (load.Status != TaskStatus.RanToCompletion || load.Result == null)
         {
-            ShapeProblem = "load-failed";
+            KitProblems[index] = "load-failed";
             return;
         }
-        if (load.Result != _shape)
-        {
-            _shape = load.Result;
-            Generation++;
-        }
+        if (load.Result == KitSources[index])
+            return;
+        if (KitSprites[index] is { } old && old != null && old != KitSources[index])
+            UnityEngine.Object.Destroy(old);
+        KitSources[index] = load.Result;
+        KitSprites[index] = Resliced((DesktopKitArt)index, load.Result);
+        Generation++;
+    }
+
+    // The game slices its run-card ground only top and bottom, for a card of one width. The kit
+    // draws it at any width, so it gets the same border on every side.
+    private static Sprite Resliced(DesktopKitArt art, Sprite sprite)
+    {
+        if (art != DesktopKitArt.Ground || sprite.packed)
+            return sprite;
+        var border = sprite.border;
+        var side = Mathf.Max(border.y, border.w);
+        if (side <= 0 || border.x > 0 || border.z > 0)
+            return sprite;
+        var sliced = Sprite.Create(
+            sprite.texture,
+            sprite.rect,
+            new Vector2(.5f, .5f),
+            sprite.pixelsPerUnit,
+            0,
+            SpriteMeshType.FullRect,
+            new Vector4(side, border.y, side, border.w)
+        );
+        sliced.name = sprite.name;
+        sliced.hideFlags = HideFlags.DontUnloadUnusedAsset;
+        return sliced;
     }
 
     /// <summary>Takes a finished load's sprites; true when one changed.</summary>

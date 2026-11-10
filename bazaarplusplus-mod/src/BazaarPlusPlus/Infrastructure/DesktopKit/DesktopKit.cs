@@ -30,38 +30,65 @@ internal enum KitIcon
     ChevronRight,
     ChevronDown,
     Check,
+    Search,
+}
+
+/// <summary>A surface of the kit that is not a control.</summary>
+internal enum KitSurface
+{
+    /// <summary>A rail or a well: the ground of the game's own match-history run card.</summary>
+    Ground,
+
+    /// <summary>The track of a segmented control or the day strip: the brown centre, darkened.</summary>
+    Track,
+
+    /// <summary>A sunk field: the brown centre darkened, in a dimmed frame so it reads on a ground.</summary>
+    Field,
+
+    /// <summary>A tooltip or a dialog card: the ground in the game's thin gold frame.</summary>
+    Floating,
 }
 
 /// <summary>
 /// The Desktop UI kit (ADR-0027, design/components/InGameKit/README.md): one instance per view
-/// builds its controls on the game's plate shape, tinted by the in-game tokens, and repaints the
-/// plates when the shape arrives. Controls size themselves through uGUI layout (a
+/// builds its controls from the game's own button sprites and icons, and repaints them when a
+/// sprite arrives. Controls size themselves through uGUI layout (a
 /// <see cref="LayoutElement"/> and, for labelled controls, a layout group); a consumer places
 /// them in its own rects or layout groups. Call <see cref="Tick"/> every frame the view shows.
 /// </summary>
 internal sealed class DesktopKit
 {
-    // Label side padding of md and sm buttons, and the stroke of the kit's drawn icons.
+    // Label side padding of md and sm buttons, the stroke of the kit's drawn icons, and the
+    // drawn height of the game's divider rule.
     private const float PaddingMd = 18f;
     private const float PaddingSm = 13f;
     private const float IconStroke = 2f;
+    private const float RuleHeight = 2f;
 
     private readonly NativeGameTypography.OwnedTextPreparation _font;
-    private readonly List<Image> _plates = new();
-    private int _shapeGeneration = -1;
+    private readonly List<KitPlate> _plates = new();
+    private readonly List<(Image Glyph, DesktopKitArt Art)> _glyphs = new();
+    private readonly List<(Image Line, float Alpha)> _rules = new();
+    private int _artGeneration = -1;
 
     internal DesktopKit(NativeGameTypography.OwnedTextPreparation font) => _font = font;
 
-    /// <summary>Asks for the plate shape and repaints every plate when it changes.</summary>
+    /// <summary>Asks for the kit's art and repaints what it drew when a sprite changes.</summary>
     internal void Tick()
     {
-        DesktopNativeSkin.RequestShape();
-        if (_shapeGeneration == DesktopNativeSkin.Generation)
+        DesktopNativeSkin.RequestKitArt();
+        if (_artGeneration == DesktopNativeSkin.Generation)
             return;
-        _shapeGeneration = DesktopNativeSkin.Generation;
-        _plates.RemoveAll(plate => plate == null);
+        _artGeneration = DesktopNativeSkin.Generation;
+        _plates.RemoveAll(plate => plate.Image == null);
         foreach (var plate in _plates)
-            Shape(plate);
+            plate.Refresh();
+        _glyphs.RemoveAll(glyph => glyph.Glyph == null);
+        foreach (var (glyph, art) in _glyphs)
+            ShowGlyph(glyph, art);
+        _rules.RemoveAll(rule => rule.Line == null);
+        foreach (var (line, alpha) in _rules)
+            ShowRule(line, alpha);
     }
 
     internal static float Height(KitSize size) =>
@@ -112,29 +139,45 @@ internal sealed class DesktopKit
         return element;
     }
 
-    /// <summary>A plate of the kit's shape over its parent, outside layout, in one colour.</summary>
-    internal Image Plate(Transform parent, Color color, string name = "Plate")
+    /// <summary>A plate over its parent, outside layout, showing one look.</summary>
+    internal KitPlate Plate(Transform parent, KitLook look, string name = "Plate")
     {
         var image = Fill(Rect(parent, name)).gameObject.AddComponent<Image>();
         image.raycastTarget = false;
-        image.color = color;
         image.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
         image.transform.SetAsFirstSibling();
-        Shape(image);
-        _plates.Add(image);
-        return image;
+        var plate = new KitPlate(image, look);
+        _plates.Add(plate);
+        return plate;
     }
 
-    // The shape, sliced; until it loads (or when its slice is empty) the plate is a plain
-    // rectangle in the same colour.
-    private static void Shape(Image image)
-    {
-        var sprite = DesktopNativeSkin.Shape;
-        image.sprite = sprite;
-        image.type =
-            sprite != null && sprite.border != Vector4.zero ? Image.Type.Sliced : Image.Type.Simple;
-        image.pixelsPerUnitMultiplier = DesktopNativeSkin.ShapePixelsPerUnit;
-    }
+    /// <summary>A surface behind other content: a rail, a well, a track, a field or a card.</summary>
+    internal KitPlate Surface(Transform parent, KitSurface surface) =>
+        Plate(
+            parent,
+            surface switch
+            {
+                KitSurface.Track => KitPalette
+                    .Brown(InGameTheme.Button)
+                    .Times(InGameTheme.TintPressed),
+                KitSurface.Field => new KitLook(
+                    DesktopKitArt.Plate,
+                    InGameTheme.ArtInputTint,
+                    InGameTheme.Backdrop,
+                    DesktopKitArt.Edge,
+                    InGameTheme.ArtPanelTint
+                ),
+                KitSurface.Floating => new KitLook(
+                    DesktopKitArt.Ground,
+                    Color.white,
+                    InGameTheme.Dialog,
+                    DesktopKitArt.Edge,
+                    Color.white
+                ),
+                _ => new KitLook(DesktopKitArt.Ground, Color.white, InGameTheme.Panel),
+            },
+            surface.ToString()
+        );
 
     internal TextMeshProUGUI Text(
         Transform parent,
@@ -156,24 +199,43 @@ internal sealed class DesktopKit
         return label;
     }
 
-    /// <summary>A 1px <c>ingame-rule</c> line, as wide as its parent's layout gives it.</summary>
-    internal static Image Hairline(Transform parent, float alpha)
+    /// <summary>
+    /// A rule as wide as its parent's layout gives it: the game's fading match-history divider,
+    /// or a 1px <c>ingame-rule</c> line while that sprite is missing.
+    /// </summary>
+    internal Image Hairline(Transform parent, float alpha)
     {
         var line = Rect(parent, "Hairline").gameObject.AddComponent<Image>();
-        line.color = InGameTheme.WithAlpha(InGameTheme.Rule, alpha);
         line.raycastTarget = false;
-        Size(line, -1, 1);
+        _rules.Add((line, alpha));
+        ShowRule(line, alpha);
         return line;
     }
 
-    /// <summary>An icon drawn from strokes, in <paramref name="color"/>.</summary>
-    internal static RectTransform Icon(Transform parent, KitIcon icon, float size, Color color)
+    private static void ShowRule(Image line, float alpha)
+    {
+        var sprite = DesktopNativeSkin.KitArt(DesktopKitArt.Divider);
+        line.sprite = sprite;
+        line.color = InGameTheme.WithAlpha(sprite != null ? Color.white : InGameTheme.Rule, alpha);
+        var height = sprite != null ? RuleHeight : 1;
+        // A rule outside layout is anchored to one edge, so its size delta is its height.
+        if (Size(line, -1, height).ignoreLayout)
+            line.rectTransform.sizeDelta = new Vector2(line.rectTransform.sizeDelta.x, height);
+    }
+
+    /// <summary>
+    /// An icon in <paramref name="color"/>: the game's own glyph where it has one (close, search,
+    /// the dropdown arrow), drawn from strokes otherwise and while the glyph is missing. Search
+    /// has no strokes: without its glyph the field shows none.
+    /// </summary>
+    internal RectTransform Icon(Transform parent, KitIcon icon, float size, Color color)
     {
         var box = Rect(parent, $"Icon{icon}");
         Size(box, size, size);
+        var strokes = Fill(Rect(box, "Strokes"));
         void Stroke(float length, Vector2 pivot, Vector2 at, float angle)
         {
-            var bar = Rect(box, "Stroke");
+            var bar = Rect(strokes, "Stroke");
             bar.anchorMin = bar.anchorMax = new Vector2(.5f, .5f);
             bar.pivot = pivot;
             bar.sizeDelta = new Vector2(length, IconStroke);
@@ -184,11 +246,17 @@ internal sealed class DesktopKit
             image.raycastTarget = false;
         }
         var half = new Vector2(.5f, .5f);
+        DesktopKitArt? art = null;
+        var turn = 0f;
         switch (icon)
         {
             case KitIcon.Close:
+                art = DesktopKitArt.IconClose;
                 Stroke(size * 1.15f, half, Vector2.zero, 45);
                 Stroke(size * 1.15f, half, Vector2.zero, -45);
+                break;
+            case KitIcon.Search:
+                art = DesktopKitArt.IconSearch;
                 break;
             case KitIcon.Check:
                 Stroke(
@@ -205,19 +273,40 @@ internal sealed class DesktopKit
                 );
                 break;
             default:
-                var turn = icon switch
+                // The game's arrow points down; the strokes draw a chevron pointing right.
+                art = DesktopKitArt.IconArrow;
+                turn = icon switch
                 {
-                    KitIcon.ChevronLeft => 180f,
-                    KitIcon.ChevronDown => -90f,
+                    KitIcon.ChevronLeft => -90f,
+                    KitIcon.ChevronRight => 90f,
                     _ => 0f,
                 };
-                box.localRotation = Quaternion.Euler(0, 0, turn);
+                strokes.localRotation = Quaternion.Euler(0, 0, turn - 90f);
                 var tip = new Vector2(size * .2f, 0);
                 Stroke(size * .55f, new Vector2(1, .5f), tip, -45);
                 Stroke(size * .55f, new Vector2(1, .5f), tip, 45);
                 break;
         }
+        if (art is { } native)
+        {
+            var glyph = Fill(Rect(box, "Glyph")).gameObject.AddComponent<Image>();
+            glyph.rectTransform.localRotation = Quaternion.Euler(0, 0, turn);
+            glyph.preserveAspect = true;
+            glyph.raycastTarget = false;
+            glyph.color = color;
+            _glyphs.Add((glyph, native));
+            ShowGlyph(glyph, native);
+        }
         return box;
+    }
+
+    // The glyph replaces its strokes once the game's sprite is in.
+    private static void ShowGlyph(Image glyph, DesktopKitArt art)
+    {
+        var sprite = DesktopNativeSkin.KitArt(art);
+        glyph.sprite = sprite;
+        glyph.enabled = sprite != null;
+        glyph.transform.parent.Find("Strokes")?.gameObject.SetActive(sprite == null);
     }
 
     // ---- buttons ----
@@ -254,8 +343,8 @@ internal sealed class DesktopKit
         var group = row.GetComponent<HorizontalLayoutGroup>();
         group.padding = new RectOffset(0, 0, 0, 0);
         Size(button, Height(size), Height(size));
-        var glyph = Icon(row, icon, size == KitSize.Md ? 14 : 12, InGameTheme.Ink);
-        button.Bind(kind, plate, glyph.GetComponentsInChildren<Graphic>());
+        var glyph = Icon(row, icon, size == KitSize.Md ? 16 : 14, InGameTheme.Ink);
+        button.Bind(kind, plate, glyph.GetComponentsInChildren<Graphic>(true));
         return button;
     }
 
@@ -272,10 +361,10 @@ internal sealed class DesktopKit
     {
         var (button, row, plate) = ButtonShell(parent, size, onClick, "Button");
         var ink = new List<Graphic>();
-        var iconSize = size == KitSize.Md ? 10 : 9;
+        var iconSize = size == KitSize.Md ? 16 : 14;
         if (before is { } first)
             ink.AddRange(
-                Icon(row, first, iconSize, InGameTheme.Ink).GetComponentsInChildren<Graphic>()
+                Icon(row, first, iconSize, InGameTheme.Ink).GetComponentsInChildren<Graphic>(true)
             );
         if (label.Length > 0)
             ink.Add(
@@ -288,13 +377,13 @@ internal sealed class DesktopKit
             );
         if (after is { } last)
             ink.AddRange(
-                Icon(row, last, iconSize, InGameTheme.Ink).GetComponentsInChildren<Graphic>()
+                Icon(row, last, iconSize, InGameTheme.Ink).GetComponentsInChildren<Graphic>(true)
             );
         button.Bind(kind, plate, ink.ToArray());
         return button;
     }
 
-    private (KitButton Button, RectTransform Row, Image Plate) ButtonShell(
+    private (KitButton Button, RectTransform Row, KitPlate Plate) ButtonShell(
         Transform parent,
         KitSize size,
         Action onClick,
@@ -303,8 +392,8 @@ internal sealed class DesktopKit
     {
         var rect = Rect(parent, name);
         var button = rect.gameObject.AddComponent<KitButton>();
-        var plate = Plate(rect, Color.clear);
-        plate.raycastTarget = true;
+        var plate = Plate(rect, KitLook.None);
+        plate.Image.raycastTarget = true;
         var group = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
         var padding = (int)(size == KitSize.Md ? PaddingMd : PaddingSm);
         group.padding = new RectOffset(padding, padding, 0, 0);
@@ -320,8 +409,7 @@ internal sealed class DesktopKit
     // ---- selection controls ----
 
     /// <summary>
-    /// A segmented control: one <c>ingame-button</c> track, and only the selected option gets a
-    /// plate. The track is a control height and its options sit inside it.
+    /// A segmented control: one darkened track, and only the selected option gets a plate. The track is a control height and its options sit inside it.
     /// </summary>
     internal (RectTransform Track, KitButton[] Options) Segmented(
         Transform parent,
@@ -331,7 +419,7 @@ internal sealed class DesktopKit
     )
     {
         var track = Rect(parent, "Segmented");
-        Plate(track, InGameTheme.Button, "Track");
+        Surface(track, KitSurface.Track);
         var inner = size == KitSize.Md ? InGameSizes.ControlSm : InGameSizes.BadgeHeight;
         var inset = (int)((Height(size) - inner) / 2);
         var group = track.gameObject.AddComponent<HorizontalLayoutGroup>();
@@ -382,9 +470,9 @@ internal sealed class DesktopKit
         var box = Rect(rect, "Box");
         var boxSize = InGameSizes.BadgeHeight - InGameSizes.Space4;
         Size(box, boxSize, boxSize);
-        var plate = Plate(box, InGameTheme.Chip);
-        plate.raycastTarget = true;
-        var mark = Icon(box, KitIcon.Check, boxSize * .6f, InGameTheme.Backdrop);
+        var plate = Plate(box, KitLook.None);
+        plate.Image.raycastTarget = true;
+        var mark = Icon(box, KitIcon.Check, boxSize * .6f, InGameTheme.AccentBright);
         mark.anchorMin = mark.anchorMax = new Vector2(.5f, .5f);
         mark.sizeDelta = new Vector2(boxSize * .6f, boxSize * .6f);
         mark.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
@@ -394,7 +482,7 @@ internal sealed class DesktopKit
         button.Bind(
             KitButtonKind.Check,
             plate,
-            mark.GetComponentsInChildren<Graphic>(),
+            mark.GetComponentsInChildren<Graphic>(true),
             mark.gameObject
         );
         return button;
@@ -411,10 +499,9 @@ internal sealed class DesktopKit
         group.childAlignment = TextAnchor.MiddleLeft;
         var text = Text(row, value, KitTextRole.Body);
         text.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
-        Icon(row, KitIcon.ChevronDown, 10, InGameTheme.InkMuted);
-        // A field is sunk: ingame-backdrop at rest, the row hover plate on top of it.
-        var ground = Plate(button.transform, InGameTheme.Backdrop, "Ground");
-        ground.transform.SetAsFirstSibling();
+        Icon(row, KitIcon.ChevronDown, 16, InGameTheme.InkMuted);
+        // A field is sunk: the darkened centre at rest, the row hover wash on top of it.
+        Surface(button.transform, KitSurface.Field);
         button.Bind(KitButtonKind.Row, plate, Array.Empty<Graphic>());
         return button;
     }
@@ -424,10 +511,18 @@ internal sealed class DesktopKit
     {
         var rect = Rect(parent, "Search");
         Size(rect, -1, InGameSizes.ControlMd);
-        var ground = Plate(rect, InGameTheme.Backdrop, "Ground");
+        var ground = Surface(rect, KitSurface.Field).Image;
         ground.raycastTarget = true;
+        var glass = Icon(rect, KitIcon.Search, InGameSizes.Space16, InGameTheme.InkMuted);
+        glass.anchorMin = glass.anchorMax = new Vector2(0, .5f);
+        glass.pivot = new Vector2(0, .5f);
+        glass.anchoredPosition = new Vector2(InGameSizes.Space12, 0);
+        glass.sizeDelta = new Vector2(InGameSizes.Space16, InGameSizes.Space16);
         var viewport = Fill(Rect(rect, "Viewport"));
-        viewport.offsetMin = new Vector2(InGameSizes.Space12, 0);
+        viewport.offsetMin = new Vector2(
+            InGameSizes.Space12 * 2 + InGameSizes.Space16 - InGameSizes.Space4,
+            0
+        );
         viewport.offsetMax = new Vector2(-InGameSizes.Space12, 0);
         viewport.gameObject.AddComponent<RectMask2D>();
         var text = Text(viewport, "", KitTextRole.Body);
@@ -467,7 +562,7 @@ internal sealed class DesktopKit
             .flexibleWidth = 1;
         if (caption.Length > 0)
             Text(line, caption, KitTextRole.Caption, alignment: TextAlignmentOptions.BottomRight);
-        Hairline(block, .4f);
+        Hairline(block, .7f);
         return block;
     }
 
@@ -485,18 +580,17 @@ internal sealed class DesktopKit
         var rect = Rect(parent, "ListRow");
         Size(rect, -1, height);
         var button = rect.gameObject.AddComponent<KitButton>();
-        var plate = Plate(rect, Color.clear);
-        plate.raycastTarget = true;
-        var divider = Rect(rect, "Divider");
+        var plate = Plate(rect, KitLook.None);
+        plate.Image.raycastTarget = true;
+        var divider = Hairline(rect, .5f).rectTransform;
+        divider.name = "Divider";
+        divider.GetComponent<LayoutElement>().ignoreLayout = true;
         divider.anchorMin = new Vector2(0, 1);
         divider.anchorMax = new Vector2(1, 1);
         divider.pivot = new Vector2(.5f, 1);
         divider.offsetMin = new Vector2(InGameSizes.Space12, -1);
         divider.offsetMax = new Vector2(-InGameSizes.Space12, 0);
-        var line = divider.gameObject.AddComponent<Image>();
-        line.color = InGameTheme.WithAlpha(InGameTheme.Rule, .22f);
-        line.raycastTarget = false;
-        divider.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+        ShowRule(divider.GetComponent<Image>(), .5f);
         content = Fill(Rect(rect, "Content"));
         var group = content.gameObject.AddComponent<HorizontalLayoutGroup>();
         group.padding = new RectOffset(
@@ -556,13 +650,13 @@ internal sealed class DesktopKit
     }
 
     /// <summary>
-    /// The day strip: one <c>ingame-button</c> track holding a run's battles left to right.
+    /// The day strip: one darkened track holding a run's battles left to right.
     /// Add days with <see cref="Day"/>.
     /// </summary>
     internal RectTransform DayStrip(Transform parent)
     {
         var track = Rect(parent, "DayStrip");
-        Plate(track, InGameTheme.Button, "Track");
+        Surface(track, KitSurface.Track);
         var group = track.gameObject.AddComponent<HorizontalLayoutGroup>();
         var inset = (int)InGameSizes.Space4;
         group.padding = new RectOffset(inset, inset, inset, inset);
@@ -585,8 +679,8 @@ internal sealed class DesktopKit
     {
         var rect = Rect(strip, "Day");
         var button = rect.gameObject.AddComponent<KitButton>();
-        var plate = Plate(rect, Color.clear);
-        plate.raycastTarget = true;
+        var plate = Plate(rect, KitLook.None);
+        plate.Image.raycastTarget = true;
         var column = rect.gameObject.AddComponent<VerticalLayoutGroup>();
         column.padding = new RectOffset(0, 0, (int)InGameSizes.Space6, (int)InGameSizes.Space6);
         column.spacing = InGameSizes.Space4;
@@ -602,18 +696,15 @@ internal sealed class DesktopKit
     }
 
     /// <summary>
-    /// A floating surface (a tooltip or a dialog card): <c>ingame-dialog</c> one unit inside a
-    /// plate of <c>ingame-rule</c>, so it keeps an edge over the scrim. Its children go in the
+    /// A floating surface (a tooltip or a dialog card): the ground in the game's thin gold
+    /// frame, so it keeps an edge over the scrim; without the ground sprite, the solid shape
+    /// in <c>ingame-dialog</c>. Its children go in the
     /// returned rect, laid out top to bottom with <paramref name="padding"/>.
     /// </summary>
     internal RectTransform Floating(Transform parent, string name, float padding)
     {
         var rect = Rect(parent, name);
-        Plate(rect, InGameTheme.WithAlpha(InGameTheme.Rule, .55f), "Edge");
-        var edge = rect.GetChild(0);
-        var inner = Plate(rect, InGameTheme.Dialog, "Ground");
-        Fill(inner.rectTransform, 1);
-        edge.SetAsFirstSibling();
+        Surface(rect, KitSurface.Floating);
         var group = rect.gameObject.AddComponent<VerticalLayoutGroup>();
         var pad = (int)padding;
         group.padding = new RectOffset(pad, pad, pad, pad);
