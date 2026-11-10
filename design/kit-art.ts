@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Derives the Desktop Kit's plate sprites from one material image
+// Derives the Desktop Kit's plate sprites from one material image, and cuts its state marks
+// from one sheet of painted icons
 // (design/components/InGameKit/README.md, "The plate art").
 //
 //   bun design/kit-art.ts          write the plate PNGs into the mod's Resources/DesktopKit/
@@ -20,6 +21,7 @@ const materialPath = path.join(
   root,
   'design/components/InGameKit/art/material.png'
 );
+const marksPath = path.join(root, 'design/components/InGameKit/art/marks.png');
 const outDir = path.join(
   root,
   'bazaarplusplus-mod/src/BazaarPlusPlus/Resources/DesktopKit'
@@ -214,17 +216,17 @@ function shape(): Raster {
 }
 
 /** Reduces a supersampled raster with premultiplied alpha, then bleeds colour outwards. */
-function reduce(source: Raster): Raster {
-  const width = source.width / SS;
-  const height = source.height / SS;
+function reduce(source: Raster, factor = SS): Raster {
+  const width = source.width / factor;
+  const height = source.height / factor;
   const data = new Float32Array(width * height * 4);
   const known = new Uint8Array(width * height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const sum = new Float64Array(4);
-      for (let dy = 0; dy < SS; dy++) {
-        for (let dx = 0; dx < SS; dx++) {
-          const from = ((y * SS + dy) * source.width + x * SS + dx) * 4;
+      for (let dy = 0; dy < factor; dy++) {
+        for (let dx = 0; dx < factor; dx++) {
+          const from = ((y * factor + dy) * source.width + x * factor + dx) * 4;
           const alpha = at(source.data, from + 3);
           for (let channel = 0; channel < 3; channel++) {
             sum[channel] =
@@ -235,7 +237,7 @@ function reduce(source: Raster): Raster {
       }
       const to = (y * width + x) * 4;
       const total = at(sum, 3);
-      const alpha = total / (SS * SS);
+      const alpha = total / (factor * factor);
       if (total > 1e-4) {
         for (let channel = 0; channel < 3; channel++)
           data[to + channel] = at(sum, channel) / total;
@@ -451,6 +453,50 @@ function encode(raster: Raster): Buffer {
 
 // ---- entry ----
 
+/**
+ * The state marks, cut from the sheet of painted icons: one square cell per mark, in this order.
+ * A mark is half its cell's size, dense enough for a phone.
+ */
+const markNames = ['completed', 'abandoned', 'active', 'won', 'lost'];
+const MARK_REDUCTION = 2;
+
+/**
+ * Grades a mark to dull iron. The completed mark is a cup, and in a bright metal it reads
+ * as one of the game's trophies beside it in a list; a run below the first tier has no metal.
+ */
+function iron(data: Float32Array): void {
+  for (let i = 0; i < data.length; i += 4) {
+    const luma =
+      0.299 * at(data, i) + 0.587 * at(data, i + 1) + 0.114 * at(data, i + 2);
+    data[i] = luma * 0.62;
+    data[i + 1] = luma * 0.55;
+    data[i + 2] = luma * 0.5;
+  }
+}
+
+function marks(): Map<string, Raster> {
+  const sheet = decode(fs.readFileSync(marksPath));
+  const cell = sheet.height;
+  if (sheet.channels !== 4 || sheet.width !== cell * markNames.length) {
+    throw new Error(
+      `The marks sheet must be RGBA, ${markNames.length} square cells wide.`
+    );
+  }
+  const cut = new Map<string, Raster>();
+  markNames.forEach((name, index) => {
+    const data = new Float32Array(cell * cell * 4);
+    for (let y = 0; y < cell; y++) {
+      for (let x = 0; x < cell * 4; x++) {
+        data[y * cell * 4 + x] =
+          at(sheet.data, (y * sheet.width + index * cell) * 4 + x) / 255;
+      }
+    }
+    if (name === 'completed') iron(data);
+    cut.set(name, reduce({ width: cell, height: cell, data }, MARK_REDUCTION));
+  });
+  return cut;
+}
+
 function draw(): Map<string, Raster> {
   const material = readMaterial();
   const sprites = new Map<string, Raster>([['shape', shape()]]);
@@ -458,6 +504,7 @@ function draw(): Map<string, Raster> {
     sprites.set(name, plate(material, spec));
   sprites.set('edge', edge(gold, 0.85, 0.42));
   sprites.set('edge-bright', edge('#ffc759', 1, 0.5));
+  for (const [name, raster] of marks()) sprites.set(`mark-${name}`, raster);
   return sprites;
 }
 

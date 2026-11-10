@@ -50,6 +50,16 @@ internal enum DesktopKitArt
     IconClose,
     IconSearch,
     IconArrow,
+
+    /// <summary>
+    /// BPP's painted state marks: a finished run below a trophy, an abandoned run, a run in
+    /// progress, a battle won and a battle lost.
+    /// </summary>
+    MarkCompleted,
+    MarkAbandoned,
+    MarkActive,
+    MarkWon,
+    MarkLost,
 }
 
 /// <summary>
@@ -96,6 +106,11 @@ internal static class DesktopNativeSkin
         IconRoot + "Icon_RingBtn_X_TUI.png",
         IconRoot + "Icon_RingBtn_Search_TUI.png",
         IconRoot + "Menus/Icon_Menu_Dropdown_02_TUI.png",
+        "mark-completed.png",
+        "mark-abandoned.png",
+        "mark-active.png",
+        "mark-won.png",
+        "mark-lost.png",
     ];
     private static readonly Sprite?[] KitSprites = new Sprite?[KitSources.Length];
     private static readonly Task<Sprite?>?[] KitLoads = new Task<Sprite?>?[KitSources.Length];
@@ -239,9 +254,15 @@ internal static class DesktopNativeSkin
         Generation++;
     }
 
-    // An owned plate lives for the process, like the header art below.
+    // An owned sprite lives for the process, like the header art below. A plate is sliced; a
+    // mark is not.
     private static Sprite? DecodeOwned(string file) =>
-        Decode(OwnedPrefix + file, file, 100f, KitBorderPixels);
+        Decode(
+            OwnedPrefix + file,
+            file,
+            100f,
+            file.StartsWith("mark-", StringComparison.Ordinal) ? 0f : KitBorderPixels
+        );
 
     /// <summary>Takes a finished load's sprites; true when one changed.</summary>
     internal static bool Poll()

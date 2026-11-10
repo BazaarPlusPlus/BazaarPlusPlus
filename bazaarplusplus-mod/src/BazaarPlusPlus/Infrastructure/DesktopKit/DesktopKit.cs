@@ -33,6 +33,43 @@ internal enum KitIcon
     Search,
 }
 
+/// <summary>A painted state mark of the kit, drawn where a trophy would be.</summary>
+internal enum KitMark
+{
+    /// <summary>A finished run below the first trophy.</summary>
+    Completed,
+    Abandoned,
+    Active,
+    Won,
+    Lost,
+}
+
+/// <summary>
+/// The parts of a run row a consumer fills after <see cref="DesktopKit.RunRow"/>: the hero's
+/// portrait, the rank badge and the mark, which arrive later than the row.
+/// </summary>
+internal sealed class KitRunRow
+{
+    internal KitRunRow(KitButton button, Image portrait, Image rank, Image mark)
+    {
+        Button = button;
+        Portrait = portrait;
+        Rank = rank;
+        Mark = mark;
+    }
+
+    internal KitButton Button { get; }
+
+    /// <summary>The hero portrait inside the row's well.</summary>
+    internal Image Portrait { get; }
+
+    /// <summary>The rank badge; clear until <see cref="DesktopKit.Show"/> gives it a sprite.</summary>
+    internal Image Rank { get; }
+
+    /// <summary>The trophy or state mark.</summary>
+    internal Image Mark { get; }
+}
+
 /// <summary>A surface of the kit that is not a control.</summary>
 internal enum KitSurface
 {
@@ -65,6 +102,32 @@ internal sealed class DesktopKit
     private const float IconStroke = 2f;
     private const float RuleHeight = 2f;
 
+    // A run row: its portrait well, its rank and mark slots (one size, so the two sit side by
+    // side on one line) and the fixed width of its result text, which keeps every row's marks on
+    // one axis and every result on one right edge.
+    internal const float RowPortrait = 44f;
+    internal const float RowArt = 30f;
+    private const float RowResultWidth = 46f;
+
+    // A day of the day strip: its portrait well and its outcome mark.
+    private const float DayPortrait = 36f;
+    private const float DayMark = 24f;
+
+    // How far a list row's plate bleeds out of the row on each side. A row has no plate at
+    // rest, so its content, not the hidden plate, sits on the column's edges: the portrait
+    // under the section header, the result under the header's caption.
+    private const float RowBleed = InGameSizes.Space12;
+
+    // The arrow glyph's ink is narrower than its box by this much on each side.
+    private const float ArrowSideBearing = 4f;
+
+    // The source sprite each art image wants: a small copy arrives later and must not land
+    // on an image that has since been given another sprite.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
+        Image,
+        System.Runtime.CompilerServices.StrongBox<Sprite?>
+    > Wanted = new();
+
     private readonly NativeGameTypography.OwnedTextPreparation _font;
     private readonly List<KitPlate> _plates = new();
     private readonly List<(Image Glyph, DesktopKitArt Art)> _glyphs = new();
@@ -90,6 +153,15 @@ internal sealed class DesktopKit
         foreach (var (line, alpha) in _rules)
             ShowRule(line, alpha);
     }
+
+    /// <summary>
+    /// A button's label side padding. A quiet button has no plate at rest, so a row that ends
+    /// in one pulls it out by this much: its label, not its hidden plate, sits on the row's edge.
+    /// </summary>
+    internal static float LabelInset(KitSize size) => size == KitSize.Md ? PaddingMd : PaddingSm;
+
+    /// <summary>The same for a quiet button that shows only an arrow: to the arrow's ink.</summary>
+    internal static float ArrowInset(KitSize size) => LabelInset(size) + ArrowSideBearing;
 
     internal static float Height(KitSize size) =>
         size == KitSize.Md ? InGameSizes.ControlMd : InGameSizes.ControlSm;
@@ -568,7 +640,8 @@ internal sealed class DesktopKit
 
     /// <summary>
     /// A selectable list row with no plate at rest; the consumer fills <paramref name="content"/>,
-    /// a left-to-right row with the kit's padding. <see cref="Dividers"/> draws the hairlines.
+    /// a left-to-right row as wide as the column. The plate bleeds out of the row on each side,
+    /// so the column needs that much room around it. <see cref="Dividers"/> draws the hairlines.
     /// </summary>
     internal KitButton ListRow(
         Transform parent,
@@ -582,23 +655,20 @@ internal sealed class DesktopKit
         var button = rect.gameObject.AddComponent<KitButton>();
         var plate = Plate(rect, KitLook.None);
         plate.Image.raycastTarget = true;
+        plate.Image.rectTransform.offsetMin = new Vector2(-RowBleed, 0);
+        plate.Image.rectTransform.offsetMax = new Vector2(RowBleed, 0);
         var divider = Hairline(rect, .5f).rectTransform;
         divider.name = "Divider";
         divider.GetComponent<LayoutElement>().ignoreLayout = true;
         divider.anchorMin = new Vector2(0, 1);
         divider.anchorMax = new Vector2(1, 1);
         divider.pivot = new Vector2(.5f, 1);
-        divider.offsetMin = new Vector2(InGameSizes.Space12, -1);
-        divider.offsetMax = new Vector2(-InGameSizes.Space12, 0);
+        divider.offsetMin = new Vector2(0, -1);
+        divider.offsetMax = Vector2.zero;
         ShowRule(divider.GetComponent<Image>(), .5f);
         content = Fill(Rect(rect, "Content"));
         var group = content.gameObject.AddComponent<HorizontalLayoutGroup>();
-        group.padding = new RectOffset(
-            (int)InGameSizes.Space12,
-            (int)InGameSizes.Space12,
-            (int)InGameSizes.Space8,
-            (int)InGameSizes.Space8
-        );
+        group.padding = new RectOffset(0, 0, (int)InGameSizes.Space8, (int)InGameSizes.Space8);
         group.spacing = InGameSizes.Space12;
         group.childAlignment = TextAnchor.MiddleLeft;
         group.childControlWidth = group.childControlHeight = true;
@@ -637,16 +707,130 @@ internal sealed class DesktopKit
         return column;
     }
 
-    /// <summary>A square image of native art, such as a portrait or a badge, at a fixed size.</summary>
+    /// <summary>An image of native art, such as a trophy or a badge, at a fixed size.</summary>
     internal static Image Art(Transform parent, Sprite? sprite, float width, float height)
     {
         var image = Rect(parent, "Art").gameObject.AddComponent<Image>();
-        image.sprite = sprite;
         image.preserveAspect = true;
-        image.color = sprite != null ? Color.white : InGameTheme.ArtFallback;
         image.raycastTarget = false;
         Size(image, width, height);
+        Show(image, sprite);
         return image;
+    }
+
+    /// <summary>
+    /// Puts a sprite on an art image; without one the image is clear. The image shows the
+    /// sprite at once and changes to its small copy (<see cref="KitSmallArt"/>) when that is
+    /// ready: the game's trophies and badges have no mipmaps and shimmer at this size.
+    /// </summary>
+    internal static void Show(Image image, Sprite? sprite)
+    {
+        if (image == null)
+            return;
+        Wanted.GetOrCreateValue(image).Value = sprite;
+        image.sprite = sprite;
+        image.color = sprite != null ? Color.white : Color.clear;
+        if (sprite != null)
+            ShowCopy(image, sprite, KitSmallArt.IconAsync(sprite), showSourceFirst: true);
+    }
+
+    private static async void ShowCopy(
+        Image image,
+        Sprite source,
+        Task<Sprite?> copy,
+        bool showSourceFirst
+    )
+    {
+        var small = await copy;
+        if (image == null || !Wanted.TryGetValue(image, out var wanted) || wanted.Value != source)
+            return;
+        if (small == null && showSourceFirst)
+            return;
+        image.sprite = small != null ? small : source;
+        image.color = Color.white;
+    }
+
+    /// <summary>The sprite of a state mark, or null if its art cannot be decoded.</summary>
+    internal static Sprite? Mark(KitMark mark) =>
+        DesktopNativeSkin.KitArt(
+            mark switch
+            {
+                KitMark.Abandoned => DesktopKitArt.MarkAbandoned,
+                KitMark.Active => DesktopKitArt.MarkActive,
+                KitMark.Won => DesktopKitArt.MarkWon,
+                KitMark.Lost => DesktopKitArt.MarkLost,
+                _ => DesktopKitArt.MarkCompleted,
+            }
+        );
+
+    /// <summary>
+    /// A hero portrait in a square well: a sunk plate with the portrait cut to the plate's
+    /// silhouette, showing the head and shoulders. Every portrait has the same bounds
+    /// whatever the hero's art; without a sprite the well shows <c>ingame-art-fallback</c>.
+    /// Returns the portrait image, for <see cref="ShowPortrait"/>.
+    /// </summary>
+    internal Image Portrait(Transform parent, Sprite? sprite, float size)
+    {
+        var well = Rect(parent, "Portrait");
+        Size(well, size, size);
+        var window = Plate(well, KitLook.Wash(Color.white), "Window");
+        Fill(window.Image.rectTransform, InGameSizes.Space2);
+        window.Image.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+        Surface(well, KitSurface.Field);
+        var art = Fill(Rect(window.Image.transform, "Art"));
+        var image = art.gameObject.AddComponent<Image>();
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        ShowPortrait(image, sprite);
+        return image;
+    }
+
+    /// <summary>Puts a hero's sprite in a portrait well, or the fallback tint while it loads.</summary>
+    internal static void ShowPortrait(Image portrait, Sprite? sprite)
+    {
+        if (portrait == null)
+            return;
+        Wanted.GetOrCreateValue(portrait).Value = sprite;
+        // The well shows the fallback tint until the head and shoulders are cut; if they cannot
+        // be, it shows the whole portrait.
+        portrait.sprite = null;
+        portrait.color = InGameTheme.ArtFallback;
+        if (sprite != null)
+            ShowCopy(portrait, sprite, KitSmallArt.HeadAsync(sprite), showSourceFirst: false);
+    }
+
+    /// <summary>
+    /// A run in a list: the hero's portrait well, a title over a meta line (which may hold rich
+    /// text), then the result at the right in fixed slots. The rank badge and the mark (a trophy
+    /// or a state mark) are one size and sit side by side; the result text has a fixed width
+    /// and is right-aligned. So in every row the marks are on one axis and the results end on
+    /// one edge, whether or not the row has a rank or a text. An unranked row keeps the empty
+    /// rank slot.
+    /// </summary>
+    internal KitRunRow RunRow(
+        Transform parent,
+        float height,
+        string title,
+        string meta,
+        string result,
+        Color resultColor,
+        Action onClick
+    )
+    {
+        var button = ListRow(parent, height, onClick, out var content);
+        var portrait = Portrait(content, null, RowPortrait);
+        TitleAndMeta(content, title, meta);
+        var rank = Art(content, null, RowArt, RowArt);
+        var mark = Art(content, null, RowArt, RowArt);
+        var text = Text(
+            content,
+            result,
+            KitTextRole.Meta,
+            resultColor,
+            TextAlignmentOptions.MidlineRight
+        );
+        Size(text, RowResultWidth, -1);
+        return new KitRunRow(button, portrait, rank, mark);
     }
 
     /// <summary>
@@ -667,14 +851,16 @@ internal sealed class DesktopKit
         return track;
     }
 
-    /// <summary>One battle in the day strip: the day, the opponent's portrait and the outcome word.</summary>
+    /// <summary>
+    /// One battle in the day strip: the day, the opponent's portrait well and the outcome mark.
+    /// <paramref name="portrait"/> receives the portrait image, for <see cref="ShowPortrait"/>.
+    /// </summary>
     internal KitButton Day(
         Transform strip,
         string day,
-        Sprite? portrait,
-        string outcome,
-        Color outcomeColor,
-        Action onClick
+        KitMark outcome,
+        Action onClick,
+        out Image portrait
     )
     {
         var rect = Rect(strip, "Day");
@@ -688,8 +874,8 @@ internal sealed class DesktopKit
         column.childControlWidth = column.childControlHeight = true;
         column.childForceExpandWidth = column.childForceExpandHeight = false;
         var dayText = Text(rect, day, KitTextRole.Caption, alignment: TextAlignmentOptions.Center);
-        Art(rect, portrait, 34, 34);
-        Text(rect, outcome, KitTextRole.Meta, outcomeColor, TextAlignmentOptions.Center);
+        portrait = Portrait(rect, null, DayPortrait);
+        Art(rect, Mark(outcome), DayMark, DayMark);
         button.onClick.AddListener(() => onClick());
         button.Bind(KitButtonKind.Day, plate, new Graphic[] { dayText });
         return button;
