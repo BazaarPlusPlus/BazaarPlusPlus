@@ -319,7 +319,13 @@ internal static class KitPalette
     ) Looks(KitButtonKind kind)
     {
         var brown = Brown(InGameTheme.Button);
-        var brownHover = new KitLook(DesktopKitArt.PlateHover, White, InGameTheme.Chip);
+        // Under the pointer a plate takes the game's lit centre, darkened so it stays below the
+        // primary button, which shows that centre at full.
+        var brownHover = new KitLook(
+            DesktopKitArt.PlateHover,
+            InGameTheme.TintPressed,
+            InGameTheme.Chip
+        );
         var brownPressed = new KitLook(
             DesktopKitArt.PlatePressed,
             White,
@@ -332,14 +338,14 @@ internal static class KitPalette
             KitButtonKind.Primary => (
                 new KitLook(
                     DesktopKitArt.PlateHover,
-                    InGameTheme.TintPressed,
+                    White,
                     InGameTheme.ButtonSelected,
                     DesktopKitArt.EdgeBright,
                     White
                 ),
                 new KitLook(
                     DesktopKitArt.PlateHover,
-                    White,
+                    DesktopNativeSkin.OverBrightHover,
                     InGameTheme.ChipActive,
                     DesktopKitArt.EdgeBright,
                     White
@@ -372,7 +378,8 @@ internal static class KitPalette
                 Selected,
                 InGameTheme.Failure,
                 InGameTheme.Failure,
-                InGameTheme.Failure
+                // The failure red does not read on the lit centre.
+                InGameTheme.InkBright
             ),
             KitButtonKind.DangerConfirm => (
                 new KitLook(DesktopKitArt.DangerPlate, White, InGameTheme.Failure),

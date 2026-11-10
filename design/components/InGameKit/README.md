@@ -14,12 +14,12 @@ The game ships its UI font in one weight, so weight never separates levels. Size
 | Meta | `ingame-text-meta` 14 | `ingame-ink-muted` | Secondary facts, sm button labels, chips. |
 | Caption | `ingame-text-caption` 12 | `ingame-ink-muted` | Counts, page labels, the supporter line. |
 
-Surfaces are game sprites, not colours. The panel's ground stays `ingame-backdrop`, since boards and cards sit on it. A rail or a well is the ground of the game's match-history run card. A control's plate is the game's brown button centre. A track is that centre darkened by `ingame-tint-pressed`, and a field darker still by `ingame-art-panel-tint`, so it reads as sunk. A floating surface is the run-card ground in the thin gold frame.
+Surfaces are game sprites, not colours. The panel's ground stays `ingame-backdrop`, since boards and cards sit on it. A rail or a well is the ground of the game's match-history run card. A control's plate is the game's brown button centre. A track is that centre darkened by `ingame-tint-pressed`, and a field is the centre darkened by `ingame-art-input-tint` in the frame dimmed by `ingame-art-panel-tint`, so it reads as a sunk control on a ground. A floating surface is the run-card ground in the thin gold frame.
 
 Emphasis has a budget:
 
 - One primary button per view.
-- The thin gold frame marks only the primary button, a selected control or row, a checkbox and a floating surface. `ingame-accent` text marks a selected control's label and a key number.
+- The thin gold frame at full marks only the primary button, a selected control or row, a checkbox and a floating surface; a field carries it dimmed. `ingame-accent` text marks a selected control's label and a key number.
 - `ingame-success`, `ingame-failure`, `ingame-warning` and `ingame-pending` colour only status text beside a word.
 - A destructive action is a danger button: a secondary plate with `ingame-failure` text. The game's red centre is only the confirm button of its dialog.
 
@@ -43,10 +43,10 @@ Until a sprite loads, or if the game build lacks its address, the plate draws th
 
 | Component | Size | Rest | Hover | Pressed | Selected ("on") |
 |---|---|---|---|---|---|
-| Button primary | `control-md` / `control-sm` | `PlateHover` × `ingame-tint-pressed` in `EdgeBright`, `ingame-ink-bright` label | `PlateHover` in `EdgeBright` | `PlatePressed` in `Edge` | — |
-| Button secondary | same | `Plate`, `ingame-ink` label | `PlateHover`, `ingame-ink-bright` label | `PlatePressed` | `Plate` in `Edge`, `ingame-accent` label |
+| Button primary | `control-md` / `control-sm` | `PlateHover` in `EdgeBright`, `ingame-ink-bright` label | `PlateHover` × `OverBrightHover` in `EdgeBright` | `PlatePressed` in `Edge` | — |
+| Button secondary | same | `Plate`, `ingame-ink` label | `PlateHover` × `ingame-tint-pressed`, `ingame-ink-bright` label | `PlatePressed` | `Plate` in `Edge`, `ingame-accent` label |
 | Button quiet | same | no plate, `ingame-ink-muted` label | `ingame-plate-hover` wash, `ingame-ink` label | wash × `ingame-tint-pressed` | — |
-| Button danger | same | secondary plate, `ingame-failure` label | as secondary | as secondary | — |
+| Button danger | same | secondary plate, `ingame-failure` label | as secondary, `ingame-ink-bright` label | as secondary, `ingame-ink-bright` label | — |
 | Button danger confirm | same | `DangerPlate`, `ingame-ink-bright` label | `DangerPlateHover` | `DangerPlatePressed` | — |
 | Icon button | square `control-md` / `control-sm` | as its kind, with the game's glyph | | | |
 | Segmented | track `control-md` / `control-sm` | darkened track; options without a plate, `ingame-ink-muted` | wash | | `Plate` in `Edge`, `ingame-accent` |

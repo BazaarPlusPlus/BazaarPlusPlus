@@ -42,7 +42,7 @@ internal enum KitSurface
     /// <summary>The track of a segmented control or the day strip: the brown centre, darkened.</summary>
     Track,
 
-    /// <summary>A sunk field: the brown centre at its darkest.</summary>
+    /// <summary>A sunk field: the brown centre darkened, in a dimmed frame so it reads on a ground.</summary>
     Field,
 
     /// <summary>A tooltip or a dialog card: the ground in the game's thin gold frame.</summary>
@@ -162,8 +162,10 @@ internal sealed class DesktopKit
                     .Times(InGameTheme.TintPressed),
                 KitSurface.Field => new KitLook(
                     DesktopKitArt.Plate,
-                    InGameTheme.ArtPanelTint,
-                    InGameTheme.Backdrop
+                    InGameTheme.ArtInputTint,
+                    InGameTheme.Backdrop,
+                    DesktopKitArt.Edge,
+                    InGameTheme.ArtPanelTint
                 ),
                 KitSurface.Floating => new KitLook(
                     DesktopKitArt.Ground,
