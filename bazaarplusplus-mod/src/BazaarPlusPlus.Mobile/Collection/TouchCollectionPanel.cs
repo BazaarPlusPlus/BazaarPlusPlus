@@ -739,7 +739,10 @@ internal sealed class TouchCollectionPanel
                 ? new LocalizedTextSet("Less", "收起", "收起")
                 : new LocalizedTextSet("More", "更多", "更多")
         );
-        var resetBottom = 0f;
+        // More starts a row of its own, and opening it scrolls that row to the top of the rail:
+        // no chip above it stays half in view.
+        flow.Break();
+        var moreTop = flow.Height;
         flow.Chip(
             activeFacets > 0 ? $"{advancedLabel}·{activeFacets}" : advancedLabel,
             _advancedFilters,
@@ -752,15 +755,12 @@ internal sealed class TouchCollectionPanel
                 var max = Mathf.Max(0f, _railContent.rect.height - viewportHeight);
                 _railContent.anchoredPosition = new Vector2(
                     0f,
-                    _advancedFilters
-                        ? Mathf.Clamp(resetBottom + _layout.Gap - viewportHeight, 0f, max)
-                        : 0f
+                    _advancedFilters ? Mathf.Min(moreTop, max) : 0f
                 );
             },
             span: 2
         );
         flow.Break();
-        resetBottom = flow.Height + _layout.Chrome.Target;
         if (_advancedFilters)
         {
             flow.Chip(
