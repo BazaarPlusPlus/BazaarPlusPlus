@@ -116,7 +116,7 @@ internal sealed class KitGalleryView : IDisposable
         BuildContent(content);
 
         var rail = Column(_root.transform, "Rail", InGameSizes.Space12, 22, 24);
-        rail.gameObject.AddComponent<Image>().color = InGameTheme.Panel;
+        _kit.Surface(rail, KitSurface.Ground);
         DesktopKit.Size(rail, RailWidth, -1);
         BuildRail(rail);
     }
@@ -209,7 +209,7 @@ internal sealed class KitGalleryView : IDisposable
         fields.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
         kit.SectionHeader(fields, "输入", "放在 ingame-panel 上");
         var well = Column(fields, "Well", InGameSizes.Space8, 14, 14);
-        kit.Plate(well, InGameTheme.Panel, "Well");
+        kit.Surface(well, KitSurface.Ground);
         kit.Select(well, "全部英雄", () => { });
         kit.Search(well, "搜索物品");
 
@@ -494,14 +494,22 @@ internal sealed class KitGalleryView : IDisposable
     private static Image Art(Transform day) =>
         day.GetComponentsInChildren<Image>().First(image => image.name == "Art");
 
+    // How many kit sprites are in, then one line per missing sprite with the reason.
     private static string Diagnostics()
     {
-        var shape = DesktopNativeSkin.Shape;
-        var state =
-            shape != null
-                ? $"已加载，切片 {shape.border.x:0}/{shape.border.y:0}/{shape.border.z:0}/{shape.border.w:0}，{shape.rect.width:0}×{shape.rect.height:0}"
-                : DesktopNativeSkin.ShapeProblem ?? "加载中";
-        return $"底板形状 Btn_Rct_Frame_Fill_Solid_TUI：{state}\n切片倍率 {DesktopNativeSkin.ShapePixelsPerUnit}，画布 1600×1000，match 0.5";
+        var arts = (DesktopKitArt[])Enum.GetValues(typeof(DesktopKitArt));
+        var missing = arts.Where(art => DesktopNativeSkin.KitArt(art) == null)
+            .Select(art =>
+                $"{DesktopNativeSkin.KitArtName(art)}：{DesktopNativeSkin.KitArtProblem(art) ?? "加载中"}"
+            )
+            .ToArray();
+        var plate = DesktopNativeSkin.KitArt(DesktopKitArt.Plate);
+        var slice =
+            plate != null
+                ? $"\n按钮底 {plate.rect.width:0}×{plate.rect.height:0}，切片 {plate.border.x:0}/{plate.border.y:0}/{plate.border.z:0}/{plate.border.w:0}"
+                : "";
+        return $"原生贴图 {arts.Length - missing.Length}/{arts.Length} 已加载{slice}\n画布 1600×1000，match 0.5"
+            + string.Concat(missing.Select(line => "\n" + line));
     }
 
     // ---- layout helpers ----

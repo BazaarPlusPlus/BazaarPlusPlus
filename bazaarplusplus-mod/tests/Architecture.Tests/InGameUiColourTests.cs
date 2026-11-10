@@ -17,8 +17,13 @@ public sealed class InGameUiColourTests
         "BazaarPlusPlus.GameInterop.NativeSkin",
         "BazaarPlusPlus.Infrastructure.UiTokens",
         "BazaarPlusPlus.Infrastructure.DesktopKit",
-        "BazaarPlusPlus.Game.KitGallery",
     };
+
+    // The Kit Gallery is compiled only into Debug builds (ADR-0027 §5).
+    private const string KitGallery = "BazaarPlusPlus.Game.KitGallery";
+
+    private static IEnumerable<string> ScopeOf(CompiledBuild build) =>
+        build.Configuration == "Debug" ? Scope.Append(KitGallery) : Scope;
 
     private const string NativeSkin = "BazaarPlusPlus.GameInterop.NativeSkin.DesktopNativeSkin";
 
@@ -40,7 +45,10 @@ public sealed class InGameUiColourTests
                     .Type(NativeSkin)
                     .Methods.Single(method => method.ToString() == OverBrightHover)
                     .ToString();
-                return InGameColourRule.Violations(Scope.SelectMany(build.TypesIn), exempt);
+                return InGameColourRule.Violations(
+                    ScopeOf(build).SelectMany(build.TypesIn),
+                    exempt
+                );
             }
         );
     }
