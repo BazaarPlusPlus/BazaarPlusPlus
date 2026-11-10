@@ -258,13 +258,17 @@ internal static class LiveBuildTouchLayoutTests
         {
             Near(
                 layout.Scroll.Top + layout.ScrollRowBoard(0).Bottom,
-                layout.BoardSelector.Bottom,
-                $"{name}: the final switch aligns with the lower board frame, not the viewport."
+                layout.Refresh.Bottom,
+                $"{name}: the last sidebar row aligns with the lower board frame."
             );
             Near(
-                layout.Refresh.Bottom + layout.Gap,
-                layout.Previous.Top,
-                $"{name}: library maintenance sits above the frequent actions with one gap."
+                layout.Info.Bottom + layout.Gap,
+                layout.Refresh.Top,
+                $"{name}: library maintenance sits last, under the frequent actions."
+            );
+            Check.That(
+                layout.PinnedTitle.Bottom + layout.Gap <= layout.PinnedBoard.Top + 0.01f,
+                $"{name}: the title band's controls stand clear of the pinned board's frame."
             );
             Near(
                 layout.Sidebar.Left,
@@ -280,12 +284,12 @@ internal static class LiveBuildTouchLayoutTests
                 $"{name}: recommendation paging precedes the board switch."
             );
             Near(
-                0f,
-                layout.ScrollRowBoard(0).Top,
-                $"{name}: lower board has no unused header band."
+                layout.Scroll.Height,
+                layout.ScrollRowBoard(0).Bottom,
+                $"{name}: the lower board stands at the bottom of the body."
             );
             Check.That(
-                layout.Info.Bottom <= layout.BoardSelector.Top - layout.Gap + 0.01f,
+                layout.BoardSelector.Bottom + layout.Gap <= layout.Info.Top + 0.01f,
                 $"{name}: recommendation data must not overlap the lower-board switch."
             );
         }

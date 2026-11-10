@@ -21,6 +21,9 @@ public sealed class LiveBuildTouchLayout
     /// <summary>The shortest a match metric's cell gets, one value and its label.</summary>
     public const float MinMetricCellDp = 40f;
 
+    // Side by side, the height of the shown build's figures.
+    private const float InfoDp = 96f;
+
     private const float FramedHeight =
         NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket;
 
@@ -54,12 +57,14 @@ public sealed class LiveBuildTouchLayout
         var sidebarWidth = Math.Min(metrics.Dp(240f), body.Width * 0.45f);
         var columnWidth = Math.Max(1f, body.Width - sidebarWidth - padding);
         // Two rows stay whole on screen: the pinned build and one row of the list.
-        var fixedHeight = PinnedTitleHeight + TagHeight * 2f + Gap * 6f;
+        var fixedHeight = PinnedTitleHeight + TagHeight * 2f + Gap * 7f;
         var heightScale = (body.Height - fixedHeight) / 2f / FramedHeight;
         var widthScale = (columnWidth - Gap * 2f) / (NativeCardPrefab.SocketWidth * SocketCount);
         var sideBySideScale = Math.Max(0.01f, Math.Min(widthScale, heightScale));
         var boardColumnHeight =
-            PinnedTitleHeight + 2f * (FramedHeight * sideBySideScale + TagHeight + Gap * 2f) + Gap;
+            PinnedTitleHeight
+            + 2f * (FramedHeight * sideBySideScale + TagHeight + Gap * 2f)
+            + Gap * 2f;
         // A screen squarer than 16:10 holds the side-by-side boards by width and leaves the
         // lower half empty; stacked, they take the full width and the overview fills the rest.
         // That arrangement is taken whenever it fits without scrolling and its cards are larger.
@@ -82,17 +87,21 @@ public sealed class LiveBuildTouchLayout
                 body.Height
             );
             PinnedTitle = new TouchRect(BoardColumn.Left, body.Top, columnWidth, PinnedTitleHeight);
+            // Cards that the width limits leave height over: a third of it goes under the title
+            // band, and the selected board stands at the bottom of the body.
+            var spare = Math.Max(0f, body.Height - boardColumnHeight);
             PinnedBoard = new TouchRect(
                 BoardColumn.Left,
-                PinnedTitle.Bottom,
+                PinnedTitle.Bottom + Gap + spare / 3f,
                 columnWidth,
                 CardHeight + TagHeight + Gap * 2f
             );
             Close = chrome.CloseAt(Sidebar);
-            var pagerTop = Close.Bottom + Gap + metrics.Dp(96f) + Gap + target + Gap;
-            // Align the final action to the rendered lower board frame, not the scroll viewport.
-            var actionBottom = body.Top + boardColumnHeight;
-            var actionHeight = (actionBottom - pagerTop - Gap) / 2f;
+            // The sidebar reads in the order of use: the pager and the board switch first, the
+            // shown build's figures under them, and the library's update, rarely used, last.
+            var pagerTop = Close.Bottom + Gap;
+            var actionHeight =
+                (body.Bottom - pagerTop - metrics.Dp(InfoDp) - target - Gap * 3f) / 2f;
             Next = PagerFrom(
                 Sidebar.Right,
                 pagerTop,
@@ -111,9 +120,9 @@ public sealed class LiveBuildTouchLayout
                 columnWidth,
                 Math.Max(0f, body.Bottom - scrollTop)
             );
-            _listTop = 0f;
             ScrollRowHeight = RowTitleHeight + CardHeight + TagHeight + Gap * 2f;
-            LayOverview(chrome, Sidebar, Close.Bottom + Gap);
+            _listTop = Math.Max(0f, Scroll.Height - ScrollRowHeight);
+            LayOverview(chrome, Sidebar, Next.Bottom + Gap + actionHeight + Gap);
             ScrollContentHeight = Scroll.Height;
         }
         else
@@ -237,7 +246,7 @@ public sealed class LiveBuildTouchLayout
         else
         {
             Hero = new TouchRect(area.Left, top, area.Width, 0f);
-            Info = new TouchRect(area.Left, top, area.Width, metrics.Dp(96f));
+            Info = new TouchRect(area.Left, top, area.Width, metrics.Dp(InfoDp));
             LayLibraryAction(area, Info.Bottom + Gap, target);
         }
         MetricCellWidth = (Info.Width - Gap * (MetricColumns - 1)) / MetricColumns;

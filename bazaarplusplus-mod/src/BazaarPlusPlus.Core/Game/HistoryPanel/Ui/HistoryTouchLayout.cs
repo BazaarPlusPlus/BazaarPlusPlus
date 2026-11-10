@@ -93,7 +93,13 @@ public sealed class HistoryTouchLayout
         if (Compact)
             archiveWidth = body.Width;
         Archive = new TouchRect(body.Left, top, archiveWidth, columnHeight);
-        TabsTray = new TouchRect(Archive.Left, Archive.Top, Archive.Width, target);
+        // Every control of the archive has the same inset from its panel, so their edges align.
+        TabsTray = new TouchRect(
+            Archive.Left + small,
+            Archive.Top + small,
+            Archive.Width - 2f * small,
+            target
+        );
         RunsTab = new TouchRect(TabsTray.Left, TabsTray.Top, TabsTray.Width / 3f, target);
         GhostTab = new TouchRect(RunsTab.Right, TabsTray.Top, RunsTab.Width, target);
         FavoritesTab = new TouchRect(GhostTab.Right, TabsTray.Top, RunsTab.Width, target);
@@ -177,7 +183,7 @@ public sealed class HistoryTouchLayout
                 RailOlder.Top - small - RailNewer.Bottom - small
             );
         RailListFull = Rail;
-        // Three lines: day with rank, opponent, outcome word.
+        // A portrait with the rank and the outcome mark at its corners, over the day.
         ChipHeight = metrics.Dp(72f);
         ChipWidth = metrics.Target(64f);
         Footer = new TouchRect(Detail.Left, Detail.Bottom - target, Detail.Width, target);
@@ -211,19 +217,16 @@ public sealed class HistoryTouchLayout
         CardHeight = nativeHeight * CardScale;
         CarpetWidth = SocketWidth * SocketCount;
         var carpetLeft = Detail.Left + (Detail.Width - CarpetWidth) / 2f;
+        // The titles frame the two boards from outside, the opponent's above and yours below,
+        // so the boards face each other with only a small gap between them.
         UpperBoardTitle = new TouchRect(carpetLeft, boardTop, CarpetWidth, BoardTitleHeight);
         UpperBoard = new TouchRect(carpetLeft, UpperBoardTitle.Bottom, CarpetWidth, CardHeight);
-        LowerBoardTitle = Compact
-            ? UpperBoardTitle
-            : new TouchRect(
-                carpetLeft,
-                UpperBoard.Bottom + boardGap,
-                CarpetWidth,
-                BoardTitleHeight
-            );
         LowerBoard = Compact
             ? UpperBoard
-            : new TouchRect(carpetLeft, LowerBoardTitle.Bottom, CarpetWidth, CardHeight);
+            : new TouchRect(carpetLeft, UpperBoard.Bottom + boardGap, CarpetWidth, CardHeight);
+        LowerBoardTitle = Compact
+            ? UpperBoardTitle
+            : new TouchRect(carpetLeft, LowerBoard.Bottom, CarpetWidth, BoardTitleHeight);
 
         // The card inspection: the shared tap-to-inspect sheet.
         _inspect = chrome.Inspect();

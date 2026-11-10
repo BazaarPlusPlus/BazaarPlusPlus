@@ -3,6 +3,7 @@ using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Mobile.Ui;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.History;
 
@@ -56,16 +57,31 @@ internal sealed partial class TouchHistoryPanelView
             1,
             _l.BodyFont
         );
-        _supporterAction = TouchHistoryUi.Fraction(
+        // The action reads as a button inside the strip: the selected plate under its word.
+        var action = UiKit.Rect(
+            "Action",
             link.Button.transform,
+            new(.72f, .14f),
+            new(.975f, .86f),
+            Vector2.zero,
+            Vector2.zero
+        );
+        var plate = action.gameObject.AddComponent<Image>();
+        plate.raycastTarget = false;
+        plate.sprite = _badges?.HeaderSelected;
+        plate.type = Image.Type.Sliced;
+        plate.pixelsPerUnitMultiplier = HeaderPixelsPerUnit * 1.5f;
+        plate.color = plate.sprite != null ? Color.white : Color.clear;
+        _supporterAction = TouchHistoryUi.Fraction(
+            action,
             _font,
-            .74f,
             0,
-            .22f,
+            0,
+            1,
             1,
             _l.BodyFont,
             TextAlignmentOptions.Center,
-            TouchHistoryUi.Accent
+            plate.sprite != null ? TouchHistoryUi.Ink : TouchHistoryUi.Accent
         );
         RefreshSupporter();
     }
@@ -79,8 +95,9 @@ internal sealed partial class TouchHistoryPanelView
         _supporterCredit.text = string.IsNullOrEmpty(credit)
             ? HistoryPanelText.CommunitySupport()
             : credit;
-        _supporterAction.text =
-            BPPSupporterAttributionText.FormatSponsorAction(L.CurrentLanguageCode) + " ›";
+        _supporterAction.text = BPPSupporterAttributionText.FormatSponsorAction(
+            L.CurrentLanguageCode
+        );
         MobilePlatform.Port.CoverText(_supporterCredit);
     }
 
