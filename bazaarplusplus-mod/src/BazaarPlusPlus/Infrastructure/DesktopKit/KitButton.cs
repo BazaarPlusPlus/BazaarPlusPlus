@@ -280,7 +280,13 @@ internal static class KitPalette
 
     /// <summary>A selected control or row: the brown centre in the game's thin gold frame.</summary>
     internal static KitLook Selected =>
-        new(DesktopKitArt.Plate, White, InGameTheme.ButtonSelected, DesktopKitArt.Edge, White);
+        new(DesktopKitArt.Plate, White, InGameTheme.ButtonSelected, DesktopKitArt.Edge, SoftEdge);
+
+    /// <summary>
+    /// The frame's tint at rest: the game's gold line at full is a hard, bright edge on a small
+    /// control, so the kit mutes it and keeps the full line for the pointer.
+    /// </summary>
+    internal static Color SoftEdge => InGameTheme.WithAlpha(InGameTheme.ArtFrameTint, .8f);
 
     internal static (KitLook Plate, Color Ink) Resolve(
         KitButtonKind kind,
@@ -340,8 +346,8 @@ internal static class KitPalette
                     DesktopKitArt.PlateHover,
                     White,
                     InGameTheme.ButtonSelected,
-                    DesktopKitArt.EdgeBright,
-                    White
+                    DesktopKitArt.Edge,
+                    InGameTheme.ArtSelectedTint
                 ),
                 new KitLook(
                     DesktopKitArt.PlateHover,
