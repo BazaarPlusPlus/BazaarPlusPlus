@@ -31,6 +31,7 @@ internal enum KitIcon
     ChevronDown,
     Check,
     Search,
+    Heart,
 }
 
 /// <summary>A painted state mark of the kit, drawn where a trophy would be.</summary>
@@ -148,6 +149,24 @@ internal sealed class KitDayStrip
     }
 }
 
+/// <summary>A modal layer of the kit (<see cref="DesktopKit.Modal"/>).</summary>
+internal sealed class KitModal
+{
+    internal KitModal(GameObject root, RectTransform card)
+    {
+        Root = root;
+        Card = card;
+    }
+
+    /// <summary>The scrim and everything on it; active while the modal shows.</summary>
+    internal GameObject Root { get; }
+
+    /// <summary>The card: its children go top to bottom.</summary>
+    internal RectTransform Card { get; }
+
+    internal bool Open => Root != null && Root.activeSelf;
+}
+
 /// <summary>Keeps a strip's content at least as wide as its viewport, and as wide as its days.</summary>
 internal sealed class KitStripWidth : MonoBehaviour
 {
@@ -204,8 +223,11 @@ internal sealed class DesktopKit
     private const float DayPortrait = 36f;
     private const float DayMark = 24f;
 
-    // A day cell is never narrower than this; a strip with more days than fit scrolls.
-    private const float DayWidth = 64f;
+    // The strip's height: a day's caption, portrait and mark with the gaps and edges around them.
+    private const float DayStripHeight = 100f;
+
+    // Every day cell is this wide; a strip with more days than fit scrolls.
+    private const float DayWidth = 76f;
 
     // How far one wheel step moves a kit list or strip.
     private const float ScrollSensitivity = 45f;
@@ -215,8 +237,8 @@ internal sealed class DesktopKit
     // under the section header, the result under the header's caption.
     private const float RowBleed = InGameSizes.Space12;
 
-    // The arrow glyph's ink is narrower than its box by this much on each side.
-    private const float ArrowSideBearing = 4f;
+    // A paging arrow that is a panel's main control stands this high.
+    private const float WideArrowHeight = 48f;
 
     // The source sprite each art image wants: a small copy arrives later and must not land
     // on an image that has since been given another sprite.
@@ -263,9 +285,6 @@ internal sealed class DesktopKit
     /// </summary>
     internal static float LabelInset(KitSize size) => size == KitSize.Md ? PaddingMd : PaddingSm;
 
-    /// <summary>The same for a quiet button that shows only an arrow: to the arrow's ink.</summary>
-    internal static float ArrowInset(KitSize size) => LabelInset(size) + ArrowSideBearing;
-
     internal static float Height(KitSize size) =>
         size == KitSize.Md ? InGameSizes.ControlMd : InGameSizes.ControlSm;
 
@@ -301,16 +320,26 @@ internal sealed class DesktopKit
         return rect;
     }
 
-    /// <summary>Gives a rect fixed layout sizes; a negative value leaves that axis free.</summary>
+    /// <summary>
+    /// Gives a rect fixed layout sizes; a negative value leaves that axis free. Set a flexible
+    /// size after this call, not before.
+    /// </summary>
     internal static LayoutElement Size(Component target, float width, float height)
     {
         var element = target.GetComponent<LayoutElement>();
         if (element == null)
             element = target.gameObject.AddComponent<LayoutElement>();
+        // A fixed axis takes no spare room, whatever the rect's own layout group could use.
         if (width >= 0)
+        {
             element.minWidth = element.preferredWidth = width;
+            element.flexibleWidth = 0;
+        }
         if (height >= 0)
+        {
             element.minHeight = element.preferredHeight = height;
+            element.flexibleHeight = 0;
+        }
         return element;
     }
 
@@ -400,8 +429,9 @@ internal sealed class DesktopKit
 
     /// <summary>
     /// An icon in <paramref name="color"/>: the game's own glyph where it has one (close, search,
-    /// the dropdown arrow), drawn from strokes otherwise and while the glyph is missing. Search
-    /// has no strokes: without its glyph the field shows none.
+    /// the dropdown arrow) or BPP has one (the supporter heart), drawn from strokes otherwise and
+    /// while the glyph is missing. Search and the heart have no strokes: without the glyph
+    /// nothing shows.
     /// </summary>
     internal RectTransform Icon(Transform parent, KitIcon icon, float size, Color color)
     {
@@ -432,6 +462,9 @@ internal sealed class DesktopKit
                 break;
             case KitIcon.Search:
                 art = DesktopKitArt.IconSearch;
+                break;
+            case KitIcon.Heart:
+                art = DesktopKitArt.IconHeart;
                 break;
             case KitIcon.Check:
                 Stroke(
@@ -518,7 +551,7 @@ internal sealed class DesktopKit
         var group = row.GetComponent<HorizontalLayoutGroup>();
         group.padding = new RectOffset(0, 0, 0, 0);
         Size(button, Height(size), Height(size));
-        var glyph = Icon(row, icon, size == KitSize.Md ? 16 : 14, InGameTheme.Ink);
+        var glyph = Icon(row, icon, IconSize(icon, size), InGameTheme.Ink);
         button.Bind(kind, plate, glyph.GetComponentsInChildren<Graphic>(true));
         return button;
     }
@@ -536,10 +569,10 @@ internal sealed class DesktopKit
     {
         var (button, row, plate) = ButtonShell(parent, size, onClick, "Button");
         var ink = new List<Graphic>();
-        var iconSize = size == KitSize.Md ? 16 : 14;
         if (before is { } first)
             ink.AddRange(
-                Icon(row, first, iconSize, InGameTheme.Ink).GetComponentsInChildren<Graphic>(true)
+                Icon(row, first, IconSize(first, size), InGameTheme.Ink)
+                    .GetComponentsInChildren<Graphic>(true)
             );
         if (label.Length > 0)
             ink.Add(
@@ -552,9 +585,40 @@ internal sealed class DesktopKit
             );
         if (after is { } last)
             ink.AddRange(
-                Icon(row, last, iconSize, InGameTheme.Ink).GetComponentsInChildren<Graphic>(true)
+                Icon(row, last, IconSize(last, size), InGameTheme.Ink)
+                    .GetComponentsInChildren<Graphic>(true)
             );
         button.Bind(kind, plate, ink.ToArray());
+        return button;
+    }
+
+    // The game's arrow glyph has wide empty margins, so an arrow's box is larger than another
+    // icon's for the same ink.
+    private static float IconSize(KitIcon icon, KitSize size) =>
+        icon is KitIcon.ChevronLeft or KitIcon.ChevronRight ? (size == KitSize.Md ? 30 : 24)
+        : size == KitSize.Md ? 16
+        : 14;
+
+    /// <summary>
+    /// A paging arrow: a plated md square with a large arrow, for a list's pager or a strip's
+    /// ends. With <paramref name="wide"/> it shares its row's width and stands higher, for a
+    /// panel whose main action is paging.
+    /// </summary>
+    internal KitButton PageArrow(Transform parent, bool forward, Action onClick, bool wide = false)
+    {
+        var button = IconButton(
+            parent,
+            forward ? KitIcon.ChevronRight : KitIcon.ChevronLeft,
+            KitButtonKind.Secondary,
+            KitSize.Md,
+            onClick
+        );
+        if (wide)
+        {
+            var element = Size(button, -1, WideArrowHeight);
+            element.minWidth = element.preferredWidth = Height(KitSize.Md);
+            element.flexibleWidth = 1;
+        }
         return button;
     }
 
@@ -681,36 +745,66 @@ internal sealed class DesktopKit
         return button;
     }
 
-    /// <summary>A sunk single-line text field with a placeholder.</summary>
-    internal TMP_InputField Search(Transform parent, string placeholder)
+    /// <summary>A sunk single-line text field with the search glass and a placeholder.</summary>
+    internal TMP_InputField Search(Transform parent, string placeholder) =>
+        Field(parent, placeholder, KitIcon.Search);
+
+    /// <summary>
+    /// A sunk text field with a placeholder. With more than one line in
+    /// <paramref name="lines"/> it is that many lines high and takes line breaks.
+    /// </summary>
+    internal TMP_InputField Field(
+        Transform parent,
+        string placeholder,
+        KitIcon? icon = null,
+        int lines = 1
+    )
     {
-        var rect = Rect(parent, "Search");
-        Size(rect, -1, InGameSizes.ControlMd);
+        var rect = Rect(parent, "Field");
+        var many = lines > 1;
+        Size(
+            rect,
+            -1,
+            many
+                ? lines * (InGameSizes.TextBody + InGameSizes.Space6) + InGameSizes.Space16
+                : InGameSizes.ControlMd
+        );
         var ground = Surface(rect, KitSurface.Field).Image;
         ground.raycastTarget = true;
-        var glass = Icon(rect, KitIcon.Search, InGameSizes.Space16, InGameTheme.InkMuted);
-        glass.anchorMin = glass.anchorMax = new Vector2(0, .5f);
-        glass.pivot = new Vector2(0, .5f);
-        glass.anchoredPosition = new Vector2(InGameSizes.Space12, 0);
-        glass.sizeDelta = new Vector2(InGameSizes.Space16, InGameSizes.Space16);
+        var left = InGameSizes.Space12;
+        if (icon is { } shown)
+        {
+            var glyph = Icon(rect, shown, InGameSizes.Space16, InGameTheme.InkMuted);
+            glyph.anchorMin = glyph.anchorMax = new Vector2(0, .5f);
+            glyph.pivot = new Vector2(0, .5f);
+            glyph.anchoredPosition = new Vector2(InGameSizes.Space12, 0);
+            glyph.sizeDelta = new Vector2(InGameSizes.Space16, InGameSizes.Space16);
+            left = InGameSizes.Space12 * 2 + InGameSizes.Space16 - InGameSizes.Space4;
+        }
         var viewport = Fill(Rect(rect, "Viewport"));
-        viewport.offsetMin = new Vector2(
-            InGameSizes.Space12 * 2 + InGameSizes.Space16 - InGameSizes.Space4,
-            0
-        );
-        viewport.offsetMax = new Vector2(-InGameSizes.Space12, 0);
+        var edge = many ? InGameSizes.Space8 : 0;
+        viewport.offsetMin = new Vector2(left, edge);
+        viewport.offsetMax = new Vector2(-InGameSizes.Space12, -edge);
         viewport.gameObject.AddComponent<RectMask2D>();
-        var text = Text(viewport, "", KitTextRole.Body);
+        var alignment = many ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.MidlineLeft;
+        var text = Text(viewport, "", KitTextRole.Body, alignment: alignment);
         Fill(text.rectTransform);
-        var hint = Text(viewport, placeholder, KitTextRole.Body, InGameTheme.InkMuted);
+        var hint = Text(viewport, placeholder, KitTextRole.Body, InGameTheme.InkMuted, alignment);
         Fill(hint.rectTransform);
+        if (many)
+        {
+            text.textWrappingMode = hint.textWrappingMode = TextWrappingModes.Normal;
+            text.overflowMode = TextOverflowModes.Overflow;
+        }
         var input = rect.gameObject.AddComponent<TMP_InputField>();
         input.transition = Selectable.Transition.None;
         input.targetGraphic = ground;
         input.textViewport = viewport;
         input.textComponent = text;
         input.placeholder = hint;
-        input.lineType = TMP_InputField.LineType.SingleLine;
+        input.lineType = many
+            ? TMP_InputField.LineType.MultiLineNewline
+            : TMP_InputField.LineType.SingleLine;
         input.caretColor = InGameTheme.Ink;
         input.selectionColor = InGameTheme.WithAlpha(InGameTheme.Accent, .35f);
         return input;
@@ -1001,13 +1095,16 @@ internal sealed class DesktopKit
     }
 
     /// <summary>
-    /// The day strip: one darkened track holding a run's battles left to right. The days share
-    /// the strip's width; when they do not fit at their least width, the strip scrolls
-    /// sideways. Add days to <see cref="KitDayStrip.Days"/> with <see cref="Day"/>.
+    /// The day strip: one darkened track holding a run's battles from the left, each one
+    /// width; when they do not fit, the strip scrolls sideways. Add days to
+    /// <see cref="KitDayStrip.Days"/> with <see cref="Day"/>. With
+    /// <paramref name="newestFirst"/> the consumer adds the newest day first and the strip
+    /// still shows the oldest at the left.
     /// </summary>
-    internal KitDayStrip DayStrip(Transform parent)
+    internal KitDayStrip DayStrip(Transform parent, bool newestFirst = false)
     {
         var track = Rect(parent, "DayStrip");
+        Size(track, -1, DayStripHeight);
         Surface(track, KitSurface.Track);
         var scroll = track.gameObject.AddComponent<ScrollRect>();
         scroll.vertical = false;
@@ -1026,8 +1123,10 @@ internal sealed class DesktopKit
         days.offsetMin = days.offsetMax = Vector2.zero;
         var group = days.gameObject.AddComponent<HorizontalLayoutGroup>();
         group.spacing = InGameSizes.Space4;
+        group.childAlignment = TextAnchor.MiddleLeft;
+        group.reverseArrangement = newestFirst;
         group.childControlWidth = group.childControlHeight = true;
-        group.childForceExpandWidth = true;
+        group.childForceExpandWidth = false;
         group.childForceExpandHeight = true;
         days.gameObject.AddComponent<KitStripWidth>();
         scroll.viewport = viewport;
@@ -1041,7 +1140,7 @@ internal sealed class DesktopKit
     internal KitDay Day(Transform days, string day, KitMark outcome, Action onClick)
     {
         var rect = Rect(days, "Day");
-        Size(rect, -1, -1).minWidth = DayWidth;
+        Size(rect, DayWidth, -1);
         var button = rect.gameObject.AddComponent<KitButton>();
         var plate = Plate(rect, KitLook.None);
         plate.Image.raycastTarget = true;
@@ -1080,5 +1179,48 @@ internal sealed class DesktopKit
         group.childForceExpandWidth = true;
         group.childForceExpandHeight = false;
         return rect;
+    }
+
+    /// <summary>
+    /// A modal layer over the whole panel: a scrim that takes every press under it, and a
+    /// floating card in front of it. The layer has its own canvas in front of the panel's
+    /// boards (<see cref="BppOverlaySorting.PanelForeground"/>) and starts hidden; the consumer
+    /// shows <see cref="KitModal.Root"/>. The card is <paramref name="width"/> wide and as high
+    /// as its children; a press on the scrim calls <paramref name="onScrim"/>.
+    /// </summary>
+    internal KitModal Modal(
+        Transform parent,
+        string name,
+        float width,
+        Color scrim,
+        Action? onScrim = null
+    )
+    {
+        var root = Fill(Rect(parent, name));
+        root.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+        var canvas = root.gameObject.AddComponent<Canvas>();
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = BppOverlaySorting.PanelForeground;
+        root.gameObject.AddComponent<GraphicRaycaster>();
+        var shade = root.gameObject.AddComponent<Image>();
+        shade.color = scrim;
+        if (onScrim != null)
+        {
+            var dismiss = root.gameObject.AddComponent<Button>();
+            dismiss.transition = Selectable.Transition.None;
+            dismiss.targetGraphic = shade;
+            dismiss.onClick.AddListener(() => onScrim());
+        }
+        var card = Floating(root, "Card", InGameSizes.Space24);
+        card.anchorMin = card.anchorMax = card.pivot = new Vector2(.5f, .5f);
+        card.sizeDelta = new Vector2(width, 0);
+        card.GetComponent<VerticalLayoutGroup>().spacing = InGameSizes.Space12;
+        card.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter
+            .FitMode
+            .PreferredSize;
+        // The card takes the presses on it, so they do not reach the scrim.
+        card.GetChild(0).GetComponent<Image>().raycastTarget = true;
+        root.gameObject.SetActive(false);
+        return new KitModal(root.gameObject, card);
     }
 }

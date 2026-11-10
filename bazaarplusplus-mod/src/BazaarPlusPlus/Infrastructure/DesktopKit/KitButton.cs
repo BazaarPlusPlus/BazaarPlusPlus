@@ -178,6 +178,7 @@ internal sealed class KitButton : Button
     private Color? _inkOverride;
     private SelectionState _state;
     private KitPreviewState _preview;
+    private TextMeshProUGUI? _label;
 
     internal KitButtonKind Kind => _kind;
 
@@ -215,6 +216,17 @@ internal sealed class KitButton : Button
         {
             _inkOverride = value;
             Paint();
+        }
+    }
+
+    /// <summary>The button's text, for a consumer that binds it again on every refresh.</summary>
+    internal string Label
+    {
+        set
+        {
+            _label ??= GetComponentInChildren<TextMeshProUGUI>(true);
+            if (_label != null && _label.text != value)
+                _label.text = value;
         }
     }
 
@@ -293,8 +305,9 @@ internal static class KitPalette
     )
     {
         var (rest, hoverLook, pressedLook, selected, ink, selectedInk, hoverInk) = Looks(kind);
+        // A disabled control keeps its plate, darker, so the row it is in keeps its shape.
         if (disabled)
-            return (rest.Times(InGameTheme.TintDisabled), Faded(ink));
+            return (rest.Times(InGameTheme.TintPressed), Faded(ink));
         if (dimmed)
             return (
                 rest.Times(hover ? InGameTheme.TintDimmedHover : InGameTheme.TintDisabled),
@@ -443,5 +456,5 @@ internal static class KitPalette
         };
     }
 
-    private static Color Faded(Color ink) => InGameTheme.WithAlpha(ink, ink.a * .5f);
+    private static Color Faded(Color ink) => InGameTheme.WithAlpha(ink, ink.a * .45f);
 }

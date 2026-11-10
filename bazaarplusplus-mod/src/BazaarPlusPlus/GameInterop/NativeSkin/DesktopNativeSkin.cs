@@ -60,6 +60,9 @@ internal enum DesktopKitArt
     MarkActive,
     MarkWon,
     MarkLost,
+
+    /// <summary>BPP's supporter heart, in solid white.</summary>
+    IconHeart,
 }
 
 /// <summary>
@@ -111,6 +114,7 @@ internal static class DesktopNativeSkin
         "mark-active.png",
         "mark-won.png",
         "mark-lost.png",
+        "icon-heart.png",
     ];
     private static readonly Sprite?[] KitSprites = new Sprite?[KitSources.Length];
     private static readonly Task<Sprite?>?[] KitLoads = new Task<Sprite?>?[KitSources.Length];
@@ -255,13 +259,16 @@ internal static class DesktopNativeSkin
     }
 
     // An owned sprite lives for the process, like the header art below. A plate is sliced; a
-    // mark is not.
+    // mark or an icon is not.
     private static Sprite? DecodeOwned(string file) =>
         Decode(
             OwnedPrefix + file,
             file,
             100f,
-            file.StartsWith("mark-", StringComparison.Ordinal) ? 0f : KitBorderPixels
+            file.StartsWith("mark-", StringComparison.Ordinal)
+            || file.StartsWith("icon-", StringComparison.Ordinal)
+                ? 0f
+                : KitBorderPixels
         );
 
     /// <summary>Takes a finished load's sprites; true when one changed.</summary>

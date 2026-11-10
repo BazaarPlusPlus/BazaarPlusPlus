@@ -2,14 +2,12 @@
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Game.Supporters.Ui;
-using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.NativeSkin;
 using BazaarPlusPlus.GameInterop.Ranks;
 using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
-using TheBazaar.AppFramework;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,14 +23,6 @@ internal sealed class KitGalleryView : IDisposable
     private const float StateColumn = 112f;
     private const float LabelColumn = 84f;
 
-    private static readonly string[] TrophyAddresses =
-    {
-        "Trophy_Bronze_TUI",
-        "Trophy_Silver_TUI",
-        "Trophy_Gold_TUI",
-        "Trophy_Diamond_TUI",
-    };
-
     private readonly Transform _parent;
     private readonly Action _close;
     private readonly NativeRankBadgeProvider _ranks = new();
@@ -41,11 +31,10 @@ internal sealed class KitGalleryView : IDisposable
     private readonly List<(Image Target, string Rank)> _rankTargets = new();
     private readonly List<KitButton> _rows = new();
     private readonly Sprite?[] _heroes = new Sprite?[6];
-    private readonly Sprite?[] _trophies = new Sprite?[TrophyAddresses.Length];
+    private readonly NativeTrophyProvider _trophies = new();
     private Task<HeroPortraitLoadOutcome?>[]? _heroLoad;
     private KitPortraitFocus?[]? _heroFocus;
     private Color[]? _heroGlow;
-    private Task<Sprite?[]>? _trophyLoad;
     private GameObject? _root;
     private DesktopKit? _kit;
     private TMPro.TextMeshProUGUI? _diagnostics;
@@ -314,26 +303,10 @@ internal sealed class KitGalleryView : IDisposable
         RunRow(list, 5, "马克", "白银 980 · 10/23", "Silver", -1, KitMark.Completed);
         SelectRow(0);
         var pager = Row(rail, "Pager", InGameSizes.Space6, TextAnchor.MiddleLeft);
-        Flush(pager, left: true);
-        kit.IconLabelButton(
-            pager,
-            "",
-            KitIcon.ChevronLeft,
-            null,
-            KitButtonKind.Quiet,
-            KitSize.Sm,
-            () => { }
-        );
+        Flush(pager);
+        kit.PageArrow(pager, false, () => { });
+        kit.PageArrow(pager, true, () => { });
         kit.Text(pager, "第 1–5 局，共 23 局", KitTextRole.Caption);
-        kit.IconLabelButton(
-            pager,
-            "",
-            null,
-            KitIcon.ChevronRight,
-            KitButtonKind.Quiet,
-            KitSize.Sm,
-            () => { }
-        );
         DesktopKit.Rect(pager, "Gap").gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
         kit.Button(pager, "最新", KitButtonKind.Quiet, KitSize.Sm, () => { });
         var actions = Row(rail, "Actions", InGameSizes.Space8, TextAnchor.MiddleLeft);
@@ -368,16 +341,14 @@ internal sealed class KitGalleryView : IDisposable
 
     // A row that ends in a quiet sm button (and, with left, starts in a quiet arrow): the
     // label and the arrow's ink sit on the row's edges, with the other right-aligned text of the rail.
-    private static void Flush(RectTransform row, bool left)
-    {
-        var inset = -(int)DesktopKit.LabelInset(KitSize.Sm);
+    // A row that ends in a quiet button pulls it out, so its label sits on the row's edge.
+    private static void Flush(RectTransform row) =>
         row.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(
-            left ? -(int)DesktopKit.ArrowInset(KitSize.Sm) : 0,
-            inset,
+            0,
+            -(int)DesktopKit.LabelInset(KitSize.Sm),
             0,
             0
         );
-    }
 
     private void ButtonRow(Transform parent, string label, string text, KitButtonKind kind)
     {
@@ -454,26 +425,9 @@ internal sealed class KitGalleryView : IDisposable
                         DesktopKit.ShowPortrait(target, sprite, _heroFocus?[i], _heroGlow?[i]);
             }
         }
-        if (_trophyLoad == null && _trophies.Any(sprite => sprite == null))
-        {
-            if (Services.TryGet<AssetLoader>(out var loader) && loader != null)
-                _trophyLoad = Task.WhenAll(
-                    TrophyAddresses.Select(address =>
-                        NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, address)
-                    )
-                );
-        }
-        else if (_trophyLoad?.IsCompleted == true)
-        {
-            if (_trophyLoad.Status == TaskStatus.RanToCompletion)
-                for (var i = 0; i < _trophies.Length; i++)
-                    _trophies[i] = _trophyLoad.Result[i];
-            else
-                _ = _trophyLoad.Exception;
-            _trophyLoad = null;
+        if (_trophies.Tick())
             foreach (var (target, tier) in _trophyTargets)
-                DesktopKit.Show(target, _trophies[tier]);
-        }
+                DesktopKit.Show(target, _trophies.Get((NativeTrophy)tier));
     }
 
     private static string Diagnostics()

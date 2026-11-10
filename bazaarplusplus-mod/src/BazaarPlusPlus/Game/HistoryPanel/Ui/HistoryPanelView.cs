@@ -1,27 +1,29 @@
 #nullable enable
-using BazaarPlusPlus.GameInterop.AssetLoading;
+using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Game.Supporters.Ui;
 using BazaarPlusPlus.GameInterop.Fonts;
+using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
-using BazaarPlusPlus.GameInterop.NativeSkin;
 using BazaarPlusPlus.GameInterop.Ranks;
+using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
-using TheBazaar.AppFramework;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
-// Owned native-art archive layout using the existing history selection state.
+/// <summary>
+/// The Desktop History panel, built from the Desktop UI kit: a rail at the left (title,
+/// supporter line, section tabs, filters, the archive list and its pager) and the selected
+/// battle at the right (the two boards between their owners' titles, the run's day strip and
+/// the actions). uGUI layout groups place everything; the view owns no rect arithmetic.
+/// </summary>
 internal sealed partial class HistoryPanelView : IDisposable
 {
-    // The rank trophies; the native button art is the Desktop UI's NativeSkin.
-    private static readonly string[] TrophyAddresses =
-    [
-        "Trophy_Bronze_TUI",
-        "Trophy_Silver_TUI",
-        "Trophy_Gold_TUI",
-        "Trophy_Diamond_TUI",
-    ];
+    private const float RailWidth = 440f;
+    private const float RowHeight = 64f;
+    private const int Slots = 40;
+
     private static readonly Color Ink = InGameTheme.Ink;
     private static readonly Color Muted = InGameTheme.InkMuted;
     private readonly Transform _parent;
@@ -35,39 +37,30 @@ internal sealed partial class HistoryPanelView : IDisposable
     private readonly Action _ghostDay;
     private readonly List<(
         Image Target,
+        EHero Hero,
         Task<HeroPortraitLoadOutcome?> Load,
         int Generation
     )> _portraits = new();
+    private readonly NativeRankBadgeProvider _rankBadges = new();
+    private readonly NativeTrophyProvider _trophies = new();
+    private readonly Vector3[] _corners = new Vector3[4];
+    private DesktopKit? _kit;
     private GameObject? _root;
     private RectTransform? _layout;
     private RectTransform? _preview;
     private RectTransform? _opponentPreview;
+    private Rect _lastBounds;
     private Rect _lastOpponentBounds;
     private TextMeshProUGUI? _opponentStatus;
     private TextMeshProUGUI? _previewStatus;
     private NativeGameTypography.OwnedTextPreparation? _font;
-    private Task<Sprite?[]>? _trophyLoad;
-    private Sprite?[]? _trophies;
-    private int _skinGeneration;
-    private Texture2D? _resultAtlas;
-    private Sprite? _winBadge;
-    private Sprite? _lossBadge;
-    private Texture2D? _stateAtlas;
-    private Sprite[] _stateBadges = Array.Empty<Sprite>();
-    private readonly NativeRankBadgeProvider _rankBadges = new();
+    private BPPSupporterNativeAttributionRow? _supporters;
     private HistoryPanelViewModel? _model;
     private bool _boardsAvailable;
     private string _detailMessage = string.Empty;
     private bool _visible;
     private bool _disposed;
     private int _generation;
-    private float _retryAt;
-    private Rect _lastBounds;
-    private int _layoutFrames = 2;
-    private Vector2 _screenSize;
-    private readonly Vector3[] _corners = new Vector3[4];
-    private readonly List<(Image Image, DesktopSkinPart Part, Color Tint)> _art = new();
-    private readonly Dictionary<Button, ButtonBinding> _buttons = new();
     private Action<int>? _pageArchive;
     private Action<int>? _pageBattles;
     public event Action<Rect>? PreviewContainerBoundsChanged;
@@ -127,7 +120,7 @@ internal sealed partial class HistoryPanelView : IDisposable
             return;
         if (NativeGameTypography.PrepareOwnedText(out _font) != NativeGameTypography.Outcome.Ready)
             return;
-        LoadResultBadges();
+        _kit = new DesktopKit(_font!);
         _root = new GameObject(
             "HistoryPanelView",
             typeof(RectTransform),
@@ -160,21 +153,30 @@ internal sealed partial class HistoryPanelView : IDisposable
             _accountCode = string.Empty;
             _accountInput?.SetTextWithoutNotify(string.Empty);
             _accountInput?.DeactivateInputField();
-            _moreVisible = false;
-            _moreRoot?.SetActive(false);
-            _filterRoot?.SetActive(false);
+            _more?.Root.SetActive(false);
+            _heroMenu?.Root.SetActive(false);
             CloseNoteDialog();
         }
         else
-        {
-            _layoutFrames = 2;
             UpdateContent();
-        }
     }
 
     public bool IsTextInputFocused() =>
         (_accountInput != null && _accountInput.isFocused)
         || (_noteInput != null && _noteInput.isFocused);
+
+    internal bool HasOpenModal =>
+        _heroMenu?.Open == true || _more?.Open == true || _note?.Open == true;
+
+    internal void DismissModal()
+    {
+        if (_note?.Open == true)
+            CloseNoteDialog();
+        else if (_heroMenu?.Open == true)
+            _heroMenu.Root.SetActive(false);
+        else if (_more?.Open == true)
+            SetMoreVisible(false);
+    }
 
     public void Refresh(HistoryPanelViewModel model)
     {
@@ -210,45 +212,12 @@ internal sealed partial class HistoryPanelView : IDisposable
         if (!_visible || _disposed)
             return;
         EnsureCreated();
-        if (_rankBadges.Tick())
+        if (_root == null)
+            return;
+        _kit!.Tick();
+        // A rank badge or a trophy that arrives late goes on the rows that wait for it.
+        if (_rankBadges.Tick() | _trophies.Tick())
             UpdateContent();
-        if (
-            _trophyLoad == null
-            && Time.unscaledTime >= _retryAt
-            && Services.TryGet<AssetLoader>(out var loader)
-            && loader != null
-        )
-        {
-            _retryAt = Time.unscaledTime + 5;
-            DesktopNativeSkin.Request();
-            if (_trophies == null || _trophies.Any(sprite => sprite == null))
-                _trophyLoad = Task.WhenAll(
-                    TrophyAddresses.Select(address =>
-                        NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, address)
-                    )
-                );
-        }
-        DesktopNativeSkin.Poll();
-        var changed = _skinGeneration != DesktopNativeSkin.Generation;
-        if (_trophyLoad?.IsCompleted == true)
-        {
-            if (_trophyLoad.Status == TaskStatus.RanToCompletion)
-            {
-                var loaded = _trophyLoad.Result;
-                changed |=
-                    _trophies == null
-                    || Enumerable.Range(0, loaded.Length).Any(i => loaded[i] != _trophies[i]);
-                _trophies = loaded;
-            }
-            else
-                _ = _trophyLoad.Exception;
-            _trophyLoad = null;
-        }
-        if (changed)
-        {
-            _skinGeneration = DesktopNativeSkin.Generation;
-            RefreshSkin();
-        }
         for (var i = _portraits.Count - 1; i >= 0; i--)
         {
             var request = _portraits[i];
@@ -258,348 +227,114 @@ internal sealed partial class HistoryPanelView : IDisposable
                 request.Generation == _generation
                 && request.Target != null
                 && request.Load.Status == TaskStatus.RanToCompletion
-                && request.Load.Result?.Sprite != null
+                && request.Load.Result?.Sprite is { } sprite
             )
-            {
-                request.Target.sprite = request.Load.Result.Sprite;
-                request.Target.color = Color.white;
-            }
+                DesktopKit.ShowPortrait(
+                    request.Target,
+                    sprite,
+                    HeroPortraitFocus.For(request.Hero),
+                    HeroPortraitFocus.Glow(request.Hero)
+                );
             else if (request.Load.IsFaulted)
                 _ = request.Load.Exception;
             _portraits.RemoveAt(i);
         }
         UpdateInputFocus();
-        var size = new Vector2(Screen.width, Screen.height);
-        if (_screenSize != size)
-        {
-            _screenSize = size;
-            _layoutFrames = 2;
-        }
-        if (_layoutFrames <= 0 || _preview == null)
-            return;
-        _layoutFrames--;
-        Canvas.ForceUpdateCanvases();
-        LayoutMoreDialog();
-        UpdateScrollMask(_archiveList.Scroll);
-        UpdateScrollMask(_dayStrip.Scroll);
-        _preview.GetWorldCorners(_corners);
-        var bounds = Rect.MinMaxRect(_corners[0].x, _corners[0].y, _corners[2].x, _corners[2].y);
-        if (bounds.width > 1 && bounds.height > 1 && bounds != _lastBounds)
+        RevealSelectedDay();
+        // The boards are drawn by the game into these two rects; layout moves them when the
+        // section or the window changes.
+        if (Bounds(_preview) is { } bounds && bounds != _lastBounds)
         {
             _lastBounds = bounds;
             PreviewContainerBoundsChanged?.Invoke(bounds);
         }
-        if (ShowsBothBoards && _opponentPreview != null)
-        {
-            _opponentPreview.GetWorldCorners(_corners);
-            bounds = Rect.MinMaxRect(_corners[0].x, _corners[0].y, _corners[2].x, _corners[2].y);
-            if (bounds != _lastOpponentBounds && bounds.width > 1)
-            {
-                _lastOpponentBounds = bounds;
-                OpponentBoundsChanged?.Invoke(bounds);
-            }
-        }
-    }
-
-    private void RefreshSkin()
-    {
-        foreach (var art in _art)
-            DesktopNativeSkin.Paint(art.Image, art.Part, art.Tint);
-        foreach (var entry in _buttons)
-            ApplyButtonSkin(entry.Key, entry.Value.Selected);
-        UpdateContent();
-    }
-
-    private void ApplyButtonSkin(Button button, bool selected)
-    {
-        var image = (Image)button.targetGraphic;
-        var binding = _buttons[button];
-        var groupedOption = !selected && binding.Style == ButtonStyle.GroupedOption;
-        var restingRecord = !selected && binding.Style == ButtonStyle.Record;
-        image.sprite =
-            selected || binding.Style == ButtonStyle.Primary
-                ? DesktopNativeSkin.HeaderSelected
-                : DesktopNativeSkin.HeaderNormal;
-        image.fillCenter = true;
-        image.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
-        image.color =
-            image.sprite != null ? Color.white
-            : selected ? InGameTheme.ButtonSelected
-            : InGameTheme.Button;
-        var colors = button.colors;
-        var dimmed = binding.Dimmed && button.interactable;
-        colors.disabledColor = groupedOption ? Color.clear : InGameTheme.TintDisabled;
-        colors.normalColor =
-            groupedOption ? Color.clear
-            : dimmed ? colors.disabledColor
-            : restingRecord ? InGameTheme.TintRest
-            : Color.white;
-        colors.highlightedColor =
-            groupedOption ? InGameTheme.TintQuietHover
-            : restingRecord ? InGameTheme.TintRestHover
-            : dimmed ? InGameTheme.TintDimmedHover
-            : DesktopNativeSkin.OverBrightHover;
-        colors.pressedColor = InGameTheme.TintPressed;
-        colors.selectedColor = colors.normalColor;
-        button.colors = colors;
-        binding.Text.color =
-            !button.interactable || dimmed ? Muted
-            : binding.Style == ButtonStyle.Danger ? InGameTheme.Failure
-            : groupedOption || restingRecord ? InGameTheme.InkSoft
-            : Ink;
-    }
-
-    // Every refresh rebinds every button, so an unchanged one is left alone: no label write, no
-    // interactable toggle, no skin. RefreshSkin reapplies the skin itself when the art arrives.
-    // A dimmed button looks disabled but still takes presses, so it can explain why it cannot act.
-    private void SetButton(
-        Button button,
-        string label,
-        bool selected = false,
-        bool enabled = true,
-        bool dimmed = false
-    )
-    {
-        var binding = _buttons[button];
         if (
-            binding.Label == label
-            && binding.Selected == selected
-            && binding.Enabled == enabled
-            && binding.Dimmed == dimmed
+            ShowsBothBoards
+            && Bounds(_opponentPreview) is { } opponent
+            && opponent != _lastOpponentBounds
         )
-            return;
-        if (binding.Label != label)
-            binding.Text.text = label;
-        button.interactable = enabled;
-        _buttons[button] = binding with
         {
-            Label = label,
-            Selected = selected,
-            Enabled = enabled,
-            Dimmed = dimmed,
-        };
-        ApplyButtonSkin(button, selected);
-    }
-
-    private void SetButtonEnabled(Button button, bool enabled)
-    {
-        var binding = _buttons[button];
-        SetButton(
-            button,
-            binding.Label ?? binding.Text.text,
-            binding.Selected,
-            enabled,
-            binding.Dimmed
-        );
-    }
-
-    // A button's own label, found once at construction, and what SetButton last bound. Label
-    // starts null so the first SetButton always binds.
-    private readonly record struct ButtonBinding(
-        TextMeshProUGUI Text,
-        string? Label,
-        bool Selected,
-        bool Enabled,
-        ButtonStyle Style,
-        bool Dimmed = false
-    );
-
-    private enum ButtonStyle
-    {
-        Standard,
-        Primary,
-        Danger,
-        GroupedOption,
-        Record,
-    }
-
-    private TextMeshProUGUI ButtonLabel(Button button) => _buttons[button].Text;
-
-    private void LoadResultBadges()
-    {
-        if (_resultAtlas == null)
-        {
-            var result = LoadBadgeAtlas("battle-result-badges.png", 2);
-            _resultAtlas = result.Texture;
-            _winBadge = result.Sprites[0];
-            _lossBadge = result.Sprites[1];
-        }
-        if (_stateAtlas == null)
-        {
-            var states = LoadBadgeAtlas("run-state-badges.png", 3);
-            _stateAtlas = states.Texture;
-            _stateBadges = states.Sprites;
+            _lastOpponentBounds = opponent;
+            OpponentBoundsChanged?.Invoke(opponent);
         }
     }
 
-    private static (Texture2D Texture, Sprite[] Sprites) LoadBadgeAtlas(string name, int count)
+    private Rect? Bounds(RectTransform? rect)
     {
-        using var stream = typeof(HistoryPanelView).Assembly.GetManifestResourceStream(
-            $"BazaarPlusPlus.Resources.HistoryPanel.{name}"
-        );
-        if (stream == null)
-            throw new InvalidOperationException($"History artwork is missing: {name}");
-        using var bytes = new System.IO.MemoryStream();
-        stream.CopyTo(bytes);
-        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false)
-        {
-            name = name,
-            filterMode = FilterMode.Bilinear,
-            wrapMode = TextureWrapMode.Clamp,
-        };
-        if (!texture.LoadImage(bytes.ToArray()))
-        {
-            UnityEngine.Object.Destroy(texture);
-            throw new InvalidOperationException($"History artwork could not be decoded: {name}");
-        }
-        var width = texture.width / (float)count;
-        var sprites = Enumerable
-            .Range(0, count)
-            .Select(index =>
-                Sprite.Create(
-                    texture,
-                    new Rect(index * width, 0, width, texture.height),
-                    new Vector2(.5f, .5f)
+        if (rect == null || !rect.gameObject.activeInHierarchy)
+            return null;
+        rect.GetWorldCorners(_corners);
+        var bounds = Rect.MinMaxRect(_corners[0].x, _corners[0].y, _corners[2].x, _corners[2].y);
+        return bounds.width > 1 && bounds.height > 1 ? bounds : null;
+    }
+
+    // Shows a hero in a portrait well; the well is empty until the portrait is loaded.
+    private void ShowHero(Image portrait, string? heroId)
+    {
+        _portraits.RemoveAll(request => request.Target == portrait);
+        DesktopKit.ShowPortrait(portrait, null);
+        if (TheDragonsHeroIdentity.TryResolve(heroId, out var hero))
+            _portraits.Add(
+                (
+                    portrait,
+                    hero,
+                    HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(hero),
+                    _generation
                 )
-            )
-            .ToArray();
-        return (texture, sprites);
+            );
     }
 
-    private static RectTransform CreateRect(
-        string name,
-        Transform parent,
-        float x,
-        float y,
-        float width,
-        float height
-    )
+    private static HorizontalLayoutGroup Line(Transform parent, string name, float spacing) =>
+        Line(DesktopKit.Rect(parent, name), spacing);
+
+    private static HorizontalLayoutGroup Line(RectTransform rect, float spacing)
     {
-        var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
-        rect.SetParent(parent, false);
-        Anchor(rect, HistoryPanelLayout.Anchors(x, y, width, height));
-        rect.offsetMin = rect.offsetMax = Vector2.zero;
-        return rect;
+        var group = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
+        group.spacing = spacing;
+        group.childAlignment = TextAnchor.MiddleLeft;
+        group.childControlWidth = group.childControlHeight = true;
+        group.childForceExpandWidth = group.childForceExpandHeight = false;
+        return group;
     }
 
-    private static RectTransform CreateRect(string name, Transform parent, HistoryRect rect) =>
-        CreateRect(name, parent, rect.X, rect.Y, rect.Width, rect.Height);
-
-    // The single place top-down authoring becomes Unity's bottom-up anchors.
-    private static void Anchor(RectTransform rect, HistoryAnchors anchors)
+    private static VerticalLayoutGroup Column(RectTransform rect, float spacing)
     {
-        rect.anchorMin = new Vector2(anchors.MinX, anchors.MinY);
-        rect.anchorMax = new Vector2(anchors.MaxX, anchors.MaxY);
+        var group = rect.gameObject.AddComponent<VerticalLayoutGroup>();
+        group.spacing = spacing;
+        group.childControlWidth = group.childControlHeight = true;
+        group.childForceExpandWidth = true;
+        group.childForceExpandHeight = false;
+        return group;
     }
 
-    private void Panel(Transform parent, float x, float y, float width, float height)
+    private static T Flexible<T>(T target)
+        where T : Component
     {
-        var rect = CreateRect("NativePanel", parent, x, y, width, height);
-        var tint = InGameTheme.ArtFrameTint;
-        var frame = DesktopNativeSkin.Layer(
-            rect,
-            "NativeArt",
-            DesktopSkinPart.Frame,
-            tint,
-            DesktopNativeSkin.PanelPixelsPerUnit
-        );
-        frame.fillCenter = false;
-        _art.Add((frame, DesktopSkinPart.Frame, tint));
+        var element = target.GetComponent<LayoutElement>();
+        if (element == null)
+            element = target.gameObject.AddComponent<LayoutElement>();
+        element.flexibleWidth = 1;
+        return target;
     }
 
-    private void ControlSurface(Transform parent)
+    // A text of more than one line: it takes the height its width needs.
+    private static TextMeshProUGUI Wrapped(TextMeshProUGUI text)
     {
-        var image = CreateRect("ControlSurface", parent, 0, 0, 1, 1)
-            .gameObject.AddComponent<Image>();
-        image.sprite = DesktopNativeSkin.HeaderNormal;
-        image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
-        image.raycastTarget = false;
-    }
-
-    private Button Button(
-        Transform parent,
-        string label,
-        float x,
-        float y,
-        float width,
-        float height,
-        Action click,
-        bool selected = false,
-        int size = 17,
-        ButtonStyle style = ButtonStyle.Standard
-    )
-    {
-        var rect = CreateRect("HistoryAction", parent, x, y, width, height);
-        var image = rect.gameObject.AddComponent<Image>();
-        image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier = 2.5f;
-        image.color = image.sprite == null ? InGameTheme.ArtFallback : Color.white;
-
-        var button = rect.gameObject.AddComponent<Button>();
-        button.targetGraphic = image;
-        button.onClick.AddListener(() => click());
-        var text = Text(rect, label, .04f, .06f, .92f, .88f, size, Ink, true);
-        _buttons[button] = new ButtonBinding(text, null, selected, true, style);
-        ApplyButtonSkin(button, selected);
-        return button;
-    }
-
-    private Button Button(
-        Transform parent,
-        string label,
-        HistoryRect rect,
-        Action click,
-        bool selected = false,
-        int size = 17,
-        ButtonStyle style = ButtonStyle.Standard
-    ) =>
-        Button(
-            parent,
-            label,
-            rect.X,
-            rect.Y,
-            rect.Width,
-            rect.Height,
-            click,
-            selected,
-            size,
-            style
-        );
-
-    private TextMeshProUGUI Text(
-        Transform parent,
-        string label,
-        HistoryRect rect,
-        int size,
-        Color? color = null,
-        bool center = false
-    ) => Text(parent, label, rect.X, rect.Y, rect.Width, rect.Height, size, color, center);
-
-    private TextMeshProUGUI Text(
-        Transform parent,
-        string label,
-        float x,
-        float y,
-        float width,
-        float height,
-        int size,
-        Color? color = null,
-        bool center = false
-    )
-    {
-        var text = CreateRect("Label", parent, x, y, width, height)
-            .gameObject.AddComponent<TextMeshProUGUI>();
-        _font?.Apply(text);
-        text.text = label;
-        text.fontSize = size;
-        text.color = color ?? Ink;
-        text.alignment = center ? TextAlignmentOptions.Center : TextAlignmentOptions.MidlineLeft;
-        text.textWrappingMode = TextWrappingModes.NoWrap;
-        text.overflowMode = TextOverflowModes.Ellipsis;
-        text.raycastTarget = false;
+        text.textWrappingMode = TextWrappingModes.Normal;
+        text.overflowMode = TextOverflowModes.Overflow;
         return text;
     }
+
+    private static Color OutcomeColor(HistoryOutcomeTone tone) =>
+        tone switch
+        {
+            HistoryOutcomeTone.Won => InGameTheme.Success,
+            HistoryOutcomeTone.Lost => InGameTheme.Failure,
+            _ => Muted,
+        };
+
+    private static string Tinted(string text, Color color) =>
+        $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{text}</color>";
 
     public void Dispose()
     {
@@ -610,20 +345,6 @@ internal sealed partial class HistoryPanelView : IDisposable
         if (_root != null)
             UnityEngine.Object.Destroy(_root);
         _root = null;
-        if (_winBadge != null)
-            UnityEngine.Object.Destroy(_winBadge);
-        if (_lossBadge != null)
-            UnityEngine.Object.Destroy(_lossBadge);
-        if (_resultAtlas != null)
-            UnityEngine.Object.Destroy(_resultAtlas);
-        foreach (var badge in _stateBadges)
-            UnityEngine.Object.Destroy(badge);
-        if (_stateAtlas != null)
-            UnityEngine.Object.Destroy(_stateAtlas);
-        _stateAtlas = null;
-        _stateBadges = Array.Empty<Sprite>();
-        _winBadge = _lossBadge = null;
-        _resultAtlas = null;
         // Sprites and font assets belong to the shared native loaders.
     }
 }

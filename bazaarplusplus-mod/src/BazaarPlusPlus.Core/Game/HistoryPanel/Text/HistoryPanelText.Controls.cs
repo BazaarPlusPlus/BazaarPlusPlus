@@ -42,14 +42,6 @@ public static partial class HistoryPanelText
 
     private static readonly LocalizedTextSet MoreText = new("More", "更多", "更多");
 
-    private static readonly LocalizedTextSet ThanksText = new("Thanks", "感谢", "感謝");
-
-    private static readonly LocalizedTextSet CommunityText = new(
-        "Community",
-        "玩家社区",
-        "玩家社群"
-    );
-
     private static readonly LocalizedTextSet CommunitySupportText = new(
         "Community support",
         "玩家社区支持",
@@ -99,10 +91,6 @@ public static partial class HistoryPanelText
     public static string CloudWindow() => Resolve(CloudWindowText);
 
     public static string More() => Resolve(MoreText);
-
-    public static string Thanks() => Resolve(ThanksText);
-
-    public static string Community() => Resolve(CommunityText);
 
     public static string CommunitySupport() => Resolve(CommunitySupportText);
 
