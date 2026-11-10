@@ -7,6 +7,24 @@ namespace BazaarPlusPlus.Mobile.Ui;
 internal sealed class NativeSkin
 {
     private readonly NativeSkinArt _art = MobilePlatform.Port.ReadNativeSkinArt();
+    private readonly Sprite? _plate;
+    private readonly Sprite? _selectedPlate;
+    private readonly float _plateMultiplier;
+
+    /// <summary>A skin whose buttons are the game's own button art.</summary>
+    public NativeSkin() { }
+
+    /// <summary>
+    /// A skin whose buttons are BPP's touch plates (<see cref="TouchPlates"/>), sliced with
+    /// <paramref name="multiplier"/> (<c>HistoryHeaderArtwork.TouchMultiplier</c>); without
+    /// them the buttons are the game's art.
+    /// </summary>
+    public NativeSkin(TouchPlates? plates, float multiplier)
+    {
+        _plate = plates?.HeaderNormal;
+        _selectedPlate = plates?.HeaderSelected;
+        _plateMultiplier = multiplier;
+    }
 
     /// <summary>The game destroyed or never loaded a sprite this skin draws with.</summary>
     public bool NeedsRefresh
@@ -133,6 +151,15 @@ internal sealed class NativeSkin
 
     public void Select(Image image, bool selected, bool dimmed = false)
     {
+        if (_plate != null && _selectedPlate != null)
+        {
+            // The selected plate carries its own gold rim, so it takes no tint.
+            image.sprite = selected ? _selectedPlate : _plate;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = _plateMultiplier;
+            image.color = dimmed ? InGameTheme.ArtPanelTint : Color.white;
+            return;
+        }
         image.sprite = selected && _art.Selected != null ? _art.Selected : _art.Button;
         image.type = Image.Type.Sliced;
         image.color =

@@ -43,6 +43,9 @@ type Rgb = readonly [number, number, number];
 /** A sample of a typed array; out of range reads 0. */
 const at = (samples: ArrayLike<number>, index: number) => samples[index] ?? 0;
 
+/** The Mobile UI's art, beside the desktop kit's: linked into the Android host by name. */
+const touchDir = '../HistoryPanel';
+
 interface Raster {
   width: number;
   height: number;
@@ -523,6 +526,56 @@ function heart(): Raster {
   return reduce({ width: side, height: side, data });
 }
 
+/**
+ * The touch controls' plates (the Mobile UI's `control-normal.png` and `control-selected.png`,
+ * sliced 40 px, which is 6 dp on a device): the same material and rim as the desktop plates,
+ * on a larger silhouette with a rounder corner, so one plate serves a 48 dp touch target.
+ */
+const touchPlates: Record<string, PlateSpec> = {
+  'control-normal': {
+    fill: '#3a2815',
+    rim,
+    rimAlpha: 0.62,
+    radius: 11,
+    widthUnits: 88,
+    heightUnits: 48
+  },
+  'control-selected': {
+    fill: '#553b1b',
+    rim: '#ffc759',
+    rimAlpha: 0.9,
+    contrast: 0.07,
+    radius: 11,
+    widthUnits: 88,
+    heightUnits: 48
+  }
+};
+
+/** The touch History's badge atlases: the kit's marks side by side, in the order the host cuts them. */
+const touchAtlases: Record<string, string[]> = {
+  'run-state-badges': ['completed', 'abandoned', 'active'],
+  'battle-result-badges': ['won', 'lost']
+};
+
+function atlas(cut: Map<string, Raster>, names: string[]): Raster {
+  const cells = names.map((name) => {
+    const cell = cut.get(name);
+    if (!cell) throw new Error(`No mark named ${name}.`);
+    return cell;
+  });
+  const side = cells[0]?.height ?? 0;
+  const data = new Float32Array(side * cells.length * side * 4);
+  cells.forEach((cell, index) => {
+    for (let y = 0; y < side; y++) {
+      data.set(
+        cell.data.subarray(y * side * 4, (y + 1) * side * 4),
+        (y * side * cells.length + index * side) * 4
+      );
+    }
+  });
+  return { width: side * cells.length, height: side, data };
+}
+
 function draw(): Map<string, Raster> {
   const material = readMaterial();
   const sprites = new Map<string, Raster>([['shape', shape()]]);
@@ -530,8 +583,13 @@ function draw(): Map<string, Raster> {
     sprites.set(name, plate(material, spec));
   sprites.set('edge', edge(gold, 0.85, 0.42));
   sprites.set('edge-bright', edge('#ffc759', 1, 0.5));
-  for (const [name, raster] of marks()) sprites.set(`mark-${name}`, raster);
+  const cut = marks();
+  for (const [name, raster] of cut) sprites.set(`mark-${name}`, raster);
   sprites.set('icon-heart', heart());
+  for (const [name, spec] of Object.entries(touchPlates))
+    sprites.set(`${touchDir}/${name}`, plate(material, spec));
+  for (const [name, names] of Object.entries(touchAtlases))
+    sprites.set(`${touchDir}/${name}`, atlas(cut, names));
   return sprites;
 }
 
