@@ -1,6 +1,8 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure.DesktopKit;
+using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.HeroPortraits;
 
@@ -12,6 +14,9 @@ namespace BazaarPlusPlus.GameInterop.HeroPortraits;
 /// </summary>
 internal static class HeroPortraitFocus
 {
+    /// <summary>The hero's colour, for the glow behind the figure in a portrait well.</summary>
+    internal static Color Glow(EHero hero) => HeroVisual.Resolve(hero.ToString()).Background;
+
     /// <summary>The hero's face square, or null to let the kit find the head.</summary>
     internal static KitPortraitFocus? For(EHero hero) =>
         hero.ToString() switch
