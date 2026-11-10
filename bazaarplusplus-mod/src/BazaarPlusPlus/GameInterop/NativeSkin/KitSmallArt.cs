@@ -25,26 +25,28 @@ internal static class KitSmallArt
     private static readonly Dictionary<int, (Sprite Source, Task<Sprite?> Copy)> Heads = new();
 
     /// <summary>The whole sprite, small.</summary>
-    internal static Task<Sprite?> IconAsync(Sprite source) => Get(Icons, source, head: false);
+    internal static Task<Sprite?> IconAsync(Sprite source) => Get(Icons, source, false, null);
 
     /// <summary>The head and shoulders of a bust portrait, square.</summary>
-    internal static Task<Sprite?> HeadAsync(Sprite source) => Get(Heads, source, head: true);
+    internal static Task<Sprite?> HeadAsync(Sprite source, KitPortraitFocus? focus) =>
+        Get(Heads, source, true, focus);
 
     private static Task<Sprite?> Get(
         Dictionary<int, (Sprite Source, Task<Sprite?> Copy)> copies,
         Sprite source,
-        bool head
+        bool head,
+        KitPortraitFocus? focus
     )
     {
         var id = source.GetInstanceID();
         if (copies.TryGetValue(id, out var entry) && entry.Source == source)
             return entry.Copy;
-        var copy = MakeAsync(source, head);
+        var copy = MakeAsync(source, head, focus);
         copies[id] = (source, copy);
         return copy;
     }
 
-    private static async Task<Sprite?> MakeAsync(Sprite source, bool head)
+    private static async Task<Sprite?> MakeAsync(Sprite source, bool head, KitPortraitFocus? focus)
     {
         try
         {
@@ -54,7 +56,7 @@ internal static class KitSmallArt
                 source.textureRect,
                 CapturePixels
             );
-            var small = await Task.Run(() => head ? Head(image) : Icon(image));
+            var small = await Task.Run(() => head ? Head(image, focus) : Icon(image));
             if (small == null || source == null)
                 return null;
             var texture = new Texture2D(
@@ -98,9 +100,9 @@ internal static class KitSmallArt
         }
     }
 
-    private static PortraitImage? Head(PortraitImage image)
+    private static PortraitImage? Head(PortraitImage image, KitPortraitFocus? focus)
     {
-        if (KitArtReduction.HeadSquare(image) is not { } square)
+        if (KitArtReduction.HeadSquare(image, focus) is not { } square)
             return null;
         return KitArtReduction.Reduce(
             image,

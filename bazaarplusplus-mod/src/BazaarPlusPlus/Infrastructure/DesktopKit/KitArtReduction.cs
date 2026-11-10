@@ -4,6 +4,13 @@ using BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
 namespace BazaarPlusPlus.Infrastructure.DesktopKit;
 
 /// <summary>
+/// A square of a bust portrait to show in a well, relative to the art's opaque bounds: the
+/// centre across the width and down the height (0 at the left and at the top), and the side as
+/// a fraction of the height.
+/// </summary>
+internal readonly record struct KitPortraitFocus(float X, float Y, float Size);
+
+/// <summary>
 /// The pixel work behind the kit's small art: where a hero's head is in a portrait, and an
 /// area-averaged copy of a part of an image. Numeric data only, so it runs off the Unity thread.
 /// Coordinates have their origin at the bottom left, as <see cref="PortraitImage"/> has.
@@ -24,10 +31,10 @@ internal static class KitArtReduction
 
     /// <summary>
     /// The head and shoulders of a bust portrait: a square under the top of the art, centred on
-    /// the head and not on the whole bust, which a weapon or a shoulder pulls to one side. Null
-    /// when the image has no opaque pixel.
+    /// the head and not on the whole bust, which a weapon or a shoulder pulls to one side; or
+    /// the square <paramref name="focus"/> names. Null when the image has no opaque pixel.
     /// </summary>
-    internal static Square? HeadSquare(PortraitImage image)
+    internal static Square? HeadSquare(PortraitImage image, KitPortraitFocus? focus = null)
     {
         int top = -1,
             bottom = -1;
@@ -42,6 +49,16 @@ internal static class KitArtReduction
         if (top < 0)
             return null;
         var height = top - bottom + 1;
+        if (focus is { } chosen)
+        {
+            var (left, right) = InkColumns(image);
+            var chosenSide = height * chosen.Size;
+            return new Square(
+                left + (right - left + 1) * chosen.X - chosenSide / 2f,
+                top + 1 - height * chosen.Y - chosenSide / 2f,
+                chosenSide
+            );
+        }
         var bandTop = top - (int)(height * HeadBandTop);
         var bandBottom = top - (int)(height * HeadBandBottom);
         // Each row's longest opaque run is the head; a hair ornament or a raised weapon is a
@@ -76,6 +93,21 @@ internal static class KitArtReduction
             start = -1;
         }
         return best > 0 ? bestStart + best / 2f : null;
+    }
+
+    private static (int Left, int Right) InkColumns(PortraitImage image)
+    {
+        int left = image.Width,
+            right = -1;
+        for (var y = 0; y < image.Height; y++)
+        for (var x = 0; x < image.Width; x++)
+        {
+            if (image.Rgba[(y * image.Width + x) * 4 + 3] < 128)
+                continue;
+            left = Math.Min(left, x);
+            right = Math.Max(right, x);
+        }
+        return (left, right);
     }
 
     private static bool RowHasInk(PortraitImage image, int y)

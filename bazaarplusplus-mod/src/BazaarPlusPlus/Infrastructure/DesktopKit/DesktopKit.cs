@@ -785,8 +785,16 @@ internal sealed class DesktopKit
         return image;
     }
 
-    /// <summary>Puts a hero's sprite in a portrait well, or the fallback tint while it loads.</summary>
-    internal static void ShowPortrait(Image portrait, Sprite? sprite)
+    /// <summary>
+    /// Puts a hero's sprite in a portrait well, or the fallback tint while it loads. The well
+    /// shows the square <paramref name="focus"/> names (<c>HeroPortraitFocus</c> has one per
+    /// hero), or finds the head itself.
+    /// </summary>
+    internal static void ShowPortrait(
+        Image portrait,
+        Sprite? sprite,
+        KitPortraitFocus? focus = null
+    )
     {
         if (portrait == null)
             return;
@@ -796,7 +804,12 @@ internal sealed class DesktopKit
         portrait.sprite = null;
         portrait.color = InGameTheme.ArtFallback;
         if (sprite != null)
-            ShowCopy(portrait, sprite, KitSmallArt.HeadAsync(sprite), showSourceFirst: false);
+            ShowCopy(
+                portrait,
+                sprite,
+                KitSmallArt.HeadAsync(sprite, focus),
+                showSourceFirst: false
+            );
     }
 
     /// <summary>
