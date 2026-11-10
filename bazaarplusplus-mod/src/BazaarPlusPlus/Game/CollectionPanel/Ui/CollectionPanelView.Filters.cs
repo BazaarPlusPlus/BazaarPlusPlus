@@ -8,6 +8,7 @@ using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
@@ -1717,6 +1718,21 @@ internal sealed partial class CollectionPanelView
     )
     {
         button.style.fontSize = Sizes.CollectionTagFontSize;
+        // The Desktop UI kit's plate carries the fill, the rim and every state; the palette
+        // then drives the text alone. Without the kit's art the chip keeps its flat fills.
+        if (KitToolkit.PaintChip(button, selected))
+        {
+            UiHover.ApplyButtonPalette(
+                button,
+                Color.clear,
+                textColor,
+                Color.clear,
+                Color.clear,
+                Color.clear,
+                Color.clear
+            );
+            return;
+        }
         UiHover.ApplyButtonPalette(
             button,
             background,

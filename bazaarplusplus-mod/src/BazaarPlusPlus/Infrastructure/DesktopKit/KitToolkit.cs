@@ -61,6 +61,80 @@ internal static class KitToolkit
         );
     }
 
+    /// <summary>
+    /// A chip's plate: the control plate at rest, under the pointer and pressed, and the primary
+    /// plate while the chip is selected. Call it again whenever the selection changes. False
+    /// without the kit's art: the chip keeps its flat style.
+    /// </summary>
+    internal static bool PaintChip(VisualElement chip, bool selected)
+    {
+        if (DesktopNativeSkin.KitArt(DesktopKitArt.Plate) == null)
+            return false;
+        var state = Chips.GetValue(chip, _ => new ChipState());
+        state.Selected = selected;
+        if (!state.Registered)
+        {
+            state.Registered = true;
+            chip.RegisterCallback<MouseEnterEvent>(_ =>
+            {
+                state.Over = true;
+                Show(chip, state);
+            });
+            chip.RegisterCallback<MouseLeaveEvent>(_ =>
+            {
+                state.Over = state.Down = false;
+                Show(chip, state);
+            });
+            chip.RegisterCallback<PointerDownEvent>(
+                _ =>
+                {
+                    state.Down = true;
+                    Show(chip, state);
+                },
+                TrickleDown.TrickleDown
+            );
+            chip.RegisterCallback<PointerUpEvent>(
+                _ =>
+                {
+                    state.Down = false;
+                    Show(chip, state);
+                },
+                TrickleDown.TrickleDown
+            );
+        }
+        Show(chip, state);
+        return true;
+    }
+
+    private static void Show(VisualElement chip, ChipState state)
+    {
+        var art =
+            state.Down ? DesktopKitArt.PlatePressed
+            : state.Selected
+                ? state.Over ? DesktopKitArt.PrimaryPlateHover
+                    : DesktopKitArt.PrimaryPlate
+            : state.Over ? DesktopKitArt.PlateHover
+            : DesktopKitArt.Plate;
+        if (state.Shown == art)
+            return;
+        state.Shown = art;
+        Paint(chip, art);
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
+        VisualElement,
+        ChipState
+    > Chips = new();
+
+    private sealed class ChipState
+    {
+        internal bool Registered;
+        internal bool Selected;
+        internal bool Over;
+        internal bool Down;
+        internal DesktopKitArt? Shown;
+    }
+
     /// <summary>The kit's track: the plate darkened, for a strip that holds other controls.</summary>
     internal static bool PaintTrack(VisualElement element) =>
         Paint(element, DesktopKitArt.Plate, InGameTheme.TintPressed);
