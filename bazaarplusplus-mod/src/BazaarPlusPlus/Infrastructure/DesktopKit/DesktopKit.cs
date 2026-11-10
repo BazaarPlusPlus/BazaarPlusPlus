@@ -223,8 +223,11 @@ internal sealed class DesktopKit
     private const float DayPortrait = 36f;
     private const float DayMark = 24f;
 
-    // A day cell is never narrower than this; a strip with more days than fit scrolls.
-    private const float DayWidth = 64f;
+    // The strip's height: a day's caption, portrait and mark with the gaps and edges around them.
+    private const float DayStripHeight = 100f;
+
+    // Every day cell is this wide; a strip with more days than fit scrolls.
+    private const float DayWidth = 76f;
 
     // How far one wheel step moves a kit list or strip.
     private const float ScrollSensitivity = 45f;
@@ -234,8 +237,8 @@ internal sealed class DesktopKit
     // under the section header, the result under the header's caption.
     private const float RowBleed = InGameSizes.Space12;
 
-    // The arrow glyph's ink is narrower than its box by this much on each side.
-    private const float ArrowSideBearing = 4f;
+    // A paging arrow that is a panel's main control stands this high.
+    private const float WideArrowHeight = 48f;
 
     // The source sprite each art image wants: a small copy arrives later and must not land
     // on an image that has since been given another sprite.
@@ -281,9 +284,6 @@ internal sealed class DesktopKit
     /// in one pulls it out by this much: its label, not its hidden plate, sits on the row's edge.
     /// </summary>
     internal static float LabelInset(KitSize size) => size == KitSize.Md ? PaddingMd : PaddingSm;
-
-    /// <summary>The same for a quiet button that shows only an arrow: to the arrow's ink.</summary>
-    internal static float ArrowInset(KitSize size) => LabelInset(size) + ArrowSideBearing;
 
     internal static float Height(KitSize size) =>
         size == KitSize.Md ? InGameSizes.ControlMd : InGameSizes.ControlSm;
@@ -598,6 +598,29 @@ internal sealed class DesktopKit
         icon is KitIcon.ChevronLeft or KitIcon.ChevronRight ? (size == KitSize.Md ? 30 : 24)
         : size == KitSize.Md ? 16
         : 14;
+
+    /// <summary>
+    /// A paging arrow: a plated md square with a large arrow, for a list's pager or a strip's
+    /// ends. With <paramref name="wide"/> it shares its row's width and stands higher, for a
+    /// panel whose main action is paging.
+    /// </summary>
+    internal KitButton PageArrow(Transform parent, bool forward, Action onClick, bool wide = false)
+    {
+        var button = IconButton(
+            parent,
+            forward ? KitIcon.ChevronRight : KitIcon.ChevronLeft,
+            KitButtonKind.Secondary,
+            KitSize.Md,
+            onClick
+        );
+        if (wide)
+        {
+            var element = Size(button, -1, WideArrowHeight);
+            element.minWidth = element.preferredWidth = Height(KitSize.Md);
+            element.flexibleWidth = 1;
+        }
+        return button;
+    }
 
     private (KitButton Button, RectTransform Row, KitPlate Plate) ButtonShell(
         Transform parent,
@@ -1072,13 +1095,16 @@ internal sealed class DesktopKit
     }
 
     /// <summary>
-    /// The day strip: one darkened track holding a run's battles left to right. The days share
-    /// the strip's width; when they do not fit at their least width, the strip scrolls
-    /// sideways. Add days to <see cref="KitDayStrip.Days"/> with <see cref="Day"/>.
+    /// The day strip: one darkened track holding a run's battles from the left, each one
+    /// width; when they do not fit, the strip scrolls sideways. Add days to
+    /// <see cref="KitDayStrip.Days"/> with <see cref="Day"/>. With
+    /// <paramref name="newestFirst"/> the consumer adds the newest day first and the strip
+    /// still shows the oldest at the left.
     /// </summary>
-    internal KitDayStrip DayStrip(Transform parent)
+    internal KitDayStrip DayStrip(Transform parent, bool newestFirst = false)
     {
         var track = Rect(parent, "DayStrip");
+        Size(track, -1, DayStripHeight);
         Surface(track, KitSurface.Track);
         var scroll = track.gameObject.AddComponent<ScrollRect>();
         scroll.vertical = false;
@@ -1097,8 +1123,10 @@ internal sealed class DesktopKit
         days.offsetMin = days.offsetMax = Vector2.zero;
         var group = days.gameObject.AddComponent<HorizontalLayoutGroup>();
         group.spacing = InGameSizes.Space4;
+        group.childAlignment = TextAnchor.MiddleLeft;
+        group.reverseArrangement = newestFirst;
         group.childControlWidth = group.childControlHeight = true;
-        group.childForceExpandWidth = true;
+        group.childForceExpandWidth = false;
         group.childForceExpandHeight = true;
         days.gameObject.AddComponent<KitStripWidth>();
         scroll.viewport = viewport;
@@ -1112,7 +1140,7 @@ internal sealed class DesktopKit
     internal KitDay Day(Transform days, string day, KitMark outcome, Action onClick)
     {
         var rect = Rect(days, "Day");
-        Size(rect, -1, -1).minWidth = DayWidth;
+        Size(rect, DayWidth, -1);
         var button = rect.gameObject.AddComponent<KitButton>();
         var plate = Plate(rect, KitLook.None);
         plate.Image.raycastTarget = true;

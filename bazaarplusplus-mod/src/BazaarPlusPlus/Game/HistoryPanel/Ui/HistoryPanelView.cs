@@ -21,9 +21,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 internal sealed partial class HistoryPanelView : IDisposable
 {
     private const float RailWidth = 440f;
-    private const float DayWidth = 76f;
     private const float RowHeight = 64f;
-    private const float StripHeight = 100f;
     private const int Slots = 40;
 
     private static readonly Color Ink = InGameTheme.Ink;

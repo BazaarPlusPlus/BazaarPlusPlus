@@ -303,26 +303,10 @@ internal sealed class KitGalleryView : IDisposable
         RunRow(list, 5, "马克", "白银 980 · 10/23", "Silver", -1, KitMark.Completed);
         SelectRow(0);
         var pager = Row(rail, "Pager", InGameSizes.Space6, TextAnchor.MiddleLeft);
-        Flush(pager, left: true);
-        kit.IconLabelButton(
-            pager,
-            "",
-            KitIcon.ChevronLeft,
-            null,
-            KitButtonKind.Quiet,
-            KitSize.Sm,
-            () => { }
-        );
+        Flush(pager);
+        kit.PageArrow(pager, false, () => { });
+        kit.PageArrow(pager, true, () => { });
         kit.Text(pager, "第 1–5 局，共 23 局", KitTextRole.Caption);
-        kit.IconLabelButton(
-            pager,
-            "",
-            null,
-            KitIcon.ChevronRight,
-            KitButtonKind.Quiet,
-            KitSize.Sm,
-            () => { }
-        );
         DesktopKit.Rect(pager, "Gap").gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
         kit.Button(pager, "最新", KitButtonKind.Quiet, KitSize.Sm, () => { });
         var actions = Row(rail, "Actions", InGameSizes.Space8, TextAnchor.MiddleLeft);
@@ -357,16 +341,14 @@ internal sealed class KitGalleryView : IDisposable
 
     // A row that ends in a quiet sm button (and, with left, starts in a quiet arrow): the
     // label and the arrow's ink sit on the row's edges, with the other right-aligned text of the rail.
-    private static void Flush(RectTransform row, bool left)
-    {
-        var inset = -(int)DesktopKit.LabelInset(KitSize.Sm);
+    // A row that ends in a quiet button pulls it out, so its label sits on the row's edge.
+    private static void Flush(RectTransform row) =>
         row.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(
-            left ? -(int)DesktopKit.ArrowInset(KitSize.Sm) : 0,
-            inset,
+            0,
+            -(int)DesktopKit.LabelInset(KitSize.Sm),
             0,
             0
         );
-    }
 
     private void ButtonRow(Transform parent, string label, string text, KitButtonKind kind)
     {

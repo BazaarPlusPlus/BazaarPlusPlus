@@ -146,7 +146,6 @@ internal sealed partial class HistoryPanelView
                         _selectBattle(index);
                 }
             );
-            row.Title.richText = false;
             row.Button.gameObject.SetActive(false);
             _rows[i] = new RowSlot { Row = row };
         }
@@ -154,20 +153,8 @@ internal sealed partial class HistoryPanelView
         // The list is newest first, so the left arrow goes to newer runs.
         var pager = Line(rail, "Pager", InGameSizes.Space4);
         pager.padding = new RectOffset(0, -(int)DesktopKit.LabelInset(KitSize.Sm), 0, 0);
-        _newer = kit.IconButton(
-            pager.transform,
-            KitIcon.ChevronLeft,
-            KitButtonKind.Secondary,
-            KitSize.Md,
-            () => NavigateArchive(-1)
-        );
-        _older = kit.IconButton(
-            pager.transform,
-            KitIcon.ChevronRight,
-            KitButtonKind.Secondary,
-            KitSize.Md,
-            () => NavigateArchive(1)
-        );
+        _newer = kit.PageArrow(pager.transform, false, () => NavigateArchive(-1));
+        _older = kit.PageArrow(pager.transform, true, () => NavigateArchive(1));
         DesktopKit.Size(DesktopKit.Rect(pager.transform, "Gap"), InGameSizes.Space4, -1);
         _pageLabel = Flexible(kit.Text(pager.transform, string.Empty, KitTextRole.Caption));
         _latest = kit.Button(
@@ -179,17 +166,6 @@ internal sealed partial class HistoryPanelView
         );
         _pager = pager.gameObject;
     }
-
-    private static KitButton Arrow(DesktopKit kit, Transform parent, KitIcon icon, Action click) =>
-        kit.IconLabelButton(
-            parent,
-            string.Empty,
-            icon,
-            null,
-            KitButtonKind.Quiet,
-            KitSize.Md,
-            click
-        );
 
     private void BuildDetail(DesktopKit kit)
     {
@@ -224,34 +200,16 @@ internal sealed partial class HistoryPanelView
 
         // The run's battles, oldest at the left. The model lists them newest first, so the
         // strip arranges its cells in reverse and the left arrow pages to older battles.
-        var days = Line(detail, "Days", InGameSizes.Space4);
-        DesktopKit.Size(days, -1, StripHeight);
-        days.childForceExpandHeight = true;
+        var days = Line(detail, "Days", InGameSizes.Space8);
         days.childAlignment = TextAnchor.MiddleCenter;
-        _battleOlder = Arrow(
-            kit,
-            days.transform,
-            KitIcon.ChevronLeft,
-            () => _pageBattles?.Invoke(1)
-        );
-        _dayStrip = kit.DayStrip(days.transform);
+        _battleOlder = kit.PageArrow(days.transform, false, () => _pageBattles?.Invoke(1));
+        _dayStrip = kit.DayStrip(days.transform, newestFirst: true);
         Flexible(_dayStrip.Track);
-        // A day keeps one width, so a run of two battles does not stretch them over the strip.
-        var cells = _dayStrip.Days.GetComponent<HorizontalLayoutGroup>();
-        cells.reverseArrangement = true;
-        cells.childForceExpandWidth = false;
-        cells.childAlignment = TextAnchor.MiddleLeft;
-        _battleNewer = Arrow(
-            kit,
-            days.transform,
-            KitIcon.ChevronRight,
-            () => _pageBattles?.Invoke(-1)
-        );
+        _battleNewer = kit.PageArrow(days.transform, true, () => _pageBattles?.Invoke(-1));
         for (var i = 0; i < Slots; i++)
         {
             var slot = i;
             var day = kit.Day(_dayStrip.Days, string.Empty, KitMark.Won, () => _selectBattle(slot));
-            day.Button.GetComponent<LayoutElement>().preferredWidth = DayWidth;
             day.Button.gameObject.SetActive(false);
             _days[i] = new DaySlot { Day = day };
         }
@@ -375,6 +333,10 @@ internal sealed partial class HistoryPanelView
         _opponentRank.gameObject.SetActive(badge != null);
     }
 
+    // A player's name or note inside rich text: its own tags are shown, not read.
+    private static string Plain(string text) =>
+        $"<noparse>{text.Replace("</noparse>", string.Empty)}</noparse>";
+
     private static string Joined(params string[] parts) =>
         string.Join(" · ", parts.Where(part => part.Length > 0));
 
@@ -394,11 +356,15 @@ internal sealed partial class HistoryPanelView
             _shownRows.Add(row.Button);
             row.Button.On = i == selected;
             row.Button.interactable = !loading;
-            row.Title.text = fields.Name;
-            // One meta line: what the run was, when, and a Legendary rating with its change.
+            // The name leads and the stamp follows it, small; a long stamp (a favorite's note)
+            // is cut at the row's art. The meta line keeps what the run was and a Legendary
+            // rating with its change.
+            row.Title.text =
+                fields.Stamp.Length == 0
+                    ? Plain(fields.Name)
+                    : $"{Plain(fields.Name)}  <size={InGameSizes.TextCaption}>{Tinted(Plain(fields.Stamp), Muted)}</size>";
             row.Meta.text = Joined(
                 fields.Meta,
-                fields.Stamp,
                 fields.RatingDelta.Length == 0 ? fields.Rating
                     : fields.RatingTone == HistoryOutcomeTone.None
                         ? $"{fields.Rating} {fields.RatingDelta}"

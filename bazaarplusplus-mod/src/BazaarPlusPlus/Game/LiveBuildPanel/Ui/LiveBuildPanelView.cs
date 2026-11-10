@@ -26,7 +26,6 @@ internal sealed class LiveBuildPanelView : IDisposable
 
     // The match figures of the shown build: two rows of two.
     private const int MetricCells = 4;
-    private const float ArrowHeight = 48f;
 
     private sealed class Row
     {
@@ -229,8 +228,9 @@ internal sealed class LiveBuildPanelView : IDisposable
         _navigationLabel = browseTexts[0];
         _pager = browseTexts[1];
         var arrows = Line(_sidebar, "Arrows", InGameSizes.Space8);
-        _previousButton = Arrow(arrows, KitIcon.ChevronLeft, _previous);
-        _nextButton = Arrow(arrows, KitIcon.ChevronRight, _next);
+        // Paging is this panel's main action: the two arrows share the rail's width.
+        _previousButton = kit.PageArrow(arrows, false, _previous, wide: true);
+        _nextButton = kit.PageArrow(arrows, true, _next, wide: true);
         _metrics = DesktopKit.Rect(_sidebar, "MatchMetrics");
         var grid = _metrics.gameObject.AddComponent<GridLayoutGroup>();
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -282,24 +282,6 @@ internal sealed class LiveBuildPanelView : IDisposable
             _refresh
         );
         _skinGeneration = DesktopNativeSkin.Generation;
-    }
-
-    private KitButton Arrow(Transform row, KitIcon icon, Action click)
-    {
-        var button = _kit!.IconLabelButton(
-            row,
-            string.Empty,
-            icon,
-            null,
-            KitButtonKind.Secondary,
-            KitSize.Md,
-            click
-        );
-        // The two arrows are the panel's main control: each is half the rail wide and higher
-        // than a button, so it is an easy target.
-        var element = DesktopKit.Size(button, -1, ArrowHeight);
-        element.flexibleWidth = 1;
-        return button;
     }
 
     private static RectTransform Line(Transform parent, string name, float spacing)

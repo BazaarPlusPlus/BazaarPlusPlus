@@ -68,12 +68,12 @@ If a plate PNG cannot be decoded, the plate draws a plain rectangle in the token
 | List row | the consumer's height | no plate; the `Divider` rule at 0.5 between rows | wash | | `Plate` in `Edge`, no rule touching it |
 | Run row | a list row | a 44 portrait well, Body title over Meta, then two fixed slots at the right: rank badge 30, trophy or mark 30 | wash | | `Plate` in `Edge` |
 | Portrait well | square, 44 in a row and 36 in a day | a sunk field under the hero's medallion | | | |
-| Day strip | one darkened track; the days share its width and it scrolls sideways when they do not fit at 64 each | each day: Caption day, a 36 portrait well, a 24 `MarkWon` or `MarkLost` | wash | | `Plate` in `Edge`, day in `ingame-accent` |
+| Day strip | one darkened track; each day is 76 wide, from the left, and the strip scrolls sideways when they do not fit | each day: Caption day, a 36 portrait well, a 24 `MarkWon` or `MarkLost` | wash | | `Plate` in `Edge`, day in `ingame-accent` |
 | Tooltip, dialog | content | `Ground` in `Edge` | | | |
 
 Fallback colours when a plate PNG is missing: `ingame-button` for a secondary plate and `ingame-chip` under the pointer; `ingame-button-selected` for a selected control; `ingame-chip-active` for the primary button and a selected chip, `ingame-accent` for the primary button under the pointer; `ingame-failure` for `DangerPlate`; `ingame-panel` for `Ground`; `ingame-dialog` for a floating surface; `ingame-backdrop` for a field.
 
-Every control has two more states. **Disabled** keeps the rest plate, darkened by `ingame-tint-pressed`, and fades the label, so a row of controls keeps its shape. **Dimmed** (shown as unavailable but still pressable, so the press can say why) uses the disabled plate with an `ingame-ink-muted` label, and `ingame-tint-dimmed-hover` under the pointer.
+Every control has two more states. **Disabled** keeps the rest plate, darkened by `ingame-tint-pressed`, and fades the label, so a row of controls keeps its shape. **Dimmed** (shown as unavailable but still pressable, so the press can say why) multiplies the rest plate by `ingame-tint-disabled`, with an `ingame-ink-muted` label, and `ingame-tint-dimmed-hover` under the pointer.
 
 Button labels sit 18 (md) or 13 (sm) from the plate's sides, with `space-6` between an icon and its label.
 
@@ -87,7 +87,7 @@ A panel's surfaces are three steps apart, so each reads against the one under it
 
 ### Arrows
 
-A button that pages (a list's pager, the Ten-Win Builds browser) has a plate and a large arrow: the game's arrow glyph has wide margins, so its box is 30 (md) or 24 (sm) where another icon's is 16 or 14. Where paging is a panel's main action, the consumer makes the two arrows share the rail's width and stand 48 high.
+A button that pages (a list's pager, the ends of a day strip, the Ten-Win Builds browser) is `DesktopKit.PageArrow`: a secondary md square with a large arrow. The game's arrow glyph has wide margins, so its box is 30 (md) or 24 (sm) where another icon's is 16 or 14. Where paging is a panel's main action, the wide form shares its row's width and stands 48 high.
 
 ### Fields and modals
 
@@ -100,7 +100,7 @@ A button that pages (a list's pager, the Ten-Win Builds browser) has a plate and
 - **Trophy or mark.** A finished run with a trophy tier shows the game's trophy. A run without one shows the kit's mark for its state: abandoned, in progress, or completed below the first tier.
 - **Hero medallion.** A portrait well shows the hero as a medallion (`KitArtReduction.Medallion`): a rounded plate with the hero's colour (`hero-*`) glowing behind the head and fading to `ingame-backdrop`, the head and shoulders, and a thin `ingame-accent` rim. In a run row the head rises above the plate's top edge by 0.16 of the well, so the figure breaks the frame and the sides and bottom stay inside the rim; in a day cell, under its caption, it stays inside and sinks into shadow at the bottom. `HeroPortraitFocus` names each hero's face square, chosen by eye on the default portrait, and the hero's colour; the consumer passes both to `DesktopKit.ShowPortrait`. A hero without a square gets the kit's rule (`KitArtReduction.HeadSquare`). The well is a sunk field without a sprite and while the medallion is drawn, and shows the whole portrait if it cannot be drawn.
 - **Small copies.** The game's portraits, trophies and rank badges are large textures without mipmaps and shimmer at 30 or 44 units. `KitSmallArt` makes one area-averaged copy of each with its own mipmaps (a portrait's copy is its medallion); `DesktopKit.Show` and `ShowPortrait` change to the copy when it is ready.
-- **Edges belong to the ink.** A control with no plate at rest aligns by its content, not by its hidden plate. A list row's plate bleeds `space-12` out of the row on each side, so the portrait sits under the section header and the mark under the header's caption; the column needs that room around it, and `DesktopKit.ScrollList` gives a scrolling list a mask that wide. A row that ends in a quiet button pulls the button out by its label inset, and one that starts in a quiet arrow by the arrow's inset. The Kit Gallery's rail shows both; every right-aligned item there ends within 1 px of the column's edge.
+- **Edges belong to the ink.** A control with no plate at rest aligns by its content, not by its hidden plate. A list row's plate bleeds `space-12` out of the row on each side, so the portrait sits under the section header and the mark under the header's caption; the column needs that room around it, and `DesktopKit.ScrollList` gives a scrolling list a mask that wide. A row that ends in a quiet button pulls the button out by its label inset. The Kit Gallery's rail shows both; every right-aligned item there ends within 1 px of the column's edge.
 - **Rows and days are reused.** `KitRunRow` and `KitDay` give the consumer the texts, the portrait and the art slots, so a list rebinds its rows to other runs without building them again.
 
 ## The consumer provides
