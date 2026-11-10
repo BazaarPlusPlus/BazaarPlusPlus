@@ -664,7 +664,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                     _l.BodyFont,
                     TextAlignmentOptions.Center
                 ),
-                Rank = new ArtImage(ArtSlot(rect, "Rank", .74f, .05f, .23f, .3f)),
                 Name = TouchHistoryUi.Fraction(
                     rect,
                     _font,
@@ -688,23 +687,36 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                 ),
                 Outcome = UiKit.Fill(outcome, Color.clear, blocksTouches: false),
             };
-            // The top line reads portrait, day and rank badge, as the desktop chip does; the
-            // opponent and the outcome word follow.
+            // The opponent's portrait leads, with the rank at its upper left corner and the
+            // outcome mark at its lower right; the day is the one line of text. The board title
+            // names the opponent. A compact chip is one target high: the day over the outcome.
+            var top = new Vector2(.5f, 1f);
+            var dp = _l.Metrics.UnitsPerDp;
             var portrait = UiKit.Fixed(
                 "HeroPortrait",
                 rect,
-                new(0f, 1f),
-                new(_l.Metrics.Dp(5f), -_l.Metrics.Dp(3f)),
-                Vector2.one * _l.Metrics.Dp(22f)
+                top,
+                new(0f, -6f * dp),
+                Vector2.one * 36f * dp
             );
-            rail.Chips[i].Portrait = new PortraitView(portrait, TouchHistoryUi.Skin, _l.Metrics);
+            var chip = rail.Chips[i];
+            chip.Portrait = new PortraitView(portrait, TouchHistoryUi.Skin, _l.Metrics);
+            chip.Rank = new ArtImage(CornerArt(rect, "Rank", top, new(-17f, -2f), 18f));
+            chip.Mark = new ArtImage(CornerArt(rect, "Mark", top, new(15f, -27f), 20f));
+            chip.Name.gameObject.SetActive(false);
             if (_l.Compact)
             {
                 portrait.gameObject.SetActive(false);
-                rail.Chips[i].Rank.Image.gameObject.SetActive(false);
-                rail.Chips[i].Name.gameObject.SetActive(false);
-                Frac(rail.Chips[i].Day.rectTransform, .04f, .1f, .92f, .42f);
-                Frac(rail.Chips[i].Result.rectTransform, .04f, .52f, .92f, .42f);
+                chip.Rank.Image.gameObject.SetActive(false);
+                chip.Mark.Image.gameObject.SetActive(false);
+                Frac(chip.Day.rectTransform, .04f, .1f, .92f, .42f);
+                Frac(chip.Result.rectTransform, .04f, .52f, .92f, .42f);
+            }
+            else
+            {
+                Frac(chip.Day.rectTransform, .04f, .68f, .92f, .3f);
+                chip.Result.gameObject.SetActive(_badges == null);
+                chip.Outcome.gameObject.SetActive(false);
             }
             rect.gameObject.SetActive(false);
         }
@@ -758,6 +770,29 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
     {
         var rect = UiKit.Rect(name, parent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
         Frac(rect, x, y, width, height);
+        var image = rect.gameObject.AddComponent<Image>();
+        image.raycastTarget = false;
+        image.preserveAspect = true;
+        image.color = Color.clear;
+        return image;
+    }
+
+    // A small image at a fixed offset, in dp, from an anchor of its chip.
+    private Image CornerArt(
+        RectTransform parent,
+        string name,
+        Vector2 anchor,
+        Vector2 dp,
+        float side
+    )
+    {
+        var rect = UiKit.Fixed(
+            name,
+            parent,
+            anchor,
+            dp * _l.Metrics.UnitsPerDp,
+            Vector2.one * _l.Metrics.Dp(side)
+        );
         var image = rect.gameObject.AddComponent<Image>();
         image.raycastTarget = false;
         image.preserveAspect = true;
@@ -970,6 +1005,14 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             chip.Result.text = battle.OutcomeText;
             chip.Result.color = OutcomeColor(battle.Outcome);
             chip.Rank.Bind(MobilePlatform.Port.RankBadge(battle.Rank));
+            chip.Mark.Bind(
+                battle.Outcome switch
+                {
+                    HistoryOutcomeTone.Won => Task.FromResult(_badges?.Win),
+                    HistoryOutcomeTone.Lost => Task.FromResult(_badges?.Loss),
+                    _ => null,
+                }
+            );
             var hero = ParseHero(battle.HeroId);
             if (chip.Hero != hero)
             {
@@ -1148,6 +1191,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         internal PortraitView Portrait = null!;
         internal CardHero? Hero;
         internal ArtImage Rank = null!;
+        internal ArtImage Mark = null!;
         internal TextMeshProUGUI Name = null!;
         internal Image Outcome = null!;
     }
