@@ -22,7 +22,6 @@ internal sealed class KitGalleryView : IDisposable
     private const float RowHeight = 64f;
     private const float StateColumn = 112f;
     private const float LabelColumn = 84f;
-    private const float ResultColumn = 84f;
 
     private static readonly string[] TrophyAddresses =
     {
@@ -72,7 +71,7 @@ internal sealed class KitGalleryView : IDisposable
         _kit!.Tick();
         if (_ranks.Tick())
             foreach (var (target, rank) in _rankTargets)
-                Show(target, _ranks.Get(rank));
+                DesktopKit.Show(target, _ranks.Get(rank));
         LoadArt();
         if (_diagnostics != null)
             _diagnostics.text = Diagnostics();
@@ -224,12 +223,11 @@ internal sealed class KitGalleryView : IDisposable
             var button = kit.Day(
                 days,
                 $"第 {day + 1} 天",
-                null,
-                won ? "胜" : "负",
-                won ? InGameTheme.Success : InGameTheme.Failure,
-                () => SelectDay(index)
+                won ? KitMark.Won : KitMark.Lost,
+                () => SelectDay(index),
+                out var portrait
             );
-            _portraitTargets.Add((Art(button.transform), day % _heroes.Length));
+            _portraitTargets.Add((portrait, day % _heroes.Length));
             _days.Add(button);
         }
         SelectDay(_selectedDay);
@@ -275,18 +273,29 @@ internal sealed class KitGalleryView : IDisposable
         kit.Text(credit, "zheng50", KitTextRole.Caption, InGameTheme.Supporter4)
             .gameObject.AddComponent<LayoutElement>()
             .flexibleWidth = 1;
+        Flush(credit, left: false);
         var sponsor = kit.Button(credit, "赞助", KitButtonKind.Quiet, KitSize.Sm, () => { });
         sponsor.InkOverride = InGameTheme.Supporter4;
         var tabs = kit.Segmented(rail, new[] { "对局", "幽灵", "收藏" }, KitSize.Sm, SelectSegment);
         _segments = tabs.Options;
         SelectSegment(0);
         kit.Select(rail, "全部英雄", () => { });
-        kit.SectionHeader(rail, "最近对局", "5 局");
+        kit.SectionHeader(rail, "最近对局", "6 局");
         var list = Column(rail, "Runs", 0);
         var gain = ColorUtility.ToHtmlStringRGB(InGameTheme.Success);
         var loss = ColorUtility.ToHtmlStringRGB(InGameTheme.Failure);
-        RunRow(list, 0, "凡妮莎", "普通 · 12 场 · 10/27 19:23", null, 2, "10 胜", true);
-        RunRow(list, 1, "凡妮莎", "普通 · 3 场 · 10/27 17:29", null, -1, "已放弃", false);
+        RunRow(list, 0, "凡妮莎", "普通 · 12 场 · 10/27 19:23", null, 2, null, "10 胜", true);
+        RunRow(
+            list,
+            1,
+            "凡妮莎",
+            "普通 · 3 场 · 10/27 17:29",
+            null,
+            -1,
+            KitMark.Abandoned,
+            "",
+            false
+        );
         RunRow(
             list,
             2,
@@ -294,6 +303,7 @@ internal sealed class KitGalleryView : IDisposable
             $"钻石 1520 <color=#{gain}>+25</color> · 10/26",
             "Diamond",
             1,
+            null,
             "7 胜",
             false
         );
@@ -304,14 +314,17 @@ internal sealed class KitGalleryView : IDisposable
             $"黄金 1495 <color=#{loss}>−18</color> · 10/25",
             "Gold",
             -1,
-            "进行中",
+            KitMark.Active,
+            "",
             false
         );
-        RunRow(list, 4, "朱尔斯", "普通 · 9 场 · 10/24 22:40", null, 0, "4 胜", false);
+        RunRow(list, 4, "朱尔斯", "普通 · 9 场 · 10/24 22:40", null, 0, null, "4 胜", false);
+        RunRow(list, 5, "皮格", "白银 980 · 10/23", "Silver", -1, KitMark.Completed, "2 胜", false);
         SelectRow(0);
         var spacer = DesktopKit.Rect(rail, "Spacer");
         spacer.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
         var pager = Row(rail, "Pager", InGameSizes.Space6, TextAnchor.MiddleLeft);
+        Flush(pager, left: true);
         kit.IconLabelButton(
             pager,
             "",
@@ -340,8 +353,8 @@ internal sealed class KitGalleryView : IDisposable
         kit.Button(actions, "回放", KitButtonKind.Primary, KitSize.Md, () => { });
     }
 
-    // A run row as History will draw it: portrait, name over a meta line that may carry the
-    // rank badge, and one result at the right (a trophy tier with its wins, or a state word).
+    // A run row as History will draw it: the kit's row, with the hero, the rank badge (a
+    // ranked run) and one mark (a trophy tier, or a state mark) arriving after it.
     private void RunRow(
         Transform list,
         int index,
@@ -349,43 +362,41 @@ internal sealed class KitGalleryView : IDisposable
         string meta,
         string? rank,
         int trophy,
+        KitMark? mark,
         string result,
         bool key
     )
     {
-        var kit = _kit!;
-        var row = kit.ListRow(list, RowHeight, () => SelectRow(index), out var content);
-        _rows.Add(row);
-        var portrait = DesktopKit.Art(content, null, 44, 44);
-        _portraitTargets.Add((portrait, index % _heroes.Length));
-        var column = DesktopKit.Rect(content, "Text");
-        var group = column.gameObject.AddComponent<VerticalLayoutGroup>();
-        group.spacing = InGameSizes.Space2;
-        group.childAlignment = TextAnchor.MiddleLeft;
-        group.childControlWidth = group.childControlHeight = true;
-        group.childForceExpandWidth = true;
-        group.childForceExpandHeight = false;
-        column.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
-        kit.Text(column, name, KitTextRole.Body);
-        var line = Row(column, "Meta", InGameSizes.Space4, TextAnchor.MiddleLeft);
+        var row = _kit!.RunRow(
+            list,
+            RowHeight,
+            name,
+            meta,
+            result,
+            key ? InGameTheme.Accent : InGameTheme.Ink,
+            () => SelectRow(index)
+        );
+        _rows.Add(row.Button);
+        _portraitTargets.Add((row.Portrait, index % _heroes.Length));
         if (rank != null)
-        {
-            var badge = DesktopKit.Art(line, null, 18, 18);
-            _rankTargets.Add((badge, rank));
-        }
-        kit.Text(line, meta, KitTextRole.Meta).richText = true;
-        // The trophy sits beside its result on one line: stacked, the pair is taller than the row
-        // and the text loses its height.
-        var end = Row(content, "Result", InGameSizes.Space4, TextAnchor.MiddleRight);
-        DesktopKit.Size(end, ResultColumn, -1);
+            _rankTargets.Add((row.Rank, rank));
         if (trophy >= 0)
-            _trophyTargets.Add((DesktopKit.Art(end, null, 30, 26), trophy));
-        var color =
-            key ? InGameTheme.Accent
-            : result == "进行中" ? InGameTheme.Pending
-            : trophy >= 0 ? InGameTheme.Ink
-            : InGameTheme.InkMuted;
-        kit.Text(end, result, KitTextRole.Meta, color, TMPro.TextAlignmentOptions.MidlineRight);
+            _trophyTargets.Add((row.Mark, trophy));
+        else if (mark is { } state)
+            DesktopKit.Show(row.Mark, DesktopKit.Mark(state));
+    }
+
+    // A row that ends (and, with left, starts) in a quiet sm button: the button's label sits on
+    // the row's edge, with the other right-aligned text of the rail.
+    private static void Flush(RectTransform row, bool left)
+    {
+        var inset = -(int)DesktopKit.LabelInset(KitSize.Sm);
+        row.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(
+            left ? inset : 0,
+            inset,
+            0,
+            0
+        );
     }
 
     private void ButtonRow(Transform parent, string label, string text, KitButtonKind kind)
@@ -458,7 +469,7 @@ internal sealed class KitGalleryView : IDisposable
                 _heroes[i] = sprite;
                 foreach (var (target, hero) in _portraitTargets)
                     if (hero == i)
-                        Show(target, sprite);
+                        DesktopKit.ShowPortrait(target, sprite);
             }
         }
         if (_trophyLoad == null && _trophies.Any(sprite => sprite == null))
@@ -479,22 +490,10 @@ internal sealed class KitGalleryView : IDisposable
                 _ = _trophyLoad.Exception;
             _trophyLoad = null;
             foreach (var (target, tier) in _trophyTargets)
-                Show(target, _trophies[tier]);
+                DesktopKit.Show(target, _trophies[tier]);
         }
     }
 
-    private static void Show(Image target, Sprite? sprite)
-    {
-        if (target == null)
-            return;
-        target.sprite = sprite;
-        target.color = sprite != null ? Color.white : InGameTheme.ArtFallback;
-    }
-
-    private static Image Art(Transform day) =>
-        day.GetComponentsInChildren<Image>().First(image => image.name == "Art");
-
-    // How many kit sprites are in, then one line per missing sprite with the reason.
     private static string Diagnostics()
     {
         var arts = (DesktopKitArt[])Enum.GetValues(typeof(DesktopKitArt));
