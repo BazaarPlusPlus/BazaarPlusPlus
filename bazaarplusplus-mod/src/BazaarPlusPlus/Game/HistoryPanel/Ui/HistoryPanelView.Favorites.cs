@@ -1,18 +1,20 @@
 #nullable enable
+using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Storage.RunLog;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
 internal sealed partial class HistoryPanelView
 {
+    private const int NoteLines = 7;
+
     private Action? _favorite;
     private Func<string, string, Task<bool>>? _saveNote;
-    private Button _favoriteButton = null!,
+    private KitButton _favoriteButton = null!,
         _noteSave = null!;
-    private GameObject? _noteRoot;
+    private KitModal? _note;
     private TMP_InputField? _noteInput;
     private TextMeshProUGUI _noteCount = null!;
 
@@ -27,74 +29,57 @@ internal sealed partial class HistoryPanelView
         _saveNote = saveNote;
     }
 
-    private void CreateFavoriteControls()
-    {
-        _favoriteButton = Button(_layout!, "", HistoryPanelLayout.FavoriteButton, OnFavoriteButton);
-        var shade = CreateRect("HistoryFavoriteNoteDialog", _layout!, 0, 0, 1, 1);
-        var canvas = shade.gameObject.AddComponent<Canvas>();
-        canvas.overrideSorting = true;
-        canvas.sortingOrder = BppOverlaySorting.PanelForeground;
-        shade.gameObject.AddComponent<GraphicRaycaster>();
-        shade.gameObject.AddComponent<Image>().color = InGameTheme.Scrim;
-        var dialog = CreateRect("Dialog", shade, .26f, .24f, .48f, .48f);
-        dialog.gameObject.AddComponent<Image>().color = InGameTheme.Dialog;
-        Panel(dialog, 0, 0, 1, 1);
-        Text(dialog, HistoryPanelText.FavoriteNoteTitle(), .05f, .04f, .6f, .09f, 25);
-        var inputRect = CreateRect("FavoriteNote", dialog, .05f, .17f, .90f, .57f);
-        var background = inputRect.gameObject.AddComponent<Image>();
-        background.color = InGameTheme.Input;
-        var viewport = CreateRect("TextViewport", inputRect, .025f, .03f, .95f, .94f);
-        viewport.gameObject.AddComponent<RectMask2D>();
-        var inputText = Wrapped(Text(viewport, "", 0, 0, 1, 1, 17));
-        inputText.alignment = TextAlignmentOptions.TopLeft;
-        inputText.overflowMode = TextOverflowModes.Overflow;
-        var placeholder = Wrapped(
-            Text(viewport, HistoryPanelText.FavoriteNotePlaceholder(), 0, 0, 1, 1, 15, Muted)
+    private void CreateFavoriteButton(DesktopKit kit, Transform actions) =>
+        _favoriteButton = kit.Button(
+            actions,
+            string.Empty,
+            KitButtonKind.Secondary,
+            KitSize.Md,
+            () =>
+            {
+                if (_model != null)
+                    _favorite?.Invoke();
+            }
         );
-        placeholder.alignment = TextAlignmentOptions.TopLeft;
-        var input = inputRect.gameObject.AddComponent<TMP_InputField>();
-        input.targetGraphic = background;
-        input.textViewport = viewport;
-        input.textComponent = inputText;
-        input.placeholder = placeholder;
-        input.lineType = TMP_InputField.LineType.MultiLineNewline;
+
+    private void CreateNoteDialog(DesktopKit kit)
+    {
+        _note = kit.Modal(_layout!, "HistoryFavoriteNoteDialog", DialogWidth, InGameTheme.Scrim);
+        var card = _note.Card;
+        kit.Text(card, HistoryPanelText.FavoriteNoteTitle(), KitTextRole.Title);
+        var input = kit.Field(card, HistoryPanelText.FavoriteNotePlaceholder(), lines: NoteLines);
         input.characterLimit = RunLogSchema.FavoriteNoteMaxLength;
         input.onValueChanged.AddListener(_ => RefreshNoteCount());
         input.onSelect.AddListener(_ => UpdateInputFocus());
         input.onDeselect.AddListener(_ => ReleaseInputFocus());
         _noteInput = input;
-        _noteCount = Text(dialog, "", .05f, .78f, .30f, .07f, 13, Muted);
-        Button(dialog, HistoryPanelText.Cancel(), .50f, .78f, .20f, .12f, CloseNoteDialog);
-        _noteSave = Button(
-            dialog,
-            HistoryPanelText.SaveNote(),
-            .73f,
-            .78f,
-            .22f,
-            .12f,
-            () => _ = SaveNoteAsync(),
-            true
+        var foot = Line(card, "Foot", InGameSizes.Space8);
+        _noteCount = Flexible(kit.Text(foot.transform, string.Empty, KitTextRole.Caption));
+        kit.Button(
+            foot.transform,
+            HistoryPanelText.Cancel(),
+            KitButtonKind.Secondary,
+            KitSize.Md,
+            CloseNoteDialog
         );
-        _noteRoot = shade.gameObject;
-        _noteRoot.SetActive(false);
-    }
-
-    private void OnFavoriteButton()
-    {
-        if (_model == null)
-            return;
-        _favorite?.Invoke();
+        _noteSave = kit.Button(
+            foot.transform,
+            HistoryPanelText.SaveNote(),
+            KitButtonKind.Primary,
+            KitSize.Md,
+            () => _ = SaveNoteAsync()
+        );
     }
 
     internal void OpenNoteDialog(string battleId, string note)
     {
-        if (_noteRoot == null || _noteInput == null)
+        if (_note == null || _noteInput == null)
             return;
         _noteBattleId = battleId;
         _noteSaving = false;
         _noteInput.SetTextWithoutNotify(note);
         RefreshNoteCount();
-        _noteRoot.SetActive(true);
+        _note.Root.SetActive(true);
         _noteInput.ActivateInputField();
     }
 
@@ -108,7 +93,7 @@ internal sealed partial class HistoryPanelView
             _noteInput.SetTextWithoutNotify(string.Empty);
         }
         ReleaseInputFocus();
-        _noteRoot?.SetActive(false);
+        _note?.Root.SetActive(false);
     }
 
     // A failed save keeps the dialog and the draft; the status line says why.
@@ -145,18 +130,15 @@ internal sealed partial class HistoryPanelView
             _noteInput.text.Length,
             RunLogSchema.FavoriteNoteMaxLength
         );
-        SetButtonEnabled(_noteSave, !_noteSaving);
+        _noteSave.interactable = !_noteSaving;
     }
 
-    private void RefreshFavoriteControls()
+    private void RefreshFavoriteControls(bool hasBattle)
     {
         var m = _model!;
-        _favoriteButton.gameObject.SetActive(m.FavoriteButtonVisible);
-        SetButton(
-            _favoriteButton,
-            m.FavoriteButtonText,
-            enabled: m.FavoriteButtonEnabled && !m.PageLoading
-        );
+        _favoriteButton.gameObject.SetActive(m.FavoriteButtonVisible && hasBattle);
+        _favoriteButton.Label = m.FavoriteButtonText;
+        _favoriteButton.interactable = m.FavoriteButtonEnabled && !m.PageLoading;
         // The favorite the dialog edits is gone (removed, or the section changed): drop the draft.
         if (
             _noteBattleId != null

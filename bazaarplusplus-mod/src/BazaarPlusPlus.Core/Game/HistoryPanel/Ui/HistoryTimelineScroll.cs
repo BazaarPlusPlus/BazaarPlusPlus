@@ -6,7 +6,10 @@ public sealed class HistoryTimelineScroll
     private string? _selectedBattleId;
     private double? _slotsBeforeLoading;
 
-    // step: one chip's pitch; the desktop's HistoryPanelLayout.DayChipHeight when omitted.
+    // One chip's pitch when the caller names none.
+    private const float DefaultPitch = 64;
+
+    // step: one chip's pitch.
     public float Bind(
         string? selectedBattleId,
         int selectedSlot,
@@ -16,7 +19,7 @@ public sealed class HistoryTimelineScroll
         float? step = null
     )
     {
-        var pitch = step ?? HistoryPanelLayout.DayChipHeight;
+        var pitch = step ?? DefaultPitch;
         // Empty pages also occur between asynchronous loads. Keep the last position and
         // selection so the returning page cannot turn a refresh into another navigation.
         if (rowCount == 0 || viewportHeight <= 0)

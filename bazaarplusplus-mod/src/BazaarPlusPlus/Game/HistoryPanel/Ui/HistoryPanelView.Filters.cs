@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,60 +8,70 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
 internal sealed partial class HistoryPanelView
 {
-    private static void CreateFilterChevron(Transform parent)
+    private readonly List<(string Hero, KitButton Option)> _heroOptions = new();
+    private KitModal? _heroMenu;
+
+    // The hero filter's menu: a floating card under the select, one row for each hero.
+    private void CreateHeroMenu(DesktopKit kit)
     {
-        for (var i = 0; i < 2; i++)
+        _heroMenu = kit.Modal(
+            _layout!,
+            "HeroFilterMenu",
+            RailWidth,
+            InGameTheme.ScrimLight,
+            () => _heroMenu!.Root.SetActive(false)
+        );
+        var card = _heroMenu.Card;
+        var group = card.GetComponent<VerticalLayoutGroup>();
+        var inset = (int)InGameSizes.Space6;
+        group.padding = new RectOffset(inset, inset, inset, inset);
+        group.spacing = InGameSizes.Space2;
+        card.pivot = new Vector2(0, 1);
+        foreach (
+            var hero in new[] { string.Empty }.Concat(HistoryPanelHeroPresentation.RunFilterHeroIds)
+        )
         {
-            var stroke = new GameObject("Chevron", typeof(RectTransform), typeof(Image));
-            var rect = (RectTransform)stroke.transform;
-            rect.SetParent(parent, false);
-            rect.anchorMin = rect.anchorMax = new Vector2(.92f, .5f);
-            rect.sizeDelta = new Vector2(8f, 1.5f);
-            rect.anchoredPosition = new Vector2(i == 0 ? -2.5f : 2.5f, 0f);
-            rect.localRotation = Quaternion.Euler(0f, 0f, i == 0 ? -45f : 45f);
-            var image = stroke.GetComponent<Image>();
-            image.color = InGameTheme.InkMuted;
-            image.raycastTarget = false;
+            var choice = hero;
+            var option = kit.Button(
+                card,
+                string.Empty,
+                KitButtonKind.Row,
+                KitSize.Md,
+                () =>
+                {
+                    _heroFilter(choice);
+                    _heroMenu.Root.SetActive(false);
+                }
+            );
+            option.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            _heroOptions.Add((hero, option));
         }
     }
 
-    private void CreateHeroFilterMenu()
+    private void OpenHeroMenu()
     {
-        var shade = CreateRect("HeroFilterMenu", _layout!, 0, 0, 1, 1);
-        var canvas = shade.gameObject.AddComponent<Canvas>();
-        canvas.overrideSorting = true;
-        canvas.sortingOrder = BppOverlaySorting.PanelForeground;
-        shade.gameObject.AddComponent<GraphicRaycaster>();
-        shade.gameObject.AddComponent<Image>().color = InGameTheme.ScrimLight;
-        var dismiss = shade.gameObject.AddComponent<Button>();
-        dismiss.transition = Selectable.Transition.None;
-        dismiss.onClick.AddListener(() => shade.gameObject.SetActive(false));
-        var menu = CreateRect("Heroes", shade, .033f, .23f, .204f, .52f);
-        ControlSurface(menu);
-        var choices = new[] { string.Empty }
-            .Concat(HistoryPanelHeroPresentation.RunFilterHeroIds)
-            .ToArray();
-        for (var i = 0; i < choices.Length; i++)
+        if (_heroMenu == null)
+            return;
+        var select = (RectTransform)_heroSelect.transform;
+        select.GetWorldCorners(_corners);
+        _heroMenu.Root.SetActive(true);
+        var card = _heroMenu.Card;
+        card.sizeDelta = new Vector2(select.rect.width, card.sizeDelta.y);
+        card.position = _corners[0];
+        card.anchoredPosition -= new Vector2(0, InGameSizes.Space4);
+    }
+
+    private void BindHeroMenu(HistoryPanelViewModel m)
+    {
+        foreach (var (hero, option) in _heroOptions)
         {
-            var hero = choices[i];
-            _heroes[hero] = Button(
-                menu,
-                "",
-                0,
-                i / (float)choices.Length,
-                1,
-                1f / choices.Length,
-                () =>
-                {
-                    _heroFilter(hero);
-                    shade.gameObject.SetActive(false);
-                },
-                size: 16,
-                style: ButtonStyle.GroupedOption
-            );
-            ButtonLabel(_heroes[hero]).alignment = TextAlignmentOptions.MidlineLeft;
+            var all = string.IsNullOrEmpty(hero);
+            option.Label = all
+                ? HistoryPanelText.AllHeroes()
+                : HistoryPanelHeroNames.DisplayName(hero);
+            option.On = all
+                ? string.IsNullOrEmpty(m.SelectedRunHero)
+                : HistoryPanelHeroPresentation.IsSelected(m.SelectedRunHero, hero);
         }
-        _filterRoot = shade.gameObject;
-        _filterRoot.SetActive(false);
     }
 }

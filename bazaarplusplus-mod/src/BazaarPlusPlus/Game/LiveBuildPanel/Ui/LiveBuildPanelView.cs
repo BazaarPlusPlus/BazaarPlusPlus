@@ -26,6 +26,7 @@ internal sealed class LiveBuildPanelView : IDisposable
 
     // The match figures of the shown build: two rows of two.
     private const int MetricCells = 4;
+    private const float ArrowHeight = 48f;
 
     private sealed class Row
     {
@@ -294,7 +295,10 @@ internal sealed class LiveBuildPanelView : IDisposable
             KitSize.Md,
             click
         );
-        button.gameObject.GetComponent<LayoutElement>().flexibleWidth = 1;
+        // The two arrows are the panel's main control: each is half the rail wide and higher
+        // than a button, so it is an easy target.
+        var element = DesktopKit.Size(button, -1, ArrowHeight);
+        element.flexibleWidth = 1;
         return button;
     }
 

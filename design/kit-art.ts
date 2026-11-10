@@ -66,9 +66,9 @@ interface PlateSpec {
 const rim = '#946e33';
 const gold = '#dba84c';
 const plates: Record<string, PlateSpec> = {
-  plate: { fill: '#2a1c10', rim, rimAlpha: 0.42 },
-  'plate-hover': { fill: '#4a3418', rim: gold, rimAlpha: 0.5, contrast: 0.07 },
-  'plate-pressed': { fill: '#1b1209', rim, rimAlpha: 0.3, lift: -0.06 },
+  plate: { fill: '#3a2815', rim, rimAlpha: 0.62 },
+  'plate-hover': { fill: '#553b1b', rim: gold, rimAlpha: 0.62, contrast: 0.07 },
+  'plate-pressed': { fill: '#24180c', rim, rimAlpha: 0.42, lift: -0.06 },
   'plate-primary': {
     fill: '#6b4718',
     rim: '#ffc759',
@@ -90,9 +90,9 @@ const plates: Record<string, PlateSpec> = {
     lift: -0.06
   },
   ground: {
-    fill: '#17120d',
+    fill: '#21180f',
     rim,
-    rimAlpha: 0.22,
+    rimAlpha: 0.5,
     lift: 0.03,
     contrast: 0.06,
     radius: RADIUS + 2,
@@ -497,6 +497,32 @@ function marks(): Map<string, Raster> {
   return cut;
 }
 
+/**
+ * The supporter heart in solid white, tinted where it is drawn: two round lobes over a
+ * point, from the implicit heart curve (x^2 + y^2 - 1)^3 = x^2 y^3.
+ */
+function heart(): Raster {
+  const side = 16 * UNIT;
+  const data = new Float32Array(side * side * 4).fill(1);
+  const curve = (px: number, py: number) => {
+    const x = ((px + 0.5) / side - 0.5) * 2.6;
+    const y = (0.5 - (py + 0.5) / side) * 2.6 + 0.18;
+    return (x * x + y * y - 1) ** 3 - x * x * y * y * y;
+  };
+  for (let y = 0; y < side; y++) {
+    for (let x = 0; x < side; x++) {
+      // The curve's value over its gradient is the distance to the outline in pixels.
+      const value = curve(x, y);
+      const slope = Math.hypot(
+        curve(x + 1, y) - curve(x - 1, y),
+        curve(x, y + 1) - curve(x, y - 1)
+      );
+      data[(y * side + x) * 4 + 3] = coverage((2 * value) / (slope + 1e-9));
+    }
+  }
+  return reduce({ width: side, height: side, data });
+}
+
 function draw(): Map<string, Raster> {
   const material = readMaterial();
   const sprites = new Map<string, Raster>([['shape', shape()]]);
@@ -505,6 +531,7 @@ function draw(): Map<string, Raster> {
   sprites.set('edge', edge(gold, 0.85, 0.42));
   sprites.set('edge-bright', edge('#ffc759', 1, 0.5));
   for (const [name, raster] of marks()) sprites.set(`mark-${name}`, raster);
+  sprites.set('icon-heart', heart());
   return sprites;
 }
 

@@ -19,7 +19,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 /// detail step uses a single board beneath Back, battle navigation and side selection. The
 /// skills side picker (sized to the skills it shows), the card inspection, the More dialog, and
 /// the favorite note dialog sit over the sheet. List rows, rail chips and dialog rows are given from their content's
-/// top-left corner. The desktop's <c>HistoryPanelLayout</c> is a separate layout and is not
+/// top-left corner. The desktop's History is laid out by uGUI layout groups in its view and is not
 /// derived from this one.
 /// </summary>
 public sealed class HistoryTouchLayout

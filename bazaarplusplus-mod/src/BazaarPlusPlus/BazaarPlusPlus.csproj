@@ -37,14 +37,6 @@
       Include="Resources\DesktopKit\*.png"
       LogicalName="BazaarPlusPlus.Resources.DesktopKit.%(Filename)%(Extension)"
     />
-    <EmbeddedResource
-      Include="Resources\HistoryPanel\run-state-badges.png"
-      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.run-state-badges.png"
-    />
-    <EmbeddedResource
-      Include="Resources\HistoryPanel\battle-result-badges.png"
-      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.battle-result-badges.png"
-    />
   </ItemGroup>
 
   <ItemGroup>

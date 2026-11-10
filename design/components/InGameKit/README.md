@@ -73,13 +73,25 @@ If a plate PNG cannot be decoded, the plate draws a plain rectangle in the token
 
 Fallback colours when a plate PNG is missing: `ingame-button` for a secondary plate and `ingame-chip` under the pointer; `ingame-button-selected` for a selected control; `ingame-chip-active` for the primary button and a selected chip, `ingame-accent` for the primary button under the pointer; `ingame-failure` for `DangerPlate`; `ingame-panel` for `Ground`; `ingame-dialog` for a floating surface; `ingame-backdrop` for a field.
 
-Every control has two more states. **Disabled** multiplies the rest plate and its frame by `ingame-tint-disabled` and fades the label. **Dimmed** (shown as unavailable but still pressable, so the press can say why) uses the disabled plate with an `ingame-ink-muted` label, and `ingame-tint-dimmed-hover` under the pointer.
+Every control has two more states. **Disabled** keeps the rest plate, darkened by `ingame-tint-pressed`, and fades the label, so a row of controls keeps its shape. **Dimmed** (shown as unavailable but still pressable, so the press can say why) uses the disabled plate with an `ingame-ink-muted` label, and `ingame-tint-dimmed-hover` under the pointer.
 
 Button labels sit 18 (md) or 13 (sm) from the plate's sides, with `space-6` between an icon and its label.
 
-### The supporter line
+### The supporter strip
 
-Every Desktop panel thanks its supporters in one form (`BPPSupporterNativeAttributionRow`): one Caption row under the panel's title with "Thanks", up to four names in their tier colours, and the sponsor link (a quiet button in `ingame-supporter-4`) on the row's right edge. A narrow rail shows only the names that fit whole. A panel does not draw its own variant.
+Every Desktop panel thanks its supporters in one form (`BPPSupporterNativeAttributionRow`): one sunk strip (a track, one md control high) under the panel's title with "Thanks", up to four names in their tier colours, and the sponsor button at the strip's right end: a secondary sm button with BPP's heart and its label in `ingame-supporter-4`. A narrow rail shows only the names that fit whole. A panel does not draw its own variant.
+
+### Contrast
+
+A panel's surfaces are three steps apart, so each reads against the one under it: `ingame-backdrop` (the sheet), the ground of a rail or a card (`ground.png`, lighter, inside a visible gold rim), and a control's plate (`plate.png`, lighter again, with a stronger rim). A disabled control keeps a plate. `design/kit-art.ts` owns the fills.
+
+### Arrows
+
+A button that pages (a list's pager, the Ten-Win Builds browser) has a plate and a large arrow: the game's arrow glyph has wide margins, so its box is 30 (md) or 24 (sm) where another icon's is 16 or 14. Where paging is a panel's main action, the consumer makes the two arrows share the rail's width and stand 48 high.
+
+### Fields and modals
+
+`DesktopKit.Field` is the sunk text field: one line, or several lines high for a note; `Search` is the one-line field with the glass. `DesktopKit.Modal` is a scrim over the whole panel on its own canvas in front of the game's boards, with a floating card as wide as the consumer says and as high as its children. The consumer shows and hides the modal, and decides whether a press on the scrim dismisses it (a menu) or not (a dialog with a draft).
 
 ### Run rows and optical edges
 

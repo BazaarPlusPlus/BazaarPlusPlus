@@ -7,9 +7,10 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Game.Supporters.Ui;
 
 /// <summary>
-/// The supporter line of every Desktop panel, drawn with the panel's kit: one row under the
-/// panel's title, "Thanks", up to four names in their tier colours, and the sponsor link at
-/// the row's right edge. Names give way first when the row is narrow.
+/// The supporter strip of every Desktop panel, drawn with the panel's kit: one sunk strip
+/// under the panel's title holding "Thanks", up to four names in their tier colours, and the
+/// sponsor button with its heart at the strip's right end. Names give way first when the
+/// strip is narrow.
 /// </summary>
 internal sealed class BPPSupporterNativeAttributionRow
 {
@@ -26,21 +27,26 @@ internal sealed class BPPSupporterNativeAttributionRow
     {
         _kit = kit;
         var row = DesktopKit.Rect(parent, "SupporterLine");
+        kit.Surface(row, KitSurface.Track);
+        DesktopKit.Size(row, -1, InGameSizes.ControlMd);
         var group = Line(row, InGameSizes.Space8);
-        // The sponsor link has no plate at rest: its label sits on the row's right edge.
-        group.padding = new RectOffset(0, -(int)DesktopKit.LabelInset(KitSize.Sm), 0, 0);
+        // The button sits inside the strip, the same distance from its top, bottom and end.
+        var inset = (int)((InGameSizes.ControlMd - InGameSizes.ControlSm) / 2);
+        group.padding = new RectOffset((int)InGameSizes.Space12, inset, 0, 0);
         _prefix = kit.Text(row, string.Empty, KitTextRole.Caption);
         _names = DesktopKit.Rect(row, "Names");
         Line(_names, InGameSizes.Space8);
-        // The names take what the word and the link leave, and show only the names that fit.
+        // The names take what the word and the button leave, and show only the names that fit.
         var room = _names.gameObject.AddComponent<LayoutElement>();
         room.minWidth = room.preferredWidth = 0;
         room.flexibleWidth = 1;
         _names.gameObject.AddComponent<WholeNames>();
-        var sponsor = kit.Button(
+        var sponsor = kit.IconLabelButton(
             row,
-            string.Empty,
-            KitButtonKind.Quiet,
+            " ",
+            KitIcon.Heart,
+            null,
+            KitButtonKind.Secondary,
             KitSize.Sm,
             () => Application.OpenURL(BPPSupporterLinks.ResolveSponsorUrl(Language()))
         );
