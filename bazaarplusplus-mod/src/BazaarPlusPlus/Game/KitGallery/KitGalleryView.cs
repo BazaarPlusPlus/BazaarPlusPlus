@@ -41,6 +41,7 @@ internal sealed class KitGalleryView : IDisposable
     private readonly Sprite?[] _heroes = new Sprite?[6];
     private readonly Sprite?[] _trophies = new Sprite?[TrophyAddresses.Length];
     private Task<HeroPortraitLoadOutcome?>[]? _heroLoad;
+    private KitPortraitFocus?[]? _heroFocus;
     private Task<Sprite?[]>? _trophyLoad;
     private GameObject? _root;
     private DesktopKit? _kit;
@@ -110,14 +111,16 @@ internal sealed class KitGalleryView : IDisposable
         shell.childForceExpandWidth = false;
         shell.childForceExpandHeight = true;
 
-        var content = Column(_root.transform, "Content", InGameSizes.Space24, 32, 28);
-        content.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
-        BuildContent(content);
-
+        // The list is the first thing to read and the way into every other part, so its rail
+        // is on the left; what the selected run shows is on the right.
         var rail = Column(_root.transform, "Rail", InGameSizes.Space12, 22, 24);
         _kit.Surface(rail, KitSurface.Ground);
         DesktopKit.Size(rail, RailWidth, -1);
         BuildRail(rail);
+
+        var content = Column(_root.transform, "Content", InGameSizes.Space24, 32, 28);
+        content.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
+        BuildContent(content);
     }
 
     // ---- the sheet ----
@@ -453,6 +456,7 @@ internal sealed class KitGalleryView : IDisposable
                 .Where(HeroPortraitSpriteProvider.IsRenderableHero)
                 .Take(_heroes.Length)
                 .ToArray();
+            _heroFocus = heroes.Select(HeroPortraitFocus.For).ToArray();
             _heroLoad = heroes
                 .Select(HeroPortraitSpriteProvider.LoadDefaultPortraitAsync)
                 .ToArray();
@@ -469,7 +473,7 @@ internal sealed class KitGalleryView : IDisposable
                 _heroes[i] = sprite;
                 foreach (var (target, hero) in _portraitTargets)
                     if (hero == i)
-                        DesktopKit.ShowPortrait(target, sprite);
+                        DesktopKit.ShowPortrait(target, sprite, _heroFocus?[i]);
             }
         }
         if (_trophyLoad == null && _trophies.Any(sprite => sprite == null))
