@@ -9,6 +9,7 @@ using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.NativeSkin;
+using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;
@@ -22,6 +23,9 @@ internal sealed class LiveBuildPanelView : IDisposable
 {
     private static readonly Color Ink = InGameTheme.Ink;
     private static readonly Color Muted = InGameTheme.InkMuted;
+
+    // The stacked supporter line: a heading, four names and the sponsor button.
+    private const float SupporterHeight = 200f;
 
     private sealed class Row
     {
@@ -46,7 +50,7 @@ internal sealed class LiveBuildPanelView : IDisposable
     private readonly Action _toggleIncludeTiny;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
     private readonly List<(Image Image, DesktopSkinPart Part, Color Tint)> _art = new();
-    private readonly List<Image> _headerArt = new();
+    private DesktopKit? _kit;
     private NativeGameTypography.OwnedTextPreparation? _font;
     private GameObject? _root;
     private RectTransform? _layout;
@@ -55,7 +59,8 @@ internal sealed class LiveBuildPanelView : IDisposable
     private int _layoutFrames = 2;
     private RectTransform? _supporterHost;
     private RectTransform? _sidebar;
-    private RectTransform? _corpusGroup;
+    private RectTransform? _corpusDetailCard;
+    private RectTransform? _portraitWell;
     private RawImage? _backdrop;
     private Task<Texture2D?>? _backdropLoad;
     private BPPSupporterNativeAttributionRow? _supporters;
@@ -76,13 +81,13 @@ internal sealed class LiveBuildPanelView : IDisposable
     ];
     private TextMeshProUGUI? _guidance;
     private TextMeshProUGUI? _hint;
-    private Button? _refreshButton;
-    private Button? _closeButton;
-    private Button? _previousButton;
-    private Button? _nextButton;
-    private Button? _includeTinyButton;
+    private KitButton? _refreshButton;
+    private KitButton? _previousButton;
+    private KitButton? _nextButton;
+    private KitButton? _includeTinyButton;
     private Image? _portrait;
     private CardHero? _portraitHero;
+    private BazaarGameShared.Domain.Core.Types.EHero? _portraitSource;
     private Task<HeroPortraitLoadOutcome?>? _portraitLoad;
     private int _skinGeneration;
     private float _retryAt;
@@ -148,46 +153,8 @@ internal sealed class LiveBuildPanelView : IDisposable
         var shade = Rect("BackgroundShade", _layout, 0, 0, 1, 1).gameObject.AddComponent<Image>();
         shade.color = InGameTheme.Veil;
         shade.raycastTarget = false;
-        var frame = Rect("PanelFrame", _layout, 0, 0, 1, 1);
-        frame.offsetMin = new Vector2(7, 7);
-        frame.offsetMax = new Vector2(-7, -7);
-        var frameArt = Layer(frame, DesktopSkinPart.Frame, InGameTheme.ArtFrameTint);
-        frameArt.fillCenter = false;
-        _sidebar = Rect("Overview", _layout, 0, 0, 0, 0);
-        var sidebarRule = Rect("SidebarRule", _sidebar, 0, 0, 0, 1);
-        sidebarRule.sizeDelta = new Vector2(1, 0);
-        var sidebarRuleImage = sidebarRule.gameObject.AddComponent<Image>();
-        sidebarRuleImage.color = InGameTheme.WithAlpha(InGameTheme.Rule, .35f);
-        sidebarRuleImage.raycastTarget = false;
-        foreach (var dividerY in new[] { .11f, .70f })
-        {
-            var divider = Rect("SectionDivider", _sidebar, .08f, dividerY, .84f, 0);
-            divider.sizeDelta = new Vector2(0, 1);
-            divider.gameObject.AddComponent<Image>().color = InGameTheme.WithAlpha(
-                InGameTheme.Rule,
-                .5f
-            );
-        }
-        _title = Text(_layout, string.Empty, .02f, .008f, .49f, .05f, 32);
-        _title.textWrappingMode = TextWrappingModes.Normal;
-        _supporterHost = Rect("SupporterAttribution", _layout, .02f, .048f, .65f, .027f);
-        _supporters = new BPPSupporterNativeAttributionRow(
-            _supporterHost,
-            _font!,
-            TextAnchor.UpperLeft,
-            stacked: true
-        );
-        _supporters.SetSkin(
-            DesktopNativeSkin.Get(DesktopSkinPart.Frame),
-            DesktopNativeSkin.HeaderNormal
-        );
-        _skinGeneration = DesktopNativeSkin.Generation;
-        _corpusGroup = Rect("BuildLibrary", _layout, 0, 0, 0, 0);
-        _corpusTitle = Text(_corpusGroup, "", 0, 0, 0, 0, 15);
-        _corpus = Text(_corpusGroup, "", 0, 0, 0, 0, 14, Muted);
-        _corpus.textWrappingMode = TextWrappingModes.Normal;
-        _refreshButton = Button(_corpusGroup, "", 0, 0, 0, 0, _refresh, size: 14, headerArt: true);
-        _closeButton = Button(_layout, "", .943f, .027f, .044f, .045f, _close, headerArt: true);
+        _kit = new DesktopKit(_font!);
+        BuildSidebar();
         // Four peers always share the same board dimensions. Native carpet aspect and
         // ten sockets determine card scale; sparse sources never grow individual cards.
         var ids = new[]
@@ -216,16 +183,8 @@ internal sealed class LiveBuildPanelView : IDisposable
             _rows.Add(ids[i], row);
         }
         var recommendationHeader = _rows[BppItemBoardId.FinalBuild].Header;
-        _portrait = Rect("HeroPortrait", recommendationHeader, 0, 0, .03f, 1)
-            .gameObject.AddComponent<Image>();
-        _portrait.preserveAspect = true;
-        _portrait.raycastTarget = false;
-        _portrait.color = Color.clear;
-        _navigationLabel = Text(_layout, "", 0, 0, 0, 0, 17);
-        _includeTinyButton = Button(_layout, "", 0, 0, 0, 0, _toggleIncludeTiny, headerArt: true);
-        _previousButton = NavigationButton(_previous, forward: false);
-        _pager = Text(_layout, "", 0, 0, 0, 0, 17, Ink, true);
-        _nextButton = NavigationButton(_next, forward: true);
+        _portrait = _kit.Portrait(recommendationHeader, null, 24);
+        _portraitWell = (RectTransform)_portrait.transform.parent;
         // One fixed cell per metric: a run-on line silently ellipsized the last one away.
         _metrics = Rect("MatchMetrics", _layout, 0, 0, 0, 0);
         for (var cell = 0; cell < LiveBuildPanelLayout.MetricCells; cell++)
@@ -247,18 +206,104 @@ internal sealed class LiveBuildPanelView : IDisposable
         var foreground = _markerRoot.gameObject.AddComponent<Canvas>();
         foreground.overrideSorting = true;
         foreground.sortingOrder = BppOverlaySorting.PanelForeground;
-        var detail = Rect("CorpusDetail", _markerRoot, .48f, .091f, .49f, .10f);
-        var detailBackground = detail.gameObject.AddComponent<Image>();
-        detailBackground.color = InGameTheme.WithAlpha(InGameTheme.Panel, .99f);
-        detailBackground.raycastTarget = false;
-        _corpusDetail = Text(detail, "", 0, 0, 1, 1, 17);
+        // The corpus line's detail: a kit tooltip, on the foreground canvas so it is over the
+        // native boards.
+        _corpusDetailCard = _kit.Floating(_markerRoot, "CorpusDetail", InGameSizes.Space12);
+        _corpusDetailCard.anchorMin = _corpusDetailCard.anchorMax = new Vector2(.5f, .5f);
+        _corpusDetailCard.pivot = new Vector2(1, 1);
+        _corpusDetailCard.gameObject.AddComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+        _corpusDetail = _kit.Text(_corpusDetailCard, "", KitTextRole.Meta, InGameTheme.Ink);
         _corpusDetail.textWrappingMode = TextWrappingModes.Normal;
         _corpusDetail.overflowMode = TextOverflowModes.Overflow;
-        _corpusDetail.margin = new Vector4(12, 7, 12, 7);
-        _corpusDetail.transform.parent.gameObject.SetActive(false);
+        _corpusDetailCard.gameObject.SetActive(false);
         _root.SetActive(_visible);
         if (_snapshot != null)
             Refresh(_snapshot);
+    }
+
+    // The overview rail: the kit's ground, laid out top to bottom. The view places only the
+    // rail itself beside the boards.
+    private void BuildSidebar()
+    {
+        var kit = _kit!;
+        _sidebar = Rect("Overview", _layout!, 0, 0, 0, 0);
+        kit.Surface(_sidebar, KitSurface.Ground);
+        var column = _sidebar.gameObject.AddComponent<VerticalLayoutGroup>();
+        column.padding = new RectOffset(22, 22, 24, 24);
+        column.spacing = InGameSizes.Space12;
+        column.childControlWidth = column.childControlHeight = true;
+        column.childForceExpandWidth = true;
+        column.childForceExpandHeight = false;
+
+        var head = Line(_sidebar, "Head", InGameSizes.Space8);
+        _title = kit.Text(head, string.Empty, KitTextRole.Title);
+        _title.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
+        kit.IconButton(head, KitIcon.Close, KitButtonKind.Secondary, KitSize.Sm, _close);
+
+        var library = kit.SectionHeader(_sidebar, " ", " ");
+        _corpusTitle = library.GetComponentsInChildren<TextMeshProUGUI>(true)[0];
+        library.GetComponentsInChildren<TextMeshProUGUI>(true)[1].text = string.Empty;
+        _corpus = kit.Text(_sidebar, string.Empty, KitTextRole.Meta);
+        _corpus.textWrappingMode = TextWrappingModes.Normal;
+        _corpus.overflowMode = TextOverflowModes.Overflow;
+        var refresh = Line(_sidebar, "Refresh", 0);
+        _refreshButton = kit.Button(
+            refresh,
+            string.Empty,
+            KitButtonKind.Secondary,
+            KitSize.Sm,
+            _refresh
+        );
+
+        var browse = kit.SectionHeader(_sidebar, " ", "0 / 0");
+        var browseTexts = browse.GetComponentsInChildren<TextMeshProUGUI>(true);
+        _navigationLabel = browseTexts[0];
+        _pager = browseTexts[1];
+        var arrows = Line(_sidebar, "Arrows", InGameSizes.Space8);
+        _previousButton = Arrow(arrows, KitIcon.ChevronLeft, _previous);
+        _nextButton = Arrow(arrows, KitIcon.ChevronRight, _next);
+        _includeTinyButton = kit.Checkbox(_sidebar, string.Empty, _toggleIncludeTiny);
+
+        DesktopKit
+            .Rect(_sidebar, "Spacer")
+            .gameObject.AddComponent<LayoutElement>()
+            .flexibleHeight = 1;
+        _supporterHost = DesktopKit.Rect(_sidebar, "SupporterAttribution");
+        DesktopKit.Size(_supporterHost, -1, SupporterHeight);
+        _supporters = new BPPSupporterNativeAttributionRow(
+            _supporterHost,
+            kit,
+            TextAnchor.UpperLeft,
+            stacked: true
+        );
+        _skinGeneration = DesktopNativeSkin.Generation;
+    }
+
+    private KitButton Arrow(Transform row, KitIcon icon, Action click)
+    {
+        var button = _kit!.IconLabelButton(
+            row,
+            string.Empty,
+            icon,
+            null,
+            KitButtonKind.Secondary,
+            KitSize.Md,
+            click
+        );
+        button.gameObject.GetComponent<LayoutElement>().flexibleWidth = 1;
+        return button;
+    }
+
+    private static RectTransform Line(Transform parent, string name, float spacing)
+    {
+        var rect = DesktopKit.Rect(parent, name);
+        var group = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
+        group.spacing = spacing;
+        group.childAlignment = TextAnchor.MiddleLeft;
+        group.childControlWidth = group.childControlHeight = true;
+        group.childForceExpandWidth = group.childForceExpandHeight = false;
+        return rect;
     }
 
     internal void SetVisible(bool visible)
@@ -280,11 +325,10 @@ internal sealed class LiveBuildPanelView : IDisposable
         _corpusTitle!.text = LiveBuildPanelText.CorpusLibrary();
         _navigationLabel!.text = LiveBuildPanelText.BrowseBuilds();
         SetButtonText(_includeTinyButton!, LiveBuildPanelText.IncludeTiny());
-        SetHeaderButtonState(_includeTinyButton!, snapshot.IncludeTiny);
+        _includeTinyButton!.On = snapshot.IncludeTiny;
         _hint!.text = LiveBuildPanelText.SelectionHint();
         SetButtonText(_refreshButton!, snapshot.FinalBuildRefreshButtonText);
         _refreshButton!.interactable = snapshot.FinalBuildRefreshButtonEnabled;
-        SetButtonText(_closeButton!, LiveBuildPanelText.Close());
         _supporters!.Bind(snapshot.Supporters, LiveBuildPanelText.Subtitle());
         _corpus!.text =
             snapshot.CorpusState == LiveBuildCorpusState.Summary
@@ -358,12 +402,18 @@ internal sealed class LiveBuildPanelView : IDisposable
         if (_portraitHero != snapshot.Hero)
         {
             _portraitHero = snapshot.Hero;
-            _portrait!.color = Color.clear;
+            DesktopKit.ShowPortrait(_portrait!, null);
+            _portraitSource = null;
             _portraitLoad =
                 snapshot.Hero is { } hero
                 && DesktopCardFacets.Hero.TryToSource(hero, out var source)
                     ? HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(source)
                     : null;
+            if (
+                _portraitLoad != null
+                && DesktopCardFacets.Hero.TryToSource(snapshot.Hero!.Value, out var shown)
+            )
+                _portraitSource = shown;
         }
     }
 
@@ -405,15 +455,12 @@ internal sealed class LiveBuildPanelView : IDisposable
             _backdropLoad = null;
         }
         DesktopNativeSkin.Poll();
+        _kit!.Tick();
         if (_skinGeneration != DesktopNativeSkin.Generation)
         {
             _skinGeneration = DesktopNativeSkin.Generation;
             foreach (var art in _art)
                 DesktopNativeSkin.Paint(art.Image, art.Part, art.Tint);
-            _supporters!.SetSkin(
-                DesktopNativeSkin.Get(DesktopSkinPart.Frame),
-                DesktopNativeSkin.HeaderNormal
-            );
         }
         if (_portraitLoad?.IsCompleted == true)
         {
@@ -422,8 +469,12 @@ internal sealed class LiveBuildPanelView : IDisposable
                 && _portraitLoad.Result?.Sprite is { } sprite
             )
             {
-                _portrait!.sprite = sprite;
-                _portrait.color = Color.white;
+                DesktopKit.ShowPortrait(
+                    _portrait!,
+                    sprite,
+                    _portraitSource is { } shownHero ? HeroPortraitFocus.For(shownHero) : null,
+                    _portraitSource is { } glowHero ? HeroPortraitFocus.Glow(glowHero) : null
+                );
             }
             else
                 _ = _portraitLoad.Exception;
@@ -456,13 +507,29 @@ internal sealed class LiveBuildPanelView : IDisposable
                 }
             }
         }
-        _corpusDetail!.transform.parent.gameObject.SetActive(
+        var hovered =
             Mouse.current != null
-                && RectTransformUtility.RectangleContainsScreenPoint(
-                    _corpus!.rectTransform,
-                    Mouse.current.position.ReadValue()
-                )
-        );
+            && RectTransformUtility.RectangleContainsScreenPoint(
+                _corpus!.rectTransform,
+                Mouse.current.position.ReadValue()
+            );
+        _corpusDetailCard!.gameObject.SetActive(hovered);
+        if (hovered)
+        {
+            // Under the line it explains, its right edge on the line's right edge.
+            _corpus!.rectTransform.GetWorldCorners(_corners);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                _markerRoot!,
+                new Vector2(_corners[3].x, _corners[3].y),
+                null,
+                out var corner
+            );
+            _corpusDetailCard.anchoredPosition = corner - new Vector2(0, InGameSizes.Space6);
+            _corpusDetailCard.sizeDelta = new Vector2(
+                LiveBuildPanelLayout.SidebarWidth - 44,
+                _corpusDetailCard.sizeDelta.y
+            );
+        }
     }
 
     internal void SetBoardStatus(
@@ -554,7 +621,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         if (row.Index != 0)
             return;
         ApplyHeaderRail(left, width);
-        Place(_portrait!.rectTransform, 0, 2, 24, 24);
+        Place(_portraitWell!, 0, 2, 24, 24);
         Place(_metrics!, left, _geometry.MetricsTop, width, LiveBuildPanelLayout.MetricsHeight);
         Place(
             _guidance!.rectTransform,
@@ -567,39 +634,13 @@ internal sealed class LiveBuildPanelView : IDisposable
 
     private void ApplyHeaderRail(float left, float width)
     {
-        var sidebarLeft = _geometry.SidebarLeft(left, width);
-        var contentLeft = sidebarLeft + 24;
-        var contentWidth = LiveBuildPanelLayout.SidebarWidth - 48;
-        Place(_sidebar!, sidebarLeft, 20, LiveBuildPanelLayout.SidebarWidth, _geometry.Height - 40);
-        Place(_title!.rectTransform, contentLeft, 42, contentWidth - 80, 64);
-        Place((RectTransform)_closeButton!.transform, contentLeft + contentWidth - 68, 58, 68, 32);
-        Place(_corpusGroup!, contentLeft, 156, contentWidth, 128);
-        Place(_corpusTitle!.rectTransform, 0, 14, contentWidth - 108, 28);
-        Place((RectTransform)_refreshButton!.transform, contentWidth - 94, 14, 94, 28);
-        Place(_corpus!.rectTransform, 0, 56, contentWidth, 60);
-        _corpus.alignment = TextAlignmentOptions.TopLeft;
-        Place((RectTransform)_includeTinyButton!.transform, contentLeft, 432, contentWidth, 44);
-        Place(_navigationLabel!.rectTransform, contentLeft, 492, contentWidth - 116, 28);
-        Place(_pager!.rectTransform, contentLeft + contentWidth - 104, 492, 104, 28);
-        _pager.alignment = TextAlignmentOptions.MidlineRight;
-        var navigationButtonWidth = (contentWidth - 12) / 2;
         Place(
-            (RectTransform)_previousButton!.transform,
-            contentLeft,
-            536,
-            navigationButtonWidth,
-            56
+            _sidebar!,
+            _geometry.SidebarLeft(left, width),
+            20,
+            LiveBuildPanelLayout.SidebarWidth,
+            _geometry.Height - 40
         );
-        Place(
-            (RectTransform)_nextButton!.transform,
-            contentLeft + navigationButtonWidth + 12,
-            536,
-            navigationButtonWidth,
-            56
-        );
-        Place(_supporterHost!, contentLeft, _geometry.Height - 286, contentWidth, 240);
-        // Anchored under the line it explains, not at a fixed offset over the boards.
-        Place((RectTransform)_corpusDetail!.transform.parent, contentLeft, 290, contentWidth, 110);
         Place(
             _hint!.rectTransform,
             left,
@@ -681,7 +722,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         _metricValues[cell].text = value;
     }
 
-    private static void SetButtonText(Button button, string value) =>
+    private static void SetButtonText(KitButton button, string value) =>
         button.GetComponentInChildren<TextMeshProUGUI>(true).text = value;
 
     private static RectTransform Rect(
@@ -713,74 +754,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         );
         _art.Add((image, part, color));
         return image;
-    }
-
-    private Image HeaderLayer(Transform parent, bool selected = false)
-    {
-        var image = Rect("HeaderArt", parent, 0, 0, 1, 1).gameObject.AddComponent<Image>();
-        image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
-        image.raycastTarget = false;
-        _headerArt.Add(image);
-        ApplyHeaderArt(image, selected);
-        return image;
-    }
-
-    private void ApplyHeaderArt(Image image, bool selected)
-    {
-        var normal = DesktopNativeSkin.HeaderNormal;
-        image.sprite = selected ? DesktopNativeSkin.HeaderSelected ?? normal : normal;
-        image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier = DesktopNativeSkin.HeaderPixelsPerUnit;
-        image.color = image.sprite != null ? Color.white : InGameTheme.Button;
-    }
-
-    private void SetHeaderButtonState(Button button, bool selected)
-    {
-        foreach (var image in _headerArt)
-            if (image.transform.parent == button.transform)
-            {
-                ApplyHeaderArt(image, selected);
-                return;
-            }
-    }
-
-    private Button Button(
-        Transform parent,
-        string? title,
-        float x,
-        float y,
-        float width,
-        float height,
-        Action click,
-        int size = 17,
-        bool headerArt = false
-    )
-    {
-        var rect = Rect("Action", parent, x, y, width, height);
-        var background = headerArt ? HeaderLayer(rect) : Layer(rect, DesktopSkinPart.BrownCenter);
-        background.raycastTarget = true;
-        if (!headerArt)
-            Layer(rect, DesktopSkinPart.Frame);
-        var button = rect.gameObject.AddComponent<Button>();
-        button.targetGraphic = background;
-        button.onClick.AddListener(() => click());
-        if (title != null)
-            Text(rect, title, .03f, .04f, .94f, .92f, size, Ink, true);
-        return button;
-    }
-
-    private Button NavigationButton(Action click, bool forward)
-    {
-        var button = Button(_layout!, null, 0, 0, 0, 0, click, headerArt: true);
-        var rect = Rect("Chevron", button.transform, .5f, .5f, 0, 0);
-        rect.pivot = new Vector2(.5f, .5f);
-        rect.sizeDelta = new Vector2(20, 32);
-        rect.localRotation = Quaternion.Euler(0, 0, forward ? 0 : 180);
-        var icon = rect.gameObject.AddComponent<LiveBuildChevronGraphic>();
-        icon.color = Ink;
-        icon.raycastTarget = false;
-        return button;
     }
 
     private TextMeshProUGUI Text(
@@ -821,7 +794,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         _snapshot = null;
         _rows.Clear();
         _art.Clear();
-        _headerArt.Clear();
         if (_root != null)
             UnityEngine.Object.Destroy(_root);
         _root = null;
