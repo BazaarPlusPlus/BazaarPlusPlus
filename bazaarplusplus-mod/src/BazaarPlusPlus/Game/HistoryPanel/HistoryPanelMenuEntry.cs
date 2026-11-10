@@ -1,13 +1,23 @@
 #nullable enable
+using System.Runtime.CompilerServices;
 using TheBazaar.UI;
 using TheBazaar.UI.Menu;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal sealed class HistoryPanelMenuEntry : IDisposable
 {
+    private readonly ConditionalWeakTable<PooledScrollRectBase, RowPitch> _pitches = new();
     private Sprite? _icon;
+
+    // The pooler's measured spacing and row pitch, before the History row changed them.
+    private sealed class RowPitch
+    {
+        internal float Spacing { get; init; }
+        internal float ElementSize { get; init; }
+    }
 
     private sealed class EntryData : PoolableUIData
     {
@@ -27,6 +37,34 @@ internal sealed class HistoryPanelMenuEntry : IDisposable
             merchandiseIndex >= 0 ? merchandiseIndex + 1 : Math.Max(0, entries.Count - 1),
             new EntryData { Icon = LoadIcon() }
         );
+    }
+
+    // The History row makes the menu one row longer, which puts its last row (Exit Game) over the
+    // MENU button that opens and closes it. This tightens the row pitch so the menu keeps the
+    // height it has without the History row. The pooler measures its pitch only on its first
+    // Initialize, so each pass starts again from the saved first measurement.
+    internal void FitRows(PooledScrollRectBase pooler)
+    {
+        if (
+            pooler.DataProvider is not NavigationMenuController menu
+            || !pooler.ScrollRect.vertical
+            || !pooler.ScrollRect.content.TryGetComponent<HorizontalOrVerticalLayoutGroup>(
+                out var layout
+            )
+        )
+            return;
+        var original = _pitches.GetValue(
+            pooler,
+            _ => new RowPitch { Spacing = pooler._layoutSpacing, ElementSize = pooler.ElementSize }
+        );
+        var rows = menu._data.Count;
+        var shrink =
+            rows >= 2 && menu._data.Any(entry => entry is EntryData)
+                ? original.ElementSize / (rows - 1)
+                : 0f;
+        layout.spacing = original.Spacing - shrink;
+        pooler._layoutSpacing = original.Spacing - shrink;
+        pooler.ElementSize = original.ElementSize - shrink;
     }
 
     private Sprite? LoadIcon()

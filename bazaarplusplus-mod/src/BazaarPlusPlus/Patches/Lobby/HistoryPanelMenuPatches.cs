@@ -14,6 +14,14 @@ internal static class HistoryPanelMenuDataPatch
         BppPatchHost.Features.HistoryMenu.Append(____data);
 }
 
+[HarmonyPatch(typeof(PooledScrollRectBase), nameof(PooledScrollRectBase.RedrawUI))]
+internal static class HistoryPanelMenuFitPatch
+{
+    [HarmonyPrefix]
+    private static void Prefix(PooledScrollRectBase __instance) =>
+        BppPatchHost.Features.HistoryMenu.FitRows(__instance);
+}
+
 [HarmonyPatch]
 internal static class HistoryPanelMenuPresentationPatch
 {
