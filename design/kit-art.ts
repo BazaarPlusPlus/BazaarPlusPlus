@@ -461,14 +461,21 @@ function draw(): Map<string, Raster> {
   return sprites;
 }
 
+/** A committed plate, or undefined when it is missing or not a PNG this script can read. */
+function readPlate(file: string) {
+  try {
+    return decode(fs.readFileSync(file));
+  } catch {
+    return undefined;
+  }
+}
+
 /** The plate PNGs that differ from what this script draws; compared by pixel, not by file bytes. */
 export function stalePlates(): string[] {
   const stale: string[] = [];
   for (const [name, raster] of draw()) {
     const file = path.join(outDir, `${name}.png`);
-    const committed = fs.existsSync(file)
-      ? decode(fs.readFileSync(file))
-      : undefined;
+    const committed = readPlate(file);
     const fresh = bytes(raster);
     if (
       committed?.width !== raster.width ||
