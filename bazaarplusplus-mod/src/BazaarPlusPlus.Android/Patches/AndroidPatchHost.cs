@@ -83,6 +83,29 @@ internal static class AndroidPatchHost
                 );
             }
         }
+        InstallCombatSpeedDetour();
+    }
+
+    // Not a Harmony class, so the loop above does not see it; it fails alone, as they do.
+    private static void InstallCombatSpeedDetour()
+    {
+        try
+        {
+            CombatPlaybackSpeedDetour.Install();
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.patch.installed"),
+                ("patch_type", typeof(CombatPlaybackSpeedDetour).FullName),
+                ("targets", "Il2CppTheBazaar.CombatSimHandler.SetSpeed")
+            );
+        }
+        catch (Exception exception)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.patch.failed"),
+                exception,
+                ("patch_type", typeof(CombatPlaybackSpeedDetour).FullName)
+            );
+        }
     }
 
     public static long CountVersionLabel() => Interlocked.Increment(ref _versionLabelHits);
@@ -138,6 +161,7 @@ internal static class AndroidPatchHost
             ("mode", Mode),
             ("version_label_hits", Interlocked.Read(ref _versionLabelHits)),
             ("combat_sim_hits", Interlocked.Read(ref _combatSimHits)),
+            .. CombatPlaybackSpeedDetour.Summary(),
             ("tooltip_hits", Interlocked.Read(ref _tooltipHits)),
             ("tooltip_render_hits", Interlocked.Read(ref _tooltipRenderHits)),
             ("tooltip_hidden_hits", Interlocked.Read(ref _tooltipHiddenHits)),
