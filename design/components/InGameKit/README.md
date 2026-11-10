@@ -77,6 +77,10 @@ Every control has two more states. **Disabled** multiplies the rest plate and it
 
 Button labels sit 18 (md) or 13 (sm) from the plate's sides, with `space-6` between an icon and its label.
 
+### The supporter line
+
+Every Desktop panel thanks its supporters in one form (`BPPSupporterNativeAttributionRow`): one Caption row under the panel's title with "Thanks", up to four names in their tier colours, and the sponsor link (a quiet button in `ingame-supporter-4`) on the row's right edge. A narrow rail shows only the names that fit whole. A panel does not draw its own variant.
+
 ### Run rows and optical edges
 
 - **The list is on the left.** A panel with a list and a detail puts the list's rail on the left and what the selected item shows on the right: the list is read first and leads to everything else. The Kit Gallery has this shape.
