@@ -27,6 +27,14 @@ internal static class HeroPortraitFocus
             "Jules" => new KitPortraitFocus(.53f, .25f, .48f),
             "Stelle" => new KitPortraitFocus(.55f, .27f, .46f),
             "Mak" => new KitPortraitFocus(.52f, .25f, .46f),
+            // The spear's tip is the top of the art, so the rule finds a head above the face.
+            "Karnok" => new KitPortraitFocus(.45f, .37f, .54f),
+            // Two heads: the square holds both faces.
+            _ when TheDragonsHeroIdentity.IsTheDragons(hero) => new KitPortraitFocus(
+                .52f,
+                .36f,
+                .62f
+            ),
             _ => null,
         };
 }

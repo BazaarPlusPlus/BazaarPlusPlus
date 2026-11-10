@@ -125,7 +125,7 @@ internal sealed class PortraitView
         // multi-character heroes and encounter compositions keep their complete silhouette.
         var zoom = hero switch
         {
-            CardHero.Vanessa or CardHero.Pygmalien => 1.4f,
+            CardHero.Vanessa or CardHero.Pygmalien or CardHero.Karnok => 1.4f,
             _ => 0.94f,
         };
         scale *= zoom;
