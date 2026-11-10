@@ -481,7 +481,10 @@ export function stalePlates(): string[] {
       committed?.width !== raster.width ||
       committed.height !== raster.height ||
       committed.channels !== 4 ||
-      !committed.data.every((value, index) => value === fresh[index])
+      // One level of slack: Math.exp and Math.hypot may round differently on another platform.
+      !committed.data.every(
+        (value, index) => Math.abs(value - at(fresh, index)) <= 1
+      )
     ) {
       stale.push(path.relative(root, file));
     }
