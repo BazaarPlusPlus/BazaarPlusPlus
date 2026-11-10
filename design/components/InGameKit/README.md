@@ -107,6 +107,10 @@ A button that pages (a list's pager, the ends of a day strip, the Ten-Win Builds
 - **Edges belong to the ink.** A control with no plate at rest aligns by its content, not by its hidden plate. A list row's plate bleeds `space-12` out of the row on each side, so the portrait sits under the section header and the mark under the header's caption; the column needs that room around it, and `DesktopKit.ScrollList` gives a scrolling list a mask that wide. A row that ends in a quiet button pulls the button out by its label inset. The Kit Gallery's rail shows both; every right-aligned item there ends within 1 px of the column's edge.
 - **Rows and days are reused.** `KitRunRow` and `KitDay` give the consumer the texts, the portrait and the art slots, so a list rebinds its rows to other runs without building them again.
 
+## Touch art
+
+The Mobile UI keeps its own kit and layout (`UiKit`, `TouchChrome`; ADR-0025 in the mod). It shares this kit's art: `design/kit-art.ts` also draws the touch controls' two plates (`control-normal.png`, `control-selected.png`: the same material and rim on a larger silhouette, sliced 40 px, which is 6 dp on a device) and the touch History's two badge atlases from the kit's marks. Touch History, Ten-Win Builds and Collection draw their buttons with these plates (`TouchPlates`, `TouchHistoryBadges`, `NativeSkin`), so a button, a selected tab and a run's mark look the same on both hosts.
+
 ## The consumer provides
 
 Its layout (rects or layout groups), its labels from `LocalizedTextSet`, its actions, which control is on, and the native art for content (portraits, trophies, rank badges). The kit draws only plates, text, rules, icons and its marks.

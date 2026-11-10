@@ -26,7 +26,7 @@ namespace BazaarPlusPlus.Mobile.LiveBuild;
 internal sealed class TouchLiveBuildView
 {
     private readonly NativeSkin _skin = new();
-    private readonly TouchLiveBuildArtwork? _artwork;
+    private readonly TouchPlates? _artwork;
     private readonly GameObject _root;
     private readonly LiveBuildTouchLayout _layout;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
@@ -58,7 +58,7 @@ internal sealed class TouchLiveBuildView
     )
     {
         _layout = layout;
-        _artwork = TouchLiveBuildArtwork.TryLoad();
+        _artwork = TouchPlates.TryLoad();
         var root = UiKit.Rect(
             "LiveBuild",
             parent,

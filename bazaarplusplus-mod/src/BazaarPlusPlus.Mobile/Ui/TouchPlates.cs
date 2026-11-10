@@ -3,22 +3,26 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 
-namespace BazaarPlusPlus.Mobile.LiveBuild;
+namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>History's sliced control artwork for the Ten-Win touch surface.</summary>
-internal sealed class TouchLiveBuildArtwork : IDisposable
+/// <summary>
+/// The touch controls' two plates (normal and selected), drawn by <c>design/kit-art.ts</c> from
+/// the Desktop UI kit's material: Ten-Win Builds and Collection load them here, History
+/// with its badges (<c>TouchHistoryBadges</c>).
+/// </summary>
+internal sealed class TouchPlates : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();
 
-    private TouchLiveBuildArtwork() { }
+    private TouchPlates() { }
 
     internal Sprite? HeaderNormal { get; private set; }
 
     internal Sprite? HeaderSelected { get; private set; }
 
-    internal static TouchLiveBuildArtwork? TryLoad()
+    internal static TouchPlates? TryLoad()
     {
-        var artwork = new TouchLiveBuildArtwork();
+        var artwork = new TouchPlates();
         try
         {
             artwork.HeaderNormal = artwork.Load(HistoryHeaderArtwork.Normal);
@@ -31,7 +35,7 @@ internal sealed class TouchLiveBuildArtwork : IDisposable
             BppLog.WarnEvent(
                 new BppLogEvent(
                     BppLogFeatureScope.Touch,
-                    "touch.live_build.artwork_failed",
+                    "touch.plates.failed",
                     storm: ["reason_code"]
                 ),
                 exception,
@@ -53,7 +57,7 @@ internal sealed class TouchLiveBuildArtwork : IDisposable
     private Sprite Load(string name)
     {
         using var stream =
-            typeof(TouchLiveBuildArtwork).Assembly.GetManifestResourceStream(
+            typeof(TouchPlates).Assembly.GetManifestResourceStream(
                 $"BazaarPlusPlus.Resources.HistoryPanel.{name}"
             ) ?? throw new InvalidOperationException($"History artwork is missing: {name}");
         using var bytes = new MemoryStream();

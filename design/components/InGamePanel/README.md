@@ -12,7 +12,7 @@ Source: `InGameTheme.g.cs` (generated from the `ingame-*` tokens) for the Deskto
 - A battle's outcome and an action's result are `ingame-success`, `ingame-failure`, `ingame-warning` (failed but kept older data) or `ingame-pending`, beside a word, never colour alone.
 - The same panel has two layouts. The desktop arranges it for a mouse (the Desktop UI kit, `Sizes.cs`); Android for touch (`HistoryTouchLayout` on `TouchChrome`: 48dp targets, 12sp minimum text). Colours never differ between them.
 
-History uses the warm-brown/gold `HistoryHeaderArtwork` controls and one direct sponsor button. Desktop tabs share one textured backing; inactive records keep a subdued textured surface and edge, with a brighter gold frame for the selected record. Native portraits, rank and result badges carry the content. Its structure and responsive navigation are owned by [the panel architecture](../../../bazaarplusplus-mod/docs/architecture/panels.md). Other native content keeps its game art.
+On Android, History, Ten-Win Builds and Collection draw their buttons with the touch plates that `design/kit-art.ts` draws from the Desktop UI kit's material (`HistoryHeaderArtwork` names the two files); the desktop panels use the kit itself (`design/components/InGameKit/README.md`). Each panel has one direct sponsor button.
 
 ## The consumer provides
 

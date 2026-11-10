@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Ui;
+using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -47,6 +48,7 @@ internal sealed class TouchCollectionPanel
     // up, as Ten-Win Builds does; Open still rebuilds at once for a changed screen.
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private NativeSkin _skin = null!;
+    private TouchPlates? _plates;
     private TouchCollectionGrid _grid = null!;
     private TouchCollectionInspection _inspection = null!;
     private RectTransform _railContent = null!;
@@ -264,7 +266,8 @@ internal sealed class TouchCollectionPanel
     {
         var layout = _layout = CollectionTouchLayout.For(TouchScreen.Read());
         _port.Touch = layout;
-        _skin = new NativeSkin();
+        _plates ??= TouchPlates.TryLoad();
+        _skin = new NativeSkin(_plates, HistoryHeaderArtwork.TouchMultiplier(layout.Metrics));
         var chrome = layout.Chrome;
         var metrics = layout.Metrics;
         var root = UiKit.Rect(
