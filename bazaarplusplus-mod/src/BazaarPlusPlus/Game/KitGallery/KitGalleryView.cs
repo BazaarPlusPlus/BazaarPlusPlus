@@ -1,5 +1,7 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.Game.Supporters.Ui;
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
@@ -269,17 +271,15 @@ internal sealed class KitGalleryView : IDisposable
             .flexibleWidth = 1;
         kit.Button(head, "更多", KitButtonKind.Secondary, KitSize.Sm, () => { });
         kit.IconButton(head, KitIcon.Close, KitButtonKind.Secondary, KitSize.Sm, _close);
-        var credit = Row(rail, "Credit", InGameSizes.Space8, TextAnchor.MiddleLeft);
-        kit.Text(credit, "感谢", KitTextRole.Caption);
-        kit.Text(credit, "LoganShi", KitTextRole.Caption, InGameTheme.Supporter1);
-        kit.Text(credit, "酒菜纳泽", KitTextRole.Caption, InGameTheme.Supporter2);
-        kit.Text(credit, "辰月", KitTextRole.Caption, InGameTheme.Supporter3);
-        kit.Text(credit, "zheng50", KitTextRole.Caption, InGameTheme.Supporter4)
-            .gameObject.AddComponent<LayoutElement>()
-            .flexibleWidth = 1;
-        Flush(credit, left: false);
-        var sponsor = kit.Button(credit, "赞助", KitButtonKind.Quiet, KitSize.Sm, () => { });
-        sponsor.InkOverride = InGameTheme.Supporter4;
+        new BPPSupporterNativeAttributionRow(rail, kit).Bind(
+            new[]
+            {
+                new BPPSupporterSample { Name = "LoganShi", Tier = 1 },
+                new BPPSupporterSample { Name = "酒菜纳泽", Tier = 2 },
+                new BPPSupporterSample { Name = "辰月", Tier = 3 },
+                new BPPSupporterSample { Name = "zheng50", Tier = 4 },
+            }
+        );
         var tabs = kit.Segmented(rail, new[] { "对局", "幽灵", "收藏" }, KitSize.Sm, SelectSegment);
         _segments = tabs.Options;
         SelectSegment(0);

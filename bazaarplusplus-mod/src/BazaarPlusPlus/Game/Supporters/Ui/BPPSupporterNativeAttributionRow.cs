@@ -6,144 +6,114 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.Supporters.Ui;
 
-// The supporter line of a Desktop panel, drawn with the panel's kit: the names in their tier
-// colours and the sponsor button.
+/// <summary>
+/// The supporter line of every Desktop panel, drawn with the panel's kit: one row under the
+/// panel's title, "Thanks", up to four names in their tier colours, and the sponsor link at
+/// the row's right edge. Names give way first when the row is narrow.
+/// </summary>
 internal sealed class BPPSupporterNativeAttributionRow
 {
-    private static readonly Color Muted = InGameTheme.InkMuted;
+    private const int Names = 4;
+
     private readonly DesktopKit _kit;
+    private readonly TextMeshProUGUI _prefix;
     private readonly RectTransform _names;
-    private readonly TextMeshProUGUI _actionLabel;
-    private readonly bool _stacked;
+    private readonly TextMeshProUGUI _action;
     private IReadOnlyList<BPPSupporterSample>? _samples;
     private string? _language;
 
-    internal BPPSupporterNativeAttributionRow(
-        RectTransform parent,
-        DesktopKit kit,
-        TextAnchor alignment = TextAnchor.MiddleLeft,
-        bool stacked = false
-    )
+    internal BPPSupporterNativeAttributionRow(Transform parent, DesktopKit kit)
     {
         _kit = kit;
-        _stacked = stacked;
-        HorizontalOrVerticalLayoutGroup layout = stacked
-            ? parent.gameObject.AddComponent<VerticalLayoutGroup>()
-            : parent.gameObject.AddComponent<HorizontalLayoutGroup>();
-        Configure(layout, alignment, 10);
-        _names = Child("SupporterNames", parent);
-        HorizontalOrVerticalLayoutGroup namesLayout = stacked
-            ? _names.gameObject.AddComponent<VerticalLayoutGroup>()
-            : _names.gameObject.AddComponent<HorizontalLayoutGroup>();
-        Configure(namesLayout, alignment, 5);
-        var action = kit.Button(
-            parent,
+        var row = DesktopKit.Rect(parent, "SupporterLine");
+        var group = Line(row, InGameSizes.Space8);
+        // The sponsor link has no plate at rest: its label sits on the row's right edge.
+        group.padding = new RectOffset(0, -(int)DesktopKit.LabelInset(KitSize.Sm), 0, 0);
+        _prefix = kit.Text(row, string.Empty, KitTextRole.Caption);
+        _names = DesktopKit.Rect(row, "Names");
+        Line(_names, InGameSizes.Space8);
+        // The names take what the word and the link leave, and show only the names that fit.
+        var room = _names.gameObject.AddComponent<LayoutElement>();
+        room.minWidth = room.preferredWidth = 0;
+        room.flexibleWidth = 1;
+        _names.gameObject.AddComponent<WholeNames>();
+        var sponsor = kit.Button(
+            row,
             string.Empty,
-            stacked ? KitButtonKind.Secondary : KitButtonKind.Quiet,
+            KitButtonKind.Quiet,
             KitSize.Sm,
             () => Application.OpenURL(BPPSupporterLinks.ResolveSponsorUrl(Language()))
         );
-        action.name = "SupporterAction";
-        _actionLabel = action.GetComponentInChildren<TextMeshProUGUI>(true);
+        sponsor.name = "SponsorLink";
+        sponsor.InkOverride = InGameTheme.Supporter4;
+        _action = sponsor.GetComponentInChildren<TextMeshProUGUI>(true);
     }
 
-    internal void Bind(IReadOnlyList<BPPSupporterSample> samples, string fallback)
+    internal void Bind(IReadOnlyList<BPPSupporterSample> samples)
     {
         var language = Language();
         if (ReferenceEquals(samples, _samples) && language == _language)
             return;
         _samples = samples;
         _language = language;
-        _actionLabel.text = BPPSupporterAttributionText.FormatSponsorAction(language);
+        _prefix.text = BPPSupporterAttributionText.FormatThanks(language);
+        _action.text = BPPSupporterAttributionText.FormatSponsorAction(language);
         foreach (Transform child in _names)
         {
             child.gameObject.SetActive(false);
             UnityEngine.Object.Destroy(child.gameObject);
         }
-        var supporters = samples.Where(sample => sample.HasValue).Take(4).ToArray();
+        var supporters = samples.Where(sample => sample.HasValue).Take(Names).ToArray();
         if (supporters.Length == 0)
         {
-            Name(fallback, Muted, shrink: true, maxWidth: 450);
+            Name(BPPSupporterAttributionText.FormatCommunity(language), InGameTheme.InkMuted);
             return;
         }
-        Name(BPPSupporterAttributionText.FormatSupportedByPrefix(language), Muted);
-        for (var i = 0; i < supporters.Length; i++)
+        foreach (var supporter in supporters)
+            Name(supporter.Name, BPPSupporterTierColors.For(supporter.Tier));
+    }
+
+    private void Name(string value, Color color)
+    {
+        var text = _kit.Text(_names, value, KitTextRole.Caption, color);
+        text.richText = false;
+    }
+
+    // Shows the names that fit whole, from the first: a row of cut names reads as noise. The
+    // first name always shows, with an ellipsis if it alone is too long.
+    private sealed class WholeNames : MonoBehaviour
+    {
+        private readonly Dictionary<Transform, float> _widths = new();
+
+        private void LateUpdate()
         {
-            if (i > 0 && !_stacked)
-                Name("·", InGameTheme.WithAlpha(Muted, .55f));
-            var supporter = supporters[i];
-            var color = BPPSupporterTierColors.ForRow(supporter.Tier);
-            var text = Name(supporter.Name, color, shrink: true);
-            if (supporter.Tier >= 2)
+            var row = (RectTransform)transform;
+            var spacing = GetComponent<HorizontalLayoutGroup>().spacing;
+            var used = 0f;
+            var full = false;
+            for (var i = 0; i < row.childCount; i++)
             {
-                var highlight = Color.Lerp(color, Color.white, .55f);
-                text.color = Color.white;
-                text.enableVertexGradient = true;
-                text.colorGradient = new VertexGradient(highlight, highlight, color, color);
+                var child = (RectTransform)row.GetChild(i);
+                if (child.gameObject.activeSelf || !_widths.ContainsKey(child))
+                    _widths[child] = LayoutUtility.GetPreferredWidth(child);
+                var next = used + (i > 0 ? spacing : 0) + _widths[child];
+                full = full || (i > 0 && next > row.rect.width + .5f);
+                if (!full)
+                    used = next;
+                if (child.gameObject.activeSelf == full)
+                    child.gameObject.SetActive(!full);
             }
         }
-        var suffix = BPPSupporterAttributionText.FormatSupportedBySuffix(language);
-        if (!string.IsNullOrWhiteSpace(suffix))
-            Name(suffix, Muted);
     }
 
-    private TextMeshProUGUI Name(
-        string value,
-        Color color,
-        bool shrink = false,
-        float maxWidth = 110
-    )
+    private static HorizontalLayoutGroup Line(RectTransform rect, float spacing)
     {
-        var text = Label(_names, value, color, _stacked ? 16 : 14);
-        var width = text.GetPreferredValues(value).x + 2;
-        var layout = text.gameObject.AddComponent<LayoutElement>();
-        layout.minWidth =
-            _stacked ? 0
-            : shrink ? Mathf.Min(width, 24)
-            : width;
-        layout.preferredWidth =
-            _stacked ? width
-            : shrink ? Mathf.Min(width, maxWidth)
-            : width;
-        layout.minHeight = layout.preferredHeight = _stacked ? 28 : 24;
-        layout.flexibleWidth = 0;
-        return text;
-    }
-
-    private TextMeshProUGUI Label(Transform parent, string value, Color color, int size = 14)
-    {
-        var text = _kit.Text(
-            parent,
-            value,
-            size >= 16 ? KitTextRole.Body : KitTextRole.Meta,
-            color
-        );
-        text.name = "AttributionText";
-        text.richText = false;
-        return text;
-    }
-
-    private static RectTransform Child(string name, Transform parent)
-    {
-        var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
-        rect.SetParent(parent, false);
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = rect.offsetMax = Vector2.zero;
-        return rect;
-    }
-
-    private static void Configure(
-        HorizontalOrVerticalLayoutGroup layout,
-        TextAnchor alignment,
-        float spacing
-    )
-    {
-        layout.childAlignment = alignment;
-        layout.childControlWidth = layout.childControlHeight = true;
-        layout.childForceExpandWidth = layout is VerticalLayoutGroup;
-        layout.childForceExpandHeight = layout is HorizontalLayoutGroup;
-        layout.spacing = spacing;
+        var group = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
+        group.spacing = spacing;
+        group.childAlignment = TextAnchor.MiddleLeft;
+        group.childControlWidth = group.childControlHeight = true;
+        group.childForceExpandWidth = group.childForceExpandHeight = false;
+        return group;
     }
 
     private static string Language() => PlayerPreferences.Data.LanguageCode ?? string.Empty;

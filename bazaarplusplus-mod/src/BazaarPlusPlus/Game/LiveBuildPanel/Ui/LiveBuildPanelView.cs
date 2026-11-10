@@ -24,8 +24,8 @@ internal sealed class LiveBuildPanelView : IDisposable
     private static readonly Color Ink = InGameTheme.Ink;
     private static readonly Color Muted = InGameTheme.InkMuted;
 
-    // The stacked supporter line: a heading, four names and the sponsor button.
-    private const float SupporterHeight = 200f;
+    // The match figures of the shown build: two rows of two.
+    private const int MetricCells = 4;
 
     private sealed class Row
     {
@@ -57,7 +57,6 @@ internal sealed class LiveBuildPanelView : IDisposable
     private RectTransform? _markerRoot;
     private Vector2 _screenSize;
     private int _layoutFrames = 2;
-    private RectTransform? _supporterHost;
     private RectTransform? _sidebar;
     private RectTransform? _corpusDetailCard;
     private RectTransform? _portraitWell;
@@ -73,12 +72,8 @@ internal sealed class LiveBuildPanelView : IDisposable
     private TextMeshProUGUI? _navigationLabel;
     private TextMeshProUGUI? _pager;
     private RectTransform? _metrics;
-    private readonly TextMeshProUGUI[] _metricLabels = new TextMeshProUGUI[
-        LiveBuildPanelLayout.MetricCells
-    ];
-    private readonly TextMeshProUGUI[] _metricValues = new TextMeshProUGUI[
-        LiveBuildPanelLayout.MetricCells
-    ];
+    private readonly TextMeshProUGUI[] _metricLabels = new TextMeshProUGUI[MetricCells];
+    private readonly TextMeshProUGUI[] _metricValues = new TextMeshProUGUI[MetricCells];
     private TextMeshProUGUI? _guidance;
     private TextMeshProUGUI? _hint;
     private KitButton? _refreshButton;
@@ -185,22 +180,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         var recommendationHeader = _rows[BppItemBoardId.FinalBuild].Header;
         _portrait = _kit.Portrait(recommendationHeader, null, 24);
         _portraitWell = (RectTransform)_portrait.transform.parent;
-        // One fixed cell per metric: a run-on line silently ellipsized the last one away.
-        _metrics = Rect("MatchMetrics", _layout, 0, 0, 0, 0);
-        for (var cell = 0; cell < LiveBuildPanelLayout.MetricCells; cell++)
-        {
-            var slot = Rect(
-                "Metric",
-                _metrics,
-                cell / (float)LiveBuildPanelLayout.MetricCells,
-                0,
-                1f / LiveBuildPanelLayout.MetricCells,
-                1
-            );
-            _metricLabels[cell] = Text(slot, "", 0, 0, 1, .42f, 11, Muted);
-            _metricValues[cell] = Text(slot, "", 0, .42f, 1, .58f, 16);
-        }
-        _guidance = Text(_layout, "", 0, 0, 0, 0, 14, Muted);
         _hint = Text(_layout, "", .02f, .969f, .96f, .022f, 12, Muted, true);
         _markerRoot = Rect("CandidateMarkers", _root.transform, 0, 0, 1, 1);
         var foreground = _markerRoot.gameObject.AddComponent<Canvas>();
@@ -241,6 +220,52 @@ internal sealed class LiveBuildPanelView : IDisposable
         _title.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
         kit.IconButton(head, KitIcon.Close, KitButtonKind.Secondary, KitSize.Sm, _close);
 
+        _supporters = new BPPSupporterNativeAttributionRow(_sidebar, kit);
+
+        // The build on show: which one, how it did, and what narrows the choice.
+        var browse = kit.SectionHeader(_sidebar, " ", "0 / 0");
+        var browseTexts = browse.GetComponentsInChildren<TextMeshProUGUI>(true);
+        _navigationLabel = browseTexts[0];
+        _pager = browseTexts[1];
+        var arrows = Line(_sidebar, "Arrows", InGameSizes.Space8);
+        _previousButton = Arrow(arrows, KitIcon.ChevronLeft, _previous);
+        _nextButton = Arrow(arrows, KitIcon.ChevronRight, _next);
+        _metrics = DesktopKit.Rect(_sidebar, "MatchMetrics");
+        var grid = _metrics.gameObject.AddComponent<GridLayoutGroup>();
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 2;
+        grid.cellSize = new Vector2(
+            (LiveBuildPanelLayout.SidebarWidth - 44 - InGameSizes.Space12) / 2,
+            44
+        );
+        grid.spacing = new Vector2(InGameSizes.Space12, InGameSizes.Space8);
+        for (var cell = 0; cell < MetricCells; cell++)
+        {
+            var slot = DesktopKit.Rect(_metrics, "Metric");
+            var stack = slot.gameObject.AddComponent<VerticalLayoutGroup>();
+            stack.spacing = InGameSizes.Space2;
+            stack.childControlWidth = stack.childControlHeight = true;
+            stack.childForceExpandWidth = true;
+            stack.childForceExpandHeight = false;
+            _metricLabels[cell] = kit.Text(slot, string.Empty, KitTextRole.Caption);
+            _metricValues[cell] = kit.Text(
+                slot,
+                string.Empty,
+                KitTextRole.Section,
+                cell == 0 ? InGameTheme.Accent : InGameTheme.Ink
+            );
+        }
+        _guidance = kit.Text(_sidebar, string.Empty, KitTextRole.Meta);
+        _guidance.textWrappingMode = TextWrappingModes.Normal;
+        _guidance.overflowMode = TextOverflowModes.Overflow;
+        _includeTinyButton = kit.Checkbox(_sidebar, string.Empty, _toggleIncludeTiny);
+
+        DesktopKit
+            .Rect(_sidebar, "Spacer")
+            .gameObject.AddComponent<LayoutElement>()
+            .flexibleHeight = 1;
+
+        // The library the builds come from: read once, so it is at the foot of the rail.
         var library = kit.SectionHeader(_sidebar, " ", " ");
         _corpusTitle = library.GetComponentsInChildren<TextMeshProUGUI>(true)[0];
         library.GetComponentsInChildren<TextMeshProUGUI>(true)[1].text = string.Empty;
@@ -254,28 +279,6 @@ internal sealed class LiveBuildPanelView : IDisposable
             KitButtonKind.Secondary,
             KitSize.Sm,
             _refresh
-        );
-
-        var browse = kit.SectionHeader(_sidebar, " ", "0 / 0");
-        var browseTexts = browse.GetComponentsInChildren<TextMeshProUGUI>(true);
-        _navigationLabel = browseTexts[0];
-        _pager = browseTexts[1];
-        var arrows = Line(_sidebar, "Arrows", InGameSizes.Space8);
-        _previousButton = Arrow(arrows, KitIcon.ChevronLeft, _previous);
-        _nextButton = Arrow(arrows, KitIcon.ChevronRight, _next);
-        _includeTinyButton = kit.Checkbox(_sidebar, string.Empty, _toggleIncludeTiny);
-
-        DesktopKit
-            .Rect(_sidebar, "Spacer")
-            .gameObject.AddComponent<LayoutElement>()
-            .flexibleHeight = 1;
-        _supporterHost = DesktopKit.Rect(_sidebar, "SupporterAttribution");
-        DesktopKit.Size(_supporterHost, -1, SupporterHeight);
-        _supporters = new BPPSupporterNativeAttributionRow(
-            _supporterHost,
-            kit,
-            TextAnchor.UpperLeft,
-            stacked: true
         );
         _skinGeneration = DesktopNativeSkin.Generation;
     }
@@ -329,7 +332,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         _hint!.text = LiveBuildPanelText.SelectionHint();
         SetButtonText(_refreshButton!, snapshot.FinalBuildRefreshButtonText);
         _refreshButton!.interactable = snapshot.FinalBuildRefreshButtonEnabled;
-        _supporters!.Bind(snapshot.Supporters, LiveBuildPanelText.Subtitle());
+        _supporters!.Bind(snapshot.Supporters);
         _corpus!.text =
             snapshot.CorpusState == LiveBuildCorpusState.Summary
                 ? snapshot.CorpusFreshnessText
@@ -622,14 +625,6 @@ internal sealed class LiveBuildPanelView : IDisposable
             return;
         ApplyHeaderRail(left, width);
         Place(_portraitWell!, 0, 2, 24, 24);
-        Place(_metrics!, left, _geometry.MetricsTop, width, LiveBuildPanelLayout.MetricsHeight);
-        Place(
-            _guidance!.rectTransform,
-            left,
-            _geometry.MetricsTop,
-            width,
-            LiveBuildPanelLayout.MetricsHeight
-        );
     }
 
     private void ApplyHeaderRail(float left, float width)

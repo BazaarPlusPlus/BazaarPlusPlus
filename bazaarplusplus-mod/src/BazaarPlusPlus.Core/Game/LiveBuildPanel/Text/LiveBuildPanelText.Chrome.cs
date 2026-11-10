@@ -11,11 +11,6 @@ public static partial class LiveBuildPanelText
         "十胜阵容",
         "十勝陣容"
     );
-    private static readonly LocalizedTextSet SubtitleText = new(
-        "Choose live item candidates and browse matching ten-win builds.",
-        "选择当前局内物品候选，并查看匹配的十胜阵容。",
-        "選擇當前局內物品候選，並查看匹配的十勝陣容。"
-    );
     private static readonly LocalizedTextSet FinalBuildRowText = new(
         "Ten-Win Build",
         "十胜推荐",
@@ -81,8 +76,6 @@ public static partial class LiveBuildPanelText
         );
 
     public static string Title() => L.Resolve(TitleText);
-
-    public static string Subtitle() => L.Resolve(SubtitleText);
 
     public static string FinalBuildRow() => L.Resolve(FinalBuildRowText);
 

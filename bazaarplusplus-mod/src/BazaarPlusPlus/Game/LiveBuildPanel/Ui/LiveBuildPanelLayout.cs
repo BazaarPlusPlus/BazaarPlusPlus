@@ -8,10 +8,6 @@ internal readonly record struct LiveBuildPanelLayout(float Width, float Height)
     internal const float RowTitleHeight = 28;
     internal const float RowGap = 12;
 
-    // Two stacked lines per metric cell: an 11px label over a 16px value. Every unit
-    // here comes straight out of BoardHeight, and the carpet is height-constrained.
-    internal const float MetricsHeight = 34;
-    internal const int MetricCells = 4;
     internal const float FooterHeight = 28;
     internal const float SidebarWidth = 290;
     internal const float SidebarGap = 28;
@@ -26,19 +22,12 @@ internal readonly record struct LiveBuildPanelLayout(float Width, float Height)
         carpetLeft + carpetWidth + SidebarGap;
 
     internal float BoardHeight =>
-        Math.Max(
-            1,
-            (Height - HeaderHeight - FooterHeight - RowTitleHeight * 4 - RowGap * 3 - MetricsHeight)
-                / 4
-        );
+        Math.Max(1, (Height - HeaderHeight - FooterHeight - RowTitleHeight * 4 - RowGap * 3) / 4);
 
     internal float TitleTop(int row) =>
-        HeaderHeight
-        + row * (RowTitleHeight + BoardHeight + RowGap)
-        + (row > 0 ? MetricsHeight : 0);
+        HeaderHeight + row * (RowTitleHeight + BoardHeight + RowGap);
 
     internal float BoardTop(int row) => TitleTop(row) + RowTitleHeight;
 
-    internal float MetricsTop => BoardTop(0) + BoardHeight;
     internal float FooterTop => Height - FooterHeight;
 }
