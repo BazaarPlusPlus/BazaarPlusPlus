@@ -3,6 +3,8 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.Supporters.Ui;
+using BazaarPlusPlus.GameInterop.NativeSkin;
+using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -341,6 +343,8 @@ internal sealed partial class CollectionPanelView
         UiStyle.Border(card.style, Borders.Thin, border ?? FilterCardBorder);
         UiStyle.Radius(card.style, Radii.Panel);
         card.style.overflow = Overflow.Hidden;
+        // The Desktop UI kit's ground carries the fill, the rim and the corners.
+        KitToolkit.Paint(card, DesktopKitArt.Ground);
     }
 
     private static Button CreateCloseButton(Action onClick)
@@ -352,8 +356,9 @@ internal sealed partial class CollectionPanelView
             Sizes.CollectionCloseButtonSize
         );
         button.tooltip = CollectionPanelText.Close();
-        StyleCollectionChip(button, InGameTheme.Chip, InGameTheme.Ink);
-        UiStyle.Radius(button.style, Sizes.CollectionCloseButtonSize / 2f);
+        // The kit's secondary plate, like every Desktop panel's close.
+        button.style.color = InGameTheme.Ink;
+        KitToolkit.PaintButton(button);
 
         var icon = new VisualElement { pickingMode = PickingMode.Ignore };
         UiStyle.FixedSize(icon.style, Sizes.CollectionCloseIconSize, Sizes.CollectionCloseIconSize);

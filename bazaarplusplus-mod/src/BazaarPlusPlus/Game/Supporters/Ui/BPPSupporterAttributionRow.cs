@@ -1,6 +1,8 @@
 #nullable enable
 using BazaarPlusPlus.GameInterop.Fonts;
+using BazaarPlusPlus.GameInterop.NativeSkin;
 using BazaarPlusPlus.GameInterop.TagTypography;
+using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -9,8 +11,6 @@ namespace BazaarPlusPlus.Game.Supporters.Ui;
 
 internal static class BPPSupporterAttributionRow
 {
-    private const string SponsorIcon = "♥";
-
     public static VisualElement Create()
     {
         var row = new VisualElement();
@@ -18,7 +18,14 @@ internal static class BPPSupporterAttributionRow
         row.style.flexWrap = Wrap.Wrap;
         row.style.alignItems = Align.Center;
         row.style.marginTop = UiSpacing.Sm;
-        UiStyle.FixedHeight(row.style, Sizes.SupporterAttributionReservedHeight);
+        // The same strip as BPPSupporterNativeAttributionRow: a sunk track one md control
+        // high, with the sponsor button inside its right end.
+        row.style.flexWrap = Wrap.NoWrap;
+        row.style.overflow = Overflow.Hidden;
+        UiStyle.FixedHeight(row.style, InGameSizes.ControlMd);
+        row.style.paddingLeft = InGameSizes.Space12;
+        row.style.paddingRight = (InGameSizes.ControlMd - InGameSizes.ControlSm) / 2f;
+        KitToolkit.PaintTrack(row);
         return row;
     }
 
@@ -64,19 +71,11 @@ internal static class BPPSupporterAttributionRow
             return;
         }
 
-        var prefix = BPPSupporterAttributionText.FormatSupportedByPrefix(languageCode);
-        var suffix = BPPSupporterAttributionText.FormatSupportedBySuffix(languageCode);
-        row.Add(CreatePrefixLabel(prefix, typography));
-        for (var index = 0; index < samples.Count; index++)
-        {
-            if (index > 0)
-                row.Add(CreateSeparatorLabel(typography));
-
-            row.Add(CreateSupporterName(samples[index], typography));
-        }
-
-        if (!string.IsNullOrWhiteSpace(suffix))
-            row.Add(CreateSuffixLabel(suffix, typography));
+        row.Add(
+            CreatePrefixLabel(BPPSupporterAttributionText.FormatThanks(languageCode), typography)
+        );
+        foreach (var sample in samples)
+            row.Add(CreateSupporterName(sample, typography));
 
         row.Add(CreateSponsorButton(sponsorText, typography));
         row.userData = key;
@@ -137,23 +136,6 @@ internal static class BPPSupporterAttributionRow
         return label;
     }
 
-    private static Label CreateSuffixLabel(string text, NativeGameTypography.PanelScope typography)
-    {
-        var label = CreatePlainLabel(text, typography);
-        label.style.marginLeft = UiSpacing.Sm;
-        label.style.marginRight = 0f;
-        return label;
-    }
-
-    private static Label CreateSeparatorLabel(NativeGameTypography.PanelScope typography)
-    {
-        var label = CreatePlainLabel("·", typography);
-        label.style.color = InGameTheme.WithAlpha(InGameTheme.InkMuted, 0.56f);
-        label.style.marginLeft = UiSpacing.Xs;
-        label.style.marginRight = UiSpacing.Xs;
-        return label;
-    }
-
     private static Label CreateSupporterName(
         BPPSupporterSample sample,
         NativeGameTypography.PanelScope typography
@@ -170,72 +152,43 @@ internal static class BPPSupporterAttributionRow
         label.style.overflow = Overflow.Hidden;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
         label.style.marginBottom = UiSpacing.None;
+        label.style.marginRight = InGameSizes.Space8;
         label.style.color = BPPSupporterTierColors.ForRow(sample.Tier);
         return label;
     }
 
+    // The kit's secondary sm button with the supporter heart, in the fourth tier's colour.
     private static Button CreateSponsorButton(
         string text,
         NativeGameTypography.PanelScope typography
     )
     {
-        var background = InGameTheme.WithAlpha(InGameTheme.Accent, 0.16f);
-        var hoverBackground = InGameTheme.WithAlpha(InGameTheme.Accent, 0.3f);
-        var pressedBackground = InGameTheme.WithAlpha(InGameTheme.Accent, 0.24f);
-        var border = InGameTheme.WithAlpha(InGameTheme.Accent, 0.58f);
-        var hoverBorder = InGameTheme.WithAlpha(InGameTheme.Accent, 0.9f);
-        var button = new Button(OpenSupportPage) { text = $"{SponsorIcon} {text}" };
-        typography.Apply(button);
+        var button = new Button(OpenSupportPage);
         button.tooltip = BPPSupporterLinks.ResolveSponsorUrl(GetLanguageCode());
-        button.style.height = Sizes.SupporterAttributionHeight;
-        button.style.minWidth = Sizes.SupporterActionMinWidth;
+        button.style.height = InGameSizes.ControlSm;
+        button.style.flexDirection = FlexDirection.Row;
         button.style.flexGrow = 0f;
         button.style.flexShrink = 0f;
         button.style.marginLeft = StyleKeyword.Auto;
-        button.style.marginTop = 2f;
-        button.style.marginBottom = 2f;
-        button.style.fontSize = Sizes.FontSmall;
-        button.style.unityFontStyleAndWeight = FontStyle.Bold;
-        button.style.unityTextAlign = TextAnchor.MiddleCenter;
+        button.style.marginTop = button.style.marginBottom = 0f;
+        button.style.marginRight = 0f;
         button.style.justifyContent = Justify.Center;
         button.style.alignItems = Align.Center;
-        button.style.backgroundColor = background;
-        button.style.color = InGameTheme.Supporter4;
-        UiStyle.HorizontalPadding(button.style, UiSpacing.Sm);
-        UiStyle.Radius(button.style, Radii.Status);
-        UiStyle.Border(button.style, Borders.Thin, border);
-        UiHover.ApplyButtonPalette(
-            button,
-            background,
-            InGameTheme.Supporter4,
-            border,
-            hoverBorder,
-            hoverBackground,
-            pressedBackground
-        );
-        button.style.transitionProperty = new List<StylePropertyName>
-        {
-            new("background-color"),
-            new("border-left-color"),
-            new("border-top-color"),
-            new("border-right-color"),
-            new("border-bottom-color"),
-            new("left"),
-            new("scale"),
-        };
-        button.style.transitionDuration = new List<TimeValue> { new(120f, TimeUnit.Millisecond) };
-        button.style.left = 0f;
-        button.style.scale = new Scale(Vector3.one);
-        button.RegisterCallback<MouseEnterEvent>(_ =>
-        {
-            button.style.left = -3f;
-            button.style.scale = new Scale(new Vector3(1.06f, 1f, 1f));
-        });
-        button.RegisterCallback<MouseLeaveEvent>(_ =>
-        {
-            button.style.left = 0f;
-            button.style.scale = new Scale(Vector3.one);
-        });
+        button.style.backgroundColor = InGameTheme.Button;
+        UiStyle.HorizontalPadding(button.style, InGameSizes.Space12);
+        KitToolkit.PaintButton(button);
+        var heart = KitToolkit.Glyph(DesktopKitArt.IconHeart, 14f, InGameTheme.Supporter4);
+        heart.style.marginRight = InGameSizes.Space6;
+        button.Add(heart);
+        var label = new Label(text) { pickingMode = PickingMode.Ignore };
+        typography.Apply(label);
+        label.style.fontSize = InGameSizes.TextMeta;
+        label.style.unityFontStyleAndWeight = FontStyle.Normal;
+        label.style.color = InGameTheme.Supporter4;
+        UiStyle.Padding(label.style, 0f);
+        label.style.marginLeft = label.style.marginRight = 0f;
+        label.style.marginTop = label.style.marginBottom = 0f;
+        button.Add(label);
         return button;
     }
 
