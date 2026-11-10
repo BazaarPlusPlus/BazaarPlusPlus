@@ -118,12 +118,15 @@ internal sealed class DesktopKit
     // under the section header, the result under the header's caption.
     private const float RowBleed = InGameSizes.Space12;
 
-    // A portrait well shows the head and shoulders, not the whole bust: the art is this many
-    // wells tall, hangs from the well's top edge, and rises above it by a fraction of the well
-    // (hero portraits have empty room above the head). A face then has the same size in a
-    // 36-unit day cell and a 44-unit row, and stays readable.
-    private const float PortraitZoom = 1.9f;
-    private const float PortraitRise = .11f;
+    // The arrow glyph's ink is narrower than its box by this much on each side.
+    private const float ArrowSideBearing = 4f;
+
+    // The source sprite each art image wants: a small copy arrives later and must not land
+    // on an image that has since been given another sprite.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
+        Image,
+        System.Runtime.CompilerServices.StrongBox<Sprite?>
+    > Wanted = new();
 
     private readonly NativeGameTypography.OwnedTextPreparation _font;
     private readonly List<KitPlate> _plates = new();
@@ -156,6 +159,9 @@ internal sealed class DesktopKit
     /// in one pulls it out by this much: its label, not its hidden plate, sits on the row's edge.
     /// </summary>
     internal static float LabelInset(KitSize size) => size == KitSize.Md ? PaddingMd : PaddingSm;
+
+    /// <summary>The same for a quiet button that shows only an arrow: to the arrow's ink.</summary>
+    internal static float ArrowInset(KitSize size) => LabelInset(size) + ArrowSideBearing;
 
     internal static float Height(KitSize size) =>
         size == KitSize.Md ? InGameSizes.ControlMd : InGameSizes.ControlSm;
@@ -712,13 +718,36 @@ internal sealed class DesktopKit
         return image;
     }
 
-    /// <summary>Puts a sprite on an art image; without one the image is clear.</summary>
+    /// <summary>
+    /// Puts a sprite on an art image; without one the image is clear. The image shows the
+    /// sprite at once and changes to its small copy (<see cref="KitSmallArt"/>) when that is
+    /// ready: the game's trophies and badges have no mipmaps and shimmer at this size.
+    /// </summary>
     internal static void Show(Image image, Sprite? sprite)
     {
         if (image == null)
             return;
+        Wanted.GetOrCreateValue(image).Value = sprite;
         image.sprite = sprite;
         image.color = sprite != null ? Color.white : Color.clear;
+        if (sprite != null)
+            ShowCopy(image, sprite, KitSmallArt.IconAsync(sprite), showSourceFirst: true);
+    }
+
+    private static async void ShowCopy(
+        Image image,
+        Sprite source,
+        Task<Sprite?> copy,
+        bool showSourceFirst
+    )
+    {
+        var small = await copy;
+        if (image == null || !Wanted.TryGetValue(image, out var wanted) || wanted.Value != source)
+            return;
+        if (small == null && showSourceFirst)
+            return;
+        image.sprite = small != null ? small : source;
+        image.color = Color.white;
     }
 
     /// <summary>The sprite of a state mark, or null if its art cannot be decoded.</summary>
@@ -736,7 +765,7 @@ internal sealed class DesktopKit
 
     /// <summary>
     /// A hero portrait in a square well: a sunk plate with the portrait cut to the plate's
-    /// silhouette, zoomed to the head and shoulders. Every portrait has the same bounds
+    /// silhouette, showing the head and shoulders. Every portrait has the same bounds
     /// whatever the hero's art; without a sprite the well shows <c>ingame-art-fallback</c>.
     /// Returns the portrait image, for <see cref="ShowPortrait"/>.
     /// </summary>
@@ -748,10 +777,7 @@ internal sealed class DesktopKit
         Fill(window.Image.rectTransform, InGameSizes.Space2);
         window.Image.gameObject.AddComponent<Mask>().showMaskGraphic = false;
         Surface(well, KitSurface.Field);
-        var art = Rect(window.Image.transform, "Art");
-        art.anchorMin = art.anchorMax = art.pivot = new Vector2(.5f, 1f);
-        art.sizeDelta = new Vector2(size * PortraitZoom, size * PortraitZoom);
-        art.anchoredPosition = new Vector2(0, size * PortraitRise);
+        var art = Fill(Rect(window.Image.transform, "Art"));
         var image = art.gameObject.AddComponent<Image>();
         image.preserveAspect = true;
         image.raycastTarget = false;
@@ -764,8 +790,13 @@ internal sealed class DesktopKit
     {
         if (portrait == null)
             return;
-        portrait.sprite = sprite;
-        portrait.color = sprite != null ? Color.white : InGameTheme.ArtFallback;
+        Wanted.GetOrCreateValue(portrait).Value = sprite;
+        // The well shows the fallback tint until the head and shoulders are cut; if they cannot
+        // be, it shows the whole portrait.
+        portrait.sprite = null;
+        portrait.color = InGameTheme.ArtFallback;
+        if (sprite != null)
+            ShowCopy(portrait, sprite, KitSmallArt.HeadAsync(sprite), showSourceFirst: false);
     }
 
     /// <summary>

@@ -46,7 +46,7 @@ Each `DesktopKitArt` slot has one source. A plate slot is a PNG of BPP's own, em
 - **States by grading.** Each state is the same grain over a fill colour near its token (`ingame-button`, `ingame-chip`, `ingame-chip-active`, `ingame-failure`, `ingame-panel`), so a centre can stretch without showing a seam.
 - **Clean edges.** Sprites are drawn at 4× and reduced, and colour is bled under the transparent pixels, so bilinear filtering leaves no dark fringe.
 
-The same command cuts the five marks from `art/marks.png` (one generated sheet of five painted emblems on a clear ground, in the order of `markNames` in the script) and reduces each to 128 pixels. A mark is content art, like a trophy: it is not sliced and not tinted.
+The same command cuts the five marks from `art/marks.png` (one generated sheet of five painted emblems on a clear ground, in the order of `markNames` in the script) and reduces each to 128 pixels. A mark is content art, like a trophy: it is not sliced and not tinted. The completed mark is graded to dull iron, so its cup does not read as one of the game's trophies.
 
 If a plate PNG cannot be decoded, the plate draws a plain rectangle in the token colour given below. Until a game sprite loads, or if the game build lacks its address, a rule draws a 1 px `ingame-rule` line and the close and arrow icons draw from strokes; the search glyph has no stroke form, so the field then shows none. The Kit Gallery's diagnostics line lists every missing sprite with the reason. The check mark has no sprite and always draws from strokes.
 
@@ -81,8 +81,9 @@ Button labels sit 18 (md) or 13 (sm) from the plate's sides, with `space-6` betw
 
 - **Fixed slots.** A run row always has its rank, mark and result slots, empty or not, so trophies and marks stand on one axis down the list and a rank badge stands beside the trophy at the same size. A ranked run shows both; the badge is not shrunk into the meta line.
 - **Trophy or mark.** A finished run with a trophy tier shows the game's trophy. A run without one shows the kit's mark for its state: abandoned, in progress, or completed below the first tier. An abandoned or active run has no result text.
-- **Head and shoulders.** A portrait well shows the art at 1.9 wells tall, hung from the top edge, so a face has a readable size and every hero fills the well in the same way. Without a sprite the well shows `ingame-art-fallback`.
-- **Edges belong to the ink.** A control with no plate at rest aligns by its content, not by its hidden plate. A list row's plate bleeds `space-12` out of the row on each side, so the portrait sits under the section header and the result under the header's caption; the column needs that room around it. A row that ends in a quiet button pulls the button out by its label inset. The Kit Gallery's rail shows both; every right-aligned item there ends on one line within 1 px.
+- **Head and shoulders.** A portrait well shows a square cut of the bust: 0.6 of its height, hung just above the top of the head and centred on the head (`KitArtReduction.HeadSquare`), so a weapon or a shoulder does not pull the face to one side. The well shows `ingame-art-fallback` without a sprite and while the cut is made, and the whole portrait if the cut cannot be made.
+- **Small copies.** The game's portraits, trophies and rank badges are large textures without mipmaps and shimmer at 30 or 44 units. `KitSmallArt` makes one area-averaged copy of each with its own mipmaps; `DesktopKit.Show` and `ShowPortrait` change to the copy when it is ready.
+- **Edges belong to the ink.** A control with no plate at rest aligns by its content, not by its hidden plate. A list row's plate bleeds `space-12` out of the row on each side, so the portrait sits under the section header and the result under the header's caption; the column needs that room around it. A row that ends in a quiet button pulls the button out by its label inset, and one that starts in a quiet arrow by the arrow's inset. The Kit Gallery's rail shows both; every right-aligned item there ends within 1 px of the column's edge.
 
 ## The consumer provides
 

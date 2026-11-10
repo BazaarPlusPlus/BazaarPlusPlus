@@ -386,13 +386,13 @@ internal sealed class KitGalleryView : IDisposable
             DesktopKit.Show(row.Mark, DesktopKit.Mark(state));
     }
 
-    // A row that ends (and, with left, starts) in a quiet sm button: the button's label sits on
-    // the row's edge, with the other right-aligned text of the rail.
+    // A row that ends in a quiet sm button (and, with left, starts in a quiet arrow): the
+    // label and the arrow's ink sit on the row's edges, with the other right-aligned text of the rail.
     private static void Flush(RectTransform row, bool left)
     {
         var inset = -(int)DesktopKit.LabelInset(KitSize.Sm);
         row.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(
-            left ? inset : 0,
+            left ? -(int)DesktopKit.ArrowInset(KitSize.Sm) : 0,
             inset,
             0,
             0

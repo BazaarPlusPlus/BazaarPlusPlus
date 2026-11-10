@@ -460,6 +460,20 @@ function encode(raster: Raster): Buffer {
 const markNames = ['completed', 'abandoned', 'active', 'won', 'lost'];
 const MARK_REDUCTION = 2;
 
+/**
+ * Grades a mark to dull iron. The completed mark is a cup, and in a bright metal it reads
+ * as one of the game's trophies beside it in a list; a run below the first tier has no metal.
+ */
+function iron(data: Float32Array): void {
+  for (let i = 0; i < data.length; i += 4) {
+    const luma =
+      0.299 * at(data, i) + 0.587 * at(data, i + 1) + 0.114 * at(data, i + 2);
+    data[i] = luma * 0.62;
+    data[i + 1] = luma * 0.55;
+    data[i + 2] = luma * 0.5;
+  }
+}
+
 function marks(): Map<string, Raster> {
   const sheet = decode(fs.readFileSync(marksPath));
   const cell = sheet.height;
@@ -477,6 +491,7 @@ function marks(): Map<string, Raster> {
           at(sheet.data, (y * sheet.width + index * cell) * 4 + x) / 255;
       }
     }
+    if (name === 'completed') iron(data);
     cut.set(name, reduce({ width: cell, height: cell, data }, MARK_REDUCTION));
   });
   return cut;
