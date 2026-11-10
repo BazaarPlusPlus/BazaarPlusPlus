@@ -21,33 +21,36 @@ internal static class KitSmallArt
     private const int IconPixels = 128;
     private const int PlatePixels = 176;
 
-    private static readonly Dictionary<int, (Sprite Source, Task<Sprite?> Copy)> Icons = new();
-    private static readonly Dictionary<int, (Sprite Source, Task<Sprite?> Copy)> Heads = new();
-    private static readonly Dictionary<int, (Sprite Source, Task<Sprite?> Copy)> RisenHeads = new();
+    // One copy per source sprite and look: the same portrait may be asked for with two looks.
+    private static readonly Dictionary<
+        (int Sprite, KitMedallion? Look),
+        (Sprite Source, Task<Sprite?> Copy)
+    > Copies = new();
 
     /// <summary>The whole sprite, small.</summary>
-    internal static Task<Sprite?> IconAsync(Sprite source) => Get(Icons, source, false, null);
+    internal static Task<Sprite?> IconAsync(Sprite source) => Get(source, null);
 
     /// <summary>A hero's medallion, drawn from a bust portrait (<see cref="KitArtReduction.Medallion"/>).</summary>
     internal static Task<Sprite?> MedallionAsync(Sprite source, KitMedallion look) =>
-        Get(look.Rise ? RisenHeads : Heads, source, true, look);
+        Get(source, look);
 
-    private static Task<Sprite?> Get(
-        Dictionary<int, (Sprite Source, Task<Sprite?> Copy)> copies,
-        Sprite source,
-        bool head,
-        KitMedallion? look
-    )
+    private static Task<Sprite?> Get(Sprite source, KitMedallion? look)
     {
-        var id = source.GetInstanceID();
-        if (copies.TryGetValue(id, out var entry) && entry.Source == source)
+        var key = (source.GetInstanceID(), look);
+        // A copy that could not be made is made again on the next request: a readback can
+        // fail once.
+        if (
+            Copies.TryGetValue(key, out var entry)
+            && entry.Source == source
+            && !(entry.Copy.IsCompleted && entry.Copy.Result == null)
+        )
             return entry.Copy;
-        var copy = MakeAsync(source, head, look);
-        copies[id] = (source, copy);
+        var copy = MakeAsync(source, look);
+        Copies[key] = (source, copy);
         return copy;
     }
 
-    private static async Task<Sprite?> MakeAsync(Sprite source, bool head, KitMedallion? look)
+    private static async Task<Sprite?> MakeAsync(Sprite source, KitMedallion? look)
     {
         try
         {
@@ -58,7 +61,7 @@ internal static class KitSmallArt
                 CapturePixels
             );
             var small = await Task.Run(() =>
-                head && look is { } medallion
+                look is { } medallion
                     ? KitArtReduction.Medallion(image, medallion, PlatePixels)
                     : Icon(image)
             );
@@ -88,6 +91,8 @@ internal static class KitSmallArt
                 SpriteMeshType.FullRect
             );
             sprite.name = texture.name;
+            // The game unloads unused assets between scenes; the cache holds these for the session.
+            texture.hideFlags = sprite.hideFlags = HideFlags.DontUnloadUnusedAsset;
             return sprite;
         }
         catch (Exception ex)

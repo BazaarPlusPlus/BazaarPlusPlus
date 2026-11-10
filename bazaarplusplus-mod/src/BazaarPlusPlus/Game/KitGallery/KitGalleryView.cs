@@ -18,7 +18,7 @@ namespace BazaarPlusPlus.Game.KitGallery;
 // Simplified Chinese samples: the sheet is a Debug-build tool, not a player surface.
 internal sealed class KitGalleryView : IDisposable
 {
-    private const float RailWidth = 440f;
+    private const float RailWidth = 380f;
     private const float RowHeight = 64f;
     private const float StateColumn = 112f;
     private const float LabelColumn = 84f;
@@ -219,19 +219,19 @@ internal sealed class KitGalleryView : IDisposable
         var strip = Column(content, "Battles", InGameSizes.Space8);
         kit.SectionHeader(strip, "本局 12 场战斗", "10 胜 2 负 · 点选一场查看阵容");
         var days = kit.DayStrip(strip);
-        DesktopKit.Size(days, -1, 92);
+        DesktopKit.Size(days.Track, -1, 100);
         for (var day = 0; day < 12; day++)
         {
             var index = day;
             var won = day is not (2 or 6);
-            var button = kit.Day(
-                days,
+            var cell = kit.Day(
+                days.Days,
                 $"第 {day + 1} 天",
                 won ? KitMark.Won : KitMark.Lost,
-                () => SelectDay(index),
-                out var portrait
+                () => SelectDay(index)
             );
-            _portraitTargets.Add((portrait, day % _heroes.Length));
+            var button = cell.Button;
+            _portraitTargets.Add((cell.Portrait, day % _heroes.Length));
             _days.Add(button);
         }
         SelectDay(_selectedDay);
@@ -285,22 +285,13 @@ internal sealed class KitGalleryView : IDisposable
         SelectSegment(0);
         kit.Select(rail, "全部英雄", () => { });
         kit.SectionHeader(rail, "最近对局", "6 局");
-        var list = Column(rail, "Runs", 0);
+        var scroll = kit.ScrollList(rail, out var list);
+        scroll.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
         var gain = ColorUtility.ToHtmlStringRGB(InGameTheme.Success);
         var loss = ColorUtility.ToHtmlStringRGB(InGameTheme.Failure);
         // The names follow the order the game lists its heroes in, which the portraits use.
-        RunRow(list, 0, "皮格", "普通 · 12 场 · 10/27 19:23", null, 2, null, "10 胜", true);
-        RunRow(
-            list,
-            1,
-            "凡妮莎",
-            "普通 · 3 场 · 10/27 17:29",
-            null,
-            -1,
-            KitMark.Abandoned,
-            "",
-            false
-        );
+        RunRow(list, 0, "皮格", "普通 · 12 场 · 10/27 19:23", null, 2, null);
+        RunRow(list, 1, "凡妮莎", "普通 · 3 场 · 10/27 17:29", null, -1, KitMark.Abandoned);
         RunRow(
             list,
             2,
@@ -308,9 +299,7 @@ internal sealed class KitGalleryView : IDisposable
             $"钻石 1520 <color=#{gain}>+25</color> · 10/26",
             "Diamond",
             1,
-            null,
-            "7 胜",
-            false
+            null
         );
         RunRow(
             list,
@@ -319,15 +308,11 @@ internal sealed class KitGalleryView : IDisposable
             $"黄金 1495 <color=#{loss}>−18</color> · 10/25",
             "Gold",
             -1,
-            KitMark.Active,
-            "",
-            false
+            KitMark.Active
         );
-        RunRow(list, 4, "杜利", "普通 · 9 场 · 10/24 22:40", null, 0, null, "4 胜", false);
-        RunRow(list, 5, "马克", "白银 980 · 10/23", "Silver", -1, KitMark.Completed, "2 胜", false);
+        RunRow(list, 4, "杜利", "普通 · 9 场 · 10/24 22:40", null, 0, null);
+        RunRow(list, 5, "马克", "白银 980 · 10/23", "Silver", -1, KitMark.Completed);
         SelectRow(0);
-        var spacer = DesktopKit.Rect(rail, "Spacer");
-        spacer.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
         var pager = Row(rail, "Pager", InGameSizes.Space6, TextAnchor.MiddleLeft);
         Flush(pager, left: true);
         kit.IconLabelButton(
@@ -367,20 +352,10 @@ internal sealed class KitGalleryView : IDisposable
         string meta,
         string? rank,
         int trophy,
-        KitMark? mark,
-        string result,
-        bool key
+        KitMark? mark
     )
     {
-        var row = _kit!.RunRow(
-            list,
-            RowHeight,
-            name,
-            meta,
-            result,
-            key ? InGameTheme.Accent : InGameTheme.Ink,
-            () => SelectRow(index)
-        );
+        var row = _kit!.RunRow(list, RowHeight, name, meta, () => SelectRow(index));
         _rows.Add(row.Button);
         _portraitTargets.Add((row.Portrait, index % _heroes.Length));
         if (rank != null)

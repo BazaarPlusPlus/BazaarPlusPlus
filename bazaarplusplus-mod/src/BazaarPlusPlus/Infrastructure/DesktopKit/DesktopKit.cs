@@ -45,14 +45,24 @@ internal enum KitMark
 }
 
 /// <summary>
-/// The parts of a run row a consumer fills after <see cref="DesktopKit.RunRow"/>: the hero's
-/// portrait, the rank badge and the mark, which arrive later than the row.
+/// The parts of a run row a consumer fills after <see cref="DesktopKit.RunRow"/>, and fills
+/// again when it reuses the row for another run: the texts, the hero's portrait, the rank
+/// badge and the mark.
 /// </summary>
 internal sealed class KitRunRow
 {
-    internal KitRunRow(KitButton button, Image portrait, Image rank, Image mark)
+    internal KitRunRow(
+        KitButton button,
+        TextMeshProUGUI title,
+        TextMeshProUGUI meta,
+        Image portrait,
+        Image rank,
+        Image mark
+    )
     {
         Button = button;
+        Title = title;
+        Meta = meta;
         Portrait = portrait;
         Rank = rank;
         Mark = mark;
@@ -60,7 +70,12 @@ internal sealed class KitRunRow
 
     internal KitButton Button { get; }
 
-    /// <summary>The hero portrait inside the row's well.</summary>
+    internal TextMeshProUGUI Title { get; }
+
+    /// <summary>The meta line; it takes rich text.</summary>
+    internal TextMeshProUGUI Meta { get; }
+
+    /// <summary>The hero portrait inside the row's well, for <see cref="DesktopKit.ShowPortrait"/>.</summary>
     internal Image Portrait { get; }
 
     /// <summary>The rank badge; clear until <see cref="DesktopKit.Show"/> gives it a sprite.</summary>
@@ -68,6 +83,83 @@ internal sealed class KitRunRow
 
     /// <summary>The trophy or state mark.</summary>
     internal Image Mark { get; }
+}
+
+/// <summary>The parts of a day cell a consumer fills and refills (<see cref="DesktopKit.Day"/>).</summary>
+internal sealed class KitDay
+{
+    internal KitDay(KitButton button, TextMeshProUGUI caption, Image portrait, Image mark)
+    {
+        Button = button;
+        Caption = caption;
+        Portrait = portrait;
+        Mark = mark;
+    }
+
+    internal KitButton Button { get; }
+
+    internal TextMeshProUGUI Caption { get; }
+
+    /// <summary>The opponent's portrait, for <see cref="DesktopKit.ShowPortrait"/>.</summary>
+    internal Image Portrait { get; }
+
+    /// <summary>The outcome mark, for <see cref="DesktopKit.Show"/> with <see cref="DesktopKit.Mark"/>.</summary>
+    internal Image Mark { get; }
+}
+
+/// <summary>
+/// The day strip (<see cref="DesktopKit.DayStrip"/>): days go in <see cref="Days"/>; the strip
+/// scrolls sideways when they do not fit.
+/// </summary>
+internal sealed class KitDayStrip
+{
+    internal KitDayStrip(RectTransform track, RectTransform days, ScrollRect scroll)
+    {
+        Track = track;
+        Days = days;
+        Scroll = scroll;
+    }
+
+    /// <summary>The strip itself, for the consumer's layout.</summary>
+    internal RectTransform Track { get; }
+
+    /// <summary>The parent of the day cells.</summary>
+    internal RectTransform Days { get; }
+
+    internal ScrollRect Scroll { get; }
+
+    /// <summary>Scrolls so that <paramref name="day"/> is inside the strip.</summary>
+    internal void Reveal(RectTransform day)
+    {
+        if (day == null || Scroll.viewport == null)
+            return;
+        Canvas.ForceUpdateCanvases();
+        var view = Scroll.viewport.rect.width;
+        var extra = Days.rect.width - view;
+        if (extra <= 0)
+            return;
+        var left = day.anchoredPosition.x - day.rect.width * day.pivot.x;
+        var offset = -Days.anchoredPosition.x;
+        if (left < offset)
+            offset = left;
+        else if (left + day.rect.width > offset + view)
+            offset = left + day.rect.width - view;
+        Scroll.horizontalNormalizedPosition = Mathf.Clamp01(offset / extra);
+    }
+}
+
+/// <summary>Keeps a strip's content at least as wide as its viewport, and as wide as its days.</summary>
+internal sealed class KitStripWidth : MonoBehaviour
+{
+    private void LateUpdate()
+    {
+        var content = (RectTransform)transform;
+        if (content.parent is not RectTransform viewport)
+            return;
+        var extra = Mathf.Max(0f, LayoutUtility.GetPreferredWidth(content) - viewport.rect.width);
+        if (!Mathf.Approximately(content.sizeDelta.x, extra))
+            content.sizeDelta = new Vector2(extra, content.sizeDelta.y);
+    }
 }
 
 /// <summary>A surface of the kit that is not a control.</summary>
@@ -107,11 +199,16 @@ internal sealed class DesktopKit
     // one axis and every result on one right edge.
     internal const float RowPortrait = 44f;
     internal const float RowArt = 30f;
-    private const float RowResultWidth = 46f;
 
     // A day of the day strip: its portrait well and its outcome mark.
     private const float DayPortrait = 36f;
     private const float DayMark = 24f;
+
+    // A day cell is never narrower than this; a strip with more days than fit scrolls.
+    private const float DayWidth = 64f;
+
+    // How far one wheel step moves a kit list or strip.
+    private const float ScrollSensitivity = 45f;
 
     // How far a list row's plate bleeds out of the row on each side. A row has no plate at
     // rest, so its content, not the hidden plate, sits on the column's edges: the portrait
@@ -697,7 +794,17 @@ internal sealed class DesktopKit
     }
 
     /// <summary>A two-line text column: a Body title over a Meta line, which may hold rich text.</summary>
-    internal RectTransform TitleAndMeta(Transform parent, string title, string meta)
+    internal RectTransform TitleAndMeta(Transform parent, string title, string meta) =>
+        TitleAndMeta(parent, title, meta, out _, out _);
+
+    /// <summary>The same, giving the two texts to a consumer that changes them later.</summary>
+    internal RectTransform TitleAndMeta(
+        Transform parent,
+        string title,
+        string meta,
+        out TextMeshProUGUI titleText,
+        out TextMeshProUGUI metaText
+    )
     {
         var column = Rect(parent, "TitleAndMeta");
         var group = column.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -706,9 +813,9 @@ internal sealed class DesktopKit
         group.childControlWidth = group.childControlHeight = true;
         group.childForceExpandWidth = true;
         group.childForceExpandHeight = false;
-        Text(column, title, KitTextRole.Body);
-        var line = Text(column, meta, KitTextRole.Meta);
-        line.richText = true;
+        titleText = Text(column, title, KitTextRole.Body);
+        metaText = Text(column, meta, KitTextRole.Meta);
+        metaText.richText = true;
         column.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
         return column;
     }
@@ -835,69 +942,106 @@ internal sealed class DesktopKit
 
     /// <summary>
     /// A run in a list: the hero's portrait well, a title over a meta line (which may hold rich
-    /// text), then the result at the right in fixed slots. The rank badge and the mark (a trophy
-    /// or a state mark) are one size and sit side by side; the result text has a fixed width
-    /// and is right-aligned. So in every row the marks are on one axis and the results end on
-    /// one edge, whether or not the row has a rank or a text. An unranked row keeps the empty
-    /// rank slot.
+    /// text), then two fixed slots at the right: the rank badge and the mark (a trophy or a
+    /// state mark), one size, side by side. So in every row the marks are on one axis at the
+    /// row's right edge, whether or not the row has a rank; an unranked row keeps the empty
+    /// rank slot. The row says how the run ended with the mark alone, not with a text.
     /// </summary>
     internal KitRunRow RunRow(
         Transform parent,
         float height,
         string title,
         string meta,
-        string result,
-        Color resultColor,
         Action onClick
     )
     {
         var button = ListRow(parent, height, onClick, out var content);
         var portrait = Portrait(content, null, RowPortrait, rise: true);
-        TitleAndMeta(content, title, meta);
+        TitleAndMeta(content, title, meta, out var titleText, out var metaText);
         var rank = Art(content, null, RowArt, RowArt);
         var mark = Art(content, null, RowArt, RowArt);
-        var text = Text(
-            content,
-            result,
-            KitTextRole.Meta,
-            resultColor,
-            TextAlignmentOptions.MidlineRight
-        );
-        Size(text, RowResultWidth, -1);
-        return new KitRunRow(button, portrait, rank, mark);
+        return new KitRunRow(button, titleText, metaText, portrait, rank, mark);
     }
 
     /// <summary>
-    /// The day strip: one darkened track holding a run's battles left to right.
-    /// Add days with <see cref="Day"/>.
+    /// A scrolling list for rows: its mask is wider than the list by the row plate's bleed, so
+    /// a hover or selected plate keeps its round corners. Rows go in
+    /// <paramref name="content"/>, top to bottom.
     /// </summary>
-    internal RectTransform DayStrip(Transform parent)
+    internal ScrollRect ScrollList(Transform parent, out RectTransform content)
+    {
+        var rect = Rect(parent, "List");
+        var scroll = rect.gameObject.AddComponent<ScrollRect>();
+        scroll.horizontal = false;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = ScrollSensitivity;
+        var viewport = Fill(Rect(rect, "Viewport"));
+        viewport.offsetMin = new Vector2(-RowBleed, 0);
+        viewport.offsetMax = new Vector2(RowBleed, 0);
+        viewport.gameObject.AddComponent<RectMask2D>();
+        // A mask takes pointer events only through a graphic.
+        var catcher = viewport.gameObject.AddComponent<Image>();
+        catcher.color = Color.clear;
+        content = Rect(viewport, "Content");
+        content.anchorMin = new Vector2(0, 1);
+        content.anchorMax = Vector2.one;
+        content.pivot = new Vector2(.5f, 1);
+        content.offsetMin = content.offsetMax = Vector2.zero;
+        var group = content.gameObject.AddComponent<VerticalLayoutGroup>();
+        group.padding = new RectOffset((int)RowBleed, (int)RowBleed, 0, 0);
+        group.childControlWidth = group.childControlHeight = true;
+        group.childForceExpandWidth = true;
+        group.childForceExpandHeight = false;
+        content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter
+            .FitMode
+            .PreferredSize;
+        scroll.viewport = viewport;
+        scroll.content = content;
+        return scroll;
+    }
+
+    /// <summary>
+    /// The day strip: one darkened track holding a run's battles left to right. The days share
+    /// the strip's width; when they do not fit at their least width, the strip scrolls
+    /// sideways. Add days to <see cref="KitDayStrip.Days"/> with <see cref="Day"/>.
+    /// </summary>
+    internal KitDayStrip DayStrip(Transform parent)
     {
         var track = Rect(parent, "DayStrip");
         Surface(track, KitSurface.Track);
-        var group = track.gameObject.AddComponent<HorizontalLayoutGroup>();
-        var inset = (int)InGameSizes.Space4;
-        group.padding = new RectOffset(inset, inset, inset, inset);
+        var scroll = track.gameObject.AddComponent<ScrollRect>();
+        scroll.vertical = false;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = ScrollSensitivity;
+        // The track is the strip's surface, so the mask is inside it: a day at either end keeps
+        // its plate's corners.
+        var viewport = Fill(Rect(track, "Viewport"), InGameSizes.Space4);
+        viewport.gameObject.AddComponent<RectMask2D>();
+        var catcher = viewport.gameObject.AddComponent<Image>();
+        catcher.color = Color.clear;
+        var days = Rect(viewport, "Days");
+        days.anchorMin = Vector2.zero;
+        days.anchorMax = Vector2.one;
+        days.pivot = new Vector2(0, .5f);
+        days.offsetMin = days.offsetMax = Vector2.zero;
+        var group = days.gameObject.AddComponent<HorizontalLayoutGroup>();
         group.spacing = InGameSizes.Space4;
         group.childControlWidth = group.childControlHeight = true;
         group.childForceExpandWidth = true;
         group.childForceExpandHeight = true;
-        return track;
+        days.gameObject.AddComponent<KitStripWidth>();
+        scroll.viewport = viewport;
+        scroll.content = days;
+        return new KitDayStrip(track, days, scroll);
     }
 
     /// <summary>
     /// One battle in the day strip: the day, the opponent's portrait well and the outcome mark.
-    /// <paramref name="portrait"/> receives the portrait image, for <see cref="ShowPortrait"/>.
     /// </summary>
-    internal KitButton Day(
-        Transform strip,
-        string day,
-        KitMark outcome,
-        Action onClick,
-        out Image portrait
-    )
+    internal KitDay Day(Transform days, string day, KitMark outcome, Action onClick)
     {
-        var rect = Rect(strip, "Day");
+        var rect = Rect(days, "Day");
+        Size(rect, -1, -1).minWidth = DayWidth;
         var button = rect.gameObject.AddComponent<KitButton>();
         var plate = Plate(rect, KitLook.None);
         plate.Image.raycastTarget = true;
@@ -908,11 +1052,14 @@ internal sealed class DesktopKit
         column.childControlWidth = column.childControlHeight = true;
         column.childForceExpandWidth = column.childForceExpandHeight = false;
         var dayText = Text(rect, day, KitTextRole.Caption, alignment: TextAlignmentOptions.Center);
-        portrait = Portrait(rect, null, DayPortrait);
-        Art(rect, Mark(outcome), DayMark, DayMark);
+        // A cell is narrow while the strip finds its width, and an ellipsis that cuts the
+        // first glyph clears the whole text (docs/architecture/text.md).
+        dayText.overflowMode = TextOverflowModes.Overflow;
+        var portrait = Portrait(rect, null, DayPortrait);
+        var mark = Art(rect, Mark(outcome), DayMark, DayMark);
         button.onClick.AddListener(() => onClick());
         button.Bind(KitButtonKind.Day, plate, new Graphic[] { dayText });
-        return button;
+        return new KitDay(button, dayText, portrait, mark);
     }
 
     /// <summary>
