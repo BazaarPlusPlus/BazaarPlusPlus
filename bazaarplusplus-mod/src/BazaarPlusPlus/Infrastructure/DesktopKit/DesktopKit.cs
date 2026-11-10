@@ -128,6 +128,12 @@ internal sealed class DesktopKit
         System.Runtime.CompilerServices.StrongBox<Sprite?>
     > Wanted = new();
 
+    // The portrait images whose medallion rises above its well.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
+        Image,
+        object
+    > Risen = new();
+
     private readonly NativeGameTypography.OwnedTextPreparation _font;
     private readonly List<KitPlate> _plates = new();
     private readonly List<(Image Glyph, DesktopKitArt Art)> _glyphs = new();
@@ -764,53 +770,68 @@ internal sealed class DesktopKit
         );
 
     /// <summary>
-    /// A hero portrait in a square well: a sunk plate with the portrait cut to the plate's
-    /// silhouette, showing the head and shoulders. Every portrait has the same bounds
-    /// whatever the hero's art; without a sprite the well shows <c>ingame-art-fallback</c>.
+    /// A hero portrait in a square well: a sunk field that a hero's medallion covers. With
+    /// <paramref name="rise"/> the head stands above the well's top edge, so the well needs
+    /// that room above it (a run row has it; a day cell under its caption has not).
     /// Returns the portrait image, for <see cref="ShowPortrait"/>.
     /// </summary>
-    internal Image Portrait(Transform parent, Sprite? sprite, float size)
+    internal Image Portrait(Transform parent, Sprite? sprite, float size, bool rise = false)
     {
         var well = Rect(parent, "Portrait");
         Size(well, size, size);
-        var window = Plate(well, KitLook.Wash(Color.white), "Window");
-        Fill(window.Image.rectTransform, InGameSizes.Space2);
-        window.Image.gameObject.AddComponent<Mask>().showMaskGraphic = false;
         Surface(well, KitSurface.Field);
-        var art = Fill(Rect(window.Image.transform, "Art"));
+        // The medallion stands on the well's bottom edge; one that rises is larger than the
+        // well by the rise, and its head stands above the well's top edge.
+        var art = Rect(well, "Art");
+        art.anchorMin = art.anchorMax = art.pivot = new Vector2(.5f, 0f);
+        var side = size * (1f + (rise ? KitArtReduction.MedallionRise : 0f));
+        art.sizeDelta = new Vector2(side, side);
         var image = art.gameObject.AddComponent<Image>();
         image.preserveAspect = true;
         image.raycastTarget = false;
+        if (rise)
+            Risen.Add(image, image);
         ShowPortrait(image, sprite);
         return image;
     }
 
     /// <summary>
-    /// Puts a hero's sprite in a portrait well, or the fallback tint while it loads. The well
-    /// shows the square <paramref name="focus"/> names (<c>HeroPortraitFocus</c> has one per
-    /// hero), or finds the head itself.
+    /// Puts a hero in a portrait well as a medallion (<c>KitArtReduction.Medallion</c>): the
+    /// hero's colour <paramref name="glow"/> behind the head and shoulders, inside a thin rim.
+    /// <paramref name="focus"/> names the face square (<c>HeroPortraitFocus</c> has one per
+    /// hero); without it the kit finds the head. The well stays a sunk field without a sprite
+    /// and while the medallion is drawn, and shows the whole portrait if it cannot be drawn.
     /// </summary>
     internal static void ShowPortrait(
         Image portrait,
         Sprite? sprite,
-        KitPortraitFocus? focus = null
+        KitPortraitFocus? focus = null,
+        Color? glow = null
     )
     {
         if (portrait == null)
             return;
         Wanted.GetOrCreateValue(portrait).Value = sprite;
-        // The well shows the fallback tint until the head and shoulders are cut; if they cannot
-        // be, it shows the whole portrait.
         portrait.sprite = null;
-        portrait.color = InGameTheme.ArtFallback;
-        if (sprite != null)
-            ShowCopy(
-                portrait,
-                sprite,
-                KitSmallArt.HeadAsync(sprite, focus),
-                showSourceFirst: false
-            );
+        portrait.color = Color.clear;
+        if (sprite == null)
+            return;
+        var look = new KitMedallion(
+            focus,
+            Rgb(glow ?? InGameTheme.HeroNone),
+            Rgb(InGameTheme.Backdrop),
+            Rgb(InGameTheme.Accent),
+            Risen.TryGetValue(portrait, out _)
+        );
+        ShowCopy(
+            portrait,
+            sprite,
+            KitSmallArt.MedallionAsync(sprite, look),
+            showSourceFirst: false
+        );
     }
+
+    private static KitRgb Rgb(Color32 color) => new(color.r, color.g, color.b);
 
     /// <summary>
     /// A run in a list: the hero's portrait well, a title over a meta line (which may hold rich
@@ -831,7 +852,7 @@ internal sealed class DesktopKit
     )
     {
         var button = ListRow(parent, height, onClick, out var content);
-        var portrait = Portrait(content, null, RowPortrait);
+        var portrait = Portrait(content, null, RowPortrait, rise: true);
         TitleAndMeta(content, title, meta);
         var rank = Art(content, null, RowArt, RowArt);
         var mark = Art(content, null, RowArt, RowArt);

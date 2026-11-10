@@ -42,6 +42,7 @@ internal sealed class KitGalleryView : IDisposable
     private readonly Sprite?[] _trophies = new Sprite?[TrophyAddresses.Length];
     private Task<HeroPortraitLoadOutcome?>[]? _heroLoad;
     private KitPortraitFocus?[]? _heroFocus;
+    private Color[]? _heroGlow;
     private Task<Sprite?[]>? _trophyLoad;
     private GameObject? _root;
     private DesktopKit? _kit;
@@ -287,7 +288,8 @@ internal sealed class KitGalleryView : IDisposable
         var list = Column(rail, "Runs", 0);
         var gain = ColorUtility.ToHtmlStringRGB(InGameTheme.Success);
         var loss = ColorUtility.ToHtmlStringRGB(InGameTheme.Failure);
-        RunRow(list, 0, "凡妮莎", "普通 · 12 场 · 10/27 19:23", null, 2, null, "10 胜", true);
+        // The names follow the order the game lists its heroes in, which the portraits use.
+        RunRow(list, 0, "皮格", "普通 · 12 场 · 10/27 19:23", null, 2, null, "10 胜", true);
         RunRow(
             list,
             1,
@@ -302,7 +304,7 @@ internal sealed class KitGalleryView : IDisposable
         RunRow(
             list,
             2,
-            "杜利",
+            "斯黛拉",
             $"钻石 1520 <color=#{gain}>+25</color> · 10/26",
             "Diamond",
             1,
@@ -313,7 +315,7 @@ internal sealed class KitGalleryView : IDisposable
         RunRow(
             list,
             3,
-            "马克",
+            "朱尔斯",
             $"黄金 1495 <color=#{loss}>−18</color> · 10/25",
             "Gold",
             -1,
@@ -321,8 +323,8 @@ internal sealed class KitGalleryView : IDisposable
             "",
             false
         );
-        RunRow(list, 4, "朱尔斯", "普通 · 9 场 · 10/24 22:40", null, 0, null, "4 胜", false);
-        RunRow(list, 5, "皮格", "白银 980 · 10/23", "Silver", -1, KitMark.Completed, "2 胜", false);
+        RunRow(list, 4, "杜利", "普通 · 9 场 · 10/24 22:40", null, 0, null, "4 胜", false);
+        RunRow(list, 5, "马克", "白银 980 · 10/23", "Silver", -1, KitMark.Completed, "2 胜", false);
         SelectRow(0);
         var spacer = DesktopKit.Rect(rail, "Spacer");
         spacer.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
@@ -457,6 +459,7 @@ internal sealed class KitGalleryView : IDisposable
                 .Take(_heroes.Length)
                 .ToArray();
             _heroFocus = heroes.Select(HeroPortraitFocus.For).ToArray();
+            _heroGlow = heroes.Select(HeroPortraitFocus.Glow).ToArray();
             _heroLoad = heroes
                 .Select(HeroPortraitSpriteProvider.LoadDefaultPortraitAsync)
                 .ToArray();
@@ -473,7 +476,7 @@ internal sealed class KitGalleryView : IDisposable
                 _heroes[i] = sprite;
                 foreach (var (target, hero) in _portraitTargets)
                     if (hero == i)
-                        DesktopKit.ShowPortrait(target, sprite, _heroFocus?[i]);
+                        DesktopKit.ShowPortrait(target, sprite, _heroFocus?[i], _heroGlow?[i]);
             }
         }
         if (_trophyLoad == null && _trophies.Any(sprite => sprite == null))
