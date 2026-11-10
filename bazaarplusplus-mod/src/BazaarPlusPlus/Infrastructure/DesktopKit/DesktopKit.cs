@@ -172,7 +172,7 @@ internal sealed class DesktopKit
                     Color.white,
                     InGameTheme.Dialog,
                     DesktopKitArt.Edge,
-                    Color.white
+                    KitPalette.SoftEdge
                 ),
                 _ => new KitLook(DesktopKitArt.Ground, Color.white, InGameTheme.Panel),
             },

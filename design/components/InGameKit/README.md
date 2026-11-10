@@ -19,7 +19,7 @@ Surfaces are game sprites, not colours. The panel's ground stays `ingame-backdro
 Emphasis has a budget:
 
 - One primary button per view.
-- The thin gold frame at full marks only the primary button, a selected control or row, a checkbox and a floating surface; a field carries it dimmed. `ingame-accent` text marks a selected control's label and a key number.
+- The thin gold frame marks only the primary button, a selected control or row, a checkbox and a floating surface; a field carries it dimmed. At rest the frame is muted: the game's gold line at full is a hard, bright edge on a small control. A selected control and a floating surface take it at `ingame-art-frame-tint` × 0.8 (the soft edge), the primary button at `ingame-art-selected-tint`. The full line is for the pointer. `ingame-accent` text marks a selected control's label and a key number.
 - `ingame-success`, `ingame-failure`, `ingame-warning` and `ingame-pending` colour only status text beside a word.
 - A destructive action is a danger button: a secondary plate with `ingame-failure` text. The game's red centre is only the confirm button of its dialog.
 
@@ -43,20 +43,20 @@ Until a sprite loads, or if the game build lacks its address, the plate draws th
 
 | Component | Size | Rest | Hover | Pressed | Selected ("on") |
 |---|---|---|---|---|---|
-| Button primary | `control-md` / `control-sm` | `PlateHover` in `EdgeBright`, `ingame-ink-bright` label | `PlateHover` × `OverBrightHover` in `EdgeBright` | `PlatePressed` in `Edge` | — |
-| Button secondary | same | `Plate`, `ingame-ink` label | `PlateHover` × `ingame-tint-pressed`, `ingame-ink-bright` label | `PlatePressed` | `Plate` in `Edge`, `ingame-accent` label |
+| Button primary | `control-md` / `control-sm` | `PlateHover` in `Edge` × `ingame-art-selected-tint`, `ingame-ink-bright` label | `PlateHover` × `OverBrightHover` in `EdgeBright` | `PlatePressed` in `Edge` | — |
+| Button secondary | same | `Plate`, `ingame-ink` label | `PlateHover` × `ingame-tint-pressed`, `ingame-ink-bright` label | `PlatePressed` | `Plate` in the soft edge, `ingame-accent` label |
 | Button quiet | same | no plate, `ingame-ink-muted` label | `ingame-plate-hover` wash, `ingame-ink` label | wash × `ingame-tint-pressed` | — |
 | Button danger | same | secondary plate, `ingame-failure` label | as secondary, `ingame-ink-bright` label | as secondary, `ingame-ink-bright` label | — |
 | Button danger confirm | same | `DangerPlate`, `ingame-ink-bright` label | `DangerPlateHover` | `DangerPlatePressed` | — |
 | Icon button | square `control-md` / `control-sm` | as its kind, with the game's glyph | | | |
-| Segmented | track `control-md` / `control-sm` | darkened track; options without a plate, `ingame-ink-muted` | wash | | `Plate` in `Edge`, `ingame-accent` |
+| Segmented | track `control-md` / `control-sm` | darkened track; options without a plate, `ingame-ink-muted` | wash | | `Plate` in the soft edge, `ingame-accent` |
 | Chip | `badge-height` | `Plate` × `ingame-tint-rest`, `ingame-ink-muted` (or a tier colour) | `Plate` | `PlatePressed` | `PlateHover` × `ingame-tint-pressed`, `ingame-ink-bright` |
 | Checkbox | 20 box | `Plate` in `Edge` × `ingame-art-button-tint` | `Edge` at full | | `Plate` in `EdgeBright`, `ingame-accent-bright` check |
 | Select, Search | `control-md` | sunk field; value `ingame-ink`, placeholder `ingame-ink-muted`; the arrow or the search glyph in `ingame-ink-muted` | wash | | |
 | Section header | Section text | Caption at the right; the `Divider` rule at 0.7 below | | | |
-| List row | the consumer's height | no plate; the `Divider` rule at 0.5 between rows | wash | | `Plate` in `Edge`, no rule touching it |
-| Day strip | one darkened track | each day: Caption day, a 34 portrait, an outcome word | wash | | `Plate` in `Edge`, day in `ingame-accent` |
-| Tooltip, dialog | content | `Ground` in `Edge` | | | |
+| List row | the consumer's height | no plate; the `Divider` rule at 0.5 between rows | wash | | `Plate` in the soft edge, no rule touching it |
+| Day strip | one darkened track | each day: Caption day, a 34 portrait, an outcome word | wash | | `Plate` in the soft edge, day in `ingame-accent` |
+| Tooltip, dialog | content | `Ground` in the soft edge | | | |
 
 Fallback colours while a sprite is missing: `ingame-button` for a secondary plate and `ingame-chip` under the pointer; `ingame-button-selected` for a selected control and the primary button, `ingame-chip-active` for the primary button under the pointer and a selected chip; `ingame-failure` for `DangerPlate`; `ingame-panel` for `Ground`; `ingame-dialog` for a floating surface; `ingame-backdrop` for a field.
 
