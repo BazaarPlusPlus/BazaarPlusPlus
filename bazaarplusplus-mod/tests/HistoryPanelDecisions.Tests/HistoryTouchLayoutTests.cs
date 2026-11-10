@@ -82,7 +82,7 @@ internal static class HistoryTouchLayoutTests
             name + " header",
             layout.Sheet,
             [
-                ("title", layout.Title),
+                ("tabs", layout.TabsTray),
                 ("filter", layout.ArchiveFilter),
                 ("support", layout.Sponsor),
                 ("more", layout.More),
@@ -90,22 +90,33 @@ internal static class HistoryTouchLayoutTests
             ]
         );
         Require(
-            layout.Title.Bottom <= layout.TabsTray.Top,
-            $"{name}: archive tabs belong below the title."
-        );
-        Require(
-            layout.Archive.Contains(layout.TabsTray),
-            $"{name}: tabs share the archive boundary."
+            layout.TabsTray.Bottom <= layout.Archive.Top
+                && layout.TabsTray.Right <= layout.Archive.Right + .01f,
+            $"{name}: the section tabs head the archive column from the header row."
         );
         RequireLaidOut(
             name + " archive",
             layout.Archive,
             [
-                ("tabs", layout.TabsTray),
                 ("list", layout.ArchiveList),
                 ("page", layout.PageLabel),
-                ("pager", layout.ArchivePager),
+                ("newer", layout.PagerButton(0)),
+                ("latest", layout.PagerButton(1)),
+                ("older", layout.PagerButton(2)),
             ]
+        );
+        Require(
+            layout.PageLabel.Width >= metrics.Dp(HistoryTouchLayout.PageLabelMinDp) - .01f,
+            $"{name}: the page label keeps a readable width ({layout.PageLabel})."
+        );
+        Require(
+            layout.PageLabelInline == Near(layout.PageLabel.Top, layout.ArchivePager.Top),
+            $"{name}: an inline page label shares the pager row."
+        );
+        var visibleRows = layout.ArchiveList.Height / layout.RunRowHeight;
+        Require(
+            layout.Compact || visibleRows >= 3.5f,
+            $"{name}: the archive beside the detail shows at least three and a half rows ({visibleRows:0.00})."
         );
         RequireLaidOut(
             name + " tabs",
@@ -337,9 +348,8 @@ internal static class HistoryTouchLayoutTests
             "narrow header",
             layout.Sheet,
             [
-                ("title", layout.Title),
-                ("filter", layout.ArchiveFilter),
                 ("tabs", layout.TabsTray),
+                ("filter", layout.ArchiveFilter),
                 ("support", layout.Sponsor),
                 ("more", layout.More),
                 ("close", layout.Close),
@@ -358,10 +368,6 @@ internal static class HistoryTouchLayoutTests
             }
         )
             RequireTarget("narrow header", metrics, target);
-        Require(
-            layout.Archive.Contains(layout.TabsTray),
-            "Tabs remain part of the archive on a narrow screen."
-        );
     }
 
     private static void RequireLaidOut(
