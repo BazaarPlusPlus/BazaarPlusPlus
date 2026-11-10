@@ -3,12 +3,14 @@
 // and checks that the design system and its consumers agree.
 //
 //   bun design/build.ts          write the generated tokens.css and copy the brand mark and the covers
-//   bun design/build.ts --check  fail if any output is stale or a consumer disagrees
+//   bun design/build.ts --check  fail if any output is stale (the Desktop Kit plates of kit-art.ts too) or a consumer disagrees
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
+import { stalePlates } from './kit-art.ts';
 
 /** A per-theme value ({ dark: "#fff" }) or a plain string; "{name}" is an alias. */
 export type TokenValue = string | Record<string, string>;
@@ -615,6 +617,11 @@ function main(argv: readonly string[]): void {
   problems.push(...heroMismatches(tokens));
   problems.push(...supporterMismatches(tokens));
   problems.push(...staleLauncherIcon());
+  problems.push(
+    ...stalePlates().map(
+      (file) => `${file} is stale; run \`just design::kit-art\``
+    )
+  );
 
   if (problems.length > 0) {
     for (const problem of problems) console.error(problem);

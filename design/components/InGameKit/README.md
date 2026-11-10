@@ -1,6 +1,6 @@
-The Desktop UI's controls, drawn with the game's own button sprites and icons, so a BPP panel reads as a screen of the game. The sprites are the game's thinnest set (the `_L` centres and the hairline frame), so its art for content (cards, boards, portraits, trophies, rank badges) still leads.
+The Desktop UI's controls, drawn on BPP's own plate art: one soft rounded silhouette in a painted material, with the game's own rule and glyphs. The plates stay dark and low in contrast, so the game's art for content (cards, boards, portraits, trophies, rank badges) leads the screen.
 
-Source: `bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/DesktopKit/` (`DesktopKit`, `KitButton`, `KitPalette`), sizes from `InGameSizes.g.cs` and colours from `InGameTheme.g.cs`, both generated from `design/tokens.json`. The sprites are owned by `GameInterop/NativeSkin/DesktopNativeSkin.cs` (`DesktopKitArt`). Debug builds show every control in every state in the Kit Gallery (`just mod::ui-shots kit-gallery`). Panels move to the kit one at a time; until then they keep the look `InGamePanel/` describes.
+Source: `bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/DesktopKit/` (`DesktopKit`, `KitButton`, `KitPalette`), sizes from `InGameSizes.g.cs` and colours from `InGameTheme.g.cs`, both generated from `design/tokens.json`. The sprites are owned by `GameInterop/NativeSkin/DesktopNativeSkin.cs` (`DesktopKitArt`); the plate PNGs are in `bazaarplusplus-mod/src/BazaarPlusPlus/Resources/DesktopKit/` and are drawn by `design/kit-art.ts` (`just design::kit-art`). Debug builds show every control in every state in the Kit Gallery (`just mod::ui-shots kit-gallery`). Panels move to the kit one at a time; until then they keep the look `InGamePanel/` describes.
 
 ## Hierarchy
 
@@ -14,51 +14,59 @@ The game ships its UI font in one weight, so weight never separates levels. Size
 | Meta | `ingame-text-meta` 14 | `ingame-ink-muted` | Secondary facts, sm button labels, chips. |
 | Caption | `ingame-text-caption` 12 | `ingame-ink-muted` | Counts, page labels, the supporter line. |
 
-Surfaces are game sprites, not colours. The panel's ground stays `ingame-backdrop`, since boards and cards sit on it. A rail or a well is the ground of the game's match-history run card. A control's plate is the game's brown button centre. A track is that centre darkened by `ingame-tint-pressed`, and a field is the centre darkened by `ingame-art-input-tint` in the frame dimmed by `ingame-art-panel-tint`, so it reads as a sunk control on a ground. A floating surface is the run-card ground in the thin gold frame.
+Surfaces are sprites, not colours. The panel's ground stays `ingame-backdrop`, since boards and cards sit on it. A rail or a well is `Ground`. A control's plate is `Plate`. A track is `Plate` darkened by `ingame-tint-pressed`, and a field is `Plate` darkened by `ingame-art-input-tint` inside `Edge` dimmed by `ingame-art-panel-tint`, so it reads as a sunk control on a ground. A floating surface is `Ground` inside `Edge`.
 
 Emphasis has a budget:
 
 - One primary button per view.
-- The thin gold frame marks only the primary button, a selected control or row, a checkbox and a floating surface; a field carries it dimmed. At rest the frame is muted: the game's gold line at full is a hard, bright edge on a small control. A selected control and a floating surface take it at `ingame-art-frame-tint` × 0.8 (the soft edge), the primary button at `ingame-art-selected-tint`. The full line is for the pointer. `ingame-accent` text marks a selected control's label and a key number.
-- `ingame-success`, `ingame-failure`, `ingame-warning` and `ingame-pending` colour only status text beside a word.
-- A destructive action is a danger button: a secondary plate with `ingame-failure` text. The game's red centre is only the confirm button of its dialog.
+- The gold plate is only the primary button. The soft gold line (`Edge`) marks only a selected control or row, a checkbox and a floating surface; a field carries it dimmed. `ingame-accent` text marks a selected control's label and a key number.
+- A destructive action is a danger button: a secondary plate with `ingame-failure` text. The red plate is only the confirm button of its dialog.
 
 ## Sprites
 
-`DesktopNativeSkin` loads each sprite by address on its own. The game slices them; a button centre or a frame draws at the scale where the sprite's own height is one `control-md`, so a chamfer or a frame line is the same size on every plate. `Shape` and `Ground` have their own fixed scales (`ShapePixelsPerUnit`, `GroundPixelsPerUnit`).
+Each `DesktopKitArt` slot has one source. A plate slot is a PNG of BPP's own, embedded in the plugin and decoded once. A rule or glyph slot is a game sprite, loaded by address on its own. To change the look, replace the PNGs; the slots, the kit and this table's states stay.
 
-| `DesktopKitArt` | Game sprite | Use |
+| `DesktopKitArt` | Source | Use |
 |---|---|---|
-| `Plate`, `PlateHover`, `PlatePressed` | `Btn_Rct_Brown_L_Center_{Active,Highlighted,Pressed}_TUI` | Button plates; a state is the game's sprite for it |
-| `DangerPlate`, `DangerPlateHover`, `DangerPlatePressed` | `Btn_Rct_Red_L_Center_{Active,Highlighted,Pressed}_TUI` | The danger confirm button |
-| `Edge`, `EdgeBright` | `Btn_Rct_Frame_L_TUI`, `Btn_Rct_Frame_L_Highlighted_TUI` | The thin gold frame over a plate |
-| `Ground` | `Btn_MatchHistory_Run_Common_Background_TUI` | Rails, wells, floating surfaces. The game slices it top and bottom only, so the skin slices its sides the same |
-| `Divider` | `Btn_MatchHistory_Run_Common_Divider_TUI` | Rules under section headers and between rows |
-| `IconClose`, `IconSearch`, `IconArrow` | `Icon_RingBtn_X_TUI`, `Icon_RingBtn_Search_TUI`, `Icon_Menu_Dropdown_02_TUI` | Close, search, and the arrow (turned for left and right) |
-| `Shape` | `Btn_Rct_Frame_Fill_Solid_TUI` | The hover wash, and the fallback of every plate |
+| `Plate`, `PlateHover`, `PlatePressed` | `plate.png`, `plate-hover.png`, `plate-pressed.png` | Control plates |
+| `PrimaryPlate`, `PrimaryPlateHover` | `plate-primary.png`, `plate-primary-hover.png` | The primary button |
+| `DangerPlate`, `DangerPlateHover`, `DangerPlatePressed` | `plate-danger.png`, `plate-danger-hover.png`, `plate-danger-pressed.png` | The danger confirm button |
+| `Edge`, `EdgeBright` | `edge.png`, `edge-bright.png` | A soft gold line along the silhouette, over a plate |
+| `Ground` | `ground.png` | Rails, wells, floating surfaces |
+| `Shape` | `shape.png` | The silhouette in solid white, tinted: the hover wash |
+| `Divider` | the game's `Btn_MatchHistory_Run_Common_Divider_TUI` | Rules under section headers and between rows |
+| `IconClose`, `IconSearch`, `IconArrow` | the game's `Icon_RingBtn_X_TUI`, `Icon_RingBtn_Search_TUI`, `Icon_Menu_Dropdown_02_TUI` | Close, search, and the arrow (turned for left and right) |
 
-Until a sprite loads, or if the game build lacks its address, the plate draws the solid shape (or a plain rectangle) in the token colour the tables below give as its fallback, a rule draws a 1 px `ingame-rule` line, and the close and arrow icons draw from strokes; the search glyph has no stroke form, so the field then shows none. A frame draws only over its plate's own sprite. The Kit Gallery's diagnostics line lists every missing sprite with the reason. The check mark has no game sprite and always draws from strokes.
+### The plate art
+
+`just design::kit-art` draws every plate PNG from one material image, `art/material.png` (the grain of a generated image of worn dark leather, in greyscale). `just design::check` fails when a committed plate differs from what `design/kit-art.ts` draws. The script owns what must agree across plates:
+
+- **One silhouette.** A rounded rectangle, radius 6 canvas units, with a soft painted rim inside the edge and no hard line. A plate is one `control-md` tall at 3 pixels per unit (`KitPixelsPerUnit` in `DesktopNativeSkin`); the sliced border is the radius plus 4 units (`KitBorderPixels`). Change `RADIUS` in the script and that constant together.
+- **States by grading.** Each state is the same grain over a fill colour near its token (`ingame-button`, `ingame-chip`, `ingame-chip-active`, `ingame-failure`, `ingame-panel`), so a centre can stretch without showing a seam.
+- **Clean edges.** Sprites are drawn at 4× and reduced, and colour is bled under the transparent pixels, so bilinear filtering leaves no dark fringe.
+
+If a plate PNG cannot be decoded, the plate draws a plain rectangle in the token colour given below. Until a game sprite loads, or if the game build lacks its address, a rule draws a 1 px `ingame-rule` line and the close and arrow icons draw from strokes; the search glyph has no stroke form, so the field then shows none. The Kit Gallery's diagnostics line lists every missing sprite with the reason. The check mark has no sprite and always draws from strokes.
 
 ## Components
 
 | Component | Size | Rest | Hover | Pressed | Selected ("on") |
 |---|---|---|---|---|---|
-| Button primary | `control-md` / `control-sm` | `PlateHover` in `Edge` × `ingame-art-selected-tint`, `ingame-ink-bright` label | `PlateHover` × `OverBrightHover` in `EdgeBright` | `PlatePressed` in `Edge` | — |
-| Button secondary | same | `Plate`, `ingame-ink` label | `PlateHover` × `ingame-tint-pressed`, `ingame-ink-bright` label | `PlatePressed` | `Plate` in the soft edge, `ingame-accent` label |
+| Button primary | `control-md` / `control-sm` | `PrimaryPlate`, `ingame-ink-bright` label | `PrimaryPlateHover` | `PrimaryPlate` × `ingame-tint-pressed` | — |
+| Button secondary | same | `Plate`, `ingame-ink` label | `PlateHover`, `ingame-ink-bright` label | `PlatePressed` | `Plate` in `Edge`, `ingame-accent` label |
 | Button quiet | same | no plate, `ingame-ink-muted` label | `ingame-plate-hover` wash, `ingame-ink` label | wash × `ingame-tint-pressed` | — |
 | Button danger | same | secondary plate, `ingame-failure` label | as secondary, `ingame-ink-bright` label | as secondary, `ingame-ink-bright` label | — |
 | Button danger confirm | same | `DangerPlate`, `ingame-ink-bright` label | `DangerPlateHover` | `DangerPlatePressed` | — |
 | Icon button | square `control-md` / `control-sm` | as its kind, with the game's glyph | | | |
-| Segmented | track `control-md` / `control-sm` | darkened track; options without a plate, `ingame-ink-muted` | wash | | `Plate` in the soft edge, `ingame-accent` |
-| Chip | `badge-height` | `Plate` × `ingame-tint-rest`, `ingame-ink-muted` (or a tier colour) | `Plate` | `PlatePressed` | `PlateHover` × `ingame-tint-pressed`, `ingame-ink-bright` |
+| Segmented | track `control-md` / `control-sm` | darkened track; options without a plate, `ingame-ink-muted` | wash | | `Plate` in `Edge`, `ingame-accent` |
+| Chip | `badge-height` | `Plate` × `ingame-tint-rest`, `ingame-ink-muted` (or a tier colour) | `Plate` | `PlatePressed` | `PlateHover`, `ingame-ink-bright` |
 | Checkbox | 20 box | `Plate` in `Edge` × `ingame-art-button-tint` | `Edge` at full | | `Plate` in `EdgeBright`, `ingame-accent-bright` check |
 | Select, Search | `control-md` | sunk field; value `ingame-ink`, placeholder `ingame-ink-muted`; the arrow or the search glyph in `ingame-ink-muted` | wash | | |
 | Section header | Section text | Caption at the right; the `Divider` rule at 0.7 below | | | |
-| List row | the consumer's height | no plate; the `Divider` rule at 0.5 between rows | wash | | `Plate` in the soft edge, no rule touching it |
-| Day strip | one darkened track | each day: Caption day, a 34 portrait, an outcome word | wash | | `Plate` in the soft edge, day in `ingame-accent` |
-| Tooltip, dialog | content | `Ground` in the soft edge | | | |
+| List row | the consumer's height | no plate; the `Divider` rule at 0.5 between rows | wash | | `Plate` in `Edge`, no rule touching it |
+| Day strip | one darkened track | each day: Caption day, a 34 portrait, an outcome word | wash | | `Plate` in `Edge`, day in `ingame-accent` |
+| Tooltip, dialog | content | `Ground` in `Edge` | | | |
 
-Fallback colours while a sprite is missing: `ingame-button` for a secondary plate and `ingame-chip` under the pointer; `ingame-button-selected` for a selected control and the primary button, `ingame-chip-active` for the primary button under the pointer and a selected chip; `ingame-failure` for `DangerPlate`; `ingame-panel` for `Ground`; `ingame-dialog` for a floating surface; `ingame-backdrop` for a field.
+Fallback colours when a plate PNG is missing: `ingame-button` for a secondary plate and `ingame-chip` under the pointer; `ingame-button-selected` for a selected control; `ingame-chip-active` for the primary button and a selected chip, `ingame-accent` for the primary button under the pointer; `ingame-failure` for `DangerPlate`; `ingame-panel` for `Ground`; `ingame-dialog` for a floating surface; `ingame-backdrop` for a field.
 
 Every control has two more states. **Disabled** multiplies the rest plate and its frame by `ingame-tint-disabled` and fades the label. **Dimmed** (shown as unavailable but still pressable, so the press can say why) uses the disabled plate with an `ingame-ink-muted` label, and `ingame-tint-dimmed-hover` under the pointer.
 
