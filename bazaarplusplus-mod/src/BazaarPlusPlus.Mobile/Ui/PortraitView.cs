@@ -121,11 +121,13 @@ internal sealed class PortraitView
         }
         var frame = MobilePlatform.Port.Cast<RectTransform>(image.rectTransform.parent).rect.size;
         var scale = Math.Min(frame.x / visible.x, frame.y / visible.y);
-        // These default hero portraits support an upper-body crop. Dooley's antennae,
-        // multi-character heroes and encounter compositions keep their complete silhouette.
+        // These default hero portraits support an upper-body crop, and so does an encounter's
+        // (a merchant or a trainer is a whole figure, small in the frame). Dooley's antennae
+        // and multi-character heroes keep their complete silhouette.
         var zoom = hero switch
         {
             CardHero.Vanessa or CardHero.Pygmalien or CardHero.Karnok => 1.4f,
+            null => 1.4f,
             _ => 0.94f,
         };
         scale *= zoom;

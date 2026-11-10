@@ -92,7 +92,7 @@ internal sealed class ChipFlow
         if (_column + span > _columns)
             Break();
         var compact = span * 2 <= _columns;
-        var height = _chrome.Metrics.Dp(compact ? 88f : 64f);
+        var height = _chrome.Metrics.Dp(compact ? 72f : 64f);
         var rect = UiKit.Rect(
             "Identity",
             _parent,
@@ -119,8 +119,8 @@ internal sealed class ChipFlow
         if (compact)
         {
             text.rectTransform.anchorMax = new Vector2(1f, 0f);
-            text.rectTransform.offsetMin = new Vector2(_chrome.Padding, _chrome.Padding);
-            text.rectTransform.offsetMax = new Vector2(-_chrome.Padding, _chrome.Metrics.Dp(36f));
+            text.rectTransform.offsetMin = new Vector2(_chrome.Padding, _chrome.Metrics.Dp(4f));
+            text.rectTransform.offsetMax = new Vector2(-_chrome.Padding, _chrome.Metrics.Dp(26f));
         }
         else
         {
@@ -130,7 +130,7 @@ internal sealed class ChipFlow
                 -_chrome.Padding
             );
         }
-        var portraitY = compact ? _chrome.Metrics.Dp(16f) : 0f;
+        var portraitY = compact ? _chrome.Metrics.Dp(11f) : 0f;
         var icon = UiKit.Fixed(
             "Portrait",
             rect,
