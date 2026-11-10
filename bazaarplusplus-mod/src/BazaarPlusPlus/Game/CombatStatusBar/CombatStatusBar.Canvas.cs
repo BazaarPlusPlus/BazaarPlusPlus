@@ -17,7 +17,6 @@ internal sealed partial class CombatStatusBar
     private static readonly Color Ink = InGameTheme.Ink;
     private static readonly Color MutedInk = InGameTheme.InkSoft;
     private NativeGameTypography.OwnedTextPreparation? _uiTypography;
-    private NativeGameTypography.OwnedTextPreparation? _counterTypography;
     private bool _nativeSkinRequested;
     private float _nativeSkinRetryAt;
     private bool _nativeSkinFailureReported;
@@ -30,7 +29,10 @@ internal sealed partial class CombatStatusBar
     private int _layoutScreenHeight;
     private Rect _layoutCameraRect;
     private RectTransform? _barRoot;
+    private CanvasGroup? _visibilityGroup;
+    private float _visibilityProgress;
     private readonly NativePlayerPortraitBounds _portraitBounds = new();
+    private Image? _progressFill;
     private TextMeshProUGUI? _timeValue;
     private TextMeshProUGUI? _speedValue;
     private Button? _pauseButton;
@@ -52,11 +54,6 @@ internal sealed partial class CombatStatusBar
             NativeGameTypography.PrepareOwnedText(out _uiTypography)
                 != NativeGameTypography.Outcome.Ready
             || _uiTypography == null
-            || NativeGameTypography.PrepareOwnedText(
-                NativeGameTypography.OwnedTextRole.Heading,
-                out _counterTypography
-            ) != NativeGameTypography.Outcome.Ready
-            || _counterTypography == null
         )
             return;
         if (!EnsureNativeSkin())
@@ -82,11 +79,13 @@ internal sealed partial class CombatStatusBar
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 0.55f;
 
-        var barRoot = CreateRect("CombatControls", _canvasObject.transform, 0f, 0f, 220f, 46f);
+        var barRoot = CreateRect("CombatControls", _canvasObject.transform, 0f, 0f, 220f, 40f);
         barRoot.anchorMin = barRoot.anchorMax = Vector2.zero;
-        barRoot.pivot = new Vector2(0.5f, 0f);
+        barRoot.pivot = new Vector2(0.5f, 0.5f);
         barRoot.anchoredPosition = Vector2.zero;
         _barRoot = barRoot;
+        _visibilityGroup = barRoot.gameObject.AddComponent<CanvasGroup>();
+        SetUiVisible(false);
         CreatePlaque(barRoot);
     }
 
@@ -95,17 +94,17 @@ internal sealed partial class CombatStatusBar
         ApplyPlaque(root);
         CreateDivider(root, 0.24f);
         CreateDivider(root, 0.76f);
-        _timeValue = CreateText("Elapsed", root, 0f, 0f, 104f, 36f, 22, counter: true);
+        _timeValue = CreateText("Elapsed", root, 0f, 0f, 104f, 28f, 18);
         StretchRegion(_timeValue.rectTransform, 0.24f, 0.76f);
         _pauseButton = CreateControlButton("Pause", root, 0.76f, 1f);
-        _pauseIcon = CreateRect("PauseIcon", _pauseButton.transform, 0f, 0f, 12f, 14f)
+        _pauseIcon = CreateRect("PauseIcon", _pauseButton.transform, 0f, 0f, 13f, 13f)
             .gameObject.AddComponent<CombatPlaybackIcon>();
         _pauseIcon.raycastTarget = false;
         _pauseIcon.color = Ink;
         _pauseButton.onClick.AddListener(() => State.ToggleCombatPause());
 
         var speedButton = CreateControlButton("CycleSpeed", root, 0f, 0.24f);
-        _speedValue = CreateText("Multiplier", speedButton.transform, 0f, 0f, 42f, 28f, 14);
+        _speedValue = CreateText("Multiplier", speedButton.transform, 0f, 0f, 42f, 28f, 18);
         StretchRegion(_speedValue.rectTransform, 0f, 1f);
         speedButton.onClick.AddListener(() => State.CycleCombatSpeed());
         BppLog.InfoEvent(
@@ -167,9 +166,18 @@ internal sealed partial class CombatStatusBar
     }
 
     // The native plaque: the brown centre inset two pixels under the frame.
-    private static void ApplyPlaque(RectTransform root)
+    private void ApplyPlaque(RectTransform root)
     {
         PlaqueLayer(root, "Backing", DesktopSkinPart.BrownCenter, new Vector2(2f, 2f));
+        var progress = CreateRect("CombatProgress", root, 0f, 0f, 0f, 0f);
+        progress.anchorMin = Vector2.zero;
+        progress.anchorMax = Vector2.one;
+        progress.offsetMin = new Vector2(4f, 4f);
+        progress.offsetMax = new Vector2(-4f, -4f);
+        _progressFill = progress.gameObject.AddComponent<Image>();
+        _progressFill.color = InGameTheme.WithAlpha(InGameTheme.Accent, 0.18f);
+        _progressFill.raycastTarget = false;
+        progress.gameObject.SetActive(false);
         PlaqueLayer(root, "Frame", DesktopSkinPart.Frame, Vector2.zero);
     }
 
@@ -236,11 +244,40 @@ internal sealed partial class CombatStatusBar
     {
         if (_canvasObject == null)
             return;
-        var visible = ShouldDraw() && RefreshLayout();
-        SetUiVisible(visible);
+        if (
+            _screenshotSuppressionCount > 0
+            || SearchOpponentTransition.IsInTransition
+            || _services?.Config.EnableCombatStatusBarConfig.Value != true
+        )
+        {
+            SetUiVisible(false);
+            return;
+        }
+        var visible = ShouldDraw();
+        if (visible && !RefreshLayout())
+        {
+            SetUiVisible(false);
+            return;
+        }
+        AnimateUiVisibility(visible);
         if (!visible)
             return;
 
+        if (_progressFill != null)
+        {
+            var active = State.IsCombatPlaybackActive;
+            if (_progressFill.gameObject.activeSelf != active)
+                _progressFill.gameObject.SetActive(active);
+            var progress =
+                State.TotalCombatFrames > 1
+                    ? Mathf.Clamp01(
+                        (State.ProcessedCombatFrames - 1f) / (State.TotalCombatFrames - 1f)
+                    )
+                : State.ProcessedCombatFrames > 0 ? 1f
+                : 0f;
+            _progressFill.rectTransform.anchorMax = new Vector2(progress, 1f);
+            _progressFill.rectTransform.offsetMax = new Vector2(4f - 8f * progress, -4f);
+        }
         var time = State.GetDisplayedTimeText();
         if (_timeValue != null && time != _renderedTimeText)
         {
@@ -364,7 +401,7 @@ internal sealed partial class CombatStatusBar
         if (
             !RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 canvasRect,
-                new Vector2(frame.center.x, viewport.yMin),
+                new Vector2(frame.center.x, viewport.yMin + (bottom - viewport.yMin) * 0.5f),
                 camera,
                 out var position
             )
@@ -379,24 +416,53 @@ internal sealed partial class CombatStatusBar
             _barRoot.sizeDelta = sizeDelta;
             var contentScale = Mathf.Min(
                 1f,
-                Mathf.Min(_barRoot.rect.width / 220f, _barRoot.rect.height / 46f)
+                Mathf.Min(_barRoot.rect.width / 220f, _barRoot.rect.height / 40f)
             );
             if (_timeValue != null)
-                _timeValue.fontSize = 22f * contentScale;
+                _timeValue.fontSize = 18f * contentScale;
             if (_speedValue != null)
-                _speedValue.fontSize = 14f * contentScale;
+                _speedValue.fontSize = 18f * contentScale;
             if (_pauseIcon != null)
-                _pauseIcon.rectTransform.sizeDelta = new Vector2(12f, 14f) * contentScale;
+                _pauseIcon.rectTransform.sizeDelta = new Vector2(13f, 13f) * contentScale;
         }
         return true;
     }
 
+    private void AnimateUiVisibility(bool visible)
+    {
+        var duration = visible ? 0.18f : 0.12f;
+        _visibilityProgress = Mathf.MoveTowards(
+            _visibilityProgress,
+            visible ? 1f : 0f,
+            Time.unscaledDeltaTime / duration
+        );
+        ApplyUiVisibility(visible);
+    }
+
     private void SetUiVisible(bool visible)
     {
-        // Keep the CanvasScaler active while hidden so resize/re-entry uses the current scale.
-        SetCanvasEnabled(visible);
-        if (_barRoot != null && _barRoot.gameObject.activeSelf != visible)
-            _barRoot.gameObject.SetActive(visible);
+        _visibilityProgress = visible ? 1f : 0f;
+        ApplyUiVisibility(visible);
+    }
+
+    private void ApplyUiVisibility(bool interactive)
+    {
+        var drawn = _visibilityProgress > 0f;
+        // Keep the scaler active while hidden; input stops as soon as the exit begins.
+        SetCanvasEnabled(drawn);
+        if (_barRoot != null)
+        {
+            if (_barRoot.gameObject.activeSelf != drawn)
+                _barRoot.gameObject.SetActive(drawn);
+            var eased = Mathf.SmoothStep(0f, 1f, _visibilityProgress);
+            _barRoot.localScale = Vector3.one * Mathf.Lerp(0.93f, 1f, eased);
+            if (_visibilityGroup != null)
+            {
+                _visibilityGroup.alpha = eased;
+                _visibilityGroup.interactable = interactive && drawn;
+                _visibilityGroup.blocksRaycasts = interactive && drawn;
+            }
+        }
     }
 
     private void SetCanvasEnabled(bool enabled)
@@ -423,8 +489,10 @@ internal sealed partial class CombatStatusBar
         _layoutScreenHeight = 0;
         _layoutCameraRect = default;
         _barRoot = null;
+        _visibilityGroup = null;
+        _visibilityProgress = 0f;
         _uiTypography = null;
-        _counterTypography = null;
+        _progressFill = null;
         _timeValue = null;
         _speedValue = null;
         _pauseButton = null;
@@ -459,13 +527,12 @@ internal sealed partial class CombatStatusBar
         float y,
         float width,
         float height,
-        int size,
-        bool counter = false
+        int size
     )
     {
         var text = CreateRect(name, parent, x, y, width, height)
             .gameObject.AddComponent<TextMeshProUGUI>();
-        var typography = counter ? _counterTypography : _uiTypography;
+        var typography = _uiTypography;
         if (typography?.Apply(text) != NativeGameTypography.Outcome.Applied)
             throw new InvalidOperationException("Native game typography became unavailable.");
         text.fontSize = size;

@@ -9,7 +9,7 @@ public sealed class CombatStatusBarLayoutTests
     [InlineData(1f)]
     [InlineData(1.5f)]
     [InlineData(2f)]
-    public void FillsSpaceBelowPortraitAtEveryDisplayScale(float scale)
+    public void LeavesSpaceAboveAndBelowAtEveryDisplayScale(float scale)
     {
         Assert.True(
             CombatStatusBarLayout.TryPlace(
@@ -24,7 +24,7 @@ public sealed class CombatStatusBarLayoutTests
                 out var height
             )
         );
-        Assert.Equal(60f * scale, height);
+        Assert.Equal(40f * scale, height);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class CombatStatusBarLayoutTests
                 out var height
             )
         );
-        Assert.Equal(60f, height);
+        Assert.Equal(40f, height);
     }
 
     [Theory]

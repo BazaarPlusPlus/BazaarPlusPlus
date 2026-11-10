@@ -16,7 +16,7 @@ public static class CombatStatusBarLayout
         out float height
     )
     {
-        height = portraitBottom - 3f * uiScale - viewportBottom;
+        height = Math.Min(40f * uiScale, (portraitBottom - viewportBottom) * 0.75f);
         return float.IsFinite(left)
             && float.IsFinite(right)
             && float.IsFinite(height)

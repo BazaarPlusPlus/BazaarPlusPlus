@@ -76,11 +76,11 @@ internal sealed partial class CombatStatusBar : MonoBehaviour
         EnsureConfigStateInitialized();
         return _screenshotSuppressionCount == 0
             && _services != null
-            && CombatStatusBarState.ShouldRenderForState(
-                _services.Config.EnableCombatStatusBarConfig.Value,
-                _services.RunContext,
-                _services.GameStateProbe
-            );
+            && _services.Config.EnableCombatStatusBarConfig.Value
+            // PvP enters its state before the versus intro and card reveal finish.
+            // CombatStarted opens this gate only when native playback actually begins.
+            && (AppState.CurrentState is not PVPCombatState || State.IsCombatPlaybackActive)
+            && AppState.CurrentState is CombatState or ReplayState;
     }
 
     internal static IDisposable? BeginScreenshotSuppression()
