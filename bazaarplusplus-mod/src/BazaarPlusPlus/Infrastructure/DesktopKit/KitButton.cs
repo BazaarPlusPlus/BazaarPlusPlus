@@ -9,10 +9,10 @@ namespace BazaarPlusPlus.Infrastructure.DesktopKit;
 /// <summary>What a kit control looks like at rest; its states follow from it.</summary>
 internal enum KitButtonKind
 {
-    /// <summary>The one leading action of a view: the game's lit brown centre in its bright frame.</summary>
+    /// <summary>The one leading action of a view: the gold plate.</summary>
     Primary,
 
-    /// <summary>The default button: the game's brown centre.</summary>
+    /// <summary>The default button: the brown plate.</summary>
     Secondary,
 
     /// <summary>A text button with a wash only under the pointer.</summary>
@@ -21,7 +21,7 @@ internal enum KitButtonKind
     /// <summary>A secondary button with ingame-failure text.</summary>
     Danger,
 
-    /// <summary>A dialog's destructive confirm: the game's red centre.</summary>
+    /// <summary>A dialog's destructive confirm: the red plate.</summary>
     DangerConfirm,
 
     /// <summary>One option of a segmented control.</summary>
@@ -49,7 +49,7 @@ internal enum KitPreviewState
 }
 
 /// <summary>
-/// What a plate shows: a game sprite under a tint, an optional frame sprite over it, and the
+/// What a plate shows: a sprite under a tint, an optional frame sprite over it, and the
 /// token colour the plate takes on the solid shape while its sprite is missing.
 /// </summary>
 internal readonly struct KitLook
@@ -138,8 +138,8 @@ internal sealed class KitPlate
         Draw(_edge, _look.Edge!.Value, _look.EdgeTint);
     }
 
-    // A sliced sprite at the scale where its own height is one md control, so a chamfer or a
-    // frame line is the same size on every plate. Without the sprite, a plain rectangle.
+    // A sliced sprite at the kit's scale, so a corner or an edge line is the same size on every
+    // plate. Without the sprite, a plain rectangle.
     internal static void Draw(Image image, DesktopKitArt art, Color color)
     {
         var sprite = DesktopNativeSkin.KitArt(art);
@@ -148,10 +148,11 @@ internal sealed class KitPlate
         if (sprite == null)
             return;
         image.type = sprite.border != Vector4.zero ? Image.Type.Sliced : Image.Type.Simple;
+        // An owned plate has its own scale; a game sprite draws so that its own height is one
+        // md control.
         image.pixelsPerUnitMultiplier = art switch
         {
-            DesktopKitArt.Shape => DesktopNativeSkin.ShapePixelsPerUnit,
-            DesktopKitArt.Ground => DesktopNativeSkin.GroundPixelsPerUnit,
+            <= DesktopKitArt.Ground => DesktopNativeSkin.KitPixelsPerUnit,
             _ => sprite.rect.height
                 / sprite.pixelsPerUnit
                 * ReferencePixelsPerUnit
@@ -162,9 +163,9 @@ internal sealed class KitPlate
 
 /// <summary>
 /// A uGUI button that paints its own plate and ink from the kit's states
-/// (design/components/InGameKit/README.md). A state is the game's own sprite for it where the
-/// game has one. "On" is the kit's selected state (a selected segment, chip, row or toggle), not
-/// Unity's keyboard selection, which a click leaves behind and the kit ignores.
+/// (design/components/InGameKit/README.md). A state is its own sprite where the kit has one.
+/// "On" is the kit's selected state (a selected segment, chip, row or toggle), not Unity's
+/// keyboard selection, which a click leaves behind and the kit ignores.
 /// </summary>
 internal sealed class KitButton : Button
 {
@@ -275,18 +276,12 @@ internal static class KitPalette
 {
     private static readonly Color White = Color.white;
 
-    /// <summary>The game's brown centre at rest, with the token it falls back to.</summary>
+    /// <summary>A control's plate at rest, with the token it falls back to.</summary>
     internal static KitLook Brown(Color flat) => new(DesktopKitArt.Plate, White, flat);
 
-    /// <summary>A selected control or row: the brown centre in the game's thin gold frame.</summary>
+    /// <summary>A selected control or row: the plate inside the soft gold line.</summary>
     internal static KitLook Selected =>
-        new(DesktopKitArt.Plate, White, InGameTheme.ButtonSelected, DesktopKitArt.Edge, SoftEdge);
-
-    /// <summary>
-    /// The frame's tint at rest: the game's gold line at full is a hard, bright edge on a small
-    /// control, so the kit mutes it and keeps the full line for the pointer.
-    /// </summary>
-    internal static Color SoftEdge => InGameTheme.WithAlpha(InGameTheme.ArtFrameTint, .8f);
+        new(DesktopKitArt.Plate, White, InGameTheme.ButtonSelected, DesktopKitArt.Edge, White);
 
     internal static (KitLook Plate, Color Ink) Resolve(
         KitButtonKind kind,
@@ -325,13 +320,7 @@ internal static class KitPalette
     ) Looks(KitButtonKind kind)
     {
         var brown = Brown(InGameTheme.Button);
-        // Under the pointer a plate takes the game's lit centre, darkened so it stays below the
-        // primary button, which shows that centre at full.
-        var brownHover = new KitLook(
-            DesktopKitArt.PlateHover,
-            InGameTheme.TintPressed,
-            InGameTheme.Chip
-        );
+        var brownHover = new KitLook(DesktopKitArt.PlateHover, White, InGameTheme.Chip);
         var brownPressed = new KitLook(
             DesktopKitArt.PlatePressed,
             White,
@@ -342,26 +331,12 @@ internal static class KitPalette
         return kind switch
         {
             KitButtonKind.Primary => (
+                new KitLook(DesktopKitArt.PrimaryPlate, White, InGameTheme.ChipActive),
+                new KitLook(DesktopKitArt.PrimaryPlateHover, White, InGameTheme.Accent),
                 new KitLook(
-                    DesktopKitArt.PlateHover,
-                    White,
-                    InGameTheme.ButtonSelected,
-                    DesktopKitArt.Edge,
-                    InGameTheme.ArtSelectedTint
-                ),
-                new KitLook(
-                    DesktopKitArt.PlateHover,
-                    DesktopNativeSkin.OverBrightHover,
-                    InGameTheme.ChipActive,
-                    DesktopKitArt.EdgeBright,
-                    White
-                ),
-                new KitLook(
-                    DesktopKitArt.PlatePressed,
-                    White,
-                    InGameTheme.ButtonSelected * InGameTheme.TintPressed,
-                    DesktopKitArt.Edge,
-                    White
+                    DesktopKitArt.PrimaryPlate,
+                    InGameTheme.TintPressed,
+                    InGameTheme.ChipActive * InGameTheme.TintPressed
                 ),
                 Selected,
                 InGameTheme.InkBright,
@@ -408,11 +383,7 @@ internal static class KitPalette
                 brown.Times(InGameTheme.TintRest),
                 brown,
                 brownPressed,
-                new KitLook(
-                    DesktopKitArt.PlateHover,
-                    InGameTheme.TintPressed,
-                    InGameTheme.ChipActive
-                ),
+                new KitLook(DesktopKitArt.PlateHover, White, InGameTheme.ChipActive),
                 InGameTheme.InkMuted,
                 InGameTheme.InkBright,
                 InGameTheme.Ink

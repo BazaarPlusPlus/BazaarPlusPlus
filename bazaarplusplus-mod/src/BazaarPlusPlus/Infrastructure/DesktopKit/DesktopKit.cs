@@ -36,7 +36,7 @@ internal enum KitIcon
 /// <summary>A surface of the kit that is not a control.</summary>
 internal enum KitSurface
 {
-    /// <summary>A rail or a well: the ground of the game's own match-history run card.</summary>
+    /// <summary>A rail or a well: the kit's ground.</summary>
     Ground,
 
     /// <summary>The track of a segmented control or the day strip: the brown centre, darkened.</summary>
@@ -45,14 +45,14 @@ internal enum KitSurface
     /// <summary>A sunk field: the brown centre darkened, in a dimmed frame so it reads on a ground.</summary>
     Field,
 
-    /// <summary>A tooltip or a dialog card: the ground in the game's thin gold frame.</summary>
+    /// <summary>A tooltip or a dialog card: the ground inside the soft gold line.</summary>
     Floating,
 }
 
 /// <summary>
 /// The Desktop UI kit (ADR-0027, design/components/InGameKit/README.md): one instance per view
-/// builds its controls from the game's own button sprites and icons, and repaints them when a
-/// sprite arrives. Controls size themselves through uGUI layout (a
+/// builds its controls from the kit's art slots (BPP's plates, the game's rule and glyphs), and
+/// repaints them when a sprite arrives. Controls size themselves through uGUI layout (a
 /// <see cref="LayoutElement"/> and, for labelled controls, a layout group); a consumer places
 /// them in its own rects or layout groups. Call <see cref="Tick"/> every frame the view shows.
 /// </summary>
@@ -172,7 +172,7 @@ internal sealed class DesktopKit
                     Color.white,
                     InGameTheme.Dialog,
                     DesktopKitArt.Edge,
-                    KitPalette.SoftEdge
+                    Color.white
                 ),
                 _ => new KitLook(DesktopKitArt.Ground, Color.white, InGameTheme.Panel),
             },
@@ -696,8 +696,8 @@ internal sealed class DesktopKit
     }
 
     /// <summary>
-    /// A floating surface (a tooltip or a dialog card): the ground in the game's thin gold
-    /// frame, so it keeps an edge over the scrim; without the ground sprite, the solid shape
+    /// A floating surface (a tooltip or a dialog card): the ground inside the soft gold
+    /// line, so it keeps an edge over the scrim; without the ground sprite, a plain rectangle
     /// in <c>ingame-dialog</c>. Its children go in the
     /// returned rect, laid out top to bottom with <paramref name="padding"/>.
     /// </summary>

@@ -34,6 +34,10 @@
       LogicalName="BazaarPlusPlus.Resources.HistoryPanel.%(Filename)%(Extension)"
     />
     <EmbeddedResource
+      Include="Resources\DesktopKit\*.png"
+      LogicalName="BazaarPlusPlus.Resources.DesktopKit.%(Filename)%(Extension)"
+    />
+    <EmbeddedResource
       Include="Resources\HistoryPanel\run-state-badges.png"
       LogicalName="BazaarPlusPlus.Resources.HistoryPanel.run-state-badges.png"
     />

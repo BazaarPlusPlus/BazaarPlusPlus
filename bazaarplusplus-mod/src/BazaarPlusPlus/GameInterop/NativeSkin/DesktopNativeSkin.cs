@@ -15,27 +15,34 @@ internal enum DesktopSkinPart
     BlueCenter,
 }
 
-/// <summary>A game sprite the Desktop UI kit draws with (ADR-0027).</summary>
+/// <summary>
+/// A sprite the Desktop UI kit draws with (ADR-0027). The plates are BPP's own art, embedded in
+/// the plugin; the rule and the glyphs are the game's.
+/// </summary>
 internal enum DesktopKitArt
 {
-    /// <summary>The solid chamfered shape, tinted: the fallback of every plate, and hover washes.</summary>
+    /// <summary>The plates' silhouette in solid white, tinted: hover washes.</summary>
     Shape,
 
-    /// <summary>The game's brown button centre, at rest, under the pointer and pressed.</summary>
+    /// <summary>A control's plate at rest, under the pointer and pressed.</summary>
     Plate,
     PlateHover,
     PlatePressed,
 
-    /// <summary>The game's red button centre in the same three states.</summary>
+    /// <summary>The primary button's plate at rest and under the pointer.</summary>
+    PrimaryPlate,
+    PrimaryPlateHover,
+
+    /// <summary>The destructive confirm's plate in three states.</summary>
     DangerPlate,
     DangerPlateHover,
     DangerPlatePressed,
 
-    /// <summary>The game's thin gold button frame, and its highlighted form.</summary>
+    /// <summary>A soft gold line along the plates' silhouette, and its brighter form.</summary>
     Edge,
     EdgeBright,
 
-    /// <summary>The ground of the game's own match-history run card.</summary>
+    /// <summary>The ground of a rail, a well or a floating surface.</summary>
     Ground,
 
     /// <summary>The fading rule the game draws between match-history runs.</summary>
@@ -65,51 +72,49 @@ internal static class DesktopNativeSkin
     ];
     private static readonly Sprite?[] Sprites = new Sprite?[Addresses.Length];
 
-    // The Desktop UI kit's art (ADR-0027), in DesktopKitArt order. Each sprite loads on its own,
-    // so a game build without one leaves the others and the frame and centre sprites above
-    // untouched.
+    // The Desktop UI kit's art (ADR-0027), in DesktopKitArt order: an embedded PNG of BPP's own
+    // (a file name), or a game sprite (an address). Each game sprite loads on its own, so a game
+    // build without one leaves the others and the frame and centre sprites above untouched.
     private const string HistoryRoot = "Assets/TheBazaar/Art/UI/Buttons/Btn_MatchHistory/";
     private const string IconRoot = "Assets/TheBazaar/Art/UI/Icons/";
-    private static readonly string[] KitAddresses =
+    private const string OwnedPrefix = "BazaarPlusPlus.Resources.DesktopKit.";
+    private static readonly string[] KitSources =
     [
-        ButtonRoot + "Btn_Rct_Frame_Fill_Solid_TUI.png",
-        ButtonRoot + "Btn_Rct_Brown_L_Center_Active_TUI.png",
-        ButtonRoot + "Btn_Rct_Brown_L_Center_Highlighted_TUI.png",
-        ButtonRoot + "Btn_Rct_Brown_L_Center_Pressed_TUI.png",
-        ButtonRoot + "Btn_Rct_Red_L_Center_Active_TUI.png",
-        ButtonRoot + "Btn_Rct_Red_L_Center_Highlighted_TUI.png",
-        ButtonRoot + "Btn_Rct_Red_L_Center_Pressed_TUI.png",
-        ButtonRoot + "Btn_Rct_Frame_L_TUI.png",
-        ButtonRoot + "Btn_Rct_Frame_L_Highlighted_TUI.png",
-        HistoryRoot + "Btn_MatchHistory_Run_Common_Background_TUI.png",
+        "shape.png",
+        "plate.png",
+        "plate-hover.png",
+        "plate-pressed.png",
+        "plate-primary.png",
+        "plate-primary-hover.png",
+        "plate-danger.png",
+        "plate-danger-hover.png",
+        "plate-danger-pressed.png",
+        "edge.png",
+        "edge-bright.png",
+        "ground.png",
         HistoryRoot + "Btn_MatchHistory_Run_Common_Divider_TUI.png",
         IconRoot + "Icon_RingBtn_X_TUI.png",
         IconRoot + "Icon_RingBtn_Search_TUI.png",
         IconRoot + "Menus/Icon_Menu_Dropdown_02_TUI.png",
     ];
-    private static readonly Sprite?[] KitSprites = new Sprite?[KitAddresses.Length];
-
-    // The game's sprite behind each kit sprite. They differ only where the skin slices its own
-    // copy, and the game's one says whether a scope release destroyed the art.
-    private static readonly Sprite?[] KitSources = new Sprite?[KitAddresses.Length];
-    private static readonly Task<Sprite?>?[] KitLoads = new Task<Sprite?>?[KitAddresses.Length];
-    private static readonly string?[] KitProblems = new string?[KitAddresses.Length];
+    private static readonly Sprite?[] KitSprites = new Sprite?[KitSources.Length];
+    private static readonly Task<Sprite?>?[] KitLoads = new Task<Sprite?>?[KitSources.Length];
+    private static readonly string?[] KitProblems = new string?[KitSources.Length];
     private static Task<Sprite?[]>? _load;
     private static Sprite? _headerNormal;
     private static Sprite? _headerSelected;
     private static bool _headerFailed;
 
     /// <summary>
-    /// The pixels-per-unit multiplier of the kit's plate shape: its 30 px slice draws 8 canvas
-    /// units deep, the chamfer the kit's spec shows on a 36 tall button.
+    /// The owned plates' pixels per canvas unit (and so their pixels-per-unit multiplier): a
+    /// plate PNG is one md control tall at this scale.
     /// </summary>
-    internal const float ShapePixelsPerUnit = 3.75f;
+    internal const float KitPixelsPerUnit = 3f;
 
     /// <summary>
-    /// The pixels-per-unit multiplier of the kit's ground: the run card's notched corner draws
-    /// about 14 canvas units deep, the kit's largest radius.
+    /// The sliced border of the owned plates, in pixels: the silhouette's corner and its rim.
     /// </summary>
-    internal const float GroundPixelsPerUnit = 4f;
+    internal const float KitBorderPixels = 30f;
 
     /// <summary>Moves whenever a sprite changes, so a view repaints the images it drew.</summary>
     internal static int Generation { get; private set; }
@@ -152,32 +157,41 @@ internal static class DesktopNativeSkin
     }
 
     /// <summary>A sprite of the kit's art, or null while it is loading or missing.</summary>
-    internal static Sprite? KitArt(DesktopKitArt art) =>
-        KitSources[(int)art] is { } source
-        && source != null
-        && KitSprites[(int)art] is { } sprite
-        && sprite != null
-            ? sprite
-            : null;
+    internal static Sprite? KitArt(DesktopKitArt art)
+    {
+        var index = (int)art;
+        if (KitSprites[index] is { } sprite && sprite != null)
+            return sprite;
+        if (!IsOwned(index) || KitProblems[index] != null)
+            return null;
+        KitSprites[index] = DecodeOwned(KitSources[index]);
+        if (KitSprites[index] == null)
+            KitProblems[index] = "decode-failed";
+        return KitSprites[index];
+    }
 
     /// <summary>Why a kit sprite is missing: null while it loads or once it is in.</summary>
     internal static string? KitArtProblem(DesktopKitArt art) => KitProblems[(int)art];
 
-    /// <summary>The file name of a kit sprite's address, for the Kit Gallery's diagnostics.</summary>
+    /// <summary>A kit sprite's file name, for the Kit Gallery's diagnostics.</summary>
     internal static string KitArtName(DesktopKitArt art) =>
-        Path.GetFileNameWithoutExtension(KitAddresses[(int)art]);
+        Path.GetFileNameWithoutExtension(KitSources[(int)art]);
+
+    private static bool IsOwned(int index) => !KitSources[index].Contains('/');
 
     /// <summary>
-    /// Starts a load of every kit sprite that is missing and not loading; true while one runs.
-    /// A sprite whose address the build lacks, or whose load failed, is remembered with the
-    /// reason and never asked again.
+    /// Starts a load of every game sprite of the kit that is missing and not loading; true while
+    /// one runs. A sprite whose address the build lacks, or whose load failed, is remembered
+    /// with the reason and never asked again. The owned plates need no load.
     /// </summary>
     internal static bool RequestKitArt()
     {
         var loading = false;
         AssetLoader? loader = null;
-        for (var index = 0; index < KitAddresses.Length; index++)
+        for (var index = 0; index < KitSources.Length; index++)
         {
+            if (IsOwned(index))
+                continue;
             PollKitArt(index);
             if (KitLoads[index] != null)
             {
@@ -194,7 +208,7 @@ internal static class DesktopNativeSkin
                 KitProblems[index] = "loader-not-ready";
                 continue;
             }
-            if (!loader.DoesAddressExist(KitAddresses[index]))
+            if (!loader.DoesAddressExist(KitSources[index]))
             {
                 KitProblems[index] = "missing-address";
                 continue;
@@ -202,7 +216,7 @@ internal static class DesktopNativeSkin
             KitProblems[index] = null;
             KitLoads[index] = NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(
                 loader,
-                KitAddresses[index]
+                KitSources[index]
             );
             loading = true;
         }
@@ -219,38 +233,15 @@ internal static class DesktopNativeSkin
             KitProblems[index] = "load-failed";
             return;
         }
-        if (load.Result == KitSources[index])
+        if (load.Result == KitSprites[index])
             return;
-        if (KitSprites[index] is { } old && old != null && old != KitSources[index])
-            UnityEngine.Object.Destroy(old);
-        KitSources[index] = load.Result;
-        KitSprites[index] = Resliced((DesktopKitArt)index, load.Result);
+        KitSprites[index] = load.Result;
         Generation++;
     }
 
-    // The game slices its run-card ground only top and bottom, for a card of one width. The kit
-    // draws it at any width, so it gets the same border on every side.
-    private static Sprite Resliced(DesktopKitArt art, Sprite sprite)
-    {
-        if (art != DesktopKitArt.Ground || sprite.packed)
-            return sprite;
-        var border = sprite.border;
-        var side = Mathf.Max(border.y, border.w);
-        if (side <= 0 || border.x > 0 || border.z > 0)
-            return sprite;
-        var sliced = Sprite.Create(
-            sprite.texture,
-            sprite.rect,
-            new Vector2(.5f, .5f),
-            sprite.pixelsPerUnit,
-            0,
-            SpriteMeshType.FullRect,
-            new Vector4(side, border.y, side, border.w)
-        );
-        sliced.name = sprite.name;
-        sliced.hideFlags = HideFlags.DontUnloadUnusedAsset;
-        return sliced;
-    }
+    // An owned plate lives for the process, like the header art below.
+    private static Sprite? DecodeOwned(string file) =>
+        Decode(OwnedPrefix + file, file, 100f, KitBorderPixels);
 
     /// <summary>Takes a finished load's sprites; true when one changed.</summary>
     internal static bool Poll()
@@ -344,11 +335,17 @@ internal static class DesktopNativeSkin
         return cache;
     }
 
-    private static Sprite? DecodeHeader(string name)
-    {
-        using var stream = typeof(DesktopNativeSkin).Assembly.GetManifestResourceStream(
-            $"BazaarPlusPlus.Resources.HistoryPanel.{name}"
+    private static Sprite? DecodeHeader(string name) =>
+        Decode(
+            $"BazaarPlusPlus.Resources.HistoryPanel.{name}",
+            name,
+            HistoryHeaderArtwork.PixelsPerUnit,
+            HistoryHeaderArtwork.BorderPixels
         );
+
+    private static Sprite? Decode(string resource, string name, float pixelsPerUnit, float border)
+    {
+        using var stream = typeof(DesktopNativeSkin).Assembly.GetManifestResourceStream(resource);
         if (stream == null)
             return null;
         using var bytes = new MemoryStream();
@@ -369,10 +366,10 @@ internal static class DesktopNativeSkin
             texture,
             new Rect(0, 0, texture.width, texture.height),
             new Vector2(.5f, .5f),
-            HistoryHeaderArtwork.PixelsPerUnit,
+            pixelsPerUnit,
             0,
             SpriteMeshType.FullRect,
-            Vector4.one * HistoryHeaderArtwork.BorderPixels
+            Vector4.one * border
         );
         sprite.hideFlags = HideFlags.DontUnloadUnusedAsset;
         texture.Apply(false, true);

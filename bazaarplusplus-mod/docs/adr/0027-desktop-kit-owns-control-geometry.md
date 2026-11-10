@@ -1,4 +1,4 @@
-# ADR-0027: The Desktop UI's controls come from one kit, drawn with the game's own sprites
+# ADR-0027: The Desktop UI's controls come from one kit, drawn on art slots
 
 Status: Accepted
 
@@ -11,12 +11,18 @@ ADR-0026 gave each UI system one owner for its native skin and its colours, and 
 
 A design review in game settled the look in `../design/components/InGameKit/README.md`: hierarchy comes from size and colour, since the game's font has one weight; emphasis has a budget.
 
-The first kit drew every plate as one solid shape tinted by a token. In the Kit Gallery that read as blocks of colour laid over the game, not as the game's UI. The review then moved the plates to game sprites, and chose the thinnest set (the `_L` centres and the hairline `Btn_Rct_Frame_L` frame) so the controls still sit behind the content.
+The look went through three rounds in the Kit Gallery, each judged in game:
+
+1. Every plate as one solid game shape tinted by a token. It read as blocks of colour laid over the game.
+2. Plates as the game's own thin button sprites (`Btn_Rct_*_L` centres, the hairline `Btn_Rct_Frame_L` frame). The angular chamfer and the hard gold line read as too sharp, muted or not.
+3. Plates as BPP's own art: one soft rounded silhouette in a painted material, with the game's rule and glyphs kept.
+
+The lesson is that the look will change again, so the kit should not know it.
 
 ## Decision
 
 1. **One kit owns control geometry and state painting.** `Infrastructure/DesktopKit/` builds the Desktop UI's controls: text in five roles, buttons (primary, secondary, quiet, danger, danger confirm; md and sm), icon buttons, segmented controls, chips, checkboxes, selects, search fields, section headers, list rows, the day strip and floating surfaces. Each takes a role and paints its own states; the consumer places it in its own rects or layout groups. A panel keeps its layout, data, interaction state and lifecycle. For controls a panel draws through the kit, this replaces ADR-0026 §3's "Panels keep their own geometry".
-2. **Plates, rules and icons are game sprites.** `DesktopNativeSkin` loads the kit's sprites (`DesktopKitArt`) each on its own, apart from the frame and centre sprites, so a game build without one leaves the rest untouched. A button state is the game's own sprite for it (`Active`, `Highlighted`, `Pressed`); a tint token only darkens a sprite (a track, a field, a disabled control). A missing sprite falls back per part: a plate to the solid `Btn_Rct_Frame_Fill_Solid_TUI` shape or a plain rectangle in a token colour, a rule to a 1 px line, the close and arrow icons to strokes. The frame and centre sprites of ADR-0026, `OverBrightHover` and the `Btn_Rectangle` literal rule stay while anything draws them (the combat status bar does).
+2. **A control draws art slots; each slot has one source.** `DesktopKitArt` names the slots: plates per state, the edge line, the ground, the wash shape, the rule and the glyphs. `DesktopNativeSkin` fills a plate slot from a PNG of BPP's own, embedded in the plugin (`Resources/DesktopKit/`), and a rule or glyph slot from a game sprite loaded by address on its own, so a game build without one leaves the rest untouched. A state is its own slot where the kit has one; a tint token only darkens a sprite (a track, a field, a disabled control). A missing sprite falls back per part: a plate to a plain rectangle in a token colour, a rule to a 1 px line, the close and arrow icons to strokes. Changing the look is replacing the PNGs (`design/components/InGameKit/art/make_kit_art.py` makes them from one material swatch); the kit and its consumers do not change. The frame and centre sprites of ADR-0026, `OverBrightHover` and the `Btn_Rectangle` literal rule stay while anything draws them (the combat status bar does).
 3. **Sizes are tokens.** `design/build.ts` generates `InGameSizes.g.cs` from the shared `control-*`, `badge-height` and `space-*` tokens and the `ingame-text-*` type sizes, which only the Desktop UI reads; the Mobile UI keeps `TouchMetrics` (ADR-0018). The kit's few derived sizes (button side padding, icon strokes) are named constants beside it. A member of `src/BazaarPlusPlus/Infrastructure/UiTokens/Sizes.cs`, `UiSpacing.cs` or `Radii.cs` is deleted with the last panel that reads it.
 4. **The colour rule covers the kit.** `InGameUiColourTests` scans `Infrastructure.DesktopKit` and the Kit Gallery like the panels (ADR-0026 §4). The desktop's dimmed-but-pressable button stays a kit state.
 5. **The kit is inspectable in game.** A Debug-build Main Overlay Panel, the Kit Gallery (`kit-gallery`), draws every control in every state beside native portraits, trophies and rank badges. It has no hotkey; the Walkthrough Control opens it. The Walkthrough Control also takes `shot <name>`: the desktop host captures the game window from inside the game to `<Data Root>/ui-shots/<name>.png`, so `just mod::ui-shots` captures panels without screen-recording permission. The Android host logs the verb as unsupported.
@@ -35,12 +41,13 @@ ADR-0026 stands except §3's geometry clause for kit controls.
 
 - A panel moves to the kit by replacing its helpers with kit calls; its layout tests keep pinning rects.
 - A kit change is checked in game: `just mod::ui-shots` captures the Kit Gallery before and after.
-- The kit's look depends on game sprites addressed by path; the Kit Gallery's diagnostics line counts the loaded ones and names each missing one with the reason.
+- The plates do not depend on the game's build. The rule and the glyphs depend on game sprites addressed by path; the Kit Gallery's diagnostics line counts the loaded sprites and names each missing one with the reason.
+- The plate art's colours live in PNGs, outside the in-game colour rule, which reads code. `make_kit_art.py` grades each plate toward a token's colour by hand; a token change does not move the art.
 
 ## Evidence
 
 - Spec: `../design/components/InGameKit/README.md`
-- Kit: `src/BazaarPlusPlus/Infrastructure/DesktopKit/`, `GameInterop/NativeSkin/DesktopNativeSkin.cs` (`DesktopKitArt`, `KitArt`, `RequestKitArt`)
+- Kit: `src/BazaarPlusPlus/Infrastructure/DesktopKit/`, `GameInterop/NativeSkin/DesktopNativeSkin.cs` (`DesktopKitArt`, `KitArt`, `RequestKitArt`), `src/BazaarPlusPlus/Resources/DesktopKit/`, `../design/components/InGameKit/art/`
 - Sizes: `../design/tokens.json`, `../design/build.ts` (`buildInGameSizes`), `src/BazaarPlusPlus/Infrastructure/UiTokens/InGameSizes.g.cs`
 - Gallery and captures: `Game/KitGallery/`, `Game/OverlayPanels/DesktopUiShot.cs`, `src/BazaarPlusPlus.Core/Game/OverlayPanels/WalkthroughControl.cs`, `scripts/ui-shots.sh`
 - Rule: `tests/Architecture.Tests/InGameUiColourTests.cs`
