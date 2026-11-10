@@ -1,32 +1,31 @@
 #nullable enable
-using BazaarPlusPlus.GameInterop.Fonts;
+using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.Supporters.Ui;
 
-// Native attribution shared by the archive and live build panels.
+// The supporter line of a Desktop panel, drawn with the panel's kit: the names in their tier
+// colours and the sponsor button.
 internal sealed class BPPSupporterNativeAttributionRow
 {
     private static readonly Color Muted = InGameTheme.InkMuted;
-    private readonly NativeGameTypography.OwnedTextPreparation _font;
+    private readonly DesktopKit _kit;
     private readonly RectTransform _names;
     private readonly TextMeshProUGUI _actionLabel;
-    private readonly Image _actionBackground;
-    private readonly Image _actionFrame;
     private readonly bool _stacked;
     private IReadOnlyList<BPPSupporterSample>? _samples;
     private string? _language;
 
     internal BPPSupporterNativeAttributionRow(
         RectTransform parent,
-        NativeGameTypography.OwnedTextPreparation font,
+        DesktopKit kit,
         TextAnchor alignment = TextAnchor.MiddleLeft,
         bool stacked = false
     )
     {
-        _font = font;
+        _kit = kit;
         _stacked = stacked;
         HorizontalOrVerticalLayoutGroup layout = stacked
             ? parent.gameObject.AddComponent<VerticalLayoutGroup>()
@@ -37,33 +36,15 @@ internal sealed class BPPSupporterNativeAttributionRow
             ? _names.gameObject.AddComponent<VerticalLayoutGroup>()
             : _names.gameObject.AddComponent<HorizontalLayoutGroup>();
         Configure(namesLayout, alignment, 5);
-        var action = Child("SupporterAction", parent);
-        var size = action.gameObject.AddComponent<LayoutElement>();
-        size.minWidth = size.preferredWidth = 78;
-        size.minHeight = size.preferredHeight = stacked ? 32 : 25;
-        _actionBackground = action.gameObject.AddComponent<Image>();
-        _actionBackground.type = Image.Type.Sliced;
-        _actionBackground.pixelsPerUnitMultiplier = 2.5f;
-        _actionFrame = Child("NativeFrame", action).gameObject.AddComponent<Image>();
-        _actionFrame.type = Image.Type.Sliced;
-        _actionFrame.pixelsPerUnitMultiplier = 2.5f;
-        _actionFrame.raycastTarget = false;
-        var button = action.gameObject.AddComponent<Button>();
-        button.targetGraphic = _actionBackground;
-        button.onClick.AddListener(() =>
-            Application.OpenURL(BPPSupporterLinks.ResolveSponsorUrl(Language()))
+        var action = kit.Button(
+            parent,
+            string.Empty,
+            stacked ? KitButtonKind.Secondary : KitButtonKind.Quiet,
+            KitSize.Sm,
+            () => Application.OpenURL(BPPSupporterLinks.ResolveSponsorUrl(Language()))
         );
-        _actionLabel = Label(action, string.Empty, InGameTheme.Supporter4);
-        _actionLabel.alignment = TextAlignmentOptions.Center;
-        SetSkin(null, null);
-    }
-
-    internal void SetSkin(Sprite? frame, Sprite? background)
-    {
-        _actionFrame.sprite = frame;
-        _actionFrame.color = frame == null ? Color.clear : Color.white;
-        _actionBackground.sprite = background;
-        _actionBackground.color = background == null ? InGameTheme.ArtFallback : Color.white;
+        action.name = "SupporterAction";
+        _actionLabel = action.GetComponentInChildren<TextMeshProUGUI>(true);
     }
 
     internal void Bind(IReadOnlyList<BPPSupporterSample> samples, string fallback)
@@ -131,18 +112,14 @@ internal sealed class BPPSupporterNativeAttributionRow
 
     private TextMeshProUGUI Label(Transform parent, string value, Color color, int size = 14)
     {
-        var text = Child("AttributionText", parent).gameObject.AddComponent<TextMeshProUGUI>();
-        _font.Apply(text);
-        text.text = value;
+        var text = _kit.Text(
+            parent,
+            value,
+            size >= 16 ? KitTextRole.Body : KitTextRole.Meta,
+            color
+        );
+        text.name = "AttributionText";
         text.richText = false;
-        text.fontStyle = FontStyles.Normal;
-        text.fontSize = size;
-        text.enableAutoSizing = false;
-        text.color = color;
-        text.alignment = TextAlignmentOptions.MidlineLeft;
-        text.textWrappingMode = TextWrappingModes.NoWrap;
-        text.overflowMode = TextOverflowModes.Ellipsis;
-        text.raycastTarget = false;
         return text;
     }
 
