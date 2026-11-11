@@ -48,7 +48,7 @@ body {
   font-family: var(--font-ui);
 }
 body {
-  font-size: 15px;
+  font-size: var(--type-body);
   line-height: 1.6;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
@@ -86,13 +86,13 @@ body {
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 18px;
+  font-size: var(--type-title);
   font-weight: 600;
 }
 .bpp-install-status-description {
   margin: 0;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 
 /* ── History ───────────────────────────────────────────────────────── */
@@ -118,7 +118,7 @@ body {
 }
 .bpp-history-stat-label {
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-history-stat-reading {
   display: flex;
@@ -127,7 +127,7 @@ body {
   margin: 0;
 }
 .bpp-history-stat-value {
-  font-size: 18px;
+  font-size: var(--type-title);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -136,7 +136,7 @@ body {
 }
 .bpp-history-stat-detail {
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-history-cleanup-chevron {
   transition: rotate var(--t-fast) var(--ease);
@@ -166,7 +166,7 @@ body {
   margin: 0;
   padding: 0 16px 12px;
   color: var(--success);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 /* Each run is a card led by its end-of-run board screenshot. */
 .bpp-history-run-list {
@@ -338,7 +338,7 @@ body {
   justify-content: space-between;
   gap: 12px;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
   font-variant-numeric: tabular-nums;
 }
 
@@ -361,11 +361,11 @@ body {
 }
 .bpp-run-detail-stat-label {
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-run-detail-stat-value {
   overflow: hidden;
-  font-size: 18px;
+  font-size: var(--type-title);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
@@ -380,7 +380,7 @@ body {
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-small);
   font-weight: 500;
   text-align: left;
   white-space: nowrap;
@@ -417,7 +417,7 @@ body {
   margin: 0;
   padding: 10px 16px 6px;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
   font-weight: 600;
 }
 .bpp-credit-list + .bpp-credit-group,
@@ -451,7 +451,7 @@ a.bpp-credit-name:hover {
 .bpp-credit-role {
   flex: none;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-panel-summary {
   display: flex;

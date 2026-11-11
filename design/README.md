@@ -52,6 +52,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 | `micro` | 13 / 1.2 / 500 | Rail labels only |
 | `code`, `code-small` | 14 and 13, mono | Paths, ports, diagnostics |
 
+- Each style's size is the CSS variable `--type-<style>` (`font-size: var(--type-caption)`). `just design::check` rejects a px font size in `bundle.css`.
 - Use `--font-mono` only for paths, addresses, ports and diagnostics that must be checked character by character. Inline `.mono` is 0.94em.
 - Set numbers in tables and stats with tabular figures (`.tnum`).
 - The root stays at 16px so Tailwind's rem scale is standard.
