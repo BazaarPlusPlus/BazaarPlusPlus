@@ -888,9 +888,6 @@ internal sealed class DesktopKit
     }
 
     /// <summary>A two-line text column: a Body title over a Meta line, which may hold rich text.</summary>
-    internal RectTransform TitleAndMeta(Transform parent, string title, string meta) =>
-        TitleAndMeta(parent, title, meta, out _, out _);
-
     /// <summary>The same, giving the two texts to a consumer that changes them later.</summary>
     internal RectTransform TitleAndMeta(
         Transform parent,

@@ -186,11 +186,6 @@ static void TestCollectionSortWidthsKeepStableGroup()
             == Sizes.CollectionSortEnglishActiveWidth + Sizes.CollectionSortEnglishInactiveWidth,
         "Changing language should preserve the total sort-group width."
     );
-    Assert(
-        Sizes.CollectionSortInactiveWidth >= Sizes.InfoChipMinWidth
-            && Sizes.CollectionSortEnglishInactiveWidth >= Sizes.InfoChipMinWidth,
-        "Inactive sort segments should not shrink below the compact chip floor."
-    );
 }
 
 static void TestOverlaySortingLayersKeepNativeCardsBetweenPanelAndForeground()

@@ -208,10 +208,3 @@ export const availableUpdate = {
   body: 'Fixture release notes.',
   rawJson: {}
 };
-
-/** History before any V6 run: only the V5 Data Root exists. */
-export const historyUnavailable: SemanticProblem = {
-  code: 'history_unavailable',
-  params: {},
-  diagnostic: null
-};

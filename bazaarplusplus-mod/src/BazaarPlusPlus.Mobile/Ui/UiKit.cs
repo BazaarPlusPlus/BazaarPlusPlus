@@ -145,18 +145,6 @@ internal static class UiKit
     public const string CloseGlyph = "X";
 
     /// <summary>
-    /// The close button every BPP surface shares: <see cref="CloseGlyph"/> at title size in the
-    /// rect its layout gives it (<c>TouchChrome.CloseAt</c>, one touch target tall).
-    /// </summary>
-    public static (Button Button, Image Background, TextMeshProUGUI Label) CloseButton(
-        RectTransform rect,
-        TMP_FontAsset font,
-        float titleFont,
-        float labelInset,
-        Action onTap
-    ) => Button(rect, font, CloseGlyph, titleFont, labelInset, onTap);
-
-    /// <summary>
     /// A vertical drag-scrolled list filling <paramref name="area"/>, with inertia; its content
     /// stretches across the viewport and hangs from its top, so rows are placed top-down.
     /// </summary>

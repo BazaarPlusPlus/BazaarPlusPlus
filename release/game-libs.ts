@@ -2510,7 +2510,7 @@ export async function fetchInteropSnapshot({
 }
 
 // One pinned input of the android-online entry as a verified local file: the
-// APK a release job injects, the Patcher and Cpp2IL a recapture runs.
+// APK device setup installs, the Patcher and Cpp2IL a recapture runs.
 export interface FetchLockedAndroidInputOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -2707,7 +2707,6 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
       [--cpp2il <file>] [--native-package <id>@<version> ...]
   bun release/game-libs.ts publish --platform <macos|windows|android> --channel <online|staging|ptr>
   bun release/game-libs.ts fetch --platform <p> --channel <c> [--steam-managed <dir>] [--allow-unlocked]
-  bun release/game-libs.ts fetch-input --input <apk|loader|patcher|cpp2il>
   bun release/game-libs.ts lock-check [--managed <dir>]
   bun release/game-libs.ts entries
   bun release/game-libs.ts behind-online --platform <macos|windows> --channel <staging|ptr>
@@ -2721,7 +2720,7 @@ snapshot-android reuses the android-online entry's toolchain unless files are
 given, and generates interop with the Patcher's Linux x64 CLI unless --interop
 names a directory generated from the same APK. fetch android online prints the
 interop directory and unpacks the Loader Release beside it. publish always, and
-fetch or fetch-input when no verified local copy exists, use the private bucket
+fetch when no verified local copy exists, use the private bucket
 ${GAME_LIBS_BUCKET} through CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the
 S3 pair is derived from the token).`;
 
@@ -2761,7 +2760,6 @@ export async function cliMain(
         'patcher-tag': { type: 'string' },
         cpp2il: { type: 'string' },
         'native-package': { type: 'string', multiple: true },
-        input: { type: 'string' },
         'apk-etag': { type: 'string' }
       }
     });
@@ -2939,18 +2937,6 @@ export async function cliMain(
           store: gameLibsStoreFromEnvironment(),
           log
         });
-        return 0;
-      }
-      case 'fetch-input': {
-        printLine(
-          await fetchLockedAndroidInput({
-            workspaceRoot,
-            modRoot,
-            // inputKind checks the input kind.
-            kind: required('input') as AndroidInputKind,
-            log
-          })
-        );
         return 0;
       }
       case 'fetch': {

@@ -521,9 +521,8 @@ public sealed class CollectionViewState
 
         var roster = CollectionSourceRoster.Build(_sourceCatalog.For(kind, effectiveHero));
         var result = new List<CollectionSourceOptionViewModel>(roster.Count);
-        foreach (var item in roster)
+        foreach (var entry in roster)
         {
-            var entry = item.Entry;
             result.Add(
                 new CollectionSourceOptionViewModel
                 {

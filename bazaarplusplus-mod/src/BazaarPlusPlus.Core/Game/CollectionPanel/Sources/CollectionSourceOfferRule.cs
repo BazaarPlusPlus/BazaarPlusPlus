@@ -91,27 +91,3 @@ public sealed class CollectionSourceOfferSegment
 
     public CollectionSourceOfferRule Rule { get; }
 }
-
-public sealed class CollectionSourceOfferMatch
-{
-    public CollectionSourceOfferMatch(
-        string segmentKey,
-        CollectionSourceOfferSegmentKind segmentKind,
-        string rarityLabel,
-        CardEnchantment? enchantmentType
-    )
-    {
-        SegmentKey = segmentKey ?? throw new ArgumentNullException(nameof(segmentKey));
-        SegmentKind = segmentKind;
-        RarityLabel = rarityLabel ?? string.Empty;
-        EnchantmentType = enchantmentType;
-    }
-
-    public string SegmentKey { get; }
-
-    public CollectionSourceOfferSegmentKind SegmentKind { get; }
-
-    public string RarityLabel { get; }
-
-    public CardEnchantment? EnchantmentType { get; }
-}

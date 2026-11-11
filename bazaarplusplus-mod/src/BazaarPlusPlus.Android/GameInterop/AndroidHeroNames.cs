@@ -12,9 +12,6 @@ internal static class AndroidHeroNames
 {
     public const string TheDragonsFallback = "The Dragons";
 
-    /// <summary>The game's localized name for The Dragons, the port Core's hero text takes.</summary>
-    public static string TheDragons() => Native(CardHero.TheDragons) ?? TheDragonsFallback;
-
     /// <summary>The game's localized name for <paramref name="hero"/>.</summary>
     public static string Display(CardHero hero) =>
         Native(hero) ?? (hero == CardHero.TheDragons ? TheDragonsFallback : hero.ToString());

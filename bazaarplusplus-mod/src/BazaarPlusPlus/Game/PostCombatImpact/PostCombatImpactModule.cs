@@ -168,7 +168,6 @@ internal sealed class PostCombatImpactModule : IBppFeature
             return;
 
         CombatImpactRuntimeEntities runtimeEntities;
-        var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         try
         {
             // The live cards and players are mutable runtime objects, so they are copied here,
@@ -181,7 +180,6 @@ internal sealed class PostCombatImpactModule : IBppFeature
             ReportProjectionException(ex);
             return;
         }
-        LogProjectionStep("runtime_read", startedAt, runtimeEntities.Entities.Count);
 
         var cardMapLoad = _cardMapProvider.BeginLoad(out _);
         _ = ProjectInBackgroundAsync(simulation, runtimeEntities, cardMapLoad, generation);
@@ -213,12 +211,10 @@ internal sealed class PostCombatImpactModule : IBppFeature
             // Back on the game thread, which CombatImpactEntitySnapshotReader.Complete requires.
             if (!_started || generation != _gameThreadGeneration)
                 return;
-            var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
             var entities = CombatImpactEntitySnapshotReader.Complete(
                 runtimeEntities,
                 scan.TransformedCards
             );
-            LogProjectionStep("transformed_read", startedAt, scan.TransformedCards.Count);
 
             var report = await Task.Run(() => ProjectAsync(scan.Timeline, entities, cardMapLoad))
                 .ConfigureAwait(false);
@@ -277,25 +273,6 @@ internal sealed class PostCombatImpactModule : IBppFeature
         }
 
         return CombatImpactProjector.Project(timeline, entities);
-    }
-
-    // Temporary timing probe for issue #528: Debug builds time the two game-thread steps of a
-    // projection, so a profiler-free run can read the combat-start cost from LogOutput.log. Delete
-    // it in the commit that decides P-22 step 2 (moving template analysis off the game thread).
-    [System.Diagnostics.Conditional("DEBUG")]
-    private static void LogProjectionStep(string step, long startedAt, int entityCount)
-    {
-        var elapsedMs =
-            (System.Diagnostics.Stopwatch.GetTimestamp() - startedAt)
-            * 1000d
-            / System.Diagnostics.Stopwatch.Frequency;
-        BppLog.DebugEvent(
-            new BppLogEvent(
-                BppLogFeatureScope.PostCombatImpact,
-                "post_combat_impact.projection.game_thread_step"
-            ),
-            () => [("step", step), ("entity_count", entityCount), ("elapsed_ms", elapsedMs)]
-        );
     }
 
     private static void ReportProjectionException(Exception ex)

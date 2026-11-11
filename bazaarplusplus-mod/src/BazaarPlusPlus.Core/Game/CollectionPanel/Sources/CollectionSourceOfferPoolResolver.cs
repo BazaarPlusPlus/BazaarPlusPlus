@@ -18,38 +18,33 @@ public static class CollectionSourceOfferPoolResolver
             return CollectionSourceOfferPoolResult.NoneSelected();
 
         var offeredCardIds = new HashSet<Guid>();
-        var matchesByCardId = new Dictionary<Guid, IReadOnlyList<CollectionSourceOfferMatch>>();
         foreach (var card in catalogCards)
         {
-            var matches = ResolveMatches(source, effectiveHero, card);
-            if (matches.Count == 0)
-                continue;
-
-            offeredCardIds.Add(card.Id);
-            matchesByCardId[card.Id] = matches;
+            if (IsOffered(source, effectiveHero, card))
+                offeredCardIds.Add(card.Id);
         }
-        return CollectionSourceOfferPoolResult.Ready(offeredCardIds, matchesByCardId);
+        return CollectionSourceOfferPoolResult.Ready(offeredCardIds);
     }
 
-    private static IReadOnlyList<CollectionSourceOfferMatch> ResolveMatches(
+    // Segments OR together; each segment keeps its own AND predicates.
+    private static bool IsOffered(
         CollectionSourceEntry source,
         CardHero effectiveHero,
         CollectionCardVm card
     )
     {
         if (card.Type != CardTypeFor(source.Kind))
-            return Array.Empty<CollectionSourceOfferMatch>();
+            return false;
 
-        var matches = new List<CollectionSourceOfferMatch>();
         foreach (var segment in source.OfferSegments)
         {
-            AddSegmentMatches(matches, source.Kind, segment, effectiveHero, card);
+            if (MatchesSegment(source.Kind, segment, effectiveHero, card))
+                return true;
         }
-        return matches;
+        return false;
     }
 
-    private static void AddSegmentMatches(
-        List<CollectionSourceOfferMatch> matches,
+    private static bool MatchesSegment(
         CollectionSourceKind sourceKind,
         CollectionSourceOfferSegment segment,
         CardHero effectiveHero,
@@ -58,32 +53,14 @@ public static class CollectionSourceOfferPoolResolver
     {
         var rule = segment.Rule;
         if (!MatchesBaseRule(sourceKind, rule, effectiveHero, card))
-            return;
+            return false;
 
+        // An enchanted segment offers a card through one of its enchantments; a normal segment
+        // needs one only where its rule constrains enchantments.
         if (segment.Kind == CollectionSourceOfferSegmentKind.Enchanted)
-        {
-            foreach (var enchantment in card.Enchantments.Values)
-            {
-                if (!MatchesEnchantment(rule, enchantment))
-                    continue;
-                matches.Add(
-                    new CollectionSourceOfferMatch(
-                        segment.Key,
-                        segment.Kind,
-                        segment.RarityLabel,
-                        enchantment.Type
-                    )
-                );
-            }
-            return;
-        }
+            return MatchesAnyEnchantment(rule, card);
 
-        if (HasEnchantmentConstraints(rule) && !MatchesAnyEnchantment(rule, card))
-            return;
-
-        matches.Add(
-            new CollectionSourceOfferMatch(segment.Key, segment.Kind, segment.RarityLabel, null)
-        );
+        return !HasEnchantmentConstraints(rule) || MatchesAnyEnchantment(rule, card);
     }
 
     private static bool MatchesBaseRule(

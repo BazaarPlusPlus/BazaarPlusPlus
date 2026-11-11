@@ -80,7 +80,6 @@ public enum HistoryPanelPreviewReasonCode
 public enum HistoryPanelPreviewPayloadReasonCode
 {
     PayloadInvalid,
-    PayloadUnreadable,
 }
 
 public enum HistoryPanelOpenReasonCode

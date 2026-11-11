@@ -8,7 +8,6 @@ public sealed class EncounterChoiceDetail
         string displayName,
         string resultText,
         EncounterRewardFilter? rewardFilter,
-        string prerequisiteSummary = "",
         bool isEligible = true,
         EncounterChoicePool? pool = null
     )
@@ -17,7 +16,6 @@ public sealed class EncounterChoiceDetail
         DisplayName = displayName;
         ResultText = resultText ?? string.Empty;
         RewardFilter = rewardFilter;
-        PrerequisiteSummary = prerequisiteSummary ?? string.Empty;
         IsEligible = isEligible;
         Pool = pool;
     }
@@ -29,8 +27,6 @@ public sealed class EncounterChoiceDetail
     public string ResultText { get; }
 
     public EncounterRewardFilter? RewardFilter { get; }
-
-    public string PrerequisiteSummary { get; }
 
     // False when the option's card prerequisites (e.g. "if you have a Bushel") are not
     // met by the player's current inventory; such options render dimmed at the bottom.

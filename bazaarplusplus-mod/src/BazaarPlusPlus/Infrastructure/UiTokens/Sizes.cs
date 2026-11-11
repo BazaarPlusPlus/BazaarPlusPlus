@@ -10,11 +10,8 @@ internal static class Sizes
     public const float ChipMinWidth = 86f;
     public const float CollectionTagChipHeight = 24f;
     public const float DayIconWidth = 40f;
-    public const float SupporterAttributionHeight = 24f;
-    public const float SupporterAttributionReservedHeight = 48f;
     public const int SupporterAttributionNameFont = 12;
     public const float SupporterAttributionNameMaxWidth = 96f;
-    public const float SupporterActionMinWidth = 74f;
     public const float HeroChipIconSize = 48f;
     public const float HeroChipButtonSize = 56f;
     public const int HeroChipsPerRow = 8;
@@ -47,7 +44,6 @@ internal static class Sizes
     public const float CollectionTabToggleHeight = 28f;
     public const float CollectionTabActiveWidth = 100f;
     public const float CollectionTabInactiveWidth = 60f;
-    public const float InfoChipMinWidth = 54f;
 
     public const int FontTiny = 10;
     public const int FontCorner = 11;

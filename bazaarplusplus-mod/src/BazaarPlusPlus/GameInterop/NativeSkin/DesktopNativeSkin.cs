@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using TheBazaar.AppFramework;
 using UnityEngine;
@@ -67,8 +66,8 @@ internal enum DesktopKitArt
 
 /// <summary>
 /// The Desktop UI's native skin (ADR-0026): the game's <c>Btn_Rectangle</c> sprites, loaded once
-/// per process in Global scope so they outlive the lobby and run scopes, and BPP's own sliced
-/// header art. A caller keeps its own retry cadence: it calls <see cref="Request"/> when it wants
+/// per process in Global scope so they outlive the lobby and run scopes, and BPP's own kit
+/// art. A caller keeps its own retry cadence: it calls <see cref="Request"/> when it wants
 /// a missing sprite again, and repaints what it drew when <see cref="Generation"/> moves.
 /// </summary>
 internal static class DesktopNativeSkin
@@ -120,9 +119,6 @@ internal static class DesktopNativeSkin
     private static readonly Task<Sprite?>?[] KitLoads = new Task<Sprite?>?[KitSources.Length];
     private static readonly string?[] KitProblems = new string?[KitSources.Length];
     private static Task<Sprite?[]>? _load;
-    private static Sprite? _headerNormal;
-    private static Sprite? _headerSelected;
-    private static bool _headerFailed;
 
     /// <summary>
     /// The owned plates' pixels per canvas unit (and so their pixels-per-unit multiplier): a
@@ -258,8 +254,8 @@ internal static class DesktopNativeSkin
         Generation++;
     }
 
-    // An owned sprite lives for the process, like the header art below. A plate is sliced; a
-    // mark or an icon is not.
+    // An owned sprite lives for the process: it is marked to survive UnloadUnusedAssets and is
+    // never destroyed. A plate is sliced; a mark or an icon is not.
     private static Sprite? DecodeOwned(string file) =>
         Decode(
             OwnedPrefix + file,
@@ -298,17 +294,6 @@ internal static class DesktopNativeSkin
         return changed;
     }
 
-    /// <summary>BPP's sliced header art for a control at rest; null if it cannot be decoded.</summary>
-    internal static Sprite? HeaderNormal => Header(ref _headerNormal, HistoryHeaderArtwork.Normal);
-
-    /// <summary>The same art for a selected control.</summary>
-    internal static Sprite? HeaderSelected =>
-        Header(ref _headerSelected, HistoryHeaderArtwork.Selected);
-
-    /// <summary>The header art's pixels-per-unit multiplier on the Desktop UI.</summary>
-    internal const float HeaderPixelsPerUnit =
-        HistoryHeaderArtwork.BorderPixels / HistoryHeaderArtwork.ButtonBorder;
-
     /// <summary>
     /// A sliced image of <paramref name="part"/> stretched over <paramref name="parent"/> and
     /// inset by <paramref name="inset"/> on every side; it takes no raycast. Until the sprite
@@ -343,33 +328,6 @@ internal static class DesktopNativeSkin
         image.sprite = Get(part);
         image.color = image.sprite != null ? tint : Color.clear;
     }
-
-    /// <summary>
-    /// The desktop's hover lifts a native button sprite above its own colours. A token holds
-    /// channels in 0..1, so this is the one colour the kit writes itself (ADR-0026).
-    /// </summary>
-    internal static Color OverBrightHover => new(1.12f, 1.12f, 1.12f, 1f);
-
-    // The art lives for the process: it is marked to survive UnloadUnusedAssets and is never
-    // destroyed. A sprite something else destroyed decodes again; one that failed stays null.
-    private static Sprite? Header(ref Sprite? cache, string name)
-    {
-        if (cache != null)
-            return cache;
-        if (_headerFailed)
-            return null;
-        cache = DecodeHeader(name);
-        _headerFailed = cache == null;
-        return cache;
-    }
-
-    private static Sprite? DecodeHeader(string name) =>
-        Decode(
-            $"BazaarPlusPlus.Resources.HistoryPanel.{name}",
-            name,
-            HistoryHeaderArtwork.PixelsPerUnit,
-            HistoryHeaderArtwork.BorderPixels
-        );
 
     private static Sprite? Decode(string resource, string name, float pixelsPerUnit, float border)
     {

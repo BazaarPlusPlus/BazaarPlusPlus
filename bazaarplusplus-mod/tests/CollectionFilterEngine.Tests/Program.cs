@@ -1580,8 +1580,7 @@ var queryResolver = new FakeOfferPoolResolver(
     new Dictionary<string, CollectionSourceOfferPoolResult>
     {
         [querySource.SourceKey] = CollectionSourceOfferPoolResult.Ready(
-            new[] { queryCatalogCards[0].Id },
-            null
+            new[] { queryCatalogCards[0].Id }
         ),
     }
 );
@@ -1657,8 +1656,7 @@ var neutralSelectedHeroResolver = new FakeOfferPoolResolver(
     new Dictionary<string, CollectionSourceOfferPoolResult>
     {
         [neutralSelectedHeroSource.SourceKey] = CollectionSourceOfferPoolResult.Ready(
-            new[] { queryCatalogCards[0].Id },
-            null
+            new[] { queryCatalogCards[0].Id }
         ),
     }
 );
@@ -1716,8 +1714,7 @@ var allHeroesTrainerResolver = new FakeOfferPoolResolver(
     new Dictionary<string, CollectionSourceOfferPoolResult>
     {
         [allHeroesTrainerSource.SourceKey] = CollectionSourceOfferPoolResult.Ready(
-            allHeroesTrainerCards.Select(card => card.Id).ToArray(),
-            null
+            allHeroesTrainerCards.Select(card => card.Id).ToArray()
         ),
     }
 );

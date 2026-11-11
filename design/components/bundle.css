@@ -14,8 +14,7 @@
   font-variant-numeric: tabular-nums;
 }
 .selectable,
-.selectable *,
-.user-content * {
+.selectable * {
   -webkit-user-select: text;
   user-select: text;
 }
