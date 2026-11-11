@@ -218,6 +218,78 @@ mod tests {
         }
     }
 
+    /// History resolves its installation with no requested path and
+    /// `DatabaseExists` (`History::resolved_game_path`): the first of the
+    /// selected, startup and fallback paths with a database wins, so a selected
+    /// installation whose database a Reset removed falls through.
+    #[test]
+    fn database_exists_skips_a_selected_installation_without_a_database() {
+        struct Row {
+            selected: Option<&'static str>,
+            startup: Option<&'static str>,
+            fallback: &'static [&'static str],
+            with_database: &'static [&'static str],
+            expected: Option<(&'static str, GamePathSource)>,
+        }
+
+        let rows = [
+            Row {
+                selected: Some("/selected"),
+                startup: Some("/startup"),
+                fallback: &["/fallback"],
+                with_database: &["/selected", "/startup", "/fallback"],
+                expected: Some(("/selected", GamePathSource::Selected)),
+            },
+            Row {
+                selected: Some("/selected"),
+                startup: Some("/startup"),
+                fallback: &["/fallback"],
+                with_database: &["/startup", "/fallback"],
+                expected: Some(("/startup", GamePathSource::Startup)),
+            },
+            Row {
+                selected: Some("/selected"),
+                startup: Some("/startup"),
+                fallback: &["/selected", "/fallback-1", "/fallback-2"],
+                with_database: &["/fallback-2"],
+                expected: Some(("/fallback-2", GamePathSource::Fallback)),
+            },
+            Row {
+                selected: Some("/selected"),
+                startup: None,
+                fallback: &["/fallback"],
+                with_database: &[],
+                expected: None,
+            },
+        ];
+
+        for row in rows {
+            let state = SelectedGameInstallationState::default();
+            if let Some(selected) = row.selected {
+                *state.selected.lock().unwrap() = Some(SelectedGameInstallation {
+                    game_path: path(selected),
+                });
+            }
+            let with_database: HashSet<PathBuf> =
+                row.with_database.iter().map(|item| path(item)).collect();
+            let resolved = state.resolve_with(
+                None,
+                row.startup.map(path),
+                GamePathAcceptance::DatabaseExists,
+                || row.fallback.iter().map(|item| path(item)).collect(),
+                |probe, candidate| {
+                    probe == GamePathProbe::DatabaseFile && with_database.contains(candidate)
+                },
+            );
+
+            assert_eq!(
+                resolved.map(|resolution| (resolution.game_path, resolution.source)),
+                row.expected
+                    .map(|(expected, source)| (path(expected), source))
+            );
+        }
+    }
+
     #[test]
     fn invalid_explicit_path_does_not_replace_a_valid_selection() {
         let root = tempfile::tempdir().unwrap();

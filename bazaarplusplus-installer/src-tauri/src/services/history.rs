@@ -625,6 +625,9 @@ fn reveal_in_file_browser(path: &Path) -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
+mod characterization_tests;
+
+#[cfg(test)]
 mod tests {
     use super::{
         history_paths_for_game_path, history_read_problem_with, history_thumbnails,
