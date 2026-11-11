@@ -1,49 +1,16 @@
-use std::path::{Component, PathBuf};
+use std::path::PathBuf;
 
+use crate::history::files::resolve_stored_path;
 use crate::services::paths;
 
+/// The screenshot a row names under the installation's Screenshots directory,
+/// by the one stored-path rule of `StoredRelativePath`.
 pub fn resolve_overlay_image_path(
     game_path: Option<PathBuf>,
     raw_path: Option<&str>,
 ) -> Option<PathBuf> {
-    let raw_path = raw_path?.trim();
-    if raw_path.is_empty() {
-        return None;
-    }
-
-    let candidate = PathBuf::from(raw_path);
-    if candidate.is_absolute() {
-        return None;
-    }
-
-    let game_path = game_path?;
-    let screenshots_directory = paths::screenshots_dir(&game_path);
-    let normalized_relative_path = normalized_relative_image_path(raw_path)?;
     // Callers that need the file check it exists; this only builds the path.
-    Some(screenshots_directory.join(normalized_relative_path))
-}
-
-fn normalized_relative_image_path(raw_path: &str) -> Option<PathBuf> {
-    let mut normalized = PathBuf::new();
-    for segment in raw_path.split(['/', '\\']) {
-        let trimmed = segment.trim();
-        if trimmed.is_empty() || trimmed == "." {
-            continue;
-        }
-        if trimmed == ".." || PathBuf::from(trimmed).components().any(is_unsafe_component) {
-            return None;
-        }
-        normalized.push(trimmed);
-    }
-
-    (!normalized.as_os_str().is_empty()).then_some(normalized)
-}
-
-fn is_unsafe_component(component: Component<'_>) -> bool {
-    matches!(
-        component,
-        Component::ParentDir | Component::RootDir | Component::Prefix(_)
-    )
+    resolve_stored_path(&paths::screenshots_dir(&game_path?), raw_path?)
 }
 
 #[cfg(test)]

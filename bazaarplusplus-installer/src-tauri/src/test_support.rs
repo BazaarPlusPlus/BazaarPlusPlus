@@ -26,9 +26,10 @@ pub(crate) struct StoredPathInput {
 /// The #989 input table. `dir` is the directory segment the table calls `a`:
 /// the orphan scan reads only past-dated folders, so its test passes a date.
 /// `absolute` is an absolute path outside every root. `C:x.png` is a Windows
-/// drive-relative path, so the table carries it only there.
+/// drive-relative path; the table carries it on every platform, since the
+/// stored-path rule compares text the same way everywhere.
 pub(crate) fn stored_path_inputs(dir: &str, absolute: &std::path::Path) -> Vec<StoredPathInput> {
-    let mut inputs = vec![
+    [
         ("a/b.png", format!("{dir}/b.png")),
         (r"a\b.png", format!(r"{dir}\b.png")),
         ("a/../b.png", format!("{dir}/../b.png")),
@@ -38,14 +39,11 @@ pub(crate) fn stored_path_inputs(dir: &str, absolute: &std::path::Path) -> Vec<S
         ("blank", "   ".to_string()),
         ("absolute", absolute.to_string_lossy().into_owned()),
         ("UNC", r"\\server\share\b.png".to_string()),
-    ];
-    if cfg!(windows) {
-        inputs.push(("C:x.png", "C:x.png".to_string()));
-    }
-    inputs
-        .into_iter()
-        .map(|(label, raw)| StoredPathInput { label, raw })
-        .collect()
+        ("C:x.png", "C:x.png".to_string()),
+    ]
+    .into_iter()
+    .map(|(label, raw)| StoredPathInput { label, raw })
+    .collect()
 }
 
 /// The files a stored path can name inside `root`, by the label a test shows

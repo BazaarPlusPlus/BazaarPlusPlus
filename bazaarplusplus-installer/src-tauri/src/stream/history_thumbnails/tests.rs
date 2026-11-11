@@ -571,48 +571,24 @@ impl StoredPathGames {
     }
 }
 
-/// On Unix `\` is only a separator to the overlay resolver, so a UNC path
-/// lands inside the Screenshots directory; on Windows it is absolute.
-fn unc(unix: &'static str, windows: &'static str) -> &'static str {
-    if cfg!(windows) {
-        windows
-    } else {
-        unix
-    }
-}
-
-/// `expected` plus the row of the Windows-only `C:x.png` input.
-fn with_drive_relative<'a>(
-    mut expected: Vec<(&'a str, &'a str)>,
-    drive_relative: &'a str,
-) -> Vec<(&'a str, &'a str)> {
-    if cfg!(windows) {
-        expected.push(("C:x.png", drive_relative));
-    }
-    expected
-}
-
 #[test]
 fn overlay_records_link_a_strip_for_each_stored_path_that_resolves() {
     let games = StoredPathGames::new();
     crate::test_support::assert_stored_path_table(
         "overlay record",
         &games.inputs(),
-        &with_drive_relative(
-            vec![
-                ("a/b.png", "strip"),
-                (r"a\b.png", "strip"),
-                ("a/../b.png", "none"),
-                ("..", "none"),
-                (".", "none"),
-                ("empty", "none"),
-                ("blank", "none"),
-                ("absolute", "none"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                ("UNC", unc("strip", "none")),
-            ],
-            "none",
-        ),
+        &[
+            ("a/b.png", "strip"),
+            (r"a\b.png", "strip"),
+            ("a/../b.png", "none"),
+            ("..", "none"),
+            (".", "none"),
+            ("empty", "none"),
+            ("blank", "none"),
+            ("absolute", "none"),
+            ("UNC", "none"),
+            ("C:x.png", "none"),
+        ],
         |input| {
             let game_path = games.game_storing(&input.raw);
             let records = crate::stream::records::OverlayRecordRepository::new(Some(game_path))
@@ -635,21 +611,18 @@ fn overlay_images_serve_the_file_each_stored_path_names() {
     crate::test_support::assert_stored_path_table(
         "strip/image",
         &games.inputs(),
-        &with_drive_relative(
-            vec![
-                ("a/b.png", "a/b.png"),
-                (r"a\b.png", "a/b.png"),
-                ("a/../b.png", "none"),
-                ("..", "none"),
-                (".", "none"),
-                ("empty", "none"),
-                ("blank", "none"),
-                ("absolute", "none"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                ("UNC", unc("server/share/b.png", "none")),
-            ],
-            "none",
-        ),
+        &[
+            ("a/b.png", "a/b.png"),
+            (r"a\b.png", "a/b.png"),
+            ("a/../b.png", "none"),
+            ("..", "none"),
+            (".", "none"),
+            ("empty", "none"),
+            ("blank", "none"),
+            ("absolute", "none"),
+            ("UNC", "none"),
+            ("C:x.png", "none"),
+        ],
         |input| {
             let game_path = games.game_storing(&input.raw);
             let thumbnails = HistoryThumbnails::default();
@@ -667,21 +640,18 @@ fn history_thumbnails_serve_the_file_each_stored_path_names() {
     crate::test_support::assert_stored_path_table(
         "History Thumbnail",
         &games.inputs(),
-        &with_drive_relative(
-            vec![
-                ("a/b.png", "a/b.png"),
-                (r"a\b.png", "a/b.png"),
-                ("a/../b.png", "none"),
-                ("..", "none"),
-                (".", "none"),
-                ("empty", "none"),
-                ("blank", "none"),
-                ("absolute", "none"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                ("UNC", unc("server/share/b.png", "none")),
-            ],
-            "none",
-        ),
+        &[
+            ("a/b.png", "a/b.png"),
+            (r"a\b.png", "a/b.png"),
+            ("a/../b.png", "none"),
+            ("..", "none"),
+            (".", "none"),
+            ("empty", "none"),
+            ("blank", "none"),
+            ("absolute", "none"),
+            ("UNC", "none"),
+            ("C:x.png", "none"),
+        ],
         |input| {
             let game_path = games.game_storing(&input.raw);
             let thumbnails = HistoryThumbnails::default();

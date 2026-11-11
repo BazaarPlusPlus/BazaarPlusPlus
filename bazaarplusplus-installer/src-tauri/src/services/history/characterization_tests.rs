@@ -1,7 +1,8 @@
-//! What the History callers do today with the stored paths of the #989 input
-//! table, and the problem each History operation reports. These record current
-//! behaviour, right or wrong: an expectation marked `#989 step 3 flips this`
-//! changes when one path rule replaces the five of today.
+//! What the History callers do with the stored paths of the #989 input table,
+//! and the problem each History operation reports. Every caller resolves a
+//! stored path through `StoredRelativePath` in `history/files.rs`, so an input
+//! the rule rejects names no file: reveal reports it, a delete keeps the file,
+//! and a reference still protects every file with its last segment as name.
 
 use super::{
     execute_storage_cleanup_with, CleanupPlans, History, StorageCleanupExecution,
@@ -180,55 +181,27 @@ fn preview_and_execute(
     history.execute_cleanup(scope, StorageCleanupPreset::All, &plans, plan_id)
 }
 
-/// `expected` plus the row of the Windows-only `C:x.png` input.
-fn with_drive_relative<'a>(
-    mut expected: Vec<(&'a str, &'a str)>,
-    drive_relative: &'a str,
-) -> Vec<(&'a str, &'a str)> {
-    if cfg!(windows) {
-        expected.push(("C:x.png", drive_relative));
-    }
-    expected
-}
-
-/// On Unix `\` is only a separator to the History resolvers, so a UNC path
-/// lands inside the root; on Windows it is absolute.
-fn unc(unix: &'static str, windows: &'static str) -> &'static str {
-    if cfg!(windows) {
-        windows
-    } else {
-        unix
-    }
-}
-
 #[test]
 fn reveal_screenshot_resolves_each_stored_path() {
     let games = Games::new();
     assert_stored_path_table(
         "reveal screenshot",
         &games.inputs("a"),
-        &with_drive_relative(
-            vec![
-                (
-                    "a/b.png",
-                    "pinned by history_facade_owns_paths_queries_reveals_deletes_and_cleanup",
-                ),
-                (r"a\b.png", "<root>/a/b.png"),
-                // #989 step 3 flips this: `..` is dropped, not rejected.
-                ("a/../b.png", "<root>/a/b.png"),
-                // #989 step 3 flips this: reveals the Screenshots directory.
-                ("..", "<root>"),
-                // #989 step 3 flips this: reveals the Screenshots directory.
-                (".", "<root>"),
-                ("empty", "rejected"),
-                ("blank", "rejected"),
-                ("absolute", "rejected"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                ("UNC", unc("<root>/server/share/b.png", "rejected")),
-            ],
-            // #989 step 3 flips this: the drive prefix replaces the root.
-            "C:x.png",
-        ),
+        &[
+            (
+                "a/b.png",
+                "pinned by history_facade_owns_paths_queries_reveals_deletes_and_cleanup",
+            ),
+            (r"a\b.png", "<root>/a/b.png"),
+            ("a/../b.png", "rejected"),
+            ("..", "rejected"),
+            (".", "rejected"),
+            ("empty", "rejected"),
+            ("blank", "rejected"),
+            ("absolute", "rejected"),
+            ("UNC", "rejected"),
+            ("C:x.png", "rejected"),
+        ],
         |input| {
             let game = games.fresh();
             rusqlite::Connection::open(paths::database_path(&game))
@@ -257,29 +230,21 @@ fn reveal_video_resolves_each_stored_path_that_exists() {
     assert_stored_path_table(
         "reveal video",
         &games.inputs("a"),
-        &with_drive_relative(
-            vec![
-                (
-                    "a/b.png",
-                    "pinned by history_facade_owns_paths_queries_reveals_deletes_and_cleanup",
-                ),
-                (r"a\b.png", "<root>/a/b.png"),
-                // #989 step 3 flips this: `..` is dropped, not rejected.
-                ("a/../b.png", "<root>/a/b.png"),
-                // #989 step 3 flips this: reveals the video directory.
-                ("..", "<root>"),
-                // #989 step 3 flips this: reveals the video directory.
-                (".", "<root>"),
-                ("empty", "rejected"),
-                ("blank", "rejected"),
-                ("absolute", "rejected"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                ("UNC", unc("<root>/server/share/b.png", "rejected")),
-            ],
-            // #989 step 3 flips this: resolves `C:x.png` outside the root,
-            // where no such file exists.
-            "missing",
-        ),
+        &[
+            (
+                "a/b.png",
+                "pinned by history_facade_owns_paths_queries_reveals_deletes_and_cleanup",
+            ),
+            (r"a\b.png", "<root>/a/b.png"),
+            ("a/../b.png", "rejected"),
+            ("..", "rejected"),
+            (".", "rejected"),
+            ("empty", "rejected"),
+            ("blank", "rejected"),
+            ("absolute", "rejected"),
+            ("UNC", "rejected"),
+            ("C:x.png", "rejected"),
+        ],
         |input| {
             let game = games.fresh();
             write_stored_path_targets(&paths::combat_replay_videos_dir(&game), "a");
@@ -306,35 +271,22 @@ fn delete_video_removes_the_file_each_stored_path_names() {
     assert_stored_path_table(
         "delete video",
         &games.inputs("a"),
-        &with_drive_relative(
-            vec![
-                (
-                    "a/b.png",
-                    "pinned by history_facade_owns_paths_queries_reveals_deletes_and_cleanup",
-                ),
-                (r"a\b.png", "ok; row deleted; removed a/b.png"),
-                // #989 step 3 flips this: `..` is dropped, not rejected.
-                ("a/../b.png", "ok; row deleted; removed a/b.png"),
-                // #989 step 3 flips this: unlinking the video directory fails,
-                // so the row stays.
-                ("..", "rejected; row kept; removed none"),
-                // #989 step 3 flips this: as `..`.
-                (".", "rejected; row kept; removed none"),
-                ("empty", "ok; row deleted; removed none"),
-                ("blank", "ok; row deleted; removed none"),
-                // A stored path outside the root keeps its file and loses its row.
-                ("absolute", "ok; row deleted; removed none"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                (
-                    "UNC",
-                    unc(
-                        "ok; row deleted; removed server/share/b.png",
-                        "ok; row deleted; removed none",
-                    ),
-                ),
-            ],
-            "ok; row deleted; removed none",
-        ),
+        // A path the rule rejects keeps every file and loses its row.
+        &[
+            (
+                "a/b.png",
+                "pinned by history_facade_owns_paths_queries_reveals_deletes_and_cleanup",
+            ),
+            (r"a\b.png", "ok; row deleted; removed a/b.png"),
+            ("a/../b.png", "ok; row deleted; removed none"),
+            ("..", "ok; row deleted; removed none"),
+            (".", "ok; row deleted; removed none"),
+            ("empty", "ok; row deleted; removed none"),
+            ("blank", "ok; row deleted; removed none"),
+            ("absolute", "ok; row deleted; removed none"),
+            ("UNC", "ok; row deleted; removed none"),
+            ("C:x.png", "ok; row deleted; removed none"),
+        ],
         |input| {
             let game = games.fresh();
             let targets = write_stored_path_targets(&paths::combat_replay_videos_dir(&game), "a");
@@ -359,34 +311,21 @@ fn screenshot_cleanup_unlinks_the_file_each_deleted_row_names() {
     assert_stored_path_table(
         "cleanup candidate",
         &games.inputs("a"),
-        &with_drive_relative(
-            vec![
-                (
-                    "a/b.png",
-                    "pinned by execute_deletes_rows_and_orphans_but_leaves_mod_owned_cache",
-                ),
-                (r"a\b.png", "ok, 1 row; removed a/b.png"),
-                // #989 step 3 flips this: `..` is dropped, not rejected.
-                ("a/../b.png", "ok, 1 row; removed a/b.png"),
-                // #989 step 3 flips this: unlinking the Screenshots directory
-                // fails after the row is gone.
-                ("..", "rejected; removed none"),
-                // #989 step 3 flips this: as `..`.
-                (".", "rejected; removed none"),
-                ("empty", "ok, 1 row; removed none"),
-                ("blank", "ok, 1 row; removed none"),
-                ("absolute", "ok, 1 row; removed none"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                (
-                    "UNC",
-                    unc(
-                        "ok, 1 row; removed server/share/b.png",
-                        "ok, 1 row; removed none",
-                    ),
-                ),
-            ],
-            "ok, 1 row; removed none",
-        ),
+        &[
+            (
+                "a/b.png",
+                "pinned by execute_deletes_rows_and_orphans_but_leaves_mod_owned_cache",
+            ),
+            (r"a\b.png", "ok, 1 row; removed a/b.png"),
+            ("a/../b.png", "ok, 1 row; removed none"),
+            ("..", "ok, 1 row; removed none"),
+            (".", "ok, 1 row; removed none"),
+            ("empty", "ok, 1 row; removed none"),
+            ("blank", "ok, 1 row; removed none"),
+            ("absolute", "ok, 1 row; removed none"),
+            ("UNC", "ok, 1 row; removed none"),
+            ("C:x.png", "ok, 1 row; removed none"),
+        ],
         |input| {
             let game = games.fresh();
             let targets = write_stored_path_targets(&paths::screenshots_dir(&game), "a");
@@ -410,25 +349,23 @@ fn screenshot_cleanup_keeps_the_files_a_surviving_row_references() {
     assert_stored_path_table(
         "cleanup reference set",
         &games.inputs("a"),
-        &with_drive_relative(
-            vec![
-                (
-                    "a/b.png",
-                    "pinned by execute_preserves_shared_file_referenced_by_a_protected_primary_screenshot",
-                ),
-                (r"a\b.png", "kept a/b.png"),
-                // #989 step 3 flips this: the reference keeps `a/b.png`.
-                ("a/../b.png", "kept a/b.png"),
-                ("..", "kept none"),
-                (".", "kept none"),
-                ("empty", "kept none"),
-                ("blank", "kept none"),
-                ("absolute", "kept none"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                ("UNC", unc("kept server/share/b.png", "kept none")),
-            ],
-            "kept none",
-        ),
+        // A rejected reference protects every file named as its last segment,
+        // so it keeps at least the file it kept before the rule.
+        &[
+            (
+                "a/b.png",
+                "pinned by execute_preserves_shared_file_referenced_by_a_protected_primary_screenshot",
+            ),
+            (r"a\b.png", "kept a/b.png"),
+            ("a/../b.png", "kept a/b.png, b.png, server/share/b.png"),
+            ("..", "kept none"),
+            (".", "kept none"),
+            ("empty", "kept none"),
+            ("blank", "kept none"),
+            ("absolute", "kept none"),
+            ("UNC", "kept a/b.png, b.png, server/share/b.png"),
+            ("C:x.png", "kept none"),
+        ],
         |input| {
             let game = games.fresh();
             let targets = write_stored_path_targets(&paths::screenshots_dir(&game), "a");
@@ -458,24 +395,22 @@ fn screenshot_orphan_scan_spares_the_files_a_row_references() {
     assert_stored_path_table(
         "orphan scan",
         &games.inputs(dir),
-        &with_drive_relative(
-            vec![
-                ("a/b.png", "referenced"),
-                (
-                    r"a\b.png",
-                    "pinned by plan_detects_orphan_files_only_in_qualifying_dated_folders",
-                ),
-                // #989 step 3 flips this: `..` is dropped, not rejected.
-                ("a/../b.png", "referenced"),
-                ("..", "orphan"),
-                (".", "orphan"),
-                ("empty", "orphan"),
-                ("blank", "orphan"),
-                ("absolute", "orphan"),
-                ("UNC", "orphan"),
-            ],
-            "orphan",
-        ),
+        // A rejected reference spares every file named as its last segment.
+        &[
+            ("a/b.png", "referenced"),
+            (
+                r"a\b.png",
+                "pinned by plan_detects_orphan_files_only_in_qualifying_dated_folders",
+            ),
+            ("a/../b.png", "referenced"),
+            ("..", "orphan"),
+            (".", "orphan"),
+            ("empty", "orphan"),
+            ("blank", "orphan"),
+            ("absolute", "orphan"),
+            ("UNC", "referenced"),
+            ("C:x.png", "orphan"),
+        ],
         |input| {
             let game = games.fresh();
             write_stored_path_targets(&paths::screenshots_dir(&game), dir);
@@ -500,42 +435,55 @@ fn screenshot_orphan_scan_spares_the_files_a_row_references() {
     );
 }
 
+/// Before the rule, the orphan scan dropped the leading separator of an
+/// absolute row, so `/2020-01-01/b.png` spared `2020-01-01/b.png`. The rule
+/// rejects the row, and its file name still spares the file.
+#[test]
+fn an_absolute_row_still_spares_the_dated_file_it_names() {
+    let games = Games::new();
+    for raw in ["/2020-01-01/b.png", r"\2020-01-01\b.png"] {
+        let game = games.fresh();
+        write_stored_path_targets(&paths::screenshots_dir(&game), "2020-01-01");
+        insert_screenshot(&game, "keep", "manual", raw);
+        match history(&game)
+            .preview_cleanup(
+                StorageCleanupScope::Screenshots,
+                StorageCleanupPreset::All,
+                &CleanupPlans::default(),
+            )
+            .unwrap()
+        {
+            StorageCleanupPreview::Screenshots { preview, .. } => {
+                assert_eq!(preview.orphan_files, 0, "{raw}")
+            }
+            other => panic!("expected a screenshot preview, got {other:?}"),
+        }
+    }
+}
+
 #[test]
 fn run_data_cleanup_retries_each_recorded_video_path() {
     let games = Games::new();
     assert_stored_path_table(
         "retry record",
         &games.inputs("a"),
-        &with_drive_relative(
-            vec![
-                (
-                    "a/b.png",
-                    "pinned by a_failed_unlink_is_retried_by_the_next_cleanup_after_its_rows_are_gone",
-                ),
-                (r"a\b.png", "ok; removed a/b.png; record gone"),
-                // #989 step 3 flips this: `..` is dropped, not rejected.
-                ("a/../b.png", "ok; removed a/b.png; record gone"),
-                // #989 step 3 flips this: unlinking the video directory fails,
-                // and the record keeps an empty line the reader drops.
-                ("..", "rejected; removed none; record \"\\n\""),
-                // #989 step 3 flips this: as `..`.
-                (".", "rejected; removed none; record \"\\n\""),
-                // The reader drops empty lines, so no cleanup session opens and
-                // the record stays as written.
-                ("empty", "ok; removed none; record kept"),
-                ("blank", "ok; removed none; record kept"),
-                ("absolute", "ok; removed none; record kept"),
-                // #989 step 3 flips this on Unix: a leading `\\` is a root.
-                (
-                    "UNC",
-                    unc(
-                        "ok; removed server/share/b.png; record gone",
-                        "ok; removed none; record kept",
-                    ),
-                ),
-            ],
-            "ok; removed none; record kept",
-        ),
+        // The plan drops an empty line and a path the rule rejects, so no
+        // cleanup session opens and the record stays as written.
+        &[
+            (
+                "a/b.png",
+                "pinned by a_failed_unlink_is_retried_by_the_next_cleanup_after_its_rows_are_gone",
+            ),
+            (r"a\b.png", "ok; removed a/b.png; record gone"),
+            ("a/../b.png", "ok; removed none; record kept"),
+            ("..", "ok; removed none; record kept"),
+            (".", "ok; removed none; record kept"),
+            ("empty", "ok; removed none; record kept"),
+            ("blank", "ok; removed none; record kept"),
+            ("absolute", "ok; removed none; record kept"),
+            ("UNC", "ok; removed none; record kept"),
+            ("C:x.png", "ok; removed none; record kept"),
+        ],
         |input| {
             let game = games.fresh();
             let targets = write_stored_path_targets(&paths::combat_replay_videos_dir(&game), "a");
