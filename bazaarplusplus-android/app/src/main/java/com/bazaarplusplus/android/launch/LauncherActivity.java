@@ -481,10 +481,8 @@ public final class LauncherActivity extends Activity implements LauncherSession.
             case REPLACE:
                 return R.string.status_replace;
             case OFFLINE:
-                return R.string.status_offline;
-            case NOT_RELEASED:
             default:
-                return R.string.status_not_released;
+                return R.string.status_offline;
         }
     }
 
@@ -529,8 +527,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
                 return R.string.replace_game;
             case RELEASE_UNAVAILABLE:
                 return R.string.release_unavailable;
-            case NO_RELEASE:
-                return R.string.no_release;
             case DEV_INTEROP:
             default:
                 return R.string.dev_interop;

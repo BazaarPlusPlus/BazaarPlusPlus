@@ -171,15 +171,15 @@ static async Task TestAndroidAppIsReadOnlyWhenComplete()
     );
     True(desktop.AndroidApp == null, "Another platform's record names no Android App.");
 
-    const string retired = """
-        {"version":"6.0.2","downloads":{"android-aarch64":{"apk":{"url":"https://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"game":{"gameVersion":"1.0.12825-production-android-d9601ded"}}}}
+    const string withoutApp = """
+        {"version":"6.0.2","downloads":{"android-aarch64":{"game":{"gameVersion":"1.0.12825-production-android-d9601ded"}}}}
         """;
-    var aShape = await Fetch(
-        _ => Response(HttpStatusCode.OK, retired),
+    var appless = await Fetch(
+        _ => Response(HttpStatusCode.OK, withoutApp),
         platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
     );
-    True(aShape.Succeeded, "The version is still published.");
-    True(aShape.AndroidApp == null, "The retired injected-APK shape names no Android App.");
+    True(appless.Succeeded, "The version is still published.");
+    True(appless.AndroidApp == null, "A record without an App names no Android App.");
 
     const string withoutGame = """
         {"version":"3.4.5","downloads":{"android-aarch64":{"app":{"url":"https://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}}}}

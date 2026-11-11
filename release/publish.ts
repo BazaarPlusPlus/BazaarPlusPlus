@@ -16,7 +16,6 @@ import {
   fragmentArtifacts,
   fragmentKey,
   installerFileName,
-  isRetiredAndroidManifest,
   managedPayloadKey,
   mergeReleaseManifest,
   mirrorRecordKey,
@@ -34,8 +33,7 @@ import type {
   MirrorRecord,
   PlatformFragment,
   PlatformManifest,
-  ReleaseManifest,
-  RetiredAndroidPlatformManifest
+  ReleaseManifest
 } from './manifest.ts';
 import { assertMainlandMirrors, checkMainlandMirror } from './mirror.ts';
 import type { ProbeMirror } from './mirror.ts';
@@ -344,8 +342,6 @@ async function selfUpdatableFromPromoted(
   facts: { historyDatabaseUserVersion: number; nonManagedPayloadDigest: string }
 ): Promise<boolean> {
   const manifest = await readPlatformManifest(store, platform);
-  // No installed Android App can take a release over an injected APK.
-  if (isRetiredAndroidManifest(manifest, platform)) return false;
   const promoted = manifest?.downloads[platform];
   if (manifest?.version === version)
     return manifest.downloads[platform].selfUpdatable;
@@ -428,8 +424,7 @@ export async function uploadPlatform({
 // (ADR 0009, 2026-11-01 note), checked in two layers: the APK's certificate
 // must be the one release code pins, and once an Android App is promoted it
 // must also be the one that App carries: Android refuses to install an APK
-// over one signed by another certificate. A promoted ADR 0010 manifest names
-// another package's APK, so only the first layer applies over it.
+// over one signed by another certificate.
 async function assertAndroidSigner(
   store: ObjectStore,
   platform: string,
@@ -441,10 +436,11 @@ async function assertAndroidSigner(
       `The Android App APK is signed by ${signerSha256}, not the release key ${releaseSignerSha256} (docs/adr/0009-android-release-key.md)`
     );
   // The Android platform's manifest is an Android one; the read proves it.
-  const manifest = await readPlatformManifest<
-    AndroidPlatformManifest | RetiredAndroidPlatformManifest
-  >(store, platform);
-  if (!manifest || isRetiredAndroidManifest(manifest, platform)) return;
+  const manifest = await readPlatformManifest<AndroidPlatformManifest>(
+    store,
+    platform
+  );
+  if (!manifest) return;
   const promoted = manifest.downloads[platform].app.signerSha256;
   if (promoted !== signerSha256)
     throw new Error(
@@ -821,9 +817,7 @@ async function writeLockstepManifest(
 // Promote one platform without waiting for the others. The lockstep Release
 // Manifest advances only once every Lockstep Platform names the same release
 // (ADR 0003). Android writes only its Platform Release Manifest and records
-// no mainland mirror (ADR 0012). Over a promoted ADR 0010 manifest it is
-// the first Android App release: the version still cannot roll back and the
-// ETag still guards the write (isRetiredAndroidManifest in manifest.ts).
+// no mainland mirror (ADR 0012).
 export async function promotePlatform({
   version,
   platform,

@@ -136,11 +136,7 @@ public final class PlatformManifest {
         this.nonManagedPayloadDigest = nonManagedPayloadDigest;
     }
 
-    /**
-     * Decodes a manifest. Returns null for the retired injected-APK shape ({@code apk} without
-     * {@code app}): that is "no Android App release yet", not an error. Anything else that is not
-     * ADR 0012's shape throws.
-     */
+    /** Decodes a manifest. Anything that is not ADR 0012's shape throws. */
     public static PlatformManifest decode(String text, ReleaseOrigin origin) throws MalformedReleaseException {
         return decode(text, origin, false);
     }
@@ -161,7 +157,6 @@ public final class PlatformManifest {
         String version = StrictJson.version(root, "version");
         String gitCommit = StrictJson.string(root, "gitCommit");
         JSONObject record = StrictJson.object(StrictJson.object(root, "downloads"), ReleaseOrigin.PLATFORM_KEY);
-        if (!carried && !record.has("app") && record.has("apk")) return null;
         if (carried && record.has("app")) throw new MalformedReleaseException("A carried release names an app");
 
         String versioned = "/" + version + "/" + ReleaseOrigin.PLATFORM_KEY;

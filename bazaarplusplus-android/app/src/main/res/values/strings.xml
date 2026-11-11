@@ -21,7 +21,6 @@
   <string name="status_not_installed">Not installed</string>
   <string name="status_replace">Replacement required</string>
   <string name="status_offline">Offline</string>
-  <string name="status_not_released">Not released</string>
 
   <string name="play">Play</string>
   <string name="native_launch">Open the official game</string>
@@ -34,7 +33,6 @@
   <string name="replace_game">This is the old BazaarPlusPlus build of The Bazaar. Uninstall it, then install the official game. Uninstalling removes the old build’s local History.</string>
   <string name="release_unavailable">Couldn’t read the BazaarPlusPlus release. Connect to the internet and try again.</string>
   <string name="release_from_cache">Offline: using the release saved on this device.</string>
-  <string name="no_release">BazaarPlusPlus for Android has no release yet.</string>
   <string name="game_not_adapted">BazaarPlusPlus is not adapted to game %1$s yet. Until a release adapts it, only the official game can start.</string>
   <string name="update_game">Update the game to %1$s first.</string>
   <string name="last_install_failed">The last plugin install failed. This launch installs it again; if it fails again, export diagnostics.</string>

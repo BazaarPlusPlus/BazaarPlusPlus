@@ -9,7 +9,6 @@
   <string name="status_not_installed">未安裝</string>
   <string name="status_replace">需要更換</string>
   <string name="status_offline">離線</string>
-  <string name="status_not_released">未發布</string>
 
   <string name="play">開始遊戲</string>
   <string name="native_launch">開啟官方遊戲</string>
@@ -22,7 +21,6 @@
   <string name="replace_game">這是舊版 BazaarPlusPlus 打包的 The Bazaar。請先解除安裝舊版，再安裝官方遊戲。解除安裝會刪除舊版的本機戰績。</string>
   <string name="release_unavailable">未能讀取 BazaarPlusPlus 的發布資訊。請連上網路後重試。</string>
   <string name="release_from_cache">離線：使用本機儲存的發布版本。</string>
-  <string name="no_release">BazaarPlusPlus 還沒有發布 Android 版。</string>
   <string name="game_not_adapted">BPP 尚未適配遊戲 %1$s，適配版本發布前只能原版啟動。</string>
   <string name="update_game">請先把遊戲更新到 %1$s。</string>
   <string name="last_install_failed">上次安裝外掛失敗。這次啟動會重新安裝；如果再次失敗，請匯出診斷資訊。</string>

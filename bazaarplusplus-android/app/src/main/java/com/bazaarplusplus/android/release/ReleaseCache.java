@@ -17,25 +17,21 @@ public final class ReleaseCache {
 
     /** The manifest as the launcher sees it. */
     public static final class ManifestState {
-        /** Null when there is no release (see {@link #noRelease}) or nothing could be read. */
+        /** Null when nothing could be read. */
         public final PlatformManifest manifest;
-        /** The manifest is the retired injected-APK shape: no Android App release yet. */
-        public final boolean noRelease;
         /** The network failed and {@link #manifest} is the cached copy. */
         public final boolean fromCache;
         /** Why the network read failed, or null. */
         public final String networkError;
 
-        ManifestState(PlatformManifest manifest, boolean noRelease, boolean fromCache, String networkError) {
+        ManifestState(PlatformManifest manifest, boolean fromCache, String networkError) {
             this.manifest = manifest;
-            this.noRelease = noRelease;
             this.fromCache = fromCache;
             this.networkError = networkError;
         }
 
         @Override
         public String toString() {
-            if (noRelease) return "no Android App release";
             if (manifest == null) return "unavailable (" + networkError + ")";
             return manifest.version + (fromCache ? " from cache (" + networkError + ")" : "");
         }
@@ -61,9 +57,8 @@ public final class ReleaseCache {
         try {
             String text = Download.text(network.apply(origin.manifestUrl()), MAX_DOCUMENT);
             PlatformManifest manifest = PlatformManifest.decode(text, origin);
-            if (manifest == null) return new ManifestState(null, true, false, null);
             AtomicFiles.writeUtf8(cache, text);
-            return new ManifestState(manifest, false, false, null);
+            return new ManifestState(manifest, false, null);
         } catch (IOException | MalformedReleaseException e) {
             error = e.getMessage();
         }
@@ -81,6 +76,6 @@ public final class ReleaseCache {
         PlatformManifest best = last == null ? carriedRelease
                 : carriedRelease == null || ManagedPayloadStaging.compareVersions(last.version, carriedRelease.version) >= 0
                         ? last : carriedRelease;
-        return best != null ? new ManifestState(best, false, true, error) : new ManifestState(null, false, false, error);
+        return best != null ? new ManifestState(best, true, error) : new ManifestState(null, false, error);
     }
 }
