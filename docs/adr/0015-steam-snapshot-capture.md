@@ -4,7 +4,7 @@
 
 [ADR 0004](0004-pinned-game-assembly-snapshots.md) 把采集留在挂了对应分支的机器上手工执行，理由是 Steam Guard 在无人值守环境下不可靠，并写明"自动化另起决定"。手工采集的代价已经出现：同一渠道的两个平台会相差很多个版本，发布也要跳过过期的预览渠道。iOS App 的 Service 证明了这个理由已经不成立：操作员登录一次后，保存的 refresh token 可以不经 Steam Guard 再次登录，SteamKit 也能直接从 depot 下载文件。
 
-决定如下。桌面的六个锁条目都从 Steam depot 采集。`bazaarplusplus-mod/tools/SteamSnapshot` 用 refresh token 登录，读取分支的 buildid 和 depot manifest，只下载 `globalgamemanagers` 和它旁边的 `Managed/`。它不假设平台的安装目录结构，所以 Linux runner 可以采集 macOS 和 Windows 两个平台。下载后的文件走 `captureSnapshot` 的原有路径：游戏版本串、渠道与分支的核对、Managed 摘要都不变。`release/game-libs.ts` 拥有 depot 的对应关系，`release/snapshot-lock.ts` 拥有渠道与分支的对应关系，工具本身不知道渠道。
+决定如下。桌面的六个锁条目都从 Steam depot 采集。`bazaarplusplus-mod/tools/SteamSnapshot` 用 refresh token 登录，读取分支的 buildid 和 depot manifest，只下载 `globalgamemanagers` 和它旁边的 `Managed/`。它不假设平台的安装目录结构，所以 Linux runner 可以采集 macOS 和 Windows 两个平台。下载后的文件走 `captureSnapshot` 的原有路径：游戏版本串、渠道与分支的核对、Managed 摘要都不变。`release/game-assembly-snapshot.ts` 的 `STEAM_DEPOTS` 拥有 depot 的对应关系，`release/snapshot-lock.ts` 拥有渠道与分支的对应关系，工具本身不知道渠道。
 
 `.github/workflows/steam-snapshot-watch.yml` 每小时按渠道分别运行 `steam-snapshot-channel.yml`，一个渠道失败不影响其他渠道，每个渠道有自己的 PR。它比较 Steam 的 buildid 和锁条目。buildid 是应用级的，任何 depot 变化都会移动它，所以它只决定何时采集。采集后按结果分三种：Managed 摘要变了是 `code`，只有游戏版本串变了是 `content`，都没变是 `none`。`none` 不改锁也不开 PR，代价是下一次游戏更新前每小时多下载一次这些文件。另外两种发布到私有存储，再开一个只改锁文件的 PR，锁仍然只通过 PR 更新，由人合并，这一点与 ADR 0004 相同。
 

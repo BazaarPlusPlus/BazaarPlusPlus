@@ -11,7 +11,7 @@
          which also checks their sha256 against the entry;
       3. nothing: BppValidateInteropPath fails the build naming the entry to capture or fetch.
     LemonLoaderManagedPath is where the Loader Release keeps MelonLoader.dll, 0Harmony.dll and
-    Il2CppInterop.Runtime.dll (release/game-libs.ts LOADER_MANAGED_DIRECTORY).
+    Il2CppInterop.Runtime.dll (release/interop-snapshot.ts LOADER_MANAGED_DIRECTORY).
   -->
   <PropertyGroup>
     <BppGameLibsLock Condition="'$(BppGameLibsLock)' == ''"

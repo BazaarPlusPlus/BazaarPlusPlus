@@ -1,7 +1,7 @@
 using System.Text.Json;
 using BazaarPlusPlus.SteamSnapshot;
 
-// stdout carries one JSON line for release/game-libs.ts; everything else goes to stderr.
+// stdout carries one JSON line for steamToolRunner in release/game-assembly-snapshot.ts; everything else goes to stderr.
 const string Usage = """
     BazaarPlusPlus.SteamSnapshot, driven by bazaarplusplus-mod/scripts/game.sh:
       login --out <file>     Sign in at the terminal and save the login with owner-only access

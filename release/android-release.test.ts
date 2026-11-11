@@ -33,7 +33,7 @@ import {
   LOADER_MANAGED_DIRECTORY,
   LOADER_MARKER,
   interopDirectoryDigest
-} from './game-libs.ts';
+} from './interop-snapshot.ts';
 import { GAME_LIBS_LOCK_PATH, INTEROP_KEY } from './snapshot-lock.ts';
 import {
   androidAppKey,

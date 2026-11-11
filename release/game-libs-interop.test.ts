@@ -9,28 +9,27 @@ import {
   parseUnityBundleVersion
 } from './android-apk.ts';
 import type { AndroidManifestVersion } from './android-apk.ts';
+import { cliMain } from './game-libs.ts';
+import type { CliOptions } from './game-libs.ts';
 import {
   LOADER_MANAGED_DIRECTORY,
   androidInputKey,
   assertPortableInteropArchive,
   captureInteropSnapshot,
   checkGameLibsLock,
-  cliMain,
   fetchInteropSnapshot,
   fetchLockedAndroidInput,
   interopBlobKey,
   interopDirectoryDigest,
-  officialApkChanged,
-  recordApkEtag,
   publishInteropSnapshot,
   tarballEntries
-} from './game-libs.ts';
+} from './interop-snapshot.ts';
 import type {
-  ApkHeadFetch,
   CaptureInteropSnapshotOptions,
-  CliOptions,
   GenerateInteropOptions
-} from './game-libs.ts';
+} from './interop-snapshot.ts';
+import { officialApkChanged, recordApkEtag } from './official-apk.ts';
+import type { ApkHeadFetch } from './official-apk.ts';
 import {
   GAME_LIBS_LOCK_PATH,
   INTEROP_KEY,

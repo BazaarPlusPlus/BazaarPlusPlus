@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { lockedInteropEntry } from './game-libs.ts';
+import { lockedInteropEntry } from './interop-snapshot.ts';
 import { INTEROP_KEY } from './snapshot-lock.ts';
 import type { InteropLockEntry } from './snapshot-lock.ts';
 import { WORKSPACE_ROOT } from './product.ts';

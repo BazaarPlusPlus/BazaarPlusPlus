@@ -442,8 +442,8 @@ function assertDesktopGame(
 }
 
 // A Loader Release as the Snapshot Lock pins it. The tag names a directory
-// under game-libs/ (loaderDirectory in release/game-libs.ts), so it is a
-// plain token.
+// under game-libs/ (loaderDirectory in release/interop-snapshot.ts), so it
+// is a plain token.
 function assertAndroidLoader(
   loader: AndroidLoader,
   description: string

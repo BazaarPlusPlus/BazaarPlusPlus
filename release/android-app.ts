@@ -6,12 +6,12 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildZipBuffer } from './payload-zip.ts';
+import { gameLibsStoreFromEnvironment } from './game-assembly-snapshot.ts';
 import {
   fetchInteropSnapshot,
-  gameLibsStoreFromEnvironment,
   interopDirectoryRecords,
   lockedInteropEntry
-} from './game-libs.ts';
+} from './interop-snapshot.ts';
 import type { LoaderPin } from './snapshot-lock.ts';
 import type { AndroidCarriedRelease } from './manifest.ts';
 
