@@ -2,13 +2,9 @@ import { useMemo, useState } from 'react';
 
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
-import { Badge, StatusPanel } from '@bpp/ui';
+import { Badge, SegmentedControl, StatusPanel } from '@bpp/ui';
 import HeroBadge from '../../shared/components/HeroBadge';
 import { SectionHeading } from '../../shared/components/PageLayout';
-import {
-  SegmentedButton,
-  SegmentedControl
-} from '../../shared/components/ScopeFilterPanel';
 import StatsPageShell from '../../shared/components/StatsPageShell';
 import {
   WINDOW_LABELS,
@@ -162,45 +158,35 @@ export default function HeroOverviewDashboard({
                   aria-label={copy.common.filters}
                   className="flex flex-wrap items-end gap-x-6 gap-y-3"
                 >
-                  <div
-                    role="group"
-                    aria-label={scopeCopy.window}
-                    className="flex min-w-0 flex-col gap-1.5"
-                  >
+                  <div className="flex min-w-0 flex-col gap-1.5">
                     <p className="text-sm font-medium text-text-2">
                       {scopeCopy.window}
                     </p>
-                    <SegmentedControl>
-                      {availableWindows.map((option) => (
-                        <SegmentedButton
-                          key={option}
-                          active={option === selectedWindow}
-                          onClick={() => selectWindow(option)}
-                        >
-                          {WINDOW_LABELS[option]}
-                        </SegmentedButton>
-                      ))}
-                    </SegmentedControl>
+                    <SegmentedControl
+                      label={scopeCopy.window}
+                      name="hero-analysis-window"
+                      value={selectedWindow}
+                      options={availableWindows.map((option) => ({
+                        value: option,
+                        label: WINDOW_LABELS[option]
+                      }))}
+                      onChange={selectWindow}
+                    />
                   </div>
-                  <div
-                    role="group"
-                    aria-label={scopeCopy.segment}
-                    className="flex min-w-0 flex-col gap-1.5"
-                  >
+                  <div className="flex min-w-0 flex-col gap-1.5">
                     <p className="text-sm font-medium text-text-2">
                       {scopeCopy.segment}
                     </p>
-                    <SegmentedControl>
-                      {availableSegments.map((option) => (
-                        <SegmentedButton
-                          key={option}
-                          active={option === selectedSegment}
-                          onClick={() => selectSegment(option)}
-                        >
-                          {scopeCopy.segmentLabels[option]}
-                        </SegmentedButton>
-                      ))}
-                    </SegmentedControl>
+                    <SegmentedControl
+                      label={scopeCopy.segment}
+                      name="hero-analysis-segment"
+                      value={selectedSegment}
+                      options={availableSegments.map((option) => ({
+                        value: option,
+                        label: scopeCopy.segmentLabels[option]
+                      }))}
+                      onChange={selectSegment}
+                    />
                   </div>
                 </div>
               ) : null}

@@ -29,6 +29,11 @@ async function openHeroes(
   await settle(page);
 }
 
+/** Clicks a scope option where a user clicks: its visible text, not the hidden radio. */
+async function chooseScope(page: Page, label: string) {
+  await page.getByRole('radiogroup').getByText(label, { exact: true }).click();
+}
+
 function rankingTable(page: Page) {
   return page.getByTestId('hero-ranking-table');
 }
@@ -132,8 +137,8 @@ test.describe('Analysis Scope ranking goldens over the analyzer snapshot', () =>
           .getByTestId('ranking-panel')
           .getByRole('group', { name: 'Filters' });
         await expect(
-          filters.getByRole('button', { name: window.toUpperCase() })
-        ).toHaveAttribute('aria-pressed', 'true');
+          filters.getByRole('radio', { name: window.toUpperCase() })
+        ).toBeChecked();
 
         const body = [
           `# /heroes?lang=en&w=${window}&s=${segment}`,
@@ -267,20 +272,32 @@ test.describe('Hero Analysis dashboard', () => {
     const filters = page
       .getByTestId('ranking-panel')
       .getByRole('group', { name: 'Filters' });
-    await expect(filters.getByRole('button', { name: '3D' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    await expect(filters.getByRole('radio', { name: '3D' })).toBeChecked();
     await expect(
-      filters.getByRole('button', { name: 'Legend', exact: true })
-    ).toHaveAttribute('aria-pressed', 'true');
-    await expect(filters.getByRole('button', { name: 'All' })).toHaveAttribute(
-      'aria-pressed',
-      'false'
-    );
+      filters.getByRole('radio', { name: 'Legend', exact: true })
+    ).toBeChecked();
+    await expect(filters.getByRole('radio', { name: 'All' })).not.toBeChecked();
     await expect(
-      filters.getByRole('button', { name: 'Non-Legend' })
+      filters.getByRole('radio', { name: 'Non-Legend' })
     ).toBeVisible();
+  });
+
+  test('arrow keys move the window selection and keep focus on it', async ({
+    page
+  }) => {
+    await openHeroes(page, '/heroes?lang=en&w=3d', 'threeDay');
+    const windows = page.getByRole('radiogroup', { name: 'Window' });
+
+    await windows.getByRole('radio', { name: '3D' }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page).toHaveURL(/\/heroes\?lang=en&w=7d$/);
+    await expect(windows.getByRole('radio', { name: '7D' })).toBeChecked();
+    await expect(windows.getByRole('radio', { name: '7D' })).toBeFocused();
+
+    await page.keyboard.press('ArrowLeft');
+    await expect(page).toHaveURL(/\/heroes\?lang=en&w=3d$/);
+    await expect(windows.getByRole('radio', { name: '3D' })).toBeChecked();
+    await expect(windows.getByRole('radio', { name: '3D' })).toBeFocused();
   });
 
   test('one segment control drives ranking, trend, and matchups through a replace', async ({
@@ -289,7 +306,7 @@ test.describe('Hero Analysis dashboard', () => {
     await recordHistory(page);
     await openHeroes(page, '/heroes?lang=en&w=3d', 'threeDay');
 
-    await page.getByRole('button', { name: 'Non-Legend' }).click();
+    await chooseScope(page, 'Non-Legend');
     await expect(page).toHaveURL(/\/heroes\?lang=en&w=3d&s=non_legend$/);
     expect(await historyActions(page)).toEqual([
       { mode: 'replace', href: '/heroes?lang=en&w=3d&s=non_legend' }
@@ -327,32 +344,26 @@ test.describe('Hero Analysis dashboard', () => {
       .locator('header [role="group"]')
       .getByRole('link', { name: '中' })
       .click();
-    await page.getByRole('button', { name: '非传奇', exact: true }).click();
-    await page.getByRole('button', { name: '1D' }).click();
+    await chooseScope(page, '非传奇');
+    await chooseScope(page, '1D');
     await expect(page).toHaveURL(/\/heroes\?s=non_legend$/);
 
     await page.goBack();
     await expect(page).toHaveURL(/\/heroes\?lang=en&w=3d&s=legend$/);
-    await expect(page.getByRole('button', { name: '3D' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    await expect(page.getByRole('radio', { name: '3D' })).toBeChecked();
     await expect(
-      page.getByRole('button', { name: 'Legend', exact: true })
-    ).toHaveAttribute('aria-pressed', 'true');
+      page.getByRole('radio', { name: 'Legend', exact: true })
+    ).toBeChecked();
     await expect(page.getByTestId('selected-matchup-hero')).toContainText(
       'Vanessa'
     );
 
     await page.goForward();
     await expect(page).toHaveURL(/\/heroes\?s=non_legend$/);
-    await expect(page.getByRole('button', { name: '1D' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    await expect(page.getByRole('radio', { name: '1D' })).toBeChecked();
     await expect(
-      page.getByRole('button', { name: '非传奇', exact: true })
-    ).toHaveAttribute('aria-pressed', 'true');
+      page.getByRole('radio', { name: '非传奇', exact: true })
+    ).toBeChecked();
     await expect(
       page
         .getByTestId('selected-matchup-hero')
@@ -367,11 +378,11 @@ test.describe('Hero Analysis dashboard', () => {
     const chart = page.getByTestId('daily-winrate-chart');
     await expect(chart.getByText('Jun 4', { exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: '1D' }).click();
+    await chooseScope(page, '1D');
     await expect(page).toHaveURL(/\/heroes\?lang=en$/);
     await expect(chart.getByText('Jun 4', { exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: '7D' }).click();
+    await chooseScope(page, '7D');
     await expect(page).toHaveURL(/\/heroes\?lang=en&w=7d$/);
     await expect(chart.getByText('Jun 4', { exact: true })).toBeVisible();
     await expect(chart.getByText('Jun 6', { exact: true })).toBeVisible();

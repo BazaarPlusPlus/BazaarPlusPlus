@@ -1188,6 +1188,8 @@ html[data-bpp-platform='windows'] .bpp-header {
 
 .bpp-segmented-control {
   display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--line);
@@ -1197,6 +1199,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-segmented-label {
   position: relative;
   display: inline-flex;
+  flex: none;
 }
 .bpp-segmented-input {
   position: absolute;
@@ -1212,6 +1215,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   color: var(--text-2);
   font-size: var(--type-small);
   font-weight: 500;
+  white-space: nowrap;
   transition:
     background var(--t-fast) var(--ease),
     color var(--t-fast) var(--ease);
