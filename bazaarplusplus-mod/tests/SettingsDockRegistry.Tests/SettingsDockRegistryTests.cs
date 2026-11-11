@@ -671,7 +671,7 @@ public class SettingsDockRegistryTests
 
             Assert.Equal(BppSettingsDockOrder.EndOfRunScreenshot, entry.Order);
             Assert.Equal("EndOfRunScreenshot", definition.Key);
-            Assert.Equal("End-of-run Screenshot", definition.ResolveLabel("en"));
+            Assert.Equal("Run Screenshot", definition.ResolveLabel("en"));
             Assert.Equal("终局截图", definition.ResolveLabel("zh-CN"));
             Assert.True(definition.IsActive());
             Assert.True(definition.ReadToggle!());
