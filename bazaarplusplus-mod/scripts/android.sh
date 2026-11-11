@@ -295,15 +295,17 @@ cmd_smoke() {
     cmd_mode "$mode"
     # Launch removes the old log, which would satisfy the main-menu wait before the new process writes.
     cmd_launch
-    local menu=reached
-    wait_for_main_menu || menu=missed
+    # disabled installs no patch, so no summary ever counts a label hit: it waits for the menu only.
+    local menu=reached need_label=1
+    [[ "$mode" == disabled ]] && need_label=0
+    wait_for_main_menu "$need_label" || menu=missed
     cmd_capture "$run"
     built_dll_sha256 >"$out/dll.sha256"
     tr -d '[:space:]' <"$MOD_ROOT/../VERSION" >"$out/version.txt"
     pull_database "$out"
     cmd_verify "$out"
-    # The label is written before the menu loads, so the three levels can pass on a run stuck at
-    # sign-in; that run still fails here.
+    # The three levels read only the label and the hook counts, so a run stuck at sign-in is
+    # caught here, not there.
     [[ "$menu" == reached ]] ||
         die "The main menu was not reached in ${SMOKE_TIMEOUT_SECONDS}s; see $out/screen.png"
 }
@@ -319,18 +321,38 @@ built_dll_sha256() {
 # Waits until the main menu has loaded and a hooks summary follows it in the log, so the counters
 # cover the menu. Scene loads log in every patch mode, and each one forces a summary shortly after
 # (an unchanged summary is otherwise skipped). Returns 1 on timeout.
+# smoke_wait_state <need_label> <Latest.log on stdin>: how far a launch has come. waiting: no main
+# menu, or no hooks summary after it. menu: a summary followed the main menu. ready: with
+# need_label=1, a summary after the main menu also counts a version label hit; the game writes the
+# label some seconds after MainMenuScene loads (1.0.13113), and the summary that counts it follows
+# within a minute. With need_label=0, ready is the first summary after the main menu.
+smoke_wait_state() {
+    awk -v need="${1:-0}" '
+        /event=android\.scene\.loaded .*name=MainMenuScene/ { menu = 1 }
+        menu && /event=android\.hooks\.summary/ {
+            summary = 1
+            if (need != 1 || $0 ~ /version_label_hits=[1-9]/) { ready = 1; exit }
+        }
+        END { print ready ? "ready" : (summary ? "menu" : "waiting") }'
+}
+
+# wait_for_main_menu <need_label>: fails only when the main menu was not reached. A missing label
+# hit is left for verify to report at "Hook hit", with the capture as evidence.
 wait_for_main_menu() {
-    local deadline=$(($(date +%s) + SMOKE_TIMEOUT_SECONDS)) log
+    local need_label="${1:-0}" deadline=$(($(date +%s) + SMOKE_TIMEOUT_SECONDS)) log state=waiting
     while (($(date +%s) < deadline)); do
         log="$(app_cat "$DEVICE_LOG" 2>/dev/null || true)"
-        if awk '/event=android\.scene\.loaded .*name=MainMenuScene/ { menu = 1 }
-            menu && /event=android\.hooks\.summary/ { found = 1; exit }
-            END { exit !found }' <<<"$log"; then
-            ok "Main menu reached; one hooks summary followed it."
+        state="$(smoke_wait_state "$need_label" <<<"$log")"
+        if [[ "$state" == ready ]]; then
+            ok "Main menu reached; a hooks summary followed it."
             return 0
         fi
         sleep 5
     done
+    if [[ "$state" == menu ]]; then
+        err "Main menu reached, but no hooks summary counted a version label hit within ${SMOKE_TIMEOUT_SECONDS}s; capturing anyway."
+        return 0
+    fi
     err "No main menu and following hooks summary within ${SMOKE_TIMEOUT_SECONDS}s; capturing anyway."
     return 1
 }
