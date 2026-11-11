@@ -5,8 +5,8 @@
     output, directly or through BazaarPlusPlus.csproj, and run the installer-facing goldens on a
     binary no desktop host ships. Transitive references exist only after
     IncludeTransitiveProjectReferences, so this is a target, not an evaluation-time Update. A
-    reference that names its target keeps it: the *.Net10.Tests projects and Architecture.Tests
-    opt into net10.0 that way.
+    reference that names its target keeps it. ADR-0013 (decision 3, amended) says which suites
+    name net10.0 that way and why.
   -->
   <Target Name="BppPinSharedProjectsToMonoTarget" AfterTargets="IncludeTransitiveProjectReferences">
     <ItemGroup>
