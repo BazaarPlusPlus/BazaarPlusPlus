@@ -8,7 +8,7 @@ using BazaarPlusPlus.Game.HistoryPanel.Storage;
 
 TestEmptyDbPathDegradesRepositoryAndGhostSync();
 TestWhitespaceDbPathDegradesRepositoryAndGhostSync();
-TestMountPlanPreservesLocalHistoryWithoutSession();
+TestMountPlanRequiresReplayRuntimeAndOverlayHost();
 
 Console.WriteLine("HistoryPanelFactory checks passed.");
 
@@ -22,19 +22,15 @@ void TestWhitespaceDbPathDegradesRepositoryAndGhostSync()
     AssertDegradedChain(BuildDataServiceForDbPath("   "), "whitespace");
 }
 
-void TestMountPlanPreservesLocalHistoryWithoutSession()
+void TestMountPlanRequiresReplayRuntimeAndOverlayHost()
 {
     Assert(
-        HistoryPanelMountPlan.Resolve(true, true, false) == HistoryPanelMountMode.MountLocalOnly,
-        "Replay + overlay without a Mod API session should preserve local HistoryPanel."
+        HistoryPanelMountPlan.ShouldMount(true, true),
+        "Replay runtime and overlay host should mount HistoryPanel."
     );
     Assert(
-        HistoryPanelMountPlan.Resolve(true, true, true) == HistoryPanelMountMode.MountWithOnline,
-        "A complete dependency set should mount HistoryPanel with online capabilities."
-    );
-    Assert(
-        HistoryPanelMountPlan.Resolve(false, true, true) == HistoryPanelMountMode.DoNotMount
-            && HistoryPanelMountPlan.Resolve(true, false, true) == HistoryPanelMountMode.DoNotMount,
+        !HistoryPanelMountPlan.ShouldMount(false, true)
+            && !HistoryPanelMountPlan.ShouldMount(true, false),
         "Replay runtime and overlay host remain required mount dependencies."
     );
 }

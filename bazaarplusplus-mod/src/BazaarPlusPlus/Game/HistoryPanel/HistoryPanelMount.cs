@@ -38,18 +38,17 @@ internal sealed class HistoryPanelMount : IBppMountable
         var combatReplayRuntime = _combatReplayRuntime();
         var overlayHost = _overlayHost();
         var modApiSession = _modApiSession();
-        var plan = HistoryPanelMountPlan.Resolve(
+        var shouldMount = HistoryPanelMountPlan.ShouldMount(
             combatReplayRuntime != null,
-            overlayHost != null,
-            modApiSession != null
+            overlayHost != null
         );
-        if (plan == HistoryPanelMountMode.DoNotMount && combatReplayRuntime == null)
+        if (!shouldMount && combatReplayRuntime == null)
         {
             LogMissingDependency(HistoryPanelMountDependency.CombatReplayRuntime);
             return;
         }
 
-        if (plan == HistoryPanelMountMode.DoNotMount)
+        if (!shouldMount)
         {
             LogMissingDependency(HistoryPanelMountDependency.OverlayPanelHost);
             return;
