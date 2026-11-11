@@ -496,3 +496,197 @@ async fn history_preparation_keeps_start_errors_visible_to_stream_status() {
         Some("port occupied")
     );
 }
+
+/// One game per input of the #989 table for the stream callers: a screenshot
+/// row `shot-1` that stores `raw`, and every target file in its Screenshots
+/// directory.
+struct StoredPathGames {
+    temp: tempfile::TempDir,
+    outside: PathBuf,
+    next: std::cell::Cell<usize>,
+}
+
+impl StoredPathGames {
+    fn new() -> Self {
+        let temp = tempfile::tempdir().unwrap();
+        let outside = temp.path().join("outside.png");
+        std::fs::write(&outside, b"outside").unwrap();
+        Self {
+            temp,
+            outside,
+            next: std::cell::Cell::new(0),
+        }
+    }
+
+    fn inputs(&self) -> Vec<crate::test_support::StoredPathInput> {
+        crate::test_support::stored_path_inputs("a", &self.outside)
+    }
+
+    fn game_storing(&self, raw: &str) -> PathBuf {
+        let index = self.next.get();
+        self.next.set(index + 1);
+        let game_path = self.temp.path().join(format!("game-{index}"));
+        crate::test_support::write_stored_path_targets(
+            &crate::services::paths::screenshots_dir(&game_path),
+            "a",
+        );
+        let connection =
+            rusqlite::Connection::open(crate::services::paths::database_path(&game_path)).unwrap();
+        crate::history::mod_schema::create_mod_schema(&connection);
+        connection
+            .execute(
+                "insert into run_screenshots (
+                    screenshot_id, capture_source, is_primary, image_relative_path, hero_name,
+                    captured_utc_offset_minutes, captured_at_ms, victories_at_capture, day
+                ) values (
+                    'shot-1', 'end_of_run_auto', 1, ?1, 'Vanessa', 0,
+                    1788220800000, 10, 10
+                )",
+                [raw],
+            )
+            .unwrap();
+        game_path
+    }
+
+    /// The target `uri` serves for `game_path`, or `none` when it is not found.
+    fn served(&self, game_path: &Path, thumbnails: &HistoryThumbnails, uri: &str) -> String {
+        let router = history_router(&StreamRuntime::default(), thumbnails, game_path, game_path);
+        let (status, bytes) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(get(router, uri));
+        match status {
+            axum::http::StatusCode::OK => crate::test_support::stored_path_target_of_pixel(
+                image::load_from_memory(&bytes)
+                    .unwrap()
+                    .to_rgba8()
+                    .get_pixel(0, 0)
+                    .0,
+            )
+            .to_string(),
+            axum::http::StatusCode::NOT_FOUND => "none".to_string(),
+            other => format!("{other}: {}", String::from_utf8_lossy(&bytes)),
+        }
+    }
+}
+
+/// On Unix `\` is only a separator to the overlay resolver, so a UNC path
+/// lands inside the Screenshots directory; on Windows it is absolute.
+fn unc(unix: &'static str, windows: &'static str) -> &'static str {
+    if cfg!(windows) {
+        windows
+    } else {
+        unix
+    }
+}
+
+/// `expected` plus the row of the Windows-only `C:x.png` input.
+fn with_drive_relative<'a>(
+    mut expected: Vec<(&'a str, &'a str)>,
+    drive_relative: &'a str,
+) -> Vec<(&'a str, &'a str)> {
+    if cfg!(windows) {
+        expected.push(("C:x.png", drive_relative));
+    }
+    expected
+}
+
+#[test]
+fn overlay_records_link_a_strip_for_each_stored_path_that_resolves() {
+    let games = StoredPathGames::new();
+    crate::test_support::assert_stored_path_table(
+        "overlay record",
+        &games.inputs(),
+        &with_drive_relative(
+            vec![
+                ("a/b.png", "strip"),
+                (r"a\b.png", "strip"),
+                ("a/../b.png", "none"),
+                ("..", "none"),
+                (".", "none"),
+                ("empty", "none"),
+                ("blank", "none"),
+                ("absolute", "none"),
+                // #989 step 3 flips this on Unix: a leading `\\` is a root.
+                ("UNC", unc("strip", "none")),
+            ],
+            "none",
+        ),
+        |input| {
+            let game_path = games.game_storing(&input.raw);
+            let records = crate::stream::records::OverlayRecordRepository::new(Some(game_path))
+                .load_record_list(None, None)
+                .unwrap();
+            match records.as_slice() {
+                [record] if record.strip_url.is_some() => "strip".to_string(),
+                [_] => "none".to_string(),
+                other => format!("{} records", other.len()),
+            }
+        },
+    );
+}
+
+/// `/images/{id}` and `/images/{id}/strip` both read the record's image path,
+/// so they must serve the same file.
+#[test]
+fn overlay_images_serve_the_file_each_stored_path_names() {
+    let games = StoredPathGames::new();
+    crate::test_support::assert_stored_path_table(
+        "strip/image",
+        &games.inputs(),
+        &with_drive_relative(
+            vec![
+                ("a/b.png", "a/b.png"),
+                (r"a\b.png", "a/b.png"),
+                ("a/../b.png", "none"),
+                ("..", "none"),
+                (".", "none"),
+                ("empty", "none"),
+                ("blank", "none"),
+                ("absolute", "none"),
+                // #989 step 3 flips this on Unix: a leading `\\` is a root.
+                ("UNC", unc("server/share/b.png", "none")),
+            ],
+            "none",
+        ),
+        |input| {
+            let game_path = games.game_storing(&input.raw);
+            let thumbnails = HistoryThumbnails::default();
+            let strip = games.served(&game_path, &thumbnails, "/images/shot-1/strip");
+            let image = games.served(&game_path, &thumbnails, "/images/shot-1");
+            assert_eq!(strip, image, "{}", input.label);
+            strip
+        },
+    );
+}
+
+#[test]
+fn history_thumbnails_serve_the_file_each_stored_path_names() {
+    let games = StoredPathGames::new();
+    crate::test_support::assert_stored_path_table(
+        "History Thumbnail",
+        &games.inputs(),
+        &with_drive_relative(
+            vec![
+                ("a/b.png", "a/b.png"),
+                (r"a\b.png", "a/b.png"),
+                ("a/../b.png", "none"),
+                ("..", "none"),
+                (".", "none"),
+                ("empty", "none"),
+                ("blank", "none"),
+                ("absolute", "none"),
+                // #989 step 3 flips this on Unix: a leading `\\` is a root.
+                ("UNC", unc("server/share/b.png", "none")),
+            ],
+            "none",
+        ),
+        |input| {
+            let game_path = games.game_storing(&input.raw);
+            let thumbnails = HistoryThumbnails::default();
+            let thumbnail = url(thumbnails.register(&game_path), "shot-1");
+            games.served(&game_path, &thumbnails, route_of(&thumbnail))
+        },
+    );
+}
