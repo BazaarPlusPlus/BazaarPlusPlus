@@ -23,8 +23,8 @@
 
   <ItemGroup>
     <Compile
-      Include="../Shared/EventPreview/EncounterPreviewCardCases.cs"
-      Link="Shared/EventPreview/EncounterPreviewCardCases.cs"
+      Include="../Shared/EncounterPreview/EncounterPreviewCardCases.cs"
+      Link="Shared/EncounterPreview/EncounterPreviewCardCases.cs"
     />
   </ItemGroup>
 

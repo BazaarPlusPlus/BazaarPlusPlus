@@ -2,7 +2,7 @@ using System.Text;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Config;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;

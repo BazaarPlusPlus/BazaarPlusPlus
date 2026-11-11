@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Text;
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Tooltips;
 

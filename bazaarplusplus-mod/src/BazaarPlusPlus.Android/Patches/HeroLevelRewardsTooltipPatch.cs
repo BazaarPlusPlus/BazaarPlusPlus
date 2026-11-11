@@ -1,6 +1,6 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Mobile.Previews;
@@ -68,7 +68,9 @@ internal static class HeroLevelRewardsTooltipPatch
                     : null;
             var result = preview.ResolveLevelUp(new LevelUpPreviewQuery(level, hero));
             var content =
-                result.Availability == EventPreviewAvailability.Available ? result.Content : null;
+                result.Availability == EncounterPreviewAvailability.Available
+                    ? result.Content
+                    : null;
             if (string.IsNullOrWhiteSpace(content))
             {
                 ReportObserved("skipped", "no_content", level, contentLength: 0);

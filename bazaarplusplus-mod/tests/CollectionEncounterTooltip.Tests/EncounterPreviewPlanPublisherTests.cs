@@ -28,7 +28,7 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
     private static readonly Guid StepId = Guid.Parse("91000000-0000-0000-0000-000000000002");
     private readonly string _directory = Path.Combine(
         Path.GetTempPath(),
-        "bpp-event-preview-module-tests",
+        "bpp-encounter-preview-module-tests",
         Guid.NewGuid().ToString("N")
     );
 
@@ -52,10 +52,10 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
         var eventResult = Event(plans, EventId);
         var levelResult = Previews(plans).ResolveLevelUp(new LevelUpPreviewQuery(2));
 
-        Assert.Equal(EventPreviewAvailability.Available, eventResult.Availability);
+        Assert.Equal(EncounterPreviewAvailability.Available, eventResult.Availability);
         Assert.Contains("Jules Step", eventResult.Content);
         Assert.Contains("Take it", eventResult.Content);
-        Assert.Equal(EventPreviewAvailability.Available, levelResult.Availability);
+        Assert.Equal(EncounterPreviewAvailability.Available, levelResult.Availability);
         Assert.Contains("150 Max Health", levelResult.Content);
     }
 
@@ -74,8 +74,8 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
         runtime.CurrentHero = CardHero.Jules;
         var available = Event(plans, EventId);
 
-        Assert.Equal(EventPreviewAvailability.Unsupported, unavailable.Availability);
-        Assert.Equal(EventPreviewAvailability.Available, available.Availability);
+        Assert.Equal(EncounterPreviewAvailability.Unsupported, unavailable.Availability);
+        Assert.Equal(EncounterPreviewAvailability.Available, available.Availability);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
 
         var result = Event(plans, EventId);
 
-        Assert.Equal(EventPreviewAvailability.Available, result.Availability);
+        Assert.Equal(EncounterPreviewAvailability.Available, result.Availability);
         Assert.Same(firstSource, runtime.LastDayTierSource);
     }
 
@@ -110,7 +110,7 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
 
         var result = Step(plans, StepId, "Get an item");
 
-        Assert.Equal(EventPreviewAvailability.Available, result.Availability);
+        Assert.Equal(EncounterPreviewAvailability.Available, result.Availability);
         Assert.Equal(1, runtime.DayTierReadCount);
         Assert.Same(source, runtime.LastDayTierSource);
         Assert.Contains("Bronze 99%", result.Content);
@@ -129,12 +129,12 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         using var plans = Publisher(runtime, PublishedRegistry(oldSource, Snapshot()));
-        Assert.Equal(EventPreviewAvailability.Available, Event(plans, EventId).Availability);
+        Assert.Equal(EncounterPreviewAvailability.Available, Event(plans, EventId).Availability);
 
         runtime.Source = newSource;
         plans.ObserveStaticData();
 
-        Assert.Equal(EventPreviewAvailability.Unavailable, Event(plans, EventId).Availability);
+        Assert.Equal(EncounterPreviewAvailability.Unavailable, Event(plans, EventId).Availability);
     }
 
     [Fact]
@@ -149,18 +149,21 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
         var registry = new EncounterPreviewPlanRegistry();
         using var plans = Publisher(runtime, registry);
 
-        Assert.Equal(EventPreviewAvailability.Loading, Event(plans, EventId).Availability);
+        Assert.Equal(EncounterPreviewAvailability.Loading, Event(plans, EventId).Availability);
 
         var generation = registry.BeginGeneration(source);
         Assert.True(registry.TryPublish(source, generation, Snapshot()));
-        Assert.Equal(EventPreviewAvailability.Missing, Event(plans, Guid.NewGuid()).Availability);
         Assert.Equal(
-            EventPreviewAvailability.Unsupported,
+            EncounterPreviewAvailability.Missing,
+            Event(plans, Guid.NewGuid()).Availability
+        );
+        Assert.Equal(
+            EncounterPreviewAvailability.Unsupported,
             Step(plans, EventId, "native").Availability
         );
 
         runtime.ThrowOnDayTierRead = true;
-        Assert.Equal(EventPreviewAvailability.Unavailable, Event(plans, EventId).Availability);
+        Assert.Equal(EncounterPreviewAvailability.Unavailable, Event(plans, EventId).Availability);
     }
 
     [Fact]
@@ -196,7 +199,10 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
                 TimeSpan.FromSeconds(5)
             )
         );
-        Assert.Equal(EventPreviewAvailability.Missing, Event(plans, Guid.NewGuid()).Availability);
+        Assert.Equal(
+            EncounterPreviewAvailability.Missing,
+            Event(plans, Guid.NewGuid()).Availability
+        );
     }
 
     [Fact]
@@ -234,7 +240,7 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
 
         Assert.True(WaitForStatus(plans, EncounterPreviewPlanPublisherStatus.Ready));
         Assert.Equal(0, runtime.CardMapLoadCount);
-        Assert.Equal(EventPreviewAvailability.Available, Event(plans, EventId).Availability);
+        Assert.Equal(EncounterPreviewAvailability.Available, Event(plans, EventId).Availability);
     }
 
     [Fact]
@@ -297,7 +303,7 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
         plans.ObserveStaticData();
 
         Assert.True(WaitForStatus(plans, EncounterPreviewPlanPublisherStatus.Degraded));
-        Assert.Equal(EventPreviewAvailability.Missing, Event(plans, brokenId).Availability);
+        Assert.Equal(EncounterPreviewAvailability.Missing, Event(plans, brokenId).Availability);
     }
 
     [Fact]
@@ -348,7 +354,8 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
             LiveValueResolver = (_, effectId, isAura) =>
                 effectId == "0" && !isAura ? (true, "6", null) : (false, string.Empty, null),
         };
-        EventPreviewLocalization.AttributeUnitLocalizer = unit => unit == "Gold" ? "Coins" : null;
+        EncounterPreviewLocalization.AttributeUnitLocalizer = unit =>
+            unit == "Gold" ? "Coins" : null;
         using var plans = Publisher(
             runtime,
             PublishedRegistry(source, CompiledLocalizationSnapshot())
@@ -356,7 +363,7 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
 
         var result = Event(plans, EventId);
 
-        Assert.Equal(EventPreviewAvailability.Available, result.Availability);
+        Assert.Equal(EncounterPreviewAvailability.Available, result.Availability);
         Assert.Contains("Gain 10 Coins.", result.Content);
         Assert.Contains("Gain 1 Gold for each Food [6]", result.Content);
         Assert.Contains(
@@ -369,7 +376,7 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
 
     public void Dispose()
     {
-        EventPreviewLocalization.AttributeUnitLocalizer = null;
+        EncounterPreviewLocalization.AttributeUnitLocalizer = null;
         L.Reset();
         if (Directory.Exists(_directory))
             Directory.Delete(_directory, recursive: true);
@@ -496,10 +503,10 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
     private static EncounterPreviewModule Previews(EncounterPreviewPlanPublisher plans) =>
         new(new BppSettings(new MemorySettings()), plans.Reads);
 
-    private static EventPreviewResult Event(EncounterPreviewPlanPublisher plans, Guid id) =>
+    private static EncounterPreviewResult Event(EncounterPreviewPlanPublisher plans, Guid id) =>
         Previews(plans).ResolveCard(new(id, CardType.EventEncounter, "native"));
 
-    private static EventPreviewResult Step(
+    private static EncounterPreviewResult Step(
         EncounterPreviewPlanPublisher plans,
         Guid id,
         string nativeText

@@ -133,7 +133,7 @@ public sealed class CardAbilityValueReaderTests
     }
 
     [Fact]
-    public void A_cooldown_reduction_is_captured_in_seconds_for_event_preview()
+    public void A_cooldown_reduction_is_captured_in_seconds_for_encounter_preview()
     {
         var template = StepWith(
             new TActionCardModifyAttribute
@@ -143,7 +143,7 @@ public sealed class CardAbilityValueReaderTests
             }
         );
 
-        var values = EventPreviewGameText.CaptureAbilityValues(template);
+        var values = EncounterPreviewGameText.CaptureAbilityValues(template);
 
         Assert.Equal("1", values["0"].ValueText);
     }

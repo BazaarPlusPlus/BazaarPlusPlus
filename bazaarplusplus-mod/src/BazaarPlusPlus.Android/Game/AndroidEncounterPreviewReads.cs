@@ -1,7 +1,7 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 using Il2CppBazaarGameClient.Domain.Models.Cards;
 using Il2CppBazaarGameShared.Domain.Cards.Item;
 using Il2CppBazaarGameShared.Domain.Core.Types;
@@ -19,9 +19,9 @@ internal sealed class AndroidEncounterPreviewReads(AndroidEncounterPreview previ
 {
     public bool IsInCombat => Data.IsInCombat;
 
-    public IEncounterPreviewPlans? TryGetPlans(out EventPreviewAvailability unavailable)
+    public IEncounterPreviewPlans? TryGetPlans(out EncounterPreviewAvailability unavailable)
     {
-        unavailable = EventPreviewAvailability.Loading;
+        unavailable = EncounterPreviewAvailability.Loading;
         return preview.Plans is { } plans ? new Plans(plans.Snapshot) : null;
     }
 

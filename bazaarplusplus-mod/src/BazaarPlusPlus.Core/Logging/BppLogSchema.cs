@@ -27,7 +27,8 @@ public sealed class BppLogFeatureScope
     public static BppLogFeatureScope LiveBuildPanel { get; } =
         new("LiveBuildPanel", "live_build_panel");
     public static BppLogFeatureScope Tooltips { get; } = new("Tooltips", "tooltips");
-    public static BppLogFeatureScope EventPreview { get; } = new("EventPreview", "event_preview");
+    public static BppLogFeatureScope EncounterPreview { get; } =
+        new("EventPreview", "event_preview");
     public static BppLogFeatureScope ItemEnchantPreview { get; } =
         new("ItemEnchantPreview", "item_enchant_preview");
     public static BppLogFeatureScope CombatStatusBar { get; } =
@@ -66,7 +67,7 @@ public sealed class BppLogFeatureScope
         CollectionPanel,
         LiveBuildPanel,
         Tooltips,
-        EventPreview,
+        EncounterPreview,
         ItemEnchantPreview,
         CombatStatusBar,
         PostCombatImpact,
