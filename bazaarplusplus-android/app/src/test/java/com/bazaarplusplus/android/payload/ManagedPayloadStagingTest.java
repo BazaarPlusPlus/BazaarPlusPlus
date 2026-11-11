@@ -16,9 +16,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ManagedPayloadStagingTest {
     @Rule public TemporaryFolder tmp = new TemporaryFolder();
@@ -103,6 +105,39 @@ public class ManagedPayloadStagingTest {
         assertEquals(List.of("6.1.0"), List.of(updates().list()));
         ManagedPayloadStaging.prune(updates(), null);
         assertNothingStaged();
+    }
+
+    @Test
+    public void pruneWithoutAVersionEmptiesUpdatesAndKeepsTheDirectory() throws Exception {
+        assertTrue(new File(updates(), "6.1.0/files/MelonLoader/Mods").mkdirs());
+        Files.write(new File(updates(), "6.1.0/manifest.txt").toPath(), MANIFEST.getBytes(StandardCharsets.UTF_8));
+        File download = new File(updates(), ".download-6.2.0-abc/files/MelonLoader/Mods");
+        assertTrue(download.mkdirs());
+        Files.write(new File(download, "BazaarPlusPlus.Core.dll").toPath(), "core".getBytes(StandardCharsets.UTF_8));
+        Files.write(new File(updates(), "stray.txt").toPath(), "x".getBytes(StandardCharsets.UTF_8));
+
+        List<String> deleted = ManagedPayloadStaging.prune(updates(), null);
+        assertEquals(3, deleted.size());
+        assertEquals(Set.of("6.1.0", ".download-6.2.0-abc", "stray.txt"), new HashSet<>(deleted));
+        assertTrue(updates().isDirectory());
+        assertNothingStaged();
+    }
+
+    @Test
+    public void pruneOfAMissingUpdatesDirectoryDeletesNothing() throws Exception {
+        assertEquals(List.of(), ManagedPayloadStaging.prune(updates(), null));
+        assertFalse(updates().exists());
+    }
+
+    @Test
+    public void rememberingNoVersionDeletesTheStateFile() throws Exception {
+        File state = new File(tmp.getRoot(), "managed-staged.txt");
+        ManagedPayloadStaging.remember(state, "6.1.0");
+        assertEquals("6.1.0\n", new String(Files.readAllBytes(state.toPath()), StandardCharsets.UTF_8));
+        ManagedPayloadStaging.remember(state, null);
+        assertFalse(state.exists());
+        ManagedPayloadStaging.remember(state, null);
+        assertFalse("a missing state file stays missing", state.exists());
     }
 
     @Test
