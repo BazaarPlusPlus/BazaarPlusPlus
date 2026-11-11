@@ -21,6 +21,14 @@ public sealed class TestProjectRegistryTests
             + "and ScenarioRunner.Tests builds it for its corpus export test.",
     };
 
+    // Core-solution projects that `just mod::test` does not run, each with its reason.
+    private static readonly Dictionary<string, string> CoreLaneOnly = new(StringComparer.Ordinal)
+    {
+        ["AndroidHost.Tests"] =
+            "It builds against the Interop Snapshot (`just mod::fetch android online`), "
+            + "not a Managed snapshot, so only the Core lane runs it.",
+    };
+
     [Fact]
     public void Every_test_project_is_in_a_solution_or_the_scenario_runner()
     {
@@ -82,6 +90,39 @@ public sealed class TestProjectRegistryTests
                 + CoreSolution
                 + " or BppTestCoreProjects:\n  "
                 + string.Join("\n  ", missing)
+        );
+    }
+
+    // Without this, a project in both solutions can leave the desktop one and still satisfy every
+    // other rule here, while `just mod::test` stops running it.
+    [Fact]
+    public void Core_solution_projects_also_run_in_the_desktop_lane()
+    {
+        var desktop = DesktopProjects().ToHashSet(StringComparer.Ordinal);
+        var core = CoreProjects().ToHashSet(StringComparer.Ordinal);
+
+        var missing = core.Where(name => !desktop.Contains(name) && !CoreLaneOnly.ContainsKey(name))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var stale = CoreLaneOnly
+            .Keys.Where(name => !core.Contains(name) || desktop.Contains(name))
+            .ToArray();
+
+        Assert.True(
+            missing.Length == 0,
+            "These projects are in "
+                + CoreSolution
+                + " only, so `just mod::test` skips them. Add each to "
+                + DesktopSolution
+                + ":\n  "
+                + string.Join("\n  ", missing)
+        );
+        Assert.True(
+            stale.Length == 0,
+            "Remove these from TestProjectRegistryTests.CoreLaneOnly; they are gone or in "
+                + DesktopSolution
+                + ":\n  "
+                + string.Join("\n  ", stale)
         );
     }
 
