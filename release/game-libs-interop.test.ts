@@ -38,11 +38,13 @@ import {
 import type {
   ApkHeadFetch,
   CaptureInteropSnapshotOptions,
+  CliOptions,
   GenerateInteropOptions
 } from './game-libs.ts';
 import { buildZipBuffer } from './payload-zip.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 import type { PutFileOptions, PutOptions } from './r2-store.ts';
+import { MemoryStore } from './test-support/memory-store.ts';
 
 // The Android half of the Snapshot Lock (ADR 0008). Failure modes: an APK
 // whose versionName is not an android production build, a first capture that
@@ -910,3 +912,309 @@ test('the official APK reads as changed when its length or its recorded ETag dif
   await expect(check(head(10, '"v1"', false))).rejects.toThrow(/answered 503/);
   await expect(check(head(null))).rejects.toThrow(/no Content-Length/);
 });
+
+// ---------------------------------------------------------------------------
+// The CLI as bazaarplusplus-mod/scripts/game.sh and android-apk-watch.yml call
+// it: the exact stdout (results only), the exit code (0 or 1), logs and errors
+// on stderr, and what the verb wrote to the lock and the private store.
+
+interface CliRun {
+  code: number;
+  out: string[];
+  err: string;
+}
+
+async function runCli(argv: string[], options: CliOptions): Promise<CliRun> {
+  const out: string[] = [];
+  const err: string[] = [];
+  const stdout = process.stdout.write.bind(process.stdout);
+  const stderr = process.stderr.write.bind(process.stderr);
+  process.stdout.write = (chunk) => (out.push(String(chunk)), true);
+  process.stderr.write = (chunk) => (err.push(String(chunk)), true);
+  try {
+    const code = await cliMain(argv, options);
+    return { code, out, err: err.join('') };
+  } finally {
+    process.stdout.write = stdout;
+    process.stderr.write = stderr;
+  }
+}
+
+const noStore = () => {
+  throw new Error('this step must not need the private store');
+};
+
+// A first capture through the CLI, every toolchain file named, from a compact
+// lock so that the writer, not the test, gives the file its format.
+async function cliFirstCapture(ws: ReturnType<typeof workspace>, root: string) {
+  write(
+    path.join(ws.workspaceRoot, GAME_LIBS_LOCK_PATH),
+    JSON.stringify(readGameLibsLock(ws.workspaceRoot))
+  );
+  const tools = toolchain(root);
+  const apk = fakeApk(path.join(root, 'TheBazaar.apk'));
+  const run = await runCli(
+    [
+      'snapshot-android',
+      '--apk',
+      apk,
+      '--apk-etag',
+      'v1',
+      '--interop',
+      interopDirectory(path.join(root, 'interop')),
+      '--loader',
+      tools.loader,
+      '--loader-tag',
+      'v0.7.4-android.4',
+      '--patcher',
+      tools.patcher,
+      '--patcher-tag',
+      'v2.1.0',
+      '--cpp2il',
+      tools.cpp2il
+    ],
+    {
+      workspaceRoot: ws.workspaceRoot,
+      gameLibsStore: noStore,
+      generate: noGeneration
+    }
+  );
+  return { run, tools, apk };
+}
+
+test('snapshot-android prints the snapshot directory and writes the android entry in the order InteropPath.props reads', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-cli-');
+  const { run, apk } = await cliFirstCapture(ws, root);
+  const directory = path.join(
+    ws.modRoot,
+    'game-libs',
+    `android-online-${ANDROID_VERSION}`
+  );
+  expect(run.code).toBe(0);
+  expect(run.out).toEqual([`${directory}\n`]);
+  expect(run.err).toMatch(new RegExp(`^Reading ${apk}\\n`));
+  expect(run.err).toMatch(
+    new RegExp(
+      `Captured android-online ${ANDROID_VERSION} into ${directory} \\(loader .*loader-v0\\.7\\.4-android\\.4\\) and recorded it in bazaarplusplus-mod/build/game-libs\\.lock\\.json\\n$`
+    )
+  );
+  expect(ws.entry()).toMatchObject({
+    gameVersion: ANDROID_VERSION,
+    apkSha256: sha(fs.readFileSync(apk)),
+    apkEtag: 'v1',
+    nativeLibs: {}
+  });
+
+  // build/InteropPath.props finds gameVersion and loader.tag by position.
+  const text = fs.readFileSync(
+    path.join(ws.workspaceRoot, GAME_LIBS_LOCK_PATH),
+    'utf8'
+  );
+  const parsed = JSON.parse(text);
+  expect(text).toBe(`${JSON.stringify(parsed, null, 2)}\n`);
+  expect(Object.keys(parsed)).toEqual([
+    'schemaVersion',
+    'staleAfterDays',
+    'entries'
+  ]);
+  expect(Object.keys(parsed.entries).at(-1)).toBe('android-online');
+  const entry = parsed.entries['android-online'];
+  expect(Object.keys(entry)).toEqual([
+    'gameVersion',
+    'versionCode',
+    'apkSha256',
+    'apkEtag',
+    'il2cppSha256',
+    'metadataSha256',
+    'unityVersion',
+    'interopSha256',
+    'loader',
+    'patcher',
+    'cpp2ilVersion',
+    'cpp2ilSha256',
+    'il2cppInteropVersion',
+    'nativeLibs',
+    'capturedAt'
+  ]);
+  expect(Object.keys(entry.loader)).toEqual([
+    'tag',
+    'sha256',
+    'managedRuntimeVersion'
+  ]);
+  expect(Object.keys(entry.patcher)).toEqual(['tag', 'sha256']);
+
+  const refused = await runCli(['snapshot-android'], {
+    workspaceRoot: ws.workspaceRoot,
+    gameLibsStore: noStore,
+    generate: noGeneration
+  });
+  expect(refused.code).toBe(1);
+  expect(refused.out).toEqual([]);
+  expect(refused.err).toMatch(/^snapshot-android requires --apk\n/);
+}, 60000);
+
+test('publish android online stores the interop archive, every pinned input and the manifest, printing nothing', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-cli-');
+  await cliFirstCapture(ws, root);
+  const entry = ws.entry()!;
+  const store = new MemoryStore();
+  const published = await runCli(
+    ['publish', '--platform', 'android', '--channel', 'online'],
+    { workspaceRoot: ws.workspaceRoot, gameLibsStore: () => store }
+  );
+  expect(published.code).toBe(0);
+  expect(published.out).toEqual([]);
+  expect(published.err).toMatch(
+    new RegExp(
+      `Recorded game-libs/android-online-${ANDROID_VERSION}\\.json\\n$`
+    )
+  );
+  expect(store.writes).toEqual([
+    `game-libs/interop/${entry.interopSha256}.tar.gz`,
+    `game-libs/apk/${entry.apkSha256}.apk`,
+    `game-libs/loader/${entry.loader.sha256}.zip`,
+    `game-libs/patcher/${entry.patcher.sha256}.tar.gz`,
+    `game-libs/cpp2il/${entry.cpp2ilSha256}`,
+    `game-libs/android-online-${ANDROID_VERSION}.json`
+  ]);
+
+  const refused = await runCli(
+    ['publish', '--platform', 'android', '--channel', 'ptr'],
+    { workspaceRoot: ws.workspaceRoot, gameLibsStore: () => store }
+  );
+  expect(refused).toEqual({
+    code: 1,
+    out: [],
+    err: "Unknown android snapshot channel 'ptr'; expected online\n"
+  });
+  expect(store.writes).toHaveLength(6);
+}, 60000);
+
+test('snapshot-android as the APK watch runs it: only the APK and its ETag, the toolchain from the store', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-cli-');
+  await cliFirstCapture(ws, root);
+  const first = ws.entry()!;
+  const store = new MemoryStore();
+  expect(
+    (
+      await runCli(
+        ['publish', '--platform', 'android', '--channel', 'online'],
+        {
+          workspaceRoot: ws.workspaceRoot,
+          gameLibsStore: () => store
+        }
+      )
+    ).code
+  ).toBe(0);
+  // The runner starts with nothing under game-libs/.
+  fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
+  const nextVersion = '1.0.12900-production-android-0badc0de';
+  const apk = fakeApk(path.join(root, 'next.apk'), {
+    versionName: nextVersion,
+    il2cpp: 'il2cpp next'
+  });
+  const calls: GenerateInteropOptions[] = [];
+  const run = await runCli(
+    ['snapshot-android', '--apk', apk, '--apk-etag', 'v2'],
+    {
+      workspaceRoot: ws.workspaceRoot,
+      gameLibsStore: () => store,
+      generate: (options) => {
+        calls.push(options);
+        interopDirectory(options.output);
+      }
+    }
+  );
+  expect(run.code).toBe(0);
+  expect(run.out).toEqual([
+    `${path.join(ws.modRoot, 'game-libs', `android-online-${nextVersion}`)}\n`
+  ]);
+  expect(calls).toHaveLength(1);
+  expect(sha(fs.readFileSync(calls[0].patcher))).toBe(first.patcher.sha256);
+  expect(sha(fs.readFileSync(calls[0].cpp2il))).toBe(first.cpp2ilSha256);
+  expect(ws.entry()).toMatchObject({
+    gameVersion: nextVersion,
+    apkSha256: sha(fs.readFileSync(apk)),
+    apkEtag: 'v2',
+    loader: first.loader,
+    patcher: first.patcher,
+    cpp2ilSha256: first.cpp2ilSha256
+  });
+}, 60000);
+
+test('official-apk prints changed or unchanged and fails when the publisher cannot answer', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-cli-');
+  await cliFirstCapture(ws, root);
+  const entry = ws.entry()!;
+  const store = new MemoryStore();
+  await store.put(`game-libs/apk/${entry.apkSha256}.apk`, Buffer.alloc(10), {
+    ifNoneMatch: true
+  });
+  const urls: string[] = [];
+  const head =
+    (length: number, etag: string, ok = true): ApkHeadFetch =>
+    async (url, init) => {
+      urls.push(`${init.method} ${url}`);
+      return {
+        ok,
+        status: ok ? 200 : 503,
+        headers: new Headers({ 'content-length': `${length}`, etag })
+      };
+    };
+  const official = (apkFetch: ApkHeadFetch) =>
+    runCli(['official-apk'], {
+      workspaceRoot: ws.workspaceRoot,
+      gameLibsStore: () => store,
+      apkFetch
+    });
+  expect(await official(head(10, '"v1"'))).toEqual({
+    code: 0,
+    out: ['unchanged\n'],
+    err: `Official APK 10 bytes, ETag v1; locked ${ANDROID_VERSION} 10 bytes, ETag v1\n`
+  });
+  expect(urls).toEqual([
+    'HEAD https://data.playthebazaar.com/game/android/TheBazaar.apk'
+  ]);
+  expect((await official(head(11, '"v1"'))).out).toEqual(['changed\n']);
+  expect((await official(head(10, '"v2"'))).out).toEqual(['changed\n']);
+  expect(await official(head(10, '"v1"', false))).toEqual({
+    code: 1,
+    out: [],
+    err: 'HEAD https://data.playthebazaar.com/game/android/TheBazaar.apk answered 503\n'
+  });
+}, 60000);
+
+test('record-apk-etag records the ETag of the locked APK and refuses another file', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-cli-');
+  const { apk, tools } = await cliFirstCapture(ws, root);
+  const lockFile = path.join(ws.workspaceRoot, GAME_LIBS_LOCK_PATH);
+  const record = (argv: string[]) =>
+    runCli(['record-apk-etag', ...argv], {
+      workspaceRoot: ws.workspaceRoot,
+      gameLibsStore: noStore
+    });
+  expect(await record(['--apk', apk, '--apk-etag', 'v2'])).toEqual({
+    code: 0,
+    out: [],
+    err: `Recorded the ETag of ${ANDROID_VERSION} in bazaarplusplus-mod/build/game-libs.lock.json\n`
+  });
+  expect(ws.entry()!.apkEtag).toBe('v2');
+
+  const before = fs.readFileSync(lockFile);
+  for (const [argv, message] of [
+    [['--apk', tools.loader, '--apk-etag', 'v3'], /not the locked APK/],
+    [['--apk', apk, '--apk-etag', '"v3"'], /^Not a strong ETag value: "v3"\n$/],
+    [['--apk', apk], /^record-apk-etag requires --apk-etag\n/]
+  ] as const) {
+    const failed = await record([...argv]);
+    expect(failed.code).toBe(1);
+    expect(failed.out).toEqual([]);
+    expect(failed.err).toMatch(message);
+  }
+  expect(fs.readFileSync(lockFile)).toEqual(before);
+}, 60000);

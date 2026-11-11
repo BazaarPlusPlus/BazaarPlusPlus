@@ -18,7 +18,7 @@ import {
   putReplaceable,
   r2StoreFromEnvironment
 } from './r2-store.ts';
-import type { ObjectStore } from './r2-store.ts';
+import type { FetchImpl, ObjectStore } from './r2-store.ts';
 
 // Game Assembly Snapshots, Interop Snapshots and the Snapshot Lock (root
 // GLOSSARY.md, ADR 0004 and ADR 0008). This module owns the lock schema, the
@@ -1300,6 +1300,27 @@ export function gameStatus(
     updatedAt: new Date(updatedAt * 1000).toISOString(),
     platforms
   };
+}
+
+/** The options of gameStatusStoreFromEnvironment; bucket and prefix are fixed. */
+export interface GameStatusStoreOptions {
+  /** The fetch the store sends its R2 requests with. */
+  fetchImpl?: FetchImpl;
+}
+
+// The public store the Game Status and the Android Game Status are written to:
+// the release bucket under game-status/. Never the bucket's default installer/
+// prefix: GAME_STATUS_KEY and the Release Manifest are both latest.json, so a
+// Game Status written there would replace the production Release Manifest.
+export function gameStatusStoreFromEnvironment(
+  env: NodeJS.ProcessEnv = process.env,
+  { fetchImpl }: GameStatusStoreOptions = {}
+): ObjectStore {
+  return r2StoreFromEnvironment(env, {
+    ...(fetchImpl === undefined ? {} : { fetchImpl }),
+    bucket: RELEASE_BUCKET,
+    prefix: GAME_STATUS_PREFIX
+  });
 }
 
 export interface PublishGameStatusOptions {
@@ -2724,13 +2745,35 @@ fetch when no verified local copy exists, use the private bucket
 ${GAME_LIBS_BUCKET} through CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the
 S3 pair is derived from the token).`;
 
+// Every option but workspaceRoot is a test seam; each default is what the
+// command line uses.
 export interface CliOptions {
   workspaceRoot?: string;
+  /** Where the stores read CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID. */
+  env?: NodeJS.ProcessEnv;
+  /** The fetch the Game Status store sends its R2 requests with. */
+  r2Fetch?: FetchImpl;
+  /** The private store of publish, official-apk and snapshot-android. */
+  gameLibsStore?: () => ObjectStore;
+  /** The HEAD request official-apk sends to the APK publisher. */
+  apkFetch?: ApkHeadFetch;
+  /** Runs tools/SteamSnapshot for steam-stale and steam-capture. */
+  runTool?: SteamToolRunner;
+  /** Generates interop for snapshot-android without --interop. */
+  generate?: (options: GenerateInteropOptions) => void;
 }
 
 export async function cliMain(
   argv: readonly string[],
-  { workspaceRoot = WORKSPACE_ROOT }: CliOptions = {}
+  {
+    workspaceRoot = WORKSPACE_ROOT,
+    env = process.env,
+    r2Fetch,
+    gameLibsStore = () => gameLibsStoreFromEnvironment(env),
+    apkFetch,
+    runTool,
+    generate
+  }: CliOptions = {}
 ): Promise<number> {
   const [verb, ...rest] = argv;
   try {
@@ -2779,7 +2822,11 @@ export async function cliMain(
     };
     switch (verb) {
       case 'official-apk': {
-        const result = await officialApkChanged({ workspaceRoot });
+        const result = await officialApkChanged({
+          workspaceRoot,
+          storeFactory: gameLibsStore,
+          fetchImpl: apkFetch
+        });
         log(
           `Official APK ${result.officialSize} bytes, ETag ${result.officialEtag}; locked ${result.lockedGameVersion} ${result.lockedSize} bytes, ETag ${result.lockedEtag}`
         );
@@ -2827,7 +2874,8 @@ export async function cliMain(
               workspaceRoot,
               modRoot,
               // steamStale checks the channel.
-              channel: required('channel') as SnapshotChannel
+              channel: required('channel') as SnapshotChannel,
+              runTool
             })
           )
         );
@@ -2839,7 +2887,8 @@ export async function cliMain(
           workspaceRoot,
           modRoot,
           platform: required('platform') as SnapshotPlatform,
-          channel: required('channel') as SnapshotChannel
+          channel: required('channel') as SnapshotChannel,
+          runTool
         });
         log(
           `Captured ${result.key} ${result.manifest.gameVersion} (buildid ${result.manifest.buildid}) into ${result.directory} and recorded it in ${GAME_LIBS_LOCK_PATH}`
@@ -2866,10 +2915,7 @@ export async function cliMain(
           state: JSON.parse(
             fs.readFileSync(required('state'), 'utf8')
           ) as SteamState,
-          store: r2StoreFromEnvironment(process.env, {
-            bucket: RELEASE_BUCKET,
-            prefix: GAME_STATUS_PREFIX
-          })
+          store: gameStatusStoreFromEnvironment(env, { fetchImpl: r2Fetch })
         });
         log(
           status
@@ -2881,10 +2927,7 @@ export async function cliMain(
       case 'android-game-status': {
         const status = await publishAndroidGameStatus({
           workspaceRoot,
-          store: r2StoreFromEnvironment(process.env, {
-            bucket: RELEASE_BUCKET,
-            prefix: GAME_STATUS_PREFIX
-          })
+          store: gameStatusStoreFromEnvironment(env, { fetchImpl: r2Fetch })
         });
         log(
           status
@@ -2906,6 +2949,8 @@ export async function cliMain(
           patcherTag: values['patcher-tag'] ?? '',
           cpp2il: values.cpp2il ?? '',
           nativePackages: values['native-package'] ?? [],
+          storeFactory: gameLibsStore,
+          generate,
           log
         });
         log(
@@ -2922,7 +2967,7 @@ export async function cliMain(
           await publishInteropSnapshot({
             workspaceRoot,
             modRoot,
-            store: gameLibsStoreFromEnvironment(),
+            store: gameLibsStore(),
             log
           });
           return 0;
@@ -2934,7 +2979,7 @@ export async function cliMain(
           modRoot,
           platform: platform as ManagedPlatform,
           channel: channel as SnapshotChannel,
-          store: gameLibsStoreFromEnvironment(),
+          store: gameLibsStore(),
           log
         });
         return 0;
