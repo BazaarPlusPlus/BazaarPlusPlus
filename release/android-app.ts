@@ -12,7 +12,7 @@ import {
   interopDirectoryRecords,
   lockedInteropEntry
 } from './game-libs.ts';
-import type { LoaderPin } from './game-libs.ts';
+import type { LoaderPin } from './snapshot-lock.ts';
 import type { AndroidCarriedRelease } from './manifest.ts';
 
 // The Android App's inputs (docs/adr/0012-android-app.md): the Android App

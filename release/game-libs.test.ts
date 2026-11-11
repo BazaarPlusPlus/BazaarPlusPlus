@@ -2,51 +2,53 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, expect, test } from 'vite-plus/test';
+import { afterEach, expect, test, vi } from 'vite-plus/test';
 import {
   GAME_LIBS_BUCKET,
-  GAME_LIBS_LOCK_PATH,
   captureSnapshot,
   checkGameLibsLock,
   cliMain,
   fetchSnapshot,
   androidGameStatus,
   gameStatus,
+  gameLibsStoreFromEnvironment,
   gameStatusStoreFromEnvironment,
   lockEntryForManaged,
-  lockKeys,
-  lockWarnings,
-  lockedEntries,
   managedDirectoryDigest,
   managedDirectoryRecords,
-  parseGameVersion,
   previewBehindOnline,
   publishAndroidGameStatus,
   publishGameStatus,
   publishSnapshot,
-  readGameLibsLock,
   readGameVersion,
-  snapshotBlobKey,
-  snapshotManifestKey,
   staleSteamPlatforms,
   steamCapture,
   steamChangeKind,
-  steamStale,
-  validateGameLibsLock
+  steamStale
 } from './game-libs.ts';
 import type {
   AndroidGameStatusDocument,
   CliOptions,
   FetchSnapshotOptions,
+  GameStatusDocument,
+  SteamToolRunner
+} from './game-libs.ts';
+import {
+  GAME_LIBS_LOCK_PATH,
+  lockKeys,
+  readGameLibsLock,
+  snapshotBlobKey,
+  snapshotManifestKey,
+  validateGameLibsLock
+} from './snapshot-lock.ts';
+import type {
   GameLibsLock,
   GameLibsLockEntries,
-  GameStatusDocument,
   InteropLockEntry,
   ManagedLockEntry,
   SnapshotChannel,
-  SteamBranch,
-  SteamToolRunner
-} from './game-libs.ts';
+  SteamBranch
+} from './snapshot-lock.ts';
 import { computePayloadInputs } from './payload.ts';
 import {
   readInventory,
@@ -150,33 +152,6 @@ function memoryStore() {
   };
 }
 
-test('the committed lock validates and names every platform-channel key', () => {
-  const lock = readGameLibsLock(WORKSPACE_ROOT);
-  expect(Object.keys(lock.entries)).toEqual([
-    'macos-online',
-    'macos-staging',
-    'macos-ptr',
-    'windows-online',
-    'windows-staging',
-    'windows-ptr',
-    'android-online'
-  ]);
-  expect(lock.staleAfterDays).toBe(30);
-});
-
-test('game versions carry their platform and channel', () => {
-  expect(parseGameVersion(STAGING_VERSION)).toEqual({
-    platform: 'macos',
-    channel: 'staging'
-  });
-  expect(parseGameVersion('1.0.11358-ptr-windows-x64-947c079a')).toEqual({
-    platform: 'windows',
-    channel: 'ptr'
-  });
-  expect(parseGameVersion(ONLINE_VERSION).channel).toBe('online');
-  expect(() => parseGameVersion('25661913')).toThrow(/Application.version/);
-});
-
 test('the game version is read from globalgamemanagers above Managed, exactly once', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-game-'));
   roots.push(root);
@@ -225,82 +200,6 @@ test('the Managed digest hashes every DLL in ordinal order and feeds the payload
   expect(
     inputs.files.filter((record) => record.path.startsWith('managed/'))
   ).toEqual(managedDirectoryRecords(managed));
-});
-
-test('lock validation rejects every malformed shape it will meet', () => {
-  const entry = {
-    gameVersion: STAGING_VERSION,
-    sha256: 'a'.repeat(64),
-    buildid: '25661913',
-    steamBranch: 'staging',
-    capturedAt: '2026-10-03T00:00:00.000Z'
-  };
-  const withEntry = (key: string, value: object) => {
-    const lock = emptyLock();
-    (lock.entries as Record<string, unknown>)[key] = value;
-    return lock;
-  };
-  expect(validateGameLibsLock(withEntry('macos-staging', entry))).toBeTruthy();
-  const cases: [object, RegExp][] = [
-    [{ ...emptyLock(), schemaVersion: 2 }, /schemaVersion/],
-    [{ ...emptyLock(), staleAfterDays: 0 }, /staleAfterDays/],
-    [{ ...emptyLock(), extra: true }, /unknown top-level/],
-    [
-      { ...emptyLock(), entries: { 'macos-online': null } },
-      /exactly the keys macos-online, .*, android-online/
-    ],
-    [withEntry('macos-staging', { ...entry, note: 'x' }), /exactly the fields/],
-    [withEntry('macos-online', entry), /is a macos-staging build/],
-    [withEntry('windows-staging', entry), /is a macos-staging build/],
-    [withEntry('macos-staging', { ...entry, sha256: 'xyz' }), /sha256/],
-    [withEntry('macos-staging', { ...entry, buildid: 25661913 }), /buildid/],
-    [
-      withEntry('macos-staging', { ...entry, steamBranch: 'public' }),
-      /steamBranch must be staging/
-    ],
-    [
-      withEntry('macos-staging', { ...entry, capturedAt: '2026-10-03' }),
-      /capturedAt/
-    ]
-  ];
-  for (const [lock, message] of cases)
-    expect(() => validateGameLibsLock(lock), JSON.stringify(lock)).toThrow(
-      message
-    );
-});
-
-test('warnings name empty and stale entries without failing', () => {
-  const lock = emptyLock();
-  lock.entries['macos-staging'] = {
-    gameVersion: STAGING_VERSION,
-    sha256: 'a'.repeat(64),
-    buildid: '25661913',
-    steamBranch: 'staging',
-    capturedAt: '2026-08-01T00:00:00.000Z'
-  };
-  lock.entries['windows-online'] = {
-    gameVersion: '1.0.12600-windows-x64-0a1b2c3d',
-    sha256: 'b'.repeat(64),
-    buildid: '25661999',
-    steamBranch: 'public',
-    capturedAt: '2026-10-01T00:00:00.000Z'
-  };
-  const warnings = lockWarnings(lock, { now: NOW });
-  expect(warnings).toHaveLength(6);
-  expect(
-    warnings.filter((w) => w.includes('no snapshot captured'))
-  ).toHaveLength(4);
-  expect(warnings.find((w) => w.startsWith('android-online'))).toMatch(
-    /no Interop Snapshot captured; run 'just mod::snapshot-android <TheBazaar\.apk>'/
-  );
-  expect(warnings.find((w) => w.startsWith('macos-staging'))).toMatch(
-    /captured 63 days ago \(staleAfterDays 30\)/
-  );
-  expect(warnings.some((w) => w.startsWith('windows-online'))).toBe(false);
-  expect(lockedEntries(lock).map(({ key }) => key)).toEqual([
-    'macos-staging',
-    'windows-online'
-  ]);
 });
 
 test('snapshot captures the mounted game under its game version and records the lock entry', () => {
@@ -1231,6 +1130,31 @@ test('the Game Status store writes under game-status/ in the public bucket, neve
     false
   );
   expect(() => gameStatusStoreFromEnvironment({})).toThrow(
+    /CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID/
+  );
+});
+
+// The private store holds the game's own files (ADR 0007), so it must never
+// fall back to the public release bucket and its installer/ prefix.
+test('the game-libs store reads and writes the private game-libs bucket, never the public one', async () => {
+  const r2 = fakeR2();
+  vi.stubGlobal('fetch', r2.fetchImpl);
+  try {
+    const store = gameLibsStoreFromEnvironment(R2_ENV);
+    expect(
+      await store.put('game-libs/manifest.json', Buffer.from('{}'), {
+        ifNoneMatch: true
+      })
+    ).toBe(true);
+    expect(await store.get('game-libs/manifest.json')).not.toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+  expect(r2.requests.map(({ method, url }) => `${method} ${url}`)).toEqual([
+    `PUT ${R2_OBJECTS}/bazaarplusplus-game-libs/game-libs/manifest.json`,
+    `GET ${R2_OBJECTS}/bazaarplusplus-game-libs/game-libs/manifest.json`
+  ]);
+  expect(() => gameLibsStoreFromEnvironment({})).toThrow(
     /CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID/
   );
 });

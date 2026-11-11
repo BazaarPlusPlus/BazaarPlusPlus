@@ -2,8 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { INTEROP_KEY, lockedInteropEntry } from './game-libs.ts';
-import type { InteropLockEntry } from './game-libs.ts';
+import { lockedInteropEntry } from './game-libs.ts';
+import { INTEROP_KEY } from './snapshot-lock.ts';
+import type { InteropLockEntry } from './snapshot-lock.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 
 // How android-apk-watch.yml sorts a capture of a new official APK
