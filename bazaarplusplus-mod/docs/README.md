@@ -9,6 +9,7 @@ The documentation inventory, and the mod-specific rules for changing it. `AGENTS
 - [../GLOSSARY.md](../GLOSSARY.md) — the glossary.
 - [adr/](adr/) — decision records.
 - [contracts/](contracts/) — wire and payload formats that outlive any one implementation.
+- [testing.md](testing.md) — how a test project reaches the code it tests: a Core reference or linked sources.
 - [../README.md](../README.md) — the human entry point: features, install, quick start.
 
 ## Decision records
