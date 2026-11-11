@@ -18,6 +18,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
     private const string TogglePairFillerObjectName = "BPP_SettingsTogglePairFiller";
     private const float ToggleColumnSpacing = 24f;
     private const float SplitContainerExtraHeight = 24f;
+    private const float InactiveActionAlpha = 0.5f;
 
     private static readonly FieldInfo? EntriesField = AccessTools.Field(
         typeof(ScrollSpyController),
@@ -399,8 +400,16 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
                 row.Choice.interactable = state.Interactable;
                 break;
             case BppSettingsControlKind.Action when row.Action != null:
+            {
                 row.Action.interactable = state.Interactable;
+                // The donor button swaps sprites and has none for the disabled state, so it looks
+                // the same when it is not interactable. Dim the row instead, as Android does.
+                var group = row.Root.GetComponent<CanvasGroup>();
+                if (group == null)
+                    group = row.Root.gameObject.AddComponent<CanvasGroup>();
+                group.alpha = state.Interactable ? 1f : InactiveActionAlpha;
                 break;
+            }
         }
     }
 
