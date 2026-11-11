@@ -50,24 +50,29 @@ cmd_test_performance() {
 # test-core [-p:Name=Value ...]: the suites that need no Managed/ snapshot, so they also run on
 # Linux: the xUnit suites in BazaarPlusPlus.CoreTests.slnx (among them the Android host's
 # boundary test, which needs the Interop Snapshot from `just mod::fetch android online`
-# instead), then the console capsules that run against Core's net10.0 output: the two goldens
-# on the binding the Android host ships, the Run segment (BundleV6Codec) and Run Logging's
-# history database, the Combat Impact Corpus runner, and the Core-only feature capsules. A
-# capsule here also stays in BppScenarioRunnerProjects, which `mod::test` runs.
+# instead), then the console capsules BppTestCoreProjects names (Directory.Build.props), which
+# run against Core's net10.0 output: among them the two goldens on the binding the Android host
+# ships, the Run segment (BundleV6Codec) and Run Logging's history database, and the Combat
+# Impact Corpus runner. Architecture.Tests' TestProjectRegistryTests holds every capsule there
+# to BppScenarioRunnerProjects, which `mod::test` runs.
 # BppSnapshotPlatform=none names no lock entry, so a project that reaches a Mono target fails
 # here on every host the way it fails on the Linux lane, not only where no snapshot is fetched.
 cmd_test_core() {
     collect_props "$@"
     local core_props=(-p:BppSnapshotPlatform=none "${TEST_PROPS[@]}")
+    # Strip all whitespace: a list wrapped across lines would otherwise stop `read` at the first
+    # newline and silently run fewer capsules.
+    local list projects=()
+    list="$(dotnet msbuild Directory.Build.props -nologo -getProperty:BppTestCoreProjects \
+        "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"} | tr -d '[:space:]')"
+    [[ -n "$list" ]] || die "BppTestCoreProjects in Directory.Build.props is empty."
+    IFS=';' read -r -a projects <<<"$list"
     test_diagnostics core
     dotnet test tests/BazaarPlusPlus.CoreTests.slnx "${TEST_DIAGNOSTICS[@]}" \
         "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     local project
-    for project in BundleV6Codec.Net10.Tests RunLoggingPipeline.Net10.Tests \
-        CombatImpact.Corpus CollectionFilterEngine.Tests CollectionGridLayout.Tests \
-        CollectionViewState.Tests GhostBattleSync.Tests HistoryPanelDecisions.Tests HistoryPanelFiltering.Tests \
-        HistoryPanelRepository.Tests LiveBuildPanel.Tests LiveBuildRecommendationCore.Tests \
-        OverlayPanelLifecycle.Tests; do
+    for project in "${projects[@]}"; do
+        [[ -n "$project" ]] || continue
         dotnet run --project "tests/$project/$project.csproj" \
             "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     done

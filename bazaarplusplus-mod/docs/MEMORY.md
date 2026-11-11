@@ -13,7 +13,7 @@ What the code in front of you cannot tell you, for any change: invariants, settl
 - An event id needs at least three dotted segments, `<scope>.<area>.<event>`, as a literal under its scope's prefix; any other id renders as `logging.render.failed`, which `LogEventIdArchitectureTests` and `AndroidHostLogEventIdTests` catch in the compiled assemblies. [`tests/Architecture.Tests/LogEventIdRule.cs`]
 - Anchor mod file-write paths on `BepInEx.Paths.GameRootPath` or `<GameRoot>/BazaarPlusPlusV6/`, which BepInEx special-cases on macOS to the directory containing the `.app`. A path from `Application.dataPath` writes unsealed files inside the `.app`, breaking `codesign` re-signing and so `just mod::build --deploy`. [`src/BazaarPlusPlus/Host/BepInExPathProvider.cs`]
 - Reuse the game's native UI components (`CardPreviewBase.SetUp` and the like) and prior art over a hand-rolled render or upload chain.
-- Keep Unity-adjacent logic free of Unity types and Compile-Include it into a test project, so the test needs no InternalsVisibleTo and no ManagedPath; a core that touches `BazaarGameShared` types still needs the game assemblies. [ADR-0005]
+- Keep Unity-adjacent logic free of Unity types. Test Core code through a Core reference pinned to `net10.0`, with `BppRequiresManagedPath=false`; Compile-Include only Desktop Host files a test cannot reach without game assemblies, and compile-time stubs (`BppLog`, Updater). [ADR-0005 | ADR-0012]
 
 ## Architecture decisions
 

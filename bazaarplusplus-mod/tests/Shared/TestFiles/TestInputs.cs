@@ -23,7 +23,7 @@ internal static class TestInputs
 
     internal static XDocument MsBuild(string relativePath)
     {
-        var path = ResolveRepoFile(relativePath, ".csproj", ".props", ".targets");
+        var path = ResolveRepoFile(relativePath, ".csproj", ".props", ".targets", ".slnx");
         return XDocument.Load(path);
     }
 
