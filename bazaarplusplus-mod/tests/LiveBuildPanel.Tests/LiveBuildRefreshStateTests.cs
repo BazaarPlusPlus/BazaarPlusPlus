@@ -1,22 +1,18 @@
 using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
+using BazaarPlusPlus.Localization;
+using Xunit;
 
 namespace LiveBuildPanel.Tests;
 
-internal static class LiveBuildRefreshStateTests
+public sealed class LiveBuildRefreshStateTests
 {
-    public static void Run()
-    {
-        HiddenAndPendingPanelsIgnoreRefreshIntents();
-        FailurePreservesDiagnosticsAndAllowsAnotherDownload();
-        SuccessfulPullConsumesTheAllowanceAcrossPanelReopens();
-        ReopeningAPendingRefreshKeepsItAndPresentsItsCompletion();
-        HiddenCompletionHasNoViewEffectAndReopenClearsFeedback(succeeded: true);
-        HiddenCompletionHasNoViewEffectAndReopenClearsFeedback(succeeded: false);
-        DestroyedPanelNeverResumesViewEffects();
-    }
+    // The capsule installed English before these checks.
+    public LiveBuildRefreshStateTests() =>
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
-    private static void HiddenAndPendingPanelsIgnoreRefreshIntents()
+    [Fact]
+    public void HiddenAndPendingPanelsIgnoreRefreshIntents()
     {
         var state = new LiveBuildRefreshState();
         Check.Equal(LiveBuildRefreshRequest.Ignore, state.BeginRefresh(), "Hidden refresh.");
@@ -26,7 +22,8 @@ internal static class LiveBuildRefreshStateTests
         Check.Equal(LiveBuildRefreshRequest.Ignore, state.BeginRefresh(), "Pending refresh.");
     }
 
-    private static void FailurePreservesDiagnosticsAndAllowsAnotherDownload()
+    [Fact]
+    public void FailurePreservesDiagnosticsAndAllowsAnotherDownload()
     {
         var state = OpenPanel();
         state.BeginRefresh();
@@ -58,7 +55,8 @@ internal static class LiveBuildRefreshStateTests
         Check.That(state.Feedback == null, "A new refresh clears the old feedback.");
     }
 
-    private static void SuccessfulPullConsumesTheAllowanceAcrossPanelReopens()
+    [Fact]
+    public void SuccessfulPullConsumesTheAllowanceAcrossPanelReopens()
     {
         var state = OpenPanel();
         Check.Equal(LiveBuildRefreshRequest.Download, state.BeginRefresh(), "First pull.");
@@ -84,7 +82,8 @@ internal static class LiveBuildRefreshStateTests
         );
     }
 
-    private static void ReopeningAPendingRefreshKeepsItAndPresentsItsCompletion()
+    [Fact]
+    public void ReopeningAPendingRefreshKeepsItAndPresentsItsCompletion()
     {
         var state = OpenPanel();
         state.BeginRefresh();
@@ -102,7 +101,10 @@ internal static class LiveBuildRefreshStateTests
         Check.That(state.Feedback!.Value.Succeeded, "The completion succeeded.");
     }
 
-    private static void HiddenCompletionHasNoViewEffectAndReopenClearsFeedback(bool succeeded)
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void HiddenCompletionHasNoViewEffectAndReopenClearsFeedback(bool succeeded)
     {
         var state = OpenPanel();
         state.BeginRefresh();
@@ -130,7 +132,8 @@ internal static class LiveBuildRefreshStateTests
         );
     }
 
-    private static void DestroyedPanelNeverResumesViewEffects()
+    [Fact]
+    public void DestroyedPanelNeverResumesViewEffects()
     {
         var state = OpenPanel();
         state.BeginRefresh();

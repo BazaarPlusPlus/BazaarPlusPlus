@@ -2,6 +2,8 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.LiveCards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Localization;
+using Xunit;
 
 namespace LiveBuildPanel.Tests;
 
@@ -9,8 +11,12 @@ namespace LiveBuildPanel.Tests;
 /// Core's live read outcome through its one entry point: the no-run rule, the read-exception
 /// envelope, the socket-fit rule, the fallbacks, the numbering, and each host's degraded line.
 /// </summary>
-internal static class LiveCardSnapshotReadTests
+public sealed class LiveCardSnapshotReadTests
 {
+    // The capsule installed English before these checks.
+    public LiveCardSnapshotReadTests() =>
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+
     private const string DesktopEventId = "live_build_panel.live_snapshot.degraded";
     private const string TouchEventId = "touch.live_build.live_snapshot.degraded";
 
@@ -19,19 +25,8 @@ internal static class LiveCardSnapshotReadTests
     private static readonly Guid CardC = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static readonly Guid CardD = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
 
-    public static void Run()
-    {
-        NoRunReadsEmptyAndLogsNothing();
-        AThrowingWalkReadsEmptyWithOneReadException();
-        MisfitsAreLeftOutAndOrderSkipsThem();
-        DegradedLinesKeepEachHostsFormat();
-        UnnamedFacetsFallBack();
-        ShopIgnoresSocketsAndKeepsOrder();
-        ANullHeroKeepsTheCards();
-        SocketAtInvertsSocketRank();
-    }
-
-    private static void NoRunReadsEmptyAndLogsNothing()
+    [Fact]
+    public void NoRunReadsEmptyAndLogsNothing()
     {
         var lines = Install();
 
@@ -49,7 +44,8 @@ internal static class LiveCardSnapshotReadTests
         Check.Equal(0, Degraded(lines, DesktopEventId).Count, "No run logs nothing.");
     }
 
-    private static void AThrowingWalkReadsEmptyWithOneReadException()
+    [Fact]
+    public void AThrowingWalkReadsEmptyWithOneReadException()
     {
         var lines = Install();
         var failure = new InvalidOperationException("walk failed");
@@ -87,7 +83,8 @@ internal static class LiveCardSnapshotReadTests
         );
     }
 
-    private static void MisfitsAreLeftOutAndOrderSkipsThem()
+    [Fact]
+    public void MisfitsAreLeftOutAndOrderSkipsThem()
     {
         Install();
 
@@ -139,7 +136,8 @@ internal static class LiveCardSnapshotReadTests
         );
     }
 
-    private static void DegradedLinesKeepEachHostsFormat()
+    [Fact]
+    public void DegradedLinesKeepEachHostsFormat()
     {
         var walk = Walk(
             board: [Card(CardA, socket: 8, size: CardSize.Large)],
@@ -169,7 +167,8 @@ internal static class LiveCardSnapshotReadTests
         );
     }
 
-    private static void UnnamedFacetsFallBack()
+    [Fact]
+    public void UnnamedFacetsFallBack()
     {
         Install();
 
@@ -202,7 +201,8 @@ internal static class LiveCardSnapshotReadTests
         Check.Equal(string.Empty, card.InstanceId, "No instance id reads as empty.");
     }
 
-    private static void ShopIgnoresSocketsAndKeepsOrder()
+    [Fact]
+    public void ShopIgnoresSocketsAndKeepsOrder()
     {
         Install();
 
@@ -230,7 +230,8 @@ internal static class LiveCardSnapshotReadTests
         Check.Equal(0, outcome.Issues.Count, "The shop reports nothing.");
     }
 
-    private static void ANullHeroKeepsTheCards()
+    [Fact]
+    public void ANullHeroKeepsTheCards()
     {
         Install();
 
@@ -244,7 +245,8 @@ internal static class LiveCardSnapshotReadTests
         Check.Equal(1, outcome.Snapshot.BoardItems.Count, "A null hero keeps the board.");
     }
 
-    private static void SocketAtInvertsSocketRank()
+    [Fact]
+    public void SocketAtInvertsSocketRank()
     {
         for (var index = 0; index < 10; index++)
             Check.Equal(
