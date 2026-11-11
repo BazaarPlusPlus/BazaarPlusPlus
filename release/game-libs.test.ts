@@ -12,6 +12,7 @@ import {
   fetchSnapshot,
   androidGameStatus,
   gameStatus,
+  gameStatusStoreFromEnvironment,
   lockEntryForManaged,
   lockKeys,
   lockWarnings,
@@ -19,6 +20,7 @@ import {
   managedDirectoryDigest,
   managedDirectoryRecords,
   parseGameVersion,
+  previewBehindOnline,
   publishAndroidGameStatus,
   publishGameStatus,
   publishSnapshot,
@@ -34,6 +36,7 @@ import {
 } from './game-libs.ts';
 import type {
   AndroidGameStatusDocument,
+  CliOptions,
   FetchSnapshotOptions,
   GameLibsLock,
   GameLibsLockEntries,
@@ -50,8 +53,9 @@ import {
   synchronizePayloadProjection
 } from './payload-inventory.ts';
 import { WORKSPACE_ROOT } from './product.ts';
-import { createR2Store } from './r2-store.ts';
-import type { PutOptions } from './r2-store.ts';
+import { CLOUDFLARE_API, createR2Store } from './r2-store.ts';
+import type { FetchImpl, PutOptions } from './r2-store.ts';
+import { MemoryStore } from './test-support/memory-store.ts';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -1068,3 +1072,531 @@ test('the Android Game Status of the android-online entry matches the shared fix
   ).toBeNull();
   expect(untouched.objects.size).toBe(0);
 });
+
+// previewBehindOnline decides which preview channels the CompatCheck matrix
+// skips. Failure modes: a string comparison of build ids ('9' > '10'), a
+// preview at or above online read as behind, an empty entry read as behind.
+test('a preview channel is behind online only when its Steam build id is numerically lower', () => {
+  const lock = emptyLock();
+  lock.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '10');
+  lock.entries['macos-staging'] = {
+    gameVersion: STAGING_VERSION,
+    sha256: 'b'.repeat(64),
+    buildid: '9',
+    steamBranch: 'staging',
+    capturedAt: NOW.toISOString()
+  };
+  lock.entries['macos-ptr'] = {
+    gameVersion: '1.0.12600-ptr-macos-arm64-0a1b2c3d',
+    sha256: 'c'.repeat(64),
+    buildid: '10',
+    steamBranch: 'public_test_realm',
+    capturedAt: NOW.toISOString()
+  };
+  expect(previewBehindOnline(lock, 'macos', 'staging')).toBe(
+    lock.entries['macos-online']
+  );
+  expect(previewBehindOnline(lock, 'macos', 'ptr')).toBeNull();
+  lock.entries['macos-ptr']!.buildid = '11';
+  expect(previewBehindOnline(lock, 'macos', 'ptr')).toBeNull();
+  expect(previewBehindOnline(lock, 'macos', 'online')).toBeNull();
+  expect(previewBehindOnline(lock, 'windows', 'staging')).toBeNull();
+  lock.entries['macos-online'] = null;
+  expect(previewBehindOnline(lock, 'macos', 'staging')).toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// The CLI as the workflows and bazaarplusplus-mod/scripts call it. Each test
+// pins what the caller reads: the exact stdout (results only), the exit code
+// (0 or 1), that logs and errors go to stderr, and what the verb wrote.
+
+interface CliRun {
+  code: number;
+  out: string[];
+  err: string;
+}
+
+async function runCli(argv: string[], options: CliOptions): Promise<CliRun> {
+  const out: string[] = [];
+  const err: string[] = [];
+  const stdout = process.stdout.write.bind(process.stdout);
+  const stderr = process.stderr.write.bind(process.stderr);
+  process.stdout.write = (chunk) => (out.push(String(chunk)), true);
+  process.stderr.write = (chunk) => (err.push(String(chunk)), true);
+  try {
+    const code = await cliMain(argv, options);
+    return { code, out, err: err.join('') };
+  } finally {
+    process.stdout.write = stdout;
+    process.stderr.write = stderr;
+  }
+}
+
+test('--help and no verb print the usage on stdout, naming every verb', async () => {
+  const verbs = [
+    'game-version',
+    'digest',
+    'snapshot',
+    'steam-stale',
+    'steam-capture',
+    'steam-change',
+    'game-status',
+    'android-game-status',
+    'snapshot-android',
+    'publish',
+    'fetch',
+    'lock-check',
+    'entries',
+    'behind-online',
+    'official-apk',
+    'record-apk-etag'
+  ];
+  for (const argv of [['--help'], []]) {
+    const { code, out, err } = await runCli(argv, {
+      workspaceRoot: workspace().workspaceRoot
+    });
+    expect(code).toBe(0);
+    expect(err).toBe('');
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatch(
+      /^Game Assembly and Interop Snapshot commands[^]*\n$/
+    );
+    for (const verb of verbs)
+      expect(out[0]).toContain(`bun release/game-libs.ts ${verb}`);
+  }
+});
+
+// The Game Status store is the one place the release bucket's default
+// installer/ prefix must not apply: GAME_STATUS_KEY and the Release Manifest
+// are both latest.json. The fake answers the Cloudflare token check and the S3
+// requests, so a test sees the exact object URL the store writes. The
+// expectations are literal strings on purpose; a change to a shared constant
+// must fail here.
+const R2_ACCOUNT = 'f'.repeat(32);
+const R2_ENV = {
+  CLOUDFLARE_API_TOKEN: 'game-status-test-token',
+  CLOUDFLARE_ACCOUNT_ID: R2_ACCOUNT
+};
+const R2_OBJECTS = `https://${R2_ACCOUNT}.r2.cloudflarestorage.com`;
+
+interface R2Request {
+  method: string;
+  url: string;
+  body: Buffer | null;
+}
+
+function fakeR2() {
+  const requests: R2Request[] = [];
+  const objects = new Map<string, Buffer>();
+  const fetchImpl: FetchImpl = async (url, init) => {
+    if (url.startsWith(CLOUDFLARE_API))
+      return new Response(
+        JSON.stringify({
+          success: true,
+          errors: [],
+          result: { id: 'e'.repeat(32), status: 'active' }
+        })
+      );
+    const method = init.method ?? 'GET';
+    const body = init.body ? Buffer.from(init.body as Uint8Array) : null;
+    requests.push({ method, url, body });
+    if (method === 'PUT') {
+      objects.set(url, body!);
+      return new Response(null, { status: 200 });
+    }
+    const stored = objects.get(url);
+    return stored
+      ? new Response(stored, { status: 200, headers: { etag: '"1"' } })
+      : new Response(null, { status: 404 });
+  };
+  return { fetchImpl, requests, objects };
+}
+
+test('the Game Status store writes under game-status/ in the public bucket, never installer/', async () => {
+  const r2 = fakeR2();
+  const store = gameStatusStoreFromEnvironment(R2_ENV, {
+    fetchImpl: r2.fetchImpl
+  });
+  expect(
+    await store.put('latest.json', Buffer.from('{}'), { ifNoneMatch: true })
+  ).toBe(true);
+  expect(
+    await store.put('android.json', Buffer.from('{}'), { ifNoneMatch: true })
+  ).toBe(true);
+  expect(r2.requests.map(({ method, url }) => `${method} ${url}`)).toEqual([
+    `PUT ${R2_OBJECTS}/bazaarplusplus-public/game-status/latest.json`,
+    `PUT ${R2_OBJECTS}/bazaarplusplus-public/game-status/android.json`
+  ]);
+  expect(r2.requests.some(({ url }) => url.includes('/installer/'))).toBe(
+    false
+  );
+  expect(() => gameStatusStoreFromEnvironment({})).toThrow(
+    /CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID/
+  );
+});
+
+const STATUS_FIXTURE_BYTES = fs.readFileSync(
+  path.join(WORKSPACE_ROOT, 'release/fixtures/game-status.json')
+);
+
+test('steam-stale prints one JSON line that game-status reads back as --state', async () => {
+  const { workspaceRoot } = workspace({ lock: statusLock() });
+  const calls: string[][] = [];
+  const stale = await runCli(['steam-stale', '--channel', 'online'], {
+    workspaceRoot,
+    runTool: steamTool({ calls })
+  });
+  expect(stale).toEqual({
+    code: 0,
+    out: ['{"buildid":"26443971","updatedAt":1793832079,"platforms":[]}\n'],
+    err: ''
+  });
+  expect(calls).toEqual([
+    [
+      'state',
+      '--app',
+      '1617400',
+      '--branch',
+      'public',
+      '--depots',
+      '1617401,1617402'
+    ]
+  ]);
+
+  // The workflow keeps the last line (tail -n 1) as steam-state.json.
+  const stateFile = path.join(workspaceRoot, 'steam-state.json');
+  write(stateFile, stale.out.join('').trim().split('\n').at(-1)!);
+  const r2 = fakeR2();
+  const options = { workspaceRoot, env: R2_ENV, r2Fetch: r2.fetchImpl };
+  expect(await runCli(['game-status', '--state', stateFile], options)).toEqual({
+    code: 0,
+    out: [],
+    err: 'Game Status: online build 26443971\n'
+  });
+  const url = `${R2_OBJECTS}/bazaarplusplus-public/game-status/latest.json`;
+  expect(r2.requests.map(({ method, url }) => `${method} ${url}`)).toEqual([
+    `GET ${url}`,
+    `PUT ${url}`
+  ]);
+  // The bytes are the shared fixture's, key order and trailing newline
+  // included.
+  expect(r2.requests[1].body).toEqual(STATUS_FIXTURE_BYTES);
+  // The same status again reads and writes nothing more.
+  expect(
+    (await runCli(['game-status', '--state', stateFile], options)).code
+  ).toBe(0);
+  expect(r2.requests.map(({ method }) => method)).toEqual([
+    'GET',
+    'PUT',
+    'GET'
+  ]);
+});
+
+test('steam-stale names the platforms behind Steam and omits an updatedAt Steam did not give', async () => {
+  const { workspaceRoot } = workspace();
+  expect(
+    await runCli(['steam-stale', '--channel', 'staging'], {
+      workspaceRoot,
+      runTool: steamTool({})
+    })
+  ).toEqual({
+    code: 0,
+    out: [
+      '{"buildid":"26443971","updatedAt":1793832079,"platforms":["macos","windows"]}\n'
+    ],
+    err: ''
+  });
+  expect(
+    await runCli(['steam-stale', '--channel', 'online'], {
+      workspaceRoot,
+      runTool: () => ({ buildid: '1' })
+    })
+  ).toEqual({
+    code: 0,
+    out: ['{"buildid":"1","platforms":["macos","windows"]}\n'],
+    err: ''
+  });
+  for (const argv of [['steam-stale'], ['steam-stale', '--channel', 'beta']]) {
+    const failed = await runCli(argv, {
+      workspaceRoot,
+      runTool: steamTool({})
+    });
+    expect(failed.code).toBe(1);
+    expect(failed.out).toEqual([]);
+  }
+});
+
+test('game-status leaves the store alone while the lock is behind, and fails without credentials or --state', async () => {
+  const { workspaceRoot } = workspace();
+  const stateFile = path.join(workspaceRoot, 'steam-state.json');
+  write(stateFile, JSON.stringify(STATUS_STATE));
+  const r2 = fakeR2();
+  expect(
+    await runCli(['game-status', '--state', stateFile], {
+      workspaceRoot,
+      env: R2_ENV,
+      r2Fetch: r2.fetchImpl
+    })
+  ).toEqual({
+    code: 0,
+    out: [],
+    err: 'The lock does not record this online build yet; the Game Status stays as it is\n'
+  });
+  expect(r2.requests).toEqual([]);
+  const noState = await runCli(['game-status'], {
+    workspaceRoot,
+    env: R2_ENV,
+    r2Fetch: r2.fetchImpl
+  });
+  expect(noState.code).toBe(1);
+  expect(noState.out).toEqual([]);
+  expect(noState.err).toMatch(/^game-status requires --state\n/);
+  // The store is built before the lock is read, so even a lock that is behind
+  // needs the credentials.
+  const noCredentials = await runCli(['game-status', '--state', stateFile], {
+    workspaceRoot,
+    env: {},
+    r2Fetch: r2.fetchImpl
+  });
+  expect(noCredentials).toEqual({
+    code: 1,
+    out: [],
+    err: 'R2 access requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID\n'
+  });
+  expect(r2.requests).toEqual([]);
+});
+
+test('android-game-status writes the android-online entry as game-status/android.json', async () => {
+  const { workspaceRoot } = workspace({ lock: androidStatusLock() });
+  const r2 = fakeR2();
+  const options = { workspaceRoot, env: R2_ENV, r2Fetch: r2.fetchImpl };
+  expect(await runCli(['android-game-status'], options)).toEqual({
+    code: 0,
+    out: [],
+    err: 'Android Game Status: 1.0.12830-production-android-4b1e07c2\n'
+  });
+  const url = `${R2_OBJECTS}/bazaarplusplus-public/game-status/android.json`;
+  expect(r2.requests.map(({ method, url }) => `${method} ${url}`)).toEqual([
+    `GET ${url}`,
+    `PUT ${url}`
+  ]);
+  expect(r2.requests[1].body).toEqual(
+    fs.readFileSync(
+      path.join(WORKSPACE_ROOT, 'release/fixtures/android-game-status.json')
+    )
+  );
+
+  const { workspaceRoot: empty } = workspace();
+  const untouched = fakeR2();
+  expect(
+    await runCli(['android-game-status'], {
+      workspaceRoot: empty,
+      env: R2_ENV,
+      r2Fetch: untouched.fetchImpl
+    })
+  ).toEqual({
+    code: 0,
+    out: [],
+    err: 'The lock has no android-online entry; the Android Game Status stays as it is\n'
+  });
+  expect(untouched.requests).toEqual([]);
+  expect(
+    await runCli(['android-game-status'], { workspaceRoot: empty, env: {} })
+  ).toEqual({
+    code: 1,
+    out: [],
+    err: 'R2 access requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID\n'
+  });
+});
+
+test('steam-capture prints the snapshot directory and writes the lock in its two-space format', async () => {
+  const { workspaceRoot, modRoot, lock } = workspace();
+  // A compact lock with its entries out of order: the writer, not this
+  // test, gives the file its format.
+  const seeded = emptyLock();
+  write(
+    path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
+    JSON.stringify({
+      ...seeded,
+      entries: Object.fromEntries(Object.entries(seeded.entries).reverse())
+    })
+  );
+  const calls: string[][] = [];
+  const captured = await runCli(
+    ['steam-capture', '--platform', 'windows', '--channel', 'online'],
+    {
+      workspaceRoot,
+      runTool: steamTool({ gameVersion: WINDOWS_ONLINE, calls })
+    }
+  );
+  const directory = path.join(
+    modRoot,
+    'game-libs',
+    `windows-online-${WINDOWS_ONLINE}`
+  );
+  expect(captured.code).toBe(0);
+  expect(captured.out).toEqual([`${directory}\n`]);
+  expect(captured.err).toBe(
+    `Captured windows-online ${WINDOWS_ONLINE} (buildid 26443971) into ${directory} and recorded it in bazaarplusplus-mod/build/game-libs.lock.json\n`
+  );
+  expect(calls[0].slice(0, 7)).toEqual([
+    'download',
+    '--app',
+    '1617400',
+    '--branch',
+    'public',
+    '--depot',
+    '1617402'
+  ]);
+  expect(lock().entries['windows-online']).toMatchObject({
+    gameVersion: WINDOWS_ONLINE,
+    buildid: '26443971',
+    steamBranch: 'public'
+  });
+
+  // build/ManagedPath.props reads an entry as the flat object after its key.
+  const text = fs.readFileSync(
+    path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
+    'utf8'
+  );
+  const parsed = JSON.parse(text);
+  expect(text).toBe(`${JSON.stringify(parsed, null, 2)}\n`);
+  expect(Object.keys(parsed)).toEqual([
+    'schemaVersion',
+    'staleAfterDays',
+    'entries'
+  ]);
+  expect(Object.keys(parsed.entries)).toEqual([
+    'macos-online',
+    'macos-staging',
+    'macos-ptr',
+    'windows-online',
+    'windows-staging',
+    'windows-ptr',
+    'android-online'
+  ]);
+  expect(Object.keys(parsed.entries['windows-online'])).toEqual([
+    'gameVersion',
+    'sha256',
+    'buildid',
+    'steamBranch',
+    'capturedAt'
+  ]);
+
+  const refused = await runCli(
+    ['steam-capture', '--platform', 'android', '--channel', 'online'],
+    { workspaceRoot, runTool: steamTool({ gameVersion: WINDOWS_ONLINE }) }
+  );
+  expect(refused).toEqual({
+    code: 1,
+    out: [],
+    err: 'Lock entry android-online has no Steam depot\n'
+  });
+}, 30000);
+
+test('steam-change prints code, content or none against the --previous lock', async () => {
+  const previous = emptyLock();
+  previous.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '1');
+  previous.entries['windows-online'] = onlineEntry(WINDOWS_ONLINE, '1');
+  const { workspaceRoot } = workspace();
+  const previousFile = path.join(workspaceRoot, 'previous-lock.json');
+  write(previousFile, `${JSON.stringify(previous, null, 2)}\n`);
+  const current = (changes: Partial<ManagedLockEntry>) => {
+    const lock = structuredClone(previous);
+    lock.entries['windows-online'] = {
+      ...lock.entries['windows-online']!,
+      buildid: '2',
+      ...changes
+    };
+    write(
+      path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
+      `${JSON.stringify(lock, null, 2)}\n`
+    );
+  };
+  const change = () =>
+    runCli(
+      ['steam-change', '--previous', previousFile, '--channel', 'online'],
+      { workspaceRoot }
+    );
+  current({});
+  expect(await change()).toEqual({ code: 0, out: ['none\n'], err: '' });
+  current({ gameVersion: '1.0.13057-prod-windows-x64-891f830a' });
+  expect(await change()).toEqual({ code: 0, out: ['content\n'], err: '' });
+  current({ sha256: 'b'.repeat(64) });
+  expect(await change()).toEqual({ code: 0, out: ['code\n'], err: '' });
+
+  write(previousFile, '{}');
+  const invalid = await change();
+  expect(invalid.code).toBe(1);
+  expect(invalid.out).toEqual([]);
+  expect(invalid.err).toMatch(/schemaVersion must be 1/);
+});
+
+test('behind-online prints the online game version for a preview entry behind it, else nothing', async () => {
+  const lock = emptyLock();
+  lock.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '10');
+  lock.entries['macos-staging'] = {
+    gameVersion: STAGING_VERSION,
+    sha256: 'b'.repeat(64),
+    buildid: '9',
+    steamBranch: 'staging',
+    capturedAt: NOW.toISOString()
+  };
+  const { workspaceRoot } = workspace({ lock });
+  const behind = (platform: string, channel: string) =>
+    runCli(['behind-online', '--platform', platform, '--channel', channel], {
+      workspaceRoot
+    });
+  expect(await behind('macos', 'staging')).toEqual({
+    code: 0,
+    out: [`${ONLINE_VERSION}\n`],
+    err: ''
+  });
+  for (const [platform, channel] of [
+    ['macos', 'ptr'],
+    ['macos', 'online'],
+    ['windows', 'staging']
+  ])
+    expect(await behind(platform, channel)).toEqual({
+      code: 0,
+      out: [],
+      err: ''
+    });
+  const failed = await runCli(['behind-online', '--platform', 'macos'], {
+    workspaceRoot
+  });
+  expect(failed.code).toBe(1);
+  expect(failed.out).toEqual([]);
+  expect(failed.err).toMatch(/^behind-online requires --channel\n/);
+});
+
+test('publish of a desktop entry stores the tarball and the manifest, printing nothing', async () => {
+  const { workspaceRoot, directory, manifest } = await capturedWorkspace();
+  const store = new MemoryStore();
+  const blobKey = `game-libs/${manifest.sha256}.tar.gz`;
+  const manifestKey = `game-libs/macos-staging-${STAGING_VERSION}.json`;
+  const published = await runCli(
+    ['publish', '--platform', 'macos', '--channel', 'staging'],
+    { workspaceRoot, gameLibsStore: () => store }
+  );
+  expect(published.code).toBe(0);
+  expect(published.out).toEqual([]);
+  expect(published.err).toMatch(
+    new RegExp(
+      `^Uploaded ${blobKey} \\(\\d+ bytes\\)\\nRecorded ${manifestKey}\\n$`
+    )
+  );
+  expect(store.writes).toEqual([blobKey, manifestKey]);
+  expect(store.objects.get(manifestKey)!.bytes).toEqual(
+    fs.readFileSync(path.join(directory, 'manifest.json'))
+  );
+
+  const empty = await runCli(
+    ['publish', '--platform', 'macos', '--channel', 'online'],
+    { workspaceRoot, gameLibsStore: () => store }
+  );
+  expect(empty.code).toBe(1);
+  expect(empty.out).toEqual([]);
+  expect(empty.err).toMatch(/Lock entry macos-online is empty/);
+  expect(store.writes).toHaveLength(2);
+}, 30000);
