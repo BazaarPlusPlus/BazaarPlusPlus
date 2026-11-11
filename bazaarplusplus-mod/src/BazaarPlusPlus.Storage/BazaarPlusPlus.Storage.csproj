@@ -11,7 +11,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 
-  <!-- The Mono host binds the game's own Newtonsoft.Json (ADR-0010). -->
+  <!-- The Desktop Host binds the game's own Newtonsoft.Json (ADR-0010). -->
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>

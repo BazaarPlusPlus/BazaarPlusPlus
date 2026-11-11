@@ -4,7 +4,7 @@ How every BPP surface fits a touch screen on the Android host: the panel shortcu
 
 ## One source tree
 
-The Mobile UI is `src/BazaarPlusPlus.Mobile/`, namespaces `BazaarPlusPlus.Mobile.*`. It is no project of its own: the Android host project compiles it through `<Compile Include>`. The Mono host compiles none of it; the desktop keeps the Desktop UI in `Game/`. The Android host's `GlobalUsings.cs` maps the TextMeshPro namespace and names the game's card preview type `GameCardPreview`. `CoreLayeringTests.Mobile_ui_has_no_second_source_tree` fails on a source file under the Android host's `Ui/`, where its hand-mirrored copy lived until #701.
+The Mobile UI is `src/BazaarPlusPlus.Mobile/`, namespaces `BazaarPlusPlus.Mobile.*`. It is no project of its own: the Android host project compiles it through `<Compile Include>`. The Desktop Host compiles none of it; the desktop keeps the Desktop UI in `Game/`. The Android host's `GlobalUsings.cs` maps the TextMeshPro namespace and names the game's card preview type `GameCardPreview`. `CoreLayeringTests.Mobile_ui_has_no_second_source_tree` fails on a source file under the Android host's `Ui/`, where its hand-mirrored copy lived until #701.
 
 | Directory | Holds |
 |---|---|

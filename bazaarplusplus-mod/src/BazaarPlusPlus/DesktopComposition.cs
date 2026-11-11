@@ -58,11 +58,11 @@ using BazaarPlusPlus.Storage.Sqlite;
 namespace BazaarPlusPlus;
 
 /// <summary>
-/// The Mono host composition root (desktop BepInEx): binds the host ports and Mono probes into
+/// The Desktop Host composition root (BepInEx): binds the host ports and Mono probes into
 /// <see cref="CoreComposition"/>, then wires the feature modules, settings dock rows, and Unity
 /// mountables that still live in this host.
 /// </summary>
-internal sealed class MonoHostComposition : IDisposable
+internal sealed class DesktopComposition : IDisposable
 {
     private readonly CoreComposition _core;
     private readonly BppStaticCardMapProvider _staticCardMapProvider = new();
@@ -106,7 +106,7 @@ internal sealed class MonoHostComposition : IDisposable
     public SettingsDockEntryRegistry SettingsDockRegistry => _settingsDockRegistry;
     public BppPatchFeatures PatchFeatures => _patchFeatures;
 
-    public MonoHostComposition(
+    public DesktopComposition(
         IBppSettingsStore settingsStore,
         IGameBuildInfo gameBuild,
         IPathProvider paths

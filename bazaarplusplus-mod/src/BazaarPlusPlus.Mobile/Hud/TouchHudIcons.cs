@@ -5,7 +5,7 @@ namespace BazaarPlusPlus.Mobile.Hud;
 
 /// <summary>
 /// The touch shortcuts' artwork (Collection, Ten-Win Builds) and History's menu icon, decoded
-/// from the desktop's own PNGs linked into the host assembly under the Mono host's names. Owned
+/// from the desktop's own PNGs linked into the host assembly under the Desktop Host's names. Owned
 /// sprites survive scene loads, and each texture keeps no CPU copy of its pixels once its sprite
 /// exists.
 /// </summary>

@@ -175,7 +175,7 @@ A Medium or Large item the game shrank one size for the rest of the Run (`TActio
 ## Mobile UI
 
 **Mobile UI**:
-BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) that the Android host compiles (ADR-0025). The Desktop UI is the Mono host's mouse-and-keyboard surfaces.
+BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) that the Android host compiles (ADR-0025). The Desktop UI is the Desktop Host's mouse-and-keyboard surfaces.
 _Avoid_: Android UI, touch port
 
 **Mobile Platform Port**:

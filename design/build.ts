@@ -111,7 +111,7 @@ const COPIES = [
   }))
 ];
 // The mod's in-game theme: every `ingame-*` colour token, generated as C# for
-// the Desktop UI (the Mono host) and the Mobile UI tree the Android host compiles.
+// the Desktop UI (the Desktop Host) and the Mobile UI tree the Android host compiles.
 // Both read one palette; only their layouts differ.
 const INGAME_PREFIX = 'ingame-';
 const INGAME_TARGETS = [
