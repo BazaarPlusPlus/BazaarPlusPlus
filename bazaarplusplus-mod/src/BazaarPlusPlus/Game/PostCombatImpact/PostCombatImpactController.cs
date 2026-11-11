@@ -16,8 +16,17 @@ namespace BazaarPlusPlus.Game.PostCombatImpact;
 
 internal sealed class PostCombatImpactController : MonoBehaviour
 {
-    private const int NativeTooltipWaitFrames = 60;
-    private const int NativePreviewWaitFrames = 120;
+    // Waits on native transitions and asset loads end by wall-clock time as well as frames: the
+    // native fades run on unscaled time, so a frame-only bound gives up mid-fade at high frame
+    // rates and suppresses the hover.
+    private static readonly NativeTooltipWaitBudget NativeTooltipWait = new(
+        frames: 60,
+        seconds: 1f
+    );
+    private static readonly NativeTooltipWaitBudget NativePreviewWait = new(
+        frames: 120,
+        seconds: 2f
+    );
     private const int PrimaryGeometrySettleMaxFrames = 90;
     private const int PositionedGeometrySettleMaxFrames = 30;
     private const int RequiredStableGeometrySamples = 3;
@@ -333,7 +342,12 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         }
 
         CardTooltipController? primary = null;
-        for (var frame = 0; frame < NativeTooltipWaitFrames; frame++)
+        var primaryWaitStartedAt = Time.unscaledTime;
+        for (
+            var frame = 0;
+            !NativeTooltipWait.IsExpired(frame, Time.unscaledTime - primaryWaitStartedAt);
+            frame++
+        )
         {
             if (!IsCurrentHover(request, revision) || !IsRecapOpen())
             {
@@ -377,7 +391,12 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         if (_pendingAuxiliaryController == null)
         {
             var requestSlotAvailable = false;
-            for (var frame = 0; frame < NativeTooltipWaitFrames; frame++)
+            var slotWaitStartedAt = Time.unscaledTime;
+            for (
+                var frame = 0;
+                !NativeTooltipWait.IsExpired(frame, Time.unscaledTime - slotWaitStartedAt);
+                frame++
+            )
             {
                 if (!IsCurrentHover(request, revision) || !IsRecapOpen())
                 {
@@ -426,7 +445,12 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         }
 
         AuxiliaryTooltipController? auxiliary = null;
-        for (var frame = 0; frame < NativeTooltipWaitFrames; frame++)
+        var auxiliaryWaitStartedAt = Time.unscaledTime;
+        for (
+            var frame = 0;
+            !NativeTooltipWait.IsExpired(frame, Time.unscaledTime - auxiliaryWaitStartedAt);
+            frame++
+        )
         {
             if (!IsCurrentHover(request, revision) || !IsRecapOpen())
             {
@@ -620,7 +644,12 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         }
 
         var previewsReady = false;
-        for (var frame = 0; frame < NativePreviewWaitFrames; frame++)
+        var previewWaitStartedAt = Time.unscaledTime;
+        for (
+            var frame = 0;
+            !NativePreviewWait.IsExpired(frame, Time.unscaledTime - previewWaitStartedAt);
+            frame++
+        )
         {
             if (!IsCurrentPresentation(request, revision, auxiliary, primary))
             {
@@ -659,7 +688,7 @@ internal sealed class PostCombatImpactController : MonoBehaviour
             _settlePresentation = null;
             HideActiveSelection();
             _suppressedHoverRevision = revision;
-            LogInteraction(PostCombatImpactReasonCode.AuxiliaryTooltipPositionUnavailable);
+            LogInteractionDegraded(PostCombatImpactReasonCode.AuxiliaryTooltipPositionUnavailable);
             yield break;
         }
 
@@ -1085,7 +1114,12 @@ internal sealed class PostCombatImpactController : MonoBehaviour
             yield break;
         }
 
-        for (var frame = 0; frame < NativeTooltipWaitFrames; frame++)
+        var positioningWaitStartedAt = Time.unscaledTime;
+        for (
+            var frame = 0;
+            !NativeTooltipWait.IsExpired(frame, Time.unscaledTime - positioningWaitStartedAt);
+            frame++
+        )
         {
             if (controller._coroutine == null)
                 break;
@@ -1234,10 +1268,14 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         FinishPendingShow(hidePrimary: true);
         if (suppressUntilExit && revision == _hoverRevision)
             _suppressedHoverRevision = revision;
-        if (exception == null)
-            LogInteraction(reasonCode);
-        else
+        // A suppressed hover leaves the player with the native tooltip alone, so its reason must
+        // reach a release log: a Debug-only reason made that state impossible to attribute.
+        if (exception != null)
             LogInteractionFailure(reasonCode, exception);
+        else if (suppressUntilExit)
+            LogInteractionDegraded(reasonCode);
+        else
+            LogInteraction(reasonCode);
     }
 
     private void ClearResolvedAuxiliaryRequest()
