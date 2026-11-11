@@ -3,12 +3,22 @@
        over the analyzer's contract fixtures. The embedded seed the desktop host bundles stays in
        LiveBuildRecommendations.Tests, the seed gate. -->
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>LiveBuildRecommendationCore.Tests</AssemblyName>
     <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 
   <!-- Named explicitly so the test tree's netstandard2.1 pin leaves Core and its references on
        net10.0. Core keeps its Newtonsoft.Json private, so the parser's copy comes from here. -->

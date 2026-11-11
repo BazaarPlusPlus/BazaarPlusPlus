@@ -6,11 +6,16 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
+using BazaarPlusPlus.Localization;
+using Xunit;
 
 namespace LiveBuildPanel.Tests;
 
-internal static class LiveBuildPanelStateTests
+public sealed class LiveBuildPanelStateTests
 {
+    // The capsule installed English before these checks.
+    public LiveBuildPanelStateTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+
     private const string DragonsName = "Native Dragons";
 
     // A matches builds 0 and 1, C matches build 1 only, B is a live card no build holds.
@@ -19,26 +24,8 @@ internal static class LiveBuildPanelStateTests
     private static readonly Guid CardC = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static readonly Guid Unlisted = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
 
-    public static void Run()
-    {
-        SupporterAttributionFillsTheRail();
-        OpenResetsCandidatesAndTheIndex();
-        CloseClearsTheSelection();
-        ToggleIsIgnoredWhileHidden();
-        TogglePrunesUnselectableCandidatesAndResetsTheIndex();
-        TinyFilterKeepsCandidatesAndSurvivesRefreshAndReopen();
-        BrowsingWrapsAndNeedsTwoMatches();
-        MatchesReportEachState();
-        LiveCardsProjectOntoPlannedBoards();
-        CorpusStatusPrefersPendingThenFailureThenEmptyThenSummary();
-        FreshnessTintsByAgeAndAFreshPull();
-        StatusOnlyCompletionKeepsTheRecommendation();
-        FetchNeverThrowsAndSkipsTheNetworkForNoChange();
-        TooltipNamesTheDragonsThroughThePort();
-        RefreshLoggingKeepsItsEventsAndFields();
-    }
-
-    private static void TinyFilterKeepsCandidatesAndSurvivesRefreshAndReopen()
+    [Fact]
+    public void TinyFilterKeepsCandidatesAndSurvivesRefreshAndReopen()
     {
         var catalog = new StubCatalog(Corpus());
         var state = new LiveBuildPanelState(
@@ -98,7 +85,8 @@ internal static class LiveBuildPanelStateTests
         );
     }
 
-    private static void SupporterAttributionFillsTheRail()
+    [Fact]
+    public void SupporterAttributionFillsTheRail()
     {
         Check.Equal(4, LiveBuildPanelState.SupporterAttributionCount, "Rail size.");
         var supporters = Enumerable
@@ -115,7 +103,8 @@ internal static class LiveBuildPanelStateTests
         );
     }
 
-    private static void OpenResetsCandidatesAndTheIndex()
+    [Fact]
+    public void OpenResetsCandidatesAndTheIndex()
     {
         var (state, _) = Create();
         state.Open(Live(CardHero.Vanessa, board: [CardA]), []);
@@ -131,7 +120,8 @@ internal static class LiveBuildPanelStateTests
         Check.Equal(LiveBuildMatchesState.NoCandidates, snapshot.MatchesState, "Open state.");
     }
 
-    private static void CloseClearsTheSelection()
+    [Fact]
+    public void CloseClearsTheSelection()
     {
         var (state, _) = Create();
         state.Open(Live(CardHero.Vanessa, board: [CardA]), []);
@@ -145,7 +135,8 @@ internal static class LiveBuildPanelStateTests
         Check.Equal(0, snapshot.RecommendationCount, "Close clears matches.");
     }
 
-    private static void ToggleIsIgnoredWhileHidden()
+    [Fact]
+    public void ToggleIsIgnoredWhileHidden()
     {
         var (state, _) = Create();
         Check.That(!state.ToggleCandidate(CardA), "A hidden panel ignores toggles.");
@@ -155,7 +146,8 @@ internal static class LiveBuildPanelStateTests
         Check.That(state.BuildSnapshot().CandidateTemplateIds.Count == 0, "Nothing selected.");
     }
 
-    private static void TogglePrunesUnselectableCandidatesAndResetsTheIndex()
+    [Fact]
+    public void TogglePrunesUnselectableCandidatesAndResetsTheIndex()
     {
         var (state, _) = Create();
         state.Open(Live(CardHero.Vanessa, board: [CardA]), []);
@@ -172,7 +164,8 @@ internal static class LiveBuildPanelStateTests
         Check.Equal(0, snapshot.RecommendationIndex, "A toggle resets the index.");
     }
 
-    private static void BrowsingWrapsAndNeedsTwoMatches()
+    [Fact]
+    public void BrowsingWrapsAndNeedsTwoMatches()
     {
         var (state, _) = Create();
         state.Open(Live(CardHero.Vanessa, board: [CardA, CardC]), []);
@@ -191,7 +184,8 @@ internal static class LiveBuildPanelStateTests
         Check.Equal(0, state.BuildSnapshot().RecommendationIndex, "Next wraps to the start.");
     }
 
-    private static void MatchesReportEachState()
+    [Fact]
+    public void MatchesReportEachState()
     {
         var (state, _) = Create();
         state.Open(Live(hero: null, board: [CardA]), []);
@@ -227,7 +221,8 @@ internal static class LiveBuildPanelStateTests
         Check.That(match.FinalBuild.Cards.Count > 0, "The match renders its final build.");
     }
 
-    private static void LiveCardsProjectOntoPlannedBoards()
+    [Fact]
+    public void LiveCardsProjectOntoPlannedBoards()
     {
         var (state, _) = Create();
         var medium = new LiveCardSnapshot
@@ -264,7 +259,8 @@ internal static class LiveBuildPanelStateTests
         );
     }
 
-    private static void CorpusStatusPrefersPendingThenFailureThenEmptyThenSummary()
+    [Fact]
+    public void CorpusStatusPrefersPendingThenFailureThenEmptyThenSummary()
     {
         var (state, catalog) = Create();
         state.Open(Live(CardHero.Vanessa), []);
@@ -294,7 +290,8 @@ internal static class LiveBuildPanelStateTests
         Check.Equal(LiveBuildPanelText.CorpusEmpty(), empty.CorpusStatusText, "Empty text.");
     }
 
-    private static void FreshnessTintsByAgeAndAFreshPull()
+    [Fact]
+    public void FreshnessTintsByAgeAndAFreshPull()
     {
         var windowEnd = Repository(new StubCatalog(Corpus()))
             .GetCorpusSummary()!
@@ -332,7 +329,8 @@ internal static class LiveBuildPanelStateTests
         );
     }
 
-    private static void StatusOnlyCompletionKeepsTheRecommendation()
+    [Fact]
+    public void StatusOnlyCompletionKeepsTheRecommendation()
     {
         var (state, _) = Create();
         state.Open(Live(CardHero.Vanessa, board: [CardA]), []);
@@ -356,12 +354,13 @@ internal static class LiveBuildPanelStateTests
         Check.Equal(before.FinalBuild.Signature, after.FinalBuild.Signature, "Same final build.");
     }
 
-    private static void FetchNeverThrowsAndSkipsTheNetworkForNoChange()
+    [Fact]
+    public async Task FetchNeverThrowsAndSkipsTheNetworkForNoChange()
     {
         var (state, catalog) = Create();
         catalog.RefreshFailure = new InvalidOperationException("transport down");
 
-        var failure = state.FetchRefreshAsync(LiveBuildRefreshRequest.Download).Result;
+        var failure = await state.FetchRefreshAsync(LiveBuildRefreshRequest.Download);
         Check.That(!failure.Succeeded, "A throwing refresh is a failure.");
         Check.Equal(
             LiveBuildRefreshFailureReasonCode.RefreshException,
@@ -371,12 +370,13 @@ internal static class LiveBuildPanelStateTests
         Check.Equal("transport down", failure.Error, "The failure keeps the message.");
 
         var refreshes = catalog.RefreshCount;
-        var noChange = state.FetchRefreshAsync(LiveBuildRefreshRequest.NoChange).Result;
+        var noChange = await state.FetchRefreshAsync(LiveBuildRefreshRequest.NoChange);
         Check.Equal(BuildRecommendationRefreshOutcome.NoChange, noChange.Outcome, "No change.");
         Check.Equal(refreshes, catalog.RefreshCount, "No change never refreshes the catalog.");
     }
 
-    private static void TooltipNamesTheDragonsThroughThePort()
+    [Fact]
+    public void TooltipNamesTheDragonsThroughThePort()
     {
         var (state, _) = Create();
         state.Open(Live(CardHero.Vanessa), []);
@@ -390,7 +390,8 @@ internal static class LiveBuildPanelStateTests
         Check.That(tooltip.Contains("Vanessa 2", StringComparison.Ordinal), "Other heroes.");
     }
 
-    private static void RefreshLoggingKeepsItsEventsAndFields()
+    [Fact]
+    public void RefreshLoggingKeepsItsEventsAndFields()
     {
         var lines = new List<string>();
         BppLog.Install(new ListLogSink(lines));
