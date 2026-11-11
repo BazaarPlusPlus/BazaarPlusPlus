@@ -71,7 +71,7 @@ internal sealed class ChipFlow
             onTap
         );
         _skin.Select(background, selected);
-        MobilePlatform.Port.SetWordWrapping(text, false);
+        Il2CppUi.SetWordWrapping(text, false);
         text.enableAutoSizing = true;
         text.fontSizeMin = _chrome.BodyFont;
         text.fontSizeMax = _chrome.ButtonFont;
@@ -111,7 +111,7 @@ internal sealed class ChipFlow
         );
         _skin.Select(background, selected);
         text.alignment = compact ? TextAlignmentOptions.Center : TextAlignmentOptions.Left;
-        MobilePlatform.Port.SetWordWrapping(text, false);
+        Il2CppUi.SetWordWrapping(text, false);
         text.enableAutoSizing = true;
         text.fontSizeMin = _chrome.BodyFont;
         text.fontSizeMax = compact ? _chrome.BodyFont : _chrome.ButtonFont;
@@ -201,7 +201,7 @@ internal sealed class ChipFlow
                 TextAlignmentOptions.Left,
                 Color.clear
             );
-            MobilePlatform.Port.SetWordWrapping(_probe, false);
+            Il2CppUi.SetWordWrapping(_probe, false);
         }
         return _probe.GetPreferredValues(label).x + 2f * _chrome.LabelInset;
     }
@@ -452,7 +452,7 @@ internal sealed class ChipFlow
             new(0f, -_y)
         );
         var label = UiKit.Text(rect, _font, text, size, alignment, color);
-        MobilePlatform.Port.SetWordWrapping(label, false);
+        Il2CppUi.SetWordWrapping(label, false);
         label.overflowMode = TextOverflowModes.Ellipsis;
         _y += height + Gap;
     }

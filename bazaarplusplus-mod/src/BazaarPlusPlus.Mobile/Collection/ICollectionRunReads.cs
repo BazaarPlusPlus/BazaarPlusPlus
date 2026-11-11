@@ -1,13 +1,13 @@
-#nullable enable
 using BazaarPlusPlus.Core.Cards;
 
-namespace BazaarPlusPlus.Game.CollectionPanel;
+namespace BazaarPlusPlus.Mobile.Collection;
 
 /// <summary>
-/// What the touch Collection reads of the game's run when it opens (ADR-0025 decision 4). Each
-/// host binds it over its own game types; a read that fails reads as no run, no day or no hero.
+/// What the touch Collection reads of the game's run when it opens (ADR-0025 decision 4). The
+/// Android host binds it over its game types; a read that fails reads as no run, no day or no
+/// hero.
 /// </summary>
-public interface ICollectionRunReads
+internal interface ICollectionRunReads
 {
     /// <summary>Main thread. Whether a run is on.</summary>
     bool IsInRun();

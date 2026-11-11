@@ -251,6 +251,13 @@ public sealed class AndroidHostThreadingRuleTests
             .Value.Types.Where(type => historyTypes.Contains(type.FullName))
             .ToArray();
         Assert.Equal(historyTypes.Length, history.Length);
+        // The Mobile UI's own listener helper adds a raw listener too; a renamed member would
+        // otherwise lift the ban unseen.
+        const string listeners = "BazaarPlusPlus.Mobile.Il2CppUi";
+        string[] listenerMethods = ["OnClick", "OnValueChanged", "OnTextChanged"];
+        var listenerType = Host.Value.Types.Single(type => type.FullName == listeners);
+        foreach (var name in listenerMethods)
+            _ = listenerType.MethodClosure(name);
 
         var violations = history
             .SelectMany(type => type.Methods)
@@ -258,7 +265,14 @@ public sealed class AndroidHostThreadingRuleTests
                 method
                     .Instructions.Where(instruction =>
                         instruction.IsMemberAccess
-                        && instruction.TargetMember is "AddListener" or "get_onClick"
+                        && (
+                            instruction.TargetMember is "AddListener" or "get_onClick"
+                            || (
+                                instruction.TargetType?.FullName == listeners
+                                && instruction.TargetMember is { } member
+                                && listenerMethods.Contains(member)
+                            )
+                        )
                     )
                     .Select(instruction => $"{method}: {instruction}")
             )

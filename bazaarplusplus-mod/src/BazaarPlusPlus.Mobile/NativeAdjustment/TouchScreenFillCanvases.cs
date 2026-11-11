@@ -32,7 +32,7 @@ internal sealed class TouchScreenFillCanvases
             // including inactive canvases, before stopping scene searches on a wide screen.
             foreach (var (scaler, match) in _original.Values)
                 if (
-                    MobilePlatform.Port.IsAlive(scaler)
+                    Il2CppUi.IsAlive(scaler)
                     && Math.Abs(scaler.matchWidthOrHeight - match) > 0.001f
                 )
                     scaler.matchWidthOrHeight = match;
@@ -40,7 +40,7 @@ internal sealed class TouchScreenFillCanvases
             return;
         }
         foreach (var (id, retained) in _original)
-            if (!MobilePlatform.Port.IsAlive(retained.Scaler))
+            if (!Il2CppUi.IsAlive(retained.Scaler))
                 _destroyed.Add(id);
         foreach (var id in _destroyed)
             _original.Remove(id);
@@ -48,15 +48,12 @@ internal sealed class TouchScreenFillCanvases
         foreach (var scaler in _host.CanvasScalers())
         {
             if (
-                !MobilePlatform.Port.IsAlive(scaler)
+                !Il2CppUi.IsAlive(scaler)
                 || scaler.uiScaleMode != CanvasScaler.ScaleMode.ScaleWithScreenSize
             )
                 continue;
             var id = scaler.GetInstanceID();
-            if (
-                !_original.TryGetValue(id, out var retained)
-                || !MobilePlatform.Port.IsAlive(retained.Scaler)
-            )
+            if (!_original.TryGetValue(id, out var retained) || !Il2CppUi.IsAlive(retained.Scaler))
             {
                 var reference = scaler.referenceResolution;
                 var original = scaler.matchWidthOrHeight;

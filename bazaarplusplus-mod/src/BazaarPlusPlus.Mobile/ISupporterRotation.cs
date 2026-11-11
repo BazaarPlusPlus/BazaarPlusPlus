@@ -1,11 +1,13 @@
-namespace BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.Game.Supporters;
+
+namespace BazaarPlusPlus.Mobile;
 
 /// <summary>
-/// The supporters a touch panel credits, in rotation (ADR-0025 decision 4: a host service the
-/// Mobile UI reaches through Core). Each host's composition binds it over its own supporter
-/// catalog.
+/// The supporters a touch panel credits, in rotation (ADR-0025 decision 4): a service only the
+/// Android host binds, so it lives beside the panels that use it. The host's composition binds it
+/// over its supporter catalog.
 /// </summary>
-public interface ISupporterRotation
+internal interface ISupporterRotation
 {
     /// <summary>Main thread. Starts the catalog's load if the host has not started it yet.</summary>
     void Warm();

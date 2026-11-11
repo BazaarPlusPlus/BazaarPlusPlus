@@ -67,7 +67,7 @@ internal static class KeywordSprites
     }
 
     private static bool Holds(TMP_SpriteAsset? asset, string name) =>
-        MobilePlatform.Port.IsAlive(asset) && asset!.GetSpriteIndexFromName(name) >= 0;
+        Il2CppUi.IsAlive(asset) && asset.GetSpriteIndexFromName(name) >= 0;
 
     // The game's own text components first, then any sprite asset loaded at all.
     private static TMP_SpriteAsset[] Scan()

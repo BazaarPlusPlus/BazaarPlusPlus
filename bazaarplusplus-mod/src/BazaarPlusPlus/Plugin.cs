@@ -17,15 +17,13 @@ public class Plugin : BaseUnityPlugin
         paths.Initialize();
         _host = new BppMonoHost(
             this,
-            new MonoHostOptions(
-                new BepInExLogSink(Logger),
-                () =>
-                    new BepInExSettingsStore(
-                        new ConfigFile(Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.cfg"), true)
-                    ),
-                paths,
-                Info.Location
-            )
+            new BepInExLogSink(Logger),
+            () =>
+                new BepInExSettingsStore(
+                    new ConfigFile(Path.Combine(Paths.ConfigPath, "BazaarPlusPlus.cfg"), true)
+                ),
+            paths,
+            Info.Location
         );
         _host.Start();
     }

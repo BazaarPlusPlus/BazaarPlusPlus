@@ -3,9 +3,10 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Mobile.Previews;
 
 /// <summary>
-/// A host's read and write of the game's item tooltip for <see cref="TouchPreviewSwitches"/>. The
-/// tooltip's types and members differ per host, so each host adapts them here (ADR-0025 decision
-/// 5), with the upgrade and enchant previews themselves, which stay in the host. Main thread.
+/// The Android host's read and write of the game's item tooltip for
+/// <see cref="TouchPreviewSwitches"/>. The tree cannot name the tooltip's IL2CPP types, so the
+/// host adapts them here (ADR-0025 decision 5), with the upgrade and enchant previews themselves,
+/// which stay in the host. Main thread.
 /// </summary>
 internal interface ITooltipPreviewHost
 {

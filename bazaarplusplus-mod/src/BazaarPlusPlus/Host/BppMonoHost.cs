@@ -30,36 +30,6 @@ using UnityEngine;
 namespace BazaarPlusPlus.Host;
 
 /// <summary>
-/// What the Mono host's adapter (the BepInEx desktop plugin) supplies to <see cref="BppMonoHost"/>.
-/// </summary>
-internal sealed class MonoHostOptions
-{
-    public MonoHostOptions(
-        IBppLogSink logSink,
-        Func<IBppSettingsStore> openSettings,
-        IPathProvider paths,
-        string pluginAssemblyPath
-    )
-    {
-        LogSink = logSink ?? throw new ArgumentNullException(nameof(logSink));
-        OpenSettings = openSettings ?? throw new ArgumentNullException(nameof(openSettings));
-        Paths = paths ?? throw new ArgumentNullException(nameof(paths));
-        PluginAssemblyPath = pluginAssemblyPath ?? string.Empty;
-    }
-
-    public IBppLogSink LogSink { get; }
-
-    /// <summary>Opened after logging is installed, so a broken settings file is logged.</summary>
-    public Func<IBppSettingsStore> OpenSettings { get; }
-
-    /// <summary>Resolved by the host before it starts.</summary>
-    public IPathProvider Paths { get; }
-
-    /// <summary>The mod assembly; its <c>.version</c> sidecar names the Product Release.</summary>
-    public string PluginAssemblyPath { get; }
-}
-
-/// <summary>
 /// The Mono host lifecycle for the game's managed code under Mono with Harmony: composition,
 /// patches, replay runtime, online services and mountables, and an ordered teardown. The owner
 /// component is the GameObject everything mounts on.
@@ -67,7 +37,10 @@ internal sealed class MonoHostOptions
 internal sealed class BppMonoHost
 {
     private readonly MonoBehaviour _owner;
-    private readonly MonoHostOptions _options;
+    private readonly IBppLogSink _logSink;
+    private readonly Func<IBppSettingsStore> _openSettings;
+    private readonly IPathProvider _paths;
+    private readonly string _pluginAssemblyPath;
     private readonly Harmony _harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
     private MonoHostComposition? _composition;
     private ModApiSession? _modApiSession;
@@ -79,26 +52,41 @@ internal sealed class BppMonoHost
     // composition that owns the path provider is already disposed.
     private string? _runLogDatabasePath;
 
-    public BppMonoHost(MonoBehaviour owner, MonoHostOptions options)
+    /// <summary>
+    /// What the desktop plugin supplies: <paramref name="openSettings"/> is opened after logging
+    /// is installed, so a broken settings file is logged; <paramref name="paths"/> is resolved
+    /// before the host starts; <paramref name="pluginAssemblyPath"/> is the mod assembly, whose
+    /// <c>.version</c> sidecar names the Product Release.
+    /// </summary>
+    public BppMonoHost(
+        MonoBehaviour owner,
+        IBppLogSink logSink,
+        Func<IBppSettingsStore> openSettings,
+        IPathProvider paths,
+        string pluginAssemblyPath
+    )
     {
         _owner = owner ?? throw new ArgumentNullException(nameof(owner));
-        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _logSink = logSink ?? throw new ArgumentNullException(nameof(logSink));
+        _openSettings = openSettings ?? throw new ArgumentNullException(nameof(openSettings));
+        _paths = paths ?? throw new ArgumentNullException(nameof(paths));
+        _pluginAssemblyPath = pluginAssemblyPath ?? string.Empty;
     }
 
     public void Start()
     {
-        BppLog.Install(_options.LogSink);
+        BppLog.Install(_logSink);
         NativeGameTypography.InitializeForCurrentThread();
         var phase = PluginInitializationPhase.PluginVersion;
         try
         {
-            BppPluginVersion.Initialize(_options.PluginAssemblyPath);
+            BppPluginVersion.Initialize(_pluginAssemblyPath);
 
-            var settingsStore = _options.OpenSettings();
+            var settingsStore = _openSettings();
 
             phase = PluginInitializationPhase.Composition;
             var gameBuild = GameBuildProbe.Resolve();
-            _composition = new MonoHostComposition(settingsStore, gameBuild, _options.Paths);
+            _composition = new MonoHostComposition(settingsStore, gameBuild, _paths);
 
             var services = _composition.Services;
             var dataRoot = services.Paths.DataRootDirectoryPath;

@@ -102,10 +102,10 @@ internal sealed class TouchDayClock
     {
         if (!_adjusted)
             return;
-        if (MobilePlatform.Port.IsAlive(_anchor))
+        if (Il2CppUi.IsAlive(_anchor))
         {
             // An animation's newer value belongs to the game; restore only our own writes.
-            if (_anchor!.localPosition == _writtenPosition && _writtenPosition != _originalPosition)
+            if (_anchor.localPosition == _writtenPosition && _writtenPosition != _originalPosition)
                 _anchor.localPosition = _originalPosition;
             if (_anchor.localScale == _writtenScale && _writtenScale != _originalScale)
                 _anchor.localScale = _originalScale;
@@ -115,7 +115,7 @@ internal sealed class TouchDayClock
 
     private Transform? Find()
     {
-        if (MobilePlatform.Port.IsAlive(_found))
+        if (Il2CppUi.IsAlive(_found))
             return _found;
         _found = null;
         _anchor = null;
@@ -123,7 +123,7 @@ internal sealed class TouchDayClock
             return null;
         _searchCooldown = SearchEvery;
         _found = _host.FindDayClock();
-        return MobilePlatform.Port.IsAlive(_found) ? _found : null;
+        return Il2CppUi.IsAlive(_found) ? _found : null;
     }
 
     private static bool TryScreenBox(MeshRenderer[] renderers, Camera camera, out ScreenBox box)
@@ -131,11 +131,10 @@ internal sealed class TouchDayClock
         box = default;
         var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
         var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-        var port = MobilePlatform.Port;
         foreach (var renderer in renderers)
         {
             if (
-                !port.IsAlive(renderer)
+                !Il2CppUi.IsAlive(renderer)
                 || !renderer.enabled
                 || !renderer.gameObject.activeInHierarchy
             )

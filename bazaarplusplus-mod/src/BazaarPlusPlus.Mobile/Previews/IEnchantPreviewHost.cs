@@ -3,7 +3,7 @@ using BazaarPlusPlus.Game.CollectionPanel.Tooltips;
 namespace BazaarPlusPlus.Mobile.Previews;
 
 /// <summary>
-/// A host's read of the game's card tooltip for <see cref="TouchEnchantPreview{TTooltip}"/>
+/// The Android host's read of the game's card tooltip for <see cref="TouchEnchantPreview{TTooltip}"/>
 /// (ADR-0025 decision 5). <typeparamref name="TTooltip"/> is the host's tooltip data, which the
 /// Mobile UI only hands back; enchantments are named as the game's enum names them. Main thread.
 /// </summary>

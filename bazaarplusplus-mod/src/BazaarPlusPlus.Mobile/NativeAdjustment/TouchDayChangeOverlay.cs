@@ -83,12 +83,9 @@ internal sealed class TouchDayChangeOverlay
     {
         if (!_adjusted)
             return;
-        if (MobilePlatform.Port.IsAlive(_overlay))
+        if (Il2CppUi.IsAlive(_overlay))
         {
-            if (
-                _overlay!.localPosition == _writtenPosition
-                && _writtenPosition != _originalPosition
-            )
+            if (_overlay.localPosition == _writtenPosition && _writtenPosition != _originalPosition)
                 _overlay.localPosition = _originalPosition;
             if (_overlay.localScale == _writtenScale && _writtenScale != _originalScale)
                 _overlay.localScale = _originalScale;
@@ -98,7 +95,7 @@ internal sealed class TouchDayChangeOverlay
 
     private Transform? Find()
     {
-        if (MobilePlatform.Port.IsAlive(_found))
+        if (Il2CppUi.IsAlive(_found))
             return _found;
         _found = null;
         _overlay = null;
@@ -106,6 +103,6 @@ internal sealed class TouchDayChangeOverlay
             return null;
         _searchCooldown = SearchEvery;
         _found = _host.FindDayChangeOverlay();
-        return MobilePlatform.Port.IsAlive(_found) ? _found : null;
+        return Il2CppUi.IsAlive(_found) ? _found : null;
     }
 }

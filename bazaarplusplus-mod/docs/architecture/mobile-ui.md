@@ -4,11 +4,13 @@ How every BPP surface fits a touch screen on the Android host: the panel shortcu
 
 ## One source tree
 
-The Mobile UI is `src/BazaarPlusPlus.Mobile/`, namespaces `BazaarPlusPlus.Mobile.*`. It is no project of its own: the Android host project compiles it through `<Compile Include>`. The Mono host compiles none of it; the desktop keeps the Desktop UI in `Game/`. The Android host's `GlobalUsings.cs` maps the TextMeshPro namespace and names the game's card preview type `GameCardPreview`. `CoreLayeringTests.Mobile_ui_has_no_second_source_tree` fails on a source file under the Mono host's `Game/Touch/` or `Game/*/Touch/` or the Android host's `Ui/`, where the hand-mirrored copies lived until #701.
+The Mobile UI is `src/BazaarPlusPlus.Mobile/`, namespaces `BazaarPlusPlus.Mobile.*`. It is no project of its own: the Android host project compiles it through `<Compile Include>`. The Mono host compiles none of it; the desktop keeps the Desktop UI in `Game/`. The Android host's `GlobalUsings.cs` maps the TextMeshPro namespace and names the game's card preview type `GameCardPreview`. `CoreLayeringTests.Mobile_ui_has_no_second_source_tree` fails on a source file under the Android host's `Ui/`, where its hand-mirrored copy lived until #701.
 
 | Directory | Holds |
 |---|---|
 | `MobilePlatform.cs` | the Mobile Platform Port, `IMobilePlatformPort`, its holder `MobilePlatform` and the records it hands over (native art, the skill overlay) |
+| `Il2CppUi.cs` | the Il2CppInterop form of object liveness, text wrapping and control listeners, which the tree calls directly |
+| `ISupporterRotation.cs` | the supporter rotation the Android composition binds for the supporter credit |
 | `MobilePanelHandle.cs` | a panel's handle on the Overlay Panel Host, with the source of its last open and the reason of its last close |
 | `Ui/` | the kit (`UiKit`, `ChipFlow`, `NativeSkin`, `PortraitView`, `KeywordSprites`, `TouchScreen`, `UiActions`), `ScrollTracker`, `ArtImage`, `InspectionText`, and `InGameTheme.g.cs`, which `just design::build` generates |
 | `LiveBuild/`, `Collection/`, `History/` | the three Main Overlay Panels: Ten-Win Builds, Collection, History |
@@ -16,7 +18,7 @@ The Mobile UI is `src/BazaarPlusPlus.Mobile/`, namespaces `BazaarPlusPlus.Mobile
 | `Previews/` | the item tooltip's preview switches (`TouchPreviewSwitches`) and the enchant preview (`TouchEnchantPreview`), with the host reads they use (`ITooltipPreviewHost`, `IEnchantPreviewHost`) |
 | `NativeAdjustment/` | Screen Fill's flow (`TouchScreenFill`), its day clock, day-change overlay and canvases, with the host read it uses (`IScreenFillHost`) |
 
-The tree reaches its host only through the port, never through `#if` or a host type; `AndroidHostAssemblyBoundaryTests` holds that over the compiled host, and with the other IL rules over the tree it asserts a floor of inspected types, so a move cannot make it pass empty. Host services reach it through Core ports the Android composition binds: `ISupporterRotation` for the supporter credit, for Collection its card catalog, run reads and encounter state ([collection.md](collection.md)), and for History its `HistoryPanelDependencies` and card templates (`IHistoryCardTemplates`).
+The tree reaches its host only through the port, never through `#if` or a host type; `AndroidHostAssemblyBoundaryTests` holds that over the compiled host, and with the other IL rules over the tree it asserts a floor of inspected types, so a move cannot make it pass empty. Host services reach it through interfaces the Android composition binds. A service only that host binds lives in the tree beside its users: `ISupporterRotation` for the supporter credit, and for Collection its card catalog (`Collection/ICollectionCardCatalog`) and run reads (`Collection/ICollectionRunReads`). One the desktop also binds stays a Core port: for Collection the encounter state, day-tier source and hero preference ([collection.md](collection.md)), and for History its `HistoryPanelDependencies` and card templates (`IHistoryCardTemplates`).
 
 ## Host adapters
 

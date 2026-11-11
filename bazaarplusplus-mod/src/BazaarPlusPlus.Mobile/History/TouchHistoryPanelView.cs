@@ -25,7 +25,7 @@ namespace BazaarPlusPlus.Mobile.History;
 /// column, with no boards, titles or actions under it.
 /// Hero portraits share the Collection framing; rank badges and run trophies are the game's art
 /// through the Mobile Platform Port (<see cref="IMobilePlatformPort.RankBadge"/>), with text
-/// while it is missing; the two BPP badge atlases ship in each host's assembly. The panel rents the native boards into
+/// while it is missing; the two BPP badge atlases ship in the Android host's assembly. The panel rents the native boards into
 /// <see cref="UpperBoard"/> and <see cref="LowerBoard"/> and lays its overlays over
 /// <see cref="Surface"/>; a new screen size builds a new view. A view that throws while it builds
 /// destroys its canvas, active and kept across scenes until its last lines, before the exception
