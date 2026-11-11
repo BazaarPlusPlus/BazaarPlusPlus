@@ -145,7 +145,7 @@ Android 没有云端的设备 lane：当前托管 runner 未配置经验证的 A
 
 ## Git hooks
 
-根目录 `lefthook.yml` 是唯一的 hook 配置，只有 pre-commit：按暂存文件的路径选择各项目的 check recipe。测试不在本地钩子里跑，由 CI 按同一套项目与共享契约映射执行。钩子因找不到命令或工具版本不对而失败时，先运行 `just doctor`：它核对 bun 和 uv 是否是检出锁定的版本，以及各项目的直接依赖是否与 `bun.lock` 一致。先在根目录执行 `bun install --frozen-lockfile`，再执行 `just hooks-install`。它把仓库级 `core.hooksPath` 指向 git common dir 下的 `hooks`，让 linked worktree 共用同一套 hooks，并覆盖全局 hooks 路径。
+根目录 `lefthook.yml` 是唯一的 hook 配置，只有 pre-commit：按暂存文件的路径选择各项目的 check recipe。本地钩子只跑一组测试：`workspace` 任务执行的 `just commands-check` 最后会跑根目录工具测试（vitest 的 `tooling` 项目）；各项目的测试不在本地钩子里跑，由 CI 按同一套项目与共享契约映射执行。钩子因找不到命令或工具版本不对而失败时，先运行 `just doctor`：它核对 bun 和 uv 是否是检出锁定的版本，以及各项目的直接依赖是否与 `bun.lock` 一致。先在根目录执行 `bun install --frozen-lockfile`，再执行 `just hooks-install`。它把仓库级 `core.hooksPath` 指向 git common dir 下的 `hooks`，让 linked worktree 共用同一套 hooks，并覆盖全局 hooks 路径。
 
 需要保存验证证据时，使用 `just verify <recipe...>`：桌面端可运行 `just verify mod::check mod::test mod::test-performance`，Android 可运行 `just verify mod::android-build mod::test-core`。每次运行在 `artifacts/verification/` 下生成独立目录，记录 SHA、工作区是否有改动、各步骤最终退出码和完整日志。只有进程和输出流都结束、退出成功且 HEAD 未变化，回执才标记通过；中断留下的 `running` 不能作为通过证据。回执不是缓存，未提交改动的结果也不能证明后续提交已验证。
 

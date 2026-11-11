@@ -28,3 +28,5 @@ The mod is gaining a second host: an Android build loaded by MelonLoader on Core
 - Newtonsoft binding: `tests/Architecture.Tests/SharedLibraryBindingTests.cs`
 - Composition split: `CoreComposition` in `src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`, `DesktopComposition` in `src/BazaarPlusPlus/MonoHostComposition.cs` (`DesktopComposition` until ADR-0023)
 - Storage owns SQLite (§3): History's SQL, row mapping, records and pages in `src/BazaarPlusPlus.Storage/History/`, which Core's History services call for both hosts' History panels
+
+Amended 2026-11-11: the desktop composition root that §2 and the Evidence call `DesktopComposition` is `MonoHostComposition` (`src/BazaarPlusPlus/MonoHostComposition.cs`); no type named `DesktopComposition` exists. ADR-0023, which renamed it, was retired with iOS support and lives only in git history.

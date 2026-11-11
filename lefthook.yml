@@ -1,5 +1,6 @@
 # Workspace Git hooks. Install with `just hooks-install`.
-# Recipes own the gates. Commits run checks only; tests run in CI.
+# Recipes own the gates. Commits run checks; the only tests they run are the root tooling
+# tests that `just commands-check` ends with. Project tests run in CI.
 pre-commit:
   parallel: true
   jobs:

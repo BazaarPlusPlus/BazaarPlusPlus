@@ -7,7 +7,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
 /// <summary>
-/// Local macOS experiment: Unity copies each captured frame directly into an IOSurface-backed
+/// The macOS replay video encoder (ReplayVideoBackend.MacNative): Unity copies each captured frame directly into an IOSurface-backed
 /// Metal texture. VideoToolbox consumes that pixel buffer in-process, so no full-frame GPU
 /// readback or raw-video pipe is involved.
 /// </summary>
