@@ -15,7 +15,29 @@ public class LaunchGateTest {
     static final LaunchGate.Adapted RELEASE = new LaunchGate.Adapted(12825, ADAPTED);
 
     static LaunchGate.Decision decide(LaunchGate.Installed installed, LaunchGate.Adapted adapted) {
-        return LaunchGate.decide(new LaunchGate.Inputs(installed, adapted));
+        return decide(installed, adapted, false);
+    }
+
+    static LaunchGate.Decision decide(LaunchGate.Installed installed, LaunchGate.Adapted adapted,
+            boolean developmentInterop) {
+        LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(installed, adapted, developmentInterop));
+        assertEquals(developmentInterop, decision.developmentInterop);
+        return decision;
+    }
+
+    /**
+     * {@code bppLaunch()} with and without a Development interop, and the tier either way: the
+     * Development interop is a fact for the BPP launch rule, never for the tier.
+     */
+    static void assertBppLaunch(LaunchGate.Installed installed, LaunchGate.Adapted adapted, Tier tier,
+            boolean without, boolean with) {
+        LaunchGate.Decision plain = decide(installed, adapted, false);
+        LaunchGate.Decision development = decide(installed, adapted, true);
+        assertEquals(tier, plain.tier);
+        assertEquals(tier, development.tier);
+        assertEquals(tier + " without a Development interop", without, plain.bppLaunch());
+        assertEquals(tier + " with a Development interop", with, development.bppLaunch());
+        assertEquals("native launch ignores the Development interop", plain.nativeLaunch(), development.nativeLaunch());
     }
 
     static LaunchGate.Installed installed(long versionCode, GameCodeHash hash) {
@@ -30,7 +52,41 @@ public class LaunchGateTest {
         assertFalse(decision.bppLaunch());
         assertFalse(decision.nativeLaunch());
         assertEquals(Tier.ANDROID_RELEASE_APK,
-                LaunchGate.decide(new LaunchGate.Inputs(copy, null)).tier);
+                LaunchGate.decide(new LaunchGate.Inputs(copy, null, false)).tier);
+    }
+
+    @Test
+    public void aDevelopmentInteropNeverLaunchesAnAndroidReleaseApk() {
+        // LemonLoader would deploy the copy's assets/LemonLoader/deployment/ over the Mods (ADR 0012).
+        LaunchGate.Installed copy = new LaunchGate.Installed(12825, ADAPTED, true);
+        assertBppLaunch(copy, RELEASE, Tier.ANDROID_RELEASE_APK, false, false);
+        assertBppLaunch(copy, null, Tier.ANDROID_RELEASE_APK, false, false);
+    }
+
+    @Test
+    public void theAdaptedGameLaunchesWithOrWithoutADevelopmentInterop() {
+        assertBppLaunch(installed(12825, ADAPTED), RELEASE, Tier.NORMAL, true, true);
+    }
+
+    @Test
+    public void aDevelopmentInteropLaunchesANewerGame() {
+        assertBppLaunch(installed(12900, OTHER), RELEASE, Tier.NEWER_WAITING, false, true);
+    }
+
+    @Test
+    public void aDevelopmentInteropLaunchesAnOlderGame() {
+        assertBppLaunch(installed(12800, OTHER), RELEASE, Tier.OLDER, false, true);
+    }
+
+    @Test
+    public void aDevelopmentInteropLaunchesWithoutAManifest() {
+        assertBppLaunch(installed(12825, ADAPTED), null, Tier.OFFLINE_NO_CACHE, false, true);
+    }
+
+    @Test
+    public void aDevelopmentInteropCannotLaunchAMissingGame() {
+        assertBppLaunch(null, RELEASE, Tier.NOT_INSTALLED, false, false);
+        assertBppLaunch(null, null, Tier.NOT_INSTALLED, false, false);
     }
 
     @Test

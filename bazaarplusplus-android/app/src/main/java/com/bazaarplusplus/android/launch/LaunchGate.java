@@ -55,23 +55,43 @@ public final class LaunchGate {
         public final Installed installed;
         /** Null when no manifest could be read and none is cached. */
         public final Adapted adapted;
+        /** A debug build's Development interop exists; a release build never has one. */
+        public final boolean developmentInterop;
 
-        public Inputs(Installed installed, Adapted adapted) {
+        public Inputs(Installed installed, Adapted adapted, boolean developmentInterop) {
             this.installed = installed;
             this.adapted = adapted;
+            this.developmentInterop = developmentInterop;
         }
     }
 
     public static final class Decision {
         public final Tier tier;
+        /** The Development interop of {@link Inputs}; it never changes the tier. */
+        public final boolean developmentInterop;
 
-        Decision(Tier tier) {
+        Decision(Tier tier, boolean developmentInterop) {
             this.tier = tier;
+            this.developmentInterop = developmentInterop;
         }
 
-        /** Whether the BPP launch button launches now. */
+        /**
+         * Whether a BPP launch may run: the one rule the launcher and {@code BppLaunch.prepare} ask.
+         * A Development interop also opens the tiers that only lack an adapted release, because the
+         * developer's interop matches their snapshot lock. It never opens the Android Release APK
+         * tier: LemonLoader would deploy the copy's seed files over the Mods.
+         */
         public boolean bppLaunch() {
-            return tier == Tier.NORMAL;
+            switch (tier) {
+                case NORMAL:
+                    return true;
+                case OFFLINE_NO_CACHE:
+                case NEWER_WAITING:
+                case OLDER:
+                    return developmentInterop;
+                default:
+                    return false;
+            }
         }
 
         /** Native launch opens the official App untouched; it needs only the game installed. */
@@ -88,13 +108,17 @@ public final class LaunchGate {
     private LaunchGate() {}
 
     public static Decision decide(Inputs in) {
-        if (in.installed == null) return new Decision(Tier.NOT_INSTALLED);
+        return new Decision(tier(in), in.developmentInterop);
+    }
+
+    private static Tier tier(Inputs in) {
+        if (in.installed == null) return Tier.NOT_INSTALLED;
         // Whatever the release says: the copy's code hash can match, and its seed files still win.
-        if (in.installed.androidReleaseApk) return new Decision(Tier.ANDROID_RELEASE_APK);
-        if (in.adapted == null) return new Decision(Tier.OFFLINE_NO_CACHE);
-        if (in.installed.hash.equals(in.adapted.hash)) return new Decision(Tier.NORMAL);
+        if (in.installed.androidReleaseApk) return Tier.ANDROID_RELEASE_APK;
+        if (in.adapted == null) return Tier.OFFLINE_NO_CACHE;
+        if (in.installed.hash.equals(in.adapted.hash)) return Tier.NORMAL;
         // Different code with the same versionCode counts as newer (ADR 0012).
-        if (in.installed.versionCode < in.adapted.versionCode) return new Decision(Tier.OLDER);
-        return new Decision(Tier.NEWER_WAITING);
+        if (in.installed.versionCode < in.adapted.versionCode) return Tier.OLDER;
+        return Tier.NEWER_WAITING;
     }
 }

@@ -47,6 +47,7 @@ Android App 启动时找到官方游戏（`com.tempogames.thebazaar`），在它
 - "原版启动"直接打开官方 App，不经过 Android App 的任何代码。
 - 读不到平台清单（离线）时，用上一次校验过的清单和 APK 携带的版本中较新的一个；调试构建不携带版本，没有缓存时只能原版启动。
 - "等待适配"时**绝不**用旧 interop 启动。interop 用 `GetIl2CppMethodByToken` 按元数据 token 绑定方法，游戏代码一变，token 就会移位，方法会被悄悄绑错。interop 只有一个来源：产品版本发布的 interop 包（见下文）。
+- 2026-11-11 修订：调试构建的 Development interop 是门禁的一个输入（`LaunchGate.Inputs` 的 `developmentInterop`）。有它时，离线无缓存、等待适配、需要更新这三档也允许 BPP 启动，因为开发者的 interop 与自己的快照锁一致；上面"只能原版启动"和"绝不用旧 interop"两条只说发布的 interop。未安装和 A 方案副本这两档仍不允许。启动器和 `BppLaunch.prepare` 都只问 `LaunchGate.Decision.bppLaunch`。发布构建没有 Development interop（`src/release/` 的 `DevOverrides`）。
 
 ### 发布产物
 
