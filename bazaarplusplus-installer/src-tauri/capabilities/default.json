@@ -13,15 +13,6 @@
     "opener:default",
     "updater:allow-check",
     "updater:allow-download-and-install",
-    "process:allow-restart",
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [
-        {
-          "url": "steam://*"
-        }
-      ]
-    },
-    "dialog:default"
+    "process:allow-restart"
   ]
 }
