@@ -27,10 +27,7 @@ import {
 import { putImmutable } from './r2-store.ts';
 import { createArtifactManifest } from './artifact-manifest.ts';
 import { MemoryStore } from './test-support/memory-store.ts';
-import {
-  retiredAndroidManifest,
-  uploadAndroid
-} from './test-support/android-fixture.ts';
+import { uploadAndroid } from './test-support/android-fixture.ts';
 import {
   artifactPaths,
   writeArtifacts
@@ -70,8 +67,6 @@ const DESKTOP_GAME = {
   gameVersion: '1.0.13081-prod-macos-arm64-dae65d53',
   managedSha256: 'd'.repeat(64)
 };
-const jsonBytes = (value: unknown) =>
-  Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const roots: string[] = [];
 
 afterEach(() => {
@@ -1237,57 +1232,6 @@ test('an Android release refuses rollback and changed facts at a published versi
   store.objects.get(key)!.bytes = Buffer.from(JSON.stringify(fragment));
   await expect(promoteAndroid(data, store)).rejects.toThrow(
     /Published 3.1.2 android-aarch64 downloads differs/
-  );
-});
-
-test('the first Android App promote reads a promoted ADR 0010 manifest as no Android App release yet', async () => {
-  const data = fixture('3.1.2');
-  const store = new MemoryStore();
-  // Both endpoints hold the injected APK's manifest, signed by another key.
-  const retired = jsonBytes(retiredAndroidManifest('3.1.1'));
-  for (const key of [`latest/${ANDROID}.json`, modManifestPath(ANDROID)])
-    await store.put(key, retired, { ifNoneMatch: true });
-  // Its version still blocks a rollback.
-  await uploadAndroid(store, {
-    version: '3.1.0',
-    gitCommit: data.commits.a,
-    baseUrl
-  });
-  await expect(
-    promoteAndroid({ ...data, version: '3.1.0' }, store)
-  ).rejects.toThrow(/rollback from 3.1.1 to 3.1.0/);
-  // A newer Android App replaces it: its APK and certificate are compared
-  // with nothing, only the pinned release key applies.
-  const { fragment } = await uploadAndroid(store, {
-    version: '3.1.2',
-    gitCommit: data.commits.a,
-    baseUrl
-  });
-  const now = new Date('2026-11-01T00:00:00.000Z');
-  const { platform } = await promoteAndroid(data, store, { now });
-  expect(platform).toEqual(
-    buildPlatformManifest({ version: '3.1.2', fragment, now })
-  );
-  expect(
-    JSON.parse(store.objects.get(modManifestPath(ANDROID))!.bytes.toString())
-  ).toEqual(platform);
-});
-
-test('the version of a promoted ADR 0010 manifest cannot be reused', async () => {
-  const data = fixture('3.1.1');
-  const store = new MemoryStore();
-  await store.put(
-    `latest/${ANDROID}.json`,
-    jsonBytes(retiredAndroidManifest('3.1.1')),
-    { ifNoneMatch: true }
-  );
-  await uploadAndroid(store, {
-    version: '3.1.1',
-    gitCommit: 'c'.repeat(40),
-    baseUrl
-  });
-  await expect(promoteAndroid(data, store)).rejects.toThrow(
-    /Published 3.1.1 android-aarch64 downloads differs/
   );
 });
 

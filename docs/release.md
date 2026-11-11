@@ -148,8 +148,6 @@ just release::promote --platform android
 
 签名证书分两层检查，`upload` 与 `promote` 都执行（[ADR 0009](adr/0009-android-release-key.md) 的 2026-11-01 修订）：Android App APK 的证书必须等于 `ANDROID_RELEASE_SIGNER_SHA256` 钉住的发布证书；已提升的平台清单有 `app` 时，还必须等于它的 `app.signerSha256`。
 
-已提升的平台清单如果是 ADR 0010 的形状（有 `apk`、没有 `app`），按"还没有 Android App 发布"处理（`isRetiredAndroidManifest`）：版本不回退、ETag 条件写照常，它的 APK 与证书不参与任何比较，`selfUpdatable` 为 `false`。这是按形状写死的规则，第一次提升 Android App 之后连同读这个形状的代码一起删除。
-
 ### Android 发布顺序
 
 官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`bun release/game-libs.ts official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。之后分三种情况：

@@ -38,42 +38,6 @@ interface ServedRecord {
   url: string;
 }
 
-// The ADR 0010 Android Platform Release Manifest (the injected APK).
-export interface RetiredAndroidManifest {
-  version: string;
-  gitCommit: string;
-  notes: string;
-  pub_date: string;
-  downloads: {
-    'android-aarch64': {
-      apk: {
-        url: string;
-        size: number;
-        sha256: string;
-        versionCode: number;
-        signerSha256: string;
-        builtForProductVersion: string;
-      };
-      managedPayload: {
-        url: string;
-        size: number;
-        sha256: string;
-        signature: string;
-      };
-      selfUpdatable: boolean;
-      historyDatabaseUserVersion: number;
-      nonManagedPayloadDigest: string;
-      game: {
-        gameVersion: string;
-        versionCode: number;
-        officialApkSha256: string;
-      };
-      loader: { tag: string; sha256: string };
-      interopSha256: string;
-    };
-  };
-}
-
 // What the Android release job leaves in the store for one product version
 // (ADR 0012): its Android App APK, the Interop Package (one content-addressed
 // object every version of the same snapshot shares), its Managed Payload zip,
@@ -143,45 +107,3 @@ export async function uploadAndroid(
   );
   return { fragment, appKey: key(fragment.app) };
 }
-
-// A promoted ADR 0010 Android Platform Release Manifest (the injected APK):
-// what the first Android App promote finds on R2. Delete it together with
-// isRetiredAndroidManifest in manifest.ts.
-export const retiredAndroidManifest = (
-  version: string = '3.1.1'
-): RetiredAndroidManifest => ({
-  version,
-  gitCommit: 'c'.repeat(40),
-  notes: `Release ${version}`,
-  pub_date: '2026-09-21T00:00:00.000Z',
-  downloads: {
-    'android-aarch64': {
-      apk: {
-        url: `https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_${version}_1.0.12825.apk`,
-        size: 33,
-        sha256:
-          '984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0',
-        versionCode: 12825,
-        signerSha256: '5'.repeat(64),
-        builtForProductVersion: version
-      },
-      managedPayload: {
-        url: `https://cdn.bazaarplusplus.com/installer/${version}/android-aarch64/managed/BazaarPlusPlus_${version}_android-aarch64-managed.zip`,
-        size: 30,
-        sha256:
-          '03e651b2e1f76ad4b9b4b63d729ce34870bc50ed1d20f5e70a620686631c5abc',
-        signature: `android-managed-signature-${version}`
-      },
-      selfUpdatable: true,
-      historyDatabaseUserVersion: 1,
-      nonManagedPayloadDigest: '6'.repeat(64),
-      game: {
-        gameVersion: '1.0.12825-production-android-d9601ded',
-        versionCode: 12825,
-        officialApkSha256: '7'.repeat(64)
-      },
-      loader: { tag: 'v0.7.4-android.4', sha256: '8'.repeat(64) },
-      interopSha256: `3f9a1c2d${'9'.repeat(56)}`
-    }
-  }
-});

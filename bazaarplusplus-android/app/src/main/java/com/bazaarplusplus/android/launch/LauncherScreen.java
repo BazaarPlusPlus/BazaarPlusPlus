@@ -15,8 +15,7 @@ final class LauncherScreen {
     enum Status {
         CHECKING(Tone.BUSY), PREPARING(Tone.BUSY), DOWNLOADING(Tone.BUSY),
         READY(Tone.OK), WAITING(Tone.WARN), GAME_UPDATE(Tone.WARN),
-        NOT_INSTALLED(Tone.NEUTRAL), REPLACE(Tone.BAD), OFFLINE(Tone.NEUTRAL),
-        NOT_RELEASED(Tone.NEUTRAL);
+        NOT_INSTALLED(Tone.NEUTRAL), REPLACE(Tone.BAD), OFFLINE(Tone.NEUTRAL);
 
         final Tone tone;
 
@@ -31,7 +30,7 @@ final class LauncherScreen {
 
     /** {@link #GAME_NOT_ADAPTED} names the installed game, {@link #UPDATE_GAME} the adapted one. */
     enum Note {
-        FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, NO_RELEASE, DEV_INTEROP,
+        FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, DEV_INTEROP,
         GAME_NOT_ADAPTED, UPDATE_GAME
     }
 
@@ -190,10 +189,6 @@ final class LauncherScreen {
                     status = Status.OFFLINE;
                     notes.add(Note.RELEASE_UNAVAILABLE);
                     primary = Action.RETRY;
-                    break;
-                case NO_RELEASE:
-                    status = Status.NOT_RELEASED;
-                    notes.add(Note.NO_RELEASE);
                     break;
                 case OLDER:
                     status = Status.GAME_UPDATE;

@@ -47,12 +47,11 @@ public class ReleaseCacheTest {
         assertEquals("3.1.2", state.manifest.version);
         assertNull("a carried release cannot name its own APK", state.manifest.app);
         assertTrue(state.fromCache);
-        assertFalse(state.noRelease);
     }
 
     @Test
     public void theNewerOfTheCacheAndTheCarriedReleaseWinsOffline() throws Exception {
-        String fixture = PlatformManifestTest.fixture("android-aarch64.json");
+        String fixture = PlatformManifestTest.fixture();
         served.put(ReleaseOrigin.PUBLIC.manifestUrl(), fixture);
         cache().manifest();
         served.clear();
@@ -63,7 +62,7 @@ public class ReleaseCacheTest {
     @Test
     public void aFetchedManifestWinsOverTheCarriedRelease() throws Exception {
         carried = carriedFixture();
-        served.put(ReleaseOrigin.PUBLIC.manifestUrl(), PlatformManifestTest.fixture("android-aarch64.json"));
+        served.put(ReleaseOrigin.PUBLIC.manifestUrl(), PlatformManifestTest.fixture());
         ReleaseCache.ManifestState state = cache().manifest();
         assertFalse(state.fromCache);
         assertNotNull(state.manifest.app);
@@ -71,7 +70,7 @@ public class ReleaseCacheTest {
 
     @Test
     public void aDecodedManifestIsCachedForOfflineUse() throws Exception {
-        String fixture = PlatformManifestTest.fixture("android-aarch64.json");
+        String fixture = PlatformManifestTest.fixture();
         String version = new JSONObject(fixture).getString("version");
         served.put(ReleaseOrigin.PUBLIC.manifestUrl(), fixture);
         ReleaseCache.ManifestState online = cache().manifest();
@@ -93,16 +92,5 @@ public class ReleaseCacheTest {
     public void noNetworkAndNoCacheIsUnavailable() {
         ReleaseCache.ManifestState state = cache().manifest();
         assertNull(state.manifest);
-        assertFalse(state.noRelease);
-    }
-
-    @Test
-    public void theInjectedApkShapeIsNoReleaseAndIsNotCached() throws Exception {
-        served.put(ReleaseOrigin.PUBLIC.manifestUrl(), PlatformManifestTest.fixture("android-aarch64.a-shape.json"));
-        ReleaseCache.ManifestState state = cache().manifest();
-        assertTrue(state.noRelease);
-        assertNull(state.manifest);
-        served.clear();
-        assertFalse(cache().manifest().noRelease);
     }
 }

@@ -196,7 +196,7 @@ public sealed class ReleaseManifestClient
 
     // An Android record names the game it was adapted for (game.gameVersion, the string the
     // running game reports) and the Android App APK (app.url, size, sha256); release/manifest.ts
-    // owns them. Anything incomplete is no release, and so is the retired A shape (apk, no app).
+    // owns them. Anything incomplete is no release.
     private AndroidAppRelease? ReadAndroidApp(JObject document)
     {
         if (_platformKey == null || document["downloads"]?[_platformKey] is not JObject release)

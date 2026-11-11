@@ -15,7 +15,7 @@ public class LaunchGateTest {
     static final LaunchGate.Adapted RELEASE = new LaunchGate.Adapted(12825, ADAPTED);
 
     static LaunchGate.Decision decide(LaunchGate.Installed installed, LaunchGate.Adapted adapted) {
-        return LaunchGate.decide(new LaunchGate.Inputs(installed, adapted, false));
+        return LaunchGate.decide(new LaunchGate.Inputs(installed, adapted));
     }
 
     static LaunchGate.Installed installed(long versionCode, GameCodeHash hash) {
@@ -30,7 +30,7 @@ public class LaunchGateTest {
         assertFalse(decision.bppLaunch());
         assertFalse(decision.nativeLaunch());
         assertEquals(Tier.ANDROID_RELEASE_APK,
-                LaunchGate.decide(new LaunchGate.Inputs(copy, null, true)).tier);
+                LaunchGate.decide(new LaunchGate.Inputs(copy, null)).tier);
     }
 
     @Test
@@ -80,15 +80,6 @@ public class LaunchGateTest {
     public void noManifestAndNoCacheIsNativeOnly() {
         LaunchGate.Decision decision = decide(installed(12825, ADAPTED), null);
         assertEquals(Tier.OFFLINE_NO_CACHE, decision.tier);
-        assertFalse(decision.bppLaunch());
-        assertTrue(decision.nativeLaunch());
-    }
-
-    @Test
-    public void theRetiredManifestShapeIsNoReleaseYet() {
-        LaunchGate.Decision decision = LaunchGate.decide(
-                new LaunchGate.Inputs(installed(12825, ADAPTED), null, true));
-        assertEquals(Tier.NO_RELEASE, decision.tier);
         assertFalse(decision.bppLaunch());
         assertTrue(decision.nativeLaunch());
     }

@@ -17,8 +17,6 @@ public final class LaunchGate {
         ANDROID_RELEASE_APK,
         /** No manifest from the network and none cached: native launch only. */
         OFFLINE_NO_CACHE,
-        /** The manifest has no Android App release yet (the retired injected-APK shape): native launch only. */
-        NO_RELEASE,
         /** The installed game is the adapted one. */
         NORMAL,
         /** Newer code than the adapted game: native launch only until a Product Release adapts it. */
@@ -55,15 +53,12 @@ public final class LaunchGate {
     public static final class Inputs {
         /** Null when the official game is not installed. */
         public final Installed installed;
-        /** Null when no manifest could be read and none is cached, or when {@link #noRelease}. */
+        /** Null when no manifest could be read and none is cached. */
         public final Adapted adapted;
-        /** The manifest decoded as "no Android App release yet". */
-        public final boolean noRelease;
 
-        public Inputs(Installed installed, Adapted adapted, boolean noRelease) {
+        public Inputs(Installed installed, Adapted adapted) {
             this.installed = installed;
             this.adapted = adapted;
-            this.noRelease = noRelease;
         }
     }
 
@@ -96,7 +91,6 @@ public final class LaunchGate {
         if (in.installed == null) return new Decision(Tier.NOT_INSTALLED);
         // Whatever the release says: the copy's code hash can match, and its seed files still win.
         if (in.installed.androidReleaseApk) return new Decision(Tier.ANDROID_RELEASE_APK);
-        if (in.noRelease) return new Decision(Tier.NO_RELEASE);
         if (in.adapted == null) return new Decision(Tier.OFFLINE_NO_CACHE);
         if (in.installed.hash.equals(in.adapted.hash)) return new Decision(Tier.NORMAL);
         // Different code with the same versionCode counts as newer (ADR 0012).

@@ -10,7 +10,6 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
@@ -18,24 +17,19 @@ public class PlatformManifestTest {
     /** The shared release fixture (release/fixtures/latest/); unit tests run in app/. */
     static final File SHARED = new File("../../release/fixtures/latest/android-aarch64.json");
 
-    // android-aarch64.json is the release tooling's; the retired A shape is the App's own resource.
-    static String fixture(String name) throws IOException {
-        if (name.equals(SHARED.getName())) return new String(Files.readAllBytes(SHARED.toPath()), StandardCharsets.UTF_8);
-        try (InputStream in = PlatformManifestTest.class.getResourceAsStream("/release/" + name)) {
-            if (in == null) throw new IOException("No test resource " + name);
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
+    static String fixture() throws IOException {
+        return new String(Files.readAllBytes(SHARED.toPath()), StandardCharsets.UTF_8);
     }
 
     static String withRecord(String key, Object value) throws Exception {
-        JSONObject root = new JSONObject(fixture("android-aarch64.json"));
+        JSONObject root = new JSONObject(fixture());
         root.getJSONObject("downloads").getJSONObject("android-aarch64").put(key, value);
         return root.toString();
     }
 
     @Test
     public void decodesTheAndroidAppShape() throws Exception {
-        JSONObject root = new JSONObject(fixture("android-aarch64.json"));
+        JSONObject root = new JSONObject(fixture());
         JSONObject record = root.getJSONObject("downloads").getJSONObject("android-aarch64");
         PlatformManifest manifest = PlatformManifest.decode(root.toString(), ReleaseOrigin.PUBLIC);
         assertEquals(root.getString("version"), manifest.version);
@@ -59,16 +53,11 @@ public class PlatformManifestTest {
     }
 
     @Test
-    public void theInjectedApkShapeIsNoAndroidAppReleaseYet() throws Exception {
-        assertNull(PlatformManifest.decode(fixture("android-aarch64.a-shape.json"), ReleaseOrigin.PUBLIC));
-    }
-
-    @Test
     public void rejectsWhatIsNotTheShape() throws Exception {
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode("[]", ReleaseOrigin.PUBLIC));
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode("{\"version\":\"6.1.0\"}",
                 ReleaseOrigin.PUBLIC));
-        JSONObject root = new JSONObject(fixture("android-aarch64.json"));
+        JSONObject root = new JSONObject(fixture());
         root.put("version", "6.1");
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(root.toString(), ReleaseOrigin.PUBLIC));
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(
@@ -79,18 +68,18 @@ public class PlatformManifestTest {
 
     @Test
     public void everyUrlMustLieUnderItsReleasePrefix() throws Exception {
-        JSONObject root = new JSONObject(fixture("android-aarch64.json"));
+        JSONObject root = new JSONObject(fixture());
         JSONObject record = root.getJSONObject("downloads").getJSONObject("android-aarch64");
         record.getJSONObject("managedPayload").put("url",
                 "https://cdn.bazaarplusplus.com/installer/6.0.0/android-aarch64/managed/old.zip");
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(root.toString(), ReleaseOrigin.PUBLIC));
 
-        JSONObject other = new JSONObject(fixture("android-aarch64.json"));
+        JSONObject other = new JSONObject(fixture());
         other.getJSONObject("downloads").getJSONObject("android-aarch64").getJSONObject("interop").put("url",
                 "https://evil.example/installer/android/interop/" + "2".repeat(64) + ".zip");
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(other.toString(), ReleaseOrigin.PUBLIC));
 
-        JSONObject renamed = new JSONObject(fixture("android-aarch64.json"));
+        JSONObject renamed = new JSONObject(fixture());
         renamed.getJSONObject("downloads").getJSONObject("android-aarch64").getJSONObject("interop").put("url",
                 "https://cdn.bazaarplusplus.com/installer/android/interop/" + "9".repeat(64) + ".zip");
         assertThrows("the interop key is the zip's own sha256", MalformedReleaseException.class,
@@ -101,8 +90,8 @@ public class PlatformManifestTest {
     public void aDevelopmentOriginAcceptsItsOwnUrlsOnly() throws Exception {
         ReleaseOrigin dev = new ReleaseOrigin("http://127.0.0.1:8765");
         assertEquals("http://127.0.0.1:8765/latest/mod/android-aarch64.json", dev.manifestUrl());
-        assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(fixture("android-aarch64.json"), dev));
-        String local = fixture("android-aarch64.json").replace("https://cdn.bazaarplusplus.com/installer",
+        assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(fixture(), dev));
+        String local = fixture().replace("https://cdn.bazaarplusplus.com/installer",
                 "http://127.0.0.1:8765");
         assertEquals(new JSONObject(local).getString("version"), PlatformManifest.decode(local, dev).version);
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(local, ReleaseOrigin.PUBLIC));
@@ -117,6 +106,6 @@ public class PlatformManifestTest {
         // A published manifest that lost its app is malformed, and an APK cannot name itself.
         org.junit.Assert.assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(carried, ReleaseOrigin.PUBLIC));
         org.junit.Assert.assertThrows(MalformedReleaseException.class,
-                () -> PlatformManifest.decodeCarried(fixture("android-aarch64.json"), ReleaseOrigin.PUBLIC));
+                () -> PlatformManifest.decodeCarried(fixture(), ReleaseOrigin.PUBLIC));
     }
 }

@@ -73,7 +73,7 @@ final class LaunchCheck {
         boolean modsFailed = ManagedPayloadStaging.lastInstallFailed(
                 ManagedPayloadStaging.remembered(AppFiles.stagedVersion(context)), installedMods, AppFiles.updates(context));
         if (game == null) {
-            LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(null, null, false));
+            LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(null, null));
             AppLog.i(BppApplication.TAG, "launch gate: " + decision + " (" + gamePackage(gamePackage) + ")");
             return new LaunchCheck(null, null, facts, origin, null, decision, trusted, installedMods, modsFailed, null);
         }
@@ -92,7 +92,7 @@ final class LaunchCheck {
         LaunchGate.Adapted adapted = manifest.manifest == null ? null
                 : new LaunchGate.Adapted(manifest.manifest.game.versionCode, manifest.manifest.game.hash);
         LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(
-                new LaunchGate.Installed(game.versionCode, hash, game.carriesInjectedLoader()), adapted, manifest.noRelease));
+                new LaunchGate.Installed(game.versionCode, hash, game.carriesInjectedLoader()), adapted));
         AppLog.i(BppApplication.TAG, "launch gate: " + decision + (modsFailed ? ", last plugin install failed" : ""));
         return new LaunchCheck(game, hash, facts, origin, manifest, decision, trusted, installedMods, modsFailed,
                 DevOverrides.interop(context));

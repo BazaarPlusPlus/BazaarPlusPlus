@@ -162,30 +162,10 @@ export interface AndroidPlatformManifest {
   downloads: Record<string, AndroidDownloadRelease>;
 }
 
-/** `downloads[platform]` of ADR 0010's injected APK manifest. */
-export interface RetiredAndroidRelease {
-  apk: unknown;
-  app?: undefined;
-}
-
-/**
- * The promoted Android Platform Release Manifest of ADR 0010's injected APK
- * (isRetiredAndroidManifest); only its top-level shape is read.
- */
-export interface RetiredAndroidPlatformManifest {
-  version: ProductVersion;
-  gitCommit: string;
-  notes: string;
-  pub_date: string;
-  platforms?: undefined;
-  downloads: Record<string, RetiredAndroidRelease>;
-}
-
 /** A Platform Release Manifest; its platform decides which shape it has. */
 export type PlatformManifest =
   | DesktopPlatformManifest
-  | AndroidPlatformManifest
-  | RetiredAndroidPlatformManifest;
+  | AndroidPlatformManifest;
 
 /** The release an Android App APK carries (androidCarriedRelease). */
 export interface AndroidCarriedRelease {
@@ -750,26 +730,6 @@ const ANDROID_RELEASE_FIELDS: readonly (keyof AndroidReleaseFacts)[] =
     'nonManagedPayloadDigest'
   ]);
 
-// The promoted Android Platform Release Manifest of ADR 0010's injected APK
-// (`apk`, no `app`). It is read as "no Android App release yet": its version
-// still blocks a rollback and its ETag still guards the write, but its APK
-// and certificate take part in no comparison. A shape rule, not a switch:
-// delete it, and every caller's branch on it, after the first Android App
-// promote (ADR 0012, "fragment 与平台清单").
-export function isRetiredAndroidManifest(
-  manifest: PlatformManifest | null | undefined,
-  platform: string
-): manifest is RetiredAndroidPlatformManifest {
-  const release = manifest?.downloads?.[platform];
-  return Boolean(
-    releasePlatformByKey(platform).kind === 'android' &&
-    release &&
-    typeof release === 'object' &&
-    release.apk !== undefined &&
-    release.app === undefined
-  );
-}
-
 function positiveInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }
@@ -934,9 +894,7 @@ function validateAndroidPlatformManifest<M extends PlatformManifest>(
   )
     throw new Error(`Invalid ${platform} platform manifest`);
   assertProductVersion(manifest.version);
-  // Only its top-level shape is read (isRetiredAndroidManifest).
-  if (isRetiredAndroidManifest(manifest, platform)) return manifest;
-  // Without a `platforms` key and not retired, it is an Android App release.
+  // Without a `platforms` key it is an Android App release.
   const { mainlandUrl, ...release } = (manifest as AndroidPlatformManifest)
     .downloads[platform];
   validateAndroidRelease(release, manifest.version, platform);
@@ -1087,7 +1045,6 @@ function buildAndroidPlatformManifest({
   const release = Object.fromEntries(
     ANDROID_RELEASE_FIELDS.map((field) => [field, fragment[field]])
   ) as AndroidReleaseFacts;
-  // A retired manifest is read the same way (isRetiredAndroidManifest).
   const publishedMirror = (existing as AndroidPlatformManifest | null)
     ?.downloads[platform].mainlandUrl;
   const manifest: AndroidPlatformManifest = {

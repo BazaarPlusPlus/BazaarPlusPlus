@@ -10,7 +10,6 @@ import {
 } from './downloads.ts';
 import fixture from './fixtures/latest.json' with { type: 'json' };
 import android from './fixtures/latest/android-aarch64.json' with { type: 'json' };
-import { retiredAndroidManifest } from './test-support/android-fixture.ts';
 
 type AndroidManifest = typeof android;
 type AndroidRecord = AndroidManifest['downloads']['android-aarch64'];
@@ -83,10 +82,6 @@ const brokenAndroid = (
 
 test.each([
   ['a desktop manifest', () => fixture],
-  [
-    'the ADR 0010 shape (an injected APK, no Android App)',
-    () => retiredAndroidManifest('3.1.2')
-  ],
   [
     'an App outside the release origin',
     () =>

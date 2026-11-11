@@ -58,7 +58,6 @@ The badge is the Badge component: dot + word, one tone.
 | 未安装 | Not installed | neutral | Official game not installed |
 | 需要更换 | Replacement required | bad | The package holds a retired Android Release APK |
 | 离线 | Offline | neutral | No release information and none cached |
-| 未发布 | Not released | neutral | No Android App release yet |
 | 正在检查… | Checking… | busy | The launch check runs |
 | 正在下载… | Downloading… | busy | Interop or plugin download |
 | 正在准备… | Preparing… | busy | Staging before the game starts |
@@ -83,7 +82,7 @@ The primary is the one thing to do next, written as verb + object. It is `touch-
 | Status | Primary |
 |---|---|
 | 可以开始 | 开始游戏 / Play |
-| 等待适配, 未发布 | none |
+| 等待适配 | none |
 | 离线 | 重试 / Retry |
 | 未安装, 需要更换 | 从 Google Play 安装 / Install from Google Play when Google Play is installed; otherwise 从发行商下载 ↗ |
 | 需要更新游戏 | 从 Google Play 更新 / Update from Google Play when Google Play is installed and the game came from it; otherwise 从发行商下载 ↗ |
