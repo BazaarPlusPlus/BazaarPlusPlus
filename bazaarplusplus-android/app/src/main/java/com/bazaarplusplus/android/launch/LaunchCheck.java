@@ -48,7 +48,7 @@ final class LaunchCheck {
      */
     final File devInterop;
 
-    /** Package-private so a JVM test can hand {@link BppLaunch#prepare} a refused decision. */
+    /** Package-private so a JVM test can build {@link #inputs} from a refused decision. */
     LaunchCheck(InstalledGame game, GameCodeHash hash, RuntimeFacts facts, ReleaseOrigin origin,
             ReleaseCache.ManifestState manifest, LaunchGate.Decision decision, List<PublicKey> trusted,
             String installedModsVersion, boolean lastModsInstallFailed, File devInterop) {
@@ -125,6 +125,16 @@ final class LaunchCheck {
             }
         }
         return keys;
+    }
+
+    /**
+     * What {@link BppLaunch#prepare} reads of this check. It dereferences nothing a refused decision
+     * may leave null; {@code prepare} refuses such a decision before it reads a fact.
+     */
+    LaunchInputs inputs() {
+        return new LaunchInputs(decision, facts != null, hash, game == null ? null : game.versionName,
+                game == null ? 0 : game.versionCode, manifest == null ? null : manifest.manifest, installedModsVersion,
+                trusted, devInterop);
     }
 
     /** One line per fact, for the diagnostics export. */

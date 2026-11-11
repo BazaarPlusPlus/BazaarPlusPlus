@@ -24,7 +24,12 @@ final class AppFiles {
     }
 
     static File updates(Context context) throws IOException {
-        return new File(external(context), DATA_ROOT + "/" + com.bazaarplusplus.android.payload.ManagedPayloadStaging.UPDATES);
+        return updates(external(context));
+    }
+
+    /** The Data Root's {@code Updates/} under the external files directory {@code external}. */
+    static File updates(File external) {
+        return new File(external, DATA_ROOT + "/" + com.bazaarplusplus.android.payload.ManagedPayloadStaging.UPDATES);
     }
 
     static File releaseCache(Context context, boolean development) {
@@ -49,5 +54,12 @@ final class AppFiles {
 
     static File loaderDeployment(Context context) {
         return new File(context.getNoBackupFilesDir(), "loader-deployment.json");
+    }
+
+    /** A BPP launch's directories. Paths only: unlike {@link #external}, it creates nothing. */
+    static LaunchDirs launchDirs(Context context) {
+        File external = GameStorage.root(context);
+        return new LaunchDirs(external, interopCache(context), managedPayloadCache(context), updates(external),
+                stagedVersion(context), loaderDeployment(context));
     }
 }
