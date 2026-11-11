@@ -24,7 +24,6 @@ import {
   computePayloadInputs
 } from './payload.ts';
 import {
-  INTEROP_KEY,
   fetchInteropSnapshot,
   gameLibsStoreFromEnvironment,
   interopDirectoryDigest,
@@ -32,6 +31,7 @@ import {
   isLockedLoader,
   lockedInteropEntry
 } from './game-libs.ts';
+import { INTEROP_KEY } from './snapshot-lock.ts';
 import { sha256File } from './android-apk.ts';
 import {
   CARRIED_RELEASE_DIR,
@@ -63,7 +63,11 @@ import type { ReleasePlatformKey } from './release-platforms.ts';
 import type { ObjectStore } from './r2-store.ts';
 import type { RuntimeFacts } from './android-app.ts';
 import type { ReleaseKeyExporter, ReleaseKeystore } from './android-interop.ts';
-import type { InteropLockEntry, LoaderPin, NativeLibPin } from './game-libs.ts';
+import type {
+  InteropLockEntry,
+  LoaderPin,
+  NativeLibPin
+} from './snapshot-lock.ts';
 import type { PayloadInputRecord } from './payload.ts';
 import type { AndroidCarriedRelease } from './manifest.ts';
 import type { GitState } from './artifact-manifest.ts';

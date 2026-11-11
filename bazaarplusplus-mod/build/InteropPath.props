@@ -20,7 +20,7 @@
       >$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'game-libs'))</BppGameLibsRoot>
   </PropertyGroup>
 
-  <!-- release/game-libs.ts fixes the entry's field order: gameVersion before any nested object,
+  <!-- release/snapshot-lock.ts fixes the entry's field order: gameVersion before any nested object,
        loader the first nested object. -->
   <PropertyGroup Condition="Exists('$(BppGameLibsLock)')">
     <_BppLockText>$([System.IO.File]::ReadAllText('$(BppGameLibsLock)'))</_BppLockText>

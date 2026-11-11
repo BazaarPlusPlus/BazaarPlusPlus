@@ -196,8 +196,9 @@ export const SHARED_INPUTS: [string, string[]][] = [
     ['installer', 'release', 'android']
   ],
   ['bazaarplusplus-mod/build/game-libs.lock.json', ['release']],
-  // release/game-libs-interop.test.ts pins GAME_VERSION_PATTERN to the first
-  // and evaluates the second against a captured lock.
+  // release/snapshot-lock.test.ts pins GAME_VERSION_PATTERN to the first and
+  // release/game-libs-interop.test.ts evaluates the second against a captured
+  // lock.
   ['bazaarplusplus-mod/build/ManagedPath.props', ['release']],
   ['bazaarplusplus-mod/build/InteropPath.props', ['release']],
   ['bazaarplusplus-mod/global.json', ['release']],

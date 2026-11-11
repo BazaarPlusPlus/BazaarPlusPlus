@@ -10,9 +10,6 @@ import {
 } from './android-apk.ts';
 import type { AndroidManifestVersion } from './android-apk.ts';
 import {
-  GAME_LIBS_LOCK_PATH,
-  GAME_VERSION_PATTERN,
-  INTEROP_KEY,
   LOADER_MANAGED_DIRECTORY,
   androidInputKey,
   assertPortableInteropArchive,
@@ -25,15 +22,8 @@ import {
   interopDirectoryDigest,
   officialApkChanged,
   recordApkEtag,
-  lockKey,
-  lockKeys,
-  managedEntries,
-  parseGameVersion,
   publishInteropSnapshot,
-  readGameLibsLock,
-  snapshotManifestKey,
-  tarballEntries,
-  validateGameLibsLock
+  tarballEntries
 } from './game-libs.ts';
 import type {
   ApkHeadFetch,
@@ -41,6 +31,14 @@ import type {
   CliOptions,
   GenerateInteropOptions
 } from './game-libs.ts';
+import {
+  GAME_LIBS_LOCK_PATH,
+  INTEROP_KEY,
+  lockKeys,
+  managedEntries,
+  readGameLibsLock,
+  snapshotManifestKey
+} from './snapshot-lock.ts';
 import { buildZipBuffer } from './payload-zip.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 import type { PutFileOptions, PutOptions } from './r2-store.ts';
@@ -335,46 +333,6 @@ function firstCapture(
     ...overrides
   }).then((result) => ({ ...result, tools }));
 }
-
-test('android versions parse to android-online', () => {
-  expect(parseGameVersion(ANDROID_VERSION)).toEqual({
-    platform: 'android',
-    channel: 'online'
-  });
-  expect(parseGameVersion('1.0.12651-prod-macos-arm64-d5cc730f')).toEqual({
-    platform: 'macos',
-    channel: 'online'
-  });
-  expect(() => parseGameVersion('1.0.12825-production-ios-d9601ded')).toThrow(
-    /Application.version/
-  );
-  // Desktop keeps exactly one architecture token; Android has none.
-  expect(() => parseGameVersion('1.0.12651-prod-macos-d5cc730f')).toThrow(
-    /Application.version/
-  );
-  expect(() =>
-    parseGameVersion('1.0.12825-production-android-arm64-d9601ded')
-  ).toThrow(/Application.version/);
-  expect(lockKeys().at(-1)).toBe('android-online');
-  expect(() => lockKey('android', 'staging')).toThrow(
-    /Unknown android snapshot channel 'staging'; expected online/
-  );
-});
-
-test('build/ManagedPath.props mirrors the game version pattern', () => {
-  expect(
-    execFileSync(
-      'dotnet',
-      [
-        'msbuild',
-        path.join(WORKSPACE_ROOT, 'bazaarplusplus-mod/build/ManagedPath.props'),
-        '-nologo',
-        '-getProperty:BppGameVersionPattern'
-      ],
-      { encoding: 'utf8' }
-    ).trim()
-  ).toBe(GAME_VERSION_PATTERN.source);
-}, 30000);
 
 test('the APK readers take versionName, versionCode and the Unity version from their binary formats', () => {
   expect(
@@ -710,72 +668,6 @@ test('a recapture reuses the pinned toolchain from the store and generates inter
   expect(next.loader).toEqual(first.loader);
   expect(next.patcher).toEqual(first.patcher);
   expect(next.nativeLibs).toEqual(first.nativeLibs);
-});
-
-test('lock validation holds the android-online entry to its schema and field order', () => {
-  const ws = workspace();
-  const entry = {
-    gameVersion: ANDROID_VERSION,
-    versionCode: 12825,
-    apkSha256: 'a'.repeat(64),
-    apkEtag: '72439fcc9794ac65abd8649b18aa59ac',
-    il2cppSha256: 'b'.repeat(64),
-    metadataSha256: 'c'.repeat(64),
-    unityVersion: UNITY_VERSION,
-    interopSha256: 'd'.repeat(64),
-    loader: {
-      tag: 'v0.7.4-android.4',
-      sha256: 'e'.repeat(64),
-      managedRuntimeVersion: '11.0.0'
-    },
-    patcher: { tag: 'v2.1.0', sha256: 'f'.repeat(64) },
-    cpp2ilVersion: '2022.1.0-pre-release.21',
-    cpp2ilSha256: '1'.repeat(64),
-    il2cppInteropVersion: '1.5.3.0',
-    nativeLibs: {},
-    capturedAt: NOW.toISOString()
-  };
-  const lock = (value: object) => {
-    const parsed = readGameLibsLock(ws.workspaceRoot);
-    (parsed.entries as Record<string, unknown>)[INTEROP_KEY] = value;
-    return parsed;
-  };
-  expect(validateGameLibsLock(lock(entry))).toBeTruthy();
-  const { gameVersion, ...rest } = entry;
-  const cases: [object, RegExp][] = [
-    [{ ...rest, gameVersion }, /in the order gameVersion, versionCode/],
-    [{ ...entry, sha256: 'a'.repeat(64) }, /exactly the fields/],
-    [
-      { ...entry, gameVersion: '1.0.12651-prod-macos-arm64-d5cc730f' },
-      /is a macos-online build/
-    ],
-    [{ ...entry, versionCode: '12825' }, /versionCode/],
-    [{ ...entry, apkSha256: 'xyz' }, /invalid apkSha256/],
-    [
-      { ...entry, apkEtag: '"quoted"' },
-      /apkEtag must be null or a strong ETag/
-    ],
-    [{ ...entry, apkEtag: '' }, /apkEtag must be null or a strong ETag/],
-    [{ ...entry, unityVersion: '6000.3' }, /unityVersion/],
-    [
-      { ...entry, loader: { tag: 'v0.7.4', sha256: 'e'.repeat(64) } },
-      /loader must have exactly the fields tag, sha256, managedRuntimeVersion/
-    ],
-    [
-      { ...entry, patcher: { tag: '../x', sha256: 'f'.repeat(64) } },
-      /patcher\.tag must be a version or tag token/
-    ],
-    [
-      { ...entry, nativeLibs: { 'sqlite.dll': {} } },
-      /nativeLibs key "sqlite\.dll"/
-    ],
-    [{ ...entry, capturedAt: '2026-10-22' }, /capturedAt/]
-  ];
-  for (const [value, message] of cases)
-    expect(
-      () => validateGameLibsLock(lock(value)),
-      JSON.stringify(value)
-    ).toThrow(message);
 });
 
 test('InteropPath.props resolves the fetched interop and loader directories from the lock', async () => {

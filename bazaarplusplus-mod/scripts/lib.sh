@@ -74,7 +74,8 @@ discovered_prop() {
     dotnet msbuild build/ManagedPath.props -nologo "-getProperty:$1" | tr -d '\r'
 }
 
-# release/game-libs.ts owns the Snapshot Lock, the Managed digest and the private store.
+# release/game-libs.ts drives the Snapshot Lock (its schema is in release/snapshot-lock.ts),
+# the Managed digest and the private store.
 game_libs_cli() {
     bun "$MOD_ROOT/../release/game-libs.ts" "$@"
 }

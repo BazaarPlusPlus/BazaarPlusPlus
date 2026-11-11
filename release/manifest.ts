@@ -25,7 +25,7 @@ import type {
   ManagedPayloadDownload
 } from './downloads.ts';
 import type { ArtifactManifest, ArtifactRecord } from './artifact-manifest.ts';
-import type { LoaderPin } from './game-libs.ts';
+import type { LoaderPin } from './snapshot-lock.ts';
 
 export { RELEASE_MANIFEST_PATH, modManifestPath, platformManifestPath };
 

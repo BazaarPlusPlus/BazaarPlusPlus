@@ -21,11 +21,8 @@ import {
 } from './payload-inventory.ts';
 import { PAYLOAD_BUILD_RECORD_SCHEMA_VERSION } from './artifact-manifest.ts';
 import type { CreatedArtifactManifest } from './artifact-manifest.ts';
-import {
-  GAME_LIBS_LOCK_PATH,
-  lockKeys,
-  managedDirectoryDigest
-} from './game-libs.ts';
+import { managedDirectoryDigest } from './game-libs.ts';
+import { GAME_LIBS_LOCK_PATH, lockKeys } from './snapshot-lock.ts';
 
 const WINDOWS_ONLINE_VERSION = '1.0.12600-windows-x64-0a1b2c3d';
 const roots: string[] = [];

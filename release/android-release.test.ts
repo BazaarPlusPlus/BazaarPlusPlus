@@ -30,12 +30,11 @@ import {
   verifyInteropStatement
 } from './android-interop.ts';
 import {
-  GAME_LIBS_LOCK_PATH,
-  INTEROP_KEY,
   LOADER_MANAGED_DIRECTORY,
   LOADER_MARKER,
   interopDirectoryDigest
 } from './game-libs.ts';
+import { GAME_LIBS_LOCK_PATH, INTEROP_KEY } from './snapshot-lock.ts';
 import {
   androidAppKey,
   androidCarriedRelease,

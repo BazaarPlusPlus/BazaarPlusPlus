@@ -3,8 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test } from 'vite-plus/test';
 import { captureKind, cliMain } from './android-adaptation.ts';
-import { GAME_LIBS_LOCK_PATH, INTEROP_KEY } from './game-libs.ts';
-import type { GameLibsLock, InteropLockEntry } from './game-libs.ts';
+import { GAME_LIBS_LOCK_PATH, INTEROP_KEY } from './snapshot-lock.ts';
+import type { GameLibsLock, InteropLockEntry } from './snapshot-lock.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 
 // android-apk-watch.yml's sorting of a capture, simulated locally: a capture

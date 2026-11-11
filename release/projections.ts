@@ -10,7 +10,7 @@ import {
 import { synchronizePayloadProjection } from './payload-inventory.ts';
 import { assertPlatformCoherence } from './release-platforms.ts';
 import { assertWorkspaceHistoryDatabaseCompatibility } from './history-database.ts';
-import { lockWarnings, readGameLibsLock } from './game-libs.ts';
+import { lockWarnings, readGameLibsLock } from './snapshot-lock.ts';
 import type { ProductVersion } from './product.ts';
 
 // One README's product version badge: the file as read, the version it

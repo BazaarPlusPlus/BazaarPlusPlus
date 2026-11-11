@@ -11,7 +11,7 @@ import {
 } from './product.ts';
 import { LOCKSTEP_PLATFORM_KEYS } from './release-platforms.ts';
 import type { TauriBuildPlatform } from './release-platforms.ts';
-import { GAME_LIBS_LOCK_PATH } from './game-libs.ts';
+import { GAME_LIBS_LOCK_PATH } from './snapshot-lock.ts';
 import { createArtifactManifest } from './artifact-manifest.ts';
 import { MemoryStore } from './test-support/memory-store.ts';
 import { writeArtifacts } from './test-support/artifact-fixture.ts';
