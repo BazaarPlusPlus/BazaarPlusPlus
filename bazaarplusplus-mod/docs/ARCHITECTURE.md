@@ -56,7 +56,7 @@ Inside the desktop host assembly:
 | `GameInterop/` | adapters over game, Unity, or publicized runtime surfaces |
 | `Game/` | feature workflows, UI, user-facing policy, filtering, the upload pump, storage use |
 | `Patches/` | Harmony patches, reaching services through `BppPatchHost` rather than constructor injection |
-| `Infrastructure/` | UI tokens, stable text helpers, UI suppression |
+| `Infrastructure/` | UI tokens, `DesktopKit/`, portrait composition, stable panel text |
 
 The main project targets `netstandard2.1`, uses C# 12, and publicizes game assemblies, so `internal` game members are accessible. Remote seed data is declared in `RemoteEmbeddedData.targets` and delegates transport to `build/RemoteEmbeddedDataFetcher`; `BppVersion` in `Directory.Build.props` reads the workspace-root `VERSION`. The shared Payload Inventory generates the MSBuild copy items; production assembly versions are checked from compiled metadata. `just release::prepare <platform>` runs isolated preparation through the [product release coordinator](../../docs/release.md).
 
