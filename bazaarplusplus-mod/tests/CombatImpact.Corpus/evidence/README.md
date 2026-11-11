@@ -67,13 +67,17 @@ block. Then regenerate the corpus and `pinned-corpus.json` as above.
 
 ## External corpora
 
-The other snapshots record large corpora that stay outside Git. Regenerate one with:
+A large corpus and its evidence snapshot stay outside Git. Project one with:
 
 ```bash
 BPP_BUNDLE_CORPUS_LIMIT=100 \
-BPP_COMBAT_IMPACT_EVIDENCE_PATH="tests/CombatImpact.Corpus/evidence/<snapshot>.json" \
 just mod::test-corpus <corpus-root> <full-report-path>
 ```
+
+The run writes the snapshot beside the full report, as
+`<full-report-path minus .json>.evidence.json`; `BPP_COMBAT_IMPACT_EVIDENCE_PATH` overrides that
+path. Earlier production snapshots (`periodic-impact` v5 to v7, and `combat-impact` of
+2026-08-13) are in git history at commit `90149045`.
 
 `<corpus-root>` may be a replay-payload store, a historical `run-bundles/*.mpack.gz` cache, or the
 current analyzer raw V5 tree containing `*.bundle` files. The recipe exports it to
