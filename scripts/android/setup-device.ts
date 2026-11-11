@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import {
   fetchLockedAndroidInput,
   lockedInteropEntry
-} from '../../release/game-libs.ts';
+} from '../../release/interop-snapshot.ts';
 import { signIn, withLoginCancellation } from './android-login.ts';
 import { inspectScreen } from './android-screen.ts';
 import type { LoginReceipt } from './android-login.ts';

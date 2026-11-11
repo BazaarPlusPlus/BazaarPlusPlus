@@ -23,14 +23,14 @@ import {
   acquirePayloadLock,
   computePayloadInputs
 } from './payload.ts';
+import { gameLibsStoreFromEnvironment } from './game-assembly-snapshot.ts';
 import {
   fetchInteropSnapshot,
-  gameLibsStoreFromEnvironment,
   interopDirectoryDigest,
   interopDirectoryRecords,
   isLockedLoader,
   lockedInteropEntry
-} from './game-libs.ts';
+} from './interop-snapshot.ts';
 import { INTEROP_KEY } from './snapshot-lock.ts';
 import { sha256File } from './android-apk.ts';
 import {

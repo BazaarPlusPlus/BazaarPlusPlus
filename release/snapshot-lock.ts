@@ -7,9 +7,10 @@ import { isSha256, jsonBytes } from './snapshot-files.ts';
 // bazaarplusplus-mod/build/game-libs.lock.json. This module owns the lock
 // schema, its platform-channel keys, the game version that names an entry,
 // reading, validating and writing the lock, and where a locked snapshot lives
-// under game-libs/ locally and in the private store. game-libs.ts captures,
-// publishes and fetches the snapshots; build/ManagedPath.props and
-// build/InteropPath.props read the lock file directly.
+// under game-libs/ locally and in the private store.
+// game-assembly-snapshot.ts and interop-snapshot.ts capture, publish and fetch
+// the snapshots; build/ManagedPath.props and build/InteropPath.props read the
+// lock file directly.
 
 export const GAME_LIBS_LOCK_PATH =
   'bazaarplusplus-mod/build/game-libs.lock.json';

@@ -6,8 +6,6 @@ import { afterEach, expect, test, vi } from 'vite-plus/test';
 import {
   GAME_LIBS_BUCKET,
   captureSnapshot,
-  checkGameLibsLock,
-  cliMain,
   fetchSnapshot,
   gameLibsStoreFromEnvironment,
   lockEntryForManaged,
@@ -20,12 +18,14 @@ import {
   steamCapture,
   steamChangeKind,
   steamStale
-} from './game-libs.ts';
+} from './game-assembly-snapshot.ts';
 import type {
-  CliOptions,
   FetchSnapshotOptions,
   SteamToolRunner
-} from './game-libs.ts';
+} from './game-assembly-snapshot.ts';
+import { cliMain } from './game-libs.ts';
+import type { CliOptions } from './game-libs.ts';
+import { checkGameLibsLock } from './interop-snapshot.ts';
 import {
   androidGameStatus,
   gameStatus,

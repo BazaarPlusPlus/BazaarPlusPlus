@@ -30,8 +30,8 @@ import {
 import { fetchMirrorPage, verifyMainlandMirrors } from './mirror.ts';
 import { assertMirrorUrl } from './manifest.ts';
 import { r2StoreFromEnvironment } from './r2-store.ts';
-import { gameLibsStoreFromEnvironment } from './game-libs.ts';
-import type { ManagedLockProvenance } from './game-libs.ts';
+import { gameLibsStoreFromEnvironment } from './game-assembly-snapshot.ts';
+import type { ManagedLockProvenance } from './game-assembly-snapshot.ts';
 import {
   androidPaths,
   buildAndroidRelease,

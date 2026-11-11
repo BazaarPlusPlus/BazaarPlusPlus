@@ -42,8 +42,11 @@ import type {
   GitState,
   ManagedPayloadArtifact
 } from './artifact-manifest.ts';
-import { lockEntryForManaged, managedDirectoryRecords } from './game-libs.ts';
-import type { ManagedLockProvenance } from './game-libs.ts';
+import {
+  lockEntryForManaged,
+  managedDirectoryRecords
+} from './game-assembly-snapshot.ts';
+import type { ManagedLockProvenance } from './game-assembly-snapshot.ts';
 import {
   desktopNonManagedPayloadDigest,
   signWithUpdaterKey,
