@@ -9,6 +9,7 @@ internal enum SettingsLogReasonCode
     ResourceMissing,
     ResourceStreamUnavailable,
     ResourceDecodeFailed,
+    DialogFieldUnavailable,
     SupportSectionUnavailable,
     ScrollSpyEntryUnavailable,
     InstallException,
@@ -30,7 +31,7 @@ internal enum SettingsDockSpriteResourceId
 
 internal enum SettingsNativeSectionStage
 {
-    BuildSection,
+    ResolveDialogFields,
     ResolveSupportSection,
     ResolveScrollSpyEntry,
     Install,

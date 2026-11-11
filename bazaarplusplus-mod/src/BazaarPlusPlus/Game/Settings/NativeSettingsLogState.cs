@@ -18,12 +18,16 @@ internal static class NativeSettingsLogState
     internal static void ReportInstallFailure(
         SettingsNativeSectionStage stage,
         SettingsLogReasonCode reasonCode,
-        Exception? exception = null
+        Exception? exception = null,
+        string? field = null
     )
     {
         if (!InstallHealth.ObserveFailure(stage, reasonCode))
             return;
-        var fields = new BppLogField[] { ("stage", stage), ("reason_code", reasonCode) };
+        var fields =
+            field == null
+                ? new BppLogField[] { ("stage", stage), ("reason_code", reasonCode) }
+                : [("stage", stage), ("reason_code", reasonCode), ("field", field)];
         if (exception == null)
             BppLog.WarnEvent(
                 new BppLogEvent(

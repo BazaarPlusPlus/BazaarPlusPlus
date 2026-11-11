@@ -54,8 +54,18 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
 
     internal static void TryInstall(ScrollSpyController scrollSpy)
     {
-        if (scrollSpy == null || EntriesField == null || ScrollRectField == null)
+        if (scrollSpy == null)
             return;
+
+        if (EntriesField == null || ScrollRectField == null)
+        {
+            NativeSettingsLogState.ReportInstallFailure(
+                SettingsNativeSectionStage.ResolveDialogFields,
+                SettingsLogReasonCode.DialogFieldUnavailable,
+                field: EntriesField == null ? "_entries" : "_scrollRect"
+            );
+            return;
+        }
 
         var optionsDialog = scrollSpy.GetComponentInParent<OptionsDialogController>();
         if (optionsDialog == null)
@@ -67,7 +77,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         RectTransform? stagedSection = null;
         RectTransform? stagedNavigation = null;
         ScrollSpyEntry[]? originalEntries = null;
-        IReadOnlyList<FooterMutation>? footerMutations = null;
+        var footer = new FooterRollback();
         var entriesCommitted = false;
         var logAttempt = new NativeSettingsInstallLogAttempt();
         try
@@ -89,8 +99,14 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
             )
             {
                 NativeSettingsLogState.ReportInstallFailure(
-                    SettingsNativeSectionStage.BuildSection,
-                    SettingsLogReasonCode.SupportSectionUnavailable
+                    SettingsNativeSectionStage.ResolveDialogFields,
+                    SettingsLogReasonCode.DialogFieldUnavailable,
+                    field: entries == null || entries.Length == 0 ? "_entries"
+                        : scrollRect?.content == null ? "_scrollRect"
+                        : contactButton == null ? "ContactSupportButton"
+                        : closeButton == null ? "CloseButton"
+                        : toggleDonor == null ? "_anonymousModeToggle"
+                        : "ResolutionDropdown"
                 );
                 return;
             }
@@ -143,7 +159,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
                 toggleDonor,
                 choiceDonor
             );
-            footerMutations = controller.HideNativeFooter(supportSection, logAttempt);
+            controller.HideNativeFooter(supportSection, logAttempt, footer);
 
             var expandedEntries = new ScrollSpyEntry[entries.Length + 1];
             Array.Copy(entries, 0, expandedEntries, 0, supportIndex + 1);
@@ -176,11 +192,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         {
             if (entriesCommitted && originalEntries != null)
                 EntriesField.SetValue(scrollSpy, originalEntries);
-            if (footerMutations != null)
-            {
-                foreach (var mutation in footerMutations)
-                    mutation.Target.SetActive(mutation.WasActive);
-            }
+            footer.Undo();
             if (stagedSection != null)
                 DestroyImmediate(stagedSection.gameObject);
             if (stagedNavigation != null)
@@ -392,14 +404,14 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         }
     }
 
-    private IReadOnlyList<FooterMutation> HideNativeFooter(
+    private void HideNativeFooter(
         RectTransform supportSection,
-        NativeSettingsInstallLogAttempt logAttempt
+        NativeSettingsInstallLogAttempt logAttempt,
+        FooterRollback footer
     )
     {
-        var mutations = new List<FooterMutation>();
         if (_optionsDialog == null)
-            return mutations;
+            return;
 
         var dialogRoot = _optionsDialog.transform as RectTransform;
         var splitContainer =
@@ -410,7 +422,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
                 SettingsNativeLayoutOperation.FooterGeometry,
                 SettingsLogReasonCode.GeometryUnavailable
             );
-            return mutations;
+            return;
         }
         logAttempt.ObserveLayoutSuccess(
             SettingsNativeLayoutOperation.FooterGeometry,
@@ -422,11 +434,11 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         var footerLabel = scalerOffset?.Find("Notice_ChangeAuto")?.gameObject;
         var divider = scalerOffset?.Find("Divider_1")?.gameObject;
         if (footerLabel != null)
-            HideFooterObject(footerLabel, mutations);
+            footer.Hide(footerLabel);
         if (divider != null)
-            HideFooterObject(divider, mutations);
+            footer.Hide(divider);
 
-        var footerMutationCount = mutations.Count;
+        var footerMutationCount = footer.HiddenCount;
         if (footerMutationCount == 0)
         {
             logAttempt.ObserveLayoutFailure(
@@ -446,7 +458,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         var supportBuffer = supportSection.Find("Buffer")?.gameObject;
         if (supportBuffer != null)
         {
-            HideFooterObject(supportBuffer, mutations);
+            footer.Hide(supportBuffer);
             logAttempt.ObserveLayoutSuccess(
                 SettingsNativeLayoutOperation.SupportBottomBuffer,
                 SettingsNativeLayoutOutcome.Applied,
@@ -461,7 +473,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
             );
         }
 
-        var expansion = ExpandSplitContainer(splitContainer, footerLabel, divider);
+        var expansion = ExpandSplitContainer(splitContainer, footerLabel, divider, footer);
         logAttempt.ObserveLayoutSuccess(
             SettingsNativeLayoutOperation.SplitContainer,
             expansion.Applied
@@ -471,13 +483,13 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
             expansion.GrowthUnits
         );
         LayoutRebuilder.ForceRebuildLayoutImmediate(dialogRoot);
-        return mutations;
     }
 
     private static SplitContainerExpansion ExpandSplitContainer(
         RectTransform splitContainer,
         GameObject? footerLabel,
-        GameObject? divider
+        GameObject? divider,
+        FooterRollback footer
     )
     {
         if (splitContainer.parent is not RectTransform parent)
@@ -508,6 +520,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
 
         var totalGrowth = releasedHeight + SplitContainerExtraHeight;
         var halfGrowth = totalGrowth * 0.5f;
+        footer.RecordSplitContainer(splitContainer);
         splitContainer.offsetMin = new Vector2(
             splitContainer.offsetMin.x,
             splitContainer.offsetMin.y - halfGrowth
@@ -755,18 +768,6 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
             DestroyImmediate(localizable);
     }
 
-    private static void HideFooterObject(GameObject target, ICollection<FooterMutation> mutations)
-    {
-        foreach (var mutation in mutations)
-        {
-            if (mutation.Target == target)
-                return;
-        }
-
-        mutations.Add(new FooterMutation(target, target.activeSelf));
-        target.SetActive(false);
-    }
-
     private static RectTransform? CloneInactive(RectTransform source, Transform parent, string name)
     {
         var clone = Instantiate(source.gameObject, parent, worldPositionStays: false);
@@ -840,10 +841,56 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
 
     private static string CurrentLanguageCode => PlayerPreferences.Data.LanguageCode;
 
-    private readonly struct FooterMutation(GameObject target, bool wasActive)
+    // What the install changes outside the section. Each change is recorded before it is made,
+    // so a failure at any later point of the install can undo every one of them.
+    private sealed class FooterRollback
     {
-        internal GameObject Target { get; } = target;
-        internal bool WasActive { get; } = wasActive;
+        private readonly List<(GameObject Target, bool WasActive)> _hidden = [];
+        private RectTransform? _splitContainer;
+        private Vector2 _offsetMin;
+        private Vector2 _offsetMax;
+        private Vector2 _anchoredPosition;
+
+        internal int HiddenCount => _hidden.Count;
+
+        internal void Hide(GameObject target)
+        {
+            foreach (var (hidden, _) in _hidden)
+            {
+                if (hidden == target)
+                    return;
+            }
+
+            _hidden.Add((target, target.activeSelf));
+            target.SetActive(false);
+        }
+
+        internal void RecordSplitContainer(RectTransform splitContainer)
+        {
+            if (_splitContainer != null)
+                return;
+
+            _splitContainer = splitContainer;
+            _offsetMin = splitContainer.offsetMin;
+            _offsetMax = splitContainer.offsetMax;
+            _anchoredPosition = splitContainer.anchoredPosition;
+        }
+
+        internal void Undo()
+        {
+            foreach (var (target, wasActive) in _hidden)
+            {
+                if (target != null)
+                    target.SetActive(wasActive);
+            }
+
+            if (_splitContainer == null)
+                return;
+
+            _splitContainer.offsetMin = _offsetMin;
+            _splitContainer.offsetMax = _offsetMax;
+            _splitContainer.anchoredPosition = _anchoredPosition;
+        }
     }
 
     private sealed class NativeRowView(
