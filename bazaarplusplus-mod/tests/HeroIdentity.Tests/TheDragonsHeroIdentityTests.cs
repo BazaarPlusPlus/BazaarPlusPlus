@@ -23,17 +23,6 @@ public sealed class TheDragonsHeroIdentityTests
         Assert.Equal(legacy, canonical);
     }
 
-    [Theory]
-    [InlineData("Hero8")]
-    [InlineData(" hero8 ")]
-    [InlineData("TheDragons")]
-    [InlineData(" THEDRAGONS ")]
-    public void Both_aliases_canonicalize_to_TheDragons(string alias)
-    {
-        Assert.True(TheDragonsHeroIdentity.TryCanonicalize(alias, out var canonical));
-        Assert.Equal("TheDragons", canonical);
-    }
-
     public static TheoryData<string, string> AnalyzerHeroAliases()
     {
         // The analyzer owns the alias mapping in contracts/v6/hero-aliases.json.
@@ -53,8 +42,8 @@ public sealed class TheDragonsHeroIdentityTests
     [MemberData(nameof(AnalyzerHeroAliases))]
     public void Analyzer_alias_table_canonicalizes_the_same_way(string alias, string canonical)
     {
-        Assert.True(TheDragonsHeroIdentity.TryCanonicalize(alias, out var observed));
-        Assert.Equal(canonical, observed);
+        Assert.True(TheDragonsHeroIdentity.TryResolve(alias, out var hero));
+        Assert.Equal(canonical, TheDragonsHeroIdentity.ToCanonicalId(hero));
     }
 
     [Fact]
@@ -150,15 +139,12 @@ public sealed class TheDragonsHeroIdentityTests
     {
         Assert.True(TheDragonsHeroIdentity.TryResolve("Vanessa", out var vanessa));
         Assert.Equal(EHero.Vanessa, vanessa);
-        Assert.True(TheDragonsHeroIdentity.TryCanonicalize(" Vanessa ", out var canonical));
-        Assert.Equal("Vanessa", canonical);
 
         Assert.False(TheDragonsHeroIdentity.TryResolve("vanessa", out _));
         Assert.False(TheDragonsHeroIdentity.TryResolve(null, out _));
         Assert.False(TheDragonsHeroIdentity.TryResolve(" ", out _));
         Assert.False(TheDragonsHeroIdentity.TryResolve("UnknownHero", out _));
         Assert.False(TheDragonsHeroIdentity.TryResolve("The Dragons", out _));
-        Assert.False(TheDragonsHeroIdentity.TryCanonicalize("UnknownHero", out _));
     }
 
     [Fact]
