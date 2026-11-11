@@ -11,7 +11,7 @@ internal static class PanelButtonSettingsDockEntries
         "圖鑑按鈕"
     );
     private static readonly LocalizedTextSet TenWinBuildsLabels = new(
-        "Ten-Win Builds Button",
+        "Ten-Win Builds Btn",
         "十胜阵容按钮",
         "十勝陣容按鈕"
     );
