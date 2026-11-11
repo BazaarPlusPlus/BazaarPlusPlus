@@ -4,6 +4,11 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.content.ContextWrapper;
+
+import com.bazaarplusplus.android.launch.LaunchGate.Tier;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -12,8 +17,14 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-/** {@link BppLaunch#readOnlyCopy}, the copy a Development interop loads from, on a real file system. */
+/**
+ * {@link BppLaunch#prepare}'s gate guard, and {@link BppLaunch#readOnlyCopy}, the copy a Development
+ * interop loads from, on a real file system.
+ */
 public class BppLaunchTest {
     @Rule public TemporaryFolder tmp = new TemporaryFolder();
 
@@ -114,5 +125,63 @@ public class BppLaunchTest {
         Files.write(tmpOf(target).toPath(), partial);
         BppLaunch.readOnlyCopy(source, target);
         assertArrayEquals(partial, read(tmpOf(target)));
+    }
+
+    /** A Context whose every directory {@code prepare} can reach lies under the temporary folder. */
+    ContextWrapper context() {
+        return new ContextWrapper(null) {
+            @Override public File getFilesDir() { return new File(tmp.getRoot(), "files"); }
+            @Override public File getNoBackupFilesDir() { return new File(tmp.getRoot(), "no_backup"); }
+            @Override public File getCacheDir() { return new File(tmp.getRoot(), "cache"); }
+            @Override public File getExternalFilesDir(String type) { return new File(tmp.getRoot(), "external"); }
+        };
+    }
+
+    List<String> tree() throws Exception {
+        try (Stream<java.nio.file.Path> paths = Files.walk(tmp.getRoot().toPath())) {
+            return paths.map(path -> tmp.getRoot().toPath().relativize(path).toString()).sorted()
+                    .collect(Collectors.toList());
+        }
+    }
+
+    @Test
+    public void aRefusedDecisionThrowsBeforeAnyFileIsTouched() throws Exception {
+        File devInterop = source();
+        List<String> before = tree();
+        int refused = 0;
+        for (boolean development : new boolean[] {false, true}) {
+            for (Tier tier : Tier.values()) {
+                LaunchGate.Decision decision = LauncherScreenTest.decision(tier, development);
+                if (decision.bppLaunch()) continue;
+                refused++;
+                LaunchCheck check = new LaunchCheck(null, null, null, null, null, decision, List.of(), null, false,
+                        development ? devInterop : null);
+                try {
+                    BppLaunch.prepare(context(), check, new BppLaunch.Progress() {
+                        @Override public void preparing() { fail("preparing in " + tier); }
+
+                        @Override public void downloading(boolean interop, long received, long total) {
+                            fail("downloading in " + tier);
+                        }
+                    });
+                    fail(tier + " development=" + development + " prepared");
+                } catch (java.io.IOException e) {
+                    assertTrue("the gate refused, naming the tier: " + e.getMessage(),
+                            e.getMessage().contains("launch tier " + tier));
+                }
+                assertEquals(tier + " development=" + development + " touched no file", before, tree());
+            }
+        }
+        assertEquals("five tiers refuse without a Development interop, two with one", 7, refused);
+    }
+
+    @Test
+    public void theGuardLetsEveryAllowedDecisionThrough() throws Exception {
+        for (boolean development : new boolean[] {false, true}) {
+            for (Tier tier : Tier.values()) {
+                LaunchGate.Decision decision = LauncherScreenTest.decision(tier, development);
+                if (decision.bppLaunch()) BppLaunch.refuseUnlessAllowed(decision);
+            }
+        }
     }
 }

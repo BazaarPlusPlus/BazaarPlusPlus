@@ -223,7 +223,7 @@ final class LauncherSession {
         PackageManager pm = app.getPackageManager();
         return new LauncherScreen.Facts(check.decision, check.game == null ? null : check.game.versionName,
                 manifest == null ? null : manifest.game.gameVersion, check.manifest != null && check.manifest.fromCache,
-                check.lastModsInstallFailed, check.facts == null, check.devInterop != null, update,
+                check.lastModsInstallFailed, check.facts == null, update,
                 InstalledGame.playStoreInstalled(pm), check.game != null && check.game.installedFromPlay(pm));
     }
 
