@@ -141,7 +141,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 Android 没有云端的设备 lane：当前托管 runner 未配置经验证的 ARM64 游戏运行环境，自托管一台常开、常登录的机器只为夜间冒烟不值。x86_64 镜像可以提供 ARM64 转译，但转译能力不等于游戏、LemonLoader 和 mod 已验证通过；本机仍以主菜单和 hook 证据验收。发版前的设备验证在开发机上做：一台经 `just setup-device` 准备好的 AVD，`just mod::android-smoke enabled` 构建、部署进 debug App、从启动器重新启动、抓取并断言；`just mod::android-smoke disabled` 不装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。同一时间只驱动一台设备。
 
-断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据写进 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（gitignored，含整机 logcat 和已登录账号的截图，不要提交，也不要原样贴进公开的 issue 或 PR）；`just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。版本标签在主菜单加载前就写入，所以三级不依赖主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。主菜单不产生记录，数据库行数只作证据。`observe` 只计数不写标签，必然在功能生效级失败。
+断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据写进 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（gitignored，含整机 logcat 和已登录账号的截图，不要提交，也不要原样贴进公开的 issue 或 PR）；`just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。三级只读版本标签和 hook 计数，不读主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。游戏 1.0.13113 在 `MainMenuScene` 加载之后十几秒才写版本标签，所以 `android-smoke` 等到主菜单之后有一条计入标签命中的 hooks summary 才抓取；`disabled` 不装 patch，只等主菜单。主菜单不产生记录，数据库行数只作证据。`observe` 只计数不写标签，必然在功能生效级失败。
 
 ## Git hooks
 

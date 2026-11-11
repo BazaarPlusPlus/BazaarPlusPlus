@@ -192,3 +192,41 @@ esac
   assert.match(verify.stderr, /Smoke failed at "Injection"/);
   assert.doesNotMatch(verify.stderr, /Android device/);
 });
+
+test('smoke waits for a hooks summary that counts the version label, not the first one after the main menu', () => {
+  const state = (need: '0' | '1', lines: string[]) => {
+    const result = spawnSync(
+      'bash',
+      [
+        '-c',
+        'source "$1" && smoke_wait_state "$2"',
+        'bash',
+        'bazaarplusplus-mod/scripts/android.sh',
+        need
+      ],
+      { cwd: root, encoding: 'utf8', input: lines.join('\n') + '\n' }
+    );
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  const event = (name: string, fields = '') =>
+    `[12:00:00.000] [BazaarPlusPlus] [BPP][Android] event=android.${name} ${fields}`;
+  const menu = event('scene.loaded', 'name=MainMenuScene mode=Single');
+  const summary = (hits: number) =>
+    event('hooks.summary', `version_label_hits=${hits} replay_starts=0`);
+  const label = event('version_label.hit', 'hits=1 write=true');
+
+  // Game 1.0.13113: a summary follows the main menu before the label is written.
+  const early = [event('plugin.loaded'), menu, summary(0)];
+  assert.equal(state('1', early), 'menu');
+  assert.equal(state('0', early), 'ready');
+  assert.equal(state('1', [...early, label]), 'menu');
+  assert.equal(state('1', [...early, label, summary(1)]), 'ready');
+  assert.equal(state('1', [menu, summary(12)]), 'ready');
+
+  // A summary before the main menu is not evidence that the menu was reached.
+  assert.equal(state('1', [summary(1), label]), 'waiting');
+  assert.equal(state('1', [summary(1), menu]), 'waiting');
+  assert.equal(state('0', [summary(1), menu]), 'waiting');
+  assert.equal(state('1', []), 'waiting');
+});
