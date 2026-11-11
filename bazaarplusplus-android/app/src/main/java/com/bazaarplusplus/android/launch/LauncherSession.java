@@ -148,7 +148,9 @@ final class LauncherSession {
         show(LauncherScreen.launching(currentFacts, null));
         worker.execute(() -> {
             try {
-                BppLaunch.prepare(app, current, new BppLaunch.Progress() {
+                BppLaunch launch = new BppLaunch(new AndroidLaunchHost(app, current.game, current.facts),
+                        AppFiles.launchDirs(app));
+                launch.prepare(current.inputs(), new BppLaunch.Progress() {
                     @Override
                     public void preparing() {
                         post(() -> show(LauncherScreen.launching(currentFacts, null)));
