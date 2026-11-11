@@ -1052,6 +1052,7 @@ test('--help and no verb print the usage on stdout, naming every verb', async ()
     'entries',
     'behind-online',
     'official-apk',
+    'downloaded-apk',
     'record-apk-etag'
   ];
   for (const argv of [['--help'], []]) {
