@@ -406,7 +406,7 @@ export default function HeroTrendPanel({
               ) : null}
             </svg>
           ) : (
-            <div className="flex h-full min-h-[220px] items-center justify-center text-[15px] text-text-2">
+            <div className="flex h-full min-h-[220px] items-center justify-center text-body text-text-2">
               {heroCopy.snapshot.noData}
             </div>
           )}

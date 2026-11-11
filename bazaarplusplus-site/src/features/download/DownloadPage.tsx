@@ -63,7 +63,7 @@ function PlatformHeader({
           <SectionHeading>{title}</SectionHeading>
           {badge}
         </div>
-        <p className="mt-1 text-[15px] text-text-3">{arch}</p>
+        <p className="mt-1 text-body text-text-3">{arch}</p>
       </div>
     </div>
   );
@@ -136,7 +136,7 @@ function DownloadCard({
       />
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-[15px] text-text-3">{copy.versionLabel}</span>
+        <span className="text-body text-text-3">{copy.versionLabel}</span>
         {status === 'loading' ? (
           <span className="inline-block h-5 w-20 self-center rounded-control bg-hover motion-safe:animate-pulse" />
         ) : download ? (
@@ -144,7 +144,7 @@ function DownloadCard({
             v{download.version}
           </span>
         ) : (
-          <span className="text-[15px] text-text-2">
+          <span className="text-body text-text-2">
             {copy.versionUnavailable}
           </span>
         )}
@@ -189,8 +189,8 @@ function DownloadCard({
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
-      <dt className="text-[15px] text-text-3">{label}</dt>
-      <dd className="min-w-0 text-[15px] text-text-1">{children}</dd>
+      <dt className="text-body text-text-3">{label}</dt>
+      <dd className="min-w-0 text-body text-text-1">{children}</dd>
     </>
   );
 }
@@ -399,7 +399,7 @@ function AndroidCard({
 /** A warning banner: icon and message share the first line (design/components/StatusBanner). */
 function Banner({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-start gap-2 rounded-panel border border-warning-line bg-warning-subtle px-3 py-2.5 text-[15px] leading-6 text-text-1">
+    <p className="flex items-start gap-2 rounded-panel border border-warning-line bg-warning-subtle px-3 py-2.5 text-body leading-6 text-text-1">
       <span aria-hidden="true" className="flex h-6 shrink-0 items-center">
         <AlertIcon className="size-4 shrink-0 text-warning" />
       </span>
@@ -484,10 +484,10 @@ export default function DownloadPage({
       </section>
 
       <section className="panel flex flex-col gap-3 p-6">
-        <h2 className="text-[15px] font-semibold text-text-1">
+        <h2 className="text-body font-semibold text-text-1">
           {copy.desktopNoteTitle}
         </h2>
-        <ul className="flex flex-col gap-2 text-[15px] text-text-2">
+        <ul className="flex flex-col gap-2 text-body text-text-2">
           {copy.noteParagraphs.map((paragraph, index) => (
             <li key={index} className="flex items-start gap-3">
               <span

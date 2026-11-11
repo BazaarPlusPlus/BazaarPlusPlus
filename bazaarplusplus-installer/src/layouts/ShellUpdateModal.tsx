@@ -83,7 +83,7 @@ export function ShellUpdateModal({
         <DialogBody>
           {updater.phase === 'available' && (
             <>
-              <p className="text-fg-1">
+              <p className="text-text-1">
                 {t('updateModalBody', { version: updater.version })}
               </p>
               {mainlandDownloadUrl && (
@@ -94,10 +94,10 @@ export function ShellUpdateModal({
               )}
               {updater.notes && (
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-fg-3 text-sm font-semibold">
+                  <p className="text-text-3 text-sm font-semibold">
                     {t('updateNotesLabel')}
                   </p>
-                  <p className="bpp-confirm-target max-h-44 overflow-y-auto whitespace-pre-wrap font-sans text-[15px] leading-6 text-fg-2">
+                  <p className="bpp-confirm-target max-h-44 overflow-y-auto whitespace-pre-wrap font-sans text-body leading-6 text-text-2">
                     {updater.notes}
                   </p>
                 </div>
@@ -188,7 +188,7 @@ function MainlandMirrorNote({
 
   return (
     <ConfirmNote tone="neutral" icon={<CloudDownload size={16} />}>
-      <p className="text-fg-1">{t('updateMainlandDownloadTitle')}</p>
+      <p className="text-text-1">{t('updateMainlandDownloadTitle')}</p>
       <p>{t(hintKey)}</p>
       <a
         href={url}
@@ -250,7 +250,7 @@ export function UpdateDownloadProgress({
       <p
         role="status"
         aria-live="polite"
-        className="m-0 mt-3 text-sm tabular-nums text-fg-2"
+        className="m-0 mt-3 text-sm tabular-nums text-text-2"
       >
         {status}
       </p>
