@@ -88,6 +88,7 @@ tasks.withType<Test>().configureEach {
     inputs.files(
         rootProject.fileTree("../release/fixtures/latest"),
         rootProject.fileTree("../release/fixtures/android-interop"),
+        rootProject.fileTree("../release/fixtures/managed-payload"),
         rootProject.file("../release/manifest.ts"),
         rootProject.file("../bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json"),
     ).withPropertyName("sharedContracts")
