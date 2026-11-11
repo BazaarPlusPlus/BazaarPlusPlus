@@ -11,7 +11,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 /// <summary>
-/// History's card templates on the Mono host: the game's static data, read on each lookup, so
+/// History's card templates on the Desktop Host: the game's static data, read on each lookup, so
 /// nothing is built ahead. A socket effect's attribute is cached per template and tier.
 /// </summary>
 internal sealed class DesktopHistoryCardTemplates : IHistoryCardTemplates

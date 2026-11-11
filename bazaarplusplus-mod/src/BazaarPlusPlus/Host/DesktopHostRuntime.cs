@@ -30,11 +30,11 @@ using UnityEngine;
 namespace BazaarPlusPlus.Host;
 
 /// <summary>
-/// The Mono host lifecycle for the game's managed code under Mono with Harmony: composition,
+/// The Desktop Host lifecycle for the game's managed code under Mono with Harmony: composition,
 /// patches, replay runtime, online services and mountables, and an ordered teardown. The owner
 /// component is the GameObject everything mounts on.
 /// </summary>
-internal sealed class BppMonoHost
+internal sealed class DesktopHostRuntime
 {
     private readonly MonoBehaviour _owner;
     private readonly IBppLogSink _logSink;
@@ -42,7 +42,7 @@ internal sealed class BppMonoHost
     private readonly IPathProvider _paths;
     private readonly string _pluginAssemblyPath;
     private readonly Harmony _harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
-    private MonoHostComposition? _composition;
+    private DesktopComposition? _composition;
     private ModApiSession? _modApiSession;
     private BazaarDbLinkClient? _bazaarDbLinkClient;
     private bool _patchesApplied;
@@ -58,7 +58,7 @@ internal sealed class BppMonoHost
     /// before the host starts; <paramref name="pluginAssemblyPath"/> is the mod assembly, whose
     /// <c>.version</c> sidecar names the Product Release.
     /// </summary>
-    public BppMonoHost(
+    public DesktopHostRuntime(
         MonoBehaviour owner,
         IBppLogSink logSink,
         Func<IBppSettingsStore> openSettings,
@@ -86,7 +86,7 @@ internal sealed class BppMonoHost
 
             phase = PluginInitializationPhase.Composition;
             var gameBuild = GameBuildProbe.Resolve();
-            _composition = new MonoHostComposition(settingsStore, gameBuild, _paths);
+            _composition = new DesktopComposition(settingsStore, gameBuild, _paths);
 
             var services = _composition.Services;
             var dataRoot = services.Paths.DataRootDirectoryPath;
@@ -313,7 +313,7 @@ internal sealed class BppMonoHost
         // GetTypesFromAssembly (not Assembly.GetTypes) tolerates types that fail to load;
         // CreateClassProcessor(type).Patch() is a no-op for non-patch types, so this
         // covers exactly PatchAll's discovery set.
-        foreach (var type in AccessTools.GetTypesFromAssembly(typeof(BppMonoHost).Assembly))
+        foreach (var type in AccessTools.GetTypesFromAssembly(typeof(DesktopHostRuntime).Assembly))
         {
             try
             {
