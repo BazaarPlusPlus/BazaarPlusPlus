@@ -185,14 +185,16 @@ pub(crate) struct History {
 }
 
 impl History {
-    fn resolved_game_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    /// The installation History reads: the first of the selected, startup and
+    /// detected installations that has a history database.
+    pub(crate) fn resolved_game_path(app: &tauri::AppHandle) -> Option<PathBuf> {
         app.state::<SelectedGameInstallationState>()
             .resolve(app, None, GamePathAcceptance::DatabaseExists)
             .map(|resolution| resolution.game_path)
     }
 
     /// History of the selected installation that has a history database.
-    fn selected(app: &tauri::AppHandle) -> Result<Self, SemanticProblem> {
+    pub(crate) fn selected(app: &tauri::AppHandle) -> Result<Self, SemanticProblem> {
         Self::at(Self::resolved_game_path(app))
     }
 
@@ -256,6 +258,22 @@ impl History {
             .with_context(|| format!("History run {run_id} was not found."))
     }
 
+    /// Shows the screenshot of `run_id` in the system file browser.
+    pub(crate) fn reveal_run_screenshot(&self, run_id: &str) -> Result<(), SemanticProblem> {
+        let path = self.run_screenshot_path(run_id)?;
+        as_action_problem(REVEAL_SCREENSHOT, || reveal_in_file_browser(&path))
+    }
+
+    /// Shows the video `video_id` of `battle_id` in the system file browser.
+    pub(crate) fn reveal_battle_video(
+        &self,
+        battle_id: &str,
+        video_id: &str,
+    ) -> Result<(), SemanticProblem> {
+        let path = self.battle_video_path(battle_id, video_id)?;
+        as_action_problem(REVEAL_VIDEO, || reveal_in_file_browser(&path))
+    }
+
     /// The screenshot file `reveal_run_screenshot` shows for `run_id`.
     fn run_screenshot_path(&self, run_id: &str) -> Result<PathBuf, SemanticProblem> {
         as_action_problem(REVEAL_SCREENSHOT, || {
@@ -285,7 +303,7 @@ impl History {
         })
     }
 
-    fn delete_battle_video(
+    pub(crate) fn delete_battle_video(
         &self,
         battle_id: &str,
         video_id: &str,
@@ -430,71 +448,6 @@ impl History {
                 )
             })
     }
-}
-
-pub fn list_runs(
-    app: &tauri::AppHandle,
-    limit: usize,
-    offset: usize,
-) -> Result<HistoryRunList, SemanticProblem> {
-    History::selected(app)?.list_runs_for_page(limit, offset, &app.state::<HistoryThumbnails>())
-}
-
-pub fn get_run_detail(
-    app: &tauri::AppHandle,
-    run_id: &str,
-) -> Result<Option<HistoryRunDetail>, SemanticProblem> {
-    History::selected(app)?.run_detail_for_page(run_id)
-}
-
-pub fn reveal_run_screenshot(app: &tauri::AppHandle, run_id: &str) -> Result<(), SemanticProblem> {
-    let path = History::selected(app)?.run_screenshot_path(run_id)?;
-    as_action_problem(REVEAL_SCREENSHOT, || reveal_in_file_browser(&path))
-}
-
-pub fn reveal_battle_video(
-    app: &tauri::AppHandle,
-    battle_id: &str,
-    video_id: &str,
-) -> Result<(), SemanticProblem> {
-    let path = History::selected(app)?.battle_video_path(battle_id, video_id)?;
-    as_action_problem(REVEAL_VIDEO, || reveal_in_file_browser(&path))
-}
-
-pub fn delete_battle_video(
-    app: &tauri::AppHandle,
-    battle_id: &str,
-    video_id: &str,
-) -> Result<HistoryRunDetail, SemanticProblem> {
-    History::selected(app)?.delete_battle_video(battle_id, video_id)
-}
-
-pub fn preview_storage_cleanup(
-    app: &tauri::AppHandle,
-    scope: StorageCleanupScope,
-    preset: StorageCleanupPreset,
-) -> Result<StorageCleanupPreview, SemanticProblem> {
-    History::selected(app)?.preview_cleanup(scope, preset, &app.state::<CleanupPlans>())
-}
-
-pub async fn execute_storage_cleanup(
-    app: &tauri::AppHandle,
-    scope: StorageCleanupScope,
-    preset: StorageCleanupPreset,
-    plan_id: u32,
-) -> Result<StorageCleanupExecution, SemanticProblem> {
-    let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
-    let plans = app.state::<CleanupPlans>().inner().clone();
-    let app = app.clone();
-    execute_storage_cleanup_with(
-        &maintenance,
-        plans,
-        move || History::resolved_game_path(&app),
-        scope,
-        preset,
-        plan_id,
-    )
-    .await
 }
 
 /// Cleanup holds the data maintenance lock and resolves the installation only

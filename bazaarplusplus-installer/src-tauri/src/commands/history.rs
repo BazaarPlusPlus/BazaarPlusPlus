@@ -1,8 +1,11 @@
 use crate::problem::{run_blocking, SemanticProblem, SemanticProblemCode};
+use crate::services::data_maintenance::DataMaintenanceLock;
 use crate::services::history::{
-    self, HistoryRunDetail, HistoryRunList, StorageCleanupExecution, StorageCleanupPreset,
-    StorageCleanupPreview, StorageCleanupScope,
+    execute_storage_cleanup_with, CleanupPlans, History, HistoryRunDetail, HistoryRunList,
+    StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview, StorageCleanupScope,
 };
+use crate::stream::history_thumbnails::HistoryThumbnails;
+use tauri::Manager;
 
 /// The problem a history command reports when its blocking task panics,
 /// under the same code and `operation` its own failures use.
@@ -26,7 +29,13 @@ pub async fn list_history_runs(
 ) -> Result<HistoryRunList, SemanticProblem> {
     run_blocking(
         task_failed(SemanticProblemCode::HistoryReadFailed, "list_runs"),
-        move || history::list_runs(&app, limit, offset),
+        move || {
+            History::selected(&app)?.list_runs_for_page(
+                limit,
+                offset,
+                &app.state::<HistoryThumbnails>(),
+            )
+        },
     )
     .await
 }
@@ -39,7 +48,7 @@ pub async fn get_history_run_detail(
 ) -> Result<Option<HistoryRunDetail>, SemanticProblem> {
     run_blocking(
         task_failed(SemanticProblemCode::HistoryReadFailed, "get_run_detail"),
-        move || history::get_run_detail(&app, &run_id),
+        move || History::selected(&app)?.run_detail_for_page(&run_id),
     )
     .await
 }
@@ -55,7 +64,7 @@ pub async fn reveal_run_screenshot(
             SemanticProblemCode::HistoryActionFailed,
             "reveal_screenshot",
         ),
-        move || history::reveal_run_screenshot(&app, &run_id),
+        move || History::selected(&app)?.reveal_run_screenshot(&run_id),
     )
     .await
 }
@@ -69,7 +78,7 @@ pub async fn reveal_battle_video(
 ) -> Result<(), SemanticProblem> {
     run_blocking(
         task_failed(SemanticProblemCode::HistoryActionFailed, "reveal_video"),
-        move || history::reveal_battle_video(&app, &battle_id, &video_id),
+        move || History::selected(&app)?.reveal_battle_video(&battle_id, &video_id),
     )
     .await
 }
@@ -83,7 +92,7 @@ pub async fn delete_battle_video(
 ) -> Result<HistoryRunDetail, SemanticProblem> {
     run_blocking(
         task_failed(SemanticProblemCode::HistoryActionFailed, "delete_video"),
-        move || history::delete_battle_video(&app, &battle_id, &video_id),
+        move || History::selected(&app)?.delete_battle_video(&battle_id, &video_id),
     )
     .await
 }
@@ -100,7 +109,9 @@ pub async fn preview_storage_cleanup(
             SemanticProblemCode::HistoryActionFailed,
             "preview_storage_cleanup",
         ),
-        move || history::preview_storage_cleanup(&app, scope, preset),
+        move || {
+            History::selected(&app)?.preview_cleanup(scope, preset, &app.state::<CleanupPlans>())
+        },
     )
     .await
 }
@@ -116,5 +127,17 @@ pub async fn execute_storage_cleanup(
     preset: StorageCleanupPreset,
     plan_id: u32,
 ) -> Result<StorageCleanupExecution, SemanticProblem> {
-    history::execute_storage_cleanup(&app, scope, preset, plan_id).await
+    // The installation resolves only inside the data maintenance lock, so a
+    // cleanup never acts on a data root a Reset is deleting.
+    let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
+    let plans = app.state::<CleanupPlans>().inner().clone();
+    execute_storage_cleanup_with(
+        &maintenance,
+        plans,
+        move || History::resolved_game_path(&app),
+        scope,
+        preset,
+        plan_id,
+    )
+    .await
 }
