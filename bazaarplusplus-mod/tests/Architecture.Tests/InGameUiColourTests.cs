@@ -27,9 +27,6 @@ public sealed class InGameUiColourTests
 
     private const string NativeSkin = "BazaarPlusPlus.GameInterop.NativeSkin.DesktopNativeSkin";
 
-    // A token holds channels in 0..1; this desktop hover lifts a native sprite above them.
-    private const string OverBrightHover = NativeSkin + "::get_OverBrightHover";
-
     [Fact]
     public void Desktop_panels_draw_only_in_game_tokens()
     {
@@ -41,14 +38,7 @@ public sealed class InGameUiColourTests
                 InGameColourRule.RequireThemeConstructsColours(
                     build.Type("BazaarPlusPlus.Infrastructure.UiTokens.InGameTheme")
                 );
-                var exempt = build
-                    .Type(NativeSkin)
-                    .Methods.Single(method => method.ToString() == OverBrightHover)
-                    .ToString();
-                return InGameColourRule.Violations(
-                    ScopeOf(build).SelectMany(build.TypesIn),
-                    exempt
-                );
+                return InGameColourRule.Violations(ScopeOf(build).SelectMany(build.TypesIn));
             }
         );
     }

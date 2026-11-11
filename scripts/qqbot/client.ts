@@ -77,8 +77,6 @@ const hash = (alg: string, buf: Buffer) =>
   crypto.createHash(alg).update(buf).digest('hex');
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-export type QQClient = ReturnType<typeof createClient>;
-
 export function createClient(env: NodeJS.ProcessEnv = process.env) {
   const appId = env.QQ_BOT_APP_ID;
   const appSecret = env.QQ_BOT_APP_SECRET;

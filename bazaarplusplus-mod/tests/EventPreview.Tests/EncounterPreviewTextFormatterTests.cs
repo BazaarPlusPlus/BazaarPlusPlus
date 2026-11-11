@@ -305,7 +305,6 @@ public sealed class EncounterPreviewTextFormatterTests
                 "Add It to Your Bushel",
                 "(if you have a Bushel) Your Bushel gains 20 Heal",
                 rewardFilter: null,
-                prerequisiteSummary: "",
                 isEligible: false
             )
         );

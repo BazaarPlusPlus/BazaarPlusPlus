@@ -975,18 +975,13 @@ var vanessaMerchantRoster = CollectionSourceRoster.Build(
     )
 );
 AssertNondecreasing(
-    vanessaMerchantRoster.Select(item => item.Entry.GroupDisplayIndex).ToArray(),
+    vanessaMerchantRoster.Select(item => item.GroupDisplayIndex).ToArray(),
     "Merchant roster should be sorted by declared group display order."
 );
 AssertValues(
     FirstGroupLayerCounts(vanessaMerchantRoster, 4),
     new[] { 3, 6, 6, 8 },
     "The visible Vanessa merchant roster should add The Dragons to the other-hero layer."
-);
-AssertValues(
-    vanessaMerchantRoster.Where(item => item.BreakAfter).Select(item => item.Entry.Group).ToArray(),
-    new[] { "generalist", "tier-specialist" },
-    "Merchant roster should force row breaks only after generalist and tier layers."
 );
 var vanessaTrainerRoster = CollectionSourceRoster.Build(
     CollectionSourceCatalog.VisibleEntries(
@@ -996,14 +991,9 @@ var vanessaTrainerRoster = CollectionSourceRoster.Build(
     )
 );
 AssertValues(
-    vanessaTrainerRoster.Take(6).Select(item => item.Entry.Name).ToArray(),
+    vanessaTrainerRoster.Take(6).Select(item => item.Name).ToArray(),
     new[] { "Old Zane", "Nufu", "Pip", "Argenta", "Orlin", "Adira" },
     "Trainer roster should start with the current hero's trainer, then Nufu and tier trainers."
-);
-AssertEqual(
-    0,
-    vanessaTrainerRoster.Count(item => item.BreakAfter),
-    "Trainer roster should not force row breaks because its first row self-aligns to six chips."
 );
 var neutralOtherHeroSources = CollectionSourceCatalog
     .VisibleEntries(currentCatalog, CollectionSourceKind.Merchant, CardHero.Common)
@@ -1020,7 +1010,7 @@ var dragonsOtherHeroSources = CollectionSourceRoster
             .VisibleEntries(currentCatalog, CollectionSourceKind.Merchant, catalogDragonsHero)
             .Where(entry => entry.Group == "other-hero")
     )
-    .Select(item => item.Entry.Name)
+    .Select(item => item.Name)
     .ToArray();
 AssertValues(
     dragonsOtherHeroSources,
@@ -1033,7 +1023,7 @@ var vanessaOtherHeroSources = CollectionSourceRoster
             .VisibleEntries(currentCatalog, CollectionSourceKind.Merchant, CardHero.Vanessa)
             .Where(entry => entry.Group == "other-hero")
     )
-    .Select(item => item.Entry.Name)
+    .Select(item => item.Name)
     .ToArray();
 AssertValues(
     vanessaOtherHeroSources,
@@ -1058,7 +1048,7 @@ var dragonsTrainerRoster = CollectionSourceRoster.Build(
     )
 );
 AssertValues(
-    dragonsTrainerRoster.Take(2).Select(item => item.Entry.Name).ToArray(),
+    dragonsTrainerRoster.Take(2).Select(item => item.Name).ToArray(),
     new[] { "Mama Bear", "Nufu" },
     "The Dragons trainer rail should start with Mama Bear and then the global trainer sequence."
 );
@@ -1669,21 +1659,6 @@ AssertSet(
     new[] { segmentedNormal.Id, segmentedEnchanted.Id, segmentedBoth.Id },
     "Segments should OR together while each segment keeps its own AND predicates."
 );
-AssertEqual(
-    CollectionSourceOfferSegmentKind.Normal,
-    segmentedResult.OfferMatchesByCardId[segmentedNormal.Id][0].SegmentKind,
-    "Normal-only matches should retain the normal segment attribution."
-);
-AssertEqual(
-    CardEnchantment.Turbo,
-    segmentedResult.OfferMatchesByCardId[segmentedEnchanted.Id][0].EnchantmentType,
-    "Enchanted matches should retain the matched enchantment type."
-);
-AssertEqual(
-    2,
-    segmentedResult.OfferMatchesByCardId[segmentedBoth.Id].Count,
-    "A card that matches both normal and enchanted segments should keep both match reasons."
-);
 
 var hiddenGroupEntry = BuildSingleEntry(
     "Hidden Group",
@@ -1797,11 +1772,6 @@ foreach (var pair in specialistEnchantments)
         specialistResult.OfferedCardIds,
         new[] { candidate.Id },
         $"{pair.Key} rare segment should match by TCardItem.Enchantments keys without base hidden tags."
-    );
-    AssertEqual(
-        pair.Value,
-        specialistResult.OfferMatchesByCardId[candidate.Id][0].EnchantmentType,
-        $"{pair.Key} rare match should carry the matched enchantment type."
     );
 }
 
@@ -2119,7 +2089,7 @@ static void AssertValues<T>(IReadOnlyList<T> actual, IReadOnlyList<T> expected, 
     }
 }
 
-static int[] FirstGroupLayerCounts(IReadOnlyList<CollectionSourceRosterItem> roster, int layerCount)
+static int[] FirstGroupLayerCounts(IReadOnlyList<CollectionSourceEntry> roster, int layerCount)
 {
     var result = new List<int>(layerCount);
     string? currentGroup = null;
@@ -2128,12 +2098,12 @@ static int[] FirstGroupLayerCounts(IReadOnlyList<CollectionSourceRosterItem> ros
     {
         if (currentGroup == null)
         {
-            currentGroup = item.Entry.Group;
+            currentGroup = item.Group;
             count = 1;
             continue;
         }
 
-        if (string.Equals(currentGroup, item.Entry.Group, StringComparison.Ordinal))
+        if (string.Equals(currentGroup, item.Group, StringComparison.Ordinal))
         {
             count++;
             continue;
@@ -2142,7 +2112,7 @@ static int[] FirstGroupLayerCounts(IReadOnlyList<CollectionSourceRosterItem> ros
         result.Add(count);
         if (result.Count == layerCount)
             break;
-        currentGroup = item.Entry.Group;
+        currentGroup = item.Group;
         count = 1;
     }
 

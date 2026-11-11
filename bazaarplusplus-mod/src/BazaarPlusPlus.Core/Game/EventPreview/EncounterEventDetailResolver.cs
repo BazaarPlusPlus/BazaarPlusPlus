@@ -660,7 +660,6 @@ public static class EncounterEventDetailResolver
                 EventPreviewLocalization.ResolveTitle(template) ?? template.InternalName,
                 StripHeroConditionPrefix(resultText, template.Heroes),
                 ResolveRewardFilter(template, resultText),
-                prerequisiteSummary: "",
                 isEligible
             )
         );

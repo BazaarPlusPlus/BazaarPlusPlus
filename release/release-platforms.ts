@@ -32,8 +32,6 @@ export type LockstepPlatformKey =
 export type TauriBuildPlatform = 'windows' | 'macos';
 /** The build platform name of every release platform. */
 export type BuildPlatform = TauriBuildPlatform | 'android';
-/** How a platform ships: a Tauri installer, or the Android App. */
-export type ReleasePlatformKind = 'tauri' | 'android';
 
 /** A platform that ships a Tauri installer and updater package. */
 export interface TauriReleasePlatform {

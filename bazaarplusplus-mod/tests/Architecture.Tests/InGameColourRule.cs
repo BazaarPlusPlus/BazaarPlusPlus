@@ -23,16 +23,12 @@ internal static class InGameColourRule
 
     /// <summary>
     /// Every forbidden construction or parse in <paramref name="scope"/>, except in the generated
-    /// theme and in <paramref name="exempt"/> methods, named <c>DeclaringType::Method</c>.
+    /// theme.
     /// </summary>
-    internal static IEnumerable<string> Violations(
-        IEnumerable<CompiledType> scope,
-        params string[] exempt
-    ) =>
+    internal static IEnumerable<string> Violations(IEnumerable<CompiledType> scope) =>
         scope
             .Where(type => type.Name != ThemeTypeName)
             .SelectMany(type => type.Methods)
-            .Where(method => !exempt.Contains(method.ToString(), StringComparer.Ordinal))
             .SelectMany(method =>
                 method
                     .Instructions.Where(op =>
