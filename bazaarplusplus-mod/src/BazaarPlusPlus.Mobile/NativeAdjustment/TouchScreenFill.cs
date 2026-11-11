@@ -94,7 +94,7 @@ internal sealed class TouchScreenFill
     /// </summary>
     public void AfterCameraUpdate(Camera? camera)
     {
-        if (!MobilePlatform.Port.IsAlive(camera))
+        if (!Il2CppUi.IsAlive(camera))
             return;
         try
         {
@@ -170,13 +170,13 @@ internal sealed class TouchScreenFill
         topLeft = default;
         var port = MobilePlatform.Port;
         var center = _host.BoardCenter();
-        if (!port.IsAlive(center) || !port.TryReadVault(Screen.height, out var vault))
+        if (!Il2CppUi.IsAlive(center) || !port.TryReadVault(Screen.height, out var vault))
             return false;
         var transform = camera.transform;
         var key = camera.GetInstanceID();
         if (!_raised.TryGetValue(key, out var written) || written != transform.position)
         {
-            var depth = camera.WorldToScreenPoint(center!.position).z;
+            var depth = camera.WorldToScreenPoint(center.position).z;
             if (depth <= 0f)
                 return false;
             var drop = ScreenFill.BoardDrop(Screen.height, Screen.safeArea.yMin, vault.Bottom);
@@ -196,7 +196,7 @@ internal sealed class TouchScreenFill
             if (drop > 0f && !port.TryReadVault(Screen.height, out vault))
                 return false;
         }
-        var middle = camera.WorldToScreenPoint(center!.position);
+        var middle = camera.WorldToScreenPoint(center.position);
         if (middle.z <= 0f)
             return false;
         var (x, y) = ScreenFill.BoardTopLeft(

@@ -1,13 +1,12 @@
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
-using BazaarPlusPlus.Game.Supporters;
 
 namespace BazaarPlusPlus.Mobile.Collection;
 
 /// <summary>
-/// The host services the touch Collection reads, each a Core port the host's composition binds
-/// (ADR-0025 decision 4).
+/// The host services the touch Collection reads, which the Android composition binds: Core ports,
+/// and the card catalog and run reads beside this record (ADR-0025 decision 4).
 /// </summary>
 /// <param name="Catalog">The card catalog, built from the host's game data.</param>
 /// <param name="Sources">The merchant and trainer offer pools.</param>

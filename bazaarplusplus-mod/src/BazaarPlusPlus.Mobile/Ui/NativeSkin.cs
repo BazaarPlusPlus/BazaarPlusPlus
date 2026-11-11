@@ -31,10 +31,9 @@ internal sealed class NativeSkin
     {
         get
         {
-            var platform = MobilePlatform.Port;
-            return !platform.IsAlive(_art.Button)
-                || !platform.IsAlive(_art.Frame)
-                || !platform.IsAlive(_art.TagFrame);
+            return !Il2CppUi.IsAlive(_art.Button)
+                || !Il2CppUi.IsAlive(_art.Frame)
+                || !Il2CppUi.IsAlive(_art.TagFrame);
         }
     }
 
@@ -117,7 +116,7 @@ internal sealed class NativeSkin
         var toggle = rect.gameObject.AddComponent<Toggle>();
         toggle.targetGraphic = hitArea;
         toggle.SetIsOnWithoutNotify(value);
-        MobilePlatform.Port.OnValueChanged(toggle, onChanged);
+        Il2CppUi.OnValueChanged(toggle, onChanged);
         UiKit.Text(
             UiKit.Rect(
                 "Label",

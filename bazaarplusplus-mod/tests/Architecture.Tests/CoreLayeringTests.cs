@@ -50,28 +50,17 @@ public sealed class CoreLayeringTests
     [Fact]
     public void Mobile_ui_has_no_second_source_tree()
     {
-        // ADR-0025: the Mobile UI is src/BazaarPlusPlus.Mobile/ alone. The hand-mirrored copies it
-        // replaced were the Mono host's Game/Touch/ and Game/*/Touch/ and the Android host's Ui/
-        // (#701); a source file there again is a second copy of the Mobile UI. Host adapters go in
-        // each host's Host/, GameInterop/ or the feature's Game/ folder.
-        var game = Path.Combine(TestInputs.RepoRoot, "src", "BazaarPlusPlus", "Game");
+        // ADR-0025: the Mobile UI is src/BazaarPlusPlus.Mobile/ alone. The Android host's Ui/ held
+        // its hand-mirrored copy until #701; a source file there again is a second copy of the
+        // Mobile UI. The host's adapters go in its Host/, GameInterop/ or feature folders.
         var android = Path.Combine(TestInputs.RepoRoot, "src", "BazaarPlusPlus.Android");
-        Assert.True(Directory.Exists(game), $"'{game}' is missing.");
         Assert.True(Directory.Exists(android), $"'{android}' is missing.");
-        var touch = Directory
-            .EnumerateFiles(game, "*.cs", SearchOption.AllDirectories)
-            .Where(path =>
-                Path.GetRelativePath(game, Path.GetDirectoryName(path)!)
-                    .Split(Path.DirectorySeparatorChar)
-                    .Contains("Touch")
-            );
         var androidUi = Path.Combine(android, "Ui");
-        var copies = touch
-            .Concat(
-                Directory.Exists(androidUi)
-                    ? Directory.EnumerateFiles(androidUi, "*.cs", SearchOption.AllDirectories)
-                    : []
-            )
+        var copies = (
+            Directory.Exists(androidUi)
+                ? Directory.EnumerateFiles(androidUi, "*.cs", SearchOption.AllDirectories)
+                : []
+        )
             .Select(path => TestInputs.RepoRelative(path))
             .ToArray();
         Assert.True(

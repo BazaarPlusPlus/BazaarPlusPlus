@@ -88,9 +88,9 @@ public sealed class AndroidHostAssemblyBoundaryTests
     [Fact]
     public void Mobile_tree_reaches_the_android_host_only_through_its_port()
     {
-        // ADR-0025 decision 3: shared Mobile UI reaches the host through IMobilePlatformPort, whose
-        // implementation the host installs; a direct reference to a host type would not compile on
-        // the other host.
+        // ADR-0025 decision 3: the Mobile UI reaches the host through IMobilePlatformPort, whose
+        // implementation the host installs, so the tree stays one seam away from the host's
+        // IL2CPP adapters.
         var host = CompiledAssembly.Load(HostPath());
         var tree = host.Types.Where(type => IsIn(type.Namespace, MobileTree)).ToArray();
         Assert.True(

@@ -8,16 +8,14 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Mobile;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.Host;
 
 /// <summary>
 /// The Android host's Mobile Platform Port (ADR-0025): the main-thread scope is the host's own
-/// pump (<see cref="AndroidMainThread"/>), since IL2CPP installs no synchronization context; a
-/// Unity object is alive only while its IL2CPP proxy is not collected; casts and listeners go
-/// through Il2CppInterop; the native skin's sprites come from <see cref="AndroidNativeArt"/>.
+/// pump (<see cref="AndroidMainThread"/>), since IL2CPP installs no synchronization context; the
+/// native skin's sprites come from <see cref="AndroidNativeArt"/>.
 /// Game reads are the host's own adapters; overlay panels register with
 /// <see cref="AndroidOverlayPanels"/>, which exists once the melon has initialized.
 /// </summary>
@@ -27,19 +25,6 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
     private readonly AndroidVaultBounds _vault = new();
 
     public IDisposable EnterMainThread() => AndroidMainThread.Host.Enter();
-
-    public bool IsAlive(UnityEngine.Object? value) => value != null && !value.WasCollected;
-
-    public T Cast<T>(UnityEngine.Object value)
-        where T : UnityEngine.Object => value.Cast<T>();
-
-    public void SetWordWrapping(TMP_Text label, bool wrap) => label.enableWordWrapping = wrap;
-
-    public void OnClick(Button button, Action onTap) =>
-        button.onClick.AddListener((UnityAction)onTap);
-
-    public void OnValueChanged(Toggle toggle, Action<bool> onChanged) =>
-        toggle.onValueChanged.AddListener((UnityAction<bool>)onChanged);
 
     public NativeSkinArt ReadNativeSkinArt()
     {
@@ -76,9 +61,6 @@ internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayP
                 "A Mobile UI panel registered before the Overlay Panel Host existed."
             )
         ).Register(registration);
-
-    public void OnTextChanged(TMP_InputField field, Action<string> onChanged) =>
-        field.onValueChanged.AddListener((UnityAction<string>)onChanged);
 
     public bool AnimationsEnabled() => AndroidMotion.AnimationsEnabled();
 

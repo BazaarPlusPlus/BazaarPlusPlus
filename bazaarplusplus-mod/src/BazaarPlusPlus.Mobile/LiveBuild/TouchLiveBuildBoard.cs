@@ -202,7 +202,7 @@ internal sealed class TouchLiveBuildBoard
             TextAlignmentOptions.Center,
             UiKit.TextColor
         );
-        MobilePlatform.Port.SetWordWrapping(label, false);
+        Il2CppUi.SetWordWrapping(label, false);
         label.overflowMode = TextOverflowModes.Ellipsis;
         var tag = (root, background, label);
         _tagPool.Add(tag);

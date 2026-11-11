@@ -10,9 +10,10 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Mobile;
 
 /// <summary>
-/// The Mobile Platform Port (the mod's GLOSSARY.md; ADR-0025 decision 3): what a host gives the
-/// Mobile UI to reach its runtime. Code in this tree reaches the host only through it, never
-/// through <c>#if</c>. Each host implements it once and installs it through
+/// The Mobile Platform Port (the mod's GLOSSARY.md; ADR-0025 decision 3): what the Android host
+/// gives the Mobile UI to reach its runtime, the main-thread scope, overlay registration, the
+/// font and every game read. Code in this tree reaches the host only through it, never through
+/// <c>#if</c>. The host implements it once and installs it through
 /// <see cref="MobilePlatform.Install"/> before any Mobile UI is built.
 /// </summary>
 internal interface IMobilePlatformPort
@@ -22,25 +23,6 @@ internal interface IMobilePlatformPort
     /// disposed. A host whose main thread already carries that context returns an empty scope.
     /// </summary>
     IDisposable EnterMainThread();
-
-    /// <summary>
-    /// Whether <paramref name="value"/> is a live Unity object: neither destroyed nor, on an
-    /// IL2CPP host, collected under its managed proxy.
-    /// </summary>
-    bool IsAlive(UnityEngine.Object? value);
-
-    /// <summary><paramref name="value"/> as <typeparamref name="T"/>, which it must be.</summary>
-    T Cast<T>(UnityEngine.Object value)
-        where T : UnityEngine.Object;
-
-    /// <summary>Lets <paramref name="label"/> wrap at its rect's width, or keeps it on one line.</summary>
-    void SetWordWrapping(TMP_Text label, bool wrap);
-
-    /// <summary>Runs <paramref name="onTap"/> each time <paramref name="button"/> is clicked.</summary>
-    void OnClick(Button button, Action onTap);
-
-    /// <summary>Runs <paramref name="onChanged"/> with each new value of <paramref name="toggle"/>.</summary>
-    void OnValueChanged(Toggle toggle, Action<bool> onChanged);
 
     /// <summary>
     /// The game sprites the native skin borrows, from a host read of the game's own popups and
@@ -89,9 +71,6 @@ internal interface IMobilePlatformPort
     /// ticks and closes it. Main thread.
     /// </summary>
     IOverlayPanelHandle RegisterOverlayPanel(OverlayPanelRegistration registration);
-
-    /// <summary>Runs <paramref name="onChanged"/> with each new text of <paramref name="field"/>.</summary>
-    void OnTextChanged(TMP_InputField field, Action<string> onChanged);
 
     /// <summary>Whether the system lets the UI animate; read on each interaction.</summary>
     bool AnimationsEnabled();

@@ -353,7 +353,7 @@ internal sealed class TouchCollectionPanel
                         )
                 )
         );
-        MobilePlatform.Port.SetWordWrapping(_supporterLabel, false);
+        Il2CppUi.SetWordWrapping(_supporterLabel, false);
         _supporterLabel.enableAutoSizing = true;
         _supporterLabel.fontSizeMin = chrome.BodyFont;
         _supporterLabel.fontSizeMax = chrome.ButtonFont;
@@ -913,7 +913,7 @@ internal sealed class TouchCollectionPanel
                     SelectRail(model, null, "tab");
             }
         );
-        MobilePlatform.Port.SetWordWrapping(label, false);
+        Il2CppUi.SetWordWrapping(label, false);
         label.enableAutoSizing = true;
         label.fontSizeMin = _layout.Chrome.BodyFont;
         label.fontSizeMax = _layout.Chrome.ButtonFont;
@@ -953,7 +953,7 @@ internal sealed class TouchCollectionPanel
             TextAlignmentOptions.MidlineLeft,
             UiKit.MutedTextColor
         );
-        MobilePlatform.Port.SetWordWrapping(placeholder, false);
+        Il2CppUi.SetWordWrapping(placeholder, false);
         placeholder.overflowMode = TextOverflowModes.Ellipsis;
         var text = UiKit.Text(
             UiKit.Rect("Text", textArea, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
@@ -963,7 +963,7 @@ internal sealed class TouchCollectionPanel
             TextAlignmentOptions.MidlineLeft,
             UiKit.TextColor
         );
-        MobilePlatform.Port.SetWordWrapping(text, false);
+        Il2CppUi.SetWordWrapping(text, false);
         // Configured while inactive: the field's OnEnable reads its text component.
         rect.gameObject.SetActive(false);
         var field = rect.gameObject.AddComponent<TMP_InputField>();
@@ -974,7 +974,7 @@ internal sealed class TouchCollectionPanel
         field.pointSize = chrome.ButtonFont;
         field.lineType = TMP_InputField.LineType.SingleLine;
         field.characterLimit = 64;
-        MobilePlatform.Port.OnTextChanged(field, OnSearchChanged);
+        Il2CppUi.OnTextChanged(field, OnSearchChanged);
         rect.gameObject.SetActive(true);
         return (field, placeholder);
     }

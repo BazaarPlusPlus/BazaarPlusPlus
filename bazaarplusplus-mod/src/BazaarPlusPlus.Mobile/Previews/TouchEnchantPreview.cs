@@ -20,8 +20,8 @@ namespace BazaarPlusPlus.Mobile.Previews;
 /// same render (<see cref="TakePending"/>), so nothing carries over to the next card. A tooltip
 /// whose main text lists none keeps the collapsed Enchantments switch in the native description
 /// scroll (<see cref="TouchPreviewSwitches"/>), which lists each enchantment's effect from the
-/// item's tier up (<see cref="Build"/>). Each host's tooltip patches drive it and read the game
-/// through <see cref="IEnchantPreviewHost{TTooltip}"/>. Main thread.
+/// item's tier up (<see cref="Build"/>). The Android host's tooltip patches drive it and read the
+/// game through <see cref="IEnchantPreviewHost{TTooltip}"/>. Main thread.
 /// </summary>
 internal sealed class TouchEnchantPreview<TTooltip>
     where TTooltip : class
@@ -180,9 +180,9 @@ internal sealed class TouchEnchantPreview<TTooltip>
     /// </summary>
     public void Fit(TMP_Text? label)
     {
-        if (!MobilePlatform.Port.IsAlive(label))
+        if (!Il2CppUi.IsAlive(label))
             return;
-        var layout = label!.GetComponent<LayoutElement>();
+        var layout = label.GetComponent<LayoutElement>();
         if (layout == null)
             return;
         label.ForceMeshUpdate();
@@ -197,9 +197,9 @@ internal sealed class TouchEnchantPreview<TTooltip>
 
     private void RestoreFloor(TMP_Text? label)
     {
-        if (_floors.Count == 0 || !MobilePlatform.Port.IsAlive(label))
+        if (_floors.Count == 0 || !Il2CppUi.IsAlive(label))
             return;
-        var layout = label!.GetComponent<LayoutElement>();
+        var layout = label.GetComponent<LayoutElement>();
         if (layout != null && _floors.Remove(layout.GetInstanceID(), out var floor))
             layout.minHeight = floor;
     }
@@ -268,14 +268,13 @@ internal sealed class TouchEnchantPreview<TTooltip>
     // the canvas and by the canvas's own scale factor. Zero when it cannot be read.
     private static float RenderedFontPixels(TMP_Text? label)
     {
-        var port = MobilePlatform.Port;
-        if (!port.IsAlive(label))
+        if (!Il2CppUi.IsAlive(label))
             return 0f;
-        var parent = label!.canvas;
-        var canvas = port.IsAlive(parent) ? parent.rootCanvas : null;
-        if (!port.IsAlive(canvas))
+        var parent = label.canvas;
+        var canvas = Il2CppUi.IsAlive(parent) ? parent.rootCanvas : null;
+        if (!Il2CppUi.IsAlive(canvas))
             return 0f;
-        var canvasScale = canvas!.transform.lossyScale.y;
+        var canvasScale = canvas.transform.lossyScale.y;
         var relative = canvasScale > 0f ? label.transform.lossyScale.y / canvasScale : 1f;
         return label.fontSize * relative * canvas.scaleFactor;
     }

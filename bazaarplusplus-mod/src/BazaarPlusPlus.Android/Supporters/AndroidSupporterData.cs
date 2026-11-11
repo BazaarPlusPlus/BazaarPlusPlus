@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.Mobile;
 
 namespace BazaarPlusPlus.Android.Supporters;
 

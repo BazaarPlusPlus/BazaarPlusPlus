@@ -79,7 +79,7 @@ internal sealed class TouchCollectionInspection
         _backdrop = UiKit.Fill(root, Color.clear);
         var dismiss = root.gameObject.AddComponent<Button>();
         dismiss.transition = Selectable.Transition.None;
-        MobilePlatform.Port.OnClick(dismiss, () => Dismiss("outside_tap"));
+        Il2CppUi.OnClick(dismiss, () => Dismiss("outside_tap"));
         _root = root.gameObject;
 
         var area = TouchScreen.Child("CardArea", root, inspect.CardArea);

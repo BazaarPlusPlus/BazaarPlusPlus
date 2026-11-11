@@ -234,7 +234,7 @@ internal sealed class TouchLiveBuildView
                 TextAlignmentOptions.Center,
                 UiKit.MutedTextColor
             );
-            MobilePlatform.Port.SetWordWrapping(_corpus, false);
+            Il2CppUi.SetWordWrapping(_corpus, false);
             _corpus.overflowMode = TextOverflowModes.Ellipsis;
             if (layout.Stacked)
             {
@@ -282,7 +282,7 @@ internal sealed class TouchLiveBuildView
                     TextAlignmentOptions.BottomLeft,
                     UiKit.MutedTextColor
                 );
-                MobilePlatform.Port.SetWordWrapping(label, false);
+                Il2CppUi.SetWordWrapping(label, false);
                 label.overflowMode = TextOverflowModes.Ellipsis;
                 var value = UiKit.Text(
                     UiKit.Rect(
@@ -299,7 +299,7 @@ internal sealed class TouchLiveBuildView
                     TextAlignmentOptions.TopLeft,
                     UiKit.TextColor
                 );
-                MobilePlatform.Port.SetWordWrapping(value, false);
+                Il2CppUi.SetWordWrapping(value, false);
                 value.enableAutoSizing = true;
                 value.fontSizeMin = layout.BodyFont;
                 value.fontSizeMax = layout.ValueFont;
@@ -342,7 +342,7 @@ internal sealed class TouchLiveBuildView
             _sponsorLabel = sponsorButton.Label;
             ApplyHeaderArt(sponsorButton.Background);
 
-            MobilePlatform.Port.SetWordWrapping(_sponsorLabel, false);
+            Il2CppUi.SetWordWrapping(_sponsorLabel, false);
             _sponsorLabel.enableAutoSizing = true;
             _sponsorLabel.fontSizeMin = layout.BodyFont;
             _sponsorLabel.fontSizeMax = layout.ButtonFont;

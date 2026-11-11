@@ -1,6 +1,6 @@
 # ADR-0025: One Mobile UI source tree compiled into both hosts
 
-Status: Accepted. Amended 2026-11-06: the iOS port is removed, so the Android host is the only host that compiles the Mobile UI tree. Decisions 1 and 8 now apply to the Android host alone; the Mono host compiles no Mobile UI and draws only the Desktop UI. The tree, its port (decision 3) and the other decisions stand.
+Status: Accepted. Amended 2026-11-06: the iOS port is removed, so the Android host is the only host that compiles the Mobile UI tree. Decisions 1 and 8 now apply to the Android host alone; the Mono host compiles no Mobile UI and draws only the Desktop UI. The tree, its port (decision 3) and the other decisions stand. Amended 2026-11-11: with one host, object liveness, casts, text wrapping and button listeners leave the port; the tree writes their Il2CppInterop form in one helper, `src/BazaarPlusPlus.Mobile/Il2CppUi.cs`, and inlines the one cast. The port keeps the main-thread scope, overlay registration, the font and every game read. Decision 4 narrows: a service only the Android host binds lives in the tree beside its users (`ISupporterRotation`, `ICollectionCardCatalog`, `ICollectionRunReads`); one the desktop also binds stays a Core port.
 
 ## Context
 
@@ -60,7 +60,7 @@ ADR-0012 forbids the Android host to compile linked sources, and `AndroidHostAss
 ## Evidence
 
 - Linked-source rule this narrows: `src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj` (comment above the Core reference), `tests/AndroidHost.Tests/AndroidHostAssemblyBoundaryTests.cs`
-- Hand-mirrored twins: `src/BazaarPlusPlus.Android/Ui/`, `src/BazaarPlusPlus/Game/Touch/`, `src/BazaarPlusPlus/Game/*/Touch/`, all deleted by #701; `CoreLayeringTests.Mobile_ui_has_no_second_source_tree` keeps them gone, and [mobile-ui.md](../architecture/mobile-ui.md) lists where each host's adapters went
+- Hand-mirrored twins: `src/BazaarPlusPlus.Android/Ui/`, `src/BazaarPlusPlus/Game/Touch/`, `src/BazaarPlusPlus/Game/*/Touch/`, all deleted by #701; `CoreLayeringTests.Mobile_ui_has_no_second_source_tree` keeps the Android one gone (since 2026-11-11 it no longer scans the Mono host, which compiles no Mobile UI), and [mobile-ui.md](../architecture/mobile-ui.md) lists where each host's adapters went
 - Drift: `AndroidEnchantPreview.InlineCandidates` against the Mono host's `TouchEnchantPreview`; #701 replaced both with `src/BazaarPlusPlus.Mobile/Previews/TouchEnchantPreview.cs`
 - Android-only Native Adjustments: `AndroidScreenFill`, `AndroidScreenFillClock` (#701 moved their flow to `src/BazaarPlusPlus.Mobile/NativeAdjustment/`), `src/BazaarPlusPlus.Android/Patches/ScreenFillFieldOfViewPatch.cs`
 - Continuous screen metrics: `src/BazaarPlusPlus.Core/Ui/TouchMetrics.cs`, `TouchHudLayout.cs`

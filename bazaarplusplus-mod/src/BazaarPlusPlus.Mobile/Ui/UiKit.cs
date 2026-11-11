@@ -104,7 +104,7 @@ internal static class UiKit
         label.alignment = alignment;
         label.color = color;
         label.raycastTarget = false;
-        MobilePlatform.Port.SetWordWrapping(label, true);
+        Il2CppUi.SetWordWrapping(label, true);
         label.richText = true;
         label.text = text;
         return label;
@@ -127,7 +127,7 @@ internal static class UiKit
         var background = Fill(rect, ButtonColor);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = background;
-        MobilePlatform.Port.OnClick(button, onTap);
+        Il2CppUi.OnClick(button, onTap);
         var labelRect = Rect("Label", rect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         InsetLabel(labelRect, labelInset);
         var label = Text(labelRect, font, text, size, TextAlignmentOptions.Center, TextColor);

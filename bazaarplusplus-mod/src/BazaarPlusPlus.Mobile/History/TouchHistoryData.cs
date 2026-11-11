@@ -1,12 +1,11 @@
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel;
-using BazaarPlusPlus.Game.Supporters;
 
 namespace BazaarPlusPlus.Mobile.History;
 
 /// <summary>
-/// The host services the touch History reads, each a Core type the host's composition binds
-/// (ADR-0025 decision 4).
+/// The host services the touch History reads, which the Android composition binds: Core types,
+/// and the supporter rotation beside the Mobile UI (ADR-0025 decision 4).
 /// </summary>
 /// <param name="Dependencies">
 /// History's coordinator dependencies: the history database, the replay service, the Mod API

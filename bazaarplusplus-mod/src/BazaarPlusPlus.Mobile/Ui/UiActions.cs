@@ -16,7 +16,7 @@ internal static class UiActions
             throw new ArgumentNullException(nameof(button));
         if (handler == null)
             throw new ArgumentNullException(nameof(handler));
-        MobilePlatform.Port.OnClick(button, () => Run(control, handler));
+        Il2CppUi.OnClick(button, () => Run(control, handler));
     }
 
     /// <summary><paramref name="handler"/> gets the field's new text after each edit.</summary>
@@ -26,10 +26,7 @@ internal static class UiActions
             throw new ArgumentNullException(nameof(field));
         if (handler == null)
             throw new ArgumentNullException(nameof(handler));
-        MobilePlatform.Port.OnTextChanged(
-            field,
-            value => Run(control, () => handler(value ?? string.Empty))
-        );
+        Il2CppUi.OnTextChanged(field, value => Run(control, () => handler(value ?? string.Empty)));
     }
 
     public static void Run(string control, Action handler) =>

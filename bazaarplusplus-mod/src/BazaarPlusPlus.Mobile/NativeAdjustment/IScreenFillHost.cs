@@ -4,9 +4,9 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 
 /// <summary>
-/// A host's read and write of the game objects <see cref="TouchScreenFill"/> adjusts (ADR-0025
-/// decision 5): the letterbox, the board and the day clock are game types each host names its own
-/// way, so it adapts them here. Main thread.
+/// The Android host's read and write of the game objects <see cref="TouchScreenFill"/> adjusts
+/// (ADR-0025 decision 5): the letterbox, the board and the day clock are game types the tree
+/// cannot name, so the host adapts them here. Main thread.
 /// </summary>
 internal interface IScreenFillHost
 {

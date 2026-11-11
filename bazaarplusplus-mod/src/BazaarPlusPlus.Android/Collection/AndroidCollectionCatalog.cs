@@ -4,6 +4,7 @@ using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Mobile.Collection;
 using Il2CppBazaarGameShared.Domain.Cards;
 using Il2CppTheBazaar.DataManagement;
 using Microsoft.Data.Sqlite;

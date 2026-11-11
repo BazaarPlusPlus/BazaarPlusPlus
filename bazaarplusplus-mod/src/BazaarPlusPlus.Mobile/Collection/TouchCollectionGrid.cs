@@ -320,13 +320,13 @@ internal sealed class TouchCollectionGrid
             TextAlignmentOptions.Top,
             UiKit.TextColor
         );
-        MobilePlatform.Port.SetWordWrapping(caption, true);
+        Il2CppUi.SetWordWrapping(caption, true);
         caption.overflowMode = TextOverflowModes.Ellipsis;
         var cell = new Cell(root, slot, caption);
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = hit;
         button.transition = Selectable.Transition.None;
-        MobilePlatform.Port.OnClick(
+        Il2CppUi.OnClick(
             button,
             () =>
             {

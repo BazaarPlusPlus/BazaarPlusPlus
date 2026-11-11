@@ -4,6 +4,7 @@ using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Mobile.Collection;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Collection;
