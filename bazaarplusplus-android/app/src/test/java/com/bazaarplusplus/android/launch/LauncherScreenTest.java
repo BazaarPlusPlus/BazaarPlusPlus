@@ -33,6 +33,122 @@ public class LauncherScreenTest {
                 playInstalled, installedFromPlay);
     }
 
+    /** No primary action. */
+    static final Action NONE = null;
+
+    /**
+     * One row of the primary-action matrix: a Development interop or none, a tier, and the
+     * primary for each of the four combinations of the game installed or not (a versionName or
+     * null in the facts) and the runtime present or missing.
+     */
+    static final class Row {
+        final boolean devInterop;
+        final Tier tier;
+        final Action[] primaries;
+
+        Row(boolean devInterop, Tier tier, Action installedWithRuntime, Action installedNoRuntime,
+                Action notInstalledWithRuntime, Action notInstalledNoRuntime) {
+            this.devInterop = devInterop;
+            this.tier = tier;
+            this.primaries = new Action[] {
+                installedWithRuntime, installedNoRuntime, notInstalledWithRuntime, notInstalledNoRuntime};
+        }
+    }
+
+    /**
+     * The primary action as today's {@link LauncherScreen#ready} decides it, with Google Play
+     * installed and the game installed from it. The facts are independent of the tier, so the
+     * table holds cells that {@code LaunchCheck.run} never builds: it gives a game that is not
+     * installed the tier NOT_INSTALLED and no Development interop.
+     */
+    static final Row[] PRIMARY = {
+        //                                       installed                                           not installed
+        //                                       runtime                   no runtime                runtime                   no runtime
+        new Row(false, Tier.NOT_INSTALLED,       Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY),
+        new Row(false, Tier.ANDROID_RELEASE_APK, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY),
+        new Row(false, Tier.OFFLINE_NO_CACHE,    Action.RETRY,             Action.RETRY,             Action.RETRY,             Action.RETRY),
+        new Row(false, Tier.NORMAL,              Action.PLAY,              NONE,                     Action.PLAY,              NONE),
+        new Row(false, Tier.NEWER_WAITING,       NONE,                     NONE,                     NONE,                     NONE),
+        new Row(false, Tier.OLDER,               Action.UPDATE_FROM_PLAY,  Action.UPDATE_FROM_PLAY,  Action.UPDATE_FROM_PLAY,  Action.UPDATE_FROM_PLAY),
+        // A Development interop plays whenever the game is installed, before the tier decides.
+        new Row(true,  Tier.NOT_INSTALLED,       Action.PLAY,              NONE,                     Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY),
+        new Row(true,  Tier.ANDROID_RELEASE_APK, Action.PLAY,              NONE,                     Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY),
+        new Row(true,  Tier.OFFLINE_NO_CACHE,    Action.PLAY,              NONE,                     Action.RETRY,             Action.RETRY),
+        new Row(true,  Tier.NORMAL,              Action.PLAY,              NONE,                     Action.PLAY,              NONE),
+        new Row(true,  Tier.NEWER_WAITING,       Action.PLAY,              NONE,                     NONE,                     NONE),
+        new Row(true,  Tier.OLDER,               Action.PLAY,              NONE,                     Action.UPDATE_FROM_PLAY,  Action.UPDATE_FROM_PLAY),
+    };
+
+    /** A decision of {@code tier}, through the gate. */
+    static LaunchGate.Decision decision(Tier tier) {
+        LaunchGate.Decision decision;
+        switch (tier) {
+            case NOT_INSTALLED: decision = decision(null, LaunchGateTest.RELEASE); break;
+            case ANDROID_RELEASE_APK:
+                decision = decision(new LaunchGate.Installed(12825, LaunchGateTest.ADAPTED, true), LaunchGateTest.RELEASE);
+                break;
+            case OFFLINE_NO_CACHE: decision = decision(installed(12825, true), null); break;
+            case NORMAL: decision = decision(installed(12825, true), LaunchGateTest.RELEASE); break;
+            case NEWER_WAITING: decision = decision(installed(12900, false), LaunchGateTest.RELEASE); break;
+            case OLDER: decision = decision(installed(12000, false), LaunchGateTest.RELEASE); break;
+            default: throw new AssertionError(tier);
+        }
+        assertEquals(tier, decision.tier);
+        return decision;
+    }
+
+    static LauncherScreen.Facts facts(Tier tier, boolean devInterop, boolean gameInstalled, boolean runtimeMissing) {
+        return new LauncherScreen.Facts(decision(tier), gameInstalled ? "1.0.12825" : null, "1.0.12825", false, false,
+                runtimeMissing, devInterop, null, true, true);
+    }
+
+    @Test
+    public void thePrimaryActionMatrix() {
+        int cells = 0;
+        for (boolean devInterop : new boolean[] {false, true}) {
+            EnumSet<Tier> covered = EnumSet.noneOf(Tier.class);
+            for (Row row : PRIMARY) {
+                if (row.devInterop != devInterop) continue;
+                assertTrue(row.tier + " appears once", covered.add(row.tier));
+                int column = 0;
+                for (boolean gameInstalled : new boolean[] {true, false}) {
+                    for (boolean runtimeMissing : new boolean[] {false, true}) {
+                        LauncherScreen screen = LauncherScreen.ready(facts(row.tier, devInterop, gameInstalled, runtimeMissing));
+                        assertEquals("devInterop=" + devInterop + " " + row.tier + " installed=" + gameInstalled
+                                + " runtimeMissing=" + runtimeMissing, row.primaries[column], screen.primary);
+                        column++;
+                        cells++;
+                    }
+                }
+            }
+            assertEquals("every tier has a row, devInterop=" + devInterop, EnumSet.allOf(Tier.class), covered);
+        }
+        assertEquals(2 * Tier.values().length * 2 * 2, cells);
+    }
+
+    @Test
+    public void aDevelopmentInteropPlaysInTheReplaceTierWhereTheGateRefuses() {
+        LauncherScreen.Facts facts = facts(Tier.ANDROID_RELEASE_APK, true, true, false);
+        assertFalse(facts.decision.bppLaunch());
+        LauncherScreen screen = LauncherScreen.ready(facts);
+        assertEquals(Status.READY, screen.status);
+        assertEquals(Action.PLAY, screen.primary);
+        assertEquals("the replace note is gone", List.of(Note.DEV_INTEROP), screen.notes);
+        assertEquals("the official game cannot open, so the publisher is the source row",
+                Action.DOWNLOAD_FROM_PUBLISHER, screen.source);
+    }
+
+    @Test
+    public void aDevelopmentInteropPlaysOfflineWhereTheGateRefuses() {
+        LauncherScreen.Facts facts = facts(Tier.OFFLINE_NO_CACHE, true, true, false);
+        assertFalse(facts.decision.bppLaunch());
+        LauncherScreen screen = LauncherScreen.ready(facts);
+        assertEquals(Status.READY, screen.status);
+        assertEquals(Action.PLAY, screen.primary);
+        assertEquals("the release-unavailable note is gone", List.of(Note.DEV_INTEROP), screen.notes);
+        assertEquals(Action.OPEN_OFFICIAL, screen.source);
+    }
+
     @Test
     public void theAdaptedGamePlaysWithTheOfficialGameBesideIt() {
         LauncherScreen screen = LauncherScreen.ready(facts(decision(installed(12825, true), LaunchGateTest.RELEASE)));
