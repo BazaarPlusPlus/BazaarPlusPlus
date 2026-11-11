@@ -60,16 +60,6 @@ jobs:
           if [[ "$FORCE" == true ]]; then state=changed; fi
           echo "state=$state" >> "$GITHUB_OUTPUT"
           echo "Official APK: $state (force: $FORCE)" >> "$GITHUB_STEP_SUMMARY"
-      - if: steps.compare.outputs.state == 'changed'
-        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-        with:
-          global-json-file: bazaarplusplus-mod/global.json
-          cache: true
-          cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
-      - if: steps.compare.outputs.state == 'changed'
-        uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
-        with:
-          tool: just@1.58.0
       # Keeps the ETag the bytes came with; the lock records its value.
       - if: steps.compare.outputs.state == 'changed'
         name: Download the official APK
@@ -95,6 +85,18 @@ jobs:
             echo "The official APK is the locked one" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "kind=$kind" >> "$GITHUB_OUTPUT"
+      # Only a capture builds: a run that restores no package has no NuGet
+      # folder, and setup-dotnet's cache step then fails the job after it ends.
+      - if: steps.download.outputs.kind == 'capture'
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+          cache: true
+          cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
+      - if: steps.download.outputs.kind == 'capture'
+        uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
+        with:
+          tool: just@1.58.0
       - if: steps.download.outputs.kind == 'etag'
         name: Record the ETag of the locked APK
         env:
