@@ -30,7 +30,7 @@ Each host ships five BPP assemblies. Dependencies run host → Core → {Storage
 
 | Assembly | Contents |
 |---|---|
-| `BazaarPlusPlus.dll` (desktop) / `BazaarPlusPlus.Android.dll` (Android) | game integration, patches, resources, `MonoHostComposition` / `AndroidComposition`; the Android one also compiles the Mobile UI, `src/BazaarPlusPlus.Mobile/` (ADR-0025) |
+| `BazaarPlusPlus.dll` (desktop) / `BazaarPlusPlus.Android.dll` (Android) | game integration, patches, resources, `MonoHostComposition` / `AndroidComposition`; Android compiles the Mobile UI, `src/BazaarPlusPlus.Mobile/` (ADR-0025) |
 | `BazaarPlusPlus.Core.dll` | the shared core every host references (directories below) |
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |
