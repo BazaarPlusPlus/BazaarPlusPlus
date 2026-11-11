@@ -59,6 +59,63 @@ public sealed class AndroidSettingsDockTests
         );
     }
 
+    // The section draws the roster through Core's BppSettingsSectionRules, which calls only the
+    // definitions: toggles, then choices, then actions, each row resolved for the game language.
+    [Theory]
+    [InlineData("en", false)]
+    [InlineData("zh-CN", true)]
+    public void The_section_resolves_every_roster_row(string language, bool chineseImprovements)
+    {
+        var dock = new Dock();
+
+        var states = BppSettingsSectionRules
+            .BuildOrder(dock.Rows)
+            .Select(row => BppSettingsSectionRules.Resolve(row, language))
+            .ToArray();
+
+        Assert.Equal(
+            new[]
+            {
+                "DetailedPreview",
+                "BazaarDbUpload",
+                "CombatStatusBar",
+                "UpgradePreview",
+                "FrameRatePriority",
+                "ChineseTranslationImprovements",
+                "PreviewTextSize",
+                "EnchantPreview",
+                "ChineseLocaleMode",
+                "GameHistory",
+                "GameUpdate",
+            },
+            states.Select(state => state.Key)
+        );
+        Assert.All(states, state => Assert.True(state.Resolved));
+        Assert.All(states, state => Assert.False(string.IsNullOrEmpty(state.Label)));
+        Assert.Equal(
+            chineseImprovements,
+            states.Single(state => state.Key == "ChineseTranslationImprovements").Visible
+        );
+        Assert.All(
+            states.Where(state => state.Key != "ChineseTranslationImprovements"),
+            state => Assert.True(state.Visible)
+        );
+        Assert.All(
+            states.Where(state => state.Kind == BppSettingsControlKind.Choice),
+            state =>
+            {
+                Assert.True(state.Interactable);
+                Assert.NotEmpty(state.Options);
+            }
+        );
+        // History is unavailable and the update check has not answered: both actions dim.
+        Assert.All(
+            states.Where(state => state.Kind == BppSettingsControlKind.Action),
+            state => Assert.False(state.Interactable)
+        );
+        Assert.True(states.Single(state => state.Key == "DetailedPreview").ToggleOn);
+    }
+
     // The account link waits on [BazaarDB] UploadScreenshots; the row is its touch switch, off by
     // default, labelled as the desktop's row.
     [Fact]
