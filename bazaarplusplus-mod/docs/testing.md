@@ -8,4 +8,5 @@ How a test project reaches the code it tests. `scripts/test.sh` owns the lanes (
 - Use the public surface of Core. Reach an `internal` type through the `InternalsVisibleTo` list in `src/BazaarPlusPlus.Core/Properties/AssemblyAttributes.cs`; do not make the type public for a test.
 - **Link sources with `Compile Include` only** for a Desktop Host file that does not compile without the game assemblies, or for a compile-time stub that replaces a real type (`BppLog`, the internal Updater types that Core also compiles). A project that references Core never also links a Core source (ADR-0012).
 - **A test of the desktop binding** (the `netstandard2.1` output bound to the game's files) names no target framework on its reference. The goldens in ADR-0013 run that way.
-- One capsule check becomes one `[Fact]` with the same call, so the defaults the check relied on stay under test.
+- One capsule check becomes one `[Fact]` with the same call, so the defaults the check relied on stay under test. A case table becomes `[Theory]` rows that pass only the case name and look the row up, so each row reports on its own (`tests/BundleSealConvergence.Tests/BundleSealFailurePolicyTests.cs`). A sequence over one mutable object stays one test.
+- Name the test namespace apart from the Core types under test: `ReleaseManifestClient.Tests` would hide the `ReleaseManifestClient` class.

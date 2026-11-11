@@ -18,6 +18,8 @@
         <Project Path="SettingsDockCore.Tests/SettingsDockCore.Tests.csproj" />
         <Project Path="HistorySampler.Tests/HistorySampler.Tests.csproj" />
         <Project Path="MainMenuVersionLabel.Tests/MainMenuVersionLabel.Tests.csproj" />
+        <Project Path="BundleSealConvergence.Tests/BundleSealConvergence.Tests.csproj" />
+        <Project Path="ReleaseManifestClient.Tests/ReleaseManifestClient.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />
