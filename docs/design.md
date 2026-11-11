@@ -12,7 +12,7 @@ Android App 是启动器：一页里显示游戏、状态和下一步操作，�
 
 | 内容 | 唯一的编辑源 | 产品里怎么用 |
 |---|---|---|
-| 颜色、间距、圆角、尺寸、阴影、动效、字体栈 | `design/tokens.json` | `just design::build` 生成 `bazaarplusplus-installer/src/styles/tokens.css`；site 在 `dev` 和 `build` 前用 `bun run tokens` 把它复制到被 git 忽略的 `bazaarplusplus-site/src/styles/installer-tokens.css`；产品颜色、间距、圆角、尺寸和字号另外生成 Android App 的 `res/values/bpp_tokens.xml` |
+| 颜色、间距、圆角、尺寸、阴影、动效、字体栈、字号 | `design/tokens.json` | `just design::build` 生成 `bazaarplusplus-installer/src/styles/tokens.css`，字号是其中的 `--type-*` 变量；site 在 `dev` 和 `build` 前用 `bun run tokens` 把它复制到被 git 忽略的 `bazaarplusplus-site/src/styles/installer-tokens.css`；`just design::build` 还生成 Tailwind 桥 `design/tailwind-theme.css`，installer 的 `src/styles/index.css` 与 site 的 `src/styles/tokens.css` 直接 `@import`；产品颜色、间距、圆角、尺寸和字号另外生成 Android App 的 `res/values/bpp_tokens.xml` |
 | 共享 `bpp-*` 组件样式 | `design/components/bundle.css` | installer 的 `src/styles/index.css` 与 site 的 `src/styles/global.css` 直接 `@import` |
 | Web 组件库（Button、Badge、StatusPanel、StatusBanner、Dialog、PageHeader、SegmentedControl） | `design/ui/` | installer 与 site 都以 `@bpp/ui` 引入，组件只用 `bundle.css` 的类；见 [ADR-0018](adr/0018-one-web-component-library.md) |
 | 视觉、对齐、动效与组件规则 | `design/README.md` 与 `design/components/*/README.md` | 两个产品 |
@@ -24,9 +24,9 @@ Android App 是启动器：一页里显示游戏、状态和下一步操作，�
 
 ## 改动流程
 
-- 改 token、组件样式或标志：改 `design/` 里对应的文件，运行 `just design::build`，把重新生成的 `tokens.css`、Android 资源和复制出的标志一起提交。`just design::check` 会拦下过期的生成文件、`bundle.css` 里没有对应 token 的 `var()`，以及与 `hero-*` token 不一致的 site 英雄颜色。
+- 改 token、组件样式或标志：改 `design/` 里对应的文件，运行 `just design::build`，把重新生成的 `tokens.css`、`tailwind-theme.css`、Android 资源和复制出的标志一起提交。`just design::check` 会拦下过期的生成文件、`bundle.css` 里没有对应 token 的 `var()`、`bundle.css` 里用 px 写的字号，以及与 `hero-*` token 不一致的 site 英雄颜色。
 - 同一个变更里跑 installer、site 与 Android App 的 check 和 test；installer 的外壳快照（`src/__shell_snapshots__/`）用 `BPP_UPDATE_GOLDENS=1` 重新生成并逐个核对。
-- 组件里不写颜色、字号或尺寸字面量：共享组件只用 `bpp-*` 类；页面布局用 `var(--token)`，或 Tailwind `@theme` 桥映射出的工具类（`bg-panel`、`text-text-2`、`border-line`、`rounded-control`）。
+- 组件里不写颜色、字号或尺寸字面量：共享组件只用 `bpp-*` 类；页面布局用 `var(--token)`，或生成的 Tailwind 桥 `design/tailwind-theme.css` 映射出的工具类（`bg-panel`、`text-text-2`、`border-line`、`rounded-control`、`text-body`）。`text-<样式>` 只设字号，不设行高；Tailwind 自带的 `text-sm`、`text-lg` 仍可用。
 - 改了 `design/ui/` 就跑 installer 和 site 的 check 与 test；两边的 `bundle-classes` 测试会拦下 `bundle.css` 里没有的类名。Tailwind 不扫描 `../design`，所以组件库里写工具类不会生效。
 
 ## 约定

@@ -1,0 +1,69 @@
+/* BazaarPlusPlus Tailwind bridge, generated from design/tokens.json by
+   `just design::build`. Do not edit: change design/tokens.json and rebuild.
+   Utilities read the :root tokens of tokens.css: bg-panel, text-text-2,
+   border-line, rounded-control, text-body. */
+@theme inline {
+  --color-*: initial;
+  --color-canvas: var(--bg-canvas);
+  --color-sidebar: var(--bg-sidebar);
+  --color-panel: var(--bg-panel);
+  --color-hover: var(--bg-hover);
+  --color-selected: var(--bg-selected);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-control: var(--line-control);
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-line: var(--accent-line);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-line: var(--success-line);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-line: var(--warning-line);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-line: var(--danger-line);
+  --color-danger-text: var(--danger-text);
+  --color-tier-bronze: var(--tier-bronze);
+  --color-tier-silver: var(--tier-silver);
+  --color-tier-diamond: var(--tier-diamond);
+  --color-hero-stelle: var(--hero-stelle);
+  --color-hero-mak: var(--hero-mak);
+  --color-hero-jules: var(--hero-jules);
+  --color-hero-dooley: var(--hero-dooley);
+  --color-hero-karnok: var(--hero-karnok);
+  --color-hero-pygmalien: var(--hero-pygmalien);
+  --color-hero-vanessa: var(--hero-vanessa);
+  --color-hero-dragons: var(--hero-dragons);
+  --color-hero-unknown: var(--hero-unknown);
+  --color-backdrop: var(--backdrop);
+  --color-window-close: var(--window-close);
+
+  --radius-inner: var(--r-inner);
+  --radius-control: var(--r-control);
+  --radius-panel: var(--r-panel);
+  --radius-dialog: var(--r-dialog);
+  --radius-touch: var(--r-touch);
+  --radius-pill: var(--r-pill);
+
+  --font-*: initial;
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+
+  --text-display: var(--type-display);
+  --text-title: var(--type-title);
+  --text-body: var(--type-body);
+  --text-body-medium: var(--type-body-medium);
+  --text-body-strong: var(--type-body-strong);
+  --text-small: var(--type-small);
+  --text-caption: var(--type-caption);
+  --text-micro: var(--type-micro);
+  --text-code: var(--type-code);
+  --text-code-small: var(--type-code-small);
+}

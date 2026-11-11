@@ -101,7 +101,7 @@ export default function HeroOverviewDashboard({
           <section className="grid min-w-0 gap-4">
             <div className="flex flex-col gap-1">
               <SectionHeading>{heroCopy.trend.title}</SectionHeading>
-              <p className="text-[15px] text-text-2">
+              <p className="text-body text-text-2">
                 {WINDOW_LABELS['7d']} {heroCopy.trend.winrateTrend}
               </p>
             </div>
@@ -116,7 +116,7 @@ export default function HeroOverviewDashboard({
 
               <section className="panel flex flex-col gap-4 p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-[15px] font-semibold text-text-1">
+                  <h3 className="text-body font-semibold text-text-1">
                     {heroCopy.matchups.title}
                   </h3>
                   {focusedTrendSeries ? (
@@ -207,7 +207,7 @@ export default function HeroOverviewDashboard({
             </div>
 
             {failedWindowDays.length > 0 && rankingHasRows ? (
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-5 py-2.5 text-[15px] text-text-2">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-5 py-2.5 text-body text-text-2">
                 <span
                   aria-hidden="true"
                   className="size-1.5 shrink-0 rounded-full bg-warning"
@@ -271,7 +271,7 @@ function MatchupList({
   noValueLabel: string;
 }) {
   if (rows.length === 0) {
-    return <p className="text-[15px] text-text-2">{matchupCopy.empty}</p>;
+    return <p className="text-body text-text-2">{matchupCopy.empty}</p>;
   }
 
   return (
@@ -289,7 +289,7 @@ function MatchupList({
             <HeroBadge hero={row.opponentHero} />
             <span className="flex min-w-0 items-center gap-2.5">
               <span
-                className="w-12 shrink-0 text-right text-[15px] font-medium text-text-1 tabular-nums"
+                className="w-12 shrink-0 text-right text-body font-medium text-text-1 tabular-nums"
                 aria-label={noValue ? noValueLabel : undefined}
               >
                 {row.isLowSample ? '—' : formatNullablePercent(row.winRate)}

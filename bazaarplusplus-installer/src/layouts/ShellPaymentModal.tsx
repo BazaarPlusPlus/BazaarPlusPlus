@@ -26,13 +26,13 @@ export function ShellPaymentModal({ onClose }: { onClose: () => void }) {
             className="bpp-qr-image object-contain"
           />
           <div className="flex flex-col gap-0.5">
-            <h3 className="m-0 text-[15px] font-semibold text-fg-1">
+            <h3 className="m-0 text-body font-semibold text-text-1">
               {t('wechatPay')}
             </h3>
             <p className="text-sm">{t('wechatPayTagline')}</p>
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-fg-1">{t('supportLine1')}</p>
+            <p className="text-text-1">{t('supportLine1')}</p>
             <p className="text-sm">{t('supportLine2')}</p>
           </div>
         </DialogBody>

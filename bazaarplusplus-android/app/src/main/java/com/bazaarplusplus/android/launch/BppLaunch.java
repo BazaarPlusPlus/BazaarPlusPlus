@@ -41,7 +41,10 @@ final class BppLaunch {
     private BppLaunch() {}
 
     static void prepare(Context context, LaunchCheck check, Progress progress) throws Exception {
-        if (check.game == null) throw new IOException("The official game is not installed");
+        // The gate decides first, before any file or network side effect. NOT_INSTALLED refuses, so
+        // past this line the game is installed.
+        refuseUnlessAllowed(check.decision);
+        // Whether the APK carries a runtime is not a gate fact; the launcher hides Play without one.
         if (check.facts == null) throw new IOException("This build carries no Android App Runtime");
         // One prepared game per process: a second launch would keep the first launch's interop
         // while the Launch Record names this one.
@@ -54,6 +57,8 @@ final class BppLaunch {
             prepareDevelopment(context, check, appVersionCode, external);
             return;
         }
+        // Past the guard without a Development interop the tier is NORMAL, and LaunchCheck.run decides
+        // NORMAL only against the game of a manifest it read, so the manifest is not null.
         PlatformManifest manifest = check.manifest.manifest;
         PlatformManifest.Interop interop = manifest.interop;
         String purpose = InteropStatement.releasePurpose(manifest.version);
@@ -104,6 +109,14 @@ final class BppLaunch {
                 new LaunchRecord.Interop(interop.file.sha256, interop.snapshotSha256));
         File written = record.write(external);
         AppLog.i(TAG, "wrote " + written + ": release " + release + " interop " + interop.file.sha256);
+    }
+
+    /** Throws unless {@link LaunchGate.Decision#bppLaunch} allows this launch; it reads nothing else. */
+    static void refuseUnlessAllowed(LaunchGate.Decision decision) throws IOException {
+        if (!decision.bppLaunch()) {
+            throw new IOException("No BPP launch in the launch tier " + decision.tier
+                    + (decision.developmentInterop ? " with a Development interop" : ""));
+        }
     }
 
     /**

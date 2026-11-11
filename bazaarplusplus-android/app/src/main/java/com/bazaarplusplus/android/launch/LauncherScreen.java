@@ -84,7 +84,6 @@ final class LauncherScreen {
         final boolean fromCache;
         final boolean lastInstallFailed;
         final boolean runtimeMissing;
-        final boolean devInterop;
         /** Null unless the release names a newer App than this one. */
         final AppUpdate appUpdate;
         /** Whether the Google Play Store is installed: without it, installs and updates come from the publisher. */
@@ -93,7 +92,7 @@ final class LauncherScreen {
         final boolean installedFromPlay;
 
         Facts(LaunchGate.Decision decision, String gameVersion, String adaptedVersion, boolean fromCache,
-                boolean lastInstallFailed, boolean runtimeMissing, boolean devInterop, AppUpdate appUpdate,
+                boolean lastInstallFailed, boolean runtimeMissing, AppUpdate appUpdate,
                 boolean playInstalled, boolean installedFromPlay) {
             this.decision = decision;
             this.gameVersion = gameVersion;
@@ -101,7 +100,6 @@ final class LauncherScreen {
             this.fromCache = fromCache;
             this.lastInstallFailed = lastInstallFailed;
             this.runtimeMissing = runtimeMissing;
-            this.devInterop = devInterop;
             this.appUpdate = appUpdate;
             this.playInstalled = playInstalled;
             this.installedFromPlay = installedFromPlay;
@@ -162,7 +160,7 @@ final class LauncherScreen {
                 new Failure(true, message), null, ready.gameVersion, ready.adaptedVersion, false);
     }
 
-    /** What the tier allows (ADR 0012, "三档启动规则"). */
+    /** What the tier allows (ADR 0012, "三档启动规则"); {@link LaunchGate.Decision#bppLaunch} decides Play. */
     static LauncherScreen ready(Facts facts) {
         LaunchGate.Decision decision = facts.decision;
         List<Note> notes = new ArrayList<>();
@@ -170,11 +168,12 @@ final class LauncherScreen {
         Action primary = null;
         AppUpdate update = facts.appUpdate;
 
-        if (facts.devInterop && facts.gameVersion != null) {
+        if (decision.bppLaunch()) {
             status = Status.READY;
-            notes.add(Note.DEV_INTEROP);
+            if (decision.developmentInterop) notes.add(Note.DEV_INTEROP);
             primary = play(facts, notes);
         } else {
+            // A refused Development interop is not in use, so the tier shows as it does without one.
             switch (decision.tier) {
                 case NOT_INSTALLED:
                     status = Status.NOT_INSTALLED;
@@ -202,8 +201,7 @@ final class LauncherScreen {
                     break;
                 case NORMAL:
                 default:
-                    status = Status.READY;
-                    primary = play(facts, notes);
+                    throw new IllegalStateException(decision + " always allows a BPP launch");
             }
         }
         if (facts.fromCache) notes.add(Note.FROM_CACHE);
@@ -234,7 +232,7 @@ final class LauncherScreen {
     /** Play, or nothing when this build carries no runtime to play with. */
     private static Action play(Facts facts, List<Note> notes) {
         // A Development interop stages nothing, so the staging note does not apply to it.
-        if (facts.lastInstallFailed && !facts.devInterop) notes.add(Note.LAST_INSTALL_FAILED);
+        if (facts.lastInstallFailed && !facts.decision.developmentInterop) notes.add(Note.LAST_INSTALL_FAILED);
         if (facts.runtimeMissing) {
             notes.add(Note.RUNTIME_MISSING);
             return null;

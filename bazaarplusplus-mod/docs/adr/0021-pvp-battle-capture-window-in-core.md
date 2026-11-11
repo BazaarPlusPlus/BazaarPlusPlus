@@ -59,7 +59,7 @@ ADR-0020 is the precedent: a Core module owns a protocol both hosts ran, and cal
 
 - Module and port: `src/BazaarPlusPlus.Core/Game/PvpBattles/PvpBattleCaptureWindow.cs`, `src/BazaarPlusPlus.Core/Game/PvpBattles/IPvpBattleReads.cs`
 - Adapters: `src/BazaarPlusPlus/Game/PvpBattles/DesktopPvpBattleReads.cs`, `src/BazaarPlusPlus.Android/GameInterop/AndroidPvpBattleReads.cs`
-- Persistence: `src/BazaarPlusPlus/Game/CombatReplay/CombatReplayRuntime.cs`, `src/BazaarPlusPlus.Android/GameInterop/AndroidPvpBattleCapture.cs`
+- Persistence: `src/BazaarPlusPlus/Game/CombatReplay/CombatReplayRuntime.cs`, `src/BazaarPlusPlus.Android/GameInterop/AndroidPvpBattleCapture.cs`. Amended 2026-11-11: on the desktop, `CombatReplayRuntime` only enqueues a captured battle; `ReplayPersistenceOrchestrator` (`src/BazaarPlusPlus/Game/CombatReplay/ReplayPersistenceOrchestrator.cs`) owns the persistence, and its `CombatReplayPersistenceQueue` writes the payload and manifest off the frame thread.
 - Tests: `tests/PvpBattleCaptureWindow.Tests/PvpBattleCaptureWindowTests.cs`, `tests/BundlePipeline.Tests/DesktopPvpBattleCaptureTests.cs`, `tests/AndroidHost.Tests/AndroidCardFacetsCapturedTests.cs`
 
 ## Amendment: Android persistence off the frame thread

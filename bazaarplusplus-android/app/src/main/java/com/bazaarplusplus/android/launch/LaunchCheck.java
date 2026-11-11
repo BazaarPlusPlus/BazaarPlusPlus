@@ -42,10 +42,14 @@ final class LaunchCheck {
     final List<PublicKey> trusted;
     final String installedModsVersion;
     final boolean lastModsInstallFailed;
-    /** A debug build's Development interop, which skips the manifest; null otherwise. */
+    /**
+     * A debug build's Development interop, which skips the manifest; null otherwise. The gate got
+     * the same fact, as {@link LaunchGate.Decision#developmentInterop}.
+     */
     final File devInterop;
 
-    private LaunchCheck(InstalledGame game, GameCodeHash hash, RuntimeFacts facts, ReleaseOrigin origin,
+    /** Package-private so a JVM test can hand {@link BppLaunch#prepare} a refused decision. */
+    LaunchCheck(InstalledGame game, GameCodeHash hash, RuntimeFacts facts, ReleaseOrigin origin,
             ReleaseCache.ManifestState manifest, LaunchGate.Decision decision, List<PublicKey> trusted,
             String installedModsVersion, boolean lastModsInstallFailed, File devInterop) {
         this.game = game;
@@ -73,7 +77,7 @@ final class LaunchCheck {
         boolean modsFailed = ManagedPayloadStaging.lastInstallFailed(
                 ManagedPayloadStaging.remembered(AppFiles.stagedVersion(context)), installedMods, AppFiles.updates(context));
         if (game == null) {
-            LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(null, null));
+            LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(null, null, false));
             AppLog.i(BppApplication.TAG, "launch gate: " + decision + " (" + gamePackage(gamePackage) + ")");
             return new LaunchCheck(null, null, facts, origin, null, decision, trusted, installedMods, modsFailed, null);
         }
@@ -91,11 +95,16 @@ final class LaunchCheck {
 
         LaunchGate.Adapted adapted = manifest.manifest == null ? null
                 : new LaunchGate.Adapted(manifest.manifest.game.versionCode, manifest.manifest.game.hash);
+        File devInterop = DevOverrides.interop(context);
         LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(
-                new LaunchGate.Installed(game.versionCode, hash, game.carriesInjectedLoader()), adapted));
-        AppLog.i(BppApplication.TAG, "launch gate: " + decision + (modsFailed ? ", last plugin install failed" : ""));
+                new LaunchGate.Installed(game.versionCode, hash, game.carriesInjectedLoader()), adapted,
+                devInterop != null));
+        AppLog.i(BppApplication.TAG, "launch gate: " + decision
+                + (decision.developmentInterop ? ", Development interop" : "")
+                + (decision.bppLaunch() ? ", BPP launch allowed" : ", no BPP launch")
+                + (modsFailed ? ", last plugin install failed" : ""));
         return new LaunchCheck(game, hash, facts, origin, manifest, decision, trusted, installedMods, modsFailed,
-                DevOverrides.interop(context));
+                devInterop);
     }
 
     private static String gamePackage(String override) {
@@ -122,6 +131,7 @@ final class LaunchCheck {
     String describe() {
         StringBuilder out = new StringBuilder();
         out.append("tier: ").append(decision).append('\n');
+        out.append("bppLaunch: ").append(decision.bppLaunch()).append('\n');
         out.append("game: ").append(game == null ? "not installed"
                 : game.versionName + " (" + game.versionCode + ") lastUpdateTime=" + game.lastUpdateTime
                         + " apks=" + game.apks.size()).append('\n');

@@ -6,8 +6,9 @@ namespace Architecture.Tests;
 
 /// <summary>
 /// Keeps the shared native-tooltip adapters feature-neutral and their native ownership out of
-/// features. Gate transitions, geometry settling, retry behavior, and teardown are executable
-/// behavior in NativePairedTooltipHost.Tests.
+/// features. NativePairedTooltipHost.Tests covers only the host's pure parts: placement math, the
+/// auxiliary-tooltip anomaly rules and the wait budget. No test runs the gate, settle, retry or
+/// teardown.
 /// </summary>
 public sealed class NativePairedTooltipArchitectureTests
 {

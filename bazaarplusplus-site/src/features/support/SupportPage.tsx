@@ -84,11 +84,11 @@ function SupportersBody({
   }
 
   if (isError) {
-    return <p className="text-[15px] text-text-2">{copy.errorNote}</p>;
+    return <p className="text-body text-text-2">{copy.errorNote}</p>;
   }
 
   if (ordered.length === 0) {
-    return <p className="text-[15px] text-text-2">{copy.emptyNote}</p>;
+    return <p className="text-body text-text-2">{copy.emptyNote}</p>;
   }
 
   return (
@@ -96,7 +96,7 @@ function SupportersBody({
       {ordered.map((supporter, index) => (
         <li
           key={`${supporter.name}:${index}`}
-          className={`inline-flex h-9 items-center rounded-full border px-3.5 text-[15px] ${tierClassName(supporter.tier)}`}
+          className={`inline-flex h-9 items-center rounded-full border px-3.5 text-body ${tierClassName(supporter.tier)}`}
         >
           {supporter.name}
         </li>
@@ -122,7 +122,7 @@ function SupportOption({
         <SectionHeading>{title}</SectionHeading>
         <Badge dot={false}>{regionLabel}</Badge>
       </div>
-      <p className="text-[15px] text-text-2">{description}</p>
+      <p className="text-body text-text-2">{description}</p>
       <div className="mt-auto pt-2">{action}</div>
     </article>
   );
@@ -183,7 +183,7 @@ export default function SupportPage({ location }: SupportPageProps) {
           <SectionHeading id={supportersHeadingId}>
             {copy.supporters.heading}
           </SectionHeading>
-          <p className="max-w-2xl text-[15px] text-text-2">
+          <p className="max-w-2xl text-body text-text-2">
             {copy.supporters.intro}
           </p>
         </header>

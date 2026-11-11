@@ -38,7 +38,7 @@ export default function SiteHeader({ location }: SiteHeaderProps) {
             decoding="sync"
             fetchPriority="high"
           />
-          <span className="text-[15px] font-semibold">
+          <span className="text-body font-semibold">
             {commonCopy.brand.name}
           </span>
         </a>
@@ -60,7 +60,7 @@ export default function SiteHeader({ location }: SiteHeaderProps) {
                 key={item.page}
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`inline-flex h-9 shrink-0 items-center rounded-control px-3 text-[15px] font-medium no-underline transition-colors duration-(--t-fast) ${
+                className={`inline-flex h-9 shrink-0 items-center rounded-control px-3 text-body font-medium no-underline transition-colors duration-(--t-fast) ${
                   active
                     ? 'bg-selected text-text-1'
                     : 'text-text-2 hover:bg-hover hover:text-text-1'

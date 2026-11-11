@@ -424,7 +424,7 @@ function BattleRow({
         <td>
           {battle.video ? (
             <div className="flex items-center justify-end gap-2">
-              <span className="text-fg-3 tnum text-sm selectable">
+              <span className="text-text-3 tnum text-sm selectable">
                 {formatDuration(battle.video.duration_ms, locale)} ·{' '}
                 {formatBytes(battle.video.file_size_bytes, locale)}
               </span>
@@ -460,7 +460,7 @@ function BattleRow({
             <span
               title={t('noVideo')}
               aria-label={t('noVideo')}
-              className="flex justify-end text-fg-3"
+              className="flex justify-end text-text-3"
             >
               <FileQuestion size={14} />
             </span>

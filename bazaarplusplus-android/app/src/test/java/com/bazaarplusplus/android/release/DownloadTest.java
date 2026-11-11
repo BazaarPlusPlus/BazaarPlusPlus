@@ -14,8 +14,11 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DownloadTest {
@@ -47,6 +50,29 @@ public class DownloadTest {
                 BODY.length + 1, sha(BODY), target, null));
         assertFalse(target.exists());
         assertFalse(new File(target.getPath() + ".download").exists());
+    }
+
+    @Test
+    public void theDownloadDigestIsGameCodeHashSha256InLowercaseHex() throws Exception {
+        assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", sha(new byte[0]));
+        // Larger than one 64 KiB read buffer and not a multiple of it.
+        byte[] large = new byte[3 * (1 << 16) + 123];
+        for (int i = 0; i < large.length; i++) large[i] = (byte) (i * 31 + 7);
+        for (byte[] bytes : new byte[][] {new byte[0], large}) {
+            String expected = sha(bytes);
+            File file = tmp.newFile();
+            Files.write(file.toPath(), bytes);
+            try (InputStream in = new FileInputStream(file)) {
+                assertEquals(expected, GameCodeHash.Sha256.of(in));
+            }
+            assertTrue(bytes.length + " bytes", Download.matches(file, bytes.length, expected));
+            assertFalse("uppercase hex is another digest",
+                    Download.matches(file, bytes.length, expected.toUpperCase(Locale.ROOT)));
+
+            File fetched = new File(tmp.getRoot(), "fetched-" + bytes.length + ".zip");
+            Download.fetch(() -> new ByteArrayInputStream(bytes), bytes.length, expected, fetched, null);
+            assertArrayEquals(bytes, Files.readAllBytes(fetched.toPath()));
+        }
     }
 
     @Test
