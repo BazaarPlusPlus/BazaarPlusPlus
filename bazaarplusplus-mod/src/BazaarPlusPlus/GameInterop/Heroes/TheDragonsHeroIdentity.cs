@@ -74,22 +74,6 @@ internal static class TheDragonsHeroIdentity
         return true;
     }
 
-    internal static bool TryCanonicalize(string? heroId, out string canonicalId)
-    {
-        canonicalId = string.Empty;
-        if (IsAlias(heroId))
-        {
-            canonicalId = CanonicalId;
-            return true;
-        }
-
-        if (!TryResolve(heroId, out var hero))
-            return false;
-
-        canonicalId = hero.ToString();
-        return true;
-    }
-
     internal static string ResolveDisplayName(EHero hero) => NativeDisplayNames.Resolve(hero);
 
     internal static string ResolveDisplayName(EHero hero, Func<EHero, string?> getNativeName) =>
