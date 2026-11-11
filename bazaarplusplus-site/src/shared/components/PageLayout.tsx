@@ -56,12 +56,12 @@ export function PageHeading({ title, intro, actions }: PageHeadingProps) {
     <section className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex max-w-3xl min-w-0 flex-col gap-3">
         <h1
-          className={`text-[24px] leading-[1.3] font-semibold tracking-[-0.01em] text-balance text-text-1 ${intro ? 'min-h-[2lh] sm:min-h-lh' : ''}`}
+          className={`text-display leading-[1.3] font-semibold tracking-[-0.01em] text-balance text-text-1 ${intro ? 'min-h-[2lh] sm:min-h-lh' : ''}`}
         >
           {title}
         </h1>
         {intro ? (
-          <p className="min-h-[2lh] max-w-[62ch] text-[15px] text-text-2 sm:min-h-lh">
+          <p className="min-h-[2lh] max-w-[62ch] text-body text-text-2 sm:min-h-lh">
             {intro}
           </p>
         ) : null}

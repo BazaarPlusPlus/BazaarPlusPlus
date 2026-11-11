@@ -1,45 +1,12 @@
-/* Tailwind bridge: utilities resolve to the :root tokens that design/tokens.json generates into the
-   installer's tokens.css, copied in before this file by global.css (bg-panel, text-text-2,
-   border-line, bg-accent/10). See docs/design.md. */
+/* The Tailwind bridge: utilities resolve to the :root tokens that global.css
+   imports before this file (bg-panel, text-text-2, border-line, text-body).
+   design/build.ts generates it from design/tokens.json. See docs/design.md. */
+@import '../../../design/tailwind-theme.css';
+
+/* The site's own theme values, beside the generated bridge. */
 @theme inline {
-  --color-*: initial;
   --color-black: #000;
   --color-white: #fff;
-  --color-canvas: var(--bg-canvas);
-  --color-sidebar: var(--bg-sidebar);
-  --color-panel: var(--bg-panel);
-  --color-hover: var(--bg-hover);
-  --color-selected: var(--bg-selected);
-  --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
-  --color-line-control: var(--line-control);
-  --color-text-1: var(--text-1);
-  --color-text-2: var(--text-2);
-  --color-text-3: var(--text-3);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-subtle: var(--accent-subtle);
-  --color-accent-line: var(--accent-line);
-  --color-on-accent: var(--on-accent);
-  --color-success: var(--success);
-  --color-success-subtle: var(--success-subtle);
-  --color-success-line: var(--success-line);
-  --color-warning: var(--warning);
-  --color-warning-subtle: var(--warning-subtle);
-  --color-warning-line: var(--warning-line);
-  --color-danger: var(--danger);
-  --color-danger-subtle: var(--danger-subtle);
-  --color-danger-line: var(--danger-line);
-  --color-danger-text: var(--danger-text);
-
-  --radius-inner: var(--r-inner);
-  --radius-control: var(--r-control);
-  --radius-panel: var(--r-panel);
-  --radius-dialog: var(--r-dialog);
-  --radius-pill: var(--r-pill);
-
-  --font-*: initial;
-  --font-sans: var(--font-ui);
 
   --animate-dialog-in: dialog-in var(--t-base) var(--ease) both;
 

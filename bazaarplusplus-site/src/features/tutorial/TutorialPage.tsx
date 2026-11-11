@@ -30,11 +30,11 @@ function FeatureCard({
           {formatStepNumber(index)}
         </span>
       </div>
-      <p className="text-[15px] whitespace-pre-line text-text-2">
+      <p className="text-body whitespace-pre-line text-text-2">
         {feature.description}
       </p>
       {feature.details.length > 0 ? (
-        <ul className="mt-auto flex flex-col gap-2 border-t border-line pt-3 text-[15px] text-text-2">
+        <ul className="mt-auto flex flex-col gap-2 border-t border-line pt-3 text-body text-text-2">
           {feature.details.map((detail) => (
             <li key={detail} className="flex gap-3">
               <span
@@ -73,9 +73,7 @@ function InstallationGuide({
             </span>
             <span className="grid gap-1">
               <span className="font-semibold text-text-1">{step.title}</span>
-              <span className="text-[15px] text-text-2">
-                {step.description}
-              </span>
+              <span className="text-body text-text-2">{step.description}</span>
             </span>
           </li>
         ))}
@@ -121,10 +119,10 @@ function HotkeyCard({ item }: { item: HotkeyItem }) {
         )}
       </div>
       <div className="grid min-w-0 gap-1">
-        <h3 className="text-[15px] leading-snug font-semibold text-text-1">
+        <h3 className="text-body leading-snug font-semibold text-text-1">
           {item.title}
         </h3>
-        <p className="text-[15px] break-words whitespace-pre-line text-text-2">
+        <p className="text-body break-words whitespace-pre-line text-text-2">
           {item.description}
         </p>
         {secondaryBindings.length > 0 ? (
@@ -159,10 +157,10 @@ function QuickStart({ copy }: { copy: TutorialPageCopy['quickStart'] }) {
             className="grid min-w-0 content-start gap-4"
           >
             <header className="grid gap-1">
-              <h3 className="text-[15px] font-semibold text-text-1">
+              <h3 className="text-body font-semibold text-text-1">
                 {group.title}
               </h3>
-              <p className="text-[15px] text-text-2">{group.description}</p>
+              <p className="text-body text-text-2">{group.description}</p>
               {group.note ? (
                 <p className="mt-2 w-fit max-w-full rounded-panel border border-line bg-sidebar px-3 py-2 text-sm break-words text-text-2">
                   {group.note}

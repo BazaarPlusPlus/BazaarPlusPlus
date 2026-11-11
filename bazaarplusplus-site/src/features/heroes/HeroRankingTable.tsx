@@ -341,7 +341,7 @@ export default function HeroRankingTable({
           {sortedRows.map((row) => (
             <tr
               key={row.hero}
-              className="group border-t border-line text-[15px] text-text-1 transition-colors duration-(--t-fast) hover:bg-hover"
+              className="group border-t border-line text-body text-text-1 transition-colors duration-(--t-fast) hover:bg-hover"
             >
               {RANKING_COLUMNS.map((column) => (
                 <Fragment key={column.key}>

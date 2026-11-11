@@ -1,27 +1,10 @@
 @import 'tailwindcss';
 @import './tokens.css';
+/* The Tailwind bridge: utilities read the tokens above (bg-panel, text-text-2,
+   text-body). design/build.ts generates it from design/tokens.json. */
+@import '../../../design/tailwind-theme.css';
 /* The shared bpp-* components; design/components/bundle.css owns them. */
 @import '../../../design/components/bundle.css';
-
-/* Tailwind utilities read the product tokens; there is no second palette. */
-@theme {
-  --color-canvas: var(--bg-canvas);
-  --color-sidebar: var(--bg-sidebar);
-  --color-panel: var(--bg-panel);
-  --color-hover: var(--bg-hover);
-  --color-selected: var(--bg-selected);
-  --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
-  --color-fg-1: var(--text-1);
-  --color-fg-2: var(--text-2);
-  --color-fg-3: var(--text-3);
-  --color-accent: var(--accent);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-danger: var(--danger);
-  --font-sans: var(--font-ui);
-  --font-mono: var(--font-mono);
-}
 
 /* Windows swaps in Noto Sans SC once the optional background download lands
    (features/shared/notoSansSc.ts). */

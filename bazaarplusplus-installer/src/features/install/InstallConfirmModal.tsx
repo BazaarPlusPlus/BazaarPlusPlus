@@ -42,7 +42,7 @@ export function InstallConfirmModal({
       onClose={onClose}
     >
       <ConfirmNote tone="neutral" icon={<BookOpen size={16} />}>
-        <p className="text-fg-1">{t('tutorialKicker')}</p>
+        <p className="text-text-1">{t('tutorialKicker')}</p>
         <p>{t('installModalBody')}</p>
         <a
           href="https://bazaarplusplus.com/tutorial"

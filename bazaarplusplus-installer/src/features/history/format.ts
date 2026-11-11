@@ -172,7 +172,7 @@ export function formatBattleResult(result: string): {
 export function toneColorClass(tone: 'ok' | 'bad' | undefined): string {
   if (tone === 'ok') return 'text-success';
   if (tone === 'bad') return 'text-danger';
-  return 'text-fg-3';
+  return 'text-text-3';
 }
 
 export function formatRunStatusKey(status: string): MessageKey {

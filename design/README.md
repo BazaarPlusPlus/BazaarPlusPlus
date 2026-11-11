@@ -82,7 +82,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
   - On macOS the title bar is the window's overlay title bar. It leaves 78px for the traffic lights (14px in full screen) and the whole bar is a drag region except its controls.
   - On Windows the window is frameless, with in-app window controls on the right (46px wide; close hovers `window-close` with white).
 - The rail lists the pages Install, History, Stream and About, with Support and the language toggle at its foot. Each item is a 22px icon over a 13px `micro` label, and the active item is `bg-selected` with an `accent` icon.
-- **Site:** a sticky header with the app icon, primary navigation and a language toggle over centred content, built from the same tokens through the Tailwind `@theme` bridge.
+- **Site:** a sticky header with the app icon, primary navigation and a language toggle over centred content, built from the same tokens through the generated Tailwind bridge (`tailwind-theme.css`), which the installer imports too.
 
 ## Elevation and borders
 
