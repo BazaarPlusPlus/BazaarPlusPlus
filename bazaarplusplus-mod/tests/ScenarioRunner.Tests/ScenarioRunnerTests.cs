@@ -13,8 +13,11 @@ public sealed partial class ScenarioRunnerTests
 {
     private const string SeedRunner = "LiveBuildRecommendations.Tests";
 
+    // The seed runner has its own test, and each ParallelScenarioRunner capsule its own class.
     public static IEnumerable<object[]> DefaultRunners() =>
-        RunnerProjects().Where(name => name != SeedRunner).Select(name => new object[] { name });
+        RunnerProjects()
+            .Where(name => name != SeedRunner && !ParallelScenarioRunner.Projects.Contains(name))
+            .Select(name => new object[] { name });
 
     [Theory]
     [MemberData(nameof(DefaultRunners))]
@@ -35,7 +38,7 @@ public sealed partial class ScenarioRunnerTests
     [Trait("TestKind", "EmbeddedSeed")]
     public Task Live_build_embedded_seed_passes() => RunAsync(SeedRunner);
 
-    private static Task RunAsync(string projectName) =>
+    internal static Task RunAsync(string projectName) =>
         RunAsync(projectName, [], new Dictionary<string, string>());
 
     private static async Task RunAsync(
@@ -114,7 +117,7 @@ public sealed partial class ScenarioRunnerTests
         );
     }
 
-    private static IReadOnlyList<string> RunnerProjects()
+    internal static IReadOnlyList<string> RunnerProjects()
     {
         var props = XDocument.Load(Path.Combine(RepoRoot(), "Directory.Build.props"));
         var raw = props.Descendants("BppScenarioRunnerProjects").Single().Value;

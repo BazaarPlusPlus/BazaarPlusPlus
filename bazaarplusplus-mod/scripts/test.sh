@@ -11,11 +11,17 @@ TEST_PROPS=(
 )
 
 # Keep each invocation's TRX and crash evidence, including when dotnet exits unsuccessfully.
+# xUnit has no timeout of its own, so a hung test would hold the job until CI kills it with no
+# evidence. The hang guard dumps and stops the test host when no test starts or ends for 5
+# minutes: above ScenarioRunner.Tests' own 2-minute limit per capsule, which kills the capsule
+# and names it first, and below every CI job limit. The dump type is the crash guard's, which
+# the macOS, Windows and Linux lanes already use.
 test_diagnostics() {
     mkdir -p "$MOD_ROOT/artifacts/tests"
     local results
     results="$(mktemp -d "$MOD_ROOT/artifacts/tests/$1.XXXXXX")"
-    TEST_DIAGNOSTICS=(--logger trx --results-directory "$results" --blame-crash --blame-crash-dump-type mini)
+    TEST_DIAGNOSTICS=(--logger trx --results-directory "$results" --blame-crash --blame-crash-dump-type mini
+        --blame-hang-timeout 5min --blame-hang-dump-type mini)
     step "Test evidence: $results"
 }
 
