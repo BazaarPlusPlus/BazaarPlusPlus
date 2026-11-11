@@ -1,6 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.CollectionPanel;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.PostCombatImpact;
 using BazaarPlusPlus.Game.Screenshots;

@@ -1,6 +1,6 @@
 using BazaarPlusPlus.Android.Game;
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 using Microsoft.Data.Sqlite;
 using Xunit;
 

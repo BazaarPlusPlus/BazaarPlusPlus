@@ -1,7 +1,7 @@
 using System.Reflection;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Infra.Serialization;
-using BazaarPlusPlus.TestSupport.EventPreview;
+using BazaarPlusPlus.TestSupport.EncounterPreview;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;

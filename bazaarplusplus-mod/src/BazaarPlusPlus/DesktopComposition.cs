@@ -12,7 +12,7 @@ using BazaarPlusPlus.Game.CombatReplay.Video;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.CosmeticNames;
 using BazaarPlusPlus.Game.DetailedPreview;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 using BazaarPlusPlus.Game.GraphicsUpscaling;
 using BazaarPlusPlus.Game.HeroPortraits;
 using BazaarPlusPlus.Game.HistoryPanel;
@@ -265,7 +265,7 @@ internal sealed class DesktopComposition : IDisposable
             );
         }
         _mountables.Register(
-            new ComponentMount<EventPreviewStaticDataObserver>(
+            new ComponentMount<EncounterPreviewStaticDataObserver>(
                 (observer, _) => observer.Initialize(_encounterPreviewPlans)
             )
         );

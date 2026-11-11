@@ -1,1 +1,1 @@
-global using BazaarPlusPlus.Game.EventPreview;
+global using BazaarPlusPlus.Game.EncounterPreview;

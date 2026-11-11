@@ -1,6 +1,6 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 using BazaarPlusPlus.Mobile.Previews;
 using HarmonyLib;
 using Il2CppTheBazaar.UI.Tooltips;
@@ -49,6 +49,8 @@ internal static class EncounterPreviewPatch
         )
             return null;
         var result = preview.Module.ResolveCard(new EncounterCardPreviewQuery(id, type, text));
-        return result.Availability == EventPreviewAvailability.Available ? result.Content : null;
+        return result.Availability == EncounterPreviewAvailability.Available
+            ? result.Content
+            : null;
     }
 }

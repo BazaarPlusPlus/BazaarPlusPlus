@@ -1,6 +1,6 @@
 #nullable enable
 #pragma warning disable CS0436, Harmony003
-using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.EncounterPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.Infrastructure;
@@ -74,6 +74,8 @@ internal static class EncounterEventTooltipPatch
         var preview = BppPatchHost.Features.EncounterPreview.ResolveCard(
             new EncounterCardPreviewQuery(card.TemplateId, type, nativeText)
         );
-        return preview.Availability == EventPreviewAvailability.Available ? preview.Content : null;
+        return preview.Availability == EncounterPreviewAvailability.Available
+            ? preview.Content
+            : null;
     }
 }

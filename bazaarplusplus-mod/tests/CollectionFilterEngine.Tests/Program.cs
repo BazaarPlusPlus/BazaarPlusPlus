@@ -2040,7 +2040,7 @@ var dayLegendary = Card("Day Legendary", CardTier.Legendary);
 var dayPool = new[] { dayBronze, daySilver, dayGold, dayDiamond, dayLegendary };
 
 // The host derives the ceiling from GameData weights (GameDataDayTierTable.FromWeights, tested
-// in EventPreview.Tests); the filter sees only the resulting tier.
+// in EncounterPreview.Tests); the filter sees only the resulting tier.
 var bronzeDayCeiling = CardTier.Bronze;
 var goldDayCeiling = CardTier.Gold;
 var diamondDayCeiling = CardTier.Diamond;
