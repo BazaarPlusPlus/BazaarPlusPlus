@@ -9,16 +9,11 @@ import {
   checkGameLibsLock,
   cliMain,
   fetchSnapshot,
-  androidGameStatus,
-  gameStatus,
   gameLibsStoreFromEnvironment,
-  gameStatusStoreFromEnvironment,
   lockEntryForManaged,
   managedDirectoryDigest,
   managedDirectoryRecords,
   previewBehindOnline,
-  publishAndroidGameStatus,
-  publishGameStatus,
   publishSnapshot,
   readGameVersion,
   staleSteamPlatforms,
@@ -27,12 +22,21 @@ import {
   steamStale
 } from './game-libs.ts';
 import type {
-  AndroidGameStatusDocument,
   CliOptions,
   FetchSnapshotOptions,
-  GameStatusDocument,
   SteamToolRunner
 } from './game-libs.ts';
+import {
+  androidGameStatus,
+  gameStatus,
+  gameStatusStoreFromEnvironment,
+  publishAndroidGameStatus,
+  publishGameStatus
+} from './game-status.ts';
+import type {
+  AndroidGameStatusDocument,
+  GameStatusDocument
+} from './game-status.ts';
 import {
   GAME_LIBS_LOCK_PATH,
   lockKeys,
