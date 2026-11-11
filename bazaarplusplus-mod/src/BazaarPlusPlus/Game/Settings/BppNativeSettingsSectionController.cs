@@ -49,7 +49,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
     private Button? _closeButton;
     private RectTransform? _sectionRoot;
     private RectTransform? _navigationRoot;
-    private int _lastPresentationHash;
+    private IReadOnlyList<BppSettingsRowState>? _lastStates;
     private float _nextStateProbeAt;
 
     internal static void TryInstall(ScrollSpyController scrollSpy)
@@ -237,52 +237,39 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         RemoveDonorArtifacts(sectionRoot);
 
         foreach (
-            var kind in new[]
-            {
-                BppSettingsControlKind.Toggle,
-                BppSettingsControlKind.Choice,
-                BppSettingsControlKind.Action,
-            }
+            var definition in BppSettingsSectionRules.BuildOrder(BppSettingsDockCatalog.Definitions)
         )
         {
-            foreach (var definition in BppSettingsDockCatalog.Definitions)
+            var sourceControl = definition.ControlKind switch
             {
-                if (definition.ControlKind != kind)
-                    continue;
+                BppSettingsControlKind.Toggle => (Selectable)toggleDonor,
+                BppSettingsControlKind.Choice => choiceDonor,
+                _ => actionDonor,
+            };
+            var sourceSection = FindDirectChildAncestor(content, sourceControl.transform);
+            if (sourceSection == null)
+                throw new InvalidOperationException($"No source section for '{definition.Key}'.");
 
-                var sourceControl = definition.ControlKind switch
-                {
-                    BppSettingsControlKind.Toggle => (Selectable)toggleDonor,
-                    BppSettingsControlKind.Choice => choiceDonor,
-                    _ => actionDonor,
-                };
-                var sourceSection = FindDirectChildAncestor(content, sourceControl.transform);
-                if (sourceSection == null)
-                    throw new InvalidOperationException(
-                        $"No source section for '{definition.Key}'."
-                    );
+            var sourceRow = FindSingleSelectableRow(sourceSection, sourceControl);
+            if (sourceRow == null)
+                throw new InvalidOperationException($"No source row for '{definition.Key}'.");
 
-                var sourceRow = FindSingleSelectableRow(sourceSection, sourceControl);
-                if (sourceRow == null)
-                    throw new InvalidOperationException($"No source row for '{definition.Key}'.");
-
-                var rowObject = Instantiate(
-                    sourceRow.gameObject,
-                    sectionRoot,
-                    worldPositionStays: false
+            var rowObject = Instantiate(
+                sourceRow.gameObject,
+                sectionRoot,
+                worldPositionStays: false
+            );
+            rowObject.name = RowObjectPrefix + definition.Key;
+            rowObject.SetActive(true);
+            StripNativeLocalization(rowObject.transform);
+            var rowRect = rowObject.GetComponent<RectTransform>();
+            if (rowRect == null)
+                throw new InvalidOperationException(
+                    $"Row '{definition.Key}' has no RectTransform."
                 );
-                rowObject.name = RowObjectPrefix + definition.Key;
-                rowObject.SetActive(true);
-                StripNativeLocalization(rowObject.transform);
-                var rowRect = rowObject.GetComponent<RectTransform>();
-                if (rowRect == null)
-                    throw new InvalidOperationException(
-                        $"Row '{definition.Key}' has no RectTransform."
-                    );
 
-                var view = ConfigureRow(definition, rowRect);
-                _rows.Add(view);
-            }
+            var view = ConfigureRow(definition, rowRect);
+            _rows.Add(view);
         }
 
         GroupToggleRows(sectionRoot);
@@ -318,16 +305,14 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
                 choice.onValueChanged = new TMP_Dropdown.DropdownEvent();
                 choice.onValueChanged.AddListener(selectedIndex =>
                 {
-                    var state = definition.ResolveChoiceState?.Invoke(CurrentLanguageCode);
-                    if (state == null)
-                        return;
-
-                    if (state.HasSyntheticCurrentOption && selectedIndex == 0)
-                        return;
-
-                    definition.SelectStandardChoice?.Invoke(
-                        selectedIndex - (state.HasSyntheticCurrentOption ? 1 : 0)
+                    var standard = BppSettingsSectionRules.StandardIndex(
+                        definition.ResolveChoiceState?.Invoke(CurrentLanguageCode),
+                        selectedIndex
                     );
+                    if (standard is not { } standardIndex)
+                        return;
+
+                    definition.SelectStandardChoice?.Invoke(standardIndex);
                     RefreshView(force: true);
                 });
                 RemoveOtherSelectables(rowRoot, choice);
@@ -349,10 +334,11 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
 
     private void ActivateAction(BppSettingsDockDefinition definition)
     {
-        if (!definition.IsActive())
+        var step = BppSettingsSectionRules.OnActionTap(definition);
+        if (step == BppSettingsActionStep.Ignore)
             return;
 
-        if (definition.CollapseAfterActivate)
+        if (step == BppSettingsActionStep.CloseThenRun)
             _closeButton?.onClick.Invoke();
 
         definition.Activate?.Invoke();
@@ -365,77 +351,43 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
             return;
 
         var languageCode = CurrentLanguageCode;
-        var presentationHash = 17;
-        foreach (var row in _rows)
-        {
-            presentationHash =
-                (presentationHash * 31) ^ row.Definition.IsVisible(languageCode).GetHashCode();
-            presentationHash = (presentationHash * 31) ^ row.Definition.Key.GetHashCode();
-            presentationHash = (presentationHash * 31) ^ row.Definition.IsActive().GetHashCode();
-            presentationHash =
-                (presentationHash * 31) ^ row.Definition.ResolveLabel(languageCode).GetHashCode();
-            switch (row.Definition.ControlKind)
-            {
-                case BppSettingsControlKind.Toggle:
-                    presentationHash =
-                        (presentationHash * 31)
-                        ^ (row.Definition.ReadToggle?.Invoke() == true).GetHashCode();
-                    presentationHash =
-                        (presentationHash * 31)
-                        ^ (row.Definition.IsInteractable?.Invoke() != false).GetHashCode();
-                    break;
-                case BppSettingsControlKind.Choice:
-                {
-                    var state = row.Definition.ResolveChoiceState?.Invoke(languageCode);
-                    if (state == null)
-                        break;
-                    presentationHash = (presentationHash * 31) ^ state.SelectedIndex;
-                    foreach (var option in state.Options)
-                        presentationHash = (presentationHash * 31) ^ option.GetHashCode();
-                    break;
-                }
-            }
-        }
+        var states = new BppSettingsRowState[_rows.Count];
+        for (var index = 0; index < _rows.Count; index++)
+            states[index] = BppSettingsSectionRules.Resolve(_rows[index].Definition, languageCode);
 
-        if (!force && presentationHash == _lastPresentationHash)
+        if (!force && _lastStates != null && BppSettingsSectionRules.SameState(_lastStates, states))
             return;
 
-        _lastPresentationHash = presentationHash;
-        foreach (var row in _rows)
+        _lastStates = states;
+        for (var index = 0; index < _rows.Count; index++)
         {
-            var visible = row.Definition.IsVisible(languageCode);
-            row.Root.gameObject.SetActive(visible);
-            if (visible)
-                ApplyRow(row, languageCode);
+            var row = _rows[index];
+            var state = states[index];
+            row.Root.gameObject.SetActive(state.Visible);
+            if (state.Visible)
+                ApplyRow(row, state);
         }
     }
 
-    private static void ApplyRow(NativeRowView row, string languageCode)
+    private static void ApplyRow(NativeRowView row, BppSettingsRowState state)
     {
-        SetRowLabel(row, row.Definition.ResolveLabel(languageCode));
-        switch (row.Definition.ControlKind)
+        SetRowLabel(row, state.Label);
+        switch (state.Kind)
         {
             case BppSettingsControlKind.Toggle when row.Toggle != null:
-                row.Toggle.SetIsOnWithoutNotify(row.Definition.ReadToggle?.Invoke() == true);
-                row.Toggle.interactable = row.Definition.IsInteractable?.Invoke() != false;
+                row.Toggle.SetIsOnWithoutNotify(state.ToggleOn);
+                row.Toggle.interactable = state.Interactable;
                 break;
-            case BppSettingsControlKind.Choice when row.Choice != null:
-            {
-                var state = row.Definition.ResolveChoiceState?.Invoke(languageCode);
-                if (state == null)
-                    break;
+            case BppSettingsControlKind.Choice when row.Choice != null && state.Resolved:
                 row.Choice.options.Clear();
                 foreach (var option in state.Options)
                     row.Choice.options.Add(new TMP_Dropdown.OptionData(option));
-                row.Choice.SetValueWithoutNotify(
-                    Mathf.Clamp(state.SelectedIndex, 0, Math.Max(0, row.Choice.options.Count - 1))
-                );
+                row.Choice.SetValueWithoutNotify(state.SelectedIndex);
                 row.Choice.RefreshShownValue();
-                row.Choice.interactable = true;
+                row.Choice.interactable = state.Interactable;
                 break;
-            }
             case BppSettingsControlKind.Action when row.Action != null:
-                row.Action.interactable = row.Definition.IsActive();
+                row.Action.interactable = state.Interactable;
                 break;
         }
     }

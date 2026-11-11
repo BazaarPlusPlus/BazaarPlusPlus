@@ -15,12 +15,14 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Android.Settings;
 
 /// <summary>
-/// The BazaarPlusPlus section of the game's own settings dialog on Android, the desktop's
-/// <c>BppNativeSettingsSectionController</c> on IL2CPP: before the dialog's scroll spy wakes, the
-/// Support section and its navigation toggle are cloned into a "BazaarPlusPlus" section and entry,
-/// and every row of <see cref="BppSettingsDockCatalog.Definitions"/> is a clone of a native row
-/// (a toggle, a dropdown, or a button) driven by its definition. The rows are the ones the host
-/// registered through Core's <see cref="SettingsDockEntryRegistry"/>, the desktop's model.
+/// The BazaarPlusPlus section of the game's own settings dialog on Android. Each row's order,
+/// state, change detection, dropdown index and action tap come from Core's
+/// <see cref="BppSettingsSectionRules"/>, as on the desktop; this class reads the language, finds
+/// the donors, clones the rows and writes the states onto them. Before the dialog's scroll spy
+/// wakes, the Support section and its navigation toggle are cloned into a "BazaarPlusPlus" section
+/// and entry, and every row of <see cref="BppSettingsDockCatalog.Definitions"/> is a clone of a
+/// native row (a toggle, a dropdown, or a button) driven by its definition. The rows are the ones
+/// the host registered through Core's <see cref="SettingsDockEntryRegistry"/>, the desktop's model.
 /// On the phone the toggles stay one per line, where the desktop pairs them, so a label keeps the
 /// content column's width. The rows keep the native look and size, and each is a
 /// <see cref="TouchMetrics.MinTargetDp"/> touch target: the section's spacing grows until a row and
@@ -54,7 +56,7 @@ internal sealed class AndroidNativeSettingsSection
     private readonly OptionsDialogController _dialog;
     private readonly Button? _closeButton;
     private readonly RectTransform _sectionRoot;
-    private int _lastPresentationHash;
+    private IReadOnlyList<BppSettingsRowState>? _lastStates;
     private float _nextRefreshAt;
     private bool _wasVisible;
     private string _screenKey = string.Empty;
@@ -381,46 +383,32 @@ internal sealed class AndroidNativeSettingsSection
         var header = SetSectionHeader(_sectionRoot);
         RemoveDonorRows(_sectionRoot, header);
 
-        foreach (
-            var kind in new[]
-            {
-                BppSettingsControlKind.Toggle,
-                BppSettingsControlKind.Choice,
-                BppSettingsControlKind.Action,
-            }
-        )
+        foreach (var definition in BppSettingsSectionRules.BuildOrder(definitions))
         {
-            foreach (var definition in definitions)
+            Selectable donor = definition.ControlKind switch
             {
-                if (definition.ControlKind != kind)
-                    continue;
-                Selectable donor = kind switch
-                {
-                    BppSettingsControlKind.Toggle => toggleDonor,
-                    BppSettingsControlKind.Choice => choiceDonor,
-                    _ => actionDonor,
-                };
-                var donorSection =
-                    FindDirectChildAncestor(content, donor.transform)
-                    ?? throw new InvalidOperationException(
-                        $"No donor section for '{definition.Key}'."
-                    );
-                var donorRow =
-                    FindSingleSelectableRow(donorSection, donor)
-                    ?? throw new InvalidOperationException($"No donor row for '{definition.Key}'.");
-                var rowObject = UnityEngine.Object.Instantiate(
-                    donorRow.gameObject,
-                    _sectionRoot,
-                    false
-                );
-                rowObject.name = RowObjectPrefix + definition.Key;
-                rowObject.SetActive(true);
-                StripNativeLocalization(rowObject.transform);
-                var rowRect =
-                    rowObject.GetComponent<RectTransform>()
-                    ?? throw new InvalidOperationException($"Row '{definition.Key}' has no rect.");
-                _rows.Add(ConfigureRow(definition, rowRect));
-            }
+                BppSettingsControlKind.Toggle => toggleDonor,
+                BppSettingsControlKind.Choice => choiceDonor,
+                _ => actionDonor,
+            };
+            var donorSection =
+                FindDirectChildAncestor(content, donor.transform)
+                ?? throw new InvalidOperationException($"No donor section for '{definition.Key}'.");
+            var donorRow =
+                FindSingleSelectableRow(donorSection, donor)
+                ?? throw new InvalidOperationException($"No donor row for '{definition.Key}'.");
+            var rowObject = UnityEngine.Object.Instantiate(
+                donorRow.gameObject,
+                _sectionRoot,
+                false
+            );
+            rowObject.name = RowObjectPrefix + definition.Key;
+            rowObject.SetActive(true);
+            StripNativeLocalization(rowObject.transform);
+            var rowRect =
+                rowObject.GetComponent<RectTransform>()
+                ?? throw new InvalidOperationException($"Row '{definition.Key}' has no rect.");
+            _rows.Add(ConfigureRow(definition, rowRect));
         }
     }
 
@@ -472,21 +460,24 @@ internal sealed class AndroidNativeSettingsSection
 
     private void SelectChoice(BppSettingsDockDefinition definition, int selected)
     {
-        var state = definition.ResolveChoiceState?.Invoke(CurrentLanguageCode);
-        if (state == null || (state.HasSyntheticCurrentOption && selected == 0))
+        var standard = BppSettingsSectionRules.StandardIndex(
+            definition.ResolveChoiceState?.Invoke(CurrentLanguageCode),
+            selected
+        );
+        if (standard is not { } standardIndex)
             return;
-        var standard = selected - (state.HasSyntheticCurrentOption ? 1 : 0);
-        Write(definition, "choice", standard);
-        definition.SelectStandardChoice?.Invoke(standard);
+        Write(definition, "choice", standardIndex);
+        definition.SelectStandardChoice?.Invoke(standardIndex);
         Refresh(force: true);
     }
 
     private void Activate(BppSettingsDockDefinition definition)
     {
-        if (!definition.IsActive())
+        var step = BppSettingsSectionRules.OnActionTap(definition);
+        if (step == BppSettingsActionStep.Ignore)
             return;
         Write(definition, "action", "activate");
-        if (definition.CollapseAfterActivate)
+        if (step == BppSettingsActionStep.CloseThenRun)
             _closeButton?.onClick.Invoke();
         definition.Activate?.Invoke();
         Refresh(force: true);
@@ -508,80 +499,49 @@ internal sealed class AndroidNativeSettingsSection
         if (_rows.Count == 0)
             return;
         var languageCode = CurrentLanguageCode;
-        var hash = 17;
-        foreach (var row in _rows)
-        {
-            var definition = row.Definition;
-            hash = (hash * 31) ^ definition.IsVisible(languageCode).GetHashCode();
-            hash = (hash * 31) ^ definition.Key.GetHashCode();
-            hash = (hash * 31) ^ definition.IsActive().GetHashCode();
-            hash = (hash * 31) ^ definition.ResolveLabel(languageCode).GetHashCode();
-            switch (definition.ControlKind)
-            {
-                case BppSettingsControlKind.Toggle:
-                    hash = (hash * 31) ^ (definition.ReadToggle?.Invoke() == true).GetHashCode();
-                    hash =
-                        (hash * 31) ^ (definition.IsInteractable?.Invoke() != false).GetHashCode();
-                    break;
-                case BppSettingsControlKind.Choice:
-                {
-                    var state = definition.ResolveChoiceState?.Invoke(languageCode);
-                    if (state == null)
-                        break;
-                    hash = (hash * 31) ^ state.SelectedIndex;
-                    foreach (var option in state.Options)
-                        hash = (hash * 31) ^ option.GetHashCode();
-                    break;
-                }
-            }
-        }
-        if (!force && hash == _lastPresentationHash)
+        var states = new BppSettingsRowState[_rows.Count];
+        for (var index = 0; index < _rows.Count; index++)
+            states[index] = BppSettingsSectionRules.Resolve(_rows[index].Definition, languageCode);
+        if (!force && _lastStates != null && BppSettingsSectionRules.SameState(_lastStates, states))
             return;
-        _lastPresentationHash = hash;
+        _lastStates = states;
         _refreshes++;
-        foreach (var row in _rows)
+        for (var index = 0; index < _rows.Count; index++)
         {
-            var visible = row.Definition.IsVisible(languageCode);
-            row.Root.gameObject.SetActive(visible);
-            if (visible)
-                ApplyRow(row, languageCode);
+            var row = _rows[index];
+            var state = states[index];
+            row.Root.gameObject.SetActive(state.Visible);
+            if (state.Visible)
+                ApplyRow(row, state);
         }
         RebuildLayout();
     }
 
-    private static void ApplyRow(RowView row, string languageCode)
+    private static void ApplyRow(RowView row, BppSettingsRowState state)
     {
-        SetRowLabel(row, row.Definition.ResolveLabel(languageCode));
-        switch (row.Definition.ControlKind)
+        SetRowLabel(row, state.Label);
+        switch (state.Kind)
         {
             case BppSettingsControlKind.Toggle when row.Toggle != null:
-                row.Toggle.SetIsOnWithoutNotify(row.Definition.ReadToggle?.Invoke() == true);
-                row.Toggle.interactable = row.Definition.IsInteractable?.Invoke() != false;
+                row.Toggle.SetIsOnWithoutNotify(state.ToggleOn);
+                row.Toggle.interactable = state.Interactable;
                 break;
-            case BppSettingsControlKind.Choice when row.Choice != null:
-            {
-                var state = row.Definition.ResolveChoiceState?.Invoke(languageCode);
-                if (state == null)
-                    break;
+            case BppSettingsControlKind.Choice when row.Choice != null && state.Resolved:
                 row.Choice.options.Clear();
                 foreach (var option in state.Options)
                     row.Choice.options.Add(new TMP_Dropdown.OptionData(option));
-                row.Choice.SetValueWithoutNotify(
-                    Math.Clamp(state.SelectedIndex, 0, Math.Max(0, row.Choice.options.Count - 1))
-                );
+                row.Choice.SetValueWithoutNotify(state.SelectedIndex);
                 row.Choice.RefreshShownValue();
-                row.Choice.interactable = true;
+                row.Choice.interactable = state.Interactable;
                 break;
-            }
             case BppSettingsControlKind.Action when row.Action != null:
             {
-                var active = row.Definition.IsActive();
-                row.Action.interactable = active;
+                row.Action.interactable = state.Interactable;
                 // The donor button keeps its colors when not interactable; dim it instead.
                 var group =
                     row.Root.GetComponent<CanvasGroup>()
                     ?? row.Root.gameObject.AddComponent<CanvasGroup>();
-                group.alpha = active ? 1f : InactiveAlpha;
+                group.alpha = state.Interactable ? 1f : InactiveAlpha;
                 break;
             }
         }

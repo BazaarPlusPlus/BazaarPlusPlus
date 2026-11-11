@@ -1223,10 +1223,14 @@ public class SettingsDockRegistryTests
             return;
         }
 
+        // The next shown option after the current one; a synthetic current value goes to the first.
         var state = definition.ResolveChoiceState!("en");
-        var standardCount = state.Options.Count - (state.HasSyntheticCurrentOption ? 1 : 0);
-        var currentStandardIndex = state.HasSyntheticCurrentOption ? -1 : state.SelectedIndex;
-        definition.SelectStandardChoice!((currentStandardIndex + 1) % standardCount);
+        var nextShown = state.HasSyntheticCurrentOption
+            ? 1
+            : (state.SelectedIndex + 1) % state.Options.Count;
+        definition.SelectStandardChoice!(
+            BppSettingsSectionRules.StandardIndex(state, nextShown)!.Value
+        );
     }
 
     private static ISettingsDockEntry CreateCyclingEntry(string key) =>
