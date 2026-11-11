@@ -5,7 +5,7 @@ use rusqlite::params;
 pub use crate::history::dto::{HistoryRunDetail, HistoryRunList, HistorySummary};
 
 use crate::history::dto::HistoryRunDetail as HistoryRunDetailDto;
-use crate::history::files::{remove_video_file, resolve_data_file_path, resolve_screenshot_path};
+use crate::history::files::{remove_video_file, resolve_screenshot_path, resolve_stored_path};
 use crate::history::mapper::{map_run_to_detail_row, map_run_to_list_row};
 use crate::history::queries::{
     self, list_run_rows, load_battle_rows, load_battle_video_ref, load_run_row, load_summary,
@@ -100,7 +100,7 @@ pub fn load_battle_video_path(
 ) -> anyhow::Result<Option<PathBuf>> {
     let conn = open_connection(database_path)?;
     let row = load_battle_video_ref(&conn, battle_id, video_id)?;
-    Ok(row.and_then(|video| resolve_data_file_path(video_dir, &video.relative_path)))
+    Ok(row.and_then(|video| resolve_stored_path(video_dir, &video.relative_path)))
 }
 
 pub fn load_run_id_for_battle(

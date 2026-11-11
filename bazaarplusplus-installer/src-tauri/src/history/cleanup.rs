@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use crate::history::files::{resolve_cleanup_file_path, resolve_data_file_path};
+use crate::history::files::{resolve_stored_path, StoredPathReferences, StoredRelativePath};
 use crate::history::queries::{open_cleanup_connection, open_connection};
 use crate::services::game_process::GameProcessProbe;
 
@@ -297,20 +297,20 @@ impl CleanupSession {
         }
         let mut statement = self.conn.prepare(reference_query)?;
         let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
-        let mut referenced = HashSet::new();
+        let mut referenced = StoredPathReferences::default();
         for row in rows {
-            if let Some(path) = resolve_data_file_path(root, &row?) {
-                referenced.insert(path);
-            }
+            referenced.insert(&row?);
         }
         let mut visited = HashSet::new();
         for candidate in candidates {
-            let Some(path) = resolve_cleanup_file_path(root, &candidate) else {
+            // A candidate the stored-path rule rejects names no file to unlink.
+            let Some(candidate) = StoredRelativePath::parse(&candidate) else {
                 continue;
             };
-            if referenced.contains(&path) || !visited.insert(path.clone()) {
+            if referenced.protects(&candidate) || !visited.insert(candidate.clone()) {
                 continue;
             }
+            let path = candidate.under(root);
             let bytes = file_size(&path);
             match remove_file_if_exists(&path) {
                 Ok(true) => {
@@ -318,7 +318,7 @@ impl CleanupSession {
                     outcome.freed_bytes += bytes;
                 }
                 Ok(false) => {}
-                Err(err) => outcome.failed.push((candidate, err)),
+                Err(err) => outcome.failed.push((candidate.as_str().to_string(), err)),
             }
         }
         Ok(())
@@ -326,7 +326,8 @@ impl CleanupSession {
 }
 
 /// What the unlinks of one cleanup execution did. `failed` keeps each
-/// candidate whose file is still on disk, with its error.
+/// candidate whose file is still on disk, as its `StoredRelativePath` key,
+/// with its error.
 #[derive(Default)]
 struct UnlinkOutcome {
     deleted_files: i64,
@@ -382,7 +383,7 @@ fn write_video_unlink_retries(
     }
     let text = failed
         .iter()
-        .map(|(candidate, _)| format!("{}\n", normalize_relative_path(candidate)))
+        .map(|(candidate, _)| format!("{candidate}\n"))
         .collect::<String>();
     std::fs::write(&path, text)
         .map_err(|err| anyhow!("failed to write the cleanup retry record: {err}"))
@@ -551,9 +552,9 @@ pub fn plan_run_data_cleanup(
     let retry_videos = read_video_unlink_retries(data_root)?
         .into_iter()
         .filter(|relative| {
-            !remaining_video_paths.contains(&normalize_relative_path(relative))
-                && resolve_cleanup_file_path(&videos_dir, relative)
-                    .is_some_and(|path| path.exists())
+            StoredRelativePath::parse(relative).is_some_and(|relative| {
+                !remaining_video_paths.protects(&relative) && relative.under(&videos_dir).exists()
+            })
         })
         .collect::<Vec<_>>();
     estimated_bytes += estimate_video_bytes(
@@ -882,9 +883,9 @@ fn run_screenshot_items(
 fn remaining_screenshot_relative_paths_after_run_cleanup(
     conn: &Connection,
     planned_run_ids: &[String],
-) -> anyhow::Result<HashSet<String>> {
+) -> anyhow::Result<StoredPathReferences> {
     if planned_run_ids.is_empty() {
-        return Ok(HashSet::new());
+        return Ok(StoredPathReferences::default());
     }
 
     let planned_run_ids = planned_run_ids
@@ -896,7 +897,7 @@ fn remaining_screenshot_relative_paths_after_run_cleanup(
         Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?))
     })?;
 
-    let mut paths = HashSet::new();
+    let mut paths = StoredPathReferences::default();
     for row in rows {
         let (run_id, image_relative_path) = row?;
         if run_id
@@ -905,10 +906,7 @@ fn remaining_screenshot_relative_paths_after_run_cleanup(
         {
             continue;
         }
-        let normalized = normalize_relative_path(&image_relative_path);
-        if !normalized.is_empty() {
-            paths.insert(normalized);
-        }
+        paths.insert(&image_relative_path);
     }
     Ok(paths)
 }
@@ -916,7 +914,7 @@ fn remaining_screenshot_relative_paths_after_run_cleanup(
 fn remaining_video_relative_paths_after_run_cleanup(
     conn: &Connection,
     planned_run_ids: &[String],
-) -> anyhow::Result<HashSet<String>> {
+) -> anyhow::Result<StoredPathReferences> {
     let planned_run_ids = planned_run_ids
         .iter()
         .map(String::as_str)
@@ -930,7 +928,7 @@ fn remaining_video_relative_paths_after_run_cleanup(
         Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?))
     })?;
 
-    let mut paths = HashSet::new();
+    let mut paths = StoredPathReferences::default();
     for row in rows {
         let (run_id, video_relative_path) = row?;
         if run_id
@@ -939,10 +937,7 @@ fn remaining_video_relative_paths_after_run_cleanup(
         {
             continue;
         }
-        let normalized = normalize_relative_path(&video_relative_path);
-        if !normalized.is_empty() {
-            paths.insert(normalized);
-        }
+        paths.insert(&video_relative_path);
     }
     Ok(paths)
 }
@@ -950,8 +945,9 @@ fn remaining_video_relative_paths_after_run_cleanup(
 /// Replay payload path: `<CombatReplays>/<battleId>.payload.mpack.gz`.
 pub(crate) fn replay_payload_path(replays_dir: &Path, battle_id: &str) -> Option<PathBuf> {
     let trimmed = battle_id.trim();
-    // `:` guards against a Windows drive-relative id like `C:target`, which has
-    // no `/`/`\\` yet escapes `replays_dir` when joined via its drive prefix.
+    // A battle id must name one file, which is narrower than the stored-path
+    // rule: no separator, no `:` and no `..` anywhere in it. The file name it
+    // gives then resolves through that rule like every other stored path.
     if trimmed.is_empty()
         || trimmed.contains('/')
         || trimmed.contains('\\')
@@ -960,8 +956,7 @@ pub(crate) fn replay_payload_path(replays_dir: &Path, battle_id: &str) -> Option
     {
         return None;
     }
-    let path = replays_dir.join(format!("{trimmed}.payload.mpack.gz"));
-    path.starts_with(replays_dir).then_some(path)
+    resolve_stored_path(replays_dir, &format!("{trimmed}.payload.mpack.gz"))
 }
 
 fn eligible_screenshots(
@@ -1026,10 +1021,10 @@ fn pending_upload_count(conn: &Connection, cutoff_ms: Option<i64>) -> anyhow::Re
 struct ScreenshotRelativePathSets {
     /// Every referenced path, including those of the planned items. Feeds the
     /// orphan sweep, which must not treat a planned row's file as unreferenced.
-    all: HashSet<String>,
+    all: StoredPathReferences,
     /// Paths still referenced once the planned rows are gone. Feeds the
     /// shared-file guard that keeps a surviving row's image on disk.
-    remaining: HashSet<String>,
+    remaining: StoredPathReferences,
 }
 
 fn screenshot_relative_path_sets(
@@ -1046,32 +1041,27 @@ fn screenshot_relative_path_sets(
         Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
     })?;
 
-    let mut all = HashSet::new();
-    let mut remaining = HashSet::new();
+    let mut all = StoredPathReferences::default();
+    let mut remaining = StoredPathReferences::default();
     for row in rows {
         let (screenshot_id, image_relative_path) = row?;
-        let normalized = normalize_relative_path(&image_relative_path);
-        if normalized.is_empty() {
-            continue;
-        }
         if !planned_ids.contains(screenshot_id.as_str()) {
-            remaining.insert(normalized.clone());
+            remaining.insert(&image_relative_path);
         }
-        all.insert(normalized);
+        all.insert(&image_relative_path);
     }
     Ok(ScreenshotRelativePathSets { all, remaining })
 }
 
 fn mark_video_file_deletions(
     items: Vec<RunDataVideoCleanupItem>,
-    remaining_referenced_paths: &HashSet<String>,
+    remaining_referenced_paths: &StoredPathReferences,
 ) -> Vec<RunDataVideoCleanupItem> {
     items
         .into_iter()
         .map(|mut item| {
-            let normalized = normalize_relative_path(&item.relative_path);
-            item.delete_video_file =
-                !normalized.is_empty() && !remaining_referenced_paths.contains(&normalized);
+            item.delete_video_file = StoredRelativePath::parse(&item.relative_path)
+                .is_some_and(|path| !remaining_referenced_paths.protects(&path));
             item
         })
         .collect()
@@ -1079,14 +1069,13 @@ fn mark_video_file_deletions(
 
 fn mark_screenshot_file_deletions(
     items: Vec<ScreenshotCleanupItem>,
-    remaining_referenced_paths: &HashSet<String>,
+    remaining_referenced_paths: &StoredPathReferences,
 ) -> Vec<ScreenshotCleanupItem> {
     items
         .into_iter()
         .map(|mut item| {
-            let normalized = normalize_relative_path(&item.image_relative_path);
-            item.delete_image_file =
-                !normalized.is_empty() && !remaining_referenced_paths.contains(&normalized);
+            item.delete_image_file = StoredRelativePath::parse(&item.image_relative_path)
+                .is_some_and(|path| !remaining_referenced_paths.protects(&path));
             item
         })
         .collect()
@@ -1099,10 +1088,10 @@ fn estimate_video_bytes<'a>(
     let mut estimated_paths = HashSet::new();
     relative_paths
         .filter_map(|relative_path| {
-            let path = resolve_cleanup_file_path(videos_dir, relative_path)?;
-            let normalized = normalize_relative_path(relative_path);
+            let relative_path = StoredRelativePath::parse(relative_path)?;
+            let path = relative_path.under(videos_dir);
             estimated_paths
-                .insert(normalized)
+                .insert(relative_path)
                 .then_some(file_size(&path))
         })
         .sum()
@@ -1110,7 +1099,7 @@ fn estimate_video_bytes<'a>(
 
 fn scan_orphan_screenshot_files(
     screenshots_dir: &Path,
-    referenced_paths: &HashSet<String>,
+    referenced_paths: &StoredPathReferences,
     cutoff_local_date: Option<NaiveDate>,
     today_local_date: NaiveDate,
 ) -> Vec<PathBuf> {
@@ -1176,7 +1165,7 @@ fn scan_orphan_screenshot_files(
 fn collect_dated_folder_orphan_files(
     screenshots_dir: &Path,
     directory: &Path,
-    referenced_paths: &HashSet<String>,
+    referenced_paths: &StoredPathReferences,
     orphan_files: &mut Vec<PathBuf>,
 ) {
     let Ok(entries) = std::fs::read_dir(directory) else {
@@ -1198,8 +1187,11 @@ fn collect_dated_folder_orphan_files(
         let Ok(relative) = path.strip_prefix(screenshots_dir) else {
             continue;
         };
-        let relative = relative.to_string_lossy();
-        if !referenced_paths.contains(&normalize_relative_path(&relative)) {
+        // A file name the stored-path rule rejects (`C:x.png`) is not an
+        // orphan: no candidate History unlinks can name it.
+        if StoredRelativePath::parse(&relative.to_string_lossy())
+            .is_some_and(|relative| !referenced_paths.protects(&relative))
+        {
             orphan_files.push(path);
         }
     }
@@ -1211,24 +1203,13 @@ fn estimate_screenshot_bytes(screenshots_dir: &Path, items: &[ScreenshotCleanupI
         .iter()
         .filter(|item| item.delete_image_file)
         .filter_map(|item| {
-            let path = resolve_cleanup_file_path(screenshots_dir, &item.image_relative_path)?;
-            let normalized = normalize_relative_path(&item.image_relative_path);
+            let relative_path = StoredRelativePath::parse(&item.image_relative_path)?;
+            let path = relative_path.under(screenshots_dir);
             estimated_paths
-                .insert(normalized)
+                .insert(relative_path)
                 .then_some(file_size(&path))
         })
         .sum()
-}
-
-pub(crate) fn normalize_relative_path(path: &str) -> String {
-    path.trim()
-        .split(['/', '\\'])
-        .filter_map(|segment| {
-            let segment = segment.trim();
-            (!segment.is_empty() && segment != "." && segment != "..").then_some(segment)
-        })
-        .collect::<Vec<_>>()
-        .join("/")
 }
 
 fn file_size(path: &Path) -> i64 {
