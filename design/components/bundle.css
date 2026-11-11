@@ -71,13 +71,13 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-brand-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--type-body-strong);
   font-weight: 600;
   white-space: nowrap;
 }
 .bpp-brand-version {
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
   font-variant-numeric: tabular-nums;
 }
 .bpp-header-actions {
@@ -176,13 +176,13 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-menu-title {
   display: block;
-  font-size: 15px;
+  font-size: var(--type-body-medium);
   font-weight: 500;
 }
 .bpp-menu-subtitle {
   display: block;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-qr-popover {
   left: 50%;
@@ -217,14 +217,14 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-qr-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--type-body-strong);
   font-weight: 600;
   text-align: center;
 }
 .bpp-qr-subtitle {
   margin: 2px 0 0;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-caption);
   text-align: center;
 }
 @keyframes bpp-float-in {
@@ -290,7 +290,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   border-radius: var(--r-panel);
   color: var(--text-2);
   background: transparent;
-  font-size: 13px;
+  font-size: var(--type-micro);
   font-weight: 500;
   line-height: 1.2;
   text-decoration: none;
@@ -369,7 +369,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-page-title {
   margin: 0;
   overflow: hidden;
-  font-size: 24px;
+  font-size: var(--type-display);
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.01em;
@@ -381,7 +381,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-page-meta {
   color: var(--text-3);
-  font-size: 15px;
+  font-size: var(--type-body);
 }
 .bpp-page-actions {
   display: flex;
@@ -394,7 +394,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-section-title {
   margin: 4px 0 -8px;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-small);
   font-weight: 500;
 }
 .bpp-panel {
@@ -410,7 +410,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-panel-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--type-body-strong);
   font-weight: 600;
 }
 .bpp-row {
@@ -437,7 +437,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-row-description {
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-kv {
   display: grid;
@@ -496,7 +496,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-btn-md {
   height: 36px;
   padding: 0 12px;
-  font-size: 15px;
+  font-size: var(--type-body);
 }
 .bpp-btn-md svg {
   width: 16px;
@@ -505,7 +505,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-btn-sm {
   height: 30px;
   padding: 0 8px;
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-btn-sm svg {
   width: 14px;
@@ -604,7 +604,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   border-radius: var(--r-pill);
   color: var(--text-2);
   background: var(--bg-hover);
-  font-size: 14px;
+  font-size: var(--type-small);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -655,7 +655,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   border-radius: var(--r-pill);
   color: var(--tier);
   background: color-mix(in srgb, var(--tier) 14%, transparent);
-  font-size: 14px;
+  font-size: var(--type-small);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -687,7 +687,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   border: 1px solid var(--line);
   border-radius: var(--r-panel);
   background: var(--bg-panel);
-  font-size: 15px;
+  font-size: var(--type-body);
 }
 .bpp-banner.is-warning {
   border-color: var(--warning-line);
@@ -733,7 +733,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-banner-diagnostic summary {
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-banner-diagnostic pre {
   margin: 6px 0 0;
@@ -742,7 +742,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   color: var(--text-2);
   background: var(--bg-canvas);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--type-code-small);
   white-space: pre-wrap;
 }
 
@@ -819,14 +819,14 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-toast-message {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--type-body);
 }
 .bpp-toast-action {
   padding: 0;
   border: 0;
   color: var(--accent);
   background: none;
-  font-size: 14px;
+  font-size: var(--type-caption);
   font-weight: 600;
 }
 .bpp-toast-action:hover {
@@ -865,13 +865,13 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-toast-title {
   margin: 0;
   color: var(--text-1);
-  font-size: 15px;
+  font-size: var(--type-body-strong);
   font-weight: 600;
   line-height: 24px;
 }
 .bpp-toast.is-prompt .bpp-toast-message {
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-toast-footer {
   display: flex;
@@ -961,13 +961,13 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-dialog-title {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--type-title);
   font-weight: 600;
 }
 .bpp-dialog-subtitle {
   margin: 0;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-dialog-body {
   display: flex;
@@ -992,7 +992,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-confirm-blocked-status {
   margin: 0 auto 0 0;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-confirm-ack {
   display: flex;
@@ -1049,7 +1049,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   color: var(--text-2);
   background: var(--bg-canvas);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--type-code);
   overflow-wrap: anywhere;
 }
 .bpp-dialog-link {
@@ -1070,7 +1070,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   gap: 4px 12px;
   margin: 0;
   font-family: var(--font-ui);
-  font-size: 15px;
+  font-size: var(--type-body);
 }
 .bpp-video-delete-summary dt {
   color: var(--text-3);
@@ -1085,7 +1085,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-video-delete-diagnostics summary {
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-video-delete-diagnostics p {
   margin: 6px 0 0;
@@ -1097,7 +1097,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   border-radius: var(--r-panel);
   color: var(--text-2);
   background: var(--bg-canvas);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 .bpp-details summary {
   display: flex;
@@ -1125,7 +1125,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   border-radius: var(--r-control);
   color: var(--text-1);
   background: var(--bg-canvas);
-  font-size: 15px;
+  font-size: var(--type-body);
   transition:
     border-color var(--t-fast) var(--ease),
     box-shadow var(--t-fast) var(--ease);
@@ -1175,7 +1175,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-field-label {
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-small);
   font-weight: 500;
 }
 .bpp-field-row {
@@ -1210,7 +1210,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   padding: 0 12px;
   border-radius: var(--r-inner);
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--type-small);
   font-weight: 500;
   transition:
     background var(--t-fast) var(--ease),
@@ -1266,14 +1266,14 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-status-panel-title {
   margin: 4px 0 0;
   color: var(--text-1);
-  font-size: 18px;
+  font-size: var(--type-title);
   font-weight: 600;
   line-height: 1.4;
   text-wrap: balance;
 }
 /* A status that replaces the whole page carries the page's h1. */
 .bpp-status-panel-title.is-page {
-  font-size: 24px;
+  font-size: var(--type-display);
   line-height: 1.3;
 }
 .bpp-status-panel-body {
@@ -1293,7 +1293,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   gap: 8px;
   margin: 0;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--type-caption);
 }
 
 /* Folded section: a summary row that opens a list of rows. */
@@ -1342,7 +1342,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   border-radius: var(--r-pill);
   color: var(--text-1);
   background: var(--bg-hover);
-  font-size: 14px;
+  font-size: var(--type-small);
   font-weight: 500;
   line-height: 1.33;
   white-space: nowrap;

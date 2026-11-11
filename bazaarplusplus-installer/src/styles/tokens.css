@@ -90,4 +90,14 @@
   /* Type */
   --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+  --type-display: 24px;
+  --type-title: 18px;
+  --type-body: 15px;
+  --type-body-medium: 15px;
+  --type-body-strong: 15px;
+  --type-small: 14px;
+  --type-caption: 14px;
+  --type-micro: 13px;
+  --type-code: 14px;
+  --type-code-small: 13px;
 }

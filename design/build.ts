@@ -162,7 +162,7 @@ const supporterAttributionPath = path.join(
 );
 
 // Families emitted as custom properties, in output order. `type` contributes
-// its font stacks; its styles are documentation for the design system page.
+// its font stacks and one `--type-<style>` font size per text style.
 const FAMILIES: readonly TokenFamily[] = [
   'color',
   'spacing',
@@ -214,6 +214,9 @@ export function buildTokensCss(tokens: DesignTokens): string {
   for (const [key, stack] of Object.entries(tokens.type.families)) {
     lines.push(`  --font-${key}: ${stack};`);
   }
+  for (const style of typeStyles(tokens)) {
+    lines.push(`  --type-${style.name}: ${style.size}px;`);
+  }
   lines.push('}', '');
   return lines.join('\n');
 }
@@ -224,6 +227,7 @@ function tokenNames(tokens: DesignTokens): Set<string> {
     for (const token of tokens[family]?.tokens ?? []) names.add(token.name);
   }
   for (const key of Object.keys(tokens.type.families)) names.add(`font-${key}`);
+  for (const style of typeStyles(tokens)) names.add(`type-${style.name}`);
   return names;
 }
 
@@ -238,6 +242,24 @@ function undefinedBundleVars(tokens: DesignTokens): string[] {
   return [...new Set([...css.matchAll(/var\(--([\w-]+)/g)].map((m) => m[1]))]
     .filter((name) => !known.has(name) && !declared.has(name))
     .sort();
+}
+
+// A font size in the shared stylesheet is a `--type-*` token, never a px
+// literal; a relative size (`0.94em`) follows its parent and stays.
+export function pxFontSizes(css: string): string[] {
+  const problems: string[] = [];
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, (comment) =>
+    comment.replace(/[^\n]/g, ' ')
+  );
+  text.split('\n').forEach((line, index) => {
+    const value = /(?:^|[;{\s])font-size\s*:\s*([^;}]*)/.exec(line)?.[1];
+    if (value && /\d(?:\.\d+)?px\b/.test(value)) {
+      problems.push(
+        `design/components/bundle.css:${index + 1} sets font-size: ${value.trim()}; use a --type-* token`
+      );
+    }
+  });
+  return problems;
 }
 
 function resolveColor(
@@ -614,6 +636,7 @@ function main(argv: readonly string[]): void {
       `design/components/bundle.css reads undefined tokens: ${missing.join(', ')}`
     );
   }
+  problems.push(...pxFontSizes(fs.readFileSync(bundlePath, 'utf8')));
   problems.push(...heroMismatches(tokens));
   problems.push(...supporterMismatches(tokens));
   problems.push(...staleLauncherIcon());
