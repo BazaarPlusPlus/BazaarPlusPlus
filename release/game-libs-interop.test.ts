@@ -28,7 +28,12 @@ import type {
   CaptureInteropSnapshotOptions,
   GenerateInteropOptions
 } from './interop-snapshot.ts';
-import { officialApkChanged, recordApkEtag } from './official-apk.ts';
+import {
+  downloadedApkKind,
+  etagOfHeaders,
+  officialApkChanged,
+  recordApkEtag
+} from './official-apk.ts';
 import type { ApkHeadFetch } from './official-apk.ts';
 import {
   GAME_LIBS_LOCK_PATH,
@@ -1077,6 +1082,110 @@ test('official-apk prints changed or unchanged and fails when the publisher cann
     out: [],
     err: 'HEAD https://data.playthebazaar.com/game/android/TheBazaar.apk answered 503\n'
   });
+}, 60000);
+
+test('a downloaded APK is captured when its bytes differ and has its ETag recorded when only that differs', () => {
+  const locked = { apkSha256: 'a'.repeat(64), apkEtag: 'v1' };
+  const other = 'b'.repeat(64);
+  expect(downloadedApkKind(locked, locked.apkSha256, 'v1')).toBe('none');
+  expect(downloadedApkKind(locked, locked.apkSha256, 'v2')).toBe('etag');
+  // Without a strong ETag there is nothing to record.
+  expect(downloadedApkKind(locked, locked.apkSha256, null)).toBe('none');
+  // Other bytes are a capture whatever the ETag says.
+  expect(downloadedApkKind(locked, other, 'v1')).toBe('capture');
+  expect(downloadedApkKind(locked, other, null)).toBe('capture');
+  // A manual capture recorded no ETag: the first strong one is recorded.
+  const manual = { ...locked, apkEtag: null };
+  expect(downloadedApkKind(manual, locked.apkSha256, 'v1')).toBe('etag');
+  expect(downloadedApkKind(manual, locked.apkSha256, null)).toBe('none');
+});
+
+test('the ETag of a download is the last strong one in the dumped headers', () => {
+  const block = (etag: string) =>
+    `HTTP/2 200\r\ncontent-length: 10\r\n${etag}\r\n\r\n`;
+  expect(etagOfHeaders(block('etag: "v1"'))).toBe('v1');
+  expect(etagOfHeaders(block('ETag:   "v1"  '))).toBe('v1');
+  // A redirect dumps one block per response; the bytes came with the last.
+  expect(
+    etagOfHeaders(
+      `HTTP/2 302\r\netag: "redirect"\r\n\r\n${block('etag: "final"')}`
+    )
+  ).toBe('final');
+  expect(etagOfHeaders('HTTP/1.1 200 OK\netag: "unix"\n')).toBe('unix');
+  expect(etagOfHeaders(block('etag: W/"v1"'))).toBeNull();
+  expect(etagOfHeaders(block('x-etag: "v1"'))).toBeNull();
+  expect(etagOfHeaders(block('etag: v1'))).toBeNull();
+  expect(etagOfHeaders('')).toBeNull();
+});
+
+test('downloaded-apk prints what the watch does with the download', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-cli-');
+  const { apk, tools } = await cliFirstCapture(ws, root);
+  await runCli(['record-apk-etag', '--apk', apk, '--apk-etag', 'abcdefghij'], {
+    workspaceRoot: ws.workspaceRoot,
+    gameLibsStore: noStore
+  });
+  const entry = ws.entry()!;
+  const headers = (etag: string | null) => {
+    const file = path.join(root, 'apk.headers');
+    fs.writeFileSync(
+      file,
+      `HTTP/2 200\r\ncontent-length: 1\r\n${etag === null ? '' : `etag: ${etag}\r\n`}\r\n`
+    );
+    return file;
+  };
+  const downloaded = async (file: string, etag: string | null) => {
+    const run = await runCli(
+      ['downloaded-apk', '--apk', file, '--headers', headers(etag)],
+      { workspaceRoot: ws.workspaceRoot, gameLibsStore: noStore }
+    );
+    expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
+    expect(run.out).toHaveLength(1);
+    return JSON.parse(run.out[0]) as unknown;
+  };
+  const locked = {
+    size: fs.statSync(apk).size,
+    sha256: entry.apkSha256,
+    lockedSha256: entry.apkSha256,
+    lockedEtag: 'abcdefghij'
+  };
+  expect(await downloaded(apk, '"abcdefghij"')).toEqual({
+    ...locked,
+    kind: 'none',
+    etag: 'abcdefghij',
+    etagBranch: null
+  });
+  // The branch names the game's versionCode and the first 8 ETag characters.
+  expect(await downloaded(apk, '"0123456789abcdef"')).toEqual({
+    ...locked,
+    kind: 'etag',
+    etag: '0123456789abcdef',
+    etagBranch: 'chore/android-apk-etag-12825-01234567'
+  });
+  expect(await downloaded(apk, null)).toEqual({
+    ...locked,
+    kind: 'none',
+    etag: null,
+    etagBranch: null
+  });
+  expect(await downloaded(tools.loader, '"0123456789abcdef"')).toEqual({
+    kind: 'capture',
+    size: fs.statSync(tools.loader).size,
+    sha256: sha(fs.readFileSync(tools.loader)),
+    etag: '0123456789abcdef',
+    lockedSha256: entry.apkSha256,
+    lockedEtag: 'abcdefghij',
+    etagBranch: null
+  });
+
+  const failed = await runCli(['downloaded-apk', '--apk', apk], {
+    workspaceRoot: ws.workspaceRoot,
+    gameLibsStore: noStore
+  });
+  expect(failed.code).toBe(1);
+  expect(failed.out).toEqual([]);
+  expect(failed.err).toMatch(/^downloaded-apk requires --headers\n/);
 }, 60000);
 
 test('record-apk-etag records the ETag of the locked APK and refuses another file', async () => {

@@ -78,35 +78,23 @@ jobs:
           sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
           url="$(bun -e "import { OFFICIAL_ANDROID_APK_URL } from './release/official-apk.ts'; console.log(OFFICIAL_ANDROID_APK_URL)")"
           curl --fail --location --retry 5 --retry-all-errors --dump-header "$RUNNER_TEMP/apk.headers" --output "$RUNNER_TEMP/TheBazaar.apk" "$url"
-          etag="$(bun -e "
-            import fs from 'node:fs';
-            import { strongEtag } from './release/official-apk.ts';
-            const lines = fs.readFileSync(process.argv[1], 'utf8').split(/\r?\n/);
-            const header = lines.filter((line) => /^etag:/i.test(line)).at(-1);
-            console.log(strongEtag(header?.slice(5)) ?? '');
-          " "$RUNNER_TEMP/apk.headers")"
-          sha="$(sha256sum "$RUNNER_TEMP/TheBazaar.apk" | cut -d' ' -f1)"
-          locked="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].apkSha256")"
-          lockedEtag="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].apkEtag ?? ''")"
-          code="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].versionCode")"
+          # capture, etag or none (release/official-apk.ts downloadedApkKind).
+          apk="$(bun release/game-libs.ts downloaded-apk --apk "$RUNNER_TEMP/TheBazaar.apk" --headers "$RUNNER_TEMP/apk.headers")"
+          kind="$(jq -r .kind <<< "$apk")"
+          etag="$(jq -r '.etag // ""' <<< "$apk")"
           echo "etag=$etag" >> "$GITHUB_OUTPUT"
-          echo "Downloaded $(stat -c %s "$RUNNER_TEMP/TheBazaar.apk") bytes, sha256 $sha, ETag ${etag:-none}; locked sha256 $locked, ETag ${lockedEtag:-none}" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$sha" != "$locked" ]]; then
-            echo "kind=capture" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$etag" && "$etag" != "$lockedEtag" ]]; then
-            # The locked bytes under a new ETag: record it, or every check downloads again.
-            branch="chore/android-apk-etag-$code-${etag:0:8}"
+          echo "Downloaded $(jq -r .size <<< "$apk") bytes, sha256 $(jq -r .sha256 <<< "$apk"), ETag ${etag:-none}; locked sha256 $(jq -r .lockedSha256 <<< "$apk"), ETag $(jq -r '.lockedEtag // "none"' <<< "$apk")" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$kind" == etag ]]; then
+            branch="$(jq -r .etagBranch <<< "$apk")"
             echo "branch=$branch" >> "$GITHUB_OUTPUT"
             if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
-              echo "kind=none" >> "$GITHUB_OUTPUT"
+              kind=none
               echo "A pull request recording this ETag is already open" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "kind=etag" >> "$GITHUB_OUTPUT"
             fi
-          else
-            echo "kind=none" >> "$GITHUB_OUTPUT"
+          elif [[ "$kind" == none ]]; then
             echo "The official APK is the locked one" >> "$GITHUB_STEP_SUMMARY"
           fi
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
       - if: steps.download.outputs.kind == 'etag'
         name: Record the ETag of the locked APK
         env:

@@ -21,8 +21,6 @@ interface WorkflowImport {
   workflow: string;
   module: string;
   name: string;
-  /** Whether the script spans several lines. */
-  multiline: boolean;
 }
 
 function workflowImports(): WorkflowImport[] {
@@ -40,9 +38,7 @@ function workflowImports(): WorkflowImport[] {
           .filter((binding) => binding && !binding.startsWith('type '))
           .map((binding) => binding.split(/\s+as\s+/)[0]);
         if (defaultName) names.push('default');
-        const multiline = script.includes('\n');
-        for (const name of names)
-          found.push({ workflow, module, name, multiline });
+        for (const name of names) found.push({ workflow, module, name });
       }
   }
   return found;
@@ -50,11 +46,9 @@ function workflowImports(): WorkflowImport[] {
 
 test('every release import of a workflow bun -e script resolves', async () => {
   const imports = workflowImports();
-  // Both forms occur (android-apk-watch.yml imports OFFICIAL_ANDROID_APK_URL
-  // on one line and strongEtag in a multi-line script); a pattern that
-  // silently stops matching either would pass the check below.
-  expect(imports.some(({ multiline }) => !multiline)).toBe(true);
-  expect(imports.some(({ multiline }) => multiline)).toBe(true);
+  // android-apk-watch.yml imports OFFICIAL_ANDROID_APK_URL; a pattern that
+  // silently stops matching would pass the check below.
+  expect(imports.map(({ name }) => name)).toContain('OFFICIAL_ANDROID_APK_URL');
   const unresolved: string[] = [];
   for (const { workflow, module, name } of imports) {
     const file = path.join(WORKSPACE_ROOT, module);

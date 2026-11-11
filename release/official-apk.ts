@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { sha256File } from './android-apk.ts';
 import { gameLibsStoreFromEnvironment } from './game-assembly-snapshot.ts';
 import { androidInputKey, lockedInteropEntry } from './interop-snapshot.ts';
@@ -8,13 +9,14 @@ import {
   isApkEtag,
   writeGameLibsLockEntry
 } from './snapshot-lock.ts';
+import type { InteropLockEntry } from './snapshot-lock.ts';
 
 // The official Android APK watch (root GLOSSARY.md, Interop Snapshot): the
 // publisher's APK address, whether it differs from the APK the android-online
-// entry locks, and recording the ETag it is now served with.
-// .github/workflows/android-apk-watch.yml drives it through the official-apk
-// and record-apk-etag verbs of game-libs.ts and imports OFFICIAL_ANDROID_APK_URL
-// and strongEtag with bun -e.
+// entry locks, what to do with a downloaded copy, and recording the ETag it is
+// now served with. .github/workflows/android-apk-watch.yml drives it through
+// the official-apk, downloaded-apk and record-apk-etag verbs of game-libs.ts
+// and imports OFFICIAL_ANDROID_APK_URL with bun -e.
 
 // The value of a strong ETag header ("abc" -> abc); null for a weak, missing or
 // malformed one, which identifies no bytes.
@@ -80,6 +82,75 @@ export async function officialApkChanged({
     lockedSize: stored.size,
     lockedEtag: entry.apkEtag,
     lockedGameVersion: entry.gameVersion
+  };
+}
+
+// What the watch does with the official APK it downloaded: `capture` when its
+// bytes are not the locked ones, `etag` when they are but the publisher now
+// serves them under another strong ETag (record it, or every check downloads
+// again), `none` otherwise. A download without a strong ETag never asks for a
+// record: there is nothing to write.
+export type DownloadedApkKind = 'capture' | 'etag' | 'none';
+
+export function downloadedApkKind(
+  entry: Pick<InteropLockEntry, 'apkSha256' | 'apkEtag'>,
+  sha256: string,
+  etag: string | null
+): DownloadedApkKind {
+  if (sha256 !== entry.apkSha256) return 'capture';
+  return etag !== null && etag !== entry.apkEtag ? 'etag' : 'none';
+}
+
+// The strong ETag in the response headers `curl --dump-header` wrote. A
+// redirect leaves one header block per response, so the last ETag is the one
+// the bytes came with.
+export function etagOfHeaders(headers: string): string | null {
+  const line = headers
+    .split(/\r?\n/)
+    .filter((header) => /^etag:/i.test(header))
+    .at(-1);
+  return strongEtag(line?.slice('etag:'.length));
+}
+
+/** A downloaded official APK against the android-online entry. */
+export interface DownloadedApk {
+  kind: DownloadedApkKind;
+  size: number;
+  sha256: string;
+  etag: string | null;
+  lockedSha256: string;
+  lockedEtag: string | null;
+  /** The branch of the pull request that records the ETag; null unless `etag`. */
+  etagBranch: string | null;
+}
+
+export interface InspectDownloadedApkOptions {
+  workspaceRoot?: string;
+  apk: string;
+  /** The file `curl --dump-header` wrote for the download. */
+  headers: string;
+}
+
+export async function inspectDownloadedApk({
+  workspaceRoot = WORKSPACE_ROOT,
+  apk,
+  headers
+}: InspectDownloadedApkOptions): Promise<DownloadedApk> {
+  const entry = lockedInteropEntry(workspaceRoot);
+  const sha256 = await sha256File(apk);
+  const etag = etagOfHeaders(fs.readFileSync(headers, 'utf8'));
+  const kind = downloadedApkKind(entry, sha256, etag);
+  return {
+    kind,
+    size: fs.statSync(apk).size,
+    sha256,
+    etag,
+    lockedSha256: entry.apkSha256,
+    lockedEtag: entry.apkEtag,
+    etagBranch:
+      kind === 'etag' && etag !== null
+        ? `chore/android-apk-etag-${entry.versionCode}-${etag.slice(0, 8)}`
+        : null
   };
 }
 

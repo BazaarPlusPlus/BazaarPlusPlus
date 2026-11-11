@@ -28,7 +28,11 @@ import {
   publishInteropSnapshot
 } from './interop-snapshot.ts';
 import type { GenerateInteropOptions } from './interop-snapshot.ts';
-import { officialApkChanged, recordApkEtag } from './official-apk.ts';
+import {
+  inspectDownloadedApk,
+  officialApkChanged,
+  recordApkEtag
+} from './official-apk.ts';
 import type { ApkHeadFetch } from './official-apk.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 import type { FetchImpl, ObjectStore } from './r2-store.ts';
@@ -92,6 +96,9 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
                                              Steam build is older than online's, else nothing
   bun release/game-libs.ts official-apk     Print changed or unchanged: the publisher's APK against
                                              the android-online entry's (size and ETag, no download)
+  bun release/game-libs.ts downloaded-apk --apk <TheBazaar.apk> --headers <curl --dump-header file>
+                                             Print {kind, size, sha256, etag, lockedSha256, lockedEtag,
+                                             etagBranch}: kind is capture, etag or none
   bun release/game-libs.ts record-apk-etag --apk <TheBazaar.apk> --apk-etag <etag>
                                              Record the ETag the locked APK is now served with
 snapshot-android reuses the android-online entry's toolchain unless files are
@@ -153,6 +160,7 @@ export async function cliMain(
         'steam-managed': { type: 'string' },
         'allow-unlocked': { type: 'boolean' },
         apk: { type: 'string' },
+        headers: { type: 'string' },
         interop: { type: 'string' },
         loader: { type: 'string' },
         'loader-tag': { type: 'string' },
@@ -188,6 +196,18 @@ export async function cliMain(
           `Official APK ${result.officialSize} bytes, ETag ${result.officialEtag}; locked ${result.lockedGameVersion} ${result.lockedSize} bytes, ETag ${result.lockedEtag}`
         );
         printLine(result.changed ? 'changed' : 'unchanged');
+        return 0;
+      }
+      case 'downloaded-apk': {
+        printLine(
+          JSON.stringify(
+            await inspectDownloadedApk({
+              workspaceRoot,
+              apk: required('apk'),
+              headers: required('headers')
+            })
+          )
+        );
         return 0;
       }
       case 'record-apk-etag': {
