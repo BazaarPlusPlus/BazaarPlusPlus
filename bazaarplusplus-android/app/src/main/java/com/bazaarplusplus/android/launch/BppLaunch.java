@@ -1,9 +1,9 @@
 package com.bazaarplusplus.android.launch;
 
-import com.bazaarplusplus.android.game.GameCodeHash;
 import com.bazaarplusplus.android.diag.AppLog;
 import com.bazaarplusplus.android.game.InstalledGame;
 import com.bazaarplusplus.android.io.AtomicFiles;
+import com.bazaarplusplus.android.io.Sha256;
 import com.bazaarplusplus.android.loader.LoaderDeployment;
 import com.bazaarplusplus.android.payload.ManagedPayloadStaging;
 import com.bazaarplusplus.android.release.Download;
@@ -12,9 +12,7 @@ import com.bazaarplusplus.android.release.InteropStatement;
 import com.bazaarplusplus.android.release.PlatformManifest;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 
 /**
@@ -125,10 +123,7 @@ final class BppLaunch {
      */
     private void prepareDevelopment(LaunchInputs inputs, long appVersionCode) throws Exception {
         File interop = readOnlyCopy(inputs.devInterop, new File(dirs.interopCache, "development.zip"));
-        String sha256;
-        try (InputStream in = new FileInputStream(interop)) {
-            sha256 = GameCodeHash.Sha256.of(in);
-        }
+        String sha256 = Sha256.of(interop);
         startGame(appVersionCode, interop, sha256);
         File record = new File(dirs.external, LaunchRecord.PATH);
         if (record.exists() && !record.delete()) throw new IOException("Cannot delete " + record);

@@ -5,6 +5,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.bazaarplusplus.android.TestZips;
+import com.bazaarplusplus.android.io.Sha256;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -49,6 +50,6 @@ public class GameCodeHashTest {
     }
 
     static String sha256(String text) throws IOException {
-        return GameCodeHash.Sha256.of(new java.io.ByteArrayInputStream(text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        return Sha256.of(new java.io.ByteArrayInputStream(text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 }

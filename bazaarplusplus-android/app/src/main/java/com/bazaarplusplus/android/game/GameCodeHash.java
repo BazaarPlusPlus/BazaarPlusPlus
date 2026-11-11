@@ -1,10 +1,10 @@
 package com.bazaarplusplus.android.game;
 
+import com.bazaarplusplus.android.io.Sha256;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Objects;
 import java.util.zip.ZipEntry;
@@ -76,26 +76,6 @@ public final class GameCodeHash {
         if (entry == null) return null;
         try (InputStream in = zip.getInputStream(entry)) {
             return Sha256.of(in);
-        }
-    }
-
-    /** Lowercase hex sha256 of a stream. */
-    public static final class Sha256 {
-        private Sha256() {}
-
-        public static String of(InputStream in) throws IOException {
-            MessageDigest digest;
-            try {
-                digest = MessageDigest.getInstance("SHA-256");
-            } catch (NoSuchAlgorithmException e) {
-                throw new IllegalStateException(e);
-            }
-            byte[] buffer = new byte[1 << 16];
-            int read;
-            while ((read = in.read(buffer)) > 0) digest.update(buffer, 0, read);
-            StringBuilder hex = new StringBuilder(64);
-            for (byte b : digest.digest()) hex.append(String.format("%02x", b));
-            return hex.toString();
         }
     }
 }

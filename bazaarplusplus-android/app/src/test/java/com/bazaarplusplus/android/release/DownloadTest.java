@@ -6,7 +6,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.bazaarplusplus.android.game.GameCodeHash;
+import com.bazaarplusplus.android.io.Sha256;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -14,8 +14,6 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Locale;
@@ -27,7 +25,7 @@ public class DownloadTest {
     static final byte[] BODY = "interop bytes".getBytes(StandardCharsets.UTF_8);
 
     static String sha(byte[] bytes) throws Exception {
-        return GameCodeHash.Sha256.of(new ByteArrayInputStream(bytes));
+        return Sha256.of(new ByteArrayInputStream(bytes));
     }
 
     @Test
@@ -53,8 +51,7 @@ public class DownloadTest {
     }
 
     @Test
-    public void theDownloadDigestIsGameCodeHashSha256InLowercaseHex() throws Exception {
-        assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", sha(new byte[0]));
+    public void aDownloadIsCheckedAgainstTheLowercaseHexSha256() throws Exception {
         // Larger than one 64 KiB read buffer and not a multiple of it.
         byte[] large = new byte[3 * (1 << 16) + 123];
         for (int i = 0; i < large.length; i++) large[i] = (byte) (i * 31 + 7);
@@ -62,9 +59,6 @@ public class DownloadTest {
             String expected = sha(bytes);
             File file = tmp.newFile();
             Files.write(file.toPath(), bytes);
-            try (InputStream in = new FileInputStream(file)) {
-                assertEquals(expected, GameCodeHash.Sha256.of(in));
-            }
             assertTrue(bytes.length + " bytes", Download.matches(file, bytes.length, expected));
             assertFalse("uppercase hex is another digest",
                     Download.matches(file, bytes.length, expected.toUpperCase(Locale.ROOT)));

@@ -1,9 +1,9 @@
 package com.bazaarplusplus.android.release;
 
 import com.bazaarplusplus.android.io.AtomicFiles;
+import com.bazaarplusplus.android.io.Sha256;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,8 +11,6 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 /**
  * Every download of ADR 0012 ("下载与 Managed Payload 的安装"): written to a temporary file, checked
@@ -72,7 +70,7 @@ public final class Download {
         tmp.delete();
         boolean done = false;
         try {
-            MessageDigest digest = sha256Digest();
+            Sha256 digest = new Sha256();
             long received = 0;
             try (InputStream in = source.open(); OutputStream out = new FileOutputStream(tmp)) {
                 byte[] buffer = new byte[1 << 16];
@@ -86,7 +84,7 @@ public final class Download {
                 }
             }
             if (received != size) throw new IOException("Received " + received + " of " + size + " bytes");
-            String actual = hex(digest.digest());
+            String actual = digest.hex();
             if (!actual.equals(sha256)) throw new IOException("sha256 " + actual + " is not the expected " + sha256);
             target.setWritable(true);
             target.delete();
@@ -100,27 +98,6 @@ public final class Download {
     }
 
     public static boolean matches(File file, long size, String sha256) throws IOException {
-        if (!file.isFile() || file.length() != size) return false;
-        MessageDigest digest = sha256Digest();
-        try (InputStream in = new FileInputStream(file)) {
-            byte[] buffer = new byte[1 << 16];
-            int read;
-            while ((read = in.read(buffer)) > 0) digest.update(buffer, 0, read);
-        }
-        return hex(digest.digest()).equals(sha256);
-    }
-
-    private static MessageDigest sha256Digest() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private static String hex(byte[] bytes) {
-        StringBuilder hex = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) hex.append(Character.forDigit((b >> 4) & 0xf, 16)).append(Character.forDigit(b & 0xf, 16));
-        return hex.toString();
+        return file.isFile() && file.length() == size && Sha256.of(file).equals(sha256);
     }
 }
