@@ -59,10 +59,6 @@ test('root documents, each project and global inputs select their daily gates', 
     ['installer-frontend']
   );
   expectScopes(
-    ['bazaarplusplus-installer/src-tauri/src/v5_import/mod.rs'],
-    ['installer', 'release']
-  );
-  expectScopes(
     ['bazaarplusplus-installer/rust-toolchain.toml'],
     ['installer', 'installer-windows']
   );

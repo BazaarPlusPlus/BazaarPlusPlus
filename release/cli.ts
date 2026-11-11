@@ -100,7 +100,7 @@ export interface ReleaseMainOptions {
 
 const usage = `Product release commands (run from any directory):
   bun release/cli.ts sync                         Project VERSION into toolchain files
-  bun release/cli.ts check                        Check product source projections, mod/installer Data Root and schema agreement, the Snapshot Lock, release configuration and V5 import removal
+  bun release/cli.ts check                        Check product source projections, mod/installer Data Root and schema agreement, the Snapshot Lock and release configuration
   bun release/cli.ts prepare --platform macos      Build and validate one platform Payload
   bun release/cli.ts build --platform macos        Build and sign the native installer
   bun release/cli.ts upload --platform macos       Upload immutable platform artifacts
