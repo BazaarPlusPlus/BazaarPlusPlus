@@ -26,6 +26,10 @@ internal static class Sizes
     public const float CollectionScrollShadowHeight = 18f;
     public const int SourceChipsPerRow = 8;
     public const float SourceChipMinSize = 40f;
+
+    // The count on a Collection source cell that folds several sources.
+    public const float SourceCountBadgeSize = 16f;
+
     public const float CollectionSortActiveWidth = 76f;
     public const float CollectionSortInactiveWidth = 64f;
     public const float CollectionSortEnglishActiveWidth = 84f;

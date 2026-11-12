@@ -47,5 +47,10 @@ public sealed class CollectionPanelViewModel
         Array.Empty<CollectionKeywordFacetOption>();
     public IReadOnlyList<CollectionSourceOptionViewModel> AvailableSources { get; set; } =
         Array.Empty<CollectionSourceOptionViewModel>();
+
+    // AvailableSources in cells: the desktop folds the merchants of a folding catalog group
+    // (CollectionViewState's foldSources); otherwise each source is its own group.
+    public IReadOnlyList<CollectionSourceGroup> SourceGroups { get; set; } =
+        Array.Empty<CollectionSourceGroup>();
     public float ContentHeight { get; set; }
 }

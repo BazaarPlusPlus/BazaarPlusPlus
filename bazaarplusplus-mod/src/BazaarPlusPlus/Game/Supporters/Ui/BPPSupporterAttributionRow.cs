@@ -18,14 +18,15 @@ internal static class BPPSupporterAttributionRow
         row.style.flexWrap = Wrap.Wrap;
         row.style.alignItems = Align.Center;
         row.style.marginTop = UiSpacing.Sm;
-        // The same strip as BPPSupporterNativeAttributionRow: a sunk track one md control
-        // high, with the sponsor button inside its right end.
+        // The Collection's supporter strip: one md control high on the panel's neutral ground,
+        // with the sponsor button inside its right end.
         row.style.flexWrap = Wrap.NoWrap;
         row.style.overflow = Overflow.Hidden;
         UiStyle.FixedHeight(row.style, InGameSizes.ControlMd);
         row.style.paddingLeft = InGameSizes.Space12;
         row.style.paddingRight = (InGameSizes.ControlMd - InGameSizes.ControlSm) / 2f;
-        KitToolkit.PaintTrack(row);
+        row.style.backgroundColor = InGameTheme.NeutralGround;
+        UiStyle.Radius(row.style, Radii.CollectionChip);
         return row;
     }
 
@@ -109,7 +110,7 @@ internal static class BPPSupporterAttributionRow
         typography.Apply(label);
         label.style.fontSize = Sizes.FontSmall;
         label.style.unityFontStyleAndWeight = FontStyle.Normal;
-        label.style.color = InGameTheme.InkMuted;
+        label.style.color = InGameTheme.NeutralInkMuted;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
         label.style.whiteSpace = WhiteSpace.NoWrap;
         label.style.marginRight = UiSpacing.Xs;
@@ -157,7 +158,7 @@ internal static class BPPSupporterAttributionRow
         return label;
     }
 
-    // The kit's secondary sm button with the supporter heart, in the fourth tier's colour.
+    // A flat neutral sm button with the supporter heart, in the fourth tier's colour.
     private static Button CreateSponsorButton(
         string text,
         NativeGameTypography.PanelScope typography
@@ -174,9 +175,18 @@ internal static class BPPSupporterAttributionRow
         button.style.marginRight = 0f;
         button.style.justifyContent = Justify.Center;
         button.style.alignItems = Align.Center;
-        button.style.backgroundColor = InGameTheme.Button;
         UiStyle.HorizontalPadding(button.style, InGameSizes.Space12);
-        KitToolkit.PaintButton(button);
+        UiStyle.Border(button.style, Borders.Thin, InGameTheme.NeutralRule);
+        UiStyle.Radius(button.style, Radii.CollectionChip);
+        UiHover.ApplyButtonPalette(
+            button,
+            InGameTheme.NeutralChip,
+            InGameTheme.Supporter4,
+            InGameTheme.NeutralRule,
+            Color.Lerp(InGameTheme.NeutralRule, InGameTheme.Supporter4, .5f),
+            Color.Lerp(InGameTheme.NeutralChip, InGameTheme.NeutralInk, .06f),
+            Color.Lerp(InGameTheme.NeutralChip, InGameTheme.NeutralGround, .3f)
+        );
         var heart = KitToolkit.Glyph(DesktopKitArt.IconHeart, 14f, InGameTheme.Supporter4);
         heart.style.marginRight = InGameSizes.Space6;
         button.Add(heart);

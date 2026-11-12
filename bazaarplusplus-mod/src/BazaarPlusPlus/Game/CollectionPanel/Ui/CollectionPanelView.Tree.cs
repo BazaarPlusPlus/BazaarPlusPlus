@@ -3,8 +3,6 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.Supporters.Ui;
-using BazaarPlusPlus.GameInterop.NativeSkin;
-using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -17,7 +15,7 @@ internal sealed partial class CollectionPanelView
     {
         var panel = new VisualElement();
         panel.style.flexGrow = 1f;
-        panel.style.backgroundColor = InGameTheme.Backdrop;
+        panel.style.backgroundColor = InGameTheme.NeutralGround;
         panel.style.paddingLeft = UiSpacing.PanelPadding;
         panel.style.paddingRight = UiSpacing.PanelPadding;
         panel.style.paddingTop = UiSpacing.PanelPadding;
@@ -59,7 +57,7 @@ internal sealed partial class CollectionPanelView
         titleRow.style.minHeight = Sizes.CollectionTabToggleHeight;
         controlDeck.Add(titleRow);
 
-        _title = CreateLabel(Sizes.FontTitle, FontStyle.Normal, InGameTheme.Ink);
+        _title = CreateLabel(Sizes.FontTitle, FontStyle.Normal, InGameTheme.NeutralInk);
         _title.style.flexGrow = 1f;
         _title.style.flexShrink = 1f;
         _title.style.minWidth = 0f;
@@ -82,7 +80,7 @@ internal sealed partial class CollectionPanelView
             _stagingIdCopyLabel = CreateLabel(
                 Sizes.FontCorner,
                 FontStyle.Normal,
-                InGameTheme.InkMuted
+                InGameTheme.NeutralInkMuted
             );
             _stagingIdCopyLabel.text = StagingIdCopyHint;
             _stagingIdCopyLabel.style.marginTop = UiSpacing.Xs;
@@ -256,7 +254,11 @@ internal sealed partial class CollectionPanelView
         _sourceChipRow.style.justifyContent = Justify.FlexStart;
         _sourceChipRow.RegisterCallback<GeometryChangedEvent>(OnSourceChipRowGeometryChanged);
 
-        _disclaimerLabel = CreateLabel(Sizes.FontCorner, FontStyle.Normal, InGameTheme.InkMuted);
+        _disclaimerLabel = CreateLabel(
+            Sizes.FontCorner,
+            FontStyle.Normal,
+            InGameTheme.NeutralInkMuted
+        );
         _disclaimerLabel.text = CollectionPanelText.SourceDisclaimer();
         _disclaimerLabel.tooltip = _disclaimerLabel.text;
         _disclaimerLabel.style.marginTop = UiSpacing.Md;
@@ -267,7 +269,7 @@ internal sealed partial class CollectionPanelView
         _disclaimerLabel.style.overflow = Overflow.Hidden;
         controlsScroll.Add(_disclaimerLabel);
 
-        _statusLabel = CreateLabel(Sizes.FontSmall, FontStyle.Normal, InGameTheme.InkMuted);
+        _statusLabel = CreateLabel(Sizes.FontSmall, FontStyle.Normal, InGameTheme.NeutralInkMuted);
         _statusLabel.style.marginTop = UiSpacing.Md;
         _statusLabel.style.flexShrink = 0f;
         _statusLabel.style.minHeight = Sizes.StatusHeight;
@@ -312,7 +314,7 @@ internal sealed partial class CollectionPanelView
         if (rect.width <= 0f || rect.height <= 0f)
             return;
 
-        var top = InGameTheme.WithAlpha(InGameTheme.Backdrop, 0.92f);
+        var top = InGameTheme.WithAlpha(InGameTheme.NeutralGround, 0.92f);
         var bottom = Color.clear;
         var mesh = context.Allocate(4, 6);
         mesh.SetNextVertex(
@@ -335,16 +337,14 @@ internal sealed partial class CollectionPanelView
         mesh.SetNextIndex(3);
     }
 
-    // A filter card is a section of the operation rail: the panel's section fill framed by a
-    // gold hairline. Its strength sets the card's place in the hierarchy (ADR-0026).
+    // A filter card is a section of the operation rail: a flat neutral surface framed by a
+    // neutral hairline. Its strength sets the card's place in the hierarchy (ADR-0026).
     private static void ApplyCollectionFilterCardTreatment(VisualElement card, Color? border = null)
     {
-        card.style.backgroundColor = InGameTheme.Panel;
-        UiStyle.Border(card.style, Borders.Thin, border ?? FilterCardBorder);
+        card.style.backgroundColor = InGameTheme.NeutralSurface;
+        UiStyle.Border(card.style, Borders.Thin, border ?? QuietFilterCardBorder);
         UiStyle.Radius(card.style, Radii.Panel);
         card.style.overflow = Overflow.Hidden;
-        // The Desktop UI kit's ground carries the fill, the rim and the corners.
-        KitToolkit.Paint(card, DesktopKitArt.Ground);
     }
 
     private static Button CreateCloseButton(Action onClick)
@@ -356,13 +356,12 @@ internal sealed partial class CollectionPanelView
             Sizes.CollectionCloseButtonSize
         );
         button.tooltip = CollectionPanelText.Close();
-        // The kit's secondary plate, like every Desktop panel's close.
-        button.style.color = InGameTheme.Ink;
-        KitToolkit.PaintButton(button);
+        StyleCollectionChip(button, InGameTheme.NeutralChip, InGameTheme.NeutralInk);
+        UiStyle.Radius(button.style, Sizes.CollectionCloseButtonSize / 2f);
 
         var icon = new VisualElement { pickingMode = PickingMode.Ignore };
         UiStyle.FixedSize(icon.style, Sizes.CollectionCloseIconSize, Sizes.CollectionCloseIconSize);
-        icon.style.color = InGameTheme.Ink;
+        icon.style.color = InGameTheme.NeutralInk;
         icon.generateVisualContent += context => DrawCloseIcon(context, icon);
         button.Add(icon);
         return button;
@@ -377,14 +376,12 @@ internal sealed partial class CollectionPanelView
             Sizes.CollectionSearchRowHeight
         );
         button.tooltip = CollectionPanelText.ResetFilters();
-        StyleButton(button, InGameTheme.Chip, InGameTheme.Ink);
-        UiStyle.Radius(button.style, Radii.CollectionChip);
-        UiStyle.Border(button.style, Borders.Thin, ChipBorder);
+        StyleCollectionChip(button, InGameTheme.NeutralChip, InGameTheme.NeutralInk);
 
         var icon = new VisualElement { pickingMode = PickingMode.Ignore };
         UiStyle.FixedSize(icon.style, 18f, 18f);
         icon.style.marginTop = -0.5f;
-        icon.style.color = InGameTheme.WithAlpha(InGameTheme.Ink, 0.84f);
+        icon.style.color = InGameTheme.WithAlpha(InGameTheme.NeutralInk, 0.84f);
         icon.generateVisualContent += context => DrawResetIcon(context, icon);
         button.Add(icon);
         return button;
@@ -492,7 +489,7 @@ internal sealed partial class CollectionPanelView
         frame.style.flexShrink = 1f;
         frame.style.minWidth = 0f;
         frame.style.height = Sizes.CollectionSearchRowHeight;
-        frame.style.backgroundColor = InGameTheme.Chip;
+        frame.style.backgroundColor = InGameTheme.NeutralChip;
         UiStyle.Border(frame.style, Borders.Thin, ChipBorder);
         UiStyle.Radius(frame.style, Radii.CollectionChip);
         UiStyle.HorizontalPadding(frame.style, UiSpacing.Md);
@@ -509,7 +506,7 @@ internal sealed partial class CollectionPanelView
         field.style.minWidth = 0f;
         field.style.height = Length.Percent(100f);
         field.style.backgroundColor = Color.clear;
-        field.style.color = InGameTheme.Ink;
+        field.style.color = InGameTheme.NeutralInk;
         _typography!.Apply(field);
         field.style.fontSize = Sizes.CollectionTagFontSize;
         field.style.borderLeftWidth = 0f;
@@ -522,7 +519,7 @@ internal sealed partial class CollectionPanelView
         _searchPlaceholderLabel = CreateLabel(
             Sizes.CollectionTagFontSize,
             FontStyle.Normal,
-            InGameTheme.WithAlpha(InGameTheme.Ink, 0.58f)
+            InGameTheme.WithAlpha(InGameTheme.NeutralInk, 0.58f)
         );
         _searchPlaceholderLabel.pickingMode = PickingMode.Ignore;
         _searchPlaceholderLabel.style.position = Position.Absolute;
@@ -544,7 +541,7 @@ internal sealed partial class CollectionPanelView
         var focused = false;
         void RefreshFrame()
         {
-            var background = InGameTheme.Chip;
+            var background = InGameTheme.NeutralChip;
             var border = ChipBorder;
             if (focused)
             {
@@ -620,14 +617,10 @@ internal sealed partial class CollectionPanelView
         var elapsed = Mathf.Min(_searchFocusPulseElapsed, SearchFocusPulseEndSeconds);
         var phase = elapsed * (Mathf.PI * 2f / SearchFocusPulseSeconds) - Mathf.PI * 0.5f;
         var pulse = Mathf.SmoothStep(0f, 1f, (Mathf.Sin(phase) + 1f) * 0.5f);
-        _searchFrame.style.backgroundColor = Color.Lerp(
-            InGameTheme.ChipActive,
-            ChipActiveHover,
-            pulse
-        );
+        _searchFrame.style.backgroundColor = Color.Lerp(InGameTheme.Select, SelectHover, pulse);
         UiStyle.BorderColor(
             _searchFrame.style,
-            Color.Lerp(InGameTheme.RuleStrong, InGameTheme.Accent, pulse)
+            Color.Lerp(InGameTheme.SelectRule, SelectHoverBorder, pulse)
         );
     }
 
@@ -676,7 +669,7 @@ internal sealed partial class CollectionPanelView
             input.style.height = Length.Percent(100f);
             input.style.alignSelf = Align.Stretch;
             input.style.backgroundColor = Color.clear;
-            input.style.color = InGameTheme.Ink;
+            input.style.color = InGameTheme.NeutralInk;
             _typography!.Apply(input);
             input.style.fontSize = Sizes.CollectionTagFontSize;
             input.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -697,7 +690,7 @@ internal sealed partial class CollectionPanelView
             text.style.flexGrow = 1f;
             text.style.height = Length.Percent(100f);
             text.style.alignSelf = Align.Stretch;
-            text.style.color = InGameTheme.Ink;
+            text.style.color = InGameTheme.NeutralInk;
             _typography!.Apply(text);
             text.style.fontSize = Sizes.CollectionTagFontSize;
             text.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -729,7 +722,7 @@ internal sealed partial class CollectionPanelView
         icon.style.display = DisplayStyle.None;
         icon.style.flexShrink = 0f;
         icon.style.marginRight = UiSpacing.Xxs;
-        icon.style.color = InGameTheme.Ink;
+        icon.style.color = InGameTheme.NeutralInk;
         icon.generateVisualContent += context => DrawSortIcon(context, icon);
         button.Add(icon);
 
@@ -744,10 +737,10 @@ internal sealed partial class CollectionPanelView
         label.style.whiteSpace = WhiteSpace.NoWrap;
         label.style.overflow = Overflow.Hidden;
         label.style.unityTextAlign = TextAnchor.MiddleCenter;
-        label.style.color = InGameTheme.Ink;
+        label.style.color = InGameTheme.NeutralInk;
         button.Add(label);
 
-        StyleCollectionGroupChip(button, InGameTheme.Chip, InGameTheme.Ink);
+        StyleCollectionGroupChip(button, InGameTheme.NeutralChip, InGameTheme.NeutralInk);
         return button;
     }
 
@@ -799,7 +792,11 @@ internal sealed partial class CollectionPanelView
             headerRow.style.display = DisplayStyle.None;
         section.Add(headerRow);
 
-        label = CreateLabel(Sizes.CollectionFilterTitleFontSize, FontStyle.Bold, InGameTheme.Ink);
+        label = CreateLabel(
+            Sizes.CollectionFilterTitleFontSize,
+            FontStyle.Bold,
+            InGameTheme.NeutralInk
+        );
         label.text = title;
         label.style.flexGrow = 1f;
         label.style.flexShrink = 1f;
@@ -1013,7 +1010,7 @@ internal sealed partial class CollectionPanelView
         var label = CreateLabel(
             Sizes.CollectionFilterTitleFontSize,
             FontStyle.Bold,
-            InGameTheme.Ink
+            InGameTheme.NeutralInk
         );
         label.text = title;
         label.style.flexGrow = 1f;
@@ -1062,17 +1059,17 @@ internal sealed partial class CollectionPanelView
         caption.style.fontSize = Sizes.FontTiny;
         caption.style.marginBottom = -2f;
         caption.style.unityTextAlign = TextAnchor.MiddleCenter;
-        caption.style.color = InGameTheme.Ink;
+        caption.style.color = InGameTheme.NeutralInk;
         var value = new Label { pickingMode = PickingMode.Ignore };
         value.style.fontSize = Sizes.FontButton;
         value.style.unityTextAlign = TextAnchor.MiddleCenter;
-        value.style.color = InGameTheme.Ink;
+        value.style.color = InGameTheme.NeutralInk;
         _dayToggleCaption = caption;
         _dayToggleValue = value;
         content.Add(caption);
         content.Add(value);
         button.Add(content);
-        StyleCollectionChip(button, InGameTheme.Chip, InGameTheme.Ink);
+        StyleCollectionChip(button, InGameTheme.NeutralChip, InGameTheme.NeutralInk);
         return button;
     }
 
@@ -1083,8 +1080,7 @@ internal sealed partial class CollectionPanelView
         _gridViewport.style.flexShrink = 1f;
         _gridViewport.style.minHeight = 0f;
         _gridViewport.style.minWidth = 0f;
-        // The catalog uses the same cool treatment at a middle strength: more dimensional than
-        // secondary filters, quieter than the control deck.
+        // The catalog uses the same treatment with a stronger hairline than the filter cards.
         ApplyCollectionFilterCardTreatment(_gridViewport, GridFilterCardBorder);
         parent.Add(_gridViewport);
 
@@ -1110,7 +1106,7 @@ internal sealed partial class CollectionPanelView
         _gridContentSpacer.style.width = Length.Percent(100f);
         _gridScrollView.contentContainer.Add(_gridContentSpacer);
 
-        _emptyLabel = CreateLabel(Sizes.FontBody, FontStyle.Normal, InGameTheme.InkMuted);
+        _emptyLabel = CreateLabel(Sizes.FontBody, FontStyle.Normal, InGameTheme.NeutralInkMuted);
         _emptyLabel.text = CollectionPanelText.NoMatches();
         _emptyLabel.pickingMode = PickingMode.Ignore;
         _emptyLabel.style.position = Position.Absolute;
@@ -1124,7 +1120,7 @@ internal sealed partial class CollectionPanelView
         _emptyLabel.style.display = DisplayStyle.None;
         _gridViewport.Add(_emptyLabel);
 
-        _loadingLabel = CreateLabel(Sizes.FontBody, FontStyle.Bold, InGameTheme.InkMuted);
+        _loadingLabel = CreateLabel(Sizes.FontBody, FontStyle.Bold, InGameTheme.NeutralInkMuted);
         _loadingLabel.pickingMode = PickingMode.Ignore;
         _loadingLabel.style.position = Position.Absolute;
         _loadingLabel.style.left = 0f;

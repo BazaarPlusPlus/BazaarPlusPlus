@@ -15,40 +15,48 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
 internal sealed partial class CollectionPanelView : IDisposable
 {
-    // The panel's colours on the ingame-* tokens (ADR-0026). A chip rests on ingame-chip and a
-    // selected one on ingame-chip-active, as on Android; hover lifts a chip toward the selected
-    // fill and a press sinks it toward the ground. Filter cards are framed by a gold hairline
-    // whose strength sets their place in the rail.
-    private static readonly Color ChipBorder = InGameTheme.WithAlpha(InGameTheme.Rule, .45f);
-    private static readonly Color ChipHoverBorder = InGameTheme.WithAlpha(InGameTheme.Rule, .8f);
+    // The panel's colours (ADR-0026, amended 2026-11-12): the calm ingame-neutral-* grounds,
+    // chips and ink, with a cool ingame-select fill for a selected control. Hover lifts a fill a
+    // little toward the ink, and a press sinks it toward the ground. Filter cards are framed by a
+    // neutral hairline whose strength sets their place in the rail.
+    private static readonly Color ChipBorder = InGameTheme.NeutralRule;
+    private static readonly Color ChipHoverBorder = Color.Lerp(
+        InGameTheme.NeutralRule,
+        InGameTheme.NeutralInk,
+        .1f
+    );
     private static readonly Color ChipHover = Color.Lerp(
-        InGameTheme.Chip,
-        InGameTheme.ChipActive,
-        .25f
+        InGameTheme.NeutralChip,
+        InGameTheme.NeutralInk,
+        .04f
     );
     private static readonly Color ChipPressed = Color.Lerp(
-        InGameTheme.Chip,
-        InGameTheme.Backdrop,
+        InGameTheme.NeutralChip,
+        InGameTheme.NeutralGround,
         .3f
     );
-    private static readonly Color ChipActiveHover = Color.Lerp(
-        InGameTheme.ChipActive,
-        InGameTheme.Accent,
+    private static readonly Color SelectHover = Color.Lerp(
+        InGameTheme.Select,
+        InGameTheme.SelectRule,
+        .22f
+    );
+    private static readonly Color SelectPressed = Color.Lerp(
+        InGameTheme.Select,
+        InGameTheme.NeutralGround,
         .25f
     );
-    private static readonly Color ChipActivePressed = Color.Lerp(
-        InGameTheme.ChipActive,
-        InGameTheme.Backdrop,
-        .25f
+    private static readonly Color SelectHoverBorder = Color.Lerp(
+        InGameTheme.SelectRule,
+        InGameTheme.NeutralInk,
+        .1f
     );
-    private static readonly Color FilterCardBorder = InGameTheme.WithAlpha(InGameTheme.Rule, .5f);
     private static readonly Color GridFilterCardBorder = InGameTheme.WithAlpha(
-        InGameTheme.Rule,
-        .35f
+        InGameTheme.NeutralRule,
+        .7f
     );
     private static readonly Color QuietFilterCardBorder = InGameTheme.WithAlpha(
-        InGameTheme.Rule,
-        .2f
+        InGameTheme.NeutralRule,
+        .5f
     );
 
     private const string StagingIdCopyHint = "STAGING · 悬停卡牌后按 Ctrl+C 复制 template ID";
@@ -142,7 +150,20 @@ internal sealed partial class CollectionPanelView : IDisposable
     private readonly Dictionary<string, VisualElement> _sourceChipIcons = new(
         StringComparer.Ordinal
     );
-    private readonly List<string> _sourceChipOrder = new();
+    private readonly List<CollectionSourceGroup> _sourceGroups = new();
+
+    // Each cell's face: the source key whose portrait it shows, by the group's first member.
+    private readonly Dictionary<string, string> _sourceFaces = new(StringComparer.Ordinal);
+    private readonly CollectionSourceFoldExpansion _foldExpansion = new();
+    private VisualElement? _foldStrip;
+    private readonly Dictionary<string, (Button Chip, VisualElement Icon)> _foldMemberChips = new(
+        StringComparer.Ordinal
+    );
+
+    // What the last Refresh drew, for a cell or fold redrawn between refreshes.
+    private string? _selectedSourceKey;
+    private IReadOnlyCollection<string> _encounteredSourceKeys = Array.Empty<string>();
+    private bool _sourceSelectorEnabled = true;
     private Rect _lastGridBounds;
     private float _appliedHeroChipBox = -1f;
     private float _appliedSourceChipBox = -1f;
@@ -212,7 +233,7 @@ internal sealed partial class CollectionPanelView : IDisposable
                 _parent,
                 BppOverlaySorting.NativeCardPreview,
                 Sizes.FontTitle,
-                InGameTheme.Ink,
+                InGameTheme.NeutralInk,
                 // The same face as every Desktop panel's title (the kit's Title level).
                 NativeGameTypography.OwnedTextRole.Body,
                 out _titleOverlay
@@ -244,6 +265,7 @@ internal sealed partial class CollectionPanelView : IDisposable
 
         BuildTree(_root);
         _titleOverlay.Attach(_title!);
+        _root.RegisterCallback<PointerUpEvent>(OnRootPointerUp, TrickleDown.TrickleDown);
 
         _gridViewport?.RegisterCallback<GeometryChangedEvent>(OnGridViewportGeometryChanged);
     }
@@ -251,6 +273,8 @@ internal sealed partial class CollectionPanelView : IDisposable
     public void SetVisible(bool visible)
     {
         _targetOpacity = visible ? 1f : 0f;
+        if (!visible)
+            CollapseSourceFold();
         if (_root == null)
             return;
         if (visible)
@@ -272,6 +296,7 @@ internal sealed partial class CollectionPanelView : IDisposable
         _inspectionBlocked = blocked;
         if (blocked)
         {
+            CollapseSourceFold();
             _root?.focusController?.focusedElement?.Blur();
             _controlsDragScroller?.CancelDrag();
             _gridDragScroller?.CancelDrag();
@@ -403,7 +428,10 @@ internal sealed partial class CollectionPanelView : IDisposable
         EnsureTierChips(model.AvailableTiers);
         EnsureSizeChips(model.AvailableSizes);
         RefreshFacetChips(model);
-        EnsureSourceChips(model.AvailableSources);
+        _selectedSourceKey = model.SelectedSourceKey;
+        _encounteredSourceKeys = model.EncounteredMerchantSourceKeys;
+        _sourceSelectorEnabled = model.SourceSelectorEnabled;
+        EnsureSourceChips(model.SourceGroups);
         RefreshTextMatchModeControl(_keywordMatchModeButton, model.KeywordMatchMode);
         RefreshTextMatchModeControl(_tagMatchModeButton, model.TagMatchMode);
         // Chip text is reset unconditionally on every Refresh: the Ensure*Chips early-exit
@@ -444,31 +472,19 @@ internal sealed partial class CollectionPanelView : IDisposable
         {
             var display = ResolveTagDisplay(pair.Key);
             ApplyTagChipContent(pair.Value, display);
-            RefreshChip(pair.Value, model.SelectedTags.Contains(pair.Key), display.AccentColor);
+            RefreshTagChip(pair.Value, model.SelectedTags.Contains(pair.Key), display.AccentColor);
         }
         foreach (var pair in _keywordChips)
         {
             var display = ResolveTagDisplay(pair.Key);
             ApplyTagChipContent(pair.Value, display, TagIconSize(pair.Key));
-            RefreshChip(pair.Value, IsKeywordOptionSelected(pair.Key, model), display.AccentColor);
-        }
-        foreach (var pair in _sourceChips)
-        {
-            var selected = string.Equals(
-                pair.Key,
-                model.SelectedSourceKey,
-                StringComparison.Ordinal
+            RefreshTagChip(
+                pair.Value,
+                IsKeywordOptionSelected(pair.Key, model),
+                display.AccentColor
             );
-            RefreshSourceChip(pair.Value, selected);
-            RefreshSourceSelectionRing(pair.Value, selected);
-            if (_sourceChipIcons.TryGetValue(pair.Key, out var sourceIcon))
-                RefreshSourceEncounterHighlight(
-                    sourceIcon,
-                    model.EncounteredMerchantSourceKeys.Contains(pair.Key) && !selected
-                );
-            pair.Value.SetEnabled(model.SourceSelectorEnabled);
-            pair.Value.style.opacity = model.SourceSelectorEnabled ? 1f : 0.58f;
         }
+        RefreshSourceCells();
         if (_dayToggleButton != null)
         {
             RefreshDayToggle(model.DayFilterValue, model.DayFilterActive);

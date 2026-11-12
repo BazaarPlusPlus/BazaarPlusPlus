@@ -1,6 +1,6 @@
 The look of a BPP panel in game: native frames and buttons on a warm brown ground, parchment text, gold emphasis. This preview stands in for the game's sprites with tinted outlines; the real panels borrow them at runtime.
 
-Source: `InGameTheme.g.cs` (generated from the `ingame-*` tokens) for the Desktop UI and the Mobile UI. Desktop: `bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryPanelView*.cs`, `Game/LiveBuildPanel/Ui/LiveBuildPanelView.cs`, `Game/CollectionPanel/Ui/CollectionPanelView*.cs`, `GameInterop/NativeSkin/DesktopNativeSkin.cs`. Mobile: `bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/History/TouchHistory*.cs`, `bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/Ui/UiKit.cs`, `NativeSkin.cs`.
+Source: `InGameTheme.g.cs` (generated from the `ingame-*` tokens) for the Desktop UI and the Mobile UI. Desktop: `bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryPanelView*.cs`, `Game/LiveBuildPanel/Ui/LiveBuildPanelView.cs`, `GameInterop/NativeSkin/DesktopNativeSkin.cs`. The desktop Collection has its own calm palette (`../InGameKit/README.md`, Collection). Mobile: `bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/History/TouchHistory*.cs`, `bazaarplusplus-mod/src/BazaarPlusPlus.Mobile/Ui/UiKit.cs`, `NativeSkin.cs`.
 
 ## Use
 
@@ -10,7 +10,7 @@ Source: `InGameTheme.g.cs` (generated from the `ingame-*` tokens) for the Deskto
 - Text is `ingame-ink`; metadata, timestamps and inactive tabs are `ingame-ink-muted`. Over the live combat scene use `ingame-ink-soft` with an `ingame-outline`.
 - Gold is the only emphasis: `ingame-accent` for selection and key numbers, `ingame-rule` hairlines at 0.3 to 0.5 opacity between sections, and `ingame-rule-strong` for the one line that leads.
 - A battle's outcome and an action's result are `ingame-success`, `ingame-failure`, `ingame-warning` (failed but kept older data) or `ingame-pending`, beside a word, never colour alone.
-- The same panel has two layouts. The desktop arranges it for a mouse (the Desktop UI kit, `Sizes.cs`); Android for touch (`HistoryTouchLayout` on `TouchChrome`: 48dp targets, 12sp minimum text). Colours never differ between them.
+- The same panel has two layouts. The desktop arranges it for a mouse (the Desktop UI kit, `Sizes.cs`); Android for touch (`HistoryTouchLayout` on `TouchChrome`: 48dp targets, 12sp minimum text). Colours never differ between them, except the desktop Collection's calm palette.
 
 On Android, History, Ten-Win Builds and Collection draw their buttons with the touch plates that `design/kit-art.ts` draws from the Desktop UI kit's material (`HistoryHeaderArtwork` names the two files); the desktop panels use the kit itself (`design/components/InGameKit/README.md`). Each panel has one direct sponsor button.
 

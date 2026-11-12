@@ -51,10 +51,13 @@ public sealed class CollectionViewState
     private IReadOnlyList<CardHero> _availableHeroes =
         CollectionHeroSelectionRoster.BaseConcreteHeroes;
 
+    private readonly bool _foldSources;
+
     private (
         CollectionSourceKind Kind,
         CardHero Hero,
-        IReadOnlyList<CollectionSourceOptionViewModel> Sources
+        IReadOnlyList<CollectionSourceOptionViewModel> Sources,
+        IReadOnlyList<CollectionSourceGroup> Groups
     )? _availableSourcesCache;
 
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
@@ -68,9 +71,11 @@ public sealed class CollectionViewState
         ICollectionGridPort grid,
         ICollectionSourceCatalog sourceCatalog,
         ICollectionDayTierSource dayTier,
-        ICollectionPanelHeroPreferenceStore heroPreferenceStore
+        ICollectionPanelHeroPreferenceStore heroPreferenceStore,
+        bool foldSources = false
     )
     {
+        _foldSources = foldSources;
         _grid = grid ?? throw new ArgumentNullException(nameof(grid));
         _sourceCatalog = sourceCatalog ?? throw new ArgumentNullException(nameof(sourceCatalog));
         _dayTier = dayTier ?? throw new ArgumentNullException(nameof(dayTier));
@@ -464,6 +469,7 @@ public sealed class CollectionViewState
         var profile = CollectionTabProfile.For(_filter.ActiveTab);
         var availableTags = _facetAvailability.TagsFor(_filter.ActiveType);
         var availableKeywordOptions = _facetAvailability.KeywordOptionsFor(_filter.ActiveType);
+        var sources = SourceOptionsFor(_filter.ActiveTab);
         return new CollectionPanelViewModel
         {
             Title = CollectionPanelText.Title(),
@@ -497,18 +503,23 @@ public sealed class CollectionViewState
             AvailableSizes = SizeOrder,
             AvailableTags = availableTags,
             AvailableKeywordOptions = availableKeywordOptions,
-            AvailableSources = AvailableSourcesFor(_filter.ActiveTab),
+            AvailableSources = sources.Sources,
+            SourceGroups = sources.Groups,
             ContentHeight = projection.ContentHeight,
         };
     }
 
-    private IReadOnlyList<CollectionSourceOptionViewModel> AvailableSourcesFor(
-        CollectionTabKind activeTab
-    )
+    private (
+        IReadOnlyList<CollectionSourceOptionViewModel> Sources,
+        IReadOnlyList<CollectionSourceGroup> Groups
+    ) SourceOptionsFor(CollectionTabKind activeTab)
     {
         var sourceKind = CollectionTabProfile.For(activeTab).SourceKind;
         if (!sourceKind.HasValue)
-            return Array.Empty<CollectionSourceOptionViewModel>();
+            return (
+                Array.Empty<CollectionSourceOptionViewModel>(),
+                Array.Empty<CollectionSourceGroup>()
+            );
 
         var kind = sourceKind.Value;
         var effectiveHero = _filter.EffectiveHero;
@@ -517,7 +528,7 @@ public sealed class CollectionViewState
             && cached.Kind == kind
             && cached.Hero == effectiveHero
         )
-            return cached.Sources;
+            return (cached.Sources, cached.Groups);
 
         var roster = CollectionSourceRoster.Build(_sourceCatalog.For(kind, effectiveHero));
         var result = new List<CollectionSourceOptionViewModel>(roster.Count);
@@ -535,8 +546,27 @@ public sealed class CollectionViewState
             );
         }
 
-        _availableSourcesCache = (kind, effectiveHero, result);
-        return result;
+        var groups = CollectionSourceFold.Group(result, FoldKeysFor(roster));
+        _availableSourcesCache = (kind, effectiveHero, result, groups);
+        return (result, groups);
+    }
+
+    // Each source's fold key on the desktop: its catalog fold value. Without keys each source stays
+    // alone.
+    private IReadOnlyDictionary<string, string> FoldKeysFor(
+        IReadOnlyList<CollectionSourceEntry> roster
+    )
+    {
+        var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!_foldSources)
+            return keys;
+
+        foreach (var entry in roster)
+        {
+            if (entry.Fold is { } key)
+                keys[entry.SourceKey] = key;
+        }
+        return keys;
     }
 
     private bool PruneInvisibleSourceSelections()

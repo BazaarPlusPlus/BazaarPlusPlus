@@ -43,6 +43,30 @@ internal static class InGameTheme
     /// <summary>The same tint for a selected or switched-on tag or toggle.</summary>
     public static readonly Color ChipActive = new(140f / 255f, 97f / 255f, 36f / 255f, 1f);
 
+    /// <summary>The desktop Collection's sheet and its grid occluders: a neutral charcoal, opaque so a card scrolled past the grid never shows its edge.</summary>
+    public static readonly Color NeutralGround = new(16f / 255f, 17f / 255f, 19f / 255f, 1f);
+
+    /// <summary>The desktop Collection's filter cards and card grid, one step above ingame-neutral-ground.</summary>
+    public static readonly Color NeutralSurface = new(19f / 255f, 21f / 255f, 24f / 255f, 1f);
+
+    /// <summary>The desktop Collection's chips, fields and buttons at rest.</summary>
+    public static readonly Color NeutralChip = new(28f / 255f, 30f / 255f, 34f / 255f, 1f);
+
+    /// <summary>The desktop Collection's hairlines: chip and card borders and dividers.</summary>
+    public static readonly Color NeutralRule = new(63f / 255f, 68f / 255f, 73f / 255f, 1f);
+
+    /// <summary>The desktop Collection's text on its neutral grounds.</summary>
+    public static readonly Color NeutralInk = new(232f / 255f, 236f / 255f, 242f / 255f, 1f);
+
+    /// <summary>The desktop Collection's secondary text: the supporter line, the source note, the status line.</summary>
+    public static readonly Color NeutralInkMuted = new(184f / 255f, 196f / 255f, 214f / 255f, 1f);
+
+    /// <summary>The desktop Collection's selected chip, segment and search field: a cool blue fill on the neutral grounds.</summary>
+    public static readonly Color Select = new(36f / 255f, 56f / 255f, 77f / 255f, 1f);
+
+    /// <summary>The border of an ingame-select fill, the ring of a selected merchant or trainer, and the glow of an encountered merchant.</summary>
+    public static readonly Color SelectRule = new(74f / 255f, 101f / 255f, 125f / 255f, 1f);
+
     /// <summary>Stands in for any native art that has not loaded (action plates, board scroll track).</summary>
     public static readonly Color ArtFallback = new(46f / 255f, 36f / 255f, 26f / 255f, 1f);
 
