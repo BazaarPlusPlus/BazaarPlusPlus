@@ -16,6 +16,7 @@ import {
   fragmentArtifacts,
   fragmentKey,
   installerFileName,
+  androidManagedPayloadKey,
   managedPayloadKey,
   mergeReleaseManifest,
   mirrorRecordKey,
@@ -33,6 +34,7 @@ import type {
   MirrorRecord,
   PlatformFragment,
   PlatformManifest,
+  ReleaseArtifact,
   ReleaseManifest
 } from './manifest.ts';
 import { assertMainlandMirrors, checkMainlandMirror } from './mirror.ts';
@@ -56,6 +58,7 @@ import {
 } from './artifact-manifest.ts';
 import type { GitState } from './artifact-manifest.ts';
 import { readAndroidArtifacts } from './android-release.ts';
+import { ANDROID_SOURCES } from './snapshot-lock.ts';
 
 /** The inputs of uploadPlatform. */
 export interface UploadPlatformOptions {
@@ -448,11 +451,11 @@ async function assertAndroidSigner(
     );
 }
 
-// Uploads the Android build of VERSION: the Android App APK, the Interop
-// Package (content-addressed: a release that already stored the same bytes
-// leaves it in place, other bytes are refused), the Managed Payload zip and
-// its signature, and last the fragment naming them. Large files stream from
-// disk.
+// Uploads the Android build of VERSION: the Android App APK, then each Game
+// Adaptation's Interop Package (content-addressed: a release or adaptation
+// that already stored the same bytes leaves it in place, other bytes are
+// refused) and Managed Payload zip with its signature, and last the fragment
+// naming them. Large files stream from disk.
 export async function uploadAndroidPlatform({
   workspaceRoot,
   baseUrl,
@@ -478,9 +481,7 @@ export async function uploadAndroidPlatform({
     gitCommit: manifest.gitCommit,
     baseUrl,
     app: manifest.app,
-    game: manifest.game,
-    interop: manifest.interop,
-    managedPayload: manifest.managedPayload,
+    adaptations: manifest.adaptations,
     loader: manifest.loader,
     selfUpdatable: await selfUpdatableFromPromoted(
       store,
@@ -491,11 +492,16 @@ export async function uploadAndroidPlatform({
     historyDatabaseUserVersion,
     nonManagedPayloadDigest
   });
-  for (const name of ['app', 'interop'] as const)
-    if (objectKey(fragment[name].url, baseUrl) !== manifest[name].key)
-      throw new Error(
-        `Android build names ${manifest[name].key}, not ${fragment[name].url}`
-      );
+  const named: [string, string][] = [
+    [fragment.app.url, manifest.app.key],
+    ...ANDROID_SOURCES.map((source): [string, string] => [
+      fragment.adaptations[source].interop.url,
+      manifest.adaptations[source].interop.key
+    ])
+  ];
+  for (const [url, key] of named)
+    if (objectKey(url, baseUrl) !== key)
+      throw new Error(`Android build names ${key}, not ${url}`);
   if (fragment.app.versionCode !== manifest.app.versionCode)
     throw new Error(
       `The Android App was built as versionCode ${manifest.app.versionCode}, not ${fragment.app.versionCode}`
@@ -507,17 +513,34 @@ export async function uploadAndroidPlatform({
     fragment.app.signerSha256,
     releaseSignerSha256
   );
-  const uploads = [
+  const interops = ANDROID_SOURCES.map(
+    (source) => fragment.adaptations[source].interop
+  );
+  const uploads: [ReleaseArtifact, string, string][] = [
     [fragment.app, files.app, 'application/vnd.android.package-archive'],
-    [fragment.interop, files.interop, 'application/zip'],
-    [fragment.managedPayload, files.managedPayload, 'application/zip']
-  ] as const;
+    ...ANDROID_SOURCES.flatMap(
+      (source): [ReleaseArtifact, string, string][] => [
+        [
+          fragment.adaptations[source].interop,
+          files.adaptations[source].interop,
+          'application/zip'
+        ],
+        [
+          fragment.adaptations[source].managedPayload,
+          files.adaptations[source].managedPayload,
+          'application/zip'
+        ]
+      ]
+    )
+  ];
   for (const [record, file, contentType] of uploads) {
     const key = objectKey(record.url, baseUrl);
-    // Another release of the same Interop Snapshot may have stored the
-    // Interop Package already; a HEAD settles that without sending the zip
-    // again.
-    const stored = record === fragment.interop ? await store.head(key) : null;
+    // Another release or adaptation of the same Interop Snapshot may have
+    // stored the Interop Package already; a HEAD settles that without
+    // sending the zip again.
+    const stored = interops.includes(record as (typeof interops)[number])
+      ? await store.head(key)
+      : null;
     const outcome =
       stored?.size === record.size && stored.sha256 === record.sha256
         ? 'present'
@@ -532,12 +555,13 @@ export async function uploadAndroidPlatform({
         : `Uploaded ${key} (${record.size} bytes)`
     );
   }
-  await putImmutable(
-    store,
-    `${managedPayloadKey(version, fragment.platform)}.sig`,
-    Buffer.from(`${fragment.managedPayload.signature}\n`),
-    'text/plain'
-  );
+  for (const source of ANDROID_SOURCES)
+    await putImmutable(
+      store,
+      `${androidManagedPayloadKey(version, source)}.sig`,
+      Buffer.from(`${fragment.adaptations[source].managedPayload.signature}\n`),
+      'text/plain'
+    );
   await putImmutable(
     store,
     fragmentKey(version, fragment.platform),

@@ -3,8 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vite-plus/test';
 import {
+  ANDROID_GAME_SIGNERS,
   ANDROID_RELEASE_SIGNER_SHA256,
   androidAppVersionCode,
+  androidManagedPayloadKey,
   androidNonManagedPayloadDigest,
   buildAndroidFragment,
   buildPlatformFragment,
@@ -25,6 +27,7 @@ import {
   promoteRelease
 } from './publish.ts';
 import { putImmutable } from './r2-store.ts';
+import { ANDROID_SOURCES } from './snapshot-lock.ts';
 import { createArtifactManifest } from './artifact-manifest.ts';
 import { MemoryStore } from './test-support/memory-store.ts';
 import { uploadAndroid } from './test-support/android-fixture.ts';
@@ -1126,8 +1129,10 @@ test('Android promotion checks the three artifacts and publishes only its own ma
   });
   for (const key of [
     appKey,
-    interopPackageKey(fragment.interop.sha256),
-    managedPayloadKey(data.version, ANDROID)
+    ...ANDROID_SOURCES.flatMap((source) => [
+      interopPackageKey(fragment.adaptations[source].interop.sha256),
+      androidManagedPayloadKey(data.version, source)
+    ])
   ]) {
     const object = store.objects.get(key)!;
     store.objects.delete(key);
@@ -1270,19 +1275,38 @@ const androidFacts = () => ({
   gitCommit: 'a'.repeat(40),
   baseUrl,
   app: { size: 1, sha256: 'b'.repeat(64), signerSha256: 'c'.repeat(64) },
-  game: {
-    gameVersion: '1.0.12825-production-android-d9601ded',
-    versionCode: 12825,
-    il2cppSha256: 'e'.repeat(64),
-    metadataSha256: 'f'.repeat(64)
+  adaptations: {
+    publisher: {
+      game: {
+        gameVersion: '1.0.12825-production-android-d9601ded',
+        versionCode: 12825,
+        il2cppSha256: 'e'.repeat(64),
+        metadataSha256: 'f'.repeat(64)
+      },
+      interop: {
+        size: 2,
+        sha256: '1'.repeat(64),
+        snapshotSha256: `0123abcd${'0'.repeat(56)}`,
+        signature: 'c2lnbmF0dXJl'
+      },
+      managedPayload: { size: 1, sha256: 'b'.repeat(64), signature: 'sig' }
+    },
+    play: {
+      game: {
+        gameVersion: '1.0.6',
+        versionCode: 13168,
+        il2cppSha256: '2'.repeat(64),
+        metadataSha256: '3'.repeat(64)
+      },
+      interop: {
+        size: 3,
+        sha256: '4'.repeat(64),
+        snapshotSha256: `4567cdef${'0'.repeat(56)}`,
+        signature: 'c2lnbmF0dXJl'
+      },
+      managedPayload: { size: 2, sha256: '5'.repeat(64), signature: 'sig' }
+    }
   },
-  interop: {
-    size: 2,
-    sha256: '1'.repeat(64),
-    snapshotSha256: `0123abcd${'0'.repeat(56)}`,
-    signature: 'c2lnbmF0dXJl'
-  },
-  managedPayload: { size: 1, sha256: 'b'.repeat(64), signature: 'sig' },
   loader: { tag: 'v0.7.4-android.4', sha256: 'f'.repeat(64) },
   selfUpdatable: true,
   historyDatabaseUserVersion: 1,
@@ -1305,7 +1329,8 @@ test("an Android fragment names its own version's App, the content-addressed int
     'loader',
     'selfUpdatable',
     'historyDatabaseUserVersion',
-    'nonManagedPayloadDigest'
+    'nonManagedPayloadDigest',
+    'adaptations'
   ]);
   expect(fragment).toMatchObject({
     schemaVersion: 1,
@@ -1315,11 +1340,29 @@ test("an Android fragment names its own version's App, the content-addressed int
       url: `${baseUrl}/3.1.2/${ANDROID}/app/BazaarPlusPlus_3.1.2_${ANDROID}.apk`,
       versionCode: 3_001_002
     },
-    interop: { url: `${baseUrl}/android/interop/${'1'.repeat(64)}.zip` },
-    managedPayload: {
-      url: `${baseUrl}/3.1.2/${ANDROID}/managed/BazaarPlusPlus_3.1.2_${ANDROID}-managed.zip`
+    adaptations: {
+      publisher: {
+        signerSha256: ANDROID_GAME_SIGNERS.publisher,
+        interop: { url: `${baseUrl}/android/interop/${'1'.repeat(64)}.zip` },
+        managedPayload: {
+          url: `${baseUrl}/3.1.2/${ANDROID}/managed/publisher/BazaarPlusPlus_3.1.2_${ANDROID}-publisher-managed.zip`
+        }
+      },
+      play: {
+        signerSha256: ANDROID_GAME_SIGNERS.play,
+        game: { gameVersion: '1.0.6', versionCode: 13168 },
+        interop: { url: `${baseUrl}/android/interop/${'4'.repeat(64)}.zip` },
+        managedPayload: {
+          url: `${baseUrl}/3.1.2/${ANDROID}/managed/play/BazaarPlusPlus_3.1.2_${ANDROID}-play-managed.zip`
+        }
+      }
     }
   });
+  // The top level is the publisher's adaptation, which App 6.2.5 reads.
+  const { publisher, play } = fragment.adaptations;
+  expect(fragment.game).toEqual(publisher.game);
+  expect(fragment.interop).toEqual(publisher.interop);
+  expect(fragment.managedPayload).toEqual(publisher.managedPayload);
   const invalid = (change: object) => () =>
     validatePlatformFragment({ ...fragment, ...change }, '3.1.2', ANDROID);
   expect(invalid({ app: { ...fragment.app, versionCode: 12825 } })).toThrow(
@@ -1344,6 +1387,20 @@ test("an Android fragment names its own version's App, the content-addressed int
   expect(
     invalid({ game: { ...fragment.game, il2cppSha256: undefined } })
   ).toThrow(/Invalid android-aarch64 3.1.2 game/);
+  expect(invalid({ adaptations: { publisher } })).toThrow(
+    /android-aarch64 3.1.2 adaptations must be exactly publisher, play/
+  );
+  expect(
+    invalid({
+      adaptations: {
+        publisher,
+        play: { ...play, signerSha256: ANDROID_GAME_SIGNERS.publisher }
+      }
+    })
+  ).toThrow(/Invalid android-aarch64 3.1.2 play game signer/);
+  expect(invalid({ game: play.game })).toThrow(
+    /must be the publisher adaptation's/
+  );
   // ADR 0010's fragments are refused by their kind.
   const { app, interop, ...rest } = fragment;
   expect(() =>

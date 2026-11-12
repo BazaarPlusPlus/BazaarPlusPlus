@@ -12,6 +12,7 @@ import {
   vi
 } from 'vite-plus/test';
 import {
+  adaptationPaths,
   androidPaths,
   buildAndroidRelease,
   androidSigningKey,
@@ -34,15 +35,22 @@ import {
   LOADER_MARKER,
   interopDirectoryDigest
 } from './interop-snapshot.ts';
-import { GAME_LIBS_LOCK_PATH, PUBLISHER_KEY } from './snapshot-lock.ts';
 import {
+  ANDROID_SOURCES,
+  GAME_LIBS_LOCK_PATH,
+  PUBLISHER_KEY,
+  interopKey
+} from './snapshot-lock.ts';
+import type { AndroidSource } from './snapshot-lock.ts';
+import {
+  ANDROID_GAME_SIGNERS,
   androidAppKey,
   androidCarriedRelease,
+  androidManagedPayloadKey,
   androidAppVersionCode,
   androidNonManagedPayloadDigest,
   fragmentKey,
   interopPackageKey,
-  managedPayloadKey,
   platformManifestPath,
   validatePlatformFragment
 } from './manifest.ts';
@@ -247,9 +255,22 @@ function fixture() {
       fs.readFileSync(path.join(WORKSPACE_ROOT, file))
     );
   const tools = path.join(workspaceRoot, 'tools');
-  const interopPath = path.join(tools, 'interop');
-  write(path.join(interopPath, 'Assembly-CSharp.dll'), 'interop assembly');
-  write(path.join(interopPath, 'Il2Cppmscorlib.dll'), 'interop corlib');
+  // One Interop Snapshot per Android source (ADR 0019).
+  const interopPaths = {
+    publisher: path.join(tools, 'interop'),
+    play: path.join(tools, 'interop-play')
+  };
+  const interopPath = interopPaths.publisher;
+  for (const source of ANDROID_SOURCES) {
+    write(
+      path.join(interopPaths[source], 'Assembly-CSharp.dll'),
+      `interop assembly ${source}`
+    );
+    write(
+      path.join(interopPaths[source], 'Il2Cppmscorlib.dll'),
+      'interop corlib'
+    );
+  }
   const loaderPath = path.join(tools, 'loader');
   write(
     path.join(loaderPath, LOADER_MANAGED_DIRECTORY, 'MelonLoader.dll'),
@@ -261,17 +282,18 @@ function fixture() {
   const lock = JSON.parse(
     fs.readFileSync(path.join(WORKSPACE_ROOT, GAME_LIBS_LOCK_PATH), 'utf8')
   );
-  lock.entries[PUBLISHER_KEY] = {
-    ...lock.entries[PUBLISHER_KEY],
-    interopSha256: interopDirectoryDigest(interopPath),
-    nativeLibs: {
-      'libe_sqlite3.so': {
-        package: 'SourceGear.sqlite3',
-        version: '3.53.4',
-        sha256: sha(fs.readFileSync(nativeLib))
+  for (const source of ANDROID_SOURCES)
+    lock.entries[interopKey(source)] = {
+      ...lock.entries[interopKey(source)],
+      interopSha256: interopDirectoryDigest(interopPaths[source]),
+      nativeLibs: {
+        'libe_sqlite3.so': {
+          package: 'SourceGear.sqlite3',
+          version: '3.53.4',
+          sha256: sha(fs.readFileSync(nativeLib))
+        }
       }
-    }
-  };
+    };
   const writeLock = () =>
     write(
       path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
@@ -303,22 +325,30 @@ function fixture() {
     gradleCalls,
     exportedKeys,
     buildTools,
+    interopPaths,
     entry: lock.entries[PUBLISHER_KEY],
+    playEntry: lock.entries[interopKey('play')],
+    writeLock,
+    lock,
     // Re-collecting the Snapshot Lock with another SourceGear.sqlite3: only
     // the native library pin changes, not the game, loader or interop.
     upgradeNativeLib: (bytes: string) => {
       write(nativeLib, bytes);
-      lock.entries[PUBLISHER_KEY].nativeLibs['libe_sqlite3.so'] = {
-        package: 'SourceGear.sqlite3',
-        version: '3.53.5',
-        sha256: sha(Buffer.from(bytes))
-      };
+      for (const source of ANDROID_SOURCES)
+        lock.entries[interopKey(source)].nativeLibs['libe_sqlite3.so'] = {
+          package: 'SourceGear.sqlite3',
+          version: '3.53.5',
+          sha256: sha(Buffer.from(bytes))
+        };
       writeLock();
       return lock.entries[PUBLISHER_KEY];
     },
     options: {
       workspaceRoot,
-      resolveSnapshot: async () => ({ interopPath, loaderPath }),
+      resolveSnapshot: async ({ source }: { source: AndroidSource }) => ({
+        interopPath: interopPaths[source],
+        loaderPath
+      }),
       produce: ({ payloadRoot }: ProduceOptions) =>
         stageHostBuild(workspaceRoot, payloadRoot),
       resolveNativeLibs: async () => ({ 'libe_sqlite3.so': nativeLib }),
@@ -407,7 +437,8 @@ const promote = (
 
 test('prepare stages exactly the mod-built MelonLoader entries and seals them', async () => {
   const f = fixture();
-  const record = await prepareAndroidPayload(f.options);
+  const records = await prepareAndroidPayload(f.options);
+  const record = records.publisher;
   const expected = platformInventory('android')
     .filter((entry) =>
       ['managed', 'history-contract', 'updater', 'managed-manifest'].includes(
@@ -424,12 +455,19 @@ test('prepare stages exactly the mod-built MelonLoader entries and seals them', 
     metadataSha256: f.entry.metadataSha256,
     interopSha256: f.entry.interopSha256
   });
-  expect(verifyAndroidPayload(f.workspaceRoot).inputDigest).toBe(
+  // The Play adaptation compiles against its own entry and interop.
+  expect(records.play.lockEntry).toMatchObject({
+    key: 'android-play',
+    gameVersion: f.playEntry.gameVersion,
+    interopSha256: f.playEntry.interopSha256
+  });
+  expect(records.play.interopPath).toBe(fs.realpathSync(f.interopPaths.play));
+  expect(verifyAndroidPayload(f.workspaceRoot).publisher.inputDigest).toBe(
     record.inputDigest
   );
   write(
     path.join(
-      androidPaths(f.workspaceRoot).payload,
+      adaptationPaths(f.workspaceRoot, 'play').payload,
       'MelonLoader/Mods/BazaarPlusPlus.Android.dll'
     ),
     'tampered'
@@ -453,7 +491,9 @@ test('prepare names every required inventory file the host build did not produce
   ).rejects.toThrow(
     'Android Mod Payload lacks MelonLoader/Mods/BazaarPlusPlus.Core.dll, MelonLoader/UserLibs/MessagePack.dll'
   );
-  expect(fs.existsSync(androidPaths(f.workspaceRoot).buildRecord)).toBe(false);
+  expect(
+    fs.existsSync(adaptationPaths(f.workspaceRoot, 'publisher').buildRecord)
+  ).toBe(false);
 });
 
 test('prepare refuses an interop directory that is not the locked snapshot and undeclared files', async () => {
@@ -510,9 +550,7 @@ test('the carried release is the Platform Release Manifest without the App', () 
     version: published.version,
     gitCommit: published.gitCommit,
     baseUrl: RELEASE_BASE_URL,
-    game: record.game,
-    interop: record.interop,
-    managedPayload: record.managedPayload,
+    adaptations: record.adaptations,
     loader: record.loader,
     historyDatabaseUserVersion: record.historyDatabaseUserVersion,
     nonManagedPayloadDigest: record.nonManagedPayloadDigest
@@ -530,6 +568,7 @@ test('a release builds and signs its Android App and Interop Package, then strea
   const f = fixture();
   const store = new MemoryStore();
   const manifest = await buildAndroidRelease(f.options);
+  const { publisher, play } = manifest.adaptations;
   const paths = androidPaths(f.workspaceRoot);
   const current = version(f.workspaceRoot);
   const digest = androidNonManagedPayloadDigest({
@@ -553,17 +592,24 @@ test('a release builds and signs its Android App and Interop Package, then strea
       versionCode: androidAppVersionCode(current),
       signerSha256: keys.release.sha256
     },
-    interop: { snapshotSha256: f.entry.interopSha256 },
-    managedPayload: { signature: SIGNATURE },
-    game: {
-      gameVersion: f.entry.gameVersion,
-      versionCode: f.entry.versionCode,
-      il2cppSha256: f.entry.il2cppSha256,
-      metadataSha256: f.entry.metadataSha256
-    },
     loader: { tag: f.entry.loader.tag, sha256: f.entry.loader.sha256 },
     nonManagedPayloadDigest: digest
   });
+  for (const [adaptation, entry] of [
+    [publisher, f.entry],
+    [play, f.playEntry]
+  ] as const)
+    expect(adaptation).toMatchObject({
+      interop: { snapshotSha256: entry.interopSha256 },
+      managedPayload: { signature: SIGNATURE },
+      game: {
+        gameVersion: entry.gameVersion,
+        versionCode: entry.versionCode,
+        il2cppSha256: entry.il2cppSha256,
+        metadataSha256: entry.metadataSha256
+      }
+    });
+  expect(play.interop.sha256).not.toBe(publisher.interop.sha256);
 
   // The App carries the runtime with the fragment's digest.
   const apk = path.join(paths.root, manifest.app.path);
@@ -596,15 +642,20 @@ test('a release builds and signs its Android App and Interop Package, then strea
   expect(carried.version).toBe(current);
   expect(carried.gitCommit).toBe(COMMIT);
   expect(carriedRecord.app).toBeUndefined();
-  expect(carriedRecord.interop.sha256).toBe(manifest.interop.sha256);
-  expect(carriedRecord.interop.signature).toBe(manifest.interop.signature);
+  expect(carriedRecord.interop.sha256).toBe(publisher.interop.sha256);
+  expect(carriedRecord.interop.signature).toBe(publisher.interop.signature);
   expect(carriedRecord.managedPayload.sha256).toBe(
-    manifest.managedPayload.sha256
+    publisher.managedPayload.sha256
   );
-  for (const [digest, file] of [
-    [manifest.interop.sha256, manifest.interop.path],
-    [manifest.managedPayload.sha256, manifest.managedPayload.path]
-  ])
+  expect(carriedRecord.adaptations.play.interop.sha256).toBe(
+    play.interop.sha256
+  );
+  for (const [digest, file] of [publisher, play].flatMap(
+    ({ interop, managedPayload }) => [
+      [interop.sha256, interop.path],
+      [managedPayload.sha256, managedPayload.path]
+    ]
+  ))
     expect(
       execFileSync(
         'unzip',
@@ -616,40 +667,46 @@ test('a release builds and signs its Android App and Interop Package, then strea
   // The Interop Package is the locked snapshot at its content address, with
   // a `release <version>` statement the release certificate verifies.
   const interopZip = fs.readFileSync(
-    path.join(paths.root, manifest.interop.path)
+    path.join(paths.root, publisher.interop.path)
   );
-  expect(manifest.interop.sha256).toBe(sha(interopZip));
-  expect(manifest.interop.key).toBe(interopPackageKey(sha(interopZip)));
-  expect(zipNames(path.join(paths.root, manifest.interop.path))).toEqual([
+  expect(publisher.interop.sha256).toBe(sha(interopZip));
+  expect(publisher.interop.key).toBe(interopPackageKey(sha(interopZip)));
+  expect(zipNames(path.join(paths.root, publisher.interop.path))).toEqual([
     `${INTEROP_ASSET_ROOT}/Assembly-CSharp.dll`,
     `${INTEROP_ASSET_ROOT}/Il2Cppmscorlib.dll`
   ]);
-  const statement = interopStatement({
-    zipSha256: manifest.interop.sha256,
-    il2cppSha256: f.entry.il2cppSha256,
-    metadataSha256: f.entry.metadataSha256,
-    purpose: `release ${current}`
-  });
-  expect(
-    fs.readFileSync(path.join(paths.root, manifest.interop.statementPath))
-  ).toEqual(statement);
-  expect(
-    fs
-      .readFileSync(
-        path.join(paths.root, `${manifest.interop.statementPath}.sig`),
-        'utf8'
-      )
-      .trim()
-  ).toBe(manifest.interop.signature);
-  expect(
-    verifyInteropStatement({
-      statement,
-      signature: manifest.interop.signature,
-      certificate: fs.readFileSync(keys.release.certificateFile)
-    })
-  ).toBe(true);
+  // Each statement binds its own zip to its own game.
+  for (const [adaptation, entry] of [
+    [publisher, f.entry],
+    [play, f.playEntry]
+  ] as const) {
+    const statement = interopStatement({
+      zipSha256: adaptation.interop.sha256,
+      il2cppSha256: entry.il2cppSha256,
+      metadataSha256: entry.metadataSha256,
+      purpose: `release ${current}`
+    });
+    expect(
+      fs.readFileSync(path.join(paths.root, adaptation.interop.statementPath))
+    ).toEqual(statement);
+    expect(
+      fs
+        .readFileSync(
+          path.join(paths.root, `${adaptation.interop.statementPath}.sig`),
+          'utf8'
+        )
+        .trim()
+    ).toBe(adaptation.interop.signature);
+    expect(
+      verifyInteropStatement({
+        statement,
+        signature: adaptation.interop.signature,
+        certificate: fs.readFileSync(keys.release.certificateFile)
+      })
+    ).toBe(true);
+  }
   // Key material sat outside the workspace and is gone.
-  expect(f.exportedKeys).toHaveLength(1);
+  expect(f.exportedKeys).toHaveLength(2);
   expect(f.exportedKeys[0].startsWith(f.workspaceRoot)).toBe(false);
   expect(fs.existsSync(path.dirname(f.exportedKeys[0]))).toBe(false);
   expect(fs.existsSync(paths.work)).toBe(false);
@@ -657,7 +714,7 @@ test('a release builds and signs its Android App and Interop Package, then strea
   // The Managed Payload: the signed manifest and the Mods and UserLibs it
   // names; the Updater plugin ships only inside the App.
   const zipEntries = zipNames(
-    path.join(paths.root, manifest.managedPayload.path)
+    path.join(paths.root, publisher.managedPayload.path)
   );
   expect(zipEntries).toEqual(
     expect.arrayContaining(['manifest.txt', 'manifest.txt.minisig'])
@@ -676,15 +733,21 @@ test('a release builds and signs its Android App and Interop Package, then strea
   );
   expect(store.writes).toEqual([
     androidAppKey(current),
-    manifest.interop.key,
-    managedPayloadKey(current, KEY),
-    `${managedPayloadKey(current, KEY)}.sig`,
+    publisher.interop.key,
+    androidManagedPayloadKey(current, 'publisher'),
+    play.interop.key,
+    androidManagedPayloadKey(current, 'play'),
+    `${androidManagedPayloadKey(current, 'publisher')}.sig`,
+    `${androidManagedPayloadKey(current, 'play')}.sig`,
     fragmentKey(current, KEY)
   ]);
   expect(store.objects.get(androidAppKey(current))!.bytes).toEqual(
     fs.readFileSync(apk)
   );
-  expect(store.objects.get(manifest.interop.key)!.bytes).toEqual(interopZip);
+  expect(store.objects.get(publisher.interop.key)!.bytes).toEqual(interopZip);
+  expect(fragment.adaptations!.play.signerSha256).toBe(
+    ANDROID_GAME_SIGNERS.play
+  );
 
   const promoted = await promote(f, store);
   expect(promoted.advanced).toBe(false);
@@ -699,7 +762,8 @@ test('a release builds and signs its Android App and Interop Package, then strea
     'loader',
     'selfUpdatable',
     'historyDatabaseUserVersion',
-    'nonManagedPayloadDigest'
+    'nonManagedPayloadDigest',
+    'adaptations'
   ]);
   // A second upload of the same build is a no-op on every immutable key.
   const writes = store.writes.length;
@@ -727,7 +791,9 @@ test('the next release ships its own App, keeps the stored Interop Package, and 
     androidAppVersionCode(version(f.workspaceRoot)) - 1,
     androidAppVersionCode(next)
   ]);
-  expect(manifest.interop.key).toBe(objectKeyOf(promotedFragment.interop.url));
+  expect(manifest.adaptations.publisher.interop.key).toBe(
+    objectKeyOf(promotedFragment.interop.url)
+  );
   const log = vi.fn();
   const before = store.writes.length;
   const streamed: string[] = [];
@@ -739,14 +805,19 @@ test('the next release ships its own App, keeps the stored Interop Package, and 
   const fragment = await upload(f, store, { log });
   // The same snapshot is the same object: nothing to upload for it, not even
   // a refused transfer.
+  const payloads = ANDROID_SOURCES.map((source) =>
+    androidManagedPayloadKey(next, source)
+  );
   expect(store.writes.slice(before)).toEqual([
     androidAppKey(next),
-    managedPayloadKey(next, KEY),
-    `${managedPayloadKey(next, KEY)}.sig`,
+    ...payloads,
+    ...payloads.map((key) => `${key}.sig`),
     fragmentKey(next, KEY)
   ]);
-  expect(streamed).toEqual([androidAppKey(next), managedPayloadKey(next, KEY)]);
-  expect(log).toHaveBeenCalledWith(`Already stored: ${manifest.interop.key}`);
+  expect(streamed).toEqual([androidAppKey(next), ...payloads]);
+  expect(log).toHaveBeenCalledWith(
+    `Already stored: ${manifest.adaptations.publisher.interop.key}`
+  );
   expect(fragment.nonManagedPayloadDigest).toBe(
     promotedFragment.nonManagedPayloadDigest
   );
@@ -824,11 +895,15 @@ test('an upload that stopped before its fragment completes by uploading the same
   );
   // Nor are other bytes at the Interop Package's content address.
   const poisoned = new MemoryStore();
-  await poisoned.put(manifest.interop.key, Buffer.from('not the snapshot'), {
-    ifNoneMatch: true
-  });
+  await poisoned.put(
+    manifest.adaptations.publisher.interop.key,
+    Buffer.from('not the snapshot'),
+    {
+      ifNoneMatch: true
+    }
+  );
   await expect(upload(f, poisoned)).rejects.toThrow(
-    `Immutable release object differs: ${manifest.interop.key}`
+    `Immutable release object differs: ${manifest.adaptations.publisher.interop.key}`
   );
   expect(poisoned.writes).not.toContain(fragmentKey(current, KEY));
 });

@@ -102,6 +102,16 @@ export type AndroidGameRelease = {
   metadataSha256: string;
 };
 
+// One Game Adaptation of an Android release (docs/adr/0019): the game one
+// Android source ships, the sha256 of the certificate that source signs it
+// with, and the Interop Package and Managed Payload built for that game.
+export type AndroidAdaptation = {
+  signerSha256: string;
+  game: AndroidGameRelease;
+  interop: InteropPackageDownload;
+  managedPayload: ManagedPayloadDownload;
+};
+
 // The desktop game a release was built against: the Snapshot Lock entry the
 // build record names, and its game code identity (the `Managed/` digest).
 export type DesktopGameRelease = {
