@@ -26,19 +26,22 @@ public sealed class LiveBuildPanelSnapshot
 
     public string MatchesGuidance { get; init; } = string.Empty;
 
-    public int? MatchTenWinRateBps { get; init; }
-
-    public int MatchTenWinRunCount { get; init; }
-
-    public int MatchCompletedRunCount { get; init; }
-
-    public int? MatchP75FinalDay { get; init; }
-
-    public int MatchMatchedCardCount { get; init; }
+    /// <summary>
+    /// The browsed recommendation's evidence, one label and value per metric cell in display
+    /// order; a snapshot without a recommendation carries the same cells with missing values.
+    /// </summary>
+    public IReadOnlyList<LiveBuildMetric> Metrics { get; init; } = Array.Empty<LiveBuildMetric>();
 
     public int RecommendationIndex { get; init; }
 
     public int RecommendationCount { get; init; }
+
+    /// <summary>The browsed recommendation's place among the matches, "2 / 5"; "0 / 0" with none.</summary>
+    public string PagerText =>
+        RecommendationCount > 0 ? $"{RecommendationIndex + 1} / {RecommendationCount}" : "0 / 0";
+
+    /// <summary>Previous and Next have somewhere to go.</summary>
+    public bool CanBrowse => RecommendationCount > 1;
 
     public string FinalBuildRefreshButtonText { get; init; } = string.Empty;
 
@@ -55,6 +58,12 @@ public sealed class LiveBuildPanelSnapshot
     public string CorpusFreshnessText { get; init; } = string.Empty;
 
     public LiveBuildRefreshSeverity CorpusFreshnessSeverity { get; init; }
+
+    /// <summary>The corpus detail a host shows on demand: status, freshness, then the per-hero summary.</summary>
+    public IReadOnlyList<string> CorpusDetailLines =>
+        new[] { CorpusStatusText, CorpusFreshnessText, CorpusStatusTooltip }
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
 
     public IReadOnlyList<BPPSupporterSample> Supporters { get; init; } =
         Array.Empty<BPPSupporterSample>();

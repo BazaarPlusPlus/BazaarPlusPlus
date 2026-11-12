@@ -75,6 +75,14 @@ public static partial class LiveBuildPanelText
             )
         );
 
+    public static string BoardPartial(int unavailableCount) =>
+        L.Resolve(
+            new LocalizedTextSet(
+                $"{unavailableCount} cards are unavailable in this game version.",
+                $"{unavailableCount} 张卡牌在当前版本不可用。"
+            )
+        );
+
     public static string Title() => L.Resolve(TitleText);
 
     public static string FinalBuildRow() => L.Resolve(FinalBuildRowText);

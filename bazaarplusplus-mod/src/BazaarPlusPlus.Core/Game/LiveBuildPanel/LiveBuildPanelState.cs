@@ -201,11 +201,10 @@ public sealed class LiveBuildPanelState
             IncludeTiny = _includeTiny,
             MatchesState = matches.State,
             MatchesGuidance = matches.Guidance,
-            MatchTenWinRateBps = matches.Recommendation?.TenWinRateBps,
-            MatchTenWinRunCount = matches.Recommendation?.TenWinRunCount ?? 0,
-            MatchCompletedRunCount = matches.Recommendation?.CompletedRunCount ?? 0,
-            MatchP75FinalDay = matches.Recommendation?.P75TenWinFinalDay,
-            MatchMatchedCardCount = matches.Recommendation?.MatchedCardCount ?? 0,
+            Metrics = LiveBuildPanelText.MatchMetrics(
+                matches.Recommendation,
+                _candidates.TemplateIds.Count
+            ),
             RecommendationIndex = _recommendationIndex,
             RecommendationCount = _matches.Count,
             FinalBuildRefreshButtonText = _refresh.IsPending

@@ -11,7 +11,6 @@ using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.NativeSkin;
 using BazaarPlusPlus.Infrastructure.DesktopKit;
 using BazaarPlusPlus.Infrastructure.UiTokens;
-using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -328,54 +327,16 @@ internal sealed class LiveBuildPanelView : IDisposable
                 ? snapshot.CorpusFreshnessSeverity
                 : snapshot.CorpusStatusSeverity
         );
-        _corpusDetail!.text = string.Join(
-            "\n",
-            new[]
-            {
-                snapshot.CorpusStatusText,
-                snapshot.CorpusFreshnessText,
-                snapshot.CorpusStatusTooltip,
-            }.Where(value => !string.IsNullOrWhiteSpace(value))
-        );
-        _pager!.text =
-            snapshot.RecommendationCount > 0
-                ? $"{snapshot.RecommendationIndex + 1} / {snapshot.RecommendationCount}"
-                : "0 / 0";
-        _previousButton!.interactable = _nextButton!.interactable =
-            snapshot.RecommendationCount > 1;
+        _corpusDetail!.text = string.Join("\n", snapshot.CorpusDetailLines);
+        _pager!.text = snapshot.PagerText;
+        _previousButton!.interactable = _nextButton!.interactable = snapshot.CanBrowse;
         var hasRecommendation = snapshot.MatchesState == LiveBuildMatchesState.HasRecommendation;
         _metrics!.gameObject.SetActive(hasRecommendation);
         _guidance!.gameObject.SetActive(!hasRecommendation);
         _guidance.text = hasRecommendation ? string.Empty : snapshot.MatchesGuidance;
         if (hasRecommendation)
-        {
-            SetMetric(
-                0,
-                LiveBuildPanelText.MatchRateLabel(),
-                LiveBuildPanelText.MatchRateValue(snapshot.MatchTenWinRateBps)
-            );
-            SetMetric(
-                1,
-                LiveBuildPanelText.MatchSampleLabel(),
-                LiveBuildPanelText.MatchSampleValue(
-                    snapshot.MatchTenWinRunCount,
-                    snapshot.MatchCompletedRunCount
-                )
-            );
-            SetMetric(
-                2,
-                LiveBuildPanelText.MatchFinalDayLabel(),
-                LiveBuildPanelText.MatchFinalDayValue(snapshot.MatchP75FinalDay)
-            );
-            SetMetric(
-                3,
-                LiveBuildPanelText.MatchMatchedLabel(),
-                LiveBuildPanelText.MatchMatchedValue(
-                    snapshot.MatchMatchedCardCount,
-                    snapshot.CandidateTemplateIds.Count
-                )
-            );
-        }
+            for (var cell = 0; cell < snapshot.Metrics.Count; cell++)
+                SetMetric(cell, snapshot.Metrics[cell].Label, snapshot.Metrics[cell].Value);
         foreach (var row in snapshot.Rows)
         {
             var ui = _rows[row.Board.Id];
@@ -533,12 +494,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         {
             NativeMonsterBoardStatus.Loading => LiveBuildPanelText.LoadingBoard(),
             NativeMonsterBoardStatus.Failed => LiveBuildPanelText.BoardFailed(),
-            NativeMonsterBoardStatus.Partial => L.Resolve(
-                new LocalizedTextSet(
-                    $"{unavailableCount} cards are unavailable in this game version.",
-                    $"{unavailableCount} 张卡牌在当前版本不可用。"
-                )
-            ),
+            NativeMonsterBoardStatus.Partial => LiveBuildPanelText.BoardPartial(unavailableCount),
             _ => string.Empty,
         };
         if (_snapshot != null)
