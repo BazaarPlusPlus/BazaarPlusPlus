@@ -997,8 +997,8 @@ void TestDeletePromptMentionsMp4OnlyWhereTheHostRecords()
 
         Assert(
             coordinator.IsDeleteRunConfirmationActive("run-9", 0f)
-                && state.StatusMessage?.Contains("run-9", StringComparison.Ordinal) == true,
-            "Delete must arm the confirmation and name the run."
+                && state.StatusMessage?.Contains("run-9", StringComparison.Ordinal) == false,
+            "Delete must arm the confirmation without showing the run id."
         );
         Assert(
             state.StatusMessage!.Contains("MP4", StringComparison.Ordinal) == recordingSupported,

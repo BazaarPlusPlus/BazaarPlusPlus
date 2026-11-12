@@ -151,10 +151,25 @@ internal static class HistoryTouchLayoutTests
         {
             detail.Add(("lower title", layout.LowerBoardTitle));
             detail.Add(("lower board", layout.LowerBoard));
+            detail.Add(("status", layout.Status));
             RequireLaidOut(
                 name + " columns",
                 layout.Sheet,
                 [("archive", layout.Archive), ("rail", layout.Rail), ("detail", layout.Detail)]
+            );
+            Require(
+                Near(layout.Footer.Bottom, layout.ArchivePager.Bottom)
+                    && Near(layout.Footer.Height, layout.ArchivePager.Height),
+                $"{name}: the action row and the pager share one bottom edge and height ({layout.Footer} / {layout.ArchivePager})."
+            );
+            RequireLaidOut(
+                name + " empty detail",
+                layout.Detail,
+                [
+                    ("empty", layout.EmptyDetail),
+                    ("status", layout.Status),
+                    ("actions", layout.Footer),
+                ]
             );
         }
         RequireLaidOut(name + " detail", layout.Detail, detail.ToArray());

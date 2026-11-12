@@ -280,9 +280,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             return CanReplaySelectedFavorite(out reason);
         if (IsBeingDeleted(activeSelectedBattle))
         {
-            reason = HistoryPanelText.DeletingRun(
-                HistoryPanelFormatter.ShortenRunId(activeSelectedBattle!.RunId)
-            );
+            reason = HistoryPanelText.DeletingRun();
             return false;
         }
         return _replayService.CanReplayBattle(activeSelectedBattle, out reason);
@@ -548,10 +546,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         {
             _state.DeleteRunConfirmation = new DeleteConfirmation(run.RunId, now + 5f);
             SetStatusMessage(
-                HistoryPanelText.DeleteRunConfirm(
-                    HistoryPanelFormatter.ShortenRunId(run.RunId),
-                    RecordingSupported
-                ),
+                HistoryPanelText.DeleteRunConfirm(RecordingSupported),
                 isDeleteConfirmation: true
             );
             _requestUiRefresh();
@@ -562,9 +557,8 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
 
         var logRequestId = NewLogRequestId();
         var session = _session.Version;
-        var shortRunId = HistoryPanelFormatter.ShortenRunId(run.RunId);
         _state.DeletingRunId = run.RunId;
-        var deletingMessage = HistoryPanelText.DeletingRun(shortRunId);
+        var deletingMessage = HistoryPanelText.DeletingRun();
         SetStatusMessage(deletingMessage, StatusSeverity.Pending);
         _requestUiRefresh();
 
@@ -666,7 +660,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         }
 
         var deletedMessage = HistoryPanelText.DeletedRun(
-            shortRunId,
             outcome.BattleIds.Count,
             RecordingSupported
         );

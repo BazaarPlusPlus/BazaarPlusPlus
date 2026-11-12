@@ -12,8 +12,6 @@ public static partial class HistoryPanelText
 
     private static readonly LocalizedTextSet UnrankedText = new("Normal", "普通对局", "普通對局");
 
-    private static readonly LocalizedTextSet UnknownRunText = new("Unknown Run", "未知 Run");
-
     private static readonly LocalizedTextSet UnknownText = new("Unknown", "未知");
 
     public static string FilterDayMin10() => Resolve(FilterDayMin10Text);
@@ -21,8 +19,6 @@ public static partial class HistoryPanelText
     public static string Ranked() => Resolve(RankedText);
 
     public static string Unranked() => Resolve(UnrankedText);
-
-    public static string UnknownRun() => Resolve(UnknownRunText);
 
     public static string Unknown() => Resolve(UnknownText);
 
@@ -121,16 +117,16 @@ public static partial class HistoryPanelText
 
     // A host that records no video (IReplayRecordingAvailability.Supported false, Android) has no
     // MP4 to keep, so its delete lines do not mention one.
-    public static string DeleteRunConfirm(string shortRunId, bool recordingSupported)
+    public static string DeleteRunConfirm(bool recordingSupported)
     {
         return recordingSupported
             ? FormatSimple(
-                $"Press Delete again within 5s to remove {shortRunId}. Completed MP4 recordings will be kept.",
-                $"请在 5 秒内再次点击删除，以移除 {shortRunId}。已完成的 MP4 录像会保留。"
+                "Press Delete again within 5s to remove this run. Completed MP4 recordings will be kept.",
+                "请在 5 秒内再次点击删除，以移除这场对局。已完成的 MP4 录像会保留。"
             )
             : FormatSimple(
-                $"Press Delete again within 5s to remove {shortRunId}.",
-                $"请在 5 秒内再次点击删除，以移除 {shortRunId}。"
+                "Press Delete again within 5s to remove this run.",
+                "请在 5 秒内再次点击删除，以移除这场对局。"
             );
     }
 
@@ -143,9 +139,9 @@ public static partial class HistoryPanelText
         );
     }
 
-    public static string DeletingRun(string shortRunId)
+    public static string DeletingRun()
     {
-        return FormatSimple($"Deleting run {shortRunId}...", $"正在删除对局 {shortRunId}...");
+        return FormatSimple("Deleting this run...", "正在删除这场对局...");
     }
 
     public static string RunDeleteFailed(string details)
@@ -153,26 +149,26 @@ public static partial class HistoryPanelText
         return FormatSimple($"Couldn't delete run: {details}", $"删除对局失败：{details}");
     }
 
-    public static string DeletedRun(string shortRunId, int battleCount, bool recordingSupported)
+    public static string DeletedRun(int battleCount, bool recordingSupported)
     {
         if (battleCount > 0)
         {
             return recordingSupported
                 ? FormatSimple(
-                    $"Removed run {shortRunId} and cleaned {battleCount} battle records. Completed MP4 recordings were kept.",
-                    $"已删除对局 {shortRunId}，并清理 {battleCount} 条战斗记录。已完成的 MP4 录像已保留。"
+                    $"Removed this run and cleaned {battleCount} battle records. Completed MP4 recordings were kept.",
+                    $"已删除这场对局，并清理 {battleCount} 条战斗记录。已完成的 MP4 录像已保留。"
                 )
                 : FormatSimple(
-                    $"Removed run {shortRunId} and cleaned {battleCount} battle records.",
-                    $"已删除对局 {shortRunId}，并清理 {battleCount} 条战斗记录。"
+                    $"Removed this run and cleaned {battleCount} battle records.",
+                    $"已删除这场对局，并清理 {battleCount} 条战斗记录。"
                 );
         }
 
         return recordingSupported
             ? FormatSimple(
-                $"Removed run {shortRunId}. Completed MP4 recordings were kept.",
-                $"已删除对局 {shortRunId}。已完成的 MP4 录像已保留。"
+                "Removed this run. Completed MP4 recordings were kept.",
+                "已删除这场对局。已完成的 MP4 录像已保留。"
             )
-            : FormatSimple($"Removed run {shortRunId}.", $"已删除对局 {shortRunId}。");
+            : FormatSimple("Removed this run.", "已删除这场对局。");
     }
 }

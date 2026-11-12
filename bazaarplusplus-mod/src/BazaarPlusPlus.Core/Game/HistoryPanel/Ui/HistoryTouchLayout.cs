@@ -12,7 +12,9 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 /// archive (list, page label and pager), the run's battle rail with its two pagers, and the
 /// detail column with the native boards over the action row (delete, set apart from favorite,
 /// skills and replay). The rail ends above the action row, so its pager never reads as part of
-/// it. The status line runs along the bottom of the sheet, under the rail and the detail. Every target is at least
+/// it. The archive and the detail run to the sheet's bottom, so the pager and the action row
+/// share one bottom edge; the status line stands over the action row. On the compact step the
+/// status line runs along the bottom of the sheet. Every target is at least
 /// <see cref="TouchMetrics.MinTargetDp"/> and every text at least
 /// <see cref="TouchMetrics.MinBodySp"/>. The boards keep the game's card prefab proportions: ten
 /// sockets span the detail column, which takes <see cref="DetailSocketDp"/> per socket before the
@@ -112,21 +114,14 @@ public sealed class HistoryTouchLayout
         Compact = wideScale * NativeCardPrefab.SocketWidth < metrics.MinTarget;
         if (Compact)
             archiveWidth = body.Width;
-        // Beside the detail the archive runs to the sheet's bottom; the status line stands under
-        // the rail and the detail alone.
+        // Beside the detail the archive and the detail run to the sheet's bottom, so the pager
+        // and the action row share one bottom edge; the status line moves over the action row.
         Archive = new TouchRect(
             body.Left,
             top,
             archiveWidth,
             Compact ? columnHeight : body.Bottom - top
         );
-        if (!Compact)
-            Status = new TouchRect(
-                Archive.Right + Gap,
-                Status.Top,
-                body.Right - Archive.Right - Gap,
-                StatusHeight
-            );
         // The section tabs head the archive column from the header row, and the section's filter
         // follows them, so the list keeps the archive's whole height. Every control of the
         // archive has the same inset from its panel, so their edges align.
@@ -219,7 +214,12 @@ public sealed class HistoryTouchLayout
         // retaining Close. This leaves one full-size native board even on short safe areas.
         Detail = Compact
             ? new TouchRect(body.Left, body.Top, body.Width, bottom - body.Top)
-            : new TouchRect(Archive.Right + Gap + railWidth + Gap, top, detailWidth, columnHeight);
+            : new TouchRect(
+                Archive.Right + Gap + railWidth + Gap,
+                top,
+                detailWidth,
+                Archive.Height
+            );
         var navigationTop = Detail.Top;
         var navigationRight = Compact ? Close.Left - Gap : Detail.Right;
         Back = new TouchRect(Detail.Left, navigationTop, metrics.Target(72f), target);
@@ -284,8 +284,24 @@ public sealed class HistoryTouchLayout
             metrics.Target(104f),
             target
         );
+        // The status line over the action row takes the height it leaves under the boards, so
+        // the boards keep the scale the detail width was chosen for.
+        if (!Compact)
+            Status = new TouchRect(
+                Detail.Left,
+                Footer.Top - small - StatusHeight,
+                Detail.Width,
+                StatusHeight
+            );
         var boardTop = Compact ? Back.Bottom + small : Detail.Top;
-        var boardsHeight = Math.Max(0f, Footer.Top - Gap - boardTop);
+        var boardsBottom = (Compact ? Footer.Top : Status.Top) - Gap;
+        EmptyDetail = new TouchRect(
+            Detail.Left,
+            Detail.Top,
+            Detail.Width,
+            Math.Max(0f, boardsBottom - Detail.Top)
+        );
+        var boardsHeight = Math.Max(0f, boardsBottom - boardTop);
         var heightScale = Compact
             ? (boardsHeight - BoardTitleHeight) / nativeHeight
             : (boardsHeight - 2f * BoardTitleHeight - boardGap) / (2f * nativeHeight);
@@ -508,6 +524,9 @@ public sealed class HistoryTouchLayout
     public float ChipHeight { get; }
 
     public TouchRect Detail { get; }
+
+    /// <summary>The detail above its status line and action row, where no record is open.</summary>
+    public TouchRect EmptyDetail { get; }
 
     public TouchRect Footer { get; }
 
