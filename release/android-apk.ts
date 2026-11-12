@@ -2,11 +2,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-// Reads the facts an Interop Snapshot records from an official Android APK
-// (root GLOSSARY.md, ADR 0008): the entries interop generation consumes, the
-// package versionName and versionCode from the binary AndroidManifest.xml, and
-// the Unity version from the data.unity3d bundle header. Nothing here needs the
-// Android SDK; entries are read through `unzip`.
+// Reads the facts an Interop Snapshot records from an official Android build
+// (root GLOSSARY.md, ADR 0008): the publisher's single APK, or a Google Play
+// install's base APK and its splits (ADR 0019). It reads the entries interop
+// generation consumes, the package versionName and versionCode from the binary
+// AndroidManifest.xml, and the Unity version from the data.unity3d bundle
+// header. Nothing here needs the Android SDK; entries are read through `unzip`.
 
 export const APK_ENTRIES = Object.freeze({
   il2cpp: 'lib/arm64-v8a/libil2cpp.so',
@@ -24,10 +25,13 @@ export interface AndroidManifestVersion {
   versionCode: number;
 }
 
-/** What readApk extracts and reads from an official Android APK. */
+/** What readApk extracts and reads from an official Android build. */
 export interface ApkFacts extends AndroidManifestVersion {
   unityVersion: string;
+  /** The base APK. */
   apkSha256: string;
+  /** The split APKs, sorted; empty for a single APK. */
+  splitApkSha256s: string[];
   il2cppSha256: string;
   metadataSha256: string;
   /** The extracted libil2cpp.so. */
@@ -182,16 +186,50 @@ function readHead(file: string, length: number): Buffer {
   }
 }
 
-// Extracts the generation inputs into `into` and reads the APK's identity.
-export async function readApk(apk: string, into: string): Promise<ApkFacts> {
+function apkEntryNames(apk: string): Set<string> {
+  try {
+    const listing = execFileSync('unzip', ['-Z1', apk], {
+      maxBuffer: 256 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    return new Set(listing.toString('utf8').split('\n'));
+  } catch (error) {
+    const failure = error as UnzipError;
+    throw new Error(
+      `Cannot list ${apk}: ${String(failure.stderr || failure.message).trim()}`
+    );
+  }
+}
+
+// Extracts the generation inputs into `into` and reads the build's identity.
+// `apks` is the base APK, then any splits. The manifest is read from the base,
+// since every split carries its own; each other entry must occur in exactly
+// one APK.
+export async function readApk(
+  apks: readonly string[],
+  into: string
+): Promise<ApkFacts> {
+  if (apks.length === 0) throw new Error('No APK to read');
   const files: Record<ApkEntryName, string> = {
     il2cpp: `${into}/libil2cpp.so`,
     metadata: `${into}/global-metadata.dat`,
     manifest: `${into}/AndroidManifest.xml`,
     dataBundle: `${into}/data.unity3d`
   };
+  const listings = apks.length > 1 ? apks.map(apkEntryNames) : [];
+  const holder = (name: ApkEntryName): string => {
+    if (name === 'manifest' || apks.length === 1) return apks[0];
+    const holders = apks.filter((_, index) =>
+      listings[index].has(APK_ENTRIES[name])
+    );
+    if (holders.length !== 1)
+      throw new Error(
+        `${APK_ENTRIES[name]} must occur in exactly one of ${apks.join(', ')}; found in ${holders.length}`
+      );
+    return holders[0];
+  };
   for (const [name, file] of Object.entries(files) as [ApkEntryName, string][])
-    extractApkEntry(apk, APK_ENTRIES[name], file);
+    extractApkEntry(holder(name), APK_ENTRIES[name], file);
   const { versionName, versionCode } = parseAndroidManifest(
     fs.readFileSync(files.manifest)
   );
@@ -199,7 +237,10 @@ export async function readApk(apk: string, into: string): Promise<ApkFacts> {
     versionName,
     versionCode,
     unityVersion: parseUnityBundleVersion(readHead(files.dataBundle, 128)),
-    apkSha256: await sha256File(apk),
+    apkSha256: await sha256File(apks[0]),
+    splitApkSha256s: (
+      await Promise.all(apks.slice(1).map((split) => sha256File(split)))
+    ).sort(),
     il2cppSha256: await sha256File(files.il2cpp),
     metadataSha256: await sha256File(files.metadata),
     il2cpp: files.il2cpp,

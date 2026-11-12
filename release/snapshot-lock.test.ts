@@ -7,7 +7,9 @@ import { WORKSPACE_ROOT } from './product.ts';
 import {
   GAME_LIBS_LOCK_PATH,
   GAME_VERSION_PATTERN,
-  INTEROP_KEY,
+  PUBLISHER_KEY,
+  gameVersionKey,
+  interopSnapshotName,
   lockKey,
   lockKeys,
   lockWarnings,
@@ -64,7 +66,8 @@ test('the committed lock validates and names every platform-channel key', () => 
     'windows-online',
     'windows-staging',
     'windows-ptr',
-    'android-online'
+    'android-publisher',
+    'android-play'
   ]);
   expect(lock.staleAfterDays).toBe(30);
 });
@@ -102,7 +105,7 @@ test('lock validation rejects every malformed shape it will meet', () => {
     [{ ...emptyLock(), extra: true }, /unknown top-level/],
     [
       { ...emptyLock(), entries: { 'macos-online': null } },
-      /exactly the keys macos-online, .*, android-online/
+      /exactly the keys macos-online, .*, android-publisher, android-play/
     ],
     [withEntry('macos-staging', { ...entry, note: 'x' }), /exactly the fields/],
     [withEntry('macos-online', entry), /is a macos-staging build/],
@@ -141,12 +144,12 @@ test('warnings name empty and stale entries without failing', () => {
     capturedAt: '2026-10-01T00:00:00.000Z'
   };
   const warnings = lockWarnings(lock, { now: NOW });
-  expect(warnings).toHaveLength(6);
+  expect(warnings).toHaveLength(7);
   expect(
     warnings.filter((w) => w.includes('no snapshot captured'))
   ).toHaveLength(4);
-  expect(warnings.find((w) => w.startsWith('android-online'))).toMatch(
-    /no Interop Snapshot captured; run 'just mod::snapshot-android <TheBazaar\.apk>'/
+  expect(warnings.find((w) => w.startsWith('android-play'))).toMatch(
+    /no Interop Snapshot captured; run 'just mod::snapshot-android <APK>\.\.\.', then 'just mod::publish android play'/
   );
   expect(warnings.find((w) => w.startsWith('macos-staging'))).toMatch(
     /captured 63 days ago \(staleAfterDays 30\)/
@@ -158,11 +161,21 @@ test('warnings name empty and stale entries without failing', () => {
   ]);
 });
 
-test('android versions parse to android-online', () => {
+test('an Android version names its source: the publisher form or a bare Play versionName', () => {
   expect(parseGameVersion(ANDROID_VERSION)).toEqual({
     platform: 'android',
     channel: 'online'
   });
+  expect(gameVersionKey(ANDROID_VERSION)).toBe('android-publisher');
+  expect(gameVersionKey('1.0.6')).toBe('android-play');
+  expect(gameVersionKey(STAGING_VERSION)).toBe('macos-staging');
+  expect(() => gameVersionKey('1.0.12825-staging-android-d9601ded')).toThrow(
+    /Android staging build; the lock holds only production builds/
+  );
+  expect(() => gameVersionKey('1.0')).toThrow(/Application.version/);
+  // An Interop Snapshot is named by versionCode: a Play versionName may name
+  // more than one build.
+  expect(interopSnapshotName('play', 13168)).toBe('android-play-13168');
   expect(parseGameVersion('1.0.12651-prod-macos-arm64-d5cc730f')).toEqual({
     platform: 'macos',
     channel: 'online'
@@ -177,9 +190,9 @@ test('android versions parse to android-online', () => {
   expect(() =>
     parseGameVersion('1.0.12825-production-android-arm64-d9601ded')
   ).toThrow(/Application.version/);
-  expect(lockKeys().at(-1)).toBe('android-online');
-  expect(() => lockKey('android', 'staging')).toThrow(
-    /Unknown android snapshot channel 'staging'; expected online/
+  expect(lockKeys().slice(-2)).toEqual(['android-publisher', 'android-play']);
+  expect(() => lockKey('android', 'online')).toThrow(
+    /Unknown android snapshot channel 'online'; expected publisher, play/
   );
 });
 
@@ -198,13 +211,14 @@ test('build/ManagedPath.props mirrors the game version pattern', () => {
   ).toBe(GAME_VERSION_PATTERN.source);
 }, 30000);
 
-test('lock validation holds the android-online entry to its schema and field order', () => {
+test('lock validation holds an Android entry to its schema and field order', () => {
   const ws = workspace();
   const entry = {
     gameVersion: ANDROID_VERSION,
     versionCode: 12825,
     apkSha256: 'a'.repeat(64),
     apkEtag: '72439fcc9794ac65abd8649b18aa59ac',
+    splitApkSha256s: [] as string[],
     il2cppSha256: 'b'.repeat(64),
     metadataSha256: 'c'.repeat(64),
     unityVersion: UNITY_VERSION,
@@ -221,12 +235,26 @@ test('lock validation holds the android-online entry to its schema and field ord
     nativeLibs: {},
     capturedAt: NOW.toISOString()
   };
-  const lock = (value: object) => {
+  const lock = (value: object, key: string = PUBLISHER_KEY) => {
     const parsed = readGameLibsLock(ws.workspaceRoot);
-    (parsed.entries as Record<string, unknown>)[INTEROP_KEY] = value;
+    (parsed.entries as Record<string, unknown>)[key] = value;
     return parsed;
   };
   expect(validateGameLibsLock(lock(entry))).toBeTruthy();
+  const play = {
+    ...entry,
+    gameVersion: '1.0.6',
+    versionCode: 13168,
+    apkEtag: null,
+    splitApkSha256s: ['2'.repeat(64), '3'.repeat(64)]
+  };
+  expect(validateGameLibsLock(lock(play, 'android-play'))).toBeTruthy();
+  expect(() => validateGameLibsLock(lock(play))).toThrow(
+    /Lock entry android-publisher names game version 1\.0\.6, which is a android-play build/
+  );
+  expect(() => validateGameLibsLock(lock(entry, 'android-play'))).toThrow(
+    /which is a android-publisher build/
+  );
   const { gameVersion, ...rest } = entry;
   const cases: [object, RegExp][] = [
     [{ ...rest, gameVersion }, /in the order gameVersion, versionCode/],
@@ -242,6 +270,14 @@ test('lock validation holds the android-online entry to its schema and field ord
       /apkEtag must be null or a strong ETag/
     ],
     [{ ...entry, apkEtag: '' }, /apkEtag must be null or a strong ETag/],
+    [
+      { ...entry, splitApkSha256s: ['3'.repeat(64), '2'.repeat(64)] },
+      /splitApkSha256s must be the split APKs' sha256 values, sorted and distinct/
+    ],
+    [
+      { ...entry, splitApkSha256s: ['xyz'] },
+      /splitApkSha256s must be the split APKs' sha256 values/
+    ],
     [{ ...entry, unityVersion: '6000.3' }, /unityVersion/],
     [
       { ...entry, loader: { tag: 'v0.7.4', sha256: 'e'.repeat(64) } },

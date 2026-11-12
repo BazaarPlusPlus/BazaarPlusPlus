@@ -7,6 +7,7 @@ import {
   fetchLockedAndroidInput,
   lockedInteropEntry
 } from '../../release/interop-snapshot.ts';
+import type { AndroidSource } from '../../release/snapshot-lock.ts';
 import { signIn, withLoginCancellation } from './android-login.ts';
 import { inspectScreen } from './android-screen.ts';
 import type { LoginReceipt } from './android-login.ts';
@@ -20,6 +21,8 @@ export interface DeviceProfile {
   height: number;
   dpi: number;
   port: number;
+  /** The Android lock entry whose official game the AVD installs (ADR 0019). */
+  source: AndroidSource;
 }
 
 /** The Android SDK tools and AVD directory this machine uses. */
@@ -134,10 +137,32 @@ const evidence = (profile: DeviceProfile): string =>
   );
 // These exercise the unchanged, screen-fill-only and gathered-HUD branches of
 // Core/Ui/ScreenFill. Dimensions are the game's landscape framebuffer, not wm overrides.
+// One AVD runs the Google Play build, so both Game Adaptations get a device.
 export const profiles: DeviceProfile[] = [
-  { name: 'bpp_emu_20_9', width: 2400, height: 1080, dpi: 420, port: 5556 },
-  { name: 'bpp_emu_3_2', width: 2400, height: 1600, dpi: 420, port: 5558 },
-  { name: 'bpp_emu_fold', width: 2480, height: 2248, dpi: 420, port: 5560 }
+  {
+    name: 'bpp_emu_20_9',
+    width: 2400,
+    height: 1080,
+    dpi: 420,
+    port: 5556,
+    source: 'play'
+  },
+  {
+    name: 'bpp_emu_3_2',
+    width: 2400,
+    height: 1600,
+    dpi: 420,
+    port: 5558,
+    source: 'publisher'
+  },
+  {
+    name: 'bpp_emu_fold',
+    width: 2480,
+    height: 2248,
+    dpi: 420,
+    port: 5560,
+    source: 'publisher'
+  }
 ];
 const help = `Local development matrix: Android AVDs
 
@@ -174,9 +199,11 @@ process, then MainMenuScene and a following hooks summary, and captures the
 screen and native display metrics. Device or game failures stop this attempt.
 Success stops the AVD, preserving user data; --keep-open needs a single NAME.
 Failure leaves the device open and returns nonzero. Rerun init after repair.
-The official APK, build/runtime and build/interop.zip come from the private
-store once: just with-config release just setup-device NAME, and
-just with-config release just android::stage-runtime (and ::interop-package).
+bpp_emu_20_9 installs the locked Google Play build (android-play), the others
+the publisher's APK (android-publisher). The official APKs, build/runtime and
+build/interop-<source>.zip come from the private store once: just with-config
+release just setup-device NAME, and just with-config release just
+android::stage-runtime (and ::interop-package <source>).
 All profiles are static screen fixtures; fold does not simulate a hinge.
 
 ANDROID_HOME selects the SDK (macOS: ~/Library/Android/sdk;
@@ -539,15 +566,16 @@ async function provision(
   env: DeviceEnv,
   profile: DeviceProfile
 ): Promise<void> {
+  const { source } = profile;
   for (const [file, recipe] of [
     ['build/runtime', 'android::stage-runtime'],
-    ['build/interop.zip', 'android::interop-package']
+    [`build/interop-${source}.zip`, `android::interop-package ${source}`]
   ])
     if (!fs.existsSync(path.join(androidApp, file)))
       throw new Error(
         `No ${file} in bazaarplusplus-android; run: just with-config release just ${recipe}`
       );
-  const locked = lockedInteropEntry(root).apkSha256;
+  const locked = lockedInteropEntry(root, source).apkSha256;
   let installed = '';
   try {
     const apk = adb('shell', 'pm', 'path', gamePackage)
@@ -567,30 +595,41 @@ async function provision(
     /* pm path exits 1 when the game is not installed. */
   }
   if (installed !== locked) {
-    let file: string;
+    let files: string[];
     try {
-      file = await fetchLockedAndroidInput({ kind: 'apk', log: console.log });
+      files = await fetchLockedAndroidInput({
+        source,
+        kind: 'apk',
+        log: console.log
+      });
     } catch (error) {
       throw new Error(
         `The locked official game APK is not cached (${(error as Error).message}). Fetch it once with: just with-config release just setup-device ${profile.name}`
       );
     }
     console.log(
-      `${profile.name}: installing the locked official game (${installed ? 'replacing another build' : 'not installed'}).`
+      `${profile.name}: installing the locked ${source} official game (${installed ? 'replacing another build' : 'not installed'}).`
     );
+    // The two sources sign the game with different keys, so a replaced build
+    // is uninstalled first.
     if (installed) adb('uninstall', gamePackage);
-    run(env.ADB, ['-s', env.ANDROID_SERIAL, 'install', file], {
+    run(env.ADB, ['-s', env.ANDROID_SERIAL, 'install-multiple', ...files], {
       timeout: 900_000
     });
   }
+  // MSBuild reads BppAndroidSource from the environment (InteropPath.props).
   const just = (...args: string[]) =>
-    run('just', args, { cwd: root, env, timeout: 900_000 });
+    run('just', args, {
+      cwd: root,
+      env: { ...env, BppAndroidSource: source },
+      timeout: 900_000
+    });
   console.log(
     `${profile.name}: installing the debug App, the Development interop and this checkout's mod.`
   );
   just('android::install');
   adb('shell', 'run-as', app, 'rm', '-f', loaderDeployment);
-  just('android::push-interop');
+  just('android::push-interop', source);
   just('mod::android-build');
   just('mod::android-deploy');
 }

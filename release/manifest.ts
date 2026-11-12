@@ -323,7 +323,7 @@ export const ANDROID_RELEASE_SIGNER_SHA256 =
   '0d53bd4d2011c3e3181eb291c2154a0162f5dd9f4c4330b7bbc3728840851ce9';
 
 // What the Android App carries besides the Mods (ADR 0012): the Loader
-// Release and the native libraries of the Snapshot Lock's android-online
+// Release and the native libraries of the Snapshot Lock's android-publisher
 // entry, and the Updater plugin. The Interop Package downloads on its own and
 // is not part of it. A fragment's `nonManagedPayloadDigest` is this digest of
 // the App it names: release::build writes the same value into the App
@@ -409,7 +409,7 @@ function assertInteropRecord(
   return record;
 }
 
-// The game a release is adapted to: the Snapshot Lock's android-online
+// The game a release is adapted to: the Snapshot Lock's android-publisher
 // identity and its Game Code Hash.
 function assertAndroidGame(
   game: AndroidGameRelease,

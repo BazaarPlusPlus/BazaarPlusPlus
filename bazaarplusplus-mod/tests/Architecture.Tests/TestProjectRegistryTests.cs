@@ -25,7 +25,7 @@ public sealed class TestProjectRegistryTests
     private static readonly Dictionary<string, string> CoreLaneOnly = new(StringComparer.Ordinal)
     {
         ["AndroidHost.Tests"] =
-            "It builds against the Interop Snapshot (`just mod::fetch android online`), "
+            "It builds against the Interop Snapshot (`just mod::fetch android publisher`), "
             + "not a Managed snapshot, so only the Core lane runs it.",
     };
 

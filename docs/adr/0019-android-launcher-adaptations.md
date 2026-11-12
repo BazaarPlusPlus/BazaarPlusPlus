@@ -39,18 +39,17 @@
   - 这个来源的旧版本会进"请先更新游戏"档。发行商链接和 Play 都提供这个来源的最新版本，所以用户可以自己更新。
   - 不按游戏开键（例如 `android-<versionCode>`）。原因：锁的校验、写入、告警、快照目录和 `InteropPath.props` 都假设键是固定的，开动态的键要改写整个锁模块。现在没有需要维护的旧 build。
 - 来源占锁键里渠道的位置，但它不是游戏服务器的渠道：两个来源都连正式服，mod 都判为 Online。
-- 条目新增的内容：
-  - `splitApkSha256s`：Play 的 split APK 的 sha256，按 sha256 排序；发行商来源为空数组。`apkSha256` 是 base APK（发行商就是唯一的那个 APK）。
-  - `signerSha256`：游戏签名证书的 sha256。App 用它判断已装游戏的来源。
+- 条目新增 `splitApkSha256s`：Play 的 split APK 的 sha256，按 sha256 排序；发行商来源为空数组。`apkSha256` 是 base APK（发行商就是唯一的那个 APK）。
+- 每个来源的游戏签名证书 sha256 钉在 `release/` 里，与 `ANDROID_RELEASE_SIGNER_SHA256` 同处，由平台清单发给 App。App 用它判断已装游戏的来源。证书只在来源换签名密钥时才变，所以不进锁条目，采集也不用解析 APK 签名块。
 - 版本串的规则按来源区分：
   - 发行商沿用 `GAME_VERSION_PATTERN`。
   - Play 的 `versionName` 就是游戏的 `Application.version`，形式是 `x.y.z`（实测为 `1.0.6`），不含 build 号。
   - Android 的本地快照目录与私有桶里快照清单的键，都改用锁键加 `versionCode`（例如 `android-play-13168`），不再从版本串解析渠道。
-- 两个条目必须钉同一个 Loader Release 和同一组 `nativeLibs`，因为 App 只带一份运行时。采集时如果不一致，就报错。
+- 两个条目必须钉同一个 Loader Release 和同一组 `nativeLibs`，因为 App 只带一份运行时。为空的条目采集时沿用另一个条目的工具链和 `nativeLibs`；发布时核对所有适配包的运行时摘要相同，不同就报错。
 - 发行商来源仍由 `android-apk-watch.yml` 自动采集，规则不变，只是目标键改为 `android-publisher`。
 - Play 来源手动采集：
   1. 在装了 Play 版的设备上，用 `adb pull` 取下 base 和全部 split，再上传到私有桶。
-  2. 在 Linux x64 上生成 interop：手动触发 `android-apk-watch.yml`，传入这些 APK 的 sha256。本机 Docker 的 qemu 模拟跑不了 Cpp2IL。
+  2. 在 Linux x64 上生成 interop：手动触发 `android-apk-watch.yml`，传入这些 APK 的 sha256（`play_apks`）。本机 Docker 的 qemu 模拟跑不了 Cpp2IL。
   3. 工作流采集 `android-play`、运行 `publish`、编译检查 Android Mod，然后开 PR。
 - 读 APK 的规则：
   - `libil2cpp.so`、`global-metadata.dat` 与 `data.unity3d` 都只能出现在一个 APK 里。
@@ -191,7 +190,7 @@ downloads["android-aarch64"] = {
 - [ADR 0016](0016-one-game-compatibility-rule.md)：Android 的"游戏较旧"按同一来源判断；游戏状态只覆盖发行商来源。
 - [ADR 0008](0008-interop-snapshots-in-snapshot-lock.md)：
   - 锁键 `android-online` 换成 `android-publisher` 与 `android-play`。
-  - 条目记录签名证书和 split APK。
+  - 条目记录 split APK。
   - Android 快照目录和快照清单的键改用锁键加 `versionCode`。
 - mod [ADR-0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)：Updater 按游戏换入。
 - `docs/release.md` 的"Android 发布顺序"，`docs/development.md` 里 setup-device 一段。

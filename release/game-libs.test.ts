@@ -532,7 +532,7 @@ test('lock-check verifies the resolved Managed directory against the entry that 
     gameVersion: STAGING_VERSION,
     keys: ['macos-staging']
   });
-  expect(checked.warnings).toHaveLength(6);
+  expect(checked.warnings).toHaveLength(7);
   expect(
     checkGameLibsLock({
       workspaceRoot,
@@ -812,7 +812,7 @@ test('a Steam capture needs a desktop entry', () => {
       channel: 'online',
       runTool: steamTool({ gameVersion: WINDOWS_ONLINE })
     })
-  ).toThrow(/no Steam depot/);
+  ).toThrow(/Unknown android snapshot channel 'online'/);
   expect(() =>
     steamStale({
       workspaceRoot,
@@ -947,16 +947,16 @@ const ANDROID_STATUS_FIXTURE = JSON.parse(
 const androidStatusLock = () => {
   const lock = emptyLock();
   const { schemaVersion: _, ...game } = ANDROID_STATUS_FIXTURE;
-  lock.entries['android-online'] = {
+  lock.entries['android-publisher'] = {
     ...(readGameLibsLock(WORKSPACE_ROOT).entries[
-      'android-online'
+      'android-publisher'
     ] as InteropLockEntry),
     ...game
   };
   return lock;
 };
 
-test('the Android Game Status of the android-online entry matches the shared fixture', async () => {
+test('the Android Game Status of the android-publisher entry matches the shared fixture', async () => {
   expect(androidGameStatus(androidStatusLock())).toEqual(
     ANDROID_STATUS_FIXTURE
   );
@@ -1295,7 +1295,7 @@ test('game-status leaves the store alone while the lock is behind, and fails wit
   expect(r2.requests).toEqual([]);
 });
 
-test('android-game-status writes the android-online entry as game-status/android.json', async () => {
+test('android-game-status writes the android-publisher entry as game-status/android.json', async () => {
   const { workspaceRoot } = workspace({ lock: androidStatusLock() });
   const r2 = fakeR2();
   const options = { workspaceRoot, env: R2_ENV, r2Fetch: r2.fetchImpl };
@@ -1326,7 +1326,7 @@ test('android-game-status writes the android-online entry as game-status/android
   ).toEqual({
     code: 0,
     out: [],
-    err: 'The lock has no android-online entry; the Android Game Status stays as it is\n'
+    err: 'The lock has no android-publisher entry; the Android Game Status stays as it is\n'
   });
   expect(untouched.requests).toEqual([]);
   expect(
@@ -1402,7 +1402,8 @@ test('steam-capture prints the snapshot directory and writes the lock in its two
     'windows-online',
     'windows-staging',
     'windows-ptr',
-    'android-online'
+    'android-publisher',
+    'android-play'
   ]);
   expect(Object.keys(parsed.entries['windows-online'])).toEqual([
     'gameVersion',
@@ -1413,13 +1414,13 @@ test('steam-capture prints the snapshot directory and writes the lock in its two
   ]);
 
   const refused = await runCli(
-    ['steam-capture', '--platform', 'android', '--channel', 'online'],
+    ['steam-capture', '--platform', 'android', '--channel', 'publisher'],
     { workspaceRoot, runTool: steamTool({ gameVersion: WINDOWS_ONLINE }) }
   );
   expect(refused).toEqual({
     code: 1,
     out: [],
-    err: 'Lock entry android-online has no Steam depot\n'
+    err: 'Lock entry android-publisher has no Steam depot\n'
   });
 }, 30000);
 

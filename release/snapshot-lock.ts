@@ -17,14 +17,20 @@ export const GAME_LIBS_LOCK_PATH =
 export const LOCK_SCHEMA_VERSION = 1;
 /** A platform the Snapshot Lock keys an entry by. */
 export type SnapshotPlatform = 'macos' | 'windows' | 'android';
-/** A channel the Snapshot Lock keys an entry by. */
+/** A channel the Snapshot Lock keys a desktop entry by. */
 export type SnapshotChannel = 'online' | 'staging' | 'ptr';
+/** Where an Android player installs the official game from (ADR 0019). */
+export type AndroidSource = 'publisher' | 'play';
+/** The second half of a lock key: a desktop channel or an Android source. */
+export type LockChannel = SnapshotChannel | AndroidSource;
 /** A platform whose snapshot is a Managed directory captured from Steam. */
 export type ManagedPlatform = 'macos' | 'windows';
 /** The Steam branch a desktop channel is captured from. */
 export type SteamBranch = 'public' | 'staging' | 'public_test_realm';
 /** The lock key of a Managed entry: `<platform>-<channel>`. */
 export type ManagedLockKey = `${ManagedPlatform}-${SnapshotChannel}`;
+/** The lock key of an Interop Snapshot entry: `android-<source>`. */
+export type InteropLockKey = `android-${AndroidSource}`;
 
 export const SNAPSHOT_PLATFORMS: readonly SnapshotPlatform[] = Object.freeze([
   'macos',
@@ -36,21 +42,29 @@ export const SNAPSHOT_CHANNELS: readonly SnapshotChannel[] = Object.freeze([
   'staging',
   'ptr'
 ]);
+export const ANDROID_SOURCES: readonly AndroidSource[] = Object.freeze([
+  'publisher',
+  'play'
+]);
 // Desktop platforms capture a Steam install's Managed directory on three
-// branches. Android has only the production APK, so its one key is online and
-// its snapshot is the Interop assemblies generated from that APK.
+// branches. Android keys one entry per source, each the newest production
+// build that source ships (ADR 0019); its snapshot is the Interop assemblies
+// generated from that build's APKs.
 export const PLATFORM_CHANNELS: Readonly<
-  Record<SnapshotPlatform, readonly SnapshotChannel[]>
+  Record<SnapshotPlatform, readonly LockChannel[]>
 > = Object.freeze({
   macos: SNAPSHOT_CHANNELS,
   windows: SNAPSHOT_CHANNELS,
-  android: Object.freeze<SnapshotChannel[]>(['online'])
+  android: ANDROID_SOURCES
 });
 export const MANAGED_PLATFORMS: readonly ManagedPlatform[] = Object.freeze([
   'macos',
   'windows'
 ]);
-export const INTEROP_KEY = 'android-online';
+export const interopKey = (source: AndroidSource): InteropLockKey =>
+  `android-${source}`;
+/** The entry the publisher's APK is captured into. */
+export const PUBLISHER_KEY = interopKey('publisher');
 // Steam branch names are the source record of a capture, never its identity.
 export const STEAM_BRANCHES: Readonly<Record<SnapshotChannel, SteamBranch>> =
   Object.freeze({
@@ -89,12 +103,13 @@ export interface NativeLibPin {
   sha256: string;
 }
 
-/** The android-online lock entry: an Interop Snapshot and its toolchain. */
+/** An Android lock entry: an Interop Snapshot and its toolchain. */
 export interface InteropLockEntry {
   gameVersion: string;
   versionCode: number;
   apkSha256: string;
   apkEtag: string | null;
+  splitApkSha256s: string[];
   il2cppSha256: string;
   metadataSha256: string;
   unityVersion: string;
@@ -119,7 +134,8 @@ export interface GameLibsLockEntries {
   'windows-online': ManagedLockEntry | null;
   'windows-staging': ManagedLockEntry | null;
   'windows-ptr': ManagedLockEntry | null;
-  'android-online': InteropLockEntry | null;
+  'android-publisher': InteropLockEntry | null;
+  'android-play': InteropLockEntry | null;
 }
 
 /** bazaarplusplus-mod/build/game-libs.lock.json after validation. */
@@ -140,13 +156,14 @@ export interface ParsedGameVersion {
 export interface LockedEntry {
   key: string;
   platform: SnapshotPlatform;
-  channel: SnapshotChannel;
+  channel: LockChannel;
   entry: LockEntry;
 }
 
 /** A captured lock entry whose snapshot is a Managed directory. */
 export interface ManagedLockedEntry extends LockedEntry {
   platform: ManagedPlatform;
+  channel: SnapshotChannel;
   entry: ManagedLockEntry;
 }
 
@@ -166,12 +183,15 @@ export const ENTRY_FIELDS: readonly (keyof ManagedLockEntry)[] = Object.freeze([
 // the interop collection, so a capture can be regenerated from the lock alone.
 // apkEtag is the strong ETag the publisher served the APK with, or null for an
 // APK captured from a file of unknown origin; android-apk-watch.yml compares it.
+// apkSha256 is the base APK; splitApkSha256s are the split APKs a Google Play
+// install adds, sorted, and empty for the publisher's single APK.
 const INTEROP_ENTRY_FIELDS: readonly (keyof InteropLockEntry)[] = Object.freeze(
   [
     'gameVersion',
     'versionCode',
     'apkSha256',
     'apkEtag',
+    'splitApkSha256s',
     'il2cppSha256',
     'metadataSha256',
     'unityVersion',
@@ -193,6 +213,10 @@ const INTEROP_ENTRY_FIELDS: readonly (keyof InteropLockEntry)[] = Object.freeze(
 // BppGameVersionPattern.
 export const GAME_VERSION_PATTERN =
   /\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:(?:macos|windows)-[a-z0-9]+|android)-[0-9a-f]+/g;
+
+// Google Play builds carry the bare store versionName as Application.version
+// (ADR 0019): no build number, channel or platform token.
+export const PLAY_GAME_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 
 // A desktop platform and a channel always make a Managed lock key.
 export function lockKey(
@@ -243,6 +267,24 @@ export function parseGameVersion(gameVersion: unknown): ParsedGameVersion {
       ? 'ptr'
       : 'online';
   return { platform, channel };
+}
+
+// The lock key a game version belongs to: a Play versionName names android-play;
+// any other names its platform and channel, and an Android production build is
+// the publisher's.
+export function gameVersionKey(gameVersion: unknown): string {
+  if (
+    typeof gameVersion === 'string' &&
+    PLAY_GAME_VERSION_PATTERN.test(gameVersion)
+  )
+    return interopKey('play');
+  const { platform, channel } = parseGameVersion(gameVersion);
+  if (platform !== 'android') return lockKey(platform, channel);
+  if (channel !== 'online')
+    throw new Error(
+      `Game version ${gameVersion} is an Android ${channel} build; the lock holds only production builds`
+    );
+  return PUBLISHER_KEY;
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -311,6 +353,15 @@ function assertInteropEntry(key: string, entry: Record<string, unknown>): void {
     throw new Error(
       `Lock entry ${key} apkEtag must be null or a strong ETag's value without quotes`
     );
+  const splits = entry.splitApkSha256s;
+  if (
+    !Array.isArray(splits) ||
+    splits.some((sha256) => !isSha256(sha256)) ||
+    splits.some((sha256, index) => index > 0 && splits[index - 1] >= sha256)
+  )
+    throw new Error(
+      `Lock entry ${key} splitApkSha256s must be the split APKs' sha256 values, sorted and distinct`
+    );
   if (!/^\d+\.\d+\.\d+[abfp]\d+$/.test(String(entry.unityVersion ?? '')))
     throw new Error(
       `Lock entry ${key} unityVersion must be a Unity version such as 6000.3.11f1`
@@ -352,7 +403,8 @@ function assertInteropEntry(key: string, entry: Record<string, unknown>): void {
 }
 
 export function assertLockEntry(key: string, entry: unknown): void {
-  // Every lock key is <platform>-<channel>, as lockKey builds it.
+  // Every lock key is <platform>-<channel>, as lockKey builds it; an Interop
+  // entry's key never reaches the Steam branch check below.
   const [platform, channel] = key.split('-') as [
     SnapshotPlatform,
     SnapshotChannel
@@ -373,10 +425,10 @@ export function assertLockEntry(key: string, entry: unknown): void {
     throw new Error(
       `Lock entry ${key} must list its fields in the order ${INTEROP_ENTRY_FIELDS.join(', ')}`
     );
-  const parsed = parseGameVersion(entry.gameVersion);
-  if (parsed.platform !== platform || parsed.channel !== channel)
+  const versionKey = gameVersionKey(entry.gameVersion);
+  if (versionKey !== key)
     throw new Error(
-      `Lock entry ${key} names game version ${entry.gameVersion}, which is a ${parsed.platform}-${parsed.channel} build`
+      `Lock entry ${key} names game version ${entry.gameVersion}, which is a ${versionKey} build`
     );
   if (isInteropPlatform(platform)) {
     assertInteropEntry(key, entry);
@@ -492,7 +544,7 @@ export function lockWarnings(
     if (entry === null) {
       warnings.push(
         isInteropPlatform(platform)
-          ? `${key}: no Interop Snapshot captured; run 'just mod::snapshot-android <TheBazaar.apk>', then 'just mod::publish ${platform} ${channel}' and commit the lock`
+          ? `${key}: no Interop Snapshot captured; run 'just mod::snapshot-android <APK>...', then 'just mod::publish ${platform} ${channel}' and commit the lock`
           : `${key}: no snapshot captured; run 'just mod::snapshot' on a ${platform} machine with The Bazaar's ${STEAM_BRANCHES[channel]} branch mounted, then 'just mod::publish ${platform} ${channel}' and commit the lock`
       );
       continue;
@@ -515,7 +567,7 @@ export function lockedEntries(lock: GameLibsLock): LockedEntry[] {
       // Every lock key is <platform>-<channel>, as lockKey builds it.
       const [platform, channel] = key.split('-') as [
         SnapshotPlatform,
-        SnapshotChannel
+        LockChannel
       ];
       const entry = lock.entries[key];
       // The filter above dropped the empty entries.
@@ -534,6 +586,9 @@ export function managedEntries(lock: GameLibsLock): ManagedLockedEntry[] {
   );
 }
 
+// A Managed snapshot is named by its game version. An Interop Snapshot is
+// named by its versionCode, because a Play versionName (1.0.6) may name more
+// than one build.
 export function snapshotDirectory(
   modRoot: string,
   platform: string,
@@ -544,6 +599,25 @@ export function snapshotDirectory(
     modRoot,
     'game-libs',
     `${lockKey(platform, channel)}-${gameVersion}`
+  );
+}
+
+export function interopSnapshotName(
+  source: AndroidSource,
+  versionCode: number
+): string {
+  return `${interopKey(source)}-${versionCode}`;
+}
+
+export function interopSnapshotDirectory(
+  modRoot: string,
+  source: AndroidSource,
+  versionCode: number
+): string {
+  return path.join(
+    modRoot,
+    'game-libs',
+    interopSnapshotName(source, versionCode)
   );
 }
 
@@ -560,4 +634,11 @@ export function snapshotManifestKey(
 ): string {
   parseGameVersion(gameVersion);
   return `game-libs/${lockKey(platform, channel)}-${gameVersion}.json`;
+}
+
+export function interopManifestKey(
+  source: AndroidSource,
+  versionCode: number
+): string {
+  return `game-libs/${interopSnapshotName(source, versionCode)}.json`;
 }

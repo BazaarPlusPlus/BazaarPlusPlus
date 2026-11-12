@@ -17,3 +17,5 @@ interop 摘要覆盖目录里每一个顶层文件，不只是 DLL：生成器�
 2026-10-22 注：[ADR 0010](0010-android-release-platform.md) 让 Payload Inventory 用 `apk-injection` 条目列出注入后 APK 内的路径（`lib/arm64-v8a/libmain.so`、`assets/LemonLoader/` 等），以定义 Android Release APK 的布局。快照锁里的构建输入（Loader Release、interop、官方 APK）本身仍不进 Payload Inventory，也仍只在私有存储。
 
 2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010。Payload Inventory 不再有 `apk-injection` 条目，改由生产者 `android-app` 的条目列出 Android App APK 内的路径。发布不再运行 Patcher；Patcher 只作为锁定的 interop 生成工具（`generate-interop`）留在快照采集与 `android-apk-watch.yml` 里。Interop Snapshot 仍按本记录存进私有桶，它的 interop 包另在公开桶发布。
+
+2026-11-12 修订：[ADR 0019](0019-android-launcher-adaptations.md) 把 `android-online` 换成每个 Android 来源一个键：`android-publisher`（发行商 APK）与 `android-play`（Google Play）。条目新增 `splitApkSha256s`，记录 Play 安装的 split APK；`apkSha256` 是 base APK。条目的身份按来源区分：发行商仍是上文的版本串，Play 是不带 build 号的 `versionName`（如 `1.0.6`）。所以本地快照目录与快照清单改用锁键加 `versionCode` 命名（`game-libs/android-play-13168/`、`game-libs/android-play-13168.json`）。`build/InteropPath.props` 按 `BppAndroidSource` 选键，按位置读 `gameVersion`、`versionCode` 与 `loader.tag`。为空的条目采集时沿用另一个 Android 条目的工具链。

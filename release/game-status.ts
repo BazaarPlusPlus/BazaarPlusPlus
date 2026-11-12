@@ -14,6 +14,7 @@ import type { FetchImpl, ObjectStore } from './r2-store.ts';
 import { jsonBytes } from './snapshot-files.ts';
 import {
   MANAGED_PLATFORMS,
+  PUBLISHER_KEY,
   lockKey,
   readGameLibsLock
 } from './snapshot-lock.ts';
@@ -116,7 +117,7 @@ export async function publishGameStatus({
   return status;
 }
 
-// The Android Game Status (root GLOSSARY.md): the android-online entry's game
+// The Android Game Status (root GLOSSARY.md): the android-publisher entry's game
 // and its game code identity, or null while the lock has no such entry. The
 // Android APK watch writes it once the lock, or the lock pull request it
 // opens, records the official APK.
@@ -128,7 +129,7 @@ export interface AndroidGameStatusDocument extends AndroidGameStatus {
 export function androidGameStatus(
   lock: GameLibsLock
 ): AndroidGameStatusDocument | null {
-  const entry = lock.entries['android-online'];
+  const entry = lock.entries[PUBLISHER_KEY];
   if (!entry) return null;
   return {
     schemaVersion: 1,

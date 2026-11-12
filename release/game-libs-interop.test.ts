@@ -37,11 +37,11 @@ import {
 import type { ApkHeadFetch } from './official-apk.ts';
 import {
   GAME_LIBS_LOCK_PATH,
-  INTEROP_KEY,
+  PUBLISHER_KEY,
+  interopManifestKey,
   lockKeys,
   managedEntries,
-  readGameLibsLock,
-  snapshotManifestKey
+  readGameLibsLock
 } from './snapshot-lock.ts';
 import { buildZipBuffer } from './payload-zip.ts';
 import { WORKSPACE_ROOT } from './product.ts';
@@ -153,15 +153,16 @@ function fakeApk(
   file: string,
   {
     versionName = ANDROID_VERSION,
+    versionCode = 12825,
     il2cpp = 'il2cpp'
-  }: { versionName?: string; il2cpp?: string } = {}
+  }: { versionName?: string; versionCode?: number; il2cpp?: string } = {}
 ): string {
   write(
     file,
     buildZipBuffer([
       {
         name: 'AndroidManifest.xml',
-        data: binaryManifest({ versionName, versionCode: 12825 })
+        data: binaryManifest({ versionName, versionCode })
       },
       {
         name: 'assets/bin/Data/data.unity3d',
@@ -260,7 +261,7 @@ function workspace() {
   return {
     workspaceRoot,
     modRoot: path.join(workspaceRoot, 'bazaarplusplus-mod'),
-    entry: () => readGameLibsLock(workspaceRoot).entries[INTEROP_KEY]
+    entry: () => readGameLibsLock(workspaceRoot).entries[PUBLISHER_KEY]
   };
 }
 
@@ -320,7 +321,7 @@ function firstCapture(
   return captureInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
-    apk: fakeApk(path.join(root, 'TheBazaar.apk')),
+    apks: [fakeApk(path.join(root, 'TheBazaar.apk'))],
     interop: interopDirectory(path.join(root, 'interop')),
     loader: tools.loader,
     loaderTag: 'v0.7.4-android.4',
@@ -361,13 +362,14 @@ test('a first capture records the APK, the interop digest and the named toolchai
   const result = await firstCapture(ws, root);
   const interop = path.join(result.directory, 'interop');
   expect(result.directory).toBe(
-    path.join(ws.modRoot, 'game-libs', `android-online-${ANDROID_VERSION}`)
+    path.join(ws.modRoot, 'game-libs', 'android-publisher-12825')
   );
   expect(ws.entry()).toEqual({
     gameVersion: ANDROID_VERSION,
     versionCode: 12825,
     apkSha256: sha(fs.readFileSync(path.join(root, 'TheBazaar.apk'))),
     apkEtag: null,
+    splitApkSha256s: [],
     il2cppSha256: sha('il2cpp'),
     metadataSha256: sha('metadata'),
     unityVersion: UNITY_VERSION,
@@ -412,7 +414,7 @@ test('a first capture records the APK, the interop digest and the named toolchai
   expect(managedEntries(readGameLibsLock(ws.workspaceRoot))).toEqual([]);
   expect(
     checkGameLibsLock({ workspaceRoot: ws.workspaceRoot, now: NOW }).interop
-  ).toEqual({ gameVersion: ANDROID_VERSION });
+  ).toEqual([{ key: 'android-publisher', gameVersion: ANDROID_VERSION }]);
   write(path.join(interop, 'Assembly-CSharp.dll'), 'tampered');
   expect(() =>
     checkGameLibsLock({ workspaceRoot: ws.workspaceRoot, now: NOW })
@@ -426,7 +428,7 @@ test('a capture refuses a desktop APK, a missing toolchain, foreign interop and 
   const base = {
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
-    apk: fakeApk(path.join(root, 'TheBazaar.apk')),
+    apks: [fakeApk(path.join(root, 'TheBazaar.apk'))],
     interop: interopDirectory(path.join(root, 'interop')),
     storeFactory: () => {
       throw new Error('no credentials');
@@ -436,13 +438,15 @@ test('a capture refuses a desktop APK, a missing toolchain, foreign interop and 
   await expect(
     captureInteropSnapshot({
       ...base,
-      apk: fakeApk(path.join(root, 'desktop.apk'), {
-        versionName: '1.0.12651-prod-macos-arm64-d5cc730f'
-      })
+      apks: [
+        fakeApk(path.join(root, 'desktop.apk'), {
+          versionName: '1.0.12651-prod-macos-arm64-d5cc730f'
+        })
+      ]
     })
-  ).rejects.toThrow(/a macos-online build, not an android-online APK/);
+  ).rejects.toThrow(/a macos-online build, not an official Android build/);
   await expect(captureInteropSnapshot(base)).rejects.toThrow(
-    /lock entry is empty, so the first capture names the toolchain: pass --loader/
+    /Every Android lock entry is empty, so the first capture names the toolchain: pass --loader/
   );
   const named = {
     ...base,
@@ -480,6 +484,7 @@ test('publish stores every pinned input by content; fetch restores interop and l
   const published = await publishInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
+    source: 'publisher',
     store,
     log: (line) => logs.push(line)
   });
@@ -489,12 +494,10 @@ test('publish stores every pinned input by content; fetch restores interop and l
     androidInputKey('loader', entry.loader.sha256),
     androidInputKey('patcher', entry.patcher.sha256),
     androidInputKey('cpp2il', entry.cpp2ilSha256),
-    snapshotManifestKey('android', 'online', ANDROID_VERSION)
+    interopManifestKey('publisher', 12825)
   ];
   expect([...store.objects.keys()].sort()).toEqual([...keys].sort());
-  expect(published.manifestKey).toBe(
-    `game-libs/android-online-${ANDROID_VERSION}.json`
-  );
+  expect(published.manifestKey).toBe('game-libs/android-publisher-12825.json');
   expect(androidInputKey('apk', entry.apkSha256)).toBe(
     `game-libs/apk/${entry.apkSha256}.apk`
   );
@@ -506,6 +509,7 @@ test('publish stores every pinned input by content; fetch restores interop and l
   await publishInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
+    source: 'publisher',
     store,
     log: (line) => logs.push(line)
   });
@@ -521,6 +525,7 @@ test('publish stores every pinned input by content; fetch restores interop and l
   const fetched = await fetchInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
+    source: 'publisher',
     storeFactory: () => store
   });
   expect(fetched.source).toBe('store');
@@ -534,15 +539,17 @@ test('publish stores every pinned input by content; fetch restores interop and l
       await fetchInteropSnapshot({
         workspaceRoot: ws.workspaceRoot,
         modRoot: ws.modRoot,
+        source: 'publisher',
         storeFactory: () => {
           throw new Error('no credentials');
         }
       })
     ).source
   ).toBe('snapshot');
-  const apk = await fetchLockedAndroidInput({
+  const [apk] = await fetchLockedAndroidInput({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
+    source: 'publisher',
     kind: 'apk',
     storeFactory: () => store
   });
@@ -557,6 +564,7 @@ test('publish stores every pinned input by content; fetch restores interop and l
     fetchLockedAndroidInput({
       workspaceRoot: ws.workspaceRoot,
       modRoot: ws.modRoot,
+      source: 'publisher',
       kind: 'cpp2il',
       storeFactory: () => store
     })
@@ -591,6 +599,7 @@ test('publish replaces a stored interop archive that would extract to other file
   await publishInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
+    source: 'publisher',
     store,
     log: (line) => logs.push(line)
   });
@@ -613,6 +622,7 @@ test('publish replaces a stored interop archive that would extract to other file
   await publishInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
+    source: 'publisher',
     store,
     log: (line) => logs.push(line)
   });
@@ -626,6 +636,7 @@ test('publish replaces a stored interop archive that would extract to other file
     fetchInteropSnapshot({
       workspaceRoot: ws.workspaceRoot,
       modRoot: ws.modRoot,
+      source: 'publisher',
       storeFactory: () => store
     })
   ).rejects.toThrow(
@@ -642,6 +653,7 @@ test('a recapture reuses the pinned toolchain from the store and generates inter
   await publishInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
+    source: 'publisher',
     store
   });
   fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
@@ -650,10 +662,13 @@ test('a recapture reuses the pinned toolchain from the store and generates inter
   await captureInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
     modRoot: ws.modRoot,
-    apk: fakeApk(path.join(root, 'next.apk'), {
-      versionName: nextVersion,
-      il2cpp: 'il2cpp next'
-    }),
+    apks: [
+      fakeApk(path.join(root, 'next.apk'), {
+        versionName: nextVersion,
+        versionCode: 12900,
+        il2cpp: 'il2cpp next'
+      })
+    ],
     storeFactory: () => store,
     generate: (options) => {
       calls.push(options);
@@ -712,7 +727,7 @@ test('InteropPath.props resolves the fetched interop and loader directories from
   });
 }, 60000);
 
-test('the CLI fetches android online by printing the interop directory', async () => {
+test('the CLI fetches android publisher by printing the interop directory', async () => {
   const ws = workspace();
   const root = tempRoot('bpp-interop-in-');
   const { directory } = await firstCapture(ws, root);
@@ -724,9 +739,10 @@ test('the CLI fetches android online by printing the interop directory', async (
   process.stderr.write = (chunk) => (err.push(String(chunk)), true);
   try {
     expect(
-      await cliMain(['fetch', '--platform', 'android', '--channel', 'online'], {
-        workspaceRoot: ws.workspaceRoot
-      })
+      await cliMain(
+        ['fetch', '--platform', 'android', '--channel', 'publisher'],
+        { workspaceRoot: ws.workspaceRoot }
+      )
     ).toBe(0);
     expect(
       await cliMain(['fetch', '--platform', 'android', '--channel', 'ptr'], {
@@ -885,14 +901,14 @@ test('snapshot-android prints the snapshot directory and writes the android entr
   const directory = path.join(
     ws.modRoot,
     'game-libs',
-    `android-online-${ANDROID_VERSION}`
+    'android-publisher-12825'
   );
   expect(run.code).toBe(0);
   expect(run.out).toEqual([`${directory}\n`]);
   expect(run.err).toMatch(new RegExp(`^Reading ${apk}\\n`));
   expect(run.err).toMatch(
     new RegExp(
-      `Captured android-online ${ANDROID_VERSION} into ${directory} \\(loader .*loader-v0\\.7\\.4-android\\.4\\) and recorded it in bazaarplusplus-mod/build/game-libs\\.lock\\.json\\n$`
+      `Captured android-publisher ${ANDROID_VERSION} into ${directory} \\(loader .*loader-v0\\.7\\.4-android\\.4\\) and recorded it in bazaarplusplus-mod/build/game-libs\\.lock\\.json\\n$`
     )
   );
   expect(ws.entry()).toMatchObject({
@@ -914,13 +930,17 @@ test('snapshot-android prints the snapshot directory and writes the android entr
     'staleAfterDays',
     'entries'
   ]);
-  expect(Object.keys(parsed.entries).at(-1)).toBe('android-online');
-  const entry = parsed.entries['android-online'];
+  expect(Object.keys(parsed.entries).slice(-2)).toEqual([
+    'android-publisher',
+    'android-play'
+  ]);
+  const entry = parsed.entries['android-publisher'];
   expect(Object.keys(entry)).toEqual([
     'gameVersion',
     'versionCode',
     'apkSha256',
     'apkEtag',
+    'splitApkSha256s',
     'il2cppSha256',
     'metadataSha256',
     'unityVersion',
@@ -950,22 +970,20 @@ test('snapshot-android prints the snapshot directory and writes the android entr
   expect(refused.err).toMatch(/^snapshot-android requires --apk\n/);
 }, 60000);
 
-test('publish android online stores the interop archive, every pinned input and the manifest, printing nothing', async () => {
+test('publish android publisher stores the interop archive, every pinned input and the manifest, printing nothing', async () => {
   const ws = workspace();
   const root = tempRoot('bpp-interop-cli-');
   await cliFirstCapture(ws, root);
   const entry = ws.entry()!;
   const store = new MemoryStore();
   const published = await runCli(
-    ['publish', '--platform', 'android', '--channel', 'online'],
+    ['publish', '--platform', 'android', '--channel', 'publisher'],
     { workspaceRoot: ws.workspaceRoot, gameLibsStore: () => store }
   );
   expect(published.code).toBe(0);
   expect(published.out).toEqual([]);
   expect(published.err).toMatch(
-    new RegExp(
-      `Recorded game-libs/android-online-${ANDROID_VERSION}\\.json\\n$`
-    )
+    /Recorded game-libs\/android-publisher-12825\.json\n$/
   );
   expect(store.writes).toEqual([
     `game-libs/interop/${entry.interopSha256}.tar.gz`,
@@ -973,7 +991,7 @@ test('publish android online stores the interop archive, every pinned input and 
     `game-libs/loader/${entry.loader.sha256}.zip`,
     `game-libs/patcher/${entry.patcher.sha256}.tar.gz`,
     `game-libs/cpp2il/${entry.cpp2ilSha256}`,
-    `game-libs/android-online-${ANDROID_VERSION}.json`
+    'game-libs/android-publisher-12825.json'
   ]);
 
   const refused = await runCli(
@@ -983,7 +1001,7 @@ test('publish android online stores the interop archive, every pinned input and 
   expect(refused).toEqual({
     code: 1,
     out: [],
-    err: "Unknown android snapshot channel 'ptr'; expected online\n"
+    err: "Unknown android snapshot channel 'ptr'; expected publisher, play\n"
   });
   expect(store.writes).toHaveLength(6);
 }, 60000);
@@ -997,7 +1015,7 @@ test('snapshot-android as the APK watch runs it: only the APK and its ETag, the 
   expect(
     (
       await runCli(
-        ['publish', '--platform', 'android', '--channel', 'online'],
+        ['publish', '--platform', 'android', '--channel', 'publisher'],
         {
           workspaceRoot: ws.workspaceRoot,
           gameLibsStore: () => store
@@ -1010,6 +1028,7 @@ test('snapshot-android as the APK watch runs it: only the APK and its ETag, the 
   const nextVersion = '1.0.12900-production-android-0badc0de';
   const apk = fakeApk(path.join(root, 'next.apk'), {
     versionName: nextVersion,
+    versionCode: 12900,
     il2cpp: 'il2cpp next'
   });
   const calls: GenerateInteropOptions[] = [];
@@ -1026,7 +1045,7 @@ test('snapshot-android as the APK watch runs it: only the APK and its ETag, the 
   );
   expect(run.code).toBe(0);
   expect(run.out).toEqual([
-    `${path.join(ws.modRoot, 'game-libs', `android-online-${nextVersion}`)}\n`
+    `${path.join(ws.modRoot, 'game-libs', 'android-publisher-12900')}\n`
   ]);
   expect(calls).toHaveLength(1);
   expect(sha(fs.readFileSync(calls[0].patcher))).toBe(first.patcher.sha256);
@@ -1040,6 +1059,173 @@ test('snapshot-android as the APK watch runs it: only the APK and its ETag, the 
     cpp2ilSha256: first.cpp2ilSha256
   });
 }, 60000);
+
+// A Google Play install as `pm path` lists it: the base APK holds the manifest,
+// the metadata and data.unity3d; the ABI split holds libil2cpp.so and a
+// manifest of its own, which the capture must not read.
+function fakePlayApks(root: string, il2cpp = 'il2cpp play') {
+  const base = path.join(root, 'base.apk');
+  const split = path.join(root, 'split_config.arm64_v8a.apk');
+  write(
+    base,
+    buildZipBuffer([
+      {
+        name: 'AndroidManifest.xml',
+        data: binaryManifest({ versionName: '1.0.6', versionCode: 13168 })
+      },
+      {
+        name: 'assets/bin/Data/data.unity3d',
+        data: unityBundle(UNITY_VERSION)
+      },
+      {
+        name: 'assets/bin/Data/Managed/Metadata/global-metadata.dat',
+        data: Buffer.from('metadata')
+      }
+    ])
+  );
+  write(
+    split,
+    buildZipBuffer([
+      {
+        name: 'AndroidManifest.xml',
+        data: binaryManifest({ versionName: 'split', versionCode: 1 })
+      },
+      { name: 'lib/arm64-v8a/libil2cpp.so', data: Buffer.from(il2cpp) }
+    ])
+  );
+  return { base, split };
+}
+
+test("snapshot-android records a Google Play base APK and its split as android-play, with the publisher entry's toolchain", async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-play-');
+  await cliFirstCapture(ws, root);
+  const publisher = ws.entry()!;
+  const store = new MemoryStore();
+  expect(
+    (
+      await runCli(
+        ['publish', '--platform', 'android', '--channel', 'publisher'],
+        { workspaceRoot: ws.workspaceRoot, gameLibsStore: () => store }
+      )
+    ).code
+  ).toBe(0);
+  const { base, split } = fakePlayApks(root);
+  const play = await runCli(
+    [
+      'snapshot-android',
+      '--apk',
+      base,
+      '--apk',
+      split,
+      '--interop',
+      interopDirectory(path.join(root, 'play-interop'))
+    ],
+    {
+      workspaceRoot: ws.workspaceRoot,
+      gameLibsStore: () => store,
+      generate: noGeneration
+    }
+  );
+  expect(play.err).toMatch(/Captured android-play 1\.0\.6/);
+  expect(play.code).toBe(0);
+  const directory = path.join(ws.modRoot, 'game-libs', 'android-play-13168');
+  expect(play.out).toEqual([`${directory}\n`]);
+  const entry = readGameLibsLock(ws.workspaceRoot).entries['android-play'];
+  expect(entry).toMatchObject({
+    gameVersion: '1.0.6',
+    versionCode: 13168,
+    apkSha256: sha(fs.readFileSync(base)),
+    apkEtag: null,
+    splitApkSha256s: [sha(fs.readFileSync(split))],
+    il2cppSha256: sha('il2cpp play'),
+    metadataSha256: sha('metadata'),
+    loader: publisher.loader,
+    patcher: publisher.patcher,
+    cpp2ilSha256: publisher.cpp2ilSha256,
+    nativeLibs: publisher.nativeLibs
+  });
+  // The publisher entry is untouched.
+  expect(ws.entry()).toEqual(publisher);
+
+  // Publish stores both APKs; a device fetches them base first.
+  expect(
+    (
+      await runCli(['publish', '--platform', 'android', '--channel', 'play'], {
+        workspaceRoot: ws.workspaceRoot,
+        gameLibsStore: () => store
+      })
+    ).code
+  ).toBe(0);
+  expect(store.writes).toContain(
+    `game-libs/apk/${entry!.splitApkSha256s[0]}.apk`
+  );
+  expect(store.writes).toContain('game-libs/android-play-13168.json');
+  fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
+  const apks = await fetchLockedAndroidInput({
+    workspaceRoot: ws.workspaceRoot,
+    modRoot: ws.modRoot,
+    source: 'play',
+    kind: 'apk',
+    storeFactory: () => store
+  });
+  expect(apks.map((file) => sha(fs.readFileSync(file)))).toEqual([
+    entry!.apkSha256,
+    ...entry!.splitApkSha256s
+  ]);
+  const fetched = await runCli(
+    ['fetch', '--platform', 'android', '--channel', 'play'],
+    { workspaceRoot: ws.workspaceRoot, gameLibsStore: () => store }
+  );
+  expect(fetched.out).toEqual([`${path.join(directory, 'interop')}\n`]);
+}, 60000);
+
+test('a split set must hold each generation input in exactly one APK', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-play-');
+  await firstCapture(ws, root);
+  const { base } = fakePlayApks(root);
+  // A second base: data.unity3d and the metadata are in both APKs.
+  const twice = path.join(root, 'twice.apk');
+  fs.copyFileSync(base, twice);
+  await expect(
+    captureInteropSnapshot({
+      workspaceRoot: ws.workspaceRoot,
+      modRoot: ws.modRoot,
+      apks: [base, twice],
+      interop: interopDirectory(path.join(root, 'play-interop')),
+      storeFactory: noStore,
+      generate: noGeneration
+    })
+  ).rejects.toThrow(
+    /lib\/arm64-v8a\/libil2cpp\.so must occur in exactly one of .*; found in 0/
+  );
+});
+
+test('upload-apks stores device APKs by content and fetch-apks restores them', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-play-');
+  const { base, split } = fakePlayApks(root);
+  const store = new MemoryStore();
+  const uploaded = await runCli(
+    ['upload-apks', '--apk', base, '--apk', split],
+    { workspaceRoot: ws.workspaceRoot, gameLibsStore: () => store }
+  );
+  const sha256s = [sha(fs.readFileSync(base)), sha(fs.readFileSync(split))];
+  expect(uploaded.code).toBe(0);
+  expect(uploaded.out).toEqual([`${sha256s.join(',')}\n`]);
+  expect(store.writes).toEqual(
+    sha256s.map((sha256) => `game-libs/apk/${sha256}.apk`)
+  );
+  const fetched = await runCli(['fetch-apks', '--sha256s', sha256s.join(',')], {
+    workspaceRoot: ws.workspaceRoot,
+    gameLibsStore: () => store
+  });
+  expect(fetched.code).toBe(0);
+  expect(
+    fetched.out.map((line) => sha(fs.readFileSync(line.trimEnd())))
+  ).toEqual(sha256s);
+});
 
 test('official-apk prints changed or unchanged and fails when the publisher cannot answer', async () => {
   const ws = workspace();

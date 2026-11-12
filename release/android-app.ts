@@ -12,6 +12,7 @@ import {
   interopDirectoryRecords,
   lockedInteropEntry
 } from './interop-snapshot.ts';
+import { ANDROID_SOURCES } from './snapshot-lock.ts';
 import type { LoaderPin } from './snapshot-lock.ts';
 import type { AndroidCarriedRelease } from './manifest.ts';
 
@@ -226,16 +227,25 @@ async function main(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
   const { values } = parseArgs({
     args: rest,
-    options: { out: { type: 'string' } }
+    options: { out: { type: 'string' }, source: { type: 'string' } }
   });
-  if (command !== 'stage-runtime' && command !== 'interop-package')
+  // The App carries one runtime for both sources (ADR 0019), so stage-runtime
+  // reads the publisher entry.
+  const source = ANDROID_SOURCES.find(
+    (name) => name === (values.source ?? 'publisher')
+  );
+  if (
+    (command !== 'stage-runtime' && command !== 'interop-package') ||
+    source === undefined
+  )
     throw new Error(
-      'Usage: bun release/android-app.ts stage-runtime|interop-package [--out <path>]'
+      'Usage: bun release/android-app.ts stage-runtime|interop-package [--source publisher|play] [--out <path>]'
     );
   const workspaceRoot = WORKSPACE_ROOT;
-  const entry = lockedInteropEntry(workspaceRoot);
+  const entry = lockedInteropEntry(workspaceRoot, source);
   const { interopPath, loaderPath } = await fetchInteropSnapshot({
     workspaceRoot,
+    source,
     storeFactory: gameLibsStoreFromEnvironment,
     log: (line: string) => console.error(line)
   });
@@ -261,7 +271,7 @@ async function main(argv: string[]): Promise<void> {
     console.log(JSON.stringify(facts, null, 2));
   } else {
     const out = path.resolve(
-      values.out ?? path.join(appRoot, 'build/interop.zip')
+      values.out ?? path.join(appRoot, `build/interop-${source}.zip`)
     );
     const zip = buildInteropPackage(interopPath);
     fs.mkdirSync(path.dirname(out), { recursive: true });

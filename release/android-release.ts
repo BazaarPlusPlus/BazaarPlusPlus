@@ -31,7 +31,7 @@ import {
   isLockedLoader,
   lockedInteropEntry
 } from './interop-snapshot.ts';
-import { INTEROP_KEY } from './snapshot-lock.ts';
+import { PUBLISHER_KEY } from './snapshot-lock.ts';
 import { sha256File } from './android-apk.ts';
 import {
   CARRIED_RELEASE_DIR,
@@ -358,7 +358,7 @@ export function androidPaths(workspaceRoot: string): AndroidPaths {
   };
 }
 
-// The non-managed payload digest of a Snapshot Lock android-online entry and
+// The non-managed payload digest of a Snapshot Lock android-publisher entry and
 // the Updater plugin the Android App carries (ADR 0012): the Updater ships
 // only inside the App, so a changed Updater needs the new App.
 export const androidEntryNonManagedPayloadDigest = (
@@ -387,7 +387,7 @@ export function stagedUpdaterSha256(payloadRoot: string): string {
 
 function lockEntryRecord(entry: InteropLockEntry): AndroidLockEntryRecord {
   return {
-    key: INTEROP_KEY,
+    key: PUBLISHER_KEY,
     gameVersion: entry.gameVersion,
     versionCode: entry.versionCode,
     il2cppSha256: entry.il2cppSha256,
@@ -426,6 +426,7 @@ async function resolveLockedSnapshot({
     return { interopPath: interopOverride, loaderPath: loaderOverride };
   const fetched = await fetchInteropSnapshot({
     workspaceRoot,
+    source: 'publisher',
     storeFactory: gameLibsStore,
     log
   });
@@ -522,7 +523,7 @@ async function prepareUnlocked({
 }: PrepareAndroidPayloadOptions): Promise<AndroidBuildRecord> {
   assertReleaseBuildArgs(msbuildArgs, PLATFORM);
   synchronizePayloadProjection(workspaceRoot, { check: true });
-  const entry = lockedInteropEntry(workspaceRoot);
+  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
   const snapshot = await resolveSnapshot({
     workspaceRoot,
     msbuildArgs,
@@ -534,11 +535,11 @@ async function prepareUnlocked({
   const digest = interopDirectoryDigest(interopPath);
   if (digest !== entry.interopSha256)
     throw new Error(
-      `${interopPath} hashes to ${digest}, not the ${entry.interopSha256} lock entry ${INTEROP_KEY} records; build against the locked Interop Snapshot ('just mod::fetch android online')`
+      `${interopPath} hashes to ${digest}, not the ${entry.interopSha256} lock entry ${PUBLISHER_KEY} records; build against the locked Interop Snapshot ('just mod::fetch android publisher')`
     );
   if (!isLockedLoader(loaderPath, entry.loader))
     throw new Error(
-      `${loaderPath} is not the Loader Release ${entry.loader.tag} (${entry.loader.sha256}) lock entry ${INTEROP_KEY} records; build against the locked loader ('just mod::fetch android online')`
+      `${loaderPath} is not the Loader Release ${entry.loader.tag} (${entry.loader.sha256}) lock entry ${PUBLISHER_KEY} records; build against the locked loader ('just mod::fetch android publisher')`
     );
   const productVersion = readProductVersion(workspaceRoot);
   const inputs = androidInputs({ workspaceRoot, interopPath });
@@ -637,12 +638,12 @@ export function verifyAndroidPayload(
     throw new Error(
       'Android Payload build identity is stale. Run bun release/cli.ts prepare --platform android.'
     );
-  const entry = lockedInteropEntry(workspaceRoot);
+  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
   if (
     JSON.stringify(record.lockEntry) !== JSON.stringify(lockEntryRecord(entry))
   )
     throw new Error(
-      `Lock entry ${INTEROP_KEY} changed since preparation. Run bun release/cli.ts prepare --platform android.`
+      `Lock entry ${PUBLISHER_KEY} changed since preparation. Run bun release/cli.ts prepare --platform android.`
     );
   if (
     androidInputs({ workspaceRoot, interopPath: record.interopPath }).digest !==
@@ -790,7 +791,7 @@ export async function resolveNativeLib({
 }: ResolveNativeLibOptions): Promise<string> {
   if (!/^[A-Za-z0-9._-]+\.so$/.test(name))
     throw new Error(
-      `Invalid native library name in lock entry ${INTEROP_KEY}: ${name}`
+      `Invalid native library name in lock entry ${PUBLISHER_KEY}: ${name}`
     );
   const id = pin.package.toLowerCase();
   const entry = `runtimes/android-arm64/native/${name}`;
@@ -819,7 +820,7 @@ export async function resolveNativeLib({
   const digest = await sha256File(target);
   if (digest !== pin.sha256)
     throw new Error(
-      `${pin.package} ${pin.version} ${name} hashes to ${digest}, not the ${pin.sha256} lock entry ${INTEROP_KEY} records`
+      `${pin.package} ${pin.version} ${name} hashes to ${digest}, not the ${pin.sha256} lock entry ${PUBLISHER_KEY} records`
     );
   return target;
 }
@@ -1068,7 +1069,7 @@ async function buildUnlocked({
     throw new Error('Git identity changed during Payload preparation');
   const record = verifyAndroidPayload(workspaceRoot);
   const version = record.productVersion;
-  const entry = lockedInteropEntry(workspaceRoot);
+  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
   const key = releasePlatform(PLATFORM).key;
 
   for (const stale of fs.readdirSync(paths.root))

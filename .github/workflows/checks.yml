@@ -328,13 +328,15 @@ jobs:
     steps: *mod-steps
 
   # The Android host compiles against the Interop Snapshot, which the Linux runner can fetch;
-  # only suites that need no Managed snapshot run here (`just mod::test-core`).
+  # only suites that need no Managed snapshot run here (`just mod::test-core`). It builds and
+  # tests once per Android source (docs/adr/0019-android-launcher-adaptations.md); MSBuild reads
+  # BppAndroidSource from the environment (build/InteropPath.props).
   mod-android:
     name: Mod (android, ubuntu-latest)
     needs: classify
     if: needs.classify.outputs.mod-android == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -357,10 +359,15 @@ jobs:
       - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: just@1.58.0
-      # A null android-online entry fails here, naming the snapshot to capture.
-      - name: Fetch the Interop Snapshot and Loader Release
-        run: just mod::fetch android online
-      - run: just verify mod::android-build mod::test-core
+      # A null entry fails here, naming the snapshot to capture.
+      - name: Fetch the Interop Snapshots and Loader Release
+        run: |
+          just mod::fetch android publisher
+          just mod::fetch android play
+      - name: Build and test against the publisher's game
+        run: BppAndroidSource=publisher just verify mod::android-build mod::test-core
+      - name: Build and test against the Google Play game
+        run: BppAndroidSource=play just verify mod::android-build mod::test-core
       - name: Preserve verification and test diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

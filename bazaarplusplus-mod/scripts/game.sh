@@ -54,16 +54,20 @@ cmd_snapshot() {
     game_libs_cli snapshot --managed "$managed" --buildid "$buildid" --steam-branch "$branch"
 }
 
-# snapshot-android <TheBazaar.apk> [options]: capture an official APK as the
-# android-online entry: its identity, the Interop assemblies generated from it (or
-# --interop <dir> generated elsewhere from the same APK), and the pinned Loader
+# snapshot-android <base.apk> [<split.apk> ...] [options]: capture an official
+# build as the Android entry its versionName names (android-publisher or
+# android-play): its identity, the Interop assemblies generated from it (or
+# --interop <dir> generated elsewhere from the same build), and the pinned Loader
 # Release, Patcher and Cpp2IL. The options name a new toolchain; without them the
-# current entry's toolchain is reused. `bun ../release/game-libs.ts --help` lists them.
+# entry's toolchain is reused. `bun ../release/game-libs.ts --help` lists them.
 cmd_snapshot_android() {
-    [[ $# -ge 1 ]] || die "Usage: just mod::snapshot-android <TheBazaar.apk> [--interop <dir>] [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>] [--cpp2il <file>] [--native-package <id>@<version>]"
-    local apk="$1"
-    shift
-    game_libs_cli snapshot-android --apk "$apk" "$@"
+    [[ $# -ge 1 && "$1" != --* ]] || die "Usage: just mod::snapshot-android <base.apk> [<split.apk> ...] [--interop <dir>] [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>] [--cpp2il <file>] [--native-package <id>@<version>]"
+    local apks=()
+    while [[ $# -gt 0 && "$1" != --* ]]; do
+        apks+=(--apk "$1")
+        shift
+    done
+    game_libs_cli snapshot-android "${apks[@]}" "$@"
 }
 
 # The operator's saved Steam login and branch access codes (root ADR 0015). CI sets
@@ -118,7 +122,7 @@ cmd_steam_capture() {
 # entry, and for android every pinned input, to the private store. Needs the release
 # credentials (`just mod::publish` loads them through the release profile).
 cmd_publish() {
-    [[ $# -eq 2 ]] || die "Usage: just mod::publish <macos|windows> <online|staging|ptr>, or android online"
+    [[ $# -eq 2 ]] || die "Usage: just mod::publish <macos|windows> <online|staging|ptr>, or android <publisher|play>"
     game_libs_cli publish --platform "$1" --channel "$2"
 }
 
@@ -127,7 +131,7 @@ cmd_publish() {
 # private store needs the release credentials:
 # `just with-config release just mod::fetch <platform> <channel>`.
 cmd_fetch() {
-    [[ $# -eq 2 ]] || die "Usage: just mod::fetch <macos|windows> <online|staging|ptr>, or android online"
+    [[ $# -eq 2 ]] || die "Usage: just mod::fetch <macos|windows> <online|staging|ptr>, or android <publisher|play>"
     lock_managed_path "$1" "$2"
 }
 

@@ -153,22 +153,33 @@ just release::promote --platform android
 官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`bun release/game-libs.ts official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。之后分三种情况：
 
 - **没变**：sha256 与锁相同。ETag 也相同就什么都不做。ETag 变了，它只开一个记录新 ETag 的 PR，不升版本号，否则以后每次检查都会重新下载。
-- **只改内容**：sha256 变了，它采集新的 `android-online` 条目（记下下载时的 ETag），再用 `bun release/android-adaptation.ts kind` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android online`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
+- **只改内容**：sha256 变了，它采集新的 `android-publisher` 条目（记下下载时的 ETag），再用 `bun release/android-adaptation.ts kind` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android publisher`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
 - **代码变了**：任一个哈希变了。上传输入之后，它跑 `mod::android-build` 和 `mod::test-core`，再开一个只改锁文件的 PR，不升 `VERSION`。在适配它的版本发布之前，下载页的 Android 卡片显示"未适配，适配中"。
 
 这些 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。仓库设置里要允许 GitHub Actions 创建 PR。锁或打开的锁 PR 记录了官方 APK 之后，工作流把它的游戏写进公开的 `game-status/android.json`（`bun release/game-libs.ts android-game-status`），下载页用它判断 Android 是否已适配。
 
+Google Play 版没有公开的下载地址，watch 看不到它的更新（[ADR 0019](adr/0019-android-launcher-adaptations.md)）。Play 版更新后，由人采集 `android-play` 条目。Cpp2IL 只能在 Linux x64 上生成 interop，所以生成交给工作流：
+
+1. 在装了新 Play 版的设备上，用 `adb shell pm path com.tempogames.thebazaar` 列出 `base.apk` 与 split，逐个 `adb pull`。
+2. 上传到私有桶，命令打印逗号分隔的 sha256，base 在前：
+
+   ```bash
+   just with-config release bun release/game-libs.ts upload-apks --apk base.apk --apk split_config.arm64_v8a.apk
+   ```
+
+3. `gh workflow run android-apk-watch.yml -f play_apks=<上一步的输出>`。这次运行不看发行商 APK：它取回这些 APK，采集 `android-play`，上传输入，按 `BppAndroidSource=play` 跑 Android Mod 的检查，再按上面的规则开只改锁文件的 PR。它不写游戏状态。采集结果与锁相同（`unchanged`）时，它核对重新生成的 interop 与锁定的相同，然后结束。
+
 `VERSION` 只在发版时升（[ADR 0016](adr/0016-one-game-compatibility-rule.md)）：代码变了的锁 PR 合并后，由人另开一个升 `VERSION` 的 PR，合并后从下面第 1 步开始发布。
 
 ```bash
-just with-config release just mod::fetch android online
+just with-config release just mod::fetch android publisher
 just release::prepare android
 just release::build android
 just release::upload android
 just release::promote --platform android
 ```
 
-1. 与桌面同一个提交（`VERSION` 相同）。本机发版在取包后先执行 `just verify mod::android-build mod::test-core`。`mod::fetch android online` 把锁条目 `android-online` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
+1. 与桌面同一个提交（`VERSION` 相同）。本机发版在取包后先执行 `just verify mod::android-build mod::test-core`。`mod::fetch android publisher` 把锁条目 `android-publisher` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
 2. `prepare` 对照锁定的 interop 与 Loader Release 编译 Android 宿主，并核对宿主暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。`-p:InteropPath=`、`-p:LemonLoaderPath=` 可以覆盖目录，但覆盖的仍必须是锁条目钉住的那一份。
 3. `build` 重做 `prepare`，然后：
    - 把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `bun install --frozen-lockfile`。

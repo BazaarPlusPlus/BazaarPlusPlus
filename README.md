@@ -92,7 +92,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏�
 just setup                  # Shared local config, locked dependencies, Git hooks
 just doctor                 # What is still missing on this machine
 just mod::fetch macos online  # Game assemblies for the mod (Windows: windows)
-just mod::fetch android online  # Interop Snapshot and loader for the Android Host
+just mod::fetch android publisher  # Interop Snapshot and loader for the Android Host (play: the Google Play game)
 just                        # Every command, grouped by project
 ```
 
