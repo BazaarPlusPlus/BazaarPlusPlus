@@ -433,12 +433,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             Surface,
             _font,
             "EmptyDetail",
-            new TouchRect(
-                _l.Detail.Left,
-                _l.Detail.Top,
-                _l.Detail.Width,
-                Math.Max(0f, _l.Footer.Top - _l.Gap - _l.Detail.Top)
-            ),
+            _l.EmptyDetail,
             _l.ButtonFont,
             TextAlignmentOptions.Center,
             TouchHistoryUi.Muted,
