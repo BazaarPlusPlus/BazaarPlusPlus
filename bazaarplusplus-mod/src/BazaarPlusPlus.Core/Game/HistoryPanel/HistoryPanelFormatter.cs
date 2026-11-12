@@ -46,14 +46,6 @@ public static class HistoryPanelFormatter
         return valid;
     }
 
-    public static string ShortenRunId(string runId)
-    {
-        if (string.IsNullOrWhiteSpace(runId))
-            return HistoryPanelText.UnknownRun();
-
-        return runId.Length <= 14 ? runId : runId[..14];
-    }
-
     public static RunOutcomeTier? GetRunOutcomeTier(HistoryRunRecord run)
     {
         if (!string.Equals(run.RawStatus, "completed", StringComparison.OrdinalIgnoreCase))
