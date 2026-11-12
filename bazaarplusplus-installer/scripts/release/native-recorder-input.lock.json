@@ -3,7 +3,7 @@
   "sourceRepository": "BazaarPlusPlus/bazaarplusplus-mod",
   "platforms": {
     "macos": {
-      "inputDigest": "sha256:2183833cc96a3612e8d393ee386d593e1a0aa4e152629f994283b7f231ad0b8f",
+      "inputDigest": "sha256:b51d24a9e27842838878596c7f4cf01fc4cc9b9134cb7a59c1d321ca6828de70",
       "inputFiles": {
         "native/mac-audio-tap/BppMacAudio.h": "346ea70328a8c170d307069e15abe7b384645477afd7f5be1ce2fa92e96dfe85",
         "native/mac-audio-tap/BppMacAudio.m": "41b8899dbee04fb7c53e0ae2fef09f5b093448fa05a12f563f349f5b098bf104",
@@ -17,7 +17,7 @@
         "native/macos/verify.sh": "bdeeaf0c074cc20c3b29094f2bbf8db46debe954599a3315f4fba33aae622155",
         "src/BazaarPlusPlus/Game/CombatReplay/Audio/CoreAudioProcessTapCaptureTap.cs": "14799e5fc8ad2bd367d7134093185900f95329f93be83d969c0a2dfd00a5b7e2",
         "src/BazaarPlusPlus/Game/CombatReplay/Audio/ReplayAudioCaptureFactory.cs": "1bd0f4fc76e4b90f8fced44ad62b1d5c4ebefc04f118db0554d57d2f1cf2cd32",
-        "src/BazaarPlusPlus/Game/CombatReplay/Video/MacMetalVideoEncoder.cs": "beece51137e74737bacb16ca88d8f48c795284ed8ed71870d1cf60ddcb96ca92",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/MacMetalVideoEncoder.cs": "1e6a3f292c34e279e2058f3ff5378988a9706ab6097f0185bbcea199994502c1",
         "src/BazaarPlusPlus/Game/CombatReplay/Video/MacNativeReplayAudioMuxer.cs": "2eb6987fc81db5438146f262fc9edf1644f95c1ce2dc5e1c850aa83bdc3528ab"
       },
       "policy": {
@@ -27,7 +27,7 @@
       },
       "producer": {
         "repository": "BazaarPlusPlus/bazaarplusplus-mod",
-        "commit": "c705626f644d1506ccfa4fbfdc466f19e080f05e",
+        "commit": "b495db9f0c05598453b2f6c1fa4a254a8956e799",
         "dirty": false
       },
       "artifacts": {
