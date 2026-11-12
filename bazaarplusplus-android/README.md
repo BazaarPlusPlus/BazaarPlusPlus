@@ -37,7 +37,7 @@ just android::push-interop
 
 ```sh
 just android::dev-signing-key
-just android::dev-sign-interop build/interop.zip <il2cppSha256> <metadataSha256> "release <version>"
+just android::dev-sign-interop build/interop-publisher.zip <il2cppSha256> <metadataSha256> "release <version>"
 just android::dev-manifest-port 8765
 ```
 

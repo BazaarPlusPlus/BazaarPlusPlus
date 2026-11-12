@@ -311,7 +311,7 @@ test('Android install and interop push pin the target and preserve Android paths
       '-s',
       'emulator-5556',
       'push',
-      'build/interop.zip',
+      'build/interop-publisher.zip',
       '/data/local/tmp/bpp-interop.zip'
     ),
     call(

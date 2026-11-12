@@ -1,8 +1,12 @@
 name: Android APK watch
 
 # Watches the publisher's official Android APK. When it no longer matches the
-# android-online entry of the Snapshot Lock, captures it as the new entry
-# (ADR 0008) and publishes the inputs to the private bucket. When only the
+# android-publisher entry of the Snapshot Lock, captures it as the new entry
+# (ADR 0008) and publishes the inputs to the private bucket. A manual run with
+# play_apks captures a Google Play build instead (ADR 0019): its base and split
+# APKs, pulled from a device and stored with `game-libs.ts upload-apks`, become
+# the android-play entry, through the same capture, publish, check and pull
+# request steps. Only the publisher run writes the Game Status. When only the
 # game's content changed (same libil2cpp.so and global-metadata.dat), it opens
 # a pull request with the lock alone. When the game code changed, it checks
 # that the Android Mod still builds against the new interop and opens a pull
@@ -20,6 +24,10 @@ on:
         description: Download and compare the official APK even when its size and ETag match the lock
         type: boolean
         default: false
+      play_apks:
+        description: Capture a Google Play build instead; its stored APKs' sha256 values, base first, comma-separated
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -42,6 +50,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      PLAY_APKS: ${{ inputs.play_apks }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,7 +60,8 @@ jobs:
         with:
           bun-version-file: package.json
       # Size and ETag only: the hourly check never downloads 2.8 GB.
-      - name: Compare the official APK with the locked one
+      - if: env.PLAY_APKS == ''
+        name: Compare the official APK with the locked one
         id: compare
         env:
           FORCE: ${{ inputs.force == true }}
@@ -85,15 +95,22 @@ jobs:
             echo "The official APK is the locked one" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "kind=$kind" >> "$GITHUB_OUTPUT"
+      - if: env.PLAY_APKS != ''
+        name: Fetch the Google Play APKs
+        id: play
+        run: |
+          sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
+          bun release/game-libs.ts fetch-apks --sha256s "$PLAY_APKS" > "$RUNNER_TEMP/play-apks.txt"
+          echo "Google Play APKs: $PLAY_APKS" >> "$GITHUB_STEP_SUMMARY"
       # Only a capture builds: a run that restores no package has no NuGet
       # folder, and setup-dotnet's cache step then fails the job after it ends.
-      - if: steps.download.outputs.kind == 'capture'
+      - if: steps.download.outputs.kind == 'capture' || steps.play.outcome == 'success'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
           cache: true
           cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
-      - if: steps.download.outputs.kind == 'capture'
+      - if: steps.download.outputs.kind == 'capture' || steps.play.outcome == 'success'
         uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: just@1.58.0
@@ -122,31 +139,45 @@ jobs:
           gh pr create --base master --head "$BRANCH" --title "chore(mod): record the official Android APK's ETag" --body-file "$RUNNER_TEMP/body.md"
       # Captures on Linux x64, where the Patcher generates the interop, with the
       # locked toolchain; the lock is written last. change is content when the
-      # game code is the locked one and code otherwise
+      # game code is the locked one, code otherwise, and unchanged for the
+      # locked APKs, whose regenerated interop must hash to the locked one
       # (release/android-adaptation.ts captureKind).
-      - if: steps.download.outputs.kind == 'capture'
-        name: Capture the new android-online entry
+      - if: steps.download.outputs.kind == 'capture' || steps.play.outcome == 'success'
+        name: Capture the new Android entry
         id: capture
         env:
           ETAG: ${{ steps.download.outputs.etag }}
         run: |
           cp bazaarplusplus-mod/build/game-libs.lock.json "$RUNNER_TEMP/previous-lock.json"
-          just mod::snapshot-android "$RUNNER_TEMP/TheBazaar.apk" ${ETAG:+--apk-etag "$ETAG"}
-          change="$(bun release/android-adaptation.ts kind --previous "$RUNNER_TEMP/previous-lock.json")"
+          if [[ -n "$PLAY_APKS" ]]; then
+            source=play
+            mapfile -t apks < "$RUNNER_TEMP/play-apks.txt"
+            just mod::snapshot-android "${apks[@]}"
+          else
+            source=publisher
+            just mod::snapshot-android "$RUNNER_TEMP/TheBazaar.apk" ${ETAG:+--apk-etag "$ETAG"}
+          fi
+          change="$(bun release/android-adaptation.ts kind --source "$source" --previous "$RUNNER_TEMP/previous-lock.json")"
+          entry() { bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-$source'].$1"; }
+          game="$(entry gameVersion)"
+          code="$(entry versionCode)"
+          echo "Captured $game ($source): $change change, interop $(entry interopSha256)" >> "$GITHUB_STEP_SUMMARY"
           case "$change" in
             content | code) ;;
+            unchanged)
+              echo "The lock already records these APKs" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
             *)
               echo "::error::The capture is $change, not content or code"
               exit 1
               ;;
           esac
-          game="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].gameVersion")"
-          code="$(bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-online'].versionCode")"
+          echo "source=$source" >> "$GITHUB_OUTPUT"
           echo "game=$game" >> "$GITHUB_OUTPUT"
           echo "change=$change" >> "$GITHUB_OUTPUT"
-          echo "branch=chore/android-online-$code" >> "$GITHUB_OUTPUT"
-          echo "Captured $game: $change change" >> "$GITHUB_STEP_SUMMARY"
-          if git ls-remote --exit-code --heads origin "chore/android-online-$code" > /dev/null; then
+          echo "branch=chore/android-$source-$code" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --heads origin "chore/android-$source-$code" > /dev/null; then
             fresh=false
             echo "A pull request for $game is already open" >> "$GITHUB_STEP_SUMMARY"
           else
@@ -157,7 +188,9 @@ jobs:
       # the private bucket, and the lock must stay fetchable from it alone.
       - if: steps.capture.outputs.fresh == 'true'
         name: Publish the captured inputs
-        run: just mod::publish android online
+        env:
+          SOURCE: ${{ steps.capture.outputs.source }}
+        run: just mod::publish android "$SOURCE"
       # The pull request below is opened with GITHUB_TOKEN, which starts no
       # checks, so the Android lane runs here and its result goes in the body.
       # A content-only change keeps the locked interop (captureKind checks it),
@@ -166,12 +199,15 @@ jobs:
         name: Check the Android Mod against the new interop
         id: verify
         continue-on-error: true
+        env:
+          BppAndroidSource: ${{ steps.capture.outputs.source }}
         run: just verify mod::android-build mod::test-core
       - if: steps.capture.outputs.fresh == 'true' && steps.capture.outputs.change == 'content'
         name: Open the content-only pull request
         env:
           GH_TOKEN: ${{ github.token }}
           GAME: ${{ steps.capture.outputs.game }}
+          SOURCE: ${{ steps.capture.outputs.source }}
           BRANCH: ${{ steps.capture.outputs.branch }}
         run: |
           git config user.name 'github-actions[bot]'
@@ -181,7 +217,7 @@ jobs:
           git commit -m "chore(mod): record Android game $GAME"
           git push origin "$BRANCH"
           cat > "$RUNNER_TEMP/body.md" <<EOF
-          The publisher's official APK is now $GAME. Its game code (libil2cpp.so and global-metadata.dat) and its Interop Snapshot are the locked ones, so this records it as the android-online entry of the Snapshot Lock (inputs published to the private bucket) without a new adaptation and without a VERSION change. The released Android App keeps running BazaarPlusPlus on it, because it compares the game code only (docs/adr/0012-android-app.md).
+          The $SOURCE official Android game is now $GAME. Its game code (libil2cpp.so and global-metadata.dat) and its Interop Snapshot are the locked ones, so this records it as the android-$SOURCE entry of the Snapshot Lock (inputs published to the private bucket) without a new adaptation and without a VERSION change. The released Android App keeps running BazaarPlusPlus on it, because it compares the game code only (docs/adr/0012-android-app.md).
 
           - The Android Mod builds from the same interop as on master, so this run did not build it again.
           - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
@@ -196,6 +232,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GAME: ${{ steps.capture.outputs.game }}
+          SOURCE: ${{ steps.capture.outputs.source }}
           BRANCH: ${{ steps.capture.outputs.branch }}
           VERIFY: ${{ steps.verify.outcome }}
         run: |
@@ -211,7 +248,7 @@ jobs:
             check='`just verify mod::android-build mod::test-core` **failed** against the new interop; see the workflow run.'
           fi
           cat > "$RUNNER_TEMP/body.md" <<EOF
-          The publisher's official APK is now $GAME. This captures it as the android-online entry of the Snapshot Lock (inputs published to the private bucket), without a VERSION change. Until a release adapts the Android App to it, the download page shows the Android game as not adapted.
+          The $SOURCE official Android game is now $GAME. This captures it as the android-$SOURCE entry of the Snapshot Lock (inputs published to the private bucket), without a VERSION change. Until a release adapts the Android App to it, BPP launch is unavailable on that game.
 
           - $check
           - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
@@ -227,9 +264,10 @@ jobs:
       # pull request, open or just opened. The download page compares it with
       # the Android Platform Release Manifest's game.
       - if: >-
+          env.PLAY_APKS == '' && (
           steps.compare.outputs.state == 'unchanged' ||
           steps.download.outputs.kind == 'none' ||
           steps.download.outputs.kind == 'etag' ||
-          steps.capture.conclusion == 'success'
+          steps.capture.conclusion == 'success')
         name: Write the Android Game Status
         run: bun release/game-libs.ts android-game-status

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test } from 'vite-plus/test';
 import { captureKind, cliMain } from './android-adaptation.ts';
-import { GAME_LIBS_LOCK_PATH, INTEROP_KEY } from './snapshot-lock.ts';
+import { GAME_LIBS_LOCK_PATH, PUBLISHER_KEY } from './snapshot-lock.ts';
 import type { GameLibsLock, InteropLockEntry } from './snapshot-lock.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 
@@ -13,7 +13,7 @@ import { WORKSPACE_ROOT } from './product.ts';
 const LOCKED = Object.freeze(
   JSON.parse(
     fs.readFileSync(path.join(WORKSPACE_ROOT, GAME_LIBS_LOCK_PATH), 'utf8')
-  ).entries[INTEROP_KEY] as InteropLockEntry
+  ).entries[PUBLISHER_KEY] as InteropLockEntry
 );
 const NOW = new Date('2026-11-02T03:04:05.000Z');
 
@@ -33,7 +33,7 @@ const write = (file: string, bytes: string): string => {
   return file;
 };
 
-// A captured android-online entry: the locked one with the given changes.
+// A captured Android entry: the locked one with the given changes.
 const captured = (changes: Partial<InteropLockEntry>): InteropLockEntry => ({
   ...LOCKED,
   apkSha256: 'a'.repeat(64),
@@ -41,8 +41,11 @@ const captured = (changes: Partial<InteropLockEntry>): InteropLockEntry => ({
   ...changes
 });
 
-test('the same APK is unchanged', () => {
+test('the same APKs are unchanged', () => {
   expect(captureKind(LOCKED, { ...LOCKED })).toBe('unchanged');
+  expect(
+    captureKind(LOCKED, { ...LOCKED, splitApkSha256s: ['b'.repeat(64)] })
+  ).toBe('content');
 });
 
 test('a new APK with the locked game code is a content-only update', () => {
@@ -72,11 +75,16 @@ test('a new libil2cpp.so or global-metadata.dat is a code change', () => {
 });
 
 test('the locked game code with another Interop Snapshot is refused', () => {
-  expect(() =>
-    captureKind(LOCKED, captured({ interopSha256: 'd'.repeat(64) }))
-  ).toThrow(
-    `its Interop Snapshot hashes to ${'d'.repeat(64)}, not the locked ${LOCKED.interopSha256}`
-  );
+  // A recapture of the locked APKs too: its regenerated interop must match.
+  for (const changes of [{}, { apkSha256: LOCKED.apkSha256 }])
+    expect(() =>
+      captureKind(
+        LOCKED,
+        captured({ ...changes, interopSha256: 'd'.repeat(64) })
+      )
+    ).toThrow(
+      `its Interop Snapshot hashes to ${'d'.repeat(64)}, not the locked ${LOCKED.interopSha256}`
+    );
 });
 
 // A workspace whose lock holds `entry`, as a capture leaves it.
@@ -85,7 +93,7 @@ function capturedWorkspace(entry = captured({})) {
   const lock = JSON.parse(
     fs.readFileSync(path.join(WORKSPACE_ROOT, GAME_LIBS_LOCK_PATH), 'utf8')
   ) as GameLibsLock;
-  lock.entries[INTEROP_KEY] = entry;
+  lock.entries[PUBLISHER_KEY] = entry;
   write(
     path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
     `${JSON.stringify(lock, null, 2)}\n`
@@ -100,14 +108,20 @@ test('kind compares the workspace lock with the previous lock file', async () =>
       path.join(tempDir(), 'previous-lock.json'),
       JSON.stringify({
         ...lock,
-        entries: { ...lock.entries, [INTEROP_KEY]: entry }
+        entries: { ...lock.entries, [PUBLISHER_KEY]: entry }
       })
     );
   const kind = (entry: InteropLockEntry) =>
-    cliMain(['kind', '--previous', previousFile(entry)], { workspaceRoot });
-  const current = lock.entries[INTEROP_KEY]!;
+    cliMain(
+      ['kind', '--source', 'publisher', '--previous', previousFile(entry)],
+      { workspaceRoot }
+    );
+  const current = lock.entries[PUBLISHER_KEY]!;
   expect(await kind(current)).toBe('unchanged');
   expect(await kind({ ...current, apkSha256: 'e'.repeat(64) })).toBe('content');
   expect(await kind({ ...LOCKED, il2cppSha256: 'f'.repeat(64) })).toBe('code');
   await expect(cliMain(['kind'], { workspaceRoot })).rejects.toThrow('Usage');
+  await expect(
+    cliMain(['kind', '--previous', previousFile(current)], { workspaceRoot })
+  ).rejects.toThrow('Usage');
 });

@@ -187,7 +187,7 @@ test.each([
 );
 
 test('android prepare and build take the Interop Snapshot overrides', () => {
-  const interop = '-p:InteropPath=/game-libs/android-online/interop/';
+  const interop = '-p:InteropPath=/game-libs/android-publisher-13113/interop/';
   const loader = '-p:LemonLoaderPath=/game-libs/loader-v0.7.4-android.4/';
   expect(
     parseReleaseArgs(['prepare', '--platform', 'android', '--', interop])
@@ -677,7 +677,7 @@ test('check fails on a Snapshot Lock missing a key or holding a malformed sha256
     delete lock.entries['windows-ptr'];
   });
   await expect(main(['check'], missing)).rejects.toThrow(
-    /exactly the keys macos-online, .*, android-online/
+    /exactly the keys macos-online, .*, android-publisher, android-play/
   );
   const malformed = fixture();
   editLock(malformed, (lock) => {
@@ -714,13 +714,13 @@ test('check warns on empty and stale Snapshot Lock entries and still passes', as
   });
   const lines = options.log.mock.calls.map(([line]) => line);
   const warnings = lines.filter((line) => line.startsWith('WARNING: '));
-  expect(warnings).toHaveLength(6);
+  expect(warnings).toHaveLength(7);
   expect(warnings).toContainEqual(
     expect.stringMatching(/^WARNING: macos-online: no snapshot captured/)
   );
   expect(warnings).toContainEqual(
     expect.stringMatching(
-      /^WARNING: android-online: no Interop Snapshot captured; run 'just mod::snapshot-android <TheBazaar\.apk>'/
+      /^WARNING: android-play: no Interop Snapshot captured; run 'just mod::snapshot-android <APK>\.\.\.'/
     )
   );
   expect(warnings).toContainEqual(

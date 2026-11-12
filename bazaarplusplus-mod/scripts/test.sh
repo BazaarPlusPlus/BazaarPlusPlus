@@ -55,7 +55,7 @@ cmd_test_performance() {
 
 # test-core [-p:Name=Value ...]: the suites that need no Managed/ snapshot, so they also run on
 # Linux: the xUnit suites in BazaarPlusPlus.CoreTests.slnx (among them the Android host's
-# boundary test, which needs the Interop Snapshot from `just mod::fetch android online`
+# boundary test, which needs the Interop Snapshot from `just mod::fetch android publisher`
 # instead), then the console capsules BppTestCoreProjects names (Directory.Build.props), which
 # run against Core's net10.0 output: among them the two goldens on the binding the Android host
 # ships, the Run segment (BundleV6Codec) and Run Logging's history database, and the Combat

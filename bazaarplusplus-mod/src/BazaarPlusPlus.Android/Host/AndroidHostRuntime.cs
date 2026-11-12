@@ -707,7 +707,7 @@ internal sealed class AndroidHostRuntime
     }
 
     // GameBuildInfoResolver on desktop corroborates the channel with this nested type, which only
-    // the PTR fork of Config declares. The android-online Interop Snapshot has no ServerOption, so
+    // the PTR fork of Config declares. Neither Android Interop Snapshot (publisher, Google Play) has a ServerOption, so
     // an Online build logs "missing", the Online answer; whether Il2CppInterop surfaces the type
     // stays open until a PTR or staging Android build is captured.
     private static bool? LogBuildChannelProbe()

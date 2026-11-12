@@ -5,14 +5,14 @@ import { androidInputKey, lockedInteropEntry } from './interop-snapshot.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 import type { ObjectStore } from './r2-store.ts';
 import {
-  INTEROP_KEY,
+  PUBLISHER_KEY,
   isApkEtag,
   writeGameLibsLockEntry
 } from './snapshot-lock.ts';
 import type { InteropLockEntry } from './snapshot-lock.ts';
 
 // The official Android APK watch (root GLOSSARY.md, Interop Snapshot): the
-// publisher's APK address, whether it differs from the APK the android-online
+// publisher's APK address, whether it differs from the APK the android-publisher
 // entry locks, what to do with a downloaded copy, and recording the ETag it is
 // now served with. .github/workflows/android-apk-watch.yml drives it through
 // the official-apk, downloaded-apk and record-apk-etag verbs of game-libs.ts
@@ -30,7 +30,7 @@ export function strongEtag(header: string | null | undefined): string | null {
 export const OFFICIAL_ANDROID_APK_URL =
   'https://data.playthebazaar.com/game/android/TheBazaar.apk';
 
-// Whether the official APK differs from the one the android-online entry
+// Whether the official APK differs from the one the android-publisher entry
 // locks, read without downloading either: the publisher's Content-Length
 // against the stored copy's size, and its ETag against the one the entry
 // recorded. An entry without an ETag (a manual capture) compares sizes only.
@@ -47,7 +47,7 @@ export interface OfficialApkChangedOptions {
   fetchImpl?: ApkHeadFetch;
 }
 
-/** The publisher's APK against the one the android-online entry locks. */
+/** The publisher's APK against the one the android-publisher entry locks. */
 export interface OfficialApkCheck {
   changed: boolean;
   officialSize: number;
@@ -69,7 +69,7 @@ export async function officialApkChanged({
   if (!Number.isSafeInteger(officialSize) || officialSize <= 0)
     throw new Error(`HEAD ${url} gave no Content-Length`);
   const officialEtag = strongEtag(response.headers.get('etag'));
-  const entry = lockedInteropEntry(workspaceRoot);
+  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
   const key = androidInputKey('apk', entry.apkSha256);
   const stored = await storeFactory().head(key);
   if (!stored) throw new Error(`The locked APK ${key} is not in the store`);
@@ -112,7 +112,7 @@ export function etagOfHeaders(headers: string): string | null {
   return strongEtag(line?.slice('etag:'.length));
 }
 
-/** A downloaded official APK against the android-online entry. */
+/** A downloaded official APK against the android-publisher entry. */
 export interface DownloadedApk {
   kind: DownloadedApkKind;
   size: number;
@@ -136,7 +136,7 @@ export async function inspectDownloadedApk({
   apk,
   headers
 }: InspectDownloadedApkOptions): Promise<DownloadedApk> {
-  const entry = lockedInteropEntry(workspaceRoot);
+  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
   const sha256 = await sha256File(apk);
   const etag = etagOfHeaders(fs.readFileSync(headers, 'utf8'));
   const kind = downloadedApkKind(entry, sha256, etag);
@@ -170,13 +170,13 @@ export async function recordApkEtag({
   etag
 }: RecordApkEtagOptions): Promise<string> {
   if (!isApkEtag(etag)) throw new Error(`Not a strong ETag value: ${etag}`);
-  const entry = lockedInteropEntry(workspaceRoot);
+  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
   const sha256 = await sha256File(apk);
   if (sha256 !== entry.apkSha256)
     throw new Error(
       `${apk} is ${sha256}, not the locked APK ${entry.apkSha256}; capture it with snapshot-android`
     );
-  writeGameLibsLockEntry(workspaceRoot, INTEROP_KEY, {
+  writeGameLibsLockEntry(workspaceRoot, PUBLISHER_KEY, {
     ...entry,
     apkEtag: etag
   });

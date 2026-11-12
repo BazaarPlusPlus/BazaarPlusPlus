@@ -24,8 +24,10 @@ import type { SteamState } from './game-status.ts';
 import {
   captureInteropSnapshot,
   checkGameLibsLock,
+  fetchAndroidInput,
   fetchInteropSnapshot,
-  publishInteropSnapshot
+  publishInteropSnapshot,
+  uploadApks
 } from './interop-snapshot.ts';
 import type { GenerateInteropOptions } from './interop-snapshot.ts';
 import {
@@ -38,7 +40,6 @@ import { WORKSPACE_ROOT } from './product.ts';
 import type { FetchImpl, ObjectStore } from './r2-store.ts';
 import {
   GAME_LIBS_LOCK_PATH,
-  INTEROP_KEY,
   isInteropPlatform,
   lockKey,
   managedEntries,
@@ -46,6 +47,7 @@ import {
   validateGameLibsLock
 } from './snapshot-lock.ts';
 import type {
+  AndroidSource,
   ManagedPlatform,
   SnapshotChannel,
   SnapshotPlatform
@@ -83,11 +85,17 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
                                              that online build
   bun release/game-libs.ts android-game-status
                                              Write the public Android Game Status from the lock's
-                                             android-online entry
-  bun release/game-libs.ts snapshot-android --apk <TheBazaar.apk> [--apk-etag <etag>] [--interop <dir>]
-      [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>]
+                                             android-publisher entry
+  bun release/game-libs.ts snapshot-android --apk <base.apk> [--apk <split.apk> ...] [--apk-etag <etag>]
+      [--interop <dir>] [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>]
       [--cpp2il <file>] [--native-package <id>@<version> ...]
-  bun release/game-libs.ts publish --platform <macos|windows|android> --channel <online|staging|ptr>
+  bun release/game-libs.ts upload-apks --apk <base.apk> [--apk <split.apk> ...]
+                                             Store APKs pulled from a device in the private bucket and
+                                             print their sha256 values, comma-separated, base first
+  bun release/game-libs.ts fetch-apks --sha256s <base>,<split>,...
+                                             Fetch stored APKs by sha256 and print their local paths
+  bun release/game-libs.ts publish --platform <macos|windows> --channel <online|staging|ptr>
+  bun release/game-libs.ts publish --platform android --channel <publisher|play>
   bun release/game-libs.ts fetch --platform <p> --channel <c> [--steam-managed <dir>] [--allow-unlocked]
   bun release/game-libs.ts lock-check [--managed <dir>]
   bun release/game-libs.ts entries
@@ -95,16 +103,19 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
                                              Print the online game version when this entry's
                                              Steam build is older than online's, else nothing
   bun release/game-libs.ts official-apk     Print changed or unchanged: the publisher's APK against
-                                             the android-online entry's (size and ETag, no download)
+                                             the android-publisher entry's (size and ETag, no download)
   bun release/game-libs.ts downloaded-apk --apk <TheBazaar.apk> --headers <curl --dump-header file>
                                              Print {kind, size, sha256, etag, lockedSha256, lockedEtag,
                                              etagBranch}: kind is capture, etag or none
   bun release/game-libs.ts record-apk-etag --apk <TheBazaar.apk> --apk-etag <etag>
                                              Record the ETag the locked APK is now served with
-snapshot-android reuses the android-online entry's toolchain unless files are
-given, and generates interop with the Patcher's Linux x64 CLI unless --interop
-names a directory generated from the same APK. fetch android online prints the
-interop directory and unpacks the Loader Release beside it. publish always, and
+snapshot-android records the base APK and its splits (a Google Play install)
+under the entry its versionName names: android-play for a bare x.y.z, else
+android-publisher. It reuses that entry's toolchain, or the other Android
+entry's while it is empty, unless files are given, and generates interop with
+the Patcher's Linux x64 CLI unless --interop names a directory generated from
+the same build. fetch android <source> prints the interop directory and
+unpacks the Loader Release beside it. publish always, and
 fetch when no verified local copy exists, use the private bucket
 ${GAME_LIBS_BUCKET} through CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the
 S3 pair is derived from the token).`;
@@ -159,7 +170,7 @@ export async function cliMain(
         channel: { type: 'string' },
         'steam-managed': { type: 'string' },
         'allow-unlocked': { type: 'boolean' },
-        apk: { type: 'string' },
+        apk: { type: 'string', multiple: true },
         headers: { type: 'string' },
         interop: { type: 'string' },
         loader: { type: 'string' },
@@ -168,7 +179,8 @@ export async function cliMain(
         'patcher-tag': { type: 'string' },
         cpp2il: { type: 'string' },
         'native-package': { type: 'string', multiple: true },
-        'apk-etag': { type: 'string' }
+        'apk-etag': { type: 'string' },
+        sha256s: { type: 'string' }
       }
     });
     const modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod');
@@ -184,6 +196,12 @@ export async function cliMain(
       const value = values[name];
       if (!value) throw new Error(`${verb} requires --${name}\n${usage}`);
       return value;
+    };
+    const apks = values.apk ?? [];
+    const oneApk = (): string => {
+      if (apks.length !== 1)
+        throw new Error(`${verb} takes one --apk\n${usage}`);
+      return apks[0];
     };
     switch (verb) {
       case 'official-apk': {
@@ -203,7 +221,7 @@ export async function cliMain(
           JSON.stringify(
             await inspectDownloadedApk({
               workspaceRoot,
-              apk: required('apk'),
+              apk: oneApk(),
               headers: required('headers')
             })
           )
@@ -213,7 +231,7 @@ export async function cliMain(
       case 'record-apk-etag': {
         const gameVersion = await recordApkEtag({
           workspaceRoot,
-          apk: required('apk'),
+          apk: oneApk(),
           etag: required('apk-etag')
         });
         log(`Recorded the ETag of ${gameVersion} in ${GAME_LIBS_LOCK_PATH}`);
@@ -309,15 +327,17 @@ export async function cliMain(
         log(
           status
             ? `Android Game Status: ${status.gameVersion}`
-            : 'The lock has no android-online entry; the Android Game Status stays as it is'
+            : 'The lock has no android-publisher entry; the Android Game Status stays as it is'
         );
         return 0;
       }
       case 'snapshot-android': {
+        if (apks.length === 0)
+          throw new Error(`${verb} requires --apk\n${usage}`);
         const result = await captureInteropSnapshot({
           workspaceRoot,
           modRoot,
-          apk: required('apk'),
+          apks,
           apkEtag: values['apk-etag'] ?? null,
           interop: values.interop ?? '',
           loader: values.loader ?? '',
@@ -336,6 +356,25 @@ export async function cliMain(
         printLine(result.directory);
         return 0;
       }
+      case 'upload-apks': {
+        if (apks.length === 0)
+          throw new Error(`${verb} requires --apk\n${usage}`);
+        printLine((await uploadApks(apks, gameLibsStore(), log)).join(','));
+        return 0;
+      }
+      case 'fetch-apks': {
+        for (const sha256 of required('sha256s').split(','))
+          printLine(
+            await fetchAndroidInput({
+              modRoot,
+              kind: 'apk',
+              sha256,
+              store: gameLibsStore,
+              log
+            })
+          );
+        return 0;
+      }
       case 'publish': {
         const platform = required('platform');
         const channel = required('channel');
@@ -344,6 +383,8 @@ export async function cliMain(
           await publishInteropSnapshot({
             workspaceRoot,
             modRoot,
+            // lockKey checked the source.
+            source: channel as AndroidSource,
             store: gameLibsStore(),
             log
           });
@@ -367,6 +408,9 @@ export async function cliMain(
           const result = await fetchInteropSnapshot({
             workspaceRoot,
             modRoot,
+            // lockKey checked the source.
+            source: required('channel') as AndroidSource,
+            storeFactory: gameLibsStore,
             log
           });
           log(`Loader Release ${result.loaderPath}`);
@@ -397,10 +441,8 @@ export async function cliMain(
           log(
             `Managed ${result.verified.gameVersion} matches lock ${result.verified.keys.join(', ')}`
           );
-        if (result.interop)
-          log(
-            `Interop ${result.interop.gameVersion} matches lock ${INTEROP_KEY}`
-          );
+        for (const { key, gameVersion } of result.interop)
+          log(`Interop ${gameVersion} matches lock ${key}`);
         return 0;
       }
       case 'entries': {

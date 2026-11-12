@@ -18,7 +18,7 @@ The interop assemblies are managed: an interop enum is a plain CLR enum with the
 ## Guardrails
 
 - The boundary tests still read the host's metadata from its build output (`BppAndroidHostAssembly`), so a forbidden reference fails whether or not a test loads the type.
-- The suite stays in `just mod::test-core`, which needs the Interop Snapshot (`just mod::fetch android online`) and no Managed snapshot.
+- The suite stays in `just mod::test-core`, which needs the Interop Snapshot (`just mod::fetch android publisher`) and no Managed snapshot.
 
 ## Evidence
 

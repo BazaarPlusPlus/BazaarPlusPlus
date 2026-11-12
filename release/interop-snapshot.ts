@@ -23,30 +23,31 @@ import {
 } from './snapshot-files.ts';
 import type { ExecFileError } from './snapshot-files.ts';
 import {
-  INTEROP_KEY,
+  ANDROID_SOURCES,
   assertLockEntry,
+  gameVersionKey,
+  interopKey,
+  interopManifestKey,
+  interopSnapshotDirectory,
   lockWarnings,
   managedEntries,
-  parseGameVersion,
   readGameLibsLock,
-  snapshotDirectory,
-  snapshotManifestKey,
   writeGameLibsLockEntry
 } from './snapshot-lock.ts';
 import type {
+  AndroidSource,
   GameLibsLock,
   InteropLockEntry,
+  InteropLockKey,
   LoaderPin,
   NativeLibPin,
-  PatcherPin,
-  SnapshotChannel,
-  SnapshotPlatform
+  PatcherPin
 } from './snapshot-lock.ts';
 
-// Interop Snapshots (root GLOSSARY.md, ADR 0008). The android-online entry pins
-// an official APK and the toolchain that turned it into Il2CppInterop
-// assemblies. Locally the snapshot lives at
-// game-libs/android-online-<gameVersion>/interop/, the Loader Release at
+// Interop Snapshots (root GLOSSARY.md, ADR 0008). Each Android lock entry
+// (android-<source>, ADR 0019) pins an official build's APKs and the toolchain
+// that turned them into Il2CppInterop assemblies. Locally the snapshot lives at
+// game-libs/android-<source>-<versionCode>/interop/, the Loader Release at
 // game-libs/loader-<tag>/, and other inputs fetched by sha256 under
 // game-libs/inputs/. Each input is stored in the private bucket under its own
 // content address. It also holds checkGameLibsLock, the lock-check gate, which
@@ -56,25 +57,31 @@ import type {
 /** An Interop Snapshot's manifest.json: its lock entry plus its identity. */
 export interface InteropSnapshotManifest extends InteropLockEntry {
   schemaVersion: typeof SNAPSHOT_MANIFEST_SCHEMA_VERSION;
-  platform: SnapshotPlatform;
-  channel: SnapshotChannel;
+  platform: 'android';
+  channel: AndroidSource;
 }
 
-/** A pinned input of the android-online entry, stored by its sha256. */
+/** A pinned input of an Android lock entry, stored by its sha256. */
 export type AndroidInputKind = 'apk' | 'loader' | 'patcher' | 'cpp2il';
 
-/** Where an Android input lives and which entry field pins it. */
+/** Where an Android input lives and which entry fields pin it. */
 export interface AndroidInput {
   extension: string;
-  sha256: (entry: InteropLockEntry) => string;
+  sha256s: (entry: InteropLockEntry) => string[];
 }
 
 export const ANDROID_INPUTS: Readonly<Record<AndroidInputKind, AndroidInput>> =
   Object.freeze({
-    apk: { extension: '.apk', sha256: (entry) => entry.apkSha256 },
-    loader: { extension: '.zip', sha256: (entry) => entry.loader.sha256 },
-    patcher: { extension: '.tar.gz', sha256: (entry) => entry.patcher.sha256 },
-    cpp2il: { extension: '', sha256: (entry) => entry.cpp2ilSha256 }
+    apk: {
+      extension: '.apk',
+      sha256s: (entry) => [entry.apkSha256, ...entry.splitApkSha256s]
+    },
+    loader: { extension: '.zip', sha256s: (entry) => [entry.loader.sha256] },
+    patcher: {
+      extension: '.tar.gz',
+      sha256s: (entry) => [entry.patcher.sha256]
+    },
+    cpp2il: { extension: '', sha256s: (entry) => [entry.cpp2ilSha256] }
   });
 // Where the Loader Release keeps the managed assemblies a host compiles
 // against; build/InteropPath.props names the same directory.
@@ -297,7 +304,7 @@ function lazyStore<Store>(
 }
 
 const STORE_REMEDY =
-  'Fetch from the private store with the Cloudflare operator token (just with-config release just mod::fetch android online)';
+  'Fetch from the private store with the Cloudflare operator token (just with-config release just mod::fetch android <source>)';
 
 // Makes one pinned Android input available as a verified local file: the
 // game-libs/inputs/ cache, else the private store.
@@ -330,7 +337,7 @@ export async function fetchAndroidInput({
     const fetched = await store().getFile(key, partial);
     if (!fetched)
       throw new Error(
-        `The private store has no ${key}; run 'just mod::publish android online' on the machine that captured it`
+        `The private store has no ${key}; run 'just mod::publish android <source>' on the machine that captured it`
       );
     const digest = await sha256File(partial);
     if (digest !== sha256)
@@ -342,6 +349,26 @@ export async function fetchAndroidInput({
     fs.rmSync(partial, { force: true });
   }
   return file;
+}
+
+// Stores official APKs pulled from a device under their content address, so a
+// Linux runner can capture them (android-apk-watch.yml play_apks). Returns
+// their sha256 values in the order given.
+export async function uploadApks(
+  files: readonly string[],
+  store: Pick<ObjectStore, 'head' | 'putFile'>,
+  log: (message: string) => void = () => {}
+): Promise<string[]> {
+  const sha256s: string[] = [];
+  for (const file of files) {
+    const sha256 = await sha256File(file);
+    const key = androidInputKey('apk', sha256);
+    if (await store.head(key)) log(`Already stored: ${key}`);
+    else if (await store.putFile(key, file, { sha256 })) log(`Uploaded ${key}`);
+    else log(`Another publisher stored ${key} first`);
+    sha256s.push(sha256);
+  }
+  return sha256s;
 }
 
 // Whether `directory` holds the Loader Release `loader` (a lock entry's tag and
@@ -564,14 +591,14 @@ async function captureToolchain({
     fetchAndroidInput({
       modRoot,
       kind,
-      sha256: ANDROID_INPUTS[kind].sha256(locked),
+      sha256: ANDROID_INPUTS[kind].sha256s(locked)[0],
       store,
       log
     });
   const need = (flag: string): InteropLockEntry => {
     if (!previous)
       throw new Error(
-        `The ${INTEROP_KEY} lock entry is empty, so the first capture names the toolchain: pass ${flag}`
+        `Every Android lock entry is empty, so the first capture names the toolchain: pass ${flag}`
       );
     return previous;
   };
@@ -663,13 +690,16 @@ function copyInteropInto(
   }
 }
 
-// Captures an official APK as the android-online entry: reads its identity,
-// generates (or takes, with `interop`) the Interop assemblies, unpacks the
-// Loader Release, and records the entry. Publish uploads every input.
+// Captures an official build as the Android lock entry its versionName names
+// (gameVersionKey): reads its identity, generates (or takes, with `interop`)
+// the Interop assemblies, unpacks the Loader Release, and records the entry.
+// An empty entry takes its toolchain and native libraries from the other
+// source's, so both sources pin one App runtime. Publish uploads every input.
 export interface CaptureInteropSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
-  apk: string;
+  /** The base APK, then any split APKs. */
+  apks: readonly string[];
   apkEtag?: string | null;
   interop?: string;
   loader?: string;
@@ -687,7 +717,7 @@ export interface CaptureInteropSnapshotOptions {
 
 /** What an Interop Snapshot capture wrote. */
 export interface CapturedInteropSnapshot {
-  key: typeof INTEROP_KEY;
+  key: InteropLockKey;
   directory: string;
   loaderPath: string;
   manifest: InteropSnapshotManifest;
@@ -696,7 +726,7 @@ export interface CapturedInteropSnapshot {
 export async function captureInteropSnapshot({
   workspaceRoot = WORKSPACE_ROOT,
   modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
-  apk,
+  apks,
   apkEtag = null,
   interop = '',
   loader = '',
@@ -711,22 +741,34 @@ export async function captureInteropSnapshot({
   now = new Date(),
   log = () => {}
 }: CaptureInteropSnapshotOptions): Promise<CapturedInteropSnapshot> {
-  if (!apk || !fs.existsSync(apk))
-    throw new Error(`No APK at ${JSON.stringify(apk)}`);
-  const previous = readGameLibsLock(workspaceRoot).entries[INTEROP_KEY];
+  if (apks.length === 0) throw new Error('No APK to capture');
+  for (const apk of apks)
+    if (!apk || !fs.existsSync(apk))
+      throw new Error(`No APK at ${JSON.stringify(apk)}`);
+  const entries = readGameLibsLock(workspaceRoot).entries;
   const store = lazyStore(
     storeFactory,
     `${STORE_REMEDY}, or pass the toolchain files explicitly`
   );
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-interop-'));
   try {
-    log(`Reading ${apk}`);
-    const facts = await readApk(apk, work);
-    const { platform, channel } = parseGameVersion(facts.versionName);
-    if (`${platform}-${channel}` !== INTEROP_KEY)
+    log(`Reading ${apks.join(', ')}`);
+    const facts = await readApk(apks, work);
+    const versionKey = gameVersionKey(facts.versionName);
+    const source = ANDROID_SOURCES.find(
+      (name) => interopKey(name) === versionKey
+    );
+    if (source === undefined)
       throw new Error(
-        `${apk} is ${facts.versionName}, a ${platform}-${channel} build, not an ${INTEROP_KEY} APK`
+        `${apks[0]} is ${facts.versionName}, a ${versionKey} build, not an official Android build`
       );
+    const key = interopKey(source);
+    const previous =
+      entries[key] ??
+      ANDROID_SOURCES.map((name) => entries[interopKey(name)]).find(
+        (entry) => entry !== null
+      ) ??
+      null;
     const tools = await captureToolchain({
       modRoot,
       previous,
@@ -734,9 +776,9 @@ export async function captureInteropSnapshot({
       store,
       log
     });
-    let source = interop;
-    if (!source) {
-      source = path.join(work, 'interop');
+    let generatedPath = interop;
+    if (!generatedPath) {
+      generatedPath = path.join(work, 'interop');
       log(`Generating interop for ${facts.versionName}`);
       generate({
         patcher: tools.patcher.file,
@@ -744,28 +786,28 @@ export async function captureInteropSnapshot({
         il2cpp: facts.il2cpp,
         metadata: facts.metadata,
         unityVersion: facts.unityVersion,
-        output: source,
+        output: generatedPath,
         workDirectory: work
       });
     }
-    const generated = readInteropManifest(source);
+    const generated = readInteropManifest(generatedPath);
     if (generated.unityVersion !== facts.unityVersion)
       throw new Error(
-        `${source} was generated for Unity ${generated.unityVersion}, but ${apk} is Unity ${facts.unityVersion}`
+        `${generatedPath} was generated for Unity ${generated.unityVersion}, but ${apks[0]} is Unity ${facts.unityVersion}`
       );
-    const interopSha256 = interopDirectoryDigest(source);
-    const directory = snapshotDirectory(
+    const interopSha256 = interopDirectoryDigest(generatedPath);
+    const directory = interopSnapshotDirectory(
       modRoot,
-      platform,
-      channel,
-      facts.versionName
+      source,
+      facts.versionCode
     );
-    copyInteropInto(source, directory, interopSha256);
+    copyInteropInto(generatedPath, directory, interopSha256);
     const entry: InteropLockEntry = {
       gameVersion: facts.versionName,
       versionCode: facts.versionCode,
       apkSha256: facts.apkSha256,
       apkEtag,
+      splitApkSha256s: facts.splitApkSha256s,
       il2cppSha256: facts.il2cppSha256,
       metadataSha256: facts.metadataSha256,
       unityVersion: facts.unityVersion,
@@ -782,12 +824,12 @@ export async function captureInteropSnapshot({
     };
     const manifest: InteropSnapshotManifest = {
       schemaVersion: SNAPSHOT_MANIFEST_SCHEMA_VERSION,
-      platform,
-      channel,
+      platform: 'android',
+      channel: source,
       ...entry
     };
     // The lock is written last, so a failed step leaves it unchanged.
-    assertLockEntry(INTEROP_KEY, entry);
+    assertLockEntry(key, entry);
     const loaderPath = await ensureLoader({
       modRoot,
       entry,
@@ -802,14 +844,14 @@ export async function captureInteropSnapshot({
     fs.writeFileSync(
       path.join(directory, SOURCES_FILE),
       jsonBytes({
-        apk: path.resolve(apk),
+        apk: apks.map((apk) => path.resolve(apk)),
         loader: path.resolve(tools.loader.file),
         patcher: path.resolve(tools.patcher.file),
         cpp2il: path.resolve(tools.cpp2il.file)
       })
     );
-    writeGameLibsLockEntry(workspaceRoot, INTEROP_KEY, entry);
-    return { key: INTEROP_KEY, directory, loaderPath, manifest };
+    writeGameLibsLockEntry(workspaceRoot, key, entry);
+    return { key, directory, loaderPath, manifest };
   } finally {
     fs.rmSync(work, { recursive: true, force: true });
   }
@@ -817,13 +859,13 @@ export async function captureInteropSnapshot({
 
 function verifiedInteropSnapshot(
   modRoot: string,
+  source: AndroidSource,
   entry: InteropLockEntry
 ): { directory: string; interop: string } | null {
-  const directory = snapshotDirectory(
+  const directory = interopSnapshotDirectory(
     modRoot,
-    'android',
-    'online',
-    entry.gameVersion
+    source,
+    entry.versionCode
   );
   const interop = path.join(directory, 'interop');
   if (!fs.existsSync(path.join(interop, 'Assembly-CSharp.dll'))) return null;
@@ -836,12 +878,14 @@ function verifiedInteropSnapshot(
 }
 
 export function lockedInteropEntry(
-  workspaceRoot: string = WORKSPACE_ROOT
+  workspaceRoot: string,
+  source: AndroidSource
 ): InteropLockEntry {
-  const entry = readGameLibsLock(workspaceRoot).entries[INTEROP_KEY];
+  const key = interopKey(source);
+  const entry = readGameLibsLock(workspaceRoot).entries[key];
   if (entry === null)
     throw new Error(
-      `Lock entry ${INTEROP_KEY} is empty; capture it with 'just mod::snapshot-android <TheBazaar.apk>', publish it with 'just mod::publish android online', and commit the lock`
+      `Lock entry ${key} is empty; capture it with 'just mod::snapshot-android <APK>...', publish it with 'just mod::publish android ${source}', and commit the lock`
     );
   return entry;
 }
@@ -885,7 +929,7 @@ async function storedInteropArchiveFault(
     : null;
   return digest === entry.interopSha256
     ? null
-    : `it hashes to ${digest}, not the ${entry.interopSha256} the lock entry ${INTEROP_KEY} records`;
+    : `it hashes to ${digest}, not the ${entry.interopSha256} the lock entry records`;
 }
 
 // Uploads the interop collection and every pinned input the store lacks, each
@@ -895,6 +939,7 @@ async function storedInteropArchiveFault(
 export interface PublishInteropSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
+  source: AndroidSource;
   store: ObjectStore;
   log?: (message: string) => void;
 }
@@ -905,20 +950,21 @@ export interface PublishedInteropSnapshot {
   manifestKey: string;
 }
 
-// sources.json: the local file each input was captured from.
-type InteropSources = Partial<Record<AndroidInputKind, string>>;
+// sources.json: the local files each input was captured from.
+type InteropSources = Partial<Record<AndroidInputKind, string | string[]>>;
 
 export async function publishInteropSnapshot({
   workspaceRoot = WORKSPACE_ROOT,
   modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  source,
   store,
   log = () => {}
 }: PublishInteropSnapshotOptions): Promise<PublishedInteropSnapshot> {
-  const entry = lockedInteropEntry(workspaceRoot);
-  const snapshot = verifiedInteropSnapshot(modRoot, entry);
+  const entry = lockedInteropEntry(workspaceRoot, source);
+  const snapshot = verifiedInteropSnapshot(modRoot, source, entry);
   if (!snapshot)
     throw new Error(
-      `No Interop Snapshot under game-libs/ for ${INTEROP_KEY} ${entry.gameVersion}; run 'just mod::snapshot-android' on the machine that captured it`
+      `No Interop Snapshot under game-libs/ for ${interopKey(source)} ${entry.gameVersion}; run 'just mod::snapshot-android' on the machine that captured it`
     );
   const manifest = readSnapshotManifest<InteropSnapshotManifest>(
     snapshot.directory
@@ -941,47 +987,51 @@ export async function publishInteropSnapshot({
   };
   // The interop archive is keyed by the directory digest, not its own bytes,
   // so an object under the right key can still extract to the wrong files.
-  const interopKey = interopBlobKey(entry.interopSha256);
+  const interopArchiveKey = interopBlobKey(entry.interopSha256);
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-interop-'));
   try {
-    const stored = await store.head(interopKey);
+    const stored = await store.head(interopArchiveKey);
     const fault = stored
-      ? await storedInteropArchiveFault(store, interopKey, entry, temp)
+      ? await storedInteropArchiveFault(store, interopArchiveKey, entry, temp)
       : null;
-    if (stored && !fault) log(`Already stored and verified: ${interopKey}`);
+    if (stored && !fault)
+      log(`Already stored and verified: ${interopArchiveKey}`);
     else {
       const archive = packInteropArchive(snapshot.directory, temp);
       const sha256 = await sha256File(archive);
-      if (!stored) await upload(interopKey, archive, sha256);
+      if (!stored) await upload(interopArchiveKey, archive, sha256);
       else {
-        log(`Replacing ${interopKey}: ${fault}`);
+        log(`Replacing ${interopArchiveKey}: ${fault}`);
         if (
-          !(await store.putFile(interopKey, archive, {
+          !(await store.putFile(interopArchiveKey, archive, {
             sha256,
             ifMatch: stored.etag
           }))
         )
           throw new Error(
-            `Another publisher replaced ${interopKey} first; run the publish again`
+            `Another publisher replaced ${interopArchiveKey} first; run the publish again`
           );
-        log(`Replaced ${interopKey}`);
+        log(`Replaced ${interopArchiveKey}`);
       }
     }
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
   // ANDROID_INPUTS is frozen, so its keys are exactly the input kinds.
-  for (const kind of Object.keys(ANDROID_INPUTS) as AndroidInputKind[]) {
-    const sha256 = ANDROID_INPUTS[kind].sha256(entry);
+  const inputs = (Object.keys(ANDROID_INPUTS) as AndroidInputKind[]).flatMap(
+    (kind) =>
+      ANDROID_INPUTS[kind].sha256s(entry).map((sha256) => ({ kind, sha256 }))
+  );
+  for (const { kind, sha256 } of inputs) {
     const key = androidInputKey(kind, sha256);
     if (await store.head(key)) {
       log(`Already stored: ${key}`);
       continue;
     }
     const candidates = [
-      sources[kind],
+      ...[sources[kind] ?? []].flat(),
       androidInputFile(modRoot, kind, sha256)
-    ].filter((file): file is string => !!file && fs.existsSync(file));
+    ].filter((file) => fs.existsSync(file));
     let file: string | null = null;
     for (const candidate of candidates)
       if ((await sha256File(candidate)) === sha256) {
@@ -995,11 +1045,7 @@ export async function publishInteropSnapshot({
     log(`Uploading ${key} from ${file}`);
     await upload(key, file, sha256);
   }
-  const manifestKey = snapshotManifestKey(
-    'android',
-    'online',
-    entry.gameVersion
-  );
+  const manifestKey = interopManifestKey(source, entry.versionCode);
   await putReplaceable(
     store,
     manifestKey,
@@ -1007,14 +1053,15 @@ export async function publishInteropSnapshot({
     'application/json'
   );
   log(`Recorded ${manifestKey}`);
-  return { interopKey, manifestKey };
+  return { interopKey: interopArchiveKey, manifestKey };
 }
 
-// Resolves the android-online entry to a local interop directory and Loader
+// Resolves an Android lock entry to a local interop directory and Loader
 // Release: verified copies under game-libs/, else the private store.
 export interface FetchInteropSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
+  source: AndroidSource;
   storeFactory?: () => Pick<ObjectStore, 'get' | 'getFile'>;
   log?: (message: string) => void;
 }
@@ -1022,7 +1069,7 @@ export interface FetchInteropSnapshotOptions {
 /** Where a resolved Interop Snapshot came from. */
 export type InteropSource = 'snapshot' | 'store';
 
-/** The local interop directory and Loader Release of the android-online entry. */
+/** The local interop directory and Loader Release of an Android lock entry. */
 export interface FetchedInteropSnapshot {
   interopPath: string;
   loaderPath: string;
@@ -1033,23 +1080,24 @@ export interface FetchedInteropSnapshot {
 export async function fetchInteropSnapshot({
   workspaceRoot = WORKSPACE_ROOT,
   modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  source: androidSource,
   storeFactory = gameLibsStoreFromEnvironment,
   log = () => {}
 }: FetchInteropSnapshotOptions): Promise<FetchedInteropSnapshot> {
-  const entry = lockedInteropEntry(workspaceRoot);
+  const key = interopKey(androidSource);
+  const entry = lockedInteropEntry(workspaceRoot, androidSource);
   const store = lazyStore(
     storeFactory,
-    `Lock entry ${INTEROP_KEY} wants ${entry.gameVersion}, which is not under game-libs/. ${STORE_REMEDY}`
+    `Lock entry ${key} wants ${entry.gameVersion}, which is not under game-libs/. ${STORE_REMEDY}`
   );
-  let snapshot = verifiedInteropSnapshot(modRoot, entry);
+  let snapshot = verifiedInteropSnapshot(modRoot, androidSource, entry);
   let source: InteropSource = 'snapshot';
   if (!snapshot) {
     source = 'store';
-    const directory = snapshotDirectory(
+    const directory = interopSnapshotDirectory(
       modRoot,
-      'android',
-      'online',
-      entry.gameVersion
+      androidSource,
+      entry.versionCode
     );
     const blobKey = interopBlobKey(entry.interopSha256);
     const staging = `${directory}.fetch-${process.pid}`;
@@ -1060,7 +1108,7 @@ export async function fetchInteropSnapshot({
       const archive = path.join(staging, 'interop.tar.gz');
       if (!(await store().getFile(blobKey, archive)))
         throw new Error(
-          `The private store has no ${blobKey}; run 'just mod::publish android online' on the machine that captured it`
+          `The private store has no ${blobKey}; run 'just mod::publish android ${androidSource}' on the machine that captured it`
         );
       assertPortableInteropArchive(archive, `Stored snapshot ${blobKey}`);
       tar(['-xzf', path.basename(archive)], staging);
@@ -1071,17 +1119,17 @@ export async function fetchInteropSnapshot({
         : null;
       if (digest !== entry.interopSha256)
         throw new Error(
-          `Stored snapshot ${blobKey} hashes to ${digest}, not the ${entry.interopSha256} the lock entry ${INTEROP_KEY} records`
+          `Stored snapshot ${blobKey} hashes to ${digest}, not the ${entry.interopSha256} the lock entry ${key} records`
         );
       const remote = await store().get(
-        snapshotManifestKey('android', 'online', entry.gameVersion)
+        interopManifestKey(androidSource, entry.versionCode)
       );
       const manifest: InteropSnapshotManifest = remote
         ? (JSON.parse(remote.bytes.toString('utf8')) as InteropSnapshotManifest)
         : {
             schemaVersion: SNAPSHOT_MANIFEST_SCHEMA_VERSION,
             platform: 'android',
-            channel: 'online',
+            channel: androidSource,
             ...entry
           };
       fs.writeFileSync(
@@ -1094,7 +1142,7 @@ export async function fetchInteropSnapshot({
       fs.rmSync(staging, { recursive: true, force: true });
     }
     snapshot = { directory, interop: path.join(directory, 'interop') };
-    log(`Fetched ${INTEROP_KEY} ${entry.gameVersion} into ${directory}`);
+    log(`Fetched ${key} ${entry.gameVersion} into ${directory}`);
   }
   const loaderPath = await ensureLoader({ modRoot, entry, store, log });
   return {
@@ -1105,11 +1153,12 @@ export async function fetchInteropSnapshot({
   };
 }
 
-// One pinned input of the android-online entry as a verified local file: the
-// APK device setup installs, the Patcher and Cpp2IL a recapture runs.
+// The pinned inputs of one kind of an Android lock entry as verified local
+// files: the APKs device setup installs, base first.
 export interface FetchLockedAndroidInputOptions {
   workspaceRoot?: string;
   modRoot?: string;
+  source: AndroidSource;
   kind: AndroidInputKind;
   storeFactory?: () => Pick<ObjectStore, 'getFile'>;
   log?: (message: string) => void;
@@ -1118,24 +1167,23 @@ export interface FetchLockedAndroidInputOptions {
 export async function fetchLockedAndroidInput({
   workspaceRoot = WORKSPACE_ROOT,
   modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  source,
   kind,
   storeFactory = gameLibsStoreFromEnvironment,
   log = () => {}
-}: FetchLockedAndroidInputOptions): Promise<string> {
-  const entry = lockedInteropEntry(workspaceRoot);
-  return fetchAndroidInput({
-    modRoot,
-    kind,
-    sha256: inputKind(kind).sha256(entry),
-    store: lazyStore(storeFactory, STORE_REMEDY),
-    log
-  });
+}: FetchLockedAndroidInputOptions): Promise<string[]> {
+  const entry = lockedInteropEntry(workspaceRoot, source);
+  const store = lazyStore(storeFactory, STORE_REMEDY);
+  const files: string[] = [];
+  for (const sha256 of inputKind(kind).sha256s(entry))
+    files.push(await fetchAndroidInput({ modRoot, kind, sha256, store, log }));
+  return files;
 }
 
 // The `just mod::check` gate: a malformed lock fails, empty or stale entries
 // warn, a resolved Managed directory whose game version a lock entry names
-// must hash to that entry, and so must a local Interop Snapshot of the
-// android-online entry.
+// must hash to that entry, and so must a local Interop Snapshot of each
+// Android entry.
 export interface CheckGameLibsLockOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -1149,8 +1197,8 @@ export interface GameLibsLockCheck {
   warnings: string[];
   /** The resolved Managed directory and the entries it matched. */
   verified: { gameVersion: string; keys: string[] } | null;
-  /** The local Interop Snapshot that matched the android-online entry. */
-  interop: { gameVersion: string } | null;
+  /** The local Interop Snapshots that matched their Android entries. */
+  interop: { key: InteropLockKey; gameVersion: string }[];
 }
 
 export function checkGameLibsLock({
@@ -1185,16 +1233,12 @@ export function checkGameLibsLock({
       verified = { gameVersion, keys: matching.map(({ key }) => key) };
     }
   }
-  const interopEntry = lock.entries[INTEROP_KEY];
-  const interop = interopEntry
-    ? verifiedInteropSnapshot(modRoot, interopEntry)
-    : null;
-  return {
-    lock,
-    warnings,
-    verified,
-    // interop is only ever found for a captured interopEntry.
-    interop: interop &&
-      interopEntry && { gameVersion: interopEntry.gameVersion }
-  };
+  const interop: GameLibsLockCheck['interop'] = [];
+  for (const source of ANDROID_SOURCES) {
+    const key = interopKey(source);
+    const entry = lock.entries[key];
+    if (entry && verifiedInteropSnapshot(modRoot, source, entry))
+      interop.push({ key, gameVersion: entry.gameVersion });
+  }
+  return { lock, warnings, verified, interop };
 }

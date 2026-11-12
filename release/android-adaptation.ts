@@ -3,17 +3,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { lockedInteropEntry } from './interop-snapshot.ts';
-import { INTEROP_KEY } from './snapshot-lock.ts';
+import { ANDROID_SOURCES, interopKey } from './snapshot-lock.ts';
 import type { InteropLockEntry } from './snapshot-lock.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 
-// How android-apk-watch.yml sorts a capture of a new official APK
+// How android-apk-watch.yml sorts a capture of a new official build
 // (docs/release.md "Android 发布顺序"): `content` when the game code is the
 // locked one, so the lock alone changes; `code` when it changed, so the next
 // Product Release adapts the Android App to it.
 
-// How a captured android-online entry differs from the previous one:
-// `unchanged` for the same APK, `content` when the APK changed but the game
+// How a captured Android lock entry differs from the previous one:
+// `unchanged` for the same APKs, `content` when an APK changed but the game
 // code (libil2cpp.so and global-metadata.dat) did not, `code` otherwise. The
 // Android App judges by the game code alone, so a content-only update needs
 // no new adaptation and no release. The same game code must give the same
@@ -25,29 +25,32 @@ export function captureKind(
   previous: InteropLockEntry | null | undefined,
   next: InteropLockEntry | null | undefined
 ): CaptureKind {
-  if (!next) throw new Error(`No captured ${INTEROP_KEY} entry to compare`);
+  if (!next) throw new Error('No captured Android entry to compare');
   if (!previous) return 'code';
-  if (previous.apkSha256 === next.apkSha256) return 'unchanged';
-  if (
-    previous.il2cppSha256 !== next.il2cppSha256 ||
-    previous.metadataSha256 !== next.metadataSha256
-  )
-    return 'code';
-  if (previous.interopSha256 !== next.interopSha256)
+  const sameGameCode =
+    previous.il2cppSha256 === next.il2cppSha256 &&
+    previous.metadataSha256 === next.metadataSha256;
+  if (sameGameCode && previous.interopSha256 !== next.interopSha256)
     throw new Error(
-      `The new APK has the locked game code but its Interop Snapshot hashes to ${next.interopSha256}, not the locked ${previous.interopSha256}; check the capture toolchain before recording it`
+      `The captured build has the locked game code but its Interop Snapshot hashes to ${next.interopSha256}, not the locked ${previous.interopSha256}; check the capture toolchain before recording it`
     );
+  if (
+    [previous.apkSha256, ...previous.splitApkSha256s].join() ===
+    [next.apkSha256, ...next.splitApkSha256s].join()
+  )
+    return 'unchanged';
+  if (!sameGameCode) return 'code';
   return 'content';
 }
 
 const usage = `Usage:
-  bun release/android-adaptation.ts kind --previous <game-libs.lock.json>
-      Print unchanged, content or code: how the locked android-online entry
+  bun release/android-adaptation.ts kind --source <publisher|play> --previous <game-libs.lock.json>
+      Print unchanged, content or code: how the locked android-<source> entry
       differs from the one in the previous lock file`;
 
-// The previous lock file, read unvalidated: only its android-online entry counts.
+// The previous lock file, read unvalidated: only its android-<source> entry counts.
 interface PreviousLock {
-  entries?: { [INTEROP_KEY]?: InteropLockEntry | null };
+  entries?: Record<string, InteropLockEntry | null | undefined>;
 }
 
 export interface CliOptions {
@@ -62,13 +65,14 @@ export async function cliMain(
   const { values } = parseArgs({
     args: rest,
     strict: true,
-    options: { previous: { type: 'string' } }
+    options: { previous: { type: 'string' }, source: { type: 'string' } }
   });
-  if (command === 'kind' && values.previous) {
+  const source = ANDROID_SOURCES.find((name) => name === values.source);
+  if (command === 'kind' && values.previous && source) {
     const previous = (
       JSON.parse(fs.readFileSync(values.previous, 'utf8')) as PreviousLock
-    ).entries?.[INTEROP_KEY];
-    return captureKind(previous, lockedInteropEntry(workspaceRoot));
+    ).entries?.[interopKey(source)];
+    return captureKind(previous, lockedInteropEntry(workspaceRoot, source));
   }
   throw new Error(usage);
 }

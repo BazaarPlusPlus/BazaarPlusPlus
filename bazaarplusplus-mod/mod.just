@@ -26,7 +26,7 @@ test *args:
 test-performance *args:
     bash scripts/test.sh test-performance "$@"
 
-# Run the suites that need no Managed snapshot (Linux too; needs the android online fetch); [-p:Name=Value ...].
+# Run the suites that need no Managed snapshot (Linux too; needs the android publisher fetch); [-p:Name=Value ...].
 test-core *args:
     bash scripts/test.sh test-core "$@"
 
@@ -119,7 +119,7 @@ decompile channel *dlls:
 snapshot:
     bash scripts/game.sh snapshot
 
-# Capture an official Android APK's Interop Snapshot under game-libs/ and record it in build/game-libs.lock.json.
+# Capture an official Android build's Interop Snapshot (base APK, then any splits) under game-libs/ and record it in build/game-libs.lock.json.
 snapshot-android apk *args:
     bash scripts/game.sh snapshot-android "$@"
 
@@ -139,13 +139,13 @@ steam-capture platform channel:
     bash scripts/game.sh steam-capture "$@"
 
 # Upload a captured snapshot (android: and its pinned inputs) to the private store; needs the release credentials.
-[arg('channel', pattern='online|staging|ptr')]
+[arg('channel', pattern='online|staging|ptr|publisher|play')]
 [arg('platform', pattern='macos|windows|android')]
 publish platform channel:
     bun ../scripts/workspace.ts run release -- bash scripts/game.sh publish "$@"
 
 # Make one lock entry's Managed dir (android: interop dir and Loader Release) available and print it.
-[arg('channel', pattern='online|staging|ptr')]
+[arg('channel', pattern='online|staging|ptr|publisher|play')]
 [arg('platform', pattern='macos|windows|android')]
 fetch platform channel:
     bash scripts/game.sh fetch "$@"

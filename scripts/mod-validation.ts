@@ -36,8 +36,10 @@ export interface ValidationReceipt {
 const root = path.resolve(import.meta.dirname, '..');
 export const androidChecks: string[][] = [
   ['mod::check'],
-  ['mod::fetch', 'android', 'online'],
+  ['mod::fetch', 'android', 'publisher'],
+  ['mod::fetch', 'android', 'play'],
   ['mod::android-build'],
+  ['mod::android-build', '-p:BppAndroidSource=play'],
   ['mod::test-core'],
   ['mod::test'],
   ['mod::test-performance']

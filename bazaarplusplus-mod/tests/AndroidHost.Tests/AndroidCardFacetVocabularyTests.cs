@@ -89,7 +89,7 @@ public sealed class AndroidCardFacetVocabularyTests
             .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
             .Single(attribute => attribute.Key == "BppInteropPath")
             .Value;
-        Assert.False(string.IsNullOrEmpty(directory), "Run `just mod::fetch android online`.");
+        Assert.False(string.IsNullOrEmpty(directory), "Run `just mod::fetch android publisher`.");
         return Path.Combine(directory!, "Il2CppBazaarGameShared.dll");
     }
 }

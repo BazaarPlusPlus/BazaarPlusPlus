@@ -17,7 +17,7 @@ The mod: the BepInEx Desktop Host and the LemonLoader Android Host (root `GLOSSA
 
 What `just --list mod` cannot tell you:
 
-- No desktop recipe builds the Android Host, yet it references Core, and through Core, Storage and ModApi. Touching one of those needs `just mod::fetch android online`, `just mod::android-build` and `just mod::test-core`; on a fork PR nothing else compiles the host (`docs/architecture/android-host.md`).
+- No desktop recipe builds the Android Host, yet it references Core, and through Core, Storage and ModApi. Touching one of those needs `just mod::fetch android publisher`, `just mod::android-build` and `just mod::test-core`; on a fork PR nothing else compiles the host (`docs/architecture/android-host.md`).
 - In a linked worktree, MSBuild falls back to the main checkout's `game-libs/` only while the worktree has none; `mod::fetch` (and so `mod::android-check`) never does. Before those recipes, symlink `bazaarplusplus-mod/game-libs` to the main checkout's, after removing any empty `game-libs/` a failed fetch left.
 - `just mod::locks-check` runs a locked restore so NuGet graph drift fails in the mod, not later in the installer build.
 - Doc edits are gated by `just mod::test`: `tests/Architecture.Tests/DocsHygieneTests.cs` enforces byte budgets on this file and `docs/MEMORY.md` and checks that links resolve; stay under a budget by merging entries, not appending.

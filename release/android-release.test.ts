@@ -34,7 +34,7 @@ import {
   LOADER_MARKER,
   interopDirectoryDigest
 } from './interop-snapshot.ts';
-import { GAME_LIBS_LOCK_PATH, INTEROP_KEY } from './snapshot-lock.ts';
+import { GAME_LIBS_LOCK_PATH, PUBLISHER_KEY } from './snapshot-lock.ts';
 import {
   androidAppKey,
   androidCarriedRelease,
@@ -261,8 +261,8 @@ function fixture() {
   const lock = JSON.parse(
     fs.readFileSync(path.join(WORKSPACE_ROOT, GAME_LIBS_LOCK_PATH), 'utf8')
   );
-  lock.entries[INTEROP_KEY] = {
-    ...lock.entries[INTEROP_KEY],
+  lock.entries[PUBLISHER_KEY] = {
+    ...lock.entries[PUBLISHER_KEY],
     interopSha256: interopDirectoryDigest(interopPath),
     nativeLibs: {
       'libe_sqlite3.so': {
@@ -280,7 +280,7 @@ function fixture() {
   writeLock();
   write(
     path.join(loaderPath, LOADER_MARKER),
-    lock.entries[INTEROP_KEY].loader.sha256
+    lock.entries[PUBLISHER_KEY].loader.sha256
   );
   const secrets = path.join(tools, 'secrets');
   write(path.join(secrets, 'android-release.p12'), 'keystore');
@@ -303,18 +303,18 @@ function fixture() {
     gradleCalls,
     exportedKeys,
     buildTools,
-    entry: lock.entries[INTEROP_KEY],
+    entry: lock.entries[PUBLISHER_KEY],
     // Re-collecting the Snapshot Lock with another SourceGear.sqlite3: only
     // the native library pin changes, not the game, loader or interop.
     upgradeNativeLib: (bytes: string) => {
       write(nativeLib, bytes);
-      lock.entries[INTEROP_KEY].nativeLibs['libe_sqlite3.so'] = {
+      lock.entries[PUBLISHER_KEY].nativeLibs['libe_sqlite3.so'] = {
         package: 'SourceGear.sqlite3',
         version: '3.53.5',
         sha256: sha(Buffer.from(bytes))
       };
       writeLock();
-      return lock.entries[INTEROP_KEY];
+      return lock.entries[PUBLISHER_KEY];
     },
     options: {
       workspaceRoot,
@@ -418,7 +418,7 @@ test('prepare stages exactly the mod-built MelonLoader entries and seals them', 
     .sort((a, b) => a.localeCompare(b));
   expect(record.output.map((file) => file.path)).toEqual(expected);
   expect(record.lockEntry).toMatchObject({
-    key: INTEROP_KEY,
+    key: PUBLISHER_KEY,
     gameVersion: f.entry.gameVersion,
     il2cppSha256: f.entry.il2cppSha256,
     metadataSha256: f.entry.metadataSha256,
@@ -468,7 +468,7 @@ test('prepare refuses an interop directory that is not the locked snapshot and u
         loaderPath: other
       })
     })
-  ).rejects.toThrow(/not the .* lock entry android-online records/);
+  ).rejects.toThrow(/not the .* lock entry android-publisher records/);
   // A -p:LemonLoaderPath override must still be the locked Loader Release.
   await expect(
     prepareAndroidPayload({
@@ -479,7 +479,7 @@ test('prepare refuses an interop directory that is not the locked snapshot and u
       })
     })
   ).rejects.toThrow(
-    /is not the Loader Release v0\.7\.4-android\.4 .* lock entry android-online records/
+    /is not the Loader Release v0\.7\.4-android\.4 .* lock entry android-publisher records/
   );
   await expect(
     prepareAndroidPayload({
@@ -988,7 +988,7 @@ test('a locked native library comes from the NuGet cache or nuget.org and must h
       fetchImpl
     })
   ).rejects.toThrow(
-    /hashes to .*, not the .* lock entry android-online records/
+    /hashes to .*, not the .* lock entry android-publisher records/
   );
   expect(fetchImpl).toHaveBeenCalledTimes(1);
   await expect(

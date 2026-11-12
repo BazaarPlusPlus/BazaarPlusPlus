@@ -28,18 +28,20 @@ ci:
 stage-runtime:
     bun ../release/android-app.ts stage-runtime
 
-# Write the Interop Package for the locked game version to build/interop.zip (fetches from the game-libs store).
-interop-package:
-    bun ../release/android-app.ts interop-package
+# Write the Interop Package of the lock entry android-<source> to build/interop-<source>.zip (fetches from the game-libs store).
+[arg('source', pattern='publisher|play')]
+interop-package source='publisher':
+    bun ../release/android-app.ts interop-package --source {{ source }}
 
 # Build and install the debug App on ANDROID_SERIAL, or the only connected device.
 install:
     ./gradlew --no-daemon assembleDebug
     {{ adb }} install -r app/build/outputs/apk/debug/app-debug.apk
 
-# Copy build/interop.zip into the debug App's private files as a Development interop: BPP launch then skips the manifest.
-push-interop:
-    {{ adb }} push build/interop.zip /data/local/tmp/bpp-interop.zip
+# Copy build/interop-<source>.zip into the debug App's private files as a Development interop: BPP launch then skips the manifest.
+[arg('source', pattern='publisher|play')]
+push-interop source='publisher':
+    {{ adb }} push build/interop-{{ source }}.zip /data/local/tmp/bpp-interop.zip
     {{ adb }} shell run-as com.bazaarplusplus.android.dev sh -c "'mkdir -p files/dev && cp /data/local/tmp/bpp-interop.zip files/dev/interop.zip'"
     {{ adb }} shell rm /data/local/tmp/bpp-interop.zip
 

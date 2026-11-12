@@ -14,7 +14,7 @@
 
 - **合作授权。** 合作方同意两件事：在 Android App 里运行官方 App；在公开桶里分发由游戏生成的 interop。授权不包括分发游戏本体：官方 APK、`libil2cpp.so`、`global-metadata.dat` 都不进公开桶，也不进 Android App。
 - **greenfield。** 不为 A 方案的已安装用户做数据迁移，不设并行期。A 版副本读不了新的平台清单：它的 mod 只会得到"没有可用的 APK"，没有任何提示，以后也不再更新。这一点已接受。
-- **只支持最新游戏版本。** 每个产品版本只适配一个游戏版本，Snapshot Lock 仍只有 `android-online` 一个条目（[ADR 0008](0008-interop-snapshots-in-snapshot-lock.md)）。
+- **只支持最新游戏版本。** 每个产品版本只适配一个游戏版本，Snapshot Lock 仍只有 `android-online` 一个条目（[ADR 0008](0008-interop-snapshots-in-snapshot-lock.md)；2026-11-12 起每个来源一个条目，见 [ADR 0019](0019-android-launcher-adaptations.md)）。
 
 ## 决定
 
@@ -79,7 +79,7 @@ Android App 启动时找到官方游戏（`com.tempogames.thebazaar`），在它
   selfUpdatable, historyDatabaseUserVersion, nonManagedPayloadDigest }
 ```
 
-- `game` 是这个版本适配的游戏：Snapshot Lock `android-online` 条目的 `gameVersion`、`versionCode`、`il2cppSha256` 与 `metadataSha256`。官方 APK 的 sha256 不再发布，因为门禁不看它。
+- `game` 是这个版本适配的游戏：Snapshot Lock `android-publisher`（原 `android-online`）条目的 `gameVersion`、`versionCode`、`il2cppSha256` 与 `metadataSha256`。官方 APK 的 sha256 不再发布，因为门禁不看它。
 - `interop.snapshotSha256` 是锁条目的 `interopSha256`（目录摘要），`interop.sha256` 是 zip 文件本身的 sha256，`interop.signature` 是 interop 声明的签名（base64）。
 - `nonManagedPayloadDigest` 是 Android App 携带的运行时的摘要：锁条目的 loader（tag 与 zip 的 sha256）、`nativeLibs` 各库的 sha256 与 Updater 的 sha256。interop 改为单独下载，不再计入。它只有一种算法，由 `manifest.ts` 的 `androidNonManagedPayloadDigest` 定义；`release::build` 把算出的值交给 Gradle 写进 Android App，构建后再从 APK 里读回核对，所以 fragment 与 APK 里的值不会各算各的。
 - Platform Release Manifest `latest/android-aarch64.json` 与 `latest/mod/android-aarch64.json` 保留共同的顶层字段（`version`、`gitCommit`、`notes`、`pub_date`），`downloads["android-aarch64"]` 放 `app`、`managedPayload`、`interop`、`game`、`loader`、`selfUpdatable`、`historyDatabaseUserVersion`、`nonManagedPayloadDigest`。平台清单没有 kind：有 `app` 的是本记录的形状，有 `apk` 没有 `app` 的是 A 方案的形状。浏览器、mod 与 Android App 都按本记录的形状读；浏览器与 mod 用 `release/downloads.ts` 的 `decodeAndroidDownload` 与它的 C# 对应。

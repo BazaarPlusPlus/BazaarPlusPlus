@@ -44,11 +44,12 @@
       "steamBranch": "public_test_realm",
       "capturedAt": "2026-11-07T20:29:43.191Z"
     },
-    "android-online": {
+    "android-publisher": {
       "gameVersion": "1.0.13113-production-android-c0ecfda3",
       "versionCode": 13113,
       "apkSha256": "5281575711b1650e23c514c153aa8ddf123178ce2d29f33a65dac5126992ffb3",
       "apkEtag": "cd00f278f07315e403e46b3cb171bc73",
+      "splitApkSha256s": [],
       "il2cppSha256": "fef2fd386c55c60d686d21a3e687251b1ea727a0258f452f12ed37c71c0fac8d",
       "metadataSha256": "fc466d15543119bb78cea7e5045576516a87b55123a8b0c50a73af52032af729",
       "unityVersion": "6000.3.27f2",
@@ -73,6 +74,39 @@
         }
       },
       "capturedAt": "2026-11-07T00:57:33.418Z"
+    },
+    "android-play": {
+      "gameVersion": "1.0.6",
+      "versionCode": 13168,
+      "apkSha256": "fde7d909e9a1cbfc469fc939c8757b4b26e457a3ac7cbd07269c0ac5c79d1fb6",
+      "apkEtag": null,
+      "splitApkSha256s": [
+        "9e4cf728ee7dceb7965356f8cf17db9059a25660d4dfe2420ceecd1fc8ef59c1"
+      ],
+      "il2cppSha256": "10da9a03af6a3592d409c8204c3157de42f38361adc20137e74faee7af0fc430",
+      "metadataSha256": "6d3cf64fe8e28bf0f1b57940ecd4473cf8469d60ec8b8dcb50f3e7268e883875",
+      "unityVersion": "6000.3.27f2",
+      "interopSha256": "3548ef0b60ab60658294ed842a1223c72bce4b555e1be68cb4cb7c3dfa376df7",
+      "loader": {
+        "tag": "v0.7.4-android.4",
+        "sha256": "e098b943b4f83baf219e9ce330be2aa0bc7c69e019f4968ee362bfb7aaee8506",
+        "managedRuntimeVersion": "11.0.0"
+      },
+      "patcher": {
+        "tag": "v2.1.0",
+        "sha256": "7a7175bbc34aa31e0338deadc471ef924bfbc580f23711e6633d10716da97c3c"
+      },
+      "cpp2ilVersion": "2022.1.0-pre-release.21",
+      "cpp2ilSha256": "526998e593c52c029c5a6215c5c6c9f9d963706bfc409fc9ff80a95c4c500349",
+      "il2cppInteropVersion": "1.5.3.0",
+      "nativeLibs": {
+        "libe_sqlite3.so": {
+          "package": "SourceGear.sqlite3",
+          "version": "3.53.4",
+          "sha256": "52d49cc84918c112d5713a6de83269d33f03c4c7c3ed721fbd2c8c00adf4ca80"
+        }
+      },
+      "capturedAt": "2026-11-12T09:14:42.808Z"
     }
   }
 }
