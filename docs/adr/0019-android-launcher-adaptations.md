@@ -58,7 +58,7 @@
 ### 适配包的构建
 
 - 每次产品发布都从 master 为两个来源各构建一个适配包：对它的 interop 编译 `BazaarPlusPlus.Android`，打 Managed Payload，签 interop 声明。
-- master 对某个来源编译失败时，发布停止：修改 mod，或者删除这个来源的键。本记录不做"沿用旧适配包"和维护分支；需要时另作决定。
+- master 对某个来源编译失败时，发布停止，要修改 mod。App 只接受 `adaptations` 恰好有 `publisher` 与 `play` 两项的清单，所以删除一个来源的键，要先发布一个改了这条规则的 App。本记录不做"沿用旧适配包"和维护分支；需要时另作决定。
 - interop 声明的格式与用途都不变：用途仍是 `release <产品版本>`。
 - Managed Payload Manifest 的格式不变。每个来源的 Managed Payload 有自己的对象键：`<产品版本>/android-aarch64/managed/<来源>/`（`androidManagedPayloadKey`），仍在 App 6.2.5 检查的 `managed/` 前缀之下。
 - 每个适配包都要做模拟器验收，验收项见"实施顺序"第 0 步。
@@ -182,7 +182,7 @@ downloads["android-aarch64"] = {
 
 - 每个维护中的游戏，都要多一次编译、一次模拟器验收；每次发布要签多份 interop 声明。
 - 一个来源的旧版本用不了 BPP，用户要先把游戏更新到这个来源的最新版本。
-- master 对某个来源编译不过时，发布停止，直到修好 mod 或删除这个来源。
+- master 对某个来源编译不过时，发布停止，直到修好 mod。删除一个来源要先发布新的 App。
 - App 每多携带一个适配包，APK 约大 20 MB。
 - Play 每次更新，都要有人从设备上取 APK 并采集。
 - 平台清单要长期保留顶层的旧字段，直到另作决定删除。
