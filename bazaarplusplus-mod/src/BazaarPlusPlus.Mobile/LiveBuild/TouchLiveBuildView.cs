@@ -424,20 +424,11 @@ internal sealed class TouchLiveBuildView
         _corpusDetail.Set(
             string.Join(
                 "\n",
-                new[]
-                {
-                    LiveBuildPanelText.CorpusLibrary(),
-                    snapshot.CorpusStatusText,
-                    snapshot.CorpusFreshnessText,
-                    snapshot.CorpusStatusTooltip,
-                }.Where(value => !string.IsNullOrWhiteSpace(value))
+                snapshot.CorpusDetailLines.Prepend(LiveBuildPanelText.CorpusLibrary())
             )
         );
-        _pager.text =
-            snapshot.RecommendationCount > 0
-                ? $"{snapshot.RecommendationIndex + 1} / {snapshot.RecommendationCount}"
-                : "0 / 0";
-        _previous.interactable = _next.interactable = snapshot.RecommendationCount > 1;
+        _pager.text = snapshot.PagerText;
+        _previous.interactable = _next.interactable = snapshot.CanBrowse;
         var heroName = snapshot.Hero is { } hero
             ? MobilePlatform.Port.HeroName(hero)
             : string.Empty;
@@ -453,32 +444,8 @@ internal sealed class TouchLiveBuildView
             ? BPPSupporterAttributionText.FormatSponsorAction(language)
             : credit;
         MobilePlatform.Port.CoverText(_sponsorLabel);
-        SetMetric(
-            0,
-            LiveBuildPanelText.MatchRateLabel(),
-            LiveBuildPanelText.MatchRateValue(snapshot.MatchTenWinRateBps)
-        );
-        SetMetric(
-            1,
-            LiveBuildPanelText.MatchSampleLabel(),
-            LiveBuildPanelText.MatchSampleValue(
-                snapshot.MatchTenWinRunCount,
-                snapshot.MatchCompletedRunCount
-            )
-        );
-        SetMetric(
-            2,
-            LiveBuildPanelText.MatchFinalDayLabel(),
-            LiveBuildPanelText.MatchFinalDayValue(snapshot.MatchP75FinalDay)
-        );
-        SetMetric(
-            3,
-            LiveBuildPanelText.MatchMatchedLabel(),
-            LiveBuildPanelText.MatchMatchedValue(
-                snapshot.MatchMatchedCardCount,
-                snapshot.CandidateTemplateIds.Count
-            )
-        );
+        for (var cell = 0; cell < snapshot.Metrics.Count; cell++)
+            SetMetric(cell, snapshot.Metrics[cell].Label, snapshot.Metrics[cell].Value);
         ShowInfo();
         foreach (var model in snapshot.Rows)
         {
