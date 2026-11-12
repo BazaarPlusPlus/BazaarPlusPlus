@@ -203,7 +203,7 @@ internal sealed class CollectionGridOverlay
         occluderObject.layer = _layer;
         occluderObject.transform.SetParent(_root!.transform, worldPositionStays: false);
         var image = occluderObject.AddComponent<Image>();
-        image.color = InGameTheme.Backdrop;
+        image.color = InGameTheme.NeutralGround;
         image.raycastTarget = false;
         return image;
     }

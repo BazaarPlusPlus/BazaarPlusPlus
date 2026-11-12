@@ -13,10 +13,10 @@ internal static class UiHover
         Button button,
         Color background,
         Color textColor,
-        Color? border = null,
-        Color? hoverBorder = null,
-        Color? hoverBackground = null,
-        Color? pressedBackground = null
+        Color border,
+        Color hoverBorder,
+        Color hoverBackground,
+        Color pressedBackground
     )
     {
         var state = ButtonStates.GetValue(button, _ => new ButtonState());
@@ -48,19 +48,10 @@ internal static class UiHover
 
         state.Background = background;
         state.TextColor = textColor;
-        // Unless the caller names them: a gold hairline that strengthens on hover, and a fill
-        // that lifts toward white on hover and sinks toward black on press (ADR-0026).
-        state.Border = border ?? InGameTheme.WithAlpha(InGameTheme.Rule, .58f);
-        state.HoverBackground =
-            hoverBackground
-            ?? InGameTheme.WithAlpha(
-                Color.Lerp(background, Color.white, .12f),
-                Mathf.Clamp01(background.a + .02f)
-            );
-        state.PressedBackground =
-            pressedBackground
-            ?? InGameTheme.WithAlpha(Color.Lerp(background, Color.black, .1f), background.a);
-        state.HoverBorder = hoverBorder ?? InGameTheme.WithAlpha(InGameTheme.RuleStrong, .78f);
+        state.Border = border;
+        state.HoverBackground = hoverBackground;
+        state.PressedBackground = pressedBackground;
+        state.HoverBorder = hoverBorder;
         RefreshButton(button, state);
     }
 

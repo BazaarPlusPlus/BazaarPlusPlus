@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
+using BazaarPlusPlus.Game.CollectionPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Localization;
 
@@ -903,6 +904,264 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     AssertTrue(fired!.ResetScroll, "Search refresh must reset list scroll.");
 }
 
+// --- Source fold: the sources whose click shows the same cards share one cell ---
+{
+    var a = Option("merchant:a");
+    var b = Option("merchant:b");
+    var c = Option("merchant:c");
+    var d = Option("merchant:d");
+    var e = Option("merchant:e");
+    var f = Option("merchant:f");
+    var pool = new[] { Guid.NewGuid(), Guid.NewGuid() };
+    var keys = new Dictionary<string, CollectionSourceFoldKey>
+    {
+        [a.SourceKey] = new(pool, suppressDayGate: false, skipsHeroFilter: false),
+        [b.SourceKey] = new(new[] { Guid.NewGuid() }, false, false),
+        // The same set in another order, two places further down the roster.
+        [c.SourceKey] = new(new[] { pool[1], pool[0] }, false, false),
+        // The same pool, but a fixed-tier source skips the Day gate: another list when clicked.
+        [d.SourceKey] = new(pool, suppressDayGate: true, skipsHeroFilter: false),
+        // A trainer with an all-heroes segment skips the hero filter on Skills.
+        [f.SourceKey] = new(pool, suppressDayGate: false, skipsHeroFilter: true),
+    };
+    var groups = CollectionSourceFold.Group(new[] { a, b, c, d, e, f }, keys);
+    AssertEqual(
+        "a,c|b|d|e|f",
+        string.Join(
+            "|",
+            groups.Select(group =>
+                string.Join(",", group.Members.Select(m => m.SourceKey.Substring(9)))
+            )
+        ),
+        "Equal pools with equal query flags fold in roster order at the first member's place; a source without a pool stays alone."
+    );
+    AssertTrue(groups[0].IsFolded && !groups[1].IsFolded, "Only a group of two or more is folded.");
+    AssertEqual(
+        1,
+        CollectionSourceFold
+            .Group(
+                new[] { a, b },
+                new Dictionary<string, CollectionSourceFoldKey>
+                {
+                    [a.SourceKey] = new(Array.Empty<Guid>(), false, false),
+                    [b.SourceKey] = new(Array.Empty<Guid>(), false, false),
+                }
+            )
+            .Count,
+        "Two empty pools show the same (empty) list and fold."
+    );
+
+    // Face and state: the selected member, else the first encountered member, else the first.
+    var fold = new CollectionSourceGroup(new[] { a, b, c });
+    var none = Array.Empty<string>();
+    AssertEqual(
+        a,
+        fold.Face(null, none),
+        "A fold with no selection or encounter shows its first member."
+    );
+    AssertEqual(c, fold.Face(null, new[] { c.SourceKey }), "A fold shows the member the run met.");
+    AssertTrue(fold.IsEncountered(new[] { c.SourceKey }), "A met member highlights its fold.");
+    AssertEqual(
+        b,
+        fold.Face(b.SourceKey, new[] { c.SourceKey }),
+        "The selected member wins over a met one."
+    );
+    AssertTrue(fold.IsSelected(b.SourceKey), "A fold is selected when a member is.");
+    AssertFalse(
+        fold.IsSelected(e.SourceKey),
+        "Another source's selection does not select the fold."
+    );
+    AssertFalse(fold.IsSelected(null), "No selection selects no fold.");
+
+    // Expansion: a folded cell opens and closes its members; a member click names that member.
+    var expansion = new CollectionSourceFoldExpansion();
+    var single = new CollectionSourceGroup(new[] { e });
+    AssertEqual<string?>(null, expansion.ClickCell(fold), "A folded cell click selects nothing.");
+    AssertTrue(expansion.IsOpen(fold), "A folded cell click opens its members.");
+    AssertEqual<string?>(null, expansion.ClickCell(fold), "A second click selects nothing.");
+    AssertFalse(expansion.IsOpen(fold), "A second click on the cell closes its members.");
+    expansion.ClickCell(fold);
+    AssertEqual(
+        c.SourceKey,
+        expansion.ClickMember(c),
+        "A member click toggles that member's own key."
+    );
+    AssertTrue(expansion.Open == null, "A member click closes the fold.");
+    expansion.ClickCell(fold);
+    AssertEqual<string?>(
+        e.SourceKey,
+        expansion.ClickCell(single),
+        "A single cell toggles its own key."
+    );
+    AssertTrue(expansion.Open == null, "A single cell click closes an open fold.");
+    expansion.ClickCell(fold);
+    AssertTrue(expansion.Collapse(), "Collapse reports the open fold it closed.");
+    AssertFalse(expansion.Collapse(), "Collapse with nothing open reports nothing.");
+}
+
+// --- Source fold in the view state: pools resolve only against an accepted catalog ---
+{
+    var jayId = Guid.NewGuid();
+    var valpakId = Guid.NewGuid();
+    var weaponsId = Guid.NewGuid();
+    var jay = Source(
+        "merchant:jay",
+        CollectionSourceKind.Merchant,
+        sourceTemplateIds: new[] { jayId }
+    );
+    var valpak = Source(
+        "merchant:valpak",
+        CollectionSourceKind.Merchant,
+        sourceTemplateIds: new[] { valpakId }
+    );
+    var weapons = Source(
+        "merchant:weapons",
+        CollectionSourceKind.Merchant,
+        sourceTemplateIds: new[] { weaponsId },
+        tagsAny: new[] { CardTag.Weapon }
+    );
+    var foldCatalog = new DictionarySourceCatalog(jay, valpak, weapons);
+    var cards = new[]
+    {
+        Card(
+            "Sword",
+            CardTier.Bronze,
+            tags: new[] { CardTag.Weapon },
+            heroes: new[] { CardHero.Vanessa }
+        ),
+        Card("Map", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }),
+    };
+    var supporters = Array.Empty<BPPSupporterSample>();
+    CollectionViewState FoldState(bool fold = true) =>
+        new(grid, foldCatalog, dayTiers, prefs, fold);
+    static string Cells(CollectionPanelViewModel model) =>
+        string.Join(
+            "|",
+            model.SourceGroups.Select(group =>
+                string.Join(",", group.Members.Select(m => m.SourceKey.Substring(9)))
+            )
+        );
+
+    // Opened before the catalog: an empty catalog makes every pool empty, so nothing may fold
+    // and no empty pool may stay cached for the accepted catalog.
+    grid.Reset();
+    prefs.Reset();
+    var state = FoldState();
+    var opened = state.Open(CollectionOpenFacts.OutOfRun(cachedCatalog: null, supporters));
+    AssertEqual(
+        "jay|valpak|weapons",
+        Cells(opened.Render.Model),
+        "Before the catalog each source stays alone."
+    );
+    var accepted = state.AcceptCatalog(cards).Model;
+    AssertEqual(
+        "jay,valpak|weapons",
+        Cells(accepted),
+        "Merchants with the same pool fold once the catalog arrives."
+    );
+    AssertEqual(3, accepted.AvailableSources.Count, "The flat source list keeps every source.");
+
+    // A member click on an open fold selects that exact member, and its cards still publish.
+    var expansion = new CollectionSourceFoldExpansion();
+    var fold = accepted.SourceGroups[0];
+    AssertEqual<string?>(null, expansion.ClickCell(fold), "Opening the fold selects nothing.");
+    var picked = state.ToggleSource(expansion.ClickMember(fold.Members[1]))!.Model;
+    AssertEqual(
+        valpak.SourceKey,
+        picked.SelectedSourceKey,
+        "The member click selects that member, not the first."
+    );
+    AssertEqual(
+        2,
+        grid.LastPublishedCards.Count,
+        "The member's pool resolved against the real catalog."
+    );
+    var pickedFold = picked.SourceGroups[0];
+    AssertTrue(
+        pickedFold.IsSelected(picked.SelectedSourceKey),
+        "The fold shows its member selected."
+    );
+    AssertEqual(
+        valpak.SourceKey,
+        pickedFold.Face(picked.SelectedSourceKey, picked.EncounteredMerchantSourceKeys).SourceKey,
+        "The fold shows the selected member's portrait."
+    );
+    var weaponsOnly = state.ToggleSource(weapons.SourceKey)!.Model;
+    AssertEqual(1, grid.LastPublishedCards.Count, "Another pool still filters its own cards.");
+    AssertEqual(
+        weapons.SourceKey,
+        weaponsOnly.SelectedSourceKey,
+        "A single cell selects its source."
+    );
+
+    // The touch panel does not fold.
+    grid.Reset();
+    var flat = FoldState(fold: false);
+    flat.Open(CollectionOpenFacts.OutOfRun(cachedCatalog: null, supporters));
+    AssertEqual(
+        "jay|valpak|weapons",
+        Cells(flat.AcceptCatalog(cards).Model),
+        "Without foldSources each source stays alone."
+    );
+
+    // In a run at a folded member: the resolver's selection stands, and its fold shows it.
+    grid.Reset();
+    prefs.Reset();
+    var atValpak = FoldState();
+    atValpak.Open(
+        CollectionOpenFacts.InRun(
+            CardHero.Vanessa,
+            3,
+            Encounter(current: valpakId),
+            cards,
+            supporters
+        )
+    );
+    var inRun = atValpak.AcceptCatalog(cards).Model;
+    AssertEqual(
+        valpak.SourceKey,
+        inRun.SelectedSourceKey,
+        "The preselected member keeps its own key."
+    );
+    var runFold = inRun.SourceGroups.Single(group => group.IsFolded);
+    AssertTrue(
+        runFold.IsSelected(inRun.SelectedSourceKey),
+        "The preselected member's fold is selected."
+    );
+    AssertEqual(
+        valpak.SourceKey,
+        runFold.Face(inRun.SelectedSourceKey, inRun.EncounteredMerchantSourceKeys).SourceKey,
+        "The preselected member's fold shows that member."
+    );
+
+    // At another merchant with a folded member on offer: the fold glows with the met member.
+    grid.Reset();
+    prefs.Reset();
+    var metValpak = FoldState();
+    metValpak.Open(
+        CollectionOpenFacts.InRun(
+            CardHero.Vanessa,
+            3,
+            Encounter(current: weaponsId, choices: new[] { valpakId }),
+            cards,
+            supporters
+        )
+    );
+    var met = metValpak.AcceptCatalog(cards).Model;
+    AssertEqual(weapons.SourceKey, met.SelectedSourceKey, "The current encounter stays selected.");
+    var metFold = met.SourceGroups.Single(group => group.IsFolded);
+    AssertFalse(metFold.IsSelected(met.SelectedSourceKey), "The met fold is not selected.");
+    AssertTrue(
+        metFold.IsEncountered(met.EncounteredMerchantSourceKeys),
+        "The met member highlights its fold."
+    );
+    AssertEqual(
+        valpak.SourceKey,
+        metFold.Face(met.SelectedSourceKey, met.EncounteredMerchantSourceKeys).SourceKey,
+        "The met fold shows the member the run met."
+    );
+}
+
 Console.WriteLine("CollectionViewState.Tests: all assertions passed.");
 
 // --- helpers ---
@@ -932,11 +1191,15 @@ static CollectionCardVm Card(
         SearchText = name,
     };
 
+static CollectionSourceOptionViewModel Option(string sourceKey) =>
+    new() { SourceKey = sourceKey, DisplayName = sourceKey };
+
 static CollectionSourceEntry Source(
     string sourceKey,
     CollectionSourceKind kind,
     IReadOnlyList<CardHero>? availableHeroes = null,
-    IReadOnlyList<Guid>? sourceTemplateIds = null
+    IReadOnlyList<Guid>? sourceTemplateIds = null,
+    IReadOnlyList<CardTag>? tagsAny = null
 ) =>
     new(
         sourceKey,
@@ -957,7 +1220,7 @@ static CollectionSourceEntry Source(
                     null,
                     null,
                     Array.Empty<CardSize>(),
-                    Array.Empty<CardTag>(),
+                    tagsAny ?? Array.Empty<CardTag>(),
                     Array.Empty<CardTag>(),
                     Array.Empty<CardHiddenTag>(),
                     false,

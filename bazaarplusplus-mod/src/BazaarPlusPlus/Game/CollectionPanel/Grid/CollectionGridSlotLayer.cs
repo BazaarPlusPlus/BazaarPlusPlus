@@ -102,7 +102,7 @@ internal sealed class CollectionGridSlotLayer
             _slots.Add(
                 CreateImage(
                     $"CollectionGridSlot{_slots.Count}",
-                    InGameTheme.WithAlpha(InGameTheme.Ink, .02f)
+                    InGameTheme.WithAlpha(InGameTheme.NeutralInk, .02f)
                 )
             );
     }

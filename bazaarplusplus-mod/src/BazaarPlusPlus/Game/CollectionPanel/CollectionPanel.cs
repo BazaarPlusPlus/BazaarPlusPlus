@@ -117,7 +117,8 @@ internal sealed class CollectionPanel : MonoBehaviour
             _gridPort,
             StaticCollectionSourceCatalog.Instance,
             new CollectionDayTierSource(dayTierResolver),
-            _heroPreferenceStore
+            _heroPreferenceStore,
+            foldSources: true
         );
     }
 
@@ -139,8 +140,17 @@ internal sealed class CollectionPanel : MonoBehaviour
             )
             {
                 OnSceneChanged = DisposeUnityRuntime,
-                IsModalInputActive = () => _inspection.BlocksInput,
-                DismissModal = () => _inspection.Close(),
+                // An open source fold takes Escape like the inspection: the first Escape closes
+                // the fold, the next one the panel.
+                IsModalInputActive = () =>
+                    _inspection.BlocksInput || _view?.IsSourceFoldOpen == true,
+                DismissModal = () =>
+                {
+                    if (_inspection.BlocksInput)
+                        _inspection.Close();
+                    else
+                        _view?.CollapseSourceFold();
+                },
             },
             BppHotkeyActionId.ToggleCollectionPanel,
             hotkeyGuard: () => !IsVisible || !IsTextInputFocused()

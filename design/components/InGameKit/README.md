@@ -79,11 +79,11 @@ Button labels sit 18 (md) or 13 (sm) from the plate's sides, with `space-6` betw
 
 ### The supporter strip
 
-Every Desktop panel thanks its supporters in one form (`BPPSupporterNativeAttributionRow`): one sunk strip (a track, one md control high) under the panel's title with "Thanks", up to four names in their tier colours, and the sponsor button at the strip's right end: a secondary sm button with BPP's heart and its label in `ingame-supporter-4`. A narrow rail shows only the names that fit whole. A panel does not draw its own variant. Collection is a UI Toolkit tree, so its strip is `BPPSupporterAttributionRow`, drawn with the same plates through `KitToolkit`.
+Every Desktop panel thanks its supporters in one form (`BPPSupporterNativeAttributionRow`): one sunk strip (a track, one md control high) under the panel's title with "Thanks", up to four names in their tier colours, and the sponsor button at the strip's right end: a secondary sm button with BPP's heart and its label in `ingame-supporter-4`. A narrow rail shows only the names that fit whole. A panel does not draw its own variant. Collection is the exception: it is a UI Toolkit tree on its own calm palette, and its strip is `BPPSupporterAttributionRow`, a flat neutral strip with the kit's heart (`KitToolkit.Glyph`).
 
-### UI Toolkit panels
+### Collection
 
-Collection keeps its UI Toolkit tree: its chips, filters and grid are that tree's content. `KitToolkit` puts the kit's art on it, so the panel has the same surfaces as the uGUI panels: filter cards are the `Ground`, the close and sponsor buttons are the secondary `Plate` with its hover and pressed forms, and the supporter strip is the track. The title is the kit's Title face.
+Collection keeps its UI Toolkit tree and is not drawn on the kit's plates. It is the panel players use most, and on the warm plates it read too yellow, so it draws flat fills from its own neutral, cool tokens (`ingame-neutral-*`, `ingame-select`; mod ADR-0026, amended 2026-11-12). Its title keeps the kit's Title face.
 
 ### Contrast
 

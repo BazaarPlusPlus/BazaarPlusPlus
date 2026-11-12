@@ -2,7 +2,7 @@
 
 installer、bazaarplusplus.com 与 Android App 共用一套设计系统，放在仓库根目录的 `design/`：token、共享组件样式、Web 组件库、品牌手册、文案规范和品牌标志都只在这里维护，取值不在本文重复。完成度以 Linear、Steam 与 Discord 客户端为参照。OBS 叠加层的直播画面暂时保持原有样式，不在本规范范围内。
 
-游戏内面板优先借用游戏原生美术（字体、按钮和边框贴图、奖杯、卡牌），BPP 自己画的颜色（底色、遮罩、文字、金线、状态色）统一来自 `design/tokens.json` 的 `ingame-*` token，`just design::build` 生成桌面 UI 和 Mobile UI（Android 宿主编译）的 `InGameTheme.g.cs`。两个平台共用这一套视觉，只有布局分开：桌面按鼠标布局，安卓按 `TouchChrome` 的触屏布局。面板不写颜色字面量，比例透明度走 `InGameTheme.WithAlpha`；mod 的 `InGameUiColourTests` 与 `MobileUiColourTests` 检查这一点（mod ADR-0026）。细则见 `design/README.md` 的 In game 一节。
+游戏内面板优先借用游戏原生美术（字体、按钮和边框贴图、奖杯、卡牌），BPP 自己画的颜色（底色、遮罩、文字、金线、状态色）统一来自 `design/tokens.json` 的 `ingame-*` token，`just design::build` 生成桌面 UI 和 Mobile UI（Android 宿主编译）的 `InGameTheme.g.cs`。两个平台共用这一套视觉，只有布局分开：桌面按鼠标布局，安卓按 `TouchChrome` 的触屏布局。桌面图鉴是唯一的例外：它用中性炭灰底色和冷蓝选中态（`ingame-neutral-*`、`ingame-select`，mod ADR-0026）。面板不写颜色字面量，比例透明度走 `InGameTheme.WithAlpha`；mod 的 `InGameUiColourTests` 与 `MobileUiColourTests` 检查这一点（mod ADR-0026）。细则见 `design/README.md` 的 In game 一节。
 
 ## Android App 的启动器
 
