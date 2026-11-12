@@ -20,6 +20,7 @@ import {
 export type {
   AndroidDownload,
   AndroidGameStatus,
+  AndroidSource,
   DesktopGameRelease,
   GameStatus
 } from '../../../../release/downloads';

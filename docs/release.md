@@ -173,26 +173,28 @@ Google Play 版没有公开的下载地址，watch 看不到它的更新（[ADR 
 
 ```bash
 just with-config release just mod::fetch android publisher
+just with-config release just mod::fetch android play
 just release::prepare android
 just release::build android
 just release::upload android
 just release::promote --platform android
 ```
 
-1. 与桌面同一个提交（`VERSION` 相同）。本机发版在取包后先执行 `just verify mod::android-build mod::test-core`。`mod::fetch android publisher` 把锁条目 `android-publisher` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
-2. `prepare` 对照锁定的 interop 与 Loader Release 编译 Android 宿主，并核对宿主暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。`-p:InteropPath=`、`-p:LemonLoaderPath=` 可以覆盖目录，但覆盖的仍必须是锁条目钉住的那一份。
-3. `build` 重做 `prepare`，然后：
-   - 把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `bun install --frozen-lockfile`。
+1. 与桌面同一个提交（`VERSION` 相同）。本机发版在取包后，对每个来源执行 `BppAndroidSource=<publisher|play> just verify mod::android-build mod::test-core`。`mod::fetch android <来源>` 把锁条目 `android-<来源>` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
+2. `prepare` 为每个 Android 来源构建一个 Game Adaptation（[ADR 0019](adr/0019-android-launcher-adaptations.md)）：对照这个来源锁定的 interop 与 Loader Release 编译 Android 宿主，暂存到 `target/android/<来源>/payload/`，并核对暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。每个来源用自己的 interop，所以 `prepare` 拒绝 `-p:InteropPath=`；`-p:LemonLoaderPath=` 仍可覆盖，但覆盖的必须是锁条目钉住的那一份。
+3. `build` 重做 `prepare`，然后对每个来源：
+   - 把 Payload 打成确定性的 Managed Payload zip（对象键 `<版本>/android-aarch64/managed/<来源>/`），用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `bun install --frozen-lockfile`。
    - 用 `buildInteropPackage` 打 Interop Package，用 Android 发布密钥签它的 `release <版本>` interop 声明。私钥由 `openssl pkcs12` 经密码文件从 keystore 取出，只放在系统临时目录，签完即删；keystore 里的证书必须是钉住的发布证书。
-   - 用 `release/android-app.ts` 的 `stageAndroidAppRuntime` 暂存 Android App 携带的运行时，写进算好的 `nonManagedPayloadDigest`；Updater 取自 Payload 里的同一份文件。再用 `stageCarriedRelease` 把上面两个 zip 和 `androidCarriedRelease` 写的文档放进 `assets/bpp-release/`，所以新装的 App 不用下载就能运行这个版本。
+   - 所有来源的 `nonManagedPayloadDigest` 必须相同，因为 App 只带一份运行时；不同就停止。
+   - 用 `release/android-app.ts` 的 `stageAndroidAppRuntime` 暂存 Android App 携带的运行时，写进算好的 `nonManagedPayloadDigest`；Updater 取自 Payload 里的同一份文件。再用 `stageCarriedRelease` 把每个来源的两个 zip 和 `androidCarriedRelease` 写的文档放进 `assets/bpp-release/`，所以新装的 App 不用下载就能运行这个版本。
    - 在 `bazaarplusplus-android/` 跑 Gradle 的 `assembleRelease`，传入 `-Pbpp.version`、`-Pbpp.versionCode` 与 `-Pbpp.runtimeDir`。需要 Android App 工具链锁（`bazaarplusplus-android/toolchain.lock.json`）钉住的 JDK 与 SDK。
    - 用 `zipalign` 对齐，用 `apksigner` 和 Android 发布密钥签名；keystore 密码只经文件传给 `apksigner`。`apksigner verify --print-certs` 报告的证书必须是钉住的发布证书。再从 APK 里读回 `assets/bpp-runtime.json`，它的 `nonManagedPayloadDigest` 必须等于 fragment 的值；`assets/bpp-release/` 必须是这次构建暂存的版本。
 
-   步骤与工具查找见 `release/android-release.ts` 的 `buildAndroidRelease` 与 `resolveBuildTools`。签名材料的来源见上面的 secret 表。所有输出都在工作区根的 `target/android/`：APK、`<sha256>.zip` 与它的 `.statement` 和 `.statement.sig`、Managed Payload zip 与 `.sig`，以及构建回执 `android-aarch64.json`。
-4. `upload` 在同一台机器上用流式条件写依次上传 Android App APK、Interop Package、Managed Payload zip 与 `.sig`，最后写 fragment。Interop Package 的键已有相同字节时不再上传，字节不同时拒绝。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同，会被已上传的对象拒绝，这时升版本。
+   步骤与工具查找见 `release/android-release.ts` 的 `buildAndroidRelease` 与 `resolveBuildTools`。签名材料的来源见上面的 secret 表。所有输出都在工作区根的 `target/android/`：APK，每个来源的 `<sha256>.zip` 与它的 `.statement` 和 `.statement.sig`、Managed Payload zip 与 `.sig`，以及构建回执 `android-aarch64.json`。
+4. `upload` 在同一台机器上用流式条件写依次上传 Android App APK、每个来源的 Interop Package 与 Managed Payload zip，再写每个 `.sig`，最后写 fragment。Interop Package 的键已有相同字节时不再上传，字节不同时拒绝。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同，会被已上传的对象拒绝，这时升版本。
 5. `promote --platform android`。
 
-`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，先按工具链锁装 JDK 与 SDK 包，标签推送只构建桌面两平台。`dry_run` 只跑到 `prepare`。构建回执和三样产物（Android App APK、Interop Package 及其声明与签名、Managed Payload zip 及其签名）都留作 Actions 产物；`build_only` 不上传 R2，用于在干净的 AVD 上验收。
+`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，先按工具链锁装 JDK 与 SDK 包，标签推送只构建桌面两平台。`dry_run` 只跑到 `prepare`。构建回执和产物（Android App APK，每个来源的 Interop Package 及其声明与签名、Managed Payload zip 及其签名）都留作 Actions 产物；`build_only` 不上传 R2，用于在干净的 AVD 上验收。
 
 ## 中国大陆镜像
 

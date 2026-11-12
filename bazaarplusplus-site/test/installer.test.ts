@@ -230,6 +230,10 @@ describe('Android release interface', () => {
       managedPayload: record.managedPayload,
       interop: record.interop,
       game: record.game,
+      games: [
+        { source: 'publisher', game: record.adaptations.publisher.game },
+        { source: 'play', game: record.adaptations.play.game }
+      ],
       mainlandUrl: null
     });
     expect(fetchStub).toHaveBeenCalledTimes(1);
@@ -240,6 +244,21 @@ describe('Android release interface', () => {
         signal: controller.signal
       }
     );
+  });
+
+  test('a manifest promoted before ADR 0019 adapts the publisher game only', async () => {
+    const manifest = structuredClone(androidFixture);
+    const record: Record<string, unknown> =
+      manifest.downloads['android-aarch64'];
+    delete record.adaptations;
+    stubManifests({ [ANDROID_PATH]: manifest });
+    const release = await loadAndroidRelease(new AbortController().signal);
+    expect(release.games).toEqual([
+      {
+        source: 'publisher',
+        game: androidFixture.downloads['android-aarch64'].game
+      }
+    ]);
   });
 
   test('the desktop installer load never requests the Android manifest', async () => {
@@ -278,6 +297,18 @@ describe('Android release interface', () => {
             manifest.downloads['android-aarch64'];
           record.apk = record.app;
           delete record.app;
+          return manifest;
+        })()
+      }
+    ],
+    [
+      'an adaptation without its game',
+      {
+        [ANDROID_PATH]: (() => {
+          const manifest = structuredClone(androidFixture);
+          const play: Record<string, unknown> =
+            manifest.downloads['android-aarch64'].adaptations.play;
+          delete play.game;
           return manifest;
         })()
       }

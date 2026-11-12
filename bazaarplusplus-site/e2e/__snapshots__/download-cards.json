@@ -3,7 +3,9 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
-        "adaptedGame": "1.0.13057",
+        "adaptedGames": [
+          "1.0.13057"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
@@ -18,7 +20,9 @@
       },
       "macOS": {
         "version": "v3.1.1",
-        "adaptedGame": "1.0.13081",
+        "adaptedGames": [
+          "1.0.13081"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
@@ -37,7 +41,10 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGame": "1.0.12825",
+      "adaptedGames": [
+        "1.0.12825 · Publisher",
+        "1.0.6 · Google Play"
+      ],
       "onlineGame": null,
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
@@ -74,7 +81,9 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
-        "adaptedGame": "1.0.13057",
+        "adaptedGames": [
+          "1.0.13057"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
@@ -89,7 +98,7 @@
       },
       "macOS": {
         "version": "Unavailable",
-        "adaptedGame": null,
+        "adaptedGames": null,
         "onlineGame": null,
         "primary": {
           "href": "#",
@@ -108,7 +117,10 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGame": "1.0.12825",
+      "adaptedGames": [
+        "1.0.12825 · Publisher",
+        "1.0.6 · Google Play"
+      ],
       "onlineGame": null,
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
@@ -145,7 +157,9 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
-        "adaptedGame": "1.0.13057",
+        "adaptedGames": [
+          "1.0.13057"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
@@ -160,7 +174,9 @@
       },
       "macOS": {
         "version": "v3.1.1",
-        "adaptedGame": "1.0.13081",
+        "adaptedGames": [
+          "1.0.13081"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
@@ -179,7 +195,10 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGame": "1.0.12825",
+      "adaptedGames": [
+        "1.0.12825 · Publisher",
+        "1.0.6 · Google Play"
+      ],
       "onlineGame": null,
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
@@ -216,7 +235,7 @@
     "cards": {
       "Windows": {
         "version": "Unavailable",
-        "adaptedGame": null,
+        "adaptedGames": null,
         "onlineGame": null,
         "primary": {
           "href": "#",
@@ -231,7 +250,7 @@
       },
       "macOS": {
         "version": "Unavailable",
-        "adaptedGame": null,
+        "adaptedGames": null,
         "onlineGame": null,
         "primary": {
           "href": "#",
@@ -250,7 +269,10 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGame": "1.0.12825",
+      "adaptedGames": [
+        "1.0.12825 · Publisher",
+        "1.0.6 · Google Play"
+      ],
       "onlineGame": null,
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
@@ -290,7 +312,9 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
-        "adaptedGame": "1.0.13057",
+        "adaptedGames": [
+          "1.0.13057"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
@@ -305,7 +329,9 @@
       },
       "macOS": {
         "version": "v3.1.1",
-        "adaptedGame": "1.0.13081",
+        "adaptedGames": [
+          "1.0.13081"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
@@ -324,7 +350,7 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "Unavailable",
-      "adaptedGame": null,
+      "adaptedGames": null,
       "onlineGame": null,
       "size": null,
       "sha256": null,
@@ -361,7 +387,9 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
-        "adaptedGame": "1.0.13057",
+        "adaptedGames": [
+          "1.0.13057"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
@@ -376,7 +404,9 @@
       },
       "macOS": {
         "version": "v3.1.1",
-        "adaptedGame": "1.0.13081",
+        "adaptedGames": [
+          "1.0.13081"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
@@ -395,7 +425,7 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "Unavailable",
-      "adaptedGame": null,
+      "adaptedGames": null,
       "onlineGame": null,
       "size": null,
       "sha256": null,
@@ -432,7 +462,9 @@
     "cards": {
       "Windows": {
         "version": "v3.1.2",
-        "adaptedGame": "1.0.13057",
+        "adaptedGames": [
+          "1.0.13057"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
@@ -447,7 +479,9 @@
       },
       "macOS": {
         "version": "v3.1.1",
-        "adaptedGame": "1.0.13081",
+        "adaptedGames": [
+          "1.0.13081"
+        ],
         "onlineGame": null,
         "primary": {
           "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
@@ -466,7 +500,10 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGame": "1.0.12825",
+      "adaptedGames": [
+        "1.0.12825 · Publisher",
+        "1.0.6 · Google Play"
+      ],
       "onlineGame": null,
       "size": "2.8 GB",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",

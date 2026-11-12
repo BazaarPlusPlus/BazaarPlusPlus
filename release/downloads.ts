@@ -102,6 +102,13 @@ export type AndroidGameRelease = {
   metadataSha256: string;
 };
 
+/** Where an Android player installs the official game from (ADR 0019). */
+export type AndroidSource = 'publisher' | 'play';
+export const ANDROID_SOURCES: readonly AndroidSource[] = Object.freeze([
+  'publisher',
+  'play'
+]);
+
 // One Game Adaptation of an Android release (docs/adr/0019): the game one
 // Android source ships, the sha256 of the certificate that source signs it
 // with, and the Interop Package and Managed Payload built for that game.
@@ -124,7 +131,10 @@ export type AndroidDownload = {
   app: AndroidAppDownload;
   managedPayload: ManagedPayloadDownload;
   interop: InteropPackageDownload;
+  /** The publisher's adapted game. */
   game: AndroidGameRelease;
+  /** The adapted game of each Android source, in ANDROID_SOURCES order. */
+  games: { source: AndroidSource; game: AndroidGameRelease }[];
   mainlandUrl: string | null;
 };
 
@@ -218,9 +228,11 @@ export function decodeDesktopGameRelease(
 
 // Reads `downloads[platformKey]` of an Android Platform Release Manifest: the
 // Android App APK, the Managed Payload zip, the Interop Package and the game
-// they are adapted to. Null when any part is missing or points outside the
-// release origin, and for the ADR 0010 shape (`apk`, no `app`); the mainland
-// mirror is optional and decoded like the desktop one.
+// of each Android source they are adapted to. Null when any part is missing
+// or points outside the release origin, and for the ADR 0010 shape (`apk`, no
+// `app`). A manifest promoted before ADR 0019 has no `adaptations` and adapts
+// the publisher's game only; the mainland mirror is optional and decoded like
+// the desktop one.
 export function decodeAndroidDownload(
   manifest: unknown,
   platformKey: string = DOWNLOAD_PLATFORM_KEYS.android
@@ -236,6 +248,14 @@ export function decodeAndroidDownload(
   );
   const interop = artifact(record?.interop, '/android/interop/');
   const game = decodeAndroidGame(record?.game);
+  const adaptations = object(record?.adaptations);
+  const games = adaptations
+    ? ANDROID_SOURCES.map((source) => ({
+        source,
+        game: decodeAndroidGame(object(adaptations[source])?.game)
+      }))
+    : [{ source: 'publisher' as const, game }];
+  if (games.some(({ game: adapted }) => !adapted)) return null;
   if (
     !app ||
     !positiveInteger(app.versionCode) ||
@@ -274,6 +294,7 @@ export function decodeAndroidDownload(
       signature: interop.signature
     },
     game,
+    games: games as AndroidDownload['games'],
     mainlandUrl: decodeMainlandDownloadUrl(manifest, platformKey)
   };
 }

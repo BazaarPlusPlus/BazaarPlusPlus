@@ -6,6 +6,8 @@
 
 2026-11-07 注：[ADR 0016](0016-one-game-compatibility-rule.md) 统一了三个平台的兼容规则。三档启动规则不变，启动器的提示与 mod 的主菜单标签改为按游戏代码哈希判断。
 
+2026-11-12 注：[ADR 0019](0019-android-launcher-adaptations.md) 让每个 Android 来源（发行商、Google Play）各有一个适配包。三档启动规则改为：哈希等于任一适配包的游戏就是已适配；否则按签名证书找到同一来源的适配包，再比较 `versionCode`。App 最低 API 改为 32。
+
 [ADR 0010](0010-android-release-platform.md) 让 Android 用户安装一个注入后由 BPP 签名的官方 APK（下称 A 方案）。它有三个固定代价：用户必须先卸载官方版；游戏每更新一次，用户都要等 BPP 重新注入，再下载约 2.8 GB；每个版本在 R2 多存约 2.9 GB，注入只能在 Linux x64 上跑。2026-11-01 的可行性试验（#747，模拟器 `bpp_host_spike`）证明：一个只用公开 API 的 App（`AppComponentFactory`、`PathClassLoader`、`ContextWrapper`、`ResourcesLoader`）能在自己的进程里加载用户已装、未修改的官方 APK，复用 LemonLoader 的运行时，跑通 master 的全部 Android Mods，并能和官方 App 共存。
 
 本记录取代 ADR 0010。下文用 **Android App**（BPP Android App）指包名为 `com.bazaarplusplus.android` 的 BPP 应用，以便和 mod 的 Android Host（`BazaarPlusPlus.Android`，LemonLoader 上的 mod 程序集）以及官方游戏的 App 区分开。父 issue 写作"宿主 App"的就是它。

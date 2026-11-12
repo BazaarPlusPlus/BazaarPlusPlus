@@ -1,3 +1,4 @@
+import type { AndroidSource } from '../features/download/installer';
 import type { HeroMetricsSegment } from '../features/heroes/hero-metrics-dataset';
 import type {
   Locale,
@@ -135,6 +136,8 @@ export type DownloadPageCopy = {
     badge: string;
     /** What experimental means, beneath the platform header. */
     notice: string;
+    /** Where the player installs the official game from, beside each adapted game. */
+    sources: Record<AndroidSource, string>;
     sizeLabel: string;
     sha256Label: string;
     checksumCopy: string;
@@ -502,6 +505,7 @@ const zh: LocalizedSiteCopy = {
       arch: 'Android 11+ · arm64',
       badge: '实验版',
       notice: '功能与桌面版有差异，可能存在尚未发现的问题。',
+      sources: { publisher: '发行商官网', play: 'Google Play' },
       sizeLabel: '文件大小',
       sha256Label: 'SHA-256',
       checksumCopy: '复制完整 SHA-256',
@@ -855,6 +859,7 @@ const en: LocalizedSiteCopy = {
       badge: 'Experimental',
       notice:
         'Features differ from desktop, and undiscovered issues may remain.',
+      sources: { publisher: 'Publisher', play: 'Google Play' },
       sizeLabel: 'Size',
       sha256Label: 'SHA-256',
       checksumCopy: 'Copy full SHA-256',

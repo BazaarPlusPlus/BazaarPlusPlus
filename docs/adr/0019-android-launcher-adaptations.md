@@ -57,20 +57,25 @@
 
 ### 适配包的构建
 
-- 每次产品发布都从 master 为两个来源各构建一个适配包：对它的 interop 编译 `BazaarPlusPlus.Android`，打 Managed Payload，签 interop 声明。两个来源的游戏代码哈希相同时，只构建一个。
+- 每次产品发布都从 master 为两个来源各构建一个适配包：对它的 interop 编译 `BazaarPlusPlus.Android`，打 Managed Payload，签 interop 声明。
 - master 对某个来源编译失败时，发布停止：修改 mod，或者删除这个来源的键。本记录不做"沿用旧适配包"和维护分支；需要时另作决定。
 - interop 声明的格式与用途都不变：用途仍是 `release <产品版本>`。
-- Managed Payload Manifest 加上 `game`，也就是它对之编译的游戏代码哈希。
+- Managed Payload Manifest 的格式不变。每个来源的 Managed Payload 有自己的对象键：`<产品版本>/android-aarch64/managed/<来源>/`（`androidManagedPayloadKey`），仍在 App 6.2.5 检查的 `managed/` 前缀之下。
 - 每个适配包都要做模拟器验收，验收项见"实施顺序"第 0 步。
 
-### Updater：按游戏换入
+### 换游戏时由 App 重新暂存，Updater 不变
 
-- 现在的规则：暂存的版本不高于已装版本时，不换入（`ManagedPayloadSwap.Run`）。
-- 新规则：
-  - 已装 Mods 的 `game` 与这次启动的游戏（启动记录里的）不同时，按游戏换入，不比较版本。否则 Mods 配上了别的游戏的 interop，启动就会崩溃。
-  - 数据库 schema 的检查不变：适配包的 mod 不支持已有的历史数据库时，拒绝换入，并移走已装的 Mods。这时游戏不带 Mods 运行，不会崩溃。
-  - 游戏相同时，规则不变。
-- App 暂存时，只暂存与已装游戏匹配的适配包。
+- Updater 的规则不变：暂存的版本不高于已装版本时，不换入（`ManagedPayloadSwap.Run`）。
+- App 记录它暂存的 Mods 对应哪个游戏（游戏代码哈希），与暂存的版本放在一起。
+- 门禁选出的适配包的游戏与记录的不同，或者没有记录时：
+  1. App 删除已装 Managed Payload Manifest 列出的每个文件，再删除这个清单。
+  2. App 暂存这个适配包的 Managed Payload，不比较版本。
+  3. 暂存成功后，App 记录新的游戏。
+- 原因：
+  - 只删清单不够。清单不在时，Updater 改读 `BazaarPlusPlus.version`，把同版本的暂存当作过期删除，Play 就会加载发行商的 Mods。
+  - 清单列出的文件都删了，Updater 就把已装版本看作 0.0.0，换入暂存的适配包。
+  - Updater 拒绝换入时（例如运行时摘要不同），游戏不带 Mods 运行，不会因为别的游戏的 Mods 崩溃。
+- 游戏相同时，暂存规则不变。
 
 ### 平台清单：加 `adaptations` 列表
 
@@ -85,17 +90,17 @@ downloads["android-aarch64"] = {
 }
 ```
 
-- `adaptations` 按来源分键，每个维护中的来源一项。两个来源的游戏代码哈希相同时，两项指向同一个 interop zip 和同一个 Managed Payload。
+- `adaptations` 按来源分键，每个维护中的来源一项，键的顺序与 `ANDROID_SOURCES` 相同。
 - 所有适配包的 Managed Payload 都必须和 App 的 `nonManagedPayloadDigest` 一致，因为 App 只带一份运行时。所以运行时变化时（Loader Release、Updater、`nativeLibs`），所有维护中的适配包都要重新构建。
-- **保留顶层的 `game`、`interop`、`managedPayload`、`historyDatabaseUserVersion`，填入一个发行商适配包。**
+- **保留顶层的 `game`、`interop`、`managedPayload`，它们等于 `adaptations.publisher` 的（发布校验这一点）。**
   - 原因：已安装的 App（6.2.5 起，`PlatformManifest` 要求这些字段）、已安装的 mod（`ReleaseManifestClient`）和下载页都只认这个形状。
   - 读不了新清单的 App 会退回缓存，也看不到 App 更新提醒。
   - 只有在 App 与 mod 都改读 `adaptations` 之后，才另作决定删除这些字段。
 - 下载页单独部署，所以它要先上线能解析两种形状的版本，然后才能推广新清单。
 - 下列消费方要和这次契约改动放进同一个 PR：
-  - Android App：`PlatformManifest`、`CarriedRelease`、`LaunchGate`、`LaunchCheck`、`BppLaunch`（在这里选适配包）、`LauncherSession`、`InstalledGame`（读签名证书）、`InteropStatement`（用途）、`ManagedPayloadStaging`。
-  - mod：`ReleaseManifestClient`、`AndroidGameUpdate`、`AndroidVersionCheck`、Updater（`ManagedPayloadSwap`、`ManagedPayloadManifest`）。
-  - release：`manifest.ts`、`android-release.ts`、`android-interop.ts`、`publish.ts`、`downloads.ts`、`managed-payload.ts`，以及它们的 fixtures 与共享 golden。
+  - Android App：`PlatformManifest`、`CarriedRelease`、`LaunchGate`、`LaunchCheck`、`BppLaunch`（在这里选适配包）、`LauncherSession`、`InstalledGame`（读签名证书）、`ManagedPayloadStaging`。
+  - mod：`ReleaseManifestClient`、`AndroidGameUpdate`、`AndroidVersionCheck`。
+  - release：`manifest.ts`、`android-release.ts`、`publish.ts`、`downloads.ts`，以及它们的 fixtures 与共享 golden。
   - 下载页：`installer.ts` 与 Android 卡片。
 
 ### 启动门禁：只和同一来源比较
@@ -103,9 +108,11 @@ downloads["android-aarch64"] = {
 - App 读取已装游戏的签名证书，按 `signerSha256` 确定它的来源。
 - 不按安装器包名判断：用 adb 装的 Play split，安装器不是 Play。
 
+先比较哈希，再看签名证书。所以读不到签名证书时，已适配的游戏仍可用。
+
 | 已装的游戏 | 档位 | BPP 启动 |
 |---|---|---|
-| 哈希等于某个适配包的游戏 | 已适配，用这个适配包 | 可用 |
+| 哈希等于任一适配包的游戏 | 已适配，用这个适配包 | 可用 |
 | 哈希不同，`versionCode` ≥ 同一来源最新适配包的 `versionCode` | 等待适配 | 不可用 |
 | 哈希不同，`versionCode` < 同一来源最新适配包的 `versionCode` | 请先更新游戏，链接指向这个来源 | 不可用 |
 | 签名证书不属于任何维护中的来源 | 等待适配 | 不可用 |
@@ -113,8 +120,8 @@ downloads["android-aarch64"] = {
 
 - `versionCode` 相同而哈希不同，仍按"较新"处理，与 ADR 0012 相同。
 - 每个来源维护它最新的游戏，所以"请先更新游戏"只出现在这个来源的旧版本上，而这个来源的更新链接能给出新版本。
-- 启动记录的格式不变：它已经记录这次启动用的 `game` 与 `interop`。
-- mod 主菜单用启动记录里的游戏哈希，与清单的 `adaptations` 比较。
+- 启动记录的格式不变：它已经记录这次启动用的 `game` 与 `interop`。它的读者在 Updater 里，拒绝新字段，所以不加来源。
+- mod 主菜单用运行中的游戏哈希与清单的 `adaptations` 比较：等于任一适配包的游戏，就是已适配；否则任一适配包的 `versionCode` 更高，就是"游戏较旧"；否则是"未适配"。运行中的游戏启动时已经匹配过一个适配包，每个来源的条目又只会向前走，所以 mod 不需要知道来源。
 
 ### App 的版本与更新提醒
 
@@ -125,8 +132,9 @@ downloads["android-aarch64"] = {
 
 ### 下载页与游戏状态
 
-- Android 卡片列出每个已适配的游戏，例如"Play 1.0.6 · 发行商 1.0.13113"。
-- `game-status/android.json` 仍只写发行商 APK 的游戏，由 watch 写入。它和 `adaptations` 比较。
+- Android 卡片的"适配游戏"每个来源占一行：游戏版本，后面写来源。
+- `game-status/android.json` 仍只写发行商 APK 的游戏，由 watch 写入。下载页拿它和发行商适配包的游戏比较。
+- 下载页也能解析没有 `adaptations` 的清单（本记录之前推广的），这时只列发行商的游戏。
 
 ### 最低 API 32（用户决定）
 
@@ -166,6 +174,7 @@ downloads["android-aarch64"] = {
 - **旧游戏沿用旧适配包、开维护分支。** 现在 master 对两个来源都能编译，用不上。
 - **跨来源比较 `versionCode`。** 两个来源的 build 不同步，用户会卡在"请更新游戏"，而更新链接给不出更新的版本。
 - **按安装器包名判断来源。** 用 adb 装的 Play split 会被判为发行商。
+- **Managed Payload Manifest 加 `game` 行，Updater 按游戏换入。** Updater 也编译成桌面的 patcher，又属于非托管载荷（`NON_MANAGED_PRODUCERS`）。它的字节一变，桌面与 Android 的 `nonManagedPayloadDigest` 都会变，每个已安装的客户端都要手动更新。旧 Updater 还要求清单第 6 行起都是 `file` 行，会拒绝带 `game` 行的清单。
 - **App 只在输入变化时才发布。** 这与清单、下载页和推广的 4 处校验冲突（`release/manifest.ts`、`PlatformManifest`、`release/downloads.ts`、`release/publish.ts`），携带的适配包也会过期。按运行时摘要提醒，就能得到同样的效果。
 - **App 用一条独立的版本号。** 需要另一个版本文件、另一套 `versionCode` 规则和另一套发布命令。
 
@@ -192,12 +201,11 @@ downloads["android-aarch64"] = {
   - 锁键 `android-online` 换成 `android-publisher` 与 `android-play`。
   - 条目记录 split APK。
   - Android 快照目录和快照清单的键改用锁键加 `versionCode`。
-- mod [ADR-0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)：Updater 按游戏换入。
 - `docs/release.md` 的"Android 发布顺序"，`docs/development.md` 里 setup-device 一段。
 - `GLOSSARY.md`：
-  - 修改 Game Adaptation、Snapshot Lock、Interop Snapshot、Game Status、Managed Payload Manifest。
+  - 修改 Game Adaptation、Snapshot Lock、Interop Snapshot、Game Status。
   - 新增适配包（Adaptation Package）与 Android 来源（Android source）。
-- 根 `AGENTS.md` 的 Contracts 表：Release Manifest 与 Managed Payload Manifest 两行。
+- 根 `AGENTS.md` 的 Contracts 表：Release Manifest 一行。
 
 ## 实施顺序
 
@@ -213,6 +221,6 @@ downloads["android-aarch64"] = {
    - `release/` 下的 `official-apk.ts`、`android-adaptation.ts`、`game-status.ts`。
 
    这一步完成后，发布仍然只构建一个发行商适配包。
-2. **平台清单加 `adaptations`，Updater 按游戏换入。** 一个契约 PR，包含：App 的门禁、适配包选择、暂存与携带版本，mod 与 Updater，release 的构建与校验，以及下载页。这个 PR 在推广新清单之前合并，所以下载页先上线。
+2. **平台清单加 `adaptations`，换游戏时 App 重新暂存。** 一个契约 PR，包含：App 的门禁、适配包选择、暂存与携带版本，mod 的版本检查，release 的构建与校验，以及下载页。这个 PR 在推广新清单之前合并，所以下载页先上线。
 3. **App 更新提醒改为比较运行时摘要。**
 4. **发布。** 合并最低 API 32 的改动，提升 `VERSION`，构建 13113 与 13168 两个适配包，发布 Android，再推广。

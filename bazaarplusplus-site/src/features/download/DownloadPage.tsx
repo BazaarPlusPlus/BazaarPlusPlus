@@ -80,15 +80,22 @@ function GameFacts({
   same
 }: {
   copy: DownloadPageCopy;
-  adapted: { gameVersion: string };
+  adapted: { gameVersion: string; source?: string }[];
   online: { gameVersion: string } | undefined;
   same: boolean;
 }) {
   return (
     <>
       <Fact label={copy.adaptedGameLabel}>
-        <span className="tabular-nums">
-          {gameReleaseNumber(adapted.gameVersion)}
+        <span className="flex flex-col gap-1">
+          {adapted.map(({ gameVersion, source }) => (
+            <span key={source ?? gameVersion}>
+              <span className="tabular-nums">
+                {gameReleaseNumber(gameVersion)}
+              </span>
+              {source ? <span className="text-text-2"> · {source}</span> : null}
+            </span>
+          ))}
         </span>
       </Fact>
       {online ? (
@@ -154,7 +161,7 @@ function DownloadCard({
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-6 gap-y-2">
           <GameFacts
             copy={copy}
-            adapted={adapted}
+            adapted={[adapted]}
             online={online}
             same={online ? sameDesktopGame(adapted, online) : false}
           />
@@ -333,7 +340,10 @@ function AndroidCard({
               <>
                 <GameFacts
                   copy={copy}
-                  adapted={release.game}
+                  adapted={release.games.map(({ source, game }) => ({
+                    gameVersion: game.gameVersion,
+                    source: androidCopy.sources[source]
+                  }))}
                   online={online}
                   same={online ? sameAndroidGame(release.game, online) : false}
                 />

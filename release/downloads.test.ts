@@ -63,6 +63,10 @@ test('consumers read the Android App, Managed Payload, Interop Package and game 
     managedPayload: record.managedPayload,
     interop: record.interop,
     game: record.game,
+    games: [
+      { source: 'publisher', game: record.adaptations.publisher.game },
+      { source: 'play', game: record.adaptations.play.game }
+    ],
     mainlandUrl: null
   });
   const mirrored: MirroredAndroidManifest = structuredClone(android);

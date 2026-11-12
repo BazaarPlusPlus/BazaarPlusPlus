@@ -146,6 +146,10 @@ test('the shared Android fixture is a Platform Release Manifest outside latest.j
     managedPayload: release.managedPayload,
     interop: release.interop,
     game: release.game,
+    games: [
+      { source: 'publisher', game: release.adaptations.publisher.game },
+      { source: 'play', game: release.adaptations.play.game }
+    ],
     mainlandUrl: null
   });
   // The App sits in its version's directory, the Interop Package at its
