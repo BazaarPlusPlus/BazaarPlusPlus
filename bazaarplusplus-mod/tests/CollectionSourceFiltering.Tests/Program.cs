@@ -1042,8 +1042,21 @@ AssertValues(
     "An existing hero's source rail should insert The Dragons after the seven legacy hero merchants and before Stickybeans."
 );
 
-// The desktop folds the generalist, tier, size and other-hero merchants, so every hero's merchant
-// row fits three lines of eight cells (measured with no column scroll at 3456x2168).
+// The catalog folds the merchants by what they filter on (all items, tier, size, hero), so on the
+// desktop every hero's merchant row fits three lines of eight cells (measured with no column scroll
+// at 3456x2168).
+AssertValues(
+    CollectionSourceRoster
+        .Build(currentCatalog.Where(entry => entry.Fold == "tier"))
+        .Select(entry => entry.Name)
+        .ToArray(),
+    new[] { "Curio", "Silvia", "Goldie", "Luxe" },
+    "The tier fold holds only the tier-capped merchants, not Kina or Private Pitchfork."
+);
+AssertTrue(
+    currentCatalog.All(entry => entry.Kind == CollectionSourceKind.Merchant || entry.Fold == null),
+    "Trainers never fold."
+);
 foreach (
     var hero in CollectionHeroSelectionRoster
         .BaseConcreteHeroes.Append(catalogDragonsHero)
@@ -1056,7 +1069,7 @@ foreach (
     );
     var keys = new Dictionary<string, string>(StringComparer.Ordinal);
     foreach (var entry in roster)
-        if (CollectionSourceFold.KeyFor(entry) is { } key)
+        if (entry.Fold is { } key)
             keys[entry.SourceKey] = key;
     var cells = CollectionSourceFold
         .Group(

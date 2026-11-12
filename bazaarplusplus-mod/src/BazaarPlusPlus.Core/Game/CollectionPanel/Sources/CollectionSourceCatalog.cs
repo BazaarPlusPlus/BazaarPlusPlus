@@ -69,6 +69,7 @@ public static class CollectionSourceCatalog
                 );
             if (entry.Order is not int order)
                 throw new InvalidOperationException($"entries[{i}].order is required.");
+            var fold = entry.Fold == null ? null : RequiredText(entry.Fold, $"entries[{i}].fold");
             var availableHeroes = ParseHeroList(
                 entry.AvailableHeroes,
                 $"entries[{i}].availableHeroes",
@@ -114,7 +115,8 @@ public static class CollectionSourceCatalog
                     offerSegments,
                     group,
                     order,
-                    groupDisplayIndex
+                    groupDisplayIndex,
+                    fold
                 )
             );
         }
@@ -151,7 +153,8 @@ public static class CollectionSourceCatalog
                     candidate.OfferSegments,
                     candidate.Group,
                     candidate.Order,
-                    candidate.GroupDisplayIndex
+                    candidate.GroupDisplayIndex,
+                    candidate.Fold
                 )
             );
         }
@@ -458,7 +461,8 @@ public static class CollectionSourceCatalog
             IReadOnlyList<CollectionSourceOfferSegment> offerSegments,
             string group,
             int order,
-            int groupDisplayIndex
+            int groupDisplayIndex,
+            string? fold
         )
         {
             BaseSourceKey = baseSourceKey;
@@ -472,6 +476,7 @@ public static class CollectionSourceCatalog
             Group = group;
             Order = order;
             GroupDisplayIndex = groupDisplayIndex;
+            Fold = fold;
         }
 
         public string BaseSourceKey { get; }
@@ -495,5 +500,7 @@ public static class CollectionSourceCatalog
         public int Order { get; }
 
         public int GroupDisplayIndex { get; }
+
+        public string? Fold { get; }
     }
 }

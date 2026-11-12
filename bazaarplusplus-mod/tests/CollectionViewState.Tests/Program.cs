@@ -904,7 +904,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     AssertTrue(fired!.ResetScroll, "Search refresh must reset list scroll.");
 }
 
-// --- Source fold: the merchants of a folding catalog group share one cell ---
+// --- Source fold: the merchants with one catalog fold value share one cell ---
 {
     var a = Option("merchant:a");
     var b = Option("merchant:b");
@@ -914,11 +914,11 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     var f = Option("merchant:f");
     var keys = new Dictionary<string, string>
     {
-        [a.SourceKey] = "size-specialist",
-        // The same group two places further down the roster.
-        [c.SourceKey] = "size-specialist",
-        [d.SourceKey] = "tier-specialist",
-        [f.SourceKey] = "tier-specialist",
+        [a.SourceKey] = "size",
+        // The same value two places further down the roster.
+        [c.SourceKey] = "size",
+        [d.SourceKey] = "tier",
+        [f.SourceKey] = "tier",
     };
     var groups = CollectionSourceFold.Group(new[] { a, b, c, d, e, f }, keys);
     AssertEqual(
@@ -929,38 +929,9 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
                 string.Join(",", group.Members.Select(m => m.SourceKey.Substring(9)))
             )
         ),
-        "One group folds in roster order at the first member's place; a source without a key stays alone."
+        "One fold value folds in roster order at the first member's place; a source without one stays alone."
     );
     AssertTrue(groups[0].IsFolded && !groups[1].IsFolded, "Only a group of two or more is folded.");
-
-    AssertEqual<string?>(
-        "other-hero",
-        CollectionSourceFold.KeyFor(
-            Source("merchant:dooley", CollectionSourceKind.Merchant, group: "other-hero")
-        ),
-        "An other-hero merchant folds by its group."
-    );
-    AssertEqual<string?>(
-        null,
-        CollectionSourceFold.KeyFor(
-            Source("merchant:chronos", CollectionSourceKind.Merchant, group: "tag-type-specialist")
-        ),
-        "A tag or type merchant stays alone."
-    );
-    AssertEqual<string?>(
-        null,
-        CollectionSourceFold.KeyFor(
-            Source("merchant:aimbot", CollectionSourceKind.Merchant, group: "all-hero")
-        ),
-        "A merchant that sells from any hero stays alone."
-    );
-    AssertEqual<string?>(
-        null,
-        CollectionSourceFold.KeyFor(
-            Source("trainer:x", CollectionSourceKind.Trainer, group: "generalist")
-        ),
-        "A trainer never folds."
-    );
 
     // Face and state: the selected member, else the first encountered member, else the first.
     var fold = new CollectionSourceGroup(new[] { a, b, c });
@@ -1019,20 +990,19 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
         "merchant:jay",
         CollectionSourceKind.Merchant,
         sourceTemplateIds: new[] { jayId },
-        group: "generalist"
+        fold: "all-items"
     );
     var valpak = Source(
         "merchant:valpak",
         CollectionSourceKind.Merchant,
         sourceTemplateIds: new[] { valpakId },
-        group: "generalist"
+        fold: "all-items"
     );
     var weapons = Source(
         "merchant:weapons",
         CollectionSourceKind.Merchant,
         sourceTemplateIds: new[] { weaponsId },
-        tagsAny: new[] { CardTag.Weapon },
-        group: "tag-type-specialist"
+        tagsAny: new[] { CardTag.Weapon }
     );
     var foldCatalog = new DictionarySourceCatalog(jay, valpak, weapons);
     var cards = new[]
@@ -1056,7 +1026,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
             )
         );
 
-    // The fold reads the catalog group only, so it stands before the card catalog arrives.
+    // The fold reads the catalog fold value only, so it stands before the card catalog arrives.
     grid.Reset();
     prefs.Reset();
     var state = FoldState();
@@ -1209,7 +1179,7 @@ static CollectionSourceEntry Source(
     IReadOnlyList<CardHero>? availableHeroes = null,
     IReadOnlyList<Guid>? sourceTemplateIds = null,
     IReadOnlyList<CardTag>? tagsAny = null,
-    string group = "test"
+    string? fold = null
 ) =>
     new(
         sourceKey,
@@ -1240,9 +1210,10 @@ static CollectionSourceEntry Source(
                 )
             ),
         },
-        group,
+        "test",
         0,
-        0
+        0,
+        fold
     );
 
 static void AssertEqual<T>(T expected, T actual, string message)

@@ -551,8 +551,8 @@ public sealed class CollectionViewState
         return (result, groups);
     }
 
-    // Each source's fold key on the desktop: its catalog group where that group folds
-    // (CollectionSourceFold.KeyFor). Without keys each source stays alone.
+    // Each source's fold key on the desktop: its catalog fold value. Without keys each source stays
+    // alone.
     private IReadOnlyDictionary<string, string> FoldKeysFor(
         IReadOnlyList<CollectionSourceEntry> roster
     )
@@ -563,7 +563,7 @@ public sealed class CollectionViewState
 
         foreach (var entry in roster)
         {
-            if (CollectionSourceFold.KeyFor(entry) is { } key)
+            if (entry.Fold is { } key)
                 keys[entry.SourceKey] = key;
         }
         return keys;

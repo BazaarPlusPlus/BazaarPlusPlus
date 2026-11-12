@@ -29,6 +29,9 @@ public sealed class CollectionSourceEntryDto
     [JsonProperty("order")]
     public int? Order { get; set; }
 
+    [JsonProperty("fold")]
+    public string? Fold { get; set; }
+
     [JsonProperty("availableHeroes")]
     public List<string>? AvailableHeroes { get; set; }
 

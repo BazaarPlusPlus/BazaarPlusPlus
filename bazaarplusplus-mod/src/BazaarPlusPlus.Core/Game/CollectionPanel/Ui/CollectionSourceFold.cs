@@ -1,28 +1,12 @@
 #nullable enable
-using BazaarPlusPlus.Game.CollectionPanel.Sources;
-
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-// Folds each of four merchant catalog groups into one cell: generalist, tier-specialist,
-// size-specialist and other-hero. Merchants that sell from any hero and tag or type merchants each
-// sell their own theme and stay alone; trainers never fold. Groups take the roster position of
-// their first member, and members keep roster order.
+// Folds the merchants with one catalog fold value (collection-sources.json "fold", by what the
+// merchant filters on: all items, tier, size or hero) into one cell. A source without a fold value
+// stays alone. Groups take the roster position of their first member, and members keep roster
+// order.
 public static class CollectionSourceFold
 {
-    private static readonly HashSet<string> FoldedMerchantGroups = new(StringComparer.Ordinal)
-    {
-        "generalist",
-        "tier-specialist",
-        "size-specialist",
-        "other-hero",
-    };
-
-    // The catalog group a source folds by, or null when it stays alone.
-    public static string? KeyFor(CollectionSourceEntry source) =>
-        source.Kind == CollectionSourceKind.Merchant && FoldedMerchantGroups.Contains(source.Group)
-            ? source.Group
-            : null;
-
     public static IReadOnlyList<CollectionSourceGroup> Group(
         IReadOnlyList<CollectionSourceOptionViewModel> sources,
         IReadOnlyDictionary<string, string> keys

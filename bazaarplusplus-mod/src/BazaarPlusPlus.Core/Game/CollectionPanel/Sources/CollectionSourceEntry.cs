@@ -17,7 +17,8 @@ public sealed class CollectionSourceEntry
         IReadOnlyList<CollectionSourceOfferSegment> offerSegments,
         string group,
         int order,
-        int groupDisplayIndex
+        int groupDisplayIndex,
+        string? fold = null
     )
     {
         SourceKey = sourceKey;
@@ -31,6 +32,7 @@ public sealed class CollectionSourceEntry
         Group = group;
         Order = order;
         GroupDisplayIndex = groupDisplayIndex;
+        Fold = fold;
         OfferRuleFingerprint = BuildOfferRuleFingerprint(offerSegments);
         SuppressDayGate = offerSegments.Count > 0 && offerSegments[0].Rule.StartingTier != null;
     }
@@ -73,6 +75,10 @@ public sealed class CollectionSourceEntry
     public int Order { get; }
 
     public int GroupDisplayIndex { get; }
+
+    // The desktop Collection draws the merchants with one fold value as one cell
+    // (CollectionSourceFold); null draws the source alone.
+    public string? Fold { get; }
 
     public bool AppliesToHero(CardHero hero) =>
         AvailableHeroes.Count == 0 || AvailableHeroes.Contains(hero);
