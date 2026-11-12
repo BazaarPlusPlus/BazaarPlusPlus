@@ -213,13 +213,15 @@ final class LauncherScreen {
     }
 
     /**
-     * The reminder for a newer App, or null. A release build is reminded when the release's App
-     * has a higher versionCode; a development build (no runtime digest) never is, since every
-     * release outnumbers its versionCode.
+     * The reminder for a newer App, or null (ADR 0019). A release build is reminded when the
+     * release's App has a higher versionCode and carries another runtime: its non-managed payload
+     * digest differs from this build's, which is when the Updater refuses the release's Mods. A
+     * release that only changes the launcher reminds no one. A development build (no runtime
+     * digest) is never reminded.
      */
-    static AppUpdate appUpdate(boolean releaseBuild, long ownVersionCode, long releaseVersionCode,
-            String releaseVersion, String url) {
-        if (!releaseBuild || releaseVersionCode <= ownVersionCode) return null;
+    static AppUpdate appUpdate(String ownDigest, long ownVersionCode, String releaseDigest,
+            long releaseVersionCode, String releaseVersion, String url) {
+        if (ownDigest == null || releaseVersionCode <= ownVersionCode || ownDigest.equals(releaseDigest)) return null;
         return new AppUpdate(releaseVersion, url);
     }
 

@@ -217,9 +217,9 @@ final class LauncherSession {
         LauncherScreen.AppUpdate update = null;
         if (manifest != null && manifest.app != null) {
             // Only a release build carries a runtime digest; a development build is never reminded.
-            boolean releaseBuild = check.facts != null && check.facts.nonManagedPayloadDigest != null;
-            update = LauncherScreen.appUpdate(releaseBuild, BuildConfigFacts.versionCode(app), manifest.app.versionCode,
-                    manifest.version, manifest.app.file.url);
+            String ownDigest = check.facts == null ? null : check.facts.nonManagedPayloadDigest;
+            update = LauncherScreen.appUpdate(ownDigest, BuildConfigFacts.versionCode(app),
+                    manifest.nonManagedPayloadDigest, manifest.app.versionCode, manifest.version, manifest.app.file.url);
         }
         PlatformManifest.Adaptation adaptation = check.adaptation();
         return new LauncherScreen.Facts(check.decision, check.game == null ? null : check.game.versionName,
