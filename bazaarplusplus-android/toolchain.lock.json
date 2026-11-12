@@ -4,7 +4,7 @@
   "androidSdk": {
     "compileSdk": 35,
     "targetSdk": 35,
-    "minSdk": 30,
+    "minSdk": 32,
     "buildTools": "37.0.0"
   },
   "abi": "arm64-v8a",

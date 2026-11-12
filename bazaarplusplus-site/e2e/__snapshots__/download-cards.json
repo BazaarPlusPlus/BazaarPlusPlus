@@ -38,7 +38,7 @@
     },
     "android": {
       "badge": "Experimental",
-      "requirements": "Android 11+ · arm64",
+      "requirements": "Android 12L+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGames": [
@@ -114,7 +114,7 @@
     },
     "android": {
       "badge": "Experimental",
-      "requirements": "Android 11+ · arm64",
+      "requirements": "Android 12L+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGames": [
@@ -192,7 +192,7 @@
     },
     "android": {
       "badge": "Experimental",
-      "requirements": "Android 11+ · arm64",
+      "requirements": "Android 12L+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGames": [
@@ -266,7 +266,7 @@
     },
     "android": {
       "badge": "Experimental",
-      "requirements": "Android 11+ · arm64",
+      "requirements": "Android 12L+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGames": [
@@ -347,7 +347,7 @@
     },
     "android": {
       "badge": "Experimental",
-      "requirements": "Android 11+ · arm64",
+      "requirements": "Android 12L+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "Unavailable",
       "adaptedGames": null,
@@ -422,7 +422,7 @@
     },
     "android": {
       "badge": "Experimental",
-      "requirements": "Android 11+ · arm64",
+      "requirements": "Android 12L+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "Unavailable",
       "adaptedGames": null,
@@ -497,7 +497,7 @@
     },
     "android": {
       "badge": "Experimental",
-      "requirements": "Android 11+ · arm64",
+      "requirements": "Android 12L+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
       "adaptedGames": [
