@@ -11,8 +11,10 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class InstalledGameTest {
     @Rule public TemporaryFolder tmp = new TemporaryFolder();
@@ -30,6 +32,14 @@ public class InstalledGameTest {
                 TestZips.write(tmp.newFile("base.apk"), Map.of(GameCodeHash.IL2CPP_ENTRY, "i")).getPath(),
                 TestZips.write(tmp.newFile("split.apk"),
                         Map.of("assets/LemonLoader/deployment/Mods/BazaarPlusPlus.version", "6.0.0.prod")).getPath())));
+    }
+
+    @Test
+    public void eachSigningCertificateIsNamedByItsSha256() {
+        assertEquals(Set.of(), InstalledGame.signerDigests(List.of()));
+        // The sha256 of "abc" (FIPS 180-2), standing in for a DER certificate.
+        assertEquals(Set.of("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
+                InstalledGame.signerDigests(List.of("abc".getBytes(StandardCharsets.UTF_8))));
     }
 
     @Test

@@ -22,6 +22,8 @@ final class LaunchInputs {
     final long gameVersionCode;
     /** Null when no manifest was read; a NORMAL decision always has one. */
     final PlatformManifest manifest;
+    /** The manifest's adaptation the decision selected, or null; a NORMAL decision always has one. */
+    final PlatformManifest.Adaptation adaptation;
     /** Null when no Managed Payload is installed. */
     final String installedModsVersion;
     final List<PublicKey> trusted;
@@ -29,14 +31,15 @@ final class LaunchInputs {
     final File devInterop;
 
     LaunchInputs(LaunchGate.Decision decision, boolean runtime, GameCodeHash hash, String gameVersionName,
-            long gameVersionCode, PlatformManifest manifest, String installedModsVersion, List<PublicKey> trusted,
-            File devInterop) {
+            long gameVersionCode, PlatformManifest manifest, PlatformManifest.Adaptation adaptation,
+            String installedModsVersion, List<PublicKey> trusted, File devInterop) {
         this.decision = decision;
         this.runtime = runtime;
         this.hash = hash;
         this.gameVersionName = gameVersionName;
         this.gameVersionCode = gameVersionCode;
         this.manifest = manifest;
+        this.adaptation = adaptation;
         this.installedModsVersion = installedModsVersion;
         this.trusted = trusted;
         this.devInterop = devInterop;

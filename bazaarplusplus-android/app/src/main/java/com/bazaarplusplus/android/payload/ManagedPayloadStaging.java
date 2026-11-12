@@ -30,17 +30,50 @@ public final class ManagedPayloadStaging {
     /** The installed Managed Payload Manifest beside the mod, relative to the external files directory. */
     public static final String INSTALLED_MANIFEST = "MelonLoader/Mods/BazaarPlusPlus.managed-manifest.txt";
     static final String DOWNLOAD_PREFIX = ".download-";
-    static final String[] FILE_DIRECTORIES = {"files/MelonLoader/Mods/", "files/MelonLoader/UserLibs/"};
+    /** Where the zip keeps the files, under their install paths. */
+    static final String FILES = "files/";
+    static final String[] INSTALL_DIRECTORIES = {"MelonLoader/Mods/", "MelonLoader/UserLibs/"};
 
     private ManagedPayloadStaging() {}
 
     /** Whether the zip may hold {@code name}: the manifest, its signature, or one file in Mods/ or UserLibs/. */
     static boolean allowedEntry(String name) {
         if (name.equals(MANIFEST) || name.equals(SIGNATURE)) return true;
-        for (String directory : FILE_DIRECTORIES) {
-            if (name.startsWith(directory)) return SafeNames.isFileName(name.substring(directory.length()));
+        return name.startsWith(FILES) && installPath(name.substring(FILES.length()));
+    }
+
+    /** Whether {@code path}, relative to the external files directory, is one file in Mods/ or UserLibs/. */
+    static boolean installPath(String path) {
+        for (String directory : INSTALL_DIRECTORIES) {
+            if (path.startsWith(directory)) return SafeNames.isFileName(path.substring(directory.length()));
         }
         return false;
+    }
+
+    /**
+     * Deletes every file the installed Managed Payload Manifest names, then the manifest, so the
+     * game runs no Mods built for another game. The Updater then sees no installed version and
+     * swaps in a staging of the same version. Any listed path outside Mods/ and UserLibs/ refuses
+     * the whole manifest before a file is deleted. Returns the paths named; none without a manifest.
+     */
+    public static List<String> removeInstalled(File externalFiles) throws IOException {
+        File manifest = new File(externalFiles, INSTALLED_MANIFEST);
+        String text = AtomicFiles.readUtf8(manifest);
+        List<String> paths = new ArrayList<>();
+        if (text == null) return paths;
+        for (String line : text.split("\n")) {
+            if (!line.startsWith("file ")) continue;
+            String[] parts = line.split(" ", 4);
+            if (parts.length != 4 || !installPath(parts[3])) {
+                throw new IOException("The installed Managed Payload Manifest names " + line);
+            }
+            paths.add(parts[3]);
+        }
+        for (String path : paths) Files.deleteIfExists(new File(externalFiles, path).toPath());
+        // The manifest goes last, so a stopped run leaves it to name the rest for the next launch.
+        // Without it, a version file left behind makes the Updater delete a same-version staging.
+        Files.deleteIfExists(manifest.toPath());
+        return paths;
     }
 
     /**
@@ -140,17 +173,21 @@ public final class ManagedPayloadStaging {
         return staged != null && compareVersions(installed, staged) < 0 && !new File(updates, staged).isDirectory();
     }
 
-    /** The version this App last staged, kept in its internal storage. */
+    /**
+     * A one-line state file in the App's internal storage: the version this App last staged, or the
+     * game it staged the installed Mods for. Null when there is none.
+     */
     public static String remembered(File state) {
         String text = AtomicFiles.readUtf8(state);
         return text == null || text.trim().isEmpty() ? null : text.trim();
     }
 
-    public static void remember(File state, String version) throws IOException {
-        if (version == null) {
+    /** Writes {@code value} to the state file {@link #remembered} reads; null deletes it. */
+    public static void remember(File state, String value) throws IOException {
+        if (value == null) {
             Files.deleteIfExists(state.toPath());
         } else {
-            AtomicFiles.writeUtf8(state, version + "\n");
+            AtomicFiles.writeUtf8(state, value + "\n");
         }
     }
 

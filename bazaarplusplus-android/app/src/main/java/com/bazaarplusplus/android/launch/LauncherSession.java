@@ -2,7 +2,6 @@ package com.bazaarplusplus.android.launch;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Looper;
@@ -222,11 +221,12 @@ final class LauncherSession {
             update = LauncherScreen.appUpdate(releaseBuild, BuildConfigFacts.versionCode(app), manifest.app.versionCode,
                     manifest.version, manifest.app.file.url);
         }
-        PackageManager pm = app.getPackageManager();
+        PlatformManifest.Adaptation adaptation = check.adaptation();
         return new LauncherScreen.Facts(check.decision, check.game == null ? null : check.game.versionName,
-                manifest == null ? null : manifest.game.gameVersion, check.manifest != null && check.manifest.fromCache,
+                adaptation == null ? null : adaptation.game.gameVersion, check.manifest != null && check.manifest.fromCache,
                 check.lastModsInstallFailed, check.facts == null, update,
-                InstalledGame.playStoreInstalled(pm), check.game != null && check.game.installedFromPlay(pm));
+                InstalledGame.playStoreInstalled(app.getPackageManager()),
+                adaptation != null && PlatformManifest.PLAY.equals(adaptation.source));
     }
 
     private void show(LauncherScreen next) {

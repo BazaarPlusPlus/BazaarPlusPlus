@@ -28,7 +28,7 @@ final class LauncherScreen {
 
     enum Action { PLAY, INSTALL_FROM_PLAY, UPDATE_FROM_PLAY, DOWNLOAD_FROM_PUBLISHER, OPEN_OFFICIAL, RETRY }
 
-    /** {@link #GAME_NOT_ADAPTED} names the installed game, {@link #UPDATE_GAME} the adapted one. */
+    /** {@link #GAME_NOT_ADAPTED} names the installed game, {@link #UPDATE_GAME} its source's adapted one. */
     enum Note {
         FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, DEV_INTEROP,
         GAME_NOT_ADAPTED, UPDATE_GAME
@@ -79,7 +79,7 @@ final class LauncherScreen {
         final LaunchGate.Decision decision;
         /** Installed game versionName, or null when not installed. */
         final String gameVersion;
-        /** The release's adapted game version, or null without a release. */
+        /** The game version of the adaptation the gate selected, or null without one. */
         final String adaptedVersion;
         final boolean fromCache;
         final boolean lastInstallFailed;
@@ -88,12 +88,15 @@ final class LauncherScreen {
         final AppUpdate appUpdate;
         /** Whether the Google Play Store is installed: without it, installs and updates come from the publisher. */
         final boolean playInstalled;
-        /** Whether Google Play installed the game now on the device; an update goes back to the same store. */
-        final boolean installedFromPlay;
+        /**
+         * Whether the installed game is the Google Play source's, by its signer (ADR 0019); an update
+         * goes back to the same source.
+         */
+        final boolean playSource;
 
         Facts(LaunchGate.Decision decision, String gameVersion, String adaptedVersion, boolean fromCache,
                 boolean lastInstallFailed, boolean runtimeMissing, AppUpdate appUpdate,
-                boolean playInstalled, boolean installedFromPlay) {
+                boolean playInstalled, boolean playSource) {
             this.decision = decision;
             this.gameVersion = gameVersion;
             this.adaptedVersion = adaptedVersion;
@@ -102,7 +105,7 @@ final class LauncherScreen {
             this.runtimeMissing = runtimeMissing;
             this.appUpdate = appUpdate;
             this.playInstalled = playInstalled;
-            this.installedFromPlay = installedFromPlay;
+            this.playSource = playSource;
         }
     }
 
@@ -160,7 +163,7 @@ final class LauncherScreen {
                 new Failure(true, message), null, ready.gameVersion, ready.adaptedVersion, false);
     }
 
-    /** What the tier allows (ADR 0012, "三档启动规则"); {@link LaunchGate.Decision#bppLaunch} decides Play. */
+    /** What the tier allows (ADR 0019, "启动门禁"); {@link LaunchGate.Decision#bppLaunch} decides Play. */
     static LauncherScreen ready(Facts facts) {
         LaunchGate.Decision decision = facts.decision;
         List<Note> notes = new ArrayList<>();
@@ -192,7 +195,7 @@ final class LauncherScreen {
                 case OLDER:
                     status = Status.GAME_UPDATE;
                     notes.add(Note.UPDATE_GAME);
-                    primary = facts.playInstalled && facts.installedFromPlay
+                    primary = facts.playInstalled && facts.playSource
                             ? Action.UPDATE_FROM_PLAY : Action.DOWNLOAD_FROM_PUBLISHER;
                     break;
                 case NEWER_WAITING:

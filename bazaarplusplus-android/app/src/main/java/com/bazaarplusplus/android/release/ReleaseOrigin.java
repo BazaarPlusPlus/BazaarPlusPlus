@@ -30,6 +30,12 @@ public final class ReleaseOrigin {
         return base + "/android/interop/" + zipSha256 + ".zip";
     }
 
+    /** The Managed Payload of one Android source's adaptation (release/manifest.ts {@code androidManagedPayloadKey}). */
+    public String managedPayloadUrl(String version, String source) {
+        return base + "/" + version + "/" + PLATFORM_KEY + "/managed/" + source + "/BazaarPlusPlus_" + version + "_"
+                + PLATFORM_KEY + "-" + source + "-managed.zip";
+    }
+
     /** True when {@code url} is a plain URL (no user, query or fragment) strictly below {@code base + prefix}. */
     boolean under(String url, String prefix) {
         URI uri;

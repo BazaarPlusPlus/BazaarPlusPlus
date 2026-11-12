@@ -15,16 +15,19 @@ final class LaunchDirs {
     final File updates;
     /** The Staged version's state file. */
     final File stagedVersion;
+    /** The state file of the game the installed Mods were staged for. */
+    final File stagedGame;
     /** {@code LoaderDeployment}'s state file. */
     final File loaderDeployment;
 
     LaunchDirs(File external, File interopCache, File managedPayloadCache, File updates, File stagedVersion,
-            File loaderDeployment) {
+            File stagedGame, File loaderDeployment) {
         this.external = external;
         this.interopCache = interopCache;
         this.managedPayloadCache = managedPayloadCache;
         this.updates = updates;
         this.stagedVersion = stagedVersion;
+        this.stagedGame = stagedGame;
         this.loaderDeployment = loaderDeployment;
     }
 }

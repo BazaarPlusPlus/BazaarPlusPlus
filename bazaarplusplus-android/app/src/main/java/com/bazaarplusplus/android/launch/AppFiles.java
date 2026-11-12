@@ -52,6 +52,11 @@ final class AppFiles {
         return new File(context.getFilesDir(), "managed-staged.txt");
     }
 
+    /** The Game Code Hash of the adaptation whose Managed Payload this App staged last. */
+    static File stagedGame(Context context) {
+        return new File(context.getFilesDir(), "managed-staged-game.txt");
+    }
+
     static File loaderDeployment(Context context) {
         return new File(context.getNoBackupFilesDir(), "loader-deployment.json");
     }
@@ -60,6 +65,6 @@ final class AppFiles {
     static LaunchDirs launchDirs(Context context) {
         File external = GameStorage.root(context);
         return new LaunchDirs(external, interopCache(context), managedPayloadCache(context), updates(external),
-                stagedVersion(context), loaderDeployment(context));
+                stagedVersion(context), stagedGame(context), loaderDeployment(context));
     }
 }

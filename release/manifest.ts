@@ -495,8 +495,9 @@ export function managedPayloadKey(
   return `${version}/${platform}/managed/BazaarPlusPlus_${version}_${platform}-managed.zip`;
 }
 
-// The Managed Payload zip of one Game Adaptation of an Android release. It
-// stays under the version's managed/ prefix, which the Android App checks.
+// The Managed Payload zip of one Game Adaptation of an Android release. The
+// Android App requires this exact key; App 6.2.5 checks only the version's
+// managed/ prefix, which the key stays under.
 export function androidManagedPayloadKey(
   version: ProductVersion,
   source: AndroidSource

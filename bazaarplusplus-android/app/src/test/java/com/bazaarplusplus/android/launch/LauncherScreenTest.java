@@ -15,28 +15,30 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 public class LauncherScreenTest {
-    static LaunchGate.Decision decision(LaunchGate.Installed installed, LaunchGate.Adapted adapted) {
-        return decision(installed, adapted, false);
+    static LaunchGate.Decision decision(LaunchGate.Installed installed, List<LaunchGate.Adapted> adaptations) {
+        return decision(installed, adaptations, false);
     }
 
-    static LaunchGate.Decision decision(LaunchGate.Installed installed, LaunchGate.Adapted adapted,
+    static LaunchGate.Decision decision(LaunchGate.Installed installed, List<LaunchGate.Adapted> adaptations,
             boolean developmentInterop) {
-        return LaunchGate.decide(new LaunchGate.Inputs(installed, adapted, developmentInterop));
+        return LaunchGate.decide(new LaunchGate.Inputs(installed, adaptations, developmentInterop));
     }
 
+    /** A game the publisher signed: the adapted one, or other code. */
     static LaunchGate.Installed installed(long versionCode, boolean adapted) {
-        return new LaunchGate.Installed(versionCode, adapted ? LaunchGateTest.ADAPTED : LaunchGateTest.OTHER, false);
+        return LaunchGateTest.installed(versionCode, adapted ? LaunchGateTest.ADAPTED : LaunchGateTest.OTHER);
     }
 
     static LauncherScreen.Facts facts(LaunchGate.Decision decision) {
         return facts(decision, true, true);
     }
 
-    static LauncherScreen.Facts facts(LaunchGate.Decision decision, boolean playInstalled, boolean installedFromPlay) {
+    static LauncherScreen.Facts facts(LaunchGate.Decision decision, boolean playInstalled, boolean playSource) {
         return new LauncherScreen.Facts(decision, "1.0.12825", "1.0.12825", false, false, false, null,
-                playInstalled, installedFromPlay);
+                playInstalled, playSource);
     }
 
     /** No primary action. */
@@ -63,8 +65,8 @@ public class LauncherScreenTest {
 
     /**
      * The primary action as {@link LauncherScreen#ready} decides it, with Google Play installed and
-     * the game installed from it. The facts are independent of the tier, so the table holds cells
-     * that {@code LaunchCheck.run} never builds: it gives a game that is not installed the tier
+     * a game of the Google Play source. The facts are independent of the tier, so the table holds
+     * cells that {@code LaunchCheck.run} never builds: it gives a game that is not installed the tier
      * NOT_INSTALLED and no Development interop.
      */
     static final Row[] PRIMARY = {
@@ -93,8 +95,8 @@ public class LauncherScreenTest {
         switch (tier) {
             case NOT_INSTALLED: decision = decision(null, LaunchGateTest.RELEASE, devInterop); break;
             case ANDROID_RELEASE_APK:
-                decision = decision(new LaunchGate.Installed(12825, LaunchGateTest.ADAPTED, true), LaunchGateTest.RELEASE,
-                        devInterop);
+                decision = decision(new LaunchGate.Installed(12825, LaunchGateTest.ADAPTED,
+                        Set.of(LaunchGateTest.PUBLISHER_SIGNER), true), LaunchGateTest.RELEASE, devInterop);
                 break;
             case OFFLINE_NO_CACHE: decision = decision(installed(12825, true), null, devInterop); break;
             case NORMAL: decision = decision(installed(12825, true), LaunchGateTest.RELEASE, devInterop); break;
@@ -233,22 +235,23 @@ public class LauncherScreenTest {
         assertEquals(Action.DOWNLOAD_FROM_PUBLISHER, withoutPlay.primary);
         assertNull("the publisher is already the primary", withoutPlay.source);
 
-        LaunchGate.Decision replace = decision(new LaunchGate.Installed(12825, LaunchGateTest.ADAPTED, true),
-                LaunchGateTest.RELEASE);
+        LaunchGate.Decision replace = decision(new LaunchGate.Installed(12825, LaunchGateTest.ADAPTED,
+                Set.of(LaunchGateTest.PUBLISHER_SIGNER), true), LaunchGateTest.RELEASE);
         assertEquals(Action.INSTALL_FROM_PLAY, LauncherScreen.ready(facts(replace, true, false)).primary);
         assertEquals(Action.DOWNLOAD_FROM_PUBLISHER, LauncherScreen.ready(facts(replace, false, false)).primary);
     }
 
     @Test
-    public void anUpdateGoesBackToTheStoreThatInstalledTheGame() {
-        LaunchGate.Decision older = decision(installed(12000, false), LaunchGateTest.RELEASE);
+    public void anUpdateGoesBackToTheGamesSource() {
+        LaunchGate.Decision older = decision(LaunchGateTest.installed(13000, LaunchGateTest.OTHER,
+                Set.of(LaunchGateTest.PLAY_SIGNER)), LaunchGateTest.RELEASE);
         LauncherScreen fromPlay = LauncherScreen.ready(facts(older, true, true));
         assertEquals(Status.GAME_UPDATE, fromPlay.status);
         assertEquals(Action.UPDATE_FROM_PLAY, fromPlay.primary);
         assertEquals(Action.OPEN_OFFICIAL, fromPlay.source);
         assertEquals(List.of(Note.UPDATE_GAME), fromPlay.notes);
 
-        assertEquals("a sideloaded game updates from the publisher", Action.DOWNLOAD_FROM_PUBLISHER,
+        assertEquals("a publisher game updates from the publisher", Action.DOWNLOAD_FROM_PUBLISHER,
                 LauncherScreen.ready(facts(older, true, false)).primary);
         assertEquals(Action.DOWNLOAD_FROM_PUBLISHER, LauncherScreen.ready(facts(older, false, true)).primary);
     }

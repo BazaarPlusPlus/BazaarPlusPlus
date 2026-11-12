@@ -2,6 +2,8 @@ package com.bazaarplusplus.android.release;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.bazaarplusplus.android.TestZips;
@@ -17,6 +19,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -70,5 +73,32 @@ public class SharedReleaseFixturesTest {
         File updates = new File(tmp.getRoot(), "Updates");
         File staged = ManagedPayloadStaging.stage(TestZips.write(tmp.newFile("p.zip"), entries), updates, "6.1.0");
         assertArrayEquals(golden.getBytes(StandardCharsets.UTF_8), bytes(new File(staged, ManagedPayloadStaging.MANIFEST)));
+    }
+
+    /**
+     * On a game switch the App reads the golden's {@code file} lines as well: it deletes each path
+     * in Mods/ or UserLibs/, and refuses the desktop paths the golden names.
+     */
+    @Test
+    public void theManagedPayloadManifestGoldenNamesTheFilesTheAppRemoves() throws Exception {
+        String golden = new String(bytes(new File(RELEASE, "fixtures/managed-payload/manifest.txt")),
+                StandardCharsets.UTF_8);
+        File desktop = installed(golden);
+        IOException refused = assertThrows(IOException.class, () -> ManagedPayloadStaging.removeInstalled(desktop));
+        assertTrue(refused.getMessage(), refused.getMessage().contains(" BepInEx/plugins/"));
+        assertTrue(new File(desktop, ManagedPayloadStaging.INSTALLED_MANIFEST).isFile());
+
+        File android = installed(golden.replace(" BepInEx/plugins/", " MelonLoader/Mods/"));
+        assertEquals(List.of("MelonLoader/Mods/BazaarPlusPlus.Core.dll", "MelonLoader/Mods/BazaarPlusPlus.dll"),
+                ManagedPayloadStaging.removeInstalled(android));
+        assertFalse(new File(android, ManagedPayloadStaging.INSTALLED_MANIFEST).exists());
+    }
+
+    File installed(String manifest) throws IOException {
+        File external = tmp.newFolder();
+        File file = new File(external, ManagedPayloadStaging.INSTALLED_MANIFEST);
+        assertTrue(file.getParentFile().mkdirs());
+        Files.write(file.toPath(), manifest.getBytes(StandardCharsets.UTF_8));
+        return external;
     }
 }

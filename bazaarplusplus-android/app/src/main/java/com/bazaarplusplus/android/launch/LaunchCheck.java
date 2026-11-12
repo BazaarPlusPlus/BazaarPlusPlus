@@ -15,6 +15,7 @@ import com.bazaarplusplus.android.payload.ManagedPayloadStaging;
 import com.bazaarplusplus.android.release.CarriedRelease;
 import com.bazaarplusplus.android.release.Download;
 import com.bazaarplusplus.android.release.InteropStatement;
+import com.bazaarplusplus.android.release.PlatformManifest;
 import com.bazaarplusplus.android.release.ReleaseCache;
 import com.bazaarplusplus.android.release.ReleaseOrigin;
 
@@ -93,12 +94,18 @@ final class LaunchCheck {
         ReleaseCache.ManifestState manifest = cache.manifest();
         AppLog.i(BppApplication.TAG, "manifest " + origin.manifestUrl() + ": " + manifest);
 
-        LaunchGate.Adapted adapted = manifest.manifest == null ? null
-                : new LaunchGate.Adapted(manifest.manifest.game.versionCode, manifest.manifest.game.hash);
+        List<LaunchGate.Adapted> adaptations = null;
+        if (manifest.manifest != null) {
+            adaptations = new ArrayList<>();
+            for (PlatformManifest.Adaptation adaptation : manifest.manifest.adaptations.values()) {
+                adaptations.add(new LaunchGate.Adapted(adaptation.source, adaptation.signerSha256,
+                        adaptation.game.versionCode, adaptation.game.hash));
+            }
+        }
         File devInterop = DevOverrides.interop(context);
         LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(
-                new LaunchGate.Installed(game.versionCode, hash, game.carriesInjectedLoader()), adapted,
-                devInterop != null));
+                new LaunchGate.Installed(game.versionCode, hash, game.signers, game.carriesInjectedLoader()),
+                adaptations, devInterop != null));
         AppLog.i(BppApplication.TAG, "launch gate: " + decision
                 + (decision.developmentInterop ? ", Development interop" : "")
                 + (decision.bppLaunch() ? ", BPP launch allowed" : ", no BPP launch")
@@ -133,8 +140,14 @@ final class LaunchCheck {
      */
     LaunchInputs inputs() {
         return new LaunchInputs(decision, facts != null, hash, game == null ? null : game.versionName,
-                game == null ? 0 : game.versionCode, manifest == null ? null : manifest.manifest, installedModsVersion,
-                trusted, devInterop);
+                game == null ? 0 : game.versionCode, manifest == null ? null : manifest.manifest, adaptation(),
+                installedModsVersion, trusted, devInterop);
+    }
+
+    /** The manifest's adaptation the gate selected, or null. */
+    PlatformManifest.Adaptation adaptation() {
+        if (decision.adaptation == null || manifest == null || manifest.manifest == null) return null;
+        return manifest.manifest.adaptations.get(decision.adaptation.source);
     }
 
     /** One line per fact, for the diagnostics export. */
@@ -146,13 +159,17 @@ final class LaunchCheck {
                 : game.versionName + " (" + game.versionCode + ") lastUpdateTime=" + game.lastUpdateTime
                         + " apks=" + game.apks.size()).append('\n');
         out.append("gameCodeHash: ").append(hash).append('\n');
+        out.append("gameSigners: ").append(game == null ? null : game.signers).append('\n');
         out.append("runtime: ").append(facts == null ? "none" : facts.loaderTag + " nonManagedPayloadDigest="
                 + facts.nonManagedPayloadDigest).append('\n');
         out.append("origin: ").append(origin.base).append('\n');
         out.append("manifest: ").append(manifest).append('\n');
         if (manifest != null && manifest.manifest != null) {
-            out.append("manifest game: ").append(manifest.manifest.game.gameVersion).append(" (")
-                    .append(manifest.manifest.game.versionCode).append(") ").append(manifest.manifest.game.hash).append('\n');
+            for (PlatformManifest.Adaptation adaptation : manifest.manifest.adaptations.values()) {
+                out.append("adaptation ").append(adaptation.source).append(": ").append(adaptation.game.gameVersion)
+                        .append(" (").append(adaptation.game.versionCode).append(") ").append(adaptation.game.hash)
+                        .append(" signer ").append(adaptation.signerSha256).append('\n');
+            }
         }
         out.append("installedPlugin: ").append(installedModsVersion).append('\n');
         out.append("lastPluginInstallFailed: ").append(lastModsInstallFailed).append('\n');
