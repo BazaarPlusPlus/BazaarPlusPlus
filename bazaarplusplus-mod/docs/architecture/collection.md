@@ -42,6 +42,7 @@ Android's disk catalog identity uses the projection version owned by `AndroidCol
 
 Traps and rules that bite only this feature; most failed silently at least once.
 
+- UI Toolkit draws a `Sprite` background through the sprite's tight mesh, and drew several merchant and trainer portraits that way as displaced fragments, though each mesh matches its UVs. Each encounter portrait is an unpacked sprite that fills its own texture, so a source cell draws the texture instead (`SourcePortraitBackground`). [`src/BazaarPlusPlus/Game/CollectionPanel/Ui/CollectionPanelView.Filters.cs`]
 - While a desktop source fold is open, the Collection reports modal input to the Overlay Panel Host so that Escape closes the fold first; the host then drops panel hotkeys and the Walkthrough Control's `open` until the fold closes (`just mod::ui-shots` times out). [`src/BazaarPlusPlus/Game/CollectionPanel/CollectionPanel.cs`]
 
 - UI Toolkit `Button` inherits `TextElement`, so `Q<TextElement>()` returns the button itself when no separate label exists — hiding that "label" hides the whole control (guard with `!ReferenceEquals`), and a refresh writing `Button.text` resurrects the native label beside a custom one. [`src/BazaarPlusPlus/Game/CollectionPanel/Ui/CollectionPanelView.Filters.cs`]

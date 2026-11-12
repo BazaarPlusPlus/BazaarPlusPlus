@@ -1271,10 +1271,27 @@ internal sealed partial class CollectionPanelView
         }
 
         if (portrait != null)
-            portrait.style.backgroundImage = new StyleBackground(sprite);
+            portrait.style.backgroundImage = SourcePortraitBackground(sprite);
         if (initials != null)
             initials.style.display = DisplayStyle.None;
         portrait?.MarkDirtyRepaint();
+    }
+
+    // UI Toolkit draws a sprite background as the sprite's tight mesh, and drew several
+    // merchant and trainer portraits as displaced fragments that way, though each mesh matches
+    // its UVs. Each portrait is an unpacked sprite that fills its own texture, so the texture
+    // draws the same image as one quad; any other sprite keeps the sprite path.
+    private static StyleBackground SourcePortraitBackground(Sprite sprite)
+    {
+        var texture = sprite.texture;
+        var fillsTexture =
+            !sprite.packed
+            && texture != null
+            && sprite.rect.x == 0f
+            && sprite.rect.y == 0f
+            && Mathf.Approximately(sprite.rect.width, texture.width)
+            && Mathf.Approximately(sprite.rect.height, texture.height);
+        return fillsTexture ? new StyleBackground(texture) : new StyleBackground(sprite);
     }
 
     private static string GetInitials(string displayName)
