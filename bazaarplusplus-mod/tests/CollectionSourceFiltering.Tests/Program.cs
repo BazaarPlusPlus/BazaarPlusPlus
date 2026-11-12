@@ -1043,7 +1043,7 @@ AssertValues(
 );
 
 // The desktop folds the generalist, tier, size and other-hero merchants, so every hero's merchant
-// row fits three lines of eight cells and the filter column does not scroll.
+// row fits three lines of eight cells (measured with no column scroll at 3456x2168).
 foreach (
     var hero in CollectionHeroSelectionRoster
         .BaseConcreteHeroes.Append(catalogDragonsHero)

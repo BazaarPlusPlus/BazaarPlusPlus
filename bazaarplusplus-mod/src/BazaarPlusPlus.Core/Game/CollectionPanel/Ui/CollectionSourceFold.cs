@@ -3,10 +3,10 @@ using BazaarPlusPlus.Game.CollectionPanel.Sources;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-// Folds the merchants of one catalog group whose members differ in a single setting: the
-// generalists, and the tier, size and other-hero merchants. Merchants that sell from any hero and
-// tag or type merchants each sell their own theme and stay alone; trainers never fold. Groups take
-// the roster position of their first member, and members keep roster order.
+// Folds each of four merchant catalog groups into one cell: generalist, tier-specialist,
+// size-specialist and other-hero. Merchants that sell from any hero and tag or type merchants each
+// sell their own theme and stay alone; trainers never fold. Groups take the roster position of
+// their first member, and members keep roster order.
 public static class CollectionSourceFold
 {
     private static readonly HashSet<string> FoldedMerchantGroups = new(StringComparer.Ordinal)
