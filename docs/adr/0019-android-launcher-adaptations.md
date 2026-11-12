@@ -26,45 +26,41 @@
 | 层 | 是什么 | 怎么标识 | 什么时候变 |
 |---|---|---|---|
 | 游戏 | 用户已装的官方游戏 | 签名证书（来源）、游戏代码哈希、`versionCode` | 发行商或 Play 发布新版 |
-| 适配包 | 一个游戏的 Interop Package，加上对这个 interop 编译的 Managed Payload | `<mod 版本>+<游戏 versionCode>`，例如 `6.3.0+13168`、`6.2.6+13113` | 这个游戏的 mod 有新构建时 |
+| 适配包 | 一个游戏的 Interop Package，加上对这个 interop 编译的 Managed Payload | `<产品版本>+<游戏 versionCode>`，例如 `6.3.0+13168`、`6.3.0+13113` | 每次产品发布 |
 | Android App | 启动器：门禁、下载、暂存，以及 LemonLoader 运行时和 Updater | 产品版本 | 每次产品发布照常构建；只在运行时变化时提醒用户更新 |
 
 - 每个适配包是一个 Game Adaptation 的发布形式。
-- 不同游戏的适配包，mod 版本可以不同。新游戏跟着 master 走；旧游戏的适配包可以停在构建它的那个 mod 版本上。
+- 同一次发布的适配包都来自同一个 mod 提交，所以产品版本相同，历史数据库的 schema 也相同。
 
-### 维护列表：快照锁每个游戏一个条目
+### 维护列表：快照锁每个来源一个条目
 
-- `android-online` 换成每个游戏一个键：`android-<versionCode>`。**这组键就是维护列表。** 当前是 `android-13113`（发行商）与 `android-13168`（Play）。
-- 条目记录的内容：
-  - 来源：`publisher` 或 `play`。
-  - 游戏签名证书的 sha256。
-  - 每个 APK 的 sha256。发行商只有一个 APK；Play 是 base 加 split，split 按 sha256 排序。
-  - 现有字段：游戏代码哈希、Unity 版本、interop 摘要、工具链。
-- 加入一个游戏或删除一个游戏，都由用户决定。
-  - watch 采集到发行商的新版本时，开 PR **加**一个新键，不替换旧键。
-  - Play 的新版本由人手动采集，同样是加键。
-  - 停止维护一个游戏，就删除它的键。
+- `android-online` 换成两个固定的键：`android-publisher`（发行商 APK）与 `android-play`（Google Play）。**这两个键就是维护列表。** 当前是发行商 13113 与 Play 13168。
+- 每个键记录这个来源最新的游戏。来源出了新版本后，就替换这个键。
+  - 这个来源的旧版本会进"请先更新游戏"档。发行商链接和 Play 都提供这个来源的最新版本，所以用户可以自己更新。
+  - 不按游戏开键（例如 `android-<versionCode>`）。原因：锁的校验、写入、告警、快照目录和 `InteropPath.props` 都假设键是固定的，开动态的键要改写整个锁模块。现在没有需要维护的旧 build。
+- 来源占锁键里渠道的位置，但它不是游戏服务器的渠道：两个来源都连正式服，mod 都判为 Online。
+- 条目新增的内容：
+  - `splitApkSha256s`：Play 的 split APK 的 sha256，按 sha256 排序；发行商来源为空数组。`apkSha256` 是 base APK（发行商就是唯一的那个 APK）。
+  - `signerSha256`：游戏签名证书的 sha256。App 用它判断已装游戏的来源。
 - 版本串的规则按来源区分：
   - 发行商沿用 `GAME_VERSION_PATTERN`。
   - Play 的 `versionName` 就是游戏的 `Application.version`，形式是 `x.y.z`（实测为 `1.0.6`），不含 build 号。
-  - 本地快照目录与私有桶里快照清单的键都改用锁键，不再用版本串，也不再从版本串解析平台和渠道。
-- 所有 Android 条目钉同一个 Loader Release 和同一组 `nativeLibs`，因为 App 只带一份运行时。采集时如果不一致，就报错。
-- 发行商来源仍由 `android-apk-watch.yml` 自动采集。它和发行商来源里 `versionCode` 最大的条目比较。
+  - Android 的本地快照目录与私有桶里快照清单的键，都改用锁键加 `versionCode`（例如 `android-play-13168`），不再从版本串解析渠道。
+- 两个条目必须钉同一个 Loader Release 和同一组 `nativeLibs`，因为 App 只带一份运行时。采集时如果不一致，就报错。
+- 发行商来源仍由 `android-apk-watch.yml` 自动采集，规则不变，只是目标键改为 `android-publisher`。
 - Play 来源手动采集：
-  1. 在装了 Play 版的设备上，用 `adb pull` 取下 base 和全部 split。
-  2. 生成 interop：在 Linux x64 上直接生成；在 macOS 上要传 `--interop`，因为 Patcher 只支持 Linux x64。
-  3. 运行 `just mod::snapshot-android --source play <apk>...`，然后运行 `publish`，再开 PR。
+  1. 在装了 Play 版的设备上，用 `adb pull` 取下 base 和全部 split，再上传到私有桶。
+  2. 在 Linux x64 上生成 interop：手动触发 `android-apk-watch.yml`，传入这些 APK 的 sha256。本机 Docker 的 qemu 模拟跑不了 Cpp2IL。
+  3. 工作流采集 `android-play`、运行 `publish`、编译检查 Android Mod，然后开 PR。
 - 读 APK 的规则：
   - `libil2cpp.so`、`global-metadata.dat` 与 `data.unity3d` 都只能出现在一个 APK 里。
   - `AndroidManifest.xml` 只读 base，因为每个 split 也带自己的 manifest。
 
 ### 适配包的构建
 
-- 产品发布时，对 master 能编译的每个维护中的游戏，各构建一个适配包：对它的 interop 编译 `BazaarPlusPlus.Android`，打 Managed Payload，签 interop 声明。
-- master 对某个游戏编译失败时，这个游戏不在本次发布里构建：
-  - 平台清单沿用它上一次发布的适配包。
-  - 需要修复时，从构建它的那个版本切维护分支，在分支上构建新的适配包。
-- interop 声明的格式不变，用途改为 `release <这个适配包的 mod 版本>`。
+- 每次产品发布都从 master 为两个来源各构建一个适配包：对它的 interop 编译 `BazaarPlusPlus.Android`，打 Managed Payload，签 interop 声明。两个来源的游戏代码哈希相同时，只构建一个。
+- master 对某个来源编译失败时，发布停止：修改 mod，或者删除这个来源的键。本记录不做"沿用旧适配包"和维护分支；需要时另作决定。
+- interop 声明的格式与用途都不变：用途仍是 `release <产品版本>`。
 - Managed Payload Manifest 加上 `game`，也就是它对之编译的游戏代码哈希。
 - 每个适配包都要做模拟器验收，验收项见"实施顺序"第 0 步。
 
@@ -83,18 +79,14 @@
 downloads["android-aarch64"] = {
   app, loader, selfUpdatable, nonManagedPayloadDigest,
   game, interop, managedPayload, historyDatabaseUserVersion,   // 一个发行商适配包，给已安装的 App 与 mod 读
-  adaptations: [
-    { source, signerSha256, version,              // version 是 "<mod 版本>+<游戏 versionCode>"
-      game: { gameVersion, versionCode, il2cppSha256, metadataSha256 },
-      interop: { url, size, sha256, snapshotSha256, signature },
-      managedPayload: { url, size, sha256, signature },
-      historyDatabaseUserVersion }
-  ]
+  adaptations: {
+    publisher: { signerSha256, game: {...}, interop: {...}, managedPayload: {...} },
+    play:      { signerSha256, game: {...}, interop: {...}, managedPayload: {...} }
+  }
 }
 ```
 
-- `adaptations` 按 `versionCode` 从大到小排列，每个维护中的游戏一项。游戏代码哈希不能重复。
-- 推广时，没有在本次构建的游戏，从上一份平台清单里沿用它的适配包。
+- `adaptations` 按来源分键，每个维护中的来源一项。两个来源的游戏代码哈希相同时，两项指向同一个 interop zip 和同一个 Managed Payload。
 - 所有适配包的 Managed Payload 都必须和 App 的 `nonManagedPayloadDigest` 一致，因为 App 只带一份运行时。所以运行时变化时（Loader Release、Updater、`nativeLibs`），所有维护中的适配包都要重新构建。
 - **保留顶层的 `game`、`interop`、`managedPayload`、`historyDatabaseUserVersion`，填入一个发行商适配包。**
   - 原因：已安装的 App（6.2.5 起，`PlatformManifest` 要求这些字段）、已安装的 mod（`ReleaseManifestClient`）和下载页都只认这个形状。
@@ -121,7 +113,7 @@ downloads["android-aarch64"] = {
 | 未安装、A 方案副本、离线且无缓存 | 不变 | 不变 |
 
 - `versionCode` 相同而哈希不同，仍按"较新"处理，与 ADR 0012 相同。
-- 维护多个游戏之后，"请先更新游戏"只出现在比所有维护版本都旧的游戏上。
+- 每个来源维护它最新的游戏，所以"请先更新游戏"只出现在这个来源的旧版本上，而这个来源的更新链接能给出新版本。
 - 启动记录的格式不变：它已经记录这次启动用的 `game` 与 `interop`。
 - mod 主菜单用启动记录里的游戏哈希，与清单的 `adaptations` 比较。
 
@@ -171,7 +163,8 @@ downloads["android-aarch64"] = {
 
 - **一个产品版本只适配一个游戏（现状）。** 不管选哪个来源、哪个版本，装着其他游戏的用户都只能原版启动。
 - **一份 Managed Payload 配所有 interop。** 同一份源码不一定能对每个 interop 编译（12825 就不能）。即使能编译，签名、重载或 enum 值变了，发布的 DLL 在别的 interop 上也可能运行出错。
-- **每个来源只维护一个游戏（锁键 `android-publisher` / `android-play`）。** 发行商一更新，旧版本的用户就又落进"请先更新游戏"。这正是要解决的问题。
+- **每个游戏一个锁键（`android-<versionCode>`），维护任意多个 build。** 锁的校验、写入、告警、快照目录和 `InteropPath.props` 都假设键是固定的，要改写整个锁模块。现在每个来源只需要最新的 build：旧 build 的用户可以从同一来源更新。
+- **旧游戏沿用旧适配包、开维护分支。** 现在 master 对两个来源都能编译，用不上。
 - **跨来源比较 `versionCode`。** 两个来源的 build 不同步，用户会卡在"请更新游戏"，而更新链接给不出更新的版本。
 - **按安装器包名判断来源。** 用 adb 装的 Play split 会被判为发行商。
 - **App 只在输入变化时才发布。** 这与清单、下载页和推广的 4 处校验冲突（`release/manifest.ts`、`PlatformManifest`、`release/downloads.ts`、`release/publish.ts`），携带的适配包也会过期。按运行时摘要提醒，就能得到同样的效果。
@@ -180,9 +173,8 @@ downloads["android-aarch64"] = {
 ## 代价
 
 - 每个维护中的游戏，都要多一次编译、一次模拟器验收；每次发布要签多份 interop 声明。
-- 运行时变化时，所有维护中的适配包都要重新构建；master 编译不了的游戏，要在维护分支上构建。
-- 旧游戏的适配包可能停在旧的 mod 版本，用不到新功能。
-- 用户从新游戏换回旧游戏（要先卸载、换来源）后，旧适配包的 mod 可能读不了新 schema 的历史数据库，这时不带 Mods 运行。
+- 一个来源的旧版本用不了 BPP，用户要先把游戏更新到这个来源的最新版本。
+- master 对某个来源编译不过时，发布停止，直到修好 mod 或删除这个来源。
 - App 每多携带一个适配包，APK 约大 20 MB。
 - Play 每次更新，都要有人从设备上取 APK 并采集。
 - 平台清单要长期保留顶层的旧字段，直到另作决定删除。
@@ -198,8 +190,9 @@ downloads["android-aarch64"] = {
   - Play 的未验证项按上面的实测结果更新。
 - [ADR 0016](0016-one-game-compatibility-rule.md)：Android 的"游戏较旧"按同一来源判断；游戏状态只覆盖发行商来源。
 - [ADR 0008](0008-interop-snapshots-in-snapshot-lock.md)：
-  - 锁键改为每个游戏一个（`android-<versionCode>`）。
-  - 条目记录来源、签名证书和多个 APK。
+  - 锁键 `android-online` 换成 `android-publisher` 与 `android-play`。
+  - 条目记录签名证书和 split APK。
+  - Android 快照目录和快照清单的键改用锁键加 `versionCode`。
 - mod [ADR-0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)：Updater 按游戏换入。
 - `docs/release.md` 的"Android 发布顺序"，`docs/development.md` 里 setup-device 一段。
 - `GLOSSARY.md`：
@@ -215,13 +208,12 @@ downloads["android-aarch64"] = {
    3. 在模拟器上用 Development interop 运行它，确认这些都正常：主菜单、hook 统计、一场战斗的采集、回放播放、收藏面板。
    4. 在 Play 版上检查 `Config.ServerOption`。
    5. 把结果写进本记录。
-1. **下载页先能解析两种清单形状**，并单独部署。
-2. **快照锁改为每个游戏一个键，支持 Play 的 split 采集。** 下列锁的读者在同一个 PR 里修改：
+1. **快照锁改为每个来源一个键，支持 Play 的 split 采集。** 下列锁的读者在同一个 PR 里修改：
    - `InteropPath.props`（包括 Updater 的 csproj）、`mod.just` 的参数模式、`game.sh`、`scripts/mod-validation.ts`；
    - `checks.yml`、`android-apk-watch.yml`、`setup-device`；
    - `release/` 下的 `official-apk.ts`、`android-adaptation.ts`、`game-status.ts`。
 
    这一步完成后，发布仍然只构建一个发行商适配包。
-3. **平台清单加 `adaptations`，Updater 按游戏换入。** 一个契约 PR，包含：App 的门禁、适配包选择、暂存与携带版本，mod 与 Updater，release 的构建、沿用与校验。
-4. **App 更新提醒改为比较运行时摘要。**
-5. **发布。** 合并最低 API 32 的改动，提升 `VERSION`，构建 13113 与 13168 两个适配包，发布 Android，再推广。
+2. **平台清单加 `adaptations`，Updater 按游戏换入。** 一个契约 PR，包含：App 的门禁、适配包选择、暂存与携带版本，mod 与 Updater，release 的构建与校验，以及下载页。这个 PR 在推广新清单之前合并，所以下载页先上线。
+3. **App 更新提醒改为比较运行时摘要。**
+4. **发布。** 合并最低 API 32 的改动，提升 `VERSION`，构建 13113 与 13168 两个适配包，发布 Android，再推广。
