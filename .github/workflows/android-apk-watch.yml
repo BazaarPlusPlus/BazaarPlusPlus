@@ -102,14 +102,13 @@ jobs:
           sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
           bun release/game-libs.ts fetch-apks --sha256s "$PLAY_APKS" > "$RUNNER_TEMP/play-apks.txt"
           echo "Google Play APKs: $PLAY_APKS" >> "$GITHUB_STEP_SUMMARY"
-      # Only a capture builds: a run that restores no package has no NuGet
-      # folder, and setup-dotnet's cache step then fails the job after it ends.
+      # No NuGet cache: a Play capture of the locked APKs ends unchanged before
+      # any restore, and setup-dotnet's cache step then fails the job on the
+      # missing folder after it ends.
       - if: steps.download.outputs.kind == 'capture' || steps.play.outcome == 'success'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
-          cache: true
-          cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
       - if: steps.download.outputs.kind == 'capture' || steps.play.outcome == 'success'
         uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
