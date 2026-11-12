@@ -1,6 +1,6 @@
 # Android App 只做启动器，每个维护的游戏各有一个适配包
 
-状态：提议（2026-11-12）。接受之前，先完成"实施顺序"的第 0 步。
+状态：已接受（2026-11-12）。"实施顺序"的第 0 步已经通过，结果见"第 0 步的验证结果"。
 
 ## 背景
 
@@ -152,7 +152,20 @@ downloads["android-aarch64"] = {
 - 游戏内容从 `data.playthebazaar.com/releases/mobile-v<版本>/android/<build>/` 的 Addressables 下载，不用 Play Asset Delivery。所以第一次用 BPP 启动 Play 版时，游戏要在 App 的沙盒里再下载一遍内容。
 - 现在的 App 能加载 split 安装：实测到 LemonLoader 与 Mods 加载完成。之后的崩溃来自旧的 interop。
 - `versionCode` 是 build 号，两个来源用同一套编号。
-- 没有验证：Play 版是否也没有 `Config.ServerOption`。它决定 mod 是否把 Play 版判为 Online（`GameBuildInfoResolver`）。
+- Play 版和发行商版的 interop 都没有 `Config.ServerOption`，所以 mod 把两者都判为 Online（`GameBuildInfoResolver`）。
+- Play 版启动时，`PlayGamesSdk.initialize` 抛出 `ClassCastException`：`GameContext` 不能转成 `android.app.Application`。游戏照常进入主菜单。所以在 App 里，Play 游戏服务不可用。
+
+### 第 0 步的验证结果（2026-11-12）
+
+- **生成 interop：** 在 Linux x64 上生成 Play 13168 的 interop，177 个文件，摘要 `3548ef0b…`。这一步在 GitHub 托管的 runner 上完成。本机 Docker 用 qemu 模拟 amd64，Cpp2IL 在里面崩溃（`AccessViolationException`），所以本机不能生成。
+- **编译：** master 的 `BazaarPlusPlus.Android` 能对 13168 的 interop 编译。对 13113 编译出的 DLL 和它大小相同，但字节不同，所以每个游戏要有自己的 Managed Payload。
+- **AVD `bpp_emu_20_9`（Play 13168，Development interop）：**
+  - 冒烟测试三级都通过：注入、hook 命中、版本标签。
+  - History 面板能显示样例对局。
+  - 回放能完整播放：从 0:00.00 播到 0:07.25，显示"Victory!"。另一局回放里缺一个特效资源（Addressables 找不到 `VFX_Bite_Tier3.prefab`），回放没有中断。
+  - Collection 面板能显示 141 个物品。
+- **对照组（AVD `bpp_emu_3_2`，发行商 13113）：** 回放同样能播放到战斗结束。
+- **没有验证：** 在 13168 上实际打一场对局，确认战斗被采集。
 
 ## 否决的方案
 
