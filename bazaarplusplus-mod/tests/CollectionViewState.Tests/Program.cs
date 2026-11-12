@@ -904,7 +904,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     AssertTrue(fired!.ResetScroll, "Search refresh must reset list scroll.");
 }
 
-// --- Source fold: the sources whose click shows the same cards share one cell ---
+// --- Source fold: the merchants of a folding catalog group share one cell ---
 {
     var a = Option("merchant:a");
     var b = Option("merchant:b");
@@ -912,43 +912,54 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     var d = Option("merchant:d");
     var e = Option("merchant:e");
     var f = Option("merchant:f");
-    var pool = new[] { Guid.NewGuid(), Guid.NewGuid() };
-    var keys = new Dictionary<string, CollectionSourceFoldKey>
+    var keys = new Dictionary<string, string>
     {
-        [a.SourceKey] = new(pool, suppressDayGate: false, skipsHeroFilter: false),
-        [b.SourceKey] = new(new[] { Guid.NewGuid() }, false, false),
-        // The same set in another order, two places further down the roster.
-        [c.SourceKey] = new(new[] { pool[1], pool[0] }, false, false),
-        // The same pool, but a fixed-tier source skips the Day gate: another list when clicked.
-        [d.SourceKey] = new(pool, suppressDayGate: true, skipsHeroFilter: false),
-        // A trainer with an all-heroes segment skips the hero filter on Skills.
-        [f.SourceKey] = new(pool, suppressDayGate: false, skipsHeroFilter: true),
+        [a.SourceKey] = "size-specialist",
+        // The same group two places further down the roster.
+        [c.SourceKey] = "size-specialist",
+        [d.SourceKey] = "tier-specialist",
+        [f.SourceKey] = "tier-specialist",
     };
     var groups = CollectionSourceFold.Group(new[] { a, b, c, d, e, f }, keys);
     AssertEqual(
-        "a,c|b|d|e|f",
+        "a,c|b|d,f|e",
         string.Join(
             "|",
             groups.Select(group =>
                 string.Join(",", group.Members.Select(m => m.SourceKey.Substring(9)))
             )
         ),
-        "Equal pools with equal query flags fold in roster order at the first member's place; a source without a pool stays alone."
+        "One group folds in roster order at the first member's place; a source without a key stays alone."
     );
     AssertTrue(groups[0].IsFolded && !groups[1].IsFolded, "Only a group of two or more is folded.");
-    AssertEqual(
-        1,
-        CollectionSourceFold
-            .Group(
-                new[] { a, b },
-                new Dictionary<string, CollectionSourceFoldKey>
-                {
-                    [a.SourceKey] = new(Array.Empty<Guid>(), false, false),
-                    [b.SourceKey] = new(Array.Empty<Guid>(), false, false),
-                }
-            )
-            .Count,
-        "Two empty pools show the same (empty) list and fold."
+
+    AssertEqual<string?>(
+        "other-hero",
+        CollectionSourceFold.KeyFor(
+            Source("merchant:dooley", CollectionSourceKind.Merchant, group: "other-hero")
+        ),
+        "An other-hero merchant folds by its group."
+    );
+    AssertEqual<string?>(
+        null,
+        CollectionSourceFold.KeyFor(
+            Source("merchant:chronos", CollectionSourceKind.Merchant, group: "tag-type-specialist")
+        ),
+        "A tag or type merchant stays alone."
+    );
+    AssertEqual<string?>(
+        null,
+        CollectionSourceFold.KeyFor(
+            Source("merchant:aimbot", CollectionSourceKind.Merchant, group: "all-hero")
+        ),
+        "A merchant that sells from any hero stays alone."
+    );
+    AssertEqual<string?>(
+        null,
+        CollectionSourceFold.KeyFor(
+            Source("trainer:x", CollectionSourceKind.Trainer, group: "generalist")
+        ),
+        "A trainer never folds."
     );
 
     // Face and state: the selected member, else the first encountered member, else the first.
@@ -999,7 +1010,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     AssertFalse(expansion.Collapse(), "Collapse with nothing open reports nothing.");
 }
 
-// --- Source fold in the view state: pools resolve only against an accepted catalog ---
+// --- Source fold in the view state ---
 {
     var jayId = Guid.NewGuid();
     var valpakId = Guid.NewGuid();
@@ -1007,18 +1018,21 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     var jay = Source(
         "merchant:jay",
         CollectionSourceKind.Merchant,
-        sourceTemplateIds: new[] { jayId }
+        sourceTemplateIds: new[] { jayId },
+        group: "generalist"
     );
     var valpak = Source(
         "merchant:valpak",
         CollectionSourceKind.Merchant,
-        sourceTemplateIds: new[] { valpakId }
+        sourceTemplateIds: new[] { valpakId },
+        group: "generalist"
     );
     var weapons = Source(
         "merchant:weapons",
         CollectionSourceKind.Merchant,
         sourceTemplateIds: new[] { weaponsId },
-        tagsAny: new[] { CardTag.Weapon }
+        tagsAny: new[] { CardTag.Weapon },
+        group: "tag-type-specialist"
     );
     var foldCatalog = new DictionarySourceCatalog(jay, valpak, weapons);
     var cards = new[]
@@ -1042,23 +1056,18 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
             )
         );
 
-    // Opened before the catalog: an empty catalog makes every pool empty, so nothing may fold
-    // and no empty pool may stay cached for the accepted catalog.
+    // The fold reads the catalog group only, so it stands before the card catalog arrives.
     grid.Reset();
     prefs.Reset();
     var state = FoldState();
     var opened = state.Open(CollectionOpenFacts.OutOfRun(cachedCatalog: null, supporters));
     AssertEqual(
-        "jay|valpak|weapons",
+        "jay,valpak|weapons",
         Cells(opened.Render.Model),
-        "Before the catalog each source stays alone."
+        "Generalists fold before the catalog."
     );
     var accepted = state.AcceptCatalog(cards).Model;
-    AssertEqual(
-        "jay,valpak|weapons",
-        Cells(accepted),
-        "Merchants with the same pool fold once the catalog arrives."
-    );
+    AssertEqual("jay,valpak|weapons", Cells(accepted), "The fold stays once the catalog arrives.");
     AssertEqual(3, accepted.AvailableSources.Count, "The flat source list keeps every source.");
 
     // A member click on an open fold selects that exact member, and its cards still publish.
@@ -1199,7 +1208,8 @@ static CollectionSourceEntry Source(
     CollectionSourceKind kind,
     IReadOnlyList<CardHero>? availableHeroes = null,
     IReadOnlyList<Guid>? sourceTemplateIds = null,
-    IReadOnlyList<CardTag>? tagsAny = null
+    IReadOnlyList<CardTag>? tagsAny = null,
+    string group = "test"
 ) =>
     new(
         sourceKey,
@@ -1230,7 +1240,7 @@ static CollectionSourceEntry Source(
                 )
             ),
         },
-        "test",
+        group,
         0,
         0
     );

@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
+using BazaarPlusPlus.Game.CollectionPanel.Ui;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
@@ -1040,6 +1041,38 @@ AssertValues(
     },
     "An existing hero's source rail should insert The Dragons after the seven legacy hero merchants and before Stickybeans."
 );
+
+// The desktop folds the generalist, tier, size and other-hero merchants, so every hero's merchant
+// row fits three lines of eight cells and the filter column does not scroll.
+foreach (
+    var hero in CollectionHeroSelectionRoster
+        .BaseConcreteHeroes.Append(catalogDragonsHero)
+        .Append(CardHero.Common)
+        .Distinct()
+)
+{
+    var roster = CollectionSourceRoster.Build(
+        CollectionSourceCatalog.VisibleEntries(currentCatalog, CollectionSourceKind.Merchant, hero)
+    );
+    var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+    foreach (var entry in roster)
+        if (CollectionSourceFold.KeyFor(entry) is { } key)
+            keys[entry.SourceKey] = key;
+    var cells = CollectionSourceFold
+        .Group(
+            roster
+                .Select(entry => new CollectionSourceOptionViewModel
+                {
+                    SourceKey = entry.SourceKey,
+                })
+                .ToArray(),
+            keys
+        )
+        .Count;
+    Console.WriteLine($"Folded merchant cells for {hero}: {roster.Count} -> {cells}");
+    AssertTrue(cells <= 24, $"{hero}'s folded merchant row should fit three lines, got {cells}.");
+}
+
 var dragonsTrainerRoster = CollectionSourceRoster.Build(
     CollectionSourceCatalog.VisibleEntries(
         currentCatalog,

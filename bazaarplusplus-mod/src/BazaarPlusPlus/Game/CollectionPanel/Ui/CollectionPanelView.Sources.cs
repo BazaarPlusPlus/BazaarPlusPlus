@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-// The merchant and trainer cells. Sources whose click shows the same cards share one cell
+// The merchant and trainer cells. The merchants of a folding catalog group share one cell
 // (CollectionSourceFold) with a count badge; a click on it opens a strip of its members under
 // its line, and a click on a member selects that member. The selection always names a member.
 internal sealed partial class CollectionPanelView

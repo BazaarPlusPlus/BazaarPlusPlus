@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-// One source cell on the desktop Collection: the sources whose click shows the same cards
+// One source cell on the desktop Collection: the merchants of one folding catalog group
 // (CollectionSourceFold). The group only draws; the selection, the stored selection and the
 // encountered set still name a member's own source key.
 public sealed class CollectionSourceGroup

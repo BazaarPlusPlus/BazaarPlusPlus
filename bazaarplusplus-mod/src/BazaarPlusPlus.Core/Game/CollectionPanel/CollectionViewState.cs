@@ -546,32 +546,25 @@ public sealed class CollectionViewState
             );
         }
 
-        var groups = CollectionSourceFold.Group(result, FoldKeysFor(roster, effectiveHero));
+        var groups = CollectionSourceFold.Group(result, FoldKeysFor(roster));
         _availableSourcesCache = (kind, effectiveHero, result, groups);
         return (result, groups);
     }
 
-    // Each source's fold key, from its offer pool for the effective hero. Pools resolve only
-    // against an accepted catalog: against an empty one every pool is empty, the pool cache would
-    // keep those, and every source would fold into one group. Without keys each source stays alone.
-    private IReadOnlyDictionary<string, CollectionSourceFoldKey> FoldKeysFor(
-        IReadOnlyList<CollectionSourceEntry> roster,
-        CardHero effectiveHero
+    // Each source's fold key on the desktop: its catalog group where that group folds
+    // (CollectionSourceFold.KeyFor). Without keys each source stays alone.
+    private IReadOnlyDictionary<string, string> FoldKeysFor(
+        IReadOnlyList<CollectionSourceEntry> roster
     )
     {
-        var keys = new Dictionary<string, CollectionSourceFoldKey>(StringComparer.Ordinal);
-        if (
-            !_foldSources
-            || _catalogReadiness != CollectionCatalogReadiness.Accepted
-            || _catalogCards.Count == 0
-        )
+        var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!_foldSources)
             return keys;
 
         foreach (var entry in roster)
         {
-            var pool = _offerPoolCache.GetOrResolve(entry, effectiveHero, _catalogCards);
-            if (pool.Status == CollectionSourceOfferPoolStatus.Ready)
-                keys[entry.SourceKey] = CollectionSourceFoldKey.For(entry, pool.OfferedCardIds);
+            if (CollectionSourceFold.KeyFor(entry) is { } key)
+                keys[entry.SourceKey] = key;
         }
         return keys;
     }
