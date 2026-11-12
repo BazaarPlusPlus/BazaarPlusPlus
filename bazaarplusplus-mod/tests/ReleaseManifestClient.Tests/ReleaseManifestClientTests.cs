@@ -134,26 +134,38 @@ public sealed class ReleaseManifestClientTests
             result.AndroidApp != null,
             "The Android manifest should yield its Android App release."
         );
+        var adaptations = release.GetProperty("adaptations").EnumerateObject().ToList();
         Equal(
-            release.GetProperty("game").GetProperty("gameVersion").GetString(),
-            result.AndroidApp!.GameVersion,
-            "The release is identified by the game version it was adapted for."
+            "play publisher",
+            string.Join(" ", result.AndroidApp!.Games.Select(game => game.Source).Order()),
+            "The release is adapted for one game from each Android source."
         );
-        Equal(
-            release.GetProperty("game").GetProperty("versionCode").GetInt64(),
-            result.AndroidApp.GameVersionCode,
-            "The adapted game's versionCode is the writer's."
-        );
-        Equal(
-            release.GetProperty("game").GetProperty("il2cppSha256").GetString(),
-            result.AndroidApp.GameIl2CppSha256,
-            "The adapted game's il2cpp hash is the writer's."
-        );
-        Equal(
-            release.GetProperty("game").GetProperty("metadataSha256").GetString(),
-            result.AndroidApp.GameMetadataSha256,
-            "The adapted game's metadata hash is the writer's."
-        );
+        Equal(adaptations.Count, result.AndroidApp.Games.Count, "Every adaptation is read.");
+        foreach (var (adaptation, game) in adaptations.Zip(result.AndroidApp.Games))
+        {
+            var written = adaptation.Value.GetProperty("game");
+            Equal(adaptation.Name, game.Source, "Each game is named by its Android source.");
+            Equal(
+                written.GetProperty("gameVersion").GetString(),
+                game.GameVersion,
+                "Each adapted game's version is the writer's."
+            );
+            Equal(
+                written.GetProperty("versionCode").GetInt64(),
+                game.VersionCode,
+                "Each adapted game's versionCode is the writer's."
+            );
+            Equal(
+                written.GetProperty("il2cppSha256").GetString(),
+                game.Il2CppSha256,
+                "Each adapted game's il2cpp hash is the writer's."
+            );
+            Equal(
+                written.GetProperty("metadataSha256").GetString(),
+                game.MetadataSha256,
+                "Each adapted game's metadata hash is the writer's."
+            );
+        }
         Equal(
             release.GetProperty("app").GetProperty("url").GetString(),
             result.AndroidApp.AppUrl.ToString(),
@@ -176,162 +188,271 @@ public sealed class ReleaseManifestClientTests
         );
         True(desktop.AndroidApp == null, "Another platform's record names no Android App.");
 
-        const string withoutApp = """
-            {"version":"6.0.2","downloads":{"android-aarch64":{"game":{"gameVersion":"1.0.12825-production-android-d9601ded"}}}}
-            """;
-        var appless = await Fetch(
-            _ => Response(HttpStatusCode.OK, withoutApp),
-            platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
+        // Each record below is complete but for the one defect its name says.
+        True(
+            await ReadAndroidApp(AndroidRecord(App, Adaptations(("publisher", Game)))) != null,
+            "A complete record is a release."
         );
-        True(appless.Succeeded, "The version is still published.");
-        True(appless.AndroidApp == null, "A record without an App names no Android App.");
+        True(
+            await ReadAndroidApp(AndroidRecord(null, Adaptations(("publisher", Game)))) == null,
+            "A record without an App names no Android App."
+        );
+        True(
+            await ReadAndroidApp(AndroidRecord(App, adaptations: null, game: Game)) == null,
+            "A record with only the top-level game, which older mods read, names no adapted game."
+        );
+        True(
+            await ReadAndroidApp(AndroidRecord(App, "{}")) == null,
+            "A record that adapts no game is no release."
+        );
+        True(
+            await ReadAndroidApp(
+                AndroidRecord(App.Replace("https://", "http://"), Adaptations(("publisher", Game)))
+            ) == null,
+            "An App link that is not HTTPS is never offered."
+        );
+        True(
+            await ReadAndroidApp(
+                AndroidRecord(
+                    """{"url":"https://cdn.example/a.apk","size":1}""",
+                    Adaptations(("publisher", Game))
+                )
+            ) == null,
+            "An App a download cannot check is no release."
+        );
+        True(
+            await ReadAndroidApp(
+                AndroidRecord(
+                    App,
+                    Adaptations(
+                        (
+                            "publisher",
+                            """{"versionCode":13000,"il2cppSha256":"1111111111111111111111111111111111111111111111111111111111111111","metadataSha256":"2222222222222222222222222222222222222222222222222222222222222222"}"""
+                        )
+                    )
+                )
+            ) == null,
+            "A game without its version is no release."
+        );
+        True(
+            await ReadAndroidApp(
+                AndroidRecord(
+                    App,
+                    Adaptations(
+                        (
+                            "publisher",
+                            """{"gameVersion":"1.0.13000-production-android-0000000a","versionCode":13000}"""
+                        )
+                    )
+                )
+            ) == null,
+            "A game without its code hashes is no release."
+        );
+        True(
+            await ReadAndroidApp(
+                AndroidRecord(
+                    App,
+                    Adaptations(
+                        ("publisher", Game),
+                        (
+                            "play",
+                            """{"gameVersion":"1.0.6","il2cppSha256":"3333333333333333333333333333333333333333333333333333333333333333","metadataSha256":"4444444444444444444444444444444444444444444444444444444444444444"}"""
+                        )
+                    )
+                )
+            ) == null,
+            "One incomplete adaptation beside a complete one is no release."
+        );
+    }
 
-        const string withoutGame = """
-            {"version":"3.4.5","downloads":{"android-aarch64":{"app":{"url":"https://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}}}}
-            """;
-        var incomplete = await Fetch(
-            _ => Response(HttpStatusCode.OK, withoutGame),
-            platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
-        );
-        True(incomplete.AndroidApp == null, "An App without its game version is no release.");
+    private const string App = """
+        {"url":"https://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}
+        """;
 
-        const string plainHttp = """
-            {"version":"3.4.5","downloads":{"android-aarch64":{"app":{"url":"http://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"game":{"gameVersion":"1.0.13000-production-android-0000000a","versionCode":13000,"il2cppSha256":"1111111111111111111111111111111111111111111111111111111111111111","metadataSha256":"2222222222222222222222222222222222222222222222222222222222222222"}}}}
-            """;
-        var insecure = await Fetch(
-            _ => Response(HttpStatusCode.OK, plainHttp),
-            platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
-        );
-        True(insecure.AndroidApp == null, "An App link that is not HTTPS is never offered.");
+    private const string Game = """
+        {"gameVersion":"1.0.13000-production-android-0000000a","versionCode":13000,"il2cppSha256":"1111111111111111111111111111111111111111111111111111111111111111","metadataSha256":"2222222222222222222222222222222222222222222222222222222222222222"}
+        """;
 
-        const string withoutDigest = """
-            {"version":"3.4.5","downloads":{"android-aarch64":{"app":{"url":"https://cdn.example/a.apk","size":1},"game":{"gameVersion":"1.0.13000-production-android-0000000a","versionCode":13000,"il2cppSha256":"1111111111111111111111111111111111111111111111111111111111111111","metadataSha256":"2222222222222222222222222222222222222222222222222222222222222222"}}}}
-            """;
-        var unverifiable = await Fetch(
-            _ => Response(HttpStatusCode.OK, withoutDigest),
-            platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
-        );
-        True(unverifiable.AndroidApp == null, "An App a download cannot check is no release.");
+    private static string Adaptations(params (string Source, string Game)[] adaptations) =>
+        "{"
+        + string.Join(",", adaptations.Select(a => $"\"{a.Source}\":{{\"game\":{a.Game}}}"))
+        + "}";
 
-        const string withoutGameCode = """
-            {"version":"3.4.5","downloads":{"android-aarch64":{"app":{"url":"https://cdn.example/a.apk","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"game":{"gameVersion":"1.0.13000-production-android-0000000a","versionCode":13000}}}}
-            """;
-        var uncomparable = await Fetch(
-            _ => Response(HttpStatusCode.OK, withoutGameCode),
+    private static string AndroidRecord(string? app, string? adaptations, string? game = null) =>
+        "{\"version\":\"3.4.5\",\"downloads\":{\"android-aarch64\":{"
+        + string.Join(
+            ",",
+            new[] { ("app", app), ("adaptations", adaptations), ("game", game) }
+                .Where(field => field.Item2 != null)
+                .Select(field => $"\"{field.Item1}\":{field.Item2}")
+        )
+        + "}}}";
+
+    private static async Task<AndroidAppRelease?> ReadAndroidApp(string body)
+    {
+        var result = await Fetch(
+            _ => Response(HttpStatusCode.OK, body),
             platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
         );
-        True(uncomparable.AndroidApp == null, "A game without its code hashes is no release.");
+        True(result.Succeeded, "The version is still published.");
+        return result.AndroidApp;
     }
 
     [Fact]
-    public void Android_game_compares_code_not_version_names()
+    public async Task Android_game_is_adapted_when_its_code_is_any_adapted_games()
     {
-        var adapted = new AndroidGameCode(12900, new string('a', 64), new string('b', 64));
+        var body = TestInputs.Scratch(
+            Path.Combine(AppContext.BaseDirectory, "fixtures", "latest", "android-aarch64.json")
+        );
+        var games = (await ReadAndroidApp(body))!.Games;
+        var publisher = games.Single(game => game.Source == "publisher");
+        var play = games.Single(game => game.Source == "play");
+        True(
+            publisher.VersionCode < play.VersionCode,
+            "In the shared golden the Play game is the newer build, which the publisher case needs."
+        );
+
+        var onPlay = AndroidGameUpdate.Compare(Code(play), games);
+        Equal(AndroidGameAdaptation.Adapted, onPlay.Adaptation, "The Play game is adapted.");
+        True(onPlay.Game == play, "The Play adaptation decides it.");
+        var onPublisher = AndroidGameUpdate.Compare(Code(publisher), games);
         Equal(
             AndroidGameAdaptation.Adapted,
-            AndroidGameUpdate.Compare(adapted with { VersionCode = 12950 }, adapted),
+            onPublisher.Adaptation,
+            "The publisher game is adapted, though the Play game has a larger versionCode."
+        );
+        True(onPublisher.Game == publisher, "The publisher adaptation decides it.");
+        Equal(
+            AndroidGameAdaptation.Adapted,
+            AndroidGameUpdate
+                .Compare(Code(play) with { VersionCode = play.VersionCode + 50 }, games)
+                .Adaptation,
             "A content-only update keeps the code, so the game stays adapted."
         );
-        Equal(
-            AndroidGameAdaptation.NotAdapted,
-            AndroidGameUpdate.Compare(
-                adapted with
-                {
-                    VersionCode = 13000,
-                    MetadataSha256 = new string('c', 64),
-                },
-                adapted
-            ),
-            "Other code on a newer game is not adapted."
-        );
-        Equal(
-            AndroidGameAdaptation.NotAdapted,
-            AndroidGameUpdate.Compare(adapted with { Il2CppSha256 = new string('c', 64) }, adapted),
-            "Other code with the same versionCode is not adapted."
+
+        var other = new AndroidGameCode(0, new string('c', 64), new string('d', 64));
+        var older = AndroidGameUpdate.Compare(
+            other with
+            {
+                VersionCode = publisher.VersionCode + 1,
+            },
+            games
         );
         Equal(
             AndroidGameAdaptation.GameOlder,
-            AndroidGameUpdate.Compare(
-                adapted with
-                {
-                    VersionCode = 12825,
-                    Il2CppSha256 = new string('c', 64),
-                },
-                adapted
-            ),
-            "Other code with a smaller versionCode is an older game."
+            older.Adaptation,
+            "Other code with a smaller versionCode than some adapted game is an older game."
+        );
+        True(older.Game == play, "The adapted game with the larger versionCode is the update.");
+        Equal(
+            play,
+            AndroidGameUpdate
+                .Compare(other with { VersionCode = publisher.VersionCode - 1 }, games)
+                .Game,
+            "Older than every adapted game, the newest one is the update."
+        );
+        var newer = AndroidGameUpdate.Compare(
+            other with
+            {
+                VersionCode = play.VersionCode + 1,
+            },
+            games
         );
         Equal(
+            AndroidGameAdaptation.NotAdapted,
+            newer.Adaptation,
+            "Other code newer than every adapted game is not adapted."
+        );
+        True(newer.Game == null, "No adapted game decides a game that is not adapted.");
+        Equal(
+            AndroidGameAdaptation.NotAdapted,
+            AndroidGameUpdate
+                .Compare(other with { VersionCode = play.VersionCode }, games)
+                .Adaptation,
+            "Other code with the newest adapted game's versionCode is not adapted."
+        );
+
+        Equal(
             AndroidGameAdaptation.Unknown,
-            AndroidGameUpdate.Compare(null, adapted),
+            AndroidGameUpdate.Compare(null, games).Adaptation,
             "No Launch Record, no comparison."
         );
         Equal(
             AndroidGameAdaptation.Unknown,
-            AndroidGameUpdate.Compare(adapted, null),
+            AndroidGameUpdate.Compare(Code(play), null).Adaptation,
             "No game in the release, no comparison."
         );
+        Equal(
+            AndroidGameAdaptation.Unknown,
+            AndroidGameUpdate.Compare(Code(play), []).Adaptation,
+            "A release that adapts no game, no comparison."
+        );
     }
+
+    private static AndroidGameCode Code(AndroidAdaptedGame game) =>
+        new(game.VersionCode, game.Il2CppSha256, game.MetadataSha256);
 
     [Fact]
     public void Android_update_is_the_game_for_an_older_game_or_the_app_for_a_changed_runtime()
     {
-        const string published = "1.0.12900-production-android-0000000b";
+        var newest = new AndroidAdaptedGame(
+            "play",
+            "1.0.6",
+            13168,
+            new string('a', 64),
+            new string('b', 64)
+        );
+        var running = new AndroidAdaptedGame(
+            "publisher",
+            "1.0.13113-production-android-0000000b",
+            13113,
+            new string('c', 64),
+            new string('d', 64)
+        );
+        var older = new AndroidGameComparison(AndroidGameAdaptation.GameOlder, newest);
+        var adapted = new AndroidGameComparison(AndroidGameAdaptation.Adapted, running);
         var app = new AndroidAppDownload(new Uri("https://cdn.example/app.apk"), 65_000_000);
 
-        var gameUpdate = AndroidGameUpdate.Needed(
-            AndroidGameAdaptation.GameOlder,
-            published,
-            app,
-            manualUpdate: false
-        );
+        var gameUpdate = AndroidGameUpdate.Needed(older, app, manualUpdate: false);
         Equal(
             AndroidUpdateReason.GameUpdated,
             gameUpdate?.Reason,
             "An older game needs a game update even when the Managed Payload could come."
         );
+        Equal(
+            "1.0.6",
+            gameUpdate?.PublishedGameVersion,
+            "The game update names the adapted game that decided it."
+        );
         True(gameUpdate?.App == null, "A game update offers no BPP download.");
         Equal(
             AndroidUpdateReason.GameUpdated,
-            AndroidGameUpdate
-                .Needed(AndroidGameAdaptation.GameOlder, published, app, manualUpdate: true)
-                ?.Reason,
+            AndroidGameUpdate.Needed(older, app, manualUpdate: true)?.Reason,
             "The game comes before a new App."
         );
-        var appUpdate = AndroidGameUpdate.Needed(
-            AndroidGameAdaptation.Adapted,
-            published,
-            app,
-            manualUpdate: true
-        );
+        var appUpdate = AndroidGameUpdate.Needed(adapted, app, manualUpdate: true);
         Equal(
             AndroidUpdateReason.AppUpdated,
             appUpdate?.Reason,
             "The adapted game with a release this copy cannot take needs the new App."
         );
         True(appUpdate?.App == app, "The new App is offered with its download.");
+        Equal(
+            running.GameVersion,
+            appUpdate?.PublishedGameVersion,
+            "The App update names the adapted game that runs."
+        );
         True(
-            AndroidGameUpdate.Needed(
-                AndroidGameAdaptation.Adapted,
-                published,
-                app,
-                manualUpdate: false
-            ) == null,
+            AndroidGameUpdate.Needed(adapted, app, manualUpdate: false) == null,
             "A release the Managed Payload brings needs nothing more."
         );
         True(
-            AndroidGameUpdate.Needed(
-                AndroidGameAdaptation.Adapted,
-                published,
-                null,
-                manualUpdate: true
-            ) == null,
+            AndroidGameUpdate.Needed(adapted, null, manualUpdate: true) == null,
             "No published App, nothing to offer."
         );
         True(
             AndroidGameUpdate.Needed(
-                AndroidGameAdaptation.NotAdapted,
-                published,
+                new AndroidGameComparison(AndroidGameAdaptation.NotAdapted, null),
                 app,
                 manualUpdate: true
             ) == null,
@@ -339,8 +460,7 @@ public sealed class ReleaseManifestClientTests
         );
         True(
             AndroidGameUpdate.Needed(
-                AndroidGameAdaptation.Unknown,
-                published,
+                new AndroidGameComparison(AndroidGameAdaptation.Unknown, null),
                 app,
                 manualUpdate: true
             ) == null,

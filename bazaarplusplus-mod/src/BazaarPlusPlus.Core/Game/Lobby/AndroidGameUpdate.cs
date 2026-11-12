@@ -1,4 +1,6 @@
 #nullable enable
+using BazaarPlusPlus.Infrastructure.ReleaseManifest;
+
 namespace BazaarPlusPlus.Game.Lobby;
 
 /// <summary>
@@ -7,21 +9,31 @@ namespace BazaarPlusPlus.Game.Lobby;
 /// </summary>
 public sealed record AndroidGameCode(long VersionCode, string Il2CppSha256, string MetadataSha256);
 
-/// <summary>How the running game stands against the game the release adapts (root ADR 0016).</summary>
+/// <summary>How the running game stands against the games the release adapts (root ADR 0016 and 0019).</summary>
 public enum AndroidGameAdaptation
 {
     /// <summary>Either side is unknown: no Launch Record for this process, or no game in the release.</summary>
     Unknown,
 
-    /// <summary>The same game code.</summary>
+    /// <summary>The same game code as one adapted game.</summary>
     Adapted,
 
-    /// <summary>Other game code, not older than the adapted game.</summary>
+    /// <summary>Other game code, not older than any adapted game.</summary>
     NotAdapted,
 
-    /// <summary>Other game code with a smaller versionCode than the adapted game.</summary>
+    /// <summary>Other game code with a smaller versionCode than some adapted game.</summary>
     GameOlder,
 }
+
+/// <summary>
+/// How the running game stands, and the adapted game that decided it: the one with the same
+/// code for <see cref="AndroidGameAdaptation.Adapted"/>, the newest one for
+/// <see cref="AndroidGameAdaptation.GameOlder"/>, and none otherwise.
+/// </summary>
+public sealed record AndroidGameComparison(
+    AndroidGameAdaptation Adaptation,
+    AndroidAdaptedGame? Game
+);
 
 /// <summary>
 /// What an Android copy needs beyond the Managed Payload, against the published release (root
@@ -32,52 +44,68 @@ public enum AndroidGameAdaptation
 public static class AndroidGameUpdate
 {
     /// <summary>
-    /// Compares the running game's code (the Launch Record's <c>game</c>) with the release's
-    /// <c>game</c>. Only the code decides, never versionName: a content-only game update keeps
-    /// the same code.
+    /// Compares the running game's code (the Launch Record's <c>game</c>) with every game the
+    /// release adapts (<c>adaptations</c>). Only the code decides, never versionName: a
+    /// content-only game update keeps the same code. A match with any adapted game is adapted,
+    /// whatever the others' versionCodes; otherwise the game is older when some adapted game has
+    /// a larger versionCode, the newest of them named as the update.
     /// </summary>
-    public static AndroidGameAdaptation Compare(AndroidGameCode? running, AndroidGameCode? adapted)
+    public static AndroidGameComparison Compare(
+        AndroidGameCode? running,
+        IReadOnlyList<AndroidAdaptedGame>? adapted
+    )
     {
-        if (running == null || adapted == null)
-            return AndroidGameAdaptation.Unknown;
-        if (
-            string.Equals(running.Il2CppSha256, adapted.Il2CppSha256, StringComparison.Ordinal)
-            && string.Equals(
-                running.MetadataSha256,
-                adapted.MetadataSha256,
-                StringComparison.Ordinal
+        if (running == null || adapted == null || adapted.Count == 0)
+            return new AndroidGameComparison(AndroidGameAdaptation.Unknown, null);
+        foreach (var game in adapted)
+        {
+            if (
+                string.Equals(running.Il2CppSha256, game.Il2CppSha256, StringComparison.Ordinal)
+                && string.Equals(
+                    running.MetadataSha256,
+                    game.MetadataSha256,
+                    StringComparison.Ordinal
+                )
             )
-        )
-            return AndroidGameAdaptation.Adapted;
-        return adapted.VersionCode > running.VersionCode
-            ? AndroidGameAdaptation.GameOlder
-            : AndroidGameAdaptation.NotAdapted;
+                return new AndroidGameComparison(AndroidGameAdaptation.Adapted, game);
+        }
+        AndroidAdaptedGame? newer = null;
+        foreach (var game in adapted)
+        {
+            if (
+                game.VersionCode > running.VersionCode
+                && game.VersionCode > (newer?.VersionCode ?? 0)
+            )
+                newer = game;
+        }
+        return newer == null
+            ? new AndroidGameComparison(AndroidGameAdaptation.NotAdapted, null)
+            : new AndroidGameComparison(AndroidGameAdaptation.GameOlder, newer);
     }
 
     /// <summary>
     /// What this copy needs, and why; null when the Managed Payload or nothing at all brings it
-    /// up to date. An older game always comes first. With the adapted game,
+    /// up to date. An older game always comes first. With an adapted game,
     /// <paramref name="manualUpdate"/> (the self-update decision <c>ManualUpdate</c>) says the
     /// release needs another runtime than the running Android App carries (loader, native
     /// libraries, Updater) or another history schema, so the new App is offered when the release
-    /// names one.
+    /// names one. The update names the game that decided the comparison.
     /// </summary>
     public static AndroidUpdate? Needed(
-        AndroidGameAdaptation adaptation,
-        string? publishedGameVersion,
+        AndroidGameComparison comparison,
         AndroidAppDownload? app,
         bool manualUpdate
     ) =>
-        adaptation switch
+        comparison.Adaptation switch
         {
             AndroidGameAdaptation.GameOlder => new AndroidUpdate(
                 AndroidUpdateReason.GameUpdated,
-                publishedGameVersion ?? string.Empty,
+                comparison.Game?.GameVersion ?? string.Empty,
                 null
             ),
             AndroidGameAdaptation.Adapted when manualUpdate && app != null => new AndroidUpdate(
                 AndroidUpdateReason.AppUpdated,
-                publishedGameVersion ?? string.Empty,
+                comparison.Game?.GameVersion ?? string.Empty,
                 app
             ),
             _ => null,
