@@ -258,12 +258,16 @@ public class LauncherScreenTest {
 
     @Test
     public void aNewerAppIsOnlyAReminderAndNeverForADevelopmentBuild() {
-        assertNull(LauncherScreen.appUpdate(true, 6020000, 6020000, "6.2.0", null));
-        assertNull(LauncherScreen.appUpdate(true, 6030000, 6020000, "6.2.0", null));
-        assertEquals("6.3.0", LauncherScreen.appUpdate(true, 6020000, 6030000, "6.3.0", null).version);
-        assertNull(LauncherScreen.appUpdate(false, 1, 6030000, "6.3.0", null));
+        String own = "a".repeat(64);
+        String other = "b".repeat(64);
+        assertNull(LauncherScreen.appUpdate(own, 6020000, other, 6020000, "6.2.0", null));
+        assertNull(LauncherScreen.appUpdate(own, 6030000, other, 6020000, "6.2.0", null));
+        assertEquals("6.3.0", LauncherScreen.appUpdate(own, 6020000, other, 6030000, "6.3.0", null).version);
+        assertNull("a release with the same runtime changes only the launcher",
+                LauncherScreen.appUpdate(own, 6020000, own, 6030000, "6.3.0", null));
+        assertNull(LauncherScreen.appUpdate(null, 1, other, 6030000, "6.3.0", null));
 
-        LauncherScreen.AppUpdate update = LauncherScreen.appUpdate(true, 6020000, 6030000, "6.3.0", "https://x");
+        LauncherScreen.AppUpdate update = LauncherScreen.appUpdate(own, 6020000, other, 6030000, "6.3.0", "https://x");
         LauncherScreen screen = LauncherScreen.ready(new LauncherScreen.Facts(decision(installed(12825, true),
                 LaunchGateTest.RELEASE), "1.0.12825", "1.0.12825", false, false, false,
                 update, true, true));
