@@ -75,16 +75,15 @@ test('a new libil2cpp.so or global-metadata.dat is a code change', () => {
 });
 
 test('the locked game code with another Interop Snapshot is refused', () => {
-  // A recapture of the locked APKs too: its regenerated interop must match.
-  for (const changes of [{}, { apkSha256: LOCKED.apkSha256 }])
-    expect(() =>
-      captureKind(
-        LOCKED,
-        captured({ ...changes, interopSha256: 'd'.repeat(64) })
-      )
-    ).toThrow(
-      `its Interop Snapshot hashes to ${'d'.repeat(64)}, not the locked ${LOCKED.interopSha256}`
-    );
+  expect(() =>
+    captureKind(LOCKED, captured({ interopSha256: 'd'.repeat(64) }))
+  ).toThrow(
+    `its Interop Snapshot hashes to ${'d'.repeat(64)}, not the locked ${LOCKED.interopSha256}`
+  );
+  // A recapture of the locked APKs regenerates a timestamped interop.
+  expect(
+    captureKind(LOCKED, { ...LOCKED, interopSha256: 'd'.repeat(64) })
+  ).toBe('unchanged');
 });
 
 // A workspace whose lock holds `entry`, as a capture leaves it.

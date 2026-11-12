@@ -27,19 +27,22 @@ export function captureKind(
 ): CaptureKind {
   if (!next) throw new Error('No captured Android entry to compare');
   if (!previous) return 'code';
-  const sameGameCode =
-    previous.il2cppSha256 === next.il2cppSha256 &&
-    previous.metadataSha256 === next.metadataSha256;
-  if (sameGameCode && previous.interopSha256 !== next.interopSha256)
-    throw new Error(
-      `The captured build has the locked game code but its Interop Snapshot hashes to ${next.interopSha256}, not the locked ${previous.interopSha256}; check the capture toolchain before recording it`
-    );
+  // A recapture of the locked APKs regenerates the interop, and
+  // interop-manifest.json records when (ADR 0008): its digest differs.
   if (
     [previous.apkSha256, ...previous.splitApkSha256s].join() ===
     [next.apkSha256, ...next.splitApkSha256s].join()
   )
     return 'unchanged';
-  if (!sameGameCode) return 'code';
+  if (
+    previous.il2cppSha256 !== next.il2cppSha256 ||
+    previous.metadataSha256 !== next.metadataSha256
+  )
+    return 'code';
+  if (previous.interopSha256 !== next.interopSha256)
+    throw new Error(
+      `The captured build has the locked game code but its Interop Snapshot hashes to ${next.interopSha256}, not the locked ${previous.interopSha256}; check the capture toolchain before recording it`
+    );
   return 'content';
 }
 

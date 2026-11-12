@@ -167,7 +167,7 @@ Google Play 版没有公开的下载地址，watch 看不到它的更新（[ADR 
    just with-config release bun release/game-libs.ts upload-apks --apk base.apk --apk split_config.arm64_v8a.apk
    ```
 
-3. `gh workflow run android-apk-watch.yml -f play_apks=<上一步的输出>`。这次运行不看发行商 APK：它取回这些 APK，采集 `android-play`，上传输入，按 `BppAndroidSource=play` 跑 Android Mod 的检查，再按上面的规则开只改锁文件的 PR。它不写游戏状态。采集结果与锁相同（`unchanged`）时，它核对重新生成的 interop 与锁定的相同，然后结束。
+3. `gh workflow run android-apk-watch.yml -f play_apks=<上一步的输出>`。这次运行不看发行商 APK：它取回这些 APK，采集 `android-play`，上传输入，按 `BppAndroidSource=play` 跑 Android Mod 的检查，再按上面的规则开只改锁文件的 PR。它不写游戏状态。采集的 APK 与锁相同（`unchanged`）时，它什么都不提交就结束。
 
 `VERSION` 只在发版时升（[ADR 0016](adr/0016-one-game-compatibility-rule.md)）：代码变了的锁 PR 合并后，由人另开一个升 `VERSION` 的 PR，合并后从下面第 1 步开始发布。
 
