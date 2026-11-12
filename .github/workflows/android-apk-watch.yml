@@ -138,10 +138,9 @@ jobs:
             '- N/A' > "$RUNNER_TEMP/body.md"
           gh pr create --base master --head "$BRANCH" --title "chore(mod): record the official Android APK's ETag" --body-file "$RUNNER_TEMP/body.md"
       # Captures on Linux x64, where the Patcher generates the interop, with the
-      # locked toolchain; the lock is written last. change is content when the
-      # game code is the locked one, code otherwise, and unchanged for the
-      # locked APKs, whose regenerated interop must hash to the locked one
-      # (release/android-adaptation.ts captureKind).
+      # locked toolchain; the lock is written last. change is unchanged for the
+      # locked APKs, content when the game code is the locked one and code
+      # otherwise (release/android-adaptation.ts captureKind).
       - if: steps.download.outputs.kind == 'capture' || steps.play.outcome == 'success'
         name: Capture the new Android entry
         id: capture
